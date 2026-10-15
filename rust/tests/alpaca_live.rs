@@ -116,7 +116,7 @@ async fn a_paper_market_buy_is_found_by_client_order_id_and_fills() {
     }
     assert_eq!(state.status, OrderStatus::Closed, "{state:?}");
     if found.status == OrderStatus::Closed { assert_eq!(found, state, "both reads of one filled order parse the same"); }
-    assert!(state.amount_exec.is_positive() && state.quote_amount_exec.is_positive(), "{state:?}");
+    assert!(state.amount_exec.is_positive() && state.quote_amount_exec.as_ref().is_some_and(|q| q.is_positive()), "{state:?}");
     assert_eq!(state.quote_amount, Some(BigDec::parse("10").unwrap()));
 }
 

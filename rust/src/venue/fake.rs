@@ -171,7 +171,7 @@ impl Venue for FakeVenue {
             None => OrderState {
                 asset_class: None,
                 txid, status: OrderStatus::Open, price: None, amount: None, quote_amount: None,
-                amount_exec: BigDec::zero(), quote_amount_exec: BigDec::zero(), limit: matches!(order.kind, OrderKind::Limit { .. }), sell: false,
+                amount_exec: BigDec::zero(), quote_amount_exec: Some(BigDec::zero()), limit: matches!(order.kind, OrderKind::Limit { .. }), sell: false,
                 pair: Some(order.pair.clone()),
             },
         }))

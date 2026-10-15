@@ -120,7 +120,7 @@ async fn orders_query_the_ids_joined_and_parse_as_rails() {
     let (t, v) = venue(json!({ "POST /0/private/QueryOrders": ok(json!({ "error": [], "result": { "O1": raw_order("closed", "x"), "OTHER": raw_order("open", "y") } })) }));
     let got = v.orders(&["O1".into(), "O2".into()]).await.unwrap();
     assert_eq!(got.len(), 1);
-    assert_eq!((got[0].txid.as_str(), got[0].status, got[0].amount_exec.clone(), got[0].quote_amount_exec.clone()), ("O1", OrderStatus::Closed, bd("0.001"), bd("50.0")));
+    assert_eq!((got[0].txid.as_str(), got[0].status, got[0].amount_exec.clone(), got[0].quote_amount_exec.clone().unwrap()), ("O1", OrderStatus::Closed, bd("0.001"), bd("50.0")));
     assert_eq!(t.requests()[0].body.as_ref().unwrap().to_string(), r#"{"txid":"O1,O2","consolidate_taker":"true"}"#);
     let (t, v) = venue(json!({}));
     assert_eq!(v.orders(&[]).await, Ok(vec![]), "no ids, no request");
@@ -164,7 +164,7 @@ async fn fills_are_recovered_from_every_trades_page_since_the_bound() {
     let since = at("2026-09-01T09:00:00Z");
     let got = v.fills_from_trades(&["O1".into()], since).await.unwrap();
     assert_eq!(got.len(), 1);
-    assert_eq!((got[0].status, got[0].amount_exec.clone(), got[0].quote_amount_exec.clone(), got[0].price.clone()), (OrderStatus::Closed, bd("0.003"), bd("150"), Some(bd("50000"))));
+    assert_eq!((got[0].status, got[0].amount_exec.clone(), got[0].quote_amount_exec.clone().unwrap(), got[0].price.clone()), (OrderStatus::Closed, bd("0.003"), bd("150"), Some(bd("50000"))));
     let bodies: Vec<String> = t.requests().iter().map(|r| r.body.as_ref().unwrap().to_string()).collect();
     assert_eq!(bodies, vec![format!(r#"{{"start":"{0}","ofs":"0"}}"#, since.timestamp()), format!(r#"{{"start":"{0}","ofs":"2"}}"#, since.timestamp())]);
 }

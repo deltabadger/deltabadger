@@ -45,7 +45,10 @@ pub enum OrderStatus {
 #[derive(Clone, Debug, PartialEq)]
 pub struct OrderState {
     pub txid: String, pub status: OrderStatus, pub price: Option<BigDec>, pub amount: Option<BigDec>, pub quote_amount: Option<BigDec>,
-    pub amount_exec: BigDec, pub quote_amount_exec: BigDec, pub limit: bool,
+    pub amount_exec: BigDec,
+    /// None where the venue stated none (Binance's negative cummulativeQuoteQty on some historical orders): the poll leaves
+    /// the column as it is, as Transaction#update_with_order_data's `.compact` omits a nil. Never a zero for an unknown.
+    pub quote_amount_exec: Option<BigDec>, pub limit: bool,
     /// The side as the exchange reports it (a buying bot can still hold an old sell).
     pub sell: bool,
     /// The pair as the venue names it in this order (Alpaca `symbol`, Kraken `descr.pair`): Rails backfills a row's blank

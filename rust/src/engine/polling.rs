@@ -69,7 +69,7 @@ pub fn apply_in(c: &model::FencedTransaction<'_>, bot_id: i64, tx_id: i64, s: &O
     decimal("amount", &row.amount, s.amount.as_ref());
     decimal("quote_amount", &row.quote_amount, s.quote_amount.as_ref());
     decimal("amount_exec", &row.amount_exec, Some(&s.amount_exec));
-    decimal("quote_amount_exec", &row.quote_amount_exec, Some(&s.quote_amount_exec));
+    decimal("quote_amount_exec", &row.quote_amount_exec, s.quote_amount_exec.as_ref());
     if row.external_status != Some(status as i64) { sets.push(("external_status", Sql::Integer(status as i64))); }
     let side = if s.sell { 1 } else { 0 }; // parse_order_data: descr.type, as the exchange reports it
     if row.side != Some(side) { sets.push(("side", Sql::Integer(side))); }
@@ -95,7 +95,7 @@ pub fn apply_in(c: &model::FencedTransaction<'_>, bot_id: i64, tx_id: i64, s: &O
     // Transaction's after_commit (transaction.rb:31-33) → Bot::QuoteAmountLimitable#handle_quote_amount_limit_update: a buy
     // whose executed quote changed to a positive value re-checks the cap; reached, Rails enqueues Bot::StopJob, which runs after
     // the job that committed the fill.
-    Ok(exec_changed && side == 0 && s.quote_amount_exec.is_positive() && bot.quote_amount_limited() && amount::quote_amount_limit_reached(c, &bot)?)
+    Ok(exec_changed && side == 0 && s.quote_amount_exec.as_ref().is_some_and(BigDec::is_positive) && bot.quote_amount_limited() && amount::quote_amount_limit_reached(c, &bot)?)
 }
 
 fn classify(e: VenueError, ids: &[String], rules: &VenueRules) -> PollFailure {
@@ -186,8 +186,11 @@ async fn poll_rows<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model
         found.extend(orders);
         skipped.extend(excluded);
     }
+    // A venue that never names missing ids (VenueRules::reports_missing false: Binance) leaves an unreported row waiting:
+    // no trade recovery, no abandonment.
+    let reports = venue.rules().reports_missing;
     let missing: Vec<String> = ids.iter().filter(|id| !skipped.contains(id) && !found.iter().any(|o| &&o.txid == id)).cloned().collect();
-    if !missing.is_empty() {
+    if reports && !missing.is_empty() {
         let since = rows.iter().filter(|(_, e, _)| missing.contains(e)).map(|(_, _, at)| *at).min()
             .and_then(|at| at.checked_sub(3_600_000_000)).ok_or_else(|| db(super::schedule::time_range_error()))?;
         let fills = venue.fills_result(&missing, DateTime::from_timestamp_micros(since).ok_or_else(|| db(super::schedule::time_range_error()))?).await.value.map_err(|e| classify(e, &ids, venue.rules()))?;
@@ -195,7 +198,7 @@ async fn poll_rows<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model
     }
     // Missing after both endpoints: Bot::StaleOrderResolver (Kraken is authoritative, so young ones just wait).
     for (id, ext, created) in &rows {
-        if skipped.contains(ext) || found.iter().any(|o| &o.txid == ext) { continue; }
+        if !reports || skipped.contains(ext) || found.iter().any(|o| &o.txid == ext) { continue; }
         if *created < now.checked_sub_signed(Duration::days(STALE_AFTER_DAYS)).ok_or_else(|| db(super::schedule::time_range_error()))?.timestamp_micros() {
             model::credential_write(c, &version, |tx| {
                 tx.execute("UPDATE transactions SET external_status = ?1, updated_at = ?2 WHERE id = ?3",

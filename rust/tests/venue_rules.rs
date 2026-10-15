@@ -1,5 +1,5 @@
 mod common;
-use deltabadger::engine::venue_rules::{for_exchange, MinimumLogic, WireFormat, ALPACA, KRAKEN, NETWORK_TRANSIENT_PATTERNS};
+use deltabadger::engine::venue_rules::{for_exchange, AmountLogic, MinimumLogic, WireFormat, ALPACA, KRAKEN, NETWORK_TRANSIENT_PATTERNS};
 use sha2::{Digest, Sha256};
 
 #[test]
@@ -20,8 +20,8 @@ fn every_recorded_rails_classification_is_reproduced() {
 
 #[test]
 fn each_venue_carries_rails_minimum_logic_wire_and_absence_window() {
-    assert_eq!((KRAKEN.minimum_logic, KRAKEN.wire, KRAKEN.deadline_sent, KRAKEN.transport_raises), (MinimumLogic::KrakenBaseOrQuote, WireFormat::Kraken, true, false));
-    assert_eq!((ALPACA.minimum_logic, ALPACA.wire, ALPACA.deadline_sent, ALPACA.transport_raises), (MinimumLogic::Quote, WireFormat::Alpaca, false, true));
+    assert_eq!((KRAKEN.minimum_logic, KRAKEN.wire, KRAKEN.deadline_sent, KRAKEN.transport_raises), (MinimumLogic { market: AmountLogic::BaseOrQuote, limit: AmountLogic::Base }, WireFormat::Kraken, true, false));
+    assert_eq!((ALPACA.minimum_logic, ALPACA.wire, ALPACA.deadline_sent, ALPACA.transport_raises), (MinimumLogic { market: AmountLogic::Quote, limit: AmountLogic::Quote }, WireFormat::Alpaca, false, true));
     assert!(ALPACA.follow_up_strict && !KRAKEN.follow_up_strict, "Kraken's follow-up stays as merged");
     assert_eq!(ALPACA.reach_within_secs, 55, "send window 10 + connect 5 + write 10 + read 30 (Client::OPTIONS)");
     assert_eq!(ALPACA.absence_margin_secs, 1200, "20 minutes: past Linux's tcp_retries2 (~924 s) and tcp_orphan_retries (~100 s)");

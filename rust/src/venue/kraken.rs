@@ -165,7 +165,7 @@ pub(crate) fn parse_order(txid: &str, o: &Value) -> Result<OrderState, VenueErro
         txid: txid.into(),
         status,
         price: (!price.is_zero()).then_some(price), amount: if viqc { None } else { vol.clone() }, quote_amount: if viqc { vol } else { None },
-        amount_exec: required(&o["vol_exec"])?, quote_amount_exec: required(&o["cost"])?, limit,
+        amount_exec: required(&o["vol_exec"])?, quote_amount_exec: Some(required(&o["cost"])?), limit,
         sell: o["descr"]["type"] == "sell",
         pair: o["descr"]["pair"].as_str().map(str::to_string),
     })
@@ -214,7 +214,7 @@ pub(crate) fn aggregate_trades(trades: &[Value], txids: &[String]) -> Result<Vec
     }
     Ok(by.into_iter().map(|(txid, vol, cost, limit, sell, pair)| OrderState {
         asset_class: None,
-        txid, status: OrderStatus::Closed, price: cost.div(&vol), amount: None, quote_amount: None, amount_exec: vol, quote_amount_exec: cost, limit, sell, pair,
+        txid, status: OrderStatus::Closed, price: cost.div(&vol), amount: None, quote_amount: None, amount_exec: vol, quote_amount_exec: Some(cost), limit, sell, pair,
     }).collect())
 }
 

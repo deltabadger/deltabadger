@@ -50,7 +50,7 @@ fn every_recorded_rails_order_parse_is_reproduced() {
         assert_eq!(d(&s.amount).as_deref(), want["amount"].as_str(), "amount {c}");
         assert_eq!(d(&s.quote_amount).as_deref(), want["quote_amount"].as_str(), "quote_amount {c}");
         assert_eq!(s.amount_exec.to_s_f(), want["amount_exec"], "amount_exec {c}");
-        assert_eq!(s.quote_amount_exec.to_s_f(), want["quote_amount_exec"], "quote_amount_exec {c}");
+        assert_eq!(s.quote_amount_exec.as_ref().unwrap().to_s_f(), want["quote_amount_exec"], "quote_amount_exec {c}");
         assert_eq!(s.limit, want["order_type"] == "limit_order", "order_type {c}");
         assert_eq!(s.sell, want["side"] == "sell", "side {c}");
     }
@@ -146,7 +146,7 @@ async fn orders_are_fetched_one_by_one_and_the_first_failure_is_the_answer() {
     assert_eq!(v.orders(&["A".into(), "B".into(), "C".into()]).await, Err(VenueError::Rejected(vec!["internal server error".into()])));
     assert_eq!(t.requests().iter().map(|r| r.path.as_str()).collect::<Vec<_>>(), ["/v2/orders/A", "/v2/orders/B"], "C is never asked");
     let a = v.orders(&["A".into()]).await.unwrap().remove(0);
-    assert_eq!((a.status, a.amount_exec.clone(), a.quote_amount_exec.clone()), (OrderStatus::Closed, bd("0.000932719"), &bd("0.000932719") * &bd("64328.1")));
+    assert_eq!((a.status, a.amount_exec.clone(), a.quote_amount_exec.clone()), (OrderStatus::Closed, bd("0.000932719"), Some(&bd("0.000932719") * &bd("64328.1"))));
 }
 
 #[tokio::test(flavor = "current_thread")]

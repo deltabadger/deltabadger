@@ -66,7 +66,7 @@ async fn trades_history_pages_until_its_count() {
            .collect::<serde_json::Map<_, _>>() } });
     let v = FakeVenue::from_script(&json!({ "http": { "/0/private/TradesHistory": [page(&[("T1", "30")], 2), page(&[("T2", "30.5")], 2)] } }));
     let fills = v.fills_from_trades(&["OTX-9".into()], at()).await.unwrap();
-    assert_eq!(fills[0].quote_amount_exec.to_s_f(), "60.5", "both pages");
+    assert_eq!(fills[0].quote_amount_exec.as_ref().unwrap().to_s_f(), "60.5", "both pages");
     assert_eq!(fills[0].pair, None, "trades without a pair name none");
 }
 
@@ -76,7 +76,7 @@ async fn trades_history_recovers_fills_per_order() {
         "T1": { "ordertxid": "OTX-5", "vol": "0.0006", "cost": "30.0", "fee": "0.078", "type": "buy", "ordertype": "market", "pair": "XXBTZEUR" },
         "T2": { "ordertxid": "OTX-5", "vol": "0.0006", "cost": "30.012", "fee": "0.078", "type": "buy", "ordertype": "market", "pair": "XXBTZEUR" } } } }] } }));
     let fills = v.fills_from_trades(&["OTX-5".into()], at()).await.unwrap();
-    assert_eq!((fills[0].status, fills[0].amount_exec.to_s_f(), fills[0].quote_amount_exec.to_s_f()), (OrderStatus::Closed, "0.0012".into(), "60.012".into()));
+    assert_eq!((fills[0].status, fills[0].amount_exec.to_s_f(), fills[0].quote_amount_exec.as_ref().unwrap().to_s_f()), (OrderStatus::Closed, "0.0012".into(), "60.012".into()));
     assert_eq!(fills[0].price, BigDec::parse("60.012").unwrap().div(&bd("0.0012")));
     // The aggregate names its first trade's pair (honeymaker's aggregate_trades); Rails looks it up as a ticker, so a pair
     // spelled like the ticker (SOLEUR) resolves and Kraken's own spelling (XXBTZEUR) does not.
