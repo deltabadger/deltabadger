@@ -56,12 +56,12 @@
     z-index: 1000000
     position: absolute
     background: var(--dropdown-bg)
-    border-radius: 1rem
+    border-radius: 1.25rem
     box-shadow: 0 0 0 0.125rem var(--dropdown-border) inset, 0 0.5rem 1rem 0 rgba(6, 26, 79, 0.10)
     font-size: 1.75rem
-    font-weight: 600
-    padding-top: calc(1rem + 0.125rem)
-    padding-bottom: calc(1rem + 0.125rem)
+    font-weight: 500
+    padding-top: 1rem
+    padding-bottom: 1rem
     top: 4.5rem
     // A long menu (15 languages) used to run off the screen and get clipped. Cap it at the
     // viewport, less the 4.5rem it is offset from its trigger at either end, and let it scroll.
@@ -71,7 +71,7 @@
     overflow-x: hidden
     overflow-y: auto
     left: 0
-    min-width: 28rem
+    min-width: 32rem
     &--bots
         @media (max-width: 768px)
             left: auto
@@ -122,15 +122,18 @@
         display: grid
         cursor: pointer
         line-height: 3rem
-        padding: 0.5rem 2.5rem
+        padding: 0.5rem 1.5rem
         text-align: left
         text-decoration: none !important
         border: none     // <button>
         background: none // <button>
-        width: 100%      // <button>
-        color: var(--ash)
+        width: calc(100% - 2rem)      // <button>
+        color: var(--ink)
+        margin: 0 1rem
+        border-radius: 0.75rem
         &:hover
             background: var(--dropdown-hover)
+            color: var(--ink)
         // Label left, switch right. The base item is a grid built for a single label; a row that
         // carries a control needs the two ends held apart.
         &--switch
@@ -155,7 +158,7 @@
                 background: var(--berry) !important
         &--divider
             padding: 0
-            margin: 1rem 0
+            margin: 1rem
             border-bottom: 0.125rem solid var(--dropdown-border)
             cursor: default !important
             &:hover
@@ -177,5 +180,8 @@
             line-height: 2rem
             &:hover
                 background: none !important
-
-        
+    .segmented
+        width: 100%
+        margin-top: 1.5rem
+    .toggle__style
+        background-color: var(--silver)

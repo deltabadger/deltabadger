@@ -12,17 +12,17 @@
 
 ActiveRecord::Schema[8.1].define(version: 2026_10_14_120000) do
   create_table "account_balances", force: :cascade do |t|
-    t.integer "asset_id", null: false
-    t.datetime "created_at", null: false
+    t.integer "user_id", null: false
     t.integer "exchange_id", null: false
+    t.integer "asset_id", null: false
     t.decimal "free", precision: 32, scale: 16, default: "0.0", null: false
     t.decimal "locked", precision: 32, scale: 16, default: "0.0", null: false
-    t.datetime "priced_at"
-    t.datetime "synced_at", null: false
-    t.datetime "updated_at", null: false
     t.decimal "usd_price", precision: 20, scale: 8
     t.decimal "usd_value", precision: 20, scale: 8
-    t.integer "user_id", null: false
+    t.datetime "synced_at", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.datetime "priced_at"
     t.index ["asset_id"], name: "index_account_balances_on_asset_id"
     t.index ["exchange_id"], name: "index_account_balances_on_exchange_id"
     t.index ["user_id", "exchange_id", "asset_id"], name: "idx_account_balances_user_exchange_asset", unique: true
@@ -31,27 +31,27 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_14_120000) do
 
   create_table "account_transactions", force: :cascade do |t|
     t.integer "api_key_id"
-    t.decimal "base_amount", null: false
-    t.integer "base_asset_id"
-    t.string "base_currency", null: false
-    t.datetime "created_at", null: false
-    t.string "description"
-    t.integer "entry_type", null: false
     t.integer "exchange_id", null: false
-    t.decimal "fee_amount"
-    t.string "fee_currency"
-    t.string "group_id"
-    t.integer "linked_transaction_id"
-    t.json "manual_values", default: {}
-    t.decimal "quote_amount"
+    t.integer "entry_type", null: false
+    t.string "base_currency", null: false
+    t.decimal "base_amount", null: false
     t.string "quote_currency"
-    t.json "raw_data", default: {}
-    t.datetime "transacted_at", null: false
-    t.integer "transaction_id"
-    t.boolean "transfer_link_rejected", default: false, null: false
+    t.decimal "quote_amount"
+    t.string "fee_currency"
+    t.decimal "fee_amount"
     t.string "tx_id"
+    t.string "group_id"
+    t.string "description"
+    t.datetime "transacted_at", null: false
+    t.json "raw_data", default: {}
+    t.integer "transaction_id"
+    t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.integer "user_id", null: false
+    t.integer "linked_transaction_id"
+    t.boolean "transfer_link_rejected", default: false, null: false
+    t.json "manual_values", default: {}
+    t.integer "base_asset_id"
     t.index ["api_key_id", "transacted_at"], name: "index_account_transactions_on_api_key_id_and_transacted_at"
     t.index ["api_key_id"], name: "index_account_transactions_on_api_key_id"
     t.index ["exchange_id"], name: "index_account_transactions_on_exchange_id"
@@ -64,45 +64,45 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_14_120000) do
   end
 
   create_table "action_mcp_session_messages", force: :cascade do |t|
-    t.datetime "created_at", null: false
+    t.string "session_id", null: false
     t.string "direction", default: "client", null: false
-    t.boolean "is_ping", default: false, null: false
+    t.string "message_type", null: false
     t.string "jsonrpc_id"
     t.json "message_json"
-    t.string "message_type", null: false
+    t.boolean "is_ping", default: false, null: false
     t.boolean "request_acknowledged", default: false, null: false
     t.boolean "request_cancelled", default: false, null: false
-    t.string "session_id", null: false
+    t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["session_id"], name: "index_action_mcp_session_messages_on_session_id"
   end
 
   create_table "action_mcp_session_subscriptions", force: :cascade do |t|
-    t.datetime "created_at", null: false
-    t.datetime "last_notification_at"
     t.string "session_id", null: false
-    t.datetime "updated_at", null: false
     t.string "uri", null: false
+    t.datetime "last_notification_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
     t.index ["session_id"], name: "index_action_mcp_session_subscriptions_on_session_id"
   end
 
   create_table "action_mcp_session_tasks", id: :string, force: :cascade do |t|
-    t.json "continuation_state", default: {}
-    t.datetime "created_at", null: false
-    t.datetime "last_step_at"
-    t.datetime "last_updated_at", null: false
-    t.integer "poll_interval"
-    t.string "progress_message"
-    t.integer "progress_percent"
+    t.string "session_id", null: false
+    t.string "status", default: "working", null: false
+    t.string "status_message"
     t.string "request_method"
     t.string "request_name"
     t.json "request_params"
     t.json "result_payload"
-    t.string "session_id", null: false
-    t.string "status", default: "working", null: false
-    t.string "status_message"
     t.integer "ttl"
+    t.integer "poll_interval"
+    t.datetime "last_updated_at", null: false
+    t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.json "continuation_state", default: {}
+    t.integer "progress_percent"
+    t.string "progress_message"
+    t.datetime "last_step_at"
     t.index ["created_at"], name: "index_action_mcp_session_tasks_on_created_at"
     t.index ["session_id", "status"], name: "index_action_mcp_session_tasks_on_session_id_and_status"
     t.index ["session_id"], name: "index_action_mcp_session_tasks_on_session_id"
@@ -110,44 +110,44 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_14_120000) do
   end
 
   create_table "action_mcp_sessions", id: :string, force: :cascade do |t|
-    t.json "client_capabilities"
-    t.json "client_info"
-    t.json "consents", default: {}, null: false
-    t.datetime "created_at", null: false
+    t.string "role", default: "server", null: false
+    t.string "status", default: "pre_initialize", null: false
     t.datetime "ended_at"
+    t.string "protocol_version"
+    t.json "server_capabilities"
+    t.json "client_capabilities"
+    t.json "server_info"
+    t.json "client_info"
     t.boolean "initialized", default: false, null: false
     t.integer "messages_count", default: 0, null: false
-    t.json "prompt_registry", default: []
-    t.string "protocol_version"
-    t.json "resource_registry", default: []
-    t.string "role", default: "server", null: false
-    t.json "server_capabilities"
-    t.json "server_info"
-    t.json "session_data", default: {}, null: false
-    t.string "status", default: "pre_initialize", null: false
     t.json "tool_registry", default: []
+    t.json "prompt_registry", default: []
+    t.json "resource_registry", default: []
+    t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.json "consents", default: {}, null: false
+    t.json "session_data", default: {}, null: false
   end
 
   create_table "api_keys", force: :cascade do |t|
-    t.text "access_token"
-    t.datetime "balances_synced_at"
     t.datetime "created_at", precision: nil, null: false
-    t.text "dh_param"
     t.bigint "exchange_id", null: false
     t.boolean "german_trading_agreement"
-    t.string "ibkr_realm"
     t.string "key"
     t.integer "key_type", default: 0, null: false
-    t.string "last_sync_error"
-    t.datetime "last_synced_at"
     t.string "passphrase"
-    t.text "rsa_encryption_key"
-    t.text "rsa_signature_key"
     t.string "secret"
     t.integer "status", default: 0, null: false
     t.datetime "updated_at", precision: nil, null: false
     t.bigint "user_id", null: false
+    t.datetime "last_synced_at"
+    t.text "access_token"
+    t.text "rsa_signature_key"
+    t.text "rsa_encryption_key"
+    t.text "dh_param"
+    t.string "ibkr_realm"
+    t.string "last_sync_error"
+    t.datetime "balances_synced_at"
     t.index ["exchange_id"], name: "index_api_keys_on_exchange_id"
     t.index ["user_id"], name: "index_api_keys_on_user_id"
   end
@@ -169,7 +169,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_14_120000) do
     t.datetime "created_at", null: false
     t.string "external_id", null: false
     t.string "image_url"
-    t.string "instrument_type"
     t.string "isin"
     t.bigint "market_cap"
     t.integer "market_cap_rank"
@@ -177,6 +176,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_14_120000) do
     t.string "symbol"
     t.datetime "updated_at", null: false
     t.string "url"
+    t.string "instrument_type"
     t.index ["external_id"], name: "index_assets_on_external_id", unique: true
     t.index ["isin"], name: "index_assets_on_isin"
     t.index ["name"], name: "index_assets_on_name"
@@ -185,11 +185,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_14_120000) do
 
   create_table "bot_activity_logs", force: :cascade do |t|
     t.integer "bot_id", null: false
-    t.datetime "created_at", null: false
-    t.json "details", default: {}, null: false
-    t.string "event", null: false
     t.integer "level", default: 0, null: false
+    t.string "event", null: false
     t.string "message"
+    t.json "details", default: {}, null: false
+    t.datetime "created_at", null: false
     t.index ["bot_id", "created_at"], name: "index_bot_activity_logs_on_bot_id_and_created_at"
     t.index ["bot_id"], name: "index_bot_activity_logs_on_bot_id"
   end
@@ -218,9 +218,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_14_120000) do
     t.datetime "created_at", null: false
     t.integer "direction", default: 0, null: false
     t.boolean "enabled", default: true, null: false
-    t.datetime "last_triggered_at"
     t.string "token", null: false
     t.datetime "updated_at", null: false
+    t.datetime "last_triggered_at"
     t.index ["bot_id"], name: "index_bot_signals_on_bot_id"
     t.index ["token"], name: "index_bot_signals_on_token", unique: true
   end
@@ -234,10 +234,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_14_120000) do
     t.integer "fetch_restarts", default: 0, null: false
     t.string "label"
     t.datetime "last_end_of_funds_notification", precision: nil
-    t.integer "position", default: 0, null: false
-    t.decimal "redeploy_declined_offset", default: "0.0", null: false
     t.integer "restarts", default: 0, null: false
-    t.integer "restatement_generation", default: 0, null: false
     t.json "settings", default: {}, null: false
     t.datetime "settings_changed_at", precision: nil
     t.datetime "started_at", precision: nil
@@ -248,17 +245,20 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_14_120000) do
     t.string "type"
     t.datetime "updated_at", precision: nil, null: false
     t.bigint "user_id"
+    t.integer "position", default: 0, null: false
+    t.decimal "redeploy_declined_offset", default: "0.0", null: false
+    t.integer "restatement_generation", default: 0, null: false
     t.index ["exchange_id"], name: "index_bots_on_exchange_id"
     t.index ["user_id"], name: "index_bots_on_user_id"
   end
 
   create_table "connected_clients", force: :cascade do |t|
-    t.datetime "created_at", null: false
-    t.json "mcp_tools", default: []
-    t.integer "oauth_application_id", null: false
-    t.json "rest_tools", default: []
-    t.datetime "updated_at", null: false
     t.integer "user_id", null: false
+    t.integer "oauth_application_id", null: false
+    t.json "mcp_tools", default: []
+    t.json "rest_tools", default: []
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
     t.index ["oauth_application_id"], name: "index_connected_clients_on_oauth_application_id"
     t.index ["user_id", "oauth_application_id"], name: "index_connected_clients_on_user_and_application", unique: true
     t.index ["user_id"], name: "index_connected_clients_on_user_id"
@@ -298,13 +298,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_14_120000) do
   end
 
   create_table "fund_classifications", force: :cascade do |t|
-    t.datetime "created_at", null: false
-    t.integer "fund_category"
+    t.integer "user_id", null: false
+    t.string "symbol", null: false
     t.string "isin"
     t.integer "kind", null: false
-    t.string "symbol", null: false
+    t.integer "fund_category"
+    t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.integer "user_id", null: false
     t.index ["user_id", "symbol"], name: "index_fund_classifications_on_user_id_and_symbol", unique: true
   end
 
@@ -324,25 +324,25 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_14_120000) do
   end
 
   create_table "ibkr_locks", force: :cascade do |t|
-    t.datetime "created_at", null: false
-    t.datetime "expires_at", null: false
     t.string "key", null: false
     t.string "owner", null: false
+    t.datetime "expires_at", null: false
+    t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["expires_at"], name: "index_ibkr_locks_on_expires_at"
     t.index ["key"], name: "index_ibkr_locks_on_key", unique: true
   end
 
   create_table "idempotency_keys", force: :cascade do |t|
-    t.datetime "created_at", null: false
-    t.string "key", null: false
-    t.datetime "locked_at", null: false
-    t.string "request_fingerprint", null: false
-    t.text "response_body"
-    t.integer "response_status"
-    t.string "state", default: "in_progress", null: false
-    t.datetime "updated_at", null: false
     t.integer "user_id", null: false
+    t.string "key", null: false
+    t.string "request_fingerprint", null: false
+    t.string "state", default: "in_progress", null: false
+    t.integer "response_status"
+    t.text "response_body"
+    t.datetime "locked_at", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
     t.index ["created_at"], name: "index_idempotency_keys_on_created_at"
     t.index ["user_id", "key"], name: "index_idempotency_keys_on_user_id_and_key", unique: true
     t.index ["user_id"], name: "index_idempotency_keys_on_user_id"
@@ -366,31 +366,31 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_14_120000) do
   end
 
   create_table "oauth_access_grants", force: :cascade do |t|
+    t.integer "resource_owner_id", null: false
     t.integer "application_id", null: false
-    t.string "code_challenge"
-    t.string "code_challenge_method"
-    t.datetime "created_at", null: false
+    t.string "token", null: false
     t.integer "expires_in", null: false
     t.text "redirect_uri", null: false
-    t.integer "resource_owner_id", null: false
-    t.datetime "revoked_at"
     t.string "scopes", default: "", null: false
-    t.string "token", null: false
+    t.datetime "created_at", null: false
+    t.datetime "revoked_at"
+    t.string "code_challenge"
+    t.string "code_challenge_method"
     t.index ["application_id"], name: "index_oauth_access_grants_on_application_id"
     t.index ["resource_owner_id"], name: "index_oauth_access_grants_on_resource_owner_id"
     t.index ["token"], name: "index_oauth_access_grants_on_token", unique: true
   end
 
   create_table "oauth_access_tokens", force: :cascade do |t|
-    t.integer "application_id", null: false
-    t.datetime "created_at", null: false
-    t.integer "expires_in"
-    t.string "previous_refresh_token", default: "", null: false
-    t.string "refresh_token"
     t.integer "resource_owner_id"
-    t.datetime "revoked_at"
-    t.string "scopes", default: "", null: false
+    t.integer "application_id", null: false
     t.string "token", null: false
+    t.string "refresh_token"
+    t.integer "expires_in"
+    t.string "scopes", default: "", null: false
+    t.datetime "created_at", null: false
+    t.datetime "revoked_at"
+    t.string "previous_refresh_token", default: "", null: false
     t.index ["application_id"], name: "index_oauth_access_tokens_on_application_id"
     t.index ["refresh_token"], name: "index_oauth_access_tokens_on_refresh_token", unique: true
     t.index ["resource_owner_id"], name: "index_oauth_access_tokens_on_resource_owner_id"
@@ -398,35 +398,35 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_14_120000) do
   end
 
   create_table "oauth_applications", force: :cascade do |t|
-    t.boolean "confidential", default: false, null: false
-    t.datetime "created_at", null: false
-    t.string "grant_types", default: "authorization_code"
     t.string "name", null: false
+    t.string "uid", null: false
+    t.string "secret"
+    t.text "redirect_uri"
+    t.string "scopes", default: "", null: false
+    t.boolean "confidential", default: false, null: false
+    t.string "registration_access_token"
+    t.string "token_endpoint_auth_method", default: "none"
+    t.string "grant_types", default: "authorization_code"
+    t.string "response_types", default: "code"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
     t.boolean "personal_access_token", default: false, null: false
     t.integer "personal_owner_id"
-    t.text "redirect_uri"
-    t.string "registration_access_token"
-    t.string "response_types", default: "code"
-    t.string "scopes", default: "", null: false
-    t.string "secret"
-    t.string "token_endpoint_auth_method", default: "none"
-    t.string "uid", null: false
-    t.datetime "updated_at", null: false
     t.index ["personal_owner_id"], name: "index_oauth_applications_unique_personal_owner", unique: true, where: "personal_access_token = 1"
     t.index ["registration_access_token"], name: "index_oauth_applications_on_registration_access_token", unique: true
     t.index ["uid"], name: "index_oauth_applications_on_uid", unique: true
   end
 
   create_table "portfolio_snapshots", force: :cascade do |t|
-    t.datetime "created_at", null: false
+    t.integer "user_id", null: false
     t.date "date", null: false
-    t.decimal "held_cost_usd", precision: 20, scale: 8
-    t.decimal "held_value_usd", precision: 20, scale: 8
+    t.decimal "value_usd", precision: 20, scale: 8, default: "0.0", null: false
     t.decimal "invested_usd", precision: 20, scale: 8, default: "0.0", null: false
     t.boolean "partial", default: false, null: false
+    t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.integer "user_id", null: false
-    t.decimal "value_usd", precision: 20, scale: 8, default: "0.0", null: false
+    t.decimal "held_value_usd", precision: 20, scale: 8
+    t.decimal "held_cost_usd", precision: 20, scale: 8
     t.index ["user_id", "date"], name: "index_portfolio_snapshots_on_user_id_and_date", unique: true
     t.index ["user_id"], name: "index_portfolio_snapshots_on_user_id"
   end
@@ -495,8 +495,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_14_120000) do
     t.bigint "quote_asset_id", null: false
     t.integer "quote_decimals", null: false
     t.string "ticker", null: false
-    t.boolean "trading_enabled", default: true, null: false
     t.datetime "updated_at", null: false
+    t.boolean "trading_enabled", default: true, null: false
     t.index ["base_asset_id"], name: "index_tickers_on_base_asset_id"
     t.index ["exchange_id", "base_asset_id", "quote_asset_id"], name: "index_exchange_tickers_on_unique_base_asset_and_quote_asset", unique: true
     t.index ["exchange_id", "ticker"], name: "index_exchange_tickers_on_unique_ticker", unique: true
@@ -508,7 +508,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_14_120000) do
     t.decimal "amount"
     t.decimal "amount_exec"
     t.string "base"
-    t.integer "base_asset_id"
     t.bigint "bot_id"
     t.string "bot_interval", default: "", null: false
     t.decimal "bot_quote_amount", default: "0.0", null: false
@@ -522,11 +521,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_14_120000) do
     t.string "quote"
     t.decimal "quote_amount"
     t.decimal "quote_amount_exec"
-    t.integer "quote_asset_id"
     t.integer "side"
     t.integer "status"
     t.string "transaction_type", default: "REGULAR", null: false
     t.datetime "updated_at", precision: nil, null: false
+    t.integer "base_asset_id"
+    t.integer "quote_asset_id"
     t.json "run_identity"
     t.index ["bot_id", "created_at"], name: "index_transactions_on_bot_id_and_created_at"
     t.index ["bot_id", "status", "created_at"], name: "index_transactions_on_bot_id_and_status_and_created_at"
@@ -539,34 +539,34 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_14_120000) do
 
   create_table "users", force: :cascade do |t|
     t.boolean "admin", default: false, null: false
-    t.boolean "advanced_bots_enabled", default: false, null: false
     t.datetime "confirmation_sent_at", precision: nil
     t.string "confirmation_token"
     t.datetime "confirmed_at", precision: nil
     t.datetime "created_at", precision: nil, null: false
-    t.string "display_currency", default: "USD", null: false
     t.string "email", default: "", null: false
     t.string "encrypted_password", default: "", null: false
-    t.integer "failed_attempts", default: 0, null: false
-    t.boolean "hide_balances", default: false, null: false
     t.datetime "last_otp_at", precision: nil
     t.string "locale"
-    t.datetime "locked_at"
-    t.json "mcp_settings", default: {}
     t.string "name"
     t.integer "otp_module", default: 0
     t.string "otp_secret_key"
     t.datetime "remember_created_at", precision: nil
     t.datetime "reset_password_sent_at", precision: nil
     t.string "reset_password_token"
-    t.json "rest_settings", default: {}
     t.boolean "setup_completed", default: false, null: false
     t.boolean "show_smart_intervals_info", default: true, null: false
     t.boolean "subscribed_to_email_marketing", default: true
     t.string "time_zone", default: "UTC", null: false
-    t.json "tracker_settings", default: {}
     t.string "unconfirmed_email"
     t.datetime "updated_at", precision: nil, null: false
+    t.integer "failed_attempts", default: 0, null: false
+    t.datetime "locked_at"
+    t.json "mcp_settings", default: {}
+    t.json "tracker_settings", default: {}
+    t.boolean "advanced_bots_enabled", default: false, null: false
+    t.json "rest_settings", default: {}
+    t.string "display_currency", default: "USD", null: false
+    t.boolean "hide_balances", default: false, null: false
     t.boolean "wash_sale_enabled"
     t.string "wash_sale_jurisdiction"
     t.datetime "wash_sale_selling_warned_at"
@@ -576,14 +576,14 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_14_120000) do
   end
 
   create_table "wash_sale_locks", force: :cascade do |t|
+    t.integer "user_id", null: false
     t.integer "asset_id", null: false
     t.datetime "buy_locked_until"
-    t.string "claim_token"
     t.datetime "confirmed_locked_until"
+    t.string "claim_token"
     t.datetime "created_at", null: false
-    t.string "source", default: "bot", null: false
     t.datetime "updated_at", null: false
-    t.integer "user_id", null: false
+    t.string "source", default: "bot", null: false
     t.index ["asset_id"], name: "index_wash_sale_locks_on_asset_id"
     t.index ["user_id", "asset_id"], name: "index_wash_sale_locks_on_user_id_and_asset_id", unique: true
   end
