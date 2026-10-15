@@ -43,7 +43,7 @@ use crate::venue::http::Transport;
 use chrono::{DateTime, Duration, TimeZone, Utc};
 use rusqlite::{params, Connection};
 use serde_json::Value;
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::sync::Arc;
 
 pub const DEPOSITS_PATH: &str = "/sapi/v1/capital/deposit/hisrec";
@@ -598,7 +598,7 @@ pub(crate) async fn sync_captured<T: Transport>(db: &Db, transport: T, base: &st
     let key = Arc::new(start.key);
     let progress = {
         let key = key.clone();
-        phase(db, move |c| Ok(Progress { out: Outcome::default(), assets: Arc::new(ledger::crypto_rule(c, key.exchange_id, "binance")?), merged: ledger::stored_merged(c, &key)?, min_skipped: None })).await?
+        phase(db, move |c| Ok(Progress { out: Outcome::default(), assets: Arc::new(ledger::crypto_rule(c, key.exchange_id, "binance")?), merged: ledger::stored_merged(c, &key)?, min_skipped: None, stored: HashSet::new(), repeats: BTreeMap::new() })).await?
     };
     let entries = Arc::new(fetched.entries);
     let mut progress = progress;

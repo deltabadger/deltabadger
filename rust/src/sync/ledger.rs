@@ -14,7 +14,7 @@ use crate::venue::http::Transport;
 use chrono::{DateTime, Duration, NaiveDateTime, Utc};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::{json, Value};
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::Arc;
 
 pub const ACTIVITIES_PATH: &str = "/v2/account/activities";
@@ -554,7 +554,14 @@ pub(super) struct Progress {
     /// Every leg id of every merged split stored: a standalone leg arriving later is a duplicate.
     pub(super) merged: HashSet<String>,
     pub(super) min_skipped: Option<DateTime<Utc>>,
+    /// The rows this run stored: no evidence that a later entry is a duplicate (#same_event?).
+    pub(super) stored: HashSet<i64>,
+    /// How many entries of each identity (#event_key) this run has read so far.
+    pub(super) repeats: BTreeMap<EventKey, usize>,
 }
+
+/// #event_key: type, currency, amount and instant.
+pub(super) type EventKey = (i64, Option<String>, BigDec, Option<DateTime<Utc>>);
 
 /// The legs of every merged split already stored for the user on this venue.
 pub(super) fn stored_merged(c: &Connection, key: &Key) -> Result<HashSet<String>, SyncError> {
@@ -581,7 +588,7 @@ fn prepare(c: &Connection, key: &Key, activities: &[Raw]) -> Result<Result<(Vec<
     }
     let entries = match activities::merge_splits(entries) { Ok(entries) => entries, Err(text) => return Ok(Err(text)) };
     let merged = stored_merged(c, key)?;
-    Ok(Ok((entries, Progress { out: Outcome::default(), assets: Arc::new(AssetRule::Alpaca(listings(c, key.exchange_id)?)), merged, min_skipped: None })))
+    Ok(Ok((entries, Progress { out: Outcome::default(), assets: Arc::new(AssetRule::Alpaca(listings(c, key.exchange_id)?)), merged, min_skipped: None, stored: HashSet::new(), repeats: BTreeMap::new() })))
 }
 
 /// A split row, as everything that reacts to one tells it.
@@ -594,7 +601,10 @@ pub(super) fn store(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, 
     let no_effects = || SyncError("a split row outside a unit of its own".into());
     for (index, e) in batch.iter().enumerate() {
         let tx_id = present(&e.tx_id);
-        if duplicate(c, key, e, tx_id, &p.merged)? { p.out.duplicates += 1; continue; }
+        let seen = p.repeats.entry((e.entry_type, e.base_currency.clone(), e.base_amount.clone(), e.transacted_at)).or_insert(0);
+        let repeat = *seen;
+        *seen += 1;
+        if duplicate(c, key, e, tx_id, &p.merged, &p.stored, repeat)? { p.out.duplicates += 1; continue; }
         // One malformed broker row never aborts the sync: it is logged, counted, and holds the watermark back. The
         // row's id is the venue's own value: the line says which entry of the unit it was, not what it held.
         let (Some(base_currency), Some(at)) = (present(&e.base_currency), e.transacted_at) else {
@@ -613,6 +623,7 @@ pub(super) fn store(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, 
             params![key.user_id, key.id, key.exchange_id, e.entry_type, e.base_currency, real(&e.base_amount), e.quote_currency, e.quote_amount.as_ref().map(real),
                     if no_fee { None } else { e.fee_currency.as_deref() }, if no_fee { None } else { e.fee_amount.as_ref().map(real) }, tx_id, e.group_id,
                     e.description, sql_time(at), e.raw.text(), p.assets.asset_id(c, Some(base_currency), &e.raw.value, Some(at))?, bot_order, sql_time(now)])?;
+        p.stored.insert(c.last_insert_rowid());
         p.merged.extend(merged_ids(&e.raw.value));
         if split(e) {
             let effects = effects.ok_or_else(no_effects)?;
@@ -638,8 +649,11 @@ const BY_TIME: &str = "INDEXED BY index_account_transactions_on_transacted_at";
 
 /// #duplicate?, scoped to the user and the venue, not the key. With an id: a leg of a stored merged split, a stored
 /// row with that id, or an id-less stored row of the same type, currency and amount less than a second away (a file
-/// imported before the first sync). Without one: any stored row of that identity less than a second away.
-fn duplicate(c: &Connection, key: &Key, e: &Entry, tx_id: Option<&str>, merged: &HashSet<String>) -> Result<bool, SyncError> {
+/// imported before the first sync). Without one: any stored row of that identity less than a second away. Exactly a
+/// second away counts only between an id'd and an id-less row (#within_a_second). Rows this run stored are no
+/// evidence, and the rest count one for one: the entry is a duplicate while more of them are stored than identical
+/// entries came before it in this run (#same_event?).
+fn duplicate(c: &Connection, key: &Key, e: &Entry, tx_id: Option<&str>, merged: &HashSet<String>, stored_now: &HashSet<i64>, repeat: usize) -> Result<bool, SyncError> {
     if let Some(tx_id) = tx_id {
         if merged.contains(tx_id) { return Ok(true); }
         let stored: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM account_transactions WHERE user_id = ?1 AND exchange_id = ?2 AND tx_id = ?3)",
@@ -650,12 +664,13 @@ fn duplicate(c: &Connection, key: &Key, e: &Entry, tx_id: Option<&str>, merged: 
     let Some(at) = e.transacted_at else { return Ok(false) }; // a row with no time is the same event as nothing
     let second = Duration::seconds(1);
     let (Some(from), Some(to)) = (at.checked_sub_signed(second), at.checked_add_signed(second)) else { return Err(SyncError("a time at the end of the calendar".into())) };
-    let id_less = if tx_id.is_some() { "AND tx_id IS NULL" } else { "" };
-    Ok(c.query_row(
-        &format!("SELECT EXISTS(SELECT 1 FROM account_transactions {BY_TIME} WHERE user_id = ?1 AND exchange_id = ?2 {id_less} AND entry_type = ?3 \
-                  AND base_currency IS ?4 AND base_amount = ?5 AND transacted_at > ?6 AND transacted_at < ?7)"),
-        params![key.user_id, key.exchange_id, e.entry_type, e.base_currency, real(&e.base_amount), sql_time(from), sql_time(to)],
-        |r| r.get(0))?)
+    let (id_less, other) = if tx_id.is_some() { ("AND tx_id IS NULL", "tx_id IS NULL") } else { ("", "tx_id IS NOT NULL") };
+    let mut s = c.prepare(&format!("SELECT id FROM account_transactions {BY_TIME} WHERE user_id = ?1 AND exchange_id = ?2 {id_less} AND entry_type = ?3 \
+                  AND base_currency IS ?4 AND base_amount = ?5 AND transacted_at >= ?6 AND transacted_at <= ?7 \
+                  AND ({other} OR (transacted_at > ?6 AND transacted_at < ?7))"))?;
+    let ids = s.query_map(params![key.user_id, key.exchange_id, e.entry_type, e.base_currency, real(&e.base_amount), sql_time(from), sql_time(to)],
+                          |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?;
+    Ok(ids.iter().filter(|id| !stored_now.contains(id)).count() > repeat)
 }
 
 /// One transfer as Binance's export and its API each describe it (AccountTransactionSync, "one transfer"): the export
@@ -674,7 +689,7 @@ fn api_transfer(entry_type: i64, raw: &Value) -> bool {
 }
 
 /// #file_side: the amount the file writes for this API transfer, and the window its date falls in (`true`: open at
-/// both ends). A deposit is credited no earlier than seen and less than ten minutes after; a withdrawal is the gross
+/// both ends). A deposit is credited no earlier than seen and at most ten minutes after; a withdrawal is the gross
 /// within a second of `completeTime`, and a present but unreadable `completeTime` pairs with nothing.
 fn file_side(entry_type: i64, raw: &Value, at: DateTime<Utc>) -> Option<(BigDec, DateTime<Utc>, DateTime<Utc>, bool)> {
     let amount = |k: &str| json_to_d(&raw[k]).ok().flatten().unwrap_or_else(BigDec::zero); // `.to_d`: nil is 0
@@ -699,11 +714,11 @@ fn api_transfer_twin(c: &Connection, key: &Key, e: &Entry, tx_id: &str) -> Resul
                         AND entry_type = ?3 AND base_currency IS ?4 AND base_amount = ?5");
     let second = Duration::seconds(1);
     let (Some(from), Some(to)) = (at.checked_sub_signed(second), at.checked_add_signed(second)) else { return Err(SyncError("a time at the end of the calendar".into())) };
-    let same = raws(&format!("{base} AND transacted_at > ?6 AND transacted_at < ?7"),
+    let same = raws(&format!("{base} AND transacted_at >= ?6 AND transacted_at <= ?7"), // across sources: ends included
                     params![key.user_id, key.exchange_id, e.entry_type, e.base_currency, real(&e.base_amount), sql_time(from), sql_time(to)])?;
     if same.iter().any(|(_, raw)| !file_transfer(e.entry_type, raw)) { return Ok(true); }
     let Some((amount, from, to, open)) = file_side(e.entry_type, &e.raw.value, at) else { return Ok(false) };
-    let sql = format!("{base} AND transacted_at {} ?6 AND transacted_at < ?7", if open { ">" } else { ">=" });
+    let sql = format!("{base} AND {}", if open { "transacted_at > ?6 AND transacted_at < ?7" } else { "transacted_at >= ?6 AND transacted_at <= ?7" });
     for _ in 0..2 {
         let rows: Vec<i64> = raws(&sql, params![key.user_id, key.exchange_id, e.entry_type, e.base_currency, real(&amount), sql_time(from), sql_time(to)])?
             .into_iter().filter(|(_, raw)| file_transfer(e.entry_type, raw)).map(|(id, _)| id).collect();
