@@ -601,9 +601,12 @@ pub(super) fn store(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, 
     let no_effects = || SyncError("a split row outside a unit of its own".into());
     for (index, e) in batch.iter().enumerate() {
         let tx_id = present(&e.tx_id);
-        let seen = p.repeats.entry((e.entry_type, e.base_currency.clone(), e.base_amount.clone(), e.transacted_at)).or_insert(0);
-        let repeat = *seen;
-        *seen += 1;
+        // A row its id already names is not one of the identical rows counted.
+        let repeat = if known_id(c, key, tx_id, &p.merged)? { 0 } else {
+            let seen = p.repeats.entry((e.entry_type, e.base_currency.clone(), e.base_amount.clone(), e.transacted_at)).or_insert(0);
+            *seen += 1;
+            *seen - 1
+        };
         if duplicate(c, key, e, tx_id, &p.merged, &p.stored, repeat)? { p.out.duplicates += 1; continue; }
         // One malformed broker row never aborts the sync: it is logged, counted, and holds the watermark back. The
         // row's id is the venue's own value: the line says which entry of the unit it was, not what it held.
@@ -655,10 +658,7 @@ const BY_TIME: &str = "INDEXED BY index_account_transactions_on_transacted_at";
 /// entries came before it in this run (#same_event?).
 fn duplicate(c: &Connection, key: &Key, e: &Entry, tx_id: Option<&str>, merged: &HashSet<String>, stored_now: &HashSet<i64>, repeat: usize) -> Result<bool, SyncError> {
     if let Some(tx_id) = tx_id {
-        if merged.contains(tx_id) { return Ok(true); }
-        let stored: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM account_transactions WHERE user_id = ?1 AND exchange_id = ?2 AND tx_id = ?3)",
-                                       params![key.user_id, key.exchange_id, tx_id], |r| r.get(0))?;
-        if stored { return Ok(true); }
+        if known_id(c, key, Some(tx_id), merged)? { return Ok(true); }
         if api_transfer(e.entry_type, &e.raw.value) { return api_transfer_twin(c, key, e, tx_id); }
     }
     let Some(at) = e.transacted_at else { return Ok(false) }; // a row with no time is the same event as nothing
@@ -671,6 +671,14 @@ fn duplicate(c: &Connection, key: &Key, e: &Entry, tx_id: Option<&str>, merged: 
     let ids = s.query_map(params![key.user_id, key.exchange_id, e.entry_type, e.base_currency, real(&e.base_amount), sql_time(from), sql_time(to)],
                           |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?;
     Ok(ids.iter().filter(|id| !stored_now.contains(id)).count() > repeat)
+}
+
+/// A leg of a stored merged split, or a stored row with this id.
+fn known_id(c: &Connection, key: &Key, tx_id: Option<&str>, merged: &HashSet<String>) -> Result<bool, SyncError> {
+    let Some(tx_id) = tx_id else { return Ok(false) };
+    if merged.contains(tx_id) { return Ok(true); }
+    Ok(c.query_row("SELECT EXISTS(SELECT 1 FROM account_transactions WHERE user_id = ?1 AND exchange_id = ?2 AND tx_id = ?3)",
+                   params![key.user_id, key.exchange_id, tx_id], |r| r.get(0))?)
 }
 
 /// One transfer as Binance's export and its API each describe it (AccountTransactionSync, "one transfer"): the export

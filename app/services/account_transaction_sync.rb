@@ -68,7 +68,8 @@ class AccountTransactionSync
       # missing). Read it as nil so it dedups on the fallback identity instead of collapsing every
       # such row onto a single '' key — the partial unique index treats '' as a value.
       tx_id = entry[:tx_id].presence
-      @repeat = (repeats[event_key(entry)] += 1) - 1
+      # A row its id already names is not one of the identical rows `same_event?` counts.
+      @repeat = known_id?(tx_id) ? 0 : (repeats[event_key(entry)] += 1) - 1
       if duplicate?(entry, tx_id)
         duplicates += 1
         next
@@ -347,7 +348,7 @@ class AccountTransactionSync
       # row a full second later stays a row of its own.
       return file_transfer_twin?(entry) if file_transfer?(entry)
 
-      return same_event?(entry, scope) || replaced_trade?(entry)
+      return same_event?(entry, scope) || replaced_trade?(entry) || legacy_token_swap?(entry)
     end
 
     # Only the STORED side is expanded to merged legs. A standalone leg arriving after its merged
@@ -379,6 +380,19 @@ class AccountTransactionSync
 
   def event_key(entry)
     [entry[:entry_type].to_s, entry[:base_currency], entry[:base_amount].to_d, entry[:transacted_at]]
+  end
+
+  def known_id?(tx_id)
+    tx_id.present? && (stored_merged_activity_ids.include?(tx_id) || scope.exists?(tx_id: tx_id))
+  end
+
+  # A file imported before "Token Swap - Distribution" was read as an airdrop stored it as other income.
+  LEGACY_TOKEN_SWAP = 'Token Swap - Distribution'.freeze
+
+  def legacy_token_swap?(entry)
+    return false unless entry[:entry_type].to_s == 'airdrop' && entry.dig(:raw_data, 'operation') == LEGACY_TOKEN_SWAP
+
+    same_event?(entry.merge(entry_type: :other_income), scope.where("json_extract(raw_data, '$.operation') = ?", LEGACY_TOKEN_SWAP))
   end
 
   def same_events(entry, rows)

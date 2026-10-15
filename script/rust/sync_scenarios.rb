@@ -848,7 +848,18 @@ module SyncScenarios
         steps: [P.binance_ledger(night, basic.merge(
           'deposits' => basic['deposits'] + Array.new(3) { |i| P.bn_deposit(10 + i, 'XRP', '30', t.(2026, 8, 14, 10), tx: nil) },
           'dividends' => [others['dividends'][0].merge('amount' => '10'), others['dividends'][0].merge('id' => 1_637_366_199, 'amount' => '10')]
-        ))] }
+        ))] },
+      # A deposit whose id a file row took (dated when credited), and its id-less twin stored too: the id'd entry is
+      # skipped on its id and does not use up the id-less entry's match.
+      { name: 'binance-ledger-known_id_repeat',
+        setup: lambda do |ctx|
+          P.binance(ctx)
+          P.stored(ctx, exchange: ctx[:binance], entry_type: 4, base_currency: 'XRP', base_amount: '30', tx_id: '0xd12', transacted_at: t.(2026, 8, 14, 10, 0, 46),
+                        raw_data: { 'operation' => 'Deposit' })
+          P.stored(ctx, exchange: ctx[:binance], entry_type: 4, base_currency: 'XRP', base_amount: '30', tx_id: nil, transacted_at: t.(2026, 8, 14, 10))
+        end,
+        steps: [P.binance_ledger(night, basic.merge('deposits' => basic['deposits'] + [P.bn_deposit(12, 'XRP', '30', t.(2026, 8, 14, 10)),
+                                                                                        P.bn_deposit(13, 'XRP', '30', t.(2026, 8, 14, 10), tx: nil)]))] }
     ]
   end
 

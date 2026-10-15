@@ -101,6 +101,17 @@ class Import::RunTest < ActiveSupport::TestCase
     assert_equal({ imported: 0, duplicates: 1 }, result.slice(:imported, :duplicates))
   end
 
+  # Before it was read as an airdrop, the same row was stored as other income. Re-importing adds nothing.
+  test 'a token swap distribution stored as other income by an older import is the same row' do
+    AccountTransaction.create!(user: @user, api_key: @key, exchange: @binance, entry_type: :other_income, base_currency: 'USDT',
+                               base_amount: '118.55207'.to_d, transacted_at: Time.utc(2024, 6, 26, 5, 26, 41),
+                               description: 'Token Swap - Distribution', raw_data: { 'operation' => 'Token Swap - Distribution' })
+
+    result = import([HEADER, '1,2024-06-26 08:26:41,Spot,Token Swap - Distribution,USDT,118.55207,'].join("\n"), offset: '+03:00')
+
+    assert_equal({ imported: 0, duplicates: 1 }, result.slice(:imported, :duplicates))
+  end
+
   # Why the zone is read from the file and never asked for: at the wrong offset nothing matches what
   # is already stored, so the same history lands a second time, hours out of place.
   test 'the same file at a different offset is a whole second history' do

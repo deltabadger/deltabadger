@@ -440,6 +440,19 @@ class AccountTransactionSyncTest < ActiveSupport::TestCase
     assert_equal 3, AccountTransaction.count
   end
 
+  # A deposit whose id is already on a file row dated when it was credited; the id-less copy of the same deposit is
+  # stored too. The id'd entry is skipped on its id, and must not use up the id-less one's match.
+  test 'a row skipped on its id is not one of the identical rows counted' do
+    at = Time.utc(2021, 7, 1, 11, 6, 41)
+    row = { entry_type: :deposit, base_currency: 'XRP', base_amount: '30'.to_d, transacted_at: at, raw_data: {} }
+    create(:account_transaction, api_key: @api_key, exchange: @exchange, **row, tx_id: 'dep-a', transacted_at: at + 46)
+    create(:account_transaction, api_key: @api_key, exchange: @exchange, **row, tx_id: nil)
+
+    counts = AccountTransactionSync.new(@api_key).store!([row.merge(tx_id: 'dep-a'), row.merge(tx_id: nil)])
+
+    assert_equal({ imported: 0, duplicates: 2 }, counts.slice(:imported, :duplicates))
+  end
+
   # The other way round: a file imported BEFORE the first sync stores its rows with no id, and the
   # API's copies then arrive with one. An id that matches nothing stored is not yet a new row — the
   # id-less row within a second of it, same type, coin and amount, is the same event.
