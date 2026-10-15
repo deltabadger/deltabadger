@@ -175,8 +175,10 @@ struct Countdown {
     prefix: Option<String>,
 }
 
-/// The progress bar's fill: only a scheduled bot has one.
+/// The progress bar's fill. A bot that is not scheduled keeps one at 0 width, without the min-width
+/// and the times, so the controller shrinks the bar it replaces.
 struct Fill {
+    scheduled: bool,
     width: String,
     start: Option<String>,
     end: Option<String>,
@@ -186,7 +188,7 @@ struct Fill {
 #[template(path = "bots/status/_progress_bar.html")]
 struct Progress {
     id: String,
-    fill: Option<Fill>,
+    fill: Fill,
 }
 
 #[derive(Template)]
@@ -303,10 +305,14 @@ pub fn render(c: &Connection, ctx: &Ctx, csrf: &str, bot: &Bot, market_data_conf
     };
     // _progress_bar.html.erb asks only whether the bot is scheduled, whatever the status bar says.
     let scheduled_timing = if bot.status == BotStatus::Scheduled { Some(timing()?) } else { None };
-    let fill = scheduled_timing.as_ref().map(|(start, end)| Fill {
-        width: progress_width(ctx.now, start.as_ref(), *end),
-        start: start.as_ref().and_then(|start| DateTime::from_timestamp_micros(start.floor_micros())).map(iso8601), end: end.map(iso8601),
-    });
+    let fill = match scheduled_timing.as_ref() {
+        Some((start, end)) => Fill {
+            scheduled: true,
+            width: progress_width(ctx.now, start.as_ref(), *end),
+            start: start.as_ref().and_then(|start| DateTime::from_timestamp_micros(start.floor_micros())).map(iso8601), end: end.map(iso8601),
+        },
+        None => Fill { scheduled: false, width: "0".into(), start: None, end: None },
+    };
     let (mut text, mut dots, mut countdown, mut connect) = (None, false, None, None);
     match bot.status {
         BotStatus::Archived => text = Some(t("bot.status.archived")),
