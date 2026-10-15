@@ -98,13 +98,13 @@ async fn a_paper_market_buy_is_found_by_client_order_id_and_fills() {
     assert!(v.price(&t, PriceSide::Last).await.unwrap().is_positive());
     assert!(v.balance("USD", true).await.unwrap().is_positive(), "the paper account has buying power");
     let cl = uuid::Uuid::new_v4().to_string();
-    assert_eq!(v.order_by_client_id(&cl, Utc::now()).await.unwrap(), None, "an unknown client order id is Alpaca's own not-found envelope");
+    assert_eq!(v.order_by_client_id(&cl, "BTC/USD", Utc::now()).await.unwrap(), None, "an unknown client order id is Alpaca's own not-found envelope");
     let (_, not_found) = log.borrow().iter().rev().find(|(r, _)| r.path == "/v2/orders:by_client_order_id").cloned().unwrap();
     assert_eq!(not_found.status, 404);
     assert!(deltabadger::venue::alpaca::alpaca_not_found(&not_found.body), "the real envelope must match the matcher: {}", not_found.body);
     let order = NewOrder { pair: "BTC/USD".into(), kind: OrderKind::Market, volume: "10.00".into(), quote_volume: true, cl_ord_id: cl.clone(), deadline: Utc::now(), day: false, };
     let id = v.add_order(&order).await.unwrap();
-    let found = v.order_by_client_id(&cl, Utc::now()).await.unwrap().expect("found by client_order_id");
+    let found = v.order_by_client_id(&cl, "BTC/USD", Utc::now()).await.unwrap().expect("found by client_order_id");
     assert_eq!(found.txid, id);
     // The engine's follow-up poll reads GET /v2/orders/{id} (Venue::orders): always ask it at least once, so its body is
     // recorded even when the client-order-id lookup already saw the fill.

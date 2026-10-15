@@ -214,7 +214,7 @@ impl deltabadger::venue::Venue for NoMissing {
     async fn price(&self, t: &model::Ticker, s: deltabadger::venue::PriceSide) -> Result<deltabadger::ruby::BigDec, deltabadger::venue::VenueError> { self.0.price(t, s).await }
     async fn add_order(&self, o: &deltabadger::venue::NewOrder) -> Result<String, deltabadger::venue::VenueError> { self.0.add_order(o).await }
     async fn orders(&self, ids: &[String]) -> Result<Vec<deltabadger::venue::OrderState>, deltabadger::venue::VenueError> { self.0.orders(ids).await }
-    async fn order_by_client_id(&self, id: &str, since: DateTime<Utc>) -> Result<Option<deltabadger::venue::OrderState>, deltabadger::venue::VenueError> { self.0.order_by_client_id(id, since).await }
+    async fn order_by_client_id(&self, id: &str, symbol: &str, since: DateTime<Utc>) -> Result<Option<deltabadger::venue::OrderState>, deltabadger::venue::VenueError> { self.0.order_by_client_id(id, symbol, since).await }
     async fn fills_from_trades(&self, ids: &[String], since: DateTime<Utc>) -> Result<Vec<deltabadger::venue::OrderState>, deltabadger::venue::VenueError> { self.0.fills_from_trades(ids, since).await }
     async fn balance(&self, s: &str, c: bool) -> Result<deltabadger::ruby::BigDec, deltabadger::venue::VenueError> { self.0.balance(s, c).await }
 }

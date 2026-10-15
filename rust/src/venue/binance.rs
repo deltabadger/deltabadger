@@ -100,10 +100,15 @@ impl Pairs {
 }
 
 #[derive(Clone)]
-pub struct BinanceVenue<T: Transport> { transport: T, base: String, secret: String, pairs: Pairs }
+pub struct BinanceVenue<T: Transport> { transport: T, base: String, secret: String, pairs: Pairs, identity: Option<serde_json::Value> }
 
 impl<T: Transport> BinanceVenue<T> {
-    pub fn new(transport: T, base: &str, secret: &str) -> Self { Self { transport, base: base.into(), secret: secret.into(), pairs: Pairs::default() } }
+    pub fn new(transport: T, base: &str, secret: &str) -> Self { Self { transport, base: base.into(), secret: secret.into(), pairs: Pairs::default(), identity: None } }
+    /// The key this venue sends with (`venue::key_identity`), recorded in each intent and compared before a recovery asks.
+    pub fn with_identity(mut self, credentials: &crate::crypto::Credentials) -> Self { self.identity = Some(super::key_identity(&self.base, credentials)); self }
+    /// Another host: local test servers and the ignored testnet recorder only.
+    #[doc(hidden)]
+    pub fn with_base(mut self, base: &str) -> Self { self.base = base.into(); self }
     /// The exchange's tickers (`Pairs::load`), which the trading methods read.
     pub fn with_pairs(mut self, pairs: Pairs) -> Self { self.pairs = pairs; self }
 
@@ -355,6 +360,7 @@ fn required(v: &serde_json::Value) -> Result<BigDec, super::VenueError> {
 
 impl<T: Transport> super::Venue for BinanceVenue<T> {
     fn rules(&self) -> &'static VenueRules { &RULES }
+    fn placement_identity(&self) -> Option<serde_json::Value> { self.identity.clone() }
 
     /// Exchanges::Binance#get_ask_price through #get_bid_ask_price (bookTicker: all four of bidPrice, bidQty, askPrice and
     /// askQty are dug for), and #get_last_price (ticker/price). A failure is #parse_error_message's text; a zero price raises
@@ -453,7 +459,26 @@ impl<T: Transport> super::Venue for BinanceVenue<T> {
         let order = self.parse_order(txid, &body)?;
         Ok((vec![self.settle(order, txid).await?], vec![]))
     }
-    async fn order_by_client_id(&self, _id: &str, _since: DateTime<Utc>) -> Result<Option<OrderState>, super::VenueError> { Err(super::VenueError::Ambiguous(ABSENCE_UNPROVEN.into())) }
+    /// GET /api/v3/order by the intent's symbol and origClientOrderId (spec E §2.6), read with the read recvWindow. A found
+    /// order is the intent's only when the answer names that symbol and that client order id; it is then read as #get_order
+    /// reads one (its fill rebuilt from its trades). Any other answer, -2013 "Order does not exist." included, is incomplete:
+    /// that answer for an absent order is not yet confirmed by a recorded live answer (ABSENCE_UNPROVEN).
+    async fn order_by_client_id(&self, cl_ord_id: &str, symbol: &str, _since: DateTime<Utc>) -> Result<Option<OrderState>, super::VenueError> {
+        let r = self.signed_now("GET", "/api/v3/order", vec![("symbol", symbol.to_string()), ("origClientOrderId", cl_ord_id.to_string()),
+                                                          ("recvWindow", READ_RECV_WINDOW.into())]);
+        let body = match self.call(&r, false).await {
+            Ok(body) => body,
+            Err(super::VenueError::Rejected(e)) if e.iter().any(|m| m == "Order does not exist.") => return Err(super::VenueError::Ambiguous(ABSENCE_UNPROVEN.into())),
+            Err(e) => return Err(e),
+        };
+        let ext = match &body["orderId"] { serde_json::Value::Number(n) if n.is_i64() || n.is_u64() => n.to_string(), _ => return Err(unreadable()) };
+        if body["symbol"].as_str() != Some(symbol) || body["clientOrderId"].as_str() != Some(cl_ord_id) {
+            return Err(super::VenueError::Rejected(vec![format!("Binance answered for client order id {cl_ord_id} on {symbol} with another order")]));
+        }
+        let id = format!("{symbol}-{ext}");
+        let order = self.parse_order(&id, &body)?;
+        self.settle(order, &id).await.map(Some)
+    }
     /// Rails' trade fallback is inside #get_orders (the fill rebuild); a missing order is never looked up in trades.
     async fn fills_from_trades(&self, _txids: &[String], _since: DateTime<Utc>) -> Result<Vec<OrderState>, super::VenueError> { Ok(vec![]) }
 

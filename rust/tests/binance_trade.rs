@@ -308,3 +308,69 @@ async fn the_follow_up_asks_get_order_by_symbol_and_order_id() {
     let Err(VenueError::Rejected(e)) = v.order_identified("BTCUSDT-1", |_, _, _| Ok(true)).await else { panic!() };
     assert!(deltabadger::engine::venue_rules::BINANCE.is_throttle(&e), "a 418 on a read waits as a throttle: {e:?}");
 }
+
+// ---- recovery by client order id, and the factory
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_lookup_by_client_id_names_the_intents_symbol_and_only_its_own_answer_counts() {
+    use deltabadger::venue::binance::ABSENCE_UNPROVEN;
+    let since = "2026-09-01T09:00:00Z".parse().unwrap();
+    let mut found = raw_order(28457, "FILLED", "MARKET", "0.00100000", "64.00000000");
+    found["clientOrderId"] = json!(CL);
+    let (t, v) = venue(json!({ "GET /api/v3/order": ok(found.clone()), "GET /api/v3/myTrades": ok(json!([trade(1, 28457, "64000.00", "0.001", "0.064", "USDT")])) }));
+    let got = v.order_by_client_id(CL, "BTCUSDT", since).await.unwrap().unwrap();
+    assert_eq!((got.txid.as_str(), got.quote_amount_exec.clone()), ("BTCUSDT-28457", Some(bd("64.064"))), "read as #get_order reads it");
+    assert_eq!(sent(&t.requests()[0]), pairs_of(&[("origClientOrderId", CL), ("recvWindow", "60000"), ("symbol", "BTCUSDT")]));
+    for (body, why) in [(json!({ "symbol": "ETHUSDT", "clientOrderId": CL }), "another symbol"), (json!({ "symbol": "BTCUSDT", "clientOrderId": "other" }), "another client id")] {
+        let mut other = found.clone();
+        for (k, val) in body.as_object().unwrap() { other[k] = val.clone(); }
+        let (_, v) = venue(json!({ "GET /api/v3/order": ok(other) }));
+        assert!(matches!(v.order_by_client_id(CL, "BTCUSDT", since).await, Err(VenueError::Rejected(_))), "{why}: an incomplete answer");
+    }
+    let (_, v) = venue(json!({ "GET /api/v3/order": fail(400, json!({ "code": -2013, "msg": "Order does not exist." })) }));
+    assert_eq!(v.order_by_client_id(CL, "BTCUSDT", since).await, Err(VenueError::Ambiguous(ABSENCE_UNPROVEN.into())), "absence is not proven yet");
+    let (_, v) = venue(json!({ "GET /api/v3/order": [{ "network": "post_send", "message": "read timeout" }] }));
+    assert!(v.order_by_client_id(CL, "BTCUSDT", since).await.is_err());
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn the_factory_builds_binance_through_its_proxy_with_the_exchanges_tickers_per_build() {
+    use deltabadger::venue::live::LiveVenue;
+    use deltabadger::venue::{alpaca::LiveFactory, VenueFactory};
+    use wiremock::{matchers::method, Mock, MockServer, ResponseTemplate};
+    let book = r#"{"symbol":"BTCUSDT","bidPrice":"1","bidQty":"1","askPrice":"3","askQty":"1"}"#;
+    let (a, b, direct) = (MockServer::start().await, MockServer::start().await, MockServer::start().await);
+    for server in [&a, &b] { Mock::given(method("GET")).respond_with(ResponseTemplate::new(200).set_body_string(book)).expect(1).mount(server).await; }
+    Mock::given(method("GET")).respond_with(ResponseTemplate::new(200).set_body_string(book)).expect(0).mount(&direct).await;
+    let dir = tempfile::tempdir().unwrap();
+    let c = rusqlite::Connection::open(dir.path().join("primary.sqlite3")).unwrap();
+    c.execute_batch("CREATE TABLE app_configs (id INTEGER PRIMARY KEY AUTOINCREMENT, key TEXT NOT NULL, value TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+        CREATE TABLE exchanges (id INTEGER PRIMARY KEY, type TEXT);
+        CREATE TABLE assets (id INTEGER PRIMARY KEY, symbol TEXT);
+        CREATE TABLE tickers (id INTEGER PRIMARY KEY, exchange_id INTEGER, ticker TEXT, base TEXT, quote TEXT, price_decimals INTEGER, available BOOLEAN, base_asset_id INTEGER, quote_asset_id INTEGER);
+        INSERT INTO exchanges VALUES (7, 'Exchanges::Binance');").unwrap();
+    let cipher = deltabadger::crypto::Cipher::new(&deltabadger::crypto::EncryptionKeys::resolve(&|_| None, "engine-test-secret").unwrap());
+    let factory = LiveFactory::for_install(&c, &cipher);
+    // Realistic key material: the transport scrubs every credential value out of each answer it reads.
+    let creds = Some(deltabadger::crypto::Credentials { redaction_values: vec![], key: "vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A".into(),
+                                                        secret: "NhqPtmdSJYdKjVHjA7PZj4Mge3R5YNiP1e3UZjInClVN65XAbvqqM6A7H5fATj0j".into(), passphrase: None });
+    let now = chrono::Utc::now();
+    for proxy in [&a, &b] {
+        deltabadger::app_config::set(&c, &cipher, "proxy_binance", &proxy.uri(), now).unwrap();
+        let LiveVenue::Binance(v) = factory.for_bot("Exchanges::Binance", creds.clone()) else { panic!("a Binance bot gets the Binance venue") };
+        assert!(std::ptr::eq(v.rules(), &deltabadger::engine::venue_rules::BINANCE));
+        assert_eq!(v.placement_identity().unwrap()["host"], "https://api.binance.com");
+        // The proxy set at this build carries the request; the host itself is never reached directly.
+        assert_eq!(v.with_base(&direct.uri()).price(&btc_usdt(), PriceSide::Ask).await, Ok(bd("3")), "the proxy read at this build");
+    }
+    for server in [&a, &b, &direct] { server.verify().await; }
+    // No install to read proxy_binance from: refused, never direct.
+    let LiveVenue::Binance(v) = LiveFactory::new().for_bot("Exchanges::Binance", creds) else { panic!() };
+    match v.price(&btc_usdt(), PriceSide::Ask).await { Err(VenueError::Transient(m)) => assert!(m.contains("proxy"), "{m}"), other => panic!("{other:?}") }
+}
+
+#[test]
+fn the_binance_log_line_is_labelled_binance() {
+    let t = http::ReqwestTransport::binance(http::client(), "KEY".into(), "SECRET".into());
+    assert_eq!(t.failure_line(&http::HttpResponse { status: 400, body: r#"{"code":-2010,"msg":"x"}"#.into() }), "[Binance] HTTP 400; venue response diagnostic omitted");
+}

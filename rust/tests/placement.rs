@@ -269,7 +269,7 @@ impl deltabadger::venue::Venue for StopDuringDispatch {
         self.inner.add_order(o).await
     }
     async fn orders(&self, ids: &[String]) -> Result<Vec<deltabadger::venue::OrderState>,deltabadger::venue::VenueError> { self.inner.orders(ids).await }
-    async fn order_by_client_id(&self, id: &str, since: DateTime<Utc>) -> Result<Option<deltabadger::venue::OrderState>,deltabadger::venue::VenueError> { self.inner.order_by_client_id(id,since).await }
+    async fn order_by_client_id(&self, id: &str, symbol: &str, since: DateTime<Utc>) -> Result<Option<deltabadger::venue::OrderState>,deltabadger::venue::VenueError> { self.inner.order_by_client_id(id,symbol,since).await }
     async fn fills_from_trades(&self, ids: &[String], since: DateTime<Utc>) -> Result<Vec<deltabadger::venue::OrderState>,deltabadger::venue::VenueError> { self.inner.fills_from_trades(ids,since).await }
     async fn balance(&self, asset: &str, crypto: bool) -> Result<BigDec,deltabadger::venue::VenueError> { self.inner.balance(asset,crypto).await }
 }
@@ -400,4 +400,50 @@ async fn a_binance_minus_1021_writes_no_row_clears_the_intent_and_a_plain_refusa
         assert!(reload(&o, &bot).rust_placement().is_none(), "{msg}: a definitive answer clears the intent");
         assert_eq!(t.requests().len(), 1, "sent once");
     }
+}
+
+fn binance_setup() -> (tempfile::TempDir, store::Opened, model::Bot, amount::OrderPlan) {
+    let (d, o, bot, _) = setup();
+    o.primary.execute_batch("UPDATE exchanges SET type = 'Exchanges::Binance', name = 'Binance'; UPDATE tickers SET ticker = 'BTCEUR', base = 'BTC'").unwrap();
+    let ticker = model::ticker_for(&o.primary, &bot).unwrap().unwrap();
+    let Sizing::Place(plan) = amount::size(&bot, &ticker, &BigDec::from_i64(60), &BigDec::from_i64(50_000), deltabadger::engine::venue_rules::BINANCE.minimum_logic).unwrap() else { panic!() };
+    (d, o, bot, plan)
+}
+fn binance(t: &deltabadger::venue::http::ScriptedTransport, key: &str) -> deltabadger::venue::binance::BinanceVenue<deltabadger::venue::http::ScriptedTransport> {
+    let creds = deltabadger::crypto::Credentials { key: key.into(), secret: "s".into(), passphrase: None, redaction_values: vec![] };
+    deltabadger::venue::binance::BinanceVenue::new(t.clone(), "https://api.binance.com", "s").with_identity(&creds)
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn recovery_asks_only_under_the_key_and_host_the_order_was_sent_with_and_for_the_symbol_it_was_sent_for() {
+    use deltabadger::venue::http::ScriptedTransport;
+    let (_d, o, bot, plan) = binance_setup();
+    let lost = ScriptedTransport::default();
+    lost.network("POST /api/v3/order", "post_send", "read timeout");
+    // As the tick merges the sending venue's identity into the intent (begin_with_credentials).
+    let intent = placement::begin(&o.primary, &bot, &plan, &FixedClock(t0())).unwrap();
+    let id = deltabadger::venue::Venue::placement_identity(&binance(&lost, "KEY-A")).unwrap();
+    o.primary.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.rust_placement.host', ?1, '$.rust_placement.key_fingerprint', ?2) WHERE id = ?3",
+                      rusqlite::params![id["host"].as_str(), id["key_fingerprint"].as_str(), bot.id]).unwrap();
+    let raw = reload(&o, &bot).rust_placement().unwrap();
+    assert_eq!((raw["symbol"].as_str(), raw["host"].as_str()), (Some("BTCEUR"), Some("https://api.binance.com")), "{raw}");
+    assert!(matches!(placement::send_recorded(&o.primary, &binance(&lost, "KEY-A"), &bot, &intent, &FixedClock(t0())).await.unwrap(), Sent::Ambiguous(_)));
+    // The pair is renamed after the send: recovery still asks for the symbol the order was sent for.
+    o.primary.execute("UPDATE tickers SET ticker = 'RENAMEDEUR'", []).unwrap();
+    let later = FixedClock(t0() + Duration::hours(1));
+    let replaced = ScriptedTransport::default();
+    assert!(matches!(placement::recover(&o.primary, &binance(&replaced, "KEY-B"), &reload(&o, &bot), &later).await.unwrap(), Recovery::Pending));
+    assert!(replaced.requests().is_empty(), "another key's account is never asked");
+    let elsewhere = ScriptedTransport::default();
+    let other_host = deltabadger::venue::binance::BinanceVenue::new(elsewhere.clone(), "https://api.binance.us", "s")
+        .with_identity(&deltabadger::crypto::Credentials { key: "KEY-A".into(), secret: "s".into(), passphrase: None, redaction_values: vec![] });
+    assert!(matches!(placement::recover(&o.primary, &other_host, &reload(&o, &bot), &later).await.unwrap(), Recovery::Pending));
+    assert!(elsewhere.requests().is_empty(), "another host is never asked");
+    let same = ScriptedTransport::default();
+    same.reply("GET /api/v3/order", 400, json!({ "code": -2013, "msg": "Order does not exist." }));
+    assert!(matches!(placement::recover(&o.primary, &binance(&same, "KEY-A"), &reload(&o, &bot), &later).await.unwrap(), Recovery::Pending),
+            "-2013 does not prove absence until a recorded answer confirms it");
+    let asked = &same.requests()[0];
+    assert!(asked.query.iter().any(|(k, v)| *k == "symbol" && v == "BTCEUR") && asked.query.iter().any(|(k, v)| *k == "origClientOrderId" && *v == intent.cl_ord_id), "{asked:?}");
+    assert!(reload(&o, &bot).rust_placement().is_some(), "the intent stays");
 }

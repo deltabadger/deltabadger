@@ -47,16 +47,16 @@ async fn accepted_and_lost_replies_are_on_the_book_and_found_by_client_id() {
     let v = FakeVenue::new().next_add(AddOutcome::Accept("OTX-1".into())).next_add(AddOutcome::AmbiguousPlaced("OTX-9".into()));
     assert_eq!(v.add_order(&order("c-1")).await, Ok("OTX-1".into()));
     assert!(matches!(v.add_order(&order("c-9")).await, Err(VenueError::Ambiguous(_))));
-    assert_eq!(v.order_by_client_id("c-9", at()).await.unwrap().unwrap().txid, "OTX-9");
-    assert_eq!(v.order_by_client_id("c-nope", at()).await.unwrap(), None);
+    assert_eq!(v.order_by_client_id("c-9", "XBTEUR", at()).await.unwrap().unwrap().txid, "OTX-9");
+    assert_eq!(v.order_by_client_id("c-nope", "XBTEUR", at()).await.unwrap(), None);
     assert_eq!(v.sent().len(), 2);
 }
 
 #[tokio::test(flavor = "current_thread")]
 async fn a_failed_lookup_is_an_error_never_a_partial_answer() {
     let v = FakeVenue::new().lookup_fails(1);
-    assert!(v.order_by_client_id("c-1", at()).await.is_err());
-    assert_eq!(v.order_by_client_id("c-1", at()).await.unwrap(), None);
+    assert!(v.order_by_client_id("c-1", "XBTEUR", at()).await.is_err());
+    assert_eq!(v.order_by_client_id("c-1", "XBTEUR", at()).await.unwrap(), None);
 }
 
 #[tokio::test(flavor = "current_thread")]
@@ -109,7 +109,7 @@ async fn the_client_id_lookup_never_goes_through_query_orders() {
     let h = hits.clone();
     let v = FakeVenue::from_script(&json!({ "http": { "/0/private/QueryOrders": [{ "error": [], "result": {} }] } })).on_query(move || h.set(h.get() + 1));
     v.add_order(&order("c-1")).await.unwrap();
-    assert!(v.order_by_client_id("c-1", at()).await.unwrap().is_some());
+    assert!(v.order_by_client_id("c-1", "XBTEUR", at()).await.unwrap().is_some());
     assert_eq!((v.calls("/0/private/QueryOrders"), hits.get()), (0, 0));
 }
 
@@ -120,16 +120,16 @@ async fn the_lookup_finds_an_order_in_a_scripted_closed_orders_body() {
     let v = FakeVenue::from_script(&json!({ "http": {
         "/0/private/OpenOrders": [{ "error": [], "result": { "open": {} } }],
         "/0/private/ClosedOrders": [{ "error": [], "result": { "closed": { "OTX-7": closed }, "count": 1 } }] } }));
-    let o = v.order_by_client_id("c-7", at()).await.unwrap().unwrap();
+    let o = v.order_by_client_id("c-7", "XBTEUR", at()).await.unwrap().unwrap();
     assert_eq!((o.txid.as_str(), o.status), ("OTX-7", OrderStatus::Closed));
-    assert_eq!(v.order_by_client_id("c-8", at()).await.unwrap(), None);
+    assert_eq!(v.order_by_client_id("c-8", "XBTEUR", at()).await.unwrap(), None);
 }
 
 #[tokio::test(flavor = "current_thread")]
 async fn a_registered_filled_order_is_reported_closed_and_a_duplicate_client_id_is_refused() {
     let v = FakeVenue::new().next_add(AddOutcome::AmbiguousPlaced("OTX-3".into())).order("OTX-3", raw("closed", "market"));
     assert!(v.add_order(&order("c-3")).await.is_err());
-    assert_eq!(v.order_by_client_id("c-3", at()).await.unwrap().unwrap().status, OrderStatus::Closed);
+    assert_eq!(v.order_by_client_id("c-3", "XBTEUR", at()).await.unwrap().unwrap().status, OrderStatus::Closed);
     assert_eq!(v.add_order(&order("c-3")).await, Err(VenueError::Rejected(vec!["EOrder:Duplicate order".into()])));
     assert_eq!(v.sent().len(), 1, "the duplicate was not booked or sent");
 }

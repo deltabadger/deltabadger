@@ -204,7 +204,7 @@ impl ReqwestTransport {
     pub fn failure_line(&self, response: &HttpResponse) -> String {
         let diagnostic = |status: Option<u16>, body: &str| {
             let line = diagnostic(status, body);
-            if self.wire == Wire::Kraken { line.replacen("[Alpaca]", "[Kraken]", 1) } else { line }
+            match self.wire { Wire::Kraken => line.replacen("[Alpaca]", "[Kraken]", 1), Wire::Binance => line.replacen("[Alpaca]", "[Binance]", 1), Wire::Alpaca => line }
         };
         self.redact_diagnostic(&diagnostic(Some(response.status),&response.body))
     }

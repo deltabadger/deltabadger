@@ -167,5 +167,5 @@ pub static BINANCE: VenueRules = VenueRules {
 };
 
 pub fn for_exchange(exchange_type: &str) -> Option<&'static VenueRules> {
-    [&KRAKEN, &ALPACA].into_iter().find(|r| r.exchange_type == exchange_type)
+    [&KRAKEN, &ALPACA, &BINANCE].into_iter().find(|r| r.exchange_type == exchange_type)
 }

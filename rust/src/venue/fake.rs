@@ -147,7 +147,7 @@ impl Venue for FakeVenue {
     }
 
     /// `since` is unused: the fake's scripted bodies and book are not time-windowed. Never touches QueryOrders.
-    async fn order_by_client_id(&self, cl_ord_id: &str, _since: DateTime<Utc>) -> Result<Option<OrderState>, VenueError> {
+    async fn order_by_client_id(&self, cl_ord_id: &str, _symbol: &str, _since: DateTime<Utc>) -> Result<Option<OrderState>, VenueError> {
         self.wait().await;
         let hook = self.s.borrow().on_lookup.clone();
         if let Some(f) = hook { f(); }

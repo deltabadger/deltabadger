@@ -15,6 +15,13 @@ use crate::engine::venue_rules::VenueRules;
 use crate::ruby::BigDec;
 use chrono::{DateTime, Utc};
 
+/// What an intent records of the key a Kraken or Binance order is sent under (Alpaca's is `alpaca::placement_identity`):
+/// the host and a fingerprint of the public key id. Never the secret.
+pub fn key_identity(host: &str, credentials: &Credentials) -> serde_json::Value {
+    use sha2::{Digest, Sha256};
+    serde_json::json!({ "host": host, "key_fingerprint": hex::encode(Sha256::digest(credentials.key.as_bytes())) })
+}
+
 /// Which price a buy needs (Bot::OrderSetter#reference_price): the ask for a market buy, the last trade for a limit.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum PriceSide { Ask, Last }
@@ -88,7 +95,7 @@ impl<V:Venue> Venue for &V {
     async fn orders(&self,ids:&[String])->Result<Vec<OrderState>,VenueError>{(*self).orders(ids).await}
     async fn orders_identified<F>(&self,ids:&[String],identify:F)->Result<(Vec<OrderState>,Vec<String>),VenueError> where F:FnMut(&str,Option<&str>,Option<&str>)->Result<bool,VenueError>{(*self).orders_identified(ids,identify).await}
     async fn order_identified<F>(&self,id:&str,identify:F)->Result<(Vec<OrderState>,Vec<String>),VenueError> where F:FnMut(&str,Option<&str>,Option<&str>)->Result<bool,VenueError>{(*self).order_identified(id,identify).await}
-    async fn order_by_client_id(&self,id:&str,since:DateTime<Utc>)->Result<Option<OrderState>,VenueError>{(*self).order_by_client_id(id,since).await}
+    async fn order_by_client_id(&self,id:&str,symbol:&str,since:DateTime<Utc>)->Result<Option<OrderState>,VenueError>{(*self).order_by_client_id(id,symbol,since).await}
     async fn fills_from_trades(&self,ids:&[String],since:DateTime<Utc>)->Result<Vec<OrderState>,VenueError>{(*self).fills_from_trades(ids,since).await}
     async fn balance(&self,symbol:&str,crypto:bool)->Result<BigDec,VenueError>{(*self).balance(symbol,crypto).await}
 }
@@ -103,7 +110,7 @@ impl<V:Venue> Venue for Handle<V> {
     async fn orders(&self,ids:&[String])->Result<Vec<OrderState>,VenueError>{self.venue.orders(ids).await}
     async fn orders_identified<F>(&self,ids:&[String],identify:F)->Result<(Vec<OrderState>,Vec<String>),VenueError> where F:FnMut(&str,Option<&str>,Option<&str>)->Result<bool,VenueError>{self.venue.orders_identified(ids,identify).await}
     async fn order_identified<F>(&self,id:&str,identify:F)->Result<(Vec<OrderState>,Vec<String>),VenueError> where F:FnMut(&str,Option<&str>,Option<&str>)->Result<bool,VenueError>{self.venue.order_identified(id,identify).await}
-    async fn order_by_client_id(&self,id:&str,since:DateTime<Utc>)->Result<Option<OrderState>,VenueError>{self.venue.order_by_client_id(id,since).await}
+    async fn order_by_client_id(&self,id:&str,symbol:&str,since:DateTime<Utc>)->Result<Option<OrderState>,VenueError>{self.venue.order_by_client_id(id,symbol,since).await}
     async fn fills_from_trades(&self,ids:&[String],since:DateTime<Utc>)->Result<Vec<OrderState>,VenueError>{self.venue.fills_from_trades(ids,since).await}
     async fn balance(&self,symbol:&str,crypto:bool)->Result<BigDec,VenueError>{self.venue.balance(symbol,crypto).await}
 }
@@ -118,13 +125,14 @@ pub trait Attributed:Venue + sealed::Sealed {
     async fn order_result<F>(&self,id:&str,identify:F)->crate::engine::model::Produced<Result<(Vec<OrderState>,Vec<String>),VenueError>> where F:FnMut(&str,Option<&str>,Option<&str>)->Result<bool,VenueError>{let origin=self.producer();let value=self.order_identified(id,identify).await;crate::engine::model::Produced::new(value,origin)}
     async fn fills_result(&self,ids:&[String],since:DateTime<Utc>)->crate::engine::model::Produced<Result<Vec<OrderState>,VenueError>>{let origin=self.producer();let value=self.fills_from_trades(ids,since).await;crate::engine::model::Produced::new(value,origin)}
     async fn placement_result(&self,o:&NewOrder)->crate::engine::model::Produced<Result<String,VenueError>>{let origin=self.producer();let value=self.add_order(o).await;crate::engine::model::Produced::new(value,origin)}
-    async fn recovery_result(&self,id:&str,since:DateTime<Utc>)->crate::engine::model::Produced<Result<Option<OrderState>,VenueError>>{let origin=self.producer();let value=self.order_by_client_id(id,since).await;crate::engine::model::Produced::new(value,origin)}
+    async fn recovery_result(&self,id:&str,symbol:&str,since:DateTime<Utc>)->crate::engine::model::Produced<Result<Option<OrderState>,VenueError>>{let origin=self.producer();let value=self.order_by_client_id(id,symbol,since).await;crate::engine::model::Produced::new(value,origin)}
 }
 impl<V:Venue> Attributed for Handle<V> {}
 pub trait Venue {
     fn producer(&self)->Option<crate::engine::model::CredentialVersion>{None}
-    /// The key an order is sent under, as an intent records it and recovery compares it (`alpaca::placement_identity`):
-    /// an object of fields merged into the intent. None where a venue has nothing to tell (Kraken, a scripted venue).
+    /// The key an order is sent under, as an intent records it and recovery compares it (`alpaca::placement_identity`,
+    /// `key_identity`): an object of fields merged into the intent. None where a venue has nothing to tell (no key, a
+    /// scripted venue).
     fn placement_identity(&self)->Option<serde_json::Value>{None}
     async fn positions(&self) -> Result<std::collections::HashMap<String, BigDec>, VenueError> { Err(VenueError::Rejected(vec!["positions unavailable".into()])) }
 
@@ -152,8 +160,9 @@ pub trait Venue {
     where F: FnMut(&str, Option<&str>, Option<&str>) -> Result<bool, VenueError> {
         self.orders_identified(&[txid.to_string()], identify).await
     }
-    /// The order with this client order id, if the venue holds one. `Err` unless the answer is complete.
-    async fn order_by_client_id(&self, cl_ord_id: &str, since: DateTime<Utc>) -> Result<Option<OrderState>, VenueError>;
+    /// The order with this client order id, if the venue holds one. `Err` unless the answer is complete. `symbol` is the pair
+    /// the intent was sent for (Binance looks an order up per symbol; Kraken and Alpaca ignore it), never the bot's current one.
+    async fn order_by_client_id(&self, cl_ord_id: &str, symbol: &str, since: DateTime<Utc>) -> Result<Option<OrderState>, VenueError>;
     /// Fills recovered from trade history (Kraken TradesHistory). Alpaca has none: Rails has no trade fallback there.
     async fn fills_from_trades(&self, txids: &[String], since: DateTime<Utc>) -> Result<Vec<OrderState>, VenueError>;
     /// What Bot::Fundable compares with its buffer (Kraken: balance − hold_trade; Alpaca: #spendable_balance).

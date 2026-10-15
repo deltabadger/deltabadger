@@ -82,10 +82,11 @@ fn bot_reasons_with(c: &Connection, bot: &Bot, splits: &mut SplitRows) -> Result
     let index = bot.bot_type == "Bots::DcaIndex";
     if !index && bot.bot_type != "Bots::DcaMultiAsset" { r.push(format!("type {} (only DCA baskets and index bots)", bot.bot_type)); }
     let exchange: Option<String> = c.query_row("SELECT type FROM exchanges WHERE id = ?1", [bot.exchange_id], |r| r.get(0)).optional()?;
-    if !matches!(exchange.as_deref(), Some("Exchanges::Kraken" | "Exchanges::Alpaca")) {
-        r.push(format!("exchange {} (only Kraken and Alpaca)", exchange.as_deref().unwrap_or_default()));
+    if !matches!(exchange.as_deref(), Some("Exchanges::Kraken" | "Exchanges::Alpaca" | "Exchanges::Binance")) {
+        r.push(format!("exchange {} (only Kraken, Binance and Alpaca)", exchange.as_deref().unwrap_or_default()));
     }
-    let kraken = exchange.as_deref() == Some("Exchanges::Kraken");
+    // Kraken and Binance (spec E2, owner question 4): one-asset bots without an amount limit.
+    let kraken = match exchange.as_deref() { Some("Exchanges::Kraken") => Some("Kraken"), Some("Exchanges::Binance") => Some("Binance"), _ => None };
     let alpaca = exchange.as_deref() == Some("Exchanges::Alpaca");
     let members = if index { index_reasons(c, bot, alpaca, &mut r)? } else { composition_reasons(bot, kraken, &mut r) };
     match bot.settings.get("direction") { None | Some(Value::Null) => {}, Some(v) if v == "buying" => {}, Some(d) => r.push(format!("direction {d}")) }
@@ -107,7 +108,7 @@ fn bot_reasons_with(c: &Connection, bot: &Bot, splits: &mut SplitRows) -> Result
     let wash: Option<Option<bool>> = c.query_row("SELECT wash_sale_enabled FROM users WHERE id = ?1", [bot.user_id], |r| r.get(0)).optional()?;
     match wash { None => r.push("user not found".into()), Some(Some(true)) => r.push("wash_sale enabled for the user".into()), _ => {} }
     if bot.quote_amount_limited() {
-        if kraken { r.push("quote_amount_limited (Kraken: amount limits are not supported by this engine yet)".into()); }
+        if let Some(venue) = kraken { r.push(format!("quote_amount_limited ({venue}: amount limits are not supported by this engine yet)")); }
         if let Err(e) = bot.quote_amount_limit() { r.push(e); }
         if let Err(e) = bot.quote_amount_limit_enabled_at_us() { r.push(e); }
     }
@@ -173,7 +174,7 @@ fn start_time_reason(c: &Connection, bot: &Bot) -> Result<Option<String>, Engine
 
 /// settings.allocations: what Rails would start, within what this build ports (manual weights, 1..MAX_ASSETS members;
 /// Kraken keeps one member). Returns the member asset ids in settings order.
-fn composition_reasons(bot: &Bot, kraken: bool, r: &mut Vec<String>) -> Vec<i64> {
+fn composition_reasons(bot: &Bot, kraken: Option<&str>, r: &mut Vec<String>) -> Vec<i64> {
     if bot.weighting() != "manual" { r.push(format!("weighting {} (market-cap weights are not supported by this engine yet)", bot.weighting())); }
     let Some(a) = bot.allocations() else {
         r.push("allocations: an asset id or a weight this build does not read".into());
@@ -181,7 +182,7 @@ fn composition_reasons(bot: &Bot, kraken: bool, r: &mut Vec<String>) -> Vec<i64>
     };
     if a.is_empty() { r.push("allocations: none".into()); }
     if a.len() > MAX_ASSETS { r.push(format!("allocations: {} assets (at most {MAX_ASSETS})", a.len())); }
-    if kraken && a.len() > 1 { r.push(format!("allocations: {} assets (Kraken: only one-asset bots are supported by this engine yet)", a.len())); }
+    if let Some(venue) = kraken.filter(|_| a.len() > 1) { r.push(format!("allocations: {} assets ({venue}: only one-asset bots are supported by this engine yet)", a.len())); }
     // Bots::DcaMultiAsset::Allocatable#allocations_balanced?. The tolerance dwarfs the difference between this plain sum and
     // Ruby's compensated one.
     let total: f64 = a.iter().map(|(_, w)| w).sum();
