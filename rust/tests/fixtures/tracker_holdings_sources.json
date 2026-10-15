@@ -7,7 +7,7 @@
   "app/models/utilities/currency.rb": "a06a70e56d0272520976995eb6357473b8f0e6ca4f1e596525626db78caf0e74",
   "app/models/portfolio_snapshot.rb": "b13f74f516f4f787ab22e469ed20803f681edbd049139a2a38db81f2ff249ac0",
   "app/models/api_key.rb": "e7f1435042602815925d093baa51160be9236c600b2f8aebdcf0517f5119ef91",
-  "app/helpers/tracker_helper.rb": "0e918379e98824fc25bcc10b6ca9af30552455e25abda670de696c24adde0301",
+  "app/helpers/tracker_helper.rb": "41de2da862a299f5d3fa8658d8ac349229ad7a0230d6161e2003630a8c8164c8",
   "app/helpers/application_helper.rb": "3d3ed601497033c19a8982d64ed292511ad12b338df042b4288f5ba317abd44c",
   "app/views/assets/_logo.html.erb": "25109c3cd34c5e198f5ed4137c08139ce746c41f3457f1586ab2107b89b5d5ef",
   "app/views/tracker/index.html.erb": "9d658aec7fa0c09980f3c31a2832fe761f3fad2d6c4eac34e1ff7a43bdb6392f",

@@ -5,7 +5,7 @@
   "app/models/exchange.rb": "ab627a2812bc0c7b4a546459e64f8f5d93617c496308d5f03163f44cef12d8d7",
   "app/models/portfolio_snapshot.rb": "b13f74f516f4f787ab22e469ed20803f681edbd049139a2a38db81f2ff249ac0",
   "app/models/denomination.rb": "4763ea32cd8ffb02027943b56a17f7f1fd7338f2aa85bd51cb0f81a662dc51a6",
-  "app/helpers/tracker_helper.rb": "0e918379e98824fc25bcc10b6ca9af30552455e25abda670de696c24adde0301",
+  "app/helpers/tracker_helper.rb": "41de2da862a299f5d3fa8658d8ac349229ad7a0230d6161e2003630a8c8164c8",
   "app/helpers/application_helper.rb": "3d3ed601497033c19a8982d64ed292511ad12b338df042b4288f5ba317abd44c",
   "app/jobs/tax/generate_report_job.rb": "c8d9fbc2ab484ca6442c3fa7bda3f44ec1964afd342310f1e966721945dfec32",
   "app/views/tracker/index.html.erb": "9d658aec7fa0c09980f3c31a2832fe761f3fad2d6c4eac34e1ff7a43bdb6392f",

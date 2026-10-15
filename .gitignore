@@ -17,6 +17,7 @@
 *.sqlite3-*
 *.dump
 *.sql
+!/script/scan_security_priced_coins.sql
 /storage/development.sqlite3
 
 # Dependencies

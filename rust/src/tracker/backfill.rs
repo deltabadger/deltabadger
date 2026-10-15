@@ -114,11 +114,12 @@ fn identity_of(c: &Connection, user_id: i64, venue: &Venue, symbol: &str) -> Res
     })
 }
 
-/// The coin a symbol means over each stretch of the window: the one its identity named, else Tax::AssetIdentity's.
+/// The coin a symbol means over each stretch of the window: the one its identity named where no dated alias cuts the
+/// symbol, else Tax::AssetIdentity's.
 fn coins_of(reference: &prices::Reference, i: &Instrument, last: NaiveDate) -> Vec<(NaiveDate, NaiveDate, String)> {
     match &i.coin {
-        Some(named) => named.iter().map(|coin| (i.from, last, coin.clone())).collect(),
-        None => coin_ids_over(reference, &i.symbol, &i.venue, i.from, last),
+        Some(named) if !prices::dated_alias(&i.symbol, Some(&i.venue)) => named.iter().map(|coin| (i.from, last, coin.clone())).collect(),
+        _ => coin_ids_over(reference, &i.symbol, &i.venue, i.from, last),
     }
 }
 
@@ -449,7 +450,20 @@ mod tests {
     fn bought(symbol: &str) -> Stored {
         Stored { id: 1, exchange_id: 1, venue: "alpaca".into(), kind: Kind::Buy, base: symbol.into(), amount: Dec::one(), quote: Some("USD".into()), quote_amount: Some(Dec::one()),
                  fee_currency: None, fee_amount: None, tx_id: None, group: None, at: At::from_sql("2026-09-02 14:30:00").unwrap(), per_share: None, stated: None, linked_to: None,
-                 to_venue: None, to_exchange_id: None }
+                 to_venue: None, to_exchange_id: None, base_asset: None }
+    }
+
+    /// A coin a broker's rows named still takes the dated cut where its symbol changed coin (Terra's LUNA).
+    #[test]
+    fn a_named_coin_is_still_cut_where_its_symbol_changed_coin() {
+        let c = install();
+        c.execute_batch("INSERT INTO assets VALUES (3, 'terra-luna', 'Cryptocurrency', 'LUNA', NULL), (4, 'terra-luna-2', 'Cryptocurrency', 'LUNA', 300);
+                         INSERT INTO account_transactions VALUES (2, 1, 1, '2022-05-20 12:00:00', '2022-05-20 12:00:00', 'LUNA', 3);").unwrap();
+        let mut luna = bought("LUNA");
+        luna.at = At::from_sql("2022-05-20 12:00:00").unwrap();
+        let planned = plan(&c, 1, &[luna], day("2022-05-20"), day("2022-06-02")).unwrap();
+        let ranges: Vec<(String, NaiveDate, NaiveDate)> = planned.fetches.iter().filter_map(|f| match f { Close::Range(f) => Some((f.coin.clone(), f.from, f.to)), Close::Bars(_) => None }).collect();
+        assert_eq!(ranges, [("terra-luna".to_string(), day("2022-05-20"), day("2022-05-27")), ("terra-luna-2".to_string(), day("2022-05-28"), day("2022-06-02"))]);
     }
 
     /// PortfolioSnapshot::BackfillJob#identity_of under a name Alpaca can list twice (its BTC security beside BTC/USD):

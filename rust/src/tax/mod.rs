@@ -72,7 +72,7 @@ fn report(c: &Connection, user_id: i64, year: i32, today: NaiveDate) -> Result<O
         }
     }
 
-    let mut enriched = enrich(c, &venue, &scoped, today)?;
+    let mut enriched = enrich(c, &venue, &scoped, today, user_id)?;
     let folded = attribute_trade_fees(c, &mut enriched)?;
     let local = |at: At| crate::web::timezone::local(at.utc(), &zone).date_naive();
     let results: Vec<Disposal> = fifo(&enriched, &folded, &local)?.into_iter().filter(|d| local(d.at).year() == year).collect();
@@ -161,10 +161,11 @@ struct Entry { id: i64, row: walk::Row, tx_id: Option<String>, stated: bool }
 
 /// Tax::PriceService#enrich(currency: 'USD'). Prices come from `historical_prices`; one Rails would fetch first is not
 /// fetched here, and a missing one states no figure (Rails values it at zero and banners the report incomplete).
-fn enrich(c: &Connection, venue: &Venue, scoped: &[Stored], today: NaiveDate) -> Result<Vec<Entry>, FiguresError> {
+fn enrich(c: &Connection, venue: &Venue, scoped: &[Stored], today: NaiveDate, user_id: i64) -> Result<Vec<Entry>, FiguresError> {
     // Only the prices the rows use: Rails' range prefetch adds days no row reads, and a day a row reads but the table
     // lacks halts the walk below.
-    let reference = Reference::load(c, venue, &prices::symbols(scoped))?;
+    let mut reference = Reference::load(c, venue, &prices::symbols(scoped))?;
+    reference.record_coins(c, user_id)?;
     let fx = crate::tracker::fx::FxTable::load(c)?;
     let mut none = Unfetched;
     let mut ps = PriceService::new(&reference, &fx, today, &mut none);

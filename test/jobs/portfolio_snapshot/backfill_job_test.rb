@@ -506,6 +506,43 @@ class PortfolioSnapshot::BackfillJobTest < ActiveSupport::TestCase
     assert day.partial
   end
 
+  # Rows that recorded no single coin, beside a same-ticker security in the catalogue only: the coin
+  # path answers the coin, never the security.
+  test 'a coin at a broker named by no row is fetched as the coin, never as a same-ticker security' do
+    alpaca = create(:alpaca_exchange)
+    alpaca_key = create(:api_key, user: @user, exchange: alpaca)
+    create(:asset, symbol: 'ETH', external_id: 'ETH.US', name: 'Ether Trust', category: 'Stock')
+    create(:account_transaction, api_key: alpaca_key, entry_type: :buy, base_currency: 'ETH', base_amount: 1,
+                                 base_asset: Asset.find_by!(external_id: 'ethereum'),
+                                 quote_currency: 'USD', quote_amount: 3_000, transacted_at: @day.call(1))
+    create(:account_transaction, api_key: alpaca_key, entry_type: :buy, base_currency: 'ETH', base_amount: 1,
+                                 base_asset: create(:asset, symbol: 'ETH', external_id: 'ethereum-wormhole'),
+                                 quote_currency: 'USD', quote_amount: 3_000, transacted_at: @day.call(1))
+    asked = []
+    MarketData.stubs(:get_historical_price_range).with { |args| asked << args[:coin_id] }.returns(Result::Failure.new('offline'))
+
+    travel_to(@day.call(2)) { PortfolioSnapshot::BackfillJob.perform_now(@user.id) }
+
+    assert_equal %w[ethereum], asked.uniq
+  end
+
+  test 'a coin a broker\'s rows named is still fetched as the coin of each day where its symbol changed hands' do
+    alpaca = create(:alpaca_exchange)
+    alpaca_key = create(:api_key, user: @user, exchange: alpaca)
+    old = create(:asset, symbol: 'LUNA', external_id: 'terra-luna', name: 'Terra Classic')
+    create(:asset, symbol: 'LUNA', external_id: 'terra-luna-2', name: 'Terra', market_cap_rank: 300)
+    create(:account_transaction, api_key: alpaca_key, entry_type: :buy, base_currency: 'LUNA', base_amount: 1, base_asset: old,
+                                 quote_currency: 'USD', quote_amount: 80, transacted_at: Time.utc(2022, 5, 20, 12))
+    asked = []
+    MarketData.stubs(:get_historical_price_range).with { |args| asked << [args[:coin_id], args[:from].to_date, args[:to].to_date - 1] }
+              .returns(Result::Failure.new('offline'))
+
+    travel_to(Time.utc(2022, 6, 3, 12)) { PortfolioSnapshot::BackfillJob.perform_now(@user.id) }
+
+    assert_equal [['terra-luna', Date.new(2022, 5, 20), Date.new(2022, 5, 27)],
+                  ['terra-luna-2', Date.new(2022, 5, 28), Date.new(2022, 6, 2)]], asked.uniq
+  end
+
   test 'the history knows what it was swept from' do
     tx(:deposit, day: 0, base_currency: 'USD', base_amount: 1_000)
     MarketData.stubs(:get_historical_price_range).returns(Result::Failure.new('offline'))

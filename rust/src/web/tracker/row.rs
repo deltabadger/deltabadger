@@ -116,9 +116,10 @@ pub fn render(c:&Connection,ctx:&Ctx,row:&Row,d:&Denomination)->Result<String,We
     }else if let Some(stated)=row.manual.get("price").filter(|v|!super::blank(v)){
         (Some(number(&number(Dec::to_d(stated))? * &d.rate)?),"stated",None)
     }else{
+        // `tracker_price_key`: the key the figures stored this row's price under; none for a name still both a security and a coin.
+        let key=crate::tracker::prices::row_price_key(c,row.owner,row.exchange,&row.venue,&row.base,row.asset,row.at.date_naive())?;
         let mut statement=c.prepare("SELECT price FROM historical_prices WHERE asset=?1 AND currency='USD' AND date=?2 LIMIT 1")?;
-        let mut rows=statement.query((&row.base,row.at.date_naive().to_string()))?;
-        let historical=if let Some(r)=rows.next()?{number(Dec::from_sql(r.get_ref(0)?))?}else{None};
+        let historical=match key {None=>None,Some(key)=>{let mut rows=statement.query((&key,row.at.date_naive().to_string()))?; if let Some(r)=rows.next()?{number(Dec::from_sql(r.get_ref(0)?))?}else{None}}};
         match historical.filter(Dec::is_positive){Some(p)=>(Some(number(&p * &d.rate)?),"ours",None),None=>(None,"none",None)}
     };
     let value=if source=="exchange"{match &counterpart{Some((n,currency))=>in_display(c,n,currency,row.at.date_naive(),d)?,None=>None}}else{price.as_ref().map(|p|number(p * &row.amount)).transpose()?};

@@ -1,0 +1,53 @@
+require 'test_helper'
+
+# script/scan_security_priced_coins.sql: the read-only report a repair starts from.
+class ScanSecurityPricedCoinsTest < ActiveSupport::TestCase
+  SQL = Rails.root.join('script/scan_security_priced_coins.sql').read
+
+  def statements = SQL.lines.grep_v(/\A\s*--/).join.split(';').map(&:strip).reject(&:empty?)
+
+  def day(offset) = Date.new(2026, 10, 1) + offset
+
+  test 'it lists the bare coin prices a security wrote, and every user whose history read them' do
+    alpaca = create(:alpaca_exchange)
+    create(:asset, :bitcoin) unless Asset.exists?(external_id: 'bitcoin')
+    create(:asset, symbol: 'BTC', external_id: 'BTC.US', category: 'Stock')
+    broker = create(:user)
+    create(:account_transaction, api_key: create(:api_key, user: broker, exchange: alpaca), entry_type: :fee, base_currency: 'BTC',
+                                 quote_currency: nil, quote_amount: nil, transacted_at: day(7).to_time(:utc))
+    crypto_only = create(:user)
+    (0..13).each do |n|
+      poisoned = (7..11).cover?(n)
+      HistoricalPrice.create!(asset: 'BTC', currency: 'USD', date: day(n), price: poisoned ? 36 + n : 80_000 + n)
+      # The security's own key held the coin's prices once too: no reference.
+      HistoricalPrice.create!(asset: 'stock:BTC', currency: 'USD', date: day(n), price: 80_000 + n) if n.between?(0, 5)
+    end
+    HistoricalPrice.create!(asset: 'BTC', currency: 'EUR', date: day(8), price: 33)
+    HistoricalPrice.create!(asset: 'BTC', currency: 'EUR', date: day(9), price: 70_000)
+    HistoricalPrice.create!(asset: 'ETH', currency: 'USD', date: day(8), price: 1)
+    # A shared name whose coin swings tenfold in a month is not a security's close.
+    create(:asset, symbol: 'XYZ', external_id: 'xyz-coin')
+    create(:asset, symbol: 'XYZ', external_id: 'XYZ.US', category: 'Stock')
+    create(:account_transaction, api_key: ApiKey.find_by!(user: broker), entry_type: :buy, base_currency: 'XYZ', transacted_at: day(1).to_time(:utc))
+    [0.0001, 0.00001, 0.00004].each_with_index { |usd, n| HistoricalPrice.create!(asset: 'XYZ', currency: 'USD', date: day(n), price: usd) }
+    [[broker, 2], [crypto_only, 9], [create(:user), 20]].each do |user, n|
+      PortfolioSnapshot.create!(user: user, date: day(n), value_usd: 1, invested_usd: 1, held_value_usd: 1, held_cost_usd: 1, partial: false)
+    end
+    statements.each { |sql| assert_match(/\AWITH\b/i, sql, 'read-only: queries only') }
+
+    suspects, users = statements.map { |sql| ActiveRecord::Base.connection.select_all(sql).to_a }
+
+    found = suspects.map { |row| row.values_at('asset', 'currency', 'date').map(&:to_s) }
+    assert_equal [%w[BTC EUR] + [day(8).to_s]] + (7..11).map { |n| ['BTC', 'USD', day(n).to_s] }, found
+    assert_equal [crypto_only.id], users.map { |row| row['user_id'] }, 'a crypto-only user whose day read them'
+  end
+
+  test 'a symbol no broker row names is out of scope' do
+    create(:asset, :bitcoin) unless Asset.exists?(external_id: 'bitcoin')
+    create(:asset, symbol: 'BTC', external_id: 'BTC.US', category: 'Stock')
+    HistoricalPrice.create!(asset: 'BTC', currency: 'USD', date: day(0), price: 80_000)
+    HistoricalPrice.create!(asset: 'BTC', currency: 'USD', date: day(1), price: 36)
+
+    assert_empty ActiveRecord::Base.connection.select_all(statements.first).to_a
+  end
+end

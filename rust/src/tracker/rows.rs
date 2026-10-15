@@ -65,6 +65,8 @@ pub struct Stored {
     pub linked_to: Option<i64>,
     pub to_venue: Option<String>,
     pub to_exchange_id: Option<i64>,
+    /// `base_asset`: the asset the row recorded, as (id, external id, category).
+    pub base_asset: Option<super::prices::Asset>,
 }
 
 impl Stored {
@@ -121,8 +123,8 @@ pub fn load_all(c: &Connection, user_id: i64) -> Result<Vec<Stored>, FiguresErro
     let mut s = c.prepare(
         "SELECT t.id, t.exchange_id, e.type, t.entry_type, t.base_currency, t.base_amount, t.quote_currency, t.quote_amount, \
                 t.fee_currency, t.fee_amount, t.tx_id, t.group_id, t.transacted_at, t.raw_data, t.manual_values, t.linked_transaction_id, \
-                le.type, l.exchange_id \
-         FROM account_transactions t JOIN exchanges e ON e.id = t.exchange_id \
+                le.type, l.exchange_id, ba.id, ba.external_id, ba.category \
+         FROM account_transactions t JOIN exchanges e ON e.id = t.exchange_id LEFT JOIN assets ba ON ba.id = t.base_asset_id \
          LEFT JOIN account_transactions l ON l.id = t.linked_transaction_id LEFT JOIN exchanges le ON le.id = l.exchange_id \
          WHERE t.user_id = ?1 ORDER BY t.id")?;
     let mut q = s.query([user_id])?;
@@ -145,6 +147,7 @@ pub fn load_all(c: &Connection, user_id: i64) -> Result<Vec<Stored>, FiguresErro
             per_share: json_number(raw.get("per_share_amount"))?,
             stated: json_number(manual.get("price"))?,
             linked_to: r.get(15)?, to_venue: to_type.as_deref().map(name_id), to_exchange_id: r.get(17)?,
+            base_asset: r.get::<_, Option<i64>>(18)?.map(|id| -> rusqlite::Result<_> { Ok((id, r.get(19)?, r.get(20)?)) }).transpose()?,
         });
     }
     crate::figures::budget::charge(sort_steps(rows.len()), 0)?;
@@ -203,7 +206,7 @@ mod tests {
     fn stored(id: i64, kind: Kind, group: Option<&str>, at: &str) -> Stored {
         Stored { id, exchange_id: 1, venue: "alpaca".into(), kind, base: "AAPL".into(), amount: Dec::one(), quote: None, quote_amount: None,
                  fee_currency: None, fee_amount: None, tx_id: None, group: group.map(String::from), at: At::from_sql(at).unwrap(), per_share: None,
-                 stated: None, linked_to: None, to_venue: None, to_exchange_id: None }
+                 stated: None, linked_to: None, to_venue: None, to_exchange_id: None, base_asset: None }
     }
 
     /// Tax::PriceService.ordered: by instant; a group where its first-stored leg was, its out-legs first; else by id.
@@ -228,7 +231,8 @@ mod tests {
                          CREATE TABLE account_balances (id INTEGER PRIMARY KEY, user_id INTEGER, exchange_id INTEGER, free NUMERIC, locked NUMERIC);
                          CREATE TABLE account_transactions (id INTEGER PRIMARY KEY, user_id INTEGER, exchange_id INTEGER, entry_type INTEGER, base_currency TEXT,
                          base_amount NUMERIC, quote_currency TEXT, quote_amount NUMERIC, fee_currency TEXT, fee_amount NUMERIC, tx_id TEXT, group_id TEXT,
-                         transacted_at TEXT, raw_data TEXT, manual_values TEXT, linked_transaction_id INTEGER);").unwrap();
+                         transacted_at TEXT, raw_data TEXT, manual_values TEXT, linked_transaction_id INTEGER, base_asset_id INTEGER);
+                         CREATE TABLE assets (id INTEGER PRIMARY KEY, external_id TEXT, category TEXT);").unwrap();
         for values in rows {
             c.execute(&format!("INSERT INTO account_transactions (user_id, exchange_id, entry_type, base_currency, base_amount, quote_currency, quote_amount, fee_currency, \
                                 fee_amount, linked_transaction_id, tx_id, transacted_at, raw_data, manual_values) VALUES (1, {values}, '2026-09-01 00:00:00', '{{}}', '{{}}')"), []).unwrap();

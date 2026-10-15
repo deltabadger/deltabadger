@@ -1,6 +1,6 @@
 {
   "sources": {
-    "app/models/tracker/ledger.rb": "82ee03e708359b06aa46919f096f94715a26a3c69072632bea3d64ec55793fc4",
+    "app/models/tracker/ledger.rb": "9b3d4ccb01c46e07099549bb4f58b6b37beca774ae48f17a1f54be4b3ac0fd86",
     "app/models/historical_price.rb": "ccc44037596cc79971be880f2c4d86d13e3d7a5871e9d488b9e82a4615c76da1",
     "app/jobs/tracker/ledger_job.rb": "f0b8c9bc56fab031a0f475bab4220120dc87a68b3148cf073f9a56ede5b053c9"
   },

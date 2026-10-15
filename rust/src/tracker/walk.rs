@@ -219,7 +219,7 @@ fn fiat_value(t: &Stored, leg: Option<&Leg>, ps: &mut PriceService) -> Result<De
     }
     if let Some(v) = leg.and_then(|l| l.fiat_value.clone()) { return Ok(v); }
     if let Some(price) = &t.stated { return ps.convert_fiat(&(price * &t.amount)?, "USD", "USD", t.at); }
-    let price = ps.price_at(&t.base, "USD", t.at, Some(&t.venue))?;
+    let price = ps.price_at_recorded(&t.base, "USD", t.at, Some(&t.venue), t.base_asset.as_ref())?;
     Ok((&price * &t.amount)?)
 }
 
@@ -240,6 +240,7 @@ pub fn enrich(stored: &[Stored], deposits: &HashMap<i64, Dec>, ps: &mut PriceSer
 
 /// `enrich`, its prefetch left out when `prefetch` is false (the tax report reads stored prices only).
 pub fn enrich_with(stored: &[Stored], deposits: &HashMap<i64, Dec>, ps: &mut PriceService, prefetch: bool) -> Result<Vec<Row>, FiguresError> {
+    ps.record(stored);
     let legs = cash_leg_context(stored, ps)?;
     if prefetch { ps.prefetch(stored, &|t| legs.get(&t.id).is_some_and(|l| l.fiat_value.is_some()))?; }
     let links: HashMap<i64, i64> = stored.iter().filter_map(|t| t.linked_to.map(|d| (t.id, d))).collect();

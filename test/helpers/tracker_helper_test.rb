@@ -280,4 +280,40 @@ class TrackerHelperTest < ActionView::TestCase
     assert_in_delta TrackerHelper::RING_CIRCUMFERENCE, spans.sum, 0.01
     spans.each { |span| assert_operator span, :>=, TrackerHelper::RING_STROKE + (TrackerHelper::RING_GAP * 0.97) }
   end
+
+  # == the table's own price reads the key the figures stored it under ==
+  #
+  # Alpaca lists a BTC security beside BTC/USD. Both keys hold prices; a row is shown the one its
+  # identity names, as `Tax::PriceService` reads it, and none when the name is still both.
+  def priced_row(symbol, exchange:, user:, base_asset: nil)
+    create(:account_transaction, api_key: ApiKey.find_by(user: user, exchange: exchange) || create(:api_key, user: user, exchange: exchange),
+                                 entry_type: :fee, base_currency: symbol, base_asset: base_asset, base_amount: 1,
+                                 quote_currency: nil, quote_amount: nil, transacted_at: Time.utc(2026, 10, 8, 12))
+  end
+
+  test 'a row\'s own price is read under the key its identity names' do
+    user = create(:user)
+    alpaca = create(:alpaca_exchange)
+    usd = Asset.find_by(symbol: 'USD') || create(:asset, symbol: 'USD', external_id: 'usd', category: 'Fiat')
+    bitcoin = Asset.find_by(external_id: 'bitcoin') || create(:asset, :bitcoin)
+    security = create(:asset, symbol: 'BTC', external_id: 'BTC.US', category: 'Stock')
+    apple = create(:asset, symbol: 'AAPL', external_id: 'AAPL.US', category: 'Stock')
+    create(:ticker, exchange: alpaca, base_asset: security, quote_asset: usd, ticker: 'BTC', base: 'BTC', quote: 'USD')
+    create(:ticker, exchange: alpaca, base_asset: bitcoin, quote_asset: usd, ticker: 'BTC/USD', base: 'BTC', quote: 'USD')
+    create(:ticker, exchange: alpaca, base_asset: apple, quote_asset: usd, ticker: 'AAPL', base: 'AAPL', quote: 'USD')
+    { 'BTC' => 83_000, 'stock:BTC' => 36, 'AAPL' => 230 }.each do |key, usd_price|
+      HistoricalPrice.create!(asset: key, currency: 'USD', date: Date.new(2026, 10, 8), price: usd_price)
+    end
+    price = ->(row) { tracker_row_price(row, @denomination).first }
+
+    assert_nil price.call(priced_row('BTC', exchange: alpaca, user: user)), 'nothing says which: no price at all'
+    assert_equal 83_000.to_d, price.call(priced_row('BTC', base_asset: bitcoin, exchange: alpaca, user: user))
+    assert_equal 230.to_d, price.call(priced_row('AAPL', exchange: alpaca, user: user)), 'a name no coin shares: as before'
+
+    other = create(:user)
+    priced_row('BTC', base_asset: security, exchange: alpaca, user: other)
+    assert_equal 36.to_d, price.call(priced_row('BTC', exchange: alpaca, user: other)),
+                 'the venue\'s other rows recorded the security'
+    assert_equal 83_000.to_d, price.call(priced_row('BTC', exchange: create(:binance_exchange), user: other))
+  end
 end
