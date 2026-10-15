@@ -206,6 +206,9 @@ impl<T: Transport> BinanceVenue<T> {
         let resp = match self.transport.send(r).await {
             Ok(resp) => resp,
             Err(TransportError::Permanent(m)) => return Err(VenueError::Rejected(vec![redact(m)])),
+            // Honeymaker returns a transport failure as a Failure (it never raises): on a placement that provably sent nothing
+            // it is a definitive refusal, a failed row as Rails writes one (Exchange#ambiguous_placement_error?: pre-transmission).
+            Err(TransportError::NotSent(m)) if placement => return Err(VenueError::Rejected(vec![redact(m)])),
             Err(TransportError::NotSent(m)) => return Err(VenueError::Transient(redact(m))),
             Err(TransportError::MaybeSent(m)) if placement => return Err(VenueError::Ambiguous(redact(m))),
             Err(TransportError::MaybeSent(m)) => return Err(VenueError::Transient(redact(m))),

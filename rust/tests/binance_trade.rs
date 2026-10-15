@@ -165,7 +165,8 @@ async fn placement_answers_map_to_rails_ambiguity_rules() {
         (ok(json!({ "symbol": "BTCUSDT" })), Err(VenueError::Ambiguous("Failed to set Binance market order (order_id is BTCUSDT-)".into()))),
         (ok(json!({ "symbol": "BTCUSDT", "orderId": null })), Err(VenueError::Ambiguous("Failed to set Binance market order (order_id is BTCUSDT-)".into()))),
         (json!([{ "network": "post_send", "message": "read timeout" }]), Err(VenueError::Ambiguous("read timeout".into()))),
-        (json!([{ "network": "pre_send", "message": "refused" }]), Err(VenueError::Transient("refused".into()))),
+        // Provably never sent: honeymaker's Failure, a definitive refusal (Rails writes a failed row and does not retry).
+        (json!([{ "network": "pre_send", "message": "refused" }]), Err(VenueError::Rejected(vec!["refused".into()]))),
         (json!([{ "network": "permanent", "message": "certificate" }]), Err(VenueError::Rejected(vec!["certificate".into()]))),
     ];
     for (reply, want) in cases {

@@ -228,6 +228,101 @@ fn a_killed_or_failed_parity_run_leaves_no_copies_and_no_children() {
 /// settles it by client_order_id (the spec's 5xx ruling). untradable_clock_closed: Rails asks the stock market's clock for a
 /// crypto bot whose ticker went untradable (an empty ticker list is not "all crypto") and parks it until the open; Rust
 /// treats crypto as always open and fails the tick as the open-clock case does.
+/// Binance grid variants where Rust deliberately decides otherwise than Rails (spec E §2.7, §2.10), each asserted on its own
+/// terms: a placement that may have reached Binance (a 5xx, a lost reply, an unreadable answer, an answer without an
+/// orderId) keeps the intent for recovery where Rails writes a failed row (or a "BTCUSDT-" row); a read answered HTTP 429
+/// waits as a throttle where Rails fails the run.
+const BINANCE_DIVERGENCES: [&str; 4] = ["add_server_error", "add_timeout_after_send", "add_unreadable", "add_no_order_id"];
+
+fn unacknowledged_kept(dir: &Path, rails_out: &serde_json::Value, rust_out: &serde_json::Value) -> Result<(), String> {
+    let rails_rows = rails_out["changes"]["transactions"].as_array().unwrap();
+    if !rails_rows.iter().any(|t| t["after"]["external_id"] == "BTCUSDT-") { return Err(format!("Rails no longer stores \"BTCUSDT-\": drop the listed divergence\n  rails: {rails_out}")); }
+    rust_kept_the_intent(dir, rust_out)
+}
+
+/// The scripted 429 answers every retry, so both sides end the run failed: Rails at once as a generic error, Rust only after
+/// its throttle waits (the failure's kind is "throttle", its retries the rate-limit ones). Neither places or changes a row.
+fn throttle_waits(rails_out: &serde_json::Value, rust_out: &serde_json::Value) -> Result<(), String> {
+    let failed = |out: &serde_json::Value| -> Vec<serde_json::Value> { out["changes"]["bot_activity_logs"].as_array().unwrap().iter()
+        .filter(|l| l["after"]["event"] == "execution_failed").map(|l| l["after"]["details"].clone()).collect() };
+    if failed(rails_out).is_empty() || failed(rails_out).iter().any(|d| d["kind"] == "throttle") {
+        return Err(format!("Rails no longer fails a 429 as a generic error: drop the listed divergence\n  rails: {rails_out}"));
+    }
+    let rust = failed(rust_out);
+    if !rust_out["sent"].as_array().unwrap().is_empty() || !rust_out["changes"]["transactions"].as_array().unwrap().is_empty()
+        || rust.len() != 1 || rust[0]["kind"] != "throttle" || rust[0]["rate_limited_exhausted"] != true {
+        return Err(format!("Rust must wait as a throttle: no order, no row change, the run failed only after its throttle waits: {rust_out}"));
+    }
+    Ok(())
+}
+
+/// The harness scripts a refused connection as Client.network_failure names it ("Faraday::ConnectionFailed: …"); honeymaker's
+/// #with_rescue reports the exception's own message. Both sides send once and write one failed row; only that wording differs.
+fn refused_like_rails(rails_out: &serde_json::Value, rust_out: &serde_json::Value) -> Result<(), String> {
+    let normalised = rust_out.to_string().replace("Faraday::ConnectionFailed: ", "");
+    if serde_json::from_str::<serde_json::Value>(&normalised).unwrap() != *rails_out {
+        return Err(format!("beyond the exception's class name the sides differ\n  rails: {rails_out}\n  rust:  {rust_out}"));
+    }
+    Ok(())
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn rails_and_rust_decide_identically_across_the_binance_grid() {
+    let rails_root = tempfile::tempdir().unwrap();
+    let rust_root = tempfile::tempdir().unwrap();
+    built_grid("grid-binance", rails_root.path());
+    let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
+    dirs.sort();
+    assert_eq!(dirs.len(), 176, "the Binance grid has {} scenarios", dirs.len());
+    for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
+    rails(&["record", rails_root.path().to_str().unwrap()]);
+
+    let mut failures = vec![];
+    for d in &dirs {
+        let name = d.file_name().unwrap().to_string_lossy().to_string();
+        let rails_out: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(d.join("rails.json")).unwrap()).unwrap();
+        let rust_dir = rust_root.path().join(&name);
+        let rust_out = deltabadger::parity::decide(&rust_dir).await.unwrap();
+        let rails_out = r5_cleanup_expected(&rails_out, &rust_out);
+        let listed = if name.contains(UNREADABLE) {
+            Some(unreadable_number_refused(&name, &rust_dir, &rails_out, &rust_out, false))
+        } else if name.ends_with("-add_no_order_id") {
+            Some(unacknowledged_kept(&rust_dir, &rails_out, &rust_out))
+        } else if BINANCE_DIVERGENCES.iter().any(|v| name.ends_with(&format!("-{v}"))) {
+            Some(intent_kept(&rust_dir, &rails_out, &rust_out))
+        } else if name.ends_with("-sweep_rate_limited") {
+            Some(throttle_waits(&rails_out, &rust_out))
+        } else if name.ends_with("-add_network_pre_send") {
+            Some(refused_like_rails(&rails_out, &rust_out))
+        } else {
+            None
+        };
+        match listed {
+            Some(Err(e)) => failures.push(format!("{name} (listed divergence): {e}")),
+            Some(Ok(())) => {}
+            None if rails_out != rust_out => failures.push(format!("{name}\n  rails: {rails_out}\n  rust:  {rust_out}")),
+            None => {}
+        }
+    }
+    // Pin what Rails does where a silent pair of sides would otherwise pass.
+    for d in &dirs {
+        let name = d.file_name().unwrap().to_string_lossy().to_string();
+        let rails_out: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(d.join("rails.json")).unwrap()).unwrap();
+        let mailed: Vec<&str> = rails_out["mails"].as_array().unwrap().iter().map(|m| m["mail"].as_str().unwrap()).collect();
+        let expected: Option<&[&str]> = [("-insufficient", &["end_of_funds"][..]), ("-invalid_key", &["stopped_by_error"]), ("-low_funds", &["end_of_funds"]),
+                                         ("-on_schedule", &[]), ("-minus_1021", &[])].into_iter().find(|(suffix, _)| name.ends_with(suffix)).map(|(_, m)| m);
+        if let Some(expected) = expected { assert_eq!(mailed, expected, "{name}: the mails Rails enqueued"); }
+        let rows = rails_out["changes"]["transactions"].as_array().unwrap();
+        if name.contains("-minus_1021") { assert!(rows.is_empty() && rails_out["sent"].as_array().unwrap().len() == 1, "{name}: -1021 writes no row"); }
+        if name.ends_with("-market-first_tick") { assert!(rails_out["sent"][0]["quoteOrderQty"].is_string(), "{name}: a market buy by quote"); }
+        if name.ends_with("-market-base_sized") { assert!(rails_out["sent"][0]["quantity"].is_string(), "{name}: a market buy by base"); }
+        if name.ends_with("-poll_pending_cancel") { assert!(rails_out["poll_error"].as_str().is_some_and(|e| e.contains("status is unknown")), "{name}"); }
+        if name.ends_with("-sweep_not_returned_waits") { assert!(!rows.iter().any(|t| t["after"]["external_id"] == "BTCUSDT-210"), "{name}: never abandoned"); }
+        if name.ends_with("-sweep_rounding_two_decimals") { assert_eq!(rows[0]["after"]["price"], 1, "{name}: 1.00/1.01/1.00 rounds to 1.0"); }
+    }
+    assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
+}
+
 const ALPACA_DIVERGENCES: [&str; 3] = ["add_server_error", "add_unreadable", "untradable_clock_closed"];
 
 fn crypto_ignores_the_stock_clock(dir: &Path, rails_out: &serde_json::Value, rust_out: &serde_json::Value) -> Result<(), String> {
@@ -363,7 +458,7 @@ async fn an_alpaca_copy_is_planned_with_alpaca_bodies() {
 /// A scenario whose script lacks a path the tick needs must fail the run loudly, on either venue (never reach the network).
 #[test]
 fn an_unscripted_call_fails_the_run_on_both_venues() {
-    for (grid, scenario) in [("grid", "script"), ("grid-alpaca", "alpaca")] {
+    for (grid, scenario) in [("grid", "script"), ("grid-alpaca", "alpaca"), ("grid-binance", "binance")] {
         let built = tempfile::tempdir().unwrap();
         built_grid(grid, built.path());
         let mut dirs: Vec<PathBuf> = std::fs::read_dir(built.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
@@ -376,7 +471,7 @@ fn an_unscripted_call_fails_the_run_on_both_venues() {
         copy_dir(from, &root.path().join("one"));
         let path = root.path().join("one/scenario.json");
         let mut sc: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
-        if scenario == "script" { sc["script"]["http"] = serde_json::json!({}); } else { sc["script"]["alpaca"] = serde_json::json!({}); }
+        if scenario == "script" { sc["script"]["http"] = serde_json::json!({}); } else { sc["script"][scenario] = serde_json::json!({}); }
         std::fs::write(&path, sc.to_string()).unwrap();
         let err = try_rails(&["record", root.path().to_str().unwrap()]).expect_err(&format!("{grid}: an unscripted call must fail the run"));
         assert!(err.contains("unscripted"), "{grid}: {err}");
