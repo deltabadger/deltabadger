@@ -26,6 +26,7 @@ def runner(script, *args):
 # unchanged sources writes the same bytes, apart from the fields the pattern names (fresh salts and IVs).
 RECORDED = {
     FIX + 'figures_vectors.json': ('test', [runner('record_figures_vectors.rb', '{out}')], None),
+    FIX + 'float_digits.json': ('test', [runner('record_float_digits.rb', '{out}')], None),
     FIX + 'histories.json': ('test', [runner('record_histories.rb', '{out}')], None),
     FIX + 'histories_r1.json': ('test', [runner('record_histories_r1.rb', '{out}')], None),
     # Recorded in development: under the test environment its rails_wire cases come out null.
