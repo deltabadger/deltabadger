@@ -361,53 +361,39 @@ class Exchanges::Binance < Exchange
     Result::Success.new(orders: orders, missing: [])
   end
 
+  # An order's fill is rebuilt from all its trades: paged by trade id (a page boundary never repeats or drops one),
+  # aggregated once (the price never depends on where a page ended), and only once the trades add up to the
+  # quantity the order executed — a partial set would read as the whole fill.
+  # ponytail: one request per order (weight 5 each); a symbol-wide walk is cheaper for many orders but paged by time.
   def get_aggregated_trades_for_orders(orders)
     aggregated_trades_by_order_id = {}
-    symbols = orders.group_by { |order| order[:order_id].split('-').first }
     limit = 1000
-    symbols.each do |symbol, symbol_orders|
-      ext_order_ids = symbol_orders.map { |order| order[:order_id].split('-').last.to_i }
-      if ext_order_ids.count < 5 # request weight is 5 when passing one order id
-        ext_order_ids.each do |ext_order_id|
-          # we assume one order will never have more than 1000 trades
-          result = client.account_trade_list(symbol: symbol, order_id: ext_order_id, limit: limit, recv_window: READ_RECV_WINDOW)
-          if result.failure?
-            error = parse_error_message(result)
-            return error.present? ? Result::Failure.new(error, data: result.data) : result
-          end
-
-          trade_datas = result.data.map { |trade_data| parse_trade_data(trade_data) }
-          aggregated_trades = aggregate_trades(trade_datas)
-          aggregated_trades_by_order_id[aggregated_trades[:order_id]] = aggregated_trades
+    orders.each do |order|
+      symbol, ext_order_id = order[:order_id].split('-')
+      trades = {}
+      from_id = nil
+      exhausted = 100.times do
+        result = client.account_trade_list(symbol: symbol, order_id: ext_order_id.to_i, from_id: from_id, limit: limit,
+                                           recv_window: READ_RECV_WINDOW)
+        if result.failure?
+          error = parse_error_message(result)
+          return error.present? ? Result::Failure.new(error, data: result.data) : result
         end
-      else # request weight is 20 when passing no order id
-        end_time = Time.current.to_i * 1000
-        exhausted = 100.times do
-          result = client.account_trade_list(symbol: symbol, end_time: end_time, limit: limit, recv_window: READ_RECV_WINDOW)
-          if result.failure?
-            error = parse_error_message(result)
-            return error.present? ? Result::Failure.new(error, data: result.data) : result
-          end
 
-          trade_datas = result.data.map do |raw_trade|
-            parse_trade_data(raw_trade) if raw_trade['orderId'].in?(ext_order_ids)
-          end.compact
-          trade_datas.each do |trade_data|
-            order_id = trade_data[:order_id]
-            aggregated_trades_by_order_id[order_id] = aggregate_trades(
-              [aggregated_trades_by_order_id[order_id], trade_data].compact
-            )
-          end
-          break if result.data.count < limit
-          # a quote-sized order has no amount; its executed qty is what its trades add up to
-          break if symbol_orders.all? do |o|
-            (o[:amount] || o[:amount_exec_excl_commission]) == aggregated_trades_by_order_id[o[:order_id]]&.[](:amount)
-          end
+        result.data.each { |raw_trade| trades[Utilities::Hash.dig_or_raise(raw_trade, 'id')] = raw_trade }
+        break if result.data.count < limit
 
-          end_time = result.data.map { |raw_trade| raw_trade['time'] }.min
-        end
-        return Result::Failure.new("Too many pages of #{name} #{symbol} trades") if exhausted
+        from_id = trades.keys.max + 1
       end
+      return Result::Failure.new("Too many pages of #{name} #{symbol} trades") if exhausted
+
+      trade_datas = trades.values.map { |raw_trade| parse_trade_data(raw_trade) }
+      executed = order[:amount_exec_excl_commission]
+      if trade_datas.empty? || (executed && trade_datas.sum { |t| t[:amount] } != executed)
+        return Result::Failure.new("#{name} trades of order #{order[:order_id]} do not add up to its executed quantity yet")
+      end
+
+      aggregated_trades_by_order_id[order[:order_id]] = aggregate_trades(trade_datas)
     end
 
     Result::Success.new(aggregated_trades_by_order_id)
