@@ -1,4 +1,6 @@
 //! Scheduler deadlines must complete the owner's UI after uncancellable database work.
+//! Wall-clock timing tests here are `#[ignore = "timing: nightly"]`, out of the PR gate; the nightly workflow runs them.
+//! By hand: `cargo nextest run --profile timing --run-ignored only` (rust/.config/nextest.toml lists them).
 use deltabadger::{crypto::{Cipher, EncryptionKeys}, engine::SystemClock, jobs::{self, Cx, Job, JobFuture, Outcome, Retry, Scheduler, Spec, Wake, schedule::Jitter, notifications::Notifications}};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -22,6 +24,7 @@ impl Job for Slow {
     }
 }
 #[tokio::test(flavor="current_thread")]
+#[ignore = "timing: nightly"]
 async fn deadline_completion_waits_for_commit_or_rollback_and_targets_owner_once() {
     for (name,scope) in [("ledger_sync","7"),("tracker_ledger","42")] {
         for (fail,delete_key) in [(false,false),(true,false),(false,true)] {
@@ -89,6 +92,7 @@ impl Job for RecoverOwner {
     }
 }
 #[tokio::test(flavor="current_thread")]
+#[ignore = "timing: nightly"]
 async fn deadline_owner_error_still_drains_and_recovers_in_both_wrappers() {
     for scheduler in [false,true] { for recover in [true,false] {
         let c=rusqlite::Connection::open_in_memory().unwrap();
@@ -133,9 +137,10 @@ async fn deadline_owner_error_still_drains_and_recovers_in_both_wrappers() {
 }
 
 #[test]
+#[ignore = "timing: nightly"]
 fn deadline_owner_lookup_error_logs_its_safe_reason() {
     let output=std::process::Command::new(std::env::current_exe().unwrap())
-        .args(["--exact","deadline_owner_error_still_drains_and_recovers_in_both_wrappers","--nocapture"])
+        .args(["--exact","deadline_owner_error_still_drains_and_recovers_in_both_wrappers","--include-ignored","--nocapture"])
         .output().unwrap();
     assert!(output.status.success(),"{}",String::from_utf8_lossy(&output.stdout));
     let log=String::from_utf8(output.stdout).unwrap();

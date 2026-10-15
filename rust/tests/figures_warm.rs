@@ -1,6 +1,8 @@
 //! Figures are made ahead of any page: the queue of work and its consumer, the fill that keeps what it rendered, expiry
 //! at consumption, the bounded market fetch, the builder's own connection, and what wakes the warming. A page only reads
 //! what was kept, or shows Rails' loading state and leaves the work to the queue.
+//! Wall-clock timing tests here are `#[ignore = "timing: nightly"]`, out of the PR gate; the nightly workflow runs them.
+//! By hand: `cargo nextest run --profile timing --run-ignored only` (rust/.config/nextest.toml lists them).
 mod common;
 use deltabadger::figures::budget;
 use deltabadger::web::figure::loading::{self, Source};
@@ -440,6 +442,7 @@ async fn boot_fetch_is_bounded_to_eight_in_flight() {
 }
 
 #[tokio::test]
+#[ignore = "timing: nightly"]
 async fn pages_stay_responsive_during_large_market_responses() {
     // 32 holdings, each answered with about a megabyte of bars, 100 ms away.
     let install = members_install(32, 32, 13_000, "2026-03-12T00:00:00Z", 30, 100);
@@ -455,6 +458,7 @@ async fn pages_stay_responsive_during_large_market_responses() {
 }
 
 #[tokio::test]
+#[ignore = "timing: nightly"]
 async fn pages_stay_responsive_during_a_cpu_heavy_fill() {
     // 60 holdings, 3,000 orders, two years of daily bars each: a computation of seconds.
     let install = members_install(60, 3_000, 730, "2024-03-18T00:00:00Z", 86_400, 0);
@@ -509,6 +513,7 @@ async fn a_timed_out_fill_keeps_the_compute_bound() {
 // ---- Task 6: the builder under WAL, and the read lock of its order reads -----------------------------------------------
 
 #[tokio::test]
+#[ignore = "timing: nightly"]
 async fn wal_slow_builder_statement_blocks_neither_writer_nor_web() {
     let install = Install::new(1, 0);
     // A builder statement slowed by a function of its own: a millisecond a row, two seconds in all.

@@ -1,5 +1,7 @@
 //! The reference-data jobs (rust/src/jobs/{import,reference}.rs). Row parity with Rails is
 //! rust/tests/reference_parity.rs; these pin the Rust-side mechanics parity cannot see.
+//! Wall-clock timing tests here are `#[ignore = "timing: nightly"]`, out of the PR gate; the nightly workflow runs them.
+//! By hand: `cargo nextest run --profile timing --run-ignored only` (rust/.config/nextest.toml lists them).
 mod common;
 use chrono::{DateTime, Utc};
 use deltabadger::jobs::{import, Db};
@@ -251,6 +253,7 @@ async fn a_rename_group_is_only_its_colliding_rows_and_the_bound_is_enforced() {
 }
 
 #[tokio::test(flavor = "current_thread")]
+#[ignore = "timing: nightly"]
 async fn every_write_unit_keeps_the_gap_across_phase_boundaries() {
     let (d, c) = db();
     let file = c.path().unwrap().to_string();
@@ -281,6 +284,7 @@ async fn every_write_unit_keeps_the_gap_across_phase_boundaries() {
 }
 
 #[tokio::test(flavor = "current_thread")]
+#[ignore = "timing: nightly"]
 async fn a_unit_that_rolls_back_still_keeps_the_gap_before_the_next_phase() {
     let (d, c) = db();
     let file = c.path().unwrap().to_string();
@@ -488,6 +492,7 @@ fn thread_gap_meter() -> (Arc<AtomicU64>, tokio::task::JoinHandle<()>) {
 }
 
 #[tokio::test(flavor = "current_thread")]
+#[ignore = "timing: nightly"]
 async fn full_size_reference_writes_hold_neither_the_runtime_thread_nor_the_write_lock_past_their_bounds() {
     use wiremock::matchers::{method, path};
     use wiremock::{Mock, MockServer, ResponseTemplate};
