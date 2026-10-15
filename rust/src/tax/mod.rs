@@ -339,7 +339,7 @@ fn settle_in_cents(rows: &mut [Disposal], proceeds: &Dec, fee: &Dec) -> Result<(
 /// takes a NUL too; `ruby::strip` answers the same, as what lstrip leaves never starts with what strip removes), anything
 /// else as
 /// its `to_s`, or nil.
-enum Cell { Text(String), Raw(String), Nil }
+pub(crate) enum Cell { Text(String), Raw(String), Nil }
 
 fn t(key: &str) -> Cell { Cell::Text(text(LOCALE, key, &[])) }
 fn s(v: impl Into<String>) -> Cell { Cell::Text(v.into()) }
@@ -348,7 +348,7 @@ fn cents(v: &Dec) -> Result<Cell, FiguresError> { Ok(Cell::Raw(v.round(2)?.to_s_
 fn iso(at: At) -> String { at.utc().format("%Y-%m-%dT%H:%M:%SZ").to_string() }
 fn date(at: At) -> String { at.utc().format("%Y-%m-%d").to_string() }
 
-fn line(out: &mut String, cells: &[Cell]) {
+pub(crate) fn line(out: &mut String, cells: &[Cell]) {
     const LEADERS: [char; 7] = ['=', '+', '-', '@', '\t', '\r', '\n'];
     let fields: Vec<String> = cells.iter().map(|c| match c {
         Cell::Nil => String::new(),

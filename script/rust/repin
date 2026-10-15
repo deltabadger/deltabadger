@@ -45,6 +45,7 @@ RECORDED = {
                                r'scenarios/\d+/tables/(api_keys|users)/\d+/(key|secret|encrypted_password|otp_secret_key)'),
     FIX + 'tracker_cache.json': ('test', [runner('tracker_cache.rb', '{out}')], None),
     FIX + 'tracker_completion.json': ('test', [runner('tracker_completion.rb', '{out}')], None),
+    FIX + 'tracker_export.json': ('test', [runner('record_tracker_export.rb', '{out}')], None),
     'rust/src/web/mcp/metadata.json': ('test', [runner('mcp.rb', 'metadata', '{out}')], None),
     # The full run, then the two groups it leaves to their own modes (bot_actions, action_lifecycle). It also
     # writes rust/src/web/time_zones.json, which is copied back with it.
