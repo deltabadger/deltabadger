@@ -41,8 +41,11 @@ export default class extends Controller {
     this.onVisit = this.visit.bind(this)
     this.onSubmitEnd = this.submitEnd.bind(this)
     this.onChange = this.venuePicked.bind(this)
-    this.onBeforeCache = this.leave.bind(this)
-    this.onShaken = () => this.barTarget.classList.remove("merge-bar--shake")
+    this.onBeforeCache = () => { this.leave(); this.#hideBar() }
+    this.onShaken = (event) => {
+      this.barTarget.classList.remove("merge-bar--shake")
+      if (event.animationName === "merge-bar-out") this.#hideBar()
+    }
     document.addEventListener("turbo:before-cache", this.onBeforeCache)
     if (this.hasBarTarget) this.barTarget.addEventListener("animationend", this.onShaken)
   }
@@ -67,6 +70,7 @@ export default class extends Controller {
     this.merged = false
     this.selected = []
     this.element.classList.add("bots-merge--active")
+    this.barTarget.classList.remove("merge-bar--out")
     this.barTarget.hidden = false
     document.addEventListener("click", this.onClick, true)
     document.addEventListener("pointerdown", this.onPointerdown, true)
@@ -77,8 +81,17 @@ export default class extends Controller {
     this.render()
   }
 
+  // Cancel alone slides the bar back out; every other way out hides it at once.
   cancel() {
     this.leave()
+    this.barTarget.hidden = false
+    this.barTarget.classList.add("merge-bar--out")
+  }
+
+  #hideBar() {
+    if (!this.hasBarTarget) return
+    this.barTarget.classList.remove("merge-bar--out")
+    this.barTarget.hidden = true
   }
 
   leave() {

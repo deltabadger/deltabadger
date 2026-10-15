@@ -1,11 +1,15 @@
 <%# Its own target, apart from the status text: the tile lays it under the text-and-button row, the bot
-    page inside the status pill. Replaced wherever the status bar is. %>
+    page inside the status pill. Replaced wherever the status bar is. A stopped bot keeps a 0-width fill
+    so the controller can shrink the old one away. %>
 <%= tag.div id: dom_id(bot, :progress_bar), class: "bot-control__progress" do %>
-  <% if bot.scheduled? && !bot.signal? %>
-    <%= tag.div class: "bot-control__progress__fill", style: "min-width:0.5rem; width: #{bot.progress_percentage * 100}%", data: {
-      controller: "progress-bar",
-      progress_bar_start_time_value: bot.progress_start_time&.iso8601,
-      progress_bar_end_time_value: bot.next_action_job_at&.iso8601,
-    } %>
+  <% unless bot.signal? %>
+    <% scheduled = bot.scheduled? %>
+    <%= tag.div class: "bot-control__progress__fill",
+                style: scheduled ? "min-width:0.5rem; width: #{bot.progress_percentage * 100}%" : "width: 0%",
+                data: {
+                  controller: "progress-bar",
+                  progress_bar_start_time_value: (bot.progress_start_time&.iso8601 if scheduled),
+                  progress_bar_end_time_value: (bot.next_action_job_at&.iso8601 if scheduled),
+                } %>
   <% end %>
 <% end %>

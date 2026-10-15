@@ -19,7 +19,7 @@
   color: var(--ash)
   border-radius: 2rem
   box-shadow: var(--shadow-strong)
-  animation: merge-bar-in 0.3s ease-out both
+  animation: merge-bar-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both
   max-width: 100rem
   margin: 0 auto
   @media (min-width: 768px)
@@ -30,7 +30,11 @@
     display: none
   // Listed after the entrance so removing the class does not replay the slide-in.
   &--shake
-    animation: merge-bar-in 0.3s ease-out both, merge-bar-shake 0.4s ease-in-out
+    animation: merge-bar-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both, merge-bar-shake 0.4s ease-in-out
+  // Cancel: the entrance in reverse — a dip up, then down behind the edge. After --shake so it wins.
+  &--out
+    animation: merge-bar-out 0.3s cubic-bezier(0.36, 0, 0.66, -0.56) both
+    pointer-events: none
   &__assets
     display: flex
     flex-direction: column
@@ -61,13 +65,19 @@
       pointer-events: none
       box-shadow: none
 
+// Up from behind the viewport's bottom edge (its own height plus the 1rem gap and the shadow); the
+// back-out curve overshoots and settles.
 @keyframes merge-bar-in
   from
-    opacity: 0
-    transform: translateY(1rem)
+    transform: translateY(calc(100% + 3rem))
   to
-    opacity: 1
     transform: translateY(0)
+
+@keyframes merge-bar-out
+  from
+    transform: translateY(0)
+  to
+    transform: translateY(calc(100% + 3rem))
 
 @keyframes merge-bar-shake
   0%, 100%

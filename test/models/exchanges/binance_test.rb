@@ -267,32 +267,61 @@ class Exchanges::BinanceTest < ActiveSupport::TestCase
     assert_equal %w[BTCUSDT-124], result.data[:orders].keys
   end
 
-  def five_orders(**fields)
-    (1..5).map { |id| { order_id: "BTCUSDT-#{id}", **fields } }
+  def btc_trade(id, order_id: 1, price: '100', qty: '0.1')
+    { 'id' => id, 'symbol' => 'BTCUSDT', 'orderId' => order_id, 'price' => price, 'qty' => qty,
+      'quoteQty' => (price.to_d * qty.to_d).to_s('F'), 'commission' => '0', 'commissionAsset' => 'BNB',
+      'isBuyer' => true, 'isMaker' => false, 'time' => 2 }
   end
 
-  def btc_trade(order_id)
-    { 'symbol' => 'BTCUSDT', 'orderId' => order_id, 'price' => '100', 'qty' => '0.1', 'quoteQty' => '10',
-      'commission' => '0', 'commissionAsset' => 'BNB', 'isBuyer' => true, 'isMaker' => false, 'time' => 2 }
+  def fill(executed) = [{ order_id: 'BTCUSDT-1', amount_exec_excl_commission: executed.to_d }]
+
+  def trades_walk(executed, *pages)
+    @exchange.set_client
+    client = @exchange.send(:client)
+    from_ids = [0]
+    pages.each_with_index do |page, i|
+      client.expects(:account_trade_list)
+            .with(symbol: 'BTCUSDT', order_id: 1, from_id: from_ids[i], limit: 1000, recv_window: 60_000)
+            .returns(Result::Success.new(page))
+      from_ids << (page.map { |t| t['id'] }.max.to_i + 1)
+    end
+    @exchange.send(:get_aggregated_trades_for_orders, fill(executed))
   end
 
-  test 'the trades walk fails when 100 pages do not cover the orders' do
+  # More than a page of trades: the next page starts past the last trade id, and every trade counts.
+  test 'an order with more than 1000 trades is rebuilt from all of them' do
+    result = trades_walk('100.1', (1..1000).map { |id| btc_trade(id) }, [btc_trade(1001)])
+    assert result.success?
+    assert_equal '100.1'.to_d, result.data['BTCUSDT-1'][:amount]
+  end
+
+  # A trade answered twice (a page boundary) is one trade.
+  test 'a trade seen on two pages counts once' do
+    result = trades_walk('100', (1..1000).map { |id| btc_trade(id) }, [btc_trade(1000)])
+    assert result.success?
+    assert_equal '100'.to_d, result.data['BTCUSDT-1'][:amount]
+  end
+
+  # Trades that do not yet add up to what the order executed are not its fill: the order waits.
+  test 'trades short of the executed quantity are not a fill' do
+    assert trades_walk('0.3', [btc_trade(1), btc_trade(2)]).failure?
+    assert trades_walk('0.1', []).failure?
+  end
+
+  # Aggregated once: 1.00, 1.01, 1.00 at two decimals average to 1.00, wherever the pages end.
+  test 'the price is the average of all trades, rounded once' do
+    create(:ticker, exchange: @exchange, ticker: 'BTCUSDT', base: 'BTC', quote: 'USDT', price_decimals: 2) unless Ticker.exists?(exchange: @exchange,
+                                                                                                                                 ticker: 'BTCUSDT')
+    Ticker.where(exchange: @exchange, ticker: 'BTCUSDT').update_all(price_decimals: 2)
+    trades = [btc_trade(1, price: '1.00', qty: '1'), btc_trade(2, price: '1.01', qty: '1'), btc_trade(3, price: '1.00', qty: '1')]
+    result = trades_walk('3', trades)
+    assert_equal '1.0'.to_d, result.data['BTCUSDT-1'][:price]
+  end
+
+  test 'the trades walk fails when 100 pages do not end' do
     @exchange.set_client
     @exchange.send(:client).expects(:account_trade_list).times(100)
-             .returns(Result::Success.new(Array.new(1000) { { 'orderId' => 999, 'time' => 1 } }))
-
-    result = @exchange.send(:get_aggregated_trades_for_orders, five_orders(amount: 0.1.to_d))
-    assert result.failure?
-  end
-
-  test 'the trades walk stops once quote-sized orders are covered' do
-    page = (1..5).map { |id| btc_trade(id) } + Array.new(995) { { 'orderId' => 999, 'time' => 1 } }
-    @exchange.set_client
-    @exchange.send(:client).expects(:account_trade_list).once.returns(Result::Success.new(page))
-
-    orders = five_orders(amount: nil, quote_amount: 10.to_d, amount_exec_excl_commission: 0.1.to_d)
-    result = @exchange.send(:get_aggregated_trades_for_orders, orders)
-    assert result.success?
-    assert_equal 0.1.to_d, result.data['BTCUSDT-3'][:amount]
+             .returns(Result::Success.new((1..1000).map { |id| btc_trade(id) }))
+    assert @exchange.send(:get_aggregated_trades_for_orders, fill('1')).failure?
   end
 end
