@@ -83,6 +83,26 @@ class AlpacaPositionIdentityTest < ActiveSupport::TestCase
       assert_equal [@usd.id], rows.reload.pluck(:asset_id)
     end
   end
+  test 'shares behind a resting sell stay in the holdings and leave the free balance' do
+    listings(true, true)
+    key = create(:api_key, exchange: @exchange)
+    key.stubs(:exchange).returns(@exchange)
+    @exchange.stubs(:set_client)
+    @exchange.stubs(:get_usd_prices).returns(Result::Success.new({ @stock.external_id => 30 }))
+    MarketData.stubs(:get_prices).returns(Result::Success.new({}))
+    row = -> { AccountBalance.find_by!(user: key.user, exchange: @exchange, asset: @stock) }
+
+    positions([{ 'symbol' => 'BTC', 'asset_class' => 'us_equity', 'qty' => '10', 'qty_available' => '10' }])
+    assert_predicate AccountBalance::Sync.new(key).sync!, :success?
+    assert_equal 300, row.call.usd_value
+
+    # A resting sell for all ten: nothing left to sell, the same ten held.
+    positions([{ 'symbol' => 'BTC', 'asset_class' => 'us_equity', 'qty' => '10', 'qty_available' => '0' }])
+    assert_equal 0, @exchange.get_balance(asset_id: @stock.id).data[:free]
+    assert_predicate AccountBalance::Sync.new(key).sync!, :success?
+    assert_equal [0, 10, 300], [row.call.free, row.call.locked, row.call.usd_value]
+  end
+
   test 'balance sync keeps a stored holding when its position arrives without a symbol' do
     listings(true, true)
     key = create(:api_key, exchange: @exchange)
