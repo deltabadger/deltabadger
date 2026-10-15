@@ -16,6 +16,30 @@ fn the_slice_is_eligible_with_its_two_options() {
     assert_eq!(r.eligible, vec![a, b]);
 }
 
+fn closed(at: &str) -> TxSpec {
+    TxSpec { status: 0, external_status: Some(2), external_id: Some(format!("O{at}")), order_type: 0, amount: Some("0.002"), quote_amount: Some("100"),
+             price: Some("50000"), quote_amount_exec: Some("100"), amount_exec: Some("0.002"), created_at: at.into() }
+}
+
+/// 6a: a one-asset seller on Kraken or Binance runs, and a history holding its sells is read by the same normalized walk.
+#[test]
+fn a_one_asset_seller_with_sells_in_its_history_is_eligible_on_kraken_and_binance() {
+    for venue in ["Exchanges::Kraken", "Exchanges::Binance"] {
+        let (_d, o, s) = install();
+        o.primary.execute("UPDATE exchanges SET type = ?1", [venue]).unwrap();
+        let id = seed::insert_bot(&o.primary, &s, &plain().with("direction", json!("selling")).with("sell_denomination", json!("base")).with("sell_amount", json!(0.001)));
+        seed::insert_tx(&o.primary, &s, id, &closed("2026-09-02 10:00:00"));
+        let sold = seed::insert_tx(&o.primary, &s, id, &closed("2026-09-03 10:00:00"));
+        o.primary.execute("UPDATE transactions SET side = 1, amount = '0.0005', amount_exec = '0.0005', quote_amount = '30', quote_amount_exec = '30', price = '60000' WHERE id = ?1", [sold]).unwrap();
+        let r = eligibility::check_install(&o.primary).unwrap();
+        assert!(r.problems.is_empty(), "{venue}: {:?}", r.problems);
+        assert_eq!(r.eligible, vec![id], "{venue}");
+        let bot = deltabadger::engine::model::load_bot(&o.primary, id).unwrap();
+        let walk = deltabadger::engine::basket::walk(&o.primary, &bot, chrono::Utc::now()).unwrap();
+        assert_eq!(walk.amounts[&s.btc].to_s_f(), "0.0015", "{venue}: bought 0.002, sold 0.0005");
+    }
+}
+
 type Make = Box<dyn Fn(&rusqlite::Connection, &seed::Seeded) -> i64>;
 
 #[test]
@@ -32,7 +56,16 @@ fn each_thing_outside_the_slice_is_refused_with_its_reason() {
         // A starting time runs only as a fresh start leaves it (start_at = started_at); this one's start_at is elsewhere.
         ("start_time_enabled", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("start_time_enabled", json!(true)).with("start_at", json!("2020-01-01T00:00:00Z"))))),
         ("rebalance_enabled", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("rebalance_enabled", json!(true))))),
-        ("direction", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("direction", json!("selling"))))),
+        ("direction \"sideways\"", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("direction", json!("sideways"))))),
+        ("selling with 2 assets", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("direction", json!("selling")).with("allocations", json!({ s.btc.to_string(): 0.5, s.quote.to_string(): 0.5 }))))),
+        ("sell_interval \"fortnight\"", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("direction", json!("selling")).with("sell_interval", json!("fortnight"))))),
+        ("sell_amount is negative", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("direction", json!("selling")).with("sell_amount", json!(-1))))),
+        ("sell cadence under a second", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("direction", json!("selling")).with("sell_denomination", json!("base"))
+            .with("sell_interval", json!("hour")).with("sell_amount", json!(1)).with("smart_intervaled", json!(true)).with("smart_interval_quote_amount", json!(20.0)).with("smart_interval_base_amount", json!(0.0001))))),
+        ("selling with 1 order(s) placed on another venue", Box::new(|c, s| { let id = seed::insert_bot(c, s, &plain().with("direction", json!("selling")));
+            seed::insert_tx(c, s, id, &closed("2026-09-02 10:00:00"));
+            c.execute("INSERT INTO exchanges (type, name, created_at, updated_at) VALUES ('Exchanges::Binance', 'Binance', '2026-01-01', '2026-01-01')", []).unwrap();
+            c.execute("UPDATE transactions SET exchange_id = last_insert_rowid() WHERE bot_id = ?1", [id]).unwrap(); id })),
         ("liquidation_pending", Box::new(|c, s| seed::insert_bot(c, s, &plain().transient("liquidation_pending", json!({"state": "x"}))))),
         ("wash_sale", Box::new(|c, s| { c.execute("UPDATE users SET wash_sale_enabled = 1", []).unwrap(); seed::insert_bot(c, s, &plain()) })),
         ("category", Box::new(|c, s| { c.execute("UPDATE assets SET category = 'stock' WHERE id = ?1", [s.btc]).unwrap(); seed::insert_bot(c, s, &plain()) })),
@@ -211,7 +244,7 @@ fn malformed_asset_categories_incomplete_indices_and_other_quotes_are_refused() 
         ("instrument tokenized", Box::new(|c, s| { c.execute("UPDATE assets SET instrument_type = 'tokenized' WHERE id = ?1", [s.btc]).unwrap(); seed::insert_bot(c, s, &plain()) })),
         ("no ticker for the asset", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("allocations", json!({ s.btc.to_string(): 0.5, s.quote.to_string(): 0.5 }))))),
         ("index_category_id missing", Box::new(|c, s| { let id = seed::insert_bot(c, s, &plain()); c.execute("UPDATE bots SET type = 'Bots::DcaIndex' WHERE id = ?1", [id]).unwrap(); id })),
-        ("direction", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("direction", json!("selling"))))),
+        ("selling on Alpaca", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("direction", json!("selling"))))),
         ("quote USDT (Alpaca: only USD)", Box::new(|c, s| { c.execute("UPDATE assets SET symbol = 'USDT' WHERE id = ?1", [s.quote]).unwrap(); seed::insert_bot(c, s, &plain()) })),
     ];
     for (reason, make) in cases {

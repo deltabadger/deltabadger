@@ -89,7 +89,11 @@ fn bot_reasons_with(c: &Connection, bot: &Bot, splits: &mut SplitRows) -> Result
     let kraken = match exchange.as_deref() { Some("Exchanges::Kraken") => Some("Kraken"), Some("Exchanges::Binance") => Some("Binance"), _ => None };
     let alpaca = exchange.as_deref() == Some("Exchanges::Alpaca");
     let members = if index { index_reasons(c, bot, alpaca, &mut r)? } else { composition_reasons(bot, kraken, &mut r) };
-    match bot.settings.get("direction") { None | Some(Value::Null) => {}, Some(v) if v == "buying" => {}, Some(d) => r.push(format!("direction {d}")) }
+    match bot.settings.get("direction") {
+        None | Some(Value::Null) => {}, Some(v) if v == "buying" => {},
+        Some(v) if v == "selling" => sell_reasons(c, bot, index, alpaca, &members, &mut r)?,
+        Some(d) => r.push(format!("direction {d}")),
+    }
     if let Some(obj) = bot.settings.as_object() {
         for (k, v) in obj {
             let flag = k.ends_with("_limited") || k.ends_with("_ordered") || k.ends_with("_intervaled");
@@ -116,9 +120,37 @@ fn bot_reasons_with(c: &Connection, bot: &Bot, splits: &mut SplitRows) -> Result
     history_reasons(c, bot, alpaca, &members, splits, &mut r)?;
     member_reasons(c, bot, alpaca, &members, &mut r)?;
     // The walk must read; every recorded split applied (the last instant the figures represent), so no clock is read here.
-    if alpaca && r.is_empty() { super::basket::walk(c, bot, DateTime::from_timestamp_nanos(i64::MAX))?; }
+    let sold: bool = c.query_row("SELECT EXISTS (SELECT 1 FROM transactions WHERE bot_id = ?1 AND side = 1)", [bot.id], |r| r.get(0))?;
+    if (alpaca || sold) && r.is_empty() { super::basket::walk(c, bot, DateTime::from_timestamp_nanos(i64::MAX))?; }
     if alpaca && r.is_empty() { super::accounting::validate_stored_amounts(&bot.settings, &bot.transient)?; super::accounting::quote_amount_available_num(c, bot)?; }
     Ok(r)
+}
+
+/// Selling (slice 6a): a one-asset basket on Kraken or Binance (one_asset_sell_orders_data), sized from the sell sentence and
+/// scheduled on the sell cadence. Refused: an index bot (not reversible), a wider basket (the ranked DCA-out is 6b), Alpaca
+/// (its free base waits for Rails' qty_available fix), rows on another venue (Rails caps such a sale at this venue's own
+/// units, which this build does not port), and a sell cadence no schedule here can hold.
+fn sell_reasons(c: &Connection, bot: &Bot, index: bool, alpaca: bool, members: &[i64], r: &mut Vec<String>) -> Result<(), EngineError> {
+    if index { r.push("selling (an index bot)".into()); return Ok(()); }
+    if members.len() != 1 { r.push(format!("selling with {} assets (only one-asset baskets sell in this engine yet)", members.len())); }
+    if alpaca { r.push("selling on Alpaca (waits for the venue's qty_available free balance)".into()); }
+    let foreign: i64 = c.query_row("SELECT count(*) FROM transactions WHERE bot_id = ?1 AND status = 0 AND exchange_id != ?2", params![bot.id, bot.exchange_id], |r| r.get(0))?;
+    if foreign > 0 { r.push(format!("selling with {foreign} order(s) placed on another venue")); }
+    if let Some(v) = bot.settings.get("sell_interval").filter(|v| !v.is_null() && v.as_str().is_none_or(|s| !s.trim().is_empty())) {
+        if v.as_str().and_then(super::schedule::Interval::parse).is_none() { r.push(format!("sell_interval {v}")); }
+    }
+    for key in ["sell_amount", "sell_quote_amount", "smart_interval_base_amount"] {
+        if let Some(v) = bot.settings.get(key).filter(|v| !v.is_null()) {
+            if !(v.is_number() || v.as_str().is_some_and(|s| s.trim().is_empty() || crate::ruby::BigDec::parse(s.trim()).is_ok())) { r.push(format!("{key} is not a number")); }
+            if super::schedule::to_d(v).is_some_and(|d| d < crate::ruby::BigDec::zero()) { r.push(format!("{key} is negative")); }
+        }
+    }
+    // The span between two sells, as the web bounds a working bot's (MIN_SPAN_SECONDS, MAX_SPAN_SECONDS).
+    let seconds = bot.effective().map(|e| e.seconds());
+    if !seconds.is_some_and(|s| (crate::web::bot::MIN_SPAN_SECONDS..=crate::web::bot::MAX_SPAN_SECONDS).contains(&s)) {
+        r.push("a sell cadence under a second or over a thousand years".into());
+    }
+    Ok(())
 }
 
 /// A pending starting time (Bot::Startable) runs only in the state Bot::Lifecycle#start(start_fresh: true) leaves it:
@@ -226,14 +258,15 @@ fn history_reasons(c: &Connection, bot: &Bot, alpaca: bool, members: &[i64], spl
     Ok(())
 }
 
-/// The kinds of order a bot's history holds that this build does not read: sells off Alpaca, special rows outside what
+/// The kinds of order a bot's history holds that this build does not read: special rows outside what
 /// special_reasons admits, imported rows, and orders without an asset.
 fn order_kind_reasons(c: &Connection, bot: &Bot, alpaca: bool, r: &mut Vec<String>) -> Result<(), EngineError> {
-    let (sells, imported, no_asset): (i64, i64, i64) = c.query_row(
-        "SELECT coalesce(sum(side = 1), 0), coalesce(sum(external_id LIKE 'imported_%'), 0), \
+    let (imported, no_asset): (i64, i64) = c.query_row(
+        "SELECT coalesce(sum(external_id LIKE 'imported_%'), 0), \
                 coalesce(sum((transaction_type = 'REGULAR' OR status = 0) AND base_asset_id IS NULL), 0) FROM transactions WHERE bot_id = ?1",
-        [bot.id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?;
-    if !alpaca && sells > 0 { r.push(format!("{sells} sell order(s) in its history")); }
+        [bot.id], |r| Ok((r.get(0)?, r.get(1)?)))?;
+    // Sell rows are no refusal on any venue: off Alpaca the same normalized walk reads them (tests/eligibility.rs proves it
+    // on Kraken and Binance), and bot_reasons_with runs it for such a history before accepting it.
     special_row_reasons(c, bot, alpaca, r)?;
     if imported > 0 { r.push(format!("{imported} imported row(s) in its history")); }
     if no_asset > 0 { r.push(format!("{no_asset} order(s) recorded without base_asset_id")); }
