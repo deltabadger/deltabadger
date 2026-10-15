@@ -217,8 +217,9 @@ async fn control_transcripts() {
             // refused by the engine guard; a market-cap basket's derived composition by the writer, as the
             // settings page refuses that bot.
             let rebalancing=want["rows"]["bots"].as_array().unwrap().iter().any(|b|b["settings"]["rebalance_enabled"]==json!(true));
-            let market_cap=want["rows"]["bots"][0]["settings"]["weighting"]=="market_cap" && got["before_business"]["bots"][0]["settings"]["allocations"]!=want["rows"]["bots"][0]["settings"]["allocations"]
-                || want["rows"]["bots"][0]["settings"]["weighting"]=="market_cap" && got["before_business"]["bots"][0]["settings"]["weighting"]!=json!("market_cap");
+            let market_cap=want["rows"]["bots"][0]["settings"]["weighting"]=="market_cap"
+                && (got["before_business"]["bots"][0]["settings"]["allocations"]!=want["rows"]["bots"][0]["settings"]["allocations"]
+                    || got["before_business"]["bots"][0]["settings"]["weighting"]!=json!("market_cap"));
             if rebalancing || market_cap {
                 let rails:Value=serde_json::from_str(want["responses"][2]["body"].as_str().unwrap()).unwrap();
                 assert!(rails["result"]["content"][0]["text"].as_str().unwrap().contains("settings updated:"),"Rails saves {name}");
