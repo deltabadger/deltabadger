@@ -86,6 +86,9 @@ pub fn alias_coin(symbol: &str, venue: Option<&Venue>, at: Option<NaiveDate>) ->
 /// One catalogue asset: its id, external id and category.
 pub type Asset = (i64, Option<String>, Option<String>);
 
+/// A price key and the security it is one's (`price_key`).
+pub type PriceKey = (String, Option<Asset>);
+
 /// Tax::AssetIdentity::STOCK_CATEGORIES: the categories a broker's securities are filed under.
 pub const STOCK_CATEGORIES: [&str; 4] = ["Stock", "Common Stock", "ETF", "Fund"];
 fn security(a: &Asset) -> bool { a.2.as_deref().is_some_and(|c| STOCK_CATEGORIES.contains(&c)) }
@@ -301,7 +304,7 @@ pub struct PriceService<'a> {
     /// (exchange id, symbol) → the assets the rows `record` was handed recorded there; the names a coin was recorded under.
     recorded: HashMap<(i64, String), Vec<Asset>>,
     recorded_coins: HashSet<String>,
-    price_keys: HashMap<(String, Option<i64>, Vec<i64>), Option<(String, Option<Asset>)>>,
+    price_keys: HashMap<(String, Option<i64>, Vec<i64>), Option<PriceKey>>,
     /// (asset, currency) → what this pass's fetches brought.
     fetched: HashMap<(String, String), BTreeMap<NaiveDate, Dec>>,
     fetcher: &'a mut dyn Fetcher,
