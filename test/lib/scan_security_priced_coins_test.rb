@@ -6,7 +6,7 @@ class ScanSecurityPricedCoinsTest < ActiveSupport::TestCase
 
   def statements = SQL.lines.grep_v(/\A\s*--/).join.split(';').map(&:strip).reject(&:empty?)
 
-  def day(n) = Date.new(2026, 10, 1) + n
+  def day(offset) = Date.new(2026, 10, 1) + offset
 
   test 'it lists the bare coin prices a security wrote, and every user whose history read them' do
     alpaca = create(:alpaca_exchange)
@@ -31,8 +31,8 @@ class ScanSecurityPricedCoinsTest < ActiveSupport::TestCase
 
     suspects, users = statements.map { |sql| ActiveRecord::Base.connection.select_all(sql).to_a }
 
-    assert_equal [%w[BTC EUR] + [day(8).to_s]] + (7..11).map { |n| ['BTC', 'USD', day(n).to_s] },
-                 suspects.map { |row| row.values_at('asset', 'currency', 'date').map(&:to_s) }
+    found = suspects.map { |row| row.values_at('asset', 'currency', 'date').map(&:to_s) }
+    assert_equal [%w[BTC EUR] + [day(8).to_s]] + (7..11).map { |n| ['BTC', 'USD', day(n).to_s] }, found
     assert_equal [crypto_only.id], users.map { |row| row['user_id'] }, 'a crypto-only user whose day read them'
   end
 

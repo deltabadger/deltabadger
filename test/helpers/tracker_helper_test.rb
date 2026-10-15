@@ -285,7 +285,7 @@ class TrackerHelperTest < ActionView::TestCase
   #
   # Alpaca lists a BTC security beside BTC/USD. Both keys hold prices; a row is shown the one its
   # identity names, as `Tax::PriceService` reads it, and none when the name is still both.
-  def priced_row(symbol, base_asset: nil, exchange:, user:)
+  def priced_row(symbol, exchange:, user:, base_asset: nil)
     create(:account_transaction, api_key: ApiKey.find_by(user: user, exchange: exchange) || create(:api_key, user: user, exchange: exchange),
                                  entry_type: :fee, base_currency: symbol, base_asset: base_asset, base_amount: 1,
                                  quote_currency: nil, quote_amount: nil, transacted_at: Time.utc(2026, 10, 8, 12))
