@@ -308,9 +308,11 @@ class Exchanges::Binance < Exchange
     order_ids_by_symbol = order_ids.group_by { |order_id| order_id.split('-').first }
     order_ids_by_symbol.each do |symbol, symbol_order_ids|
       ext_order_ids = symbol_order_ids.map { |order_id| order_id.split('-').last.to_i }
-      # 100.times returns nil only when the loop breaks, i.e. the walk reached the end
+      # allOrders answers from an order id up; a full page moves past its last id, a short one is the end
+      # (an id never seen there is left out, as before). 100.times returns nil only when the loop breaks.
+      from_id = ext_order_ids.min
       exhausted = 100.times do
-        result = client.all_orders(symbol: symbol, order_id: ext_order_ids.min, limit: 1000, recv_window: READ_RECV_WINDOW)
+        result = client.all_orders(symbol: symbol, order_id: from_id, limit: 1000, recv_window: READ_RECV_WINDOW)
         if result.failure?
           error = parse_error_message(result)
           return error.present? ? Result::Failure.new(error, data: result.data) : result
@@ -335,7 +337,9 @@ class Exchanges::Binance < Exchange
           ext_order_ids.delete(ext_order_id)
         end
 
-        break if ext_order_ids.empty?
+        break if ext_order_ids.empty? || result.data.size < 1000
+
+        from_id = [ext_order_ids.min, result.data.map { |entry| entry[:raw]['orderId'] }.max + 1].max
       end
       return Result::Failure.new("Too many pages of #{name} #{symbol} orders") if exhausted
     end

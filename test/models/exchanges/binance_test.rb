@@ -232,9 +232,39 @@ class Exchanges::BinanceTest < ActiveSupport::TestCase
   test 'get_orders fails when 100 pages do not reach the orders' do
     @exchange.set_client
     @exchange.send(:client).expects(:all_orders).times(100)
-             .returns(Result::Success.new([{ raw: { 'orderId' => 1 } }]))
+             .returns(Result::Success.new((1000..1999).map { |id| { raw: { 'orderId' => id } } }))
 
     assert @exchange.get_orders(order_ids: ['BTCUSDT-123']).failure?
+  end
+
+  def raw_order(id)
+    { raw: { 'orderId' => id, 'symbol' => 'BTCUSDT', 'status' => 'NEW', 'type' => 'LIMIT', 'side' => 'BUY',
+             'price' => '100', 'origQty' => '0.1', 'executedQty' => '0', 'cummulativeQuoteQty' => '0',
+             'origQuoteOrderQty' => '0' } }
+  end
+
+  # allOrders answers 1000 orders from the asked id up: the next page starts past the last one.
+  test 'get_orders walks past a full page to the orders after it' do
+    @exchange.set_client
+    client = @exchange.send(:client)
+    client.expects(:all_orders).with(symbol: 'BTCUSDT', order_id: 123, limit: 1000, recv_window: 60_000)
+          .returns(Result::Success.new((123..1122).map { |id| raw_order(id) }))
+    client.expects(:all_orders).with(symbol: 'BTCUSDT', order_id: 5000, limit: 1000, recv_window: 60_000)
+          .returns(Result::Success.new([raw_order(5000)]))
+
+    result = @exchange.get_orders(order_ids: %w[BTCUSDT-123 BTCUSDT-5000])
+    assert result.success?
+    assert_equal %w[BTCUSDT-123 BTCUSDT-5000], result.data[:orders].keys.sort
+  end
+
+  # A short page is the end: an id the venue does not return is left out after one call, not asked 100 times.
+  test 'get_orders stops at a short page without an id it never saw' do
+    @exchange.set_client
+    @exchange.send(:client).expects(:all_orders).once.returns(Result::Success.new([raw_order(124)]))
+
+    result = @exchange.get_orders(order_ids: %w[BTCUSDT-123 BTCUSDT-124])
+    assert result.success?
+    assert_equal %w[BTCUSDT-124], result.data[:orders].keys
   end
 
   def five_orders(**fields)
