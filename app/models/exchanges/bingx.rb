@@ -1,8 +1,19 @@
 class Exchanges::Bingx < Exchange
   COINGECKO_ID = 'bingx'.freeze # https://docs.coingecko.com/reference/exchanges-list
+  # Codes and wording from https://bingx-api.github.io/docs/#/en-us/common/error-code (and the samples
+  # on the place-order page); 100413 captured from a live probe with a bogus key.
   ERRORS = {
-    insufficient_funds: ['Insufficient balance', 'insufficient balance'],
-    invalid_key: ['Invalid Api-Key ID', 'Signature verification failed']
+    # 100202 "Insufficient assets, please verify the assets status".
+    insufficient_funds: ['Insufficient assets', 'Insufficient balance', 'insufficient balance'],
+    # 100413 "Incorrect apiKey", 100412 "Null signature", 100001 "Signature verification failed".
+    invalid_key: ['Incorrect apiKey', 'Invalid Api-Key ID', 'Signature verification failed', 'Null signature'],
+    # 100004 a key without the endpoint's permission, 100419 a request from outside the key's IP list:
+    # the key itself is good, so neither may condemn it.
+    permission_denied: ['API key was created without the permission', 'IP does not match IP whitelist'],
+    # HTTP 429, and 100410 "rate limitation".
+    throttle: ['Too Many Requests', 'rate limitation'],
+    # 100500 and 100410 "The current system is busy", 100421 "Null timestamp or timestamp mismatch".
+    transient: ['The current system is busy', 'Internal system error', 'timestamp mismatch']
   }.freeze
   ORDER_STATUS_MAP = {
     'NEW' => :open,

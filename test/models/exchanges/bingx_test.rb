@@ -17,6 +17,19 @@ class Exchanges::BingxTest < ActiveSupport::TestCase
     assert_includes errors[:invalid_key], 'Invalid Api-Key ID'
   end
 
+  # Wording from https://bingx-api.github.io/docs/#/en-us/common/error-code and the place-order samples.
+  test 'the documented balance, key, permission, rate-limit and outage errors are classified' do
+    assert_equal :insufficient_funds,
+                 @exchange.failure_kind(['BingX API error 100202: Insufficient assets, please verify the assets status'])
+    assert @exchange.invalid_key_error?(['Incorrect apiKey, please check your valid api key in https://bingx.com/en/account/api'])
+    assert @exchange.permission_error?(['Permission denied as the API key was created without the permission'])
+    assert @exchange.permission_error?(['IP does not match IP whitelist'])
+    assert_not @exchange.invalid_key_error?(['IP does not match IP whitelist'])
+    assert @exchange.throttled_error?(['rate limitation'])
+    assert @exchange.transient_error?(['BingX API error 100500: The current system is busy, please try again later'])
+    assert @exchange.transient_error?(['Null timestamp or timestamp mismatch'])
+  end
+
   test 'minimum_amount_logic sizes limit orders in base and keeps the cheaper choice for market orders' do
     assert_equal :base_and_quote, @exchange.minimum_amount_logic(side: :buy, order_type: :market_order)
     assert_equal :base_and_quote_in_base, @exchange.minimum_amount_logic(side: :buy, order_type: :limit_order)
