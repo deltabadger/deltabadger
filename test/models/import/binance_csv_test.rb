@@ -200,6 +200,14 @@ class Import::BinanceCsvTest < ActiveSupport::TestCase
     assert_nil Import::BinanceCsv.offset_from('renamed-by-the-user.csv')
   end
 
+  # "-0:30" read as an integer hour is +0, and the offset flipped; a minute past 59 is no zone at all.
+  test 'a minutes-only negative offset keeps its sign, and minutes past 59 are no zone' do
+    assert_equal '-00:30', Import::BinanceCsv.offset_from('x(UTC-0:30).csv')
+    assert_equal '-05:30', Import::BinanceCsv.offset_from('x(UTC-5:30).csv')
+    assert_equal '+00:00', Import::BinanceCsv.offset_from('x(UTC-0).csv')
+    assert_nil Import::BinanceCsv.offset_from('x(UTC+3:99).csv')
+  end
+
   # ── the sign is the direction ────────────────────────────────────────────────────────────────
   #
   # An operation name does not say which way an asset moved; the `Change` column does. Binance takes

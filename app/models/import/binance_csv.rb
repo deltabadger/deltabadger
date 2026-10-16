@@ -61,7 +61,7 @@ class Import::BinanceCsv
   # no zone at all. Read at the wrong offset, every row misses what is already stored and the whole
   # history lands a second time — so the filename is the best evidence available and the user can
   # still override it.
-  FILENAME_OFFSET = /\(UTC([+-]\d{1,2})(?::(\d{2}))?\)/
+  FILENAME_OFFSET = /\(UTC([+-])(\d{1,2})(?::([0-5]\d))?\)/
 
   attr_reader :unrecognised
 
@@ -78,7 +78,11 @@ class Import::BinanceCsv
     match = FILENAME_OFFSET.match(filename.to_s)
     return nil unless match
 
-    format('%<hours>+03d:%<minutes>02d', hours: match[1].to_i, minutes: match[2].to_i)
+    # The sign is its own capture: "-0:30" read as the integer -0 is +0, and the offset flipped.
+    hours = match[2].to_i
+    minutes = match[3].to_i
+    sign = hours.zero? && minutes.zero? ? '+' : match[1]
+    format('%<sign>s%<hours>02d:%<minutes>02d', sign: sign, hours: hours, minutes: minutes)
   end
 
   def initialize(text, offset: '+00:00')
