@@ -185,9 +185,9 @@ class Import::RunTest < ActiveSupport::TestCase
     assert_equal 0, AccountTransaction.for_user(@user).count
   end
 
-  # A Convert whose halves are more than the window apart: each half is one side of a swap, and the
-  # rest of the file still lands. Booked as the reader's internal `convert`, the write refused it.
-  test 'a convert half with no partner lands as one side of a swap' do
+  # A Convert half with no partner in the window is not imported: stored alone it is an orphan the
+  # complete export later cannot pair with, so it is reported and the rest of the file lands.
+  test 'a convert half with no partner is reported, not imported' do
     file = [HEADER, '1,2021-07-01 14:07:04,Spot,Deposit,USDT,150.2,',
             '1,2025-06-22 20:20:00,Spot,Binance Convert,USDT,-129,',
             '1,2025-06-22 20:21:01,Spot,Binance Convert,USDC,129,'].join("\n")
@@ -195,9 +195,25 @@ class Import::RunTest < ActiveSupport::TestCase
     result = import(file)
 
     assert_nil result[:error]
-    assert_equal 3, result[:imported]
-    assert_equal({ 'deposit' => 'USDT', 'swap_out' => 'USDT', 'swap_in' => 'USDC' },
-                 AccountTransaction.for_user(@user).pluck(:entry_type, :base_currency).to_h)
+    assert_equal 1, result[:imported]
+    assert_equal %w[deposit], AccountTransaction.for_user(@user).pluck(:entry_type)
+    assert_equal ['Binance Convert USDT -129 2025-06-22 20:20:00 UTC', 'Binance Convert USDC 129 2025-06-22 20:21:01 UTC'],
+                 result[:unrecognised]
+  end
+
+  test 'a lone convert half, then the complete export, is one grouped pair' do
+    half = [HEADER, '1,2025-06-22 20:20:45,Spot,Binance Convert,USDC,129,'].join("\n")
+    whole = [HEADER, '1,2025-06-22 20:20:45,Spot,Binance Convert,USDC,129,', '1,2025-06-22 20:20:46,Spot,Binance Convert,USDT,-129,'].join("\n")
+
+    import(half)
+    result = import(whole)
+    import(whole)
+
+    assert_equal 2, result[:imported]
+    rows = AccountTransaction.for_user(@user).order(:entry_type).to_a
+    assert_equal %w[swap_in swap_out], rows.map(&:entry_type)
+    assert_equal 1, rows.map(&:group_id).uniq.size
+    assert rows.first.group_id.present?
   end
 
   # Time.parse fills what a cell lacks from the clock: an empty or garbled Time read as today, and the

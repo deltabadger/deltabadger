@@ -207,10 +207,10 @@ class Import::BinanceCsv
   # entry type matches — a Convert out of USDT read as a purchase never met the API's swap, and the
   # coins arrived twice. Priced the same way as the API's, by the cash leg beside the coin leg.
   #
-  # A half with no partner in the window (the other half fell outside the export, or Binance wrote it
-  # late) is still one side of a swap: a lone swap_out or swap_in, which the ledger reads as an orphan
-  # leg and the API's own half of the same Convert dedups against. Not a loss, not income — and never
-  # the reader's internal `convert`, which is no entry type and refused the whole file.
+  # A half with no partner in the window (the other half fell outside the export) is NOT imported but
+  # reported: stored alone it would be an orphan leg at its own time, which the complete export —
+  # stamping the pair at the spend — could neither pair with nor dedup against. The next export
+  # covering both halves imports the pair whole.
   def convert_entries(rows)
     spent, received = rows.partition { |row| row[:change].negative? }
     received = received.sort_by { |row| row[:at] }
@@ -224,7 +224,9 @@ class Import::BinanceCsv
   end
 
   def lone_convert(row)
-    single_entry(row)&.merge(entry_type: row[:change].negative? ? :swap_out : :swap_in)
+    note = "#{row[:operation]} #{row[:coin]} #{row[:change].to_s('F').delete_suffix('.0')} #{row[:at].strftime('%Y-%m-%d %H:%M:%S')} UTC"
+    @unrecognised << note unless @unrecognised.include?(note)
+    nil
   end
 
   # A dust sweep is many coins into BNB at one timestamp, one row per leg. The `Remark` — "CHZ to
