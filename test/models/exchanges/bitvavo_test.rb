@@ -391,7 +391,7 @@ class Exchanges::BitvavoTest < ActiveSupport::TestCase
     deposits = @exchange.get_ledger(api_key: api_key).data.select { |e| e[:entry_type] == :deposit }
 
     assert_equal 1001, deposits.size
-    assert_equal 2, deposits.count { |e| e[:base_currency] == 'EUR' }
+    assert_equal(2, deposits.count { |e| e[:base_currency] == 'EUR' })
   end
 
   test 'get_ledger fails when a transfer read fails' do
