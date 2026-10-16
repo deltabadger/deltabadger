@@ -29,6 +29,9 @@ class Exchanges::Mexc < Exchange
     'EXPIRED' => :cancelled,
     'REJECTED' => :failed
   }.freeze
+  # The order lookup's answer for an order MEXC does not have: -2013 "Order does not exist." (its
+  # Binance-clone wording) or -2011 "Unknown order sent" (https://mexcdevelop.github.io/apidocs/spot_v3_en/#error-code).
+  ORDER_GONE_CODES = [-2013, -2011].freeze
 
   include Exchange::Dryable # decorators for: get_order, get_orders, cancel_order, get_api_key_validity, set_market_order, set_limit_order
 
@@ -272,6 +275,13 @@ class Exchanges::Mexc < Exchange
     symbol, ext_order_id = order_id.split('-')
     result = client.query_order(symbol: symbol, order_id: ext_order_id)
     if result.failure?
+      # Flagged so get_orders lists it under missing and Bot::StaleOrderResolver can retire it,
+      # instead of one gone order failing every poll of the bot's other orders.
+      if ORDER_GONE_CODES.include?(response_field(result, 'code'))
+        return Result::Failure.new("#{name} no longer knows order #{order_id}",
+                                   data: { not_found: true, missing_ids: [order_id] })
+      end
+
       error = parse_error_message(result)
       return error.present? ? Result::Failure.new(error, data: result.data) : result
     end
@@ -283,14 +293,21 @@ class Exchanges::Mexc < Exchange
 
   def get_orders(order_ids:)
     orders = {}
+    missing = []
     order_ids.each do |order_id|
       result = get_order(order_id: order_id)
-      return result if result.failure?
+      if result.failure?
+        # A gone order goes under :missing for the stale-order sweep; any other failure still fails
+        # the batch so the job retries.
+        next missing << order_id if result.data.is_a?(Hash) && result.data[:not_found]
+
+        return result
+      end
 
       orders[order_id] = result.data
     end
 
-    Result::Success.new(orders: orders, missing: [])
+    Result::Success.new(orders: orders, missing: missing)
   end
 
   def cancel_order(order_id:)
