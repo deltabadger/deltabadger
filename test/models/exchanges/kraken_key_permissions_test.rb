@@ -135,4 +135,18 @@ class KrakenKeyPermissionsTest < ActiveSupport::TestCase
 
     assert_equal true, validity(:read_only).data
   end
+
+  # An empty or non-JSON 200 parses to nil or a String; it says nothing about the key.
+  test 'an unreadable answer leaves the key unverified' do
+    %i[trading withdrawal read_only].each do |type|
+      connection = key(type)
+      [nil, 'OK'].each do |body|
+        Honeymaker::Clients::Kraken.any_instance.stubs(:get_api_key_info).returns(Result::Success.new(body))
+        assert_predicate @exchange.get_api_key_validity(api_key: connection), :failure?, "#{type} on #{body.inspect}"
+        next unless type == :read_only
+
+        assert_predicate @exchange.get_read_api_key_validity(api_key: connection), :failure?, "read on #{body.inspect}"
+      end
+    end
+  end
 end
