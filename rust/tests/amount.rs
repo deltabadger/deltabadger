@@ -375,3 +375,79 @@ fn a_sell_is_priced_above_the_last_trade_and_sized_in_base_under_base_and_quote_
         assert_eq!((order.side, order.quote_volume, order.volume.as_str()), (Side::Sell, false, if wire == ALPACA.wire { "0.50000" } else { "0.5" }));
     }
 }
+
+/// Plan 6a T8: Rails' one-asset sell on Kraken and Binance — order_price(:sell), `[base || quote / price, free].min`,
+/// calculate_best_amount_info(side: :sell) and the market_sell / limit_sell wire — replayed through side_price, size_sell,
+/// limit_refusal and to_order (script/rust/record_sell_sizing_vectors.rb).
+#[test]
+fn every_recorded_rails_sell_sizing_and_wire_is_reproduced() {
+    use deltabadger::engine::venue_rules::{BINANCE, KRAKEN};
+    use deltabadger::venue::Side;
+    let (_d, o, s) = install();
+    let vectors: serde_json::Value = serde_json::from_str(include_str!("fixtures/sell_sizing_vectors.json")).unwrap();
+    let bot = |d: &serde_json::Value| {
+        let spec = BotSpec::weekly(60.0, "2026-09-01 10:00:00");
+        let spec = if d.is_null() { spec } else { spec.with("limit_ordered", json!(true)).with("limit_order_pcnt_distance", d.clone()) };
+        model::load_bot(&o.primary, seed::insert_bot(&o.primary, &s, &spec)).unwrap()
+    };
+    let bots: Vec<(serde_json::Value, model::Bot)> = [json!(null), json!(0.0025), json!(0.01), json!(0.001), json!(0.1234)].into_iter().map(|d| { let b = bot(&d); (d, b) }).collect();
+    let deadline = "2026-09-01T10:00:10Z".parse().unwrap();
+    for (venue, wire, pair, base, quote, expected) in [("kraken", KRAKEN.wire, "XXBTZEUR", "XBT", "EUR", (10_378, 4_031, 2_456)),
+                                                        ("binance", BINANCE.wire, "BTCUSDT", "BTC", "USDT", (10_438, 3_988, 2_483))] {
+        let cases = vectors[format!("{venue}_sell")].as_array().unwrap();
+        let (mut below_n, mut refused_n) = (0, 0);
+        for c in cases {
+            let bot = &bots.iter().find(|(d, _)| *d == c["d"]).unwrap().1;
+            let t = Ticker { ticker: pair.into(), base_code: base.into(), quote_code: quote.into(), quote_symbol: quote.into(),
+                             ..sizing_ticker(&vectors["tickers"][c["t"].as_u64().unwrap() as usize]) };
+            let price = amount::side_price(bot, &t, &bd(c["reference"].as_str().unwrap()), Side::Sell).unwrap();
+            assert_eq!(price.to_s_f(), c["price"].as_str().unwrap(), "price {c}");
+            // tick::sell's `base || quote / price`, then `[amount, free].min`.
+            let wanted = bd(c["wanted"].as_str().unwrap());
+            let wanted = if c["denomination"] == "quote" { wanted.div(&price).unwrap() } else { wanted };
+            let free = bd(c["free"].as_str().unwrap());
+            let amount = if free < wanted { free } else { wanted };
+            let (plan, below) = match amount::size_sell(bot, &t, &amount, &price).unwrap() {
+                Sizing::Place(p) => (p, false), Sizing::BelowMinimum(p) => (p, true), other => panic!("{c}: {other:?}") };
+            assert_eq!((plan.side, plan.quote_type), (Side::Sell, false), "{c}");
+            assert_eq!(plan.amount.to_s_f(), c["amount"].as_str().unwrap(), "amount {c}");
+            assert_eq!(plan.quote_amount.to_s_f(), c["quote_amount"].as_str().unwrap(), "quote_amount {c}");
+            assert_eq!(below, c["below_minimum"].as_bool().unwrap(), "below_minimum {c}");
+            if below { below_n += 1; }
+            let refusal = plan.limit_refusal().unwrap();
+            assert_eq!(refusal.as_deref(), c["refused"].as_str(), "refusal {c}");
+            if refusal.is_some() { refused_n += 1; continue; }
+            let order = plan.to_order("cl".into(), deadline, wire).unwrap();
+            let w = &c["wire"];
+            assert!(order.side == Side::Sell && !order.quote_volume, "{c}");
+            if venue == "kraken" {
+                assert_eq!((w["type"].as_str(), w["pair"].as_str(), w["oflags"].clone()), (Some("sell"), Some(pair), json!([])), "{c}");
+                assert_eq!(w["volume"].as_str(), Some(order.volume.as_str()), "volume {c}");
+                match &order.kind {
+                    OrderKind::Market => assert_eq!((w["ordertype"].as_str(), w.get("price")), (Some("market"), None), "{c}"),
+                    OrderKind::Limit { price } => assert_eq!((w["ordertype"].as_str(), w["price"].as_str()), (Some("limit"), Some(price.as_str())), "{c}"),
+                }
+            } else {
+                assert_eq!((w["symbol"].as_str(), w["side"].as_str()), (Some(pair), Some("SELL")), "{c}");
+                assert_eq!(w["quantity"].as_str(), Some(order.volume.as_str()), "quantity {c}");
+                assert!(w.get("quote_order_qty").is_none(), "{c}");
+                match &order.kind {
+                    OrderKind::Market => assert_eq!((w["type"].as_str(), w["self_trade_prevention_mode"].as_str()), (Some("MARKET"), Some("EXPIRE_MAKER")), "{c}"),
+                    OrderKind::Limit { price } => assert_eq!((w["type"].as_str(), w["time_in_force"].as_str(), w["price"].as_str()), (Some("LIMIT"), Some("GTC"), Some(price.as_str())), "{c}"),
+                }
+            }
+        }
+        assert_eq!((cases.len(), below_n, refused_n), expected, "{venue}: every case replayed, both floors and the limit refusal exercised");
+    }
+}
+
+#[test]
+fn the_sell_sizing_port_is_the_ruby_that_was_recorded() {
+    use sha2::{Digest, Sha256};
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+    let vectors: serde_json::Value = serde_json::from_str(include_str!("fixtures/sell_sizing_vectors.json")).unwrap();
+    for (file, recorded) in vectors["sources"].as_object().unwrap() {
+        let now = hex::encode(Sha256::digest(std::fs::read(root.join(file)).unwrap()));
+        assert_eq!(&now, recorded.as_str().unwrap(), "{file} changed: re-record with script/rust/repin and re-check the sell port");
+    }
+}
