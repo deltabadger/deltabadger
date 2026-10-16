@@ -4,7 +4,7 @@
 #   bin/rails runner script/rust/decisions.rb grid-basket <root>  # Alpaca crypto baskets, with the engine's recovery and the next checkpoint
 #   bin/rails runner script/rust/decisions.rb grid-limit <root>   # the amount limit, its stop and its mail, on Alpaca crypto
 #   bin/rails runner script/rust/decisions.rb grid-binance <root> # Binance spot, scripted beneath honeymaker at the Faraday adapter
-#   bin/rails runner script/rust/decisions.rb grid-sell <root>    # a one-asset basket selling on Kraken and Binance (slice 6a)
+#   bin/rails runner script/rust/decisions.rb grid-sell <root>    # a one-asset basket selling on Kraken, Binance and Alpaca (slice 6a)
 #   bin/rails runner script/rust/decisions.rb record <root>  # Rails' ticks (and retries) per <root>/<scenario>/ -> rails.json
 # Always run with every *_DATABASE_URL pointing at scratch files and PROXY_KRAKEN at a dead address. Kraken is
 # scripted beneath the real client (Honeymaker::Clients::Kraken#get_public/#post_private), so every line of
@@ -1116,8 +1116,8 @@ module Decisions
   BN_1021 = 'Timestamp for this request is outside of the recvWindow.'
   BN_1021_AHEAD = "Timestamp for this request was 1000ms ahead of the server's time."
 
-  # Slice 6a: a one-asset basket selling (Bot::Composition::OrderSetter#one_asset_sell_orders_data) on Kraken and Binance,
-  # by N base (plain or split by Smart Intervals) and for N quote, market and limit. Alpaca waits for its qty_available fix.
+  # Slice 6a: a one-asset basket selling (Bot::Composition::OrderSetter#one_asset_sell_orders_data) on Kraken, Binance and
+  # Alpaca, by N base (plain or split by Smart Intervals) and for N quote, market and limit.
   def sell_scenarios
     started = '2026-09-01T10:00:00.123456Z'
     after = ->(n) { (Time.iso8601(started) + (n * 1.day) + 1.second).iso8601(6) }
@@ -1126,7 +1126,38 @@ module Decisions
                                                          'XXBT' => { 'balance' => (BigDecimal(free) + BigDecimal('0.1')).to_s('F'), 'hold_trade' => '0.1' } } } }
     bn_holding = ->(btc) { ok('makerCommission' => 10, 'canTrade' => true, 'balances' => [{ 'asset' => 'BTC', 'free' => btc, 'locked' => '0.1' },
                                                                                        { 'asset' => 'USDT', 'free' => '100000.00000000', 'locked' => '0' }]) }
+    # Alpaca's free is qty_available: 0.1 sits on a resting sell (qty counts it, qty_available does not).
+    al_held = ->(free) { ok([position('BTCUSD', (BigDecimal(free) + BigDecimal('0.1')).to_s('F')).merge('qty_available' => free)]) }
+    al_book = ->(bid) { ok('quotes' => { 'BTC/USD' => { 'ap' => 64_321.479, 'as' => 0.5, 'bp' => bid, 'bs' => 0.4, 't' => '2026-09-01T10:00:00Z' } }) }
+    al_fail = ->(status, code, message) { { 'status' => status, 'body' => { 'code' => code, 'message' => message } } }
+    # A buy the flip cancelled, registered in flip_reserve_pending (Bot::Reversible#register_flip_reserves!, PR #597): the
+    # tick's sweep reads its final state and returns the unspent reserve once; a cancel still pending returns nothing yet.
+    al_flipped = { 'status' => 0, 'external_status' => 0, 'external_id' => 'OBUY-1', 'order_type' => 0, 'quote_amount' => '60', 'price' => '64150',
+                   'amount_exec' => '0', 'quote_amount_exec' => '0', 'created_at' => '2026-09-01 10:00:01' }
+    al_resting = { 'status' => 0, 'external_status' => 1, 'external_id' => 'OREST-1', 'order_type' => 1, 'side' => 1, 'amount' => '0.1', 'price' => '64500',
+                   'amount_exec' => '0', 'quote_amount_exec' => '0', 'created_at' => '2026-09-01 10:00:01' }
     venues = {
+      'alpaca' => {
+        'ticker' => { 'base_decimals' => 9, 'quote_decimals' => 2, 'price_decimals' => 2, 'minimum_base_size' => '0.000027', 'minimum_quote_size' => '1' },
+        'http' => { 'GET /v1beta3/crypto/us/latest/quotes' => [al_book.(64_300.25)], 'GET /v1beta3/crypto/us/latest/trades' => [trades(64_310.75)],
+                    'POST /v2/orders' => [ok(alpaca_order('OTX-1', 'pending_new').merge('side' => 'sell'))], 'GET /v2/account' => [account('100000')],
+                    'GET /v2/positions' => [al_held.('0.5')] },
+        'free' => ->(btc) { { 'GET /v2/positions' => [al_held.(btc)] } },
+        'balance_error' => { 'GET /v2/positions' => [al_fail.(403, 40_310_000, 'forbidden.')] },
+        'no_holding' => { 'GET /v2/positions' => [ok([])] },
+        'rejected' => { 'POST /v2/orders' => [al_fail.(403, 40_310_000, 'insufficient qty available for order (requested: 0.01, available: 0.004)')] },
+        'no_price' => { 'GET /v1beta3/crypto/us/latest/quotes' => [al_fail.(500, 50_010_000, 'internal server error')],
+                        'GET /v1beta3/crypto/us/latest/trades' => [al_fail.(500, 50_010_000, 'internal server error')] },
+        'zero_price' => { 'GET /v1beta3/crypto/us/latest/quotes' => [al_book.(0)], 'GET /v1beta3/crypto/us/latest/trades' => [trades(0)] },
+        'extra' => {
+          'resting_sell' => { 'transactions' => [al_resting],
+                              'http' => { 'GET /v2/orders/OREST-1' => [ok(alpaca_order('OREST-1', 'new', type: 'limit', notional: nil, qty: '0.1', limit_price: '64500').merge('side' => 'sell'))] } },
+          'reserve_settled' => { 'transactions' => [al_flipped], 'transient' => { 'flip_reserve_pending' => [1], 'missed_quote_amount' => '0' },
+                                 'http' => { 'GET /v2/orders/OBUY-1' => [ok(alpaca_order('OBUY-1', 'canceled', filled_qty: '0.0003', filled_avg_price: '64000'))] } },
+          'reserve_pending_cancel' => { 'transactions' => [al_flipped], 'transient' => { 'flip_reserve_pending' => [1], 'missed_quote_amount' => '0' },
+                                        'http' => { 'GET /v2/orders/OBUY-1' => [ok(alpaca_order('OBUY-1', 'pending_cancel'))] } }
+        }
+      },
       'kraken' => {
         'ticker' => { 'base_decimals' => 8, 'quote_decimals' => 5, 'price_decimals' => 1, 'minimum_base_size' => '0.00005', 'minimum_quote_size' => '0.5' },
         'http' => { '/0/public/Ticker' => [ticker_body('49990.1', '50000.2', '49995.3')], '/0/private/AddOrder' => [{ 'error' => [], 'result' => { 'txid' => ['OTX-1'] } }],
@@ -1178,7 +1209,7 @@ module Decisions
         'no_price' => { 'at' => after.(1), 'http' => vn['no_price'] },
         'zero_price' => { 'at' => after.(1), 'http' => vn['zero_price'] },
         'balance_error' => { 'at' => after.(1), 'http' => vn['balance_error'] }
-      }
+      }.merge((vn['extra'] || {}).transform_values { |v| v.merge('at' => after.(1)) })
       modes.flat_map do |mode, settings|
         variants.map do |name, v|
           { 'name' => "sell-#{venue}-#{mode}-#{name}", 'venue' => (venue unless venue == 'kraken'), 'interval' => 'week', 'quote_amount' => 60.0,

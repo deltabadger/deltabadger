@@ -386,7 +386,40 @@ impl<T: Transport> AlpacaVenue<T> {
     }
 }
 
+impl<T: Transport> AlpacaVenue<T> {
+    /// #get_balances(asset_ids: [asset_id]) as Bot::Rebalancer#live_free_balance reads one asset's :free. The account, then
+    /// the positions (either failure is the answer); an account with no cash figure, a supported position with no symbol,
+    /// or ambiguous USD cash fails it. A position names an asset by class + symbol through the catalog; its free is
+    /// `qty_available` (shares on open sell orders are locked), the one USD cash asset's is `cash`, never buying power.
+    /// Absent is 0. Rails skips a position naming several assets; here one that may be this asset is an error, never a 0
+    /// that would read as no holdings.
+    async fn free_of_diagnostic_source(&self, asset_id: i64, catalog: crate::sync::balances::Catalog) -> Result<BigDec, VenueError> {
+        let account = self.get(self.request("GET", false, "/v2/account".into(), vec![], None)).await?;
+        let mut positions = self.raw_positions().await?;
+        let cash = ruby_opt_to_d(&account["cash"]).map_err(|raw| VenueError::Rejected(vec![format!("Alpaca account: unreadable cash {raw}")]))?
+            .ok_or_else(|| VenueError::Rejected(vec!["the account has no cash figure".into()]))?;
+        let names = |class: &str, symbol: &str| catalog.candidates(class, symbol).is_some_and(|ids| ids.contains(&asset_id));
+        if positions.iter().any(|(class, symbol, _)| names(class, symbol) && catalog.candidates(class, symbol).is_some_and(|ids| ids.len() > 1)) {
+            return Err(VenueError::Rejected(vec!["an Alpaca position names this asset ambiguously".into()]));
+        }
+        // Rails reads quantities only for the asset asked for: another position's gap is not this asset's answer.
+        positions.retain(|(class, symbol, _)| names(class, symbol));
+        let held = crate::sync::balances::complete_balances(&catalog, cash, positions).map_err(|why| VenueError::Rejected(vec![why]))?;
+        Ok(held.into_iter().find(|(id, _, _)| *id == asset_id).map_or_else(BigDec::zero, |(_, free, _)| free))
+    }
+}
+
 impl<T: Transport> Venue for AlpacaVenue<T> {
+    async fn free_base_identified<F>(&self, t: &Ticker, catalog: F) -> Result<BigDec, VenueError>
+    where F: FnOnce() -> Result<crate::sync::balances::Catalog, VenueError> {
+        self.free_of_diagnostic_source(t.base_asset_id, catalog()?).await.map_err(|error| self.redact_error(error))
+    }
+    /// Settled cash (`account.cash`), as Bot::Rebalancer reads the quote; `balance` keeps buying power for buys.
+    async fn settled_quote_balance<F>(&self, t: &Ticker, catalog: F) -> Result<BigDec, VenueError>
+    where F: FnOnce() -> Result<crate::sync::balances::Catalog, VenueError> {
+        self.free_of_diagnostic_source(t.quote_asset_id, catalog()?).await.map_err(|error| self.redact_error(error))
+    }
+
     fn rules(&self)-> &'static VenueRules{&ALPACA}
     fn placement_identity(&self)->Option<Value>{self.identity.clone()}
     async fn positions(&self)->Result<std::collections::HashMap<String, BigDec>,VenueError>{self.positions_diagnostic_source().await.map_err(|error|self.redact_error(error))}

@@ -706,7 +706,8 @@ async fn sell<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot
         },
     };
     // Bot::Rebalancer#live_free_balance: a failed read raises (throttled, transient, else a plain error), never reads empty.
-    let free = match venue.free_base_result(&ticker).await.value {
+    let catalog = || crate::sync::balances::catalog_for(c, bot.user_id, bot.exchange_id).map_err(|e| VenueError::Rejected(vec![e.0]));
+    let free = match venue.free_base_result(&ticker, catalog).await.value {
         Ok(free) => free,
         Err(VenueError::Rejected(e)) if venue.rules().is_throttle(&e) => return Ok(Err(Fail::RateLimited(to_sentence(&e)))),
         Err(VenueError::Transient(m)) => return Ok(Err(Fail::Transient(m))),

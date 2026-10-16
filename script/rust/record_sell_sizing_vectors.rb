@@ -1,4 +1,4 @@
-# Records a one-asset sell's price, size and order wire on Kraken and Binance for rust/tests/amount.rs (plan 6a T8):
+# Records a one-asset sell's price, size and order wire on Kraken, Binance and Alpaca for rust/tests/amount.rs (plan 6a T8):
 # Bot::OrderSetter#order_price(:sell), the `[base || quote / price, free].min` of
 # Bot::Composition::OrderSetter#one_asset_sell_orders_data, #calculate_best_amount_info(side: :sell), then
 # Exchange#market_sell / #limit_sell (create_order's sell branch) down to the client call.
@@ -14,7 +14,8 @@ Net::HTTP.prepend(Module.new { def connect = raise(Unscripted, "real connection 
 
 out = {
   'sources' => %w[app/models/bot/order_setter.rb app/models/bot/composition/order_setter.rb app/models/bot/limit_orderable.rb
-                  app/models/exchange.rb app/models/exchanges/kraken.rb app/models/exchanges/binance.rb app/models/ticker.rb]
+                  app/models/exchange.rb app/models/exchanges/kraken.rb app/models/exchanges/binance.rb app/models/exchanges/alpaca.rb
+                  app/models/ticker.rb]
     .to_h { |f| [f, Digest::SHA256.file(Rails.root.join(f)).hexdigest] }
 }
 
@@ -28,7 +29,13 @@ binance = Exchanges::Binance.new(name: 'Binance')
 binance.instance_variable_set(:@client, Object.new.tap do |c|
   c.define_singleton_method(:new_order) { |**kw| captured = kw; Result::Success.new(order_id: "#{kw[:symbol]}-1", raw: {}) }
 end)
-venues = { 'kraken' => [kraken, 'XXBTZEUR', 'XBT', 'EUR'], 'binance' => [binance, 'BTCUSDT', 'BTC', 'USDT'] }
+alpaca = Exchanges::Alpaca.new(name: 'Alpaca')
+alpaca.instance_variable_set(:@client, Object.new.tap do |c|
+  c.define_singleton_method(:create_order) { |**kw| captured = kw; Result::Success.new('id' => 'O-1') }
+end)
+venues = { 'kraken' => [kraken, 'XXBTZEUR', 'XBT', 'EUR'], 'binance' => [binance, 'BTCUSDT', 'BTC', 'USDT'], 'alpaca' => [alpaca, 'BTC/USD', 'BTC', 'USD'] }
+# Alpaca's time in force follows the base's category (Exchanges::Alpaca#crypto_ticker?).
+crypto = Asset.new(symbol: 'BTC', category: 'Cryptocurrency')
 
 tickers = [
   { minimum_base_size: '0.00001', minimum_quote_size: '5', base_decimals: 5, quote_decimals: 8, price_decimals: 2 },
@@ -52,8 +59,9 @@ venues.each do |venue, (exchange, pair, base, quote)|
   end
   cases = []
   tickers.each_with_index do |t, ti|
-    ticker = Ticker.new(exchange:, ticker: pair, base:, quote:, **t.transform_values { |v| v.is_a?(String) ? BigDecimal(v) : v })
-    1_520.times do
+    ticker = Ticker.new(exchange:, ticker: pair, base:, quote:, base_asset: crypto, **t.transform_values { |v| v.is_a?(String) ? BigDecimal(v) : v })
+    # ponytail: 310 per ticker keeps each venue under 2,500 cases (the owner's fixture budget); the grid covers the floors.
+    310.times do
       d = distances.sample(random: rng)
       bot = bots[d]
       reference = decimal.(-9, 6)
@@ -90,4 +98,4 @@ out['tickers'] = tickers.map { |t| t.transform_keys(&:to_s).transform_values(&:t
 # One case per line: the file stays reviewable in a diff.
 lines = out.map { |k, v| v.is_a?(Array) ? "#{k.to_json}: [\n#{v.map { |r| "  #{JSON.generate(r)}" }.join(",\n")}\n]" : "#{k.to_json}: #{JSON.generate(v)}" }
 File.write(ARGV.fetch(0), "{\n#{lines.join(",\n")}\n}\n")
-puts "wrote #{ARGV.fetch(0)}: #{out['kraken_sell'].size} Kraken and #{out['binance_sell'].size} Binance sell cases"
+puts "wrote #{ARGV.fetch(0)}: #{venues.keys.map { |v| "#{out["#{v}_sell"].size} #{v}" }.join(', ')} sell cases"

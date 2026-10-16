@@ -91,7 +91,7 @@ fn bot_reasons_with(c: &Connection, bot: &Bot, splits: &mut SplitRows) -> Result
     let members = if index { index_reasons(c, bot, alpaca, &mut r)? } else { composition_reasons(bot, kraken, &mut r) };
     match bot.settings.get("direction") {
         None | Some(Value::Null) => {}, Some(v) if v == "buying" => {},
-        Some(v) if v == "selling" => sell_reasons(c, bot, index, alpaca, &members, &mut r)?,
+        Some(v) if v == "selling" => sell_reasons(c, bot, index, &members, &mut r)?,
         Some(d) => r.push(format!("direction {d}")),
     }
     if let Some(obj) = bot.settings.as_object() {
@@ -126,14 +126,13 @@ fn bot_reasons_with(c: &Connection, bot: &Bot, splits: &mut SplitRows) -> Result
     Ok(r)
 }
 
-/// Selling (slice 6a): a one-asset basket on Kraken or Binance (one_asset_sell_orders_data), sized from the sell sentence and
-/// scheduled on the sell cadence. Refused: an index bot (not reversible), a wider basket (the ranked DCA-out is 6b), Alpaca
-/// (its free base waits for Rails' qty_available fix), rows on another venue (Rails caps such a sale at this venue's own
-/// units, which this build does not port), and a sell cadence no schedule here can hold.
-fn sell_reasons(c: &Connection, bot: &Bot, index: bool, alpaca: bool, members: &[i64], r: &mut Vec<String>) -> Result<(), EngineError> {
+/// Selling (slice 6a): a one-asset basket on Kraken, Binance or Alpaca (one_asset_sell_orders_data), sized from the sell
+/// sentence and scheduled on the sell cadence. Refused: an index bot (not reversible), a wider basket (the ranked DCA-out is
+/// 6b), rows on another venue (Rails caps such a sale at this venue's own units, which this build does not port), and a
+/// sell cadence no schedule here can hold.
+fn sell_reasons(c: &Connection, bot: &Bot, index: bool, members: &[i64], r: &mut Vec<String>) -> Result<(), EngineError> {
     if index { r.push("selling (an index bot)".into()); return Ok(()); }
     if members.len() != 1 { r.push(format!("selling with {} assets (only one-asset baskets sell in this engine yet)", members.len())); }
-    if alpaca { r.push("selling on Alpaca (waits for the venue's qty_available free balance)".into()); }
     let foreign: i64 = c.query_row("SELECT count(*) FROM transactions WHERE bot_id = ?1 AND status = 0 AND exchange_id != ?2", params![bot.id, bot.exchange_id], |r| r.get(0))?;
     if foreign > 0 { r.push(format!("selling with {foreign} order(s) placed on another venue")); }
     if let Some(v) = bot.settings.get("sell_interval").filter(|v| !v.is_null() && v.as_str().is_none_or(|s| !s.trim().is_empty())) {
