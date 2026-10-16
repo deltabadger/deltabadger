@@ -249,6 +249,43 @@ class Bots::DcaMultiAssetRebalanceResumeTest < ActiveSupport::TestCase
     assert_not @bot.reload.rebalance_pending?, 'nothing reached the venue, so nothing is owed'
   end
 
+  test 'a buy that never left the machine is retried next cycle, not halted' do
+    @bot.set_rebalance_pending!(phase: Bot::Rebalanceable::PHASE_BUYING, remaining_quote_amount: 20)
+    @bot.exchange.stubs(:market_buy).raises(Client::TransientNetworkError, 'connection refused: 1.2.3.4:8100')
+
+    @bot.rebalance!
+
+    @bot.reload
+    assert_equal Bot::Rebalanceable::PHASE_BUYING, @bot.rebalance_pending[:phase]
+    assert_not @bot.rebalance_pending[:buy_attempted], 'nothing reached the venue'
+    assert_in_delta 20, @bot.rebalance_remaining_quote_amount.to_f, 0.01
+    assert_not @bot.transactions.exists?, 'a pre-transmission exception writes no row'
+
+    stub_market_buy_success(@bot.exchange, order_id: 'buy-retry')
+    @bot.rebalance!
+
+    assert_not @bot.reload.rebalance_ambiguous?
+    assert @bot.transactions.where(side: :buy, status: :submitted).exists?
+  end
+
+  test 'a buy rejected pre-trade records its failed row and is retried next cycle' do
+    @bot.set_rebalance_pending!(phase: Bot::Rebalanceable::PHASE_BUYING, remaining_quote_amount: 20)
+    @bot.exchange.stubs(:market_buy).returns(Result::Failure.new('Too many requests'))
+    @bot.exchange.stubs(:placement_transient_error?).returns(true)
+
+    @bot.rebalance!
+
+    @bot.reload
+    assert_not @bot.rebalance_pending[:buy_attempted]
+    assert_equal 1, @bot.transactions.where(status: :failed, side: :buy, transaction_type: 'REBALANCE').count
+
+    stub_market_buy_success(@bot.exchange, order_id: 'buy-retry')
+    @bot.rebalance!
+
+    assert_not @bot.reload.rebalance_ambiguous?
+    assert @bot.transactions.where(side: :buy, status: :submitted).exists?
+  end
+
   private
 
   def update_settings(**attrs)
