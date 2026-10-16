@@ -142,6 +142,16 @@ class TrackerImportTest < ActionDispatch::IntegrationTest
     assert_equal 0, AccountTransaction.for_user(@user).count
   end
 
+  # An older export: the column is `UTC_Time`, the clock is UTC, and the name carries no zone.
+  test 'an older Binance file with a UTC_Time column needs no zone in its name' do
+    body = FILE.sub('User ID,Time,', 'User_ID,UTC_Time,')
+
+    post tracker_import_path, params: { format: 'binance', file: upload(name: 'renamed.csv', body: body) }
+
+    deposit = AccountTransaction.for_user(@user).find_by(entry_type: :deposit)
+    assert_equal Time.utc(2021, 7, 1, 14, 7, 4), deposit.transacted_at
+  end
+
   test 'our own format states an instant, so any name will do' do
     body = deltabadger_csv('2021-07-01T14:07:04Z,deposit,USDT,150.2,,,,,binance,tx-1,,')
 

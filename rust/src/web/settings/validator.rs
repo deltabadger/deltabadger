@@ -106,6 +106,8 @@ pub async fn check(url: &str, key: &crate::crypto::Credentials, kind: i64) -> Re
         }
         return Ok(Validity::Correct);
     }
+    // Rails: a 200 that parses to anything but a Hash is a Failure, never a verdict.
+    if !value.is_object() {return Ok(pending(Some(status),&metadata,"the key check answer is unreadable"));}
     Ok(
         if value.get("status").and_then(|v| v.as_str()) == Some("ACTIVE") {
             Validity::Correct

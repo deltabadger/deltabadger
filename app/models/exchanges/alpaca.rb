@@ -485,6 +485,8 @@ class Exchanges::Alpaca < Exchange
       api_secret: api_key.secret,
       paper: paper_mode?(api_key)
     ).get_account
+    # An empty or non-JSON 200 parses to nil or a String: no verdict either way.
+    return Result::Failure.new("#{name} sent an unreadable answer to the key check") if result.success? && !result.data.is_a?(Hash)
 
     if result.success?
       # Paper accounts return 'ACTIVE', live accounts also return 'ACTIVE'

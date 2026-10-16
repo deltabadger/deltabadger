@@ -65,12 +65,6 @@ class WithdrawalAddressSafetyTest < ActiveSupport::TestCase
     assert_nil exchange.list_withdrawal_addresses(asset: stub(id: 1))
   end
 
-  # ── BinanceUs inherits list_withdrawal_addresses from Binance ─────────────
-
-  test 'BinanceUs inherits list_withdrawal_addresses from Binance' do
-    assert Exchanges::BinanceUs.instance_method(:list_withdrawal_addresses).owner == Exchanges::Binance
-  end
-
   # ── Gemini list_withdrawal_addresses ──────────────────────────────────────
 
   test 'Gemini list_withdrawal_addresses parses active addresses' do

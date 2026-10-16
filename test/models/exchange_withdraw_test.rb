@@ -110,6 +110,26 @@ class ExchangeWithdrawTest < ActiveSupport::TestCase
     assert result.success?
   end
 
+  test 'MEXC withdraw looks up the default network with the signed client' do
+    exchange = create(:mexc_exchange)
+    create(:ticker, exchange: exchange, base_asset: @asset, quote_asset: @quote_asset)
+    connection = create(:api_key, exchange: exchange, key_type: :withdrawal)
+    client = exchange.set_client(api_key: connection)
+    assert_equal connection.key, client.api_key
+
+    client.expects(:get_all_coins_information).returns(
+      Result::Success.new([{ 'coin' => @asset.symbol,
+                             'networkList' => [{ 'network' => 'ERC20', 'isDefault' => false },
+                                               { 'network' => 'BEP20', 'isDefault' => true }] }])
+    )
+    client.expects(:withdraw).with(
+      coin: @asset.symbol, address: 'addr1', amount: '0.5', network: 'BEP20', memo: nil
+    ).returns(Result::Success.new({ 'id' => 'mexc-124' }))
+
+    result = exchange.withdraw(asset: @asset, amount: 0.5, address: 'addr1')
+    assert result.success?
+  end
+
   # Binance — passes network and address_tag directly
 
   test 'Binance withdraw passes network and address_tag to client' do

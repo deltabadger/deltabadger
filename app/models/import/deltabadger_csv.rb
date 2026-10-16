@@ -30,16 +30,16 @@ class Import::DeltabadgerCsv
 
       { exchange_name_id: row['exchange'].to_s.strip.presence,
         entry_type: type.to_sym,
-        base_currency: row['base_currency'], base_amount: row['base_amount'].to_d,
+        base_currency: row['base_currency'], base_amount: Import::Run.amount(row['base_amount']),
         quote_currency: row['quote_currency'].presence,
-        quote_amount: row['quote_amount'].presence&.to_d,
+        quote_amount: row['quote_amount'].presence&.then { Import::Run.amount(it) },
         fee_currency: row['fee_currency'].presence,
-        fee_amount: row['fee_amount'].presence&.to_d,
+        fee_amount: row['fee_amount'].presence&.then { Import::Run.amount(it) },
         # Our own dates are written with a zone (`...Z`); an offset chosen in the dialog is for
         # files that state a bare wall clock, so it is deliberately not applied here.
         tx_id: row['tx_id'].presence, group_id: row['group_id'].presence,
         description: row['description'].presence,
-        transacted_at: Time.parse(row['date'].to_s).utc, raw_data: {} }
+        transacted_at: Import::Run.time(row['date']), raw_data: {} }
     end.sort_by { |entry| entry[:transacted_at] }
   end
 end

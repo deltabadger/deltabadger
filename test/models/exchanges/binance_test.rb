@@ -115,6 +115,17 @@ class Exchanges::BinanceTest < ActiveSupport::TestCase
     assert_equal false, result.data
   end
 
+  # Binance's BAD_API_ID, and what Binance.US answers an unknown key.
+  test 'get_api_key_validity returns false for an unknown key id' do
+    connection = create(:api_key, exchange: @exchange, key_type: :trading, key: 'bad_key', secret: 'bad_secret')
+    Honeymaker::Clients::Binance.any_instance.stubs(:api_description)
+                                .returns(Result::Failure.new('{"code":-2008,"msg":"Invalid Api-Key ID."}'))
+
+    result = @exchange.get_api_key_validity(api_key: connection)
+    assert result.success?
+    assert_equal false, result.data
+  end
+
   # == W2a: recvWindow on signed READS ==
   # Proxy latency spikes (up to ~30s) made Binance reject signed reads with "Timestamp outside the
   # recvWindow" (default 5000ms). Reads carry the 60s max so a delayed-but-valid request isn't rejected.
@@ -323,5 +334,19 @@ class Exchanges::BinanceTest < ActiveSupport::TestCase
     @exchange.send(:client).expects(:account_trade_list).times(100)
              .returns(Result::Success.new((1..1000).map { |id| btc_trade(id) }))
     assert @exchange.send(:get_aggregated_trades_for_orders, fill('1')).failure?
+  end
+
+  # An empty or non-JSON 200 parses to nil or a String; it says nothing about the key.
+  test 'an unreadable api_description leaves the key unverified' do
+    %i[trading withdrawal read_only].each do |type|
+      connection = create(:api_key, exchange: @exchange, key_type: type, key: 'test_key', secret: 'test_secret')
+      [nil, 'OK'].each do |body|
+        Honeymaker::Clients::Binance.any_instance.stubs(:api_description).returns(Result::Success.new(body))
+        assert_predicate @exchange.get_api_key_validity(api_key: connection), :failure?, "#{type} on #{body.inspect}"
+        next unless type == :read_only
+
+        assert_predicate @exchange.get_read_api_key_validity(api_key: connection), :failure?, "read on #{body.inspect}"
+      end
+    end
   end
 end
