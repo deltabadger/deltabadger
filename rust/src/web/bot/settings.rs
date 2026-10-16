@@ -150,6 +150,7 @@ impl Forms<'_> {
     /// bots/settings/_smart_intervals.html.erb, with its info line.
     pub fn smart_intervals(&self) -> String {
         let bot = self.bot;
+        if bot.sells_base_amount() { return self.smart_intervals_sell(); }
         let minimum = start::smart_interval_minimum(bot);
         let stored = bot.number("smart_interval_quote_amount");
         // `[amount, min_amount].max.to_d`: the stored amount unless the floor is above it.
@@ -182,6 +183,48 @@ impl Forms<'_> {
         self.rule(active, "smart_intervaled", active, self.locked(), &format!("            {sentence}\n            {info}\n"))
     }
 
+    /// bots/settings/_smart_intervals.html.erb while selling a base amount: the sell amount split into base units.
+    fn smart_intervals_sell(&self) -> String {
+        let bot = self.bot;
+        let minimum = bot.base_minimum();
+        let base = bot.base_asset().and_then(|asset| asset.symbol.as_deref()).unwrap_or("");
+        let stored = bot.number("smart_interval_base_amount");
+        let sell_amount = bot.number("sell_amount").and_then(|n| n.to_d());
+        // `smart_interval_base_amount.presence || (sell_amount.present? ? sell_amount / 10 : min_amount)`, then `[current.to_d, min_amount.to_d].max`.
+        let current = stored.as_ref().and_then(Num::to_d).or_else(|| sell_amount.as_ref().and_then(|amount| amount.div(&BigDec::from_i64(10))))
+            .or_else(|| minimum.value.to_d());
+        let floor = minimum.value.to_d();
+        let value = match (current, floor) { (Some(current), Some(floor)) if floor > current => Some(floor), (current, floor) => current.or(floor) };
+        let value = value.and_then(|value| input_value(&Num::Dec(value)));
+        let mut as_base = bot.clone();
+        as_base.quote_asset = bot.base_asset().cloned();
+        let message = start::smart_interval_minimum_message(&as_base, &minimum, self.ctx.locale)
+            .map(|message| format!(" data-html5-range-underflow-message=\"{}\"", escape(&message))).unwrap_or_default();
+        let key = self.key();
+        let shown = value.as_ref().map(|value| format!("value=\"{}\" ", escape(value))).unwrap_or_default();
+        let error = self.field_error("smart_interval_base_amount");
+        let mut field = if self.hide_balances {
+            format!("<input {shown}{}type=\"hidden\" name=\"{key}[smart_interval_base_amount]\" id=\"{key}_smart_interval_base_amount\" />", if error.is_some() { "class=\" is-invalid\" " } else { "" })
+        } else {
+            format!("<input {shown}min=\"{}\" class=\"sinput numeric-input{}\" step=\"any\" size=\"2\" {AUTOWIDTH}{message} {NARROW}{} type=\"number\" name=\"{key}[smart_interval_base_amount]\" id=\"{key}_smart_interval_base_amount\" />",
+                    minimum.value.to_s(), if error.is_some() { " is-invalid" } else { "" }, disabled_field(self.locked(), error.is_some()))
+        };
+        if let Some(error) = error { field.push_str(&error_line(&error)); }
+        let sentence = self.t("bot.settings.smart_intervals.sell_sentence_html", &[("amount_html", Arg::Html(&format!("<div>              {field}\n</div>"))), ("base", Arg::Text(base))]);
+        let active = bot.on("smart_intervaled");
+        let mut info = String::new();
+        let decimals = bot.tickers.iter().map(|ticker| ticker.base_decimals).min().unwrap_or(8);
+        if let (false, true, Some(split), Some(amount), Some(effective)) = (self.hide_balances, active, stored.and_then(|n| n.to_d()).filter(BigDec::is_positive), sell_amount.filter(BigDec::is_positive), bot.effective()) {
+            let interval = i18n::text(self.ctx.locale, &format!("bot.{}", bot.sell_interval().unwrap_or("")), &[]);
+            let words = format::distance_of_time_in_words(effective.seconds(), self.ctx.now, self.ctx.locale);
+            info = format!("<small id=\"settings-smart-intervals-info\" class=\"small-info\">\n    {}\n  </small>\n", self.t("bot.settings.smart_intervals.sell_info", &[
+                ("base_amount", Arg::Text(&Num::Dec(amount).round(decimals).to_s())), ("base", Arg::Text(base)), ("interval", Arg::Text(&interval)),
+                ("amount", Arg::Text(&Num::Dec(split).round(decimals).to_s())), ("smart_interval", Arg::Text(&words)),
+            ]));
+        }
+        self.rule(active, "smart_intervaled", active, self.locked(), &format!("            {sentence}\n            {info}\n"))
+    }
+
     /// bots/settings/_limit_orders.html.erb. Alpaca never locks limit orders on (Hyperliquid does).
     pub fn limit_orders(&self) -> String {
         let bot = self.bot;
@@ -189,7 +232,8 @@ impl Forms<'_> {
         let distance = bot.number("limit_order_pcnt_distance");
         let value = distance.as_ref().and_then(Num::to_d).and_then(|share| input_value(&Num::Dec(&share * &BigDec::from_i64(100))));
         let field = self.number("limit_order_pcnt_distance", value.as_deref(), "any", "", self.locked());
-        let sentence = self.t("bot.settings.limit_orders.sentence_html", &[("amount_html", Arg::Html(&format!("<div>            {field}\n</div>")))]);
+        // A sell limit order sits above the price, so the sentence turns round.
+        let sentence = self.t(if bot.selling() { "bot.settings.limit_orders.sentence_sell_html" } else { "bot.settings.limit_orders.sentence_html" }, &[("amount_html", Arg::Html(&format!("<div>            {field}\n</div>")))]);
         let mut info = String::new();
         if active && distance.is_some_and(|d| d.is_positive()) && bot.number("quote_amount").is_some_and(|q| q.is_positive()) {
             info = format!("<small id=\"settings-limit-orders-info\" class=\"small-info\">\n    {}\n  </small>\n", self.t("bot.settings.limit_orders.info", &[
@@ -238,6 +282,14 @@ impl Forms<'_> {
     /// bots/settings/_amount_limit.html.erb, buying: "Don't spend more than N QUOTE", and what is left of it.
     pub fn amount_limit(&self, c: &Connection) -> Result<String, WebError> {
         let bot = self.bot;
+        if bot.selling() {
+            // "Don't sell more than N BASE". A cap that is on is refused before this (6d), so it has nothing left to show.
+            let value = bot.number("base_amount_limit").as_ref().and_then(input_value);
+            let field = self.amount("base_amount_limit", value.as_deref(), "");
+            let base = bot.base_asset().and_then(|asset| asset.symbol.as_deref()).unwrap_or("");
+            let sentence = self.t("bot.settings.extra_amount_limit.sell_sentence_html", &[("value_html", Arg::Html(&format!("<div>            {field}\n</div>"))), ("base", Arg::Text(base))]);
+            return Ok(self.rule(false, "base_amount_limited", false, self.locked(), &format!("            {sentence}\n          \n")));
+        }
         let active = bot.on("quote_amount_limited");
         let value = bot.number("quote_amount_limit").as_ref().and_then(input_value);
         let field = self.amount("quote_amount_limit", value.as_deref(), "");
@@ -276,23 +328,35 @@ impl Forms<'_> {
     }
 
     /// BotHelper#trigger_mode_select_options and #trigger_mode_for, buying: "Buy only", "Start buying", and for a basket the flip.
+    /// BotHelper#trigger_prefix: a condition's keys, or their sell-side mirror while selling.
+    fn k(&self, name: &str) -> String {
+        if self.bot.selling() { format!("sell_{name}") } else { name.to_string() }
+    }
+
+    fn side(&self) -> &'static str {
+        if self.bot.selling() { "selling" } else { "buying" }
+    }
+
+    /// BotHelper#trigger_mode_select_options and #trigger_mode_for, on the active side: "Buy only"/"Sell only", "Start buying"/"Start selling", and for a basket the flip.
     fn trigger_mode(&self, rule: &str) -> (Vec<(String, String)>, &'static str) {
         let tokens: &[&str] = if rule == "price_drop_limit" { &["start", "flip"] } else { &["restrict", "start", "flip"] };
-        let options = tokens.iter().map(|token| (i18n::text(self.ctx.locale, &format!("bot.settings.trigger_mode.{token}_buying"), &[]), token.to_string())).collect();
-        let current = if matches!(self.bot.text(&format!("{rule}_action")), Some("start_selling" | "start_buying")) { "flip" }
+        let side = self.side();
+        let options = tokens.iter().map(|token| (i18n::text(self.ctx.locale, &format!("bot.settings.trigger_mode.{token}_{side}"), &[]), token.to_string())).collect();
+        let keys = self.k(rule);
+        let current = if matches!(self.bot.text(&format!("{keys}_action")), Some("start_selling" | "start_buying")) { "flip" }
             else if rule == "price_drop_limit" { "start" }
-            else if self.bot.text(&format!("{rule}_timing_condition")) == Some("while") { "restrict" } else { "start" };
+            else if self.bot.text(&format!("{keys}_timing_condition")) == Some("while") { "restrict" } else { "start" };
         (options, current)
     }
 
     fn mode_pill(&self, rule: &str) -> String {
         let (options, current) = self.trigger_mode(rule);
-        self.pill(&i18n::text(self.ctx.locale, &format!("bot.settings.trigger_mode.{current}_buying"), &[]), &self.select(&format!("{rule}_mode"), &options, current))
+        self.pill(&i18n::text(self.ctx.locale, &format!("bot.settings.trigger_mode.{current}_{}", self.side()), &[]), &self.select(&format!("{}_mode", self.k(rule)), &options, current))
     }
 
     /// The stored id of the member a condition watches, as a string for comparing with option values.
     fn watched(&self, rule: &str) -> String {
-        self.bot.setting(&format!("{rule}_in_ticker_id")).map(|value| value.as_i64().map_or_else(|| value.as_str().unwrap_or("").to_string(), |id| id.to_string())).unwrap_or_default()
+        self.bot.setting(&format!("{}_in_ticker_id", self.k(rule))).map(|value| value.as_i64().map_or_else(|| value.as_str().unwrap_or("").to_string(), |id| id.to_string())).unwrap_or_default()
     }
 
     /// The member a condition names: a select over `options` (label, ticker id) when there are several, else the one's label.
@@ -300,7 +364,7 @@ impl Forms<'_> {
         if let Some(label) = lone_subject(options) { return label; }
         let watched = self.watched(rule);
         let label = options.iter().find(|(_, id)| *id == watched).map(|(label, _)| label.as_str()).unwrap_or("");
-        format!("<div class=\"sinput sinput--select {}\">              {}\n              {}\n</div>", if self.locked() { "sinput--disabled" } else { "" }, escape(label), self.select(&format!("{rule}_in_ticker_id"), options, &watched))
+        format!("<div class=\"sinput sinput--select {}\">              {}\n              {}\n</div>", if self.locked() { "sinput--disabled" } else { "" }, escape(label), self.select(&format!("{}_in_ticker_id", self.k(rule)), options, &watched))
     }
 
     fn stored(&self, name: &str) -> Option<String> {
@@ -318,90 +382,95 @@ impl Forms<'_> {
     /// `members` are BotHelper#base_select_options, `pairs` #ticker_select_options: (label, ticker id), sorted by label.
     pub fn conditions(&self, members: &[(String, String)], pairs: &[(String, String)]) -> String {
         let (bot, locale) = (self.bot, self.ctx.locale);
+        // BotHelper#trigger_prefix: the sell side's mirror of every key while selling.
+        let k = |name: &str| if bot.selling() { format!("sell_{name}") } else { name.to_string() };
+        let side = if bot.selling() { "selling" } else { "buying" };
         let quote = bot.quote_symbol().unwrap_or("");
         let words = |key: String| i18n::text(locale, &key, &[]);
         let boxed = |field: String| format!("<div>            {field}\n</div>");
         let mut out = String::new();
 
         // Price limit.
-        let timing = bot.text("price_limit_timing_condition").unwrap_or("");
-        let condition = bot.text("price_limit_value_condition").unwrap_or("");
+        let timing = bot.text(&k("price_limit_timing_condition")).unwrap_or("");
+        let condition = bot.text(&k("price_limit_value_condition")).unwrap_or("");
         let conditions: Vec<(String, String)> = ["above", "below", "between"].iter().filter(|name| **name != "between" || timing == "while")
             .map(|name| (words(format!("bot.settings.extra_price_limit.value_condition.{name}")), name.to_string())).collect();
-        let condition_pill = self.pill(&words(format!("bot.settings.extra_price_limit.value_condition.{condition}")), &self.select("price_limit_value_condition", &conditions, condition));
+        let condition_pill = self.pill(&words(format!("bot.settings.extra_price_limit.value_condition.{condition}")), &self.select(&k("price_limit_value_condition"), &conditions, condition));
         let price = if condition == "between" {
-            let lower = boxed(self.number("price_limit_range_lower_bound", self.stored("price_limit_range_lower_bound").as_deref(), "any", "", self.locked()));
-            let upper = boxed(self.number("price_limit_range_upper_bound", self.stored("price_limit_range_upper_bound").as_deref(), "any", "", self.locked()));
+            let lower = boxed(self.number(&k("price_limit_range_lower_bound"), self.stored(&k("price_limit_range_lower_bound")).as_deref(), "any", "", self.locked()));
+            let upper = boxed(self.number(&k("price_limit_range_upper_bound"), self.stored(&k("price_limit_range_upper_bound")).as_deref(), "any", "", self.locked()));
             self.t("bot.settings.extra_price_limit.price_limit_range_input_html", &[("lower_bound_value_html", Arg::Html(&lower)), ("upper_bound_value_html", Arg::Html(&upper)), ("quote", Arg::Text(quote))])
         } else {
-            let value = boxed(self.number("price_limit", self.stored("price_limit").as_deref(), "any", "", self.locked()));
+            let value = boxed(self.number(&k("price_limit"), self.stored(&k("price_limit")).as_deref(), "any", "", self.locked()));
             self.t("bot.settings.extra_price_limit.price_limit_input_html", &[("value_html", Arg::Html(&value)), ("quote", Arg::Text(quote))])
         };
-        let active = bot.on("price_limited");
+        let active = bot.on(&k("price_limited"));
         let sentence = self.t("bot.settings.extra_price_limit.sentence_html", &[
             ("timing_condition_html", Arg::Html(&self.mode_pill("price_limit"))), ("value_condition_html", Arg::Html(&condition_pill)), ("price_input_html", Arg::Html(&price)),
             ("base_html", Arg::Html(&self.subject("price_limit", members))), ("quote", Arg::Text(quote)), ("count", Arg::Count(members.len() as i64)),
         ]);
-        out.push_str(&format!("  \n{}\n", self.rule(active, "price_limited", active, self.locked(), &format!("          {sentence}\n          {}\n", if active { self.info_loader("price_limit") } else { String::new() }))));
+        out.push_str(&format!("  \n{}\n", self.rule(active, &k("price_limited"), active, self.locked(), &format!("          {sentence}\n          {}\n", if active { self.info_loader("price_limit") } else { String::new() }))));
 
         // Price drop limit.
-        let window = bot.text("price_drop_limit_time_window_condition").unwrap_or("");
-        let windows: Vec<(String, String)> = ["ath", "twenty_four_hours"].iter().map(|name| (words(format!("bot.settings.extra_price_drop_limit.time_window_condition.{name}")), name.to_string())).collect();
-        let window_pill = self.pill(&words(format!("bot.settings.extra_price_drop_limit.time_window_condition.{window}")), &self.select("price_drop_limit_time_window_condition", &windows, window));
-        let drop = bot.number("price_drop_limit").and_then(|share| share.to_d()).and_then(|share| input_value(&Num::Dec(&share * &BigDec::from_i64(100))));
-        let active = bot.on("price_drop_limited");
+        let window = bot.text(&k("price_drop_limit_time_window_condition")).unwrap_or("");
+        // BotHelper#price_drop_limit_time_window_condition_select_options: a high to fall from while buying, a low to rise from while selling.
+        let (window_names, namespace): (&[&str], &str) = if bot.selling() { (&["twenty_four_hours", "seven_days"], "sell_time_window_condition") } else { (&["ath", "twenty_four_hours"], "time_window_condition") };
+        let windows: Vec<(String, String)> = window_names.iter().map(|name| (words(format!("bot.settings.extra_price_drop_limit.{namespace}.{name}")), name.to_string())).collect();
+        let window_pill = self.pill(&words(format!("bot.settings.extra_price_drop_limit.{namespace}.{window}")), &self.select(&k("price_drop_limit_time_window_condition"), &windows, window));
+        let drop = bot.number(&k("price_drop_limit")).and_then(|share| share.to_d()).and_then(|share| input_value(&Num::Dec(&share * &BigDec::from_i64(100))));
+        let active = bot.on(&k("price_drop_limited"));
         let (mode_options, mode) = self.trigger_mode("price_drop_limit");
         let mode_pill = format!("<div class=\"sinput sinput--select {}\">              {}\n              {}\n</div>", if self.locked() { "sinput--disabled" } else { "" },
-                                escape(&words(format!("bot.settings.trigger_mode.{mode}_buying"))), self.select("price_drop_limit_mode", &mode_options, mode));
-        let sentence = self.t("bot.settings.extra_price_drop_limit.mode_sentence_html", &[
+                                escape(&words(format!("bot.settings.trigger_mode.{mode}_{side}"))), self.select(&k("price_drop_limit_mode"), &mode_options, mode));
+        let sentence = self.t(if bot.selling() { "bot.settings.extra_price_drop_limit.sell_mode_sentence_html" } else { "bot.settings.extra_price_drop_limit.mode_sentence_html" }, &[
             ("mode_html", Arg::Html(&mode_pill)), ("base_html", Arg::Html(&self.subject("price_drop_limit", members))),
-            ("value_html", Arg::Html(&boxed(self.number("price_drop_limit", drop.as_deref(), "any", "", self.locked())))),
+            ("value_html", Arg::Html(&boxed(self.number(&k("price_drop_limit"), drop.as_deref(), "any", "", self.locked())))),
             ("time_window_condition_html", Arg::Html(&window_pill)), ("count", Arg::Count(members.len() as i64)),
         ]);
-        out.push_str(&format!("  \n{}\n", self.rule(active, "price_drop_limited", active, self.locked(), &format!("          {sentence}\n          {}\n", if active { self.info_loader("price_drop_limit") } else { String::new() }))));
+        out.push_str(&format!("  \n{}\n", self.rule(active, &k("price_drop_limited"), active, self.locked(), &format!("          {sentence}\n          {}\n", if active { self.info_loader("price_drop_limit") } else { String::new() }))));
 
         // Moving average limit.
         const TIMEFRAMES: [&str; 6] = ["one_hour", "four_hours", "one_day", "three_days", "one_week", "one_month"];
         let above_below = |rule: &str| -> String {
-            let current = bot.text(&format!("{rule}_value_condition")).unwrap_or("");
+            let current = bot.text(&format!("{}_value_condition", k(rule))).unwrap_or("");
             // Both rules take their "above"/"below" option labels from the indicator's keys, as BotHelper does.
             let options: Vec<(String, String)> = ["above", "below"].iter().map(|name| (words(format!("bot.settings.extra_indicator_limit.value_condition.{name}")), name.to_string())).collect();
             let namespace = if rule == "indicator_limit" { "extra_indicator_limit" } else { "extra_moving_average_limit" };
-            self.pill(&words(format!("bot.settings.{namespace}.value_condition.{current}")), &self.select(&format!("{rule}_value_condition"), &options, current))
+            self.pill(&words(format!("bot.settings.{namespace}.value_condition.{current}")), &self.select(&format!("{}_value_condition", k(rule)), &options, current))
         };
         let timeframe = |rule: &str, namespace: &str| -> String {
-            let current = bot.text(&format!("{rule}_in_timeframe")).unwrap_or("");
+            let current = bot.text(&format!("{}_in_timeframe", k(rule))).unwrap_or("");
             let options: Vec<(String, String)> = TIMEFRAMES.iter().map(|name| (words(format!("bot.settings.{namespace}.timeframe.{name}")), name.to_string())).collect();
             format!("<div class=\"sinput sinput--select {}\">              {}\n              {}\n</div>", if self.locked() { "sinput--disabled" } else { "" },
-                    escape(&words(format!("bot.settings.{namespace}.timeframe.{current}"))), self.select(&format!("{rule}_in_timeframe"), &options, current))
+                    escape(&words(format!("bot.settings.{namespace}.timeframe.{current}"))), self.select(&format!("{}_in_timeframe", k(rule)), &options, current))
         };
-        let ma_type = bot.text("moving_average_limit_in_ma_type").unwrap_or("");
+        let ma_type = bot.text(&k("moving_average_limit_in_ma_type")).unwrap_or("");
         let ma_pill = format!("<div class=\"sinput sinput--select {}\">              {}\n              {}\n</div>", if self.locked() { "sinput--disabled" } else { "" }, escape(&ma_type.to_uppercase()),
-                              self.select("moving_average_limit_in_ma_type", &[("SMA".to_string(), "sma".to_string()), ("EMA".to_string(), "ema".to_string())], ma_type));
-        let period = bot.setting("moving_average_limit_in_period").map(|value| value.as_i64().map_or_else(|| value.to_string(), |n| n.to_string()));
+                              self.select(&k("moving_average_limit_in_ma_type"), &[("SMA".to_string(), "sma".to_string()), ("EMA".to_string(), "ema".to_string())], ma_type));
+        let period = bot.setting(&k("moving_average_limit_in_period")).map(|value| value.as_i64().map_or_else(|| value.to_string(), |n| n.to_string()));
         let watched = self.watched("moving_average_limit");
         // The sentence names the watched pair's base only when there is a choice of pairs.
         let base = if pairs.len() > 1 { bot.tickers.iter().find(|ticker| ticker.id.to_string() == watched).and_then(|ticker| ticker.base_symbol.clone()).unwrap_or_default() } else { String::new() };
-        let active = bot.on("moving_average_limited");
+        let active = bot.on(&k("moving_average_limited"));
         let sentence = self.t("bot.settings.extra_moving_average_limit.sentence_html", &[
             ("timing_condition_html", Arg::Html(&self.mode_pill("moving_average_limit"))), ("base", Arg::Text(&base)), ("value_condition_html", Arg::Html(&above_below("moving_average_limit"))),
-            ("ma_html", Arg::Html(&ma_pill)), ("ma_period_html", Arg::Html(&boxed(self.number("moving_average_limit_in_period", period.as_deref(), "1", "", self.locked())))),
+            ("ma_html", Arg::Html(&ma_pill)), ("ma_period_html", Arg::Html(&boxed(self.number(&k("moving_average_limit_in_period"), period.as_deref(), "1", "", self.locked())))),
             ("ticker_html", Arg::Html(&self.subject("moving_average_limit", pairs))), ("timeframe_html", Arg::Html(&timeframe("moving_average_limit", "extra_moving_average_limit"))),
             ("count", Arg::Count(pairs.len() as i64)),
         ]);
         let info = if active && period.is_some() { self.info_loader("moving_average_limit") } else { String::new() };
-        out.push_str(&format!("  \n{}\n", self.rule(active, "moving_average_limited", active, self.locked(), &format!("          {sentence}\n          {info}\n"))));
+        out.push_str(&format!("  \n{}\n", self.rule(active, &k("moving_average_limited"), active, self.locked(), &format!("          {sentence}\n          {info}\n"))));
 
         // Indicator limit. There is one indicator, so it is named, not chosen.
-        let active = bot.on("indicator_limited");
+        let active = bot.on(&k("indicator_limited"));
         let sentence = self.t("bot.settings.extra_indicator_limit.sentence_html", &[
             ("timing_condition_html", Arg::Html(&self.mode_pill("indicator_limit"))), ("value_condition_html", Arg::Html(&above_below("indicator_limit"))),
-            ("value_html", Arg::Html(&boxed(self.number("indicator_limit", self.stored("indicator_limit").as_deref(), "any", "", self.locked())))),
+            ("value_html", Arg::Html(&boxed(self.number(&k("indicator_limit"), self.stored(&k("indicator_limit")).as_deref(), "any", "", self.locked())))),
             ("ticker_html", Arg::Html(&self.subject("indicator_limit", pairs))), ("indicator_html", Arg::Html("RSI")),
             ("timeframe_html", Arg::Html(&timeframe("indicator_limit", "extra_indicator_limit"))), ("count", Arg::Count(pairs.len() as i64)),
         ]);
-        let info = if active && bot.setting("indicator_limit").is_some() { self.info_loader("indicator_limit") } else { String::new() };
-        out.push_str(&format!("  \n{}\n", self.rule(active, "indicator_limited", active, self.locked(), &format!("          {sentence}\n          {info}\n"))));
+        let info = if active && bot.setting(&k("indicator_limit")).is_some() { self.info_loader("indicator_limit") } else { String::new() };
+        out.push_str(&format!("  \n{}\n", self.rule(active, &k("indicator_limited"), active, self.locked(), &format!("          {sentence}\n          {info}\n"))));
         out
     }
 }
@@ -453,6 +522,8 @@ struct BasketMain<'a> {
     /// A one-asset basket reads like the pair bot it replaces: the asset in the sentence, no weights.
     lone: Option<Pill>,
     reverse_confirm: Option<String>,
+    /// 0 buying, 1 selling N base, 2 selling for N quote.
+    sell: u8,
     sliders: Vec<Slider>,
     several: bool,
     balanced: bool,
@@ -543,7 +614,18 @@ pub fn column(c: &Connection, forms: &Forms) -> Result<String, WebError> {
         amount_field = amount_field.replace("class=\"numeric-input\"", "class=\"numeric-input is-invalid\"").replace(" disabled=\"disabled\"", " disabled");
         amount_field.push_str(&error_line(&error));
     }
-    let interval_value = bot.setting("interval").map(rejected_value).unwrap_or_default();
+    // While selling, the sentence is the sell one: its amount and its own interval (Bot::Reversible).
+    let sell = if bot.sells_base_amount() { 1 } else if bot.sells_quote_amount() { 2 } else { 0 };
+    if sell > 0 {
+        let name = if sell == 1 { "sell_amount" } else { "sell_quote_amount" };
+        let value = bot.number(name).and_then(|n| n.to_d()).and_then(|d| input_value(&Num::Dec(d)));
+        amount_field = if forms.hide_balances { forms.amount(name, value.as_deref(), "") } else {
+            format!("<input {}class=\"numeric-input\" step=\"any\" size=\"2\" placeholder=\"0\" {AUTOWIDTH}{} type=\"number\" name=\"{key}[{name}]\" id=\"{key}_{name}\" />",
+                    value.as_ref().map(|value| format!("value=\"{}\" ", escape(value))).unwrap_or_default(), if value.is_none() { " autofocus=\"autofocus\"" } else { "" }, key = bot.param_key())
+        };
+    }
+    let interval_key = if sell > 0 { "sell_interval" } else { "interval" };
+    let interval_value = if sell > 0 { bot.sell_interval().unwrap_or("").to_string() } else { bot.setting("interval").map(rejected_value).unwrap_or_default() };
     let interval = interval_value.as_str();
     let mut options = intervals(ctx.locale);
     let interval_words = if options.iter().any(|(_, value)| value == interval) {
@@ -552,7 +634,7 @@ pub fn column(c: &Connection, forms: &Forms) -> Result<String, WebError> {
         options.push((interval_value.clone(), interval_value.clone()));
         interval_value.clone()
     };
-    let interval_select = forms.select("interval", &options, interval);
+    let interval_select = forms.select(interval_key, &options, interval);
     let mut out = String::from("<div id=\"settings\" class=\"column gap-1\">\n  ");
     match bot.kind {
         Kind::Basket => {
@@ -568,9 +650,10 @@ pub fn column(c: &Connection, forms: &Forms) -> Result<String, WebError> {
             out.push_str(&BasketMain {
                 v: ctx, csrf: forms.csrf, path: &forms.path, locked: bot.working(), composition_locked,
                 weights_locked: composition_locked || bot.text("weighting") == Some("market_cap"), quote, quote_asset_id, amount_field, interval_words, interval_select, lone,
-                reverse_confirm: bot.has_regular_waiting_orders.then(|| i18n::text(ctx.locale, "bot.reverse_confirm", &[])),
+                reverse_confirm: bot.has_regular_waiting_orders.then(|| i18n::text(ctx.locale, "bot.reverse_confirm", &[])), sell,
                 several: bot.base_assets.len() > 1, sliders, balanced: bot.allocations_balanced(), total,
-                can_add: !composition_locked && bot.base_assets.len() < super::MAX_ASSETS,
+                // A member is added by buying it, which a selling basket does not do.
+                can_add: !composition_locked && !bot.selling() && bot.base_assets.len() < super::MAX_ASSETS,
                 add_path: format!("{}?asset_field=add_asset_id", ctx.path(&format!("/bots/{}/asset_search/edit", bot.id))),
             }.render()?);
             out.push('\n');
@@ -578,7 +661,9 @@ pub fn column(c: &Connection, forms: &Forms) -> Result<String, WebError> {
             if !bot.one_asset() && (bot.text("weighting") == Some("market_cap") || (!bot.base_assets.is_empty() && bot.base_assets.iter().all(|asset| asset.market_cap.is_some_and(|cap| cap >= 1)))) {
                 out.push_str(&market_cap_rule(forms));
             }
-            out.push_str(&format!("    {}\n  {}\n  {}\n", forms.smart_intervals(), forms.limit_orders(), forms.starting_time()?));
+            // Smart Intervals splits a buy, or a sale of N base; a sale for N quote has no split.
+            if !bot.sells_quote_amount() { out.push_str(&format!("    {}\n", forms.smart_intervals())); }
+            out.push_str(&format!("  {}\n  {}\n", forms.limit_orders(), forms.starting_time()?));
             // BotHelper#base_select_options and #ticker_select_options.
             let mut members: Vec<(String, String)> = bot.composition_tickers().iter().map(|ticker| (ticker.base_symbol.clone().unwrap_or_default(), ticker.id.to_string())).collect();
             members.sort_by(|a, b| a.0.cmp(&b.0));
@@ -586,7 +671,7 @@ pub fn column(c: &Connection, forms: &Forms) -> Result<String, WebError> {
             pairs.sort_by(|a, b| a.0.cmp(&b.0));
             out.push_str(&forms.conditions(&members, &pairs));
             out.push_str(&format!("    {}\n", forms.amount_limit(c)?));
-            if !bot.one_asset() { out.push_str(&format!("    {}\n", forms.rebalance())); }
+            if !bot.one_asset() && !bot.selling() { out.push_str(&format!("    {}\n", forms.rebalance())); }
         }
         Kind::Index => {
             let coins = index_preview(c, bot)?;

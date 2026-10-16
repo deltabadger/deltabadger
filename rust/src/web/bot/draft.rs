@@ -347,19 +347,7 @@ impl Draft {
         }
         if field == "rebalance_threshold" { return value.filter(|v| present(v)).map(|v| numeric(v, false).unwrap_or(Value::Null)).unwrap_or(json!(0.05)); }
         if let Some(value) = value.filter(|v| !v.is_null()) { return value.clone(); }
-        if field == "base_amount_limited" || field.starts_with("sell_") && field.ends_with("ed") { return json!(false); }
-        if let Some(field) = field.strip_prefix("sell_") {
-            return match field {
-                "price_limit" => json!(1_000_000), "price_limit_range_lower_bound" => json!(0), "price_limit_range_upper_bound" => json!(1_000_000),
-                "price_drop_limit" => json!(0.2), "price_drop_limit_time_window_condition" => json!("twenty_four_hours"),
-                "indicator_limit" => json!(70), "indicator_limit_in_indicator" => json!("rsi"),
-                "moving_average_limit_in_period" => json!(9), "moving_average_limit_in_ma_type" => json!("sma"),
-                key if key.ends_with("_value_condition") => json!("above"),
-                key if key.ends_with("_timing_condition") => json!("while"),
-                key if key.ends_with("_in_timeframe") => json!("one_day"), _ => Value::Null,
-            };
-        }
-        Value::Null
+        sell_default(field)
     }
     fn inclusion(&mut self, locale: &str, field: &str, allowed: &[&str]) {
         if !self.read(field).as_str().is_some_and(|s| allowed.contains(&s)) { self.error(locale, field, "inclusion", None); }
@@ -776,5 +764,21 @@ impl Draft {
         if !self.candidate.start_time_enabled() { return Ok(None); }
         let text=|key:&str| self.candidate.text(key);
         start::initial_start_at(text("start_time_mode"), text("start_time_of_day"), text("start_at"), now, name).map(Some).map_err(failure)
+    }
+}
+
+/// What Rails' readers give a sell-side setting the row lacks (`value.nil? ? default : value`, the concerns' sell fallbacks):
+/// `field` with its `sell_` prefix. Null where the reader has no fallback.
+pub(super) fn sell_default(field: &str) -> Value {
+    if field == "base_amount_limited" || field.starts_with("sell_") && field.ends_with("ed") { return json!(false); }
+    let Some(field) = field.strip_prefix("sell_") else { return Value::Null };
+    match field {
+        "price_limit" => json!(1_000_000), "price_limit_range_lower_bound" => json!(0), "price_limit_range_upper_bound" => json!(1_000_000),
+        "price_drop_limit" => json!(0.2), "price_drop_limit_time_window_condition" => json!("twenty_four_hours"),
+        "indicator_limit" => json!(70), "indicator_limit_in_indicator" => json!("rsi"),
+        "moving_average_limit_in_period" => json!(9), "moving_average_limit_in_ma_type" => json!("sma"),
+        key if key.ends_with("_value_condition") => json!("above"),
+        key if key.ends_with("_timing_condition") => json!("while"),
+        key if key.ends_with("_in_timeframe") => json!("one_day"), _ => Value::Null,
     }
 }
