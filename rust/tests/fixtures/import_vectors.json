@@ -1,0 +1,4755 @@
+{
+  "tz": "UTC",
+  "now": "2026-10-01T21:30:00.000000Z",
+  "binance": [
+    {
+      "name": "buy_triple",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjEtMDctMDEgMDM6NDI6MzgsU3BvdCxUcmFuc2FjdGlvbiBGZWUsQk5CLC0wLjAwMDAyNDgyLAoxLDIwMjEtMDctMDEgMDM6NDI6MzgsU3BvdCxUcmFuc2FjdGlvbiBTcGVuZCxVU0RULC0xMC4wMDAzNTQzLAoxLDIwMjEtMDctMDEgMDM6NDI6MzgsU3BvdCxUcmFuc2FjdGlvbiBCdXksWk9SSywwLjA2OTgzLA==",
+      "offset": "+00:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2021-07-01 03:42:38,Spot,Transaction Fee,BNB,-0.00002482,\n1,2021-07-01 03:42:38,Spot,Transaction Spend,USDT,-10.0003543,\n1,2021-07-01 03:42:38,Spot,Transaction Buy,ZORK,0.06983,",
+      "entries": [
+        {
+          "entry_type": "buy",
+          "base_currency": "ZORK",
+          "base_amount": "0.06983",
+          "quote_currency": "USDT",
+          "quote_amount": "10.0003543",
+          "fee_currency": "BNB",
+          "fee_amount": "0.00002482",
+          "tx_id": null,
+          "group_id": null,
+          "description": null,
+          "transacted_at": "2021-07-01T03:42:38.000000Z",
+          "raw_data": "{}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "sale_triple",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjItMDEtMDUgMTA6MDA6MDAsU3BvdCxUcmFuc2FjdGlvbiBTb2xkLEZMSUIsLTAuNSwKMSwyMDIyLTAxLTA1IDEwOjAwOjAwLFNwb3QsVHJhbnNhY3Rpb24gUmV2ZW51ZSxVU0RULDIxMDAwLAoxLDIwMjItMDEtMDUgMTA6MDA6MDAsU3BvdCxUcmFuc2FjdGlvbiBGZWUsVVNEVCwtMjEs",
+      "offset": "+00:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2022-01-05 10:00:00,Spot,Transaction Sold,FLIB,-0.5,\n1,2022-01-05 10:00:00,Spot,Transaction Revenue,USDT,21000,\n1,2022-01-05 10:00:00,Spot,Transaction Fee,USDT,-21,",
+      "entries": [
+        {
+          "entry_type": "sell",
+          "base_currency": "FLIB",
+          "base_amount": "0.5",
+          "quote_currency": "USDT",
+          "quote_amount": "21000.0",
+          "fee_currency": "USDT",
+          "fee_amount": "21.0",
+          "tx_id": null,
+          "group_id": null,
+          "description": null,
+          "transacted_at": "2022-01-05T10:00:00.000000Z",
+          "raw_data": "{}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "swap_no_cash",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjItMDMtMDMgMDg6MDA6MDAsU3BvdCxUcmFuc2FjdGlvbiBTcGVuZCxGTElCLC0wLjAxLAoxLDIwMjItMDMtMDMgMDg6MDA6MDAsU3BvdCxUcmFuc2FjdGlvbiBCdXksWk9SSywwLjE1LA==",
+      "offset": "+00:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2022-03-03 08:00:00,Spot,Transaction Spend,FLIB,-0.01,\n1,2022-03-03 08:00:00,Spot,Transaction Buy,ZORK,0.15,",
+      "entries": [
+        {
+          "entry_type": "swap_out",
+          "base_currency": "FLIB",
+          "base_amount": "0.01",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": "swapcsv_1646294400_FLIB_ZORK",
+          "description": null,
+          "transacted_at": "2022-03-03T08:00:00.000000Z",
+          "raw_data": "{}"
+        },
+        {
+          "entry_type": "swap_in",
+          "base_currency": "ZORK",
+          "base_amount": "0.15",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": "swapcsv_1646294400_FLIB_ZORK",
+          "description": null,
+          "transacted_at": "2022-03-03T08:00:00.000000Z",
+          "raw_data": "{}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "deposit_withdraw",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjEtMDctMDEgMTQ6MDc6MDQsU3BvdCxEZXBvc2l0LFVTRFQsMTUwLjIsCjEsMjAyMS0wOC0wMyAxNzoxMjo0NCxTcG90LFdpdGhkcmF3LFpPUkssLTAuNTAxLFdpdGhkcmF3IGZlZSBpcyBpbmNsdWRlZA==",
+      "offset": "+00:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2021-07-01 14:07:04,Spot,Deposit,USDT,150.2,\n1,2021-08-03 17:12:44,Spot,Withdraw,ZORK,-0.501,Withdraw fee is included",
+      "entries": [
+        {
+          "entry_type": "deposit",
+          "base_currency": "USDT",
+          "base_amount": "150.2",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Deposit",
+          "transacted_at": "2021-07-01T14:07:04.000000Z",
+          "raw_data": "{\"operation\":\"Deposit\"}"
+        },
+        {
+          "entry_type": "withdrawal",
+          "base_currency": "ZORK",
+          "base_amount": "0.501",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Withdraw",
+          "transacted_at": "2021-08-03T17:12:44.000000Z",
+          "raw_data": "{\"operation\":\"Withdraw\"}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "own_wallet_transfer_only",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjEtMDktMDEgMTI6MDA6MDAsU3BvdCxUcmFuc2ZlciBCZXR3ZWVuIFNwb3QgYW5kIEZ1bmRpbmcsVVNEVCwtNTAs",
+      "offset": "+00:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2021-09-01 12:00:00,Spot,Transfer Between Spot and Funding,USDT,-50,",
+      "entries": [],
+      "unrecognised": [],
+      "error": "unreadable"
+    },
+    {
+      "name": "dust_by_remark",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCxTbWFsbCBBc3NldHMgRXhjaGFuZ2UgQk5CLFFVVVgsLTMsUVVVWCB0byBCTkIKMSwyMDI0LTAzLTAxIDEwOjAwOjAwLFNwb3QsU21hbGwgQXNzZXRzIEV4Y2hhbmdlIEJOQixCTkIsMC4wMDA0LFFVVVggdG8gQk5CCjEsMjAyNC0wMy0wMSAxMDowMDowMCxTcG90LFNtYWxsIEFzc2V0cyBFeGNoYW5nZSBCTkIsQkxJUCwtMC4wMDc2LEJMSVAgdG8gQk5CCjEsMjAyNC0wMy0wMSAxMDowMDowMCxTcG90LFNtYWxsIEFzc2V0cyBFeGNoYW5nZSBCTkIsQk5CLDAuMDAwMDA5MTksQkxJUCB0byBCTkI=",
+      "offset": "+00:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2024-03-01 10:00:00,Spot,Small Assets Exchange BNB,QUUX,-3,QUUX to BNB\n1,2024-03-01 10:00:00,Spot,Small Assets Exchange BNB,BNB,0.0004,QUUX to BNB\n1,2024-03-01 10:00:00,Spot,Small Assets Exchange BNB,BLIP,-0.0076,BLIP to BNB\n1,2024-03-01 10:00:00,Spot,Small Assets Exchange BNB,BNB,0.00000919,BLIP to BNB",
+      "entries": [
+        {
+          "entry_type": "swap_out",
+          "base_currency": "QUUX",
+          "base_amount": "3.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": "dustcsv_QUUX to BNB_1709287200",
+          "description": null,
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{}"
+        },
+        {
+          "entry_type": "swap_in",
+          "base_currency": "BNB",
+          "base_amount": "0.0004",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": "dustcsv_QUUX to BNB_1709287200",
+          "description": null,
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{}"
+        },
+        {
+          "entry_type": "swap_out",
+          "base_currency": "BLIP",
+          "base_amount": "0.0076",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": "dustcsv_BLIP to BNB_1709287200",
+          "description": null,
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{}"
+        },
+        {
+          "entry_type": "swap_in",
+          "base_currency": "BNB",
+          "base_amount": "0.00000919",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": "dustcsv_BLIP to BNB_1709287200",
+          "description": null,
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "rebates_rewards",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjEtMDYtMzAgMTc6MzY6MDMsU3BvdCxDb21taXNzaW9uIFJlYmF0ZSxGTElCLDAuMDAwMDAwMDcsCjEsMjAyMS0xMS0wMiAwOTowMDowMCxTcG90LFBvb2wgRGlzdHJpYnV0aW9uLFpPUkssMC4wMDEsCjEsMjAyMS0xMi0wMiAwOTowMDowMCxTcG90LEFpcmRyb3AgQXNzZXRzLFFVVVgsMC41LA==",
+      "offset": "+00:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2021-06-30 17:36:03,Spot,Commission Rebate,FLIB,0.00000007,\n1,2021-11-02 09:00:00,Spot,Pool Distribution,ZORK,0.001,\n1,2021-12-02 09:00:00,Spot,Airdrop Assets,QUUX,0.5,",
+      "entries": [
+        {
+          "entry_type": "other_income",
+          "base_currency": "FLIB",
+          "base_amount": "0.00000007",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Commission Rebate",
+          "transacted_at": "2021-06-30T17:36:03.000000Z",
+          "raw_data": "{\"operation\":\"Commission Rebate\"}"
+        },
+        {
+          "entry_type": "staking_reward",
+          "base_currency": "ZORK",
+          "base_amount": "0.001",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Pool Distribution",
+          "transacted_at": "2021-11-02T09:00:00.000000Z",
+          "raw_data": "{\"operation\":\"Pool Distribution\"}"
+        },
+        {
+          "entry_type": "airdrop",
+          "base_currency": "QUUX",
+          "base_amount": "0.5",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Airdrop Assets",
+          "transacted_at": "2021-12-02T09:00:00.000000Z",
+          "raw_data": "{\"operation\":\"Airdrop Assets\"}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "two_fills_one_instant",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCxUcmFuc2FjdGlvbiBCdXksWk9SSywyMi4yMiwKMSwyMDI0LTAzLTAxIDEwOjAwOjAwLFNwb3QsVHJhbnNhY3Rpb24gU3BlbmQsRkxJQiwtMC4wMDk3NzY4LAoxLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCxUcmFuc2FjdGlvbiBGZWUsQk5CLC0wLjAwMDcyMTI3LAoxLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCxUcmFuc2FjdGlvbiBTcGVuZCxGTElCLC0wLjAwMjA5ODgsCjEsMjAyNC0wMy0wMSAxMDowMDowMCxTcG90LFRyYW5zYWN0aW9uIEJ1eSxaT1JLLDQuNzcsCjEsMjAyNC0wMy0wMSAxMDowMDowMCxTcG90LFRyYW5zYWN0aW9uIEZlZSxCTkIsLTAuMDAwMTU0ODMs",
+      "offset": "+00:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2024-03-01 10:00:00,Spot,Transaction Buy,ZORK,22.22,\n1,2024-03-01 10:00:00,Spot,Transaction Spend,FLIB,-0.0097768,\n1,2024-03-01 10:00:00,Spot,Transaction Fee,BNB,-0.00072127,\n1,2024-03-01 10:00:00,Spot,Transaction Spend,FLIB,-0.0020988,\n1,2024-03-01 10:00:00,Spot,Transaction Buy,ZORK,4.77,\n1,2024-03-01 10:00:00,Spot,Transaction Fee,BNB,-0.00015483,",
+      "entries": [
+        {
+          "entry_type": "swap_out",
+          "base_currency": "FLIB",
+          "base_amount": "0.0097768",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": "swapcsv_1709287200_FLIB_ZORK",
+          "description": null,
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{}"
+        },
+        {
+          "entry_type": "swap_in",
+          "base_currency": "ZORK",
+          "base_amount": "22.22",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": "BNB",
+          "fee_amount": "0.00072127",
+          "tx_id": null,
+          "group_id": "swapcsv_1709287200_FLIB_ZORK",
+          "description": null,
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{}"
+        },
+        {
+          "entry_type": "swap_out",
+          "base_currency": "FLIB",
+          "base_amount": "0.0020988",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": "swapcsv_1709287200_FLIB_ZORK",
+          "description": null,
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{}"
+        },
+        {
+          "entry_type": "swap_in",
+          "base_currency": "ZORK",
+          "base_amount": "4.77",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": "BNB",
+          "fee_amount": "0.00015483",
+          "tx_id": null,
+          "group_id": "swapcsv_1709287200_FLIB_ZORK",
+          "description": null,
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "fills_paired_by_size",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCxUcmFuc2FjdGlvbiBCdXksRkxJQiwwLjAwMDA1LAoxLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCxUcmFuc2FjdGlvbiBGZWUsRkxJQiwtMC4wMDAwMDAwNSwKMSwyMDI0LTAzLTAxIDEwOjAwOjAwLFNwb3QsVHJhbnNhY3Rpb24gU3BlbmQsVVNEQywtMy4yMTY3OTk4LAoxLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCxUcmFuc2FjdGlvbiBGZWUsRkxJQiwtMC4wMDAwMDAwMywKMSwyMDI0LTAzLTAxIDEwOjAwOjAwLFNwb3QsVHJhbnNhY3Rpb24gQnV5LEZMSUIsMC4wMDAwMywKMSwyMDI0LTAzLTAxIDEwOjAwOjAwLFNwb3QsVHJhbnNhY3Rpb24gU3BlbmQsVVNEQywtNS4zNjEzMzMs",
+      "offset": "+00:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2024-03-01 10:00:00,Spot,Transaction Buy,FLIB,0.00005,\n1,2024-03-01 10:00:00,Spot,Transaction Fee,FLIB,-0.00000005,\n1,2024-03-01 10:00:00,Spot,Transaction Spend,USDC,-3.2167998,\n1,2024-03-01 10:00:00,Spot,Transaction Fee,FLIB,-0.00000003,\n1,2024-03-01 10:00:00,Spot,Transaction Buy,FLIB,0.00003,\n1,2024-03-01 10:00:00,Spot,Transaction Spend,USDC,-5.361333,",
+      "entries": [
+        {
+          "entry_type": "buy",
+          "base_currency": "FLIB",
+          "base_amount": "0.00005",
+          "quote_currency": "USDC",
+          "quote_amount": "5.361333",
+          "fee_currency": "FLIB",
+          "fee_amount": "0.00000005",
+          "tx_id": null,
+          "group_id": null,
+          "description": null,
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{}"
+        },
+        {
+          "entry_type": "buy",
+          "base_currency": "FLIB",
+          "base_amount": "0.00003",
+          "quote_currency": "USDC",
+          "quote_amount": "3.2167998",
+          "fee_currency": "FLIB",
+          "fee_amount": "0.00000003",
+          "tx_id": null,
+          "group_id": null,
+          "description": null,
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "no_trade_row_dropped",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCxUcmFuc2FjdGlvbiBCdXksWk9SSywyMi4yMiwKMSwyMDI0LTAzLTAxIDEwOjAwOjAwLFNwb3QsVHJhbnNhY3Rpb24gU3BlbmQsRkxJQiwtMC4wMDk3NzY4LAoxLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCxUcmFuc2FjdGlvbiBTcGVuZCxGTElCLC0wLjAwMjA5ODgsCjEsMjAyNC0wMy0wMSAxMDowMDowMCxTcG90LFRyYW5zYWN0aW9uIEJ1eSxaT1JLLDQuNzcsCjEsMjAyMy0wMS0wMSAwMDowMDowMCxTcG90LFRyYW5zYWN0aW9uIFNwZW5kLFVTRFQsLTUwLAoxLDIwMjMtMDEtMDEgMDA6MDA6MDAsU3BvdCxUcmFuc2FjdGlvbiBCdXksUVVVWCwwLjAzLA==",
+      "offset": "+00:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2024-03-01 10:00:00,Spot,Transaction Buy,ZORK,22.22,\n1,2024-03-01 10:00:00,Spot,Transaction Spend,FLIB,-0.0097768,\n1,2024-03-01 10:00:00,Spot,Transaction Spend,FLIB,-0.0020988,\n1,2024-03-01 10:00:00,Spot,Transaction Buy,ZORK,4.77,\n1,2023-01-01 00:00:00,Spot,Transaction Spend,USDT,-50,\n1,2023-01-01 00:00:00,Spot,Transaction Buy,QUUX,0.03,",
+      "entries": [
+        {
+          "entry_type": "buy",
+          "base_currency": "QUUX",
+          "base_amount": "0.03",
+          "quote_currency": "USDT",
+          "quote_amount": "50.0",
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": null,
+          "transacted_at": "2023-01-01T00:00:00.000000Z",
+          "raw_data": "{}"
+        },
+        {
+          "entry_type": "swap_out",
+          "base_currency": "FLIB",
+          "base_amount": "0.0097768",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": "swapcsv_1709287200_FLIB_ZORK",
+          "description": null,
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{}"
+        },
+        {
+          "entry_type": "swap_in",
+          "base_currency": "ZORK",
+          "base_amount": "22.22",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": "swapcsv_1709287200_FLIB_ZORK",
+          "description": null,
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{}"
+        },
+        {
+          "entry_type": "swap_out",
+          "base_currency": "FLIB",
+          "base_amount": "0.0020988",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": "swapcsv_1709287200_FLIB_ZORK",
+          "description": null,
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{}"
+        },
+        {
+          "entry_type": "swap_in",
+          "base_currency": "ZORK",
+          "base_amount": "4.77",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": "swapcsv_1709287200_FLIB_ZORK",
+          "description": null,
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "asset_recovery_negative",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjQtMDQtMjYgMTI6MjM6MTUsU3BvdCxBc3NldCBSZWNvdmVyeSxaT1JLLC0zMS44NSw=",
+      "offset": "+00:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2024-04-26 12:23:15,Spot,Asset Recovery,ZORK,-31.85,",
+      "entries": [
+        {
+          "entry_type": "lost",
+          "base_currency": "ZORK",
+          "base_amount": "31.85",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Asset Recovery",
+          "transacted_at": "2024-04-26T12:23:15.000000Z",
+          "raw_data": "{\"operation\":\"Asset Recovery\"}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "asset_recovery_positive",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjQtMDQtMjcgMTI6MjM6MTUsU3BvdCxBc3NldCBSZWNvdmVyeSxaT1JLLDMxLjg1LA==",
+      "offset": "+00:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2024-04-27 12:23:15,Spot,Asset Recovery,ZORK,31.85,",
+      "entries": [
+        {
+          "entry_type": "other_income",
+          "base_currency": "ZORK",
+          "base_amount": "31.85",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Asset Recovery",
+          "transacted_at": "2024-04-27T12:23:15.000000Z",
+          "raw_data": "{\"operation\":\"Asset Recovery\"}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "token_swap_distribution",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjQtMDYtMjYgMDg6MjY6NDEsU3BvdCxUb2tlbiBTd2FwIC0gRGlzdHJpYnV0aW9uLFVTRFQsMTE4LjU1MjA3LA==",
+      "offset": "+00:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2024-06-26 08:26:41,Spot,Token Swap - Distribution,USDT,118.55207,",
+      "entries": [
+        {
+          "entry_type": "airdrop",
+          "base_currency": "USDT",
+          "base_amount": "118.55207",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Token Swap - Distribution",
+          "transacted_at": "2024-06-26T08:26:41.000000Z",
+          "raw_data": "{\"operation\":\"Token Swap - Distribution\"}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "commission_history",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjEtMDEtMDcgMjE6Mjg6NDEsU3BvdCxDb21taXNzaW9uIEhpc3RvcnksVVNEVCwwLjAwODA3ODM5LA==",
+      "offset": "+00:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2021-01-07 21:28:41,Spot,Commission History,USDT,0.00807839,",
+      "entries": [
+        {
+          "entry_type": "other_income",
+          "base_currency": "USDT",
+          "base_amount": "0.00807839",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Commission History",
+          "transacted_at": "2021-01-07T21:28:41.000000Z",
+          "raw_data": "{\"operation\":\"Commission History\"}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "asset_transfer_out_and_in",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjEtMDEtMDggMTM6NTk6MjUsU3BvdCxBc3NldCAtIFRyYW5zZmVyLEZMSUIsLTEwMCxGTElC5Zue5pS2CjEsMjAyMS0wMS0wOSAxMzo1OToyNSxTcG90LEFzc2V0IC0gVHJhbnNmZXIsRkxJQiw1LA==",
+      "offset": "+00:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2021-01-08 13:59:25,Spot,Asset - Transfer,FLIB,-100,FLIB回收\n1,2021-01-09 13:59:25,Spot,Asset - Transfer,FLIB,5,",
+      "entries": [
+        {
+          "entry_type": "lost",
+          "base_currency": "FLIB",
+          "base_amount": "100.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Asset - Transfer",
+          "transacted_at": "2021-01-08T13:59:25.000000Z",
+          "raw_data": "{\"operation\":\"Asset - Transfer\"}"
+        },
+        {
+          "entry_type": "other_income",
+          "base_currency": "FLIB",
+          "base_amount": "5.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Asset - Transfer",
+          "transacted_at": "2021-01-09T13:59:25.000000Z",
+          "raw_data": "{\"operation\":\"Asset - Transfer\"}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "token_rebrand",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjItMDUtMjggMjI6NTc6MzcsU3BvdCxUb2tlbiBTd2FwIC0gUmVkZW5vbWluYXRpb24vUmVicmFuZGluZyxaT1JLLC0xMi45MjA0MDYsCjEsMjAyMi0wNS0yOCAyMjo1NzozNyxTcG90LFRva2VuIFN3YXAgLSBSZWRlbm9taW5hdGlvbi9SZWJyYW5kaW5nLFpPUktDLDEyLjkyMDQwNiw=",
+      "offset": "+00:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2022-05-28 22:57:37,Spot,Token Swap - Redenomination/Rebranding,ZORK,-12.920406,\n1,2022-05-28 22:57:37,Spot,Token Swap - Redenomination/Rebranding,ZORKC,12.920406,",
+      "entries": [
+        {
+          "entry_type": "swap_out",
+          "base_currency": "ZORK",
+          "base_amount": "12.920406",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": "swapcsv_1653778657_ZORK_ZORKC",
+          "description": null,
+          "transacted_at": "2022-05-28T22:57:37.000000Z",
+          "raw_data": "{}"
+        },
+        {
+          "entry_type": "swap_in",
+          "base_currency": "ZORKC",
+          "base_amount": "12.920406",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": "swapcsv_1653778657_ZORK_ZORKC",
+          "description": null,
+          "transacted_at": "2022-05-28T22:57:37.000000Z",
+          "raw_data": "{}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "token_rebrand_two_out_one_in",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCxUb2tlbiBTd2FwIC0gUmVkZW5vbWluYXRpb24vUmVicmFuZGluZyxaT1JLLC0xLAoxLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCxUb2tlbiBTd2FwIC0gUmVkZW5vbWluYXRpb24vUmVicmFuZGluZyxaT1JLWCwtMywKMSwyMDI0LTAzLTAxIDEwOjAwOjAwLFNwb3QsVG9rZW4gU3dhcCAtIFJlZGVub21pbmF0aW9uL1JlYnJhbmRpbmcsWk9SS0MsNCw=",
+      "offset": "+00:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2024-03-01 10:00:00,Spot,Token Swap - Redenomination/Rebranding,ZORK,-1,\n1,2024-03-01 10:00:00,Spot,Token Swap - Redenomination/Rebranding,ZORKX,-3,\n1,2024-03-01 10:00:00,Spot,Token Swap - Redenomination/Rebranding,ZORKC,4,",
+      "entries": [
+        {
+          "entry_type": "swap_out",
+          "base_currency": "ZORKX",
+          "base_amount": "3.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": "swapcsv_1709287200_ZORKX_ZORKC",
+          "description": null,
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{}"
+        },
+        {
+          "entry_type": "swap_in",
+          "base_currency": "ZORKC",
+          "base_amount": "4.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": "swapcsv_1709287200_ZORKX_ZORKC",
+          "description": null,
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{}"
+        },
+        {
+          "entry_type": "swap_out",
+          "base_currency": "ZORK",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": "swapcsv_1709287200_ZORK_ZORKC",
+          "description": null,
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{}"
+        },
+        {
+          "entry_type": "swap_in",
+          "base_currency": "ZORKC",
+          "base_amount": "4.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": "swapcsv_1709287200_ZORK_ZORKC",
+          "description": null,
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "withdrawal_not_lost",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjEtMDgtMDMgMTc6MTI6NDQsU3BvdCxXaXRoZHJhdyxaT1JLLC0wLjUwMSxXaXRoZHJhdyBmZWUgaXMgaW5jbHVkZWQ=",
+      "offset": "+00:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2021-08-03 17:12:44,Spot,Withdraw,ZORK,-0.501,Withdraw fee is included",
+      "entries": [
+        {
+          "entry_type": "withdrawal",
+          "base_currency": "ZORK",
+          "base_amount": "0.501",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Withdraw",
+          "transacted_at": "2021-08-03T17:12:44.000000Z",
+          "raw_data": "{\"operation\":\"Withdraw\"}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "convert_halves_1s_apart",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjUtMDYtMjIgMjA6MjA6NDUsU3BvdCxCaW5hbmNlIENvbnZlcnQsVVNEQywxMjkuNDE1Njc0ODksCjEsMjAyNS0wNi0yMiAyMDoyMDo0NixTcG90LEJpbmFuY2UgQ29udmVydCxVU0RULC0xMjkuNDE1Njc0ODks",
+      "offset": "+00:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2025-06-22 20:20:45,Spot,Binance Convert,USDC,129.41567489,\n1,2025-06-22 20:20:46,Spot,Binance Convert,USDT,-129.41567489,",
+      "entries": [
+        {
+          "entry_type": "swap_out",
+          "base_currency": "USDT",
+          "base_amount": "129.41567489",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": "swapcsv_1750623646_USDT_USDC",
+          "description": null,
+          "transacted_at": "2025-06-22T20:20:46.000000Z",
+          "raw_data": "{}"
+        },
+        {
+          "entry_type": "swap_in",
+          "base_currency": "USDC",
+          "base_amount": "129.41567489",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": "swapcsv_1750623646_USDT_USDC",
+          "description": null,
+          "transacted_at": "2025-06-22T20:20:46.000000Z",
+          "raw_data": "{}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "convert_out_of_cash_utc3",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+3)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjEtMDktMjAgMDk6MjI6NTQsU3BvdCxCaW5hbmNlIENvbnZlcnQsWk9SSywwLjg5NTY4ODE2LAoxLDIwMjEtMDktMjAgMDk6MjI6NTQsU3BvdCxCaW5hbmNlIENvbnZlcnQsVVNEVCwtMTUwLA==",
+      "offset": "+03:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2021-09-20 09:22:54,Spot,Binance Convert,ZORK,0.89568816,\n1,2021-09-20 09:22:54,Spot,Binance Convert,USDT,-150,",
+      "entries": [
+        {
+          "entry_type": "swap_out",
+          "base_currency": "USDT",
+          "base_amount": "150.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": "swapcsv_1632118974_USDT_ZORK",
+          "description": null,
+          "transacted_at": "2021-09-20T06:22:54.000000Z",
+          "raw_data": "{}"
+        },
+        {
+          "entry_type": "swap_in",
+          "base_currency": "ZORK",
+          "base_amount": "0.89568816",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": "swapcsv_1632118974_USDT_ZORK",
+          "description": null,
+          "transacted_at": "2021-09-20T06:22:54.000000Z",
+          "raw_data": "{}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "two_converts_far_apart",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjEtMDktMjAgMDk6MjI6NTQsU3BvdCxCaW5hbmNlIENvbnZlcnQsWk9SSywwLjg5NTY4ODE2LAoxLDIwMjEtMDktMjAgMDk6MjI6NTQsU3BvdCxCaW5hbmNlIENvbnZlcnQsVVNEVCwtMTUwLAoxLDIwMjQtMDItMTcgMjA6MDc6MjEsU3BvdCxCaW5hbmNlIENvbnZlcnQsQk5CLDAuMDAwOTYyNzcsCjEsMjAyNC0wMi0xNyAyMDowNzoyMSxTcG90LEJpbmFuY2UgQ29udmVydCxRVVVYLC0zLA==",
+      "offset": "+00:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2021-09-20 09:22:54,Spot,Binance Convert,ZORK,0.89568816,\n1,2021-09-20 09:22:54,Spot,Binance Convert,USDT,-150,\n1,2024-02-17 20:07:21,Spot,Binance Convert,BNB,0.00096277,\n1,2024-02-17 20:07:21,Spot,Binance Convert,QUUX,-3,",
+      "entries": [
+        {
+          "entry_type": "swap_out",
+          "base_currency": "USDT",
+          "base_amount": "150.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": "swapcsv_1632129774_USDT_ZORK",
+          "description": null,
+          "transacted_at": "2021-09-20T09:22:54.000000Z",
+          "raw_data": "{}"
+        },
+        {
+          "entry_type": "swap_in",
+          "base_currency": "ZORK",
+          "base_amount": "0.89568816",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": "swapcsv_1632129774_USDT_ZORK",
+          "description": null,
+          "transacted_at": "2021-09-20T09:22:54.000000Z",
+          "raw_data": "{}"
+        },
+        {
+          "entry_type": "swap_out",
+          "base_currency": "QUUX",
+          "base_amount": "3.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": "swapcsv_1708200441_QUUX_BNB",
+          "description": null,
+          "transacted_at": "2024-02-17T20:07:21.000000Z",
+          "raw_data": "{}"
+        },
+        {
+          "entry_type": "swap_in",
+          "base_currency": "BNB",
+          "base_amount": "0.00096277",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": "swapcsv_1708200441_QUUX_BNB",
+          "description": null,
+          "transacted_at": "2024-02-17T20:07:21.000000Z",
+          "raw_data": "{}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "dust_without_spend_leg",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjEtMDctMDYgMTM6MTI6MTEsU3BvdCxTbWFsbCBBc3NldHMgRXhjaGFuZ2UgQk5CLEJOQiwwLjAwMjcxMDI0LAoxLDIwMjEtMDctMDYgMTM6MTI6MTEsU3BvdCxTbWFsbCBBc3NldHMgRXhjaGFuZ2UgQk5CLEJOQiwwLjAxMDk3NTQ5LA==",
+      "offset": "+00:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2021-07-06 13:12:11,Spot,Small Assets Exchange BNB,BNB,0.00271024,\n1,2021-07-06 13:12:11,Spot,Small Assets Exchange BNB,BNB,0.01097549,",
+      "entries": [
+        {
+          "entry_type": "other_income",
+          "base_currency": "BNB",
+          "base_amount": "0.00271024",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Small Assets Exchange BNB",
+          "transacted_at": "2021-07-06T13:12:11.000000Z",
+          "raw_data": "{\"operation\":\"Small Assets Exchange BNB\"}"
+        },
+        {
+          "entry_type": "other_income",
+          "base_currency": "BNB",
+          "base_amount": "0.01097549",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Small Assets Exchange BNB",
+          "transacted_at": "2021-07-06T13:12:11.000000Z",
+          "raw_data": "{\"operation\":\"Small Assets Exchange BNB\"}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "unknown_operation",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjYtMDEtMDEgMDA6MDA6MDAsU3BvdCxTb21lIEZ1dHVyZSBCaW5hbmNlIFByb2R1Y3QsWFlaLDEs",
+      "offset": "+00:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2026-01-01 00:00:00,Spot,Some Future Binance Product,XYZ,1,",
+      "entries": [],
+      "unrecognised": [
+        "Some Future Binance Product"
+      ],
+      "error": null
+    },
+    {
+      "name": "integration_file_utc3",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+3)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjEtMDctMDEgMTQ6MDc6MDQsU3BvdCxEZXBvc2l0LFVTRFQsMTUwLjIsCjEsMjAyMS0wNy0wMSAwMzo0MjozOCxTcG90LFRyYW5zYWN0aW9uIFNwZW5kLFVTRFQsLTEwLjAwMDM1NDMsCjEsMjAyMS0wNy0wMSAwMzo0MjozOCxTcG90LFRyYW5zYWN0aW9uIEJ1eSxaT1JLLDAuMDY5ODMs",
+      "offset": "+03:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2021-07-01 14:07:04,Spot,Deposit,USDT,150.2,\n1,2021-07-01 03:42:38,Spot,Transaction Spend,USDT,-10.0003543,\n1,2021-07-01 03:42:38,Spot,Transaction Buy,ZORK,0.06983,",
+      "entries": [
+        {
+          "entry_type": "buy",
+          "base_currency": "ZORK",
+          "base_amount": "0.06983",
+          "quote_currency": "USDT",
+          "quote_amount": "10.0003543",
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": null,
+          "transacted_at": "2021-07-01T00:42:38.000000Z",
+          "raw_data": "{}"
+        },
+        {
+          "entry_type": "deposit",
+          "base_currency": "USDT",
+          "base_amount": "150.2",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Deposit",
+          "transacted_at": "2021-07-01T11:07:04.000000Z",
+          "raw_data": "{\"operation\":\"Deposit\"}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "integration_bom_utc3",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+3)-part1-of1.csv",
+      "bytes": "77u/VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjEtMDctMDEgMTQ6MDc6MDQsU3BvdCxEZXBvc2l0LFVTRFQsMTUwLjIsCjEsMjAyMS0wNy0wMSAwMzo0MjozOCxTcG90LFRyYW5zYWN0aW9uIFNwZW5kLFVTRFQsLTEwLjAwMDM1NDMsCjEsMjAyMS0wNy0wMSAwMzo0MjozOCxTcG90LFRyYW5zYWN0aW9uIEJ1eSxaT1JLLDAuMDY5ODMs",
+      "offset": "+03:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2021-07-01 14:07:04,Spot,Deposit,USDT,150.2,\n1,2021-07-01 03:42:38,Spot,Transaction Spend,USDT,-10.0003543,\n1,2021-07-01 03:42:38,Spot,Transaction Buy,ZORK,0.06983,",
+      "entries": [
+        {
+          "entry_type": "buy",
+          "base_currency": "ZORK",
+          "base_amount": "0.06983",
+          "quote_currency": "USDT",
+          "quote_amount": "10.0003543",
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": null,
+          "transacted_at": "2021-07-01T00:42:38.000000Z",
+          "raw_data": "{}"
+        },
+        {
+          "entry_type": "deposit",
+          "base_currency": "USDT",
+          "base_amount": "150.2",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Deposit",
+          "transacted_at": "2021-07-01T11:07:04.000000Z",
+          "raw_data": "{\"operation\":\"Deposit\"}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "integration_renamed_no_zone",
+      "format": "binance",
+      "filename": "renamed.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjEtMDctMDEgMTQ6MDc6MDQsU3BvdCxEZXBvc2l0LFVTRFQsMTUwLjIs",
+      "offset": null,
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2021-07-01 14:07:04,Spot,Deposit,USDT,150.2,",
+      "entries": [],
+      "unrecognised": [],
+      "error": "unknown_timezone"
+    },
+    {
+      "name": "three_fill_triples",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCxUcmFuc2FjdGlvbiBTcGVuZCxFVVIsLTMwLAoxLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCxUcmFuc2FjdGlvbiBCdXksWk9SSywzLAoxLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCxUcmFuc2FjdGlvbiBGZWUsWk9SSywtMC4wMDMsCjEsMjAyNC0wMy0wMSAxMDowMDowMCxTcG90LFRyYW5zYWN0aW9uIFNwZW5kLEVVUiwtMTAsCjEsMjAyNC0wMy0wMSAxMDowMDowMCxTcG90LFRyYW5zYWN0aW9uIEJ1eSxaT1JLLDEsCjEsMjAyNC0wMy0wMSAxMDowMDowMCxTcG90LFRyYW5zYWN0aW9uIEZlZSxaT1JLLC0wLjAwMSwKMSwyMDI0LTAzLTAxIDEwOjAwOjAwLFNwb3QsVHJhbnNhY3Rpb24gU3BlbmQsRVVSLC0yMCwKMSwyMDI0LTAzLTAxIDEwOjAwOjAwLFNwb3QsVHJhbnNhY3Rpb24gQnV5LFpPUkssMiwKMSwyMDI0LTAzLTAxIDEwOjAwOjAwLFNwb3QsVHJhbnNhY3Rpb24gRmVlLFpPUkssLTAuMDAyLA==",
+      "offset": "+00:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2024-03-01 10:00:00,Spot,Transaction Spend,EUR,-30,\n1,2024-03-01 10:00:00,Spot,Transaction Buy,ZORK,3,\n1,2024-03-01 10:00:00,Spot,Transaction Fee,ZORK,-0.003,\n1,2024-03-01 10:00:00,Spot,Transaction Spend,EUR,-10,\n1,2024-03-01 10:00:00,Spot,Transaction Buy,ZORK,1,\n1,2024-03-01 10:00:00,Spot,Transaction Fee,ZORK,-0.001,\n1,2024-03-01 10:00:00,Spot,Transaction Spend,EUR,-20,\n1,2024-03-01 10:00:00,Spot,Transaction Buy,ZORK,2,\n1,2024-03-01 10:00:00,Spot,Transaction Fee,ZORK,-0.002,",
+      "entries": [
+        {
+          "entry_type": "buy",
+          "base_currency": "ZORK",
+          "base_amount": "3.0",
+          "quote_currency": "EUR",
+          "quote_amount": "30.0",
+          "fee_currency": "ZORK",
+          "fee_amount": "0.003",
+          "tx_id": null,
+          "group_id": null,
+          "description": null,
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{}"
+        },
+        {
+          "entry_type": "buy",
+          "base_currency": "ZORK",
+          "base_amount": "2.0",
+          "quote_currency": "EUR",
+          "quote_amount": "20.0",
+          "fee_currency": "ZORK",
+          "fee_amount": "0.002",
+          "tx_id": null,
+          "group_id": null,
+          "description": null,
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{}"
+        },
+        {
+          "entry_type": "buy",
+          "base_currency": "ZORK",
+          "base_amount": "1.0",
+          "quote_currency": "EUR",
+          "quote_amount": "10.0",
+          "fee_currency": "ZORK",
+          "fee_amount": "0.001",
+          "tx_id": null,
+          "group_id": null,
+          "description": null,
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "fee_mismatch_one_fee_two_fills",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCxUcmFuc2FjdGlvbiBTcGVuZCxVU0RULC0xMCwKMSwyMDI0LTAzLTAxIDEwOjAwOjAwLFNwb3QsVHJhbnNhY3Rpb24gQnV5LFpPUkssMSwKMSwyMDI0LTAzLTAxIDEwOjAwOjAwLFNwb3QsVHJhbnNhY3Rpb24gU3BlbmQsVVNEVCwtMjAsCjEsMjAyNC0wMy0wMSAxMDowMDowMCxTcG90LFRyYW5zYWN0aW9uIEJ1eSxaT1JLLDIsCjEsMjAyNC0wMy0wMSAxMDowMDowMCxTcG90LFRyYW5zYWN0aW9uIEZlZSxCTkIsLTAuMDEs",
+      "offset": "+00:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2024-03-01 10:00:00,Spot,Transaction Spend,USDT,-10,\n1,2024-03-01 10:00:00,Spot,Transaction Buy,ZORK,1,\n1,2024-03-01 10:00:00,Spot,Transaction Spend,USDT,-20,\n1,2024-03-01 10:00:00,Spot,Transaction Buy,ZORK,2,\n1,2024-03-01 10:00:00,Spot,Transaction Fee,BNB,-0.01,",
+      "entries": [
+        {
+          "entry_type": "buy",
+          "base_currency": "ZORK",
+          "base_amount": "2.0",
+          "quote_currency": "USDT",
+          "quote_amount": "20.0",
+          "fee_currency": "BNB",
+          "fee_amount": "0.01",
+          "tx_id": null,
+          "group_id": null,
+          "description": null,
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{}"
+        },
+        {
+          "entry_type": "buy",
+          "base_currency": "ZORK",
+          "base_amount": "1.0",
+          "quote_currency": "USDT",
+          "quote_amount": "10.0",
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": null,
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "fee_mismatch_three_fees_two_fills",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCxUcmFuc2FjdGlvbiBTcGVuZCxVU0RULC0xMCwKMSwyMDI0LTAzLTAxIDEwOjAwOjAwLFNwb3QsVHJhbnNhY3Rpb24gQnV5LFpPUkssMSwKMSwyMDI0LTAzLTAxIDEwOjAwOjAwLFNwb3QsVHJhbnNhY3Rpb24gU3BlbmQsVVNEVCwtMjAsCjEsMjAyNC0wMy0wMSAxMDowMDowMCxTcG90LFRyYW5zYWN0aW9uIEJ1eSxaT1JLLDIsCjEsMjAyNC0wMy0wMSAxMDowMDowMCxTcG90LFRyYW5zYWN0aW9uIEZlZSxCTkIsLTAuMDEsCjEsMjAyNC0wMy0wMSAxMDowMDowMCxTcG90LFRyYW5zYWN0aW9uIEZlZSxCTkIsLTAuMDIsCjEsMjAyNC0wMy0wMSAxMDowMDowMCxTcG90LFRyYW5zYWN0aW9uIEZlZSxVU0RULC0wLjAzLA==",
+      "offset": "+00:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2024-03-01 10:00:00,Spot,Transaction Spend,USDT,-10,\n1,2024-03-01 10:00:00,Spot,Transaction Buy,ZORK,1,\n1,2024-03-01 10:00:00,Spot,Transaction Spend,USDT,-20,\n1,2024-03-01 10:00:00,Spot,Transaction Buy,ZORK,2,\n1,2024-03-01 10:00:00,Spot,Transaction Fee,BNB,-0.01,\n1,2024-03-01 10:00:00,Spot,Transaction Fee,BNB,-0.02,\n1,2024-03-01 10:00:00,Spot,Transaction Fee,USDT,-0.03,",
+      "entries": [
+        {
+          "entry_type": "buy",
+          "base_currency": "ZORK",
+          "base_amount": "2.0",
+          "quote_currency": "USDT",
+          "quote_amount": "20.0",
+          "fee_currency": "USDT",
+          "fee_amount": "0.06",
+          "tx_id": null,
+          "group_id": null,
+          "description": null,
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{}"
+        },
+        {
+          "entry_type": "buy",
+          "base_currency": "ZORK",
+          "base_amount": "1.0",
+          "quote_currency": "USDT",
+          "quote_amount": "10.0",
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": null,
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "more_spends_than_buys",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCxUcmFuc2FjdGlvbiBTcGVuZCxVU0RULC0xMCwKMSwyMDI0LTAzLTAxIDEwOjAwOjAwLFNwb3QsVHJhbnNhY3Rpb24gU3BlbmQsVVNEVCwtMjAsCjEsMjAyNC0wMy0wMSAxMDowMDowMCxTcG90LFRyYW5zYWN0aW9uIEJ1eSxaT1JLLDMs",
+      "offset": "+00:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2024-03-01 10:00:00,Spot,Transaction Spend,USDT,-10,\n1,2024-03-01 10:00:00,Spot,Transaction Spend,USDT,-20,\n1,2024-03-01 10:00:00,Spot,Transaction Buy,ZORK,3,",
+      "entries": [
+        {
+          "entry_type": "buy",
+          "base_currency": "ZORK",
+          "base_amount": "3.0",
+          "quote_currency": "USDT",
+          "quote_amount": "20.0",
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": null,
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{}"
+        },
+        {
+          "entry_type": "buy",
+          "base_currency": "ZORK",
+          "base_amount": "3.0",
+          "quote_currency": "USDT",
+          "quote_amount": "10.0",
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": null,
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "mixed_coins_one_second",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCxUcmFuc2FjdGlvbiBTcGVuZCxVU0RULC0xMCwKMSwyMDI0LTAzLTAxIDEwOjAwOjAwLFNwb3QsVHJhbnNhY3Rpb24gQnV5LFpPUkssMSwKMSwyMDI0LTAzLTAxIDEwOjAwOjAwLFNwb3QsVHJhbnNhY3Rpb24gU3BlbmQsVVNEVCwtNSwKMSwyMDI0LTAzLTAxIDEwOjAwOjAwLFNwb3QsVHJhbnNhY3Rpb24gQnV5LEZMSUIsMiwKMSwyMDI0LTAzLTAxIDEwOjAwOjAwLFNwb3QsVHJhbnNhY3Rpb24gRmVlLEJOQiwtMC4wMSwKMSwyMDI0LTAzLTAxIDEwOjAwOjAwLFNwb3QsVHJhbnNhY3Rpb24gRmVlLEJOQiwtMC4wMiw=",
+      "offset": "+00:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2024-03-01 10:00:00,Spot,Transaction Spend,USDT,-10,\n1,2024-03-01 10:00:00,Spot,Transaction Buy,ZORK,1,\n1,2024-03-01 10:00:00,Spot,Transaction Spend,USDT,-5,\n1,2024-03-01 10:00:00,Spot,Transaction Buy,FLIB,2,\n1,2024-03-01 10:00:00,Spot,Transaction Fee,BNB,-0.01,\n1,2024-03-01 10:00:00,Spot,Transaction Fee,BNB,-0.02,",
+      "entries": [
+        {
+          "entry_type": "buy",
+          "base_currency": "FLIB",
+          "base_amount": "3.0",
+          "quote_currency": "USDT",
+          "quote_amount": "15.0",
+          "fee_currency": "BNB",
+          "fee_amount": "0.03",
+          "tx_id": null,
+          "group_id": null,
+          "description": null,
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "mixed_coins_no_fee",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCxUcmFuc2FjdGlvbiBTcGVuZCxGTElCLC0xLAoxLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCxUcmFuc2FjdGlvbiBTcGVuZCxRVVVYLC0yLAoxLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCxUcmFuc2FjdGlvbiBCdXksWk9SSywzLA==",
+      "offset": "+00:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2024-03-01 10:00:00,Spot,Transaction Spend,FLIB,-1,\n1,2024-03-01 10:00:00,Spot,Transaction Spend,QUUX,-2,\n1,2024-03-01 10:00:00,Spot,Transaction Buy,ZORK,3,",
+      "entries": [
+        {
+          "entry_type": "swap_out",
+          "base_currency": "QUUX",
+          "base_amount": "3.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": "swapcsv_1709287200_QUUX_ZORK",
+          "description": null,
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{}"
+        },
+        {
+          "entry_type": "swap_in",
+          "base_currency": "ZORK",
+          "base_amount": "3.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": "swapcsv_1709287200_QUUX_ZORK",
+          "description": null,
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "one_sided_trade_dropped",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCxUcmFuc2FjdGlvbiBCdXksWk9SSywxLAoxLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCxUcmFuc2FjdGlvbiBGZWUsQk5CLC0wLjAxLAoxLDIwMjQtMDMtMDEgMTE6MDA6MDAsU3BvdCxUcmFuc2FjdGlvbiBTcGVuZCxVU0RULC00LA==",
+      "offset": "+00:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2024-03-01 10:00:00,Spot,Transaction Buy,ZORK,1,\n1,2024-03-01 10:00:00,Spot,Transaction Fee,BNB,-0.01,\n1,2024-03-01 11:00:00,Spot,Transaction Spend,USDT,-4,",
+      "entries": [],
+      "unrecognised": [],
+      "error": "unreadable"
+    },
+    {
+      "name": "same_second_two_accounts",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCxUcmFuc2FjdGlvbiBTcGVuZCxVU0RULC0xMCwKMSwyMDI0LTAzLTAxIDEwOjAwOjAwLFNwb3QsVHJhbnNhY3Rpb24gQnV5LFpPUkssMSwKMSwyMDI0LTAzLTAxIDEwOjAwOjAwLEZ1bmRpbmcsVHJhbnNhY3Rpb24gU3BlbmQsVVNEVCwtNywKMSwyMDI0LTAzLTAxIDEwOjAwOjAwLEZ1bmRpbmcsVHJhbnNhY3Rpb24gQnV5LEZMSUIsMiw=",
+      "offset": "+00:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2024-03-01 10:00:00,Spot,Transaction Spend,USDT,-10,\n1,2024-03-01 10:00:00,Spot,Transaction Buy,ZORK,1,\n1,2024-03-01 10:00:00,Funding,Transaction Spend,USDT,-7,\n1,2024-03-01 10:00:00,Funding,Transaction Buy,FLIB,2,",
+      "entries": [
+        {
+          "entry_type": "buy",
+          "base_currency": "ZORK",
+          "base_amount": "1.0",
+          "quote_currency": "USDT",
+          "quote_amount": "10.0",
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": null,
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{}"
+        },
+        {
+          "entry_type": "buy",
+          "base_currency": "FLIB",
+          "base_amount": "2.0",
+          "quote_currency": "USDT",
+          "quote_amount": "7.0",
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": null,
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "legacy_buy_sell_fee",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCxCdXksWk9SSywyLAoxLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCxTZWxsLEdCUCwtNTAsCjEsMjAyNC0wMy0wMSAxMDowMDowMCxTcG90LEZlZSxHQlAsLTAuNSw=",
+      "offset": "+00:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2024-03-01 10:00:00,Spot,Buy,ZORK,2,\n1,2024-03-01 10:00:00,Spot,Sell,GBP,-50,\n1,2024-03-01 10:00:00,Spot,Fee,GBP,-0.5,",
+      "entries": [
+        {
+          "entry_type": "buy",
+          "base_currency": "ZORK",
+          "base_amount": "2.0",
+          "quote_currency": "GBP",
+          "quote_amount": "50.0",
+          "fee_currency": "GBP",
+          "fee_amount": "0.5",
+          "tx_id": null,
+          "group_id": null,
+          "description": null,
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "trade_against_lowercase_cash",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCxUcmFuc2FjdGlvbiBTcGVuZCx1c2R0LC0xMCwKMSwyMDI0LTAzLTAxIDEwOjAwOjAwLFNwb3QsVHJhbnNhY3Rpb24gQnV5LFpPUkssMSw=",
+      "offset": "+00:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2024-03-01 10:00:00,Spot,Transaction Spend,usdt,-10,\n1,2024-03-01 10:00:00,Spot,Transaction Buy,ZORK,1,",
+      "entries": [
+        {
+          "entry_type": "swap_out",
+          "base_currency": "usdt",
+          "base_amount": "10.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": "swapcsv_1709287200_usdt_ZORK",
+          "description": null,
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{}"
+        },
+        {
+          "entry_type": "swap_in",
+          "base_currency": "ZORK",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": "swapcsv_1709287200_usdt_ZORK",
+          "description": null,
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "convert_halves_61s_apart",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjUtMDYtMjIgMjA6MjA6MDAsU3BvdCxCaW5hbmNlIENvbnZlcnQsVVNEVCwtMTI5LAoxLDIwMjUtMDYtMjIgMjA6MjE6MDEsU3BvdCxCaW5hbmNlIENvbnZlcnQsVVNEQywxMjks",
+      "offset": "+00:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2025-06-22 20:20:00,Spot,Binance Convert,USDT,-129,\n1,2025-06-22 20:21:01,Spot,Binance Convert,USDC,129,",
+      "entries": [
+        {
+          "entry_type": "lost",
+          "base_currency": "USDT",
+          "base_amount": "129.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Binance Convert",
+          "transacted_at": "2025-06-22T20:20:00.000000Z",
+          "raw_data": "{\"operation\":\"Binance Convert\"}"
+        },
+        {
+          "entry_type": "convert",
+          "base_currency": "USDC",
+          "base_amount": "129.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Binance Convert",
+          "transacted_at": "2025-06-22T20:21:01.000000Z",
+          "raw_data": "{\"operation\":\"Binance Convert\"}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "convert_halves_60s_apart",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjUtMDYtMjIgMjA6MjA6MDAsU3BvdCxCaW5hbmNlIENvbnZlcnQsVVNEVCwtMTI5LAoxLDIwMjUtMDYtMjIgMjA6MjE6MDAsU3BvdCxCaW5hbmNlIENvbnZlcnQsVVNEQywxMjks",
+      "offset": "+00:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2025-06-22 20:20:00,Spot,Binance Convert,USDT,-129,\n1,2025-06-22 20:21:00,Spot,Binance Convert,USDC,129,",
+      "entries": [
+        {
+          "entry_type": "swap_out",
+          "base_currency": "USDT",
+          "base_amount": "129.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": "swapcsv_1750623600_USDT_USDC",
+          "description": null,
+          "transacted_at": "2025-06-22T20:20:00.000000Z",
+          "raw_data": "{}"
+        },
+        {
+          "entry_type": "swap_in",
+          "base_currency": "USDC",
+          "base_amount": "129.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": "swapcsv_1750623600_USDT_USDC",
+          "description": null,
+          "transacted_at": "2025-06-22T20:20:00.000000Z",
+          "raw_data": "{}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "convert_credit_before_spend",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjUtMDYtMjIgMjA6MjA6NDQsU3BvdCxCaW5hbmNlIENvbnZlcnQsWk9SSyw1LAoxLDIwMjUtMDYtMjIgMjA6MjA6NDUsU3BvdCxCaW5hbmNlIENvbnZlcnQsRkxJQiwtMiw=",
+      "offset": "+00:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2025-06-22 20:20:44,Spot,Binance Convert,ZORK,5,\n1,2025-06-22 20:20:45,Spot,Binance Convert,FLIB,-2,",
+      "entries": [
+        {
+          "entry_type": "swap_out",
+          "base_currency": "FLIB",
+          "base_amount": "2.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": "swapcsv_1750623645_FLIB_ZORK",
+          "description": null,
+          "transacted_at": "2025-06-22T20:20:45.000000Z",
+          "raw_data": "{}"
+        },
+        {
+          "entry_type": "swap_in",
+          "base_currency": "ZORK",
+          "base_amount": "5.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": "swapcsv_1750623645_FLIB_ZORK",
+          "description": null,
+          "transacted_at": "2025-06-22T20:20:45.000000Z",
+          "raw_data": "{}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "convert_two_spends_one_credit",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjUtMDYtMjIgMjA6MjA6MDAsU3BvdCxCaW5hbmNlIENvbnZlcnQsRkxJQiwtMiwKMSwyMDI1LTA2LTIyIDIwOjIwOjEwLFNwb3QsQmluYW5jZSBDb252ZXJ0LFFVVVgsLTMsCjEsMjAyNS0wNi0yMiAyMDoyMDowNSxTcG90LEJpbmFuY2UgQ29udmVydCxaT1JLLDUs",
+      "offset": "+00:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2025-06-22 20:20:00,Spot,Binance Convert,FLIB,-2,\n1,2025-06-22 20:20:10,Spot,Binance Convert,QUUX,-3,\n1,2025-06-22 20:20:05,Spot,Binance Convert,ZORK,5,",
+      "entries": [
+        {
+          "entry_type": "swap_out",
+          "base_currency": "FLIB",
+          "base_amount": "2.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": "swapcsv_1750623600_FLIB_ZORK",
+          "description": null,
+          "transacted_at": "2025-06-22T20:20:00.000000Z",
+          "raw_data": "{}"
+        },
+        {
+          "entry_type": "swap_in",
+          "base_currency": "ZORK",
+          "base_amount": "5.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": "swapcsv_1750623600_FLIB_ZORK",
+          "description": null,
+          "transacted_at": "2025-06-22T20:20:00.000000Z",
+          "raw_data": "{}"
+        },
+        {
+          "entry_type": "lost",
+          "base_currency": "QUUX",
+          "base_amount": "3.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Binance Convert",
+          "transacted_at": "2025-06-22T20:20:10.000000Z",
+          "raw_data": "{\"operation\":\"Binance Convert\"}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "dust_without_remark",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCxTbWFsbCBBc3NldHMgRXhjaGFuZ2UgQk5CLFFVVVgsLTMsCjEsMjAyNC0wMy0wMSAxMDowMDowMCxTcG90LFNtYWxsIEFzc2V0cyBFeGNoYW5nZSBCTkIsQkxJUCwtMC4wMDc2LAoxLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCxTbWFsbCBBc3NldHMgRXhjaGFuZ2UgQk5CLEJOQiwwLjAwMDQsCjEsMjAyNC0wMy0wMSAxMDowMDowMCxTcG90LFNtYWxsIEFzc2V0cyBFeGNoYW5nZSBCTkIsQk5CLDAuMDAwMDA5MTks",
+      "offset": "+00:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2024-03-01 10:00:00,Spot,Small Assets Exchange BNB,QUUX,-3,\n1,2024-03-01 10:00:00,Spot,Small Assets Exchange BNB,BLIP,-0.0076,\n1,2024-03-01 10:00:00,Spot,Small Assets Exchange BNB,BNB,0.0004,\n1,2024-03-01 10:00:00,Spot,Small Assets Exchange BNB,BNB,0.00000919,",
+      "entries": [
+        {
+          "entry_type": "swap_out",
+          "base_currency": "QUUX",
+          "base_amount": "3.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": "dustcsv_1709287200",
+          "description": null,
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{}"
+        },
+        {
+          "entry_type": "swap_out",
+          "base_currency": "BLIP",
+          "base_amount": "0.0076",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": "dustcsv_1709287200",
+          "description": null,
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{}"
+        },
+        {
+          "entry_type": "swap_in",
+          "base_currency": "BNB",
+          "base_amount": "0.0004",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": "dustcsv_1709287200",
+          "description": null,
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{}"
+        },
+        {
+          "entry_type": "swap_in",
+          "base_currency": "BNB",
+          "base_amount": "0.00000919",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": "dustcsv_1709287200",
+          "description": null,
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "dust_some_remarks_blank",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCxTbWFsbCBBc3NldHMgRXhjaGFuZ2UgQk5CLFFVVVgsLTMsUVVVWCB0byBCTkIKMSwyMDI0LTAzLTAxIDEwOjAwOjAwLFNwb3QsU21hbGwgQXNzZXRzIEV4Y2hhbmdlIEJOQixCTkIsMC4wMDA0LFFVVVggdG8gQk5CCjEsMjAyNC0wMy0wMSAxMDowMDowMCxTcG90LFNtYWxsIEFzc2V0cyBFeGNoYW5nZSBCTkIsQkxJUCwtMC4wMDc2LAoxLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCxTbWFsbCBBc3NldHMgRXhjaGFuZ2UgQk5CLEJOQiwwLjAwMDAwOTE5LA==",
+      "offset": "+00:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2024-03-01 10:00:00,Spot,Small Assets Exchange BNB,QUUX,-3,QUUX to BNB\n1,2024-03-01 10:00:00,Spot,Small Assets Exchange BNB,BNB,0.0004,QUUX to BNB\n1,2024-03-01 10:00:00,Spot,Small Assets Exchange BNB,BLIP,-0.0076,\n1,2024-03-01 10:00:00,Spot,Small Assets Exchange BNB,BNB,0.00000919,",
+      "entries": [
+        {
+          "entry_type": "swap_out",
+          "base_currency": "QUUX",
+          "base_amount": "3.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": "dustcsv_1709287200",
+          "description": null,
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{}"
+        },
+        {
+          "entry_type": "swap_out",
+          "base_currency": "BLIP",
+          "base_amount": "0.0076",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": "dustcsv_1709287200",
+          "description": null,
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{}"
+        },
+        {
+          "entry_type": "swap_in",
+          "base_currency": "BNB",
+          "base_amount": "0.0004",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": "dustcsv_1709287200",
+          "description": null,
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{}"
+        },
+        {
+          "entry_type": "swap_in",
+          "base_currency": "BNB",
+          "base_amount": "0.00000919",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": "dustcsv_1709287200",
+          "description": null,
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "dust_remark_with_spaces_and_trade",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCxTbWFsbCBBc3NldHMgRXhjaGFuZ2UgQk5CLFFVVVgsLTMsIFFVVVggdG8gQk5CIAoxLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCxTbWFsbCBBc3NldHMgRXhjaGFuZ2UgQk5CLEJOQiwwLjAwMDQsUVVVWCB0byBCTkIKMSwyMDI0LTAzLTAxIDEwOjAwOjAwLFNwb3QsVHJhbnNhY3Rpb24gU3BlbmQsVVNEVCwtMTAsCjEsMjAyNC0wMy0wMSAxMDowMDowMCxTcG90LFRyYW5zYWN0aW9uIEJ1eSxaT1JLLDEs",
+      "offset": "+00:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2024-03-01 10:00:00,Spot,Small Assets Exchange BNB,QUUX,-3, QUUX to BNB \n1,2024-03-01 10:00:00,Spot,Small Assets Exchange BNB,BNB,0.0004,QUUX to BNB\n1,2024-03-01 10:00:00,Spot,Transaction Spend,USDT,-10,\n1,2024-03-01 10:00:00,Spot,Transaction Buy,ZORK,1,",
+      "entries": [
+        {
+          "entry_type": "swap_out",
+          "base_currency": "QUUX",
+          "base_amount": "3.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": "dustcsv_QUUX to BNB_1709287200",
+          "description": null,
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{}"
+        },
+        {
+          "entry_type": "swap_in",
+          "base_currency": "BNB",
+          "base_amount": "0.0004",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": "dustcsv_QUUX to BNB_1709287200",
+          "description": null,
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{}"
+        },
+        {
+          "entry_type": "buy",
+          "base_currency": "ZORK",
+          "base_amount": "1.0",
+          "quote_currency": "USDT",
+          "quote_amount": "10.0",
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": null,
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "zero_change_rows",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCxEZXBvc2l0LFVTRFQsMCwKMSwyMDI0LTAzLTAxIDEwOjAwOjAwLFNwb3QsRGlzdHJpYnV0aW9uLFpPUkssLTAsCjEsMjAyNC0wMy0wMSAxMDowMDowMSxTcG90LEFpcmRyb3AgQXNzZXRzLEZMSUIsMC4wMDAs",
+      "offset": "+00:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2024-03-01 10:00:00,Spot,Deposit,USDT,0,\n1,2024-03-01 10:00:00,Spot,Distribution,ZORK,-0,\n1,2024-03-01 10:00:01,Spot,Airdrop Assets,FLIB,0.000,",
+      "entries": [],
+      "unrecognised": [],
+      "error": "unreadable"
+    },
+    {
+      "name": "every_operation_positive",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjQtMDEtMDEgMDA6MDA6MDAsU3BvdCxUcmFuc2FjdGlvbiBCdXksWk9SSywxLjUsCjEsMjAyNC0wMS0wMSAwMDowMTowMCxTcG90LFRyYW5zYWN0aW9uIFNwZW5kLFpPUkssMi41LAoxLDIwMjQtMDEtMDEgMDA6MDI6MDAsU3BvdCxUcmFuc2FjdGlvbiBTb2xkLFpPUkssMy41LAoxLDIwMjQtMDEtMDEgMDA6MDM6MDAsU3BvdCxUcmFuc2FjdGlvbiBSZXZlbnVlLFpPUkssNC41LAoxLDIwMjQtMDEtMDEgMDA6MDQ6MDAsU3BvdCxUcmFuc2FjdGlvbiBGZWUsWk9SSyw1LjUsCjEsMjAyNC0wMS0wMSAwMDowNTowMCxTcG90LEJ1eSxaT1JLLDYuNSwKMSwyMDI0LTAxLTAxIDAwOjA2OjAwLFNwb3QsU2VsbCxaT1JLLDcuNSwKMSwyMDI0LTAxLTAxIDAwOjA3OjAwLFNwb3QsRmVlLFpPUkssOC41LAoxLDIwMjQtMDEtMDEgMDA6MDg6MDAsU3BvdCxCaW5hbmNlIENvbnZlcnQsWk9SSyw5LjUsCjEsMjAyNC0wMS0wMSAwMDowOTowMCxTcG90LFNtYWxsIEFzc2V0cyBFeGNoYW5nZSBCTkIsWk9SSywxMC41LAoxLDIwMjQtMDEtMDEgMDA6MTA6MDAsU3BvdCxEZXBvc2l0LFpPUkssMTEuNSwKMSwyMDI0LTAxLTAxIDAwOjExOjAwLFNwb3QsRmlhdCBEZXBvc2l0LFpPUkssMTIuNSwKMSwyMDI0LTAxLTAxIDAwOjEyOjAwLFNwb3QsV2l0aGRyYXcsWk9SSywxMy41LAoxLDIwMjQtMDEtMDEgMDA6MTM6MDAsU3BvdCxGaWF0IFdpdGhkcmF3LFpPUkssMTQuNSwKMSwyMDI0LTAxLTAxIDAwOjE0OjAwLFNwb3QsQ29tbWlzc2lvbiBSZWJhdGUsWk9SSywxNS41LAoxLDIwMjQtMDEtMDEgMDA6MTU6MDAsU3BvdCxDb21taXNzaW9uIEhpc3RvcnksWk9SSywxNi41LAoxLDIwMjQtMDEtMDEgMDA6MTY6MDAsU3BvdCxSZWZlcnJhbCBLaWNrYmFjayxaT1JLLDE3LjUsCjEsMjAyNC0wMS0wMSAwMDoxNzowMCxTcG90LENvbW1pc3Npb24gRmVlIFNoYXJlZCBXaXRoIFlvdSxaT1JLLDE4LjUsCjEsMjAyNC0wMS0wMSAwMDoxODowMCxTcG90LERpc3RyaWJ1dGlvbixaT1JLLDE5LjUsCjEsMjAyNC0wMS0wMSAwMDoxOTowMCxTcG90LEFzc2V0IFJlY292ZXJ5LFpPUkssMjAuNSwKMSwyMDI0LTAxLTAxIDAwOjIwOjAwLFNwb3QsQXNzZXQgLSBUcmFuc2ZlcixaT1JLLDIxLjUsCjEsMjAyNC0wMS0wMSAwMDoyMTowMCxTcG90LFRva2VuIFN3YXAgLSBSZWRlbm9taW5hdGlvbi9SZWJyYW5kaW5nLFpPUkssMjIuNSwKMSwyMDI0LTAxLTAxIDAwOjIyOjAwLFNwb3QsUG9vbCBEaXN0cmlidXRpb24sWk9SSywyMy41LAoxLDIwMjQtMDEtMDEgMDA6MjM6MDAsU3BvdCxTdGFraW5nIFJld2FyZHMsWk9SSywyNC41LAoxLDIwMjQtMDEtMDEgMDA6MjQ6MDAsU3BvdCxTaW1wbGUgRWFybiBGbGV4aWJsZSBJbnRlcmVzdCxaT1JLLDI1LjUsCjEsMjAyNC0wMS0wMSAwMDoyNTowMCxTcG90LFNpbXBsZSBFYXJuIExvY2tlZCBSZXdhcmRzLFpPUkssMjYuNSwKMSwyMDI0LTAxLTAxIDAwOjI2OjAwLFNwb3QsU2F2aW5ncyBJbnRlcmVzdCxaT1JLLDI3LjUsCjEsMjAyNC0wMS0wMSAwMDoyNzowMCxTcG90LEFpcmRyb3AgQXNzZXRzLFpPUkssMjguNSwKMSwyMDI0LTAxLTAxIDAwOjI4OjAwLFNwb3QsVG9rZW4gU3dhcCAtIERpc3RyaWJ1dGlvbixaT1JLLDI5LjUsCjEsMjAyNC0wMS0wMSAwMDoyOTowMCxTcG90LFRyYW5zZmVyIEJldHdlZW4gU3BvdCBhbmQgRnVuZGluZyxaT1JLLDMwLjUsCjEsMjAyNC0wMS0wMSAwMDozMDowMCxTcG90LFRyYW5zZmVyIEJldHdlZW4gTWFpbiBhbmQgRnVuZGluZyBBY2NvdW50LFpPUkssMzEuNSwKMSwyMDI0LTAxLTAxIDAwOjMxOjAwLFNwb3QsTGVkZ2VyIC0gRnVuZCBNaWdyYXRpb24sWk9SSywzMi41LAoxLDIwMjQtMDEtMDEgMDA6MzI6MDAsU3BvdCx0cmFuc2Zlcl9pbixaT1JLLDMzLjUsCjEsMjAyNC0wMS0wMSAwMDozMzowMCxTcG90LHRyYW5zZmVyX291dCxaT1JLLDM0LjUs",
+      "offset": "+00:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2024-01-01 00:00:00,Spot,Transaction Buy,ZORK,1.5,\n1,2024-01-01 00:01:00,Spot,Transaction Spend,ZORK,2.5,\n1,2024-01-01 00:02:00,Spot,Transaction Sold,ZORK,3.5,\n1,2024-01-01 00:03:00,Spot,Transaction Revenue,ZORK,4.5,\n1,2024-01-01 00:04:00,Spot,Transaction Fee,ZORK,5.5,\n1,2024-01-01 00:05:00,Spot,Buy,ZORK,6.5,\n1,2024-01-01 00:06:00,Spot,Sell,ZORK,7.5,\n1,2024-01-01 00:07:00,Spot,Fee,ZORK,8.5,\n1,2024-01-01 00:08:00,Spot,Binance Convert,ZORK,9.5,\n1,2024-01-01 00:09:00,Spot,Small Assets Exchange BNB,ZORK,10.5,\n1,2024-01-01 00:10:00,Spot,Deposit,ZORK,11.5,\n1,2024-01-01 00:11:00,Spot,Fiat Deposit,ZORK,12.5,\n1,2024-01-01 00:12:00,Spot,Withdraw,ZORK,13.5,\n1,2024-01-01 00:13:00,Spot,Fiat Withdraw,ZORK,14.5,\n1,2024-01-01 00:14:00,Spot,Commission Rebate,ZORK,15.5,\n1,2024-01-01 00:15:00,Spot,Commission History,ZORK,16.5,\n1,2024-01-01 00:16:00,Spot,Referral Kickback,ZORK,17.5,\n1,2024-01-01 00:17:00,Spot,Commission Fee Shared With You,ZORK,18.5,\n1,2024-01-01 00:18:00,Spot,Distribution,ZORK,19.5,\n1,2024-01-01 00:19:00,Spot,Asset Recovery,ZORK,20.5,\n1,2024-01-01 00:20:00,Spot,Asset - Transfer,ZORK,21.5,\n1,2024-01-01 00:21:00,Spot,Token Swap - Redenomination/Rebranding,ZORK,22.5,\n1,2024-01-01 00:22:00,Spot,Pool Distribution,ZORK,23.5,\n1,2024-01-01 00:23:00,Spot,Staking Rewards,ZORK,24.5,\n1,2024-01-01 00:24:00,Spot,Simple Earn Flexible Interest,ZORK,25.5,\n1,2024-01-01 00:25:00,Spot,Simple Earn Locked Rewards,ZORK,26.5,\n1,2024-01-01 00:26:00,Spot,Savings Interest,ZORK,27.5,\n1,2024-01-01 00:27:00,Spot,Airdrop Assets,ZORK,28.5,\n1,2024-01-01 00:28:00,Spot,Token Swap - Distribution,ZORK,29.5,\n1,2024-01-01 00:29:00,Spot,Transfer Between Spot and Funding,ZORK,30.5,\n1,2024-01-01 00:30:00,Spot,Transfer Between Main and Funding Account,ZORK,31.5,\n1,2024-01-01 00:31:00,Spot,Ledger - Fund Migration,ZORK,32.5,\n1,2024-01-01 00:32:00,Spot,transfer_in,ZORK,33.5,\n1,2024-01-01 00:33:00,Spot,transfer_out,ZORK,34.5,",
+      "entries": [
+        {
+          "entry_type": "convert",
+          "base_currency": "ZORK",
+          "base_amount": "9.5",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Binance Convert",
+          "transacted_at": "2024-01-01T00:08:00.000000Z",
+          "raw_data": "{\"operation\":\"Binance Convert\"}"
+        },
+        {
+          "entry_type": "other_income",
+          "base_currency": "ZORK",
+          "base_amount": "10.5",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Small Assets Exchange BNB",
+          "transacted_at": "2024-01-01T00:09:00.000000Z",
+          "raw_data": "{\"operation\":\"Small Assets Exchange BNB\"}"
+        },
+        {
+          "entry_type": "deposit",
+          "base_currency": "ZORK",
+          "base_amount": "11.5",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Deposit",
+          "transacted_at": "2024-01-01T00:10:00.000000Z",
+          "raw_data": "{\"operation\":\"Deposit\"}"
+        },
+        {
+          "entry_type": "deposit",
+          "base_currency": "ZORK",
+          "base_amount": "12.5",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Fiat Deposit",
+          "transacted_at": "2024-01-01T00:11:00.000000Z",
+          "raw_data": "{\"operation\":\"Fiat Deposit\"}"
+        },
+        {
+          "entry_type": "withdrawal",
+          "base_currency": "ZORK",
+          "base_amount": "13.5",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Withdraw",
+          "transacted_at": "2024-01-01T00:12:00.000000Z",
+          "raw_data": "{\"operation\":\"Withdraw\"}"
+        },
+        {
+          "entry_type": "withdrawal",
+          "base_currency": "ZORK",
+          "base_amount": "14.5",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Fiat Withdraw",
+          "transacted_at": "2024-01-01T00:13:00.000000Z",
+          "raw_data": "{\"operation\":\"Fiat Withdraw\"}"
+        },
+        {
+          "entry_type": "other_income",
+          "base_currency": "ZORK",
+          "base_amount": "15.5",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Commission Rebate",
+          "transacted_at": "2024-01-01T00:14:00.000000Z",
+          "raw_data": "{\"operation\":\"Commission Rebate\"}"
+        },
+        {
+          "entry_type": "other_income",
+          "base_currency": "ZORK",
+          "base_amount": "16.5",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Commission History",
+          "transacted_at": "2024-01-01T00:15:00.000000Z",
+          "raw_data": "{\"operation\":\"Commission History\"}"
+        },
+        {
+          "entry_type": "other_income",
+          "base_currency": "ZORK",
+          "base_amount": "17.5",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Referral Kickback",
+          "transacted_at": "2024-01-01T00:16:00.000000Z",
+          "raw_data": "{\"operation\":\"Referral Kickback\"}"
+        },
+        {
+          "entry_type": "other_income",
+          "base_currency": "ZORK",
+          "base_amount": "18.5",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Commission Fee Shared With You",
+          "transacted_at": "2024-01-01T00:17:00.000000Z",
+          "raw_data": "{\"operation\":\"Commission Fee Shared With You\"}"
+        },
+        {
+          "entry_type": "other_income",
+          "base_currency": "ZORK",
+          "base_amount": "19.5",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Distribution",
+          "transacted_at": "2024-01-01T00:18:00.000000Z",
+          "raw_data": "{\"operation\":\"Distribution\"}"
+        },
+        {
+          "entry_type": "other_income",
+          "base_currency": "ZORK",
+          "base_amount": "20.5",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Asset Recovery",
+          "transacted_at": "2024-01-01T00:19:00.000000Z",
+          "raw_data": "{\"operation\":\"Asset Recovery\"}"
+        },
+        {
+          "entry_type": "other_income",
+          "base_currency": "ZORK",
+          "base_amount": "21.5",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Asset - Transfer",
+          "transacted_at": "2024-01-01T00:20:00.000000Z",
+          "raw_data": "{\"operation\":\"Asset - Transfer\"}"
+        },
+        {
+          "entry_type": "other_income",
+          "base_currency": "ZORK",
+          "base_amount": "22.5",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Token Swap - Redenomination/Rebranding",
+          "transacted_at": "2024-01-01T00:21:00.000000Z",
+          "raw_data": "{\"operation\":\"Token Swap - Redenomination/Rebranding\"}"
+        },
+        {
+          "entry_type": "staking_reward",
+          "base_currency": "ZORK",
+          "base_amount": "23.5",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Pool Distribution",
+          "transacted_at": "2024-01-01T00:22:00.000000Z",
+          "raw_data": "{\"operation\":\"Pool Distribution\"}"
+        },
+        {
+          "entry_type": "staking_reward",
+          "base_currency": "ZORK",
+          "base_amount": "24.5",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Staking Rewards",
+          "transacted_at": "2024-01-01T00:23:00.000000Z",
+          "raw_data": "{\"operation\":\"Staking Rewards\"}"
+        },
+        {
+          "entry_type": "lending_interest",
+          "base_currency": "ZORK",
+          "base_amount": "25.5",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Simple Earn Flexible Interest",
+          "transacted_at": "2024-01-01T00:24:00.000000Z",
+          "raw_data": "{\"operation\":\"Simple Earn Flexible Interest\"}"
+        },
+        {
+          "entry_type": "lending_interest",
+          "base_currency": "ZORK",
+          "base_amount": "26.5",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Simple Earn Locked Rewards",
+          "transacted_at": "2024-01-01T00:25:00.000000Z",
+          "raw_data": "{\"operation\":\"Simple Earn Locked Rewards\"}"
+        },
+        {
+          "entry_type": "lending_interest",
+          "base_currency": "ZORK",
+          "base_amount": "27.5",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Savings Interest",
+          "transacted_at": "2024-01-01T00:26:00.000000Z",
+          "raw_data": "{\"operation\":\"Savings Interest\"}"
+        },
+        {
+          "entry_type": "airdrop",
+          "base_currency": "ZORK",
+          "base_amount": "28.5",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Airdrop Assets",
+          "transacted_at": "2024-01-01T00:27:00.000000Z",
+          "raw_data": "{\"operation\":\"Airdrop Assets\"}"
+        },
+        {
+          "entry_type": "airdrop",
+          "base_currency": "ZORK",
+          "base_amount": "29.5",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Token Swap - Distribution",
+          "transacted_at": "2024-01-01T00:28:00.000000Z",
+          "raw_data": "{\"operation\":\"Token Swap - Distribution\"}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "every_operation_negative",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjQtMDEtMDEgMDA6MDA6MDAsU3BvdCxUcmFuc2FjdGlvbiBCdXksWk9SSywtMS41LAoxLDIwMjQtMDEtMDEgMDA6MDE6MDAsU3BvdCxUcmFuc2FjdGlvbiBTcGVuZCxaT1JLLC0yLjUsCjEsMjAyNC0wMS0wMSAwMDowMjowMCxTcG90LFRyYW5zYWN0aW9uIFNvbGQsWk9SSywtMy41LAoxLDIwMjQtMDEtMDEgMDA6MDM6MDAsU3BvdCxUcmFuc2FjdGlvbiBSZXZlbnVlLFpPUkssLTQuNSwKMSwyMDI0LTAxLTAxIDAwOjA0OjAwLFNwb3QsVHJhbnNhY3Rpb24gRmVlLFpPUkssLTUuNSwKMSwyMDI0LTAxLTAxIDAwOjA1OjAwLFNwb3QsQnV5LFpPUkssLTYuNSwKMSwyMDI0LTAxLTAxIDAwOjA2OjAwLFNwb3QsU2VsbCxaT1JLLC03LjUsCjEsMjAyNC0wMS0wMSAwMDowNzowMCxTcG90LEZlZSxaT1JLLC04LjUsCjEsMjAyNC0wMS0wMSAwMDowODowMCxTcG90LEJpbmFuY2UgQ29udmVydCxaT1JLLC05LjUsCjEsMjAyNC0wMS0wMSAwMDowOTowMCxTcG90LFNtYWxsIEFzc2V0cyBFeGNoYW5nZSBCTkIsWk9SSywtMTAuNSwKMSwyMDI0LTAxLTAxIDAwOjEwOjAwLFNwb3QsRGVwb3NpdCxaT1JLLC0xMS41LAoxLDIwMjQtMDEtMDEgMDA6MTE6MDAsU3BvdCxGaWF0IERlcG9zaXQsWk9SSywtMTIuNSwKMSwyMDI0LTAxLTAxIDAwOjEyOjAwLFNwb3QsV2l0aGRyYXcsWk9SSywtMTMuNSwKMSwyMDI0LTAxLTAxIDAwOjEzOjAwLFNwb3QsRmlhdCBXaXRoZHJhdyxaT1JLLC0xNC41LAoxLDIwMjQtMDEtMDEgMDA6MTQ6MDAsU3BvdCxDb21taXNzaW9uIFJlYmF0ZSxaT1JLLC0xNS41LAoxLDIwMjQtMDEtMDEgMDA6MTU6MDAsU3BvdCxDb21taXNzaW9uIEhpc3RvcnksWk9SSywtMTYuNSwKMSwyMDI0LTAxLTAxIDAwOjE2OjAwLFNwb3QsUmVmZXJyYWwgS2lja2JhY2ssWk9SSywtMTcuNSwKMSwyMDI0LTAxLTAxIDAwOjE3OjAwLFNwb3QsQ29tbWlzc2lvbiBGZWUgU2hhcmVkIFdpdGggWW91LFpPUkssLTE4LjUsCjEsMjAyNC0wMS0wMSAwMDoxODowMCxTcG90LERpc3RyaWJ1dGlvbixaT1JLLC0xOS41LAoxLDIwMjQtMDEtMDEgMDA6MTk6MDAsU3BvdCxBc3NldCBSZWNvdmVyeSxaT1JLLC0yMC41LAoxLDIwMjQtMDEtMDEgMDA6MjA6MDAsU3BvdCxBc3NldCAtIFRyYW5zZmVyLFpPUkssLTIxLjUsCjEsMjAyNC0wMS0wMSAwMDoyMTowMCxTcG90LFRva2VuIFN3YXAgLSBSZWRlbm9taW5hdGlvbi9SZWJyYW5kaW5nLFpPUkssLTIyLjUsCjEsMjAyNC0wMS0wMSAwMDoyMjowMCxTcG90LFBvb2wgRGlzdHJpYnV0aW9uLFpPUkssLTIzLjUsCjEsMjAyNC0wMS0wMSAwMDoyMzowMCxTcG90LFN0YWtpbmcgUmV3YXJkcyxaT1JLLC0yNC41LAoxLDIwMjQtMDEtMDEgMDA6MjQ6MDAsU3BvdCxTaW1wbGUgRWFybiBGbGV4aWJsZSBJbnRlcmVzdCxaT1JLLC0yNS41LAoxLDIwMjQtMDEtMDEgMDA6MjU6MDAsU3BvdCxTaW1wbGUgRWFybiBMb2NrZWQgUmV3YXJkcyxaT1JLLC0yNi41LAoxLDIwMjQtMDEtMDEgMDA6MjY6MDAsU3BvdCxTYXZpbmdzIEludGVyZXN0LFpPUkssLTI3LjUsCjEsMjAyNC0wMS0wMSAwMDoyNzowMCxTcG90LEFpcmRyb3AgQXNzZXRzLFpPUkssLTI4LjUsCjEsMjAyNC0wMS0wMSAwMDoyODowMCxTcG90LFRva2VuIFN3YXAgLSBEaXN0cmlidXRpb24sWk9SSywtMjkuNSwKMSwyMDI0LTAxLTAxIDAwOjI5OjAwLFNwb3QsVHJhbnNmZXIgQmV0d2VlbiBTcG90IGFuZCBGdW5kaW5nLFpPUkssLTMwLjUsCjEsMjAyNC0wMS0wMSAwMDozMDowMCxTcG90LFRyYW5zZmVyIEJldHdlZW4gTWFpbiBhbmQgRnVuZGluZyBBY2NvdW50LFpPUkssLTMxLjUsCjEsMjAyNC0wMS0wMSAwMDozMTowMCxTcG90LExlZGdlciAtIEZ1bmQgTWlncmF0aW9uLFpPUkssLTMyLjUsCjEsMjAyNC0wMS0wMSAwMDozMjowMCxTcG90LHRyYW5zZmVyX2luLFpPUkssLTMzLjUsCjEsMjAyNC0wMS0wMSAwMDozMzowMCxTcG90LHRyYW5zZmVyX291dCxaT1JLLC0zNC41LA==",
+      "offset": "+00:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2024-01-01 00:00:00,Spot,Transaction Buy,ZORK,-1.5,\n1,2024-01-01 00:01:00,Spot,Transaction Spend,ZORK,-2.5,\n1,2024-01-01 00:02:00,Spot,Transaction Sold,ZORK,-3.5,\n1,2024-01-01 00:03:00,Spot,Transaction Revenue,ZORK,-4.5,\n1,2024-01-01 00:04:00,Spot,Transaction Fee,ZORK,-5.5,\n1,2024-01-01 00:05:00,Spot,Buy,ZORK,-6.5,\n1,2024-01-01 00:06:00,Spot,Sell,ZORK,-7.5,\n1,2024-01-01 00:07:00,Spot,Fee,ZORK,-8.5,\n1,2024-01-01 00:08:00,Spot,Binance Convert,ZORK,-9.5,\n1,2024-01-01 00:09:00,Spot,Small Assets Exchange BNB,ZORK,-10.5,\n1,2024-01-01 00:10:00,Spot,Deposit,ZORK,-11.5,\n1,2024-01-01 00:11:00,Spot,Fiat Deposit,ZORK,-12.5,\n1,2024-01-01 00:12:00,Spot,Withdraw,ZORK,-13.5,\n1,2024-01-01 00:13:00,Spot,Fiat Withdraw,ZORK,-14.5,\n1,2024-01-01 00:14:00,Spot,Commission Rebate,ZORK,-15.5,\n1,2024-01-01 00:15:00,Spot,Commission History,ZORK,-16.5,\n1,2024-01-01 00:16:00,Spot,Referral Kickback,ZORK,-17.5,\n1,2024-01-01 00:17:00,Spot,Commission Fee Shared With You,ZORK,-18.5,\n1,2024-01-01 00:18:00,Spot,Distribution,ZORK,-19.5,\n1,2024-01-01 00:19:00,Spot,Asset Recovery,ZORK,-20.5,\n1,2024-01-01 00:20:00,Spot,Asset - Transfer,ZORK,-21.5,\n1,2024-01-01 00:21:00,Spot,Token Swap - Redenomination/Rebranding,ZORK,-22.5,\n1,2024-01-01 00:22:00,Spot,Pool Distribution,ZORK,-23.5,\n1,2024-01-01 00:23:00,Spot,Staking Rewards,ZORK,-24.5,\n1,2024-01-01 00:24:00,Spot,Simple Earn Flexible Interest,ZORK,-25.5,\n1,2024-01-01 00:25:00,Spot,Simple Earn Locked Rewards,ZORK,-26.5,\n1,2024-01-01 00:26:00,Spot,Savings Interest,ZORK,-27.5,\n1,2024-01-01 00:27:00,Spot,Airdrop Assets,ZORK,-28.5,\n1,2024-01-01 00:28:00,Spot,Token Swap - Distribution,ZORK,-29.5,\n1,2024-01-01 00:29:00,Spot,Transfer Between Spot and Funding,ZORK,-30.5,\n1,2024-01-01 00:30:00,Spot,Transfer Between Main and Funding Account,ZORK,-31.5,\n1,2024-01-01 00:31:00,Spot,Ledger - Fund Migration,ZORK,-32.5,\n1,2024-01-01 00:32:00,Spot,transfer_in,ZORK,-33.5,\n1,2024-01-01 00:33:00,Spot,transfer_out,ZORK,-34.5,",
+      "entries": [
+        {
+          "entry_type": "lost",
+          "base_currency": "ZORK",
+          "base_amount": "9.5",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Binance Convert",
+          "transacted_at": "2024-01-01T00:08:00.000000Z",
+          "raw_data": "{\"operation\":\"Binance Convert\"}"
+        },
+        {
+          "entry_type": "swap_out",
+          "base_currency": "ZORK",
+          "base_amount": "10.5",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": "dustcsv_1704067740",
+          "description": null,
+          "transacted_at": "2024-01-01T00:09:00.000000Z",
+          "raw_data": "{}"
+        },
+        {
+          "entry_type": "lost",
+          "base_currency": "ZORK",
+          "base_amount": "11.5",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Deposit",
+          "transacted_at": "2024-01-01T00:10:00.000000Z",
+          "raw_data": "{\"operation\":\"Deposit\"}"
+        },
+        {
+          "entry_type": "lost",
+          "base_currency": "ZORK",
+          "base_amount": "12.5",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Fiat Deposit",
+          "transacted_at": "2024-01-01T00:11:00.000000Z",
+          "raw_data": "{\"operation\":\"Fiat Deposit\"}"
+        },
+        {
+          "entry_type": "withdrawal",
+          "base_currency": "ZORK",
+          "base_amount": "13.5",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Withdraw",
+          "transacted_at": "2024-01-01T00:12:00.000000Z",
+          "raw_data": "{\"operation\":\"Withdraw\"}"
+        },
+        {
+          "entry_type": "withdrawal",
+          "base_currency": "ZORK",
+          "base_amount": "14.5",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Fiat Withdraw",
+          "transacted_at": "2024-01-01T00:13:00.000000Z",
+          "raw_data": "{\"operation\":\"Fiat Withdraw\"}"
+        },
+        {
+          "entry_type": "lost",
+          "base_currency": "ZORK",
+          "base_amount": "15.5",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Commission Rebate",
+          "transacted_at": "2024-01-01T00:14:00.000000Z",
+          "raw_data": "{\"operation\":\"Commission Rebate\"}"
+        },
+        {
+          "entry_type": "lost",
+          "base_currency": "ZORK",
+          "base_amount": "16.5",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Commission History",
+          "transacted_at": "2024-01-01T00:15:00.000000Z",
+          "raw_data": "{\"operation\":\"Commission History\"}"
+        },
+        {
+          "entry_type": "lost",
+          "base_currency": "ZORK",
+          "base_amount": "17.5",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Referral Kickback",
+          "transacted_at": "2024-01-01T00:16:00.000000Z",
+          "raw_data": "{\"operation\":\"Referral Kickback\"}"
+        },
+        {
+          "entry_type": "lost",
+          "base_currency": "ZORK",
+          "base_amount": "18.5",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Commission Fee Shared With You",
+          "transacted_at": "2024-01-01T00:17:00.000000Z",
+          "raw_data": "{\"operation\":\"Commission Fee Shared With You\"}"
+        },
+        {
+          "entry_type": "lost",
+          "base_currency": "ZORK",
+          "base_amount": "19.5",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Distribution",
+          "transacted_at": "2024-01-01T00:18:00.000000Z",
+          "raw_data": "{\"operation\":\"Distribution\"}"
+        },
+        {
+          "entry_type": "lost",
+          "base_currency": "ZORK",
+          "base_amount": "20.5",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Asset Recovery",
+          "transacted_at": "2024-01-01T00:19:00.000000Z",
+          "raw_data": "{\"operation\":\"Asset Recovery\"}"
+        },
+        {
+          "entry_type": "lost",
+          "base_currency": "ZORK",
+          "base_amount": "21.5",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Asset - Transfer",
+          "transacted_at": "2024-01-01T00:20:00.000000Z",
+          "raw_data": "{\"operation\":\"Asset - Transfer\"}"
+        },
+        {
+          "entry_type": "lost",
+          "base_currency": "ZORK",
+          "base_amount": "22.5",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Token Swap - Redenomination/Rebranding",
+          "transacted_at": "2024-01-01T00:21:00.000000Z",
+          "raw_data": "{\"operation\":\"Token Swap - Redenomination/Rebranding\"}"
+        },
+        {
+          "entry_type": "lost",
+          "base_currency": "ZORK",
+          "base_amount": "23.5",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Pool Distribution",
+          "transacted_at": "2024-01-01T00:22:00.000000Z",
+          "raw_data": "{\"operation\":\"Pool Distribution\"}"
+        },
+        {
+          "entry_type": "lost",
+          "base_currency": "ZORK",
+          "base_amount": "24.5",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Staking Rewards",
+          "transacted_at": "2024-01-01T00:23:00.000000Z",
+          "raw_data": "{\"operation\":\"Staking Rewards\"}"
+        },
+        {
+          "entry_type": "lost",
+          "base_currency": "ZORK",
+          "base_amount": "25.5",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Simple Earn Flexible Interest",
+          "transacted_at": "2024-01-01T00:24:00.000000Z",
+          "raw_data": "{\"operation\":\"Simple Earn Flexible Interest\"}"
+        },
+        {
+          "entry_type": "lost",
+          "base_currency": "ZORK",
+          "base_amount": "26.5",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Simple Earn Locked Rewards",
+          "transacted_at": "2024-01-01T00:25:00.000000Z",
+          "raw_data": "{\"operation\":\"Simple Earn Locked Rewards\"}"
+        },
+        {
+          "entry_type": "lost",
+          "base_currency": "ZORK",
+          "base_amount": "27.5",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Savings Interest",
+          "transacted_at": "2024-01-01T00:26:00.000000Z",
+          "raw_data": "{\"operation\":\"Savings Interest\"}"
+        },
+        {
+          "entry_type": "lost",
+          "base_currency": "ZORK",
+          "base_amount": "28.5",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Airdrop Assets",
+          "transacted_at": "2024-01-01T00:27:00.000000Z",
+          "raw_data": "{\"operation\":\"Airdrop Assets\"}"
+        },
+        {
+          "entry_type": "lost",
+          "base_currency": "ZORK",
+          "base_amount": "29.5",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Token Swap - Distribution",
+          "transacted_at": "2024-01-01T00:28:00.000000Z",
+          "raw_data": "{\"operation\":\"Token Swap - Distribution\"}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "unknown_and_skips_mixed",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCxNeXN0ZXJ5IE9wLFpPUkssMSwKMSwyMDI0LTAzLTAxIDEwOjAwOjAwLFNwb3QsdHJhbnNmZXJfaW4sWk9SSywxLAoxLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCxNeXN0ZXJ5IE9wLFpPUkssMiwKMSwyMDI0LTAzLTAxIDEwOjAwOjAwLFNwb3QsICBEZXBvc2l0ICAsIFVTRFQgLDUsCjEsMjAyNC0wMy0wMSAxMDowMDowMCxTcG90LCxaT1JLLDEsCjEsMjAyNC0wMy0wMSAxMDowMDowMCxTcG90LGRlcG9zaXQsWk9SSywxLAoxLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCxPdGhlciBNeXN0ZXJ5LFpPUkssMSw=",
+      "offset": "+00:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2024-03-01 10:00:00,Spot,Mystery Op,ZORK,1,\n1,2024-03-01 10:00:00,Spot,transfer_in,ZORK,1,\n1,2024-03-01 10:00:00,Spot,Mystery Op,ZORK,2,\n1,2024-03-01 10:00:00,Spot,  Deposit  , USDT ,5,\n1,2024-03-01 10:00:00,Spot,,ZORK,1,\n1,2024-03-01 10:00:00,Spot,deposit,ZORK,1,\n1,2024-03-01 10:00:00,Spot,Other Mystery,ZORK,1,",
+      "entries": [
+        {
+          "entry_type": "deposit",
+          "base_currency": "USDT",
+          "base_amount": "5.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Deposit",
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{\"operation\":\"Deposit\"}"
+        }
+      ],
+      "unrecognised": [
+        "Mystery Op",
+        "deposit",
+        "Other Mystery"
+      ],
+      "error": null
+    },
+    {
+      "name": "only_skips",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCx0cmFuc2Zlcl9vdXQsWk9SSywtMSwKMSwyMDI0LTAzLTAxIDEwOjAwOjAwLFNwb3QsTGVkZ2VyIC0gRnVuZCBNaWdyYXRpb24sWk9SSywxLA==",
+      "offset": "+00:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2024-03-01 10:00:00,Spot,transfer_out,ZORK,-1,\n1,2024-03-01 10:00:00,Spot,Ledger - Fund Migration,ZORK,1,",
+      "entries": [],
+      "unrecognised": [],
+      "error": "unreadable"
+    },
+    {
+      "name": "double_bom",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "77u/77u/VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCxEZXBvc2l0LFVTRFQsMSw=",
+      "offset": "+00:00",
+      "text": "﻿User ID,Time,Account,Operation,Coin,Change,Remark\n1,2024-03-01 10:00:00,Spot,Deposit,USDT,1,",
+      "entries": [
+        {
+          "entry_type": "deposit",
+          "base_currency": "USDT",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Deposit",
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{\"operation\":\"Deposit\"}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "invalid_utf8_in_remark_and_coin",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCxEZXBvc2l0LFpP/1JLLDEsYmFkIMMoIOKCIPCfIHJlbWFyawoxLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCxEZXBvc2l0LMCAVVNEVCwyLA==",
+      "offset": "+00:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2024-03-01 10:00:00,Spot,Deposit,ZO�RK,1,bad �( � � remark\n1,2024-03-01 10:00:00,Spot,Deposit,��USDT,2,",
+      "entries": [
+        {
+          "entry_type": "deposit",
+          "base_currency": "ZO�RK",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Deposit",
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{\"operation\":\"Deposit\"}"
+        },
+        {
+          "entry_type": "deposit",
+          "base_currency": "��USDT",
+          "base_amount": "2.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Deposit",
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{\"operation\":\"Deposit\"}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "invalid_utf8_in_header",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "/1VzZXIgSUQsVGltZSxBY2NvdW50LE9wZXJhdGlvbixDb2luLENoYW5nZSxSZW1hcmsKMSwyMDI0LTAzLTAxIDEwOjAwOjAwLFNwb3QsRGVwb3NpdCxVU0RULDEs",
+      "offset": "+00:00",
+      "text": "�User ID,Time,Account,Operation,Coin,Change,Remark\n1,2024-03-01 10:00:00,Spot,Deposit,USDT,1,",
+      "entries": [
+        {
+          "entry_type": "deposit",
+          "base_currency": "USDT",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Deposit",
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{\"operation\":\"Deposit\"}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "crlf",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyaw0KMSwyMDI0LTAzLTAxIDEwOjAwOjAwLFNwb3QsRGVwb3NpdCxVU0RULDEsDQoxLDIwMjQtMDMtMDEgMTA6MDA6MDEsU3BvdCxXaXRoZHJhdyxVU0RULC0xLA==",
+      "offset": "+00:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\r\n1,2024-03-01 10:00:00,Spot,Deposit,USDT,1,\r\n1,2024-03-01 10:00:01,Spot,Withdraw,USDT,-1,",
+      "entries": [
+        {
+          "entry_type": "deposit",
+          "base_currency": "USDT",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Deposit",
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{\"operation\":\"Deposit\"}"
+        },
+        {
+          "entry_type": "withdrawal",
+          "base_currency": "USDT",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Withdraw",
+          "transacted_at": "2024-03-01T10:00:01.000000Z",
+          "raw_data": "{\"operation\":\"Withdraw\"}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "crlf_trailing",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyaw0KMSwyMDI0LTAzLTAxIDEwOjAwOjAwLFNwb3QsRGVwb3NpdCxVU0RULDEsDQo=",
+      "offset": "+00:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\r\n1,2024-03-01 10:00:00,Spot,Deposit,USDT,1,\r\n",
+      "entries": [
+        {
+          "entry_type": "deposit",
+          "base_currency": "USDT",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Deposit",
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{\"operation\":\"Deposit\"}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "cr_only",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyaw0xLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCxEZXBvc2l0LFVTRFQsMSwNMSwyMDI0LTAzLTAxIDEwOjAwOjAxLFNwb3QsV2l0aGRyYXcsVVNEVCwtMSw=",
+      "offset": "+00:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\r1,2024-03-01 10:00:00,Spot,Deposit,USDT,1,\r1,2024-03-01 10:00:01,Spot,Withdraw,USDT,-1,",
+      "entries": [
+        {
+          "entry_type": "deposit",
+          "base_currency": "USDT",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Deposit",
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{\"operation\":\"Deposit\"}"
+        },
+        {
+          "entry_type": "withdrawal",
+          "base_currency": "USDT",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Withdraw",
+          "transacted_at": "2024-03-01T10:00:01.000000Z",
+          "raw_data": "{\"operation\":\"Withdraw\"}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "lf_then_crlf",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCxEZXBvc2l0LFVTRFQsMSwNCjEsMjAyNC0wMy0wMSAxMDowMDowMCxTcG90LERlcG9zaXQsVVNEVCwyLAo=",
+      "offset": "+00:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2024-03-01 10:00:00,Spot,Deposit,USDT,1,\r\n1,2024-03-01 10:00:00,Spot,Deposit,USDT,2,\n",
+      "entries": [
+        {
+          "entry_type": "deposit",
+          "base_currency": "USDT",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Deposit",
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{\"operation\":\"Deposit\"}"
+        },
+        {
+          "entry_type": "deposit",
+          "base_currency": "USDT",
+          "base_amount": "2.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Deposit",
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{\"operation\":\"Deposit\"}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "quoted_newline_in_remark",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCxEZXBvc2l0LFVTRFQsMSwibGluZSBvbmUKbGluZSB0d28iCjEsMjAyNC0wMy0wMSAxMDowMDowMCxTcG90LERlcG9zaXQsWk9SSywyLCJoYXMgIiJxdW90ZXMiIiwgYW5kIGNvbW1hIg==",
+      "offset": "+00:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2024-03-01 10:00:00,Spot,Deposit,USDT,1,\"line one\nline two\"\n1,2024-03-01 10:00:00,Spot,Deposit,ZORK,2,\"has \"\"quotes\"\", and comma\"",
+      "entries": [
+        {
+          "entry_type": "deposit",
+          "base_currency": "USDT",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Deposit",
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{\"operation\":\"Deposit\"}"
+        },
+        {
+          "entry_type": "deposit",
+          "base_currency": "ZORK",
+          "base_amount": "2.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Deposit",
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{\"operation\":\"Deposit\"}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "quoted_numbers_and_op",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCwiRGVwb3NpdCIsIlVTRFQiLCIxLjI1Iiw=",
+      "offset": "+00:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2024-03-01 10:00:00,Spot,\"Deposit\",\"USDT\",\"1.25\",",
+      "entries": [
+        {
+          "entry_type": "deposit",
+          "base_currency": "USDT",
+          "base_amount": "1.25",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Deposit",
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{\"operation\":\"Deposit\"}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "stray_quote",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCxEZXBvc2l0LFVTIkRULDEs",
+      "offset": "+00:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2024-03-01 10:00:00,Spot,Deposit,US\"DT,1,",
+      "entries": [],
+      "unrecognised": [],
+      "error": "malformed",
+      "exception": "CSV::MalformedCSVError"
+    },
+    {
+      "name": "unclosed_quote",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCxEZXBvc2l0LFVTRFQsMSwibmV2ZXIgY2xvc2Vk",
+      "offset": "+00:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2024-03-01 10:00:00,Spot,Deposit,USDT,1,\"never closed",
+      "entries": [],
+      "unrecognised": [],
+      "error": "malformed",
+      "exception": "CSV::MalformedCSVError"
+    },
+    {
+      "name": "quote_then_text",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCxEZXBvc2l0LCJVU0RUIngsMSw=",
+      "offset": "+00:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2024-03-01 10:00:00,Spot,Deposit,\"USDT\"x,1,",
+      "entries": [],
+      "unrecognised": [],
+      "error": "malformed",
+      "exception": "CSV::MalformedCSVError"
+    },
+    {
+      "name": "empty_file",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "",
+      "offset": "+00:00",
+      "text": "",
+      "entries": [],
+      "unrecognised": [],
+      "error": "unreadable"
+    },
+    {
+      "name": "bom_only",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "77u/",
+      "offset": "+00:00",
+      "text": "",
+      "entries": [],
+      "unrecognised": [],
+      "error": "unreadable"
+    },
+    {
+      "name": "headers_only",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyaw==",
+      "offset": "+00:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark",
+      "entries": [],
+      "unrecognised": [],
+      "error": "unreadable"
+    },
+    {
+      "name": "headers_only_trailing_newline",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawo=",
+      "offset": "+00:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n",
+      "entries": [],
+      "unrecognised": [],
+      "error": "unreadable"
+    },
+    {
+      "name": "blank_lines_between",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoKMSwyMDI0LTAzLTAxIDEwOjAwOjAwLFNwb3QsRGVwb3NpdCxVU0RULDEsCgoKMSwyMDI0LTAzLTAxIDEwOjAwOjAxLFNwb3QsRGVwb3NpdCxVU0RULDIsCg==",
+      "offset": "+00:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n\n1,2024-03-01 10:00:00,Spot,Deposit,USDT,1,\n\n\n1,2024-03-01 10:00:01,Spot,Deposit,USDT,2,\n",
+      "entries": [
+        {
+          "entry_type": "deposit",
+          "base_currency": "USDT",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Deposit",
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{\"operation\":\"Deposit\"}"
+        },
+        {
+          "entry_type": "deposit",
+          "base_currency": "USDT",
+          "base_amount": "2.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Deposit",
+          "transacted_at": "2024-03-01T10:00:01.000000Z",
+          "raw_data": "{\"operation\":\"Deposit\"}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "duplicate_headers_first_wins",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyayxDb2luLENoYW5nZQoxLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCxEZXBvc2l0LFVTRFQsMSwsWk9SSyw5Cg==",
+      "offset": "+00:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark,Coin,Change\n1,2024-03-01 10:00:00,Spot,Deposit,USDT,1,,ZORK,9\n",
+      "entries": [
+        {
+          "entry_type": "deposit",
+          "base_currency": "USDT",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Deposit",
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{\"operation\":\"Deposit\"}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "reordered_columns",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "UmVtYXJrLENoYW5nZSxDb2luLE9wZXJhdGlvbixBY2NvdW50LFRpbWUsVXNlciBJRApyLDcsWk9SSyxEZXBvc2l0LFNwb3QsMjAyNC0wMy0wMSAxMDowMDowMCwxCg==",
+      "offset": "+00:00",
+      "text": "Remark,Change,Coin,Operation,Account,Time,User ID\nr,7,ZORK,Deposit,Spot,2024-03-01 10:00:00,1\n",
+      "entries": [
+        {
+          "entry_type": "deposit",
+          "base_currency": "ZORK",
+          "base_amount": "7.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Deposit",
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{\"operation\":\"Deposit\"}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "header_case_differs",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "dXNlciBpZCx0aW1lLGFjY291bnQsb3BlcmF0aW9uLGNvaW4sY2hhbmdlLHJlbWFyawoxLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCxEZXBvc2l0LFVTRFQsMSwK",
+      "offset": "+00:00",
+      "text": "user id,time,account,operation,coin,change,remark\n1,2024-03-01 10:00:00,Spot,Deposit,USDT,1,\n",
+      "entries": [],
+      "unrecognised": [],
+      "error": "unreadable"
+    },
+    {
+      "name": "short_and_long_rows",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCxEZXBvc2l0LFVTRFQKMSwyMDI0LTAzLTAxIDEwOjAwOjAwLFNwb3QsRGVwb3NpdCxaT1JLLDMscixleHRyYSxtb3JlCjEsMjAyNC0wMy0wMSAxMDowMDowMCxTcG90LEFpcmRyb3AgQXNzZXRzCg==",
+      "offset": "+00:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2024-03-01 10:00:00,Spot,Deposit,USDT\n1,2024-03-01 10:00:00,Spot,Deposit,ZORK,3,r,extra,more\n1,2024-03-01 10:00:00,Spot,Airdrop Assets\n",
+      "entries": [
+        {
+          "entry_type": "deposit",
+          "base_currency": "ZORK",
+          "base_amount": "3.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Deposit",
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{\"operation\":\"Deposit\"}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "semicolon_separated",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRDtUaW1lO0FjY291bnQ7T3BlcmF0aW9uO0NvaW47Q2hhbmdlO1JlbWFyawoxOzIwMjQtMDMtMDEgMTA6MDA6MDA7U3BvdDtEZXBvc2l0O1VTRFQ7MTsK",
+      "offset": "+00:00",
+      "text": "User ID;Time;Account;Operation;Coin;Change;Remark\n1;2024-03-01 10:00:00;Spot;Deposit;USDT;1;\n",
+      "entries": [],
+      "unrecognised": [],
+      "error": "unreadable"
+    },
+    {
+      "name": "zone_utc_plus_3",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+3)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCxEZXBvc2l0LFVTRFQsMSw=",
+      "offset": "+03:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2024-03-01 10:00:00,Spot,Deposit,USDT,1,",
+      "entries": [
+        {
+          "entry_type": "deposit",
+          "base_currency": "USDT",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Deposit",
+          "transacted_at": "2024-03-01T07:00:00.000000Z",
+          "raw_data": "{\"operation\":\"Deposit\"}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "zone_utc_minus_5_30",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC-5:30)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCxEZXBvc2l0LFVTRFQsMSw=",
+      "offset": "-05:30",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2024-03-01 10:00:00,Spot,Deposit,USDT,1,",
+      "entries": [
+        {
+          "entry_type": "deposit",
+          "base_currency": "USDT",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Deposit",
+          "transacted_at": "2024-03-01T15:30:00.000000Z",
+          "raw_data": "{\"operation\":\"Deposit\"}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "zone_utc_plus_0",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCxEZXBvc2l0LFVTRFQsMSw=",
+      "offset": "+00:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2024-03-01 10:00:00,Spot,Deposit,USDT,1,",
+      "entries": [
+        {
+          "entry_type": "deposit",
+          "base_currency": "USDT",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Deposit",
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{\"operation\":\"Deposit\"}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "zone_utc_plus_5_45",
+      "format": "binance",
+      "filename": "export(UTC+5:45).csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCxEZXBvc2l0LFVTRFQsMSw=",
+      "offset": "+05:45",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2024-03-01 10:00:00,Spot,Deposit,USDT,1,",
+      "entries": [
+        {
+          "entry_type": "deposit",
+          "base_currency": "USDT",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Deposit",
+          "transacted_at": "2024-03-01T04:15:00.000000Z",
+          "raw_data": "{\"operation\":\"Deposit\"}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "zone_utc_plus_14_crosses_date",
+      "format": "binance",
+      "filename": "export(UTC+14).csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjQtMDMtMDEgMDU6MDA6MDAsU3BvdCxEZXBvc2l0LFVTRFQsMSw=",
+      "offset": "+14:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2024-03-01 05:00:00,Spot,Deposit,USDT,1,",
+      "entries": [
+        {
+          "entry_type": "deposit",
+          "base_currency": "USDT",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Deposit",
+          "transacted_at": "2024-02-29T15:00:00.000000Z",
+          "raw_data": "{\"operation\":\"Deposit\"}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "zone_utc_minus_12_crosses_date",
+      "format": "binance",
+      "filename": "export(UTC-12).csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjQtMTItMzEgMjA6MDA6MDAsU3BvdCxEZXBvc2l0LFVTRFQsMSw=",
+      "offset": "-12:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2024-12-31 20:00:00,Spot,Deposit,USDT,1,",
+      "entries": [
+        {
+          "entry_type": "deposit",
+          "base_currency": "USDT",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Deposit",
+          "transacted_at": "2025-01-01T08:00:00.000000Z",
+          "raw_data": "{\"operation\":\"Deposit\"}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "zone_utc_plus_99",
+      "format": "binance",
+      "filename": "export(UTC+99).csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCxEZXBvc2l0LFVTRFQsMSw=",
+      "offset": "+99:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2024-03-01 10:00:00,Spot,Deposit,USDT,1,",
+      "entries": [],
+      "unrecognised": [],
+      "error": "malformed",
+      "exception": "ArgumentError"
+    },
+    {
+      "name": "zone_utc_plus_3_99",
+      "format": "binance",
+      "filename": "export(UTC+3:99).csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCxEZXBvc2l0LFVTRFQsMSw=",
+      "offset": "+03:99",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2024-03-01 10:00:00,Spot,Deposit,USDT,1,",
+      "entries": [
+        {
+          "entry_type": "deposit",
+          "base_currency": "USDT",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Deposit",
+          "transacted_at": "2024-03-01T05:21:00.000000Z",
+          "raw_data": "{\"operation\":\"Deposit\"}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "zone_utc_minus_0_30",
+      "format": "binance",
+      "filename": "export(UTC-0:30).csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCxEZXBvc2l0LFVTRFQsMSw=",
+      "offset": "+00:30",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2024-03-01 10:00:00,Spot,Deposit,USDT,1,",
+      "entries": [
+        {
+          "entry_type": "deposit",
+          "base_currency": "USDT",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Deposit",
+          "transacted_at": "2024-03-01T09:30:00.000000Z",
+          "raw_data": "{\"operation\":\"Deposit\"}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "zone_none",
+      "format": "binance",
+      "filename": "Binance-Transaction-History.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCxEZXBvc2l0LFVTRFQsMSw=",
+      "offset": null,
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2024-03-01 10:00:00,Spot,Deposit,USDT,1,",
+      "entries": [],
+      "unrecognised": [],
+      "error": "unknown_timezone"
+    },
+    {
+      "name": "time_fractional_seconds",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+3)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjQtMDMtMDEgMTA6MDA6MDAuMTIzNDU2Nzg5LFNwb3QsRGVwb3NpdCxVU0RULDEs",
+      "offset": "+03:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2024-03-01 10:00:00.123456789,Spot,Deposit,USDT,1,",
+      "entries": [
+        {
+          "entry_type": "deposit",
+          "base_currency": "USDT",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Deposit",
+          "transacted_at": "2024-03-01T07:00:00.123456Z",
+          "raw_data": "{\"operation\":\"Deposit\"}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "time_two_digit_year",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+3)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDI0LTAzLTAxIDEwOjAwOjAwLFNwb3QsRGVwb3NpdCxVU0RULDEs",
+      "offset": "+03:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,24-03-01 10:00:00,Spot,Deposit,USDT,1,",
+      "entries": [
+        {
+          "entry_type": "deposit",
+          "base_currency": "USDT",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Deposit",
+          "transacted_at": "2024-03-01T07:00:00.000000Z",
+          "raw_data": "{\"operation\":\"Deposit\"}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "time_slashes",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+3)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjQvMDMvMDEgMTA6MDA6MDAsU3BvdCxEZXBvc2l0LFVTRFQsMSw=",
+      "offset": "+03:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2024/03/01 10:00:00,Spot,Deposit,USDT,1,",
+      "entries": [
+        {
+          "entry_type": "deposit",
+          "base_currency": "USDT",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Deposit",
+          "transacted_at": "2024-03-01T07:00:00.000000Z",
+          "raw_data": "{\"operation\":\"Deposit\"}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "time_date_only",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+3)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjQtMDMtMDEsU3BvdCxEZXBvc2l0LFVTRFQsMSw=",
+      "offset": "+03:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2024-03-01,Spot,Deposit,USDT,1,",
+      "entries": [
+        {
+          "entry_type": "deposit",
+          "base_currency": "USDT",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Deposit",
+          "transacted_at": "2024-03-01T03:00:00.000000Z",
+          "raw_data": "{\"operation\":\"Deposit\"}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "time_iso_t",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+3)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjQtMDMtMDFUMTA6MDA6MDAsU3BvdCxEZXBvc2l0LFVTRFQsMSw=",
+      "offset": "+03:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2024-03-01T10:00:00,Spot,Deposit,USDT,1,",
+      "entries": [
+        {
+          "entry_type": "deposit",
+          "base_currency": "USDT",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Deposit",
+          "transacted_at": "2024-03-01T07:00:00.000000Z",
+          "raw_data": "{\"operation\":\"Deposit\"}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "time_own_zone_plus_filename_zone",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+3)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjQtMDMtMDEgMTA6MDA6MDArMDI6MDAsU3BvdCxEZXBvc2l0LFVTRFQsMSw=",
+      "offset": "+03:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2024-03-01 10:00:00+02:00,Spot,Deposit,USDT,1,",
+      "entries": [
+        {
+          "entry_type": "deposit",
+          "base_currency": "USDT",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Deposit",
+          "transacted_at": "2024-03-01T08:00:00.000000Z",
+          "raw_data": "{\"operation\":\"Deposit\"}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "time_with_z",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+3)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjQtMDMtMDEgMTA6MDA6MDBaLFNwb3QsRGVwb3NpdCxVU0RULDEs",
+      "offset": "+03:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2024-03-01 10:00:00Z,Spot,Deposit,USDT,1,",
+      "entries": [
+        {
+          "entry_type": "deposit",
+          "base_currency": "USDT",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Deposit",
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{\"operation\":\"Deposit\"}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "time_padded",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+3)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLCAgMjAyNC0wMy0wMSAxMDowMDowMCAgLFNwb3QsRGVwb3NpdCxVU0RULDEs",
+      "offset": "+03:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,  2024-03-01 10:00:00  ,Spot,Deposit,USDT,1,",
+      "entries": [
+        {
+          "entry_type": "deposit",
+          "base_currency": "USDT",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Deposit",
+          "transacted_at": "2024-03-01T07:00:00.000000Z",
+          "raw_data": "{\"operation\":\"Deposit\"}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "time_day_month_names",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+3)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDEgTWFyIDIwMjQgMTA6MDA6MDAsU3BvdCxEZXBvc2l0LFVTRFQsMSw=",
+      "offset": "+03:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,1 Mar 2024 10:00:00,Spot,Deposit,USDT,1,",
+      "entries": [
+        {
+          "entry_type": "deposit",
+          "base_currency": "USDT",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Deposit",
+          "transacted_at": "2024-03-01T07:00:00.000000Z",
+          "raw_data": "{\"operation\":\"Deposit\"}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "time_out_of_range",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+3)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjQtMDItMzAgMTA6MDA6MDAsU3BvdCxEZXBvc2l0LFVTRFQsMSw=",
+      "offset": "+03:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2024-02-30 10:00:00,Spot,Deposit,USDT,1,",
+      "entries": [
+        {
+          "entry_type": "deposit",
+          "base_currency": "USDT",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Deposit",
+          "transacted_at": "2024-03-01T07:00:00.000000Z",
+          "raw_data": "{\"operation\":\"Deposit\"}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "time_hour_25",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+3)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjQtMDMtMDEgMjU6MDA6MDAsU3BvdCxEZXBvc2l0LFVTRFQsMSw=",
+      "offset": "+03:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2024-03-01 25:00:00,Spot,Deposit,USDT,1,",
+      "entries": [
+        {
+          "entry_type": "deposit",
+          "base_currency": "USDT",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Deposit",
+          "transacted_at": "2024-03-01T22:00:00.000000Z",
+          "raw_data": "{\"operation\":\"Deposit\"}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "time_garbage",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+3)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLHllc3RlcmRheS1pc2gsU3BvdCxEZXBvc2l0LFVTRFQsMSw=",
+      "offset": "+03:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,yesterday-ish,Spot,Deposit,USDT,1,",
+      "entries": [
+        {
+          "entry_type": "deposit",
+          "base_currency": "USDT",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Deposit",
+          "transacted_at": "2026-10-01T03:00:00.000000Z",
+          "raw_data": "{\"operation\":\"Deposit\"}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "time_empty",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+3)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLCxTcG90LERlcG9zaXQsVVNEVCwxLA==",
+      "offset": "+03:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,,Spot,Deposit,USDT,1,",
+      "entries": [
+        {
+          "entry_type": "deposit",
+          "base_currency": "USDT",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Deposit",
+          "transacted_at": "2026-10-01T03:00:00.000000Z",
+          "raw_data": "{\"operation\":\"Deposit\"}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "time_garbage_on_skipped_row",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+3)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLGdhcmJhZ2UsU3BvdCx0cmFuc2Zlcl9pbixVU0RULDEsCjEsYWxzbyBnYXJiYWdlLFNwb3QsTXlzdGVyeSBPcCxVU0RULDEs",
+      "offset": "+03:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,garbage,Spot,transfer_in,USDT,1,\n1,also garbage,Spot,Mystery Op,USDT,1,",
+      "entries": [],
+      "unrecognised": [
+        "Mystery Op"
+      ],
+      "error": null
+    },
+    {
+      "name": "change_scientific",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCxEZXBvc2l0LFVTRFQsMWUtNSwKMSwyMDI0LTAzLTAxIDEwOjAwOjAxLFNwb3QsRGVwb3NpdCxaT1JLLDIuNUUrMyw=",
+      "offset": "+00:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2024-03-01 10:00:00,Spot,Deposit,USDT,1e-5,\n1,2024-03-01 10:00:01,Spot,Deposit,ZORK,2.5E+3,",
+      "entries": [
+        {
+          "entry_type": "deposit",
+          "base_currency": "USDT",
+          "base_amount": "0.00001",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Deposit",
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{\"operation\":\"Deposit\"}"
+        },
+        {
+          "entry_type": "deposit",
+          "base_currency": "ZORK",
+          "base_amount": "2500.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Deposit",
+          "transacted_at": "2024-03-01T10:00:01.000000Z",
+          "raw_data": "{\"operation\":\"Deposit\"}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "change_padded_and_plus",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCxEZXBvc2l0LFVTRFQsIDIuNSAsCjEsMjAyNC0wMy0wMSAxMDowMDowMSxTcG90LERlcG9zaXQsWk9SSywrMyw=",
+      "offset": "+00:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2024-03-01 10:00:00,Spot,Deposit,USDT, 2.5 ,\n1,2024-03-01 10:00:01,Spot,Deposit,ZORK,+3,",
+      "entries": [
+        {
+          "entry_type": "deposit",
+          "base_currency": "USDT",
+          "base_amount": "2.5",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Deposit",
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{\"operation\":\"Deposit\"}"
+        },
+        {
+          "entry_type": "deposit",
+          "base_currency": "ZORK",
+          "base_amount": "3.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Deposit",
+          "transacted_at": "2024-03-01T10:00:01.000000Z",
+          "raw_data": "{\"operation\":\"Deposit\"}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "change_garbage",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCxEZXBvc2l0LFVTRFQsYWJjLAoxLDIwMjQtMDMtMDEgMTA6MDA6MDEsU3BvdCxEZXBvc2l0LFpPUkssMTJhYmMsCjEsMjAyNC0wMy0wMSAxMDowMDowMixTcG90LERlcG9zaXQsRkxJQiwxLDUs",
+      "offset": "+00:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2024-03-01 10:00:00,Spot,Deposit,USDT,abc,\n1,2024-03-01 10:00:01,Spot,Deposit,ZORK,12abc,\n1,2024-03-01 10:00:02,Spot,Deposit,FLIB,1,5,",
+      "entries": [
+        {
+          "entry_type": "deposit",
+          "base_currency": "ZORK",
+          "base_amount": "12.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Deposit",
+          "transacted_at": "2024-03-01T10:00:01.000000Z",
+          "raw_data": "{\"operation\":\"Deposit\"}"
+        },
+        {
+          "entry_type": "deposit",
+          "base_currency": "FLIB",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Deposit",
+          "transacted_at": "2024-03-01T10:00:02.000000Z",
+          "raw_data": "{\"operation\":\"Deposit\"}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "change_empty",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCxEZXBvc2l0LFVTRFQsLAoxLDIwMjQtMDMtMDEgMTA6MDA6MDEsU3BvdCxEZXBvc2l0LFpPUkssNyw=",
+      "offset": "+00:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2024-03-01 10:00:00,Spot,Deposit,USDT,,\n1,2024-03-01 10:00:01,Spot,Deposit,ZORK,7,",
+      "entries": [
+        {
+          "entry_type": "deposit",
+          "base_currency": "ZORK",
+          "base_amount": "7.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Deposit",
+          "transacted_at": "2024-03-01T10:00:01.000000Z",
+          "raw_data": "{\"operation\":\"Deposit\"}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "change_many_digits",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCxEZXBvc2l0LFVTRFQsMC4wMDAwMDAwMDAwMDAwMDAwMDAxMjM0NTY3ODkwMTIzNDU2Nzg5MDEyMzQ1Njc4OTAsCjEsMjAyNC0wMy0wMSAxMDowMDowMSxTcG90LERlcG9zaXQsWk9SSywxMjM0NTY3ODkwMTIzNDU2Nzg5MDEyMzQ1Njc4OTAuNSw=",
+      "offset": "+00:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2024-03-01 10:00:00,Spot,Deposit,USDT,0.000000000000000000123456789012345678901234567890,\n1,2024-03-01 10:00:01,Spot,Deposit,ZORK,123456789012345678901234567890.5,",
+      "entries": [
+        {
+          "entry_type": "deposit",
+          "base_currency": "USDT",
+          "base_amount": "0.00000000000000000012345678901234567890123456789",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Deposit",
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{\"operation\":\"Deposit\"}"
+        },
+        {
+          "entry_type": "deposit",
+          "base_currency": "ZORK",
+          "base_amount": "123456789012345678901234567890.5",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Deposit",
+          "transacted_at": "2024-03-01T10:00:01.000000Z",
+          "raw_data": "{\"operation\":\"Deposit\"}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    }
+  ],
+  "deltabadger": [
+    {
+      "name": "integration_deposit",
+      "format": "deltabadger",
+      "filename": "whatever.csv",
+      "bytes": "ZGF0ZSx0eXBlLGJhc2VfY3VycmVuY3ksYmFzZV9hbW91bnQscXVvdGVfY3VycmVuY3kscXVvdGVfYW1vdW50LGZlZV9jdXJyZW5jeSxmZWVfYW1vdW50LGV4Y2hhbmdlLHR4X2lkLGdyb3VwX2lkLGRlc2NyaXB0aW9uCjIwMjEtMDctMDFUMTQ6MDc6MDRaLGRlcG9zaXQsVVNEVCwxNTAuMiwsLCwsYmluYW5jZSx0eC0xLCw=",
+      "offset": null,
+      "text": "date,type,base_currency,base_amount,quote_currency,quote_amount,fee_currency,fee_amount,exchange,tx_id,group_id,description\n2021-07-01T14:07:04Z,deposit,USDT,150.2,,,,,binance,tx-1,,",
+      "entries": [
+        {
+          "exchange_name_id": "binance",
+          "entry_type": "deposit",
+          "base_currency": "USDT",
+          "base_amount": "150.2",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": "tx-1",
+          "group_id": null,
+          "description": null,
+          "transacted_at": "2021-07-01T14:07:04.000000Z",
+          "raw_data": "{}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "export_round_trip",
+      "format": "deltabadger",
+      "filename": "deltabadger-transactions.csv",
+      "bytes": "ZGF0ZSx0eXBlLGJhc2VfY3VycmVuY3ksYmFzZV9hbW91bnQscXVvdGVfY3VycmVuY3kscXVvdGVfYW1vdW50LGZlZV9jdXJyZW5jeSxmZWVfYW1vdW50LGV4Y2hhbmdlLHR4X2lkLGdyb3VwX2lkLGRlc2NyaXB0aW9uCjIwMjQtMDEtMDJUMDM6MDQ6MDVaLGJ1eSxaT1JLLDEuNSxVU0QsMzAuMCxVU0QsMC4wMyxrcmFrZW4sby0xLCxwbGFpbiBub3RlCjIwMjQtMDEtMDFUMDA6MDA6MDBaLHN3YXBfb3V0LEZMSUIsMi4wLCwsLCxiaW5hbmNlLCxnLTEsCjIwMjQtMDEtMDFUMDA6MDA6MDBaLHN3YXBfaW4sWk9SSyw0LjAsLCxCTkIsMC4wMDEsYmluYW5jZSwsZy0xLAoyMDI0LTAxLTAzVDAwOjAwOjAwWix3aXRoZHJhd2FsLFVTRFQsMTAuMCwsLCwsYWxwYWNhLHctMSwsV2l0aGRyYXcgZmVlIGlzIGluY2x1ZGVkCjIwMjQtMDEtMDRUMDA6MDA6MDBaLG90aGVyX2luY29tZSxaT1JLLDEuMCwsLCwsYmluYW5jZSwsLCc9U1VNKEExOkEyKQoyMDI0LTAxLTA1VDAwOjAwOjAwWixsb3N0LFpPUkssMS4wLCwsLCxiaW5hbmNlLCwsJy1mZWUgbm90ZQoyMDI0LTAxLTA2VDAwOjAwOjAwWixkZXBvc2l0LFpPUkssMS4wLCwsLCxiaW5hbmNlLCwsJyBAbWVudGlvbgoyMDI0LTAxLTA3VDAwOjAwOjAwWixkZXBvc2l0LFpPUkssMS4wLCwsLCxiaW5hbmNlLCwsJ2Fwb3N0cm9waGUga2VwdAoyMDI0LTAxLTA4VDAwOjAwOjAwWixkZXBvc2l0LFpPUkssMS4wLCwsLCxiaW5hbmNlLCwsIicrMQpzZWNvbmQgbGluZSIK",
+      "offset": null,
+      "text": "date,type,base_currency,base_amount,quote_currency,quote_amount,fee_currency,fee_amount,exchange,tx_id,group_id,description\n2024-01-02T03:04:05Z,buy,ZORK,1.5,USD,30.0,USD,0.03,kraken,o-1,,plain note\n2024-01-01T00:00:00Z,swap_out,FLIB,2.0,,,,,binance,,g-1,\n2024-01-01T00:00:00Z,swap_in,ZORK,4.0,,,BNB,0.001,binance,,g-1,\n2024-01-03T00:00:00Z,withdrawal,USDT,10.0,,,,,alpaca,w-1,,Withdraw fee is included\n2024-01-04T00:00:00Z,other_income,ZORK,1.0,,,,,binance,,,'=SUM(A1:A2)\n2024-01-05T00:00:00Z,lost,ZORK,1.0,,,,,binance,,,'-fee note\n2024-01-06T00:00:00Z,deposit,ZORK,1.0,,,,,binance,,,' @mention\n2024-01-07T00:00:00Z,deposit,ZORK,1.0,,,,,binance,,,'apostrophe kept\n2024-01-08T00:00:00Z,deposit,ZORK,1.0,,,,,binance,,,\"'+1\nsecond line\"\n",
+      "entries": [
+        {
+          "exchange_name_id": "binance",
+          "entry_type": "swap_out",
+          "base_currency": "FLIB",
+          "base_amount": "2.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": "g-1",
+          "description": null,
+          "transacted_at": "2024-01-01T00:00:00.000000Z",
+          "raw_data": "{}"
+        },
+        {
+          "exchange_name_id": "binance",
+          "entry_type": "swap_in",
+          "base_currency": "ZORK",
+          "base_amount": "4.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": "BNB",
+          "fee_amount": "0.001",
+          "tx_id": null,
+          "group_id": "g-1",
+          "description": null,
+          "transacted_at": "2024-01-01T00:00:00.000000Z",
+          "raw_data": "{}"
+        },
+        {
+          "exchange_name_id": "kraken",
+          "entry_type": "buy",
+          "base_currency": "ZORK",
+          "base_amount": "1.5",
+          "quote_currency": "USD",
+          "quote_amount": "30.0",
+          "fee_currency": "USD",
+          "fee_amount": "0.03",
+          "tx_id": "o-1",
+          "group_id": null,
+          "description": "plain note",
+          "transacted_at": "2024-01-02T03:04:05.000000Z",
+          "raw_data": "{}"
+        },
+        {
+          "exchange_name_id": "alpaca",
+          "entry_type": "withdrawal",
+          "base_currency": "USDT",
+          "base_amount": "10.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": "w-1",
+          "group_id": null,
+          "description": "Withdraw fee is included",
+          "transacted_at": "2024-01-03T00:00:00.000000Z",
+          "raw_data": "{}"
+        },
+        {
+          "exchange_name_id": "binance",
+          "entry_type": "other_income",
+          "base_currency": "ZORK",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "'=SUM(A1:A2)",
+          "transacted_at": "2024-01-04T00:00:00.000000Z",
+          "raw_data": "{}"
+        },
+        {
+          "exchange_name_id": "binance",
+          "entry_type": "lost",
+          "base_currency": "ZORK",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "'-fee note",
+          "transacted_at": "2024-01-05T00:00:00.000000Z",
+          "raw_data": "{}"
+        },
+        {
+          "exchange_name_id": "binance",
+          "entry_type": "deposit",
+          "base_currency": "ZORK",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "' @mention",
+          "transacted_at": "2024-01-06T00:00:00.000000Z",
+          "raw_data": "{}"
+        },
+        {
+          "exchange_name_id": "binance",
+          "entry_type": "deposit",
+          "base_currency": "ZORK",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "'apostrophe kept",
+          "transacted_at": "2024-01-07T00:00:00.000000Z",
+          "raw_data": "{}"
+        },
+        {
+          "exchange_name_id": "binance",
+          "entry_type": "deposit",
+          "base_currency": "ZORK",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "'+1\nsecond line",
+          "transacted_at": "2024-01-08T00:00:00.000000Z",
+          "raw_data": "{}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "invalid_and_blank_types",
+      "format": "deltabadger",
+      "filename": "deltabadger-transactions.csv",
+      "bytes": "ZGF0ZSx0eXBlLGJhc2VfY3VycmVuY3ksYmFzZV9hbW91bnQscXVvdGVfY3VycmVuY3kscXVvdGVfYW1vdW50LGZlZV9jdXJyZW5jeSxmZWVfYW1vdW50LGV4Y2hhbmdlLHR4X2lkLGdyb3VwX2lkLGRlc2NyaXB0aW9uCjIwMjQtMDEtMDFUMDA6MDA6MDBaLGJvZ3VzLFpPUkssMSwsLCwsYmluYW5jZSwsLAoyMDI0LTAxLTAyVDAwOjAwOjAwWiwsWk9SSywxLCwsLCxiaW5hbmNlLCwsCjIwMjQtMDEtMDNUMDA6MDA6MDBaLERlcG9zaXQsWk9SSywxLCwsLCxiaW5hbmNlLCwsCjIwMjQtMDEtMDRUMDA6MDA6MDBaLGJvZ3VzLFpPUkssMSwsLCwsYmluYW5jZSwsLAoyMDI0LTAxLTA1VDAwOjAwOjAwWiwgZGVwb3NpdCAsWk9SSywxLCwsLCxiaW5hbmNlLCwsCg==",
+      "offset": null,
+      "text": "date,type,base_currency,base_amount,quote_currency,quote_amount,fee_currency,fee_amount,exchange,tx_id,group_id,description\n2024-01-01T00:00:00Z,bogus,ZORK,1,,,,,binance,,,\n2024-01-02T00:00:00Z,,ZORK,1,,,,,binance,,,\n2024-01-03T00:00:00Z,Deposit,ZORK,1,,,,,binance,,,\n2024-01-04T00:00:00Z,bogus,ZORK,1,,,,,binance,,,\n2024-01-05T00:00:00Z, deposit ,ZORK,1,,,,,binance,,,\n",
+      "entries": [
+        {
+          "exchange_name_id": "binance",
+          "entry_type": "deposit",
+          "base_currency": "ZORK",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": null,
+          "transacted_at": "2024-01-05T00:00:00.000000Z",
+          "raw_data": "{}"
+        }
+      ],
+      "unrecognised": [
+        "bogus",
+        "Deposit"
+      ],
+      "error": null
+    },
+    {
+      "name": "only_invalid_types",
+      "format": "deltabadger",
+      "filename": "deltabadger-transactions.csv",
+      "bytes": "ZGF0ZSx0eXBlLGJhc2VfY3VycmVuY3ksYmFzZV9hbW91bnQscXVvdGVfY3VycmVuY3kscXVvdGVfYW1vdW50LGZlZV9jdXJyZW5jeSxmZWVfYW1vdW50LGV4Y2hhbmdlLHR4X2lkLGdyb3VwX2lkLGRlc2NyaXB0aW9uCjIwMjQtMDEtMDFUMDA6MDA6MDBaLGJvZ3VzLFpPUkssMSwsLCwsYmluYW5jZSwsLAo=",
+      "offset": null,
+      "text": "date,type,base_currency,base_amount,quote_currency,quote_amount,fee_currency,fee_amount,exchange,tx_id,group_id,description\n2024-01-01T00:00:00Z,bogus,ZORK,1,,,,,binance,,,\n",
+      "entries": [],
+      "unrecognised": [
+        "bogus"
+      ],
+      "error": null
+    },
+    {
+      "name": "only_blank_types",
+      "format": "deltabadger",
+      "filename": "deltabadger-transactions.csv",
+      "bytes": "ZGF0ZSx0eXBlLGJhc2VfY3VycmVuY3ksYmFzZV9hbW91bnQscXVvdGVfY3VycmVuY3kscXVvdGVfYW1vdW50LGZlZV9jdXJyZW5jeSxmZWVfYW1vdW50LGV4Y2hhbmdlLHR4X2lkLGdyb3VwX2lkLGRlc2NyaXB0aW9uCjIwMjQtMDEtMDFUMDA6MDA6MDBaLCxaT1JLLDEsLCwsLGJpbmFuY2UsLCwK",
+      "offset": null,
+      "text": "date,type,base_currency,base_amount,quote_currency,quote_amount,fee_currency,fee_amount,exchange,tx_id,group_id,description\n2024-01-01T00:00:00Z,,ZORK,1,,,,,binance,,,\n",
+      "entries": [],
+      "unrecognised": [],
+      "error": "unreadable"
+    },
+    {
+      "name": "unconnected_venue_and_blank_venue",
+      "format": "deltabadger",
+      "filename": "deltabadger-transactions.csv",
+      "bytes": "ZGF0ZSx0eXBlLGJhc2VfY3VycmVuY3ksYmFzZV9hbW91bnQscXVvdGVfY3VycmVuY3kscXVvdGVfYW1vdW50LGZlZV9jdXJyZW5jeSxmZWVfYW1vdW50LGV4Y2hhbmdlLHR4X2lkLGdyb3VwX2lkLGRlc2NyaXB0aW9uCjIwMjQtMDEtMDFUMDA6MDA6MDBaLGRlcG9zaXQsWk9SSywxLCwsLCxub3doZXJlLCwsCjIwMjQtMDEtMDJUMDA6MDA6MDBaLGRlcG9zaXQsWk9SSywxLCwsLCwgLCwsCg==",
+      "offset": null,
+      "text": "date,type,base_currency,base_amount,quote_currency,quote_amount,fee_currency,fee_amount,exchange,tx_id,group_id,description\n2024-01-01T00:00:00Z,deposit,ZORK,1,,,,,nowhere,,,\n2024-01-02T00:00:00Z,deposit,ZORK,1,,,,, ,,,\n",
+      "entries": [
+        {
+          "exchange_name_id": "nowhere",
+          "entry_type": "deposit",
+          "base_currency": "ZORK",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": null,
+          "transacted_at": "2024-01-01T00:00:00.000000Z",
+          "raw_data": "{}"
+        },
+        {
+          "exchange_name_id": null,
+          "entry_type": "deposit",
+          "base_currency": "ZORK",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": null,
+          "transacted_at": "2024-01-02T00:00:00.000000Z",
+          "raw_data": "{}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "fields_not_stripped",
+      "format": "deltabadger",
+      "filename": "deltabadger-transactions.csv",
+      "bytes": "ZGF0ZSx0eXBlLGJhc2VfY3VycmVuY3ksYmFzZV9hbW91bnQscXVvdGVfY3VycmVuY3kscXVvdGVfYW1vdW50LGZlZV9jdXJyZW5jeSxmZWVfYW1vdW50LGV4Y2hhbmdlLHR4X2lkLGdyb3VwX2lkLGRlc2NyaXB0aW9uCjIwMjQtMDEtMDFUMDA6MDA6MDBaLGJ1eSwgWk9SSyAsMSwgVVNEICwyLCAsLGJpbmFuY2UsIHR4ICwsICAK",
+      "offset": null,
+      "text": "date,type,base_currency,base_amount,quote_currency,quote_amount,fee_currency,fee_amount,exchange,tx_id,group_id,description\n2024-01-01T00:00:00Z,buy, ZORK ,1, USD ,2, ,,binance, tx ,,  \n",
+      "entries": [
+        {
+          "exchange_name_id": "binance",
+          "entry_type": "buy",
+          "base_currency": " ZORK ",
+          "base_amount": "1.0",
+          "quote_currency": " USD ",
+          "quote_amount": "2.0",
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": " tx ",
+          "group_id": null,
+          "description": null,
+          "transacted_at": "2024-01-01T00:00:00.000000Z",
+          "raw_data": "{}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "date_without_zone",
+      "format": "deltabadger",
+      "filename": "deltabadger-transactions.csv",
+      "bytes": "ZGF0ZSx0eXBlLGJhc2VfY3VycmVuY3ksYmFzZV9hbW91bnQscXVvdGVfY3VycmVuY3kscXVvdGVfYW1vdW50LGZlZV9jdXJyZW5jeSxmZWVfYW1vdW50LGV4Y2hhbmdlLHR4X2lkLGdyb3VwX2lkLGRlc2NyaXB0aW9uCjIwMjQtMDEtMDEgMTI6MDA6MDAsZGVwb3NpdCxaT1JLLDEsLCwsLGJpbmFuY2UsLCwK",
+      "offset": null,
+      "text": "date,type,base_currency,base_amount,quote_currency,quote_amount,fee_currency,fee_amount,exchange,tx_id,group_id,description\n2024-01-01 12:00:00,deposit,ZORK,1,,,,,binance,,,\n",
+      "entries": [
+        {
+          "exchange_name_id": "binance",
+          "entry_type": "deposit",
+          "base_currency": "ZORK",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": null,
+          "transacted_at": "2024-01-01T12:00:00.000000Z",
+          "raw_data": "{}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "date_with_offset",
+      "format": "deltabadger",
+      "filename": "deltabadger-transactions.csv",
+      "bytes": "ZGF0ZSx0eXBlLGJhc2VfY3VycmVuY3ksYmFzZV9hbW91bnQscXVvdGVfY3VycmVuY3kscXVvdGVfYW1vdW50LGZlZV9jdXJyZW5jeSxmZWVfYW1vdW50LGV4Y2hhbmdlLHR4X2lkLGdyb3VwX2lkLGRlc2NyaXB0aW9uCjIwMjQtMDEtMDFUMTI6MDA6MDArMDI6MDAsZGVwb3NpdCxaT1JLLDEsLCwsLGJpbmFuY2UsLCwK",
+      "offset": null,
+      "text": "date,type,base_currency,base_amount,quote_currency,quote_amount,fee_currency,fee_amount,exchange,tx_id,group_id,description\n2024-01-01T12:00:00+02:00,deposit,ZORK,1,,,,,binance,,,\n",
+      "entries": [
+        {
+          "exchange_name_id": "binance",
+          "entry_type": "deposit",
+          "base_currency": "ZORK",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": null,
+          "transacted_at": "2024-01-01T10:00:00.000000Z",
+          "raw_data": "{}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "date_fractional",
+      "format": "deltabadger",
+      "filename": "deltabadger-transactions.csv",
+      "bytes": "ZGF0ZSx0eXBlLGJhc2VfY3VycmVuY3ksYmFzZV9hbW91bnQscXVvdGVfY3VycmVuY3kscXVvdGVfYW1vdW50LGZlZV9jdXJyZW5jeSxmZWVfYW1vdW50LGV4Y2hhbmdlLHR4X2lkLGdyb3VwX2lkLGRlc2NyaXB0aW9uCjIwMjQtMDEtMDFUMTI6MDA6MDAuNVosZGVwb3NpdCxaT1JLLDEsLCwsLGJpbmFuY2UsLCwK",
+      "offset": null,
+      "text": "date,type,base_currency,base_amount,quote_currency,quote_amount,fee_currency,fee_amount,exchange,tx_id,group_id,description\n2024-01-01T12:00:00.5Z,deposit,ZORK,1,,,,,binance,,,\n",
+      "entries": [
+        {
+          "exchange_name_id": "binance",
+          "entry_type": "deposit",
+          "base_currency": "ZORK",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": null,
+          "transacted_at": "2024-01-01T12:00:00.500000Z",
+          "raw_data": "{}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "date_garbage",
+      "format": "deltabadger",
+      "filename": "deltabadger-transactions.csv",
+      "bytes": "ZGF0ZSx0eXBlLGJhc2VfY3VycmVuY3ksYmFzZV9hbW91bnQscXVvdGVfY3VycmVuY3kscXVvdGVfYW1vdW50LGZlZV9jdXJyZW5jeSxmZWVfYW1vdW50LGV4Y2hhbmdlLHR4X2lkLGdyb3VwX2lkLGRlc2NyaXB0aW9uCjIwMjQtMDEtMDFUMDA6MDA6MDBaLGRlcG9zaXQsWk9SSywxLCwsLCxiaW5hbmNlLCwsCm5vdCBhIGRhdGUsZGVwb3NpdCxaT1JLLDEsLCwsLGJpbmFuY2UsLCwK",
+      "offset": null,
+      "text": "date,type,base_currency,base_amount,quote_currency,quote_amount,fee_currency,fee_amount,exchange,tx_id,group_id,description\n2024-01-01T00:00:00Z,deposit,ZORK,1,,,,,binance,,,\nnot a date,deposit,ZORK,1,,,,,binance,,,\n",
+      "entries": [],
+      "unrecognised": [],
+      "error": "malformed",
+      "exception": "ArgumentError"
+    },
+    {
+      "name": "date_empty",
+      "format": "deltabadger",
+      "filename": "deltabadger-transactions.csv",
+      "bytes": "ZGF0ZSx0eXBlLGJhc2VfY3VycmVuY3ksYmFzZV9hbW91bnQscXVvdGVfY3VycmVuY3kscXVvdGVfYW1vdW50LGZlZV9jdXJyZW5jeSxmZWVfYW1vdW50LGV4Y2hhbmdlLHR4X2lkLGdyb3VwX2lkLGRlc2NyaXB0aW9uCixkZXBvc2l0LFpPUkssMSwsLCwsYmluYW5jZSwsLAo=",
+      "offset": null,
+      "text": "date,type,base_currency,base_amount,quote_currency,quote_amount,fee_currency,fee_amount,exchange,tx_id,group_id,description\n,deposit,ZORK,1,,,,,binance,,,\n",
+      "entries": [],
+      "unrecognised": [],
+      "error": "malformed",
+      "exception": "ArgumentError"
+    },
+    {
+      "name": "amounts_lenient",
+      "format": "deltabadger",
+      "filename": "deltabadger-transactions.csv",
+      "bytes": "ZGF0ZSx0eXBlLGJhc2VfY3VycmVuY3ksYmFzZV9hbW91bnQscXVvdGVfY3VycmVuY3kscXVvdGVfYW1vdW50LGZlZV9jdXJyZW5jeSxmZWVfYW1vdW50LGV4Y2hhbmdlLHR4X2lkLGdyb3VwX2lkLGRlc2NyaXB0aW9uCjIwMjQtMDEtMDFUMDA6MDA6MDBaLGJ1eSxaT1JLLGFiYyxVU0QsMTJhYmMsVVNELDFlLTMsYmluYW5jZSwsLAoyMDI0LTAxLTAyVDAwOjAwOjAwWixkZXBvc2l0LFpPUkssLCwsLCxiaW5hbmNlLCwsCg==",
+      "offset": null,
+      "text": "date,type,base_currency,base_amount,quote_currency,quote_amount,fee_currency,fee_amount,exchange,tx_id,group_id,description\n2024-01-01T00:00:00Z,buy,ZORK,abc,USD,12abc,USD,1e-3,binance,,,\n2024-01-02T00:00:00Z,deposit,ZORK,,,,,,binance,,,\n",
+      "entries": [
+        {
+          "exchange_name_id": "binance",
+          "entry_type": "buy",
+          "base_currency": "ZORK",
+          "base_amount": "0.0",
+          "quote_currency": "USD",
+          "quote_amount": "12.0",
+          "fee_currency": "USD",
+          "fee_amount": "0.001",
+          "tx_id": null,
+          "group_id": null,
+          "description": null,
+          "transacted_at": "2024-01-01T00:00:00.000000Z",
+          "raw_data": "{}"
+        },
+        {
+          "exchange_name_id": "binance",
+          "entry_type": "deposit",
+          "base_currency": "ZORK",
+          "base_amount": "0.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": null,
+          "transacted_at": "2024-01-02T00:00:00.000000Z",
+          "raw_data": "{}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "headers_only",
+      "format": "deltabadger",
+      "filename": "deltabadger-transactions.csv",
+      "bytes": "ZGF0ZSx0eXBlLGJhc2VfY3VycmVuY3ksYmFzZV9hbW91bnQscXVvdGVfY3VycmVuY3kscXVvdGVfYW1vdW50LGZlZV9jdXJyZW5jeSxmZWVfYW1vdW50LGV4Y2hhbmdlLHR4X2lkLGdyb3VwX2lkLGRlc2NyaXB0aW9uCg==",
+      "offset": null,
+      "text": "date,type,base_currency,base_amount,quote_currency,quote_amount,fee_currency,fee_amount,exchange,tx_id,group_id,description\n",
+      "entries": [],
+      "unrecognised": [],
+      "error": "unreadable"
+    },
+    {
+      "name": "bom_crlf",
+      "format": "deltabadger",
+      "filename": "deltabadger-transactions.csv",
+      "bytes": "77u/ZGF0ZSx0eXBlLGJhc2VfY3VycmVuY3ksYmFzZV9hbW91bnQscXVvdGVfY3VycmVuY3kscXVvdGVfYW1vdW50LGZlZV9jdXJyZW5jeSxmZWVfYW1vdW50LGV4Y2hhbmdlLHR4X2lkLGdyb3VwX2lkLGRlc2NyaXB0aW9uDQoyMDI0LTAxLTAxVDAwOjAwOjAwWixkZXBvc2l0LFpPUkssMSwsLCwsYmluYW5jZSwsLA0K",
+      "offset": null,
+      "text": "date,type,base_currency,base_amount,quote_currency,quote_amount,fee_currency,fee_amount,exchange,tx_id,group_id,description\r\n2024-01-01T00:00:00Z,deposit,ZORK,1,,,,,binance,,,\r\n",
+      "entries": [
+        {
+          "exchange_name_id": "binance",
+          "entry_type": "deposit",
+          "base_currency": "ZORK",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": null,
+          "transacted_at": "2024-01-01T00:00:00.000000Z",
+          "raw_data": "{}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "stray_quote",
+      "format": "deltabadger",
+      "filename": "deltabadger-transactions.csv",
+      "bytes": "ZGF0ZSx0eXBlLGJhc2VfY3VycmVuY3ksYmFzZV9hbW91bnQscXVvdGVfY3VycmVuY3kscXVvdGVfYW1vdW50LGZlZV9jdXJyZW5jeSxmZWVfYW1vdW50LGV4Y2hhbmdlLHR4X2lkLGdyb3VwX2lkLGRlc2NyaXB0aW9uCjIwMjQtMDEtMDFUMDA6MDA6MDBaLGRlcG9zaXQsWk8iUkssMSwsLCwsYmluYW5jZSwsLAo=",
+      "offset": null,
+      "text": "date,type,base_currency,base_amount,quote_currency,quote_amount,fee_currency,fee_amount,exchange,tx_id,group_id,description\n2024-01-01T00:00:00Z,deposit,ZO\"RK,1,,,,,binance,,,\n",
+      "entries": [],
+      "unrecognised": [],
+      "error": "malformed",
+      "exception": "CSV::MalformedCSVError"
+    },
+    {
+      "name": "sorted_stably_by_date",
+      "format": "deltabadger",
+      "filename": "deltabadger-transactions.csv",
+      "bytes": "ZGF0ZSx0eXBlLGJhc2VfY3VycmVuY3ksYmFzZV9hbW91bnQscXVvdGVfY3VycmVuY3kscXVvdGVfYW1vdW50LGZlZV9jdXJyZW5jeSxmZWVfYW1vdW50LGV4Y2hhbmdlLHR4X2lkLGdyb3VwX2lkLGRlc2NyaXB0aW9uCjIwMjQtMDEtMDJUMDA6MDA6MDBaLGRlcG9zaXQsQiwxLCwsLCxiaW5hbmNlLCwsCjIwMjQtMDEtMDFUMDA6MDA6MDBaLGRlcG9zaXQsQSwxLCwsLCxiaW5hbmNlLCwsCjIwMjQtMDEtMDJUMDA6MDA6MDBaLGRlcG9zaXQsQywxLCwsLCxiaW5hbmNlLCwsCjIwMjQtMDEtMDFUMDA6MDA6MDBaLGRlcG9zaXQsRCwxLCwsLCxiaW5hbmNlLCwsCg==",
+      "offset": null,
+      "text": "date,type,base_currency,base_amount,quote_currency,quote_amount,fee_currency,fee_amount,exchange,tx_id,group_id,description\n2024-01-02T00:00:00Z,deposit,B,1,,,,,binance,,,\n2024-01-01T00:00:00Z,deposit,A,1,,,,,binance,,,\n2024-01-02T00:00:00Z,deposit,C,1,,,,,binance,,,\n2024-01-01T00:00:00Z,deposit,D,1,,,,,binance,,,\n",
+      "entries": [
+        {
+          "exchange_name_id": "binance",
+          "entry_type": "deposit",
+          "base_currency": "A",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": null,
+          "transacted_at": "2024-01-01T00:00:00.000000Z",
+          "raw_data": "{}"
+        },
+        {
+          "exchange_name_id": "binance",
+          "entry_type": "deposit",
+          "base_currency": "D",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": null,
+          "transacted_at": "2024-01-01T00:00:00.000000Z",
+          "raw_data": "{}"
+        },
+        {
+          "exchange_name_id": "binance",
+          "entry_type": "deposit",
+          "base_currency": "B",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": null,
+          "transacted_at": "2024-01-02T00:00:00.000000Z",
+          "raw_data": "{}"
+        },
+        {
+          "exchange_name_id": "binance",
+          "entry_type": "deposit",
+          "base_currency": "C",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": null,
+          "transacted_at": "2024-01-02T00:00:00.000000Z",
+          "raw_data": "{}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "binance_file_as_deltabadger",
+      "format": "deltabadger",
+      "filename": "deltabadger-transactions.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCxEZXBvc2l0LFVTRFQsMSw=",
+      "offset": null,
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2024-03-01 10:00:00,Spot,Deposit,USDT,1,",
+      "entries": [],
+      "unrecognised": [],
+      "error": "unreadable"
+    },
+    {
+      "name": "deltabadger_file_as_binance",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "ZGF0ZSx0eXBlLGJhc2VfY3VycmVuY3ksYmFzZV9hbW91bnQscXVvdGVfY3VycmVuY3kscXVvdGVfYW1vdW50LGZlZV9jdXJyZW5jeSxmZWVfYW1vdW50LGV4Y2hhbmdlLHR4X2lkLGdyb3VwX2lkLGRlc2NyaXB0aW9uCjIwMjQtMDEtMDFUMDA6MDA6MDBaLGRlcG9zaXQsWk9SSywxLCwsLCxiaW5hbmNlLCwsCg==",
+      "offset": "+00:00",
+      "text": "date,type,base_currency,base_amount,quote_currency,quote_amount,fee_currency,fee_amount,exchange,tx_id,group_id,description\n2024-01-01T00:00:00Z,deposit,ZORK,1,,,,,binance,,,\n",
+      "entries": [],
+      "unrecognised": [],
+      "error": "unreadable"
+    }
+  ],
+  "offset_from": [
+    [
+      "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "+00:00"
+    ],
+    [
+      "Binance-Transaction-History-202601010000(UTC+3)-part1-of1.csv",
+      "+03:00"
+    ],
+    [
+      "Binance-Transaction-History-202601010000(UTC-5:30)-part1-of1.csv",
+      "-05:30"
+    ],
+    [
+      "x(UTC+5:45).csv",
+      "+05:45"
+    ],
+    [
+      "x(UTC+14).csv",
+      "+14:00"
+    ],
+    [
+      "x(UTC-12).csv",
+      "-12:00"
+    ],
+    [
+      "x(UTC+03).csv",
+      "+03:00"
+    ],
+    [
+      "x(UTC+3:00).csv",
+      "+03:00"
+    ],
+    [
+      "x(UTC-0:30).csv",
+      "+00:30"
+    ],
+    [
+      "x(UTC-0).csv",
+      "+00:00"
+    ],
+    [
+      "x(UTC+99).csv",
+      "+99:00"
+    ],
+    [
+      "x(UTC+100).csv",
+      null
+    ],
+    [
+      "x(UTC+3:5).csv",
+      null
+    ],
+    [
+      "x(UTC+3:30:00).csv",
+      null
+    ],
+    [
+      "x(UTC3).csv",
+      null
+    ],
+    [
+      "x(utc+3).csv",
+      null
+    ],
+    [
+      "x(UTC +3).csv",
+      null
+    ],
+    [
+      "x(UTC+3 ).csv",
+      null
+    ],
+    [
+      "x UTC+3.csv",
+      null
+    ],
+    [
+      "x(UTC+3)(UTC-4).csv",
+      "+03:00"
+    ],
+    [
+      "x(UTC+3:99).csv",
+      "+03:99"
+    ],
+    [
+      "x(UTC+١).csv",
+      null
+    ],
+    [
+      "renamed.csv",
+      null
+    ],
+    [
+      "",
+      null
+    ],
+    [
+      null,
+      null
+    ]
+  ],
+  "as_text": [
+    [
+      "",
+      ""
+    ],
+    [
+      "77u/",
+      ""
+    ],
+    [
+      "77u/77u/",
+      "﻿"
+    ],
+    [
+      "Ye+7v2I=",
+      "a﻿b"
+    ],
+    [
+      "/w==",
+      "�"
+    ],
+    [
+      "YcM=",
+      "a�"
+    ],
+    [
+      "4oI=",
+      "�"
+    ],
+    [
+      "4oJ4",
+      "�x"
+    ],
+    [
+      "wIA=",
+      "��"
+    ],
+    [
+      "7aCA",
+      "���"
+    ],
+    [
+      "9JCAgA==",
+      "����"
+    ],
+    [
+      "8J+Y",
+      "�"
+    ],
+    [
+      "8J+YgA==",
+      "😀"
+    ],
+    [
+      "gICA",
+      "���"
+    ],
+    [
+      "b2v+/29r",
+      "ok��ok"
+    ],
+    [
+      "77s=",
+      "�"
+    ],
+    [
+      "77u//w==",
+      "�"
+    ],
+    [
+      "DQoN",
+      "\r\n\r"
+    ],
+    [
+      "Y2Fmw6k=",
+      "café"
+    ]
+  ],
+  "to_d": [
+    [
+      "0",
+      "0.0"
+    ],
+    [
+      "1",
+      "1.0"
+    ],
+    [
+      "-1",
+      "-1.0"
+    ],
+    [
+      "1.5",
+      "1.5"
+    ],
+    [
+      "-0.000001",
+      "-0.000001"
+    ],
+    [
+      ".5",
+      "0.5"
+    ],
+    [
+      "5.",
+      "5.0"
+    ],
+    [
+      "-.5",
+      "-0.5"
+    ],
+    [
+      "+1",
+      "1.0"
+    ],
+    [
+      "+.5",
+      "0.5"
+    ],
+    [
+      "00012.50",
+      "12.5"
+    ],
+    [
+      "1e-5",
+      "0.00001"
+    ],
+    [
+      "1E+3",
+      "1000.0"
+    ],
+    [
+      "1.2e3",
+      "1200.0"
+    ],
+    [
+      "-2.5E-2",
+      "-0.025"
+    ],
+    [
+      "1e",
+      "1.0"
+    ],
+    [
+      "e5",
+      "0.0"
+    ],
+    [
+      "1e+",
+      "1.0"
+    ],
+    [
+      "1e400",
+      "10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0"
+    ],
+    [
+      "1e-400",
+      "0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001"
+    ],
+    [
+      " 1.5",
+      "1.5"
+    ],
+    [
+      "1.5 ",
+      "1.5"
+    ],
+    [
+      "\t1.5\n",
+      "1.5"
+    ],
+    [
+      "1_000",
+      "1000.0"
+    ],
+    [
+      "1__0",
+      "1.0"
+    ],
+    [
+      "_1",
+      "0.0"
+    ],
+    [
+      "1,5",
+      "1.0"
+    ],
+    [
+      "1,000.5",
+      "1.0"
+    ],
+    [
+      "1.2.3",
+      "1.2"
+    ],
+    [
+      "--1",
+      "-0.0"
+    ],
+    [
+      "-+1",
+      "-0.0"
+    ],
+    [
+      "abc",
+      "0.0"
+    ],
+    [
+      "12abc",
+      "12.0"
+    ],
+    [
+      "abc12",
+      "0.0"
+    ],
+    [
+      "",
+      "0.0"
+    ],
+    [
+      " ",
+      "0.0"
+    ],
+    [
+      "0x1A",
+      "0.0"
+    ],
+    [
+      "0b11",
+      "0.0"
+    ],
+    [
+      "1/2",
+      "1.0"
+    ],
+    [
+      "Infinity",
+      "Infinity"
+    ],
+    [
+      "-Infinity",
+      "-Infinity"
+    ],
+    [
+      "NaN",
+      "NaN"
+    ],
+    [
+      "inf",
+      "0.0"
+    ],
+    [
+      "١٢",
+      "0.0"
+    ],
+    [
+      "１２",
+      "0.0"
+    ],
+    [
+      "12 34",
+      "12.0"
+    ],
+    [
+      "0.1e1.5",
+      "1.0"
+    ],
+    [
+      "123456789012345678901234567890.123456789012345678901234567890",
+      "123456789012345678901234567890.12345678901234567890123456789"
+    ]
+  ],
+  "operations": {
+    "Transaction Buy": "trade_in",
+    "Transaction Spend": "trade_out",
+    "Transaction Sold": "trade_out",
+    "Transaction Revenue": "trade_in",
+    "Transaction Fee": "trade_fee",
+    "Buy": "trade_in",
+    "Sell": "trade_out",
+    "Fee": "trade_fee",
+    "Binance Convert": "convert",
+    "Small Assets Exchange BNB": "dust",
+    "Deposit": "deposit",
+    "Fiat Deposit": "deposit",
+    "Withdraw": "withdrawal",
+    "Fiat Withdraw": "withdrawal",
+    "Commission Rebate": "other_income",
+    "Commission History": "other_income",
+    "Referral Kickback": "other_income",
+    "Commission Fee Shared With You": "other_income",
+    "Distribution": "other_income",
+    "Asset Recovery": "other_income",
+    "Asset - Transfer": "other_income",
+    "Token Swap - Redenomination/Rebranding": "other_income",
+    "Pool Distribution": "staking_reward",
+    "Staking Rewards": "staking_reward",
+    "Simple Earn Flexible Interest": "lending_interest",
+    "Simple Earn Locked Rewards": "lending_interest",
+    "Savings Interest": "lending_interest",
+    "Airdrop Assets": "airdrop",
+    "Token Swap - Distribution": "airdrop",
+    "Transfer Between Spot and Funding": null,
+    "Transfer Between Main and Funding Account": null,
+    "Ledger - Fund Migration": null,
+    "transfer_in": null,
+    "transfer_out": null
+  },
+  "cash": "\\A(USDT|USDC|BUSD|DAI|FDUSD|TUSD|USD|EUR|GBP|CHF|SEK|PLN|DKK|CZK|BGN|AUD|CAD|JPY|AED|TRY|BRL|RUB|UAH|NGN|ZAR)\\z",
+  "convert_window": 60,
+  "csv_headers": [
+    "date",
+    "type",
+    "base_currency",
+    "base_amount",
+    "quote_currency",
+    "quote_amount",
+    "fee_currency",
+    "fee_amount",
+    "exchange",
+    "tx_id",
+    "group_id",
+    "description"
+  ],
+  "entry_types": {
+  "buy": 0,
+  "sell": 1,
+  "swap_in": 2,
+  "swap_out": 3,
+  "deposit": 4,
+  "withdrawal": 5,
+  "staking_reward": 6,
+  "lending_interest": 7,
+  "airdrop": 8,
+  "mining": 9,
+  "fee": 10,
+  "other_income": 11,
+  "lost": 12,
+  "withholding_tax": 13,
+  "return_of_capital": 14,
+  "adjustment": 15,
+  "unsupported_activity": 16
+},
+  "ported_sources": {
+    "app/models/import/binance_csv.rb": "6c3cfbba9f2ffc9155e957d8cb7de6a3a1cddca3a4a7d7e103d8a604b753fa06",
+    "app/models/import/deltabadger_csv.rb": "49f497513870d397a7e7c043ee6921185c6944e003b77b60adaf8a229a2fba3d",
+    "app/models/import/run.rb": "0f69d9f7ef3252f7ea9345b1ec3c8c66c593d76da4f1fe37eddbd79d1e6d7fea",
+    "app/controllers/tracker/imports_controller.rb": "a7d466b28f36d5dbd1be3d631d21e82bc5ed775b48625df460e32574ee276a9c",
+    "app/models/account_transaction.rb": "27e1f816648843e735c5a5d0751e4d95afa52ffd266632d2458ac8f95e4aa500",
+    "app/models/concerns/csv_safe.rb": "83041a76c2334e9d9aae1606e8ef6c0b0c4673b5573ceaff012dd713a954a544"
+  },
+  "gems": {
+    "csv": "3.3.6",
+    "bigdecimal": "4.1.3"
+  }
+}
