@@ -383,9 +383,9 @@ class Exchanges::BitrueTest < ActiveSupport::TestCase
   end
 
   test 'get_ledger keeps reading a pair the account sold out of' do
-    api_key = create(:api_key, exchange: @exchange, key_type: :trading)
+    connection = create(:api_key, exchange: @exchange, key_type: :trading)
     # Stored by an earlier sync, in the lower case Bitrue used to leave in the ledger.
-    AccountTransaction.create!(user: api_key.user, api_key: api_key, exchange: @exchange, entry_type: :buy,
+    AccountTransaction.create!(user: connection.user, api_key: connection, exchange: @exchange, entry_type: :buy,
                                base_currency: 'eth', base_amount: 1, quote_currency: 'usdt', quote_amount: 2000,
                                tx_id: 'ETHUSDT-1-1', transacted_at: 2.days.ago)
     sell = trade(2, 1.hour.ago, buyer: false).merge('symbol' => 'ETHUSDT')
@@ -393,7 +393,7 @@ class Exchanges::BitrueTest < ActiveSupport::TestCase
     @exchange.stubs(:sleep)
     Honeymaker.stubs(:client).returns(fake)
 
-    result = @exchange.get_ledger(api_key: api_key, start_time: 1.day.ago)
+    result = @exchange.get_ledger(api_key: connection, start_time: 1.day.ago)
     assert_predicate result, :success?
     assert_equal([:sell], result.data.map { |e| e[:entry_type] })
   end
