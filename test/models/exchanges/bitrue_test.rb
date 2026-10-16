@@ -147,4 +147,26 @@ class Exchanges::BitrueTest < ActiveSupport::TestCase
     result = @exchange.get_candles(ticker: ticker, start_at: 20.years.ago, timeframe: 1.month)
     assert_predicate result, :failure?
   end
+
+  # ---- balances ----
+  # Bitrue names assets in lower case ("btc"; https://github.com/ccxt/ccxt python/ccxt/bitrue.py
+  # parse_balance capture, and every baseAsset in the live exchangeInfo), while tickers store them upper.
+
+  test 'get_balances reads lower-case asset codes' do
+    Rails.configuration.stubs(:dry_run).returns(false)
+    ticker = create(:ticker, exchange: @exchange, base_symbol: 'BTC', quote_symbol: 'USDT')
+    client = Object.new
+    client.define_singleton_method(:account_information) do
+      Result::Success.new({ 'canTrade' => true, 'balances' => [
+                            { 'asset' => 'btc', 'free' => '0.5', 'locked' => '0.1' },
+                            { 'asset' => 'usdt', 'free' => '20', 'locked' => '0' }
+                          ] })
+    end
+    @exchange.stubs(:client).returns(client)
+
+    result = @exchange.get_balances(asset_ids: [ticker.base_asset_id, ticker.quote_asset_id])
+    assert_predicate result, :success?
+    assert_equal({ free: '0.5'.to_d, locked: '0.1'.to_d }, result.data[ticker.base_asset_id])
+    assert_equal({ free: 20.to_d, locked: 0.to_d }, result.data[ticker.quote_asset_id])
+  end
 end
