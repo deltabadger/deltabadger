@@ -13,25 +13,6 @@ class Exchanges::BinanceUs < Exchanges::Binance
     ERRORS
   end
 
-  def fetch_withdrawal_fees!
-    with_authenticated_fee_client('binance_us', 'PROXY_BINANCE_US') do |hm_client|
-      result = hm_client.get_all_coins_information
-      return result if result.failure?
-
-      fees = {}
-      result.data.each do |coin|
-        symbol = coin['coin']
-        networks = coin['networkList'] || []
-        network = networks.find { |n| n['isDefault'] == true } || networks.first
-        next unless network
-
-        fees[symbol] = network['withdrawFee']
-      end
-
-      update_exchange_asset_fees!(fees)
-    end
-  end
-
   private
 
   # Binance.US has no /sapi/v1/account/apiRestrictions (not in https://docs.binance.us/, the path

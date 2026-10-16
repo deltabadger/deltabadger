@@ -605,7 +605,7 @@ class Exchanges::Binance < Exchange
   end
 
   def fetch_withdrawal_fees!
-    with_authenticated_fee_client('binance', 'PROXY_BINANCE') do |hm_client|
+    with_authenticated_fee_client(name_id, "PROXY_#{name_id.upcase}") do |hm_client|
       result = hm_client.get_all_coins_information
       return result if result.failure?
 
