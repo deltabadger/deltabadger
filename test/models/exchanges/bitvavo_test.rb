@@ -27,7 +27,7 @@ class Exchanges::BitvavoTest < ActiveSupport::TestCase
 
   test 'the documented key, permission, rate-limit and outage errors are classified' do
     assert @exchange.invalid_key_error?([bitvavo_error(309, 'The signature is invalid.')])
-    assert @exchange.invalid_key_error?([bitvavo_error(308, 'The signature length is invalid (HMAC-SHA256 should return a 64 length hexadecimal string).')])
+    assert @exchange.invalid_key_error?([bitvavo_error(308, 'The signature length is invalid.')])
 
     %w[307 310 311].each do |code|
       body = bitvavo_error(code.to_i, 'This key does not allow this action.')
@@ -35,12 +35,12 @@ class Exchanges::BitvavoTest < ActiveSupport::TestCase
       assert_not @exchange.invalid_key_error?([body]), code
     end
 
-    assert @exchange.throttled_error?([bitvavo_error(105, 'Your IP or API key has been banned for not respecting the rate limit. The ban expires at 1792139914630.')])
+    assert @exchange.throttled_error?([bitvavo_error(105, 'Your IP or API key has been banned for not respecting the rate limit.')])
     [101, 107, 108, 109, 111, 400, 419].each do |code|
       assert @exchange.transient_error?([bitvavo_error(code, 'Bitvavo is overloaded.')]), code.to_s
     end
     # A request outside the access window is refused before it reaches the matching engine.
-    stale = bitvavo_error(304, 'Request was not received within acceptable window (default 30s, or custom with Bitvavo-Access-Window header) of Bitvavo-Access-Timestamp header.')
+    stale = bitvavo_error(304, 'Request was not received within acceptable window of Bitvavo-Access-Timestamp header.')
     assert @exchange.transient_error?([stale])
     assert @exchange.placement_transient_error?([stale])
     assert_not @exchange.placement_transient_error?([bitvavo_error(109, 'The matching engine did not respond in time.')])
@@ -417,13 +417,13 @@ class Exchanges::BitvavoTest < ActiveSupport::TestCase
   end
 
   test 'get_ledger pages back through every trade since the last sync without start, by trade id' do
-    start_205 = Result::Failure.new({ errorCode: 205, error: 'end parameter is invalid. start and end must be provided together.' }.to_json,
-                                    data: { status: 400 })
+    start_refused = Result::Failure.new({ errorCode: 205, error: 'end parameter is invalid. start and end must be provided together.' }.to_json,
+                                        data: { status: 400 })
     top = ms_ago(1.minute)
     full = Array.new(1000) { |i| bitvavo_trade("n#{i}", 'o', top - i) }
     older = [bitvavo_trade('n1000', 'o', ms_ago(3.hours)), bitvavo_trade('n1001', 'o', ms_ago(3.days))]
     api_key, = ledger_with_trades do |client_class|
-      client_class.any_instance.stubs(:get_trades).with(has_key(:start_time)).returns(start_205)
+      client_class.any_instance.stubs(:get_trades).with(has_key(:start_time)).returns(start_refused)
       client_class.any_instance.stubs(:get_trades).with(Not(has_key(:start_time))).returns(Result::Success.new(full), Result::Success.new(older))
     end
 
