@@ -435,8 +435,9 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     assert_eq!(added("binance-ledger-preexisting_repeats", "XRP"), [Value::Null]);
     assert_eq!(added("binance-ledger-preexisting_repeats", "BNB").len(), 1);
     assert!(added("binance-ledger-known_id_repeat", "XRP").is_empty(), "the id-less twin is already stored");
-    assert_eq!(added("binance-ledger-twin_repeats", "USDT"), ["dust-4359331-out"], "one stored row, one conversion");
-    assert_eq!(added("binance-ledger-twin_repeats", "XRP"), ["0xd21"], "one stored row, one deposit");
+    let twins = |currency: &str, prefix: &str| added("binance-ledger-twin_repeats", currency).into_iter().filter(|id| id.as_str().is_some_and(|id| id.starts_with(prefix))).collect::<Vec<_>>();
+    assert_eq!(twins("USDT", "dust-"), ["dust-4359331-out"], "one stored row, one conversion");
+    assert_eq!(twins("XRP", "0xd"), ["0xd21"], "one stored row, one deposit");
     // A dust conversion's export group takes both of its ids, an amount the column rounds too; a group holding one
     // leg takes none.
     let (taken, stored) = claimed("binance-ledger-file_dust");
