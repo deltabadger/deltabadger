@@ -36,6 +36,9 @@ pub struct Engine<F: VenueFactory> {
     run_keys: HashMap<i64, model::RunIdentity>,
     retry_at: HashMap<i64, model::Produced<i64>>,
     closed_until: HashMap<i64, (model::Produced<i64>, serde_json::Value)>,
+    /// When a bot paused by its price rule is checked next (Bot::PriceLimitCheckJob's chain), µs. Rebuilt at start: a paused
+    /// bot is checked at once, or at Repair's next pass when its chain died (conditions::DEAD).
+    condition_at: HashMap<i64, i64>,
     cache_insert_step: Option<CacheInsertStep>,
     /// Follow-up polls owed, one per ORDER (FetchAndUpdateOrderJob): tx id → (bot, due time, that job's own retry counters).
     polls: HashMap<i64, model::Produced<(i64, i64, Attempts)>>,
@@ -64,7 +67,7 @@ pub struct Engine<F: VenueFactory> {
 
 impl<F: VenueFactory> Engine<F> {
     pub fn new(primary: Connection, factory: F, cipher: Cipher, lock: EngineLock) -> Self {
-        Self { primary, factory, cipher, lock, started: false, attempts: HashMap::new(), run_keys: HashMap::new(), retry_at: HashMap::new(), closed_until: HashMap::new(), cache_insert_step:None, polls: HashMap::new(), reconcile_at: HashMap::new(),
+        Self { primary, factory, cipher, lock, started: false, attempts: HashMap::new(), run_keys: HashMap::new(), retry_at: HashMap::new(), closed_until: HashMap::new(), condition_at: HashMap::new(), cache_insert_step:None, polls: HashMap::new(), reconcile_at: HashMap::new(),
                prices: PriceCache::default(), process_start: None, wake: Arc::new(Notify::new()), stop: Arc::new(AtomicBool::new(false)),
                stopped: Arc::new(tokio::sync::watch::Sender::new(false)), writers_guarded: false, stale_logged: HashMap::new(), defer_refused: HashSet::new(),
                events: EngineEvents::default(), settle_scan_at: 0 }
@@ -202,6 +205,7 @@ pub async fn step<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) -> Resu
     e.attempts.retain(|id, _| report.eligible.contains(id));
     e.retry_at.retain(|id, _| report.eligible.contains(id));
     e.closed_until.retain(|id, _| report.eligible.contains(id));
+    e.condition_at.retain(|id, _| report.eligible.contains(id));
 
     if !e.started {
         // Rebuilt obligation: every outstanding order is polled once, as Rails' adopt_handback! does.
@@ -412,7 +416,7 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
     }
     let key = bot.run_identity()?;
     if e.run_keys.insert(id, key.clone()).as_ref().is_some_and(|old| *old != key) {
-        e.attempts.remove(&id); e.retry_at.remove(&id); e.closed_until.remove(&id);
+        e.attempts.remove(&id); e.retry_at.remove(&id); e.closed_until.remove(&id); e.condition_at.remove(&id);
     }
     let (venue, credential_version) = e.venue_for(&bot)?;
     // Failure counters and retry waits belong to the immutable handle that produced them.
@@ -426,6 +430,39 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
         }
     }
 
+    // Paused by its price rule: only the check runs until it re-arms the bot, which then ticks at once (its run-now wait).
+    if model::price_paused(&e.primary, &bot)? {
+        let dead = bot.transient.get(super::conditions::DEAD).is_some();
+        let at = *e.condition_at.entry(id).or_insert_with(|| if dead { super::conditions::repair_at(clock.now()).timestamp_micros() } else { now_us });
+        if at > now_us { *wake = (*wake).min(at); return Ok(()); }
+        match super::conditions::check(&e.primary, &venue, &bot, clock, &e.prices, &credential_version).await {
+            Ok(super::conditions::Checked::Rearmed) => { e.condition_at.remove(&id); bot = model::load_bot(&e.primary, id)?; }
+            Ok(super::conditions::Checked::Next(next)) => { e.condition_at.insert(id, next.timestamp_micros()); *wake = (*wake).min(next.timestamp_micros()); return Ok(()); }
+            Ok(super::conditions::Checked::Gone) | Err(EngineError::RunFenced) => { e.condition_at.remove(&id); return Ok(()); }
+            Err(err @ (EngineError::Lease(_) | EngineError::Store(_))) => return Err(err),
+            // The key was replaced while the price read ran: nothing was written, and the check runs again on the next pass
+            // with a handle on the new key (as reconcile_idle and the tick retry), never left for Repair.
+            Err(EngineError::CredentialsChanged) => {
+                let at = clock.now().timestamp_micros();
+                e.condition_at.insert(id, at);
+                *wake = (*wake).min(at);
+                return Ok(());
+            }
+            Err(err) => {
+                // The check raised: Rails' job dies, and Bot::RepairOrphanedBotsJob restarts the chain on its next pass. Marked,
+                // so a restart waits for that pass too.
+                super::log(&format!("[engine] bot {id}: its price check failed: {err:?}; checked again at Repair's next pass"));
+                let mark = model::run_write(&e.primary, &bot, |tx| model::merge_transient_compact(tx, id, &[(super::conditions::DEAD, serde_json::json!(true))]));
+                if let Err(err @ (EngineError::Lease(_) | EngineError::Store(_))) = mark { return Err(err); }
+                let next = super::conditions::repair_at(clock.now()).timestamp_micros();
+                e.condition_at.insert(id, next);
+                *wake = (*wake).min(next);
+                return Ok(());
+            }
+        }
+    } else {
+        e.condition_at.remove(&id);
+    }
     let (Some(anchor), Some(eff)) = (bot.started_at_us()?, bot.effective()) else { return Ok(()) };
     let cps = checkpoints(anchor, now_us, eff.clone())?;
     cps.validate_times()?;
@@ -534,6 +571,14 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
             // The bot stays due and is rechecked after a bounded wait: an expired retry time left here would pull every wake to now.
             TickOutcome::Stale { .. } => { e.retry_at.insert(id, model::Produced::new(clock.now().timestamp_micros() + STALE_RECHECK_US,retry_producer.clone())); }
             TickOutcome::Skipped | TickOutcome::Stopped => { e.retry_at.remove(&id); e.reconcile_at.remove(&id); e.attempts.remove(&id); }
+            // Bot::PriceLimitCheckJob.set(wait_until: Time.now.utc.end_of_minute).
+            TickOutcome::Paused => {
+                e.retry_at.remove(&id); e.reconcile_at.remove(&id); e.attempts.remove(&id);
+                let at = super::conditions::end_of_minute(clock.now()).timestamp_micros();
+                e.condition_at.insert(id, at);
+                *wake = (*wake).min(at);
+                return Ok(());
+            }
         }
     }
     // Only entries that still apply count: a stale one (bot stopped and restarted) would spin the loop.

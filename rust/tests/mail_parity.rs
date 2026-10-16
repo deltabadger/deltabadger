@@ -376,7 +376,7 @@ async fn a_marker_the_guard_will_not_let_go_is_mailed_once_and_cleared_when_it_m
         mark(&i, notice::STOPPED, notice::stopped_marker("unauthorized.", chrono::Utc::now()));
         // The clear is a write of `bots` from outside the engine: eligibility::guard has the last word. Here it refuses
         // every such write, for a reason the clear did not cause: a setting this engine does not run.
-        i.o.primary.execute("UPDATE bots SET settings = json_set(settings, '$.price_limited', json('true'))", []).unwrap();
+        i.o.primary.execute("UPDATE bots SET settings = json_set(settings, '$.price_drop_limited', json('true'))", []).unwrap();
         assert!(notice::clear(&i.o.primary, &seed::cipher(), &markers(&i)[0]).is_err());
         let server = smtp::start(Behaviour { starttls: true, auth: true, ..Default::default() }).await;
         let (stop, stopped) = watch::channel(false);
@@ -386,7 +386,7 @@ async fn a_marker_the_guard_will_not_let_go_is_mailed_once_and_cleared_when_it_m
         tokio::time::sleep(Duration::from_millis(300)).await; // ten looks later
         assert_eq!((server.messages().len(), markers(&i).len()), (1, 1), "sent once; the marker stays while the guard refuses");
         // The reason goes away: the marker goes, and no second mail.
-        i.o.primary.execute("UPDATE bots SET settings = json_remove(settings, '$.price_limited')", []).unwrap();
+        i.o.primary.execute("UPDATE bots SET settings = json_remove(settings, '$.price_drop_limited')", []).unwrap();
         until("the marker was cleared", || markers(&i).is_empty()).await;
         assert_eq!(server.messages().len(), 1);
         stop.send(true).unwrap();
