@@ -455,7 +455,8 @@ module Bot::Rebalancer
   # The entry furthest from its target, in quote terms, plus the portfolio total it was measured
   # against. :max is the most overweight, :min the most underweight.
   def extreme_rebalance_entry(direction)
-    entries = rebalance_targets
+    # Forced: this sizes a trade, so it reads the ledger as it is now, not as a cache last saw it.
+    entries = rebalance_targets(force: true)
     return [nil, 0] if entries.blank?
 
     total = entries.sum { |entry| entry[:value].to_d }

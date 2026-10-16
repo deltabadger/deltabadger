@@ -205,7 +205,10 @@ module Bot::Composition::OrderSetter
   # across twenty members would put every slice under the venue floor. No carry: a remainder nobody can
   # sell is dropped, as the pair bot's sell leg drops it.
   def get_sell_orders_data(withdrawal)
-    fresh = metrics(force: true)
+    # Forced: the ranking and the holdings it caps against come from the same fresh walk, which this
+    # call has just written to the cache that `metrics` reads below.
+    entries = composition_targets(locked: [], force: true)
+    fresh = metrics
     holdings = fresh[:asset_breakdown] || {}
     if holdings.none? { |_symbol, holding| holding[:amount].to_d.positive? }
       Rails.logger.info("set_orders composition bot=#{id} event=sell_skipped reason=no_holdings")
@@ -214,7 +217,6 @@ module Bot::Composition::OrderSetter
 
     # Holdings but no valuation: retryable, and raised before anything is placed — the buy leg's Step 1
     # reasoning. Selling on a guessed ranking would pick the wrong member.
-    entries = composition_targets(locked: [])
     raise Client::TransientNetworkError, "No valuation for bot #{id}'s holdings" if entries.nil?
 
     resting = reserved_waiting_amounts(:sell)

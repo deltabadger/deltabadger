@@ -29,13 +29,19 @@ module Bot::Composition::Rebalancer
   # permanently the most-overweight entry, which sold them automatically — and an asset that left at
   # 0.1% of the portfolio never tripped a 5-point band at all, so it was never sold either. Neither
   # behaviour was wanted.
-  def rebalance_targets = composition_targets(locked: locked_asset_ids)
+  def rebalance_targets(force: false) = composition_targets(locked: locked_asset_ids, force:)
 
   # The composition's members with their live value and normalised target. `locked` is who sits out:
   # the rebalance leg passes the wash-sale locks (a locked member is treated exactly like a quitter —
   # see Bot::WashSaleGuard), the sell leg passes none, because a lock forbids buying, not selling.
-  def composition_targets(locked:)
-    data = metrics_with_current_prices
+  #
+  # `force` is for the trade paths: both cache layers, the ledger walk first, because forcing only the
+  # valuation still reads the thirty-day `metrics` underneath and would size against a ledger that
+  # predates the last fill (the trap Bot::Composition::Liquidatable#place_liquidation_orders! notes).
+  # The widget's drift reading stays cached.
+  def composition_targets(locked:, force: false)
+    metrics(force: true) if force
+    data = metrics_with_current_prices(force:)
     return nil if data[:prices_stale]
 
     values = data[:asset_values] || {}
