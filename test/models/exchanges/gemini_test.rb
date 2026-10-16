@@ -107,6 +107,35 @@ class Exchanges::GeminiTest < ActiveSupport::TestCase
     assert_equal false, result.data
   end
 
+  # One order Gemini no longer has (HTTP 404, reason OrderNotFound —
+  # https://developer.gemini.com/error-codes) failed every get_orders batch it was in, so the bot's
+  # other orders were never polled either.
+  test 'get_orders lists an order Gemini no longer has under missing and keeps the rest' do
+    live = { 'order_id' => '2', 'symbol' => 'btcusd', 'type' => 'exchange limit', 'side' => 'buy', 'price' => '400.00',
+             'avg_execution_price' => '0.00', 'original_amount' => '3', 'executed_amount' => '0',
+             'remaining_amount' => '3', 'is_live' => true, 'is_cancelled' => false }
+    answers = {
+      '1' => Result::Failure.new('{"result":"error","reason":"OrderNotFound","message":"Order 1 not found"}',
+                                 data: { status: 404 }),
+      '2' => Result::Success.new(raw: live)
+    }
+    @exchange.send(:client).define_singleton_method(:order_status) { |order_id:| answers.fetch(order_id) }
+
+    result = with_dry_run(false) { @exchange.get_orders(order_ids: %w[1 2]) }
+
+    assert_predicate result, :success?
+    assert_equal %w[1], result.data[:missing]
+    assert_equal :open, result.data[:orders]['2'][:status]
+  end
+
+  test 'get_orders still fails the batch on any other failure' do
+    @exchange.send(:client).define_singleton_method(:order_status) do |**|
+      Result::Failure.new('{"result":"error","reason":"System","message":"x"}', data: { status: 500 })
+    end
+
+    assert_predicate with_dry_run(false) { @exchange.get_orders(order_ids: %w[1]) }, :failure?
+  end
+
   # == order-placement response parsing (Bug C) ==
   # Honeymaker's client#new_order returns { order_id: "<id>", raw: {...} } (symbol keys).
   # set_limit_order/set_market_order must read result.data[:order_id], not the string 'order_id'

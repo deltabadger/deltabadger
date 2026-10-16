@@ -270,7 +270,14 @@ class Exchanges::Gemini < Exchange
 
   def get_order(order_id:)
     result = client.order_status(order_id: order_id)
-    return result if result.failure?
+    if result.failure?
+      return result unless response_field(result, 'reason') == 'OrderNotFound'
+
+      # Flagged so get_orders lists it under missing and Bot::StaleOrderResolver can retire it,
+      # instead of one gone order failing every poll of the bot's other orders.
+      return Result::Failure.new("#{name} no longer knows order #{order_id}",
+                                 data: { not_found: true, missing_ids: [order_id] })
+    end
 
     normalized_order_data = parse_order_data(order_id, result.data[:raw])
 
@@ -279,14 +286,21 @@ class Exchanges::Gemini < Exchange
 
   def get_orders(order_ids:)
     orders = {}
+    missing = []
     order_ids.each do |order_id|
       result = get_order(order_id: order_id)
-      return result if result.failure?
+      if result.failure?
+        # A gone order goes under :missing for the stale-order sweep; any other failure still fails
+        # the batch so the job retries.
+        next missing << order_id if result.data.is_a?(Hash) && result.data[:not_found]
+
+        return result
+      end
 
       orders[order_id] = result.data
     end
 
-    Result::Success.new(orders: orders, missing: [])
+    Result::Success.new(orders: orders, missing: missing)
   end
 
   def cancel_order(order_id:)
