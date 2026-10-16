@@ -316,22 +316,22 @@ class Exchanges::BingxTest < ActiveSupport::TestCase
   test 'get_ledger reads deposits and withdrawals from the documented paths' do
     insert = (2.days.ago.to_i * 1000)
     fake_ledger_client({
-      DEPOSITS => lambda { |params|
-        return [] unless params[:offset].zero? && insert.between?(params[:startTime], params[:endTime])
+                         DEPOSITS => lambda { |params|
+                           return [] unless params[:offset].zero? && insert.between?(params[:startTime], params[:endTime])
 
-        [{ 'amount' => '49999.00000000000000000000', 'coin' => 'USDTTRC20', 'network' => 'TRC20', 'status' => 1,
-           'address' => 'TPxB4v', 'addressTag' => '', 'txId' => '60ab1d', 'insertTime' => insert,
-           'unlockConfirm' => '2/2', 'confirmTimes' => '2/2' },
-         { 'amount' => '5', 'coin' => 'USDT', 'network' => 'TRC20', 'status' => 0, 'txId' => 'pending', 'insertTime' => insert }]
-      },
-      WITHDRAWALS => lambda { |params|
-        return [] unless params[:offset].zero? && insert.between?(params[:startTime], params[:endTime])
+                           [{ 'amount' => '49999.00000000000000000000', 'coin' => 'USDTTRC20', 'network' => 'TRC20', 'status' => 1,
+                              'address' => 'TPxB4v', 'addressTag' => '', 'txId' => '60ab1d', 'insertTime' => insert,
+                              'unlockConfirm' => '2/2', 'confirmTimes' => '2/2' },
+                            { 'amount' => '5', 'coin' => 'USDT', 'network' => 'TRC20', 'status' => 0, 'txId' => 'pending', 'insertTime' => insert }]
+                         },
+                         WITHDRAWALS => lambda { |params|
+                           return [] unless params[:offset].zero? && insert.between?(params[:startTime], params[:endTime])
 
-        [{ 'address' => 'TRzc', 'amount' => '3500.00000000000000000000', 'applyTime' => '2023-12-14T04:05:02.000+08:00',
-           'coin' => 'USDTTRC20', 'id' => '1250000098', 'network' => 'TRC20', 'transferType' => 1,
-           'transactionFee' => '1.00000000000000000000', 'confirmNo' => 2, 'info' => '', 'txId' => 'b9b67', 'status' => 6 }]
-      }
-    })
+                           [{ 'address' => 'TRzc', 'amount' => '3500.00000000000000000000', 'applyTime' => '2023-12-14T04:05:02.000+08:00',
+                              'coin' => 'USDTTRC20', 'id' => '1250000098', 'network' => 'TRC20', 'transferType' => 1,
+                              'transactionFee' => '1.00000000000000000000', 'confirmNo' => 2, 'info' => '', 'txId' => 'b9b67', 'status' => 6 }]
+                         }
+                       })
 
     result = @exchange.get_ledger(api_key: ledger_api_key, start_time: 3.days.ago)
 
@@ -345,14 +345,14 @@ class Exchanges::BingxTest < ActiveSupport::TestCase
   # Unknown range cap: 90-day windows from BingX's opening on a first sync; within one, offset pages
   # of 1000 until a short one.
   test 'get_ledger reads every transfer since the opening, page by page' do
-    times = (0...1500).map { |i| Time.utc(2019, 6, 1).to_i * 1000 + (i * 60_000) }
+    times = (0...1500).map { |i| (Time.utc(2019, 6, 1).to_i * 1000) + (i * 60_000) }
     asked = fake_ledger_client({
-      DEPOSITS => lambda { |params|
-        rows = times.grep(params[:startTime]..params[:endTime]).drop(params[:offset]).first(params[:limit])
-        rows.map { |t| { 'coin' => 'BTC', 'amount' => '1', 'status' => 1, 'txId' => "h#{t}", 'insertTime' => t } }
-      },
-      WITHDRAWALS => ->(_params) { [] }
-    })
+                                 DEPOSITS => lambda { |params|
+                                   rows = times.grep(params[:startTime]..params[:endTime]).drop(params[:offset]).first(params[:limit])
+                                   rows.map { |t| { 'coin' => 'BTC', 'amount' => '1', 'status' => 1, 'txId' => "h#{t}", 'insertTime' => t } }
+                                 },
+                                 WITHDRAWALS => ->(_params) { [] }
+                               })
 
     rows = @exchange.get_ledger(api_key: ledger_api_key).data
 
