@@ -409,88 +409,125 @@ pub async fn run<V: Venue>(c: &Connection, venue: &V, bot_id: i64, clock: &dyn C
         }
     }
     let bot = super::model::load_bot(c, bot_id)?;
+    // The pass's one read of what it decides from, before its first await (the clock below).
+    let claim = Claim { composition: super::placement::composition_snapshot(c, &bot)?, bot };
+    let bot = &claim.bot;
     // The placement barrier: nothing is sized while a reversal's cancels are not recorded (begin refuses it anyway).
-    if super::reversal::barred(&bot) { return Ok(Outcome::Skipped("reversal_pending")); }
+    if super::reversal::barred(bot) { return Ok(Outcome::Skipped("reversal_pending")); }
     // As a tick: nothing is decided from reference data past its bound.
-    if let Some(stale) = super::staleness::stale(c, &bot, clock.now())? {
+    if let Some(stale) = super::staleness::stale(c, bot, clock.now())? {
         super::log(&format!("[engine] bot {bot_id}: rebalance skipped: {}", stale.message));
         return Ok(Outcome::Skipped("stale"));
     }
     // #market_open?: all crypto is open; Exchanges::Alpaca reads the clock. A clock it cannot read is skipped here (Rails
     // reads nil as open): the next evaluation asks again, and an owed buy waits at most one cadence.
-    if venue.rules().market_hours && !super::model::all_crypto(c, &bot)? {
+    if venue.rules().market_hours && !super::model::all_crypto(c, bot)? {
         let answer = venue.clock_result().await.value;
-        if !matches!(super::clock::gate(answer, &super::model::exchange_name(c, &bot)?, clock.now()), super::clock::Gate::Open) {
+        if !matches!(super::clock::gate(answer, &super::model::exchange_name(c, bot)?, clock.now()), super::clock::Gate::Open) {
             super::log(&format!("[engine] bot {bot_id}: rebalance skipped: market closed"));
             return Ok(Outcome::Skipped("market_closed"));
         }
     }
-    rebalance(c, venue, bot, clock, cx).await
+    rebalance(c, venue, claim, clock, cx).await
 }
 
+/// What one pass decides from, read once before its first await: the bot as loaded (settings and allocations, status,
+/// restatement_generation, the pending phase) and its composition (placement::composition_snapshot: type, exchange,
+/// settings, member rows). Every write the pass makes compares the stored rows against it under its own write lock: the
+/// composition refresh, the split gate and the intent's fence (begin_rebalance). Nothing is re-read to be compared
+/// against, so an edit landing while the venue is asked (the clock, positions, prices) refuses the pass; the next
+/// evaluation runs it again from the edit, as Rails would. The pass's own composition refresh moves the claim forward
+/// with what it wrote, read under that write's lock.
+struct Claim { bot: Bot, composition: Value }
+
 /// Bot::Rebalancer#rebalance!.
-async fn rebalance<V: Venue + Attributed>(c: &Connection, venue: &V, bot: Bot, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<Outcome, EngineError> {
-    if pending(&bot.transient)?.is_some_and(|p| p.phase == PHASE_AMBIGUOUS) { return Ok(Outcome::Skipped("ambiguous")); }
-    before_rebalance(c, venue, &bot, clock, cx).await?;
-    let bot = super::model::load_bot(c, bot.id)?;
+async fn rebalance<V: Venue + Attributed>(c: &Connection, venue: &V, mut claim: Claim, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<Outcome, EngineError> {
+    if pending(&claim.bot.transient)?.is_some_and(|p| p.phase == PHASE_AMBIGUOUS) { return Ok(Outcome::Skipped("ambiguous")); }
+    if !before_rebalance(c, venue, &mut claim, clock, cx).await? { return Ok(Outcome::Skipped("changed")); }
+    let claim = &claim;
+    let bot = &claim.bot;
     if let Some(p) = pending(&bot.transient)? {
         return match p.phase.as_str() {
-            PHASE_SELLING => resume_selling(c, venue, &bot, p, clock, cx).await,
-            PHASE_BUYING => resume_buying(c, venue, &bot, p, clock, cx).await,
+            PHASE_SELLING => resume_selling(c, venue, claim, p, clock, cx).await,
+            PHASE_BUYING => resume_buying(c, venue, claim, p, clock, cx).await,
             _ => { halt(c, bot.id, "unrecognised pending phase", clock.now())?; Ok(Outcome::Skipped("ambiguous")) }
         };
     }
     // Bots::DcaMultiAsset#rebalance_targets: sliders off 100 % give no targets, so no drift (a pending swap, resumed above,
     // still has its targets).
-    if !super::eligibility::allocations_balanced(&bot) { return Ok(Outcome::Skipped("not_due")); }
-    let Some(reconciled) = split_gate(c, venue, &bot, clock).await? else { return Ok(Outcome::Skipped("split_hold")) };
+    if !super::eligibility::allocations_balanced(bot) { return Ok(Outcome::Skipped("not_due")); }
+    let Some(reconciled) = split_gate(c, venue, claim, clock).await? else { return Ok(Outcome::Skipped("split_hold")) };
     // #rebalance_due? reads the drift from rebalance_targets (cached in Rails; always fresh here).
-    let entries = match value(c, venue, &bot, clock.now()).await? {
+    let entries = match value(c, venue, bot, clock.now()).await? {
         Ok((_, entries)) => entries,
         Err(ValueFail::Transient(m) | ValueFail::Raised(m)) => return Ok(Outcome::Failed(m)),
     };
     if !due(&bot.settings, &bot.transient, false, drift(entries.as_deref()).as_ref())? { return Ok(Outcome::Skipped("not_due")); }
-    start(c, venue, &bot, entries.unwrap_or_default(), &reconciled, clock, cx).await
+    start(c, venue, claim, entries.unwrap_or_default(), &reconciled, clock, cx).await
 }
 
 /// tick::execute's split gate, before either leg is sized: the snapshot first, then the account's restated holdings against
 /// the venue's positions (splits::refusal), and the snapshot unchanged across that read. The snapshot is carried to the
-/// intent, whose fence refuses a split row that changed while the leg was sized. None: hold, nothing is sized.
-async fn split_gate<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, clock: &dyn Clock) -> Result<Option<super::splits::Snapshot>, EngineError> {
+/// intent, whose fence refuses a split row that changed while the leg was sized. A generation other than the pass's claim
+/// holds too. None: hold, nothing is sized.
+async fn split_gate<V: Venue + Attributed>(c: &Connection, venue: &V, claim: &Claim, clock: &dyn Clock) -> Result<Option<super::splits::Snapshot>, EngineError> {
+    let bot = &claim.bot;
     let reconciled = super::splits::snapshot(c, bot)?;
-    let reason = match super::splits::refusal(c, venue, bot, clock.now()).await? {
-        Some(reason) => reason,
-        None if super::splits::snapshot(c, bot)? != reconciled => "split generation or held assets changed during reconciliation".into(),
-        None => return Ok(Some(reconciled)),
+    let reason = if reconciled.generation != bot.restatement_generation { "split generation changed since the pass began".into() } else {
+        match super::splits::refusal(c, venue, bot, clock.now()).await? {
+            Some(reason) => reason,
+            None if super::splits::snapshot(c, bot)? != reconciled => "split generation or held assets changed during reconciliation".into(),
+            None => return Ok(Some(reconciled)),
+        }
     };
     super::log(&format!("[engine] bot {}: rebalance skipped: split reconciliation required: {reason}", bot.id));
     Ok(None)
 }
 
 /// Bot::Composition::Rebalancer#before_rebalance: the composition is refreshed (a stopped bot's DCA tick never does it), best
-/// effort: a failure is logged and the stored composition stands.
-async fn before_rebalance<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<(), EngineError> {
+/// effort: a failure is logged and the stored composition stands. Written only while the stored composition is still the
+/// claim's (false: it changed, the pass ends); the claim then moves to what was written.
+async fn before_rebalance<V: Venue + Attributed>(c: &Connection, venue: &V, claim: &mut Claim, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<bool, EngineError> {
+    let bot = &claim.bot;
     let refreshed = if bot.bot_type == "Bots::DcaIndex" {
-        match super::index::refresh_for_rebalance(c, venue, bot, clock, cx.prices, &cx.credential_version).await {
-            Ok(Ok(())) => Ok(()),
+        match super::index::refresh_for_rebalance(c, venue, bot, &claim.composition, clock, cx.prices, &cx.credential_version).await {
+            Ok(Ok(written)) => Ok(written),
             Ok(Err(super::index::Refusal::Failure(m) | super::index::Refusal::Transient(m))) => Err(m),
             Err(e @ (EngineError::Lease(_) | EngineError::Store(_))) => return Err(e),
             Err(e) => Err(format!("{e:?}")),
         }
     } else {
         let now = clock.now();
-        match super::model::locked(c, |tx| super::basket::refresh_composition(tx, bot, now)) {
-            Ok(r) => r,
+        let claimed = &claim.composition;
+        // The bot is read again inside the write lock, and written only while it still is what the pass claimed.
+        let written = super::model::locked(c, |tx| {
+            let current = super::model::load_bot(tx, bot.id)?;
+            if &super::placement::composition_snapshot(tx, &current)? != claimed { return Ok(None); }
+            Ok(Some(match super::basket::refresh_composition(tx, &current, now)? {
+                Ok(()) => Ok(super::placement::composition_snapshot(tx, &current)?),
+                Err(m) => Err(m),
+            }))
+        });
+        match written {
+            Ok(None) => {
+                super::log(&format!("[engine] bot {}: rebalance skipped: its settings or members changed since the pass began", bot.id));
+                return Ok(false);
+            }
+            Ok(Some(r)) => r,
             Err(e @ (EngineError::Lease(_) | EngineError::Store(_))) => return Err(e),
             Err(e) => Err(format!("{e:?}")),
         }
     };
-    if let Err(m) = refreshed { super::log(&format!("[engine] rebalance composition refresh failed bot={}: {m}", bot.id)); }
-    Ok(())
+    match refreshed {
+        Ok(written) => claim.composition = written,
+        Err(m) => super::log(&format!("[engine] rebalance composition refresh failed bot={}: {m}", bot.id)),
+    }
+    Ok(true)
 }
 
 /// #start_rebalance!: sell the most overweight member down to its target (never more than is free on the venue).
-async fn start<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, entries: Vec<Entry>, reconciled: &super::splits::Snapshot, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<Outcome, EngineError> {
+async fn start<V: Venue + Attributed>(c: &Connection, venue: &V, claim: &Claim, entries: Vec<Entry>, reconciled: &super::splits::Snapshot, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<Outcome, EngineError> {
+    let bot = &claim.bot;
     // #rebalance_sell_order_data; nil is a silent below_minimum.
     let Some((i, excess)) = sell_target(Some(&entries)) else { return Ok(Outcome::Skipped("below_minimum")) };
     let ticker = entries[i].ticker.clone().expect("a tradeable entry has a ticker");
@@ -507,7 +544,7 @@ async fn start<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, entr
         return Ok(Outcome::Skipped("below_minimum"));
     }
     let intent_state = Pending { phase: PHASE_SELLING.into(), sell_transaction_id: None, buy_transaction_id: None, remaining_quote_amount: None, buy_attempted: false };
-    place(c, venue, bot, &plan, &intent_state, reconciled, clock, cx).await
+    place(c, venue, claim, &plan, &intent_state, reconciled, clock, cx).await
 }
 
 /// #waiting_buy_blocks_sell?: a waiting buy of this asset on any of the account's bots, by id or by any name a venue lists it
@@ -573,8 +610,8 @@ async fn refresh<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, id
 }
 
 /// #resume_selling!.
-async fn resume_selling<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, p: Pending, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<Outcome, EngineError> {
-    let now = clock.now();
+async fn resume_selling<V: Venue + Attributed>(c: &Connection, venue: &V, claim: &Claim, p: Pending, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<Outcome, EngineError> {
+    let (bot, now) = (&claim.bot, clock.now());
     if pending_row(c, bot.id, p.sell_transaction_id)?.is_none() { halt(c, bot.id, "sell intent with no persisted order", now)?; return Ok(Outcome::Skipped("ambiguous")); }
     let id = p.sell_transaction_id.expect("found by it");
     refresh(c, venue, bot, id, now).await;
@@ -585,17 +622,17 @@ async fn resume_selling<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &
     let Some(proceeds) = row.realized() else { return Ok(Outcome::Skipped("proceeds_unknown")) };
     if !proceeds.is_positive() { clear_pending(c, bot.id)?; return Ok(Outcome::Skipped("nothing_sold")); }
     set_pending(c, bot.id, &Pending { phase: PHASE_BUYING.into(), sell_transaction_id: Some(id), buy_transaction_id: None, remaining_quote_amount: Some(proceeds), buy_attempted: false })?;
-    place_pending_buy(c, venue, bot.id, clock, cx).await
+    place_pending_buy(c, venue, claim, clock, cx).await
 }
 
 /// #resume_buying!.
-async fn resume_buying<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, p: Pending, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<Outcome, EngineError> {
-    let now = clock.now();
+async fn resume_buying<V: Venue + Attributed>(c: &Connection, venue: &V, claim: &Claim, p: Pending, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<Outcome, EngineError> {
+    let (bot, now) = (&claim.bot, clock.now());
     if pending_row(c, bot.id, p.buy_transaction_id)?.is_none() {
         if p.buy_transaction_id.is_none() {
             // Attempted with no order id in the state: the send may have landed. Only a handoff that never left is replayed.
             if p.buy_attempted { halt(c, bot.id, "buy attempted with no persisted order", now)?; return Ok(Outcome::Skipped("ambiguous")); }
-            return place_pending_buy(c, venue, bot.id, clock, cx).await;
+            return place_pending_buy(c, venue, claim, clock, cx).await;
         }
         halt(c, bot.id, "buy intent with no persisted order", now)?;
         return Ok(Outcome::Skipped("ambiguous"));
@@ -610,26 +647,27 @@ async fn resume_buying<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &B
     if !remaining.is_positive() { clear_pending(c, bot.id)?; return Ok(Outcome::Skipped("completed")); }
     // A partly filled then cancelled buy still owes the remainder: only that is placed.
     set_pending(c, bot.id, &Pending { phase: PHASE_BUYING.into(), sell_transaction_id: p.sell_transaction_id, buy_transaction_id: None, remaining_quote_amount: Some(remaining), buy_attempted: false })?;
-    place_pending_buy(c, venue, bot.id, clock, cx).await
+    place_pending_buy(c, venue, claim, clock, cx).await
 }
 
 /// #place_pending_buy! with #rebalance_buy_order_data: the owed proceeds into the most underweight member, capped by its
 /// shortfall against the cash-inclusive total and by the settled quote on the venue.
-async fn place_pending_buy<V: Venue + Attributed>(c: &Connection, venue: &V, bot_id: i64, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<Outcome, EngineError> {
-    let bot = super::model::load_bot(c, bot_id)?;
-    let p = pending(&bot.transient)?.ok_or_else(|| EngineError::Data(format!("bot {bot_id}: no pending rebalance to buy for")))?;
+async fn place_pending_buy<V: Venue + Attributed>(c: &Connection, venue: &V, claim: &Claim, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<Outcome, EngineError> {
+    let (bot, bot_id) = (&claim.bot, claim.bot.id);
+    // The phase is this pass's own write (resume_*); everything the buy is sized from is the claim's.
+    let p = pending(&super::model::load_bot(c, bot_id)?.transient)?.ok_or_else(|| EngineError::Data(format!("bot {bot_id}: no pending rebalance to buy for")))?;
     let owed = p.remaining_quote_amount.clone().unwrap_or_else(BigDec::zero);
     if !owed.is_positive() { clear_pending(c, bot_id)?; return Ok(Outcome::Skipped("nothing_owed")); }
-    let Some(reconciled) = split_gate(c, venue, &bot, clock).await? else { return Ok(Outcome::Skipped("split_hold")) };
-    let entries = match value(c, venue, &bot, clock.now()).await? {
+    let Some(reconciled) = split_gate(c, venue, claim, clock).await? else { return Ok(Outcome::Skipped("split_hold")) };
+    let entries = match value(c, venue, bot, clock.now()).await? {
         Ok((_, entries)) => entries,
         Err(ValueFail::Transient(m) | ValueFail::Raised(m)) => return Ok(Outcome::Failed(m)),
     };
     let unavailable = Ok(Outcome::Skipped("buy_unavailable"));
     let Some((i, shortfall)) = buy_target(entries.as_deref(), &owed) else { return unavailable };
     let ticker = entries.as_ref().expect("an entry was found")[i].ticker.clone().expect("a tradeable entry has a ticker");
-    let Some(price) = super::tick::market_price_for(venue, &bot, &ticker, Side::Buy, clock, cx).await? else { return unavailable };
-    let free = match super::tick::live_free_balance(c, venue, &bot, &ticker, ticker.quote_asset_id).await? { Ok(f) => f, Err(e) => return Ok(Outcome::Failed(format!("{e:?}"))) };
+    let Some(price) = super::tick::market_price_for(venue, bot, &ticker, Side::Buy, clock, cx).await? else { return unavailable };
+    let free = match super::tick::live_free_balance(c, venue, bot, &ticker, ticker.quote_asset_id).await? { Ok(f) => f, Err(e) => return Ok(Outcome::Failed(format!("{e:?}"))) };
     let spend = least([owed.clone(), shortfall, free]).expect("three values");
     if !spend.is_positive() { return unavailable; }
     let amount = spend.div(&price).expect("the price is positive");
@@ -642,16 +680,17 @@ async fn place_pending_buy<V: Venue + Attributed>(c: &Connection, venue: &V, bot
     }
     // #mark_buy_attempted!, written with the intent.
     let intent_state = Pending { phase: PHASE_BUYING.into(), sell_transaction_id: p.sell_transaction_id, buy_transaction_id: None, remaining_quote_amount: Some(owed), buy_attempted: true };
-    place(c, venue, &bot, &plan, &intent_state, &reconciled, clock, cx).await
+    place(c, venue, claim, &plan, &intent_state, &reconciled, clock, cx).await
 }
 
 /// #place_rebalance_order: the intent and the pending phase in one transaction (placement::begin_rebalance), one send, and
-/// the outcome settled with the row (placement::settle_rebalance through send_recorded).
+/// the outcome settled with the row (placement::settle_rebalance through send_recorded). The fence compares the stored bot
+/// against the pass's claim: its settings, allocations and members as read before the first await.
 #[allow(clippy::too_many_arguments)]
-async fn place<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, plan: &OrderPlan, intent_state: &Pending, reconciled: &super::splits::Snapshot, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<Outcome, EngineError> {
+async fn place<V: Venue + Attributed>(c: &Connection, venue: &V, claim: &Claim, plan: &OrderPlan, intent_state: &Pending, reconciled: &super::splits::Snapshot, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<Outcome, EngineError> {
     use super::placement::{Begun, Sent};
-    let composition = super::placement::composition_snapshot(c, bot)?;
-    let intent = match super::placement::begin_rebalance(c, bot, plan, &[&plan.ticker], &composition, reconciled, &cx.credential_version, venue.placement_identity(), intent_state, clock)? {
+    let bot = &claim.bot;
+    let intent = match super::placement::begin_rebalance(c, bot, plan, &[&plan.ticker], &claim.composition, reconciled, &cx.credential_version, venue.placement_identity(), intent_state, clock)? {
         Begun::Intent(intent) => intent,
         Begun::Changed | Begun::Fenced => return Ok(Outcome::Skipped("changed")),
         Begun::LedgerStale(_) => return Ok(Outcome::Skipped("ledger_stale")),

@@ -486,3 +486,65 @@ async fn a_handback_settles_a_lost_swap_reply_into_rails_own_pending_state() {
     assert!(model::load_bot(&o.primary, id).unwrap().rust_placement().is_none());
     assert_eq!(one::<String>(&o, "SELECT transaction_type FROM transactions WHERE id = (SELECT max(id) FROM transactions)"), "REBALANCE");
 }
+
+// ---- an allocation edit racing the swap's reads: the pass decides from what it read before its first await ----
+
+/// A stopped 50/50 AAA/BBB stock basket holding 9 AAA and 1 BBB at 100: AAA sits 40 points over (sell 4). At 90/10 it is
+/// on target. An open clock, both positions, every quote at 100.
+fn stock_swap() -> (tempfile::TempDir, store::Opened, i64, [i64; 2], ScriptedTransport) {
+    let (d, o, s) = common::install_alpaca();
+    let (aaa, _) = seed::add_alpaca_stock(&o.primary, &s, "AAA");
+    let (bbb, _) = seed::add_alpaca_stock(&o.primary, &s, "BBB");
+    o.primary.execute("INSERT INTO exchange_assets (exchange_id, asset_id, available, created_at, updated_at) \
+                       SELECT exchange_id, base_asset_id, 1, created_at, updated_at FROM tickers WHERE ticker IN ('AAA', 'BBB')", []).unwrap();
+    let id = seed::insert_bot(&o.primary, &s, &stopped().with("rebalance_enabled", json!(true)).weights(&[(aaa, 0.5), (bbb, 0.5)]));
+    deltabadger::engine::basket::refresh_composition(&o.primary, &model::load_bot(&o.primary, id).unwrap(), at("2026-09-01T09:00:00Z")).unwrap().unwrap();
+    for (asset, sym, qty, quote) in [(aaa, "AAA", "9", "900"), (bbb, "BBB", "1", "100")] {
+        seed::insert_stock_tx(&o.primary, &s, id, asset, sym, &seed::TxSpec { status: 0, external_status: Some(2), external_id: Some(format!("held-{sym}")), order_type: 0,
+            amount: Some(qty), quote_amount: Some(quote), price: Some("100"), amount_exec: Some(qty), quote_amount_exec: Some(quote), created_at: "2026-09-01 10:00:01".into() });
+    }
+    seed::fresh_stock_jobs(&o.primary, at(T0));
+    let mut m = json!({
+        "GET /v2/clock": [ok(json!({ "timestamp": "2026-09-01T08:30:00-04:00", "is_open": true, "next_open": "2099-01-02T09:30:00-05:00", "next_close": "2099-01-01T16:00:00-05:00" }))],
+        "POST /v2/orders": [accepted("OTX-1")],
+        "GET /v2/account": [ok(json!({ "cash": "100000", "buying_power": "200000", "non_marginable_buying_power": "100000" }))],
+        "GET /v2/positions": [ok(json!([{ "symbol": "AAA", "asset_class": "us_equity", "qty": "9", "qty_available": "9" },
+                                        { "symbol": "BBB", "asset_class": "us_equity", "qty": "1", "qty_available": "1" }]))],
+        "GET /v2/stocks/snapshots": [ok(json!({ "AAA": { "latestTrade": { "p": 100 } }, "BBB": { "latestTrade": { "p": 100 } } }))],
+        "GET /v1beta3/crypto/us/latest/trades": [ok(json!({ "trades": {} }))],
+    });
+    for sym in ["AAA", "BBB"] { m[format!("GET /v2/stocks/{sym}/quotes/latest")] = json!([ok(json!({ "quote": { "ap": 100, "bp": 100 } }))]); }
+    (d, o, id, [aaa, bbb], ScriptedTransport::from_script(&m))
+}
+/// The web's save of a 90/10 split: the settings and the member rows it derives.
+fn edit_to_90_10(id: i64, [aaa, bbb]: [i64; 2]) -> String {
+    format!("UPDATE bots SET settings = json_set(settings, '$.allocations', json('{{\"{aaa}\": 0.9, \"{bbb}\": 0.1}}')), settings_changed_at = '2026-09-01 12:29:59' WHERE id = {id}; \
+             UPDATE bot_index_assets SET target_allocation = CASE asset_id WHEN {aaa} THEN 0.9 ELSE 0.1 END WHERE bot_id = {id};")
+}
+fn targets(o: &store::Opened, id: i64) -> Vec<f64> {
+    o.primary.prepare("SELECT target_allocation FROM bot_index_assets WHERE bot_id = ?1 AND in_index = 1 ORDER BY id").unwrap()
+        .query_map([id], |r| r.get(0)).unwrap().map(Result::unwrap).collect()
+}
+
+/// Codex P1: the 50/50 → 90/10 edit lands while /v2/clock is asked. The composition refresh wrote the old 50/50 back over
+/// the new members, the fence re-read the new settings and passed, and the old 50/50 sell went out though 90/10 is on
+/// target. Then a positions read and a price read: each places nothing and leaves the edit as the user saved it.
+#[tokio::test(flavor = "current_thread")]
+async fn an_allocation_edit_during_any_of_the_swaps_reads_places_nothing_and_keeps_the_edit() {
+    let (_d, o, id, _, t) = stock_swap();
+    assert!(matches!(evaluate(&o, &t, id, at(T0)).await, Outcome::Placed(_)), "unedited, the 50/50 sells AAA");
+    assert_eq!(posted(&t), vec![("AAA".into(), "sell".into(), "4.000000000".into())]);
+    for path in ["/v2/clock", "/v2/positions", "/v2/stocks/snapshots", "/v2/stocks/AAA/quotes/latest"] {
+        let (_d, o, id, assets, t) = stock_swap();
+        let out = evaluate_on(&o, &during(&o, &t, path, edit_to_90_10(id, assets)), id, at(T0)).await;
+        assert!(!matches!(out, Outcome::Placed(_)), "{path}: {out:?}");
+        assert!(t.posted_orders().is_empty(), "{path}");
+        assert_eq!(pending(&o, id), Value::Null, "{path}");
+        assert!(model::load_bot(&o.primary, id).unwrap().rust_placement().is_none(), "{path}");
+        let bot = model::load_bot(&o.primary, id).unwrap();
+        assert_eq!(bot.settings["allocations"], json!({ assets[0].to_string(): 0.9, assets[1].to_string(): 0.1 }), "{path}");
+        assert_eq!(targets(&o, id), vec![0.9, 0.1], "{path}: the members the edit wrote");
+        // The next fire decides from the edit: on target, nothing is due.
+        assert_eq!(evaluate(&o, &t, id, at(T0)).await, Outcome::Skipped("not_due"), "{path}");
+    }
+}
