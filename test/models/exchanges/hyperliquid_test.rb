@@ -173,6 +173,15 @@ class Exchanges::HyperliquidTest < ActiveSupport::TestCase
     assert_equal '2.49'.to_d, result.data
   end
 
+  test 'a book with no orders on a side is a failed price read, not an exception' do
+    @exchange.set_client
+    ticker = hyperliquid_at_ticker
+    @exchange.send(:client).stubs(:l2_book).returns(Result::Success.new({ 'coin' => '@142', 'levels' => [[], []] }))
+
+    assert_predicate @exchange.get_bid_price(ticker: ticker, force: true), :failure?
+    assert_predicate @exchange.get_ask_price(ticker: ticker, force: true), :failure?
+  end
+
   test 'get_ask_price returns best ask from l2_book' do
     @exchange.set_client
     client = @exchange.send(:client)

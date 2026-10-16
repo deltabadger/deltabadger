@@ -151,7 +151,8 @@ class Exchanges::Hyperliquid < Exchange
       result = get_l2_book(ticker)
       return result if result.failure?
 
-      price = result.data[:bid][:price]
+      price = result.data.dig(:bid, :price)
+      return Result::Failure.new("Hyperliquid has no bids for #{ticker.ticker}") if price.nil?
       raise "Wrong bid price for #{ticker.ticker}: #{price}" if price.zero?
 
       price
@@ -166,7 +167,8 @@ class Exchanges::Hyperliquid < Exchange
       result = get_l2_book(ticker)
       return result if result.failure?
 
-      price = result.data[:ask][:price]
+      price = result.data.dig(:ask, :price)
+      return Result::Failure.new("Hyperliquid has no asks for #{ticker.ticker}") if price.nil?
       raise "Wrong ask price for #{ticker.ticker}: #{price}" if price.zero?
 
       price
@@ -413,21 +415,10 @@ class Exchanges::Hyperliquid < Exchange
       result = client.l2_book(coin: ticker.ticker)
       return result if result.failure?
 
-      levels = result.data['levels']
-      bids = levels[0] # bids array
-      asks = levels[1] # asks array
-
-      formatted = {
-        bid: {
-          price: bids.first['px'].to_d,
-          size: bids.first['sz'].to_d
-        },
-        ask: {
-          price: asks.first['px'].to_d,
-          size: asks.first['sz'].to_d
-        }
-      }
-      Result::Success.new(formatted)
+      # A side with no orders is an empty array: most RWA tokens have no book at all.
+      bids, asks = result.data['levels']
+      top = ->(level) { level && { price: level['px'].to_d, size: level['sz'].to_d } }
+      Result::Success.new({ bid: top.call(Array(bids).first), ask: top.call(Array(asks).first) })
     end
   end
 
