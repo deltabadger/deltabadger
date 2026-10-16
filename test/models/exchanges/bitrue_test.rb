@@ -289,4 +289,90 @@ class Exchanges::BitrueTest < ActiveSupport::TestCase
     assert_predicate result, :success?
     assert_equal({ 'BTCUSDT' => 82_316.to_d }, result.data)
   end
+
+  # ---- ledger ----
+
+  # A Bitrue account as the documented endpoints serve it: lower-case assets, myTrades without
+  # quoteQty, a ranged read answering at most `limit` rows.
+  class FakeLedger
+    attr_reader :calls
+
+    def initialize(balances:, trades: {}, deposits: {}, withdrawals: {})
+      @balances = balances
+      @trades = trades
+      @deposits = deposits
+      @withdrawals = withdrawals
+      @calls = []
+    end
+
+    def account_information
+      Result::Success.new({ 'balances' => @balances.map { |a, f| { 'asset' => a, 'free' => f, 'locked' => '0' } } })
+    end
+
+    def exchange_information
+      Result::Success.new({ 'symbols' => [
+                            { 'symbol' => 'BTCUSDT', 'baseAsset' => 'btc', 'quoteAsset' => 'usdt' },
+                            { 'symbol' => 'ETHUSDT', 'baseAsset' => 'eth', 'quoteAsset' => 'usdt' },
+                            { 'symbol' => 'XRPUSDT', 'baseAsset' => 'xrp', 'quoteAsset' => 'usdt' }
+                          ] })
+    end
+
+    # honeymaker's own method (undocumented v1 path): the newest `limit` trades from start_time.
+    def account_trade_list(symbol:, start_time: nil, limit: 500, **)
+      Result::Success.new(Array(@trades[symbol]).select { |t| start_time.nil? || t['time'] >= start_time }.last(limit))
+    end
+
+    def get_signed(path, params)
+      @calls << params.merge(path: path)
+      rows = case path
+             when '/api/v2/myTrades' then Array(@trades[params[:symbol]])
+             else return Result::Failure.new('<html>302 Found</html>', data: { status: 302 })
+             end
+      Result::Success.new(rows.select { |r| r['time'].between?(params[:startTime], params[:endTime]) }.first(params[:limit]))
+    end
+  end
+
+  def trade(id, time, qty: '0.001', price: '50000', buyer: true)
+    { 'symbol' => 'BTCUSDT', 'id' => id, 'tradeId' => id * 1000, 'orderId' => id, 'price' => price, 'qty' => qty,
+      'commission' => '0.05', 'commissionAsset' => 'usdt', 'time' => time.to_i * 1000, 'isBuyer' => buyer,
+      'isMaker' => false, 'isBestMatch' => true }
+  end
+
+  def ledger_with(fake)
+    @exchange.stubs(:sleep)
+    Honeymaker.stubs(:client).returns(fake)
+    api_key = create(:api_key, exchange: @exchange, key_type: :trading, key: 'k', secret: 's')
+    @exchange.get_ledger(api_key: api_key, start_time: nil)
+  end
+
+  test 'get_ledger reads every trade of a pair through myTrades, pricing each from qty and price' do
+    base = Time.utc(2025, 1, 1)
+    # 1500 trades in one hour: more than a page, so the range has to be split.
+    trades = (1..1500).map { |i| trade(i, base + i.seconds) }
+    fake = FakeLedger.new(balances: { 'btc' => '1.5', 'usdt' => '0' }, trades: { 'BTCUSDT' => trades })
+
+    result = ledger_with(fake)
+    assert_predicate result, :success?
+    buys = result.data.select { |e| e[:entry_type] == :buy }
+    assert_equal 1500, buys.size
+    assert_equal 1500, buys.map { |e| e[:tx_id] }.uniq.size
+    first = buys.min_by { |e| e[:transacted_at] }
+    assert_equal 'BTC', first[:base_currency]
+    assert_equal 'USDT', first[:quote_currency]
+    assert_equal 50.to_d, first[:quote_amount]
+    assert_equal 'USDT', first[:fee_currency]
+    assert_equal 'BTCUSDT-1-1', first[:tx_id]
+  end
+
+  test 'get_ledger fails the fetch when a trade read fails' do
+    fake = FakeLedger.new(balances: { 'btc' => '1' })
+    fake.define_singleton_method(:get_signed) do |_path, _params|
+      Result::Failure.new('{"code":-1022,"msg":"No login"}', data: { status: 401 })
+    end
+    fake.define_singleton_method(:account_trade_list) do |**|
+      Result::Failure.new('{"code":-1022,"msg":"No login"}', data: { status: 401 })
+    end
+
+    assert_predicate ledger_with(fake), :failure?
+  end
 end
