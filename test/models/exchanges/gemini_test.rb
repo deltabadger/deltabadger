@@ -477,6 +477,38 @@ class Exchanges::GeminiTest < ActiveSupport::TestCase
     assert_predicate @exchange.get_ledger(api_key: ledger_key), :failure?
   end
 
+  # The v1 list Gemini is retiring was read once, with its default of 10 rows and no paging, and a
+  # failed read was skipped while the fetch succeeded. Shaped like the v2 example.
+  test 'get_ledger walks every page of v2 transfers, paced, with the fee in its own currency' do
+    withdrawal = { 'type' => 'Withdrawal', 'status' => 'Complete', 'timestampms' => 1_772_818_620_354, 'eid' => 368_598_436_530,
+                   'currency' => 'USDC', 'amount' => '0.01', 'network' => 'ethereum', 'feeAmount' => '0.118856',
+                   'feeCurrency' => 'USDC', 'txHash' => '714a15c4' }
+    deposits = (1..50).map do |i|
+      { 'type' => 'Deposit', 'status' => 'Complete', 'timestampms' => 1_771_990_797_452 + i, 'eid' => 309_356_152 + i,
+        'currency' => 'ETH', 'amount' => '1', 'feeAmount' => '0', 'feeCurrency' => 'ETH' }
+    end
+    admin = { 'type' => 'AdminCredit', 'status' => 'Complete', 'timestampms' => 1_772_818_620_400, 'eid' => 1,
+              'currency' => 'BTC', 'amount' => '4' }
+    calls = stub_ledger(transfers: [deposits, [withdrawal, admin]])
+    sleeps = record_sleeps
+
+    entries = @exchange.get_ledger(api_key: ledger_key).data
+
+    assert_equal 51, entries.size
+    assert_equal({ entry_type: :withdrawal, base_currency: 'USDC', fee_currency: 'USDC', fee_amount: '0.118856'.to_d,
+                   tx_id: '368598436530' },
+                 entries.last.slice(:entry_type, :base_currency, :fee_currency, :fee_amount, :tx_id))
+    assert_equal [{ timestamp: 0, limit_transfers: 50, path: '/v2/transfers' },
+                  { timestamp: 1_771_990_797_502 + 1, limit_transfers: 50, path: '/v2/transfers' }], calls[:transfers]
+    assert_equal [5], sleeps
+  end
+
+  test 'get_ledger fails when a transfers page fails' do
+    stub_ledger(transfers: [Result::Failure.new('{"result":"error","reason":"MissingRole","message":"x"}', data: { status: 403 })])
+
+    assert_predicate @exchange.get_ledger(api_key: ledger_key), :failure?
+  end
+
   private
 
   def ledger_key
@@ -499,8 +531,8 @@ class Exchanges::GeminiTest < ActiveSupport::TestCase
       answer = trades.shift || []
       answer.is_a?(Result::Failure) ? answer : Result::Success.new(answer)
     end
-    client.define_singleton_method(:get_transfers) do |**params|
-      calls[:transfers] << params
+    client.define_singleton_method(:post_signed) do |path, params|
+      calls[:transfers] << params.merge(path: path)
       answer = transfers.shift || []
       answer.is_a?(Result::Failure) ? answer : Result::Success.new(answer)
     end

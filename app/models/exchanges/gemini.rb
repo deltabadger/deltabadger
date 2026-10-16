@@ -6,6 +6,8 @@ class Exchanges::Gemini < Exchange
   # recommendation, and leaves room for the app's other public requests.
   CATALOGUE_REQUEST_INTERVAL = 1
   TRADES_PAGE = 500 # /v1/mytrades limit_trades maximum
+  TRANSFERS_PAGE = 50 # /v2/transfers limit_transfers maximum
+  TRANSFERS_REQUEST_INTERVAL = 5 # https://developer.gemini.com/rate-limit
 
   COINGECKO_ID = 'gemini'.freeze # https://docs.coingecko.com/reference/exchanges-list
   # Reasons from https://developer.gemini.com/error-codes, matched inside the error body
@@ -424,23 +426,28 @@ class Exchanges::Gemini < Exchange
     end
     return failed if failed
 
-    # Transfers (deposits + withdrawals)
-    result = hm_client.get_transfers(timestamp: ts_ms)
-    unless result.failure?
-      Array(result.data).each do |transfer|
-        type = transfer['type']
-        next unless %w[Deposit Withdrawal].include?(type)
-
-        entry_type = type == 'Deposit' ? :deposit : :withdrawal
-        entries << { entry_type: entry_type,
-                     base_currency: transfer['currency']&.upcase, base_amount: transfer['amount'].to_d,
-                     quote_currency: nil, quote_amount: nil,
-                     fee_currency: transfer['feeAmount'].to_d.positive? ? transfer['currency']&.upcase : nil,
-                     fee_amount: transfer['feeAmount'].to_d.positive? ? transfer['feeAmount'].to_d : nil,
-                     tx_id: transfer['eid'].to_s, group_id: nil, description: nil,
-                     transacted_at: Time.at(transfer['timestampms'].to_i / 1000.0).utc, raw_data: transfer }
-      end
+    # Deposits and withdrawals from /v2/transfers, which Gemini names the replacement for the v1 list
+    # it is retiring (https://developer.gemini.com/trading/rest-api/fund-management/list-past-transfers).
+    # honeymaker 0.12.3 has only the v1 call, so the request goes through the client's own signing.
+    # 50 a page, walked forward like the trades, and no faster than the one request per 5 seconds
+    # Gemini allows on this endpoint.
+    fetch = lambda do |from_ms|
+      hm_client.send(:post_signed, '/v2/transfers', { timestamp: from_ms, limit_transfers: TRANSFERS_PAGE })
     end
+    failed = each_ledger_row(fetch, TRANSFERS_PAGE, ts_ms || 0, pause: TRANSFERS_REQUEST_INTERVAL) do |transfer|
+      type = transfer['type']
+      next unless %w[Deposit Withdrawal].include?(type)
+
+      fee = transfer['feeAmount'].to_d
+      entries << { entry_type: type == 'Deposit' ? :deposit : :withdrawal,
+                   base_currency: transfer['currency']&.upcase, base_amount: transfer['amount'].to_d,
+                   quote_currency: nil, quote_amount: nil,
+                   fee_currency: fee.positive? ? (transfer['feeCurrency'] || transfer['currency'])&.upcase : nil,
+                   fee_amount: fee.positive? ? fee : nil,
+                   tx_id: transfer['eid'].to_s, group_id: nil, description: nil,
+                   transacted_at: Time.at(transfer['timestampms'].to_i / 1000.0).utc, raw_data: transfer }
+    end
+    return failed if failed
 
     Result::Success.new(entries)
   end
