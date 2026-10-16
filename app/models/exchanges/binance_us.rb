@@ -13,6 +13,14 @@ class Exchanges::BinanceUs < Exchanges::Binance
     ERRORS
   end
 
+  # Binance.US requires a network on withdraw/apply (https://docs.binance.us/, "Withdraw Crypto"); with
+  # none chosen, the coin's default network from its fee listing.
+  def withdraw(asset:, amount:, address:, network: nil, address_tag: nil)
+    network ||= ExchangeAsset.find_by(exchange: self, asset: asset)&.withdrawal_chains
+                             &.find { |chain| chain['is_default'] }&.dig('name')
+    super
+  end
+
   private
 
   # Binance.US has no /sapi/v1/account/apiRestrictions (not in https://docs.binance.us/, the path

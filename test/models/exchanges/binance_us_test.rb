@@ -84,4 +84,22 @@ class Exchanges::BinanceUsTest < ActiveSupport::TestCase
 
     assert @exchange.get_ledger(api_key: connection).failure?
   end
+
+  # --- withdrawals ---
+
+  test 'withdraw sends the default network when none was chosen' do
+    asset = create(:asset)
+    ticker = create(:ticker, exchange: @exchange, base_asset: asset, quote_asset: create(:asset))
+    ExchangeAsset.find_by(exchange: @exchange, asset: asset)
+                 .update!(withdrawal_chains: [{ 'name' => 'BSC', 'fee' => '0.00001', 'is_default' => false },
+                                              { 'name' => 'BTC', 'fee' => '0.0005', 'is_default' => true }])
+    Honeymaker::Clients::BinanceUs.any_instance.expects(:withdraw)
+                                  .with(has_entries(coin: ticker.base, network: 'BTC'))
+                                  .returns(Result::Success.new('id' => '4e7f4f31560041ee880b5386f06d4053'))
+    @exchange.set_client(api_key: create(:api_key, exchange: @exchange, key_type: :withdrawal))
+
+    result = @exchange.withdraw(asset: asset, amount: '0.01', address: 'bc1qaddress')
+    assert result.success?
+    assert_equal '4e7f4f31560041ee880b5386f06d4053', result.data[:withdrawal_id]
+  end
 end
