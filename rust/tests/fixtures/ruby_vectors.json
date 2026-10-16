@@ -5,33 +5,33 @@
   "ciphertexts": {
     "short": {
       "plain": "kR4k3n-s3cr3t/+==",
-      "cipher": "{\"p\":\"HpfkwJntj09d+F/OK29YOO8=\",\"h\":{\"iv\":\"zdavtkt5yKmZwNe6\",\"at\":\"ACgx781r58lBiVgaOS8YKA==\"}}"
+      "cipher": "{\"p\":\"K8ynbGh7cppGtPtxIkvMAbQ=\",\"h\":{\"iv\":\"m+8mlHXGVMB23DZB\",\"at\":\"rtuB8fsy9hjdrwLOlrGD+Q==\"}}"
     },
     "unicode": {
       "plain": "zażółć 🦡",
-      "cipher": "{\"p\":\"mwNibWLsmg/aYi9KjPOg\",\"h\":{\"iv\":\"vIy35U9dVypPCVZi\",\"at\":\"JENf2e1U43gbcESOVVb6Xw==\"}}"
+      "cipher": "{\"p\":\"zgNtl+q9DUmmwFATN9Mb\",\"h\":{\"iv\":\"YuNCMDXdQMFlKeaz\",\"at\":\"b8ZYvvocKxpPRBn3MjSqSQ==\"}}"
     },
     "compressed": {
       "plain": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASC\n-----END PRIVATE KEY-----",
-      "cipher": "{\"p\":\"oTSKIAG3M5cmqgl5R05g1eY6By6hNE1wXaS1HCe3auT2zY9U9Qe2bpFm876aXAV2mUgaEmUiSMcdiyBoXU/vsa7hmvnOMWUxjM5cIHE=\",\"h\":{\"iv\":\"hDLPC/t/M6N98mPR\",\"at\":\"318VEN+W6Oq9MkuHhD5/Og==\",\"c\":true}}"
+      "cipher": "{\"p\":\"rfvZxDugj8repfQjMsK5UODBnSoO/Qzu5m2vnHT+vNAi0qJqmr9qJLiNyPuV2tUXnKvlvIh5Pm5sC8hWgRttxcB//CdZLe4krNgV17o=\",\"h\":{\"iv\":\"bjM9MXU3+cx0rpgb\",\"at\":\"0/+hqxDowlMjto66dLUwAg==\",\"c\":true}}"
     },
     "otp_seed": {
-      "plain": "UHUCERRVLIGYOH3MS5KDKOMUAC65R4VO",
-      "cipher": "{\"p\":\"Ho3LH9A4p/J+ujAcQuokNdYeUvE13WkSxYl/rWG2JzA=\",\"h\":{\"iv\":\"B1ssyjFj6KNPUUqW\",\"at\":\"T/R6OBdwuzNa78G24w1lGQ==\",\"e\":\"QVNDSUktOEJJVA==\"}}"
+      "plain": "XGBQLNKLGGKLRWRIAX5VN3KR7FPTAEVF",
+      "cipher": "{\"p\":\"Agaqh0CxrAn/VuR6XRCwBYDb8aFgzL+G2kVH1wBR4H8=\",\"h\":{\"iv\":\"WmvZm+9Wf3J5kYcj\",\"at\":\"oYuNfBg8YHlmu0kUAOr3uw==\",\"e\":\"QVNDSUktOEJJVA==\"}}"
     },
     "app_config": {
       "plain": "{\"engine\":\"rust\"}",
-      "cipher": "{\"p\":\"wBRnIiRIUkR7mohXfzWDodI=\",\"h\":{\"iv\":\"wdrwdh5JKDATFZbC\",\"at\":\"bYUIdZa6Da+QIW8vB8Y2JQ==\"}}"
+      "cipher": "{\"p\":\"28+i/ivRxMOt61JuINJyigE=\",\"h\":{\"iv\":\"FEVhD1dMvk/cJtk8\",\"at\":\"jDduHhD+vwytzW3Ziwzdgw==\"}}"
     }
   },
   "bcrypt": [
     {
       "password": "correct horse ☃",
-      "hash": "$2a$11$ksvdIC6d134U72skZa2UYe4duWvDYisaASxOWzx.ew7pLFaM.NYJC"
+      "hash": "$2a$11$gnGDjLVn7SR21Sbgves.IuvFod99oPl8Vpc4aDl71A2JGt5N10Cj."
     },
     {
       "password": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-      "hash": "$2a$11$Omf0OrkbcqFTYKSu./XmWucosbjG.JT8RlUgDdAuwnnkfEWxNB61W"
+      "hash": "$2a$11$p/BbufjJ5KYmLHksrFhnmuUo0NQykCvEkhBcTXWuvBtKSsmA01aqC"
     }
   ],
   "totp": {
@@ -41175,7 +41175,7 @@
   ],
   "ported_sources": {
     "app/models/clients/alpaca.rb": "00e5b9bb3bd88c88c38abad1e4246bc89482b822239d6a067bb7906dd7ab9601",
-    "app/models/exchanges/alpaca.rb": "5c69f9e058ab1a5128f07bb31e78ebfeb21067a5e0e8b088a0f9c067accfe483",
+    "app/models/exchanges/alpaca.rb": "0aa1941a3e0961f1a2bc865a43c6200e67e52dc15d9bca5051e69020623b82a8",
     "app/models/client.rb": "f5a9f759c2007fae9a264dca94d315b1092c8cb391381905bc686e374c22683b",
     "app/models/exchange.rb": "ab627a2812bc0c7b4a546459e64f8f5d93617c496308d5f03163f44cef12d8d7",
     "app/models/exchanges/kraken.rb": "7152decba11c5e2bef8a643e5794d3cfb758f2558bfe4159637df55e5de0a6eb",
@@ -63904,7 +63904,7 @@
     "redirect": "<turbo-stream action=\"redirect\" target=\"/de/bots?a=1&amp;b=2\"><template></template></turbo-stream>",
     "add_class": "<turbo-stream class-name=\"bot-locked\" action=\"add_class\" target=\"columns_bot_1\"><template></template></turbo-stream>",
     "remove_class": "<turbo-stream class-name=\"bot-locked\" action=\"remove_class\" target=\"columns_bot_1\"><template></template></turbo-stream>",
-    "stream_from": "<turbo-cable-stream-source channel=\"Turbo::StreamsChannel\" signed-stream-name=\"InVzZXJfNzpib3RfdXBkYXRlcyI=--943992eb97b8a7d94befa47aac0bf1d68f7182778cdf6051ff5916c0cc2a218b\"></turbo-cable-stream-source>",
+    "stream_from": "<turbo-cable-stream-source channel=\"Turbo::StreamsChannel\" signed-stream-name=\"InVzZXJfNzpib3RfdXBkYXRlcyI=--1e1cf48d9dcf274f7964ebc2acd5893e50800d75ece76fa4c7c354d797e69c93\"></turbo-cable-stream-source>",
     "stream_name": "user_7:bot_updates",
     "content_type": "text/vnd.turbo-stream.html"
   },
@@ -92055,12 +92055,12 @@
           "admin": 0,
           "advanced_bots_enabled": 0,
           "confirmation_sent_at": "2026-09-10 12:00:30.123456",
-          "confirmation_token": "skxM-33rp__D8FKjfjqm",
+          "confirmation_token": "uHHGBo48fXP-BTQax6QR",
           "confirmed_at": null,
           "created_at": "2026-09-10 12:00:30.123456",
           "display_currency": "USD",
           "email": "owner@example.com",
-          "encrypted_password": "$2a$11$9OdhXKZQTtE5mr6Adh/EguCnSZoi0KmU2NtkEH.T01GTBi7AjiRCG",
+          "encrypted_password": "$2a$11$KmC3Hwa9JwBqaVHsN5JdmuHueJH1UFTWHJGIt6/Gm4e3pwl2Wv2sm",
           "failed_attempts": 0,
           "hide_balances": 0,
           "last_otp_at": null,
@@ -92069,7 +92069,7 @@
           "mcp_settings": "{}",
           "name": "Fixture Owner",
           "otp_module": 0,
-          "otp_secret_key": "{\"p\":\"5kFIPsrVElRhZaZr3sw2mN3cAWiSSg0t5m8eIdJsj6g=\",\"h\":{\"iv\":\"9zsQuQHnvnoIRRas\",\"at\":\"FHaFJOrbcPBHd45+dpxrHQ==\",\"e\":\"QVNDSUktOEJJVA==\"}}",
+          "otp_secret_key": "{\"p\":\"Z6yvZCqnYkxnYsxVedzzYb2PXQr2wnXewGLsKwnkUqc=\",\"h\":{\"iv\":\"Uf6lE7It+tl8OnDy\",\"at\":\"fTFBRe+YdvxfhV55XJ4O5A==\",\"e\":\"QVNDSUktOEJJVA==\"}}",
           "remember_created_at": null,
           "reset_password_sent_at": null,
           "reset_password_token": null,
@@ -92118,14 +92118,14 @@
           "exchange_id": 1,
           "german_trading_agreement": null,
           "ibkr_realm": null,
-          "key": "{\"p\":\"9GypwJ2R\",\"h\":{\"iv\":\"0Q+EiwXIQOdINkWW\",\"at\":\"PXEoOVxyUEsh6v9bPQCgzA==\"}}",
+          "key": "{\"p\":\"nKFgvAQ0\",\"h\":{\"iv\":\"1j0sxqY2zfuaztHD\",\"at\":\"7DW1bMwB/AQrcwbrQlXFVw==\"}}",
           "key_type": 0,
           "last_sync_error": null,
           "last_synced_at": null,
-          "passphrase": "{\"p\":\"gNXMFL8=\",\"h\":{\"iv\":\"phxcTrw7QUwaXw8j\",\"at\":\"5IlfzEVPjt39iR5vx5yhJg==\"}}",
+          "passphrase": "{\"p\":\"7Qf30xU=\",\"h\":{\"iv\":\"7lFWoQmTuvNoAUGG\",\"at\":\"NzdzufPMNB/NoDEDqgQeqA==\"}}",
           "rsa_encryption_key": null,
           "rsa_signature_key": null,
-          "secret": "{\"p\":\"ptW2PdDx\",\"h\":{\"iv\":\"dt1oPwGUr24HE++1\",\"at\":\"niDm32i5HvLbyDLZQcJKOQ==\"}}",
+          "secret": "{\"p\":\"oF2Nzy5G\",\"h\":{\"iv\":\"v+bbFbw7ZIlJV+Zw\",\"at\":\"c5FzqKT3gJ29BE1Wi+ohqQ==\"}}",
           "status": 1,
           "updated_at": "2026-09-10 12:00:30.123456",
           "user_id": 1
@@ -93403,7 +93403,8 @@
           "side": 0,
           "status": 0,
           "transaction_type": "REGULAR",
-          "updated_at": "2026-09-09 13:30:01"
+          "updated_at": "2026-09-09 13:30:01",
+          "run_identity": null
         },
         {
           "id": 2,
@@ -93428,7 +93429,8 @@
           "side": 0,
           "status": 0,
           "transaction_type": "REGULAR",
-          "updated_at": "2026-09-10 11:00:00"
+          "updated_at": "2026-09-10 11:00:00",
+          "run_identity": null
         }
       ]
     },

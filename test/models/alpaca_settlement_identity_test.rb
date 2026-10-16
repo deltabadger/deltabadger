@@ -74,10 +74,8 @@ class AlpacaSettlementIdentityTest < ActiveSupport::TestCase
 
   test 'position catalogue is loaded once for a response with multiple positions' do
     @client.stubs(:get_account).returns(Result::Success.new({ 'cash' => '100' }))
-    @client.stubs(:get_positions).returns(Result::Success.new([
-                                                                { 'symbol' => 'BTC/USD', 'asset_class' => 'crypto', 'qty' => '2' },
-                                                                { 'symbol' => 'BTCUSD', 'asset_class' => 'crypto', 'qty' => '2' }
-                                                              ]))
+    positions = %w[BTC/USD BTCUSD].map { |symbol| { 'symbol' => symbol, 'asset_class' => 'crypto', 'qty' => '2', 'qty_available' => '2' } }
+    @client.stubs(:get_positions).returns(Result::Success.new(positions))
     relation = @exchange.tickers
     @exchange.expects(:tickers).once.returns(relation)
     assert_equal 2, @exchange.get_balances.data.fetch(@coin.id)[:free]

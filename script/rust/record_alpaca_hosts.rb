@@ -8,6 +8,9 @@ require 'digest'
 
 class Unscripted < Exception; end # rubocop:disable Lint/InheritException
 
+# The test environment runs dry, which answers key_validity without a request; the hosts are what a live run reaches.
+Rails.configuration.dry_run = false
+
 Net::HTTP.prepend(Module.new { def connect = raise(Unscripted, "real connection to #{address}") })
 
 module HostRecorder

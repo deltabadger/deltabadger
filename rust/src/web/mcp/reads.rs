@@ -160,10 +160,11 @@ fn finish_in(c:&Connection,fetch:Fetched)->Result<Value,WebError>{
         Fetched::Balances(user,exchange,name,cash,held)=>{
             let catalog=sync::balances::catalog_for(c,user,exchange).map_err(|_|error())?;
             let mut lines=vec![];
-            for (id,qty) in match sync::balances::complete_balances(&catalog,cash,held){Ok(rows)=>rows,Err(why)=>return Ok(tool_text(&format!("Failed to fetch balances from {name}: {why}"),true))}{
-                let n=qty.to_f(); if n==0.0{continue}
+            for (id,free,locked) in match sync::balances::complete_balances(&catalog,cash,held){Ok(rows)=>rows,Err(why)=>return Ok(tool_text(&format!("Failed to fetch balances from {name}: {why}"),true))}{
+                let (n,l)=(free.to_f(),locked.to_f()); if n==0.0&&l==0.0{continue}
                 let symbol:Option<String>=c.query_row("SELECT symbol FROM assets WHERE id=?1",[id],|r|r.get(0)).optional()?.flatten();
-                lines.push(format!("- {}: {}",symbol.unwrap_or_else(||format!("Unknown({id})")),float_to_s(n)));
+                let locked=if l>0.0{format!(" ({} locked)",float_to_s(l))}else{String::new()};
+                lines.push(format!("- {}: {}{locked}",symbol.unwrap_or_else(||format!("Unknown({id})")),float_to_s(n)));
             }
             if lines.is_empty(){format!("All balances on {name} are zero.")}else{format!("{name} Balances:\n{}",lines.join("\n"))}
         },

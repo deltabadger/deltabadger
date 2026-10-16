@@ -253,9 +253,10 @@ module SyncParity
          'buying_power' => '200000', 'non_marginable_buying_power' => '100000', 'portfolio_value' => '100000' }.merge(extra.transform_keys(&:to_s)))
   end
 
-  def position(symbol, qty, asset_class: 'us_equity')
+  # `available`: Alpaca's qty_available, the shares no open order holds.
+  def position(symbol, qty, asset_class: 'us_equity', available: qty)
     { 'asset_id' => "asset-#{symbol}", 'symbol' => symbol, 'exchange' => asset_class == 'crypto' ? 'CRYPTO' : 'NASDAQ', 'asset_class' => asset_class,
-      'asset_marginable' => asset_class != 'crypto', 'qty' => qty, 'qty_available' => qty, 'avg_entry_price' => '100', 'side' => 'long',
+      'asset_marginable' => asset_class != 'crypto', 'qty' => qty, 'qty_available' => available, 'avg_entry_price' => '100', 'side' => 'long',
       'market_value' => '0', 'cost_basis' => '0', 'current_price' => '100' }
   end
 

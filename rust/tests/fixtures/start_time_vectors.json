@@ -1,7 +1,7 @@
 {
   "ported_sources": {
     "app/models/bot/startable.rb": "f4639a047a1ed1896ef5b3d3239f51bf727b9c7099ce7a569fb0955b5c8bbbe1",
-    "app/models/bot/lifecycle.rb": "7c6a6d7c0bcdcd38417f10d9be9ed3503d09c2a9897dca998500d0651b4dae37",
+    "app/models/bot/lifecycle.rb": "2cd5c5d9466423cb7e6e19fc3cf35dd287726f4d42659c7f63013a17f6b4656e",
     "app/models/automation/schedulable.rb": "34b176eabd069a9ed76e73cf08639429e9c8ca17e6be69bae4def1f07225e14b",
     "app/models/bot/accountable.rb": "2d12969ad2d7e35bfb4e31b9b67dfb9ef3be94a03f3252ac5a5ac6ddccd37a3c",
     "app/jobs/bot/action_job.rb": "8f81e467c3017aafad4bc0e3a5c1bb08d61bac60ada62a93d952a7f39faed857"

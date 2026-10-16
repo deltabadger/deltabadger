@@ -30,7 +30,7 @@
   "ported_sources": {
     "app/models/bot/composition/measurable.rb": "f6188fe85c00cf443b9a9b88cec472fcdbe7dfd9b9a87b385b515250f2e3a8b4",
     "app/models/bot/rebalance_accounting.rb": "7ed024d369e9fd4a11fe0543935c2dfca680c46a7135721edd8199d3b3e0a9b8",
-    "app/models/transaction.rb": "31eee108cf8fe803956b92f0511dfac5bed5ebe2627a5ecf0c0916139cd393e1",
+    "app/models/transaction.rb": "6cf7b7b31ab5a20b40615f7c8a4d6c8fca4fb4005cd42044a6695f09e862ad7b",
     "app/models/bot/liquidation_state.rb": "a865f2f7e80a618a5d5ede2b711e1c2f47e22065683a0be47c57e79b97926a9e",
     "app/models/bot/composition/redeployable.rb": "071908cf91e79b799b07c174c1e1eadd44a68f46ba193e8c2424ad5e009ef578",
     "app/models/bot/composition/liquidatable.rb": "4f90f627421c7b574c5f0e52036cc869342567ab08c09df5db50e27a9916f67d",

@@ -524,6 +524,17 @@ module SyncScenarios
                                   positions: P.ok([P.position('AAPL', '0'), P.position('KLAC', '-2'), P.position('NVDA', '5'), P.position('NOPE', '1'),
                                                    P.position('XYZUSD', '4', asset_class: 'crypto'), P.position('QQQM', '3'), P.position('QQQM', '4')]),
                                   snapshots: P.snapshot_body('QQQM' => 201))] },
+      # Shares behind resting sells: free is what is left to sell, the rest locked, the holding whole (all ten
+      # QQQM reserved still holds them). A position without qty_available fails the sync, as one without qty does.
+      { name: 'balances-reserved_shares', setup: seeded,
+        steps: [P.balances(night, account: P.account('100'),
+                                  positions: P.ok([P.position('AAPL', '10.5', available: '4'), P.position('QQQM', '3', available: '0'),
+                                                   P.position('BTCUSD', '2', asset_class: 'crypto', available: '0.5')]),
+                                  snapshots: P.snapshot_body('AAPL' => 227.52, 'QQQM' => 201), prices: P.prices_body('bitcoin' => 60_000))] },
+      { name: 'balances-missing_qty_available', setup: seeded,
+        steps: [P.balances(night, account: P.account('100'), positions: P.ok([P.position('AAPL', '10').except('qty_available')]))] },
+      { name: 'balances-null_qty_available', setup: seeded,
+        steps: [P.balances(night, account: P.account('100'), positions: P.ok([P.position('AAPL', '10', available: nil)]))] },
       { name: 'balances-cash_symbol_position',
         steps: [P.balances(night, account: P.account('100'), positions: P.ok([P.position('USD', '5')]))] },
       { name: 'balances-decimal_edges',

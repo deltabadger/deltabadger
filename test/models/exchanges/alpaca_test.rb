@@ -503,7 +503,7 @@ class Exchanges::AlpacaTest < ActiveSupport::TestCase
 
     Clients::Alpaca.any_instance.stubs(:get_account).returns(Result::Success.new({ 'cash' => '100.0' }))
     Clients::Alpaca.any_instance.stubs(:get_positions)
-                   .returns(Result::Success.new([{ 'symbol' => 'AAVEUSD', 'asset_class' => 'crypto', 'qty' => '2.5' }]))
+                   .returns(Result::Success.new([{ 'symbol' => 'AAVEUSD', 'asset_class' => 'crypto', 'qty' => '2.5', 'qty_available' => '2.5' }]))
 
     result = with_dry_run(false) { @exchange.get_balances(asset_ids: [aave.id]) }
     assert_predicate result, :success?
@@ -517,11 +517,29 @@ class Exchanges::AlpacaTest < ActiveSupport::TestCase
 
     Clients::Alpaca.any_instance.stubs(:get_account).returns(Result::Success.new({ 'cash' => '100.0' }))
     Clients::Alpaca.any_instance.stubs(:get_positions)
-                   .returns(Result::Success.new([{ 'symbol' => 'AAPL', 'asset_class' => 'us_equity', 'qty' => '10' }]))
+                   .returns(Result::Success.new([{ 'symbol' => 'AAPL', 'asset_class' => 'us_equity', 'qty' => '10', 'qty_available' => '10' }]))
 
     result = with_dry_run(false) { @exchange.get_balances(asset_ids: [aapl.id]) }
     assert_predicate result, :success?
     assert_equal 10.to_d, result.data[aapl.id][:free]
+  end
+
+  # Shares behind a resting sell are still held, but selling them again is rejected: free is what is
+  # left to sell, and the committed rest stays in the total as locked.
+  test 'get_balances reads free from qty_available and locks the shares held for open orders' do
+    aapl = create(:asset, external_id: 'alpaca_uuid-aapl', symbol: 'AAPL', category: 'Stock')
+    usd = Asset.find_by(symbol: 'USD') || create(:asset, :usd)
+    create(:ticker, exchange: @exchange, base_asset: aapl, quote_asset: usd, ticker: 'AAPL')
+
+    Clients::Alpaca.any_instance.stubs(:get_account).returns(Result::Success.new({ 'cash' => '100.0' }))
+    Clients::Alpaca.any_instance.stubs(:get_positions)
+                   .returns(Result::Success.new([{ 'symbol' => 'AAPL', 'asset_class' => 'us_equity',
+                                                   'qty' => '10', 'qty_available' => '4' }]))
+
+    result = with_dry_run(false) { @exchange.get_balances(asset_ids: [aapl.id]) }
+    assert_predicate result, :success?
+    assert_equal 4.to_d, result.data[aapl.id][:free]
+    assert_equal 6.to_d, result.data[aapl.id][:locked]
   end
 
   # == get_balances on a malformed answer: fail, never read the gap as an empty holding ==
@@ -540,7 +558,7 @@ class Exchanges::AlpacaTest < ActiveSupport::TestCase
     end
   end
 
-  [{}, { 'qty' => nil }].each do |qty|
+  [{}, { 'qty' => nil }, { 'qty' => '10' }, { 'qty' => '10', 'qty_available' => nil }].each do |qty|
     test "get_balances fails on a held position without a quantity: #{qty.inspect}" do
       aapl = create(:asset, external_id: 'alpaca_uuid-aapl', symbol: 'AAPL', category: 'Stock')
       usd = Asset.find_by(symbol: 'USD') || create(:asset, :usd)
@@ -563,7 +581,7 @@ class Exchanges::AlpacaTest < ActiveSupport::TestCase
       usd = usd_with_ticker
       Clients::Alpaca.any_instance.stubs(:get_account).returns(Result::Success.new({ 'cash' => '100' }))
       Clients::Alpaca.any_instance.stubs(:get_positions)
-                     .returns(Result::Success.new([{ 'asset_class' => 'us_equity', 'qty' => '10.5' }.merge(symbol)]))
+                     .returns(Result::Success.new([{ 'asset_class' => 'us_equity', 'qty' => '10.5', 'qty_available' => '10.5' }.merge(symbol)]))
 
       result = with_dry_run(false) { @exchange.get_balances(asset_ids: [usd.id]) }
 
@@ -576,7 +594,7 @@ class Exchanges::AlpacaTest < ActiveSupport::TestCase
     usd = usd_with_ticker
     Clients::Alpaca.any_instance.stubs(:get_account).returns(Result::Success.new({ 'cash' => '100' }))
     Clients::Alpaca.any_instance.stubs(:get_positions)
-                   .returns(Result::Success.new([{ 'asset_class' => 'us_option', 'qty' => '1' }]))
+                   .returns(Result::Success.new([{ 'asset_class' => 'us_option', 'qty' => '1', 'qty_available' => '1' }]))
 
     result = with_dry_run(false) { @exchange.get_balances(asset_ids: [usd.id]) }
 

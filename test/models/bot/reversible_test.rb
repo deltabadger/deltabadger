@@ -308,6 +308,7 @@ class Bot::ReversibleTest < ActiveSupport::TestCase
     create(:transaction, bot: bot, side: :sell, status: :submitted, external_status: :open,
                          external_id: 's1', amount: 1, price: 100, quote_amount: 100, amount_exec: nil, quote_amount_exec: nil)
     Transaction.any_instance.stubs(:cancel).returns(Result::Success.new)
+    bot.stubs(:get_order).returns(Result::Success.new({ status: :cancelled, quote_amount_exec: 0 }))
 
     assert_in_delta 40, bot.send(:cancel_unfilled_orders).to_f, 1e-6, 'only the cancelled buy counts'
   end
@@ -327,8 +328,111 @@ class Bot::ReversibleTest < ActiveSupport::TestCase
                          external_id: 'exit', amount: 1, price: 100, quote_amount: 100,
                          amount_exec: nil, quote_amount_exec: nil)
     Transaction.any_instance.expects(:cancel).once.returns(Result::Success.new)
+    bot.stubs(:get_order).returns(Result::Success.new({ status: :cancelled, quote_amount_exec: 0 }))
 
     assert_in_delta 40, bot.send(:cancel_unfilled_orders).to_f, 1e-6, 'only the DCA buy\'s reserve returns to the carry'
+  end
+
+  # The row says 10 of 40 filled; by the cancel the venue had filled 30.
+  def flip_with_partial_buy(fresh_read)
+    bot = create(:dca_single_asset, :started) # effective_quote_amount 100
+    order = create(:transaction, bot: bot, side: :buy, status: :submitted, external_status: :open, external_id: 'b1',
+                                 amount: 0.4, price: 100, quote_amount: 40, amount_exec: 0.1, quote_amount_exec: 10)
+    Transaction.any_instance.stubs(:cancel).returns(Result::Success.new)
+    bot.stubs(:pending_quote_amount).returns(60.to_d)
+    fresh_read.call(bot.stubs(:get_order).with(order_id: 'b1'))
+    bot.flip_direction!
+    [bot, order]
+  end
+
+  def final_poll(order, status, amount_exec, quote_amount_exec)
+    Transaction.find(order.id).update_with_order_data(status: status, amount: 0.4, price: 100, quote_amount: 40,
+                                                      amount_exec: amount_exec, quote_amount_exec: quote_amount_exec)
+  end
+
+  test 'a buy that filled more since the last poll restores only what the venue says is unfilled' do
+    bot, = flip_with_partial_buy(->(stub) { stub.returns(Result::Success.new({ status: :cancelled, amount_exec: 0.3, quote_amount_exec: 30 })) })
+
+    assert_in_delta 70, bot.reload.missed_quote_amount.to_f, 1e-6 # 60 + the 10 never filled
+    assert_nil bot.transient_data[Bot::Reversible::FLIP_RESERVE_PENDING]
+  end
+
+  test 'a cancel still pending restores nothing until the final poll, then the true remainder once' do
+    bot, order = flip_with_partial_buy(->(stub) { stub.returns(Result::Success.new({ status: :open, amount_exec: 0.2, quote_amount_exec: 20 })) })
+    assert_in_delta 60, bot.reload.missed_quote_amount.to_f, 1e-6
+    assert_equal [order.id], bot.transient_data[Bot::Reversible::FLIP_RESERVE_PENDING]
+
+    final_poll(order, :open, 0.25, 25) # still filling: nothing yet
+    assert_in_delta 60, bot.reload.missed_quote_amount.to_f, 1e-6
+
+    final_poll(order, :cancelled, 0.3, 30)
+    assert_in_delta 70, bot.reload.missed_quote_amount.to_f, 1e-6
+    assert_nil bot.transient_data[Bot::Reversible::FLIP_RESERVE_PENDING]
+
+    final_poll(order, :cancelled, 0.3, 30)
+    Transaction.find(order.id).update!(quote_amount_exec: 31) # a late detail on a settled row
+    assert_in_delta 70, bot.reload.missed_quote_amount.to_f, 1e-6, 'credited once'
+  end
+
+  { 'a failed read' => ->(stub) { stub.returns(Result::Failure.new('timeout')) },
+    'a raised read' => ->(stub) { stub.raises(Client::TransientNetworkError, 'reset') } }.each do |name, fresh_read|
+    test "#{name} after the cancel restores nothing until the final poll" do
+      bot, order = flip_with_partial_buy(fresh_read)
+      assert_in_delta 60, bot.reload.missed_quote_amount.to_f, 1e-6
+
+      final_poll(order, :cancelled, 0.3, 30)
+      assert_in_delta 70, bot.reload.missed_quote_amount.to_f, 1e-6
+    end
+  end
+
+  # The poll Transaction#cancel enqueues can finish the order before the flip registers it: its callback
+  # finds nothing registered, and an identical re-poll changes nothing to fire on.
+  # A fresh start drops the carry; a reserve still waiting for its buy's final state is dropped with it.
+  test 'a fresh start discards a reserve still waiting, so its final poll credits nothing' do
+    bot, order = flip_with_partial_buy(->(stub) { stub.returns(Result::Success.new({ status: :open, amount_exec: 0.2, quote_amount_exec: 20 })) })
+    assert_equal [order.id], bot.reload.transient_data[Bot::Reversible::FLIP_RESERVE_PENDING]
+
+    bot.update!(status: :stopped)
+    bot.start(start_fresh: true)
+    assert_nil bot.reload.transient_data[Bot::Reversible::FLIP_RESERVE_PENDING]
+
+    final_poll(order, :cancelled, 0.3, 30)
+    assert_equal 0, bot.reload.missed_quote_amount.to_d, 'the discarded reserve is not credited back'
+  end
+
+  test 'a final poll landing before the flip registers the buy still credits it, once' do
+    bot = create(:dca_single_asset, :started)
+    order = create(:transaction, bot: bot, side: :buy, status: :submitted, external_status: :open, external_id: 'b1',
+                                 amount: 0.4, price: 100, quote_amount: 40, amount_exec: 0.1, quote_amount_exec: 10)
+    Transaction.any_instance.stubs(:cancel).returns(Result::Success.new)
+    bot.stubs(:pending_quote_amount).returns(60.to_d)
+    test = self
+    bot.define_singleton_method(:get_order) do |order_id:|
+      test.final_poll(order, :cancelled, 0.3, 30) # the poll wins the race, then the flip's own read fails
+      Result::Failure.new("timeout #{order_id}")
+    end
+
+    bot.flip_direction!
+    assert_in_delta 70, bot.reload.missed_quote_amount.to_f, 1e-6
+    assert_nil bot.transient_data[Bot::Reversible::FLIP_RESERVE_PENDING]
+
+    final_poll(order, :cancelled, 0.3, 30)
+    assert_in_delta 70, bot.reload.missed_quote_amount.to_f, 1e-6
+  end
+
+  test 'a fill reported without its executed quote counts at the limit price, not the stale row' do
+    bot, order = flip_with_partial_buy(->(stub) { stub.returns(Result::Success.new({ status: :open, amount_exec: 0.2 })) })
+
+    final_poll(order, :cancelled, 0.3, nil) # the row keeps quote_amount_exec 10 from the last poll
+    assert_in_delta 70, bot.reload.missed_quote_amount.to_f, 1e-6 # 40 - 0.3 x 100, not 40 - 10
+  end
+
+  test 'an abandoned buy leaves the pending list with nothing restored' do
+    bot, order = flip_with_partial_buy(->(stub) { stub.returns(Result::Failure.new('timeout')) })
+
+    Transaction.find(order.id).update!(external_status: :abandoned)
+    assert_in_delta 60, bot.reload.missed_quote_amount.to_f, 1e-6
+    assert_nil bot.transient_data[Bot::Reversible::FLIP_RESERVE_PENDING]
   end
 
   test 'a failed buy cancel is not counted in the restored reserve (order may still be live)' do
@@ -347,6 +451,7 @@ class Bot::ReversibleTest < ActiveSupport::TestCase
     create(:transaction, bot: bot, side: :buy, status: :submitted, external_status: :open,
                          external_id: 'b1', amount: 0.4, price: 100, quote_amount: 40, amount_exec: nil, quote_amount_exec: nil)
     Transaction.any_instance.stubs(:cancel).returns(Result::Success.new)
+    bot.stubs(:get_order).returns(Result::Success.new({ status: :cancelled, quote_amount_exec: 0 }))
     # The open buy deflated the carry to 60 (set_missed reads pending); the cancelled 40 is restored.
     bot.stubs(:pending_quote_amount).returns(60.to_d)
 

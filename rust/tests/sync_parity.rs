@@ -56,8 +56,8 @@ fn add_unreadable_price_scenarios(root: &Path) {
             let mut scenario: Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
             let step = &mut scenario["steps"][0];
             step["alpaca"]["GET /v2/positions"][0]["body"] = json!([
-                { "symbol": "AAPL", "qty": "3", "asset_class": "us_equity" },
-                { "symbol": "KLAC", "qty": "2", "asset_class": "us_equity" }
+                { "symbol": "AAPL", "qty": "3", "qty_available": "3", "asset_class": "us_equity" },
+                { "symbol": "KLAC", "qty": "2", "qty_available": "2", "asset_class": "us_equity" }
             ]);
             step["alpaca"]["GET /v2/stocks/snapshots"][0]["body"] = json!({
                 "AAPL": { "latestTrade": { "p": value } }, "KLAC": { "latestTrade": { "p": 200 } }
@@ -373,7 +373,7 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
     dirs.sort();
     let named = |prefix: &str| dirs.iter().filter(|d| d.file_name().unwrap().to_string_lossy().starts_with(prefix)).count();
-    assert_eq!((named("ledger-"), named("balances-"), named("binance-balances-"), named("binance-ledger-"), dirs.len()), (58, 41, 21, 19, 139), "the sync grid");
+    assert_eq!((named("ledger-"), named("balances-"), named("binance-balances-"), named("binance-ledger-"), dirs.len()), (58, 44, 21, 19, 142), "the sync grid");
     for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
     for scenario in ["ledger-split_future", "ledger-split_nested_duplicate_keys", "binance-ledger-two_nights"] { copy_dir(&rails_root.path().join(scenario), &handback.path().join(scenario)); }
     rails(&["record", rails_root.path().to_str().unwrap()]);
