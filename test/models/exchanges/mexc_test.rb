@@ -266,4 +266,39 @@ class Exchanges::MexcTest < ActiveSupport::TestCase
     assert_equal open_times.first / 1000, candles.first[0].to_i
     assert(asked.all? { |_, end_time| end_time })
   end
+
+  # Ledger stubs shaped like https://mexcdevelop.github.io/apidocs/spot_v3_en/ (deposit history,
+  # withdraw history, account information, account trade list).
+  def stub_ledger(deposits: [], withdrawals: [], balances: [], symbols: [], trades: {})
+    client = Honeymaker::Clients::Mexc.any_instance
+    client.stubs(:deposit_history).returns(Result::Success.new(deposits))
+    client.stubs(:withdraw_history).returns(Result::Success.new(withdrawals))
+    client.stubs(:account_information).returns(Result::Success.new('canTrade' => true, 'balances' => balances))
+    client.stubs(:exchange_information).returns(Result::Success.new('symbols' => symbols))
+    client.stubs(:account_trade_list).returns(Result::Success.new([]))
+    trades.each do |symbol, rows|
+      client.stubs(:account_trade_list).with(has_entry(:symbol, symbol)).returns(Result::Success.new(rows))
+    end
+  end
+
+  def ledger_api_key
+    create(:api_key, exchange: @exchange, key_type: :read_only)
+  end
+
+  # applyTime is epoch milliseconds (an integer in the doc, a string in captured answers); parsing
+  # it as a date string raised, so one completed withdrawal failed every sync of the account.
+  test 'get_ledger books a completed withdrawal, keyed by its record id' do
+    withdrawal = { 'id' => 'bb17a2d452684f00a523c015d512a341', 'txId' => nil, 'coin' => 'EOS', 'network' => 'EOS',
+                   'address' => 'zzqqqqqqqqqq', 'amount' => '10', 'transferType' => 0, 'status' => 7,
+                   'transactionFee' => '0.1', 'confirmNo' => nil, 'applyTime' => 1_665_300_874_000, 'remark' => '',
+                   'memo' => 'MX10086', 'transHash' => '0x0ced593b8b5adc9f600334d0d7335456a7ed772ea5547beda7ffc4f33a065c',
+                   'updateTime' => 1_712_134_082_000 }
+    stub_ledger(withdrawals: [withdrawal, withdrawal.merge('id' => 'second', 'applyTime' => '1665300875000')])
+
+    rows = @exchange.get_ledger(api_key: ledger_api_key, start_time: 2.days.ago).data.select { |e| e[:entry_type] == :withdrawal }
+
+    assert_equal %w[bb17a2d452684f00a523c015d512a341 second], rows.map { |r| r[:tx_id] }
+    assert_equal Time.at(1_665_300_874).utc, rows.first[:transacted_at]
+    assert_equal 10.to_d, rows.first[:base_amount]
+  end
 end

@@ -460,8 +460,10 @@ class Exchanges::Mexc < Exchange
         entries << { entry_type: :withdrawal, base_currency: wd['coin'], base_amount: wd['amount'].to_d,
                      quote_currency: nil, quote_amount: nil,
                      fee_currency: wd['coin'], fee_amount: wd['transactionFee']&.to_d,
-                     tx_id: wd['txId'] || wd['id'], group_id: nil, description: nil,
-                     transacted_at: Time.parse(wd['applyTime']).utc, raw_data: wd }
+                     # The record's own id: withdrawals batched into one on-chain transaction share
+                     # its hash (transHash), and the sync keeps one row per tx_id. applyTime is epoch ms.
+                     tx_id: wd['id'], group_id: nil, description: nil,
+                     transacted_at: Time.at(wd['applyTime'].to_i / 1000.0).utc, raw_data: wd }
       end
     end
 
