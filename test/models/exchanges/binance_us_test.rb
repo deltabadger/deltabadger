@@ -85,7 +85,35 @@ class Exchanges::BinanceUsTest < ActiveSupport::TestCase
     assert @exchange.get_ledger(api_key: connection).failure?
   end
 
+  # A strict mock: convert, fiat, dust, Simple Earn, margin and futures are not Binance.US endpoints,
+  # so any call to them is an unexpected invocation.
+  test 'get_ledger asks only the sources Binance.US has' do
+    connection = create(:api_key, exchange: @exchange)
+    hm_client = mock('honeymaker_client')
+    hm_client.stubs(:deposit_history).returns(Result::Success.new([]))
+    hm_client.stubs(:withdraw_history).returns(Result::Success.new([]))
+    hm_client.stubs(:account_information).returns(Result::Success.new(ACCOUNT))
+    hm_client.stubs(:exchange_information).returns(Result::Success.new(
+                                                     'symbols' => [{ 'symbol' => 'BTCUSD', 'baseAsset' => 'BTC', 'quoteAsset' => 'USD' }]
+                                                   ))
+    hm_client.expects(:account_trade_list).with(has_entries(symbol: 'BTCUSD')).returns(Result::Success.new([]))
+    hm_client.stubs(:asset_dividend).returns(Result::Success.new('rows' => [], 'total' => 0))
+    Honeymaker.stubs(:client).returns(hm_client)
+
+    result = @exchange.get_ledger(api_key: connection)
+    assert result.success?, result.errors.inspect
+  end
+
   # --- withdrawals ---
+
+  test 'list_withdrawal_addresses does not ask for an address book Binance.US lacks' do
+    asset = create(:asset)
+    create(:ticker, exchange: @exchange, base_asset: asset, quote_asset: create(:asset))
+    Honeymaker::Clients::BinanceUs.any_instance.expects(:get_withdraw_addresses).never
+    @exchange.set_client(api_key: create(:api_key, exchange: @exchange, key_type: :withdrawal))
+
+    assert_nil @exchange.list_withdrawal_addresses(asset: asset)
+  end
 
   test 'withdraw sends the default network when none was chosen' do
     asset = create(:asset)
