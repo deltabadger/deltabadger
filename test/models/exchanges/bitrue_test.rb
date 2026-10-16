@@ -26,8 +26,27 @@ class Exchanges::BitrueTest < ActiveSupport::TestCase
     assert @exchange.permission_error?(["You don't have permission."])
   end
 
-  test 'minimum_amount_logic returns base_and_quote for market orders' do
-    assert_equal :base_and_quote, @exchange.minimum_amount_logic(order_type: :market_order)
+  test 'minimum_amount_logic sizes market orders in base' do
+    assert_equal :base_and_quote_in_base, @exchange.minimum_amount_logic(order_type: :market_order)
+  end
+
+  test 'a quote-sized market buy is sent as a base quantity at the ask' do
+    Rails.configuration.stubs(:dry_run).returns(false)
+    ticker = create(:ticker, exchange: @exchange, base_symbol: 'BTC', quote_symbol: 'USDT', base_decimals: 4)
+    sent = nil
+    client = Object.new
+    client.define_singleton_method(:symbol_order_book_ticker) do |symbol:|
+      Result::Success.new({ 'symbol' => symbol, 'bidPrice' => '49990', 'bidQty' => '1', 'askPrice' => '50000', 'askQty' => '1' })
+    end
+    client.define_singleton_method(:new_order) do |**kw|
+      sent = kw
+      Result::Success.new({ order_id: 'BTCUSDT-1', raw: {} })
+    end
+    @exchange.stubs(:client).returns(client)
+
+    assert_predicate @exchange.market_buy(ticker: ticker, amount: 100, amount_type: :quote), :success?
+    assert_equal '0.002', sent[:quantity]
+    assert_nil sent[:quote_order_qty]
   end
 
   test 'minimum_amount_logic returns base_and_quote_in_base for limit orders' do
