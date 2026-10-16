@@ -416,6 +416,8 @@ class Exchanges::Binance < Exchange
                                api_key: api_key.key,
                                api_secret: api_key.secret,
                                proxy: ExchangeProxy.for('binance')).api_description
+    # An empty or non-JSON 200 parses to nil or a String: no verdict either way.
+    return Result::Failure.new("#{name} sent an unreadable answer to the key check") if result.success? && !result.data.is_a?(Hash)
 
     if result.success?
       common_checks = result.data['ipRestrict'] == true &&
@@ -454,6 +456,8 @@ class Exchanges::Binance < Exchange
 
     result = Honeymaker.client(name_id, api_key: api_key.key, api_secret: api_key.secret,
                                         proxy: ExchangeProxy.for(name_id)).api_description
+    return Result::Failure.new("#{name} sent an unreadable answer to the key check") if result.success? && !result.data.is_a?(Hash)
+
     if result.success?
       Result::Success.new(result.data['enableReading'] == true && result.data['enableWithdrawals'] != true)
     elsif parse_error_code(result).in?(ERROR_CODES[:invalid_key])
