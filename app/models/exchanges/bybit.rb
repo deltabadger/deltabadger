@@ -282,7 +282,7 @@ class Exchanges::Bybit < Exchange
   end
 
   def get_order(order_id:)
-    result = client.get_order(category: 'spot', order_id: order_id)
+    result = find_order(order_id)
     if result.failure?
       error = parse_error_message(result)
       return error.present? ? Result::Failure.new(error, data: result.data) : result
@@ -295,19 +295,26 @@ class Exchanges::Bybit < Exchange
 
   def get_orders(order_ids:)
     orders = {}
+    missing = []
     order_ids.each do |order_id|
       result = get_order(order_id: order_id)
-      return result if result.failure?
+      if result.failure?
+        # A gone order goes under :missing for the stale-order sweep; any other failure still fails
+        # the batch so the job retries.
+        next missing << order_id if result.data.is_a?(Hash) && result.data[:not_found]
+
+        return result
+      end
 
       orders[order_id] = result.data
     end
 
-    Result::Success.new(orders: orders, missing: [])
+    Result::Success.new(orders: orders, missing: missing)
   end
 
   def cancel_order(order_id:)
     # Need to find the symbol for the order
-    get_result = client.get_order(category: 'spot', order_id: order_id)
+    get_result = find_order(order_id)
     if get_result.failure?
       error = parse_error_message(get_result)
       return error.present? ? Result::Failure.new(error) : get_result
@@ -555,6 +562,25 @@ class Exchanges::Bybit < Exchange
 
   def symbol_pair_quote(symbol)
     tickers.find_by(ticker: symbol)&.quote || symbol
+  end
+
+  # /v5/order/realtime keeps only the latest 500 closed orders per category, and a unified account's
+  # closed-order cache empties on a restart; the rest live in /v5/order/history
+  # (https://bybit-exchange.github.io/docs/v5/order/open-order). The client answers an empty list with
+  # "Order not found" and has no history call, so history is read through its signed GET. An order
+  # neither knows is flagged so Bot::StaleOrderResolver can retire it instead of polling it forever.
+  def find_order(order_id)
+    result = client.get_order(category: 'spot', order_id: order_id)
+    return result unless result.failure? && Array(result.errors).include?('Order not found')
+
+    history = client.send(:get_authenticated, '/v5/order/history', { category: 'spot', orderId: order_id })
+    return history if history.failure?
+    return Result::Failure.new(history.data['retMsg']) unless history.data['retCode'].to_s == '0'
+
+    raw = history.data.dig('result', 'list')&.first
+    return Result::Success.new(raw: raw) if raw
+
+    Result::Failure.new("#{name} no longer knows order #{order_id}", data: { not_found: true, missing_ids: [order_id] })
   end
 
   def parse_error_message(result)

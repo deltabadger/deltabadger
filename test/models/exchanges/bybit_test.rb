@@ -150,6 +150,67 @@ class Exchanges::BybitTest < ActiveSupport::TestCase
     assert_empty parsed[:error_messages]
   end
 
+  # == order lookup ==
+  # /v5/order/realtime keeps only recent closed orders; older ones are in /v5/order/history.
+
+  def bybit_order_row(order_id, status: 'Filled')
+    { 'orderId' => order_id, 'symbol' => 'BTCUSDT', 'side' => 'Buy', 'orderType' => 'Market', 'price' => '0',
+      'qty' => '0.001', 'avgPrice' => '60000', 'cumExecQty' => '0.001', 'cumExecValue' => '60',
+      'orderStatus' => status, 'rejectReason' => 'EC_NoError' }
+  end
+
+  def stub_order_lookup(realtime: {}, history: {})
+    create(:ticker, exchange: @exchange, base_symbol: 'BTC', quote_symbol: 'USDT', ticker: 'BTCUSDT')
+    client = @exchange.send(:client)
+    client.stubs(:get_order).returns(Result::Failure.new('Order not found'))
+    realtime.each do |id, row|
+      client.stubs(:get_order).with(category: 'spot', order_id: id).returns(Result::Success.new(raw: row))
+    end
+    empty = Result::Success.new({ 'retCode' => 0, 'result' => { 'list' => [] } })
+    client.stubs(:get_authenticated).with('/v5/order/history', anything).returns(empty)
+    history.each do |id, row|
+      client.stubs(:get_authenticated).with('/v5/order/history', { category: 'spot', orderId: id })
+            .returns(Result::Success.new({ 'retCode' => 0, 'result' => { 'list' => [row] } }))
+    end
+    client
+  end
+
+  test 'get_order reads an order gone from realtime out of order history' do
+    stub_order_lookup(history: { '111' => bybit_order_row('111') })
+
+    result = with_dry_run(false) { @exchange.get_order(order_id: '111') }
+
+    assert_predicate result, :success?
+    assert_equal :closed, result.data[:status]
+  end
+
+  test 'get_orders lists an order neither endpoint knows as missing and keeps the rest' do
+    stub_order_lookup(realtime: { '222' => bybit_order_row('222', status: 'New') })
+
+    result = with_dry_run(false) { @exchange.get_orders(order_ids: %w[111 222]) }
+
+    assert_predicate result, :success?
+    assert_equal ['111'], result.data[:missing]
+    assert_equal :open, result.data[:orders]['222'][:status]
+  end
+
+  test 'get_order flags an order neither endpoint knows as not found' do
+    stub_order_lookup
+
+    result = with_dry_run(false) { @exchange.get_order(order_id: '111') }
+
+    assert_predicate result, :failure?
+    assert result.data[:not_found]
+  end
+
+  test 'cancel_order finds the symbol of an order only history knows' do
+    client = stub_order_lookup(history: { '111' => bybit_order_row('111', status: 'New') })
+    client.expects(:cancel_order).with(category: 'spot', symbol: 'BTCUSDT', order_id: '111')
+          .returns(Result::Success.new({ 'retCode' => 0 }))
+
+    assert_predicate with_dry_run(false) { @exchange.cancel_order(order_id: '111') }, :success?
+  end
+
   # == get_balances ==
   # availableToWithdraw is deprecated for unified accounts and comes back blank, which read as 0.
 
