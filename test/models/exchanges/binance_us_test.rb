@@ -144,4 +144,19 @@ class Exchanges::BinanceUsTest < ActiveSupport::TestCase
       end
     end
   end
+
+  # A 200 can still carry Binance's error envelope or nothing readable; neither proves the key.
+  test 'a trade probe or account read answered with a 200 that is not a clean answer gives no pass' do
+    connection = create(:api_key, exchange: @exchange, key_type: :trading)
+    client = Honeymaker::Clients::BinanceUs.any_instance
+    client.stubs(:account_information).returns(Result::Success.new({ 'balances' => [] }))
+    ['OK', nil, '<html></html>'].each do |body|
+      client.stubs(:cancel_order).returns(Result::Success.new(body))
+      assert_predicate @exchange.get_api_key_validity(api_key: connection), :failure?, "probe #{body.inspect}"
+    end
+    client.stubs(:account_information).returns(Result::Success.new({ 'code' => -2015, 'msg' => 'Invalid API-key' }))
+    assert_equal false, @exchange.get_api_key_validity(api_key: connection).data
+    client.stubs(:account_information).returns(Result::Success.new({ 'code' => -1021, 'msg' => 'Timestamp' }))
+    assert_predicate @exchange.get_api_key_validity(api_key: connection), :failure?
+  end
 end
