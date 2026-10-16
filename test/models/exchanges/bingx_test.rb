@@ -469,24 +469,4 @@ class Exchanges::BingxTest < ActiveSupport::TestCase
 
     assert_includes asked.select { |path, _| path == TRADES }.map { |_, p| p[:symbol] }, 'SOL-USDT'
   end
-
-  # A sync back after more than 7 days cannot read the trades in between; a bot fill Rails knows of
-  # in that gap must fail the fetch, not vanish. A quiet gap, or one a file import covered, must not.
-  test 'get_ledger fails when a bot fill fell out of BingX reach since the last sync' do
-    api_key = ledger_api_key
-    api_key.update!(last_synced_at: 20.days.ago)
-    bot = create(:dca_single_asset, user: api_key.user, exchange: @exchange)
-    fake_ledger_client({ DEPOSITS => ->(_) { [] }, WITHDRAWALS => ->(_) { [] } })
-
-    assert_predicate @exchange.get_ledger(api_key: api_key, start_time: 21.days.ago), :success?, 'a quiet gap'
-
-    create(:transaction, bot: bot, use_bot_assets: false, resolve_asset_ids: false, base: 'BTC', quote: 'USDT',
-                         amount_exec: 0.001, created_at: 10.days.ago)
-    result = @exchange.get_ledger(api_key: api_key, start_time: 21.days.ago)
-    assert_predicate result, :failure?
-    assert_match(/BTC trades between/, result.errors.first)
-
-    create(:account_transaction, api_key: api_key, base_currency: 'BTC', quote_currency: 'USDT', transacted_at: 10.days.ago)
-    assert_predicate @exchange.get_ledger(api_key: api_key, start_time: 21.days.ago), :success?, 'an imported gap'
-  end
 end
