@@ -814,6 +814,19 @@ class Exchanges::HyperliquidTest < ActiveSupport::TestCase
 
   # Ids are "<BASE>-<oid>"; the oid is numeric, so it is everything after the LAST dash, which
   # keeps a dashed base readable and reads every stored id the same way as before.
+  test 'cancel_order cancels on the pair the order was placed on, not on <base>/USDC' do
+    usdh = create(:asset, external_id: 'usdh', symbol: 'USDH', name: 'USDH')
+    hype = create(:asset, external_id: 'hype', symbol: 'HYPE', name: 'Hype')
+    create(:ticker, exchange: @exchange, base_asset: hype, quote_asset: usdh, ticker: '@230', base: 'HYPE', quote: 'USDH')
+    waiting_hl_tx('HYPE-555', base: 'HYPE', quote: 'USDH')
+    @exchange.stubs(:order_placement_available?).returns(true)
+    @exchange.set_client
+    @exchange.send(:client).expects(:cancel).with(coin: '@230', oid: 555)
+             .returns(Result::Success.new({ 'status' => 'ok' }))
+
+    assert_predicate @exchange.cancel_order(order_id: 'HYPE-555'), :success?
+  end
+
   test 'parse_order_id splits at the last dash' do
     assert_equal %w[HYPE 123], @exchange.send(:parse_order_id, 'HYPE-123')
     assert_equal %w[@142 111], @exchange.send(:parse_order_id, '@142-111')

@@ -320,7 +320,7 @@ class Exchanges::Hyperliquid < Exchange
     return Result::Failure.new(ORDER_PLACEMENT_UNAVAILABLE_ERROR) unless order_placement_available?
 
     coin, oid = parse_order_id(order_id)
-    result = client.cancel(coin: "#{coin}/USDC", oid: oid.to_i)
+    result = client.cancel(coin: pair_of(order_id) || "#{coin}/USDC", oid: oid.to_i)
     return result if result.failure?
 
     Result::Success.new(order_id)
@@ -400,6 +400,14 @@ class Exchanges::Hyperliquid < Exchange
   end
 
   private
+
+  # The pair an order was placed on. The id carries only the base, and a base trades against more
+  # than one quote here (HYPE has USDC, USDH, USDT0 and USDE pairs), so a cancel aimed at "<base>/USDC"
+  # missed every order on another quote. Nil for an order this app has no row for.
+  def pair_of(order_id)
+    order = transactions.find_by(external_id: order_id)
+    order && tickers.find_by(base: order.base, quote: order.quote)&.ticker
+  end
 
   # The address a private key signs as; nil for a secret that is not a key at all.
   def agent_address(secret)
