@@ -62,10 +62,14 @@ class Exchanges::Mexc < Exchange
           ticker: ticker,
           base: Utilities::Hash.dig_or_raise(product, 'baseAsset'),
           quote: Utilities::Hash.dig_or_raise(product, 'quoteAsset'),
-          minimum_base_size: lot_size_filter&.dig('minQty').to_d,
-          minimum_quote_size: notional_filter&.dig('minNotional').to_d,
+          # MEXC sends no LOT_SIZE or NOTIONAL filter. Its minimums are baseSizePrecision ("min order
+          # quantity") and quoteAmountPrecision ("min order amount"; quoteAmountPrecisionMarket for a
+          # market order), and maxQuoteAmount caps the order value.
+          minimum_base_size: (lot_size_filter&.dig('minQty') || product['baseSizePrecision']).to_d,
+          minimum_quote_size: notional_filter&.dig('minNotional')&.to_d ||
+            [product['quoteAmountPrecision'].to_d, product['quoteAmountPrecisionMarket'].to_d].max,
           maximum_base_size: lot_size_filter&.dig('maxQty').to_d,
-          maximum_quote_size: notional_filter&.dig('maxNotional').to_d,
+          maximum_quote_size: (notional_filter&.dig('maxNotional') || product['maxQuoteAmount']).to_d,
           base_decimals: if lot_size_filter
                            Utilities::Number.decimals(lot_size_filter['stepSize'])
                          else
