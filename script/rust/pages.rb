@@ -257,6 +257,13 @@ module Pages
                                          { 'kind' => 'basket' }], signed_in(get('/bots/1'), get('/bots/2'), get('/de/bots/1'), get('/pl/bots/2'), get('/bots'))),
       'venue_bot_page_selling_running' => venue.([running('kraken', '2026-09-09T13:30:00Z', { 'settings' => sell_base.merge(split) }.merge(acted('2026-09-10T05:30:00.800Z'))),
                                                  { 'kind' => 'basket' }], signed_in(get('/bots/1'), get('/bots/1/chart', 'Turbo-Frame' => 'bot_chart'), get('/bots'))),
+      # Retrying after failures each venue words its own way, in the orders, the feed and the status bar; the same errors in the activity log.
+      'venue_bot_page_errors' => venue.(%w[kraken binance].map do |kind|
+        running(kind, '2026-09-09T13:30:00Z', { 'columns' => { 'status' => 5 }, 'orders' => 'venue_errors',
+                                                'logs' => VENUE_ERRORS.fetch(kind).map { |error| ['execution_failed', { 'error' => error }, '2026-09-09T13:30:09Z'] } }
+                                                .merge(acted('2026-09-09T13:30:00.800Z')))
+      end + [{ 'kind' => 'basket' }], signed_in(get('/bots/1'), get('/bots/2'), get('/de/bots/1'), get('/bots/1.turbo_stream', FEED), get('/bots/2.turbo_stream', FEED),
+                                                get('/bots'))),
       'not_ported_bots_list_venue_basket' => venue.([{ 'kind' => 'kraken', 'settings' => { 'allocations' => { '16' => 0.5, '17' => 0.5 } } }, { 'kind' => 'basket' }],
                                                     signed_in(get('/bots')))
     }

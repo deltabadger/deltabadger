@@ -99,6 +99,11 @@ module Pages
     end
   end
 
+  VENUE_ERRORS = {
+    'kraken' => ['EAccount:Invalid permissions:XBT trading restricted for US.', 'EAPI:Invalid nonce'],
+    'binance' => ['Invalid API-key, IP, or permissions for action.', 'Timestamp for this request is outside of the recvWindow.']
+  }.freeze
+
   VENUE_KINDS = { 'kraken' => 'Kraken', 'binance' => 'Binance' }.freeze
 
   # One bot: 'kind' (basket, single, index, coins, wide; kraken and binance on their venue), then what the scenario says about it.
@@ -284,6 +289,16 @@ module Pages
                                                                            quote_amount: '15.5', error_messages: ['EOrder:Insufficient funds'])),
               order_row(record, symbol, '2026-09-10T11:00:00Z', pair.merge(external_status: 'open', order_type: 'limit_order', price: '2398.5',
                                                                            amount: '0.0064', amount_exec: '0', quote_amount: nil, quote_amount_exec: '0'))]
+           when 'venue_errors'
+             # Two failed orders in the venue's own words, the latest one last: Kraken's regional restriction then its
+             # nonce (Honeymaker's own sentences), Binance's key rejection then its recvWindow (the generic buckets).
+             ticker = record.exchange.tickers.find_by!(quote_asset_id: record.quote_asset_id, base_asset_id: record.settings['allocations'].keys.first.to_i)
+             pair = { base: ticker.base, quote: ticker.quote, base_asset_id: ticker.base_asset_id, quote_asset_id: ticker.quote_asset_id, status: 'failed',
+                      external_status: nil, external_id: nil, quote_amount: '15.5' }
+             errors = VENUE_ERRORS.fetch(record.exchange.name_id)
+             errors.each_with_index.map do |error, index|
+               order_row(record, ticker.base_asset.symbol, "2026-09-0#{8 + index}T13:30:01Z", pair.merge(error_messages: [error]))
+             end
            else raise "unknown orders #{name}"
            end
     Transaction.insert_all!(rows)
