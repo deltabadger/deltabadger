@@ -40,6 +40,33 @@ class Import::Run
     text.to_s.dup.force_encoding(Encoding::UTF_8).scrub.delete_prefix("\uFEFF")
   end
 
+  # A cell's time, or the file is refused. `Time.parse` fills whatever a value lacks from the clock,
+  # so an empty or garbled cell came out as TODAY and the row landed years from where it belongs;
+  # it also rolls 30 February into March and hour 25 into the next day. A cell must name a real date
+  # and a real time of day. The offset, when given, is appended as the reader always did.
+  def self.time(value, offset = nil)
+    text = value.to_s.strip
+    parts = Date._parse(text)
+    year, month, day, hour = parts.values_at(:year, :mon, :mday, :hour)
+    unless year && hour && Date.valid_date?(year, month, day) && hour < 24 && parts[:min].to_i < 60 && parts[:sec].to_i < 60
+      raise ArgumentError, "unreadable time #{text.inspect}"
+    end
+
+    Time.parse("#{text}#{offset}").utc
+  end
+
+  # A cell's amount, or the file is refused. `to_d` reads whatever it can: "1,5" is 1, "--1" is -0,
+  # "abc" is 0 and "Infinity" is infinite — each a wrong number booked without a word. An amount must
+  # be a plain decimal, with an exponent allowed because BigDecimal reads one exactly.
+  DECIMAL = /\A[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?\z/
+
+  def self.amount(value)
+    text = value.to_s.strip
+    raise ArgumentError, "unreadable amount #{text.inspect}" unless text.match?(DECIMAL)
+
+    text.to_d
+  end
+
   def import! = outcome
 
   # The accounts a file in this format could belong to. Empty means the user has none, which is a

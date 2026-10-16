@@ -61,7 +61,11 @@ class Import::BinanceCsv
   # no zone at all. Read at the wrong offset, every row misses what is already stored and the whole
   # history lands a second time — so the filename is the best evidence available and the user can
   # still override it.
-  FILENAME_OFFSET = /\(UTC([+-]\d{1,2})(?::(\d{2}))?\)/
+  FILENAME_OFFSET = /\(UTC([+-])(\d{1,2})(?::([0-5]\d))?\)/
+
+  # Older exports name the time column `UTC_Time` and write it in UTC, with no zone in the filename.
+  # The header IS the zone there, so such a file needs no name to read it by.
+  UTC_TIME = 'UTC_Time'.freeze
 
   attr_reader :unrecognised
 
@@ -74,11 +78,23 @@ class Import::BinanceCsv
   # The rows state a wall clock and no zone. Without one, every timestamp is a guess.
   def self.requires_offset? = true
 
-  def self.offset_from(filename)
+  def self.offset_from(filename, text = nil)
+    return '+00:00' if utc_header?(text)
+
     match = FILENAME_OFFSET.match(filename.to_s)
     return nil unless match
 
-    format('%<hours>+03d:%<minutes>02d', hours: match[1].to_i, minutes: match[2].to_i)
+    # The sign is its own capture: "-0:30" read as the integer -0 is +0, and the offset flipped.
+    hours = match[2].to_i
+    minutes = match[3].to_i
+    sign = hours.zero? && minutes.zero? ? '+' : match[1]
+    format('%<sign>s%<hours>02d:%<minutes>02d', sign: sign, hours: hours, minutes: minutes)
+  end
+
+  def self.utc_header?(text)
+    Array(CSV.parse_line(Import::Run.as_text(text))).include?(UTC_TIME)
+  rescue CSV::MalformedCSVError
+    false
   end
 
   def initialize(text, offset: '+00:00')
@@ -102,7 +118,9 @@ class Import::BinanceCsv
   private
 
   def parse_rows
-    CSV.parse(@text, headers: true).filter_map do |row|
+    table = CSV.parse(@text, headers: true)
+    utc = table.headers.include?(UTC_TIME)
+    table.filter_map do |row|
       operation = row['Operation'].to_s.strip
       next if operation.blank?
 
@@ -114,13 +132,13 @@ class Import::BinanceCsv
       next if kind.nil? # a deliberate skip, not an unknown
 
       { kind: kind, operation: operation, coin: row['Coin'].to_s.strip,
-        change: row['Change'].to_d, at: parse_time(row['Time']), account: row['Account'].to_s.strip,
+        change: Import::Run.amount(row['Change']), at: parse_time(utc ? row[UTC_TIME] : row['Time'], utc), account: row['Account'].to_s.strip,
         remark: row['Remark'].to_s.strip }
     end
   end
 
-  def parse_time(value)
-    Time.parse("#{value.to_s.strip}#{@offset}").utc
+  def parse_time(value, utc)
+    Import::Run.time(value, utc ? '+00:00' : @offset)
   end
 
   # An operation NAME does not say which way an asset moved; the `Change` column does. Binance takes
@@ -137,13 +155,14 @@ class Import::BinanceCsv
     end
   end
 
-  # One asset becoming another. Paired by size for the same reason the trade legs are.
+  # One asset becoming another. Paired by size for the same reason the trade legs are; when the two
+  # sides differ in count (two tokens merged into one), the rename is one swap holding every leg.
   def swap_pairs(at, out, inn)
     out = out.sort_by { |row| row[:change] }
     inn = inn.sort_by { |row| -row[:change] }
-    Array.new([out.size, inn.size].max) do |index|
-      swap(at, out[index] || out.last, inn[index] || inn.last, nil)
-    end
+    return swap_group(at, out, inn, []) unless out.size == inn.size
+
+    out.zip(inn).map { |sold, bought| swap(at, sold, bought, nil) }
   end
 
   def single_entry(row)
@@ -187,16 +206,27 @@ class Import::BinanceCsv
   # swap_in without asking what was spent, and a file row dedups against a stored row only when the
   # entry type matches — a Convert out of USDT read as a purchase never met the API's swap, and the
   # coins arrived twice. Priced the same way as the API's, by the cash leg beside the coin leg.
+  #
+  # A half with no partner in the window (the other half fell outside the export) is NOT imported but
+  # reported: stored alone it would be an orphan leg at its own time, which the complete export —
+  # stamping the pair at the spend — could neither pair with nor dedup against. The next export
+  # covering both halves imports the pair whole.
   def convert_entries(rows)
     spent, received = rows.partition { |row| row[:change].negative? }
     received = received.sort_by { |row| row[:at] }
     spent.sort_by { |row| row[:at] }.filter_map do |out|
       match = received.find { |row| (row[:at] - out[:at]).abs <= CONVERT_WINDOW }
-      next single_entry(out) unless match
+      next lone_convert(out) unless match
 
       received.delete(match)
       swap(out[:at], out, match, nil)
-    end.flatten + received.map { |row| single_entry(row) }
+    end.flatten + received.filter_map { |row| lone_convert(row) }
+  end
+
+  def lone_convert(row)
+    note = "#{row[:operation]} #{row[:coin]} #{row[:change].to_s('F').delete_suffix('.0')} #{row[:at].strftime('%Y-%m-%d %H:%M:%S')} UTC"
+    @unrecognised << note unless @unrecognised.include?(note)
+    nil
   end
 
   # A dust sweep is many coins into BNB at one timestamp, one row per leg. The `Remark` — "CHZ to
@@ -223,9 +253,7 @@ class Import::BinanceCsv
     # account really holds.
     return received.map { |row| single_entry(row.merge(kind: :other_income)) } if spent.empty?
 
-    group_id = "#{key}_#{at.to_i}"
-    spent.map { |row| leg(at, row[:coin], row[:change].abs, :swap_out, group_id) } +
-      received.map { |row| leg(at, row[:coin], row[:change], :swap_in, group_id) }
+    swap_legs(at, spent, received, "#{key}_#{at.to_i}", [])
   end
 
   # One trade per FILL. Binance's matching engine fills an order in pieces and writes a Spend/Buy/Fee
@@ -241,33 +269,90 @@ class Import::BinanceCsv
     legs = rows - fees
     incoming = legs.select { |row| row[:change].positive? }.sort_by { |row| -row[:change] }
     outgoing = legs.select { |row| row[:change].negative? }.sort_by { |row| row[:change] }
-    return [] if incoming.empty? || outgoing.empty?
+    return one_sided(rows) if incoming.empty? || outgoing.empty?
 
-    # More than one coin on a side is two unrelated trades sharing a second, and nothing in the file
-    # says which leg belongs to which. Never seen in a real export; if it ever appears, the coins are
-    # summed per side rather than paired at random — the totals stay true and no row is dropped.
-    return [merged_trade(at, outgoing, incoming, fees)] if mixed_coins?(outgoing, incoming)
+    # More than one coin on a side is unrelated trades sharing a second, and nothing in the file says
+    # which leg belongs to which. Never seen in a real export; if it appears, the group is ONE swap
+    # holding every leg under its own coin and amount, rather than legs summed under one coin's name.
+    return swap_group(at, outgoing, incoming, fees) if mixed_coins?(outgoing, incoming)
 
-    fills = [outgoing.size, incoming.size].max
-    fee_queue = fees_by_coin(fees, fills)
-    Array.new(fills) do |index|
-      trade(at, outgoing[index] || outgoing.last, incoming[index] || incoming.last, fee_queue[index])
+    outgoing, incoming = even_up(outgoing, incoming)
+    slots, extra = spread_fees(at, fees, incoming.map { |row| row[:change] })
+    outgoing.zip(incoming, slots).map { |spent, bought, fee| trade(at, spent, bought, fee) } + extra
+  end
+
+  # A trade with nothing on its other side states no price and no counterpart: booking it would
+  # invent one. Reported, row by row, so the user sees what did not land rather than losing it.
+  def one_sided(rows)
+    rows.each do |row|
+      note = "#{row[:operation]} #{row[:coin]} #{row[:at].strftime('%Y-%m-%d %H:%M:%S')} UTC"
+      @unrecognised << note unless @unrecognised.include?(note)
     end
+    []
   end
 
   def mixed_coins?(outgoing, incoming)
     outgoing.map { |row| row[:coin] }.uniq.size > 1 || incoming.map { |row| row[:coin] }.uniq.size > 1
   end
 
-  # A fee row per fill, largest with largest — the same reasoning as the legs. A group whose fee rows
-  # do not match its fills puts the whole fee on the first, so the total is never lost.
-  def fees_by_coin(fees, fills)
-    return Array.new(fills) if fees.empty?
+  # One pair in one second is one price. Where Binance wrote fewer rows on one side than fills on the
+  # other (one cash row for two buys), that side is summed and split across the other side's rows by
+  # quantity — so a cash trade stays one buy or sell row per fill, the shape the API stores and
+  # dedups against, and no leg is reused for a second fill.
+  def even_up(outgoing, incoming)
+    return [outgoing, incoming] if outgoing.size == incoming.size
+
+    many, few = outgoing.size > incoming.size ? [outgoing, incoming] : [incoming, outgoing]
+    total = few.sum { |row| row[:change] }
+    split = split(total, many.map { |row| row[:change].abs }).map { |amount| { coin: few.first[:coin], change: amount } }
+    many.equal?(outgoing) ? [outgoing, split] : [split, incoming]
+  end
+
+  # `total` in parts proportional to `weights`, to 8 places (Binance's finest) or the total's own,
+  # cut toward zero; the last part takes the remainder, so the parts sum to the total exactly.
+  def split(total, weights)
+    places = [8, total.to_s('F').split('.').last.size].max
+    sum = weights.sum
+    parts = weights[0...-1].map { |weight| (total * weight / sum).round(places, BigDecimal::ROUND_DOWN) }
+    parts + [total - parts.sum]
+  end
+
+  # [a fee per slot, the fee rows no slot could hold], one slot per weight. A fee row per slot,
+  # largest with largest — the same reasoning as the legs. Fees in ONE coin that do not match the
+  # slots are split across them by weight, like a cash leg. Otherwise the fees are summed PER COIN,
+  # one coin to a slot, and a coin left over (more fee coins than slots) is booked as a fee of its
+  # own: never added to another coin's amount, never lost.
+  def spread_fees(at, fees, weights)
+    slots = weights.size
+    return [Array.new(slots), []] if fees.empty?
 
     sorted = fees.sort_by { |row| row[:change] }
-    return sorted if sorted.size == fills
+    return [sorted, []] if sorted.size == slots
 
-    [{ coin: sorted.first[:coin], change: sorted.sum { |row| row[:change] } }] + Array.new(fills - 1)
+    coin = sorted.first[:coin]
+    if sorted.all? { |row| row[:coin] == coin }
+      return [split(sorted.sum { |row| row[:change] }, weights.map(&:abs)).map { |amount| { coin: coin, change: amount } }, []]
+    end
+
+    per_coin = sorted.group_by { |row| row[:coin] }.map do |coin, rows|
+      { coin: coin, change: rows.sum { |row| row[:change] } }
+    end
+    extra = per_coin.drop(slots).map { |fee| leg(at, fee[:coin], fee[:change].abs, :fee, nil) }
+    [per_coin.first(slots) + Array.new([slots - per_coin.size, 0].max), extra]
+  end
+
+  # Legs that cannot be paired: one swap, every leg its own row. Fees ride on the incoming legs, where
+  # `swap` puts a fill's fee.
+  def swap_group(at, outgoing, incoming, fees)
+    coins = ->(rows) { rows.map { |row| row[:coin] }.uniq.join('-') }
+    swap_legs(at, outgoing, incoming, "swapcsv_#{at.to_i}_#{coins.call(outgoing)}_#{coins.call(incoming)}", fees)
+  end
+
+  def swap_legs(at, spent, received, group_id, fees)
+    slots, extra = spread_fees(at, fees, received.map { |row| row[:change] })
+    spent.map { |row| leg(at, row[:coin], row[:change].abs, :swap_out, group_id) } +
+      received.zip(slots).map { |row, fee| leg(at, row[:coin], row[:change], :swap_in, group_id).merge(fee_of(fee)) } +
+      extra
   end
 
   # Which of the three a fill is, decided by which side holds the cash — the same split
@@ -277,11 +362,6 @@ class Import::BinanceCsv
     return sale(at, spent, bought, fee) if bought[:coin].match?(CASH)
 
     swap(at, spent, bought, fee)
-  end
-
-  def merged_trade(at, outgoing, incoming, fees)
-    sum = ->(rows) { { coin: rows.first[:coin], change: rows.sum { |row| row[:change] } } }
-    trade(at, sum.call(outgoing), sum.call(incoming), fees.any? ? sum.call(fees) : nil)
   end
 
   def purchase(at, bought, spent, fee)
