@@ -464,6 +464,9 @@ class Exchanges::Bingx < Exchange
 
     symbols = Array(listing.data.dig('data', 'symbols')).map { |s| s['symbol'] }
     trades_from = [start_time, TRADES_REACH.ago].compact.max
+    lost = lost_bot_fills(api_key, trades_from) if start_time
+    return lost if lost
+
     # A pair traded before counts too: the sale that emptied a coin leaves no balance to find it by.
     # So does every pair the account's bots ordered on here, synced or not: a bot's buy and sell
     # between two syncs leave no balance, transfer or stored row behind.
@@ -506,6 +509,29 @@ class Exchanges::Bingx < Exchange
   # 100204 "Requested data not found" (also its answer for a range with no trades) and 100490
   # "spot trading pair is offline": no trades to give.
   NO_TRADES_CODES = [100_204, 100_490].freeze
+
+  # A sync that comes back after BingX's 7 days cannot read the trades in between, and skipping them
+  # would leave the tracker short with nothing said. Rails knows its own bots' fills, so the gap is
+  # provable for those: a fill after the watermark (it would have moved the watermark had it been
+  # read) and older than the reach, on a coin with no synced or imported trade in that span, is lost.
+  # The fetch then fails — the tracker banner and the tax report show it — until the user imports
+  # those trades from a file. A gap holding only trades placed by hand cannot be seen.
+  def lost_bot_fills(api_key, reach_start)
+    since = api_key.last_synced_at
+    return if since.nil? || since >= reach_start
+
+    gap = since...reach_start
+    fills = Transaction.joins(:bot).where(exchange_id: api_key.exchange_id, bots: { user_id: api_key.user_id })
+                       .submitted.where('amount_exec > 0').where(created_at: gap)
+    covered = AccountTransaction.where(user_id: api_key.user_id, exchange_id: api_key.exchange_id,
+                                       entry_type: %i[buy sell], transacted_at: gap).distinct.pluck(:base_currency)
+    lost = fills.where.not(base: covered)
+    return unless lost.exists?
+
+    Result::Failure.new("#{name} serves trades from the past 7 days only: your bots' #{lost.distinct.pluck(:base).sort.join(', ')} " \
+                        "trades between #{since.to_date} and #{reach_start.to_date} can no longer be read. " \
+                        'Import them from a file to resume the sync.')
+  end
 
   # The trades of `symbol` in [from, to] (epoch ms), or the failure that stopped the read. A full page
   # may have cut trades off, so its range is split in two halves that share the midpoint (a trade
