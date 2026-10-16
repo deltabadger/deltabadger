@@ -685,7 +685,7 @@ class Exchanges::HyperliquidTest < ActiveSupport::TestCase
                                              'balances' => [{ 'coin' => 'HYPE', 'total' => '2', 'hold' => '0.5' }]
                                            ))
     Honeymaker::Clients::Hyperliquid.any_instance
-                                    .expects(:user_fills)
+                                    .expects(:user_fills_by_time)
                                     .returns(Result::Success.new([]))
 
     tickers_result = @exchange.get_tickers_info(force: true)
@@ -711,7 +711,7 @@ class Exchanges::HyperliquidTest < ActiveSupport::TestCase
       { 'coin' => '@333', 'side' => 'B', 'px' => '1063.6', 'sz' => '0.04', 'fee' => '0.01', 'tid' => 't1', 'time' => 1_700_000_000_000 },
       { 'coin' => '@107', 'side' => 'S', 'px' => '40.0', 'sz' => '0.16', 'fee' => '0.02', 'tid' => 't2', 'time' => 1_700_000_001_000 }
     ]
-    Honeymaker::Clients::Hyperliquid.any_instance.stubs(:user_fills).returns(Result::Success.new(fills))
+    Honeymaker::Clients::Hyperliquid.any_instance.stubs(:user_fills_by_time).returns(Result::Success.new(fills))
 
     result = @exchange.get_ledger(api_key: api_key)
 
@@ -723,18 +723,46 @@ class Exchanges::HyperliquidTest < ActiveSupport::TestCase
   test 'get_ledger falls back to the raw coin when the pair index is unknown' do
     api_key = create(:api_key, exchange: @exchange, raw_key: VALID_WALLET, raw_secret: VALID_AGENT_KEY)
     fills = [{ 'coin' => '@999', 'side' => 'B', 'px' => '1.0', 'sz' => '1.0', 'fee' => '0', 'tid' => 't9', 'time' => 1_700_000_000_000 }]
-    Honeymaker::Clients::Hyperliquid.any_instance.stubs(:user_fills).returns(Result::Success.new(fills))
+    Honeymaker::Clients::Hyperliquid.any_instance.stubs(:user_fills_by_time).returns(Result::Success.new(fills))
 
     result = @exchange.get_ledger(api_key: api_key)
 
     assert_equal '@999', result.data.first[:base_currency]
   end
 
+  def hl_fill(tid, time, coin: '@107')
+    { 'coin' => coin, 'side' => 'B', 'px' => '40.0', 'sz' => '1.0', 'fee' => '0.01', 'feeToken' => 'HYPE',
+      'dir' => 'Buy', 'oid' => tid, 'tid' => tid, 'time' => time }
+  end
+
+  # userFillsByTime: oldest first, at most 2000 a call, startTime inclusive. The second page starts
+  # at the last page's newest millisecond, which re-reads the fills sharing it.
+  test 'get_ledger reads every page of fills from the beginning, keeping fills that share the boundary ms' do
+    connection = create(:api_key, exchange: @exchange, raw_key: VALID_WALLET, raw_secret: VALID_AGENT_KEY)
+    first = (1..1999).map { |i| hl_fill(i, 1_000 + i) } + [hl_fill(2000, 5_000)]
+    second = [hl_fill(2000, 5_000), hl_fill(2001, 5_000), hl_fill(2002, 6_000)]
+    client = Honeymaker::Clients::Hyperliquid.any_instance
+    client.expects(:user_fills_by_time).with(user: VALID_WALLET, start_time: 0).returns(Result::Success.new(first))
+    client.expects(:user_fills_by_time).with(user: VALID_WALLET, start_time: 5_000).returns(Result::Success.new(second))
+
+    result = @exchange.get_ledger(api_key: connection)
+
+    assert_predicate result, :success?
+    assert_equal (1..2002).map(&:to_s), result.data.map { |e| e[:tx_id] }
+  end
+
+  test 'get_ledger fails the fetch when a fills read fails' do
+    connection = create(:api_key, exchange: @exchange, raw_key: VALID_WALLET, raw_secret: VALID_AGENT_KEY)
+    Honeymaker::Clients::Hyperliquid.any_instance.stubs(:user_fills_by_time).returns(Result::Failure.new('execution expired'))
+
+    assert_predicate @exchange.get_ledger(api_key: connection, start_time: 1.day.ago), :failure?
+  end
+
   test 'get_ledger builds its client with the exchange proxy' do
     api_key = create(:api_key, exchange: @exchange, raw_key: VALID_WALLET, raw_secret: VALID_AGENT_KEY)
     AppConfig.set('proxy_hyperliquid', 'http://claimed-proxy.test:9000')
     hm_client = mock('honeymaker_client')
-    hm_client.expects(:user_fills).returns(Result::Success.new([]))
+    hm_client.expects(:user_fills_by_time).with(user: api_key.key, start_time: 0).returns(Result::Success.new([]))
     Honeymaker.expects(:client).with(
       'hyperliquid',
       api_key: api_key.key,
