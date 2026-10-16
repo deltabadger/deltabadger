@@ -341,6 +341,7 @@ class AccountTransactionSync
       # compared exactly, or bucketed by second, every Convert in the overlap between a file and a
       # sync lands a second time. Less than a full second apart is one event, from either side; a
       # row a full second later stays a row of its own.
+      return file_dust_twin?(entry) if file_dust?(entry)
       return file_transfer_twin?(entry) if file_transfer?(entry)
 
       return same_event?(entry, scope) || replaced_trade?(entry)
@@ -354,6 +355,7 @@ class AccountTransactionSync
     return true if stored_merged_activity_ids.include?(tx_id)
     return true if scope.exists?(tx_id: tx_id)
 
+    return api_dust_twin?(entry, tx_id) if api_dust?(entry, tx_id)
     return api_transfer_twin?(entry, tx_id) if api_transfer?(entry, tx_id)
 
     # The other way round: a file imported BEFORE the first sync stored this row with no id, and
@@ -522,6 +524,111 @@ class AccountTransactionSync
   def stamp!(row, at)
     AccountTransaction.where(id: row.id).where("json_extract(raw_data, '$.file_twin_at') IS NULL")
                       .update_all(["raw_data = json_set(raw_data, '$.file_twin_at', ?)", at.utc.iso8601(6)]) == 1
+  end
+
+  # ---- one dust conversion, as Binance's export and its API each describe it --------------------------
+  #
+  # The API books a sweep per coin: the coin out, and the BNB in GROSS (`transferedAmount`) with the 2%
+  # charge beside it (`serviceChargeAmount`). The export writes the BNB that arrived, NET of the charge,
+  # and dates the sweep up to a second after `operateTime`. Matched row by row, the coin legs met and
+  # the BNB legs never did — half a conversion paired, the BNB counted twice — and a second off, both
+  # legs were stored twice.
+  #
+  # A conversion is paired whole instead, and only with the other source: the API's coin and amount out
+  # and its gross less the charge in, against the one export group (`dustcsv_…`) holding that out leg
+  # and that in leg, each once, dated within DUST_REACH of `operateTime` either side. One leg alone pairs
+  # with nothing. Written down as a transfer is: an API conversion arriving first-time gives both file
+  # legs its ids, and a file group arriving after the API stamps the API rows with `file_twin_at`. Two
+  # candidates either way are a visible double.
+  DUST_LEGS = %w[swap_out swap_in].freeze
+  DUST_REACH = 1.second
+
+  def file_dust?(row)
+    row[:group_id].to_s.start_with?('dustcsv') && DUST_LEGS.include?(row[:entry_type].to_s)
+  end
+
+  def api_dust?(row, tx_id = row[:tx_id])
+    tx_id.to_s.start_with?('dust-') && DUST_LEGS.include?(row[:entry_type].to_s) && (row[:raw_data] || {}).key?('transferedAmount')
+  end
+
+  # What an API dust row is a leg of: the coin and amount out, and the BNB in, net of the charge.
+  def conversion(raw)
+    [raw['fromAsset'], raw['amount'].to_d, raw['transferedAmount'].to_d - raw['serviceChargeAmount'].to_d]
+  end
+
+  def dust_leg(row, (coin, amount, net))
+    case row[:entry_type].to_s
+    when 'swap_out' then :out if row[:base_currency] == coin && row[:base_amount].to_d == amount
+    when 'swap_in' then :in if row[:base_currency] == 'BNB' && row[:base_amount].to_d == net
+    end
+  end
+
+  def dust_reach(at)
+    ['transacted_at >= ? AND transacted_at <= ?', at - DUST_REACH, at + DUST_REACH]
+  end
+
+  # The one file group among `legs` (rows that match the conversion) holding both of its legs, each
+  # once: [out, in], or nil.
+  def file_dust_legs(legs)
+    groups = legs.group_by { |row| row[:group_id] }.values.map { |rows| rows.group_by { |row| row[:entry_type].to_s } }
+                 .select { |rows| rows.key?('swap_out') && rows.key?('swap_in') }
+    return unless groups.one? && groups.first.values.all?(&:one?)
+
+    [groups.first['swap_out'].first, groups.first['swap_in'].first]
+  end
+
+  def api_dust_twin?(entry, tx_id)
+    at = entry[:transacted_at]
+    return false if at.blank?
+    return true if same_events(entry, scope.where(tx_id: nil)).any? { |row| !file_dust?(row) }
+
+    id = tx_id.delete_suffix('-out').delete_suffix('-in')
+    coin, amount, net = conversion(entry[:raw_data])
+    2.times do
+      # The database compares the amounts, as the rule above does: a stored amount is what the column kept.
+      near = scope.where(tx_id: nil).where('group_id LIKE ?', 'dustcsv%').where(dust_reach(at))
+      out, inn = file_dust_legs(near.where(entry_type: :swap_out, base_currency: coin, base_amount: amount).to_a +
+                                near.where(entry_type: :swap_in, base_currency: 'BNB', base_amount: net).to_a)
+      return false unless out
+      return true if both? { take!(out, "#{id}-out") && take!(inn, "#{id}-in") }
+    end
+    false
+  rescue ActiveRecord::RecordNotUnique
+    true # an id stored meanwhile
+  end
+
+  def file_dust_twin?(entry)
+    at = entry[:transacted_at]
+    return false if at.blank?
+    # The same file row stored already — claimed or not — or any row this pairing does not govern.
+    return true if same_events(entry, scope).any? { |row| !api_dust?(row) }
+
+    2.times do
+      # Only a whole API conversion: one stored a leg short (a sync cut off between them) leaves the file's
+      # BNB credit standing, a visible double rather than a lost one.
+      conversions = scope.where('tx_id LIKE ?', 'dust-%').where(entry_type: DUST_LEGS).where(dust_reach(at))
+                         .select { |row| api_dust?(row) && dust_leg(entry, conversion(row.raw_data)) }
+                         .group_by(&:group_id).values.select { |rows| rows.map(&:entry_type).sort == DUST_LEGS.sort }
+      return true if conversions.any? { |rows| twinned?(rows, at) }
+
+      free = conversions.reject { |rows| rows.any? { |row| row.raw_data.key?('file_twin_at') } }
+      return false unless free.one?
+
+      api = free.first
+      reach = api.first.transacted_at
+      file = @batch.select do |other|
+        other[:tx_id].blank? && file_dust?(other) && other[:transacted_at] && (other[:transacted_at] - reach).abs <= DUST_REACH
+      end
+      out, = file_dust_legs(file.select { |other| dust_leg(other, conversion(api.first.raw_data)) })
+      return false unless out && out[:group_id] == entry[:group_id]
+      return true if both? { api.all? { |row| stamp!(row, at) } }
+    end
+    false
+  end
+
+  # Both legs or neither.
+  def both?
+    AccountTransaction.transaction(requires_new: true) { yield || raise(ActiveRecord::Rollback) } || false
   end
 
   def within_a_second(entry)

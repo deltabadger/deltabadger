@@ -27,15 +27,21 @@ use axum::{http::StatusCode,response::Response};
 #[template(path="tracker/first_sync.html")]
 struct Page<'a>{v:&'a Ctx,preferences:String,tax_report:String,sync:String,csrf:String,hidden:bool,show_cash:bool,scope:Option<String>,export_path:String,from:String,to:String,record_switch:String,hint:String,unavailable:String,cold:Option<super::holdings::Presentation>}
 
+/// `Date.parse` of what an HTML date control submits, an ISO day: `None` for any other grammar, which stays refused, and an
+/// error for an impossible day, which Rails raises on.
+pub(super) fn iso_day(raw:&str)->Result<Option<chrono::NaiveDate>,WebError>{
+    if raw.len()!=10 || raw.as_bytes().get(4)!=Some(&b'-') || raw.as_bytes().get(7)!=Some(&b'-') || !raw.bytes().enumerate().all(|(i,b)|i==4||i==7||b.is_ascii_digit()){return Ok(None);}
+    if raw < "1583-01-01" {return Ok(None);}
+    chrono::NaiveDate::parse_from_str(raw,"%Y-%m-%d").map(Some).map_err(|_|super::row::invalid())
+}
+
 /// HTML date controls submit ISO days. Other Date.parse grammars remain an explicit later slice.
 fn dates(ctx:&Ctx)->Result<Option<(String,String)>,WebError>{
     let mut dates=Vec::new();
     for key in ["from","to"] {
         let raw=ctx.params.query(key).unwrap_or("");
         if raw.trim().is_empty(){dates.push(if key=="to"{ctx.app.now().date_naive().to_string()}else{String::new()});continue;}
-        if raw.len()!=10 || raw.as_bytes().get(4)!=Some(&b'-') || raw.as_bytes().get(7)!=Some(&b'-') || !raw.bytes().enumerate().all(|(i,b)|i==4||i==7||b.is_ascii_digit()){return Ok(None);}
-        if raw < "1583-01-01" {return Ok(None);}
-        chrono::NaiveDate::parse_from_str(raw,"%Y-%m-%d").map_err(|_|super::row::invalid())?;
+        if iso_day(raw)?.is_none(){return Ok(None);}
         dates.push(raw.to_string());
     }
     let mut dates=dates.into_iter();

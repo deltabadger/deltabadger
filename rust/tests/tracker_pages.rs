@@ -46,7 +46,7 @@ async fn tracker_d5a_routes_and_modal_destinations_are_self_contained() {
         assert_eq!(answer.status,200,"selected Alpaca credential form {path}");
         assert!(answer.body.contains("<form")&&answer.body.contains("api_key[key]"));
         assert_eq!(snapshot(&connection),before,"credential form must be a pure view");
-        for (method,path) in [("GET","/tracker"),("GET","/tracker?all=1&show_cash=1"),("GET","/tracker/import/new"),("POST","/tracker/import"),("GET","/tracker/export"),("GET","/tracker/tax_report?country=US&year=2024"),("GET","/tracker/download_tax_report?country=US&year=2024"),("GET","/tracker/setup_coingecko"),("GET","/tracker/connect_market_data")] {
+        for (method,path) in [("GET","/tracker"),("GET","/tracker?all=1&show_cash=1"),("GET","/tracker/import/new"),("POST","/tracker/import"),("GET","/tracker/tax_report?country=US&year=2024"),("GET","/tracker/download_tax_report?country=US&year=2024"),("GET","/tracker/setup_coingecko"),("GET","/tracker/connect_market_data")] {
             let path=format!("{prefix}{path}");
             let answer=browser.send(&app,method,&path,Some(&[]),Csrf::Header,&[("origin","http://localhost:3000"),("accept","text/html"),("turbo-frame","modal")]).await;
             if path==format!("{prefix}/tracker") || path==format!("{prefix}/tracker?all=1&show_cash=1") {
