@@ -217,3 +217,40 @@ async fn a_due_bot_held_by_the_barrier_trades_on_the_next_pass_once_its_cancels_
     assert_eq!(v.sent().len(), 1, "the sell runs on the pass after the cancels are recorded");
     assert_eq!(v.sent()[0].side, deltabadger::venue::Side::Sell);
 }
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_final_buy_is_not_settled_before_its_cancel_outcome_is_recorded() {
+    let v = priced();
+    let (_d, mut e, id, s) = engine(buyer(), v.clone());
+    let tx = open_buy(&e.primary, &s, id, "OBUY");
+    reverse(&e.primary, &s, id, "2026-09-03T12:00:00Z");
+    // The row reads final (cancelled, 20 EUR filled) while this pass cannot record the cancel: the startup scan must wait.
+    e.primary.execute("UPDATE transactions SET external_status = 3, quote_amount_exec = 20, amount_exec = 0.0004 WHERE id = ?1", [tx]).unwrap();
+    let real = bot(&e.primary, id).transient[reversal::CANCELS].clone();
+    let set = |c: &rusqlite::Connection, value: &Value| c.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.rust_reversal_cancels', json(?1)) WHERE id = ?2",
+        rusqlite::params![value.to_string(), id]).unwrap();
+    set(&e.primary, &json!([{ "id": "unreadable" }, real[0].clone()]));
+    run::step(&mut e, &at("2026-09-03T12:00:01Z")).await.unwrap();
+    assert_eq!(bot(&e.primary, id).transient["missed_quote_amount"], "0.0", "nothing settles before the cancel outcome");
+    assert_eq!(reversal::work(&bot(&e.primary, id)), (vec![tx], vec![tx]));
+    // The cancel then fails: the buy may still be live, so nothing ever returns for it.
+    set(&e.primary, &real);
+    push_cancel(&v, json!({ "error": ["EOrder:Unknown order"] }));
+    run::step(&mut e, &at("2026-09-03T12:00:02Z")).await.unwrap();
+    run::step(&mut e, &at("2026-09-03T12:20:00Z")).await.unwrap();
+    assert_eq!(bot(&e.primary, id).transient["missed_quote_amount"], "0.0");
+    assert_eq!(reversal::work(&bot(&e.primary, id)), (vec![], vec![]));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_buy_whose_cancel_is_recorded_is_not_registered_again_by_later_reversals() {
+    let (_d, mut e, id, s) = engine(buyer(), priced());
+    let tx = open_buy(&e.primary, &s, id, "OBUY");
+    // Each reversal captures the still-waiting buy again; each pass records that cancel before the next reversal.
+    for (i, now) in ["2026-09-03T12:00:00Z", "2026-09-03T12:00:02Z", "2026-09-03T12:00:04Z", "2026-09-03T12:00:06Z"].iter().enumerate() {
+        reverse(&e.primary, &s, id, now);
+        if i < 3 { run::step(&mut e, &at(&format!("2026-09-03T12:00:0{}Z", 2 * i + 1))).await.unwrap(); }
+    }
+    assert_eq!(bot(&e.primary, id).settings["direction"], "selling");
+    assert_eq!(reversal::work(&bot(&e.primary, id)).0, vec![tx], "registered once across two buy → sell reversals");
+}
