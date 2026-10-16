@@ -913,4 +913,16 @@ class Exchanges::AlpacaTest < ActiveSupport::TestCase
     Ticker.find_by(exchange: @exchange, base: 'AAPL') ||
       create(:ticker, exchange: @exchange, base_asset: aapl, quote_asset: usd, ticker: 'AAPL')
   end
+
+  # An empty or non-JSON 200 parses to nil or a String; it says nothing about the key.
+  test 'an unreadable key-check answer leaves the key unverified' do
+    Rails.configuration.stubs(:dry_run).returns(false)
+    %i[trading].each do |type|
+      connection = create(:api_key, exchange: @exchange, key_type: type, key: 'test_key', secret: 'test_secret')
+      [nil, 'OK'].each do |body|
+        Clients::Alpaca.any_instance.stubs(:get_account).returns(Result::Success.new(body))
+        assert_predicate @exchange.get_api_key_validity(api_key: connection), :failure?, "#{type} on #{body.inspect}"
+      end
+    end
+  end
 end
