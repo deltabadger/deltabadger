@@ -889,6 +889,27 @@ module SyncScenarios
                    'transferedAmount' => '0.000051', 'fromAsset' => 'SHIB', 'targetAsset' => 'BNB' }
           sweep.merge('userAssetDribbletDetails' => sweep['userAssetDribbletDetails'] + [shib])
         end))] },
+      # The export rounds the net BNB on its own: a leg one unit of the 8th decimal off either way pairs, two units off
+      # pairs with nothing.
+      { name: 'binance-ledger-file_dust_rounding',
+        setup: lambda do |ctx|
+          P.binance(ctx)
+          sweep = Time.at(1_786_960_801).utc
+          [%w[ADA 0.0024 0.00001022], %w[EUR 4.059 0.01345686], %w[USDT 0.9 0.00043199], %w[XRP 1.5 0.00043202]].each do |coin, amount, net|
+            [[3, coin, amount], [2, 'BNB', net]].each do |type, currency, value|
+              P.stored(ctx, exchange: ctx[:binance], entry_type: type, base_currency: currency, base_amount: value, tx_id: nil, transacted_at: sweep,
+                            group_id: "dustcsv_#{coin} to BNB_#{sweep.to_i}")
+            end
+          end
+        end,
+        steps: [P.binance_ledger(night, basic.merge(
+          'dust' => [{ 'operateTime' => 1_786_960_800_777, 'totalTransferedAmount' => '0.0151459', 'totalServiceChargeAmount' => '0.00029502', 'transId' => 45_178_372_833,
+                       'userAssetDribbletDetails' => [%w[ADA 0.0024 0.00001042 0.00000021], %w[EUR 4.059 0.01373148 0.00027463],
+                                                      %w[USDT 0.9 0.000441 0.000009], %w[XRP 1.5 0.000441 0.000009]].each_with_index.map do |(coin, amount, gross, charge), i|
+                         { 'transId' => 4_359_340 + i, 'serviceChargeAmount' => charge, 'amount' => amount, 'operateTime' => 1_786_960_800_777,
+                           'transferedAmount' => gross, 'fromAsset' => coin, 'targetAsset' => 'BNB' }
+                       end }]
+        ))] },
       # A stored row no pairing governs, exactly a second on (across sources), is one event: of two identical API dust
       # conversions, or deposits, it accounts for the first only.
       { name: 'binance-ledger-twin_repeats',

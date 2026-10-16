@@ -784,6 +784,47 @@ class AccountTransactionSyncTest < ActiveSupport::TestCase
     assert_equal %w[dust-78240438808-in dust-78240438808-out], AccountTransaction.pluck(:tx_id).sort
   end
 
+  # The export rounds the net BNB on its own: gross less the charge can land one unit of the 8th decimal off.
+  ROUNDED_DUST = [{ coin: 'ADA', amount: '0.0024', gross: '0.00001042', charge: '0.00000021', net: '0.00001022', id: 1 },
+                  { coin: 'EUR', amount: '4.059', gross: '0.01373148', charge: '0.00027463', net: '0.01345686', id: 2 },
+                  { coin: 'XRP', amount: '1.5', gross: '0.000441', charge: '0.000009', net: '0.00043199', id: 3 }].freeze
+
+  def rounded_dust(at, file_net: nil)
+    ROUNDED_DUST.map do |d|
+      [api_dust(at:, **d.slice(:coin, :amount, :gross, :charge, :id)), file_dust(at:, coin: d[:coin], amount: d[:amount], net: file_net || d[:net])]
+    end
+  end
+
+  test 'an API dust conversion pairs with a file BNB leg one unit of the 8th decimal off' do
+    at = Time.utc(2021, 6, 30, 10, 0, 0)
+    rounded_dust(at).each do |api, file|
+      store(*file)
+      store(*api)
+    end
+    assert_equal %w[dust-1-in dust-1-out dust-2-in dust-2-out dust-3-in dust-3-out], AccountTransaction.pluck(:tx_id).sort
+  end
+
+  test 'a file dust group pairs with the stored API conversion one unit of the 8th decimal off' do
+    at = Time.utc(2021, 6, 30, 10, 0, 0)
+    rounded_dust(at).each do |api, file|
+      store(*api)
+      assert_equal 0, store(*file)[:imported], file.first[:base_currency]
+    end
+    assert_equal 6, AccountTransaction.count
+  end
+
+  test 'a file BNB leg two units of the 8th decimal off pairs with nothing' do
+    at = Time.utc(2021, 6, 30, 10, 0, 0)
+    api, file = rounded_dust(at, file_net: '0.00043202').last
+    store(*file)
+    store(*api)
+    assert_equal 4, AccountTransaction.count
+
+    AccountTransaction.delete_all
+    store(*api)
+    assert_equal 2, store(*file)[:imported]
+  end
+
   test 'two dust candidates are a visible double, not a guess' do
     at = Time.utc(2021, 9, 21, 19, 22, 0)
     store(*file_dust(at:), *file_dust(at: at + 1, group: 'dustcsv_other'))
