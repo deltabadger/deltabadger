@@ -170,24 +170,45 @@ class Exchanges::BybitTest < ActiveSupport::TestCase
       'orderStatus' => status, 'rejectReason' => 'EC_NoError' }
   end
 
-  def stub_order_lookup(realtime: {}, history: {})
+  # Order history the way Bybit serves it: one order id, inside an explicit window of at most 7 days,
+  # or the last 7 days when no window is given (https://bybit-exchange.github.io/docs/v5/order/order-list).
+  # `history` maps an id to [row, the time the order was placed]; `placed` records our own transaction.
+  def stub_order_lookup(realtime: {}, history: {}, placed: {})
     create(:ticker, exchange: @exchange, base_symbol: 'BTC', quote_symbol: 'USDT', ticker: 'BTCUSDT')
+    bot = create(:dca_single_asset, exchange: @exchange, with_api_key: false) if placed.any?
+    placed.each { |id, at| create(:transaction, bot: bot, exchange: @exchange, external_id: id, created_at: at) }
     client = @exchange.send(:client)
     client.stubs(:get_order).returns(Result::Failure.new('Order not found'))
     realtime.each do |id, row|
       client.stubs(:get_order).with(category: 'spot', order_id: id).returns(Result::Success.new(raw: row))
     end
-    empty = Result::Success.new({ 'retCode' => 0, 'result' => { 'list' => [] } })
-    client.stubs(:get_authenticated).with('/v5/order/history', anything).returns(empty)
-    history.each do |id, row|
-      client.stubs(:get_authenticated).with('/v5/order/history', { category: 'spot', orderId: id })
-            .returns(Result::Success.new({ 'retCode' => 0, 'result' => { 'list' => [row] } }))
+    client.define_singleton_method(:get_authenticated) do |path, params|
+      raise "unexpected #{path}" unless path == '/v5/order/history'
+
+      to = params[:endTime] || (Time.now.to_f * 1000).to_i
+      from = params[:startTime] || (to - (7.days.to_i * 1000))
+      raise 'window over 7 days' if to - from > 7.days.to_i * 1000
+
+      row, at = history[params[:orderId]]
+      hit = row && (from..to).cover?((at.to_f * 1000).to_i)
+      Result::Success.new({ 'retCode' => 0, 'result' => { 'list' => hit ? [row] : [] } })
     end
     client
   end
 
   test 'get_order reads an order gone from realtime out of order history' do
-    stub_order_lookup(history: { '111' => bybit_order_row('111') })
+    stub_order_lookup(history: { '111' => [bybit_order_row('111'), 2.days.ago] }, placed: { '111' => 2.days.ago })
+
+    result = with_dry_run(false) { @exchange.get_order(order_id: '111') }
+
+    assert_predicate result, :success?
+    assert_equal :closed, result.data[:status]
+  end
+
+  # History answers only the last 7 days unless asked for a window; an older filled order read as gone
+  # would be abandoned with its fills unread.
+  test 'get_order finds a filled order placed 10 days ago in the window of its placement' do
+    stub_order_lookup(history: { '111' => [bybit_order_row('111'), 10.days.ago] }, placed: { '111' => 10.days.ago })
 
     result = with_dry_run(false) { @exchange.get_order(order_id: '111') }
 
@@ -196,7 +217,7 @@ class Exchanges::BybitTest < ActiveSupport::TestCase
   end
 
   test 'get_orders lists an order neither endpoint knows as missing and keeps the rest' do
-    stub_order_lookup(realtime: { '222' => bybit_order_row('222', status: 'New') })
+    stub_order_lookup(realtime: { '222' => bybit_order_row('222', status: 'New') }, placed: { '111' => 3.days.ago })
 
     result = with_dry_run(false) { @exchange.get_orders(order_ids: %w[111 222]) }
 
@@ -206,7 +227,7 @@ class Exchanges::BybitTest < ActiveSupport::TestCase
   end
 
   test 'get_order flags an order neither endpoint knows as not found' do
-    stub_order_lookup
+    stub_order_lookup(placed: { '111' => 3.days.ago })
 
     result = with_dry_run(false) { @exchange.get_order(order_id: '111') }
 
@@ -214,8 +235,18 @@ class Exchanges::BybitTest < ActiveSupport::TestCase
     assert result.data[:not_found]
   end
 
+  test 'an order with no known placement time is never reported missing' do
+    stub_order_lookup
+
+    result = with_dry_run(false) { @exchange.get_orders(order_ids: %w[111]) }
+
+    assert_predicate result, :failure?
+    assert_not(result.data.is_a?(Hash) && result.data[:not_found])
+  end
+
   test 'cancel_order finds the symbol of an order only history knows' do
-    client = stub_order_lookup(history: { '111' => bybit_order_row('111', status: 'New') })
+    client = stub_order_lookup(history: { '111' => [bybit_order_row('111', status: 'New'), 1.day.ago] },
+                               placed: { '111' => 1.day.ago })
     client.expects(:cancel_order).with(category: 'spot', symbol: 'BTCUSDT', order_id: '111')
           .returns(Result::Success.new({ 'retCode' => 0 }))
 

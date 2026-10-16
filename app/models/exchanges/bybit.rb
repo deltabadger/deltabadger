@@ -531,10 +531,10 @@ class Exchanges::Bybit < Exchange
 
   private
 
-  # Yields [start_ms, end_ms] windows of at most `span`, from `from` to now.
-  def each_window(from, span)
+  # Yields [start_ms, end_ms] windows of at most `span`, from `from` to `to`, never past now.
+  def each_window(from, span, to: Time.now)
     window_start = (from.to_f * 1000).to_i
-    now_ms = (Time.now.to_f * 1000).to_i
+    now_ms = ([to, Time.now].min.to_f * 1000).to_i
     while window_start < now_ms
       window_end = [window_start + (span.to_i * 1000), now_ms].min
       yield window_start, window_end
@@ -613,19 +613,35 @@ class Exchanges::Bybit < Exchange
 
   # /v5/order/realtime keeps only the latest 500 closed orders per category, and a unified account's
   # closed-order cache empties on a restart; the rest live in /v5/order/history
-  # (https://bybit-exchange.github.io/docs/v5/order/open-order). The client answers an empty list with
-  # "Order not found" and has no history call, so history is read through its signed GET. An order
-  # neither knows is flagged so Bot::StaleOrderResolver can retire it instead of polling it forever.
+  # (https://bybit-exchange.github.io/docs/v5/order/open-order). History answers at most 7 days per
+  # request and only the last 7 without a range, so it is asked over windows from the order's
+  # placement (https://bybit-exchange.github.io/docs/v5/order/order-list). The client has no history
+  # call, so it is read through the client's signed GET.
+  #
+  # Only an order missing from every window is flagged not_found, so Bot::StaleOrderResolver can
+  # retire it. With no known placement time, an empty answer proves nothing and stays a plain
+  # failure: retried, never abandoned with its fills unread.
+  ORDER_HISTORY_MARGIN = 1.hour
+  # Open orders always stay in realtime, so history only needs to reach the time the order ended.
+  ORDER_HISTORY_SPAN = 28.days
+
   def find_order(order_id)
     result = client.get_order(category: 'spot', order_id: order_id)
     return result unless result.failure? && Array(result.errors).include?('Order not found')
 
-    history = client.send(:get_authenticated, '/v5/order/history', { category: 'spot', orderId: order_id })
-    return history if history.failure?
-    return Result::Failure.new(history.data['retMsg']) unless history.data['retCode'].to_s == '0'
+    placed_at = transactions.where(external_id: order_id).pick(:created_at)
+    return Result::Failure.new("#{name} order #{order_id} is not in realtime and its placement time is unknown") unless placed_at
 
-    raw = history.data.dig('result', 'list')&.first
-    return Result::Success.new(raw: raw) if raw
+    from = placed_at - ORDER_HISTORY_MARGIN
+    each_window(from, TRADE_WINDOW, to: from + ORDER_HISTORY_SPAN) do |window_start, window_end|
+      history = client.send(:get_authenticated, '/v5/order/history',
+                            { category: 'spot', orderId: order_id, startTime: window_start, endTime: window_end })
+      return history if history.failure?
+      return Result::Failure.new(history.data['retMsg']) unless history.data['retCode'].to_s == '0'
+
+      raw = history.data.dig('result', 'list')&.first
+      return Result::Success.new(raw: raw) if raw
+    end
 
     Result::Failure.new("#{name} no longer knows order #{order_id}", data: { not_found: true, missing_ids: [order_id] })
   end
