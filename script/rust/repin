@@ -38,6 +38,7 @@ RECORDED = {
     FIX + 'binance_vectors.json': ('test', [runner('record_binance_vectors.rb', '{out}')], None),
     FIX + 'run_ownership.json': ('test', [runner('record_run_ownership.rb', '{out}')], None),
     FIX + 'condition_vectors.json': ('test', [runner('record_condition_vectors.rb', '{out}')], None),
+    FIX + 'search_vectors.json': ('test', [runner('record_search_vectors.rb', '{out}')], None),
     FIX + 'sell_vectors.json': ('test', [runner('record_sell_vectors.rb', '{out}')], None),
     FIX + 'sell_sizing_vectors.json': ('test', [runner('record_sell_sizing_vectors.rb', '{out}')], None),
     FIX + 'settings_r9_vectors.json': ('test', [runner('settings_r9_vectors.rb', '{out}')], None),
