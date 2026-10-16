@@ -567,9 +567,10 @@ class Exchanges::Bingx < Exchange
     quote_amount_exec = Utilities::Hash.dig_or_raise(order_data, 'cummulativeQuoteQty').to_d
     quote_amount_exec = nil if quote_amount_exec.negative?
     status = parse_order_status(Utilities::Hash.dig_or_raise(order_data, 'status'))
+    # `price` is the limit on a limit order and 0 on a market one; whatever filled is priced at what
+    # it filled at, which for a limit that crossed the book is better than the limit.
     price = Utilities::Hash.dig_or_raise(order_data, 'price').to_d
-    if price.zero? &&
-       quote_amount_exec.present? &&
+    if quote_amount_exec.present? &&
        quote_amount_exec.positive? &&
        amount_exec.positive?
       price = quote_amount_exec / amount_exec

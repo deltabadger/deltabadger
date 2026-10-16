@@ -42,6 +42,20 @@ class Exchanges::BingxTest < ActiveSupport::TestCase
     assert_equal :closed, result.data[:status]
   end
 
+  # A limit order's price field is the limit. One that crossed the book filled better than that, and
+  # the stored price feeds the average buy price.
+  test 'get_order prices a filled limit order at its fills, not at its limit' do
+    create(:ticker, exchange: @exchange, base_symbol: 'BTC', quote_symbol: 'USDT', ticker: 'BTC-USDT', price_decimals: 2)
+    raw = { 'symbol' => 'BTC-USDT', 'orderId' => 1, 'type' => 'LIMIT', 'side' => 'BUY', 'price' => '60000',
+            'origQty' => '0.002', 'executedQty' => '0.002', 'cummulativeQuoteQty' => '110', 'status' => 'FILLED',
+            'origQuoteOrderQty' => '0', 'avgPrice' => '55000' }
+    Honeymaker::Clients::BingX.any_instance.stubs(:get_order).returns(Result::Success.new(raw: raw))
+
+    result = with_dry_run(false) { @exchange.get_order(order_id: 'BTC-USDT-1') }
+
+    assert_equal BigDecimal('55000'), result.data[:price]
+  end
+
   test 'cancel_order cancels by the full symbol and the venue id' do
     Honeymaker::Clients::BingX.any_instance.expects(:cancel_order)
                               .with(symbol: 'BTC-USDT', order_id: '1234567890')
