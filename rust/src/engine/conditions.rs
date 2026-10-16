@@ -2,7 +2,7 @@
 //! that re-arms a paused bot (Bot::PriceLimitCheckJob on Bot::LimitCheckJobBase).
 use super::model::{self, Bot, PriceRule, Ticker};
 use super::tick::PriceCache;
-use super::{accounting, placement, EngineError};
+use super::{accounting, placement, Clock, EngineError};
 use crate::enums::BotStatus;
 use crate::ruby::{iso8601_ms, BigDec, Num};
 use crate::venue::{Attributed, PriceSide, VenueError};
@@ -72,8 +72,11 @@ pub fn rule_ticker(c: &Connection, bot: &Bot, rule: &PriceRule) -> Result<Option
 /// get_price_limit_condition_met? for the active side, with its two writes, each fenced to the run that read the price:
 /// met for the first time stamps `<prefix>_condition_met_at`; unmet after a met_at captures the carry
 /// (set_missed_quote_amount, capped as QuoteAmountLimitable caps pending_quote_amount) and clears met_at, in one write.
-/// The last price comes through Exchange's 5 s cache, the one the tick's own reference reads.
-pub async fn evaluate<V: Attributed>(c: &Connection, venue: &V, bot: &Bot, now: DateTime<Utc>, prices: &PriceCache, version: &Option<model::CredentialVersion>) -> Result<Evaluated, EngineError> {
+/// The last price comes through Exchange's 5 s cache, the one the tick's own reference reads. The writes are stamped with
+/// the clock read after the price arrives (Rails' `Time.current` there): a read that crosses an interval checkpoint must
+/// not stamp, or capture the carry at, the instant before it.
+pub async fn evaluate<V: Attributed>(c: &Connection, venue: &V, bot: &Bot, clock: &dyn Clock, prices: &PriceCache, version: &Option<model::CredentialVersion>) -> Result<Evaluated, EngineError> {
+    let now = clock.now();
     let Some(rule) = bot.price_rule(bot.selling()).map_err(EngineError::Data)? else { return Ok(Evaluated::Off) };
     if rule.after && rule.met_at_us.is_some() { return Ok(Evaluated::Met { refreshed: None }); }
     let Some(ticker) = rule_ticker(c, bot, &rule)? else { return Ok(Evaluated::Unavailable) };
@@ -89,6 +92,7 @@ pub async fn evaluate<V: Attributed>(c: &Connection, venue: &V, bot: &Bot, now: 
             }
         }
     };
+    let now = clock.now();
     let key = format!("{}_condition_met_at", rule.prefix);
     if price_met(&rule, &price)? {
         if rule.met_at_us.is_some() { return Ok(Evaluated::Met { refreshed: None }); }
@@ -137,19 +141,22 @@ pub enum Checked {
 }
 
 /// A zero price is not a failed Result in Rails: Exchange#get_last_price raises "Wrong last price for …" (kraken.rb:224-236),
-/// out of the gate (the tick fails) and out of the check job (the chain dies until Repair).
+/// out of the gate (the tick fails) and out of the check job (the chain dies until Repair). So does an unreadable price:
+/// parse_venue_number's ArgumentError (alpaca.rb:611), which the adapter words "unreadable … price for …" or, for a number
+/// out of range, "unreadable number …". VenueError carries no raise/Result distinction, so this reads that wording.
 pub fn raised(e: &VenueError) -> Option<String> {
-    match e { VenueError::Rejected(m) if m.first().is_some_and(|m| m.starts_with("Wrong ") || m.starts_with("invalid value for BigDecimal")) => Some(crate::ruby::to_sentence(m)), _ => None }
+    match e { VenueError::Rejected(m) if m.first().is_some_and(|m| m.starts_with("Wrong ") || m.starts_with("invalid value for BigDecimal") || m.starts_with("unreadable ")) => Some(crate::ruby::to_sentence(m)), _ => None }
 }
 
 /// Rust-only marker of a check that raised (Bot::LimitCheckJobBase lets the job die): the chain waits for Repair.
 pub const DEAD: &str = "rust_condition_check_dead";
 
 /// Bot::LimitCheckJobBase#perform with Bot::PriceLimitCheckJob's condition, on a bot paused by its price rule.
-pub async fn check<V: crate::venue::Venue>(c: &Connection, venue: &V, bot: &Bot, now: DateTime<Utc>, prices: &PriceCache, version: &Option<model::CredentialVersion>) -> Result<Checked, EngineError> {
+pub async fn check<V: crate::venue::Venue>(c: &Connection, venue: &V, bot: &Bot, clock: &dyn Clock, prices: &PriceCache, version: &Option<model::CredentialVersion>) -> Result<Checked, EngineError> {
     if bot.status != BotStatus::Waiting { return Ok(Checked::Gone); }
     let venue = crate::venue::Handle::for_bot(venue, c, bot)?;
-    let evaluated = evaluate(c, &venue, bot, now, prices, version).await?;
+    let evaluated = evaluate(c, &venue, bot, clock, prices, version).await?;
+    let now = clock.now(); // after the price read: next_check_at and 1.minute.from_now are read there
     let revive = |tx: &Connection| -> Result<(), EngineError> {
         tx.execute(&format!("UPDATE bots SET transient_data = json_remove(transient_data, '$.{DEAD}') WHERE id = ?1 AND json_type(transient_data, '$.{DEAD}') IS NOT NULL"), [bot.id])?;
         Ok(())

@@ -251,7 +251,7 @@ async fn play<V: Venue>(o: &Opened, venue: &V, scenario: &Value, bot_id: i64, st
     if let Some(when) = at("check_at")? {
         use crate::engine::conditions::{self, Checked};
         let bot = model::load_bot(&o.primary, bot_id)?;
-        match conditions::check(&o.primary, venue, &bot, when, &prices, &cx.credential_version).await {
+        match conditions::check(&o.primary, venue, &bot, &FixedClock(when), &prices, &cx.credential_version).await {
             Ok(Checked::Rearmed) => { if let Some(t) = ticks(o, venue, bot_id, when, &cx).await? { checks.push(queued(conditions::end_of_minute(t))); } }
             Ok(Checked::Next(t)) => checks.push(queued(t)),
             Ok(Checked::Gone) => {}
