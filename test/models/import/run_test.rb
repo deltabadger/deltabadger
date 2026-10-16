@@ -184,4 +184,98 @@ class Import::RunTest < ActiveSupport::TestCase
     assert result[:error].present?
     assert_equal 0, AccountTransaction.for_user(@user).count
   end
+
+  # A Convert half with no partner in the window is not imported: stored alone it is an orphan the
+  # complete export later cannot pair with, so it is reported and the rest of the file lands.
+  test 'a convert half with no partner is reported, not imported' do
+    file = [HEADER, '1,2021-07-01 14:07:04,Spot,Deposit,USDT,150.2,',
+            '1,2025-06-22 20:20:00,Spot,Binance Convert,USDT,-129,',
+            '1,2025-06-22 20:21:01,Spot,Binance Convert,USDC,129,'].join("\n")
+
+    result = import(file)
+
+    assert_nil result[:error]
+    assert_equal 1, result[:imported]
+    assert_equal %w[deposit], AccountTransaction.for_user(@user).pluck(:entry_type)
+    assert_equal ['Binance Convert USDT -129 2025-06-22 20:20:00 UTC', 'Binance Convert USDC 129 2025-06-22 20:21:01 UTC'],
+                 result[:unrecognised]
+  end
+
+  test 'a lone convert half, then the complete export, is one grouped pair' do
+    half = [HEADER, '1,2025-06-22 20:20:45,Spot,Binance Convert,USDC,129,'].join("\n")
+    whole = [HEADER, '1,2025-06-22 20:20:45,Spot,Binance Convert,USDC,129,', '1,2025-06-22 20:20:46,Spot,Binance Convert,USDT,-129,'].join("\n")
+
+    import(half)
+    result = import(whole)
+    import(whole)
+
+    assert_equal 2, result[:imported]
+    rows = AccountTransaction.for_user(@user).order(:entry_type).to_a
+    assert_equal %w[swap_in swap_out], rows.map(&:entry_type)
+    assert_equal 1, rows.map(&:group_id).uniq.size
+    assert rows.first.group_id.present?
+  end
+
+  # Time.parse fills what a cell lacks from the clock: an empty or garbled Time read as today, and the
+  # row landed years from where it belongs. A cell that names no real date and time refuses the file.
+  test 'a time cell that is no real date and time refuses the file' do
+    ['', 'yesterday-ish', '2024-02-30 10:00:00', '2024-03-01 25:00:00', '2024-03-01'].each do |cell|
+      file = [HEADER, '1,2021-07-01 14:07:04,Spot,Deposit,USDT,150.2,', "1,#{cell},Spot,Deposit,USDT,1,"].join("\n")
+
+      assert_equal :malformed, import(file)[:error], cell.inspect
+    end
+    assert_equal 0, AccountTransaction.for_user(@user).count
+  end
+
+  test 'our own export with a date that names no day refuses the file' do
+    header = AccountTransaction.csv_headers.join(',')
+    file = "#{header}\n12:00:00,deposit,USDT,1,,,,,#{@binance.name_id},,,\n"
+
+    assert_equal :malformed, import(file, format: 'deltabadger')[:error]
+  end
+
+  # `to_d` reads "1,5" as 1, "--1" as -0 and "Infinity" as infinite: a wrong number booked silently.
+  test 'an amount that is no plain decimal refuses the file' do
+    ['Infinity', '"1,5"', '--1', 'abc', '12abc', ''].each do |cell|
+      file = [HEADER, '1,2021-07-01 14:07:04,Spot,Deposit,USDT,150.2,', "1,2021-07-02 00:00:00,Spot,Deposit,USDT,#{cell},"].join("\n")
+
+      assert_equal :malformed, import(file)[:error], cell.inspect
+    end
+    assert_equal 0, AccountTransaction.for_user(@user).count
+  end
+
+  test 'plain decimals still read, exponent and sign included' do
+    file = [HEADER, '1,2021-07-01 14:07:04,Spot,Deposit,USDT, 2.5 ,', '1,2021-07-01 14:07:05,Spot,Deposit,BTC,1e-5,',
+            '1,2021-07-01 14:07:06,Spot,Deposit,ETH,+.5,'].join("\n")
+
+    assert_equal 3, import(file)[:imported]
+    assert_equal [2.5, 0.00001, 0.5].map(&:to_d), AccountTransaction.for_user(@user).order(:transacted_at).pluck(:base_amount)
+  end
+
+  test 'our own export with an amount that is no plain decimal refuses the file' do
+    header = AccountTransaction.csv_headers.join(',')
+    file = "#{header}\n2024-01-01T00:00:00Z,buy,ZORK,1,USD,12abc,,,#{@binance.name_id},,,\n"
+
+    assert_equal :malformed, import(file, format: 'deltabadger')[:error]
+  end
+
+  # Same pair, same second: one price. Where Binance wrote one cash row for two fills (or one receipt
+  # for two spends), the fills stay buy rows, so a file over the API's fills dedups against them.
+  test 'a file whose cash leg spans two API-stored fills adds nothing' do
+    at = Time.utc(2024, 3, 1, 10, 0, 0)
+    fill = lambda { |id, eth, usdt|
+      { entry_type: :buy, base_currency: 'ETH', base_amount: eth.to_d, quote_currency: 'USDT', quote_amount: usdt.to_d, tx_id: id, transacted_at: at,
+        raw_data: {} }
+    }
+    AccountTransactionSync.new(@key).store!([fill.call('f1', '1', '10'), fill.call('f2', '2', '20')])
+
+    one_spend = [HEADER, '1,2024-03-01 10:00:00,Spot,Transaction Spend,USDT,-30,', '1,2024-03-01 10:00:00,Spot,Transaction Buy,ETH,1,',
+                 '1,2024-03-01 10:00:00,Spot,Transaction Buy,ETH,2,'].join("\n")
+    two_spends = [HEADER, '1,2024-03-01 10:00:00,Spot,Transaction Spend,USDT,-10,', '1,2024-03-01 10:00:00,Spot,Transaction Spend,USDT,-20,',
+                  '1,2024-03-01 10:00:00,Spot,Transaction Buy,ETH,3,'].join("\n")
+
+    assert_equal 0, import(one_spend)[:imported]
+    assert_equal 0, import(two_spends)[:imported]
+    assert_equal 2, AccountTransaction.for_user(@user).count
+  end
 end

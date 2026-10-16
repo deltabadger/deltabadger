@@ -200,6 +200,22 @@ class Import::BinanceCsvTest < ActiveSupport::TestCase
     assert_nil Import::BinanceCsv.offset_from('renamed-by-the-user.csv')
   end
 
+  test 'an older export with a UTC_Time column is read in UTC, whatever offset was passed' do
+    text = ['User_ID,UTC_Time,Account,Operation,Coin,Change,Remark', '1,2021-07-01 03:42:38,Spot,Deposit,USDT,150,'].join("\n")
+
+    assert_equal Time.utc(2021, 7, 1, 3, 42, 38), Import::BinanceCsv.new(text, offset: '+03:00').entries.sole[:transacted_at]
+    assert_equal '+00:00', Import::BinanceCsv.offset_from('renamed.csv', text)
+    assert_nil Import::BinanceCsv.offset_from('renamed.csv', [HEADER, '1,2021-07-01 03:42:38,Spot,Deposit,USDT,150,'].join("\n"))
+  end
+
+  # "-0:30" read as an integer hour is +0, and the offset flipped; a minute past 59 is no zone at all.
+  test 'a minutes-only negative offset keeps its sign, and minutes past 59 are no zone' do
+    assert_equal '-00:30', Import::BinanceCsv.offset_from('x(UTC-0:30).csv')
+    assert_equal '-05:30', Import::BinanceCsv.offset_from('x(UTC-5:30).csv')
+    assert_equal '+00:00', Import::BinanceCsv.offset_from('x(UTC-0).csv')
+    assert_nil Import::BinanceCsv.offset_from('x(UTC+3:99).csv')
+  end
+
   # ── the sign is the direction ────────────────────────────────────────────────────────────────
   #
   # An operation name does not say which way an asset moved; the `Change` column does. Binance takes
@@ -323,6 +339,19 @@ class Import::BinanceCsvTest < ActiveSupport::TestCase
     assert_equal(0.01368573.to_d, entries.sum { |e| e[:base_amount] })
   end
 
+  # A trade with no other side was dropped without a word; it is reported instead.
+  test 'a trade with only one side is reported, not dropped' do
+    importer = Import::BinanceCsv.new(
+      [HEADER, '1,2024-03-01 10:00:00,Spot,Transaction Buy,ETH,1,', '1,2024-03-01 10:00:00,Spot,Transaction Fee,BNB,-0.01,',
+       '1,2024-03-01 11:00:00,Spot,Transaction Spend,USDT,-4,'].join("\n"),
+      offset: '+00:00'
+    )
+
+    assert_empty importer.entries
+    assert_equal ['Transaction Buy ETH 2024-03-01 10:00:00 UTC', 'Transaction Fee BNB 2024-03-01 10:00:00 UTC',
+                  'Transaction Spend USDT 2024-03-01 11:00:00 UTC'], importer.unrecognised
+  end
+
   # ── never invent ─────────────────────────────────────────────────────────────────────────────
   test 'an operation we do not know is reported, never guessed at' do
     importer = Import::BinanceCsv.new(
@@ -332,5 +361,97 @@ class Import::BinanceCsvTest < ActiveSupport::TestCase
 
     assert_empty importer.entries
     assert_equal ['Some Future Binance Product'], importer.unrecognised
+  end
+
+  # ── legs the file does not pair one to one ───────────────────────────────────────────────────
+  #
+  # Every leg keeps its own coin and amount, and is counted once: legs were summed under one coin's
+  # name, fees in two coins summed under one, and a side with fewer legs reused its last for a second
+  # fill — so a buy, or a rename's credit, landed twice.
+  def moved(entries)
+    totals = Hash.new { |hash, key| hash[key] = 0.to_d }
+    entries.each do |entry|
+      totals[[:base, entry[:base_currency]]] += entry[:base_amount]
+      totals[[:quote, entry[:quote_currency]]] += entry[:quote_amount] if entry[:quote_currency]
+      totals[[:fee, entry[:fee_currency]]] += entry[:fee_amount] if entry[:fee_currency]
+    end
+    totals
+  end
+
+  test 'two coins bought in one second each keep their own amount' do
+    entries = parse(
+      '1,2024-03-01 10:00:00,Spot,Transaction Spend,USDT,-10,',
+      '1,2024-03-01 10:00:00,Spot,Transaction Buy,ETH,1,',
+      '1,2024-03-01 10:00:00,Spot,Transaction Spend,USDT,-5,',
+      '1,2024-03-01 10:00:00,Spot,Transaction Buy,SOL,2,',
+      '1,2024-03-01 10:00:00,Spot,Transaction Fee,BNB,-0.01,',
+      '1,2024-03-01 10:00:00,Spot,Transaction Fee,BNB,-0.02,'
+    )
+
+    assert_equal({ [:base, 'USDT'] => 15.to_d, [:base, 'ETH'] => 1.to_d, [:base, 'SOL'] => 2.to_d, [:fee, 'BNB'] => 0.03.to_d },
+                 moved(entries))
+    assert_equal 1, entries.map { |e| e[:group_id] }.uniq.size, 'one swap: nothing says which spend bought which'
+  end
+
+  test 'fees in two coins stay in their own coins' do
+    entries = parse(
+      '1,2024-03-01 10:00:00,Spot,Transaction Spend,USDT,-10,',
+      '1,2024-03-01 10:00:00,Spot,Transaction Buy,ETH,1,',
+      '1,2024-03-01 10:00:00,Spot,Transaction Spend,USDT,-20,',
+      '1,2024-03-01 10:00:00,Spot,Transaction Buy,ETH,2,',
+      '1,2024-03-01 10:00:00,Spot,Transaction Fee,BNB,-0.01,',
+      '1,2024-03-01 10:00:00,Spot,Transaction Fee,BNB,-0.02,',
+      '1,2024-03-01 10:00:00,Spot,Transaction Fee,USDT,-0.03,'
+    )
+
+    assert_equal 0.03.to_d, moved(entries)[[:fee, 'BNB']]
+    assert_equal 0.03.to_d, moved(entries)[[:fee, 'USDT']]
+  end
+
+  test 'a lone extra leg is counted once' do
+    buys = parse(
+      '1,2024-03-01 10:00:00,Spot,Transaction Spend,USDT,-10,',
+      '1,2024-03-01 10:00:00,Spot,Transaction Spend,USDT,-20,',
+      '1,2024-03-01 10:00:00,Spot,Transaction Buy,ETH,3,'
+    )
+    rename = parse(
+      '1,2024-03-01 10:00:00,Spot,Token Swap - Redenomination/Rebranding,AAA,-1,',
+      '1,2024-03-01 10:00:00,Spot,Token Swap - Redenomination/Rebranding,BBB,-3,',
+      '1,2024-03-01 10:00:00,Spot,Token Swap - Redenomination/Rebranding,CCC,4,'
+    )
+
+    assert_equal 3.to_d, moved(buys)[[:base, 'ETH']]
+    assert_equal 30.to_d, moved(buys)[[:base, 'USDT']] + moved(buys)[[:quote, 'USDT']]
+    assert_equal 4.to_d, moved(rename)[[:base, 'CCC']]
+    assert_equal({ [:base, 'AAA'] => 1.to_d, [:base, 'BBB'] => 3.to_d, [:base, 'CCC'] => 4.to_d }, moved(rename))
+  end
+
+  # The side Binance wrote fewer rows for is split across the other side's fills by quantity, so a
+  # cash trade stays buy rows, and the split creates and loses nothing: the remainder is the last row's.
+  test 'one cash row over two fills is split across buy rows, summing exactly' do
+    entries = parse(
+      '1,2024-03-01 10:00:00,Spot,Transaction Spend,USDT,-10,',
+      '1,2024-03-01 10:00:00,Spot,Transaction Buy,ETH,1,',
+      '1,2024-03-01 10:00:00,Spot,Transaction Buy,ETH,2,',
+      '1,2024-03-01 10:00:00,Spot,Transaction Fee,BNB,-0.01,'
+    )
+
+    assert_equal(%i[buy buy], entries.map { |e| e[:entry_type] })
+    assert_equal([2, 1].map(&:to_d), entries.map { |e| e[:base_amount] })
+    assert_equal(10.to_d, entries.sum { |e| e[:quote_amount] })
+    assert_equal(0.01.to_d, entries.sum { |e| e[:fee_amount] })
+    assert_equal ['BNB'], entries.map { |e| e[:fee_currency] }.uniq
+  end
+
+  test 'two spends for one receipt are two sell-side fills of that receipt' do
+    entries = parse(
+      '1,2024-03-01 10:00:00,Spot,Transaction Sold,ETH,-1,',
+      '1,2024-03-01 10:00:00,Spot,Transaction Sold,ETH,-2,',
+      '1,2024-03-01 10:00:00,Spot,Transaction Revenue,USDT,7,'
+    )
+
+    assert_equal(%i[sell sell], entries.map { |e| e[:entry_type] })
+    assert_equal(7.to_d, entries.sum { |e| e[:quote_amount] })
+    assert_equal(3.to_d, entries.sum { |e| e[:base_amount] })
   end
 end
