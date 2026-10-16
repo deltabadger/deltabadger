@@ -324,15 +324,34 @@ class Exchanges::Hyperliquid < Exchange
     Result::Success.new(order_id)
   end
 
+  # The key is the account's address and the secret an API (agent) wallet's private key. Orders are
+  # signed by the agent and act for the account that approved it, so the check has to tie the two
+  # together: openOrders on the address is a public read and accepted any secret at all.
+  # userRole (https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint) answers
+  # {"role":"agent","data":{"user":<approver>}} for an approved agent, "missing" for one that never was or
+  # has been pruned. The account's own private key is accepted as well (role "user"): it can trade too.
+  # A sub-account address is refused: its agent's approver is the master, and orders signed here carry
+  # no vaultAddress, so they would trade the master's balance.
+  # A read that fails says nothing about the key and is handed back as it came.
   def get_api_key_validity(api_key:)
-    result = Honeymaker.client('hyperliquid',
-                               api_key: api_key.key,
-                               api_secret: api_key.secret,
-                               proxy: ExchangeProxy.for('hyperliquid')).validate(:trading)
-    Result::Success.new(result.success?)
-  rescue StandardError
-    # Network errors, etc. — don't fail the validation
-    Result::Success.new(true)
+    return get_read_api_key_validity(api_key:) unless order_placement_available?
+
+    signer = agent_address(api_key.secret)
+    return Result::Success.new(false) if signer.nil?
+
+    hm_client = Honeymaker.client('hyperliquid', api_key: api_key.key, api_secret: api_key.secret,
+                                                 proxy: ExchangeProxy.for('hyperliquid'))
+    # honeymaker 0.12.3 has no userRole; its own info request is used.
+    result = hm_client.send(:post_info, { type: 'userRole', user: signer })
+    return result if result.failure?
+
+    role = result.data.is_a?(Hash) ? result.data : {}
+    valid = case role['role']
+            when 'agent' then role.dig('data', 'user').to_s.casecmp?(api_key.key)
+            when 'user' then signer.casecmp?(api_key.key)
+            else false
+            end
+    Result::Success.new(valid)
   end
 
   def minimum_amount_logic(**)
@@ -379,6 +398,14 @@ class Exchanges::Hyperliquid < Exchange
   end
 
   private
+
+  # The address a private key signs as; nil for a secret that is not a key at all.
+  def agent_address(secret)
+    require 'eth'
+    Eth::Key.new(priv: secret.to_s.delete_prefix('0x')).address.to_s
+  rescue StandardError
+    nil
+  end
 
   def get_l2_book(ticker)
     cache_key = "exchange_#{id}_l2_book_#{ticker.id}"

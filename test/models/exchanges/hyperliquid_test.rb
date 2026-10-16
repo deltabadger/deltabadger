@@ -34,6 +34,37 @@ class Exchanges::HyperliquidTest < ActiveSupport::TestCase
     assert @exchange.throttled_error?(['the server responded with status 429'])
   end
 
+  # VALID_AGENT_KEY signs as this address.
+  AGENT_ADDRESS = '0xe239cdc5fbe977a8a141B72194D3CF8c41bC5BC6'.freeze
+
+  def key_check(role_answer)
+    Honeymaker::Clients::Hyperliquid.any_instance.expects(:post_info)
+                                    .with({ type: 'userRole', user: AGENT_ADDRESS }).returns(role_answer)
+    connection = create(:api_key, exchange: @exchange, raw_key: VALID_WALLET, raw_secret: VALID_AGENT_KEY)
+    @exchange.get_api_key_validity(api_key: connection)
+  end
+
+  test 'the key check accepts an agent the wallet approved' do
+    result = key_check(Result::Success.new({ 'role' => 'agent', 'data' => { 'user' => VALID_WALLET.upcase.sub('0X', '0x') } }))
+    assert_equal true, result.data
+  end
+
+  test 'the key check refuses an agent nobody approved, or one approved by another account' do
+    assert_equal false, key_check(Result::Success.new({ 'role' => 'missing' })).data
+    assert_equal false, key_check(Result::Success.new({ 'role' => 'agent', 'data' => { 'user' => "0x#{'9' * 40}" } })).data
+  end
+
+  test 'the key check refuses a sub-account address its master\'s agent would not trade' do
+    master = "0x#{'7' * 40}"
+    result = key_check(Result::Success.new({ 'role' => 'agent', 'data' => { 'user' => master } }))
+    assert_equal false, result.data
+  end
+
+  test 'the key check leaves a key unverified when the role read fails' do
+    result = key_check(Result::Failure.new('execution expired'))
+    assert_predicate result, :failure?
+  end
+
   test 'minimum_amount_logic returns base_and_quote_in_base so the 10 USDC floor is enforced in base' do
     # HL is limit-only; :base_and_quote_in_base converts minimum_quote_size (10) into a per-order base
     # minimum (ceil(10/price)), so sub-10 orders skip up front instead of being exchange-rejected.
