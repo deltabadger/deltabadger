@@ -11,7 +11,14 @@ class Exchanges::Bybit < Exchange
     # wording, taken from recorded failures on this venue; it reads like Binance's because Bybit
     # reuses that phrasing. The codes moved to INVALID_KEY_CODES, which is what the retCode branch
     # of get_api_key_validity actually needs.
-    invalid_key: ['Invalid API-key, IP, or permissions for action.']
+    # 'API key is invalid' is retCode 10003 as Bybit answers it (https://bybit-exchange.github.io/docs/v5/error);
+    # the client keeps only retMsg, so without it a revoked key surfaced as a raw string.
+    invalid_key: ['Invalid API-key, IP, or permissions for action.', 'API key is invalid'],
+    # retCode 10005: the key is good but lacks a scope, so it must not be condemned.
+    permission_denied: ['Permission denied, please check your API key permissions'],
+    # retCode 10002, a skewed clock. A read can simply be retried; placement already treats it as safe
+    # through Exchange::PLACEMENT_SAFE_TRANSIENT_ERRORS.
+    transient: ['Timestamp for this request is outside of the recvWindow']
   }.freeze
 
   # Matched against the parsed retCode, never against a message — keeping them out of ERRORS stops

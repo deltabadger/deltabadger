@@ -23,6 +23,17 @@ class Exchanges::BybitTest < ActiveSupport::TestCase
     assert_not_includes errors[:invalid_key], '10003'
   end
 
+  # Bybit's own answers, live with a bogus key and from https://bybit-exchange.github.io/docs/v5/error.
+  test 'classifies the errors Bybit actually returns' do
+    assert @exchange.invalid_key_error?(['API key is invalid.'])
+    assert @exchange.permission_error?(['Permission denied, please check your API key permissions.'])
+    assert_not @exchange.invalid_key_error?(['Permission denied, please check your API key permissions.'])
+
+    clock = ['Timestamp for this request is outside of the recvWindow.']
+    assert @exchange.transient_error?(clock)
+    assert_not @exchange.ambiguous_placement_error?(Result::Failure.new(*clock))
+  end
+
   test 'minimum_amount_logic returns base_or_quote for market orders' do
     assert_equal :base_or_quote, @exchange.minimum_amount_logic(order_type: :market_order)
   end
