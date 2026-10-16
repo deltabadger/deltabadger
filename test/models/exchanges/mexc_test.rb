@@ -301,4 +301,18 @@ class Exchanges::MexcTest < ActiveSupport::TestCase
     assert_equal Time.at(1_665_300_874).utc, rows.first[:transacted_at]
     assert_equal 10.to_d, rows.first[:base_amount]
   end
+
+  # Deposit status: 1 SMALL, 2 TIME_DELAY, 3 LARGE_DELAY, 4 PENDING, 5 SUCCESS, 6 AUDITING,
+  # 7 REJECTED, 8 REFUND, 9 PRE_SUCCESS, 10 INVALID, 11 RESTRICTED, 12 COMPLETED.
+  test 'get_ledger books credited deposits and skips the rest' do
+    deposit = { 'amount' => '50000', 'coin' => 'EOS', 'network' => 'EOS', 'status' => 5,
+                'address' => '0x20b7cf77db93d6ef1ab979c49142ec168427fdee', 'txId' => 'aa:0',
+                'insertTime' => 1_659_513_342_000, 'unlockConfirm' => '10', 'confirmTimes' => '241' }
+    stub_ledger(deposits: [deposit, deposit.merge('status' => '12', 'txId' => 'bb:0'),
+                           deposit.merge('status' => 1, 'txId' => 'cc:0'), deposit.merge('status' => 4, 'txId' => 'dd:0')])
+
+    rows = @exchange.get_ledger(api_key: ledger_api_key, start_time: 2.days.ago).data.select { |e| e[:entry_type] == :deposit }
+
+    assert_equal %w[aa:0 bb:0], rows.map { |r| r[:tx_id] }
+  end
 end

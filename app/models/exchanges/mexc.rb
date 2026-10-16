@@ -32,6 +32,9 @@ class Exchanges::Mexc < Exchange
   # The order lookup's answer for an order MEXC does not have: -2013 "Order does not exist." (its
   # Binance-clone wording) or -2011 "Unknown order sent" (https://mexcdevelop.github.io/apidocs/spot_v3_en/#error-code).
   ORDER_GONE_CODES = [-2013, -2011].freeze
+  # Deposit history status 5 SUCCESS and 12 COMPLETED; 1 is SMALL, a deposit under the minimum that
+  # was never credited (https://mexcdevelop.github.io/apidocs/spot_v3_en/#deposit-history-supporting-network).
+  DEPOSIT_CREDITED = [5, 12].freeze
 
   include Exchange::Dryable # decorators for: get_order, get_orders, cancel_order, get_api_key_validity, set_market_order, set_limit_order
 
@@ -442,7 +445,7 @@ class Exchanges::Mexc < Exchange
     result = hm_client.deposit_history(start_time: start_ms)
     unless result.failure?
       Array(result.data).each do |dep|
-        next unless dep['status'].to_i == 1
+        next unless dep['status'].to_i.in?(DEPOSIT_CREDITED)
 
         entries << { entry_type: :deposit, base_currency: dep['coin'], base_amount: dep['amount'].to_d,
                      quote_currency: nil, quote_amount: nil, fee_currency: nil, fee_amount: nil,
