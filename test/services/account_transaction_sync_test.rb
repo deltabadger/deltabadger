@@ -809,6 +809,32 @@ class AccountTransactionSyncTest < ActiveSupport::TestCase
     assert_equal %w[dust-1-in dust-1-out dust-2-in dust-2-out], AccountTransaction.pluck(:tx_id).sort, 'one leg per call'
   end
 
+  # The pairings follow the run rules too: a row this run stored is no evidence, the rest count one for one.
+  test 'two identical dust sweeps in one second of a file are both stored, and only once' do
+    at = Time.utc(2021, 9, 21, 19, 22, 0)
+    assert_equal({ imported: 4, duplicates: 0 }, store(*file_dust(at:), *file_dust(at:)).slice(:imported, :duplicates))
+    assert_equal({ imported: 0, duplicates: 4 }, store(*file_dust(at:), *file_dust(at:)).slice(:imported, :duplicates), 'the same file again')
+  end
+
+  test 'two identical file transfers in one batch are both stored, and only once' do
+    row = file_transfer(:deposit, '150.2', Time.utc(2021, 7, 1, 11, 7, 4))
+    assert_equal({ imported: 2, duplicates: 0 }, store(row, row.dup).slice(:imported, :duplicates))
+    assert_equal({ imported: 0, duplicates: 2 }, store(row, row.dup).slice(:imported, :duplicates), 'the same file again')
+  end
+
+  # One stored id-less row the pairing does not govern, exactly a second on (across sources), is one event: of two
+  # identical API conversions or deposits, it accounts for the first only.
+  test 'a stored row outside the pairing counts one for one against identical API dust and deposits' do
+    at = Time.utc(2021, 9, 21, 19, 22, 0)
+    create(:account_transaction, api_key: @api_key, exchange: @exchange, entry_type: :swap_out, base_currency: 'USDT',
+                                 base_amount: '25.47403194'.to_d, tx_id: nil, transacted_at: at + 1, raw_data: {})
+    create(:account_transaction, api_key: @api_key, exchange: @exchange, entry_type: :deposit, base_currency: 'USDT',
+                                 base_amount: '150.2'.to_d, tx_id: nil, transacted_at: at + 1, raw_data: {})
+    store(*api_dust(at:, id: 1), *api_dust(at:, id: 2), api_deposit(at:, id: 'dep-1'), api_deposit(at:, id: 'dep-2'))
+
+    assert_equal [nil, nil, 'dep-2', 'dust-1-in', 'dust-2-in', 'dust-2-out'], AccountTransaction.pluck(:tx_id).sort_by(&:to_s)
+  end
+
   # A Convert out of cash used to be read from the file as a purchase; it is now the swap pair the
   # API books. A file imported under the old reading holds the purchase, and importing it again must
   # not add the pair on top: a swap leg is the purchase (or sale) it replaced when the coin leg is

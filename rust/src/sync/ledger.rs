@@ -659,8 +659,8 @@ const BY_TIME: &str = "INDEXED BY index_account_transactions_on_transacted_at";
 fn duplicate(c: &Connection, key: &Key, e: &Entry, tx_id: Option<&str>, merged: &HashSet<String>, stored_now: &HashSet<i64>, repeat: usize) -> Result<bool, SyncError> {
     if let Some(tx_id) = tx_id {
         if known_id(c, key, Some(tx_id), merged)? { return Ok(true); }
-        if api_dust(e, tx_id) { return api_dust_twin(c, key, e, tx_id); }
-        if api_transfer(e.entry_type, &e.raw.value) { return api_transfer_twin(c, key, e, tx_id); }
+        if api_dust(e, tx_id) { return api_dust_twin(c, key, e, tx_id, stored_now, repeat); }
+        if api_transfer(e.entry_type, &e.raw.value) { return api_transfer_twin(c, key, e, tx_id, stored_now, repeat); }
     }
     let Some(at) = e.transacted_at else { return Ok(false) }; // a row with no time is the same event as nothing
     let second = Duration::seconds(1);
@@ -708,11 +708,11 @@ fn file_side(entry_type: i64, raw: &Value, at: DateTime<Utc>) -> Option<(BigDec,
     Some((&amount("amount") + &amount("transactionFee"), complete.checked_sub_signed(second)?, complete.checked_add_signed(second)?, true))
 }
 
-/// #api_transfer_twin?: the second-wide rule still holds against every id-less row but a file transfer; then the one
+/// #api_transfer_twin?: the second-wide rule (#same_event?) still holds against every id-less row but a file transfer; then the one
 /// file row this API transfer pairs with takes its id, and the transfer is not stored again. Two candidates are a
 /// visible double. Raced (the row taken between the read and the write): read once more, then store; the id stored
 /// meanwhile by someone else is this row.
-fn api_transfer_twin(c: &Connection, key: &Key, e: &Entry, tx_id: &str) -> Result<bool, SyncError> {
+fn api_transfer_twin(c: &Connection, key: &Key, e: &Entry, tx_id: &str, stored_now: &HashSet<i64>, repeat: usize) -> Result<bool, SyncError> {
     let Some(at) = e.transacted_at else { return Ok(false) };
     let raws = |sql: &str, p: &[&dyn rusqlite::ToSql]| -> Result<Vec<(i64, Value)>, SyncError> {
         let mut s = c.prepare(sql)?;
@@ -725,7 +725,7 @@ fn api_transfer_twin(c: &Connection, key: &Key, e: &Entry, tx_id: &str) -> Resul
     let (Some(from), Some(to)) = (at.checked_sub_signed(second), at.checked_add_signed(second)) else { return Err(SyncError("a time at the end of the calendar".into())) };
     let same = raws(&format!("{base} AND transacted_at >= ?6 AND transacted_at <= ?7"), // across sources: ends included
                     params![key.user_id, key.exchange_id, e.entry_type, e.base_currency, real(&e.base_amount), sql_time(from), sql_time(to)])?;
-    if same.iter().any(|(_, raw)| !file_transfer(e.entry_type, raw)) { return Ok(true); }
+    if same.iter().filter(|(id, raw)| !stored_now.contains(id) && !file_transfer(e.entry_type, raw)).count() > repeat { return Ok(true); }
     let Some((amount, from, to, open)) = file_side(e.entry_type, &e.raw.value, at) else { return Ok(false) };
     let sql = format!("{base} AND {}", if open { "transacted_at > ?6 AND transacted_at < ?7" } else { "transacted_at >= ?6 AND transacted_at <= ?7" });
     for _ in 0..2 {
@@ -754,10 +754,10 @@ fn file_dust(entry_type: i64, group_id: Option<&str>) -> bool {
     matches!(entry_type, SWAP_IN | SWAP_OUT) && group_id.is_some_and(|g| g.starts_with("dustcsv"))
 }
 
-/// #api_dust_twin?: the second-wide rule still holds against every id-less row but a file dust leg; then the one export
+/// #api_dust_twin?: the second-wide rule (#same_event?) still holds against every id-less row but a file dust leg; then the one export
 /// group holding this conversion's coin leg and its BNB net of the charge, each once, within a second either side,
 /// takes both of its ids. One leg alone, or two candidates, pair with nothing; an id stored meanwhile is this row.
-fn api_dust_twin(c: &Connection, key: &Key, e: &Entry, tx_id: &str) -> Result<bool, SyncError> {
+fn api_dust_twin(c: &Connection, key: &Key, e: &Entry, tx_id: &str, stored_now: &HashSet<i64>, repeat: usize) -> Result<bool, SyncError> {
     let Some(at) = e.transacted_at else { return Ok(false) };
     let rows = |sql: &str, p: &[&dyn rusqlite::ToSql]| -> Result<Vec<(i64, i64, Option<String>)>, SyncError> {
         let mut s = c.prepare(sql)?;
@@ -767,9 +767,9 @@ fn api_dust_twin(c: &Connection, key: &Key, e: &Entry, tx_id: &str) -> Result<bo
     let second = Duration::seconds(1);
     let (Some(from), Some(to)) = (at.checked_sub_signed(second), at.checked_add_signed(second)) else { return Err(SyncError("a time at the end of the calendar".into())) };
     let base = format!("SELECT id, entry_type, group_id FROM account_transactions {BY_TIME} WHERE user_id = ?1 AND exchange_id = ?2 AND tx_id IS NULL");
-    let same = rows(&format!("{base} AND entry_type = ?3 AND base_currency IS ?4 AND base_amount = ?5 AND transacted_at > ?6 AND transacted_at < ?7"),
+    let same = rows(&format!("{base} AND entry_type = ?3 AND base_currency IS ?4 AND base_amount = ?5 AND transacted_at >= ?6 AND transacted_at <= ?7"), // across sources: ends included
                     params![key.user_id, key.exchange_id, e.entry_type, e.base_currency, real(&e.base_amount), sql_time(from), sql_time(to)])?;
-    if same.iter().any(|(_, t, g)| !file_dust(*t, g.as_deref())) { return Ok(true); }
+    if same.iter().filter(|(id, t, g)| !stored_now.contains(id) && !file_dust(*t, g.as_deref())).count() > repeat { return Ok(true); }
     let raw = &e.raw.value;
     let d = |k: &str| json_to_d(&raw[k]).ok().flatten().unwrap_or_else(BigDec::zero); // `.to_d`: nil is 0
     let net = &d("transferedAmount") - &d("serviceChargeAmount");

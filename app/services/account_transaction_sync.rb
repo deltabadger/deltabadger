@@ -374,10 +374,13 @@ class AccountTransactionSync
   # credit, and matched against each other all but the first were dropped. Rows stored BEFORE the run
   # count one for one — the Nth identical row in the batch is a duplicate while N such rows were already
   # there — so the same file imported twice still adds nothing.
-  def same_event?(entry, rows)
+  #
+  # A pairing between the export and the API passes the rows it decides itself as `governed`: those are
+  # not evidence either.
+  def same_event?(entry, rows, &governed)
     return false if entry[:transacted_at].blank?
 
-    same_events(entry, rows).pluck(:id).count { |id| !@stored_ids.include?(id) } > @repeat
+    same_events(entry, rows).count { |row| !@stored_ids.include?(row.id) && !governed&.call(row) } > @repeat
   end
 
   def event_key(entry)
@@ -471,7 +474,7 @@ class AccountTransactionSync
   def api_transfer_twin?(entry, tx_id)
     # The second-wide rule still holds against every id-less row except a file transfer: that pairing
     # is decided below.
-    return true if same_events(entry, scope.where(tx_id: nil)).any? { |row| !file_transfer?(row) }
+    return true if same_event?(entry, scope.where(tx_id: nil)) { |row| file_transfer?(row) }
 
     amount, from, to, bounds = file_side(entry)
     return false unless amount
@@ -497,7 +500,7 @@ class AccountTransactionSync
     at = entry[:transacted_at]
     return false if at.blank?
     # The same file row stored already — claimed or not — or any row this pairing does not govern.
-    return true if same_events(entry, scope).any? { |row| !api_transfer?(row) }
+    return true if same_event?(entry, scope) { |row| api_transfer?(row) }
 
     2.times do
       candidates = api_rows_for(entry)
@@ -606,7 +609,7 @@ class AccountTransactionSync
   def api_dust_twin?(entry, tx_id)
     at = entry[:transacted_at]
     return false if at.blank?
-    return true if same_events(entry, scope.where(tx_id: nil)).any? { |row| !file_dust?(row) }
+    return true if same_event?(entry, scope.where(tx_id: nil)) { |row| file_dust?(row) }
 
     id = tx_id.delete_suffix('-out').delete_suffix('-in')
     coin, amount, net = conversion(entry[:raw_data])
@@ -627,7 +630,7 @@ class AccountTransactionSync
     at = entry[:transacted_at]
     return false if at.blank?
     # The same file row stored already — claimed or not — or any row this pairing does not govern.
-    return true if same_events(entry, scope).any? { |row| !api_dust?(row) }
+    return true if same_event?(entry, scope) { |row| api_dust?(row) }
 
     2.times do
       # Only a whole API conversion: one stored a leg short (a sync cut off between them) leaves the file's

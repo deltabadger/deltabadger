@@ -877,7 +877,23 @@ module SyncScenarios
                    'operateTime' => sweep['operateTime'],
                    'transferedAmount' => '0.000051', 'fromAsset' => 'SHIB', 'targetAsset' => 'BNB' }
           sweep.merge('userAssetDribbletDetails' => sweep['userAssetDribbletDetails'] + [shib])
-        end))] }
+        end))] },
+      # A stored row no pairing governs, exactly a second on (across sources), is one event: of two identical API dust
+      # conversions, or deposits, it accounts for the first only.
+      { name: 'binance-ledger-twin_repeats',
+        setup: lambda do |ctx|
+          P.binance(ctx)
+          P.stored(ctx, exchange: ctx[:binance], entry_type: 3, base_currency: 'USDT', base_amount: '0.9', tx_id: nil, transacted_at: Time.at(1_786_960_801).utc)
+          P.stored(ctx, exchange: ctx[:binance], entry_type: 4, base_currency: 'XRP', base_amount: '30', tx_id: nil, transacted_at: t.(2026, 8, 14, 10, 0, 1))
+        end,
+        steps: [P.binance_ledger(night, basic.merge(
+          'dust' => [{ 'operateTime' => 1_786_960_800_000, 'totalTransferedAmount' => '0.000882', 'totalServiceChargeAmount' => '0.000018', 'transId' => 45_178_372_832,
+                       'userAssetDribbletDetails' => Array.new(2) do |i|
+                         { 'transId' => 4_359_330 + i, 'serviceChargeAmount' => '0.000009', 'amount' => '0.9', 'operateTime' => 1_786_960_800_000,
+                           'transferedAmount' => '0.000441', 'fromAsset' => 'USDT', 'targetAsset' => 'BNB' }
+                       end }],
+          'deposits' => basic['deposits'] + [P.bn_deposit(20, 'XRP', '30', t.(2026, 8, 14, 10)), P.bn_deposit(21, 'XRP', '30', t.(2026, 8, 14, 10))]
+        ))] }
     ]
   end
 
