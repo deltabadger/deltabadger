@@ -646,10 +646,8 @@ class Exchanges::Bitvavo < Exchange
     amount_quote = nil if amount_quote.zero?
     amount_exec = order_data['filledAmount'].to_d
     quote_amount_exec = order_data['filledAmountQuote'].to_d
-    if price.zero? && quote_amount_exec.positive? && amount_exec.positive?
-      price = quote_amount_exec / amount_exec
-      price = ticker.adjusted_price(price: price, method: :round) if ticker.present?
-    end
+    # `price` is the limit set on the order; what traded is the average of the fills.
+    price = quote_amount_exec / amount_exec if quote_amount_exec.positive? && amount_exec.positive?
     price = nil if price.zero?
     status = parse_order_status(Utilities::Hash.dig_or_raise(order_data, 'status'))
 

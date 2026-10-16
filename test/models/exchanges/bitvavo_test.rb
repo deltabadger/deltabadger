@@ -531,6 +531,23 @@ class Exchanges::BitvavoTest < ActiveSupport::TestCase
     refute_equal true, result.data.is_a?(Hash) && result.data[:not_found]
   end
 
+  # https://docs.bitvavo.com/docs/rest-api/get-order/: `price` is the limit set on the order,
+  # filledAmount / filledAmountQuote are what traded.
+  test 'get_order prices a filled limit order at its fills, not at its limit' do
+    create(:ticker, exchange: @exchange, ticker: 'BTC-EUR', base: 'BTC', quote: 'EUR', price_decimals: 0)
+    @exchange.set_client
+    @exchange.stubs(:dry_run?).returns(false)
+    raw = { 'market' => 'BTC-EUR', 'orderId' => 'lim1', 'orderType' => 'limit', 'side' => 'buy',
+            'status' => 'filled', 'price' => '60000', 'amount' => '0.002', 'amountRemaining' => '0',
+            'filledAmount' => '0.002', 'filledAmountQuote' => '118', 'feePaid' => '0.29', 'feeCurrency' => 'EUR' }
+    @exchange.send(:client).stubs(:get_order).returns(Result::Success.new(raw: raw))
+
+    result = @exchange.get_order(order_id: 'BTC-EUR-lim1')
+
+    assert result.success?
+    assert_equal BigDecimal('59000'), result.data[:price]
+  end
+
   # == get_orders: collect not-found ids under :missing (Kraken/HL bulk contract) ==
 
   test 'get_orders lists a 240 not-found id under :missing and returns the rest' do
