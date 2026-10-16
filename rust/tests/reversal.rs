@@ -182,6 +182,23 @@ async fn handback_waits_for_unrecorded_cancels() {
     assert!(matches!(r, Err(deltabadger::engine::EngineError::Unresolved(ref ids)) if ids == &vec![id]), "{r:?}");
 }
 
+/// A reserve still waiting for its buy's final state is Rust's to settle: a Rails without its reader would never credit it,
+/// so handback waits for it even after the cancel is recorded.
+#[tokio::test(flavor = "current_thread")]
+async fn handback_waits_for_a_reserve_still_waiting_for_its_buy() {
+    let (dir, mut e, id, s) = engine(buyer(), priced());
+    open_buy(&e.primary, &s, id, "OBUY");
+    reverse(&e.primary, &s, id, "2026-09-03T12:00:00Z");
+    run::step(&mut e, &at("2026-09-03T12:00:01Z")).await.unwrap(); // the cancel goes out and is recorded; the buy is not final
+    assert_eq!(reversal::work(&bot(&e.primary, id)).1, Vec::<i64>::new(), "no cancel left unrecorded");
+    drop(e);
+    let p = Paths::from_env(&|_| None, dir.path());
+    let o = store::open(&p).unwrap();
+    let lock = lease::lock(&p, t("2026-09-01T00:00:00Z")).unwrap();
+    let r = deltabadger::engine::handover::hand_back(&lock, &o, &FakeFactory(priced()), &seed::cipher(), &at("2026-09-03T12:00:02Z")).await;
+    assert!(matches!(r, Err(deltabadger::engine::EngineError::Unresolved(ref ids)) if ids == &vec![id]), "{r:?}");
+}
+
 #[tokio::test(flavor = "current_thread")]
 async fn a_selling_bots_frozen_carry_survives_a_settings_edit_and_the_reversal_back_to_buying() {
     let spec = buyer().with("direction", json!("selling")).with("sell_denomination", json!("quote")).with("sell_quote_amount", json!(30))

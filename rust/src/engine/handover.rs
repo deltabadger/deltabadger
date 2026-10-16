@@ -95,8 +95,10 @@ pub async fn hand_back_since<F: VenueFactory>(lock: &EngineLock, o: &Opened, fac
         let venue = factory.for_bot(&model::exchange_type(&o.primary, &bot)?, model::credentials_for(&o.primary, cipher, &bot)?);
         if let placement::Recovery::Pending = placement::recover_since(&o.primary, &venue, &bot, clock, process_start).await? { unresolved.push(id); }
     }
-    // A reversal's cancel not yet recorded is Rust's alone (its reserve credits are already in Rails' own key): wait for it.
+    // A reversal's cancel not yet recorded is Rust's alone: wait for it. So is a reserve still waiting for its buy's final
+    // state: a Rails without the reader for that list would never credit it, so it is settled here before Rails takes over.
     for id in super::reversal::unrecorded(&o.primary)? { if !unresolved.contains(&id) { unresolved.push(id); } }
+    for id in super::reversal::pending_settlements(&o.primary)? { if !unresolved.contains(&id) { unresolved.push(id); } }
     if !unresolved.is_empty() { return Err(EngineError::Unresolved(unresolved)); }
     // Amount-limit stops a swept fill left pending (the engine died before its tick ended) land now, one `stopped` line each,
     // as the engine's next start would have run them (run::step). Rails neither reads the count nor polls the closed row

@@ -51,6 +51,13 @@ pub fn record(c: &Connection, bot_id: i64, captured: &[(i64, bool)], leaving_buy
 }
 
 /// Bots holding a cancel the engine has not recorded yet, whatever their status: a STOP does not withdraw a reversal's cancels.
+/// The bots holding a reserve a reversal registered whose buy has not reached its final state yet.
+pub fn pending_settlements(c: &Connection) -> Result<Vec<i64>, EngineError> {
+    let mut s = c.prepare("SELECT id FROM bots WHERE json_array_length(transient_data, ?1) > 0 ORDER BY id")?;
+    let rows = s.query_map([format!("$.{RESERVE_PENDING}")], |r| r.get(0))?.collect::<Result<Vec<i64>, _>>()?;
+    Ok(rows)
+}
+
 pub fn unrecorded(c: &Connection) -> Result<Vec<i64>, EngineError> {
     let mut s = c.prepare("SELECT id FROM bots WHERE json_array_length(transient_data, ?1) > 0 ORDER BY id")?;
     let rows = s.query_map([format!("$.{CANCELS}")], |r| r.get(0))?.collect::<Result<Vec<i64>, _>>()?;

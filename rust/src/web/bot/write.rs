@@ -60,7 +60,7 @@ fn one(rows: usize) -> Result<(), WebError> {
 /// assigned back, even when a load supplied defaults for a different key.
 fn path(key: &str, transient: bool) -> Result<String, WebError> {
     let allowed = if transient {
-        matches!(key, "missed_quote_amount" | "missed_quote_amount_was_set")
+        matches!(key, "missed_quote_amount" | "missed_quote_amount_was_set" | "flip_reserve_pending")
             || ["quote_amount_limit", "base_amount_limit", "price_limit", "price_drop_limit", "moving_average_limit", "indicator_limit", "sell_price_limit", "sell_price_drop_limit", "sell_moving_average_limit", "sell_indicator_limit"]
                 .iter().any(|prefix| key == format!("{prefix}_enabled_at") || key == format!("{prefix}_condition_met_at"))
     } else {
@@ -506,6 +506,9 @@ fn lifecycle_inner<T>(
     match action {
         Action::Start => {
             one(tx.execute(WEB_START,(id,owner,&class,fresh && delayed.is_none(),&at))?)?;
+            // Bot::Lifecycle#start (fresh, delayed or not) drops the carry and with it the reserves a reversal left
+            // waiting for their buy's final state, so a later final poll cannot credit spending the start discarded.
+            if fresh { tx.execute(REMOVE_TRANSIENT,(path(crate::engine::reversal::RESERVE_PENDING,true)?,id,owner,&class))?; }
             if let Some(future)=delayed { one(tx.execute("UPDATE bots SET started_at=?4 WHERE id=?1 AND user_id=?2 AND type=?3 AND status=1",(id,owner,&class,codec::format_time(future)))?)?; }
             if !fresh {
                 // PR #457 accepted requested_at; preserve the original status too, so a
