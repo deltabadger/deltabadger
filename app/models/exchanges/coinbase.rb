@@ -634,9 +634,9 @@ class Exchanges::Coinbase < Exchange
     outstanding = Utilities::Hash.dig_or_raise(order_data, 'outstanding_hold_amount').to_d
     quote_amount_exec = total_value - outstanding
     errors = [
-      order_data.dig('order', 'reject_reason').presence,
-      order_data.dig('order', 'reject_message').presence,
-      order_data.dig('order', 'cancel_message').presence
+      order_data['reject_reason'].presence,
+      order_data['reject_message'].presence,
+      order_data['cancel_message'].presence
     ].compact
     status = parse_order_status(Utilities::Hash.dig_or_raise(order_data, 'status'))
 

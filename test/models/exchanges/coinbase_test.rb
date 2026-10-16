@@ -193,6 +193,21 @@ class Exchanges::CoinbaseTest < ActiveSupport::TestCase
     assert_not infos.key?('RNDR-USD')
   end
 
+  test 'an order reads its reject and cancel reasons from the order object' do
+    order = {
+      'order_id' => 'order-1', 'product_id' => 'BTC-USD', 'order_type' => 'MARKET', 'side' => 'BUY',
+      'status' => 'FAILED', 'average_filled_price' => '0', 'filled_size' => '0',
+      'total_value_after_fees' => '0', 'outstanding_hold_amount' => '0',
+      'order_configuration' => { 'market_market_ioc' => { 'quote_size' => '10' } },
+      'reject_reason' => 'INSUFFICIENT_FUND', 'reject_message' => 'Insufficient balance', 'cancel_message' => ''
+    }
+    Honeymaker::Clients::Coinbase.any_instance.stubs(:list_orders).returns(Result::Success.new('orders' => [order]))
+
+    parsed = @exchange.get_orders(order_ids: ['order-1']).data[:orders]['order-1']
+
+    assert_equal %w[INSUFFICIENT_FUND Insufficient\ balance], parsed[:error_messages]
+  end
+
   private
 
   def stub_parsed_order
