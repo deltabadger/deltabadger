@@ -270,6 +270,13 @@ class Exchanges::Bingx < Exchange
     symbol, ext_order_id = split_order_id(order_id)
     result = client.get_order(symbol: symbol, order_id: ext_order_id)
     if result.failure?
+      # Flagged so get_orders lists it under missing and Bot::StaleOrderResolver can retire it,
+      # instead of one gone order failing every poll of the bot's other orders.
+      if order_gone?(result)
+        return Result::Failure.new("#{name} no longer knows order #{order_id}",
+                                   data: { not_found: true, missing_ids: [order_id] })
+      end
+
       error = parse_error_message(result)
       return error.present? ? Result::Failure.new(error, data: result.data) : result
     end
@@ -281,14 +288,21 @@ class Exchanges::Bingx < Exchange
 
   def get_orders(order_ids:)
     orders = {}
+    missing = []
     order_ids.each do |order_id|
       result = get_order(order_id: order_id)
-      return result if result.failure?
+      if result.failure?
+        # A gone order goes under :missing for the stale-order sweep; any other failure still fails
+        # the batch so the job retries.
+        next missing << order_id if result.data.is_a?(Hash) && result.data[:not_found]
+
+        return result
+      end
 
       orders[order_id] = result.data
     end
 
-    Result::Success.new(orders: orders, missing: [])
+    Result::Success.new(orders: orders, missing: missing)
   end
 
   def cancel_order(order_id:)
@@ -454,6 +468,15 @@ class Exchanges::Bingx < Exchange
   end
 
   private
+
+  # The order lookup's answer for an order BingX does not have: 100404 "Order does not exist", or
+  # 100400 with an order-not-exist message (https://bingx-api.github.io/docs/#/en-us/common/error-code).
+  # 100400 alone also means a bad parameter, so it counts only with that message.
+  def order_gone?(result)
+    message = result.errors.join(' ')
+    code = response_field(result, 'code')&.to_i || message[/BingX API error (\d+)/, 1]&.to_i
+    code == KEY_CHECK_ORDER_NOT_FOUND || (code == 100_400 && message.match?(/order (does )?not exist/i))
+  end
 
   def check_bingx_api_key_error(result)
     error = parse_error_message(result)

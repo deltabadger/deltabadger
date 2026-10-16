@@ -84,6 +84,33 @@ class Exchanges::BingxTest < ActiveSupport::TestCase
     assert_equal BigDecimal('0.5'), info[:minimum_quote_size]
   end
 
+  # One order BingX no longer has (100404) failed the whole batch on every poll, and missing was
+  # always empty, so the stale-order sweep could never retire it.
+  test 'get_orders lists an order BingX no longer has under missing' do
+    create(:ticker, exchange: @exchange, base_symbol: 'BTC', quote_symbol: 'USDT', ticker: 'BTC-USDT')
+    raw = { 'symbol' => 'BTC-USDT', 'orderId' => 2, 'type' => 'MARKET', 'side' => 'BUY', 'price' => '0',
+            'origQty' => '0.001', 'executedQty' => '0.001', 'cummulativeQuoteQty' => '60', 'status' => 'FILLED' }
+    Honeymaker::Clients::BingX.any_instance.stubs(:get_order).with(symbol: 'BTC-USDT', order_id: '1')
+                              .returns(Result::Failure.new('BingX API error 100404: order not exist'))
+    Honeymaker::Clients::BingX.any_instance.stubs(:get_order).with(symbol: 'BTC-USDT', order_id: '2')
+                              .returns(Result::Success.new(raw: raw))
+
+    result = with_dry_run(false) { @exchange.get_orders(order_ids: %w[BTC-USDT-1 BTC-USDT-2]) }
+
+    assert_predicate result, :success?
+    assert_equal %w[BTC-USDT-1], result.data[:missing]
+    assert_equal %w[BTC-USDT-2], result.data[:orders].keys
+  end
+
+  test 'get_orders still fails the batch on any other failure' do
+    Honeymaker::Clients::BingX.any_instance.stubs(:get_order)
+                              .returns(Result::Failure.new('BingX API error 100400: miss arguments'))
+
+    result = with_dry_run(false) { @exchange.get_orders(order_ids: %w[BTC-USDT-1]) }
+
+    assert_predicate result, :failure?
+  end
+
   test 'cancel_order cancels by the full symbol and the venue id' do
     Honeymaker::Clients::BingX.any_instance.expects(:cancel_order)
                               .with(symbol: 'BTC-USDT', order_id: '1234567890')
