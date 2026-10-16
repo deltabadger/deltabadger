@@ -184,4 +184,19 @@ class Import::RunTest < ActiveSupport::TestCase
     assert result[:error].present?
     assert_equal 0, AccountTransaction.for_user(@user).count
   end
+
+  # A Convert whose halves are more than the window apart: each half is one side of a swap, and the
+  # rest of the file still lands. Booked as the reader's internal `convert`, the write refused it.
+  test 'a convert half with no partner lands as one side of a swap' do
+    file = [HEADER, '1,2021-07-01 14:07:04,Spot,Deposit,USDT,150.2,',
+            '1,2025-06-22 20:20:00,Spot,Binance Convert,USDT,-129,',
+            '1,2025-06-22 20:21:01,Spot,Binance Convert,USDC,129,'].join("\n")
+
+    result = import(file)
+
+    assert_nil result[:error]
+    assert_equal 3, result[:imported]
+    assert_equal({ 'deposit' => 'USDT', 'swap_out' => 'USDT', 'swap_in' => 'USDC' },
+                 AccountTransaction.for_user(@user).pluck(:entry_type, :base_currency).to_h)
+  end
 end
