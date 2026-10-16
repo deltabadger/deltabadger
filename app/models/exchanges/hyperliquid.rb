@@ -368,38 +368,67 @@ class Exchanges::Hyperliquid < Exchange
   def get_ledger(api_key:, start_time: nil)
     hm_client = Honeymaker.client('hyperliquid', api_key: api_key.key, api_secret: api_key.secret,
                                                  proxy: ExchangeProxy.for('hyperliquid'))
-    start_ms = start_time ? (start_time.to_f * 1000).to_i : nil
-    entries = []
+    # A first sync reads from the beginning: userFills (no start) is only the 2000 most recent fills,
+    # and the watermark then moved past everything older. A failed read fails the fetch, so the sync
+    # never records a partial history as complete.
+    start_ms = start_time ? (start_time.to_f * 1000).to_i : 0
+    result = read_by_time(hm_client, :user_fills_by_time, user: api_key.key, start_ms:)
+    return result if result.failure?
 
-    result = if start_ms
-               hm_client.user_fills_by_time(user: api_key.key, start_time: start_ms)
-             else
-               hm_client.user_fills(user: api_key.key)
-             end
-
-    unless result.failure?
-      # userFills returns the spot pair index (e.g. "@333"), not the token name — unlike
-      # spot_balances, which returns "MU". Map it to the human base symbol via our ticker
-      # table; fall back to the raw coin for an unknown/delisted pair.
-      base_by_ticker = tickers.pluck(:ticker, :base).to_h
-      Array(result.data).each do |fill|
-        coin = fill['coin']
-        is_buyer = fill['side'] == 'B'
-        px = fill['px'].to_d
-        sz = fill['sz'].to_d
-        entries << { entry_type: is_buyer ? :buy : :sell,
-                     base_currency: base_by_ticker[coin] || coin, base_amount: sz,
-                     quote_currency: 'USDC', quote_amount: (px * sz),
-                     fee_currency: 'USDC', fee_amount: fill['fee'].to_d.abs,
-                     tx_id: fill['tid'].to_s, group_id: nil, description: nil,
-                     transacted_at: Time.at(fill['time'].to_i / 1000.0).utc, raw_data: fill }
-      end
+    # userFills returns the spot pair index (e.g. "@333"), not the token name — unlike
+    # spot_balances, which returns "MU". Map it to the human base symbol via our ticker
+    # table; fall back to the raw coin for an unknown/delisted pair.
+    base_by_ticker = tickers.pluck(:ticker, :base).to_h
+    entries = result.data.map do |fill|
+      coin = fill['coin']
+      is_buyer = fill['side'] == 'B'
+      px = fill['px'].to_d
+      sz = fill['sz'].to_d
+      { entry_type: is_buyer ? :buy : :sell,
+        base_currency: base_by_ticker[coin] || coin, base_amount: sz,
+        quote_currency: 'USDC', quote_amount: (px * sz),
+        fee_currency: 'USDC', fee_amount: fill['fee'].to_d.abs,
+        tx_id: fill['tid'].to_s, group_id: nil, description: nil,
+        transacted_at: Time.at(fill['time'].to_i / 1000.0).utc, raw_data: fill }
     end
 
     Result::Success.new(entries)
   end
 
   private
+
+  # https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint: the time-ranged user
+  # reads answer oldest first from startTime (inclusive), at most 2000 rows a call.
+  # ponytail: userFillsByTime serves only the 10000 most recent fills; anything older is gone at the venue.
+  TIME_PAGE_LIMIT = 2000
+  private_constant :TIME_PAGE_LIMIT
+
+  # Every row from start_ms on. Each page starts at the newest time of the one before, so rows sharing
+  # that millisecond are read again rather than skipped (busy accounts fill hundreds of times in one
+  # ms). Identical rows are counted, not collapsed: a row is kept as often as the page that holds it
+  # most. A full page that brings nothing new fails instead of looping.
+  def read_by_time(hm_client, method, user:, start_ms:)
+    rows = Hash.new(0)
+    from = start_ms
+    loop do
+      result = hm_client.public_send(method, user:, start_time: from)
+      return result if result.failure?
+
+      page = Array(result.data)
+      fresh = 0
+      page.tally.each do |row, count|
+        next if rows[row] >= count
+
+        rows[row] = count
+        fresh += 1
+      end
+      break if page.size < TIME_PAGE_LIMIT
+      return Result::Failure.new("#{name} #{method} returned a full page with nothing new") if fresh.zero?
+
+      from = page.map { |row| row['time'].to_i }.max
+    end
+    Result::Success.new(rows.flat_map { |row, count| [row] * count })
+  end
 
   # The pair an order was placed on. The id carries only the base, and a base trades against more
   # than one quote here (HYPE has USDC, USDH, USDT0 and USDE pairs), so a cancel aimed at "<base>/USDC"
