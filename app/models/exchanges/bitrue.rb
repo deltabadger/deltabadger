@@ -1,10 +1,30 @@
 class Exchanges::Bitrue < Exchange
   COINGECKO_ID = 'bitrue'.freeze # https://docs.coingecko.com/reference/exchanges-list
+  # Bitrue's own error list is short (https://github.com/Bitrue-exchange/Spot-official-api-docs#error-codes);
+  # the wording below is from live probes (2026-10-16) and ccxt's python/ccxt/bitrue.py captures.
   ERRORS = {
-    insufficient_funds: ['Insufficient balance.', 'Account has insufficient balance'],
-    invalid_key: ['Invalid Api-Key ID.', 'Signature for this request is not valid.']
+    # -2010 "Insufficient account balance.", -2017 "Insufficient balance" (no period).
+    insufficient_funds: ['Insufficient balance', 'Insufficient account balance', 'Account has insufficient balance'],
+    # -1022 "No login" is the live answer to a key Bitrue does not know. The two Binance-clone strings
+    # are kept but unproven.
+    invalid_key: ['No login', 'API key does not exist', 'Invalid Api-Key ID.', 'Signature for this request is not valid.'],
+    # The key is good but lacks the scope, so it must not be condemned.
+    permission_denied: ["You don't have permission", 'has no operation privilege'],
+    # HTTP 429; -1003 request weight; -1015 order rate.
+    throttle: ['Too Many Requests', 'Too many requests', 'Too much request weight', 'Too many new orders'],
+    # -1102 "recvWindow IllegalArgumentException." is the live answer to a timestamp outside the
+    # receive window (ccxt has seen "timestamp IllegalArgumentException."); -1000, -1016, 503, upkeep.
+    transient: ['recvWindow IllegalArgumentException', 'timestamp IllegalArgumentException', 'System abnormality',
+                'Service unavailable', 'System is under maintenance', 'An unknown error occured'],
+    # The timestamp is signed, so failing it fails authentication and the order never reached the
+    # book: safe to place again, as Binance's -1021.
+    placement_safe_transient: ['recvWindow IllegalArgumentException', 'timestamp IllegalArgumentException']
   }.freeze
   ORDER_STATUS_MAP = {
+    # "means ur order is in queue" (https://github.com/Bitrue-exchange/Spot-official-api-docs#enum-definitions).
+    'PENDING_CREATE' => :open,
+    # Documented as "currently unused"; read as Binance reads it.
+    'PENDING_CANCEL' => :unknown,
     'NEW' => :open,
     'PARTIALLY_FILLED' => :open,
     'FILLED' => :closed,
@@ -12,6 +32,7 @@ class Exchanges::Bitrue < Exchange
     'EXPIRED' => :cancelled,
     'REJECTED' => :failed
   }.freeze
+  ORDER_GONE_CODE = -2013
 
   include Exchange::Dryable # decorators for: get_order, get_orders, cancel_order, get_api_key_validity, set_market_order, set_limit_order
 
@@ -85,16 +106,20 @@ class Exchanges::Bitrue < Exchange
   def get_tickers_prices(force: false, symbols: nil)
     cache_key = "exchange_#{id}_prices"
     tickers_prices = Rails.cache.fetch(cache_key, expires_in: 1.minute, force: force) do
-      result = client.symbol_price_ticker
+      # /ticker/price wants a symbol (HTTP 412, -1102 "Missing parameter." without one); /ticker/24hr
+      # answers every pair when the symbol is omitted
+      # (https://github.com/Bitrue-exchange/Spot-official-api-docs#24hr-ticker-price-change-statistics).
+      # honeymaker has no method for it.
+      result = client.send(:get_public, '/api/v1/ticker/24hr')
       if result.failure?
         error = parse_error_message(result)
         return error.present? ? Result::Failure.new(error, data: result.data) : result
       end
 
-      result.data.each_with_object({}) do |symbol_price, prices_hash|
-        ticker = Utilities::Hash.dig_or_raise(symbol_price, 'symbol')
-        price = Utilities::Hash.dig_or_raise(symbol_price, 'price').to_d
-        prices_hash[ticker] = price
+      Array(result.data).each_with_object({}) do |ticker_stats, prices_hash|
+        ticker = Utilities::Hash.dig_or_raise(ticker_stats, 'symbol')
+        price = ticker_stats['lastPrice'].to_d
+        prices_hash[ticker] = price if price.positive?
       end
     end
 
@@ -114,7 +139,8 @@ class Exchanges::Bitrue < Exchange
     end
     raw_balances = Utilities::Hash.dig_or_raise(result.data, 'balances')
     raw_balances.each do |balance|
-      asset = asset_from_symbol(balance['asset'])
+      # Bitrue names assets in lower case ("btc"); tickers store them upper case.
+      asset = asset_from_symbol(balance['asset'].to_s.upcase)
       next unless asset.present?
       next unless asset_ids.include?(asset.id)
 
@@ -178,11 +204,16 @@ class Exchanges::Bitrue < Exchange
     Result::Success.new(price)
   end
 
+  # /api/v1/market/kline (https://github.com/Bitrue-exchange/Spot-official-api-docs#kline-data) returns
+  # {"data"=>[{is,o,h,l,c,v}]} with object candles, at most 1440, the newest first unless `fromIdx` (epoch
+  # ms, inclusive) caps the newest. It ignores startTime and endTime (live, 2026-10-16), so a range is
+  # read backwards from now in pages of 1440. '3d' is not a scale and '1M' means one MINUTE, so those
+  # are built from the daily candles. honeymaker's candlestick_data cannot send fromIdx.
+  # ponytail: Bitrue keeps a limited depth per scale (live: 1m about a day, 1h about 7 months, 1d to
+  # 2021-04); older candles do not exist there, so a range starting earlier comes back shorter.
+  KLINE_PAGE = 1440
+
   def get_candles(ticker:, start_at:, timeframe:)
-    # Bitrue's kline endpoint serves only a recent window (it ignores startTime) and returns
-    # {"data"=>[{is,o,h,l,c,v}]} with object candles (a Hash, not a bare Array). ATH seeds from this
-    # recent window (incremental-max refines it forward). '3d' is not supported and '1M' is interpreted
-    # as one MINUTE, so those coarser timeframes are aggregated from the daily resolution.
     native = {
       1.minute => '1m', 5.minutes => '5m', 15.minutes => '15m', 30.minutes => '30m',
       1.hour => '1h', 4.hours => '4h', 1.day => '1d', 1.week => '1w'
@@ -191,14 +222,28 @@ class Exchanges::Bitrue < Exchange
     source_timeframe = native.key?(timeframe) ? timeframe : build_source[timeframe]
     return Result::Failure.new("Unsupported timeframe #{timeframe.inspect} on #{name}") if source_timeframe.nil?
 
-    result = client.candlestick_data(symbol: ticker.ticker, interval: native[source_timeframe], limit: 500)
-    if result.failure?
-      error = parse_error_message(result)
-      return error.present? ? Result::Failure.new(error, data: result.data) : result
+    start_ms = start_at.to_i * 1000
+    rows = []
+    from_idx = nil
+    loop do
+      result = client.send(:get_public, '/api/v1/market/kline',
+                           { symbol: ticker.ticker, scale: native[source_timeframe], fromIdx: from_idx, limit: KLINE_PAGE })
+      if result.failure?
+        error = parse_error_message(result)
+        return error.present? ? Result::Failure.new(error, data: result.data) : result
+      end
+
+      page = result.data.is_a?(Hash) ? Array(result.data['data']) : []
+      oldest = page.map { |row| row['is'].to_i }.min
+      break if oldest.nil? || (from_idx && oldest > from_idx)
+
+      rows.concat(page)
+      break if page.size < KLINE_PAGE || oldest <= start_ms
+
+      from_idx = oldest - 1
     end
 
-    rows = result.data.is_a?(Hash) ? (result.data['data'] || []) : []
-    candles = rows.map do |row|
+    candles = rows.uniq { |row| row['is'] }.map do |row|
       [
         Time.at(row['is'].to_i / 1000).utc,
         row['o'].to_d,
@@ -241,6 +286,15 @@ class Exchanges::Bitrue < Exchange
   def get_order(order_id:)
     symbol, ext_order_id = order_id.split('-')
     result = client.query_order(symbol: symbol, order_id: ext_order_id)
+    # -2013 "Could not find order information for given order ID", which Bitrue documents under HTTP
+    # 200 (https://github.com/Bitrue-exchange/Spot-official-api-docs#error-codes): honeymaker then hands
+    # the error body back as the order. Flagged so get_orders lists it under missing and
+    # Bot::StaleOrderResolver can retire it, instead of one gone order failing every poll.
+    code = result.success? ? result.data[:raw]&.dig('code') : response_field(result, 'code')
+    if code.to_i == ORDER_GONE_CODE
+      return Result::Failure.new("#{name} no longer knows order #{order_id}",
+                                 data: { not_found: true, missing_ids: [order_id] })
+    end
     if result.failure?
       error = parse_error_message(result)
       return error.present? ? Result::Failure.new(error, data: result.data) : result
@@ -253,14 +307,21 @@ class Exchanges::Bitrue < Exchange
 
   def get_orders(order_ids:)
     orders = {}
+    missing = []
     order_ids.each do |order_id|
       result = get_order(order_id: order_id)
-      return result if result.failure?
+      if result.failure?
+        # A gone order goes under :missing for the stale-order sweep; any other failure still fails
+        # the batch so the job retries.
+        next missing << order_id if result.data.is_a?(Hash) && result.data[:not_found]
+
+        return result
+      end
 
       orders[order_id] = result.data
     end
 
-    Result::Success.new(orders: orders, missing: [])
+    Result::Success.new(orders: orders, missing: missing)
   end
 
   def cancel_order(order_id:)
@@ -295,12 +356,11 @@ class Exchanges::Bitrue < Exchange
     end
   end
 
-  def minimum_amount_logic(order_type:, **)
-    if order_type == :market_order
-      :base_and_quote
-    else
-      :base_and_quote_in_base
-    end
+  # Every order is sized in base: Bitrue's new-order takes `quantity` for MARKET as well as LIMIT
+  # (https://github.com/Bitrue-exchange/Spot-official-api-docs#new-order--trade) and documents no
+  # quoteOrderQty.
+  def minimum_amount_logic(**)
+    :base_and_quote_in_base
   end
 
   def withdraw(asset:, amount:, address:, network: nil, address_tag: nil)
@@ -358,49 +418,202 @@ class Exchanges::Bitrue < Exchange
   def get_ledger(api_key:, start_time: nil)
     hm_client = Honeymaker.client('bitrue', api_key: api_key.key, api_secret: api_key.secret,
                                             proxy: ExchangeProxy.for('bitrue'))
-    start_ms = start_time ? (start_time.to_f * 1000).to_i : nil
     entries = []
 
-    # Discover coins from balances
+    # Coins held now. Without the balances or the listing, pairs would go unread while the fetch
+    # succeeded, and the sync would move its watermark past them.
     coins = Set.new
     bal_result = hm_client.account_information
-    if bal_result.success?
-      Array(bal_result.data['balances']).each do |bal|
-        coins << bal['asset'] if bal['free'].to_d.positive? || bal['locked'].to_d.positive?
-      end
+    return bal_result if bal_result.failure?
+
+    Array(bal_result.data['balances']).each do |bal|
+      coins << bal['asset'].to_s.upcase if bal['free'].to_d.positive? || bal['locked'].to_d.positive?
     end
 
-    # Load exchange symbols
+    # Bitrue names assets in lower case; the ledger keeps them upper case, as tickers do.
     @exchange_symbols_map = {}
     info_result = hm_client.exchange_information
-    if info_result.success?
-      Array(info_result.data['symbols']).each do |s|
-        @exchange_symbols_map[s['symbol']] = { base: s['baseAsset'], quote: s['quoteAsset'] }
-      end
+    return info_result if info_result.failure?
+
+    Array(info_result.data['symbols']).each do |s|
+      @exchange_symbols_map[s['symbol']] = { base: s['baseAsset'].to_s.upcase, quote: s['quoteAsset'].to_s.upcase }
     end
 
-    traded_symbols = @exchange_symbols_map.keys.select { |sym| coins.include?(@exchange_symbols_map[sym][:base]) }
+    trades_from = ((start_time || LEDGER_FROM).to_f * 1000).to_i
+    now = (Time.now.to_f * 1000).to_i
+    # A pair traded before counts too: the sale that emptied a coin leaves no balance to find it by.
+    # So does every pair the account's bots ordered on here, synced or not.
+    # ponytail: myTrades takes one symbol, so a pair traded by hand, bought and sold out between two
+    # syncs and never seen before, is still not read.
+    traded_before = AccountTransaction.where(user_id: api_key.user_id, exchange_id: api_key.exchange_id)
+                                      .where(entry_type: %i[buy sell]).distinct
+                                      .pluck(:base_currency, :quote_currency)
+    traded_before += Transaction.joins(:bot).where(exchange_id: api_key.exchange_id, bots: { user_id: api_key.user_id })
+                                .distinct.pluck(:base, :quote)
+    traded_before = traded_before.to_set { |pair| pair.join.upcase }
+    traded_symbols = @exchange_symbols_map.keys.select do |sym|
+      coins.include?(@exchange_symbols_map[sym][:base]) || traded_before.include?(sym)
+    end
     traded_symbols.each do |symbol|
-      result = hm_client.account_trade_list(symbol: symbol, start_time: start_ms)
-      next if result.failure?
+      trades = []
+      each_ledger_window(trades_from, now) do |from, to|
+        page = read_trades(hm_client, symbol, from, to)
+        return page unless page.is_a?(Array)
 
-      Array(result.data).each do |trade|
-        base = symbol_pair_base(symbol)
-        quote = symbol_pair_quote(symbol)
-        is_buyer = trade['isBuyer']
-        entries << { entry_type: is_buyer ? :buy : :sell,
-                     base_currency: base, base_amount: trade['qty'].to_d,
-                     quote_currency: quote, quote_amount: trade['quoteQty'].to_d,
-                     fee_currency: trade['commissionAsset'], fee_amount: trade['commission'].to_d.abs,
+        trades.concat(page)
+      end
+
+      base = symbol_pair_base(symbol)
+      quote = symbol_pair_quote(symbol)
+      trades.uniq { |trade| trade['id'] }.each do |trade|
+        qty = trade['qty'].to_d
+        # The documented answer has no quoteQty (https://github.com/Bitrue-exchange/Spot-official-api-docs#account-trade-list-user_data).
+        quote_amount = trade['quoteQty'].present? ? trade['quoteQty'].to_d : qty * trade['price'].to_d
+        # ccxt has seen the fee asset spelled "commissionAssert".
+        fee_currency = (trade['commissionAsset'] || trade['commissionAssert']).presence&.upcase
+        entries << { entry_type: trade['isBuyer'] ? :buy : :sell,
+                     base_currency: base, base_amount: qty,
+                     quote_currency: quote, quote_amount: quote_amount,
+                     fee_currency: fee_currency, fee_amount: trade['commission'].to_d.abs,
                      tx_id: "#{symbol}-#{trade['orderId']}-#{trade['id']}", group_id: nil, description: nil,
                      transacted_at: Time.at(trade['time'].to_i / 1000.0).utc, raw_data: trade }
       end
+    end
+
+    # Deposits and withdrawals, coin by coin: held, traded in this read, or seen in the ledger before.
+    # ponytail: a coin deposited and withdrawn in full, never traded or seen, is not read; Bitrue's
+    # history wants a coin.
+    transfer_coins = coins | entries.flat_map { |e| [e[:base_currency], e[:quote_currency]] }
+    transfer_coins |= AccountTransaction.where(user_id: api_key.user_id, exchange_id: api_key.exchange_id)
+                                        .distinct.pluck(:base_currency).map { |c| c.to_s.upcase }
+    transfer_coins.compact_blank.sort.each do |coin|
+      failed = each_transfer(hm_client, DEPOSITS_PATH, coin, DEPOSIT_FINISHED, trades_from, now) do |dep|
+        entries << { entry_type: :deposit, base_currency: transfer_coin(dep), base_amount: dep['amount'].to_d,
+                     quote_currency: nil, quote_amount: nil, fee_currency: nil, fee_amount: nil,
+                     # The record id where Bitrue sends one; otherwise the chain transaction.
+                     tx_id: dep['id'].present? ? "deposit-#{dep['id']}" : dep['txid'].presence,
+                     group_id: nil, description: nil,
+                     transacted_at: Time.at(dep['createdAt'].to_i / 1000.0).utc, raw_data: dep }
+      end
+      return failed if failed
+
+      failed = each_transfer(hm_client, WITHDRAWALS_PATH, coin, WITHDRAWAL_FINISHED, trades_from, now) do |wd|
+        coin_name = transfer_coin(wd)
+        # The record's own id: withdrawals batched into one chain transaction share its txid.
+        entries << { entry_type: :withdrawal, base_currency: coin_name, base_amount: wd['amount'].to_d,
+                     quote_currency: nil, quote_amount: nil,
+                     fee_currency: coin_name, fee_amount: wd['fee']&.to_d,
+                     tx_id: "withdrawal-#{wd['id']}", group_id: nil, description: nil,
+                     transacted_at: Time.at(wd['createdAt'].to_i / 1000.0).utc, raw_data: wd }
+      end
+      return failed if failed
     end
 
     Result::Success.new(entries)
   end
 
   private
+
+  # GET /api/v1/deposit/history and /api/v1/withdraw/history
+  # (https://github.com/Bitrue-exchange/Spot-official-api-docs#deposit--withdraw-after-2021-10-12): coin
+  # required, without its chain; status defaults to 0 (init), so the finished ones are asked for (deposit
+  # 1, withdrawal 5); offset paging, limit max 1000; answer {"code":200,"msg":"succ","data":[...]}.
+  # honeymaker's deposit_history and withdraw_history ask /api/v1/capital/..., which Bitrue answers with
+  # a 302 to its website. The range cap is undocumented; the trades' windows are used.
+  DEPOSITS_PATH = '/api/v1/deposit/history'.freeze
+  WITHDRAWALS_PATH = '/api/v1/withdraw/history'.freeze
+  DEPOSIT_FINISHED = 1
+  WITHDRAWAL_FINISHED = 5
+  TRANSFER_PAGE = 1000
+
+  # Yields each finished transfer of `coin` from `from` to `now` (epoch ms); returns the failure that
+  # stopped the read, or nil.
+  def each_transfer(hm_client, path, coin, status, from, now, &)
+    seen = Set.new
+    each_ledger_window(from, now) do |window_start, window_end|
+      offset = 0
+      loop do
+        sleep(LEDGER_PACE)
+        result = hm_client.send(:get_signed, path, { coin: coin.downcase, status: status, startTime: window_start,
+                                                     endTime: window_end, offset: offset, limit: TRANSFER_PAGE,
+                                                     recvWindow: 5000 })
+        # The history is WITHDRAW_DATA: a key Bitrue says lacks that scope has no transfers to give. Any
+        # other refusal ("No login", a bare 401) fails the fetch, or the watermark passes unread transfers.
+        return nil if result.failure? && permission_error?(result.errors)
+        return result if result.failure?
+
+        body = result.data
+        unless body.is_a?(Hash) && body['code'].to_i == 200
+          return Result::Failure.new("#{name} ledger read failed: #{body.is_a?(Hash) ? body.values_at('code', 'msg').join(' ') : body}")
+        end
+
+        rows = Array(body['data'])
+        # Neighbouring windows share their edge, so a record stamped on it comes back twice.
+        fresh = rows.reject { |row| seen.include?(row) }
+        fresh.each { |row| seen << row }
+        fresh.each(&)
+        break if rows.size < TRANSFER_PAGE
+        return Result::Failure.new("#{name} ledger read failed: a full page of #{path} brought nothing new") if fresh.empty?
+
+        offset += rows.size
+      end
+    end
+    nil
+  end
+
+  # "XRP" on a deposit, "usdt_erc20" (coin_chain) on a withdrawal.
+  def transfer_coin(row)
+    row['symbol'].to_s.split('_').first.upcase
+  end
+
+  # Bitrue opened in July 2018: a first sync reads from here.
+  LEDGER_FROM = Time.utc(2018, 7, 1)
+  # GET /api/v2/myTrades (https://github.com/Bitrue-exchange/Spot-official-api-docs#account-trade-list-user_data,
+  # and the newer https://www.bitrue.com/api_docs_includes_file/spot/index.html): symbol required,
+  # limit max 1000, "the interval between startTime and endTime cannot exceed three months". honeymaker's
+  # account_trade_list asks the undocumented /api/v1/myTrades.
+  TRADES_PATH = '/api/v2/myTrades'.freeze
+  TRADES_PAGE = 1000
+  LEDGER_WINDOW = 89.days
+  # Weight 5 per call against 1200 a minute per IP: one call every quarter second stays inside it.
+  # ponytail: a first sync walks ~34 windows per pair, so an account with many pairs takes minutes.
+  LEDGER_PACE = 0.25
+  # -1121 "Invalid symbol.": a pair Bitrue no longer lists has no trades to give.
+  SYMBOL_GONE_CODE = -1121
+
+  # Yields [from, to] epoch-ms windows of at most LEDGER_WINDOW from `from` to `now`. Each starts where
+  # the last ended, so a row on the edge is read either way and deduped by the caller.
+  def each_ledger_window(from, now)
+    window_start = from
+    while window_start < now
+      window_end = [window_start + LEDGER_WINDOW.in_milliseconds.to_i, now].min
+      yield window_start, window_end
+      window_start = window_end
+    end
+  end
+
+  # The trades of `symbol` in [from, to] (epoch ms), or the failure that stopped the read. Bitrue
+  # documents no order for a ranged read, so a full page is split into two halves that share the
+  # midpoint (a trade on it comes back in both and is kept once, by id) and both are read.
+  def read_trades(hm_client, symbol, from, to)
+    sleep(LEDGER_PACE)
+    result = hm_client.send(:get_signed, TRADES_PATH,
+                            { symbol: symbol, startTime: from, endTime: to, limit: TRADES_PAGE, recvWindow: 5000 })
+    return [] if response_field(result, 'code').to_i == SYMBOL_GONE_CODE
+    return result if result.failure?
+    return Result::Failure.new("#{name} ledger read failed: #{result.data}") unless result.data.is_a?(Array)
+
+    trades = result.data
+    return trades if trades.size < TRADES_PAGE
+    return Result::Failure.new("#{name} ledger read failed: over #{TRADES_PAGE} #{symbol} trades in #{from}..#{to}") if to - from < 2
+
+    mid = (from + to) / 2
+    older = read_trades(hm_client, symbol, from, mid)
+    return older unless older.is_a?(Array)
+
+    newer = read_trades(hm_client, symbol, mid, to)
+    newer.is_a?(Array) ? (older + newer).uniq { |trade| trade['id'] } : newer
+  end
 
   def symbol_pair_base(symbol)
     @exchange_symbols_map&.dig(symbol, :base) || tickers.find_by(ticker: symbol)&.base || symbol
@@ -447,14 +660,21 @@ class Exchanges::Bitrue < Exchange
   # @param amount_type [Symbol] :base or :quote
   # @param side [Symbol] must be either :buy or :sell
   def set_market_order(ticker:, amount:, amount_type:, side:)
-    amount = ticker.adjusted_amount(amount: amount, amount_type: amount_type)
+    # MARKET takes `quantity` in base; quoteOrderQty is not documented. A quote amount is converted at
+    # the price the order will cross at.
+    if amount_type == :quote
+      price = side == :buy ? get_ask_price(ticker: ticker) : get_bid_price(ticker: ticker)
+      return price if price.failure?
+
+      amount = amount.to_d / price.data
+    end
+    amount = ticker.adjusted_amount(amount: amount, amount_type: :base)
 
     order_settings = {
       symbol: ticker.ticker,
       side: side.to_s.upcase,
       type: 'MARKET',
-      quote_order_qty: amount_type == :quote ? amount.to_d.to_s('F') : nil,
-      quantity: amount_type == :base ? amount.to_d.to_s('F') : nil
+      quantity: amount.to_d.to_s('F')
     }
     result = client.new_order(**order_settings)
     if result.failure?
@@ -511,9 +731,10 @@ class Exchanges::Bitrue < Exchange
     quote_amount_exec = Utilities::Hash.dig_or_raise(order_data, 'cummulativeQuoteQty').to_d
     quote_amount_exec = nil if quote_amount_exec.negative?
     status = parse_order_status(Utilities::Hash.dig_or_raise(order_data, 'status'))
+    # `price` is the limit on a limit order and 0 on a market one; whatever filled is priced at what
+    # it filled at, which for a limit that crossed the book is better than the limit.
     price = Utilities::Hash.dig_or_raise(order_data, 'price').to_d
-    if price.zero? &&
-       quote_amount_exec.present? &&
+    if quote_amount_exec.present? &&
        quote_amount_exec.positive? &&
        amount_exec.positive?
       price = quote_amount_exec / amount_exec
