@@ -7,6 +7,7 @@ class Exchanges::HyperliquidTest < ActiveSupport::TestCase
   setup do
     @exchange = create(:hyperliquid_exchange)
     Rails.configuration.stubs(:dry_run).returns(false)
+    Honeymaker::Clients::Hyperliquid.any_instance.stubs(:user_non_funding_ledger_updates).returns(Result::Success.new([]))
   end
 
   test 'coingecko_id returns hyperliquid-spot' do
@@ -772,6 +773,47 @@ class Exchanges::HyperliquidTest < ActiveSupport::TestCase
     assert_nil entries.second[:fee_amount]
   end
 
+  # Rows as userNonFundingLedgerUpdates answers them for a live account (addresses replaced).
+  test 'get_ledger records what moved the spot balance in and out, and nothing that stayed on the perp side' do
+    me = VALID_WALLET
+    other = "0x#{'9' * 40}"
+    connection = create(:api_key, exchange: @exchange, raw_key: me, raw_secret: VALID_AGENT_KEY)
+    row = ->(time, hash, delta) { { 'time' => time, 'hash' => hash, 'delta' => delta } }
+    zero = "0x#{'0' * 64}"
+    updates = [
+      row.call(1_000, '0xa1', { 'type' => 'deposit', 'usdc' => '500.0' }),
+      row.call(2_000, '0xa2', { 'type' => 'accountClassTransfer', 'usdc' => '400.0', 'toPerp' => false }),
+      row.call(3_000, '0xa3', { 'type' => 'spotTransfer', 'token' => 'PURR', 'amount' => '20.0', 'usdcValue' => '12.1',
+                                'user' => other, 'destination' => me, 'fee' => '0.0', 'nativeTokenFee' => '0.0',
+                                'nonce' => nil, 'feeToken' => '' }),
+      row.call(4_000, '0xa4', { 'type' => 'send', 'user' => me, 'destination' => other, 'sourceDex' => 'spot',
+                                'destinationDex' => '', 'token' => 'USDC', 'amount' => '50.0', 'usdcValue' => '50.0',
+                                'fee' => '0.0', 'nativeTokenFee' => '0.0', 'nonce' => 1, 'feeToken' => '' }),
+      row.call(5_000, zero, { 'type' => 'cStakingTransfer', 'token' => 'HYPE', 'amount' => '3.0', 'isDeposit' => true }),
+      row.call(6_000, '0xa6', { 'type' => 'spotGenesis', 'token' => 'PURR', 'amount' => '100.0' }),
+      row.call(7_000, '0xa7', { 'type' => 'internalTransfer', 'usdc' => '10.0', 'user' => other, 'destination' => me, 'fee' => '0.0' }),
+      row.call(8_000, '0xa8', { 'type' => 'withdraw', 'usdc' => '100.0', 'nonce' => 0, 'fee' => '1.0' })
+    ]
+    Honeymaker::Clients::Hyperliquid.any_instance.stubs(:user_fills_by_time).returns(Result::Success.new([]))
+    Honeymaker::Clients::Hyperliquid.any_instance.expects(:user_non_funding_ledger_updates)
+                                    .with(user: me, start_time: 0).returns(Result::Success.new(updates))
+
+    entries = @exchange.get_ledger(api_key: connection).data
+
+    assert_equal [[:deposit, 'USDC', BigDecimal('400'), '0xa2'], [:deposit, 'PURR', BigDecimal('20'), '0xa3'],
+                  [:withdrawal, 'USDC', BigDecimal('50'), '0xa4'], [:withdrawal, 'HYPE', BigDecimal('3'), nil],
+                  [:airdrop, 'PURR', BigDecimal('100'), '0xa6']],
+                 entries.map { |e| e.values_at(:entry_type, :base_currency, :base_amount, :tx_id) }
+  end
+
+  test 'get_ledger fails the fetch when a transfers read fails' do
+    connection = create(:api_key, exchange: @exchange, raw_key: VALID_WALLET, raw_secret: VALID_AGENT_KEY)
+    Honeymaker::Clients::Hyperliquid.any_instance.stubs(:user_fills_by_time).returns(Result::Success.new([]))
+    Honeymaker::Clients::Hyperliquid.any_instance.stubs(:user_non_funding_ledger_updates).returns(Result::Failure.new('execution expired'))
+
+    assert_predicate @exchange.get_ledger(api_key: connection), :failure?
+  end
+
   test 'get_ledger fails the fetch when a fills read fails' do
     connection = create(:api_key, exchange: @exchange, raw_key: VALID_WALLET, raw_secret: VALID_AGENT_KEY)
     Honeymaker::Clients::Hyperliquid.any_instance.stubs(:user_fills_by_time).returns(Result::Failure.new('execution expired'))
@@ -784,6 +826,7 @@ class Exchanges::HyperliquidTest < ActiveSupport::TestCase
     AppConfig.set('proxy_hyperliquid', 'http://claimed-proxy.test:9000')
     hm_client = mock('honeymaker_client')
     hm_client.expects(:user_fills_by_time).with(user: api_key.key, start_time: 0).returns(Result::Success.new([]))
+    hm_client.expects(:user_non_funding_ledger_updates).returns(Result::Success.new([]))
     Honeymaker.expects(:client).with(
       'hyperliquid',
       api_key: api_key.key,

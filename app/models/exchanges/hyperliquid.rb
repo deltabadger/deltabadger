@@ -401,6 +401,10 @@ class Exchanges::Hyperliquid < Exchange
         transacted_at: Time.at(fill['time'].to_i / 1000.0).utc, raw_data: fill }
     end
 
+    updates = read_by_time(hm_client, :user_non_funding_ledger_updates, user: api_key.key, start_ms:)
+    return updates if updates.failure?
+
+    entries += updates.data.filter_map { |update| spot_transfer_entry(update, api_key.key) }
     Result::Success.new(entries)
   end
 
@@ -437,6 +441,48 @@ class Exchanges::Hyperliquid < Exchange
       from = page.map { |row| row['time'].to_i }.max
     end
     Result::Success.new(rows.flat_map { |row, count| [row] * count })
+  end
+
+  # One userNonFundingLedgerUpdates row as a deposit into or a withdrawal out of the spot balance — the
+  # only balance this app reads. Shapes as the venue answers them (the docs show none):
+  #   spotTransfer          {token, amount, user, destination, fee, feeToken}
+  #   send                  {token, amount, user, destination, sourceDex, destinationDex}  ("spot" or "" = perp)
+  #   accountClassTransfer  {usdc, toPerp}
+  #   cStakingTransfer      {token, amount, isDeposit}  (into staking leaves spot)
+  #   spotGenesis           {token, amount}
+  # Bridge deposits and withdrawals, internalTransfer, vault and sub-account rows move the perp balance;
+  # USDC reaches spot from there through an accountClassTransfer, which is what is recorded.
+  # The hash is the transaction's, and staking transfers carry an all-zero one: those key on the event.
+  def spot_transfer_entry(update, address)
+    delta = update['delta'] || {}
+    mine = ->(field) { delta[field].to_s.casecmp?(address) }
+    token = delta['token']
+    amount = delta['amount']
+    type = case delta['type']
+           when 'spotTransfer'
+             mine.call('user') ? :withdrawal : :deposit
+           when 'send'
+             out = mine.call('user') && delta['sourceDex'] == 'spot'
+             into = mine.call('destination') && delta['destinationDex'] == 'spot'
+             out ^ into ? (out ? :withdrawal : :deposit) : nil
+           when 'accountClassTransfer'
+             token = 'USDC'
+             amount = delta['usdc']
+             delta['toPerp'] ? :withdrawal : :deposit
+           when 'cStakingTransfer'
+             delta['isDeposit'] ? :withdrawal : :deposit
+           when 'spotGenesis'
+             :airdrop
+           end
+    return if type.nil?
+
+    fee = type == :withdrawal ? delta['fee'].to_d : 0
+    hash = update['hash'].to_s
+    { entry_type: type, base_currency: token, base_amount: amount.to_d,
+      quote_currency: nil, quote_amount: nil,
+      fee_currency: fee.positive? ? delta['feeToken'].presence || 'USDC' : nil, fee_amount: fee.positive? ? fee : nil,
+      tx_id: hash.match?(/\A0x0*\z/) ? nil : hash, group_id: nil, description: delta['type'],
+      transacted_at: Time.at(update['time'].to_i / 1000.0).utc, raw_data: update }
   end
 
   # The pair an order was placed on. The id carries only the base, and a base trades against more
