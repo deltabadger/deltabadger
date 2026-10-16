@@ -1,5 +1,5 @@
 {
-"sources": {"app/models/exchanges/binance.rb":"b5d32beda161049a54036786316d6f3d4b7024e0b456d1b0bf5d4bc267a102c3","app/models/exchange.rb":"ab627a2812bc0c7b4a546459e64f8f5d93617c496308d5f03163f44cef12d8d7","app/models/bot/order_setter.rb":"8ab21b724aa9195484cfdde5ae476ea006c3da1e5ab65cffc086d304c0f24dff","app/models/ticker.rb":"1ae4dac68cab58acaa6679c9bca83e700212ad4baf19e2d8c0946b07eaaabbbc","app/models/utilities/math.rb":"01fa11d2b06b57b0304abf21928ab72c89501b7820ae934c92994ea8a3c1d442"},
+"sources": {"app/models/exchanges/binance.rb":"72139d578fcf6df45576eb7e648185e71d7fad7b8be456bf4438af7dada57649","app/models/exchange.rb":"ab627a2812bc0c7b4a546459e64f8f5d93617c496308d5f03163f44cef12d8d7","app/models/bot/order_setter.rb":"8ab21b724aa9195484cfdde5ae476ea006c3da1e5ab65cffc086d304c0f24dff","app/models/ticker.rb":"1ae4dac68cab58acaa6679c9bca83e700212ad4baf19e2d8c0946b07eaaabbbc","app/models/utilities/math.rb":"01fa11d2b06b57b0304abf21928ab72c89501b7820ae934c92994ea8a3c1d442"},
 "honeymaker": "0.12.3",
 "binance_tickers": [
   {"minimum_base_size":"0.00001","minimum_quote_size":"5","base_decimals":"5","quote_decimals":"8","price_decimals":"2"},

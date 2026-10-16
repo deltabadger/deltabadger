@@ -98,9 +98,9 @@ class ExchangeFetchWithdrawalFeesTest < ActiveSupport::TestCase
     end
   end
 
-  # --- Binance.US (no chain data persisted) ---
+  # --- Binance.US (same listing; its withdraw/apply requires a network, so the chains are kept) ---
 
-  test 'BinanceUs builds authenticated proxied client and updates fees without chains' do
+  test 'BinanceUs builds authenticated proxied client and records each network' do
     exchange, asset, ea = build_exchange(:binance_us_exchange)
     FeeApiKey.create!(exchange: exchange, key: 'fee_key', secret: 'fee_secret')
     ea.update!(withdrawal_chains: [{ 'name' => 'OLD', 'fee' => '1', 'is_default' => true }])
@@ -114,9 +114,18 @@ class ExchangeFetchWithdrawalFeesTest < ActiveSupport::TestCase
       assert result.success?
       ea.reload
       assert_equal '0.0005', ea.withdrawal_fee
-      # BinanceUs passes no chains: existing chain data must stay untouched
-      assert_equal 'OLD', ea.withdrawal_chains.first['name']
+      assert_equal([%w[BSC 0.00001], %w[BTC 0.0005]], ea.withdrawal_chains.map { |c| [c['name'], c['fee']] })
+      assert_equal 'BTC', ea.withdrawal_chains.find { |c| c['is_default'] }['name']
     end
+  end
+
+  test 'BinanceUs fetch_withdrawal_fees! is dry in dry-run mode' do
+    Rails.configuration.stubs(:dry_run).returns(true)
+    exchange, = build_exchange(:binance_us_exchange)
+    FeeApiKey.create!(exchange: exchange, key: 'fee_key', secret: 'fee_secret')
+    Honeymaker.expects(:client).never
+
+    assert exchange.fetch_withdrawal_fees!.success?
   end
 
   # --- BingX (payload nested under 'data') ---

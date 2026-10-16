@@ -115,6 +115,17 @@ class Exchanges::BinanceTest < ActiveSupport::TestCase
     assert_equal false, result.data
   end
 
+  # Binance's BAD_API_ID, and what Binance.US answers an unknown key.
+  test 'get_api_key_validity returns false for an unknown key id' do
+    connection = create(:api_key, exchange: @exchange, key_type: :trading, key: 'bad_key', secret: 'bad_secret')
+    Honeymaker::Clients::Binance.any_instance.stubs(:api_description)
+                                .returns(Result::Failure.new('{"code":-2008,"msg":"Invalid Api-Key ID."}'))
+
+    result = @exchange.get_api_key_validity(api_key: connection)
+    assert result.success?
+    assert_equal false, result.data
+  end
+
   # == W2a: recvWindow on signed READS ==
   # Proxy latency spikes (up to ~30s) made Binance reject signed reads with "Timestamp outside the
   # recvWindow" (default 5000ms). Reads carry the 60s max so a delayed-but-valid request isn't rejected.
