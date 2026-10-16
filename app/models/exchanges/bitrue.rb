@@ -16,6 +16,7 @@ class Exchanges::Bitrue < Exchange
     'EXPIRED' => :cancelled,
     'REJECTED' => :failed
   }.freeze
+  ORDER_GONE_CODE = -2013
 
   include Exchange::Dryable # decorators for: get_order, get_orders, cancel_order, get_api_key_validity, set_market_order, set_limit_order
 
@@ -246,6 +247,15 @@ class Exchanges::Bitrue < Exchange
   def get_order(order_id:)
     symbol, ext_order_id = order_id.split('-')
     result = client.query_order(symbol: symbol, order_id: ext_order_id)
+    # -2013 "Could not find order information for given order ID", which Bitrue documents under HTTP
+    # 200 (https://github.com/Bitrue-exchange/Spot-official-api-docs#error-codes): honeymaker then hands
+    # the error body back as the order. Flagged so get_orders lists it under missing and
+    # Bot::StaleOrderResolver can retire it, instead of one gone order failing every poll.
+    code = result.success? ? result.data[:raw]&.dig('code') : response_field(result, 'code')
+    if code.to_i == ORDER_GONE_CODE
+      return Result::Failure.new("#{name} no longer knows order #{order_id}",
+                                 data: { not_found: true, missing_ids: [order_id] })
+    end
     if result.failure?
       error = parse_error_message(result)
       return error.present? ? Result::Failure.new(error, data: result.data) : result
@@ -258,14 +268,21 @@ class Exchanges::Bitrue < Exchange
 
   def get_orders(order_ids:)
     orders = {}
+    missing = []
     order_ids.each do |order_id|
       result = get_order(order_id: order_id)
-      return result if result.failure?
+      if result.failure?
+        # A gone order goes under :missing for the stale-order sweep; any other failure still fails
+        # the batch so the job retries.
+        next missing << order_id if result.data.is_a?(Hash) && result.data[:not_found]
+
+        return result
+      end
 
       orders[order_id] = result.data
     end
 
-    Result::Success.new(orders: orders, missing: [])
+    Result::Success.new(orders: orders, missing: missing)
   end
 
   def cancel_order(order_id:)

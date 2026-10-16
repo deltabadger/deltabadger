@@ -205,4 +205,26 @@ class Exchanges::BitrueTest < ActiveSupport::TestCase
 
     assert_equal :open, @exchange.get_order(order_id: 'BTCUSDT-42').data[:status]
   end
+
+  test 'an order Bitrue no longer has goes under missing instead of failing the batch' do
+    Rails.configuration.stubs(:dry_run).returns(false)
+    create(:ticker, exchange: @exchange, base_symbol: 'BTC', quote_symbol: 'USDT')
+    client = Object.new
+    client.define_singleton_method(:query_order) do |symbol:, order_id:|
+      raw = if order_id == '7'
+              { 'code' => -2013, 'msg' => 'Could not find order information for given order ID.' }
+            else
+              { 'symbol' => symbol, 'orderId' => order_id.to_i, 'price' => '0', 'origQty' => '0.002',
+                'executedQty' => '0.002', 'cummulativeQuoteQty' => '100', 'status' => 'FILLED',
+                'type' => 'MARKET', 'side' => 'BUY' }
+            end
+      Result::Success.new({ order_id: "#{symbol}-#{order_id}", raw: raw })
+    end
+    @exchange.stubs(:client).returns(client)
+
+    result = @exchange.get_orders(order_ids: %w[BTCUSDT-7 BTCUSDT-8])
+    assert_predicate result, :success?
+    assert_equal ['BTCUSDT-7'], result.data[:missing]
+    assert_equal ['BTCUSDT-8'], result.data[:orders].keys
+  end
 end
