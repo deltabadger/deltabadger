@@ -480,10 +480,91 @@ class Exchanges::Bitrue < Exchange
       end
     end
 
+    # Deposits and withdrawals, coin by coin: held, traded in this read, or seen in the ledger before.
+    # ponytail: a coin deposited and withdrawn in full, never traded or seen, is not read; Bitrue's
+    # history wants a coin.
+    transfer_coins = coins | entries.flat_map { |e| [e[:base_currency], e[:quote_currency]] }
+    transfer_coins |= AccountTransaction.where(user_id: api_key.user_id, exchange_id: api_key.exchange_id)
+                                        .distinct.pluck(:base_currency).map { |c| c.to_s.upcase }
+    transfer_coins.compact_blank.sort.each do |coin|
+      failed = each_transfer(hm_client, DEPOSITS_PATH, coin, DEPOSIT_FINISHED, trades_from, now) do |dep|
+        entries << { entry_type: :deposit, base_currency: transfer_coin(dep), base_amount: dep['amount'].to_d,
+                     quote_currency: nil, quote_amount: nil, fee_currency: nil, fee_amount: nil,
+                     # The record id where Bitrue sends one; otherwise the chain transaction.
+                     tx_id: dep['id'].present? ? "deposit-#{dep['id']}" : dep['txid'].presence,
+                     group_id: nil, description: nil,
+                     transacted_at: Time.at(dep['createdAt'].to_i / 1000.0).utc, raw_data: dep }
+      end
+      return failed if failed
+
+      failed = each_transfer(hm_client, WITHDRAWALS_PATH, coin, WITHDRAWAL_FINISHED, trades_from, now) do |wd|
+        coin_name = transfer_coin(wd)
+        # The record's own id: withdrawals batched into one chain transaction share its txid.
+        entries << { entry_type: :withdrawal, base_currency: coin_name, base_amount: wd['amount'].to_d,
+                     quote_currency: nil, quote_amount: nil,
+                     fee_currency: coin_name, fee_amount: wd['fee']&.to_d,
+                     tx_id: "withdrawal-#{wd['id']}", group_id: nil, description: nil,
+                     transacted_at: Time.at(wd['createdAt'].to_i / 1000.0).utc, raw_data: wd }
+      end
+      return failed if failed
+    end
+
     Result::Success.new(entries)
   end
 
   private
+
+  # GET /api/v1/deposit/history and /api/v1/withdraw/history
+  # (https://github.com/Bitrue-exchange/Spot-official-api-docs#deposit--withdraw-after-2021-10-12): coin
+  # required, without its chain; status defaults to 0 (init), so the finished ones are asked for (deposit
+  # 1, withdrawal 5); offset paging, limit max 1000; answer {"code":200,"msg":"succ","data":[...]}.
+  # honeymaker's deposit_history and withdraw_history ask /api/v1/capital/..., which Bitrue answers with
+  # a 302 to its website. The range cap is undocumented; the trades' windows are used.
+  DEPOSITS_PATH = '/api/v1/deposit/history'.freeze
+  WITHDRAWALS_PATH = '/api/v1/withdraw/history'.freeze
+  DEPOSIT_FINISHED = 1
+  WITHDRAWAL_FINISHED = 5
+  TRANSFER_PAGE = 1000
+
+  # Yields each finished transfer of `coin` from `from` to `now` (epoch ms); returns the failure that
+  # stopped the read, or nil.
+  def each_transfer(hm_client, path, coin, status, from, now, &)
+    seen = Set.new
+    each_ledger_window(from, now) do |window_start, window_end|
+      offset = 0
+      loop do
+        sleep(LEDGER_PACE)
+        result = hm_client.send(:get_signed, path, { coin: coin.downcase, status: status, startTime: window_start,
+                                                     endTime: window_end, offset: offset, limit: TRANSFER_PAGE,
+                                                     recvWindow: 5000 })
+        # The history is WITHDRAW_DATA: a key that reads balances but is refused here lacks that scope,
+        # and has no transfers to give.
+        return nil if result.failure? && (http_status(result) == UNAUTHORIZED_STATUS || permission_error?(result.errors))
+        return result if result.failure?
+
+        body = result.data
+        unless body.is_a?(Hash) && body['code'].to_i == 200
+          return Result::Failure.new("#{name} ledger read failed: #{body.is_a?(Hash) ? body.values_at('code', 'msg').join(' ') : body}")
+        end
+
+        rows = Array(body['data'])
+        # Neighbouring windows share their edge, so a record stamped on it comes back twice.
+        fresh = rows.reject { |row| seen.include?(row) }
+        fresh.each { |row| seen << row }
+        fresh.each(&)
+        break if rows.size < TRANSFER_PAGE
+        return Result::Failure.new("#{name} ledger read failed: a full page of #{path} brought nothing new") if fresh.empty?
+
+        offset += rows.size
+      end
+    end
+    nil
+  end
+
+  # "XRP" on a deposit, "usdt_erc20" (coin_chain) on a withdrawal.
+  def transfer_coin(row)
+    row['symbol'].to_s.split('_').first.upcase
+  end
 
   # Bitrue opened in July 2018: a first sync reads from here.
   LEDGER_FROM = Time.utc(2018, 7, 1)
