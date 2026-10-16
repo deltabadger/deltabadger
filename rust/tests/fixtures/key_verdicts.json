@@ -2,7 +2,7 @@
   "sources": {
     "app/models/exchanges/kraken.rb": "194ccc0a5bdeef5530411f85868b3a266f1b51eda1e258c53719a394858b0d5f",
     "app/models/exchanges/binance.rb": "72139d578fcf6df45576eb7e648185e71d7fad7b8be456bf4438af7dada57649",
-    "app/models/exchanges/binance_us.rb": "a94d7e6badfa7d679a0e9f512010fc1946df082ae126a9f4e8c190480533a096",
+    "app/models/exchanges/binance_us.rb": "aefa5c99d031e2c583353584fe17002140e6fcefe4e76762bb15cf8308da6d2c",
     "app/models/exchange.rb": "ab627a2812bc0c7b4a546459e64f8f5d93617c496308d5f03163f44cef12d8d7",
     "app/models/exchange/dryable.rb": "559b4b1858c832f3bc83b7631d7a74012854aabd88408b8680288609a1254b96",
     "app/models/api_key.rb": "e7f1435042602815925d093baa51160be9236c600b2f8aebdcf0517f5119ef91",
@@ -5126,7 +5126,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=9063eade13d67395d472bd48a59efa8f12ebe2ec859c7f7b6f1d65e009b03264&timestamp=1792152340095"
+            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=1eec2030318e7325dd3944ad19d4a507a128f7e453a022fa19b3377c5a4e604d&timestamp=1792152511734"
           ]
         },
         "request": {
@@ -7054,7 +7054,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=c8759950fe142808648532ca6cf92bc871f33362d82d00a80166f03084d933cd&timestamp=1792152340116"
+            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=0ac3abc57a36088c0b55f965e4dc5b210145d2fde4b165e4cbdddaea45f252f2&timestamp=1792152511757"
           ]
         },
         "request": {
@@ -8982,7 +8982,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=5689d45d1595438dfedb3dc0cc12b87b4445a145ab8275f685f5074d4eab6c20&timestamp=1792152340136"
+            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=462848cb88ddeb685b0e5b472a329629ef6fc0ada0401ad4be5e7f7828f06a57&timestamp=1792152511777"
           ]
         },
         "request": {
@@ -10910,7 +10910,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=7aef2ff9bbcdbd7533539ddbd8c58f7aad5d6871472002b1a9fa5c2c896c4d65&timestamp=1792152340161"
+            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=486b88edd84ab0320b6878b34d52d2ebd2fa6233de10b71c3b40750fe0804119&timestamp=1792152511803"
           ]
         },
         "request": {
@@ -11537,47 +11537,53 @@
         "case": "account http_200_error_envelope",
         "key_type": "trading",
         "method": "get_api_key_validity",
-        "responses": [
-          {
-            "status": 200,
-            "body": "{\"code\":-2015,\"msg\":\"Invalid API-key, IP, or permissions for action.\"}",
-            "content_type": "application/json"
-          },
-          {
-            "status": 400,
-            "body": "{\"code\":-2011,\"msg\":\"Unknown order sent.\"}",
-            "content_type": "application/json"
-          }
-        ],
+        "response": {
+          "status": 200,
+          "body": "{\"code\":-2015,\"msg\":\"Invalid API-key, IP, or permissions for action.\"}",
+          "content_type": "application/json"
+        },
         "verdict": {
           "kind": "success",
-          "data": true
+          "data": false
         },
-        "requests": [
-          {
-            "method": "GET",
-            "host": "api.binance.us",
-            "path": "/api/v3/account",
-            "query": {
-              "omitZeroBalances": "true",
-              "recvWindow": "60000"
-            },
-            "form": {},
-            "key_header": "test-key"
+        "request": {
+          "method": "GET",
+          "host": "api.binance.us",
+          "path": "/api/v3/account",
+          "query": {
+            "omitZeroBalances": "true",
+            "recvWindow": "60000"
           },
-          {
-            "method": "DELETE",
-            "host": "api.binance.us",
-            "path": "/api/v3/order",
-            "query": {
-              "orderId": "9999999999",
-              "recvWindow": "5000",
-              "symbol": "ETHBTC"
-            },
-            "form": {},
-            "key_header": "test-key"
-          }
-        ]
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "account http_200_error_envelope -1022",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":-1022,\"msg\":\"Signature for this request is not valid.\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Binance.US answered the key check with code -1022"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.binance.us",
+          "path": "/api/v3/account",
+          "query": {
+            "omitZeroBalances": "true",
+            "recvWindow": "60000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
       },
       {
         "case": "account http_200_null",
@@ -11645,7 +11651,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=e9eac9695a08ef496f0efd67ea06ec1291abc7b1a7f6f2571f2086c313db1248&timestamp=1792152340176"
+            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=bda187693fb0a53ece6e7da1e9f3fe550f8c1deec76d650c222c0115444fc074&timestamp=1792152511815"
           ]
         },
         "request": {
@@ -12813,7 +12819,56 @@
         ],
         "verdict": {
           "kind": "success",
-          "data": true
+          "data": false
+        },
+        "requests": [
+          {
+            "method": "GET",
+            "host": "api.binance.us",
+            "path": "/api/v3/account",
+            "query": {
+              "omitZeroBalances": "true",
+              "recvWindow": "60000"
+            },
+            "form": {},
+            "key_header": "test-key"
+          },
+          {
+            "method": "DELETE",
+            "host": "api.binance.us",
+            "path": "/api/v3/order",
+            "query": {
+              "orderId": "9999999999",
+              "recvWindow": "5000",
+              "symbol": "ETHBTC"
+            },
+            "form": {},
+            "key_header": "test-key"
+          }
+        ]
+      },
+      {
+        "case": "account_ok, probe http_200_error_envelope -1022",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "responses": [
+          {
+            "status": 200,
+            "body": "{\"makerCommission\":10,\"takerCommission\":10,\"canTrade\":true,\"canWithdraw\":true,\"canDeposit\":true,\"accountType\":\"SPOT\",\"balances\":[],\"permissions\":[\"SPOT\"]}",
+            "content_type": "application/json"
+          },
+          {
+            "status": 200,
+            "body": "{\"code\":-1022,\"msg\":\"Signature for this request is not valid.\"}",
+            "content_type": "application/json"
+          }
+        ],
+        "verdict": {
+          "kind": "success",
+          "data": {
+            "code": -1022,
+            "msg": "Signature for this request is not valid."
+          }
         },
         "requests": [
           {
@@ -12858,8 +12913,10 @@
           }
         ],
         "verdict": {
-          "kind": "success",
-          "data": true
+          "kind": "failure",
+          "errors": [
+            "Binance.US sent an unreadable answer to the key check"
+          ]
         },
         "requests": [
           {
@@ -12904,8 +12961,10 @@
           }
         ],
         "verdict": {
-          "kind": "success",
-          "data": true
+          "kind": "failure",
+          "errors": [
+            "Binance.US sent an unreadable answer to the key check"
+          ]
         },
         "requests": [
           {
@@ -12952,7 +13011,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for DELETE https://api.binance.us/api/v3/order?orderId=9999999999&recvWindow=5000&signature=58752eafb01537ae667486d1805a9960ff6d92e518292bb88a8ba877c343e033&symbol=ETHBTC&timestamp=1792152340190"
+            "the server responded with status 500 for DELETE https://api.binance.us/api/v3/order?orderId=9999999999&recvWindow=5000&signature=7d1b41d192ad2814b5b0d3fc2264a7e8d51fc1723fbf1e9d6345c08174b59967&symbol=ETHBTC&timestamp=1792152511828"
           ]
         },
         "requests": [
@@ -13330,8 +13389,10 @@
           }
         ],
         "verdict": {
-          "kind": "success",
-          "data": true
+          "kind": "failure",
+          "errors": [
+            "Binance.US sent an unreadable answer to the key check"
+          ]
         },
         "requests": [
           {
@@ -13376,8 +13437,10 @@
           }
         ],
         "verdict": {
-          "kind": "success",
-          "data": true
+          "kind": "failure",
+          "errors": [
+            "Binance.US sent an unreadable answer to the key check"
+          ]
         },
         "requests": [
           {
@@ -13775,47 +13838,53 @@
         "case": "account http_200_error_envelope",
         "key_type": "withdrawal",
         "method": "get_api_key_validity",
-        "responses": [
-          {
-            "status": 200,
-            "body": "{\"code\":-2015,\"msg\":\"Invalid API-key, IP, or permissions for action.\"}",
-            "content_type": "application/json"
-          },
-          {
-            "status": 400,
-            "body": "{\"code\":-2011,\"msg\":\"Unknown order sent.\"}",
-            "content_type": "application/json"
-          }
-        ],
+        "response": {
+          "status": 200,
+          "body": "{\"code\":-2015,\"msg\":\"Invalid API-key, IP, or permissions for action.\"}",
+          "content_type": "application/json"
+        },
         "verdict": {
           "kind": "success",
           "data": false
         },
-        "requests": [
-          {
-            "method": "GET",
-            "host": "api.binance.us",
-            "path": "/api/v3/account",
-            "query": {
-              "omitZeroBalances": "true",
-              "recvWindow": "60000"
-            },
-            "form": {},
-            "key_header": "test-key"
+        "request": {
+          "method": "GET",
+          "host": "api.binance.us",
+          "path": "/api/v3/account",
+          "query": {
+            "omitZeroBalances": "true",
+            "recvWindow": "60000"
           },
-          {
-            "method": "DELETE",
-            "host": "api.binance.us",
-            "path": "/api/v3/order",
-            "query": {
-              "orderId": "9999999999",
-              "recvWindow": "5000",
-              "symbol": "ETHBTC"
-            },
-            "form": {},
-            "key_header": "test-key"
-          }
-        ]
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "account http_200_error_envelope -1022",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":-1022,\"msg\":\"Signature for this request is not valid.\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Binance.US answered the key check with code -1022"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.binance.us",
+          "path": "/api/v3/account",
+          "query": {
+            "omitZeroBalances": "true",
+            "recvWindow": "60000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
       },
       {
         "case": "account http_200_null",
@@ -13883,7 +13952,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=54249bc351020c20faeb0b40456945f663948ceb4c4d0484d22d6f2ef2cfed2b&timestamp=1792152340199"
+            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=c4c42773c10bafc6d19948cce19b698a69dbc9de0caac65b09db67ff2927d612&timestamp=1792152511840"
           ]
         },
         "request": {
@@ -15051,7 +15120,56 @@
         ],
         "verdict": {
           "kind": "success",
-          "data": false
+          "data": true
+        },
+        "requests": [
+          {
+            "method": "GET",
+            "host": "api.binance.us",
+            "path": "/api/v3/account",
+            "query": {
+              "omitZeroBalances": "true",
+              "recvWindow": "60000"
+            },
+            "form": {},
+            "key_header": "test-key"
+          },
+          {
+            "method": "DELETE",
+            "host": "api.binance.us",
+            "path": "/api/v3/order",
+            "query": {
+              "orderId": "9999999999",
+              "recvWindow": "5000",
+              "symbol": "ETHBTC"
+            },
+            "form": {},
+            "key_header": "test-key"
+          }
+        ]
+      },
+      {
+        "case": "account_ok, probe http_200_error_envelope -1022",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "responses": [
+          {
+            "status": 200,
+            "body": "{\"makerCommission\":10,\"takerCommission\":10,\"canTrade\":true,\"canWithdraw\":true,\"canDeposit\":true,\"accountType\":\"SPOT\",\"balances\":[],\"permissions\":[\"SPOT\"]}",
+            "content_type": "application/json"
+          },
+          {
+            "status": 200,
+            "body": "{\"code\":-1022,\"msg\":\"Signature for this request is not valid.\"}",
+            "content_type": "application/json"
+          }
+        ],
+        "verdict": {
+          "kind": "success",
+          "data": {
+            "code": -1022,
+            "msg": "Signature for this request is not valid."
+          }
         },
         "requests": [
           {
@@ -15096,8 +15214,10 @@
           }
         ],
         "verdict": {
-          "kind": "success",
-          "data": false
+          "kind": "failure",
+          "errors": [
+            "Binance.US sent an unreadable answer to the key check"
+          ]
         },
         "requests": [
           {
@@ -15142,8 +15262,10 @@
           }
         ],
         "verdict": {
-          "kind": "success",
-          "data": false
+          "kind": "failure",
+          "errors": [
+            "Binance.US sent an unreadable answer to the key check"
+          ]
         },
         "requests": [
           {
@@ -15190,7 +15312,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for DELETE https://api.binance.us/api/v3/order?orderId=9999999999&recvWindow=5000&signature=145d1483791835bd9818670525fbb49988e3581f2ff4bfe95c527fe88be530fb&symbol=ETHBTC&timestamp=1792152340210"
+            "the server responded with status 500 for DELETE https://api.binance.us/api/v3/order?orderId=9999999999&recvWindow=5000&signature=e1dbd6b83ac756b843a59a93f2552dd759cb938e482260792381388a65d9bc02&symbol=ETHBTC&timestamp=1792152511852"
           ]
         },
         "requests": [
@@ -15568,8 +15690,10 @@
           }
         ],
         "verdict": {
-          "kind": "success",
-          "data": false
+          "kind": "failure",
+          "errors": [
+            "Binance.US sent an unreadable answer to the key check"
+          ]
         },
         "requests": [
           {
@@ -15614,8 +15738,10 @@
           }
         ],
         "verdict": {
-          "kind": "success",
-          "data": false
+          "kind": "failure",
+          "errors": [
+            "Binance.US sent an unreadable answer to the key check"
+          ]
         },
         "requests": [
           {
@@ -16013,47 +16139,53 @@
         "case": "account http_200_error_envelope",
         "key_type": "read_only",
         "method": "get_api_key_validity",
-        "responses": [
-          {
-            "status": 200,
-            "body": "{\"code\":-2015,\"msg\":\"Invalid API-key, IP, or permissions for action.\"}",
-            "content_type": "application/json"
-          },
-          {
-            "status": 400,
-            "body": "{\"code\":-2011,\"msg\":\"Unknown order sent.\"}",
-            "content_type": "application/json"
-          }
-        ],
+        "response": {
+          "status": 200,
+          "body": "{\"code\":-2015,\"msg\":\"Invalid API-key, IP, or permissions for action.\"}",
+          "content_type": "application/json"
+        },
         "verdict": {
           "kind": "success",
-          "data": true
+          "data": false
         },
-        "requests": [
-          {
-            "method": "GET",
-            "host": "api.binance.us",
-            "path": "/api/v3/account",
-            "query": {
-              "omitZeroBalances": "true",
-              "recvWindow": "60000"
-            },
-            "form": {},
-            "key_header": "test-key"
+        "request": {
+          "method": "GET",
+          "host": "api.binance.us",
+          "path": "/api/v3/account",
+          "query": {
+            "omitZeroBalances": "true",
+            "recvWindow": "60000"
           },
-          {
-            "method": "DELETE",
-            "host": "api.binance.us",
-            "path": "/api/v3/order",
-            "query": {
-              "orderId": "9999999999",
-              "recvWindow": "5000",
-              "symbol": "ETHBTC"
-            },
-            "form": {},
-            "key_header": "test-key"
-          }
-        ]
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "account http_200_error_envelope -1022",
+        "key_type": "read_only",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":-1022,\"msg\":\"Signature for this request is not valid.\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Binance.US answered the key check with code -1022"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.binance.us",
+          "path": "/api/v3/account",
+          "query": {
+            "omitZeroBalances": "true",
+            "recvWindow": "60000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
       },
       {
         "case": "account http_200_null",
@@ -16121,7 +16253,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=dc0379597ba645dd368d0ed317886f9a278ea50110fe29a5f812957f585d4f44&timestamp=1792152340219"
+            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=129ea0c1d275eb435850b00a4f0adb4d35d69e74e4147a8582eb39f30e771b49&timestamp=1792152511861"
           ]
         },
         "request": {
@@ -17289,7 +17421,56 @@
         ],
         "verdict": {
           "kind": "success",
-          "data": true
+          "data": false
+        },
+        "requests": [
+          {
+            "method": "GET",
+            "host": "api.binance.us",
+            "path": "/api/v3/account",
+            "query": {
+              "omitZeroBalances": "true",
+              "recvWindow": "60000"
+            },
+            "form": {},
+            "key_header": "test-key"
+          },
+          {
+            "method": "DELETE",
+            "host": "api.binance.us",
+            "path": "/api/v3/order",
+            "query": {
+              "orderId": "9999999999",
+              "recvWindow": "5000",
+              "symbol": "ETHBTC"
+            },
+            "form": {},
+            "key_header": "test-key"
+          }
+        ]
+      },
+      {
+        "case": "account_ok, probe http_200_error_envelope -1022",
+        "key_type": "read_only",
+        "method": "get_api_key_validity",
+        "responses": [
+          {
+            "status": 200,
+            "body": "{\"makerCommission\":10,\"takerCommission\":10,\"canTrade\":true,\"canWithdraw\":true,\"canDeposit\":true,\"accountType\":\"SPOT\",\"balances\":[],\"permissions\":[\"SPOT\"]}",
+            "content_type": "application/json"
+          },
+          {
+            "status": 200,
+            "body": "{\"code\":-1022,\"msg\":\"Signature for this request is not valid.\"}",
+            "content_type": "application/json"
+          }
+        ],
+        "verdict": {
+          "kind": "success",
+          "data": {
+            "code": -1022,
+            "msg": "Signature for this request is not valid."
+          }
         },
         "requests": [
           {
@@ -17334,8 +17515,10 @@
           }
         ],
         "verdict": {
-          "kind": "success",
-          "data": true
+          "kind": "failure",
+          "errors": [
+            "Binance.US sent an unreadable answer to the key check"
+          ]
         },
         "requests": [
           {
@@ -17380,8 +17563,10 @@
           }
         ],
         "verdict": {
-          "kind": "success",
-          "data": true
+          "kind": "failure",
+          "errors": [
+            "Binance.US sent an unreadable answer to the key check"
+          ]
         },
         "requests": [
           {
@@ -17428,7 +17613,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for DELETE https://api.binance.us/api/v3/order?orderId=9999999999&recvWindow=5000&signature=bda9889bf47a06cd707ddd22f7cd226ed0349de9f4d104c96c9164e74337e033&symbol=ETHBTC&timestamp=1792152340231"
+            "the server responded with status 500 for DELETE https://api.binance.us/api/v3/order?orderId=9999999999&recvWindow=5000&signature=2b392ef5f644f6077a36e2ac9c7f0008cb8a4393631c3693c869995e5848a073&symbol=ETHBTC&timestamp=1792152511872"
           ]
         },
         "requests": [
@@ -17806,8 +17991,10 @@
           }
         ],
         "verdict": {
-          "kind": "success",
-          "data": true
+          "kind": "failure",
+          "errors": [
+            "Binance.US sent an unreadable answer to the key check"
+          ]
         },
         "requests": [
           {
@@ -17852,8 +18039,10 @@
           }
         ],
         "verdict": {
-          "kind": "success",
-          "data": true
+          "kind": "failure",
+          "errors": [
+            "Binance.US sent an unreadable answer to the key check"
+          ]
         },
         "requests": [
           {
@@ -18258,7 +18447,34 @@
         },
         "verdict": {
           "kind": "success",
-          "data": true
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.binance.us",
+          "path": "/api/v3/account",
+          "query": {
+            "omitZeroBalances": "true",
+            "recvWindow": "60000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "account http_200_error_envelope -1022",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":-1022,\"msg\":\"Signature for this request is not valid.\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Binance.US answered the key check with code -1022"
+          ]
         },
         "request": {
           "method": "GET",
@@ -18338,7 +18554,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=5586d9ead9343ae69e77b374f61e2ed8f771bf624d2f795734151e39dd55d0d4&timestamp=1792152340240"
+            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=e22b8b3a4e2b3e5f765f229e5686a62f9fcbe7c25f0b8af34d305dc03ca5a0c7&timestamp=1792152511880"
           ]
         },
         "request": {

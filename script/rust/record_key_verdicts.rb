@@ -204,6 +204,7 @@ other_errors = {
   'unknown -1000 http_500' => binance_err.(500, -1000, 'An unknown error occurred while processing the request.'),
   'invalid_key_message_without_code' => json.(401, { 'msg' => 'Invalid API-key, IP, or permissions for action.' }),
   'http_200_error_envelope' => binance_err.(200, -2015, 'Invalid API-key, IP, or permissions for action.'),
+  'http_200_error_envelope -1022' => binance_err.(200, -1022, 'Signature for this request is not valid.'),
   'http_200_null' => json.(200, 'null'),
   'html_200' => { status: 200, body: '<html><body>maintenance</body></html>', content_type: 'text/html' }
 }.merge(transport)
@@ -219,14 +220,6 @@ us_rows = []
 [[:trading, :get_api_key_validity], [:withdrawal, :get_api_key_validity],
  [:read_only, :get_api_key_validity], [:read_only, :get_read_api_key_validity]].each do |key_type, method|
   cases = account_fails.dup
-  # A 200 carrying a JSON object passes the account read, so the trading check goes on to the probe.
-  if method == :get_api_key_validity
-    cases.transform_values! do |answer|
-      answer[:status] == 200 && JSON.parse(answer[:body]).is_a?(Hash) ? [answer, probe['unknown_order -2011']] : answer
-    rescue JSON::ParserError
-      answer
-    end
-  end
   if method == :get_read_api_key_validity
     cases['account_ok'] = account_ok
   else
