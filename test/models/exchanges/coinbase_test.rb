@@ -193,6 +193,16 @@ class Exchanges::CoinbaseTest < ActiveSupport::TestCase
     assert_not infos.key?('RNDR-USD')
   end
 
+  test 'limit-only, cancel-only and disabled products are not tradable' do
+    infos = tickers_info(product('BTC-USD'), product('USDT-USDC', limit_only: true),
+                         product('PYR-USD', cancel_only: true), product('STG-USD', is_disabled: true))
+
+    assert infos['BTC-USD'][:trading_enabled]
+    assert_not infos['USDT-USDC'][:trading_enabled]
+    assert_not infos['PYR-USD'][:trading_enabled]
+    assert_not infos['STG-USD'][:trading_enabled]
+  end
+
   test 'an order reads its reject and cancel reasons from the order object' do
     order = {
       'order_id' => 'order-1', 'product_id' => 'BTC-USD', 'order_type' => 'MARKET', 'side' => 'BUY',
@@ -205,7 +215,7 @@ class Exchanges::CoinbaseTest < ActiveSupport::TestCase
 
     parsed = @exchange.get_orders(order_ids: ['order-1']).data[:orders]['order-1']
 
-    assert_equal %w[INSUFFICIENT_FUND Insufficient\ balance], parsed[:error_messages]
+    assert_equal ['INSUFFICIENT_FUND', 'Insufficient balance'], parsed[:error_messages]
   end
 
   private

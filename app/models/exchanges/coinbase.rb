@@ -73,8 +73,15 @@ class Exchanges::Coinbase < Exchange
           quote_decimals: Utilities::Number.decimals(quote_increment),
           price_decimals: Utilities::Number.decimals(price_increment),
           available: true,
-          # Coinbase only signals problems explicitly; absent flags => enabled.
-          trading_enabled: !(product['trading_disabled'] == true || (product.key?('status') && product['status'] != 'online'))
+          # Coinbase only signals problems explicitly; absent flags => enabled. Bots place market
+          # orders, which a limit_only product refuses, so it is not tradable here, as Kraken's
+          # limit_only status is not. cancel_only takes no new orders at all.
+          # https://docs.cdp.coinbase.com/api-reference/advanced-trade-api/rest-api/public/list-public-products
+          trading_enabled: !(product['trading_disabled'] == true ||
+                             product['limit_only'] == true ||
+                             product['cancel_only'] == true ||
+                             product['is_disabled'] == true ||
+                             (product.key?('status') && product['status'] != 'online'))
         }
       end.compact
     end
