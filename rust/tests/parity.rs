@@ -1138,3 +1138,47 @@ fn grid_dir(name: &str) -> GridDir {
         std::fs::create_dir_all(&path).unwrap(); GridDir {path,_temp:None}
     } else { let temp=tempfile::tempdir().unwrap(); GridDir {path:temp.path().into(),_temp:Some(temp)} }
 }
+
+/// Slice 7a: price_limit / sell_price_limit with `pause` on Kraken, Binance and Alpaca, buying and selling. Every tick, check
+/// and check job queued (with its time) as Rails decides them.
+#[tokio::test(flavor = "current_thread")]
+async fn rails_and_rust_decide_identically_across_the_condition_grid() {
+    let rails_root = tempfile::tempdir().unwrap();
+    let rust_root = tempfile::tempdir().unwrap();
+    built_grid("grid-conditions", rails_root.path());
+    let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
+    dirs.sort();
+    assert_eq!(dirs.len(), 174, "the condition grid has {} scenarios", dirs.len());
+    for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); }
+    rails(&["record", rails_root.path().to_str().unwrap()]);
+    let mut failures = vec![];
+    for d in &dirs {
+        let name = d.file_name().unwrap().to_string_lossy().to_string();
+        let rails_out: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(d.join("rails.json")).unwrap()).unwrap();
+        let rust_out = deltabadger::parity::decide(&rust_root.path().join(&name)).await.unwrap();
+        let mut rails_out = r5_cleanup_expected(&rails_out, &rust_out);
+        // Named divergence (not the condition's): with its only pair unavailable, Rails' Kraken balance read (Bot::Fundable,
+        // behind the pause) finds no EUR and mails end_of_funds; Rust reads the venue's EUR balance.
+        if name.starts_with("cond-kraken-buy-missing_ticker") {
+            assert_eq!(rails_out["mails"], serde_json::json!([{ "mail": "end_of_funds", "quote": "EUR" }]), "{name}: drop the listed divergence");
+            rails_out["mails"] = serde_json::json!([]);
+            rails_out["changes"]["bots"][0]["after"]["last_end_of_funds_notification"] = serde_json::Value::Null;
+        }
+        if rails_out != rust_out { failures.push(format!("{name}\n  rails: {rails_out}\n  rust:  {rust_out}")); }
+        // Pin what Rails does, so that two silent sides cannot pass.
+        let case = name.splitn(4, '-').nth(3).unwrap();
+        let checks = rails_out["checks"].as_array().unwrap().len();
+        let paused = ["unmet", "at_limit", "missing_ticker", "missing_ticker_unset", "server_error"].iter().any(|v| case.ends_with(v)) || case.starts_with("check_");
+        let trades = !paused && !["zero_price", "rejected_key"].contains(&case)
+            || (case.starts_with("check_met") && !(case == "check_met_no_carry" && name.contains("-buy-"))) || case == "check_lost_then_met";
+        let sent = rails_out["sent"].as_array().unwrap().len();
+        if sent != usize::from(trades) { failures.push(format!("{name}: Rails sent {sent} order(s)\n  rails: {rails_out}")); }
+        let expected_checks = match case {
+            "check_unmet" | "check_server_error" | "check_rejected_key" => 2,
+            c if c.starts_with("check_") || paused => 1,
+            _ => 0,
+        };
+        if checks != expected_checks { failures.push(format!("{name}: Rails queued {checks} check(s)\n  rails: {rails_out}")); }
+    }
+    assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
+}
