@@ -79,8 +79,8 @@ module Bot::Restatable
 
   # Everything a bot has cached is computed from a position a corporate action moves, so when one
   # lands they all go. Order sizing forces its own recompute and would be right regardless, but
-  # `Bot::Rebalancer#rebalance_targets` reads `metrics_with_current_prices` UNFORCED — a stale hash
-  # there is a sell sized against a tenth of a position.
+  # the widget's drift reading (`rebalance_targets`) reads `metrics_with_current_prices` UNFORCED — a
+  # stale hash there is a drift measured against a tenth of a position.
   #
   # The generation moves FIRST, and it is what actually makes this safe. Deleting alone loses a
   # race: a walk that read the ledger just before the split was stored can finish just after and

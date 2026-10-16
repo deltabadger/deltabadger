@@ -219,13 +219,13 @@ module Bot::Rebalancer
     place_rebalance_order(order_data, phase: Bot::Rebalanceable::PHASE_BUYING)
   end
 
-  def mark_buy_attempted!
+  def mark_buy_attempted!(attempted: true)
     pending = rebalance_pending
     set_rebalance_pending!(
       phase: Bot::Rebalanceable::PHASE_BUYING,
       sell_transaction_id: pending[:sell_transaction_id],
       remaining_quote_amount: rebalance_remaining_quote_amount,
-      buy_attempted: true
+      buy_attempted: attempted
     )
   end
 
@@ -244,10 +244,13 @@ module Bot::Rebalancer
       return halt_ambiguous!("#{order_data[:side]} placement outcome unknown: #{e.message}")
     rescue Client::TransientNetworkError => e
       # ExchangeUser re-raises only what it proved PRE-transmission — nothing reached the venue, so
-      # the sell owes nothing and the buy is still safely retryable next cycle.
+      # the sell owes nothing and the buy is still safely retryable next cycle — which only holds if
+      # the attempt mark goes too, or the next poll halts on it as an unknown outcome.
       if phase == Bot::Rebalanceable::PHASE_SELLING
         restore_rebalance_lock!
         clear_rebalance_pending!
+      else
+        mark_buy_attempted!(attempted: false)
       end
       return Result::Failure.new(e.message)
     end
@@ -281,15 +284,20 @@ module Bot::Rebalancer
       return halt_ambiguous!("#{order_data[:side]} placement failed: #{result.errors.to_sentence}")
     end
 
-    create_failed_order!(order_data.merge(error_messages: result.errors, transaction_type: 'REBALANCE'))
-
     if phase == Bot::Rebalanceable::PHASE_SELLING
+      create_failed_order!(order_data.merge(error_messages: result.errors, transaction_type: 'REBALANCE'))
       # Provably never reached the matching engine, so nothing was sold and nothing is owed.
       restore_rebalance_lock!
       clear_rebalance_pending!
+    else
+      # A buy that provably never placed still holds the user's cash — keep the state and the
+      # remaining amount, and drop the attempt mark with the row, so the next cycle retries exactly
+      # that instead of halting on it.
+      ActiveRecord::Base.transaction do
+        create_failed_order!(order_data.merge(error_messages: result.errors, transaction_type: 'REBALANCE'))
+        mark_buy_attempted!(attempted: false)
+      end
     end
-    # A buy that provably never placed still holds the user's cash — keep the state and the
-    # remaining amount so the next cycle retries exactly that.
     result
   end
 
@@ -447,7 +455,8 @@ module Bot::Rebalancer
   # The entry furthest from its target, in quote terms, plus the portfolio total it was measured
   # against. :max is the most overweight, :min the most underweight.
   def extreme_rebalance_entry(direction)
-    entries = rebalance_targets
+    # Forced: this sizes a trade, so it reads the ledger as it is now, not as a cache last saw it.
+    entries = rebalance_targets(force: true)
     return [nil, 0] if entries.blank?
 
     total = entries.sum { |entry| entry[:value].to_d }

@@ -258,7 +258,7 @@ class Bots::DcaMultiAsset < Bot
 
   # An unconfirmed total must not steer a stopped bot toward proportions the user has not accepted.
   # A swap already in flight still needs its target so its owed buy can land.
-  def rebalance_targets
+  def rebalance_targets(force: false)
     rebalance_pending? || allocations_balanced? ? super : nil
   end
 

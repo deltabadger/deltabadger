@@ -131,7 +131,7 @@ module Bot::Rebalanceable
   # [{ ticker:, value: <in quote>, target: <weight 0..1> }, ...], or nil when the portfolio cannot
   # be valued right now. The ONE thing a bot type has to supply — drift, which asset to sell and
   # which to buy all follow from it (see Bot::Rebalancer).
-  def rebalance_targets
+  def rebalance_targets(force: false)
     raise NotImplementedError, "#{self.class.name} must implement rebalance_targets"
   end
 
