@@ -1,7 +1,7 @@
 //! AccountTransaction::SyncJob for an Alpaca key: Exchanges::Alpaca#get_ledger (every page of
 //! GET /v2/account/activities), AccountTransactionSync#sync! (dedup, rows, the bot's own order, split side effects,
 //! asset identity, the watermark) and TransferMatcher.run!. Rails is the oracle (rust/tests/sync_parity.rs).
-use super::activities::{self, cash_activity, CryptoPair, CryptoPairs, Entry, Raw, ADJUSTMENT, BUY, DEPOSIT, SELL, WITHDRAWAL};
+use super::activities::{self, cash_activity, CryptoPair, CryptoPairs, Entry, Raw, ADJUSTMENT, BUY, DEPOSIT, SELL, SWAP_IN, SWAP_OUT, WITHDRAWAL};
 use crate::jobs::Db;
 use super::wire::{self, Budget, Node};
 use super::{commit, commit_bots, load_key, number, parsed, phase, record_sync_error, sql_time, Failure, Key, SyncError, Unread};
@@ -659,6 +659,7 @@ const BY_TIME: &str = "INDEXED BY index_account_transactions_on_transacted_at";
 fn duplicate(c: &Connection, key: &Key, e: &Entry, tx_id: Option<&str>, merged: &HashSet<String>, stored_now: &HashSet<i64>, repeat: usize) -> Result<bool, SyncError> {
     if let Some(tx_id) = tx_id {
         if known_id(c, key, Some(tx_id), merged)? { return Ok(true); }
+        if api_dust(e, tx_id) { return api_dust_twin(c, key, e, tx_id); }
         if api_transfer(e.entry_type, &e.raw.value) { return api_transfer_twin(c, key, e, tx_id); }
     }
     let Some(at) = e.transacted_at else { return Ok(false) }; // a row with no time is the same event as nothing
@@ -739,6 +740,57 @@ fn api_transfer_twin(c: &Connection, key: &Key, e: &Entry, tx_id: &str) -> Resul
         }
     }
     Ok(false)
+}
+
+/// One dust conversion as Binance's export and its API each describe it (AccountTransactionSync, "one dust conversion"):
+/// the API books the BNB in gross with the 2% charge beside it, the export net, up to a second after `operateTime`.
+/// #api_dust?: a swap leg with a `dust-` id and the whole conversion in its raw.
+fn api_dust(e: &Entry, tx_id: &str) -> bool {
+    matches!(e.entry_type, SWAP_IN | SWAP_OUT) && tx_id.starts_with("dust-") && e.raw.value.get("transferedAmount").is_some()
+}
+
+/// #file_dust?: a swap leg of an export dust group.
+fn file_dust(entry_type: i64, group_id: Option<&str>) -> bool {
+    matches!(entry_type, SWAP_IN | SWAP_OUT) && group_id.is_some_and(|g| g.starts_with("dustcsv"))
+}
+
+/// #api_dust_twin?: the second-wide rule still holds against every id-less row but a file dust leg; then the one export
+/// group holding this conversion's coin leg and its BNB net of the charge, each once, within a second either side,
+/// takes both of its ids. One leg alone, or two candidates, pair with nothing; an id stored meanwhile is this row.
+fn api_dust_twin(c: &Connection, key: &Key, e: &Entry, tx_id: &str) -> Result<bool, SyncError> {
+    let Some(at) = e.transacted_at else { return Ok(false) };
+    let rows = |sql: &str, p: &[&dyn rusqlite::ToSql]| -> Result<Vec<(i64, i64, Option<String>)>, SyncError> {
+        let mut s = c.prepare(sql)?;
+        let found = s.query_map(p, |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?.collect::<Result<Vec<_>, _>>()?;
+        Ok(found)
+    };
+    let second = Duration::seconds(1);
+    let (Some(from), Some(to)) = (at.checked_sub_signed(second), at.checked_add_signed(second)) else { return Err(SyncError("a time at the end of the calendar".into())) };
+    let base = format!("SELECT id, entry_type, group_id FROM account_transactions {BY_TIME} WHERE user_id = ?1 AND exchange_id = ?2 AND tx_id IS NULL");
+    let same = rows(&format!("{base} AND entry_type = ?3 AND base_currency IS ?4 AND base_amount = ?5 AND transacted_at > ?6 AND transacted_at < ?7"),
+                    params![key.user_id, key.exchange_id, e.entry_type, e.base_currency, real(&e.base_amount), sql_time(from), sql_time(to)])?;
+    if same.iter().any(|(_, t, g)| !file_dust(*t, g.as_deref())) { return Ok(true); }
+    let raw = &e.raw.value;
+    let d = |k: &str| json_to_d(&raw[k]).ok().flatten().unwrap_or_else(BigDec::zero); // `.to_d`: nil is 0
+    let net = &d("transferedAmount") - &d("serviceChargeAmount");
+    let legs = rows(&format!("{base} AND group_id LIKE 'dustcsv%' AND transacted_at >= ?3 AND transacted_at <= ?4 AND ((entry_type = {SWAP_OUT} \
+                              AND base_currency = ?5 AND base_amount = ?6) OR (entry_type = {SWAP_IN} AND base_currency = 'BNB' AND base_amount = ?7))"),
+                    params![key.user_id, key.exchange_id, sql_time(from), sql_time(to), raw["fromAsset"].as_str(), real(&d("amount")), real(&net)])?;
+    let mut groups: HashMap<Option<String>, (Vec<i64>, Vec<i64>)> = HashMap::new();
+    for (id, t, g) in legs {
+        let group = groups.entry(g).or_default();
+        if t == SWAP_OUT { group.0.push(id) } else { group.1.push(id) }
+    }
+    let both: Vec<_> = groups.values().filter(|(outs, ins)| !outs.is_empty() && !ins.is_empty()).collect();
+    let [(outs, ins)] = both[..] else { return Ok(false) };
+    let (&[out], &[inn]) = (&outs[..], &ins[..]) else { return Ok(false) };
+    let id = tx_id.strip_suffix("-out").or_else(|| tx_id.strip_suffix("-in")).unwrap_or(tx_id);
+    match c.execute("UPDATE account_transactions SET tx_id = CASE id WHEN ?1 THEN ?2 ELSE ?3 END WHERE id IN (?1, ?4) AND tx_id IS NULL",
+                    params![out, format!("{id}-out"), format!("{id}-in"), inn]) {
+        Ok(n) => Ok(n == 2),
+        Err(rusqlite::Error::SqliteFailure(f, _)) if f.code == rusqlite::ErrorCode::ConstraintViolation => Ok(true),
+        Err(err) => Err(err.into()),
+    }
 }
 
 /// #match_bot_transaction!: the bot order this row is, by the row's own id, then by the order the fill names.

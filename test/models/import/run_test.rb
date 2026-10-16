@@ -54,6 +54,27 @@ class Import::RunTest < ActiveSupport::TestCase
     assert_equal 2, AccountTransaction.for_user(@user).count
   end
 
+  # A dust sweep: the API books the BNB gross with the charge beside it, the export writes it net, a
+  # second later. Over a synced history, the file's conversion is recognised whole.
+  test 'a file over a synced dust conversion adds none of it' do
+    at = Time.utc(2021, 9, 21, 19, 22, 0)
+    raw = { 'fromAsset' => 'USDT', 'amount' => '25.47403194', 'transferedAmount' => '0.07147454', 'serviceChargeAmount' => '0.00142949',
+            'operateTime' => 1_632_252_120_000, 'transId' => 78_240_438_808, 'targetAsset' => 'BNB' }
+    AccountTransactionSync.new(@key).store!(
+      [{ entry_type: :swap_out, base_currency: 'USDT', base_amount: '25.47403194'.to_d, tx_id: 'dust-78240438808-out',
+         group_id: 'dust_78240438808', transacted_at: at, raw_data: raw },
+       { entry_type: :swap_in, base_currency: 'BNB', base_amount: '0.07147454'.to_d, fee_currency: 'BNB', fee_amount: '0.00142949'.to_d,
+         tx_id: 'dust-78240438808-in', group_id: 'dust_78240438808', transacted_at: at, raw_data: raw }]
+    )
+    file = [HEADER, '1,2021-09-21 19:22:01,Spot,Small Assets Exchange BNB,USDT,-25.47403194,USDT to BNB',
+            '1,2021-09-21 19:22:01,Spot,Small Assets Exchange BNB,BNB,0.07004505,USDT to BNB'].join("\n")
+
+    result = import(file)
+
+    assert_equal({ imported: 0, duplicates: 2 }, result.slice(:imported, :duplicates))
+    assert_equal 2, AccountTransaction.for_user(@user).count
+  end
+
   # The requirement, stated plainly.
   test 'importing the same file again changes nothing' do
     import

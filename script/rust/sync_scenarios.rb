@@ -859,7 +859,25 @@ module SyncScenarios
           P.stored(ctx, exchange: ctx[:binance], entry_type: 4, base_currency: 'XRP', base_amount: '30', tx_id: nil, transacted_at: t.(2026, 8, 14, 10))
         end,
         steps: [P.binance_ledger(night, basic.merge('deposits' => basic['deposits'] + [P.bn_deposit(12, 'XRP', '30', t.(2026, 8, 14, 10)),
-                                                                                        P.bn_deposit(13, 'XRP', '30', t.(2026, 8, 14, 10), tx: nil)]))] }
+                                                                                        P.bn_deposit(13, 'XRP', '30', t.(2026, 8, 14, 10), tx: nil)]))] },
+      # The export's copy of a dust sweep: the BNB net of the charge, a second after operateTime. A whole conversion pairs,
+      # an amount the column rounds too (compared as stored); a group holding one leg of it pairs with nothing.
+      { name: 'binance-ledger-file_dust',
+        setup: lambda do |ctx|
+          P.binance(ctx)
+          sweep = Time.at(1_786_960_801).utc # operateTime 1_786_960_800_777, written a second on
+          [[3, 'USDT', '0.9', 'USDT'], [2, 'BNB', '0.000432', 'USDT'], [3, 'XRP', '1.5', 'XRP'],
+           [3, 'SHIB', '123456789.12345678', 'SHIB'], [2, 'BNB', '0.00005', 'SHIB']].each do |type, coin, amount, from|
+            P.stored(ctx, exchange: ctx[:binance], entry_type: type, base_currency: coin, base_amount: amount, tx_id: nil, transacted_at: sweep,
+                          group_id: "dustcsv_#{from} to BNB_#{sweep.to_i}")
+          end
+        end,
+        steps: [P.binance_ledger(night, basic.merge('dust' => others['dust'].map do |sweep|
+          shib = { 'transId' => 4_359_323, 'serviceChargeAmount' => '0.000001', 'amount' => '123456789.12345678',
+                   'operateTime' => sweep['operateTime'],
+                   'transferedAmount' => '0.000051', 'fromAsset' => 'SHIB', 'targetAsset' => 'BNB' }
+          sweep.merge('userAssetDribbletDetails' => sweep['userAssetDribbletDetails'] + [shib])
+        end))] }
     ]
   end
 
