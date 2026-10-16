@@ -204,11 +204,16 @@ class Exchanges::Bitrue < Exchange
     Result::Success.new(price)
   end
 
+  # /api/v1/market/kline (https://github.com/Bitrue-exchange/Spot-official-api-docs#kline-data) returns
+  # {"data"=>[{is,o,h,l,c,v}]} with object candles, at most 1440, the newest first unless `fromIdx` (epoch
+  # ms, inclusive) caps the newest. It ignores startTime and endTime (live, 2026-10-16), so a range is
+  # read backwards from now in pages of 1440. '3d' is not a scale and '1M' means one MINUTE, so those
+  # are built from the daily candles. honeymaker's candlestick_data cannot send fromIdx.
+  # ponytail: Bitrue keeps a limited depth per scale (live: 1m about a day, 1h about 7 months, 1d to
+  # 2021-04); older candles do not exist there, so a range starting earlier comes back shorter.
+  KLINE_PAGE = 1440
+
   def get_candles(ticker:, start_at:, timeframe:)
-    # Bitrue's kline endpoint serves only a recent window (it ignores startTime) and returns
-    # {"data"=>[{is,o,h,l,c,v}]} with object candles (a Hash, not a bare Array). ATH seeds from this
-    # recent window (incremental-max refines it forward). '3d' is not supported and '1M' is interpreted
-    # as one MINUTE, so those coarser timeframes are aggregated from the daily resolution.
     native = {
       1.minute => '1m', 5.minutes => '5m', 15.minutes => '15m', 30.minutes => '30m',
       1.hour => '1h', 4.hours => '4h', 1.day => '1d', 1.week => '1w'
@@ -217,14 +222,28 @@ class Exchanges::Bitrue < Exchange
     source_timeframe = native.key?(timeframe) ? timeframe : build_source[timeframe]
     return Result::Failure.new("Unsupported timeframe #{timeframe.inspect} on #{name}") if source_timeframe.nil?
 
-    result = client.candlestick_data(symbol: ticker.ticker, interval: native[source_timeframe], limit: 500)
-    if result.failure?
-      error = parse_error_message(result)
-      return error.present? ? Result::Failure.new(error, data: result.data) : result
+    start_ms = start_at.to_i * 1000
+    rows = []
+    from_idx = nil
+    loop do
+      result = client.send(:get_public, '/api/v1/market/kline',
+                           { symbol: ticker.ticker, scale: native[source_timeframe], fromIdx: from_idx, limit: KLINE_PAGE })
+      if result.failure?
+        error = parse_error_message(result)
+        return error.present? ? Result::Failure.new(error, data: result.data) : result
+      end
+
+      page = result.data.is_a?(Hash) ? Array(result.data['data']) : []
+      oldest = page.map { |row| row['is'].to_i }.min
+      break if oldest.nil? || (from_idx && oldest > from_idx)
+
+      rows.concat(page)
+      break if page.size < KLINE_PAGE || oldest <= start_ms
+
+      from_idx = oldest - 1
     end
 
-    rows = result.data.is_a?(Hash) ? (result.data['data'] || []) : []
-    candles = rows.map do |row|
+    candles = rows.uniq { |row| row['is'] }.map do |row|
       [
         Time.at(row['is'].to_i / 1000).utc,
         row['o'].to_d,
