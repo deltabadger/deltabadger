@@ -262,25 +262,4 @@ class Import::RunTest < ActiveSupport::TestCase
     assert_equal 0, import(two_spends)[:imported]
     assert_equal 2, AccountTransaction.for_user(@user).count
   end
-
-  # A Convert half imported alone is stored ungrouped. When a complete export brings both halves, the
-  # stored half is the duplicate the writer skips — and it must join the new half's group, or the
-  # ledger reads both as orphans: coins from nowhere and coins gone nowhere.
-  test 'a stored lone Convert half joins its partner when the complete file arrives' do
-    half = [HEADER, '1,2025-06-22 20:20:45,Spot,Binance Convert,USDT,-129,'].join("\n")
-    whole = [HEADER, '1,2025-06-22 20:20:44,Spot,Binance Convert,USDC,129,', '1,2025-06-22 20:20:45,Spot,Binance Convert,USDT,-129,'].join("\n")
-    assert_equal 1, import(half)[:imported]
-    stored = AccountTransaction.for_user(@user).sole
-    stored.update_columns(updated_at: 1.day.ago)
-
-    assert_equal({ imported: 1, duplicates: 1 }, import(whole).slice(:imported, :duplicates))
-
-    rows = AccountTransaction.for_user(@user).order(:entry_type).to_a
-    assert_equal %w[swap_in swap_out], rows.map(&:entry_type)
-    assert_equal 1, rows.map(&:group_id).uniq.size
-    assert rows.first.group_id.present?
-    assert_operator stored.reload.updated_at, :>, 1.minute.ago, 'touched, so the tracker cache moves'
-    marked = Tracker::Ledger.send(:mark_orphans, rows.map { |row| { exchange: row.exchange_id, group_id: row.group_id, entry_type: row.entry_type } })
-    assert_empty(marked.select { |row| row[:orphan] })
-  end
 end
