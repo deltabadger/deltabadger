@@ -64,9 +64,11 @@ module Pages
     end
     keys = scenario.fetch('venue_keys', { 'kraken' => 'correct', 'binance' => 'correct' })
     { 'kraken' => kraken, 'binance' => binance }.each do |name, exchange|
-      next unless keys[name]
+      # The status comes from ApiKey's own list, never straight from scenario data.
+      status = ApiKey.statuses.keys.find { |known| known == keys[name] }
+      next unless status
 
-      ApiKey.create!(user: User.first, exchange:, key: "#{name}-key", secret: 'c2VjcmV0', status: keys[name], key_type: :trading)
+      ApiKey.create!(user: User.first, exchange:, key: "#{name}-key", secret: 'c2VjcmV0', status:, key_type: :trading)
     end
   end
 
