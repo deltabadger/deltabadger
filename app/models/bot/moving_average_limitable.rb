@@ -208,7 +208,7 @@ module Bot::MovingAverageLimitable
   # job (Bot::MovingAverageLimitCheckJob) polls this method unchanged for either direction.
   def get_moving_average_limit_condition_met?
     return Result::Success.new(false) unless active_moving_average_limited?
-    return Result::Success.new(true) if timing_condition_satisfied?
+    return Result::Success.new(true) if moving_average_limit_timing_condition_satisfied?
 
     ticker = tickers.available.find_by(id: public_send("#{moving_average_limit_prefix}_in_ticker_id"))
     return Result::Success.new(false) unless ticker.present?
@@ -297,7 +297,7 @@ module Bot::MovingAverageLimitable
     Rails.cache.delete(moving_average_limit_info_cache_key)
   end
 
-  def timing_condition_satisfied?
+  def moving_average_limit_timing_condition_satisfied?
     public_send("#{moving_average_limit_prefix}_timing_condition") == 'after' &&
       active_moving_average_limit_condition_met_at.present?
   end

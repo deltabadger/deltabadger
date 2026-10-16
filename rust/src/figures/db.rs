@@ -118,6 +118,8 @@ pub struct Order {
     pub sell: bool, pub buy: bool, pub closed: bool,
     /// transactions.transaction_type: REGULAR, REBALANCE, LIQUIDATION, REDEPLOY.
     pub kind: String,
+    /// Set only on an abandoned row: what it asked for (Redeployable#executed_quote_total counts at least that).
+    pub abandoned_request: Option<super::dec::Dec>,
 }
 
 /// `transactions.submitted.order(:created_at, :id)`: every walk reads this one list.

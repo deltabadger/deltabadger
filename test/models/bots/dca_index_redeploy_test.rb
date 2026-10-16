@@ -294,6 +294,43 @@ class Bots::DcaIndexRedeployTest < ActiveSupport::TestCase
                     'the declined proceeds must not come back on offer'
   end
 
+  # Abandoned is "we lost track", not "it never filled". Counted at nothing, clearing the halt put the
+  # money back on offer and Yes bought it twice.
+  test 'an abandoned redeploy stays spent after the user clears its halt' do
+    buy('AAA', quote: 100, price: 100)
+    liquidate('AAA', amount: 1, quote: 150, price: 150)
+    order = create_order('BBB', amount: 1, quote: 150, price: 150, side: :buy, type: 'REDEPLOY',
+                                external_status: :open)
+    Bot::FetchAndUpdateOpenOrdersJob.stubs(:perform_now).with { order.update!(external_status: :abandoned) }
+    @bot.stubs(:broadcast_redeploy_state)
+
+    @bot.advance_waiting_redeploys!
+    assert @bot.reload.redeploy_ambiguous?
+    Bot::ResolveRedeployJob.perform_now(@bot, intent_id: @bot.redeploy_pending[:id])
+    assert_not @bot.reload.redeploy_pending?
+
+    assert_in_delta 0, @bot.redeploy_offer(@bot.metrics(force: true)).to_f, 0.0001,
+                    'the abandoned order may have filled; its money must not be offered again'
+    @bot.decline_redeploy!
+    assert_in_delta 0, @bot.reload.redeploy_declined_offset.to_d.to_f, 0.0001, 'the decline agrees'
+    liquidate('AAA', amount: 0.5, quote: 50, price: 100)
+    assert_in_delta 50, @bot.redeploy_offer(@bot.metrics(force: true)).to_f, 0.0001
+  end
+
+  test 'an abandoned redeploy found later counts what it actually spent' do
+    buy('AAA', quote: 100, price: 100)
+    liquidate('AAA', amount: 1, quote: 150, price: 150)
+    order = create_order('BBB', amount: 1, quote: 150, price: 150, side: :buy, type: 'REDEPLOY',
+                                external_status: :abandoned)
+    order.update_columns(amount_exec: 0, quote_amount_exec: 0) # what its last open poll wrote
+    assert_in_delta 0, @bot.redeploy_offer(@bot.metrics(force: true)).to_f, 0.0001
+
+    order.update!(external_status: :closed, amount_exec: 0.6, quote_amount_exec: 90)
+
+    assert_in_delta 60, @bot.redeploy_offer(@bot.metrics(force: true)).to_f, 0.0001,
+                    'the real fill replaces the requested figure, never adds to it'
+  end
+
   # A lock is not a venue-floor problem. place_redeploy_orders! turns "nothing placed" into
   # Failure(:below_minimums), which the job reports as "your proceeds are too small" — false, and the
   # money is still there. The offer has to survive.

@@ -31,9 +31,17 @@ use std::rc::Rc;
 pub const TRACKER_LEDGER: &str = "tracker_ledger";
 pub const PORTFOLIO_BACKFILL: &str = "portfolio_backfill";
 
-/// What one job run may cost, all its passes together: the figures' own limits (`budget::FIGURE`). Steps add up over
-/// the run; held limbs are a peak, freed between passes.
-pub const WALK: budget::Limits = budget::FIGURE;
+/// What one job run may cost, all its passes together. Steps add up over the run; held limbs are a peak, freed between
+/// passes, and as many as a figure may hold.
+///
+/// Steps: eight billion, eight times a figure's. A real account's walk takes more than one figure may: a Binance
+/// account whose referral income (3,818 rows, 91 coins) was then swept in one dust conversion (74 coins out, 68 BNB
+/// in-legs) holds 30,600 BNB lots, as Rails' FIFO opens one lot per tranche per in-leg, and they travel on through
+/// three swaps. One walk of its 10,833 rows takes 998 million steps (161 million before the referral rows; Rails
+/// 46 s, 8 s before); the backfill's sweep 2.5 million more. The ledger job may walk three times. Eleven unpriced
+/// sales bought back take 805 million and each one more four times as many, so the thirteenth (13 billion) is still
+/// refused.
+pub const WALK: budget::Limits = budget::Limits { steps: 8_000_000_000, held: budget::FIGURE.held };
 /// Tracker::Ledger::COMPUTE_PASSES.
 pub const COMPUTE_PASSES: usize = 3;
 
@@ -346,11 +354,21 @@ async fn fetch_closes<C: Connect, T: Transport>(db: &Db, venues: &C, api: Option
         // `stock_price_range`: any failure of the request leaves the symbol without closes.
         let raw=venues.connect(credentials);
         let handle=crate::venue::alpaca::Captured::new(&raw,version.clone());
-        let Ok(body) = handle.read(true, &format!("/v2/stocks/{}/bars", bars.symbol),
-                                                        vec![("limit", "10000".into()), ("start", start), ("timeframe", "1Day".into())], 8 * 1024 * 1024).await.value else { continue };
-        let Ok(text) = body.text() else { continue };
-        let Ok(json) = serde_json::from_str::<serde_json::Value>(text) else { continue };
-        let Some(rows) = backfill::bar_rows(&json, bars, have) else { continue };
+        // Every page, each naming the next, as Clients::Alpaca#get_bars reads them.
+        let mut all = vec![];
+        let mut token: Option<String> = None;
+        let read = loop {
+            let mut query = vec![("limit", "10000".to_string())];
+            if let Some(token) = token.take() { query.push(("page_token", token)); }
+            query.extend([("start", start.clone()), ("timeframe", "1Day".into())]);
+            let Ok(body) = handle.read(true, &format!("/v2/stocks/{}/bars", bars.symbol), query, 8 * 1024 * 1024).await.value else { break false };
+            let Ok(text) = body.text() else { break false };
+            let Ok(mut json) = serde_json::from_str::<serde_json::Value>(text) else { break false };
+            all.extend(json["bars"].as_array_mut().map(std::mem::take).into_iter().flatten());
+            match json["next_page_token"].as_str().filter(|t| !t.is_empty()) { Some(next) => token = Some(next.to_string()), None => break true }
+        };
+        if !read { continue; }
+        let Some(rows) = backfill::bar_rows(&serde_json::json!({ "bars": all }), bars, have) else { continue };
         if rows.is_empty() { continue; }
         let version = version.clone();
         db.run(move |c, _| {

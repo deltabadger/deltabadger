@@ -625,7 +625,7 @@
     }
   ],
   "ported_sources": {
-    "app/models/clients/alpaca.rb": "00e5b9bb3bd88c88c38abad1e4246bc89482b822239d6a067bb7906dd7ab9601",
-    "app/models/exchanges/alpaca.rb": "0aa1941a3e0961f1a2bc865a43c6200e67e52dc15d9bca5051e69020623b82a8"
+    "app/models/clients/alpaca.rb": "950046601ce2c1791f56938e021bd6e2866b44717f3f578a86aa2f36b6376250",
+    "app/models/exchanges/alpaca.rb": "657631b2764487fe31682892b1d6ac7e76d57c19200bc4850e55d0343c068e0f"
   }
 }

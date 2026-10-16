@@ -104,12 +104,23 @@ module Bot::Composition::Redeployable
   # while its quote fill is still nil, and `confirmed_exec_amounts` values those at `price * amount`
   # — so a redeploy buy in that state has to be subtracted here at exactly the same figure, or a
   # declined offer comes back the moment one lands.
+  #
+  # An ABANDONED buy counts at what it asked for (or what it reported, if more). Abandoned means we
+  # lost track of the order, not that it did not execute: counted at nothing, the offer handed its
+  # money back once the user cleared the halt, and Yes bought it a second time. Over-counting can
+  # only under-offer. Its exec columns are not final — an open poll writes 0 — so they are a floor,
+  # not the answer; a later fetch that finds the order flips it to closed/cancelled with real
+  # figures, and the branch above takes over.
   def executed_quote_total(scope)
     closed = Transaction.external_statuses[:closed]
+    abandoned = Transaction.external_statuses[:abandoned]
     scope.submitted.sum(Arel.sql(<<~SQL.squish)).to_d
-      COALESCE(quote_amount_exec,
-               CASE WHEN external_status = #{closed} AND price IS NOT NULL AND amount IS NOT NULL
-                    THEN price * amount ELSE 0 END)
+      CASE WHEN external_status = #{abandoned}
+           THEN MAX(COALESCE(quote_amount_exec, 0), COALESCE(quote_amount, price * amount, 0))
+           ELSE COALESCE(quote_amount_exec,
+                         CASE WHEN external_status = #{closed} AND price IS NOT NULL AND amount IS NOT NULL
+                              THEN price * amount ELSE 0 END)
+      END
     SQL
   end
 

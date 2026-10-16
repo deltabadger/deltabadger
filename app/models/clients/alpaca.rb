@@ -201,20 +201,10 @@ class Clients::Alpaca < Client
   # needs. `split` restates the whole history onto today's share basis, which is what an
   # indicator wants — see Exchange#get_indicator_candles.
   #
-  # ponytail: MAX_BARS is one page. Alpaca answers a longer range with the OLDEST page and a
-  # `next_page_token` nobody reads here, so without a limit a 20-year daily request came back
-  # ending in 2019. Every symbol Alpaca serves fits in one page today (its data begins in 2016,
-  # ~2700 daily bars); follow the token if a finer timeframe ever needs a deeper window.
+  # Alpaca answers a long range with the OLDEST page and a `next_page_token`; every page is read.
   def get_bars(symbol:, timeframe:, start_time: nil, end_time: nil, adjustment: nil)
-    with_rescue do
-      response = data_connection.get do |req|
-        req.url "/v2/stocks/#{symbol}/bars"
-        req.headers = authenticated_headers
-        req.params = { timeframe: timeframe, start: start_time, end: end_time,
-                       adjustment: adjustment, limit: MAX_BARS }.compact
-      end
-      Result::Success.new(response.body)
-    end
+    each_bars_page("/v2/stocks/#{symbol}/bars", timeframe: timeframe, start: start_time, end: end_time,
+                                                adjustment: adjustment)
   end
 
   # https://docs.alpaca.markets/reference/cryptolatestquotes
@@ -247,14 +237,8 @@ class Clients::Alpaca < Client
   # @param symbol [String] crypto pair symbol (e.g. 'AAVE/USD')
   # @param timeframe [String] e.g., '1Day', '1Hour'
   def get_crypto_bars(symbol:, timeframe:, start_time: nil, end_time: nil)
-    with_rescue do
-      response = data_connection.get do |req|
-        req.url '/v1beta3/crypto/us/bars'
-        req.headers = authenticated_headers
-        req.params = { symbols: symbol, timeframe: timeframe, start: start_time, end: end_time }.compact
-      end
-      Result::Success.new(response.body)
-    end
+    each_bars_page('/v1beta3/crypto/us/bars', symbols: symbol, timeframe: timeframe, start: start_time,
+                                              end: end_time)
   end
 
   # https://docs.alpaca.markets/reference/getaccountactivities
@@ -292,6 +276,33 @@ class Clients::Alpaca < Client
   end
 
   private
+
+  # Bars come in pages of at most MAX_BARS data points (default 1000), oldest first. Stock bars are
+  # an array, crypto bars a hash of arrays keyed by symbol; pages are joined into one body.
+  def each_bars_page(path, **params)
+    with_rescue do
+      body = nil
+      page_token = nil
+      loop do
+        response = data_connection.get do |req|
+          req.url path
+          req.headers = authenticated_headers
+          req.params = params.merge(limit: MAX_BARS, page_token: page_token).compact
+        end
+        page = response.body
+        body = body.nil? ? page : body.merge('bars' => join_bars(body['bars'], page['bars']))
+        page_token = page['next_page_token'].presence
+        break if page_token.nil?
+      end
+      Result::Success.new(body.merge('next_page_token' => nil))
+    end
+  end
+
+  def join_bars(bars, more)
+    return bars + Array(more) if bars.is_a?(Array)
+
+    (bars || {}).merge(more || {}) { |_symbol, older, newer| older + newer }
+  end
 
   def with_rescue
     yield

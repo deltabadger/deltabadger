@@ -221,7 +221,7 @@ fn an_order_row_is_read_as_filled_only_when_it_is_closed() {
     for c in cases {
         let order = Order {
             id: 1, at: At(0), exchange_id: None, raw: deltabadger::figures::fill::Raw::new(opt_dec(&c[1]),opt_dec(&c[2]),opt_dec(&c[3]),opt_dec(&c[4])),
-            base: None, asset_id: None, sell: false, buy: true, closed: c[0] == "closed", kind: "REGULAR".into(),
+            base: None, asset_id: None, sell: false, buy: true, closed: c[0] == "closed", kind: "REGULAR".into(), abandoned_request: None,
         };
         let quantity=opt_dec(&c[3]).or_else(||if c[0]=="closed"{opt_dec(&c[2])}else{None});
         let parsed=deltabadger::figures::fill::parse(&order);
