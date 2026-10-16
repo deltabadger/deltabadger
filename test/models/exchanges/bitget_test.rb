@@ -361,6 +361,35 @@ class Exchanges::BitgetTest < ActiveSupport::TestCase
     assert_equal :closed, result.data[:status]
   end
 
+  # One order Bitget no longer has failed every get_orders batch it was in, so the bot's other
+  # open orders were never polled either.
+  test 'get_orders lists an order Bitget no longer has under missing and keeps the rest' do
+    live = { 'orderId' => '2', 'symbol' => 'BTCUSDT', 'orderType' => 'limit', 'side' => 'buy', 'price' => '13000',
+             'size' => '0.001', 'priceAvg' => '0', 'baseVolume' => '0', 'quoteVolume' => '0', 'status' => 'live' }
+    answers = {
+      '1' => Result::Failure.new('{"code":"40109","msg":"The data of the order cannot be found, please confirm the order number"}',
+                                 data: { status: 400 }),
+      '2' => Result::Success.new(raw: live),
+      '3' => Result::Failure.new('Order not found'),
+      '4' => Result::Failure.new('Bitget API error 43001: The order does not exist')
+    }
+    @exchange.send(:client).define_singleton_method(:get_order) { |order_id:| answers.fetch(order_id) }
+
+    result = with_dry_run(false) { @exchange.get_orders(order_ids: %w[BTCUSDT-1 BTCUSDT-2 BTCUSDT-3 BTCUSDT-4]) }
+
+    assert_predicate result, :success?
+    assert_equal %w[BTCUSDT-1 BTCUSDT-3 BTCUSDT-4], result.data[:missing]
+    assert_equal :open, result.data[:orders]['BTCUSDT-2'][:status]
+  end
+
+  test 'get_orders still fails the batch on any other failure' do
+    @exchange.send(:client).define_singleton_method(:get_order) do |**|
+      Result::Failure.new('{"code":"40015","msg":"System is abnormal, please try again later"}', data: { status: 400 })
+    end
+
+    assert_predicate with_dry_run(false) { @exchange.get_orders(order_ids: %w[BTCUSDT-1]) }, :failure?
+  end
+
   # orderInfo's `size` is quote coins on a market buy; reading it as base wrote "10 BTC" onto a
   # 10 USDT buy. Shaped like the doc's example, which has no quoteSize.
   test 'get_order reads a market buy size as the quote amount' do

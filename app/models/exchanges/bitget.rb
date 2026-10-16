@@ -28,7 +28,11 @@ class Exchanges::Bitget < Exchange
   # order-not-found's msg is localized (订单不存在), so the code is the only stable signal.
   ORDER_NOT_FOUND_CODES = %w[43001 43025].freeze     # probe got past the permission gate ⇒ key can trade
   NO_TRADE_PERMISSION_CODES = %w[40014].freeze       # "Incorrect permissions, need spot order write permissions"
-  private_constant :ORDER_NOT_FOUND_CODES, :NO_TRADE_PERMISSION_CODES
+  # orderInfo for an order Bitget no longer has: 40109 "The data of the order cannot be found" or
+  # 43001 "The order does not exist" (https://www.bitget.com/docs/classic/error-code/restapi), or an
+  # empty list, which the client answers as "Order not found".
+  ORDER_GONE_CODES = %w[40109 43001].freeze
+  private_constant :ORDER_NOT_FOUND_CODES, :NO_TRADE_PERMISSION_CODES, :ORDER_GONE_CODES
 
   ORDER_STATUS_MAP = {
     'init' => :unknown,
@@ -287,7 +291,14 @@ class Exchanges::Bitget < Exchange
   def get_order(order_id:)
     _, ext_order_id = parse_order_id(order_id)
     result = client.get_order(order_id: ext_order_id)
-    return result if result.failure?
+    if result.failure?
+      return result unless order_gone?(result)
+
+      # Flagged so get_orders lists it under missing and Bot::StaleOrderResolver can retire it,
+      # instead of one gone order failing every poll of the bot's other orders.
+      return Result::Failure.new("#{name} no longer knows order #{order_id}",
+                                 data: { not_found: true, missing_ids: [order_id] })
+    end
 
     normalized_order_data = parse_order_data(order_id, result.data[:raw])
 
@@ -296,14 +307,21 @@ class Exchanges::Bitget < Exchange
 
   def get_orders(order_ids:)
     orders = {}
+    missing = []
     order_ids.each do |order_id|
       result = get_order(order_id: order_id)
-      return result if result.failure?
+      if result.failure?
+        # A gone order goes under :missing for the stale-order sweep; any other failure still fails
+        # the batch so the job retries.
+        next missing << order_id if result.data.is_a?(Hash) && result.data[:not_found]
+
+        return result
+      end
 
       orders[order_id] = result.data
     end
 
-    Result::Success.new(orders: orders, missing: [])
+    Result::Success.new(orders: orders, missing: missing)
   end
 
   def cancel_order(order_id:)
@@ -508,6 +526,15 @@ class Exchanges::Bitget < Exchange
     else
       0
     end
+  end
+
+  # The code comes in the JSON body of an HTTP 400, or as "Bitget API error <code>: …" when the
+  # client unwrapped an HTTP-200 envelope.
+  def order_gone?(result)
+    message = Array(result.errors).join(' ')
+    return true if message.include?('Order not found')
+
+    ORDER_GONE_CODES.include?(bitget_envelope(result).first || message[/API error (\d+)/, 1])
   end
 
   def symbol_pair_base(symbol)
