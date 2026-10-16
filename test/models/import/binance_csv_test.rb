@@ -425,4 +425,33 @@ class Import::BinanceCsvTest < ActiveSupport::TestCase
     assert_equal 4.to_d, moved(rename)[[:base, 'CCC']]
     assert_equal({ [:base, 'AAA'] => 1.to_d, [:base, 'BBB'] => 3.to_d, [:base, 'CCC'] => 4.to_d }, moved(rename))
   end
+
+  # The side Binance wrote fewer rows for is split across the other side's fills by quantity, so a
+  # cash trade stays buy rows, and the split creates and loses nothing: the remainder is the last row's.
+  test 'one cash row over two fills is split across buy rows, summing exactly' do
+    entries = parse(
+      '1,2024-03-01 10:00:00,Spot,Transaction Spend,USDT,-10,',
+      '1,2024-03-01 10:00:00,Spot,Transaction Buy,ETH,1,',
+      '1,2024-03-01 10:00:00,Spot,Transaction Buy,ETH,2,',
+      '1,2024-03-01 10:00:00,Spot,Transaction Fee,BNB,-0.01,'
+    )
+
+    assert_equal(%i[buy buy], entries.map { |e| e[:entry_type] })
+    assert_equal([2, 1].map(&:to_d), entries.map { |e| e[:base_amount] })
+    assert_equal(10.to_d, entries.sum { |e| e[:quote_amount] })
+    assert_equal(0.01.to_d, entries.sum { |e| e[:fee_amount] })
+    assert_equal ['BNB'], entries.map { |e| e[:fee_currency] }.uniq
+  end
+
+  test 'two spends for one receipt are two sell-side fills of that receipt' do
+    entries = parse(
+      '1,2024-03-01 10:00:00,Spot,Transaction Sold,ETH,-1,',
+      '1,2024-03-01 10:00:00,Spot,Transaction Sold,ETH,-2,',
+      '1,2024-03-01 10:00:00,Spot,Transaction Revenue,USDT,7,'
+    )
+
+    assert_equal(%i[sell sell], entries.map { |e| e[:entry_type] })
+    assert_equal(7.to_d, entries.sum { |e| e[:quote_amount] })
+    assert_equal(3.to_d, entries.sum { |e| e[:base_amount] })
+  end
 end

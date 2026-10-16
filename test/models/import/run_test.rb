@@ -242,4 +242,24 @@ class Import::RunTest < ActiveSupport::TestCase
 
     assert_equal :malformed, import(file, format: 'deltabadger')[:error]
   end
+
+  # Same pair, same second: one price. Where Binance wrote one cash row for two fills (or one receipt
+  # for two spends), the fills stay buy rows, so a file over the API's fills dedups against them.
+  test 'a file whose cash leg spans two API-stored fills adds nothing' do
+    at = Time.utc(2024, 3, 1, 10, 0, 0)
+    fill = lambda { |id, eth, usdt|
+      { entry_type: :buy, base_currency: 'ETH', base_amount: eth.to_d, quote_currency: 'USDT', quote_amount: usdt.to_d, tx_id: id, transacted_at: at,
+        raw_data: {} }
+    }
+    AccountTransactionSync.new(@key).store!([fill.call('f1', '1', '10'), fill.call('f2', '2', '20')])
+
+    one_spend = [HEADER, '1,2024-03-01 10:00:00,Spot,Transaction Spend,USDT,-30,', '1,2024-03-01 10:00:00,Spot,Transaction Buy,ETH,1,',
+                 '1,2024-03-01 10:00:00,Spot,Transaction Buy,ETH,2,'].join("\n")
+    two_spends = [HEADER, '1,2024-03-01 10:00:00,Spot,Transaction Spend,USDT,-10,', '1,2024-03-01 10:00:00,Spot,Transaction Spend,USDT,-20,',
+                  '1,2024-03-01 10:00:00,Spot,Transaction Buy,ETH,3,'].join("\n")
+
+    assert_equal 0, import(one_spend)[:imported]
+    assert_equal 0, import(two_spends)[:imported]
+    assert_equal 2, AccountTransaction.for_user(@user).count
+  end
 end
