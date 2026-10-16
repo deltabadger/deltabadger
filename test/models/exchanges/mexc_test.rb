@@ -372,4 +372,72 @@ class Exchanges::MexcTest < ActiveSupport::TestCase
 
     assert_equal 1500, rows.map { |r| r[:tx_id] }.uniq.size
   end
+
+  BTCUSDT_LISTING = { 'symbol' => 'BTCUSDT', 'baseAsset' => 'BTC', 'quoteAsset' => 'USDT' }.freeze
+
+  # A fake client whose myTrades answers like the endpoint: the first `limit` (max 100) trades of the
+  # range asked, from https://mexcdevelop.github.io/apidocs/spot_v3_en/#account-trade-list.
+  def fake_trades_client(times, asked: [])
+    fake = Honeymaker.client('mexc')
+    %i[deposit_history withdraw_history].each { |m| fake.define_singleton_method(m) { |**| Result::Success.new([]) } }
+    fake.define_singleton_method(:account_information) do |**|
+      Result::Success.new('balances' => [{ 'asset' => 'BTC', 'free' => '1', 'locked' => '0' }])
+    end
+    fake.define_singleton_method(:exchange_information) { |**| Result::Success.new('symbols' => [BTCUSDT_LISTING]) }
+    fake.define_singleton_method(:account_trade_list) do |symbol:, start_time: nil, end_time: nil, limit: 500, **|
+      asked << { symbol:, start_time:, end_time:, limit: }
+      rows = times.select { |t| t >= start_time.to_i && t <= (end_time || Float::INFINITY) }.first([limit, 100].min)
+      Result::Success.new(rows.map do |t|
+        { 'symbol' => symbol, 'id' => "t#{t}", 'orderId' => "o#{t}", 'price' => '60000', 'qty' => '0.001',
+          'quoteQty' => '60', 'commission' => '0.06', 'commissionAsset' => 'USDT', 'time' => t.to_s,
+          'isBuyer' => true, 'isMaker' => false }
+      end)
+    end
+    Honeymaker.stubs(:client).returns(fake)
+    asked
+  end
+
+  # myTrades answers 100 trades at most and documents no paging; the ledger asked once per symbol, so
+  # a busy pair lost everything past its first page.
+  test 'get_ledger reads every trade of a busy pair' do
+    start = 10.days.ago.change(usec: 0)
+    asked = fake_trades_client((0...250).map { |i| (start.to_i * 1000) + (i * 60_000) })
+
+    rows = @exchange.get_ledger(api_key: ledger_api_key, start_time: start).data.select { |r| r[:entry_type] == :buy }
+
+    assert_equal 250, rows.map { |r| r[:tx_id] }.uniq.size
+    assert(asked.all? { |a| a[:limit] == 100 })
+  end
+
+  # Trades are kept for a month: a start further back is asked from a month ago.
+  test 'get_ledger asks for trades no further back than MEXC keeps them' do
+    asked = fake_trades_client([])
+
+    @exchange.get_ledger(api_key: ledger_api_key, start_time: 70.days.ago)
+
+    assert_operator asked.first[:start_time], :>=, 31.days.ago.to_i * 1000
+  end
+
+  test 'a failed trade or account read fails the fetch' do
+    fake_trades_client([])
+    fake = Honeymaker.client('mexc')
+    fake.define_singleton_method(:account_trade_list) do |**|
+      Result::Failure.new('{"code":429,"msg":"Too Many Requests"}', data: { status: 429 })
+    end
+    assert_predicate @exchange.get_ledger(api_key: ledger_api_key, start_time: 2.days.ago), :failure?
+
+    fake.define_singleton_method(:account_information) do |**|
+      Result::Failure.new('{"code":503,"msg":"service not available, please try again"}', data: { status: 503 })
+    end
+    assert_predicate @exchange.get_ledger(api_key: ledger_api_key, start_time: 2.days.ago), :failure?
+  end
+
+  test 'a pair MEXC no longer lists is skipped, not a failed fetch' do
+    fake_trades_client([])
+    Honeymaker.client('mexc').define_singleton_method(:account_trade_list) do |**|
+      Result::Failure.new('{"msg":"Invalid symbol.","code":-1121}', data: { status: 400 })
+    end
+
+    assert_predicate @exchange.get_ledger(api_key: ledger_api_key, start_time: 2.days.ago), :success?
+  end
 end
