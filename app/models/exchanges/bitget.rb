@@ -67,6 +67,9 @@ class Exchanges::Bitget < Exchange
       data = result.data['data']
       return Result::Failure.new("Failed to get #{name} symbols") if data.nil?
 
+      prices = get_tickers_prices(force: force)
+      prices = prices.success? ? prices.data : {}
+
       data.map do |product|
         symbol = Utilities::Hash.dig_or_raise(product, 'symbol')
         base = Utilities::Hash.dig_or_raise(product, 'baseCoin')
@@ -84,7 +87,7 @@ class Exchanges::Bitget < Exchange
           base: base,
           quote: quote,
           minimum_base_size: min_trade_amount,
-          minimum_quote_size: min_trade_usd,
+          minimum_quote_size: quote_minimum(quote, min_trade_usd, prices),
           maximum_base_size: max_trade_amount,
           maximum_quote_size: nil,
           base_decimals: quantity_precision,
@@ -479,6 +482,22 @@ class Exchanges::Bitget < Exchange
       nil
     end
     parsed.is_a?(Hash) ? [parsed['code'], parsed['msg']] : [nil, body]
+  end
+
+  # minTradeUSDT is a USDT figure on every pair, whatever its quote
+  # (https://www.bitget.com/docs/catalog/classic-spot-market/classic-spot-market#get-symbol-info), so
+  # on ETHBTC its 1 meant a 1 BTC minimum. It is converted at the quote's USDT price; with no price
+  # to convert at, the minimum is left to the venue rather than guessed.
+  def quote_minimum(quote, usdt_minimum, prices)
+    return usdt_minimum if quote == 'USDT' || usdt_minimum.zero?
+
+    if (price = prices["#{quote}USDT"].to_d).positive?
+      usdt_minimum / price
+    elsif (price = prices["USDT#{quote}"].to_d).positive?
+      usdt_minimum * price
+    else
+      0
+    end
   end
 
   def symbol_pair_base(symbol)

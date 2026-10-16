@@ -359,9 +359,34 @@ class Exchanges::BitgetTest < ActiveSupport::TestCase
     @exchange.set_client
     @exchange.send(:client).stubs(:get_symbols).returns(Result::Success.new({ 'data' => products }))
 
+    @exchange.send(:client).stubs(:get_tickers).returns(Result::Success.new({ 'data' => [] }))
+
     info = @exchange.get_tickers_info(force: true).data.first
 
     assert info[:available], 'an offline pair is still listed'
     assert_not info[:trading_enabled], 'but it cannot be traded'
+  end
+
+  # minTradeUSDT is in USDT on every pair (live: ETHBTC, SOLBTC and BTCEUR all carry "1"), so
+  # storing it as the quote minimum made ETHBTC's minimum 1 BTC and every order on it a skip.
+  test 'the quote minimum of a non-USDT pair is minTradeUSDT converted into the quote' do
+    product = lambda do |symbol, base, quote|
+      { 'symbol' => symbol, 'baseCoin' => base, 'quoteCoin' => quote, 'status' => 'online',
+        'minTradeAmount' => '0', 'minTradeUSDT' => '1', 'maxTradeAmount' => '900000000000000000000',
+        'quantityPrecision' => '4', 'quotePrecision' => '9', 'pricePrecision' => '5' }
+    end
+    products = [product.call('ETHBTC', 'ETH', 'BTC'), product.call('BTCEUR', 'BTC', 'EUR'),
+                product.call('BTCUSDT', 'BTC', 'USDT'), product.call('XYZABC', 'XYZ', 'ABC')]
+    tickers = [{ 'symbol' => 'BTCUSDT', 'lastPr' => '50000' }, { 'symbol' => 'USDTEUR', 'lastPr' => '0.9' }]
+    @exchange.set_client
+    @exchange.send(:client).stubs(:get_symbols).returns(Result::Success.new({ 'data' => products }))
+    @exchange.send(:client).stubs(:get_tickers).returns(Result::Success.new({ 'data' => tickers }))
+
+    minimums = @exchange.get_tickers_info(force: true).data.to_h { |info| [info[:ticker], info[:minimum_quote_size]] }
+
+    assert_equal BigDecimal('0.00002'), minimums['ETHBTC']
+    assert_equal BigDecimal('0.9'), minimums['BTCEUR']
+    assert_equal BigDecimal('1'), minimums['BTCUSDT']
+    assert_equal 0, minimums['XYZABC']
   end
 end
