@@ -110,4 +110,31 @@ class Exchanges::MexcTest < ActiveSupport::TestCase
     assert disallowed[:available], 'still listed'
     assert_not disallowed[:trading_enabled], 'MEXC rejects a spot order for this symbol'
   end
+
+  # Query Order, shaped like https://mexcdevelop.github.io/apidocs/spot_v3_en/#query-order. The
+  # Order Status enum lists PARTIALLY_CANCELED, which the map did not, so polling such an order raised.
+  def query_order_raw(overrides = {})
+    { 'symbol' => 'BTCUSDT', 'orderId' => 'C02__1', 'orderListId' => -1, 'price' => '60000', 'origQty' => '0.002',
+      'executedQty' => '0', 'cummulativeQuoteQty' => '0', 'status' => 'NEW', 'timeInForce' => 'GTC',
+      'type' => 'LIMIT', 'side' => 'BUY', 'time' => 1_499_827_319_559, 'updateTime' => 1_499_827_319_559,
+      'isWorking' => true, 'origQuoteOrderQty' => '0.000000' }.merge(overrides)
+  end
+
+  def stub_query_order(answers)
+    @exchange.send(:client).define_singleton_method(:query_order) do |symbol:, order_id:|
+      answer = answers.is_a?(Hash) && !answers.key?('symbol') ? answers.fetch(order_id) : answers
+      answer.is_a?(Hash) ? Result::Success.new(order_id: "#{symbol}-#{order_id}", raw: answer) : answer
+    end
+  end
+
+  test 'a partially filled order cancelled on MEXC reads as cancelled with its fill' do
+    stub_query_order(query_order_raw('status' => 'PARTIALLY_CANCELED', 'executedQty' => '0.001',
+                                     'cummulativeQuoteQty' => '60'))
+
+    result = with_dry_run(false) { @exchange.get_order(order_id: 'BTCUSDT-C02__1') }
+
+    assert_predicate result, :success?
+    assert_equal :cancelled, result.data[:status]
+    assert_equal '0.001'.to_d, result.data[:amount_exec]
+  end
 end
