@@ -218,10 +218,9 @@ class Exchanges::Bingx < Exchange
     # the stored `ath` keeps climbing via incremental-max on later ticks.
     #
     # BingX anchors spot candles to UTC+8 unless asked for timeZone=0, so a daily candle ran from
-    # 16:00 to 16:00 UTC. honeymaker's get_klines has no timeZone, hence its public request directly.
+    # 16:00 to 16:00 UTC.
     limit = 1000
-    result = client.send(:get_public, '/openApi/spot/v1/market/kline',
-                         { symbol: ticker.ticker, interval: interval, limit: limit, timeZone: 0 })
+    result = client.get_klines(symbol: ticker.ticker, interval: interval, limit: limit, time_zone: 0)
     if result.failure?
       error = parse_error_message(result)
       return error.present? ? Result::Failure.new(error, data: result.data) : result
@@ -422,7 +421,7 @@ class Exchanges::Bingx < Exchange
 
     # Deposits and withdrawals. Any failed read fails the whole fetch: a partial Success would let
     # the sync move its watermark past the rows it never got.
-    failed = each_transfer(hm_client, DEPOSITS_PATH, start_time) do |dep|
+    failed = each_transfer(hm_client, :deposit_history, start_time) do |dep|
       next unless dep['status'].to_i == 1 # completed
 
       # No record id: txId is the chain transaction that credited this deposit.
@@ -433,7 +432,7 @@ class Exchanges::Bingx < Exchange
     end
     return failed if failed
 
-    failed = each_transfer(hm_client, WITHDRAWALS_PATH, start_time) do |wd|
+    failed = each_transfer(hm_client, :withdraw_history, start_time) do |wd|
       next unless wd['status'].to_i == 6 # completed
 
       coin = transfer_coin(wd)
@@ -497,12 +496,10 @@ class Exchanges::Bingx < Exchange
 
   private
 
-  # honeymaker's get_trade_fills asks /openApi/spot/v1/trade/fills, which BingX answers with 100400
-  # "this api is not exist". myTrades (https://bingx-api.github.io/docs/#/en-us/spot/trade-api.html#Query%20transaction%20details)
+  # get_trade_fills reads myTrades (https://bingx-api.github.io/docs/#/en-us/spot/trade-api.html#Query%20transaction%20details), which
   # wants a symbol, "can only check data within the past 7 days", answers 500 trades at most, documents
   # no paging, and falls back to the past 24 hours when the range is invalid — so the range is kept
   # inside the 7 days, with a margin for clock skew.
-  TRADES_PATH = '/openApi/spot/v1/trade/myTrades'.freeze
   TRADES_PAGE = 500
   TRADES_REACH = 7.days - 5.minutes
   # 100204 "Requested data not found" (also its answer for a range with no trades) and 100490
@@ -513,7 +510,7 @@ class Exchanges::Bingx < Exchange
   # may have cut trades off, so its range is split in two halves that share the midpoint (a trade
   # stamped on it comes back in both and is kept once, by id) and both are read.
   def read_trades(hm_client, symbol, from, to)
-    result = hm_client.send(:get_signed, TRADES_PATH, { symbol: symbol, startTime: from, endTime: to, limit: TRADES_PAGE })
+    result = hm_client.get_trade_fills(symbol: symbol, start_time: from, end_time: to, limit: TRADES_PAGE)
     return result if result.failure?
 
     code = result.data['code'].to_i
@@ -532,13 +529,10 @@ class Exchanges::Bingx < Exchange
     newer.is_a?(Array) ? (older + newer).uniq { |trade| trade['id'] } : newer
   end
 
-  # honeymaker's deposit_history and withdraw_history ask /openApi/wallets/v1/capital/..., which BingX
-  # answers with 100400 "this api is not exist"; these are the documented paths
+  # deposit_history and withdraw_history read /openApi/api/v3/capital/...
   # (https://bingx-api.github.io/docs/#/en-us/common/wallet-api.html). Both take startTime/endTime and
   # page by offset, 1000 rows at most. Their range cap is undocumented: they are read in 90-day
   # windows, the cap of the Binance endpoints they copy, from start_time or BingX's opening.
-  DEPOSITS_PATH = '/openApi/api/v3/capital/deposit/hisrec'.freeze
-  WITHDRAWALS_PATH = '/openApi/api/v3/capital/withdraw/history'.freeze
   TRANSFER_PAGE = 1000
   TRANSFER_WINDOW = 90.days
   TRANSFERS_FROM = Time.utc(2018, 1, 1)
@@ -547,12 +541,12 @@ class Exchanges::Bingx < Exchange
 
   # Yields each transfer record from start_time (or BingX's opening) to now; returns the failure that
   # stopped the read, or nil.
-  def each_transfer(hm_client, path, start_time, &)
+  def each_transfer(hm_client, history, start_time, &)
     seen = Set.new
     each_ledger_window(start_time || TRANSFERS_FROM, TRANSFER_WINDOW) do |from, to|
       offset = 0
       loop do
-        result = hm_client.send(:get_signed, path, { startTime: from, endTime: to, offset: offset, limit: TRANSFER_PAGE })
+        result = hm_client.public_send(history, start_time: from, end_time: to, offset: offset, limit: TRANSFER_PAGE)
         return result if result.failure?
 
         body = result.data
