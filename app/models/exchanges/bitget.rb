@@ -327,7 +327,7 @@ class Exchanges::Bitget < Exchange
   def minimum_amount_logic(order_type:, **)
     # Limit orders are base-denominated on Bitget (size + price, no quoteSize), so they must
     # be sized in base — never :quote. Market orders keep the cheaper-minimum choice
-    # (set_market_order branches size/quote_size).
+    # (set_market_order converts to the unit the side's `size` is in).
     order_type == :limit_order ? :base_and_quote_in_base : :base_or_quote
   end
 
@@ -517,15 +517,25 @@ class Exchanges::Bitget < Exchange
   # @param amount_type [Symbol] :base or :quote
   # @param side [Symbol] must be either :buy or :sell
   def set_market_order(ticker:, amount:, amount_type:, side:)
-    amount = ticker.adjusted_amount(amount: amount, amount_type: amount_type)
+    # v2 place-order has one `size`, and its unit follows the side: quote coins for a market buy,
+    # base coins for a market sell. There is no quoteSize parameter
+    # (https://www.bitget.com/docs/catalog/classic-spot-trade/classic-spot-trade#place-order).
+    # An amount in the other unit is converted at the price the order will cross at.
+    size_type = side == :buy ? :quote : :base
+    if amount_type != size_type
+      price = market_price_for(ticker: ticker, side: side)
+      return price if price.failure?
+
+      amount = size_type == :quote ? amount.to_d * price.data : amount.to_d / price.data
+    end
+    amount = ticker.adjusted_amount(amount: amount, amount_type: size_type)
 
     order_settings = {
       symbol: ticker.ticker,
       side: side.to_s,
       order_type: 'market',
       force: 'ioc',
-      size: amount_type == :base ? amount.to_d.to_s('F') : nil,
-      quote_size: amount_type == :quote ? amount.to_d.to_s('F') : nil
+      size: amount.to_d.to_s('F')
     }
     result = client.place_order(**order_settings)
     return result if result.failure?

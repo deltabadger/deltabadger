@@ -239,6 +239,52 @@ class Exchanges::BitgetTest < ActiveSupport::TestCase
     assert_predicate result, :failure?
   end
 
+  # == set_market_order sends one `size`, in the unit the side takes ==
+  # Bitget's v2 place-order has no quoteSize: a market buy's `size` is quote coins, a market sell's
+  # is base coins. Quote amounts went out as quoteSize with no size at all, and base amounts on a
+  # buy went out as a size Bitget reads as quote.
+
+  def capture_place_order
+    captured = {}
+    @exchange.send(:client).define_singleton_method(:place_order) do |**kwargs|
+      captured.merge!(kwargs)
+      Result::Success.new(order_id: "#{kwargs[:symbol]}-abc123", raw: { 'orderId' => 'abc123' })
+    end
+    captured
+  end
+
+  test 'a quote-sized market buy sends the quote amount as size' do
+    ticker = create(:ticker, exchange: @exchange, base_symbol: 'BTC', quote_symbol: 'USDT', quote_decimals: 8)
+    captured = capture_place_order
+
+    with_dry_run(false) { @exchange.market_buy(ticker: ticker, amount: BigDecimal('25'), amount_type: :quote) }
+
+    assert_equal '25.0', captured[:size]
+    assert_nil captured[:quote_size]
+  end
+
+  test 'a base-sized market buy is converted to quote at the ask' do
+    ticker = create(:ticker, exchange: @exchange, base_symbol: 'BTC', quote_symbol: 'USDT', quote_decimals: 8)
+    @exchange.stubs(:market_price_for).with(ticker: ticker, side: :buy).returns(Result::Success.new(BigDecimal('50000')))
+    captured = capture_place_order
+
+    with_dry_run(false) { @exchange.market_buy(ticker: ticker, amount: BigDecimal('0.001'), amount_type: :base) }
+
+    assert_equal '50.0', captured[:size]
+  end
+
+  test 'a market sell sends a base size, converting a quote amount at the bid' do
+    ticker = create(:ticker, exchange: @exchange, base_symbol: 'BTC', quote_symbol: 'USDT', base_decimals: 6)
+    @exchange.stubs(:market_price_for).with(ticker: ticker, side: :sell).returns(Result::Success.new(BigDecimal('50000')))
+    captured = capture_place_order
+
+    with_dry_run(false) { @exchange.market_sell(ticker: ticker, amount: BigDecimal('0.0021'), amount_type: :base) }
+    assert_equal '0.0021', captured[:size]
+
+    with_dry_run(false) { @exchange.market_sell(ticker: ticker, amount: BigDecimal('100'), amount_type: :quote) }
+    assert_equal '0.002', captured[:size]
+  end
+
   # == parse_order_status maps Bitget's v2 spot status enum ==
   # Bitget migrated the spot order status enum: the live /api/v2/spot/trade/orderInfo endpoint
   # now returns filled / partially_filled where it once returned full_fill / partial_fill. Our
