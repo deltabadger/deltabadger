@@ -360,5 +360,5 @@ struct Menu<'a> { v: &'a Ctx, csrf: &'a str, path: String, menu_id: String, arch
 
 pub(super) fn menu(ctx: &Ctx, csrf: &str, bot: &Bot, configured: bool) -> Result<String, WebError> {
     Ok(Menu { v: ctx, csrf, path: ctx.path(&format!("/bots/{}",bot.id)), menu_id: bot.dom_id("menu"),
-        archived: bot.status == BotStatus::Archived, index: bot.kind == Kind::Index, follow_index: bot.kind == Kind::Basket && configured }.render()?)
+        archived: bot.status == BotStatus::Archived, index: bot.kind == Kind::Index, follow_index: bot.kind == Kind::Basket && !bot.selling() && configured }.render()?)
 }
