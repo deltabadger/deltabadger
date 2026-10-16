@@ -114,7 +114,8 @@ class Exchanges::Bitrue < Exchange
     end
     raw_balances = Utilities::Hash.dig_or_raise(result.data, 'balances')
     raw_balances.each do |balance|
-      asset = asset_from_symbol(balance['asset'])
+      # Bitrue names assets in lower case ("btc"); tickers store them upper case.
+      asset = asset_from_symbol(balance['asset'].to_s.upcase)
       next unless asset.present?
       next unless asset_ids.include?(asset.id)
 
