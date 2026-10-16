@@ -41,6 +41,8 @@ class Exchanges::BinanceUs < Exchanges::Binance
                                api_key: api_key.key,
                                api_secret: api_key.secret,
                                proxy: ExchangeProxy.for('binance_us')).api_description
+    # An empty or non-JSON 200 parses to nil or a String: no verdict either way.
+    return Result::Failure.new("#{name} sent an unreadable answer to the key check") if result.success? && !result.data.is_a?(Hash)
 
     if result.success?
       common_checks = result.data['ipRestrict'] == true &&

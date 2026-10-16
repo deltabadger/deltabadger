@@ -91,4 +91,18 @@ class Exchanges::BinanceUsTest < ActiveSupport::TestCase
 
     assert @exchange.get_ledger(api_key: api_key).failure?
   end
+
+  # An empty or non-JSON 200 parses to nil or a String; it says nothing about the key.
+  test 'an unreadable api_description leaves the key unverified' do
+    %i[trading withdrawal read_only].each do |type|
+      connection = create(:api_key, exchange: @exchange, key_type: type, key: 'test_key', secret: 'test_secret')
+      [nil, 'OK'].each do |body|
+        Honeymaker::Clients::BinanceUs.any_instance.stubs(:api_description).returns(Result::Success.new(body))
+        assert_predicate @exchange.get_api_key_validity(api_key: connection), :failure?, "#{type} on #{body.inspect}"
+        next unless type == :read_only
+
+        assert_predicate @exchange.get_read_api_key_validity(api_key: connection), :failure?, "read on #{body.inspect}"
+      end
+    end
+  end
 end
