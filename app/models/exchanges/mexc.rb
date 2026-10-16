@@ -210,11 +210,11 @@ class Exchanges::Mexc < Exchange
       5.minutes => '5m',
       15.minutes => '15m',
       30.minutes => '30m',
-      1.hour => '1h',
+      1.hour => '60m',
       4.hours => '4h',
       1.day => '1d',
-      3.days => '3d',
-      1.week => '1w',
+      3.days => '1d', # built below: MEXC has no 3-day klines
+      1.week => '1W',
       1.month => '1M'
     }
     interval = intervals[timeframe]
@@ -247,6 +247,8 @@ class Exchanges::Mexc < Exchange
 
       start_at = candles.empty? ? start_at + (limit * interval.to_i * 1000) : candles.last[0] + 1
     end
+
+    candles = build_candles_from_candles(candles: candles, timeframe: timeframe) if timeframe == 3.days && candles.any?
 
     Result::Success.new(candles)
   end

@@ -216,4 +216,32 @@ class Exchanges::MexcTest < ActiveSupport::TestCase
 
     assert_predicate with_dry_run(false) { @exchange.get_orders(order_ids: %w[BTCUSDT-1]) }, :failure?
   end
+
+  # Kline intervals are 1m 5m 15m 30m 60m 4h 1d 1W 1M
+  # (https://mexcdevelop.github.io/apidocs/spot_v3_en/#enum-definitions); a live request for 1h, 3d
+  # or 1w answers -1121 "Invalid interval.".
+  test 'get_candles asks for the kline intervals MEXC has' do
+    ticker = create(:ticker, exchange: @exchange, base_symbol: 'BTC', quote_symbol: 'USDT')
+    asked = []
+    @exchange.send(:client).define_singleton_method(:candlestick_data) do |interval:, **|
+      asked << interval
+      Result::Success.new([])
+    end
+
+    [1.hour, 1.week, 3.days].each { |tf| @exchange.get_candles(ticker: ticker, start_at: 2.days.ago, timeframe: tf) }
+
+    assert_equal %w[60m 1W 1d], asked.uniq
+  end
+
+  test 'get_candles builds 3-day candles from daily ones' do
+    ticker = create(:ticker, exchange: @exchange, base_symbol: 'BTC', quote_symbol: 'USDT')
+    day = 86_400_000
+    start = (Time.now.utc.to_i / 259_200) * 259_200_000 - (3 * day)
+    daily = (0..2).map { |i| [start + (i * day), (10 + i).to_s, (20 + i).to_s, (5 + i).to_s, (11 + i).to_s, '1'] }
+    @exchange.send(:client).define_singleton_method(:candlestick_data) { |**| Result::Success.new(daily) }
+
+    candles = @exchange.get_candles(ticker: ticker, start_at: Time.at(start / 1000).utc, timeframe: 3.days).data
+
+    assert_equal [[Time.at(start / 1000).utc, 10.to_d, 22.to_d, 5.to_d, 13.to_d, 3.to_d]], candles
+  end
 end
