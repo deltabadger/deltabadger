@@ -251,11 +251,12 @@ module Pages
                                         { 'kind' => 'basket' }], signed_in(get('/bots/1'), get('/bots/2'), get('/pl/bots/1'))),
       'venue_bot_page_hidden' => venue.(venue_bots, signed_in(get('/bots/1'), get('/bots/2'), get('/bots')), 'user' => owner('hide_balances' => true, 'locale' => 'de')),
       'venue_bot_page_key_incorrect' => venue.(venue_bots, signed_in(get('/bots/1'), get('/bots/2')), 'venue_keys' => { 'binance' => 'incorrect' }),
-      # Selling pages are not ported yet (bot::refusal, "a selling bot"); Rails serves them.
-      'not_ported_bot_venue_selling' => venue.([stopped('kraken', 'settings' => sell_base), stopped('binance', 'settings' => sell_quote, 'orders' => 'venue_history'),
-                                               { 'kind' => 'basket' }], signed_in(get('/bots/2'))),
-      'not_ported_bot_venue_selling_running' => venue.([running('kraken', '2026-09-09T13:30:00Z', { 'settings' => sell_base.merge(split) }.merge(acted('2026-09-09T13:30:00.800Z'))),
-                                                       { 'kind' => 'basket' }], signed_in(get('/bots/1'))),
+      # Selling, as an Alpaca seller is served: N base a day, for N quote a week with orders, and at work with a base split
+      # (0.0015 a day in thirds: its last tick at the 05:30 checkpoint).
+      'venue_bot_page_selling' => venue.([stopped('kraken', 'settings' => sell_base), stopped('binance', 'settings' => sell_quote, 'orders' => 'venue_history'),
+                                         { 'kind' => 'basket' }], signed_in(get('/bots/1'), get('/bots/2'), get('/de/bots/1'), get('/pl/bots/2'), get('/bots'))),
+      'venue_bot_page_selling_running' => venue.([running('kraken', '2026-09-09T13:30:00Z', { 'settings' => sell_base.merge(split) }.merge(acted('2026-09-10T05:30:00.800Z'))),
+                                                 { 'kind' => 'basket' }], signed_in(get('/bots/1'), get('/bots/1/chart', 'Turbo-Frame' => 'bot_chart'), get('/bots'))),
       'not_ported_bots_list_venue_basket' => venue.([{ 'kind' => 'kraken', 'settings' => { 'allocations' => { '16' => 0.5, '17' => 0.5 } } }, { 'kind' => 'basket' }],
                                                     signed_in(get('/bots')))
     }

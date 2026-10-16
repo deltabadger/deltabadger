@@ -277,7 +277,8 @@ async fn the_bot_pages_refuse_what_this_build_does_not_render_and_change_nothing
     let with_holdings = browser.get(&app, "/bots").await;
     assert!(with_holdings.status == 200 && with_holdings.body.contains("class=\"stroke--icon\"") && !with_holdings.body.contains("stroke-dasharray=\"52.55 4.0\""), "unknown credential provenance must not draw a current holding");
 
-    // One bot: the list is its page. The seeded bot is on Kraken, which this build's pages do not serve.
+    // One bot: the list is its page. The seeded venue made KuCoin, which this build's pages do not serve (Kraken is served).
+    opened.primary.execute("UPDATE exchanges SET type = 'Exchanges::Kucoin' WHERE id = ?1", [seeded.exchange_id]).unwrap();
     let first = common::seed::insert_bot(&opened.primary, &seeded, &common::seed::BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
     opened.primary.execute("UPDATE bots SET label = 'Bitcoin'", []).unwrap();
     let list = browser.get(&app, "/bots").await;
