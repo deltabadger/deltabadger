@@ -31,6 +31,7 @@ module Pages
                    when 'rename_modal' then ['/bots/1/edit', 'GET']
                    when 'delete_modal' then ['/bots/1/delete/edit', 'GET']
                    when 'archive_modal' then ['/bots/1/archive/edit', 'GET']
+                   when 'reverse' then ['/bots/1/reverse', 'POST']
                    else ["/bots/1/#{action}", 'PATCH']
                    end
     root = kind == 'index' ? 'bots_dca_index' : 'bots_dca_multi_asset'
@@ -151,7 +152,34 @@ module Pages
       add.call("venue_#{kind}_delete_modal", 'delete_modal', {}, { 'kind' => kind })
     end
 
-    raise "expected 173 bot action cases" unless cases.size == 173
+    # ⇄ on a one-asset basket: buying → selling N base → selling for N quote → buying, at work, and with a buy still resting.
+    sells_base = { 'direction' => 'selling', 'sell_denomination' => 'base', 'sell_amount' => 2, 'sell_interval' => 'week', 'smart_intervaled' => true,
+                   'smart_interval_base_amount' => 0.5 }
+    # The owner has answered the wash-sale question: a bot that sells owes it otherwise, and its modal is not served here.
+    decided = { 'wash_off' => true }
+    add.call('reverse_buying', 'reverse', {}, { 'kind' => 'single', 'columns' => { 'status' => 'stopped' } }, decided)
+    add.call('reverse_selling_base', 'reverse', {}, { 'kind' => 'single', 'settings' => sells_base, 'columns' => { 'status' => 'stopped' } }, decided)
+    add.call('reverse_selling_quote', 'reverse', {}, { 'kind' => 'single', 'settings' => { 'direction' => 'selling', 'sell_denomination' => 'quote', 'sell_quote_amount' => 40 },
+                                                       'columns' => { 'status' => 'stopped' } }, decided)
+    # At work, or with an order to cancel, the install's guard reads the bot: on one coin (16, BTC), as the stock listings of this
+    # grid carry no instrument type it accepts.
+    coin = { 'kind' => 'coins', 'settings' => { 'allocations' => { '16' => 1.0 } } }
+    add.call('reverse_scheduled', 'reverse', {}, coin.merge('columns' => { 'status' => 'scheduled', 'started_at' => '2026-09-09T12:00:00Z' }), decided)
+    add.call('reverse_waiting_buy', 'reverse', {}, base_restart.merge(coin).merge('orders' => 'open_coin'), decided)
+
+    # The sell sentence and its split saved on a one-asset basket that sells, and the interval a working seller may not change.
+    sells_quote = { 'direction' => 'selling', 'sell_denomination' => 'quote', 'sell_quote_amount' => 40 }
+    at_rest = { 'columns' => { 'status' => 'stopped' } }
+    {
+      'amount' => [sells_base, { 'sell_amount' => '3.5' }], 'blank' => [sells_base, { 'sell_amount' => '' }],
+      'interval' => [sells_base, { 'sell_interval' => 'month' }], 'split' => [sells_base, { 'smart_interval_base_amount' => '0.25' }],
+      'split_low' => [sells_base, { 'smart_interval_base_amount' => '0.0000001' }], 'quote' => [sells_quote, { 'sell_quote_amount' => '55.5' }],
+      'zero' => [sells_base, { 'sell_amount' => '0' }], 'quote_negative' => [sells_quote, { 'sell_quote_amount' => '-1' }]
+    }.each { |n, (settings, form)| add.call("sell_#{n}", 'update', form, at_rest.merge('kind' => 'single', 'settings' => settings), decided) }
+    add.call('sell_working_interval', 'update', { 'sell_interval' => 'month' },
+             { 'kind' => 'single', 'settings' => sells_base, 'columns' => { 'status' => 'scheduled', 'started_at' => '2026-09-09T12:00:00Z' } }, decided)
+
+    raise "expected 187 bot action cases" unless cases.size == 187
     names = cases.map { |entry| "actions_#{entry.first}".gsub(/[^a-zA-Z0-9_-]/, "_") }
     raise "action case names collide after filesystem conversion" unless names.uniq.size == names.size
     cases
@@ -201,7 +229,7 @@ module Pages
       scenario['extra_users'] = [user('email' => 'other@example.com', 'admin' => false)] if extra['foreign']
       scenario['venues'] = true if VENUE_KINDS.key?(spec['kind'])
       [name, scenario]
-    end.tap { |grid| raise 'action case names collide' unless grid.size == 173 }
+    end.tap { |grid| raise 'action case names collide' unless grid.size == 187 }
   end
 end
 
@@ -254,6 +282,11 @@ module Pages
     end
 
     def record(root)
+      # ⇄ with a buy resting (actions_reverse_waiting_buy): Alpaca accepts the cancel, and the re-read of the order fails, so
+      # Rails leaves its reserve to the order's final poll (flip_reserve_pending), as it does for a cancel still pending.
+      order = 'https://paper-api.alpaca.markets/v2/orders/order-1-BTC-2026-09-10T11:00:00Z'
+      WebMock.stub_request(:delete, order).to_return(status: 204, body: '')
+      WebMock.stub_request(:get, order).to_return(status: 503, body: '{"message":"unavailable"}', headers: { 'Content-Type' => 'application/json' })
       record_without_action_locales(root)
       Dir[File.join(root, 'actions_*')].select { |path| File.directory?(path) }.each do |dir|
         record_without_action_locales(dir)

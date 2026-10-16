@@ -286,6 +286,8 @@ pub struct Bot {
     /// Stored without a name: `label` is the generated one, in memory only (Automation::Labelable#ensure_label_exists).
     /// A save writes it only when it is submitted on purpose.
     pub label_unsaved: bool,
+    /// What Rails' sell-side readers give a key the row leaves nil or blank, while selling: read, never saved (Rails never persists them).
+    pub sell_reads: Map<String, Value>,
 }
 
 /// What a setting the pages read may be stored as. Rails validates each on every save, so a row a
@@ -318,6 +320,8 @@ enum Shape {
 const TIMINGS: &[&str] = &["while", "after"];
 const SIDES: &[&str] = &["above", "below"];
 const BUY_ACTIONS: &[&str] = &["pause", "start_selling"];
+const SELL_ACTIONS: &[&str] = &["pause", "start_buying"];
+const INTERVALS: &[&str] = &["hour", "day", "week", "month"];
 const TIMEFRAMES: &[&str] = &["one_hour", "four_hours", "one_day", "three_days", "one_week", "one_month"];
 
 /// Every setting the two pages read, or Rails validates when it is asked whether the bot may start,
@@ -345,6 +349,21 @@ const SETTINGS: &[(&str, Shape)] = &[
     ("indicator_limit_in_timeframe", Shape::OneOf(TIMEFRAMES)), ("indicator_limit_action", Shape::OneOf(BUY_ACTIONS)), ("indicator_limit_in_ticker_id", Shape::Id),
     ("index_type", Shape::OneOf(&["top", "category"])), ("index_category_id", Shape::Text), ("index_name", Shape::Text), ("num_coins", Shape::Integer),
     ("allocation_flattening", Shape::Share),
+    // Bot::Reversible and each condition's sell-side mirror.
+    ("sell_denomination", Shape::OneOf(&["base", "quote"])), ("sell_interval", Shape::OneOf(INTERVALS)), ("sell_amount", Shape::Number), ("sell_quote_amount", Shape::Number),
+    ("smart_interval_base_amount", Shape::Number), ("base_amount_limited", Shape::Flag), ("base_amount_limit", Shape::Number),
+    ("sell_price_limited", Shape::Flag), ("sell_price_drop_limited", Shape::Flag), ("sell_moving_average_limited", Shape::Flag), ("sell_indicator_limited", Shape::Flag),
+    ("sell_price_limit", Shape::Number), ("sell_price_limit_range_lower_bound", Shape::Number), ("sell_price_limit_range_upper_bound", Shape::Number),
+    ("sell_price_limit_timing_condition", Shape::OneOf(TIMINGS)), ("sell_price_limit_value_condition", Shape::OneOf(&["above", "below", "between"])),
+    ("sell_price_limit_action", Shape::OneOf(SELL_ACTIONS)), ("sell_price_limit_in_ticker_id", Shape::Id),
+    ("sell_price_drop_limit", Shape::Number), ("sell_price_drop_limit_time_window_condition", Shape::OneOf(&["ath", "twenty_four_hours", "seven_days"])),
+    ("sell_price_drop_limit_action", Shape::OneOf(SELL_ACTIONS)), ("sell_price_drop_limit_in_ticker_id", Shape::Id),
+    ("sell_moving_average_limit_timing_condition", Shape::OneOf(TIMINGS)), ("sell_moving_average_limit_value_condition", Shape::OneOf(SIDES)),
+    ("sell_moving_average_limit_in_ma_type", Shape::OneOf(&["sma", "ema"])), ("sell_moving_average_limit_in_timeframe", Shape::OneOf(TIMEFRAMES)),
+    ("sell_moving_average_limit_in_period", Shape::Integer), ("sell_moving_average_limit_action", Shape::OneOf(SELL_ACTIONS)), ("sell_moving_average_limit_in_ticker_id", Shape::Id),
+    ("sell_indicator_limit", Shape::Number), ("sell_indicator_limit_timing_condition", Shape::OneOf(TIMINGS)), ("sell_indicator_limit_value_condition", Shape::OneOf(SIDES)),
+    ("sell_indicator_limit_in_indicator", Shape::OneOf(&["rsi"])),
+    ("sell_indicator_limit_in_timeframe", Shape::OneOf(TIMEFRAMES)), ("sell_indicator_limit_action", Shape::OneOf(SELL_ACTIONS)), ("sell_indicator_limit_in_ticker_id", Shape::Id),
 ];
 /// And of `transient_data`: the two times the pages read, and the carry Rails validates.
 const TRANSIENT: &[(&str, Shape)] = &[("last_action_job_at", Shape::Time), ("quote_amount_limit_enabled_at", Shape::Time), ("missed_quote_amount", Shape::Carry)];
@@ -452,7 +471,11 @@ pub fn refusal(c: &Connection, bot_id: i64, wash_sale_enabled: Option<bool>, pro
     let distance_ok = defaulted("limit_order_pcnt_distance") || settings.get("limit_order_pcnt_distance").and_then(Value::as_f64).is_some_and(|share| (0.0..=1.0).contains(&share));
     let interval_ok = matches!(settings.get("interval").and_then(Value::as_str), Some("hour" | "day" | "week" | "month"));
     if !positive("quote_amount") || !interval_ok || !mode_known || !smart_ok || !distance_ok { return Ok(Some("settings no form would have saved")); }
-    if settings.get("direction").and_then(Value::as_str) == Some("selling") { return Ok(Some("a selling bot")); }
+    // A one-asset basket sells as Rails renders it; a wider one sells by ranking its members (6b), and a cap on what is sold (6d) is not counted here.
+    if settings.get("direction").and_then(Value::as_str) == Some("selling") {
+        if class != "Bots::DcaMultiAsset" || settings.get("allocations").and_then(Value::as_object).is_none_or(|weights| weights.len() != 1) { return Ok(Some("a basket of several assets that sells")); }
+        if settings.get("base_amount_limited") == Some(&Value::Bool(true)) { return Ok(Some("a cap on what a selling bot sells")); }
+    }
     if truthy(settings.get("rebalance_enabled")) { return Ok(Some("rebalancing")); }
     if settings.get("weighting").and_then(Value::as_str) == Some("market_cap") { return Ok(Some("market-cap weights")); }
     if ["rebalance_pending", "liquidation_pending", "liquidation_selling_since", "redeploy_pending"].iter().any(|key| transient.get(key).is_some_and(|v| !v.is_null())) {
@@ -481,12 +504,20 @@ pub fn refusal(c: &Connection, bot_id: i64, wash_sale_enabled: Option<bool>, pro
         _ if asked == For::Feed => {}
         Some(true) if asked != For::FiguresPage => return Ok(Some("the wash-sale rule")),
         // The question's modal opens once the bot holds something, which only the metrics walk knows.
-        None if c.query_row("SELECT EXISTS(SELECT 1 FROM transactions WHERE bot_id = ?1 AND status = 0)", [bot_id], |r| r.get(0))? => {
+        // Bot#sell_capable?: selling, armed to start selling, or holding something (only the metrics walk knows that, so any order counts).
+        None if sell_capable(&class, &settings) || c.query_row("SELECT EXISTS(SELECT 1 FROM transactions WHERE bot_id = ?1 AND status = 0)", [bot_id], |r| r.get(0))? => {
             return Ok(Some("the wash-sale question not answered yet"));
         }
         _ => {}
     }
     Ok(None)
+}
+
+/// Bot#sell_capable? without the holdings: a basket that sells, or one a condition would flip to selling (`armed_to_start_selling?`).
+fn sell_capable(class: &str, settings: &Value) -> bool {
+    class == "Bots::DcaMultiAsset" && (settings.get("direction").and_then(Value::as_str) == Some("selling")
+        || settings.as_object().is_some_and(|s| s.iter().any(|(key, value)| value.as_str() == Some("start_selling")
+            && key.strip_suffix("_limit_action").is_some_and(|rule| cast_boolean(s.get(&format!("{rule}_limited")))))))
 }
 
 /// The reason a bot with special rows the engine does not read is refused (engine::eligibility::unread_special_rows).
@@ -571,7 +602,7 @@ impl Bot {
         let mut bot = Bot {
             id, kind, status, label: label.unwrap_or_default(), label_unsaved, exchange, settings, transient, started_at, stop_message_key, quote_asset, base_assets, memberships,
             tickers, api_key, index, last_order, has_orders: exists("")?, has_waiting_orders: exists(" AND status = 0 AND external_status IN (0, 1)")?,
-            has_regular_waiting_orders: exists(" AND status = 0 AND external_status IN (0, 1) AND transaction_type = 'REGULAR'")?,
+            sell_reads: Map::new(), has_regular_waiting_orders: exists(" AND status = 0 AND external_status IN (0, 1) AND transaction_type = 'REGULAR'")?,
             has_submitted_orders: exists(" AND status = 0")?,
         };
         bot.fill_defaults();
@@ -656,6 +687,68 @@ impl Bot {
         for (key, value) in defaults {
             if matches!(self.settings.get(key), None | Some(Value::Null | Value::Bool(false))) { self.settings.insert(key.to_string(), value); }
         }
+        // The sell side's reader fallbacks (`value.nil? ? default : value`, `super.presence || …`), read only while selling.
+        if self.selling() {
+            let first = self.tickers.iter().min_by(|a, b| a.base.as_bytes().cmp(b.base.as_bytes())).map(|ticker| json!(ticker.id)).unwrap_or(Value::Null);
+            let blank = |value: Option<&Value>| value.is_none_or(|v| v.is_null() || v.as_str().is_some_and(|t| t.is_empty()));
+            for rule in ["price_limit", "price_drop_limit", "moving_average_limit", "indicator_limit"] {
+                let mut keys = vec![format!("sell_{rule}ed"), format!("sell_{rule}"), format!("sell_{rule}_timing_condition"), format!("sell_{rule}_value_condition"),
+                                    format!("sell_{rule}_range_lower_bound"), format!("sell_{rule}_range_upper_bound"), format!("sell_{rule}_time_window_condition"),
+                                    format!("sell_{rule}_in_ma_type"), format!("sell_{rule}_in_timeframe"), format!("sell_{rule}_in_period"), format!("sell_{rule}_in_indicator")];
+                keys.retain(|key| self.settings.get(key).is_none_or(Value::is_null));
+                for key in keys {
+                    let value = draft::sell_default(&key);
+                    if !value.is_null() { self.sell_reads.insert(key, value); }
+                }
+                let ticker = format!("sell_{rule}_in_ticker_id");
+                if blank(self.settings.get(&ticker)) { self.sell_reads.insert(ticker, first.clone()); }
+                let action = format!("sell_{rule}_action");
+                if blank(self.settings.get(&action)) { self.sell_reads.insert(action, json!("pause")); }
+            }
+            // PriceDropLimitable#sell_price_drop_limit_time_window_condition: the buy side's `ath` has no sell meaning.
+            if self.settings.get("sell_price_drop_limit_time_window_condition").and_then(Value::as_str) == Some("ath") {
+                self.sell_reads.insert("sell_price_drop_limit_time_window_condition".into(), json!("twenty_four_hours"));
+            }
+        }
+    }
+
+    /// Bot::Reversible#selling?: a basket whose direction says so (an index bot never reverses).
+    pub fn selling(&self) -> bool {
+        self.kind == Kind::Basket && self.text("direction") == Some("selling")
+    }
+
+    /// Bots::DcaMultiAsset#sell_denomination: a wider basket sells for quote; one asset as stored, quote when nothing is.
+    pub fn sell_denomination(&self) -> &str {
+        if !self.one_asset() { return "quote"; }
+        self.text("sell_denomination").filter(|d| !d.is_empty()).unwrap_or("quote")
+    }
+
+    pub fn sells_base_amount(&self) -> bool {
+        self.selling() && self.sell_denomination() == "base"
+    }
+
+    pub fn sells_quote_amount(&self) -> bool {
+        self.selling() && self.sell_denomination() == "quote"
+    }
+
+    /// Bot::Reversible#sell_interval: the buy interval until one is chosen.
+    pub fn sell_interval(&self) -> Option<&str> {
+        self.text("sell_interval").filter(|i| !i.is_empty()).or_else(|| self.text("interval"))
+    }
+
+    /// The base the bot sells: its one asset.
+    pub fn base_asset(&self) -> Option<&Asset> {
+        self.base_assets.first()
+    }
+
+    /// Bot::SmartIntervalable#smart_interval_minimum(:base), as the settings write computes it.
+    pub fn base_minimum(&self) -> start::Minimum {
+        let Some(decimals) = self.tickers.iter().map(|t| t.base_decimals).min() else {
+            return start::Minimum { value: Num::Int(0), reason: start::Reason::None, decimals: 0 };
+        };
+        let seconds = self.sell_interval().and_then(Interval::parse).map_or(0.0, crate::engine::accounting::interval_seconds);
+        let amount = self.number("sell_amount").map_or(0.0, |n| n.to_f());
+        crate::engine::accounting::sell_minimum(amount, seconds, decimals)
     }
 
     /// What `refusal` cannot see in the row alone, because Rails' defaults are part of it: a span
@@ -700,8 +793,15 @@ impl Bot {
         BOT_WORKING.contains(&self.status)
     }
 
+    /// The setting as the model reads it: stored, or the sell side's read-time fallback (`sell_reads`) for what was nil,
+    /// blank or `ath` when the row was loaded and is still so.
     pub fn setting(&self, key: &str) -> Option<&Value> {
-        self.settings.get(key).filter(|value| !value.is_null())
+        let stored = self.settings.get(key).filter(|value| !value.is_null());
+        match (stored, self.sell_reads.get(key)) {
+            (Some(value), Some(read)) if value.as_str().is_some_and(|text| text.is_empty() || text == "ath") => Some(read),
+            (Some(value), _) => Some(value),
+            (None, read) => read,
+        }
     }
 
     pub fn number(&self, key: &str) -> Option<Num> {
@@ -714,7 +814,7 @@ impl Bot {
 
     /// `settings[key] == true`: how the `…ed?` predicates of the rule concerns read their switch.
     pub fn on(&self, key: &str) -> bool {
-        self.settings.get(key) == Some(&Value::Bool(true))
+        self.setting(key) == Some(&Value::Bool(true))
     }
 
     pub fn quote_symbol(&self) -> Option<&str> {

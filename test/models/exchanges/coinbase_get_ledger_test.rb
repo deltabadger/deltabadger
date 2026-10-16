@@ -27,7 +27,7 @@ class Exchanges::CoinbaseGetLedgerTest < ActiveSupport::TestCase
                             'cursor' => ''
                           })
     )
-    honeymaker_client.stubs(:list_accounts).returns(Result::Success.new({ 'accounts' => [] }))
+    honeymaker_client.stubs(:get).returns(Result::Success.new({ 'accounts' => [] }))
 
     result = @exchange.get_ledger(api_key: @api_key)
 
@@ -60,7 +60,7 @@ class Exchanges::CoinbaseGetLedgerTest < ActiveSupport::TestCase
                             'cursor' => ''
                           })
     )
-    honeymaker_client.stubs(:list_accounts).returns(Result::Success.new({ 'accounts' => [] }))
+    honeymaker_client.stubs(:get).returns(Result::Success.new({ 'accounts' => [] }))
 
     result = @exchange.get_ledger(api_key: @api_key)
 
@@ -78,7 +78,7 @@ class Exchanges::CoinbaseGetLedgerTest < ActiveSupport::TestCase
     Honeymaker.stubs(:client).returns(honeymaker_client)
 
     honeymaker_client.stubs(:list_fills).returns(Result::Success.new({ 'fills' => [], 'cursor' => '' }))
-    honeymaker_client.stubs(:list_accounts).returns(
+    honeymaker_client.stubs(:get).returns(
       Result::Success.new({ 'accounts' => [{ 'uuid' => 'acc1' }] })
     )
     honeymaker_client.stubs(:list_transactions).returns(
@@ -127,7 +127,7 @@ class Exchanges::CoinbaseGetLedgerTest < ActiveSupport::TestCase
                             'cursor' => ''
                           })
     )
-    honeymaker_client.stubs(:list_accounts).returns(Result::Success.new({ 'accounts' => [] }))
+    honeymaker_client.stubs(:get).returns(Result::Success.new({ 'accounts' => [] }))
 
     result = @exchange.get_ledger(api_key: @api_key)
 
@@ -145,5 +145,84 @@ class Exchanges::CoinbaseGetLedgerTest < ActiveSupport::TestCase
 
     result = @exchange.get_ledger(api_key: @api_key)
     assert result.failure?
+  end
+
+  test 'reads every page of accounts, 250 at a time' do
+    honeymaker_client = mock('honeymaker_client')
+    Honeymaker.stubs(:client).returns(honeymaker_client)
+    honeymaker_client.stubs(:list_fills).returns(Result::Success.new({ 'fills' => [], 'cursor' => '' }))
+    honeymaker_client.expects(:get).with('/api/v3/brokerage/accounts', { limit: 250, cursor: nil })
+                     .returns(Result::Success.new({ 'accounts' => [{ 'uuid' => 'acc1' }], 'has_next' => true, 'cursor' => 'c2' }))
+    honeymaker_client.expects(:get).with('/api/v3/brokerage/accounts', { limit: 250, cursor: 'c2' })
+                     .returns(Result::Success.new({ 'accounts' => [{ 'uuid' => 'acc2' }], 'has_next' => false, 'cursor' => '' }))
+    honeymaker_client.stubs(:list_transactions).returns(Result::Success.new({ 'data' => [] }))
+    honeymaker_client.expects(:list_transactions).with(account_id: 'acc2', limit: 100, starting_after: nil)
+                     .returns(Result::Success.new({ 'data' => [] }))
+
+    assert @exchange.get_ledger(api_key: @api_key).success?
+  end
+
+  test 'a failed transactions page fails the ledger' do
+    honeymaker_client = mock('honeymaker_client')
+    Honeymaker.stubs(:client).returns(honeymaker_client)
+    honeymaker_client.stubs(:list_fills).returns(Result::Success.new({ 'fills' => [], 'cursor' => '' }))
+    honeymaker_client.stubs(:get).returns(Result::Success.new({ 'accounts' => [{ 'uuid' => 'acc1' }] }))
+    honeymaker_client.stubs(:list_transactions).returns(Result::Failure.new('Internal Server Error'))
+
+    assert @exchange.get_ledger(api_key: @api_key).failure?
+  end
+
+  test 'an adjusted fill keeps its own tx_id instead of the trade_id it shares' do
+    honeymaker_client = mock('honeymaker_client')
+    Honeymaker.stubs(:client).returns(honeymaker_client)
+    fill = { 'trade_id' => 't1', 'product_id' => 'BTC-USD', 'side' => 'BUY', 'price' => '50000', 'size' => '0.5',
+             'commission' => '25', 'trade_time' => '2026-03-20T10:00:00Z' }
+    honeymaker_client.stubs(:list_fills).returns(
+      Result::Success.new({ 'fills' => [fill.merge('entry_id' => 'e1', 'trade_type' => 'FILL'),
+                                        fill.merge('entry_id' => 'e2', 'trade_type' => 'CORRECTION')],
+                            'cursor' => '' })
+    )
+    honeymaker_client.stubs(:get).returns(Result::Success.new({ 'accounts' => [] }))
+
+    assert_equal %w[t1 e2], @exchange.get_ledger(api_key: @api_key).data.pluck(:tx_id)
+  end
+
+  # Before entry_id, an adjusted fill was stored under the trade_id it shares with its FILL, and the
+  # FILL itself was then dropped as that row's duplicate. A re-read rekeys the stored row to its
+  # entry_id instead of storing it twice, and the FILL it hid is imported.
+  test 'an adjusted fill stored under its trade_id is rekeyed, not imported again' do
+    fill = { 'trade_id' => 't1', 'product_id' => 'BTC-USD', 'side' => 'BUY', 'price' => '50000',
+             'commission' => '0', 'trade_time' => '2026-03-20T10:00:00Z' }
+    regular = fill.merge('entry_id' => 'e1', 'trade_type' => 'FILL', 'size' => '0.5')
+    adjusted = fill.merge('entry_id' => 'e2', 'trade_type' => 'CORRECTION', 'size' => '0.1')
+    old = create(:account_transaction, api_key: @api_key, tx_id: 't1', base_amount: 0.1, quote_amount: 5000,
+                                       transacted_at: Time.utc(2026, 3, 20, 10), raw_data: adjusted)
+    honeymaker_client = mock('honeymaker_client')
+    Honeymaker.stubs(:client).returns(honeymaker_client)
+    honeymaker_client.stubs(:list_fills).returns(Result::Success.new({ 'fills' => [regular, adjusted], 'cursor' => '' }))
+    honeymaker_client.stubs(:get).returns(Result::Success.new({ 'accounts' => [] }))
+
+    AccountTransactionSync.new(@api_key).sync!
+
+    assert_equal 'e2', old.reload.tx_id
+    assert_equal %w[e2 t1], AccountTransaction.where(api_key: @api_key).order(:tx_id).pluck(:tx_id)
+  end
+
+  test 'an adjusted fill stored without an entry_id is rekeyed on the same event' do
+    fill = { 'trade_id' => 't1', 'product_id' => 'BTC-USD', 'side' => 'BUY', 'price' => '50000', 'size' => '0.1',
+             'commission' => '0', 'trade_time' => '2026-03-20T10:00:00Z' }
+    old = create(:account_transaction, api_key: @api_key, tx_id: 't1', base_amount: 0.1, quote_amount: 5000,
+                                       transacted_at: Time.utc(2026, 3, 20, 10), raw_data: fill)
+    honeymaker_client = mock('honeymaker_client')
+    Honeymaker.stubs(:client).returns(honeymaker_client)
+    honeymaker_client.stubs(:list_fills).returns(
+      Result::Success.new({ 'fills' => [fill.merge('entry_id' => 'e2', 'trade_type' => 'CORRECTION')], 'cursor' => '' })
+    )
+    honeymaker_client.stubs(:get).returns(Result::Success.new({ 'accounts' => [] }))
+
+    AccountTransactionSync.new(@api_key).sync!
+
+    assert_equal ['e2'], AccountTransaction.where(api_key: @api_key).pluck(:tx_id)
+    assert_equal old.id, AccountTransaction.find_by(tx_id: 'e2').id
   end
 end

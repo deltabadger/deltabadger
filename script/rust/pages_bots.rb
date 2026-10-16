@@ -190,6 +190,10 @@ module Pages
            when 'open'
              [order_row(record, symbol, '2026-09-10T11:00:00Z', external_status: 'open', order_type: 'limit_order', price: '408.25',
                                                                 amount: '0.12247', amount_exec: '0', quote_amount: nil, quote_amount_exec: '0')]
+           when 'open_coin'
+             # A limit buy of the bot's one coin, resting.
+             [order_row(record, 'BTC', '2026-09-10T11:00:00Z', external_status: 'open', order_type: 'limit_order', price: '60000',
+                                                               amount: '0.0003', amount_exec: '0', quote_amount: nil, quote_amount_exec: '0')]
            when 'history'
              (1..9).map do |day|
                order_row(record, symbol, "2026-09-0#{day}T13:30:0#{day}Z", price: (400 + day).to_s, amount: "0.12#{day}",
