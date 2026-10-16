@@ -395,6 +395,83 @@ class Exchanges::BitvavoTest < ActiveSupport::TestCase
     assert @exchange.get_ledger(api_key: api_key).failure?
   end
 
+  # Trades for the ledger. Checked live on the public trades endpoint, which takes the same
+  # parameters: start alone is refused, start..end must span 24 hours or less, tradeIdTo alone pages
+  # back to any age.
+  def ledger_with_trades(markets: %w[BTC-EUR], balances: [{ 'symbol' => 'BTC', 'available' => '0.5', 'inOrder' => '0' }], &trades)
+    api_key = create(:api_key, exchange: @exchange, key_type: :trading, key: 'k', secret: 's')
+    client_class = Honeymaker::Clients::Bitvavo
+    client_class.any_instance.stubs(:get_signed).with(regexp_matches(/History\z/), anything).returns(Result::Success.new([]))
+    client_class.any_instance.stubs(:get_raw_balance).returns(Result::Success.new(balances))
+    client_class.any_instance.stubs(:get_markets).returns(
+      Result::Success.new(markets.map { |m| { 'market' => m, 'base' => m.split('-').first, 'quote' => m.split('-').last } })
+    )
+    asked = []
+    client_class.any_instance.stubs(:get_trades).with do |**params|
+      asked << params
+      true
+    end.returns(Result::Failure.new('stub me'))
+    yield client_class, api_key if trades
+    [api_key, asked]
+  end
+
+  test 'get_ledger pages back through every trade since the last sync without start, by trade id' do
+    start_205 = Result::Failure.new({ errorCode: 205, error: 'end parameter is invalid. start and end must be provided together.' }.to_json,
+                                    data: { status: 400 })
+    top = ms_ago(1.minute)
+    full = Array.new(1000) { |i| bitvavo_trade("n#{i}", 'o', top - i) }
+    older = [bitvavo_trade('n1000', 'o', ms_ago(3.hours)), bitvavo_trade('n1001', 'o', ms_ago(3.days))]
+    api_key, = ledger_with_trades do |client_class|
+      client_class.any_instance.stubs(:get_trades).with(has_key(:start_time)).returns(start_205)
+      client_class.any_instance.stubs(:get_trades).with(Not(has_key(:start_time))).returns(Result::Success.new(full), Result::Success.new(older))
+    end
+
+    result = @exchange.get_ledger(api_key: api_key, start_time: 1.day.ago)
+
+    assert result.success?, result.errors.inspect
+    ids = result.data.map { |e| e[:tx_id] }
+    assert_equal 1001, ids.size # the 3-day-old trade is before the window
+    assert_includes ids, 'n1000'
+    trade = result.data.find { |e| e[:tx_id] == 'n0' }
+    assert_equal :buy, trade[:entry_type]
+    assert_equal %w[BTC EUR], [trade[:base_currency], trade[:quote_currency]]
+    assert_equal BigDecimal('60'), trade[:quote_amount]
+  end
+
+  test 'get_ledger fails when a trade read fails' do
+    api_key, = ledger_with_trades do |client_class|
+      client_class.any_instance.stubs(:get_trades).returns(
+        Result::Failure.new({ errorCode: 310, error: 'This key does not allow trading actions.' }.to_json, data: { status: 403 })
+      )
+    end
+
+    result = @exchange.get_ledger(api_key: api_key)
+
+    assert result.failure?
+    assert @exchange.permission_error?(result.errors)
+  end
+
+  test 'get_ledger fails when the balance read fails' do
+    api_key, = ledger_with_trades
+    Honeymaker::Clients::Bitvavo.any_instance.stubs(:get_raw_balance).returns(Result::Failure.new('Net::ReadTimeout'))
+
+    assert @exchange.get_ledger(api_key: api_key).failure?
+  end
+
+  test 'get_ledger reads a market the account traded before, or a bot ordered on, after the coin is sold out' do
+    api_key, asked = ledger_with_trades(markets: %w[BTC-EUR ETH-EUR SOL-EUR ADA-EUR], balances: [])
+    Honeymaker::Clients::Bitvavo.any_instance.stubs(:get_trades).with do |**params|
+      asked << params
+      true
+    end.returns(Result::Success.new([]))
+    create(:account_transaction, api_key: api_key, base_currency: 'ETH', quote_currency: 'EUR')
+    bot = create(:dca_single_asset, user: api_key.user, exchange: @exchange)
+    create(:transaction, bot: bot, use_bot_assets: false, resolve_asset_ids: false, base: 'SOL', quote: 'EUR')
+
+    assert @exchange.get_ledger(api_key: api_key).success?
+    assert_equal %w[ETH-EUR SOL-EUR], asked.map { |p| p[:market] }.uniq.sort
+  end
+
   # recover_order_from_trades reads @exchange.transactions to derive the get_trades start_time.
   # Transaction belongs to a bot AND an exchange; only exchange: @exchange matters here.
   # with_api_key: false — keep the factory simple; tests that need a client set it on @exchange.
@@ -428,27 +505,30 @@ class Exchanges::BitvavoTest < ActiveSupport::TestCase
 
   # == 240 not-found: fills-recovery FIRST, then a not_found signal (mirrors Kraken/Hyperliquid) ==
 
+  def ms_ago(duration)
+    (duration.ago.to_f * 1000).to_i
+  end
+
+  def bitvavo_trade(id, order_id, timestamp, amount: '0.001', price: '60000')
+    { 'id' => id, 'orderId' => order_id, 'timestamp' => timestamp, 'market' => 'BTC-EUR', 'side' => 'buy',
+      'amount' => amount, 'price' => price, 'taker' => true, 'fee' => '0.01', 'feeCurrency' => 'EUR', 'settled' => true }
+  end
+
   test 'get_order recovers a 240 not-found order from get_trades when matching trades exist' do
-    tx = waiting_bitvavo_tx('BTC-EUR-abc123', created_at: 2.hours.ago)
+    waiting_bitvavo_tx('BTC-EUR-abc123', created_at: 2.hours.ago)
     @exchange.set_client
     @exchange.stubs(:dry_run?).returns(false)
     client = @exchange.send(:client)
     client.stubs(:get_order).with(market: 'BTC-EUR', order_id: 'abc123').returns(bitvavo_240_failure)
 
-    expected_start = ((tx.reload.created_at - 1.hour).to_f * 1000).to_i # ms, buffered like HL/Kraken
-    # First window/page: start bound asserted; window_end (start+24h) and trade_id_to (nil) are
-    # time-dependent, so assert with matchers. Two matching trades (VWAP) + one unrelated-orderId
-    # trade that MUST be excluded. page.size < limit → single page, single window (start+24h >= now).
+    # Two matching trades (VWAP) + one unrelated-orderId trade that MUST be excluded. A short page
+    # ends the walk.
     client.expects(:get_trades)
-          .with(has_entries(market: 'BTC-EUR', start_time: expected_start,
-                            limit: 1000, trade_id_to: nil))
+          .with(has_entries(market: 'BTC-EUR', limit: 1000, trade_id_to: nil))
           .returns(Result::Success.new([
-                                         { 'orderId' => 'abc123', 'side' => 'buy', 'amount' => '0.0001', 'price' => '60000',
-                                           'fee' => '0.01', 'feeCurrency' => 'EUR', 'id' => 't1', 'timestamp' => 1_700_000_000_000 },
-                                         { 'orderId' => 'abc123', 'side' => 'buy', 'amount' => '0.0001', 'price' => '62000',
-                                           'fee' => '0.01', 'feeCurrency' => 'EUR', 'id' => 't2', 'timestamp' => 1_700_000_100_000 },
-                                         { 'orderId' => 'OTHER', 'side' => 'buy', 'amount' => '5.0', 'price' => '1',
-                                           'fee' => '0', 'feeCurrency' => 'EUR', 'id' => 't9', 'timestamp' => 1_700_000_000_000 }
+                                         bitvavo_trade('t9', 'OTHER', ms_ago(30.minutes), amount: '5.0', price: '1'),
+                                         bitvavo_trade('t2', 'abc123', ms_ago(59.minutes), amount: '0.0001', price: '62000'),
+                                         bitvavo_trade('t1', 'abc123', ms_ago(1.hour), amount: '0.0001', price: '60000')
                                        ]))
 
     result = @exchange.get_order(order_id: 'BTC-EUR-abc123')
@@ -467,29 +547,19 @@ class Exchanges::BitvavoTest < ActiveSupport::TestCase
   end
 
   test 'get_order recovers a matching trade beyond page 1, paging by tradeIdTo cursor' do
-    # Lost-fill guard (Codex r1/r2): a busy account can have the target orderId only on a later page,
-    # and the boundary trades can SHARE a millisecond timestamp. Paging by the `tradeIdTo` cursor
-    # (not an `end - 1ms` ceiling) means a same-ms boundary trade is never skipped.
+    # A busy account can have the target orderId only on a later page, and the boundary trades can
+    # SHARE a millisecond. tradeIdTo continues strictly before the page's oldest id, so a same-ms
+    # boundary trade is never skipped.
     waiting_bitvavo_tx('BTC-EUR-deep', created_at: 3.hours.ago)
     @exchange.set_client
     @exchange.stubs(:dry_run?).returns(false)
     client = @exchange.send(:client)
     client.stubs(:get_order).returns(bitvavo_240_failure)
 
-    # Page 1: FULL (size == limit ⇒ keep paging). The OLDEST several trades all share one ms.
-    full_page = Array.new(1000) do |i|
-      ts = i < 997 ? 1_700_000_500_000 - i : 1_700_000_000_000 # last 3 share the same ms
-      { 'orderId' => 'NOISE', 'side' => 'buy', 'amount' => '0.001', 'price' => '60000',
-        'fee' => '0', 'feeCurrency' => 'EUR', 'id' => "n#{i}", 'timestamp' => ts }
-    end
-    # Page 2: a same-ms sibling of the boundary AND the real match — both must be fetched.
-    second_page = [
-      { 'orderId' => 'NOISE', 'side' => 'buy', 'amount' => '0.001', 'price' => '60000',
-        'fee' => '0', 'feeCurrency' => 'EUR', 'id' => 'n_sibling', 'timestamp' => 1_700_000_000_000 },
-      { 'orderId' => 'deep', 'side' => 'buy', 'amount' => '0.0002', 'price' => '61000',
-        'fee' => '0.02', 'feeCurrency' => 'EUR', 'id' => 'd1', 'timestamp' => 1_699_999_900_000 }
-    ]
-    # The 2nd call must cursor by the oldest id on page 1 (trade_id_to), NOT a timestamp.
+    top = ms_ago(1.minute)
+    full_page = Array.new(1000) { |i| bitvavo_trade("n#{i}", 'NOISE', i < 997 ? top - i : top - 5000) }
+    second_page = [bitvavo_trade('n_sibling', 'NOISE', top - 5000),
+                   bitvavo_trade('d1', 'deep', ms_ago(2.hours), amount: '0.0002', price: '61000')]
     client.expects(:get_trades).with(has_entries(trade_id_to: nil)).returns(Result::Success.new(full_page))
     client.expects(:get_trades).with(has_entries(trade_id_to: 'n999')).returns(Result::Success.new(second_page))
 
@@ -500,29 +570,16 @@ class Exchanges::BitvavoTest < ActiveSupport::TestCase
     assert_equal BigDecimal('0.0002'), result.data[:amount_exec] # only the matched 'deep' trade
   end
 
-  test 'get_order chunks the lookback into <=24h windows for an order older than a day' do
-    # Bitvavo /v2/trades caps a request window at 24h (Codex r2). A 50h-old order must be searched
-    # across multiple <=24h windows, not one over-wide (and rejected/truncated) call.
-    waiting_bitvavo_tx('BTC-EUR-old', created_at: 50.hours.ago)
+  test 'get_order finds the fill of an order resting for longer than 40 days' do
+    # The lookback used to walk at most 40 one-day windows from the order's row, so a fill after that
+    # was never searched and the order read as never executed.
+    waiting_bitvavo_tx('BTC-EUR-old', created_at: 50.days.ago)
     @exchange.set_client
     @exchange.stubs(:dry_run?).returns(false)
     client = @exchange.send(:client)
     client.stubs(:get_order).returns(bitvavo_240_failure)
-
-    # Three windows expected: [t0, t0+24h], [t0+24h, t0+48h], [t0+48h, now]. The match lives in the
-    # third. Each window returns a single short page. Assert >= 2 windows by capturing distinct
-    # (start_time, end_time) pairs; the match in the last proves the chunk loop reaches it.
-    windows = []
-    client.stubs(:get_trades).with do |**kw|
-      windows << [kw[:start_time], kw[:end_time]]
-      true
-    end.returns(
-      Result::Success.new([]),                       # window 1: nothing
-      Result::Success.new([]),                       # window 2: nothing
-      Result::Success.new([                          # window 3: the fill
-                            { 'orderId' => 'old', 'side' => 'buy', 'amount' => '0.0003', 'price' => '60000',
-                              'fee' => '0.03', 'feeCurrency' => 'EUR', 'id' => 'o1', 'timestamp' => (Time.current.to_f * 1000).to_i - 60_000 }
-                          ])
+    client.expects(:get_trades).with(Not(has_key(:start_time))).returns(
+      Result::Success.new([bitvavo_trade('o1', 'old', ms_ago(1.minute), amount: '0.0003')])
     )
 
     result = @exchange.get_order(order_id: 'BTC-EUR-old')
@@ -530,8 +587,6 @@ class Exchanges::BitvavoTest < ActiveSupport::TestCase
     assert result.success?
     assert_equal :closed, result.data[:status]
     assert_equal BigDecimal('0.0003'), result.data[:amount_exec]
-    assert windows.size >= 2, "expected multiple <=24h windows, got #{windows.size}"
-    windows.each { |s, e| assert (e - s) <= 24.hours.to_i * 1000, "window #{[s, e]} exceeds 24h" }
   end
 
   test 'get_order returns not_found only after exhausting all trade pages with no match' do
@@ -540,14 +595,9 @@ class Exchanges::BitvavoTest < ActiveSupport::TestCase
     @exchange.stubs(:dry_run?).returns(false)
     client = @exchange.send(:client)
     client.stubs(:get_order).returns(bitvavo_240_failure)
-    # One full page of unrelated trades, then a short page (also unrelated) → loop ends, no match.
-    full_page = Array.new(1000) do |i|
-      { 'orderId' => 'NOISE', 'side' => 'buy', 'amount' => '0.001', 'price' => '60000',
-        'fee' => '0', 'feeCurrency' => 'EUR', 'id' => "n#{i}", 'timestamp' => 1_700_000_500_000 - i }
-    end
-    short_page = [{ 'orderId' => 'STILL-NOISE', 'side' => 'buy', 'amount' => '0.001', 'price' => '60000',
-                    'fee' => '0', 'feeCurrency' => 'EUR', 'id' => 'z', 'timestamp' => 1_700_000_000_000 }]
-    client.stubs(:get_trades).returns(Result::Success.new(full_page), Result::Success.new(short_page))
+    full_page = Array.new(1000) { |i| bitvavo_trade("n#{i}", 'NOISE', ms_ago(1.minute) - i) }
+    short_page = [bitvavo_trade('z', 'STILL-NOISE', ms_ago(2.hours))]
+    client.expects(:get_trades).twice.returns(Result::Success.new(full_page), Result::Success.new(short_page))
 
     result = @exchange.get_order(order_id: 'BTC-EUR-nomatch')
 
@@ -561,10 +611,7 @@ class Exchanges::BitvavoTest < ActiveSupport::TestCase
     @exchange.stubs(:dry_run?).returns(false)
     client = @exchange.send(:client)
     client.stubs(:get_order).returns(bitvavo_240_failure)
-    full_page = Array.new(1000) do |i|
-      { 'orderId' => 'NOISE', 'side' => 'buy', 'amount' => '0.001', 'price' => '60000',
-        'fee' => '0', 'feeCurrency' => 'EUR', 'id' => "n#{i}", 'timestamp' => 1_700_000_500_000 - i }
-    end
+    full_page = Array.new(1000) { |i| bitvavo_trade("n#{i}", 'NOISE', ms_ago(1.minute) - i) }
     client.stubs(:get_trades).returns(Result::Success.new(full_page), Result::Failure.new('Net::ReadTimeout'))
 
     result = @exchange.get_order(order_id: 'BTC-EUR-pageerr')
@@ -690,8 +737,7 @@ class Exchanges::BitvavoTest < ActiveSupport::TestCase
     @exchange.stubs(:dry_run?).returns(false)
     client = @exchange.send(:client)
     client.stubs(:get_order).with(market: 'BTC-EUR', order_id: 'r1').returns(bitvavo_240_failure)
-    trades = [{ 'orderId' => 'r1', 'side' => 'buy', 'amount' => '0.0001', 'price' => '60000',
-                'fee' => '0.01', 'feeCurrency' => 'EUR', 'id' => 't1', 'timestamp' => 1_700_000_000_000 }]
+    trades = [bitvavo_trade('t1', 'r1', ms_ago(1.hour), amount: '0.0001')]
     client.stubs(:get_trades).returns(Result::Success.new(trades))
 
     result = @exchange.get_orders(order_ids: %w[BTC-EUR-r1])
