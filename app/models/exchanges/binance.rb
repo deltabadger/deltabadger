@@ -55,10 +55,10 @@ class Exchanges::Binance < Exchange
 
   def set_client(api_key: nil)
     @api_key = api_key
-    @client = Honeymaker.client('binance',
+    @client = Honeymaker.client(name_id,
                                 api_key: api_key&.key,
                                 api_secret: api_key&.secret,
-                                proxy: ExchangeProxy.for('binance'))
+                                proxy: ExchangeProxy.for(name_id))
   end
 
   def get_tickers_info(force: false)
@@ -413,10 +413,22 @@ class Exchanges::Binance < Exchange
   end
 
   def get_api_key_validity(api_key:)
-    result = Honeymaker.client('binance',
+    trading_key_validity(api_key)
+  end
+
+  # The tracker's reading key, held to its own steps (read_only_api.binance): Enable Reading on and
+  # Withdrawals off. Trading is "not needed" there, so it is not held against the key.
+  def get_read_api_key_validity(api_key:)
+    return Result::Success.new(true) if dry_run?
+
+    reading_key_validity(api_key)
+  end
+
+  def trading_key_validity(api_key)
+    result = Honeymaker.client(name_id,
                                api_key: api_key.key,
                                api_secret: api_key.secret,
-                               proxy: ExchangeProxy.for('binance')).api_description
+                               proxy: ExchangeProxy.for(name_id)).api_description
 
     if result.success?
       common_checks = result.data['ipRestrict'] == true &&
@@ -447,12 +459,7 @@ class Exchanges::Binance < Exchange
     end
   end
 
-  # The tracker's reading key, held to its own steps (read_only_api.binance): Enable Reading on and
-  # Withdrawals off. Trading is "not needed" there, so it is not held against the key. Binance.US
-  # inherits this; its flags may omit fields the trading check reads, so only these two are asked.
-  def get_read_api_key_validity(api_key:)
-    return Result::Success.new(true) if dry_run?
-
+  def reading_key_validity(api_key)
     result = Honeymaker.client(name_id, api_key: api_key.key, api_secret: api_key.secret,
                                         proxy: ExchangeProxy.for(name_id)).api_description
     if result.success?
@@ -463,6 +470,7 @@ class Exchanges::Binance < Exchange
       result
     end
   end
+  private :trading_key_validity, :reading_key_validity
 
   def minimum_amount_logic(order_type:, **)
     if order_type == :market_order
