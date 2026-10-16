@@ -14,7 +14,7 @@ use crate::venue::http::Transport;
 use chrono::{DateTime, Duration, NaiveDateTime, Utc};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::{json, Value};
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::Arc;
 
 pub const ACTIVITIES_PATH: &str = "/v2/account/activities";
@@ -554,7 +554,14 @@ pub(super) struct Progress {
     /// Every leg id of every merged split stored: a standalone leg arriving later is a duplicate.
     pub(super) merged: HashSet<String>,
     pub(super) min_skipped: Option<DateTime<Utc>>,
+    /// The rows this run stored: no evidence that a later entry is a duplicate (#same_event?).
+    pub(super) stored: HashSet<i64>,
+    /// How many entries of each identity (#event_key) this run has read so far.
+    pub(super) repeats: BTreeMap<EventKey, usize>,
 }
+
+/// #event_key: type, currency, amount and instant.
+pub(super) type EventKey = (i64, Option<String>, BigDec, Option<DateTime<Utc>>);
 
 /// The legs of every merged split already stored for the user on this venue.
 pub(super) fn stored_merged(c: &Connection, key: &Key) -> Result<HashSet<String>, SyncError> {
@@ -581,7 +588,7 @@ fn prepare(c: &Connection, key: &Key, activities: &[Raw]) -> Result<Result<(Vec<
     }
     let entries = match activities::merge_splits(entries) { Ok(entries) => entries, Err(text) => return Ok(Err(text)) };
     let merged = stored_merged(c, key)?;
-    Ok(Ok((entries, Progress { out: Outcome::default(), assets: Arc::new(AssetRule::Alpaca(listings(c, key.exchange_id)?)), merged, min_skipped: None })))
+    Ok(Ok((entries, Progress { out: Outcome::default(), assets: Arc::new(AssetRule::Alpaca(listings(c, key.exchange_id)?)), merged, min_skipped: None, stored: HashSet::new(), repeats: BTreeMap::new() })))
 }
 
 /// A split row, as everything that reacts to one tells it.
@@ -594,7 +601,13 @@ pub(super) fn store(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, 
     let no_effects = || SyncError("a split row outside a unit of its own".into());
     for (index, e) in batch.iter().enumerate() {
         let tx_id = present(&e.tx_id);
-        if duplicate(c, key, e, tx_id, &p.merged)? { p.out.duplicates += 1; continue; }
+        // A row its id already names is not one of the identical rows counted.
+        let repeat = if known_id(c, key, tx_id, &p.merged)? { 0 } else {
+            let seen = p.repeats.entry((e.entry_type, e.base_currency.clone(), e.base_amount.clone(), e.transacted_at)).or_insert(0);
+            *seen += 1;
+            *seen - 1
+        };
+        if duplicate(c, key, e, tx_id, &p.merged, &p.stored, repeat)? { p.out.duplicates += 1; continue; }
         // One malformed broker row never aborts the sync: it is logged, counted, and holds the watermark back. The
         // row's id is the venue's own value: the line says which entry of the unit it was, not what it held.
         let (Some(base_currency), Some(at)) = (present(&e.base_currency), e.transacted_at) else {
@@ -613,6 +626,7 @@ pub(super) fn store(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, 
             params![key.user_id, key.id, key.exchange_id, e.entry_type, e.base_currency, real(&e.base_amount), e.quote_currency, e.quote_amount.as_ref().map(real),
                     if no_fee { None } else { e.fee_currency.as_deref() }, if no_fee { None } else { e.fee_amount.as_ref().map(real) }, tx_id, e.group_id,
                     e.description, sql_time(at), e.raw.text(), p.assets.asset_id(c, Some(base_currency), &e.raw.value, Some(at))?, bot_order, sql_time(now)])?;
+        p.stored.insert(c.last_insert_rowid());
         p.merged.extend(merged_ids(&e.raw.value));
         if split(e) {
             let effects = effects.ok_or_else(no_effects)?;
@@ -638,25 +652,34 @@ const BY_TIME: &str = "INDEXED BY index_account_transactions_on_transacted_at";
 
 /// #duplicate?, scoped to the user and the venue, not the key. With an id: a leg of a stored merged split, a stored
 /// row with that id, or an id-less stored row of the same type, currency and amount less than a second away (a file
-/// imported before the first sync). Without one: any stored row of that identity less than a second away.
-fn duplicate(c: &Connection, key: &Key, e: &Entry, tx_id: Option<&str>, merged: &HashSet<String>) -> Result<bool, SyncError> {
+/// imported before the first sync). Without one: any stored row of that identity less than a second away. Exactly a
+/// second away counts only between an id'd and an id-less row (#within_a_second). Rows this run stored are no
+/// evidence, and the rest count one for one: the entry is a duplicate while more of them are stored than identical
+/// entries came before it in this run (#same_event?).
+fn duplicate(c: &Connection, key: &Key, e: &Entry, tx_id: Option<&str>, merged: &HashSet<String>, stored_now: &HashSet<i64>, repeat: usize) -> Result<bool, SyncError> {
     if let Some(tx_id) = tx_id {
-        if merged.contains(tx_id) { return Ok(true); }
-        let stored: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM account_transactions WHERE user_id = ?1 AND exchange_id = ?2 AND tx_id = ?3)",
-                                       params![key.user_id, key.exchange_id, tx_id], |r| r.get(0))?;
-        if stored { return Ok(true); }
-        if api_dust(e, tx_id) { return api_dust_twin(c, key, e, tx_id); }
-        if api_transfer(e.entry_type, &e.raw.value) { return api_transfer_twin(c, key, e, tx_id); }
+        if known_id(c, key, Some(tx_id), merged)? { return Ok(true); }
+        if api_dust(e, tx_id) { return api_dust_twin(c, key, e, tx_id, stored_now, repeat); }
+        if api_transfer(e.entry_type, &e.raw.value) { return api_transfer_twin(c, key, e, tx_id, stored_now, repeat); }
     }
     let Some(at) = e.transacted_at else { return Ok(false) }; // a row with no time is the same event as nothing
     let second = Duration::seconds(1);
     let (Some(from), Some(to)) = (at.checked_sub_signed(second), at.checked_add_signed(second)) else { return Err(SyncError("a time at the end of the calendar".into())) };
-    let id_less = if tx_id.is_some() { "AND tx_id IS NULL" } else { "" };
-    Ok(c.query_row(
-        &format!("SELECT EXISTS(SELECT 1 FROM account_transactions {BY_TIME} WHERE user_id = ?1 AND exchange_id = ?2 {id_less} AND entry_type = ?3 \
-                  AND base_currency IS ?4 AND base_amount = ?5 AND transacted_at > ?6 AND transacted_at < ?7)"),
-        params![key.user_id, key.exchange_id, e.entry_type, e.base_currency, real(&e.base_amount), sql_time(from), sql_time(to)],
-        |r| r.get(0))?)
+    let (id_less, other) = if tx_id.is_some() { ("AND tx_id IS NULL", "tx_id IS NULL") } else { ("", "tx_id IS NOT NULL") };
+    let mut s = c.prepare(&format!("SELECT id FROM account_transactions {BY_TIME} WHERE user_id = ?1 AND exchange_id = ?2 {id_less} AND entry_type = ?3 \
+                  AND base_currency IS ?4 AND base_amount = ?5 AND transacted_at >= ?6 AND transacted_at <= ?7 \
+                  AND ({other} OR (transacted_at > ?6 AND transacted_at < ?7))"))?;
+    let ids = s.query_map(params![key.user_id, key.exchange_id, e.entry_type, e.base_currency, real(&e.base_amount), sql_time(from), sql_time(to)],
+                          |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?;
+    Ok(ids.iter().filter(|id| !stored_now.contains(id)).count() > repeat)
+}
+
+/// A leg of a stored merged split, or a stored row with this id.
+fn known_id(c: &Connection, key: &Key, tx_id: Option<&str>, merged: &HashSet<String>) -> Result<bool, SyncError> {
+    let Some(tx_id) = tx_id else { return Ok(false) };
+    if merged.contains(tx_id) { return Ok(true); }
+    Ok(c.query_row("SELECT EXISTS(SELECT 1 FROM account_transactions WHERE user_id = ?1 AND exchange_id = ?2 AND tx_id = ?3)",
+                   params![key.user_id, key.exchange_id, tx_id], |r| r.get(0))?)
 }
 
 /// One transfer as Binance's export and its API each describe it (AccountTransactionSync, "one transfer"): the export
@@ -675,7 +698,7 @@ fn api_transfer(entry_type: i64, raw: &Value) -> bool {
 }
 
 /// #file_side: the amount the file writes for this API transfer, and the window its date falls in (`true`: open at
-/// both ends). A deposit is credited no earlier than seen and less than ten minutes after; a withdrawal is the gross
+/// both ends). A deposit is credited no earlier than seen and at most ten minutes after; a withdrawal is the gross
 /// within a second of `completeTime`, and a present but unreadable `completeTime` pairs with nothing.
 fn file_side(entry_type: i64, raw: &Value, at: DateTime<Utc>) -> Option<(BigDec, DateTime<Utc>, DateTime<Utc>, bool)> {
     let amount = |k: &str| json_to_d(&raw[k]).ok().flatten().unwrap_or_else(BigDec::zero); // `.to_d`: nil is 0
@@ -685,11 +708,11 @@ fn file_side(entry_type: i64, raw: &Value, at: DateTime<Utc>) -> Option<(BigDec,
     Some((&amount("amount") + &amount("transactionFee"), complete.checked_sub_signed(second)?, complete.checked_add_signed(second)?, true))
 }
 
-/// #api_transfer_twin?: the second-wide rule still holds against every id-less row but a file transfer; then the one
+/// #api_transfer_twin?: the second-wide rule (#same_event?) still holds against every id-less row but a file transfer; then the one
 /// file row this API transfer pairs with takes its id, and the transfer is not stored again. Two candidates are a
 /// visible double. Raced (the row taken between the read and the write): read once more, then store; the id stored
 /// meanwhile by someone else is this row.
-fn api_transfer_twin(c: &Connection, key: &Key, e: &Entry, tx_id: &str) -> Result<bool, SyncError> {
+fn api_transfer_twin(c: &Connection, key: &Key, e: &Entry, tx_id: &str, stored_now: &HashSet<i64>, repeat: usize) -> Result<bool, SyncError> {
     let Some(at) = e.transacted_at else { return Ok(false) };
     let raws = |sql: &str, p: &[&dyn rusqlite::ToSql]| -> Result<Vec<(i64, Value)>, SyncError> {
         let mut s = c.prepare(sql)?;
@@ -700,11 +723,11 @@ fn api_transfer_twin(c: &Connection, key: &Key, e: &Entry, tx_id: &str) -> Resul
                         AND entry_type = ?3 AND base_currency IS ?4 AND base_amount = ?5");
     let second = Duration::seconds(1);
     let (Some(from), Some(to)) = (at.checked_sub_signed(second), at.checked_add_signed(second)) else { return Err(SyncError("a time at the end of the calendar".into())) };
-    let same = raws(&format!("{base} AND transacted_at > ?6 AND transacted_at < ?7"),
+    let same = raws(&format!("{base} AND transacted_at >= ?6 AND transacted_at <= ?7"), // across sources: ends included
                     params![key.user_id, key.exchange_id, e.entry_type, e.base_currency, real(&e.base_amount), sql_time(from), sql_time(to)])?;
-    if same.iter().any(|(_, raw)| !file_transfer(e.entry_type, raw)) { return Ok(true); }
+    if same.iter().filter(|(id, raw)| !stored_now.contains(id) && !file_transfer(e.entry_type, raw)).count() > repeat { return Ok(true); }
     let Some((amount, from, to, open)) = file_side(e.entry_type, &e.raw.value, at) else { return Ok(false) };
-    let sql = format!("{base} AND transacted_at {} ?6 AND transacted_at < ?7", if open { ">" } else { ">=" });
+    let sql = format!("{base} AND {}", if open { "transacted_at > ?6 AND transacted_at < ?7" } else { "transacted_at >= ?6 AND transacted_at <= ?7" });
     for _ in 0..2 {
         let rows: Vec<i64> = raws(&sql, params![key.user_id, key.exchange_id, e.entry_type, e.base_currency, real(&amount), sql_time(from), sql_time(to)])?
             .into_iter().filter(|(_, raw)| file_transfer(e.entry_type, raw)).map(|(id, _)| id).collect();
@@ -731,10 +754,10 @@ fn file_dust(entry_type: i64, group_id: Option<&str>) -> bool {
     matches!(entry_type, SWAP_IN | SWAP_OUT) && group_id.is_some_and(|g| g.starts_with("dustcsv"))
 }
 
-/// #api_dust_twin?: the second-wide rule still holds against every id-less row but a file dust leg; then the one export
+/// #api_dust_twin?: the second-wide rule (#same_event?) still holds against every id-less row but a file dust leg; then the one export
 /// group holding this conversion's coin leg and its BNB net of the charge, each once, within a second either side,
 /// takes both of its ids. One leg alone, or two candidates, pair with nothing; an id stored meanwhile is this row.
-fn api_dust_twin(c: &Connection, key: &Key, e: &Entry, tx_id: &str) -> Result<bool, SyncError> {
+fn api_dust_twin(c: &Connection, key: &Key, e: &Entry, tx_id: &str, stored_now: &HashSet<i64>, repeat: usize) -> Result<bool, SyncError> {
     let Some(at) = e.transacted_at else { return Ok(false) };
     let rows = |sql: &str, p: &[&dyn rusqlite::ToSql]| -> Result<Vec<(i64, i64, Option<String>)>, SyncError> {
         let mut s = c.prepare(sql)?;
@@ -744,9 +767,9 @@ fn api_dust_twin(c: &Connection, key: &Key, e: &Entry, tx_id: &str) -> Result<bo
     let second = Duration::seconds(1);
     let (Some(from), Some(to)) = (at.checked_sub_signed(second), at.checked_add_signed(second)) else { return Err(SyncError("a time at the end of the calendar".into())) };
     let base = format!("SELECT id, entry_type, group_id FROM account_transactions {BY_TIME} WHERE user_id = ?1 AND exchange_id = ?2 AND tx_id IS NULL");
-    let same = rows(&format!("{base} AND entry_type = ?3 AND base_currency IS ?4 AND base_amount = ?5 AND transacted_at > ?6 AND transacted_at < ?7"),
+    let same = rows(&format!("{base} AND entry_type = ?3 AND base_currency IS ?4 AND base_amount = ?5 AND transacted_at >= ?6 AND transacted_at <= ?7"), // across sources: ends included
                     params![key.user_id, key.exchange_id, e.entry_type, e.base_currency, real(&e.base_amount), sql_time(from), sql_time(to)])?;
-    if same.iter().any(|(_, t, g)| !file_dust(*t, g.as_deref())) { return Ok(true); }
+    if same.iter().filter(|(id, t, g)| !stored_now.contains(id) && !file_dust(*t, g.as_deref())).count() > repeat { return Ok(true); }
     let raw = &e.raw.value;
     let d = |k: &str| json_to_d(&raw[k]).ok().flatten().unwrap_or_else(BigDec::zero); // `.to_d`: nil is 0
     let net = &d("transferedAmount") - &d("serviceChargeAmount");

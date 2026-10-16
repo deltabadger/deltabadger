@@ -823,6 +823,54 @@ module SyncScenarios
                                                                              P.bn_deposit(202, 'USDT', '888', t.(2026, 9, 2, 12))])),
                 P.binance_ledger('2026-09-22T02:00:00.250000Z', basic.merge('deposits' => [P.bn_deposit(202, 'USDT', '888', t.(2026, 9, 2, 12)),
                                                                                            P.bn_deposit(203, 'USDT', '888', t.(2026, 9, 2, 12, 1))]))] },
+      # The API cuts a Convert to the whole second, the export rounds it up: a file row exactly a second on is the API's.
+      # Two id-less rows a second apart are two, whichever side they came from.
+      { name: 'binance-ledger-file_second_after',
+        setup: lambda do |ctx|
+          P.binance(ctx)
+          P.stored(ctx, exchange: ctx[:binance], entry_type: 3, base_currency: 'USDT', base_amount: '12.5', tx_id: nil, transacted_at: t.(2026, 8, 13, 14, 29, 19))
+          P.stored(ctx, exchange: ctx[:binance], entry_type: 2, base_currency: 'BTC', base_amount: '0.0002', tx_id: nil, transacted_at: t.(2026, 8, 13, 14, 29, 19))
+          P.stored(ctx, exchange: ctx[:binance], entry_type: 4, base_currency: 'XRP', base_amount: '30', tx_id: nil, transacted_at: t.(2026, 8, 14, 10, 0, 1))
+        end,
+        steps: [P.binance_ledger(night, basic.merge(
+          'converts' => [others['converts'][0].merge('quoteId' => 'sec1', 'fromAmount' => '12.5', 'toAsset' => 'BTC', 'toAmount' => '0.0002',
+                                                     'createTime' => at.(2026, 8, 13, 14, 29, 18))],
+          'deposits' => basic['deposits'] + [P.bn_deposit(9, 'XRP', '30', t.(2026, 8, 14, 10), tx: nil)]
+        ))] },
+      # Credited in the export exactly ten minutes after the API saw it: the same deposit.
+      { name: 'binance-ledger-deposit_600',
+        setup: lambda do |ctx|
+          P.binance(ctx)
+          file_row.call(ctx, 4, 'ETH', '2', t.(2026, 8, 4, 10, 10))
+        end,
+        steps: [P.binance_ledger(night, basic.merge('deposits' => basic['deposits'] + [P.bn_deposit(8, 'ETH', '2', t.(2026, 8, 4, 10))]))] },
+      # Two id-less deposits alike in one read are two deposits: a row this run stored is not evidence against the next.
+      { name: 'binance-ledger-idless_repeats', setup: ->(ctx) { P.binance(ctx) },
+        steps: [P.binance_ledger(night, basic.merge('deposits' => basic['deposits'] + [P.bn_deposit(10, 'XRP', '30', t.(2026, 8, 14, 10), tx: nil),
+                                                                                        P.bn_deposit(11, 'XRP', '30', t.(2026, 8, 14, 10), tx: nil)]))] },
+      # Rows stored before the run count one for one: three alike over two stored adds one, and two dividends over one
+      # file row add one.
+      { name: 'binance-ledger-preexisting_repeats',
+        setup: lambda do |ctx|
+          P.binance(ctx)
+          2.times { P.stored(ctx, exchange: ctx[:binance], entry_type: 4, base_currency: 'XRP', base_amount: '30', tx_id: nil, transacted_at: t.(2026, 8, 14, 10)) }
+          P.stored(ctx, exchange: ctx[:binance], entry_type: 8, base_currency: 'BNB', base_amount: '10', tx_id: nil, transacted_at: t.(2026, 8, 18, 12))
+        end,
+        steps: [P.binance_ledger(night, basic.merge(
+          'deposits' => basic['deposits'] + Array.new(3) { |i| P.bn_deposit(10 + i, 'XRP', '30', t.(2026, 8, 14, 10), tx: nil) },
+          'dividends' => [others['dividends'][0].merge('amount' => '10'), others['dividends'][0].merge('id' => 1_637_366_199, 'amount' => '10')]
+        ))] },
+      # A deposit whose id a file row took (dated when credited), and its id-less twin stored too: the id'd entry is
+      # skipped on its id and does not use up the id-less entry's match.
+      { name: 'binance-ledger-known_id_repeat',
+        setup: lambda do |ctx|
+          P.binance(ctx)
+          P.stored(ctx, exchange: ctx[:binance], entry_type: 4, base_currency: 'XRP', base_amount: '30', tx_id: '0xd12', transacted_at: t.(2026, 8, 14, 10, 0, 46),
+                        raw_data: { 'operation' => 'Deposit' })
+          P.stored(ctx, exchange: ctx[:binance], entry_type: 4, base_currency: 'XRP', base_amount: '30', tx_id: nil, transacted_at: t.(2026, 8, 14, 10))
+        end,
+        steps: [P.binance_ledger(night, basic.merge('deposits' => basic['deposits'] + [P.bn_deposit(12, 'XRP', '30', t.(2026, 8, 14, 10)),
+                                                                                        P.bn_deposit(13, 'XRP', '30', t.(2026, 8, 14, 10), tx: nil)]))] },
       # The export's copy of a dust sweep: the BNB net of the charge, a second after operateTime. A whole conversion pairs,
       # an amount the column rounds too (compared as stored); a group holding one leg of it pairs with nothing.
       { name: 'binance-ledger-file_dust',
@@ -840,7 +888,23 @@ module SyncScenarios
                    'operateTime' => sweep['operateTime'],
                    'transferedAmount' => '0.000051', 'fromAsset' => 'SHIB', 'targetAsset' => 'BNB' }
           sweep.merge('userAssetDribbletDetails' => sweep['userAssetDribbletDetails'] + [shib])
-        end))] }
+        end))] },
+      # A stored row no pairing governs, exactly a second on (across sources), is one event: of two identical API dust
+      # conversions, or deposits, it accounts for the first only.
+      { name: 'binance-ledger-twin_repeats',
+        setup: lambda do |ctx|
+          P.binance(ctx)
+          P.stored(ctx, exchange: ctx[:binance], entry_type: 3, base_currency: 'USDT', base_amount: '0.9', tx_id: nil, transacted_at: Time.at(1_786_960_801).utc)
+          P.stored(ctx, exchange: ctx[:binance], entry_type: 4, base_currency: 'XRP', base_amount: '30', tx_id: nil, transacted_at: t.(2026, 8, 14, 10, 0, 1))
+        end,
+        steps: [P.binance_ledger(night, basic.merge(
+          'dust' => [{ 'operateTime' => 1_786_960_800_000, 'totalTransferedAmount' => '0.000882', 'totalServiceChargeAmount' => '0.000018', 'transId' => 45_178_372_832,
+                       'userAssetDribbletDetails' => Array.new(2) do |i|
+                         { 'transId' => 4_359_330 + i, 'serviceChargeAmount' => '0.000009', 'amount' => '0.9', 'operateTime' => 1_786_960_800_000,
+                           'transferedAmount' => '0.000441', 'fromAsset' => 'USDT', 'targetAsset' => 'BNB' }
+                       end }],
+          'deposits' => basic['deposits'] + [P.bn_deposit(20, 'XRP', '30', t.(2026, 8, 14, 10)), P.bn_deposit(21, 'XRP', '30', t.(2026, 8, 14, 10))]
+        ))] }
     ]
   end
 

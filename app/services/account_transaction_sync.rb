@@ -58,6 +58,8 @@ class AccountTransactionSync
 
     @file_pairs = entries.select { |entry| entry[:group_id].to_s.start_with?('swapcsv_') }.group_by { |entry| entry[:group_id] }
     @batch = entries
+    @stored_ids = Set.new
+    repeats = Hash.new(0)
     asset_ids = ledger_asset_ids(entries)
 
     entries.each_with_index do |entry, index|
@@ -66,6 +68,8 @@ class AccountTransactionSync
       # missing). Read it as nil so it dedups on the fallback identity instead of collapsing every
       # such row onto a single '' key — the partial unique index treats '' as a value.
       tx_id = entry[:tx_id].presence
+      # A row its id already names is not one of the identical rows `same_event?` counts.
+      @repeat = known_id?(tx_id) ? 0 : (repeats[event_key(entry)] += 1) - 1
       if duplicate?(entry, tx_id)
         duplicates += 1
         next
@@ -111,6 +115,7 @@ class AccountTransactionSync
         next
       end
 
+      @stored_ids << at.id
       stored_merged_activity_ids.merge(merged_ids_of(entry))
       log_split(at)
       imported += 1
@@ -344,7 +349,7 @@ class AccountTransactionSync
       return file_dust_twin?(entry) if file_dust?(entry)
       return file_transfer_twin?(entry) if file_transfer?(entry)
 
-      return same_event?(entry, scope) || replaced_trade?(entry)
+      return same_event?(entry, scope) || replaced_trade?(entry) || legacy_token_swap?(entry)
     end
 
     # Only the STORED side is expanded to merged legs. A standalone leg arriving after its merged
@@ -364,10 +369,35 @@ class AccountTransactionSync
   end
 
   # A row with no time is not the same event as anything; it is caught and logged on save.
-  def same_event?(entry, rows)
+  #
+  # A row this run stored is no evidence: an export repeats identical rows in one second, each a real
+  # credit, and matched against each other all but the first were dropped. Rows stored BEFORE the run
+  # count one for one — the Nth identical row in the batch is a duplicate while N such rows were already
+  # there — so the same file imported twice still adds nothing.
+  #
+  # A pairing between the export and the API passes the rows it decides itself as `governed`: those are
+  # not evidence either.
+  def same_event?(entry, rows, &governed)
     return false if entry[:transacted_at].blank?
 
-    same_events(entry, rows).exists?
+    same_events(entry, rows).count { |row| !@stored_ids.include?(row.id) && !governed&.call(row) } > @repeat
+  end
+
+  def event_key(entry)
+    [entry[:entry_type].to_s, entry[:base_currency], entry[:base_amount].to_d, entry[:transacted_at]]
+  end
+
+  def known_id?(tx_id)
+    tx_id.present? && (stored_merged_activity_ids.include?(tx_id) || scope.exists?(tx_id: tx_id))
+  end
+
+  # A file imported before "Token Swap - Distribution" was read as an airdrop stored it as other income.
+  LEGACY_TOKEN_SWAP = 'Token Swap - Distribution'.freeze
+
+  def legacy_token_swap?(entry)
+    return false unless entry[:entry_type].to_s == 'airdrop' && entry.dig(:raw_data, 'operation') == LEGACY_TOKEN_SWAP
+
+    same_event?(entry.merge(entry_type: :other_income), scope.where("json_extract(raw_data, '$.operation') = ?", LEGACY_TOKEN_SWAP))
   end
 
   def same_events(entry, rows)
@@ -383,8 +413,8 @@ class AccountTransactionSync
   # within a second of the other, so the rule above would store the transfer twice, whichever came
   # first. These two shapes are paired on their own terms instead, and only with each other:
   #
-  # - a deposit, same coin and amount, credited in the file no earlier than the API saw it and less
-  #   than CREDIT_LAG after;
+  # - a deposit, same coin and amount, credited in the file no earlier than the API saw it and at most
+  #   CREDIT_LAG after;
   # - a withdrawal whose `amount` + `transactionFee` is the file's amount, the file dated within a
   #   second of the API's `completeTime`.
   #
@@ -424,7 +454,7 @@ class AccountTransactionSync
     raw = api[:raw_data]
     if api[:entry_type].to_s == 'deposit'
       at = api[:transacted_at]
-      [raw['amount'].to_d, at, at + CREDIT_LAG, :right_open]
+      [raw['amount'].to_d, at, at + CREDIT_LAG, :closed]
     else
       complete = completed_at(raw)
       complete && [raw['amount'].to_d + raw['transactionFee'].to_d, complete - 1.second, complete + 1.second, :open]
@@ -438,13 +468,13 @@ class AccountTransactionSync
     return false unless amount && file[:transacted_at]
 
     at = file[:transacted_at]
-    file[:base_amount].to_d == amount && (bounds == :open ? at > from : at >= from) && at < to
+    file[:base_amount].to_d == amount && (bounds == :open ? at > from && at < to : at >= from && at <= to)
   end
 
   def api_transfer_twin?(entry, tx_id)
     # The second-wide rule still holds against every id-less row except a file transfer: that pairing
     # is decided below.
-    return true if same_events(entry, scope.where(tx_id: nil)).any? { |row| !file_transfer?(row) }
+    return true if same_event?(entry, scope.where(tx_id: nil)) { |row| file_transfer?(row) }
 
     amount, from, to, bounds = file_side(entry)
     return false unless amount
@@ -452,7 +482,7 @@ class AccountTransactionSync
     # Raced: someone took the row between the read and the write. Read once more, then store.
     2.times do
       rows = scope.where(tx_id: nil, entry_type: entry[:entry_type], base_currency: entry[:base_currency], base_amount: amount)
-                  .where("transacted_at #{bounds == :open ? '>' : '>='} ? AND transacted_at < ?", from, to)
+                  .where(bounds == :open ? 'transacted_at > ? AND transacted_at < ?' : 'transacted_at >= ? AND transacted_at <= ?', from, to)
                   .select { |row| file_transfer?(row) }
       return false unless rows.one?
       return true if take!(rows.first, tx_id)
@@ -470,7 +500,7 @@ class AccountTransactionSync
     at = entry[:transacted_at]
     return false if at.blank?
     # The same file row stored already — claimed or not — or any row this pairing does not govern.
-    return true if same_events(entry, scope).any? { |row| !api_transfer?(row) }
+    return true if same_event?(entry, scope) { |row| api_transfer?(row) }
 
     2.times do
       candidates = api_rows_for(entry)
@@ -507,8 +537,7 @@ class AccountTransactionSync
     at = entry[:transacted_at]
     rows = scope.where.not(tx_id: nil).where(entry_type: entry[:entry_type], base_currency: entry[:base_currency])
     rows = if entry[:entry_type].to_s == 'deposit'
-             rows.where('transacted_at > ? AND transacted_at <= ?', at - CREDIT_LAG,
-                        at)
+             rows.where('transacted_at >= ? AND transacted_at <= ?', at - CREDIT_LAG, at)
            else
              rows.where('transacted_at < ?', at + 1.second)
            end
@@ -580,7 +609,7 @@ class AccountTransactionSync
   def api_dust_twin?(entry, tx_id)
     at = entry[:transacted_at]
     return false if at.blank?
-    return true if same_events(entry, scope.where(tx_id: nil)).any? { |row| !file_dust?(row) }
+    return true if same_event?(entry, scope.where(tx_id: nil)) { |row| file_dust?(row) }
 
     id = tx_id.delete_suffix('-out').delete_suffix('-in')
     coin, amount, net = conversion(entry[:raw_data])
@@ -601,7 +630,7 @@ class AccountTransactionSync
     at = entry[:transacted_at]
     return false if at.blank?
     # The same file row stored already — claimed or not — or any row this pairing does not govern.
-    return true if same_events(entry, scope).any? { |row| !api_dust?(row) }
+    return true if same_event?(entry, scope) { |row| api_dust?(row) }
 
     2.times do
       # Only a whole API conversion: one stored a leg short (a sync cut off between them) leaves the file's
@@ -631,9 +660,14 @@ class AccountTransactionSync
     AccountTransaction.transaction(requires_new: true) { yield || raise(ActiveRecord::Rollback) } || false
   end
 
+  # Exactly a second apart is one event only across sources: Binance's API cuts a Convert to the
+  # whole second (14:29:18) where its export rounds it up (14:29:19). Within one source the clocks
+  # agree, and identical rows a second apart are two events.
   def within_a_second(entry)
     at = entry[:transacted_at]
-    ['transacted_at > ? AND transacted_at < ?', at - 1.second, at + 1.second]
+    other = entry[:tx_id].present? ? 'tx_id IS NULL' : 'tx_id IS NOT NULL'
+    ["(transacted_at > ? AND transacted_at < ?) OR (#{other} AND transacted_at >= ? AND transacted_at <= ?)",
+     at - 1.second, at + 1.second, at - 1.second, at + 1.second]
   end
 
   # A file Convert out of cash used to be read as a purchase, or a sale, and is now the swap pair

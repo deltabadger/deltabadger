@@ -214,9 +214,31 @@ class Import::BinanceCsvTest < ActiveSupport::TestCase
   end
 
   test 'the same operation handing something out is still income' do
-    entry = parse('1,2024-06-26 08:26:41,Spot,Token Swap - Distribution,USDT,118.55207,').sole
+    entry = parse('1,2024-04-27 12:23:15,Spot,Asset Recovery,HNT,31.85,').sole
 
     assert_equal :other_income, entry[:entry_type]
+  end
+
+  # The API books it as a dividend, an airdrop to the adapter: any other type and the overlap doubles.
+  test 'a token swap distribution is the airdrop the API books' do
+    entry = parse('1,2024-06-26 08:26:41,Spot,Token Swap - Distribution,USDT,118.55207,').sole
+
+    assert_equal :airdrop, entry[:entry_type]
+  end
+
+  test 'referral commission is income' do
+    entry = parse('1,2021-01-07 21:28:41,Spot,Commission History,USDT,0.00807839,').sole
+
+    assert_equal [:other_income, 'USDT', 0.00807839.to_d], entry.values_at(:entry_type, :base_currency, :base_amount)
+  end
+
+  # "TWT回收": a staking reward taken back.
+  test 'an asset transfer out is a loss, and in is income' do
+    out, inn = parse('1,2021-01-08 13:59:25,Spot,Asset - Transfer,TWT,-100,TWT回收',
+                     '1,2021-01-09 13:59:25,Spot,Asset - Transfer,TWT,5,')
+
+    assert_equal [:lost, 100.to_d], out.values_at(:entry_type, :base_amount)
+    assert_equal [:other_income, 5.to_d], inn.values_at(:entry_type, :base_amount)
   end
 
   # A rename is one asset becoming another, not two windfalls: LUNA out, LUNC in, same instant.
