@@ -353,6 +353,12 @@ impl<T: Transport> Venue for KrakenVenue<T> {
         free_balance(&body, &ticker.base_code)
     }
 
+    async fn settled_quote_balance<F>(&self, ticker: &Ticker, _catalog: F) -> Result<BigDec, VenueError>
+    where F: FnOnce() -> Result<crate::sync::balances::Catalog, VenueError> {
+        let body = self.call(&self.private("/0/private/BalanceEx", &[]), false).await?;
+        free_balance(&body, &ticker.quote_code)
+    }
+
     /// #cancel_order through Clients::Kraken#cancel_order: CancelOrder by txid; the body's `error` is the failure.
     async fn cancel(&self, txid: &str) -> Result<(), VenueError> {
         self.call(&self.private("/0/private/CancelOrder", &[("txid", txid.to_string())]), false).await.map(|_| ())

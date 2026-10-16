@@ -403,6 +403,8 @@ async fn a_sellers_free_base_is_the_row_of_the_tickers_base_code_and_never_reads
     let body = json!({ "balances": [{ "asset": "BTC", "free": "0.5", "locked": "0.1" }, { "asset": "USDT", "free": "12", "locked": "0" }] });
     let (_, v) = venue(json!({ "GET /api/v3/account": ok(body) }));
     assert_eq!(v.free_base_balance(&btc_usdt()).await, Ok(bd("0.5")), "free, never free + locked");
+    let no_catalog = || -> Result<deltabadger::sync::balances::Catalog, VenueError> { panic!("Binance names assets by code") };
+    assert_eq!(v.settled_quote_balance(&btc_usdt(), no_catalog).await, Ok(bd("12")), "the quote's own row");
     let (_, v) = venue(json!({ "GET /api/v3/account": ok(json!({ "balances": [{ "asset": "USDT", "free": "12", "locked": "0" }] })) }));
     assert_eq!(v.free_base_balance(&btc_usdt()).await, Ok(BigDec::zero()), "absent is no holdings");
     let (_, v) = venue(json!({ "GET /api/v3/account": ok(json!({ "balances": [{ "asset": "BTC", "free": "garbage", "locked": "0" }] })) }));

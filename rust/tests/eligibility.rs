@@ -40,6 +40,19 @@ fn a_one_asset_seller_with_sells_in_its_history_is_eligible_on_kraken_and_binanc
     }
 }
 
+/// 6a Alpaca: its free base is qty_available through the position identity, so a one-asset seller runs there too.
+#[test]
+fn a_one_asset_seller_with_sells_in_its_history_is_eligible_on_alpaca() {
+    let (_d, o, s) = common::install_alpaca();
+    let id = seed::insert_bot(&o.primary, &s, &plain().with("direction", json!("selling")).with("sell_denomination", json!("base")).with("sell_amount", json!(0.001)));
+    seed::insert_tx(&o.primary, &s, id, &closed("2026-09-02 10:00:00"));
+    let sold = seed::insert_tx(&o.primary, &s, id, &closed("2026-09-03 10:00:00"));
+    o.primary.execute("UPDATE transactions SET side = 1, amount = '0.0005', amount_exec = '0.0005', quote_amount = '30', quote_amount_exec = '30', price = '60000' WHERE id = ?1", [sold]).unwrap();
+    let r = eligibility::check_install(&o.primary).unwrap();
+    assert!(r.problems.is_empty(), "{:?}", r.problems);
+    assert_eq!(r.eligible, vec![id]);
+}
+
 type Make = Box<dyn Fn(&rusqlite::Connection, &seed::Seeded) -> i64>;
 
 #[test]
@@ -244,7 +257,7 @@ fn malformed_asset_categories_incomplete_indices_and_other_quotes_are_refused() 
         ("instrument tokenized", Box::new(|c, s| { c.execute("UPDATE assets SET instrument_type = 'tokenized' WHERE id = ?1", [s.btc]).unwrap(); seed::insert_bot(c, s, &plain()) })),
         ("no ticker for the asset", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("allocations", json!({ s.btc.to_string(): 0.5, s.quote.to_string(): 0.5 }))))),
         ("index_category_id missing", Box::new(|c, s| { let id = seed::insert_bot(c, s, &plain()); c.execute("UPDATE bots SET type = 'Bots::DcaIndex' WHERE id = ?1", [id]).unwrap(); id })),
-        ("selling on Alpaca", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("direction", json!("selling"))))),
+        ("selling with 2 assets", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("direction", json!("selling")).with("allocations", json!({ s.btc.to_string(): 0.5, s.quote.to_string(): 0.5 }))))),
         ("quote USDT (Alpaca: only USD)", Box::new(|c, s| { c.execute("UPDATE assets SET symbol = 'USDT' WHERE id = ?1", [s.quote]).unwrap(); seed::insert_bot(c, s, &plain()) })),
     ];
     for (reason, make) in cases {
