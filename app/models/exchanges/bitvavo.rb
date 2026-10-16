@@ -295,11 +295,13 @@ class Exchanges::Bitvavo < Exchange
   end
 
   # Decided by Bitvavo's documented errorCodes (https://docs.bitvavo.com/docs/errors/), read from the
-  # error body. The trading probe cancels an order that does not exist: 240 "no order found" means the
-  # key got past the permission check; 310 means it lacks Trade. Everything else — a timeout, a rate
-  # limit, an outage, an unknown code — leaves the key unverified (all of these used to pass).
+  # error body. Every key reads the balance, which needs View. A trading or tracker key then cancels
+  # an order that does not exist: 240 "no order found" means the key got past the permission check,
+  # 310 means it lacks Trade. The steps ask for both, and Bitvavo serves orders and trades only to a
+  # key with both (https://docs.bitvavo.com/docs/rest-api/introduction/#permissions). Everything
+  # else — a timeout, a rate limit, an outage, an unknown code — leaves the key unverified.
   KEY_CHECK_ORDER_NOT_FOUND = 240
-  KEY_CHECK_NO_TRADE = 310
+  KEY_CHECK_REFUSED = [310, 311].freeze # no Trade, no View
 
   def get_api_key_validity(api_key:)
     temp_client = Honeymaker.client('bitvavo',
@@ -307,21 +309,22 @@ class Exchanges::Bitvavo < Exchange
                                     api_secret: api_key.secret,
                                     proxy: ExchangeProxy.for('bitvavo'))
 
-    result = if api_key.withdrawal?
-               temp_client.get_raw_balance
-             else
-               temp_client.cancel_order(market: 'BTC-EUR', order_id: '00000000-0000-0000-0000-000000000000')
-             end
+    probes = [-> { temp_client.get_raw_balance }]
+    probes << -> { temp_client.cancel_order(market: 'BTC-EUR', order_id: '00000000-0000-0000-0000-000000000000') } unless api_key.withdrawal?
+    probes.each do |probe|
+      result = probe.call
+      code = response_field(result, 'errorCode')
+      next if (result.success? && code.nil?) || code == KEY_CHECK_ORDER_NOT_FOUND
+      return Result::Success.new(false) if KEY_CHECK_REFUSED.include?(code) || condemning_invalid_key_error?(result.errors)
 
-    code = response_field(result, 'errorCode')
-    return Result::Success.new(true) if result.success? && code.nil?
+      return result.failure? ? result : Result::Failure.new(response_field(result, 'error').presence || "Bitvavo answered errorCode #{code}")
+    end
+    Result::Success.new(true)
+  end
 
-    message = response_field(result, 'error').to_s.presence || result.errors.first.to_s
-    return Result::Success.new(true) if !api_key.withdrawal? && code == KEY_CHECK_ORDER_NOT_FOUND
-    return Result::Success.new(false) if code == KEY_CHECK_NO_TRADE && !api_key.withdrawal?
-    return Result::Success.new(false) if ERRORS[:invalid_key].any? { |msg| message.include?(msg) }
-
-    result.failure? ? result : Result::Failure.new(message.presence || "Bitvavo answered errorCode #{code}")
+  # A tracker key is checked like a trading one: the ledger reads trades, which need Trade too.
+  def get_read_api_key_validity(api_key:)
+    get_api_key_validity(api_key: api_key)
   end
 
   def minimum_amount_logic(order_type:, **)
