@@ -751,6 +751,27 @@ class Exchanges::HyperliquidTest < ActiveSupport::TestCase
     assert_equal (1..2002).map(&:to_s), result.data.map { |e| e[:tx_id] }
   end
 
+  test 'get_ledger keeps spot fills only, on their own quote, with the fee in its own token' do
+    connection = create(:api_key, exchange: @exchange, raw_key: VALID_WALLET, raw_secret: VALID_AGENT_KEY)
+    usdh = create(:asset, external_id: 'usdh', symbol: 'USDH', name: 'USDH')
+    hype = create(:asset, external_id: 'hype', symbol: 'HYPE', name: 'Hype')
+    create(:ticker, exchange: @exchange, base_asset: hype, quote_asset: usdh, ticker: '@230', base: 'HYPE', quote: 'USDH')
+    perp = { 'coin' => 'BTC', 'side' => 'B', 'px' => '60000', 'sz' => '0.1', 'fee' => '1.2', 'feeToken' => 'USDC',
+             'dir' => 'Open Long', 'oid' => 1, 'tid' => 1, 'time' => 1_000 }
+    hip3 = perp.merge('coin' => 'xyz:TSLA', 'tid' => 2)
+    buy = hl_fill(3, 2_000, coin: '@230').merge('fee' => '0.0007')
+    rebate = hl_fill(4, 3_000, coin: '@230').merge('side' => 'A', 'dir' => 'Sell', 'fee' => '-0.0005', 'feeToken' => 'USDH')
+    Honeymaker::Clients::Hyperliquid.any_instance.stubs(:user_fills_by_time)
+                                    .returns(Result::Success.new([perp, hip3, buy, rebate]))
+
+    entries = @exchange.get_ledger(api_key: connection).data
+
+    assert_equal %w[3 4], entries.map { |e| e[:tx_id] }
+    assert_equal %w[USDH USDH], entries.map { |e| e[:quote_currency] }
+    assert_equal ['HYPE', BigDecimal('0.0007')], entries.first.values_at(:fee_currency, :fee_amount)
+    assert_nil entries.second[:fee_amount]
+  end
+
   test 'get_ledger fails the fetch when a fills read fails' do
     connection = create(:api_key, exchange: @exchange, raw_key: VALID_WALLET, raw_secret: VALID_AGENT_KEY)
     Honeymaker::Clients::Hyperliquid.any_instance.stubs(:user_fills_by_time).returns(Result::Failure.new('execution expired'))
