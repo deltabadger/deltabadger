@@ -200,6 +200,14 @@ class Import::BinanceCsvTest < ActiveSupport::TestCase
     assert_nil Import::BinanceCsv.offset_from('renamed-by-the-user.csv')
   end
 
+  test 'an older export with a UTC_Time column is read in UTC, whatever offset was passed' do
+    text = ['User_ID,UTC_Time,Account,Operation,Coin,Change,Remark', '1,2021-07-01 03:42:38,Spot,Deposit,USDT,150,'].join("\n")
+
+    assert_equal Time.utc(2021, 7, 1, 3, 42, 38), Import::BinanceCsv.new(text, offset: '+03:00').entries.sole[:transacted_at]
+    assert_equal '+00:00', Import::BinanceCsv.offset_from('renamed.csv', text)
+    assert_nil Import::BinanceCsv.offset_from('renamed.csv', [HEADER, '1,2021-07-01 03:42:38,Spot,Deposit,USDT,150,'].join("\n"))
+  end
+
   # "-0:30" read as an integer hour is +0, and the offset flipped; a minute past 59 is no zone at all.
   test 'a minutes-only negative offset keeps its sign, and minutes past 59 are no zone' do
     assert_equal '-00:30', Import::BinanceCsv.offset_from('x(UTC-0:30).csv')

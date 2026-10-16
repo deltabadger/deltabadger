@@ -63,6 +63,10 @@ class Import::BinanceCsv
   # still override it.
   FILENAME_OFFSET = /\(UTC([+-])(\d{1,2})(?::([0-5]\d))?\)/
 
+  # Older exports name the time column `UTC_Time` and write it in UTC, with no zone in the filename.
+  # The header IS the zone there, so such a file needs no name to read it by.
+  UTC_TIME = 'UTC_Time'.freeze
+
   attr_reader :unrecognised
 
   # Where a file in this format can possibly have come from. Binance.US subclasses Exchanges::Binance
@@ -74,7 +78,9 @@ class Import::BinanceCsv
   # The rows state a wall clock and no zone. Without one, every timestamp is a guess.
   def self.requires_offset? = true
 
-  def self.offset_from(filename)
+  def self.offset_from(filename, text = nil)
+    return '+00:00' if utc_header?(text)
+
     match = FILENAME_OFFSET.match(filename.to_s)
     return nil unless match
 
@@ -83,6 +89,12 @@ class Import::BinanceCsv
     minutes = match[3].to_i
     sign = hours.zero? && minutes.zero? ? '+' : match[1]
     format('%<sign>s%<hours>02d:%<minutes>02d', sign: sign, hours: hours, minutes: minutes)
+  end
+
+  def self.utc_header?(text)
+    Array(CSV.parse_line(Import::Run.as_text(text))).include?(UTC_TIME)
+  rescue CSV::MalformedCSVError
+    false
   end
 
   def initialize(text, offset: '+00:00')
@@ -106,7 +118,9 @@ class Import::BinanceCsv
   private
 
   def parse_rows
-    CSV.parse(@text, headers: true).filter_map do |row|
+    table = CSV.parse(@text, headers: true)
+    utc = table.headers.include?(UTC_TIME)
+    table.filter_map do |row|
       operation = row['Operation'].to_s.strip
       next if operation.blank?
 
@@ -118,13 +132,13 @@ class Import::BinanceCsv
       next if kind.nil? # a deliberate skip, not an unknown
 
       { kind: kind, operation: operation, coin: row['Coin'].to_s.strip,
-        change: Import::Run.amount(row['Change']), at: parse_time(row['Time']), account: row['Account'].to_s.strip,
+        change: Import::Run.amount(row['Change']), at: parse_time(utc ? row[UTC_TIME] : row['Time'], utc), account: row['Account'].to_s.strip,
         remark: row['Remark'].to_s.strip }
     end
   end
 
-  def parse_time(value)
-    Import::Run.time(value, @offset)
+  def parse_time(value, utc)
+    Import::Run.time(value, utc ? '+00:00' : @offset)
   end
 
   # An operation NAME does not say which way an asset moved; the `Change` column does. Binance takes

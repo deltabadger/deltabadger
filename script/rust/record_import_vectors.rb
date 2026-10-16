@@ -41,7 +41,7 @@ end
 record = lambda do |name, format, bytes, filename|
   bytes = bytes.b
   reader_class = Import::Run.reader_for(format)
-  offset = reader_class.requires_offset? ? Import::BinanceCsv.offset_from(filename) : nil
+  offset = reader_class.requires_offset? ? Import::BinanceCsv.offset_from(filename, bytes) : nil
   text = Import::Run.as_text(bytes)
   out = { 'name' => name, 'format' => format, 'filename' => filename, 'bytes' => Base64.strict_encode64(bytes),
           'offset' => offset, 'text' => text, 'entries' => [], 'unrecognised' => [], 'error' => nil }
@@ -182,6 +182,10 @@ binance = [
   bin.('zone_utc_plus_3_99', [row.(t0, 'Deposit', 'USDT', '1')], filename: 'export(UTC+3:99).csv'),
   bin.('zone_utc_minus_0_30', [row.(t0, 'Deposit', 'USDT', '1')], filename: 'export(UTC-0:30).csv'),
   bin.('zone_none', [row.(t0, 'Deposit', 'USDT', '1')], filename: 'Binance-Transaction-History.csv'),
+  # Older exports: the column is UTC_Time, the clock is UTC, and the name need carry no zone.
+  ['utc_time_header_no_zone_in_name', 'binance', "User_ID,UTC_Time,Account,Operation,Coin,Change,Remark\n1,#{t0},Spot,Deposit,USDT,1,\n", 'renamed.csv'],
+  ['utc_time_header_beats_name_zone', 'binance', "User_ID,UTC_Time,Account,Operation,Coin,Change,Remark\n1,#{t0},Spot,Deposit,USDT,1,\n", UTC3],
+  ['utc_time_header_with_bom', 'binance', BOM + "User_ID,UTC_Time,Account,Operation,Coin,Change,Remark\n1,#{t0},Spot,Deposit,USDT,1,\n".b, 'renamed.csv'],
   # ---- the time column ----
   bin.('time_fractional_seconds', [row.('2024-03-01 10:00:00.123456789', 'Deposit', 'USDT', '1')], filename: UTC3),
   bin.('time_two_digit_year', [row.('24-03-01 10:00:00', 'Deposit', 'USDT', '1')], filename: UTC3),
