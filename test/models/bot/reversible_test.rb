@@ -387,6 +387,19 @@ class Bot::ReversibleTest < ActiveSupport::TestCase
 
   # The poll Transaction#cancel enqueues can finish the order before the flip registers it: its callback
   # finds nothing registered, and an identical re-poll changes nothing to fire on.
+  # A fresh start drops the carry; a reserve still waiting for its buy's final state is dropped with it.
+  test 'a fresh start discards a reserve still waiting, so its final poll credits nothing' do
+    bot, order = flip_with_partial_buy(->(stub) { stub.returns(Result::Success.new({ status: :open, amount_exec: 0.2, quote_amount_exec: 20 })) })
+    assert_equal [order.id], bot.reload.transient_data[Bot::Reversible::FLIP_RESERVE_PENDING]
+
+    bot.update!(status: :stopped)
+    bot.start(start_fresh: true)
+    assert_nil bot.reload.transient_data[Bot::Reversible::FLIP_RESERVE_PENDING]
+
+    final_poll(order, :cancelled, 0.3, 30)
+    assert_equal 0, bot.reload.missed_quote_amount.to_d, 'the discarded reserve is not credited back'
+  end
+
   test 'a final poll landing before the flip registers the buy still credits it, once' do
     bot = create(:dca_single_asset, :started)
     order = create(:transaction, bot: bot, side: :buy, status: :submitted, external_status: :open, external_id: 'b1',

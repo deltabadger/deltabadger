@@ -229,6 +229,13 @@ module Bot::Reversible
   # them. A poll that finished one in the meantime found nothing registered and credited nothing, so
   # each is read back here and settled if it is already final. One write transaction: a poll's save
   # lands wholly before it (the row reads final here) or wholly after (its callback finds the id).
+  # A fresh start discards the carry, and with it any reserve a flip left waiting for its buy's final
+  # state: crediting it later would put back spending the fresh start dropped.
+  def discard_flip_reserves
+    data = transient_data.to_h
+    self.transient_data = data.except(FLIP_RESERVE_PENDING) if data.key?(FLIP_RESERVE_PENDING)
+  end
+
   def register_flip_reserves!(order_ids)
     return if order_ids.empty?
 

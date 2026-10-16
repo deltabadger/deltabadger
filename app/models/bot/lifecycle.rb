@@ -27,11 +27,13 @@ module Bot::Lifecycle
       self.started_at = computed_start_at
       self.last_action_job_at = nil
       self.missed_quote_amount = nil
+      discard_flip_reserves
       set_missed_quote_amount # settings changed → Accountable requires this before save
     elsif start_fresh
       self.started_at = Time.current
       self.last_action_job_at = nil
       self.missed_quote_amount = nil
+      discard_flip_reserves
     end
 
     # Skip the automatic status bar broadcast if we're scheduling a delayed job,
