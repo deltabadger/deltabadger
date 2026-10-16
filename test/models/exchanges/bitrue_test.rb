@@ -433,8 +433,17 @@ class Exchanges::BitrueTest < ActiveSupport::TestCase
     assert_predicate ledger_with(fake), :failure?
 
     fake.define_singleton_method(:get_signed) do |_path, _params|
-      Result::Failure.new('{"code":-1022,"msg":"You are not authorized to execute this request."}', data: { status: 401 })
+      Result::Failure.new('{"code":-1022,"msg":"You don\'t have permission."}', data: { status: 401 })
     end
     assert_predicate @exchange.get_ledger(api_key: ApiKey.last, start_time: nil), :success?
+  end
+
+  test 'get_ledger fails the fetch when a transfer read is refused for the key itself' do
+    # A rejected key is not a missing scope: swallowing it would advance the watermark past unread transfers.
+    fake = FakeLedger.new(balances: { 'usdt' => '100' })
+    fake.define_singleton_method(:get_signed) do |_path, _params|
+      Result::Failure.new('{"code":-1022,"msg":"No login"}', data: { status: 401 })
+    end
+    assert_predicate ledger_with(fake), :failure?
   end
 end
