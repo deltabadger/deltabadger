@@ -5,6 +5,7 @@ class Exchanges::Gemini < Exchange
   # hundred in all, against a public limit of 120 a minute. One a second is Gemini's own
   # recommendation, and leaves room for the app's other public requests.
   CATALOGUE_REQUEST_INTERVAL = 1
+  TRADES_PAGE = 500 # /v1/mytrades limit_trades maximum
 
   COINGECKO_ID = 'gemini'.freeze # https://docs.coingecko.com/reference/exchanges-list
   # Reasons from https://developer.gemini.com/error-codes, matched inside the error body
@@ -405,21 +406,23 @@ class Exchanges::Gemini < Exchange
     ts_ms = start_time ? (start_time.to_f * 1000).to_i : nil
     entries = []
 
-    # Trades
-    result = hm_client.get_my_trades(timestamp: ts_ms)
-    unless result.failure?
-      Array(result.data).each do |trade|
-        base, quote = ledger_pair(trade['symbol'])
-        is_buyer = trade['type'] == 'Buy'
-        entries << { entry_type: is_buyer ? :buy : :sell,
-                     base_currency: base, base_amount: trade['amount'].to_d,
-                     quote_currency: quote, quote_amount: trade['price'].to_d * trade['amount'].to_d,
-                     fee_currency: trade['fee_currency']&.upcase || quote,
-                     fee_amount: trade['fee_amount'].to_d,
-                     tx_id: trade['tid'].to_s, group_id: nil, description: nil,
-                     transacted_at: Time.at(trade['timestampms'].to_i / 1000.0).utc, raw_data: trade }
-      end
+    # Every trade from start_time (or the account's first, on a first sync), walked forward as
+    # Gemini documents: 500 a page, the next page from the newest timestampms + 1
+    # (https://developer.gemini.com/trading/rest-api/orders/list-past-trades). A failed read fails
+    # the fetch: a partial Success would move the sync's watermark past trades it never got.
+    fetch = ->(from_ms) { hm_client.get_my_trades(timestamp: from_ms, limit_trades: TRADES_PAGE) }
+    failed = each_ledger_row(fetch, TRADES_PAGE, ts_ms || 0) do |trade|
+      base, quote = ledger_pair(trade['symbol'])
+      is_buyer = trade['type'] == 'Buy'
+      entries << { entry_type: is_buyer ? :buy : :sell,
+                   base_currency: base, base_amount: trade['amount'].to_d,
+                   quote_currency: quote, quote_amount: trade['price'].to_d * trade['amount'].to_d,
+                   fee_currency: trade['fee_currency']&.upcase || quote,
+                   fee_amount: trade['fee_amount'].to_d,
+                   tx_id: trade['tid'].to_s, group_id: nil, description: nil,
+                   transacted_at: Time.at(trade['timestampms'].to_i / 1000.0).utc, raw_data: trade }
     end
+    return failed if failed
 
     # Transfers (deposits + withdrawals)
     result = hm_client.get_transfers(timestamp: ts_ms)
@@ -443,6 +446,24 @@ class Exchanges::Gemini < Exchange
   end
 
   private
+
+  # Yields every row of a ledger list read forward by timestamp, page after page, until a short page.
+  # Returns the failure that stopped it, or nil.
+  # ponytail: a full page whose rows all share one millisecond skips the rest of that millisecond;
+  # page by tid if a DCA account ever gets there.
+  def each_ledger_row(fetch, limit, from_ms, pause: 0, &)
+    loop do
+      result = fetch.call(from_ms)
+      return result if result.failure?
+      return Result::Failure.new("#{name} answered a ledger read with #{result.data.class}") unless result.data.is_a?(Array)
+
+      result.data.each(&)
+      return nil if result.data.size < limit
+
+      from_ms = result.data.map { |row| row['timestampms'].to_i }.max + 1
+      sleep(pause) if pause.positive?
+    end
+  end
 
   # A trade's symbol ("BTCUSD", "DOGEUSD", "ETHGUSD") has no separator, so the pair comes from the
   # catalogue. A pair no longer listed is split at the longest quote the catalogue knows.

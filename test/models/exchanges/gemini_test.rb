@@ -449,6 +449,34 @@ class Exchanges::GeminiTest < ActiveSupport::TestCase
     assert_equal([%w[DOGE USD], %w[ETH GUSD], %w[LINK GUSD]], entries.map { |e| [e[:base_currency], e[:quote_currency]] })
   end
 
+  # One request without a limit returned Gemini's default 50 trades, the newest on a first sync,
+  # and a failed read still returned Success, so the sync moved past trades it never read.
+  test 'get_ledger walks every page of trades forward from start_time, 500 at a time' do
+    page = (1..500).map { |tid| gemini_trade(tid) }.reverse # newest first, as Gemini sorts
+    calls = stub_ledger(trades: [page, [gemini_trade(501)]])
+
+    entries = @exchange.get_ledger(api_key: ledger_key, start_time: Time.at(1_547_232_000).utc).data
+
+    assert_equal 501, entries.size
+    assert_equal [{ timestamp: 1_547_232_000_000, limit_trades: 500 }, { timestamp: 1_547_232_911_521 + 1, limit_trades: 500 }],
+                 calls[:trades]
+  end
+
+  test 'get_ledger reads trades from the first one on a first sync' do
+    calls = stub_ledger(trades: [[gemini_trade(1)]])
+
+    @exchange.get_ledger(api_key: ledger_key)
+
+    assert_equal [{ timestamp: 0, limit_trades: 500 }], calls[:trades]
+  end
+
+  test 'get_ledger fails when a trades page fails' do
+    rate_limited = Result::Failure.new('{"result":"error","reason":"RateLimit","message":"x"}', data: { status: 429 })
+    stub_ledger(trades: [(1..500).map { |tid| gemini_trade(tid) }, rate_limited])
+
+    assert_predicate @exchange.get_ledger(api_key: ledger_key), :failure?
+  end
+
   private
 
   def ledger_key
