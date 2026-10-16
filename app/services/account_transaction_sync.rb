@@ -72,6 +72,7 @@ class AccountTransactionSync
       # A row its id already names is not one of the identical rows `same_event?` counts.
       @repeat = known_id?(tx_id) ? 0 : (repeats[event_key(entry)] += 1) - 1
       if duplicate?(entry, tx_id)
+        adopt_lone_convert_leg!(entry)
         duplicates += 1
         next
       end
@@ -709,6 +710,20 @@ class AccountTransactionSync
             same_events(entry, rows.where("json_extract(raw_data, '$.entry_id') IS NULL")).first
       row&.update_columns(tx_id:)
     end
+  end
+
+  # A Convert half the file held alone was stored ungrouped. When its partner arrives in a group (a
+  # complete export, or the API's pair), the stored half is the duplicate skipped above, and left
+  # ungrouped the ledger reads both halves as orphans. It joins the incoming group instead, touched
+  # so the tracker's cache moves.
+  LONE_CONVERT = 'Binance Convert'.freeze
+
+  def adopt_lone_convert_leg!(entry)
+    return unless entry[:group_id].present? && %w[swap_in swap_out].include?(entry[:entry_type].to_s) && entry[:transacted_at]
+
+    lone = same_events(entry, scope.where(group_id: nil))
+           .where("json_extract(raw_data, '$.operation') = ?", LONE_CONVERT).first
+    lone&.update_columns(group_id: entry[:group_id], updated_at: Time.current)
   end
 
   def scope
