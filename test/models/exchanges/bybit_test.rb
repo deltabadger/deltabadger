@@ -23,6 +23,17 @@ class Exchanges::BybitTest < ActiveSupport::TestCase
     assert_not_includes errors[:invalid_key], '10003'
   end
 
+  # Bybit's own answers, live with a bogus key and from https://bybit-exchange.github.io/docs/v5/error.
+  test 'classifies the errors Bybit actually returns' do
+    assert @exchange.invalid_key_error?(['API key is invalid.'])
+    assert @exchange.permission_error?(['Permission denied, please check your API key permissions.'])
+    assert_not @exchange.invalid_key_error?(['Permission denied, please check your API key permissions.'])
+
+    clock = ['Timestamp for this request is outside of the recvWindow.']
+    assert @exchange.transient_error?(clock)
+    assert_not @exchange.ambiguous_placement_error?(Result::Failure.new(*clock))
+  end
+
   test 'minimum_amount_logic returns base_or_quote for market orders' do
     assert_equal :base_or_quote, @exchange.minimum_amount_logic(order_type: :market_order)
   end
@@ -150,6 +161,135 @@ class Exchanges::BybitTest < ActiveSupport::TestCase
     assert_empty parsed[:error_messages]
   end
 
+  # == order lookup ==
+  # /v5/order/realtime keeps only recent closed orders; older ones are in /v5/order/history.
+
+  def bybit_order_row(order_id, status: 'Filled')
+    { 'orderId' => order_id, 'symbol' => 'BTCUSDT', 'side' => 'Buy', 'orderType' => 'Market', 'price' => '0',
+      'qty' => '0.001', 'avgPrice' => '60000', 'cumExecQty' => '0.001', 'cumExecValue' => '60',
+      'orderStatus' => status, 'rejectReason' => 'EC_NoError' }
+  end
+
+  # Order history the way Bybit serves it: one order id, inside an explicit window of at most 7 days,
+  # or the last 7 days when no window is given (https://bybit-exchange.github.io/docs/v5/order/order-list).
+  # `history` maps an id to [row, the time the order was placed]; `placed` records our own transaction.
+  def stub_order_lookup(realtime: {}, history: {}, placed: {})
+    create(:ticker, exchange: @exchange, base_symbol: 'BTC', quote_symbol: 'USDT', ticker: 'BTCUSDT')
+    bot = create(:dca_single_asset, exchange: @exchange, with_api_key: false) if placed.any?
+    placed.each { |id, at| create(:transaction, bot: bot, exchange: @exchange, external_id: id, created_at: at) }
+    client = @exchange.send(:client)
+    client.stubs(:get_order).returns(Result::Failure.new('Order not found'))
+    realtime.each do |id, row|
+      client.stubs(:get_order).with(category: 'spot', order_id: id).returns(Result::Success.new(raw: row))
+    end
+    client.define_singleton_method(:get_authenticated) do |path, params|
+      raise "unexpected #{path}" unless path == '/v5/order/history'
+
+      to = params[:endTime] || (Time.now.to_f * 1000).to_i
+      from = params[:startTime] || (to - (7.days.to_i * 1000))
+      raise 'window over 7 days' if to - from > 7.days.to_i * 1000
+
+      row, at = history[params[:orderId]]
+      hit = row && (from..to).cover?((at.to_f * 1000).to_i)
+      Result::Success.new({ 'retCode' => 0, 'result' => { 'list' => hit ? [row] : [] } })
+    end
+    client
+  end
+
+  test 'get_order reads an order gone from realtime out of order history' do
+    stub_order_lookup(history: { '111' => [bybit_order_row('111'), 2.days.ago] }, placed: { '111' => 2.days.ago })
+
+    result = with_dry_run(false) { @exchange.get_order(order_id: '111') }
+
+    assert_predicate result, :success?
+    assert_equal :closed, result.data[:status]
+  end
+
+  # History answers only the last 7 days unless asked for a window; an older filled order read as gone
+  # would be abandoned with its fills unread.
+  test 'get_order finds a filled order placed 10 days ago in the window of its placement' do
+    stub_order_lookup(history: { '111' => [bybit_order_row('111'), 10.days.ago] }, placed: { '111' => 10.days.ago })
+
+    result = with_dry_run(false) { @exchange.get_order(order_id: '111') }
+
+    assert_predicate result, :success?
+    assert_equal :closed, result.data[:status]
+  end
+
+  test 'get_orders lists an order neither endpoint knows as missing and keeps the rest' do
+    stub_order_lookup(realtime: { '222' => bybit_order_row('222', status: 'New') }, placed: { '111' => 3.days.ago })
+
+    result = with_dry_run(false) { @exchange.get_orders(order_ids: %w[111 222]) }
+
+    assert_predicate result, :success?
+    assert_equal ['111'], result.data[:missing]
+    assert_equal :open, result.data[:orders]['222'][:status]
+  end
+
+  test 'get_order flags an order neither endpoint knows as not found' do
+    stub_order_lookup(placed: { '111' => 3.days.ago })
+
+    result = with_dry_run(false) { @exchange.get_order(order_id: '111') }
+
+    assert_predicate result, :failure?
+    assert result.data[:not_found]
+  end
+
+  test 'an order with no known placement time is never reported missing' do
+    stub_order_lookup
+
+    result = with_dry_run(false) { @exchange.get_orders(order_ids: %w[111]) }
+
+    assert_predicate result, :failure?
+    assert_not(result.data.is_a?(Hash) && result.data[:not_found])
+  end
+
+  test 'cancel_order finds the symbol of an order only history knows' do
+    client = stub_order_lookup(history: { '111' => [bybit_order_row('111', status: 'New'), 1.day.ago] },
+                               placed: { '111' => 1.day.ago })
+    client.expects(:cancel_order).with(category: 'spot', symbol: 'BTCUSDT', order_id: '111')
+          .returns(Result::Success.new({ 'retCode' => 0 }))
+
+    assert_predicate with_dry_run(false) { @exchange.cancel_order(order_id: '111') }, :success?
+  end
+
+  # == get_balances ==
+  # availableToWithdraw is deprecated for unified accounts and comes back blank, which read as 0.
+
+  def stub_bybit_wallet(coin)
+    ticker = create(:ticker, exchange: @exchange, base_symbol: 'BTC', quote_symbol: 'USDT', ticker: 'BTCUSDT')
+    @exchange.send(:client).stubs(:wallet_balance).returns(
+      Result::Success.new({ 'retCode' => 0, 'result' => { 'list' => [{ 'coin' => [coin.merge('coin' => 'BTC')] }] } })
+    )
+    ticker.base_asset
+  end
+
+  test 'get_balances reads free as wallet balance less locked and borrowed' do
+    btc = stub_bybit_wallet('walletBalance' => '1.5', 'locked' => '0.5', 'spotBorrow' => '0.2',
+                            'availableToWithdraw' => '', 'free' => '')
+
+    result = with_dry_run(false) { @exchange.get_balances(asset_ids: [btc.id]) }
+
+    assert_predicate result, :success?
+    assert_equal({ free: BigDecimal('0.8'), locked: BigDecimal('0.5') }, result.data[btc.id])
+  end
+
+  test 'get_balances never reads free below zero' do
+    btc = stub_bybit_wallet('walletBalance' => '0.1', 'locked' => '0.1', 'spotBorrow' => '0.2')
+
+    result = with_dry_run(false) { @exchange.get_balances(asset_ids: [btc.id]) }
+
+    assert_equal 0, result.data[btc.id][:free]
+  end
+
+  test 'get_balances falls back to the legacy field when walletBalance is missing' do
+    btc = stub_bybit_wallet('availableToWithdraw' => '2', 'locked' => '0')
+
+    result = with_dry_run(false) { @exchange.get_balances(asset_ids: [btc.id]) }
+
+    assert_equal BigDecimal('2'), result.data[btc.id][:free]
+  end
+
   # == get_ledger ==
   # A partial Success lets AccountTransactionSync move its watermark past the rows it never got.
 
@@ -160,6 +300,7 @@ class Exchanges::BybitTest < ActiveSupport::TestCase
     hm_client.stubs(:execution_list).returns(empty)
     hm_client.stubs(:deposit_records).returns(empty)
     hm_client.stubs(:withdraw_records).returns(empty)
+    hm_client.stubs(:get_authenticated).returns(empty)
     hm_client
   end
 
@@ -194,6 +335,7 @@ class Exchanges::BybitTest < ActiveSupport::TestCase
   # let the watermark pass trades the sync never got.
   test 'get_ledger fails when a read is throttled inside a 200 envelope' do
     hm_client = stub_bybit_ledger_client
+    @exchange.stubs(:sleep)
     hm_client.stubs(:execution_list).with(has_entry(category: 'spot')).returns(
       Result::Success.new({ 'retCode' => 10_006, 'retMsg' => 'Too many visits. Exceeded the API Rate Limit.' })
     )
@@ -204,23 +346,94 @@ class Exchanges::BybitTest < ActiveSupport::TestCase
     assert_match 'Too many visits', result.errors.first
   end
 
-  test 'get_ledger fails when futures history is throttled' do
+  # A linear perpetual fill is a leveraged position, not a spot holding: booked as a trade it posted
+  # the full notional and an asset called "BTCUSDT".
+  test 'get_ledger never reads linear futures fills' do
     hm_client = stub_bybit_ledger_client
-    hm_client.stubs(:execution_list).with(has_entry(category: 'linear')).returns(
-      Result::Success.new({ 'retCode' => 10_006, 'retMsg' => 'Too many visits. Exceeded the API Rate Limit.' })
-    )
+    fill = { 'symbol' => 'BTCUSDT', 'side' => 'Buy', 'execQty' => '1', 'execValue' => '60000', 'execFee' => '0',
+             'feeCurrency' => 'USDT', 'execId' => 'perp-1', 'execTime' => 1.hour.ago.to_i * 1000, 'execType' => 'Trade' }
+    hm_client.stubs(:execution_list).with(has_entry(category: 'linear'))
+             .returns(Result::Success.new({ 'retCode' => 0, 'result' => { 'list' => [fill] } }))
 
-    assert_predicate @exchange.get_ledger(api_key: create(:api_key, exchange: @exchange), start_time: 1.day.ago), :failure?
+    result = @exchange.get_ledger(api_key: create(:api_key, exchange: @exchange), start_time: 1.day.ago)
+
+    assert_predicate result, :success?
+    assert_empty result.data
   end
 
-  # The setup asks for a Spot - Trade key without Derivatives, so futures history is denied.
-  test 'get_ledger reads a denied futures history as empty' do
+  # The execution list serves 7 days from startTime, so one request from an old start never reached
+  # today, and a first sync saw nothing before the last week.
+  test 'get_ledger walks weekly windows from two years back to now on a first sync' do
     hm_client = stub_bybit_ledger_client
-    hm_client.stubs(:execution_list).with(has_entry(category: 'linear')).returns(
-      Result::Success.new({ 'retCode' => 10_005, 'retMsg' => 'Permission denied, please check your API key permissions.' })
-    )
+    windows = []
+    hm_client.stubs(:execution_list).with do |args|
+      windows << [args[:start_time], args[:end_time]]
+      true
+    end.returns(Result::Success.new({ 'retCode' => 0, 'result' => { 'list' => [] } }))
+
+    assert_predicate @exchange.get_ledger(api_key: create(:api_key, exchange: @exchange)), :success?
+
+    to_ms = ->(time) { (time.to_f * 1000).to_i }
+    assert_in_delta to_ms.call(729.days.ago), windows.first[0], 60_000
+    assert_in_delta to_ms.call(Time.now), windows.last[1], 60_000
+    assert(windows.all? { |from, to| to - from <= 7.days.to_i * 1000 })
+    assert(windows.each_cons(2).all? { |(_, to), (from, _)| from == to }, 'windows must leave no gap')
+  end
+
+  test 'get_ledger reads a fill older than a week after its start' do
+    hm_client = stub_bybit_ledger_client
+    fill = { 'symbol' => 'BTCUSDT', 'side' => 'Buy', 'execQty' => '0.001', 'execValue' => '60', 'execFee' => '0',
+             'feeCurrency' => 'BTC', 'execId' => 'e-1', 'execTime' => (20.days.ago.to_f * 1000).to_i.to_s }
+    hm_client.stubs(:execution_list).with do |args|
+      args[:start_time] <= fill['execTime'].to_i && fill['execTime'].to_i <= args[:end_time]
+    end.returns(Result::Success.new({ 'retCode' => 0, 'result' => { 'list' => [fill] } }))
+
+    result = @exchange.get_ledger(api_key: create(:api_key, exchange: @exchange), start_time: 30.days.ago)
+
+    assert_equal(['e-1'], result.data.map { |e| e[:tx_id] })
+  end
+
+  test 'get_ledger waits out a throttled page and asks again' do
+    hm_client = stub_bybit_ledger_client
+    @exchange.expects(:sleep).once
+    throttled = Result::Success.new({ 'retCode' => 10_006, 'retMsg' => 'Too many visits. Exceeded the API Rate Limit.' })
+    empty = Result::Success.new({ 'retCode' => 0, 'result' => { 'list' => [] } })
+    hm_client.stubs(:execution_list).returns(throttled).then.returns(empty)
 
     assert_predicate @exchange.get_ledger(api_key: create(:api_key, exchange: @exchange), start_time: 1.day.ago), :success?
+  end
+
+  test 'ledger_window is nil, since get_ledger walks its own windows to now' do
+    assert_nil @exchange.ledger_window
+  end
+
+  test 'get_ledger reads internal deposits, rollback-reviewed deposits and off-chain withdrawals' do
+    hm_client = stub_bybit_ledger_client
+    now_ms = (1.day.ago.to_f * 1000).to_i
+    page = ->(rows, cursor = '') { Result::Success.new({ 'retCode' => 0, 'result' => { 'rows' => rows, 'nextPageCursor' => cursor } }) }
+    hm_client.stubs(:deposit_records).returns(
+      page.call([{ 'coin' => 'USDT', 'amount' => '5', 'status' => 70_012, 'txID' => 'chain-1', 'successAt' => now_ms.to_s }])
+    )
+    hm_client.stubs(:get_authenticated).with('/v5/asset/deposit/query-internal-record', anything).returns(
+      page.call([{ 'coin' => 'USDT', 'amount' => '7', 'status' => 2, 'txID' => 'internal-1', 'createdTime' => (now_ms / 1000).to_s },
+                 { 'coin' => 'USDT', 'amount' => '9', 'status' => 1, 'txID' => 'internal-2', 'createdTime' => (now_ms / 1000).to_s }])
+    )
+    hm_client.stubs(:withdraw_records).with(has_entries(withdraw_type: 2, cursor: nil)).returns(
+      page.call([{ 'coin' => 'USDT', 'amount' => '3', 'status' => 'success', 'txID' => '', 'withdrawId' => 'w-1',
+                   'withdrawFee' => '0', 'updateTime' => now_ms.to_s }], 'next')
+    )
+    hm_client.stubs(:withdraw_records).with(has_entries(withdraw_type: 2, cursor: 'next')).returns(
+      page.call([{ 'coin' => 'USDT', 'amount' => '4', 'status' => 'success', 'txID' => 'chain-2', 'withdrawId' => 'w-2',
+                   'withdrawFee' => '1', 'updateTime' => now_ms.to_s }])
+    )
+
+    result = @exchange.get_ledger(api_key: create(:api_key, exchange: @exchange), start_time: 2.days.ago)
+
+    assert_predicate result, :success?
+    rows = result.data.map { |e| [e[:entry_type], e[:base_amount].to_s('F')] }
+    assert_equal [[:deposit, '5.0'], [:deposit, '7.0'], [:withdrawal, '3.0'], [:withdrawal, '4.0']], rows
+    internal = result.data.find { |e| e[:tx_id] == 'internal-1' }
+    assert_in_delta 1.day.ago.to_f, internal[:transacted_at].to_f, 2
   end
 
   test 'get_ledger fails when spot history is denied' do
