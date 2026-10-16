@@ -7,10 +7,21 @@ class Exchanges::Bitvavo < Exchange
     #   216 {"errorCode":216,"error":"You do not have sufficient balance to complete this operation."}
     #   305 {"errorCode":305,"error":"No active API key found."}
     #   301 {"errorCode":301,"error":"API Key must be of length 64."}
-    # Matched on the prose rather than the code so the pattern cannot collide with an unrelated
-    # number elsewhere in the payload (a timestamp, a quantity, an order id).
+    # The rest are matched on the code as the body spells it ("errorCode":309), which cannot collide
+    # with a number elsewhere in the payload. Codes: https://docs.bitvavo.com/docs/errors/
     insufficient_funds: ['sufficient balance to complete'],
-    invalid_key: ['No active API key found', 'API Key must be of length']
+    # 305/306 inactive or unconfirmed key, 301 malformed key, 308/309 a signature the secret did not make.
+    invalid_key: ['No active API key found', 'API Key must be of length', '"errorCode":308', '"errorCode":309'],
+    # 307 IP not whitelisted, 310 no Trade, 311 no View, 312 no Withdraw: the key itself is good.
+    permission_denied: ['"errorCode":307', '"errorCode":310', '"errorCode":311', '"errorCode":312'],
+    # 105: over the weight limit, blocked for a minute.
+    throttle: ['"errorCode":105', 'Too Many Requests'],
+    # 101/400 unknown server error, 107 overloaded, 108 processing issue, 109 timed out (may have
+    # succeeded), 111 matching engine down, 419 server unavailable, 304 outside the access window.
+    transient: ['"errorCode":101', '"errorCode":107', '"errorCode":108', '"errorCode":109', '"errorCode":111',
+                '"errorCode":400', '"errorCode":419', '"errorCode":304'],
+    # 304 is an authentication failure: the request never reached the matching engine.
+    placement_safe_transient: ['"errorCode":304']
   }.freeze
   ORDER_STATUS_MAP = {
     'new' => :open,
