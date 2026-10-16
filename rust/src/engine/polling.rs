@@ -197,7 +197,19 @@ async fn poll_rows<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model
         let since = rows.iter().filter(|(_, e, _)| missing.contains(e)).map(|(_, _, at)| *at).min()
             .and_then(|at| at.checked_sub(3_600_000_000)).ok_or_else(|| db(super::schedule::time_range_error()))?;
         let fills = venue.fills_result(&missing, DateTime::from_timestamp_micros(since).ok_or_else(|| db(super::schedule::time_range_error()))?).await.value.map_err(|e| classify(e, &ids, venue.rules()))?;
-        found.extend(fills.into_iter().map(|f| OrderState { status: OrderStatus::Closed, ..f }));
+        for f in fills {
+            // Inconclusive (Exchanges::Kraken#recover_missing_from_trades): the sweep leaves it out of missing; get_order fails
+            // without not_found, so the follow-up raises as Bot::FetchAndUpdateOrderJob does.
+            if f.status == OrderStatus::Unknown {
+                if !strict {
+                    let tx_id = rows.iter().find(|(_, e, _)| e == &f.txid).map_or(0, |r| r.0);
+                    return Err(PollFailure::General(format!("Failed to fetch order {tx_id}. Result: {}", inspect(&[format!("Kraken could not tell whether order {} filled", f.txid)]))));
+                }
+                skipped.push(f.txid);
+            } else {
+                found.push(OrderState { status: OrderStatus::Closed, ..f });
+            }
+        }
     }
     // Missing after both endpoints: Bot::StaleOrderResolver (Kraken is authoritative, so young ones just wait).
     for (id, ext, created) in &rows {

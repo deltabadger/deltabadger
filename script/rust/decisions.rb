@@ -295,6 +295,16 @@ module Decisions
           'http' => { '/0/private/TradesHistory' => [
             { 'error' => [], 'result' => { 'count' => 2, 'trades' => { 'T1' => { 'ordertxid' => 'OMKT-9', 'vol' => '0.0006', 'cost' => '30', 'fee' => '0.078', 'type' => 'buy', 'ordertype' => 'market', 'pair' => 'XXBTZEUR' } } } },
             { 'error' => [], 'result' => { 'count' => 2, 'trades' => { 'T2' => { 'ordertxid' => 'OMKT-9', 'vol' => '0.0006', 'cost' => '30.012', 'fee' => '0.078', 'type' => 'buy', 'ordertype' => 'market', 'pair' => 'XXBTZEUR' } } } }] } },
+        # An order QueryOrders dropped, placed long before, that a capped TradesHistory walk (20 pages, the last one repeating)
+        # did not see. Over 1,000 trades in the window it may have filled further back and stays waiting; at 1,000 the walk read
+        # them all, so it is never-executed and abandoned (Exchanges::Kraken#recover_missing_from_trades).
+        **[['history_beyond_reach', 1_001], ['history_within_reach', 1_000]].to_h do |name, count|
+          [name, { 'at' => after.(1),
+                   'transactions' => [{ 'status' => 0, 'external_status' => 0, 'external_id' => 'OFAR-1', 'order_type' => 0, 'quote_amount' => '60',
+                                        'price' => '50000', 'created_at' => '2026-08-01 10:00:01' }],
+                   'http' => { '/0/private/TradesHistory' => [
+                     { 'error' => [], 'result' => { 'count' => count, 'trades' => { 'T1' => { 'ordertxid' => 'OTHER-1', 'vol' => '0.0006', 'cost' => '30', 'fee' => '0.078', 'type' => 'buy', 'ordertype' => 'market', 'pair' => 'XXBTZEUR' } } } }] } }]
+        end,
         'untradable' => { 'at' => after.(1), 'ticker_after' => { 'trading_enabled' => false } },
         # Poll-only (no tick): Bot::FetchAndUpdateOrderJob for one seeded waiting order at at + 5 s, as
         # Transaction#after_create enqueues it. Still open and unfilled, so the carry rewrite is the only write.

@@ -185,7 +185,8 @@ pub trait Venue {
     /// The order with this client order id, if the venue holds one. `Err` unless the answer is complete. `symbol` is the pair
     /// the intent was sent for (Binance looks an order up per symbol; Kraken and Alpaca ignore it), never the bot's current one.
     async fn order_by_client_id(&self, cl_ord_id: &str, symbol: &str, since: DateTime<Utc>) -> Result<Option<OrderState>, VenueError>;
-    /// Fills recovered from trade history (Kraken TradesHistory). Alpaca has none: Rails has no trade fallback there.
+    /// Fills recovered from trade history (Kraken TradesHistory). Alpaca has none: Rails has no trade fallback there. An
+    /// `Unknown` entry is an id the history could not rule a fill out for: it stays waiting, never abandoned.
     async fn fills_from_trades(&self, txids: &[String], since: DateTime<Utc>) -> Result<Vec<OrderState>, VenueError>;
     /// What Bot::Fundable compares with its buffer (Kraken: balance − hold_trade; Alpaca: #spendable_balance).
     async fn balance(&self, asset_symbol: &str, all_crypto: bool) -> Result<BigDec, VenueError>;

@@ -26,6 +26,8 @@ pub const UNREADABLE: &str = "Kraken: unreadable response";
 const HTTP_THROTTLE: &str = "EAPI:Rate limit exceeded";
 /// Honeymaker::Clients::Kraken#closed_orders_from_trades's `max_pages`.
 const TRADES_MAX_PAGES: u32 = 20;
+/// Exchanges::Kraken::TRADES_RECOVERY_REACH: max_pages × Kraken's 50-trade page.
+const TRADES_RECOVERY_REACH: u64 = 20 * 50;
 /// Why a lookup by client order id never ends in "absent" (spec E §2.6): Kraken's `cl_ord_id` filter, `count` and echo on
 /// Open/ClosedOrders are not confirmed by a recorded live answer. Until they are, the intent stays and the operator settles it
 /// with `deltabadger resolve-placement`.
@@ -202,6 +204,11 @@ pub(crate) fn free_balance(body: &Value, asset_symbol: &str) -> Result<BigDec, V
 
 /// Honeymaker::Clients::Kraken#aggregate_trades per wanted order, as Exchanges::Kraken#order_data_from_trade_aggregate maps
 /// it: closed, VWAP price, amounts unknown. The aggregate names its first trade's pair (Rails looks it up as a ticker).
+/// TradesHistory's `count.to_i`: an Integer, a numeric String, or else 0.
+pub(crate) fn trades_count(body: &Value) -> u64 {
+    match &body["result"]["count"] { Value::Number(n) => n.as_u64().unwrap_or(0), Value::String(s) => s.trim().parse().unwrap_or(0), _ => 0 }
+}
+
 pub(crate) fn aggregate_trades(trades: &[Value], txids: &[String]) -> Result<Vec<OrderState>, VenueError> {
     let mut by: Vec<(String, BigDec, BigDec, bool, bool, Option<String>)> = vec![];
     for trade in trades {
@@ -325,20 +332,26 @@ impl<T: Transport> Venue for KrakenVenue<T> {
 
     /// Exchanges::Kraken#recover_missing_from_trades → Clients::Kraken#closed_orders_from_trades: TradesHistory from `since`
     /// (the engine passes created_at − 1 h), paged by `ofs` until `count` or 20 pages, a trade served twice counted once.
+    /// An id still unseen is never-filled only when the window's `count` (#trades_history_count: ofs 0 again) is at most
+    /// TRADES_RECOVERY_REACH; over it, the id comes back `Unknown` (Rails' :inconclusive): neither found nor gone.
     async fn fills_from_trades(&self, txids: &[String], since: DateTime<Utc>) -> Result<Vec<OrderState>, VenueError> {
         if txids.is_empty() { return Ok(vec![]); }
+        let page_at = |offset: usize| self.private("/0/private/TradesHistory", &[("start", since.timestamp().to_string()), ("ofs", offset.to_string())]);
         let (mut trades, mut seen, mut offset) = (vec![], std::collections::HashSet::new(), 0usize);
         for _ in 0..TRADES_MAX_PAGES {
-            let body = self.call(&self.private("/0/private/TradesHistory", &[("start", since.timestamp().to_string()), ("ofs", offset.to_string())]), false).await?;
+            let body = self.call(&page_at(offset), false).await?;
             let page = body["result"]["trades"].as_object().cloned().unwrap_or_default();
             if page.is_empty() { break; }
             offset += page.len();
             for (id, t) in page { if seen.insert(id) { trades.push(t); } }
-            // `count.to_i`: an Integer, a numeric String, or else 0.
-            let count = match &body["result"]["count"] { Value::Number(n) => n.as_u64().unwrap_or(0), Value::String(s) => s.trim().parse().unwrap_or(0), _ => 0 };
-            if offset as u64 >= count { break; }
+            if trades_count(&body) <= offset as u64 { break; }
         }
-        aggregate_trades(&trades, txids)
+        let mut found = aggregate_trades(&trades, txids)?;
+        let unseen: Vec<&String> = txids.iter().filter(|t| !found.iter().any(|o| &&o.txid == t)).collect();
+        if unseen.is_empty() || trades_count(&self.call(&page_at(0), false).await?) <= TRADES_RECOVERY_REACH { return Ok(found); }
+        found.extend(unseen.into_iter().map(|txid| OrderState { asset_class: None, txid: txid.clone(), status: OrderStatus::Unknown, price: None, amount: None,
+            quote_amount: None, amount_exec: BigDec::zero(), quote_amount_exec: None, limit: false, sell: false, pair: None }));
+        Ok(found)
     }
 
     /// Bot::Fundable's free balance: BalanceEx's balance − hold_trade.

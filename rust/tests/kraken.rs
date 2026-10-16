@@ -169,6 +169,22 @@ async fn fills_are_recovered_from_every_trades_page_since_the_bound() {
     assert_eq!(bodies, vec![format!(r#"{{"start":"{0}","ofs":"0"}}"#, since.timestamp()), format!(r#"{{"start":"{0}","ofs":"2"}}"#, since.timestamp())]);
 }
 
+/// Exchanges::Kraken#recover_missing_from_trades (387d9df90): the walk stops at 20 pages, so an id it did not see is only proven
+/// never-filled when the window's `count` (read again at ofs 0) is at most 1,000. Over that, it comes back Unknown: neither found nor gone.
+#[tokio::test(flavor = "current_thread")]
+async fn an_id_unseen_by_a_capped_trades_walk_is_inconclusive_only_beyond_a_thousand_trades() {
+    for (count, inconclusive) in [(1001, true), (1000, false)] {
+        let page = json!({ "error": [], "result": { "trades": { "T1": { "ordertxid": "OTHER", "pair": "XBTEUR", "type": "buy", "ordertype": "market", "vol": "1", "cost": "1" } }, "count": count } });
+        let (t, v) = venue(json!({ "POST /0/private/TradesHistory": ok(page) }));
+        let got = v.fills_from_trades(&["OFAR".into()], at("2026-09-01T09:00:00Z")).await.unwrap();
+        // 20 pages of one trade each, then the count read.
+        assert_eq!(t.requests().len(), 21, "{count}");
+        assert_eq!(t.requests().last().unwrap().body.as_ref().unwrap().to_string(), format!(r#"{{"start":"{}","ofs":"0"}}"#, at("2026-09-01T09:00:00Z").timestamp()));
+        let unknown: Vec<_> = got.iter().filter(|o| o.status == OrderStatus::Unknown).map(|o| o.txid.as_str()).collect();
+        assert_eq!(unknown, if inconclusive { vec!["OFAR"] } else { vec![] }, "{count}");
+    }
+}
+
 #[tokio::test(flavor = "current_thread")]
 async fn the_free_balance_is_balance_less_hold_trade_under_the_gems_asset_map() {
     let (_, v) = venue(json!({ "POST /0/private/BalanceEx": ok(json!({ "error": [], "result": { "ZEUR": { "balance": "100.5", "hold_trade": "20.25" }, "XXBT": { "balance": "1", "hold_trade": "0" } } })) }));
