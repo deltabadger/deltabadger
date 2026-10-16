@@ -13,6 +13,11 @@ class Exchanges::BinanceUs < Exchanges::Binance
     ERRORS
   end
 
+  # Binance.US has no withdrawal address book (/sapi/v1/capital/withdraw/address/list answers 404).
+  def list_withdrawal_addresses(asset:)
+    nil
+  end
+
   # Binance.US requires a network on withdraw/apply (https://docs.binance.us/, "Withdraw Crypto"); with
   # none chosen, the coin's default network from its fee listing.
   def withdraw(asset:, amount:, address:, network: nil, address_tag: nil)
@@ -56,4 +61,15 @@ class Exchanges::BinanceUs < Exchanges::Binance
   def us_client(api_key)
     Honeymaker.client(name_id, api_key: api_key.key, api_secret: api_key.secret, proxy: ExchangeProxy.for(name_id))
   end
+
+  # Ledger sources Binance reads that Binance.US does not have (none in https://docs.binance.us/; each
+  # path answers 404 there, and futures live on Binance's own fapi/dapi hosts): never asked.
+  def import_convert_trades(*) = nil
+  def import_fiat_payments(*) = nil
+  def import_dust_conversions(*) = nil
+  def import_earn_rewards(*) = nil
+  def import_earn_subscriptions(*) = nil
+  def import_margin_interest(*) = nil
+  def import_margin_liquidations(*) = nil
+  def import_futures_income(*) = nil
 end
