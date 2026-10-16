@@ -16,6 +16,7 @@ pub mod row;
 pub mod transaction;
 pub mod modal;
 pub mod classifications;
+pub mod import;
 
 struct Prepared {
     response: Response,

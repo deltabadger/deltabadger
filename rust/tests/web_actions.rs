@@ -99,7 +99,7 @@ mod action_transport {
         let decode = |v: &Value| form_urlencoded::parse(v.as_str().unwrap_or("").as_bytes()).map(|(k,v)| (k.into_owned(),v.into_owned())).collect();
         for case in cases {
             if case["name"] == "invalid_json" { assert!(action_params::json(b"{").is_err()); continue; }
-            let params = Params { full_path: "/bots/1".into(), fullpath: "/bots/1".into(), route_path: "/bots/1".into(), path_locale: None,
+            let params = Params { upload: None, full_path: "/bots/1".into(), fullpath: "/bots/1".into(), route_path: "/bots/1".into(), path_locale: None,
                 query: decode(&case["query"]), form: decode(&case["form"]), json: (!case["json"].is_null()).then(|| case["json"].clone()) };
             let parsed = ActionParams::parse(&params);
             if case.get("merged").is_none() {
@@ -128,7 +128,7 @@ mod action_transport {
         for (root, keys, kind) in [("bots_dca_multi_asset",action_params::BASKET_SCALARS,Kind::Basket),("bots_dca_index",action_params::INDEX_SCALARS,Kind::Index)] {
             assert_eq!(json!(keys), vectors["action_transport"]["allowlists"][root]);
             let fields: serde_json::Map<String,Value> = keys.iter().map(|k| (k.to_string(), json!("value"))).collect();
-            let params = Params { full_path: String::new(), fullpath: String::new(), route_path: String::new(), path_locale: None,
+            let params = Params { upload: None, full_path: String::new(), fullpath: String::new(), route_path: String::new(), path_locale: None,
                 query: vec![], form: vec![], json: Some(json!({root:fields})) };
             let parsed = match ActionParams::parse(&params) { Ok(p) => p, Err(e) => panic!("{e:?}") };
             assert_eq!(parsed.permitted(kind), Ok(json!(fields)));
@@ -167,7 +167,7 @@ mod action_transport {
         assert_eq!(status, 200); assert_eq!(got["json"], value);
         assert_eq!(got["permitted"]["smart_intervaled"], true);
         for (flag, expected) in [(json!(true),Ok(true)),(json!(false),Ok(false)),(json!(1),Ok(true)),(json!(0),Ok(false)),(json!({}),Err(action_params::StartFlagError::Invalid)),(json!([]),Err(action_params::StartFlagError::Invalid)),(Value::Null,Ok(true)),(json!(1.0),Err(action_params::StartFlagError::Invalid))] {
-            let params = Params { full_path: String::new(), fullpath: String::new(), route_path: String::new(), path_locale: None,
+            let params = Params { upload: None, full_path: String::new(), fullpath: String::new(), route_path: String::new(), path_locale: None,
                 query: vec![("start_fresh".into(),"true".into())], form: vec![], json: Some(json!({"start_fresh":flag})) };
             let parsed = match ActionParams::parse(&params) { Ok(p) => p, Err(e) => panic!("{e:?}") };
             assert_eq!(parsed.start_fresh(),expected);
@@ -369,7 +369,7 @@ mod action_draft {
         }
         let ctx = deltabadger::web::layout::Ctx {
             app: common::web::app(dir.path(), common::web::SECRET, common::web::TestClock::at(field(group, "now").as_str().ok_or("now")?)),
-            params: std::sync::Arc::new(Params { full_path: String::new(), fullpath: String::new(), route_path: String::new(), path_locale: None, query: vec![], form: vec![], json: None }),
+            params: std::sync::Arc::new(Params { upload: None, full_path: String::new(), fullpath: String::new(), route_path: String::new(), path_locale: None, query: vec![], form: vec![], json: None }),
             session: deltabadger::web::session::Session::new(Default::default()),
             current: deltabadger::web::auth::Current::SignedOut, method: axum::http::Method::PATCH, locale: "en", nonce: String::new(), now, turbo_frame: None,
         };
@@ -396,7 +396,7 @@ mod action_draft {
             let root = if draft.candidate.kind == Kind::Basket { "bots_dca_multi_asset" } else { "bots_dca_index" };
             let mut submitted = field(case, "submitted").as_object().ok_or("submitted")?.clone();
             submitted.insert("unknown".into(), json!("ignored"));
-            let transport = Params { json: Some(json!({root: submitted})), full_path: String::new(), fullpath: String::new(), route_path: String::new(), path_locale: None, query: vec![], form: vec![] };
+            let transport = Params { upload: None, json: Some(json!({root: submitted})), full_path: String::new(), fullpath: String::new(), route_path: String::new(), path_locale: None, query: vec![], form: vec![] };
             let parsed = ActionParams::parse(&transport).map_err(|_| "transport")?;
             let permitted = parsed.permitted(draft.candidate.kind).map_err(|_| "strong parameters")?;
             compare!(permitted, *field(case, "permitted"), "{name}: permitted");
@@ -507,13 +507,13 @@ mod action_write {
             let id = seed::insert_bot(&c, &s, &spec);
             c.execute("UPDATE bots SET label = 'Original', position = 17 WHERE id = ?1", [id])?;
             let app = harness::app(dir.path(), "engine-test-secret", harness::TestClock::at(NOW));
-            let ctx = Ctx { app, params: Arc::new(Params { full_path: String::new(), fullpath: String::new(), route_path: String::new(), path_locale: None, query: vec![], form: vec![], json: None }),
+            let ctx = Ctx { app, params: Arc::new(Params { upload: None, full_path: String::new(), fullpath: String::new(), route_path: String::new(), path_locale: None, query: vec![], form: vec![], json: None }),
                 session: web::session::Session::new(Default::default()), current: web::auth::Current::SignedOut,
                 method: axum::http::Method::PATCH, locale: "en", nonce: String::new(), now: harness::at(NOW), turbo_frame: None };
             Ok(Self { _dir: dir, c, ctx, seed: s, id })
         }
         fn params(fields: Value) -> Result<ActionParams> {
-            let p = Params { full_path: String::new(), fullpath: String::new(), route_path: String::new(), path_locale: None, query: vec![], form: vec![], json: Some(json!({"bots_dca_multi_asset":fields})) };
+            let p = Params { upload: None, full_path: String::new(), fullpath: String::new(), route_path: String::new(), path_locale: None, query: vec![], form: vec![], json: Some(json!({"bots_dca_multi_asset":fields})) };
             ActionParams::parse(&p).map_err(|e| format!("{e:?}").into())
         }
         fn write(&self, fields: Value) -> Result<Outcome<Value>> {
@@ -900,7 +900,7 @@ mod action_write {
         for id in [1,2,3] {
             let bot=Draft::load(&f.c,1,id,"en").map_err(|e|format!("{e:?}"))?.ok_or("bot")?;
             let root=bot.original.param_key();
-            let p=Params {json:Some(json!({root:{"quote_amount":"37.25"}})),full_path:String::new(),fullpath:String::new(),route_path:String::new(),path_locale:None,query:vec![],form:vec![]};
+            let p=Params { upload: None,json:Some(json!({root:{"quote_amount":"37.25"}})),full_path:String::new(),fullpath:String::new(),route_path:String::new(),path_locale:None,query:vec![],form:vec![]};
             let params=ActionParams::parse(&p).map_err(|e|format!("{e:?}"))?;
             let out=write::settings(&f.c,&f.ctx,1,id,&params,|_,_,draft|Ok(Prepared {response:draft.candidate.settings.clone(),broadcasts:vec![], after_scheduling: None })).map_err(|e|format!("{e:?}"))?;
             let Outcome::Committed(settings)=out else {return Err(format!("stock shape {id} did not commit").into())};
@@ -908,7 +908,7 @@ mod action_write {
         }
         // A moved index slider writes settings and leaves every membership byte unchanged.
         let before=f.snapshot()?.into_iter().filter(|r|r.starts_with("bot_index_assets:")).collect::<Vec<_>>();
-        let p=Params {json:Some(json!({"bots_dca_index":{"num_coins":"5","num_coins_rendered":"10","num_coins_ceiling":"5"}})),full_path:String::new(),fullpath:String::new(),route_path:String::new(),path_locale:None,query:vec![],form:vec![]};
+        let p=Params { upload: None,json:Some(json!({"bots_dca_index":{"num_coins":"5","num_coins_rendered":"10","num_coins_ceiling":"5"}})),full_path:String::new(),fullpath:String::new(),route_path:String::new(),path_locale:None,query:vec![],form:vec![]};
         let params=ActionParams::parse(&p).map_err(|e|format!("{e:?}"))?;
         let outcome=write::settings(&f.c,&f.ctx,1,2,&params,|_,_,_|Ok(Prepared {response:(),broadcasts:vec![], after_scheduling: None })).map_err(|e|format!("{e:?}"))?;
         assert!(matches!(outcome,Outcome::Committed(_)));
@@ -918,7 +918,7 @@ mod action_write {
 
     impl Fixture {
         fn lifecycle(&self, action: write::Action, flag: Option<Value>) -> Result<Outcome<Value>> {
-            let p = Params { full_path: String::new(), fullpath: String::new(), route_path: String::new(), path_locale: None, query: vec![], form: vec![], json: Some(flag.map_or_else(|| json!({}), |v| json!({"start_fresh":v}))) };
+            let p = Params { upload: None, full_path: String::new(), fullpath: String::new(), route_path: String::new(), path_locale: None, query: vec![], form: vec![], json: Some(flag.map_or_else(|| json!({}), |v| json!({"start_fresh":v}))) };
             let params = ActionParams::parse(&p).map_err(|e|format!("{e:?}"))?;
             Ok(write::lifecycle(&self.c, &self.ctx, self.seed.user_id, self.id, action, &params, |_, ctx, view| {
                 assert_eq!(ctx.now, harness::at(NOW));

@@ -1,0 +1,43 @@
+<turbo-frame complete="" id="modal">
+  <dialog data-controller="modal--base" data-action="click->modal--base#clickOutside" class="dialog" data-hw-animate-in="animate-modal-in" data-hw-animate-out="animate-modal-out">
+    <div class="dialog__vertical-center">
+      
+  <div class="modal">
+    <button name="button" type="button" class="modal__close" data-action="modal--base#animateOutCloseAndCleanUp">
+      <svg class="icon-24" fill="none" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M5.7 4.3a1 1 0 0 0-1.4 1.4l6.3 6.3-6.3 6.3a1 1 0 1 0 1.4 1.4l6.3-6.3 6.3 6.3a1 1 0 0 0 1.4-1.4L13.4 12l6.3-6.3a1 1 0 0 0-1.4-1.4L12 10.6 5.7 4.3Z" fill="#2948A1"></path>
+</svg>
+
+</button>    <div class="modal__header">
+      <h1 class="modal__title">{{ ctx.t("tracker.import.title")|safe }}</h1>
+    </div>
+    <form class="form" data-turbo-frame="modal_content" enctype="multipart/form-data" action="{{ ctx.path("/tracker/import") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+      <div class="filters" data-controller="form--segmented-field"
+           data-action="segmented:change->form--segmented-field#set">
+        
+{{ formats|safe }}
+        <input type="hidden" name="format" id="format" value="{{ default_format }}" data-form--segmented-field-target="field" />
+      </div>
+      <label class="dropzone" data-controller="file-picker"
+             data-action="dragover->file-picker#hover dragleave->file-picker#unhover drop->file-picker#drop">
+        <span class="dropzone__idle">
+          <svg class="icon-24" fill="none" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M12 2.6a1 1 0 0 1 .7.3l4.5 4.4a1 1 0 1 1-1.4 1.4L13 5.9V15a1 1 0 1 1-2 0V5.9L8.2 8.7a1 1 0 0 1-1.4-1.4l4.5-4.4a1 1 0 0 1 .7-.3Z"></path>
+<path d="M4 14a1 1 0 0 1 1 1v3.5c0 .3.2.5.5.5h13c.3 0 .5-.2.5-.5V15a1 1 0 1 1 2 0v3.5a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 18.5V15a1 1 0 0 1 1-1Z"></path>
+</svg>
+
+          <span class="dropzone__prompt">{{ ctx.t("tracker.import.drop")|safe }}</span>
+          <span class="dropzone__hint">{{ ctx.t("tracker.import.drop_hint")|safe }}</span>
+        </span>
+        <span class="dropzone__busy">
+          <span class="loader--small"></span>
+          <span class="dropzone__prompt">{{ ctx.t("tracker.import.reading")|safe }}</span>
+          <span class="dropzone__name" data-file-picker-target="name"></span>
+        </span>
+        <input accept=".csv,text/csv" class="dropzone__input" data-file-picker-target="input" data-action="change-&gt;file-picker#submit" type="file" name="file" id="file" />
+      </label>
+</form>  </div>
+
+    </div>
+  </dialog>
+</turbo-frame>

@@ -93,6 +93,11 @@ fn mask_csrf(body: &str) -> String {
 }
 
 #[tokio::test(flavor="current_thread")]
+async fn import_dialog_and_the_no_file_answer_match_rails() {
+    compare(&["import_new","import_missing"]).await;
+}
+
+#[tokio::test(flavor="current_thread")]
 async fn export_modal_is_read_only_and_matches_rails_bytes() {
     compare(&["export_modal","modal_settings","modal_broker","modal_broker_empty","modal_broker_foreign_country"]).await;
     let locales:Vec<String>=deltabadger::web::locale::LOCALES.iter().map(|locale|format!("modal_locale_{locale}")).collect();
@@ -151,7 +156,12 @@ async fn compare(cases: &[&str]) {
         flat("",&step["form"],&mut fields);
         let form: Vec<_> = fields.iter().map(|(k,v)|(k.as_str(),v.as_str())).collect();
         let headers: Vec<_> = step["headers"].as_object().unwrap().iter().map(|(k,v)|(k.as_str(),v.as_str().unwrap())).collect();
-        let answer = if let Some(body) = step["json"].as_str() {
+        let answer = if let Some(files) = step["multipart"].as_array() {
+            let files: Vec<(&str,&str,&[u8])> = files.iter().map(|f|(f["name"].as_str().unwrap(),f["filename"].as_str().unwrap(),f["content"].as_str().unwrap().as_bytes())).collect();
+            let (content_type,body) = web::multipart(&form,&files);
+            let mut headers = headers.clone(); headers.push(("content-type",content_type.as_str()));
+            browser.send_bytes(&app,step["method"].as_str().unwrap(),step["path"].as_str().unwrap(),Some(body),Csrf::Header,&headers).await
+        } else if let Some(body) = step["json"].as_str() {
             browser.send_body(&app,step["method"].as_str().unwrap(),step["path"].as_str().unwrap(),Some(body.into()),Csrf::Header,&headers).await
         } else { browser.send(&app,step["method"].as_str().unwrap(),step["path"].as_str().unwrap(),Some(&form),Csrf::Header,&headers).await };
         assert_eq!(u64::from(answer.status),expected["status"].as_u64().unwrap(),"{name}");

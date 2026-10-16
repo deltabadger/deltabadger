@@ -83,6 +83,23 @@ pub struct Browser {
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Csrf { Form, Header, Both, None }
 
+/// What script/rust/pages.rb's `multipart` posts, as a browser's FormData: the text fields, then each
+/// file part (`name`, `filename`, bytes). Returns the content type and the body.
+pub const MULTIPART_BOUNDARY: &str = "----RustPagesBoundary7MA4YWxkTrZu0gW";
+pub fn multipart(fields: &[(&str, &str)], files: &[(&str, &str, &[u8])]) -> (String, Vec<u8>) {
+    let mut body = Vec::new();
+    for (name, value) in fields {
+        body.extend_from_slice(format!("--{MULTIPART_BOUNDARY}\r\nContent-Disposition: form-data; name=\"{name}\"\r\n\r\n{value}\r\n").as_bytes());
+    }
+    for (name, filename, content) in files {
+        body.extend_from_slice(format!("--{MULTIPART_BOUNDARY}\r\nContent-Disposition: form-data; name=\"{name}\"; filename=\"{filename}\"\r\nContent-Type: application/octet-stream\r\n\r\n").as_bytes());
+        body.extend_from_slice(content);
+        body.extend_from_slice(b"\r\n");
+    }
+    body.extend_from_slice(format!("--{MULTIPART_BOUNDARY}--\r\n").as_bytes());
+    (format!("multipart/form-data; boundary={MULTIPART_BOUNDARY}"), body)
+}
+
 /// The `content` of the CSRF meta tag of a page.
 pub fn meta_token(page: &str) -> Option<String> {
     page.split("<meta name=\"csrf-token\" content=\"").nth(1).and_then(|rest| rest.split('"').next()).map(str::to_string)
@@ -126,6 +143,11 @@ impl Browser {
 
     /// `send` with a body as it is, its type among `headers`: what a `fetch` call posts. `Csrf::Header` is the only token it carries.
     pub async fn send_body(&mut self, app: &App, method: &str, path: &str, body: Option<String>, csrf: Csrf, headers: &[(&str, &str)]) -> Answer {
+        self.send_bytes(app, method, path, body.map(String::into_bytes), csrf, headers).await
+    }
+
+    /// `send_body` with a body that need not be text: a file upload (`multipart`).
+    pub async fn send_bytes(&mut self, app: &App, method: &str, path: &str, body: Option<Vec<u8>>, csrf: Csrf, headers: &[(&str, &str)]) -> Answer {
         let mut request = Request::builder().method(method).uri(path).header(header::HOST, HOST);
         if let Some(cookie) = &self.cookie {
             request = request.header(header::COOKIE, format!("{COOKIE}={cookie}"));

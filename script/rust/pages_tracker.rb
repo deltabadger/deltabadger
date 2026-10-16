@@ -46,7 +46,9 @@ module D5Grid
     add.call('empty', [get.call('/tracker')])
     add.call('empty_frame', [get.call('/tracker', 200, 'Turbo-Frame' => 'modal')])
     add.call('import_new', [get.call('/tracker/import/new')])
-    add.call('import_missing', [request.call('POST', '/tracker/import', {}, 422)])
+    # The dialog's own submission with no file chosen: Turbo's FormData, the empty file input included.
+    add.call('import_missing', [request.call('POST', '/tracker/import', { 'format' => 'deltabadger' }, 422)
+      .merge('multipart' => [{ 'name' => 'file', 'filename' => '', 'content' => '' }])])
     add.call('sync_empty', [request.call('POST', '/tracker/sync', {}, 204)])
     add.call('sync_alpaca', [request.call('POST', '/tracker/sync')], 'alpaca')
     add.call('sync_read_only', [request.call('POST', '/tracker/sync')], 'alpaca_read_only')
@@ -159,7 +161,7 @@ module D5Grid
              'blank_currency')
     overflow = request.call('PATCH', '/tracker/transactions/9223372036854775808/price', { 'price' => '12' }, 404)
     add.call('price_overflow', [overflow.merge('rails_exception_status' => 404)], 'maximum_id')
-    cases.select { |name, _| name.match?(/\Ad5_(?:settings|fund_|sync_|price_|link_|modal_|export_modal\z)/) }
+    cases.select { |name, _| name.match?(/\Ad5_(?:import_|settings|fund_|sync_|price_|link_|modal_|export_modal\z)/) }
   end
 
   def action_fixture(scenario)

@@ -153,7 +153,7 @@ mod form_fields {
     #[test]
     fn a_repeated_form_field_reads_its_last_value_as_rack_does() {
         let form = fields(&[("user[remember_me]", "0"), ("a", "1"), ("user[remember_me]", "1")]);
-        let params = Params { full_path: "/login".into(), fullpath: "/login".into(), route_path: "/login".into(), path_locale: None, query: Vec::new(), form, json: None };
+        let params = Params { full_path: "/login".into(), fullpath: "/login".into(), route_path: "/login".into(), path_locale: None, query: Vec::new(), form, json: None, upload: None };
         assert_eq!(params.form("user[remember_me]"), Some("1"));
         assert_eq!(params.form("a"), Some("1"));
         assert_eq!(params.form("b"), None);
@@ -164,7 +164,7 @@ mod form_fields {
     #[test]
     fn a_repeated_query_key_reads_its_last_value_as_rack_does() {
         let query = fields(&[("locale", "de"), ("x", "1"), ("locale", "pl")]);
-        let params = Params { full_path: "/login".into(), fullpath: "/login".into(), route_path: "/login".into(), path_locale: None, query, form: Vec::new(), json: None };
+        let params = Params { full_path: "/login".into(), fullpath: "/login".into(), route_path: "/login".into(), path_locale: None, query, form: Vec::new(), json: None, upload: None };
         assert_eq!(params.query("locale"), Some("pl"));
         assert_eq!(params.locale(), Some("pl"));
         assert_eq!(params.query("x"), Some("1"));
@@ -878,7 +878,7 @@ mod oauth_rules {
 
     fn params(form: &[(&str, &str)], query: &[(&str, &str)]) -> Params {
         let owned = |pairs: &[(&str, &str)]| pairs.iter().map(|(name, value)| (name.to_string(), value.to_string())).collect();
-        Params { full_path: "/oauth/token".into(), fullpath: "/oauth/token".into(), route_path: "/oauth/token".into(), path_locale: None, query: owned(query), form: owned(form), json: None }
+        Params { full_path: "/oauth/token".into(), fullpath: "/oauth/token".into(), route_path: "/oauth/token".into(), path_locale: None, query: owned(query), form: owned(form), json: None, upload: None }
     }
 
     #[test]

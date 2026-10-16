@@ -55,6 +55,15 @@ async fn tracker_d5a_routes_and_modal_destinations_are_self_contained() {
                 assert_eq!(snapshot(&connection),before,"first-sync GET must not mutate rows");
                 continue;
             }
+            if path==format!("{prefix}/tracker/import/new") || path==format!("{prefix}/tracker/import") {
+                // I1: the dialog, and the answer to a submission with no file.
+                let dialog=path.ends_with("/new");
+                assert_eq!(answer.status,if dialog{200}else{422},"{path}");
+                assert!(answer.body.contains("<turbo-frame complete=\"\" id=\"modal\">"),"{path}");
+                assert!(if dialog{answer.body.contains(&format!("action=\"{prefix}/tracker/import\""))}else{answer.body.contains("<p class=\"tracker-empty\">")},"{path}");
+                assert_eq!(snapshot(&connection),before,"import {path} without a file must not mutate rows");
+                continue;
+            }
             assert_eq!(answer.status,501,"{path}");
             assert!(answer.body.contains("Not available in the Rust build yet"),"{path}");
             assert!(answer.body.contains("<turbo-frame id=\"modal\">"),"{path}");
@@ -79,6 +88,46 @@ async fn tracker_d5a_routes_and_modal_destinations_are_self_contained() {
     assert_eq!(answer.status,501);
     assert!(answer.body.contains("Not available in the Rust build yet"));
     assert_eq!(snapshot(&connection),before);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn the_import_reads_a_multipart_body_under_its_bounds() {
+    let (dir, opened, seeded) = common::install_alpaca();
+    opened.primary.execute("UPDATE users SET confirmed_at=created_at, setup_completed=1", []).unwrap();
+    let hash: String = opened.primary.query_row("SELECT encrypted_password FROM users WHERE id=?1", [seeded.user_id], |r| r.get(0)).unwrap();
+    drop(opened);
+    let app = web::app(dir.path(), web::SECRET, TestClock::at("2026-09-10T12:00:30.123456Z"));
+    let connection = Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    let token = csrf::new_token();
+    let data = session::SessionData { user: Some((seeded.user_id, hash.chars().take(29).collect())), csrf: Some(token.clone()), ..Default::default() };
+    let mut browser = Browser { cookie: Some(session::seal(&app.keys.session, &data, app.now())), page: None };
+    let masked = csrf::masked(&token);
+    let before = snapshot(&connection);
+    let mut post = async |fields: &[(&str, &str)], files: &[(&str, &str, &[u8])]| {
+        let (content_type, body) = web::multipart(fields, files);
+        browser.send_bytes(&app, "POST", "/tracker/import", Some(body), Csrf::None, &[("content-type", content_type.as_str()), ("origin", "http://localhost:3000")]).await
+    };
+    // The token travels as a multipart text field (what the form's hidden input posts).
+    for files in [&[][..], &[("file", "", &b""[..])][..], &[("file", "Binance (UTC+3).csv", &b" \r\n"[..])][..]] {
+        let answer = post(&[("authenticity_token", &masked), ("format", "binance")], files).await;
+        assert_eq!(answer.status, 422, "no file: {}", answer.body);
+        assert!(answer.body.contains("<p class=\"tracker-empty\">"));
+    }
+    let answer = post(&[("format", "binance")], &[]).await;
+    assert_ne!(answer.status, 422, "no token, no import");
+    let answer = post(&[("authenticity_token", &masked)], &[("file", "Binance (UTC+3).csv", "\u{feff}Time\r\n".as_bytes())]).await;
+    assert_eq!(answer.status, 501, "reading a file is not served yet");
+    let answer = post(&[("authenticity_token", &masked), ("token", "0123456789abcdef")], &[]).await;
+    assert_eq!(answer.status, 501, "neither is the parked-upload answer");
+    let (content_type, body) = web::multipart(&[("authenticity_token", &masked)], &[]);
+    let truncated = browser.send_bytes(&app, "POST", "/tracker/import", Some(body[..body.len() - 8].to_vec()), Csrf::None, &[("content-type", content_type.as_str())]).await;
+    assert_eq!(truncated.status, 400);
+    let mut huge = vec![b'a'; deltabadger::web::IMPORT_LIMIT];
+    huge.extend_from_slice(b"overflow");
+    let (content_type, body) = web::multipart(&[("authenticity_token", &masked)], &[("file", "big.csv", &huge)]);
+    let oversize = browser.send_bytes(&app, "POST", "/tracker/import", Some(body), Csrf::None, &[("content-type", content_type.as_str())]).await;
+    assert_eq!(oversize.status, 413);
+    assert_eq!(snapshot(&connection), before);
 }
 
 fn snapshot(c: &Connection) -> Value {
