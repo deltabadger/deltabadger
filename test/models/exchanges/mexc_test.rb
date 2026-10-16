@@ -137,4 +137,25 @@ class Exchanges::MexcTest < ActiveSupport::TestCase
     assert_equal :cancelled, result.data[:status]
     assert_equal '0.001'.to_d, result.data[:amount_exec]
   end
+
+  # A limit order that crossed the book fills at better than its limit. The price field is the limit,
+  # so the stored price (and the average buy price built from it) was what the bot asked, not what
+  # it got.
+  test 'a filled limit order is priced at what it filled at, not at its limit' do
+    create(:ticker, exchange: @exchange, base_symbol: 'BTC', quote_symbol: 'USDT', price_decimals: 2)
+    stub_query_order(query_order_raw('status' => 'FILLED', 'price' => '60000', 'executedQty' => '0.002',
+                                     'cummulativeQuoteQty' => '118'))
+
+    result = with_dry_run(false) { @exchange.get_order(order_id: 'BTCUSDT-C02__1') }
+
+    assert_equal '59000'.to_d, result.data[:price]
+  end
+
+  test 'an unfilled limit order keeps its limit price' do
+    stub_query_order(query_order_raw)
+
+    result = with_dry_run(false) { @exchange.get_order(order_id: 'BTCUSDT-C02__1') }
+
+    assert_equal '60000'.to_d, result.data[:price]
+  end
 end
