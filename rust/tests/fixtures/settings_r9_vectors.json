@@ -8,7 +8,7 @@
     "app/models/smtp_settings.rb": "17925ff7524d72808a7ebd6132cfacde62cc4910053fcb5180861ae1eb389b7d",
     "app/mailers/application_mailer.rb": "22b6a6b5b4125ce54553936c08f0a9a38e3e2a5b24ba82773b5e750b347f6aea",
     "app/models/exchanges/alpaca.rb": "5c69f9e058ab1a5128f07bb31e78ebfeb21067a5e0e8b088a0f9c067accfe483",
-    "app/services/account_transaction_sync.rb": "f6cbb1c94fd115ed13f50ef6666e8cc1d6f55f2c91312b9461a83390925ea115",
+    "app/services/account_transaction_sync.rb": "b1e6d6afffee2d77bc04ecdc4cae7b1fb117cd6e357187a9b5fe7f2a2a0f1bf2",
     "app/views/settings/widgets/_rest.html.erb": "a581e7a1ff2169a131dc0b783b738e60e60436ccf3946d8de71e07bc72222ce3",
     "app/views/settings/widgets/_market_data.html.erb": "7f8f206ac477b908b7ef0e42c9f961c4314869820ea5d2c4b3fb40987f5f30d1",
     "app/views/settings/widgets/_email_notifications.html.erb": "d9e7d42df17eba67915b83262ac9bb93d73430069f074858477c9cd4b76b7b22"
