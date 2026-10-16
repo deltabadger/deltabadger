@@ -8,11 +8,15 @@ class Exchanges::Coinbase < Exchange
   ERRORS = {
     insufficient_funds: ['Insufficient balance in source account']
   }.freeze
-  # UNKNOWN_ORDER_STATUS, OPEN, FILLED, CANCELLED, EXPIRED, FAILED, PENDING
+  # https://docs.cdp.coinbase.com/api-reference/advanced-trade-api/rest-api/orders/get-order
   ORDER_STATUS_MAP = {
     'PENDING' => :unknown,
     'UNKNOWN_ORDER_STATUS' => :unknown,
     'OPEN' => :open,
+    # Queued orders are still live: a queued cancel or edit can yet fill.
+    'QUEUED' => :open,
+    'CANCEL_QUEUED' => :open,
+    'EDIT_QUEUED' => :open,
     'FILLED' => :closed,
     'CANCELLED' => :cancelled,
     'EXPIRED' => :cancelled,
