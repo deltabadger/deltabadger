@@ -155,6 +155,9 @@ pub async fn export(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> R
     }).await
 }
 
+/// AccountTransaction.csv_headers: the export's columns, and the columns the Deltabadger import reads back.
+pub const CSV_HEADERS: [&str; 12] = ["date","type","base_currency","base_amount","quote_currency","quote_amount","fee_currency","fee_amount","exchange","tx_id","group_id","description"];
+
 /// `filtered_transactions` (exchange, then the UTC days `from`..`to`) through `AccountTransaction.to_csv`.
 fn transactions_csv(c: &Connection, ctx: &Ctx, owner: i64) -> Result<Response, WebError> {
     use crate::tax::{line, Cell};
@@ -181,7 +184,7 @@ fn transactions_csv(c: &Connection, ctx: &Ctx, owner: i64) -> Result<Response, W
     }
     sql.push_str(" ORDER BY transacted_at ASC");
     let mut out = String::new();
-    line(&mut out, &["date","type","base_currency","base_amount","quote_currency","quote_amount","fee_currency","fee_amount","exchange","tx_id","group_id","description"].map(|h| Cell::Text(h.into())));
+    line(&mut out, &CSV_HEADERS.map(|h| Cell::Text(h.into())));
     let mut venues: std::collections::HashMap<i64, String> = std::collections::HashMap::new();
     let mut statement = c.prepare(&sql)?;
     let mut rows = statement.query(rusqlite::params_from_iter(binds))?;
