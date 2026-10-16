@@ -13,8 +13,17 @@ class Exchanges::BitrueTest < ActiveSupport::TestCase
     errors = @exchange.known_errors
     assert errors[:insufficient_funds].present?
     assert errors[:invalid_key].present?
-    assert_includes errors[:insufficient_funds], 'Insufficient balance.'
     assert_includes errors[:invalid_key], 'Invalid Api-Key ID.'
+  end
+
+  test 'Bitrue error wording is classified' do
+    assert_equal :insufficient_funds, @exchange.failure_kind(['Insufficient account balance.'])
+    assert_equal :insufficient_funds, @exchange.failure_kind(['Insufficient balance'])
+    assert @exchange.condemning_invalid_key_error?(['No login'])
+    assert @exchange.transient_error?(['recvWindow IllegalArgumentException.'])
+    assert @exchange.placement_transient_error?(['recvWindow IllegalArgumentException.'])
+    assert @exchange.throttled_error?(['Too many requests. Please try again later.'])
+    assert @exchange.permission_error?(["You don't have permission."])
   end
 
   test 'minimum_amount_logic returns base_and_quote for market orders' do
