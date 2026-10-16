@@ -452,15 +452,15 @@ class Exchanges::Kucoin < Exchange
 
     # Transfers are keyed by the record id. walletTxId is the on-chain hash, which every withdrawal (or
     # deposit) batched into one transaction shares, and the sync keeps one row per tx_id. It is empty
-    # for an internal transfer. A deposit carries `id` in KuCoin's example but not its schema, so the
-    # hash stays its fallback.
+    # for an internal transfer. A record without an `id` (a deposit's is in KuCoin's example, not its
+    # schema) keeps the hash, as the rows stored before the switch do (see the 20261016140000 migration).
     start_ms = start_time ? (start_time.to_f * 1000).to_i : nil
     fetch = ->(page) { hm_client.get_deposits(start_at: start_ms, status: 'SUCCESS', current_page: page, page_size: 500) }
     failed = each_page(fetch) do |dep|
       entries << { entry_type: :deposit, base_currency: dep['currency'], base_amount: dep['amount'].to_d,
                    quote_currency: nil, quote_amount: nil,
                    fee_currency: dep['currency'], fee_amount: dep['fee'].to_d,
-                   tx_id: dep['id'].presence || dep['walletTxId'], group_id: nil, description: nil,
+                   tx_id: dep['id'].presence || dep['walletTxId'].presence, group_id: nil, description: nil,
                    transacted_at: Time.at(dep['createdAt'].to_i / 1000.0).utc, raw_data: dep }
     end
     return failed if failed
@@ -470,7 +470,7 @@ class Exchanges::Kucoin < Exchange
       entries << { entry_type: :withdrawal, base_currency: wd['currency'], base_amount: wd['amount'].to_d,
                    quote_currency: nil, quote_amount: nil,
                    fee_currency: wd['currency'], fee_amount: wd['fee'].to_d,
-                   tx_id: wd['id'], group_id: nil, description: nil,
+                   tx_id: wd['id'].presence || wd['walletTxId'].presence, group_id: nil, description: nil,
                    transacted_at: Time.at(wd['createdAt'].to_i / 1000.0).utc, raw_data: wd }
     end
     return failed if failed
