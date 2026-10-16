@@ -10,7 +10,7 @@ require 'base64'
 require 'active_support/testing/time_helpers'
 
 ENV['TZ'] = 'UTC' # Deltabadger dates without a zone are read in the process zone; pin it.
-# Time.parse fills what a value lacks from the clock: a Binance time with no date reads as TODAY at the file's offset.
+# Pinned: Time.parse fills what a value lacks from the clock; Import::Run.time refuses such a cell, and a regression shows here.
 NOW = Time.utc(2026, 10, 1, 21, 30, 0)
 include ActiveSupport::Testing::TimeHelpers
 travel_to(NOW)
