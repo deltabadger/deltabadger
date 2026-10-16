@@ -312,13 +312,87 @@ class Exchanges::BitvavoTest < ActiveSupport::TestCase
                              'feeCurrency' => 'EUR', 'fee' => '0.5', 'id' => 't1',
                              'timestamp' => 1_700_000_000_000 }])
     )
-    client_class.any_instance.stubs(:get_deposit_history).returns(Result::Success.new([]))
-    client_class.any_instance.stubs(:get_withdrawal_history).returns(Result::Success.new([]))
+    client_class.any_instance.stubs(:get_signed).with('/v2/depositHistory', anything).returns(Result::Success.new([]))
+    client_class.any_instance.stubs(:get_signed).with('/v2/withdrawalHistory', anything).returns(Result::Success.new([]))
 
     result = nil
     assert_nothing_raised { result = @exchange.get_ledger(api_key: api_key) }
     assert_predicate result, :success?
     assert(result.data.any? { |e| e[:entry_type] == :buy && e[:base_currency] == 'BTC' })
+  end
+
+  # Shapes from https://docs.bitvavo.com/docs/rest-api/get-deposit-history/ and
+  # …/get-withdrawal-history/ (status on a crypto deposit as ccxt captured it).
+  def bitvavo_deposit(timestamp, amount, **extra)
+    { 'timestamp' => timestamp, 'symbol' => 'BTC', 'amount' => amount, 'address' => '14qViLJfdGaP4EeHnDyJbEGQysnCpwk3gd',
+      'txId' => "927b3ea50c5bb52c6854152d305dfa1e27fc01d10464cf10825d96d69d235eb3\n", 'fee' => '0' }.merge(extra)
+  end
+
+  def stub_empty_trades(client_class)
+    client_class.any_instance.stubs(:get_raw_balance).returns(Result::Success.new([]))
+    client_class.any_instance.stubs(:get_markets).returns(Result::Success.new([]))
+  end
+
+  test 'get_ledger reads every deposit page from depositHistory, re-reading the boundary millisecond' do
+    api_key = create(:api_key, exchange: @exchange, key_type: :trading, key: 'k', secret: 's')
+    client_class = Honeymaker::Clients::Bitvavo
+    stub_empty_trades(client_class)
+    boundary = 1_700_000_000_000
+    # A full page, newest first; its two oldest rows share one millisecond.
+    full = Array.new(1000) { |i| bitvavo_deposit(boundary + 1000 - i, "0.#{i + 1}") }
+    full[-1] = bitvavo_deposit(boundary, '0.5')
+    full[-2] = bitvavo_deposit(boundary, '0.25')
+    # The next page re-reads that millisecond: a repeat, a sibling the first page cut off, and older rows.
+    rest = [bitvavo_deposit(boundary, '0.5'), bitvavo_deposit(boundary, '0.125'),
+            bitvavo_deposit(boundary - 5, '10', 'symbol' => 'EUR', 'status' => 'completed', 'txId' => nil),
+            bitvavo_deposit(boundary - 9, '1', 'status' => 'canceled')]
+    client_class.any_instance.expects(:get_signed)
+                .with('/v2/depositHistory', has_entries(start: 0, limit: 1000)).returns(Result::Success.new(full))
+    client_class.any_instance.expects(:get_signed)
+                .with('/v2/depositHistory', has_entries(start: 0, end: boundary + 1)).returns(Result::Success.new(rest))
+    client_class.any_instance.stubs(:get_signed).with('/v2/withdrawalHistory', anything).returns(
+      Result::Success.new([{ 'timestamp' => boundary, 'symbol' => 'BTC', 'amount' => '0.3', 'fee' => '0.0001',
+                             'status' => 'completed', 'txId' => 'abc' },
+                           { 'timestamp' => boundary, 'symbol' => 'BTC', 'amount' => '0.3', 'fee' => '0.0001',
+                             'status' => 'awaiting_processing' }])
+    )
+
+    result = @exchange.get_ledger(api_key: api_key)
+
+    assert result.success?, result.errors.inspect
+    deposits = result.data.select { |e| e[:entry_type] == :deposit }
+    assert_equal 1002, deposits.size # 1000 + the cut-off sibling + the fiat deposit; repeat and cancelled dropped
+    assert(deposits.any? { |e| e[:base_amount] == BigDecimal('0.125') })
+    assert(deposits.any? { |e| e[:base_currency] == 'EUR' })
+    assert(deposits.all? { |e| e[:tx_id].nil? }, 'a chain hash is not a record id')
+    withdrawals = result.data.select { |e| e[:entry_type] == :withdrawal }
+    assert_equal 1, withdrawals.size
+    assert_nil withdrawals.first[:tx_id]
+  end
+
+  test 'get_ledger fails when a transfer read fails' do
+    api_key = create(:api_key, exchange: @exchange, key_type: :trading, key: 'k', secret: 's')
+    client_class = Honeymaker::Clients::Bitvavo
+    stub_empty_trades(client_class)
+    client_class.any_instance.stubs(:get_signed).with('/v2/depositHistory', anything).returns(Result::Success.new([]))
+    client_class.any_instance.stubs(:get_signed).with('/v2/withdrawalHistory', anything).returns(
+      Result::Failure.new({ errorCode: 311, error: 'This key does not allow showing account information.' }.to_json, data: { status: 403 })
+    )
+
+    result = @exchange.get_ledger(api_key: api_key)
+
+    assert result.failure?
+    assert @exchange.permission_error?(result.errors)
+  end
+
+  test 'get_ledger fails when a full transfer page brings nothing new' do
+    api_key = create(:api_key, exchange: @exchange, key_type: :trading, key: 'k', secret: 's')
+    client_class = Honeymaker::Clients::Bitvavo
+    stub_empty_trades(client_class)
+    same_ms = Array.new(1000) { |i| bitvavo_deposit(1_700_000_000_000, "0.#{i + 1}") }
+    client_class.any_instance.stubs(:get_signed).with('/v2/depositHistory', anything).returns(Result::Success.new(same_ms))
+
+    assert @exchange.get_ledger(api_key: api_key).failure?
   end
 
   # recover_order_from_trades reads @exchange.transactions to derive the get_trades start_time.
