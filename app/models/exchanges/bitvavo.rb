@@ -408,6 +408,7 @@ class Exchanges::Bitvavo < Exchange
     # markets would go unread while the fetch succeeded.
     coins = entries.to_set { |entry| entry[:base_currency] }
     balances = hm_client.get_raw_balance
+    sleep(LEDGER_READ_PAUSE)
     return balances if balances.failure?
 
     Array(balances.data).each { |b| coins << b['symbol'] if b['available'].to_d.positive? || b['inOrder'].to_d.positive? }
@@ -426,7 +427,7 @@ class Exchanges::Bitvavo < Exchange
     traded_before = traded_before.map { |pair| pair.join('-') }
     markets = Array(listing.data).map { |m| m['market'] }
     markets.select { |market| coins.include?(market.split('-').first) || traded_before.include?(market) }.each do |market|
-      trades = read_trades(hm_client, market, start_ms)
+      trades = read_trades(hm_client, market, start_ms, pause: LEDGER_READ_PAUSE)
       return trades if trades.failure?
 
       base, quote = market.split('-')
@@ -450,8 +451,12 @@ class Exchanges::Bitvavo < Exchange
   DEPOSITS_PATH = '/v2/depositHistory'.freeze
   WITHDRAWALS_PATH = '/v2/withdrawalHistory'.freeze
   TRANSFERS_PAGE_LIMIT = 1000
+  # https://docs.bitvavo.com/docs/rate-limits/: 1000 weight points a minute per account, then blocked
+  # for a minute (105). The ledger's reads weigh 5 each (balance, transfer history, trades); paced to
+  # 800 a minute, leaving the rest to the bots trading on the same account.
+  LEDGER_READ_PAUSE = 60.0 / 800 * 5
   TRADES_PAGE_LIMIT = 1000 # Bitvavo /v2/trades hard max
-  private_constant :DEPOSITS_PATH, :WITHDRAWALS_PATH, :TRANSFERS_PAGE_LIMIT, :TRADES_PAGE_LIMIT
+  private_constant :DEPOSITS_PATH, :WITHDRAWALS_PATH, :TRANSFERS_PAGE_LIMIT, :LEDGER_READ_PAUSE, :TRADES_PAGE_LIMIT
 
   # Every transfer since start_ms (all of them without one). Newest first, at most 1000 a call, and
   # no record id or cursor: each page ends at the oldest timestamp of the one before, plus a
@@ -464,6 +469,7 @@ class Exchanges::Bitvavo < Exchange
     end_ms = (Time.now.to_f * 1000).to_i + 1
     loop do
       result = hm_client.send(:get_signed, path, { start: start_ms || 0, end: end_ms, limit: TRANSFERS_PAGE_LIMIT })
+      sleep(LEDGER_READ_PAUSE)
       return result if result.failure?
 
       page = Array(result.data)
@@ -527,11 +533,12 @@ class Exchanges::Bitvavo < Exchange
   # endpoint, which takes the same parameters). So each page continues before the oldest id of the
   # one before, until a short page or one that reaches past start_ms. Repeats are dropped by id, and
   # a full page with nothing new fails rather than loops. A failed page fails the whole read.
-  def read_trades(hm_client, market, start_ms)
+  def read_trades(hm_client, market, start_ms, pause: 0)
     trades = {}
     cursor = nil
     loop do
       result = hm_client.get_trades(market: market, limit: TRADES_PAGE_LIMIT, trade_id_to: cursor)
+      sleep(pause) if pause.positive?
       return result if result.failure?
 
       page = Array(result.data)
