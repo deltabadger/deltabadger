@@ -464,7 +464,9 @@ class Exchanges::Hyperliquid < Exchange
            when 'send'
              out = mine.call('user') && delta['sourceDex'] == 'spot'
              into = mine.call('destination') && delta['destinationDex'] == 'spot'
-             out ^ into ? (out ? :withdrawal : :deposit) : nil
+             if out && !into then :withdrawal
+             elsif into && !out then :deposit
+             end
            when 'accountClassTransfer'
              token = 'USDC'
              amount = delta['usdc']

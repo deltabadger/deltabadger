@@ -768,7 +768,7 @@ class Exchanges::HyperliquidTest < ActiveSupport::TestCase
     result = @exchange.get_ledger(api_key: connection)
 
     assert_predicate result, :success?
-    assert_equal (1..2002).map(&:to_s), result.data.map { |e| e[:tx_id] }
+    assert_equal((1..2002).map(&:to_s), result.data.map { |e| e[:tx_id] })
   end
 
   test 'get_ledger keeps spot fills only, on their own quote, with the fee in its own token' do
@@ -786,8 +786,8 @@ class Exchanges::HyperliquidTest < ActiveSupport::TestCase
 
     entries = @exchange.get_ledger(api_key: connection).data
 
-    assert_equal %w[3 4], entries.map { |e| e[:tx_id] }
-    assert_equal %w[USDH USDH], entries.map { |e| e[:quote_currency] }
+    assert_equal(%w[3 4], entries.map { |e| e[:tx_id] })
+    assert_equal(%w[USDH USDH], entries.map { |e| e[:quote_currency] })
     assert_equal ['HYPE', BigDecimal('0.0007')], entries.first.values_at(:fee_currency, :fee_amount)
     assert_nil entries.second[:fee_amount]
   end
@@ -819,10 +819,10 @@ class Exchanges::HyperliquidTest < ActiveSupport::TestCase
 
     entries = @exchange.get_ledger(api_key: connection).data
 
-    assert_equal [[:deposit, 'USDC', BigDecimal('400'), '0xa2'], [:deposit, 'PURR', BigDecimal('20'), '0xa3'],
+    assert_equal([[:deposit, 'USDC', BigDecimal('400'), '0xa2'], [:deposit, 'PURR', BigDecimal('20'), '0xa3'],
                   [:withdrawal, 'USDC', BigDecimal('50'), '0xa4'], [:withdrawal, 'HYPE', BigDecimal('3'), nil],
                   [:airdrop, 'PURR', BigDecimal('100'), '0xa6']],
-                 entries.map { |e| e.values_at(:entry_type, :base_currency, :base_amount, :tx_id) }
+                 entries.map { |e| e.values_at(:entry_type, :base_currency, :base_amount, :tx_id) })
   end
 
   test 'get_ledger fails the fetch when a transfers read fails' do
