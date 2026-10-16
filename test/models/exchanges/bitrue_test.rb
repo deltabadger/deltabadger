@@ -347,7 +347,7 @@ class Exchanges::BitrueTest < ActiveSupport::TestCase
   def ledger_with(fake)
     @exchange.stubs(:sleep)
     Honeymaker.stubs(:client).returns(fake)
-    api_key = create(:api_key, exchange: @exchange, key_type: :trading, key: 'k', secret: 's')
+    api_key = create(:api_key, exchange: @exchange, key_type: :trading)
     @exchange.get_ledger(api_key: api_key, start_time: nil)
   end
 
@@ -383,7 +383,7 @@ class Exchanges::BitrueTest < ActiveSupport::TestCase
   end
 
   test 'get_ledger keeps reading a pair the account sold out of' do
-    api_key = create(:api_key, exchange: @exchange, key_type: :trading, key: 'k', secret: 's')
+    api_key = create(:api_key, exchange: @exchange, key_type: :trading)
     # Stored by an earlier sync, in the lower case Bitrue used to leave in the ledger.
     AccountTransaction.create!(user: api_key.user, api_key: api_key, exchange: @exchange, entry_type: :buy,
                                base_currency: 'eth', base_amount: 1, quote_currency: 'usdt', quote_amount: 2000,
