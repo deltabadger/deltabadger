@@ -25,6 +25,39 @@ class Exchanges::BitgetTest < ActiveSupport::TestCase
     )
   end
 
+  # Bodies as Bitget answers them over HTTP 400 (https://www.bitget.com/docs/classic/error-code/restapi).
+  test 'a wrong secret or passphrase reads as an invalid key' do
+    ['{"code":"40009","msg":"sign signature error"}', '{"code":"40012","msg":"apikey/password is incorrect"}',
+     '{"code":"40036","msg":"passphrase is error"}', '{"code":"40041","msg":"User\'s ApiKey does not exist"}',
+     '{"code":"40037","msg":"Apikey does not exist"}'].each do |body|
+      assert @exchange.invalid_key_error?([body]), body
+    end
+  end
+
+  test 'a missing scope reads as a permission error, not an invalid key' do
+    body = '{"code":"40014","msg":"Incorrect permissions, need spot order write permissions"}'
+    assert @exchange.permission_error?([body])
+    assert_not @exchange.invalid_key_error?([body])
+    assert @exchange.permission_error?(['{"code":"40025","msg":"The user does not have this permission"}'])
+  end
+
+  test 'a 429 reads as throttled and a venue-side hiccup as transient' do
+    assert @exchange.throttled_error?(['{"code":"429","msg":"Too Many Requests"}'])
+    assert @exchange.transient_error?(['{"code":"40015","msg":"System is abnormal, please try again later"}'])
+    assert @exchange.transient_error?(['{"code":"40010","msg":"Request timed out"}'])
+    assert_not @exchange.placement_transient_error?(['{"code":"40010","msg":"Request timed out"}'])
+  end
+
+  test 'get_api_key_validity rejects a key whose passphrase is wrong' do
+    Rails.configuration.stubs(:dry_run).returns(false)
+    api_key = create(:api_key, exchange: @exchange, key_type: :trading, key: 'k', secret: 's', raw_passphrase: 'wrong')
+    Honeymaker::Clients::Bitget.any_instance.stubs(:cancel_order).returns(
+      Result::Failure.new('{"code":"40012","msg":"apikey/password is incorrect","data":null}', data: { status: 400 })
+    )
+
+    assert_equal false, @exchange.get_api_key_validity(api_key: api_key).data
+  end
+
   test 'transient_error? does not swallow an ordinary rejection' do
     assert_not @exchange.transient_error?(['{"code":"43012","msg":"Insufficient balance"}'])
   end
@@ -239,6 +272,52 @@ class Exchanges::BitgetTest < ActiveSupport::TestCase
     assert_predicate result, :failure?
   end
 
+  # == set_market_order sends one `size`, in the unit the side takes ==
+  # Bitget's v2 place-order has no quoteSize: a market buy's `size` is quote coins, a market sell's
+  # is base coins. Quote amounts went out as quoteSize with no size at all, and base amounts on a
+  # buy went out as a size Bitget reads as quote.
+
+  def capture_place_order
+    captured = {}
+    @exchange.send(:client).define_singleton_method(:place_order) do |**kwargs|
+      captured.merge!(kwargs)
+      Result::Success.new(order_id: "#{kwargs[:symbol]}-abc123", raw: { 'orderId' => 'abc123' })
+    end
+    captured
+  end
+
+  test 'a quote-sized market buy sends the quote amount as size' do
+    ticker = create(:ticker, exchange: @exchange, base_symbol: 'BTC', quote_symbol: 'USDT', quote_decimals: 8)
+    captured = capture_place_order
+
+    with_dry_run(false) { @exchange.market_buy(ticker: ticker, amount: BigDecimal('25'), amount_type: :quote) }
+
+    assert_equal '25.0', captured[:size]
+    assert_nil captured[:quote_size]
+  end
+
+  test 'a base-sized market buy is converted to quote at the ask' do
+    ticker = create(:ticker, exchange: @exchange, base_symbol: 'BTC', quote_symbol: 'USDT', quote_decimals: 8)
+    @exchange.stubs(:market_price_for).with(ticker: ticker, side: :buy).returns(Result::Success.new(BigDecimal('50000')))
+    captured = capture_place_order
+
+    with_dry_run(false) { @exchange.market_buy(ticker: ticker, amount: BigDecimal('0.001'), amount_type: :base) }
+
+    assert_equal '50.0', captured[:size]
+  end
+
+  test 'a market sell sends a base size, converting a quote amount at the bid' do
+    ticker = create(:ticker, exchange: @exchange, base_symbol: 'BTC', quote_symbol: 'USDT', base_decimals: 6)
+    @exchange.stubs(:market_price_for).with(ticker: ticker, side: :sell).returns(Result::Success.new(BigDecimal('50000')))
+    captured = capture_place_order
+
+    with_dry_run(false) { @exchange.market_sell(ticker: ticker, amount: BigDecimal('0.0021'), amount_type: :base) }
+    assert_equal '0.0021', captured[:size]
+
+    with_dry_run(false) { @exchange.market_sell(ticker: ticker, amount: BigDecimal('100'), amount_type: :quote) }
+    assert_equal '0.002', captured[:size]
+  end
+
   # == parse_order_status maps Bitget's v2 spot status enum ==
   # Bitget migrated the spot order status enum: the live /api/v2/spot/trade/orderInfo endpoint
   # now returns filled / partially_filled where it once returned full_fill / partial_fill. Our
@@ -281,6 +360,55 @@ class Exchanges::BitgetTest < ActiveSupport::TestCase
     assert_predicate result, :success?
     assert_equal :closed, result.data[:status]
   end
+
+  # One order Bitget no longer has failed every get_orders batch it was in, so the bot's other
+  # open orders were never polled either.
+  test 'get_orders lists an order Bitget no longer has under missing and keeps the rest' do
+    live = { 'orderId' => '2', 'symbol' => 'BTCUSDT', 'orderType' => 'limit', 'side' => 'buy', 'price' => '13000',
+             'size' => '0.001', 'priceAvg' => '0', 'baseVolume' => '0', 'quoteVolume' => '0', 'status' => 'live' }
+    answers = {
+      '1' => Result::Failure.new('{"code":"40109","msg":"The data of the order cannot be found, please confirm the order number"}',
+                                 data: { status: 400 }),
+      '2' => Result::Success.new(raw: live),
+      '3' => Result::Failure.new('Order not found'),
+      '4' => Result::Failure.new('Bitget API error 43001: The order does not exist')
+    }
+    @exchange.send(:client).define_singleton_method(:get_order) { |order_id:| answers.fetch(order_id) }
+
+    result = with_dry_run(false) { @exchange.get_orders(order_ids: %w[BTCUSDT-1 BTCUSDT-2 BTCUSDT-3 BTCUSDT-4]) }
+
+    assert_predicate result, :success?
+    assert_equal %w[BTCUSDT-1 BTCUSDT-3 BTCUSDT-4], result.data[:missing]
+    assert_equal :open, result.data[:orders]['BTCUSDT-2'][:status]
+  end
+
+  test 'get_orders still fails the batch on any other failure' do
+    @exchange.send(:client).define_singleton_method(:get_order) do |**|
+      Result::Failure.new('{"code":"40015","msg":"System is abnormal, please try again later"}', data: { status: 400 })
+    end
+
+    assert_predicate with_dry_run(false) { @exchange.get_orders(order_ids: %w[BTCUSDT-1]) }, :failure?
+  end
+
+  # orderInfo's `size` is quote coins on a market buy; reading it as base wrote "10 BTC" onto a
+  # 10 USDT buy. Shaped like the doc's example, which has no quoteSize.
+  test 'get_order reads a market buy size as the quote amount' do
+    raw = { 'orderId' => '1', 'symbol' => 'BTCUSDT', 'orderType' => 'market', 'side' => 'buy', 'price' => '0',
+            'size' => '10.0000000000000000', 'priceAvg' => '13000', 'baseVolume' => '0.0007',
+            'quoteVolume' => '9.1', 'status' => 'filled' }
+    @exchange.send(:client).define_singleton_method(:get_order) { |**| Result::Success.new(raw: raw) }
+
+    data = with_dry_run(false) { @exchange.get_order(order_id: 'BTCUSDT-1') }.data
+
+    assert_nil data[:amount]
+    assert_equal BigDecimal('10'), data[:quote_amount]
+    assert_equal BigDecimal('0.0007'), data[:amount_exec]
+
+    raw.merge!('orderType' => 'limit', 'price' => '13000', 'size' => '0.0007')
+    data = with_dry_run(false) { @exchange.get_order(order_id: 'BTCUSDT-1') }.data
+    assert_equal BigDecimal('0.0007'), data[:amount]
+    assert_nil data[:quote_amount]
+  end
   # B9. Bitget emitted `available: status == 'online'` and no trading_enabled at all — one concept
   # in two columns with opposite failure modes on the two sync paths. Every other venue reports an
   # offline pair as listed-but-not-tradable.
@@ -293,9 +421,157 @@ class Exchanges::BitgetTest < ActiveSupport::TestCase
     @exchange.set_client
     @exchange.send(:client).stubs(:get_symbols).returns(Result::Success.new({ 'data' => products }))
 
+    @exchange.send(:client).stubs(:get_tickers).returns(Result::Success.new({ 'data' => [] }))
+
     info = @exchange.get_tickers_info(force: true).data.first
 
     assert info[:available], 'an offline pair is still listed'
     assert_not info[:trading_enabled], 'but it cannot be traded'
+  end
+
+  # minTradeUSDT is in USDT on every pair (live: ETHBTC, SOLBTC and BTCEUR all carry "1"), so
+  # storing it as the quote minimum made ETHBTC's minimum 1 BTC and every order on it a skip.
+  test 'the quote minimum of a non-USDT pair is minTradeUSDT converted into the quote' do
+    product = lambda do |symbol, base, quote|
+      { 'symbol' => symbol, 'baseCoin' => base, 'quoteCoin' => quote, 'status' => 'online',
+        'minTradeAmount' => '0', 'minTradeUSDT' => '1', 'maxTradeAmount' => '900000000000000000000',
+        'quantityPrecision' => '4', 'quotePrecision' => '9', 'pricePrecision' => '5' }
+    end
+    products = [product.call('ETHBTC', 'ETH', 'BTC'), product.call('BTCEUR', 'BTC', 'EUR'),
+                product.call('BTCUSDT', 'BTC', 'USDT'), product.call('XYZABC', 'XYZ', 'ABC')]
+    tickers = [{ 'symbol' => 'BTCUSDT', 'lastPr' => '50000' }, { 'symbol' => 'USDTEUR', 'lastPr' => '0.9' }]
+    @exchange.set_client
+    @exchange.send(:client).stubs(:get_symbols).returns(Result::Success.new({ 'data' => products }))
+    @exchange.send(:client).stubs(:get_tickers).returns(Result::Success.new({ 'data' => tickers }))
+
+    minimums = @exchange.get_tickers_info(force: true).data.to_h { |info| [info[:ticker], info[:minimum_quote_size]] }
+
+    assert_equal BigDecimal('0.00002'), minimums['ETHBTC']
+    assert_equal BigDecimal('0.9'), minimums['BTCEUR']
+    assert_equal BigDecimal('1'), minimums['BTCUSDT']
+    assert_equal 0, minimums['XYZABC']
+  end
+end
+
+class Exchanges::BitgetLedgerTest < ActiveSupport::TestCase
+  setup do
+    @exchange = create(:bitget_exchange)
+    @api_key = create(:api_key, exchange: @exchange, key: 'k', secret: 's', raw_passphrase: 'p')
+    @client = Honeymaker::Clients::Bitget.any_instance
+    @empty = Result::Success.new({ 'code' => '00000', 'data' => [] })
+    @client.stubs(:deposit_list).returns(@empty)
+    @client.stubs(:withdrawal_list).returns(@empty)
+  end
+
+  # Shaped like the Get Fills example (https://www.bitget.com/docs/catalog/classic-spot-trade/classic-spot-trade#get-fills).
+  def fill(id, at: 2.days.ago)
+    { 'symbol' => 'BTCUSDT', 'orderId' => "o#{id}", 'tradeId' => id.to_s, 'orderType' => 'market', 'side' => 'buy',
+      'priceAvg' => '13000', 'size' => '0.0007', 'amount' => '9.1',
+      'feeDetail' => { 'deduction' => 'no', 'feeCoin' => 'BTC', 'totalDeductionFee' => '', 'totalFee' => '-0.0000007' },
+      'tradeScope' => 'taker', 'cTime' => (at.to_f * 1000).to_i.to_s, 'uTime' => (at.to_f * 1000).to_i.to_s }
+  end
+
+  def page(ids) = Result::Success.new({ 'code' => '00000', 'data' => ids.map { |id| fill(id) } })
+
+  # One request with only startTime read the newest 100 fills and nothing else.
+  test 'fills are read page by page with idLessThan, inside an explicit range' do
+    calls = []
+    @client.stubs(:get_fills).with { |**kwargs| calls << kwargs }
+           .returns(page((101..200).to_a.reverse)).then.returns(page([100]))
+
+    result = @exchange.get_ledger(api_key: @api_key, start_time: 10.days.ago)
+
+    assert_predicate result, :success?
+    assert_equal(101, result.data.count { |entry| entry[:entry_type] == :buy })
+    assert_equal 2, calls.size
+    assert(calls.all? { |call| call[:start_time].present? && call[:end_time].present? })
+    assert_nil calls[0][:id_less_than]
+    assert_equal '101', calls[1][:id_less_than]
+  end
+
+  test 'a long-quiet or first sync asks fills only for the 90 days Bitget keeps, in ranges under 90 days' do
+    calls = []
+    @client.stubs(:get_fills).with { |**kwargs| calls << kwargs }.returns(page([]))
+
+    @exchange.get_ledger(api_key: @api_key, start_time: 2.years.ago)
+    @exchange.get_ledger(api_key: @api_key)
+
+    assert(calls.all? { |call| call[:start_time].to_i >= 90.days.ago.to_i * 1000 })
+    assert(calls.all? { |call| call[:end_time].to_i - call[:start_time].to_i <= 90.days.to_i * 1000 })
+    assert_operator calls.map { |call| call[:end_time].to_i }.max, :>=, 1.minute.ago.to_i * 1000
+    assert_nil @exchange.ledger_window
+  end
+
+  # A failed fills read was skipped and the fetch still succeeded, so the sync moved its watermark
+  # past fills it never read.
+  test 'a failed fills read fails the fetch' do
+    @client.stubs(:get_fills).returns(
+      Result::Failure.new('{"code":"40037","msg":"Apikey does not exist","data":null}', data: { status: 400 })
+    )
+    result = @exchange.get_ledger(api_key: @api_key, start_time: 10.days.ago)
+    assert_predicate result, :failure?
+    assert @exchange.invalid_key_error?(result.errors)
+
+    @client.stubs(:get_fills).returns(Result::Success.new({ 'code' => '40015', 'msg' => 'System is abnormal' }))
+    assert_predicate @exchange.get_ledger(api_key: @api_key, start_time: 10.days.ago), :failure?
+  end
+
+  # Shaped like the doc examples
+  # (https://www.bitget.com/docs/catalog/classic-spot-account/classic-spot-account#get-deposit-records).
+  def transfer(id, type, dest: 'on_chain', at: 2.days.ago)
+    { 'orderId' => id.to_s, 'tradeId' => "0xhash#{id}", 'coin' => 'USDT', 'type' => type, 'dest' => dest,
+      'size' => '10.00000000', 'fee' => '-1.00000000', 'status' => 'success', 'chain' => 'erc20',
+      'cTime' => (at.to_f * 1000).to_i.to_s, 'uTime' => (at.to_f * 1000).to_i.to_s }
+  end
+
+  # Both endpoints require startTime and endTime; asked with startTime alone (or nothing, on a first
+  # sync) Bitget refused, the failure was skipped, and no deposit or withdrawal was ever imported.
+  test 'deposits and withdrawals are read with a full range, page by page, keyed by their own record id' do
+    @client.stubs(:get_fills).returns(@empty)
+    deposit_calls = []
+    @client.stubs(:deposit_list).with { |**kwargs| deposit_calls << kwargs }
+           .returns(Result::Success.new({ 'code' => '00000', 'data' => (1..100).map { |i| transfer(1000 - i, 'deposit') } }))
+           .then.returns(Result::Success.new({ 'code' => '00000',
+                                               'data' => [transfer(5, 'deposit', dest: 'internal_transfer')] }))
+    batched = transfer(8, 'withdraw').merge('tradeId' => '0xhash7')
+    @client.stubs(:withdrawal_list).returns(Result::Success.new({ 'code' => '00000',
+                                                                  'data' => [transfer(7, 'withdraw'), batched] }))
+
+    entries = @exchange.get_ledger(api_key: @api_key, start_time: 10.days.ago).data
+
+    assert(deposit_calls.all? { |call| call[:start_time].present? && call[:end_time].present? })
+    assert_equal '900', deposit_calls[1][:id_less_than]
+    deposits = entries.select { |entry| entry[:entry_type] == :deposit }
+    assert_equal 101, deposits.size
+    assert_equal 'deposit-5', deposits.last[:tx_id]
+    # Two withdrawals paid out in one on-chain transaction share its hash; both are kept.
+    withdrawals = entries.select { |entry| entry[:entry_type] == :withdrawal }
+    assert_equal(%w[withdrawal-7 withdrawal-8], withdrawals.map { |entry| entry[:tx_id] })
+    withdrawal = withdrawals.first
+    assert_equal BigDecimal('1'), withdrawal[:fee_amount]
+  end
+
+  test 'a first sync reads transfers back to Bitget\'s opening, in ranges under 90 days' do
+    @client.stubs(:get_fills).returns(@empty)
+    calls = []
+    @client.stubs(:deposit_list).with { |**kwargs| calls << kwargs }.returns(@empty)
+
+    @exchange.get_ledger(api_key: @api_key)
+
+    assert_equal Time.utc(2018, 4, 1).to_i * 1000, calls.first[:start_time].to_i
+    assert(calls.all? { |call| call[:end_time].to_i - call[:start_time].to_i <= 90.days.to_i * 1000 })
+  end
+
+  test 'a key without the wallet scope reads as no transfers; any other failed transfer read fails the fetch' do
+    @client.stubs(:get_fills).returns(@empty)
+    @client.stubs(:deposit_list).returns(
+      Result::Failure.new('{"code":"40014","msg":"Incorrect permissions"}', data: { status: 400 })
+    )
+    assert_predicate @exchange.get_ledger(api_key: @api_key, start_time: 10.days.ago), :success?
+
+    @client.stubs(:withdrawal_list).returns(
+      Result::Failure.new('{"code":"40015","msg":"System is abnormal"}', data: { status: 400 })
+    )
+    assert_predicate @exchange.get_ledger(api_key: @api_key, start_time: 10.days.ago), :failure?
   end
 end

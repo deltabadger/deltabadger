@@ -60,8 +60,8 @@ mutation!(archive,Some(Action::Archive));
 mutation!(unarchive,Some(Action::Unarchive));
 
 /// POST /bots/:id/reverse (BotsController#reverse). The rotation commits in one transaction (write::reverse) and the engine
-/// is woken to cancel what it captured. The page then refreshes: the panels Rails re-renders belong to pages this build
-/// serves only for buying Alpaca bots, which cannot sell yet.
+/// is woken to cancel what it captured. The page then refreshes, where Rails replaces its panels: the metrics panel it
+/// re-renders is drawn from figures a request here does not compute (a divergence listed in tests/pages.rs).
 pub async fn reverse(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path(segment): Path<String>) -> Result<Response,WebError> {
     let Some(user) = ctx.user().cloned() else { return Ok(auth::unauthenticated(&ctx)) };
     let segment = segment.strip_suffix(".turbo_stream").unwrap_or(&segment);

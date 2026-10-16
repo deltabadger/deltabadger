@@ -420,7 +420,7 @@ pub fn web_amount_limit(c: &Connection, bot: &WebBot) -> Result<Option<start::Li
     Ok(Some(start::Limit { left: Some(view(left)), reached }))
 }
 /// Automation::Schedulable::INTERVALS, in seconds as `interval_duration.to_f` gives them.
-fn interval_seconds(interval: super::schedule::Interval) -> f64 {
+pub(crate) fn interval_seconds(interval: super::schedule::Interval) -> f64 {
     match interval { super::schedule::Interval::Hour => 3_600.0, super::schedule::Interval::Day => 86_400.0, super::schedule::Interval::Week => 604_800.0, super::schedule::Interval::Month => 2_629_746.0 }
 }
 
