@@ -304,10 +304,26 @@ class Exchanges::BitvavoTest < ActiveSupport::TestCase
                          status: :submitted, external_status: :open, **attrs)
   end
 
-  # Bitvavo's order-not-found Result (errorCode 240). Faraday JSON-parses the error body, so
-  # honeymaker surfaces the stringified Hash. Build it the way with_rescue does.
+  # Bitvavo's order-not-found Result: HTTP 404 with errorCode 240, the raw JSON body as honeymaker's
+  # with_rescue hands it back. Wording as ccxt captured it; the docs give the code only.
   def bitvavo_240_failure
-    Result::Failure.new({ 'errorCode' => 240, 'error' => 'No active order found' }.to_s)
+    Result::Failure.new(
+      { errorCode: 240, error: 'No order found. Please be aware that simultaneously updating the same order may return this error.' }.to_json,
+      data: { status: 404 }
+    )
+  end
+
+  test 'get_order does not read a 404 without Bitvavo\'s errorCode 240 as a gone order' do
+    @exchange.set_client
+    @exchange.stubs(:dry_run?).returns(false)
+    client = @exchange.send(:client)
+    client.stubs(:get_order).returns(Result::Failure.new('<html><body><h1>Resource not found</h1></body></html>', data: { status: 404 }))
+    client.expects(:get_trades).never
+
+    result = @exchange.get_order(order_id: 'BTC-EUR-abc')
+
+    assert result.failure?
+    refute_equal true, result.data[:not_found]
   end
 
   # == 240 not-found: fills-recovery FIRST, then a not_found signal (mirrors Kraken/Hyperliquid) ==

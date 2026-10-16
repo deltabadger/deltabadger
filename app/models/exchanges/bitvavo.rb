@@ -435,19 +435,11 @@ class Exchanges::Bitvavo < Exchange
 
   private
 
-  BITVAVO_NOT_FOUND_MESSAGE = 'No active order found'.freeze # errorCode 240
-  # Faraday JSON-parses the error body to a Ruby Hash, so honeymaker surfaces its stringified form.
-  # Ruby 3.4's Hash#to_s renders `"errorCode" => 240` (spaced); earlier Rubies render `"errorCode"=>240`
-  # (no space). Match both so a Ruby upgrade can't silently break detection. The raw-JSON form
-  # ("errorCode":240) and a bare "errorCode 240" are matched too, defensively.
-  BITVAVO_NOT_FOUND_CODES   = ['"errorCode" => 240', '"errorCode"=>240', '"errorCode":240',
-                               'errorCode 240'].freeze
   TRADES_PAGE_LIMIT  = 1000              # Bitvavo /v2/trades hard max
   TRADES_WINDOW      = 24.hours          # Bitvavo /v2/trades: `end - start` must be <= 24h
   TRADES_MAX_WINDOWS = 40                # safety cap (40 * 24h = 40d > 14d StaleOrder threshold)
   TRADES_MAX_PAGES   = 50                # per-window page cap (50 * 1000 trades is far beyond DCA)
-  private_constant :BITVAVO_NOT_FOUND_MESSAGE, :BITVAVO_NOT_FOUND_CODES,
-                   :TRADES_PAGE_LIMIT, :TRADES_WINDOW, :TRADES_MAX_WINDOWS, :TRADES_MAX_PAGES
+  private_constant :TRADES_PAGE_LIMIT, :TRADES_WINDOW, :TRADES_MAX_WINDOWS, :TRADES_MAX_PAGES
 
   # "BTC-EUR-abc123" → ["BTC-EUR", "abc123"] (market can contain a dash; orderId can too).
   def split_order_id(order_id)
@@ -455,13 +447,13 @@ class Exchanges::Bitvavo < Exchange
     [parts[0..1].join('-'), parts[2..].join('-')]
   end
 
-  # Require BOTH the structured errorCode 240 AND the message: specific (won't catch a stray
-  # "240" in a price/qty field) and resilient (a tweak to either alone won't silently break it).
-  # Any non-240 failure (auth/transient/throttle) returns false → propagated untouched by get_order,
-  # so the order is NEVER mistaken for "gone" and routed into recovery/abandonment (Codex r1).
+  # Bitvavo's own errorCode in the JSON body, never the bare 404 a gateway or a wrong path also
+  # answers with. Its wording ("No order found. Please be aware…") is not matched: the docs give
+  # only the code, and the message this used to require was never the one Bitvavo sends.
+  # Any other failure (auth/transient/throttle) is propagated untouched by get_order, so the order
+  # is never mistaken for gone and routed into recovery/abandonment.
   def bitvavo_not_found?(result)
-    msg = Array(result.errors).join(' ')
-    msg.include?(BITVAVO_NOT_FOUND_MESSAGE) && BITVAVO_NOT_FOUND_CODES.any? { |c| msg.include?(c) }
+    response_field(result, 'errorCode') == KEY_CHECK_ORDER_NOT_FOUND # 240
   end
 
   # Bitvavo dropped the order (240). Recover any execution from get_trades — authoritative for
