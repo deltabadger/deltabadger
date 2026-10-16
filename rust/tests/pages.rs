@@ -612,7 +612,7 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
     let (_rails_root, rust_root, dirs) = recorded_grid();
     assert!(!dirs.is_empty(), "the grid is empty: no scenario name starts with a prefix in PAGES");
     if std::env::var("PAGES").ok().as_deref() == Some("actions") {
-        assert_eq!(dirs.len(), 161, "all action scenarios must remain selected");
+        assert_eq!(dirs.len(), 173, "all action scenarios must remain selected");
     }
     let (mut failures, mut wizard_pages, mut countdown_pages) = (vec![], 0, 0);
     for dir in &dirs {
@@ -666,10 +666,10 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
     println!("{} scenarios; Rails opened the wizard on {wizard_pages} pages; {countdown_pages} pages where only Rails knows when the bot acts next", dirs.len());
     if std::env::var("PAGES").is_err() {
-        assert_eq!(dirs.iter().filter(|dir| !dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_") || n.to_string_lossy().starts_with("settings_"))).count(), 160 + 4, "completed read-only baseline (with the market-closed weekend page and the expired start on bots that are not stopped), with D5b's two missing_ and two not_ported_ connect scenarios");
+        assert_eq!(dirs.iter().filter(|dir| !dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_") || n.to_string_lossy().starts_with("settings_"))).count(), 160 + 4 + 8, "completed read-only baseline (with the market-closed weekend page and the expired start on bots that are not stopped), with D5b's two missing_ and two not_ported_ connect scenarios");
         assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("settings_"))).count(), 413 + 3 + 45 + 52 + 5 + 1 + 71, "complete S1 inventory, D5b's connect flow, the preference writes, the following client's card, the switch back to the default locale and the settings dialog (two more sections, in-place confirms, the page behind a language change)");
-        assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_"))).count(), 161, "action inventory");
-        assert_eq!(dirs.len(), 160 + 4 + 161 + 413 + 3 + 45 + 52 + 5 + 1 + 71, "a scenario was dropped or added without this count");
+        assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_"))).count(), 173, "action inventory");
+        assert_eq!(dirs.len(), 160 + 4 + 8 + 173 + 413 + 3 + 45 + 52 + 5 + 1 + 71, "a scenario was dropped or added without this count");
         assert_eq!(countdown_pages, 4, "the pages where Rails knows a time this build does not: the listed divergence grew or shrank");
         assert_eq!(wizard_pages, 17, "the pages where Rails opens the wizard and this crate does not: the listed divergence grew or shrank");
     }

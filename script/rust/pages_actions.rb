@@ -141,7 +141,17 @@ module Pages
       end
     end
 
-    raise "expected 161 bot action cases" unless cases.size == 161
+    # One-asset baskets on Kraken and Binance, in their venues' own quotes.
+    %w[kraken binance].each do |kind|
+      add.call("venue_#{kind}_amount", 'update', { 'quote_amount' => '37.25' }, { 'kind' => kind })
+      add.call("venue_#{kind}_modal", 'modal', {}, { 'kind' => kind })
+      add.call("venue_#{kind}_start", 'start?start_fresh=true', {}, { 'kind' => kind })
+      add.call("venue_#{kind}_stop", 'stop', {}, { 'kind' => kind, 'columns' => { 'status' => 'scheduled' } })
+      add.call("venue_#{kind}_archive", 'archive', {}, { 'kind' => kind })
+      add.call("venue_#{kind}_delete_modal", 'delete_modal', {}, { 'kind' => kind })
+    end
+
+    raise "expected 173 bot action cases" unless cases.size == 173
     names = cases.map { |entry| "actions_#{entry.first}".gsub(/[^a-zA-Z0-9_-]/, "_") }
     raise "action case names collide after filesystem conversion" unless names.uniq.size == names.size
     cases
@@ -189,8 +199,9 @@ module Pages
         end
       end
       scenario['extra_users'] = [user('email' => 'other@example.com', 'admin' => false)] if extra['foreign']
+      scenario['venues'] = true if VENUE_KINDS.key?(spec['kind'])
       [name, scenario]
-    end.tap { |grid| raise 'action case names collide' unless grid.size == 161 }
+    end.tap { |grid| raise 'action case names collide' unless grid.size == 173 }
   end
 end
 

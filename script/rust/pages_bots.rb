@@ -47,6 +47,29 @@ module Pages
     end
   end
 
+  # 'venues' => true: Kraken and Binance beside Alpaca, listing bitcoin and ether as their catalogs do: Kraken in EUR under
+  # its own code XBT, Binance in USDT; the user's trading key on each ('venue_keys' says which and how).
+  def venues(scenario)
+    kraken = Exchanges::Kraken.create!(name: 'Kraken', maker_fee: '0.25', taker_fee: '0.4')
+    binance = Exchanges::Binance.create!(name: 'Binance', maker_fee: '0.1', taker_fee: '0.1')
+    eur = Asset.create!(external_id: 'EUR.FOREX', symbol: 'EUR', name: 'Euro', category: 'Currency')
+    usdt = Asset.create!(external_id: 'tether', symbol: 'USDT', name: 'Tether', category: 'Cryptocurrency', color: '#26A17B')
+    btc, eth = Asset.find_by!(symbol: 'BTC'), Asset.find_by!(symbol: 'ETH')
+    listings = [[kraken, btc, eur, 'XBT', 'XBTEUR', 8, 5, 1, '0.00005', '0.5'], [kraken, eth, eur, 'ETH', 'ETHEUR', 8, 5, 2, '0.002', '0.5'],
+                [binance, btc, usdt, 'BTC', 'BTCUSDT', 5, 8, 2, '0.00001', '5'], [binance, eth, usdt, 'ETH', 'ETHUSDT', 4, 8, 2, '0.0001', '5']]
+    listings.each do |exchange, base_asset, quote_asset, base, ticker, base_decimals, quote_decimals, price_decimals, minimum_base_size, minimum_quote_size|
+      [base_asset, quote_asset].each { |asset| ExchangeAsset.find_or_create_by!(exchange:, asset:) }
+      Ticker.create!(exchange:, base_asset:, quote_asset:, base:, quote: quote_asset.symbol, ticker:, base_decimals:, quote_decimals:, price_decimals:,
+                     minimum_base_size:, minimum_quote_size:)
+    end
+    keys = scenario.fetch('venue_keys', { 'kraken' => 'correct', 'binance' => 'correct' })
+    { 'kraken' => kraken, 'binance' => binance }.each do |name, exchange|
+      next unless keys[name]
+
+      ApiKey.create!(user: User.first, exchange:, key: "#{name}-key", secret: 'c2VjcmV0', status: keys[name], key_type: :trading)
+    end
+  end
+
   def asset_id(symbol) = Asset.find_by!(symbol:).id
 
   # The three bots of the owner's instance, as the wizard stores them.
@@ -65,6 +88,10 @@ module Pages
     when 'single'
       { 'quote_asset_id' => usd, 'quote_amount' => 25.5, 'interval' => 'day', 'allocations' => { asset_id('QQQM').to_s => 1.0 },
         'limit_ordered' => true, 'limit_order_pcnt_distance' => 0.005, 'quote_amount_limited' => true, 'quote_amount_limit' => 1000 }
+    when 'kraken'
+      { 'quote_asset_id' => asset_id('EUR'), 'quote_amount' => 25, 'interval' => 'day', 'allocations' => { asset_id('BTC').to_s => 1.0 } }
+    when 'binance'
+      { 'quote_asset_id' => asset_id('USDT'), 'quote_amount' => 15.5, 'interval' => 'week', 'allocations' => { asset_id('ETH').to_s => 1.0 } }
     when 'index'
       { 'quote_asset_id' => usd, 'quote_amount' => 100, 'interval' => 'week', 'num_coins' => 10, 'hold_all' => false,
         'index_type' => 'category', 'index_category_id' => 'nasdaq-100', 'index_name' => 'Nasdaq 100', 'index_name_prefix' => 'ND',
@@ -72,7 +99,9 @@ module Pages
     end
   end
 
-  # One bot: 'kind' (basket, single, index, coins, wide), then what the scenario says about it.
+  VENUE_KINDS = { 'kraken' => 'Kraken', 'binance' => 'Binance' }.freeze
+
+  # One bot: 'kind' (basket, single, index, coins, wide; kraken and binance on their venue), then what the scenario says about it.
   # 'settings' and 'transient' are merged over the wizard's; 'stored' is merged into the settings
   # past the validations; 'without' takes settings out of the saved row; 'columns' are written as
   # they are (status, started_at, stop_message_key, label); 'orders' and 'logs' name a history
@@ -80,7 +109,7 @@ module Pages
   def bot(spec)
     klass = spec['kind'] == 'index' ? Bots::DcaIndex : Bots::DcaMultiAsset
     owner = User.find_by!(email: spec.fetch('owner', 'owner@example.com'))
-    exchange = Exchange.find_by!(name: spec.fetch('exchange', 'Alpaca'))
+    exchange = Exchange.find_by!(name: spec.fetch('exchange', VENUE_KINDS.fetch(spec['kind'], 'Alpaca')))
     record = klass.new(user: owner, exchange:, settings: bot_settings(spec['kind']).merge(spec.fetch('settings', {})))
     record.set_missed_quote_amount
     record.save!
@@ -240,6 +269,17 @@ module Pages
                                                                 quote_amount_exec: '20'),
               order_row(record, 'QQQM', '2026-09-09T13:30:01Z', side: 'sell', price: '210', amount: '0.05', amount_exec: '0.05', quote_amount: nil,
                                                                 quote_amount_exec: '10.5')]
+           when 'venue_history'
+             # A fill, a failed order and a limit order resting, in the venue's own spelling of the pair.
+             ticker = record.exchange.tickers.find_by!(quote_asset_id: record.quote_asset_id, base_asset_id: record.settings['allocations'].keys.first.to_i)
+             pair = { base: ticker.base, quote: ticker.quote, base_asset_id: ticker.base_asset_id, quote_asset_id: ticker.quote_asset_id }
+             symbol = ticker.base_asset.symbol
+             [order_row(record, symbol, '2026-09-08T13:30:01Z', pair.merge(price: '2412.37', amount: '0.0064', amount_exec: '0.0064', quote_amount: '15.5',
+                                                                           quote_amount_exec: '15.439168')),
+              order_row(record, symbol, '2026-09-09T13:30:01Z', pair.merge(status: 'failed', external_status: nil, external_id: nil, amount: nil,
+                                                                           quote_amount: '15.5', error_messages: ['EOrder:Insufficient funds'])),
+              order_row(record, symbol, '2026-09-10T11:00:00Z', pair.merge(external_status: 'open', order_type: 'limit_order', price: '2398.5',
+                                                                           amount: '0.0064', amount_exec: '0', quote_amount: nil, quote_amount_exec: '0'))]
            else raise "unknown orders #{name}"
            end
     Transaction.insert_all!(rows)

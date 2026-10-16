@@ -1700,7 +1700,8 @@ fn a_bot_row_is_read_as_the_pages_need_it_and_refused_when_this_build_cannot_ren
     for (sql, reason) in [
         ("UPDATE bots SET type = 'Bots::Signal'", "a bot of a type this build does not render"),
         ("UPDATE bots SET transient_data = '{\"rebalance_pending\":{\"phase\":\"selling\"}}'", "a rebalance, liquidation or redeploy in progress"),
-        ("UPDATE exchanges SET type = 'Exchanges::Kraken'", "a bot on an exchange other than Alpaca"),
+        ("UPDATE exchanges SET type = 'Exchanges::Kucoin'", "a bot on an exchange other than Alpaca, Kraken and Binance"),
+        ("UPDATE exchanges SET type = 'Exchanges::Kraken'; UPDATE bots SET type = 'Bots::DcaIndex'", "a Kraken or Binance bot other than a one-asset basket"),
         // A ticker's decimals size the rounding: one past the bound, a negative one and the largest number the column holds.
         ("UPDATE tickers SET base_decimals = 15", "a ticker with more decimals than this build rounds to"),
         ("UPDATE tickers SET quote_decimals = -1", "a ticker with more decimals than this build rounds to"),
