@@ -164,6 +164,32 @@ class Exchanges::BitvavoTest < ActiveSupport::TestCase
     assert_equal 2, info[:price_decimals] # decimals("0.01") == 2
   end
 
+  # https://docs.bitvavo.com/docs/rest-api/get-candlestick-data/: newest first, at most 1440, and a
+  # range longer than that returns its LATEST 1440 (checked live on BTC-EUR 1d from 2017: the oldest
+  # row came back as 2022-11-07). `end` is exclusive of the candle that starts at it.
+  test 'get_candles pages back through a range longer than one page and returns it oldest first' do
+    ticker = create(:ticker, exchange: @exchange, ticker: 'BTC-EUR', base: 'BTC', quote: 'EUR')
+    hour = 3_600_000
+    newest = 1_792_137_600_000
+    candle = ->(ts) { [ts, '73150', '73194', '73000', '73124', '6.5'] }
+    latest = Array.new(1440) { |i| candle.call(newest - (i * hour)) }
+    oldest_on_page = newest - (1439 * hour)
+    older = [candle.call(oldest_on_page - hour), candle.call(oldest_on_page - (2 * hour))]
+    start_at = Time.at((oldest_on_page - (2 * hour)) / 1000).utc
+    client = @exchange.send(:client)
+    client.expects(:get_candles).with(has_entries(market: 'BTC-EUR', interval: '1h', start_time: start_at.to_i * 1000, end_time: nil))
+          .returns(Result::Success.new(latest))
+    client.expects(:get_candles).with(has_entries(start_time: start_at.to_i * 1000, end_time: oldest_on_page))
+          .returns(Result::Success.new(older))
+
+    candles = @exchange.get_candles(ticker: ticker, start_at: start_at, timeframe: 1.hour).data
+
+    assert_equal 1442, candles.size
+    assert_equal start_at, candles.first[0]
+    assert_equal Time.at(newest / 1000).utc, candles.last[0]
+    assert_equal candles.map(&:first).sort, candles.map(&:first)
+  end
+
   # == set_limit_order sends a tick-valid price ==
   # set_limit_order is unchanged; these confirm the corrected price_decimals
   # flows through Ticker#adjusted_price into the outgoing place_order payload.
