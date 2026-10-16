@@ -346,11 +346,21 @@ async fn fetch_closes<C: Connect, T: Transport>(db: &Db, venues: &C, api: Option
         // `stock_price_range`: any failure of the request leaves the symbol without closes.
         let raw=venues.connect(credentials);
         let handle=crate::venue::alpaca::Captured::new(&raw,version.clone());
-        let Ok(body) = handle.read(true, &format!("/v2/stocks/{}/bars", bars.symbol),
-                                                        vec![("limit", "10000".into()), ("start", start), ("timeframe", "1Day".into())], 8 * 1024 * 1024).await.value else { continue };
-        let Ok(text) = body.text() else { continue };
-        let Ok(json) = serde_json::from_str::<serde_json::Value>(text) else { continue };
-        let Some(rows) = backfill::bar_rows(&json, bars, have) else { continue };
+        // Every page, each naming the next, as Clients::Alpaca#get_bars reads them.
+        let mut all = vec![];
+        let mut token: Option<String> = None;
+        let read = loop {
+            let mut query = vec![("limit", "10000".to_string())];
+            if let Some(token) = token.take() { query.push(("page_token", token)); }
+            query.extend([("start", start.clone()), ("timeframe", "1Day".into())]);
+            let Ok(body) = handle.read(true, &format!("/v2/stocks/{}/bars", bars.symbol), query, 8 * 1024 * 1024).await.value else { break false };
+            let Ok(text) = body.text() else { break false };
+            let Ok(mut json) = serde_json::from_str::<serde_json::Value>(text) else { break false };
+            all.extend(json["bars"].as_array_mut().map(std::mem::take).into_iter().flatten());
+            match json["next_page_token"].as_str().filter(|t| !t.is_empty()) { Some(next) => token = Some(next.to_string()), None => break true }
+        };
+        if !read { continue; }
+        let Some(rows) = backfill::bar_rows(&serde_json::json!({ "bars": all }), bars, have) else { continue };
         if rows.is_empty() { continue; }
         let version = version.clone();
         db.run(move |c, _| {

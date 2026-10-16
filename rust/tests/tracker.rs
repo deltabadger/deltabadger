@@ -56,12 +56,16 @@ fn install() -> (tempfile::TempDir, i64, i64) {
 
 /// The venue's answers: no new activity, $600 and two AAPL at $227.52, and AAPL's closes for September.
 fn script() -> Value {
-    let closes: Vec<Value> = (1..=30).map(|d| json!({ "t": format!("2026-09-{d:02}T04:00:00Z"), "o": 220, "h": 220, "l": 220, "c": 220 + d, "v": 1 })).collect();
+    let closes = closes();
+    script_with(vec![ok(json!({ "bars": closes, "symbol": "AAPL", "next_page_token": null }))])
+}
+fn closes() -> Vec<Value> { (1..=30).map(|d| json!({ "t": format!("2026-09-{d:02}T04:00:00Z"), "o": 220, "h": 220, "l": 220, "c": 220 + d, "v": 1 })).collect() }
+fn script_with(bars: Vec<Value>) -> Value {
     json!({ "GET /v2/account/activities": [ok(json!([]))],
             "GET /v2/account": [ok(json!({ "cash": "600" }))],
             "GET /v2/positions": [ok(json!([{ "symbol": "AAPL", "asset_class": "us_equity", "qty": "2", "qty_available": "2" }]))],
             "GET /v2/stocks/snapshots": [ok(json!({ "AAPL": { "latestTrade": { "p": 227.52 } } }))],
-            "GET /v2/stocks/AAPL/bars": [ok(json!({ "bars": closes, "symbol": "AAPL", "next_page_token": null }))] })
+            "GET /v2/stocks/AAPL/bars": bars })
 }
 
 /// Every job `serve` registers for the install, as `scheduler_service` registers them, today's rows dated by `clock`.
@@ -153,6 +157,28 @@ async fn the_backfill_runs_at_three_when_wanted_then_the_walk_and_not_again_when
     assert_eq!(rows[19..], ["2026-09-20 1055.04 1000 455.04 400 0", "2026-09-21 1055.04 1000 455.04 400 0"]);
     assert_eq!(record(dir.path(), PORTFOLIO_BACKFILL, user), ("2026-09-21T03:00".into(), "2026-09-20T03:00".into()), "the second night swept nothing");
     assert_eq!(transport.requests().iter().filter(|r| r.path.ends_with("/bars")).count(), 1, "AAPL's closes, once");
+}
+
+/// AAPL's closes served in two pages, as Alpaca serves a long range: both are read (Clients::Alpaca#get_bars), so the
+/// nights the second page holds are swept as well.
+#[tokio::test(flavor = "current_thread", start_paused = true)]
+async fn the_backfill_reads_every_page_of_closes() {
+    let (dir, user, key) = install();
+    ran(dir.path(), sync_jobs::LEDGER_SYNC, key, "2026-09-20T02:00:05Z");
+    ran(dir.path(), sync_jobs::BALANCE_SYNC, key, "2026-09-19T02:30:05Z");
+    ran(dir.path(), PORTFOLIO_BACKFILL, user, "2026-09-19T03:00:05Z");
+    let all = closes();
+    let (first, rest) = all.split_at(10);
+    let transport = ScriptedTransport::from_script(&script_with(vec![ok(json!({ "bars": first, "symbol": "AAPL", "next_page_token": "p2" })),
+                                                                     ok(json!({ "bars": rest, "symbol": "AAPL", "next_page_token": null }))]));
+    let venue = Scripted(transport.clone());
+    let clock = tokio_clock("2026-09-20T02:55:00Z");
+    schedule(dir.path(), jobs(dir.path(), &venue, clock), &clock, 24 * 60 * MINUTE + 15 * MINUTE).await;
+    let rows = snapshots(dir.path());
+    assert_eq!((rows.len(), rows[0].as_str(), rows[18].as_str()), (21, "2026-09-01 1042 1000 442 400 0", "2026-09-19 1078 1000 478 400 0"));
+    let pages: Vec<Vec<String>> = transport.requests().iter().filter(|r| r.path.ends_with("/bars")).map(|r| r.query.iter().map(|(k, v)| format!("{k}={v}")).collect()).collect();
+    assert_eq!(pages.len(), 2, "both pages");
+    assert_eq!(pages[1][1], "page_token=p2", "the token joins the query in its sorted place: {:?}", pages[1]);
 }
 
 /// 100,000 distinct held symbols through the job's own run: today's rows are written in linear work, the write lock

@@ -122,10 +122,9 @@ async fn candles(wire: &impl Transport, request: HttpRequest, old: Option<Arc<[B
     if let Some(last) = old.as_ref().and_then(|old| old.last()) {
         for (name, value) in &mut tail_request.query { if *name == "start" { *value = last.t.to_string(); } }
     }
-    let body = send(wire, &tail_request).await?;
+    let tail = pages(wire, &tail_request, now, compute).await?;
     let merging = request.clone();
     let merged = cpu(compute, move || {
-        let tail = closed(decode(&body)?, &merging, now)?;
         let adjusted = merging.query.iter().any(|(k,v)| *k == "adjustment" && v == "split");
         let old: &[Bar] = old.as_deref().unwrap_or_default();
         if old.last().map(|last| rewritten(last, &tail, adjusted)).transpose()?.unwrap_or(false) { return Ok(None); }
@@ -134,7 +133,7 @@ async fn candles(wire: &impl Transport, request: HttpRequest, old: Option<Arc<[B
     }).await?;
     let unsorted = match merged {
         Some(bars) => bars,
-        None => { let body = send(wire, &request).await?; let whole = request.clone(); cpu(compute, move || closed(decode(&body)?, &whole, now)).await? }
+        None => pages(wire, &request, now, compute).await?,
     };
     cpu(compute, move || {
         let mut bars = unsorted;
@@ -144,6 +143,28 @@ async fn candles(wire: &impl Transport, request: HttpRequest, old: Option<Arc<[B
         let size = bars.iter().map(Bar::size).sum::<usize>();
         Ok((!bars.is_empty()).then(|| (Arc::from(bars), size)))
     }).await
+}
+/// The closed candles of every page of a bars answer. Alpaca answers a long range oldest first, a page at a time, each
+/// naming the next (`next_page_token`), as Clients::Alpaca reads them; the token joins the query in its sorted place.
+async fn pages(wire: &impl Transport, request: &HttpRequest, now: i64, compute: &Arc<tokio::sync::Semaphore>) -> Fetch<Vec<Bar>> {
+    let mut out = vec![];
+    let mut token: Option<String> = None;
+    loop {
+        let mut page = request.clone();
+        if let Some(token) = token.take() {
+            let at = page.query.iter().position(|(k,_)| *k > "page_token").unwrap_or(page.query.len());
+            page.query.insert(at, ("page_token", token));
+        }
+        let body = send(wire, &page).await?;
+        let reading = request.clone();
+        let (bars, next) = cpu(compute, move || {
+            let value = decode(&body)?;
+            let next = value.get("next_page_token").and_then(Value::as_str).filter(|t| !t.is_empty()).map(str::to_string);
+            Ok((closed(value, &reading, now)?, next))
+        }).await?;
+        out.extend(bars);
+        match next { Some(next) => token = Some(next), None => return Ok(out) }
+    }
 }
 /// The answer's closed candles, each checked as a price, taken out of the answer: nothing of it is kept but these.
 fn closed(mut body: Value, request: &HttpRequest, now: i64) -> Fetch<Vec<Bar>> {
@@ -314,7 +335,7 @@ impl MarketData for Reader<'_> {
             let name = match timeframe { 60 => "1Min", 300 => "5Min", 900 => "15Min", 1800 => "30Min", 3600 => "1Hour", 14400 => "4Hour", 604800 => "1Week", 2592000 => "1Month", _ => "1Day" };
             let crypto = ticker.base_category.as_deref() == Some("Cryptocurrency");
             let (path, query) = if crypto {
-                ("/v1beta3/crypto/us/bars".to_string(), vec![("start", start), ("symbols", ticker.ticker.clone()), ("timeframe", name.into())])
+                ("/v1beta3/crypto/us/bars".to_string(), vec![("limit", "10000".into()), ("start", start), ("symbols", ticker.ticker.clone()), ("timeframe", name.into())])
             } else {
                 let code: String = form_urlencoded::byte_serialize(ticker.base.as_bytes()).collect();
                 let mut query = vec![];
@@ -506,6 +527,28 @@ mod r4_cache_tests {
         let opens:Vec<Value>=cache.heads.borrow()[&key].bars.iter().map(|bar|bar.o.clone()).collect();
         assert_eq!(opens,vec![serde_json::json!("10.50"),serde_json::json!(11),serde_json::json!("12.000")]);
         assert_eq!(cache.bytes(),recount(&cache));
+    }
+    /// Alpaca answers a long range a page at a time, oldest first; every page is read, as Clients::Alpaca reads them.
+    #[tokio::test]
+    async fn every_page_of_a_series_is_read(){
+        struct Paged(RefCell<Vec<HttpRequest>>,CredentialVersion);
+        impl Transport for Paged {
+            fn producer(&self)->Option<CredentialVersion>{Some(self.1.clone())}
+            async fn send(&self,r:&HttpRequest)->Result<HttpResponse,TransportError>{
+                self.0.borrow_mut().push(r.clone());
+                let body=if r.query.iter().any(|(k,_)|*k=="page_token") { serde_json::json!({"bars":{"BTC/USD":[{"t":"2026-01-03T00:00:00Z","o":3}]},"next_page_token":null}) }
+                    else { serde_json::json!({"bars":{"BTC/USD":[{"t":"2026-01-01T00:00:00Z","o":1},{"t":"2026-01-02T00:00:00Z","o":2}]},"next_page_token":"p2"}) };
+                Ok(HttpResponse{status:200,body:body.to_string()})
+            }
+        }
+        let req=request("/v1beta3/crypto/us/bars",vec![("limit","10000".into()),("start","2025-01-01T00:00:00Z".into()),("symbols","BTC/USD".into()),("timeframe","1Day".into())]);
+        let now=chrono::DateTime::parse_from_rfc3339("2026-01-05T00:00:00Z").unwrap().timestamp();
+        let wire=Paged(RefCell::default(),model::credential_version_by_id(&db(),1).unwrap().unwrap());
+        let mut cache=Cache::default();cache.fill(&wire,vec![req.clone()],now).await;
+        let opens:Vec<Value>=cache.heads.borrow()[&key(&req)].bars.iter().map(|bar|bar.o.clone()).collect();
+        assert_eq!(opens,vec![serde_json::json!(1),serde_json::json!(2),serde_json::json!(3)]);
+        let second:Vec<&str>=wire.0.borrow()[1].query.iter().map(|(k,_)|*k).collect();
+        assert_eq!(second,vec!["limit","page_token","start","symbols","timeframe"],"the token joins the query in its sorted place");
     }
     #[tokio::test]
     async fn r4_candle_head_rotation_starts_full_b_series(){

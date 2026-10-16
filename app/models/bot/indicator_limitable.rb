@@ -234,7 +234,7 @@ module Bot::IndicatorLimitable
   # job (Bot::IndicatorLimitCheckJob) polls this method unchanged for either direction.
   def get_indicator_limit_condition_met?
     return Result::Success.new(false) unless active_indicator_limited?
-    return Result::Success.new(true) if timing_condition_satisfied?
+    return Result::Success.new(true) if indicator_limit_timing_condition_satisfied?
 
     ticker = tickers.available.find_by(id: public_send("#{indicator_limit_prefix}_in_ticker_id"))
     return Result::Success.new(false) unless ticker.present?
@@ -320,7 +320,7 @@ module Bot::IndicatorLimitable
     Rails.cache.delete(indicator_limit_info_cache_key)
   end
 
-  def timing_condition_satisfied?
+  def indicator_limit_timing_condition_satisfied?
     public_send("#{indicator_limit_prefix}_timing_condition") == 'after' &&
       active_indicator_limit_condition_met_at.present?
   end

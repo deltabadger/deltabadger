@@ -34,8 +34,8 @@ module ScriptedMarket
     path = env.url.path
     query = URI.decode_www_form(env.url.query.to_s).sort
     picks = if path == '/v2/orders' then %w[limit status]
-            elsif path == '/v1beta3/crypto/us/bars' then %w[symbols]
-            elsif path.end_with?('/bars') then %w[adjustment]
+            elsif path == '/v1beta3/crypto/us/bars' then %w[page_token symbols]
+            elsif path.end_with?('/bars') then %w[adjustment page_token]
             elsif path.end_with?('/prices') then %w[coin_ids vs_currencies]
             elsif path.end_with?('/simple/price') then %w[ids vs_currencies]
             else []
@@ -251,6 +251,22 @@ module Figures
     (restated_bars || stock_bars).each { |symbol, rows| script["#{ALPACA}/v2/stocks/#{symbol}/bars?adjustment=split"] = ok('bars' => bars(rows), 'symbol' => symbol) }
     crypto_bars.each { |pair, rows| script["#{ALPACA}/v1beta3/crypto/us/bars?symbols=#{pair}"] = ok('bars' => { pair => bars(rows) }) }
     script.merge(extra)
+  end
+
+  # Every bars answer of `script` in two pages, as Alpaca serves a long range: the first half with a next_page_token, the
+  # rest under that token.
+  def paged(script)
+    script.each_with_object({}) do |(key, reply), out|
+      bars = reply.dig('body', 'bars')
+      next out[key] = reply unless key.include?('/bars') && bars
+
+      path, query = key.split('?', 2)
+      pairs = (query.to_s.split('&') + ['page_token=p2']).sort.join('&')
+      split = ->(rows, half) { half.zero? ? rows.first((rows.size + 1) / 2) : rows.drop((rows.size + 1) / 2) }
+      page = ->(half) { bars.is_a?(Hash) ? bars.transform_values { |rows| split.call(rows, half) } : split.call(bars, half) }
+      out[key] = ok(reply['body'].merge('bars' => page.call(0), 'next_page_token' => 'p2'))
+      out["#{path}?#{pairs}"] = ok(reply['body'].merge('bars' => page.call(1), 'next_page_token' => nil))
+    end
   end
 
   # The hosted market-data API's answers: BTC-based rates for fiat pairs, a coin's price for the rest.
@@ -527,6 +543,9 @@ module Figures
       scenario('sold_out', NOW, basket(%w[AAA], [buy('AAA', T0, '100', '1'), sell('AAA', T0 + D, '110', '1')]),
                market(prices: { 'AAA' => 104.52 }, stock_bars: { 'AAA' => AAA_BARS })),
       scenario('crypto_basket', NOW, basket(%w[BTC ETH], crypto_orders), crypto_market('USD')),
+      # Bars served in two pages, each read: Clients::Alpaca follows next_page_token.
+      scenario('crypto_paged', NOW, basket(%w[BTC ETH], crypto_orders), paged(crypto_market('USD'))),
+      scenario('stock_paged', NOW, basket(two, WEEKLY), paged(TWO)),
       # A fill the venue reported below zero: what went in rounds to a zero that keeps its sign ("-0.0").
       scenario('negative_fill', NOW, basket(%w[AAA], [{ 'sym' => 'AAA', 'at' => T0, 'price' => '100', 'amount' => '0.00001', 'amount_exec' => '0.00001', 'quote_amount_exec' => '-0.001' },
                                                    buy('AAA', T0 + D, '101', '0.5')]),
