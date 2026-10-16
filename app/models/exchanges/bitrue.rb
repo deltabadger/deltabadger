@@ -356,12 +356,11 @@ class Exchanges::Bitrue < Exchange
     end
   end
 
-  def minimum_amount_logic(order_type:, **)
-    if order_type == :market_order
-      :base_and_quote
-    else
-      :base_and_quote_in_base
-    end
+  # Every order is sized in base: Bitrue's new-order takes `quantity` for MARKET as well as LIMIT
+  # (https://github.com/Bitrue-exchange/Spot-official-api-docs#new-order--trade) and documents no
+  # quoteOrderQty.
+  def minimum_amount_logic(**)
+    :base_and_quote_in_base
   end
 
   def withdraw(asset:, amount:, address:, network: nil, address_tag: nil)
@@ -508,14 +507,21 @@ class Exchanges::Bitrue < Exchange
   # @param amount_type [Symbol] :base or :quote
   # @param side [Symbol] must be either :buy or :sell
   def set_market_order(ticker:, amount:, amount_type:, side:)
-    amount = ticker.adjusted_amount(amount: amount, amount_type: amount_type)
+    # MARKET takes `quantity` in base; quoteOrderQty is not documented. A quote amount is converted at
+    # the price the order will cross at.
+    if amount_type == :quote
+      price = side == :buy ? get_ask_price(ticker: ticker) : get_bid_price(ticker: ticker)
+      return price if price.failure?
+
+      amount = amount.to_d / price.data
+    end
+    amount = ticker.adjusted_amount(amount: amount, amount_type: :base)
 
     order_settings = {
       symbol: ticker.ticker,
       side: side.to_s.upcase,
       type: 'MARKET',
-      quote_order_qty: amount_type == :quote ? amount.to_d.to_s('F') : nil,
-      quantity: amount_type == :base ? amount.to_d.to_s('F') : nil
+      quantity: amount.to_d.to_s('F')
     }
     result = client.new_order(**order_settings)
     if result.failure?
