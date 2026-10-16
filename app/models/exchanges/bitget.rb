@@ -2,11 +2,21 @@ class Exchanges::Bitget < Exchange
   COINGECKO_ID = 'bitget'.freeze # https://docs.coingecko.com/reference/exchanges-list
   ERRORS = {
     insufficient_funds: ['Insufficient balance', 'Insufficient account balance'],
-    invalid_key: ['Invalid Api Key', 'Invalid ACCESS_KEY', 'Invalid signature', 'Apikey does not exist'],
+    # Wording from https://www.bitget.com/docs/classic/error-code/restapi: 40006, 40037 (both seen
+    # live for an unknown key), 40009 bad signature (a wrong secret), 40012 and 40036 (a wrong
+    # passphrase) and 40041.
+    invalid_key: ['Invalid Api Key', 'Invalid ACCESS_KEY', 'Invalid signature', 'Apikey does not exist',
+                  'sign signature error', 'apikey/password is incorrect', 'passphrase is error',
+                  "User's ApiKey does not exist"],
+    # 40014 and 40025: the key is good but lacks the scope, so it must not be condemned.
+    permission_denied: ['Incorrect permissions', 'The user does not have this permission'],
+    # HTTP 429.
+    throttle: ['Too many requests', 'Too Many Requests'],
     # 40008: the signed timestamp fell outside Bitget's window — same class as KuCoin's 400002
     # and Binance's -1021, and it fires for the same reason (a request stalled behind a slow
     # exchange proxy, not a drifting clock). Retried instead of failing the bot loudly.
-    transient: ['Request timestamp expired'],
+    # 40010 and 40015 are Bitget's own "timed out" and "system is abnormal, try again later".
+    transient: ['Request timestamp expired', 'Request timed out', 'System is abnormal'],
     # Listed again, deliberately: 40008 is raised while verifying the signature (the timestamp is
     # part of the signed payload), so the order never reached the book and re-placing it next
     # interval cannot double-buy. See Exchange#placement_transient_error?.
@@ -18,7 +28,11 @@ class Exchanges::Bitget < Exchange
   # order-not-found's msg is localized (订单不存在), so the code is the only stable signal.
   ORDER_NOT_FOUND_CODES = %w[43001 43025].freeze     # probe got past the permission gate ⇒ key can trade
   NO_TRADE_PERMISSION_CODES = %w[40014].freeze       # "Incorrect permissions, need spot order write permissions"
-  private_constant :ORDER_NOT_FOUND_CODES, :NO_TRADE_PERMISSION_CODES
+  # orderInfo for an order Bitget no longer has: 40109 "The data of the order cannot be found" or
+  # 43001 "The order does not exist" (https://www.bitget.com/docs/classic/error-code/restapi), or an
+  # empty list, which the client answers as "Order not found".
+  ORDER_GONE_CODES = %w[40109 43001].freeze
+  private_constant :ORDER_NOT_FOUND_CODES, :NO_TRADE_PERMISSION_CODES, :ORDER_GONE_CODES
 
   ORDER_STATUS_MAP = {
     'init' => :unknown,
@@ -67,6 +81,9 @@ class Exchanges::Bitget < Exchange
       data = result.data['data']
       return Result::Failure.new("Failed to get #{name} symbols") if data.nil?
 
+      prices = get_tickers_prices(force: force)
+      prices = prices.success? ? prices.data : {}
+
       data.map do |product|
         symbol = Utilities::Hash.dig_or_raise(product, 'symbol')
         base = Utilities::Hash.dig_or_raise(product, 'baseCoin')
@@ -84,7 +101,7 @@ class Exchanges::Bitget < Exchange
           base: base,
           quote: quote,
           minimum_base_size: min_trade_amount,
-          minimum_quote_size: min_trade_usd,
+          minimum_quote_size: quote_minimum(quote, min_trade_usd, prices),
           maximum_base_size: max_trade_amount,
           maximum_quote_size: nil,
           base_decimals: quantity_precision,
@@ -274,7 +291,14 @@ class Exchanges::Bitget < Exchange
   def get_order(order_id:)
     _, ext_order_id = parse_order_id(order_id)
     result = client.get_order(order_id: ext_order_id)
-    return result if result.failure?
+    if result.failure?
+      return result unless order_gone?(result)
+
+      # Flagged so get_orders lists it under missing and Bot::StaleOrderResolver can retire it,
+      # instead of one gone order failing every poll of the bot's other orders.
+      return Result::Failure.new("#{name} no longer knows order #{order_id}",
+                                 data: { not_found: true, missing_ids: [order_id] })
+    end
 
     normalized_order_data = parse_order_data(order_id, result.data[:raw])
 
@@ -283,14 +307,21 @@ class Exchanges::Bitget < Exchange
 
   def get_orders(order_ids:)
     orders = {}
+    missing = []
     order_ids.each do |order_id|
       result = get_order(order_id: order_id)
-      return result if result.failure?
+      if result.failure?
+        # A gone order goes under :missing for the stale-order sweep; any other failure still fails
+        # the batch so the job retries.
+        next missing << order_id if result.data.is_a?(Hash) && result.data[:not_found]
+
+        return result
+      end
 
       orders[order_id] = result.data
     end
 
-    Result::Success.new(orders: orders, missing: [])
+    Result::Success.new(orders: orders, missing: missing)
   end
 
   def cancel_order(order_id:)
@@ -327,7 +358,7 @@ class Exchanges::Bitget < Exchange
   def minimum_amount_logic(order_type:, **)
     # Limit orders are base-denominated on Bitget (size + price, no quoteSize), so they must
     # be sized in base — never :quote. Market orders keep the cheaper-minimum choice
-    # (set_market_order branches size/quote_size).
+    # (set_market_order converts to the unit the side's `size` is in).
     order_type == :limit_order ? :base_and_quote_in_base : :base_or_quote
   end
 
@@ -380,19 +411,29 @@ class Exchanges::Bitget < Exchange
     update_exchange_asset_fees!(fees, chains: chain_data)
   end
 
-  # Bitget caps a history query at ~90 days measured from `startTime`.
-  def ledger_window = 80.days
+  # /api/v2/spot/trade/fills keeps 90 days, takes a startTime-endTime range of at most 90 days, and
+  # answers at most 100 rows a page, older pages by idLessThan
+  # (https://www.bitget.com/docs/catalog/classic-spot-trade/classic-spot-trade#get-fills). get_ledger
+  # walks windows from start_time to now itself, so the sync needs no floor and ledger_window stays nil.
+  LEDGER_WINDOW = 89.days
+  FILLS_REACH = 89.days
+  LEDGER_PAGE = 100
+  # Bitget opened in 2018; a first sync reads transfers from then.
+  TRANSFERS_FROM = Time.utc(2018, 4, 1)
 
   def get_ledger(api_key:, start_time: nil)
     hm_client = Honeymaker.client('bitget', api_key: api_key.key, api_secret: api_key.secret,
                                             passphrase: api_key.passphrase, proxy: ExchangeProxy.for('bitget'))
-    start_ms = start_time ? (start_time.to_f * 1000).to_i.to_s : nil
     entries = []
 
-    # Fills
-    result = hm_client.get_fills(start_time: start_ms)
-    unless result.failure?
-      (result.data['data'] || []).each do |fill|
+    # Any failed read fails the whole fetch: a partial Success would let the sync move its watermark
+    # past the rows it never got, and they would never be fetched again.
+    each_ledger_window([start_time, FILLS_REACH.ago].compact.max) do |window_start, window_end|
+      fetch = lambda do |before|
+        hm_client.get_fills(start_time: window_start.to_s, end_time: window_end.to_s, limit: LEDGER_PAGE.to_s,
+                            id_less_than: before)
+      end
+      failed = each_ledger_row(fetch, 'tradeId') do |fill|
         symbol = fill['symbol']
         base = symbol_pair_base(symbol)
         quote = symbol_pair_quote(symbol)
@@ -405,39 +446,87 @@ class Exchanges::Bitget < Exchange
                      tx_id: fill['tradeId'], group_id: nil, description: nil,
                      transacted_at: Time.at(fill['cTime'].to_i / 1000.0).utc, raw_data: fill }
       end
+      return failed if failed
     end
 
-    # Deposits
-    result = hm_client.deposit_list(start_time: start_ms)
-    unless result.failure?
-      (result.data['data'] || []).each do |dep|
+    # Deposit and withdrawal records want startTime and endTime both, page 100 rows by idLessThan
+    # (the record's orderId), and carry the transfer's hash or Bitget trade id as tradeId
+    # (https://www.bitget.com/docs/catalog/classic-spot-account/classic-spot-account#get-deposit-records).
+    # The record is keyed by its orderId: withdrawals batched into one on-chain transaction share a
+    # hash, and the sync keeps one row per tx_id.
+    # Their range cap is not documented; they are read in the same windows as fills.
+    each_ledger_window(start_time || TRANSFERS_FROM) do |window_start, window_end|
+      fetch = lambda do |before|
+        hm_client.deposit_list(start_time: window_start.to_s, end_time: window_end.to_s, limit: LEDGER_PAGE.to_s,
+                               id_less_than: before)
+      end
+      failed = each_ledger_row(fetch, 'orderId', optional: true) do |dep|
         next unless dep['status'] == 'success'
 
         entries << { entry_type: :deposit, base_currency: dep['coin'], base_amount: dep['size'].to_d,
                      quote_currency: nil, quote_amount: nil, fee_currency: nil, fee_amount: nil,
-                     tx_id: dep['txId'], group_id: nil, description: nil,
+                     tx_id: "deposit-#{dep['orderId']}", group_id: nil, description: nil,
                      transacted_at: Time.at(dep['cTime'].to_i / 1000.0).utc, raw_data: dep }
       end
-    end
+      return failed if failed
 
-    # Withdrawals
-    result = hm_client.withdrawal_list(start_time: start_ms)
-    unless result.failure?
-      (result.data['data'] || []).each do |wd|
+      fetch = lambda do |before|
+        hm_client.withdrawal_list(start_time: window_start.to_s, end_time: window_end.to_s, limit: LEDGER_PAGE.to_s,
+                                  id_less_than: before)
+      end
+      failed = each_ledger_row(fetch, 'orderId', optional: true) do |wd|
         next unless wd['status'] == 'success'
 
         entries << { entry_type: :withdrawal, base_currency: wd['coin'], base_amount: wd['size'].to_d,
                      quote_currency: nil, quote_amount: nil,
-                     fee_currency: wd['coin'], fee_amount: wd['fee'].to_d,
-                     tx_id: wd['txId'], group_id: nil, description: nil,
+                     fee_currency: wd['coin'], fee_amount: wd['fee'].to_d.abs,
+                     tx_id: "withdrawal-#{wd['orderId']}", group_id: nil, description: nil,
                      transacted_at: Time.at(wd['cTime'].to_i / 1000.0).utc, raw_data: wd }
       end
+      return failed if failed
     end
 
-    Result::Success.new(entries)
+    # Neighbouring windows share their edge, so a row stamped on it comes back twice.
+    Result::Success.new(entries.uniq { |entry| [entry[:entry_type], entry[:raw_data]] })
   end
 
   private
+
+  # Yields [start_ms, end_ms] windows of at most LEDGER_WINDOW, from `from` to now.
+  def each_ledger_window(from)
+    window_start = (from.to_f * 1000).to_i
+    now_ms = (Time.now.to_f * 1000).to_i
+    while window_start < now_ms
+      window_end = [window_start + (LEDGER_WINDOW.to_i * 1000), now_ms].min
+      yield window_start, window_end
+      window_start = window_end
+    end
+  end
+
+  # Bitget pages newest first and hands the next, older page for idLessThan = the last row's id. A
+  # short page is the last. Yields each row; returns the failure that stopped the read, or nil.
+  # These reads skip the client's code check, so an error envelope is a failure here, not an empty page.
+  #
+  # optional: a key without the wallet scope (40014, 40025) has no transfer history to give, and reads
+  # as empty, as it always did; fills are what the key is for, so there it fails like any other code.
+  LEDGER_NOT_PERMITTED = %w[40014 40025].freeze
+
+  def each_ledger_row(fetch, id_key, optional: false, &)
+    before = nil
+    loop do
+      result = fetch.call(before)
+      code, msg = bitget_envelope(result)
+      return nil if optional && LEDGER_NOT_PERMITTED.include?(code)
+      return Result::Failure.new("#{name} ledger read failed: #{[code, msg].compact.join(' ')}") if result.success? && code != '00000'
+      return result if result.failure?
+
+      rows = Array(result.data['data'])
+      rows.each(&)
+      return nil if rows.size < LEDGER_PAGE
+
+      before = rows.last[id_key]
+    end
+  end
 
   # Classifies the api-key-validity probe by Bitget's response code. The code arrives either in a
   # Success envelope (HTTP 200) or — for v2 business errors, which come back as HTTP 4xx — inside a
@@ -481,6 +570,31 @@ class Exchanges::Bitget < Exchange
     parsed.is_a?(Hash) ? [parsed['code'], parsed['msg']] : [nil, body]
   end
 
+  # minTradeUSDT is a USDT figure on every pair, whatever its quote
+  # (https://www.bitget.com/docs/catalog/classic-spot-market/classic-spot-market#get-symbol-info), so
+  # on ETHBTC its 1 meant a 1 BTC minimum. It is converted at the quote's USDT price; with no price
+  # to convert at, the minimum is left to the venue rather than guessed.
+  def quote_minimum(quote, usdt_minimum, prices)
+    return usdt_minimum if quote == 'USDT' || usdt_minimum.zero?
+
+    if (price = prices["#{quote}USDT"].to_d).positive?
+      usdt_minimum / price
+    elsif (price = prices["USDT#{quote}"].to_d).positive?
+      usdt_minimum * price
+    else
+      0
+    end
+  end
+
+  # The code comes in the JSON body of an HTTP 400, or as "Bitget API error <code>: …" when the
+  # client unwrapped an HTTP-200 envelope.
+  def order_gone?(result)
+    message = Array(result.errors).join(' ')
+    return true if message.include?('Order not found')
+
+    ORDER_GONE_CODES.include?(bitget_envelope(result).first || message[/API error (\d+)/, 1])
+  end
+
   def symbol_pair_base(symbol)
     tickers.find_by(ticker: symbol)&.base || symbol
   end
@@ -517,15 +631,25 @@ class Exchanges::Bitget < Exchange
   # @param amount_type [Symbol] :base or :quote
   # @param side [Symbol] must be either :buy or :sell
   def set_market_order(ticker:, amount:, amount_type:, side:)
-    amount = ticker.adjusted_amount(amount: amount, amount_type: amount_type)
+    # v2 place-order has one `size`, and its unit follows the side: quote coins for a market buy,
+    # base coins for a market sell. There is no quoteSize parameter
+    # (https://www.bitget.com/docs/catalog/classic-spot-trade/classic-spot-trade#place-order).
+    # An amount in the other unit is converted at the price the order will cross at.
+    size_type = side == :buy ? :quote : :base
+    if amount_type != size_type
+      price = market_price_for(ticker: ticker, side: side)
+      return price if price.failure?
+
+      amount = size_type == :quote ? amount.to_d * price.data : amount.to_d / price.data
+    end
+    amount = ticker.adjusted_amount(amount: amount, amount_type: size_type)
 
     order_settings = {
       symbol: ticker.ticker,
       side: side.to_s,
       order_type: 'market',
       force: 'ioc',
-      size: amount_type == :base ? amount.to_d.to_s('F') : nil,
-      quote_size: amount_type == :quote ? amount.to_d.to_s('F') : nil
+      size: amount.to_d.to_s('F')
     }
     result = client.place_order(**order_settings)
     return result if result.failure?
@@ -567,9 +691,11 @@ class Exchanges::Bitget < Exchange
     order_type = parse_order_type(Utilities::Hash.dig_or_raise(order_data, 'orderType'))
     price = order_data['priceAvg']&.to_d || order_data['price']&.to_d || 0
     price = nil if price.zero?
-    amount = order_data['size']&.to_d
-    quote_amount = order_data['quoteSize']&.to_d
     side = Utilities::Hash.dig_or_raise(order_data, 'side').downcase.to_sym
+    # `size` is quote coins on a market buy and base coins otherwise; there is no quoteSize
+    # (https://www.bitget.com/docs/catalog/classic-spot-trade/classic-spot-trade#get-order-info).
+    size = order_data['size']&.to_d
+    amount, quote_amount = order_type == :market_order && side == :buy ? [nil, size] : [size, nil]
     amount_exec = order_data['baseVolume']&.to_d || 0
     quote_amount_exec = order_data['quoteVolume']&.to_d || 0
     status = parse_order_status(Utilities::Hash.dig_or_raise(order_data, 'status'))

@@ -36,7 +36,8 @@ class ExchangeParseOrderStatusTest < ActiveSupport::TestCase
       'cancelled' => :cancelled
     },
     Exchanges::Bitrue => {
-      'NEW' => :open, 'PARTIALLY_FILLED' => :open,
+      'PENDING_CANCEL' => :unknown,
+      'PENDING_CREATE' => :open, 'NEW' => :open, 'PARTIALLY_FILLED' => :open,
       'FILLED' => :closed,
       'CANCELED' => :cancelled, 'EXPIRED' => :cancelled,
       'REJECTED' => :failed
@@ -70,7 +71,7 @@ class ExchangeParseOrderStatusTest < ActiveSupport::TestCase
     Exchanges::Mexc => {
       'NEW' => :open, 'PARTIALLY_FILLED' => :open,
       'FILLED' => :closed,
-      'CANCELED' => :cancelled, 'EXPIRED' => :cancelled,
+      'CANCELED' => :cancelled, 'PARTIALLY_CANCELED' => :cancelled, 'EXPIRED' => :cancelled,
       'REJECTED' => :failed
     }
   }.freeze

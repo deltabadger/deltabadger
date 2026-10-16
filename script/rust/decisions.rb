@@ -5,6 +5,7 @@
 #   bin/rails runner script/rust/decisions.rb grid-limit <root>   # the amount limit, its stop and its mail, on Alpaca crypto
 #   bin/rails runner script/rust/decisions.rb grid-binance <root> # Binance spot, scripted beneath honeymaker at the Faraday adapter
 #   bin/rails runner script/rust/decisions.rb grid-sell <root>    # a one-asset basket selling on Kraken, Binance and Alpaca (slice 6a)
+#   bin/rails runner script/rust/decisions.rb grid-conditions <root> # price_limit / sell_price_limit with `pause`, and the minute check (slice 7a)
 #   bin/rails runner script/rust/decisions.rb record <root>  # Rails' ticks (and retries) per <root>/<scenario>/ -> rails.json
 # Always run with every *_DATABASE_URL pointing at scratch files and PROXY_KRAKEN at a dead address. Kraken is
 # scripted beneath the real client (Honeymaker::Clients::Kraken#get_public/#post_private), so every line of
@@ -1341,6 +1342,108 @@ module Decisions
     end
   end
 
+  # Slice 7a: the price rule of the active side with the `pause` action, on all three venues and both directions. The tick at
+  # `at` passes, pauses or fails; a scenario with `check_at` then runs Bot::PriceLimitCheckJob there (and the Bot::ActionJob it
+  # enqueues when met). Every check job a phase queues is recorded with its time.
+  def condition_scenarios
+    started = '2026-09-01T10:00:00.123456Z'
+    at = (Time.iso8601(started) + 1.day + 1.second).iso8601(6)
+    check_at = (Time.iso8601(at) + 180).iso8601(6)
+    met_before = '2026-08-31T10:00:00.000Z'
+    kr_balance = { 'error' => [], 'result' => { 'ZEUR' => { 'balance' => '100000', 'hold_trade' => '0' }, 'XXBT' => { 'balance' => '0.6', 'hold_trade' => '0.1' } } }
+    al_fail = ->(status, code, message) { { 'status' => status, 'body' => { 'code' => code, 'message' => message } } }
+    al_book = ok('quotes' => { 'BTC/USD' => { 'ap' => 64_321.479, 'as' => 0.5, 'bp' => 64_300.25, 'bs' => 0.4, 't' => '2026-09-01T10:00:00Z' } })
+    venues = {
+      'kraken' => {
+        'price' => BigDecimal('49995.3'),
+        'ticker' => { 'base_decimals' => 8, 'quote_decimals' => 5, 'price_decimals' => 1, 'minimum_base_size' => '0.00005', 'minimum_quote_size' => '0.5' },
+        'http' => { '/0/private/AddOrder' => [{ 'error' => [], 'result' => { 'txid' => ['OTX-1'] } }], '/0/private/BalanceEx' => [kr_balance],
+                    '/0/private/QueryOrders' => [query_body({})], '/0/private/TradesHistory' => [{ 'error' => [], 'result' => { 'trades' => {}, 'count' => 0 } }] },
+        'last' => ->(prices) { { '/0/public/Ticker' => prices.map { |l| l.is_a?(Hash) ? l : ticker_body('49990.1', '50000.2', l.to_s('F')) } } },
+        'server_error' => { 'error' => ['EService:Unavailable'] },
+        'rejected_key' => { 'error' => ['EAPI:Invalid key'] }
+      },
+      'alpaca' => {
+        'price' => BigDecimal('64310.75'),
+        'ticker' => { 'base_decimals' => 9, 'quote_decimals' => 2, 'price_decimals' => 2, 'minimum_base_size' => '0.000027', 'minimum_quote_size' => '1' },
+        'http' => { 'GET /v1beta3/crypto/us/latest/quotes' => [al_book], 'POST /v2/orders' => [ok(alpaca_order('OTX-1', 'pending_new'))],
+                    'GET /v2/account' => [account('100000')], 'GET /v2/positions' => [ok([position('BTCUSD', '0.6').merge('qty_available' => '0.5')])],
+                    'GET /v2/clock' => [clock(true)] },
+        'last' => ->(prices) { { 'GET /v1beta3/crypto/us/latest/trades' => prices.map { |l| l.is_a?(Hash) ? l : trades(l.to_f) } } },
+        'server_error' => al_fail.(500, 50_010_000, 'internal server error'),
+        'rejected_key' => al_fail.(401, 40_110_000, 'unauthorized.')
+      },
+      'binance' => {
+        'price' => BigDecimal('64000.05'),
+        'ticker' => { 'base_decimals' => 5, 'quote_decimals' => 8, 'price_decimals' => 2, 'minimum_base_size' => '0.00001', 'minimum_quote_size' => '5' },
+        'http' => { 'GET /api/v3/ticker/bookTicker' => [bn_book('64000.11000000')],
+                    'POST /api/v3/order' => [ok('symbol' => 'BTCUSDT', 'orderId' => 28_457, 'orderListId' => -1, 'clientOrderId' => 'x', 'transactTime' => 1_788_000_000_000)],
+                    'GET /api/v3/account' => [ok('makerCommission' => 10, 'canTrade' => true, 'balances' => [{ 'asset' => 'BTC', 'free' => '0.5', 'locked' => '0.1' },
+                                                                                                        { 'asset' => 'USDT', 'free' => '100000.00000000', 'locked' => '0' }])],
+                    'GET /api/v3/allOrders' => [ok([])], 'GET /api/v3/myTrades' => [ok([])] },
+        'last' => ->(prices) { { 'GET /api/v3/ticker/price' => prices.map { |l| l.is_a?(Hash) ? l : bn_last(l.to_s('F')) } } },
+        'server_error' => bn_fail(500, -1001, 'Internal error; unable to process your request. Please try your request again.'),
+        'rejected_key' => bn_fail(401, -2015, 'Invalid API-key, IP, or permissions for action.')
+      }
+    }
+    sides = { 'buy' => ['price_limit', {}, { 'missed_quote_amount' => '30' }],
+              'sell' => ['sell_price_limit', { 'direction' => 'selling', 'sell_interval' => 'day', 'sell_denomination' => 'base', 'sell_amount' => 0.01 },
+                         { 'missed_quote_amount' => '37.5' }] }
+    venues.flat_map do |venue, vn|
+      p = vn['price']
+      hi = (p + 100).to_f
+      lo = (p - 100).to_f
+      exact = p.to_f
+      unmet_then = ->(*later) { [p] + later }
+      cases = {
+        'below_met' => { 'limit' => hi }, 'below_unmet' => { 'limit' => lo }, 'below_at_limit' => { 'limit' => exact },
+        'below_integer_limit' => { 'limit' => 1_000_000 }, 'below_default_limit' => { 'limit' => nil },
+        'above_met' => { 'value' => 'above', 'limit' => lo }, 'above_unmet' => { 'value' => 'above', 'limit' => hi },
+        'above_at_limit' => { 'value' => 'above', 'limit' => exact },
+        'between_reversed_met' => { 'value' => 'between', 'lower' => hi, 'upper' => lo },
+        'between_unmet' => { 'value' => 'between', 'lower' => hi, 'upper' => hi + 100 },
+        'between_at_bound' => { 'value' => 'between', 'lower' => exact, 'upper' => hi },
+        'after_stored' => { 'timing' => 'after', 'limit' => lo, 'met_at' => met_before },
+        'after_unmet' => { 'timing' => 'after', 'limit' => lo }, 'after_met' => { 'timing' => 'after', 'limit' => hi },
+        'while_stored_met' => { 'limit' => hi, 'met_at' => met_before },
+        'while_stored_unmet' => { 'limit' => lo, 'met_at' => met_before },
+        'missing_ticker' => { 'limit' => hi, 'met_at' => met_before, 'ticker_after' => { 'available' => false } },
+        'missing_ticker_unset' => { 'limit' => hi, 'ticker_after' => { 'available' => false } },
+        'zero_price' => { 'limit' => hi, 'met_at' => met_before, 'last' => [BigDecimal('0')] },
+        'server_error' => { 'limit' => hi, 'met_at' => met_before, 'last' => [vn['server_error']] },
+        'rejected_key' => { 'limit' => hi, 'last' => [vn['rejected_key']] },
+        'other_side_only' => { 'off' => true },
+        'check_met' => { 'limit' => p.to_f - 50, 'last' => unmet_then.(p - 60), 'check' => true },
+        'check_met_no_carry' => { 'limit' => p.to_f - 50, 'last' => unmet_then.(p - 60), 'check' => true, 'transient' => { 'missed_quote_amount' => nil } },
+        'check_unmet' => { 'limit' => lo, 'last' => unmet_then.(p + 1), 'check' => true },
+        'check_lost_then_met' => { 'limit' => p.to_f - 50, 'met_at' => met_before, 'last' => unmet_then.(p - 60), 'check' => true },
+        'check_server_error' => { 'limit' => lo, 'last' => unmet_then.(vn['server_error']), 'check' => true },
+        'check_zero' => { 'limit' => lo, 'last' => unmet_then.(BigDecimal('0')), 'check' => true },
+        'check_rejected_key' => { 'limit' => lo, 'last' => unmet_then.(vn['rejected_key']), 'check' => true }
+      }
+      sides.flat_map do |side, (prefix, direction, transient)|
+        other = side == 'buy' ? 'sell_price_limit' : 'price_limit'
+        cases.map do |name, c|
+          rule = if c['off']
+                   { "#{other}ed" => true, other => 0.0, "#{other}_value_condition" => 'below' } # the inactive side's rule only
+                 else
+                   { "#{prefix}ed" => true, "#{prefix}_value_condition" => c.fetch('value', 'below'),
+                     "#{prefix}_timing_condition" => c.fetch('timing', 'while'), "#{prefix}_action" => 'pause' }
+                     .merge(c.key?('limit') ? { prefix => c['limit'] } : {})
+                     .merge(c.key?('lower') ? { "#{prefix}_range_lower_bound" => c['lower'], "#{prefix}_range_upper_bound" => c['upper'] } : {})
+                 end
+          rule = rule.compact
+          { 'name' => "cond-#{venue}-#{side}-#{name}", 'venue' => (venue unless venue == 'kraken'), 'interval' => 'week', 'quote_amount' => 60.0,
+            'started_at' => started, 'settings' => direction.merge(rule),
+            'transient' => transient.merge(c['met_at'] ? { "#{prefix}_condition_met_at" => c['met_at'] } : {}).merge(c.fetch('transient', {})).compact,
+            'transactions' => [], 'ticker' => vn['ticker'], 'ticker_after' => c['ticker_after'], 'at' => at,
+            'check_at' => (check_at if c['check']), 'conditions' => true,
+            'script' => { (venue == 'kraken' ? 'http' : venue) => vn['http'].merge(vn['last'].(c.fetch('last', [p]))) }, 'tick' => true }
+        end
+      end
+    end
+  end
+
   def grid(root, list)
     ActiveJob::Base.queue_adapter = :test
     list.each do |sc|
@@ -1356,7 +1459,8 @@ module Decisions
       File.write(File.join(dir, 'scenario.json'),
                  JSON.pretty_generate({ 'encryption' => (sc['kind'] == 'index' ? { 'primary_key' => Array(enc.primary_key).first, 'key_derivation_salt' => enc.key_derivation_salt } : nil), 'parity_scratch' => true, 'bot_id' => bot.id, 'at' => sc['at'], 'venue' => sc['venue'], 'script' => sc['script'],
                                         'tick' => sc['tick'], 'poll' => sc['poll'], 'recover_at' => sc['recover_at'], 'next_at' => sc['next_at'],
-                                        'between' => sc['between'], 'rails_cache' => sc['rails_cache'] }.compact))
+                                        'between' => sc['between'], 'rails_cache' => sc['rails_cache'], 'check_at' => sc['check_at'],
+                                        'conditions' => sc['conditions'] }.compact))
       ActiveRecord::Base.connection_pool.disconnect!
       if ENV['RUST_GRID_CACHE']
         FileUtils.mkdir_p(seed_dir)
@@ -1428,9 +1532,33 @@ module Decisions
         travel_to(Time.iso8601(cached['at']), with_usec: true) { Rails.cache.write("exchange_#{exchange_id}_clock", cached['clock'], expires_in: 1.minute) }
         travel_back
       end
+      # Every Bot::PriceLimitCheckJob the phase queued, at the time it was queued for.
+      checks = []
+      limit_checks = lambda do
+        ActiveJob::Base.queue_adapter.enqueued_jobs.select { |j| j['job_class'] == 'Bot::PriceLimitCheckJob' }.map do |j|
+          (j['scheduled_at'] ? Time.iso8601(j['scheduled_at']) : Time.at(j[:at] || j['at'])).utc.iso8601(6)
+        end
+      end
       if sc.fetch('tick', true)
         tick_at(sc, Time.iso8601(sc['at']), mails)
+        checks.concat(limit_checks.())
         settle.(Time.iso8601(sc['at']))
+      end
+      if sc['check_at']
+        ActiveJob::Base.queue_adapter.enqueued_jobs.clear
+        check_time = Time.iso8601(sc['check_at'])
+        begin
+          travel_to(check_time, with_usec: true) { Bot::PriceLimitCheckJob.perform_now(Bot.find(sc['bot_id'])) }
+        rescue StandardError
+          nil # the job raised: its chain dies until Bot::RepairOrphanedBotsJob
+        end
+        checks.concat(limit_checks.())
+        if ActiveJob::Base.queue_adapter.enqueued_jobs.any? { |j| j['job_class'] == 'Bot::ActionJob' }
+          ActiveJob::Base.queue_adapter.enqueued_jobs.clear
+          tick_at(sc, check_time, mails)
+          checks.concat(limit_checks.())
+        end
+        settle.(check_time)
       end
       ActiveJob::Base.queue_adapter.enqueued_jobs.clear
       poll_error = nil
@@ -1460,6 +1588,7 @@ module Decisions
       mails.concat(enqueued_mails)
       sent = if alpaca then ScriptedAlpaca.sent elsif binance then ScriptedBinance.sent else ScriptedKraken.sent end
       out = { 'sent' => sent, 'changes' => diff(before, snapshot), 'mails' => mails.sort_by { |m| m['mail'] } }
+      out['checks'] = checks if sc['conditions']
       # Only where the scenario seeded the Rust engine's markers: what Rails left of them.
       out['markers'] = Bot.find(sc['bot_id']).transient_data.slice(*MAIL_MARKERS) if markers.any?
       # Alpaca only: the funds notification (its column is excluded from the snapshot) and the follow-up's raise.
@@ -1501,7 +1630,7 @@ def web_save(dir)
 end
 
 command, root = ARGV
-USAGE = 'usage: grid <root> | grid-alpaca <root> | grid-basket <root> | grid-limit <root> | grid-binance <root> | grid-sell <root> | record <root> | web-save <dir>'.freeze
+USAGE = 'usage: grid <root> | grid-alpaca <root> | grid-basket <root> | grid-limit <root> | grid-binance <root> | grid-sell <root> | grid-conditions <root> | record <root> | web-save <dir>'.freeze
 raise ArgumentError, USAGE unless root
 
 case command
@@ -1513,6 +1642,7 @@ when 'grid-index' then Decisions.grid(root, Decisions.index_scenarios)
 when 'grid-limit' then Decisions.grid(root, Decisions.limit_scenarios)
 when 'grid-binance' then Decisions.grid(root, Decisions.binance_scenarios)
 when 'grid-sell' then Decisions.grid(root, Decisions.sell_scenarios)
+when 'grid-conditions' then Decisions.grid(root, Decisions.condition_scenarios)
 when 'record' then Decisions.record(root)
 when 'record-normalized'
   require_relative 'histories_normalized'

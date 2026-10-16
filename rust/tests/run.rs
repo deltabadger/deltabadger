@@ -111,7 +111,7 @@ async fn one_bots_broken_data_does_not_stop_the_others() {
 #[tokio::test(flavor = "current_thread")]
 async fn a_bot_made_ineligible_while_running_stops_the_engine() {
     let (_d, mut e, id, _) = engine(BotSpec::weekly(60.0, "2026-09-01 10:00:00"), priced());
-    e.primary.execute("UPDATE bots SET settings = json_set(settings, '$.price_limited', json('true')) WHERE id = ?1", [id]).unwrap();
+    e.primary.execute("UPDATE bots SET settings = json_set(settings, '$.price_drop_limited', json('true')) WHERE id = ?1", [id]).unwrap();
     assert!(matches!(run::step(&mut e, &at("2026-09-01T10:00:01Z")).await, Err(EngineError::Ineligible(_))));
 }
 
@@ -440,4 +440,106 @@ async fn legacy_intent_absence_preserves_the_checkpoint_wait_across_upgrade_and_
     }
     run::step(&mut e, &at("2026-09-08T10:00:00.001Z")).await.unwrap();
     assert_eq!(v.sent().len(), 1, "reconciliation does not strand the bot");
+}
+
+// Slice 7a: a bot paused by its price rule is checked at the end of each minute (Bot::PriceLimitCheckJob) and, once met, ticks
+// at once off its grid; its next tick is back on the grid.
+
+fn kraken_ticker(last: &str) -> serde_json::Value {
+    json!({ "error": [], "result": { "XXBTZEUR": { "a": ["50000.2", "1", "1.000"], "b": ["49990.1", "1", "1.000"], "c": [last, "0.001"], "v": ["12.5", "30.1"],
+            "p": [last, last], "t": [100, 250], "l": [last, last], "h": [last, last], "o": last } } })
+}
+fn ruled_spec() -> BotSpec {
+    BotSpec::weekly(60.0, "2026-09-01 10:00:00").with("price_limited", json!(true)).with("price_limit", json!(50_000.0))
+        .with("price_limit_value_condition", json!("below")).transient("missed_quote_amount", json!("30"))
+}
+fn status(e: &Engine<FakeFactory>, id: i64) -> deltabadger::enums::BotStatus { model::load_bot(&e.primary, id).unwrap().status }
+/// The same install, opened again by a new engine (a restart): `dir` keeps the files.
+fn restart(dir: &tempfile::TempDir, venue: FakeVenue) -> Engine<FakeFactory> {
+    let p = Paths::from_env(&|_| None, dir.path());
+    let lock = lease::lock(&p, "2026-09-01T00:00:00Z".parse().unwrap()).unwrap();
+    Engine::new(store::open(&p).unwrap().primary, FakeFactory(venue), seed::cipher(), lock)
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_paused_bot_is_checked_each_minute_and_trades_off_grid_once_met() {
+    let v = FakeVenue::new().balance_body("ZEUR", "100000", "0");
+    for last in ["50100", "50100", "49900"] { v.script("/0/public/Ticker", kraken_ticker(last)); }
+    let (_d, mut e, id, _) = engine(ruled_spec(), v.clone());
+    let wake = run::step(&mut e, &at("2026-09-01T10:00:20Z")).await.unwrap();
+    assert_eq!(status(&e, id), deltabadger::enums::BotStatus::Waiting, "paused");
+    assert_eq!(wake, us("2026-09-01T10:00:59.999999Z"), "checked at the end of the minute");
+    run::step(&mut e, &at("2026-09-01T10:00:40Z")).await.unwrap();
+    assert_eq!(v.calls("/0/public/Ticker"), 1, "no check before its time");
+    // Checked at 10:00:59.999999 the next check is at once (end_of_minute is that same instant in Rails); half a second into
+    // the next minute it is that minute's end.
+    let wake = run::step(&mut e, &at("2026-09-01T10:01:00.5Z")).await.unwrap();
+    assert_eq!((v.calls("/0/public/Ticker"), wake), (2, us("2026-09-01T10:01:59.999999Z")), "unmet: the next minute's end");
+    run::step(&mut e, &at("2026-09-01T10:03:00Z")).await.unwrap();
+    assert_eq!(v.sent().len(), 1, "met: re-armed and ticked at once, off the grid");
+    assert_eq!(status(&e, id), deltabadger::enums::BotStatus::Scheduled);
+    run::step(&mut e, &at("2026-09-01T10:04:00Z")).await.unwrap();
+    run::step(&mut e, &at("2026-09-08T10:00:00Z")).await.unwrap();
+    assert_eq!(v.sent().len(), 1, "the next tick is the grid's, from the raw started_at");
+    run::step(&mut e, &at("2026-09-08T10:00:00.001Z")).await.unwrap();
+    assert_eq!(v.sent().len(), 2);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_restart_while_paused_checks_and_never_trades_on_its_own() {
+    let v = FakeVenue::new().balance_body("ZEUR", "100000", "0");
+    v.script("/0/public/Ticker", kraken_ticker("50100"));
+    let (d, mut e, id, _) = engine(ruled_spec(), v.clone());
+    run::step(&mut e, &at("2026-09-01T10:00:20Z")).await.unwrap();
+    drop(e);
+    let mut e = restart(&d, v.clone());
+    run::step(&mut e, &at("2026-09-08T10:00:01Z")).await.unwrap(); // a checkpoint passed while the engine was down
+    assert_eq!(status(&e, id), deltabadger::enums::BotStatus::Waiting, "a paused bot is not a cut-short tick");
+    assert!(v.sent().is_empty());
+    assert_eq!(v.calls("/0/public/Ticker"), 2, "checked at once after the restart");
+}
+
+/// The re-arm and its run-now commit together: a crash right after it still trades at once on the next start.
+#[tokio::test(flavor = "current_thread")]
+async fn a_crash_after_the_rearm_trades_at_once_on_restart() {
+    use deltabadger::engine::conditions::{self, Checked};
+    let v = FakeVenue::new().balance_body("ZEUR", "100000", "0");
+    for last in ["50100", "49900"] { v.script("/0/public/Ticker", kraken_ticker(last)); }
+    let (d, mut e, id, _) = engine(ruled_spec(), v.clone());
+    run::step(&mut e, &at("2026-09-01T10:00:20Z")).await.unwrap();
+    let bot = model::load_bot(&e.primary, id).unwrap();
+    let version = model::credential_version(&e.primary, &bot).unwrap();
+    let checked = conditions::check(&e.primary, &v, &bot, &at("2026-09-01T10:03:00Z"), &deltabadger::engine::tick::PriceCache::default(), &version).await.unwrap();
+    assert_eq!(checked, Checked::Rearmed);
+    drop(e); // the crash: the check's own tick never ran
+    let mut e = restart(&d, v.clone());
+    run::step(&mut e, &at("2026-09-01T10:03:30Z")).await.unwrap();
+    assert_eq!(v.sent().len(), 1, "the obligation survived the crash");
+}
+
+/// The key replaced while a paused bot's price check reads: the stamp is refused (CredentialsChanged), and the check runs
+/// again at once with the new key, never marked dead and left for Repair's quarter hour.
+#[tokio::test(flavor = "current_thread")]
+async fn a_key_replaced_during_the_price_check_checks_again_at_once() {
+    let db: std::rc::Rc<std::cell::RefCell<Option<std::path::PathBuf>>> = Default::default();
+    let armed = db.clone();
+    let v = FakeVenue::new().balance_body("ZEUR", "100000", "0").on_price(move || {
+        if let Some(path) = armed.borrow_mut().take() {
+            let c = rusqlite::Connection::open(path).unwrap();
+            c.execute("UPDATE api_keys SET secret = ?1", [seed::cipher().encrypt("replaced")]).unwrap();
+        }
+    });
+    for last in ["50100", "49900"] { v.script("/0/public/Ticker", kraken_ticker(last)); }
+    let (d, mut e, id, _) = engine(ruled_spec(), v.clone());
+    run::step(&mut e, &at("2026-09-01T10:00:20Z")).await.unwrap();
+    assert_eq!(status(&e, id), deltabadger::enums::BotStatus::Waiting, "paused");
+    *db.borrow_mut() = Some(d.path().join("production.sqlite3"));
+    let wake = run::step(&mut e, &at("2026-09-01T10:01:00Z")).await.unwrap();
+    assert!(db.borrow().is_none(), "the key was replaced during the check's read");
+    assert_eq!(status(&e, id), deltabadger::enums::BotStatus::Waiting, "nothing written for the old key");
+    let bot = model::load_bot(&e.primary, id).unwrap();
+    assert!(bot.transient.get(deltabadger::engine::conditions::DEAD).is_none(), "not dead: {}", bot.transient);
+    assert_eq!(wake, us("2026-09-01T10:01:00Z") + 1, "checked again on the next pass");
+    run::step(&mut e, &at("2026-09-01T10:01:00.001Z")).await.unwrap();
+    assert_eq!(v.sent().len(), 1, "met under the new key: re-armed and ticked");
 }

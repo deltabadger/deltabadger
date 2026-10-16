@@ -170,7 +170,7 @@ weekday and returns `{}` on failure — a boundary price is never guessed, the s
   a permanent hole — on an uncapped venue. On a capped one the clamp only reaches back as far as
   `ledger_window`; a row skipped before that is never re-fetched.
 - The window start is floored at `Exchange#ledger_window` — **`nil` by default, i.e. no floor**.
-  Declare it only where the endpoint caps the window it returns: Binance/MEXC/Bitget `80.days`
+  Declare it only where the endpoint caps the window it returns: Binance/MEXC `80.days`
   (~90-day cap), KuCoin `7.days` (`/api/v1/fills`). Those caps are
   measured *from start_time*, so a watermark parked at a quiet account's last trade would query a
   window ending before today and the account would go blind.
