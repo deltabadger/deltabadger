@@ -331,6 +331,12 @@ async fn tick_inner<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &mut 
         *attempts = Attempts::default();
         return Ok(if checkpoint_after_recovery { TickOutcome::Rescheduled } else { TickOutcome::Skipped });
     }
+    // A reversal's cancel not recorded yet (run::run_reversals failed this pass): the run is not claimed, so the bot stays due
+    // and trades on the engine's next pass once the cancels are recorded, on schedule as Rails would.
+    if super::reversal::barred(bot) {
+        super::log(&format!("[engine] bot {bot_id}: waits for a reversal's cancels to be recorded; ticks on the next pass"));
+        return Ok(TickOutcome::Skipped);
+    }
     // Decide nothing from reference data past its bound.
     if let Some(s) = staleness::stale(c, bot, clock.now())? { return Ok(TickOutcome::Stale { source: s.source, message: s.message }); }
 

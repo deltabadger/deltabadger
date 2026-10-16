@@ -194,3 +194,26 @@ async fn a_selling_bots_frozen_carry_survives_a_settings_edit_and_the_reversal_b
     assert_eq!(b.settings["direction"], "buying");
     assert_eq!(b.transient["missed_quote_amount"], "5.0", "the frozen buy carry, not two days of buying");
 }
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_due_bot_held_by_the_barrier_trades_on_the_next_pass_once_its_cancels_are_recorded() {
+    let v = FakeVenue::new().ticker("XXBTZEUR", "49990.1", "50000.0", "49995.0").balance_body("XBT", "1", "0");
+    let (_d, mut e, id, s) = engine(buyer().with("sell_amount", json!(0.001)), v.clone());
+    let tx = open_buy(&e.primary, &s, id, "OBUY");
+    reverse(&e.primary, &s, id, "2026-09-03T12:00:00Z"); // → selling 0.001 BTC weekly, next checkpoint 2026-09-10 12:00
+    // A pass whose cancel work cannot be recorded (an entry this build cannot read ahead of the real one).
+    let real = bot(&e.primary, id).transient[reversal::CANCELS].clone();
+    let blocked = json!([{ "id": "unreadable" }, real[0].clone()]);
+    let set = |c: &rusqlite::Connection, value: &Value| c.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.rust_reversal_cancels', json(?1)) WHERE id = ?2",
+        rusqlite::params![value.to_string(), id]).unwrap();
+    set(&e.primary, &blocked);
+    run::step(&mut e, &at("2026-09-10T12:00:01Z")).await.unwrap();
+    assert!(v.sent().is_empty(), "the barrier holds the due sell");
+    assert_eq!(reversal::work(&bot(&e.primary, id)).1, vec![tx]);
+    // The next pass records the cancel, and the bot sells then, not a week later.
+    set(&e.primary, &real);
+    run::step(&mut e, &at("2026-09-10T12:01:00Z")).await.unwrap();
+    assert_eq!(reversal::work(&bot(&e.primary, id)).1, Vec::<i64>::new());
+    assert_eq!(v.sent().len(), 1, "the sell runs on the pass after the cancels are recorded");
+    assert_eq!(v.sent()[0].side, deltabadger::venue::Side::Sell);
+}
