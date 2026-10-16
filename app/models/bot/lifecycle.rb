@@ -163,6 +163,14 @@ module Bot::Lifecycle
 
   private
 
+  # A fresh start discards the carry, and with it any reserve a flip left waiting for its buy's final
+  # state (Bot::Reversible): crediting it later would put back spending the fresh start dropped.
+  def discard_flip_reserves
+    data = transient_data.to_h
+    key = Bot::Reversible::FLIP_RESERVE_PENDING
+    self.transient_data = data.except(key) if data.key?(key)
+  end
+
   def action_job_config
     {
       queue: exchange.name_id,
