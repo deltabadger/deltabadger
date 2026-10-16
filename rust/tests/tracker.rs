@@ -217,7 +217,7 @@ async fn many_held_symbols_record_in_linear_work_or_are_refused_before_the_write
     let mut run = Allowance::run();
     let walked = ledger_run(&db, api, None, user, &clock, wall, &mut run).await.unwrap();
     assert_eq!(walked.whole.positions.len(), 100_001, "AAPL and the 100,000");
-    assert!(WALK.steps - run.steps < WALK.steps / 10, "{} steps", WALK.steps - run.steps);
+    assert!(WALK.steps - run.steps < deltabadger::figures::budget::FIGURE.steps / 10, "{} steps", WALK.steps - run.steps);
     assert_eq!(walls.load(Ordering::SeqCst), 1, "the wall clock read once, under the lock");
     assert_eq!(snapshots(dir.path()).len(), 1, "today's row");
 }
@@ -259,7 +259,7 @@ async fn many_loss_symbols_arm_their_locks_in_one_read_of_the_tickers() {
     assert_eq!(locks, 3000);
     let ops = ops.load(Ordering::Relaxed);
     assert!(ops < VM_BOUND, "{ops} SQLite VM steps");
-    assert!(WALK.steps - run.steps < WALK.steps / 100, "{} steps", WALK.steps - run.steps);
+    assert!(WALK.steps - run.steps < deltabadger::figures::budget::FIGURE.steps / 100, "{} steps", WALK.steps - run.steps);
 }
 /// Measured: about 1.6 million VM steps for this run. A ticker query per symbol would read 69 million rows.
 const VM_BOUND: u64 = 10_000_000;

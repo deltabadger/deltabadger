@@ -31,9 +31,17 @@ use std::rc::Rc;
 pub const TRACKER_LEDGER: &str = "tracker_ledger";
 pub const PORTFOLIO_BACKFILL: &str = "portfolio_backfill";
 
-/// What one job run may cost, all its passes together: the figures' own limits (`budget::FIGURE`). Steps add up over
-/// the run; held limbs are a peak, freed between passes.
-pub const WALK: budget::Limits = budget::FIGURE;
+/// What one job run may cost, all its passes together. Steps add up over the run; held limbs are a peak, freed between
+/// passes, and as many as a figure may hold.
+///
+/// Steps: eight billion, eight times a figure's. A real account's walk takes more than one figure may: a Binance
+/// account whose referral income (3,818 rows, 91 coins) was then swept in one dust conversion (74 coins out, 68 BNB
+/// in-legs) holds 30,600 BNB lots, as Rails' FIFO opens one lot per tranche per in-leg, and they travel on through
+/// three swaps. One walk of its 10,833 rows takes 998 million steps (161 million before the referral rows; Rails
+/// 46 s, 8 s before); the backfill's sweep 2.5 million more. The ledger job may walk three times. Eleven unpriced
+/// sales bought back take 805 million and each one more four times as many, so the thirteenth (13 billion) is still
+/// refused.
+pub const WALK: budget::Limits = budget::Limits { steps: 8_000_000_000, held: budget::FIGURE.held };
 /// Tracker::Ledger::COMPUTE_PASSES.
 pub const COMPUTE_PASSES: usize = 3;
 
