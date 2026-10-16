@@ -6,6 +6,7 @@
 #   bin/rails runner script/rust/decisions.rb grid-binance <root> # Binance spot, scripted beneath honeymaker at the Faraday adapter
 #   bin/rails runner script/rust/decisions.rb grid-sell <root>    # a one-asset basket selling on Kraken, Binance and Alpaca (slice 6a)
 #   bin/rails runner script/rust/decisions.rb grid-basket-sell <root> # a wider Alpaca basket's ranked DCA-out (slice 6b)
+#   bin/rails runner script/rust/decisions.rb grid-rebalance <root>   # threshold rebalancing on a stopped Alpaca basket (slice 6b)
 #   bin/rails runner script/rust/decisions.rb record <root>  # Rails' ticks (and retries) per <root>/<scenario>/ -> rails.json
 # Always run with every *_DATABASE_URL pointing at scratch files and PROXY_KRAKEN at a dead address. Kraken is
 # scripted beneath the real client (Honeymaker::Clients::Kraken#get_public/#post_private), so every line of
@@ -109,7 +110,7 @@ module Decisions
   # What only the Rust engine writes into transient_data: its placement intent, and the mails it owes (rust/src/engine/notice.rs).
   MAIL_MARKERS = %w[rust_funds_mail_pending rust_error_mail_pending rust_stopped_mail_pending rust_limit_mail_pending].freeze
   # Its waits and counted amount-limit stops are the engine's own too (rust/src/engine/placement.rs, polling.rs).
-  RUST_KEYS = (%w[rust_placement rust_defer_until rust_amount_limit_stops_pending run_generation tick_generation] + MAIL_MARKERS).freeze
+  RUST_KEYS = (%w[rust_placement rust_defer_until rust_amount_limit_stops_pending run_generation tick_generation rust_rebalance_halted] + MAIL_MARKERS).freeze
   # One marker of each kind, as the engine leaves them: Rails must carry them through every write of a tick, untouched.
   SEEDED_MARKERS = { 'rust_funds_mail_pending' => { 'quote_asset' => 2, 'stamped_at' => '2026-08-31T09:00:00.000Z' },
                      'rust_error_mail_pending' => { 'unknown' => { 'error' => 'an <old> "error"', 'stamped_at' => '2026-08-31T09:00:00.000Z' } },
@@ -211,7 +212,7 @@ module Decisions
       asset = assets.fetch(t.fetch('asset', 'BTC'))
       Transaction.insert!(t.except('asset', 'foreign').merge('bot_id' => bot.id, 'exchange_id' => t['foreign'] ? foreign_venue.id : exchange.id,
                                                   'base_asset_id' => asset.id, 'quote_asset_id' => quote.id,
-                                                  'base' => asset.symbol, 'quote' => quote.symbol, 'side' => t.fetch('side', 0), 'transaction_type' => 'REGULAR',
+                                                  'base' => asset.symbol, 'quote' => quote.symbol, 'side' => t.fetch('side', 0), 'transaction_type' => t.fetch('transaction_type', 'REGULAR'),
                                                   'bot_interval' => sc['interval'], 'bot_quote_amount' => sc['quote_amount'], 'error_messages' => [],
                                                   'updated_at' => t['created_at']))
     end
@@ -1321,6 +1322,71 @@ module Decisions
     end
   end
 
+  # Slice 6b: threshold rebalancing (Bot::Rebalancer through Bot::RebalanceJob) on a stopped Alpaca basket, one fire per
+  # entry of `rebalance_at` (4 hours apart). BTC holds 0.01 (640 USD) beside 0.04 ETH (100 USD): far over a 5-point band.
+  def rebalance_scenarios
+    held = lambda do |n, sym, qty, **extra|
+      ask = BASKET_PRICES.fetch(sym)[0].to_d
+      { 'asset' => sym, 'status' => 0, 'external_status' => 2, 'external_id' => "OHELD-#{n}", 'order_type' => 0, 'amount' => qty, 'amount_exec' => qty,
+        'quote_amount' => (qty.to_d * ask).to_s('F'), 'quote_amount_exec' => (qty.to_d * ask).to_s('F'), 'price' => ask.to_s('F'),
+        'created_at' => '2026-09-01 10:00:01' }.merge(extra)
+    end
+    pos = ->(sym, qty) { position("#{sym}USD", qty) }
+    fires = (1..3).map { |k| (Time.iso8601(BASKET_STARTED).beginning_of_day + 12.hours + 30.minutes + (4 * (k - 1)).hours).iso8601(6) }
+    sell = ->(status, filled, avg) { ok(alpaca_order('OTX-1', status, symbol: 'BTC/USD', notional: nil, qty: '0.004218784', filled_qty: filled, filled_avg_price: avg).merge('side' => 'sell')) }
+    buy = ->(id, status, notional, filled, avg, sym = 'ETH') { ok(alpaca_order(id, status, symbol: "#{sym}/USD", notional:, filled_qty: filled, filled_avg_price: avg)) }
+    filled_sell = sell.('filled', '0.004218784', '63990')
+    holdings = { 'w50' => { 'BTC' => '0.01', 'ETH' => '0.04' }, 'tiers' => { 'BTC' => '0.01', 'ETH' => '0.04', 'SOL' => '0.2' } }
+    # The swap's buy: 270 USD of the most underweight member after BTC's sale (ETH at 50/50, SOL in the tiers), covering
+    # the 269.96 the sell realized, so the swap completes.
+    whole_buy = { 'w50' => ['0.108', '2500', 'ETH'], 'tiers' => ['1.8', '150', 'SOL'] }
+    list = []
+    WEIGHTS.slice('w50', 'tiers').each do |w, weights|
+      qty = holdings.fetch(w)
+      rows = qty.each_with_index.map { |(sym, q), i| held.(i + 1, sym, q) }
+      positions = ok(qty.map { |sym, q| pos.(sym, q) })
+      resting_buy = { 'asset' => 'BTC', 'status' => 0, 'external_status' => 1, 'external_id' => 'OREST-1', 'order_type' => 1, 'amount' => '0.001',
+                      'price' => '60000', 'amount_exec' => '0', 'quote_amount_exec' => '0', 'created_at' => '2026-09-01 10:00:02' }
+      rest = ->(status) { { 'GET /v2/orders/OREST-1' => [ok(alpaca_order('OREST-1', status, type: 'limit', notional: nil, qty: '0.001', limit_price: '60000',
+                                                                           filled_qty: status == 'filled' ? '0.001' : '0', filled_avg_price: status == 'filled' ? '60000' : nil))] } }
+      states = {
+        # The whole swap: the sell, its fill and the buy, the buy's fill.
+        'swap' => { 'fires' => 3, 'http' => { 'GET /v2/orders/OTX-1' => [filled_sell], 'GET /v2/orders/OTX-2' => [buy.('OTX-2', 'filled', nil, *whole_buy.fetch(w))] } },
+        'under_threshold' => { 'fires' => 1, 'settings' => { 'rebalance_threshold' => 0.5 } },
+        'rule_off' => { 'fires' => 1, 'settings' => { 'rebalance_enabled' => false } },
+        'selling' => { 'fires' => 1, 'settings' => { 'direction' => 'selling', 'sell_denomination' => 'quote', 'sell_quote_amount' => 10.0 } },
+        'resting_sell' => { 'fires' => 2, 'http' => { 'GET /v2/orders/OTX-1' => [sell.('new', '0', nil)] } },
+        'cancelled_partial_sell' => { 'fires' => 2, 'http' => { 'GET /v2/orders/OTX-1' => [sell.('canceled', '0.002', '63990')] } },
+        'nothing_sold' => { 'fires' => 2, 'http' => { 'GET /v2/orders/OTX-1' => [sell.('canceled', '0', nil)] } },
+        'partial_buy' => { 'fires' => 3, 'http' => { 'GET /v2/orders/OTX-1' => [filled_sell], 'GET /v2/orders/OTX-2' => [buy.('OTX-2', 'canceled', nil, '0.04', '2500')] } },
+        'open_buy' => { 'fires' => 1, 'rows' => rows + [resting_buy], 'http' => rest.('new') },
+        'open_buy_stale' => { 'fires' => 1, 'rows' => rows + [resting_buy], 'http' => rest.('filled') },
+        'sell_below_minimum' => { 'fires' => 1, 'tickers_after' => { 'BTC' => { 'minimum_quote_size' => '500' } } },
+        'buy_below_minimum' => { 'fires' => 2, 'http' => { 'GET /v2/orders/OTX-1' => [filled_sell], 'GET /v2/account' => [account('0.5')] } },
+        'buy_capped' => { 'fires' => 2, 'http' => { 'GET /v2/orders/OTX-1' => [filled_sell], 'GET /v2/account' => [account('150')] } },
+        'rejected' => { 'fires' => 1, 'http' => { 'POST /v2/orders' => [{ 'status' => 403, 'body' => { 'code' => 40_310_000, 'message' => 'insufficient balance for BTC' } }] } },
+        'buy_rejected' => { 'fires' => 2, 'http' => { 'GET /v2/orders/OTX-1' => [filled_sell],
+                                                      'POST /v2/orders' => [placed(1, 'BTC'), { 'status' => 403, 'body' => { 'code' => 40_310_000, 'message' => 'insufficient balance' } }] } },
+        'pre_send' => { 'fires' => 1, 'http' => { 'POST /v2/orders' => [{ 'network' => 'pre_send', 'message' => 'Faraday::ConnectionFailed: Connection refused - connect(2) for "paper-api.alpaca.markets" port 443' }] } },
+        # Rails halts at once on an unknown outcome; the engine keeps the intent and asks the venue (named divergences).
+        'post_send' => { 'fires' => 1, 'http' => { 'POST /v2/orders' => [{ 'network' => 'post_send', 'message' => 'Faraday::TimeoutError: Net::ReadTimeout' }] } },
+        'server_error' => { 'fires' => 1, 'http' => { 'POST /v2/orders' => [FIVE_XX] } },
+        'no_order_id' => { 'fires' => 1, 'http' => { 'POST /v2/orders' => [ok('status' => 'pending_new')] } },
+        # A swap already owed (rule switched off meanwhile): the buy still goes.
+        'owed_buy' => { 'fires' => 1, 'settings' => { 'rebalance_enabled' => false },
+                        'transient' => { 'rebalance_pending' => { 'phase' => 'buying', 'sell_transaction_id' => nil, 'buy_transaction_id' => nil,
+                                                                  'remaining_quote_amount' => '120.0', 'buy_attempted' => false } } }
+      }
+      states.each do |state, st|
+        http = { 'GET /v2/positions' => [positions], 'POST /v2/orders' => [placed(1, 'BTC'), placed(2, 'ETH'), placed(3, 'ETH')] }.merge(st.fetch('http', {}))
+        list << basket("rebalance-#{w}-#{state}", weights, at: fires.first, settings: { 'rebalance_enabled' => true }.merge(st.fetch('settings', {})),
+                       transient: st.fetch('transient', {}), transactions: st.fetch('rows', rows), http:, tick: false,
+                       rebalance_at: fires.first(st.fetch('fires')), tickers_after: st['tickers_after'], bot_columns: { 'status' => Bot.statuses[:stopped] })
+      end
+    end
+    list
+  end
+
   def binance_scenarios
     started = '2026-09-01T10:00:00.123456Z'
     ticker = { 'base_decimals' => 5, 'quote_decimals' => 8, 'price_decimals' => 2, 'minimum_base_size' => '0.00001', 'minimum_quote_size' => '5' }
@@ -1455,7 +1521,7 @@ module Decisions
       enc = ActiveRecord::Encryption.config
       File.write(File.join(dir, 'scenario.json'),
                  JSON.pretty_generate({ 'encryption' => (sc['kind'] == 'index' ? { 'primary_key' => Array(enc.primary_key).first, 'key_derivation_salt' => enc.key_derivation_salt } : nil), 'parity_scratch' => true, 'bot_id' => bot.id, 'at' => sc['at'], 'venue' => sc['venue'], 'script' => sc['script'],
-                                        'tick' => sc['tick'], 'poll' => sc['poll'], 'recover_at' => sc['recover_at'], 'next_at' => sc['next_at'],
+                                        'tick' => sc['tick'], 'poll' => sc['poll'], 'recover_at' => sc['recover_at'], 'next_at' => sc['next_at'], 'rebalance_at' => sc['rebalance_at'],
                                         'between' => sc['between'], 'rails_cache' => sc['rails_cache'] }.compact))
       ActiveRecord::Base.connection_pool.disconnect!
       if ENV['RUST_GRID_CACHE']
@@ -1557,6 +1623,17 @@ module Decisions
         tick_at(sc, Time.iso8601(sc['next_at']), mails)
         settle.(Time.iso8601(sc['next_at']))
       end
+      # Bot::EvaluateRebalancersJob's fires: one Bot::RebalanceJob each (it has no retry_on; a raise ends that run). The
+      # FetchAndUpdateOrderJob it enqueues is not run: the next fire's refresh_pending_order! reads the order itself.
+      (sc['rebalance_at'] || []).each do |time|
+        ActiveJob::Base.queue_adapter.enqueued_jobs.clear
+        travel_to(Time.iso8601(time), with_usec: true) do
+          Bot::RebalanceJob.perform_now(Bot.find(sc['bot_id']))
+        rescue StandardError => e
+          Rails.logger.info("rebalance raised: #{e.message}")
+        end
+        settle.(Time.iso8601(time))
+      end
       mails.concat(enqueued_mails)
       sent = if alpaca then ScriptedAlpaca.sent elsif binance then ScriptedBinance.sent else ScriptedKraken.sent end
       out = { 'sent' => sent, 'changes' => diff(before, snapshot), 'mails' => mails.sort_by { |m| m['mail'] } }
@@ -1601,7 +1678,7 @@ def web_save(dir)
 end
 
 command, root = ARGV
-USAGE = 'usage: grid <root> | grid-alpaca <root> | grid-basket <root> | grid-limit <root> | grid-binance <root> | grid-sell <root> | grid-basket-sell <root> | record <root> | web-save <dir>'.freeze
+USAGE = 'usage: grid <root> | grid-alpaca <root> | grid-basket <root> | grid-limit <root> | grid-binance <root> | grid-sell <root> | grid-basket-sell <root> | grid-rebalance <root> | record <root> | web-save <dir>'.freeze
 raise ArgumentError, USAGE unless root
 
 case command
@@ -1614,6 +1691,7 @@ when 'grid-limit' then Decisions.grid(root, Decisions.limit_scenarios)
 when 'grid-binance' then Decisions.grid(root, Decisions.binance_scenarios)
 when 'grid-sell' then Decisions.grid(root, Decisions.sell_scenarios)
 when 'grid-basket-sell' then Decisions.grid(root, Decisions.basket_sell_scenarios)
+when 'grid-rebalance' then Decisions.grid(root, Decisions.rebalance_scenarios)
 when 'record' then Decisions.record(root)
 when 'record-normalized'
   require_relative 'histories_normalized'

@@ -2,7 +2,9 @@
 # Bot::Composition::Measurable#metrics_with_current_prices (Alpaca's latest trades, Float or String prices, through
 # Exchanges::Alpaca#get_crypto_tickers_prices), Bot::Composition::Rebalancer#composition_targets / #normalise_targets /
 # #unpriced_holding?, Bot::Rebalanceable#rebalance_drift / #rebalance_due?, Bot::Rebalancer#extreme_rebalance_entry, and
-# get_sell_orders_data's ranking (rebalance_deviation over tradeable_rebalance_entries, sort_by.with_index).
+# get_sell_orders_data's ranking (rebalance_deviation over tradeable_rebalance_entries, sort_by.with_index), and the two
+# legs' order data (Bot::Rebalancer#rebalance_sell_order_data and #rebalance_buy_order_data) with the venue's prices and
+# free balances stubbed at the case's values (plan 6b T9).
 #   bin/rails runner script/rust/record_rebalance_math.rb rust/tests/fixtures/rebalance_math.json
 # The ledger walk (`metrics`) is stubbed with the case's holdings; everything after it is Rails' own code, forced, as the
 # trade paths read it since #600. Nothing is saved (each case rolls back) and nothing leaves the machine.
@@ -18,7 +20,7 @@ SOURCES = %w[app/models/bot/composition/rebalancer.rb app/models/bot/rebalancer.
              app/models/bot/composition/measurable.rb app/models/bot/composition/allocatable.rb app/models/bot/composition/order_setter.rb
              app/models/bots/dca_multi_asset.rb app/models/bots/dca_multi_asset/allocatable.rb app/models/exchanges/alpaca.rb].freeze
 SYMBOLS = %w[BTC ETH SOL DOGE XRP ADA].freeze
-CASES = 1_200
+CASES = 10_000
 
 out = { 'sources' => SOURCES.to_h { |f| [f, Digest::SHA256.file(Rails.root.join(f)).hexdigest] }, 'cases' => [] }
 rng = Random.new(20_261_016)
@@ -111,7 +113,17 @@ def random_case(rng, pick, decimal)
   settings['rebalance_enabled'] = rng.rand(10).positive?
   locked = rng.rand(10).zero? ? syms.sample(rng.rand(1..syms.size), random: rng) : []
   { 'members' => members, 'holdings' => holdings, 'prices' => prices, 'settings' => settings, 'locked' => locked,
-    'withdrawal' => decimal.(-3, 3).to_s('F') }
+    'withdrawal' => decimal.(-3, 3).to_s('F') }.merge(legs(rng, pick, decimal, syms))
+end
+
+# What the legs read from the venue: the market price per side (nil: the read failed), the free balance per asset (USD the
+# settled cash), and the proceeds the buy owes.
+def legs(rng, pick, decimal, syms)
+  price = -> { { none: nil, zero: '0', price: decimal.(-6, 4).to_s('F') }.fetch(pick.({ none: 1, zero: 1, price: 14 })) }
+  free = syms.to_h { |sym| [sym, pick.({ zero: 1, small: 2, large: 3 }).then { |k| k == :zero ? '0' : decimal.(k == :small ? -9 : -3, k == :small ? -2 : 4).to_s('F') }] }
+  { 'bids' => syms.to_h { |sym| [sym, price.()] }, 'asks' => syms.to_h { |sym| [sym, price.()] },
+    'free' => free.merge('USD' => pick.({ zero: 1, small: 2, large: 3 }).then { |k| k == :zero ? '0' : decimal.(k == :small ? -3 : 0, k == :small ? 1 : 5).to_s('F') }),
+    'owed' => pick.({ zero: 1, owed: 9 }) == :zero ? '0' : decimal.(-3, 4).to_s('F') }
 end
 
 ActiveRecord::Base.transaction do
@@ -172,7 +184,15 @@ ActiveRecord::Base.transaction do
                   deviation = bot.send(:rebalance_deviation, [entries.sum { |e| e[:value].to_d } - withdrawal, 0].max)
                   bot.send(:tradeable_rebalance_entries, entries).sort_by.with_index { |e, i| over, tie = deviation.call(e); [-over, -tie, i] }.map { |e| e[:asset_id] }
                 end
+      # The legs' venue reads, at the case's values (Bot::Rebalancer#side_price, #live_free_balance).
+      side_prices = { sell: kase['bids'] || {}, buy: kase['asks'] || {} }
+      bot.define_singleton_method(:side_price) { |ticker, side| side_prices[side][ticker.base]&.to_d }
+      free = (kase['free'] || {}).to_h { |sym, f| [sym == 'USD' ? usd.id : assets[sym].id, f.to_d] }
+      bot.define_singleton_method(:live_free_balance) { |asset_id| free.fetch(asset_id.to_i, 0.to_d) }
+      leg = ->(d) { d && [d[:ticker].base_asset_id, d[:amount].to_d.to_s('F'), d[:quote_amount].to_d.to_s('F'), d[:price].to_d.to_s('F')] }
       expected = {
+        'sell' => leg.(bot.send(:rebalance_sell_order_data)),
+        'buy' => leg.(bot.send(:rebalance_buy_order_data, quote_amount: (kase['owed'] || '0').to_d)),
         'stale' => data[:prices_stale] == true,
         'targets' => entries&.map(&row),
         'drift' => bot.rebalance_drift&.to_s('F'),

@@ -396,6 +396,57 @@ async fn rails_and_rust_decide_identically_across_the_basket_sell_grid() {
     assert!(failures.is_empty(), "pinned expectations:\n{}", failures.join("\n"));
 }
 
+/// Slice 6b: threshold rebalancing on a stopped Alpaca basket (script/rust/decisions.rb rebalance_scenarios), fire by fire.
+/// Sanctioned divergence `unknown_outcome`: Rails halts a swap whose placement outcome is unknown (a lost reply, a 5xx, an
+/// accepted order without an id) at once; the engine keeps the intent with its phase and resolves it by client order id
+/// (placement::recover_since), halting only if the venue still cannot answer a full absence window later.
+#[tokio::test(flavor = "current_thread")]
+async fn rails_and_rust_rebalance_identically() {
+    let (_copies, outputs) = grid_outputs("grid-rebalance", 40).await;
+    let unknown = ["-post_send", "-server_error", "-no_order_id"];
+    let mut failures = vec![];
+    let phase = |out: &serde_json::Value| -> serde_json::Value {
+        out["changes"]["bots"].as_array().unwrap().last().map(|b| b["after"]["transient_data"]["rebalance_pending"]["phase"].clone()).unwrap_or_default()
+    };
+    for (name, _, rails_out, rust_out) in &outputs {
+        if unknown.iter().any(|u| name.ends_with(u)) {
+            // Both sent the one sell; Rails halted, the engine waits on its intent with the selling phase, no row on either.
+            assert_eq!(rails_out["sent"], rust_out["sent"], "{name}");
+            assert_eq!((phase(rails_out), phase(rust_out)), (serde_json::json!("ambiguous"), serde_json::json!("selling")), "{name}: {rails_out}\n{rust_out}");
+            assert_eq!(rust_out["changes"]["transactions"], rails_out["changes"]["transactions"], "{name}");
+            continue;
+        }
+        if rails_out != rust_out { failures.push(format!("{name}\n  rails: {rails_out}\n  rust:  {rust_out}")); }
+    }
+    assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), outputs.len(), failures.join("\n"));
+    // Pin what Rails does, so that two silent sides cannot pass: what each cell sent, and the phase it left.
+    let mut pins = vec![];
+    for (name, _, rails_out, _) in &outputs {
+        let sent: Vec<(String, String)> = rails_out["sent"].as_array().unwrap().iter().map(|o| (o["symbol"].as_str().unwrap().into(), o["side"].as_str().unwrap().into())).collect();
+        let state = name.split_once('-').unwrap().1.split_once('-').unwrap().1;
+        let expect: &[(&str, &str)] = match state {
+            "under_threshold" | "rule_off" | "selling" | "open_buy" | "sell_below_minimum" => &[],
+            "swap" | "buy_capped" | "buy_rejected" | "cancelled_partial_sell" => &[("BTC/USD", "sell"), ("ETH/USD", "buy")],
+            "partial_buy" => &[("BTC/USD", "sell"), ("ETH/USD", "buy"), ("ETH/USD", "buy")],
+            "owed_buy" => &[("ETH/USD", "buy")],
+            _ => &[("BTC/USD", "sell")],
+        };
+        let expect: Vec<(String, String)> = expect.iter().map(|(a, b)| ((*a).into(), (*b).into())).collect();
+        // tiers: the underweight member after BTC's sale is SOL or ETH by the figures; only the sides are pinned there.
+        let same = if name.contains("-tiers-") { sent.iter().map(|s| &s.1).eq(expect.iter().map(|s| &s.1)) } else { sent == expect };
+        if !same { pins.push(format!("{name}: sent {sent:?}, pinned {expect:?}")); }
+        let left = phase(rails_out);
+        let want = match state {
+            "swap" | "nothing_sold" | "buy_below_minimum" | "under_threshold" | "rule_off" | "selling" | "open_buy" | "sell_below_minimum" | "pre_send" => serde_json::Value::Null,
+            "rejected" | "buy_rejected" | "post_send" | "server_error" | "no_order_id" => serde_json::json!("ambiguous"),
+            "resting_sell" | "open_buy_stale" => serde_json::json!("selling"),
+            _ => serde_json::json!("buying"),
+        };
+        if left != want { pins.push(format!("{name}: phase {left}, pinned {want}")); }
+    }
+    assert!(pins.is_empty(), "pinned expectations:\n{}", pins.join("\n"));
+}
+
 const ALPACA_DIVERGENCES: [&str; 3] = ["add_server_error", "add_unreadable", "untradable_clock_closed"];
 
 fn crypto_ignores_the_stock_clock(dir: &Path, rails_out: &serde_json::Value, rust_out: &serde_json::Value) -> Result<(), String> {
@@ -561,11 +612,15 @@ fn r5_cleanup_expected(rails: &serde_json::Value, rust: &serde_json::Value) -> s
         if row["before"]["transient_data"].get(KEY) != Some(&serde_json::Value::Null)
             || !row["after"]["transient_data"].is_object()
             || row["after"]["transient_data"].get(KEY).is_some() { continue; }
-        let mine = rust["changes"]["bots"].as_array().unwrap().iter().find(|b| b["id"] == row["id"]).unwrap();
-        assert_eq!(mine["before"]["transient_data"].get(KEY), Some(&serde_json::Value::Null), "R5 same initial NULL flag");
-        assert_eq!(mine["after"]["transient_data"].get(KEY), Some(&serde_json::Value::Null), "R5 failure cleanup preserves unrelated NULL flag");
+        // Rust left the bot row untouched (a swap that started and ended within the run): the flag kept is all Rails changed.
+        if let Some(mine) = rust["changes"]["bots"].as_array().unwrap().iter().find(|b| b["id"] == row["id"]) {
+            assert_eq!(mine["before"]["transient_data"].get(KEY), Some(&serde_json::Value::Null), "R5 same initial NULL flag");
+            assert_eq!(mine["after"]["transient_data"].get(KEY), Some(&serde_json::Value::Null), "R5 failure cleanup preserves unrelated NULL flag");
+        }
         row["after"]["transient_data"][KEY] = serde_json::Value::Null;
     }
+    // A row whose only change was that flag is no change at all once it is kept.
+    expected["changes"]["bots"].as_array_mut().unwrap().retain(|row| row["before"] != row["after"]);
     expected
 }
 

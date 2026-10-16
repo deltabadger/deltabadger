@@ -66,7 +66,7 @@ fn row(e: &Entry) -> Value {
 fn every_recorded_rails_rebalance_valuation_and_ranking_is_reproduced() {
     let fixture: Value = serde_json::from_str(include_str!("fixtures/rebalance_math.json")).unwrap();
     let cases = fixture["cases"].as_array().unwrap();
-    let (mut targeted, mut due, mut ties) = (0, 0, 0);
+    let (mut targeted, mut due, mut ties, mut sold, mut bought) = (0, 0, 0, 0, 0);
     for (n, c) in cases.iter().enumerate() {
         let e = &c["expected"];
         let (data, members, locked) = inputs(c);
@@ -85,6 +85,26 @@ fn every_recorded_rails_rebalance_valuation_and_ranking_is_reproduced() {
         let withdrawal = bd(c["withdrawal"].as_str().unwrap_or("0"));
         let ranking = entries.as_ref().map(|es| rebalance::sell_ranking(es, &withdrawal).into_iter().map(|i| es[i].asset_id).collect::<Vec<_>>());
         assert_eq!(ranking.map_or(Value::Null, |r| json!(r)), e["ranking"], "case {n} ranking: {c}");
+        // The legs' order data at the case's venue reads: price nil or not positive, or nothing to trade, is no order.
+        let read = |side: &str, sym: &str| c[side][sym].as_str().map(bd);
+        let sell = rebalance::sell_target(entries.as_deref()).and_then(|(i, excess)| {
+            let entry = &entries.as_ref().unwrap()[i];
+            let sym = &entry.ticker.as_ref().unwrap().base_code;
+            let price = read("bids", sym).filter(BigDec::is_positive)?;
+            let amount = rebalance::least([excess.div(&price).unwrap(), read("free", sym).unwrap_or_else(BigDec::zero)]).unwrap();
+            amount.is_positive().then(|| json!([entry.asset_id, amount.to_s_f(), (&amount * &price).to_s_f(), price.to_s_f()]))
+        });
+        assert_eq!(sell.unwrap_or(Value::Null), e["sell"], "case {n} sell: {c}");
+        let owed = bd(c["owed"].as_str().unwrap_or("0"));
+        let buy = if !owed.is_positive() { None } else { rebalance::buy_target(entries.as_deref(), &owed).and_then(|(i, shortfall)| {
+            let entry = &entries.as_ref().unwrap()[i];
+            let price = read("asks", &entry.ticker.as_ref().unwrap().base_code).filter(BigDec::is_positive)?;
+            let spend = rebalance::least([owed.clone(), shortfall, read("free", "USD").unwrap_or_else(BigDec::zero)]).unwrap();
+            spend.is_positive().then(|| json!([entry.asset_id, spend.div(&price).unwrap().to_s_f(), spend.to_s_f(), price.to_s_f()]))
+        }) };
+        if buy.is_some() { bought += 1; }
+        if e["sell"] != Value::Null { sold += 1; }
+        assert_eq!(buy.unwrap_or(Value::Null), e["buy"], "case {n} buy: {c}");
         if let Some(es) = &entries {
             targeted += 1;
             let keys: Vec<_> = es.iter().map(|x| rebalance::deviation(x, &es.iter().fold(BigDec::zero(), |a, x| &a + &x.value))).collect();
@@ -93,7 +113,8 @@ fn every_recorded_rails_rebalance_valuation_and_ranking_is_reproduced() {
         if is_due { due += 1; }
     }
     // The grid holds what it says it holds.
-    assert!(cases.len() >= 1_200 && targeted > 600 && due > 100 && ties > 20, "{} cases, {targeted} targeted, {due} due, {ties} with tied deviations", cases.len());
+    assert!(cases.len() >= 10_000 && targeted > 5_000 && due > 1_000 && ties > 200 && sold > 1_000 && bought > 1_000,
+            "{} cases, {targeted} targeted, {due} due, {ties} with tied deviations, {sold} sells, {bought} buys", cases.len());
 }
 
 #[test]
