@@ -346,11 +346,10 @@ class Exchanges::Coinbase < Exchange
     return Result::Failure.new("Unknown symbol for asset #{asset.symbol}") if symbol.blank?
 
     # Find the account UUID for this currency
-    result = client.list_accounts
+    result = list_all_accounts(client)
     return result if result.failure?
 
-    accounts = result.data['accounts'] || []
-    account = accounts.find { |a| a['currency'] == symbol }
+    account = result.data.find { |a| a['currency'] == symbol }
     return Result::Failure.new("No Coinbase account found for #{symbol}") if account.blank?
 
     account_uuid = account['uuid']
@@ -397,16 +396,16 @@ class Exchanges::Coinbase < Exchange
     end
 
     # Account transactions (deposits, withdrawals)
-    accounts_result = hm_client.list_accounts
+    accounts_result = list_all_accounts(hm_client)
     return accounts_result if accounts_result.failure?
 
-    accounts = accounts_result.data['accounts'] || []
-    accounts.each do |account|
+    accounts_result.data.each do |account|
       account_id = account['uuid']
       starting_after = nil
       loop do
         result = hm_client.list_transactions(account_id: account_id, limit: 100, starting_after: starting_after)
-        break if result.failure?
+        # A missed page must fail the sync, not report it clean.
+        return result if result.failure?
 
         txns = result.data['data'] || []
         break if txns.empty?
@@ -430,6 +429,23 @@ class Exchanges::Coinbase < Exchange
   end
 
   private
+
+  # list_accounts returns 49 accounts by default (250 max) and pages with cursor/has_next.
+  # Honeymaker's list_accounts takes no parameters, so the page is read through its signed get.
+  # https://docs.cdp.coinbase.com/api-reference/advanced-trade-api/rest-api/accounts/list-accounts
+  def list_all_accounts(hm_client)
+    accounts = []
+    cursor = nil
+    loop do
+      result = hm_client.send(:get, '/api/v3/brokerage/accounts', { limit: 250, cursor: cursor })
+      return result if result.failure?
+
+      accounts.concat(result.data['accounts'] || [])
+      cursor = result.data['cursor']
+      break unless result.data['has_next'] && cursor.present?
+    end
+    Result::Success.new(accounts)
+  end
 
   def normalize_coinbase_fill(fill)
     product_id = fill['product_id'] || ''
