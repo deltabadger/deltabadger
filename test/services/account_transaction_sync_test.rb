@@ -184,7 +184,7 @@ class AccountTransactionSyncTest < ActiveSupport::TestCase
     AccountTransactionSync.new(@api_key).sync!
   end
 
-  # Binance, Bybit, MEXC, KuCoin and Bitget cap a history query at ~90 days FROM start_time. Without
+  # Binance, Bybit, MEXC and KuCoin cap a history query at ~90 days FROM start_time. Without
   # a floor, a quiet account's data-derived watermark stops reaching the present and goes blind.
   test 'floors start_time so a long-quiet account still queries up to the present' do
     @api_key.update!(last_synced_at: 2.years.ago)

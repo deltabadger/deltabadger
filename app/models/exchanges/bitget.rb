@@ -411,8 +411,13 @@ class Exchanges::Bitget < Exchange
     update_exchange_asset_fees!(fees, chains: chain_data)
   end
 
-  # Bitget caps a history query at ~90 days measured from `startTime`.
-  def ledger_window = 80.days
+  # /api/v2/spot/trade/fills keeps 90 days, takes a startTime-endTime range of at most 90 days, and
+  # answers at most 100 rows a page, older pages by idLessThan
+  # (https://www.bitget.com/docs/catalog/classic-spot-trade/classic-spot-trade#get-fills). get_ledger
+  # walks windows from start_time to now itself, so the sync needs no floor and ledger_window stays nil.
+  LEDGER_WINDOW = 89.days
+  FILLS_REACH = 89.days
+  LEDGER_PAGE = 100
 
   def get_ledger(api_key:, start_time: nil)
     hm_client = Honeymaker.client('bitget', api_key: api_key.key, api_secret: api_key.secret,
@@ -420,10 +425,14 @@ class Exchanges::Bitget < Exchange
     start_ms = start_time ? (start_time.to_f * 1000).to_i.to_s : nil
     entries = []
 
-    # Fills
-    result = hm_client.get_fills(start_time: start_ms)
-    unless result.failure?
-      (result.data['data'] || []).each do |fill|
+    # Any failed read fails the whole fetch: a partial Success would let the sync move its watermark
+    # past the rows it never got, and they would never be fetched again.
+    each_ledger_window([start_time, FILLS_REACH.ago].compact.max) do |window_start, window_end|
+      fetch = lambda do |before|
+        hm_client.get_fills(start_time: window_start.to_s, end_time: window_end.to_s, limit: LEDGER_PAGE.to_s,
+                            id_less_than: before)
+      end
+      failed = each_ledger_row(fetch, 'tradeId') do |fill|
         symbol = fill['symbol']
         base = symbol_pair_base(symbol)
         quote = symbol_pair_quote(symbol)
@@ -436,6 +445,7 @@ class Exchanges::Bitget < Exchange
                      tx_id: fill['tradeId'], group_id: nil, description: nil,
                      transacted_at: Time.at(fill['cTime'].to_i / 1000.0).utc, raw_data: fill }
       end
+      return failed if failed
     end
 
     # Deposits
@@ -465,10 +475,41 @@ class Exchanges::Bitget < Exchange
       end
     end
 
-    Result::Success.new(entries)
+    # Neighbouring windows share their edge, so a row stamped on it comes back twice.
+    Result::Success.new(entries.uniq { |entry| [entry[:entry_type], entry[:raw_data]] })
   end
 
   private
+
+  # Yields [start_ms, end_ms] windows of at most LEDGER_WINDOW, from `from` to now.
+  def each_ledger_window(from)
+    window_start = (from.to_f * 1000).to_i
+    now_ms = (Time.now.to_f * 1000).to_i
+    while window_start < now_ms
+      window_end = [window_start + (LEDGER_WINDOW.to_i * 1000), now_ms].min
+      yield window_start, window_end
+      window_start = window_end
+    end
+  end
+
+  # Bitget pages newest first and hands the next, older page for idLessThan = the last row's id. A
+  # short page is the last. Yields each row; returns the failure that stopped the read, or nil.
+  # These reads skip the client's code check, so an error envelope is a failure here, not an empty page.
+  def each_ledger_row(fetch, id_key, &)
+    before = nil
+    loop do
+      result = fetch.call(before)
+      code, msg = bitget_envelope(result)
+      return Result::Failure.new("#{name} ledger read failed: #{[code, msg].compact.join(' ')}") if result.success? && code != '00000'
+      return result if result.failure?
+
+      rows = Array(result.data['data'])
+      rows.each(&)
+      return nil if rows.size < LEDGER_PAGE
+
+      before = rows.last[id_key]
+    end
+  end
 
   # Classifies the api-key-validity probe by Bitget's response code. The code arrives either in a
   # Success envelope (HTTP 200) or — for v2 business errors, which come back as HTTP 4xx — inside a

@@ -452,3 +452,67 @@ class Exchanges::BitgetTest < ActiveSupport::TestCase
     assert_equal 0, minimums['XYZABC']
   end
 end
+
+class Exchanges::BitgetLedgerTest < ActiveSupport::TestCase
+  setup do
+    @exchange = create(:bitget_exchange)
+    @api_key = create(:api_key, exchange: @exchange, key: 'k', secret: 's', raw_passphrase: 'p')
+    @client = Honeymaker::Clients::Bitget.any_instance
+    @empty = Result::Success.new({ 'code' => '00000', 'data' => [] })
+    @client.stubs(:deposit_list).returns(@empty)
+    @client.stubs(:withdrawal_list).returns(@empty)
+  end
+
+  # Shaped like the Get Fills example (https://www.bitget.com/docs/catalog/classic-spot-trade/classic-spot-trade#get-fills).
+  def fill(id, at: 2.days.ago)
+    { 'symbol' => 'BTCUSDT', 'orderId' => "o#{id}", 'tradeId' => id.to_s, 'orderType' => 'market', 'side' => 'buy',
+      'priceAvg' => '13000', 'size' => '0.0007', 'amount' => '9.1',
+      'feeDetail' => { 'deduction' => 'no', 'feeCoin' => 'BTC', 'totalDeductionFee' => '', 'totalFee' => '-0.0000007' },
+      'tradeScope' => 'taker', 'cTime' => (at.to_f * 1000).to_i.to_s, 'uTime' => (at.to_f * 1000).to_i.to_s }
+  end
+
+  def page(ids) = Result::Success.new({ 'code' => '00000', 'data' => ids.map { |id| fill(id) } })
+
+  # One request with only startTime read the newest 100 fills and nothing else.
+  test 'fills are read page by page with idLessThan, inside an explicit range' do
+    calls = []
+    @client.stubs(:get_fills).with { |**kwargs| calls << kwargs }
+           .returns(page((101..200).to_a.reverse)).then.returns(page([100]))
+
+    result = @exchange.get_ledger(api_key: @api_key, start_time: 10.days.ago)
+
+    assert_predicate result, :success?
+    assert_equal(101, result.data.count { |entry| entry[:entry_type] == :buy })
+    assert_equal 2, calls.size
+    assert(calls.all? { |call| call[:start_time].present? && call[:end_time].present? })
+    assert_nil calls[0][:id_less_than]
+    assert_equal '101', calls[1][:id_less_than]
+  end
+
+  test 'a long-quiet or first sync asks fills only for the 90 days Bitget keeps, in ranges under 90 days' do
+    calls = []
+    @client.stubs(:get_fills).with { |**kwargs| calls << kwargs }.returns(page([]))
+
+    @exchange.get_ledger(api_key: @api_key, start_time: 2.years.ago)
+    @exchange.get_ledger(api_key: @api_key)
+
+    assert(calls.all? { |call| call[:start_time].to_i >= 90.days.ago.to_i * 1000 })
+    assert(calls.all? { |call| call[:end_time].to_i - call[:start_time].to_i <= 90.days.to_i * 1000 })
+    assert_operator calls.map { |call| call[:end_time].to_i }.max, :>=, 1.minute.ago.to_i * 1000
+    assert_nil @exchange.ledger_window
+  end
+
+  # A failed fills read was skipped and the fetch still succeeded, so the sync moved its watermark
+  # past fills it never read.
+  test 'a failed fills read fails the fetch' do
+    @client.stubs(:get_fills).returns(
+      Result::Failure.new('{"code":"40037","msg":"Apikey does not exist","data":null}', data: { status: 400 })
+    )
+    result = @exchange.get_ledger(api_key: @api_key, start_time: 10.days.ago)
+    assert_predicate result, :failure?
+    assert @exchange.invalid_key_error?(result.errors)
+
+    @client.stubs(:get_fills).returns(Result::Success.new({ 'code' => '40015', 'msg' => 'System is abnormal' }))
+    assert_predicate @exchange.get_ledger(api_key: @api_key, start_time: 10.days.ago), :failure?
+  end
+end
