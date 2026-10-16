@@ -395,7 +395,7 @@ class Exchanges::BitrueTest < ActiveSupport::TestCase
 
     result = @exchange.get_ledger(api_key: api_key, start_time: 1.day.ago)
     assert_predicate result, :success?
-    assert_equal [:sell], result.data.map { |e| e[:entry_type] }
+    assert_equal([:sell], result.data.map { |e| e[:entry_type] })
   end
 
   test 'get_ledger imports finished deposits and withdrawals, each under its own record id' do
@@ -417,8 +417,8 @@ class Exchanges::BitrueTest < ActiveSupport::TestCase
     assert_predicate result, :success?
     dep = result.data.select { |e| e[:entry_type] == :deposit }
     wd = result.data.select { |e| e[:entry_type] == :withdrawal }
-    assert_equal [200.to_d], dep.map { |e| e[:base_amount] }
-    assert_equal ['USDT'], dep.map { |e| e[:base_currency] }
+    assert_equal([200.to_d], dep.map { |e| e[:base_amount] })
+    assert_equal(['USDT'], dep.map { |e| e[:base_currency] })
     assert_equal %w[withdrawal-21 withdrawal-22], wd.map { |e| e[:tx_id] }.sort
     assert_equal ['USDT'], wd.map { |e| e[:base_currency] }.uniq
     assert_equal 1.6.to_d, wd.first[:fee_amount]
