@@ -158,6 +158,7 @@ module Exchange::Synchronizer
 
   def sync_existing_exchange_assets_and_tickers!(tickers_info)
     current_tickers = catalogue_tickers.available.pluck(:ticker)
+    reported_pairs = tickers_info.to_set { |info| [info[:base], info[:quote]] }
     updated_tickers = []
     tickers_info.each do |ticker_info|
       @on_progress&.call
@@ -183,6 +184,16 @@ module Exchange::Synchronizer
         [base_asset, quote_asset].each do |asset|
           exchange_asset = exchange_assets.find_by(asset_id: asset.id)
           exchange_asset.present? ? exchange_asset.update(available: true) : exchange_assets.create(asset_id: asset.id)
+        end
+
+        # A renamed coin (Coinbase RNDR -> RENDER) resolves to the assets an existing ticker holds.
+        # That ticker takes the new spelling in place, keeping its id for bots and transactions; a
+        # second ticker for the same assets is refused by the uniqueness index. Only when the old
+        # spelling is gone from the venue, or two live spellings would swap it back each sync.
+        renamed = catalogue_tickers.find_by(base_asset:, quote_asset:)
+        if renamed.present? && reported_pairs.exclude?([renamed.base, renamed.quote])
+          updated_tickers << ticker_info[:ticker] if renamed.update(ticker_info)
+          next
         end
 
         ticker_data = {
