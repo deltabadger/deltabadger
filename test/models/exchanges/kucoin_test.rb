@@ -313,7 +313,7 @@ class Exchanges::KucoinTest < ActiveSupport::TestCase
 
   test 'get_ledger reads every page of deposits and withdrawals' do
     hm_client = stub_ledger_client
-    row = ->(id) { { 'currency' => 'BTC', 'amount' => '1', 'fee' => '0', 'walletTxId' => id, 'createdAt' => 1_710_936_000_000 } }
+    row = ->(id) { { 'id' => id, 'currency' => 'BTC', 'amount' => '1', 'fee' => '0', 'walletTxId' => 'hash', 'createdAt' => 1_710_936_000_000 } }
     hm_client.stubs(:get_deposits).with(has_entry(current_page: 1)).returns(kucoin_page([row.call('d1')], total_page: 2))
     hm_client.stubs(:get_deposits).with(has_entry(current_page: 2)).returns(kucoin_page([row.call('d2')], total_page: 2))
     hm_client.stubs(:get_withdrawals).with(has_entry(current_page: 1)).returns(kucoin_page([row.call('w1')], total_page: 2))
@@ -323,6 +323,18 @@ class Exchanges::KucoinTest < ActiveSupport::TestCase
 
     assert_predicate result, :success?
     assert_equal %w[d1 d2 w1 w2], result.data.map { |e| e[:tx_id] }.sort
+  end
+
+  # Withdrawals batched into one on-chain transaction share walletTxId; the sync keeps one row per tx_id.
+  test 'get_ledger keys deposits and withdrawals by record id, not the on-chain hash' do
+    hm_client = stub_ledger_client
+    row = ->(id) { { 'id' => id, 'currency' => 'USDT', 'amount' => '5', 'fee' => '1', 'walletTxId' => '0xbatch', 'createdAt' => 1_710_936_000_000 } }
+    hm_client.stubs(:get_withdrawals).returns(kucoin_page([row.call('w1'), row.call('w2')]))
+    hm_client.stubs(:get_deposits).returns(kucoin_page([row.call('d1'), row.call(nil)]))
+
+    result = @exchange.get_ledger(api_key: ledger_api_key, start_time: 1.day.ago)
+
+    assert_equal %w[0xbatch d1 w1 w2], result.data.map { |e| e[:tx_id] }.sort
   end
 
   # Fills serve one week per call, so a first sync with no start must walk back in weekly windows.
