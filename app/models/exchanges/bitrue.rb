@@ -418,40 +418,51 @@ class Exchanges::Bitrue < Exchange
   def get_ledger(api_key:, start_time: nil)
     hm_client = Honeymaker.client('bitrue', api_key: api_key.key, api_secret: api_key.secret,
                                             proxy: ExchangeProxy.for('bitrue'))
-    start_ms = start_time ? (start_time.to_f * 1000).to_i : nil
     entries = []
 
-    # Discover coins from balances
+    # Coins held now. Without the balances or the listing, pairs would go unread while the fetch
+    # succeeded, and the sync would move its watermark past them.
     coins = Set.new
     bal_result = hm_client.account_information
-    if bal_result.success?
-      Array(bal_result.data['balances']).each do |bal|
-        coins << bal['asset'] if bal['free'].to_d.positive? || bal['locked'].to_d.positive?
-      end
+    return bal_result if bal_result.failure?
+
+    Array(bal_result.data['balances']).each do |bal|
+      coins << bal['asset'].to_s.upcase if bal['free'].to_d.positive? || bal['locked'].to_d.positive?
     end
 
-    # Load exchange symbols
+    # Bitrue names assets in lower case; the ledger keeps them upper case, as tickers do.
     @exchange_symbols_map = {}
     info_result = hm_client.exchange_information
-    if info_result.success?
-      Array(info_result.data['symbols']).each do |s|
-        @exchange_symbols_map[s['symbol']] = { base: s['baseAsset'], quote: s['quoteAsset'] }
-      end
+    return info_result if info_result.failure?
+
+    Array(info_result.data['symbols']).each do |s|
+      @exchange_symbols_map[s['symbol']] = { base: s['baseAsset'].to_s.upcase, quote: s['quoteAsset'].to_s.upcase }
     end
 
+    trades_from = ((start_time || LEDGER_FROM).to_f * 1000).to_i
+    now = (Time.now.to_f * 1000).to_i
     traded_symbols = @exchange_symbols_map.keys.select { |sym| coins.include?(@exchange_symbols_map[sym][:base]) }
     traded_symbols.each do |symbol|
-      result = hm_client.account_trade_list(symbol: symbol, start_time: start_ms)
-      next if result.failure?
+      trades = []
+      each_ledger_window(trades_from, now) do |from, to|
+        page = read_trades(hm_client, symbol, from, to)
+        return page unless page.is_a?(Array)
 
-      Array(result.data).each do |trade|
-        base = symbol_pair_base(symbol)
-        quote = symbol_pair_quote(symbol)
-        is_buyer = trade['isBuyer']
-        entries << { entry_type: is_buyer ? :buy : :sell,
-                     base_currency: base, base_amount: trade['qty'].to_d,
-                     quote_currency: quote, quote_amount: trade['quoteQty'].to_d,
-                     fee_currency: trade['commissionAsset'], fee_amount: trade['commission'].to_d.abs,
+        trades.concat(page)
+      end
+
+      base = symbol_pair_base(symbol)
+      quote = symbol_pair_quote(symbol)
+      trades.uniq { |trade| trade['id'] }.each do |trade|
+        qty = trade['qty'].to_d
+        # The documented answer has no quoteQty (https://github.com/Bitrue-exchange/Spot-official-api-docs#account-trade-list-user_data).
+        quote_amount = trade['quoteQty'].present? ? trade['quoteQty'].to_d : qty * trade['price'].to_d
+        # ccxt has seen the fee asset spelled "commissionAssert".
+        fee_currency = (trade['commissionAsset'] || trade['commissionAssert']).presence&.upcase
+        entries << { entry_type: trade['isBuyer'] ? :buy : :sell,
+                     base_currency: base, base_amount: qty,
+                     quote_currency: quote, quote_amount: quote_amount,
+                     fee_currency: fee_currency, fee_amount: trade['commission'].to_d.abs,
                      tx_id: "#{symbol}-#{trade['orderId']}-#{trade['id']}", group_id: nil, description: nil,
                      transacted_at: Time.at(trade['time'].to_i / 1000.0).utc, raw_data: trade }
       end
@@ -461,6 +472,55 @@ class Exchanges::Bitrue < Exchange
   end
 
   private
+
+  # Bitrue opened in July 2018: a first sync reads from here.
+  LEDGER_FROM = Time.utc(2018, 7, 1)
+  # GET /api/v2/myTrades (https://github.com/Bitrue-exchange/Spot-official-api-docs#account-trade-list-user_data,
+  # and the newer https://www.bitrue.com/api_docs_includes_file/spot/index.html): symbol required,
+  # limit max 1000, "the interval between startTime and endTime cannot exceed three months". honeymaker's
+  # account_trade_list asks the undocumented /api/v1/myTrades.
+  TRADES_PATH = '/api/v2/myTrades'.freeze
+  TRADES_PAGE = 1000
+  LEDGER_WINDOW = 89.days
+  # Weight 5 per call against 1200 a minute per IP: one call every quarter second stays inside it.
+  # ponytail: a first sync walks ~34 windows per pair, so an account with many pairs takes minutes.
+  LEDGER_PACE = 0.25
+  # -1121 "Invalid symbol.": a pair Bitrue no longer lists has no trades to give.
+  SYMBOL_GONE_CODE = -1121
+
+  # Yields [from, to] epoch-ms windows of at most LEDGER_WINDOW from `from` to `now`. Each starts where
+  # the last ended, so a row on the edge is read either way and deduped by the caller.
+  def each_ledger_window(from, now)
+    window_start = from
+    while window_start < now
+      window_end = [window_start + LEDGER_WINDOW.in_milliseconds.to_i, now].min
+      yield window_start, window_end
+      window_start = window_end
+    end
+  end
+
+  # The trades of `symbol` in [from, to] (epoch ms), or the failure that stopped the read. Bitrue
+  # documents no order for a ranged read, so a full page is split into two halves that share the
+  # midpoint (a trade on it comes back in both and is kept once, by id) and both are read.
+  def read_trades(hm_client, symbol, from, to)
+    sleep(LEDGER_PACE)
+    result = hm_client.send(:get_signed, TRADES_PATH,
+                            { symbol: symbol, startTime: from, endTime: to, limit: TRADES_PAGE, recvWindow: 5000 })
+    return [] if response_field(result, 'code').to_i == SYMBOL_GONE_CODE
+    return result if result.failure?
+    return Result::Failure.new("#{name} ledger read failed: #{result.data}") unless result.data.is_a?(Array)
+
+    trades = result.data
+    return trades if trades.size < TRADES_PAGE
+    return Result::Failure.new("#{name} ledger read failed: over #{TRADES_PAGE} #{symbol} trades in #{from}..#{to}") if to - from < 2
+
+    mid = (from + to) / 2
+    older = read_trades(hm_client, symbol, from, mid)
+    return older unless older.is_a?(Array)
+
+    newer = read_trades(hm_client, symbol, mid, to)
+    newer.is_a?(Array) ? (older + newer).uniq { |trade| trade['id'] } : newer
+  end
 
   def symbol_pair_base(symbol)
     @exchange_symbols_map&.dig(symbol, :base) || tickers.find_by(ticker: symbol)&.base || symbol
