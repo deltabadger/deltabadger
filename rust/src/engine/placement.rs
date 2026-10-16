@@ -199,6 +199,12 @@ fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock,
     if current.rust_placement().is_some() {
         return Err(EngineError::Data(format!("bot {} already has an unresolved order", bot.id)));
     }
+    // The placement barrier (plan r4): no order while a reversal's cancel of an order it captured is not recorded. Checked
+    // here, under the intent's own write lock, so no schedule or race lets an order out beside one the flip is cancelling.
+    if super::reversal::barred(&current) {
+        super::log(&format!("[engine] bot {}: {} order not placed: a reversal's cancels are not recorded yet", bot.id, plan.ticker.ticker));
+        return Ok(Begun::Changed);
+    }
     if let Some(version) = version {
         let fresh=match version {Some(v)=>model::credential_is_current(&tx,v)?,None=>false};
         if !fresh {

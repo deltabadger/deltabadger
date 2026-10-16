@@ -577,7 +577,7 @@ impl Draft {
         Ok(())
     }
 
-    fn base_minimum(&self) -> start::Minimum {
+    pub(super) fn base_minimum(&self) -> start::Minimum {
         let Some(decimals) = self.candidate.tickers.iter().map(|t| t.base_decimals).min() else {
             return start::Minimum { value: format::Num::Int(0), reason: start::Reason::None, decimals: 0 };
         };

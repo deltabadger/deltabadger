@@ -106,8 +106,13 @@ fn pending_window(amount: Num, count: i64, carry: Num, rows: &[Commitment]) -> R
 }
 
 /// Ruby's min keeps the first operand and its class on ties.
-fn minimum(a: Num, b: Num) -> Result<Num, EngineError> {
+pub(crate) fn minimum(a: Num, b: Num) -> Result<Num, EngineError> {
     if b.sub(&a).map_err(EngineError::Arithmetic)?.is_negative() { Ok(b) } else { Ok(a) }
+}
+/// A carry as transient_data's JSON holds it after Rails writes it: a BigDecimal as its text, an Integer or Float as a number.
+pub(crate) fn serialized(value: Num) -> Result<Value, EngineError> {
+    bounded_num(&value)?;
+    Ok(match value { Num::Int(n) => json!(n), Num::Float(n) => json!(n), Num::Dec(n) => json!(n.to_s_f()) })
 }
 /// Bot::Accountable#pending_quote_amount as Rails has it since its fill-credit fix (#448): what the bot owes since the
 /// window opened, minus every submitted REGULAR buy in the window, read in ONE statement, so a row that changes state

@@ -55,6 +55,8 @@ impl FakeVenue {
     pub fn balance_body(self, kraken_asset: &str, balance: &str, hold_trade: &str) -> Self {
         self.push("/0/private/BalanceEx", json!({ "error": [], "result": { kraken_asset: { "balance": balance, "hold_trade": hold_trade } } }))
     }
+    /// Queues one raw body for `path` (a test that shares the venue already handed to an engine).
+    pub fn script(&self, path: &str, body: Value) { self.s.borrow_mut().http.entry(path.into()).or_default().push_back(body); }
     pub fn next_add(self, o: AddOutcome) -> Self { self.s.borrow_mut().adds.push_back(o); self }
     pub fn order(self, txid: &str, raw: Value) -> Self { self.s.borrow_mut().orders.insert(txid.into(), raw); self }
     pub fn lookup_fails(self, n: u32) -> Self { self.s.borrow_mut().lookup_failures = n; self }

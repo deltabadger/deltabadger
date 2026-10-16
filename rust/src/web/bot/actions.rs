@@ -59,6 +59,30 @@ mutation!(delete,Some(Action::Delete));
 mutation!(archive,Some(Action::Archive));
 mutation!(unarchive,Some(Action::Unarchive));
 
+/// POST /bots/:id/reverse (BotsController#reverse). The rotation commits in one transaction (write::reverse) and the engine
+/// is woken to cancel what it captured. The page then refreshes: the panels Rails re-renders belong to pages this build
+/// serves only for buying Alpaca bots, which cannot sell yet.
+pub async fn reverse(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path(segment): Path<String>) -> Result<Response,WebError> {
+    let Some(user) = ctx.user().cloned() else { return Ok(auth::unauthenticated(&ctx)) };
+    let segment = segment.strip_suffix(".turbo_stream").unwrap_or(&segment);
+    let Some(id) = super::id_from_path(segment) else { return Ok(page::not_found(&ctx)) };
+    let inner = app.clone();
+    let result = app.db(move |c| {
+        let reversed = write::reverse(c, &inner.cipher, user.id, id, inner.now())?;
+        // In the App::db job, after the commit, as every writer wakes the engine.
+        if matches!(reversed, write::Reversal::Reversed) { inner.wake_engine(); }
+        Ok(reversed)
+    }).await;
+    let flash = |style: &'static str, text: String| -> Result<String,WebError> { Ok(crate::web::turbo::prepend_flash(flash::render(&[flash::Message { style, text }])?.trim_end())) };
+    match result {
+        Ok(write::Reversal::Missing) => Ok(page::not_found(&ctx)),
+        Ok(write::Reversal::InProgress) => Ok(action_view::response(flash("primary", i18n::text(ctx.locale,"bot.reverse_in_progress",&[]))?,false)),
+        Ok(write::Reversal::Refused(reason)) => Ok(action_view::response(flash("danger", i18n::text(ctx.locale,"engine.write_refused",&[("reason",i18n::Arg::Text(&reason))]))?,true)),
+        Ok(write::Reversal::Reversed) => Ok(action_view::response(crate::web::turbo::refresh().into(),false)),
+        Err(e) => layout::or_refused(&ctx,e),
+    }
+}
+
 async fn form(app: App, ctx: Ctx, segment: String, form: &'static str) -> Result<Response,WebError> {
     let Some(user) = ctx.user().cloned() else { return Ok(auth::unauthenticated(&ctx)) };
     let (inner,mut view,owner) = (app.clone(),ctx.clone(),user.clone());
