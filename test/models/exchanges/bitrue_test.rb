@@ -115,15 +115,11 @@ class Exchanges::BitrueTest < ActiveSupport::TestCase
   # Serves `series` the way Bitrue does: candles with is <= fromIdx, the newest `limit` of them.
   def stub_klines(series)
     calls = []
-    client = Object.new
+    client = Honeymaker.client('bitrue')
     client.define_singleton_method(:get_public) do |path, params|
-      calls << params.merge(path: path)
+      calls << params.compact.merge(path: path)
       capped = params[:fromIdx] ? series.select { |c| c['is'] <= params[:fromIdx] } : series
       Result::Success.new({ 'symbol' => params[:symbol], 'data' => capped.sort_by { |c| c['is'] }.last(params[:limit]) })
-    end
-    # honeymaker's own method, without fromIdx.
-    client.define_singleton_method(:candlestick_data) do |symbol:, interval:, limit: 500, **|
-      get_public('/api/v1/market/kline', { symbol: symbol, scale: interval, limit: limit })
     end
     @exchange.stubs(:client).returns(client)
     calls
@@ -279,7 +275,7 @@ class Exchanges::BitrueTest < ActiveSupport::TestCase
     client.stubs(:get_public).with('/api/v1/ticker/price', anything).returns(
       Result::Failure.new('{"code":-1102,"msg":"Missing parameter.","data":null}', data: { status: 412 })
     )
-    client.stubs(:get_public).with('/api/v1/ticker/24hr').returns(
+    client.stubs(:get_public).with('/api/v1/ticker/24hr', anything).returns(
       Result::Success.new([{ 'symbol' => 'BTCUSDT', 'lastPrice' => '82316', 'bidPrice' => '82315' },
                            { 'symbol' => 'DEADUSDT', 'lastPrice' => '0' }])
     )
@@ -294,10 +290,11 @@ class Exchanges::BitrueTest < ActiveSupport::TestCase
 
   # A Bitrue account as the documented endpoints serve it: lower-case assets, myTrades without
   # quoteQty, a ranged read answering at most `limit` rows.
-  class FakeLedger
+  class FakeLedger < Honeymaker::Clients::Bitrue
     attr_reader :calls
 
     def initialize(balances:, trades: {}, deposits: {}, withdrawals: {})
+      super()
       @balances = balances
       @trades = trades
       @deposits = deposits
@@ -317,12 +314,8 @@ class Exchanges::BitrueTest < ActiveSupport::TestCase
                           ] })
     end
 
-    # honeymaker's own method (undocumented v1 path): the newest `limit` trades from start_time.
-    def account_trade_list(symbol:, start_time: nil, limit: 500, **)
-      Result::Success.new(Array(@trades[symbol]).select { |t| start_time.nil? || t['time'] >= start_time }.last(limit))
-    end
-
     def get_signed(path, params)
+      params = params.compact
       @calls << params.merge(path: path)
       case path
       when '/api/v2/myTrades'
@@ -373,9 +366,6 @@ class Exchanges::BitrueTest < ActiveSupport::TestCase
   test 'get_ledger fails the fetch when a trade read fails' do
     fake = FakeLedger.new(balances: { 'btc' => '1' })
     fake.define_singleton_method(:get_signed) do |_path, _params|
-      Result::Failure.new('{"code":-1022,"msg":"No login"}', data: { status: 401 })
-    end
-    fake.define_singleton_method(:account_trade_list) do |**|
       Result::Failure.new('{"code":-1022,"msg":"No login"}', data: { status: 401 })
     end
 

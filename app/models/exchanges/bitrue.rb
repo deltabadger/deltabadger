@@ -109,8 +109,7 @@ class Exchanges::Bitrue < Exchange
       # /ticker/price wants a symbol (HTTP 412, -1102 "Missing parameter." without one); /ticker/24hr
       # answers every pair when the symbol is omitted
       # (https://github.com/Bitrue-exchange/Spot-official-api-docs#24hr-ticker-price-change-statistics).
-      # honeymaker has no method for it.
-      result = client.send(:get_public, '/api/v1/ticker/24hr')
+      result = client.ticker_24hr
       if result.failure?
         error = parse_error_message(result)
         return error.present? ? Result::Failure.new(error, data: result.data) : result
@@ -226,8 +225,8 @@ class Exchanges::Bitrue < Exchange
     rows = []
     from_idx = nil
     loop do
-      result = client.send(:get_public, '/api/v1/market/kline',
-                           { symbol: ticker.ticker, scale: native[source_timeframe], fromIdx: from_idx, limit: KLINE_PAGE })
+      result = client.candlestick_data(symbol: ticker.ticker, interval: native[source_timeframe], from_idx: from_idx,
+                                       limit: KLINE_PAGE)
       if result.failure?
         error = parse_error_message(result)
         return error.present? ? Result::Failure.new(error, data: result.data) : result
@@ -489,7 +488,7 @@ class Exchanges::Bitrue < Exchange
     transfer_coins |= AccountTransaction.where(user_id: api_key.user_id, exchange_id: api_key.exchange_id)
                                         .distinct.pluck(:base_currency).map { |c| c.to_s.upcase }
     transfer_coins.compact_blank.sort.each do |coin|
-      failed = each_transfer(hm_client, DEPOSITS_PATH, coin, DEPOSIT_FINISHED, trades_from, now) do |dep|
+      failed = each_transfer(hm_client, :deposit_history, coin, DEPOSIT_FINISHED, trades_from, now) do |dep|
         entries << { entry_type: :deposit, base_currency: transfer_coin(dep), base_amount: dep['amount'].to_d,
                      quote_currency: nil, quote_amount: nil, fee_currency: nil, fee_amount: nil,
                      # The record id where Bitrue sends one; otherwise the chain transaction.
@@ -499,7 +498,7 @@ class Exchanges::Bitrue < Exchange
       end
       return failed if failed
 
-      failed = each_transfer(hm_client, WITHDRAWALS_PATH, coin, WITHDRAWAL_FINISHED, trades_from, now) do |wd|
+      failed = each_transfer(hm_client, :withdraw_history, coin, WITHDRAWAL_FINISHED, trades_from, now) do |wd|
         coin_name = transfer_coin(wd)
         # The record's own id: withdrawals batched into one chain transaction share its txid.
         entries << { entry_type: :withdrawal, base_currency: coin_name, base_amount: wd['amount'].to_d,
@@ -520,25 +519,21 @@ class Exchanges::Bitrue < Exchange
   # (https://github.com/Bitrue-exchange/Spot-official-api-docs#deposit--withdraw-after-2021-10-12): coin
   # required, without its chain; status defaults to 0 (init), so the finished ones are asked for (deposit
   # 1, withdrawal 5); offset paging, limit max 1000; answer {"code":200,"msg":"succ","data":[...]}.
-  # honeymaker's deposit_history and withdraw_history ask /api/v1/capital/..., which Bitrue answers with
-  # a 302 to its website. The range cap is undocumented; the trades' windows are used.
-  DEPOSITS_PATH = '/api/v1/deposit/history'.freeze
-  WITHDRAWALS_PATH = '/api/v1/withdraw/history'.freeze
+  # The range cap is undocumented; the trades' windows are used.
   DEPOSIT_FINISHED = 1
   WITHDRAWAL_FINISHED = 5
   TRANSFER_PAGE = 1000
 
   # Yields each finished transfer of `coin` from `from` to `now` (epoch ms); returns the failure that
   # stopped the read, or nil.
-  def each_transfer(hm_client, path, coin, status, from, now, &)
+  def each_transfer(hm_client, history, coin, status, from, now, &)
     seen = Set.new
     each_ledger_window(from, now) do |window_start, window_end|
       offset = 0
       loop do
         sleep(LEDGER_PACE)
-        result = hm_client.send(:get_signed, path, { coin: coin.downcase, status: status, startTime: window_start,
-                                                     endTime: window_end, offset: offset, limit: TRANSFER_PAGE,
-                                                     recvWindow: 5000 })
+        result = hm_client.public_send(history, coin: coin.downcase, status: status, start_time: window_start,
+                                                end_time: window_end, offset: offset, limit: TRANSFER_PAGE)
         # The history is WITHDRAW_DATA: a key Bitrue says lacks that scope has no transfers to give. Any
         # other refusal ("No login", a bare 401) fails the fetch, or the watermark passes unread transfers.
         return nil if result.failure? && permission_error?(result.errors)
@@ -572,9 +567,7 @@ class Exchanges::Bitrue < Exchange
   LEDGER_FROM = Time.utc(2018, 7, 1)
   # GET /api/v2/myTrades (https://github.com/Bitrue-exchange/Spot-official-api-docs#account-trade-list-user_data,
   # and the newer https://www.bitrue.com/api_docs_includes_file/spot/index.html): symbol required,
-  # limit max 1000, "the interval between startTime and endTime cannot exceed three months". honeymaker's
-  # account_trade_list asks the undocumented /api/v1/myTrades.
-  TRADES_PATH = '/api/v2/myTrades'.freeze
+  # limit max 1000, "the interval between startTime and endTime cannot exceed three months".
   TRADES_PAGE = 1000
   LEDGER_WINDOW = 89.days
   # Weight 5 per call against 1200 a minute per IP: one call every quarter second stays inside it.
@@ -599,8 +592,7 @@ class Exchanges::Bitrue < Exchange
   # midpoint (a trade on it comes back in both and is kept once, by id) and both are read.
   def read_trades(hm_client, symbol, from, to)
     sleep(LEDGER_PACE)
-    result = hm_client.send(:get_signed, TRADES_PATH,
-                            { symbol: symbol, startTime: from, endTime: to, limit: TRADES_PAGE, recvWindow: 5000 })
+    result = hm_client.account_trade_list(symbol: symbol, start_time: from, end_time: to, limit: TRADES_PAGE)
     return [] if response_field(result, 'code').to_i == SYMBOL_GONE_CODE
     return result if result.failure?
     return Result::Failure.new("#{name} ledger read failed: #{result.data}") unless result.data.is_a?(Array)

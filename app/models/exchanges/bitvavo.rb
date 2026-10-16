@@ -374,7 +374,7 @@ class Exchanges::Bitvavo < Exchange
 
     # Deposits and withdrawals. Any failed read fails the whole fetch: a partial Success would let the
     # sync move its watermark past the rows it never got.
-    deposits = read_transfers(hm_client, DEPOSITS_PATH, start_ms)
+    deposits = read_transfers(hm_client, :get_deposit_history, start_ms)
     return deposits if deposits.failure?
 
     deposits.data.each do |dep|
@@ -391,7 +391,7 @@ class Exchanges::Bitvavo < Exchange
                    transacted_at: Time.at(dep['timestamp'].to_i / 1000.0).utc, raw_data: dep }
     end
 
-    withdrawals = read_transfers(hm_client, WITHDRAWALS_PATH, start_ms)
+    withdrawals = read_transfers(hm_client, :get_withdrawal_history, start_ms)
     return withdrawals if withdrawals.failure?
 
     withdrawals.data.each do |wd|
@@ -448,16 +448,13 @@ class Exchanges::Bitvavo < Exchange
   private
 
   # https://docs.bitvavo.com/docs/rest-api/get-deposit-history/ and …/get-withdrawal-history/.
-  # honeymaker 0.12.3 reads /v2/deposit (the deposit address) and GET /v2/withdrawal (405).
-  DEPOSITS_PATH = '/v2/depositHistory'.freeze
-  WITHDRAWALS_PATH = '/v2/withdrawalHistory'.freeze
   TRANSFERS_PAGE_LIMIT = 1000
   # https://docs.bitvavo.com/docs/rate-limits/: 1000 weight points a minute per account, then blocked
   # for a minute (105). The ledger's reads weigh 5 each (balance, transfer history, trades); paced to
   # 800 a minute, leaving the rest to the bots trading on the same account.
   LEDGER_READ_PAUSE = 60.0 / 800 * 5
   TRADES_PAGE_LIMIT = 1000 # Bitvavo /v2/trades hard max
-  private_constant :DEPOSITS_PATH, :WITHDRAWALS_PATH, :TRANSFERS_PAGE_LIMIT, :LEDGER_READ_PAUSE, :TRADES_PAGE_LIMIT
+  private_constant :TRANSFERS_PAGE_LIMIT, :LEDGER_READ_PAUSE, :TRADES_PAGE_LIMIT
 
   # Every transfer since start_ms (all of them without one). Newest first, at most 1000 a call, and
   # no record id or cursor: each page ends at the oldest timestamp of the one before, plus a
@@ -465,11 +462,11 @@ class Exchanges::Bitvavo < Exchange
   # collapsed: two equal fiat deposits in one page are two deposits, and a row re-read at the boundary
   # appears in both pages, so each row is kept as often as the page that holds it most. A full page that
   # brings nothing new fails instead of looping.
-  def read_transfers(hm_client, path, start_ms)
+  def read_transfers(hm_client, history, start_ms)
     rows = Hash.new(0)
     end_ms = (Time.now.to_f * 1000).to_i + 1
     loop do
-      result = hm_client.send(:get_signed, path, { start: start_ms || 0, end: end_ms, limit: TRANSFERS_PAGE_LIMIT })
+      result = hm_client.public_send(history, start_time: start_ms || 0, end_time: end_ms, limit: TRANSFERS_PAGE_LIMIT)
       sleep(LEDGER_READ_PAUSE)
       return result if result.failure?
 
@@ -482,7 +479,7 @@ class Exchanges::Bitvavo < Exchange
         fresh += 1
       end
       break if page.size < TRANSFERS_PAGE_LIMIT
-      return Result::Failure.new("#{name} #{path} returned a full page with nothing new") if fresh.zero?
+      return Result::Failure.new("#{name} #{history} returned a full page with nothing new") if fresh.zero?
 
       end_ms = page.map { |row| row['timestamp'].to_i }.min + 1
     end

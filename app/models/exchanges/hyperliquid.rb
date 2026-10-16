@@ -343,8 +343,7 @@ class Exchanges::Hyperliquid < Exchange
 
     hm_client = Honeymaker.client('hyperliquid', api_key: api_key.key, api_secret: api_key.secret,
                                                  proxy: ExchangeProxy.for('hyperliquid'))
-    # honeymaker 0.12.3 has no userRole; its own info request is used.
-    result = hm_client.send(:post_info, { type: 'userRole', user: signer })
+    result = hm_client.user_role(user: signer)
     return result if result.failure?
 
     role = result.data.is_a?(Hash) ? result.data : {}

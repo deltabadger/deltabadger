@@ -1,7 +1,7 @@
 require 'test_helper'
 
 # Characterization tests for the fetch_withdrawal_fees! scaffold shared by the
-# authenticated-client exchanges (Binance, Binance.US, BingX, Bitrue, Bybit):
+# authenticated-client exchanges (Binance, Binance.US, BingX, Bitrue, Bybit, MEXC):
 # fee_api_key blank-guard, Honeymaker.client construction (name string, key,
 # secret, resolved exchange proxy), failure passthrough, parse + fee update.
 # The other implementations (public-endpoint clients, Kraken's memoized client,
@@ -48,7 +48,7 @@ class ExchangeFetchWithdrawalFeesTest < ActiveSupport::TestCase
 
   # --- guard: blank fee_api_key returns empty success, no client built ---
 
-  %i[binance_exchange binance_us_exchange bingx_exchange bitrue_exchange bybit_exchange].each do |factory|
+  %i[binance_exchange binance_us_exchange bingx_exchange bitrue_exchange bybit_exchange mexc_exchange].each do |factory|
     test "#{factory} fetch_withdrawal_fees! returns empty success without fee_api_key" do
       exchange = create(factory)
       Honeymaker.expects(:client).never
@@ -156,6 +156,25 @@ class ExchangeFetchWithdrawalFeesTest < ActiveSupport::TestCase
 
     with_env('PROXY_BITRUE', 'http://proxy.test:9100') do
       stub_fee_client('bitrue', 'http://proxy.test:9100', :get_all_coins_information,
+                      Result::Success.new(binance_style_payload(asset.symbol)))
+
+      result = exchange.fetch_withdrawal_fees!
+
+      assert result.success?
+      ea.reload
+      assert_equal '0.0005', ea.withdrawal_fee
+      assert_equal 2, ea.withdrawal_chains.size
+    end
+  end
+
+  # --- MEXC (signed coin list since honeymaker 0.12.5) ---
+
+  test 'MEXC builds authenticated proxied client and picks the default network' do
+    exchange, asset, ea = build_exchange(:mexc_exchange)
+    FeeApiKey.create!(exchange: exchange, key: 'fee_key', secret: 'fee_secret')
+
+    with_env('PROXY_MEXC', 'http://proxy.test:9100') do
+      stub_fee_client('mexc', 'http://proxy.test:9100', :get_all_coins_information,
                       Result::Success.new(binance_style_payload(asset.symbol)))
 
       result = exchange.fetch_withdrawal_fees!

@@ -440,13 +440,12 @@ class Exchanges::Coinbase < Exchange
   private
 
   # list_accounts returns 49 accounts by default (250 max) and pages with cursor/has_next.
-  # Honeymaker's list_accounts takes no parameters, so the page is read through its signed get.
   # https://docs.cdp.coinbase.com/api-reference/advanced-trade-api/rest-api/accounts/list-accounts
   def list_all_accounts(hm_client)
     accounts = []
     cursor = nil
     loop do
-      result = hm_client.send(:get, '/api/v3/brokerage/accounts', { limit: 250, cursor: cursor })
+      result = hm_client.list_accounts(limit: 250, cursor: cursor)
       return result if result.failure?
 
       accounts.concat(result.data['accounts'] || [])

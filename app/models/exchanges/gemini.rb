@@ -428,11 +428,10 @@ class Exchanges::Gemini < Exchange
 
     # Deposits and withdrawals from /v2/transfers, which Gemini names the replacement for the v1 list
     # it is retiring (https://developer.gemini.com/trading/rest-api/fund-management/list-past-transfers).
-    # honeymaker 0.12.3 has only the v1 call, so the request goes through the client's own signing.
     # 50 a page, walked forward like the trades, and no faster than the one request per 5 seconds
     # Gemini allows on this endpoint.
     fetch = lambda do |from_ms|
-      hm_client.send(:post_signed, '/v2/transfers', { timestamp: from_ms, limit_transfers: TRANSFERS_PAGE })
+      hm_client.get_transfers_v2(timestamp: from_ms, limit_transfers: TRANSFERS_PAGE)
     end
     failed = each_ledger_row(fetch, TRANSFERS_PAGE, ts_ms || 0, id: 'eid', pause: TRANSFERS_REQUEST_INTERVAL) do |transfer|
       type = transfer['type']
