@@ -169,4 +169,32 @@ class Exchanges::BitrueTest < ActiveSupport::TestCase
     assert_equal({ free: '0.5'.to_d, locked: '0.1'.to_d }, result.data[ticker.base_asset_id])
     assert_equal({ free: 20.to_d, locked: 0.to_d }, result.data[ticker.quote_asset_id])
   end
+
+  # ---- orders (GET /api/v1/order, https://github.com/Bitrue-exchange/Spot-official-api-docs#query-order-user_data) ----
+
+  def stub_query_order(raw)
+    client = Object.new
+    client.define_singleton_method(:query_order) do |symbol:, order_id:|
+      raw.is_a?(Result::Failure) ? raw : Result::Success.new({ order_id: "#{symbol}-#{order_id}", raw: raw })
+    end
+    @exchange.stubs(:client).returns(client)
+  end
+
+  def order_raw(**fields)
+    { 'symbol' => 'BTCUSDT', 'orderId' => 42, 'clientOrderId' => 'x', 'price' => '0', 'origQty' => '0.002',
+      'executedQty' => '0', 'cummulativeQuoteQty' => '0', 'status' => 'NEW', 'timeInForce' => 'GTC',
+      'type' => 'LIMIT', 'side' => 'BUY', 'time' => 1_499_827_319_559, 'updateTime' => 1_499_827_319_559 }
+      .merge(fields.transform_keys(&:to_s))
+  end
+
+  test 'a filled limit order is priced at its fills, not at its limit' do
+    Rails.configuration.stubs(:dry_run).returns(false)
+    create(:ticker, exchange: @exchange, base_symbol: 'BTC', quote_symbol: 'USDT')
+    stub_query_order(order_raw(price: '50000', executedQty: '0.002', cummulativeQuoteQty: '98', status: 'FILLED'))
+
+    result = @exchange.get_order(order_id: 'BTCUSDT-42')
+    assert_predicate result, :success?
+    assert_equal 49_000.to_d, result.data[:price]
+    assert_equal :closed, result.data[:status]
+  end
 end
