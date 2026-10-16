@@ -163,12 +163,13 @@ module Pages
     {
       'amount' => [sells_base, { 'sell_amount' => '3.5' }], 'blank' => [sells_base, { 'sell_amount' => '' }],
       'interval' => [sells_base, { 'sell_interval' => 'month' }], 'split' => [sells_base, { 'smart_interval_base_amount' => '0.25' }],
-      'split_low' => [sells_base, { 'smart_interval_base_amount' => '0.0000001' }], 'quote' => [sells_quote, { 'sell_quote_amount' => '55.5' }]
+      'split_low' => [sells_base, { 'smart_interval_base_amount' => '0.0000001' }], 'quote' => [sells_quote, { 'sell_quote_amount' => '55.5' }],
+      'zero' => [sells_base, { 'sell_amount' => '0' }], 'quote_negative' => [sells_quote, { 'sell_quote_amount' => '-1' }]
     }.each { |n, (settings, form)| add.call("sell_#{n}", 'update', form, at_rest.merge('kind' => 'single', 'settings' => settings), decided) }
     add.call('sell_working_interval', 'update', { 'sell_interval' => 'month' },
              { 'kind' => 'single', 'settings' => sells_base, 'columns' => { 'status' => 'scheduled', 'started_at' => '2026-09-09T12:00:00Z' } }, decided)
 
-    raise "expected 173 bot action cases" unless cases.size == 173
+    raise "expected 175 bot action cases" unless cases.size == 175
     names = cases.map { |entry| "actions_#{entry.first}".gsub(/[^a-zA-Z0-9_-]/, "_") }
     raise "action case names collide after filesystem conversion" unless names.uniq.size == names.size
     cases
@@ -217,7 +218,7 @@ module Pages
       end
       scenario['extra_users'] = [user('email' => 'other@example.com', 'admin' => false)] if extra['foreign']
       [name, scenario]
-    end.tap { |grid| raise 'action case names collide' unless grid.size == 173 }
+    end.tap { |grid| raise 'action case names collide' unless grid.size == 175 }
   end
 end
 

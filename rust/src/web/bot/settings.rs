@@ -618,11 +618,18 @@ pub fn column(c: &Connection, forms: &Forms) -> Result<String, WebError> {
     let sell = if bot.sells_base_amount() { 1 } else if bot.sells_quote_amount() { 2 } else { 0 };
     if sell > 0 {
         let name = if sell == 1 { "sell_amount" } else { "sell_quote_amount" };
-        let value = bot.number(name).and_then(|n| n.to_d()).and_then(|d| input_value(&Num::Dec(d)));
+        // A rejected submission shows what was posted, marked invalid with its error under it, as the buy amount does.
+        let value = forms.rejected(name).or_else(|| bot.number(name).and_then(|n| n.to_d()).and_then(|d| input_value(&Num::Dec(d))));
         amount_field = if forms.hide_balances { forms.amount(name, value.as_deref(), "") } else {
             format!("<input {}class=\"numeric-input\" step=\"any\" size=\"2\" placeholder=\"0\" {AUTOWIDTH}{} type=\"number\" name=\"{key}[{name}]\" id=\"{key}_{name}\" />",
                     value.as_ref().map(|value| format!("value=\"{}\" ", escape(value))).unwrap_or_default(), if value.is_none() { " autofocus=\"autofocus\"" } else { "" }, key = bot.param_key())
         };
+        if !forms.hide_balances {
+            if let Some(error) = forms.field_error(name) {
+                amount_field = amount_field.replace("class=\"numeric-input\"", "class=\"numeric-input is-invalid\"");
+                amount_field.push_str(&error_line(&error));
+            }
+        }
     }
     let interval_key = if sell > 0 { "sell_interval" } else { "interval" };
     let interval_value = if sell > 0 { bot.sell_interval().unwrap_or("").to_string() } else { bot.setting("interval").map(rejected_value).unwrap_or_default() };
