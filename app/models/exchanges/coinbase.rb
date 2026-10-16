@@ -1,7 +1,7 @@
 class Exchanges::Coinbase < Exchange
   COINGECKO_ID = 'gdax'.freeze # https://docs.coingecko.com/reference/exchanges-list
   ASSET_BLACKLIST = [
-    'RENDER', # has the same external_id as RNDR. Remove it when Coinbase delists RENDER pairs
+    'RNDR', # has the same external_id as RENDER; RNDR pairs are delisted, RENDER is the live one
     'ZETACHAIN', # has the same external_id as ZETA. Remove it when Coinbase delists ZETACHAIN pairs
     'WAXL' # has the same external_id as AXL. Remove it when Coinbase delists WAXL pairs
   ].freeze

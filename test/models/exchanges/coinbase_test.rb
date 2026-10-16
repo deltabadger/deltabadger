@@ -174,6 +174,25 @@ class Exchanges::CoinbaseTest < ActiveSupport::TestCase
     assert_equal %w[order-stale], result.data[:missing]
   end
 
+  def product(id, **flags)
+    { 'product_id' => id, 'base_increment' => '0.01', 'quote_increment' => '0.01', 'price_increment' => '0.01',
+      'base_min_size' => '0.01', 'quote_min_size' => '1', 'base_max_size' => '1000', 'quote_max_size' => '1000000',
+      'status' => 'online', 'trading_disabled' => false }.merge(flags.transform_keys(&:to_s))
+  end
+
+  def tickers_info(*products)
+    Honeymaker::Clients::Coinbase.any_instance.stubs(:list_public_products)
+                                 .returns(Result::Success.new('products' => products))
+    @exchange.get_tickers_info(force: true).data.index_by { |info| info[:ticker] }
+  end
+
+  test 'RENDER is listed and the delisted RNDR pairs are not' do
+    infos = tickers_info(product('RENDER-USD'), product('RNDR-USD', status: 'delisted', trading_disabled: true))
+
+    assert infos.key?('RENDER-USD')
+    assert_not infos.key?('RNDR-USD')
+  end
+
   private
 
   def stub_parsed_order
