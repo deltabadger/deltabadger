@@ -515,4 +515,59 @@ class Exchanges::BitgetLedgerTest < ActiveSupport::TestCase
     @client.stubs(:get_fills).returns(Result::Success.new({ 'code' => '40015', 'msg' => 'System is abnormal' }))
     assert_predicate @exchange.get_ledger(api_key: @api_key, start_time: 10.days.ago), :failure?
   end
+
+  # Shaped like the doc examples
+  # (https://www.bitget.com/docs/catalog/classic-spot-account/classic-spot-account#get-deposit-records).
+  def transfer(id, type, dest: 'on_chain', at: 2.days.ago)
+    { 'orderId' => id.to_s, 'tradeId' => "0xhash#{id}", 'coin' => 'USDT', 'type' => type, 'dest' => dest,
+      'size' => '10.00000000', 'fee' => '-1.00000000', 'status' => 'success', 'chain' => 'erc20',
+      'cTime' => (at.to_f * 1000).to_i.to_s, 'uTime' => (at.to_f * 1000).to_i.to_s }
+  end
+
+  # Both endpoints require startTime and endTime; asked with startTime alone (or nothing, on a first
+  # sync) Bitget refused, the failure was skipped, and no deposit or withdrawal was ever imported.
+  test 'deposits and withdrawals are read with a full range, page by page, keyed by their tradeId' do
+    @client.stubs(:get_fills).returns(@empty)
+    deposit_calls = []
+    @client.stubs(:deposit_list).with { |**kwargs| deposit_calls << kwargs }
+           .returns(Result::Success.new({ 'code' => '00000', 'data' => (1..100).map { |i| transfer(1000 - i, 'deposit') } }))
+           .then.returns(Result::Success.new({ 'code' => '00000',
+                                               'data' => [transfer(5, 'deposit', dest: 'internal_transfer')] }))
+    @client.stubs(:withdrawal_list).returns(Result::Success.new({ 'code' => '00000', 'data' => [transfer(7, 'withdraw')] }))
+
+    entries = @exchange.get_ledger(api_key: @api_key, start_time: 10.days.ago).data
+
+    assert(deposit_calls.all? { |call| call[:start_time].present? && call[:end_time].present? })
+    assert_equal '900', deposit_calls[1][:id_less_than]
+    deposits = entries.select { |entry| entry[:entry_type] == :deposit }
+    assert_equal 101, deposits.size
+    assert_equal '0xhash5', deposits.last[:tx_id]
+    withdrawal = entries.find { |entry| entry[:entry_type] == :withdrawal }
+    assert_equal '0xhash7', withdrawal[:tx_id]
+    assert_equal BigDecimal('1'), withdrawal[:fee_amount]
+  end
+
+  test 'a first sync reads transfers back to Bitget\'s opening, in ranges under 90 days' do
+    @client.stubs(:get_fills).returns(@empty)
+    calls = []
+    @client.stubs(:deposit_list).with { |**kwargs| calls << kwargs }.returns(@empty)
+
+    @exchange.get_ledger(api_key: @api_key)
+
+    assert_equal Time.utc(2018, 4, 1).to_i * 1000, calls.first[:start_time].to_i
+    assert(calls.all? { |call| call[:end_time].to_i - call[:start_time].to_i <= 90.days.to_i * 1000 })
+  end
+
+  test 'a key without the wallet scope reads as no transfers; any other failed transfer read fails the fetch' do
+    @client.stubs(:get_fills).returns(@empty)
+    @client.stubs(:deposit_list).returns(
+      Result::Failure.new('{"code":"40014","msg":"Incorrect permissions"}', data: { status: 400 })
+    )
+    assert_predicate @exchange.get_ledger(api_key: @api_key, start_time: 10.days.ago), :success?
+
+    @client.stubs(:withdrawal_list).returns(
+      Result::Failure.new('{"code":"40015","msg":"System is abnormal"}', data: { status: 400 })
+    )
+    assert_predicate @exchange.get_ledger(api_key: @api_key, start_time: 10.days.ago), :failure?
+  end
 end

@@ -418,11 +418,12 @@ class Exchanges::Bitget < Exchange
   LEDGER_WINDOW = 89.days
   FILLS_REACH = 89.days
   LEDGER_PAGE = 100
+  # Bitget opened in 2018; a first sync reads transfers from then.
+  TRANSFERS_FROM = Time.utc(2018, 4, 1)
 
   def get_ledger(api_key:, start_time: nil)
     hm_client = Honeymaker.client('bitget', api_key: api_key.key, api_secret: api_key.secret,
                                             passphrase: api_key.passphrase, proxy: ExchangeProxy.for('bitget'))
-    start_ms = start_time ? (start_time.to_f * 1000).to_i.to_s : nil
     entries = []
 
     # Any failed read fails the whole fetch: a partial Success would let the sync move its watermark
@@ -448,31 +449,39 @@ class Exchanges::Bitget < Exchange
       return failed if failed
     end
 
-    # Deposits
-    result = hm_client.deposit_list(start_time: start_ms)
-    unless result.failure?
-      (result.data['data'] || []).each do |dep|
+    # Deposit and withdrawal records want startTime and endTime both, page 100 rows by idLessThan
+    # (the record's orderId), and carry the transfer's hash or Bitget trade id as tradeId
+    # (https://www.bitget.com/docs/catalog/classic-spot-account/classic-spot-account#get-deposit-records).
+    # Their range cap is not documented; they are read in the same windows as fills.
+    each_ledger_window(start_time || TRANSFERS_FROM) do |window_start, window_end|
+      fetch = lambda do |before|
+        hm_client.deposit_list(start_time: window_start.to_s, end_time: window_end.to_s, limit: LEDGER_PAGE.to_s,
+                               id_less_than: before)
+      end
+      failed = each_ledger_row(fetch, 'orderId', optional: true) do |dep|
         next unless dep['status'] == 'success'
 
         entries << { entry_type: :deposit, base_currency: dep['coin'], base_amount: dep['size'].to_d,
                      quote_currency: nil, quote_amount: nil, fee_currency: nil, fee_amount: nil,
-                     tx_id: dep['txId'], group_id: nil, description: nil,
+                     tx_id: dep['tradeId'], group_id: nil, description: nil,
                      transacted_at: Time.at(dep['cTime'].to_i / 1000.0).utc, raw_data: dep }
       end
-    end
+      return failed if failed
 
-    # Withdrawals
-    result = hm_client.withdrawal_list(start_time: start_ms)
-    unless result.failure?
-      (result.data['data'] || []).each do |wd|
+      fetch = lambda do |before|
+        hm_client.withdrawal_list(start_time: window_start.to_s, end_time: window_end.to_s, limit: LEDGER_PAGE.to_s,
+                                  id_less_than: before)
+      end
+      failed = each_ledger_row(fetch, 'orderId', optional: true) do |wd|
         next unless wd['status'] == 'success'
 
         entries << { entry_type: :withdrawal, base_currency: wd['coin'], base_amount: wd['size'].to_d,
                      quote_currency: nil, quote_amount: nil,
-                     fee_currency: wd['coin'], fee_amount: wd['fee'].to_d,
-                     tx_id: wd['txId'], group_id: nil, description: nil,
+                     fee_currency: wd['coin'], fee_amount: wd['fee'].to_d.abs,
+                     tx_id: wd['tradeId'], group_id: nil, description: nil,
                      transacted_at: Time.at(wd['cTime'].to_i / 1000.0).utc, raw_data: wd }
       end
+      return failed if failed
     end
 
     # Neighbouring windows share their edge, so a row stamped on it comes back twice.
@@ -495,11 +504,17 @@ class Exchanges::Bitget < Exchange
   # Bitget pages newest first and hands the next, older page for idLessThan = the last row's id. A
   # short page is the last. Yields each row; returns the failure that stopped the read, or nil.
   # These reads skip the client's code check, so an error envelope is a failure here, not an empty page.
-  def each_ledger_row(fetch, id_key, &)
+  #
+  # optional: a key without the wallet scope (40014, 40025) has no transfer history to give, and reads
+  # as empty, as it always did; fills are what the key is for, so there it fails like any other code.
+  LEDGER_NOT_PERMITTED = %w[40014 40025].freeze
+
+  def each_ledger_row(fetch, id_key, optional: false, &)
     before = nil
     loop do
       result = fetch.call(before)
       code, msg = bitget_envelope(result)
+      return nil if optional && LEDGER_NOT_PERMITTED.include?(code)
       return Result::Failure.new("#{name} ledger read failed: #{[code, msg].compact.join(' ')}") if result.success? && code != '00000'
       return result if result.failure?
 
