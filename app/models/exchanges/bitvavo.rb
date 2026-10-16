@@ -396,33 +396,36 @@ class Exchanges::Bitvavo < Exchange
       end
     end
 
-    # Deposits
-    result = hm_client.get_deposit_history(start_time: start_ms)
-    unless result.failure?
-      Array(result.data).each do |dep|
-        next unless dep['status'] == 'completed'
+    # Deposits and withdrawals. Any failed read fails the whole fetch: a partial Success would let the
+    # sync move its watermark past the rows it never got.
+    deposits = read_transfers(hm_client, DEPOSITS_PATH, start_ms)
+    return deposits if deposits.failure?
 
-        entries << { entry_type: :deposit, base_currency: dep['symbol'], base_amount: dep['amount'].to_d,
-                     quote_currency: nil, quote_amount: nil,
-                     fee_currency: dep['fee'].to_d.positive? ? dep['symbol'] : nil,
-                     fee_amount: dep['fee'].to_d.positive? ? dep['fee'].to_d : nil,
-                     tx_id: dep['txId'] || dep['id'], group_id: nil, description: nil,
-                     transacted_at: Time.at(dep['timestamp'].to_i / 1000.0).utc, raw_data: dep }
-      end
+    deposits.data.each do |dep|
+      # The docs give a status for fiat deposits only; a crypto deposit may come without one.
+      next if dep['status'].present? && dep['status'] != 'completed'
+
+      fee = dep['fee'].to_d
+      # No record id, and txId is the chain transaction (absent for fiat): the sync keys these on
+      # the event itself.
+      entries << { entry_type: :deposit, base_currency: dep['symbol'], base_amount: dep['amount'].to_d,
+                   quote_currency: nil, quote_amount: nil,
+                   fee_currency: fee.positive? ? dep['symbol'] : nil, fee_amount: fee.positive? ? fee : nil,
+                   tx_id: nil, group_id: nil, description: nil,
+                   transacted_at: Time.at(dep['timestamp'].to_i / 1000.0).utc, raw_data: dep }
     end
 
-    # Withdrawals
-    result = hm_client.get_withdrawal_history(start_time: start_ms)
-    unless result.failure?
-      Array(result.data).each do |wd|
-        next unless wd['status'] == 'completed'
+    withdrawals = read_transfers(hm_client, WITHDRAWALS_PATH, start_ms)
+    return withdrawals if withdrawals.failure?
 
-        entries << { entry_type: :withdrawal, base_currency: wd['symbol'], base_amount: wd['amount'].to_d,
-                     quote_currency: nil, quote_amount: nil,
-                     fee_currency: wd['symbol'], fee_amount: wd['fee'].to_d,
-                     tx_id: wd['txId'] || wd['id'], group_id: nil, description: nil,
-                     transacted_at: Time.at(wd['timestamp'].to_i / 1000.0).utc, raw_data: wd }
-      end
+    withdrawals.data.each do |wd|
+      next unless wd['status'] == 'completed'
+
+      entries << { entry_type: :withdrawal, base_currency: wd['symbol'], base_amount: wd['amount'].to_d,
+                   quote_currency: nil, quote_amount: nil,
+                   fee_currency: wd['symbol'], fee_amount: wd['fee'].to_d,
+                   tx_id: nil, group_id: nil, description: nil,
+                   transacted_at: Time.at(wd['timestamp'].to_i / 1000.0).utc, raw_data: wd }
     end
 
     Result::Success.new(entries)
@@ -430,11 +433,37 @@ class Exchanges::Bitvavo < Exchange
 
   private
 
+  # https://docs.bitvavo.com/docs/rest-api/get-deposit-history/ and …/get-withdrawal-history/.
+  # honeymaker 0.12.3 reads /v2/deposit (the deposit address) and GET /v2/withdrawal (405).
+  DEPOSITS_PATH = '/v2/depositHistory'.freeze
+  WITHDRAWALS_PATH = '/v2/withdrawalHistory'.freeze
+  TRANSFERS_PAGE_LIMIT = 1000
   TRADES_PAGE_LIMIT  = 1000              # Bitvavo /v2/trades hard max
   TRADES_WINDOW      = 24.hours          # Bitvavo /v2/trades: `end - start` must be <= 24h
   TRADES_MAX_WINDOWS = 40                # safety cap (40 * 24h = 40d > 14d StaleOrder threshold)
   TRADES_MAX_PAGES   = 50                # per-window page cap (50 * 1000 trades is far beyond DCA)
-  private_constant :TRADES_PAGE_LIMIT, :TRADES_WINDOW, :TRADES_MAX_WINDOWS, :TRADES_MAX_PAGES
+  private_constant :DEPOSITS_PATH, :WITHDRAWALS_PATH, :TRANSFERS_PAGE_LIMIT, :TRADES_PAGE_LIMIT, :TRADES_WINDOW, :TRADES_MAX_WINDOWS, :TRADES_MAX_PAGES
+
+  # Every transfer since start_ms (all of them without one). Newest first, at most 1000 a call, and
+  # no record id or cursor: each page ends at the oldest timestamp of the one before, plus a
+  # millisecond so rows sharing it are read again rather than skipped, and repeats are dropped by
+  # content. A full page that brings nothing new fails instead of looping.
+  def read_transfers(hm_client, path, start_ms)
+    rows = Set.new
+    end_ms = (Time.now.to_f * 1000).to_i + 1
+    loop do
+      result = hm_client.send(:get_signed, path, { start: start_ms || 0, end: end_ms, limit: TRANSFERS_PAGE_LIMIT })
+      return result if result.failure?
+
+      page = Array(result.data)
+      fresh = page.count { |row| rows.add?(row) }
+      break if page.size < TRANSFERS_PAGE_LIMIT
+      return Result::Failure.new("#{name} #{path} returned a full page with nothing new") if fresh.zero?
+
+      end_ms = page.map { |row| row['timestamp'].to_i }.min + 1
+    end
+    Result::Success.new(rows.to_a)
+  end
 
   # "BTC-EUR-abc123" → ["BTC-EUR", "abc123"] (market can contain a dash; orderId can too).
   def split_order_id(order_id)
