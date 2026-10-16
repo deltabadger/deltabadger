@@ -300,7 +300,7 @@ class Exchanges::BybitTest < ActiveSupport::TestCase
     hm_client.stubs(:execution_list).returns(empty)
     hm_client.stubs(:deposit_records).returns(empty)
     hm_client.stubs(:withdraw_records).returns(empty)
-    hm_client.stubs(:get_authenticated).returns(empty)
+    hm_client.stubs(:internal_deposit_records).returns(empty)
     hm_client
   end
 
@@ -414,7 +414,7 @@ class Exchanges::BybitTest < ActiveSupport::TestCase
     hm_client.stubs(:deposit_records).returns(
       page.call([{ 'coin' => 'USDT', 'amount' => '5', 'status' => 70_012, 'txID' => 'chain-1', 'successAt' => now_ms.to_s }])
     )
-    hm_client.stubs(:get_authenticated).with('/v5/asset/deposit/query-internal-record', anything).returns(
+    hm_client.stubs(:internal_deposit_records).returns(
       page.call([{ 'coin' => 'USDT', 'amount' => '7', 'status' => 2, 'txID' => 'internal-1', 'createdTime' => (now_ms / 1000).to_s },
                  { 'coin' => 'USDT', 'amount' => '9', 'status' => 1, 'txID' => 'internal-2', 'createdTime' => (now_ms / 1000).to_s }])
     )

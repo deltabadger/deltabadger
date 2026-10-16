@@ -27,7 +27,7 @@ class Exchanges::CoinbaseGetLedgerTest < ActiveSupport::TestCase
                             'cursor' => ''
                           })
     )
-    honeymaker_client.stubs(:get).returns(Result::Success.new({ 'accounts' => [] }))
+    honeymaker_client.stubs(:list_accounts).returns(Result::Success.new({ 'accounts' => [] }))
 
     result = @exchange.get_ledger(api_key: @api_key)
 
@@ -60,7 +60,7 @@ class Exchanges::CoinbaseGetLedgerTest < ActiveSupport::TestCase
                             'cursor' => ''
                           })
     )
-    honeymaker_client.stubs(:get).returns(Result::Success.new({ 'accounts' => [] }))
+    honeymaker_client.stubs(:list_accounts).returns(Result::Success.new({ 'accounts' => [] }))
 
     result = @exchange.get_ledger(api_key: @api_key)
 
@@ -78,7 +78,7 @@ class Exchanges::CoinbaseGetLedgerTest < ActiveSupport::TestCase
     Honeymaker.stubs(:client).returns(honeymaker_client)
 
     honeymaker_client.stubs(:list_fills).returns(Result::Success.new({ 'fills' => [], 'cursor' => '' }))
-    honeymaker_client.stubs(:get).returns(
+    honeymaker_client.stubs(:list_accounts).returns(
       Result::Success.new({ 'accounts' => [{ 'uuid' => 'acc1' }] })
     )
     honeymaker_client.stubs(:list_transactions).returns(
@@ -127,7 +127,7 @@ class Exchanges::CoinbaseGetLedgerTest < ActiveSupport::TestCase
                             'cursor' => ''
                           })
     )
-    honeymaker_client.stubs(:get).returns(Result::Success.new({ 'accounts' => [] }))
+    honeymaker_client.stubs(:list_accounts).returns(Result::Success.new({ 'accounts' => [] }))
 
     result = @exchange.get_ledger(api_key: @api_key)
 
@@ -151,9 +151,9 @@ class Exchanges::CoinbaseGetLedgerTest < ActiveSupport::TestCase
     honeymaker_client = mock('honeymaker_client')
     Honeymaker.stubs(:client).returns(honeymaker_client)
     honeymaker_client.stubs(:list_fills).returns(Result::Success.new({ 'fills' => [], 'cursor' => '' }))
-    honeymaker_client.expects(:get).with('/api/v3/brokerage/accounts', { limit: 250, cursor: nil })
+    honeymaker_client.expects(:list_accounts).with(limit: 250, cursor: nil)
                      .returns(Result::Success.new({ 'accounts' => [{ 'uuid' => 'acc1' }], 'has_next' => true, 'cursor' => 'c2' }))
-    honeymaker_client.expects(:get).with('/api/v3/brokerage/accounts', { limit: 250, cursor: 'c2' })
+    honeymaker_client.expects(:list_accounts).with(limit: 250, cursor: 'c2')
                      .returns(Result::Success.new({ 'accounts' => [{ 'uuid' => 'acc2' }], 'has_next' => false, 'cursor' => '' }))
     honeymaker_client.stubs(:list_transactions).returns(Result::Success.new({ 'data' => [] }))
     honeymaker_client.expects(:list_transactions).with(account_id: 'acc2', limit: 100, starting_after: nil)
@@ -166,7 +166,7 @@ class Exchanges::CoinbaseGetLedgerTest < ActiveSupport::TestCase
     honeymaker_client = mock('honeymaker_client')
     Honeymaker.stubs(:client).returns(honeymaker_client)
     honeymaker_client.stubs(:list_fills).returns(Result::Success.new({ 'fills' => [], 'cursor' => '' }))
-    honeymaker_client.stubs(:get).returns(Result::Success.new({ 'accounts' => [{ 'uuid' => 'acc1' }] }))
+    honeymaker_client.stubs(:list_accounts).returns(Result::Success.new({ 'accounts' => [{ 'uuid' => 'acc1' }] }))
     honeymaker_client.stubs(:list_transactions).returns(Result::Failure.new('Internal Server Error'))
 
     assert @exchange.get_ledger(api_key: @api_key).failure?
@@ -182,7 +182,7 @@ class Exchanges::CoinbaseGetLedgerTest < ActiveSupport::TestCase
                                         fill.merge('entry_id' => 'e2', 'trade_type' => 'CORRECTION')],
                             'cursor' => '' })
     )
-    honeymaker_client.stubs(:get).returns(Result::Success.new({ 'accounts' => [] }))
+    honeymaker_client.stubs(:list_accounts).returns(Result::Success.new({ 'accounts' => [] }))
 
     assert_equal %w[t1 e2], @exchange.get_ledger(api_key: @api_key).data.pluck(:tx_id)
   end
@@ -200,7 +200,7 @@ class Exchanges::CoinbaseGetLedgerTest < ActiveSupport::TestCase
     honeymaker_client = mock('honeymaker_client')
     Honeymaker.stubs(:client).returns(honeymaker_client)
     honeymaker_client.stubs(:list_fills).returns(Result::Success.new({ 'fills' => [regular, adjusted], 'cursor' => '' }))
-    honeymaker_client.stubs(:get).returns(Result::Success.new({ 'accounts' => [] }))
+    honeymaker_client.stubs(:list_accounts).returns(Result::Success.new({ 'accounts' => [] }))
 
     AccountTransactionSync.new(@api_key).sync!
 
@@ -218,7 +218,7 @@ class Exchanges::CoinbaseGetLedgerTest < ActiveSupport::TestCase
     honeymaker_client.stubs(:list_fills).returns(
       Result::Success.new({ 'fills' => [fill.merge('entry_id' => 'e2', 'trade_type' => 'CORRECTION')], 'cursor' => '' })
     )
-    honeymaker_client.stubs(:get).returns(Result::Success.new({ 'accounts' => [] }))
+    honeymaker_client.stubs(:list_accounts).returns(Result::Success.new({ 'accounts' => [] }))
 
     AccountTransactionSync.new(@api_key).sync!
 

@@ -491,10 +491,9 @@ class Exchanges::Bybit < Exchange
       end
       return failed if failed
 
-      # Bybit-to-Bybit deposits are on an endpoint of their own, which the client has no call for.
+      # Bybit-to-Bybit deposits are on an endpoint of their own.
       fetch = lambda do |cursor|
-        hm_client.send(:get_authenticated, '/v5/asset/deposit/query-internal-record',
-                       { startTime: window_start, endTime: window_end, cursor: cursor })
+        hm_client.internal_deposit_records(start_time: window_start, end_time: window_end, cursor: cursor)
       end
       failed = each_ledger_row(fetch, 'rows', optional: true) do |dep|
         next unless dep['status'].to_i == INTERNAL_DEPOSIT_SUCCESS
@@ -634,8 +633,7 @@ class Exchanges::Bybit < Exchange
 
     from = placed_at - ORDER_HISTORY_MARGIN
     each_window(from, TRADE_WINDOW, to: from + ORDER_HISTORY_SPAN) do |window_start, window_end|
-      history = client.send(:get_authenticated, '/v5/order/history',
-                            { category: 'spot', orderId: order_id, startTime: window_start, endTime: window_end })
+      history = client.order_history(category: 'spot', order_id: order_id, start_time: window_start, end_time: window_end)
       return history if history.failure?
       return Result::Failure.new(history.data['retMsg']) unless history.data['retCode'].to_s == '0'
 

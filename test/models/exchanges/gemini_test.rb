@@ -518,8 +518,8 @@ class Exchanges::GeminiTest < ActiveSupport::TestCase
     assert_equal({ entry_type: :withdrawal, base_currency: 'USDC', fee_currency: 'USDC', fee_amount: '0.118856'.to_d,
                    tx_id: '368598436530' },
                  entries.last.slice(:entry_type, :base_currency, :fee_currency, :fee_amount, :tx_id))
-    assert_equal [{ timestamp: 0, limit_transfers: 50, path: '/v2/transfers' },
-                  { timestamp: 1_771_990_797_502, limit_transfers: 50, path: '/v2/transfers' }], calls[:transfers]
+    assert_equal [{ timestamp: 0, limit_transfers: 50 },
+                  { timestamp: 1_771_990_797_502, limit_transfers: 50 }], calls[:transfers]
     assert_equal [5], sleeps
   end
 
@@ -551,8 +551,8 @@ class Exchanges::GeminiTest < ActiveSupport::TestCase
       answer = trades.shift || []
       answer.is_a?(Result::Failure) ? answer : Result::Success.new(answer)
     end
-    client.define_singleton_method(:post_signed) do |path, params|
-      calls[:transfers] << params.merge(path: path)
+    client.define_singleton_method(:get_transfers_v2) do |**params|
+      calls[:transfers] << params
       answer = transfers.shift || []
       answer.is_a?(Result::Failure) ? answer : Result::Success.new(answer)
     end

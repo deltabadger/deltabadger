@@ -1,6 +1,10 @@
 class Exchanges::BinanceUs < Exchanges::Binance
   COINGECKO_ID = 'binance_us'.freeze # https://docs.coingecko.com/reference/exchanges-list
 
+  # A cancel of an order that cannot exist: Binance.US answers -2011 (unknown order) to a key that may
+  # trade, and an invalid-key code to one that may not. ETHBTC is listed there.
+  TRADE_PROBE = { symbol: 'ETHBTC', order_id: '9999999999' }.freeze
+
   def coingecko_id
     COINGECKO_ID
   end
@@ -9,65 +13,75 @@ class Exchanges::BinanceUs < Exchanges::Binance
     ERRORS
   end
 
-  def set_client(api_key: nil)
-    @api_key = api_key
-    @client = Honeymaker.client('binance_us',
-                                api_key: api_key&.key,
-                                api_secret: api_key&.secret,
-                                proxy: ExchangeProxy.for('binance_us'))
+  # Binance.US has no withdrawal address book (/sapi/v1/capital/withdraw/address/list answers 404).
+  def list_withdrawal_addresses(asset:)
+    nil
   end
 
-  def fetch_withdrawal_fees!
-    with_authenticated_fee_client('binance_us', 'PROXY_BINANCE_US') do |hm_client|
-      result = hm_client.get_all_coins_information
-      return result if result.failure?
+  # Binance.US requires a network on withdraw/apply (https://docs.binance.us/, "Withdraw Crypto"); with
+  # none chosen, the coin's default network from its fee listing.
+  def withdraw(asset:, amount:, address:, network: nil, address_tag: nil)
+    network ||= ExchangeAsset.find_by(exchange: self, asset: asset)&.withdrawal_chains
+                             &.find { |chain| chain['is_default'] }&.dig('name')
+    super
+  end
 
-      fees = {}
-      result.data.each do |coin|
-        symbol = coin['coin']
-        networks = coin['networkList'] || []
-        network = networks.find { |n| n['isDefault'] == true } || networks.first
-        next unless network
+  private
 
-        fees[symbol] = network['withdrawFee']
-      end
+  # Binance.US has no /sapi/v1/account/apiRestrictions (not in https://docs.binance.us/, the path
+  # answers 404), so a key is judged by what it can do: a signed account read, then the trade probe.
+  # ponytail: IP restriction and withdrawal permission are unreadable on Binance.US, so a withdrawal
+  # key is held only to "reads, cannot trade"; a withdrawal itself is what proves it.
+  def trading_key_validity(api_key)
+    hm_client = us_client(api_key)
+    can_read = reading_key_validity(api_key, hm_client)
+    return can_read unless can_read.success? && can_read.data
 
-      update_exchange_asset_fees!(fees)
+    probe = hm_client.cancel_order(**TRADE_PROBE)
+    return unreadable_key_check if probe.success? && !probe.data.is_a?(Hash)
+
+    code = parse_error_code(probe) || (probe.data['code'].to_i if probe.success? && probe.data['code'])
+    can_trade = if code == -2011 || (probe.success? && code.nil?) then true
+                elsif code.in?(ERROR_CODES[:invalid_key]) then false
+                end
+    if can_trade.nil?
+      return probe.failure? ? probe : Result::Failure.new("#{name} answered the key check with code #{code}")
     end
+
+    Result::Success.new(api_key.withdrawal? ? !can_trade : can_trade)
   end
 
-  def get_api_key_validity(api_key:)
-    result = Honeymaker.client('binance_us',
-                               api_key: api_key.key,
-                               api_secret: api_key.secret,
-                               proxy: ExchangeProxy.for('binance_us')).api_description
+  def reading_key_validity(api_key, hm_client = us_client(api_key))
+    result = hm_client.account_information(omit_zero_balances: true, recv_window: READ_RECV_WINDOW)
+    # An empty or non-JSON 200 parses to nil or a String: no verdict either way.
+    return unreadable_key_check if result.success? && !result.data.is_a?(Hash)
+    # Binance-style error envelopes can arrive with HTTP 200; a code there is the venue's answer, not a read.
+    return Result::Success.new(false) if result.success? && result.data['code'].to_i.in?(ERROR_CODES[:invalid_key])
+    return Result::Failure.new("#{name} answered the key check with code #{result.data['code']}") if result.success? && result.data['code']
 
     if result.success?
-      common_checks = result.data['ipRestrict'] == true &&
-                      result.data['enableFixApiTrade'] == false &&
-                      result.data['enableFixReadOnly'] == false &&
-                      result.data['enableFutures'] == false &&
-                      result.data['enableInternalTransfer'] == false &&
-                      result.data['enableMargin'] == false &&
-                      result.data['enablePortfolioMarginTrading'] == false &&
-                      result.data['enableReading'] == true &&
-                      result.data['enableVanillaOptions'] == false &&
-                      result.data['permitsUniversalTransfer'] == false
-
-      valid = if api_key.withdrawal?
-                common_checks &&
-                  result.data['enableWithdrawals'] == true &&
-                  result.data['enableSpotAndMarginTrading'] == false
-              else
-                common_checks &&
-                  result.data['enableSpotAndMarginTrading'] == true &&
-                  result.data['enableWithdrawals'] == false
-              end
-      Result::Success.new(valid)
+      Result::Success.new(true)
     elsif parse_error_code(result).in?(ERROR_CODES[:invalid_key])
       Result::Success.new(false)
     else
       result
     end
   end
+
+  def unreadable_key_check = Result::Failure.new("#{name} sent an unreadable answer to the key check")
+
+  def us_client(api_key)
+    Honeymaker.client(name_id, api_key: api_key.key, api_secret: api_key.secret, proxy: ExchangeProxy.for(name_id))
+  end
+
+  # Ledger sources Binance reads that Binance.US does not have (none in https://docs.binance.us/; each
+  # path answers 404 there, and futures live on Binance's own fapi/dapi hosts): never asked.
+  def import_convert_trades(*) = nil
+  def import_fiat_payments(*) = nil
+  def import_dust_conversions(*) = nil
+  def import_earn_rewards(*) = nil
+  def import_earn_subscriptions(*) = nil
+  def import_margin_interest(*) = nil
+  def import_margin_liquidations(*) = nil
+  def import_futures_income(*) = nil
 end
