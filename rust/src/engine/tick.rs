@@ -551,7 +551,7 @@ async fn price_gate<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &mode
         if rule.action != "pause" { return Err(EngineError::Data(format!("{}_action {} is not supported", rule.prefix, rule.action))); }
     }
     let rules = venue.rules();
-    Ok(match conditions::evaluate(c, venue, bot, clock.now(), cx.prices, &cx.credential_version).await? {
+    Ok(match conditions::evaluate(c, venue, bot, clock, cx.prices, &cx.credential_version).await? {
         Evaluated::Off => Gated::Pass(None),
         Evaluated::Met { refreshed } => Gated::Pass(refreshed),
         Evaluated::Unmet | Evaluated::Unavailable => Gated::Pause,

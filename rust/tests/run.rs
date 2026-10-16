@@ -509,10 +509,37 @@ async fn a_crash_after_the_rearm_trades_at_once_on_restart() {
     run::step(&mut e, &at("2026-09-01T10:00:20Z")).await.unwrap();
     let bot = model::load_bot(&e.primary, id).unwrap();
     let version = model::credential_version(&e.primary, &bot).unwrap();
-    let checked = conditions::check(&e.primary, &v, &bot, "2026-09-01T10:03:00Z".parse().unwrap(), &deltabadger::engine::tick::PriceCache::default(), &version).await.unwrap();
+    let checked = conditions::check(&e.primary, &v, &bot, &at("2026-09-01T10:03:00Z"), &deltabadger::engine::tick::PriceCache::default(), &version).await.unwrap();
     assert_eq!(checked, Checked::Rearmed);
     drop(e); // the crash: the check's own tick never ran
     let mut e = restart(&d, v.clone());
     run::step(&mut e, &at("2026-09-01T10:03:30Z")).await.unwrap();
     assert_eq!(v.sent().len(), 1, "the obligation survived the crash");
+}
+
+/// The key replaced while a paused bot's price check reads: the stamp is refused (CredentialsChanged), and the check runs
+/// again at once with the new key, never marked dead and left for Repair's quarter hour.
+#[tokio::test(flavor = "current_thread")]
+async fn a_key_replaced_during_the_price_check_checks_again_at_once() {
+    let db: std::rc::Rc<std::cell::RefCell<Option<std::path::PathBuf>>> = Default::default();
+    let armed = db.clone();
+    let v = FakeVenue::new().balance_body("ZEUR", "100000", "0").on_price(move || {
+        if let Some(path) = armed.borrow_mut().take() {
+            let c = rusqlite::Connection::open(path).unwrap();
+            c.execute("UPDATE api_keys SET secret = ?1", [seed::cipher().encrypt("replaced")]).unwrap();
+        }
+    });
+    for last in ["50100", "49900"] { v.script("/0/public/Ticker", kraken_ticker(last)); }
+    let (d, mut e, id, _) = engine(ruled_spec(), v.clone());
+    run::step(&mut e, &at("2026-09-01T10:00:20Z")).await.unwrap();
+    assert_eq!(status(&e, id), deltabadger::enums::BotStatus::Waiting, "paused");
+    *db.borrow_mut() = Some(d.path().join("production.sqlite3"));
+    let wake = run::step(&mut e, &at("2026-09-01T10:01:00Z")).await.unwrap();
+    assert!(db.borrow().is_none(), "the key was replaced during the check's read");
+    assert_eq!(status(&e, id), deltabadger::enums::BotStatus::Waiting, "nothing written for the old key");
+    let bot = model::load_bot(&e.primary, id).unwrap();
+    assert!(bot.transient.get(deltabadger::engine::conditions::DEAD).is_none(), "not dead: {}", bot.transient);
+    assert_eq!(wake, us("2026-09-01T10:01:00Z") + 1, "checked again on the next pass");
+    run::step(&mut e, &at("2026-09-01T10:01:00.001Z")).await.unwrap();
+    assert_eq!(v.sent().len(), 1, "met under the new key: re-armed and ticked");
 }

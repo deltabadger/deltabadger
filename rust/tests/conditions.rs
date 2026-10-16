@@ -5,7 +5,7 @@ use common::seed::{self, BotSpec};
 use deltabadger::engine::conditions::{self, Checked};
 use deltabadger::engine::model::{self, PriceRule};
 use deltabadger::engine::tick::PriceCache;
-use deltabadger::engine::{accounting, EngineError};
+use deltabadger::engine::{accounting, Clock, EngineError, FixedClock};
 use deltabadger::enums::BotStatus;
 use deltabadger::ruby::{BigDec, Num};
 use deltabadger::venue::fake::FakeVenue;
@@ -88,7 +88,7 @@ async fn a_reversal_during_the_checks_price_read_fences_its_writes() {
     venue.script("/0/public/Ticker", kraken_body("49995.3"));
     let bot = model::load_bot(&o.primary, id).unwrap();
     let version = model::credential_version(&o.primary, &bot).unwrap();
-    let out = conditions::check(&o.primary, &venue, &bot, "2026-09-02T10:03:00Z".parse().unwrap(), &PriceCache::default(), &version).await;
+    let out = conditions::check(&o.primary, &venue, &bot, &FixedClock("2026-09-02T10:03:00Z".parse().unwrap()), &PriceCache::default(), &version).await;
     assert!(reversed.get(), "the paused bot reversed");
     assert!(matches!(out, Err(EngineError::RunFenced)), "{out:?}");
     let after = model::load_bot(&o.primary, id).unwrap();
@@ -114,7 +114,7 @@ async fn the_check_answers_as_the_check_job_does() {
         venue.script("/0/public/Ticker", body);
         let bot = model::load_bot(&o.primary, id).unwrap();
         let version = model::credential_version(&o.primary, &bot).unwrap();
-        let out = conditions::check(&o.primary, &venue, &bot, at, &PriceCache::default(), &version).await;
+        let out = conditions::check(&o.primary, &venue, &bot, &FixedClock(at), &PriceCache::default(), &version).await;
         match (out, expected) {
             (Ok(got), Ok(want)) => assert_eq!(got, want),
             (Err(EngineError::Data(m)), Err(want)) => assert!(m.contains(want), "{m}"),
@@ -123,5 +123,35 @@ async fn the_check_answers_as_the_check_job_does() {
         let after = model::load_bot(&o.primary, id).unwrap();
         let rearmed = after.status == BotStatus::Scheduled;
         assert_eq!(rearmed, after.rust_defer().unwrap().is_some(), "a re-arm commits its run-now with it");
+    }
+}
+
+/// A clock the test moves while the venue answers.
+struct Moving(std::rc::Rc<std::cell::Cell<chrono::DateTime<chrono::Utc>>>);
+impl Clock for Moving { fn now(&self) -> chrono::DateTime<chrono::Utc> { self.0.get() } }
+
+/// Rails stamps `Time.current` after get_last_price answers: a read that takes the clock across a minute (or an interval
+/// checkpoint) stamps met_at, and schedules the next check, at the time it answered, never the time it was sent.
+#[tokio::test(flavor = "current_thread")]
+async fn the_checks_writes_take_the_time_the_price_arrived() {
+    let (_d, o, s) = common::install();
+    let sent: chrono::DateTime<chrono::Utc> = "2026-09-02T10:00:59.9Z".parse().unwrap();
+    let answered: chrono::DateTime<chrono::Utc> = "2026-09-02T10:01:02.25Z".parse().unwrap();
+    for (last, met) in [("49995.3", true), ("60100", false)] {
+        let id = paused(&o, &s, 60_000.0);
+        let time = std::rc::Rc::new(std::cell::Cell::new(sent));
+        let moved = time.clone();
+        let venue = FakeVenue::new().on_price(move || moved.set(answered));
+        venue.script("/0/public/Ticker", kraken_body(last));
+        let bot = model::load_bot(&o.primary, id).unwrap();
+        let version = model::credential_version(&o.primary, &bot).unwrap();
+        let out = conditions::check(&o.primary, &venue, &bot, &Moving(time), &PriceCache::default(), &version).await.unwrap();
+        let after = model::load_bot(&o.primary, id).unwrap();
+        if met {
+            assert_eq!(out, Checked::Rearmed);
+            assert_eq!(after.transient["price_limit_condition_met_at"], json!("2026-09-02T10:01:02.250Z"), "{}", after.transient);
+        } else {
+            assert_eq!(out, Checked::Next("2026-09-02T10:01:59.999999Z".parse().unwrap()), "the end of the minute the price arrived in");
+        }
     }
 }

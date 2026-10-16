@@ -435,11 +435,19 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
         let dead = bot.transient.get(super::conditions::DEAD).is_some();
         let at = *e.condition_at.entry(id).or_insert_with(|| if dead { super::conditions::repair_at(clock.now()).timestamp_micros() } else { now_us });
         if at > now_us { *wake = (*wake).min(at); return Ok(()); }
-        match super::conditions::check(&e.primary, &venue, &bot, clock.now(), &e.prices, &credential_version).await {
+        match super::conditions::check(&e.primary, &venue, &bot, clock, &e.prices, &credential_version).await {
             Ok(super::conditions::Checked::Rearmed) => { e.condition_at.remove(&id); bot = model::load_bot(&e.primary, id)?; }
             Ok(super::conditions::Checked::Next(next)) => { e.condition_at.insert(id, next.timestamp_micros()); *wake = (*wake).min(next.timestamp_micros()); return Ok(()); }
             Ok(super::conditions::Checked::Gone) | Err(EngineError::RunFenced) => { e.condition_at.remove(&id); return Ok(()); }
             Err(err @ (EngineError::Lease(_) | EngineError::Store(_))) => return Err(err),
+            // The key was replaced while the price read ran: nothing was written, and the check runs again on the next pass
+            // with a handle on the new key (as reconcile_idle and the tick retry), never left for Repair.
+            Err(EngineError::CredentialsChanged) => {
+                let at = clock.now().timestamp_micros();
+                e.condition_at.insert(id, at);
+                *wake = (*wake).min(at);
+                return Ok(());
+            }
             Err(err) => {
                 // The check raised: Rails' job dies, and Bot::RepairOrphanedBotsJob restarts the chain on its next pass. Marked,
                 // so a restart waits for that pass too.
