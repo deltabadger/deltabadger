@@ -895,7 +895,7 @@ module SyncScenarios
         setup: lambda do |ctx|
           P.binance(ctx)
           sweep = Time.at(1_786_960_801).utc
-          [%w[ADA 0.0024 0.00001022], %w[EUR 4.059 0.01345686], %w[USDT 0.9 0.00043199], %w[XRP 1.5 0.00043202]].each do |coin, amount, net|
+          [%w[ADA 0.0031 0.00001022], %w[EUR 5.2 0.01345686], %w[USDT 0.9 0.00043199], %w[XRP 1.5 0.00043202]].each do |coin, amount, net|
             [[3, coin, amount], [2, 'BNB', net]].each do |type, currency, value|
               P.stored(ctx, exchange: ctx[:binance], entry_type: type, base_currency: currency, base_amount: value, tx_id: nil, transacted_at: sweep,
                             group_id: "dustcsv_#{coin} to BNB_#{sweep.to_i}")
@@ -904,7 +904,7 @@ module SyncScenarios
         end,
         steps: [P.binance_ledger(night, basic.merge(
           'dust' => [{ 'operateTime' => 1_786_960_800_777, 'totalTransferedAmount' => '0.0151459', 'totalServiceChargeAmount' => '0.00029502', 'transId' => 45_178_372_833,
-                       'userAssetDribbletDetails' => [%w[ADA 0.0024 0.00001042 0.00000021], %w[EUR 4.059 0.01373148 0.00027463],
+                       'userAssetDribbletDetails' => [%w[ADA 0.0031 0.00001042 0.00000021], %w[EUR 5.2 0.01373148 0.00027463],
                                                       %w[USDT 0.9 0.000441 0.000009], %w[XRP 1.5 0.000441 0.000009]].each_with_index.map do |(coin, amount, gross, charge), i|
                          { 'transId' => 4_359_340 + i, 'serviceChargeAmount' => charge, 'amount' => amount, 'operateTime' => 1_786_960_800_777,
                            'transferedAmount' => gross, 'fromAsset' => coin, 'targetAsset' => 'BNB' }

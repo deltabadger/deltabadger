@@ -785,8 +785,8 @@ class AccountTransactionSyncTest < ActiveSupport::TestCase
   end
 
   # The export rounds the net BNB on its own: gross less the charge can land one unit of the 8th decimal off.
-  ROUNDED_DUST = [{ coin: 'ADA', amount: '0.0024', gross: '0.00001042', charge: '0.00000021', net: '0.00001022', id: 1 },
-                  { coin: 'EUR', amount: '4.059', gross: '0.01373148', charge: '0.00027463', net: '0.01345686', id: 2 },
+  ROUNDED_DUST = [{ coin: 'ADA', amount: '0.0031', gross: '0.00001042', charge: '0.00000021', net: '0.00001022', id: 1 },
+                  { coin: 'EUR', amount: '5.2', gross: '0.01373148', charge: '0.00027463', net: '0.01345686', id: 2 },
                   { coin: 'XRP', amount: '1.5', gross: '0.000441', charge: '0.000009', net: '0.00043199', id: 3 }].freeze
 
   def rounded_dust(at, file_net: nil)
