@@ -555,6 +555,25 @@ class Exchanges::HyperliquidTest < ActiveSupport::TestCase
     assert data[:exchange_response].present?                        # synthesized from the matched fills
   end
 
+  test 'get_order finds an unknownOid order\'s fills past the first page of fills' do
+    hyperliquid_at_ticker
+    tx = waiting_hl_tx('HYPE-424242', created_at: 2.hours.ago)
+    connection = create(:api_key, exchange: @exchange, raw_key: VALID_WALLET, raw_secret: VALID_AGENT_KEY)
+    @exchange.set_client(api_key: connection)
+    client = @exchange.send(:client)
+    client.stubs(:order_status).returns(Result::Failure.new('unknownOid', data: { not_found: true }))
+    start = ((tx.reload.created_at - 1.hour).to_f * 1000).to_i
+    others = (1..2000).map { |i| hl_fill(i, start + i, coin: '@142') }
+    own = hl_fill(424_242, start + 3_000, coin: '@142').merge('px' => '50.0', 'sz' => '0.2', 'tid' => 9)
+    client.expects(:user_fills_by_time).with(user: VALID_WALLET, start_time: start).returns(Result::Success.new(others))
+    client.expects(:user_fills_by_time).with(user: VALID_WALLET, start_time: start + 2000).returns(Result::Success.new([own]))
+
+    result = @exchange.get_order(order_id: 'HYPE-424242')
+
+    assert_predicate result, :success?
+    assert_equal BigDecimal('0.2'), result.data[:amount_exec]
+  end
+
   test 'get_order returns a not_found signal when unknownOid and no matching fill exists' do
     waiting_hl_tx('HYPE-999', created_at: 2.hours.ago)
     api_key = create(:api_key, exchange: @exchange, raw_key: VALID_WALLET, raw_secret: VALID_AGENT_KEY)

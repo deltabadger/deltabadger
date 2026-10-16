@@ -608,10 +608,12 @@ class Exchanges::Hyperliquid < Exchange
     return not_found_failure(order_id) unless since
 
     start_ms = ((since - 1.hour).to_f * 1000).to_i # ms, buffered for immediate-fill / clock skew
-    result = client.user_fills_by_time(user: api_key&.key, start_time: start_ms)
+    # Every page: one call stops at 2000 fills, and on a busy account the order's own fills can sit past
+    # them, which would read as "never executed" to a caller that trusts the miss.
+    result = read_by_time(client, :user_fills_by_time, user: api_key&.key, start_ms:)
     return result if result.failure?
 
-    fills = Array(result.data).select { |f| f['oid'].to_s == oid.to_s }
+    fills = result.data.select { |f| f['oid'].to_s == oid.to_s }
     return not_found_failure(order_id) if fills.empty?
 
     Result::Success.new(order_data_from_fills(order_id, fills))
