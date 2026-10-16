@@ -150,6 +150,43 @@ class Exchanges::BybitTest < ActiveSupport::TestCase
     assert_empty parsed[:error_messages]
   end
 
+  # == get_balances ==
+  # availableToWithdraw is deprecated for unified accounts and comes back blank, which read as 0.
+
+  def stub_bybit_wallet(coin)
+    ticker = create(:ticker, exchange: @exchange, base_symbol: 'BTC', quote_symbol: 'USDT', ticker: 'BTCUSDT')
+    @exchange.send(:client).stubs(:wallet_balance).returns(
+      Result::Success.new({ 'retCode' => 0, 'result' => { 'list' => [{ 'coin' => [coin.merge('coin' => 'BTC')] }] } })
+    )
+    ticker.base_asset
+  end
+
+  test 'get_balances reads free as wallet balance less locked and borrowed' do
+    btc = stub_bybit_wallet('walletBalance' => '1.5', 'locked' => '0.5', 'spotBorrow' => '0.2',
+                            'availableToWithdraw' => '', 'free' => '')
+
+    result = with_dry_run(false) { @exchange.get_balances(asset_ids: [btc.id]) }
+
+    assert_predicate result, :success?
+    assert_equal({ free: BigDecimal('0.8'), locked: BigDecimal('0.5') }, result.data[btc.id])
+  end
+
+  test 'get_balances never reads free below zero' do
+    btc = stub_bybit_wallet('walletBalance' => '0.1', 'locked' => '0.1', 'spotBorrow' => '0.2')
+
+    result = with_dry_run(false) { @exchange.get_balances(asset_ids: [btc.id]) }
+
+    assert_equal 0, result.data[btc.id][:free]
+  end
+
+  test 'get_balances falls back to the legacy field when walletBalance is missing' do
+    btc = stub_bybit_wallet('availableToWithdraw' => '2', 'locked' => '0')
+
+    result = with_dry_run(false) { @exchange.get_balances(asset_ids: [btc.id]) }
+
+    assert_equal BigDecimal('2'), result.data[btc.id][:free]
+  end
+
   # == get_ledger ==
   # A partial Success lets AccountTransactionSync move its watermark past the rows it never got.
 

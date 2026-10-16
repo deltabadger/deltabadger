@@ -143,9 +143,8 @@ class Exchanges::Bybit < Exchange
         next unless asset.present?
         next unless asset_ids.include?(asset.id)
 
-        free = coin['availableToWithdraw'].to_d
         locked = coin['locked'].to_d
-        balances[asset.id] = { free: free, locked: locked }
+        balances[asset.id] = { free: free_balance(coin, locked), locked: locked }
       end
     end
 
@@ -534,6 +533,20 @@ class Exchanges::Bybit < Exchange
     return Result::Success.new({}) if optional && ret_code.to_i == LEDGER_NOT_PERMITTED
 
     Result::Failure.new("#{name} ledger read failed: #{ret_code} #{result.data['retMsg']}")
+  end
+
+  # `availableToWithdraw` and `free` are deprecated for unified accounts since 9 Jan 2025 and come
+  # back blank, which read as 0. What is free is the wallet balance less what open orders lock and
+  # what was borrowed (https://bybit-exchange.github.io/docs/v5/account/wallet-balance). Not yet
+  # checked against a real account, so a row without walletBalance keeps the old fields, and one
+  # with nothing readable is logged rather than shown as an empty wallet without a word.
+  def free_balance(coin, locked)
+    wallet = coin['walletBalance']
+    return [wallet.to_d - locked - coin['spotBorrow'].to_d, 0].max if wallet.present?
+
+    legacy = coin['availableToWithdraw'].presence || coin['free'].presence
+    Rails.logger.warn("[bybit-balance] no walletBalance or legacy free field for #{coin['coin']}") if legacy.nil?
+    legacy.to_d
   end
 
   def symbol_pair_base(symbol)
