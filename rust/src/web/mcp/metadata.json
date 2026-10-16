@@ -1687,7 +1687,7 @@
     "app/services/bot_api/bots/delete.rb": "e6e19e51eaffbdb89be5a0d2c4237351d71d0aa02865bfe527d14debfb15b640",
     "app/services/bot_api/bots/update_settings.rb": "6b8b1d2b54998a45118d89a48d1b922c798ae9d394bc38a8ca7f29c2dc665bc6",
     "app/services/bot_api/number.rb": "0a5fdf4d2eeb10bb48c21e57640e9786b8d1052a6c2c76951f8295bdbe0fa4a3",
-    "app/models/bot/lifecycle.rb": "7c6a6d7c0bcdcd38417f10d9be9ed3503d09c2a9897dca998500d0651b4dae37",
+    "app/models/bot/lifecycle.rb": "2cd5c5d9466423cb7e6e19fc3cf35dd287726f4d42659c7f63013a17f6b4656e",
     "app/models/bot/accountable.rb": "2d12969ad2d7e35bfb4e31b9b67dfb9ef3be94a03f3252ac5a5ac6ddccd37a3c",
     "app/services/bot_api/bots/settings_fields.rb": "74fa7ffa413811aaf9916d0941ad808579f56264b5b6a6995a923825771ede06",
     "app/models/bot/settings_form.rb": "0e856f3a999b659eba0993e51fd3a04da1281dd3dbe6d70c2e8dddf90d5642b7"

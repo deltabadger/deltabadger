@@ -10,7 +10,7 @@
     "app/models/bot/restatable.rb": "9394822350e563d1e660264622ecb742392f3d7c83eae7f00e81804124cb1fd6",
     "app/models/bot.rb": "d09ba7581bf639bf6a0b0a49047271a36e16448a8b15df310ddef4faa2a9cdf6",
     "app/models/api_key.rb": "e7f1435042602815925d093baa51160be9236c600b2f8aebdcf0517f5119ef91",
-    "app/models/bot/lifecycle.rb": "7c6a6d7c0bcdcd38417f10d9be9ed3503d09c2a9897dca998500d0651b4dae37",
+    "app/models/bot/lifecycle.rb": "2cd5c5d9466423cb7e6e19fc3cf35dd287726f4d42659c7f63013a17f6b4656e",
     "app/models/transaction.rb": "6cf7b7b31ab5a20b40615f7c8a4d6c8fca4fb4005cd42044a6695f09e862ad7b",
     "script/rust/figures_normalized.rb": "b0eec148d3d3e4f4f57f605c9756bab24abbb0cc900c6db9d9c1a24e502a0eb7",
     "script/rust/histories_normalized.rb": "a187a0e90f9a216e68c98d9cf4ead49f9a6e97b63a318be75091db514873c8da",

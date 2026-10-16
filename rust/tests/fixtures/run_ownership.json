@@ -2,7 +2,7 @@
   "sources": {
     "script/rust/record_run_ownership.rb": "da181cdf46278c00aaa06980616effa54c218787b55caa458a967f54b8c606b9",
     "app/models/automation/statusable.rb": "f5eb0a0e1f8e266b87f816d8df7d1849a336c1e58e162ed6b9bc4f9a5530c39f",
-    "app/models/bot/lifecycle.rb": "7c6a6d7c0bcdcd38417f10d9be9ed3503d09c2a9897dca998500d0651b4dae37",
+    "app/models/bot/lifecycle.rb": "2cd5c5d9466423cb7e6e19fc3cf35dd287726f4d42659c7f63013a17f6b4656e",
     "app/services/bot_api/bots/update_settings.rb": "6b8b1d2b54998a45118d89a48d1b922c798ae9d394bc38a8ca7f29c2dc665bc6"
   },
   "cases": {
