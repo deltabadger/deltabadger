@@ -427,4 +427,19 @@ class Exchanges::BingxTest < ActiveSupport::TestCase
     end
     assert_predicate @exchange.get_ledger(api_key: ledger_api_key, start_time: 2.days.ago), :failure?
   end
+
+  # Pairs were found only from coins held now or moved in the window, so the sale that emptied a coin
+  # was never read once the balance was zero.
+  test 'get_ledger reads a pair the account traded before even when the coin is sold out' do
+    api_key = ledger_api_key
+    create(:account_transaction, api_key: api_key, base_currency: 'PEPE', quote_currency: 'USDT')
+    asked = fake_ledger_client({ DEPOSITS => ->(_) { [] }, WITHDRAWALS => ->(_) { [] } })
+    Honeymaker.client('bingx').define_singleton_method(:get_symbols) do |**|
+      Result::Success.new({ 'code' => 0, 'data' => { 'symbols' => [{ 'symbol' => 'BTC-USDT' }, { 'symbol' => 'PEPE-USDT' }] } })
+    end
+
+    @exchange.get_ledger(api_key: api_key, start_time: 2.days.ago)
+
+    assert_equal %w[BTC-USDT PEPE-USDT], asked.select { |path, _| path == TRADES }.map { |_, p| p[:symbol] }.uniq
+  end
 end

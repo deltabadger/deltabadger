@@ -447,7 +447,8 @@ class Exchanges::Bingx < Exchange
     end
     return failed if failed
 
-    # Trades, per pair: the coins held now or moved in the window, on every pair they are the base of.
+    # Trades, per pair: the coins held now or moved in the window, on every pair they are the base of,
+    # and the pairs the account traded before.
     # Without the balances or the listing, pairs would go unread while the fetch succeeded.
     coins = entries.to_set { |e| e[:base_currency] }
     balances = hm_client.get_raw_balances
@@ -463,7 +464,11 @@ class Exchanges::Bingx < Exchange
 
     symbols = Array(listing.data.dig('data', 'symbols')).map { |s| s['symbol'] }
     trades_from = [start_time, TRADES_REACH.ago].compact.max
-    symbols.select { |symbol| coins.include?(symbol.split('-').first) }.each do |symbol|
+    # A pair traded before counts too: the sale that emptied a coin leaves no balance to find it by.
+    traded_before = AccountTransaction.where(user_id: api_key.user_id, exchange_id: api_key.exchange_id)
+                                      .where(entry_type: %i[buy sell]).distinct
+                                      .pluck(:base_currency, :quote_currency).map { |pair| pair.join('-') }
+    symbols.select { |symbol| coins.include?(symbol.split('-').first) || traded_before.include?(symbol) }.each do |symbol|
       trades = read_trades(hm_client, symbol, (trades_from.to_f * 1000).to_i, (Time.now.to_f * 1000).to_i)
       return trades unless trades.is_a?(Array)
 
