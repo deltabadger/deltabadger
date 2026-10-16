@@ -1,8 +1,8 @@
 {
   "sources": {
-    "app/models/exchanges/kraken.rb": "7152decba11c5e2bef8a643e5794d3cfb758f2558bfe4159637df55e5de0a6eb",
-    "app/models/exchanges/binance.rb": "cf2900382b07402bc8dd1e96fbaca22e6fd49d192cd7c8e90389ab619dcd8307",
-    "app/models/exchanges/binance_us.rb": "2cd396d10fee43d2bd196bae7ebb914b19a341ee7c8cb97c9276ab81cbc5b452",
+    "app/models/exchanges/kraken.rb": "194ccc0a5bdeef5530411f85868b3a266f1b51eda1e258c53719a394858b0d5f",
+    "app/models/exchanges/binance.rb": "b5d32beda161049a54036786316d6f3d4b7024e0b456d1b0bf5d4bc267a102c3",
+    "app/models/exchanges/binance_us.rb": "2f0375e84ace7394be9186bf378aec25511aa51a670e717e0e16aad00801694e",
     "app/models/exchange.rb": "ab627a2812bc0c7b4a546459e64f8f5d93617c496308d5f03163f44cef12d8d7",
     "app/models/exchange/dryable.rb": "559b4b1858c832f3bc83b7631d7a74012854aabd88408b8680288609a1254b96",
     "app/models/api_key.rb": "e7f1435042602815925d093baa51160be9236c600b2f8aebdcf0517f5119ef91",
@@ -941,9 +941,10 @@
           "content_type": "application/json"
         },
         "verdict": {
-          "kind": "raises",
-          "class": "NoMethodError",
-          "message": "undefined method '[]' for nil"
+          "kind": "failure",
+          "errors": [
+            "Kraken sent an unreadable answer to the key check"
+          ]
         },
         "request": {
           "method": "POST",
@@ -964,9 +965,10 @@
           "content_type": "text/plain"
         },
         "verdict": {
-          "kind": "raises",
-          "class": "NoMethodError",
-          "message": "undefined method 'dig' for an instance of String"
+          "kind": "failure",
+          "errors": [
+            "Kraken sent an unreadable answer to the key check"
+          ]
         },
         "request": {
           "method": "POST",
@@ -1825,9 +1827,10 @@
           "content_type": "application/json"
         },
         "verdict": {
-          "kind": "raises",
-          "class": "NoMethodError",
-          "message": "undefined method '[]' for nil"
+          "kind": "failure",
+          "errors": [
+            "Kraken sent an unreadable answer to the key check"
+          ]
         },
         "request": {
           "method": "POST",
@@ -1848,9 +1851,10 @@
           "content_type": "text/plain"
         },
         "verdict": {
-          "kind": "raises",
-          "class": "NoMethodError",
-          "message": "undefined method 'dig' for an instance of String"
+          "kind": "failure",
+          "errors": [
+            "Kraken sent an unreadable answer to the key check"
+          ]
         },
         "request": {
           "method": "POST",
@@ -2607,9 +2611,10 @@
           "content_type": "application/json"
         },
         "verdict": {
-          "kind": "raises",
-          "class": "NoMethodError",
-          "message": "undefined method '[]' for nil"
+          "kind": "failure",
+          "errors": [
+            "Kraken sent an unreadable answer to the key check"
+          ]
         },
         "request": {
           "method": "POST",
@@ -2630,9 +2635,10 @@
           "content_type": "text/plain"
         },
         "verdict": {
-          "kind": "raises",
-          "class": "NoMethodError",
-          "message": "undefined method 'dig' for an instance of String"
+          "kind": "failure",
+          "errors": [
+            "Kraken sent an unreadable answer to the key check"
+          ]
         },
         "request": {
           "method": "POST",
@@ -3389,9 +3395,10 @@
           "content_type": "application/json"
         },
         "verdict": {
-          "kind": "raises",
-          "class": "NoMethodError",
-          "message": "undefined method '[]' for nil"
+          "kind": "failure",
+          "errors": [
+            "Kraken sent an unreadable answer to the key check"
+          ]
         },
         "request": {
           "method": "POST",
@@ -3412,9 +3419,10 @@
           "content_type": "text/plain"
         },
         "verdict": {
-          "kind": "raises",
-          "class": "NoMethodError",
-          "message": "undefined method 'dig' for an instance of String"
+          "kind": "failure",
+          "errors": [
+            "Kraken sent an unreadable answer to the key check"
+          ]
         },
         "request": {
           "method": "POST",
@@ -5043,7 +5051,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=4da45ae227bbdf87ea337f1db16cb7713382df463952886cda5f90df8d31caeb&timestamp=1792147934333"
+            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=7dcf2def5ab4f277da01139ec85afd0a8547268d62b8f4f88adbef47a8a605d5&timestamp=1792148671613"
           ]
         },
         "request": {
@@ -5245,9 +5253,10 @@
           "content_type": "application/json"
         },
         "verdict": {
-          "kind": "raises",
-          "class": "NoMethodError",
-          "message": "undefined method '[]' for nil"
+          "kind": "failure",
+          "errors": [
+            "Binance sent an unreadable answer to the key check"
+          ]
         },
         "request": {
           "method": "GET",
@@ -5270,8 +5279,10 @@
           "content_type": "text/plain"
         },
         "verdict": {
-          "kind": "success",
-          "data": false
+          "kind": "failure",
+          "errors": [
+            "Binance sent an unreadable answer to the key check"
+          ]
         },
         "request": {
           "method": "GET",
@@ -6894,7 +6905,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=4acaa00506c3b360d00ebb18a3a2f474fba1b5c2b0a09ccd125a06b28c1f33ab&timestamp=1792147934362"
+            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=4ee831b4eca796ef215cc5aeaeb27b23c38c6887cf8fa549ae71b115c8c9f026&timestamp=1792148671632"
           ]
         },
         "request": {
@@ -7096,9 +7107,10 @@
           "content_type": "application/json"
         },
         "verdict": {
-          "kind": "raises",
-          "class": "NoMethodError",
-          "message": "undefined method '[]' for nil"
+          "kind": "failure",
+          "errors": [
+            "Binance sent an unreadable answer to the key check"
+          ]
         },
         "request": {
           "method": "GET",
@@ -7121,8 +7133,10 @@
           "content_type": "text/plain"
         },
         "verdict": {
-          "kind": "success",
-          "data": false
+          "kind": "failure",
+          "errors": [
+            "Binance sent an unreadable answer to the key check"
+          ]
         },
         "request": {
           "method": "GET",
@@ -8745,7 +8759,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=8fb40501348e3732da40fe2fafe6db9db50bef71ea714f2a7a44aaaff7ec4769&timestamp=1792147934382"
+            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=394fd2d9f140cdab78c361eff1ec28bbfea5d3bff49cae9117d22db9a475e9d7&timestamp=1792148671649"
           ]
         },
         "request": {
@@ -8947,9 +8961,10 @@
           "content_type": "application/json"
         },
         "verdict": {
-          "kind": "raises",
-          "class": "NoMethodError",
-          "message": "undefined method '[]' for nil"
+          "kind": "failure",
+          "errors": [
+            "Binance sent an unreadable answer to the key check"
+          ]
         },
         "request": {
           "method": "GET",
@@ -8972,8 +8987,10 @@
           "content_type": "text/plain"
         },
         "verdict": {
-          "kind": "success",
-          "data": false
+          "kind": "failure",
+          "errors": [
+            "Binance sent an unreadable answer to the key check"
+          ]
         },
         "request": {
           "method": "GET",
@@ -10596,7 +10613,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=6cd0f8ede220df81c517e0fe56c5183d65fd9ec2d3cff7c481441687738279c8&timestamp=1792147934409"
+            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=040d73d816bfebe627f122bcd1e68aa2232d592bc2abffd83bf5f26abab380c2&timestamp=1792148671667"
           ]
         },
         "request": {
@@ -10798,9 +10815,10 @@
           "content_type": "application/json"
         },
         "verdict": {
-          "kind": "raises",
-          "class": "NoMethodError",
-          "message": "undefined method '[]' for nil"
+          "kind": "failure",
+          "errors": [
+            "Binance sent an unreadable answer to the key check"
+          ]
         },
         "request": {
           "method": "GET",
@@ -10823,8 +10841,10 @@
           "content_type": "text/plain"
         },
         "verdict": {
-          "kind": "success",
-          "data": false
+          "kind": "failure",
+          "errors": [
+            "Binance sent an unreadable answer to the key check"
+          ]
         },
         "request": {
           "method": "GET",
@@ -12455,7 +12475,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.us/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=c8a20c6aa099bd0f2cc9918880b84da7dda673f51eeba0ccecd21dcd90565182&timestamp=1792147934432"
+            "the server responded with status 500 for GET https://api.binance.us/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=5ff90c7cd772c71e557243c7f4db461c2a37de047d604e937fe381ad5d7100d7&timestamp=1792148671685"
           ]
         },
         "request": {
@@ -12657,9 +12677,10 @@
           "content_type": "application/json"
         },
         "verdict": {
-          "kind": "raises",
-          "class": "NoMethodError",
-          "message": "undefined method '[]' for nil"
+          "kind": "failure",
+          "errors": [
+            "Binance.US sent an unreadable answer to the key check"
+          ]
         },
         "request": {
           "method": "GET",
@@ -12682,8 +12703,10 @@
           "content_type": "text/plain"
         },
         "verdict": {
-          "kind": "success",
-          "data": false
+          "kind": "failure",
+          "errors": [
+            "Binance.US sent an unreadable answer to the key check"
+          ]
         },
         "request": {
           "method": "GET",
@@ -14306,7 +14329,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.us/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=0541e5b897fa3823476289f68b916ac6e4345ec0a7468ade12f4a1f8dce467e7&timestamp=1792147934455"
+            "the server responded with status 500 for GET https://api.binance.us/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=c270a03be0d409abd2f03db4290cf94bd83eb20be706d9aa3da81808e83d9055&timestamp=1792148671703"
           ]
         },
         "request": {
@@ -14508,9 +14531,10 @@
           "content_type": "application/json"
         },
         "verdict": {
-          "kind": "raises",
-          "class": "NoMethodError",
-          "message": "undefined method '[]' for nil"
+          "kind": "failure",
+          "errors": [
+            "Binance.US sent an unreadable answer to the key check"
+          ]
         },
         "request": {
           "method": "GET",
@@ -14533,8 +14557,10 @@
           "content_type": "text/plain"
         },
         "verdict": {
-          "kind": "success",
-          "data": false
+          "kind": "failure",
+          "errors": [
+            "Binance.US sent an unreadable answer to the key check"
+          ]
         },
         "request": {
           "method": "GET",
@@ -16157,7 +16183,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.us/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=273e9c54175b8d734941fefc85f477110f5f74a50f08dd8fdf64e71e61f7c0a8&timestamp=1792147934477"
+            "the server responded with status 500 for GET https://api.binance.us/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=4ff693f8073ec33401a527c2c94e137b9d24d1f8ed50173e259c397ef45bc41a&timestamp=1792148671722"
           ]
         },
         "request": {
@@ -16359,9 +16385,10 @@
           "content_type": "application/json"
         },
         "verdict": {
-          "kind": "raises",
-          "class": "NoMethodError",
-          "message": "undefined method '[]' for nil"
+          "kind": "failure",
+          "errors": [
+            "Binance.US sent an unreadable answer to the key check"
+          ]
         },
         "request": {
           "method": "GET",
@@ -16384,8 +16411,10 @@
           "content_type": "text/plain"
         },
         "verdict": {
-          "kind": "success",
-          "data": false
+          "kind": "failure",
+          "errors": [
+            "Binance.US sent an unreadable answer to the key check"
+          ]
         },
         "request": {
           "method": "GET",
@@ -18008,7 +18037,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.us/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=3196019ea16ddafb164c92e473c6f6c28d4b048d290b22ace64ef6b94dd57378&timestamp=1792147934499"
+            "the server responded with status 500 for GET https://api.binance.us/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=9bac64c44bc68572a98f14b1b5d5532ec62aca433ec7dbd84242d8c776ff4d6f&timestamp=1792148671741"
           ]
         },
         "request": {
@@ -18210,9 +18239,10 @@
           "content_type": "application/json"
         },
         "verdict": {
-          "kind": "raises",
-          "class": "NoMethodError",
-          "message": "undefined method '[]' for nil"
+          "kind": "failure",
+          "errors": [
+            "Binance.US sent an unreadable answer to the key check"
+          ]
         },
         "request": {
           "method": "GET",
@@ -18235,8 +18265,10 @@
           "content_type": "text/plain"
         },
         "verdict": {
-          "kind": "success",
-          "data": false
+          "kind": "failure",
+          "errors": [
+            "Binance.US sent an unreadable answer to the key check"
+          ]
         },
         "request": {
           "method": "GET",
