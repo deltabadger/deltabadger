@@ -81,11 +81,11 @@ impl MarketData for Scripted {
         };
         if !stocks.is_empty() {
             let body = self.alpaca("/v2/stocks/snapshots", &[], &[("symbols", &stocks)])?;
-            for (code, snapshot) in body.as_object().into_iter().flatten() { put(code, Dec::to_d(&snapshot["latestTrade"]["p"])); }
+            for (code, snapshot) in body.as_object().into_iter().flatten() { put(code, Dec::venue_number(&snapshot["latestTrade"]["p"])); }
         }
         if !crypto.is_empty() {
             let body = self.alpaca("/v1beta3/crypto/us/latest/trades", &[], &[("symbols", &crypto)])?;
-            for (code, trade) in body["trades"].as_object().into_iter().flatten() { put(code, Dec::to_d(&trade["p"])); }
+            for (code, trade) in body["trades"].as_object().into_iter().flatten() { put(code, Dec::venue_number(&trade["p"])); }
         }
         Ok(prices)
     }

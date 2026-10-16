@@ -300,7 +300,7 @@ impl MarketData for Reader<'_> {
                     for (code, item) in entries {
                         let price = if crypto { &item["p"] } else { &item["latestTrade"]["p"] };
                         // Owner ruling: absent trades carry no price. A reported numeric zero remains a price.
-                        if !price.is_null() { prices.push((code.clone(), Dec::to_d(price))); }
+                        if !price.is_null() { prices.push((code.clone(), Dec::venue_number(price))); }
                     }
                 }
             }
