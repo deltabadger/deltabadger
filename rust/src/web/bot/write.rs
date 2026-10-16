@@ -601,7 +601,10 @@ pub fn reverse(c: &Connection, cipher: &crate::crypto::Cipher, owner: i64, id: i
     let found: Option<Option<String>> = tx.query_row("SELECT type FROM bots WHERE id=?1 AND user_id=?2 AND status<>3", (id, owner), |r| r.get(0)).optional()?;
     if found.flatten().as_deref() != Some(class) { return Ok(Reversal::Missing); }
     let bot = model::load_bot(&tx, id)?;
-    if matches!(bot.status, BotStatus::Executing | BotStatus::Waiting) || bot.rust_placement().is_some() { return Ok(Reversal::InProgress); }
+    // A bot resting on its price rule is not mid-tick: Rails flips it (flip_direction! sets it `scheduled` and cancels its
+    // check jobs, reversible.rb:188-191). The generation bump below fences a check whose price read is in flight.
+    let paused = model::price_paused(&tx, &bot)?;
+    if (bot.status == BotStatus::Executing || (bot.status == BotStatus::Waiting && !paused)) || bot.rust_placement().is_some() { return Ok(Reversal::InProgress); }
     let Some(mut draft) = Draft::load(&tx, owner, id, "en")? else { return Ok(Reversal::Missing) };
     let carry = pending(&tx, &draft.original, now)?;
     let leaving_buy = !bot.selling();
@@ -640,7 +643,7 @@ pub fn reverse(c: &Connection, cipher: &crate::crypto::Cipher, owner: i64, id: i
     let at = codec::format_time(now);
     one(tx.execute("UPDATE bots SET settings_changed_at=?1, updated_at=?1, \
         transient_data=json_set(transient_data,'$.run_generation',coalesce(json_extract(transient_data,'$.run_generation'),0)+1) WHERE id=?2", (&at, id))?)?;
-    let working = matches!(bot.status, BotStatus::Scheduled | BotStatus::Retrying);
+    let working = matches!(bot.status, BotStatus::Scheduled | BotStatus::Retrying) || paused;
     if working { one(tx.execute("UPDATE bots SET status=?1, started_at=?2 WHERE id=?3", (BotStatus::Scheduled as i64, &at, id))?)?; }
     // reset_trigger_condition_timestamps: merge_transient_data! of nils, compacted away.
     for key in bot.transient.as_object().map(|t| t.keys().filter(|k| k.ends_with("_condition_met_at")).cloned().collect::<Vec<_>>()).unwrap_or_default() {

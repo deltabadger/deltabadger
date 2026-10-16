@@ -45,7 +45,7 @@ fn an_ineligible_install_is_refused_before_anything_is_written() {
     let l = lease::lock(&p, now()).unwrap();
     let o = store::open(&p).unwrap();
     let s = seed::seed_kraken(&o.primary, &seed::cipher());
-    let b = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00").with("price_limited", json!(true)));
+    let b = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00").with("price_drop_limited", json!(true)));
     job(&o.queue, "Bot::ActionJob", &format!("gid://deltabadger/Bots::DcaMultiAsset/{b}"));
     assert!(matches!(handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()), Err(EngineError::Ineligible(_))));
     assert!(lease::read(&o.primary, &seed::cipher()).unwrap().is_none(), "no claim");
@@ -373,7 +373,7 @@ fn stale_catalog_refuses_rails_takeover_but_allows_an_engine_owned_restart() -> 
     assert_eq!(takeover.eligible, vec![bot]);
     assert!(staleness::stale(&o.primary, &model::load_bot(&o.primary, bot).map_err(|e| format!("{e:?}"))?, now()).map_err(|e| format!("{e:?}"))?.is_some(), "restart cannot make stale data fresh");
     assert!(!eligibility::check_install_at(&o.primary, now()).map_err(|e| format!("{e:?}"))?.problems.is_empty(), "check continues reporting staleness");
-    o.primary.execute("UPDATE bots SET settings = json_set(settings, '$.price_limited', 1)", [])?;
+    o.primary.execute("UPDATE bots SET settings = json_set(settings, '$.price_drop_limited', 1)", [])?;
     assert!(matches!(handover::take_over(&lock, &o, &seed::cipher(), "test", now()), Err(EngineError::Ineligible(_))), "restart still refuses unsupported work");
     Ok(())
 }
@@ -393,4 +393,33 @@ fn an_index_bots_rails_jobs_are_removed_at_takeover() {
     let t = handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
     assert_eq!(t.deleted_jobs, 1, "the GlobalID names the bot's own class");
     assert_eq!(count(&o.queue, "SELECT count(*) FROM solid_queue_jobs"), 0);
+}
+
+/// Slice 7a: a bot resting on its price rule is handed over as it rests. Takeover drops Rails' check chain and leaves it
+/// `waiting` (the engine checks it); handback leaves it `waiting`, and Rails' adoption restarts its check chain, where
+/// `scheduled` would trade it at the next checkpoint whatever the price.
+#[tokio::test(flavor = "current_thread")]
+async fn a_price_paused_bot_is_handed_over_paused_and_rails_restarts_its_check() {
+    let dir = common::rails_install();
+    let p = Paths::from_env(&|_| None, dir.path());
+    let l = lease::lock(&p, now()).unwrap();
+    let o = store::open(&p).unwrap();
+    let s = seed::seed_kraken(&o.primary, &seed::cipher());
+    let b = seed::insert_bot(&o.primary, &s, &BotSpec { status: 6, ..BotSpec::weekly(60.0, "2026-09-01 10:00:00") }
+        .with("price_limited", json!(true)).with("price_limit", json!(50000.0)).transient("last_action_job_at", json!("2026-09-30T11:00:00.000Z")));
+    model::log_activity(&o.primary, b, "limit_paused", model::Level::Info, json!({ "limit_type": "price" }), "2026-09-30T11:00:00.001Z".parse().unwrap()).unwrap();
+    job(&o.queue, "Bot::PriceLimitCheckJob", &format!("gid://deltabadger/Bots::DcaMultiAsset/{b}"));
+    let t = handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
+    assert_eq!((t.deleted_jobs, t.normalised), (1, 0), "Rails' check chain goes; the pause is not a cut-short tick");
+    assert_eq!(model::load_bot(&o.primary, b).unwrap().status, deltabadger::enums::BotStatus::Waiting);
+    o.primary.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.rust_condition_check_dead', json('true')) WHERE id = ?1", [b]).unwrap();
+    assert_eq!(handover::hand_back(&l, &o, &FakeFactory::default(), &seed::cipher(), &deltabadger::engine::FixedClock(now())).await.unwrap(), 0);
+    let bot = model::load_bot(&o.primary, b).unwrap();
+    assert_eq!(bot.status, deltabadger::enums::BotStatus::Waiting, "still paused");
+    assert!(bot.transient.get("rust_condition_check_dead").is_none(), "the engine's own marker goes");
+    o.primary.execute("UPDATE bots SET updated_at = '2026-09-30 11:00:00' WHERE id = ?1", [b]).unwrap(); // past Repair's grace
+    drop((l, o));
+    let (booted, err) = rails_boot_running(dir.path(), &format!(
+        "Bot::RepairOrphanedBotsJob.perform_now\nraise 'no check chain' unless Bot.find({b}).pending_limit_check_job?\nraise 'not waiting' unless Bot.find({b}).waiting?"));
+    assert!(booted, "{err}");
 }

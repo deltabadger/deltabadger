@@ -13,7 +13,7 @@ use serde_json::Value;
 
 pub struct Takeover { pub claim: Claim, pub eligible: Vec<i64>, pub deleted_jobs: usize, pub normalised: usize }
 
-const RAILS_BOT_JOBS: [&str; 4] = ["Bot::ActionJob", "Bot::BroadcastAfterScheduledActionJob", "Bot::FetchAndUpdateOrderJob", "Bot::FetchAndUpdateOpenOrdersJob"];
+const RAILS_BOT_JOBS: [&str; 5] = ["Bot::ActionJob", "Bot::BroadcastAfterScheduledActionJob", "Bot::FetchAndUpdateOrderJob", "Bot::FetchAndUpdateOpenOrdersJob", "Bot::PriceLimitCheckJob"];
 
 fn first_gid(arguments: &str) -> Option<String> {
     let v: Value = serde_json::from_str(arguments).ok()?;
@@ -111,7 +111,17 @@ pub async fn hand_back_since<F: VenueFactory>(lock: &EngineLock, o: &Opened, fac
     let now = clock.now();
     let tx = model::immediate(&o.primary)?;
     let (scheduled, working) = (BotStatus::Scheduled as i64, model::working_list());
-    tx.execute(&format!("UPDATE bots SET status = ?1, updated_at = ?2 WHERE status IN ({working}) AND status <> ?1"), params![scheduled, crate::codec::format_time(now)])?;
+    // A bot paused on its price rule stays `waiting`: Rails' adoption (Bot::RepairOrphanedBotsJob) restarts its check chain,
+    // where `scheduled` would trade it at the next checkpoint whatever the price.
+    let mut s = tx.prepare(&format!("SELECT id FROM bots WHERE status IN ({working}) AND status <> ?1 ORDER BY id"))?;
+    let ids = s.query_map([scheduled], |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?;
+    drop(s);
+    for id in ids {
+        if model::price_paused(&tx, &model::load_bot(&tx, id)?)? { continue; }
+        tx.execute("UPDATE bots SET status = ?1, updated_at = ?2 WHERE id = ?3", params![scheduled, crate::codec::format_time(now), id])?;
+    }
+    tx.execute(&format!("UPDATE bots SET transient_data = json_remove(transient_data, '$.{}') WHERE json_type(transient_data, '$.{}') IS NOT NULL",
+                        super::conditions::DEAD, super::conditions::DEAD), [])?;
     let scheduled: usize = tx.query_row("SELECT count(*) FROM bots WHERE status = ?1", [scheduled], |r| r.get::<_, i64>(0))? as usize;
     // rust_defer_until is the engine's own key, and it goes. Adopting a handback re-arms every scheduled bot at
     // next_interval_checkpoint_at (EngineLease.adopt_handback! → Bot::RepairOrphanedBotsJob#repair_bot), the first checkpoint
