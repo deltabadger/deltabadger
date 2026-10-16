@@ -35,7 +35,9 @@ async fn index_requires_authentication_and_deferred_links_refuse_without_writes(
     assert_eq!(answer.status,302);assert_eq!(answer.header("location"),Some("/de/login"));
     let answer=browser.get(&app,"/tracker/pick_exchange/new").await;
     assert_eq!((answer.status,answer.header("location")),(302,Some("/login")),"D5b serves the picker to signed-in users");
-    for path in ["/tracker/connect_market_data","/tracker/import/new","/tracker/export","/tracker/download_tax_report"] {
+    let answer=browser.get(&app,"/tracker/export").await;
+    assert_eq!((answer.status,answer.header("location")),(302,Some("/login")),"the export is served to signed-in users");
+    for path in ["/tracker/connect_market_data","/tracker/import/new","/tracker/download_tax_report"] {
         let answer=browser.get(&app,path).await;assert_eq!(answer.status,501,"{path}");
         assert!(answer.body.contains(path));
     }
