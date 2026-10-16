@@ -443,15 +443,11 @@ pub fn refusal(c: &Connection, bot_id: i64, wash_sale_enabled: Option<bool>, pro
     let truthy = |value: Option<&Value>| value.is_some_and(|v| !matches!(v, Value::Null | Value::Bool(false)) && v.as_str() != Some("") && v.as_str() != Some("0") && v.as_str() != Some("false"));
     let class = class.unwrap_or_default();
     if class != "Bots::DcaMultiAsset" && class != "Bots::DcaIndex" { return Ok(Some("a bot of a type this build does not render")); }
-    // Kraken and Binance as far as the engine trades them (engine::eligibility, spec E2): one-asset baskets.
-    match exchange.as_deref() {
-        Some("Exchanges::Alpaca") => {}
-        Some("Exchanges::Kraken" | "Exchanges::Binance") => {
-            let one_asset = settings.get("allocations").and_then(Value::as_object).is_some_and(|weights| weights.len() == 1);
-            if class != "Bots::DcaMultiAsset" || !one_asset { return Ok(Some("a Kraken or Binance bot other than a one-asset basket")); }
-        }
-        _ => return Ok(Some("a bot on an exchange other than Alpaca, Kraken and Binance")),
-    }
+    // The venues, classes and member counts the engine runs: one rule for both (a one-asset basket sells as Rails renders it;
+    // a wider one sells by ranking its members, 6b).
+    let members = settings.get("allocations").and_then(Value::as_object).map_or(0, |weights| weights.len());
+    let selling = settings.get("direction").and_then(Value::as_str) == Some("selling");
+    if let Some(why) = crate::engine::eligibility::admission(exchange.as_deref(), class == "Bots::DcaIndex", members, selling) { return Ok(Some(why)); }
     // What the wizard always stores and no concern has a default for. Every other setting a row may
     // lack is given the value Rails gives it on load (`Bot::fill_defaults`).
     let needed: &[&str] = if class == "Bots::DcaIndex" { &["quote_asset_id", "interval", "index_type"] } else { &["quote_asset_id", "interval", "allocations"] };
@@ -471,11 +467,8 @@ pub fn refusal(c: &Connection, bot_id: i64, wash_sale_enabled: Option<bool>, pro
     let distance_ok = defaulted("limit_order_pcnt_distance") || settings.get("limit_order_pcnt_distance").and_then(Value::as_f64).is_some_and(|share| (0.0..=1.0).contains(&share));
     let interval_ok = matches!(settings.get("interval").and_then(Value::as_str), Some("hour" | "day" | "week" | "month"));
     if !positive("quote_amount") || !interval_ok || !mode_known || !smart_ok || !distance_ok { return Ok(Some("settings no form would have saved")); }
-    // A one-asset basket sells as Rails renders it; a wider one sells by ranking its members (6b), and a cap on what is sold (6d) is not counted here.
-    if settings.get("direction").and_then(Value::as_str) == Some("selling") {
-        if class != "Bots::DcaMultiAsset" || settings.get("allocations").and_then(Value::as_object).is_none_or(|weights| weights.len() != 1) { return Ok(Some("a basket of several assets that sells")); }
-        if settings.get("base_amount_limited") == Some(&Value::Bool(true)) { return Ok(Some("a cap on what a selling bot sells")); }
-    }
+    // A cap on what is sold (6d) is not counted here.
+    if selling && settings.get("base_amount_limited") == Some(&Value::Bool(true)) { return Ok(Some("a cap on what a selling bot sells")); }
     if truthy(settings.get("rebalance_enabled")) { return Ok(Some("rebalancing")); }
     if settings.get("weighting").and_then(Value::as_str) == Some("market_cap") { return Ok(Some("market-cap weights")); }
     if ["rebalance_pending", "liquidation_pending", "liquidation_selling_since", "redeploy_pending"].iter().any(|key| transient.get(key).is_some_and(|v| !v.is_null())) {

@@ -118,7 +118,7 @@ fn deferred_classes_and_existing_refusals_still_roll_back() {
         ("UPDATE bots SET settings=json_set(settings,'$.price_drop_limited',json('true'))","price_drop_limited"),
         ("UPDATE bots SET settings=json_set(settings,'$.indicator_limited',json('true'))","indicator_limited"),
         // 6a sells for a one-asset basket only: this two-asset Alpaca basket's selling stays deferred (6b).
-        ("UPDATE bots SET settings=json_set(settings,'$.direction','selling')","selling with 2 assets"),
+        ("UPDATE bots SET settings=json_set(settings,'$.direction','selling')","a basket of several assets that sells"),
         ("UPDATE bots SET settings=json_set(settings,'$.direction','sideways')","direction \"sideways\""),
         ("UPDATE bots SET settings=json_set(settings,'$.weighting','market_cap')","weighting"),
         ("UPDATE bots SET transient_data=json_set(transient_data,'$.liquidation_pending',json('{}'))","liquidation_pending"),
@@ -174,7 +174,7 @@ async fn every_remaining_eligibility_branch_has_a_named_witness() {
     ];
     let fixed = [
         ("UPDATE bots SET type='Bots::Unsupported'","type Bots::Unsupported"),
-        ("UPDATE exchanges SET type='Exchanges::Kucoin'","exchange Exchanges::Kucoin"),
+        ("UPDATE exchanges SET type='Exchanges::Kucoin'","a bot on an exchange other than Alpaca, Kraken and Binance"),
         ("UPDATE bots SET settings=json_set(settings,'$.smart_intervaled',json('true'))","smart interval amount missing"),
         ("UPDATE bots SET settings=json_set(settings,'$.limit_ordered',json('true'),'$.limit_order_pcnt_distance','broken')","limit_order_pcnt_distance"),
         ("UPDATE bots SET started_at=NULL","started_at missing"),
@@ -198,7 +198,7 @@ async fn every_remaining_eligibility_branch_has_a_named_witness() {
         ("INSERT INTO bot_index_assets (bot_id,asset_id,ticker_id,in_index,created_at,updated_at) SELECT id,999,1,1,'2026-01-01','2026-01-01' FROM bots","index assets present"),
         ("INSERT INTO account_transactions (user_id,exchange_id,entry_type,base_currency,base_amount,transacted_at,raw_data,created_at,updated_at) SELECT user_id,exchange_id,15,'AAA',0,'2026-01-01','{\"corporate_action\":\"split\"}','2026-01-01','2026-01-01' FROM bots","split(s) recorded"),
         ("UPDATE bots SET type='Bots::DcaIndex'","configured deltabadger market-data provider"),
-        ("UPDATE bots SET type='Bots::DcaIndex'; UPDATE exchanges SET type='Exchanges::Kraken'","index bot (only on Alpaca)"),
+        ("UPDATE bots SET type='Bots::DcaIndex'; UPDATE exchanges SET type='Exchanges::Kraken'","an index bot on Kraken or Binance (only on Alpaca)"),
         ("UPDATE bots SET type='Bots::DcaIndex'; UPDATE assets SET symbol='EUR' WHERE symbol='USD'","quote EUR"),
         ("UPDATE bots SET type='Bots::DcaIndex'","index_type"),
         ("UPDATE bots SET type='Bots::DcaIndex'","index_category_id missing"),
