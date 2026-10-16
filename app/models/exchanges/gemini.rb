@@ -24,7 +24,12 @@ class Exchanges::Gemini < Exchange
     # would have parked a working bot and told the user to replace a key that was never the
     # problem. Kraken files its equivalent (EAPI:Invalid nonce) under :transient for the same
     # reason. "System" (HTTP 500) and "Maintenance" (HTTP 503) are Gemini saying come back later.
-    transient: ['InvalidNonce', '"reason":"System"', '"reason":"Maintenance"']
+    transient: ['InvalidNonce', '"reason":"System"', '"reason":"Maintenance"'],
+    # Listed again, deliberately: Gemini rejects a bad nonce while authenticating the request
+    # (https://developer.gemini.com/authentication/api-key, "Authentication Error Codes"), so the
+    # order never reached the book and placing it again cannot double-buy. Two bots on one key
+    # sending at once is enough to trip it. See Exchange#placement_transient_error?.
+    placement_safe_transient: ['InvalidNonce']
   }.freeze
 
   include Exchange::Dryable # decorators for: get_order, get_orders, cancel_order, get_api_key_validity, set_market_order, set_limit_order

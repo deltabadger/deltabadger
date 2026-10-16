@@ -30,6 +30,16 @@ class Exchanges::GeminiTest < ActiveSupport::TestCase
     assert_nil @exchange.failure_kind([body.call('InvalidQuantity')])
   end
 
+  # The nonce is checked while authenticating, before the order exists, so a placement that hit it
+  # is a clean rejection: re-placed by a signal bot, no failed row on a DCA bot.
+  test 'a nonce rejection on placement is a pre-trade rejection, not an ambiguous one' do
+    failure = Result::Failure.new('{"result":"error","reason":"InvalidNonce","message":"Nonce must be increasing"}',
+                                  data: { status: 400 })
+
+    assert @exchange.placement_transient_error?(failure.errors)
+    assert_not @exchange.ambiguous_placement_error?(failure)
+  end
+
   test 'minimum_amount_logic returns base' do
     assert_equal :base, @exchange.minimum_amount_logic
   end
