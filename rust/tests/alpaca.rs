@@ -345,3 +345,76 @@ async fn a_cancel_deletes_the_order_and_a_204_is_success() {
     let (_, v) = venue(json!({ "DELETE /v2/orders/OTX-1": status(422, json!({ "code": 42210000, "message": "order is already in \"filled\" state" })) }));
     assert_eq!(v.cancel("OTX-1").await, Err(VenueError::Rejected(vec![r#"order is already in "filled" state"#.into()])));
 }
+
+// ---- 6a Alpaca: the seller's free base and the settled cash, through #get_balances' identity
+
+/// Alpaca's catalog as #live_ticker_index builds it: 1 BTC (crypto, BTC/USD), 2 USD cash, 3 AAPL, 4 the "BTC" stock
+/// (a fund whose ticker is BTC), 5 the "USD" stock (an ETF whose ticker is USD).
+fn catalog() -> Result<deltabadger::sync::balances::Catalog, VenueError> {
+    let t = |native: &str, category: &str, id: i64| (native.to_string(), Some(category.to_string()), id);
+    Ok(deltabadger::sync::balances::Catalog::new(vec![1, 2, 3, 4, 5],
+        &[t("BTC/USD", "Cryptocurrency", 1), t("AAPL", "Stock", 3), t("BTC", "Stock", 4), t("USD", "Stock", 5)], vec![2]))
+}
+fn stock(symbol: &str, asset: i64) -> Ticker { Ticker { id: asset, ticker: symbol.into(), base_code: symbol.into(), base_symbol: symbol.into(), base_asset_id: asset, ..aapl() } }
+fn apple() -> Ticker { stock("AAPL", 3) }
+fn usd_etf() -> Ticker { stock("USD", 5) }
+fn btc_fund() -> Ticker { stock("BTC", 4) }
+fn account(positions: Value) -> AlpacaVenue<ScriptedTransport> {
+    venue(json!({ "GET /v2/account": ok(json!({ "cash": "100.5", "buying_power": "401", "non_marginable_buying_power": "80" })), "GET /v2/positions": ok(positions) })).1
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_sellers_free_base_is_qty_available_never_the_shares_already_on_the_book() {
+    let held = json!([{ "asset_class": "us_equity", "symbol": "AAPL", "qty": "10", "qty_available": "4" },
+                      { "asset_class": "crypto", "symbol": "BTCUSD", "qty": "0.5", "qty_available": "0.5" }]);
+    let v = account(held);
+    assert_eq!(v.free_base_identified(&apple(), catalog).await, Ok(bd("4")), "6 shares rest on an open sell");
+    assert_eq!(v.free_base_identified(&btc_usd(), catalog).await, Ok(bd("0.5")), "a crypto position by its slashless symbol");
+    let v = account(json!([{ "asset_class": "crypto", "symbol": "BTCUSD", "qty": "0.5", "qty_available": "0.5" }]));
+    assert_eq!(v.free_base_identified(&apple(), catalog).await, Ok(BigDec::zero()), "absent is no holdings");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_symbol_another_class_or_cash_shares_is_never_the_base() {
+    // A "BTC" stock fund and a BTC crypto position: each bot reads only its own class.
+    let v = account(json!([{ "asset_class": "us_equity", "symbol": "BTC", "qty": "7", "qty_available": "7" },
+                           { "asset_class": "crypto", "symbol": "BTCUSD", "qty": "0.3", "qty_available": "0.1" }]));
+    assert_eq!(v.free_base_identified(&btc_usd(), catalog).await, Ok(bd("0.1")));
+    assert_eq!(v.free_base_identified(&btc_fund(), catalog).await, Ok(bd("7")));
+    // The "USD" ETF is a position, never the account's cash, and the cash is never the ETF.
+    let v = account(json!([{ "asset_class": "us_equity", "symbol": "USD", "qty": "3", "qty_available": "2" }]));
+    assert_eq!(v.free_base_identified(&usd_etf(), catalog).await, Ok(bd("2")));
+    let none = account(json!([]));
+    assert_eq!(none.free_base_identified(&usd_etf(), catalog).await, Ok(BigDec::zero()), "cash is not a USD security");
+    assert_eq!(v.settled_quote_balance(&usd_etf(), catalog).await, Ok(bd("100.5")), "nor is a USD security cash");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn an_unreadable_or_ambiguous_holding_is_an_error_never_zero() {
+    let two = || -> Result<deltabadger::sync::balances::Catalog, VenueError> {
+        let t = |native: &str, id: i64| (native.to_string(), Some("Stock".to_string()), id);
+        Ok(deltabadger::sync::balances::Catalog::new(vec![2, 3, 6], &[t("AAPL", 3), t("AAPL", 6)], vec![2]))
+    };
+    let v = account(json!([{ "asset_class": "us_equity", "symbol": "AAPL", "qty": "10", "qty_available": "10" }]));
+    assert!(v.free_base_identified(&apple(), two).await.is_err(), "two assets answer to AAPL: Rails' skip would read 0");
+    let v = account(json!([{ "asset_class": "us_equity", "symbol": "AAPL", "qty": "10" }]));
+    assert_eq!(v.free_base_identified(&apple(), catalog).await, Err(VenueError::Rejected(vec!["a position without a quantity".into()])));
+    let v = account(json!([{ "asset_class": "us_equity", "symbol": "", "qty": "10", "qty_available": "1" }]));
+    assert_eq!(v.free_base_identified(&apple(), catalog).await, Err(VenueError::Rejected(vec!["a position without a symbol".into()])));
+    let (_, v) = venue(json!({ "GET /v2/account": ok(json!({ "buying_power": "1" })), "GET /v2/positions": ok(json!([])) }));
+    assert_eq!(v.free_base_identified(&apple(), catalog).await, Err(VenueError::Rejected(vec!["the account has no cash figure".into()])));
+    let (_, v) = venue(json!({ "GET /v2/account": ok(json!({ "cash": "1" })), "GET /v2/positions": status(500, json!({ "message": "internal server error" })) }));
+    assert_eq!(v.free_base_identified(&apple(), catalog).await, Err(VenueError::Rejected(vec!["internal server error".into()])));
+    // Another position's missing quantity is not this asset's answer, as Rails reads only the asset asked for.
+    let v = account(json!([{ "asset_class": "us_equity", "symbol": "BTC", "qty": "7" }, { "asset_class": "us_equity", "symbol": "AAPL", "qty": "2", "qty_available": "2" }]));
+    assert_eq!(v.free_base_identified(&apple(), catalog).await, Ok(bd("2")));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn the_settled_quote_is_cash_below_buying_power_and_buys_keep_buying_power() {
+    let v = account(json!([]));
+    assert_eq!(v.settled_quote_balance(&apple(), catalog).await, Ok(bd("100.5")), "account.cash, as Bot::Rebalancer reads the quote");
+    assert_eq!(v.balance("USD", false).await, Ok(bd("401")), "the buy funding read keeps buying power");
+    let ambiguous = || Ok(deltabadger::sync::balances::Catalog::new(vec![2, 7], &[], vec![2, 7]));
+    assert_eq!(v.settled_quote_balance(&apple(), ambiguous).await, Err(VenueError::Rejected(vec!["Unmapped or ambiguous Alpaca cash asset".into()])));
+}

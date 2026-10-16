@@ -323,7 +323,7 @@ async fn rails_and_rust_decide_identically_across_the_binance_grid() {
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
 }
 
-/// Slice 6a: a one-asset basket selling on Kraken and Binance (script/rust/decisions.rb sell_scenarios), compared whole.
+/// Slice 6a: a one-asset basket selling on Kraken, Binance and Alpaca (script/rust/decisions.rb sell_scenarios), compared whole.
 #[tokio::test(flavor = "current_thread")]
 async fn rails_and_rust_decide_identically_across_the_sell_grid() {
     let rails_root = tempfile::tempdir().unwrap();
@@ -331,7 +331,7 @@ async fn rails_and_rust_decide_identically_across_the_sell_grid() {
     built_grid("grid-sell", rails_root.path());
     let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
     dirs.sort();
-    assert_eq!(dirs.len(), 120, "the sell grid has {} scenarios", dirs.len());
+    assert_eq!(dirs.len(), 195, "the sell grid has {} scenarios", dirs.len());
     for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
     rails(&["record", rails_root.path().to_str().unwrap()]);
     let mut failures = vec![];
@@ -343,10 +343,18 @@ async fn rails_and_rust_decide_identically_across_the_sell_grid() {
         if rails_out != rust_out { failures.push(format!("{name}\n  rails: {rails_out}\n  rust:  {rust_out}")); }
         // Pin what Rails does, so that two silent sides cannot pass.
         let sent = rails_out["sent"].as_array().unwrap().len();
-        let placing = ["-first_tick", "-on_schedule", "-free_below", "-carry_frozen", "-rejected_insufficient"].iter().any(|v| name.ends_with(v));
+        let placing = ["-first_tick", "-on_schedule", "-free_below", "-carry_frozen", "-rejected_insufficient", "-resting_sell", "-reserve_settled", "-reserve_pending_cancel"]
+            .iter().any(|v| name.ends_with(v));
         if sent != usize::from(placing) { failures.push(format!("{name}: Rails sent {sent} order(s)\n  rails: {rails_out}")); }
         let mailed: Vec<&str> = rails_out["mails"].as_array().unwrap().iter().map(|m| m["mail"].as_str().unwrap()).collect();
         if name.ends_with("-rejected_insufficient") { assert!(!mailed.contains(&"end_of_funds"), "{name}: a seller is never told to top up its quote"); }
+        // Alpaca: free is qty_available (0.004), never qty (0.104, counting the shares on a resting sell).
+        if name == "sell-alpaca-base_market-free_below" { assert_eq!(rails_out["sent"][0]["qty"], "0.004000000", "{name}"); }
+        let td = rails_out["changes"]["bots"].get(0).map(|b| b["after"]["transient_data"].clone()).unwrap_or_default();
+        // 60 − 19.2 filled returns once, capped at the effective amount (the Smart Intervals split, 20).
+        let returned = if name.contains("-base_smart-") { serde_json::json!(20.0) } else { serde_json::json!("40.8") };
+        if name.ends_with("-reserve_settled") { assert!(td["missed_quote_amount"] == returned && td.get("flip_reserve_pending").is_none(), "{name}: {td}"); }
+        if name.ends_with("-reserve_pending_cancel") { assert_eq!(td["flip_reserve_pending"], serde_json::json!([1]), "{name}: nothing until the final state"); }
     }
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
 }
