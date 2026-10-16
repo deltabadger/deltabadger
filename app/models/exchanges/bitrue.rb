@@ -5,6 +5,10 @@ class Exchanges::Bitrue < Exchange
     invalid_key: ['Invalid Api-Key ID.', 'Signature for this request is not valid.']
   }.freeze
   ORDER_STATUS_MAP = {
+    # "means ur order is in queue" (https://github.com/Bitrue-exchange/Spot-official-api-docs#enum-definitions).
+    'PENDING_CREATE' => :open,
+    # Documented as "currently unused"; read as Binance reads it.
+    'PENDING_CANCEL' => :unknown,
     'NEW' => :open,
     'PARTIALLY_FILLED' => :open,
     'FILLED' => :closed,
