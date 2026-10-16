@@ -6,7 +6,15 @@ class Exchanges::Hyperliquid < Exchange
     # is a substring of it. Every rejection also arrives behind a "Hyperliquid order failed: "
     # prefix (see set_order), which is why exact matching could never have worked here.
     insufficient_funds: ['Insufficient spot balance', 'Insufficient balance', 'Not enough balance'],
-    invalid_key: ['Invalid API key', 'Authentication failed', 'Invalid signature']
+    # The venue recovers the signer from the signature, so an agent wallet that was never approved,
+    # has expired, or a secret that is not the agent's all read the same way:
+    #   {"status":"err","response":"User or API Wallet 0x… does not exist."}
+    # Hyperliquid has no API-key vocabulary; the strings that stood here never occur.
+    invalid_key: ['User or API Wallet'],
+    # Address-based action limit (https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/rate-limits-and-user-limits):
+    #   {"status":"err","response":"Too many cumulative requests sent (37986 > 10436) for cumulative volume traded …"}
+    # and the 1200-weight IP limit, an HTTP 429 (hyperliquid-rb: "HTTP 429: …"; Faraday: "status 429").
+    throttle: ['Too many cumulative requests sent', 'HTTP 429', 'status 429']
   }.freeze
 
   # Hyperliquid price rule: at most SIGNIFICANT_FIGURES significant figures and,
