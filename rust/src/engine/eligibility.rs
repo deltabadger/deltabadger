@@ -171,9 +171,9 @@ fn bot_reasons_with(c: &Connection, bot: &Bot, splits: &mut SplitRows) -> Result
     let sold: bool = c.query_row("SELECT EXISTS (SELECT 1 FROM transactions WHERE bot_id = ?1 AND side = 1)", [bot.id], |r| r.get(0))?;
     if (alpaca || sold) && r.is_empty() {
         if let Err(e) = super::basket::walk(c, bot, DateTime::from_timestamp_nanos(i64::MAX)) {
-            // A swap whose sell closed before its proceeds are known: admitted awaiting its figures. The DCA tick stands down
-            // while it is pending; the rebalance fire re-reads that row before anything else is decided.
-            if !super::rebalance::awaiting_proceeds(c, bot)? { return Err(e); }
+            // A swap whose pending sell or buy closed before its figures are known: admitted awaiting them. The DCA tick stands
+            // down while it is pending; the rebalance fire re-reads that row before anything else is decided.
+            if !super::rebalance::awaiting_figures(c, bot)? { return Err(e); }
             return Ok(r);
         }
     }

@@ -442,3 +442,84 @@ async fn an_index_change_between_a_lost_swap_reply_and_a_restart_resumes_the_sen
     assert_eq!(bot.transient["rebalance_pending"], json!({ "phase": "selling", "sell_transaction_id": sell, "buy_transaction_id": null, "remaining_quote_amount": null, "buy_attempted": false }));
     assert_eq!(in_index(&o, id).iter().map(|(s, _)| s.as_str()).collect::<Vec<_>>(), ["AAA", "BBB", "DDD"], "the refresh ran after the recovery");
 }
+
+/// A stopped index bot rebalancing AAA (10 shares bought at 100) and BBB (3), with AAA's split recorded at `ratio` (a trusted
+/// row: 10 shares out, `delta` net in), and the script the swap reads: an open clock, AAA's position at `aaa`.
+fn split_swap(ratio: &str, delta: &str, aaa: &str) -> (tempfile::TempDir, store::Opened, i64, i64, ScriptedTransport) {
+    let (d, o, s, id, m) = universe(3, 0.0, false);
+    o.primary.execute("UPDATE bots SET status = 2, settings = json_set(settings, '$.rebalance_enabled', json('true')) WHERE id = ?1", [id]).unwrap();
+    o.primary.execute("INSERT INTO exchange_assets (exchange_id, asset_id, available, created_at, updated_at) \
+                       SELECT exchange_id, base_asset_id, 1, created_at, updated_at FROM tickers WHERE quote = 'USD' AND ticker NOT LIKE '%/%'", []).unwrap();
+    for (i, (sym, qty, quote)) in [("AAA", "10", "1000"), ("BBB", "3", "300")].into_iter().enumerate() {
+        seed::insert_stock_tx(&o.primary, &s, id, m[i].0, sym, &TxSpec { status: 0, external_status: Some(2), external_id: Some(format!("held-{sym}")), order_type: 0,
+            amount: Some(qty), quote_amount: Some(quote), price: Some("100"), amount_exec: Some(qty), quote_amount_exec: Some(quote), created_at: "2026-08-01 14:00:00".into() });
+    }
+    let row = seed::insert_split(&o.primary, &s, "AAA", "2026-08-05 00:00:00", Some(ratio));
+    o.primary.execute("UPDATE account_transactions SET base_amount = ?1, raw_data = ?2 WHERE id = ?3",
+                      rusqlite::params![delta, json!({ "corporate_action": "split", "qty": "-10", "split_ratio": ratio, "merged_activity_ids": ["a", "b"] }).to_string(), row]).unwrap();
+    let snapshots: serde_json::Map<String, Value> = SYMBOLS.iter().map(|s| (s.to_string(), json!({ "latestTrade": { "p": 100 } }))).collect();
+    let mut script = json!({
+        "GET /v2/clock": ok(json!({ "timestamp": "2026-09-01T10:00:00.5-04:00", "is_open": true, "next_open": "2099-01-02T09:30:00-05:00", "next_close": "2099-01-01T16:00:00-05:00" })),
+        "POST /v2/orders": ok(json!({ "id": "OTX-1", "status": "accepted" })),
+        "GET /v2/account": ok(json!({ "cash": "100000", "buying_power": "200000", "non_marginable_buying_power": "100000" })),
+        "GET /v2/positions": ok(json!([{ "symbol": "AAA", "asset_class": "us_equity", "qty": aaa, "qty_available": aaa },
+                                      { "symbol": "BBB", "asset_class": "us_equity", "qty": "3", "qty_available": "3" }])),
+        "GET /v2/stocks/snapshots": ok(Value::Object(snapshots)),
+        "GET /v1beta3/crypto/us/latest/trades": ok(json!({ "trades": {} })),
+    });
+    for sym in SYMBOLS { script[format!("GET /v2/stocks/{sym}/quotes/latest")] = ok(json!({ "quote": { "ap": 100, "bp": 100 } })); }
+    (d, o, id, row, ScriptedTransport::from_script(&script))
+}
+async fn evaluate_swap<T: deltabadger::venue::http::Transport>(o: &store::Opened, v: &AlpacaVenue<T>, id: i64) -> deltabadger::engine::rebalance::Outcome {
+    use deltabadger::engine::tick::{PriceCache, TickContext};
+    let prices = PriceCache::default();
+    let bot = model::load_bot(&o.primary, id).unwrap();
+    let cx = TickContext { credential_version: model::credential_version(&o.primary, &bot).unwrap(), prices: &prices,
+                           process_start: DateTime::<Utc>::MIN_UTC, stopping: &|| false, below_minimum: &|_, _| {} };
+    deltabadger::engine::rebalance::run(&o.primary, v, id, &FixedClock(at("2026-09-01T16:30:00Z")), &cx).await.unwrap()
+}
+
+/// A rebalance sizes neither leg on a split the venue disagrees with: a recorded 3:2 on 10 shares restates AAA to 15 while
+/// the venue holds 30, so the reconciliation tick::execute applies holds the swap (unreconciled, it sold 6 of the 30).
+#[tokio::test(flavor = "current_thread")]
+async fn a_swap_holds_on_a_split_the_venue_disagrees_with() {
+    use deltabadger::engine::rebalance::Outcome;
+    let (_d, o, id, _, t) = split_swap("3:2", "5", "30");
+    assert_eq!(evaluate_swap(&o, &venue(&t), id).await, Outcome::Skipped("split_hold"));
+    assert!(t.posted_orders().is_empty());
+    assert!(model::load_bot(&o.primary, id).unwrap().transient.get("rebalance_pending").is_none_or(Value::is_null));
+    // Reconciled (the venue's 30 is the 3:1 the row should have said), the same swap sells.
+    let (_d, o, id, _, t) = split_swap("3:1", "20", "30");
+    assert!(matches!(evaluate_swap(&o, &venue(&t), id).await, Outcome::Placed(_)));
+    assert_eq!(posted_symbols(&t), ["AAA"]);
+}
+
+/// A split correction landing while a leg is sized (3:1 corrected to 3:2 during a positions read) is caught: the snapshot is
+/// taken before the reconciliation and the valuation, and the intent's fence compares the row against it. Captured after the
+/// reads, the stale 30-share plan was accepted.
+#[tokio::test(flavor = "current_thread")]
+async fn a_split_correction_during_the_swaps_reads_is_never_sized_through() {
+    use deltabadger::engine::rebalance::Outcome;
+    use deltabadger::venue::http::{HttpRequest, HttpResponse, Transport, TransportError};
+    struct Correcting { script: ScriptedTransport, db: rusqlite::Connection, row: i64, bot: i64, at_read: usize, reads: std::cell::Cell<usize> }
+    impl Transport for Correcting {
+        async fn send(&self, req: &HttpRequest) -> Result<HttpResponse, TransportError> {
+            if req.path == "/v2/positions" {
+                self.reads.set(self.reads.get() + 1);
+                if self.reads.get() == self.at_read {
+                    self.db.execute("UPDATE account_transactions SET base_amount = 5, raw_data = json_set(raw_data, '$.split_ratio', '3:2') WHERE id = ?1", [self.row]).unwrap();
+                    self.db.execute("UPDATE bots SET restatement_generation = restatement_generation + 1 WHERE id = ?1", [self.bot]).unwrap();
+                }
+            }
+            self.script.send(req).await
+        }
+    }
+    for at_read in [1, 2] {
+        let (_d, o, id, row, t) = split_swap("3:1", "20", "30");
+        let v = AlpacaVenue::new(Correcting { script: t.clone(), db: rusqlite::Connection::open(o.primary.path().unwrap()).unwrap(), row, bot: id, at_read, reads: 0.into() },
+                                 Urls::for_passphrase(Some("paper")));
+        let out = evaluate_swap(&o, &v, id).await;
+        assert!(matches!(out, Outcome::Skipped("split_hold" | "changed")), "read {at_read}: {out:?}");
+        assert!(t.posted_orders().is_empty(), "read {at_read}");
+    }
+}

@@ -443,13 +443,28 @@ async fn rebalance<V: Venue + Attributed>(c: &Connection, venue: &V, bot: Bot, c
     // Bots::DcaMultiAsset#rebalance_targets: sliders off 100 % give no targets, so no drift (a pending swap, resumed above,
     // still has its targets).
     if !super::eligibility::allocations_balanced(&bot) { return Ok(Outcome::Skipped("not_due")); }
+    let Some(reconciled) = split_gate(c, venue, &bot, clock).await? else { return Ok(Outcome::Skipped("split_hold")) };
     // #rebalance_due? reads the drift from rebalance_targets (cached in Rails; always fresh here).
     let entries = match value(c, venue, &bot, clock.now()).await? {
         Ok((_, entries)) => entries,
         Err(ValueFail::Transient(m) | ValueFail::Raised(m)) => return Ok(Outcome::Failed(m)),
     };
     if !due(&bot.settings, &bot.transient, false, drift(entries.as_deref()).as_ref())? { return Ok(Outcome::Skipped("not_due")); }
-    start(c, venue, &bot, entries.unwrap_or_default(), clock, cx).await
+    start(c, venue, &bot, entries.unwrap_or_default(), &reconciled, clock, cx).await
+}
+
+/// tick::execute's split gate, before either leg is sized: the snapshot first, then the account's restated holdings against
+/// the venue's positions (splits::refusal), and the snapshot unchanged across that read. The snapshot is carried to the
+/// intent, whose fence refuses a split row that changed while the leg was sized. None: hold, nothing is sized.
+async fn split_gate<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, clock: &dyn Clock) -> Result<Option<super::splits::Snapshot>, EngineError> {
+    let reconciled = super::splits::snapshot(c, bot)?;
+    let reason = match super::splits::refusal(c, venue, bot, clock.now()).await? {
+        Some(reason) => reason,
+        None if super::splits::snapshot(c, bot)? != reconciled => "split generation or held assets changed during reconciliation".into(),
+        None => return Ok(Some(reconciled)),
+    };
+    super::log(&format!("[engine] bot {}: rebalance skipped: split reconciliation required: {reason}", bot.id));
+    Ok(None)
 }
 
 /// Bot::Composition::Rebalancer#before_rebalance: the composition is refreshed (a stopped bot's DCA tick never does it), best
@@ -475,7 +490,7 @@ async fn before_rebalance<V: Venue + Attributed>(c: &Connection, venue: &V, bot:
 }
 
 /// #start_rebalance!: sell the most overweight member down to its target (never more than is free on the venue).
-async fn start<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, entries: Vec<Entry>, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<Outcome, EngineError> {
+async fn start<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, entries: Vec<Entry>, reconciled: &super::splits::Snapshot, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<Outcome, EngineError> {
     // #rebalance_sell_order_data; nil is a silent below_minimum.
     let Some((i, excess)) = sell_target(Some(&entries)) else { return Ok(Outcome::Skipped("below_minimum")) };
     let ticker = entries[i].ticker.clone().expect("a tradeable entry has a ticker");
@@ -492,7 +507,7 @@ async fn start<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, entr
         return Ok(Outcome::Skipped("below_minimum"));
     }
     let intent_state = Pending { phase: PHASE_SELLING.into(), sell_transaction_id: None, buy_transaction_id: None, remaining_quote_amount: None, buy_attempted: false };
-    place(c, venue, bot, &plan, &intent_state, clock, cx).await
+    place(c, venue, bot, &plan, &intent_state, reconciled, clock, cx).await
 }
 
 /// #waiting_buy_blocks_sell?: a waiting buy of this asset on any of the account's bots, by id or by any name a venue lists it
@@ -540,12 +555,13 @@ impl Row {
     }
 }
 
-/// A selling swap whose sell is closed with its proceeds still unknown (#realized_proceeds is nil): the holdings walk cannot
-/// value it yet, Rails waits for the figures (proceeds_unknown), and so does the engine.
-pub(crate) fn awaiting_proceeds(c: &Connection, bot: &Bot) -> Result<bool, EngineError> {
+/// A swap whose pending leg is closed with its figures still unknown (#realized_proceeds is nil): a sell's proceeds or a buy's
+/// fill. The holdings walk cannot value it yet; Rails re-reads that row first on each fire (#resume_selling!, #resume_buying!
+/// refresh before anything else), and so does the engine.
+pub(crate) fn awaiting_figures(c: &Connection, bot: &Bot) -> Result<bool, EngineError> {
     let Some(p) = pending(&bot.transient)? else { return Ok(false) };
-    if p.phase != PHASE_SELLING { return Ok(false); }
-    Ok(pending_row(c, bot.id, p.sell_transaction_id)?.is_some_and(|row| row.terminal() && !row.abandoned() && row.realized().is_none()))
+    let id = match p.phase.as_str() { PHASE_SELLING => p.sell_transaction_id, PHASE_BUYING => p.buy_transaction_id, _ => return Ok(false) };
+    Ok(pending_row(c, bot.id, id)?.is_some_and(|row| row.terminal() && !row.abandoned() && row.realized().is_none()))
 }
 
 /// #refresh_pending_order!: Bot::FetchAndUpdateOrderJob for this one row whatever its state (a closed row whose figures are
@@ -604,6 +620,7 @@ async fn place_pending_buy<V: Venue + Attributed>(c: &Connection, venue: &V, bot
     let p = pending(&bot.transient)?.ok_or_else(|| EngineError::Data(format!("bot {bot_id}: no pending rebalance to buy for")))?;
     let owed = p.remaining_quote_amount.clone().unwrap_or_else(BigDec::zero);
     if !owed.is_positive() { clear_pending(c, bot_id)?; return Ok(Outcome::Skipped("nothing_owed")); }
+    let Some(reconciled) = split_gate(c, venue, &bot, clock).await? else { return Ok(Outcome::Skipped("split_hold")) };
     let entries = match value(c, venue, &bot, clock.now()).await? {
         Ok((_, entries)) => entries,
         Err(ValueFail::Transient(m) | ValueFail::Raised(m)) => return Ok(Outcome::Failed(m)),
@@ -625,16 +642,16 @@ async fn place_pending_buy<V: Venue + Attributed>(c: &Connection, venue: &V, bot
     }
     // #mark_buy_attempted!, written with the intent.
     let intent_state = Pending { phase: PHASE_BUYING.into(), sell_transaction_id: p.sell_transaction_id, buy_transaction_id: None, remaining_quote_amount: Some(owed), buy_attempted: true };
-    place(c, venue, &bot, &plan, &intent_state, clock, cx).await
+    place(c, venue, &bot, &plan, &intent_state, &reconciled, clock, cx).await
 }
 
 /// #place_rebalance_order: the intent and the pending phase in one transaction (placement::begin_rebalance), one send, and
 /// the outcome settled with the row (placement::settle_rebalance through send_recorded).
-async fn place<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, plan: &OrderPlan, intent_state: &Pending, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<Outcome, EngineError> {
+#[allow(clippy::too_many_arguments)]
+async fn place<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, plan: &OrderPlan, intent_state: &Pending, reconciled: &super::splits::Snapshot, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<Outcome, EngineError> {
     use super::placement::{Begun, Sent};
     let composition = super::placement::composition_snapshot(c, bot)?;
-    let reconciled = super::splits::snapshot(c, bot)?;
-    let intent = match super::placement::begin_rebalance(c, bot, plan, &[&plan.ticker], &composition, &reconciled, &cx.credential_version, venue.placement_identity(), intent_state, clock)? {
+    let intent = match super::placement::begin_rebalance(c, bot, plan, &[&plan.ticker], &composition, reconciled, &cx.credential_version, venue.placement_identity(), intent_state, clock)? {
         Begun::Intent(intent) => intent,
         Begun::Changed | Begun::Fenced => return Ok(Outcome::Skipped("changed")),
         Begun::LedgerStale(_) => return Ok(Outcome::Skipped("ledger_stale")),

@@ -187,6 +187,25 @@ async fn a_closed_sell_without_proceeds_waits_for_them() {
     assert_eq!(posted(&late)[0].1, "buy");
 }
 
+/// The buy's twin: closed, executed, its price and quote figure unknown. Before the fix the walk refused it and the bot was
+/// unreadable at the install, so no fire ever re-read the row (Rails' #resume_buying! refreshes it first).
+#[tokio::test(flavor = "current_thread")]
+async fn a_closed_buy_without_its_fill_figures_waits_for_them() {
+    let (_d, o, id, _, _) = swap_bot(stopped());
+    let t = script(json!({ "GET /v2/orders/OTX-1": [sold_btc("0.00421875", Some("64000"), "filled")],
+                           "GET /v2/orders/OTX-2": [order("OTX-2", "filled", "ETH/USD", "buy", None, Some("270"), "0.108", None)] }));
+    evaluate(&o, &t, id, at(T0)).await;
+    assert!(matches!(evaluate(&o, &t, id, at(T0) + Duration::hours(4)).await, Outcome::Placed(_)));
+    o.primary.execute("UPDATE transactions SET external_status = 2, amount_exec = 0.108, price = NULL, quote_amount_exec = NULL WHERE external_id = 'OTX-2'", []).unwrap();
+    assert_eq!(evaluate(&o, &t, id, at(T0) + Duration::hours(8)).await, Outcome::Skipped("fill_unknown"));
+    assert_eq!(pending(&o, id)["phase"], "buying");
+    let report = eligibility::check_install(&o.primary).unwrap();
+    assert_eq!((report.problems, report.unreadable), (vec![], vec![]), "admitted awaiting the buy's figures");
+    let late = script(json!({ "GET /v2/orders/OTX-2": [order("OTX-2", "filled", "ETH/USD", "buy", None, Some("270"), "0.108", Some("2500"))] }));
+    assert_eq!(evaluate(&o, &late, id, at(T0) + Duration::hours(12)).await, Outcome::Skipped("completed"));
+    assert_eq!(pending(&o, id), Value::Null);
+}
+
 #[tokio::test(flavor = "current_thread")]
 async fn a_cancelled_sell_that_sold_nothing_ends_the_swap() {
     let (_d, o, id, _, _) = swap_bot(stopped());
