@@ -15,7 +15,7 @@ use crate::codec::format_time;
 use crate::enums::BotStatus;
 use crate::ruby::{iso8601_ms, to_sentence, BigDec};
 use crate::venue::{PriceSide, Venue, VenueError};
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::{json, Value};
 use std::time::Duration;
 
@@ -403,6 +403,14 @@ async fn tick_inner<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &mut 
 async fn execute<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<Result<Ran, Fail>, EngineError> {
     let bot_id = bot.id;
     model::require_run(c, bot)?;
+    // Bot::Rebalanceable's first stand-down: a swap in flight owes its buy the proceeds of its sell, so the DCA leg places
+    // nothing, reads nothing and sweeps nothing (rebalanceable.rb:64-68). Success: the contribution is carried by the interval
+    // count.
+    if super::rebalance::is_pending(&bot.transient) {
+        let now = clock.now();
+        model::run_write(c, bot, |tx| model::log_activity(tx, bot_id, "dca_skipped_rebalance_pending", Level::Info, json!({}), now))?;
+        return Ok(Ok(Ran { placed: false, fenced: false, ledger_stale: None }));
+    }
     // Bot::Rebalanceable's stand-down, the outermost decorator of execute_action (rebalanceable.rb:75-82): a restatement the
     // market has not priced yet, or a split the bot cannot size. No sweep, no order, no balance read; success, so the bot goes
     // back to scheduled, and the contribution is carried by the interval count.
@@ -680,12 +688,76 @@ async fn reference<V: Venue + Attributed>(venue: &V, bot: &model::Bot, ticker: &
     }
 }
 
+/// Bot::Rebalancer#live_free_balance(asset_id) for one of `ticker`'s assets: the venue's free balance as #get_balances reads
+/// it (the quote is settled cash, the base its free units through the venue's asset identity). A base this bot also bought
+/// on another venue (a merge) is capped at #local_units: the venue may sell in its name only what it bought there. `Err`
+/// is the venue's failed read, never an empty balance.
+pub async fn live_free_balance<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot, ticker: &model::Ticker, asset_id: i64) -> Result<Result<BigDec, VenueError>, EngineError> {
+    let catalog = || crate::sync::balances::catalog_for(c, bot.user_id, bot.exchange_id).map_err(|e| VenueError::Rejected(vec![e.0]));
+    let read = if asset_id == ticker.quote_asset_id { venue.settled_quote_result(ticker, catalog).await } else { venue.free_base_result(ticker, catalog).await };
+    let free = match read.value { Ok(free) => free, Err(e) => return Ok(Err(e)) };
+    if Some(asset_id) == bot.quote_asset_id() || !foreign_rows(c, bot, asset_id)? { return Ok(Ok(free)); }
+    let local = local_units(c, bot, asset_id)?;
+    Ok(Ok(if local < free { local } else { free }))
+}
+
+/// Bot::Rebalancer#foreign_rows?: a submitted row of this asset placed on another venue (only a merge writes one).
+fn foreign_rows(c: &Connection, bot: &model::Bot, asset_id: i64) -> Result<bool, EngineError> {
+    Ok(c.query_row("SELECT EXISTS (SELECT 1 FROM transactions WHERE bot_id = ?1 AND status = 0 AND base_asset_id = ?2 AND exchange_id != ?3)",
+                   params![bot.id, asset_id, bot.exchange_id], |r| r.get(0))?)
+}
+
+/// Bot::Rebalancer::UNSPLITTABLE_CATEGORIES: unit counts no corporate action restates.
+const UNSPLITTABLE_CATEGORIES: [&str; 4] = ["Cryptocurrency", "Currency", "Fiat", "Stablecoin"];
+
+/// Bot::Rebalancer#local_units: executed buys minus executed sells of the asset on this bot's own venue, each read by
+/// Transaction.confirmed_exec_amounts (a closed row with no executed figure counts its ordered amount), never below 0. An
+/// asset that could have split (a share, a tokenized one) has none: a sum of fills is not what is held.
+fn local_units(c: &Connection, bot: &model::Bot, asset_id: i64) -> Result<BigDec, EngineError> {
+    let category: Option<String> = c.query_row("SELECT category FROM assets WHERE id = ?1", [asset_id], |r| r.get(0)).optional()?.flatten();
+    if !category.is_some_and(|k| UNSPLITTABLE_CATEGORIES.contains(&k.as_str())) { return Ok(BigDec::zero()); }
+    let dec = |v: rusqlite::types::ValueRef<'_>| crate::ruby::from_sql(v).map_err(|e| EngineError::Data(format!("{e:?}")));
+    let mut s = c.prepare("SELECT side, external_status, amount, amount_exec FROM transactions WHERE bot_id = ?1 AND status = 0 AND exchange_id = ?2 AND base_asset_id = ?3")?;
+    let mut rows = s.query(params![bot.id, bot.exchange_id, asset_id])?;
+    let mut net = BigDec::zero();
+    while let Some(r) = rows.next()? {
+        let (side, external_status): (Option<i64>, Option<i64>) = (r.get(0)?, r.get(1)?);
+        let (amount, amount_exec) = (dec(r.get_ref(2)?)?, dec(r.get_ref(3)?)?);
+        let executed = if external_status == Some(2) { amount_exec.or(amount) } else { amount_exec }.unwrap_or_else(BigDec::zero);
+        net = if side == Some(1) { &net - &executed } else { &net + &executed };
+    }
+    Ok(net.max(BigDec::zero()))
+}
+
+/// A failed live_free_balance as Bot::Rebalancer raises it: throttled, transient, else a plain error.
+fn balance_failure<V: Venue>(venue: &V, bot: &model::Bot, e: VenueError) -> Fail {
+    match e {
+        VenueError::Rejected(e) if venue.rules().is_throttle(&e) => Fail::RateLimited(to_sentence(&e)),
+        VenueError::Transient(m) => Fail::Transient(m),
+        // Exchange#transient_failure?'s text rules (Kraken's HTTP-200 "EGeneral:Internal error").
+        VenueError::Rejected(e) if venue.rules().is_transient(&e) => Fail::Transient(to_sentence(&e)),
+        VenueError::Rejected(e) => {
+            let m = format!("Failed to read balance for bot {}: {}", bot.id, to_sentence(&e));
+            Fail::General { errors: vec![m.clone()], message: m, failed_row: false }
+        }
+        VenueError::Ambiguous(m) => {
+            let m = format!("Failed to read balance for bot {}: {m}", bot.id);
+            Fail::General { errors: vec![m.clone()], message: m, failed_row: false }
+        }
+    }
+}
+
 /// Bot::Composition::OrderSetter#one_asset_sell_orders_data, then set_orders for its one order. `base`: "sell N base" (the
 /// per-tick base), else `quote` is sold at the order price. Up to the whole free wallet (owner ruling Q2): the venue's free
 /// base, never 0 for an unreadable answer. Nothing free is a skip with a log line only (`sell_skipped no_holdings`).
 #[allow(clippy::too_many_arguments)]
 async fn sell<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot, base: Option<BigDec>, quote: &BigDec, clock: &dyn Clock, cx: &TickContext<'_>, legs: &mut Legs, reconciled: &splits::Snapshot) -> Result<Result<(), Fail>, EngineError> {
     let composition = placement::composition_snapshot(c, bot)?;
+    // Bots::DcaMultiAsset#one_asset?: the configured members, not the tradeable ones.
+    if !bot.settings.as_object().is_some_and(super::schedule::one_asset) {
+        // Bots::DcaMultiAsset#sell_denomination is 'quote' for a wider basket (sell_amounts reads it so): base is None here.
+        return basket_sell(c, venue, bot, quote, &composition, clock, cx, legs, reconciled).await;
+    }
     let Some(member) = basket::members(c, bot)?.into_iter().next() else {
         let m = "No assets in composition".to_string();
         return Ok(Err(Fail::General { errors: vec![m.clone()], message: m, failed_row: false }));
@@ -705,22 +777,9 @@ async fn sell<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot
             None => { let m = "divided by 0".to_string(); return Ok(Err(Fail::General { errors: vec![m.clone()], message: m, failed_row: false })); }
         },
     };
-    // Bot::Rebalancer#live_free_balance: a failed read raises (throttled, transient, else a plain error), never reads empty.
-    let catalog = || crate::sync::balances::catalog_for(c, bot.user_id, bot.exchange_id).map_err(|e| VenueError::Rejected(vec![e.0]));
-    let free = match venue.free_base_result(&ticker, catalog).await.value {
+    let free = match live_free_balance(c, venue, bot, &ticker, ticker.base_asset_id).await? {
         Ok(free) => free,
-        Err(VenueError::Rejected(e)) if venue.rules().is_throttle(&e) => return Ok(Err(Fail::RateLimited(to_sentence(&e)))),
-        Err(VenueError::Transient(m)) => return Ok(Err(Fail::Transient(m))),
-        // Exchange#transient_failure?'s text rules (Kraken's HTTP-200 "EGeneral:Internal error").
-        Err(VenueError::Rejected(e)) if venue.rules().is_transient(&e) => return Ok(Err(Fail::Transient(to_sentence(&e)))),
-        Err(VenueError::Rejected(e)) => {
-            let m = format!("Failed to read balance for bot {}: {}", bot.id, to_sentence(&e));
-            return Ok(Err(Fail::General { errors: vec![m.clone()], message: m, failed_row: false }));
-        }
-        Err(VenueError::Ambiguous(m)) => {
-            let m = format!("Failed to read balance for bot {}: {m}", bot.id);
-            return Ok(Err(Fail::General { errors: vec![m.clone()], message: m, failed_row: false }));
-        }
+        Err(e) => return Ok(Err(balance_failure(venue, bot, e))),
     };
     model::require_run(c, bot)?;
     if !free.is_positive() {
@@ -737,6 +796,101 @@ async fn sell<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot
             return Ok(Err(Fail::General { errors: vec![m.clone()], message: m, failed_row: false }));
         }
         Sizing::Place(plan) => if let Placed::Failed(f) = place(c, venue, bot, &plan, &[&ticker], &composition, reconciled, clock, cx, legs).await? { return Ok(Err(f)); },
+    }
+    Ok(Ok(()))
+}
+
+/// Bot::Composition::OrderSetter#get_sell_orders_data(withdrawal), then set_orders over its orders. The withdrawal comes out
+/// of the member furthest above its share of what is left after it, valued fresh (composition_targets, force) net of its
+/// own resting sells; each order is `min(remaining / price, held net of resting sells)`, under the venue floor it hands
+/// over to the next-ranked member, then capped at live_free_balance and floored again. Every order is sized before any is
+/// sent. Nothing cleared a floor: the first member's attempt is reported once (a skipped row). No holdings is a logged
+/// skip; holdings with no valuation retry before anything is placed.
+#[allow(clippy::too_many_arguments)]
+async fn basket_sell<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot, withdrawal: &BigDec, composition: &Value, clock: &dyn Clock, cx: &TickContext<'_>, legs: &mut Legs, reconciled: &splits::Snapshot) -> Result<Result<(), Fail>, EngineError> {
+    use crate::figures::{at::At, db::Subject, live, market::Failure, walk, FiguresError};
+    let fig = |e: FiguresError| EngineError::Data(format!("{e:?}"));
+    let general = |m: String| Fail::General { errors: vec![m.clone()], message: m, failed_row: false };
+    let at = At::from_utc(clock.now()).ok_or_else(|| EngineError::Data("the tick's time is out of range".into()))?;
+    let subject = Subject::load(c, bot.id).map_err(fig)?;
+    let walked = walk::metrics(c, &subject, at).map_err(fig)?;
+    // metrics_with_current_prices(force: true): the venue is asked only past the walk's own early returns.
+    let symbols: Vec<String> = subject.tickers.iter().map(|t| t.ticker.clone()).collect();
+    let prices = if symbols.is_empty() || !live::needs_venue_price(c, &subject, &walked, at).map_err(fig)? { Ok(vec![]) } else {
+        match venue.tickers_prices(&symbols).await {
+            // `rescue ArgumentError; next`: a price that is no number is left out, not read as zero.
+            Ok(raw) => Ok(raw.into_iter().map(|(code, v)| (code, crate::figures::dec::Dec::venue_number(&v)))
+                .filter(|(_, p)| !matches!(p, Err(crate::figures::num::NumError::NotANumber))).collect()),
+            Err(VenueError::Transient(m)) => return Ok(Err(Fail::Transient(m))),
+            Err(VenueError::Rejected(e)) => Err(Failure::Failed(to_sentence(&e))),
+            Err(VenueError::Ambiguous(m)) => Err(Failure::Failed(m)),
+        }
+    };
+    let data = match live::live(c, &subject, &walked, &super::rebalance::Prefetched(prices), at) {
+        Ok(data) => Some(data),
+        Err(FiguresError::Raised(m)) => return Ok(Err(general(m))),
+        // A figure Rails computes and this build cannot (a price beyond dec's limits): no valuation, so the retry below,
+        // never a guessed ranking.
+        Err(FiguresError::NotComputed(_)) => None,
+        Err(e) => return Err(fig(e)),
+    };
+    let members = super::rebalance::members(c, bot, &subject)?;
+    let entries = match &data { Some(data) => super::rebalance::composition_targets(data, &members, &[])?, None => None };
+    let dec = |n: &crate::figures::num::Num| n.to_d().map_err(|e| EngineError::Data(format!("{e:?}"))).and_then(|d| BigDec::parse(&d.to_s_f()).map_err(|e| EngineError::Data(format!("{e:?}"))));
+    // holdings.dig(key_for(asset_id, fresh), :amount).to_d
+    let held_of = |asset: i64| -> Result<BigDec, EngineError> {
+        match walked.key_for(asset).and_then(|k| walked.asset_breakdown.iter().find(|(x, _)| x == k)) { Some((_, b)) => dec(&b.amount), None => Ok(BigDec::zero()) }
+    };
+    if !walked.asset_breakdown.iter().any(|(_, b)| b.amount.is_positive()) {
+        super::log(&format!("[engine] bot {}: set_orders composition event=sell_skipped reason=no_holdings", bot.id));
+        return Ok(Ok(()));
+    }
+    let Some(mut entries) = entries else { return Ok(Err(Fail::Transient(format!("No valuation for bot {}'s holdings", bot.id)))) };
+    let resting = basket::reserved_sells(c, bot)?;
+    let (zero, one) = (BigDec::zero(), BigDec::one());
+    for e in &mut entries {
+        let pending = resting.get(&e.asset_id).unwrap_or(&zero);
+        if !(pending.is_positive() && e.amount.is_positive()) { continue; }
+        let share = pending.div(&e.amount).expect("the amount is positive");
+        e.value = &e.value * &(&one - &(if share < one { share } else { one.clone() }));
+    }
+    let side = if bot.limit_distance().is_some() { PriceSide::Last } else { PriceSide::Bid };
+    let below = |s: Sizing| matches!(s, Sizing::BelowMinimum(_));
+    let mut remaining = withdrawal.clone();
+    let (mut orders, mut below_floor) = (vec![], None);
+    for i in super::rebalance::sell_ranking(&entries, withdrawal) {
+        if !remaining.is_positive() { break; }
+        let ticker = entries[i].ticker.clone().expect("a ranked entry is tradeable");
+        let held = &held_of(ticker.base_asset_id)? - resting.get(&ticker.base_asset_id).unwrap_or(&zero);
+        if !held.is_positive() { continue; }
+        let reference = match reference(venue, bot, &ticker, side, &ticker.base_code, clock, cx).await { Ok(p) => p, Err(f) => return Ok(Err(f)) };
+        let price = amount::side_price(bot, &ticker, &reference, crate::venue::Side::Sell)?;
+        // `remaining / price`: BigDecimal#/ by zero raises ZeroDivisionError, a plain StandardError.
+        let Some(wanted) = remaining.div(&price) else { return Ok(Err(general("divided by 0".into()))) };
+        let amount = if held < wanted { held } else { wanted };
+        if below(amount::size_sell(bot, &ticker, &amount, &price)?) { below_floor.get_or_insert((ticker, amount, price)); continue; }
+        let free = match live_free_balance(c, venue, bot, &ticker, ticker.base_asset_id).await? { Ok(free) => free, Err(e) => return Ok(Err(balance_failure(venue, bot, e))) };
+        model::require_run(c, bot)?;
+        if !free.is_positive() { continue; }
+        let amount = if free < amount { free } else { amount };
+        if below(amount::size_sell(bot, &ticker, &amount, &price)?) { below_floor.get_or_insert((ticker, amount, price)); continue; }
+        remaining = &remaining - &(&amount * &price);
+        orders.push((ticker, amount, price));
+    }
+    if orders.is_empty() { orders.extend(below_floor); }
+    let tickers: Vec<&model::Ticker> = entries.iter().filter_map(|e| e.ticker.as_ref()).collect();
+    for (ticker, amount, price) in orders {
+        match amount::size_sell(bot, &ticker, &amount, &price)? {
+            Sizing::Nothing => {}
+            Sizing::Ignored(plan) => { let now = clock.now(); model::run_write(c, bot, |tx| model::log_activity(tx, bot.id, "order_ignored", Level::Info, plan.log_details(), now))?; }
+            Sizing::BelowMinimum(plan) => legs.skipped.push(plan),
+            Sizing::ZeroPrice { decimals } => return Ok(Err(general(format!("limit price rounds to zero at {decimals} decimals")))),
+            Sizing::Place(plan) => match place(c, venue, bot, &plan, &tickers, composition, reconciled, clock, cx, legs).await? {
+                Placed::Next => {}
+                Placed::Stop => break,
+                Placed::Failed(f) => return Ok(Err(f)),
+            },
+        }
     }
     Ok(Ok(()))
 }

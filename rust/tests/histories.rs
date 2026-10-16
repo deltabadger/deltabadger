@@ -117,8 +117,6 @@ fn deferred_classes_and_existing_refusals_still_roll_back() {
         ("UPDATE bots SET settings=json_set(settings,'$.start_time_enabled',json('true'),'$.start_at','2026-01-06T12:00:00Z')","start_time_enabled"),
         ("UPDATE bots SET settings=json_set(settings,'$.price_limited',json('true'))","price_limited"),
         ("UPDATE bots SET settings=json_set(settings,'$.indicator_limited',json('true'))","indicator_limited"),
-        // 6a sells for a one-asset basket only: this two-asset Alpaca basket's selling stays deferred (6b).
-        ("UPDATE bots SET settings=json_set(settings,'$.direction','selling')","selling with 2 assets"),
         ("UPDATE bots SET settings=json_set(settings,'$.direction','sideways')","direction \"sideways\""),
         ("UPDATE bots SET settings=json_set(settings,'$.weighting','market_cap')","weighting"),
         ("UPDATE bots SET transient_data=json_set(transient_data,'$.liquidation_pending',json('{}'))","liquidation_pending"),

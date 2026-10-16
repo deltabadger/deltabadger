@@ -144,8 +144,107 @@ pub fn threshold(settings: &Value) -> Result<BigDec, EngineError> {
 /// and the drift strictly above the threshold.
 pub fn due(settings: &Value, transient: &Value, blocked: bool, drift: Option<&BigDec>) -> Result<bool, EngineError> {
     if !crate::web::bot::cast_boolean(settings.get("rebalance_enabled")) { return Ok(false); }
-    if transient.get("rebalance_pending").and_then(Value::as_object).is_some_and(|p| !p.is_empty()) { return Ok(false); }
+    if is_pending(transient) { return Ok(false); }
     if settings.get("direction").and_then(Value::as_str) == Some("selling") || blocked { return Ok(false); }
     let Some(drift) = drift else { return Ok(false) };
     Ok(*drift > threshold(settings)?)
+}
+
+/// The members composition_targets reads: `bot_index_assets.in_index` in id order with each asset's symbol and target, and
+/// Allocatable#ticker_for_asset among `subject`'s tickers (the bot's available, trading-enabled ones; the last of two for
+/// one asset, as index_by keeps it).
+pub fn members(c: &rusqlite::Connection, bot: &super::model::Bot, subject: &crate::figures::db::Subject) -> Result<Vec<Member>, EngineError> {
+    let mut s = c.prepare("SELECT bia.asset_id, a.symbol, bia.target_allocation FROM bot_index_assets bia LEFT JOIN assets a ON a.id = bia.asset_id \
+                           WHERE bia.bot_id = ?1 AND bia.in_index = 1 ORDER BY bia.id")?;
+    let rows = s.query_map([bot.id], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, Option<String>>(1)?, super::basket::target_from_sql(r.get_ref(2)?))))?
+        .collect::<Result<Vec<_>, _>>()?;
+    let mut out = vec![];
+    for (asset_id, symbol, target) in rows {
+        let ticker = match subject.tickers.iter().rev().find(|t| t.base_asset_id == asset_id) {
+            Some(t) => super::model::ticker_by_id(c, bot.exchange_id, t.id)?,
+            None => None,
+        };
+        out.push(Member { asset_id, symbol: symbol.unwrap_or_default(), target: target?, ticker });
+    }
+    Ok(out)
+}
+
+/// Exchange#get_tickers_prices' answer, read before the figures are marked (they ask synchronously).
+pub struct Prefetched(pub crate::figures::market::Fetch<Vec<(String, crate::figures::market::Member<crate::figures::dec::Dec>)>>);
+impl crate::figures::market::MarketData for Prefetched {
+    fn prices(&self, _: &crate::figures::market::Venue, _: &[String]) -> crate::figures::market::Fetch<Vec<(String, crate::figures::market::Member<crate::figures::dec::Dec>)>> { self.0.clone() }
+    fn candles(&self, _: &crate::figures::market::Venue, _: &crate::figures::db::Ticker, _: crate::figures::at::At, _: i64, _: bool) -> crate::figures::market::Fetch<Vec<(crate::figures::at::At, crate::figures::dec::Dec)>> { Err(unasked()) }
+    fn exchange_rates(&self) -> crate::figures::market::Fetch<Vec<(String, crate::figures::market::Member<crate::figures::num::Num>)>> { Err(unasked()) }
+    fn coin_price(&self, _: &str, _: &str) -> crate::figures::market::Fetch<crate::figures::market::Quoted> { Err(unasked()) }
+}
+fn unasked() -> crate::figures::market::Failure { crate::figures::market::Failure::Failed("not read for a trade".into()) }
+
+/// Bot::Rebalanceable::PENDING_KEY and its phases.
+pub const PENDING_KEY: &str = "rebalance_pending";
+pub const PHASE_SELLING: &str = "selling";
+pub const PHASE_BUYING: &str = "buying";
+pub const PHASE_AMBIGUOUS: &str = "ambiguous";
+/// Bot::Rebalanceable::BELOW_MINIMUM_KEY.
+pub const BELOW_MINIMUM_KEY: &str = "rebalance_below_minimum_at";
+
+/// transient_data.rebalance_pending as Bot::Rebalanceable#set_rebalance_pending! writes it.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Pending { pub phase: String, pub sell_transaction_id: Option<i64>, pub buy_transaction_id: Option<i64>, pub remaining_quote_amount: Option<BigDec>, pub buy_attempted: bool }
+
+impl Pending {
+    /// The payload, in Rails' shape: the remaining quote as `to_d.to_s('F')` (a String, never a number), buy_attempted a bool.
+    pub fn to_json(&self) -> Value {
+        serde_json::json!({ "phase": self.phase, "sell_transaction_id": self.sell_transaction_id, "buy_transaction_id": self.buy_transaction_id,
+                            "remaining_quote_amount": self.remaining_quote_amount.as_ref().map(BigDec::to_s_f), "buy_attempted": self.buy_attempted })
+    }
+}
+
+/// Bot::Rebalanceable#rebalance_pending?: a Hash with anything in it.
+pub fn is_pending(transient: &Value) -> bool { transient.get(PENDING_KEY).and_then(Value::as_object).is_some_and(|p| !p.is_empty()) }
+
+/// Bot::Rebalanceable#rebalance_pending, read as Rails reads it: an id as the integer (or its digits) `find_by(id:)` takes,
+/// the remaining quote by `to_d`, buy_attempted by Ruby truthiness. None when nothing is pending; a value Rails could not
+/// use is refused, never guessed.
+pub fn pending(transient: &Value) -> Result<Option<Pending>, EngineError> {
+    if !is_pending(transient) { return Ok(None); }
+    let p = &transient[PENDING_KEY];
+    let bad = |k: &str| EngineError::Data(format!("rebalance_pending.{k} {} is not readable", p[k]));
+    let id = |k: &str| match &p[k] {
+        Value::Null => Ok(None),
+        Value::Number(n) => n.as_i64().map(Some).ok_or_else(|| bad(k)),
+        Value::String(s) => s.parse().map(Some).map_err(|_| bad(k)),
+        _ => Err(bad(k)),
+    };
+    let remaining = match &p["remaining_quote_amount"] { Value::Null => None, v => Some(super::schedule::to_d(v).ok_or_else(|| bad("remaining_quote_amount"))?) };
+    Ok(Some(Pending { phase: p["phase"].as_str().unwrap_or_default().to_string(), sell_transaction_id: id("sell_transaction_id")?,
+                      buy_transaction_id: id("buy_transaction_id")?, remaining_quote_amount: remaining,
+                      buy_attempted: !matches!(p["buy_attempted"], Value::Null | Value::Bool(false)) }))
+}
+
+/// Bot::Rebalanceable#set_rebalance_pending! (merge_transient_data!: updated_at stays).
+pub fn set_pending(c: &rusqlite::Connection, bot_id: i64, p: &Pending) -> Result<(), EngineError> {
+    super::model::merge_transient_compact(c, bot_id, &[(PENDING_KEY, p.to_json())])
+}
+
+/// Bot::Rebalanceable#clear_rebalance_pending!: the key is removed.
+pub fn clear_pending(c: &rusqlite::Connection, bot_id: i64) -> Result<(), EngineError> {
+    super::model::merge_transient_compact(c, bot_id, &[(PENDING_KEY, Value::Null)])
+}
+
+/// Bot::Rebalanceable#rebalance_below_minimum?: the flag holds something that is not blank.
+pub fn below_minimum(transient: &Value) -> bool {
+    match transient.get(BELOW_MINIMUM_KEY) { None | Some(Value::Null | Value::Bool(false)) => false, Some(Value::String(s)) => !s.trim().is_empty(),
+                                            Some(Value::Array(a)) => !a.is_empty(), Some(Value::Object(o)) => !o.is_empty(), Some(_) => true }
+}
+
+/// #flag_rebalance_below_minimum!: stamped once (`Time.current.iso8601`), left alone while it stands.
+pub fn flag_below_minimum(c: &rusqlite::Connection, bot_id: i64, transient: &Value, now: chrono::DateTime<chrono::Utc>) -> Result<(), EngineError> {
+    if below_minimum(transient) { return Ok(()); }
+    super::model::merge_transient_compact(c, bot_id, &[(BELOW_MINIMUM_KEY, Value::String(now.format("%Y-%m-%dT%H:%M:%SZ").to_string()))])
+}
+
+/// #clear_rebalance_below_minimum!: only when it stands.
+pub fn clear_below_minimum(c: &rusqlite::Connection, bot_id: i64, transient: &Value) -> Result<(), EngineError> {
+    if !below_minimum(transient) { return Ok(()); }
+    super::model::merge_transient_compact(c, bot_id, &[(BELOW_MINIMUM_KEY, Value::Null)])
 }

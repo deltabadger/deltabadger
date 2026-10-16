@@ -196,10 +196,12 @@ fn commitments_bounded(c: &Connection, bot_id: i64, since: &str, limit: Option<u
 }
 
 /// Waiting buys claim only requested units still unfilled. Fill validation is shared with the walk.
-pub fn reserved(c: &Connection,bot_id:i64)->Result<std::collections::HashMap<i64,crate::ruby::BigDec>,FiguresError>{
+pub fn reserved(c: &Connection,bot_id:i64)->Result<std::collections::HashMap<i64,crate::ruby::BigDec>,FiguresError>{ reserved_side(c,bot_id,0) }
+/// `reserved` for the waiting orders on `side` (0 buy, 1 sell): reserved_waiting_amounts(:buy) or (:sell).
+pub fn reserved_side(c: &Connection,bot_id:i64,side:i64)->Result<std::collections::HashMap<i64,crate::ruby::BigDec>,FiguresError>{
     use crate::ruby::BigDec;
-    let mut s=c.prepare("SELECT base_asset_id,price,amount,amount_exec,quote_amount_exec FROM transactions WHERE bot_id=?1 AND status=0 AND external_status IN (0,1) AND side=0")?;
-    let mut rows=s.query([bot_id])?;
+    let mut s=c.prepare("SELECT base_asset_id,price,amount,amount_exec,quote_amount_exec FROM transactions WHERE bot_id=?1 AND status=0 AND external_status IN (0,1) AND side=?2")?;
+    let mut rows=s.query(rusqlite::params![bot_id,side])?;
     let mut out=std::collections::HashMap::new();
     while let Some(r)=rows.next()? {
         budget::charge(1,0)?;

@@ -105,3 +105,20 @@ fn the_rebalance_port_is_the_ruby_that_was_recorded() {
         assert_eq!(&now, recorded.as_str().unwrap(), "{file} changed: re-record with script/rust/repin and re-check the rebalance port");
     }
 }
+
+// ---- 6b T5: the pending state in Rails' exact shape ----
+
+#[test]
+fn the_pending_state_round_trips_in_rails_shape() {
+    use deltabadger::engine::rebalance::{pending, Pending};
+    let p = Pending { phase: "buying".into(), sell_transaction_id: Some(12), buy_transaction_id: None, remaining_quote_amount: Some(BigDec::parse("99").unwrap()), buy_attempted: true };
+    // set_rebalance_pending!: `remaining_quote_amount&.to_d&.to_s('F')`, `buy_attempted.present?`.
+    assert_eq!(p.to_json(), json!({ "phase": "buying", "sell_transaction_id": 12, "buy_transaction_id": null, "remaining_quote_amount": "99.0", "buy_attempted": true }));
+    assert_eq!(pending(&json!({ "rebalance_pending": p.to_json() })).unwrap(), Some(p));
+    assert_eq!(pending(&json!({ "rebalance_pending": {} })).unwrap(), None, "an empty Hash is not present?");
+    assert_eq!(pending(&json!({ "rebalance_pending": "selling" })).unwrap(), None, "only a Hash is a pending state");
+    let rails = json!({ "rebalance_pending": { "phase": "selling", "sell_transaction_id": "5", "remaining_quote_amount": null } });
+    let read = pending(&rails).unwrap().unwrap();
+    assert_eq!((read.sell_transaction_id, read.remaining_quote_amount, read.buy_attempted), (Some(5), None, false));
+    assert!(pending(&json!({ "rebalance_pending": { "phase": "selling", "sell_transaction_id": [1] } })).is_err(), "never guessed");
+}

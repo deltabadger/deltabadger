@@ -359,6 +359,43 @@ async fn rails_and_rust_decide_identically_across_the_sell_grid() {
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
 }
 
+/// Slice 6b: a wider Alpaca basket's ranked DCA-out (script/rust/decisions.rb basket_sell_scenarios), compared whole.
+#[tokio::test(flavor = "current_thread")]
+async fn rails_and_rust_decide_identically_across_the_basket_sell_grid() {
+    let (_copies, outputs) = grid_outputs("grid-basket-sell", 74).await;
+    let mut failures = vec![];
+    for (name, _, rails_out, rust_out) in &outputs {
+        if rails_out != rust_out { failures.push(format!("{name}\n  rails: {rails_out}\n  rust:  {rust_out}")); }
+    }
+    assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), outputs.len(), failures.join("\n"));
+    // Pin what Rails does, so that two silent sides cannot pass: which members each cell sells.
+    let sold = |out: &serde_json::Value| -> Vec<String> { out["sent"].as_array().unwrap().iter().map(|o| o["symbol"].as_str().unwrap().to_string()).collect() };
+    for (name, _, rails_out, _) in &outputs {
+        let sold = sold(rails_out);
+        let rows = rails_out["changes"]["transactions"].as_array().unwrap();
+        let skipped = rows.iter().filter(|r| r["after"]["status"] == 2).count();
+        let expect: Option<&[&str]> = if name.contains("-base-") || ["-unpriced_member-", "-stale_feed-", "-feed_unreachable-", "-no_holdings-", "-all_under_floor-", "-balance_error-"].iter().any(|v| name.contains(v)) {
+            Some(&[])
+        // tiers: SOL sits furthest over its smaller target once BTC cannot sell; "tie" is a tie only at w50's equal targets.
+        } else if ["-tiers-floor_handover-", "-tiers-nothing_free_top-", "-tiers-tie-"].iter().any(|v| name.contains(v)) { Some(&["SOL/USD", "ETH/USD"])
+        } else if name.contains("-tiers-foreign_crypto-") || name.contains("-tiers-free_below-") { Some(&["BTC/USD", "SOL/USD", "ETH/USD"])
+        // w50 tie: 64 USD of each member, so BTC (composition order) sells out and ETH takes the rest of the 100.
+        } else if name.contains("-w50-tie-") { Some(&["BTC/USD", "ETH/USD"])
+        } else if name.contains("-over_top-") || name.contains("-rejected-") { Some(&["BTC/USD"])
+        } else if name.contains("-w50-foreign_crypto-") { Some(&["BTC/USD", "ETH/USD"])
+        } else if name.contains("-floor_handover-") || name.contains("-nothing_free_top-") { Some(&["ETH/USD"])
+        } else if name.contains("-free_below-") || name.contains("-resting_top-") { Some(&["BTC/USD", "ETH/USD"])
+        } else if name.starts_with("basket-sell-stock-open-") { Some(&["AAPL"])
+        } else if name.starts_with("basket-sell-stock-foreign-") { Some(&["MSFT"])
+        } else if name.starts_with("basket-sell-stock-closed-") { Some(&[])
+        } else { None };
+        match expect { Some(e) => if sold != e { failures.push(format!("{name}: sold {sold:?}")); }, None => failures.push(format!("{name}: no expectation pinned")) }
+        assert_eq!(skipped, usize::from(name.contains("-all_under_floor-")), "{name}: the first member's attempt only, once: {rails_out}");
+        if name.contains("-foreign_crypto-") { assert_eq!(rails_out["sent"][0]["qty"], "0.010000000", "{name}: the local 0.01, not the merged 1.01"); }
+    }
+    assert!(failures.is_empty(), "pinned expectations:\n{}", failures.join("\n"));
+}
+
 const ALPACA_DIVERGENCES: [&str; 3] = ["add_server_error", "add_unreadable", "untradable_clock_closed"];
 
 fn crypto_ignores_the_stock_clock(dir: &Path, rails_out: &serde_json::Value, rust_out: &serde_json::Value) -> Result<(), String> {
