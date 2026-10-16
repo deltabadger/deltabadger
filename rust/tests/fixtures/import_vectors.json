@@ -1331,8 +1331,53 @@
       "offset": "+00:00",
       "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2024-03-01 10:00:00,Spot,Transaction Buy,ZORK,1,\n1,2024-03-01 10:00:00,Spot,Transaction Fee,BNB,-0.01,\n1,2024-03-01 11:00:00,Spot,Transaction Spend,USDT,-4,",
       "entries": [],
-      "unrecognised": [],
-      "error": "unreadable"
+      "unrecognised": [
+        "Transaction Buy ZORK 2024-03-01 10:00:00 UTC",
+        "Transaction Fee BNB 2024-03-01 10:00:00 UTC",
+        "Transaction Spend USDT 2024-03-01 11:00:00 UTC"
+      ],
+      "error": null
+    },
+    {
+      "name": "one_sided_trade_beside_a_deposit",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+0)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCxUcmFuc2FjdGlvbiBTb2xkLFpPUkssLTEsCjEsMjAyNC0wMy0wMSAxMDowMDowMCxTcG90LFRyYW5zYWN0aW9uIFNvbGQsWk9SSywtMSwKMSwyMDI0LTAzLTAxIDEwOjAwOjAwLFNwb3QsRGVwb3NpdCxVU0RULDUs",
+      "offset": "+00:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2024-03-01 10:00:00,Spot,Transaction Sold,ZORK,-1,\n1,2024-03-01 10:00:00,Spot,Transaction Sold,ZORK,-1,\n1,2024-03-01 10:00:00,Spot,Deposit,USDT,5,",
+      "entries": [
+        {
+          "entry_type": "deposit",
+          "base_currency": "USDT",
+          "base_amount": "5.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Deposit",
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{\"operation\":\"Deposit\"}"
+        }
+      ],
+      "unrecognised": [
+        "Transaction Sold ZORK 2024-03-01 10:00:00 UTC"
+      ],
+      "error": null
+    },
+    {
+      "name": "one_sided_fee_only",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+3)-part1-of1.csv",
+      "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjQtMDMtMDEgMTA6MDA6MDAsU3BvdCxUcmFuc2FjdGlvbiBGZWUsQk5CLC0wLjAxLA==",
+      "offset": "+03:00",
+      "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2024-03-01 10:00:00,Spot,Transaction Fee,BNB,-0.01,",
+      "entries": [],
+      "unrecognised": [
+        "Transaction Fee BNB 2024-03-01 07:00:00 UTC"
+      ],
+      "error": null
     },
     {
       "name": "same_second_two_accounts",
@@ -2118,7 +2163,16 @@
           "raw_data": "{\"operation\":\"Token Swap - Distribution\"}"
         }
       ],
-      "unrecognised": [],
+      "unrecognised": [
+        "Transaction Buy ZORK 2024-01-01 00:00:00 UTC",
+        "Transaction Spend ZORK 2024-01-01 00:01:00 UTC",
+        "Transaction Sold ZORK 2024-01-01 00:02:00 UTC",
+        "Transaction Revenue ZORK 2024-01-01 00:03:00 UTC",
+        "Transaction Fee ZORK 2024-01-01 00:04:00 UTC",
+        "Buy ZORK 2024-01-01 00:05:00 UTC",
+        "Sell ZORK 2024-01-01 00:06:00 UTC",
+        "Fee ZORK 2024-01-01 00:07:00 UTC"
+      ],
       "error": null
     },
     {
@@ -2424,7 +2478,16 @@
           "raw_data": "{\"operation\":\"Token Swap - Distribution\"}"
         }
       ],
-      "unrecognised": [],
+      "unrecognised": [
+        "Transaction Buy ZORK 2024-01-01 00:00:00 UTC",
+        "Transaction Spend ZORK 2024-01-01 00:01:00 UTC",
+        "Transaction Sold ZORK 2024-01-01 00:02:00 UTC",
+        "Transaction Revenue ZORK 2024-01-01 00:03:00 UTC",
+        "Transaction Fee ZORK 2024-01-01 00:04:00 UTC",
+        "Buy ZORK 2024-01-01 00:05:00 UTC",
+        "Sell ZORK 2024-01-01 00:06:00 UTC",
+        "Fee ZORK 2024-01-01 00:07:00 UTC"
+      ],
       "error": null
     },
     {
@@ -3193,6 +3256,84 @@
       "entries": [],
       "unrecognised": [],
       "error": "unknown_timezone"
+    },
+    {
+      "name": "utc_time_header_no_zone_in_name",
+      "format": "binance",
+      "filename": "renamed.csv",
+      "bytes": "VXNlcl9JRCxVVENfVGltZSxBY2NvdW50LE9wZXJhdGlvbixDb2luLENoYW5nZSxSZW1hcmsKMSwyMDI0LTAzLTAxIDEwOjAwOjAwLFNwb3QsRGVwb3NpdCxVU0RULDEsCg==",
+      "offset": "+00:00",
+      "text": "User_ID,UTC_Time,Account,Operation,Coin,Change,Remark\n1,2024-03-01 10:00:00,Spot,Deposit,USDT,1,\n",
+      "entries": [
+        {
+          "entry_type": "deposit",
+          "base_currency": "USDT",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Deposit",
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{\"operation\":\"Deposit\"}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "utc_time_header_beats_name_zone",
+      "format": "binance",
+      "filename": "Binance-Transaction-History-202601010000(UTC+3)-part1-of1.csv",
+      "bytes": "VXNlcl9JRCxVVENfVGltZSxBY2NvdW50LE9wZXJhdGlvbixDb2luLENoYW5nZSxSZW1hcmsKMSwyMDI0LTAzLTAxIDEwOjAwOjAwLFNwb3QsRGVwb3NpdCxVU0RULDEsCg==",
+      "offset": "+00:00",
+      "text": "User_ID,UTC_Time,Account,Operation,Coin,Change,Remark\n1,2024-03-01 10:00:00,Spot,Deposit,USDT,1,\n",
+      "entries": [
+        {
+          "entry_type": "deposit",
+          "base_currency": "USDT",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Deposit",
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{\"operation\":\"Deposit\"}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
+    },
+    {
+      "name": "utc_time_header_with_bom",
+      "format": "binance",
+      "filename": "renamed.csv",
+      "bytes": "77u/VXNlcl9JRCxVVENfVGltZSxBY2NvdW50LE9wZXJhdGlvbixDb2luLENoYW5nZSxSZW1hcmsKMSwyMDI0LTAzLTAxIDEwOjAwOjAwLFNwb3QsRGVwb3NpdCxVU0RULDEsCg==",
+      "offset": "+00:00",
+      "text": "User_ID,UTC_Time,Account,Operation,Coin,Change,Remark\n1,2024-03-01 10:00:00,Spot,Deposit,USDT,1,\n",
+      "entries": [
+        {
+          "entry_type": "deposit",
+          "base_currency": "USDT",
+          "base_amount": "1.0",
+          "quote_currency": null,
+          "quote_amount": null,
+          "fee_currency": null,
+          "fee_amount": null,
+          "tx_id": null,
+          "group_id": null,
+          "description": "Deposit",
+          "transacted_at": "2024-03-01T10:00:00.000000Z",
+          "raw_data": "{\"operation\":\"Deposit\"}"
+        }
+      ],
+      "unrecognised": [],
+      "error": null
     },
     {
       "name": "time_fractional_seconds",
@@ -4626,10 +4767,10 @@
   "unsupported_activity": 16
 },
   "ported_sources": {
-    "app/models/import/binance_csv.rb": "e99eb263f95330c3cbbaa470883b8a2338845611fa2e825e6c14bd30b991637a",
+    "app/models/import/binance_csv.rb": "0f49801ad7923bf7a8abfb331bec3bf1a7bbcb30cdd6a07fcdb82ae8568b346f",
     "app/models/import/deltabadger_csv.rb": "c6ac982c93096876bb38da7e1dfc243db343c6e85dc217a16e7112ee8b97b74c",
     "app/models/import/run.rb": "949236726b669f5cac06a862af2a3b5b39e11011c340f3eebe950281803cef2d",
-    "app/controllers/tracker/imports_controller.rb": "a7d466b28f36d5dbd1be3d631d21e82bc5ed775b48625df460e32574ee276a9c",
+    "app/controllers/tracker/imports_controller.rb": "5281234ab0a1ec6442f75d2161e4ab9d682c9e8cf91a0b6ffb0ac1b785cccd86",
     "app/models/account_transaction.rb": "27e1f816648843e735c5a5d0751e4d95afa52ffd266632d2458ac8f95e4aa500",
     "app/models/concerns/csv_safe.rb": "83041a76c2334e9d9aae1606e8ef6c0b0c4673b5573ceaff012dd713a954a544"
   },
