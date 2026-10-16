@@ -434,15 +434,20 @@ class Exchanges::Bybit < Exchange
     end
   end
 
-  # `/v5/execution/list` returns startTime → startTime+7d and rejects a wider explicit range, so a
-  # start older than a week can never reach today. Deposit and withdrawal records cap at 30 days; the
-  # narrowest cap wins, and a 7-day window is well inside theirs.
-  def ledger_window = 7.days
+  # `/v5/execution/list` serves at most 7 days per request, measured from startTime, and reaches two
+  # years back (https://bybit-exchange.github.io/docs/v5/order/execution). get_ledger walks 7-day
+  # windows from start_time to now itself, so the sync needs no floor and ledger_window stays nil: a
+  # floor would drop everything between a quiet account's last sync and a week ago.
+  TRADE_WINDOW = 7.days
+  # A day inside the two years Bybit keeps, so the oldest window is never refused.
+  HISTORY_REACH = 729.days
+  # Deposit and withdrawal records want endTime - startTime under 30 days
+  # (https://bybit-exchange.github.io/docs/v5/asset/deposit/deposit-record).
+  TRANSFER_WINDOW = 29.days
 
   def get_ledger(api_key:, start_time: nil)
     hm_client = Honeymaker.client('bybit', api_key: api_key.key, api_secret: api_key.secret,
                                            proxy: ExchangeProxy.for('bybit'))
-    start_ms = start_time ? (start_time.to_f * 1000).to_i : nil
     entries = []
 
     # Any failed read fails the whole fetch: a partial Success would let the sync move its watermark
@@ -450,64 +455,97 @@ class Exchanges::Bybit < Exchange
     # inside an HTTP-200 envelope (retCode 10006 "Too many visits"), which the client hands over as
     # a Success.
 
-    # Trades
-    cursor = nil
-    loop do
-      result = checked_ledger_read(hm_client.execution_list(category: 'spot', start_time: start_ms, cursor: cursor))
-      return result if result.failure?
-
-      list = result.data.dig('result', 'list') || []
-      break if list.empty?
-
-      list.each do |trade|
+    from = [start_time, HISTORY_REACH.ago].compact.max
+    each_window(from, TRADE_WINDOW) do |window_start, window_end|
+      fetch = lambda do |cursor|
+        hm_client.execution_list(category: 'spot', start_time: window_start, end_time: window_end, cursor: cursor)
+      end
+      failed = each_ledger_row(fetch, 'list') do |trade|
         symbol = trade['symbol']
-        base = symbol_pair_base(symbol)
-        quote = symbol_pair_quote(symbol)
-        is_buyer = trade['side'] == 'Buy'
         entries << {
-          entry_type: is_buyer ? :buy : :sell,
-          base_currency: base, base_amount: trade['execQty'].to_d,
-          quote_currency: quote, quote_amount: trade['execValue'].to_d,
+          entry_type: trade['side'] == 'Buy' ? :buy : :sell,
+          base_currency: symbol_pair_base(symbol), base_amount: trade['execQty'].to_d,
+          quote_currency: symbol_pair_quote(symbol), quote_amount: trade['execValue'].to_d,
           fee_currency: trade['feeCurrency'], fee_amount: trade['execFee'].to_d.abs,
           tx_id: trade['execId'], group_id: nil, description: nil,
           transacted_at: Time.at(trade['execTime'].to_i / 1000.0).utc, raw_data: trade
         }
       end
-      cursor = result.data.dig('result', 'nextPageCursor')
-      break if cursor.blank?
+      return failed if failed
     end
 
-    # Deposits
-    result = checked_ledger_read(hm_client.deposit_records(start_time: start_ms), optional: true)
-    return result if result.failure?
+    each_window(from, TRANSFER_WINDOW) do |window_start, window_end|
+      fetch = ->(cursor) { hm_client.deposit_records(start_time: window_start, end_time: window_end, cursor: cursor) }
+      failed = each_ledger_row(fetch, 'rows', optional: true) do |dep|
+        next unless dep['status'].to_i == 3 # success
 
-    (result.data.dig('result', 'rows') || []).each do |dep|
-      next unless dep['status'].to_i == 3 # success
+        entries << { entry_type: :deposit, base_currency: dep['coin'], base_amount: dep['amount'].to_d,
+                     quote_currency: nil, quote_amount: nil, fee_currency: nil, fee_amount: nil,
+                     tx_id: dep['txID'], group_id: nil, description: nil,
+                     transacted_at: Time.at(dep['successAt'].to_i / 1000.0).utc, raw_data: dep }
+      end
+      return failed if failed
 
-      entries << { entry_type: :deposit, base_currency: dep['coin'], base_amount: dep['amount'].to_d,
-                   quote_currency: nil, quote_amount: nil, fee_currency: nil, fee_amount: nil,
-                   tx_id: dep['txID'], group_id: nil, description: nil,
-                   transacted_at: Time.at(dep['successAt'].to_i / 1000.0).utc, raw_data: dep }
+      fetch = ->(cursor) { hm_client.withdraw_records(start_time: window_start, end_time: window_end, cursor: cursor) }
+      failed = each_ledger_row(fetch, 'rows', optional: true) do |wd|
+        next unless wd['status'] == 'success'
+
+        entries << { entry_type: :withdrawal, base_currency: wd['coin'], base_amount: wd['amount'].to_d,
+                     quote_currency: nil, quote_amount: nil,
+                     fee_currency: wd['coin'], fee_amount: wd['withdrawFee'].to_d,
+                     tx_id: wd['txID'], group_id: nil, description: nil,
+                     transacted_at: Time.at(wd['updateTime'].to_i / 1000.0).utc, raw_data: wd }
+      end
+      return failed if failed
     end
 
-    # Withdrawals
-    result = checked_ledger_read(hm_client.withdraw_records(start_time: start_ms), optional: true)
-    return result if result.failure?
-
-    (result.data.dig('result', 'rows') || []).each do |wd|
-      next unless wd['status'] == 'success'
-
-      entries << { entry_type: :withdrawal, base_currency: wd['coin'], base_amount: wd['amount'].to_d,
-                   quote_currency: nil, quote_amount: nil,
-                   fee_currency: wd['coin'], fee_amount: wd['withdrawFee'].to_d,
-                   tx_id: wd['txID'], group_id: nil, description: nil,
-                   transacted_at: Time.at(wd['updateTime'].to_i / 1000.0).utc, raw_data: wd }
-    end
-
-    Result::Success.new(entries)
+    # Neighbouring windows share their edge, so a row stamped on it comes back twice.
+    Result::Success.new(entries.uniq { |entry| [entry[:entry_type], entry[:raw_data]] })
   end
 
   private
+
+  # Yields [start_ms, end_ms] windows of at most `span`, from `from` to now.
+  def each_window(from, span)
+    window_start = (from.to_f * 1000).to_i
+    now_ms = (Time.now.to_f * 1000).to_i
+    while window_start < now_ms
+      window_end = [window_start + (span.to_i * 1000), now_ms].min
+      yield window_start, window_end
+      window_start = window_end
+    end
+  end
+
+  # retCode 10006, "Too many visits". A first sync walks some hundred weekly windows, and failing part
+  # way would throw every page away and start over next time, so a throttled page is waited out and
+  # asked for again, as KuCoin's ledger does.
+  LEDGER_THROTTLED = 10_006
+  LEDGER_THROTTLE_WAIT = 2
+  LEDGER_THROTTLE_RETRIES = 5
+
+  # Bybit pages with nextPageCursor. Yields each row under `key`; returns the failure that stopped the
+  # read, or nil.
+  def each_ledger_row(fetch, key, optional: false, &)
+    cursor = nil
+    throttled = 0
+    loop do
+      result = fetch.call(cursor)
+      if result.success? && result.data['retCode'].to_i == LEDGER_THROTTLED && throttled < LEDGER_THROTTLE_RETRIES
+        throttled += 1
+        sleep(LEDGER_THROTTLE_WAIT)
+        next
+      end
+      throttled = 0
+
+      result = checked_ledger_read(result, optional: optional)
+      return result if result.failure?
+
+      rows = Array(result.data.dig('result', key))
+      rows.each(&)
+      cursor = result.data.dig('result', 'nextPageCursor')
+      return nil if rows.empty? || cursor.blank?
+    end
+  end
 
   # 10005 is "Permission denied". The key setup asks for Spot - Trade only, so a key without the
   # scope for wallet history is the normal case; there the read has nothing to give and counts as

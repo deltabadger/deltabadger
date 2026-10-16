@@ -303,6 +303,7 @@ class Exchanges::BybitTest < ActiveSupport::TestCase
   # let the watermark pass trades the sync never got.
   test 'get_ledger fails when a read is throttled inside a 200 envelope' do
     hm_client = stub_bybit_ledger_client
+    @exchange.stubs(:sleep)
     hm_client.stubs(:execution_list).with(has_entry(category: 'spot')).returns(
       Result::Success.new({ 'retCode' => 10_006, 'retMsg' => 'Too many visits. Exceeded the API Rate Limit.' })
     )
@@ -326,6 +327,52 @@ class Exchanges::BybitTest < ActiveSupport::TestCase
 
     assert_predicate result, :success?
     assert_empty result.data
+  end
+
+  # The execution list serves 7 days from startTime, so one request from an old start never reached
+  # today, and a first sync saw nothing before the last week.
+  test 'get_ledger walks weekly windows from two years back to now on a first sync' do
+    hm_client = stub_bybit_ledger_client
+    windows = []
+    hm_client.stubs(:execution_list).with do |args|
+      windows << [args[:start_time], args[:end_time]]
+      true
+    end.returns(Result::Success.new({ 'retCode' => 0, 'result' => { 'list' => [] } }))
+
+    assert_predicate @exchange.get_ledger(api_key: create(:api_key, exchange: @exchange)), :success?
+
+    to_ms = ->(time) { (time.to_f * 1000).to_i }
+    assert_in_delta to_ms.call(729.days.ago), windows.first[0], 60_000
+    assert_in_delta to_ms.call(Time.now), windows.last[1], 60_000
+    assert(windows.all? { |from, to| to - from <= 7.days.to_i * 1000 })
+    assert(windows.each_cons(2).all? { |(_, to), (from, _)| from == to }, 'windows must leave no gap')
+  end
+
+  test 'get_ledger reads a fill older than a week after its start' do
+    hm_client = stub_bybit_ledger_client
+    fill = { 'symbol' => 'BTCUSDT', 'side' => 'Buy', 'execQty' => '0.001', 'execValue' => '60', 'execFee' => '0',
+             'feeCurrency' => 'BTC', 'execId' => 'e-1', 'execTime' => (20.days.ago.to_f * 1000).to_i.to_s }
+    hm_client.stubs(:execution_list).with do |args|
+      args[:start_time] <= fill['execTime'].to_i && fill['execTime'].to_i <= args[:end_time]
+    end.returns(Result::Success.new({ 'retCode' => 0, 'result' => { 'list' => [fill] } }))
+
+    result = @exchange.get_ledger(api_key: create(:api_key, exchange: @exchange), start_time: 30.days.ago)
+
+    assert_equal(['e-1'], result.data.map { |e| e[:tx_id] })
+  end
+
+  test 'get_ledger waits out a throttled page and asks again' do
+    hm_client = stub_bybit_ledger_client
+    @exchange.expects(:sleep).once
+    throttled = Result::Success.new({ 'retCode' => 10_006, 'retMsg' => 'Too many visits. Exceeded the API Rate Limit.' })
+    empty = Result::Success.new({ 'retCode' => 0, 'result' => { 'list' => [] } })
+    hm_client.stubs(:execution_list).returns(throttled).then.returns(empty)
+
+    assert_predicate @exchange.get_ledger(api_key: create(:api_key, exchange: @exchange), start_time: 1.day.ago), :success?
+  end
+
+  test 'ledger_window is nil, since get_ledger walks its own windows to now' do
+    assert_nil @exchange.ledger_window
   end
 
   test 'get_ledger fails when spot history is denied' do
