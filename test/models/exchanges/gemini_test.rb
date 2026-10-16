@@ -435,7 +435,50 @@ class Exchanges::GeminiTest < ActiveSupport::TestCase
     refute mew_gusd.reload.available, 'a pair Gemini trades only as a perpetual is not a spot pair'
   end
 
+  # == ledger ==
+
+  # Trade symbols carry no separator. Slicing three letters off made DOGEUSD a DOG/EUSD trade and
+  # LINKUSD a LIN/KUSD one, so the tracker booked them against assets that do not exist.
+  test "get_ledger reads a trade's pair from the catalogue, not from the first three letters" do
+    create(:ticker, exchange: @exchange, base_symbol: 'DOGE', quote_symbol: 'USD', ticker: 'dogeusd')
+    create(:ticker, exchange: @exchange, base_symbol: 'ETH', quote_symbol: 'GUSD', ticker: 'ethgusd')
+    stub_ledger(trades: [[gemini_trade(1, 'DOGEUSD'), gemini_trade(2, 'ETHGUSD'), gemini_trade(3, 'LINKGUSD')]])
+
+    entries = @exchange.get_ledger(api_key: ledger_key).data
+
+    assert_equal([%w[DOGE USD], %w[ETH GUSD], %w[LINK GUSD]], entries.map { |e| [e[:base_currency], e[:quote_currency]] })
+  end
+
   private
+
+  def ledger_key
+    stub(key: 'k', secret: 's')
+  end
+
+  # Shaped like https://developer.gemini.com/trading/rest-api/orders/list-past-trades.
+  def gemini_trade(tid, symbol = 'BTCUSD', timestampms: 1_547_232_911_021 + tid)
+    { 'price' => '3648.09', 'amount' => '0.0027343246', 'timestamp' => timestampms / 1000, 'timestampms' => timestampms,
+      'type' => 'Buy', 'aggressor' => true, 'fee_currency' => 'USD', 'fee_amount' => '0.0249', 'tid' => tid,
+      'order_id' => (tid - 2).to_s, 'exchange' => 'gemini', 'is_clearing_fill' => false, 'symbol' => symbol }
+  end
+
+  # A ledger client answering each list in turn, recording what it was asked.
+  def stub_ledger(trades: [[]], transfers: [[]])
+    calls = { trades: [], transfers: [] }
+    client = Object.new
+    client.define_singleton_method(:get_my_trades) do |**params|
+      calls[:trades] << params
+      answer = trades.shift || []
+      answer.is_a?(Result::Failure) ? answer : Result::Success.new(answer)
+    end
+    client.define_singleton_method(:get_transfers) do |**params|
+      calls[:transfers] << params
+      answer = transfers.shift || []
+      answer.is_a?(Result::Failure) ? answer : Result::Success.new(answer)
+    end
+    Honeymaker.stubs(:client).returns(client)
+    calls
+  end
 
   # Recorded, not slept, so the pacing and the retry backoff can be asserted as a sequence.
   def record_sleeps

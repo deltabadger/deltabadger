@@ -409,9 +409,7 @@ class Exchanges::Gemini < Exchange
     result = hm_client.get_my_trades(timestamp: ts_ms)
     unless result.failure?
       Array(result.data).each do |trade|
-        symbol = trade['symbol'] # e.g. "btcusd"
-        base = symbol[0..2].upcase
-        quote = symbol[3..].upcase
+        base, quote = ledger_pair(trade['symbol'])
         is_buyer = trade['type'] == 'Buy'
         entries << { entry_type: is_buyer ? :buy : :sell,
                      base_currency: base, base_amount: trade['amount'].to_d,
@@ -445,6 +443,19 @@ class Exchanges::Gemini < Exchange
   end
 
   private
+
+  # A trade's symbol ("BTCUSD", "DOGEUSD", "ETHGUSD") has no separator, so the pair comes from the
+  # catalogue. A pair no longer listed is split at the longest quote the catalogue knows.
+  def ledger_pair(symbol)
+    @ledger_pairs ||= tickers.pluck(:ticker, :base, :quote).to_h { |ticker, base, quote| [ticker.downcase, [base, quote]] }
+    pair = @ledger_pairs[symbol.downcase]
+    return pair if pair
+
+    symbol = symbol.upcase
+    quotes = @ledger_pairs.values.map(&:last).uniq.sort_by { |quote| -quote.length }
+    quote = quotes.find { |q| symbol.end_with?(q) && symbol.length > q.length }
+    quote ? [symbol.delete_suffix(quote), quote] : [symbol, nil]
+  end
 
   # Worth another try: no HTTP answer that a retry can fix (a dropped connection, a timeout), or an
   # answer that says to come back later. Decided on the status because a 429 carries no text worth
