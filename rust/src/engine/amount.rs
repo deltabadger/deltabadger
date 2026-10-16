@@ -114,6 +114,31 @@ pub fn size(bot: &Bot, ticker: &Ticker, x: &BigDec, reference: &BigDec, logic: M
     Ok(if below { Sizing::BelowMinimum(plan) } else { Sizing::Place(plan) })
 }
 
+/// Bot::OrderSetter#calculate_best_amount_info for a REBALANCE order (Bot::Rebalancer#rebalance_order_data): always a market
+/// order at `price` (Exchange#market_price_for, already floored), `amount` base or `quote_amount` quote. A sell sizes in base
+/// under :base_and_quote_in_base; a buy by the venue's market rule. Returns the plan and whether it is below the minimum.
+pub fn size_rebalance(ticker: &Ticker, side: Side, price: &BigDec, amount: &BigDec, quote_amount: &BigDec, logic: MinimumLogic) -> Result<(OrderPlan, bool), EngineError> {
+    let (base_decimals, quote_decimals, _) = ticker.scales().map_err(EngineError::Data)?;
+    let zero = || EngineError::Data("a rebalance price of zero".into());
+    let in_base = |x: &BigDec| -> Result<BigDec, EngineError> { Ok(x.div(price).ok_or_else(zero)?.ceil(base_decimals)) };
+    let rule = if side == Side::Sell { AmountLogic::BaseAndQuoteInBase } else { logic.market };
+    let (quote_type, minimum) = match rule {
+        AmountLogic::Quote => (true, ticker.minimum_quote_size.clone()),
+        AmountLogic::Base => (false, ticker.minimum_base_size.clone()),
+        AmountLogic::BaseAndQuoteInBase => (false, in_base(&ticker.minimum_quote_size)?.max(ticker.minimum_base_size.clone())),
+        AmountLogic::BaseOrQuote => {
+            let minimum_quote_amount = (&ticker.minimum_base_size * price).ceil(quote_decimals).max(ticker.minimum_quote_size.clone());
+            let minimum_base_amount = in_base(&ticker.minimum_quote_size)?.max(ticker.minimum_base_size.clone());
+            let quote = minimum_quote_amount.div(price).ok_or_else(zero)? < minimum_base_amount;
+            (quote, if quote { minimum_quote_amount } else { minimum_base_amount })
+        }
+    };
+    let volume = if quote_type { quote_amount.floor(quote_decimals) } else { amount.floor(base_decimals) };
+    let below = volume < minimum;
+    Ok((OrderPlan { ticker: ticker.clone(), side, limit: false, price: price.clone(), amount: amount.clone(), quote_amount: quote_amount.clone(),
+                    quote_type, volume, kind: TxKind::Rebalance }, below))
+}
+
 /// Exchanges::Alpaca#wire_decimal: the value floored to `places` and spelled with exactly `places` fractional digits,
 /// in decimal throughout. Never through Float, which can round a floored amount back up (812037646.065271585 at 9
 /// places was sent as 812037646.065271616).

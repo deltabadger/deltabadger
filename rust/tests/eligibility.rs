@@ -416,7 +416,8 @@ fn a_basket_outside_what_the_engine_ports_is_refused_with_its_reason() {
             let many: serde_json::Map<String, serde_json::Value> = (0..101).map(|i| ((5000 + i).to_string(), json!(1.0 / 101.0))).collect();
             seed::insert_bot(c, s, &plain().with("allocations", serde_json::Value::Object(many)))
         })),
-        ("1 REBALANCE/LIQUIDATION/REDEPLOY row(s)", Box::new(move |c, s, eth| { let id = seed::insert_bot(c, s, &half(s, eth)); history_row(c, s, id, 0, "REBALANCE", Some(s.btc), "OREB"); id })),
+        // An Alpaca basket's REBALANCE rows are read since 6b (tests/rebalance.rs); a liquidation is still not.
+        ("1 LIQUIDATION/REDEPLOY row(s)", Box::new(move |c, s, eth| { let id = seed::insert_bot(c, s, &half(s, eth)); history_row(c, s, id, 1, "LIQUIDATION", Some(s.btc), "OLIQ"); id })),
         ("1 imported row(s)", Box::new(move |c, s, eth| { let id = seed::insert_bot(c, s, &half(s, eth)); history_row(c, s, id, 0, "REGULAR", Some(s.btc), "imported_1"); id })),
         ("1 order(s) recorded without base_asset_id", Box::new(move |c, s, eth| { let id = seed::insert_bot(c, s, &half(s, eth)); history_row(c, s, id, 0, "REGULAR", None, "ONOASSET"); id })),
         ("asset {btc} listed more than once", Box::new(|c, s, _| seed::insert_bot(c, s, &plain().with("allocations", json!({ s.btc.to_string(): 0.5, format!("0{}", s.btc): 0.5 }))))),

@@ -36,14 +36,34 @@ fn rails_work(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError> {
     // may still be working at the venue, whatever this bot's own status.
     let unknown: i64 = c.query_row("SELECT count(*) FROM transactions WHERE bot_id = ?1 AND (status IS NULL OR status NOT IN (0, 1, 2))", [bot.id], |r| r.get(0))?;
     if unknown > 0 { r.push(format!("{unknown} {UNKNOWN_STATUS}")); }
+    // Slice 6b: threshold rebalancing runs here for an Alpaca basket or index bot (rebalance.rs, run::run_rebalances). Its
+    // pending swap is admitted in a phase this engine resumes (selling, buying), or halted ambiguous by this engine itself
+    // (idle until the user resolves it after a handback); an ambiguous halt Rails wrote stays Rails'.
+    let rebalances = rebalances_here(c, bot)?;
     // Deliberately broader than Rails' automatic jobs: a false refusal costs one check message, a takeover mid-liquidation costs money.
-    for key in PENDING_KEYS { if bot.transient.get(key).is_some_and(|v| !v.is_null()) { r.push(key.to_string()); } }
+    for key in PENDING_KEYS {
+        if bot.transient.get(key).is_none_or(Value::is_null) { continue; }
+        if key == super::rebalance::PENDING_KEY && rebalances {
+            match super::rebalance::pending(&bot.transient) {
+                Ok(Some(p)) if [super::rebalance::PHASE_SELLING, super::rebalance::PHASE_BUYING].contains(&p.phase.as_str()) => continue,
+                Ok(Some(p)) if p.phase == super::rebalance::PHASE_AMBIGUOUS && bot.transient.get(super::rebalance::RUST_HALT_KEY).is_some_and(set) => continue,
+                Ok(None) => continue,
+                Ok(Some(p)) => { r.push(format!("rebalance_pending in phase {:?}", p.phase)); continue; }
+                Err(e) => { r.push(format!("{e:?}")); continue; }
+            }
+        }
+        r.push(key.to_string());
+    }
     // Bot::EvaluateRebalancersJob#candidates: REBALANCEABLE_TYPES, `.where.not(status: %i[deleted archived])`. A stopped bot still rebalances.
     let rebalanceable = matches!(bot.bot_type.as_str(), "Bots::DcaIndex" | "Bots::DcaMultiAsset") && !matches!(bot.status, BotStatus::Deleted | BotStatus::Archived);
-    if rebalanceable && bot.settings.get("rebalance_enabled").is_some_and(set) { r.push("rebalance_enabled".into()); }
+    if rebalanceable && bot.settings.get("rebalance_enabled").is_some_and(set) {
+        if !rebalances { r.push("rebalance_enabled".into()); }
+        else if let Err(e) = super::rebalance::threshold(&bot.settings) { r.push(format!("{e:?}")); }
+    }
     let non_regular: i64 = c.query_row(
-        "SELECT count(*) FROM transactions WHERE bot_id = ?1 AND transaction_type <> 'REGULAR' AND status = 0 AND external_status IN (0, 1)",
-        [bot.id], |r| r.get(0))?;
+        "SELECT count(*) FROM transactions WHERE bot_id = ?1 AND transaction_type <> 'REGULAR' AND NOT (?2 AND transaction_type = 'REBALANCE') \
+         AND status = 0 AND external_status IN (0, 1)",
+        params![bot.id, rebalances], |r| r.get(0))?;
     if non_regular > 0 { r.push(format!("{non_regular} waiting LIQUIDATION/REDEPLOY/REBALANCE order(s)")); }
     // Bot::LiquidationState#unresolved_liquidation_orders: ids the user attested to (liquidation_resolved_orders) are accounted for.
     // Ruby's `to_i`; an id this cannot read counts as unresolved.
@@ -63,6 +83,13 @@ fn rails_work(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError> {
         if n > 0 { r.push(format!("{n} {label} order(s) (fill unknown)")); }
     }
     Ok(r)
+}
+
+/// Whether this engine rebalances the bot: an Alpaca basket or index bot (Kraken and Binance hold one asset only).
+fn rebalances_here(c: &Connection, bot: &Bot) -> Result<bool, EngineError> {
+    if !matches!(bot.bot_type.as_str(), "Bots::DcaIndex" | "Bots::DcaMultiAsset") { return Ok(false); }
+    let exchange: Option<String> = c.query_row("SELECT type FROM exchanges WHERE id = ?1", [bot.exchange_id], |r| r.get(0)).optional()?;
+    Ok(exchange.as_deref() == Some("Exchanges::Alpaca"))
 }
 
 pub fn bot_reasons(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError> {
@@ -121,7 +148,14 @@ fn bot_reasons_with(c: &Connection, bot: &Bot, splits: &mut SplitRows) -> Result
     member_reasons(c, bot, alpaca, &members, &mut r)?;
     // The walk must read; every recorded split applied (the last instant the figures represent), so no clock is read here.
     let sold: bool = c.query_row("SELECT EXISTS (SELECT 1 FROM transactions WHERE bot_id = ?1 AND side = 1)", [bot.id], |r| r.get(0))?;
-    if (alpaca || sold) && r.is_empty() { super::basket::walk(c, bot, DateTime::from_timestamp_nanos(i64::MAX))?; }
+    if (alpaca || sold) && r.is_empty() {
+        if let Err(e) = super::basket::walk(c, bot, DateTime::from_timestamp_nanos(i64::MAX)) {
+            // A swap whose sell closed before its proceeds are known: admitted awaiting its figures. The DCA tick stands down
+            // while it is pending; the rebalance fire re-reads that row before anything else is decided.
+            if !super::rebalance::awaiting_proceeds(c, bot)? { return Err(e); }
+            return Ok(r);
+        }
+    }
     if alpaca && r.is_empty() { super::accounting::validate_stored_amounts(&bot.settings, &bot.transient)?; super::accounting::quote_amount_available_num(c, bot)?; }
     Ok(r)
 }
@@ -275,6 +309,12 @@ fn order_kind_reasons(c: &Connection, bot: &Bot, alpaca: bool, r: &mut Vec<Strin
 /// those special_reasons names.
 fn special_row_reasons(c: &Connection, bot: &Bot, alpaca: bool, r: &mut Vec<String>) -> Result<(), EngineError> {
     if alpaca && bot.bot_type == "Bots::DcaIndex" { return special_reasons(c, bot, r); }
+    // A rebalancing Alpaca basket (6b): its REBALANCE rows are read as the index bot's are; the walk books them.
+    if alpaca && bot.bot_type == "Bots::DcaMultiAsset" {
+        let other: i64 = c.query_row("SELECT count(*) FROM transactions WHERE bot_id = ?1 AND transaction_type NOT IN ('REGULAR', 'REBALANCE')", [bot.id], |r| r.get(0))?;
+        if other > 0 { r.push(format!("{other} LIQUIDATION/REDEPLOY row(s) in its history")); }
+        return special_reasons(c, bot, r);
+    }
     let other: i64 = c.query_row("SELECT count(*) FROM transactions WHERE bot_id = ?1 AND transaction_type <> 'REGULAR'", [bot.id], |r| r.get(0))?;
     if other > 0 { r.push(format!("{other} REBALANCE/LIQUIDATION/REDEPLOY row(s) in its history")); }
     Ok(())

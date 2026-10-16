@@ -692,6 +692,16 @@ async fn reference<V: Venue + Attributed>(venue: &V, bot: &model::Bot, ticker: &
 /// it (the quote is settled cash, the base its free units through the venue's asset identity). A base this bot also bought
 /// on another venue (a merge) is capped at #local_units: the venue may sell in its name only what it bought there. `Err`
 /// is the venue's failed read, never an empty balance.
+/// Exchange#market_price_for(ticker:, side:): the bid for a sell, the ask for a buy, through the same 5-second price cache as
+/// every other price read, then Ticker#adjusted_price (floored to price_decimals). None for a failed read or a price that is
+/// not positive (Bot::Rebalancer#side_price's nil).
+pub(crate) async fn market_price_for<V: Venue + Attributed>(venue: &V, bot: &model::Bot, ticker: &model::Ticker, side: crate::venue::Side, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<Option<BigDec>, EngineError> {
+    let price_side = if side == crate::venue::Side::Sell { PriceSide::Bid } else { PriceSide::Ask };
+    let Ok(price) = reference(venue, bot, ticker, price_side, &ticker.base_code, clock, cx).await else { return Ok(None) };
+    let (_, _, price_decimals) = ticker.scales().map_err(EngineError::Data)?;
+    Ok(Some(price.floor(price_decimals)).filter(BigDec::is_positive))
+}
+
 pub async fn live_free_balance<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot, ticker: &model::Ticker, asset_id: i64) -> Result<Result<BigDec, VenueError>, EngineError> {
     let catalog = || crate::sync::balances::catalog_for(c, bot.user_id, bot.exchange_id).map_err(|e| VenueError::Rejected(vec![e.0]));
     let read = if asset_id == ticker.quote_asset_id { venue.settled_quote_result(ticker, catalog).await } else { venue.free_base_result(ticker, catalog).await };
@@ -808,34 +818,12 @@ async fn sell<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot
 /// skip; holdings with no valuation retry before anything is placed.
 #[allow(clippy::too_many_arguments)]
 async fn basket_sell<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot, withdrawal: &BigDec, composition: &Value, clock: &dyn Clock, cx: &TickContext<'_>, legs: &mut Legs, reconciled: &splits::Snapshot) -> Result<Result<(), Fail>, EngineError> {
-    use crate::figures::{at::At, db::Subject, live, market::Failure, walk, FiguresError};
-    let fig = |e: FiguresError| EngineError::Data(format!("{e:?}"));
     let general = |m: String| Fail::General { errors: vec![m.clone()], message: m, failed_row: false };
-    let at = At::from_utc(clock.now()).ok_or_else(|| EngineError::Data("the tick's time is out of range".into()))?;
-    let subject = Subject::load(c, bot.id).map_err(fig)?;
-    let walked = walk::metrics(c, &subject, at).map_err(fig)?;
-    // metrics_with_current_prices(force: true): the venue is asked only past the walk's own early returns.
-    let symbols: Vec<String> = subject.tickers.iter().map(|t| t.ticker.clone()).collect();
-    let prices = if symbols.is_empty() || !live::needs_venue_price(c, &subject, &walked, at).map_err(fig)? { Ok(vec![]) } else {
-        match venue.tickers_prices(&symbols).await {
-            // `rescue ArgumentError; next`: a price that is no number is left out, not read as zero.
-            Ok(raw) => Ok(raw.into_iter().map(|(code, v)| (code, crate::figures::dec::Dec::venue_number(&v)))
-                .filter(|(_, p)| !matches!(p, Err(crate::figures::num::NumError::NotANumber))).collect()),
-            Err(VenueError::Transient(m)) => return Ok(Err(Fail::Transient(m))),
-            Err(VenueError::Rejected(e)) => Err(Failure::Failed(to_sentence(&e))),
-            Err(VenueError::Ambiguous(m)) => Err(Failure::Failed(m)),
-        }
+    let (walked, entries) = match super::rebalance::value(c, venue, bot, clock.now()).await? {
+        Ok(valued) => valued,
+        Err(super::rebalance::ValueFail::Transient(m)) => return Ok(Err(Fail::Transient(m))),
+        Err(super::rebalance::ValueFail::Raised(m)) => return Ok(Err(general(m))),
     };
-    let data = match live::live(c, &subject, &walked, &super::rebalance::Prefetched(prices), at) {
-        Ok(data) => Some(data),
-        Err(FiguresError::Raised(m)) => return Ok(Err(general(m))),
-        // A figure Rails computes and this build cannot (a price beyond dec's limits): no valuation, so the retry below,
-        // never a guessed ranking.
-        Err(FiguresError::NotComputed(_)) => None,
-        Err(e) => return Err(fig(e)),
-    };
-    let members = super::rebalance::members(c, bot, &subject)?;
-    let entries = match &data { Some(data) => super::rebalance::composition_targets(data, &members, &[])?, None => None };
     let dec = |n: &crate::figures::num::Num| n.to_d().map_err(|e| EngineError::Data(format!("{e:?}"))).and_then(|d| BigDec::parse(&d.to_s_f()).map_err(|e| EngineError::Data(format!("{e:?}"))));
     // holdings.dig(key_for(asset_id, fresh), :amount).to_d
     let held_of = |asset: i64| -> Result<BigDec, EngineError> {

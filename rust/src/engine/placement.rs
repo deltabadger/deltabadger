@@ -162,7 +162,7 @@ fn wait_until(c: &Connection, bot: &Bot, now: DateTime<Utc>, pick: fn(super::sch
 /// Tests only: the intent for `plan`, written without the fence (a fixture may write one on a stopped bot). Engine code
 /// writes intents only through `begin_unless_changed`.
 pub fn begin(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock) -> Result<Intent, EngineError> {
-    match begin_checked(c, bot, plan, clock, None, None, None)? {
+    match begin_checked(c, bot, plan, clock, None, None, None, None)? {
         Begun::Intent(intent) => Ok(*intent),
         Begun::BelowMinimum(_) => Err(EngineError::Data("order below minimum after exact cap guard".into())),
         Begun::Changed | Begun::Fenced | Begun::CredentialsChanged | Begun::LedgerStale(_) => Err(EngineError::Data("unfenced placement skipped".into())),
@@ -179,7 +179,7 @@ pub fn begin(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock) -> 
 /// edit: it places an order sized before an edit landed, a divergence. The fence only ever removes such
 /// an order; what it would have bought stays owed through pending_quote_amount.
 pub fn begin_unless_changed(c: &Connection, sized_from: &Bot, plan: &OrderPlan, tickers: &[&model::Ticker], composition: &Value, reconciled: &super::splits::Snapshot, clock: &dyn Clock) -> Result<Begun, EngineError> {
-    begin_checked(c, sized_from, plan, clock, Some((tickers, composition, reconciled)), None, None)
+    begin_checked(c, sized_from, plan, clock, Some((tickers, composition, reconciled)), None, None, None)
 }
 
 /// BelowMinimum: Alpaca's exact-cap guard (amount::guard_exact_cap) reduced the order below the venue minimum; the
@@ -193,9 +193,21 @@ pub enum Begun { Intent(Box<Intent>), Changed, Fenced, CredentialsChanged, Below
 /// `identity` is the sending venue's `placement_identity()`: recorded in the intent before the send, so recovery never asks
 /// another account or another Alpaca host about this order (`identity_mismatch`).
 pub fn begin_with_credentials(c: &Connection, bot: &Bot, plan: &OrderPlan, tickers: &[&model::Ticker], composition: &Value, reconciled: &super::splits::Snapshot, version: &Option<model::CredentialVersion>, identity: Option<Value>, clock: &dyn Clock) -> Result<Begun, EngineError> {
-    begin_checked(c,bot,plan,clock,Some((tickers,composition,reconciled)),Some(version),identity)
+    begin_checked(c,bot,plan,clock,Some((tickers,composition,reconciled)),Some(version),identity,None)
 }
-fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock, fence: Option<(&[&model::Ticker], &Value, &super::splits::Snapshot)>, version: Option<&Option<model::CredentialVersion>>, identity: Option<Value>) -> Result<Begun, EngineError> {
+
+/// A REBALANCE order's intent (Bot::Rebalancer#place_rebalance_order). It belongs to no DCA run: a stopped bot rebalances.
+/// Its claim is what it was sized from: under the intent's write lock the bot must not be deleted or archived, and its
+/// composition, member rows, split rows, tickers, eligibility and credentials must be what the sizing read, as for a DCA
+/// order (a stop, a reversal or a settings edit changes the snapshot); the send checks the same claim again
+/// (`rebalance_claim_holds`). `state` is the pending phase written in the intent's own transaction (set_rebalance_pending!
+/// for a sell, mark_buy_attempted! for a buy), so a crash after the send always leaves both the intent and the phase.
+#[allow(clippy::too_many_arguments)]
+pub fn begin_rebalance(c: &Connection, bot: &Bot, plan: &OrderPlan, tickers: &[&model::Ticker], composition: &Value, reconciled: &super::splits::Snapshot, version: &Option<model::CredentialVersion>, identity: Option<Value>, state: &super::rebalance::Pending, clock: &dyn Clock) -> Result<Begun, EngineError> {
+    begin_checked(c,bot,plan,clock,Some((tickers,composition,reconciled)),Some(version),identity,Some(state))
+}
+#[allow(clippy::too_many_arguments)]
+fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock, fence: Option<(&[&model::Ticker], &Value, &super::splits::Snapshot)>, version: Option<&Option<model::CredentialVersion>>, identity: Option<Value>, rebalance: Option<&super::rebalance::Pending>) -> Result<Begun, EngineError> {
     let tx = model::immediate(c)?; // check-and-set under one write lock
     let current = model::load_bot(&tx, bot.id)?;
     if current.rust_placement().is_some() {
@@ -224,8 +236,11 @@ fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock,
         }
         // Still the run that sized it: a stop and a start put the row back to working, so it must still be the claim this tick
         // took (Automation::Statusable#stopped_mid_tick?): executing, with the same started_at and last_action_job_at.
-        let same_run = current.status == crate::enums::BotStatus::Executing
-            && current.run_identity()? == bot.run_identity()?;
+        let same_run = if rebalance.is_some() {
+            !matches!(current.status, crate::enums::BotStatus::Deleted | crate::enums::BotStatus::Archived)
+        } else {
+            current.status == crate::enums::BotStatus::Executing && current.run_identity()? == bot.run_identity()?
+        };
         if !same_run {
             super::log(&format!("[engine] bot {}: {} order not placed: it was stopped after it was sized", bot.id, plan.ticker.ticker));
             return Ok(Begun::Fenced);
@@ -261,7 +276,7 @@ fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock,
         &guarded
     } else { plan };
     let now = clock.now(); // the deadline must be in the future when Kraken receives the order
-    let intent = Intent { symbol: plan.ticker.ticker.clone(), bot_id: bot.id, run: Some(bot.run_identity()?), credential_version: match version {Some(v)=>v.clone(),None=>model::credential_version(&tx,bot)?}, cl_ord_id: uuid::Uuid::new_v4().to_string(), deadline: now.checked_add_signed(Duration::seconds(DEADLINE_SECONDS)).ok_or_else(super::schedule::time_range_error)?, at: now, plan: plan.clone() };
+    let intent = Intent { symbol: plan.ticker.ticker.clone(), bot_id: bot.id, run: if rebalance.is_some() { None } else { Some(bot.run_identity()?) }, credential_version: match version {Some(v)=>v.clone(),None=>model::credential_version(&tx,bot)?}, cl_ord_id: uuid::Uuid::new_v4().to_string(), deadline: now.checked_add_signed(Duration::seconds(DEADLINE_SECONDS)).ok_or_else(super::schedule::time_range_error)?, at: now, plan: plan.clone() };
     // Before anything is committed or sent: an intent recovery or `resolve-placement` could not read back would strand the
     // bot after a real order. Such a plan is refused as Rails fails a StandardError raised inside execute_action
     // (execution_failed, no retry; the next checkpoint sizes afresh). Dropping `tx` rolls back. The read-back resolves the
@@ -275,6 +290,7 @@ fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock,
     v["composition"] = composition_snapshot(&tx, &current)?;
     if let Some(Value::Object(identity)) = identity { for (k, value) in identity { v[k] = value; } }
     set_intent(&tx, bot.id, Some(&v))?;
+    if let Some(state) = rebalance { super::rebalance::set_pending(&tx, bot.id, state)?; }
     tx.commit()?; // durable before the send
     Ok(Begun::Intent(Box::new(intent)))
 }
@@ -292,10 +308,12 @@ pub async fn send<V: Venue>(c: &Connection, venue: &V, intent: &Intent, clock: &
         if !intent_owned(&tx, intent)? || !still_pending(&tx, intent.bot_id, &intent.cl_ord_id)? {
             // Fencing proves this invocation sent nothing. Only discard its own intent
             // if no earlier dispatch may have reached the venue; keep that evidence for recovery.
-            tx.execute("UPDATE bots SET transient_data=json_remove(transient_data,'$.rust_placement') \
+            let removed = tx.execute("UPDATE bots SET transient_data=json_remove(transient_data,'$.rust_placement') \
                         WHERE id=?1 AND json_extract(transient_data,'$.rust_placement.cl_ord_id')=?2 \
                         AND coalesce(json_extract(transient_data,'$.rust_placement.dispatched'),0)=0",
                        params![intent.bot_id, intent.cl_ord_id])?;
+            // Provably never sent: a REBALANCE intent's phase goes with it, as the pre-transmission rescue undoes it.
+            if removed == 1 && intent.plan.kind == TxKind::Rebalance { super::rebalance::settle(&tx, intent.bot_id, &intent.plan, super::rebalance::Settlement::NotPlaced, clock.now())?; }
             tx.commit()?;
             return Ok(Sent::Fenced);
         }
@@ -312,9 +330,12 @@ pub async fn send_recorded<V: Venue>(c: &Connection, venue: &V, bot: &Bot, inten
     let sent = send(c, venue, intent, clock).await?;
     let tx = model::immediate(c)?;
     match &sent {
-        Sent::Accepted(id) => { record_accepted_in(&tx, bot, intent, id)?; }
-        Sent::Rejected(errors) => { record_rejected_in(&tx, bot, intent, errors)?; }
-        Sent::NotSent(_) => set_intent(&tx, bot.id, None)?,
+        Sent::Accepted(id) => { record_accepted_in(&tx, bot, intent, id, clock.now())?; }
+        Sent::Rejected(errors) => { record_rejected_in(&tx, bot, intent, errors, clock.now())?; }
+        Sent::NotSent(_) => {
+            set_intent(&tx, bot.id, None)?;
+            if intent.plan.kind == TxKind::Rebalance { super::rebalance::settle(&tx, bot.id, &intent.plan, super::rebalance::Settlement::NotPlaced, clock.now())?; }
+        }
         Sent::Ambiguous(_) | Sent::Fenced => {}
     }
     tx.commit()?;
@@ -322,7 +343,16 @@ pub async fn send_recorded<V: Venue>(c: &Connection, venue: &V, bot: &Bot, inten
 }
 
 fn intent_owned(c: &Connection, intent: &Intent) -> Result<bool, EngineError> {
+    if intent.plan.kind == TxKind::Rebalance { return rebalance_claim_holds(c, intent.bot_id); }
     match &intent.run { Some(run) => model::owns_identity(c, intent.bot_id, run), None => Ok(false) }
+}
+
+/// A REBALANCE intent's claim (`begin_rebalance`): the bot is not deleted or archived, no reversal bars it, and its
+/// composition is still the snapshot the intent recorded.
+fn rebalance_claim_holds(c: &Connection, bot_id: i64) -> Result<bool, EngineError> {
+    let bot = model::load_bot(c, bot_id)?;
+    if matches!(bot.status, crate::enums::BotStatus::Deleted | crate::enums::BotStatus::Archived) || super::reversal::barred(&bot) { return Ok(false); }
+    Ok(bot.rust_placement().and_then(|v| v.get("composition").cloned()) == Some(composition_snapshot(c, &bot)?))
 }
 
 async fn send_to_venue<V: Venue>(venue: &V, intent: &Intent, clock: &dyn Clock) -> Sent {
@@ -353,14 +383,15 @@ async fn send_to_venue<V: Venue>(venue: &V, intent: &Intent, clock: &dyn Clock) 
 
 pub fn record_accepted(c: &Connection, bot: &Bot, intent: &Intent, txid: &str) -> Result<i64, EngineError> {
     let tx = model::immediate(c)?;
-    let id = record_accepted_in(&tx, bot, intent, txid)?;
+    let id = record_accepted_in(&tx, bot, intent, txid, intent.at)?;
     tx.commit()?;
     Ok(id)
 }
-fn record_accepted_in(tx: &rusqlite::Transaction<'_>, bot: &Bot, intent: &Intent, txid: &str) -> Result<i64, EngineError> {
+fn record_accepted_in(tx: &rusqlite::Transaction<'_>, bot: &Bot, intent: &Intent, txid: &str, now: DateTime<Utc>) -> Result<i64, EngineError> {
     if !still_pending(tx, bot.id, &intent.cl_ord_id)? { return Err(gone(bot.id)); }
     let id = write_accepted_order(tx, bot, &intent.plan, txid, intent.at, intent.run.as_ref())?;
     set_intent(tx, bot.id, None)?;
+    if intent.plan.kind == TxKind::Rebalance { super::rebalance::settle(tx, bot.id, &intent.plan, super::rebalance::Settlement::Accepted(id), now)?; }
     Ok(id)
 }
 
@@ -369,14 +400,24 @@ pub fn safe_rejection(errors: &[String]) -> bool {
 }
 pub fn record_rejected(c: &Connection, bot: &Bot, intent: &Intent, errors: &[String]) -> Result<bool, EngineError> {
     let tx = model::immediate(c)?;
-    let recorded = record_rejected_in(&tx, bot, intent, errors)?;
+    let recorded = record_rejected_in(&tx, bot, intent, errors, intent.at)?;
     tx.commit()?;
     Ok(recorded)
 }
-fn record_rejected_in(tx: &rusqlite::Transaction<'_>, bot: &Bot, intent: &Intent, errors: &[String]) -> Result<bool, EngineError> {
+fn record_rejected_in(tx: &rusqlite::Transaction<'_>, bot: &Bot, intent: &Intent, errors: &[String], now: DateTime<Utc>) -> Result<bool, EngineError> {
     let fenced = model::check_credential_result(tx, &intent.credential_version)?;
     if !still_pending(tx, bot.id, &intent.cl_ord_id)? { return Err(gone(bot.id)); }
     let safe = safe_rejection(errors);
+    // Bot::Rebalancer#handle_placement_failure: only placement_transient_error? proves a pre-trade rejection, which writes the
+    // failed REBALANCE row and undoes the attempt; any other failure halts the swap as ambiguous, with no row.
+    if intent.plan.kind == TxKind::Rebalance {
+        if safe { write_order_row(&fenced, bot, &intent.plan, RowKind::Failed { errors: errors.to_vec() }, intent.at)?; }
+        set_intent(tx, bot.id, None)?;
+        let settlement = if safe { super::rebalance::Settlement::NotPlaced }
+            else { super::rebalance::Settlement::Halt(format!("{} placement failed: {}", intent.plan.side.as_str(), crate::ruby::to_sentence(errors))) };
+        super::rebalance::settle(tx, bot.id, &intent.plan, settlement, now)?;
+        return Ok(safe);
+    }
     if !safe {
         let id = write_order_row(&fenced, bot, &intent.plan, RowKind::Failed { errors: errors.to_vec() }, intent.at)?;
         tx.execute("UPDATE transactions SET run_identity=?2 WHERE id=?1", params![id, intent.run.as_ref().map(|r| r.order_json().to_string())])?;
@@ -395,6 +436,8 @@ pub enum Recovery { NoIntent, Recorded(i64), NotPlaced, Pending }
 /// retain Rails' ambiguous-placement checkpoint wait; this does not grant dispatch ownership.
 pub fn pending_requires_checkpoint(bot: &Bot) -> Result<bool, EngineError> {
     let Some(raw) = bot.rust_placement() else { return Ok(false) };
+    // A REBALANCE order belongs to no DCA run (begin_rebalance).
+    if raw["transaction_type"].as_str() == Some(TxKind::Rebalance.as_str()) { return Ok(false); }
     let Some(run) = raw.get("run_identity").filter(|v| !v.is_null()) else { return Ok(true) };
     let run = model::RunIdentity::from_json(run).ok_or_else(||EngineError::Data("unreadable intent run identity".into()))?;
     Ok(run == bot.run_identity()?)
@@ -461,12 +504,15 @@ pub async fn recover_since<V: Venue>(c: &Connection, venue: &V, bot: &Bot, clock
             // The intent goes before the fill is applied: the amount cap counts an unresolved intent as spent, and this one is
             // now its row, which polling's stop trigger must not count twice.
             set_intent(&tx, bot.id, None)?;
+            let rebalance = intent.plan.kind == TxKind::Rebalance;
+            if rebalance { super::rebalance::settle(&tx, bot.id, &intent.plan, super::rebalance::Settlement::Accepted(id), now)?; }
             // As FetchAndUpdateOrderJob would, after placement; its amount-limit stop lands with the fill (the tick ends here).
             if polling::apply_in(&fenced, bot.id, id, &state, true, now)? {
                 polling::owe_limit_mail(&tx, bot.id, now)?;
                 super::tick::stop_for_amount_limit(&tx, bot.id, now)?;
             }
-            if intent.run.is_none() || intent_owned(&tx, &intent)? { defer_failure(&fenced, &model::load_bot(&tx, bot.id)?, now)?; }
+            // A REBALANCE order belongs to no DCA run: the schedule is not deferred for it.
+            if !rebalance && (intent.run.is_none() || intent_owned(&tx, &intent)?) { defer_failure(&fenced, &model::load_bot(&tx, bot.id)?, now)?; }
             tx.commit()?;
             Ok(Recovery::Recorded(id))
         }
@@ -475,7 +521,8 @@ pub async fn recover_since<V: Venue>(c: &Connection, venue: &V, bot: &Bot, clock
             let fenced=model::check_credential_result(&tx, &intent.credential_version)?;
             if !still_pending(&tx, bot.id, &intent.cl_ord_id)? { return Ok(Recovery::NoIntent); }
             set_intent(&tx, bot.id, None)?;
-            if intent.run.is_none() || intent_owned(&tx, &intent)? { defer_failure(&fenced, &model::load_bot(&tx, bot.id)?, started)?; }
+            if intent.plan.kind == TxKind::Rebalance { super::rebalance::settle(&tx, bot.id, &intent.plan, super::rebalance::Settlement::NotPlaced, started)?; }
+            else if intent.run.is_none() || intent_owned(&tx, &intent)? { defer_failure(&fenced, &model::load_bot(&tx, bot.id)?, started)?; }
             model::log_activity(&tx, bot.id, "placement_ambiguous", Level::Warning,
                 json!({ "error": format!("the order never reached {}", rules.name), "resolution": "not_placed", "source": "rust", "cl_ord_id": intent.cl_ord_id }), started)?;
             tx.commit()?;
@@ -501,12 +548,13 @@ pub fn resolve_by_operator(c: &Connection, bot_id: i64, resolution: OperatorReso
         let dup: i64 = tx.query_row("SELECT count(*) FROM transactions WHERE exchange_id = ?1 AND external_id = ?2", params![bot.exchange_id, t], |r| r.get(0))?;
         if dup > 0 { return Err(EngineError::Data(format!("order {t} is already recorded"))); }
     }
-    let (label, txid) = match resolution {
-        OperatorResolution::Placed(txid) => { write_accepted_order(&tx, &bot, &intent.plan, &txid, intent.at, intent.run.as_ref())?; ("placed", Some(txid)) }
-        OperatorResolution::NotPlaced => ("not_placed", None),
+    let (label, txid, settlement) = match resolution {
+        OperatorResolution::Placed(txid) => { let id = write_accepted_order(&tx, &bot, &intent.plan, &txid, intent.at, intent.run.as_ref())?; ("placed", Some(txid), super::rebalance::Settlement::Accepted(id)) }
+        OperatorResolution::NotPlaced => ("not_placed", None, super::rebalance::Settlement::NotPlaced),
     };
     set_intent(&tx, bot_id, None)?;
-    if intent.run.is_none() || intent_owned(&tx, &intent)? { defer_to_next_checkpoint(&tx, &bot, now)?; }
+    if intent.plan.kind == TxKind::Rebalance { super::rebalance::settle(&tx, bot_id, &intent.plan, settlement, now)?; }
+    else if intent.run.is_none() || intent_owned(&tx, &intent)? { defer_to_next_checkpoint(&tx, &bot, now)?; }
     model::log_activity(&tx, bot_id, "placement_ambiguous", Level::Warning,
         json!({ "error": "resolved by the operator", "resolution": label, "source": "operator", "cl_ord_id": intent.cl_ord_id, "order_id": txid }), now)?;
     tx.commit()?;

@@ -60,6 +60,9 @@ pub struct Engine<F: VenueFactory> {
     events: EngineEvents,
     /// When reversal::scan runs next (0: at the first pass).
     settle_scan_at: i64,
+    /// Bot::EvaluateRebalancersJob's next fire (`30 */4 * * *`), in memory: set at the first pass to the first fire after it,
+    /// so a fire missed while the engine was down is not run late (Solid Queue does not backfill a recurring task either).
+    rebalance_at: Option<i64>,
 }
 
 impl<F: VenueFactory> Engine<F> {
@@ -67,7 +70,7 @@ impl<F: VenueFactory> Engine<F> {
         Self { primary, factory, cipher, lock, started: false, attempts: HashMap::new(), run_keys: HashMap::new(), retry_at: HashMap::new(), closed_until: HashMap::new(), cache_insert_step:None, polls: HashMap::new(), reconcile_at: HashMap::new(),
                prices: PriceCache::default(), process_start: None, wake: Arc::new(Notify::new()), stop: Arc::new(AtomicBool::new(false)),
                stopped: Arc::new(tokio::sync::watch::Sender::new(false)), writers_guarded: false, stale_logged: HashMap::new(), defer_refused: HashSet::new(),
-               events: EngineEvents::default(), settle_scan_at: 0 }
+               events: EngineEvents::default(), settle_scan_at: 0, rebalance_at: None }
     }
     #[doc(hidden)] pub fn inject_cache_insert_step(&mut self, step: impl FnOnce(&Connection)->Result<(),EngineError> + 'static) { self.cache_insert_step=Some(Box::new(step)); }
     pub fn wake_handle(&self) -> Arc<Notify> { self.wake.clone() }
@@ -77,6 +80,8 @@ impl<F: VenueFactory> Engine<F> {
     pub fn subscribe_to(&mut self, wants: fn(&EngineEvent) -> bool) -> UnboundedReceiver<EngineEvent> { self.events.subscribe_to(wants) }
     pub fn stop_handle(&self) -> Shutdown { Shutdown { flag: self.stop.clone(), wake: self.wake.clone(), stopped: self.stopped.clone() } }
     fn stopping(&self) -> bool { self.stop.load(Ordering::SeqCst) }
+    /// Tests only: the rebalancers' next fire, as if the engine had started before it.
+    #[doc(hidden)] pub fn inject_rebalance_at(&mut self, at: DateTime<Utc>) { self.rebalance_at = Some(at.timestamp_micros()); }
     #[doc(hidden)] pub fn inject_stale_retry(&mut self, bot: i64, at_us: i64) { self.retry_at.insert(bot, model::Produced::new(at_us,None)); }
     fn venue_for(&self, bot: &model::Bot) -> Result<(crate::venue::Handle<F::V>, Option<model::CredentialVersion>), EngineError> {
         let (credentials,version,sensitive)=model::credentials_with_redaction(&self.primary,&self.cipher,bot)?;
@@ -228,6 +233,7 @@ pub async fn step<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) -> Resu
     let mut wake = clock.now().timestamp_micros() + IDLE_US;
     run_reversals(e, clock).await?;
     run_polls(e, clock, &mut wake).await;
+    run_rebalances(e, &report.unreadable, clock, &mut wake).await?;
     for id in idle_bots_with_intents(&e.primary)? {
         if e.stopping() { break; }
         if let Err(err) = reconcile_idle(e, id, clock, &mut wake).await {
@@ -303,6 +309,59 @@ async fn run_reversals<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) ->
         }
     }
     Ok(())
+}
+
+/// Bot::EvaluateRebalancersJob's schedule (config/recurring.yml).
+pub const REBALANCE_SCHEDULE: crate::jobs::schedule::Schedule = crate::jobs::schedule::Schedule::EveryHours { every: 4, minute: 30 };
+
+/// Bot::EvaluateRebalancersJob#candidates: every rebalanceable bot that is neither deleted nor archived (a stopped one
+/// included), with the rule on or a swap pending.
+fn rebalance_candidates(c: &Connection) -> Result<Vec<i64>, EngineError> {
+    let mut s = c.prepare("SELECT id FROM bots WHERE type IN ('Bots::DcaIndex', 'Bots::DcaMultiAsset') AND status NOT IN (?1, ?2) \
+                           AND (json_extract(settings, '$.rebalance_enabled') IN (1, 'true') OR json_extract(transient_data, '$.rebalance_pending') IS NOT NULL) ORDER BY id")?;
+    let ids = s.query_map(rusqlite::params![crate::enums::BotStatus::Deleted as i64, crate::enums::BotStatus::Archived as i64], |r| r.get(0))?.collect::<Result<Vec<i64>, _>>()?;
+    Ok(ids)
+}
+
+/// The rebalance leg's clock: at each fire, Bot::RebalanceJob for every candidate, one after another (the loop is serial,
+/// which is what BotJob's per-exchange concurrency key and the shared Bot::ActionJob group buy in Rails). Placed orders get
+/// their follow-up poll and are announced, as a tick's are. A bot's failure is logged; the next fire evaluates it again.
+async fn run_rebalances<F: VenueFactory>(e: &mut Engine<F>, unreadable: &[(i64, String)], clock: &dyn Clock, wake: &mut i64) -> Result<(), EngineError> {
+    let now = clock.now();
+    let due = *e.rebalance_at.get_or_insert_with(|| REBALANCE_SCHEDULE.next_fire(now).timestamp_micros());
+    if now.timestamp_micros() < due { *wake = (*wake).min(due); return Ok(()); }
+    let next = REBALANCE_SCHEDULE.next_fire(now).timestamp_micros();
+    e.rebalance_at = Some(next);
+    *wake = (*wake).min(next);
+    for id in rebalance_candidates(&e.primary)? {
+        if e.stopping() { break; }
+        if unreadable.iter().any(|(u, _)| *u == id) { continue; }
+        let done = rebalance_bot(e, id, clock).await;
+        match done {
+            Ok(outcome) => super::log(&format!("bot {id}: rebalance {outcome:?}")),
+            Err(err @ (EngineError::Lease(_) | EngineError::Store(_))) => return Err(err),
+            Err(err) => super::log(&format!("[engine] bot {id}: rebalance failed: {err:?}; evaluated again at the next fire")),
+        }
+    }
+    Ok(())
+}
+
+/// One Bot::RebalanceJob, with the engine's price cache and credentials; what it placed is polled and announced.
+pub async fn rebalance_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock) -> Result<super::rebalance::Outcome, EngineError> {
+    let bot = model::load_bot(&e.primary, id)?;
+    let (venue, producer) = e.venue_for(&bot)?;
+    let start = crate::codec::format_time(clock.now());
+    let last_tx: i64 = e.primary.query_row("SELECT coalesce(max(id), 0) FROM transactions", [], |r| r.get(0))?;
+    let stop = e.stop.clone();
+    let stopping = move || stop.load(Ordering::SeqCst);
+    let cx = TickContext { credential_version: producer.clone(), prices: &e.prices, process_start: e.process_start.ok_or_else(|| EngineError::Data("engine start time missing".into()))?,
+                           stopping: &stopping, below_minimum: &|_, _| {} };
+    let outcome = super::rebalance::run(&e.primary, &venue, id, clock, &cx).await;
+    e.events.send(EngineEvent::OrderUpdated { bot_id: id });
+    // An order recovered for an earlier intent carries that intent's time: found by its id instead.
+    let recovered = match &outcome { Ok(super::rebalance::Outcome::Placed(tx)) => Some(*tx), _ => None };
+    after_tick(e, id, &start, last_tx, recovered, clock, &producer)?;
+    outcome
 }
 
 /// Due follow-up polls, for any bot whatever its status (a job Rails enqueued at placement runs even if the

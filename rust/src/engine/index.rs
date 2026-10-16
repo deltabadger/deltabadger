@@ -76,6 +76,17 @@ pub async fn refresh_composition<V: Venue>(c: &Connection, venue: &V, bot: &Bot,
     refresh_composition_captured(c, venue, bot, clock, prices, &version).await
 }
 pub(crate) async fn refresh_composition_captured<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, clock: &dyn Clock, prices: &PriceCache, version: &Option<model::CredentialVersion>) -> Result<Result<(), Refusal>, EngineError> {
+    refresh_owned(c, venue, bot, clock, prices, version, true).await
+}
+
+/// Bot::Composition::Rebalancer#before_rebalance for an index bot: the same refresh for a bot in any status but deleted or
+/// archived (rebalancing runs while the DCA schedule is stopped), so no DCA run is required to own it.
+pub(crate) async fn refresh_for_rebalance<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, clock: &dyn Clock, prices: &PriceCache, version: &Option<model::CredentialVersion>) -> Result<Result<(), Refusal>, EngineError> {
+    refresh_owned(c, venue, bot, clock, prices, version, false).await
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn refresh_owned<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, clock: &dyn Clock, prices: &PriceCache, version: &Option<model::CredentialVersion>, run_owned: bool) -> Result<Result<(), Refusal>, EngineError> {
     let before = super::placement::composition_snapshot(c, bot)?;
     let provider_before = super::provider::fingerprint(c)?;
     if provider_before.is_none() { return Ok(Err(Refusal::Failure("Index provider not configured".into()))); }
@@ -141,7 +152,8 @@ pub(crate) async fn refresh_composition_captured<V: Venue + Attributed>(c: &Conn
     let by_asset: HashMap<i64, f64> = caps.into_iter().map(|(id, _)| id).zip(weights).collect();
     let members: Vec<(i64, i64, f64)> = chosen.iter().map(|(asset, ticker, _)| (*asset, *ticker, by_asset[asset])).collect();
     model::credential_write(c, version, |tx| {
-        model::require_run(tx, bot)?;
+        if run_owned { model::require_run(tx, bot)?; }
+        else if matches!(model::load_bot(tx, bot.id)?.status, crate::enums::BotStatus::Deleted | crate::enums::BotStatus::Archived) { return Err(EngineError::RunFenced); }
         let current = model::load_bot(tx, bot.id)?;
         let source_now: Option<(Option<String>, Option<String>, Option<String>)> = tx.query_row(
             "SELECT source, top_coins, weights FROM indices WHERE external_id=?1 ORDER BY id LIMIT 1", [category],
