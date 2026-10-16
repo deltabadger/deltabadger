@@ -241,7 +241,7 @@ async fn sync_steps<T:Transport>(db:&Db,venue:&AlpacaVenue<T>,prices:&dyn PriceS
         (Err(why), _) | (_, Err(why)) => return fail(why, false).await,
     };
     let held = match complete_balances(&catalog, cash, held) {
-        Ok(rows) => rows.into_iter().filter(|(_, qty)| qty.is_positive()).map(|(id, qty)| (id, qty, BigDec::zero())).collect::<Vec<_>>(),
+        Ok(rows) => rows.into_iter().filter(|(_, free, locked)| (free + locked).is_positive()).collect::<Vec<_>>(),
         Err(why) => return fail(why, false).await,
     };
 
@@ -565,9 +565,12 @@ pub(crate) fn position_spelling(native: &str) -> &str {
 }
 
 /// Unsupported/unmapped positions are individually excluded; cash and resolvable positions still publish.
-pub(crate) fn complete_balances(catalog: &Catalog, cash: BigDec, positions: Vec<Position>) -> Result<Vec<(i64, BigDec)>, String> {
-    let mut free: HashMap<i64, BigDec> = HashMap::new();
-    if let [usd] = catalog.cash_ids.as_slice() { free.insert(*usd, cash); }
+/// Each held asset as (id, free, locked). A position's `qty` counts shares already committed to open sell orders and
+/// `qty_available` what is left to sell: free is the second, locked the rest, so the holding stays whole. Both are
+/// required, as in Rails (`a position without a quantity`).
+pub(crate) fn complete_balances(catalog: &Catalog, cash: BigDec, positions: Vec<Position>) -> Result<Vec<(i64, BigDec, BigDec)>, String> {
+    let mut free: HashMap<i64, (BigDec, BigDec)> = HashMap::new();
+    if let [usd] = catalog.cash_ids.as_slice() { free.insert(*usd, (cash, BigDec::zero())); }
     else if !cash.is_zero() { return Err("Unmapped or ambiguous Alpaca cash asset".into()); }
     for (category, symbol, raw) in positions {
         let ids = catalog.by_symbol.get(&(category, symbol));
@@ -576,10 +579,13 @@ pub(crate) fn complete_balances(catalog: &Catalog, cash: BigDec, positions: Vec<
             continue;
         };
         let position = Raw::from_node(&raw).map_err(|_| "unreadable position".to_string())?;
-        let qty = position.number("qty")?.ok_or_else(|| "a position without a quantity".to_string())?;
-        free.insert(asset, qty);
+        let missing = || "a position without a quantity".to_string();
+        let (qty, available) = (position.number("qty")?, position.number("qty_available")?);
+        let (qty, available) = (qty.ok_or_else(missing)?, available.ok_or_else(missing)?);
+        let locked = &qty - &available;
+        free.insert(asset, (available, locked));
     }
-    Ok(catalog.asset_ids.iter().filter_map(|id| free.remove(id).map(|qty| (*id, qty))).collect())
+    Ok(catalog.asset_ids.iter().filter_map(|id| free.remove(id).map(|(free, locked)| (*id, free, locked))).collect())
 }
 
 fn assets(c: &Connection, ids: &[i64]) -> Result<Vec<Asset>, SyncError> {

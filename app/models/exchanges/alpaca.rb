@@ -292,10 +292,12 @@ class Exchanges::Alpaca < Exchange
 
       asset = candidates.first
       next unless asset_ids.include?(asset.id)
-      return Result::Failure.new('a position without a quantity') if position['qty'].nil?
+      return Result::Failure.new('a position without a quantity') if position['qty'].nil? || position['qty_available'].nil?
 
+      # qty counts shares already committed to open sell orders; qty_available is what is left to sell.
       qty = position['qty'].to_d
-      balances[asset.id] = { free: qty, locked: 0 }
+      available = position['qty_available'].to_d
+      balances[asset.id] = { free: available, locked: qty - available }
     end
 
     Result::Success.new(balances)

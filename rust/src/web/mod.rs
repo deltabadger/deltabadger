@@ -634,6 +634,7 @@ fn routes(app: App) -> Router {
         .route("/tracker/fund_classifications", only(patch(tracker::fund_classifications)))
         .route("/tracker/sync", only(post(tracker::sync)))
         .route("/tracker/tax_report", only(get(tracker::modal::deferred_report)))
+        .route("/tracker/export", only(get(tracker::export)))
         .route("/tracker/export_modal", only(get(tracker::modal::export_modal)))
         .route("/tracker/transactions/{id}/price", only(patch(tracker::transaction::update_price)))
         .route("/tracker/transactions/{id}/toggle_transfer", only(patch(tracker::transaction::toggle_transfer)))
