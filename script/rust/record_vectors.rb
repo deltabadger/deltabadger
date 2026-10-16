@@ -5,6 +5,13 @@
 require 'json'
 require 'bcrypt'
 
+# What Bot::SettingsForm.save writes, without the save: the controller's update_params before #579 moved the page's
+# save there. Kept to the same three keys so the vectors read as they did.
+def settings_form_attributes(bot, form)
+  { settings: bot.settings.merge(bot.parse_params(form).stringify_keys), exchange_id: form[:exchange_id],
+    label: form[:label].presence }.compact
+end
+
 def action_transport_vectors
   # The real Rack parser, Rails request merge, controller allowlist and decorator chain.
   # ACTION_TRANSPORT_ONLY updates only this deterministic section; older encrypted vectors contain
@@ -71,7 +78,7 @@ def action_transport_vectors
         controller.params = ActionController::Parameters.new(merged)
         controller.instance_variable_set(:@bot, Bots::DcaMultiAsset.new(settings: { 'allocations' => {}, 'interval' => 'day', 'quote_amount' => 60 }))
         row['permitted'] = controller.send(:dca_multi_asset_bot_params).to_h
-        row['updated'] = controller.send(:update_params)
+        row['updated'] = settings_form_attributes(controller.instance_variable_get(:@bot), controller.send(:dca_multi_asset_bot_params))
       rescue StandardError => e
         row['exception'] = e.class.name
         row['bounded_input_divergence'] = true if e.is_a?(ActionController::BadRequest) ||
@@ -184,7 +191,7 @@ module BotActionVectors
             permitted = controller.send(record.is_a?(Bots::DcaIndex) ? :dca_index_bot_params : :dca_multi_asset_bot_params)
             row['permitted'] = permitted.to_h
             row['parsed'] = record.parse_params(permitted).stringify_keys
-            record.assign_attributes(controller.send(:update_params))
+            record.assign_attributes(settings_form_attributes(record, permitted))
             record.status = :scheduled if context == :start
             row['valid'] = record.valid?(context)
             row['candidate'] = record.settings.deep_dup

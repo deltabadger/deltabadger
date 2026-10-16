@@ -139,3 +139,69 @@ pub async fn sync(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Res
         Ok(Prepared { response:([(header::CONTENT_TYPE,super::turbo::CONTENT_TYPE)],super::turbo::stream("append","flash",&content)).into_response(),jobs })
     })).await
 }
+
+/// TrackerController#export. Rails saves `export_type` before it reads, so this GET writes: the same write as
+/// save_export_settings, committed in its own immediate transaction before the read, which runs with writes disabled.
+pub async fn export(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> {
+    let Some(owner) = ctx.user().map(|u| u.id) else { return Ok(auth::unauthenticated(&ctx)); };
+    app.db(move |c| {
+        let saved = write(c, &ctx, owner, |c, owner, now| {
+            save_settings(c, owner, now, &serde_json::json!({ "export_type": "transactions" }))?;
+            Ok(Prepared { response: StatusCode::OK.into_response(), jobs: vec![] })
+        })?;
+        if saved.status() != StatusCode::OK { return Ok(saved); }
+        read::only(c, |c| transactions_csv(c, &ctx, owner))
+    }).await
+}
+
+/// `filtered_transactions` (exchange, then the UTC days `from`..`to`) through `AccountTransaction.to_csv`.
+fn transactions_csv(c: &Connection, ctx: &Ctx, owner: i64) -> Result<Response, WebError> {
+    use crate::tax::{line, Cell};
+    use rusqlite::types::Value as Sql;
+    if ctx.params.query.iter().any(|(k, _)| k.starts_with("exchange_id[") || k.starts_with("from[") || k.starts_with("to[")) {
+        return Ok(layout::refused(ctx, "tracker structured filters"));
+    }
+    let present = |key: &str| ctx.params.query(key).filter(|v| !crate::ruby::blank(v));
+    // Rails' own query, so that rows at the same instant come out in the same order.
+    let mut sql = String::from("SELECT transacted_at,entry_type,base_currency,base_amount,quote_currency,quote_amount,fee_currency,fee_amount,exchange_id,tx_id,group_id,description FROM account_transactions WHERE user_id=?1");
+    let mut binds = vec![Sql::Integer(owner)];
+    if let Some(raw) = present("exchange_id") {
+        let Some(id) = super::bot::id_from_path(raw) else { return Ok(layout::missing()) };
+        if !c.query_row("SELECT EXISTS(SELECT 1 FROM exchanges WHERE id=?1)", [id], |r| r.get::<_, bool>(0))? { return Ok(layout::missing()); }
+        binds.push(Sql::Integer(id));
+        sql.push_str(&format!(" AND exchange_id=?{}", binds.len()));
+    }
+    // beginning_of_day and end_of_day in UTC, quoted as Rails quotes a time for SQLite.
+    for (key, op, clock) in [("from", ">=", "00:00:00"), ("to", "<=", "23:59:59.999999")] {
+        let Some(raw) = present(key) else { continue };
+        let Some(day) = first_sync::iso_day(raw)? else { return Ok(layout::refused(ctx, "tracker date syntax")) };
+        binds.push(Sql::Text(format!("{day} {clock}")));
+        sql.push_str(&format!(" AND transacted_at{op}?{}", binds.len()));
+    }
+    sql.push_str(" ORDER BY transacted_at ASC");
+    let mut out = String::new();
+    line(&mut out, &["date","type","base_currency","base_amount","quote_currency","quote_amount","fee_currency","fee_amount","exchange","tx_id","group_id","description"].map(|h| Cell::Text(h.into())));
+    let mut venues: std::collections::HashMap<i64, String> = std::collections::HashMap::new();
+    let mut statement = c.prepare(&sql)?;
+    let mut rows = statement.query(rusqlite::params_from_iter(binds))?;
+    while let Some(r) = rows.next()? {
+        let text = |i: usize| -> Result<Cell, WebError> { Ok(r.get::<_, Option<String>>(i)?.map_or(Cell::Nil, Cell::Text)) };
+        let amount = |i: usize| -> Result<Cell, WebError> { Ok(crate::ruby::from_sql(r.get_ref(i)?).map_err(|_| row::invalid())?.map_or(Cell::Nil, |d| Cell::Raw(d.to_s_f()))) };
+        let at = codec::parse_time(&r.get::<_, String>(0)?).map_err(|_| row::invalid())?;
+        let kind = r.get::<_, i64>(1)?;
+        let exchange = r.get::<_, i64>(8)?;
+        if let std::collections::hash_map::Entry::Vacant(slot) = venues.entry(exchange) {
+            let kind: Option<Option<String>> = c.query_row("SELECT type FROM exchanges WHERE id=?1", [exchange], |r| r.get(0)).optional()?;
+            // A row whose venue is gone: Rails fails on nil.name_id.
+            let kind = kind.ok_or_else(row::invalid)?;
+            slot.insert(crate::tracker::rows::name_id(kind.as_deref().unwrap_or("Exchange")));
+        }
+        line(&mut out, &[Cell::Text(at.format("%Y-%m-%dT%H:%M:%SZ").to_string()),
+            usize::try_from(kind).ok().and_then(|k| row::TYPES.get(k)).map_or(Cell::Nil, |k| Cell::Text((*k).into())),
+            text(2)?, amount(3)?, text(4)?, amount(5)?, text(6)?, amount(7)?, Cell::Text(venues[&exchange].clone()), text(9)?, text(10)?, text(11)?]);
+    }
+    let name = format!("deltabadger-transactions-{}.csv", ctx.now.date_naive());
+    Ok(([(header::CONTENT_TYPE, "text/csv; charset=utf-8".to_string()),
+         (header::CONTENT_DISPOSITION, format!("attachment; filename=\"{name}\"; filename*=UTF-8''{name}")),
+         (header::HeaderName::from_static("content-transfer-encoding"), "binary".to_string())], out).into_response())
+}

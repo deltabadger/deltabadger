@@ -71,6 +71,16 @@ class Transaction < ApplicationRecord
                   saved_change_to_quote_amount_exec? || saved_change_to_base_asset_id?)
              }
 
+  # A buy a ⇄ flip cancelled before the venue had settled it returns its unspent reserve to the carry
+  # once its final state lands (Bot::Reversible#settle_flip_reserve!). Same write path as above.
+  after_save -> { bot.settle_flip_reserve!(self) },
+             if: lambda {
+               buy? && (closed? || cancelled? || abandoned?) &&
+                 (saved_change_to_external_status? || saved_change_to_amount_exec? || saved_change_to_quote_amount_exec?) &&
+                 # Read from the row, not the cached bot: the flip may have saved the list after it loaded.
+                 Array(Bot.where(id: bot_id).pick(:transient_data).to_h[Bot::Reversible::FLIP_RESERVE_PENDING]).include?(id)
+             }
+
   scope :for_bot, ->(bot) { where(bot_id: bot.id).order(created_at: :desc) }
   scope :today_for_bot, ->(bot) { for_bot(bot).where('created_at >= ?', Date.today.beginning_of_day) }
   scope :for_bot_by_status, ->(bot, status: :submitted) { where(bot_id: bot.id).where(status: status).order(created_at: :desc) }

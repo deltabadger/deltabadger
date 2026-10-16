@@ -11,6 +11,8 @@ use std::collections::HashMap;
 /// AccountTransaction.entry_types, as stored.
 pub const BUY: i64 = 0;
 pub const SELL: i64 = 1;
+pub const SWAP_IN: i64 = 2;
+pub const SWAP_OUT: i64 = 3;
 pub const DEPOSIT: i64 = 4;
 pub const WITHDRAWAL: i64 = 5;
 pub const FEE: i64 = 10;

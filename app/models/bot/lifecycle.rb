@@ -27,11 +27,13 @@ module Bot::Lifecycle
       self.started_at = computed_start_at
       self.last_action_job_at = nil
       self.missed_quote_amount = nil
+      discard_flip_reserves
       set_missed_quote_amount # settings changed → Accountable requires this before save
     elsif start_fresh
       self.started_at = Time.current
       self.last_action_job_at = nil
       self.missed_quote_amount = nil
+      discard_flip_reserves
     end
 
     # Skip the automatic status bar broadcast if we're scheduling a delayed job,
@@ -160,6 +162,14 @@ module Bot::Lifecycle
   end
 
   private
+
+  # A fresh start discards the carry, and with it any reserve a flip left waiting for its buy's final
+  # state (Bot::Reversible): crediting it later would put back spending the fresh start dropped.
+  def discard_flip_reserves
+    data = transient_data.to_h
+    key = Bot::Reversible::FLIP_RESERVE_PENDING
+    self.transient_data = data.except(key) if data.key?(key)
+  end
 
   def action_job_config
     {

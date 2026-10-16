@@ -97,7 +97,7 @@ impl PriceSource for ProbingPrices {
 
 fn balances_script() -> Value {
     json!({ "GET /v2/account": [ok(json!({ "cash": "100.5" }))],
-            "GET /v2/positions": [ok(json!([{ "symbol": "AAPL", "asset_class": "us_equity", "qty": "2" }, { "symbol": "BTCUSD", "asset_class": "crypto", "qty": "0.5" }]))],
+            "GET /v2/positions": [ok(json!([{ "symbol": "AAPL", "asset_class": "us_equity", "qty": "2", "qty_available": "2" }, { "symbol": "BTCUSD", "asset_class": "crypto", "qty": "0.5", "qty_available": "0.5" }]))],
             "GET /v2/stocks/snapshots": [ok(json!({ "AAPL": { "latestTrade": { "p": 227.52 } } }))] })
 }
 
@@ -253,7 +253,7 @@ async fn a_split_touches_one_counter_on_bots_and_nothing_the_engine_places_with(
 async fn a_price_or_a_value_outside_a_venue_numbers_range_fails_the_balance_sync_before_any_write() {
     let (_dir, db, s) = install();
     let state = "SELECT (SELECT count(*) || ' ' || coalesce(group_concat(quote(usd_value)), '') FROM account_balances) || ', synced ' || (SELECT coalesce(balances_synced_at, 'never') FROM api_keys)";
-    let script = json!({ "GET /v2/account": [ok(json!({ "cash": "100.5" }))], "GET /v2/positions": [ok(json!([{ "symbol": "BTCUSD", "asset_class": "crypto", "qty": "1000000000" }]))] });
+    let script = json!({ "GET /v2/account": [ok(json!({ "cash": "100.5" }))], "GET /v2/positions": [ok(json!([{ "symbol": "BTCUSD", "asset_class": "crypto", "qty": "1000000000", "qty_available": "1000000000" }]))] });
     let prices = ScriptedPrices::from_script(&json!({ "GET /api/v1/prices": [ok(json!({ "data": { "bitcoin": { "usd": 1e300 } } }))] }));
     let (_, v) = venue(script.clone());
     let failure = balances::sync(&db, &v, &prices, s.api_key_id, &paper(), &clock()).await.unwrap().unwrap_err();
@@ -289,15 +289,15 @@ async fn a_held_position_without_a_symbol_fails_the_balance_sync_and_keeps_the_s
     let state = "SELECT (SELECT count(*) || ' ' || group_concat(asset_id || ':' || free, ',') FROM account_balances) || ', synced ' || coalesce((SELECT balances_synced_at FROM api_keys), 'never')";
     let stored = one::<String>(&db, state).await;
     assert!(stored.starts_with("3 ") && stored.ends_with(", synced 2026-09-01 00:00:00"), "cash, AAPL and BTC stored: {stored}");
-    let btc = json!({ "symbol": "BTCUSD", "asset_class": "crypto", "qty": "0.5" });
-    for aapl in [json!({ "asset_class": "us_equity", "qty": "2" }), json!({ "symbol": null, "asset_class": "us_equity", "qty": "2" }),
-                 json!({ "symbol": " ", "asset_class": "us_equity", "qty": "2" }), json!({ "symbol": 5, "asset_class": "us_equity", "qty": "2" })] {
+    let btc = json!({ "symbol": "BTCUSD", "asset_class": "crypto", "qty": "0.5", "qty_available": "0.5" });
+    for aapl in [json!({ "asset_class": "us_equity", "qty": "2", "qty_available": "2" }), json!({ "symbol": null, "asset_class": "us_equity", "qty": "2", "qty_available": "2" }),
+                 json!({ "symbol": " ", "asset_class": "us_equity", "qty": "2", "qty_available": "2" }), json!({ "symbol": 5, "asset_class": "us_equity", "qty": "2", "qty_available": "2" })] {
         let (_, v) = venue(json!({ "GET /v2/account": [ok(json!({ "cash": "100.5" }))], "GET /v2/positions": [ok(json!([aapl.clone(), btc.clone()]))] }));
         let failure = balances::sync(&db, &v, &NoPrices, s.api_key_id, &paper(), &clock()).await.unwrap().unwrap_err();
         assert_eq!((failure.error.as_str(), failure.raised), ("a position without a symbol", false), "{aapl}");
         assert_eq!(one::<String>(&db, state).await, stored, "{aapl}: nothing removed, the clock unmoved");
     }
-    let (_, v) = venue(json!({ "GET /v2/account": [ok(json!({ "cash": "100.5" }))], "GET /v2/positions": [ok(json!([{ "asset_class": "us_option", "qty": "1" }]))] }));
+    let (_, v) = venue(json!({ "GET /v2/account": [ok(json!({ "cash": "100.5" }))], "GET /v2/positions": [ok(json!([{ "asset_class": "us_option", "qty": "1", "qty_available": "1" }]))] }));
     balances::sync(&db, &v, &NoPrices, s.api_key_id, &paper(), &clock()).await.unwrap().unwrap();
 }
 
@@ -1006,11 +1006,11 @@ async fn a_malformed_balance_answer_fails_the_sync_and_removes_nothing() {
     let before: String = one(&db, state).await;
     let later = FixedClock("2026-09-21T02:30:00Z".parse().unwrap());
     let good_account = json!({ "cash": "100.5" });
-    let aapl = json!([{ "symbol": "AAPL", "asset_class": "us_equity", "qty": "2" }]);
+    let aapl = json!([{ "symbol": "AAPL", "asset_class": "us_equity", "qty": "2", "qty_available": "2" }]);
     let cases: Vec<(&str, Value, Value, Value, String)> = vec![
         ("a position that is no object", good_account.clone(), json!([5]), json!({}), "unreadable position".into()),
-        ("a quantity past the caps", good_account.clone(), json!([{ "symbol": "AAPL", "asset_class": "us_equity", "qty": "1e400" }]), json!({}), "unreadable qty: beyond 10^±40".into()),
-        ("a quantity that is no number", good_account.clone(), json!([{ "symbol": "AAPL", "asset_class": "us_equity", "qty": "many" }]), json!({}), "unreadable qty: not a plain decimal number".into()),
+        ("a quantity past the caps", good_account.clone(), json!([{ "symbol": "AAPL", "asset_class": "us_equity", "qty": "1e400", "qty_available": "1e400" }]), json!({}), "unreadable qty: beyond 10^±40".into()),
+        ("a quantity that is no number", good_account.clone(), json!([{ "symbol": "AAPL", "asset_class": "us_equity", "qty": "many", "qty_available": "many" }]), json!({}), "unreadable qty: not a plain decimal number".into()),
         ("cash past the caps", json!({ "cash": "9".repeat(70) }), aapl.clone(), json!({}), "unreadable cash: more than 64 significant digits".into()),
         ("cash that is no number", json!({ "cash": true }), aapl.clone(), json!({}), "unreadable cash: not a number".into()),
         ("an account that is a list", json!([{ "cash": "1" }]), aapl.clone(), json!({}), "unreadable account".into()),
@@ -1021,7 +1021,7 @@ async fn a_malformed_balance_answer_fails_the_sync_and_removes_nothing() {
          json!(format!("[{{\"symbol\":\"AAPL\",\"qty\":\"2\",{}}}]", (0..200_000).map(|i| format!("\"k{i}\":0")).collect::<Vec<_>>().join(","))), json!({}),
          "positions with more values than one answer may hold".into()),
         ("a quantity that underflows a double, unquoted (a double reads it as 0, which would drop the holding)", good_account.clone(),
-         json!(r#"[{"symbol":"AAPL","asset_class":"us_equity","qty":1e-999}]"#), json!({}), "unreadable qty: beyond 10^±40".into()),
+         json!(r#"[{"symbol":"AAPL","asset_class":"us_equity","qty":1e-999,"qty_available":1e-999}]"#), json!({}), "unreadable qty: beyond 10^±40".into()),
         ("cash that underflows a double, unquoted", json!(r#"{"cash":1e-999}"#), aapl.clone(), json!({}), "unreadable cash: beyond 10^±40".into()),
         ("an account answer over the byte limit", json!({ "cash": "1", "note": "x".repeat(balances::MAX_ACCOUNT_BYTES) }), aapl.clone(), json!({}),
          "Client::TransientNetworkError: the response body is over 65536 bytes".into()),
@@ -1043,7 +1043,7 @@ async fn an_unreadable_snapshot_price_updates_holdings_and_keeps_the_last_price(
         balances::sync(&db, &v, &NoPrices, s.api_key_id, &paper(), &clock()).await.unwrap().unwrap();
         let (_, v) = venue(json!({
             "GET /v2/account": [ok(json!({ "cash": "100" }))],
-            "GET /v2/positions": [ok(json!([{ "symbol": "AAPL", "asset_class": "us_equity", "qty": "2" }]))],
+            "GET /v2/positions": [ok(json!([{ "symbol": "AAPL", "asset_class": "us_equity", "qty": "2", "qty_available": "2" }]))],
             "GET /v2/stocks/snapshots": [ok(json!({ "AAPL": { "latestTrade": { "p": value } } }))]
         }));
         let later = FixedClock("2026-09-21T02:30:00Z".parse().unwrap());
@@ -1455,7 +1455,7 @@ async fn a_restart_repairs_balances_a_stopped_run_left_half_written_after_a_same
     ran_at(dir.path(), s.api_key_id, "2026-09-20T02:00:05Z", "2026-09-20T02:30:05Z");
     let mut script = balances_script();
     script["GET /v2/account"] = json!([ok(json!({ "cash": "200" }))]);
-    script["GET /v2/positions"] = json!([ok(json!([{ "symbol": "AAPL", "asset_class": "us_equity", "qty": "3" }]))]);
+    script["GET /v2/positions"] = json!([ok(json!([{ "symbol": "AAPL", "asset_class": "us_equity", "qty": "3", "qty_available": "3" }]))]);
     // Observe through another connection: only committed rows can end the run. The first balance batch updates
     // USD and AAPL; the obsolete BTC holding is removed in a later unit, after WRITE_GAP.
     let observer = Connection::open(dir.path().join("production.sqlite3")).unwrap();
@@ -1517,7 +1517,7 @@ async fn collision_positions_preserve_class_in_both_orders_and_availability_stat
             }).await.unwrap();
             for qty in ["0", "2"] {
                 let (_, v) = venue(json!({"GET /v2/account":[ok(json!({"cash":"100"}))],
-                    "GET /v2/positions":[ok(json!([{"symbol":"BTC","asset_class":"us_equity","qty":"10"}, {"symbol":"BTCUSD","asset_class":"crypto","qty":qty}]))],
+                    "GET /v2/positions":[ok(json!([{"symbol":"BTC","asset_class":"us_equity","qty":"10","qty_available":"10"}, {"symbol":"BTCUSD","asset_class":"crypto","qty":qty,"qty_available":qty}]))],
                     "GET /v2/stocks/snapshots":[ok(json!({"BTC":{"latestTrade":{"p":30}}}))]}));
                 balances::sync(&db,&v,&NoPrices,s.api_key_id,&paper(),&clock()).await.unwrap().unwrap();
                 let held: Vec<(i64,f64)> = db.run(move |c,_| Ok(c.prepare("SELECT asset_id,free FROM account_balances WHERE asset_id IN (?1,?2) ORDER BY asset_id").unwrap().query_map([stock,s.btc], |r| Ok((r.get(0)?,r.get(1)?))).unwrap().collect::<Result<_,_>>().unwrap())).await.unwrap();
@@ -1531,13 +1531,13 @@ async fn collision_positions_preserve_class_in_both_orders_and_availability_stat
                     c.execute("UPDATE tickers SET ticker=?1,base=?2,available=?3 WHERE id=?4",rusqlite::params![if tombstoned {"__stale_7_BTC/USD"} else {"BTC/USD"},if tombstoned {"__stale_7_BTC"} else {"BTC"},!tombstoned,s.ticker_id]).unwrap();
                     Ok(())
                 }).await.unwrap();
-                let (_,v) = venue(json!({"GET /v2/account":[ok(json!({"cash":"100"}))],"GET /v2/positions":[ok(json!([{"symbol":"BTC","asset_class":"us_equity","qty":"10"},{"symbol":"BTC/USD","asset_class":"crypto","qty":"2"}]))],"GET /v2/stocks/snapshots":[ok(json!({"BTC":{"latestTrade":{"p":30}}}))]}));
+                let (_,v) = venue(json!({"GET /v2/account":[ok(json!({"cash":"100"}))],"GET /v2/positions":[ok(json!([{"symbol":"BTC","asset_class":"us_equity","qty":"10","qty_available":"10"},{"symbol":"BTC/USD","asset_class":"crypto","qty":"2","qty_available":"2"}]))],"GET /v2/stocks/snapshots":[ok(json!({"BTC":{"latestTrade":{"p":30}}}))]}));
                 balances::sync(&db,&v,&NoPrices,s.api_key_id,&paper(),&clock()).await.unwrap().unwrap();
                 assert_eq!(stable,one::<String>(&db,"SELECT group_concat(id || ':' || asset_id || ':' || free) FROM account_balances").await);
             }
 
             for (kind,qty) in [Value::Null,json!("future_class"),json!("crypto")].into_iter().flat_map(|kind| ["10","unreadable"].map(|qty| (kind.clone(),qty))) {
-                let (_,v) = venue(json!({"GET /v2/account":[ok(json!({"cash":"100"}))],"GET /v2/positions":[ok(json!([{"symbol":"BTC","asset_class":kind,"qty":qty}]))]}));
+                let (_,v) = venue(json!({"GET /v2/account":[ok(json!({"cash":"100"}))],"GET /v2/positions":[ok(json!([{"symbol":"BTC","asset_class":kind,"qty":qty,"qty_available":qty}]))]}));
                 balances::sync(&db,&v,&NoPrices,s.api_key_id,&paper(),&clock()).await.unwrap().unwrap();
                 assert_eq!(one::<i64>(&db,"SELECT count(*) FROM account_balances").await,1);
                 assert_eq!(one::<i64>(&db,"SELECT asset_id FROM account_balances").await,s.quote);
@@ -1634,7 +1634,7 @@ async fn collision_tracker_ignores_a_same_symbol_class_the_user_never_touched() 
 async fn collision_positions_identify_before_decoding_bare_numbers() {
     let (_dir, db, s) = install();
     for (symbol, class) in [("UNKNOWN", "future"), ("UNKNOWN", "us_equity"), ("", "crypto")] {
-        let raw = format!(r#"[{{"symbol":"{symbol}","asset_class":"{class}","qty":1e400}},{{"symbol":"AAPL","asset_class":"us_equity","qty":"2"}}]"#);
+        let raw = format!(r#"[{{"symbol":"{symbol}","asset_class":"{class}","qty":1e400}},{{"symbol":"AAPL","asset_class":"us_equity","qty":"2","qty_available":"2"}}]"#);
         let (_, v) = venue(json!({"GET /v2/account":[ok(json!({"cash":"100.5"}))],"GET /v2/positions":[ok(json!(raw))],"GET /v2/stocks/snapshots":[ok(json!({"AAPL":{"latestTrade":{"p":30}}}))]}));
         let result = balances::sync(&db, &v, &NoPrices, s.api_key_id, &paper(), &clock()).await.unwrap();
         // A supported class with no symbol fails the sync on the identity, never on the number.
@@ -1642,7 +1642,7 @@ async fn collision_positions_identify_before_decoding_bare_numbers() {
         else { assert!(result.is_ok(), "unidentified {symbol}/{class} must not decode qty: {result:?}"); }
         assert_eq!(one::<f64>(&db,"SELECT free FROM account_balances JOIN assets ON assets.id=asset_id WHERE assets.symbol='AAPL'").await,2.0);
     }
-    let (_, v) = venue(json!({"GET /v2/account":[ok(json!({"cash":"100.5"}))],"GET /v2/positions":[ok(json!(r#"[{"symbol":"AAPL","asset_class":"us_equity","qty":1e400}]"#))]}));
+    let (_, v) = venue(json!({"GET /v2/account":[ok(json!({"cash":"100.5"}))],"GET /v2/positions":[ok(json!(r#"[{"symbol":"AAPL","asset_class":"us_equity","qty":1e400,"qty_available":1e400}]"#))]}));
     assert!(balances::sync(&db,&v,&NoPrices,s.api_key_id,&paper(),&clock()).await.unwrap().is_err(), "identified numbers remain strict");
     assert_eq!(one::<f64>(&db,"SELECT free FROM account_balances JOIN assets ON assets.id=asset_id WHERE assets.symbol='AAPL'").await,2.0);
 }

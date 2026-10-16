@@ -524,6 +524,17 @@ module SyncScenarios
                                   positions: P.ok([P.position('AAPL', '0'), P.position('KLAC', '-2'), P.position('NVDA', '5'), P.position('NOPE', '1'),
                                                    P.position('XYZUSD', '4', asset_class: 'crypto'), P.position('QQQM', '3'), P.position('QQQM', '4')]),
                                   snapshots: P.snapshot_body('QQQM' => 201))] },
+      # Shares behind resting sells: free is what is left to sell, the rest locked, the holding whole (all ten
+      # QQQM reserved still holds them). A position without qty_available fails the sync, as one without qty does.
+      { name: 'balances-reserved_shares', setup: seeded,
+        steps: [P.balances(night, account: P.account('100'),
+                                  positions: P.ok([P.position('AAPL', '10.5', available: '4'), P.position('QQQM', '3', available: '0'),
+                                                   P.position('BTCUSD', '2', asset_class: 'crypto', available: '0.5')]),
+                                  snapshots: P.snapshot_body('AAPL' => 227.52, 'QQQM' => 201), prices: P.prices_body('bitcoin' => 60_000))] },
+      { name: 'balances-missing_qty_available', setup: seeded,
+        steps: [P.balances(night, account: P.account('100'), positions: P.ok([P.position('AAPL', '10').except('qty_available')]))] },
+      { name: 'balances-null_qty_available', setup: seeded,
+        steps: [P.balances(night, account: P.account('100'), positions: P.ok([P.position('AAPL', '10', available: nil)]))] },
       { name: 'balances-cash_symbol_position',
         steps: [P.balances(night, account: P.account('100'), positions: P.ok([P.position('USD', '5')]))] },
       { name: 'balances-decimal_edges',
@@ -811,7 +822,25 @@ module SyncScenarios
                                                                              P.bn_deposit(201, 'USDT', '777', t.(2026, 9, 1, 12, 1)),
                                                                              P.bn_deposit(202, 'USDT', '888', t.(2026, 9, 2, 12))])),
                 P.binance_ledger('2026-09-22T02:00:00.250000Z', basic.merge('deposits' => [P.bn_deposit(202, 'USDT', '888', t.(2026, 9, 2, 12)),
-                                                                                           P.bn_deposit(203, 'USDT', '888', t.(2026, 9, 2, 12, 1))]))] }
+                                                                                           P.bn_deposit(203, 'USDT', '888', t.(2026, 9, 2, 12, 1))]))] },
+      # The export's copy of a dust sweep: the BNB net of the charge, a second after operateTime. A whole conversion pairs,
+      # an amount the column rounds too (compared as stored); a group holding one leg of it pairs with nothing.
+      { name: 'binance-ledger-file_dust',
+        setup: lambda do |ctx|
+          P.binance(ctx)
+          sweep = Time.at(1_786_960_801).utc # operateTime 1_786_960_800_777, written a second on
+          [[3, 'USDT', '0.9', 'USDT'], [2, 'BNB', '0.000432', 'USDT'], [3, 'XRP', '1.5', 'XRP'],
+           [3, 'SHIB', '123456789.12345678', 'SHIB'], [2, 'BNB', '0.00005', 'SHIB']].each do |type, coin, amount, from|
+            P.stored(ctx, exchange: ctx[:binance], entry_type: type, base_currency: coin, base_amount: amount, tx_id: nil, transacted_at: sweep,
+                          group_id: "dustcsv_#{from} to BNB_#{sweep.to_i}")
+          end
+        end,
+        steps: [P.binance_ledger(night, basic.merge('dust' => others['dust'].map do |sweep|
+          shib = { 'transId' => 4_359_323, 'serviceChargeAmount' => '0.000001', 'amount' => '123456789.12345678',
+                   'operateTime' => sweep['operateTime'],
+                   'transferedAmount' => '0.000051', 'fromAsset' => 'SHIB', 'targetAsset' => 'BNB' }
+          sweep.merge('userAssetDribbletDetails' => sweep['userAssetDribbletDetails'] + [shib])
+        end))] }
     ]
   end
 

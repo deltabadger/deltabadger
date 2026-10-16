@@ -628,6 +628,144 @@ class AccountTransactionSyncTest < ActiveSupport::TestCase
     assert_equal Marshal.dump(before), Marshal.dump(Tracker::Ledger.compute!(@user))
   end
 
+  # ---- Binance's export and its API on one dust conversion ------------------------------------------
+  # The API books the BNB in gross, with the 2% charge beside it; the export writes it net, up to a
+  # second after operateTime. A conversion is paired whole, coin leg and BNB leg, or not at all.
+
+  def api_dust(at:, coin: 'USDT', amount: '25.47403194', gross: '0.07147454', charge: '0.00142949', id: 78_240_438_808)
+    raw = { 'fromAsset' => coin, 'amount' => amount, 'transferedAmount' => gross, 'serviceChargeAmount' => charge,
+            'operateTime' => (at.to_f * 1000).to_i, 'transId' => id, 'targetAsset' => 'BNB' }
+    leg = { quote_currency: nil, quote_amount: nil, group_id: "dust_#{id}", description: 'Dust conversion', transacted_at: at, raw_data: raw }
+    [leg.merge(entry_type: :swap_out, base_currency: coin, base_amount: amount.to_d, fee_currency: nil, fee_amount: nil, tx_id: "dust-#{id}-out"),
+     leg.merge(entry_type: :swap_in, base_currency: 'BNB', base_amount: gross.to_d, fee_currency: 'BNB', fee_amount: charge.to_d,
+               tx_id: "dust-#{id}-in")]
+  end
+
+  def file_dust(at:, coin: 'USDT', amount: '25.47403194', net: '0.07004505', group: "dustcsv_#{coin} to BNB_#{at.to_i}")
+    leg = { quote_currency: nil, quote_amount: nil, fee_currency: nil, fee_amount: nil, tx_id: nil, group_id: group,
+            description: nil, transacted_at: at, raw_data: {} }
+    [leg.merge(entry_type: :swap_out, base_currency: coin, base_amount: amount.to_d),
+     leg.merge(entry_type: :swap_in, base_currency: 'BNB', base_amount: net.to_d)]
+  end
+
+  test 'an API dust conversion pairs with the net file group up to a second either side, and claims it' do
+    file_at = Time.utc(2021, 9, 21, 19, 22, 1)
+    { -1 => 2, 0 => 2, 1 => 2, -2 => 4, 2 => 4 }.each do |offset, rows|
+      AccountTransaction.delete_all
+      store(*file_dust(at: file_at))
+      store(*api_dust(at: file_at + offset))
+
+      assert_equal rows, AccountTransaction.count, "API #{offset} s from the file group"
+      next unless rows == 2
+
+      assert_equal [['USDT', '25.47403194'.to_d, 'dust-78240438808-out'], ['BNB', '0.07004505'.to_d, 'dust-78240438808-in']],
+                   AccountTransaction.order(:id).map { |row| [row.base_currency, row.base_amount, row.tx_id] }, 'the file rows stay, with the ids'
+    end
+  end
+
+  test 'a file dust group pairs with the stored API conversion, and marks it' do
+    api_at = Time.utc(2021, 9, 21, 19, 22, 0)
+    { 1 => 0, 0 => 0, -1 => 0, 2 => 2 }.each do |offset, imported|
+      AccountTransaction.delete_all
+      store(*api_dust(at: api_at))
+      counts = store(*file_dust(at: api_at + offset))
+
+      assert_equal imported, counts[:imported], "file #{offset} s after the API conversion"
+      twins = AccountTransaction.where(tx_id: %w[dust-78240438808-out dust-78240438808-in]).map { |row| row.raw_data['file_twin_at'] }
+      assert_equal [imported.zero? ? (api_at + offset).iso8601(6) : nil] * 2, twins
+      assert_equal 0, store(*file_dust(at: api_at + offset))[:imported], 'the same file again'
+    end
+  end
+
+  test 'a dust conversion whose BNB legs disagree pairs neither leg' do
+    at = Time.utc(2021, 9, 21, 19, 22, 0)
+    store(*file_dust(at:, net: '0.07147454')) # gross where the export is net
+    store(*api_dust(at:))
+    assert_equal 4, AccountTransaction.count
+
+    AccountTransaction.delete_all
+    store(*api_dust(at:))
+    assert_equal 2, store(*file_dust(at:, net: '0.07'))[:imported]
+  end
+
+  test 'a dust leg on its own pairs with nothing' do
+    at = Time.utc(2021, 9, 21, 19, 22, 0)
+    store(file_dust(at:).first)
+    store(*api_dust(at:))
+    assert_equal 3, AccountTransaction.count
+
+    AccountTransaction.delete_all
+    store(*api_dust(at:))
+    assert_equal 1, store(file_dust(at:).last)[:imported]
+  end
+
+  test 'an export batch pairs each coin with its own API conversion' do
+    at = Time.utc(2021, 7, 1, 11, 20, 49)
+    batch = file_dust(at:, group: "dustcsv_#{at.to_i}") +
+            file_dust(at:, coin: 'ADA', amount: '0.792868', net: '0.00355388', group: "dustcsv_#{at.to_i}")
+    store(*batch)
+    store(*api_dust(at:, coin: 'ADA', amount: '0.792868', gross: '0.0036264', charge: '0.00007252', id: 67_771_421_609))
+
+    assert_equal([['USDT', nil], ['BNB', nil], %w[ADA dust-67771421609-out], %w[BNB dust-67771421609-in]],
+                 AccountTransaction.order(:id).map { |row| [row.base_currency, row.tx_id] })
+
+    AccountTransaction.delete_all
+    store(*api_dust(at:, coin: 'ADA', amount: '0.792868', gross: '0.0036264', charge: '0.00007252', id: 67_771_421_609))
+    assert_equal 2, store(*batch)[:imported], 'the USDT pair, which the API never saw'
+  end
+
+  # The importer collapses the second equal credit; written as two groups, each still pairs with its own.
+  test 'two coins whose BNB credits are equal each pair with their own group' do
+    at = Time.utc(2022, 6, 13, 12, 29, 41)
+    (file_dust(at:, amount: '0.9', net: '0.000432') + file_dust(at:, coin: 'XRP', amount: '1.5', net: '0.000432')).each do |leg|
+      AccountTransaction.create!(leg.merge(user: @user, exchange: @exchange, api_key: @api_key))
+    end
+    store(*api_dust(at:, coin: 'XRP', amount: '1.5', gross: '0.000441', charge: '0.000009', id: 2),
+          *api_dust(at:, amount: '0.9', gross: '0.000441', charge: '0.000009', id: 1))
+
+    assert_equal([['USDT', 'dust-1-out'], ['BNB', 'dust-1-in'], ['XRP', 'dust-2-out'], ['BNB', 'dust-2-in']],
+                 AccountTransaction.order(:id).map { |row| [row.base_currency, row.tx_id] })
+  end
+
+  test 'a file dust group pairs only with a whole API conversion' do
+    at = Time.utc(2021, 9, 21, 19, 22, 0)
+    store(api_dust(at:).first) # a sync cut off after the coin leg
+    assert_equal 2, store(*file_dust(at:))[:imported], 'the BNB credit is never lost'
+    assert_nil AccountTransaction.find_by!(tx_id: 'dust-78240438808-out').raw_data['file_twin_at']
+  end
+
+  test 'a dust amount the column rounds still pairs, as the database compares it' do
+    at = Time.utc(2021, 9, 21, 19, 22, 0)
+    store(*file_dust(at:, amount: '123456789.12345678'))
+    store(*api_dust(at:, amount: '123456789.12345678'))
+    assert_equal %w[dust-78240438808-in dust-78240438808-out], AccountTransaction.pluck(:tx_id).sort
+  end
+
+  test 'two dust candidates are a visible double, not a guess' do
+    at = Time.utc(2021, 9, 21, 19, 22, 0)
+    store(*file_dust(at:), *file_dust(at: at + 1, group: 'dustcsv_other'))
+    store(*api_dust(at:))
+    assert_equal 6, AccountTransaction.count, 'two file groups for one API conversion'
+
+    AccountTransaction.delete_all
+    store(*api_dust(at:), *api_dust(at: at + 1, id: 2))
+    assert_equal 2, store(*file_dust(at:))[:imported], 'two API conversions for one file group'
+  end
+
+  test 'one file dust group pairs with one API conversion, whatever the calls' do
+    at = Time.utc(2021, 9, 21, 19, 22, 0)
+    store(*file_dust(at:))
+    store(*api_dust(at:, id: 1))
+    store(*api_dust(at:, id: 2))
+    assert_equal %w[dust-1-in dust-1-out dust-2-in dust-2-out], AccountTransaction.pluck(:tx_id).sort
+
+    AccountTransaction.delete_all
+    store(*file_dust(at:))
+    store(api_dust(at:, id: 1).last)
+    store(api_dust(at:, id: 1).first, *api_dust(at:, id: 2))
+    assert_equal %w[dust-1-in dust-1-out dust-2-in dust-2-out], AccountTransaction.pluck(:tx_id).sort, 'one leg per call'
+  end
+
   # A Convert out of cash used to be read from the file as a purchase; it is now the swap pair the
   # API books. A file imported under the old reading holds the purchase, and importing it again must
   # not add the pair on top: a swap leg is the purchase (or sale) it replaced when the coin leg is
