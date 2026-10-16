@@ -286,11 +286,18 @@ class Exchanges::BingxTest < ActiveSupport::TestCase
   end
 
   # A client whose honeymaker ledger methods answer like the live venue (GONE_PATH) and whose signed
-  # requests are served by `routes`: path => ->(params) { body }.
+  # requests are served by `routes`: path => ->(params) { body }; a pair has no trades unless routed.
   def fake_ledger_client(routes, asked: [])
+    routes = { TRADES => trades_route([]) }.merge(routes)
     fake = Honeymaker.client('bingx')
     %i[get_trade_fills deposit_history withdraw_history].each do |m|
       fake.define_singleton_method(m) { |**| Result::Success.new(GONE_PATH) }
+    end
+    fake.define_singleton_method(:get_raw_balances) do |**|
+      Result::Success.new({ 'code' => 0, 'data' => { 'balances' => [{ 'asset' => 'BTC', 'free' => '1', 'locked' => '0' }] } })
+    end
+    fake.define_singleton_method(:get_symbols) do |**|
+      Result::Success.new({ 'code' => 0, 'data' => { 'symbols' => [{ 'symbol' => 'BTC-USDT', 'status' => 1 }] } })
     end
     fake.define_singleton_method(:get_signed) do |path, params = {}|
       asked << [path, params]
@@ -363,5 +370,61 @@ class Exchanges::BingxTest < ActiveSupport::TestCase
     denied = { 'code' => 100_004, 'msg' => 'Permission denied as the API key was created without the permission' }
     fake_ledger_client({ DEPOSITS => ->(_) { denied }, WITHDRAWALS => ->(_) { denied } })
     assert_predicate @exchange.get_ledger(api_key: ledger_api_key, start_time: 2.days.ago), :success?
+  end
+
+  TRADES = '/openApi/spot/v1/trade/myTrades'.freeze
+
+  # myTrades shaped like https://bingx-api.github.io/docs/#/en-us/spot/trade-api.html#Query%20transaction%20details:
+  # data.fills, oldest first, at most 500 of the range asked.
+  def trades_route(times)
+    lambda do |params|
+      rows = times.each_with_index.select { |t, _| t.between?(params[:startTime], params[:endTime]) }.first([params[:limit], 500].min)
+      fills = rows.map do |t, i|
+        { 'symbol' => params[:symbol], 'id' => 36_767_057 + i, 'orderId' => 1_745_000 + i, 'price' => '46820.155',
+          'qty' => '0.001', 'quoteQty' => '46.82', 'commission' => -0.0000465, 'commissionAsset' => 'BTC',
+          'time' => t, 'isBuyer' => true, 'isMaker' => false }
+      end
+      { 'code' => 0, 'msg' => '', 'debugMsg' => '', 'data' => { 'fills' => fills } }
+    end
+  end
+
+  # honeymaker's trade/fills path does not exist on BingX, so no trade was ever read. myTrades answers
+  # 500 at most; 1200 trades, 300 of them stamped on the same millisecond, must all arrive once.
+  test 'get_ledger reads every trade of a busy pair once' do
+    start = 3.days.ago.to_i * 1000
+    times = (0...900).map { |i| start + (i * 60_000) } + ([start + 450_000] * 300)
+    asked = fake_ledger_client({ TRADES => trades_route(times.sort), DEPOSITS => ->(_) { [] }, WITHDRAWALS => ->(_) { [] } })
+
+    rows = @exchange.get_ledger(api_key: ledger_api_key, start_time: 4.days.ago).data.select { |r| r[:entry_type] == :buy }
+
+    assert_equal 1200, rows.size
+    assert_equal 1200, rows.map { |r| r[:tx_id] }.uniq.size
+    assert_equal ['BTC', 'USDT', 0.0000465.to_d], rows.first.values_at(:base_currency, :quote_currency, :fee_amount)
+    assert(asked.select { |path, _| path == TRADES }.all? { |_, p| p[:symbol] == 'BTC-USDT' && p[:limit] == 500 })
+  end
+
+  # Beyond the past 7 days myTrades silently answers the past 24 hours instead.
+  test 'get_ledger asks for trades no further back than BingX serves them' do
+    asked = fake_ledger_client({ TRADES => trades_route([]), DEPOSITS => ->(_) { [] }, WITHDRAWALS => ->(_) { [] } })
+
+    @exchange.get_ledger(api_key: ledger_api_key, start_time: 30.days.ago)
+
+    trade_ask = asked.find { |path, _| path == TRADES }.last
+    assert_operator trade_ask[:startTime], :>, 7.days.ago.to_i * 1000
+  end
+
+  test 'a failed trade or balance read fails the fetch; a pair with no trades does not' do
+    fake_ledger_client({ TRADES => ->(_) { { 'code' => 100_410, 'msg' => 'rate limitation' } },
+                         DEPOSITS => ->(_) { [] }, WITHDRAWALS => ->(_) { [] } })
+    assert_predicate @exchange.get_ledger(api_key: ledger_api_key, start_time: 2.days.ago), :failure?
+
+    fake_ledger_client({ TRADES => ->(_) { { 'code' => 100_204, 'msg' => 'Requested data not found' } },
+                         DEPOSITS => ->(_) { [] }, WITHDRAWALS => ->(_) { [] } })
+    assert_predicate @exchange.get_ledger(api_key: ledger_api_key, start_time: 2.days.ago), :success?
+
+    Honeymaker.client('bingx').define_singleton_method(:get_raw_balances) do |**|
+      Result::Success.new({ 'code' => 100_500, 'msg' => 'The current system is busy, please try again later' })
+    end
+    assert_predicate @exchange.get_ledger(api_key: ledger_api_key, start_time: 2.days.ago), :failure?
   end
 end

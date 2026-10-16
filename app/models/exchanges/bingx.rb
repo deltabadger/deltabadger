@@ -418,24 +418,7 @@ class Exchanges::Bingx < Exchange
   def get_ledger(api_key:, start_time: nil)
     hm_client = Honeymaker.client('bingx', api_key: api_key.key, api_secret: api_key.secret,
                                            proxy: ExchangeProxy.for('bingx'))
-    start_ms = start_time ? (start_time.to_f * 1000).to_i : nil
     entries = []
-
-    # Trade fills
-    result = hm_client.get_trade_fills(start_time: start_ms)
-    unless result.failure?
-      (result.data['data'] || []).each do |fill|
-        symbol = fill['symbol'] # e.g. "BTC-USDT"
-        parts = symbol.split('-')
-        is_buyer = fill['side']&.upcase == 'BUY'
-        entries << { entry_type: is_buyer ? :buy : :sell,
-                     base_currency: parts[0], base_amount: fill['qty'].to_d,
-                     quote_currency: parts[1], quote_amount: fill['quoteQty'].to_d,
-                     fee_currency: fill['commissionAsset'], fee_amount: fill['commission'].to_d.abs,
-                     tx_id: fill['id'].to_s, group_id: nil, description: nil,
-                     transacted_at: Time.at(fill['time'].to_i / 1000.0).utc, raw_data: fill }
-      end
-    end
 
     # Deposits and withdrawals. Any failed read fails the whole fetch: a partial Success would let
     # the sync move its watermark past the rows it never got.
@@ -464,10 +447,76 @@ class Exchanges::Bingx < Exchange
     end
     return failed if failed
 
+    # Trades, per pair: the coins held now or moved in the window, on every pair they are the base of.
+    # Without the balances or the listing, pairs would go unread while the fetch succeeded.
+    coins = entries.to_set { |e| e[:base_currency] }
+    balances = hm_client.get_raw_balances
+    return balances if balances.failure?
+    return Result::Failure.new("#{name} ledger read failed: #{balances.data['msg']}") if balances.data['code'].to_i != 0
+
+    Array(balances.data.dig('data', 'balances')).each do |bal|
+      coins << bal['asset'] if bal['free'].to_d.positive? || bal['locked'].to_d.positive?
+    end
+    listing = hm_client.get_symbols
+    return listing if listing.failure?
+    return Result::Failure.new("#{name} ledger read failed: #{listing.data['msg']}") if listing.data['code'].to_i != 0
+
+    symbols = Array(listing.data.dig('data', 'symbols')).map { |s| s['symbol'] }
+    trades_from = [start_time, TRADES_REACH.ago].compact.max
+    symbols.select { |symbol| coins.include?(symbol.split('-').first) }.each do |symbol|
+      trades = read_trades(hm_client, symbol, (trades_from.to_f * 1000).to_i, (Time.now.to_f * 1000).to_i)
+      return trades unless trades.is_a?(Array)
+
+      trades.each do |fill|
+        base, quote = symbol.split('-')
+        entries << { entry_type: fill['isBuyer'] ? :buy : :sell,
+                     base_currency: base, base_amount: fill['qty'].to_d,
+                     quote_currency: quote, quote_amount: fill['quoteQty'].to_d,
+                     fee_currency: fill['commissionAsset'], fee_amount: fill['commission'].to_d.abs,
+                     tx_id: fill['id'].to_s, group_id: nil, description: nil,
+                     transacted_at: Time.at(fill['time'].to_i / 1000.0).utc, raw_data: fill }
+      end
+    end
+
     Result::Success.new(entries)
   end
 
   private
+
+  # honeymaker's get_trade_fills asks /openApi/spot/v1/trade/fills, which BingX answers with 100400
+  # "this api is not exist". myTrades (https://bingx-api.github.io/docs/#/en-us/spot/trade-api.html#Query%20transaction%20details)
+  # wants a symbol, "can only check data within the past 7 days", answers 500 trades at most, documents
+  # no paging, and falls back to the past 24 hours when the range is invalid — so the range is kept
+  # inside the 7 days, with a margin for clock skew.
+  TRADES_PATH = '/openApi/spot/v1/trade/myTrades'.freeze
+  TRADES_PAGE = 500
+  TRADES_REACH = 7.days - 5.minutes
+  # 100204 "Requested data not found" (also its answer for a range with no trades) and 100490
+  # "spot trading pair is offline": no trades to give.
+  NO_TRADES_CODES = [100_204, 100_490].freeze
+
+  # The trades of `symbol` in [from, to] (epoch ms), or the failure that stopped the read. A full page
+  # may have cut trades off, so its range is split in two halves that share the midpoint (a trade
+  # stamped on it comes back in both and is kept once, by id) and both are read.
+  def read_trades(hm_client, symbol, from, to)
+    result = hm_client.send(:get_signed, TRADES_PATH, { symbol: symbol, startTime: from, endTime: to, limit: TRADES_PAGE })
+    return result if result.failure?
+
+    code = result.data['code'].to_i
+    return [] if NO_TRADES_CODES.include?(code)
+    return Result::Failure.new("#{name} ledger read failed: #{code} #{result.data['msg']}") if code != 0
+
+    trades = Array(result.data.dig('data', 'fills'))
+    return trades if trades.size < TRADES_PAGE
+    return Result::Failure.new("#{name} ledger read failed: over #{TRADES_PAGE} #{symbol} trades in #{from}..#{to}") if to - from < 2
+
+    mid = (from + to) / 2
+    older = read_trades(hm_client, symbol, from, mid)
+    return older unless older.is_a?(Array)
+
+    newer = read_trades(hm_client, symbol, mid, to)
+    newer.is_a?(Array) ? (older + newer).uniq { |trade| trade['id'] } : newer
+  end
 
   # honeymaker's deposit_history and withdraw_history ask /openApi/wallets/v1/capital/..., which BingX
   # answers with 100400 "this api is not exist"; these are the documented paths
