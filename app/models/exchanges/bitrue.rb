@@ -106,16 +106,20 @@ class Exchanges::Bitrue < Exchange
   def get_tickers_prices(force: false, symbols: nil)
     cache_key = "exchange_#{id}_prices"
     tickers_prices = Rails.cache.fetch(cache_key, expires_in: 1.minute, force: force) do
-      result = client.symbol_price_ticker
+      # /ticker/price wants a symbol (HTTP 412, -1102 "Missing parameter." without one); /ticker/24hr
+      # answers every pair when the symbol is omitted
+      # (https://github.com/Bitrue-exchange/Spot-official-api-docs#24hr-ticker-price-change-statistics).
+      # honeymaker has no method for it.
+      result = client.send(:get_public, '/api/v1/ticker/24hr')
       if result.failure?
         error = parse_error_message(result)
         return error.present? ? Result::Failure.new(error, data: result.data) : result
       end
 
-      result.data.each_with_object({}) do |symbol_price, prices_hash|
-        ticker = Utilities::Hash.dig_or_raise(symbol_price, 'symbol')
-        price = Utilities::Hash.dig_or_raise(symbol_price, 'price').to_d
-        prices_hash[ticker] = price
+      Array(result.data).each_with_object({}) do |ticker_stats, prices_hash|
+        ticker = Utilities::Hash.dig_or_raise(ticker_stats, 'symbol')
+        price = ticker_stats['lastPrice'].to_d
+        prices_hash[ticker] = price if price.positive?
       end
     end
 

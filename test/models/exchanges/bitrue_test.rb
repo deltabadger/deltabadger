@@ -236,4 +236,22 @@ class Exchanges::BitrueTest < ActiveSupport::TestCase
     assert_equal ['BTCUSDT-7'], result.data[:missing]
     assert_equal ['BTCUSDT-8'], result.data[:orders].keys
   end
+
+  # ---- prices ----
+
+  test 'get_tickers_prices reads every pair from the 24hr ticker' do
+    client = Honeymaker.client('bitrue')
+    client.stubs(:get_public).with('/api/v1/ticker/price', anything).returns(
+      Result::Failure.new('{"code":-1102,"msg":"Missing parameter.","data":null}', data: { status: 412 })
+    )
+    client.stubs(:get_public).with('/api/v1/ticker/24hr').returns(
+      Result::Success.new([{ 'symbol' => 'BTCUSDT', 'lastPrice' => '82316', 'bidPrice' => '82315' },
+                           { 'symbol' => 'DEADUSDT', 'lastPrice' => '0' }])
+    )
+    @exchange.stubs(:client).returns(client)
+
+    result = @exchange.get_tickers_prices(force: true)
+    assert_predicate result, :success?
+    assert_equal({ 'BTCUSDT' => 82_316.to_d }, result.data)
+  end
 end
