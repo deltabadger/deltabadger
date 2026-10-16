@@ -660,3 +660,67 @@ async fn a_pause_still_runs_the_funds_check() {
     assert!(t.requests().iter().any(|r| r.path == "/v2/account"), "the balance was read");
     assert_eq!(model::load_bot(&o.primary, id).unwrap().status, BotStatus::Waiting);
 }
+
+/// P1-T0: buying baskets of two and three members on Kraken (EUR) and Binance (USDT), replayed against Rails' own decisions
+/// (script/rust/decisions.rb grid-venue-basket): each member priced and placed on its own pair (Kraken's XBTEUR), sized with
+/// its own decimals, a leg under its own minimum skipped and carried to the next checkpoint, a member that stops trading
+/// exited, one unpriced member failing the whole tick. Every scenario's bot is one the engine admits.
+#[cfg(unix)]
+#[tokio::test(flavor = "current_thread")]
+async fn kraken_and_binance_baskets_decide_as_rails() {
+    use common::decisions::{built_grid, copy_dir, r5_cleanup_expected, rails};
+    use deltabadger::engine::eligibility;
+    let rails_root = tempfile::tempdir().unwrap();
+    let rust_root = tempfile::tempdir().unwrap();
+    built_grid("grid-venue-basket", rails_root.path());
+    let mut dirs: Vec<std::path::PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
+    dirs.sort();
+    assert_eq!(dirs.len(), 29, "the venue basket grid has {} scenarios", dirs.len());
+    for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
+    rails(&["record", rails_root.path().to_str().unwrap()]);
+    let mut failures = vec![];
+    for d in &dirs {
+        let name = d.file_name().unwrap().to_string_lossy().to_string();
+        let rust_dir = rust_root.path().join(&name);
+        let admitted = {
+            let c = rusqlite::Connection::open(rust_dir.join("production.sqlite3")).unwrap();
+            eligibility::check_install(&c).unwrap()
+        };
+        if !admitted.problems.is_empty() || admitted.eligible.len() != 1 { failures.push(format!("{name}: refused {:?}", admitted.problems)); continue; }
+        // The Smart Intervals floor of a basket of several members is its members' largest venue minimum, as Rails computes it.
+        {
+            use deltabadger::web::bot::{start, Bot as WebBot, For};
+            let c = rusqlite::Connection::open(rust_dir.join("production.sqlite3")).unwrap();
+            let scenario: Value = serde_json::from_str(&std::fs::read_to_string(rust_dir.join("scenario.json")).unwrap()).unwrap();
+            let (user, id): (i64, i64) = c.query_row("SELECT user_id, id FROM bots", [], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+            let floor = start::smart_interval_minimum(&WebBot::find(&c, user, id, For::Settings, "en").unwrap().unwrap());
+            let mine = json!({ "value": floor.value.to_f(), "reason": format!("{:?}", floor.reason).to_lowercase() });
+            if mine != scenario["rails_floor"] { failures.push(format!("{name}: Smart Intervals floor {mine}, Rails {}", scenario["rails_floor"])); }
+        }
+        let rails_out: Value = serde_json::from_str(&std::fs::read_to_string(d.join("rails.json")).unwrap()).unwrap();
+        let rust_out = deltabadger::parity::decide(&rust_dir).await.unwrap();
+        // Rails drops a NULL missed_quote_amount_was_set on a failed run; the engine keeps it (R5, as every grid compares).
+        let rails_out = r5_cleanup_expected(&rails_out, &rust_out);
+        if rails_out != rust_out { failures.push(format!("{name}\n  rails: {rails_out}\n  rust:  {rust_out}")); }
+        // Rails' side must show what each cell exists for, or an equal comparison proves nothing.
+        let sent = rails_out["sent"].as_array().unwrap();
+        let rows = rails_out["changes"]["transactions"].as_array().unwrap();
+        let events = rails_out["changes"]["bot_activity_logs"].to_string();
+        let pairs: Vec<&str> = sent.iter().filter_map(|o| o["pair"].as_str().or_else(|| o["symbol"].as_str())).collect();
+        let case = name.split_once('-').unwrap().1.split_once('-').unwrap().1;
+        let pinned = match case {
+            c if c.starts_with("tiers-first_tick") => pairs.len() == 3 && pairs[0].starts_with(if name.contains("kraken") { "XBT" } else { "BTC" }),
+            c if c.starts_with("w70-first_tick") => pairs.len() == 2,
+            c if c.starts_with("tiers-one_below-") && c != "tiers-one_below-next" => pairs.len() == 2 && events.contains("orders_below_minimum"),
+            "tiers-one_below-next" => pairs.len() == 5 && pairs[4] == "SOLEUR",
+            "tiers-below_carried" => pairs.len() == 3,
+            "w70-all_below" => sent.is_empty() && rows.iter().filter(|r| r["after"]["status"] == 2).count() == 2,
+            "tiers-price_missing-middle" => sent.is_empty(),
+            "w70-untradable-one" => pairs.len() == 1,
+            "tiers-unavailable-one" => pairs.len() == 2,
+            _ => true,
+        };
+        if !pinned { failures.push(format!("{name}: Rails no longer shows what this cell is for: {rails_out}")); }
+    }
+    assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
+}
