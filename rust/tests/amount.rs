@@ -282,7 +282,7 @@ fn an_alpaca_limit_quantity_under_the_base_minimum_is_refused_before_sending() {
         let t = Ticker { ticker: "BTC/USD".into(), base_code: "BTC".into(), quote_code: "USD".into(), quote_symbol: "USD".into(), exchange_name: "Alpaca".into(),
             ..sizing_ticker(&json!({"base_decimals": decimals, "quote_decimals": "2", "price_decimals": "2", "minimum_base_size": min, "minimum_quote_size": "1"})) };
         let plan = amount::OrderPlan { ticker: t, side: deltabadger::venue::Side::Buy, limit: true, price: bd(price), amount: bd("1").div(&bd(price)).unwrap(), quote_amount: bd("1"),
-            quote_type: true, volume: bd("1") };
+            quote_type: true, volume: bd("1"), kind: amount::TxKind::Regular };
         assert_eq!(plan.limit_refusal().unwrap().as_deref(), Some(message));
     }
 }

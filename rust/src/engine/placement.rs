@@ -4,7 +4,7 @@
 //! complete lookup that STARTED after the deadline + 60 s (Kraken), or 20 minutes after both the intent and the
 //! process start on a venue without a server-side deadline (Alpaca, VenueRules::absence_margin_secs).
 use crate::venue::Attributed;
-use super::amount::{write_accepted_order, write_order_row, OrderPlan, RowKind};
+use super::amount::{write_accepted_order, write_order_row, OrderPlan, RowKind, TxKind};
 use super::model::{self, Bot, Level};
 use super::schedule::checkpoints;
 use super::{polling, Clock, EngineError};
@@ -41,7 +41,7 @@ impl Intent {
         Ok(json!({ "cl_ord_id": self.cl_ord_id, "deadline": self.deadline.to_rfc3339(), "at": self.at.to_rfc3339(), "ticker_id": p.ticker.id, "symbol": self.symbol,
                    "base_asset_id": p.ticker.base_asset_id,
                    "limit": p.limit, "price": d("price", &p.price)?, "amount": d("amount", &p.amount)?, "quote_amount": d("quote_amount", &p.quote_amount)?,
-                   "quote_type": p.quote_type, "volume": d("volume", &p.volume)?, "side": p.side.as_str(), "run_identity": self.run.as_ref().map(model::RunIdentity::to_json) }))
+                   "quote_type": p.quote_type, "volume": d("volume", &p.volume)?, "side": p.side.as_str(), "transaction_type": p.kind.as_str(), "run_identity": self.run.as_ref().map(model::RunIdentity::to_json) }))
     }
     fn from_json(c: &Connection, bot: &Bot, v: &Value, producer:Option<model::CredentialVersion>) -> Result<Self, EngineError> {
         let bad = || EngineError::Data(format!("rust_placement {v}"));
@@ -55,9 +55,11 @@ impl Intent {
         let symbol = v["symbol"].as_str().map_or_else(|| ticker.ticker.clone(), str::to_string);
         // An intent written before selling existed names no side: it was a buy. Anything else unreadable is refused.
         let side = match v.get("side") { None | Some(Value::Null) => Side::Buy, Some(x) if x == "buy" => Side::Buy, Some(x) if x == "sell" => Side::Sell, _ => return Err(bad()) };
+        // An intent written before rebalancing existed names no kind: it was a REGULAR order.
+        let kind = match v.get("transaction_type") { None | Some(Value::Null) => TxKind::Regular, Some(x) => x.as_str().and_then(TxKind::parse).ok_or_else(bad)? };
         Ok(Self { symbol, bot_id: bot.id, run: v.get("run_identity").filter(|v| !v.is_null()).map(|v| model::RunIdentity::from_json(v).ok_or_else(bad)).transpose()?, credential_version: producer, cl_ord_id: v["cl_ord_id"].as_str().ok_or_else(bad)?.to_string(), deadline: t("deadline")?, at: t("at")?,
                   plan: OrderPlan { ticker, side, limit: b("limit")?, price: d("price")?, amount: d("amount")?, quote_amount: d("quote_amount")?,
-                                    quote_type: b("quote_type")?, volume: d("volume")? } })
+                                    quote_type: b("quote_type")?, volume: d("volume")?, kind } })
     }
 }
 
@@ -248,7 +250,8 @@ fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock,
         }
     }
     let guarded;
-    // The exact quote cap bounds what a BUY spends; a sell spends nothing (Rails' QuoteAmountLimitable decorates the buy carry).
+    // The exact quote cap bounds what a REGULAR BUY spends; a sell spends nothing (Rails' QuoteAmountLimitable decorates the buy
+    // carry), and guard_exact_cap passes a REBALANCE buy through untouched.
     let plan = if plan.side == Side::Buy && model::exchange_type(&tx, &current)? == "Exchanges::Alpaca" {
         let safe = match super::amount::guard_exact_cap(&tx, &current, plan)? {
             super::amount::CapGuard::Place(safe) => safe,

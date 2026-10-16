@@ -26,6 +26,18 @@ pub struct OrderPlan {
     pub quote_type: bool,
     /// What is sent: floored to quote_decimals (quote) or base_decimals (base).
     pub volume: BigDec,
+    /// transactions.transaction_type the row is written with (Bot::OrderCreator#order_identity_values).
+    pub kind: TxKind,
+}
+
+/// The transaction kinds the engine writes. A REBALANCE order is not a contribution: its rows stay out of the DCA carry, the
+/// spend cap and the intent's pending-buy spending (Rails scopes them all to 'REGULAR').
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TxKind { Regular, Rebalance }
+
+impl TxKind {
+    pub fn as_str(self) -> &'static str { match self { Self::Regular => "REGULAR", Self::Rebalance => "REBALANCE" } }
+    pub fn parse(s: &str) -> Option<Self> { match s { "REGULAR" => Some(Self::Regular), "REBALANCE" => Some(Self::Rebalance), _ => None } }
 }
 
 #[derive(Debug)]
@@ -62,7 +74,7 @@ pub fn size_sell(bot: &Bot, ticker: &Ticker, amount: &BigDec, price: &BigDec) ->
     let volume = amount.floor(base_decimals);
     let below = volume < minimum;
     let plan = OrderPlan { ticker: ticker.clone(), side: Side::Sell, limit: bot.limit_distance().is_some(), price: price.clone(),
-                           amount: amount.clone(), quote_amount: amount * price, quote_type: false, volume };
+                           amount: amount.clone(), quote_amount: amount * price, quote_type: false, volume, kind: TxKind::Regular };
     if amount.is_zero() { return Ok(Sizing::Ignored(plan)); }
     Ok(if below { Sizing::BelowMinimum(plan) } else { Sizing::Place(plan) })
 }
@@ -97,7 +109,7 @@ pub fn size(bot: &Bot, ticker: &Ticker, x: &BigDec, reference: &BigDec, logic: M
         }
     };
     let volume = if quote_type { x.floor(quote_decimals) } else { amount.floor(base_decimals) };
-    let plan = OrderPlan { ticker: ticker.clone(), side: Side::Buy, limit: distance.is_some(), price, amount: amount.clone(), quote_amount: x.clone(), quote_type, volume };
+    let plan = OrderPlan { ticker: ticker.clone(), side: Side::Buy, limit: distance.is_some(), price, amount: amount.clone(), quote_amount: x.clone(), quote_type, volume, kind: TxKind::Regular };
     if amount.is_zero() { return Ok(Sizing::Ignored(plan)); } // set_orders checks this before the minimums
     Ok(if below { Sizing::BelowMinimum(plan) } else { Sizing::Place(plan) })
 }
@@ -189,13 +201,13 @@ fn write_order_row_in(c: &Connection, bot: &Bot, plan: &OrderPlan, kind: RowKind
     c.execute(
         "INSERT INTO transactions (bot_id, exchange_id, external_id, status, external_status, side, order_type, amount, quote_amount, price, \
          amount_exec, quote_amount_exec, base, quote, base_asset_id, quote_asset_id, bot_interval, bot_quote_amount, transaction_type, error_messages, created_at, updated_at) \
-         VALUES (?1, ?2, ?3, ?4, ?5, ?19, ?6, ?7, ?8, ?9, ?10, ?10, ?11, ?12, ?13, ?14, ?15, ?16, 'REGULAR', ?17, ?18, ?18)",
+         VALUES (?1, ?2, ?3, ?4, ?5, ?19, ?6, ?7, ?8, ?9, ?10, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?20, ?17, ?18, ?18)",
         params![
             bot.id, bot.exchange_id, external_id, status as i64, external_status, if plan.limit { 1 } else { 0 },
             to_sql(&plan.amount), to_sql(&plan.quote_amount), to_sql(&plan.price), exec,
             plan.ticker.base_symbol, plan.ticker.quote_symbol, plan.ticker.base_asset_id, plan.ticker.quote_asset_id,
             bot.interval().map(|i| i.as_str()).unwrap_or_default(), to_sql(&bot_quote_amount),
-            serde_json::to_string(&errors).unwrap(), format_time(created_at), plan.side.code(),
+            serde_json::to_string(&errors).unwrap(), format_time(created_at), plan.side.code(), plan.kind.as_str(),
         ])?;
     Ok(c.last_insert_rowid())
 }
