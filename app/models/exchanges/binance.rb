@@ -8,7 +8,8 @@ class Exchanges::Binance < Exchange
     transient: ['Timestamp for this request is outside of the recvWindow', 'Timestamp for this request was']
   }.freeze # https://developers.binance.com/docs/binance-spot-api-docs/errors
   ERROR_CODES = {
-    invalid_key: [-2014, -2015]
+    # -2008 is what an unknown key gets (Binance.US answers it; Binance lists it as BAD_API_ID).
+    invalid_key: [-2008, -2014, -2015]
   }.freeze # https://developers.binance.com/docs/binance-spot-api-docs/errors
 
   # Signed READS use Binance's max recvWindow so a request delayed by exchange-proxy latency isn't
