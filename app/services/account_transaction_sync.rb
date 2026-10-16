@@ -49,6 +49,7 @@ class AccountTransactionSync
   # sync would skip the window the file happened to reach.
   def store!(entries, &progress)
     refuse_unreadable_amounts!(entries)
+    rekey_legacy_ids!(entries)
     total = entries.size
     imported = 0
     duplicates = 0
@@ -689,6 +690,25 @@ class AccountTransactionSync
                    quote_currency: out[:base_currency], quote_amount: out[:base_amount]) ||
       legacy.exists?(entry_type: :sell, base_currency: out[:base_currency], base_amount: out[:base_amount],
                      quote_currency: inn[:base_currency], quote_amount: inn[:base_amount])
+  end
+
+  # An adapter that changed how it ids a row names the old id as :legacy_tx_id (Coinbase stored an
+  # adjusted fill under the trade_id it shares with its FILL; it is now ided by its entry_id). The
+  # row stored under the old id takes the new one before dedup, so it is neither stored twice nor
+  # left hiding the row that really owns the old id. The stored raw entry_id decides; a row without
+  # one is matched on the same event.
+  def rekey_legacy_ids!(entries)
+    entries.each do |entry|
+      legacy = entry[:legacy_tx_id].presence or next
+      tx_id = entry[:tx_id].presence or next
+      next if scope.exists?(tx_id:)
+
+      rows = scope.where(tx_id: legacy)
+      entry_id = entry.dig(:raw_data, 'entry_id')
+      row = (rows.find_by("json_extract(raw_data, '$.entry_id') = ?", entry_id) if entry_id) ||
+            same_events(entry, rows.where("json_extract(raw_data, '$.entry_id') IS NULL")).first
+      row&.update_columns(tx_id:)
+    end
   end
 
   def scope

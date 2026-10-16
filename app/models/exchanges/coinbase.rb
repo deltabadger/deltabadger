@@ -395,7 +395,7 @@ class Exchanges::Coinbase < Exchange
       break if fills.empty?
 
       fills.each do |fill|
-        entries.concat(normalize_coinbase_fill(fill))
+        entries.concat(with_legacy_tx_id(fill, normalize_coinbase_fill(fill)))
       end
 
       cursor = result.data['cursor']
@@ -461,10 +461,8 @@ class Exchanges::Coinbase < Exchange
     quote = parts[1]
     is_fiat_quote = COINBASE_FIAT.include?(quote)
     is_buyer = fill['side'] == 'BUY'
-    # trade_id is unique only for FILL trades; an adjusted fill shares it, so it takes its entry_id.
     # FILL keeps trade_id so rows already imported still dedup.
-    adjusted = fill['trade_type'].present? && fill['trade_type'] != 'FILL'
-    trade_id = (fill['entry_id'] if adjusted) || fill['trade_id'] || fill['entry_id']
+    trade_id = (fill['entry_id'] if adjusted_fill?(fill)) || fill['trade_id'] || fill['entry_id']
     transacted_at = Time.parse(fill['trade_time']).utc
     price = fill['price'].to_d
     size = fill['size'].to_d
@@ -519,6 +517,19 @@ class Exchanges::Coinbase < Exchange
         }
       ]
     end
+  end
+
+  # trade_id is unique only for FILL trades; an adjusted fill shares it, so it is ided by its entry_id.
+  def adjusted_fill?(fill)
+    fill['trade_type'].present? && fill['trade_type'] != 'FILL'
+  end
+
+  # The id an adjusted fill was stored under before entry_id: the sync rekeys that row instead of
+  # storing it twice.
+  def with_legacy_tx_id(fill, entries)
+    return entries unless adjusted_fill?(fill) && fill['entry_id'].present? && fill['trade_id'].present?
+
+    entries.map { |entry| entry.merge(legacy_tx_id: entry[:tx_id].sub(fill['entry_id'], fill['trade_id'])) }
   end
 
   def normalize_coinbase_transaction(txn)
