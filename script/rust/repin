@@ -37,6 +37,7 @@ RECORDED = {
     FIX + 'alpaca_hosts.json': ('test', [runner('record_alpaca_hosts.rb', '{out}')], None),
     FIX + 'binance_vectors.json': ('test', [runner('record_binance_vectors.rb', '{out}')], None),
     FIX + 'rebalance_math.json': ('test', [runner('record_rebalance_math.rb', '{out}')], None),
+    FIX + 'key_verdicts.json': ('test', [runner('record_key_verdicts.rb', '{out}')], None),
     FIX + 'run_ownership.json': ('test', [runner('record_run_ownership.rb', '{out}')], None),
     FIX + 'condition_vectors.json': ('test', [runner('record_condition_vectors.rb', '{out}')], None),
     FIX + 'sell_vectors.json': ('test', [runner('record_sell_vectors.rb', '{out}')], None),
@@ -82,11 +83,19 @@ def pins(fixture):
     if not isinstance(data, dict): return {}
     return data.get('sources') or data.get('ported_sources') or {}
 
+def gem_pins(fixture):
+    """The "gem (version)" lines a fixture recorded that Gemfile.lock no longer has: its gems moved, so re-record."""
+    with open(os.path.join(ROOT, fixture)) as f: data = json.load(f)
+    if not isinstance(data, dict): return []
+    gems = {**(data.get('gems') or {}), **((data.get('json_parser') or {}).get('gems') or {})}
+    with open(os.path.join(ROOT, 'Gemfile.lock')) as f: lock = f.read()
+    return [f'Gemfile.lock: {g} ({v})' for g, v in gems.items() if f'    {g} ({v})\n' not in lock]
+
 def stale():
     """[(fixture, [changed paths])] in a fixed order, and the pinning fixtures neither list knows."""
     out = []
     for fixture in sorted(RECORDED) + HASH_ONLY:
-        changed = [p for p, h in pins(fixture).items() if sha(p) != h]
+        changed = [p for p, h in pins(fixture).items() if sha(p) != h] + gem_pins(fixture)
         if changed: out.append((fixture, changed))
     known = set(RECORDED) | set(HASH_ONLY)
     candidates = [FIX + n for n in sorted(os.listdir(os.path.join(ROOT, FIX))) if n.endswith('.json')]
@@ -106,7 +115,7 @@ def content_change(before, after, noise, mask=None):
     def flat(text):
         data = json.loads(text)
         return {p: re.sub(mask, '~', v) if mask and isinstance(v, str) else v
-                for p, v in leaves(data) if not re.match(r'(sources|ported_sources)/', p)}
+                for p, v in leaves(data) if not re.match(r'(sources|ported_sources|gems|json_parser/gems)/', p)}
     a, b = flat(before), flat(after)
     moved = sorted(p for p in set(a) | set(b) if a.get(p, KeyError) != b.get(p, KeyError))
     if noise:

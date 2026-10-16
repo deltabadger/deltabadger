@@ -1586,7 +1586,7 @@
     ]
   },
   "sources": {
-    "Gemfile.lock": "95787405ce2f86cb20a9517ef92f9bef2f7e7975b2737d08737b87b4ad299eed",
+    "Gemfile.lock": "b51f3db1a960a0968b70bf816f6ab904cb1e84fca948429dddd4c20968245b39",
     "config/mcp.yml": "f6e14ea3897ca14cf79a06f33b4c65a4df515e2db575b6cab835bcef9a05f951",
     "config/routes.rb": "9b2f5fb0b8eaae582dcd16627ac7d3f290794d7ecec352f0173d29ab6373bfce",
     "config/initializers/rack_attack.rb": "b25478892de782257f505cb1eb3203a7b9495dd4a223d0d4179bcfd7301c3a29",
@@ -1664,7 +1664,7 @@
     "app/models/bot/composition/liquidatable.rb": "4f90f627421c7b574c5f0e52036cc869342567ab08c09df5db50e27a9916f67d",
     "app/models/bot/composition/redeployable.rb": "3b2d9bd6f00f991a437dcdf3a13e2532a9164ff2f4934dad5ae0e280a01b49e6",
     "app/models/bot/wash_sale_guard.rb": "fd0aef8ce8779045e372ca9a1155fb7d5cb89e8e98e117eee02ed6d13d43561f",
-    "app/models/exchanges/alpaca.rb": "657631b2764487fe31682892b1d6ac7e76d57c19200bc4850e55d0343c068e0f",
+    "app/models/exchanges/alpaca.rb": "75dec9187bd8b25f5a54d1dec62943f6de8ced4a8bc72242a0ad150fdd3f1381",
     "app/models/bots/dca_single_asset/measurable.rb": "5d97bfbd2da99b342112da2315779e3d9c42e3e437e76f0ddbd62990a71167d8",
     "app/models/bot/composition/measurable.rb": "f6188fe85c00cf443b9a9b88cec472fcdbe7dfd9b9a87b385b515250f2e3a8b4",
     "app/models/bot/asset_configurable.rb": "a8b983ca18fb299623af807b226ed362f4ee86b2426dd22985f8aa1251ac401e",

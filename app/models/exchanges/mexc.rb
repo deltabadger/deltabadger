@@ -389,7 +389,7 @@ class Exchanges::Mexc < Exchange
     # Use provided network or determine the default
     network_name = network
     if network_name.blank?
-      coins_result = Honeymaker.client('mexc', proxy: ExchangeProxy.for('mexc')).get_all_coins_information
+      coins_result = client.get_all_coins_information
       return coins_result if coins_result.failure?
 
       coin_data = Array(coins_result.data).find { |c| c['coin'] == symbol }
@@ -411,25 +411,28 @@ class Exchanges::Mexc < Exchange
     Result::Success.new({ withdrawal_id: withdrawal_id })
   end
 
+  # The coin list is a signed endpoint.
   def fetch_withdrawal_fees!
-    result = Honeymaker.client('mexc', proxy: ExchangeProxy.for('mexc')).get_all_coins_information
-    return result if result.failure?
+    with_authenticated_fee_client('mexc', 'PROXY_MEXC') do |hm_client|
+      result = hm_client.get_all_coins_information
+      return result if result.failure?
 
-    fees = {}
-    chains = {}
-    Array(result.data).each do |coin|
-      symbol = coin['coin']
-      networks = coin['networkList'] || []
-      network = networks.find { |n| n['isDefault'] == true } || networks.first
-      next unless network
+      fees = {}
+      chains = {}
+      Array(result.data).each do |coin|
+        symbol = coin['coin']
+        networks = coin['networkList'] || []
+        network = networks.find { |n| n['isDefault'] == true } || networks.first
+        next unless network
 
-      fees[symbol] = network['withdrawFee']
-      chains[symbol] = networks.map do |n|
-        { 'name' => n['network'], 'fee' => n['withdrawFee'], 'is_default' => n['isDefault'] == true }
+        fees[symbol] = network['withdrawFee']
+        chains[symbol] = networks.map do |n|
+          { 'name' => n['network'], 'fee' => n['withdrawFee'], 'is_default' => n['isDefault'] == true }
+        end
       end
-    end
 
-    update_exchange_asset_fees!(fees, chains: chains)
+      update_exchange_asset_fees!(fees, chains: chains)
+    end
   end
 
   # MEXC keeps deposit and withdraw history for 90 days and trades for a month.

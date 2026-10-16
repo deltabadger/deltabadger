@@ -2,7 +2,6 @@
 //! _progress_bar.html.erb and _status_button.html.erb, on a tile and on the bot page alike.
 use super::{start, Bot, Kind};
 use crate::engine::schedule::Unrounded;
-use crate::engine::venue_rules;
 use crate::enums::BotStatus;
 use crate::ruby::to_sentence;
 use crate::web::format::{float_to_s, iso8601};
@@ -14,17 +13,10 @@ use bigdecimal::ToPrimitive;
 use chrono::{DateTime, Utc};
 use rusqlite::{Connection, OptionalExtension};
 
-/// Exchange#humanize_error for a venue without a Honeymaker classifier (Alpaca): the sentence of
-/// the bucket the message falls in (Exchange::KIND_ERROR_KEYS), else the message as it came.
+/// Exchange#humanize_error: the venue's own classifier (Kraken's nonce and regional restriction), then the
+/// sentence of the failure kind, else the message as it came. One classifier with the mails.
 fn humanize(bot: &Bot, message: &str, locale: &str) -> String {
-    let kind = venue_rules::for_exchange(&bot.exchange.class).and_then(|rules| rules.failure_kind(&[message.to_string()]));
-    let key = match kind {
-        Some("throttle") => "rate_limited",
-        Some("transient") => "transient_unavailable",
-        Some(kind @ ("insufficient_funds" | "invalid_key" | "permission_denied" | "restricted")) => kind,
-        _ => return message.to_string(),
-    };
-    i18n::text(locale, &format!("errors.exchange.{key}"), &[("exchange", i18n::Arg::Text(&bot.exchange.name))])
+    crate::mail::render::humanize_error(&bot.exchange.class, &bot.exchange.name, locale, message)
 }
 
 /// BotHelper#humanized_bot_error: each message in the reader's words, joined as an English sentence.
