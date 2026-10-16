@@ -48,6 +48,30 @@ class Exchange::SynchronizerTest < ActiveSupport::TestCase
     assert btc_usd.reload.available
     assert_not eth_usd.reload.available, 'pair absent from the feed is delisted'
   end
+  # A venue renames a coin's symbol (Coinbase RNDR -> RENDER): the new spelling resolves to the
+  # assets an existing ticker already holds, so that ticker takes the new spelling in place. Creating
+  # a second ticker for the same assets is refused by the uniqueness index, which left the bot on
+  # the old, delisted spelling forever.
+  test 'a renamed pair takes over the existing ticker for the same assets' do
+    coinbase = create(:coinbase_exchange)
+    render = create(:asset, symbol: 'RENDER', name: 'Render', external_id: 'render-token')
+    ticker = create(:ticker, exchange: coinbase, base_asset: render, quote_asset: @usd,
+                             base: 'RNDR', quote: 'USD', ticker: 'RNDR-USD', trading_enabled: false)
+    bot = create(:dca_single_asset, exchange: coinbase, base_asset: render, quote_asset: @usd)
+    coinbase.send(:set_symbol_to_external_id_hash,
+                  [{ 'base' => 'RENDER', 'coin_id' => 'render-token', 'target' => 'USD', 'target_coin_id' => 'usd' }])
+
+    coinbase.send(:sync_existing_exchange_assets_and_tickers!,
+                  [info(base: 'RENDER', quote: 'USD').merge(ticker: 'RENDER-USD')])
+
+    ticker.reload
+    assert_equal 'RENDER-USD', ticker.ticker
+    assert_equal 'RENDER', ticker.base
+    assert ticker.available && ticker.trading_enabled
+    assert_equal 1, coinbase.tickers.count
+    assert_equal ticker, Bot.find(bot.id).ticker
+  end
+
   # B10. The self-hosted twin of data-api's join bug: the CoinGecko symbol->coin_id map is keyed on
   # CoinGecko's casing while the venue reports its own. Bitget publishes baseCoin "rON" where
   # CoinGecko says "RON", so external_id_from_symbol missed and `next if blank?` dropped a live

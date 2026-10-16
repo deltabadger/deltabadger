@@ -184,7 +184,7 @@ class AccountTransactionSyncTest < ActiveSupport::TestCase
     AccountTransactionSync.new(@api_key).sync!
   end
 
-  # Binance, Bybit, MEXC, KuCoin and Bitget cap a history query at ~90 days FROM start_time. Without
+  # Binance, MEXC and KuCoin cap a history query at ~90 days FROM start_time. Without
   # a floor, a quiet account's data-derived watermark stops reaching the present and goes blind.
   test 'floors start_time so a long-quiet account still queries up to the present' do
     @api_key.update!(last_synced_at: 2.years.ago)
@@ -217,11 +217,11 @@ class AccountTransactionSyncTest < ActiveSupport::TestCase
     AccountTransactionSync.new(api_key).sync!
   end
 
-  # Bybit's execution list and KuCoin's fills serve 7 days measured FROM startTime, so an 80-day-old
-  # start returns a window that ended 73 days ago: a deposit made today is never seen, and nothing
-  # new can arrive to advance the watermark past it.
+  # KuCoin's fills serve 7 days measured FROM startTime, so an 80-day-old start returns a window that
+  # ended 73 days ago: a deposit made today is never seen, and nothing new can arrive to advance the
+  # watermark past it.
   test 'floors start_time at the exchange own ledger window, not the 80-day default' do
-    exchange = create(:bybit_exchange)
+    exchange = create(:kucoin_exchange)
     api_key = create(:api_key, user: @user, exchange: exchange, last_synced_at: 2.years.ago)
     captured = nil
     exchange.stubs(:get_ledger).with do |args|
