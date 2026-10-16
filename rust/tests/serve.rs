@@ -304,13 +304,18 @@ async fn the_bot_pages_refuse_what_this_build_does_not_render_and_change_nothing
     let before: Vec<(i64, String)> = opened.primary.prepare("SELECT status, settings FROM bots ORDER BY id").unwrap().query_map([], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().collect::<Result<_, _>>().unwrap();
     for (method, path) in [("delete", format!("/bots/{first}")), ("post", "/bots/dca_multi_assets".to_string()),
                            ("post", "/api_keys".to_string()), ("post", format!("/bots/{first}/liquidate")),
-                           ("post", format!("/bots/{first}/rebalance")), ("post", format!("/bots/{first}/merge")), ("post", format!("/bots/{first}/split")), ("post", format!("/bots/{first}/reverse")), ("patch", "/bots/reorder".to_string()),
+                           ("post", format!("/bots/{first}/rebalance")), ("post", format!("/bots/{first}/merge")), ("post", format!("/bots/{first}/split")), ("patch", "/bots/reorder".to_string()),
                            ("post", format!("/bots/{first}/export")), ("delete", format!("/bots/{first}/transactions/1")), ("post", "/en/broadcasts/fetch_open_orders".to_string())] {
         let answer = browser.send(&app, "POST", &path, Some(&[("_method", method)]), web::Csrf::Header, &[]).await;
         assert!(answer.status == 501 && answer.body.contains(&format!("{} {path}", method.to_uppercase())), "{method} {path}: {} {}", answer.status, answer.body);
         let refused = browser.send(&app, "POST", &path, Some(&[("_method", method)]), web::Csrf::None, &[]).await;
         assert_eq!(refused.status, 302, "{method} {path} without a token is turned back before any route");
     }
+    // ⇄ is served since 6a: on this install (a Signal bot beside it) the eligibility guard refuses it, and nothing moves either.
+    let path = format!("/bots/{first}/reverse");
+    let answer = browser.send(&app, "POST", &path, Some(&[("_method", "post")]), web::Csrf::Header, &[]).await;
+    assert!(answer.status == 422 && answer.body.contains("This app can&#39;t run that yet"), "post {path}: {} {}", answer.status, answer.body);
+    assert_eq!(browser.send(&app, "POST", &path, Some(&[("_method", "post")]), web::Csrf::None, &[]).await.status, 302, "post {path} without a token is turned back");
     let after: Vec<(i64, String)> = opened.primary.prepare("SELECT status, settings FROM bots ORDER BY id").unwrap().query_map([], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().collect::<Result<_, _>>().unwrap();
     assert_eq!(before, after);
 }

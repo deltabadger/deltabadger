@@ -117,7 +117,10 @@ fn deferred_classes_and_existing_refusals_still_roll_back() {
         ("UPDATE bots SET settings=json_set(settings,'$.start_time_enabled',json('true'),'$.start_at','2026-01-06T12:00:00Z')","start_time_enabled"),
         ("UPDATE bots SET settings=json_set(settings,'$.price_limited',json('true'))","price_limited"),
         ("UPDATE bots SET settings=json_set(settings,'$.indicator_limited',json('true'))","indicator_limited"),
-        ("UPDATE bots SET settings=json_set(settings,'$.direction','selling')","direction"),
+        // 6a sells for a one-asset basket off Alpaca only: this two-asset Alpaca basket's selling stays deferred (6b).
+        ("UPDATE bots SET settings=json_set(settings,'$.direction','selling')","selling with 2 assets"),
+        ("UPDATE bots SET settings=json_set(settings,'$.direction','selling')","selling on Alpaca"),
+        ("UPDATE bots SET settings=json_set(settings,'$.direction','sideways')","direction \"sideways\""),
         ("UPDATE bots SET settings=json_set(settings,'$.weighting','market_cap')","weighting"),
         ("UPDATE bots SET transient_data=json_set(transient_data,'$.liquidation_pending',json('{}'))","liquidation_pending"),
         ("UPDATE bots SET transient_data=json_set(transient_data,'$.redeploy_pending',json('{}'))","redeploy_pending"),
@@ -184,7 +187,8 @@ async fn every_remaining_eligibility_branch_has_a_named_witness() {
         ("UPDATE bots SET settings=json_set(settings,'$.quote_amount_limited',json('true'),'$.quote_amount_limit','bad')","quote_amount_limit"),
         ("UPDATE bots SET settings=json_set(settings,'$.quote_amount_limited',json('true')),transient_data=json_set(transient_data,'$.quote_amount_limit_enabled_at',json('{}'))","quote_amount_limit_enabled_at"),
         ("UPDATE exchanges SET type='Exchanges::Kraken'; UPDATE bots SET transient_data=json_set(transient_data,'$.merged_history_until_id',3)","merged history"),
-        ("UPDATE exchanges SET type='Exchanges::Kraken'","sell order(s)"),
+        // Sell rows are no refusal since 6a (the walk reads them on every venue); a direction Rails does not have still is.
+        ("UPDATE bots SET settings=json_set(settings,'$.direction','sideways')","direction \"sideways\""),
         ("UPDATE exchanges SET type='Exchanges::Kraken'","Kraken: only one-asset"),
         ("UPDATE bots SET settings=json_set(settings,'$.allocations',json('{\"bad\":1}'))","a weight this build does not read"),
         ("UPDATE bots SET settings=json_set(settings,'$.allocations',json('{}'))","allocations: none"),
