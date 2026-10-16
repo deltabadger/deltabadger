@@ -158,4 +158,24 @@ class Exchanges::MexcTest < ActiveSupport::TestCase
 
     assert_equal '60000'.to_d, result.data[:price]
   end
+
+  # MEXC sends no LOT_SIZE or NOTIONAL filter (a live BTCUSDT carries PERCENT_PRICE_BY_SIDE only);
+  # its minimums are quoteAmountPrecision ("min order amount") and baseSizePrecision ("min order
+  # quantity"), https://mexcdevelop.github.io/apidocs/spot_v3_en/#exchange-information.
+  test 'get_tickers_info reads the minimums MEXC sends outside its filters' do
+    btc = { 'symbol' => 'BTCUSDT', 'status' => '1', 'baseAsset' => 'BTC', 'baseAssetPrecision' => 8,
+            'quoteAsset' => 'USDT', 'quotePrecision' => 2, 'quoteAssetPrecision' => 2,
+            'isSpotTradingAllowed' => true, 'quoteAmountPrecision' => '1', 'baseSizePrecision' => '0.000001',
+            'filters' => [{ 'filterType' => 'PERCENT_PRICE_BY_SIDE', 'bidMultiplierUp' => '0.005',
+                            'askMultiplierDown' => '0.005' }],
+            'maxQuoteAmount' => '4000000', 'quoteAmountPrecisionMarket' => '1', 'maxQuoteAmountMarket' => '4000000' }
+    @exchange.set_client
+    @exchange.send(:client).stubs(:exchange_information).returns(Result::Success.new('symbols' => [btc]))
+
+    info = @exchange.get_tickers_info(force: true).data.first
+
+    assert_equal '0.000001'.to_d, info[:minimum_base_size]
+    assert_equal 1.to_d, info[:minimum_quote_size]
+    assert_equal 4_000_000.to_d, info[:maximum_quote_size]
+  end
 end
