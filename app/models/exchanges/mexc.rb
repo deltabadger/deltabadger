@@ -432,7 +432,7 @@ class Exchanges::Mexc < Exchange
     update_exchange_asset_fees!(fees, chains: chains)
   end
 
-  # MEXC caps a history query at ~90 days measured from `startTime`.
+  # MEXC keeps deposit and withdraw history for 90 days and trades for a month.
   def ledger_window = 80.days
 
   def get_ledger(api_key:, start_time: nil)
@@ -441,34 +441,32 @@ class Exchanges::Mexc < Exchange
     start_ms = start_time ? (start_time.to_f * 1000).to_i : nil
     entries = []
 
-    # Deposits first (to discover coins)
-    result = hm_client.deposit_history(start_time: start_ms)
-    unless result.failure?
-      Array(result.data).each do |dep|
-        next unless dep['status'].to_i.in?(DEPOSIT_CREDITED)
+    # Deposits first (to discover coins). Any failed read fails the whole fetch: a partial Success
+    # would let the sync move its watermark past the rows it never got.
+    failed = each_transfer(hm_client, :deposit_history, start_time) do |dep|
+      next unless dep['status'].to_i.in?(DEPOSIT_CREDITED)
 
-        entries << { entry_type: :deposit, base_currency: dep['coin'], base_amount: dep['amount'].to_d,
-                     quote_currency: nil, quote_amount: nil, fee_currency: nil, fee_amount: nil,
-                     tx_id: dep['txId'], group_id: nil, description: nil,
-                     transacted_at: Time.at(dep['insertTime'].to_i / 1000.0).utc, raw_data: dep }
-      end
+      # No record id: txId is the chain hash with the output index ("<hash>:0"), one per credit.
+      entries << { entry_type: :deposit, base_currency: dep['coin'], base_amount: dep['amount'].to_d,
+                   quote_currency: nil, quote_amount: nil, fee_currency: nil, fee_amount: nil,
+                   tx_id: dep['txId'], group_id: nil, description: nil,
+                   transacted_at: Time.at(dep['insertTime'].to_i / 1000.0).utc, raw_data: dep }
     end
+    return failed if failed
 
     # Withdrawals
-    result = hm_client.withdraw_history(start_time: start_ms)
-    unless result.failure?
-      Array(result.data).each do |wd|
-        next unless wd['status'].to_i == 7 # completed
+    failed = each_transfer(hm_client, :withdraw_history, start_time) do |wd|
+      next unless wd['status'].to_i == 7 # completed
 
-        entries << { entry_type: :withdrawal, base_currency: wd['coin'], base_amount: wd['amount'].to_d,
-                     quote_currency: nil, quote_amount: nil,
-                     fee_currency: wd['coin'], fee_amount: wd['transactionFee']&.to_d,
-                     # The record's own id: withdrawals batched into one on-chain transaction share
-                     # its hash (transHash), and the sync keeps one row per tx_id. applyTime is epoch ms.
-                     tx_id: wd['id'], group_id: nil, description: nil,
-                     transacted_at: Time.at(wd['applyTime'].to_i / 1000.0).utc, raw_data: wd }
-      end
+      entries << { entry_type: :withdrawal, base_currency: wd['coin'], base_amount: wd['amount'].to_d,
+                   quote_currency: nil, quote_amount: nil,
+                   fee_currency: wd['coin'], fee_amount: wd['transactionFee']&.to_d,
+                   # The record's own id: withdrawals batched into one on-chain transaction share
+                   # its hash (transHash), and the sync keeps one row per tx_id. applyTime is epoch ms.
+                   tx_id: wd['id'], group_id: nil, description: nil,
+                   transacted_at: Time.at(wd['applyTime'].to_i / 1000.0).utc, raw_data: wd }
     end
+    return failed if failed
 
     # Discover coins from balances + deposits/withdrawals, then query trades
     coins = Set.new
@@ -512,6 +510,57 @@ class Exchanges::Mexc < Exchange
   end
 
   private
+
+  # Deposit and withdraw history take a range of at most 7 days, reach back 90 days at most, and
+  # answer up to 1000 rows (https://mexcdevelop.github.io/apidocs/spot_v3_en/#deposit-history-supporting-network).
+  TRANSFER_REACH = 89.days
+  TRANSFER_RANGE = 7.days
+  TRANSFER_PAGE = 1000
+  # 700007: a key without the wallet-history permission has no transfers to give.
+  NO_PERMISSION_CODE = 700_007
+
+  # Yields each transfer from start_time (or as far back as MEXC keeps) to now; returns the failure
+  # that stopped the read, or nil.
+  def each_transfer(hm_client, endpoint, start_time, &)
+    each_ledger_range([start_time, TRANSFER_REACH.ago].compact.max, TRANSFER_RANGE) do |from, to|
+      rows = read_range(from, to, TRANSFER_PAGE) do |s, e|
+        hm_client.public_send(endpoint, start_time: s, end_time: e, limit: TRANSFER_PAGE)
+      end
+      return nil if !rows.is_a?(Array) && response_field(rows, 'code') == NO_PERMISSION_CODE
+      return rows unless rows.is_a?(Array)
+
+      rows.each(&)
+    end
+    nil
+  end
+
+  # Yields [from, to] epoch-ms ranges of at most `range`, from `from` to now.
+  def each_ledger_range(from, range)
+    range_start = (from.to_f * 1000).to_i
+    now = (Time.now.to_f * 1000).to_i
+    while range_start < now
+      range_end = [range_start + range.in_milliseconds.to_i, now].min
+      yield range_start, range_end
+      range_start = range_end + 1
+    end
+  end
+
+  # The rows of [from, to]. MEXC documents no paging, so a full page may have cut rows off: its range
+  # is halved and both halves read. Returns the rows, or the failure that stopped the read.
+  def read_range(from, to, page, &fetch)
+    result = fetch.call(from, to)
+    return result if result.failure?
+    return Result::Failure.new("#{name} ledger read failed: #{result.data}") unless result.data.is_a?(Array)
+    # ponytail: a full page inside a single millisecond is taken as is; it cannot be split further.
+    return result.data if result.data.size < page || to - from < 1
+
+    mid = (from + to) / 2
+    older = read_range(from, mid, page, &fetch)
+    return older unless older.is_a?(Array)
+
+    newer = read_range(mid + 1, to, page, &fetch)
+    newer.is_a?(Array) ? older + newer : newer
+  end
 
   def symbol_pair_base(symbol)
     @exchange_symbols_map&.dig(symbol, :base) || tickers.find_by(ticker: symbol)&.base || symbol

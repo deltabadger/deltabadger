@@ -315,4 +315,61 @@ class Exchanges::MexcTest < ActiveSupport::TestCase
 
     assert_equal %w[aa:0 bb:0], rows.map { |r| r[:tx_id] }
   end
+
+  # Deposit and withdraw history answer the last 7 days when given no range, take a range of at most
+  # 7 days, and reach back 90 days at most. The ledger sent startTime alone (nothing on a first sync)
+  # and skipped a failed read while the fetch still succeeded.
+  test 'get_ledger reads transfers in 7-day ranges back to 90 days on a first sync' do
+    stub_ledger
+    asked = []
+    Honeymaker::Clients::Mexc.any_instance.stubs(:deposit_history).with do |**args|
+      asked << args
+      true
+    end.returns(Result::Success.new([]))
+
+    assert_predicate @exchange.get_ledger(api_key: ledger_api_key), :success?
+
+    assert_operator asked.size, :>=, 12
+    assert(asked.all? { |a| a[:end_time] && a[:end_time] - a[:start_time] <= 7.days.in_milliseconds })
+    assert_in_delta 89.days.ago.to_i, asked.first[:start_time] / 1000, 60
+    assert_in_delta Time.now.to_i, asked.last[:end_time] / 1000, 60
+  end
+
+  test 'a failed transfer read fails the fetch' do
+    stub_ledger
+    Honeymaker::Clients::Mexc.any_instance.stubs(:withdraw_history)
+                             .returns(Result::Failure.new('{"code":429,"msg":"Too Many Requests"}', data: { status: 429 }))
+
+    assert_predicate @exchange.get_ledger(api_key: ledger_api_key, start_time: 2.days.ago), :failure?
+  end
+
+  test 'a key without the wallet permission reads as no transfers' do
+    stub_ledger
+    Honeymaker::Clients::Mexc.any_instance.stubs(:deposit_history)
+                             .returns(Result::Failure.new('{"code":700007,"msg":"No permission to access the endpoint."}',
+                                                          data: { status: 403 }))
+
+    assert_predicate @exchange.get_ledger(api_key: ledger_api_key, start_time: 2.days.ago), :success?
+  end
+
+  # MEXC documents no paging for transfer history, so a range answered with a full page is read again
+  # in halves. The stub answers like the endpoint would: the first 1000 rows of the range asked.
+  test 'a full page of transfers is read again in halves until nothing is cut off' do
+    stub_ledger
+    start = 2.days.ago.change(usec: 0)
+    times = (0...1500).map { |i| (start.to_i * 1000) + (i * 60_000) }
+    fake = Honeymaker.client('mexc')
+    %i[withdraw_history account_trade_list].each { |m| fake.define_singleton_method(m) { |**| Result::Success.new([]) } }
+    fake.define_singleton_method(:account_information) { |**| Result::Success.new('balances' => []) }
+    fake.define_singleton_method(:exchange_information) { |**| Result::Success.new('symbols' => []) }
+    fake.define_singleton_method(:deposit_history) do |start_time:, end_time:, **|
+      rows = times.select { |t| t.between?(start_time, end_time) }.first(1000)
+      Result::Success.new(rows.map { |t| { 'coin' => 'EOS', 'amount' => '1', 'status' => 5, 'txId' => "#{t}:0", 'insertTime' => t } })
+    end
+    Honeymaker.stubs(:client).returns(fake)
+
+    rows = @exchange.get_ledger(api_key: ledger_api_key, start_time: start).data.select { |r| r[:entry_type] == :deposit }
+
+    assert_equal 1500, rows.map { |r| r[:tx_id] }.uniq.size
+  end
 end
