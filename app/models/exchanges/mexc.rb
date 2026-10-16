@@ -1,12 +1,22 @@
 class Exchanges::Mexc < Exchange
   COINGECKO_ID = 'mxc'.freeze # https://docs.coingecko.com/reference/exchanges-list
   ERRORS = {
-    insufficient_funds: ['Insufficient balance.'],
-    # 'Api key info invalid' is code 10072, captured from a live probe. The two Binance-clone
-    # strings below it are kept but unproven — MEXC never emitted either in any recorded failure.
-    invalid_key: ['Api key info invalid', 'Invalid Api-Key ID.', 'Signature for this request is not valid.'],
-    # MEXC is a Binance API clone and emits the identical -1021 timestamp string. Same treatment.
-    transient: ['Timestamp for this request is outside of the recvWindow', 'Timestamp for this request was']
+    # Codes and wording from https://mexcdevelop.github.io/apidocs/spot_v3_en/#error-code.
+    # 10101 "Insufficient balance"; 30004 "Insufficient position" and 30005 "Oversold" on a sell.
+    insufficient_funds: ['Insufficient balance', 'Insufficient position', 'Oversold'],
+    # 'Api key info invalid' is code 10072, captured from a live probe. 700001, 700002 and 602 are a
+    # malformed key and a wrong secret. 'Invalid Api-Key ID.' is a Binance string kept but unproven.
+    invalid_key: ['Api key info invalid', 'API-key format invalid', 'Invalid Api-Key ID.',
+                  'Signature for this request is not valid', 'Signature verification failed'],
+    # 700007 a key without the endpoint's scope, 700006 a request from outside the key's IP list: the
+    # key itself is good, so neither may condemn it.
+    permission_denied: ['No permission to access the endpoint', 'IP non white list'],
+    # HTTP 429, and 510 "Requests are too frequent".
+    throttle: ['Too Many Requests', 'Too many requests', 'Requests are too frequent'],
+    # MEXC is a Binance API clone and emits the identical -1021 timestamp string (its 700003). Same
+    # treatment. 503 and 504 are MEXC's own "try again".
+    transient: ['Timestamp for this request is outside of the recvWindow', 'Timestamp for this request was',
+                'service not available', 'Gateway Time-out']
   }.freeze
   ORDER_STATUS_MAP = {
     'NEW' => :open,

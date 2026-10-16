@@ -13,7 +13,7 @@ class Exchanges::MexcTest < ActiveSupport::TestCase
     errors = @exchange.known_errors
     assert errors[:insufficient_funds].present?
     assert errors[:invalid_key].present?
-    assert_includes errors[:insufficient_funds], 'Insufficient balance.'
+    assert_includes errors[:insufficient_funds], 'Insufficient balance'
     assert_includes errors[:invalid_key], 'Invalid Api-Key ID.'
   end
 
@@ -177,5 +177,20 @@ class Exchanges::MexcTest < ActiveSupport::TestCase
     assert_equal '0.000001'.to_d, info[:minimum_base_size]
     assert_equal 1.to_d, info[:minimum_quote_size]
     assert_equal 4_000_000.to_d, info[:maximum_quote_size]
+  end
+
+  # Wording from https://mexcdevelop.github.io/apidocs/spot_v3_en/#error-code.
+  test 'the documented balance, key, permission, rate-limit and outage errors are classified' do
+    assert_equal :insufficient_funds, @exchange.failure_kind(['Insufficient balance'])        # 10101
+    assert_equal :insufficient_funds, @exchange.failure_kind(['Oversold'])                    # 30005
+    assert_equal :insufficient_funds, @exchange.failure_kind(['Insufficient position'])       # 30004
+    assert @exchange.invalid_key_error?(['API-key format invalid'])                           # 700001
+    assert @exchange.invalid_key_error?(['Signature verification failed'])                    # 602
+    assert @exchange.permission_error?(['No permission to access the endpoint'])              # 700007
+    assert @exchange.permission_error?(['IP non white list'])                                 # 700006
+    assert_not @exchange.invalid_key_error?(['No permission to access the endpoint'])
+    assert @exchange.throttled_error?(['Too Many Requests'])                                  # 429
+    assert @exchange.transient_error?(['service not available, please try again'])            # 503
+    assert @exchange.transient_error?(['Gateway Time-out'])                                   # 504
   end
 end
