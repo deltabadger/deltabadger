@@ -71,7 +71,7 @@ class ExchangeParseOrderStatusTest < ActiveSupport::TestCase
     Exchanges::Mexc => {
       'NEW' => :open, 'PARTIALLY_FILLED' => :open,
       'FILLED' => :closed,
-      'CANCELED' => :cancelled, 'EXPIRED' => :cancelled,
+      'CANCELED' => :cancelled, 'PARTIALLY_CANCELED' => :cancelled, 'EXPIRED' => :cancelled,
       'REJECTED' => :failed
     }
   }.freeze
