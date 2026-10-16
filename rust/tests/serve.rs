@@ -1609,7 +1609,13 @@ fn a_bot_row_is_read_as_the_pages_need_it_and_refused_when_this_build_cannot_ren
         store(&changed);
         bot::refusal(c, id, wash_sale, deltabadger, bot::For::Page).unwrap()
     };
-    assert_eq!(refused(&|s| s["direction"] = json!("selling"), Some(false), true), Some("a selling bot"));
+    // A one-asset basket that sells is served; a wider one, or a cap on what is sold, is not yet (6b, 6d).
+    let one = |s: &mut serde_json::Value| { let id = s["allocations"].as_object().unwrap().keys().next().unwrap().clone(); s["allocations"] = json!({ id: 1.0 }); s["direction"] = json!("selling"); };
+    assert_eq!(refused(&one, Some(false), true), None);
+    assert_eq!(refused(&|s| { one(s); s["base_amount_limited"] = json!(true); }, Some(false), true), Some("a cap on what a selling bot sells"));
+    assert_eq!(refused(&|s| { one(s); s["allocations"]["999"] = json!(0.5); }, Some(false), true), Some("a basket of several assets that sells"));
+    // Selling owes the wash-sale question before anything is held (Bot#sell_capable?).
+    assert_eq!(refused(&one, None, true), Some("the wash-sale question not answered yet"));
     assert_eq!(refused(&|s| s["rebalance_enabled"] = json!(true), Some(false), true), Some("rebalancing"));
     assert_eq!(refused(&|s| s["weighting"] = json!("market_cap"), Some(false), true), Some("market-cap weights"));
     assert_eq!(refused(&|s| s["quote_amount"] = json!(0), Some(false), true), Some("settings no form would have saved"));

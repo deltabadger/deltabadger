@@ -171,7 +171,7 @@ weekday and returns `{}` on failure — a boundary price is never guessed, the s
   `ledger_window`; a row skipped before that is never re-fetched.
 - The window start is floored at `Exchange#ledger_window` — **`nil` by default, i.e. no floor**.
   Declare it only where the endpoint caps the window it returns: Binance/MEXC `80.days`
-  (~90-day cap), Bybit and KuCoin `7.days` (`/v5/execution/list`, `/api/v1/fills`). Those caps are
+  (~90-day cap), KuCoin `7.days` (`/api/v1/fills`). Those caps are
   measured *from start_time*, so a watermark parked at a quiet account's last trade would query a
   window ending before today and the account would go blind.
   - **The default must stay `nil`.** Alpaca, Kraken, Coinbase and Hyperliquid paginate a cursor from
@@ -181,11 +181,12 @@ weekday and returns `{}` on failure — a boundary price is never guessed, the s
     of those runs, and the watermark would then advance past it. (This paragraph used to claim there
     was no recurring sync; there is — `config/recurring.yml`.)
   - Residual on a capped venue: anchoring at the present costs everything between the cap and an
-    older watermark. On a Bybit or KuCoin account quiet for longer than 7 days, **any row in that
-    gap — fills included, not just transfers** — falls outside every window, and Bybit's 30-day
-    deposit/withdraw cap does not help because the window now starts 7 days ago. Anchoring at the
-    present is still right: the alternative is an account that never sees anything new again.
-    Closing the gap needs chunked `endTime` requests, not a floor.
+    older watermark. On a KuCoin account quiet for longer than 7 days, **any row in that gap — fills
+    included, not just transfers** — falls outside every window. Anchoring at the present is still
+    right: the alternative is an account that never sees anything new again. Closing the gap needs
+    chunked `endTime` requests, not a floor — which is what Bybit does: its `get_ledger` walks 7-day
+    trade and 29-day transfer windows from `start_time` (at most two years back) to now, so it
+    declares no `ledger_window`.
 - Dedup is by `tx_id` scoped to **(user, exchange)**; a blank id is read as `nil` and dedups on
   (api_key, type, currency, amount, timestamp) instead. `ApiKey#sync_issue` (never synced / last
   error) banners at the top of the crypto report — a report that silently omits an exchange is the
