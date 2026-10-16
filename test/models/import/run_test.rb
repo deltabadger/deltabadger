@@ -217,4 +217,29 @@ class Import::RunTest < ActiveSupport::TestCase
 
     assert_equal :malformed, import(file, format: 'deltabadger')[:error]
   end
+
+  # `to_d` reads "1,5" as 1, "--1" as -0 and "Infinity" as infinite: a wrong number booked silently.
+  test 'an amount that is no plain decimal refuses the file' do
+    ['Infinity', '"1,5"', '--1', 'abc', '12abc', ''].each do |cell|
+      file = [HEADER, '1,2021-07-01 14:07:04,Spot,Deposit,USDT,150.2,', "1,2021-07-02 00:00:00,Spot,Deposit,USDT,#{cell},"].join("\n")
+
+      assert_equal :malformed, import(file)[:error], cell.inspect
+    end
+    assert_equal 0, AccountTransaction.for_user(@user).count
+  end
+
+  test 'plain decimals still read, exponent and sign included' do
+    file = [HEADER, '1,2021-07-01 14:07:04,Spot,Deposit,USDT, 2.5 ,', '1,2021-07-01 14:07:05,Spot,Deposit,BTC,1e-5,',
+            '1,2021-07-01 14:07:06,Spot,Deposit,ETH,+.5,'].join("\n")
+
+    assert_equal 3, import(file)[:imported]
+    assert_equal [2.5, 0.00001, 0.5].map(&:to_d), AccountTransaction.for_user(@user).order(:transacted_at).pluck(:base_amount)
+  end
+
+  test 'our own export with an amount that is no plain decimal refuses the file' do
+    header = AccountTransaction.csv_headers.join(',')
+    file = "#{header}\n2024-01-01T00:00:00Z,buy,ZORK,1,USD,12abc,,,#{@binance.name_id},,,\n"
+
+    assert_equal :malformed, import(file, format: 'deltabadger')[:error]
+  end
 end

@@ -55,6 +55,18 @@ class Import::Run
     Time.parse("#{text}#{offset}").utc
   end
 
+  # A cell's amount, or the file is refused. `to_d` reads whatever it can: "1,5" is 1, "--1" is -0,
+  # "abc" is 0 and "Infinity" is infinite — each a wrong number booked without a word. An amount must
+  # be a plain decimal, with an exponent allowed because BigDecimal reads one exactly.
+  DECIMAL = /\A[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?\z/
+
+  def self.amount(value)
+    text = value.to_s.strip
+    raise ArgumentError, "unreadable amount #{text.inspect}" unless text.match?(DECIMAL)
+
+    text.to_d
+  end
+
   def import! = outcome
 
   # The accounts a file in this format could belong to. Empty means the user has none, which is a

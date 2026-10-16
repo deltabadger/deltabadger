@@ -118,7 +118,7 @@ class Import::BinanceCsv
       next if kind.nil? # a deliberate skip, not an unknown
 
       { kind: kind, operation: operation, coin: row['Coin'].to_s.strip,
-        change: row['Change'].to_d, at: parse_time(row['Time']), account: row['Account'].to_s.strip,
+        change: Import::Run.amount(row['Change']), at: parse_time(row['Time']), account: row['Account'].to_s.strip,
         remark: row['Remark'].to_s.strip }
     end
   end
