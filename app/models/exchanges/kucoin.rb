@@ -5,12 +5,22 @@ class Exchanges::Kucoin < Exchange
     # 'The API key does not exist or site mismatch.' is code 400003, captured from a live probe —
     # the message a revoked or wrong-environment key actually returns. Without it a dead KuCoin key
     # was never flagged :incorrect, so the user saw failures with no prompt to replace it.
+    # The rest per https://www.kucoin.com/docs-new/error-code/spot, in both the documented wording and
+    # the one the venue sends (400004 "KC-API-PASSPHRASE error" / "Invalid KC-API-PASSPHRASE").
     invalid_key: ['Invalid API-Key', 'Invalid KC-API-SIGN', 'Invalid passphrase',
-                  'The API key does not exist or site mismatch.'],
+                  'The API key does not exist or site mismatch.',
+                  'KC-API-KEY does not exist', 'KC-API-KEY not exists', # 400003
+                  'KC-API-PASSPHRASE', # 400004
+                  'Signature error'], # 400005
+    # 400007: the key is fine, it lacks the scope this call needs.
+    permission_denied: ['Access Denied'],
+    # 429000. Retried on the longer rate-limit wait; the ledger walk waits a throttled page out itself.
+    throttle: ['429000', 'Too Many Requests'],
     # 400002: the signed timestamp fell outside KuCoin's window. Same class as Binance's -1021 —
     # a correct, NTP-synced clock still trips it whenever a request stalls behind a slow exchange
     # proxy for longer than the window. Retried, surfaced gray, no "your bot failed" email.
-    transient: ['Invalid KC-API-TIMESTAMP'],
+    # 500000 and 230005: the venue's own outage and busy answers.
+    transient: ['Invalid KC-API-TIMESTAMP', 'Internal Server Error', 'The system is busy'],
     # Listed again, deliberately: 400002 is raised while verifying the signature (the timestamp is
     # part of the signed payload), so the order never reached the book and re-placing it next
     # interval cannot double-buy. See Exchange#placement_transient_error?.
@@ -489,9 +499,7 @@ class Exchanges::Kucoin < Exchange
   # Each page costs KuCoin's request quota, and a first sync walks some 400 weekly windows, so a long
   # history runs into the limit part way. A throttled page is waited out and asked for again, as
   # Kraken's ledger does: failing here throws away every page read so far, and the next sync starts
-  # over from 2019. Kept out of ERRORS[:throttle] on purpose, which would also change how order
-  # placement and polling treat a 429.
-  LEDGER_THROTTLE = ['429000', 'Too Many Requests'].freeze
+  # over from 2019.
   LEDGER_THROTTLE_WAIT = 10
   LEDGER_THROTTLE_RETRIES = 6
 
@@ -507,8 +515,7 @@ class Exchanges::Kucoin < Exchange
         result = Result::Failure.new("Failed to get #{name} history: #{result.data.values_at('code', 'msg').compact.join(' ')}")
       end
       if result.failure?
-        message = Array(result.errors).join(' ')
-        return result unless LEDGER_THROTTLE.any? { |m| message.include?(m) } && throttled < LEDGER_THROTTLE_RETRIES
+        return result unless throttled_error?(result.errors) && throttled < LEDGER_THROTTLE_RETRIES
 
         throttled += 1
         sleep(LEDGER_THROTTLE_WAIT)
