@@ -171,4 +171,19 @@ class Exchanges::CoinbaseGetLedgerTest < ActiveSupport::TestCase
 
     assert @exchange.get_ledger(api_key: @api_key).failure?
   end
+
+  test 'an adjusted fill keeps its own tx_id instead of the trade_id it shares' do
+    honeymaker_client = mock('honeymaker_client')
+    Honeymaker.stubs(:client).returns(honeymaker_client)
+    fill = { 'trade_id' => 't1', 'product_id' => 'BTC-USD', 'side' => 'BUY', 'price' => '50000', 'size' => '0.5',
+             'commission' => '25', 'trade_time' => '2026-03-20T10:00:00Z' }
+    honeymaker_client.stubs(:list_fills).returns(
+      Result::Success.new({ 'fills' => [fill.merge('entry_id' => 'e1', 'trade_type' => 'FILL'),
+                                        fill.merge('entry_id' => 'e2', 'trade_type' => 'CORRECTION')],
+                            'cursor' => '' })
+    )
+    honeymaker_client.stubs(:get).returns(Result::Success.new({ 'accounts' => [] }))
+
+    assert_equal %w[t1 e2], @exchange.get_ledger(api_key: @api_key).data.pluck(:tx_id)
+  end
 end

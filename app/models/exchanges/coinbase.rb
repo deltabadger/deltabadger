@@ -454,7 +454,10 @@ class Exchanges::Coinbase < Exchange
     quote = parts[1]
     is_fiat_quote = COINBASE_FIAT.include?(quote)
     is_buyer = fill['side'] == 'BUY'
-    trade_id = fill['trade_id'] || fill['entry_id']
+    # trade_id is unique only for FILL trades; an adjusted fill shares it, so it takes its entry_id.
+    # FILL keeps trade_id so rows already imported still dedup.
+    adjusted = fill['trade_type'].present? && fill['trade_type'] != 'FILL'
+    trade_id = (fill['entry_id'] if adjusted) || fill['trade_id'] || fill['entry_id']
     transacted_at = Time.parse(fill['trade_time']).utc
     price = fill['price'].to_d
     size = fill['size'].to_d
