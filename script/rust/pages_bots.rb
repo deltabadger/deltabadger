@@ -65,24 +65,42 @@ module Pages
     end
   end
 
+  MORE_COINS = %w[ADA AVAX DOT LINK LTC XRP DOGE TRX BCH XLM ATOM UNI AAVE NEAR FIL ALGO ICP ETC XTZ EOS MKR COMP SNX CRV GRT SAND MANA AXS
+                  CHZ ENJ].freeze
+
+  # 'more_coins' => true: thirty more coins on Kraken and Binance, every third one ranked by market cap, so an asset search on
+  # either venue runs past its first page of 20, blank or searched for "coin".
+  def more_coins(venues)
+    MORE_COINS.each_with_index do |symbol, position|
+      asset = Asset.create!(external_id: "#{symbol.downcase}-coin", symbol:, name: "#{symbol} Coin", category: 'Cryptocurrency',
+                            market_cap_rank: (position % 3).zero? ? 300 - position : nil)
+      venues.each do |exchange, quote_asset|
+        ExchangeAsset.create!(exchange:, asset:)
+        Ticker.create!(exchange:, base_asset: asset, quote_asset:, base: symbol, quote: quote_asset.symbol, ticker: "#{symbol}#{quote_asset.symbol}",
+                       base_decimals: 8, quote_decimals: 5, price_decimals: 4, minimum_base_size: '0.1', minimum_quote_size: '5')
+      end
+    end
+  end
+
   # 'venues' => true: Kraken and Binance beside Alpaca, listing bitcoin, ether and solana as their catalogs do: Kraken in EUR
-  # under its own code XBT, Binance in USDT; the user's trading key on each ('venue_keys' says which and how).
+  # under its own code XBT, Binance in USDT; the user's trading key on each ('venue_keys' says which and how). Solana is on
+  # neither Alpaca nor any bot of the owner's, so a basket of it stays on its venue, and a basket without it can add it.
   def venues(scenario)
     kraken = Exchanges::Kraken.create!(name: 'Kraken', maker_fee: '0.25', taker_fee: '0.4')
     binance = Exchanges::Binance.create!(name: 'Binance', maker_fee: '0.1', taker_fee: '0.1')
     eur = Asset.create!(external_id: 'EUR.FOREX', symbol: 'EUR', name: 'Euro', category: 'Currency')
     usdt = Asset.create!(external_id: 'tether', symbol: 'USDT', name: 'Tether', category: 'Cryptocurrency', color: '#26A17B')
     btc, eth = Asset.find_by!(symbol: 'BTC'), Asset.find_by!(symbol: 'ETH')
-    sol = Asset.create!(external_id: 'solana', symbol: 'SOL', name: 'Solana', category: 'Cryptocurrency', color: '#9945FF')
+    sol = Asset.create!(external_id: 'solana', symbol: 'SOL', name: 'Solana', category: 'Cryptocurrency', color: '#9945FF', market_cap: 80_000_000_000)
     listings = [[kraken, btc, eur, 'XBT', 'XBTEUR', 8, 5, 1, '0.00005', '0.5'], [kraken, eth, eur, 'ETH', 'ETHEUR', 8, 5, 2, '0.002', '0.5'],
-                [kraken, sol, eur, 'SOL', 'SOLEUR', 8, 5, 2, '0.02', '0.5'],
                 [binance, btc, usdt, 'BTC', 'BTCUSDT', 5, 8, 2, '0.00001', '5'], [binance, eth, usdt, 'ETH', 'ETHUSDT', 4, 8, 2, '0.0001', '5'],
-                [binance, sol, usdt, 'SOL', 'SOLUSDT', 3, 8, 2, '0.001', '5']]
+                [kraken, sol, eur, 'SOL', 'SOLEUR', 8, 5, 2, '0.02', '0.5'], [binance, sol, usdt, 'SOL', 'SOLUSDT', 3, 8, 2, '0.001', '5']]
     listings.each do |exchange, base_asset, quote_asset, base, ticker, base_decimals, quote_decimals, price_decimals, minimum_base_size, minimum_quote_size|
       [base_asset, quote_asset].each { |asset| ExchangeAsset.find_or_create_by!(exchange:, asset:) }
       Ticker.create!(exchange:, base_asset:, quote_asset:, base:, quote: quote_asset.symbol, ticker:, base_decimals:, quote_decimals:, price_decimals:,
                      minimum_base_size:, minimum_quote_size:)
     end
+    more_coins([[kraken, eur], [binance, usdt]]) if scenario['more_coins']
     keys = scenario.fetch('venue_keys', { 'kraken' => 'correct', 'binance' => 'correct' })
     { 'kraken' => kraken, 'binance' => binance }.each do |name, exchange|
       # The status comes from ApiKey's own list, never straight from scenario data.

@@ -1,6 +1,6 @@
 # Records what the asset search (app/controllers/concerns/bots/searchable.rb) computes in Ruby, for the Rust port's tests:
 #   bin/rails runner script/rust/record_search_vectors.rb rust/tests/fixtures/search_vectors.json
-# - "jaro_winkler": [a, b, JaroWinkler.similarity(a, b)] with the gem's default options, as the search calls it. Hand-picked
+# - "jaro_winkler": [a, b, JaroWinkler.similarity(a, b).to_s] with the gem's default options, as the search calls it. Hand-picked
 #   pairs (empty, case, unicode, transpositions, the prefix bonus), then seeded random ones, then random pairs that land near
 #   the cut-offs (0.85 for assets, 0.7 for exchanges, also the gem's own prefix-bonus threshold).
 # - "downcase": [s, s.downcase]. The search downcases the query and every symbol and name before comparing; Ruby's full
@@ -50,7 +50,8 @@ end
 raise "too few pairs near the cut-offs: #{near.transform_values(&:size)}" if near.values.any? { |found| found.size < 60 }
 
 pairs += near.values.flatten(1)
-rows = pairs.uniq.map { |a, b| [a, b, jw.(a, b)] }
+# Float#to_s, the shortest string that reads back as the same Float: under Rails, JSON.generate writes 16 significant digits.
+rows = pairs.uniq.map { |a, b| [a, b, jw.(a, b).to_s] }
 
 downcase = (%w[BTC Bitcoin ÉTH ÜBER STRASSE ẞ ΣΑΣ ΟΔΟΣ İstanbul I Ǆ ǅ ΣΑΣ. Ⅻ ＡＢＣ Ꭰ ﬀ] + names.map(&:upcase) +
             Array.new(40) { word.(12) }).uniq.map { |s| [s, s.downcase] }

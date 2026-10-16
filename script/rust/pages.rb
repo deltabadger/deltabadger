@@ -271,20 +271,22 @@ module Pages
   end
 
   # The "+ Add asset" modal on each venue (bot 1): opened blank in the modal frame and as a whole page, searched by the form
-  # in its asset-picker frame (a prefix, a fuzzy spelling), the second page of 20 in its lazy frame, and in German.
+  # in its asset-picker frame (a prefix, a fuzzy spelling, a word every extra listing has), the second page of 20 in its lazy
+  # frame, and in German. Each offset=20 path is the src of the lazy frame its step before renders (query keys sorted).
   def search_scenarios
-    search = lambda do |fuzzy, attrs|
+    search = lambda do |fuzzy, many, attrs|
       path = '/bots/1/asset_search/edit?asset_field=add_asset_id'
       picker = { 'Turbo-Frame' => 'asset-picker' }
       steps = signed_in(get(path, 'Turbo-Frame' => 'modal'), get(path), get("#{path}&query=", picker), get("#{path}&query=et", picker),
                         get("#{path}&query=#{fuzzy}", picker), get("#{path}&offset=20", 'Turbo-Frame' => 'assets-page-20'),
-                        get("#{path}&offset=20&query=et", 'Turbo-Frame' => 'assets-page-20'), get("/de#{path}", 'Turbo-Frame' => 'modal'))
+                        get("#{path}&offset=20&query=et", 'Turbo-Frame' => 'assets-page-20'), get("#{path}&query=#{many}", picker),
+                        get("#{path}&offset=20&query=#{many}", 'Turbo-Frame' => 'assets-page-20'), get("/de#{path}", 'Turbo-Frame' => 'modal'))
       with_bots(attrs.delete('bots'), steps, attrs)
     end
     {
-      'asset_search_alpaca' => search.('nvdia', 'bots' => [{ 'kind' => 'basket' }], 'more_stocks' => true),
-      'asset_search_kraken' => search.('etherum', 'bots' => [{ 'kind' => 'kraken' }], 'venues' => true),
-      'asset_search_binance' => search.('solano', 'bots' => [{ 'kind' => 'binance' }], 'venues' => true)
+      'asset_search_alpaca' => search.('nvdia', 'inc', 'bots' => [{ 'kind' => 'basket' }], 'more_stocks' => true),
+      'asset_search_kraken' => search.('etherum', 'coin', 'bots' => [{ 'kind' => 'kraken' }], 'venues' => true, 'more_coins' => true),
+      'asset_search_binance' => search.('solano', 'coin', 'bots' => [{ 'kind' => 'binance' }], 'venues' => true, 'more_coins' => true)
     }
   end
 
