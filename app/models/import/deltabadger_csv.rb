@@ -39,7 +39,7 @@ class Import::DeltabadgerCsv
         # files that state a bare wall clock, so it is deliberately not applied here.
         tx_id: row['tx_id'].presence, group_id: row['group_id'].presence,
         description: row['description'].presence,
-        transacted_at: Time.parse(row['date'].to_s).utc, raw_data: {} }
+        transacted_at: Import::Run.time(row['date']), raw_data: {} }
     end.sort_by { |entry| entry[:transacted_at] }
   end
 end

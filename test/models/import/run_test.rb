@@ -199,4 +199,22 @@ class Import::RunTest < ActiveSupport::TestCase
     assert_equal({ 'deposit' => 'USDT', 'swap_out' => 'USDT', 'swap_in' => 'USDC' },
                  AccountTransaction.for_user(@user).pluck(:entry_type, :base_currency).to_h)
   end
+
+  # Time.parse fills what a cell lacks from the clock: an empty or garbled Time read as today, and the
+  # row landed years from where it belongs. A cell that names no real date and time refuses the file.
+  test 'a time cell that is no real date and time refuses the file' do
+    ['', 'yesterday-ish', '2024-02-30 10:00:00', '2024-03-01 25:00:00', '2024-03-01'].each do |cell|
+      file = [HEADER, '1,2021-07-01 14:07:04,Spot,Deposit,USDT,150.2,', "1,#{cell},Spot,Deposit,USDT,1,"].join("\n")
+
+      assert_equal :malformed, import(file)[:error], cell.inspect
+    end
+    assert_equal 0, AccountTransaction.for_user(@user).count
+  end
+
+  test 'our own export with a date that names no day refuses the file' do
+    header = AccountTransaction.csv_headers.join(',')
+    file = "#{header}\n12:00:00,deposit,USDT,1,,,,,#{@binance.name_id},,,\n"
+
+    assert_equal :malformed, import(file, format: 'deltabadger')[:error]
+  end
 end

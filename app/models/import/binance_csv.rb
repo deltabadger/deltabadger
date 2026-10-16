@@ -120,7 +120,7 @@ class Import::BinanceCsv
   end
 
   def parse_time(value)
-    Time.parse("#{value.to_s.strip}#{@offset}").utc
+    Import::Run.time(value, @offset)
   end
 
   # An operation NAME does not say which way an asset moved; the `Change` column does. Binance takes
