@@ -336,6 +336,21 @@ fn required(v: &serde_json::Value) -> Result<BigDec, super::VenueError> {
     crate::ruby::json_to_d(v).ok().flatten().ok_or_else(unreadable)
 }
 
+impl<T: Transport> BinanceVenue<T> {
+    /// #get_balances' `free` for one Binance asset code (never free + locked). Absent is 0; unreadable is an error.
+    async fn free_of(&self, code: &str) -> Result<BigDec, super::VenueError> {
+        let r = self.signed_now("GET", "/api/v3/account", vec![("omitZeroBalances", "true".into()), ("recvWindow", READ_RECV_WINDOW.into())]);
+        let body = self.call(&r, false).await?;
+        let mut free = BigDec::zero();
+        for row in body["balances"].as_array().ok_or_else(unreadable)? {
+            if row["asset"].as_str() != Some(code) { continue; }
+            required(&row["locked"])?;
+            free = required(&row["free"])?;
+        }
+        Ok(free)
+    }
+}
+
 impl<T: Transport> super::Venue for BinanceVenue<T> {
     fn rules(&self) -> &'static VenueRules { &RULES }
     fn placement_identity(&self) -> Option<serde_json::Value> { self.identity.clone() }
@@ -478,17 +493,7 @@ impl<T: Transport> super::Venue for BinanceVenue<T> {
 
     /// The base's free balance for a seller: the same account read, the row whose venue code is the ticker's base code (the
     /// code #asset_from_symbol resolves to the ticker's base asset). The last such row wins, absent is 0.
-    async fn free_base_balance(&self, ticker: &Ticker) -> Result<BigDec, super::VenueError> {
-        let r = self.signed_now("GET", "/api/v3/account", vec![("omitZeroBalances", "true".into()), ("recvWindow", READ_RECV_WINDOW.into())]);
-        let body = self.call(&r, false).await?;
-        let mut free = BigDec::zero();
-        for row in body["balances"].as_array().ok_or_else(unreadable)? {
-            if row["asset"].as_str() != Some(ticker.base_code.as_str()) { continue; }
-            required(&row["locked"])?;
-            free = required(&row["free"])?;
-        }
-        Ok(free)
-    }
+    async fn free_base_balance(&self, ticker: &Ticker) -> Result<BigDec, super::VenueError> { self.free_of(&ticker.base_code).await }
 
     /// #cancel_order through Clients::Binance#cancel_order: DELETE /api/v3/order by the stored "SYMBOL-<orderId>", with the
     /// gem's default recvWindow; a failure is #parse_error_message's text.
