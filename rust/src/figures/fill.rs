@@ -99,14 +99,14 @@ use crate::enums::{TxExternalStatus,TxSide,TxStatus};
 use super::budget;
 pub(super) fn orders(c: &Connection, bot_id: i64) -> Result<Vec<Order>, FiguresError> {
     let mut statement = c.prepare(
-        "SELECT id, created_at, exchange_id, price, amount, amount_exec, quote_amount_exec, base, base_asset_id, side, external_status, transaction_type, status \
+        "SELECT id, created_at, exchange_id, price, amount, amount_exec, quote_amount_exec, base, base_asset_id, side, external_status, transaction_type, status, quote_amount \
          FROM transactions WHERE bot_id = ?1 ORDER BY created_at ASC, id ASC")?;
     // The rows are copied first and parsed once the cursor is done, so the statement's read lock lasts only for the copy.
     let mut copied: Vec<Vec<rusqlite::types::Value>> = vec![];
     let mut rows = statement.query(params![bot_id])?;
     while let Some(r) = rows.next()? {
         budget::charge(1, 0)?;
-        copied.push((0..13).map(|i| r.get::<_, rusqlite::types::Value>(i)).collect::<Result<_, _>>()?);
+        copied.push((0..14).map(|i| r.get::<_, rusqlite::types::Value>(i)).collect::<Result<_, _>>()?);
     }
     drop(rows);
     drop(statement);
@@ -124,9 +124,18 @@ pub(super) fn orders(c: &Connection, bot_id: i64) -> Result<Vec<Order>, FiguresE
             _ => return Err(FiguresError::NotComputed("unreadable transaction status".into())),
         }
         let (side, status): (Option<i64>, Option<i64>) = (get(r, 9)?, get(r, 10)?);
+        let (price, amount) = (decimal(r, 3)?, decimal(r, 4)?);
+        // Redeployable#executed_quote_total: what an abandoned row asked for, COALESCE(quote_amount, price * amount, 0).
+        let abandoned_request = if status == Some(TxExternalStatus::Abandoned as i64) {
+            Some(match (decimal(r, 13)?, &price, &amount) {
+                (Some(quote), _, _) => quote,
+                (None, Some(p), Some(a)) => (p * a)?,
+                _ => super::dec::Dec::zero(),
+            })
+        } else { None };
         out.push(Order {
             id: get(r, 0)?, at: super::db::instant(&get::<String>(r, 1)?)?, exchange_id: get(r, 2)?,
-            raw: Raw::new(decimal(r, 3)?, decimal(r, 4)?, decimal(r, 5)?, decimal(r, 6)?),
+            raw: Raw::new(price, amount, decimal(r, 5)?, decimal(r, 6)?), abandoned_request,
             base: get(r, 7)?, asset_id: get(r, 8)?, sell: side == Some(TxSide::Sell as i64), buy: side == Some(TxSide::Buy as i64),
             closed: status == Some(TxExternalStatus::Closed as i64),
             kind: get::<Option<String>>(r, 11)?.unwrap_or_default(), // NULL kind has no special accounting role; DB errors propagate.
