@@ -452,6 +452,8 @@ class Exchanges::Bitget < Exchange
     # Deposit and withdrawal records want startTime and endTime both, page 100 rows by idLessThan
     # (the record's orderId), and carry the transfer's hash or Bitget trade id as tradeId
     # (https://www.bitget.com/docs/catalog/classic-spot-account/classic-spot-account#get-deposit-records).
+    # The record is keyed by its orderId: withdrawals batched into one on-chain transaction share a
+    # hash, and the sync keeps one row per tx_id.
     # Their range cap is not documented; they are read in the same windows as fills.
     each_ledger_window(start_time || TRANSFERS_FROM) do |window_start, window_end|
       fetch = lambda do |before|
@@ -463,7 +465,7 @@ class Exchanges::Bitget < Exchange
 
         entries << { entry_type: :deposit, base_currency: dep['coin'], base_amount: dep['size'].to_d,
                      quote_currency: nil, quote_amount: nil, fee_currency: nil, fee_amount: nil,
-                     tx_id: dep['tradeId'], group_id: nil, description: nil,
+                     tx_id: "deposit-#{dep['orderId']}", group_id: nil, description: nil,
                      transacted_at: Time.at(dep['cTime'].to_i / 1000.0).utc, raw_data: dep }
       end
       return failed if failed
@@ -478,7 +480,7 @@ class Exchanges::Bitget < Exchange
         entries << { entry_type: :withdrawal, base_currency: wd['coin'], base_amount: wd['size'].to_d,
                      quote_currency: nil, quote_amount: nil,
                      fee_currency: wd['coin'], fee_amount: wd['fee'].to_d.abs,
-                     tx_id: wd['tradeId'], group_id: nil, description: nil,
+                     tx_id: "withdrawal-#{wd['orderId']}", group_id: nil, description: nil,
                      transacted_at: Time.at(wd['cTime'].to_i / 1000.0).utc, raw_data: wd }
       end
       return failed if failed

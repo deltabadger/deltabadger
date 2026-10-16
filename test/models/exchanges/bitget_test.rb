@@ -526,14 +526,16 @@ class Exchanges::BitgetLedgerTest < ActiveSupport::TestCase
 
   # Both endpoints require startTime and endTime; asked with startTime alone (or nothing, on a first
   # sync) Bitget refused, the failure was skipped, and no deposit or withdrawal was ever imported.
-  test 'deposits and withdrawals are read with a full range, page by page, keyed by their tradeId' do
+  test 'deposits and withdrawals are read with a full range, page by page, keyed by their own record id' do
     @client.stubs(:get_fills).returns(@empty)
     deposit_calls = []
     @client.stubs(:deposit_list).with { |**kwargs| deposit_calls << kwargs }
            .returns(Result::Success.new({ 'code' => '00000', 'data' => (1..100).map { |i| transfer(1000 - i, 'deposit') } }))
            .then.returns(Result::Success.new({ 'code' => '00000',
                                                'data' => [transfer(5, 'deposit', dest: 'internal_transfer')] }))
-    @client.stubs(:withdrawal_list).returns(Result::Success.new({ 'code' => '00000', 'data' => [transfer(7, 'withdraw')] }))
+    batched = transfer(8, 'withdraw').merge('tradeId' => '0xhash7')
+    @client.stubs(:withdrawal_list).returns(Result::Success.new({ 'code' => '00000',
+                                                                  'data' => [transfer(7, 'withdraw'), batched] }))
 
     entries = @exchange.get_ledger(api_key: @api_key, start_time: 10.days.ago).data
 
@@ -541,9 +543,11 @@ class Exchanges::BitgetLedgerTest < ActiveSupport::TestCase
     assert_equal '900', deposit_calls[1][:id_less_than]
     deposits = entries.select { |entry| entry[:entry_type] == :deposit }
     assert_equal 101, deposits.size
-    assert_equal '0xhash5', deposits.last[:tx_id]
-    withdrawal = entries.find { |entry| entry[:entry_type] == :withdrawal }
-    assert_equal '0xhash7', withdrawal[:tx_id]
+    assert_equal 'deposit-5', deposits.last[:tx_id]
+    # Two withdrawals paid out in one on-chain transaction share its hash; both are kept.
+    withdrawals = entries.select { |entry| entry[:entry_type] == :withdrawal }
+    assert_equal(%w[withdrawal-7 withdrawal-8], withdrawals.map { |entry| entry[:tx_id] })
+    withdrawal = withdrawals.first
     assert_equal BigDecimal('1'), withdrawal[:fee_amount]
   end
 
