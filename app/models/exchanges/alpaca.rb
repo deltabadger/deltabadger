@@ -391,6 +391,7 @@ class Exchanges::Alpaca < Exchange
       1.hour => '1Hour',
       4.hours => '4Hour',
       1.day => '1Day',
+      3.days => '1Day', # built below: Alpaca has no 3-day bars
       1.week => '1Week',
       1.month => '1Month'
     }
@@ -416,6 +417,7 @@ class Exchanges::Alpaca < Exchange
         bar['v'].to_d
       ]
     end
+    candles = build_candles_from_candles(candles: candles, timeframe: timeframe) if timeframe == 3.days
 
     Result::Success.new(candles)
   end

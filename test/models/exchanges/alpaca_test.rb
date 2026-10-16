@@ -375,6 +375,24 @@ class Exchanges::AlpacaTest < ActiveSupport::TestCase
     assert_equal 1, result.data.size
   end
 
+  test 'get_candles builds 3-day candles from daily bars' do
+    aave = Asset.find_by(external_id: 'aave') || create(:asset, external_id: 'aave', symbol: 'AAVE', category: 'Cryptocurrency')
+    usd = Asset.find_by(symbol: 'USD') || create(:asset, :usd)
+    ticker = create(:ticker, exchange: @exchange, base_asset: aave, quote_asset: usd, ticker: 'AAVE/USD')
+    bars = (1..6).map do |day|
+      { 't' => format('2026-01-%02dT00:00:00Z', day), 'o' => day.to_s, 'h' => (day + 10).to_s,
+        'l' => (day - 0.5).to_s, 'c' => (day + 0.5).to_s, 'v' => '1' }
+    end
+    Clients::Alpaca.any_instance.stubs(:get_crypto_bars).with { |params| params[:timeframe] == '1Day' }
+                   .returns(Result::Success.new({ 'bars' => { 'AAVE/USD' => bars } }))
+
+    result = @exchange.get_candles(ticker: ticker, start_at: Time.utc(2026, 1, 1), timeframe: 3.days)
+
+    assert_predicate result, :success?
+    assert_equal [[Time.utc(2026, 1, 1), 1, 13, 0.5, 3.5, 3], [Time.utc(2026, 1, 4), 4, 16, 3.5, 6.5, 3]],
+                 result.data
+  end
+
   # == corporate-action basis ==
   #
   # A stock split rewrites the whole price history. An indicator reading that history has nothing
