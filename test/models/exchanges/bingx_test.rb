@@ -56,6 +56,21 @@ class Exchanges::BingxTest < ActiveSupport::TestCase
     assert_equal BigDecimal('55000'), result.data[:price]
   end
 
+  # minQty is deprecated and stale: on BTC-USDT it is worth ~15 USDT while minNotional is 0.5, so a
+  # 10 USDT order was skipped as below the minimum.
+  test 'get_tickers_info takes the minimum from minNotional, not the deprecated minQty' do
+    row = { 'symbol' => 'BTC-USDT', 'minQty' => 0.0001826, 'maxQty' => 18.2663756, 'minNotional' => 0.5,
+            'maxNotional' => 7_588_825.16, 'maxMarketNotional' => 7_588_825.16, 'status' => 1,
+            'tickSize' => 0.01, 'stepSize' => 1e-06, 'apiStateSell' => true, 'apiStateBuy' => true }
+    Honeymaker::Clients::BingX.any_instance.stubs(:get_symbols)
+                              .returns(Result::Success.new({ 'code' => 0, 'data' => { 'symbols' => [row] } }))
+
+    info = @exchange.get_tickers_info(force: true).data.first
+
+    assert_equal 0, info[:minimum_base_size]
+    assert_equal BigDecimal('0.5'), info[:minimum_quote_size]
+  end
+
   test 'cancel_order cancels by the full symbol and the venue id' do
     Honeymaker::Clients::BingX.any_instance.expects(:cancel_order)
                               .with(symbol: 'BTC-USDT', order_id: '1234567890')

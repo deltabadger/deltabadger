@@ -56,13 +56,16 @@ class Exchanges::Bingx < Exchange
         parts = ticker.split('-')
         next unless parts.size == 2
 
+        # minQty and maxQty are deprecated and no longer track the price (BTC-USDT's minQty is worth
+        # ~15 USDT against a 0.5 USDT minNotional): the minimum is minNotional alone
+        # (https://bingx-api.github.io/docs/#/en-us/spot/market-api.html#Spot%20trading%20symbols).
         {
           ticker: ticker,
           base: parts[0],
           quote: parts[1],
-          minimum_base_size: product['minQty'].to_d,
+          minimum_base_size: 0,
           minimum_quote_size: product['minNotional'].to_d,
-          maximum_base_size: product['maxQty'].to_d,
+          maximum_base_size: nil,
           maximum_quote_size: product['maxNotional'].to_d,
           base_decimals: Utilities::Number.decimals(product['stepSize']),
           quote_decimals: Utilities::Number.decimals(product['tickSize']),
