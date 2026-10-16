@@ -1,8 +1,24 @@
 class Exchanges::Bitrue < Exchange
   COINGECKO_ID = 'bitrue'.freeze # https://docs.coingecko.com/reference/exchanges-list
+  # Bitrue's own error list is short (https://github.com/Bitrue-exchange/Spot-official-api-docs#error-codes);
+  # the wording below is from live probes (2026-10-16) and ccxt's python/ccxt/bitrue.py captures.
   ERRORS = {
-    insufficient_funds: ['Insufficient balance.', 'Account has insufficient balance'],
-    invalid_key: ['Invalid Api-Key ID.', 'Signature for this request is not valid.']
+    # -2010 "Insufficient account balance.", -2017 "Insufficient balance" (no period).
+    insufficient_funds: ['Insufficient balance', 'Insufficient account balance', 'Account has insufficient balance'],
+    # -1022 "No login" is the live answer to a key Bitrue does not know. The two Binance-clone strings
+    # are kept but unproven.
+    invalid_key: ['No login', 'API key does not exist', 'Invalid Api-Key ID.', 'Signature for this request is not valid.'],
+    # The key is good but lacks the scope, so it must not be condemned.
+    permission_denied: ["You don't have permission", 'has no operation privilege'],
+    # HTTP 429; -1003 request weight; -1015 order rate.
+    throttle: ['Too Many Requests', 'Too many requests', 'Too much request weight', 'Too many new orders'],
+    # -1102 "recvWindow IllegalArgumentException." is the live answer to a timestamp outside the
+    # receive window (ccxt has seen "timestamp IllegalArgumentException."); -1000, -1016, 503, upkeep.
+    transient: ['recvWindow IllegalArgumentException', 'timestamp IllegalArgumentException', 'System abnormality',
+                'Service unavailable', 'System is under maintenance', 'An unknown error occured'],
+    # The timestamp is signed, so failing it fails authentication and the order never reached the
+    # book: safe to place again, as Binance's -1021.
+    placement_safe_transient: ['recvWindow IllegalArgumentException', 'timestamp IllegalArgumentException']
   }.freeze
   ORDER_STATUS_MAP = {
     # "means ur order is in queue" (https://github.com/Bitrue-exchange/Spot-official-api-docs#enum-definitions).
