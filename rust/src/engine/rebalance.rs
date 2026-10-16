@@ -378,6 +378,13 @@ pub(crate) fn halt(c: &Connection, bot_id: i64, reason: &str, now: chrono::DateT
     })
 }
 
+/// Bot::EvaluateRebalancersJob#candidates for one bot (run::rebalance_candidates' query): a basket or index bot, not deleted
+/// or archived, with the rule on or a swap pending.
+pub fn candidate(bot: &Bot) -> bool {
+    matches!(bot.bot_type.as_str(), "Bots::DcaIndex" | "Bots::DcaMultiAsset") && !matches!(bot.status, BotStatus::Deleted | BotStatus::Archived)
+        && (crate::web::bot::cast_boolean(bot.settings.get("rebalance_enabled")) || bot.transient.get(PENDING_KEY).is_some_and(|v| !v.is_null()))
+}
+
 /// Bot::RebalanceJob#perform for one bot: #resumable?, then the market, then Bot::Rebalancer#rebalance!. First, an order
 /// this bot left unresolved is looked up by its client order id (placement::recover_since); while it stays unknown nothing
 /// new is decided, and a REBALANCE one still unknown a full absence window after it was sent halts the swap as Rails
@@ -433,6 +440,9 @@ async fn rebalance<V: Venue + Attributed>(c: &Connection, venue: &V, bot: Bot, c
             _ => { halt(c, bot.id, "unrecognised pending phase", clock.now())?; Ok(Outcome::Skipped("ambiguous")) }
         };
     }
+    // Bots::DcaMultiAsset#rebalance_targets: sliders off 100 % give no targets, so no drift (a pending swap, resumed above,
+    // still has its targets).
+    if !super::eligibility::allocations_balanced(&bot) { return Ok(Outcome::Skipped("not_due")); }
     // #rebalance_due? reads the drift from rebalance_targets (cached in Rails; always fresh here).
     let entries = match value(c, venue, &bot, clock.now()).await? {
         Ok((_, entries)) => entries,

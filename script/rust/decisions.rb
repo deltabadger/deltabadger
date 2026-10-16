@@ -1043,10 +1043,11 @@ module Decisions
     bot = Bots::DcaIndex.new(user:, exchange: alpaca, settings: {
       'quote_asset_id' => usd.id, 'quote_amount' => 60.0, 'interval' => 'week', 'index_type' => 'category', 'index_category_id' => 'nasdaq-100',
       'num_coins' => sc['num_coins'], 'allocation_flattening' => sc['flattening'], 'hold_all' => sc['hold_all']
-    })
+    }.merge(sc['settings'] || {}))
     bot.set_missed_quote_amount
     bot.save!(validate: false)
-    bot.update_columns(status: Bot.statuses[:scheduled], settings_changed_at: nil, label: 'ND100', started_at: Time.iso8601(STOCK_STARTED))
+    bot.update_columns({ status: Bot.statuses[:scheduled], settings_changed_at: nil, label: 'ND100', started_at: Time.iso8601(STOCK_STARTED) }
+                       .merge((sc['bot_columns'] || {}).transform_keys(&:to_sym)))
     sc['members'].each do |m|
       BotIndexAsset.insert!({ 'bot_id' => bot.id, 'asset_id' => tickers.fetch(m['symbol']).base_asset_id, 'ticker_id' => tickers.fetch(m['symbol']).id,
                               'target_allocation' => m['target'], 'in_index' => m['in_index'], 'entered_at' => '2026-08-01 00:00:00',
@@ -1341,6 +1342,8 @@ module Decisions
     # The swap's buy: 270 USD of the most underweight member after BTC's sale (ETH at 50/50, SOL in the tiers), covering
     # the 269.96 the sell realized, so the swap completes.
     whole_buy = { 'w50' => ['0.108', '2500', 'ETH'], 'tiers' => ['1.8', '150', 'SOL'] }
+    owed = { 'rebalance_pending' => { 'phase' => 'buying', 'sell_transaction_id' => nil, 'buy_transaction_id' => nil,
+                                      'remaining_quote_amount' => '120.0', 'buy_attempted' => false } }
     list = []
     WEIGHTS.slice('w50', 'tiers').each do |w, weights|
       qty = holdings.fetch(w)
@@ -1374,18 +1377,50 @@ module Decisions
         'server_error' => { 'fires' => 1, 'http' => { 'POST /v2/orders' => [FIVE_XX] } },
         'no_order_id' => { 'fires' => 1, 'http' => { 'POST /v2/orders' => [ok('status' => 'pending_new')] } },
         # A swap already owed (rule switched off meanwhile): the buy still goes.
-        'owed_buy' => { 'fires' => 1, 'settings' => { 'rebalance_enabled' => false },
-                        'transient' => { 'rebalance_pending' => { 'phase' => 'buying', 'sell_transaction_id' => nil, 'buy_transaction_id' => nil,
-                                                                  'remaining_quote_amount' => '120.0', 'buy_attempted' => false } } }
+        'owed_buy' => { 'fires' => 1, 'settings' => { 'rebalance_enabled' => false }, 'transient' => owed },
+        # Only BTC held: every drift is exactly 0.5 whatever the prices, and a threshold of 0.5 is not exceeded (strictly greater).
+        'at_threshold' => { 'fires' => 1, 'settings' => { 'rebalance_threshold' => 0.5 }, 'rows' => rows.first(1),
+                            'http' => { 'GET /v2/positions' => [ok([pos.('BTC', qty.fetch('BTC'))])] } },
+        # The same at 0.49: the band is exceeded, and BTC sells.
+        'below_drift' => { 'fires' => 1, 'settings' => { 'rebalance_threshold' => 0.49 }, 'rows' => rows.first(1),
+                           'http' => { 'GET /v2/positions' => [ok([pos.('BTC', qty.fetch('BTC'))])] } },
+        # Sliders summing to 120% (saved, never started): DcaMultiAsset#rebalance_targets is nil, so nothing is due...
+        'unbalanced' => { 'fires' => 1, 'scale' => 1.2 },
+        # ...unless a swap is already owed its buy: that one still lands.
+        'unbalanced_owed_buy' => { 'fires' => 1, 'scale' => 1.2, 'transient' => owed },
+        # A plain 400: not a pre-trade rejection Rails can prove, so the swap halts.
+        'rejected_400' => { 'fires' => 1, 'http' => { 'POST /v2/orders' => [{ 'status' => 400, 'body' => { 'code' => 40_010_001, 'message' => 'qty must be > 0' } }] } }
       }
       states.each do |state, st|
         http = { 'GET /v2/positions' => [positions], 'POST /v2/orders' => [placed(1, 'BTC'), placed(2, 'ETH'), placed(3, 'ETH')] }.merge(st.fetch('http', {}))
-        list << basket("rebalance-#{w}-#{state}", weights, at: fires.first, settings: { 'rebalance_enabled' => true }.merge(st.fetch('settings', {})),
+        members = st['scale'] ? weights.transform_values { |v| v * st['scale'] } : weights
+        list << basket("rebalance-#{w}-#{state}", members, at: fires.first, settings: { 'rebalance_enabled' => true }.merge(st.fetch('settings', {})),
                        transient: st.fetch('transient', {}), transactions: st.fetch('rows', rows), http:, tick: false,
                        rebalance_at: fires.first(st.fetch('fires')), tickers_after: st['tickers_after'], bot_columns: { 'status' => Bot.statuses[:stopped] })
       end
     end
-    list
+    list << index_rebalance_scenario
+  end
+
+  # A stopped index bot whose CCC left the index (in_index false, 0.5 still held) and stays out (top_coins AAA BBB DDD): the
+  # exited holding is outside the arithmetic, so the drift is DDD's shortfall among AAA, BBB and DDD, and AAA is sold.
+  def index_rebalance_scenario
+    fire = '2026-09-08T16:30:00.000000Z'
+    prices = INDEX_SYMBOLS.zip([100, 200, 300, 400, 500]).to_h
+    held = [%w[AAA 1.0], %w[BBB 0.3], %w[CCC 0.5], %w[DDD 0.01]]
+    pos = held.map { |sym, q| { 'symbol' => sym, 'asset_class' => 'us_equity', 'qty' => q, 'qty_available' => q } }
+    http = { 'GET /v2/clock' => [open_clock(fire)], 'GET /v2/account' => [stock_account('100000', '200000')], 'GET /v2/positions' => [ok(pos)],
+             'GET /v2/stocks/snapshots' => [ok(prices.transform_values { |p| { 'latestTrade' => { 'p' => p } } })],
+             'POST /v2/orders' => [ok(stock_order('OTX-1', 'new', sym: 'AAA', notional: nil).merge('side' => 'sell'))] }
+    prices.each do |sym, p|
+      http["GET /v2/stocks/#{sym}/quotes/latest"] = [stock_quote(sym, p)]
+      http["GET /v2/stocks/#{sym}/trades/latest"] = [stock_trade(sym, p)]
+    end
+    member = ->(sym, target, in_index: true) { { 'symbol' => sym, 'target' => target, 'in_index' => in_index } }
+    { 'name' => 'rebalance-index-exited_member', 'venue' => 'alpaca', 'kind' => 'index', 'at' => fire, 'top_coins' => %w[AAA BBB DDD],
+      'members' => [member.('AAA', 0.5), member.('BBB', 0.3), member.('CCC', 0.2, in_index: false), member.('DDD', 0.2)],
+      'transactions' => held, 'num_coins' => 3, 'flattening' => 0.0, 'hold_all' => false, 'settings' => { 'rebalance_enabled' => true },
+      'bot_columns' => { 'status' => Bot.statuses[:stopped] }, 'script' => { 'alpaca' => http }, 'tick' => false, 'rebalance_at' => [fire] }
   end
 
   def binance_scenarios

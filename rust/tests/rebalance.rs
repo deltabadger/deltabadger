@@ -49,12 +49,13 @@ fn script(over: Value) -> ScriptedTransport {
 }
 fn venue(t: &ScriptedTransport) -> AlpacaVenue<ScriptedTransport> { AlpacaVenue::new(t.clone(), Urls::for_passphrase(Some("paper"))) }
 
-async fn evaluate(o: &store::Opened, t: &ScriptedTransport, id: i64, when: DateTime<Utc>) -> Outcome {
+async fn evaluate(o: &store::Opened, t: &ScriptedTransport, id: i64, when: DateTime<Utc>) -> Outcome { evaluate_on(o, &venue(t), id, when).await }
+async fn evaluate_on<V: deltabadger::venue::Venue>(o: &store::Opened, v: &V, id: i64, when: DateTime<Utc>) -> Outcome {
     let prices = PriceCache::default();
     let bot = model::load_bot(&o.primary, id).unwrap();
     let cx = TickContext { credential_version: model::credential_version(&o.primary, &bot).unwrap(), prices: &prices,
                            process_start: DateTime::<Utc>::MIN_UTC, stopping: &|| false, below_minimum: &|_, _| {} };
-    rebalance::run(&o.primary, &venue(t), id, &FixedClock(when), &cx).await.unwrap()
+    rebalance::run(&o.primary, v, id, &FixedClock(when), &cx).await.unwrap()
 }
 fn pending(o: &store::Opened, id: i64) -> Value { model::load_bot(&o.primary, id).unwrap().transient.get("rebalance_pending").cloned().unwrap_or(Value::Null) }
 fn posted(t: &ScriptedTransport) -> Vec<(String, String, String)> {
@@ -305,6 +306,63 @@ async fn the_dca_tick_stands_down_between_the_legs() {
     assert_eq!(t.posted_orders().len(), 1, "the sale's proceeds are the swap's");
 }
 
+// ---- a stop or a buy⇄sell reverse racing the swap (another connection: the web, the MCP) ----
+
+use deltabadger::venue::http::{HttpRequest, HttpResponse, Transport, TransportError};
+/// The scripted venue, with `sql` committed by another connection the moment `path` is asked (as tests/placement.rs's
+/// StopDuringDispatch commits a STOP while the order is in flight).
+struct During { script: ScriptedTransport, db: rusqlite::Connection, path: &'static str, sql: String }
+impl Transport for During {
+    async fn send(&self, req: &HttpRequest) -> Result<HttpResponse, TransportError> {
+        if req.path == self.path { self.db.execute_batch(&self.sql).unwrap(); }
+        self.script.send(req).await
+    }
+}
+fn during(o: &store::Opened, t: &ScriptedTransport, path: &'static str, sql: String) -> AlpacaVenue<During> {
+    AlpacaVenue::new(During { script: t.clone(), db: rusqlite::Connection::open(o.primary.path().unwrap()).unwrap(), path, sql }, Urls::for_passphrase(Some("paper")))
+}
+/// The web's STOP of a working bot, and a reverse to selling that captured a resting order whose cancel is not recorded yet.
+fn stop(id: i64) -> String { format!("UPDATE bots SET status = 2, transient_data = json_set(transient_data, '$.run_generation', 1) WHERE id = {id}") }
+fn reverse(id: i64) -> String {
+    format!("UPDATE bots SET settings = json_set(settings, '$.direction', 'selling'), \
+             transient_data = json_set(transient_data, '$.rust_reversal_cancels', json('[{{\"id\": 1, \"registered\": false, \"sent\": false}}]')) WHERE id = {id}")
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_stop_or_a_reverse_while_the_swaps_sell_is_in_flight_still_records_it() {
+    for (name, sql) in [("stop", stop as fn(i64) -> String), ("reverse", reverse)] {
+        let (_d, o, id, _, _) = swap_bot(BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+        let t = script(json!({ "GET /v2/orders/OTX-1": [sold_btc("0", None, "new")] }));
+        // The dispatch mark is committed before the request leaves; the other write lands while the reply is on its way.
+        let out = evaluate_on(&o, &during(&o, &t, "/v2/orders", sql(id)), id, at(T0)).await;
+        assert!(matches!(out, Outcome::Placed(_)), "{name}: {out:?}");
+        let sell: i64 = one(&o, "SELECT id FROM transactions WHERE external_id = 'OTX-1'");
+        assert_eq!(rebalance_rows(&o), vec![(0, Some(0), 1, Some("OTX-1".into()))], "{name}: the sold order is a fact");
+        assert_eq!(pending(&o, id), json!({ "phase": "selling", "sell_transaction_id": sell, "buy_transaction_id": null, "remaining_quote_amount": null, "buy_attempted": false }), "{name}");
+        assert!(model::load_bot(&o.primary, id).unwrap().rust_placement().is_none(), "{name}");
+        // The next fire: a stopped bot resumes its swap (Rails rebalances stopped bots); a reversal's barrier holds it.
+        let next = evaluate(&o, &t, id, at(T0) + Duration::hours(4)).await;
+        assert_eq!(next, Outcome::Skipped(if name == "stop" { "waiting_for_sell" } else { "reversal_pending" }), "{name}");
+        assert_eq!(t.posted_orders().len(), 1, "{name}");
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_reverse_while_the_swap_is_sized_sends_nothing_and_leaves_no_phase_but_a_stop_does_not_hold_it() {
+    // Positions are the last read before the intent (the sell's free-balance cap).
+    let (_d, o, id, _, _) = swap_bot(BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    let t = script(json!({}));
+    assert_eq!(evaluate_on(&o, &during(&o, &t, "/v2/positions", reverse(id)), id, at(T0)).await, Outcome::Skipped("changed"));
+    assert!(t.posted_orders().is_empty());
+    assert_eq!(pending(&o, id), Value::Null);
+    assert!(model::load_bot(&o.primary, id).unwrap().rust_placement().is_none());
+    let (_d, o, id, _, _) = swap_bot(BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    let t = script(json!({}));
+    assert!(matches!(evaluate_on(&o, &during(&o, &t, "/v2/positions", stop(id)), id, at(T0)).await, Outcome::Placed(_)));
+    assert_eq!(t.posted_orders().len(), 1);
+    assert_eq!(pending(&o, id)["phase"], "selling");
+}
+
 // ---- T8: who the engine admits ----
 
 #[test]
@@ -328,6 +386,17 @@ fn an_alpaca_rebalancing_bot_is_eligible_in_every_phase_this_engine_resumes() {
     // An abandoned REBALANCE leg stays refused (its fill is unknown).
     o.primary.execute("UPDATE transactions SET external_status = 4 WHERE external_id = 'OHELD-1'", []).unwrap();
     assert!(check().problems.iter().any(|p| p.contains("abandoned REBALANCE")), "{:?}", check().problems);
+}
+
+#[test]
+fn a_stopped_rebalancing_bot_outside_the_slice_is_refused() {
+    // Rebalancing runs on stopped bots, so a stopped one is this engine's work: whatever else it carries must be supported.
+    let (_d, o, _, _, _) = swap_bot(stopped().with("weighting", json!("market_cap")));
+    assert!(eligibility::check_install(&o.primary).unwrap().problems.iter().any(|p| p.contains("weighting market_cap")));
+    // Sliders off 100% are not such a thing: Rails' rebalance_targets reads them as no targets (the grid's `unbalanced`).
+    let (_d, o, _, _, _) = swap_bot(stopped());
+    o.primary.execute("UPDATE bots SET settings = json_set(settings, '$.allocations', json((SELECT json_group_object(key, 0.6) FROM json_each(bots.settings, '$.allocations'))))", []).unwrap();
+    assert_eq!(eligibility::check_install(&o.primary).unwrap().problems, Vec::<String>::new());
 }
 
 #[test]

@@ -402,7 +402,7 @@ async fn rails_and_rust_decide_identically_across_the_basket_sell_grid() {
 /// (placement::recover_since), halting only if the venue still cannot answer a full absence window later.
 #[tokio::test(flavor = "current_thread")]
 async fn rails_and_rust_rebalance_identically() {
-    let (_copies, outputs) = grid_outputs("grid-rebalance", 40).await;
+    let (_copies, outputs) = grid_outputs("grid-rebalance", 51).await;
     let unknown = ["-post_send", "-server_error", "-no_order_id"];
     let mut failures = vec![];
     let phase = |out: &serde_json::Value| -> serde_json::Value {
@@ -425,10 +425,11 @@ async fn rails_and_rust_rebalance_identically() {
         let sent: Vec<(String, String)> = rails_out["sent"].as_array().unwrap().iter().map(|o| (o["symbol"].as_str().unwrap().into(), o["side"].as_str().unwrap().into())).collect();
         let state = name.split_once('-').unwrap().1.split_once('-').unwrap().1;
         let expect: &[(&str, &str)] = match state {
-            "under_threshold" | "rule_off" | "selling" | "open_buy" | "sell_below_minimum" => &[],
+            "under_threshold" | "rule_off" | "selling" | "open_buy" | "sell_below_minimum" | "at_threshold" | "unbalanced" => &[],
+            "owed_buy" | "unbalanced_owed_buy" => &[("ETH/USD", "buy")],
+            "exited_member" => &[("AAA", "sell")],
             "swap" | "buy_capped" | "buy_rejected" | "cancelled_partial_sell" => &[("BTC/USD", "sell"), ("ETH/USD", "buy")],
             "partial_buy" => &[("BTC/USD", "sell"), ("ETH/USD", "buy"), ("ETH/USD", "buy")],
-            "owed_buy" => &[("ETH/USD", "buy")],
             _ => &[("BTC/USD", "sell")],
         };
         let expect: Vec<(String, String)> = expect.iter().map(|(a, b)| ((*a).into(), (*b).into())).collect();
@@ -437,9 +438,10 @@ async fn rails_and_rust_rebalance_identically() {
         if !same { pins.push(format!("{name}: sent {sent:?}, pinned {expect:?}")); }
         let left = phase(rails_out);
         let want = match state {
-            "swap" | "nothing_sold" | "buy_below_minimum" | "under_threshold" | "rule_off" | "selling" | "open_buy" | "sell_below_minimum" | "pre_send" => serde_json::Value::Null,
-            "rejected" | "buy_rejected" | "post_send" | "server_error" | "no_order_id" => serde_json::json!("ambiguous"),
-            "resting_sell" | "open_buy_stale" => serde_json::json!("selling"),
+            "swap" | "nothing_sold" | "buy_below_minimum" | "under_threshold" | "rule_off" | "selling" | "open_buy" | "sell_below_minimum" | "pre_send"
+            | "at_threshold" | "unbalanced" => serde_json::Value::Null,
+            "rejected" | "rejected_400" | "buy_rejected" | "post_send" | "server_error" | "no_order_id" => serde_json::json!("ambiguous"),
+            "resting_sell" | "open_buy_stale" | "below_drift" | "exited_member" => serde_json::json!("selling"),
             _ => serde_json::json!("buying"),
         };
         if left != want { pins.push(format!("{name}: phase {left}, pinned {want}")); }

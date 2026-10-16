@@ -256,7 +256,9 @@ fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock,
                 return Ok(Begun::LedgerStale(Box::new(stale)));
             }
             else if ticker_changed || tickers.iter().any(|t| !t.available || !t.trading_enabled) { Some("its ticker data changed or is unavailable") }
-            else if !super::eligibility::bot_reasons(&tx, &current)?.is_empty() { Some("its members or provider are no longer eligible") }
+            else if !(if rebalance.is_some() { super::eligibility::rebalance_reasons(&tx, &current)? } else { super::eligibility::bot_reasons(&tx, &current)? }).is_empty() {
+                Some("its members or provider are no longer eligible")
+            }
             else if super::provider::stale(&tx, &current)?.is_some() { Some("its index provider configuration changed") }
             else { None };
         if let Some(reason) = reason {

@@ -19,6 +19,23 @@ const SUPPORTED_FLAGS: [&str; 3] = ["limit_ordered", "smart_intervaled", "quote_
 pub const MAX_ASSETS: usize = 100;
 /// Bots::DcaMultiAsset::Allocatable::ALLOCATION_TOLERANCE: Rails starts a manual basket only this close to 100 %.
 const ALLOCATION_TOLERANCE: f64 = 0.001;
+/// The reason a basket's sliders are off 100 %. It refuses a working bot, never a rebalance: a stopped bot's sliders may be
+/// saved off 100 %, and Rails' DcaMultiAsset#rebalance_targets then reads no targets (nothing is due) unless a swap is
+/// already owed its buy, which still lands.
+pub const UNBALANCED: &str = "allocations: weights sum to";
+
+/// Bots::DcaMultiAsset::Allocatable#allocations_balanced?: a market-cap basket does not own its weights; a manual one's
+/// slider total (Array#sum) is within the tolerance of one. Not a basket: true.
+pub fn allocations_balanced(bot: &Bot) -> bool {
+    if bot.bot_type != "Bots::DcaMultiAsset" || bot.weighting() == "market_cap" { return true; }
+    let weights: Vec<f64> = bot.allocations().unwrap_or_default().into_iter().map(|(_, w)| w).collect();
+    (crate::ruby::float_sum(&weights) - 1.0).abs() <= ALLOCATION_TOLERANCE
+}
+
+/// bot_reasons, less the reason a rebalance does not care about (UNBALANCED): what refuses a rebalance's order.
+pub fn rebalance_reasons(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError> {
+    Ok(bot_reasons(c, bot)?.into_iter().filter(|r| !r.starts_with(UNBALANCED)).collect())
+}
 /// One rule set with the page and the write path (web/bot/mod.rs, web/figure/holdings.rs): a selling batch is in flight too.
 const PENDING_KEYS: [&str; 4] = ["rebalance_pending", "liquidation_pending", "liquidation_selling_since", "redeploy_pending"];
 
@@ -262,12 +279,9 @@ fn composition_reasons(bot: &Bot, kraken: Option<&str>, r: &mut Vec<String>) -> 
     if a.is_empty() { r.push("allocations: none".into()); }
     if a.len() > MAX_ASSETS { r.push(format!("allocations: {} assets (at most {MAX_ASSETS})", a.len())); }
     if let Some(venue) = kraken.filter(|_| a.len() > 1) { r.push(format!("allocations: {} assets ({venue}: only one-asset bots are supported by this engine yet)", a.len())); }
-    // Bots::DcaMultiAsset::Allocatable#allocations_balanced?. The tolerance dwarfs the difference between this plain sum and
-    // Ruby's compensated one.
-    let total: f64 = a.iter().map(|(_, w)| w).sum();
-    if a.iter().any(|(_, w)| *w < 0.0) || (total - 1.0).abs() > ALLOCATION_TOLERANCE {
-        r.push(format!("allocations: weights sum to {total}, not 1"));
-    }
+    // Bots::DcaMultiAsset::Allocatable#allocations_balanced?.
+    if a.iter().any(|(_, w)| *w < 0.0) { r.push("allocations: a negative weight".into()); }
+    if !allocations_balanced(bot) { r.push(format!("{UNBALANCED} {}, not 1", crate::ruby::float_sum(&a.iter().map(|(_, w)| *w).collect::<Vec<_>>()))); }
     // Keys that name one id ("7", "07") would make the basket carry one asset as two members.
     let ids: Vec<i64> = a.into_iter().map(|(id, _)| id).collect();
     for (i, id) in ids.iter().enumerate() {
@@ -442,6 +456,10 @@ fn install(c: &Connection, mut items: Option<&mut std::collections::BTreeSet<Str
         }
         let outstanding: i64 = c.query_row("SELECT count(*) FROM transactions WHERE bot_id = ?1 AND status = 0 AND external_status IN (0, 1)", [id], |r| r.get(0))?;
         let mut work = rails_work(c, &bot)?;
+        // A stopped bot still rebalances (run::run_rebalances), so whatever else it carries must be within the slice.
+        if super::rebalance::candidate(&bot) && rebalances_here(c, &bot)? && reasons.iter().any(|r| !r.starts_with(UNBALANCED)) {
+            work.push("rebalancing".into());
+        }
         if outstanding > 0 { work.push(format!("{outstanding} outstanding order(s)")); }
         if !work.is_empty() {
             report.problems.push(format!("bot {id} ({}) has work only the full app handles ({}); outside the slice: {}", bot.status.label(), work.join(", "), reasons.join(", ")));
