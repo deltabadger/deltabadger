@@ -327,6 +327,26 @@ class Exchanges::BitgetTest < ActiveSupport::TestCase
     assert_predicate result, :success?
     assert_equal :closed, result.data[:status]
   end
+
+  # orderInfo's `size` is quote coins on a market buy; reading it as base wrote "10 BTC" onto a
+  # 10 USDT buy. Shaped like the doc's example, which has no quoteSize.
+  test 'get_order reads a market buy size as the quote amount' do
+    raw = { 'orderId' => '1', 'symbol' => 'BTCUSDT', 'orderType' => 'market', 'side' => 'buy', 'price' => '0',
+            'size' => '10.0000000000000000', 'priceAvg' => '13000', 'baseVolume' => '0.0007',
+            'quoteVolume' => '9.1', 'status' => 'filled' }
+    @exchange.send(:client).define_singleton_method(:get_order) { |**| Result::Success.new(raw: raw) }
+
+    data = with_dry_run(false) { @exchange.get_order(order_id: 'BTCUSDT-1') }.data
+
+    assert_nil data[:amount]
+    assert_equal BigDecimal('10'), data[:quote_amount]
+    assert_equal BigDecimal('0.0007'), data[:amount_exec]
+
+    raw.merge!('orderType' => 'limit', 'price' => '13000', 'size' => '0.0007')
+    data = with_dry_run(false) { @exchange.get_order(order_id: 'BTCUSDT-1') }.data
+    assert_equal BigDecimal('0.0007'), data[:amount]
+    assert_nil data[:quote_amount]
+  end
   # B9. Bitget emitted `available: status == 'online'` and no trading_enabled at all — one concept
   # in two columns with opposite failure modes on the two sync paths. Every other venue reports an
   # offline pair as listed-but-not-tradable.

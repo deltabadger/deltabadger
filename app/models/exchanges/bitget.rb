@@ -577,9 +577,11 @@ class Exchanges::Bitget < Exchange
     order_type = parse_order_type(Utilities::Hash.dig_or_raise(order_data, 'orderType'))
     price = order_data['priceAvg']&.to_d || order_data['price']&.to_d || 0
     price = nil if price.zero?
-    amount = order_data['size']&.to_d
-    quote_amount = order_data['quoteSize']&.to_d
     side = Utilities::Hash.dig_or_raise(order_data, 'side').downcase.to_sym
+    # `size` is quote coins on a market buy and base coins otherwise; there is no quoteSize
+    # (https://www.bitget.com/docs/catalog/classic-spot-trade/classic-spot-trade#get-order-info).
+    size = order_data['size']&.to_d
+    amount, quote_amount = order_type == :market_order && side == :buy ? [nil, size] : [size, nil]
     amount_exec = order_data['baseVolume']&.to_d || 0
     quote_amount_exec = order_data['quoteVolume']&.to_d || 0
     status = parse_order_status(Utilities::Hash.dig_or_raise(order_data, 'status'))
