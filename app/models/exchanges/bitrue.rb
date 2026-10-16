@@ -537,9 +537,9 @@ class Exchanges::Bitrue < Exchange
         result = hm_client.send(:get_signed, path, { coin: coin.downcase, status: status, startTime: window_start,
                                                      endTime: window_end, offset: offset, limit: TRANSFER_PAGE,
                                                      recvWindow: 5000 })
-        # The history is WITHDRAW_DATA: a key that reads balances but is refused here lacks that scope,
-        # and has no transfers to give.
-        return nil if result.failure? && (http_status(result) == UNAUTHORIZED_STATUS || permission_error?(result.errors))
+        # The history is WITHDRAW_DATA: a key Bitrue says lacks that scope has no transfers to give. Any
+        # other refusal ("No login", a bare 401) fails the fetch, or the watermark passes unread transfers.
+        return nil if result.failure? && permission_error?(result.errors)
         return result if result.failure?
 
         body = result.data
