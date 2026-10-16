@@ -57,7 +57,7 @@ impl Venue {
 }
 
 /// Exchange::STOCK_TYPES.
-const STOCK_TYPES: [&str; 2] = ["Exchanges::Alpaca", "Exchanges::Ibkr"];
+pub(crate) const STOCK_TYPES: [&str; 2] = ["Exchanges::Alpaca", "Exchanges::Ibkr"];
 
 /// Tax::AssetIdentity::ALIASES: (symbol, coin, venue, last day it holds).
 type Alias = (&'static str, &'static str, Option<&'static str>, Option<(i32, u32, u32)>);

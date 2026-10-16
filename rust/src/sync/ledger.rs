@@ -1,7 +1,7 @@
 //! AccountTransaction::SyncJob for an Alpaca key: Exchanges::Alpaca#get_ledger (every page of
 //! GET /v2/account/activities), AccountTransactionSync#sync! (dedup, rows, the bot's own order, split side effects,
 //! asset identity, the watermark) and TransferMatcher.run!. Rails is the oracle (rust/tests/sync_parity.rs).
-use super::activities::{self, cash_activity, CryptoPair, CryptoPairs, Entry, Raw, ADJUSTMENT, BUY, DEPOSIT, SELL, SWAP_IN, SWAP_OUT, WITHDRAWAL};
+use super::activities::{self, cash_activity, CryptoPair, CryptoPairs, Entry, Raw, ADJUSTMENT, AIRDROP, BUY, DEPOSIT, OTHER_INCOME, SELL, SWAP_IN, SWAP_OUT, WITHDRAWAL};
 use crate::jobs::Db;
 use super::wire::{self, Budget, Node};
 use super::{commit, commit_bots, load_key, number, parsed, phase, record_sync_error, sql_time, Failure, Key, SyncError, Unread};
@@ -298,20 +298,19 @@ pub(crate) async fn sync_captured<T: Transport>(db: &Db, venue: &AlpacaVenue<T>,
         // (FloatDomainError), and the job re-raises.
         Err(text) => return fail(text, true).await,
     };
-    let entries = Arc::new(entries);
     let mut from = 0;
     while from < entries.len() {
-        let (key, batch) = (key.clone(), entries.clone());
+        let key = key.clone();
         if split(&entries[from]) {
-            let effects = { let (key, batch) = (key.clone(), batch.clone()); phase(db, move |c| split_effects(c, &key, &batch[from], now)).await? };
+            let effects = { let (key, batch) = (key.clone(), entries.clone()); phase(db, move |c| split_effects(c, &key, &batch[from], now)).await? };
             // A split's unit, alone: past the engine's guard whether or not it moves a counter, since eligibility reads the
             // account's split rows (`eligibility::history_reasons`).
-            progress = super::commit_bots_for(db, version, move |c| Ok((store(c, &key, &batch[from..from + 1], Some(&effects), progress, now)?, true))).await?;
+            progress = super::commit_bots_for(db, version, move |c| Ok((store(c, &key, from..from + 1, Some(&effects), progress, now)?, true))).await?;
             from += 1;
         } else {
             let end = entries.len().min(from + BATCH);
             let to = (from..end).find(|i| split(&entries[*i])).unwrap_or(end);
-            progress = super::commit_for(db, version, move |c| store(c, &key, &batch[from..to], None, progress, now)).await?;
+            progress = super::commit_for(db, version, move |c| store(c, &key, from..to, None, progress, now)).await?;
             from = to;
         }
     }
@@ -465,9 +464,10 @@ pub(super) struct Listings { coins: HashMap<String, Vec<i64>>, securities: HashM
 pub(super) enum AssetRule {
     /// Exchanges::Alpaca#ledger_asset_ids: the activity decides.
     Alpaca(Listings),
-    /// Exchange#ledger_asset_ids for a crypto venue (Binance): a dated alias of Tax::AssetIdentity names the coin;
-    /// else the one asset the venue lists under that spelling (Ticker.asset_ids_by_spelling: base spellings, tombstoned
-    /// listings included, then quote spellings), and none where two share it.
+    /// Exchange#ledger_asset_ids for every other venue: on a crypto venue a dated alias of Tax::AssetIdentity names the
+    /// coin (never on a stock venue: IBKR's LUNA is a listed security); else the one asset the venue lists under that
+    /// spelling (Ticker.asset_ids_by_spelling: base spellings, tombstoned listings included, then quote spellings), and
+    /// none where two share it.
     Crypto { venue: crate::tracker::prices::Venue, spellings: HashMap<String, Vec<i64>> },
 }
 
@@ -477,7 +477,8 @@ impl AssetRule {
             Self::Alpaca(l) => asset_id(c, l, base_currency, raw),
             Self::Crypto { venue, spellings } => {
                 let name = base_currency.unwrap_or_default();
-                if let Some(coin) = crate::tracker::prices::alias_coin(name, Some(venue), at.map(|t| t.date_naive())) {
+                let alias = if venue.stock { None } else { crate::tracker::prices::alias_coin(name, Some(venue), at.map(|t| t.date_naive())) };
+                if let Some(coin) = alias {
                     return Ok(c.query_row("SELECT id FROM assets WHERE external_id = ?1 LIMIT 1", [coin], |r| r.get(0)).optional()?);
                 }
                 Ok(only(spellings.get(&name.to_uppercase())))
@@ -486,15 +487,24 @@ impl AssetRule {
     }
 }
 
-/// AssetRule::Crypto for a venue: every listing's spellings.
-pub(super) fn crypto_rule(c: &Connection, exchange_id: i64, name_id: &str) -> Result<AssetRule, SyncError> {
+/// The venue's rule (Exchange#ledger_asset_ids): Alpaca's own, else the spelling rule, with crypto aliases only off a
+/// stock venue (Exchange#stock_venue?).
+pub(super) fn asset_rule(c: &Connection, exchange_id: i64, exchange_type: &str) -> Result<AssetRule, SyncError> {
+    if exchange_type == super::ALPACA { return Ok(AssetRule::Alpaca(listings(c, exchange_id)?)); }
+    crypto_rule(c, exchange_id, exchange_type)
+}
+
+/// AssetRule::Crypto for a venue that is not Alpaca: every listing's spellings.
+fn crypto_rule(c: &Connection, exchange_id: i64, exchange_type: &str) -> Result<AssetRule, SyncError> {
     let mut spellings: HashMap<String, Vec<i64>> = HashMap::new();
     let mut add = |name: String, id: i64| { let ids = spellings.entry(name).or_default(); if !ids.contains(&id) { ids.push(id); } };
     let mut s = c.prepare("SELECT base, base_asset_id FROM tickers WHERE exchange_id = ?1 ORDER BY id")?;
     for row in s.query_map([exchange_id], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?)))? { let (base, id) = row?; add(spelling(&base), id); }
     let mut s = c.prepare("SELECT upper(quote), quote_asset_id FROM tickers WHERE exchange_id = ?1 ORDER BY id")?;
     for row in s.query_map([exchange_id], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?)))? { let (quote, id) = row?; add(quote, id); }
-    Ok(AssetRule::Crypto { venue: crate::tracker::prices::Venue { id: exchange_id, name_id: name_id.into(), stock: false }, spellings })
+    let venue = crate::tracker::prices::Venue { id: exchange_id, name_id: crate::tracker::rows::name_id(exchange_type),
+                                                stock: crate::tracker::prices::STOCK_TYPES.contains(&exchange_type) };
+    Ok(AssetRule::Crypto { venue, spellings })
 }
 
 fn spelling(base: &str) -> String {
@@ -558,6 +568,21 @@ pub(super) struct Progress {
     pub(super) stored: HashSet<i64>,
     /// How many entries of each identity (#event_key) this run has read so far.
     pub(super) repeats: BTreeMap<EventKey, usize>,
+    /// Every entry of this store (`@batch`): a file row's rivals for one API transfer, and a dust group's legs.
+    pub(super) batch: Arc<Vec<Entry>>,
+    /// `@file_pairs`: the batch's export swap pairs (`swapcsv_` groups), each the indices of its legs in batch order.
+    pub(super) file_pairs: HashMap<String, Vec<usize>>,
+}
+
+impl Progress {
+    /// What one store starts from (AccountTransactionSync#store!'s locals): nothing counted yet, over `batch`.
+    pub(super) fn new(assets: AssetRule, merged: HashSet<String>, batch: Arc<Vec<Entry>>) -> Progress {
+        let mut file_pairs: HashMap<String, Vec<usize>> = HashMap::new();
+        for (i, e) in batch.iter().enumerate() {
+            if let Some(group) = e.group_id.as_deref().filter(|g| g.starts_with("swapcsv_")) { file_pairs.entry(group.to_string()).or_default().push(i); }
+        }
+        Progress { out: Outcome::default(), assets: Arc::new(assets), merged, min_skipped: None, stored: HashSet::new(), repeats: BTreeMap::new(), batch, file_pairs }
+    }
 }
 
 /// #event_key: type, currency, amount and instant.
@@ -576,7 +601,7 @@ pub(super) fn stored_merged(c: &Connection, key: &Key) -> Result<HashSet<String>
 /// The read before the store: the activities as entries (#normalize_activity, #merge_split_entries), the venue's
 /// listings, and the merged legs already stored (one row per split the account ever had). `Ok(Err(text))`: an
 /// activity this port cannot read.
-fn prepare(c: &Connection, key: &Key, activities: &[Raw]) -> Result<Result<(Vec<Entry>, Progress), String>, SyncError> {
+fn prepare(c: &Connection, key: &Key, activities: &[Raw]) -> Result<Result<(Arc<Vec<Entry>>, Progress), String>, SyncError> {
     let pairs = crypto_pairs(c, key.exchange_id)?;
     let mut entries = Vec::with_capacity(activities.len());
     for a in activities {
@@ -586,20 +611,25 @@ fn prepare(c: &Connection, key: &Key, activities: &[Raw]) -> Result<Result<(Vec<
             Err(text) => return Ok(Err(text)),
         }
     }
-    let entries = match activities::merge_splits(entries) { Ok(entries) => entries, Err(text) => return Ok(Err(text)) };
+    let entries = match activities::merge_splits(entries) { Ok(entries) => Arc::new(entries), Err(text) => return Ok(Err(text)) };
     let merged = stored_merged(c, key)?;
-    Ok(Ok((entries, Progress { out: Outcome::default(), assets: Arc::new(AssetRule::Alpaca(listings(c, key.exchange_id)?)), merged, min_skipped: None, stored: HashSet::new(), repeats: BTreeMap::new() })))
+    Ok(Ok((entries.clone(), Progress::new(AssetRule::Alpaca(listings(c, key.exchange_id)?), merged, entries))))
 }
 
 /// A split row, as everything that reacts to one tells it.
 fn split(e: &Entry) -> bool { e.entry_type == ADJUSTMENT && e.raw.value["corporate_action"] == "split" }
 
-/// AccountTransactionSync#store! for one unit, inside the caller's write transaction: at most `BATCH` entries, or one
-/// split with the `effects` the read before it computed. A split row is stored, skipped and announced exactly as
-/// Rails does it: a group is a duplicate when its first leg's id is stored, or is a leg of a stored merged row.
-pub(super) fn store(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, batch: &[Entry], effects: Option<&Effects>, mut p: Progress, now: DateTime<Utc>) -> Result<Progress, SyncError> {
+/// AccountTransactionSync#store! for one unit, inside the caller's write transaction: the entries `range` names of
+/// `p.batch`, at most `BATCH` of them, or one split with the `effects` the read before it computed. A split row is
+/// stored, skipped and announced exactly as Rails does it: a group is a duplicate when its first leg's id is stored, or
+/// is a leg of a stored merged row. (#refuse_unreadable_amounts! has nothing to refuse here: a BigDec is never NaN or
+/// infinite, and its bounds keep the double it binds as finite.)
+pub(super) fn store(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, range: std::ops::Range<usize>, effects: Option<&Effects>, mut p: Progress, now: DateTime<Utc>) -> Result<Progress, SyncError> {
     let no_effects = || SyncError("a split row outside a unit of its own".into());
-    for (index, e) in batch.iter().enumerate() {
+    let batch = p.batch.clone();
+    let unit = range.len();
+    for (n, index) in range.enumerate() {
+        let e = &batch[index];
         let tx_id = present(&e.tx_id);
         // A row its id already names is not one of the identical rows counted.
         let repeat = if known_id(c, key, tx_id, &p.merged)? { 0 } else {
@@ -607,12 +637,12 @@ pub(super) fn store(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, 
             *seen += 1;
             *seen - 1
         };
-        if duplicate(c, key, e, tx_id, &p.merged, &p.stored, repeat)? { p.out.duplicates += 1; continue; }
+        if duplicate(c, key, &p, index, tx_id, repeat)? { p.out.duplicates += 1; continue; }
         // One malformed broker row never aborts the sync: it is logged, counted, and holds the watermark back. The
         // row's id is the venue's own value: the line says which entry of the unit it was, not what it held.
         let (Some(base_currency), Some(at)) = (present(&e.base_currency), e.transacted_at) else {
-            let venue = if key.exchange_type == super::ALPACA { "alpaca" } else { "binance" };
-            crate::engine::log(&format!("[{venue}] Account transaction sync skipped invalid entry {} of {} (entry_type={})", index + 1, batch.len(), e.entry_type));
+            let venue = crate::tracker::rows::name_id(&key.exchange_type);
+            crate::engine::log(&format!("[{venue}] Account transaction sync skipped invalid entry {} of {unit} (entry_type={})", n + 1, e.entry_type));
             p.min_skipped = [p.min_skipped, e.transacted_at].into_iter().flatten().min();
             p.out.skipped += 1;
             continue;
@@ -642,6 +672,15 @@ pub(super) fn store(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, 
     Ok(p)
 }
 
+/// Import::Run#write for one account: AccountTransactionSync#store! over what a file holds for it, inside the caller's
+/// transaction (the one the whole file is written in). The watermark, the recent assets and the transfer matcher are
+/// the sync's alone: an import moves none of them.
+pub(crate) fn store_file(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, entries: Vec<Entry>, now: DateTime<Utc>) -> Result<Outcome, SyncError> {
+    let batch = Arc::new(entries);
+    let p = Progress::new(asset_rule(c, key.exchange_id, &key.exchange_type)?, stored_merged(c, key)?, batch.clone());
+    Ok(store(c, key, 0..batch.len(), None, p, now)?.out)
+}
+
 fn merged_ids(raw: &Value) -> Vec<String> {
     raw.get("merged_activity_ids").and_then(Value::as_array).map(|ids| ids.iter().filter_map(|i| i.as_str().map(str::to_string)).collect()).unwrap_or_default()
 }
@@ -651,27 +690,58 @@ fn merged_ids(raw: &Value) -> Vec<String> {
 const BY_TIME: &str = "INDEXED BY index_account_transactions_on_transacted_at";
 
 /// #duplicate?, scoped to the user and the venue, not the key. With an id: a leg of a stored merged split, a stored
-/// row with that id, or an id-less stored row of the same type, currency and amount less than a second away (a file
-/// imported before the first sync). Without one: any stored row of that identity less than a second away. Exactly a
-/// second away counts only between an id'd and an id-less row (#within_a_second). Rows this run stored are no
-/// evidence, and the rest count one for one: the entry is a duplicate while more of them are stored than identical
-/// entries came before it in this run (#same_event?).
-fn duplicate(c: &Connection, key: &Key, e: &Entry, tx_id: Option<&str>, merged: &HashSet<String>, stored_now: &HashSet<i64>, repeat: usize) -> Result<bool, SyncError> {
-    if let Some(tx_id) = tx_id {
-        if known_id(c, key, Some(tx_id), merged)? { return Ok(true); }
-        if api_dust(e, tx_id) { return api_dust_twin(c, key, e, tx_id, stored_now, repeat); }
-        if api_transfer(e.entry_type, &e.raw.value) { return api_transfer_twin(c, key, e, tx_id, stored_now, repeat); }
-    }
-    let Some(at) = e.transacted_at else { return Ok(false) }; // a row with no time is the same event as nothing
+/// row with that id, an API transfer or dust leg its export copy already holds, or an id-less stored row of the same
+/// type, currency and amount less than a second away (a file imported before the first sync). Without one: an export
+/// dust leg or transfer its API copy already holds (the file side of those pairings), else any stored row of that
+/// identity less than a second away, a legacy trade this Convert replaced, or a legacy token swap. Exactly a second
+/// away counts only between an id'd and an id-less row (#within_a_second). Rows this run stored are no evidence, and
+/// the rest count one for one: the entry is a duplicate while more of them are stored than identical entries came
+/// before it in this run (#same_event?).
+fn duplicate(c: &Connection, key: &Key, p: &Progress, index: usize, tx_id: Option<&str>, repeat: usize) -> Result<bool, SyncError> {
+    let e = &p.batch[index];
+    let Some(tx_id) = tx_id else {
+        if file_dust(e.entry_type, e.group_id.as_deref()) { return file_dust_twin(c, key, p, index, repeat); }
+        if file_transfer(e.entry_type, &e.raw.value) { return file_transfer_twin(c, key, p, index, repeat); }
+        return Ok(same_event(c, key, e, e.entry_type, "", &p.stored, repeat, &|_| false)? || replaced_trade(c, key, p, index)?
+                  || legacy_token_swap(c, key, p, index, repeat)?);
+    };
+    if known_id(c, key, Some(tx_id), &p.merged)? { return Ok(true); }
+    if api_dust(e, tx_id) { return api_dust_twin(c, key, e, tx_id, &p.stored, repeat); }
+    if api_transfer(e.entry_type, &e.raw.value) { return api_transfer_twin(c, key, e, tx_id, &p.stored, repeat); }
+    same_event(c, key, e, e.entry_type, "AND tx_id IS NULL", &p.stored, repeat, &|_| false)
+}
+
+/// A stored row as the duplicate rules read it.
+struct Stored { id: i64, tx_id: Option<String>, entry_type: i64, base_currency: Option<String>, group_id: Option<String>, at: Option<DateTime<Utc>>, raw: Value }
+
+/// The stored rows `tail` (conditions on `account_transactions`, then an order) selects, in its order.
+fn stored_rows(c: &Connection, tail: &str, p: &[&dyn rusqlite::ToSql]) -> Result<Vec<Stored>, SyncError> {
+    let mut s = c.prepare(&format!("SELECT id, tx_id, entry_type, base_currency, group_id, transacted_at, raw_data FROM account_transactions {tail}"))?;
+    let rows = s.query_map(p, |r| Ok((Stored { id: r.get(0)?, tx_id: r.get(1)?, entry_type: r.get(2)?, base_currency: r.get(3)?, group_id: r.get(4)?, at: None, raw: Value::Null },
+                                      r.get::<_, Option<String>>(5)?, r.get::<_, Option<String>>(6)?)))?.collect::<Result<Vec<_>, _>>()?;
+    Ok(rows.into_iter().map(|(row, at, raw)| Stored {
+        at: at.and_then(|t| parse_time(&t).ok()), raw: raw.and_then(|r| serde_json::from_str(&r).ok()).unwrap_or(Value::Null), ..row
+    }).collect())
+}
+
+/// #same_events: the stored rows of `scope` (more conditions) of the entry's currency and amount and of `entry_type`,
+/// within a second of it (#within_a_second: exactly a second counts only across an id'd and an id-less row).
+fn same_events(c: &Connection, key: &Key, e: &Entry, entry_type: i64, scope: &str) -> Result<Vec<Stored>, SyncError> {
+    let Some(at) = e.transacted_at else { return Ok(vec![]) };
     let second = Duration::seconds(1);
     let (Some(from), Some(to)) = (at.checked_sub_signed(second), at.checked_add_signed(second)) else { return Err(SyncError("a time at the end of the calendar".into())) };
-    let (id_less, other) = if tx_id.is_some() { ("AND tx_id IS NULL", "tx_id IS NULL") } else { ("", "tx_id IS NOT NULL") };
-    let mut s = c.prepare(&format!("SELECT id FROM account_transactions {BY_TIME} WHERE user_id = ?1 AND exchange_id = ?2 {id_less} AND entry_type = ?3 \
-                  AND base_currency IS ?4 AND base_amount = ?5 AND transacted_at >= ?6 AND transacted_at <= ?7 \
-                  AND ({other} OR (transacted_at > ?6 AND transacted_at < ?7))"))?;
-    let ids = s.query_map(params![key.user_id, key.exchange_id, e.entry_type, e.base_currency, real(&e.base_amount), sql_time(from), sql_time(to)],
-                          |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?;
-    Ok(ids.iter().filter(|id| !stored_now.contains(id)).count() > repeat)
+    let other = if present(&e.tx_id).is_some() { "tx_id IS NULL" } else { "tx_id IS NOT NULL" };
+    stored_rows(c, &format!("{BY_TIME} WHERE user_id = ?1 AND exchange_id = ?2 {scope} AND entry_type = ?3 AND base_currency IS ?4 AND base_amount = ?5 \
+                             AND transacted_at >= ?6 AND transacted_at <= ?7 AND ({other} OR (transacted_at > ?6 AND transacted_at < ?7)) ORDER BY id"),
+                params![key.user_id, key.exchange_id, entry_type, e.base_currency, real(&e.base_amount), sql_time(from), sql_time(to)])
+}
+
+/// #same_event?: more rows of #same_events than identical entries before this one in the run, less the rows this run
+/// stored and those a pairing between the export and the API decides itself (`governed`). A row with no time is the
+/// same event as nothing.
+#[allow(clippy::too_many_arguments)]
+fn same_event(c: &Connection, key: &Key, e: &Entry, entry_type: i64, scope: &str, stored_now: &HashSet<i64>, repeat: usize, governed: &dyn Fn(&Stored) -> bool) -> Result<bool, SyncError> {
+    Ok(same_events(c, key, e, entry_type, scope)?.iter().filter(|r| !stored_now.contains(&r.id) && !governed(r)).count() > repeat)
 }
 
 /// A leg of a stored merged split, or a stored row with this id.
@@ -791,6 +861,183 @@ fn api_dust_twin(c: &Connection, key: &Key, e: &Entry, tx_id: &str, stored_now: 
         Err(rusqlite::Error::SqliteFailure(f, _)) if f.code == rusqlite::ErrorCode::ConstraintViolation => Ok(true),
         Err(err) => Err(err.into()),
     }
+}
+
+// ---- the file side of both pairings, and the legacy readings of a file (AccountTransactionSync) ----------------------
+
+/// #api_transfer? of a stored row: an id, and the capital endpoint's time in its raw.
+fn api_transfer_row(r: &Stored) -> bool { r.tx_id.as_deref().is_some_and(|t| !blank(t)) && api_transfer(r.entry_type, &r.raw) }
+
+/// #api_dust? of a stored row.
+fn api_dust_row(r: &Stored) -> bool {
+    matches!(r.entry_type, SWAP_IN | SWAP_OUT) && r.tx_id.as_deref().is_some_and(|t| t.starts_with("dust-")) && r.raw.get("transferedAmount").is_some()
+}
+
+/// #pairs?: whether the export row `file` is what the stored API transfer `api` reads as in the file.
+fn pairs(api: &Stored, file: &Entry) -> bool {
+    if file.entry_type != api.entry_type || file.base_currency != api.base_currency { return false; }
+    let (Some(api_at), Some(at)) = (api.at, file.transacted_at) else { return false };
+    let Some((amount, from, to, open)) = file_side(api.entry_type, &api.raw, api_at) else { return false };
+    file.base_amount == amount && if open { at > from && at < to } else { at >= from && at <= to }
+}
+
+/// #api_rows_for: the stored API transfers this export row pairs with. An API row is dated when it was requested, so
+/// a deposit's is at most ten minutes before the credit, and a withdrawal's at or before its completion.
+fn api_rows_for(c: &Connection, key: &Key, e: &Entry) -> Result<Vec<Stored>, SyncError> {
+    let Some(at) = e.transacted_at else { return Ok(vec![]) };
+    let window = if e.entry_type == DEPOSIT {
+        let lag = at.checked_sub_signed(Duration::minutes(10)).ok_or_else(|| SyncError("a time at the end of the calendar".into()))?;
+        format!("transacted_at >= '{}' AND transacted_at <= '{}'", sql_time(lag), sql_time(at))
+    } else {
+        let to = at.checked_add_signed(Duration::seconds(1)).ok_or_else(|| SyncError("a time at the end of the calendar".into()))?;
+        format!("transacted_at < '{}'", sql_time(to))
+    };
+    let rows = stored_rows(c, &format!("WHERE user_id = ?1 AND exchange_id = ?2 AND tx_id IS NOT NULL AND entry_type = ?3 AND base_currency IS ?4 AND {window} ORDER BY id"),
+                           params![key.user_id, key.exchange_id, e.entry_type, e.base_currency])?;
+    Ok(rows.into_iter().filter(|r| api_transfer_row(r) && pairs(r, e)).collect())
+}
+
+/// #file_twin_at: the export row's date a stored API row was stamped with, if it reads as one.
+fn file_twin_at(r: &Stored) -> Option<DateTime<Utc>> {
+    r.raw.get("file_twin_at").and_then(Value::as_str).and_then(|t| DateTime::parse_from_rfc3339(t).ok()).map(|t| t.with_timezone(&Utc))
+}
+
+/// #twinned?: one of `rows` is stamped with a date less than a second from `at`.
+fn twinned(rows: &[Stored], at: DateTime<Utc>) -> bool {
+    rows.iter().any(|r| file_twin_at(r).is_some_and(|twin| (twin - at).abs() < Duration::seconds(1)))
+}
+
+/// #stamp!: the export row's date written into the API row's raw, once, without touching `updated_at`.
+fn stamp(c: &Connection, id: i64, at: DateTime<Utc>) -> Result<bool, SyncError> {
+    Ok(c.execute("UPDATE account_transactions SET raw_data = json_set(raw_data, '$.file_twin_at', ?1) WHERE id = ?2 AND json_extract(raw_data, '$.file_twin_at') IS NULL",
+                 params![at.format("%Y-%m-%dT%H:%M:%S%.6fZ").to_string(), id])? == 1)
+}
+
+/// #paired?: an export row whose pairing is written down: stored with an API row's id, or its date stamped on one.
+fn paired(c: &Connection, key: &Key, e: &Entry) -> Result<bool, SyncError> {
+    if same_events(c, key, e, e.entry_type, "AND tx_id IS NOT NULL")?.iter().any(|r| !api_transfer_row(r)) { return Ok(true); }
+    Ok(match e.transacted_at { Some(at) => twinned(&api_rows_for(c, key, e)?, at), None => false })
+}
+
+/// #file_transfer_twin?: the second-wide rule still holds against every row but an API transfer; then the one free
+/// stored API transfer this export row pairs with, when no other export row of the batch could take it, is stamped
+/// with the row's date and the row is not stored. Already stamped within a second: a duplicate. Two candidates either
+/// way are a visible double. Raced (stamped between the read and the write): read once more.
+fn file_transfer_twin(c: &Connection, key: &Key, p: &Progress, index: usize, repeat: usize) -> Result<bool, SyncError> {
+    let e = &p.batch[index];
+    let Some(at) = e.transacted_at else { return Ok(false) };
+    if same_event(c, key, e, e.entry_type, "", &p.stored, repeat, &api_transfer_row)? { return Ok(true); }
+    for _ in 0..2 {
+        let candidates = api_rows_for(c, key, e)?;
+        if twinned(&candidates, at) { return Ok(true); }
+        let free: Vec<&Stored> = candidates.iter().filter(|r| r.raw.get("file_twin_at").is_none()).collect();
+        let [free] = free[..] else { return Ok(false) };
+        // The file's other rows that could take this API row too; one already paired is not a rival.
+        let mut rivals = 0;
+        for (i, other) in p.batch.iter().enumerate() {
+            if present(&other.tx_id).is_none() && file_transfer(other.entry_type, &other.raw.value) && pairs(free, other) && (i == index || !paired(c, key, other)?) { rivals += 1; }
+        }
+        if rivals != 1 { return Ok(false); }
+        if stamp(c, free.id, at)? { return Ok(true); }
+    }
+    Ok(false)
+}
+
+/// #conversion: what an API dust row is a leg of: the coin and amount out, and the BNB in, net of the charge.
+fn conversion(raw: &Value) -> (Option<String>, BigDec, BigDec) {
+    let d = |k: &str| json_to_d(&raw[k]).ok().flatten().unwrap_or_else(BigDec::zero); // `.to_d`: nil is 0
+    (raw["fromAsset"].as_str().map(str::to_string), d("amount"), &d("transferedAmount") - &d("serviceChargeAmount"))
+}
+
+/// #dust_leg: which leg of the conversion an export row is (`true`: the coin out), if any.
+fn dust_leg(e: &Entry, (coin, amount, net): &(Option<String>, BigDec, BigDec)) -> Option<bool> {
+    match e.entry_type {
+        SWAP_OUT => (e.base_currency == *coin && e.base_amount == *amount).then_some(true),
+        SWAP_IN => (e.base_currency.as_deref() == Some("BNB") && e.base_amount == *net).then_some(false),
+        _ => None,
+    }
+}
+
+/// #file_dust_legs: the one export group among `legs` holding both legs of a conversion, each once: its coin leg.
+fn file_dust_legs<'a>(legs: &[&'a Entry]) -> Option<&'a Entry> {
+    let mut groups: Vec<(Option<&str>, Vec<&Entry>, Vec<&Entry>)> = vec![];
+    for leg in legs {
+        let at = match groups.iter().position(|g| g.0 == leg.group_id.as_deref()) { Some(i) => i, None => { groups.push((leg.group_id.as_deref(), vec![], vec![])); groups.len() - 1 } };
+        if leg.entry_type == SWAP_OUT { groups[at].1.push(leg) } else { groups[at].2.push(leg) }
+    }
+    let both: Vec<_> = groups.iter().filter(|g| !g.1.is_empty() && !g.2.is_empty()).collect();
+    match both[..] { [(_, outs, ins)] if outs.len() == 1 && ins.len() == 1 => Some(outs[0]), _ => None }
+}
+
+/// #file_dust_twin?: the second-wide rule still holds against every row but an API dust leg; then the one whole API
+/// conversion (both legs, neither stamped) within a second of the export row that this row is a leg of, whose export
+/// group in the batch is this row's, has both legs stamped with the row's date, or neither. Already stamped within a
+/// second: a duplicate. One leg alone, or two candidates, pair with nothing.
+fn file_dust_twin(c: &Connection, key: &Key, p: &Progress, index: usize, repeat: usize) -> Result<bool, SyncError> {
+    let e = &p.batch[index];
+    let Some(at) = e.transacted_at else { return Ok(false) };
+    if same_event(c, key, e, e.entry_type, "", &p.stored, repeat, &api_dust_row)? { return Ok(true); }
+    let second = Duration::seconds(1);
+    let (Some(from), Some(to)) = (at.checked_sub_signed(second), at.checked_add_signed(second)) else { return Err(SyncError("a time at the end of the calendar".into())) };
+    for _ in 0..2 {
+        // Only a whole API conversion: one stored a leg short leaves the file's BNB credit standing, a visible double.
+        let rows = stored_rows(c, &format!("WHERE user_id = ?1 AND exchange_id = ?2 AND tx_id LIKE 'dust-%' AND entry_type IN ({SWAP_OUT}, {SWAP_IN}) \
+                                            AND transacted_at >= ?3 AND transacted_at <= ?4 ORDER BY id"),
+                               params![key.user_id, key.exchange_id, sql_time(from), sql_time(to)])?;
+        let mut groups: Vec<(Option<String>, Vec<Stored>)> = vec![];
+        for r in rows.into_iter().filter(|r| api_dust_row(r) && dust_leg(e, &conversion(&r.raw)).is_some()) {
+            match groups.iter_mut().find(|g| g.0 == r.group_id) { Some(g) => g.1.push(r), None => groups.push((r.group_id.clone(), vec![r])) }
+        }
+        let conversions: Vec<Vec<Stored>> = groups.into_iter().map(|g| g.1)
+            .filter(|rows| rows.len() == 2 && rows.iter().any(|r| r.entry_type == SWAP_IN) && rows.iter().any(|r| r.entry_type == SWAP_OUT)).collect();
+        if conversions.iter().any(|rows| twinned(rows, at)) { return Ok(true); }
+        let free: Vec<&Vec<Stored>> = conversions.iter().filter(|rows| !rows.iter().any(|r| r.raw.get("file_twin_at").is_some())).collect();
+        let [api] = free[..] else { return Ok(false) };
+        let Some(reach) = api[0].at else { return Ok(false) };
+        let made = conversion(&api[0].raw);
+        let file: Vec<&Entry> = p.batch.iter()
+            .filter(|o| present(&o.tx_id).is_none() && file_dust(o.entry_type, o.group_id.as_deref()) && o.transacted_at.is_some_and(|t| (t - reach).abs() <= second))
+            .filter(|o| dust_leg(o, &made).is_some()).collect();
+        let Some(out) = file_dust_legs(&file) else { return Ok(false) };
+        if out.group_id != e.group_id { return Ok(false); }
+        // #both?: both legs or neither, in a savepoint.
+        c.execute_batch("SAVEPOINT file_dust_twin")?;
+        let mut stamped = true;
+        for r in api { if !stamp(c, r.id, at)? { stamped = false; break; } }
+        c.execute_batch(if stamped { "RELEASE file_dust_twin" } else { "ROLLBACK TO file_dust_twin; RELEASE file_dust_twin" })?;
+        if stamped { return Ok(true); }
+    }
+    Ok(false)
+}
+
+/// #replaced_trade?: an export Convert (a `swapcsv_` pair) a file imported under the old reading stored as one trade
+/// within a second of it: the incoming leg as a purchase's base and the outgoing leg as its quote, or the other way
+/// round as a sale. The pair is matched whole, so both legs are skipped or neither is.
+fn replaced_trade(c: &Connection, key: &Key, p: &Progress, index: usize) -> Result<bool, SyncError> {
+    let e = &p.batch[index];
+    let (Some(group), Some(at)) = (e.group_id.as_deref().filter(|g| g.starts_with("swapcsv_")), e.transacted_at) else { return Ok(false) };
+    let legs: Vec<&Entry> = p.file_pairs.get(group).map(|l| l.iter().map(|i| &p.batch[*i]).collect()).unwrap_or_default();
+    let (Some(inn), Some(out)) = (legs.iter().find(|l| l.entry_type == SWAP_IN), legs.iter().find(|l| l.entry_type == SWAP_OUT)) else { return Ok(false) };
+    if legs.len() != 2 { return Ok(false); }
+    let second = Duration::seconds(1);
+    let (Some(from), Some(to)) = (at.checked_sub_signed(second), at.checked_add_signed(second)) else { return Err(SyncError("a time at the end of the calendar".into())) };
+    let trade = |kind: i64, base: &Entry, quote: &Entry| -> Result<bool, SyncError> {
+        Ok(c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM account_transactions {BY_TIME} WHERE user_id = ?1 AND exchange_id = ?2 AND tx_id IS NULL \
+                                 AND transacted_at > ?3 AND transacted_at < ?4 AND entry_type = ?5 AND base_currency IS ?6 AND base_amount = ?7 \
+                                 AND quote_currency IS ?8 AND quote_amount = ?9)"),
+                       params![key.user_id, key.exchange_id, sql_time(from), sql_time(to), kind, base.base_currency, real(&base.base_amount),
+                               quote.base_currency, real(&quote.base_amount)], |r| r.get(0))?)
+    };
+    Ok(trade(BUY, inn, out)? || trade(SELL, out, inn)?)
+}
+
+/// #legacy_token_swap?: a "Token Swap - Distribution" a file imported before it was read as an airdrop stored as other
+/// income, matched as the same event against those rows.
+fn legacy_token_swap(c: &Connection, key: &Key, p: &Progress, index: usize, repeat: usize) -> Result<bool, SyncError> {
+    const LEGACY_TOKEN_SWAP: &str = "Token Swap - Distribution";
+    let e = &p.batch[index];
+    if e.entry_type != AIRDROP || e.raw.value["operation"].as_str() != Some(LEGACY_TOKEN_SWAP) { return Ok(false); }
+    same_event(c, key, e, OTHER_INCOME, &format!("AND json_extract(raw_data, '$.operation') = '{LEGACY_TOKEN_SWAP}'"), &p.stored, repeat, &|_| false)
 }
 
 /// #match_bot_transaction!: the bot order this row is, by the row's own id, then by the order the fill names.
