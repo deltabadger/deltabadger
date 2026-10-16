@@ -208,7 +208,7 @@ fn a_split_of_a_security_never_restates_the_coin_that_shares_its_ticker() {
                   params![s.user_id, s.exchange_id, recorded.then_some(stock), r#"{"corporate_action":"split","split_ratio":"2:1"}"#, T]).unwrap();
         let held = if coin_held { s.btc } else { stock };
         let orders = [Order { id: 1, at: At::from_sql("2026-08-15 00:00:00").unwrap(), exchange_id: Some(s.exchange_id), raw: Raw::new(None, None, None, None),
-                              base: Some("BTC".into()), asset_id: Some(held), sell: false, buy: true, closed: true, kind: "REGULAR".into() }];
+                              base: Some("BTC".into()), asset_id: Some(held), sell: false, buy: true, closed: true, kind: "REGULAR".into(), abandoned_request: None }];
         let holdings = [Holding { key: "BTC".into(), asset_id: Some(held), strings: vec!["BTC".into()] }];
         let case = (coin_held, recorded, both_classes);
         let events = budget::within(|| rails::events(c, s.user_id, &orders, &holdings, now)).unwrap();

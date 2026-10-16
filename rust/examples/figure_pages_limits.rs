@@ -13,7 +13,8 @@ const SCHEMA: &str = "
     CREATE TABLE bot_index_assets (bot_id integer, asset_id integer, ticker_id integer, in_index boolean);
     CREATE TABLE transactions (id integer PRIMARY KEY, bot_id integer, status integer, created_at datetime(6), exchange_id integer, price decimal, amount decimal,
                                amount_exec decimal, quote_amount_exec decimal, base varchar, base_asset_id integer, side integer, external_status integer,
-                               transaction_type varchar);
+                               transaction_type varchar,
+                               quote_amount decimal GENERATED ALWAYS AS (NULL) VIRTUAL); -- read, never written: positional INSERTs skip it
     CREATE TABLE account_transactions (id integer PRIMARY KEY, user_id integer, exchange_id integer, entry_type integer, base_currency varchar, raw_data json, transacted_at datetime(6), base_asset_id integer);
     CREATE TABLE account_balances (id INTEGER PRIMARY KEY, user_id integer, exchange_id integer, asset_id integer);
     INSERT INTO users(id,time_zone,display_currency,hide_balances) VALUES (1, 'UTC', 'USD', 0);

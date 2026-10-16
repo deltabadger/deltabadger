@@ -113,7 +113,7 @@ fn fill_completeness_covers_every_quantity_value_column_combination() {
     for closed in [false,true] { for sell in [false,true] {
       for amount in values { for exec in values { for price in values { for quote in values {
         let dec=|v:Option<i64>|v.map(Dec::from_i64);
-        let row=Order{id:1,at:At(0),exchange_id:None,raw:fill::Raw::new(dec(price),dec(amount),dec(exec),dec(quote)),base:None,asset_id:None,sell,buy:!sell,closed,kind:"REGULAR".into()};
+        let row=Order{id:1,at:At(0),exchange_id:None,raw:fill::Raw::new(dec(price),dec(amount),dec(exec),dec(quote)),base:None,asset_id:None,sell,buy:!sell,closed,kind:"REGULAR".into(),abandoned_request:None};
         let quantity=exec.or(if closed{amount}else{None}).unwrap_or(0);
         // RULING-B2A-R3: invalid supplied fields refuse even when a fallback is usable.
         let malformed=[amount,exec,price,quote].into_iter().flatten().any(|n|n<0);
@@ -136,7 +136,7 @@ fn fill_completeness_covers_every_quantity_value_column_combination() {
 #[test]
 fn normalized_fill_multiplies_decimals_without_float_rounding() {
     use deltabadger::figures::{at::At,db::Order,dec::Dec,fill};
-    let row=Order{id:1,at:At(0),exchange_id:None,raw:fill::Raw::new(Some(Dec::parse("9007199254740993.1").unwrap()),None,Some(Dec::parse("0.1").unwrap()),None),base:None,asset_id:None,sell:true,buy:false,closed:false,kind:"REGULAR".into()};
+    let row=Order{id:1,at:At(0),exchange_id:None,raw:fill::Raw::new(Some(Dec::parse("9007199254740993.1").unwrap()),None,Some(Dec::parse("0.1").unwrap()),None),base:None,asset_id:None,sell:true,buy:false,closed:false,kind:"REGULAR".into(), abandoned_request: None};
     let parsed=fill::parse(&row).unwrap().unwrap();
     assert_eq!(parsed.value.to_s_f(),"900719925474099.31");
 }
