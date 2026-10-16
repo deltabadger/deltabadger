@@ -7,10 +7,21 @@ class Exchanges::Bitvavo < Exchange
     #   216 {"errorCode":216,"error":"You do not have sufficient balance to complete this operation."}
     #   305 {"errorCode":305,"error":"No active API key found."}
     #   301 {"errorCode":301,"error":"API Key must be of length 64."}
-    # Matched on the prose rather than the code so the pattern cannot collide with an unrelated
-    # number elsewhere in the payload (a timestamp, a quantity, an order id).
+    # The rest are matched on the code as the body spells it ("errorCode":309), which cannot collide
+    # with a number elsewhere in the payload. Codes: https://docs.bitvavo.com/docs/errors/
     insufficient_funds: ['sufficient balance to complete'],
-    invalid_key: ['No active API key found', 'API Key must be of length']
+    # 305/306 inactive or unconfirmed key, 301 malformed key, 308/309 a signature the secret did not make.
+    invalid_key: ['No active API key found', 'API Key must be of length', '"errorCode":308', '"errorCode":309'],
+    # 307 IP not whitelisted, 310 no Trade, 311 no View, 312 no Withdraw: the key itself is good.
+    permission_denied: ['"errorCode":307', '"errorCode":310', '"errorCode":311', '"errorCode":312'],
+    # 105: over the weight limit, blocked for a minute.
+    throttle: ['"errorCode":105', 'Too Many Requests'],
+    # 101/400 unknown server error, 107 overloaded, 108 processing issue, 109 timed out (may have
+    # succeeded), 111 matching engine down, 419 server unavailable, 304 outside the access window.
+    transient: ['"errorCode":101', '"errorCode":107', '"errorCode":108', '"errorCode":109', '"errorCode":111',
+                '"errorCode":400', '"errorCode":419', '"errorCode":304'],
+    # 304 is an authentication failure: the request never reached the matching engine.
+    placement_safe_transient: ['"errorCode":304']
   }.freeze
   ORDER_STATUS_MAP = {
     'new' => :open,
@@ -176,30 +187,25 @@ class Exchanges::Bitvavo < Exchange
     }
     interval = intervals[timeframe]
 
+    # Bitvavo answers newest first with the LATEST 1440 candles of the range, so a longer range is
+    # read backwards: each page ends (exclusive) where the previous one began.
     limit = 1440
-    candles = []
+    rows = {}
+    end_ms = nil
     loop do
-      result = client.get_candles(
-        market: ticker.ticker,
-        interval: interval,
-        start_time: start_at.to_i * 1000,
-        limit: limit
-      )
+      result = client.get_candles(market: ticker.ticker, interval: interval, start_time: start_at.to_i * 1000,
+                                  end_time: end_ms, limit: limit)
       return result if result.failure?
 
-      result.data.each do |candle|
-        candles << [
-          Time.at(candle[0].to_i / 1000).utc,
-          candle[1].to_d,
-          candle[2].to_d,
-          candle[3].to_d,
-          candle[4].to_d,
-          candle[5].to_d
-        ]
-      end
-      break if result.data.empty? || result.data.size < limit
+      page = Array(result.data)
+      page.each { |candle| rows[candle[0].to_i] = candle }
+      oldest = page.map { |candle| candle[0].to_i }.min
+      break if page.size < limit || (end_ms && oldest >= end_ms)
 
-      start_at = candles.last[0] + 1.second
+      end_ms = oldest
+    end
+    candles = rows.sort.map do |timestamp, candle|
+      [Time.at(timestamp / 1000).utc, candle[1].to_d, candle[2].to_d, candle[3].to_d, candle[4].to_d, candle[5].to_d]
     end
 
     candles = build_candles_from_candles(candles: candles, timeframe: timeframe) if timeframe.in?([3.days,
@@ -289,11 +295,13 @@ class Exchanges::Bitvavo < Exchange
   end
 
   # Decided by Bitvavo's documented errorCodes (https://docs.bitvavo.com/docs/errors/), read from the
-  # error body. The trading probe cancels an order that does not exist: 240 "no order found" means the
-  # key got past the permission check; 310 means it lacks Trade. Everything else — a timeout, a rate
-  # limit, an outage, an unknown code — leaves the key unverified (all of these used to pass).
+  # error body. Every key reads the balance, which needs View. A trading or tracker key then cancels
+  # an order that does not exist: 240 "no order found" means the key got past the permission check,
+  # 310 means it lacks Trade. The steps ask for both, and Bitvavo serves orders and trades only to a
+  # key with both (https://docs.bitvavo.com/docs/rest-api/introduction/#permissions). Everything
+  # else — a timeout, a rate limit, an outage, an unknown code — leaves the key unverified.
   KEY_CHECK_ORDER_NOT_FOUND = 240
-  KEY_CHECK_NO_TRADE = 310
+  KEY_CHECK_REFUSED = [310, 311].freeze # no Trade, no View
 
   def get_api_key_validity(api_key:)
     temp_client = Honeymaker.client('bitvavo',
@@ -301,21 +309,25 @@ class Exchanges::Bitvavo < Exchange
                                     api_secret: api_key.secret,
                                     proxy: ExchangeProxy.for('bitvavo'))
 
-    result = if api_key.withdrawal?
-               temp_client.get_raw_balance
-             else
-               temp_client.cancel_order(market: 'BTC-EUR', order_id: '00000000-0000-0000-0000-000000000000')
-             end
+    probes = [-> { temp_client.get_raw_balance }]
+    probes << -> { temp_client.cancel_order(market: 'BTC-EUR', order_id: '00000000-0000-0000-0000-000000000000') } unless api_key.withdrawal?
+    probes.each do |probe|
+      result = probe.call
+      code = response_field(result, 'errorCode')
+      next if (result.success? && code.nil?) || code == KEY_CHECK_ORDER_NOT_FOUND
 
-    code = response_field(result, 'errorCode')
-    return Result::Success.new(true) if result.success? && code.nil?
+      # An HTTP-200 envelope carries its error in the body, not in `errors`.
+      answer = result.success? ? [result.data.to_json] : result.errors
+      return Result::Success.new(false) if KEY_CHECK_REFUSED.include?(code) || condemning_invalid_key_error?(answer)
 
-    message = response_field(result, 'error').to_s.presence || result.errors.first.to_s
-    return Result::Success.new(true) if !api_key.withdrawal? && code == KEY_CHECK_ORDER_NOT_FOUND
-    return Result::Success.new(false) if code == KEY_CHECK_NO_TRADE && !api_key.withdrawal?
-    return Result::Success.new(false) if ERRORS[:invalid_key].any? { |msg| message.include?(msg) }
+      return result.failure? ? result : Result::Failure.new(response_field(result, 'error').presence || "Bitvavo answered errorCode #{code}")
+    end
+    Result::Success.new(true)
+  end
 
-    result.failure? ? result : Result::Failure.new(message.presence || "Bitvavo answered errorCode #{code}")
+  # A tracker key is checked like a trading one: the ledger reads trades, which need Trade too.
+  def get_read_api_key_validity(api_key:)
+    get_api_key_validity(api_key: api_key)
   end
 
   def minimum_amount_logic(order_type:, **)
@@ -360,62 +372,73 @@ class Exchanges::Bitvavo < Exchange
     start_ms = start_time ? (start_time.to_f * 1000).to_i : nil
     entries = []
 
-    # Discover coins from balances, then query trades per market
-    coins = Set.new
-    bal_result = hm_client.get_raw_balance
-    if bal_result.success?
-      Array(bal_result.data).each { |b| coins << b['symbol'] if b['available'].to_d.positive? || b['inOrder'].to_d.positive? }
+    # Deposits and withdrawals. Any failed read fails the whole fetch: a partial Success would let the
+    # sync move its watermark past the rows it never got.
+    deposits = read_transfers(hm_client, DEPOSITS_PATH, start_ms)
+    return deposits if deposits.failure?
+
+    deposits.data.each do |dep|
+      # The docs give a status for fiat deposits only; a crypto deposit may come without one.
+      next if dep['status'].present? && dep['status'] != 'completed'
+
+      fee = dep['fee'].to_d
+      # No record id, and txId is the chain transaction (absent for fiat): the sync keys these on
+      # the event itself.
+      entries << { entry_type: :deposit, base_currency: dep['symbol'], base_amount: dep['amount'].to_d,
+                   quote_currency: nil, quote_amount: nil,
+                   fee_currency: fee.positive? ? dep['symbol'] : nil, fee_amount: fee.positive? ? fee : nil,
+                   tx_id: nil, group_id: nil, description: nil,
+                   transacted_at: Time.at(dep['timestamp'].to_i / 1000.0).utc, raw_data: dep }
     end
 
-    markets_result = hm_client.get_markets
-    traded_markets = if markets_result.success?
-                       Array(markets_result.data).select { |m| coins.include?(m['base']) }.map { |m| m['market'] }
-                     else
-                       tickers.available.pluck(:ticker)
-                     end
+    withdrawals = read_transfers(hm_client, WITHDRAWALS_PATH, start_ms)
+    return withdrawals if withdrawals.failure?
 
-    traded_markets.each do |market|
-      result = hm_client.get_trades(market: market, start_time: start_ms)
-      next if result.failure?
+    withdrawals.data.each do |wd|
+      next unless wd['status'] == 'completed'
 
-      parts = market.split('-')
-      Array(result.data).each do |trade|
-        is_buyer = trade['side'] == 'buy'
-        entries << { entry_type: is_buyer ? :buy : :sell,
-                     base_currency: parts[0], base_amount: trade['amount'].to_d,
-                     quote_currency: parts[1], quote_amount: (trade['amount'].to_d * trade['price'].to_d),
+      entries << { entry_type: :withdrawal, base_currency: wd['symbol'], base_amount: wd['amount'].to_d,
+                   quote_currency: nil, quote_amount: nil,
+                   fee_currency: wd['symbol'], fee_amount: wd['fee'].to_d,
+                   tx_id: nil, group_id: nil, description: nil,
+                   transacted_at: Time.at(wd['timestamp'].to_i / 1000.0).utc, raw_data: wd }
+    end
+
+    # Trades, per market: every market whose base the account holds or moved in the window, the
+    # markets it traded before, and the ones its bots ordered on. Without the balances or the listing,
+    # markets would go unread while the fetch succeeded.
+    coins = entries.to_set { |entry| entry[:base_currency] }
+    balances = hm_client.get_raw_balance
+    sleep(LEDGER_READ_PAUSE)
+    return balances if balances.failure?
+
+    Array(balances.data).each { |b| coins << b['symbol'] if b['available'].to_d.positive? || b['inOrder'].to_d.positive? }
+    listing = hm_client.get_markets
+    return listing if listing.failure?
+
+    # A sale that emptied a coin leaves no balance to find its market by, and a bot's buy and sell
+    # between two syncs leave no balance, transfer or stored row behind.
+    # ponytail: /v2/trades takes one market, so a market traded by hand, bought and sold out between
+    # two syncs and never seen before, is still not read. /v2/account/history would find it.
+    traded_before = AccountTransaction.where(user_id: api_key.user_id, exchange_id: api_key.exchange_id)
+                                      .where(entry_type: %i[buy sell]).distinct
+                                      .pluck(:base_currency, :quote_currency)
+    traded_before += Transaction.joins(:bot).where(exchange_id: api_key.exchange_id, bots: { user_id: api_key.user_id })
+                                .distinct.pluck(:base, :quote)
+    traded_before = traded_before.map { |pair| pair.join('-') }
+    markets = Array(listing.data).map { |m| m['market'] }
+    markets.select { |market| coins.include?(market.split('-').first) || traded_before.include?(market) }.each do |market|
+      trades = read_trades(hm_client, market, start_ms, pause: LEDGER_READ_PAUSE)
+      return trades if trades.failure?
+
+      base, quote = market.split('-')
+      trades.data.each do |trade|
+        entries << { entry_type: trade['side'] == 'buy' ? :buy : :sell,
+                     base_currency: base, base_amount: trade['amount'].to_d,
+                     quote_currency: quote, quote_amount: trade['amount'].to_d * trade['price'].to_d,
                      fee_currency: trade['feeCurrency'], fee_amount: trade['fee'].to_d,
                      tx_id: trade['id'], group_id: nil, description: nil,
                      transacted_at: Time.at(trade['timestamp'].to_i / 1000.0).utc, raw_data: trade }
-      end
-    end
-
-    # Deposits
-    result = hm_client.get_deposit_history(start_time: start_ms)
-    unless result.failure?
-      Array(result.data).each do |dep|
-        next unless dep['status'] == 'completed'
-
-        entries << { entry_type: :deposit, base_currency: dep['symbol'], base_amount: dep['amount'].to_d,
-                     quote_currency: nil, quote_amount: nil,
-                     fee_currency: dep['fee'].to_d.positive? ? dep['symbol'] : nil,
-                     fee_amount: dep['fee'].to_d.positive? ? dep['fee'].to_d : nil,
-                     tx_id: dep['txId'] || dep['id'], group_id: nil, description: nil,
-                     transacted_at: Time.at(dep['timestamp'].to_i / 1000.0).utc, raw_data: dep }
-      end
-    end
-
-    # Withdrawals
-    result = hm_client.get_withdrawal_history(start_time: start_ms)
-    unless result.failure?
-      Array(result.data).each do |wd|
-        next unless wd['status'] == 'completed'
-
-        entries << { entry_type: :withdrawal, base_currency: wd['symbol'], base_amount: wd['amount'].to_d,
-                     quote_currency: nil, quote_amount: nil,
-                     fee_currency: wd['symbol'], fee_amount: wd['fee'].to_d,
-                     tx_id: wd['txId'] || wd['id'], group_id: nil, description: nil,
-                     transacted_at: Time.at(wd['timestamp'].to_i / 1000.0).utc, raw_data: wd }
       end
     end
 
@@ -424,19 +447,47 @@ class Exchanges::Bitvavo < Exchange
 
   private
 
-  BITVAVO_NOT_FOUND_MESSAGE = 'No active order found'.freeze # errorCode 240
-  # Faraday JSON-parses the error body to a Ruby Hash, so honeymaker surfaces its stringified form.
-  # Ruby 3.4's Hash#to_s renders `"errorCode" => 240` (spaced); earlier Rubies render `"errorCode"=>240`
-  # (no space). Match both so a Ruby upgrade can't silently break detection. The raw-JSON form
-  # ("errorCode":240) and a bare "errorCode 240" are matched too, defensively.
-  BITVAVO_NOT_FOUND_CODES   = ['"errorCode" => 240', '"errorCode"=>240', '"errorCode":240',
-                               'errorCode 240'].freeze
-  TRADES_PAGE_LIMIT  = 1000              # Bitvavo /v2/trades hard max
-  TRADES_WINDOW      = 24.hours          # Bitvavo /v2/trades: `end - start` must be <= 24h
-  TRADES_MAX_WINDOWS = 40                # safety cap (40 * 24h = 40d > 14d StaleOrder threshold)
-  TRADES_MAX_PAGES   = 50                # per-window page cap (50 * 1000 trades is far beyond DCA)
-  private_constant :BITVAVO_NOT_FOUND_MESSAGE, :BITVAVO_NOT_FOUND_CODES,
-                   :TRADES_PAGE_LIMIT, :TRADES_WINDOW, :TRADES_MAX_WINDOWS, :TRADES_MAX_PAGES
+  # https://docs.bitvavo.com/docs/rest-api/get-deposit-history/ and …/get-withdrawal-history/.
+  # honeymaker 0.12.3 reads /v2/deposit (the deposit address) and GET /v2/withdrawal (405).
+  DEPOSITS_PATH = '/v2/depositHistory'.freeze
+  WITHDRAWALS_PATH = '/v2/withdrawalHistory'.freeze
+  TRANSFERS_PAGE_LIMIT = 1000
+  # https://docs.bitvavo.com/docs/rate-limits/: 1000 weight points a minute per account, then blocked
+  # for a minute (105). The ledger's reads weigh 5 each (balance, transfer history, trades); paced to
+  # 800 a minute, leaving the rest to the bots trading on the same account.
+  LEDGER_READ_PAUSE = 60.0 / 800 * 5
+  TRADES_PAGE_LIMIT = 1000 # Bitvavo /v2/trades hard max
+  private_constant :DEPOSITS_PATH, :WITHDRAWALS_PATH, :TRANSFERS_PAGE_LIMIT, :LEDGER_READ_PAUSE, :TRADES_PAGE_LIMIT
+
+  # Every transfer since start_ms (all of them without one). Newest first, at most 1000 a call, and
+  # no record id or cursor: each page ends at the oldest timestamp of the one before, plus a
+  # millisecond so rows sharing it are read again rather than skipped. Identical rows are counted, not
+  # collapsed: two equal fiat deposits in one page are two deposits, and a row re-read at the boundary
+  # appears in both pages, so each row is kept as often as the page that holds it most. A full page that
+  # brings nothing new fails instead of looping.
+  def read_transfers(hm_client, path, start_ms)
+    rows = Hash.new(0)
+    end_ms = (Time.now.to_f * 1000).to_i + 1
+    loop do
+      result = hm_client.send(:get_signed, path, { start: start_ms || 0, end: end_ms, limit: TRANSFERS_PAGE_LIMIT })
+      sleep(LEDGER_READ_PAUSE)
+      return result if result.failure?
+
+      page = Array(result.data)
+      fresh = 0
+      page.tally.each do |row, count|
+        next if rows[row] >= count
+
+        rows[row] = count
+        fresh += 1
+      end
+      break if page.size < TRANSFERS_PAGE_LIMIT
+      return Result::Failure.new("#{name} #{path} returned a full page with nothing new") if fresh.zero?
+
+      end_ms = page.map { |row| row['timestamp'].to_i }.min + 1
+    end
+    Result::Success.new(rows.flat_map { |row, count| [row] * count })
+  end
 
   # "BTC-EUR-abc123" → ["BTC-EUR", "abc123"] (market can contain a dash; orderId can too).
   def split_order_id(order_id)
@@ -444,21 +495,20 @@ class Exchanges::Bitvavo < Exchange
     [parts[0..1].join('-'), parts[2..].join('-')]
   end
 
-  # Require BOTH the structured errorCode 240 AND the message: specific (won't catch a stray
-  # "240" in a price/qty field) and resilient (a tweak to either alone won't silently break it).
-  # Any non-240 failure (auth/transient/throttle) returns false → propagated untouched by get_order,
-  # so the order is NEVER mistaken for "gone" and routed into recovery/abandonment (Codex r1).
+  # Bitvavo's own errorCode in the JSON body, never the bare 404 a gateway or a wrong path also
+  # answers with. Its wording ("No order found. Please be aware…") is not matched: the docs give
+  # only the code, and the message this used to require was never the one Bitvavo sends.
+  # Any other failure (auth/transient/throttle) is propagated untouched by get_order, so the order
+  # is never mistaken for gone and routed into recovery/abandonment.
   def bitvavo_not_found?(result)
-    msg = Array(result.errors).join(' ')
-    msg.include?(BITVAVO_NOT_FOUND_MESSAGE) && BITVAVO_NOT_FOUND_CODES.any? { |c| msg.include?(c) }
+    response_field(result, 'errorCode') == KEY_CHECK_ORDER_NOT_FOUND # 240
   end
 
   # Bitvavo dropped the order (240). Recover any execution from get_trades — authoritative for
   # fills — keyed on this order's id, bounding the lookback by the order's own row (get_trades
   # needs a start_time, and get_order has none) minus a 1h buffer (immediate fill / clock skew).
-  # PAGINATES the [start, now] window (Bitvavo returns newest-first, capped at TRADES_PAGE_LIMIT)
-  # so a matching trade can't hide beyond the first page on a high-volume account (Codex r1) — this
-  # is what lets authoritative_missing_orders? be true. Returns a synthesized :closed when execution
+  # Reads every trade since then (read_trades), so a matching trade can't hide beyond the first page
+  # on a high-volume account — this is what lets authoritative_missing_orders? be true. Returns a synthesized :closed when execution
   # is proven, else a distinct not_found signal (so FetchAndUpdateOrderJob's StaleOrderResolver path
   # fires). A transient get_trades failure is PROPAGATED, never degraded to not_found (so the job
   # retries instead of abandoning a real fill).
@@ -468,66 +518,38 @@ class Exchanges::Bitvavo < Exchange
     return not_found_failure(order_id) unless since
 
     start_ms = ((since - 1.hour).to_f * 1000).to_i
-    result = fetch_order_trades(market, ext_order_id, start_ms)
+    result = read_trades(client, market, start_ms)
     return result if result.failure?
 
-    trades = result.data
+    trades = result.data.select { |trade| trade['orderId'].to_s == ext_order_id.to_s }
     return not_found_failure(order_id) if trades.empty?
 
     Result::Success.new(order_data_from_trades(order_id, market, trades))
   end
 
-  # Collect every Bitvavo trade whose orderId matches, across [start_ms, now]. Two nested loops:
-  #
-  #  * OUTER — chunk the range into <=24h windows. Bitvavo /v2/trades requires `end - start <= 24h`
-  #    (https://docs.bitvavo.com/docs/rest-api/get-trade-history), so a single call can't span an
-  #    order older than a day. We walk forward window by window until `now` (Codex r2).
-  #  * INNER — page each window newest-first using the `tradeIdTo` CURSOR, not a timestamp ceiling.
-  #    Bitvavo returns trades newest-first by sequence, and `tradeIdTo` returns trades strictly OLDER
-  #    than the given id, so cursoring by the page's LAST (oldest) id can't skip a same-millisecond
-  #    boundary trade the way an `end_ms - 1` ceiling could (Codex r2/r3). Re-query until a short
-  #    page (< limit) ends the window.
-  #
-  # Returns a Result: a page failure is PROPAGATED (so a transient blip retries, never abandons a
-  # real fill). Dedupe matched trades by `id`. DCA accounts resolve in one window / one page; the
-  # caps (TRADES_MAX_WINDOWS / TRADES_MAX_PAGES) are safety rails for pathological histories.
-  def fetch_order_trades(market, ext_order_id, start_ms)
-    matched = {} # trade id => trade
-    now_ms = (Time.current.to_f * 1000).to_i
-    window_start = start_ms
-    windows = 0
+  # Every trade on `market` from start_ms on (all of them without one). Bitvavo answers newest first,
+  # at most 1000 a call. With start and end the range is capped at 24 hours, and start alone is
+  # refused ("start and end must be provided together"), but a tradeIdTo cursor alone reaches any
+  # age and returns trades strictly older than that id (both checked live on the public trades
+  # endpoint, which takes the same parameters). So each page continues before the oldest id of the
+  # one before, until a short page or one that reaches past start_ms. Repeats are dropped by id, and
+  # a full page with nothing new fails rather than loops. A failed page fails the whole read.
+  def read_trades(hm_client, market, start_ms, pause: 0)
+    trades = {}
+    cursor = nil
+    loop do
+      result = hm_client.get_trades(market: market, limit: TRADES_PAGE_LIMIT, trade_id_to: cursor)
+      sleep(pause) if pause.positive?
+      return result if result.failure?
 
-    while window_start < now_ms && windows < TRADES_MAX_WINDOWS
-      windows += 1
-      window_end = [window_start + (TRADES_WINDOW.to_i * 1000), now_ms].min
-      trade_id_to = nil # newest first within the window
-      pages = 0
+      page = Array(result.data)
+      fresh = page.count { |trade| trades[trade['id']] ? false : (trades[trade['id']] = trade) }
+      break if page.size < TRADES_PAGE_LIMIT || (start_ms && page.map { |trade| trade['timestamp'].to_i }.min < start_ms)
+      return Result::Failure.new("#{name} trades on #{market} returned a full page with nothing new") if fresh.zero?
 
-      loop do
-        pages += 1
-        result = client.get_trades(market: market, start_time: window_start, end_time: window_end,
-                                   limit: TRADES_PAGE_LIMIT, trade_id_to: trade_id_to)
-        return result if result.failure?
-
-        page = Array(result.data)
-        break if page.empty?
-
-        page.each { |t| matched[t['id']] = t if t['orderId'].to_s == ext_order_id.to_s }
-
-        break if page.size < TRADES_PAGE_LIMIT || pages >= TRADES_MAX_PAGES
-
-        # Advance the cursor by the genuinely-oldest trade on the page. Bitvavo returns trades
-        # newest-first ordered by sequence/id, so the LAST element is the oldest — use its id, NOT
-        # min-by-timestamp (which, on a same-ms cluster, would pick the first minimum and advance
-        # by a single trade per request → could hit TRADES_MAX_PAGES before the match; Codex r3).
-        # `tradeIdTo` returns trades strictly older than this id, so we never re-fetch or skip it.
-        trade_id_to = page.last['id']
-      end
-
-      window_start = window_end # next <=24h window (window_end is the inclusive ceiling we just covered)
+      cursor = page.last['id'] # the oldest: pages come in trade sequence, newest first
     end
-
-    Result::Success.new(matched.values)
+    Result::Success.new(trades.values.select { |trade| start_ms.nil? || trade['timestamp'].to_i >= start_ms })
   end
 
   def not_found_failure(order_id)
@@ -643,10 +665,8 @@ class Exchanges::Bitvavo < Exchange
     amount_quote = nil if amount_quote.zero?
     amount_exec = order_data['filledAmount'].to_d
     quote_amount_exec = order_data['filledAmountQuote'].to_d
-    if price.zero? && quote_amount_exec.positive? && amount_exec.positive?
-      price = quote_amount_exec / amount_exec
-      price = ticker.adjusted_price(price: price, method: :round) if ticker.present?
-    end
+    # `price` is the limit set on the order; what traded is the average of the fills.
+    price = quote_amount_exec / amount_exec if quote_amount_exec.positive? && amount_exec.positive?
     price = nil if price.zero?
     status = parse_order_status(Utilities::Hash.dig_or_raise(order_data, 'status'))
 

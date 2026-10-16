@@ -24,7 +24,8 @@ const TABLES: [&str; 4] = ["bots", "transactions", "bot_activity_logs", "bot_ind
 const JSON_COLUMNS: [&str; 4] = ["settings", "transient_data", "details", "error_messages"];
 const MAX_ATTEMPTS: usize = 6;
 /// transient_data keys only this engine writes, besides the mail markers (notice::KEYS): Rails has none of them.
-const RUST_KEYS: [&str; 7] = ["run_generation", "tick_generation", "rust_placement", "rust_defer_until", "rust_amount_limit_stops_pending", "rust_failure_origin", "rust_rebalance_halted"];
+const RUST_KEYS: [&str; 8] = ["run_generation", "tick_generation", "rust_placement", "rust_defer_until", "rust_amount_limit_stops_pending", "rust_failure_origin",
+                               "rust_rebalance_halted", crate::engine::conditions::DEAD];
 
 fn raw(v: ValueRef<'_>) -> Value {
     match v {
@@ -171,7 +172,7 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
         let transport = ScriptedTransport::from_script(&scenario["script"]["alpaca"]);
         let posted = || transport.posted_orders().len();
         let venue = AlpacaVenue::new(transport.clone(), Urls::for_passphrase(Some("paper")));
-        let (poll, recover_sent) = play(&o, &venue, &scenario, bot_id, start, &posted).await?;
+        let (poll, recover_sent, checks) = play(&o, &venue, &scenario, bot_id, start, &posted).await?;
         // A raised follow-up is reported like Rails' job raise; a throttle or transient failure is a retry Rails enqueues.
         let poll_error = match poll { Some(polling::PollFailure::General(m)) => json!(m), _ => Value::Null };
         let funds_notified: bool = o.primary.query_row("SELECT last_end_of_funds_notification IS NOT NULL FROM bots WHERE id = ?1", [bot_id], |r| r.get(0))?;
@@ -179,6 +180,7 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
                               "funds_notified": funds_notified, "poll_error": poll_error });
         // The engine's reconciliation tick has no Rails counterpart: what it sent (nothing, expected) goes to the asserters only.
         if let Some(n) = recover_sent { out["recover_sent"] = json!(n); }
+        if let Some(c) = checks { out["checks"] = json!(c); }
         return Ok(out);
     }
     if scenario["venue"] == "binance" {
@@ -189,19 +191,22 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
         let pairs = crate::venue::binance::Pairs::load(&o.primary, exchange_id).map_err(EngineError::Data)?;
         let venue = crate::venue::binance::BinanceVenue::new(transport.clone(), crate::venue::binance::URL, "s").with_pairs(pairs);
         let posted = || binance_sent(&transport).len();
-        let (poll, _) = play(&o, &venue, &scenario, bot_id, start, &posted).await?;
+        let (poll, _, checks) = play(&o, &venue, &scenario, bot_id, start, &posted).await?;
         let poll_error = match poll { Some(polling::PollFailure::General(m)) => json!(m), _ => Value::Null };
         let funds_notified: bool = o.primary.query_row("SELECT last_end_of_funds_notification IS NOT NULL FROM bots WHERE id = ?1", [bot_id], |r| r.get(0))?;
-        return Ok(json!({ "sent": binance_sent(&transport), "changes": diff(&before, &snapshot(&o.primary)?), "mails": mails(&o.primary, &owed)?,
-                          "funds_notified": funds_notified, "poll_error": poll_error }));
+        let mut out = json!({ "sent": binance_sent(&transport), "changes": diff(&before, &snapshot(&o.primary)?), "mails": mails(&o.primary, &owed)?,
+                          "funds_notified": funds_notified, "poll_error": poll_error });
+        if let Some(c) = checks { out["checks"] = json!(c); }
+        return Ok(out);
     }
     // Rust's real Kraken adapter over the bodies Rails' harness serves beneath Honeymaker::Clients::Kraken.
     let transport = ScriptedTransport::from_script(&kraken_script(&scenario["script"]));
     let posted = || kraken_sent(&transport).len();
     let venue = KrakenVenue::new(transport.clone());
-    let (poll, _) = play(&o, &venue, &scenario, bot_id, start, &posted).await?;
+    let (poll, _, checks) = play(&o, &venue, &scenario, bot_id, start, &posted).await?;
     let sent = kraken_sent(&transport);
     let mut out = json!({ "sent": sent, "changes": diff(&before, &snapshot(&o.primary)?), "mails": mails(&o.primary, &owed)? });
+    if let Some(c) = checks { out["checks"] = json!(c); }
     // A failed Kraken follow-up is reported, as the Rails harness reports one that raised (only the listed unreadable-number
     // scenarios fail a Kraken poll; anywhere else the key's presence alone makes the outputs differ).
     if let Some(e) = poll { out["poll_error"] = json!(format!("{e:?}")); }
@@ -213,14 +218,19 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
 /// `recover_at` (Rust only: Rails has no job then, its next run is at next_interval_checkpoint_at); the next checkpoint's tick
 /// at `next_at` (both). Returns how the poll failed and, when there is a reconciliation tick, how many orders it sent.
 async fn play<V: Venue>(o: &Opened, venue: &V, scenario: &Value, bot_id: i64, start: DateTime<Utc>, posted: &dyn Fn() -> usize)
-    -> Result<(Option<polling::PollFailure>, Option<usize>), EngineError> {
+    -> Result<(Option<polling::PollFailure>, Option<usize>, Option<Vec<String>>), EngineError> {
     // One price cache across retries and phases, as Rails' 5 s cache spans its retried jobs.
     let prices = PriceCache::default();
     let cx = TickContext { credential_version: crate::engine::model::credential_version(&o.primary, &crate::engine::model::load_bot(&o.primary, bot_id)?)?, prices: &prices, process_start: DateTime::<Utc>::MIN_UTC, stopping: &|| false, below_minimum: &|_, _| {} };
     let at = |key: &str| -> Result<Option<DateTime<Utc>>, EngineError> {
         scenario[key].as_str().map(|s| s.parse::<DateTime<Utc>>().map_err(|e| EngineError::Data(format!("scenario.{key}: {e}")))).transpose()
     };
-    if scenario["tick"] != false { ticks(o, venue, bot_id, start, &cx).await?; }
+    // A condition scenario lists every Bot::PriceLimitCheckJob a phase queues, at its time (conditions::end_of_minute and the
+    // check's own next time), as Rails' harness reads them off its queue.
+    let listing = scenario["conditions"] == true;
+    let mut checks = vec![];
+    let queued = |t: DateTime<Utc>| t.to_rfc3339_opts(chrono::SecondsFormat::Micros, true);
+    if scenario["tick"] != false { if let Some(t) = ticks(o, venue, bot_id, start, &cx).await? { checks.push(queued(crate::engine::conditions::end_of_minute(t))); } }
     // ponytail: the poll's retries are not replayed; no grid scenario fails a poll with a retryable error.
     let mut poll = None;
     if let Some(ext) = scenario["poll"].as_str() {
@@ -237,25 +247,38 @@ async fn play<V: Venue>(o: &Opened, venue: &V, scenario: &Value, bot_id: i64, st
         tick::tick_recovering(&o.primary, venue, bot_id, &FixedClock(when), &mut Attempts::default(), &mut None, &cx).await?;
         recover_sent = Some(posted() - before);
     }
+    // Bot::PriceLimitCheckJob at `check_at`: met, the Bot::ActionJob it enqueues runs at once.
+    if let Some(when) = at("check_at")? {
+        use crate::engine::conditions::{self, Checked};
+        let bot = model::load_bot(&o.primary, bot_id)?;
+        match conditions::check(&o.primary, venue, &bot, &FixedClock(when), &prices, &cx.credential_version).await {
+            Ok(Checked::Rearmed) => { if let Some(t) = ticks(o, venue, bot_id, when, &cx).await? { checks.push(queued(conditions::end_of_minute(t))); } }
+            Ok(Checked::Next(t)) => checks.push(queued(t)),
+            Ok(Checked::Gone) => {}
+            // The job raised: no successor (the chain waits for Repair).
+            Err(EngineError::Data(_)) => {}
+            Err(e) => return Err(e),
+        }
+    }
     if let Some(when) = at("next_at")? { ticks(o, venue, bot_id, when, &cx).await?; }
     // Bot::EvaluateRebalancersJob's fires: one Bot::RebalanceJob each.
     for when in scenario["rebalance_at"].as_array().into_iter().flatten() {
         let when: DateTime<Utc> = when.as_str().and_then(|s| s.parse().ok()).ok_or_else(|| EngineError::Data(format!("scenario.rebalance_at: {when}")))?;
         crate::engine::rebalance::run(&o.primary, venue, bot_id, &FixedClock(when), &cx).await?;
     }
-    Ok((poll, recover_sent))
+    Ok((poll, recover_sent, listing.then_some(checks)))
 }
 
-/// One Bot::ActionJob run at `start` and the retries it enqueues for itself.
-async fn ticks<V: Venue>(o: &Opened, venue: &V, bot_id: i64, start: DateTime<Utc>, cx: &TickContext<'_>) -> Result<(), EngineError> {
+/// One Bot::ActionJob run at `start` and the retries it enqueues for itself. Some(at): the run at `at` paused the bot.
+async fn ticks<V: Venue>(o: &Opened, venue: &V, bot_id: i64, start: DateTime<Utc>, cx: &TickContext<'_>) -> Result<Option<DateTime<Utc>>, EngineError> {
     let (mut at, mut attempts) = (start, Attempts::default());
     for _ in 0..MAX_ATTEMPTS {
         match tick::tick_recovering(&o.primary, venue, bot_id, &FixedClock(at), &mut attempts, &mut None, cx).await? {
             TickOutcome::RetryAfter(d) => at += chrono::Duration::from_std(d).unwrap(),
-            _ => break,
+            outcome => return Ok(matches!(outcome, TickOutcome::Paused).then_some(at)),
         }
     }
-    Ok(())
+    Ok(None)
 }
 
 /// For every bot this engine would run on the copy at `src`: its own scenario, ticking 1 s after its next

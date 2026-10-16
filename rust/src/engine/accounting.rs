@@ -121,11 +121,32 @@ pub(crate) fn serialized(value: Num) -> Result<Value, EngineError> {
 /// Nothing in polling moves missed_quote_amount any more. The window is max(started_at, settings_changed_at), inclusive
 /// for every row.
 pub fn pending_quote_amount(c: &Connection, bot: &Bot, now_us: i64) -> Result<BigDec, EngineError> {
+    pending_quote_amount_num(c, bot, now_us)?.to_dec().map_err(data)
+}
+
+/// The trigger rules' `started_at` decorator (price_limitable.rb:106-115 and its three siblings): for each buy-side rule
+/// that is on (`== true`), the later of started_at and its `*_condition_met_at`, nil while one is unmet. The engine's
+/// carry and the web's preview share it.
+pub fn condition_started_at(settings: &serde_json::Map<String, Value>, transient: &serde_json::Map<String, Value>, started: Option<i64>) -> Result<Option<i64>, EngineError> {
+    let mut started = started;
+    for prefix in ["price_limit", "price_drop_limit", "moving_average_limit", "indicator_limit"] {
+        if settings.get(&format!("{prefix}ed")) != Some(&Value::Bool(true)) { continue; }
+        let met = codec::optional_time(transient.get(&format!("{prefix}_condition_met_at"))).map_err(|_| data("unreadable stored timestamp"))?;
+        started = started.zip(met).map(|(a, b)| a.max(b.timestamp_micros()));
+    }
+    Ok(started)
+}
+
+/// pending_quote_amount in Ruby's own class (Integer 0, or the Integer, Float or BigDecimal the arithmetic gives): what
+/// set_missed_quote_amount stores.
+pub fn pending_quote_amount_num(c: &Connection, bot: &Bot, now_us: i64) -> Result<Num, EngineError> {
     validate_stored_amounts(&bot.settings, &bot.transient)?;
-    if bot.status == BotStatus::Deleted { return Ok(BigDec::zero()); }
+    if bot.status == BotStatus::Deleted { return Ok(Num::Int(0)); }
     // While selling the buy carry is frozen: the stored missed_quote_amount, before the started_at guard (accountable.rb:27).
-    if bot.selling() { return carry_num(bot.transient.get("missed_quote_amount"))?.to_dec().map_err(data); }
-    let Some(started) = bot.started_at_us()? else { return Ok(BigDec::zero()) };
+    if bot.selling() { return carry_num(bot.transient.get("missed_quote_amount")); }
+    let Some(started) = bot.started_at_us()? else { return Ok(Num::Int(0)) };
+    // A price rule that is on and unmet: started_at reads nil, and nothing is owed (accountable.rb:29).
+    if bot.condition_started_us()?.is_none() { return Ok(Num::Int(0)); }
     let since = bot.calc_since_us()?.ok_or_else(super::schedule::time_range_error)?;
     // Rails binds a Time as its quoted_date text and SQLite compares text: bind the same text.
     let since_text = format_time(at(since)?);
@@ -138,7 +159,7 @@ pub fn pending_quote_amount(c: &Connection, bot: &Bot, now_us: i64) -> Result<Bi
     let eff = effective(interval, quote_amount, smart);
     let intervals = interval_count(checkpoints(started, now_us, eff.clone())?.last_us, since, eff)?;
     // Keep Integer/Float settings kinds; Accountable alone determines carry coercion.
-    pending_window(bot.effective_quote_amount_num()?, intervals, carry_num(bot.transient.get("missed_quote_amount"))?, &rows)?.to_dec().map_err(data)
+    pending_window(bot.effective_quote_amount_num()?, intervals, carry_num(bot.transient.get("missed_quote_amount"))?, &rows)
 }
 
 /// Bot::Lifecycle#start(start_fresh: false)'s `set_orders_now`, for a stopped bot the web continued. `use_delayed_first` is
@@ -329,14 +350,8 @@ pub fn web_pending(c: &Connection, bot: &WebBot, now: DateTime<Utc>) -> Result<W
     validate_web_amounts(bot)?;
     // Frozen while selling, before the started_at guard, as the engine's pending_quote_amount.
     if bot.text("direction") == Some("selling") { return web_capped(c, bot, carry_num(bot.transient.get("missed_quote_amount"))?); }
-    let mut started = bot.started_at;
-    for prefix in ["price_limit", "price_drop_limit", "moving_average_limit", "indicator_limit"] {
-        if bot.on(&format!("{prefix}ed")) {
-            let met = codec::optional_time(bot.transient.get(&format!("{prefix}_condition_met_at"))).map_err(|_| error("unreadable stored timestamp"))?;
-            started = started.zip(met).map(|(a,b)| a.max(b));
-        }
-    }
-    let Some(started) = started else { return Ok(WebNum::Int(0)) };
+    let started = condition_started_at(&bot.settings, &bot.transient, bot.started_at.map(|t| t.timestamp_micros()))?;
+    let Some(started) = started.and_then(DateTime::from_timestamp_micros) else { return Ok(WebNum::Int(0)) };
     let changed: Option<String> = c.query_row("SELECT settings_changed_at FROM bots WHERE id=?1", [bot.id], |r| r.get(0))?;
     let since = changed.as_deref().map(codec::parse_time).transpose().map_err(|_| error("invalid settings window"))?.map_or(started, |at| at.max(started));
     let eff = bot.effective().ok_or_else(|| error("invalid carry interval"))?;
@@ -409,7 +424,7 @@ pub fn web_amount_limit(c: &Connection, bot: &WebBot) -> Result<Option<start::Li
     Ok(Some(start::Limit { left: Some(view(left)), reached }))
 }
 /// Automation::Schedulable::INTERVALS, in seconds as `interval_duration.to_f` gives them.
-fn interval_seconds(interval: super::schedule::Interval) -> f64 {
+pub(crate) fn interval_seconds(interval: super::schedule::Interval) -> f64 {
     match interval { super::schedule::Interval::Hour => 3_600.0, super::schedule::Interval::Day => 86_400.0, super::schedule::Interval::Week => 604_800.0, super::schedule::Interval::Month => 2_629_746.0 }
 }
 
@@ -509,7 +524,13 @@ pub fn index_redeploy_totals(orders: &[crate::figures::db::Order]) -> Result<(cr
         crate::figures::budget::charge(1,0)?;
         match order.kind.as_str(){
             "LIQUIDATION"=>if let Some(value)=crate::figures::fill::reported(order)? { banked=(&banked+&value)?; },
-            "REDEPLOY"=>if let Some(fill)=crate::figures::fill::parse(order)? { spent=(&spent+&fill.value)?; },
+            "REDEPLOY"=>{
+                let fill=crate::figures::fill::parse(order)?.map_or_else(Dec::zero,|fill| fill.value);
+                // Abandoned is "we lost track", not "it never filled": at least what it asked for, so clearing the halt
+                // never offers that money again. A row found later closes or cancels and reads its real fill alone.
+                let value=match &order.abandoned_request { Some(request) if request>&fill => request.clone(), _ => fill };
+                spent=(&spent+&value)?;
+            },
             _=>{},
         }
     }

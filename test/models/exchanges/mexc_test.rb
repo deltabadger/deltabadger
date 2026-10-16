@@ -13,7 +13,7 @@ class Exchanges::MexcTest < ActiveSupport::TestCase
     errors = @exchange.known_errors
     assert errors[:insufficient_funds].present?
     assert errors[:invalid_key].present?
-    assert_includes errors[:insufficient_funds], 'Insufficient balance.'
+    assert_includes errors[:insufficient_funds], 'Insufficient balance'
     assert_includes errors[:invalid_key], 'Invalid Api-Key ID.'
   end
 
@@ -109,5 +109,351 @@ class Exchanges::MexcTest < ActiveSupport::TestCase
     assert allowed[:trading_enabled], 'status "1" plus spot permission is tradable'
     assert disallowed[:available], 'still listed'
     assert_not disallowed[:trading_enabled], 'MEXC rejects a spot order for this symbol'
+  end
+
+  # Query Order, shaped like https://mexcdevelop.github.io/apidocs/spot_v3_en/#query-order. The
+  # Order Status enum lists PARTIALLY_CANCELED, which the map did not, so polling such an order raised.
+  def query_order_raw(overrides = {})
+    { 'symbol' => 'BTCUSDT', 'orderId' => 'C02__1', 'orderListId' => -1, 'price' => '60000', 'origQty' => '0.002',
+      'executedQty' => '0', 'cummulativeQuoteQty' => '0', 'status' => 'NEW', 'timeInForce' => 'GTC',
+      'type' => 'LIMIT', 'side' => 'BUY', 'time' => 1_499_827_319_559, 'updateTime' => 1_499_827_319_559,
+      'isWorking' => true, 'origQuoteOrderQty' => '0.000000' }.merge(overrides)
+  end
+
+  def stub_query_order(answers)
+    @exchange.send(:client).define_singleton_method(:query_order) do |symbol:, order_id:|
+      answer = answers.is_a?(Hash) && !answers.key?('symbol') ? answers.fetch(order_id) : answers
+      answer.is_a?(Hash) ? Result::Success.new(order_id: "#{symbol}-#{order_id}", raw: answer) : answer
+    end
+  end
+
+  test 'a partially filled order cancelled on MEXC reads as cancelled with its fill' do
+    stub_query_order(query_order_raw('status' => 'PARTIALLY_CANCELED', 'executedQty' => '0.001',
+                                     'cummulativeQuoteQty' => '60'))
+
+    result = with_dry_run(false) { @exchange.get_order(order_id: 'BTCUSDT-C02__1') }
+
+    assert_predicate result, :success?
+    assert_equal :cancelled, result.data[:status]
+    assert_equal '0.001'.to_d, result.data[:amount_exec]
+  end
+
+  # A limit order that crossed the book fills at better than its limit. The price field is the limit,
+  # so the stored price (and the average buy price built from it) was what the bot asked, not what
+  # it got.
+  test 'a filled limit order is priced at what it filled at, not at its limit' do
+    create(:ticker, exchange: @exchange, base_symbol: 'BTC', quote_symbol: 'USDT', price_decimals: 2)
+    stub_query_order(query_order_raw('status' => 'FILLED', 'price' => '60000', 'executedQty' => '0.002',
+                                     'cummulativeQuoteQty' => '118'))
+
+    result = with_dry_run(false) { @exchange.get_order(order_id: 'BTCUSDT-C02__1') }
+
+    assert_equal '59000'.to_d, result.data[:price]
+  end
+
+  test 'an unfilled limit order keeps its limit price' do
+    stub_query_order(query_order_raw)
+
+    result = with_dry_run(false) { @exchange.get_order(order_id: 'BTCUSDT-C02__1') }
+
+    assert_equal '60000'.to_d, result.data[:price]
+  end
+
+  # MEXC sends no LOT_SIZE or NOTIONAL filter (a live BTCUSDT carries PERCENT_PRICE_BY_SIDE only);
+  # its minimums are quoteAmountPrecision ("min order amount") and baseSizePrecision ("min order
+  # quantity"), https://mexcdevelop.github.io/apidocs/spot_v3_en/#exchange-information.
+  test 'get_tickers_info reads the minimums MEXC sends outside its filters' do
+    btc = { 'symbol' => 'BTCUSDT', 'status' => '1', 'baseAsset' => 'BTC', 'baseAssetPrecision' => 8,
+            'quoteAsset' => 'USDT', 'quotePrecision' => 2, 'quoteAssetPrecision' => 2,
+            'isSpotTradingAllowed' => true, 'quoteAmountPrecision' => '1', 'baseSizePrecision' => '0.000001',
+            'filters' => [{ 'filterType' => 'PERCENT_PRICE_BY_SIDE', 'bidMultiplierUp' => '0.005',
+                            'askMultiplierDown' => '0.005' }],
+            'maxQuoteAmount' => '4000000', 'quoteAmountPrecisionMarket' => '1', 'maxQuoteAmountMarket' => '4000000' }
+    @exchange.set_client
+    @exchange.send(:client).stubs(:exchange_information).returns(Result::Success.new('symbols' => [btc]))
+
+    info = @exchange.get_tickers_info(force: true).data.first
+
+    assert_equal '0.000001'.to_d, info[:minimum_base_size]
+    assert_equal 1.to_d, info[:minimum_quote_size]
+    assert_equal 4_000_000.to_d, info[:maximum_quote_size]
+  end
+
+  # Wording from https://mexcdevelop.github.io/apidocs/spot_v3_en/#error-code.
+  test 'the documented balance, key, permission, rate-limit and outage errors are classified' do
+    assert_equal :insufficient_funds, @exchange.failure_kind(['Insufficient balance'])        # 10101
+    assert_equal :insufficient_funds, @exchange.failure_kind(['Oversold'])                    # 30005
+    assert_equal :insufficient_funds, @exchange.failure_kind(['Insufficient position'])       # 30004
+    assert @exchange.invalid_key_error?(['API-key format invalid'])                           # 700001
+    assert @exchange.invalid_key_error?(['Signature verification failed'])                    # 602
+    assert @exchange.permission_error?(['No permission to access the endpoint'])              # 700007
+    assert @exchange.permission_error?(['IP non white list'])                                 # 700006
+    assert_not @exchange.invalid_key_error?(['No permission to access the endpoint'])
+    assert @exchange.throttled_error?(['Too Many Requests'])                                  # 429
+    assert @exchange.transient_error?(['service not available, please try again'])            # 503
+    assert @exchange.transient_error?(['Gateway Time-out'])                                   # 504
+  end
+
+  # One order MEXC no longer has failed every get_orders batch it was in, so the bot's other open
+  # orders were never polled and the gone one could never be retired.
+  test 'get_orders lists an order MEXC no longer has under missing and keeps the rest' do
+    stub_query_order(
+      '1' => Result::Failure.new('{"code":-2013,"msg":"Order does not exist."}', data: { status: 400 }),
+      '2' => query_order_raw('orderId' => '2'),
+      '3' => Result::Failure.new('{"code":-2011,"msg":"Unknown order sent"}', data: { status: 400 })
+    )
+
+    result = with_dry_run(false) { @exchange.get_orders(order_ids: %w[BTCUSDT-1 BTCUSDT-2 BTCUSDT-3]) }
+
+    assert_predicate result, :success?
+    assert_equal %w[BTCUSDT-1 BTCUSDT-3], result.data[:missing]
+    assert_equal :open, result.data[:orders]['BTCUSDT-2'][:status]
+  end
+
+  test 'get_orders still fails the batch on any other failure' do
+    stub_query_order(Result::Failure.new('{"code":700003,"msg":"Timestamp for this request is outside of the recvWindow."}',
+                                         data: { status: 400 }))
+
+    assert_predicate with_dry_run(false) { @exchange.get_orders(order_ids: %w[BTCUSDT-1]) }, :failure?
+  end
+
+  # Kline intervals are 1m 5m 15m 30m 60m 4h 1d 1W 1M
+  # (https://mexcdevelop.github.io/apidocs/spot_v3_en/#enum-definitions); a live request for 1h, 3d
+  # or 1w answers -1121 "Invalid interval.".
+  test 'get_candles asks for the kline intervals MEXC has' do
+    ticker = create(:ticker, exchange: @exchange, base_symbol: 'BTC', quote_symbol: 'USDT')
+    asked = []
+    @exchange.send(:client).define_singleton_method(:candlestick_data) do |interval:, **|
+      asked << interval
+      Result::Success.new([])
+    end
+
+    [1.hour, 1.week, 3.days].each { |tf| @exchange.get_candles(ticker: ticker, start_at: 2.days.ago, timeframe: tf) }
+
+    assert_equal %w[60m 1W 1d], asked.uniq
+  end
+
+  test 'get_candles builds 3-day candles from daily ones' do
+    ticker = create(:ticker, exchange: @exchange, base_symbol: 'BTC', quote_symbol: 'USDT')
+    day = 86_400_000
+    start = ((Time.now.utc.to_i / 259_200) * 259_200_000) - (3 * day)
+    daily = (0..2).map { |i| [start + (i * day), (10 + i).to_s, (20 + i).to_s, (5 + i).to_s, (11 + i).to_s, '1'] }
+    @exchange.send(:client).define_singleton_method(:candlestick_data) { |**| Result::Success.new(daily) }
+
+    candles = @exchange.get_candles(ticker: ticker, start_at: Time.at(start / 1000).utc, timeframe: 3.days).data
+
+    assert_equal [[Time.at(start / 1000).utc, 10.to_d, 22.to_d, 5.to_d, 13.to_d, 3.to_d]], candles
+  end
+
+  # Live: given a startTime alone, /api/v3/klines answers the newest 500 candles and ignores the
+  # start; with startTime and endTime it answers that range, 500 at most. Stubbed the same way.
+  test 'get_candles reads every window from the start to now, 500 klines at a time' do
+    ticker = create(:ticker, exchange: @exchange, base_symbol: 'BTC', quote_symbol: 'USDT')
+    hour = 3_600_000
+    now = Time.now.utc.to_i * 1000
+    open_times = ((now - (1200 * hour)) / hour * hour).step(now, hour).to_a
+    asked = []
+    @exchange.send(:client).define_singleton_method(:candlestick_data) do |start_time:, end_time: nil, limit: 500, **|
+      asked << [start_time, end_time]
+      times = end_time ? open_times.grep(start_time..end_time) : open_times
+      Result::Success.new(times.last([limit, 500].min).map { |t| [t, '1', '2', '0.5', '1.5', '10'] })
+    end
+
+    candles = @exchange.get_candles(ticker: ticker, start_at: Time.at(open_times.first / 1000).utc,
+                                    timeframe: 1.hour).data
+
+    assert_equal open_times.size, candles.size
+    assert_equal open_times.first / 1000, candles.first[0].to_i
+    assert(asked.all? { |_, end_time| end_time })
+  end
+
+  # Ledger stubs shaped like https://mexcdevelop.github.io/apidocs/spot_v3_en/ (deposit history,
+  # withdraw history, account information, account trade list).
+  def stub_ledger(deposits: [], withdrawals: [], balances: [], symbols: [], trades: {})
+    client = Honeymaker::Clients::Mexc.any_instance
+    client.stubs(:deposit_history).returns(Result::Success.new(deposits))
+    client.stubs(:withdraw_history).returns(Result::Success.new(withdrawals))
+    client.stubs(:account_information).returns(Result::Success.new('canTrade' => true, 'balances' => balances))
+    client.stubs(:exchange_information).returns(Result::Success.new('symbols' => symbols))
+    client.stubs(:account_trade_list).returns(Result::Success.new([]))
+    trades.each do |symbol, rows|
+      client.stubs(:account_trade_list).with(has_entry(:symbol, symbol)).returns(Result::Success.new(rows))
+    end
+  end
+
+  def ledger_api_key
+    create(:api_key, exchange: @exchange, key_type: :read_only)
+  end
+
+  # applyTime is epoch milliseconds (an integer in the doc, a string in captured answers); parsing
+  # it as a date string raised, so one completed withdrawal failed every sync of the account.
+  test 'get_ledger books a completed withdrawal, keyed by its record id' do
+    withdrawal = { 'id' => 'bb17a2d452684f00a523c015d512a341', 'txId' => nil, 'coin' => 'EOS', 'network' => 'EOS',
+                   'address' => 'zzqqqqqqqqqq', 'amount' => '10', 'transferType' => 0, 'status' => 7,
+                   'transactionFee' => '0.1', 'confirmNo' => nil, 'applyTime' => 1_665_300_874_000, 'remark' => '',
+                   'memo' => 'MX10086', 'transHash' => '0x0ced593b8b5adc9f600334d0d7335456a7ed772ea5547beda7ffc4f33a065c',
+                   'updateTime' => 1_712_134_082_000 }
+    stub_ledger(withdrawals: [withdrawal, withdrawal.merge('id' => 'second', 'applyTime' => '1665300875000')])
+
+    rows = @exchange.get_ledger(api_key: ledger_api_key, start_time: 2.days.ago).data.select { |e| e[:entry_type] == :withdrawal }
+
+    assert_equal(%w[bb17a2d452684f00a523c015d512a341 second], rows.map { |r| r[:tx_id] })
+    assert_equal Time.at(1_665_300_874).utc, rows.first[:transacted_at]
+    assert_equal 10.to_d, rows.first[:base_amount]
+  end
+
+  # Deposit status: 1 SMALL, 2 TIME_DELAY, 3 LARGE_DELAY, 4 PENDING, 5 SUCCESS, 6 AUDITING,
+  # 7 REJECTED, 8 REFUND, 9 PRE_SUCCESS, 10 INVALID, 11 RESTRICTED, 12 COMPLETED.
+  test 'get_ledger books credited deposits and skips the rest' do
+    deposit = { 'amount' => '50000', 'coin' => 'EOS', 'network' => 'EOS', 'status' => 5,
+                'address' => '0x20b7cf77db93d6ef1ab979c49142ec168427fdee', 'txId' => 'aa:0',
+                'insertTime' => 1_659_513_342_000, 'unlockConfirm' => '10', 'confirmTimes' => '241' }
+    stub_ledger(deposits: [deposit, deposit.merge('status' => '12', 'txId' => 'bb:0'),
+                           deposit.merge('status' => 1, 'txId' => 'cc:0'), deposit.merge('status' => 4, 'txId' => 'dd:0')])
+
+    rows = @exchange.get_ledger(api_key: ledger_api_key, start_time: 2.days.ago).data.select { |e| e[:entry_type] == :deposit }
+
+    assert_equal(%w[aa:0 bb:0], rows.map { |r| r[:tx_id] })
+  end
+
+  # Deposit and withdraw history answer the last 7 days when given no range, take a range of at most
+  # 7 days, and reach back 90 days at most. The ledger sent startTime alone (nothing on a first sync)
+  # and skipped a failed read while the fetch still succeeded.
+  test 'get_ledger reads transfers in 7-day ranges back to 90 days on a first sync' do
+    stub_ledger
+    asked = []
+    Honeymaker::Clients::Mexc.any_instance.stubs(:deposit_history).with do |**args|
+      asked << args
+      true
+    end.returns(Result::Success.new([]))
+
+    assert_predicate @exchange.get_ledger(api_key: ledger_api_key), :success?
+
+    assert_operator asked.size, :>=, 12
+    assert(asked.all? { |a| a[:end_time] && a[:end_time] - a[:start_time] <= 7.days.in_milliseconds })
+    assert_in_delta 89.days.ago.to_i, asked.first[:start_time] / 1000, 60
+    assert_in_delta Time.now.to_i, asked.last[:end_time] / 1000, 60
+  end
+
+  test 'a failed transfer read fails the fetch' do
+    stub_ledger
+    Honeymaker::Clients::Mexc.any_instance.stubs(:withdraw_history)
+                             .returns(Result::Failure.new('{"code":429,"msg":"Too Many Requests"}', data: { status: 429 }))
+
+    assert_predicate @exchange.get_ledger(api_key: ledger_api_key, start_time: 2.days.ago), :failure?
+  end
+
+  test 'a key without the wallet permission reads as no transfers' do
+    stub_ledger
+    Honeymaker::Clients::Mexc.any_instance.stubs(:deposit_history)
+                             .returns(Result::Failure.new('{"code":700007,"msg":"No permission to access the endpoint."}',
+                                                          data: { status: 403 }))
+
+    assert_predicate @exchange.get_ledger(api_key: ledger_api_key, start_time: 2.days.ago), :success?
+  end
+
+  # MEXC documents no paging for transfer history, so a range answered with a full page is read again
+  # in halves. The stub answers like the endpoint would: the first 1000 rows of the range asked.
+  test 'a full page of transfers is read again in halves until nothing is cut off' do
+    stub_ledger
+    start = 2.days.ago.change(usec: 0)
+    times = (0...1500).map { |i| (start.to_i * 1000) + (i * 60_000) }
+    fake = Honeymaker.client('mexc')
+    %i[withdraw_history account_trade_list].each { |m| fake.define_singleton_method(m) { |**| Result::Success.new([]) } }
+    fake.define_singleton_method(:account_information) { |**| Result::Success.new('balances' => []) }
+    fake.define_singleton_method(:exchange_information) { |**| Result::Success.new('symbols' => []) }
+    fake.define_singleton_method(:deposit_history) do |start_time:, end_time:, **|
+      rows = times.grep(start_time..end_time).first(1000)
+      Result::Success.new(rows.map { |t| { 'coin' => 'EOS', 'amount' => '1', 'status' => 5, 'txId' => "#{t}:0", 'insertTime' => t } })
+    end
+    Honeymaker.stubs(:client).returns(fake)
+
+    rows = @exchange.get_ledger(api_key: ledger_api_key, start_time: start).data.select { |r| r[:entry_type] == :deposit }
+
+    assert_equal 1500, rows.map { |r| r[:tx_id] }.uniq.size
+  end
+
+  BTCUSDT_LISTING = { 'symbol' => 'BTCUSDT', 'baseAsset' => 'BTC', 'quoteAsset' => 'USDT' }.freeze
+
+  # A fake client whose myTrades answers like the endpoint: the first `limit` (max 100) trades of the
+  # range asked, from https://mexcdevelop.github.io/apidocs/spot_v3_en/#account-trade-list.
+  def fake_trades_client(times, asked: [])
+    fake = Honeymaker.client('mexc')
+    %i[deposit_history withdraw_history].each { |m| fake.define_singleton_method(m) { |**| Result::Success.new([]) } }
+    fake.define_singleton_method(:account_information) do |**|
+      Result::Success.new('balances' => [{ 'asset' => 'BTC', 'free' => '1', 'locked' => '0' }])
+    end
+    fake.define_singleton_method(:exchange_information) { |**| Result::Success.new('symbols' => [BTCUSDT_LISTING]) }
+    fake.define_singleton_method(:account_trade_list) do |symbol:, start_time: nil, end_time: nil, limit: 500, **|
+      asked << { symbol:, start_time:, end_time:, limit: }
+      rows = times.select { |t| t >= start_time.to_i && t <= (end_time || Float::INFINITY) }.first([limit, 100].min)
+      Result::Success.new(rows.map do |t|
+        { 'symbol' => symbol, 'id' => "t#{t}", 'orderId' => "o#{t}", 'price' => '60000', 'qty' => '0.001',
+          'quoteQty' => '60', 'commission' => '0.06', 'commissionAsset' => 'USDT', 'time' => t.to_s,
+          'isBuyer' => true, 'isMaker' => false }
+      end)
+    end
+    Honeymaker.stubs(:client).returns(fake)
+    asked
+  end
+
+  # myTrades answers 100 trades at most and documents no paging; the ledger asked once per symbol, so
+  # a busy pair lost everything past its first page.
+  test 'get_ledger reads every trade of a busy pair' do
+    start = 10.days.ago.change(usec: 0)
+    asked = fake_trades_client((0...250).map { |i| (start.to_i * 1000) + (i * 60_000) })
+
+    rows = @exchange.get_ledger(api_key: ledger_api_key, start_time: start).data.select { |r| r[:entry_type] == :buy }
+
+    assert_equal 250, rows.map { |r| r[:tx_id] }.uniq.size
+    assert(asked.all? { |a| a[:limit] == 100 })
+  end
+
+  # Trades are kept for a month: a start further back is asked from a month ago.
+  test 'get_ledger asks for trades no further back than MEXC keeps them' do
+    asked = fake_trades_client([])
+
+    @exchange.get_ledger(api_key: ledger_api_key, start_time: 70.days.ago)
+
+    assert_operator asked.first[:start_time], :>=, 31.days.ago.to_i * 1000
+  end
+
+  test 'a failed trade or account read fails the fetch' do
+    fake_trades_client([])
+    fake = Honeymaker.client('mexc')
+    fake.define_singleton_method(:account_trade_list) do |**|
+      Result::Failure.new('{"code":429,"msg":"Too Many Requests"}', data: { status: 429 })
+    end
+    assert_predicate @exchange.get_ledger(api_key: ledger_api_key, start_time: 2.days.ago), :failure?
+
+    fake.define_singleton_method(:account_information) do |**|
+      Result::Failure.new('{"code":503,"msg":"service not available, please try again"}', data: { status: 503 })
+    end
+    assert_predicate @exchange.get_ledger(api_key: ledger_api_key, start_time: 2.days.ago), :failure?
+  end
+
+  test 'a pair MEXC no longer lists is skipped, not a failed fetch' do
+    fake_trades_client([])
+    Honeymaker.client('mexc').define_singleton_method(:account_trade_list) do |**|
+      Result::Failure.new('{"msg":"Invalid symbol.","code":-1121}', data: { status: 400 })
+    end
+
+    assert_predicate @exchange.get_ledger(api_key: ledger_api_key, start_time: 2.days.ago), :success?
+  end
+
+  # Pairs were found only from coins held now or moved in the window, so the sale that emptied a coin
+  # was never read once the balance was zero.
+  test 'get_ledger reads a pair the account traded before even when the coin is sold out' do
+    api_key = ledger_api_key
+    create(:account_transaction, api_key: api_key, base_currency: 'PEPE', quote_currency: 'USDT')
+    asked = fake_trades_client([])
+    Honeymaker.client('mexc').define_singleton_method(:account_information) { |**| Result::Success.new('balances' => []) }
+    Honeymaker.client('mexc').define_singleton_method(:exchange_information) do |**|
+      Result::Success.new('symbols' => [BTCUSDT_LISTING, { 'symbol' => 'PEPEUSDT', 'baseAsset' => 'PEPE', 'quoteAsset' => 'USDT' }])
+    end
+
+    @exchange.get_ledger(api_key: api_key, start_time: 2.days.ago)
+
+    assert_equal %w[PEPEUSDT], asked.map { |a| a[:symbol] }.uniq
   end
 end

@@ -1,8 +1,19 @@
 class Exchanges::Bingx < Exchange
   COINGECKO_ID = 'bingx'.freeze # https://docs.coingecko.com/reference/exchanges-list
+  # Codes and wording from https://bingx-api.github.io/docs/#/en-us/common/error-code (and the samples
+  # on the place-order page); 100413 captured from a live probe with a bogus key.
   ERRORS = {
-    insufficient_funds: ['Insufficient balance', 'insufficient balance'],
-    invalid_key: ['Invalid Api-Key ID', 'Signature verification failed']
+    # 100202 "Insufficient assets, please verify the assets status".
+    insufficient_funds: ['Insufficient assets', 'Insufficient balance', 'insufficient balance'],
+    # 100413 "Incorrect apiKey", 100412 "Null signature", 100001 "Signature verification failed".
+    invalid_key: ['Incorrect apiKey', 'Invalid Api-Key ID', 'Signature verification failed', 'Null signature'],
+    # 100004 a key without the endpoint's permission, 100419 a request from outside the key's IP list:
+    # the key itself is good, so neither may condemn it.
+    permission_denied: ['API key was created without the permission', 'IP does not match IP whitelist'],
+    # HTTP 429, and 100410 "rate limitation".
+    throttle: ['Too Many Requests', 'rate limitation'],
+    # 100500 and 100410 "The current system is busy", 100421 "Null timestamp or timestamp mismatch".
+    transient: ['The current system is busy', 'Internal system error', 'timestamp mismatch']
   }.freeze
   ORDER_STATUS_MAP = {
     'NEW' => :open,
@@ -56,13 +67,16 @@ class Exchanges::Bingx < Exchange
         parts = ticker.split('-')
         next unless parts.size == 2
 
+        # minQty and maxQty are deprecated and no longer track the price (BTC-USDT's minQty is worth
+        # ~15 USDT against a 0.5 USDT minNotional): the minimum is minNotional alone
+        # (https://bingx-api.github.io/docs/#/en-us/spot/market-api.html#Spot%20trading%20symbols).
         {
           ticker: ticker,
           base: parts[0],
           quote: parts[1],
-          minimum_base_size: product['minQty'].to_d,
+          minimum_base_size: 0,
           minimum_quote_size: product['minNotional'].to_d,
-          maximum_base_size: product['maxQty'].to_d,
+          maximum_base_size: nil,
           maximum_quote_size: product['maxNotional'].to_d,
           base_decimals: Utilities::Number.decimals(product['stepSize']),
           quote_decimals: Utilities::Number.decimals(product['tickSize']),
@@ -202,12 +216,12 @@ class Exchanges::Bingx < Exchange
     # bots frozen) or duplicated the recent window. Fetch that single most-recent page and
     # trim it to the requested range instead. ATH over this window is the best obtainable;
     # the stored `ath` keeps climbing via incremental-max on later ticks.
+    #
+    # BingX anchors spot candles to UTC+8 unless asked for timeZone=0, so a daily candle ran from
+    # 16:00 to 16:00 UTC. honeymaker's get_klines has no timeZone, hence its public request directly.
     limit = 1000
-    result = client.get_klines(
-      symbol: ticker.ticker,
-      interval: interval,
-      limit: limit
-    )
+    result = client.send(:get_public, '/openApi/spot/v1/market/kline',
+                         { symbol: ticker.ticker, interval: interval, limit: limit, timeZone: 0 })
     if result.failure?
       error = parse_error_message(result)
       return error.present? ? Result::Failure.new(error, data: result.data) : result
@@ -256,6 +270,13 @@ class Exchanges::Bingx < Exchange
     symbol, ext_order_id = split_order_id(order_id)
     result = client.get_order(symbol: symbol, order_id: ext_order_id)
     if result.failure?
+      # Flagged so get_orders lists it under missing and Bot::StaleOrderResolver can retire it,
+      # instead of one gone order failing every poll of the bot's other orders.
+      if order_gone?(result)
+        return Result::Failure.new("#{name} no longer knows order #{order_id}",
+                                   data: { not_found: true, missing_ids: [order_id] })
+      end
+
       error = parse_error_message(result)
       return error.present? ? Result::Failure.new(error, data: result.data) : result
     end
@@ -267,14 +288,21 @@ class Exchanges::Bingx < Exchange
 
   def get_orders(order_ids:)
     orders = {}
+    missing = []
     order_ids.each do |order_id|
       result = get_order(order_id: order_id)
-      return result if result.failure?
+      if result.failure?
+        # A gone order goes under :missing for the stale-order sweep; any other failure still fails
+        # the batch so the job retries.
+        next missing << order_id if result.data.is_a?(Hash) && result.data[:not_found]
+
+        return result
+      end
 
       orders[order_id] = result.data
     end
 
-    Result::Success.new(orders: orders, missing: [])
+    Result::Success.new(orders: orders, missing: missing)
   end
 
   def cancel_order(order_id:)
@@ -390,49 +418,77 @@ class Exchanges::Bingx < Exchange
   def get_ledger(api_key:, start_time: nil)
     hm_client = Honeymaker.client('bingx', api_key: api_key.key, api_secret: api_key.secret,
                                            proxy: ExchangeProxy.for('bingx'))
-    start_ms = start_time ? (start_time.to_f * 1000).to_i : nil
     entries = []
 
-    # Trade fills
-    result = hm_client.get_trade_fills(start_time: start_ms)
-    unless result.failure?
-      (result.data['data'] || []).each do |fill|
-        symbol = fill['symbol'] # e.g. "BTC-USDT"
-        parts = symbol.split('-')
-        is_buyer = fill['side']&.upcase == 'BUY'
-        entries << { entry_type: is_buyer ? :buy : :sell,
-                     base_currency: parts[0], base_amount: fill['qty'].to_d,
-                     quote_currency: parts[1], quote_amount: fill['quoteQty'].to_d,
+    # Deposits and withdrawals. Any failed read fails the whole fetch: a partial Success would let
+    # the sync move its watermark past the rows it never got.
+    failed = each_transfer(hm_client, DEPOSITS_PATH, start_time) do |dep|
+      next unless dep['status'].to_i == 1 # completed
+
+      # No record id: txId is the chain transaction that credited this deposit.
+      entries << { entry_type: :deposit, base_currency: transfer_coin(dep), base_amount: dep['amount'].to_d,
+                   quote_currency: nil, quote_amount: nil, fee_currency: nil, fee_amount: nil,
+                   tx_id: dep['txId'].presence, group_id: nil, description: nil,
+                   transacted_at: Time.at(dep['insertTime'].to_i / 1000.0).utc, raw_data: dep }
+    end
+    return failed if failed
+
+    failed = each_transfer(hm_client, WITHDRAWALS_PATH, start_time) do |wd|
+      next unless wd['status'].to_i == 6 # completed
+
+      coin = transfer_coin(wd)
+      # The record's own id: withdrawals batched into one on-chain transaction share its txId, and the
+      # sync keeps one row per tx_id.
+      entries << { entry_type: :withdrawal, base_currency: coin, base_amount: wd['amount'].to_d,
+                   quote_currency: nil, quote_amount: nil,
+                   fee_currency: coin, fee_amount: wd['transactionFee']&.to_d,
+                   tx_id: wd['id'].to_s.presence, group_id: nil, description: nil,
+                   transacted_at: transfer_time(wd['applyTime']), raw_data: wd }
+    end
+    return failed if failed
+
+    # Trades, per pair: the coins held now or moved in the window, on every pair they are the base of,
+    # and the pairs the account traded before.
+    # Without the balances or the listing, pairs would go unread while the fetch succeeded.
+    coins = entries.to_set { |e| e[:base_currency] }
+    balances = hm_client.get_raw_balances
+    return balances if balances.failure?
+    return Result::Failure.new("#{name} ledger read failed: #{balances.data['msg']}") if balances.data['code'].to_i != 0
+
+    Array(balances.data.dig('data', 'balances')).each do |bal|
+      coins << bal['asset'] if bal['free'].to_d.positive? || bal['locked'].to_d.positive?
+    end
+    listing = hm_client.get_symbols
+    return listing if listing.failure?
+    return Result::Failure.new("#{name} ledger read failed: #{listing.data['msg']}") if listing.data['code'].to_i != 0
+
+    symbols = Array(listing.data.dig('data', 'symbols')).map { |s| s['symbol'] }
+    # ponytail: myTrades serves 7 days only, so fills older than that are not read when a sync has
+    # not run for over a week (the sync runs on a schedule, so only an instance down that long hits it).
+    trades_from = [start_time, TRADES_REACH.ago].compact.max
+    # A pair traded before counts too: the sale that emptied a coin leaves no balance to find it by.
+    # So does every pair the account's bots ordered on here, synced or not: a bot's buy and sell
+    # between two syncs leave no balance, transfer or stored row behind.
+    # ponytail: myTrades takes one symbol, so a pair traded by hand, bought and sold out between two
+    # syncs and never seen before, is still not read. Only a venue-wide fills endpoint would find it.
+    traded_before = AccountTransaction.where(user_id: api_key.user_id, exchange_id: api_key.exchange_id)
+                                      .where(entry_type: %i[buy sell]).distinct
+                                      .pluck(:base_currency, :quote_currency)
+    traded_before += Transaction.joins(:bot).where(exchange_id: api_key.exchange_id, bots: { user_id: api_key.user_id })
+                                .distinct.pluck(:base, :quote)
+    traded_before = traded_before.map { |pair| pair.join('-') }
+    symbols.select { |symbol| coins.include?(symbol.split('-').first) || traded_before.include?(symbol) }.each do |symbol|
+      trades = read_trades(hm_client, symbol, (trades_from.to_f * 1000).to_i, (Time.now.to_f * 1000).to_i)
+      return trades unless trades.is_a?(Array)
+
+      trades.each do |fill|
+        base, quote = symbol.split('-')
+        entries << { entry_type: fill['isBuyer'] ? :buy : :sell,
+                     base_currency: base, base_amount: fill['qty'].to_d,
+                     quote_currency: quote, quote_amount: fill['quoteQty'].to_d,
                      fee_currency: fill['commissionAsset'], fee_amount: fill['commission'].to_d.abs,
                      tx_id: fill['id'].to_s, group_id: nil, description: nil,
                      transacted_at: Time.at(fill['time'].to_i / 1000.0).utc, raw_data: fill }
-      end
-    end
-
-    # Deposits
-    result = hm_client.deposit_history(start_time: start_ms)
-    unless result.failure?
-      Array(result.data).each do |dep|
-        next unless dep['status'].to_i == 1
-
-        entries << { entry_type: :deposit, base_currency: dep['coin'], base_amount: dep['amount'].to_d,
-                     quote_currency: nil, quote_amount: nil, fee_currency: nil, fee_amount: nil,
-                     tx_id: dep['txId'], group_id: nil, description: nil,
-                     transacted_at: Time.at(dep['insertTime'].to_i / 1000.0).utc, raw_data: dep }
-      end
-    end
-
-    # Withdrawals
-    result = hm_client.withdraw_history(start_time: start_ms)
-    unless result.failure?
-      Array(result.data).each do |wd|
-        next unless wd['status'].to_i == 6
-
-        entries << { entry_type: :withdrawal, base_currency: wd['coin'], base_amount: wd['amount'].to_d,
-                     quote_currency: nil, quote_amount: nil,
-                     fee_currency: wd['coin'], fee_amount: wd['transactionFee']&.to_d,
-                     tx_id: wd['txId'] || wd['id'], group_id: nil, description: nil,
-                     transacted_at: Time.parse(wd['applyTime']).utc, raw_data: wd }
       end
     end
 
@@ -440,6 +496,118 @@ class Exchanges::Bingx < Exchange
   end
 
   private
+
+  # honeymaker's get_trade_fills asks /openApi/spot/v1/trade/fills, which BingX answers with 100400
+  # "this api is not exist". myTrades (https://bingx-api.github.io/docs/#/en-us/spot/trade-api.html#Query%20transaction%20details)
+  # wants a symbol, "can only check data within the past 7 days", answers 500 trades at most, documents
+  # no paging, and falls back to the past 24 hours when the range is invalid — so the range is kept
+  # inside the 7 days, with a margin for clock skew.
+  TRADES_PATH = '/openApi/spot/v1/trade/myTrades'.freeze
+  TRADES_PAGE = 500
+  TRADES_REACH = 7.days - 5.minutes
+  # 100204 "Requested data not found" (also its answer for a range with no trades) and 100490
+  # "spot trading pair is offline": no trades to give.
+  NO_TRADES_CODES = [100_204, 100_490].freeze
+
+  # The trades of `symbol` in [from, to] (epoch ms), or the failure that stopped the read. A full page
+  # may have cut trades off, so its range is split in two halves that share the midpoint (a trade
+  # stamped on it comes back in both and is kept once, by id) and both are read.
+  def read_trades(hm_client, symbol, from, to)
+    result = hm_client.send(:get_signed, TRADES_PATH, { symbol: symbol, startTime: from, endTime: to, limit: TRADES_PAGE })
+    return result if result.failure?
+
+    code = result.data['code'].to_i
+    return [] if NO_TRADES_CODES.include?(code)
+    return Result::Failure.new("#{name} ledger read failed: #{code} #{result.data['msg']}") if code != 0
+
+    trades = Array(result.data.dig('data', 'fills'))
+    return trades if trades.size < TRADES_PAGE
+    return Result::Failure.new("#{name} ledger read failed: over #{TRADES_PAGE} #{symbol} trades in #{from}..#{to}") if to - from < 2
+
+    mid = (from + to) / 2
+    older = read_trades(hm_client, symbol, from, mid)
+    return older unless older.is_a?(Array)
+
+    newer = read_trades(hm_client, symbol, mid, to)
+    newer.is_a?(Array) ? (older + newer).uniq { |trade| trade['id'] } : newer
+  end
+
+  # honeymaker's deposit_history and withdraw_history ask /openApi/wallets/v1/capital/..., which BingX
+  # answers with 100400 "this api is not exist"; these are the documented paths
+  # (https://bingx-api.github.io/docs/#/en-us/common/wallet-api.html). Both take startTime/endTime and
+  # page by offset, 1000 rows at most. Their range cap is undocumented: they are read in 90-day
+  # windows, the cap of the Binance endpoints they copy, from start_time or BingX's opening.
+  DEPOSITS_PATH = '/openApi/api/v3/capital/deposit/hisrec'.freeze
+  WITHDRAWALS_PATH = '/openApi/api/v3/capital/withdraw/history'.freeze
+  TRANSFER_PAGE = 1000
+  TRANSFER_WINDOW = 90.days
+  TRANSFERS_FROM = Time.utc(2018, 1, 1)
+  # 100004: a key without the wallet read permission has no transfers to give.
+  NO_PERMISSION_CODE = 100_004
+
+  # Yields each transfer record from start_time (or BingX's opening) to now; returns the failure that
+  # stopped the read, or nil.
+  def each_transfer(hm_client, path, start_time, &)
+    seen = Set.new
+    each_ledger_window(start_time || TRANSFERS_FROM, TRANSFER_WINDOW) do |from, to|
+      offset = 0
+      loop do
+        result = hm_client.send(:get_signed, path, { startTime: from, endTime: to, offset: offset, limit: TRANSFER_PAGE })
+        return result if result.failure?
+
+        body = result.data
+        if body.is_a?(Hash)
+          return nil if body['code'].to_i == NO_PERMISSION_CODE
+          return Result::Failure.new("#{name} ledger read failed: #{body['code']} #{body['msg']}") if body['code'].to_i != 0
+        end
+
+        rows = body.is_a?(Array) ? body : Array(body['data'])
+        # Neighbouring windows share their edge, so a record stamped on it comes back twice.
+        fresh = rows.reject { |row| seen.include?(row) }
+        fresh.each { |row| seen << row }
+        fresh.each(&)
+        break if rows.size < TRANSFER_PAGE
+        return Result::Failure.new("#{name} ledger read failed: a full page of #{path} brought nothing new") if fresh.empty?
+
+        offset += rows.size
+      end
+    end
+    nil
+  end
+
+  # Yields [from, to] epoch-ms windows of at most `window`, from `from` to now. Each starts where the
+  # last ended, so a row on the edge is read either way.
+  def each_ledger_window(from, window)
+    window_start = (from.to_f * 1000).to_i
+    now = (Time.now.to_f * 1000).to_i
+    while window_start < now
+      window_end = [window_start + window.in_milliseconds.to_i, now].min
+      yield window_start, window_end
+      window_start = window_end
+    end
+  end
+
+  # BingX names some coins with their network ("USDTTRC20" on network "TRC20").
+  def transfer_coin(row)
+    coin = row['coin'].to_s
+    network = row['network'].to_s
+    network.present? && coin != network && coin.end_with?(network) ? coin.delete_suffix(network) : coin
+  end
+
+  # applyTime is a date string in the docs ("2023-12-14T04:05:02.000+08:00"); epoch ms is read too.
+  def transfer_time(value)
+    value.to_s.match?(/\A\d+\z/) ? Time.at(value.to_i / 1000.0).utc : Time.parse(value.to_s).utc
+  end
+
+  # The order lookup's answer for an order BingX does not have: 100404 "Order does not exist" ("order
+  # not exist" live), or 100400 with that message (https://bingx-api.github.io/docs/#/en-us/common/error-code).
+  # Neither code counts alone: 100404 is also the gateway's answer for a path it does not know, and
+  # 100400 a bad parameter — calling a live order gone would let the stale-order sweep abandon it.
+  def order_gone?(result)
+    message = result.errors.join(' ')
+    code = response_field(result, 'code')&.to_i || message[/BingX API error (\d+)/, 1]&.to_i
+    [KEY_CHECK_ORDER_NOT_FOUND, 100_400].include?(code) && message.match?(/order (does )?not exist/i)
+  end
 
   def check_bingx_api_key_error(result)
     error = parse_error_message(result)
@@ -567,9 +735,10 @@ class Exchanges::Bingx < Exchange
     quote_amount_exec = Utilities::Hash.dig_or_raise(order_data, 'cummulativeQuoteQty').to_d
     quote_amount_exec = nil if quote_amount_exec.negative?
     status = parse_order_status(Utilities::Hash.dig_or_raise(order_data, 'status'))
+    # `price` is the limit on a limit order and 0 on a market one; whatever filled is priced at what
+    # it filled at, which for a limit that crossed the book is better than the limit.
     price = Utilities::Hash.dig_or_raise(order_data, 'price').to_d
-    if price.zero? &&
-       quote_amount_exec.present? &&
+    if quote_amount_exec.present? &&
        quote_amount_exec.positive? &&
        amount_exec.positive?
       price = quote_amount_exec / amount_exec

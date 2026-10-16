@@ -349,7 +349,8 @@ module Pages
       # Bots that have traded: the account's total is on its way, and a tile says whether orders are resting.
       'bots_list_traded' => with_bots(traded, signed_in(get('/bots'), get('/de/bots'))),
       'bots_list_hidden' => with_bots(traded, signed_in(get('/bots')), 'user' => owner('hide_balances' => true, 'locale' => 'de')),
-      'bots_list_due' => with_bots(due, signed_in(get('/bots')))
+      'bots_list_due' => with_bots(due, signed_in(get('/bots'))),
+      'bots_list_selling' => with_bots(selling, signed_in(get('/bots'), get('/de/bots')))
     }
   end
 
@@ -388,6 +389,26 @@ module Pages
      stopped('single', 'stored' => { 'smart_intervaled' => true, 'smart_interval_quote_amount' => -5 }),
      running('single', '2026-09-10T11:00:30.000456Z', { 'settings' => seventh }.merge(acted('2026-09-10T11:00:30.000Z'))),
      running('single', '2026-09-10T18:00:30.000456Z', 'settings' => seventh)]
+  end
+
+  # One-asset baskets that sell (Bot::Reversible): N base a week split by Smart Intervals (1), for N quote (2), at work with
+  # no amount yet (3), a row that only says it sells (4), and every sell condition on with a buy still resting (5).
+  def selling_base = { 'direction' => 'selling', 'sell_denomination' => 'base', 'sell_amount' => 2, 'sell_interval' => 'week',
+                       'smart_intervaled' => true, 'smart_interval_base_amount' => 0.5 }
+
+  def selling
+    conditions = { 'sell_price_limited' => true, 'sell_price_limit_value_condition' => 'between', 'sell_price_limit_range_lower_bound' => 400,
+                   'sell_price_limit_range_upper_bound' => 650.5, 'sell_price_drop_limited' => true, 'sell_price_drop_limit' => 0.1,
+                   'sell_price_drop_limit_time_window_condition' => 'seven_days', 'sell_moving_average_limited' => true,
+                   'sell_moving_average_limit_timing_condition' => 'after', 'sell_moving_average_limit_in_ma_type' => 'ema',
+                   'sell_indicator_limited' => true, 'sell_indicator_limit' => 75, 'sell_price_limit_action' => 'start_buying',
+                   'limit_ordered' => true, 'smart_intervaled' => false }
+    [stopped('single', 'settings' => selling_base),
+     stopped('single', 'settings' => { 'direction' => 'selling', 'sell_denomination' => 'quote', 'sell_quote_amount' => 40, 'sell_interval' => 'hour' }),
+     running('single', '2026-09-08T13:30:00Z', { 'settings' => { 'direction' => 'selling', 'sell_denomination' => 'base' } }.merge(acted('2026-09-09T13:30:00.800Z'))),
+     stopped('single', 'stored' => { 'direction' => 'selling' }),
+     stopped('single', 'settings' => selling_base.merge(conditions), 'orders' => 'open'),
+     { 'kind' => 'basket' }]
   end
 
   # GET /bots/:id and the chart's frame.
@@ -449,6 +470,9 @@ module Pages
       'bot_page_due' => with_bots(due, signed_in(get('/bots/1'), get('/bots/2'), get('/bots/3'), get('/bots/4'), get('/bots/5'), get('/bots/6'), get('/bots/7'))),
       'bot_page_defaults' => with_bots(older, signed_in(get('/bots'), get('/bots/1'), get('/bots/2'), get('/bots/3'), get('/bots/4'), get('/de/bots/2'))),
       'bot_page_stored_past_forms' => with_bots(past_forms, signed_in(get('/bots'), get('/bots/1'), get('/bots/2'), get('/bots/3'), get('/bots/4'), get('/bots/5'))),
+      'bot_page_selling' => with_bots(selling, signed_in(get('/bots/1'), get('/bots/2'), get('/bots/3'), get('/bots/4'), get('/bots/5'), get('/de/bots/1'),
+                                                         get('/pl/bots/2'), get('/bots/1', 'Turbo-Frame' => 'bot'))),
+      'bot_page_selling_hidden' => with_bots(selling, signed_in(get('/bots/1'), get('/bots/5')), 'user' => owner('hide_balances' => true)),
       'bot_page_ring' => with_bots(three, signed_in(get('/bots/1')), 'balances' => { 'QQQM' => 5000, 'IBIT' => 2500.5, 'USD' => 120, 'BTC' => 900 }),
       # Another user's bot, a deleted bot and a number that is no bot's all answer as "no such bot"; `1abc` is bot 1, as Rails reads an id.
       'bot_page_of_another_user' => two_users.merge(
@@ -522,12 +546,12 @@ module Pages
 
   # Bots Rails serves and this build does not yet: each needs something that is not ported yet.
   def refused_scenarios
-    selling = [stopped('single', 'stored' => { 'direction' => 'selling' }), { 'kind' => 'basket' }]
     # 50 a day in slices of 20,000,000: one order every 1,095 years. Rails says so in words; here the calendar is not asked.
     ages = [stopped('basket', 'settings' => { 'smart_interval_quote_amount' => 20_000_000 }), { 'kind' => 'single' }]
     {
-      'not_ported_bot_selling' => with_bots(selling, signed_in(get('/bots/2'), get('/bots/1'))),
-      'not_ported_bots_list_selling' => with_bots(selling, signed_in(get('/bots'))),
+      # A sold bot's page still shows a realised profit or loss only the figures know; its siblings that have not sold are served.
+      'not_ported_bot_selling_cap' => with_bots([stopped('single', 'settings' => selling_base.merge('base_amount_limited' => true, 'base_amount_limit' => 3)),
+                                                 { 'kind' => 'basket' }], signed_in(get('/bots/2'), get('/bots/1'))),
       'not_ported_bot_rebalancing' => with_bots([stopped('basket', 'settings' => { 'rebalance_enabled' => true }), { 'kind' => 'single' }], signed_in(get('/bots/1'))),
       'not_ported_bot_market_cap_weights' => with_bots([stopped('coins', 'settings' => { 'weighting' => 'market_cap' }), { 'kind' => 'single' }],
                                                        signed_in(get('/bots/1'))),

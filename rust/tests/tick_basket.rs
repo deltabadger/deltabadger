@@ -766,3 +766,96 @@ async fn a_wider_basket_sells_its_quote_sentence_whatever_denomination_is_stored
     // Bots::DcaMultiAsset#sell_denomination: 'quote' unless one_asset?. 100 / 64000 of BTC, never 0.01 BTC.
     assert_eq!(sells(&t), vec![("BTC/USD".into(), "sell".into(), "0.001562500".into())]);
 }
+
+// Slice 7a: the price rule's gate, between the restatement stand-down and the sweep (dca_multi_asset.rb:34-44).
+
+/// A one-asset BTC basket of 60 USD a week, with a buy-side price rule `below <limit>`; BTC trades at 64000.
+fn ruled(limit: f64, transient: Value) -> (tempfile::TempDir, store::Opened, i64, seed::Seeded) {
+    let (d, o, s) = common::install_alpaca();
+    let mut spec = BotSpec::weekly(60.0, "2026-09-01 10:00:00").with("price_limited", json!(true)).with("price_limit", json!(limit))
+        .with("price_limit_value_condition", json!("below"));
+    spec.transient = transient;
+    let id = seed::insert_bot(&o.primary, &s, &spec);
+    (d, o, id, s)
+}
+fn events(o: &store::Opened) -> Vec<(String, Value)> {
+    o.primary.prepare("SELECT event, details FROM bot_activity_logs ORDER BY id").unwrap()
+        .query_map([], |r| Ok((r.get::<_, String>(0)?, serde_json::from_str(&r.get::<_, String>(1)?).unwrap()))).unwrap().map(Result::unwrap).collect()
+}
+fn transient(o: &store::Opened, id: i64) -> Value { model::load_bot(&o.primary, id).unwrap().transient }
+
+#[tokio::test(flavor = "current_thread")]
+async fn an_unmet_price_rule_pauses_the_bot_without_sweeping_its_orders() {
+    let (_d, o, id, s) = ruled(60_000.0, json!({}));
+    seed::insert_tx(&o.primary, &s, id, &seed::TxSpec { status: 0, external_status: Some(0), external_id: Some("OTX-OPEN".into()), order_type: 0, amount: None,
+        quote_amount: Some("60"), price: Some("64000"), quote_amount_exec: None, amount_exec: None, created_at: "2026-08-25 10:00:01".into() });
+    let t = script(json!({}));
+    assert!(matches!(run(&o, &venue(&t), id, at(T0)).await, TickOutcome::Paused));
+    assert_eq!(model::load_bot(&o.primary, id).unwrap().status, BotStatus::Waiting, "waiting for its check, never back to scheduled");
+    assert!(t.posted_orders().is_empty());
+    assert!(!t.requests().iter().any(|r| r.path.starts_with("/v2/orders/")), "a paused bot sweeps nothing");
+    let ev: Vec<String> = events(&o).into_iter().map(|(e, d)| format!("{e} {d}")).collect();
+    assert_eq!(ev, vec![r#"limit_paused {"limit_type":"price"}"#.to_string(), "reschedule_disabled {}".into()]);
+}
+
+/// A read that could not be made is not "unmet": the pause keeps met_at and the carry (price_limitable.rb:202-206); only a
+/// read price that misses the rule captures the carry and clears met_at, in one write.
+#[tokio::test(flavor = "current_thread")]
+async fn a_failed_read_pauses_without_touching_met_at_or_the_carry() {
+    let met = json!({ "price_limit_condition_met_at": "2026-08-31T10:00:00.000Z" });
+    let (_d, o, id, _) = ruled(60_000.0, met.clone());
+    let t = script(json!({ "GET /v1beta3/crypto/us/latest/trades": [{ "status": 500, "body": { "code": 50010000, "message": "internal server error" } }] }));
+    assert!(matches!(run(&o, &venue(&t), id, at(T0)).await, TickOutcome::Paused));
+    let td = transient(&o, id);
+    assert_eq!((td.get("price_limit_condition_met_at"), td.get("missed_quote_amount")), (Some(&json!("2026-08-31T10:00:00.000Z")), None), "{td}");
+
+    let (_d, o, id, _) = ruled(60_000.0, met);
+    assert!(matches!(run(&o, &venue(&script(json!({}))), id, at(T0)).await, TickOutcome::Paused));
+    let td = transient(&o, id);
+    // One interval owed since the start (met before it): 60.0, captured as Rails stores it, and met_at cleared.
+    assert_eq!((td.get("price_limit_condition_met_at"), td.get("missed_quote_amount"), td.get("missed_quote_amount_was_set")),
+               (Some(&Value::Null), Some(&json!(60.0)), Some(&json!(true))), "{td}");
+}
+
+/// A rejected key escapes the gate (limit_checkable.rb:29-33): the tick fails as invalid_key instead of parking the bot.
+#[tokio::test(flavor = "current_thread")]
+async fn a_rejected_key_fails_the_tick_instead_of_pausing() {
+    let (_d, o, id, _) = ruled(60_000.0, json!({}));
+    let t = script(json!({ "GET /v1beta3/crypto/us/latest/trades": [{ "status": 401, "body": { "code": 40110000, "message": "unauthorized." } }] }));
+    assert!(matches!(run(&o, &venue(&t), id, at(T0)).await, TickOutcome::Rescheduled));
+    let b = model::load_bot(&o.primary, id).unwrap();
+    assert_eq!((b.status, b.last_failure_kind().as_deref()), (BotStatus::Retrying, Some("invalid_key")));
+}
+
+/// Met for the first time, off the grid: met_at is stamped and the tick sizes from the row the stamp left, so it buys the
+/// carry alone (no interval since met_at); with no carry it buys nothing.
+#[tokio::test(flavor = "current_thread")]
+async fn a_first_satisfaction_sizes_from_the_stamped_row() {
+    let (_d, o, id, _) = ruled(70_000.0, json!({ "missed_quote_amount": "30" }));
+    let t = script(json!({}));
+    assert!(matches!(run(&o, &venue(&t), id, at(T0)).await, TickOutcome::Done { placed: true }));
+    assert_eq!(notionals(&t), vec![("BTC/USD".into(), "30.00".into())]);
+    assert_eq!(transient(&o, id)["price_limit_condition_met_at"], json!("2026-09-01T10:00:00.500Z"));
+
+    let (_d, o, id, _) = ruled(70_000.0, json!({}));
+    let t = script(json!({}));
+    assert!(matches!(run(&o, &venue(&t), id, at(T0)).await, TickOutcome::Done { placed: false }));
+    assert!(t.posted_orders().is_empty(), "nothing owed since the condition was met");
+}
+
+/// Bot::Fundable wraps the condition (fundable.rb:5-17): a pause still checks the quote balance, and a failed balance read
+/// leaves the pause a pause.
+#[tokio::test(flavor = "current_thread")]
+async fn a_pause_still_runs_the_funds_check() {
+    let (_d, o, id, _) = ruled(60_000.0, json!({}));
+    let t = script(json!({ "GET /v2/account": [ok(json!({ "cash": "0", "non_marginable_buying_power": "0" }))] }));
+    assert!(matches!(run(&o, &venue(&t), id, at(T0)).await, TickOutcome::Paused));
+    assert!(one::<bool>(&o, "SELECT last_end_of_funds_notification IS NOT NULL FROM bots"), "out of funds while paused");
+    assert!(transient(&o, id).get(tick::FUNDS_MAIL_PENDING).is_some());
+
+    let (_d, o, id, _) = ruled(60_000.0, json!({}));
+    let t = script(json!({ "GET /v2/account": [{ "status": 500, "body": { "code": 50010000, "message": "internal server error" } }] }));
+    assert!(matches!(run(&o, &venue(&t), id, at(T0)).await, TickOutcome::Paused));
+    assert!(t.requests().iter().any(|r| r.path == "/v2/account"), "the balance was read");
+    assert_eq!(model::load_bot(&o.primary, id).unwrap().status, BotStatus::Waiting);
+}

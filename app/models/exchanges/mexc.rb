@@ -1,21 +1,40 @@
 class Exchanges::Mexc < Exchange
   COINGECKO_ID = 'mxc'.freeze # https://docs.coingecko.com/reference/exchanges-list
   ERRORS = {
-    insufficient_funds: ['Insufficient balance.'],
-    # 'Api key info invalid' is code 10072, captured from a live probe. The two Binance-clone
-    # strings below it are kept but unproven — MEXC never emitted either in any recorded failure.
-    invalid_key: ['Api key info invalid', 'Invalid Api-Key ID.', 'Signature for this request is not valid.'],
-    # MEXC is a Binance API clone and emits the identical -1021 timestamp string. Same treatment.
-    transient: ['Timestamp for this request is outside of the recvWindow', 'Timestamp for this request was']
+    # Codes and wording from https://mexcdevelop.github.io/apidocs/spot_v3_en/#error-code.
+    # 10101 "Insufficient balance"; 30004 "Insufficient position" and 30005 "Oversold" on a sell.
+    insufficient_funds: ['Insufficient balance', 'Insufficient position', 'Oversold'],
+    # 'Api key info invalid' is code 10072, captured from a live probe. 700001, 700002 and 602 are a
+    # malformed key and a wrong secret. 'Invalid Api-Key ID.' is a Binance string kept but unproven.
+    invalid_key: ['Api key info invalid', 'API-key format invalid', 'Invalid Api-Key ID.',
+                  'Signature for this request is not valid', 'Signature verification failed'],
+    # 700007 a key without the endpoint's scope, 700006 a request from outside the key's IP list: the
+    # key itself is good, so neither may condemn it.
+    permission_denied: ['No permission to access the endpoint', 'IP non white list'],
+    # HTTP 429, and 510 "Requests are too frequent".
+    throttle: ['Too Many Requests', 'Too many requests', 'Requests are too frequent'],
+    # MEXC is a Binance API clone and emits the identical -1021 timestamp string (its 700003). Same
+    # treatment. 503 and 504 are MEXC's own "try again".
+    transient: ['Timestamp for this request is outside of the recvWindow', 'Timestamp for this request was',
+                'service not available', 'Gateway Time-out']
   }.freeze
   ORDER_STATUS_MAP = {
     'NEW' => :open,
     'PARTIALLY_FILLED' => :open,
     'FILLED' => :closed,
     'CANCELED' => :cancelled,
+    # Partly filled, the rest cancelled (https://mexcdevelop.github.io/apidocs/spot_v3_en/#enum-definitions).
+    # Terminal; the fill rides along in executedQty.
+    'PARTIALLY_CANCELED' => :cancelled,
     'EXPIRED' => :cancelled,
     'REJECTED' => :failed
   }.freeze
+  # The order lookup's answer for an order MEXC does not have: -2013 "Order does not exist." (its
+  # Binance-clone wording) or -2011 "Unknown order sent" (https://mexcdevelop.github.io/apidocs/spot_v3_en/#error-code).
+  ORDER_GONE_CODES = [-2013, -2011].freeze
+  # Deposit history status 5 SUCCESS and 12 COMPLETED; 1 is SMALL, a deposit under the minimum that
+  # was never credited (https://mexcdevelop.github.io/apidocs/spot_v3_en/#deposit-history-supporting-network).
+  DEPOSIT_CREDITED = [5, 12].freeze
 
   include Exchange::Dryable # decorators for: get_order, get_orders, cancel_order, get_api_key_validity, set_market_order, set_limit_order
 
@@ -59,10 +78,14 @@ class Exchanges::Mexc < Exchange
           ticker: ticker,
           base: Utilities::Hash.dig_or_raise(product, 'baseAsset'),
           quote: Utilities::Hash.dig_or_raise(product, 'quoteAsset'),
-          minimum_base_size: lot_size_filter&.dig('minQty').to_d,
-          minimum_quote_size: notional_filter&.dig('minNotional').to_d,
+          # MEXC sends no LOT_SIZE or NOTIONAL filter. Its minimums are baseSizePrecision ("min order
+          # quantity") and quoteAmountPrecision ("min order amount"; quoteAmountPrecisionMarket for a
+          # market order), and maxQuoteAmount caps the order value.
+          minimum_base_size: (lot_size_filter&.dig('minQty') || product['baseSizePrecision']).to_d,
+          minimum_quote_size: notional_filter&.dig('minNotional')&.to_d ||
+            [product['quoteAmountPrecision'].to_d, product['quoteAmountPrecisionMarket'].to_d].max,
           maximum_base_size: lot_size_filter&.dig('maxQty').to_d,
-          maximum_quote_size: notional_filter&.dig('maxNotional').to_d,
+          maximum_quote_size: (notional_filter&.dig('maxNotional') || product['maxQuoteAmount']).to_d,
           base_decimals: if lot_size_filter
                            Utilities::Number.decimals(lot_size_filter['stepSize'])
                          else
@@ -190,21 +213,28 @@ class Exchanges::Mexc < Exchange
       5.minutes => '5m',
       15.minutes => '15m',
       30.minutes => '30m',
-      1.hour => '1h',
+      1.hour => '60m',
       4.hours => '4h',
       1.day => '1d',
-      3.days => '3d',
-      1.week => '1w',
+      3.days => '1d', # built below: MEXC has no 3-day klines
+      1.week => '1W',
       1.month => '1M'
     }
     interval = intervals[timeframe]
 
-    limit = 1000
+    # Given a startTime alone, MEXC answers the newest candles and ignores the start; a range wants
+    # endTime too, and is answered 500 klines at most. So the range is walked in 500-kline windows
+    # from the start to now.
+    limit = 500
+    span = limit * (timeframe == 3.days ? 1.day : timeframe).to_i * 1000
+    window_start = start_at.to_i * 1000
+    now = Time.now.utc.to_i * 1000
     candles = []
-    loop do
+    while window_start <= now
       result = client.candlestick_data(
         symbol: ticker.ticker,
-        start_time: start_at.to_i * 1000,
+        start_time: window_start,
+        end_time: window_start + span - 1,
         interval: interval,
         limit: limit
       )
@@ -223,10 +253,10 @@ class Exchanges::Mexc < Exchange
           candle[5].to_d
         ]
       end
-      break if result.data.last.nil? || result.data.empty? || result.data.last[0] > timeframe.ago.to_i * 1000
-
-      start_at = candles.empty? ? start_at + (limit * interval.to_i * 1000) : candles.last[0] + 1
+      window_start += span
     end
+
+    candles = build_candles_from_candles(candles: candles, timeframe: timeframe) if timeframe == 3.days && candles.any?
 
     Result::Success.new(candles)
   end
@@ -255,6 +285,13 @@ class Exchanges::Mexc < Exchange
     symbol, ext_order_id = order_id.split('-')
     result = client.query_order(symbol: symbol, order_id: ext_order_id)
     if result.failure?
+      # Flagged so get_orders lists it under missing and Bot::StaleOrderResolver can retire it,
+      # instead of one gone order failing every poll of the bot's other orders.
+      if ORDER_GONE_CODES.include?(response_field(result, 'code'))
+        return Result::Failure.new("#{name} no longer knows order #{order_id}",
+                                   data: { not_found: true, missing_ids: [order_id] })
+      end
+
       error = parse_error_message(result)
       return error.present? ? Result::Failure.new(error, data: result.data) : result
     end
@@ -266,14 +303,21 @@ class Exchanges::Mexc < Exchange
 
   def get_orders(order_ids:)
     orders = {}
+    missing = []
     order_ids.each do |order_id|
       result = get_order(order_id: order_id)
-      return result if result.failure?
+      if result.failure?
+        # A gone order goes under :missing for the stale-order sweep; any other failure still fails
+        # the batch so the job retries.
+        next missing << order_id if result.data.is_a?(Hash) && result.data[:not_found]
+
+        return result
+      end
 
       orders[order_id] = result.data
     end
 
-    Result::Success.new(orders: orders, missing: [])
+    Result::Success.new(orders: orders, missing: missing)
   end
 
   def cancel_order(order_id:)
@@ -388,68 +432,78 @@ class Exchanges::Mexc < Exchange
     update_exchange_asset_fees!(fees, chains: chains)
   end
 
-  # MEXC caps a history query at ~90 days measured from `startTime`.
+  # MEXC keeps deposit and withdraw history for 90 days and trades for a month.
   def ledger_window = 80.days
 
   def get_ledger(api_key:, start_time: nil)
     hm_client = Honeymaker.client('mexc', api_key: api_key.key, api_secret: api_key.secret,
                                           proxy: ExchangeProxy.for('mexc'))
-    start_ms = start_time ? (start_time.to_f * 1000).to_i : nil
     entries = []
 
-    # Deposits first (to discover coins)
-    result = hm_client.deposit_history(start_time: start_ms)
-    unless result.failure?
-      Array(result.data).each do |dep|
-        next unless dep['status'].to_i == 1
+    # Deposits first (to discover coins). Any failed read fails the whole fetch: a partial Success
+    # would let the sync move its watermark past the rows it never got.
+    failed = each_transfer(hm_client, :deposit_history, start_time) do |dep|
+      next unless dep['status'].to_i.in?(DEPOSIT_CREDITED)
 
-        entries << { entry_type: :deposit, base_currency: dep['coin'], base_amount: dep['amount'].to_d,
-                     quote_currency: nil, quote_amount: nil, fee_currency: nil, fee_amount: nil,
-                     tx_id: dep['txId'], group_id: nil, description: nil,
-                     transacted_at: Time.at(dep['insertTime'].to_i / 1000.0).utc, raw_data: dep }
-      end
+      # No record id: txId is the chain hash with the output index ("<hash>:0"), one per credit.
+      entries << { entry_type: :deposit, base_currency: dep['coin'], base_amount: dep['amount'].to_d,
+                   quote_currency: nil, quote_amount: nil, fee_currency: nil, fee_amount: nil,
+                   tx_id: dep['txId'], group_id: nil, description: nil,
+                   transacted_at: Time.at(dep['insertTime'].to_i / 1000.0).utc, raw_data: dep }
     end
+    return failed if failed
 
     # Withdrawals
-    result = hm_client.withdraw_history(start_time: start_ms)
-    unless result.failure?
-      Array(result.data).each do |wd|
-        next unless wd['status'].to_i == 7 # completed
+    failed = each_transfer(hm_client, :withdraw_history, start_time) do |wd|
+      next unless wd['status'].to_i == 7 # completed
 
-        entries << { entry_type: :withdrawal, base_currency: wd['coin'], base_amount: wd['amount'].to_d,
-                     quote_currency: nil, quote_amount: nil,
-                     fee_currency: wd['coin'], fee_amount: wd['transactionFee']&.to_d,
-                     tx_id: wd['txId'] || wd['id'], group_id: nil, description: nil,
-                     transacted_at: Time.parse(wd['applyTime']).utc, raw_data: wd }
-      end
+      entries << { entry_type: :withdrawal, base_currency: wd['coin'], base_amount: wd['amount'].to_d,
+                   quote_currency: nil, quote_amount: nil,
+                   fee_currency: wd['coin'], fee_amount: wd['transactionFee']&.to_d,
+                   # The record's own id: withdrawals batched into one on-chain transaction share
+                   # its hash (transHash), and the sync keeps one row per tx_id. applyTime is epoch ms.
+                   tx_id: wd['id'], group_id: nil, description: nil,
+                   transacted_at: Time.at(wd['applyTime'].to_i / 1000.0).utc, raw_data: wd }
     end
+    return failed if failed
 
-    # Discover coins from balances + deposits/withdrawals, then query trades
+    # Discover coins from balances + deposits/withdrawals, then query trades. Without the balances or
+    # the listing, symbols would go unread while the fetch succeeded.
     coins = Set.new
     entries.each { |e| coins << e[:base_currency] }
     bal_result = hm_client.account_information
-    if bal_result.success?
-      Array(bal_result.data['balances']).each do |bal|
-        coins << bal['asset'] if bal['free'].to_d.positive? || bal['locked'].to_d.positive?
-      end
+    return bal_result if bal_result.failure?
+
+    Array(bal_result.data['balances']).each do |bal|
+      coins << bal['asset'] if bal['free'].to_d.positive? || bal['locked'].to_d.positive?
     end
 
     # Load exchange symbols for base/quote mapping
     @exchange_symbols_map = {}
     info_result = hm_client.exchange_information
-    if info_result.success?
-      Array(info_result.data['symbols']).each do |s|
-        @exchange_symbols_map[s['symbol']] = { base: s['baseAsset'], quote: s['quoteAsset'] }
-      end
+    return info_result if info_result.failure?
+
+    Array(info_result.data['symbols']).each do |s|
+      @exchange_symbols_map[s['symbol']] = { base: s['baseAsset'], quote: s['quoteAsset'] }
     end
 
-    # Trades per discovered symbol
-    traded_symbols = @exchange_symbols_map.keys.select { |sym| coins.include?(@exchange_symbols_map[sym][:base]) }
+    # Trades per discovered symbol, from start_time or as far back as MEXC keeps them, to now.
+    trades_from = (start_time ? [start_time, trades_reach].max : trades_reach).to_i * 1000
+    # A pair traded before counts too: the sale that emptied a coin leaves no balance to find it by.
+    traded_before = AccountTransaction.where(user_id: api_key.user_id, exchange_id: api_key.exchange_id)
+                                      .where(entry_type: %i[buy sell]).distinct
+                                      .pluck(:base_currency, :quote_currency).map(&:join)
+    traded_symbols = @exchange_symbols_map.keys.select do |sym|
+      coins.include?(@exchange_symbols_map[sym][:base]) || traded_before.include?(sym)
+    end
     traded_symbols.each do |symbol|
-      result = hm_client.account_trade_list(symbol: symbol, start_time: start_ms)
-      next if result.failure?
+      trades = read_range(trades_from, (Time.now.to_f * 1000).to_i, TRADES_PAGE) do |from, to|
+        hm_client.account_trade_list(symbol: symbol, start_time: from, end_time: to, limit: TRADES_PAGE)
+      end
+      next if !trades.is_a?(Array) && response_field(trades, 'code').in?(SYMBOL_GONE_CODES)
+      return trades unless trades.is_a?(Array)
 
-      Array(result.data).each do |trade|
+      trades.uniq { |trade| trade['id'] }.each do |trade|
         base = symbol_pair_base(symbol)
         quote = symbol_pair_quote(symbol)
         is_buyer = trade['isBuyer']
@@ -466,6 +520,66 @@ class Exchanges::Mexc < Exchange
   end
 
   private
+
+  # Deposit and withdraw history take a range of at most 7 days, reach back 90 days at most, and
+  # answer up to 1000 rows (https://mexcdevelop.github.io/apidocs/spot_v3_en/#deposit-history-supporting-network).
+  TRANSFER_REACH = 89.days
+  TRANSFER_RANGE = 7.days
+  TRANSFER_PAGE = 1000
+  # 700007: a key without the wallet-history permission has no transfers to give.
+  NO_PERMISSION_CODE = 700_007
+
+  # myTrades answers 100 trades at most and serves "the past 1 month" only
+  # (https://mexcdevelop.github.io/apidocs/spot_v3_en/#account-trade-list).
+  TRADES_PAGE = 100
+  # A pair MEXC no longer lists: -1121 "Invalid symbol.", 10007 "bad symbol", 30014 and 30021
+  # "invalid symbol", 730001 "Pair not found". It has no trades to give.
+  SYMBOL_GONE_CODES = [-1121, 10_007, 30_014, 30_021, 730_001].freeze
+
+  def trades_reach = [1.month.ago, 30.days.ago].max
+
+  # Yields each transfer from start_time (or as far back as MEXC keeps) to now; returns the failure
+  # that stopped the read, or nil.
+  def each_transfer(hm_client, endpoint, start_time, &)
+    each_ledger_range([start_time, TRANSFER_REACH.ago].compact.max, TRANSFER_RANGE) do |from, to|
+      rows = read_range(from, to, TRANSFER_PAGE) do |s, e|
+        hm_client.public_send(endpoint, start_time: s, end_time: e, limit: TRANSFER_PAGE)
+      end
+      return nil if !rows.is_a?(Array) && response_field(rows, 'code') == NO_PERMISSION_CODE
+      return rows unless rows.is_a?(Array)
+
+      rows.each(&)
+    end
+    nil
+  end
+
+  # Yields [from, to] epoch-ms ranges of at most `range`, from `from` to now.
+  def each_ledger_range(from, range)
+    range_start = (from.to_f * 1000).to_i
+    now = (Time.now.to_f * 1000).to_i
+    while range_start < now
+      range_end = [range_start + range.in_milliseconds.to_i, now].min
+      yield range_start, range_end
+      range_start = range_end + 1
+    end
+  end
+
+  # The rows of [from, to]. MEXC documents no paging, so a full page may have cut rows off: its range
+  # is halved and both halves read. Returns the rows, or the failure that stopped the read.
+  def read_range(from, to, page, &fetch)
+    result = fetch.call(from, to)
+    return result if result.failure?
+    return Result::Failure.new("#{name} ledger read failed: #{result.data}") unless result.data.is_a?(Array)
+    # ponytail: a full page inside a single millisecond is taken as is; it cannot be split further.
+    return result.data if result.data.size < page || to - from < 1
+
+    mid = (from + to) / 2
+    older = read_range(from, mid, page, &fetch)
+    return older unless older.is_a?(Array)
+
+    newer = read_range(mid + 1, to, page, &fetch)
+    newer.is_a?(Array) ? older + newer : newer
+  end
 
   def symbol_pair_base(symbol)
     @exchange_symbols_map&.dig(symbol, :base) || tickers.find_by(ticker: symbol)&.base || symbol
@@ -576,9 +690,10 @@ class Exchanges::Mexc < Exchange
     quote_amount_exec = Utilities::Hash.dig_or_raise(order_data, 'cummulativeQuoteQty').to_d
     quote_amount_exec = nil if quote_amount_exec.negative?
     status = parse_order_status(Utilities::Hash.dig_or_raise(order_data, 'status'))
+    # `price` is the limit on a limit order and 0 on a market one; whatever filled is priced at what
+    # it filled at, which for a limit that crossed the book is better than the limit.
     price = Utilities::Hash.dig_or_raise(order_data, 'price').to_d
-    if price.zero? &&
-       quote_amount_exec.present? &&
+    if quote_amount_exec.present? &&
        quote_amount_exec.positive? &&
        amount_exec.positive?
       price = quote_amount_exec / amount_exec

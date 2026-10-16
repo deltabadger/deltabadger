@@ -29,6 +29,7 @@ class KeyCheckCodesTest < ActiveSupport::TestCase
     test 'a 401 without the venue\'s own answer is inconclusive' do
       proxy_unauthorized = http_error({}, 401)
       Honeymaker::Clients::Kucoin.any_instance.stubs(:cancel_order).returns(proxy_unauthorized)
+      Honeymaker::Clients::Bitvavo.any_instance.stubs(:get_raw_balance).returns(Result::Success.new([]))
       Honeymaker::Clients::Bitvavo.any_instance.stubs(:cancel_order).returns(proxy_unauthorized)
       Honeymaker::Clients::Mexc.any_instance.stubs(:account_information).returns(proxy_unauthorized)
       Honeymaker::Clients::Bitget.any_instance.stubs(:cancel_order).returns(proxy_unauthorized)
@@ -127,9 +128,40 @@ class KeyCheckCodesTest < ActiveSupport::TestCase
 
   # ── Bitvavo ──────────────────────────────────────────────────────────────────────────────────
   class BitvavoTest < KeyCheckCodesTest
-    setup { @exchange = create(:bitvavo_exchange) }
+    setup do
+      @exchange = create(:bitvavo_exchange)
+      Honeymaker::Clients::Bitvavo.any_instance.stubs(:get_raw_balance).returns(Result::Success.new([]))
+    end
 
     def probe(answer) = Honeymaker::Clients::Bitvavo.any_instance.stubs(:cancel_order).returns(answer)
+
+    # The steps ask for View and Trade, and Bitvavo serves orders and trades only to a key with both
+    # (https://docs.bitvavo.com/docs/rest-api/introduction/#permissions).
+    test 'a key without View is rejected before the Trade probe' do
+      Honeymaker::Clients::Bitvavo.any_instance.stubs(:get_raw_balance)
+                                  .returns(http_error({ errorCode: 311, error: 'This key does not allow showing account information.' }, 403))
+      Honeymaker::Clients::Bitvavo.any_instance.expects(:cancel_order).never
+      assert_rejected verdict(@exchange)
+    end
+
+    test 'a dead key or a wrong secret in a 200 envelope is rejected' do
+      probe(envelope('errorCode' => 305, 'error' => 'No active API key found.'))
+      assert_rejected verdict(@exchange)
+      probe(envelope('errorCode' => 309, 'error' => 'The signature is invalid.'))
+      assert_rejected verdict(@exchange)
+    end
+
+    test 'a wrong secret is rejected' do
+      probe(http_error({ errorCode: 309, error: 'The signature is invalid.' }, 403))
+      assert_rejected verdict(@exchange)
+    end
+
+    test 'a tracker key must pass the Trade probe too: the ledger reads trades' do
+      probe(http_error({ errorCode: 310, error: 'This key does not allow trading actions.' }, 403))
+      assert_rejected @exchange.get_read_api_key_validity(api_key: create(:api_key, exchange: @exchange, key_type: :read_only))
+      probe(http_error({ errorCode: 240, error: 'No order found.' }, 404))
+      assert_valid @exchange.get_read_api_key_validity(api_key: create(:api_key, exchange: @exchange, key_type: :read_only))
+    end
 
     test 'order not found proves trade permission' do
       probe(http_error({ errorCode: 240, error: 'No order found.' }, 404))

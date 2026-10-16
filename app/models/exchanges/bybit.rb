@@ -11,7 +11,14 @@ class Exchanges::Bybit < Exchange
     # wording, taken from recorded failures on this venue; it reads like Binance's because Bybit
     # reuses that phrasing. The codes moved to INVALID_KEY_CODES, which is what the retCode branch
     # of get_api_key_validity actually needs.
-    invalid_key: ['Invalid API-key, IP, or permissions for action.']
+    # 'API key is invalid' is retCode 10003 as Bybit answers it (https://bybit-exchange.github.io/docs/v5/error);
+    # the client keeps only retMsg, so without it a revoked key surfaced as a raw string.
+    invalid_key: ['Invalid API-key, IP, or permissions for action.', 'API key is invalid'],
+    # retCode 10005: the key is good but lacks a scope, so it must not be condemned.
+    permission_denied: ['Permission denied, please check your API key permissions'],
+    # retCode 10002, a skewed clock. A read can simply be retried; placement already treats it as safe
+    # through Exchange::PLACEMENT_SAFE_TRANSIENT_ERRORS.
+    transient: ['Timestamp for this request is outside of the recvWindow']
   }.freeze
 
   # Matched against the parsed retCode, never against a message — keeping them out of ERRORS stops
@@ -143,9 +150,8 @@ class Exchanges::Bybit < Exchange
         next unless asset.present?
         next unless asset_ids.include?(asset.id)
 
-        free = coin['availableToWithdraw'].to_d
         locked = coin['locked'].to_d
-        balances[asset.id] = { free: free, locked: locked }
+        balances[asset.id] = { free: free_balance(coin, locked), locked: locked }
       end
     end
 
@@ -283,7 +289,7 @@ class Exchanges::Bybit < Exchange
   end
 
   def get_order(order_id:)
-    result = client.get_order(category: 'spot', order_id: order_id)
+    result = find_order(order_id)
     if result.failure?
       error = parse_error_message(result)
       return error.present? ? Result::Failure.new(error, data: result.data) : result
@@ -296,19 +302,26 @@ class Exchanges::Bybit < Exchange
 
   def get_orders(order_ids:)
     orders = {}
+    missing = []
     order_ids.each do |order_id|
       result = get_order(order_id: order_id)
-      return result if result.failure?
+      if result.failure?
+        # A gone order goes under :missing for the stale-order sweep; any other failure still fails
+        # the batch so the job retries.
+        next missing << order_id if result.data.is_a?(Hash) && result.data[:not_found]
+
+        return result
+      end
 
       orders[order_id] = result.data
     end
 
-    Result::Success.new(orders: orders, missing: [])
+    Result::Success.new(orders: orders, missing: missing)
   end
 
   def cancel_order(order_id:)
     # Need to find the symbol for the order
-    get_result = client.get_order(category: 'spot', order_id: order_id)
+    get_result = find_order(order_id)
     if get_result.failure?
       error = parse_error_message(get_result)
       return error.present? ? Result::Failure.new(error) : get_result
@@ -421,15 +434,25 @@ class Exchanges::Bybit < Exchange
     end
   end
 
-  # `/v5/execution/list` returns startTime → startTime+7d and rejects a wider explicit range, so a
-  # start older than a week can never reach today. Deposit and withdrawal records cap at 30 days; the
-  # narrowest cap wins, and a 7-day window is well inside theirs.
-  def ledger_window = 7.days
+  # `/v5/execution/list` serves at most 7 days per request, measured from startTime, and reaches two
+  # years back (https://bybit-exchange.github.io/docs/v5/order/execution). get_ledger walks 7-day
+  # windows from start_time to now itself, so the sync needs no floor and ledger_window stays nil: a
+  # floor would drop everything between a quiet account's last sync and a week ago.
+  TRADE_WINDOW = 7.days
+  # A day inside the two years Bybit keeps, so the oldest window is never refused.
+  HISTORY_REACH = 729.days
+  # Deposit and withdrawal records want endTime - startTime under 30 days
+  # (https://bybit-exchange.github.io/docs/v5/asset/deposit/deposit-record).
+  TRANSFER_WINDOW = 29.days
+  # 3 is success; 70012 "remains successful after rollback review"
+  # (https://bybit-exchange.github.io/docs/v5/enum#depositstatus).
+  DEPOSIT_SUCCESS = [3, 70_012].freeze
+  # https://bybit-exchange.github.io/docs/v5/asset/deposit/internal-deposit-record: 2 = Success.
+  INTERNAL_DEPOSIT_SUCCESS = 2
 
   def get_ledger(api_key:, start_time: nil)
     hm_client = Honeymaker.client('bybit', api_key: api_key.key, api_secret: api_key.secret,
                                            proxy: ExchangeProxy.for('bybit'))
-    start_ms = start_time ? (start_time.to_f * 1000).to_i : nil
     entries = []
 
     # Any failed read fails the whole fetch: a partial Success would let the sync move its watermark
@@ -437,92 +460,122 @@ class Exchanges::Bybit < Exchange
     # inside an HTTP-200 envelope (retCode 10006 "Too many visits"), which the client hands over as
     # a Success.
 
-    # Trades
-    cursor = nil
-    loop do
-      result = checked_ledger_read(hm_client.execution_list(category: 'spot', start_time: start_ms, cursor: cursor))
-      return result if result.failure?
-
-      list = result.data.dig('result', 'list') || []
-      break if list.empty?
-
-      list.each do |trade|
+    from = [start_time, HISTORY_REACH.ago].compact.max
+    each_window(from, TRADE_WINDOW) do |window_start, window_end|
+      fetch = lambda do |cursor|
+        hm_client.execution_list(category: 'spot', start_time: window_start, end_time: window_end, cursor: cursor)
+      end
+      failed = each_ledger_row(fetch, 'list') do |trade|
         symbol = trade['symbol']
-        base = symbol_pair_base(symbol)
-        quote = symbol_pair_quote(symbol)
-        is_buyer = trade['side'] == 'Buy'
         entries << {
-          entry_type: is_buyer ? :buy : :sell,
-          base_currency: base, base_amount: trade['execQty'].to_d,
-          quote_currency: quote, quote_amount: trade['execValue'].to_d,
+          entry_type: trade['side'] == 'Buy' ? :buy : :sell,
+          base_currency: symbol_pair_base(symbol), base_amount: trade['execQty'].to_d,
+          quote_currency: symbol_pair_quote(symbol), quote_amount: trade['execValue'].to_d,
           fee_currency: trade['feeCurrency'], fee_amount: trade['execFee'].to_d.abs,
           tx_id: trade['execId'], group_id: nil, description: nil,
           transacted_at: Time.at(trade['execTime'].to_i / 1000.0).utc, raw_data: trade
         }
       end
-      cursor = result.data.dig('result', 'nextPageCursor')
-      break if cursor.blank?
+      return failed if failed
     end
 
-    # Deposits
-    result = checked_ledger_read(hm_client.deposit_records(start_time: start_ms), optional: true)
-    return result if result.failure?
+    each_window(from, TRANSFER_WINDOW) do |window_start, window_end|
+      fetch = ->(cursor) { hm_client.deposit_records(start_time: window_start, end_time: window_end, cursor: cursor) }
+      failed = each_ledger_row(fetch, 'rows', optional: true) do |dep|
+        next unless DEPOSIT_SUCCESS.include?(dep['status'].to_i)
 
-    (result.data.dig('result', 'rows') || []).each do |dep|
-      next unless dep['status'].to_i == 3 # success
-
-      entries << { entry_type: :deposit, base_currency: dep['coin'], base_amount: dep['amount'].to_d,
-                   quote_currency: nil, quote_amount: nil, fee_currency: nil, fee_amount: nil,
-                   tx_id: dep['txID'], group_id: nil, description: nil,
-                   transacted_at: Time.at(dep['successAt'].to_i / 1000.0).utc, raw_data: dep }
-    end
-
-    # Withdrawals
-    result = checked_ledger_read(hm_client.withdraw_records(start_time: start_ms), optional: true)
-    return result if result.failure?
-
-    (result.data.dig('result', 'rows') || []).each do |wd|
-      next unless wd['status'] == 'success'
-
-      entries << { entry_type: :withdrawal, base_currency: wd['coin'], base_amount: wd['amount'].to_d,
-                   quote_currency: nil, quote_amount: nil,
-                   fee_currency: wd['coin'], fee_amount: wd['withdrawFee'].to_d,
-                   tx_id: wd['txID'], group_id: nil, description: nil,
-                   transacted_at: Time.at(wd['updateTime'].to_i / 1000.0).utc, raw_data: wd }
-    end
-
-    # Linear futures trades
-    cursor = nil
-    loop do
-      result = checked_ledger_read(hm_client.execution_list(category: 'linear', start_time: start_ms, cursor: cursor), optional: true)
-      return result if result.failure?
-
-      list = result.data.dig('result', 'list') || []
-      break if list.empty?
-
-      list.each do |trade|
-        is_buyer = trade['side'] == 'Buy'
-        entries << {
-          entry_type: is_buyer ? :buy : :sell,
-          base_currency: trade['symbol'], base_amount: trade['execQty'].to_d,
-          quote_currency: 'USDT', quote_amount: trade['execValue'].to_d,
-          fee_currency: trade['feeCurrency'], fee_amount: trade['execFee'].to_d.abs,
-          tx_id: "futures-#{trade['execId']}", group_id: nil, description: 'Futures trade',
-          transacted_at: Time.at(trade['execTime'].to_i / 1000.0).utc, raw_data: trade
-        }
+        entries << { entry_type: :deposit, base_currency: dep['coin'], base_amount: dep['amount'].to_d,
+                     quote_currency: nil, quote_amount: nil, fee_currency: nil, fee_amount: nil,
+                     tx_id: dep['txID'], group_id: nil, description: nil,
+                     transacted_at: Time.at(dep['successAt'].to_i / 1000.0).utc, raw_data: dep }
       end
-      cursor = result.data.dig('result', 'nextPageCursor')
-      break if cursor.blank?
+      return failed if failed
+
+      # Bybit-to-Bybit deposits are on an endpoint of their own, which the client has no call for.
+      fetch = lambda do |cursor|
+        hm_client.send(:get_authenticated, '/v5/asset/deposit/query-internal-record',
+                       { startTime: window_start, endTime: window_end, cursor: cursor })
+      end
+      failed = each_ledger_row(fetch, 'rows', optional: true) do |dep|
+        next unless dep['status'].to_i == INTERNAL_DEPOSIT_SUCCESS
+
+        # The doc's example gives createdTime in seconds while every other field is in ms.
+        at = dep['createdTime'].to_i
+        at *= 1000 if at < 10**12
+        entries << { entry_type: :deposit, base_currency: dep['coin'], base_amount: dep['amount'].to_d,
+                     quote_currency: nil, quote_amount: nil, fee_currency: nil, fee_amount: nil,
+                     tx_id: dep['txID'], group_id: nil, description: 'Internal transfer',
+                     transacted_at: Time.at(at / 1000.0).utc, raw_data: dep }
+      end
+      return failed if failed
+
+      # withdrawType 2 is on-chain and off-chain (Bybit-to-Bybit) together; the default is on-chain only.
+      fetch = lambda do |cursor|
+        hm_client.withdraw_records(start_time: window_start, end_time: window_end, cursor: cursor, withdraw_type: 2)
+      end
+      failed = each_ledger_row(fetch, 'rows', optional: true) do |wd|
+        next unless wd['status'] == 'success'
+
+        entries << { entry_type: :withdrawal, base_currency: wd['coin'], base_amount: wd['amount'].to_d,
+                     quote_currency: nil, quote_amount: nil,
+                     fee_currency: wd['coin'], fee_amount: wd['withdrawFee'].to_d,
+                     tx_id: wd['txID'], group_id: nil, description: nil,
+                     transacted_at: Time.at(wd['updateTime'].to_i / 1000.0).utc, raw_data: wd }
+      end
+      return failed if failed
     end
 
-    Result::Success.new(entries)
+    # Neighbouring windows share their edge, so a row stamped on it comes back twice.
+    Result::Success.new(entries.uniq { |entry| [entry[:entry_type], entry[:raw_data]] })
   end
 
   private
 
-  # 10005 is "Permission denied". The key setup asks for Spot - Trade only and warns against
-  # Derivatives, so a key without the scope for futures or wallet history is the normal case; there
-  # the read has nothing to give and counts as empty, as it did before. Spot trades are what the
+  # Yields [start_ms, end_ms] windows of at most `span`, from `from` to `to`, never past now.
+  def each_window(from, span, to: Time.now)
+    window_start = (from.to_f * 1000).to_i
+    now_ms = ([to, Time.now].min.to_f * 1000).to_i
+    while window_start < now_ms
+      window_end = [window_start + (span.to_i * 1000), now_ms].min
+      yield window_start, window_end
+      window_start = window_end
+    end
+  end
+
+  # retCode 10006, "Too many visits". A first sync walks some hundred weekly windows, and failing part
+  # way would throw every page away and start over next time, so a throttled page is waited out and
+  # asked for again, as KuCoin's ledger does.
+  LEDGER_THROTTLED = 10_006
+  LEDGER_THROTTLE_WAIT = 2
+  LEDGER_THROTTLE_RETRIES = 5
+
+  # Bybit pages with nextPageCursor. Yields each row under `key`; returns the failure that stopped the
+  # read, or nil.
+  def each_ledger_row(fetch, key, optional: false, &)
+    cursor = nil
+    throttled = 0
+    loop do
+      result = fetch.call(cursor)
+      if result.success? && result.data['retCode'].to_i == LEDGER_THROTTLED && throttled < LEDGER_THROTTLE_RETRIES
+        throttled += 1
+        sleep(LEDGER_THROTTLE_WAIT)
+        next
+      end
+      throttled = 0
+
+      result = checked_ledger_read(result, optional: optional)
+      return result if result.failure?
+
+      rows = Array(result.data.dig('result', key))
+      rows.each(&)
+      cursor = result.data.dig('result', 'nextPageCursor')
+      return nil if rows.empty? || cursor.blank?
+    end
+  end
+
+  # 10005 is "Permission denied". The key setup asks for Spot - Trade only, so a key without the
+  # scope for wallet history is the normal case; there the read has nothing to give and counts as
+  # empty, as it did before. Spot trades are what the
   # key is for, so a 10005 there fails like any other code.
   LEDGER_NOT_PERMITTED = 10_005
 
@@ -536,12 +589,61 @@ class Exchanges::Bybit < Exchange
     Result::Failure.new("#{name} ledger read failed: #{ret_code} #{result.data['retMsg']}")
   end
 
+  # `availableToWithdraw` and `free` are deprecated for unified accounts since 9 Jan 2025 and come
+  # back blank, which read as 0. What is free is the wallet balance less what open orders lock and
+  # what was borrowed (https://bybit-exchange.github.io/docs/v5/account/wallet-balance). Not yet
+  # checked against a real account, so a row without walletBalance keeps the old fields, and one
+  # with nothing readable is logged rather than shown as an empty wallet without a word.
+  def free_balance(coin, locked)
+    wallet = coin['walletBalance']
+    return [wallet.to_d - locked - coin['spotBorrow'].to_d, 0].max if wallet.present?
+
+    legacy = coin['availableToWithdraw'].presence || coin['free'].presence
+    Rails.logger.warn("[bybit-balance] no walletBalance or legacy free field for #{coin['coin']}") if legacy.nil?
+    legacy.to_d
+  end
+
   def symbol_pair_base(symbol)
     tickers.find_by(ticker: symbol)&.base || symbol
   end
 
   def symbol_pair_quote(symbol)
     tickers.find_by(ticker: symbol)&.quote || symbol
+  end
+
+  # /v5/order/realtime keeps only the latest 500 closed orders per category, and a unified account's
+  # closed-order cache empties on a restart; the rest live in /v5/order/history
+  # (https://bybit-exchange.github.io/docs/v5/order/open-order). History answers at most 7 days per
+  # request and only the last 7 without a range, so it is asked over windows from the order's
+  # placement (https://bybit-exchange.github.io/docs/v5/order/order-list). The client has no history
+  # call, so it is read through the client's signed GET.
+  #
+  # Only an order missing from every window is flagged not_found, so Bot::StaleOrderResolver can
+  # retire it. With no known placement time, an empty answer proves nothing and stays a plain
+  # failure: retried, never abandoned with its fills unread.
+  ORDER_HISTORY_MARGIN = 1.hour
+  # Open orders always stay in realtime, so history only needs to reach the time the order ended.
+  ORDER_HISTORY_SPAN = 28.days
+
+  def find_order(order_id)
+    result = client.get_order(category: 'spot', order_id: order_id)
+    return result unless result.failure? && Array(result.errors).include?('Order not found')
+
+    placed_at = transactions.where(external_id: order_id).pick(:created_at)
+    return Result::Failure.new("#{name} order #{order_id} is not in realtime and its placement time is unknown") unless placed_at
+
+    from = placed_at - ORDER_HISTORY_MARGIN
+    each_window(from, TRADE_WINDOW, to: from + ORDER_HISTORY_SPAN) do |window_start, window_end|
+      history = client.send(:get_authenticated, '/v5/order/history',
+                            { category: 'spot', orderId: order_id, startTime: window_start, endTime: window_end })
+      return history if history.failure?
+      return Result::Failure.new(history.data['retMsg']) unless history.data['retCode'].to_s == '0'
+
+      raw = history.data.dig('result', 'list')&.first
+      return Result::Success.new(raw: raw) if raw
+    end
+
+    Result::Failure.new("#{name} no longer knows order #{order_id}", data: { not_found: true, missing_ids: [order_id] })
   end
 
   def parse_error_message(result)

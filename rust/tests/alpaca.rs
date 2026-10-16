@@ -418,3 +418,13 @@ async fn the_settled_quote_is_cash_below_buying_power_and_buys_keep_buying_power
     let ambiguous = || Ok(deltabadger::sync::balances::Catalog::new(vec![2, 7], &[], vec![2, 7]));
     assert_eq!(v.settled_quote_balance(&apple(), ambiguous).await, Err(VenueError::Rejected(vec!["Unmapped or ambiguous Alpaca cash asset".into()])));
 }
+
+/// parse_venue_number raises ArgumentError on a price it cannot read (alpaca.rb:611): a raise, never a failed Result, so
+/// the price gate fails the tick and the price check's chain ends (conditions::raised), as for a zero price.
+#[tokio::test(flavor = "current_thread")]
+async fn an_unreadable_price_is_rails_raise() {
+    let (_t, v) = venue(json!({ "GET /v2/stocks/AAPL/trades/latest": ok(json!({ "trade": { "p": "garbage" } })) }));
+    let err = v.price(&aapl(), PriceSide::Last).await.unwrap_err();
+    assert_eq!(err, VenueError::Rejected(vec!["unreadable last price for AAPL: garbage".into()]));
+    assert!(deltabadger::engine::conditions::raised(&err).is_some(), "{err:?}");
+}

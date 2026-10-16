@@ -174,6 +174,50 @@ class Exchanges::CoinbaseTest < ActiveSupport::TestCase
     assert_equal %w[order-stale], result.data[:missing]
   end
 
+  def product(id, **flags)
+    { 'product_id' => id, 'base_increment' => '0.01', 'quote_increment' => '0.01', 'price_increment' => '0.01',
+      'base_min_size' => '0.01', 'quote_min_size' => '1', 'base_max_size' => '1000', 'quote_max_size' => '1000000',
+      'status' => 'online', 'trading_disabled' => false }.merge(flags.transform_keys(&:to_s))
+  end
+
+  def tickers_info(*products)
+    Honeymaker::Clients::Coinbase.any_instance.stubs(:list_public_products)
+                                 .returns(Result::Success.new('products' => products))
+    @exchange.get_tickers_info(force: true).data.index_by { |info| info[:ticker] }
+  end
+
+  test 'RENDER is listed and the delisted RNDR pairs are not' do
+    infos = tickers_info(product('RENDER-USD'), product('RNDR-USD', status: 'delisted', trading_disabled: true))
+
+    assert infos.key?('RENDER-USD')
+    assert_not infos.key?('RNDR-USD')
+  end
+
+  test 'limit-only, cancel-only and disabled products are not tradable' do
+    infos = tickers_info(product('BTC-USD'), product('USDT-USDC', limit_only: true),
+                         product('PYR-USD', cancel_only: true), product('STG-USD', is_disabled: true))
+
+    assert infos['BTC-USD'][:trading_enabled]
+    assert_not infos['USDT-USDC'][:trading_enabled]
+    assert_not infos['PYR-USD'][:trading_enabled]
+    assert_not infos['STG-USD'][:trading_enabled]
+  end
+
+  test 'an order reads its reject and cancel reasons from the order object' do
+    order = {
+      'order_id' => 'order-1', 'product_id' => 'BTC-USD', 'order_type' => 'MARKET', 'side' => 'BUY',
+      'status' => 'FAILED', 'average_filled_price' => '0', 'filled_size' => '0',
+      'total_value_after_fees' => '0', 'outstanding_hold_amount' => '0',
+      'order_configuration' => { 'market_market_ioc' => { 'quote_size' => '10' } },
+      'reject_reason' => 'INSUFFICIENT_FUND', 'reject_message' => 'Insufficient balance', 'cancel_message' => ''
+    }
+    Honeymaker::Clients::Coinbase.any_instance.stubs(:list_orders).returns(Result::Success.new('orders' => [order]))
+
+    parsed = @exchange.get_orders(order_ids: ['order-1']).data[:orders]['order-1']
+
+    assert_equal ['INSUFFICIENT_FUND', 'Insufficient balance'], parsed[:error_messages]
+  end
+
   private
 
   def stub_parsed_order

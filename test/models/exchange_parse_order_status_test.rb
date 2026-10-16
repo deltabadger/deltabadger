@@ -36,7 +36,8 @@ class ExchangeParseOrderStatusTest < ActiveSupport::TestCase
       'cancelled' => :cancelled
     },
     Exchanges::Bitrue => {
-      'NEW' => :open, 'PARTIALLY_FILLED' => :open,
+      'PENDING_CANCEL' => :unknown,
+      'PENDING_CREATE' => :open, 'NEW' => :open, 'PARTIALLY_FILLED' => :open,
       'FILLED' => :closed,
       'CANCELED' => :cancelled, 'EXPIRED' => :cancelled,
       'REJECTED' => :failed
@@ -56,7 +57,7 @@ class ExchangeParseOrderStatusTest < ActiveSupport::TestCase
     },
     Exchanges::Coinbase => {
       'PENDING' => :unknown, 'UNKNOWN_ORDER_STATUS' => :unknown,
-      'OPEN' => :open,
+      'OPEN' => :open, 'QUEUED' => :open, 'CANCEL_QUEUED' => :open, 'EDIT_QUEUED' => :open,
       'FILLED' => :closed,
       'CANCELLED' => :cancelled, 'EXPIRED' => :cancelled,
       'FAILED' => :failed
@@ -70,7 +71,7 @@ class ExchangeParseOrderStatusTest < ActiveSupport::TestCase
     Exchanges::Mexc => {
       'NEW' => :open, 'PARTIALLY_FILLED' => :open,
       'FILLED' => :closed,
-      'CANCELED' => :cancelled, 'EXPIRED' => :cancelled,
+      'CANCELED' => :cancelled, 'PARTIALLY_CANCELED' => :cancelled, 'EXPIRED' => :cancelled,
       'REJECTED' => :failed
     }
   }.freeze

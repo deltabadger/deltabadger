@@ -145,10 +145,7 @@ class Clients::AlpacaTest < ActiveSupport::TestCase
     assert_predicate result, :success?
   end
 
-  # Alpaca pages bars at 1000 by default and answers with the OLDEST page plus a
-  # `next_page_token` this client does not read — so an unbounded request for a long history
-  # silently returns a window that ends years ago. The maximum page size fits every symbol
-  # Alpaca serves (its data begins in 2016) in one request.
+  # Alpaca pages bars at 1000 by default; the largest page keeps a long history to few requests.
   test 'get_bars asks for the largest page Alpaca will serve' do
     params = capture_bars_params { @client.get_bars(symbol: 'AAPL', timeframe: '1Day') }
 
@@ -216,6 +213,29 @@ class Clients::AlpacaTest < ActiveSupport::TestCase
     result = @client.get_crypto_bars(symbol: 'AAVE/USD', timeframe: '1Day')
     assert_predicate result, :success?
     assert_equal 1, result.data.dig('bars', 'AAVE/USD').size
+  end
+
+  # Alpaca answers a long range with the OLDEST page and a next_page_token. Reading only that page
+  # left a 20-year ATH seed ending years ago — and the seed then marked itself up to date.
+  test 'get_crypto_bars follows next_page_token and returns every page' do
+    bar = ->(day) { { 't' => "2026-01-0#{day}T00:00:00Z", 'o' => 1, 'h' => 2, 'l' => 0.5, 'c' => 1.5, 'v' => 10 } }
+    sent = []
+    req = stub_request('/v1beta3/crypto/us/bars')
+    req.stubs(:params=).with { |params| sent << params.dup }
+    connection = stub
+    connection.expects(:get).twice.yields(req).returns(
+      stub(body: { 'bars' => { 'AAVE/USD' => [bar.call(1), bar.call(2)] }, 'next_page_token' => 'tok' }),
+      stub(body: { 'bars' => { 'AAVE/USD' => [bar.call(3)] }, 'next_page_token' => nil })
+    )
+    @client.stubs(:data_connection).returns(connection)
+
+    result = @client.get_crypto_bars(symbol: 'AAVE/USD', timeframe: '1Day', start_time: '2006-01-01T00:00:00Z')
+
+    assert_predicate result, :success?
+    assert_equal(%w[2026-01-01 2026-01-02 2026-01-03], result.data.dig('bars', 'AAVE/USD').map { |b| b['t'][0, 10] })
+    assert_equal([nil, 'tok'], sent.map { |p| p[:page_token] })
+    assert_equal([10_000, 10_000], sent.map { |p| p[:limit] })
+    assert_equal(['2006-01-01T00:00:00Z'] * 2, sent.map { |p| p[:start] })
   end
 
   test 'get_account_activities returns success result' do

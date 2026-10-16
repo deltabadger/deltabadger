@@ -124,7 +124,11 @@ fn bot_reasons_with(c: &Connection, bot: &Bot, splits: &mut SplitRows) -> Result
     if let Some(obj) = bot.settings.as_object() {
         for (k, v) in obj {
             let flag = k.ends_with("_limited") || k.ends_with("_ordered") || k.ends_with("_intervaled");
-            if flag && set(v) && !SUPPORTED_FLAGS.contains(&k.as_str()) { r.push(k.clone()); }
+            if !flag || !set(v) || SUPPORTED_FLAGS.contains(&k.as_str()) { continue; }
+            match k.as_str() {
+                "price_limited" | "sell_price_limited" => r.extend(price_rule_reason(bot, k, v)),
+                _ => r.push(k.clone()),
+            }
         }
     }
     if bot.settings.get("start_time_enabled").is_some_and(set) && BOT_WORKING.contains(&bot.status) { r.extend(start_time_reason(c, bot)?); }
@@ -158,6 +162,17 @@ fn bot_reasons_with(c: &Connection, bot: &Bot, splits: &mut SplitRows) -> Result
     }
     if alpaca && r.is_empty() { super::accounting::validate_stored_amounts(&bot.settings, &bot.transient)?; super::accounting::quote_amount_available_num(c, bot)?; }
     Ok(r)
+}
+
+/// A price rule (slice 7a) runs with the `pause` action and values Rails compares; its flip actions are slice 7c. A flag
+/// set to anything but `true` (which Rails reads as off) is refused, as every flag outside the slice.
+fn price_rule_reason(bot: &Bot, key: &str, value: &Value) -> Option<String> {
+    if value != &Value::Bool(true) { return Some(key.to_string()); }
+    match bot.price_rule(key == "sell_price_limited") {
+        Err(e) => Some(e),
+        Ok(Some(rule)) if rule.action != "pause" => Some(format!("{key} with the {} action (the flip actions come with slice 7c)", rule.action)),
+        Ok(_) => None,
+    }
 }
 
 /// Selling: a one-asset basket on Kraken, Binance or Alpaca (slice 6a, one_asset_sell_orders_data), or a wider Alpaca basket
