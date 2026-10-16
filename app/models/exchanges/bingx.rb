@@ -437,37 +437,104 @@ class Exchanges::Bingx < Exchange
       end
     end
 
-    # Deposits
-    result = hm_client.deposit_history(start_time: start_ms)
-    unless result.failure?
-      Array(result.data).each do |dep|
-        next unless dep['status'].to_i == 1
+    # Deposits and withdrawals. Any failed read fails the whole fetch: a partial Success would let
+    # the sync move its watermark past the rows it never got.
+    failed = each_transfer(hm_client, DEPOSITS_PATH, start_time) do |dep|
+      next unless dep['status'].to_i == 1 # completed
 
-        entries << { entry_type: :deposit, base_currency: dep['coin'], base_amount: dep['amount'].to_d,
-                     quote_currency: nil, quote_amount: nil, fee_currency: nil, fee_amount: nil,
-                     tx_id: dep['txId'], group_id: nil, description: nil,
-                     transacted_at: Time.at(dep['insertTime'].to_i / 1000.0).utc, raw_data: dep }
-      end
+      # No record id: txId is the chain transaction that credited this deposit.
+      entries << { entry_type: :deposit, base_currency: transfer_coin(dep), base_amount: dep['amount'].to_d,
+                   quote_currency: nil, quote_amount: nil, fee_currency: nil, fee_amount: nil,
+                   tx_id: dep['txId'].presence, group_id: nil, description: nil,
+                   transacted_at: Time.at(dep['insertTime'].to_i / 1000.0).utc, raw_data: dep }
     end
+    return failed if failed
 
-    # Withdrawals
-    result = hm_client.withdraw_history(start_time: start_ms)
-    unless result.failure?
-      Array(result.data).each do |wd|
-        next unless wd['status'].to_i == 6
+    failed = each_transfer(hm_client, WITHDRAWALS_PATH, start_time) do |wd|
+      next unless wd['status'].to_i == 6 # completed
 
-        entries << { entry_type: :withdrawal, base_currency: wd['coin'], base_amount: wd['amount'].to_d,
-                     quote_currency: nil, quote_amount: nil,
-                     fee_currency: wd['coin'], fee_amount: wd['transactionFee']&.to_d,
-                     tx_id: wd['txId'] || wd['id'], group_id: nil, description: nil,
-                     transacted_at: Time.parse(wd['applyTime']).utc, raw_data: wd }
-      end
+      coin = transfer_coin(wd)
+      # The record's own id: withdrawals batched into one on-chain transaction share its txId, and the
+      # sync keeps one row per tx_id.
+      entries << { entry_type: :withdrawal, base_currency: coin, base_amount: wd['amount'].to_d,
+                   quote_currency: nil, quote_amount: nil,
+                   fee_currency: coin, fee_amount: wd['transactionFee']&.to_d,
+                   tx_id: wd['id'].to_s.presence, group_id: nil, description: nil,
+                   transacted_at: transfer_time(wd['applyTime']), raw_data: wd }
     end
+    return failed if failed
 
     Result::Success.new(entries)
   end
 
   private
+
+  # honeymaker's deposit_history and withdraw_history ask /openApi/wallets/v1/capital/..., which BingX
+  # answers with 100400 "this api is not exist"; these are the documented paths
+  # (https://bingx-api.github.io/docs/#/en-us/common/wallet-api.html). Both take startTime/endTime and
+  # page by offset, 1000 rows at most. Their range cap is undocumented: they are read in 90-day
+  # windows, the cap of the Binance endpoints they copy, from start_time or BingX's opening.
+  DEPOSITS_PATH = '/openApi/api/v3/capital/deposit/hisrec'.freeze
+  WITHDRAWALS_PATH = '/openApi/api/v3/capital/withdraw/history'.freeze
+  TRANSFER_PAGE = 1000
+  TRANSFER_WINDOW = 90.days
+  TRANSFERS_FROM = Time.utc(2018, 1, 1)
+  # 100004: a key without the wallet read permission has no transfers to give.
+  NO_PERMISSION_CODE = 100_004
+
+  # Yields each transfer record from start_time (or BingX's opening) to now; returns the failure that
+  # stopped the read, or nil.
+  def each_transfer(hm_client, path, start_time, &)
+    seen = Set.new
+    each_ledger_window(start_time || TRANSFERS_FROM, TRANSFER_WINDOW) do |from, to|
+      offset = 0
+      loop do
+        result = hm_client.send(:get_signed, path, { startTime: from, endTime: to, offset: offset, limit: TRANSFER_PAGE })
+        return result if result.failure?
+
+        body = result.data
+        if body.is_a?(Hash)
+          return nil if body['code'].to_i == NO_PERMISSION_CODE
+          return Result::Failure.new("#{name} ledger read failed: #{body['code']} #{body['msg']}") if body['code'].to_i != 0
+        end
+
+        rows = body.is_a?(Array) ? body : Array(body['data'])
+        # Neighbouring windows share their edge, so a record stamped on it comes back twice.
+        fresh = rows.reject { |row| seen.include?(row) }
+        fresh.each { |row| seen << row }
+        fresh.each(&)
+        break if rows.size < TRANSFER_PAGE
+        return Result::Failure.new("#{name} ledger read failed: a full page of #{path} brought nothing new") if fresh.empty?
+
+        offset += rows.size
+      end
+    end
+    nil
+  end
+
+  # Yields [from, to] epoch-ms windows of at most `window`, from `from` to now. Each starts where the
+  # last ended, so a row on the edge is read either way.
+  def each_ledger_window(from, window)
+    window_start = (from.to_f * 1000).to_i
+    now = (Time.now.to_f * 1000).to_i
+    while window_start < now
+      window_end = [window_start + window.in_milliseconds.to_i, now].min
+      yield window_start, window_end
+      window_start = window_end
+    end
+  end
+
+  # BingX names some coins with their network ("USDTTRC20" on network "TRC20").
+  def transfer_coin(row)
+    coin = row['coin'].to_s
+    network = row['network'].to_s
+    network.present? && coin != network && coin.end_with?(network) ? coin.delete_suffix(network) : coin
+  end
+
+  # applyTime is a date string in the docs ("2023-12-14T04:05:02.000+08:00"); epoch ms is read too.
+  def transfer_time(value)
+    value.to_s.match?(/\A\d+\z/) ? Time.at(value.to_i / 1000.0).utc : Time.parse(value.to_s).utc
+  end
 
   # The order lookup's answer for an order BingX does not have: 100404 "Order does not exist", or
   # 100400 with an order-not-exist message (https://bingx-api.github.io/docs/#/en-us/common/error-code).

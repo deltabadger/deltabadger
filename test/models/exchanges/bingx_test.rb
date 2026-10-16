@@ -273,4 +273,95 @@ class Exchanges::BingxTest < ActiveSupport::TestCase
     assert_equal 0, asked.first[1][:timeZone]
     assert_equal Time.utc(2026, 10, 16), candles.first[0]
   end
+
+  # == Ledger ==
+
+  # What BingX answers a path it does not have, captured live for /openApi/spot/v1/trade/fills and
+  # /openApi/wallets/v1/capital/{deposit/hisrec,withdraw/history} — the paths honeymaker asks.
+  GONE_PATH = { 'code' => 100_400, 'msg' => 'this api is not exist,please refer to the API docs https://bingx-api.github.io/docs',
+                'timestamp' => 1_792_137_475_001 }.freeze
+
+  def ledger_api_key
+    create(:api_key, exchange: @exchange, key_type: :read_only)
+  end
+
+  # A client whose honeymaker ledger methods answer like the live venue (GONE_PATH) and whose signed
+  # requests are served by `routes`: path => ->(params) { body }.
+  def fake_ledger_client(routes, asked: [])
+    fake = Honeymaker.client('bingx')
+    %i[get_trade_fills deposit_history withdraw_history].each do |m|
+      fake.define_singleton_method(m) { |**| Result::Success.new(GONE_PATH) }
+    end
+    fake.define_singleton_method(:get_signed) do |path, params = {}|
+      asked << [path, params]
+      route = routes[path]
+      Result::Success.new(route ? route.call(params) : GONE_PATH)
+    end
+    Honeymaker.stubs(:client).returns(fake)
+    asked
+  end
+
+  DEPOSITS = '/openApi/api/v3/capital/deposit/hisrec'.freeze
+  WITHDRAWALS = '/openApi/api/v3/capital/withdraw/history'.freeze
+
+  # Shaped like https://bingx-api.github.io/docs/#/en-us/common/wallet-api.html (Deposit records,
+  # Withdraw records): a bare array, the coin carrying its network, applyTime a date string.
+  test 'get_ledger reads deposits and withdrawals from the documented paths' do
+    insert = (2.days.ago.to_i * 1000)
+    fake_ledger_client({
+      DEPOSITS => lambda { |params|
+        return [] unless params[:offset].zero? && insert.between?(params[:startTime], params[:endTime])
+
+        [{ 'amount' => '49999.00000000000000000000', 'coin' => 'USDTTRC20', 'network' => 'TRC20', 'status' => 1,
+           'address' => 'TPxB4v', 'addressTag' => '', 'txId' => '60ab1d', 'insertTime' => insert,
+           'unlockConfirm' => '2/2', 'confirmTimes' => '2/2' },
+         { 'amount' => '5', 'coin' => 'USDT', 'network' => 'TRC20', 'status' => 0, 'txId' => 'pending', 'insertTime' => insert }]
+      },
+      WITHDRAWALS => lambda { |params|
+        return [] unless params[:offset].zero? && insert.between?(params[:startTime], params[:endTime])
+
+        [{ 'address' => 'TRzc', 'amount' => '3500.00000000000000000000', 'applyTime' => '2023-12-14T04:05:02.000+08:00',
+           'coin' => 'USDTTRC20', 'id' => '1250000098', 'network' => 'TRC20', 'transferType' => 1,
+           'transactionFee' => '1.00000000000000000000', 'confirmNo' => 2, 'info' => '', 'txId' => 'b9b67', 'status' => 6 }]
+      }
+    })
+
+    result = @exchange.get_ledger(api_key: ledger_api_key, start_time: 3.days.ago)
+
+    assert_predicate result, :success?
+    deposit, withdrawal = result.data.partition { |e| e[:entry_type] == :deposit }.map(&:sole)
+    assert_equal ['USDT', 49_999.to_d, '60ab1d'], deposit.values_at(:base_currency, :base_amount, :tx_id)
+    assert_equal ['USDT', 3500.to_d, 1.to_d, '1250000098'], withdrawal.values_at(:base_currency, :base_amount, :fee_amount, :tx_id)
+    assert_equal Time.utc(2023, 12, 13, 20, 5, 2), withdrawal[:transacted_at]
+  end
+
+  # Unknown range cap: 90-day windows from BingX's opening on a first sync; within one, offset pages
+  # of 1000 until a short one.
+  test 'get_ledger reads every transfer since the opening, page by page' do
+    times = (0...1500).map { |i| Time.utc(2019, 6, 1).to_i * 1000 + (i * 60_000) }
+    asked = fake_ledger_client({
+      DEPOSITS => lambda { |params|
+        rows = times.grep(params[:startTime]..params[:endTime]).drop(params[:offset]).first(params[:limit])
+        rows.map { |t| { 'coin' => 'BTC', 'amount' => '1', 'status' => 1, 'txId' => "h#{t}", 'insertTime' => t } }
+      },
+      WITHDRAWALS => ->(_params) { [] }
+    })
+
+    rows = @exchange.get_ledger(api_key: ledger_api_key).data
+
+    assert_equal 1500, rows.map { |r| r[:tx_id] }.uniq.size
+    deposit_asks = asked.select { |path, _| path == DEPOSITS }.map(&:last)
+    assert_equal Time.utc(2018, 1, 1).to_i * 1000, deposit_asks.first[:startTime]
+    assert(deposit_asks.all? { |p| p[:endTime] - p[:startTime] <= 90.days.in_milliseconds })
+    assert_operator deposit_asks.last[:endTime], :>=, 1.minute.ago.to_i * 1000
+  end
+
+  test 'a failed transfer read fails the fetch; a key without the wallet permission reads as no transfers' do
+    fake_ledger_client({ DEPOSITS => ->(_) { { 'code' => 100_410, 'msg' => 'rate limitation' } }, WITHDRAWALS => ->(_) { [] } })
+    assert_predicate @exchange.get_ledger(api_key: ledger_api_key, start_time: 2.days.ago), :failure?
+
+    denied = { 'code' => 100_004, 'msg' => 'Permission denied as the API key was created without the permission' }
+    fake_ledger_client({ DEPOSITS => ->(_) { denied }, WITHDRAWALS => ->(_) { denied } })
+    assert_predicate @exchange.get_ledger(api_key: ledger_api_key, start_time: 2.days.ago), :success?
+  end
 end
