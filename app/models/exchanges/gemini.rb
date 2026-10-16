@@ -5,19 +5,34 @@ class Exchanges::Gemini < Exchange
   # hundred in all, against a public limit of 120 a minute. One a second is Gemini's own
   # recommendation, and leaves room for the app's other public requests.
   CATALOGUE_REQUEST_INTERVAL = 1
+  TRADES_PAGE = 500 # /v1/mytrades limit_trades maximum
+  TRANSFERS_PAGE = 50 # /v2/transfers limit_transfers maximum
+  TRANSFERS_REQUEST_INTERVAL = 5 # https://developer.gemini.com/rate-limit
 
   COINGECKO_ID = 'gemini'.freeze # https://docs.coingecko.com/reference/exchanges-list
+  # Reasons from https://developer.gemini.com/error-codes, matched inside the error body
+  # ({"result":"error","reason":"…","message":"…"}). System and Maintenance are matched with their
+  # quotes so the words cannot match inside a message.
   ERRORS = {
     insufficient_funds: ['InsufficientFunds', 'Insufficient Funds'],
     invalid_key: %w[InvalidSignature InvalidApiKey],
+    # The key is good but lacks the role (Trader for orders, Auditor or Fund Manager for reads).
+    permission_denied: %w[MissingRole],
+    # HTTP 429.
+    throttle: %w[RateLimit],
     # InvalidNonce is NOT an invalid key: Gemini signs each request with a monotonic nonce, so this
     # is what the same key reused from two places, or a request that arrived out of order, looks
     # like. The credentials are fine and the next request usually succeeds. It sat in :invalid_key
     # until :invalid_key started stopping bots, at which point two consecutive nonce rejections
     # would have parked a working bot and told the user to replace a key that was never the
     # problem. Kraken files its equivalent (EAPI:Invalid nonce) under :transient for the same
-    # reason.
-    transient: %w[InvalidNonce]
+    # reason. "System" (HTTP 500) and "Maintenance" (HTTP 503) are Gemini saying come back later.
+    transient: ['InvalidNonce', '"reason":"System"', '"reason":"Maintenance"'],
+    # Listed again, deliberately: Gemini rejects a bad nonce while authenticating the request
+    # (https://developer.gemini.com/authentication/api-key, "Authentication Error Codes"), so the
+    # order never reached the book and placing it again cannot double-buy. Two bots on one key
+    # sending at once is enough to trip it. See Exchange#placement_transient_error?.
+    placement_safe_transient: ['InvalidNonce']
   }.freeze
 
   include Exchange::Dryable # decorators for: get_order, get_orders, cancel_order, get_api_key_validity, set_market_order, set_limit_order
@@ -258,7 +273,14 @@ class Exchanges::Gemini < Exchange
 
   def get_order(order_id:)
     result = client.order_status(order_id: order_id)
-    return result if result.failure?
+    if result.failure?
+      return result unless response_field(result, 'reason') == 'OrderNotFound'
+
+      # Flagged so get_orders lists it under missing and Bot::StaleOrderResolver can retire it,
+      # instead of one gone order failing every poll of the bot's other orders.
+      return Result::Failure.new("#{name} no longer knows order #{order_id}",
+                                 data: { not_found: true, missing_ids: [order_id] })
+    end
 
     normalized_order_data = parse_order_data(order_id, result.data[:raw])
 
@@ -267,14 +289,21 @@ class Exchanges::Gemini < Exchange
 
   def get_orders(order_ids:)
     orders = {}
+    missing = []
     order_ids.each do |order_id|
       result = get_order(order_id: order_id)
-      return result if result.failure?
+      if result.failure?
+        # A gone order goes under :missing for the stale-order sweep; any other failure still fails
+        # the batch so the job retries.
+        next missing << order_id if result.data.is_a?(Hash) && result.data[:not_found]
+
+        return result
+      end
 
       orders[order_id] = result.data
     end
 
-    Result::Success.new(orders: orders, missing: [])
+    Result::Success.new(orders: orders, missing: missing)
   end
 
   def cancel_order(order_id:)
@@ -379,46 +408,86 @@ class Exchanges::Gemini < Exchange
     ts_ms = start_time ? (start_time.to_f * 1000).to_i : nil
     entries = []
 
-    # Trades
-    result = hm_client.get_my_trades(timestamp: ts_ms)
-    unless result.failure?
-      Array(result.data).each do |trade|
-        symbol = trade['symbol'] # e.g. "btcusd"
-        base = symbol[0..2].upcase
-        quote = symbol[3..].upcase
-        is_buyer = trade['type'] == 'Buy'
-        entries << { entry_type: is_buyer ? :buy : :sell,
-                     base_currency: base, base_amount: trade['amount'].to_d,
-                     quote_currency: quote, quote_amount: trade['price'].to_d * trade['amount'].to_d,
-                     fee_currency: trade['fee_currency']&.upcase || quote,
-                     fee_amount: trade['fee_amount'].to_d,
-                     tx_id: trade['tid'].to_s, group_id: nil, description: nil,
-                     transacted_at: Time.at(trade['timestampms'].to_i / 1000.0).utc, raw_data: trade }
-      end
+    # Every trade from start_time (or the account's first, on a first sync), walked forward as
+    # Gemini documents: 500 a page, the next page from the newest timestampms
+    # (https://developer.gemini.com/trading/rest-api/orders/list-past-trades). A failed read fails
+    # the fetch: a partial Success would move the sync's watermark past trades it never got.
+    fetch = ->(from_ms) { hm_client.get_my_trades(timestamp: from_ms, limit_trades: TRADES_PAGE) }
+    failed = each_ledger_row(fetch, TRADES_PAGE, ts_ms || 0, id: 'tid') do |trade|
+      base, quote = ledger_pair(trade['symbol'])
+      is_buyer = trade['type'] == 'Buy'
+      entries << { entry_type: is_buyer ? :buy : :sell,
+                   base_currency: base, base_amount: trade['amount'].to_d,
+                   quote_currency: quote, quote_amount: trade['price'].to_d * trade['amount'].to_d,
+                   fee_currency: trade['fee_currency']&.upcase || quote,
+                   fee_amount: trade['fee_amount'].to_d,
+                   tx_id: trade['tid'].to_s, group_id: nil, description: nil,
+                   transacted_at: Time.at(trade['timestampms'].to_i / 1000.0).utc, raw_data: trade }
     end
+    return failed if failed
 
-    # Transfers (deposits + withdrawals)
-    result = hm_client.get_transfers(timestamp: ts_ms)
-    unless result.failure?
-      Array(result.data).each do |transfer|
-        type = transfer['type']
-        next unless %w[Deposit Withdrawal].include?(type)
-
-        entry_type = type == 'Deposit' ? :deposit : :withdrawal
-        entries << { entry_type: entry_type,
-                     base_currency: transfer['currency']&.upcase, base_amount: transfer['amount'].to_d,
-                     quote_currency: nil, quote_amount: nil,
-                     fee_currency: transfer['feeAmount'].to_d.positive? ? transfer['currency']&.upcase : nil,
-                     fee_amount: transfer['feeAmount'].to_d.positive? ? transfer['feeAmount'].to_d : nil,
-                     tx_id: transfer['eid'].to_s, group_id: nil, description: nil,
-                     transacted_at: Time.at(transfer['timestampms'].to_i / 1000.0).utc, raw_data: transfer }
-      end
+    # Deposits and withdrawals from /v2/transfers, which Gemini names the replacement for the v1 list
+    # it is retiring (https://developer.gemini.com/trading/rest-api/fund-management/list-past-transfers).
+    # honeymaker 0.12.3 has only the v1 call, so the request goes through the client's own signing.
+    # 50 a page, walked forward like the trades, and no faster than the one request per 5 seconds
+    # Gemini allows on this endpoint.
+    fetch = lambda do |from_ms|
+      hm_client.send(:post_signed, '/v2/transfers', { timestamp: from_ms, limit_transfers: TRANSFERS_PAGE })
     end
+    failed = each_ledger_row(fetch, TRANSFERS_PAGE, ts_ms || 0, id: 'eid', pause: TRANSFERS_REQUEST_INTERVAL) do |transfer|
+      type = transfer['type']
+      next unless %w[Deposit Withdrawal].include?(type)
+
+      fee = transfer['feeAmount'].to_d
+      entries << { entry_type: type == 'Deposit' ? :deposit : :withdrawal,
+                   base_currency: transfer['currency']&.upcase, base_amount: transfer['amount'].to_d,
+                   quote_currency: nil, quote_amount: nil,
+                   fee_currency: fee.positive? ? (transfer['feeCurrency'] || transfer['currency'])&.upcase : nil,
+                   fee_amount: fee.positive? ? fee : nil,
+                   tx_id: transfer['eid'].to_s, group_id: nil, description: nil,
+                   transacted_at: Time.at(transfer['timestampms'].to_i / 1000.0).utc, raw_data: transfer }
+    end
+    return failed if failed
 
     Result::Success.new(entries)
   end
 
   private
+
+  # Yields every row of a ledger list read forward by timestamp, page after page, until a short page.
+  # Each next page starts at the newest timestamp seen, not one past it, so rows sharing the
+  # boundary millisecond are read again rather than skipped; the `id` field drops the repeats. A full
+  # page with nothing new cannot move forward, and fails rather than report the list complete.
+  # Returns the failure that stopped it, or nil.
+  def each_ledger_row(fetch, limit, from_ms, id:, pause: 0, &block)
+    seen = Set.new
+    loop do
+      result = fetch.call(from_ms)
+      return result if result.failure?
+      return Result::Failure.new("#{name} answered a ledger read with #{result.data.class}") unless result.data.is_a?(Array)
+
+      fresh = result.data.select { |row| seen.add?(row[id]) }
+      fresh.each(&block)
+      return nil if result.data.size < limit
+      return Result::Failure.new("#{name} ledger paging stuck at #{from_ms}") if fresh.empty?
+
+      from_ms = result.data.map { |row| row['timestampms'].to_i }.max
+      sleep(pause) if pause.positive?
+    end
+  end
+
+  # A trade's symbol ("BTCUSD", "DOGEUSD", "ETHGUSD") has no separator, so the pair comes from the
+  # catalogue. A pair no longer listed is split at the longest quote the catalogue knows.
+  def ledger_pair(symbol)
+    @ledger_pairs ||= tickers.pluck(:ticker, :base, :quote).to_h { |ticker, base, quote| [ticker.downcase, [base, quote]] }
+    pair = @ledger_pairs[symbol.downcase]
+    return pair if pair
+
+    symbol = symbol.upcase
+    quotes = @ledger_pairs.values.map(&:last).uniq.sort_by { |quote| -quote.length }
+    quote = quotes.find { |q| symbol.end_with?(q) && symbol.length > q.length }
+    quote ? [symbol.delete_suffix(quote), quote] : [symbol, nil]
+  end
 
   # Worth another try: no HTTP answer that a retry can fix (a dropped connection, a timeout), or an
   # answer that says to come back later. Decided on the status because a 429 carries no text worth

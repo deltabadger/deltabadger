@@ -17,6 +17,29 @@ class Exchanges::GeminiTest < ActiveSupport::TestCase
     assert_kind_of Array, errors[:invalid_key]
   end
 
+  # Bodies shaped like https://developer.gemini.com/error-codes. A missing role, a rate limit and an
+  # outage used to fall through unclassified and show the user the raw body.
+  test 'classifies the role, rate-limit and outage reasons Gemini documents' do
+    body = ->(reason) { %({"result":"error","reason":"#{reason}","message":"x"}) }
+
+    assert_equal :permission_denied, @exchange.failure_kind([body.call('MissingRole')])
+    assert_equal :throttle, @exchange.failure_kind([body.call('RateLimit')])
+    assert_equal :transient, @exchange.failure_kind([body.call('System')])
+    assert_equal :transient, @exchange.failure_kind([body.call('Maintenance')])
+    assert_not @exchange.invalid_key_error?([body.call('MissingRole')])
+    assert_nil @exchange.failure_kind([body.call('InvalidQuantity')])
+  end
+
+  # The nonce is checked while authenticating, before the order exists, so a placement that hit it
+  # is a clean rejection: re-placed by a signal bot, no failed row on a DCA bot.
+  test 'a nonce rejection on placement is a pre-trade rejection, not an ambiguous one' do
+    failure = Result::Failure.new('{"result":"error","reason":"InvalidNonce","message":"Nonce must be increasing"}',
+                                  data: { status: 400 })
+
+    assert @exchange.placement_transient_error?(failure.errors)
+    assert_not @exchange.ambiguous_placement_error?(failure)
+  end
+
   test 'minimum_amount_logic returns base' do
     assert_equal :base, @exchange.minimum_amount_logic
   end
@@ -82,6 +105,35 @@ class Exchanges::GeminiTest < ActiveSupport::TestCase
     result = @exchange.get_api_key_validity(api_key: api_key)
     assert result.success?
     assert_equal false, result.data
+  end
+
+  # One order Gemini no longer has (HTTP 404, reason OrderNotFound —
+  # https://developer.gemini.com/error-codes) failed every get_orders batch it was in, so the bot's
+  # other orders were never polled either.
+  test 'get_orders lists an order Gemini no longer has under missing and keeps the rest' do
+    live = { 'order_id' => '2', 'symbol' => 'btcusd', 'type' => 'exchange limit', 'side' => 'buy', 'price' => '400.00',
+             'avg_execution_price' => '0.00', 'original_amount' => '3', 'executed_amount' => '0',
+             'remaining_amount' => '3', 'is_live' => true, 'is_cancelled' => false }
+    answers = {
+      '1' => Result::Failure.new('{"result":"error","reason":"OrderNotFound","message":"Order 1 not found"}',
+                                 data: { status: 404 }),
+      '2' => Result::Success.new(raw: live)
+    }
+    @exchange.send(:client).define_singleton_method(:order_status) { |order_id:| answers.fetch(order_id) }
+
+    result = with_dry_run(false) { @exchange.get_orders(order_ids: %w[1 2]) }
+
+    assert_predicate result, :success?
+    assert_equal %w[1], result.data[:missing]
+    assert_equal :open, result.data[:orders]['2'][:status]
+  end
+
+  test 'get_orders still fails the batch on any other failure' do
+    @exchange.send(:client).define_singleton_method(:order_status) do |**|
+      Result::Failure.new('{"result":"error","reason":"System","message":"x"}', data: { status: 500 })
+    end
+
+    assert_predicate with_dry_run(false) { @exchange.get_orders(order_ids: %w[1]) }, :failure?
   end
 
   # == order-placement response parsing (Bug C) ==
@@ -383,7 +435,130 @@ class Exchanges::GeminiTest < ActiveSupport::TestCase
     refute mew_gusd.reload.available, 'a pair Gemini trades only as a perpetual is not a spot pair'
   end
 
+  # == ledger ==
+
+  # Trade symbols carry no separator. Slicing three letters off made DOGEUSD a DOG/EUSD trade and
+  # LINKUSD a LIN/KUSD one, so the tracker booked them against assets that do not exist.
+  test "get_ledger reads a trade's pair from the catalogue, not from the first three letters" do
+    create(:ticker, exchange: @exchange, base_symbol: 'DOGE', quote_symbol: 'USD', ticker: 'dogeusd')
+    create(:ticker, exchange: @exchange, base_symbol: 'ETH', quote_symbol: 'GUSD', ticker: 'ethgusd')
+    stub_ledger(trades: [[gemini_trade(1, 'DOGEUSD'), gemini_trade(2, 'ETHGUSD'), gemini_trade(3, 'LINKGUSD')]])
+
+    entries = @exchange.get_ledger(api_key: ledger_key).data
+
+    assert_equal([%w[DOGE USD], %w[ETH GUSD], %w[LINK GUSD]], entries.map { |e| [e[:base_currency], e[:quote_currency]] })
+  end
+
+  # One request without a limit returned Gemini's default 50 trades, the newest on a first sync,
+  # and a failed read still returned Success, so the sync moved past trades it never read.
+  test 'get_ledger walks every page of trades forward from start_time, 500 at a time' do
+    page = (1..500).map { |tid| gemini_trade(tid) }.reverse # newest first, as Gemini sorts
+    calls = stub_ledger(trades: [page, [gemini_trade(501)]])
+
+    entries = @exchange.get_ledger(api_key: ledger_key, start_time: Time.at(1_547_232_000).utc).data
+
+    assert_equal 501, entries.size
+    assert_equal [{ timestamp: 1_547_232_000_000, limit_trades: 500 }, { timestamp: 1_547_232_911_521, limit_trades: 500 }],
+                 calls[:trades]
+  end
+
+  # Two fills in one millisecond can straddle a page boundary; asking from one past the newest
+  # timestamp skipped the second, and the sync's watermark moved past it.
+  test 'get_ledger keeps fills that share the boundary millisecond of a full page' do
+    page = (1..499).map { |tid| gemini_trade(tid) } + [gemini_trade(500, timestampms: 1_547_232_999_000)]
+    calls = stub_ledger(trades: [page, [gemini_trade(500, timestampms: 1_547_232_999_000),
+                                        gemini_trade(501, timestampms: 1_547_232_999_000)]])
+
+    entries = @exchange.get_ledger(api_key: ledger_key).data
+
+    assert_equal((1..501).map(&:to_s), entries.map { |entry| entry[:tx_id] })
+    assert_equal 1_547_232_999_000, calls[:trades].last[:timestamp]
+  end
+
+  test 'get_ledger fails when a full page brings nothing new' do
+    page = (1..500).map { |tid| gemini_trade(tid, timestampms: 1_547_232_999_000) }
+    stub_ledger(trades: [page, page])
+
+    assert_predicate @exchange.get_ledger(api_key: ledger_key), :failure?
+  end
+
+  test 'get_ledger reads trades from the first one on a first sync' do
+    calls = stub_ledger(trades: [[gemini_trade(1)]])
+
+    @exchange.get_ledger(api_key: ledger_key)
+
+    assert_equal [{ timestamp: 0, limit_trades: 500 }], calls[:trades]
+  end
+
+  test 'get_ledger fails when a trades page fails' do
+    rate_limited = Result::Failure.new('{"result":"error","reason":"RateLimit","message":"x"}', data: { status: 429 })
+    stub_ledger(trades: [(1..500).map { |tid| gemini_trade(tid) }, rate_limited])
+
+    assert_predicate @exchange.get_ledger(api_key: ledger_key), :failure?
+  end
+
+  # The v1 list Gemini is retiring was read once, with its default of 10 rows and no paging, and a
+  # failed read was skipped while the fetch succeeded. Shaped like the v2 example.
+  test 'get_ledger walks every page of v2 transfers, paced, with the fee in its own currency' do
+    withdrawal = { 'type' => 'Withdrawal', 'status' => 'Complete', 'timestampms' => 1_772_818_620_354, 'eid' => 368_598_436_530,
+                   'currency' => 'USDC', 'amount' => '0.01', 'network' => 'ethereum', 'feeAmount' => '0.118856',
+                   'feeCurrency' => 'USDC', 'txHash' => '714a15c4' }
+    deposits = (1..50).map do |i|
+      { 'type' => 'Deposit', 'status' => 'Complete', 'timestampms' => 1_771_990_797_452 + i, 'eid' => 309_356_152 + i,
+        'currency' => 'ETH', 'amount' => '1', 'feeAmount' => '0', 'feeCurrency' => 'ETH' }
+    end
+    admin = { 'type' => 'AdminCredit', 'status' => 'Complete', 'timestampms' => 1_772_818_620_400, 'eid' => 1,
+              'currency' => 'BTC', 'amount' => '4' }
+    calls = stub_ledger(transfers: [deposits, [withdrawal, admin]])
+    sleeps = record_sleeps
+
+    entries = @exchange.get_ledger(api_key: ledger_key).data
+
+    assert_equal 51, entries.size
+    assert_equal({ entry_type: :withdrawal, base_currency: 'USDC', fee_currency: 'USDC', fee_amount: '0.118856'.to_d,
+                   tx_id: '368598436530' },
+                 entries.last.slice(:entry_type, :base_currency, :fee_currency, :fee_amount, :tx_id))
+    assert_equal [{ timestamp: 0, limit_transfers: 50, path: '/v2/transfers' },
+                  { timestamp: 1_771_990_797_502, limit_transfers: 50, path: '/v2/transfers' }], calls[:transfers]
+    assert_equal [5], sleeps
+  end
+
+  test 'get_ledger fails when a transfers page fails' do
+    stub_ledger(transfers: [Result::Failure.new('{"result":"error","reason":"MissingRole","message":"x"}', data: { status: 403 })])
+
+    assert_predicate @exchange.get_ledger(api_key: ledger_key), :failure?
+  end
+
   private
+
+  def ledger_key
+    stub(key: 'k', secret: 's')
+  end
+
+  # Shaped like https://developer.gemini.com/trading/rest-api/orders/list-past-trades.
+  def gemini_trade(tid, symbol = 'BTCUSD', timestampms: 1_547_232_911_021 + tid)
+    { 'price' => '3648.09', 'amount' => '0.0027343246', 'timestamp' => timestampms / 1000, 'timestampms' => timestampms,
+      'type' => 'Buy', 'aggressor' => true, 'fee_currency' => 'USD', 'fee_amount' => '0.0249', 'tid' => tid,
+      'order_id' => (tid - 2).to_s, 'exchange' => 'gemini', 'is_clearing_fill' => false, 'symbol' => symbol }
+  end
+
+  # A ledger client answering each list in turn, recording what it was asked.
+  def stub_ledger(trades: [[]], transfers: [[]])
+    calls = { trades: [], transfers: [] }
+    client = Object.new
+    client.define_singleton_method(:get_my_trades) do |**params|
+      calls[:trades] << params
+      answer = trades.shift || []
+      answer.is_a?(Result::Failure) ? answer : Result::Success.new(answer)
+    end
+    client.define_singleton_method(:post_signed) do |path, params|
+      calls[:transfers] << params.merge(path: path)
+      answer = transfers.shift || []
+      answer.is_a?(Result::Failure) ? answer : Result::Success.new(answer)
+    end
+    Honeymaker.stubs(:client).returns(client)
+    calls
+  end
 
   # Recorded, not slept, so the pacing and the retry backoff can be asserted as a sequence.
   def record_sleeps
