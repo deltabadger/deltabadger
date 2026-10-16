@@ -20,22 +20,21 @@ out = {
   'honeymaker' => Honeymaker::VERSION
 }
 
-# The scripted answer for the next request, and what that request was.
+# The scripted answers for the next requests, in order, and what those requests were.
 module Venue
-  mattr_accessor :answer, :seen
+  mattr_accessor :answers, :seen
   SECRET_PARAMS = %w[signature timestamp nonce].freeze
 
   module Adapter
     def call(env)
-      raise Unscripted, "unscripted request to #{env.url}" if Venue.answer.nil?
+      raise Unscripted, "unscripted request to #{env.url}" if Venue.answers.empty?
 
       query = URI.decode_www_form(env.url.query.to_s).to_h
       form = env.request_body.is_a?(String) && !env.request_body.empty? ? URI.decode_www_form(env.request_body).to_h : {}
-      Venue.seen = { 'method' => env.method.to_s.upcase, 'host' => env.url.host, 'path' => env.url.path,
+      Venue.seen << { 'method' => env.method.to_s.upcase, 'host' => env.url.host, 'path' => env.url.path,
                      'query' => query.except(*SECRET_PARAMS), 'form' => form.except(*SECRET_PARAMS),
                      'key_header' => env.request_headers['X-MBX-APIKEY'] || env.request_headers['API-Key'] }
-      answer = Venue.answer
-      Venue.answer = nil
+      answer = Venue.answers.shift
       raise Faraday::TimeoutError, 'Net::ReadTimeout' if answer[:timeout]
       raise Faraday::ConnectionFailed, 'Failed to open TCP connection (Connection refused)' if answer[:refused]
 
@@ -75,12 +74,17 @@ def verdict(result)
   end
 end
 
+# One answer records 'response' and 'request'; a list of answers (one per request, in order) 'responses' and 'requests'.
 record = lambda do |exchange, key_type, method, name, answer|
   api_key = ApiKey.new(exchange:, key_type:, key: 'test-key', secret: Base64.strict_encode64('test-secret'))
-  Venue.answer = answer
-  Venue.seen = nil
-  row = { 'case' => name, 'key_type' => key_type.to_s, 'method' => method.to_s,
-          'response' => answer.transform_keys(&:to_s) }
+  Venue.answers = Array.wrap(answer).dup
+  Venue.seen = []
+  row = { 'case' => name, 'key_type' => key_type.to_s, 'method' => method.to_s }
+  if answer.is_a?(Array)
+    row['responses'] = answer.map { |a| a.transform_keys(&:to_s) }
+  else
+    row['response'] = answer.transform_keys(&:to_s)
+  end
   begin
     result = exchange.public_send(method, api_key:)
     row['verdict'] = verdict(result)
@@ -93,9 +97,13 @@ record = lambda do |exchange, key_type, method, name, answer|
   rescue StandardError => e
     row['verdict'] = { 'kind' => 'raises', 'class' => e.class.name, 'message' => e.message }
   end
-  raise "#{name}: answer not consumed" unless Venue.answer.nil?
+  raise "#{name}: answer not consumed" unless Venue.answers.empty?
 
-  row['request'] = Venue.seen
+  if answer.is_a?(Array)
+    row['requests'] = Venue.seen
+  else
+    row['request'] = Venue.seen.first
+  end
   row
 end
 
@@ -131,7 +139,7 @@ end
 out['kraken'] = { 'key_permissions' => Exchanges::Kraken::KEY_PERMISSIONS.deep_stringify_keys,
                   'invalid_key_errors' => Exchanges::Kraken::ERRORS[:invalid_key], 'cases' => kraken_rows }
 
-# Binance and Binance.US: the apiRestrictions flags.
+# Binance: the apiRestrictions flags.
 FLAGS = %w[ipRestrict enableFixApiTrade enableFixReadOnly enableFutures enableInternalTransfer enableMargin
            enablePortfolioMarginTrading enableReading enableSpotAndMarginTrading enableVanillaOptions enableWithdrawals
            permitsUniversalTransfer].freeze
@@ -144,7 +152,7 @@ base_flags = lambda do |withdrawal|
 end
 binance_err = ->(status, code, msg) { json.(status, { 'code' => code, 'msg' => msg }) }
 
-[['binance', Exchanges::Binance.new(name: 'Binance')], ['binance_us', Exchanges::BinanceUs.new(name: 'Binance.US')]].each do |id, exchange|
+[['binance', Exchanges::Binance.new(name: 'Binance')]].each do |id, exchange|
   rows = []
   [[:trading, :get_api_key_validity], [:withdrawal, :get_api_key_validity],
    [:read_only, :get_api_key_validity], [:read_only, :get_read_api_key_validity]].each do |key_type, method|
@@ -176,6 +184,58 @@ binance_err = ->(status, code, msg) { json.(status, { 'code' => code, 'msg' => m
   end
   out[id] = { 'invalid_key_codes' => Exchanges::Binance::ERROR_CODES[:invalid_key], 'cases' => rows }
 end
+
+# Binance.US: no apiRestrictions there, so a signed account read, then (for the trading check) a cancel of an order
+# that cannot exist: -2011 (unknown order) means the key may trade.
+us = Exchanges::BinanceUs.new(name: 'Binance.US')
+account_ok = json.(200, { 'makerCommission' => 10, 'takerCommission' => 10, 'canTrade' => true, 'canWithdraw' => true,
+                          'canDeposit' => true, 'accountType' => 'SPOT', 'balances' => [], 'permissions' => ['SPOT'] })
+invalid_key_cases = lambda do |prefix|
+  Exchanges::Binance::ERROR_CODES[:invalid_key].flat_map do |code|
+    [["#{prefix}invalid_key #{code} http_401", binance_err.(401, code, 'Invalid API-key, IP, or permissions for action.')],
+     ["#{prefix}invalid_key #{code} http_400", binance_err.(400, code, 'API-key format invalid.')],
+     ["#{prefix}invalid_key #{code} as_string", binance_err.(401, code.to_s, 'Invalid API-key, IP, or permissions for action.')]]
+  end.to_h
+end
+other_errors = {
+  'signature_invalid -1022' => binance_err.(400, -1022, 'Signature for this request is not valid.'),
+  'timestamp -1021' => binance_err.(400, -1021, 'Timestamp for this request is outside of the recvWindow.'),
+  'ip_banned -1003 http_418' => binance_err.(418, -1003, 'Way too many requests; IP banned.'),
+  'unknown -1000 http_500' => binance_err.(500, -1000, 'An unknown error occurred while processing the request.'),
+  'invalid_key_message_without_code' => json.(401, { 'msg' => 'Invalid API-key, IP, or permissions for action.' }),
+  'http_200_error_envelope' => binance_err.(200, -2015, 'Invalid API-key, IP, or permissions for action.'),
+  'http_200_null' => json.(200, 'null'),
+  'html_200' => { status: 200, body: '<html><body>maintenance</body></html>', content_type: 'text/html' }
+}.merge(transport)
+account_fails = invalid_key_cases.('account ').merge(other_errors.transform_keys { |k| "account #{k}" })
+probe = {
+  'unknown_order -2011' => binance_err.(400, -2011, 'Unknown order sent.'),
+  'unknown_order -2011 as_string' => binance_err.(400, '-2011', 'Unknown order sent.'),
+  'cancel_succeeded' => json.(200, { 'symbol' => 'ETHBTC', 'orderId' => 9_999_999_999, 'status' => 'CANCELED' }),
+  'unknown_order -2013' => binance_err.(400, -2013, 'Order does not exist.'),
+  'insufficient_permissions -2010' => binance_err.(400, -2010, 'This action is disabled on this account.')
+}.merge(invalid_key_cases.('')).merge(other_errors)
+us_rows = []
+[[:trading, :get_api_key_validity], [:withdrawal, :get_api_key_validity],
+ [:read_only, :get_api_key_validity], [:read_only, :get_read_api_key_validity]].each do |key_type, method|
+  cases = account_fails.dup
+  # A 200 carrying a JSON object passes the account read, so the trading check goes on to the probe.
+  if method == :get_api_key_validity
+    cases.transform_values! do |answer|
+      answer[:status] == 200 && JSON.parse(answer[:body]).is_a?(Hash) ? [answer, probe['unknown_order -2011']] : answer
+    rescue JSON::ParserError
+      answer
+    end
+  end
+  if method == :get_read_api_key_validity
+    cases['account_ok'] = account_ok
+  else
+    probe.each { |name, answer| cases["account_ok, probe #{name}"] = [account_ok, answer] }
+  end
+  cases.each { |name, answer| us_rows << record.(us, key_type, method, name, answer) }
+end
+out['binance_us'] = { 'invalid_key_codes' => Exchanges::Binance::ERROR_CODES[:invalid_key],
+                      'trade_probe' => Exchanges::BinanceUs::TRADE_PROBE.stringify_keys, 'cases' => us_rows }
 
 File.write(ARGV.fetch(0), "#{JSON.pretty_generate(out)}\n")
 puts "#{ARGV[0]}: #{%w[kraken binance binance_us].sum { |k| out[k]['cases'].size }} cases"
