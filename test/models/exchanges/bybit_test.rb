@@ -313,23 +313,19 @@ class Exchanges::BybitTest < ActiveSupport::TestCase
     assert_match 'Too many visits', result.errors.first
   end
 
-  test 'get_ledger fails when futures history is throttled' do
+  # A linear perpetual fill is a leveraged position, not a spot holding: booked as a trade it posted
+  # the full notional and an asset called "BTCUSDT".
+  test 'get_ledger never reads linear futures fills' do
     hm_client = stub_bybit_ledger_client
-    hm_client.stubs(:execution_list).with(has_entry(category: 'linear')).returns(
-      Result::Success.new({ 'retCode' => 10_006, 'retMsg' => 'Too many visits. Exceeded the API Rate Limit.' })
-    )
+    fill = { 'symbol' => 'BTCUSDT', 'side' => 'Buy', 'execQty' => '1', 'execValue' => '60000', 'execFee' => '0',
+             'feeCurrency' => 'USDT', 'execId' => 'perp-1', 'execTime' => 1.hour.ago.to_i * 1000, 'execType' => 'Trade' }
+    hm_client.stubs(:execution_list).with(has_entry(category: 'linear'))
+             .returns(Result::Success.new({ 'retCode' => 0, 'result' => { 'list' => [fill] } }))
 
-    assert_predicate @exchange.get_ledger(api_key: create(:api_key, exchange: @exchange), start_time: 1.day.ago), :failure?
-  end
+    result = @exchange.get_ledger(api_key: create(:api_key, exchange: @exchange), start_time: 1.day.ago)
 
-  # The setup asks for a Spot - Trade key without Derivatives, so futures history is denied.
-  test 'get_ledger reads a denied futures history as empty' do
-    hm_client = stub_bybit_ledger_client
-    hm_client.stubs(:execution_list).with(has_entry(category: 'linear')).returns(
-      Result::Success.new({ 'retCode' => 10_005, 'retMsg' => 'Permission denied, please check your API key permissions.' })
-    )
-
-    assert_predicate @exchange.get_ledger(api_key: create(:api_key, exchange: @exchange), start_time: 1.day.ago), :success?
+    assert_predicate result, :success?
+    assert_empty result.data
   end
 
   test 'get_ledger fails when spot history is denied' do

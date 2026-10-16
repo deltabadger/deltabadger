@@ -504,38 +504,14 @@ class Exchanges::Bybit < Exchange
                    transacted_at: Time.at(wd['updateTime'].to_i / 1000.0).utc, raw_data: wd }
     end
 
-    # Linear futures trades
-    cursor = nil
-    loop do
-      result = checked_ledger_read(hm_client.execution_list(category: 'linear', start_time: start_ms, cursor: cursor), optional: true)
-      return result if result.failure?
-
-      list = result.data.dig('result', 'list') || []
-      break if list.empty?
-
-      list.each do |trade|
-        is_buyer = trade['side'] == 'Buy'
-        entries << {
-          entry_type: is_buyer ? :buy : :sell,
-          base_currency: trade['symbol'], base_amount: trade['execQty'].to_d,
-          quote_currency: 'USDT', quote_amount: trade['execValue'].to_d,
-          fee_currency: trade['feeCurrency'], fee_amount: trade['execFee'].to_d.abs,
-          tx_id: "futures-#{trade['execId']}", group_id: nil, description: 'Futures trade',
-          transacted_at: Time.at(trade['execTime'].to_i / 1000.0).utc, raw_data: trade
-        }
-      end
-      cursor = result.data.dig('result', 'nextPageCursor')
-      break if cursor.blank?
-    end
-
     Result::Success.new(entries)
   end
 
   private
 
-  # 10005 is "Permission denied". The key setup asks for Spot - Trade only and warns against
-  # Derivatives, so a key without the scope for futures or wallet history is the normal case; there
-  # the read has nothing to give and counts as empty, as it did before. Spot trades are what the
+  # 10005 is "Permission denied". The key setup asks for Spot - Trade only, so a key without the
+  # scope for wallet history is the normal case; there the read has nothing to give and counts as
+  # empty, as it did before. Spot trades are what the
   # key is for, so a 10005 there fails like any other code.
   LEDGER_NOT_PERMITTED = 10_005
 
