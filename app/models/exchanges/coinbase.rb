@@ -1,18 +1,22 @@
 class Exchanges::Coinbase < Exchange
   COINGECKO_ID = 'gdax'.freeze # https://docs.coingecko.com/reference/exchanges-list
   ASSET_BLACKLIST = [
-    'RENDER', # has the same external_id as RNDR. Remove it when Coinbase delists RENDER pairs
+    'RNDR', # has the same external_id as RENDER; RNDR pairs are delisted, RENDER is the live one
     'ZETACHAIN', # has the same external_id as ZETA. Remove it when Coinbase delists ZETACHAIN pairs
     'WAXL' # has the same external_id as AXL. Remove it when Coinbase delists WAXL pairs
   ].freeze
   ERRORS = {
     insufficient_funds: ['Insufficient balance in source account']
   }.freeze
-  # UNKNOWN_ORDER_STATUS, OPEN, FILLED, CANCELLED, EXPIRED, FAILED, PENDING
+  # https://docs.cdp.coinbase.com/api-reference/advanced-trade-api/rest-api/orders/get-order
   ORDER_STATUS_MAP = {
     'PENDING' => :unknown,
     'UNKNOWN_ORDER_STATUS' => :unknown,
     'OPEN' => :open,
+    # Queued orders are still live: a queued cancel or edit can yet fill.
+    'QUEUED' => :open,
+    'CANCEL_QUEUED' => :open,
+    'EDIT_QUEUED' => :open,
     'FILLED' => :closed,
     'CANCELLED' => :cancelled,
     'EXPIRED' => :cancelled,
@@ -69,8 +73,15 @@ class Exchanges::Coinbase < Exchange
           quote_decimals: Utilities::Number.decimals(quote_increment),
           price_decimals: Utilities::Number.decimals(price_increment),
           available: true,
-          # Coinbase only signals problems explicitly; absent flags => enabled.
-          trading_enabled: !(product['trading_disabled'] == true || (product.key?('status') && product['status'] != 'online'))
+          # Coinbase only signals problems explicitly; absent flags => enabled. Bots place market
+          # orders, which a limit_only product refuses, so it is not tradable here, as Kraken's
+          # limit_only status is not. cancel_only takes no new orders at all.
+          # https://docs.cdp.coinbase.com/api-reference/advanced-trade-api/rest-api/public/list-public-products
+          trading_enabled: !(product['trading_disabled'] == true ||
+                             product['limit_only'] == true ||
+                             product['cancel_only'] == true ||
+                             product['is_disabled'] == true ||
+                             (product.key?('status') && product['status'] != 'online'))
         }
       end.compact
     end
@@ -342,11 +353,10 @@ class Exchanges::Coinbase < Exchange
     return Result::Failure.new("Unknown symbol for asset #{asset.symbol}") if symbol.blank?
 
     # Find the account UUID for this currency
-    result = client.list_accounts
+    result = list_all_accounts(client)
     return result if result.failure?
 
-    accounts = result.data['accounts'] || []
-    account = accounts.find { |a| a['currency'] == symbol }
+    account = result.data.find { |a| a['currency'] == symbol }
     return Result::Failure.new("No Coinbase account found for #{symbol}") if account.blank?
 
     account_uuid = account['uuid']
@@ -385,7 +395,7 @@ class Exchanges::Coinbase < Exchange
       break if fills.empty?
 
       fills.each do |fill|
-        entries.concat(normalize_coinbase_fill(fill))
+        entries.concat(with_legacy_tx_id(fill, normalize_coinbase_fill(fill)))
       end
 
       cursor = result.data['cursor']
@@ -393,16 +403,16 @@ class Exchanges::Coinbase < Exchange
     end
 
     # Account transactions (deposits, withdrawals)
-    accounts_result = hm_client.list_accounts
+    accounts_result = list_all_accounts(hm_client)
     return accounts_result if accounts_result.failure?
 
-    accounts = accounts_result.data['accounts'] || []
-    accounts.each do |account|
+    accounts_result.data.each do |account|
       account_id = account['uuid']
       starting_after = nil
       loop do
         result = hm_client.list_transactions(account_id: account_id, limit: 100, starting_after: starting_after)
-        break if result.failure?
+        # A missed page must fail the sync, not report it clean.
+        return result if result.failure?
 
         txns = result.data['data'] || []
         break if txns.empty?
@@ -427,6 +437,23 @@ class Exchanges::Coinbase < Exchange
 
   private
 
+  # list_accounts returns 49 accounts by default (250 max) and pages with cursor/has_next.
+  # Honeymaker's list_accounts takes no parameters, so the page is read through its signed get.
+  # https://docs.cdp.coinbase.com/api-reference/advanced-trade-api/rest-api/accounts/list-accounts
+  def list_all_accounts(hm_client)
+    accounts = []
+    cursor = nil
+    loop do
+      result = hm_client.send(:get, '/api/v3/brokerage/accounts', { limit: 250, cursor: cursor })
+      return result if result.failure?
+
+      accounts.concat(result.data['accounts'] || [])
+      cursor = result.data['cursor']
+      break unless result.data['has_next'] && cursor.present?
+    end
+    Result::Success.new(accounts)
+  end
+
   def normalize_coinbase_fill(fill)
     product_id = fill['product_id'] || ''
     parts = product_id.split('-')
@@ -434,7 +461,8 @@ class Exchanges::Coinbase < Exchange
     quote = parts[1]
     is_fiat_quote = COINBASE_FIAT.include?(quote)
     is_buyer = fill['side'] == 'BUY'
-    trade_id = fill['trade_id'] || fill['entry_id']
+    # FILL keeps trade_id so rows already imported still dedup.
+    trade_id = (fill['entry_id'] if adjusted_fill?(fill)) || fill['trade_id'] || fill['entry_id']
     transacted_at = Time.parse(fill['trade_time']).utc
     price = fill['price'].to_d
     size = fill['size'].to_d
@@ -489,6 +517,19 @@ class Exchanges::Coinbase < Exchange
         }
       ]
     end
+  end
+
+  # trade_id is unique only for FILL trades; an adjusted fill shares it, so it is ided by its entry_id.
+  def adjusted_fill?(fill)
+    fill['trade_type'].present? && fill['trade_type'] != 'FILL'
+  end
+
+  # The id an adjusted fill was stored under before entry_id: the sync rekeys that row instead of
+  # storing it twice.
+  def with_legacy_tx_id(fill, entries)
+    return entries unless adjusted_fill?(fill) && fill['entry_id'].present? && fill['trade_id'].present?
+
+    entries.map { |entry| entry.merge(legacy_tx_id: entry[:tx_id].sub(fill['entry_id'], fill['trade_id'])) }
   end
 
   def normalize_coinbase_transaction(txn)
@@ -630,9 +671,9 @@ class Exchanges::Coinbase < Exchange
     outstanding = Utilities::Hash.dig_or_raise(order_data, 'outstanding_hold_amount').to_d
     quote_amount_exec = total_value - outstanding
     errors = [
-      order_data.dig('order', 'reject_reason').presence,
-      order_data.dig('order', 'reject_message').presence,
-      order_data.dig('order', 'cancel_message').presence
+      order_data['reject_reason'].presence,
+      order_data['reject_message'].presence,
+      order_data['cancel_message'].presence
     ].compact
     status = parse_order_status(Utilities::Hash.dig_or_raise(order_data, 'status'))
 
