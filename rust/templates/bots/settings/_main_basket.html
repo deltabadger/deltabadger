@@ -1,7 +1,38 @@
-{#- bots/dca_multi_assets/settings/_main.html.erb for a buying basket, with settings/_reverse_toggle. -#}
+{#- bots/dca_multi_assets/settings/_main.html.erb, buying or selling (`sell`: 1 for N base, 2 for N quote), with settings/_reverse_toggle. -#}
 
 <form class="widget main-rule main-rule--multi-asset" data-turbo-stream="true" data-controller="form--submit form--submit-after-delay form--move-cursor-to-end form--html5-validations{% if lone.is_none() %} bot--allocation{% endif %}" action="{{ path }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
     <div class="conversational flex-justify-center">
+{% if sell == 1 %}
+      {{ v.t("bot.conversational.sell")|safe }}
+      <div class="ticker-input ticker-input--autoscale">
+        {{ amount_field|safe }}
+{% if let Some(lone) = lone %}
+        <div class="ticker" data-ticker-symbol="{{ lone.symbol }}" data-ticker-asset-id="{{ lone.asset_id }}">{{ lone.symbol }}</div>
+{% endif %}
+      </div>
+      /
+      <div class="sinput sinput--select {% if locked %}sinput--disabled{% endif %}">
+        {{ interval_words }}
+        {{ interval_select|safe }}
+      </div>
+      {{ v.t("bot.conversational.to")|safe }}
+      <div class="ticker"{% if let Some(id) = quote_asset_id %} data-ticker-symbol="{{ quote }}" data-ticker-asset-id="{{ id }}"{% endif %}>{{ quote }}</div>
+{% else if sell == 2 %}
+      {{ v.t("bot.conversational.sell")|safe }}
+{% if let Some(lone) = lone %}
+      <div class="ticker" data-ticker-symbol="{{ lone.symbol }}" data-ticker-asset-id="{{ lone.asset_id }}">{{ lone.symbol }}</div>
+{% endif %}
+      {{ v.t("bot.for")|safe }}
+      <div class="ticker-input ticker-input--autoscale">
+        {{ amount_field|safe }}
+        <div class="ticker"{% if let Some(id) = quote_asset_id %} data-ticker-symbol="{{ quote }}" data-ticker-asset-id="{{ id }}"{% endif %}>{{ quote }}</div>
+      </div>
+      /
+      <div class="sinput sinput--select {% if locked %}sinput--disabled{% endif %}">
+        {{ interval_words }}
+        {{ interval_select|safe }}
+      </div>
+{% else %}
       {{ v.t("bot.conversational.invest")|safe }}
       <div class="ticker-input ticker-input--autoscale">
         {{ amount_field|safe }}
@@ -15,6 +46,7 @@
 {% if let Some(lone) = lone %}
         {{ v.t("bot.conversational.into")|safe }}
         <div class="{{ lone.class }}" style="background: {{ lone.color }}" data-ticker-symbol="{{ lone.symbol }}" data-ticker-asset-id="{{ lone.asset_id }}">{{ lone.symbol }}</div>
+{% endif %}
 {% endif %}
 {% if locked %}
           <span class="reverse-toggle reverse-toggle--disabled" aria-label="{{ v.t("bot.conversational.reverse")|safe }}" aria-disabled="true" title="{{ v.t("bot.conversational.reverse")|safe }}">
