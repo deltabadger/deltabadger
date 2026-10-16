@@ -438,7 +438,6 @@ class Exchanges::Mexc < Exchange
   def get_ledger(api_key:, start_time: nil)
     hm_client = Honeymaker.client('mexc', api_key: api_key.key, api_secret: api_key.secret,
                                           proxy: ExchangeProxy.for('mexc'))
-    start_ms = start_time ? (start_time.to_f * 1000).to_i : nil
     entries = []
 
     # Deposits first (to discover coins). Any failed read fails the whole fetch: a partial Success
@@ -468,32 +467,37 @@ class Exchanges::Mexc < Exchange
     end
     return failed if failed
 
-    # Discover coins from balances + deposits/withdrawals, then query trades
+    # Discover coins from balances + deposits/withdrawals, then query trades. Without the balances or
+    # the listing, symbols would go unread while the fetch succeeded.
     coins = Set.new
     entries.each { |e| coins << e[:base_currency] }
     bal_result = hm_client.account_information
-    if bal_result.success?
-      Array(bal_result.data['balances']).each do |bal|
-        coins << bal['asset'] if bal['free'].to_d.positive? || bal['locked'].to_d.positive?
-      end
+    return bal_result if bal_result.failure?
+
+    Array(bal_result.data['balances']).each do |bal|
+      coins << bal['asset'] if bal['free'].to_d.positive? || bal['locked'].to_d.positive?
     end
 
     # Load exchange symbols for base/quote mapping
     @exchange_symbols_map = {}
     info_result = hm_client.exchange_information
-    if info_result.success?
-      Array(info_result.data['symbols']).each do |s|
-        @exchange_symbols_map[s['symbol']] = { base: s['baseAsset'], quote: s['quoteAsset'] }
-      end
+    return info_result if info_result.failure?
+
+    Array(info_result.data['symbols']).each do |s|
+      @exchange_symbols_map[s['symbol']] = { base: s['baseAsset'], quote: s['quoteAsset'] }
     end
 
-    # Trades per discovered symbol
+    # Trades per discovered symbol, from start_time or as far back as MEXC keeps them, to now.
+    trades_from = (start_time ? [start_time, trades_reach].max : trades_reach).to_i * 1000
     traded_symbols = @exchange_symbols_map.keys.select { |sym| coins.include?(@exchange_symbols_map[sym][:base]) }
     traded_symbols.each do |symbol|
-      result = hm_client.account_trade_list(symbol: symbol, start_time: start_ms)
-      next if result.failure?
+      trades = read_range(trades_from, (Time.now.to_f * 1000).to_i, TRADES_PAGE) do |from, to|
+        hm_client.account_trade_list(symbol: symbol, start_time: from, end_time: to, limit: TRADES_PAGE)
+      end
+      next if !trades.is_a?(Array) && response_field(trades, 'code').in?(SYMBOL_GONE_CODES)
+      return trades unless trades.is_a?(Array)
 
-      Array(result.data).each do |trade|
+      trades.uniq { |trade| trade['id'] }.each do |trade|
         base = symbol_pair_base(symbol)
         quote = symbol_pair_quote(symbol)
         is_buyer = trade['isBuyer']
@@ -518,6 +522,15 @@ class Exchanges::Mexc < Exchange
   TRANSFER_PAGE = 1000
   # 700007: a key without the wallet-history permission has no transfers to give.
   NO_PERMISSION_CODE = 700_007
+
+  # myTrades answers 100 trades at most and serves "the past 1 month" only
+  # (https://mexcdevelop.github.io/apidocs/spot_v3_en/#account-trade-list).
+  TRADES_PAGE = 100
+  # A pair MEXC no longer lists: -1121 "Invalid symbol.", 10007 "bad symbol", 30014 and 30021
+  # "invalid symbol", 730001 "Pair not found". It has no trades to give.
+  SYMBOL_GONE_CODES = [-1121, 10_007, 30_014, 30_021, 730_001].freeze
+
+  def trades_reach = [1.month.ago, 30.days.ago].max
 
   # Yields each transfer from start_time (or as far back as MEXC keeps) to now; returns the failure
   # that stopped the read, or nil.
