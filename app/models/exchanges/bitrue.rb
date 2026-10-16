@@ -441,7 +441,19 @@ class Exchanges::Bitrue < Exchange
 
     trades_from = ((start_time || LEDGER_FROM).to_f * 1000).to_i
     now = (Time.now.to_f * 1000).to_i
-    traded_symbols = @exchange_symbols_map.keys.select { |sym| coins.include?(@exchange_symbols_map[sym][:base]) }
+    # A pair traded before counts too: the sale that emptied a coin leaves no balance to find it by.
+    # So does every pair the account's bots ordered on here, synced or not.
+    # ponytail: myTrades takes one symbol, so a pair traded by hand, bought and sold out between two
+    # syncs and never seen before, is still not read.
+    traded_before = AccountTransaction.where(user_id: api_key.user_id, exchange_id: api_key.exchange_id)
+                                      .where(entry_type: %i[buy sell]).distinct
+                                      .pluck(:base_currency, :quote_currency)
+    traded_before += Transaction.joins(:bot).where(exchange_id: api_key.exchange_id, bots: { user_id: api_key.user_id })
+                                .distinct.pluck(:base, :quote)
+    traded_before = traded_before.to_set { |pair| pair.join.upcase }
+    traded_symbols = @exchange_symbols_map.keys.select do |sym|
+      coins.include?(@exchange_symbols_map[sym][:base]) || traded_before.include?(sym)
+    end
     traded_symbols.each do |symbol|
       trades = []
       each_ledger_window(trades_from, now) do |from, to|
