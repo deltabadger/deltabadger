@@ -612,7 +612,7 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
     let (_rails_root, rust_root, dirs) = recorded_grid();
     assert!(!dirs.is_empty(), "the grid is empty: no scenario name starts with a prefix in PAGES");
     if std::env::var("PAGES").ok().as_deref() == Some("actions") {
-        assert_eq!(dirs.len(), 161, "all action scenarios must remain selected");
+        assert_eq!(dirs.len(), 166, "all action scenarios must remain selected");
     }
     let (mut failures, mut wizard_pages, mut countdown_pages) = (vec![], 0, 0);
     for dir in &dirs {
@@ -668,8 +668,8 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
     if std::env::var("PAGES").is_err() {
         assert_eq!(dirs.iter().filter(|dir| !dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_") || n.to_string_lossy().starts_with("settings_"))).count(), 160 + 4 + 2, "completed read-only baseline (with the market-closed weekend page and the expired start on bots that are not stopped), with D5b's two missing_ and two not_ported_ connect scenarios, and the selling pages (three served, one cap refused, in place of two refusals)");
         assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("settings_"))).count(), 413 + 3 + 45 + 52 + 5 + 1 + 71, "complete S1 inventory, D5b's connect flow, the preference writes, the following client's card, the switch back to the default locale and the settings dialog (two more sections, in-place confirms, the page behind a language change)");
-        assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_"))).count(), 161, "action inventory");
-        assert_eq!(dirs.len(), 160 + 4 + 2 + 161 + 413 + 3 + 45 + 52 + 5 + 1 + 71, "a scenario was dropped or added without this count");
+        assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_"))).count(), 166, "action inventory (with the five ⇄ rotations)");
+        assert_eq!(dirs.len(), 160 + 4 + 2 + 166 + 413 + 3 + 45 + 52 + 5 + 1 + 71, "a scenario was dropped or added without this count");
         assert_eq!(countdown_pages, 4, "the pages where Rails knows a time this build does not: the listed divergence grew or shrank");
         assert_eq!(wizard_pages, 17, "the pages where Rails opens the wizard and this crate does not: the listed divergence grew or shrank");
     }
@@ -809,6 +809,32 @@ fn action_divergence(name: &str, scenario: &Value, rails: &Value, rust: &Value) 
                     if response["status"]!=422 { return Err(format!("{side} key validation must return 422")); }
                     if let Some(error)=row_difference(side,&response["rows_before"],&response["rows_after"]) { return Err(error); }
                 }
+            }
+            if let Some(rotation)=n.strip_prefix("reverse_") {
+                // Listed divergence (plan 6a, Revision r4): Rails answers ⇄ with the settings, Start/Stop and metrics panels
+                // (bots/reverse.turbo_stream.erb). The metrics panel is drawn from figures this build does not compute for a
+                // request, so it commits the same rotation and answers a refresh, which redraws the bot page it now serves. The
+                // request calls no venue: a resting order's cancel is left to the engine (`rust_reversal_cancels`), where Rails
+                // sends it inline. Every other row, the status and the headers stay Rails'.
+                if a["status"]!=200 || b["status"]!=200 { return Err(format!("{n}: expected 200 from both, got {} / {}",a["status"],b["status"])) }
+                if b["body"]!=json!(html::normalize(deltabadger::web::turbo::refresh())) { return Err(format!("{n}: expected a refresh, got {}",b["body"])) }
+                if rotation=="scheduled" {
+                    // Rails enqueues Bot::ActionJob at next_interval_checkpoint_at from the new start. Live, its clock has moved past
+                    // that start, so the job lands one interval on (hourly here); the recorder's frozen clock puts it at the start
+                    // itself. This crate holds the live answer in its own deferral, which the queue Rails' job sits in is not compared with.
+                    let bot=b["rows_after"]["bots"].as_array().and_then(|rows|rows.iter().find(|row|row["id"]==1)).ok_or("Rust bot 1")?;
+                    let deferral=&bot["transient_data"]["rust_defer_until"];
+                    if deferral["until"]!="2026-09-10T13:00:30.123456Z" || deferral["origin"]!="local" { return Err(format!("{n}: the next checkpoint is not one interval after the flip: {deferral}")) }
+                    let expected=a["rows_after"]["bots"].as_array_mut().and_then(|rows|rows.iter_mut().find(|row|row["id"]==1)).ok_or("Rails bot 1")?;
+                    expected["transient_data"]["rust_defer_until"]=deferral.clone();
+                }
+                if rotation=="waiting_buy" {
+                    let bot=a["rows_after"]["bots"].as_array_mut().and_then(|rows|rows.iter_mut().find(|row|row["id"]==1)).ok_or("Rails bot 1")?;
+                    if bot["transient_data"]["flip_reserve_pending"]!=json!([1]) { return Err("Rails no longer leaves the resting buy's reserve to its final poll".into()) }
+                    bot["transient_data"][deltabadger::engine::reversal::CANCELS]=json!([{"id":1,"registered":true,"sent":false}]);
+                }
+                a["body"]=b["body"].clone();
+                continue;
             }
             let start_guard=matches!(n,"single_start"|"basket_start"|"index_start"|"start_created"|"start_stopped"|"start_missing"|"start_future"|"start_missed_false"|"start_missed_true"|"extra_paid_start_start_fresh_false"|"extra_paid_start_start_fresh_true"|"extra_defaults_start_start_fresh_true"|"extra_hour"|"extra_start_0"|"extra_start_1"|"extra_start_TRUE"|"extra_start_false"
                 |"index_history_start_false"|"index_history_start_true"|"basket_sold_start_false"|"basket_sold_start_true");
