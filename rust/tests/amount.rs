@@ -376,12 +376,12 @@ fn a_sell_is_priced_above_the_last_trade_and_sized_in_base_under_base_and_quote_
     }
 }
 
-/// Plan 6a T8: Rails' one-asset sell on Kraken and Binance — order_price(:sell), `[base || quote / price, free].min`,
+/// Plan 6a T8: Rails' one-asset sell on Kraken, Binance and Alpaca — order_price(:sell), `[base || quote / price, free].min`,
 /// calculate_best_amount_info(side: :sell) and the market_sell / limit_sell wire — replayed through side_price, size_sell,
 /// limit_refusal and to_order (script/rust/record_sell_sizing_vectors.rb).
 #[test]
 fn every_recorded_rails_sell_sizing_and_wire_is_reproduced() {
-    use deltabadger::engine::venue_rules::{BINANCE, KRAKEN};
+    use deltabadger::engine::venue_rules::{ALPACA, BINANCE, KRAKEN};
     use deltabadger::venue::Side;
     let (_d, o, s) = install();
     let vectors: serde_json::Value = serde_json::from_str(include_str!("fixtures/sell_sizing_vectors.json")).unwrap();
@@ -392,8 +392,9 @@ fn every_recorded_rails_sell_sizing_and_wire_is_reproduced() {
     };
     let bots: Vec<(serde_json::Value, model::Bot)> = [json!(null), json!(0.0025), json!(0.01), json!(0.001), json!(0.1234)].into_iter().map(|d| { let b = bot(&d); (d, b) }).collect();
     let deadline = "2026-09-01T10:00:10Z".parse().unwrap();
-    for (venue, wire, pair, base, quote, expected) in [("kraken", KRAKEN.wire, "XXBTZEUR", "XBT", "EUR", (10_378, 4_031, 2_456)),
-                                                        ("binance", BINANCE.wire, "BTCUSDT", "BTC", "USDT", (10_438, 3_988, 2_483))] {
+    for (venue, wire, pair, base, quote, expected) in [("kraken", KRAKEN.wire, "XXBTZEUR", "XBT", "EUR", (2_102, 790, 509)),
+                                                        ("binance", BINANCE.wire, "BTCUSDT", "BTC", "USDT", (2_130, 810, 485)),
+                                                        ("alpaca", ALPACA.wire, "BTC/USD", "BTC", "USD", (2_127, 858, 535))] {
         let cases = vectors[format!("{venue}_sell")].as_array().unwrap();
         let (mut below_n, mut refused_n) = (0, 0);
         for c in cases {
@@ -426,6 +427,14 @@ fn every_recorded_rails_sell_sizing_and_wire_is_reproduced() {
                 match &order.kind {
                     OrderKind::Market => assert_eq!((w["ordertype"].as_str(), w.get("price")), (Some("market"), None), "{c}"),
                     OrderKind::Limit { price } => assert_eq!((w["ordertype"].as_str(), w["price"].as_str()), (Some("limit"), Some(price.as_str())), "{c}"),
+                }
+            } else if venue == "alpaca" {
+                assert_eq!((w["symbol"].as_str(), w["side"].as_str(), w["time_in_force"].as_str()), (Some(pair), Some("sell"), Some("gtc")), "{c}");
+                assert_eq!(w["qty"].as_str(), Some(order.volume.as_str()), "qty {c}");
+                assert!(w.get("notional").is_none(), "{c}");
+                match &order.kind {
+                    OrderKind::Market => assert_eq!((w["type"].as_str(), w.get("limit_price")), (Some("market"), None), "{c}"),
+                    OrderKind::Limit { price } => assert_eq!((w["type"].as_str(), w["limit_price"].as_str()), (Some("limit"), Some(price.as_str())), "{c}"),
                 }
             } else {
                 assert_eq!((w["symbol"].as_str(), w["side"].as_str()), (Some(pair), Some("SELL")), "{c}");
