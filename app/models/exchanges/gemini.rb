@@ -7,17 +7,24 @@ class Exchanges::Gemini < Exchange
   CATALOGUE_REQUEST_INTERVAL = 1
 
   COINGECKO_ID = 'gemini'.freeze # https://docs.coingecko.com/reference/exchanges-list
+  # Reasons from https://developer.gemini.com/error-codes, matched inside the error body
+  # ({"result":"error","reason":"…","message":"…"}). System and Maintenance are matched with their
+  # quotes so the words cannot match inside a message.
   ERRORS = {
     insufficient_funds: ['InsufficientFunds', 'Insufficient Funds'],
     invalid_key: %w[InvalidSignature InvalidApiKey],
+    # The key is good but lacks the role (Trader for orders, Auditor or Fund Manager for reads).
+    permission_denied: %w[MissingRole],
+    # HTTP 429.
+    throttle: %w[RateLimit],
     # InvalidNonce is NOT an invalid key: Gemini signs each request with a monotonic nonce, so this
     # is what the same key reused from two places, or a request that arrived out of order, looks
     # like. The credentials are fine and the next request usually succeeds. It sat in :invalid_key
     # until :invalid_key started stopping bots, at which point two consecutive nonce rejections
     # would have parked a working bot and told the user to replace a key that was never the
     # problem. Kraken files its equivalent (EAPI:Invalid nonce) under :transient for the same
-    # reason.
-    transient: %w[InvalidNonce]
+    # reason. "System" (HTTP 500) and "Maintenance" (HTTP 503) are Gemini saying come back later.
+    transient: ['InvalidNonce', '"reason":"System"', '"reason":"Maintenance"']
   }.freeze
 
   include Exchange::Dryable # decorators for: get_order, get_orders, cancel_order, get_api_key_validity, set_market_order, set_limit_order

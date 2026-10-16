@@ -17,6 +17,19 @@ class Exchanges::GeminiTest < ActiveSupport::TestCase
     assert_kind_of Array, errors[:invalid_key]
   end
 
+  # Bodies shaped like https://developer.gemini.com/error-codes. A missing role, a rate limit and an
+  # outage used to fall through unclassified and show the user the raw body.
+  test 'classifies the role, rate-limit and outage reasons Gemini documents' do
+    body = ->(reason) { %({"result":"error","reason":"#{reason}","message":"x"}) }
+
+    assert_equal :permission_denied, @exchange.failure_kind([body.call('MissingRole')])
+    assert_equal :throttle, @exchange.failure_kind([body.call('RateLimit')])
+    assert_equal :transient, @exchange.failure_kind([body.call('System')])
+    assert_equal :transient, @exchange.failure_kind([body.call('Maintenance')])
+    assert_not @exchange.invalid_key_error?([body.call('MissingRole')])
+    assert_nil @exchange.failure_kind([body.call('InvalidQuantity')])
+  end
+
   test 'minimum_amount_logic returns base' do
     assert_equal :base, @exchange.minimum_amount_logic
   end
