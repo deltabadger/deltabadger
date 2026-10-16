@@ -6,7 +6,15 @@ class Exchanges::Hyperliquid < Exchange
     # is a substring of it. Every rejection also arrives behind a "Hyperliquid order failed: "
     # prefix (see set_order), which is why exact matching could never have worked here.
     insufficient_funds: ['Insufficient spot balance', 'Insufficient balance', 'Not enough balance'],
-    invalid_key: ['Invalid API key', 'Authentication failed', 'Invalid signature']
+    # The venue recovers the signer from the signature, so an agent wallet that was never approved,
+    # has expired, or a secret that is not the agent's all read the same way:
+    #   {"status":"err","response":"User or API Wallet 0x… does not exist."}
+    # Hyperliquid has no API-key vocabulary; the strings that stood here never occur.
+    invalid_key: ['User or API Wallet'],
+    # Address-based action limit (https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/rate-limits-and-user-limits):
+    #   {"status":"err","response":"Too many cumulative requests sent (37986 > 10436) for cumulative volume traded …"}
+    # and the 1200-weight IP limit, an HTTP 429 (hyperliquid-rb: "HTTP 429: …"; Faraday: "status 429").
+    throttle: ['Too many cumulative requests sent', 'HTTP 429', 'status 429']
   }.freeze
 
   # Hyperliquid price rule: at most SIGNIFICANT_FIGURES significant figures and,
@@ -143,7 +151,8 @@ class Exchanges::Hyperliquid < Exchange
       result = get_l2_book(ticker)
       return result if result.failure?
 
-      price = result.data[:bid][:price]
+      price = result.data.dig(:bid, :price)
+      return Result::Failure.new("Hyperliquid has no bids for #{ticker.ticker}") if price.nil?
       raise "Wrong bid price for #{ticker.ticker}: #{price}" if price.zero?
 
       price
@@ -158,7 +167,8 @@ class Exchanges::Hyperliquid < Exchange
       result = get_l2_book(ticker)
       return result if result.failure?
 
-      price = result.data[:ask][:price]
+      price = result.data.dig(:ask, :price)
+      return Result::Failure.new("Hyperliquid has no asks for #{ticker.ticker}") if price.nil?
       raise "Wrong ask price for #{ticker.ticker}: #{price}" if price.zero?
 
       price
@@ -310,21 +320,40 @@ class Exchanges::Hyperliquid < Exchange
     return Result::Failure.new(ORDER_PLACEMENT_UNAVAILABLE_ERROR) unless order_placement_available?
 
     coin, oid = parse_order_id(order_id)
-    result = client.cancel(coin: "#{coin}/USDC", oid: oid.to_i)
+    result = client.cancel(coin: pair_of(order_id) || "#{coin}/USDC", oid: oid.to_i)
     return result if result.failure?
 
     Result::Success.new(order_id)
   end
 
+  # The key is the account's address and the secret an API (agent) wallet's private key. Orders are
+  # signed by the agent and act for the account that approved it, so the check has to tie the two
+  # together: openOrders on the address is a public read and accepted any secret at all.
+  # userRole (https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint) answers
+  # {"role":"agent","data":{"user":<approver>}} for an approved agent, "missing" for one that never was or
+  # has been pruned. The account's own private key is accepted as well (role "user"): it can trade too.
+  # A sub-account address is refused: its agent's approver is the master, and orders signed here carry
+  # no vaultAddress, so they would trade the master's balance.
+  # A read that fails says nothing about the key and is handed back as it came.
   def get_api_key_validity(api_key:)
-    result = Honeymaker.client('hyperliquid',
-                               api_key: api_key.key,
-                               api_secret: api_key.secret,
-                               proxy: ExchangeProxy.for('hyperliquid')).validate(:trading)
-    Result::Success.new(result.success?)
-  rescue StandardError
-    # Network errors, etc. — don't fail the validation
-    Result::Success.new(true)
+    return get_read_api_key_validity(api_key:) unless order_placement_available?
+
+    signer = agent_address(api_key.secret)
+    return Result::Success.new(false) if signer.nil?
+
+    hm_client = Honeymaker.client('hyperliquid', api_key: api_key.key, api_secret: api_key.secret,
+                                                 proxy: ExchangeProxy.for('hyperliquid'))
+    # honeymaker 0.12.3 has no userRole; its own info request is used.
+    result = hm_client.send(:post_info, { type: 'userRole', user: signer })
+    return result if result.failure?
+
+    role = result.data.is_a?(Hash) ? result.data : {}
+    valid = case role['role']
+            when 'agent' then role.dig('data', 'user').to_s.casecmp?(api_key.key)
+            when 'user' then signer.casecmp?(api_key.key)
+            else false
+            end
+    Result::Success.new(valid)
   end
 
   def minimum_amount_logic(**)
@@ -339,38 +368,144 @@ class Exchanges::Hyperliquid < Exchange
   def get_ledger(api_key:, start_time: nil)
     hm_client = Honeymaker.client('hyperliquid', api_key: api_key.key, api_secret: api_key.secret,
                                                  proxy: ExchangeProxy.for('hyperliquid'))
-    start_ms = start_time ? (start_time.to_f * 1000).to_i : nil
-    entries = []
+    # A first sync reads from the beginning: userFills (no start) is only the 2000 most recent fills,
+    # and the watermark then moved past everything older. A failed read fails the fetch, so the sync
+    # never records a partial history as complete.
+    start_ms = start_time ? (start_time.to_f * 1000).to_i : 0
+    result = read_by_time(hm_client, :user_fills_by_time, user: api_key.key, start_ms:)
+    return result if result.failure?
 
-    result = if start_ms
-               hm_client.user_fills_by_time(user: api_key.key, start_time: start_ms)
-             else
-               hm_client.user_fills(user: api_key.key)
-             end
-
-    unless result.failure?
-      # userFills returns the spot pair index (e.g. "@333"), not the token name — unlike
-      # spot_balances, which returns "MU". Map it to the human base symbol via our ticker
-      # table; fall back to the raw coin for an unknown/delisted pair.
-      base_by_ticker = tickers.pluck(:ticker, :base).to_h
-      Array(result.data).each do |fill|
-        coin = fill['coin']
-        is_buyer = fill['side'] == 'B'
-        px = fill['px'].to_d
-        sz = fill['sz'].to_d
-        entries << { entry_type: is_buyer ? :buy : :sell,
-                     base_currency: base_by_ticker[coin] || coin, base_amount: sz,
-                     quote_currency: 'USDC', quote_amount: (px * sz),
-                     fee_currency: 'USDC', fee_amount: fill['fee'].to_d.abs,
-                     tx_id: fill['tid'].to_s, group_id: nil, description: nil,
-                     transacted_at: Time.at(fill['time'].to_i / 1000.0).utc, raw_data: fill }
-      end
+    # userFills returns the spot pair index (e.g. "@333"), not the token name — unlike
+    # spot_balances, which returns "MU". Map it to the human base symbol via our ticker
+    # table; fall back to the raw coin for an unknown/delisted pair.
+    #
+    # The same read returns the address's perp fills ("BTC", HIP-3 "xyz:TSLA"); a spot pair is named
+    # "@<index>" or, for the oldest, "PURR/USDC". Pairs are quoted in USDH, USDT0 and USDE too.
+    # The fee is in feeToken (the received token on a spot buy); a negative fee is a maker rebate,
+    # not a fee.
+    pairs = tickers.pluck(:ticker, :base, :quote).to_h { |ticker, base, quote| [ticker, [base, quote]] }
+    spot_fills = result.data.select { |fill| fill['coin'].to_s.start_with?('@') || fill['coin'].to_s.include?('/') }
+    entries = spot_fills.map do |fill|
+      coin = fill['coin']
+      base, quote = pairs[coin]
+      is_buyer = fill['side'] == 'B'
+      px = fill['px'].to_d
+      sz = fill['sz'].to_d
+      fee = fill['fee'].to_d
+      { entry_type: is_buyer ? :buy : :sell,
+        base_currency: base || coin, base_amount: sz,
+        quote_currency: quote || 'USDC', quote_amount: (px * sz),
+        fee_currency: fee.positive? ? fill['feeToken'].presence || quote || 'USDC' : nil,
+        fee_amount: fee.positive? ? fee : nil,
+        tx_id: fill['tid'].to_s, group_id: nil, description: nil,
+        transacted_at: Time.at(fill['time'].to_i / 1000.0).utc, raw_data: fill }
     end
 
+    updates = read_by_time(hm_client, :user_non_funding_ledger_updates, user: api_key.key, start_ms:)
+    return updates if updates.failure?
+
+    entries += updates.data.filter_map { |update| spot_transfer_entry(update, api_key.key) }
     Result::Success.new(entries)
   end
 
   private
+
+  # https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint: the time-ranged user
+  # reads answer oldest first from startTime (inclusive). userFillsByTime documents "at most 2000 fills per
+  # response"; every other time-range read falls under the general rule, "only return 500 elements or
+  # distinct blocks of data" (live, userNonFundingLedgerUpdates answered 2000). A page at least this long
+  # may have more behind it, so a longer real cap only costs one more read.
+  # ponytail: userFillsByTime serves only the 10000 most recent fills; anything older is gone at the venue.
+  TIME_PAGE_LIMITS = { user_fills_by_time: 2000 }.freeze
+  TIME_PAGE_LIMIT = 500
+  private_constant :TIME_PAGE_LIMITS, :TIME_PAGE_LIMIT
+
+  # Every row from start_ms on. Each page starts at the newest time of the one before, so rows sharing
+  # that millisecond are read again rather than skipped (busy accounts fill hundreds of times in one
+  # ms). Identical rows are counted, not collapsed: a row is kept as often as the page that holds it
+  # most. A full page that brings nothing new fails instead of looping.
+  def read_by_time(hm_client, method, user:, start_ms:)
+    rows = Hash.new(0)
+    from = start_ms
+    loop do
+      result = hm_client.public_send(method, user:, start_time: from)
+      return result if result.failure?
+
+      page = Array(result.data)
+      fresh = 0
+      page.tally.each do |row, count|
+        next if rows[row] >= count
+
+        rows[row] = count
+        fresh += 1
+      end
+      break if page.size < TIME_PAGE_LIMITS.fetch(method, TIME_PAGE_LIMIT)
+      return Result::Failure.new("#{name} #{method} returned a full page with nothing new") if fresh.zero?
+
+      from = page.map { |row| row['time'].to_i }.max
+    end
+    Result::Success.new(rows.flat_map { |row, count| [row] * count })
+  end
+
+  # One userNonFundingLedgerUpdates row as a deposit into or a withdrawal out of the spot balance — the
+  # only balance this app reads. Shapes as the venue answers them (the docs show none):
+  #   spotTransfer          {token, amount, user, destination, fee, feeToken}
+  #   send                  {token, amount, user, destination, sourceDex, destinationDex}  ("spot" or "" = perp)
+  #   accountClassTransfer  {usdc, toPerp}
+  #   cStakingTransfer      {token, amount, isDeposit}  (into staking leaves spot)
+  #   spotGenesis           {token, amount}
+  # Bridge deposits and withdrawals, internalTransfer, vault and sub-account rows move the perp balance;
+  # USDC reaches spot from there through an accountClassTransfer, which is what is recorded.
+  # The hash is the transaction's, and staking transfers carry an all-zero one: those key on the event.
+  def spot_transfer_entry(update, address)
+    delta = update['delta'] || {}
+    mine = ->(field) { delta[field].to_s.casecmp?(address) }
+    token = delta['token']
+    amount = delta['amount']
+    type = case delta['type']
+           when 'spotTransfer'
+             mine.call('user') ? :withdrawal : :deposit
+           when 'send'
+             out = mine.call('user') && delta['sourceDex'] == 'spot'
+             into = mine.call('destination') && delta['destinationDex'] == 'spot'
+             if out && !into then :withdrawal
+             elsif into && !out then :deposit
+             end
+           when 'accountClassTransfer'
+             token = 'USDC'
+             amount = delta['usdc']
+             delta['toPerp'] ? :withdrawal : :deposit
+           when 'cStakingTransfer'
+             delta['isDeposit'] ? :withdrawal : :deposit
+           when 'spotGenesis'
+             :airdrop
+           end
+    return if type.nil?
+
+    fee = type == :withdrawal ? delta['fee'].to_d : 0
+    hash = update['hash'].to_s
+    { entry_type: type, base_currency: token, base_amount: amount.to_d,
+      quote_currency: nil, quote_amount: nil,
+      fee_currency: fee.positive? ? delta['feeToken'].presence || 'USDC' : nil, fee_amount: fee.positive? ? fee : nil,
+      tx_id: hash.match?(/\A0x0*\z/) ? nil : hash, group_id: nil, description: delta['type'],
+      transacted_at: Time.at(update['time'].to_i / 1000.0).utc, raw_data: update }
+  end
+
+  # The pair an order was placed on. The id carries only the base, and a base trades against more
+  # than one quote here (HYPE has USDC, USDH, USDT0 and USDE pairs), so a cancel aimed at "<base>/USDC"
+  # missed every order on another quote. Nil for an order this app has no row for.
+  def pair_of(order_id)
+    order = transactions.find_by(external_id: order_id)
+    order && tickers.find_by(base: order.base, quote: order.quote)&.ticker
+  end
+
+  # The address a private key signs as; nil for a secret that is not a key at all.
+  def agent_address(secret)
+    require 'eth'
+    Eth::Key.new(priv: secret.to_s.delete_prefix('0x')).address.to_s
+  rescue StandardError
+    nil
+  end
 
   def get_l2_book(ticker)
     cache_key = "exchange_#{id}_l2_book_#{ticker.id}"
@@ -378,21 +513,10 @@ class Exchanges::Hyperliquid < Exchange
       result = client.l2_book(coin: ticker.ticker)
       return result if result.failure?
 
-      levels = result.data['levels']
-      bids = levels[0] # bids array
-      asks = levels[1] # asks array
-
-      formatted = {
-        bid: {
-          price: bids.first['px'].to_d,
-          size: bids.first['sz'].to_d
-        },
-        ask: {
-          price: asks.first['px'].to_d,
-          size: asks.first['sz'].to_d
-        }
-      }
-      Result::Success.new(formatted)
+      # A side with no orders is an empty array: most RWA tokens have no book at all.
+      bids, asks = result.data['levels']
+      top = ->(level) { level && { price: level['px'].to_d, size: level['sz'].to_d } }
+      Result::Success.new({ bid: top.call(Array(bids).first), ask: top.call(Array(asks).first) })
     end
   end
 
@@ -490,10 +614,12 @@ class Exchanges::Hyperliquid < Exchange
     return not_found_failure(order_id) unless since
 
     start_ms = ((since - 1.hour).to_f * 1000).to_i # ms, buffered for immediate-fill / clock skew
-    result = client.user_fills_by_time(user: api_key&.key, start_time: start_ms)
+    # Every page: one call stops at 2000 fills, and on a busy account the order's own fills can sit past
+    # them, which would read as "never executed" to a caller that trusts the miss.
+    result = read_by_time(client, :user_fills_by_time, user: api_key&.key, start_ms:)
     return result if result.failure?
 
-    fills = Array(result.data).select { |f| f['oid'].to_s == oid.to_s }
+    fills = result.data.select { |f| f['oid'].to_s == oid.to_s }
     return not_found_failure(order_id) if fills.empty?
 
     Result::Success.new(order_data_from_fills(order_id, fills))

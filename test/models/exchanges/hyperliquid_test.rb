@@ -7,6 +7,7 @@ class Exchanges::HyperliquidTest < ActiveSupport::TestCase
   setup do
     @exchange = create(:hyperliquid_exchange)
     Rails.configuration.stubs(:dry_run).returns(false)
+    Honeymaker::Clients::Hyperliquid.any_instance.stubs(:user_non_funding_ledger_updates).returns(Result::Success.new([]))
   end
 
   test 'coingecko_id returns hyperliquid-spot' do
@@ -17,6 +18,52 @@ class Exchanges::HyperliquidTest < ActiveSupport::TestCase
     errors = @exchange.known_errors
     assert errors[:insufficient_funds].present?
     assert errors[:invalid_key].present?
+  end
+
+  # Wordings from ccxt's capture of Hyperliquid's {"status":"err","response":…} answers; the set_order
+  # path wraps them as "Hyperliquid order failed: {…}".
+  test 'classifies the venue\'s own rejection, throttle and rate-limit answers' do
+    unapproved = 'Hyperliquid order failed: {"status" => "err", "response" => ' \
+                 '"User or API Wallet 0xb8a6f8b26223de27c31938d56e470a5b832703a5 does not exist."}'
+    assert_equal :invalid_key, @exchange.failure_kind([unapproved])
+    assert @exchange.invalid_key_error?([unapproved])
+
+    cumulative = 'Hyperliquid order failed: {"status" => "err", "response" => "Too many cumulative requests sent ' \
+                 '(37986 > 10436) for cumulative volume traded $437.92."}'
+    assert @exchange.throttled_error?([cumulative])
+    assert @exchange.throttled_error?(['HTTP 429: null'])
+    assert @exchange.throttled_error?(['the server responded with status 429'])
+  end
+
+  # VALID_AGENT_KEY signs as this address.
+  AGENT_ADDRESS = '0xe239cdc5fbe977a8a141B72194D3CF8c41bC5BC6'.freeze
+
+  def key_check(role_answer)
+    Honeymaker::Clients::Hyperliquid.any_instance.expects(:post_info)
+                                    .with({ type: 'userRole', user: AGENT_ADDRESS }).returns(role_answer)
+    connection = create(:api_key, exchange: @exchange, raw_key: VALID_WALLET, raw_secret: VALID_AGENT_KEY)
+    @exchange.get_api_key_validity(api_key: connection)
+  end
+
+  test 'the key check accepts an agent the wallet approved' do
+    result = key_check(Result::Success.new({ 'role' => 'agent', 'data' => { 'user' => VALID_WALLET.upcase.sub('0X', '0x') } }))
+    assert_equal true, result.data
+  end
+
+  test 'the key check refuses an agent nobody approved, or one approved by another account' do
+    assert_equal false, key_check(Result::Success.new({ 'role' => 'missing' })).data
+    assert_equal false, key_check(Result::Success.new({ 'role' => 'agent', 'data' => { 'user' => "0x#{'9' * 40}" } })).data
+  end
+
+  test 'the key check refuses a sub-account address its master\'s agent would not trade' do
+    master = "0x#{'7' * 40}"
+    result = key_check(Result::Success.new({ 'role' => 'agent', 'data' => { 'user' => master } }))
+    assert_equal false, result.data
+  end
+
+  test 'the key check leaves a key unverified when the role read fails' do
+    result = key_check(Result::Failure.new('execution expired'))
+    assert_predicate result, :failure?
   end
 
   test 'minimum_amount_logic returns base_and_quote_in_base so the 10 USDC floor is enforced in base' do
@@ -125,6 +172,15 @@ class Exchanges::HyperliquidTest < ActiveSupport::TestCase
     result = @exchange.get_bid_price(ticker: ticker, force: true)
     assert result.success?
     assert_equal '2.49'.to_d, result.data
+  end
+
+  test 'a book with no orders on a side is a failed price read, not an exception' do
+    @exchange.set_client
+    ticker = hyperliquid_at_ticker
+    @exchange.send(:client).stubs(:l2_book).returns(Result::Success.new({ 'coin' => '@142', 'levels' => [[], []] }))
+
+    assert_predicate @exchange.get_bid_price(ticker: ticker, force: true), :failure?
+    assert_predicate @exchange.get_ask_price(ticker: ticker, force: true), :failure?
   end
 
   test 'get_ask_price returns best ask from l2_book' do
@@ -499,6 +555,25 @@ class Exchanges::HyperliquidTest < ActiveSupport::TestCase
     assert data[:exchange_response].present?                        # synthesized from the matched fills
   end
 
+  test 'get_order finds an unknownOid order\'s fills past the first page of fills' do
+    hyperliquid_at_ticker
+    tx = waiting_hl_tx('HYPE-424242', created_at: 2.hours.ago)
+    connection = create(:api_key, exchange: @exchange, raw_key: VALID_WALLET, raw_secret: VALID_AGENT_KEY)
+    @exchange.set_client(api_key: connection)
+    client = @exchange.send(:client)
+    client.stubs(:order_status).returns(Result::Failure.new('unknownOid', data: { not_found: true }))
+    start = ((tx.reload.created_at - 1.hour).to_f * 1000).to_i
+    others = (1..2000).map { |i| hl_fill(i, start + i, coin: '@142') }
+    own = hl_fill(424_242, start + 3_000, coin: '@142').merge('px' => '50.0', 'sz' => '0.2', 'tid' => 9)
+    client.expects(:user_fills_by_time).with(user: VALID_WALLET, start_time: start).returns(Result::Success.new(others))
+    client.expects(:user_fills_by_time).with(user: VALID_WALLET, start_time: start + 2000).returns(Result::Success.new([own]))
+
+    result = @exchange.get_order(order_id: 'HYPE-424242')
+
+    assert_predicate result, :success?
+    assert_equal BigDecimal('0.2'), result.data[:amount_exec]
+  end
+
   test 'get_order returns a not_found signal when unknownOid and no matching fill exists' do
     waiting_hl_tx('HYPE-999', created_at: 2.hours.ago)
     api_key = create(:api_key, exchange: @exchange, raw_key: VALID_WALLET, raw_secret: VALID_AGENT_KEY)
@@ -630,7 +705,7 @@ class Exchanges::HyperliquidTest < ActiveSupport::TestCase
                                              'balances' => [{ 'coin' => 'HYPE', 'total' => '2', 'hold' => '0.5' }]
                                            ))
     Honeymaker::Clients::Hyperliquid.any_instance
-                                    .expects(:user_fills)
+                                    .expects(:user_fills_by_time)
                                     .returns(Result::Success.new([]))
 
     tickers_result = @exchange.get_tickers_info(force: true)
@@ -656,7 +731,7 @@ class Exchanges::HyperliquidTest < ActiveSupport::TestCase
       { 'coin' => '@333', 'side' => 'B', 'px' => '1063.6', 'sz' => '0.04', 'fee' => '0.01', 'tid' => 't1', 'time' => 1_700_000_000_000 },
       { 'coin' => '@107', 'side' => 'S', 'px' => '40.0', 'sz' => '0.16', 'fee' => '0.02', 'tid' => 't2', 'time' => 1_700_000_001_000 }
     ]
-    Honeymaker::Clients::Hyperliquid.any_instance.stubs(:user_fills).returns(Result::Success.new(fills))
+    Honeymaker::Clients::Hyperliquid.any_instance.stubs(:user_fills_by_time).returns(Result::Success.new(fills))
 
     result = @exchange.get_ledger(api_key: api_key)
 
@@ -668,18 +743,128 @@ class Exchanges::HyperliquidTest < ActiveSupport::TestCase
   test 'get_ledger falls back to the raw coin when the pair index is unknown' do
     api_key = create(:api_key, exchange: @exchange, raw_key: VALID_WALLET, raw_secret: VALID_AGENT_KEY)
     fills = [{ 'coin' => '@999', 'side' => 'B', 'px' => '1.0', 'sz' => '1.0', 'fee' => '0', 'tid' => 't9', 'time' => 1_700_000_000_000 }]
-    Honeymaker::Clients::Hyperliquid.any_instance.stubs(:user_fills).returns(Result::Success.new(fills))
+    Honeymaker::Clients::Hyperliquid.any_instance.stubs(:user_fills_by_time).returns(Result::Success.new(fills))
 
     result = @exchange.get_ledger(api_key: api_key)
 
     assert_equal '@999', result.data.first[:base_currency]
   end
 
+  def hl_fill(tid, time, coin: '@107')
+    { 'coin' => coin, 'side' => 'B', 'px' => '40.0', 'sz' => '1.0', 'fee' => '0.01', 'feeToken' => 'HYPE',
+      'dir' => 'Buy', 'oid' => tid, 'tid' => tid, 'time' => time }
+  end
+
+  # userFillsByTime: oldest first, at most 2000 a call, startTime inclusive. The second page starts
+  # at the last page's newest millisecond, which re-reads the fills sharing it.
+  test 'get_ledger reads every page of fills from the beginning, keeping fills that share the boundary ms' do
+    connection = create(:api_key, exchange: @exchange, raw_key: VALID_WALLET, raw_secret: VALID_AGENT_KEY)
+    first = (1..1999).map { |i| hl_fill(i, 1_000 + i) } + [hl_fill(2000, 5_000)]
+    second = [hl_fill(2000, 5_000), hl_fill(2001, 5_000), hl_fill(2002, 6_000)]
+    client = Honeymaker::Clients::Hyperliquid.any_instance
+    client.expects(:user_fills_by_time).with(user: VALID_WALLET, start_time: 0).returns(Result::Success.new(first))
+    client.expects(:user_fills_by_time).with(user: VALID_WALLET, start_time: 5_000).returns(Result::Success.new(second))
+
+    result = @exchange.get_ledger(api_key: connection)
+
+    assert_predicate result, :success?
+    assert_equal((1..2002).map(&:to_s), result.data.map { |e| e[:tx_id] })
+  end
+
+  test 'get_ledger keeps spot fills only, on their own quote, with the fee in its own token' do
+    connection = create(:api_key, exchange: @exchange, raw_key: VALID_WALLET, raw_secret: VALID_AGENT_KEY)
+    usdh = create(:asset, external_id: 'usdh', symbol: 'USDH', name: 'USDH')
+    hype = create(:asset, external_id: 'hype', symbol: 'HYPE', name: 'Hype')
+    create(:ticker, exchange: @exchange, base_asset: hype, quote_asset: usdh, ticker: '@230', base: 'HYPE', quote: 'USDH')
+    perp = { 'coin' => 'BTC', 'side' => 'B', 'px' => '60000', 'sz' => '0.1', 'fee' => '1.2', 'feeToken' => 'USDC',
+             'dir' => 'Open Long', 'oid' => 1, 'tid' => 1, 'time' => 1_000 }
+    hip3 = perp.merge('coin' => 'xyz:TSLA', 'tid' => 2)
+    buy = hl_fill(3, 2_000, coin: '@230').merge('fee' => '0.0007')
+    rebate = hl_fill(4, 3_000, coin: '@230').merge('side' => 'A', 'dir' => 'Sell', 'fee' => '-0.0005', 'feeToken' => 'USDH')
+    Honeymaker::Clients::Hyperliquid.any_instance.stubs(:user_fills_by_time)
+                                    .returns(Result::Success.new([perp, hip3, buy, rebate]))
+
+    entries = @exchange.get_ledger(api_key: connection).data
+
+    assert_equal(%w[3 4], entries.map { |e| e[:tx_id] })
+    assert_equal(%w[USDH USDH], entries.map { |e| e[:quote_currency] })
+    assert_equal ['HYPE', BigDecimal('0.0007')], entries.first.values_at(:fee_currency, :fee_amount)
+    assert_nil entries.second[:fee_amount]
+  end
+
+  # Rows as userNonFundingLedgerUpdates answers them for a live account (addresses replaced).
+  test 'get_ledger records what moved the spot balance in and out, and nothing that stayed on the perp side' do
+    me = VALID_WALLET
+    other = "0x#{'9' * 40}"
+    connection = create(:api_key, exchange: @exchange, raw_key: me, raw_secret: VALID_AGENT_KEY)
+    row = ->(time, hash, delta) { { 'time' => time, 'hash' => hash, 'delta' => delta } }
+    zero = "0x#{'0' * 64}"
+    updates = [
+      row.call(1_000, '0xa1', { 'type' => 'deposit', 'usdc' => '500.0' }),
+      row.call(2_000, '0xa2', { 'type' => 'accountClassTransfer', 'usdc' => '400.0', 'toPerp' => false }),
+      row.call(3_000, '0xa3', { 'type' => 'spotTransfer', 'token' => 'PURR', 'amount' => '20.0', 'usdcValue' => '12.1',
+                                'user' => other, 'destination' => me, 'fee' => '0.0', 'nativeTokenFee' => '0.0',
+                                'nonce' => nil, 'feeToken' => '' }),
+      row.call(4_000, '0xa4', { 'type' => 'send', 'user' => me, 'destination' => other, 'sourceDex' => 'spot',
+                                'destinationDex' => '', 'token' => 'USDC', 'amount' => '50.0', 'usdcValue' => '50.0',
+                                'fee' => '0.0', 'nativeTokenFee' => '0.0', 'nonce' => 1, 'feeToken' => '' }),
+      row.call(5_000, zero, { 'type' => 'cStakingTransfer', 'token' => 'HYPE', 'amount' => '3.0', 'isDeposit' => true }),
+      row.call(6_000, '0xa6', { 'type' => 'spotGenesis', 'token' => 'PURR', 'amount' => '100.0' }),
+      row.call(7_000, '0xa7', { 'type' => 'internalTransfer', 'usdc' => '10.0', 'user' => other, 'destination' => me, 'fee' => '0.0' }),
+      row.call(8_000, '0xa8', { 'type' => 'withdraw', 'usdc' => '100.0', 'nonce' => 0, 'fee' => '1.0' })
+    ]
+    Honeymaker::Clients::Hyperliquid.any_instance.stubs(:user_fills_by_time).returns(Result::Success.new([]))
+    Honeymaker::Clients::Hyperliquid.any_instance.expects(:user_non_funding_ledger_updates)
+                                    .with(user: me, start_time: 0).returns(Result::Success.new(updates))
+
+    entries = @exchange.get_ledger(api_key: connection).data
+
+    assert_equal([[:deposit, 'USDC', BigDecimal('400'), '0xa2'], [:deposit, 'PURR', BigDecimal('20'), '0xa3'],
+                  [:withdrawal, 'USDC', BigDecimal('50'), '0xa4'], [:withdrawal, 'HYPE', BigDecimal('3'), nil],
+                  [:airdrop, 'PURR', BigDecimal('100'), '0xa6']],
+                 entries.map { |e| e.values_at(:entry_type, :base_currency, :base_amount, :tx_id) })
+  end
+
+  # The docs' general time-range rule: 500 elements a response, the next page from the last timestamp.
+  test 'get_ledger reads transfers past a 500-row page, keeping rows that share the boundary ms' do
+    connection = create(:api_key, exchange: @exchange, raw_key: VALID_WALLET, raw_secret: VALID_AGENT_KEY)
+    genesis = lambda { |i, time|
+      { 'time' => time, 'hash' => format('0x%064x', i), 'delta' => { 'type' => 'spotGenesis', 'token' => 'PURR', 'amount' => '1.0' } }
+    }
+    first = (1..499).map { |i| genesis.call(i, 1_000 + i) } + [genesis.call(500, 9_000)]
+    second = [genesis.call(500, 9_000), genesis.call(501, 9_000), genesis.call(502, 9_500)]
+    Honeymaker::Clients::Hyperliquid.any_instance.stubs(:user_fills_by_time).returns(Result::Success.new([]))
+    client = Honeymaker::Clients::Hyperliquid.any_instance
+    client.expects(:user_non_funding_ledger_updates).with(user: VALID_WALLET, start_time: 0).returns(Result::Success.new(first))
+    client.expects(:user_non_funding_ledger_updates).with(user: VALID_WALLET, start_time: 9_000).returns(Result::Success.new(second))
+
+    entries = @exchange.get_ledger(api_key: connection).data
+
+    assert_equal 502, entries.size
+    assert_equal format('0x%064x', 502), entries.last[:tx_id]
+  end
+
+  test 'get_ledger fails the fetch when a transfers read fails' do
+    connection = create(:api_key, exchange: @exchange, raw_key: VALID_WALLET, raw_secret: VALID_AGENT_KEY)
+    Honeymaker::Clients::Hyperliquid.any_instance.stubs(:user_fills_by_time).returns(Result::Success.new([]))
+    Honeymaker::Clients::Hyperliquid.any_instance.stubs(:user_non_funding_ledger_updates).returns(Result::Failure.new('execution expired'))
+
+    assert_predicate @exchange.get_ledger(api_key: connection), :failure?
+  end
+
+  test 'get_ledger fails the fetch when a fills read fails' do
+    connection = create(:api_key, exchange: @exchange, raw_key: VALID_WALLET, raw_secret: VALID_AGENT_KEY)
+    Honeymaker::Clients::Hyperliquid.any_instance.stubs(:user_fills_by_time).returns(Result::Failure.new('execution expired'))
+
+    assert_predicate @exchange.get_ledger(api_key: connection, start_time: 1.day.ago), :failure?
+  end
+
   test 'get_ledger builds its client with the exchange proxy' do
     api_key = create(:api_key, exchange: @exchange, raw_key: VALID_WALLET, raw_secret: VALID_AGENT_KEY)
     AppConfig.set('proxy_hyperliquid', 'http://claimed-proxy.test:9000')
     hm_client = mock('honeymaker_client')
-    hm_client.expects(:user_fills).returns(Result::Success.new([]))
+    hm_client.expects(:user_fills_by_time).with(user: api_key.key, start_time: 0).returns(Result::Success.new([]))
+    hm_client.expects(:user_non_funding_ledger_updates).returns(Result::Success.new([]))
     Honeymaker.expects(:client).with(
       'hyperliquid',
       api_key: api_key.key,
@@ -759,6 +944,19 @@ class Exchanges::HyperliquidTest < ActiveSupport::TestCase
 
   # Ids are "<BASE>-<oid>"; the oid is numeric, so it is everything after the LAST dash, which
   # keeps a dashed base readable and reads every stored id the same way as before.
+  test 'cancel_order cancels on the pair the order was placed on, not on <base>/USDC' do
+    usdh = create(:asset, external_id: 'usdh', symbol: 'USDH', name: 'USDH')
+    hype = create(:asset, external_id: 'hype', symbol: 'HYPE', name: 'Hype')
+    create(:ticker, exchange: @exchange, base_asset: hype, quote_asset: usdh, ticker: '@230', base: 'HYPE', quote: 'USDH')
+    waiting_hl_tx('HYPE-555', base: 'HYPE', quote: 'USDH')
+    @exchange.stubs(:order_placement_available?).returns(true)
+    @exchange.set_client
+    @exchange.send(:client).expects(:cancel).with(coin: '@230', oid: 555)
+             .returns(Result::Success.new({ 'status' => 'ok' }))
+
+    assert_predicate @exchange.cancel_order(order_id: 'HYPE-555'), :success?
+  end
+
   test 'parse_order_id splits at the last dash' do
     assert_equal %w[HYPE 123], @exchange.send(:parse_order_id, 'HYPE-123')
     assert_equal %w[@142 111], @exchange.send(:parse_order_id, '@142-111')

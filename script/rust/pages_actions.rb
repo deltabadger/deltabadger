@@ -142,6 +142,16 @@ module Pages
       end
     end
 
+    # One-asset baskets on Kraken and Binance, in their venues' own quotes.
+    %w[kraken binance].each do |kind|
+      add.call("venue_#{kind}_amount", 'update', { 'quote_amount' => '37.25' }, { 'kind' => kind })
+      add.call("venue_#{kind}_modal", 'modal', {}, { 'kind' => kind })
+      add.call("venue_#{kind}_start", 'start?start_fresh=true', {}, { 'kind' => kind })
+      add.call("venue_#{kind}_stop", 'stop', {}, { 'kind' => kind, 'columns' => { 'status' => 'scheduled' } })
+      add.call("venue_#{kind}_archive", 'archive', {}, { 'kind' => kind })
+      add.call("venue_#{kind}_delete_modal", 'delete_modal', {}, { 'kind' => kind })
+    end
+
     # ⇄ on a one-asset basket: buying → selling N base → selling for N quote → buying, at work, and with a buy still resting.
     sells_base = { 'direction' => 'selling', 'sell_denomination' => 'base', 'sell_amount' => 2, 'sell_interval' => 'week', 'smart_intervaled' => true,
                    'smart_interval_base_amount' => 0.5 }
@@ -169,7 +179,18 @@ module Pages
     add.call('sell_working_interval', 'update', { 'sell_interval' => 'month' },
              { 'kind' => 'single', 'settings' => sells_base, 'columns' => { 'status' => 'scheduled', 'started_at' => '2026-09-09T12:00:00Z' } }, decided)
 
-    raise "expected 175 bot action cases" unless cases.size == 175
+    # ⇄ and the sell sentence on Kraken and Binance one-asset baskets, stopped and at work.
+    %w[kraken binance].each do |kind|
+      venue_sells = { 'direction' => 'selling', 'sell_denomination' => 'base', 'sell_amount' => 0.002, 'sell_interval' => 'week' }
+      add.call("venue_#{kind}_reverse_buying", 'reverse', {}, { 'kind' => kind, 'columns' => { 'status' => 'stopped' } }, decided)
+      add.call("venue_#{kind}_reverse_selling_base", 'reverse', {}, { 'kind' => kind, 'settings' => venue_sells, 'columns' => { 'status' => 'stopped' } }, decided)
+      add.call("venue_#{kind}_reverse_selling_quote", 'reverse', {}, { 'kind' => kind, 'settings' => { 'direction' => 'selling', 'sell_denomination' => 'quote', 'sell_quote_amount' => 30 },
+                                                                       'columns' => { 'status' => 'stopped' } }, decided)
+      add.call("venue_#{kind}_reverse_scheduled", 'reverse', {}, { 'kind' => kind, 'columns' => { 'status' => 'scheduled', 'started_at' => '2026-09-09T12:00:00Z' } }, decided)
+      add.call("venue_#{kind}_sell_amount", 'update', { 'sell_amount' => '0.0035' }, { 'kind' => kind, 'settings' => venue_sells, 'columns' => { 'status' => 'stopped' } }, decided)
+    end
+
+    raise "expected 197 bot action cases" unless cases.size == 197
     names = cases.map { |entry| "actions_#{entry.first}".gsub(/[^a-zA-Z0-9_-]/, "_") }
     raise "action case names collide after filesystem conversion" unless names.uniq.size == names.size
     cases
@@ -217,8 +238,9 @@ module Pages
         end
       end
       scenario['extra_users'] = [user('email' => 'other@example.com', 'admin' => false)] if extra['foreign']
+      scenario['venues'] = true if VENUE_KINDS.key?(spec['kind'])
       [name, scenario]
-    end.tap { |grid| raise 'action case names collide' unless grid.size == 175 }
+    end.tap { |grid| raise 'action case names collide' unless grid.size == 197 }
   end
 end
 

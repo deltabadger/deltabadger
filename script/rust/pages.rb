@@ -226,7 +226,48 @@ module Pages
   def with_bots(bots, steps, attrs = {}) = { 'user' => owner, 'install' => 'alpaca', 'bots' => bots, 'steps' => steps }.merge(attrs)
 
   # Bot ids follow the order of 'bots'.
-  def bot_scenarios = list_scenarios.merge(page_scenarios).merge(feed_scenarios).merge(refused_scenarios).merge(broadcast_scenarios)
+  def bot_scenarios = list_scenarios.merge(page_scenarios).merge(feed_scenarios).merge(refused_scenarios).merge(broadcast_scenarios).merge(venue_scenarios)
+
+  # A Kraken bot that waits, a Binance bot at work with a fill, a failed order and one resting, and a stock basket beside them.
+  def venue_bots
+    [stopped('kraken'), running('binance', '2026-09-08T13:30:00Z', { 'orders' => 'venue_history' }.merge(acted('2026-09-08T13:30:00.800Z'))),
+     { 'kind' => 'basket', 'columns' => { 'label' => 'Basket' } }]
+  end
+
+  # One-asset baskets on Kraken and Binance, buying and selling, as the engine trades them; and a wider Kraken basket, which it does not.
+  def venue_scenarios
+    rules = { 'smart_intervaled' => true, 'smart_interval_quote_amount' => 5, 'limit_ordered' => true, 'limit_order_pcnt_distance' => 0.002,
+              'price_limited' => true, 'price_limit' => 50_000, 'price_limit_value_condition' => 'below' }
+    sell_base = { 'direction' => 'selling', 'sell_denomination' => 'base', 'sell_amount' => 0.0015, 'sell_interval' => 'day' }
+    sell_quote = { 'direction' => 'selling', 'sell_denomination' => 'quote', 'sell_quote_amount' => 20, 'sell_interval' => 'week' }
+    split = { 'smart_intervaled' => true, 'smart_interval_base_amount' => 0.0005, 'limit_ordered' => true, 'limit_order_pcnt_distance' => 0.003 }
+    venue = ->(bots, steps, attrs = {}) { with_bots(bots, steps, { 'venues' => true }.merge(attrs)) }
+    {
+      'venue_bots_list' => venue.(venue_bots, signed_in(get('/bots'), get('/de/bots'))),
+      'venue_bot_page' => venue.(venue_bots, signed_in(get('/bots/1'), get('/bots/2'), get('/de/bots/2'), get('/bots/2/chart', 'Turbo-Frame' => 'bot_chart'),
+                                                       get('/bots/2.turbo_stream', FEED))),
+      'venue_bot_page_rules' => venue.([stopped('kraken', 'settings' => rules),
+                                        stopped('binance', 'settings' => rules.merge('quote_amount_limited' => true, 'quote_amount_limit' => 100, 'price_limit' => 3000)),
+                                        { 'kind' => 'basket' }], signed_in(get('/bots/1'), get('/bots/2'), get('/pl/bots/1'))),
+      'venue_bot_page_hidden' => venue.(venue_bots, signed_in(get('/bots/1'), get('/bots/2'), get('/bots')), 'user' => owner('hide_balances' => true, 'locale' => 'de')),
+      'venue_bot_page_key_incorrect' => venue.(venue_bots, signed_in(get('/bots/1'), get('/bots/2')), 'venue_keys' => { 'binance' => 'incorrect' }),
+      # Selling, as an Alpaca seller is served: N base a day, for N quote a week with orders, and at work with a base split
+      # (0.0015 a day in thirds: its last tick at the 05:30 checkpoint).
+      'venue_bot_page_selling' => venue.([stopped('kraken', 'settings' => sell_base), stopped('binance', 'settings' => sell_quote, 'orders' => 'venue_history'),
+                                         { 'kind' => 'basket' }], signed_in(get('/bots/1'), get('/bots/2'), get('/de/bots/1'), get('/pl/bots/2'), get('/bots'))),
+      'venue_bot_page_selling_running' => venue.([running('kraken', '2026-09-09T13:30:00Z', { 'settings' => sell_base.merge(split) }.merge(acted('2026-09-10T05:30:00.800Z'))),
+                                                 { 'kind' => 'basket' }], signed_in(get('/bots/1'), get('/bots/1/chart', 'Turbo-Frame' => 'bot_chart'), get('/bots'))),
+      # Retrying after failures each venue words its own way, in the orders, the feed and the status bar; the same errors in the activity log.
+      'venue_bot_page_errors' => venue.(%w[kraken binance].map do |kind|
+        running(kind, '2026-09-09T13:30:00Z', { 'columns' => { 'status' => 5 }, 'orders' => 'venue_errors',
+                                                'logs' => VENUE_ERRORS.fetch(kind).map { |error| ['execution_failed', { 'error' => error }, '2026-09-09T13:30:09Z'] } }
+                                                .merge(acted('2026-09-09T13:30:00.800Z')))
+      end + [{ 'kind' => 'basket' }], signed_in(get('/bots/1'), get('/bots/2'), get('/de/bots/1'), get('/bots/1.turbo_stream', FEED), get('/bots/2.turbo_stream', FEED),
+                                                get('/bots'))),
+      'not_ported_bots_list_venue_basket' => venue.([{ 'kind' => 'kraken', 'settings' => { 'allocations' => { '16' => 0.5, '17' => 0.5 } } }, { 'kind' => 'basket' }],
+                                                    signed_in(get('/bots')))
+    }
+  end
 
   # What broadcast--on-connect posts: JSON to the locale's path, the page's token in X-CSRF-Token.
   def broadcast(method, args = {}, path = "/en/broadcasts/#{method}")
@@ -595,6 +636,7 @@ module Pages
       end
       scenario.fetch('app_configs', {}).each { |key, value| AppConfig.set(key, value) }
       alpaca(scenario) if scenario['install'] == 'alpaca'
+      venues(scenario) if scenario['venues']
       balances(scenario.fetch('balances', {}))
       jobs = scenario.fetch('bots', []).to_h { |spec| [bot(spec).id, spec['job']] }.compact
       action_fixture(scenario)

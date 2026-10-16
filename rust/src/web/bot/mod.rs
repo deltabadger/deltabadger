@@ -443,7 +443,15 @@ pub fn refusal(c: &Connection, bot_id: i64, wash_sale_enabled: Option<bool>, pro
     let truthy = |value: Option<&Value>| value.is_some_and(|v| !matches!(v, Value::Null | Value::Bool(false)) && v.as_str() != Some("") && v.as_str() != Some("0") && v.as_str() != Some("false"));
     let class = class.unwrap_or_default();
     if class != "Bots::DcaMultiAsset" && class != "Bots::DcaIndex" { return Ok(Some("a bot of a type this build does not render")); }
-    if exchange.as_deref() != Some("Exchanges::Alpaca") { return Ok(Some("a bot on an exchange other than Alpaca")); }
+    // Kraken and Binance as far as the engine trades them (engine::eligibility, spec E2): one-asset baskets.
+    match exchange.as_deref() {
+        Some("Exchanges::Alpaca") => {}
+        Some("Exchanges::Kraken" | "Exchanges::Binance") => {
+            let one_asset = settings.get("allocations").and_then(Value::as_object).is_some_and(|weights| weights.len() == 1);
+            if class != "Bots::DcaMultiAsset" || !one_asset { return Ok(Some("a Kraken or Binance bot other than a one-asset basket")); }
+        }
+        _ => return Ok(Some("a bot on an exchange other than Alpaca, Kraken and Binance")),
+    }
     // What the wizard always stores and no concern has a default for. Every other setting a row may
     // lack is given the value Rails gives it on load (`Bot::fill_defaults`).
     let needed: &[&str] = if class == "Bots::DcaIndex" { &["quote_asset_id", "interval", "index_type"] } else { &["quote_asset_id", "interval", "allocations"] };
