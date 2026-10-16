@@ -463,6 +463,8 @@ class Exchanges::Bingx < Exchange
     return Result::Failure.new("#{name} ledger read failed: #{listing.data['msg']}") if listing.data['code'].to_i != 0
 
     symbols = Array(listing.data.dig('data', 'symbols')).map { |s| s['symbol'] }
+    # ponytail: myTrades serves 7 days only, so fills older than that are not read when a sync has
+    # not run for over a week (the sync runs on a schedule, so only an instance down that long hits it).
     trades_from = [start_time, TRADES_REACH.ago].compact.max
     # A pair traded before counts too: the sale that emptied a coin leaves no balance to find it by.
     # So does every pair the account's bots ordered on here, synced or not: a bot's buy and sell
