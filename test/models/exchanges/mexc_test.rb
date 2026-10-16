@@ -440,4 +440,20 @@ class Exchanges::MexcTest < ActiveSupport::TestCase
 
     assert_predicate @exchange.get_ledger(api_key: ledger_api_key, start_time: 2.days.ago), :success?
   end
+
+  # Pairs were found only from coins held now or moved in the window, so the sale that emptied a coin
+  # was never read once the balance was zero.
+  test 'get_ledger reads a pair the account traded before even when the coin is sold out' do
+    api_key = ledger_api_key
+    create(:account_transaction, api_key: api_key, base_currency: 'PEPE', quote_currency: 'USDT')
+    asked = fake_trades_client([])
+    Honeymaker.client('mexc').define_singleton_method(:account_information) { |**| Result::Success.new('balances' => []) }
+    Honeymaker.client('mexc').define_singleton_method(:exchange_information) do |**|
+      Result::Success.new('symbols' => [BTCUSDT_LISTING, { 'symbol' => 'PEPEUSDT', 'baseAsset' => 'PEPE', 'quoteAsset' => 'USDT' }])
+    end
+
+    @exchange.get_ledger(api_key: api_key, start_time: 2.days.ago)
+
+    assert_equal %w[PEPEUSDT], asked.map { |a| a[:symbol] }.uniq
+  end
 end
