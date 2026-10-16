@@ -205,3 +205,46 @@ fn a_safety_write_retries_busy_until_the_short_competing_transaction_commits() {
     assert_eq!(bot.status, BotStatus::Stopped);
     assert_eq!(bot.run_generation(), 1);
 }
+
+/// Bot::PriceLimitable's readers (price_limitable.rb:131-169, after_initialize): on only at `== true`, the buy side's `||=`
+/// defaults, the sell side's read-time fallbacks, the stored action, ticker id and met_at.
+#[test]
+fn a_price_rule_reads_as_rails_reads_it() {
+    use deltabadger::ruby::Num;
+    let (_d, o, s) = install();
+    let read = |spec: BotSpec, selling: bool| model::load_bot(&o.primary, seed::insert_bot(&o.primary, &s, &spec)).unwrap().price_rule(selling);
+    let base = || BotSpec::weekly(60.0, "2026-09-01 10:00:00");
+    assert!(read(base(), false).unwrap().is_none());
+    assert!(read(base().with("price_limited", json!("true")), false).unwrap().is_none(), "a string is not `== true`");
+    let buy = read(base().with("price_limited", json!(true)), false).unwrap().unwrap();
+    assert_eq!((buy.prefix, &buy.limit, &buy.lower, &buy.upper), ("price_limit", &Num::Int(1_000_000), &Num::Int(0), &Num::Int(1_000_000)));
+    assert_eq!((buy.value_condition.as_deref(), buy.after, buy.action.as_str(), buy.ticker_id, buy.met_at_us), (Some("below"), false, "pause", None, None));
+    let sell = read(base().with("sell_price_limited", json!(true)).with("sell_price_limit", json!(64000.5)).with("sell_price_limit_timing_condition", json!("after"))
+        .with("sell_price_limit_action", json!("start_buying")).with("sell_price_limit_in_ticker_id", json!("7"))
+        .transient("sell_price_limit_condition_met_at", json!("2026-09-02T10:00:00.123Z")), true).unwrap().unwrap();
+    assert_eq!((sell.prefix, &sell.limit, sell.value_condition.as_deref(), sell.after, sell.action.as_str(), sell.ticker_id),
+               ("sell_price_limit", &Num::Float(64000.5), Some("above"), true, "start_buying", Some(7)));
+    assert_eq!(sell.met_at_us, Some("2026-09-02T10:00:00.123Z".parse::<chrono::DateTime<chrono::Utc>>().unwrap().timestamp_micros()));
+    // `||=` on the buy side: false takes the default; the sell side keeps a stored false, which Rails cannot compare.
+    assert_eq!(read(base().with("price_limited", json!(true)).with("price_limit", json!(false)), false).unwrap().unwrap().limit, Num::Int(1_000_000));
+    assert!(read(base().with("sell_price_limited", json!(true)).with("sell_price_limit", json!(false)), true).is_err());
+    assert!(read(base().with("price_limited", json!(true)).with("price_limit", json!("100")), false).is_err(), "a string limit raises in Rails");
+}
+
+/// `waiting` on a price rule is the pause itself, not a cut-short tick: unstick leaves it, and a waiting bot that is not
+/// paused (an older pause, superseded by a later run) goes back to scheduled.
+#[test]
+fn unstick_leaves_a_price_paused_bot_waiting() {
+    let (_d, o, s) = install();
+    let waiting = |last: &str| {
+        let id = seed::insert_bot(&o.primary, &s, &BotSpec { status: BotStatus::Waiting as i64, ..BotSpec::weekly(60.0, "2026-09-01 10:00:00") }
+            .with("price_limited", json!(true)).transient("last_action_job_at", json!(last)));
+        model::log_activity(&o.primary, id, "limit_paused", Level::Info, json!({ "limit_type": "price" }), "2026-09-02T10:00:00.001Z".parse().unwrap()).unwrap();
+        id
+    };
+    let paused = waiting("2026-09-02T10:00:00.000Z");
+    let superseded = waiting("2026-09-09T10:00:00.000Z");
+    assert!(!model::unstick(&o.primary, paused, now()).unwrap());
+    assert_eq!(model::load_bot(&o.primary, paused).unwrap().status, BotStatus::Waiting);
+    assert!(model::unstick(&o.primary, superseded, now()).unwrap());
+}

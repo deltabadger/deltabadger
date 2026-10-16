@@ -300,8 +300,91 @@ impl Bot {
         crate::codec::optional_time(self.transient.get("last_action_job_at"))
             .map(|at|at.map(|at|at.timestamp_micros())).map_err(data)
     }
-    /// Bot::Accountable#carry_window_marks.compact.max
-    pub fn calc_since_us(&self) -> Result<Option<i64>, EngineError> { Ok([self.started_at_us()?, self.settings_changed_at_us()?].into_iter().flatten().max()) }
+    /// Bot::Accountable#carry_window_marks.compact.max, with the started_at Bot::PriceLimitable decorates (condition_started_us).
+    pub fn calc_since_us(&self) -> Result<Option<i64>, EngineError> {
+        Ok([self.condition_started_us()?, self.settings_changed_at_us()?].into_iter().flatten().max())
+    }
+    /// Bot::PriceLimitable's (and its three siblings') `started_at` decorator: while a rule of the buy side is on, the later of
+    /// started_at and that rule's `*_condition_met_at`, or nil while it is unmet. The schedule's grid keeps the raw started_at.
+    pub fn condition_started_us(&self) -> Result<Option<i64>, EngineError> {
+        let settings = self.settings.as_object().cloned().unwrap_or_default();
+        let transient = self.transient.as_object().cloned().unwrap_or_default();
+        super::accounting::condition_started_at(&settings, &transient, self.started_at_us()?)
+    }
+    /// The active side's price rule (Bot::PriceLimitable#active_price_limited?), None when it is off. Err: a stored value
+    /// Rails would raise on (eligibility refuses it).
+    pub fn price_rule(&self, selling: bool) -> Result<Option<PriceRule>, String> {
+        let prefix = if selling { "sell_price_limit" } else { "price_limit" };
+        let get = |k: &str| self.settings.get(format!("{prefix}{k}").as_str()).filter(|v| !v.is_null());
+        if get("ed") != Some(&Value::Bool(true)) { return Ok(None); }
+        // The buy side's defaults are `||=` (after_initialize: nil and false take them); the sell side's `nil?` read-time fallbacks.
+        let unset = |v: Option<&Value>| v.is_none() || (!selling && v == Some(&Value::Bool(false)));
+        let num = |k: &str, default: i64| -> Result<Num, String> {
+            let v = get(k);
+            if unset(v) { return Ok(Num::Int(default)); }
+            match v {
+                Some(Value::Number(n)) => match n.as_i64() { Some(i) => Ok(Num::Int(i)), None => n.as_f64().filter(|f| f.is_finite()).map(Num::Float).ok_or_else(|| format!("{prefix}{k} {n} is not a number")) },
+                Some(other) => Err(format!("{prefix}{k} {other} is not a number")),
+                None => Ok(Num::Int(default)),
+            }
+        };
+        let text = |k: &str, default: &str| -> Option<String> { let v = get(k); if unset(v) { Some(default.into()) } else { v.and_then(Value::as_str).map(str::to_string) } };
+        let action = match get("_action") {
+            None | Some(Value::Bool(false)) => "pause".to_string(),
+            Some(Value::String(s)) if s.trim().is_empty() => "pause".to_string(),
+            Some(Value::String(s)) => s.clone(),
+            Some(other) => other.to_string(),
+        };
+        // `find_by(id:)` casts the stored id: a JSON integer, or a string ActiveRecord reads as one (else no ticker: id 0).
+        let ticker_id = match get("_in_ticker_id") {
+            None | Some(Value::Bool(false)) => None,
+            Some(Value::String(s)) if s.trim().is_empty() => None,
+            Some(Value::Number(n)) => Some(n.as_i64().unwrap_or(0)),
+            Some(Value::String(s)) => Some(s.trim().parse().unwrap_or(0)),
+            Some(_) => Some(0),
+        };
+        let met_at = crate::codec::optional_time(self.transient.get(format!("{prefix}_condition_met_at").as_str()))
+            .map_err(|e| format!("{prefix}_condition_met_at: {e:?}"))?.map(|t| t.timestamp_micros());
+        Ok(Some(PriceRule {
+            prefix, limit: num("", 1_000_000)?, lower: num("_range_lower_bound", 0)?, upper: num("_range_upper_bound", 1_000_000)?,
+            after: text("_timing_condition", "while").as_deref() == Some("after"),
+            value_condition: text("_value_condition", if selling { "above" } else { "below" }),
+            ticker_id, action, met_at_us: met_at,
+        }))
+    }
+}
+
+/// One side's price rule as Bot::PriceLimitable reads it (price_limitable.rb:131-169, after_initialize).
+#[derive(Debug, Clone)]
+pub struct PriceRule {
+    /// "price_limit" or "sell_price_limit": the keys' prefix.
+    pub prefix: &'static str,
+    pub limit: Num, pub lower: Num, pub upper: Num,
+    /// `timing_condition == 'after'`: once met, the rule stays met until it is switched off.
+    pub after: bool,
+    pub value_condition: Option<String>,
+    /// The stored `*_in_ticker_id`; None: the member that sorts first by its venue code.
+    pub ticker_id: Option<i64>,
+    pub action: String,
+    pub met_at_us: Option<i64>,
+}
+
+/// Bot::LimitCheckable#live_limit_check_type: the limit type the bot is paused on now (its newest `limit_paused` log, at or
+/// after last_action_job_at), whatever its status.
+pub fn condition_paused(c: &Connection, bot: &Bot) -> Result<Option<String>, EngineError> {
+    let log: Option<(String, String)> = c.query_row(
+        "SELECT created_at, details FROM bot_activity_logs WHERE bot_id = ?1 AND event = 'limit_paused' ORDER BY created_at DESC, id DESC LIMIT 1",
+        [bot.id], |r| Ok((r.get(0)?, r.get(1)?))).optional()?;
+    let Some((at, details)) = log else { return Ok(None) };
+    let at = parse_time(&at).map_err(data)?.timestamp_micros();
+    if bot.last_action_job_at_us()?.is_some_and(|last| at < last) { return Ok(None); }
+    let details: Value = serde_json::from_str(&details).unwrap_or(Value::Null);
+    Ok(details.get("limit_type").and_then(Value::as_str).map(str::to_string))
+}
+
+/// A bot resting on a price condition: `waiting`, paused by its price rule (the only one this engine runs).
+pub fn price_paused(c: &Connection, bot: &Bot) -> Result<bool, EngineError> {
+    Ok(bot.status == BotStatus::Waiting && condition_paused(c, bot)?.as_deref() == Some("price"))
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -597,8 +680,10 @@ pub fn update_status(c: &Connection, bot_id: i64, status: BotStatus, now: DateTi
     Ok(())
 }
 
-/// `executing`/`waiting` exist only mid-tick: met outside one, the last run was cut short. Back to scheduled.
+/// `executing`/`waiting` exist only mid-tick: met outside one, the last run was cut short. Back to scheduled. A bot resting
+/// on a price condition is waiting by design (its check re-arms it) and stays.
 pub fn unstick(c: &Connection, bot_id: i64, now: DateTime<Utc>) -> Result<bool, EngineError> {
+    if price_paused(c, &load_bot(c, bot_id)?)? { return Ok(false); }
     let n = c.execute("UPDATE bots SET status = ?1, updated_at = ?2 WHERE id = ?3 AND status IN (?4, ?5)",
                       params![BotStatus::Scheduled as i64, format_time(now), bot_id, BotStatus::Executing as i64, BotStatus::Waiting as i64])?;
     Ok(n == 1)

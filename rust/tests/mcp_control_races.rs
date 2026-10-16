@@ -389,7 +389,7 @@ eval(record + "\nFile.write(ENV.fetch('ACTION_RACE_RECORD'), JSON.generate(vecto
     async fn only_stop_bypasses_an_unrelated_guard_refusal()->Result {
         for (tool,status) in [("stop_bot",1),("archive_bot",2),("unarchive_bot",7),("delete_bot",2),("update_bot_settings",2),("start_bot",0)] {
             let f=Fixture::new().await?;
-            let other=seed::insert_bot(&f.c,&f.seed,&seed::BotSpec::weekly(60.0,ANCHOR).with("price_limited",json!(true)));
+            let other=seed::insert_bot(&f.c,&f.seed,&seed::BotSpec::weekly(60.0,ANCHOR).with("price_drop_limited",json!(true)));
             f.c.execute("UPDATE bots SET status=?1 WHERE id=?2",(status,f.id))?;
             let before=f.snapshot()?;
             let (method,suffix)=match tool {"stop_bot"=>("PATCH","/stop"),"archive_bot"=>("POST","/archive"),"unarchive_bot"=>("DELETE","/archive"),"delete_bot"=>("DELETE","/delete"),"update_bot_settings"=>("PATCH",""),_=>("PATCH","/start")};

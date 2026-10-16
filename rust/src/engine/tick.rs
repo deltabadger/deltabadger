@@ -47,6 +47,8 @@ pub enum TickOutcome {
     MarketClosed { until: DateTime<Utc>, producer: Option<model::CredentialVersion> },
 
     Skipped, Done { placed: bool }, RetryAfter(Duration), Rescheduled, Stopped, AwaitingReconciliation,
+    /// The price rule paused the bot: `waiting`, checked at the end of the minute (conditions::check).
+    Paused,
     /// Reference data only a Rails job refreshes is past its bound (staleness.rs): nothing was read from the venue, nothing
     /// written, and the bot stays due.
     Stale { source: &'static str, message: String },
@@ -382,6 +384,17 @@ async fn tick_inner<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &mut 
     let outcome = match executed {
         Ok(Ran { fenced: true, .. }) => { *attempts = Attempts::default(); TickOutcome::Skipped }
         Ok(Ran { ledger_stale: Some(stale), .. }) => unclaim(c, bot, claimed_over, *stale, clock.now(), &cx.credential_version)?,
+        // `break_reschedule`: a clean run (clear_failure_state!, disable_starting_time!) that logs reschedule_disabled and
+        // leaves the bot `waiting` for its check (action_job.rb:150-161).
+        Ok(Ran { paused: true, .. }) => {
+            *attempts = Attempts::default();
+            model::run_credential_write(c, bot, &cx.credential_version, |tx| {
+                if model::load_bot(tx, bot_id)?.last_failure_kind().is_some() { record_failure(tx, bot_id, None)?; }
+                amount::disable_starting_time(tx, bot_id, clock.now())?;
+                model::log_activity(tx, bot_id, "reschedule_disabled", Level::Info, json!({}), clock.now())?;
+                Ok(TickOutcome::Paused)
+            })?
+        }
         Ok(Ran { placed, .. }) => {
             *attempts = Attempts::default();
             // clear_failure_state!, then back to scheduled unless stopped meanwhile.
@@ -409,8 +422,25 @@ async fn execute<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::
     if splits::untrusted(c, bot, clock.now())? {
         let now = clock.now();
         model::run_write(c, bot, |tx| model::log_activity(tx, bot_id, "dca_skipped_restatement", Level::Info, json!({}), now))?;
-        return Ok(Ok(Ran { placed: false, fenced: false, ledger_stale: None }));
+        return Ok(Ok(Ran { placed: false, fenced: false, ledger_stale: None, paused: false }));
     }
+    // Bot::PriceLimitable's decorator, inside Fundable and outside LimitOrderable's sweep (dca_multi_asset.rb:34-44): a paused
+    // bot sweeps nothing. Met for the first time, the tick sizes from the row the stamp left.
+    let refreshed;
+    let bot = match price_gate(c, venue, bot, clock, cx).await? {
+        Gated::Pass(None) => bot,
+        Gated::Pass(Some(stamped)) => { refreshed = *stamped; &refreshed }
+        Gated::Fail(f) => return Ok(Err(f)),
+        Gated::Pause => {
+            // transition_working!(:waiting), `limit_paused`, the check at the end of the minute (run.rs); Fundable still runs.
+            let now = clock.now();
+            model::run_write(c, bot, |tx| {
+                model::transition_working(tx, bot_id, BotStatus::Waiting, now)?;
+                model::log_activity(tx, bot_id, "limit_paused", Level::Info, json!({ "limit_type": "price" }), now)
+            })?;
+            return Ok(fundable(c, venue, bot, clock, false).await?.map(|()| Ran { placed: false, fenced: false, ledger_stale: None, paused: true }));
+        }
+    };
 
     if let Err(f) = polling::sweep(c, venue, bot, clock.now()).await {
         return Ok(Err(match f {
@@ -428,12 +458,12 @@ async fn execute<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::
             model::log_activity(tx, bot_id, "dca_skipped_restatement", Level::Info, json!({"reason":reason}), clock.now())
         })?;
         super::log(&format!("[engine] bot {bot_id}: split reconciliation required: {reason}; refresh the ledger and correct its split records before restarting; no trade is required"));
-        return Ok(Ok(Ran { placed: false, fenced: false, ledger_stale: None }));
+        return Ok(Ok(Ran { placed: false, fenced: false, ledger_stale: None, paused: false }));
     }
     if splits::snapshot(c, bot)? != reconciled {
         let now = clock.now();
         model::run_write(c, bot, |tx| model::log_activity(tx, bot_id, "dca_skipped_restatement", Level::Info, json!({"reason":"split generation or held assets changed during reconciliation"}), now))?;
-        return Ok(Ok(Ran { placed: false, fenced: false, ledger_stale: None }));
+        return Ok(Ok(Ran { placed: false, fenced: false, ledger_stale: None, paused: false }));
     }
     model::run_write(c, bot, |tx| { tx.execute("UPDATE bots SET transient_data=json_remove(transient_data,'$.rust_split_hold') WHERE id=?1 AND json_extract(transient_data,'$.rust_split_hold') IS NOT NULL", [bot_id])?; Ok(()) })?;
     // Statusable#transition_working!: every status write of the tick moves only a still-working bot, so a stop that
@@ -485,7 +515,7 @@ async fn execute<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::
             };
             // A tick that waits for a ledger refresh sizes every leg again, so its below-minimum legs are reported then.
             if legs.ledger_stale.is_some() && !legs.fenced {
-                return Ok(Ok(Ran { placed: legs.placed, fenced: false, ledger_stale: legs.ledger_stale }));
+                return Ok(Ok(Ran { placed: legs.placed, fenced: false, ledger_stale: legs.ledger_stale, paused: false }));
             }
             if !legs.skipped.is_empty() {
                 model::run_credential_write(c, bot, &cx.credential_version, |tx| record_skipped(tx, bot, &legs.skipped, legs.placed, clock.now()))?;
@@ -507,11 +537,43 @@ async fn execute<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::
             })?;
         }
     }
+    Ok(fundable(c, venue, bot, clock, placed).await?.map(|()| Ran { placed, fenced, ledger_stale: None, paused: false }))
+}
+
+/// Bot::PriceLimitable#execute_action's decision: pass to the rest of the tick, pause, or fail the tick (a rejected key raises
+/// out of limit_condition_met?, limit_checkable.rb:29-33; an in-app client raises a transport failure into retry_on). Any
+/// other failed read pauses: never trade on a read that could not be made.
+enum Gated { Pass(Option<Box<model::Bot>>), Pause, Fail(Fail) }
+async fn price_gate<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<Gated, EngineError> {
+    use super::conditions::{self, Evaluated};
+    if let Some(rule) = bot.price_rule(bot.selling()).map_err(EngineError::Data)? {
+        // Eligibility admits only `pause`; the flip actions are slice 7c.
+        if rule.action != "pause" { return Err(EngineError::Data(format!("{}_action {} is not supported", rule.prefix, rule.action))); }
+    }
+    let rules = venue.rules();
+    Ok(match conditions::evaluate(c, venue, bot, clock.now(), cx.prices, &cx.credential_version).await? {
+        Evaluated::Off => Gated::Pass(None),
+        Evaluated::Met { refreshed } => Gated::Pass(refreshed),
+        Evaluated::Unmet | Evaluated::Unavailable => Gated::Pause,
+        Evaluated::Failed(e) if conditions::raised(&e).is_some() => {
+            let m = conditions::raised(&e).unwrap_or_default();
+            Gated::Fail(Fail::General { message: m, errors: vec![], failed_row: false })
+        }
+        Evaluated::Failed(VenueError::Rejected(e)) if rules.failure_kind(&e) == Some("invalid_key") => {
+            Gated::Fail(Fail::General { message: format!("{} rejected the API key: {}", rules.name, to_sentence(&e)), errors: vec![], failed_row: false })
+        }
+        Evaluated::Failed(VenueError::Transient(m)) if rules.transport_raises => Gated::Fail(Fail::Transient(m)),
+        Evaluated::Failed(_) => Gated::Pause,
+    })
+}
+
+/// Bot::Fundable's tail, after a successful execute_action, a pause included (fundable.rb:5-17).
+async fn fundable<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot, clock: &dyn Clock, placed: bool) -> Result<Result<(), Fail>, EngineError> {
     // Bot::Fundable#funds_are_low?: the quote asset's balance, whatever the member tickers (an index bot has no allocations),
     // spent as Exchanges::Alpaca#spendable_balance picks it. A failed balance Result means "not low"; only a transport
     // failure raises.
     // While selling the user spends base, not quote: no quote-buffer check and no balance read (fundable.rb:10-12).
-    if bot.selling() { return Ok(Ok(Ran { placed, fenced, ledger_stale: None })); }
+    if bot.selling() { return Ok(Ok(())); }
     model::require_run(c, bot)?;
     let funds=venue.balance_result(&model::quote_symbol(c, bot)?, model::all_crypto(c, bot)?).await;
     model::require_run(c, bot)?;
@@ -535,12 +597,13 @@ async fn execute<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::
         // An unreadable body raises a plain StandardError in Rails: execution_failed, no retry.
         Err(VenueError::Ambiguous(m)) => return Ok(Err(Fail::General { errors: vec![m.clone()], message: m, failed_row: false })),
     }
-    Ok(Ok(Ran { placed, fenced, ledger_stale: None }))
+    Ok(Ok(()))
 }
 
 /// What a tick's execute_action did. A fenced tick skips Fundable and all completion writes. `ledger_stale`: a leg was
 /// refused because the account ledger stopped being fresh after it was sized; the tick hands its checkpoint back (unclaim).
-struct Ran { placed: bool, fenced: bool, ledger_stale: Option<Box<staleness::Stale>> }
+/// `paused`: the price rule paused the bot (`break_reschedule`): it stays `waiting` for its check.
+struct Ran { placed: bool, fenced: bool, ledger_stale: Option<Box<staleness::Stale>>, paused: bool }
 
 /// What a basket buy did before it returned, for the skipped-leg report that runs on every way out.
 #[derive(Default)]
