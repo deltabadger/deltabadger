@@ -825,6 +825,25 @@ class Exchanges::HyperliquidTest < ActiveSupport::TestCase
                  entries.map { |e| e.values_at(:entry_type, :base_currency, :base_amount, :tx_id) })
   end
 
+  # The docs' general time-range rule: 500 elements a response, the next page from the last timestamp.
+  test 'get_ledger reads transfers past a 500-row page, keeping rows that share the boundary ms' do
+    connection = create(:api_key, exchange: @exchange, raw_key: VALID_WALLET, raw_secret: VALID_AGENT_KEY)
+    genesis = lambda { |i, time|
+      { 'time' => time, 'hash' => format('0x%064x', i), 'delta' => { 'type' => 'spotGenesis', 'token' => 'PURR', 'amount' => '1.0' } }
+    }
+    first = (1..499).map { |i| genesis.call(i, 1_000 + i) } + [genesis.call(500, 9_000)]
+    second = [genesis.call(500, 9_000), genesis.call(501, 9_000), genesis.call(502, 9_500)]
+    Honeymaker::Clients::Hyperliquid.any_instance.stubs(:user_fills_by_time).returns(Result::Success.new([]))
+    client = Honeymaker::Clients::Hyperliquid.any_instance
+    client.expects(:user_non_funding_ledger_updates).with(user: VALID_WALLET, start_time: 0).returns(Result::Success.new(first))
+    client.expects(:user_non_funding_ledger_updates).with(user: VALID_WALLET, start_time: 9_000).returns(Result::Success.new(second))
+
+    entries = @exchange.get_ledger(api_key: connection).data
+
+    assert_equal 502, entries.size
+    assert_equal format('0x%064x', 502), entries.last[:tx_id]
+  end
+
   test 'get_ledger fails the fetch when a transfers read fails' do
     connection = create(:api_key, exchange: @exchange, raw_key: VALID_WALLET, raw_secret: VALID_AGENT_KEY)
     Honeymaker::Clients::Hyperliquid.any_instance.stubs(:user_fills_by_time).returns(Result::Success.new([]))

@@ -411,10 +411,14 @@ class Exchanges::Hyperliquid < Exchange
   private
 
   # https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint: the time-ranged user
-  # reads answer oldest first from startTime (inclusive), at most 2000 rows a call.
+  # reads answer oldest first from startTime (inclusive). userFillsByTime documents "at most 2000 fills per
+  # response"; every other time-range read falls under the general rule, "only return 500 elements or
+  # distinct blocks of data" (live, userNonFundingLedgerUpdates answered 2000). A page at least this long
+  # may have more behind it, so a longer real cap only costs one more read.
   # ponytail: userFillsByTime serves only the 10000 most recent fills; anything older is gone at the venue.
-  TIME_PAGE_LIMIT = 2000
-  private_constant :TIME_PAGE_LIMIT
+  TIME_PAGE_LIMITS = { user_fills_by_time: 2000 }.freeze
+  TIME_PAGE_LIMIT = 500
+  private_constant :TIME_PAGE_LIMITS, :TIME_PAGE_LIMIT
 
   # Every row from start_ms on. Each page starts at the newest time of the one before, so rows sharing
   # that millisecond are read again rather than skipped (busy accounts fill hundreds of times in one
@@ -435,7 +439,7 @@ class Exchanges::Hyperliquid < Exchange
         rows[row] = count
         fresh += 1
       end
-      break if page.size < TIME_PAGE_LIMIT
+      break if page.size < TIME_PAGE_LIMITS.fetch(method, TIME_PAGE_LIMIT)
       return Result::Failure.new("#{name} #{method} returned a full page with nothing new") if fresh.zero?
 
       from = page.map { |row| row['time'].to_i }.max
