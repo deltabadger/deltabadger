@@ -76,5 +76,14 @@ panic = "abort" # a panicking engine must not leave a server up with nothing tra
 [profile.dev]
 debug = "line-tables-only"
 
+# The nightly timing tests' limits are written for release speed; a debug build on the CI runner ran
+# about 3x slower than the Mac and crossed them. Release optimisation, but test semantics: unwinding
+# panics (the harness needs them) and the debug checks the tests rely on.
+[profile.timing]
+inherits = "release"
+panic = "unwind"
+debug-assertions = true
+overflow-checks = true
+
 [profile.dev.package."*"]
 debug = false

@@ -16,7 +16,7 @@ slow-timeout = { period = "60s", terminate-after = 2 }
 # Wall-clock timing tests: meters of the runtime thread, the write lock and page latency, and tight deadlines. A loaded
 # runner turned them red, so they are #[ignore = "timing: nightly"]: out of every default run, local and PR. The nightly
 # workflow (.github/workflows/rust-timing-nightly.yml) runs them here, one at a time, so nothing else loads the machine:
-#   cargo nextest run --profile timing --run-ignored only
+#   cargo nextest run --cargo-profile timing --profile timing --run-ignored only
 # Only these binaries' ignored tests are timing tests; a new one elsewhere adds its binary (the nightly checks the count).
 [profile.timing]
 default-filter = 'binary(reference_jobs) | binary(figures_warm) | binary(one_process) | binary(sync) | binary(tracker_deadline) | binary(quiet_revisit_browser) | binary(figure_fx) | binary(jobs) | binary(mail_parity)'
