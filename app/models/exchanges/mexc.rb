@@ -13,6 +13,9 @@ class Exchanges::Mexc < Exchange
     'PARTIALLY_FILLED' => :open,
     'FILLED' => :closed,
     'CANCELED' => :cancelled,
+    # Partly filled, the rest cancelled (https://mexcdevelop.github.io/apidocs/spot_v3_en/#enum-definitions).
+    # Terminal; the fill rides along in executedQty.
+    'PARTIALLY_CANCELED' => :cancelled,
     'EXPIRED' => :cancelled,
     'REJECTED' => :failed
   }.freeze
