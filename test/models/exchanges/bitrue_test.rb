@@ -197,4 +197,12 @@ class Exchanges::BitrueTest < ActiveSupport::TestCase
     assert_equal 49_000.to_d, result.data[:price]
     assert_equal :closed, result.data[:status]
   end
+
+  test 'an order still queued (PENDING_CREATE) reads as open instead of raising' do
+    Rails.configuration.stubs(:dry_run).returns(false)
+    create(:ticker, exchange: @exchange, base_symbol: 'BTC', quote_symbol: 'USDT')
+    stub_query_order(order_raw(status: 'PENDING_CREATE'))
+
+    assert_equal :open, @exchange.get_order(order_id: 'BTCUSDT-42').data[:status]
+  end
 end
