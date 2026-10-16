@@ -193,4 +193,27 @@ class Exchanges::MexcTest < ActiveSupport::TestCase
     assert @exchange.transient_error?(['service not available, please try again'])            # 503
     assert @exchange.transient_error?(['Gateway Time-out'])                                   # 504
   end
+
+  # One order MEXC no longer has failed every get_orders batch it was in, so the bot's other open
+  # orders were never polled and the gone one could never be retired.
+  test 'get_orders lists an order MEXC no longer has under missing and keeps the rest' do
+    stub_query_order(
+      '1' => Result::Failure.new('{"code":-2013,"msg":"Order does not exist."}', data: { status: 400 }),
+      '2' => query_order_raw('orderId' => '2'),
+      '3' => Result::Failure.new('{"code":-2011,"msg":"Unknown order sent"}', data: { status: 400 })
+    )
+
+    result = with_dry_run(false) { @exchange.get_orders(order_ids: %w[BTCUSDT-1 BTCUSDT-2 BTCUSDT-3]) }
+
+    assert_predicate result, :success?
+    assert_equal %w[BTCUSDT-1 BTCUSDT-3], result.data[:missing]
+    assert_equal :open, result.data[:orders]['BTCUSDT-2'][:status]
+  end
+
+  test 'get_orders still fails the batch on any other failure' do
+    stub_query_order(Result::Failure.new('{"code":700003,"msg":"Timestamp for this request is outside of the recvWindow."}',
+                                         data: { status: 400 }))
+
+    assert_predicate with_dry_run(false) { @exchange.get_orders(order_ids: %w[BTCUSDT-1]) }, :failure?
+  end
 end
