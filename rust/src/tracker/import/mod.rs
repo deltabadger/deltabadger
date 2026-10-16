@@ -3,6 +3,7 @@
 pub mod binance;
 pub mod csv;
 pub mod deltabadger;
+pub mod run;
 
 /// AccountTransaction.entry_types: a type's stored id.
 pub fn entry_type(name: &str) -> Option<i64> {
