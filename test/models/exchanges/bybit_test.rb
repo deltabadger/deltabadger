@@ -269,6 +269,7 @@ class Exchanges::BybitTest < ActiveSupport::TestCase
     hm_client.stubs(:execution_list).returns(empty)
     hm_client.stubs(:deposit_records).returns(empty)
     hm_client.stubs(:withdraw_records).returns(empty)
+    hm_client.stubs(:get_authenticated).returns(empty)
     hm_client
   end
 
@@ -373,6 +374,35 @@ class Exchanges::BybitTest < ActiveSupport::TestCase
 
   test 'ledger_window is nil, since get_ledger walks its own windows to now' do
     assert_nil @exchange.ledger_window
+  end
+
+  test 'get_ledger reads internal deposits, rollback-reviewed deposits and off-chain withdrawals' do
+    hm_client = stub_bybit_ledger_client
+    now_ms = (1.day.ago.to_f * 1000).to_i
+    page = ->(rows, cursor = '') { Result::Success.new({ 'retCode' => 0, 'result' => { 'rows' => rows, 'nextPageCursor' => cursor } }) }
+    hm_client.stubs(:deposit_records).returns(
+      page.call([{ 'coin' => 'USDT', 'amount' => '5', 'status' => 70_012, 'txID' => 'chain-1', 'successAt' => now_ms.to_s }])
+    )
+    hm_client.stubs(:get_authenticated).with('/v5/asset/deposit/query-internal-record', anything).returns(
+      page.call([{ 'coin' => 'USDT', 'amount' => '7', 'status' => 2, 'txID' => 'internal-1', 'createdTime' => (now_ms / 1000).to_s },
+                 { 'coin' => 'USDT', 'amount' => '9', 'status' => 1, 'txID' => 'internal-2', 'createdTime' => (now_ms / 1000).to_s }])
+    )
+    hm_client.stubs(:withdraw_records).with(has_entries(withdraw_type: 2, cursor: nil)).returns(
+      page.call([{ 'coin' => 'USDT', 'amount' => '3', 'status' => 'success', 'txID' => '', 'withdrawId' => 'w-1',
+                   'withdrawFee' => '0', 'updateTime' => now_ms.to_s }], 'next')
+    )
+    hm_client.stubs(:withdraw_records).with(has_entries(withdraw_type: 2, cursor: 'next')).returns(
+      page.call([{ 'coin' => 'USDT', 'amount' => '4', 'status' => 'success', 'txID' => 'chain-2', 'withdrawId' => 'w-2',
+                   'withdrawFee' => '1', 'updateTime' => now_ms.to_s }])
+    )
+
+    result = @exchange.get_ledger(api_key: create(:api_key, exchange: @exchange), start_time: 2.days.ago)
+
+    assert_predicate result, :success?
+    rows = result.data.map { |e| [e[:entry_type], e[:base_amount].to_s('F')] }
+    assert_equal [[:deposit, '5.0'], [:deposit, '7.0'], [:withdrawal, '3.0'], [:withdrawal, '4.0']], rows
+    internal = result.data.find { |e| e[:tx_id] == 'internal-1' }
+    assert_in_delta 1.day.ago.to_f, internal[:transacted_at].to_f, 2
   end
 
   test 'get_ledger fails when spot history is denied' do

@@ -444,6 +444,11 @@ class Exchanges::Bybit < Exchange
   # Deposit and withdrawal records want endTime - startTime under 30 days
   # (https://bybit-exchange.github.io/docs/v5/asset/deposit/deposit-record).
   TRANSFER_WINDOW = 29.days
+  # 3 is success; 70012 "remains successful after rollback review"
+  # (https://bybit-exchange.github.io/docs/v5/enum#depositstatus).
+  DEPOSIT_SUCCESS = [3, 70_012].freeze
+  # https://bybit-exchange.github.io/docs/v5/asset/deposit/internal-deposit-record: 2 = Success.
+  INTERNAL_DEPOSIT_SUCCESS = 2
 
   def get_ledger(api_key:, start_time: nil)
     hm_client = Honeymaker.client('bybit', api_key: api_key.key, api_secret: api_key.secret,
@@ -477,7 +482,7 @@ class Exchanges::Bybit < Exchange
     each_window(from, TRANSFER_WINDOW) do |window_start, window_end|
       fetch = ->(cursor) { hm_client.deposit_records(start_time: window_start, end_time: window_end, cursor: cursor) }
       failed = each_ledger_row(fetch, 'rows', optional: true) do |dep|
-        next unless dep['status'].to_i == 3 # success
+        next unless DEPOSIT_SUCCESS.include?(dep['status'].to_i)
 
         entries << { entry_type: :deposit, base_currency: dep['coin'], base_amount: dep['amount'].to_d,
                      quote_currency: nil, quote_amount: nil, fee_currency: nil, fee_amount: nil,
@@ -486,7 +491,28 @@ class Exchanges::Bybit < Exchange
       end
       return failed if failed
 
-      fetch = ->(cursor) { hm_client.withdraw_records(start_time: window_start, end_time: window_end, cursor: cursor) }
+      # Bybit-to-Bybit deposits are on an endpoint of their own, which the client has no call for.
+      fetch = lambda do |cursor|
+        hm_client.send(:get_authenticated, '/v5/asset/deposit/query-internal-record',
+                       { startTime: window_start, endTime: window_end, cursor: cursor })
+      end
+      failed = each_ledger_row(fetch, 'rows', optional: true) do |dep|
+        next unless dep['status'].to_i == INTERNAL_DEPOSIT_SUCCESS
+
+        # The doc's example gives createdTime in seconds while every other field is in ms.
+        at = dep['createdTime'].to_i
+        at *= 1000 if at < 10**12
+        entries << { entry_type: :deposit, base_currency: dep['coin'], base_amount: dep['amount'].to_d,
+                     quote_currency: nil, quote_amount: nil, fee_currency: nil, fee_amount: nil,
+                     tx_id: dep['txID'], group_id: nil, description: 'Internal transfer',
+                     transacted_at: Time.at(at / 1000.0).utc, raw_data: dep }
+      end
+      return failed if failed
+
+      # withdrawType 2 is on-chain and off-chain (Bybit-to-Bybit) together; the default is on-chain only.
+      fetch = lambda do |cursor|
+        hm_client.withdraw_records(start_time: window_start, end_time: window_end, cursor: cursor, withdraw_type: 2)
+      end
       failed = each_ledger_row(fetch, 'rows', optional: true) do |wd|
         next unless wd['status'] == 'success'
 
