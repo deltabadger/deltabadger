@@ -240,7 +240,7 @@ class Exchanges::BingxTest < ActiveSupport::TestCase
       [t, '10', '12', '9', '11', '100'] # [time_ms, open, high, low, close, volume]
     end
     client = Object.new
-    client.define_singleton_method(:get_klines) { |**_kw| Result::Success.new(window) }
+    client.define_singleton_method(:get_public) { |_path, _params| Result::Success.new(window) }
     @exchange.stubs(:client).returns(client)
 
     deep = @exchange.get_candles(ticker: ticker, start_at: 20.years.ago, timeframe: 1.day)
@@ -253,5 +253,24 @@ class Exchanges::BingxTest < ActiveSupport::TestCase
     recent = @exchange.get_candles(ticker: ticker, start_at: 30.days.ago, timeframe: 1.day)
     assert_operator recent.data.size, :<=, 31, 'a recent start trims to the requested range'
     assert(recent.data.all? { |c| c[0] >= 30.days.ago - 1.day }, 'trimmed candles stay within range')
+  end
+
+  # Without timeZone=0 BingX anchors spot candles to UTC+8: a daily candle opened at 16:00 UTC, so a
+  # day's close was the price at 16:00 UTC and its date the day before.
+  test 'get_candles asks for candles on UTC boundaries' do
+    ticker = create(:ticker, exchange: @exchange, base_symbol: 'BTC', quote_symbol: 'USDT', ticker: 'BTC-USDT')
+    asked = []
+    client = Object.new
+    client.define_singleton_method(:get_public) do |path, params|
+      asked << [path, params]
+      Result::Success.new({ 'code' => 0, 'data' => [[1_792_108_800_000, 82_239.81, 82_533.22, 81_698.79, 82_302.01, 602.9]] })
+    end
+    @exchange.stubs(:client).returns(client)
+
+    candles = @exchange.get_candles(ticker: ticker, start_at: Time.utc(2026, 10, 10), timeframe: 1.day).data
+
+    assert_equal '/openApi/spot/v1/market/kline', asked.first[0]
+    assert_equal 0, asked.first[1][:timeZone]
+    assert_equal Time.utc(2026, 10, 16), candles.first[0]
   end
 end

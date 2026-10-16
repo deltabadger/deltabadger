@@ -216,12 +216,12 @@ class Exchanges::Bingx < Exchange
     # bots frozen) or duplicated the recent window. Fetch that single most-recent page and
     # trim it to the requested range instead. ATH over this window is the best obtainable;
     # the stored `ath` keeps climbing via incremental-max on later ticks.
+    #
+    # BingX anchors spot candles to UTC+8 unless asked for timeZone=0, so a daily candle ran from
+    # 16:00 to 16:00 UTC. honeymaker's get_klines has no timeZone, hence its public request directly.
     limit = 1000
-    result = client.get_klines(
-      symbol: ticker.ticker,
-      interval: interval,
-      limit: limit
-    )
+    result = client.send(:get_public, '/openApi/spot/v1/market/kline',
+                         { symbol: ticker.ticker, interval: interval, limit: limit, timeZone: 0 })
     if result.failure?
       error = parse_error_message(result)
       return error.present? ? Result::Failure.new(error, data: result.data) : result
