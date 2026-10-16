@@ -409,11 +409,11 @@ class Exchanges::Gemini < Exchange
     entries = []
 
     # Every trade from start_time (or the account's first, on a first sync), walked forward as
-    # Gemini documents: 500 a page, the next page from the newest timestampms + 1
+    # Gemini documents: 500 a page, the next page from the newest timestampms
     # (https://developer.gemini.com/trading/rest-api/orders/list-past-trades). A failed read fails
     # the fetch: a partial Success would move the sync's watermark past trades it never got.
     fetch = ->(from_ms) { hm_client.get_my_trades(timestamp: from_ms, limit_trades: TRADES_PAGE) }
-    failed = each_ledger_row(fetch, TRADES_PAGE, ts_ms || 0) do |trade|
+    failed = each_ledger_row(fetch, TRADES_PAGE, ts_ms || 0, id: 'tid') do |trade|
       base, quote = ledger_pair(trade['symbol'])
       is_buyer = trade['type'] == 'Buy'
       entries << { entry_type: is_buyer ? :buy : :sell,
@@ -434,7 +434,7 @@ class Exchanges::Gemini < Exchange
     fetch = lambda do |from_ms|
       hm_client.send(:post_signed, '/v2/transfers', { timestamp: from_ms, limit_transfers: TRANSFERS_PAGE })
     end
-    failed = each_ledger_row(fetch, TRANSFERS_PAGE, ts_ms || 0, pause: TRANSFERS_REQUEST_INTERVAL) do |transfer|
+    failed = each_ledger_row(fetch, TRANSFERS_PAGE, ts_ms || 0, id: 'eid', pause: TRANSFERS_REQUEST_INTERVAL) do |transfer|
       type = transfer['type']
       next unless %w[Deposit Withdrawal].include?(type)
 
@@ -455,19 +455,23 @@ class Exchanges::Gemini < Exchange
   private
 
   # Yields every row of a ledger list read forward by timestamp, page after page, until a short page.
+  # Each next page starts at the newest timestamp seen, not one past it, so rows sharing the
+  # boundary millisecond are read again rather than skipped; the `id` field drops the repeats. A full
+  # page with nothing new cannot move forward, and fails rather than report the list complete.
   # Returns the failure that stopped it, or nil.
-  # ponytail: a full page whose rows all share one millisecond skips the rest of that millisecond;
-  # page by tid if a DCA account ever gets there.
-  def each_ledger_row(fetch, limit, from_ms, pause: 0, &)
+  def each_ledger_row(fetch, limit, from_ms, id:, pause: 0, &block)
+    seen = Set.new
     loop do
       result = fetch.call(from_ms)
       return result if result.failure?
       return Result::Failure.new("#{name} answered a ledger read with #{result.data.class}") unless result.data.is_a?(Array)
 
-      result.data.each(&)
+      fresh = result.data.select { |row| seen.add?(row[id]) }
+      fresh.each(&block)
       return nil if result.data.size < limit
+      return Result::Failure.new("#{name} ledger paging stuck at #{from_ms}") if fresh.empty?
 
-      from_ms = result.data.map { |row| row['timestampms'].to_i }.max + 1
+      from_ms = result.data.map { |row| row['timestampms'].to_i }.max
       sleep(pause) if pause.positive?
     end
   end

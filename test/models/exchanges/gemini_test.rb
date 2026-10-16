@@ -458,8 +458,28 @@ class Exchanges::GeminiTest < ActiveSupport::TestCase
     entries = @exchange.get_ledger(api_key: ledger_key, start_time: Time.at(1_547_232_000).utc).data
 
     assert_equal 501, entries.size
-    assert_equal [{ timestamp: 1_547_232_000_000, limit_trades: 500 }, { timestamp: 1_547_232_911_521 + 1, limit_trades: 500 }],
+    assert_equal [{ timestamp: 1_547_232_000_000, limit_trades: 500 }, { timestamp: 1_547_232_911_521, limit_trades: 500 }],
                  calls[:trades]
+  end
+
+  # Two fills in one millisecond can straddle a page boundary; asking from one past the newest
+  # timestamp skipped the second, and the sync's watermark moved past it.
+  test 'get_ledger keeps fills that share the boundary millisecond of a full page' do
+    page = (1..499).map { |tid| gemini_trade(tid) } + [gemini_trade(500, timestampms: 1_547_232_999_000)]
+    calls = stub_ledger(trades: [page, [gemini_trade(500, timestampms: 1_547_232_999_000),
+                                        gemini_trade(501, timestampms: 1_547_232_999_000)]])
+
+    entries = @exchange.get_ledger(api_key: ledger_key).data
+
+    assert_equal((1..501).map(&:to_s), entries.map { |entry| entry[:tx_id] })
+    assert_equal 1_547_232_999_000, calls[:trades].last[:timestamp]
+  end
+
+  test 'get_ledger fails when a full page brings nothing new' do
+    page = (1..500).map { |tid| gemini_trade(tid, timestampms: 1_547_232_999_000) }
+    stub_ledger(trades: [page, page])
+
+    assert_predicate @exchange.get_ledger(api_key: ledger_key), :failure?
   end
 
   test 'get_ledger reads trades from the first one on a first sync' do
@@ -499,7 +519,7 @@ class Exchanges::GeminiTest < ActiveSupport::TestCase
                    tx_id: '368598436530' },
                  entries.last.slice(:entry_type, :base_currency, :fee_currency, :fee_amount, :tx_id))
     assert_equal [{ timestamp: 0, limit_transfers: 50, path: '/v2/transfers' },
-                  { timestamp: 1_771_990_797_502 + 1, limit_transfers: 50, path: '/v2/transfers' }], calls[:transfers]
+                  { timestamp: 1_771_990_797_502, limit_transfers: 50, path: '/v2/transfers' }], calls[:transfers]
     assert_equal [5], sleeps
   end
 
