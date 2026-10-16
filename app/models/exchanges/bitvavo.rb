@@ -453,23 +453,31 @@ class Exchanges::Bitvavo < Exchange
 
   # Every transfer since start_ms (all of them without one). Newest first, at most 1000 a call, and
   # no record id or cursor: each page ends at the oldest timestamp of the one before, plus a
-  # millisecond so rows sharing it are read again rather than skipped, and repeats are dropped by
-  # content. A full page that brings nothing new fails instead of looping.
+  # millisecond so rows sharing it are read again rather than skipped. Identical rows are counted, not
+  # collapsed: two equal fiat deposits in one page are two deposits, and a row re-read at the boundary
+  # appears in both pages, so each row is kept as often as the page that holds it most. A full page that
+  # brings nothing new fails instead of looping.
   def read_transfers(hm_client, path, start_ms)
-    rows = Set.new
+    rows = Hash.new(0)
     end_ms = (Time.now.to_f * 1000).to_i + 1
     loop do
       result = hm_client.send(:get_signed, path, { start: start_ms || 0, end: end_ms, limit: TRANSFERS_PAGE_LIMIT })
       return result if result.failure?
 
       page = Array(result.data)
-      fresh = page.count { |row| rows.add?(row) }
+      fresh = 0
+      page.tally.each do |row, count|
+        next if rows[row] >= count
+
+        rows[row] = count
+        fresh += 1
+      end
       break if page.size < TRANSFERS_PAGE_LIMIT
       return Result::Failure.new("#{name} #{path} returned a full page with nothing new") if fresh.zero?
 
       end_ms = page.map { |row| row['timestamp'].to_i }.min + 1
     end
-    Result::Success.new(rows.to_a)
+    Result::Success.new(rows.flat_map { |row, count| [row] * count })
   end
 
   # "BTC-EUR-abc123" → ["BTC-EUR", "abc123"] (market can contain a dash; orderId can too).

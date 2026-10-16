@@ -371,6 +371,26 @@ class Exchanges::BitvavoTest < ActiveSupport::TestCase
     assert_nil withdrawals.first[:tx_id]
   end
 
+  # Two identical fiat deposits in one page are two deposits: the rows carry no id to tell them
+  # apart, and only a repeat across the re-read boundary is the same row twice.
+  test 'get_ledger keeps identical deposits within a page and drops only the boundary re-read' do
+    api_key = create(:api_key, exchange: @exchange, key_type: :trading, key: 'k', secret: 's')
+    client_class = Honeymaker::Clients::Bitvavo
+    stub_empty_trades(client_class)
+    boundary = 1_700_000_000_000
+    twin = bitvavo_deposit(boundary, '500', 'symbol' => 'EUR', 'status' => 'completed', 'txId' => nil)
+    full = Array.new(998) { |i| bitvavo_deposit(boundary + 1000 - i, "0.#{i + 1}") } + [twin, twin]
+    rest = [twin, twin, bitvavo_deposit(boundary - 5, '1')]
+    client_class.any_instance.stubs(:get_signed).with('/v2/depositHistory', anything)
+                .returns(Result::Success.new(full), Result::Success.new(rest))
+    client_class.any_instance.stubs(:get_signed).with('/v2/withdrawalHistory', anything).returns(Result::Success.new([]))
+
+    deposits = @exchange.get_ledger(api_key: api_key).data.select { |e| e[:entry_type] == :deposit }
+
+    assert_equal 1001, deposits.size
+    assert_equal 2, deposits.count { |e| e[:base_currency] == 'EUR' }
+  end
+
   test 'get_ledger fails when a transfer read fails' do
     api_key = create(:api_key, exchange: @exchange, key_type: :trading, key: 'k', secret: 's')
     client_class = Honeymaker::Clients::Bitvavo
