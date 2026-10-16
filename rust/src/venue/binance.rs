@@ -495,6 +495,9 @@ impl<T: Transport> super::Venue for BinanceVenue<T> {
     /// code #asset_from_symbol resolves to the ticker's base asset). The last such row wins, absent is 0.
     async fn free_base_balance(&self, ticker: &Ticker) -> Result<BigDec, super::VenueError> { self.free_of(&ticker.base_code).await }
 
+    async fn settled_quote_balance<F>(&self, ticker: &Ticker, _catalog: F) -> Result<BigDec, super::VenueError>
+    where F: FnOnce() -> Result<crate::sync::balances::Catalog, super::VenueError> { self.free_of(&ticker.quote_code).await }
+
     /// #cancel_order through Clients::Binance#cancel_order: DELETE /api/v3/order by the stored "SYMBOL-<orderId>", with the
     /// gem's default recvWindow; a failure is #parse_error_message's text.
     async fn cancel(&self, txid: &str) -> Result<(), super::VenueError> {

@@ -414,6 +414,11 @@ impl<T: Transport> Venue for AlpacaVenue<T> {
     where F: FnOnce() -> Result<crate::sync::balances::Catalog, VenueError> {
         self.free_of_diagnostic_source(t.base_asset_id, catalog()?).await.map_err(|error| self.redact_error(error))
     }
+    /// Settled cash (`account.cash`), as Bot::Rebalancer reads the quote; `balance` keeps buying power for buys.
+    async fn settled_quote_balance<F>(&self, t: &Ticker, catalog: F) -> Result<BigDec, VenueError>
+    where F: FnOnce() -> Result<crate::sync::balances::Catalog, VenueError> {
+        self.free_of_diagnostic_source(t.quote_asset_id, catalog()?).await.map_err(|error| self.redact_error(error))
+    }
 
     fn rules(&self)-> &'static VenueRules{&ALPACA}
     fn placement_identity(&self)->Option<Value>{self.identity.clone()}

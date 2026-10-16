@@ -112,6 +112,7 @@ impl<V:Venue> Venue for &V {
     async fn balance(&self,symbol:&str,crypto:bool)->Result<BigDec,VenueError>{(*self).balance(symbol,crypto).await}
     async fn free_base_balance(&self,t:&Ticker)->Result<BigDec,VenueError>{(*self).free_base_balance(t).await}
     async fn free_base_identified<F>(&self,t:&Ticker,catalog:F)->Result<BigDec,VenueError> where F:FnOnce()->Result<Catalog,VenueError>{(*self).free_base_identified(t,catalog).await}
+    async fn settled_quote_balance<F>(&self,t:&Ticker,catalog:F)->Result<BigDec,VenueError> where F:FnOnce()->Result<Catalog,VenueError>{(*self).settled_quote_balance(t,catalog).await}
     async fn cancel(&self,txid:&str)->Result<(),VenueError>{(*self).cancel(txid).await}
 }
 impl<V:Venue> Venue for Handle<V> {
@@ -130,6 +131,7 @@ impl<V:Venue> Venue for Handle<V> {
     async fn balance(&self,symbol:&str,crypto:bool)->Result<BigDec,VenueError>{self.venue.balance(symbol,crypto).await}
     async fn free_base_balance(&self,t:&Ticker)->Result<BigDec,VenueError>{self.venue.free_base_balance(t).await}
     async fn free_base_identified<F>(&self,t:&Ticker,catalog:F)->Result<BigDec,VenueError> where F:FnOnce()->Result<Catalog,VenueError>{self.venue.free_base_identified(t,catalog).await}
+    async fn settled_quote_balance<F>(&self,t:&Ticker,catalog:F)->Result<BigDec,VenueError> where F:FnOnce()->Result<Catalog,VenueError>{self.venue.settled_quote_balance(t,catalog).await}
     async fn cancel(&self,txid:&str)->Result<(),VenueError>{self.venue.cancel(txid).await}
 }
 /// Apply one immutable handle producer to success and failure values, never from a post-call lookup.
@@ -139,6 +141,7 @@ pub trait Attributed:Venue + sealed::Sealed {
     async fn price_result(&self,t:&Ticker,s:PriceSide)->crate::engine::model::Produced<Result<BigDec,VenueError>>{let origin=self.producer();let value=self.price(t,s).await;crate::engine::model::Produced::new(value,origin)}
     async fn positions_result(&self)->crate::engine::model::Produced<Result<std::collections::HashMap<String,BigDec>,VenueError>>{let origin=self.producer();let value=self.positions().await;crate::engine::model::Produced::new(value,origin)}
     async fn free_base_result<F>(&self,t:&Ticker,catalog:F)->crate::engine::model::Produced<Result<BigDec,VenueError>> where F:FnOnce()->Result<Catalog,VenueError>{let origin=self.producer();let value=self.free_base_identified(t,catalog).await;crate::engine::model::Produced::new(value,origin)}
+    async fn settled_quote_result<F>(&self,t:&Ticker,catalog:F)->crate::engine::model::Produced<Result<BigDec,VenueError>> where F:FnOnce()->Result<Catalog,VenueError>{let origin=self.producer();let value=self.settled_quote_balance(t,catalog).await;crate::engine::model::Produced::new(value,origin)}
     async fn balance_result(&self,s:&str,crypto:bool)->crate::engine::model::Produced<Result<BigDec,VenueError>>{let origin=self.producer();let value=self.balance(s,crypto).await;crate::engine::model::Produced::new(value,origin)}
     async fn orders_result<F>(&self,ids:&[String],identify:F)->crate::engine::model::Produced<Result<(Vec<OrderState>,Vec<String>),VenueError>> where F:FnMut(&str,Option<&str>,Option<&str>)->Result<bool,VenueError>{let origin=self.producer();let value=self.orders_identified(ids,identify).await;crate::engine::model::Produced::new(value,origin)}
     async fn order_result<F>(&self,id:&str,identify:F)->crate::engine::model::Produced<Result<(Vec<OrderState>,Vec<String>),VenueError>> where F:FnMut(&str,Option<&str>,Option<&str>)->Result<bool,VenueError>{let origin=self.producer();let value=self.order_identified(id,identify).await;crate::engine::model::Produced::new(value,origin)}
@@ -196,6 +199,11 @@ pub trait Venue {
     /// and a security, is never mistaken for the base.
     async fn free_base_identified<F>(&self, ticker: &Ticker, _catalog: F) -> Result<BigDec, VenueError>
     where F: FnOnce() -> Result<Catalog, VenueError> { self.free_base_balance(ticker).await }
+    /// The ticker's QUOTE as #get_balances reports it free, the cash Bot::Rebalancer counts (`free: account['cash']` on
+    /// Alpaca: settled cash, never the borrowed buying power `balance` funds buys with; Kraken balance − hold_trade; Binance
+    /// free). Absent is 0; unreadable is `Err`, never 0.
+    async fn settled_quote_balance<F>(&self, _ticker: &Ticker, _catalog: F) -> Result<BigDec, VenueError>
+    where F: FnOnce() -> Result<Catalog, VenueError> { Err(VenueError::Rejected(vec!["the settled quote balance is not connected for this venue".into()])) }
     /// Exchange#cancel_order: best effort, as Bot::Reversible#cancel_unfilled_orders uses it. `Ok` only when the venue
     /// accepted the cancel; anything else is the venue's (or the transport's) failure.
     async fn cancel(&self, _txid: &str) -> Result<(), VenueError> { Err(VenueError::Rejected(vec!["cancel is not connected for this venue".into()])) }

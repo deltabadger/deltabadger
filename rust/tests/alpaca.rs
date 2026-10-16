@@ -386,6 +386,7 @@ async fn a_symbol_another_class_or_cash_shares_is_never_the_base() {
     assert_eq!(v.free_base_identified(&usd_etf(), catalog).await, Ok(bd("2")));
     let none = account(json!([]));
     assert_eq!(none.free_base_identified(&usd_etf(), catalog).await, Ok(BigDec::zero()), "cash is not a USD security");
+    assert_eq!(v.settled_quote_balance(&usd_etf(), catalog).await, Ok(bd("100.5")), "nor is a USD security cash");
 }
 
 #[tokio::test(flavor = "current_thread")]
@@ -407,4 +408,13 @@ async fn an_unreadable_or_ambiguous_holding_is_an_error_never_zero() {
     // Another position's missing quantity is not this asset's answer, as Rails reads only the asset asked for.
     let v = account(json!([{ "asset_class": "us_equity", "symbol": "BTC", "qty": "7" }, { "asset_class": "us_equity", "symbol": "AAPL", "qty": "2", "qty_available": "2" }]));
     assert_eq!(v.free_base_identified(&apple(), catalog).await, Ok(bd("2")));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn the_settled_quote_is_cash_below_buying_power_and_buys_keep_buying_power() {
+    let v = account(json!([]));
+    assert_eq!(v.settled_quote_balance(&apple(), catalog).await, Ok(bd("100.5")), "account.cash, as Bot::Rebalancer reads the quote");
+    assert_eq!(v.balance("USD", false).await, Ok(bd("401")), "the buy funding read keeps buying power");
+    let ambiguous = || Ok(deltabadger::sync::balances::Catalog::new(vec![2, 7], &[], vec![2, 7]));
+    assert_eq!(v.settled_quote_balance(&apple(), ambiguous).await, Err(VenueError::Rejected(vec!["Unmapped or ambiguous Alpaca cash asset".into()])));
 }

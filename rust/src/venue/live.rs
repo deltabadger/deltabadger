@@ -36,6 +36,8 @@ impl Venue for LiveVenue {
     async fn free_base_balance(&self, t: &Ticker) -> Result<BigDec, VenueError> { each!(self, v => v.free_base_balance(t).await) }
     async fn free_base_identified<F>(&self, t: &Ticker, catalog: F) -> Result<BigDec, VenueError>
     where F: FnOnce() -> Result<crate::sync::balances::Catalog, VenueError> { each!(self, v => v.free_base_identified(t, catalog).await) }
+    async fn settled_quote_balance<F>(&self, t: &Ticker, catalog: F) -> Result<BigDec, VenueError>
+    where F: FnOnce() -> Result<crate::sync::balances::Catalog, VenueError> { each!(self, v => v.settled_quote_balance(t, catalog).await) }
     async fn cancel(&self, txid: &str) -> Result<(), VenueError> { each!(self, v => v.cancel(txid).await) }
 }
 
