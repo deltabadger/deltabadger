@@ -102,6 +102,17 @@ class Exchanges::BingxTest < ActiveSupport::TestCase
     assert_equal %w[BTC-USDT-2], result.data[:orders].keys
   end
 
+  # 100404 is also the gateway's "path not found"; read as a gone order it would let the stale-order
+  # sweep abandon a live one.
+  test 'get_orders fails the batch on a gateway 100404' do
+    Honeymaker::Clients::BingX.any_instance.stubs(:get_order)
+                              .returns(Result::Failure.new('BingX API error 100404: api path not found'))
+
+    result = with_dry_run(false) { @exchange.get_orders(order_ids: %w[BTC-USDT-1]) }
+
+    assert_predicate result, :failure?
+  end
+
   test 'get_orders still fails the batch on any other failure' do
     Honeymaker::Clients::BingX.any_instance.stubs(:get_order)
                               .returns(Result::Failure.new('BingX API error 100400: miss arguments'))

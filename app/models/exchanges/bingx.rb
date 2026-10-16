@@ -590,13 +590,14 @@ class Exchanges::Bingx < Exchange
     value.to_s.match?(/\A\d+\z/) ? Time.at(value.to_i / 1000.0).utc : Time.parse(value.to_s).utc
   end
 
-  # The order lookup's answer for an order BingX does not have: 100404 "Order does not exist", or
-  # 100400 with an order-not-exist message (https://bingx-api.github.io/docs/#/en-us/common/error-code).
-  # 100400 alone also means a bad parameter, so it counts only with that message.
+  # The order lookup's answer for an order BingX does not have: 100404 "Order does not exist" ("order
+  # not exist" live), or 100400 with that message (https://bingx-api.github.io/docs/#/en-us/common/error-code).
+  # Neither code counts alone: 100404 is also the gateway's answer for a path it does not know, and
+  # 100400 a bad parameter — calling a live order gone would let the stale-order sweep abandon it.
   def order_gone?(result)
     message = result.errors.join(' ')
     code = response_field(result, 'code')&.to_i || message[/BingX API error (\d+)/, 1]&.to_i
-    code == KEY_CHECK_ORDER_NOT_FOUND || (code == 100_400 && message.match?(/order (does )?not exist/i))
+    [KEY_CHECK_ORDER_NOT_FOUND, 100_400].include?(code) && message.match?(/order (does )?not exist/i)
   end
 
   def check_bingx_api_key_error(result)
