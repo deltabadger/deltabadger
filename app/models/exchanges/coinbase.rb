@@ -307,6 +307,8 @@ class Exchanges::Coinbase < Exchange
                                proxy: ExchangeProxy.for('coinbase'))
 
     result = api_key_permissions_with_retry(client)
+    # An empty or non-JSON 200 parses to nil or a String: no verdict either way.
+    return Result::Failure.new("#{name} sent an unreadable answer to the key check") if result.success? && !result.data.is_a?(Hash)
 
     if result.success?
       valid = if api_key.withdrawal?

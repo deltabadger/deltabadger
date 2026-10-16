@@ -5,33 +5,33 @@
   "ciphertexts": {
     "short": {
       "plain": "kR4k3n-s3cr3t/+==",
-      "cipher": "{\"p\":\"gyy5OpYXNJDvg9dSVdOBu/M=\",\"h\":{\"iv\":\"HmwgV9kyZUhBHnbb\",\"at\":\"sfr68SwZUwZGB8BZDXQtuw==\"}}"
+      "cipher": "{\"p\":\"TNbZN+rBnK0Mn7BKYL7vmlQ=\",\"h\":{\"iv\":\"a4O4dhMyfLdzzivU\",\"at\":\"Yh2I4CO89Rvl0LPuUzwxhw==\"}}"
     },
     "unicode": {
       "plain": "zażółć 🦡",
-      "cipher": "{\"p\":\"fWbZJ89ecy7bTFAykAGv\",\"h\":{\"iv\":\"yTHzO4Lu6oH5xD4/\",\"at\":\"8Gy8IJiACFIQlgTCmVY//Q==\"}}"
+      "cipher": "{\"p\":\"cKjlv0FH7MfkAhpGfnT2\",\"h\":{\"iv\":\"tKtSFLMoCHkmlpNI\",\"at\":\"zqL63/S+LfAMiioNEYiWvA==\"}}"
     },
     "compressed": {
       "plain": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASC\n-----END PRIVATE KEY-----",
-      "cipher": "{\"p\":\"Gh8c6jFyqm/dJNkY5SWQ1JP8KL5FY/AuMOEEPuwTiYsgVBlXkdi/Mj6U0HL9NNawQ5OtKGPNrfNbuNmmPCCagEWI02f35ozqBn7xcjw=\",\"h\":{\"iv\":\"VPzShMHYsQJIGsov\",\"at\":\"KbmPNxiuI7xM0A8tS+OP6A==\",\"c\":true}}"
+      "cipher": "{\"p\":\"Nzcw4FMBXRdukNMXWHpUppiPTER7BHyTWs8RkOG1KAdHIdt62x8a/gM4yXOiPWem0kIriyGfXK/xysTaHJfkXpW4IlI1Hb00gWkAKx0=\",\"h\":{\"iv\":\"3+7aVIaC91AlqnZD\",\"at\":\"/aZa1bUfPhtV+3AJvycqxA==\",\"c\":true}}"
     },
     "otp_seed": {
-      "plain": "E4Z3CECYELGQ2SQIIRNZMO4VCATYLMTV",
-      "cipher": "{\"p\":\"yBMKciymXIqAuigwamjloothUsJD7igRYx5F2E1dLxE=\",\"h\":{\"iv\":\"egSwUNrK8vpKahFD\",\"at\":\"RdbzRcpWHhWUSvBglJQeSA==\",\"e\":\"QVNDSUktOEJJVA==\"}}"
+      "plain": "DROLAHV6KYDKAD2PWNTSWWNAB27GCKOT",
+      "cipher": "{\"p\":\"ENfrwXkXhnLpQS2CcQqdRgf0mol4JoIntsBpTAMKXv4=\",\"h\":{\"iv\":\"RQsNzJ0Wc38smBDp\",\"at\":\"J2OgfmEDuDLM+EE5eseA1w==\",\"e\":\"QVNDSUktOEJJVA==\"}}"
     },
     "app_config": {
       "plain": "{\"engine\":\"rust\"}",
-      "cipher": "{\"p\":\"k/nlykspoy0kL1dCfV9WkDs=\",\"h\":{\"iv\":\"e50JjHYSwEyWz65D\",\"at\":\"/5FKtDqtcMCezKaYcKWO/w==\"}}"
+      "cipher": "{\"p\":\"GdFAPgwc7+vUi/LaVZOpiT8=\",\"h\":{\"iv\":\"LA1oYNvOGXe0hqBB\",\"at\":\"iSJrJ13+1gtt+E8PpdBA4Q==\"}}"
     }
   },
   "bcrypt": [
     {
       "password": "correct horse ☃",
-      "hash": "$2a$11$D6q8JzQSu9/ZWDpF55vlM.U6J32rpKMaGGgNSk/ZPS.wID5GfxILG"
+      "hash": "$2a$11$pqUsRjKWA4jyHdjpg2xFbu3CIMQR4Y9ZJHGO40EHzNWMQ6Otvw88u"
     },
     {
       "password": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-      "hash": "$2a$11$jp6ScwNkFlJiuug.pvjgWOL3kWRO2CqvDfwpFyjvLq90VdfhTAwQe"
+      "hash": "$2a$11$tzh0xOPDo/GjZzSTNvmFJOnCVMUQAv9E.qseJcVo/BldGlyi5DgGW"
     }
   ],
   "totp": {
@@ -41175,10 +41175,10 @@
   ],
   "ported_sources": {
     "app/models/clients/alpaca.rb": "950046601ce2c1791f56938e021bd6e2866b44717f3f578a86aa2f36b6376250",
-    "app/models/exchanges/alpaca.rb": "657631b2764487fe31682892b1d6ac7e76d57c19200bc4850e55d0343c068e0f",
+    "app/models/exchanges/alpaca.rb": "75dec9187bd8b25f5a54d1dec62943f6de8ced4a8bc72242a0ad150fdd3f1381",
     "app/models/client.rb": "f5a9f759c2007fae9a264dca94d315b1092c8cb391381905bc686e374c22683b",
     "app/models/exchange.rb": "ab627a2812bc0c7b4a546459e64f8f5d93617c496308d5f03163f44cef12d8d7",
-    "app/models/exchanges/kraken.rb": "7152decba11c5e2bef8a643e5794d3cfb758f2558bfe4159637df55e5de0a6eb",
+    "app/models/exchanges/kraken.rb": "194ccc0a5bdeef5530411f85868b3a266f1b51eda1e258c53719a394858b0d5f",
     "app/models/bot/accountable.rb": "2d12969ad2d7e35bfb4e31b9b67dfb9ef3be94a03f3252ac5a5ac6ddccd37a3c",
     "app/jobs/bot/fetch_and_update_open_orders_job.rb": "0594f4ce138af9283aac4980a27a01b5d791f8fa995379f3b34f948ea90b7609",
     "app/jobs/bot/fetch_and_update_order_job.rb": "cc72c63565850aafa645b526b41ee97e6534de49b7085ddf607f481dc0c65a01"
@@ -63904,7 +63904,7 @@
     "redirect": "<turbo-stream action=\"redirect\" target=\"/de/bots?a=1&amp;b=2\"><template></template></turbo-stream>",
     "add_class": "<turbo-stream class-name=\"bot-locked\" action=\"add_class\" target=\"columns_bot_1\"><template></template></turbo-stream>",
     "remove_class": "<turbo-stream class-name=\"bot-locked\" action=\"remove_class\" target=\"columns_bot_1\"><template></template></turbo-stream>",
-    "stream_from": "<turbo-cable-stream-source channel=\"Turbo::StreamsChannel\" signed-stream-name=\"InVzZXJfNzpib3RfdXBkYXRlcyI=--27af6cc0abc7d484cb7407570090d9f66eb964173b62024b0419673f247b1916\"></turbo-cable-stream-source>",
+    "stream_from": "<turbo-cable-stream-source channel=\"Turbo::StreamsChannel\" signed-stream-name=\"InVzZXJfNzpib3RfdXBkYXRlcyI=--62a07deca96cccad7e939247dfeb50425c9c02263844a303f86bfd2226f39ab7\"></turbo-cable-stream-source>",
     "stream_name": "user_7:bot_updates",
     "content_type": "text/vnd.turbo-stream.html"
   },
@@ -92055,12 +92055,12 @@
           "admin": 0,
           "advanced_bots_enabled": 0,
           "confirmation_sent_at": "2026-09-10 12:00:30.123456",
-          "confirmation_token": "DX3NrcG5_4v9HdqQxSCM",
+          "confirmation_token": "o6H9mPkUw4tZT9Va5Hix",
           "confirmed_at": null,
           "created_at": "2026-09-10 12:00:30.123456",
           "display_currency": "USD",
           "email": "owner@example.com",
-          "encrypted_password": "$2a$11$bnCG36.by3AInTK4u9gOZ.UKooPCj1F8zimg2wKnMKi9.zzB72/M.",
+          "encrypted_password": "$2a$11$uJqgCrSCquXByPQyto9XoOGF3cEl16uzWmP5dy8UhHxcbB6mvHByi",
           "failed_attempts": 0,
           "hide_balances": 0,
           "last_otp_at": null,
@@ -92069,7 +92069,7 @@
           "mcp_settings": "{}",
           "name": "Fixture Owner",
           "otp_module": 0,
-          "otp_secret_key": "{\"p\":\"TSZRhu0+ksnIjCOLdvB521SBB07+o2GqSptn2875VA0=\",\"h\":{\"iv\":\"nphEApU31+x8W9/t\",\"at\":\"K03tkrT9TU7B8yJzFWMJbQ==\",\"e\":\"QVNDSUktOEJJVA==\"}}",
+          "otp_secret_key": "{\"p\":\"kSXmNw6HfYbvte821EbygmYndWRPKPUGAcn7Cr79DLM=\",\"h\":{\"iv\":\"FsHIdWw9ONbHdNqh\",\"at\":\"fmi+SIRyzuBRmw55YXz/tQ==\",\"e\":\"QVNDSUktOEJJVA==\"}}",
           "remember_created_at": null,
           "reset_password_sent_at": null,
           "reset_password_token": null,
@@ -92118,14 +92118,14 @@
           "exchange_id": 1,
           "german_trading_agreement": null,
           "ibkr_realm": null,
-          "key": "{\"p\":\"GaZs8mZz\",\"h\":{\"iv\":\"MGRtRVceg4inwnEb\",\"at\":\"oAzZVPaPgQHInvs+cpbMNA==\"}}",
+          "key": "{\"p\":\"WmfQkllr\",\"h\":{\"iv\":\"oAJPcKtaTCLXCF6T\",\"at\":\"OufTgsvzixRSy59XVnpI7w==\"}}",
           "key_type": 0,
           "last_sync_error": null,
           "last_synced_at": null,
-          "passphrase": "{\"p\":\"Efo+yss=\",\"h\":{\"iv\":\"afV5Or+YIPxouxTt\",\"at\":\"HXboRyX2Wj4NzxrXKqSKAg==\"}}",
+          "passphrase": "{\"p\":\"A6m8ReA=\",\"h\":{\"iv\":\"fsNBmZLQVn+x8Atc\",\"at\":\"iRwu0UbLqSS8y9EkLWsa/Q==\"}}",
           "rsa_encryption_key": null,
           "rsa_signature_key": null,
-          "secret": "{\"p\":\"pj9EPVEF\",\"h\":{\"iv\":\"YVJ/Pw4QdophyQFv\",\"at\":\"09JMpP3JBt9KT1h0Q4r8ow==\"}}",
+          "secret": "{\"p\":\"o9vRZ5GO\",\"h\":{\"iv\":\"VmTP91/melo9J6MY\",\"at\":\"ghvkM+ta7wErCtTTPbnCOQ==\"}}",
           "status": 1,
           "updated_at": "2026-09-10 12:00:30.123456",
           "user_id": 1

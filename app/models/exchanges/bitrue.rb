@@ -340,6 +340,8 @@ class Exchanges::Bitrue < Exchange
                                api_key: api_key.key,
                                api_secret: api_key.secret,
                                proxy: ExchangeProxy.for('bitrue')).account_information
+    # An empty or non-JSON 200 parses to nil or a String: no verdict either way.
+    return Result::Failure.new("#{name} sent an unreadable answer to the key check") if result.success? && !result.data.is_a?(Hash)
 
     if result.success?
       valid = api_key.withdrawal? || result.data['canTrade'] == true

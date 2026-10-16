@@ -130,4 +130,35 @@ class Exchanges::BinanceUsTest < ActiveSupport::TestCase
     assert result.success?
     assert_equal '4e7f4f31560041ee880b5386f06d4053', result.data[:withdrawal_id]
   end
+
+  # An empty or non-JSON 200 parses to nil or a String; it says nothing about the key.
+  test 'an unreadable account read leaves the key unverified' do
+    %i[trading withdrawal read_only].each do |type|
+      connection = create(:api_key, exchange: @exchange, key_type: type, key: 'test_key', secret: 'test_secret')
+      [nil, 'OK'].each do |body|
+        Honeymaker::Clients::BinanceUs.any_instance.stubs(:account_information).returns(Result::Success.new(body))
+        assert_predicate @exchange.get_api_key_validity(api_key: connection), :failure?, "#{type} on #{body.inspect}"
+        next unless type == :read_only
+
+        assert_predicate @exchange.get_read_api_key_validity(api_key: connection), :failure?, "read on #{body.inspect}"
+      end
+    end
+  end
+
+  # A 200 can still carry Binance's error envelope or nothing readable; neither proves the key.
+  test 'a trade probe or account read answered with a 200 that is not a clean answer gives no pass' do
+    connection = create(:api_key, exchange: @exchange, key_type: :trading)
+    client = Honeymaker::Clients::BinanceUs.any_instance
+    client.stubs(:account_information).returns(Result::Success.new({ 'balances' => [] }))
+    ['OK', nil, '<html></html>'].each do |body|
+      client.stubs(:cancel_order).returns(Result::Success.new(body))
+      assert_predicate @exchange.get_api_key_validity(api_key: connection), :failure?, "probe #{body.inspect}"
+    end
+    client.stubs(:cancel_order).returns(Result::Success.new({ 'code' => -1022, 'msg' => 'Signature invalid' }))
+    assert_predicate @exchange.get_api_key_validity(api_key: connection), :failure?, 'probe 200 with a non-key code'
+    client.stubs(:account_information).returns(Result::Success.new({ 'code' => -2015, 'msg' => 'Invalid API-key' }))
+    assert_equal false, @exchange.get_api_key_validity(api_key: connection).data
+    client.stubs(:account_information).returns(Result::Success.new({ 'code' => -1021, 'msg' => 'Timestamp' }))
+    assert_predicate @exchange.get_api_key_validity(api_key: connection), :failure?
+  end
 end

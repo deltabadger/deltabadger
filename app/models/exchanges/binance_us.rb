@@ -38,17 +38,27 @@ class Exchanges::BinanceUs < Exchanges::Binance
     return can_read unless can_read.success? && can_read.data
 
     probe = hm_client.cancel_order(**TRADE_PROBE)
-    code = parse_error_code(probe)
-    can_trade = if probe.success? || code == -2011 then true
+    return unreadable_key_check if probe.success? && !probe.data.is_a?(Hash)
+
+    code = parse_error_code(probe) || (probe.data['code'].to_i if probe.success? && probe.data['code'])
+    can_trade = if code == -2011 || (probe.success? && code.nil?) then true
                 elsif code.in?(ERROR_CODES[:invalid_key]) then false
                 end
-    return probe if can_trade.nil?
+    if can_trade.nil?
+      return probe.failure? ? probe : Result::Failure.new("#{name} answered the key check with code #{code}")
+    end
 
     Result::Success.new(api_key.withdrawal? ? !can_trade : can_trade)
   end
 
   def reading_key_validity(api_key, hm_client = us_client(api_key))
     result = hm_client.account_information(omit_zero_balances: true, recv_window: READ_RECV_WINDOW)
+    # An empty or non-JSON 200 parses to nil or a String: no verdict either way.
+    return unreadable_key_check if result.success? && !result.data.is_a?(Hash)
+    # Binance-style error envelopes can arrive with HTTP 200; a code there is the venue's answer, not a read.
+    return Result::Success.new(false) if result.success? && result.data['code'].to_i.in?(ERROR_CODES[:invalid_key])
+    return Result::Failure.new("#{name} answered the key check with code #{result.data['code']}") if result.success? && result.data['code']
+
     if result.success?
       Result::Success.new(true)
     elsif parse_error_code(result).in?(ERROR_CODES[:invalid_key])
@@ -57,6 +67,8 @@ class Exchanges::BinanceUs < Exchanges::Binance
       result
     end
   end
+
+  def unreadable_key_check = Result::Failure.new("#{name} sent an unreadable answer to the key check")
 
   def us_client(api_key)
     Honeymaker.client(name_id, api_key: api_key.key, api_secret: api_key.secret, proxy: ExchangeProxy.for(name_id))

@@ -446,4 +446,16 @@ class Exchanges::BitrueTest < ActiveSupport::TestCase
     end
     assert_predicate ledger_with(fake), :failure?
   end
+
+  # An empty or non-JSON 200 parses to nil or a String; it says nothing about the key.
+  test 'an unreadable key-check answer leaves the key unverified' do
+    Rails.configuration.stubs(:dry_run).returns(false)
+    %i[trading withdrawal].each do |type|
+      connection = create(:api_key, exchange: @exchange, key_type: type, key: 'test_key', secret: 'test_secret')
+      [nil, 'OK'].each do |body|
+        Honeymaker::Clients::Bitrue.any_instance.stubs(:account_information).returns(Result::Success.new(body))
+        assert_predicate @exchange.get_api_key_validity(api_key: connection), :failure?, "#{type} on #{body.inspect}"
+      end
+    end
+  end
 end
