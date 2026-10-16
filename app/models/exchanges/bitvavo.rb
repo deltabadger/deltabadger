@@ -187,30 +187,25 @@ class Exchanges::Bitvavo < Exchange
     }
     interval = intervals[timeframe]
 
+    # Bitvavo answers newest first with the LATEST 1440 candles of the range, so a longer range is
+    # read backwards: each page ends (exclusive) where the previous one began.
     limit = 1440
-    candles = []
+    rows = {}
+    end_ms = nil
     loop do
-      result = client.get_candles(
-        market: ticker.ticker,
-        interval: interval,
-        start_time: start_at.to_i * 1000,
-        limit: limit
-      )
+      result = client.get_candles(market: ticker.ticker, interval: interval, start_time: start_at.to_i * 1000,
+                                  end_time: end_ms, limit: limit)
       return result if result.failure?
 
-      result.data.each do |candle|
-        candles << [
-          Time.at(candle[0].to_i / 1000).utc,
-          candle[1].to_d,
-          candle[2].to_d,
-          candle[3].to_d,
-          candle[4].to_d,
-          candle[5].to_d
-        ]
-      end
-      break if result.data.empty? || result.data.size < limit
+      page = Array(result.data)
+      page.each { |candle| rows[candle[0].to_i] = candle }
+      oldest = page.map { |candle| candle[0].to_i }.min
+      break if page.size < limit || (end_ms && oldest >= end_ms)
 
-      start_at = candles.last[0] + 1.second
+      end_ms = oldest
+    end
+    candles = rows.sort.map do |timestamp, candle|
+      [Time.at(timestamp / 1000).utc, candle[1].to_d, candle[2].to_d, candle[3].to_d, candle[4].to_d, candle[5].to_d]
     end
 
     candles = build_candles_from_candles(candles: candles, timeframe: timeframe) if timeframe.in?([3.days,
