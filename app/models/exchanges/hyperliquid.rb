@@ -378,16 +378,25 @@ class Exchanges::Hyperliquid < Exchange
     # userFills returns the spot pair index (e.g. "@333"), not the token name — unlike
     # spot_balances, which returns "MU". Map it to the human base symbol via our ticker
     # table; fall back to the raw coin for an unknown/delisted pair.
-    base_by_ticker = tickers.pluck(:ticker, :base).to_h
-    entries = result.data.map do |fill|
+    #
+    # The same read returns the address's perp fills ("BTC", HIP-3 "xyz:TSLA"); a spot pair is named
+    # "@<index>" or, for the oldest, "PURR/USDC". Pairs are quoted in USDH, USDT0 and USDE too.
+    # The fee is in feeToken (the received token on a spot buy); a negative fee is a maker rebate,
+    # not a fee.
+    pairs = tickers.pluck(:ticker, :base, :quote).to_h { |ticker, base, quote| [ticker, [base, quote]] }
+    spot_fills = result.data.select { |fill| fill['coin'].to_s.start_with?('@') || fill['coin'].to_s.include?('/') }
+    entries = spot_fills.map do |fill|
       coin = fill['coin']
+      base, quote = pairs[coin]
       is_buyer = fill['side'] == 'B'
       px = fill['px'].to_d
       sz = fill['sz'].to_d
+      fee = fill['fee'].to_d
       { entry_type: is_buyer ? :buy : :sell,
-        base_currency: base_by_ticker[coin] || coin, base_amount: sz,
-        quote_currency: 'USDC', quote_amount: (px * sz),
-        fee_currency: 'USDC', fee_amount: fill['fee'].to_d.abs,
+        base_currency: base || coin, base_amount: sz,
+        quote_currency: quote || 'USDC', quote_amount: (px * sz),
+        fee_currency: fee.positive? ? fill['feeToken'].presence || quote || 'USDC' : nil,
+        fee_amount: fee.positive? ? fee : nil,
         tx_id: fill['tid'].to_s, group_id: nil, description: nil,
         transacted_at: Time.at(fill['time'].to_i / 1000.0).utc, raw_data: fill }
     end
