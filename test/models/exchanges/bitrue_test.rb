@@ -324,11 +324,17 @@ class Exchanges::BitrueTest < ActiveSupport::TestCase
 
     def get_signed(path, params)
       @calls << params.merge(path: path)
-      rows = case path
-             when '/api/v2/myTrades' then Array(@trades[params[:symbol]])
-             else return Result::Failure.new('<html>302 Found</html>', data: { status: 302 })
-             end
-      Result::Success.new(rows.select { |r| r['time'].between?(params[:startTime], params[:endTime]) }.first(params[:limit]))
+      case path
+      when '/api/v2/myTrades'
+        rows = Array(@trades[params[:symbol]])
+        Result::Success.new(rows.select { |r| r['time'].between?(params[:startTime], params[:endTime]) }.first(params[:limit]))
+      when '/api/v1/deposit/history', '/api/v1/withdraw/history'
+        rows = Array((path.include?('deposit') ? @deposits : @withdrawals)[params[:coin]])
+        rows = rows.select { |r| r['status'] == params[:status] && r['createdAt'].between?(params[:startTime], params[:endTime]) }
+        Result::Success.new({ 'code' => 200, 'msg' => 'succ', 'data' => rows.drop(params[:offset]).first(params[:limit]) })
+      else
+        Result::Failure.new('<html>302 Found</html>', data: { status: 302 })
+      end
     end
   end
 
@@ -390,5 +396,45 @@ class Exchanges::BitrueTest < ActiveSupport::TestCase
     result = @exchange.get_ledger(api_key: api_key, start_time: 1.day.ago)
     assert_predicate result, :success?
     assert_equal [:sell], result.data.map { |e| e[:entry_type] }
+  end
+
+  test 'get_ledger imports finished deposits and withdrawals, each under its own record id' do
+    at = Time.utc(2025, 3, 1).to_i * 1000
+    deposits = { 'usdt' => [
+      { 'id' => 11, 'symbol' => 'USDT', 'amount' => '200', 'fee' => '0.0E-15', 'createdAt' => at, 'txid' => '0xabc', 'status' => 1 },
+      { 'id' => 12, 'symbol' => 'USDT', 'amount' => '5', 'createdAt' => at, 'txid' => '0xdef', 'status' => 0 }
+    ] }
+    # Two withdrawals batched into one chain transaction.
+    withdrawals = { 'usdt' => [
+      { 'id' => 21, 'symbol' => 'usdt_erc20', 'amount' => '8.4', 'fee' => '1.6', 'payAmount' => '0', 'createdAt' => at,
+        'txid' => '0xbatch', 'status' => 5 },
+      { 'id' => 22, 'symbol' => 'usdt_erc20', 'amount' => '3', 'fee' => '1.6', 'payAmount' => '0', 'createdAt' => at,
+        'txid' => '0xbatch', 'status' => 5 }
+    ] }
+    fake = FakeLedger.new(balances: { 'usdt' => '100' }, deposits: deposits, withdrawals: withdrawals)
+
+    result = ledger_with(fake)
+    assert_predicate result, :success?
+    dep = result.data.select { |e| e[:entry_type] == :deposit }
+    wd = result.data.select { |e| e[:entry_type] == :withdrawal }
+    assert_equal [200.to_d], dep.map { |e| e[:base_amount] }
+    assert_equal ['USDT'], dep.map { |e| e[:base_currency] }
+    assert_equal %w[withdrawal-21 withdrawal-22], wd.map { |e| e[:tx_id] }.sort
+    assert_equal ['USDT'], wd.map { |e| e[:base_currency] }.uniq
+    assert_equal 1.6.to_d, wd.first[:fee_amount]
+    assert(fake.calls.all? { |c| c[:path] == '/api/v2/myTrades' || c[:coin] == 'usdt' }, 'coin sent without its chain, lower case')
+  end
+
+  test 'get_ledger fails the fetch when a transfer read fails, and skips transfers a key may not read' do
+    fake = FakeLedger.new(balances: { 'usdt' => '100' })
+    fake.define_singleton_method(:get_signed) do |_path, _params|
+      Result::Failure.new('{"code":-1016,"msg":"Service unavailable"}', data: { status: 500 })
+    end
+    assert_predicate ledger_with(fake), :failure?
+
+    fake.define_singleton_method(:get_signed) do |_path, _params|
+      Result::Failure.new('{"code":-1022,"msg":"You are not authorized to execute this request."}', data: { status: 401 })
+    end
+    assert_predicate @exchange.get_ledger(api_key: ApiKey.last, start_time: nil), :success?
   end
 end
