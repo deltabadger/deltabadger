@@ -339,6 +339,19 @@ class Import::BinanceCsvTest < ActiveSupport::TestCase
     assert_equal(0.01368573.to_d, entries.sum { |e| e[:base_amount] })
   end
 
+  # A trade with no other side was dropped without a word; it is reported instead.
+  test 'a trade with only one side is reported, not dropped' do
+    importer = Import::BinanceCsv.new(
+      [HEADER, '1,2024-03-01 10:00:00,Spot,Transaction Buy,ETH,1,', '1,2024-03-01 10:00:00,Spot,Transaction Fee,BNB,-0.01,',
+       '1,2024-03-01 11:00:00,Spot,Transaction Spend,USDT,-4,'].join("\n"),
+      offset: '+00:00'
+    )
+
+    assert_empty importer.entries
+    assert_equal ['Transaction Buy ETH 2024-03-01 10:00:00 UTC', 'Transaction Fee BNB 2024-03-01 10:00:00 UTC',
+                  'Transaction Spend USDT 2024-03-01 11:00:00 UTC'], importer.unrecognised
+  end
+
   # ── never invent ─────────────────────────────────────────────────────────────────────────────
   test 'an operation we do not know is reported, never guessed at' do
     importer = Import::BinanceCsv.new(

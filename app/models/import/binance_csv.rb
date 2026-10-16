@@ -267,7 +267,7 @@ class Import::BinanceCsv
     legs = rows - fees
     incoming = legs.select { |row| row[:change].positive? }.sort_by { |row| -row[:change] }
     outgoing = legs.select { |row| row[:change].negative? }.sort_by { |row| row[:change] }
-    return [] if incoming.empty? || outgoing.empty?
+    return one_sided(rows) if incoming.empty? || outgoing.empty?
 
     # Fills only when the rows say so: one coin a side and as many spends as buys. More than one coin
     # on a side is unrelated trades sharing a second, and a count that differs is legs Binance did
@@ -278,6 +278,16 @@ class Import::BinanceCsv
 
     slots, extra = spread_fees(at, fees, outgoing.size)
     outgoing.zip(incoming, slots).map { |spent, bought, fee| trade(at, spent, bought, fee) } + extra
+  end
+
+  # A trade with nothing on its other side states no price and no counterpart: booking it would
+  # invent one. Reported, row by row, so the user sees what did not land rather than losing it.
+  def one_sided(rows)
+    rows.each do |row|
+      note = "#{row[:operation]} #{row[:coin]} #{row[:at].strftime('%Y-%m-%d %H:%M:%S')} UTC"
+      @unrecognised << note unless @unrecognised.include?(note)
+    end
+    []
   end
 
   def fills?(outgoing, incoming)

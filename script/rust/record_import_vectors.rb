@@ -124,6 +124,8 @@ binance = [
                                   row.(t0, 'Transaction Buy', 'FLIB', '2'), row.(t0, 'Transaction Fee', 'BNB', '-0.01'), row.(t0, 'Transaction Fee', 'BNB', '-0.02')]),
   bin.('mixed_coins_no_fee', [row.(t0, 'Transaction Spend', 'FLIB', '-1'), row.(t0, 'Transaction Spend', 'QUUX', '-2'), row.(t0, 'Transaction Buy', 'ZORK', '3')]),
   bin.('one_sided_trade_dropped', [row.(t0, 'Transaction Buy', 'ZORK', '1'), row.(t0, 'Transaction Fee', 'BNB', '-0.01'), row.('2024-03-01 11:00:00', 'Transaction Spend', 'USDT', '-4')]),
+  bin.('one_sided_trade_beside_a_deposit', [row.(t0, 'Transaction Sold', 'ZORK', '-1'), row.(t0, 'Transaction Sold', 'ZORK', '-1'), row.(t0, 'Deposit', 'USDT', '5')]),
+  bin.('one_sided_fee_only', [row.(t0, 'Transaction Fee', 'BNB', '-0.01')], filename: UTC3),
   bin.('same_second_two_accounts', [row.(t0, 'Transaction Spend', 'USDT', '-10'), row.(t0, 'Transaction Buy', 'ZORK', '1'),
                                     row.(t0, 'Transaction Spend', 'USDT', '-7', account: 'Funding'), row.(t0, 'Transaction Buy', 'FLIB', '2', account: 'Funding')]),
   bin.('legacy_buy_sell_fee', [row.(t0, 'Buy', 'ZORK', '2'), row.(t0, 'Sell', 'GBP', '-50'), row.(t0, 'Fee', 'GBP', '-0.5')]),
