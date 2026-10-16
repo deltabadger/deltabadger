@@ -489,7 +489,13 @@ class Exchanges::Mexc < Exchange
 
     # Trades per discovered symbol, from start_time or as far back as MEXC keeps them, to now.
     trades_from = (start_time ? [start_time, trades_reach].max : trades_reach).to_i * 1000
-    traded_symbols = @exchange_symbols_map.keys.select { |sym| coins.include?(@exchange_symbols_map[sym][:base]) }
+    # A pair traded before counts too: the sale that emptied a coin leaves no balance to find it by.
+    traded_before = AccountTransaction.where(user_id: api_key.user_id, exchange_id: api_key.exchange_id)
+                                      .where(entry_type: %i[buy sell]).distinct
+                                      .pluck(:base_currency, :quote_currency).map(&:join)
+    traded_symbols = @exchange_symbols_map.keys.select do |sym|
+      coins.include?(@exchange_symbols_map[sym][:base]) || traded_before.include?(sym)
+    end
     traded_symbols.each do |symbol|
       trades = read_range(trades_from, (Time.now.to_f * 1000).to_i, TRADES_PAGE) do |from, to|
         hm_client.account_trade_list(symbol: symbol, start_time: from, end_time: to, limit: TRADES_PAGE)
