@@ -1,10 +1,10 @@
 {
   "synthetic_only": true,
   "sources": {
-    "app/models/bot/composition/order_setter.rb": "db09caa8eca2a6ea75c4c37a6bff8502b2f1dbcf92bc84163541fa3ac22c15b7",
+    "app/models/bot/composition/order_setter.rb": "8f189ecf4245935df07c66cde3df103cf84afd3b6a786617384b323169ee4e28",
     "app/models/bot/order_setter.rb": "8ab21b724aa9195484cfdde5ae476ea006c3da1e5ab65cffc086d304c0f24dff",
     "app/models/bot/quote_amount_limitable.rb": "164d4fa19650fe3faecba512de5031aaf057f7bd48d0699e88a1ba46d121f220",
-    "app/models/bots/dca_multi_asset.rb": "eaf340245c57013eccf63e6bbe74a14794459e21a73e20920f1825f6a0ba6671",
+    "app/models/bots/dca_multi_asset.rb": "25700ff65cf3d723e5da8e649f36fd0276300acea56783526e6402ce086b1f12",
     "app/views/bots/composition/_warning_below_minimums.html.erb": "6e83095760edbb9e9232a63d6cf5e4b6987a79a41191b17d7b2a39788c226200",
     "app/views/bots/dca_single_assets/_warning_below_minimums.html.erb": "255505a6dfd6f03b0ca82f60d4e3c221807cd2dd012a7f51d6868dd2c509959a",
     "app/views/layouts/modal/_base.html.erb": "18048e5c421ecf9cf1226b4f1fa988e95978b00db500f69795c44ad9735dceba",

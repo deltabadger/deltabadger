@@ -1602,7 +1602,7 @@
     "app/models/transaction.rb": "6cf7b7b31ab5a20b40615f7c8a4d6c8fca4fb4005cd42044a6695f09e862ad7b",
     "app/models/bot.rb": "d09ba7581bf639bf6a0b0a49047271a36e16448a8b15df310ddef4faa2a9cdf6",
     "app/models/bots/dca_single_asset.rb": "cc544a798755cbbcf2fc65015c44a42fc4cfc8a789ad6a36ab7416f624259566",
-    "app/models/bots/dca_multi_asset.rb": "eaf340245c57013eccf63e6bbe74a14794459e21a73e20920f1825f6a0ba6671",
+    "app/models/bots/dca_multi_asset.rb": "25700ff65cf3d723e5da8e649f36fd0276300acea56783526e6402ce086b1f12",
     "app/models/bots/dca_multi_asset/allocatable.rb": "b2088e229826c18178137f15be5964c140353a5d62765e6f6d7155a4d3d9744a",
     "app/models/bots/dca_index.rb": "b12bd11f5cefb0857a98159c9a02b9ed265a0924ba3764e6ad7396f64d7c4945",
     "app/models/bots/signal.rb": "4c3c7af8c01a9f0a833aa4da7f37a08b5c6ca3ada803973b4083859ff71d36e1",
