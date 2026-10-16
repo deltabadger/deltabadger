@@ -19,6 +19,33 @@ class Exchanges::BitvavoTest < ActiveSupport::TestCase
     assert_includes errors[:invalid_key], 'No active API key found'
   end
 
+  # Bodies as honeymaker hands them back (the raw JSON of the HTTP error), codes and reasons from
+  # https://docs.bitvavo.com/docs/errors/ and ccxt's captured messages.
+  def bitvavo_error(code, message)
+    { errorCode: code, error: message }.to_json
+  end
+
+  test 'the documented key, permission, rate-limit and outage errors are classified' do
+    assert @exchange.invalid_key_error?([bitvavo_error(309, 'The signature is invalid.')])
+    assert @exchange.invalid_key_error?([bitvavo_error(308, 'The signature length is invalid (HMAC-SHA256 should return a 64 length hexadecimal string).')])
+
+    %w[307 310 311].each do |code|
+      body = bitvavo_error(code.to_i, 'This key does not allow this action.')
+      assert @exchange.permission_error?([body]), code
+      assert_not @exchange.invalid_key_error?([body]), code
+    end
+
+    assert @exchange.throttled_error?([bitvavo_error(105, 'Your IP or API key has been banned for not respecting the rate limit. The ban expires at 1792139914630.')])
+    [101, 107, 108, 109, 111, 400, 419].each do |code|
+      assert @exchange.transient_error?([bitvavo_error(code, 'Bitvavo is overloaded.')]), code.to_s
+    end
+    # A request outside the access window is refused before it reaches the matching engine.
+    stale = bitvavo_error(304, 'Request was not received within acceptable window (default 30s, or custom with Bitvavo-Access-Window header) of Bitvavo-Access-Timestamp header.')
+    assert @exchange.transient_error?([stale])
+    assert @exchange.placement_transient_error?([stale])
+    assert_not @exchange.placement_transient_error?([bitvavo_error(109, 'The matching engine did not respond in time.')])
+  end
+
   test 'minimum_amount_logic returns base_or_quote for market orders' do
     assert_equal :base_or_quote, @exchange.minimum_amount_logic(order_type: :market_order)
   end
