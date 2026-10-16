@@ -236,7 +236,7 @@ class Exchanges::MexcTest < ActiveSupport::TestCase
   test 'get_candles builds 3-day candles from daily ones' do
     ticker = create(:ticker, exchange: @exchange, base_symbol: 'BTC', quote_symbol: 'USDT')
     day = 86_400_000
-    start = (Time.now.utc.to_i / 259_200) * 259_200_000 - (3 * day)
+    start = ((Time.now.utc.to_i / 259_200) * 259_200_000) - (3 * day)
     daily = (0..2).map { |i| [start + (i * day), (10 + i).to_s, (20 + i).to_s, (5 + i).to_s, (11 + i).to_s, '1'] }
     @exchange.send(:client).define_singleton_method(:candlestick_data) { |**| Result::Success.new(daily) }
 
@@ -255,7 +255,7 @@ class Exchanges::MexcTest < ActiveSupport::TestCase
     asked = []
     @exchange.send(:client).define_singleton_method(:candlestick_data) do |start_time:, end_time: nil, limit: 500, **|
       asked << [start_time, end_time]
-      times = end_time ? open_times.select { |t| t.between?(start_time, end_time) } : open_times
+      times = end_time ? open_times.grep(start_time..end_time) : open_times
       Result::Success.new(times.last([limit, 500].min).map { |t| [t, '1', '2', '0.5', '1.5', '10'] })
     end
 
@@ -297,7 +297,7 @@ class Exchanges::MexcTest < ActiveSupport::TestCase
 
     rows = @exchange.get_ledger(api_key: ledger_api_key, start_time: 2.days.ago).data.select { |e| e[:entry_type] == :withdrawal }
 
-    assert_equal %w[bb17a2d452684f00a523c015d512a341 second], rows.map { |r| r[:tx_id] }
+    assert_equal(%w[bb17a2d452684f00a523c015d512a341 second], rows.map { |r| r[:tx_id] })
     assert_equal Time.at(1_665_300_874).utc, rows.first[:transacted_at]
     assert_equal 10.to_d, rows.first[:base_amount]
   end
@@ -313,7 +313,7 @@ class Exchanges::MexcTest < ActiveSupport::TestCase
 
     rows = @exchange.get_ledger(api_key: ledger_api_key, start_time: 2.days.ago).data.select { |e| e[:entry_type] == :deposit }
 
-    assert_equal %w[aa:0 bb:0], rows.map { |r| r[:tx_id] }
+    assert_equal(%w[aa:0 bb:0], rows.map { |r| r[:tx_id] })
   end
 
   # Deposit and withdraw history answer the last 7 days when given no range, take a range of at most
@@ -363,7 +363,7 @@ class Exchanges::MexcTest < ActiveSupport::TestCase
     fake.define_singleton_method(:account_information) { |**| Result::Success.new('balances' => []) }
     fake.define_singleton_method(:exchange_information) { |**| Result::Success.new('symbols' => []) }
     fake.define_singleton_method(:deposit_history) do |start_time:, end_time:, **|
-      rows = times.select { |t| t.between?(start_time, end_time) }.first(1000)
+      rows = times.grep(start_time..end_time).first(1000)
       Result::Success.new(rows.map { |t| { 'coin' => 'EOS', 'amount' => '1', 'status' => 5, 'txId' => "#{t}:0", 'insertTime' => t } })
     end
     Honeymaker.stubs(:client).returns(fake)
