@@ -614,12 +614,17 @@ async fn figures_fragments_match_the_rails_page_partials() {
                 // whose figures arrive instead.
                 later.drain(&mounted_app,&user_stream).await;
                 let held_serial=mounted_app.figure_service.settled(user);
-                let publishing={ let app=mounted_app.clone(); tokio::spawn(async move { loading::publish(&app,user).await }) };
-                tokio::task::yield_now().await; // the publication has asked for the account; now the database is held
+                // The database is held first (the hold says so from inside it), so the publication always waits at it
+                // whatever the scheduler does; the expiry passes while it waits, then the hold is released.
+                let (holding,held)=std::sync::mpsc::channel::<()>();
+                let (release,released)=std::sync::mpsc::channel::<()>();
                 let busy=mounted_app.clone();
-                let hold=tokio::spawn(async move { busy.db(|_| { std::thread::sleep(std::time::Duration::from_millis(1500)); Ok(()) }).await });
-                tokio::time::sleep(Duration::from_millis(500)).await;
+                let hold=tokio::spawn(async move { busy.db(move |_| { holding.send(()).ok(); released.recv().ok(); Ok(()) }).await });
+                tokio::task::spawn_blocking(move || held.recv()).await.unwrap().unwrap();
+                let publishing={ let app=mounted_app.clone(); tokio::spawn(async move { loading::publish(&app,user).await }) };
+                tokio::time::sleep(Duration::from_millis(200)).await; // the publication reaches the held database
                 clock.set(now.utc()+chrono::Duration::seconds(602));
+                release.send(()).unwrap();
                 hold.await.unwrap().unwrap();
                 publishing.await.unwrap().unwrap();
                 let renewed=later.until(&wanted).await;
