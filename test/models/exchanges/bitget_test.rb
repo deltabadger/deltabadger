@@ -25,6 +25,39 @@ class Exchanges::BitgetTest < ActiveSupport::TestCase
     )
   end
 
+  # Bodies as Bitget answers them over HTTP 400 (https://www.bitget.com/docs/classic/error-code/restapi).
+  test 'a wrong secret or passphrase reads as an invalid key' do
+    ['{"code":"40009","msg":"sign signature error"}', '{"code":"40012","msg":"apikey/password is incorrect"}',
+     '{"code":"40036","msg":"passphrase is error"}', '{"code":"40041","msg":"User\'s ApiKey does not exist"}',
+     '{"code":"40037","msg":"Apikey does not exist"}'].each do |body|
+      assert @exchange.invalid_key_error?([body]), body
+    end
+  end
+
+  test 'a missing scope reads as a permission error, not an invalid key' do
+    body = '{"code":"40014","msg":"Incorrect permissions, need spot order write permissions"}'
+    assert @exchange.permission_error?([body])
+    assert_not @exchange.invalid_key_error?([body])
+    assert @exchange.permission_error?(['{"code":"40025","msg":"The user does not have this permission"}'])
+  end
+
+  test 'a 429 reads as throttled and a venue-side hiccup as transient' do
+    assert @exchange.throttled_error?(['{"code":"429","msg":"Too Many Requests"}'])
+    assert @exchange.transient_error?(['{"code":"40015","msg":"System is abnormal, please try again later"}'])
+    assert @exchange.transient_error?(['{"code":"40010","msg":"Request timed out"}'])
+    assert_not @exchange.placement_transient_error?(['{"code":"40010","msg":"Request timed out"}'])
+  end
+
+  test 'get_api_key_validity rejects a key whose passphrase is wrong' do
+    Rails.configuration.stubs(:dry_run).returns(false)
+    api_key = create(:api_key, exchange: @exchange, key_type: :trading, key: 'k', secret: 's', raw_passphrase: 'wrong')
+    Honeymaker::Clients::Bitget.any_instance.stubs(:cancel_order).returns(
+      Result::Failure.new('{"code":"40012","msg":"apikey/password is incorrect","data":null}', data: { status: 400 })
+    )
+
+    assert_equal false, @exchange.get_api_key_validity(api_key: api_key).data
+  end
+
   test 'transient_error? does not swallow an ordinary rejection' do
     assert_not @exchange.transient_error?(['{"code":"43012","msg":"Insufficient balance"}'])
   end

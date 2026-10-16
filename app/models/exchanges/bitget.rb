@@ -2,11 +2,21 @@ class Exchanges::Bitget < Exchange
   COINGECKO_ID = 'bitget'.freeze # https://docs.coingecko.com/reference/exchanges-list
   ERRORS = {
     insufficient_funds: ['Insufficient balance', 'Insufficient account balance'],
-    invalid_key: ['Invalid Api Key', 'Invalid ACCESS_KEY', 'Invalid signature', 'Apikey does not exist'],
+    # Wording from https://www.bitget.com/docs/classic/error-code/restapi: 40006, 40037 (both seen
+    # live for an unknown key), 40009 bad signature (a wrong secret), 40012 and 40036 (a wrong
+    # passphrase) and 40041.
+    invalid_key: ['Invalid Api Key', 'Invalid ACCESS_KEY', 'Invalid signature', 'Apikey does not exist',
+                  'sign signature error', 'apikey/password is incorrect', 'passphrase is error',
+                  "User's ApiKey does not exist"],
+    # 40014 and 40025: the key is good but lacks the scope, so it must not be condemned.
+    permission_denied: ['Incorrect permissions', 'The user does not have this permission'],
+    # HTTP 429.
+    throttle: ['Too many requests', 'Too Many Requests'],
     # 40008: the signed timestamp fell outside Bitget's window — same class as KuCoin's 400002
     # and Binance's -1021, and it fires for the same reason (a request stalled behind a slow
     # exchange proxy, not a drifting clock). Retried instead of failing the bot loudly.
-    transient: ['Request timestamp expired'],
+    # 40010 and 40015 are Bitget's own "timed out" and "system is abnormal, try again later".
+    transient: ['Request timestamp expired', 'Request timed out', 'System is abnormal'],
     # Listed again, deliberately: 40008 is raised while verifying the signature (the timestamp is
     # part of the signed payload), so the order never reached the book and re-placing it next
     # interval cannot double-buy. See Exchange#placement_transient_error?.
