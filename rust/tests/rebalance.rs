@@ -458,6 +458,36 @@ async fn the_engine_rebalances_a_stopped_bot_at_each_fire_and_only_then() {
 }
 
 #[tokio::test(flavor = "current_thread")]
+async fn sliders_saved_off_100_mid_swap_still_let_the_owed_buy_land_and_settle() {
+    // Rails' rebalance_targets: `rebalance_pending? || allocations_balanced?`. The owed buy is placed, polled and settled
+    // with the sliders at 120%; its outstanding row must not turn the stopped basket into an install-wide refusal.
+    let (d, o, id, _, _) = swap_bot(stopped());
+    drop(o);
+    let paths = store::Paths::from_env(&|_| None, d.path());
+    let lock = deltabadger::lease::lock(&paths, at("2026-09-01T00:00:00Z")).unwrap();
+    let o = store::open(&paths).unwrap();
+    let t = script(json!({
+        "GET /v2/orders/OTX-1": [sold_btc("0.00421875", Some("64000"), "filled")],
+        "GET /v2/orders/OTX-2": [order("OTX-2", "filled", "ETH/USD", "buy", None, Some("270"), "0.108", Some("2500"))],
+    }));
+    let primary = store::open(&paths).unwrap().primary;
+    let mut e = deltabadger::engine::run::Engine::new(o.primary, Factory(t.clone()), seed::cipher(), lock);
+    macro_rules! step { ($s:expr) => { deltabadger::engine::run::step(&mut e, &FixedClock(at($s))) } }
+    step!("2026-09-01T12:00:00Z").await.unwrap();
+    step!("2026-09-01T12:30:00Z").await.unwrap();
+    assert_eq!(t.posted_orders().len(), 1);
+    primary.execute("UPDATE bots SET settings = json_set(settings, '$.allocations', json((SELECT json_group_object(key, 0.6) FROM json_each(bots.settings, '$.allocations'))))", []).unwrap();
+    step!("2026-09-01T12:31:00Z").await.unwrap();
+    step!("2026-09-01T16:30:00Z").await.unwrap();
+    assert_eq!(posted(&t)[1], ("ETH/USD".into(), "buy".into(), "270.00".into()));
+    assert_eq!(eligibility::check_install(&primary).unwrap().problems, Vec::<String>::new());
+    step!("2026-09-01T16:31:00Z").await.unwrap();
+    assert_eq!(primary.query_row("SELECT external_status FROM transactions WHERE external_id = 'OTX-2'", [], |r| r.get::<_, i64>(0)).unwrap(), 2, "the owed buy was polled");
+    step!("2026-09-01T20:30:00Z").await.unwrap();
+    assert_eq!(model::load_bot(&primary, id).unwrap().transient.get("rebalance_pending").cloned().unwrap_or(Value::Null), Value::Null, "the swap completed");
+}
+
+#[tokio::test(flavor = "current_thread")]
 async fn a_reversal_awaiting_its_cancels_bars_the_swap() {
     let (_d, o, id, _, _) = swap_bot(stopped());
     o.primary.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.rust_reversal_cancels', json('[{\"id\": 1, \"registered\": false, \"sent\": false}]'))", []).unwrap();

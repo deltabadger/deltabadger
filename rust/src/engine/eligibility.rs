@@ -454,12 +454,15 @@ fn install(c: &Connection, mut items: Option<&mut std::collections::BTreeSet<Str
             if let Some(i) = items.as_deref_mut() { i.extend(reasons.iter().map(|r| format!("bot {id}: {r}"))); member_findings(c, id, i)?; }
             continue;
         }
-        let outstanding: i64 = c.query_row("SELECT count(*) FROM transactions WHERE bot_id = ?1 AND status = 0 AND external_status IN (0, 1)", [id], |r| r.get(0))?;
+        // UNBALANCED alone refuses ticking only: a stopped bot does not tick, and its swap still places, polls and settles
+        // (Rails' rebalance_targets: `rebalance_pending? || allocations_balanced?`). Its REBALANCE orders are this engine's.
+        let rebalances = rebalances_here(c, &bot)?;
+        let swap_only = rebalances && reasons.iter().all(|r| r.starts_with(UNBALANCED));
+        let outstanding: i64 = c.query_row("SELECT count(*) FROM transactions WHERE bot_id = ?1 AND status = 0 AND external_status IN (0, 1) \
+                                            AND NOT (?2 AND transaction_type = 'REBALANCE')", params![id, swap_only], |r| r.get(0))?;
         let mut work = rails_work(c, &bot)?;
         // A stopped bot still rebalances (run::run_rebalances), so whatever else it carries must be within the slice.
-        if super::rebalance::candidate(&bot) && rebalances_here(c, &bot)? && reasons.iter().any(|r| !r.starts_with(UNBALANCED)) {
-            work.push("rebalancing".into());
-        }
+        if super::rebalance::candidate(&bot) && rebalances && !swap_only { work.push("rebalancing".into()); }
         if outstanding > 0 { work.push(format!("{outstanding} outstanding order(s)")); }
         if !work.is_empty() {
             report.problems.push(format!("bot {id} ({}) has work only the full app handles ({}); outside the slice: {}", bot.status.label(), work.join(", "), reasons.join(", ")));
