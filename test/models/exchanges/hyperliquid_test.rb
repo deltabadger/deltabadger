@@ -19,6 +19,21 @@ class Exchanges::HyperliquidTest < ActiveSupport::TestCase
     assert errors[:invalid_key].present?
   end
 
+  # Wordings from ccxt's capture of Hyperliquid's {"status":"err","response":…} answers; the set_order
+  # path wraps them as "Hyperliquid order failed: {…}".
+  test 'classifies the venue\'s own rejection, throttle and rate-limit answers' do
+    unapproved = 'Hyperliquid order failed: {"status" => "err", "response" => ' \
+                 '"User or API Wallet 0xb8a6f8b26223de27c31938d56e470a5b832703a5 does not exist."}'
+    assert_equal :invalid_key, @exchange.failure_kind([unapproved])
+    assert @exchange.invalid_key_error?([unapproved])
+
+    cumulative = 'Hyperliquid order failed: {"status" => "err", "response" => "Too many cumulative requests sent ' \
+                 '(37986 > 10436) for cumulative volume traded $437.92."}'
+    assert @exchange.throttled_error?([cumulative])
+    assert @exchange.throttled_error?(['HTTP 429: null'])
+    assert @exchange.throttled_error?(['the server responded with status 429'])
+  end
+
   test 'minimum_amount_logic returns base_and_quote_in_base so the 10 USDC floor is enforced in base' do
     # HL is limit-only; :base_and_quote_in_base converts minimum_quote_size (10) into a per-order base
     # minimum (ceil(10/price)), so sub-10 orders skip up front instead of being exchange-rejected.
