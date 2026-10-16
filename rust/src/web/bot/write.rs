@@ -163,7 +163,7 @@ fn settings_inner<T>(
         };
         let cap = effective_amount(&draft.candidate)?;
         let carry = minimum(old, cap)?;
-        effects.transient.set.insert("missed_quote_amount".into(), serialized(carry)?);
+        effects.transient.set.insert("missed_quote_amount".into(), stored_carry(&draft.raw_transient, serialized(carry)?));
         effects.transient.set.insert("missed_quote_amount_was_set".into(), Value::Null);
     }
     if submitted.mcp() && !effects.settings_changed {
@@ -227,6 +227,12 @@ fn ruby_equal(stored: &Value, assigned: &Value) -> bool {
         Value::Number(_) => Num::from_json(assigned).and_then(|n| n.to_d()) == Some(old),
         _ => false,
     }
+}
+
+/// ActiveRecord::Store writes an assignment only when it differs, by Ruby's ==, from what the store holds: a captured
+/// carry equal to the stored one (a frozen seller's `0.to_d` over a stored `0`) keeps the stored spelling.
+fn stored_carry(raw: &serde_json::Map<String, Value>, value: Value) -> Value {
+    match raw.get("missed_quote_amount") { Some(old) if ruby_equal(old, &value) => old.clone(), _ => value }
 }
 
 const WEB_START: &str = "UPDATE bots SET status = 1, stop_message_key = NULL, \
@@ -465,7 +471,7 @@ fn lifecycle_inner<T>(
         let service_capture = submitted.mcp() && action != Action::Start;
         if service_capture && effects.settings_changed && delayed.is_none() {
             let carry=pending(&tx,&draft.original,ctx.now)?;
-            effects.transient.set.insert("missed_quote_amount".into(),serialized(minimum(carry,effective_amount(&draft.candidate)?)?)?);
+            effects.transient.set.insert("missed_quote_amount".into(),stored_carry(&draft.raw_transient,serialized(minimum(carry,effective_amount(&draft.candidate)?)?)?));
             effects.transient.set.insert("missed_quote_amount_was_set".into(),Value::Null);
         }
         if service_capture && !effects.settings_changed &&
@@ -626,7 +632,7 @@ pub fn reverse(c: &Connection, cipher: &crate::crypto::Cipher, owner: i64, id: i
     draft.candidate.settings.insert("direction".into(), json!(direction));
     if let Some(d) = denomination { draft.candidate.settings.insert("sell_denomination".into(), json!(d)); }
     let mut effects = draft.save_effects(&tx, now)?;
-    effects.transient.set.insert("missed_quote_amount".into(), serialized(minimum(carry, effective_amount(&draft.candidate)?)?)?);
+    effects.transient.set.insert("missed_quote_amount".into(), stored_carry(&draft.raw_transient, serialized(minimum(carry, effective_amount(&draft.candidate)?)?)?));
     effects.transient.set.insert("missed_quote_amount_was_set".into(), Value::Null);
     for (key, value) in &effects.settings.set { one(tx.execute(SET_SETTING, (path(key, false)?, value.to_string(), id, owner, class))?)?; }
     for (key, value) in &effects.transient.set { one(tx.execute(SET_TRANSIENT, (path(key, true)?, value.to_string(), id, owner, class))?)?; }
