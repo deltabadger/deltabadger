@@ -213,10 +213,11 @@ async fn control_transcripts() {
         }
         if name.starts_with("settings_form_") {
             // Named divergence: settings that need what this build does not run yet. Rails saves them; Rust
-            // refuses the whole call by its reason and writes nothing. Rebalancing anywhere on the account is
-            // refused by the engine guard; a market-cap basket's derived composition by the writer, as the
-            // settings page refuses that bot.
-            let rebalancing=want["rows"]["bots"].as_array().unwrap().iter().any(|b|b["settings"]["rebalance_enabled"]==json!(true));
+            // refuses the whole call by its reason and writes nothing. Rebalancing runs here for an Alpaca basket or
+            // index bot (6b T8), stopped ones included, so the engine guard refuses it only on a bot otherwise
+            // outside the slice: the Index bot (2), whose stock members name no instrument. A market-cap basket's
+            // derived composition is refused by the writer, as the settings page refuses that bot.
+            let rebalancing=want["rows"]["bots"].as_array().unwrap().iter().any(|b|b["id"]==json!(2)&&b["settings"]["rebalance_enabled"]==json!(true));
             let market_cap=want["rows"]["bots"][0]["settings"]["weighting"]=="market_cap"
                 && (got["before_business"]["bots"][0]["settings"]["allocations"]!=want["rows"]["bots"][0]["settings"]["allocations"]
                     || got["before_business"]["bots"][0]["settings"]["weighting"]!=json!("market_cap"));
@@ -225,7 +226,7 @@ async fn control_transcripts() {
                 assert!(rails["result"]["content"][0]["text"].as_str().unwrap().contains("settings updated:"),"Rails saves {name}");
                 let response:Value=serde_json::from_str(got["responses"][2]["body"].as_str().unwrap()).unwrap();
                 let text=response["result"]["content"][0]["text"].as_str().unwrap();
-                let reason=if rebalancing {"rebalance_enabled"} else {"market-cap weights"};
+                let reason=if rebalancing {"has work only the full app handles (rebalancing)"} else {"market-cap weights"};
                 assert!(text.starts_with("This app can't run that yet:") && text.contains(reason),"{name}: {text}");
                 assert_eq!(response["result"]["isError"],true,"{name}");
                 for table in ["bots","transactions","api_keys","bot_index_assets","bot_activity_logs","users"] {

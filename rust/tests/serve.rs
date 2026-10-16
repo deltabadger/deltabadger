@@ -1768,8 +1768,14 @@ fn a_bot_row_is_read_as_the_pages_need_it_and_refused_when_this_build_cannot_ren
     assert_eq!(bot::refusal(c, id, Some(false), true, bot::For::Settings).unwrap(), None);
     assert_eq!(bot::refusal(c, id, Some(false), true, bot::For::FiguresPage).unwrap(), None);
     assert_eq!(refusal(), Some(bot::REALISED_WITHOUT_FIGURES));
-    // A basket with an index bot's special rows is still refused, by the page and the settings; the feed does not ask.
-    for (side, kind) in [(1, "REBALANCE"), (1, "LIQUIDATION"), (0, "REDEPLOY")] {
+    // A settled REBALANCE sell on an Alpaca basket is read by the engine's walk since 6b T8: the settings serve it, and the page
+    // refuses it as it refuses any sale.
+    order(1, "REBALANCE");
+    assert_eq!(bot::refusal(c, id, Some(false), true, bot::For::Settings).unwrap(), None);
+    assert_eq!(bot::refusal(c, id, Some(false), true, bot::For::Page).unwrap(), Some(bot::REALISED_WITHOUT_FIGURES));
+    c.execute("DELETE FROM transactions WHERE transaction_type = 'REBALANCE'", []).unwrap();
+    // A basket's LIQUIDATION and REDEPLOY rows are still refused, by the page and the settings; the feed does not ask.
+    for (side, kind) in [(1, "LIQUIDATION"), (0, "REDEPLOY")] {
         order(side, kind);
         for asked in [bot::For::Page, bot::For::Settings] {
             assert_eq!(bot::refusal(c, id, Some(false), true, asked).unwrap(), Some(bot::UNREAD_ORDERS), "{kind}");

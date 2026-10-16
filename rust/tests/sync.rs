@@ -1543,9 +1543,13 @@ async fn collision_positions_preserve_class_in_both_orders_and_availability_stat
                 assert_eq!(one::<i64>(&db,"SELECT asset_id FROM account_balances").await,s.quote);
             }
             db.run(move |c,_| {
-                let id = seed::insert_bot(c,&s.seeded(),&BotSpec::weekly(60.0,"2026-09-01 10:00:00").with("rebalance_enabled",json!(true)));
-                let verdict = deltabadger::engine::eligibility::check_install(c).unwrap();
-                assert!(verdict.problems.iter().any(|p| p.starts_with(&format!("bot {id} ")) && p.contains("rebalance_enabled")),"Rust refuses unported rebalancing even with both BTC classes");
+                // 6b T8: an Alpaca basket rebalances here, so the rule adds no refusal, with both BTC classes held.
+                let id = seed::insert_bot(c,&s.seeded(),&BotSpec::weekly(60.0,"2026-09-01 10:00:00"));
+                let mine = |c: &rusqlite::Connection| deltabadger::engine::eligibility::check_install(c).unwrap().problems.into_iter().filter(|p| p.starts_with(&format!("bot {id} "))).collect::<Vec<_>>();
+                let off = mine(c);
+                c.execute("UPDATE bots SET settings=json_set(settings,'$.rebalance_enabled',json('true')) WHERE id=?1",[id]).unwrap();
+                assert_eq!(mine(c),off,"rebalancing adds no refusal with both BTC classes");
+                assert!(!off.iter().any(|p| p.contains("rebalanc")),"{off:?}");
                 Ok(())
             }).await.unwrap();
         }
