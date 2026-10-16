@@ -3,6 +3,9 @@ require 'test_helper'
 class Exchanges::BitvavoTest < ActiveSupport::TestCase
   setup do
     @exchange = create(:bitvavo_exchange)
+    @sleeps = []
+    sleeps = @sleeps
+    @exchange.define_singleton_method(:sleep) { |seconds| sleeps << seconds }
   end
 
   test 'coingecko_id returns bitvavo' do
@@ -457,6 +460,19 @@ class Exchanges::BitvavoTest < ActiveSupport::TestCase
     assert_equal :buy, trade[:entry_type]
     assert_equal %w[BTC EUR], [trade[:base_currency], trade[:quote_currency]]
     assert_equal BigDecimal('60'), trade[:quote_amount]
+  end
+
+  # https://docs.bitvavo.com/docs/rate-limits/: 1000 weight points a minute, over it blocked for a
+  # minute (105). Every ledger read here weighs 5 (balance, deposit and withdrawal history, trades).
+  test 'get_ledger paces its reads under the weight limit' do
+    full = Array.new(1000) { |i| bitvavo_trade("n#{i}", 'o', ms_ago(1.minute) - i) }
+    api_key, = ledger_with_trades do |client_class|
+      client_class.any_instance.stubs(:get_trades).returns(Result::Success.new(full), Result::Success.new([]))
+    end
+
+    assert @exchange.get_ledger(api_key: api_key).success?
+    # deposits, withdrawals, balance, two trade pages; the market listing weighs 1
+    assert_equal [0.375] * 5, @sleeps # 5 points each, at 800 a minute: headroom for the bots on the same key
   end
 
   test 'get_ledger fails when a trade read fails' do
