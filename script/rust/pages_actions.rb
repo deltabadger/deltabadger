@@ -157,7 +157,18 @@ module Pages
     add.call('reverse_scheduled', 'reverse', {}, coin.merge('columns' => { 'status' => 'scheduled', 'started_at' => '2026-09-09T12:00:00Z' }), decided)
     add.call('reverse_waiting_buy', 'reverse', {}, base_restart.merge(coin).merge('orders' => 'open_coin'), decided)
 
-    raise "expected 166 bot action cases" unless cases.size == 166
+    # The sell sentence and its split saved on a one-asset basket that sells, and the interval a working seller may not change.
+    sells_quote = { 'direction' => 'selling', 'sell_denomination' => 'quote', 'sell_quote_amount' => 40 }
+    at_rest = { 'columns' => { 'status' => 'stopped' } }
+    {
+      'amount' => [sells_base, { 'sell_amount' => '3.5' }], 'blank' => [sells_base, { 'sell_amount' => '' }],
+      'interval' => [sells_base, { 'sell_interval' => 'month' }], 'split' => [sells_base, { 'smart_interval_base_amount' => '0.25' }],
+      'split_low' => [sells_base, { 'smart_interval_base_amount' => '0.0000001' }], 'quote' => [sells_quote, { 'sell_quote_amount' => '55.5' }]
+    }.each { |n, (settings, form)| add.call("sell_#{n}", 'update', form, at_rest.merge('kind' => 'single', 'settings' => settings), decided) }
+    add.call('sell_working_interval', 'update', { 'sell_interval' => 'month' },
+             { 'kind' => 'single', 'settings' => sells_base, 'columns' => { 'status' => 'scheduled', 'started_at' => '2026-09-09T12:00:00Z' } }, decided)
+
+    raise "expected 173 bot action cases" unless cases.size == 173
     names = cases.map { |entry| "actions_#{entry.first}".gsub(/[^a-zA-Z0-9_-]/, "_") }
     raise "action case names collide after filesystem conversion" unless names.uniq.size == names.size
     cases
@@ -206,7 +217,7 @@ module Pages
       end
       scenario['extra_users'] = [user('email' => 'other@example.com', 'admin' => false)] if extra['foreign']
       [name, scenario]
-    end.tap { |grid| raise 'action case names collide' unless grid.size == 166 }
+    end.tap { |grid| raise 'action case names collide' unless grid.size == 173 }
   end
 end
 
