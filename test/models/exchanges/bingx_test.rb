@@ -453,4 +453,20 @@ class Exchanges::BingxTest < ActiveSupport::TestCase
 
     assert_equal %w[BTC-USDT PEPE-USDT], asked.select { |path, _| path == TRADES }.map { |_, p| p[:symbol] }.uniq
   end
+
+  # A bot that bought and sold out of a pair before the first sync leaves no balance, transfer or
+  # synced row; its own orders are how the ledger knows to read that pair.
+  test 'get_ledger reads a pair a bot traded even when nothing else names it' do
+    api_key = ledger_api_key
+    bot = create(:dca_single_asset, user: api_key.user, exchange: @exchange)
+    create(:transaction, bot: bot, use_bot_assets: false, resolve_asset_ids: false, base: 'SOL', quote: 'USDT')
+    asked = fake_ledger_client({ DEPOSITS => ->(_) { [] }, WITHDRAWALS => ->(_) { [] } })
+    Honeymaker.client('bingx').define_singleton_method(:get_symbols) do |**|
+      Result::Success.new({ 'code' => 0, 'data' => { 'symbols' => [{ 'symbol' => 'BTC-USDT' }, { 'symbol' => 'SOL-USDT' }] } })
+    end
+
+    @exchange.get_ledger(api_key: api_key)
+
+    assert_includes asked.select { |path, _| path == TRADES }.map { |_, p| p[:symbol] }, 'SOL-USDT'
+  end
 end

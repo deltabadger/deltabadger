@@ -465,9 +465,16 @@ class Exchanges::Bingx < Exchange
     symbols = Array(listing.data.dig('data', 'symbols')).map { |s| s['symbol'] }
     trades_from = [start_time, TRADES_REACH.ago].compact.max
     # A pair traded before counts too: the sale that emptied a coin leaves no balance to find it by.
+    # So does every pair the account's bots ordered on here, synced or not: a bot's buy and sell
+    # between two syncs leave no balance, transfer or stored row behind.
+    # ponytail: myTrades takes one symbol, so a pair traded by hand, bought and sold out between two
+    # syncs and never seen before, is still not read. Only a venue-wide fills endpoint would find it.
     traded_before = AccountTransaction.where(user_id: api_key.user_id, exchange_id: api_key.exchange_id)
                                       .where(entry_type: %i[buy sell]).distinct
-                                      .pluck(:base_currency, :quote_currency).map { |pair| pair.join('-') }
+                                      .pluck(:base_currency, :quote_currency)
+    traded_before += Transaction.joins(:bot).where(exchange_id: api_key.exchange_id, bots: { user_id: api_key.user_id })
+                                .distinct.pluck(:base, :quote)
+    traded_before = traded_before.map { |pair| pair.join('-') }
     symbols.select { |symbol| coins.include?(symbol.split('-').first) || traded_before.include?(symbol) }.each do |symbol|
       trades = read_trades(hm_client, symbol, (trades_from.to_f * 1000).to_i, (Time.now.to_f * 1000).to_i)
       return trades unless trades.is_a?(Array)
