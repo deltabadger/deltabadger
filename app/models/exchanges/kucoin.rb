@@ -404,8 +404,10 @@ class Exchanges::Kucoin < Exchange
   end
 
   # `/api/v1/fills` serves at most a 7-day range and measures it from `startAt`, so a start older
-  # than a week returns a window that already ended.
-  def ledger_window = 7.days
+  # than a week returns a window that already ended. get_ledger walks these windows from start_time
+  # to now itself, so `ledger_window` stays nil: the sync's floor would drop everything between a
+  # quiet account's last sync and a week ago (syncs run only when the tracker is opened).
+  FILLS_WINDOW = 7.days
 
   # `/api/v1/fills` has nothing before KuCoin's v2 data starts on 2019-02-18, so a full-history sync
   # walks its weekly windows from there.
@@ -421,7 +423,7 @@ class Exchanges::Kucoin < Exchange
     window_start = (start_time || FILLS_HISTORY_FROM).to_i * 1000
     now_ms = Time.now.utc.to_i * 1000
     while window_start < now_ms
-      window_end = [window_start + (ledger_window.to_i * 1000), now_ms].min
+      window_end = [window_start + (FILLS_WINDOW.to_i * 1000), now_ms].min
       failed = read_fills(hm_client, window_start, window_end) do |fill|
         symbol = fill['symbol'] # e.g. "BTC-USDT"
         parts = symbol.split('-')

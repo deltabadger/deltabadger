@@ -217,11 +217,11 @@ class AccountTransactionSyncTest < ActiveSupport::TestCase
     AccountTransactionSync.new(api_key).sync!
   end
 
-  # KuCoin's fills serve 7 days measured FROM startTime, so an 80-day-old start returns a window that
-  # ended 73 days ago: a deposit made today is never seen, and nothing new can arrive to advance the
-  # watermark past it.
+  # A venue whose endpoint serves a window measured FROM startTime, and which does not walk windows
+  # itself, needs the start floored so the window still reaches the present.
   test 'floors start_time at the exchange own ledger window, not the 80-day default' do
     exchange = create(:kucoin_exchange)
+    exchange.stubs(:ledger_window).returns(7.days)
     api_key = create(:api_key, user: @user, exchange: exchange, last_synced_at: 2.years.ago)
     captured = nil
     exchange.stubs(:get_ledger).with do |args|
@@ -233,6 +233,20 @@ class AccountTransactionSyncTest < ActiveSupport::TestCase
 
     assert_operator captured, :>, 8.days.ago
     assert_operator captured, :<, 6.days.ago
+  end
+
+  # KuCoin's get_ledger walks 7-day fills windows from start_time to now, so a floor would only drop
+  # the weeks between a quiet account's last sync and a week ago.
+  test 'KuCoin resumes from its watermark, however old' do
+    exchange = create(:kucoin_exchange)
+    last_sync = 30.days.ago.change(usec: 0)
+    api_key = create(:api_key, user: @user, exchange: exchange, last_synced_at: last_sync)
+
+    exchange.expects(:get_ledger)
+            .with(api_key: api_key, start_time: last_sync - 25.hours)
+            .returns(Result::Success.new([]))
+
+    AccountTransactionSync.new(api_key).sync!
   end
 
   test 'passes nil start_time when the watermark is nil even if transactions already exist' do
