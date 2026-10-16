@@ -333,4 +333,67 @@ class Import::BinanceCsvTest < ActiveSupport::TestCase
     assert_empty importer.entries
     assert_equal ['Some Future Binance Product'], importer.unrecognised
   end
+
+  # ── legs the file does not pair one to one ───────────────────────────────────────────────────
+  #
+  # Every leg keeps its own coin and amount, and is counted once: legs were summed under one coin's
+  # name, fees in two coins summed under one, and a side with fewer legs reused its last for a second
+  # fill — so a buy, or a rename's credit, landed twice.
+  def moved(entries)
+    totals = Hash.new { |hash, key| hash[key] = 0.to_d }
+    entries.each do |entry|
+      totals[[:base, entry[:base_currency]]] += entry[:base_amount]
+      totals[[:quote, entry[:quote_currency]]] += entry[:quote_amount] if entry[:quote_currency]
+      totals[[:fee, entry[:fee_currency]]] += entry[:fee_amount] if entry[:fee_currency]
+    end
+    totals
+  end
+
+  test 'two coins bought in one second each keep their own amount' do
+    entries = parse(
+      '1,2024-03-01 10:00:00,Spot,Transaction Spend,USDT,-10,',
+      '1,2024-03-01 10:00:00,Spot,Transaction Buy,ETH,1,',
+      '1,2024-03-01 10:00:00,Spot,Transaction Spend,USDT,-5,',
+      '1,2024-03-01 10:00:00,Spot,Transaction Buy,SOL,2,',
+      '1,2024-03-01 10:00:00,Spot,Transaction Fee,BNB,-0.01,',
+      '1,2024-03-01 10:00:00,Spot,Transaction Fee,BNB,-0.02,'
+    )
+
+    assert_equal({ [:base, 'USDT'] => 15.to_d, [:base, 'ETH'] => 1.to_d, [:base, 'SOL'] => 2.to_d, [:fee, 'BNB'] => 0.03.to_d },
+                 moved(entries))
+    assert_equal 1, entries.map { |e| e[:group_id] }.uniq.size, 'one swap: nothing says which spend bought which'
+  end
+
+  test 'fees in two coins stay in their own coins' do
+    entries = parse(
+      '1,2024-03-01 10:00:00,Spot,Transaction Spend,USDT,-10,',
+      '1,2024-03-01 10:00:00,Spot,Transaction Buy,ETH,1,',
+      '1,2024-03-01 10:00:00,Spot,Transaction Spend,USDT,-20,',
+      '1,2024-03-01 10:00:00,Spot,Transaction Buy,ETH,2,',
+      '1,2024-03-01 10:00:00,Spot,Transaction Fee,BNB,-0.01,',
+      '1,2024-03-01 10:00:00,Spot,Transaction Fee,BNB,-0.02,',
+      '1,2024-03-01 10:00:00,Spot,Transaction Fee,USDT,-0.03,'
+    )
+
+    assert_equal 0.03.to_d, moved(entries)[[:fee, 'BNB']]
+    assert_equal 0.03.to_d, moved(entries)[[:fee, 'USDT']]
+  end
+
+  test 'a lone extra leg is counted once' do
+    buys = parse(
+      '1,2024-03-01 10:00:00,Spot,Transaction Spend,USDT,-10,',
+      '1,2024-03-01 10:00:00,Spot,Transaction Spend,USDT,-20,',
+      '1,2024-03-01 10:00:00,Spot,Transaction Buy,ETH,3,'
+    )
+    rename = parse(
+      '1,2024-03-01 10:00:00,Spot,Token Swap - Redenomination/Rebranding,AAA,-1,',
+      '1,2024-03-01 10:00:00,Spot,Token Swap - Redenomination/Rebranding,BBB,-3,',
+      '1,2024-03-01 10:00:00,Spot,Token Swap - Redenomination/Rebranding,CCC,4,'
+    )
+
+    assert_equal 3.to_d, moved(buys)[[:base, 'ETH']]
+    assert_equal 30.to_d, moved(buys)[[:base, 'USDT']] + moved(buys)[[:quote, 'USDT']]
+    assert_equal 4.to_d, moved(rename)[[:base, 'CCC']]
+    assert_equal({ [:base, 'AAA'] => 1.to_d, [:base, 'BBB'] => 3.to_d, [:base, 'CCC'] => 4.to_d }, moved(rename))
+  end
 end

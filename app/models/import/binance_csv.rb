@@ -137,13 +137,14 @@ class Import::BinanceCsv
     end
   end
 
-  # One asset becoming another. Paired by size for the same reason the trade legs are.
+  # One asset becoming another. Paired by size for the same reason the trade legs are; when the two
+  # sides differ in count (two tokens merged into one), the rename is one swap holding every leg.
   def swap_pairs(at, out, inn)
     out = out.sort_by { |row| row[:change] }
     inn = inn.sort_by { |row| -row[:change] }
-    Array.new([out.size, inn.size].max) do |index|
-      swap(at, out[index] || out.last, inn[index] || inn.last, nil)
-    end
+    return swap_group(at, out, inn, []) unless out.size == inn.size
+
+    out.zip(inn).map { |sold, bought| swap(at, sold, bought, nil) }
   end
 
   def single_entry(row)
@@ -232,9 +233,7 @@ class Import::BinanceCsv
     # account really holds.
     return received.map { |row| single_entry(row.merge(kind: :other_income)) } if spent.empty?
 
-    group_id = "#{key}_#{at.to_i}"
-    spent.map { |row| leg(at, row[:coin], row[:change].abs, :swap_out, group_id) } +
-      received.map { |row| leg(at, row[:coin], row[:change], :swap_in, group_id) }
+    swap_legs(at, spent, received, "#{key}_#{at.to_i}", [])
   end
 
   # One trade per FILL. Binance's matching engine fills an order in pieces and writes a Spend/Buy/Fee
@@ -252,31 +251,51 @@ class Import::BinanceCsv
     outgoing = legs.select { |row| row[:change].negative? }.sort_by { |row| row[:change] }
     return [] if incoming.empty? || outgoing.empty?
 
-    # More than one coin on a side is two unrelated trades sharing a second, and nothing in the file
-    # says which leg belongs to which. Never seen in a real export; if it ever appears, the coins are
-    # summed per side rather than paired at random — the totals stay true and no row is dropped.
-    return [merged_trade(at, outgoing, incoming, fees)] if mixed_coins?(outgoing, incoming)
+    # Fills only when the rows say so: one coin a side and as many spends as buys. More than one coin
+    # on a side is unrelated trades sharing a second, and a count that differs is legs Binance did
+    # not write one per fill — nothing in the file says which leg belongs to which. Never seen in a
+    # real export; if it appears, the group is ONE swap holding every leg under its own coin and
+    # amount, rather than legs summed under one coin's name or a leg reused for a second fill.
+    return swap_group(at, outgoing, incoming, fees) unless fills?(outgoing, incoming)
 
-    fills = [outgoing.size, incoming.size].max
-    fee_queue = fees_by_coin(fees, fills)
-    Array.new(fills) do |index|
-      trade(at, outgoing[index] || outgoing.last, incoming[index] || incoming.last, fee_queue[index])
-    end
+    slots, extra = spread_fees(at, fees, outgoing.size)
+    outgoing.zip(incoming, slots).map { |spent, bought, fee| trade(at, spent, bought, fee) } + extra
   end
 
-  def mixed_coins?(outgoing, incoming)
-    outgoing.map { |row| row[:coin] }.uniq.size > 1 || incoming.map { |row| row[:coin] }.uniq.size > 1
+  def fills?(outgoing, incoming)
+    outgoing.size == incoming.size &&
+      outgoing.map { |row| row[:coin] }.uniq.size == 1 && incoming.map { |row| row[:coin] }.uniq.size == 1
   end
 
-  # A fee row per fill, largest with largest — the same reasoning as the legs. A group whose fee rows
-  # do not match its fills puts the whole fee on the first, so the total is never lost.
-  def fees_by_coin(fees, fills)
-    return Array.new(fills) if fees.empty?
+  # [a fee per slot, the fee rows no slot could hold]. A fee row per slot, largest with largest — the
+  # same reasoning as the legs. Otherwise the fees are summed PER COIN, one coin to a slot, and a
+  # coin left over (more fee coins than slots) is booked as a fee of its own: never added to another
+  # coin's amount, never lost.
+  def spread_fees(at, fees, slots)
+    return [Array.new(slots), []] if fees.empty?
 
     sorted = fees.sort_by { |row| row[:change] }
-    return sorted if sorted.size == fills
+    return [sorted, []] if sorted.size == slots
 
-    [{ coin: sorted.first[:coin], change: sorted.sum { |row| row[:change] } }] + Array.new(fills - 1)
+    per_coin = sorted.group_by { |row| row[:coin] }.map do |coin, rows|
+      { coin: coin, change: rows.sum { |row| row[:change] } }
+    end
+    extra = per_coin.drop(slots).map { |fee| leg(at, fee[:coin], fee[:change].abs, :fee, nil) }
+    [per_coin.first(slots) + Array.new([slots - per_coin.size, 0].max), extra]
+  end
+
+  # Legs that cannot be paired: one swap, every leg its own row. Fees ride on the incoming legs, where
+  # `swap` puts a fill's fee.
+  def swap_group(at, outgoing, incoming, fees)
+    coins = ->(rows) { rows.map { |row| row[:coin] }.uniq.join('-') }
+    swap_legs(at, outgoing, incoming, "swapcsv_#{at.to_i}_#{coins.call(outgoing)}_#{coins.call(incoming)}", fees)
+  end
+
+  def swap_legs(at, spent, received, group_id, fees)
+    slots, extra = spread_fees(at, fees, received.size)
+    spent.map { |row| leg(at, row[:coin], row[:change].abs, :swap_out, group_id) } +
+      received.zip(slots).map { |row, fee| leg(at, row[:coin], row[:change], :swap_in, group_id).merge(fee_of(fee)) } +
+      extra
   end
 
   # Which of the three a fill is, decided by which side holds the cash — the same split
@@ -286,11 +305,6 @@ class Import::BinanceCsv
     return sale(at, spent, bought, fee) if bought[:coin].match?(CASH)
 
     swap(at, spent, bought, fee)
-  end
-
-  def merged_trade(at, outgoing, incoming, fees)
-    sum = ->(rows) { { coin: rows.first[:coin], change: rows.sum { |row| row[:change] } } }
-    trade(at, sum.call(outgoing), sum.call(incoming), fees.any? ? sum.call(fees) : nil)
   end
 
   def purchase(at, bought, spent, fee)
