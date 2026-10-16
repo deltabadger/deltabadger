@@ -366,36 +366,6 @@ class Exchanges::Bitvavo < Exchange
     start_ms = start_time ? (start_time.to_f * 1000).to_i : nil
     entries = []
 
-    # Discover coins from balances, then query trades per market
-    coins = Set.new
-    bal_result = hm_client.get_raw_balance
-    if bal_result.success?
-      Array(bal_result.data).each { |b| coins << b['symbol'] if b['available'].to_d.positive? || b['inOrder'].to_d.positive? }
-    end
-
-    markets_result = hm_client.get_markets
-    traded_markets = if markets_result.success?
-                       Array(markets_result.data).select { |m| coins.include?(m['base']) }.map { |m| m['market'] }
-                     else
-                       tickers.available.pluck(:ticker)
-                     end
-
-    traded_markets.each do |market|
-      result = hm_client.get_trades(market: market, start_time: start_ms)
-      next if result.failure?
-
-      parts = market.split('-')
-      Array(result.data).each do |trade|
-        is_buyer = trade['side'] == 'buy'
-        entries << { entry_type: is_buyer ? :buy : :sell,
-                     base_currency: parts[0], base_amount: trade['amount'].to_d,
-                     quote_currency: parts[1], quote_amount: (trade['amount'].to_d * trade['price'].to_d),
-                     fee_currency: trade['feeCurrency'], fee_amount: trade['fee'].to_d,
-                     tx_id: trade['id'], group_id: nil, description: nil,
-                     transacted_at: Time.at(trade['timestamp'].to_i / 1000.0).utc, raw_data: trade }
-      end
-    end
-
     # Deposits and withdrawals. Any failed read fails the whole fetch: a partial Success would let the
     # sync move its watermark past the rows it never got.
     deposits = read_transfers(hm_client, DEPOSITS_PATH, start_ms)
@@ -428,6 +398,43 @@ class Exchanges::Bitvavo < Exchange
                    transacted_at: Time.at(wd['timestamp'].to_i / 1000.0).utc, raw_data: wd }
     end
 
+    # Trades, per market: every market whose base the account holds or moved in the window, the
+    # markets it traded before, and the ones its bots ordered on. Without the balances or the listing,
+    # markets would go unread while the fetch succeeded.
+    coins = entries.to_set { |entry| entry[:base_currency] }
+    balances = hm_client.get_raw_balance
+    return balances if balances.failure?
+
+    Array(balances.data).each { |b| coins << b['symbol'] if b['available'].to_d.positive? || b['inOrder'].to_d.positive? }
+    listing = hm_client.get_markets
+    return listing if listing.failure?
+
+    # A sale that emptied a coin leaves no balance to find its market by, and a bot's buy and sell
+    # between two syncs leave no balance, transfer or stored row behind.
+    # ponytail: /v2/trades takes one market, so a market traded by hand, bought and sold out between
+    # two syncs and never seen before, is still not read. /v2/account/history would find it.
+    traded_before = AccountTransaction.where(user_id: api_key.user_id, exchange_id: api_key.exchange_id)
+                                      .where(entry_type: %i[buy sell]).distinct
+                                      .pluck(:base_currency, :quote_currency)
+    traded_before += Transaction.joins(:bot).where(exchange_id: api_key.exchange_id, bots: { user_id: api_key.user_id })
+                                .distinct.pluck(:base, :quote)
+    traded_before = traded_before.map { |pair| pair.join('-') }
+    markets = Array(listing.data).map { |m| m['market'] }
+    markets.select { |market| coins.include?(market.split('-').first) || traded_before.include?(market) }.each do |market|
+      trades = read_trades(hm_client, market, start_ms)
+      return trades if trades.failure?
+
+      base, quote = market.split('-')
+      trades.data.each do |trade|
+        entries << { entry_type: trade['side'] == 'buy' ? :buy : :sell,
+                     base_currency: base, base_amount: trade['amount'].to_d,
+                     quote_currency: quote, quote_amount: trade['amount'].to_d * trade['price'].to_d,
+                     fee_currency: trade['feeCurrency'], fee_amount: trade['fee'].to_d,
+                     tx_id: trade['id'], group_id: nil, description: nil,
+                     transacted_at: Time.at(trade['timestamp'].to_i / 1000.0).utc, raw_data: trade }
+      end
+    end
+
     Result::Success.new(entries)
   end
 
@@ -438,11 +445,8 @@ class Exchanges::Bitvavo < Exchange
   DEPOSITS_PATH = '/v2/depositHistory'.freeze
   WITHDRAWALS_PATH = '/v2/withdrawalHistory'.freeze
   TRANSFERS_PAGE_LIMIT = 1000
-  TRADES_PAGE_LIMIT  = 1000              # Bitvavo /v2/trades hard max
-  TRADES_WINDOW      = 24.hours          # Bitvavo /v2/trades: `end - start` must be <= 24h
-  TRADES_MAX_WINDOWS = 40                # safety cap (40 * 24h = 40d > 14d StaleOrder threshold)
-  TRADES_MAX_PAGES   = 50                # per-window page cap (50 * 1000 trades is far beyond DCA)
-  private_constant :DEPOSITS_PATH, :WITHDRAWALS_PATH, :TRANSFERS_PAGE_LIMIT, :TRADES_PAGE_LIMIT, :TRADES_WINDOW, :TRADES_MAX_WINDOWS, :TRADES_MAX_PAGES
+  TRADES_PAGE_LIMIT = 1000 # Bitvavo /v2/trades hard max
+  private_constant :DEPOSITS_PATH, :WITHDRAWALS_PATH, :TRANSFERS_PAGE_LIMIT, :TRADES_PAGE_LIMIT
 
   # Every transfer since start_ms (all of them without one). Newest first, at most 1000 a call, and
   # no record id or cursor: each page ends at the oldest timestamp of the one before, plus a
@@ -483,9 +487,8 @@ class Exchanges::Bitvavo < Exchange
   # Bitvavo dropped the order (240). Recover any execution from get_trades — authoritative for
   # fills — keyed on this order's id, bounding the lookback by the order's own row (get_trades
   # needs a start_time, and get_order has none) minus a 1h buffer (immediate fill / clock skew).
-  # PAGINATES the [start, now] window (Bitvavo returns newest-first, capped at TRADES_PAGE_LIMIT)
-  # so a matching trade can't hide beyond the first page on a high-volume account (Codex r1) — this
-  # is what lets authoritative_missing_orders? be true. Returns a synthesized :closed when execution
+  # Reads every trade since then (read_trades), so a matching trade can't hide beyond the first page
+  # on a high-volume account — this is what lets authoritative_missing_orders? be true. Returns a synthesized :closed when execution
   # is proven, else a distinct not_found signal (so FetchAndUpdateOrderJob's StaleOrderResolver path
   # fires). A transient get_trades failure is PROPAGATED, never degraded to not_found (so the job
   # retries instead of abandoning a real fill).
@@ -495,66 +498,37 @@ class Exchanges::Bitvavo < Exchange
     return not_found_failure(order_id) unless since
 
     start_ms = ((since - 1.hour).to_f * 1000).to_i
-    result = fetch_order_trades(market, ext_order_id, start_ms)
+    result = read_trades(client, market, start_ms)
     return result if result.failure?
 
-    trades = result.data
+    trades = result.data.select { |trade| trade['orderId'].to_s == ext_order_id.to_s }
     return not_found_failure(order_id) if trades.empty?
 
     Result::Success.new(order_data_from_trades(order_id, market, trades))
   end
 
-  # Collect every Bitvavo trade whose orderId matches, across [start_ms, now]. Two nested loops:
-  #
-  #  * OUTER — chunk the range into <=24h windows. Bitvavo /v2/trades requires `end - start <= 24h`
-  #    (https://docs.bitvavo.com/docs/rest-api/get-trade-history), so a single call can't span an
-  #    order older than a day. We walk forward window by window until `now` (Codex r2).
-  #  * INNER — page each window newest-first using the `tradeIdTo` CURSOR, not a timestamp ceiling.
-  #    Bitvavo returns trades newest-first by sequence, and `tradeIdTo` returns trades strictly OLDER
-  #    than the given id, so cursoring by the page's LAST (oldest) id can't skip a same-millisecond
-  #    boundary trade the way an `end_ms - 1` ceiling could (Codex r2/r3). Re-query until a short
-  #    page (< limit) ends the window.
-  #
-  # Returns a Result: a page failure is PROPAGATED (so a transient blip retries, never abandons a
-  # real fill). Dedupe matched trades by `id`. DCA accounts resolve in one window / one page; the
-  # caps (TRADES_MAX_WINDOWS / TRADES_MAX_PAGES) are safety rails for pathological histories.
-  def fetch_order_trades(market, ext_order_id, start_ms)
-    matched = {} # trade id => trade
-    now_ms = (Time.current.to_f * 1000).to_i
-    window_start = start_ms
-    windows = 0
+  # Every trade on `market` from start_ms on (all of them without one). Bitvavo answers newest first,
+  # at most 1000 a call. With start and end the range is capped at 24 hours, and start alone is
+  # refused ("start and end must be provided together"), but a tradeIdTo cursor alone reaches any
+  # age and returns trades strictly older than that id (both checked live on the public trades
+  # endpoint, which takes the same parameters). So each page continues before the oldest id of the
+  # one before, until a short page or one that reaches past start_ms. Repeats are dropped by id, and
+  # a full page with nothing new fails rather than loops. A failed page fails the whole read.
+  def read_trades(hm_client, market, start_ms)
+    trades = {}
+    cursor = nil
+    loop do
+      result = hm_client.get_trades(market: market, limit: TRADES_PAGE_LIMIT, trade_id_to: cursor)
+      return result if result.failure?
 
-    while window_start < now_ms && windows < TRADES_MAX_WINDOWS
-      windows += 1
-      window_end = [window_start + (TRADES_WINDOW.to_i * 1000), now_ms].min
-      trade_id_to = nil # newest first within the window
-      pages = 0
+      page = Array(result.data)
+      fresh = page.count { |trade| trades[trade['id']] ? false : (trades[trade['id']] = trade) }
+      break if page.size < TRADES_PAGE_LIMIT || (start_ms && page.map { |trade| trade['timestamp'].to_i }.min < start_ms)
+      return Result::Failure.new("#{name} trades on #{market} returned a full page with nothing new") if fresh.zero?
 
-      loop do
-        pages += 1
-        result = client.get_trades(market: market, start_time: window_start, end_time: window_end,
-                                   limit: TRADES_PAGE_LIMIT, trade_id_to: trade_id_to)
-        return result if result.failure?
-
-        page = Array(result.data)
-        break if page.empty?
-
-        page.each { |t| matched[t['id']] = t if t['orderId'].to_s == ext_order_id.to_s }
-
-        break if page.size < TRADES_PAGE_LIMIT || pages >= TRADES_MAX_PAGES
-
-        # Advance the cursor by the genuinely-oldest trade on the page. Bitvavo returns trades
-        # newest-first ordered by sequence/id, so the LAST element is the oldest — use its id, NOT
-        # min-by-timestamp (which, on a same-ms cluster, would pick the first minimum and advance
-        # by a single trade per request → could hit TRADES_MAX_PAGES before the match; Codex r3).
-        # `tradeIdTo` returns trades strictly older than this id, so we never re-fetch or skip it.
-        trade_id_to = page.last['id']
-      end
-
-      window_start = window_end # next <=24h window (window_end is the inclusive ceiling we just covered)
+      cursor = page.last['id'] # the oldest: pages come in trade sequence, newest first
     end
-
-    Result::Success.new(matched.values)
+    Result::Success.new(trades.values.select { |trade| start_ms.nil? || trade['timestamp'].to_i >= start_ms })
   end
 
   def not_found_failure(order_id)
