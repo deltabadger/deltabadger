@@ -315,7 +315,9 @@ class Exchanges::Bitvavo < Exchange
       result = probe.call
       code = response_field(result, 'errorCode')
       next if (result.success? && code.nil?) || code == KEY_CHECK_ORDER_NOT_FOUND
-      return Result::Success.new(false) if KEY_CHECK_REFUSED.include?(code) || condemning_invalid_key_error?(result.errors)
+      # An HTTP-200 envelope carries its error in the body, not in `errors`.
+      answer = result.success? ? [result.data.to_json] : result.errors
+      return Result::Success.new(false) if KEY_CHECK_REFUSED.include?(code) || condemning_invalid_key_error?(answer)
 
       return result.failure? ? result : Result::Failure.new(response_field(result, 'error').presence || "Bitvavo answered errorCode #{code}")
     end

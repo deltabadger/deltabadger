@@ -144,6 +144,13 @@ class KeyCheckCodesTest < ActiveSupport::TestCase
       assert_rejected verdict(@exchange)
     end
 
+    test 'a dead key or a wrong secret in a 200 envelope is rejected' do
+      probe(envelope('errorCode' => 305, 'error' => 'No active API key found.'))
+      assert_rejected verdict(@exchange)
+      probe(envelope('errorCode' => 309, 'error' => 'The signature is invalid.'))
+      assert_rejected verdict(@exchange)
+    end
+
     test 'a wrong secret is rejected' do
       probe(http_error({ errorCode: 309, error: 'The signature is invalid.' }, 403))
       assert_rejected verdict(@exchange)
