@@ -188,7 +188,7 @@ impl Transport for Wire {
                 // Market data is scripted by the parameters that pick a series; any other host by its whole sorted query.
                 let host=r.base.split_once("://").map_or(r.base.as_str(),|(_,h)|h);
                 let data=host=="data.alpaca.markets";
-                let mut picked:Vec<_>=r.query.iter().filter(|(k,_)|!data||r.path.ends_with("/bars")&&(*k=="adjustment"||*k=="symbols")).collect();
+                let mut picked:Vec<_>=r.query.iter().filter(|(k,_)|!data||r.path.ends_with("/bars")&&(*k=="adjustment"||*k=="page_token"||*k=="symbols")).collect();
                 if !data{picked.sort();}
                 let suffix=if picked.is_empty(){String::new()}else{format!("?{}",picked.iter().map(|(k,v)|format!("{k}={v}")).collect::<Vec<_>>().join("&"))};
                 let key=format!("{} {host}{}{suffix}",r.method,r.path);

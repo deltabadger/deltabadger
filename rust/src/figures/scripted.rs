@@ -95,18 +95,22 @@ impl MarketData for Scripted {
     fn candles(&self, _venue: &Venue, ticker: &Ticker, since: At, timeframe: i64, restated: bool) -> Fetch<Vec<(At, Dec)>> {
         let start = since.utc().format("%Y-%m-%dT%H:%M:%SZ").to_string();
         let name = timeframe_name(timeframe);
-        let bars = if ticker.base_category.as_deref() == Some("Cryptocurrency") {
-            let pair = [("symbols", ticker.ticker.as_str())];
-            let body = self.alpaca("/v1beta3/crypto/us/bars", &pair, &[("start", &start), pair[0], ("timeframe", name)])?;
-            body["bars"][&ticker.ticker].clone()
-        } else {
-            let path = format!("/v2/stocks/{}/bars", ticker.base);
-            let adjustment = [("adjustment", "split")];
-            let rest = [("limit", "10000"), ("start", start.as_str()), ("timeframe", name)];
-            let body = if restated { self.alpaca(&path, &adjustment, &[adjustment[0], rest[0], rest[1], rest[2]])? } else { self.alpaca(&path, &[], &rest)? };
-            body["bars"].clone()
-        };
-        bars.as_array().into_iter().flatten().map(|bar| {
+        let crypto = ticker.base_category.as_deref() == Some("Cryptocurrency");
+        let path = if crypto { "/v1beta3/crypto/us/bars".to_string() } else { format!("/v2/stocks/{}/bars", ticker.base) };
+        // Clients::Alpaca reads every page, each naming the next; the token joins the query in its sorted place.
+        let mut bars = vec![];
+        let mut token: Option<String> = None;
+        loop {
+            let mut query: Vec<(&str, &str)> = vec![("limit", "10000"), ("start", start.as_str()), ("timeframe", name)];
+            if crypto { query.insert(2, ("symbols", ticker.ticker.as_str())); } else if restated { query.insert(0, ("adjustment", "split")); }
+            if let Some(token) = &token { let at = query.iter().position(|(k, _)| *k > "page_token").unwrap_or(query.len()); query.insert(at, ("page_token", token)); }
+            let picked: Vec<(&str, &str)> = query.iter().filter(|(k, _)| matches!(*k, "adjustment" | "page_token" | "symbols")).copied().collect();
+            let body = self.alpaca(&path, &picked, &query)?;
+            let page = if crypto { &body["bars"][&ticker.ticker] } else { &body["bars"] };
+            bars.extend(page.as_array().into_iter().flatten().cloned());
+            match body["next_page_token"].as_str().filter(|t| !t.is_empty()) { Some(next) => token = Some(next.to_string()), None => break }
+        }
+        bars.iter().map(|bar| {
             let at = bar["t"].as_str().and_then(|t| DateTime::parse_from_rfc3339(t).ok()).and_then(|t| At::from_utc(t.to_utc()));
             let at = at.ok_or_else(|| Failure::Failed(format!("a bar without a time: {bar}")))?;
             Ok((at, Dec::to_d(&bar["o"])?))
