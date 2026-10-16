@@ -23,7 +23,7 @@ fn distinct_unfilled_symbols_share_the_walk_budget() {
         quote: Some("USD".into()), tickers: vec![],
         orders: (0..100_000).map(|i| db::Order {
             id: i, at: At(i), exchange_id: Some(1), raw: deltabadger::figures::fill::Raw::new(None,None,None,None), base: Some(format!("SYM{i:06}")), asset_id: Some(2),
-            sell: false, buy: true, closed: false, kind: "REGULAR".into(),
+            sell: false, buy: true, closed: false, kind: "REGULAR".into(), abandoned_request: None,
         }).collect(),
     };
     let small = Limits { steps: 50_000, held: 1_000_000 };

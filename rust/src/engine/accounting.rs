@@ -505,7 +505,13 @@ pub fn index_redeploy_totals(orders: &[crate::figures::db::Order]) -> Result<(cr
         crate::figures::budget::charge(1,0)?;
         match order.kind.as_str(){
             "LIQUIDATION"=>if let Some(value)=crate::figures::fill::reported(order)? { banked=(&banked+&value)?; },
-            "REDEPLOY"=>if let Some(fill)=crate::figures::fill::parse(order)? { spent=(&spent+&fill.value)?; },
+            "REDEPLOY"=>{
+                let fill=crate::figures::fill::parse(order)?.map_or_else(Dec::zero,|fill| fill.value);
+                // Abandoned is "we lost track", not "it never filled": at least what it asked for, so clearing the halt
+                // never offers that money again. A row found later closes or cancels and reads its real fill alone.
+                let value=match &order.abandoned_request { Some(request) if request>&fill => request.clone(), _ => fill };
+                spent=(&spent+&value)?;
+            },
             _=>{},
         }
     }

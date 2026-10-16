@@ -4,7 +4,7 @@ use super::*;
         c.execute_batch("CREATE TABLE bots(id INTEGER,redeploy_declined_offset DECIMAL); INSERT INTO bots VALUES(1,0);
             CREATE TABLE tickers(id INTEGER,minimum_quote_size DECIMAL); INSERT INTO tickers VALUES(1,1);
             CREATE TABLE bot_index_assets(bot_id INTEGER,ticker_id INTEGER,in_index INTEGER); INSERT INTO bot_index_assets VALUES(1,1,1);
-            CREATE TABLE transactions(id INTEGER,bot_id INTEGER,status INTEGER,created_at TEXT,exchange_id INTEGER,price DECIMAL,amount DECIMAL,amount_exec DECIMAL,quote_amount_exec DECIMAL,base TEXT,base_asset_id INTEGER,side INTEGER,external_status INTEGER,transaction_type TEXT);
+            CREATE TABLE transactions(id INTEGER,bot_id INTEGER,status INTEGER,created_at TEXT,exchange_id INTEGER,price DECIMAL,amount DECIMAL,amount_exec DECIMAL,quote_amount_exec DECIMAL,base TEXT,base_asset_id INTEGER,side INTEGER,external_status INTEGER,transaction_type TEXT,quote_amount DECIMAL GENERATED ALWAYS AS (NULL) VIRTUAL);
             INSERT INTO transactions VALUES(1,1,0,'2026-03-02 00:00:00',1,110,1,1,NULL,'AAA',2,1,3,'LIQUIDATION');").unwrap();
         if redeploy {c.execute_batch("UPDATE transactions SET quote_amount_exec=110 WHERE id=1;
             INSERT INTO transactions VALUES(2,1,0,'2026-03-02 00:01:00',1,100,1,0.5,NULL,'AAA',2,0,2,'REDEPLOY');").unwrap();}
