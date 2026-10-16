@@ -31,11 +31,13 @@ class Import::BinanceCsv
     'Deposit' => :deposit, 'Fiat Deposit' => :deposit,
     'Withdraw' => :withdrawal, 'Fiat Withdraw' => :withdrawal,
     'Commission Rebate' => :other_income,
+    'Commission History' => :other_income,
     'Referral Kickback' => :other_income,
     'Commission Fee Shared With You' => :other_income,
     'Distribution' => :other_income,
     'Asset Recovery' => :other_income,
-    'Token Swap - Distribution' => :other_income,
+    # Seen only as a clawback ("TWT回收", a staking reward taken back), which the sign makes `lost`.
+    'Asset - Transfer' => :other_income,
     'Token Swap - Redenomination/Rebranding' => :other_income,
     'Pool Distribution' => :staking_reward,
     'Staking Rewards' => :staking_reward,
@@ -43,6 +45,8 @@ class Import::BinanceCsv
     'Simple Earn Locked Rewards' => :lending_interest,
     'Savings Interest' => :lending_interest,
     'Airdrop Assets' => :airdrop,
+    # The API books this as a dividend, which `import_dividends` makes an airdrop.
+    'Token Swap - Distribution' => :airdrop,
     'Transfer Between Spot and Funding' => nil,
     'Transfer Between Main and Funding Account' => nil,
     'Ledger - Fund Migration' => nil,

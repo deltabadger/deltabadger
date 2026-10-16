@@ -404,10 +404,53 @@ class AccountTransactionSyncTest < ActiveSupport::TestCase
 
     file = api.merge(tx_id: nil, group_id: 'swapcsv_1', description: nil, transacted_at: Time.utc(2021, 9, 20, 6, 22, 54))
     rounded = AccountTransactionSync.new(@api_key).store!([file])
-    later = AccountTransactionSync.new(@api_key).store!([file.merge(transacted_at: at + 1.second)])
+    later = AccountTransactionSync.new(@api_key).store!([file.merge(transacted_at: at + 1.001)])
 
     assert_equal({ imported: 0, duplicates: 1 }, rounded.slice(:imported, :duplicates), 'the same Convert')
-    assert_equal({ imported: 1, duplicates: 0 }, later.slice(:imported, :duplicates), 'a full second on: its own row')
+    assert_equal({ imported: 1, duplicates: 0 }, later.slice(:imported, :duplicates), 'over a second on: its own row')
+  end
+
+  # The API cuts a Convert to the whole second, the export rounds it up: 14:29:18 against 14:29:19.
+  test 'a file row exactly a second after the API row is the same event, but not after a file row' do
+    at = Time.utc(2021, 3, 10, 14, 29, 18)
+    api = { entry_type: :swap_out, base_currency: 'USDT', base_amount: '12.90748981'.to_d,
+            tx_id: '11070031571-out', transacted_at: at, raw_data: {} }
+    file = api.merge(tx_id: nil, transacted_at: at + 1.second)
+
+    assert_equal 1, AccountTransactionSync.new(@api_key).store!([api])[:imported]
+    assert_equal 0, AccountTransactionSync.new(@api_key).store!([file])[:imported], 'the API row, a second off'
+
+    AccountTransaction.delete_all
+    AccountTransactionSync.new(@api_key).store!([file.merge(transacted_at: at)])
+    assert_equal 1, AccountTransactionSync.new(@api_key).store!([file])[:imported], 'two file rows a second apart are two'
+  end
+
+  # An export repeats identical rows in one second, each a real credit. A row this run stored is no
+  # evidence against the next; rows stored before it are, one for one.
+  test 'identical rows in one batch are all stored, and only once' do
+    row = { entry_type: :other_income, base_currency: 'USDT', base_amount: '0.06303219'.to_d, tx_id: nil,
+            transacted_at: Time.utc(2021, 1, 7, 18, 28, 41), raw_data: { 'operation' => 'Commission History' } }
+    store = -> { AccountTransactionSync.new(@api_key).store!([row, row.dup, row.dup]).slice(:imported, :duplicates) }
+
+    assert_equal({ imported: 3, duplicates: 0 }, store.call)
+    assert_equal({ imported: 0, duplicates: 3 }, store.call, 'the same batch again')
+
+    AccountTransaction.order(:id).last.destroy!
+    assert_equal({ imported: 1, duplicates: 2 }, store.call, 'only the surplus over what was stored')
+    assert_equal 3, AccountTransaction.count
+  end
+
+  # A deposit whose id is already on a file row dated when it was credited; the id-less copy of the same deposit is
+  # stored too. The id'd entry is skipped on its id, and must not use up the id-less one's match.
+  test 'a row skipped on its id is not one of the identical rows counted' do
+    at = Time.utc(2021, 7, 1, 11, 6, 41)
+    row = { entry_type: :deposit, base_currency: 'XRP', base_amount: '30'.to_d, transacted_at: at, raw_data: {} }
+    create(:account_transaction, api_key: @api_key, exchange: @exchange, **row, tx_id: 'dep-a', transacted_at: at + 46)
+    create(:account_transaction, api_key: @api_key, exchange: @exchange, **row, tx_id: nil)
+
+    counts = AccountTransactionSync.new(@api_key).store!([row.merge(tx_id: 'dep-a'), row.merge(tx_id: nil)])
+
+    assert_equal({ imported: 0, duplicates: 2 }, counts.slice(:imported, :duplicates))
   end
 
   # The other way round: a file imported BEFORE the first sync stores its rows with no id, and the
@@ -459,7 +502,7 @@ class AccountTransactionSyncTest < ActiveSupport::TestCase
 
   test 'an API deposit pairs with the file row credited up to ten minutes later, and claims it' do
     credited = Time.utc(2021, 7, 1, 11, 7, 4)
-    { -46 => 1, -((9 * 60) + 59) => 1, -10 * 60 => 2, -0.5 => 1, 0.5 => 2, 10 => 2 }.each do |offset, rows|
+    { -46 => 1, -((9 * 60) + 59) => 1, -10 * 60 => 1, -601 => 2, -0.5 => 1, 0.5 => 2, 10 => 2 }.each do |offset, rows|
       AccountTransaction.delete_all
       store(file_transfer(:deposit, '150.2', credited))
       store(api_deposit(at: credited + offset))
@@ -474,7 +517,7 @@ class AccountTransactionSyncTest < ActiveSupport::TestCase
 
   test 'a file deposit pairs with the stored API row it was credited after, and marks it' do
     seen = Time.utc(2021, 7, 1, 11, 6, 41)
-    { 23 => 0, 10 * 60 => 1, -1 => 1 }.each do |offset, imported|
+    { 23 => 0, 10 * 60 => 0, 601 => 1, -1 => 1 }.each do |offset, imported|
       AccountTransaction.delete_all
       store(api_deposit(at: seen))
       counts = store(file_transfer(:deposit, '150.2', seen + offset))
@@ -764,6 +807,32 @@ class AccountTransactionSyncTest < ActiveSupport::TestCase
     store(api_dust(at:, id: 1).last)
     store(api_dust(at:, id: 1).first, *api_dust(at:, id: 2))
     assert_equal %w[dust-1-in dust-1-out dust-2-in dust-2-out], AccountTransaction.pluck(:tx_id).sort, 'one leg per call'
+  end
+
+  # The pairings follow the run rules too: a row this run stored is no evidence, the rest count one for one.
+  test 'two identical dust sweeps in one second of a file are both stored, and only once' do
+    at = Time.utc(2021, 9, 21, 19, 22, 0)
+    assert_equal({ imported: 4, duplicates: 0 }, store(*file_dust(at:), *file_dust(at:)).slice(:imported, :duplicates))
+    assert_equal({ imported: 0, duplicates: 4 }, store(*file_dust(at:), *file_dust(at:)).slice(:imported, :duplicates), 'the same file again')
+  end
+
+  test 'two identical file transfers in one batch are both stored, and only once' do
+    row = file_transfer(:deposit, '150.2', Time.utc(2021, 7, 1, 11, 7, 4))
+    assert_equal({ imported: 2, duplicates: 0 }, store(row, row.dup).slice(:imported, :duplicates))
+    assert_equal({ imported: 0, duplicates: 2 }, store(row, row.dup).slice(:imported, :duplicates), 'the same file again')
+  end
+
+  # One stored id-less row the pairing does not govern, exactly a second on (across sources), is one event: of two
+  # identical API conversions or deposits, it accounts for the first only.
+  test 'a stored row outside the pairing counts one for one against identical API dust and deposits' do
+    at = Time.utc(2021, 9, 21, 19, 22, 0)
+    create(:account_transaction, api_key: @api_key, exchange: @exchange, entry_type: :swap_out, base_currency: 'USDT',
+                                 base_amount: '25.47403194'.to_d, tx_id: nil, transacted_at: at + 1, raw_data: {})
+    create(:account_transaction, api_key: @api_key, exchange: @exchange, entry_type: :deposit, base_currency: 'USDT',
+                                 base_amount: '150.2'.to_d, tx_id: nil, transacted_at: at + 1, raw_data: {})
+    store(*api_dust(at:, id: 1), *api_dust(at:, id: 2), api_deposit(at:, id: 'dep-1'), api_deposit(at:, id: 'dep-2'))
+
+    assert_equal [nil, nil, 'dep-2', 'dust-1-in', 'dust-2-in', 'dust-2-out'], AccountTransaction.pluck(:tx_id).sort_by(&:to_s)
   end
 
   # A Convert out of cash used to be read from the file as a purchase; it is now the swap pair the
