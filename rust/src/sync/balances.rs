@@ -124,7 +124,7 @@ pub struct Summary {
     pub pricing_error: Option<String>,
 }
 
-pub(crate) struct Catalog {
+pub struct Catalog {
     user_id: i64, exchange_id: i64,
     /// `exchange.assets.pluck(:id)`: the assets the venue lists, in the order the rows are written.
     asset_ids: Vec<i64>,
@@ -542,19 +542,33 @@ fn catalog(c: &Connection, key_id: i64) -> Result<Catalog, SyncError> {
 pub(crate) fn catalog_for(c: &Connection, user_id: i64, exchange_id: i64) -> Result<Catalog, SyncError> {
     let mut s = c.prepare("SELECT assets.id FROM assets INNER JOIN exchange_assets ON assets.id = exchange_assets.asset_id WHERE exchange_assets.exchange_id = ?1 ORDER BY exchange_assets.id")?;
     let asset_ids = s.query_map([exchange_id], |r| r.get(0))?.collect::<Result<Vec<i64>, _>>()?;
-    let mut by_symbol: HashMap<(String, String), HashSet<i64>> = HashMap::new();
     let mut s = c.prepare("SELECT t.ticker, a.category, t.base_asset_id FROM tickers t JOIN assets a ON a.id=t.base_asset_id WHERE t.exchange_id = ?1 ORDER BY t.id")?;
-    for row in s.query_map([exchange_id], |r| Ok((r.get::<_, String>(0)?, r.get::<_, Option<String>>(1)?, r.get::<_, i64>(2)?)))? {
-        let (native, category, asset) = row?;
-        let Some(category) = category.filter(|c| c == "Stock" || c == "Cryptocurrency") else { continue };
-        let native = position_spelling(&native).to_string();
-        let mut names = vec![native.clone()];
-        if category == "Cryptocurrency" { names.push(native.replace('/', "")); }
-        for name in names { by_symbol.entry((category.clone(), name)).or_default().insert(asset); }
-    }
+    let tickers = s.query_map([exchange_id], |r| Ok((r.get::<_, String>(0)?, r.get::<_, Option<String>>(1)?, r.get::<_, i64>(2)?)))?.collect::<Result<Vec<_>, _>>()?;
     let mut s = c.prepare("SELECT DISTINCT a.id FROM assets a JOIN exchange_assets ea ON ea.asset_id=a.id WHERE ea.exchange_id=?1 AND a.category IN ('Fiat','Currency') AND a.symbol='USD'")?;
     let cash_ids = s.query_map([exchange_id], |r| r.get(0))?.collect::<Result<Vec<i64>, _>>()?;
-    Ok(Catalog { user_id, exchange_id, asset_ids, by_symbol, cash_ids })
+    Ok(Catalog { user_id, exchange_id, ..Catalog::new(asset_ids, &tickers, cash_ids) })
+}
+
+impl Catalog {
+    /// Exchanges::Alpaca#live_ticker_index over `tickers` (native ticker, base category, base asset id): a Stock or
+    /// Cryptocurrency position is named by its class and native spelling (crypto also without the slash). `asset_ids` is
+    /// `exchange.assets`, `cash_ids` the USD cash assets among them.
+    pub fn new(asset_ids: Vec<i64>, tickers: &[(String, Option<String>, i64)], cash_ids: Vec<i64>) -> Self {
+        let mut by_symbol: HashMap<(String, String), HashSet<i64>> = HashMap::new();
+        for (native, category, asset) in tickers {
+            let Some(category) = category.as_ref().filter(|c| *c == "Stock" || *c == "Cryptocurrency") else { continue };
+            let native = position_spelling(native).to_string();
+            let mut names = vec![native.clone()];
+            if category == "Cryptocurrency" { names.push(native.replace('/', "")); }
+            for name in names { by_symbol.entry((category.clone(), name)).or_default().insert(*asset); }
+        }
+        Catalog { user_id: 0, exchange_id: 0, asset_ids, by_symbol, cash_ids }
+    }
+
+    /// The distinct assets a position of this class and symbol could be (Rails' `candidates`, uniq by id).
+    pub(crate) fn candidates(&self, category: &str, symbol: &str) -> Option<&HashSet<i64>> {
+        self.by_symbol.get(&(category.to_string(), symbol.to_string()))
+    }
 }
 
 pub(crate) fn position_spelling(native: &str) -> &str {

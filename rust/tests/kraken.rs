@@ -355,6 +355,8 @@ async fn a_sellers_free_base_is_read_under_the_tickers_base_code_and_never_reads
     let (_, v) = venue(json!({ "POST /0/private/BalanceEx": ok(json!({ "error": [], "result": { "ZEUR": { "balance": "100.5", "hold_trade": "20.25" }, "XXBT": { "balance": "1.5", "hold_trade": "0.25" } } })) }));
     // XXBT → XBT, the ticker's base code. The asset's symbol "BTC" names no Kraken row: read by symbol it would be 0.
     assert_eq!(v.free_base_balance(&xbt_eur()).await, Ok(bd("1.25")));
+    let no_catalog = || -> Result<deltabadger::sync::balances::Catalog, VenueError> { panic!("Kraken names assets by code") };
+    assert_eq!(v.settled_quote_balance(&xbt_eur(), no_catalog).await, Ok(bd("80.25")), "the quote's own row: ZEUR → EUR, balance − hold_trade");
     assert_eq!(v.balance("BTC", true).await, Ok(BigDec::zero()), "why the base is read by its code");
     let (_, v) = venue(json!({ "POST /0/private/BalanceEx": ok(json!({ "error": [], "result": { "ZEUR": { "balance": "1", "hold_trade": "0" } } })) }));
     assert_eq!(v.free_base_balance(&xbt_eur()).await, Ok(BigDec::zero()), "absent is no holdings");
