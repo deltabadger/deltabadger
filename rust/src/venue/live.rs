@@ -33,6 +33,8 @@ impl Venue for LiveVenue {
     async fn order_by_client_id(&self, id: &str, symbol: &str, since: DateTime<Utc>) -> Result<Option<OrderState>, VenueError> { each!(self, v => v.order_by_client_id(id, symbol, since).await) }
     async fn fills_from_trades(&self, ids: &[String], since: DateTime<Utc>) -> Result<Vec<OrderState>, VenueError> { each!(self, v => v.fills_from_trades(ids, since).await) }
     async fn balance(&self, s: &str, crypto: bool) -> Result<BigDec, VenueError> { each!(self, v => v.balance(s, crypto).await) }
+    async fn free_base_balance(&self, t: &Ticker) -> Result<BigDec, VenueError> { each!(self, v => v.free_base_balance(t).await) }
+    async fn cancel(&self, txid: &str) -> Result<(), VenueError> { each!(self, v => v.cancel(txid).await) }
 }
 
 /// A venue's egress: its client and its proxy URL (redacted from diagnostics: it may carry credentials), or why nothing

@@ -447,3 +447,60 @@ async fn recovery_asks_only_under_the_key_and_host_the_order_was_sent_with_and_f
     assert!(asked.query.iter().any(|(k, v)| *k == "symbol" && v == "BTCEUR") && asked.query.iter().any(|(k, v)| *k == "origClientOrderId" && *v == intent.cl_ord_id), "{asked:?}");
     assert!(reload(&o, &bot).rust_placement().is_some(), "the intent stays");
 }
+
+// ---- 6a: a sell's intent records its side, and recovery only accepts an answer on that side
+
+fn sell_plan(o: &store::Opened, bot: &model::Bot) -> amount::OrderPlan {
+    let ticker = model::ticker_for(&o.primary, bot).unwrap().unwrap();
+    let Sizing::Place(plan) = amount::size_sell(bot, &ticker, &BigDec::parse("0.0012").unwrap(), &BigDec::from_i64(50_000)).unwrap() else { panic!() };
+    plan
+}
+fn closed(kind: &str) -> serde_json::Value {
+    json!({ "status": "closed", "price": "50000", "vol": "0.0012", "vol_exec": "0.0012", "cost": "60", "oflags": "", "descr": { "ordertype": "market", "price": "0", "type": kind } })
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_recovered_sell_is_written_as_a_sell() {
+    let (_d, o, bot, _) = setup();
+    let plan = sell_plan(&o, &bot);
+    let venue = FakeVenue::new().next_add(AddOutcome::AmbiguousPlaced("OTX-S".into())).order("OTX-S", closed("sell"));
+    let intent = placement::begin(&o.primary, &bot, &plan, &FixedClock(t0())).unwrap();
+    assert_eq!(reload(&o, &bot).rust_placement().unwrap()["side"], "sell");
+    assert!(matches!(placement::send(&o.primary, &venue, &intent, &FixedClock(t0())).await.unwrap(), Sent::Ambiguous(_)));
+    assert_eq!(venue.sent()[0].side, deltabadger::venue::Side::Sell);
+    let later = FixedClock(t0() + Duration::hours(2));
+    assert!(matches!(placement::recover(&o.primary, &venue, &reload(&o, &bot), &later).await.unwrap(), Recovery::Recorded(_)));
+    assert_eq!(count(&o, "SELECT count(*) FROM transactions WHERE side = 1 AND external_id = 'OTX-S'"), 1);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn an_answer_on_the_other_side_is_not_the_intents_order_and_the_intent_stays() {
+    let (_d, o, bot, _) = setup();
+    let plan = sell_plan(&o, &bot);
+    let venue = FakeVenue::new().next_add(AddOutcome::AmbiguousPlaced("OTX-B".into())).order("OTX-B", closed("buy"));
+    let intent = placement::begin(&o.primary, &bot, &plan, &FixedClock(t0())).unwrap();
+    placement::send(&o.primary, &venue, &intent, &FixedClock(t0())).await.unwrap();
+    let later = FixedClock(t0() + Duration::hours(2));
+    assert!(matches!(placement::recover(&o.primary, &venue, &reload(&o, &bot), &later).await.unwrap(), Recovery::Pending));
+    assert!(reload(&o, &bot).rust_placement().is_some());
+    assert_eq!(count(&o, "SELECT count(*) FROM transactions"), 0);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn an_intent_from_before_selling_names_no_side_and_is_a_buy() {
+    let (_d, o, bot, plan) = setup();
+    let venue = FakeVenue::new().next_add(AddOutcome::AmbiguousPlaced("OTX-1".into())).order("OTX-1", closed("buy"));
+    let intent = placement::begin(&o.primary, &bot, &plan, &FixedClock(t0())).unwrap();
+    placement::send(&o.primary, &venue, &intent, &FixedClock(t0())).await.unwrap();
+    o.primary.execute("UPDATE bots SET transient_data = json_remove(transient_data, '$.rust_placement.side') WHERE id = ?1", [bot.id]).unwrap();
+    let later = FixedClock(t0() + Duration::hours(2));
+    assert!(matches!(placement::recover(&o.primary, &venue, &reload(&o, &bot), &later).await.unwrap(), Recovery::Recorded(_)));
+    assert_eq!(count(&o, "SELECT count(*) FROM transactions WHERE side = 0"), 1);
+    // The same old intent answered with a sell stays unresolved: a missing side never reads as a sell.
+    let (_d, o, bot, plan) = setup();
+    let venue = FakeVenue::new().next_add(AddOutcome::AmbiguousPlaced("OTX-1".into())).order("OTX-1", closed("sell"));
+    let intent = placement::begin(&o.primary, &bot, &plan, &FixedClock(t0())).unwrap();
+    placement::send(&o.primary, &venue, &intent, &FixedClock(t0())).await.unwrap();
+    o.primary.execute("UPDATE bots SET transient_data = json_remove(transient_data, '$.rust_placement.side') WHERE id = ?1", [bot.id]).unwrap();
+    assert!(matches!(placement::recover(&o.primary, &venue, &reload(&o, &bot), &later).await.unwrap(), Recovery::Pending));
+}

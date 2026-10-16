@@ -51,7 +51,7 @@ async fn every_call_reaches_the_host_rails_reaches_for_its_mode() {
         let script = json!({ format!("{} {}", row["method"].as_str().unwrap(), row["path"].as_str().unwrap()): reply });
         let t = ScriptedTransport::from_script(&script);
         let v = AlpacaVenue::new(t.clone(), urls);
-        let order = NewOrder { pair: "BTC/USD".into(), kind: OrderKind::Market, volume: "60".into(), quote_volume: true, cl_ord_id: "c-1".into(),
+        let order = NewOrder { pair: "BTC/USD".into(), side: deltabadger::venue::Side::Buy, kind: OrderKind::Market, volume: "60".into(), quote_volume: true, cl_ord_id: "c-1".into(),
                                deadline: chrono::Utc::now() + chrono::Duration::seconds(30), day: false };
         // Only the request matters here; each answer's parse is tested elsewhere.
         match call {

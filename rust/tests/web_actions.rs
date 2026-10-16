@@ -1100,6 +1100,23 @@ mod action_write {
         Ok(())
     }
 
+    /// Bot::Lifecycle#start (fresh) drops the reserves a reversal left waiting for their buy's final state, with the carry;
+    /// a continue keeps them.
+    #[test]
+    fn action_lifecycle_fresh_start_discards_waiting_flip_reserves() -> Result {
+        for (fresh,kept) in [(true,false),(false,true)] {
+            let f=Fixture::new()?;
+            f.c.execute("UPDATE bots SET status=2, transient_data=json_set(transient_data,'$.flip_reserve_pending',json('[7]')) WHERE id=?1",[f.id])?;
+            // The flag is a top-level param (Bots::StartsController reads params[:start_fresh]), never a form field.
+            let _=f.lifecycle(write::Action::Start,Some(json!(fresh)))?;
+            let status:i64=f.c.query_row("SELECT status FROM bots WHERE id=?1",[f.id],|r|r.get(0))?;
+            assert_eq!(status,1,"fresh={fresh}: the start went through");
+            let pending:Option<String>=f.c.query_row("SELECT json_extract(transient_data,'$.flip_reserve_pending') FROM bots WHERE id=?1",[f.id],|r|r.get(0))?;
+            assert_eq!(pending.is_some(),kept,"fresh={fresh}: {pending:?}");
+        }
+        Ok(())
+    }
+
     /// Rails steps a passed time forward in fixed UTC days: across the autumn change, a day that starts an hour early.
     #[test]
     fn action_lifecycle_start_an_hour_early_is_refused() -> Result {

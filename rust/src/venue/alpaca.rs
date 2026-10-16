@@ -224,10 +224,6 @@ impl<T: Transport> AlpacaVenue<T> {
 
 impl<T: Transport> AlpacaVenue<T> {
 
-    /// Exchanges::Alpaca#get_ask_price / #get_last_price. Crypto: the latest quote's `ap` / trade's `p` by pair in the
-    /// `symbols` query. A stock or ETF: Clients::Alpaca#get_latest_quote / #get_latest_trade, the BASE in the path, `quote.ap`
-    /// / `trade.p`, no feed parameter (clients/alpaca.rb:172-192). A zero or missing price is Rails' "Wrong … price" raise.
-    /// Clients::Alpaca#get_clock on the trading host, with the bot's key.
     async fn positions_diagnostic_source(&self) -> Result<std::collections::HashMap<String, BigDec>, VenueError> {
         let bad = || VenueError::Rejected(vec!["unreadable venue positions".into()]);
         let rows = self.raw_positions().await?;
@@ -251,17 +247,21 @@ impl<T: Transport> AlpacaVenue<T> {
         }
     }
 
+    /// Exchanges::Alpaca#get_ask_price / #get_bid_price / #get_last_price. Crypto: the latest quote's `ap` / `bp` / trade's
+    /// `p` by pair in the `symbols` query. A stock or ETF: Clients::Alpaca#get_latest_quote / #get_latest_trade, the BASE in
+    /// the path, `quote.ap` / `quote.bp` / `trade.p`, no feed parameter. A zero or missing price is Rails' "Wrong … price" raise.
     async fn price_diagnostic_source(&self, ticker: &Ticker, side: PriceSide) -> Result<BigDec, VenueError> {
-        let label = match side { PriceSide::Ask => "ask", PriceSide::Last => "last" };
+        let label = match side { PriceSide::Ask => "ask", PriceSide::Bid => "bid", PriceSide::Last => "last" };
         let raw = if ticker.crypto {
             let (path, key, field) = match side {
                 PriceSide::Ask => ("/v1beta3/crypto/us/latest/quotes", "quotes", "ap"),
+                PriceSide::Bid => ("/v1beta3/crypto/us/latest/quotes", "quotes", "bp"),
                 PriceSide::Last => ("/v1beta3/crypto/us/latest/trades", "trades", "p"),
             };
             let body = self.get(self.request("GET", true, path.into(), vec![("symbols", ticker.ticker.clone())], None)).await?;
             body[key][ticker.ticker.as_str()][field].clone()
         } else {
-            let (path, key, field) = match side { PriceSide::Ask => ("quotes", "quote", "ap"), PriceSide::Last => ("trades", "trade", "p") };
+            let (path, key, field) = match side { PriceSide::Ask => ("quotes", "quote", "ap"), PriceSide::Bid => ("quotes", "quote", "bp"), PriceSide::Last => ("trades", "trade", "p") };
             let body = self.get(self.request("GET", true, format!("/v2/stocks/{}/{path}/latest", ticker.base_code), vec![], None)).await?;
             body[key][field].clone()
         };
@@ -279,7 +279,7 @@ impl<T: Transport> AlpacaVenue<T> {
     /// failure while connecting: nothing sent) is a definitive refusal (Rails' failed row); a 3xx, a 5xx, a lost reply, or
     /// a 2xx without a readable id may have placed the order.
     async fn add_order_diagnostic_source(&self, o: &NewOrder) -> Result<String, VenueError> {
-        let mut body = json!({ "symbol": o.pair, "side": "buy", "type": "market", "time_in_force": if o.day { "day" } else { "gtc" } });
+        let mut body = json!({ "symbol": o.pair, "side": o.side.as_str(), "type": "market", "time_in_force": if o.day { "day" } else { "gtc" } });
         match &o.kind {
             OrderKind::Market if o.quote_volume => { body["notional"] = json!(o.volume); }
             OrderKind::Market => { body["qty"] = json!(o.volume); }
@@ -399,6 +399,18 @@ impl<T: Transport> Venue for AlpacaVenue<T> {
     async fn order_by_client_id(&self, cl_ord_id: &str, _symbol: &str, since: DateTime<Utc>)->Result<Option<OrderState>,VenueError>{self.order_by_client_id_diagnostic_source(cl_ord_id,since).await.map_err(|error|self.redact_error(error))}
     async fn fills_from_trades(&self, txids: &[String], since: DateTime<Utc>)->Result<Vec<OrderState>,VenueError>{self.fills_from_trades_diagnostic_source(txids,since).await.map_err(|error|self.redact_error(error))}
     async fn balance(&self, asset_symbol: &str, all_crypto: bool)->Result<BigDec,VenueError>{self.balance_diagnostic_source(asset_symbol,all_crypto).await.map_err(|error|self.redact_error(error))}
+    /// #cancel_order through Clients::Alpaca#cancel_order: DELETE /v2/orders/<id> on the trading host.
+    /// Alpaca answers 204 with no body; any 2xx is success, as with_rescue returns it unparsed.
+    async fn cancel(&self, txid: &str)->Result<(),VenueError>{
+        let r = self.request("DELETE", false, format!("/v2/orders/{txid}"), vec![], None);
+        let answer = match self.transport.send(&r).await {
+            Err(TransportError::Permanent(m)) => Err(VenueError::Rejected(vec![m])),
+            Err(TransportError::NotSent(m) | TransportError::MaybeSent(m)) => Err(VenueError::Transient(m)),
+            Ok(resp) if (200..300).contains(&resp.status) => Ok(()),
+            Ok(resp) => Err(VenueError::Rejected(vec![error_message(&r, &resp)])),
+        };
+        answer.map_err(|error|self.redact_error(error))
+    }
 }
 
 /// The real venues by exchange type (venue::live::LiveVenue), as Rails' Exchange subclasses: Alpaca (paper or live, as

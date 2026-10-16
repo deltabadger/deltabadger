@@ -22,17 +22,28 @@ pub fn key_identity(host: &str, credentials: &Credentials) -> serde_json::Value 
     serde_json::json!({ "host": host, "key_fingerprint": hex::encode(Sha256::digest(credentials.key.as_bytes())) })
 }
 
-/// Which price a buy needs (Bot::OrderSetter#reference_price): the ask for a market buy, the last trade for a limit.
+/// Which price an order needs (Bot::OrderSetter#reference_price): the ask for a market buy, the bid for a market sell, the
+/// last trade for a limit either way.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum PriceSide { Ask, Last }
+pub enum PriceSide { Ask, Bid, Last }
+
+/// An order's side, as the venue's wire spells it (Kraken `type`, Binance `side` upcased, Alpaca `side`).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum Side { #[default] Buy, Sell }
+
+impl Side {
+    pub fn as_str(self) -> &'static str { match self { Self::Buy => "buy", Self::Sell => "sell" } }
+    /// transactions.side (Transaction enum: buy 0, sell 1).
+    pub fn code(self) -> i64 { match self { Self::Buy => 0, Self::Sell => 1 } }
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum OrderKind { Market, Limit { price: String } }
 
-/// A buy, formatted as the venue's wire expects (VenueRules::wire).
+/// An order, formatted as the venue's wire expects (VenueRules::wire).
 #[derive(Clone, Debug, PartialEq)]
 pub struct NewOrder {
-    pub pair: String, pub kind: OrderKind, pub volume: String,
+    pub pair: String, pub side: Side, pub kind: OrderKind, pub volume: String,
     /// The volume is in quote currency (Kraken `oflags=viqc`, Alpaca `notional`).
     pub quote_volume: bool,
     /// The venue-neutral client order id (Kraken `cl_ord_id`, Alpaca `client_order_id`).
@@ -98,6 +109,8 @@ impl<V:Venue> Venue for &V {
     async fn order_by_client_id(&self,id:&str,symbol:&str,since:DateTime<Utc>)->Result<Option<OrderState>,VenueError>{(*self).order_by_client_id(id,symbol,since).await}
     async fn fills_from_trades(&self,ids:&[String],since:DateTime<Utc>)->Result<Vec<OrderState>,VenueError>{(*self).fills_from_trades(ids,since).await}
     async fn balance(&self,symbol:&str,crypto:bool)->Result<BigDec,VenueError>{(*self).balance(symbol,crypto).await}
+    async fn free_base_balance(&self,t:&Ticker)->Result<BigDec,VenueError>{(*self).free_base_balance(t).await}
+    async fn cancel(&self,txid:&str)->Result<(),VenueError>{(*self).cancel(txid).await}
 }
 impl<V:Venue> Venue for Handle<V> {
     fn producer(&self)->Option<crate::engine::model::CredentialVersion>{self.producer.clone()}
@@ -113,6 +126,8 @@ impl<V:Venue> Venue for Handle<V> {
     async fn order_by_client_id(&self,id:&str,symbol:&str,since:DateTime<Utc>)->Result<Option<OrderState>,VenueError>{self.venue.order_by_client_id(id,symbol,since).await}
     async fn fills_from_trades(&self,ids:&[String],since:DateTime<Utc>)->Result<Vec<OrderState>,VenueError>{self.venue.fills_from_trades(ids,since).await}
     async fn balance(&self,symbol:&str,crypto:bool)->Result<BigDec,VenueError>{self.venue.balance(symbol,crypto).await}
+    async fn free_base_balance(&self,t:&Ticker)->Result<BigDec,VenueError>{self.venue.free_base_balance(t).await}
+    async fn cancel(&self,txid:&str)->Result<(),VenueError>{self.venue.cancel(txid).await}
 }
 /// Apply one immutable handle producer to success and failure values, never from a post-call lookup.
 mod sealed { pub trait Sealed {} impl<V:super::Venue> Sealed for super::Handle<V> {} }
@@ -120,6 +135,7 @@ pub trait Attributed:Venue + sealed::Sealed {
     async fn clock_result(&self)->crate::engine::model::Produced<Result<ClockAnswer,VenueError>>{let origin=self.producer();let value=self.clock().await;crate::engine::model::Produced::new(value,origin)}
     async fn price_result(&self,t:&Ticker,s:PriceSide)->crate::engine::model::Produced<Result<BigDec,VenueError>>{let origin=self.producer();let value=self.price(t,s).await;crate::engine::model::Produced::new(value,origin)}
     async fn positions_result(&self)->crate::engine::model::Produced<Result<std::collections::HashMap<String,BigDec>,VenueError>>{let origin=self.producer();let value=self.positions().await;crate::engine::model::Produced::new(value,origin)}
+    async fn free_base_result(&self,t:&Ticker)->crate::engine::model::Produced<Result<BigDec,VenueError>>{let origin=self.producer();let value=self.free_base_balance(t).await;crate::engine::model::Produced::new(value,origin)}
     async fn balance_result(&self,s:&str,crypto:bool)->crate::engine::model::Produced<Result<BigDec,VenueError>>{let origin=self.producer();let value=self.balance(s,crypto).await;crate::engine::model::Produced::new(value,origin)}
     async fn orders_result<F>(&self,ids:&[String],identify:F)->crate::engine::model::Produced<Result<(Vec<OrderState>,Vec<String>),VenueError>> where F:FnMut(&str,Option<&str>,Option<&str>)->Result<bool,VenueError>{let origin=self.producer();let value=self.orders_identified(ids,identify).await;crate::engine::model::Produced::new(value,origin)}
     async fn order_result<F>(&self,id:&str,identify:F)->crate::engine::model::Produced<Result<(Vec<OrderState>,Vec<String>),VenueError>> where F:FnMut(&str,Option<&str>,Option<&str>)->Result<bool,VenueError>{let origin=self.producer();let value=self.order_identified(id,identify).await;crate::engine::model::Produced::new(value,origin)}
@@ -167,6 +183,13 @@ pub trait Venue {
     async fn fills_from_trades(&self, txids: &[String], since: DateTime<Utc>) -> Result<Vec<OrderState>, VenueError>;
     /// What Bot::Fundable compares with its buffer (Kraken: balance − hold_trade; Alpaca: #spendable_balance).
     async fn balance(&self, asset_symbol: &str, all_crypto: bool) -> Result<BigDec, VenueError>;
+    /// Bot::Rebalancer#live_free_balance for a one-asset seller: the free amount of the ticker's BASE asset, resolved as the
+    /// venue's #get_balances resolves an asset (its own code for the ticker's base, never a bare symbol that may name another
+    /// asset). Absent is 0 (`no_holdings`); an unreadable answer is `Err`, never 0, which would silently never sell.
+    async fn free_base_balance(&self, _ticker: &Ticker) -> Result<BigDec, VenueError> { Err(VenueError::Rejected(vec!["selling is not connected for this venue".into()])) }
+    /// Exchange#cancel_order: best effort, as Bot::Reversible#cancel_unfilled_orders uses it. `Ok` only when the venue
+    /// accepted the cancel; anything else is the venue's (or the transport's) failure.
+    async fn cancel(&self, _txid: &str) -> Result<(), VenueError> { Err(VenueError::Rejected(vec!["cancel is not connected for this venue".into()])) }
 }
 
 pub trait VenueFactory {

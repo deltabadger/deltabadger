@@ -55,6 +55,8 @@ impl FakeVenue {
     pub fn balance_body(self, kraken_asset: &str, balance: &str, hold_trade: &str) -> Self {
         self.push("/0/private/BalanceEx", json!({ "error": [], "result": { kraken_asset: { "balance": balance, "hold_trade": hold_trade } } }))
     }
+    /// Queues one raw body for `path` (a test that shares the venue already handed to an engine).
+    pub fn script(&self, path: &str, body: Value) { self.s.borrow_mut().http.entry(path.into()).or_default().push_back(body); }
     pub fn next_add(self, o: AddOutcome) -> Self { self.s.borrow_mut().adds.push_back(o); self }
     pub fn order(self, txid: &str, raw: Value) -> Self { self.s.borrow_mut().orders.insert(txid.into(), raw); self }
     pub fn lookup_fails(self, n: u32) -> Self { self.s.borrow_mut().lookup_failures = n; self }
@@ -171,7 +173,7 @@ impl Venue for FakeVenue {
             None => OrderState {
                 asset_class: None,
                 txid, status: OrderStatus::Open, price: None, amount: None, quote_amount: None,
-                amount_exec: BigDec::zero(), quote_amount_exec: Some(BigDec::zero()), limit: matches!(order.kind, OrderKind::Limit { .. }), sell: false,
+                amount_exec: BigDec::zero(), quote_amount_exec: Some(BigDec::zero()), limit: matches!(order.kind, OrderKind::Limit { .. }), sell: order.side == crate::venue::Side::Sell,
                 pair: Some(order.pair.clone()),
             },
         }))
@@ -198,6 +200,19 @@ impl Venue for FakeVenue {
         let Some(body) = self.body("/0/private/BalanceEx") else { return Err(VenueError::Transient("no scripted BalanceEx".into())) };
         check(&body)?;
         free_balance(&body, asset_symbol)
+    }
+
+    async fn free_base_balance(&self, ticker: &Ticker) -> Result<BigDec, VenueError> {
+        self.wait().await;
+        let Some(body) = self.body("/0/private/BalanceEx") else { return Err(VenueError::Transient("no scripted BalanceEx".into())) };
+        check(&body)?;
+        free_balance(&body, &ticker.base_code)
+    }
+
+    /// A scripted CancelOrder body, or accepted when none is scripted.
+    async fn cancel(&self, _txid: &str) -> Result<(), VenueError> {
+        self.wait().await;
+        match self.body("/0/private/CancelOrder") { Some(body) => check(&body), None => Ok(()) }
     }
 }
 

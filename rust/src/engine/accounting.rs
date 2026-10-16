@@ -106,8 +106,13 @@ fn pending_window(amount: Num, count: i64, carry: Num, rows: &[Commitment]) -> R
 }
 
 /// Ruby's min keeps the first operand and its class on ties.
-fn minimum(a: Num, b: Num) -> Result<Num, EngineError> {
+pub(crate) fn minimum(a: Num, b: Num) -> Result<Num, EngineError> {
     if b.sub(&a).map_err(EngineError::Arithmetic)?.is_negative() { Ok(b) } else { Ok(a) }
+}
+/// A carry as transient_data's JSON holds it after Rails writes it: a BigDecimal as its text, an Integer or Float as a number.
+pub(crate) fn serialized(value: Num) -> Result<Value, EngineError> {
+    bounded_num(&value)?;
+    Ok(match value { Num::Int(n) => json!(n), Num::Float(n) => json!(n), Num::Dec(n) => json!(n.to_s_f()) })
 }
 /// Bot::Accountable#pending_quote_amount as Rails has it since its fill-credit fix (#448): what the bot owes since the
 /// window opened, minus every submitted REGULAR buy in the window, read in ONE statement, so a row that changes state
@@ -118,6 +123,8 @@ fn minimum(a: Num, b: Num) -> Result<Num, EngineError> {
 pub fn pending_quote_amount(c: &Connection, bot: &Bot, now_us: i64) -> Result<BigDec, EngineError> {
     validate_stored_amounts(&bot.settings, &bot.transient)?;
     if bot.status == BotStatus::Deleted { return Ok(BigDec::zero()); }
+    // While selling the buy carry is frozen: the stored missed_quote_amount, before the started_at guard (accountable.rb:27).
+    if bot.selling() { return carry_num(bot.transient.get("missed_quote_amount"))?.to_dec().map_err(data); }
     let Some(started) = bot.started_at_us()? else { return Ok(BigDec::zero()) };
     let since = bot.calc_since_us()?.ok_or_else(super::schedule::time_range_error)?;
     // Rails binds a Time as its quoted_date text and SQLite compares text: bind the same text.
@@ -129,7 +136,7 @@ pub fn pending_quote_amount(c: &Connection, bot: &Bot, now_us: i64) -> Result<Bi
     let quote_amount = bot.quote_amount().ok_or_else(|| EngineError::Data("quote_amount".into()))?;
     let smart = bot.smart_quote_amount();
     let eff = effective(interval, quote_amount, smart);
-    let intervals = interval_count(checkpoints(started, now_us, eff)?.last_us, since, eff)?;
+    let intervals = interval_count(checkpoints(started, now_us, eff.clone())?.last_us, since, eff)?;
     // Keep Integer/Float settings kinds; Accountable alone determines carry coercion.
     pending_window(bot.effective_quote_amount_num()?, intervals, carry_num(bot.transient.get("missed_quote_amount"))?, &rows)?.to_dec().map_err(data)
 }
@@ -137,9 +144,14 @@ pub fn pending_quote_amount(c: &Connection, bot: &Bot, now_us: i64) -> Result<Bi
 /// Bot::Lifecycle#start(start_fresh: false)'s `set_orders_now`, for a stopped bot the web continued. `use_delayed_first` is
 /// always false there (only a fresh start computes a start time), so the bot runs at once unless #restarting_within_interval?:
 /// it had ticked (last_action_job_at is set) and what it owes, capped as QuoteAmountLimitable caps it, is under one
-/// `effective_quote_amount` (a smart split's amount when the split is on). Only the buy side: a selling bot is refused.
+/// `effective_quote_amount` (a smart split's amount when the split is on). A selling bot's carry is frozen, so it compares
+/// the time since its last tick with the sell cadence instead (lifecycle.rb:151): within one interval it waits.
 pub fn continue_runs_now(c: &Connection, bot: &Bot, now_us: i64) -> Result<bool, EngineError> {
-    if bot.last_action_job_at_us()?.is_none() { return Ok(true); }
+    let Some(last) = bot.last_action_job_at_us()? else { return Ok(true) };
+    if bot.selling() {
+        let eff = bot.effective().ok_or_else(|| data("no sell cadence"))?;
+        return Ok(!super::schedule::within(now_us.checked_sub(last).ok_or_else(super::schedule::time_range_error)?, &eff));
+    }
     let mut owed = pending_quote_amount(c, bot, now_us)?;
     if let Some(available) = quote_amount_available(c, bot)? { if available < owed { owed = available; } }
     Ok(owed >= bot.effective_quote_amount_num()?.to_dec().map_err(data)?)
@@ -192,6 +204,15 @@ fn rails_cap_availability(limit: Num, rows: &[Commitment], intent: Option<BigDec
     Ok((left, reached))
 }
 
+/// An unresolved placement intent's quote, counted as spent until it settles: a BUY's only. A sell spends nothing of the quote
+/// cap (its rows are not commitments either); an intent written before selling existed names no side and is a buy.
+fn buy_intent_quote(bot: &Bot) -> Result<Option<BigDec>, EngineError> {
+    let Some(intent) = bot.rust_placement() else { return Ok(None) };
+    if intent.get("side").is_some_and(|s| s == "sell") { return Ok(None); }
+    let quote = intent["quote_amount"].as_str().ok_or_else(||data("unreadable intent quote"))?;
+    BigDec::parse(quote).map(Some).map_err(data)
+}
+
 fn engine_cap(c: &Connection, bot: &Bot, precision: Option<i64>) -> Result<(Option<Num>, bool), EngineError> {
     validate_stored_amounts(&bot.settings, &bot.transient)?;
     let Some(limit) = bot.quote_amount_limit().map_err(EngineError::Data)? else { return Ok((None, false)) };
@@ -199,10 +220,7 @@ fn engine_cap(c: &Connection, bot: &Bot, precision: Option<i64>) -> Result<(Opti
         Some(since) => crate::figures::fill::commitments(c, bot.id, &format_time(at(since)?)).map_err(data)?,
         None => vec![],
     };
-    let intent = bot.rust_placement().map(|intent| {
-        let quote = intent["quote_amount"].as_str().ok_or_else(||data("unreadable intent quote"))?;
-        BigDec::parse(quote).map_err(data)
-    }).transpose()?;
+    let intent = buy_intent_quote(bot)?;
     let (left, reached) = rails_cap_availability(limit, &rows, intent, precision)?;
     Ok((Some(left), reached))
 }
@@ -245,10 +263,7 @@ pub fn exact_cap_available(c: &Connection, bot: &Bot) -> Result<Option<BigDec>, 
         let rows = crate::figures::fill::commitments(c, bot.id, &format_time(at(since)?)).map_err(data)?;
         spent = spent_in_window(&rows)?.to_dec().map_err(data)?;
     }
-    if let Some(intent) = bot.rust_placement() {
-        let quote = intent["quote_amount"].as_str().ok_or_else(||EngineError::Data("unreadable intent quote".into()))?;
-        spent = spent.checked_add(&BigDec::parse(quote).map_err(data)?).map_err(data)?;
-    }
+    if let Some(quote) = buy_intent_quote(bot)? { spent = spent.checked_add(&quote).map_err(data)?; }
     Ok(Some(limit.checked_add(&(&BigDec::zero() - &spent)).map_err(data)?.max(BigDec::zero())))
 }
 
@@ -308,6 +323,8 @@ pub fn web_minimum(a: WebNum, b: WebNum) -> Result<WebNum, WebError> {
 /// Fallible Accountable read through the shared normalizer, bounded to 100000 rows.
 pub fn web_pending(c: &Connection, bot: &WebBot, now: DateTime<Utc>) -> Result<WebNum, WebError> {
     validate_web_amounts(bot)?;
+    // Frozen while selling, before the started_at guard, as the engine's pending_quote_amount.
+    if bot.text("direction") == Some("selling") { return web_capped(c, bot, carry_num(bot.transient.get("missed_quote_amount"))?); }
     let mut started = bot.started_at;
     for prefix in ["price_limit", "price_drop_limit", "moving_average_limit", "indicator_limit"] {
         if bot.on(&format!("{prefix}ed")) {
@@ -331,7 +348,11 @@ pub fn web_pending(c: &Connection, bot: &WebBot, now: DateTime<Utc>) -> Result<W
     let amount = core(web_effective_amount(bot)?);
     let carry = carry_num(bot.transient.get("missed_quote_amount"))?;
     let rows = crate::figures::fill::action_commitments(c, bot.id, &codec::format_time(since)).map_err(web_bot::fill_error)?;
-    let pending = pending_window(amount, count as i64, carry, &rows)?;
+    web_capped(c, bot, pending_window(amount, count as i64, carry, &rows)?)
+}
+
+/// Bot::QuoteAmountLimitable's `[super, available].min` over the web's pending amount.
+fn web_capped(c: &Connection, bot: &WebBot, pending: Num) -> Result<WebNum, WebError> {
     if let Some(cap) = web_amount_limit(c, bot)? { Ok(view(minimum(pending, core(cap.left.ok_or_else(||error("unknown cap spend"))?))?)) } else { Ok(view(pending)) }
 }
 
@@ -350,6 +371,7 @@ fn checkpoint(anchor: DateTime<Utc>, now: DateTime<Utc>, eff: Effective) -> Resu
     if anchor > now { return Ok(round6_micros(us, &[(d,-1)])); }
     let elapsed = now.timestamp_micros().checked_sub(us).ok_or_else(start::history_error)? as f64 / 1_000_000.0;
     let terms = match eff {
+        Effective::Decimal(..) => return super::schedule::checkpoints(us, now.timestamp_micros(), eff).map(|c| c.last_us).map_err(|_| start::history_error()),
         Effective::Seconds(_) => vec![((elapsed/d).ceil()*d,1),(d,-1)],
         Effective::MonthSeconds(_) => {
             let mut k = (elapsed/d).floor() as i64;
@@ -375,7 +397,7 @@ pub fn web_amount_limit(c: &Connection, bot: &WebBot) -> Result<Option<start::Li
         Some(since) => crate::figures::fill::action_commitments(c, bot.id, &since).map_err(web_bot::fill_error)?,
         None => vec![],
     };
-    let intent = bot.transient.get("rust_placement").filter(|v| !v.is_null()).map(|v| {
+    let intent = bot.transient.get("rust_placement").filter(|v| !v.is_null() && v.get("side").is_none_or(|s| s != "sell")).map(|v| {
         BigDec::parse(v["quote_amount"].as_str().ok_or_else(||error("unreadable intent quote"))?).map_err(|_|error("unreadable intent quote"))
     }).transpose()?;
     let precision = bot.tickers.iter().map(|t| i64::from(t.quote_decimals)).min();

@@ -60,7 +60,7 @@ fn one(rows: usize) -> Result<(), WebError> {
 /// assigned back, even when a load supplied defaults for a different key.
 fn path(key: &str, transient: bool) -> Result<String, WebError> {
     let allowed = if transient {
-        matches!(key, "missed_quote_amount" | "missed_quote_amount_was_set")
+        matches!(key, "missed_quote_amount" | "missed_quote_amount_was_set" | "flip_reserve_pending")
             || ["quote_amount_limit", "base_amount_limit", "price_limit", "price_drop_limit", "moving_average_limit", "indicator_limit", "sell_price_limit", "sell_price_drop_limit", "sell_moving_average_limit", "sell_indicator_limit"]
                 .iter().any(|prefix| key == format!("{prefix}_enabled_at") || key == format!("{prefix}_condition_met_at"))
     } else {
@@ -163,7 +163,7 @@ fn settings_inner<T>(
         };
         let cap = effective_amount(&draft.candidate)?;
         let carry = minimum(old, cap)?;
-        effects.transient.set.insert("missed_quote_amount".into(), serialized(carry)?);
+        effects.transient.set.insert("missed_quote_amount".into(), stored_carry(&draft.raw_transient, serialized(carry)?));
         effects.transient.set.insert("missed_quote_amount_was_set".into(), Value::Null);
     }
     if submitted.mcp() && !effects.settings_changed {
@@ -227,6 +227,12 @@ fn ruby_equal(stored: &Value, assigned: &Value) -> bool {
         Value::Number(_) => Num::from_json(assigned).and_then(|n| n.to_d()) == Some(old),
         _ => false,
     }
+}
+
+/// ActiveRecord::Store writes an assignment only when it differs, by Ruby's ==, from what the store holds: a captured
+/// carry equal to the stored one (a frozen seller's `0.to_d` over a stored `0`) keeps the stored spelling.
+fn stored_carry(raw: &serde_json::Map<String, Value>, value: Value) -> Value {
+    match raw.get("missed_quote_amount") { Some(old) if ruby_equal(old, &value) => old.clone(), _ => value }
 }
 
 const WEB_START: &str = "UPDATE bots SET status = 1, stop_message_key = NULL, \
@@ -465,7 +471,7 @@ fn lifecycle_inner<T>(
         let service_capture = submitted.mcp() && action != Action::Start;
         if service_capture && effects.settings_changed && delayed.is_none() {
             let carry=pending(&tx,&draft.original,ctx.now)?;
-            effects.transient.set.insert("missed_quote_amount".into(),serialized(minimum(carry,effective_amount(&draft.candidate)?)?)?);
+            effects.transient.set.insert("missed_quote_amount".into(),stored_carry(&draft.raw_transient,serialized(minimum(carry,effective_amount(&draft.candidate)?)?)?));
             effects.transient.set.insert("missed_quote_amount_was_set".into(),Value::Null);
         }
         if service_capture && !effects.settings_changed &&
@@ -506,6 +512,9 @@ fn lifecycle_inner<T>(
     match action {
         Action::Start => {
             one(tx.execute(WEB_START,(id,owner,&class,fresh && delayed.is_none(),&at))?)?;
+            // Bot::Lifecycle#start (fresh, delayed or not) drops the carry and with it the reserves a reversal left
+            // waiting for their buy's final state, so a later final poll cannot credit spending the start discarded.
+            if fresh { tx.execute(REMOVE_TRANSIENT,(path(crate::engine::reversal::RESERVE_PENDING,true)?,id,owner,&class))?; }
             if let Some(future)=delayed { one(tx.execute("UPDATE bots SET started_at=?4 WHERE id=?1 AND user_id=?2 AND type=?3 AND status=1",(id,owner,&class,codec::format_time(future)))?)?; }
             if !fresh {
                 // PR #457 accepted requested_at; preserve the original status too, so a
@@ -563,4 +572,88 @@ fn lifecycle_inner<T>(
     for (stream,html) in prepared.broadcasts { ctx.app.hub.broadcast(&stream,&html); }
     if let Some(id) = prepared.after_scheduling { super::action_view::broadcast_after_scheduling(ctx.clone(), id); }
     Ok(Outcome::Committed(prepared.response))
+}
+
+/// What `reverse` did.
+pub enum Reversal {
+    /// No such bot of this user's, or one that does not reverse (Bot#reversible?: a basket's, not an index bot's).
+    Missing,
+    /// A tick holds the bot, or its order is unresolved: nothing changed (BotsController#reverse's reverse_in_progress).
+    InProgress,
+    /// The install's guard refused the reversed bot: nothing changed.
+    Refused(String),
+    Reversed,
+}
+
+/// BotsController#reverse → Bot::Reversible#rotate_direction! / flip_direction!, as ONE write transaction that calls no venue
+/// (plan Revision r4). Under the write lock: a bot mid-tick (`executing`/`waiting`: the engine's claim) or with an unresolved
+/// order is left as it is. Otherwise the carry is captured under the old settings, the bot's waiting REGULAR orders are
+/// captured, the Smart Intervals splits are clamped, and the direction rotates (one asset: buying → selling N base →
+/// selling for N quote → buying; a wider basket toggles), saved as Accountable saves a settings change. A working bot is
+/// `scheduled` again from now, its run generation is bumped (an in-flight tick's writes are fenced), and it waits for its
+/// next checkpoint. Every trigger's `*_condition_met_at` goes. The captured orders are left for the engine to cancel and,
+/// leaving the buy side, the captured buys are registered for their reserve in Rails' own `flip_reserve_pending`
+/// (engine::reversal).
+pub fn reverse(c: &Connection, cipher: &crate::crypto::Cipher, owner: i64, id: i64, now: chrono::DateTime<chrono::Utc>) -> Result<Reversal, WebError> {
+    use crate::enums::BotStatus;
+    let tx = model::immediate(c)?;
+    let class = "Bots::DcaMultiAsset";
+    let found: Option<Option<String>> = tx.query_row("SELECT type FROM bots WHERE id=?1 AND user_id=?2 AND status<>3", (id, owner), |r| r.get(0)).optional()?;
+    if found.flatten().as_deref() != Some(class) { return Ok(Reversal::Missing); }
+    let bot = model::load_bot(&tx, id)?;
+    if matches!(bot.status, BotStatus::Executing | BotStatus::Waiting) || bot.rust_placement().is_some() { return Ok(Reversal::InProgress); }
+    let Some(mut draft) = Draft::load(&tx, owner, id, "en")? else { return Ok(Reversal::Missing) };
+    let carry = pending(&tx, &draft.original, now)?;
+    let leaving_buy = !bot.selling();
+    let mut s = tx.prepare("SELECT id, side IS 0 FROM transactions WHERE bot_id=?1 AND status=0 AND external_status IN (0,1) AND transaction_type='REGULAR' ORDER BY id")?;
+    let captured = s.query_map([id], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, bool>(1)?)))?.collect::<Result<Vec<_>, _>>()?;
+    drop(s);
+    // Bot::Reversible#clamp_smart_interval_splits, under the settings as they are.
+    if draft.candidate.on("smart_intervaled") {
+        let quote = super::start::smart_interval_minimum(&draft.candidate).value.to_f();
+        if draft.candidate.number("smart_interval_quote_amount").map_or(0.0, |n| n.to_f()) < quote {
+            draft.candidate.settings.insert("smart_interval_quote_amount".into(), json!(quote));
+        }
+        let base = draft.base_minimum().value.to_f();
+        let sell_amount = draft.candidate.settings.get("sell_amount").is_some_and(|v| !v.is_null() && v.as_str().is_none_or(|t| !t.trim().is_empty()));
+        if sell_amount && draft.candidate.number("smart_interval_base_amount").map_or(0.0, |n| n.to_f()) < base {
+            draft.candidate.settings.insert("smart_interval_base_amount".into(), json!(base));
+        }
+    }
+    let one_asset = draft.candidate.one_asset();
+    let denomination = draft.candidate.text("sell_denomination").filter(|d| !d.trim().is_empty()).unwrap_or("quote");
+    let (direction, denomination) = match (leaving_buy, one_asset) {
+        (true, true) => ("selling", Some("base")),
+        (false, true) if denomination == "base" => ("selling", Some("quote")),
+        (false, true) => ("buying", Some("base")),
+        (true, false) => ("selling", None),
+        (false, false) => ("buying", None),
+    };
+    draft.candidate.settings.insert("direction".into(), json!(direction));
+    if let Some(d) = denomination { draft.candidate.settings.insert("sell_denomination".into(), json!(d)); }
+    let mut effects = draft.save_effects(&tx, now)?;
+    effects.transient.set.insert("missed_quote_amount".into(), stored_carry(&draft.raw_transient, serialized(minimum(carry, effective_amount(&draft.candidate)?)?)?));
+    effects.transient.set.insert("missed_quote_amount_was_set".into(), Value::Null);
+    for (key, value) in &effects.settings.set { one(tx.execute(SET_SETTING, (path(key, false)?, value.to_string(), id, owner, class))?)?; }
+    for (key, value) in &effects.transient.set { one(tx.execute(SET_TRANSIENT, (path(key, true)?, value.to_string(), id, owner, class))?)?; }
+    for key in &effects.transient.remove { one(tx.execute(REMOVE_TRANSIENT, (path(key, true)?, id, owner, class))?)?; }
+    let at = codec::format_time(now);
+    one(tx.execute("UPDATE bots SET settings_changed_at=?1, updated_at=?1, \
+        transient_data=json_set(transient_data,'$.run_generation',coalesce(json_extract(transient_data,'$.run_generation'),0)+1) WHERE id=?2", (&at, id))?)?;
+    let working = matches!(bot.status, BotStatus::Scheduled | BotStatus::Retrying);
+    if working { one(tx.execute("UPDATE bots SET status=?1, started_at=?2 WHERE id=?3", (BotStatus::Scheduled as i64, &at, id))?)?; }
+    // reset_trigger_condition_timestamps: merge_transient_data! of nils, compacted away.
+    for key in bot.transient.as_object().map(|t| t.keys().filter(|k| k.ends_with("_condition_met_at")).cloned().collect::<Vec<_>>()).unwrap_or_default() {
+        tx.execute("UPDATE bots SET transient_data=json_remove(transient_data,?1) WHERE id=?2", (format!("$.\"{key}\""), id))?;
+    }
+    crate::engine::reversal::record(&tx, id, &captured, leaving_buy)?;
+    // Rails enqueues the next Bot::ActionJob at next_interval_checkpoint_at: re-anchored at now, the bot would otherwise be due at
+    // once. Rails reads that a moment after the anchor (its own Time.current), so the checkpoint is one whole interval on.
+    if working { crate::engine::placement::defer_to_next_checkpoint(&tx, &model::load_bot(&tx, id)?, now + chrono::Duration::microseconds(1))?; }
+    if let Err(refusal) = eligibility::guard(&tx, cipher, Some(id)) {
+        tx.rollback()?;
+        return Ok(Reversal::Refused(refusal.reason()));
+    }
+    tx.commit()?;
+    Ok(Reversal::Reversed)
 }

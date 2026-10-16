@@ -5,7 +5,7 @@ use deltabadger::{engine::{Clock,FixedClock},venue::{Venue,VenueFactory,NewOrder
 use wiremock::{Mock,MockServer,ResponseTemplate,matchers::{method,path}};
 
 fn order(clock:&dyn Clock)->NewOrder{
-    NewOrder{pair:"BTC/USD".into(),kind:OrderKind::Market,volume:"10".into(),quote_volume:true,cl_ord_id:"r8-clock-order".into(),deadline:clock.now()+chrono::Duration::seconds(30),day:false}
+    NewOrder{pair:"BTC/USD".into(),side:deltabadger::venue::Side::Buy,kind:OrderKind::Market,volume:"10".into(),quote_volume:true,cl_ord_id:"r8-clock-order".into(),deadline:clock.now()+chrono::Duration::seconds(30),day:false}
 }
 async fn sends(at:&str){
     let clock=Arc::new(FixedClock(DateTime::parse_from_rfc3339(at).unwrap().with_timezone(&Utc)));

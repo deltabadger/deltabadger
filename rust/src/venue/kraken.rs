@@ -171,20 +171,23 @@ pub(crate) fn parse_order(txid: &str, o: &Value) -> Result<OrderState, VenueErro
     })
 }
 
-/// Exchanges::Kraken#get_ask_price / #get_last_price over a checked Ticker body: the first result entry's `a[0]` / `c[0]`. A
+/// Exchanges::Kraken#get_ask_price / #get_bid_price / #get_last_price over a checked Ticker body: the first result entry's
+/// `a[0]` / `b[0]` / `c[0]`. A
 /// zero book raises "Wrong … price", naming the pair (kraken.rb:225, :255).
 pub(crate) fn ticker_price(body: &Value, ticker: &Ticker, side: PriceSide) -> Result<BigDec, VenueError> {
     let Some((_, t)) = body["result"].as_object().and_then(|m| m.iter().next()) else {
         return Err(VenueError::Rejected(vec![format!("Failed to get Kraken {} ticker information", ticker.ticker)]));
     };
-    let (key, label) = match side { PriceSide::Ask => ("a", "ask"), PriceSide::Last => ("c", "last") };
+    let (key, label) = match side { PriceSide::Ask => ("a", "ask"), PriceSide::Bid => ("b", "bid"), PriceSide::Last => ("c", "last") };
     let p = dec(&t[key][0])?.unwrap_or_else(BigDec::zero);
     if p.is_zero() { return Err(VenueError::Rejected(vec![format!("Wrong {label} price for {}: {}", ticker.ticker, p.to_s_f())])); }
     Ok(p)
 }
 
 /// Exchanges::Kraken#get_balances for one asset: balance − hold_trade under the gem's ASSET_MAP. Rails assigns per row, so
-/// with several rows for one asset (ZEUR, EUR.HOLD) the last in body order wins; absent is 0.
+/// with several rows for one asset (ZEUR, EUR.HOLD) the last in body order wins; absent is 0. `asset_symbol` is the code
+/// after ASSET_MAP: for a base, the ticker's own base code (XXBT → "XBT", which #asset_from_symbol resolves through the
+/// tickers' `base`), never the asset's symbol ("BTC" names no Kraken row, so it would read 0).
 pub(crate) fn free_balance(body: &Value, asset_symbol: &str) -> Result<BigDec, VenueError> {
     let mut free = BigDec::zero();
     for (code, b) in body["result"].as_object().into_iter().flatten() {
@@ -285,7 +288,7 @@ impl<T: Transport> Venue for KrakenVenue<T> {
     /// `cl_ord_id` and `deadline` (RFC 3339, UTC, milliseconds; Kraken drops the order after it). Sent at most once.
     async fn add_order(&self, o: &NewOrder) -> Result<String, VenueError> {
         let (ordertype, price) = match &o.kind { OrderKind::Market => ("market", None), OrderKind::Limit { price } => ("limit", Some(price.clone())) };
-        let mut fields = vec![("ordertype", ordertype.to_string()), ("type", "buy".into()), ("volume", o.volume.clone()), ("pair", o.pair.clone()),
+        let mut fields = vec![("ordertype", ordertype.to_string()), ("type", o.side.as_str().into()), ("volume", o.volume.clone()), ("pair", o.pair.clone()),
                               ("cl_ord_id", o.cl_ord_id.clone())];
         if let Some(p) = price { fields.push(("price", p)); }
         if o.quote_volume { fields.push(("oflags", "viqc".into())); }
@@ -342,5 +345,16 @@ impl<T: Transport> Venue for KrakenVenue<T> {
     async fn balance(&self, asset_symbol: &str, _all_crypto: bool) -> Result<BigDec, VenueError> {
         let body = self.call(&self.private("/0/private/BalanceEx", &[]), false).await?;
         free_balance(&body, asset_symbol)
+    }
+
+    /// The base's free balance for a seller: the same BalanceEx, under the ticker's base code.
+    async fn free_base_balance(&self, ticker: &Ticker) -> Result<BigDec, VenueError> {
+        let body = self.call(&self.private("/0/private/BalanceEx", &[]), false).await?;
+        free_balance(&body, &ticker.base_code)
+    }
+
+    /// #cancel_order through Clients::Kraken#cancel_order: CancelOrder by txid; the body's `error` is the failure.
+    async fn cancel(&self, txid: &str) -> Result<(), VenueError> {
+        self.call(&self.private("/0/private/CancelOrder", &[("txid", txid.to_string())]), false).await.map(|_| ())
     }
 }

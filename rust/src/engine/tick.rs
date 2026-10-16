@@ -217,7 +217,9 @@ enum Exit {
 fn record_notified_failure(c: &model::FencedTransaction<'_>, bot_id: i64, kind: Option<&str>, error: &str, exit: Exit, clock: &dyn Clock) -> Result<(), EngineError> {
     let now = clock.now();
     let bot = model::load_bot(c, bot_id)?;
-    let shared = kind == Some("insufficient_funds");
+    // Bot::Failable#shares_end_of_funds_budget?: never while selling, whose "insufficient" is base, not quote: the error
+    // mail on the kind's own budget (action_job.rb#notify_recoverable).
+    let shared = kind == Some("insufficient_funds") && !bot.selling();
     let key = kind.unwrap_or("unknown");
     let budget = bot.transient.get("failure_notifications").and_then(Value::as_object).cloned().unwrap_or_default();
     let notify = exit == Exit::Blocking || if shared {
@@ -328,6 +330,12 @@ async fn tick_inner<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &mut 
     if settled {
         *attempts = Attempts::default();
         return Ok(if checkpoint_after_recovery { TickOutcome::Rescheduled } else { TickOutcome::Skipped });
+    }
+    // A reversal's cancel not recorded yet (run::run_reversals failed this pass): the run is not claimed, so the bot stays due
+    // and trades on the engine's next pass once the cancels are recorded, on schedule as Rails would.
+    if super::reversal::barred(bot) {
+        super::log(&format!("[engine] bot {bot_id}: waits for a reversal's cancels to be recorded; ticks on the next pass"));
+        return Ok(TickOutcome::Skipped);
     }
     // Decide nothing from reference data past its bound.
     if let Some(s) = staleness::stale(c, bot, clock.now())? { return Ok(TickOutcome::Stale { source: s.source, message: s.message }); }
@@ -453,13 +461,23 @@ async fn execute<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::
             Err(index::Refusal::Failure(m)) => return Ok(Err(Fail::General { message: m, errors: vec![], failed_row: false })),
             Err(index::Refusal::Transient(m)) => return Ok(Err(Fail::Transient(m))),
         }
-        let mut x = amount::pending_quote_amount(c, bot, clock.now().timestamp_micros())?;
+        // Selling: what the sell sentence says, never pending_quote_amount (the frozen buy carry would place a buy).
+        let sale = bot.selling().then(|| bot.sell_amounts());
+        let mut x = match &sale {
+            Some((base, quote)) => base.clone().unwrap_or_else(|| quote.clone()),
+            None => amount::pending_quote_amount(c, bot, clock.now().timestamp_micros())?,
+        };
+        // validate_orders_amount!: a negative amount raises a plain StandardError.
+        if x < BigDec::zero() { let m = "Orders quote_amount must be positive".to_string(); return Ok(Err(Fail::General { errors: vec![m.clone()], message: m, failed_row: false })); }
         // Bot::QuoteAmountLimitable decorates pending_quote_amount: `[super, available].min`. The cap applies to the carry,
         // so the last order is cut to what is left, never skipped for exceeding it; nothing left is no order, no row, no log.
-        if let Some(available) = amount::quote_amount_available(c, bot)? { if available < x { x = available; } }
+        if sale.is_none() { if let Some(available) = amount::quote_amount_available(c, bot)? { if available < x { x = available; } } }
         if !x.is_zero() {
             let mut legs = Legs::default();
-            let bought = buy(c, venue, bot, &x, clock, cx, &mut legs, &reconciled).await;
+            let bought = match sale {
+                Some((base, quote)) => sell(c, venue, bot, base, &quote, clock, cx, &mut legs, &reconciled).await,
+                None => buy(c, venue, bot, &x, clock, cx, &mut legs, &reconciled).await,
+            };
             // set_orders' `ensure record_skipped_orders!`: on every way out of the loop, a raise included.
             let bought = match bought {
                 Err(e @ (EngineError::CredentialsChanged | EngineError::RunFenced)) => return Err(e),
@@ -492,6 +510,8 @@ async fn execute<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::
     // Bot::Fundable#funds_are_low?: the quote asset's balance, whatever the member tickers (an index bot has no allocations),
     // spent as Exchanges::Alpaca#spendable_balance picks it. A failed balance Result means "not low"; only a transport
     // failure raises.
+    // While selling the user spends base, not quote: no quote-buffer check and no balance read (fundable.rb:10-12).
+    if bot.selling() { return Ok(Ok(Ran { placed, fenced, ledger_stale: None })); }
     model::require_run(c, bot)?;
     let funds=venue.balance_result(&model::quote_symbol(c, bot)?, model::all_crypto(c, bot)?).await;
     model::require_run(c, bot)?;
@@ -574,20 +594,9 @@ async fn buy<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot,
     let side = if bot.limit_distance().is_some() { PriceSide::Last } else { PriceSide::Ask };
     let mut priced = vec![];
     for member in members {
-        let key = (bot.exchange_id, member.ticker.id, side);
-        let fetched = match cx.prices.get(key, clock.now(), &cx.credential_version) {
-            Some(hit) => Ok(hit),
-            // Only a usable price is stored (the venue returns a zero book as an error).
-            None => { let result=venue.price_result(&member.ticker,side).await; if let Ok(price)=&result.value { cx.prices.put_result(key,clock.now(),result.clone().map(|_|price.clone())); } result.value },
-        };
-        let reference = match fetched {
+        let reference = match reference(venue, bot, &member.ticker, side, &member.ticker.base_symbol, clock, cx).await {
             Ok(p) => p,
-            // A zero book is the venue's own "Wrong … price" error, which the composition rescues into "No price for …".
-            Err(VenueError::Rejected(e)) => return Ok(Err(Fail::Transient(format!("No price for {}: {}", member.ticker.base_symbol, to_sentence(&e))))),
-            // An in-app client raises the transport failure itself (Client.network_failure); the composition re-raises it
-            // unwrapped, so it reaches retry_on with its own message.
-            Err(VenueError::Transient(m)) if venue.rules().transport_raises => return Ok(Err(Fail::Transient(m))),
-            Err(VenueError::Transient(m) | VenueError::Ambiguous(m)) => return Ok(Err(Fail::Transient(format!("No price for {}: {m}", member.ticker.base_symbol)))),
+            Err(f) => return Ok(Err(f)),
         };
         let price = amount::order_price(bot, &member.ticker, &reference)?;
         priced.push(basket::Priced { member, reference, price });
@@ -609,34 +618,124 @@ async fn buy<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot,
                 let m = format!("limit price rounds to zero at {decimals} decimals");
                 return Ok(Err(Fail::General { errors: vec![m.clone()], message: m, failed_row: false }));
             }
-            Sizing::Place(plan) => {
-                // A stop or a composition edit always wins over a tick in progress: an order already sent stands, and nothing
-                // sized before the change is placed (the fence is in the intent's own transaction).
-                let intent = match placement::begin_with_credentials(c, bot, &plan, &tickers, &composition, reconciled, &cx.credential_version, venue.placement_identity(), clock)? {
-                    placement::Begun::Intent(intent) => intent,
-                    placement::Begun::Changed => break,
-                    placement::Begun::Fenced => { legs.fenced = true; break; }
-                    placement::Begun::CredentialsChanged => return Ok(Err(Fail::CredentialsChanged)),
-                    placement::Begun::BelowMinimum(skipped) => { legs.skipped.push(*skipped); continue; }
-                    placement::Begun::LedgerStale(stale) => { legs.ledger_stale = Some(stale); break; }
-                };
-                match placement::send_recorded(c, venue, bot, &intent, clock).await? {
-                    Sent::Accepted(_) => { legs.placed = true; }
-                    Sent::Fenced => { legs.fenced = true; break; }
-                    Sent::Rejected(errs) => {
-                        let row = !placement::safe_rejection(&errs);
-                        let m = to_sentence(&errs);
-                        return Ok(Err(if row { Fail::General { message: m, errors: errs, failed_row: true } } else { Fail::PlacementSafe(m) }));
-                    }
-                    Sent::Ambiguous(m) => return Ok(Err(Fail::Ambiguous(m))), // the intent stays; later legs wait for the next checkpoint
-                    // Nothing reached the venue. After a placed leg, Bot::ActionJob's already-placed guard refuses the replay
-                    // (action_job.rb:223-235); before one, retry_on replays the whole tick.
-                    Sent::NotSent(m) => {
-                        return Ok(Err(if legs.placed { Fail::TransientAfterPlacement } else { Fail::Transient(m) }));
-                    }
-                }
-            }
+            Sizing::Place(plan) => match place(c, venue, bot, &plan, &tickers, &composition, reconciled, clock, cx, legs).await? {
+                Placed::Next => {}
+                Placed::Stop => break,
+                Placed::Failed(f) => return Ok(Err(f)),
+            },
         }
+    }
+    Ok(Ok(()))
+}
+
+/// What placing one sized order did to the leg loop.
+enum Placed { Next, Stop, Failed(Fail) }
+
+/// One sized order through the intent and the venue: set_orders' create_order and its result handling, for a buy leg or a sell.
+#[allow(clippy::too_many_arguments)]
+async fn place<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot, plan: &amount::OrderPlan, tickers: &[&model::Ticker], composition: &Value, reconciled: &splits::Snapshot, clock: &dyn Clock, cx: &TickContext<'_>, legs: &mut Legs) -> Result<Placed, EngineError> {
+    // A stop or a composition edit always wins over a tick in progress: an order already sent stands, and nothing
+    // sized before the change is placed (the fence is in the intent's own transaction).
+    let intent = match placement::begin_with_credentials(c, bot, plan, tickers, composition, reconciled, &cx.credential_version, venue.placement_identity(), clock)? {
+        placement::Begun::Intent(intent) => intent,
+        placement::Begun::Changed => return Ok(Placed::Stop),
+        placement::Begun::Fenced => { legs.fenced = true; return Ok(Placed::Stop); }
+        placement::Begun::CredentialsChanged => return Ok(Placed::Failed(Fail::CredentialsChanged)),
+        placement::Begun::BelowMinimum(skipped) => { legs.skipped.push(*skipped); return Ok(Placed::Next); }
+        placement::Begun::LedgerStale(stale) => { legs.ledger_stale = Some(stale); return Ok(Placed::Stop); }
+    };
+    Ok(match placement::send_recorded(c, venue, bot, &intent, clock).await? {
+        Sent::Accepted(_) => { legs.placed = true; Placed::Next }
+        Sent::Fenced => { legs.fenced = true; Placed::Stop }
+        Sent::Rejected(errs) => {
+            let row = !placement::safe_rejection(&errs);
+            let m = to_sentence(&errs);
+            Placed::Failed(if row { Fail::General { message: m, errors: errs, failed_row: true } } else { Fail::PlacementSafe(m) })
+        }
+        Sent::Ambiguous(m) => Placed::Failed(Fail::Ambiguous(m)), // the intent stays; later legs wait for the next checkpoint
+        // Nothing reached the venue. After a placed leg, Bot::ActionJob's already-placed guard refuses the replay
+        // (action_job.rb:223-235); before one, retry_on replays the whole tick.
+        Sent::NotSent(m) => Placed::Failed(if legs.placed { Fail::TransientAfterPlacement } else { Fail::Transient(m) }),
+    })
+}
+
+/// Bot::OrderSetter#reference_price through Exchange's 5-second price cache: the venue's "Wrong … price" (a zero book) and
+/// a transport failure both fail the tick as the composition rescues them ("No price for …").
+/// `named`: how the failure names the asset (the buy leg its symbol, the sell leg `ticker.base`, the venue's own code).
+async fn reference<V: Venue + Attributed>(venue: &V, bot: &model::Bot, ticker: &model::Ticker, side: PriceSide, named: &str, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<BigDec, Fail> {
+    let key = (bot.exchange_id, ticker.id, side);
+    let fetched = match cx.prices.get(key, clock.now(), &cx.credential_version) {
+        Some(hit) => Ok(hit),
+        // Only a usable price is stored (the venue returns a zero book as an error).
+        None => { let result=venue.price_result(ticker,side).await; if let Ok(price)=&result.value { cx.prices.put_result(key,clock.now(),result.clone().map(|_|price.clone())); } result.value },
+    };
+    match fetched {
+        Ok(p) => Ok(p),
+        // A zero book is the venue's own "Wrong … price" error, which the composition rescues into "No price for …".
+        Err(VenueError::Rejected(e)) => Err(Fail::Transient(format!("No price for {named}: {}", to_sentence(&e)))),
+        // An in-app client raises the transport failure itself (Client.network_failure); the composition re-raises it
+        // unwrapped, so it reaches retry_on with its own message.
+        Err(VenueError::Transient(m)) if venue.rules().transport_raises => Err(Fail::Transient(m)),
+        Err(VenueError::Transient(m) | VenueError::Ambiguous(m)) => Err(Fail::Transient(format!("No price for {named}: {m}"))),
+    }
+}
+
+/// Bot::Composition::OrderSetter#one_asset_sell_orders_data, then set_orders for its one order. `base`: "sell N base" (the
+/// per-tick base), else `quote` is sold at the order price. Up to the whole free wallet (owner ruling Q2): the venue's free
+/// base, never 0 for an unreadable answer. Nothing free is a skip with a log line only (`sell_skipped no_holdings`).
+#[allow(clippy::too_many_arguments)]
+async fn sell<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot, base: Option<BigDec>, quote: &BigDec, clock: &dyn Clock, cx: &TickContext<'_>, legs: &mut Legs, reconciled: &splits::Snapshot) -> Result<Result<(), Fail>, EngineError> {
+    let composition = placement::composition_snapshot(c, bot)?;
+    let Some(member) = basket::members(c, bot)?.into_iter().next() else {
+        let m = "No assets in composition".to_string();
+        return Ok(Err(Fail::General { errors: vec![m.clone()], message: m, failed_row: false }));
+    };
+    let ticker = member.ticker;
+    // Bot::OrderSetter#reference_price(ticker, :sell): the last trade for a limit sell, the bid for a market sell.
+    let reference = match reference(venue, bot, &ticker, if bot.limit_distance().is_some() { PriceSide::Last } else { PriceSide::Bid }, &ticker.base_code, clock, cx).await {
+        Ok(p) => p,
+        Err(f) => return Ok(Err(f)),
+    };
+    let price = amount::side_price(bot, &ticker, &reference, crate::venue::Side::Sell)?;
+    let wanted = match base {
+        Some(base) => base,
+        // `quote / price`: BigDecimal#/ by zero raises ZeroDivisionError, a plain StandardError.
+        None => match quote.div(&price) {
+            Some(q) => q,
+            None => { let m = "divided by 0".to_string(); return Ok(Err(Fail::General { errors: vec![m.clone()], message: m, failed_row: false })); }
+        },
+    };
+    // Bot::Rebalancer#live_free_balance: a failed read raises (throttled, transient, else a plain error), never reads empty.
+    let free = match venue.free_base_result(&ticker).await.value {
+        Ok(free) => free,
+        Err(VenueError::Rejected(e)) if venue.rules().is_throttle(&e) => return Ok(Err(Fail::RateLimited(to_sentence(&e)))),
+        Err(VenueError::Transient(m)) => return Ok(Err(Fail::Transient(m))),
+        // Exchange#transient_failure?'s text rules (Kraken's HTTP-200 "EGeneral:Internal error").
+        Err(VenueError::Rejected(e)) if venue.rules().is_transient(&e) => return Ok(Err(Fail::Transient(to_sentence(&e)))),
+        Err(VenueError::Rejected(e)) => {
+            let m = format!("Failed to read balance for bot {}: {}", bot.id, to_sentence(&e));
+            return Ok(Err(Fail::General { errors: vec![m.clone()], message: m, failed_row: false }));
+        }
+        Err(VenueError::Ambiguous(m)) => {
+            let m = format!("Failed to read balance for bot {}: {m}", bot.id);
+            return Ok(Err(Fail::General { errors: vec![m.clone()], message: m, failed_row: false }));
+        }
+    };
+    model::require_run(c, bot)?;
+    if !free.is_positive() {
+        super::log(&format!("[engine] bot {}: set_orders composition event=sell_skipped reason=no_holdings", bot.id));
+        return Ok(Ok(()));
+    }
+    let amount = if free < wanted { free } else { wanted };
+    match amount::size_sell(bot, &ticker, &amount, &price)? {
+        Sizing::Nothing => {}
+        Sizing::Ignored(plan) => { let now = clock.now(); model::run_write(c, bot, |tx| model::log_activity(tx, bot.id, "order_ignored", Level::Info, plan.log_details(), now))?; }
+        Sizing::BelowMinimum(plan) => legs.skipped.push(plan),
+        Sizing::ZeroPrice { decimals } => {
+            let m = format!("limit price rounds to zero at {decimals} decimals");
+            return Ok(Err(Fail::General { errors: vec![m.clone()], message: m, failed_row: false }));
+        }
+        Sizing::Place(plan) => if let Placed::Failed(f) = place(c, venue, bot, &plan, &[&ticker], &composition, reconciled, clock, cx, legs).await? { return Ok(Err(f)); },
     }
     Ok(Ok(()))
 }

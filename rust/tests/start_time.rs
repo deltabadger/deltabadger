@@ -90,7 +90,7 @@ fn the_checkpoints_around_the_first_run_match_rails() {
         let eff = effective(Interval::parse(s["interval"].as_str().unwrap()).unwrap(), 60.0, smart);
         for read in s["reads"].as_array().unwrap().iter().chain(s.get("second")) {
             let now: DateTime<Utc> = read["now"].as_str().unwrap().parse().unwrap();
-            let cps = checkpoints(anchor.timestamp_micros(), now.timestamp_micros(), eff).unwrap();
+            let cps = checkpoints(anchor.timestamp_micros(), now.timestamp_micros(), eff.clone()).unwrap();
             assert_eq!((iso(cps.next_us), iso(cps.last_us)), (read["next"].as_str().unwrap().into(), read["last"].as_str().unwrap().into()), "{read}");
             n += 1;
         }

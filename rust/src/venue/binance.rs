@@ -340,16 +340,16 @@ impl<T: Transport> super::Venue for BinanceVenue<T> {
     fn rules(&self) -> &'static VenueRules { &RULES }
     fn placement_identity(&self) -> Option<serde_json::Value> { self.identity.clone() }
 
-    /// Exchanges::Binance#get_ask_price through #get_bid_ask_price (bookTicker: all four of bidPrice, bidQty, askPrice and
+    /// Exchanges::Binance#get_ask_price / #get_bid_price through #get_bid_ask_price (bookTicker: all four of bidPrice, bidQty, askPrice and
     /// askQty are dug for), and #get_last_price (ticker/price). A failure is #parse_error_message's text; a zero price raises
     /// "Wrong … price", naming the pair.
     async fn price(&self, ticker: &Ticker, side: PriceSide) -> Result<BigDec, super::VenueError> {
         let symbol = vec![("symbol", ticker.ticker.clone())];
         let (price, label) = match side {
-            PriceSide::Ask => {
+            PriceSide::Ask | PriceSide::Bid => {
                 let body = self.call(&self.request("GET", "/api/v3/ticker/bookTicker", symbol), false).await?;
-                for field in ["bidPrice", "bidQty", "askQty"] { required(&body[field])?; }
-                (required(&body["askPrice"])?, "ask")
+                for field in ["bidPrice", "bidQty", "askPrice", "askQty"] { required(&body[field])?; }
+                if side == PriceSide::Bid { (required(&body["bidPrice"])?, "bid") } else { (required(&body["askPrice"])?, "ask") }
             }
             PriceSide::Last => (required(&self.call(&self.request("GET", "/api/v3/ticker/price", symbol), false).await?["price"])?, "last"),
         };
@@ -363,7 +363,7 @@ impl<T: Transport> super::Venue for BinanceVenue<T> {
     /// default recvWindow. Sent at most once. The stored id is "SYMBOL-<orderId>" (ids repeat across symbols); an answer
     /// without an orderId (Rails would store "SYMBOL-") may have placed the order: Ambiguous.
     async fn add_order(&self, o: &NewOrder) -> Result<String, super::VenueError> {
-        let mut params = vec![("symbol", o.pair.clone()), ("side", "BUY".to_string())];
+        let mut params = vec![("symbol", o.pair.clone()), ("side", o.side.as_str().to_ascii_uppercase())];
         let kind = match &o.kind {
             OrderKind::Market => {
                 params.extend([("type", "MARKET".into()), (if o.quote_volume { "quoteOrderQty" } else { "quantity" }, o.volume.clone()),
@@ -474,6 +474,29 @@ impl<T: Transport> super::Venue for BinanceVenue<T> {
             free = required(&row["free"])?;
         }
         Ok(free)
+    }
+
+    /// The base's free balance for a seller: the same account read, the row whose venue code is the ticker's base code (the
+    /// code #asset_from_symbol resolves to the ticker's base asset). The last such row wins, absent is 0.
+    async fn free_base_balance(&self, ticker: &Ticker) -> Result<BigDec, super::VenueError> {
+        let r = self.signed_now("GET", "/api/v3/account", vec![("omitZeroBalances", "true".into()), ("recvWindow", READ_RECV_WINDOW.into())]);
+        let body = self.call(&r, false).await?;
+        let mut free = BigDec::zero();
+        for row in body["balances"].as_array().ok_or_else(unreadable)? {
+            if row["asset"].as_str() != Some(ticker.base_code.as_str()) { continue; }
+            required(&row["locked"])?;
+            free = required(&row["free"])?;
+        }
+        Ok(free)
+    }
+
+    /// #cancel_order through Clients::Binance#cancel_order: DELETE /api/v3/order by the stored "SYMBOL-<orderId>", with the
+    /// gem's default recvWindow; a failure is #parse_error_message's text.
+    async fn cancel(&self, txid: &str) -> Result<(), super::VenueError> {
+        let mut parts = txid.split('-');
+        let (symbol, ext) = (parts.next().unwrap_or_default(), parts.next().unwrap_or_default());
+        let r = self.signed_now("DELETE", "/api/v3/order", vec![("symbol", symbol.to_string()), ("orderId", ext.to_string()), ("recvWindow", PLACE_RECV_WINDOW.into())]);
+        self.call(&r, false).await.map(|_| ())
     }
 }
 

@@ -2,7 +2,7 @@
 //! ticks the due ones, and sleeps until the earliest next event. What Rails would hold in Solid Queue —
 //! follow-up polls, retries — is kept in memory and rebuilt from the database on start.
 use super::events::{EngineEvent, EngineEvents};
-use super::schedule::{checkpoints, effective};
+use super::schedule::checkpoints;
 use super::tick::{self, Attempts, PriceCache, TickContext, TickOutcome};
 use super::{amount, eligibility, model, placement, polling, Clock, EngineError};
 use crate::crypto::Cipher;
@@ -21,6 +21,8 @@ const IDLE_US: i64 = 60_000_000;
 const AFTER_CHECKPOINT_US: i64 = 1_000;
 const POLL_AFTER_US: i64 = 5_000_000;
 const RECONCILE_EVERY_US: i64 = 30_000_000;
+/// How often registered reversal reserves are scanned for a final row (reversal::scan), beside every engine start.
+const SETTLE_SCAN_EVERY_US: i64 = 600_000_000;
 /// How long a bot refused for stale reference data waits before it is ticked again. Rails' catalog sync runs once a day and the
 /// bound is 49 h, so 5 minutes delays the first tick after a refresh by at most 5 minutes for 12 staleness reads an hour.
 pub const STALE_RECHECK_US: i64 = 300_000_000;
@@ -56,6 +58,8 @@ pub struct Engine<F: VenueFactory> {
     defer_refused: HashSet<i64>,
     /// Told after each tick what it recorded, never called into.
     events: EngineEvents,
+    /// When reversal::scan runs next (0: at the first pass).
+    settle_scan_at: i64,
 }
 
 impl<F: VenueFactory> Engine<F> {
@@ -63,7 +67,7 @@ impl<F: VenueFactory> Engine<F> {
         Self { primary, factory, cipher, lock, started: false, attempts: HashMap::new(), run_keys: HashMap::new(), retry_at: HashMap::new(), closed_until: HashMap::new(), cache_insert_step:None, polls: HashMap::new(), reconcile_at: HashMap::new(),
                prices: PriceCache::default(), process_start: None, wake: Arc::new(Notify::new()), stop: Arc::new(AtomicBool::new(false)),
                stopped: Arc::new(tokio::sync::watch::Sender::new(false)), writers_guarded: false, stale_logged: HashMap::new(), defer_refused: HashSet::new(),
-               events: EngineEvents::default() }
+               events: EngineEvents::default(), settle_scan_at: 0 }
     }
     #[doc(hidden)] pub fn inject_cache_insert_step(&mut self, step: impl FnOnce(&Connection)->Result<(),EngineError> + 'static) { self.cache_insert_step=Some(Box::new(step)); }
     pub fn wake_handle(&self) -> Arc<Notify> { self.wake.clone() }
@@ -222,6 +226,7 @@ pub async fn step<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) -> Resu
     }
 
     let mut wake = clock.now().timestamp_micros() + IDLE_US;
+    run_reversals(e, clock).await?;
     run_polls(e, clock, &mut wake).await;
     for id in idle_bots_with_intents(&e.primary)? {
         if e.stopping() { break; }
@@ -261,6 +266,43 @@ fn assert_guarded(c: &Connection, report: &eligibility::Report) {
     let stranded = placement::stranded(c).unwrap_or_default();
     named.extend(stranded.iter().map(|id| format!("bot {id}: stranded: its composition, asset, exchange or quote changed while its order is unresolved")));
     assert!(named.is_empty(), "a write to bots skipped eligibility::guard: {}", named.join("; "));
+}
+
+/// A reversal's work that needs the venue (reversal::cancel_captured), for any bot whatever its status, before any bot ticks;
+/// each cancelled order gets its follow-up poll. Then, at start and every 10 minutes, every registered reserve whose order is
+/// final is settled and every one still waiting is polled again (reversal::scan).
+async fn run_reversals<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) -> Result<(), EngineError> {
+    for id in super::reversal::unrecorded(&e.primary)? {
+        if e.stopping() { break; }
+        let done = match model::load_bot(&e.primary, id).and_then(|bot| e.venue_for(&bot)) {
+            Ok((venue, producer)) => super::reversal::cancel_captured(&e.primary, &venue, id, clock.now()).await.map(|txs| (txs, producer)),
+            Err(err) => Err(err),
+        };
+        match done {
+            Ok((txs, producer)) => {
+                let at = clock.now().timestamp_micros() + POLL_AFTER_US;
+                for tx in txs { e.polls.insert(tx, model::Produced::new((id, at, Attempts::default()), producer.clone())); }
+                e.events.send(EngineEvent::OrderUpdated { bot_id: id });
+            }
+            Err(err @ (EngineError::Lease(_) | EngineError::Store(_))) => return Err(err),
+            Err(err) => super::log(&format!("[engine] bot {id}: a reversal's cancels could not be recorded: {err:?}; retried at the next pass")),
+        }
+    }
+    let now_us = clock.now().timestamp_micros();
+    if now_us >= e.settle_scan_at {
+        e.settle_scan_at = now_us + SETTLE_SCAN_EVERY_US;
+        let waiting = match super::reversal::scan(&e.primary) {
+            Ok(waiting) => waiting,
+            Err(err @ (EngineError::Lease(_) | EngineError::Store(_))) => return Err(err),
+            Err(err) => { super::log(&format!("[engine] reversal reserves could not be scanned: {err:?}; retried in 10 minutes")); vec![] }
+        };
+        for (bot, tx) in waiting {
+            if e.polls.contains_key(&tx) { continue; }
+            let producer = model::load_bot(&e.primary, bot).and_then(|row| e.venue_for(&row)).map(|(_, p)| p).unwrap_or(None);
+            e.polls.insert(tx, model::Produced::new((bot, now_us, Attempts::default()), producer));
+        }
+    }
+    Ok(())
 }
 
 /// Due follow-up polls, for any bot whatever its status (a job Rails enqueued at placement runs even if the
@@ -313,13 +355,13 @@ fn continue_start(c: &Connection, expected: &model::Bot, now: DateTime<Utc>) -> 
     let Some(request) = bot.transient.get("rust_continue_start") else { return Ok(bot) };
     crate::codec::optional_time(request.get("requested_at")).map_err(|_|EngineError::Data("unreadable stored timestamp".into()))?
         .ok_or_else(||EngineError::Data("missing continue timestamp".into()))?;
-    if let (Some(anchor), Some(interval), Some(quote)) = (bot.started_at_us()?, bot.interval(), bot.quote_amount()) {
-        checkpoints(anchor, now.timestamp_micros(), effective(interval, quote, bot.smart_quote_amount()))?.validate_times()?;
+    if let (Some(anchor), Some(eff)) = (bot.started_at_us()?, bot.effective()) {
+        checkpoints(anchor, now.timestamp_micros(), eff)?.validate_times()?;
     }
     tx.execute("UPDATE bots SET transient_data = json_remove(transient_data, '$.rust_continue_start', '$.rust_amount_limit_stops_pending') \
                 WHERE id = ?1", [id])?;
     placement::remove_wait(&tx, Some(id))?;
-    let decision = if bot.started_at_us()?.is_none() || bot.interval().is_none() || bot.quote_amount().is_none() {
+    let decision = if bot.started_at_us()?.is_none() || bot.effective().is_none() {
         "never ticks" // step_bot skips it as before
     } else if request.get("was_stopped").and_then(serde_json::Value::as_bool) == Some(false)
         || amount::continue_runs_now(&tx, &bot, now.timestamp_micros())? {
@@ -384,9 +426,8 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
         }
     }
 
-    let (Some(anchor), Some(interval), Some(quote)) = (bot.started_at_us()?, bot.interval(), bot.quote_amount()) else { return Ok(()) };
-    let eff = effective(interval, quote, bot.smart_quote_amount());
-    let cps = checkpoints(anchor, now_us, eff)?;
+    let (Some(anchor), Some(eff)) = (bot.started_at_us()?, bot.effective()) else { return Ok(()) };
+    let cps = checkpoints(anchor, now_us, eff.clone())?;
     cps.validate_times()?;
     // A rescheduled run waits for the next checkpoint, across a restart too, while the schedule it was computed under holds.
     // A fresh start or an interval edit voids it: the bot then follows its schedule as a scheduled bot does.

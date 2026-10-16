@@ -22,7 +22,7 @@ fn ok(body: Value) -> Value { json!([{ "status": 200, "body": body }]) }
 fn status(code: u16, body: Value) -> Value { json!([{ "status": code, "body": body }]) }
 fn market(volume: &str) -> NewOrder {
     // A current deadline: the real transport refuses a POST past deadline + 45 s (its send bound).
-    NewOrder { pair: "BTC/USD".into(), kind: OrderKind::Market, volume: volume.into(), quote_volume: true, cl_ord_id: "c-1".into(),
+    NewOrder { pair: "BTC/USD".into(), side: deltabadger::venue::Side::Buy, kind: OrderKind::Market, volume: volume.into(), quote_volume: true, cl_ord_id: "c-1".into(),
                deadline: chrono::Utc::now() + chrono::Duration::seconds(10), day: false, }
 }
 
@@ -288,7 +288,7 @@ async fn a_zero_or_missing_stock_quote_is_rails_error() {
 #[tokio::test(flavor = "current_thread")]
 async fn a_stock_buy_is_a_day_order_and_a_crypto_buy_stays_gtc() {
     let (t, v) = venue(json!({ "POST /v2/orders": ok(json!({ "id": "O1", "status": "accepted" })) }));
-    v.add_order(&NewOrder { pair: "AAPL".into(), day: true, ..market("60.00") }).await.unwrap();
+    v.add_order(&NewOrder { pair: "AAPL".into(), side: deltabadger::venue::Side::Buy, day: true, ..market("60.00") }).await.unwrap();
     v.add_order(&market("60.00")).await.unwrap();
     let tif: Vec<Value> = t.posted_orders().iter().map(|b| b["time_in_force"].clone()).collect();
     assert_eq!(tif, vec![json!("day"), json!("gtc")]);
@@ -318,4 +318,30 @@ fn a_binance_bot_passes_preflight_like_rails_under_krakens_restrictions() {
     o.primary.execute("UPDATE bots SET settings = json_remove(settings, '$.quote_amount_limited') WHERE id = ?1", [id]).unwrap();
     o.primary.execute("DELETE FROM api_keys", []).unwrap();
     assert_eq!(alpaca::preflight(&o.primary, &seed::cipher()), Err(vec![format!("bot {id}: no Binance API key")]));
+}
+
+// ---- 6a: the sell side (Exchanges::Alpaca#get_bid_price, #market_sell / #limit_sell)
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_sell_posts_side_sell_and_the_bid_is_the_quotes_bp() {
+    let (t, v) = venue(json!({ "POST /v2/orders": ok(json!({ "id": "OTX-S", "status": "pending_new" })) }));
+    let sell = NewOrder { side: deltabadger::venue::Side::Sell, volume: "0.000935308".into(), quote_volume: false, ..market("") };
+    v.add_order(&sell).await.unwrap();
+    assert_eq!(t.requests()[0].body.clone().unwrap(),
+               json!({ "symbol": "BTC/USD", "side": "sell", "type": "market", "time_in_force": "gtc", "qty": "0.000935308", "client_order_id": "c-1" }));
+    let (_, v) = venue(json!({ "GET /v1beta3/crypto/us/latest/quotes": ok(json!({ "quotes": { "BTC/USD": { "ap": 64321.5, "bp": 64300.25 } } })) }));
+    assert_eq!(v.price(&btc_usd(), PriceSide::Bid).await, Ok(bd("64300.25")));
+    let (_, v) = venue(json!({ "GET /v1beta3/crypto/us/latest/quotes": ok(json!({ "quotes": { "BTC/USD": { "ap": 1, "bp": 0 } } })) }));
+    assert_eq!(v.price(&btc_usd(), PriceSide::Bid).await, Err(VenueError::Rejected(vec!["Wrong bid price for BTC: 0.0".into()])));
+    let (_, v) = venue(json!({ "GET /v2/stocks/AAPL/quotes/latest": ok(json!({ "quote": { "ap": 187.43, "bp": 187.4 } })) }));
+    assert_eq!(v.price(&aapl(), PriceSide::Bid).await, Ok(bd("187.4")));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_cancel_deletes_the_order_and_a_204_is_success() {
+    let (t, v) = venue(json!({ "DELETE /v2/orders/OTX-1": status(204, json!("")) }));
+    assert_eq!(v.cancel("OTX-1").await, Ok(()));
+    assert_eq!((t.requests()[0].method, t.requests()[0].base.as_str()), ("DELETE", PAPER_TRADING_URL));
+    let (_, v) = venue(json!({ "DELETE /v2/orders/OTX-1": status(422, json!({ "code": 42210000, "message": "order is already in \"filled\" state" })) }));
+    assert_eq!(v.cancel("OTX-1").await, Err(VenueError::Rejected(vec![r#"order is already in "filled" state"#.into()])));
 }

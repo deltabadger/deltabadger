@@ -197,6 +197,28 @@ impl Bot {
         }
     }
     /// Bot::QuoteAmountLimitable#quote_amount_limited?: `== true`.
+    /// Bot::Reversible#selling?: `direction` reads "buying" when absent or blank.
+    pub fn selling(&self) -> bool { self.settings.get("direction").and_then(Value::as_str) == Some("selling") }
+    /// What a selling bot's tick sells (Bots::DcaMultiAsset#execute_action while selling): `Some(base)` for "sell N base"
+    /// (Bot::Reversible#sell_base_amount_per_tick: the Smart Intervals split while it applies, else sell_amount, else 0), or
+    /// `None` and the quote to sell for ("sell for N quote": sell_quote_amount, else 0). Never the frozen buy carry.
+    pub fn sell_amounts(&self) -> (Option<BigDec>, BigDec) {
+        let s = self.settings.as_object().cloned().unwrap_or_default();
+        let read = |k: &str| s.get(k).filter(|v| !v.is_null() && v.as_str().is_none_or(|t| !t.trim().is_empty())).and_then(super::schedule::to_d);
+        let base = super::schedule::one_asset(&s) && s.get("sell_denomination").and_then(Value::as_str).filter(|d| !d.trim().is_empty()) == Some("base");
+        if !base { return (None, read("sell_quote_amount").unwrap_or_else(BigDec::zero)); }
+        let amount = read("sell_amount");
+        let split = (self.settings.get("smart_intervaled") == Some(&Value::Bool(true)) && amount.as_ref().is_some_and(BigDec::is_positive))
+            .then(|| read("smart_interval_base_amount")).flatten();
+        (Some(split.or(amount).unwrap_or_else(BigDec::zero)), BigDec::zero())
+    }
+    /// effective_interval_duration whichever way the bot trades: the sell cadence while selling (schedule::sell_effective),
+    /// else the buy interval and its quote split. None without the settings a schedule needs (no interval; a buyer with no
+    /// amount). Every scheduling path reads this one function.
+    pub fn effective(&self) -> Option<super::schedule::Effective> {
+        if let Some(sell) = self.settings.as_object().and_then(super::schedule::sell_effective) { return Some(sell); }
+        Some(super::schedule::effective(self.interval()?, self.quote_amount()?, self.smart_quote_amount()))
+    }
     pub fn quote_amount_limited(&self) -> bool { self.settings.get("quote_amount_limited") == Some(&Value::Bool(true)) }
     /// The cap as #quote_amount_available_before_limit_reached reads it, as the Ruby Integer or Float the settings JSON holds;
     /// None when the limit is off. A stored nil or false reads as Integer 1000 (after_initialize: `quote_amount_limit ||= 1000`).
@@ -253,8 +275,8 @@ impl Bot {
     pub fn rust_defer_until_us(&self) -> Result<Option<i64>, EngineError> { Ok(self.rust_defer()?.map(|(t, _)| t)) }
     /// What the bot's checkpoints are computed from: its start (a fresh start moves it) and its effective interval.
     pub fn schedule_key(&self) -> Result<Option<String>, EngineError> {
-        let (Some(anchor), Some(interval), Some(quote)) = (self.started_at_us()?, self.interval(), self.quote_amount()) else { return Ok(None) };
-        let key = format!("{anchor}/{:?}", super::schedule::effective(interval, quote, self.smart_quote_amount()));
+        let (Some(anchor), Some(eff)) = (self.started_at_us()?, self.effective()) else { return Ok(None) };
+        let key = format!("{anchor}/{eff:?}");
         // Preserve legacy waits until an actual Start changes their generation.
         Ok(Some(if self.run_generation() == 0 { key } else { format!("{}/{key}", self.run_generation()) }))
     }

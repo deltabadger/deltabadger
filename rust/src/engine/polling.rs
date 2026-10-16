@@ -92,10 +92,13 @@ pub fn apply_in(c: &model::FencedTransaction<'_>, bot_id: i64, tx_id: i64, s: &O
         c.execute(&sql, rusqlite::params_from_iter(values))?;
     }
 
+    // Transaction's after_save → Bot::Reversible#settle_flip_reserve!: a buy a reversal cancelled returns its reserve once final.
+    super::reversal::settle(c, bot_id, tx_id)?;
     // Transaction's after_commit (transaction.rb:31-33) → Bot::QuoteAmountLimitable#handle_quote_amount_limit_update: a buy
     // whose executed quote changed to a positive value re-checks the cap; reached, Rails enqueues Bot::StopJob, which runs after
     // the job that committed the fill.
-    Ok(exec_changed && side == 0 && s.quote_amount_exec.as_ref().is_some_and(BigDec::is_positive) && bot.quote_amount_limited() && amount::quote_amount_limit_reached(c, &bot)?)
+    // `return if selling?` (quote_amount_limitable.rb:106): a buy that still fills after a flip never stops the seller.
+    Ok(exec_changed && side == 0 && !bot.selling() && s.quote_amount_exec.as_ref().is_some_and(BigDec::is_positive) && bot.quote_amount_limited() && amount::quote_amount_limit_reached(c, &bot)?)
 }
 
 fn classify(e: VenueError, ids: &[String], rules: &VenueRules) -> PollFailure {
@@ -203,7 +206,8 @@ async fn poll_rows<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model
             model::credential_write(c, &version, |tx| {
                 tx.execute("UPDATE transactions SET external_status = ?1, updated_at = ?2 WHERE id = ?3",
                       params![TxExternalStatus::Abandoned as i64, format_time(now), id])?;
-                model::log_activity(tx, bot.id, "order_abandoned", Level::Info, json!({ "order_id": ext }), now)
+                model::log_activity(tx, bot.id, "order_abandoned", Level::Info, json!({ "order_id": ext }), now)?;
+                super::reversal::settle(tx, bot.id, *id).map(|_| ())
             }).map_err(db)?;
         }
     }

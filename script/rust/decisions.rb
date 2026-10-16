@@ -4,6 +4,7 @@
 #   bin/rails runner script/rust/decisions.rb grid-basket <root>  # Alpaca crypto baskets, with the engine's recovery and the next checkpoint
 #   bin/rails runner script/rust/decisions.rb grid-limit <root>   # the amount limit, its stop and its mail, on Alpaca crypto
 #   bin/rails runner script/rust/decisions.rb grid-binance <root> # Binance spot, scripted beneath honeymaker at the Faraday adapter
+#   bin/rails runner script/rust/decisions.rb grid-sell <root>    # a one-asset basket selling on Kraken and Binance (slice 6a)
 #   bin/rails runner script/rust/decisions.rb record <root>  # Rails' ticks (and retries) per <root>/<scenario>/ -> rails.json
 # Always run with every *_DATABASE_URL pointing at scratch files and PROXY_KRAKEN at a dead address. Kraken is
 # scripted beneath the real client (Honeymaker::Clients::Kraken#get_public/#post_private), so every line of
@@ -205,7 +206,7 @@ module Decisions
     sc['transactions'].each do |t|
       asset = assets.fetch(t.fetch('asset', 'BTC'))
       Transaction.insert!(t.except('asset').merge('bot_id' => bot.id, 'exchange_id' => exchange.id, 'base_asset_id' => asset.id, 'quote_asset_id' => quote.id,
-                                                  'base' => asset.symbol, 'quote' => quote.symbol, 'side' => 0, 'transaction_type' => 'REGULAR',
+                                                  'base' => asset.symbol, 'quote' => quote.symbol, 'side' => t.fetch('side', 0), 'transaction_type' => 'REGULAR',
                                                   'bot_interval' => sc['interval'], 'bot_quote_amount' => sc['quote_amount'], 'error_messages' => [],
                                                   'updated_at' => t['created_at']))
     end
@@ -1115,6 +1116,80 @@ module Decisions
   BN_1021 = 'Timestamp for this request is outside of the recvWindow.'
   BN_1021_AHEAD = "Timestamp for this request was 1000ms ahead of the server's time."
 
+  # Slice 6a: a one-asset basket selling (Bot::Composition::OrderSetter#one_asset_sell_orders_data) on Kraken and Binance,
+  # by N base (plain or split by Smart Intervals) and for N quote, market and limit. Alpaca waits for its qty_available fix.
+  def sell_scenarios
+    started = '2026-09-01T10:00:00.123456Z'
+    after = ->(n) { (Time.iso8601(started) + (n * 1.day) + 1.second).iso8601(6) }
+    # Kraken's free amount is balance - hold_trade: 0.1 held by a resting sell, the rest free.
+    kr_balance = ->(free) { { 'error' => [], 'result' => { 'ZEUR' => { 'balance' => '100000', 'hold_trade' => '0' },
+                                                         'XXBT' => { 'balance' => (BigDecimal(free) + BigDecimal('0.1')).to_s('F'), 'hold_trade' => '0.1' } } } }
+    bn_holding = ->(btc) { ok('makerCommission' => 10, 'canTrade' => true, 'balances' => [{ 'asset' => 'BTC', 'free' => btc, 'locked' => '0.1' },
+                                                                                       { 'asset' => 'USDT', 'free' => '100000.00000000', 'locked' => '0' }]) }
+    venues = {
+      'kraken' => {
+        'ticker' => { 'base_decimals' => 8, 'quote_decimals' => 5, 'price_decimals' => 1, 'minimum_base_size' => '0.00005', 'minimum_quote_size' => '0.5' },
+        'http' => { '/0/public/Ticker' => [ticker_body('49990.1', '50000.2', '49995.3')], '/0/private/AddOrder' => [{ 'error' => [], 'result' => { 'txid' => ['OTX-1'] } }],
+                    '/0/private/BalanceEx' => [kr_balance.('0.5')], '/0/private/QueryOrders' => [query_body({})],
+                    '/0/private/TradesHistory' => [{ 'error' => [], 'result' => { 'trades' => {}, 'count' => 0 } }] },
+        'free' => ->(xbt) { { '/0/private/BalanceEx' => [kr_balance.(xbt)] } },
+        'balance_error' => { '/0/private/BalanceEx' => [{ 'error' => ['EGeneral:Internal error'] }] },
+        'no_holding' => { '/0/private/BalanceEx' => [{ 'error' => [], 'result' => { 'ZEUR' => { 'balance' => '100000', 'hold_trade' => '0' } } }] },
+        'rejected' => { '/0/private/AddOrder' => [{ 'error' => ['EOrder:Insufficient funds'] }] },
+        'no_price' => { '/0/public/Ticker' => [{ 'error' => ['EGeneral:Internal error'] }] },
+        'zero_price' => { '/0/public/Ticker' => [ticker_body('0', '0', '0')] }
+      },
+      'binance' => {
+        'ticker' => { 'base_decimals' => 5, 'quote_decimals' => 8, 'price_decimals' => 2, 'minimum_base_size' => '0.00001', 'minimum_quote_size' => '5' },
+        'http' => { 'GET /api/v3/ticker/bookTicker' => [bn_book('64000.11000000')], 'GET /api/v3/ticker/price' => [bn_last('64000.05000000')],
+                    'POST /api/v3/order' => [ok('symbol' => 'BTCUSDT', 'orderId' => 28_457, 'orderListId' => -1, 'clientOrderId' => 'x', 'transactTime' => 1_788_000_000_000)],
+                    'GET /api/v3/account' => [bn_holding.('0.5')], 'GET /api/v3/allOrders' => [ok([])], 'GET /api/v3/myTrades' => [ok([])] },
+        'free' => ->(btc) { { 'GET /api/v3/account' => [bn_holding.(btc)] } },
+        'balance_error' => { 'GET /api/v3/account' => [bn_fail(400, -2015, 'Invalid API-key, IP, or permissions for action.')] },
+        'no_holding' => { 'GET /api/v3/account' => [ok('makerCommission' => 10, 'canTrade' => true, 'balances' => [{ 'asset' => 'USDT', 'free' => '1', 'locked' => '0' }])] },
+        'rejected' => { 'POST /api/v3/order' => [bn_fail(400, -2010, 'Account has insufficient balance for requested action.')] },
+        'no_price' => { 'GET /api/v3/ticker/bookTicker' => [bn_fail(400, -1121, 'Invalid symbol.')], 'GET /api/v3/ticker/price' => [bn_fail(400, -1121, 'Invalid symbol.')] },
+        'zero_price' => { 'GET /api/v3/ticker/bookTicker' => [ok('symbol' => 'BTCUSDT', 'bidPrice' => '0.00000000', 'bidQty' => '0', 'askPrice' => '0.00000000', 'askQty' => '0')],
+                          'GET /api/v3/ticker/price' => [bn_last('0.00000000')] }
+      }
+    }
+    sold = { 'status' => 0, 'external_status' => 2, 'external_id' => 'SOLD-1', 'order_type' => 0, 'side' => 1, 'amount' => '0.01', 'amount_exec' => '0.01',
+             'quote_amount' => '500', 'quote_amount_exec' => '500', 'price' => '50000', 'created_at' => '2026-09-01 10:00:01' }
+    bought = sold.merge('external_id' => 'BOUGHT-1', 'side' => 0, 'amount' => '0.02', 'amount_exec' => '0.02', 'quote_amount' => '1000', 'quote_amount_exec' => '1000',
+                        'created_at' => '2026-08-30 10:00:01')
+    sell = { 'direction' => 'selling', 'sell_interval' => 'day' }
+    modes = { 'base_market' => sell.merge('sell_denomination' => 'base', 'sell_amount' => 0.01),
+              'base_limit' => sell.merge('sell_denomination' => 'base', 'sell_amount' => 0.01, 'limit_ordered' => true, 'limit_order_pcnt_distance' => 0.0025),
+              'base_smart' => sell.merge('sell_denomination' => 'base', 'sell_amount' => 0.03, 'smart_intervaled' => true, 'smart_interval_quote_amount' => 20.0,
+                                         'smart_interval_base_amount' => 0.01),
+              'quote_market' => sell.merge('sell_denomination' => 'quote', 'sell_quote_amount' => 100.0),
+              'quote_limit' => sell.merge('sell_denomination' => 'quote', 'sell_quote_amount' => 100.0, 'limit_ordered' => true, 'limit_order_pcnt_distance' => 0.0025) }
+    venues.flat_map do |venue, vn|
+      variants = {
+        'first_tick' => { 'at' => (Time.iso8601(started) + 0.5).iso8601(6) },
+        'on_schedule' => { 'at' => after.(1), 'transactions' => [bought, sold] },
+        'free_below' => { 'at' => after.(1), 'http' => vn['free'].('0.004') },
+        'free_zero' => { 'at' => after.(1), 'http' => vn['free'].('0') },
+        'no_holding' => { 'at' => after.(1), 'http' => vn['no_holding'] },
+        'below_floor' => { 'at' => after.(1), 'http' => vn['free'].('0.000001') },
+        'empty_sentence' => { 'at' => after.(1), 'settings' => { 'sell_amount' => nil, 'sell_quote_amount' => nil } },
+        'carry_frozen' => { 'at' => after.(1), 'transient' => { 'missed_quote_amount' => '37.5' } },
+        'rejected_insufficient' => { 'at' => after.(1), 'http' => vn['rejected'] },
+        'no_price' => { 'at' => after.(1), 'http' => vn['no_price'] },
+        'zero_price' => { 'at' => after.(1), 'http' => vn['zero_price'] },
+        'balance_error' => { 'at' => after.(1), 'http' => vn['balance_error'] }
+      }
+      modes.flat_map do |mode, settings|
+        variants.map do |name, v|
+          { 'name' => "sell-#{venue}-#{mode}-#{name}", 'venue' => (venue unless venue == 'kraken'), 'interval' => 'week', 'quote_amount' => 60.0,
+            'started_at' => started, 'settings' => settings.merge(v.fetch('settings', {})), 'transient' => v.fetch('transient', {}),
+            'transactions' => v.fetch('transactions', []), 'ticker' => vn['ticker'], 'at' => v.fetch('at'),
+            'script' => { (venue == 'kraken' ? 'http' : venue) => vn['http'].merge(v.fetch('http', {})) }, 'tick' => true }
+        end
+      end
+    end
+  end
+
   def binance_scenarios
     started = '2026-09-01T10:00:00.123456Z'
     ticker = { 'base_decimals' => 5, 'quote_decimals' => 8, 'price_decimals' => 2, 'minimum_base_size' => '0.00001', 'minimum_quote_size' => '5' }
@@ -1395,7 +1470,7 @@ def web_save(dir)
 end
 
 command, root = ARGV
-USAGE = 'usage: grid <root> | grid-alpaca <root> | grid-basket <root> | grid-limit <root> | grid-binance <root> | record <root> | web-save <dir>'.freeze
+USAGE = 'usage: grid <root> | grid-alpaca <root> | grid-basket <root> | grid-limit <root> | grid-binance <root> | grid-sell <root> | record <root> | web-save <dir>'.freeze
 raise ArgumentError, USAGE unless root
 
 case command
@@ -1406,6 +1481,7 @@ when 'grid-stock' then Decisions.grid(root, Decisions.stock_scenarios)
 when 'grid-index' then Decisions.grid(root, Decisions.index_scenarios)
 when 'grid-limit' then Decisions.grid(root, Decisions.limit_scenarios)
 when 'grid-binance' then Decisions.grid(root, Decisions.binance_scenarios)
+when 'grid-sell' then Decisions.grid(root, Decisions.sell_scenarios)
 when 'record' then Decisions.record(root)
 when 'record-normalized'
   require_relative 'histories_normalized'

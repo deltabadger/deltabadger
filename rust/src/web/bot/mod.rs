@@ -719,6 +719,7 @@ impl Bot {
 
     /// Bot::SmartIntervalable#effective_interval_duration, as the engine computes it.
     pub fn effective(&self) -> Option<Effective> {
+        if let Some(sell) = schedule::sell_effective(&self.settings) { return Some(sell); }
         let interval = self.interval()?;
         let smart = if self.on("smart_intervaled") { self.number("smart_interval_quote_amount").map(|n| n.to_f()) } else { None };
         match (self.number("quote_amount"), smart) {
