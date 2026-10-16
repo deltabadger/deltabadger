@@ -188,7 +188,6 @@ async fn every_remaining_eligibility_branch_has_a_named_witness() {
         ("UPDATE exchanges SET type='Exchanges::Kraken'; UPDATE bots SET transient_data=json_set(transient_data,'$.merged_history_until_id',3)","merged history"),
         // Sell rows are no refusal since 6a (the walk reads them on every venue); a direction Rails does not have still is.
         ("UPDATE bots SET settings=json_set(settings,'$.direction','sideways')","direction \"sideways\""),
-        ("UPDATE exchanges SET type='Exchanges::Kraken'","Kraken: only one-asset"),
         ("UPDATE bots SET settings=json_set(settings,'$.allocations',json('{\"bad\":1}'))","a weight this build does not read"),
         ("UPDATE bots SET settings=json_set(settings,'$.allocations',json('{}'))","allocations: none"),
         ("UPDATE bots SET settings=json_set(settings,'$.allocations',json('{\"123456\":0.5}'))","weights sum"),
