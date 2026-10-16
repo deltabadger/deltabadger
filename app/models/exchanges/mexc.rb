@@ -219,12 +219,19 @@ class Exchanges::Mexc < Exchange
     }
     interval = intervals[timeframe]
 
-    limit = 1000
+    # Given a startTime alone, MEXC answers the newest candles and ignores the start; a range wants
+    # endTime too, and is answered 500 klines at most. So the range is walked in 500-kline windows
+    # from the start to now.
+    limit = 500
+    span = limit * (timeframe == 3.days ? 1.day : timeframe).to_i * 1000
+    window_start = start_at.to_i * 1000
+    now = Time.now.utc.to_i * 1000
     candles = []
-    loop do
+    while window_start <= now
       result = client.candlestick_data(
         symbol: ticker.ticker,
-        start_time: start_at.to_i * 1000,
+        start_time: window_start,
+        end_time: window_start + span - 1,
         interval: interval,
         limit: limit
       )
@@ -243,9 +250,7 @@ class Exchanges::Mexc < Exchange
           candle[5].to_d
         ]
       end
-      break if result.data.last.nil? || result.data.empty? || result.data.last[0] > timeframe.ago.to_i * 1000
-
-      start_at = candles.empty? ? start_at + (limit * interval.to_i * 1000) : candles.last[0] + 1
+      window_start += span
     end
 
     candles = build_candles_from_candles(candles: candles, timeframe: timeframe) if timeframe == 3.days && candles.any?

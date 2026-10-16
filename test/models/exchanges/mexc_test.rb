@@ -244,4 +244,26 @@ class Exchanges::MexcTest < ActiveSupport::TestCase
 
     assert_equal [[Time.at(start / 1000).utc, 10.to_d, 22.to_d, 5.to_d, 13.to_d, 3.to_d]], candles
   end
+
+  # Live: given a startTime alone, /api/v3/klines answers the newest 500 candles and ignores the
+  # start; with startTime and endTime it answers that range, 500 at most. Stubbed the same way.
+  test 'get_candles reads every window from the start to now, 500 klines at a time' do
+    ticker = create(:ticker, exchange: @exchange, base_symbol: 'BTC', quote_symbol: 'USDT')
+    hour = 3_600_000
+    now = Time.now.utc.to_i * 1000
+    open_times = ((now - (1200 * hour)) / hour * hour).step(now, hour).to_a
+    asked = []
+    @exchange.send(:client).define_singleton_method(:candlestick_data) do |start_time:, end_time: nil, limit: 500, **|
+      asked << [start_time, end_time]
+      times = end_time ? open_times.select { |t| t.between?(start_time, end_time) } : open_times
+      Result::Success.new(times.last([limit, 500].min).map { |t| [t, '1', '2', '0.5', '1.5', '10'] })
+    end
+
+    candles = @exchange.get_candles(ticker: ticker, start_at: Time.at(open_times.first / 1000).utc,
+                                    timeframe: 1.hour).data
+
+    assert_equal open_times.size, candles.size
+    assert_equal open_times.first / 1000, candles.first[0].to_i
+    assert(asked.all? { |_, end_time| end_time })
+  end
 end
