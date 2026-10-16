@@ -44,7 +44,9 @@ class Exchanges::BinanceUs < Exchanges::Binance
     can_trade = if code == -2011 || (probe.success? && code.nil?) then true
                 elsif code.in?(ERROR_CODES[:invalid_key]) then false
                 end
-    return probe if can_trade.nil?
+    if can_trade.nil?
+      return probe.failure? ? probe : Result::Failure.new("#{name} answered the key check with code #{code}")
+    end
 
     Result::Success.new(api_key.withdrawal? ? !can_trade : can_trade)
   end

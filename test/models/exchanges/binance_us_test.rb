@@ -154,6 +154,8 @@ class Exchanges::BinanceUsTest < ActiveSupport::TestCase
       client.stubs(:cancel_order).returns(Result::Success.new(body))
       assert_predicate @exchange.get_api_key_validity(api_key: connection), :failure?, "probe #{body.inspect}"
     end
+    client.stubs(:cancel_order).returns(Result::Success.new({ 'code' => -1022, 'msg' => 'Signature invalid' }))
+    assert_predicate @exchange.get_api_key_validity(api_key: connection), :failure?, 'probe 200 with a non-key code'
     client.stubs(:account_information).returns(Result::Success.new({ 'code' => -2015, 'msg' => 'Invalid API-key' }))
     assert_equal false, @exchange.get_api_key_validity(api_key: connection).data
     client.stubs(:account_information).returns(Result::Success.new({ 'code' => -1021, 'msg' => 'Timestamp' }))
