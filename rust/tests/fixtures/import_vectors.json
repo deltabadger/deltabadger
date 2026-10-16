@@ -1478,37 +1478,11 @@
       "bytes": "VXNlciBJRCxUaW1lLEFjY291bnQsT3BlcmF0aW9uLENvaW4sQ2hhbmdlLFJlbWFyawoxLDIwMjUtMDYtMjIgMjA6MjA6MDAsU3BvdCxCaW5hbmNlIENvbnZlcnQsVVNEVCwtMTI5LAoxLDIwMjUtMDYtMjIgMjA6MjE6MDEsU3BvdCxCaW5hbmNlIENvbnZlcnQsVVNEQywxMjks",
       "offset": "+00:00",
       "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2025-06-22 20:20:00,Spot,Binance Convert,USDT,-129,\n1,2025-06-22 20:21:01,Spot,Binance Convert,USDC,129,",
-      "entries": [
-        {
-          "entry_type": "swap_out",
-          "base_currency": "USDT",
-          "base_amount": "129.0",
-          "quote_currency": null,
-          "quote_amount": null,
-          "fee_currency": null,
-          "fee_amount": null,
-          "tx_id": null,
-          "group_id": null,
-          "description": "Binance Convert",
-          "transacted_at": "2025-06-22T20:20:00.000000Z",
-          "raw_data": "{\"operation\":\"Binance Convert\"}"
-        },
-        {
-          "entry_type": "swap_in",
-          "base_currency": "USDC",
-          "base_amount": "129.0",
-          "quote_currency": null,
-          "quote_amount": null,
-          "fee_currency": null,
-          "fee_amount": null,
-          "tx_id": null,
-          "group_id": null,
-          "description": "Binance Convert",
-          "transacted_at": "2025-06-22T20:21:01.000000Z",
-          "raw_data": "{\"operation\":\"Binance Convert\"}"
-        }
+      "entries": [],
+      "unrecognised": [
+        "Binance Convert USDT -129 2025-06-22 20:20:00 UTC",
+        "Binance Convert USDC 129 2025-06-22 20:21:01 UTC"
       ],
-      "unrecognised": [],
       "error": null
     },
     {
@@ -1626,23 +1600,11 @@
           "description": null,
           "transacted_at": "2025-06-22T20:20:00.000000Z",
           "raw_data": "{}"
-        },
-        {
-          "entry_type": "swap_out",
-          "base_currency": "QUUX",
-          "base_amount": "3.0",
-          "quote_currency": null,
-          "quote_amount": null,
-          "fee_currency": null,
-          "fee_amount": null,
-          "tx_id": null,
-          "group_id": null,
-          "description": "Binance Convert",
-          "transacted_at": "2025-06-22T20:20:10.000000Z",
-          "raw_data": "{\"operation\":\"Binance Convert\"}"
         }
       ],
-      "unrecognised": [],
+      "unrecognised": [
+        "Binance Convert QUUX -3 2025-06-22 20:20:10 UTC"
+      ],
       "error": null
     },
     {
@@ -1854,20 +1816,6 @@
       "offset": "+00:00",
       "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2024-01-01 00:00:00,Spot,Transaction Buy,ZORK,1.5,\n1,2024-01-01 00:01:00,Spot,Transaction Spend,ZORK,2.5,\n1,2024-01-01 00:02:00,Spot,Transaction Sold,ZORK,3.5,\n1,2024-01-01 00:03:00,Spot,Transaction Revenue,ZORK,4.5,\n1,2024-01-01 00:04:00,Spot,Transaction Fee,ZORK,5.5,\n1,2024-01-01 00:05:00,Spot,Buy,ZORK,6.5,\n1,2024-01-01 00:06:00,Spot,Sell,ZORK,7.5,\n1,2024-01-01 00:07:00,Spot,Fee,ZORK,8.5,\n1,2024-01-01 00:08:00,Spot,Binance Convert,ZORK,9.5,\n1,2024-01-01 00:09:00,Spot,Small Assets Exchange BNB,ZORK,10.5,\n1,2024-01-01 00:10:00,Spot,Deposit,ZORK,11.5,\n1,2024-01-01 00:11:00,Spot,Fiat Deposit,ZORK,12.5,\n1,2024-01-01 00:12:00,Spot,Withdraw,ZORK,13.5,\n1,2024-01-01 00:13:00,Spot,Fiat Withdraw,ZORK,14.5,\n1,2024-01-01 00:14:00,Spot,Commission Rebate,ZORK,15.5,\n1,2024-01-01 00:15:00,Spot,Commission History,ZORK,16.5,\n1,2024-01-01 00:16:00,Spot,Referral Kickback,ZORK,17.5,\n1,2024-01-01 00:17:00,Spot,Commission Fee Shared With You,ZORK,18.5,\n1,2024-01-01 00:18:00,Spot,Distribution,ZORK,19.5,\n1,2024-01-01 00:19:00,Spot,Asset Recovery,ZORK,20.5,\n1,2024-01-01 00:20:00,Spot,Asset - Transfer,ZORK,21.5,\n1,2024-01-01 00:21:00,Spot,Token Swap - Redenomination/Rebranding,ZORK,22.5,\n1,2024-01-01 00:22:00,Spot,Pool Distribution,ZORK,23.5,\n1,2024-01-01 00:23:00,Spot,Staking Rewards,ZORK,24.5,\n1,2024-01-01 00:24:00,Spot,Simple Earn Flexible Interest,ZORK,25.5,\n1,2024-01-01 00:25:00,Spot,Simple Earn Locked Rewards,ZORK,26.5,\n1,2024-01-01 00:26:00,Spot,Savings Interest,ZORK,27.5,\n1,2024-01-01 00:27:00,Spot,Airdrop Assets,ZORK,28.5,\n1,2024-01-01 00:28:00,Spot,Token Swap - Distribution,ZORK,29.5,\n1,2024-01-01 00:29:00,Spot,Transfer Between Spot and Funding,ZORK,30.5,\n1,2024-01-01 00:30:00,Spot,Transfer Between Main and Funding Account,ZORK,31.5,\n1,2024-01-01 00:31:00,Spot,Ledger - Fund Migration,ZORK,32.5,\n1,2024-01-01 00:32:00,Spot,transfer_in,ZORK,33.5,\n1,2024-01-01 00:33:00,Spot,transfer_out,ZORK,34.5,",
       "entries": [
-        {
-          "entry_type": "swap_in",
-          "base_currency": "ZORK",
-          "base_amount": "9.5",
-          "quote_currency": null,
-          "quote_amount": null,
-          "fee_currency": null,
-          "fee_amount": null,
-          "tx_id": null,
-          "group_id": null,
-          "description": "Binance Convert",
-          "transacted_at": "2024-01-01T00:08:00.000000Z",
-          "raw_data": "{\"operation\":\"Binance Convert\"}"
-        },
         {
           "entry_type": "other_income",
           "base_currency": "ZORK",
@@ -2150,6 +2098,7 @@
         }
       ],
       "unrecognised": [
+        "Binance Convert ZORK 9.5 2024-01-01 00:08:00 UTC",
         "Transaction Buy ZORK 2024-01-01 00:00:00 UTC",
         "Transaction Spend ZORK 2024-01-01 00:01:00 UTC",
         "Transaction Sold ZORK 2024-01-01 00:02:00 UTC",
@@ -2169,20 +2118,6 @@
       "offset": "+00:00",
       "text": "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2024-01-01 00:00:00,Spot,Transaction Buy,ZORK,-1.5,\n1,2024-01-01 00:01:00,Spot,Transaction Spend,ZORK,-2.5,\n1,2024-01-01 00:02:00,Spot,Transaction Sold,ZORK,-3.5,\n1,2024-01-01 00:03:00,Spot,Transaction Revenue,ZORK,-4.5,\n1,2024-01-01 00:04:00,Spot,Transaction Fee,ZORK,-5.5,\n1,2024-01-01 00:05:00,Spot,Buy,ZORK,-6.5,\n1,2024-01-01 00:06:00,Spot,Sell,ZORK,-7.5,\n1,2024-01-01 00:07:00,Spot,Fee,ZORK,-8.5,\n1,2024-01-01 00:08:00,Spot,Binance Convert,ZORK,-9.5,\n1,2024-01-01 00:09:00,Spot,Small Assets Exchange BNB,ZORK,-10.5,\n1,2024-01-01 00:10:00,Spot,Deposit,ZORK,-11.5,\n1,2024-01-01 00:11:00,Spot,Fiat Deposit,ZORK,-12.5,\n1,2024-01-01 00:12:00,Spot,Withdraw,ZORK,-13.5,\n1,2024-01-01 00:13:00,Spot,Fiat Withdraw,ZORK,-14.5,\n1,2024-01-01 00:14:00,Spot,Commission Rebate,ZORK,-15.5,\n1,2024-01-01 00:15:00,Spot,Commission History,ZORK,-16.5,\n1,2024-01-01 00:16:00,Spot,Referral Kickback,ZORK,-17.5,\n1,2024-01-01 00:17:00,Spot,Commission Fee Shared With You,ZORK,-18.5,\n1,2024-01-01 00:18:00,Spot,Distribution,ZORK,-19.5,\n1,2024-01-01 00:19:00,Spot,Asset Recovery,ZORK,-20.5,\n1,2024-01-01 00:20:00,Spot,Asset - Transfer,ZORK,-21.5,\n1,2024-01-01 00:21:00,Spot,Token Swap - Redenomination/Rebranding,ZORK,-22.5,\n1,2024-01-01 00:22:00,Spot,Pool Distribution,ZORK,-23.5,\n1,2024-01-01 00:23:00,Spot,Staking Rewards,ZORK,-24.5,\n1,2024-01-01 00:24:00,Spot,Simple Earn Flexible Interest,ZORK,-25.5,\n1,2024-01-01 00:25:00,Spot,Simple Earn Locked Rewards,ZORK,-26.5,\n1,2024-01-01 00:26:00,Spot,Savings Interest,ZORK,-27.5,\n1,2024-01-01 00:27:00,Spot,Airdrop Assets,ZORK,-28.5,\n1,2024-01-01 00:28:00,Spot,Token Swap - Distribution,ZORK,-29.5,\n1,2024-01-01 00:29:00,Spot,Transfer Between Spot and Funding,ZORK,-30.5,\n1,2024-01-01 00:30:00,Spot,Transfer Between Main and Funding Account,ZORK,-31.5,\n1,2024-01-01 00:31:00,Spot,Ledger - Fund Migration,ZORK,-32.5,\n1,2024-01-01 00:32:00,Spot,transfer_in,ZORK,-33.5,\n1,2024-01-01 00:33:00,Spot,transfer_out,ZORK,-34.5,",
       "entries": [
-        {
-          "entry_type": "swap_out",
-          "base_currency": "ZORK",
-          "base_amount": "9.5",
-          "quote_currency": null,
-          "quote_amount": null,
-          "fee_currency": null,
-          "fee_amount": null,
-          "tx_id": null,
-          "group_id": null,
-          "description": "Binance Convert",
-          "transacted_at": "2024-01-01T00:08:00.000000Z",
-          "raw_data": "{\"operation\":\"Binance Convert\"}"
-        },
         {
           "entry_type": "swap_out",
           "base_currency": "ZORK",
@@ -2465,6 +2400,7 @@
         }
       ],
       "unrecognised": [
+        "Binance Convert ZORK -9.5 2024-01-01 00:08:00 UTC",
         "Transaction Buy ZORK 2024-01-01 00:00:00 UTC",
         "Transaction Spend ZORK 2024-01-01 00:01:00 UTC",
         "Transaction Sold ZORK 2024-01-01 00:02:00 UTC",
@@ -4753,7 +4689,7 @@
   "unsupported_activity": 16
 },
   "ported_sources": {
-    "app/models/import/binance_csv.rb": "c5a95dbbeccb8e43395ac998199d2e6d1359b5f3b7d6c48bf45f4d17bdb67a85",
+    "app/models/import/binance_csv.rb": "136aa501d0d9068c7253a94060346731640b46faa523fc9cdb87c3454e6f2f8d",
     "app/models/import/deltabadger_csv.rb": "c6ac982c93096876bb38da7e1dfc243db343c6e85dc217a16e7112ee8b97b74c",
     "app/models/import/run.rb": "949236726b669f5cac06a862af2a3b5b39e11011c340f3eebe950281803cef2d",
     "app/controllers/tracker/imports_controller.rb": "5281234ab0a1ec6442f75d2161e4ab9d682c9e8cf91a0b6ffb0ac1b785cccd86",
