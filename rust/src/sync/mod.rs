@@ -19,6 +19,7 @@
 pub mod activities;
 pub mod balances;
 pub mod binance_ledger;
+pub mod kucoin_ledger;
 pub mod cache;
 pub mod jobs;
 pub mod ledger;

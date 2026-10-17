@@ -212,9 +212,12 @@ async fn poll_rows<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model
         }
     }
     // Missing after both endpoints: Bot::StaleOrderResolver (Kraken is authoritative, so young ones just wait).
+    let mut young = vec![];
     for (id, ext, created) in &rows {
         if !reports || skipped.contains(ext) || found.iter().any(|o| &o.txid == ext) { continue; }
-        if *created < now.checked_sub_signed(Duration::days(STALE_AFTER_DAYS)).ok_or_else(|| db(super::schedule::time_range_error()))?.timestamp_micros() {
+        if *created >= now.checked_sub_signed(Duration::days(STALE_AFTER_DAYS)).ok_or_else(|| db(super::schedule::time_range_error()))?.timestamp_micros() {
+            young.push(ext.clone());
+        } else {
             model::credential_write(c, &version, |tx| {
                 tx.execute("UPDATE transactions SET external_status = ?1, updated_at = ?2 WHERE id = ?3",
                       params![TxExternalStatus::Abandoned as i64, format_time(now), id])?;
@@ -230,6 +233,11 @@ async fn poll_rows<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model
             continue;
         }
         apply_committed(c, bot.id, *id, state, now, !strict, &version).map_err(db)?;
+    }
+    // FetchAndUpdateOpenOrdersJob, after the progress above: a young order a venue without a fill fallback of its own
+    // (Exchange#authoritative_missing_orders? false) left out may hide a fill, so the sweep fails loudly.
+    if strict && !young.is_empty() && venue.rules().young_missing_fails {
+        return Err(PollFailure::General(format!("Exchange omitted recent order(s): {}", to_sentence(&young))));
     }
     Ok(())
 }

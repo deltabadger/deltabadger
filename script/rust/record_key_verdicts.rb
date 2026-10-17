@@ -1,4 +1,4 @@
-# Records how Rails judges a Kraken, Binance or Binance.US API key, for the Rust key step (P2-T6).
+# Records how Rails judges a Kraken, Binance, Binance.US or KuCoin API key, for the Rust key step (P2-T6).
 #   bin/rails runner script/rust/record_key_verdicts.rb rust/tests/fixtures/key_verdicts.json
 # Each case scripts the venue's HTTP answer at the Faraday adapter (nothing leaves the machine; any real connection
 # raises) and records the request Rails sent (signature, nonce and timestamp left out), the answer, Rails' verdict and,
@@ -11,7 +11,7 @@ class Unscripted < Exception; end # rubocop:disable Lint/InheritException
 Net::HTTP.prepend(Module.new { def connect = raise(Unscripted, "real connection to #{address}") })
 
 out = {
-  'sources' => %w[app/models/exchanges/kraken.rb app/models/exchanges/binance.rb app/models/exchanges/binance_us.rb
+  'sources' => %w[app/models/exchanges/kraken.rb app/models/exchanges/binance.rb app/models/exchanges/binance_us.rb app/models/exchanges/kucoin.rb
                   app/models/exchange.rb app/models/exchange/dryable.rb app/models/api_key.rb app/helpers/bot_helper.rb
                   config/locales/api.en.yml config/locales/api.de.yml config/locales/api.pl.yml
                   config/locales/api_read_only.en.yml config/locales/api_withdrawal.en.yml
@@ -33,7 +33,7 @@ module Venue
       form = env.request_body.is_a?(String) && !env.request_body.empty? ? URI.decode_www_form(env.request_body).to_h : {}
       Venue.seen << { 'method' => env.method.to_s.upcase, 'host' => env.url.host, 'path' => env.url.path,
                      'query' => query.except(*SECRET_PARAMS), 'form' => form.except(*SECRET_PARAMS),
-                     'key_header' => env.request_headers['X-MBX-APIKEY'] || env.request_headers['API-Key'] }
+                     'key_header' => env.request_headers['X-MBX-APIKEY'] || env.request_headers['API-Key'] || env.request_headers['KC-API-KEY'] }
       answer = Venue.answers.shift
       raise Faraday::TimeoutError, 'Net::ReadTimeout' if answer[:timeout]
       raise Faraday::ConnectionFailed, 'Failed to open TCP connection (Connection refused)' if answer[:refused]
@@ -76,7 +76,8 @@ end
 
 # One answer records 'response' and 'request'; a list of answers (one per request, in order) 'responses' and 'requests'.
 record = lambda do |exchange, key_type, method, name, answer|
-  api_key = ApiKey.new(exchange:, key_type:, key: 'test-key', secret: Base64.strict_encode64('test-secret'))
+  passphrase = exchange.requires_passphrase? ? 'test-passphrase' : nil
+  api_key = ApiKey.new(exchange:, key_type:, key: 'test-key', secret: Base64.strict_encode64('test-secret'), passphrase:)
   Venue.answers = Array.wrap(answer).dup
   Venue.seen = []
   row = { 'case' => name, 'key_type' => key_type.to_s, 'method' => method.to_s }
@@ -230,5 +231,28 @@ end
 out['binance_us'] = { 'invalid_key_codes' => Exchanges::Binance::ERROR_CODES[:invalid_key],
                       'trade_probe' => Exchanges::BinanceUs::TRADE_PROBE.stringify_keys, 'cases' => us_rows }
 
+# KuCoin: the trading key cancels an order that cannot exist, a withdrawal key reads its trade accounts; the verdict is
+# the envelope's code (KEY_CHECK_REJECTED, KEY_CHECK_INCONCLUSIVE, lenient for any other code on the trading probe).
+kucoin = Exchanges::Kucoin.new(name: 'KuCoin')
+kc = ->(status, code, msg) { json.(status, { 'code' => code, 'msg' => msg }) }
+kucoin_rows = []
+[[:trading, :get_api_key_validity], [:withdrawal, :get_api_key_validity]].each do |key_type, method|
+  cases = { 'ok' => json.(200, { 'code' => '200000', 'data' => key_type == :trading ? { 'cancelledOrderIds' => [] } : [] }),
+            'ok_numeric_code' => json.(200, { 'code' => 200_000, 'data' => [] }),
+            'no_code' => json.(200, { 'data' => [] }) }
+  Exchanges::Kucoin::KEY_CHECK_REJECTED.each do |code|
+    cases["rejected #{code} http_400"] = kc.(400, code, 'Access Denied')
+    cases["rejected #{code} http_200"] = kc.(200, code, 'refused')
+  end
+  Exchanges::Kucoin::KEY_CHECK_INCONCLUSIVE.each { |code| cases["inconclusive #{code}"] = kc.(code == '429000' ? 429 : 400, code, 'not now') }
+  Exchanges::Kucoin::ERRORS[:invalid_key].each { |m| cases["invalid_key message #{m}"] = kc.(401, '400999', m) }
+  cases['other code 400100'] = kc.(400, '400100', 'order not exist.')
+  cases['other code 400100 http_200'] = kc.(200, '400100', 'order_not_exist_or_not_allow_to_cancel')
+  cases.merge!(transport)
+  cases.each { |name, answer| kucoin_rows << record.(kucoin, key_type, method, name, answer) }
+end
+out['kucoin'] = { 'rejected_codes' => Exchanges::Kucoin::KEY_CHECK_REJECTED, 'inconclusive_codes' => Exchanges::Kucoin::KEY_CHECK_INCONCLUSIVE,
+                  'invalid_key_errors' => Exchanges::Kucoin::ERRORS[:invalid_key], 'cases' => kucoin_rows }
+
 File.write(ARGV.fetch(0), "#{JSON.pretty_generate(out)}\n")
-puts "#{ARGV[0]}: #{%w[kraken binance binance_us].sum { |k| out[k]['cases'].size }} cases"
+puts "#{ARGV[0]}: #{%w[kraken binance binance_us kucoin].sum { |k| out[k]['cases'].size }} cases"

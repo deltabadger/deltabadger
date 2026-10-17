@@ -333,6 +333,58 @@ fn every_recorded_rails_binance_sizing_and_wire_is_reproduced() {
     assert_eq!((quote, refused), (2_317, 1_785), "both market wires and the limit refusal are exercised");
 }
 
+/// Exchanges::Kucoin's sizing (Bot::OrderSetter under :base_or_quote / :base_and_quote_in_base) and #set_market_order /
+/// #set_limit_order's wire, replayed through amount::size, limit_refusal and to_order (script/rust/record_kucoin_vectors.rb).
+#[test]
+fn every_recorded_rails_kucoin_sizing_and_wire_is_reproduced() {
+    use deltabadger::engine::venue_rules::KUCOIN;
+    let (_d, o, s) = install();
+    let market = model::load_bot(&o.primary, seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"))).unwrap();
+    let limit = model::load_bot(&o.primary, seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00")
+        .with("limit_ordered", json!(true)).with("limit_order_pcnt_distance", json!(0.0025)))).unwrap();
+    let vectors: serde_json::Value = serde_json::from_str(include_str!("fixtures/kucoin_vectors.json")).unwrap();
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+    for (file, recorded) in vectors["sources"].as_object().unwrap() {
+        use sha2::{Digest, Sha256};
+        assert_eq!(hex::encode(Sha256::digest(std::fs::read(root.join(file)).unwrap())), recorded.as_str().unwrap(), "{file} changed: re-record with script/rust/repin");
+    }
+    let cases = vectors["kucoin_sizing"].as_array().unwrap();
+    assert_eq!(cases.len(), 10_471);
+    let deadline = "2026-09-01T10:00:10Z".parse().unwrap();
+    let (mut quote, mut refused) = (0, 0);
+    for c in cases {
+        let bot = if c["order_type"] == "limit_order" { &limit } else { &market };
+        let shape = &vectors["kucoin_tickers"][c["ticker"].as_u64().unwrap() as usize];
+        let t = Ticker { ticker: "BTC-USDT".into(), base_code: "BTC".into(), quote_code: "USDT".into(), quote_symbol: "USDT".into(), exchange_name: "KuCoin".into(), ..sizing_ticker(shape) };
+        let sizing = amount::size(bot, &t, &bd(c["x"].as_str().unwrap()), &bd(c["last_or_ask"].as_str().unwrap()), KUCOIN.minimum_logic).unwrap();
+        let (plan, below) = match sizing { Sizing::Place(p) => (p, false), Sizing::BelowMinimum(p) => (p, true), other => panic!("{c}: {other:?}") };
+        assert_eq!(plan.price.to_s_f(), c["price"].as_str().unwrap(), "price {c}");
+        assert_eq!(plan.amount.to_s_f(), c["amount"].as_str().unwrap(), "unrounded amount {c}");
+        assert_eq!(plan.quote_type, c["amount_type"] == "quote", "amount_type {c}");
+        assert_eq!(below, c["below_minimum"].as_bool().unwrap(), "below_minimum {c}");
+        let refusal = plan.limit_refusal().unwrap();
+        assert_eq!(refusal.as_deref(), c["refused"].as_str(), "refusal {c}");
+        if refusal.is_some() { refused += 1; continue; }
+        let order = plan.to_order("cl".into(), deadline, KUCOIN.wire).unwrap();
+        let w = &c["wire"];
+        assert_eq!((w["symbol"].as_str(), w["side"].as_str(), order.pair.as_str()), (Some("BTC-USDT"), Some("buy"), "BTC-USDT"), "{c}");
+        match order.kind {
+            OrderKind::Market => {
+                assert_eq!(w["type"].as_str(), Some("market"), "{c}");
+                let (sent, absent) = if order.quote_volume { quote += 1; ("funds", "size") } else { ("size", "funds") };
+                assert_eq!(Some(order.volume.as_str()), w[sent].as_str(), "{sent} {c}");
+                assert!(w.get(absent).is_none() && w.get("price").is_none(), "{c}");
+            }
+            OrderKind::Limit { price } => {
+                assert_eq!(w["type"].as_str(), Some("limit"), "{c}");
+                assert!(!order.quote_volume && w.get("funds").is_none(), "{c}");
+                assert_eq!((Some(price.as_str()), Some(order.volume.as_str())), (w["price"].as_str(), w["size"].as_str()), "price and size {c}");
+            }
+        }
+    }
+    assert_eq!((quote, refused), (2_177, 1_824), "both market wires and the limit refusal are exercised");
+}
+
 #[test]
 fn the_binance_port_is_the_ruby_that_was_recorded() {
     use sha2::{Digest, Sha256};

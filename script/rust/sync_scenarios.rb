@@ -1095,5 +1095,49 @@ module SyncScenarios
     end
   end
 
-  def all = ledger_scenarios + balance_scenarios + binance_balance_scenarios + binance_ledger_scenarios + import_scenarios
+  # Exchanges::Kucoin#get_ledger with AccountTransactionSync (plan K6): weekly fills windows (halved past KuCoin's 50,000
+  # cap), SUCCESS deposits and withdrawals keyed by id, a throttled page waited out, any other failure failing the run.
+  def kucoin_ledger_scenarios
+    night = '2026-09-20T02:00:00.250000Z'
+    t = ->(*args) { Time.utc(*args) }
+    since = ->(watermark) { ->(ctx) { P.kucoin(ctx); ctx[:key].update_columns(last_synced_at: watermark) } }
+    week = since.(t.(2026, 9, 15))
+    fills = [P.kc_fill('9001', 'BTC-USDT', 'buy', '0.001', '60.5', t.(2026, 9, 16, 10)),
+             P.kc_fill('9002', 'ETH-BTC', 'sell', '0.5', '0.02', t.(2026, 9, 17, 11), fee: '-0.00002', fee_currency: 'BTC'),
+             P.kc_fill('9001', 'ETH-USDT', 'sell', '0.2', '500', 1_789_700_000_123)] # the same tradeId on another symbol: its own row
+    deposits = [P.kc_transfer('d1', 'USDT', '1000', t.(2026, 9, 15, 12), fee: '0.5'), P.kc_transfer(nil, 'BTC', '0.01', t.(2026, 9, 16), wallet: '0xidless')]
+    withdrawals = [P.kc_transfer('w1', 'BTC', '0.002', t.(2026, 9, 18), fee: '0.0005', wallet: '0xbatch'),
+                   P.kc_transfer('w2', 'ETH', '0.1', t.(2026, 9, 18), fee: '0.001', wallet: '0xbatch'),
+                   P.kc_transfer('w3', 'USDT', '5', t.(2026, 9, 18, 1), wallet: '')]
+    over_cap = P.kc_page([], pages: 101, total: 50_001)
+    throttled = { 'status' => 429, 'body' => { 'code' => '429000', 'msg' => 'Too Many Requests' } }
+    [
+      { name: 'kucoin-ledger-week', setup: week,
+        steps: [P.kucoin_ledger(night, fills: [P.kc_page(fills)], deposits: [P.kc_page(deposits)], withdrawals: [P.kc_page(withdrawals)])] },
+      { name: 'kucoin-ledger-full', setup: ->(ctx) { P.kucoin(ctx) },
+        steps: [P.kucoin_ledger(night, fills: [P.kc_page(fills.first(1)), P.kc_page([])], deposits: [P.kc_page(deposits.first(1))])] },
+      { name: 'kucoin-ledger-two_nights', setup: week,
+        steps: [P.kucoin_ledger(night, fills: [P.kc_page(fills)]), P.kucoin_ledger('2026-09-21T02:00:00.250000Z', fills: [P.kc_page(fills)], deposits: [P.kc_page(deposits)])] },
+      { name: 'kucoin-ledger-pages', setup: week,
+        steps: [P.kucoin_ledger(night, fills: [P.kc_page(fills.first(1), pages: 2, total: 2), P.kc_page(fills.last(1), page: 2, pages: 2, total: 2)],
+                                       deposits: [P.kc_page(deposits.first(1), pages: 2, total: 2), P.kc_page(deposits.last(1), page: 2, pages: 2, total: 2)])] },
+      { name: 'kucoin-ledger-cap_split', setup: week,
+        steps: [P.kucoin_ledger(night, fills: [over_cap, P.kc_page(fills.first(1)), P.kc_page(fills.last(1)), P.kc_page([])])] },
+      { name: 'kucoin-ledger-cap_at_an_hour', setup: since.(t.(2026, 9, 21, 1, 30)),
+        steps: [P.kucoin_ledger(night, fills: [over_cap])] },
+      { name: 'kucoin-ledger-throttled', setup: week,
+        steps: [P.kucoin_ledger(night, fills: [throttled, throttled, P.kc_page(fills)])] },
+      { name: 'kucoin-ledger-throttled_out', setup: week, steps: [P.kucoin_ledger(night, fills: [throttled])] },
+      # Two weekly windows: the first read, the second failed. Nothing is stored and the watermark stays.
+      { name: 'kucoin-ledger-failed_page', setup: since.(t.(2026, 9, 10)),
+        steps: [P.kucoin_ledger(night, fills: [P.kc_page(fills.first(1)), { 'status' => 500, 'body' => { 'code' => '500000', 'msg' => 'Internal Server Error' } }])] },
+      { name: 'kucoin-ledger-error_envelope', setup: week,
+        steps: [P.kucoin_ledger(night, fills: [P.kc_page(fills)], deposits: [P.ok('code' => '400007', 'msg' => 'Access Denied')])] },
+      { name: 'kucoin-ledger-network', setup: week,
+        steps: [P.kucoin_ledger(night, withdrawals: [{ 'network' => 'kucoin_pre_send', 'message' => 'Connection refused - connect(2) for "api.kucoin.com" port 443' }])] },
+      { name: 'kucoin-ledger-nothing', setup: week, steps: [P.kucoin_ledger(night)] }
+    ]
+  end
+
+  def all = ledger_scenarios + balance_scenarios + binance_balance_scenarios + binance_ledger_scenarios + import_scenarios + kucoin_ledger_scenarios
 end
