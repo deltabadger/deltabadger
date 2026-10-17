@@ -162,7 +162,7 @@ fn weights(draft: &Draft, value: &Value) -> Result<Value,(&'static str,String)> 
         Value::Object(o) => for (key,value) in o { given.push((key.clone(),value.clone())); },
         _ => return Err(invalid()),
     }
-    if given.is_empty() || given.len()>1000 { return Err(invalid()); }
+    if given.is_empty() { return Err(invalid()); }
     let mut identifiers=std::collections::HashSet::new();
     let mut parsed=Vec::new();
     for (name,pct) in given {

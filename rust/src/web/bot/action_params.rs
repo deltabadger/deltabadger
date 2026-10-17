@@ -35,6 +35,10 @@ impl ActionParams {
         Ok(Self(value, true))
     }
 
+    /// What a REST action hands its BotApi service: Rails bounds a JSON body by its size alone (FORM_LIMIT here), so a
+    /// long list is the service's to judge, never a parameter limit.
+    pub fn from_service(value: Map<String, Value>) -> Self { Self(Value::Object(value), true) }
+
     pub fn mcp(&self) -> bool { self.1 }
 
     pub fn value(&self) -> &Param { &self.0 }

@@ -142,6 +142,7 @@ module Pages
     # parameters past this build's per-request bounds.
     def api_edge_scenarios
       theirs = { 'kind' => 'basket', 'owner' => 'second@example.com', 'columns' => { 'status' => 1, 'started_at' => '2026-09-09T12:00:00Z' } }
+      many = (1..1001).map { |i| "\"S#{i}\":1" }.join(',')
       streams = { 'broadcasts' => %w[user_1:bot_updates user_1:bot_1] }
       {
         # The owner's bots page is open while an API client acts: it hears what the web's own actions send.
@@ -152,7 +153,10 @@ module Pages
         'api_stop_encoded_ids' => write_case([write('POST', '/api/v1/bots/1%30/stop'), write('POST', '/api/v1/bots/%35/stop'),
                                               write('POST', '/api/v1/bots/%E2%82/stop'),
                                               write('POST', '/api/v1/bots/%35/stop', 'second-token'), write('POST', '/api/v1/bots/1+/stop'),
-                                              write('POST', '/api/v1/bots/%31/stop')], 1).tap { |c| c['bots'] << theirs }
+                                              write('POST', '/api/v1/bots/%31/stop')], 1).tap { |c| c['bots'] << theirs },
+        'api_start_oversized' => write_case([write('POST', '/api/v1/bots/1/start', body: "{\"start_fresh\":[#{(['true'] * 1001).join(',')}]}")], 2),
+        'api_update_oversized' => write_case([write('PATCH', '/api/v1/bots/1', body: "{\"allocations\":{#{many}}}"),
+                                              write('PATCH', '/api/v1/bots/1', body: "{\"label\":[#{(['1'] * 1001).join(',')}],\"quote_amount\":61}")], 2)
       }
     end
 

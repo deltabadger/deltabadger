@@ -251,8 +251,7 @@ fn dispatch(c: &Connection, app: &App, route: &Route, input: &Input, authorizati
             let Ok(p) = params() else { return Ok(bad_request()) };
             // `params[:id].to_i`: the path's id (it wins over the body's and the query's), its leading digits.
             let id = p.get("id").and_then(bot_api::to_i).unwrap_or(0);
-            let submitted = super::bot::action_params::ActionParams::from_mcp(Value::Object(service_arguments(write, p)))
-                .map_err(|_| WebError::Config("REST parameters exceed parameter bounds".into()))?;
+            let submitted = super::bot::action_params::ActionParams::from_service(service_arguments(write, p));
             render(bot_api::write_result(bot_api::bot_write(c, app, user, id, write, &submitted)?))
         }
         Action::Unported => failure(StatusCode::NOT_IMPLEMENTED, "not_ported", &format!("{method} {path} is not served by this build yet.")),
