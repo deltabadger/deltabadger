@@ -30,7 +30,7 @@ MUTATIONS = [
     ('let the query id win over the path', 'rust/src/web/rest.rs',
      'out.extend(self.path.iter().map(|(name, value)| (name.to_string(), json!(value))));',
      'for (name, value) in self.path { out.entry(name.to_string()).or_insert(json!(value)); }',
-     'api_update_ids step 4', 'api_update_ids'),
+     'api_update_ids step 0', 'api_update_ids'),
     # BotApi::Bots::Start reads the flag before it asks whether the bot runs: a junk flag on a running bot is 422.
     ('check running before the start flag', 'rust/src/web/bot/write.rs',
      'if action == Action::Start && submitted.start_fresh().is_err() {', 'if action == Action::Start && submitted.start_fresh().is_err() && !working {',
