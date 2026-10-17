@@ -272,6 +272,58 @@ class Exchanges::KucoinTest < ActiveSupport::TestCase
     assert_not result.data.is_a?(Hash) && result.data[:not_found]
   end
 
+  # KuCoin forgets a filled order after ~7 days. An instance off for longer polls an order the venue
+  # answers "does not exist" for, past Bot::StaleOrderResolver's 14 days: its fills must decide.
+  def forgotten_order_bot
+    bot = create(:dca_single_asset, :started, exchange: @exchange)
+    order = create(:transaction, bot: bot, status: :submitted, external_status: :open, external_id: 'o-gone',
+                                 amount_exec: nil, quote_amount_exec: nil,
+                                 created_at: (Bot::StaleOrderResolver::STALE_ORDER_THRESHOLD + 6.days).ago)
+    Honeymaker::Clients::Kucoin.any_instance.stubs(:get_order)
+                               .returns(Result::Failure.new('KuCoin API error 400100: order not exist.'))
+    [bot, order]
+  end
+
+  def stub_fills(page)
+    filled_at = 10.days.ago.to_i * 1000
+    Honeymaker::Clients::Kucoin.any_instance.stubs(:get_fills).returns(kucoin_page([]))
+    Honeymaker::Clients::Kucoin.any_instance.stubs(:get_fills)
+                               .with { |**kw| kw[:order_id] == 'o-gone' && kw[:start_at] <= filled_at && filled_at < kw[:end_at] }
+                               .returns(page)
+  end
+
+  test 'an order KuCoin forgot after it filled is booked from its fills, not abandoned' do
+    bot, order = forgotten_order_bot
+    fill = { 'orderId' => 'o-gone', 'tradeId' => '1', 'symbol' => bot.ticker.ticker, 'side' => 'buy', 'type' => 'market',
+             'size' => '0.002', 'funds' => '100', 'createdAt' => 10.days.ago.to_i * 1000 }
+    stub_fills(kucoin_page([fill, fill.merge('tradeId' => '2')]))
+
+    with_dry_run(false) { Bot::FetchAndUpdateOpenOrdersJob.new.perform(bot) }
+
+    order.reload
+    assert_equal 'closed', order.external_status
+    assert_equal BigDecimal('0.004'), order.amount_exec
+    assert_equal BigDecimal('200'), order.quote_amount_exec
+  end
+
+  test 'a forgotten order with no fills is retired' do
+    bot, order = forgotten_order_bot
+    stub_fills(kucoin_page([]))
+
+    with_dry_run(false) { Bot::FetchAndUpdateOpenOrdersJob.new.perform(bot) }
+
+    assert_equal 'abandoned', order.reload.external_status
+  end
+
+  test 'a forgotten order whose fills cannot be read keeps waiting' do
+    bot, order = forgotten_order_bot
+    stub_fills(Result::Failure.new('KuCoin API error 400100: Parameter Error'))
+
+    assert_raises(RuntimeError) { with_dry_run(false) { Bot::FetchAndUpdateOpenOrdersJob.new.perform(bot) } }
+
+    assert_equal 'open', order.reload.external_status
+  end
+
   test 'get_orders reports a gone order under missing and keeps reading the rest' do
     @exchange.stubs(:get_order).with(order_id: 'gone').returns(
       Result::Failure.new('gone', data: { not_found: true, missing_ids: ['gone'] })
