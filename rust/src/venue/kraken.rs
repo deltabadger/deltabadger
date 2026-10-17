@@ -1,4 +1,4 @@
-//! Exchanges::Kraken + Honeymaker::Clients::Kraken for one-asset buys, over a Transport (spec E1). Rails is the oracle; each
+//! Exchanges::Kraken + Honeymaker::Clients::Kraken for buys, one leg per basket member, over a Transport (spec E1). Rails is the oracle; each
 //! method names the Ruby it ports. The engine's FakeVenue reads the same raw bodies with the parsers below.
 //!
 //! Where the code lives (spec E §1, settled by E1's dependency test): a module of this crate on the shared transport. Linking

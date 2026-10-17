@@ -1,5 +1,5 @@
 //! Honeymaker::Clients::Binance (and ::BinanceUs) for the tracker's reads (signed GETs), and Exchanges::Binance for the
-//! engine's one-asset spot buys (spec E2): prices, balance, placement, polls and the fill rebuild. Rails is the oracle; each
+//! engine's spot buys, one leg per basket member (spec E2): prices, balance, placement, polls and the fill rebuild. Rails is the oracle; each
 //! method names the Ruby it ports. Binance.US trades nowhere here: only the tracker reads it.
 use super::http::{self, HttpRequest, Transport, TransportError};
 use super::{NewOrder, OrderKind, OrderState, PriceSide};

@@ -1,5 +1,7 @@
 #![allow(dead_code)] // each test binary uses a different part of this module
 
+#[cfg(unix)]
+pub mod decisions;
 pub mod html;
 pub mod seed;
 pub mod scripted;

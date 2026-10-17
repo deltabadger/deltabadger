@@ -5,6 +5,7 @@
 #   bin/rails runner script/rust/decisions.rb grid-limit <root>   # the amount limit, its stop and its mail, on Alpaca crypto
 #   bin/rails runner script/rust/decisions.rb grid-binance <root> # Binance spot, scripted beneath honeymaker at the Faraday adapter
 #   bin/rails runner script/rust/decisions.rb grid-sell <root>    # a one-asset basket selling on Kraken, Binance and Alpaca (slice 6a)
+#   bin/rails runner script/rust/decisions.rb grid-venue-basket <root> # buying baskets of 2 and 3 members on Kraken (EUR) and Binance (USDT)
 #   bin/rails runner script/rust/decisions.rb grid-basket-sell <root> # a wider Alpaca basket's ranked DCA-out (slice 6b)
 #   bin/rails runner script/rust/decisions.rb grid-rebalance <root>   # threshold rebalancing on a stopped Alpaca basket (slice 6b)
 #   bin/rails runner script/rust/decisions.rb grid-conditions <root> # price_limit / sell_price_limit with `pause`, and the minute check (slice 7a)
@@ -32,7 +33,9 @@ module ScriptedKraken
 
   def self.reply(path, params)
     sent << params.transform_keys(&:to_s).except('nonce').compact if path == '/0/private/AddOrder'
-    queue = http&.[](path) or raise Harness::Unscripted, "unscripted Kraken call #{path}"
+    # A public call scripted with its query ("/0/public/Ticker?pair=ETHEUR") is answered first: a basket prices each member.
+    keyed = "#{path}?#{params.compact.map { |k, v| "#{k}=#{v}" }.sort.join('&')}" if path.start_with?('/0/public/')
+    queue = (keyed && http&.[](keyed)) || http&.[](path) or raise Harness::Unscripted, "unscripted Kraken call #{path}"
     Result::Success.new(queue.size > 1 ? queue.shift : queue.first)
   end
 
@@ -97,7 +100,10 @@ module ScriptedBinance
   def self.reply(env)
     key = "#{env.method.to_s.upcase} #{env.url.path}"
     sent << Rack::Utils.parse_query(env.url.query).except('timestamp', 'signature') if key == 'POST /api/v3/order'
-    queue = http[key] or raise Harness::Unscripted, "unscripted Binance call #{key}"
+    # A call scripted with its query ("GET /api/v3/ticker/bookTicker?symbol=ETHUSDT") is answered first: a basket prices
+    # each member. Signed calls carry a timestamp, so they only ever match their bare key.
+    keyed = "#{key}?#{Rack::Utils.parse_query(env.url.query).map { |k, v| "#{k}=#{v}" }.sort.join('&')}" if env.url.query
+    queue = (keyed && http[keyed]) || http[key] or raise Harness::Unscripted, "unscripted Binance call #{key}"
     queue.size > 1 ? queue.shift : queue.first
   end
 end
@@ -194,7 +200,7 @@ module Decisions
                                                end
     # A basket's other members, created after BTC so that a one-asset scenario's ids are what they were.
     assets = { 'BTC' => btc }
-    (sc['members'] || {}).each_key { |sym| assets[sym] ||= basket_member(exchange, quote, sym) }
+    (sc['members'] || {}).each_key { |sym| assets[sym] ||= basket_member(exchange, quote, sym, sc['venue']) }
     ApiKey.new(user:, exchange:, key: 'k', secret: 's', passphrase:, status: :correct, key_type: :trading).save!(validate: false)
     allocations = sc['members'] ? sc['members'].to_h { |sym, w| [assets.fetch(sym).id.to_s, w] } : { btc.id.to_s => 1.0 }
     # As BotApi::Bots::Create does (create_basket + save_and_start), without starting a job; its after_save writes bot_index_assets.
@@ -525,11 +531,15 @@ module Decisions
   NOT_FOUND = { 'status' => 404, 'body' => { 'code' => 40_410_000, 'message' => 'order not found for 9b1d2c3e-0000-4000-8000-000000000001' } }.freeze
   FIVE_XX = { 'status' => 500, 'body' => { 'code' => 50_010_000, 'message' => 'internal server error' } }.freeze
 
-  def basket_member(exchange, quote, sym)
+  # A basket's member beside BTC, spelled as its venue lists it: SYM/USD on Alpaca, SYMEUR on Kraken, SYMUSDT on Binance.
+  def basket_member(exchange, quote, sym, venue)
     asset = Asset.create!(external_id: sym.downcase, symbol: sym, name: sym, category: 'Cryptocurrency')
     ExchangeAsset.create!(exchange:, asset:, available: true)
-    Ticker.create!(exchange:, ticker: "#{sym}/USD", base: sym, quote: 'USD', base_asset: asset, quote_asset: quote,
-                   **BASKET_PAIRS.fetch(sym).symbolize_keys)
+    ticker, pair = case venue
+                   when 'kraken', 'binance' then ["#{sym}#{quote.symbol}", VENUE_PAIRS.fetch(venue).fetch(sym)]
+                   else ["#{sym}/USD", BASKET_PAIRS.fetch(sym)]
+                   end
+    Ticker.create!(exchange:, ticker:, base: sym, quote: quote.symbol, base_asset: asset, quote_asset: quote, **pair.symbolize_keys)
     asset
   end
 
@@ -739,6 +749,116 @@ module Decisions
                            'GET /v2/orders:by_client_order_id' => [sol_landed] })
     list << landed_reference('basket-exited-intent-tiers-k3-landed', WEIGHTS['tiers'], legs: [%w[OTX-1 BTC 60], %w[OTX-2 ETH 36]],
                              landed: %w[SOL 24], quote_amount: 120.0, exited: ['SOL'], tickers_after: { 'SOL' => off })
+  end
+
+  # P1-T0: buying baskets on Kraken (EUR) and Binance (USDT). Each member has its venue's own spelling (Kraken's XBT), its
+  # own minimums and decimals, and is priced by its own scripted reply.
+  VENUE_PAIRS = {
+    'kraken' => {
+      'BTC' => { 'base_decimals' => 8, 'quote_decimals' => 5, 'price_decimals' => 1, 'minimum_base_size' => '0.00005', 'minimum_quote_size' => '0.5' },
+      'ETH' => { 'base_decimals' => 8, 'quote_decimals' => 5, 'price_decimals' => 2, 'minimum_base_size' => '0.002', 'minimum_quote_size' => '0.5' },
+      'SOL' => { 'base_decimals' => 7, 'quote_decimals' => 4, 'price_decimals' => 3, 'minimum_base_size' => '0.05', 'minimum_quote_size' => '0.75' }
+    },
+    'binance' => {
+      'BTC' => { 'base_decimals' => 5, 'quote_decimals' => 8, 'price_decimals' => 2, 'minimum_base_size' => '0.00001', 'minimum_quote_size' => '5' },
+      'ETH' => { 'base_decimals' => 4, 'quote_decimals' => 8, 'price_decimals' => 2, 'minimum_base_size' => '0.0001', 'minimum_quote_size' => '5' },
+      'SOL' => { 'base_decimals' => 3, 'quote_decimals' => 8, 'price_decimals' => 3, 'minimum_base_size' => '0.001', 'minimum_quote_size' => '6' }
+    }
+  }.freeze
+  # [bid, ask, last] per member and venue.
+  VENUE_PRICES = {
+    'kraken' => { 'BTC' => %w[49990.1 50000.2 49995.3], 'ETH' => %w[2499.75 2500.25 2500.01], 'SOL' => %w[149.875 150.125 150.001] },
+    'binance' => { 'BTC' => %w[64000.10000000 64000.11000000 64000.05000000], 'ETH' => %w[2500.50000000 2500.51000000 2500.47000000],
+                   'SOL' => %w[150.12400000 150.12500000 150.12300000] }
+  }.freeze
+  VENUE_TICKER = { 'kraken' => { 'BTC' => 'XBTEUR', 'ETH' => 'ETHEUR', 'SOL' => 'SOLEUR' },
+                   'binance' => { 'BTC' => 'BTCUSDT', 'ETH' => 'ETHUSDT', 'SOL' => 'SOLUSDT' } }.freeze
+
+  def kr_ticker(pair, bid, ask, last) = { 'error' => [], 'result' => { pair => {
+    'a' => [ask, '1', '1.000'], 'b' => [bid, '1', '1.000'], 'c' => [last, '0.001'], 'v' => ['12.5', '30.1'], 'p' => [last, last],
+    't' => [100, 250], 'l' => [bid, bid], 'h' => [ask, ask], 'o' => last } } }
+
+  # The members' price replies, each keyed by its own pair; `fail` answers one member with the venue's error instead.
+  def venue_prices(venue, fail: nil)
+    VENUE_PRICES.fetch(venue).flat_map do |sym, (bid, ask, last)|
+      pair = VENUE_TICKER.fetch(venue).fetch(sym)
+      if venue == 'kraken'
+        body = sym == fail ? { 'error' => ['EQuery:Unknown asset pair'] } : kr_ticker(pair, bid, ask, last)
+        [["/0/public/Ticker?pair=#{pair}", [body]]]
+      else
+        bad = { 'status' => 400, 'body' => { 'code' => -1121, 'msg' => 'Invalid symbol.' } }
+        [["GET /api/v3/ticker/bookTicker?symbol=#{pair}", [sym == fail ? bad : ok('symbol' => pair, 'bidPrice' => bid, 'bidQty' => '1.5', 'askPrice' => ask, 'askQty' => '0.2')]],
+         ["GET /api/v3/ticker/price?symbol=#{pair}", [sym == fail ? bad : ok('symbol' => pair, 'price' => last)]]]
+      end
+    end.to_h
+  end
+
+  def kr_order(pair, status:, vol:, vol_exec:, cost:, price:)
+    { 'status' => status, 'vol' => vol, 'vol_exec' => vol_exec, 'cost' => cost, 'price' => price, 'oflags' => 'viqc',
+      'descr' => { 'pair' => pair, 'type' => 'buy', 'ordertype' => 'market', 'price' => '0' } }
+  end
+
+  def venue_http(venue, fail: nil)
+    if venue == 'kraken'
+      { '/0/private/AddOrder' => (1..6).map { |n| { 'error' => [], 'result' => { 'txid' => ["OTX-#{n}"] } } },
+        '/0/private/BalanceEx' => [balance_body('100000')], '/0/private/QueryOrders' => [query_body({})],
+        '/0/private/TradesHistory' => [{ 'error' => [], 'result' => { 'trades' => {}, 'count' => 0 } }] }.merge(venue_prices(venue, fail:))
+    else
+      { 'POST /api/v3/order' => (1..6).map { |n| ok('symbol' => 'BTCUSDT', 'orderId' => 28_456 + n, 'orderListId' => -1, 'clientOrderId' => 'x', 'transactTime' => 1_788_000_000_000) },
+        'GET /api/v3/account' => [ok('makerCommission' => 10, 'canTrade' => true, 'balances' => [{ 'asset' => 'USDT', 'free' => '100000.00000000', 'locked' => '0' }])],
+        'GET /api/v3/allOrders' => [ok([])], 'GET /api/v3/myTrades' => [ok([])] }.merge(venue_prices(venue, fail:))
+    end
+  end
+
+  # A member's closed buy of `value` quote at its ask, as the first contribution left it.
+  def venue_leg(venue, n, sym, value)
+    ask = VENUE_PRICES.fetch(venue).fetch(sym)[1].to_d
+    qty = (value.to_d / ask).round(VENUE_PAIRS.fetch(venue).fetch(sym)['base_decimals'])
+    { 'asset' => sym, 'status' => 0, 'external_status' => 2, 'external_id' => "OCLOSED-#{n}", 'order_type' => 0, 'quote_amount' => value.to_d.to_s('F'),
+      'quote_amount_exec' => (qty * ask).to_s('F'), 'amount_exec' => qty.to_s('F'), 'price' => ask.to_s('F'), 'created_at' => '2026-09-01 10:00:01' }
+  end
+
+  def venue_basket(venue, name, members, at:, quote_amount: 60.0, settings: {}, transient: {}, transactions: [], http: {}, fail: nil, **extra)
+    { 'name' => "vb-#{venue}-#{name}", 'venue' => venue, 'interval' => 'day', 'quote_amount' => quote_amount, 'started_at' => BASKET_STARTED,
+      'settings' => settings, 'settings_changed_at' => nil, 'transient' => transient, 'transactions' => transactions,
+      'ticker' => VENUE_PAIRS.fetch(venue)['BTC'], 'members' => members, 'at' => at,
+      'script' => { (venue == 'kraken' ? 'http' : venue) => venue_http(venue, fail:).merge(http) }, 'tick' => true,
+      'record_floor' => true }.merge(extra.transform_keys(&:to_s))
+  end
+
+  def venue_basket_scenarios
+    modes = { 'market' => {}, 'limit' => { 'limit_ordered' => true, 'limit_order_pcnt_distance' => 0.0025 } }
+    off = { 'trading_enabled' => false }
+    %w[kraken binance].flat_map do |venue|
+      small, tiny = venue == 'kraken' ? [20.0, 2.0] : [20.0, 6.0] # SOL's 4 under its minimum; every leg of the 70/30 under its own
+      list = []
+      %w[w70 tiers].product(modes.keys).each do |w, mode|
+        list << venue_basket(venue, "#{w}-first_tick-#{mode}", WEIGHTS[w], at: basket_first, settings: modes[mode])
+      end
+      list << venue_basket(venue, 'tiers-drifted', WEIGHTS['tiers'], at: basket_at(1), transactions: [venue_leg(venue, 1, 'BTC', 60.0)])
+      modes.each do |mode, settings|
+        list << venue_basket(venue, "tiers-one_below-#{mode}", WEIGHTS['tiers'], at: basket_first, quote_amount: small, settings:)
+      end
+      # SOL's leg was below its minimum yesterday: BTC and ETH hold theirs, so today SOL takes its share plus what it missed.
+      list << venue_basket(venue, 'tiers-below_carried', WEIGHTS['tiers'], at: basket_at(1), quote_amount: small,
+                           transactions: [venue_leg(venue, 1, 'BTC', 10.0), venue_leg(venue, 2, 'ETH', 6.0)])
+      list << venue_basket(venue, 'w70-all_below', WEIGHTS['w70'], at: basket_first, quote_amount: tiny)
+      list << venue_basket(venue, 'tiers-price_missing-middle', WEIGHTS['tiers'], at: basket_at(1), fail: 'ETH')
+      list << venue_basket(venue, 'w70-untradable-one', WEIGHTS['w70'], at: basket_at(1), tickers_after: { 'ETH' => off })
+      list << venue_basket(venue, 'tiers-unavailable-one', WEIGHTS['tiers'], at: basket_at(1), tickers_after: { 'SOL' => { 'available' => false } })
+      list << venue_basket(venue, 'tiers-smart-first_tick', WEIGHTS['tiers'], at: basket_first,
+                           settings: { 'smart_intervaled' => true, 'smart_interval_quote_amount' => 20.0 })
+      list << venue_basket(venue, 'tiers-carry', WEIGHTS['tiers'], at: basket_at(1), transient: { 'missed_quote_amount' => '12.5' })
+      next list unless venue == 'kraken'
+
+      # The same day's legs swept closed before tomorrow's split, SOL carried across the two ticks (Kraken: one QueryOrders
+      # body answers each txid it is asked for).
+      t = VENUE_TICKER['kraken']
+      swept = query_body('OTX-1' => kr_order(t['BTC'], status: 'closed', vol: '10', vol_exec: '0.00019999', cost: '10', price: '50000.2'),
+                         'OTX-2' => kr_order(t['ETH'], status: 'closed', vol: '6', vol_exec: '0.0023997', cost: '6', price: '2500.25'))
+      list << venue_basket(venue, 'tiers-one_below-next', WEIGHTS['tiers'], at: basket_first, quote_amount: small, next_at: basket_at(1),
+                           http: { '/0/private/QueryOrders' => [swept] })
+    end.tap { |list| raise "the venue basket grid has #{list.size} scenarios, not 29" unless list.size == 29 }
   end
 
   LIMIT_STAMP = '2026-09-01T10:00:00.123Z' # Time#as_json of the bot's start, to the millisecond: when its limit was switched on
@@ -1661,7 +1781,9 @@ module Decisions
                  JSON.pretty_generate({ 'encryption' => (sc['kind'] == 'index' ? { 'primary_key' => Array(enc.primary_key).first, 'key_derivation_salt' => enc.key_derivation_salt } : nil), 'parity_scratch' => true, 'bot_id' => bot.id, 'at' => sc['at'], 'venue' => sc['venue'], 'script' => sc['script'],
                                         'tick' => sc['tick'], 'poll' => sc['poll'], 'recover_at' => sc['recover_at'], 'next_at' => sc['next_at'], 'rebalance_at' => sc['rebalance_at'],
                                         'between' => sc['between'], 'rails_cache' => sc['rails_cache'], 'check_at' => sc['check_at'],
-                                        'conditions' => sc['conditions'] }.compact))
+                                        'conditions' => sc['conditions'],
+                                        # Bot::SmartIntervalable#smart_interval_minimum(:quote) as Rails computes it for the built bot.
+                                        'rails_floor' => (sc['record_floor'] && bot.reload.smart_interval_minimum(:quote).then { |m| { 'value' => m[:value].to_f, 'reason' => m[:reason].to_s } }) }.compact))
       ActiveRecord::Base.connection_pool.disconnect!
       if ENV['RUST_GRID_CACHE']
         FileUtils.mkdir_p(seed_dir)
@@ -1842,7 +1964,7 @@ def web_save(dir)
 end
 
 command, root = ARGV
-USAGE = 'usage: grid <root> | grid-alpaca <root> | grid-basket <root> | grid-limit <root> | grid-binance <root> | grid-sell <root> | grid-conditions <root> | grid-basket-sell <root> | grid-rebalance <root> | record <root> | web-save <dir>'.freeze
+USAGE = 'usage: grid <root> | grid-alpaca <root> | grid-basket <root> | grid-limit <root> | grid-binance <root> | grid-sell <root> | grid-venue-basket <root> | grid-conditions <root> | grid-basket-sell <root> | grid-rebalance <root> | record <root> | web-save <dir>'.freeze
 raise ArgumentError, USAGE unless root
 
 case command
@@ -1854,6 +1976,7 @@ when 'grid-index' then Decisions.grid(root, Decisions.index_scenarios)
 when 'grid-limit' then Decisions.grid(root, Decisions.limit_scenarios)
 when 'grid-binance' then Decisions.grid(root, Decisions.binance_scenarios)
 when 'grid-sell' then Decisions.grid(root, Decisions.sell_scenarios)
+when 'grid-venue-basket' then Decisions.grid(root, Decisions.venue_basket_scenarios)
 when 'grid-basket-sell' then Decisions.grid(root, Decisions.basket_sell_scenarios)
 when 'grid-rebalance' then Decisions.grid(root, Decisions.rebalance_scenarios)
 when 'grid-conditions' then Decisions.grid(root, Decisions.condition_scenarios)
