@@ -67,7 +67,8 @@ fn shown_label(c: &Connection, user: i64, id: i64, stored: &Value) -> Value {
 pub fn bot_write(c: &Connection, app: &App, user: i64, id: i64, write: Write, submitted: &ActionParams) -> Result<Outcome<Shown>, WebError> {
     let ctx = Ctx { app: app.clone(), params: Arc::new(super::Params { full_path: "/mcp".into(), fullpath: "/mcp".into(), route_path: "/mcp".into(), path_locale: None,
             query: vec![], form: vec![], json: None, upload: None }),
-        session: super::session::Session::new(Default::default()), current: super::auth::Current::SignedOut,
+        session: super::session::Session::new(Default::default()), current: match super::auth::User::find(c, user)? {
+            Some(owner) => super::auth::Current::SignedIn(Arc::new(owner)), None => return Ok(Outcome::Missing) },
         method: axum::http::Method::POST, locale: "en", nonce: String::new(), now: app.now(), turbo_frame: None };
     let class: Option<String> = c.query_row("SELECT type FROM bots WHERE id=?1 AND user_id=?2 AND status<>3", (id, user), |r| r.get(0)).optional()?;
     let Some(class) = class else { return Ok(Outcome::Missing) };
@@ -90,7 +91,7 @@ pub fn bot_write(c: &Connection, app: &App, user: i64, id: i64, write: Write, su
             else { format!("Failed to update bot: {}", mcp_input::full_messages(&draft.errors)) };
             Ok(shown(json!({"id": id, "label": draft.candidate.label, "updated": updated}), text))
         }),
-        Write::Lifecycle(action) => write::lifecycle(c, &ctx, user, id, action, submitted, |c, _, view| {
+        Write::Lifecycle(action) => write::lifecycle(c, &ctx, user, id, action, submitted, |c, ctx, view| {
             let stored: String = c.query_row("SELECT COALESCE(label,'') FROM bots WHERE id=?1", [id], |r| r.get(0))?;
             let text = if view.errors.is_empty() {
                 match action {
@@ -116,7 +117,8 @@ pub fn bot_write(c: &Connection, app: &App, user: i64, id: i64, write: Write, su
             };
             let status: usize = c.query_row("SELECT status FROM bots WHERE id=?1", [id], |r| r.get(0))?;
             let data = json!({"id": id, "label": stored, "status": STATUSES.get(status).copied().unwrap_or("")});
-            Ok(shown(data, text))
+            let (broadcasts, after_scheduling) = if view.errors.is_empty() { super::bot::action_view::service_broadcasts(c, ctx, view, action)? } else { (vec![], None) };
+            Ok(Prepared { response: Shown { data, text }, broadcasts, after_scheduling })
         }),
     }?;
     Ok(match (write, out) {
