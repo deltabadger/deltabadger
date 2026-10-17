@@ -2,15 +2,17 @@
 //! `Res` (BotApi::Result): a domain status, and the data or an error code and message. `data` is the Hash Rails builds,
 //! in its key order, with its values already as Rails renders them: a BigDecimal as its `to_s` text, a time as
 //! ISO 8601 in UTC with milliseconds, a settings value as stored. REST encodes it (web::rest); MCP writes text from it.
-//! Ported here: the services of the REST routes this build serves (slice A); the others stay where their MCP tool is.
+//! Ported here: the services of the REST routes this build serves (slices A and B); the others stay where their MCP
+//! tool is.
 use super::mcp::{protocol::metadata, tools::{asset, STATUSES}};
-use super::{bot::action_params::numeric, App, WebError};
+use super::{bot::{action_params::{numeric, ActionParams}, mcp_input, write::{self, Action, Failure, Outcome, Prepared}}, i18n, layout::Ctx, App, WebError};
+use std::sync::Arc;
 use rusqlite::{Connection, OptionalExtension};
 use serde_json::{json, Value};
 
 /// BotApi::Result's status symbols.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Domain { Success, ValidationFailed, NotFound }
+pub enum Domain { Success, ValidationFailed, NotFound, Conflict, UpstreamFailed, NotPorted }
 
 pub struct Res {
     pub status: Domain,
@@ -23,6 +25,110 @@ pub struct Res {
 impl Res {
     fn success(data: Value) -> Self { Self { status: Domain::Success, data, code: None, message: String::new() } }
     fn failure(status: Domain, code: &'static str, message: String) -> Self { Self { status, data: Value::Null, code: Some(code), message } }
+}
+
+/// A bot write's answer, built under its lock for both surfaces: what the service returns (`data`) and the text the
+/// MCP tool says for it.
+pub struct Shown { pub data: Value, pub text: String }
+
+/// The bot writes: BotApi::Bots::UpdateSettings, Start, Stop, Archive, Unarchive and Delete.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Write { Settings, Lifecycle(Action) }
+
+impl Write {
+    pub fn tool(name: &str) -> Option<Self> {
+        Some(match name {
+            "update_bot_settings" => Self::Settings, "start_bot" => Self::Lifecycle(Action::Start), "stop_bot" => Self::Lifecycle(Action::Stop),
+            "archive_bot" => Self::Lifecycle(Action::Archive), "unarchive_bot" => Self::Lifecycle(Action::Unarchive),
+            "delete_bot" => Self::Lifecycle(Action::Delete), _ => return None,
+        })
+    }
+}
+
+fn shown(data: Value, text: String) -> Prepared<Shown> { Prepared { response: Shown { data, text }, broadcasts: vec![], after_scheduling: None } }
+
+/// The engine's refusal of a write, in the user's words (engine.write_refused).
+pub fn refused(reason: &str) -> String { i18n::text("en", "engine.write_refused", &[("reason", i18n::Arg::Text(reason))]) }
+
+/// Bot#label: the stored name, or the one a bot stored without one is shown under.
+fn label(c: &Connection, user: i64, id: i64) -> Result<String, WebError> {
+    let (label, kind, settings): (Option<String>, String, String) = c.query_row("SELECT label,type,settings FROM bots WHERE id=?1", [id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?;
+    match label.filter(|l| !l.trim().is_empty()) {
+        Some(label) => Ok(label),
+        None => super::mcp::reads::generated_label(c, user, id, &kind, &serde_json::from_str(&settings).unwrap_or(Value::Null), "en"),
+    }
+}
+
+/// One bot write through bot::write, as the service does it: `submitted` holds the service's arguments (MCP's as sent,
+/// REST's as its strong parameters permit them). English is the services' locale. A class this build does not write
+/// is refused under the engine's guard, never a second mutation path.
+pub fn bot_write(c: &Connection, app: &App, user: i64, id: i64, write: Write, submitted: &ActionParams) -> Result<Outcome<Shown>, WebError> {
+    let ctx = Ctx { app: app.clone(), params: Arc::new(super::Params { full_path: "/mcp".into(), fullpath: "/mcp".into(), route_path: "/mcp".into(), path_locale: None,
+            query: vec![], form: vec![], json: None, upload: None }),
+        session: super::session::Session::new(Default::default()), current: super::auth::Current::SignedOut,
+        method: axum::http::Method::POST, locale: "en", nonce: String::new(), now: app.now(), turbo_frame: None };
+    let class: Option<String> = c.query_row("SELECT type FROM bots WHERE id=?1 AND user_id=?2 AND status<>3", (id, user), |r| r.get(0)).optional()?;
+    let Some(class) = class else { return Ok(Outcome::Missing) };
+    if !["Bots::DcaMultiAsset", "Bots::DcaIndex"].contains(&class.as_str()) {
+        let tx = crate::engine::model::immediate(c)?;
+        let reason = match crate::engine::eligibility::guard(&tx, &app.cipher, Some(id)) {
+            Err(refusal) => refusal.reason(),
+            Ok(()) => crate::engine::eligibility::bot_reasons(&tx, &crate::engine::model::load_bot(&tx, id)?)?.join("; "),
+        };
+        tx.rollback()?;
+        let text = refused(&reason);
+        return Ok(Outcome::GuardRefused(Shown { data: Value::Null, text }));
+    }
+    match write {
+        Write::Settings => write::settings(c, &ctx, user, id, submitted, |_, _, draft| {
+            let updated: Vec<&String> = draft.submitted.keys().collect();
+            let text = if draft.errors.is_empty() {
+                format!("Bot '{}' settings updated: {}.", draft.candidate.label, updated.iter().map(|k| k.as_str()).collect::<Vec<_>>().join(", "))
+            } else if draft.errors.first().is_some_and(|e| e.field == "base") { mcp_input::full_messages(&draft.errors) }
+            else { format!("Failed to update bot: {}", mcp_input::full_messages(&draft.errors)) };
+            Ok(shown(json!({"id": id, "label": draft.candidate.label, "updated": updated}), text))
+        }),
+        Write::Lifecycle(action) => write::lifecycle(c, &ctx, user, id, action, submitted, |c, _, view| {
+            let stored: String = c.query_row("SELECT COALESCE(label,'') FROM bots WHERE id=?1", [id], |r| r.get(0))?;
+            let text = if view.errors.is_empty() {
+                match action {
+                    Action::Stop => {
+                        let pending = write::orders_may_execute(c, id)?;
+                        format!("Bot '{stored}' stopped.{}", if pending { " Orders already sent to the exchange may still execute." } else { "" })
+                    }
+                    Action::Archive => format!("Bot '{stored}' archived."),
+                    Action::Unarchive => format!("Bot '{stored}' reactivated (stopped)."),
+                    Action::Delete => format!("Bot '{stored}' deleted."),
+                    Action::Start => format!("Bot '{stored}' started successfully."),
+                }
+            } else {
+                let errors = mcp_input::full_messages(&view.errors);
+                // Service conflict messages are failures in Rails too, reported as they are.
+                if errors.starts_with("Bot '") || errors.starts_with("This app can't run that yet:") { errors } else { match action {
+                    Action::Start => format!("Failed to start bot '{stored}': {errors}"),
+                    Action::Stop => format!("Failed to stop bot '{stored}'."),
+                    Action::Archive => format!("Failed to archive bot: {errors}"),
+                    Action::Unarchive => format!("Failed to reactivate bot: {errors}"),
+                    Action::Delete => format!("Failed to delete bot: {errors}"),
+                }}
+            };
+            let status: usize = c.query_row("SELECT status FROM bots WHERE id=?1", [id], |r| r.get(0))?;
+            let data = json!({"id": id, "label": label(c, user, id)?, "status": STATUSES.get(status).copied().unwrap_or("")});
+            Ok(shown(data, text))
+        }),
+    }
+}
+
+/// A bot write as BotApi::Result: the service's data on a success, its failure otherwise. The engine's refusal (the
+/// guard) is this build's own 409 `write_refused`; a case this build does not write is 501 `not_ported`.
+pub fn write_result(out: Outcome<Shown>) -> Res {
+    match out {
+        Outcome::Missing => Res::failure(Domain::NotFound, "bot_not_found", "Bot not found.".into()),
+        Outcome::Unported(reason) => Res::failure(Domain::NotPorted, "not_ported", refused(reason)),
+        Outcome::GuardRefused(shown) => Res::failure(Domain::Conflict, "write_refused", shown.text),
+        Outcome::Invalid(_, Failure { status, code, message }) => Res::failure(status, code, message),
+        Outcome::NoChange(shown) | Outcome::Committed(shown) => Res::success(shown.data),
+    }
 }
 
 /// Ruby's `present?` for a parameter: nil, false, a blank string and an empty list or hash are not.
@@ -38,7 +144,7 @@ fn present(v: &Value) -> bool {
 
 /// `value.to_i` for a parameter: a string's leading integer, a number truncated. `None` where Ruby raises
 /// (true, a list, a hash). A number past 64 bits saturates, which every caller here reads the same way.
-fn to_i(v: &Value) -> Option<i64> {
+pub fn to_i(v: &Value) -> Option<i64> {
     match v {
         Value::Bool(_) | Value::Array(_) | Value::Object(_) => None,
         Value::Number(n) if n.is_f64() => n.as_f64().map(|f| f.trunc() as i64),

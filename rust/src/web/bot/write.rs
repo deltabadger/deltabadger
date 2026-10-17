@@ -3,17 +3,39 @@
 use super::{action_params::ActionParams, composition, draft::{Draft, FieldError, ParseError, ValidationContext}, Bot, For, Kind};
 use crate::{codec, engine::{eligibility, model}, ruby::BigDec};
 use crate::web::format::Num;
-use crate::web::{bots, i18n, layout::Ctx, WebError};
+use crate::web::{bot_api::Domain, bots, i18n, layout::Ctx, WebError};
 use rusqlite::{Connection, OptionalExtension};
 use serde_json::{json, Value};
 
 pub enum Outcome<T> {
     Missing,
     Unported(&'static str),
-    Invalid(T),
+    /// A refusal BotApi answers too, with its status, code and message (REST renders those; MCP its own text).
+    Invalid(T, Failure),
     GuardRefused(T),
     NoChange(T),
     Committed(T),
+}
+
+/// BotApi::Result's failure: the domain status, Rails' error code and its message.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Failure { pub status: Domain, pub code: &'static str, pub message: String }
+
+impl Failure {
+    pub fn invalid(code: &'static str, message: String) -> Self { Self { status: Domain::ValidationFailed, code, message } }
+    pub fn conflict(code: &'static str, message: String) -> Self { Self { status: Domain::Conflict, code, message } }
+}
+
+/// The BotApi::Bots service's failure when the model refuses the save, in its own words.
+fn model_failure(action: Action, label: &str, errors: &[FieldError]) -> Failure {
+    let errors = super::mcp_input::full_messages(errors);
+    match action {
+        Action::Start => Failure::invalid("bot_start_failed", format!("Failed to start bot '{label}': {errors}")),
+        Action::Stop => Failure { status: Domain::UpstreamFailed, code: "bot_stop_failed", message: format!("Failed to stop bot '{label}'.") },
+        Action::Archive => Failure::invalid("bot_archive_failed", format!("Failed to archive bot: {errors}")),
+        Action::Unarchive => Failure::invalid("bot_unarchive_failed", format!("Failed to reactivate bot: {errors}")),
+        Action::Delete => Failure::invalid("bot_delete_failed", format!("Failed to delete bot: {errors}")),
+    }
 }
 
 /// Fragments are built under the transaction and published only after commit succeeds.
@@ -99,7 +121,7 @@ fn settings_inner<T>(
             draft.errors.push(FieldError { field: "settings".into(), message: "missing or invalid bot parameter root".into() });
             let prepared = response_builder(&tx, &ctx, &draft)?;
             tx.rollback()?;
-            return Ok(Outcome::Invalid(prepared.response));
+            return Ok(Outcome::Invalid(prepared.response, Failure::invalid("bot_save_failed", format!("Failed to update bot: {}", super::mcp_input::full_messages(&draft.errors)))));
         }
     };
     let (zone, wash_sale): (String, Option<bool>) = tx.query_row("SELECT time_zone, wash_sale_enabled FROM users WHERE id = ?1", [owner], |r| Ok((r.get(0)?, r.get(1)?)))?;
@@ -110,9 +132,11 @@ fn settings_inner<T>(
     if let Some(reason) = original_refusal.filter(|reason| *reason != "a rebalance, liquidation or redeploy in progress") { return Ok(Outcome::Unported(reason)); }
     let mut mcp_carry = None;
     let mut mcp_refused = false;
+    let mut refused = None;
     if submitted.mcp() {
         match super::mcp_input::apply(&tx, &mut draft, &fields, &zone, ctx.now)? {
             super::mcp_input::InputOutcome::Parsed => {},
+            super::mcp_input::InputOutcome::Refused(failure) => refused = Some(failure),
             super::mcp_input::InputOutcome::AsciiAliasRefused => mcp_refused = true,
         }
         if draft.errors.is_empty() {
@@ -137,7 +161,10 @@ fn settings_inner<T>(
     if !draft.errors.is_empty() {
         let prepared = response_builder(&tx, &ctx, &draft)?;
         tx.rollback()?;
-        return Ok(if mcp_refused {Outcome::GuardRefused(prepared.response)} else {Outcome::Invalid(prepared.response)});
+        if mcp_refused { return Ok(Outcome::GuardRefused(prepared.response)); }
+        // The service's own refusal, else the model's (UpdateSettings' bot_save_failed).
+        let failure = refused.unwrap_or_else(|| Failure::invalid("bot_save_failed", format!("Failed to update bot: {}", super::mcp_input::full_messages(&draft.errors))));
+        return Ok(Outcome::Invalid(prepared.response, failure));
     }
     if let Some(reason) = original_refusal { return Ok(Outcome::Unported(reason)); }
     if !submitted.mcp() { if let Some(reason) = draft.original.unrendered() { return Ok(Outcome::Unported(reason)); } }
@@ -332,10 +359,11 @@ fn lifecycle_inner<T>(
             if wash.is_none() {
                 match sell_capable(&tx,id,&class,&raw)? {
                     Some(true) => {
-                        view.errors.push(FieldError {field:"base".into(),message:i18n::text(ctx.locale,"engine.wash_sale_question_owed",&[("label",i18n::Arg::Text(&label))])});
+                        let message=i18n::text(ctx.locale,"engine.wash_sale_question_owed",&[("label",i18n::Arg::Text(&label))]);
+                        view.errors.push(FieldError {field:"base".into(),message:message.clone()});
                         let prepared=response_builder(&tx,&ctx,&view)?;
                         tx.rollback()?;
-                        return Ok(Outcome::Invalid(prepared.response));
+                        return Ok(Outcome::Invalid(prepared.response, Failure::invalid("wash_sale_question_owed", message)));
                     }
                     // Holdings are the metrics walk's to know (Liquidatable#held_symbols); the web refuses the same case.
                     None => return Ok(Outcome::Unported("the wash-sale question not answered yet")),
@@ -343,18 +371,26 @@ fn lifecycle_inner<T>(
                 }
             }
         }
-        let message = match action {
-            Action::Stop if !working => Some(format!("Bot '{label}' is not running ({name}).")),
-            Action::Start if working => Some(format!("Bot '{label}' is already running ({name}).")),
-            Action::Archive if status==7 => Some(format!("Bot '{label}' is already archived.")),
-            Action::Unarchive if status!=7 => Some(format!("Bot '{label}' is not archived.")),
-            _ => None,
-        };
-        if let Some(message)=message {
-            view.errors.push(FieldError {field:"base".into(),message});
+        // Then the flag (BotApi::Bots::Start reads it before it asks whether the bot runs).
+        if action == Action::Start && submitted.start_fresh().is_err() {
+            let message=i18n::text(ctx.locale,"engine.invalid_start_fresh",&[]);
+            view.errors.push(FieldError {field:"base".into(),message:message.clone()});
             let prepared=response_builder(&tx,&ctx,&view)?;
             tx.rollback()?;
-            return Ok(Outcome::Invalid(prepared.response));
+            return Ok(Outcome::Invalid(prepared.response, Failure::invalid("invalid_start_fresh", message)));
+        }
+        let conflict = match action {
+            Action::Stop if !working => Some(("bot_not_running", format!("Bot '{label}' is not running ({name})."))),
+            Action::Start if working => Some(("bot_already_running", format!("Bot '{label}' is already running ({name})."))),
+            Action::Archive if status==7 => Some(("bot_archived", format!("Bot '{label}' is already archived."))),
+            Action::Unarchive if status!=7 => Some(("bot_not_archived", format!("Bot '{label}' is not archived."))),
+            _ => None,
+        };
+        if let Some((code,message))=conflict {
+            view.errors.push(FieldError {field:"base".into(),message:message.clone()});
+            let prepared=response_builder(&tx,&ctx,&view)?;
+            tx.rollback()?;
+            return Ok(Outcome::Invalid(prepared.response, Failure::conflict(code, message)));
         }
     }
     // A stale Reactivate never validates, fills defaults, or wakes a running bot.
@@ -386,17 +422,22 @@ fn lifecycle_inner<T>(
     let mut fresh = true;
     let mut delayed = None;
     let mut writer_refused = false;
+    let mut flag_failure = None;
     if action == Action::Start {
         // Bots::StartsController reads the flag before Bot#start looks at the row, so a junk flag
         // on a working bot is refused as junk. MCP passes the same flag (BotApi::Bots::Start.start_fresh).
         let flag=submitted.start_fresh();
         match flag {
-            Err(_)=>view.add(ctx.locale,"engine.invalid_start_fresh"),
+            Err(_)=>{
+                view.add(ctx.locale,"engine.invalid_start_fresh");
+                flag_failure=Some(Failure::invalid("invalid_start_fresh", i18n::text(ctx.locale,"engine.invalid_start_fresh",&[])));
+            }
             // Execute the final SQL gate even for a working row; it must touch zero rows.
             Ok(_) if matches!(status,1|4|5|6)=>{
                 let rows=tx.execute(WEB_START,(id,owner,&class,true,codec::format_time(ctx.now)))?;
                 if rows != 0 { return Err(error("working Start passed its SQL gate")); }
                 view.add(ctx.locale,"engine.already_running");
+                flag_failure=Some(Failure::conflict("bot_already_running", i18n::text(ctx.locale,"engine.already_running",&[])));
             }
             Ok(value)=>fresh=value,
         }
@@ -454,8 +495,16 @@ fn lifecycle_inner<T>(
     if !view.errors.is_empty() {
         if let Some(draft)=view.draft.as_mut() { draft.errors=view.errors.clone(); }
         let prepared=response_builder(&tx,&ctx,&view)?;
+        if writer_refused { tx.rollback()?; return Ok(Outcome::GuardRefused(prepared.response)); }
+        let failure = match flag_failure {
+            Some(failure) => failure,
+            None => {
+                let label: String = tx.query_row("SELECT COALESCE(label,'') FROM bots WHERE id=?1",[id],|r|r.get(0))?;
+                model_failure(action, &label, &view.errors)
+            }
+        };
         tx.rollback()?;
-        return Ok(if writer_refused {Outcome::GuardRefused(prepared.response)} else {Outcome::Invalid(prepared.response)});
+        return Ok(Outcome::Invalid(prepared.response, failure));
     }
     let at=codec::format_time(ctx.now);
     if let Some(draft)=view.draft.as_mut() {

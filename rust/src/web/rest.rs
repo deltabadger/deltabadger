@@ -28,7 +28,7 @@ enum Gate { Tool(&'static str), BotType, OrderType }
 
 /// The routes this build serves; every other one is `Unported`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Action { Bots, Exchanges, Transactions, TaxJurisdictions, Indices, Unported }
+enum Action { Bots, Exchanges, Transactions, TaxJurisdictions, Indices, Write(bot_api::Write), Unported }
 
 struct Route { gate: Gate, action: Action, path: Vec<(&'static str, String)> }
 
@@ -55,18 +55,19 @@ fn route(method: &Method, path: &str) -> Option<Route> {
         ["bots"] if post => (Some(Gate::BotType), Action::Unported),
         ["bots", id, rest @ ..] => {
             path.push(("id", id.to_string()));
-            (match rest {
-                [] if get => tool("get_bot_details"),
-                [] if update => tool("update_bot_settings"),
-                [] if delete => tool("delete_bot"),
-                ["start"] if post => tool("start_bot"),
-                ["stop"] if post => tool("stop_bot"),
-                ["archive"] if post => tool("archive_bot"),
-                ["archive"] if delete => tool("unarchive_bot"),
-                ["liquidations"] if post => tool("liquidate_exited_asset"),
-                ["redeploy"] if post => tool("answer_redeploy_offer"),
+            let name = match rest {
+                [] if get => Some("get_bot_details"),
+                [] if update => Some("update_bot_settings"),
+                [] if delete => Some("delete_bot"),
+                ["start"] if post => Some("start_bot"),
+                ["stop"] if post => Some("stop_bot"),
+                ["archive"] if post => Some("archive_bot"),
+                ["archive"] if delete => Some("unarchive_bot"),
+                ["liquidations"] if post => Some("liquidate_exited_asset"),
+                ["redeploy"] if post => Some("answer_redeploy_offer"),
                 _ => None,
-            }, Action::Unported)
+            };
+            (name.map(Gate::Tool), name.and_then(bot_api::Write::tool).map_or(Action::Unported, Action::Write))
         }
         ["transactions"] if get => (tool("list_transactions"), Action::Transactions),
         ["transactions", "account"] if get => (tool("list_account_transactions"), Action::Unported),
@@ -138,7 +139,10 @@ enum Answer { Json(StatusCode, String), Below(Box<Response>) }
 
 /// Api::V1::BaseController#status_for.
 fn status_for(status: Domain) -> StatusCode {
-    match status { Domain::Success => StatusCode::OK, Domain::ValidationFailed => StatusCode::UNPROCESSABLE_ENTITY, Domain::NotFound => StatusCode::NOT_FOUND }
+    match status {
+        Domain::Success => StatusCode::OK, Domain::ValidationFailed => StatusCode::UNPROCESSABLE_ENTITY, Domain::NotFound => StatusCode::NOT_FOUND,
+        Domain::Conflict => StatusCode::CONFLICT, Domain::UpstreamFailed => StatusCode::BAD_GATEWAY, Domain::NotPorted => StatusCode::NOT_IMPLEMENTED,
+    }
 }
 
 fn failure(status: StatusCode, code: &str, message: &str) -> Answer {
@@ -186,6 +190,18 @@ fn typed_tool(gate: Gate, params: &Map<String, Value>) -> Result<&'static str, A
         .ok_or_else(|| failure(StatusCode::UNPROCESSABLE_ENTITY, "invalid_order_type", &format!("Unknown order type '{text}'. Must be one of: market_buy, market_sell, limit_buy, limit_sell.")))
 }
 
+/// What BotsController hands the service: for an update, the settings it permits (`params.permit(*names)`: a scalar,
+/// nil included, and `allocations` as it came); for a start, `params[:start_fresh]`.
+fn service_arguments(write: bot_api::Write, params: &Map<String, Value>) -> Map<String, Value> {
+    match write {
+        bot_api::Write::Settings => params.iter()
+            .filter(|(name, value)| super::bot::mcp_input::setting_names().contains(&name.as_str()) && (name.as_str() == "allocations" || !(value.is_array() || value.is_object())))
+            .map(|(name, value)| (name.clone(), value.clone())).collect(),
+        bot_api::Write::Lifecycle(super::bot::write::Action::Start) => params.get("start_fresh").map(|v| Map::from_iter([("start_fresh".to_string(), v.clone())])).unwrap_or_default(),
+        bot_api::Write::Lifecycle(_) => Map::new(),
+    }
+}
+
 fn dispatch(c: &Connection, app: &App, route: &Route, input: &Input, authorization: Option<&str>, method: &Method, path: &str) -> Result<Answer, WebError> {
     let who = match authenticate(c, app, authorization)? { Ok(who) => who, Err(answer) => return Ok(answer) };
     let parsed = std::cell::OnceCell::new();
@@ -212,6 +228,14 @@ fn dispatch(c: &Connection, app: &App, route: &Route, input: &Input, authorizati
             }
         }
         Action::Indices => { let Ok(p) = params() else { return Ok(bad_request()) }; render(bot_api::indices(c, app, p.get("exchange_name").unwrap_or(&Value::Null))?) }
+        Action::Write(write) => {
+            let Ok(p) = params() else { return Ok(bad_request()) };
+            // `params[:id].to_i`: the path's id (it wins over the body's and the query's), its leading digits.
+            let id = p.get("id").and_then(bot_api::to_i).unwrap_or(0);
+            let submitted = super::bot::action_params::ActionParams::from_mcp(Value::Object(service_arguments(write, p)))
+                .map_err(|_| WebError::Config("REST parameters exceed parameter bounds".into()))?;
+            render(bot_api::write_result(bot_api::bot_write(c, app, user, id, write, &submitted)?))
+        }
         Action::Unported => failure(StatusCode::NOT_IMPLEMENTED, "not_ported", &format!("{method} {path} is not served by this build yet.")),
     })
 }
