@@ -886,6 +886,11 @@ module Pages
           end
           env = step['action_snapshot'] ? { 'action_dispatch.show_exceptions' => :all } : {}
           # A body sent as it is, whatever the method (a GET's body is not params to the integration session).
+          # 'if_none_match': 'last' sends the etag of this client's last response, 'last_strong' the same without W/.
+          if (tag = step['if_none_match'])
+            last = client[:etag].to_s
+            headers['If-None-Match'] = { 'last' => last, 'last_strong' => last.delete_prefix('W/') }.fetch(tag, tag)
+          end
           if step['raw_body']
             env = env.merge('RAW_POST_DATA' => step['raw_body'], 'CONTENT_LENGTH' => step['raw_body'].bytesize.to_s)
             params = nil
@@ -903,6 +908,7 @@ module Pages
         verify_rendered!("#{dir} step #{index}", client[:session])
         client[:page] = response.body if meta_token(response.body)
         client[:last] = response.body
+        client[:etag] = response.headers['etag']
         # Rails writes its session cookie on every response; this crate writes it when the session's
         # content changed. So what the session holds after each request is compared with what it held
         # before. session_id is Rails' own bookkeeping and not content.

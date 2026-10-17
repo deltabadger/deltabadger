@@ -221,6 +221,8 @@ pub async fn handle(State(app): State<App>, request: Request) -> Response {
         return WebError::Config("a request reached the routes without passing web::router's entry".into()).into_response();
     };
     let head = request.method() == Method::HEAD;
+    let conditional = matches!(*request.method(), Method::GET | Method::HEAD)
+        .then(|| super::header_text(request.headers(), "if-none-match").map(str::to_string)).flatten();
     let method = request.method().clone();
     let found = if params.path_locale.is_some() { None } else { route(&method, &params.route_path) };
     let answer = match found {
@@ -244,20 +246,27 @@ pub async fn handle(State(app): State<App>, request: Request) -> Response {
             }
         }
     };
-    finish(&app, answer, head)
+    finish(&app, answer, head, conditional.as_deref())
 }
 
 /// What the middleware below the router adds: the policy header, the controller's default headers (or, below the
-/// controllers, the cache header alone), and Rack::ETag's weak tag on a 200 or 201 with a body. HEAD keeps the
-/// headers and drops the body (Rack::Head, after the tag).
-fn finish(app: &App, answer: Answer, head: bool) -> Response {
+/// controllers, the cache header alone), and Rack::ETag's weak tag on a 200 or 201 with a body. Rack::ConditionalGet
+/// then answers a GET or HEAD whose If-None-Match is exactly that tag with a 304: no body, no content type. HEAD keeps
+/// the headers and drops the body (Rack::Head).
+fn finish(app: &App, answer: Answer, head: bool, if_none_match: Option<&str>) -> Response {
     let mut response = match answer {
         Answer::Json(status, body) => {
             let tag = (matches!(status, StatusCode::OK | StatusCode::CREATED) && !body.is_empty())
                 .then(|| format!("W/\"{}\"", &hex::encode(Sha256::digest(body.as_bytes()))[..32]));
             let mut response = (status, [(header::CONTENT_TYPE, "application/json; charset=utf-8")], body).into_response();
+            let fresh = status == StatusCode::OK && tag.is_some() && tag.as_deref() == if_none_match;
             if let Some(tag) = tag.and_then(|t| HeaderValue::from_str(&t).ok()) { response.headers_mut().insert(header::ETAG, tag); }
             headers::controller_defaults(response.headers_mut(), status, false);
+            if fresh {
+                *response.status_mut() = StatusCode::NOT_MODIFIED;
+                response.headers_mut().remove(header::CONTENT_TYPE);
+                *response.body_mut() = Body::empty();
+            }
             response
         }
         Answer::Below(response) => {
@@ -268,7 +277,8 @@ fn finish(app: &App, answer: Answer, head: bool) -> Response {
             response
         }
     };
-    headers::policy(response.headers_mut(), &headers::new_nonce(), app.config.force_ssl);
+    // ActionDispatch::ContentSecurityPolicy::Middleware sends no policy with a 304.
+    if response.status() != StatusCode::NOT_MODIFIED { headers::policy(response.headers_mut(), &headers::new_nonce(), app.config.force_ssl); }
     if head { *response.body_mut() = Body::empty(); }
     response
 }

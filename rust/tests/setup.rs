@@ -473,7 +473,7 @@ async fn the_gate_covers_the_app_zone_and_nothing_else() {
         let answer = browser.get(&app, path).await;
         assert_eq!((answer.status, answer.header("location")), (302, Some("/setup")), "{path}");
     }
-    for (path, status) in [("/up", 200), ("/health-check", 200), ("/api/v1/bots", 501), ("/settings", 302)] {
+    for (path, status) in [("/up", 200), ("/health-check", 200), ("/api/v1/bots", 401), ("/settings", 302)] {
         let answer = browser.get(&app, path).await;
         assert_eq!(answer.status, status, "{path}");
         assert_ne!(answer.header("location"), Some("/setup"), "{path}");

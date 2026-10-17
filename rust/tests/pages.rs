@@ -322,6 +322,7 @@ async fn run(dir: &Path) -> Value {
     let mut observer = None;
     let mut browsers: BTreeMap<String, Browser> = BTreeMap::new();
     let mut responses = vec![];
+    let mut etags: BTreeMap<String, String> = BTreeMap::new();
     for (index, step) in scenario["steps"].as_array().unwrap().iter().enumerate() {
         now += chrono::Duration::seconds(step["advance"].as_i64().unwrap_or(0));
         clock.set(now);
@@ -334,7 +335,12 @@ async fn run(dir: &Path) -> Value {
             step["path"].as_str().unwrap().replace("__R2_TOKEN__",&token)
         }else{step["path"].as_str().unwrap().to_string()};
         let form: Option<Vec<(&str, &str)>> = step["form"].as_object().map(|f| f.iter().map(|(k, v)| (k.as_str(), v.as_str().unwrap())).collect());
-        let headers: Vec<(&str, &str)> = step["headers"].as_object().map(|h| h.iter().map(|(k, v)| (k.as_str(), v.as_str().unwrap())).collect()).unwrap_or_default();
+        let mut headers: Vec<(&str, &str)> = step["headers"].as_object().map(|h| h.iter().map(|(k, v)| (k.as_str(), v.as_str().unwrap())).collect()).unwrap_or_default();
+        // pages.rb `if_none_match`: 'last' is the etag of this client's last response, 'last_strong' it without W/.
+        let client = step["client"].as_str().unwrap_or("main").to_string();
+        let last = etags.get(&client).cloned().unwrap_or_default();
+        let tag = match step["if_none_match"].as_str() { Some("last") => Some(last), Some("last_strong") => Some(last.trim_start_matches("W/").to_string()), other => other.map(str::to_string) };
+        if let Some(tag) = tag.as_deref() { headers.push(("if-none-match", tag)); }
         let wanted = match step["csrf"].as_str() { Some("form") => Csrf::Form, Some("header") => Csrf::Header, Some("both") => Csrf::Both, _ => Csrf::None };
         // Rails' last page had the form or meta tag this step takes its token from (pages.rb stops
         // otherwise). When this crate's page has not, that page already differs from Rails' and is
@@ -371,6 +377,7 @@ async fn run(dir: &Path) -> Value {
             None => browser.send(&app, step["method"].as_str().unwrap(), &request_path, form.as_deref(), csrf, &headers).await,
         };
         assert_genuine(&app, browser, &answer, now, &format!("{} step {index}", dir.file_name().unwrap().to_string_lossy()));
+        etags.insert(client, answer.header("etag").unwrap_or_default().to_string());
         let mut response = rust_answer(&answer, step);
         if step["jobs"] == true { response["job_classes"] = job_classes(&app.job_wakers().map(|jobs| jobs.pending()).unwrap_or_default()[woken..]); }
         if step["settings_snapshot"] == true { response["settings_rows"] = settings_snapshot::rows(dir,&app.cipher); }
@@ -802,10 +809,10 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
     println!("{} scenarios; {countdown_pages} pages where only Rails knows when the bot acts next", dirs.len());
     if std::env::var("PAGES").is_err() {
-        assert_eq!(dirs.iter().filter(|dir| !dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_") || n.to_string_lossy().starts_with("settings_"))).count(), 160 + 4 + 9 + 2 + 6 + 3 + 38 + 68, "completed read-only baseline (with the market-closed weekend page and the expired start on bots that are not stopped), with D5b's two missing_ and two not_ported_ connect scenarios, the venue pages (eight served, one refused), the selling pages (three served, one cap refused, in place of two refusals), the venue basket pages (seven served, in place of the one refusal), the asset search on each venue, the wizard's chooser and order switch (twelve served, one unrouted GET), its asset and exchange steps (ten served), its broker, key and quote steps to a created bot (nine served), the index and signal tiles and the IBKR and KuCoin key steps (four not_ported_), and the first empty bots page that opens it (two), and the REST API's (thirty-five on the five served reads' tokens and grants, fourteen on the routes it gates but does not serve, three on typed creates, nine unrouted paths, seven on parameters)");
+        assert_eq!(dirs.iter().filter(|dir| !dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_") || n.to_string_lossy().starts_with("settings_"))).count(), 160 + 4 + 9 + 2 + 6 + 3 + 38 + 70, "completed read-only baseline (with the market-closed weekend page and the expired start on bots that are not stopped), with D5b's two missing_ and two not_ported_ connect scenarios, the venue pages (eight served, one refused), the selling pages (three served, one cap refused, in place of two refusals), the venue basket pages (seven served, in place of the one refusal), the asset search on each venue, the wizard's chooser and order switch (twelve served, one unrouted GET), its asset and exchange steps (ten served), its broker, key and quote steps to a created bot (nine served), the index and signal tiles and the IBKR and KuCoin key steps (four not_ported_), and the first empty bots page that opens it (two), and the REST API's (thirty-five on the five served reads' tokens and grants, fourteen on the routes it gates but does not serve, three on typed creates, nine unrouted paths, seven on parameters, one on conditional GETs and one on an install without an admin)");
         assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("settings_"))).count(), 413 + 3 + 45 + 52 + 5 + 1 + 71, "complete S1 inventory, D5b's connect flow, the preference writes, the following client's card, the switch back to the default locale and the settings dialog (two more sections, in-place confirms, the page behind a language change)");
         assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_"))).count(), 197 + 50, "action inventory (with the five ⇄ rotations and nine sell-settings writes, twenty-two Kraken/Binance venue actions, and fifty on their baskets)");
-        assert_eq!(dirs.len(), 160 + 4 + 9 + 2 + 6 + 3 + 38 + 68 + 197 + 50 + 413 + 3 + 45 + 52 + 5 + 1 + 71, "a scenario was dropped or added without this count");
+        assert_eq!(dirs.len(), 160 + 4 + 9 + 2 + 6 + 3 + 38 + 70 + 197 + 50 + 413 + 3 + 45 + 52 + 5 + 1 + 71, "a scenario was dropped or added without this count");
         assert_eq!(countdown_pages, 4, "the pages where Rails knows a time this build does not: the listed divergence grew or shrank");
     }
 }

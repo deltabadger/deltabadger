@@ -82,6 +82,16 @@ module Pages
       end
       grid['missing_api_delete_bots'] = missing.('/api/v1/bots', 'DELETE')
       grid['missing_api_put_price'] = missing.('/api/v1/transactions/account/1/price', 'PUT')
+      # Rack::ConditionalGet: a 200 GET or HEAD whose etag is exactly the If-None-Match is a 304 without a body.
+      bots = '/api/v1/bots'
+      grid['api_conditional_get'] = api_case([api(bots), api(bots).merge('if_none_match' => 'last'), api(bots).merge('if_none_match' => 'last_strong'),
+                                              api(bots, method: 'HEAD').merge('if_none_match' => 'last'), api(bots).merge('if_none_match' => '*'),
+                                              api(bots), api(bots, 'second-token').merge('if_none_match' => 'last'), api(bots),
+                                              api(bots, nil).merge('if_none_match' => 'last'), api('/api/v1/tax/jurisdictions'),
+                                              api('/api/v1/tax/jurisdictions').merge('if_none_match' => 'last'),
+                                              json_body('/api/v1/bots', '{"type":"nope"}').merge('method' => 'POST', 'if_none_match' => 'last')])
+      # The setup gate is ApplicationController's: an install without an admin still answers the API.
+      grid['api_no_admin'] = api_case([api(bots), api(bots, nil)], {}, 'user' => owner('admin' => false))
       grid.merge(api_param_scenarios)
     end
 
@@ -94,7 +104,11 @@ module Pages
                                        api("#{bots}?status=%20"), api("#{bots}?status=stopped&status=created"),
                                        # Query over body; ParamsWrapper adds `bot` beside the keys and changes nothing read.
                                        json_body("#{bots}?status=created", '{"status":"stopped"}'), json_body(bots, '{"status":"stopped"}'),
-                                       json_body(bots, '{"status":2}'), json_body(bots, '[1]'), json_body(bots, '')]),
+                                       json_body(bots, '{"status":2}'), json_body(bots, '[1]'), json_body(bots, ''),
+                                       # `where(status: [...])`: either status; an unknown or blank member matches nothing.
+                                       api("#{bots}?status[]=stopped&status[]=created"), api("#{bots}?status[]=nope&status[]=stopped"),
+                                       api("#{bots}?status[]=2"), api("#{bots}?status[]="), api("#{bots}?status[]=nope"),
+                                       json_body(bots, '{"status":["stopped",1]}'), json_body(bots, '{"status":[]}')]),
         'api_bots_none' => api_case([api(bots), api('/api/v1/exchanges'), api(txns), api(indices)], {}, 'bots' => [], 'api_keys' => {}),
         'api_transactions_rows' => api_case([api(txns), api("#{txns}?bot_id=1"), api("#{txns}?bot_id=2&limit=1"), api("#{txns}?bot_id=999"),
                                              api("#{txns}?bot_id=abc"), api("#{txns}?bot_id="), api("#{txns}?bot_id=4"), api("#{txns}?limit=0"),
