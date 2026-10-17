@@ -31,9 +31,6 @@ module Pages
     # What a bot write may change, and the rows compared as stored.
     WRITE_TABLES = %w[bots bot_activity_logs bot_index_assets].freeze
     WRITE_ROWS = { 'bots' => '*', 'bot_activity_logs' => '*', 'bot_index_assets' => '*' }.freeze
-    # The install's guard refuses to start a bot on these stock listings (they carry no instrument type it accepts):
-    # every start that should run is of a bot on two coins (refused_api_start_stock is the named divergence).
-    COINS = { 'kind' => 'coins' }.freeze
 
     def api(path, token = 'api-token', method: 'GET', headers: {}, body: nil, expect: nil)
       step = { 'method' => method, 'path' => path, 'headers' => (token ? { 'Authorization' => "Bearer #{token}" } : {}).merge(headers),
@@ -125,19 +122,18 @@ module Pages
       WRITES.each do |name, (method, path, tool, status)|
         body = name == 'update' ? '{"quote_amount":60}' : nil
         ok = ->(token = 'api-token') { write(method, path, token, body:) }
-        coin = name == 'start' ? COINS : {}
         # Every refusal first (no writes), then the one token that acts.
         grid["api_#{name}_tokens"] = write_case([ok.(nil), ok.('nope'), ok.('mcp-token'), ok.('second-token'), ok.('foreign-personal-token'),
-                                                 ok.('revoked-token'), ok.('expired-token'), ok.('personal-token')], status, {}, {}, coin)
-        grid["api_#{name}_tool_off"] = write_case([ok.(), ok.('personal-token')], status, { 'tools' => TOOLS - [tool] }, {}, coin)
-        grid["api_#{name}_not_granted"] = write_case([ok.(), ok.('personal-token')], status, { 'grant' => TOOLS - [tool] }, {}, coin)
-        grid["api_#{name}_null_grant"] = write_case([ok.()], status, { 'grant' => nil }, {}, coin)
+                                                 ok.('revoked-token'), ok.('expired-token'), ok.('personal-token')], status)
+        grid["api_#{name}_tool_off"] = write_case([ok.(), ok.('personal-token')], status, 'tools' => TOOLS - [tool])
+        grid["api_#{name}_not_granted"] = write_case([ok.(), ok.('personal-token')], status, 'grant' => TOOLS - [tool])
+        grid["api_#{name}_null_grant"] = write_case([ok.()], status, 'grant' => nil)
         # Rails' params: the path's id wins over the query's and the body's; an id Rails' to_i reads as another.
         grid["api_#{name}_ids"] = write_case([write(method, "#{path.sub('/1', '/999')}?id=1", body: '{"id":1,"quote_amount":60}'),
                                               write(method, path.sub('/1', '/abc')), write(method, path.sub('/1', '/0')),
                                               write(method, path.sub('/1', '/1abc'), body:),
-                                              write(method, "#{path}?id=2", body: '{"id":3,"quote_amount":60}')], status, {}, {}, coin)
-        grid["api_#{name}_malformed_json"] = write_case([write(method, path, body: '{"quote_amount":').merge('rails_exception_status' => 400)], status, {}, {}, coin)
+                                              write(method, "#{path}?id=2", body: '{"id":3,"quote_amount":60}')], status)
+        grid["api_#{name}_malformed_json"] = write_case([write(method, path, body: '{"quote_amount":').merge('rails_exception_status' => 400)], status)
       end
       grid.merge(api_update_scenarios, api_lifecycle_scenarios)
     end
@@ -178,23 +174,25 @@ module Pages
       bot = '/api/v1/bots/1'
       start = ->(query = '', token = 'api-token', body: nil) { write('POST', "#{bot}/start#{query}", token, body:) }
       owed = { 'user' => owner('wash_sale_enabled' => nil) }
-      selling = COINS.merge('settings' => { 'rebalance_enabled' => true })
+      selling = { 'settings' => { 'rebalance_enabled' => true } }
       {
         'api_start_flags' => write_case([start.('?start_fresh=junk'), start.('?start_fresh=false'), start.(), start.('?start_fresh=junk'),
-                                         start.('?start_fresh=true')], 2, {}, {}, COINS),
+                                         start.('?start_fresh=true')], 2),
         'api_start_flag_values' => write_case([start.('', body: '{"start_fresh":"yes"}'), start.('', body: '{"start_fresh":[true]}'),
-                                               start.('?start_fresh=', body: nil), start.('', body: '{"start_fresh":0}')], 2, {}, {}, COINS),
-        'api_start_fresh_json' => write_case([start.('', body: '{"start_fresh":true}')], 2, {}, {}, COINS),
-        'api_start_continue_json' => write_case([start.('?start_fresh=1', body: '{"start_fresh":false}')], 0, {}, {}, COINS),
+                                               start.('?start_fresh=', body: nil), start.('', body: '{"start_fresh":0}')], 2),
+        'api_start_fresh_json' => write_case([start.('', body: '{"start_fresh":true}')], 2),
+        'api_start_continue_json' => write_case([start.('?start_fresh=1', body: '{"start_fresh":false}')], 0),
         # Rails asks the wash-sale question first, then reads the flag, then whether the bot runs.
         'api_start_wash_sale' => write_case([start.('?start_fresh=junk'), start.()], 1, {}, owed, selling),
-        'api_start_wash_sale_buyer' => write_case([start.()], 0, {}, owed, COINS),
+        'api_start_wash_sale_buyer' => write_case([start.()], 0, {}, owed),
         'api_start_invalid' => write_case([start.(), start.('?start_fresh=junk')], 0, {}, {}, 'stored' => { 'quote_amount' => 0 }),
-        # Named divergence: Rails starts a bot on its stock listings; this build's guard refuses it, writing nothing.
-        'refused_api_start_stock' => write_case([start.()], 0),
+        'api_start_coins' => write_case([start.()], 0, {}, {}, { 'kind' => 'coins' }),
+        # Named divergence: Rails starts a bot on a stock listing no sync has typed (instrument_type nil); this build's
+        # guard refuses it (engine::eligibility, "only plain cryptocurrencies, and stocks and ETFs on Alpaca"), writing nothing.
+        'refused_api_start_untyped' => write_case([start.()], 0, { 'untyped' => true }),
         'api_start_archived' => write_case([start.()], 7),
         'api_start_no_key' => write_case([start.()], 0, {}, 'api_keys' => {}),
-        'api_start_others' => write_case([start.('', 'second-token'), write('POST', '/api/v1/bots/999/start'), write('POST', '/api/v1/bots/4/start')], 0, {}, {}, COINS),
+        'api_start_others' => write_case([start.('', 'second-token'), write('POST', '/api/v1/bots/999/start'), write('POST', '/api/v1/bots/4/start')], 0),
         'api_stop_states' => write_case([write('POST', "#{bot}/stop"), write('POST', "#{bot}/stop"), write('POST', '/api/v1/bots/3/stop'),
                                          write('POST', '/api/v1/bots/1/stop', 'second-token')], 4),
         'api_archive_states' => write_case([write('POST', "#{bot}/archive"), write('POST', "#{bot}/archive"), write('DELETE', "#{bot}/archive"),
@@ -269,6 +267,10 @@ module Pages
       api_transactions if spec['transactions']
       api_indices(spec) if spec['indices']
       api_keys(owner, second) if spec['keys']
+      # MarketData's listings sync types every stock listing (CATEGORY_BY_TYPE); the grid's alpaca install leaves them untyped.
+      unless spec['untyped']
+        Asset.where(category: 'Stock').find_each { |asset| asset.update_columns(instrument_type: %w[QQQM IBIT].include?(asset.symbol) ? 'etf' : 'stock') }
+      end
     end
 
     # Rows with every value shape a transaction renders: decimals of each scale, nil amounts, a sell, a failure, and
