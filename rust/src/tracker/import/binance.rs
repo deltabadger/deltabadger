@@ -68,12 +68,16 @@ fn sum<'a>(ds: impl Iterator<Item = &'a BigDec>) -> BigDec { ds.fold(BigDec::zer
 fn legs(rows: &[&Row]) -> Vec<Leg> { rows.iter().map(|r| Leg::from(*r)).collect() }
 /// `sort_by` on a key, stable.
 fn sorted<T: Clone>(rows: &[T], key: impl Fn(&T, &T) -> std::cmp::Ordering) -> Vec<T> { let mut v = rows.to_vec(); v.sort_by(key); v }
-/// `group_by`: groups in the order their keys first appear.
-fn group_by<T: Clone, K: PartialEq>(rows: &[T], key: impl Fn(&T) -> K) -> Vec<(K, Vec<T>)> {
+/// `group_by`: groups in the order their keys first appear, each found by its key's hash.
+fn group_by<T: Clone, K: Eq + std::hash::Hash + Clone>(rows: &[T], key: impl Fn(&T) -> K) -> Vec<(K, Vec<T>)> {
     let mut groups: Vec<(K, Vec<T>)> = vec![];
+    let mut index: std::collections::HashMap<K, usize> = std::collections::HashMap::new();
     for row in rows {
         let k = key(row);
-        match groups.iter_mut().find(|(g, _)| *g == k) { Some((_, g)) => g.push(row.clone()), None => groups.push((k, vec![row.clone()])) }
+        match index.get(&k) {
+            Some(&i) => groups[i].1.push(row.clone()),
+            None => { index.insert(k.clone(), groups.len()); groups.push((k, vec![row.clone()])); }
+        }
     }
     groups
 }
@@ -318,5 +322,23 @@ fn leg(at: DateTime<Utc>, coin: &str, amount: BigDec, entry_type: &str, group_id
         quote_currency: None, quote_amount: None, fee_currency: None, fee_amount: None,
         tx_id: None, group_id: group_id.map(str::to_string), description: None,
         transacted_at: Some(at), raw: Raw::from_value(json!({})),
+    }
+}
+
+#[cfg(test)]
+mod grouping_tests {
+    /// `group_by` finds a row's group by its key's hash, not by comparing it with every group before it.
+    #[test]
+    fn grouping_does_not_compare_each_row_with_every_group() {
+        use std::{cell::Cell, hash::{Hash, Hasher}};
+        thread_local!(static EQ: Cell<usize> = const { Cell::new(0) });
+        #[derive(Clone)] struct K(usize);
+        impl PartialEq for K { fn eq(&self, o: &Self) -> bool { EQ.with(|n| n.set(n.get() + 1)); self.0 == o.0 } }
+        impl Eq for K {}
+        impl Hash for K { fn hash<H: Hasher>(&self, h: &mut H) { self.0.hash(h) } }
+        let rows: Vec<usize> = (0..2000).chain(0..2000).collect();
+        let groups = super::group_by(&rows, |r| K(*r));
+        assert_eq!((groups.len(), groups[0].1.len(), groups[1999].0 .0), (2000, 2, 1999), "first-seen order");
+        assert!(EQ.with(Cell::get) < 10_000, "{} key comparisons", EQ.with(Cell::get));
     }
 }

@@ -89,7 +89,12 @@ pub async fn create(Extension(ctx): Extension<Ctx>) -> Result<Response, WebError
     };
     let chosen = present(ctx.params.form("api_key_id")).map(str::to_string);
     let (bytes, at, written_offset) = (text.clone(), ctx.app.now(), offset.clone());
-    let answer = ctx.app.db(move |c| run::import(c, user, format, &bytes, written_offset.as_deref(), chosen.as_deref(), at).map_err(|e| WebError::Config(e.0))).await?;
+    // Read on a blocking thread of its own; the shared connection is taken only for the write.
+    let file = tokio::task::spawn_blocking(move || run::read(format, &bytes, written_offset.as_deref())).await.map_err(|e| WebError::Config(format!("reading an import: {e}")))?;
+    let answer = match file {
+        Ok(file) => ctx.app.db(move |c| run::write(c, user, format, file, chosen.as_deref(), at).map_err(|e| WebError::Config(e.0))).await?,
+        Err(answer) => answer,
+    };
     if matches!(answer, Answer::Ambiguous(_)) {
         // #park
         let token = parked.get_or_insert_with(|| format!("{:016x}", rand::random::<u64>())).clone();
