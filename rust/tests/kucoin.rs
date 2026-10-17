@@ -591,3 +591,25 @@ async fn an_order_neither_lookup_finds_halts_the_bot_until_the_operator_resolves
         assert_eq!(count(&o, "SELECT count(*) FROM bot_activity_logs WHERE event = 'placement_ambiguous'"), 1, "one record of the operator's decision");
     }
 }
+
+// ---- K5: #parse_order_data, recorded (script/rust/record_kucoin_vectors.rb)
+
+#[test]
+fn every_recorded_rails_order_parse_is_reproduced() {
+    let v: Value = serde_json::from_str(include_str!("fixtures/kucoin_vectors.json")).unwrap();
+    let mut p = Pairs::default();
+    p.by_symbol.insert("BTC-USDT".into(), Pair { base: "BTC".into(), quote: "USDT".into(), price_decimals: 1 });
+    p.by_symbol.insert("ETH-BTC".into(), Pair { base: "ETH".into(), quote: "BTC".into(), price_decimals: 6 });
+    let cases = v["kucoin_orders"].as_array().unwrap();
+    assert_eq!(cases.len(), 10_000);
+    let s = |o: &Option<BigDec>| o.as_ref().map(BigDec::to_s_f);
+    for c in cases {
+        let got = kucoin::parse_order(c["raw"]["id"].as_str().unwrap(), &c["raw"], &p).unwrap();
+        let status = match got.status { OrderStatus::Open => "open", OrderStatus::Closed => "closed", OrderStatus::Cancelled => "cancelled", OrderStatus::Unknown => "unknown", OrderStatus::Failed => "failed" };
+        assert_eq!(status, c["status"], "{c}");
+        assert_eq!(s(&got.price).as_deref(), c["price"].as_str(), "price {c}");
+        assert_eq!((s(&got.amount).as_deref(), s(&got.quote_amount).as_deref()), (c["amount"].as_str(), c["quote_amount"].as_str()), "{c}");
+        assert_eq!((got.amount_exec.to_s_f(), s(&got.quote_amount_exec)), (c["amount_exec"].as_str().unwrap().to_string(), c["quote_amount_exec"].as_str().map(str::to_string)), "{c}");
+        assert_eq!((got.sell, got.limit), (c["side"] == "sell", c["order_type"] == "limit_order"), "{c}");
+    }
+}

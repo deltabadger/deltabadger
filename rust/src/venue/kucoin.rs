@@ -179,6 +179,18 @@ impl<T: Transport> KucoinVenue<T> {
         self.call(&self.request("GET", path, query, None), false, limit).await
     }
 
+    /// One signed GET as honeymaker's #with_rescue returns it to Exchanges::Kucoin's ledger reads: the 2xx body of at most
+    /// `limit` bytes, unparsed (`Ok`), else the failure's text: the answer's body, or Faraday's (or the transport's) message.
+    pub async fn read_text(&self, path: &str, query: Vec<(&'static str, String)>, limit: usize) -> Result<String, String> {
+        let r = self.request("GET", path.into(), query, None);
+        match self.transport.send_limited(&r, limit).await {
+            Err(TransportError::Permanent(m) | TransportError::NotSent(m) | TransportError::MaybeSent(m)) => Err(self.transport.redact_diagnostic(&m)),
+            Ok(resp) if (200..300).contains(&resp.status) => Ok(resp.body),
+            Ok(resp) if !resp.body.is_empty() => Err(resp.body),
+            Ok(resp) => Err(format!("the server responded with status {} for GET {}", resp.status, r.url())),
+        }
+    }
+
     /// Clients::Kucoin#get_accounts(type: 'trade') as Exchanges::Kucoin#get_balances reads it: only the success code means
     /// balances, else "Failed to get KuCoin balances: <code> <msg>".
     async fn accounts(&self) -> Result<Vec<Value>, VenueError> {

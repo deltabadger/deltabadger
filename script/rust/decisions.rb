@@ -4,6 +4,7 @@
 #   bin/rails runner script/rust/decisions.rb grid-basket <root>  # Alpaca crypto baskets, with the engine's recovery and the next checkpoint
 #   bin/rails runner script/rust/decisions.rb grid-limit <root>   # the amount limit, its stop and its mail, on Alpaca crypto
 #   bin/rails runner script/rust/decisions.rb grid-binance <root> # Binance spot, scripted beneath honeymaker at the Faraday adapter
+#   bin/rails runner script/rust/decisions.rb grid-kucoin <root>  # KuCoin spot, scripted beneath honeymaker at the Faraday adapter
 #   bin/rails runner script/rust/decisions.rb grid-sell <root>    # a one-asset basket selling on Kraken, Binance and Alpaca (slice 6a)
 #   bin/rails runner script/rust/decisions.rb grid-venue-basket <root> # buying baskets of 2 and 3 members on Kraken (EUR) and Binance (USDT)
 #   bin/rails runner script/rust/decisions.rb grid-basket-sell <root> # a wider Alpaca basket's ranked DCA-out (slice 6b)
@@ -55,6 +56,7 @@ module ScriptedAlpaca
     'pre_send_data' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "data.alpaca.markets" port 443')) },
     'pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "paper-api.alpaca.markets" port 443')) },
     'binance_pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "api.binance.com" port 443')) },
+    'kucoin_pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "api.kucoin.com" port 443')) },
     'post_send' => -> { Faraday::TimeoutError.new(Net::ReadTimeout.new) },
     # Client.network_failure returns a Failure for an SSL cause (not retried): "Faraday::SSLError: certificate verify failed".
     'permanent' => -> { Faraday::SSLError.new(OpenSSL::SSL::SSLError.new('certificate verify failed')) }
@@ -72,7 +74,7 @@ module ScriptedAlpaca
   module Adapter
     def call(env)
       # Binance's honeymaker client uses the same adapter: its host is answered by ScriptedBinance.
-      scripted = env.url.host == 'api.binance.com' ? ScriptedBinance : ScriptedAlpaca
+      scripted = { 'api.binance.com' => ScriptedBinance, 'api.kucoin.com' => ScriptedKucoin }.fetch(env.url.host, ScriptedAlpaca)
       raise Harness::Unscripted, "unscripted HTTP call #{env.method.to_s.upcase} #{env.url}" if scripted.http.nil?
 
       reply = scripted.reply(env)
@@ -104,6 +106,21 @@ module ScriptedBinance
     # each member. Signed calls carry a timestamp, so they only ever match their bare key.
     keyed = "#{key}?#{Rack::Utils.parse_query(env.url.query).map { |k, v| "#{k}=#{v}" }.sort.join('&')}" if env.url.query
     queue = (keyed && http[keyed]) || http[key] or raise Harness::Unscripted, "unscripted Binance call #{key}"
+    queue.size > 1 ? queue.shift : queue.first
+  end
+end
+
+# KuCoin is scripted like Binance, at the Faraday adapter beneath Honeymaker::Clients::Kucoin, so its signing, middleware,
+# #with_rescue and Exchanges::Kucoin's parsing all run. The order Rails POSTs is recorded as its JSON body, without the
+# clientOid (Rails draws a fresh UUID; Rust sends the intent id).
+module ScriptedKucoin
+  mattr_accessor :http, :sent
+
+  def self.reply(env)
+    key = "#{env.method.to_s.upcase} #{env.url.path}"
+    sent << JSON.parse(env.request_body).except('clientOid') if key == 'POST /api/v1/orders'
+    keyed = "#{key}?#{Rack::Utils.parse_query(env.url.query).map { |k, v| "#{k}=#{v}" }.sort.join('&')}" if env.url.query
+    queue = (keyed && http[keyed]) || http[key] or raise Harness::Unscripted, "unscripted KuCoin call #{key}"
     queue.size > 1 ? queue.shift : queue.first
   end
 end
@@ -184,6 +201,17 @@ module Decisions
     [binance, btc, usdt, ticker, nil]
   end
 
+  # As Exchanges::Kucoin#get_tickers_info stores BTC-USDT (baseMinSize, quoteMinSize, the increments' decimals).
+  def kucoin_venue(sc)
+    kucoin = Exchanges::Kucoin.create!(name: 'KuCoin', maker_fee: '0.1', taker_fee: '0.1')
+    btc = Asset.create!(external_id: 'bitcoin', symbol: 'BTC', name: 'Bitcoin', category: 'Cryptocurrency')
+    usdt = Asset.create!(external_id: 'tether', symbol: 'USDT', name: 'Tether', category: 'Cryptocurrency')
+    [btc, usdt].each { |a| ExchangeAsset.create!(exchange: kucoin, asset: a, available: true) }
+    ticker = Ticker.create!(exchange: kucoin, ticker: 'BTC-USDT', base: 'BTC', quote: 'USDT', base_asset: btc, quote_asset: usdt,
+                            **sc['ticker'].symbolize_keys)
+    [kucoin, btc, usdt, ticker, 'p']
+  end
+
   # The other venue a merge brought rows from (Bot::Merge): a row marked `foreign` was placed there.
   def foreign_venue = Exchanges::Kraken.find_or_create_by!(name: 'Kraken') { |k| k.assign_attributes(maker_fee: '0.25', taker_fee: '0.4') }
 
@@ -196,6 +224,7 @@ module Decisions
     exchange, btc, quote, ticker, passphrase = case sc['venue']
                                                when 'alpaca' then alpaca_venue(sc)
                                                when 'binance' then binance_venue(sc)
+                                               when 'kucoin' then kucoin_venue(sc)
                                                else kraken_venue(sc)
                                                end
     # A basket's other members, created after BTC so that a one-asset scenario's ids are what they were.
@@ -1673,6 +1702,121 @@ module Decisions
     end
   end
 
+  # KuCoin spot (plan K5), one asset on BTC-USDT: Rails' own answers to the bodies below, beneath honeymaker.
+  def kc_ok(data) = ok('code' => '200000', 'data' => data)
+  def kc_err(status, code, msg) = { 'status' => status, 'body' => { 'code' => code, 'msg' => msg } }
+  def kc_book(ask, bid: '64000.1') = kc_ok('time' => 1_788_000_000_000, 'sequence' => '1', 'bids' => [[bid, '1.5']], 'asks' => [[ask, '0.2']])
+  def kc_tickers(last) = kc_ok('time' => 1_788_000_000_000, 'ticker' => [{ 'symbol' => 'ETH-USDT', 'last' => '2500' }, { 'symbol' => 'BTC-USDT', 'last' => last }])
+  def kc_accounts(usdt) = kc_ok([{ 'id' => 'a1', 'currency' => 'BTC', 'type' => 'trade', 'balance' => '0.5', 'available' => '0.5', 'holds' => '0' },
+                                 { 'id' => 'a2', 'currency' => 'USDT', 'type' => 'trade', 'balance' => usdt, 'available' => usdt, 'holds' => '0' }])
+  def kc_order(id, active:, cancel: false, type: 'market', deal_size: '0', deal_funds: '0', price: '0', size: '0', funds: '60')
+    { 'id' => id, 'symbol' => 'BTC-USDT', 'opType' => 'DEAL', 'type' => type, 'side' => 'buy', 'price' => price, 'size' => size, 'funds' => funds,
+      'dealFunds' => deal_funds, 'dealSize' => deal_size, 'fee' => '0', 'feeCurrency' => 'USDT', 'clientOid' => "web-#{id}",
+      'isActive' => active, 'cancelExist' => cancel, 'cancelReason' => '', 'createdAt' => 1_788_000_000_000 }
+  end
+  def kc_fills(items) = kc_ok('currentPage' => 1, 'pageSize' => 500, 'totalNum' => items.size, 'totalPage' => items.empty? ? 0 : 1, 'items' => items)
+  def kc_fill(trade, order, size, funds) = { 'symbol' => 'BTC-USDT', 'tradeId' => trade, 'orderId' => order, 'side' => 'buy', 'type' => 'market', 'price' => '64000',
+                                             'size' => size, 'funds' => funds, 'fee' => '0.06', 'feeCurrency' => 'USDT', 'createdAt' => 1_788_000_000_000 }
+  KC_NOT_FOUND = { 'status' => 404, 'body' => { 'code' => '400100', 'msg' => 'order not exist.' } }.freeze
+
+  def kucoin_scenarios
+    started = '2026-09-01T10:00:00.123456Z'
+    ticker = { 'base_decimals' => 8, 'quote_decimals' => 6, 'price_decimals' => 1, 'minimum_base_size' => '0.00001', 'minimum_quote_size' => '0.1' }
+    http = {
+      'GET /api/v1/market/orderbook/level2_20' => [kc_book('64000.2')],
+      'GET /api/v1/market/allTickers' => [kc_tickers('64000.05')],
+      'POST /api/v1/orders' => [kc_ok('orderId' => '6716f0a2c1b6d10007a3b1c5')],
+      'GET /api/v1/accounts' => [kc_accounts('100000')],
+      'GET /api/v1/fills' => [kc_fills([])]
+    }
+    modes = { 'market' => {}, 'limit' => { 'limit_ordered' => true, 'limit_order_pcnt_distance' => 0.0025 } }
+    closed = { 'status' => 0, 'external_status' => 2, 'external_id' => 'KC-100', 'order_type' => 0, 'quote_amount' => '60',
+               'quote_amount_exec' => '60', 'amount_exec' => '0.00093', 'price' => '64000', 'created_at' => '2026-09-01 10:00:01' }
+    waiting = lambda do |id, limit: false, created: '2026-09-01 10:00:01'|
+      { 'status' => 0, 'external_status' => limit ? 1 : 0, 'external_id' => "KC-#{id}", 'order_type' => limit ? 1 : 0,
+        'quote_amount' => limit ? nil : '60', 'amount' => limit ? '0.00093' : nil, 'price' => '64000', 'amount_exec' => '0',
+        'quote_amount_exec' => '0', 'created_at' => created }.compact
+    end
+    polled = ->(id, order) { { "GET /api/v1/orders/KC-#{id}" => [kc_ok(order.merge('id' => "KC-#{id}"))] } }
+    %w[day week].flat_map do |interval|
+      step = { 'day' => 1.day, 'week' => 1.week }.fetch(interval)
+      after = ->(n) { (Time.iso8601(started) + (n * step) + 1.second).iso8601(6) }
+      variants = {
+        'first_tick' => { 'at' => (Time.iso8601(started) + 0.5).iso8601(6) },
+        'on_schedule' => { 'at' => after.(1), 'transactions' => [closed] },
+        'carry' => { 'at' => after.(1), 'transient' => { 'missed_quote_amount' => '12.5' } },
+        'below_minimum' => { 'at' => after.(1), 'quote_amount' => 0.05 },
+        'base_sized' => { 'at' => after.(1), 'ticker' => ticker.merge('base_decimals' => 3, 'minimum_base_size' => '0.001', 'minimum_quote_size' => '1') },
+        'quote_min_decides' => { 'at' => after.(1), 'ticker' => ticker.merge('minimum_quote_size' => '100') },
+        'base_min_decides' => { 'at' => after.(1), 'ticker' => ticker.merge('base_decimals' => 2, 'minimum_base_size' => '0.01') },
+        # 400002 is placement-safe: no row, the run rescheduled; in an HTTP-200 envelope and as a 400 alike.
+        'timestamp_envelope' => { 'at' => after.(1), 'http' => { 'POST /api/v1/orders' => [ok('code' => '400002', 'msg' => 'Invalid KC-API-TIMESTAMP')] } },
+        'timestamp_400' => { 'at' => after.(1), 'http' => { 'POST /api/v1/orders' => [kc_err(400, '400002', 'Invalid KC-API-TIMESTAMP')] } },
+        'insufficient' => { 'at' => after.(1), 'http' => { 'POST /api/v1/orders' => [ok('code' => '200004', 'msg' => 'Balance insufficient!')] } },
+        'below_venue_minimum' => { 'at' => after.(1), 'http' => { 'POST /api/v1/orders' => [kc_err(400, '400100', 'Order size below the minimum requirement.')] } },
+        'invalid_key' => { 'at' => after.(1), 'transient' => { 'last_failure_kind' => 'invalid_key' },
+                           'http' => { 'POST /api/v1/orders' => [kc_err(401, '400003', 'KC-API-KEY not exists')] } },
+        'bad_passphrase' => { 'at' => after.(1), 'http' => { 'POST /api/v1/orders' => [kc_err(401, '400004', 'Invalid KC-API-PASSPHRASE')] } },
+        'bad_signature' => { 'at' => after.(1), 'http' => { 'POST /api/v1/orders' => [kc_err(401, '400005', 'Signature error')] } },
+        'access_denied' => { 'at' => after.(1), 'http' => { 'POST /api/v1/orders' => [kc_err(400, '400007', 'Access Denied')] } },
+        'throttled' => { 'at' => after.(1), 'http' => { 'POST /api/v1/orders' => [kc_err(429, '429000', 'Too Many Requests')] } },
+        # Sanctioned divergences (rust/tests/parity.rs KUCOIN_DIVERGENCES): Rust keeps the intent, and on KuCoin it waits for
+        # the operator (plan K r4): a lost reply, a 5xx, an unreadable answer, a 200000 without an orderId, 500000 and 230005.
+        'add_server_error' => { 'at' => after.(1), 'http' => { 'POST /api/v1/orders' => [{ 'status' => 503, 'body' => '<html>upstream</html>' }] } },
+        'add_timeout_after_send' => { 'at' => after.(1), 'http' => { 'POST /api/v1/orders' => [POST_SEND] } },
+        'add_no_order_id' => { 'at' => after.(1), 'http' => { 'POST /api/v1/orders' => [kc_ok({})] } },
+        'add_unreadable' => { 'at' => after.(1), 'http' => { 'POST /api/v1/orders' => [{ 'status' => 200, 'body' => '<html>upstream</html>' }] } },
+        'add_internal_500000' => { 'at' => after.(1), 'http' => { 'POST /api/v1/orders' => [ok('code' => '500000', 'msg' => 'Internal Server Error')] } },
+        'add_busy_230005' => { 'at' => after.(1), 'http' => { 'POST /api/v1/orders' => [ok('code' => '230005', 'msg' => 'The system is busy, please try again later.')] } },
+        'add_network_pre_send' => { 'at' => after.(1), 'http' => { 'POST /api/v1/orders' => [{ 'network' => 'kucoin_pre_send',
+          'message' => 'Faraday::ConnectionFailed: Connection refused - connect(2) for "api.kucoin.com" port 443' }] } },
+        'low_funds' => { 'at' => after.(1), 'http' => { 'GET /api/v1/accounts' => [kc_accounts('1')] } },
+        'balance_refused' => { 'at' => after.(1), 'http' => { 'GET /api/v1/accounts' => [ok('code' => '400003', 'msg' => 'KC-API-KEY not exists')] } },
+        'zero_price' => { 'at' => after.(1), 'http' => { 'GET /api/v1/market/orderbook/level2_20' => [kc_book('0', bid: '0')], 'GET /api/v1/market/allTickers' => [kc_tickers('0')] } },
+        'no_price' => { 'at' => after.(1), 'http' => { 'GET /api/v1/market/orderbook/level2_20' => [ok('code' => '400100', 'msg' => 'symbol not exists')],
+                                                       'GET /api/v1/market/allTickers' => [ok('code' => '400100', 'msg' => 'symbol not exists')] } },
+        # The tick's sweep (Bot::FetchAndUpdateOpenOrdersJob): #get_order per waiting order.
+        'sweep_done_dealt' => { 'at' => after.(1), 'transactions' => [waiting.(201)], 'http' => polled.(201, kc_order('x', active: false, deal_size: '0.00093', deal_funds: '59.5203')) },
+        'sweep_active' => { 'at' => after.(1), 'transactions' => [waiting.(202, limit: true)],
+          'http' => polled.(202, kc_order('x', active: true, type: 'limit', price: '64000', size: '0.00093', funds: '0')) },
+        'sweep_active_partial' => { 'at' => after.(1), 'transactions' => [waiting.(203, limit: true)],
+          'http' => polled.(203, kc_order('x', active: true, type: 'limit', price: '64000', size: '0.00093', funds: '0', deal_size: '0.0004', deal_funds: '25.6')) },
+        'sweep_cancelled_partial' => { 'at' => after.(1), 'transactions' => [waiting.(204, limit: true)],
+          'http' => polled.(204, kc_order('x', active: false, cancel: true, type: 'limit', price: '64000', size: '0.00093', funds: '0', deal_size: '0.0004', deal_funds: '25.6')) },
+        'sweep_cancelled_nothing' => { 'at' => after.(1), 'transactions' => [waiting.(205)], 'http' => polled.(205, kc_order('x', active: false, cancel: true)) },
+        'sweep_done_no_deal' => { 'at' => after.(1), 'transactions' => [waiting.(206)], 'http' => polled.(206, kc_order('x', active: false)) },
+        'sweep_rounding' => { 'at' => after.(1), 'transactions' => [waiting.(207)], 'http' => polled.(207, kc_order('x', active: false, deal_size: '0.0003', deal_funds: '19.20005')) },
+        'sweep_unknown_type' => { 'at' => after.(1), 'transactions' => [waiting.(208)], 'http' => polled.(208, kc_order('x', active: true, type: 'stop')) },
+        # A forgotten order: settled from its fills, or left to Bot::StaleOrderResolver (young waits, old is abandoned).
+        'sweep_forgotten_filled' => { 'at' => after.(1), 'transactions' => [waiting.(209)],
+          'http' => { 'GET /api/v1/orders/KC-209' => [KC_NOT_FOUND], 'GET /api/v1/fills' => [kc_fills([kc_fill('t1', 'KC-209', '0.0006', '38.4'), kc_fill('t2', 'KC-209', '0.0003', '19.2')])] } },
+        'sweep_forgotten_young' => { 'at' => after.(1), 'transactions' => [waiting.(210)], 'http' => { 'GET /api/v1/orders/KC-210' => [KC_NOT_FOUND] } },
+        'sweep_forgotten_old' => { 'at' => after.(1), 'transactions' => [waiting.(211, created: '2026-08-01 10:00:01')],
+          'http' => { 'GET /api/v1/orders/KC-211' => [{ 'status' => 200, 'body' => { 'code' => '400100', 'msg' => 'The order does not exist.' } }] } },
+        'sweep_not_found_by_code_only' => { 'at' => after.(1), 'transactions' => [waiting.(212)],
+          'http' => { 'GET /api/v1/orders/KC-212' => [kc_err(400, '400100', 'Parameter error')] } },
+        # Poll-only: Bot::FetchAndUpdateOrderJob (#get_order) for one waiting order.
+        'poll_filled' => { 'at' => after.(1), 'tick' => false, 'poll' => 'KC-401', 'transactions' => [waiting.(401)],
+          'http' => polled.(401, kc_order('x', active: false, deal_size: '0.00093', deal_funds: '59.52')) },
+        'poll_open' => { 'at' => after.(1), 'tick' => false, 'poll' => 'KC-402', 'transactions' => [waiting.(402, limit: true)],
+          'http' => polled.(402, kc_order('x', active: true, type: 'limit', price: '64000', size: '0.00093', funds: '0')) },
+        'poll_done_no_deal' => { 'at' => after.(1), 'tick' => false, 'poll' => 'KC-403', 'transactions' => [waiting.(403)], 'http' => polled.(403, kc_order('x', active: false)) },
+        # A tick that places 6716f0a2c1b6d10007a3b1c5; its follow-up 5 s later finds it filled.
+        'tick_then_poll' => { 'at' => after.(1), 'poll' => '6716f0a2c1b6d10007a3b1c5', 'transient' => { 'missed_quote_amount' => '12.5' },
+          'http' => { 'GET /api/v1/orders/6716f0a2c1b6d10007a3b1c5' => [kc_ok(kc_order('6716f0a2c1b6d10007a3b1c5', active: false, deal_size: '0.00112', deal_funds: '71.68'))] } }
+      }
+      modes.flat_map do |mode, settings|
+        variants.map do |name, v|
+          { 'name' => "#{interval}-#{mode}-#{name}", 'venue' => 'kucoin', 'interval' => interval, 'quote_amount' => v.fetch('quote_amount', 60.0),
+            'started_at' => started, 'settings' => settings, 'settings_changed_at' => v['settings_changed_at'],
+            'transient' => v.fetch('transient', {}), 'transactions' => v.fetch('transactions', []), 'ticker' => v.fetch('ticker', ticker),
+            'ticker_after' => v['ticker_after'], 'at' => v.fetch('at'), 'script' => { 'kucoin' => http.merge(v.fetch('http', {})) },
+            'tick' => v.fetch('tick', true), 'poll' => v['poll'] }
+        end
+      end
+    end
+  end
+
   # Slice 7a: the price rule of the active side with the `pause` action, on all three venues and both directions. The tick at
   # `at` passes, pauses or fails; a scenario with `check_at` then runs Bot::PriceLimitCheckJob there (and the Bot::ActionJob it
   # enqueues when met). Every check job a phase queues is recorded with its time.
@@ -1841,12 +1985,15 @@ module Decisions
       ActiveJob::Base.queue_adapter.enqueued_jobs.clear
       alpaca = sc['venue'] == 'alpaca'
       binance = sc['venue'] == 'binance'
-      ScriptedKraken.http = alpaca || binance ? {} : sc['script']['http'].transform_values(&:dup)
+      kucoin = sc['venue'] == 'kucoin'
+      ScriptedKraken.http = alpaca || binance || kucoin ? {} : sc['script']['http'].transform_values(&:dup)
       ScriptedKraken.sent = []
       ScriptedAlpaca.http = alpaca ? sc['script']['alpaca'].transform_values(&:dup) : {} # {}: any Alpaca call in a Kraken scenario is unscripted
       ScriptedAlpaca.sent = []
       ScriptedBinance.http = binance ? sc['script']['binance'].transform_values(&:dup) : {}
       ScriptedBinance.sent = []
+      ScriptedKucoin.http = kucoin ? sc['script']['kucoin'].transform_values(&:dup) : {}
+      ScriptedKucoin.sent = []
       before = snapshot
       markers = Bot.find(sc['bot_id']).transient_data.slice(*MAIL_MARKERS)
       mails = []
@@ -1902,7 +2049,7 @@ module Decisions
         rescue StandardError => e
           # A Kraken scenario must not fail its poll, except a listed unreadable-number divergence (honeymaker's strict
           # BigDecimal() raises on "garbage"): that raise is Rails' answer, recorded for rust/tests/parity.rs.
-          raise unless alpaca || binance || File.basename(dir).include?('-unreadable_')
+          raise unless alpaca || binance || kucoin || File.basename(dir).include?('-unreadable_')
 
           poll_error = e.message # the job raised (a retry_on error is enqueued instead, and does not land here)
         end
@@ -1930,14 +2077,14 @@ module Decisions
         settle.(Time.iso8601(time))
       end
       mails.concat(enqueued_mails)
-      sent = if alpaca then ScriptedAlpaca.sent elsif binance then ScriptedBinance.sent else ScriptedKraken.sent end
+      sent = if alpaca then ScriptedAlpaca.sent elsif binance then ScriptedBinance.sent elsif kucoin then ScriptedKucoin.sent else ScriptedKraken.sent end
       out = { 'sent' => sent, 'changes' => diff(before, snapshot), 'mails' => mails.sort_by { |m| m['mail'] } }
       out['checks'] = checks if sc['conditions']
       # Only where the scenario seeded the Rust engine's markers: what Rails left of them.
       out['markers'] = Bot.find(sc['bot_id']).transient_data.slice(*MAIL_MARKERS) if markers.any?
       # Alpaca only: the funds notification (its column is excluded from the snapshot) and the follow-up's raise.
-      out.merge!('funds_notified' => Bot.find(sc['bot_id']).last_end_of_funds_notification.present?, 'poll_error' => poll_error) if alpaca || binance
-      out['poll_error'] = poll_error if !alpaca && !binance && poll_error
+      out.merge!('funds_notified' => Bot.find(sc['bot_id']).last_end_of_funds_notification.present?, 'poll_error' => poll_error) if alpaca || binance || kucoin
+      out['poll_error'] = poll_error if !alpaca && !binance && !kucoin && poll_error
       File.write(File.join(dir, 'rails.json'), JSON.pretty_generate(out))
       travel_back
       ActiveRecord::Base.connection_pool.disconnect!
@@ -1974,7 +2121,7 @@ def web_save(dir)
 end
 
 command, root = ARGV
-USAGE = 'usage: grid <root> | grid-alpaca <root> | grid-basket <root> | grid-limit <root> | grid-binance <root> | grid-sell <root> | grid-venue-basket <root> | grid-conditions <root> | grid-basket-sell <root> | grid-rebalance <root> | record <root> | web-save <dir>'.freeze
+USAGE = 'usage: grid <root> | grid-alpaca <root> | grid-basket <root> | grid-limit <root> | grid-binance <root> | grid-kucoin <root> | grid-sell <root> | grid-venue-basket <root> | grid-conditions <root> | grid-basket-sell <root> | grid-rebalance <root> | record <root> | web-save <dir>'.freeze
 raise ArgumentError, USAGE unless root
 
 case command
@@ -1985,6 +2132,7 @@ when 'grid-stock' then Decisions.grid(root, Decisions.stock_scenarios)
 when 'grid-index' then Decisions.grid(root, Decisions.index_scenarios)
 when 'grid-limit' then Decisions.grid(root, Decisions.limit_scenarios)
 when 'grid-binance' then Decisions.grid(root, Decisions.binance_scenarios)
+when 'grid-kucoin' then Decisions.grid(root, Decisions.kucoin_scenarios)
 when 'grid-sell' then Decisions.grid(root, Decisions.sell_scenarios)
 when 'grid-venue-basket' then Decisions.grid(root, Decisions.venue_basket_scenarios)
 when 'grid-basket-sell' then Decisions.grid(root, Decisions.basket_sell_scenarios)

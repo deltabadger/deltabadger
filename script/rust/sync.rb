@@ -25,14 +25,15 @@ Net::HTTP.prepend(Module.new { def connect = raise(Harness::Unscripted, "real co
 ENV['COINGECKO_API_KEY'] = ''
 
 module ScriptedSync
-  mattr_accessor :alpaca, :binance, :binance_state, :market, :requests, :filters_after
+  mattr_accessor :alpaca, :binance, :binance_state, :kucoin, :market, :requests, :filters_after
 
   NETWORK = {
     'pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "paper-api.alpaca.markets" port 443')) },
     'post_send' => -> { Faraday::TimeoutError.new(Net::ReadTimeout.new) },
     'permanent' => -> { Faraday::SSLError.new(OpenSSL::SSL::SSLError.new('certificate verify failed')) },
     # Honeymaker reports e.message alone (Honeymaker::Client#with_rescue), and returns it: nothing raises.
-    'binance_pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "api.binance.com" port 443')) }
+    'binance_pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "api.binance.com" port 443')) },
+    'kucoin_pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "api.kucoin.com" port 443')) }
   }.freeze
 
   def self.reply(env)
@@ -43,6 +44,7 @@ module ScriptedSync
     end
     script = if host.end_with?('alpaca.markets') then alpaca
              elsif host.start_with?('api.binance.') then binance
+             elsif host == 'api.kucoin.com' then kucoin
              elsif host == 'data-api' then market
              end
     key = "#{env.method.to_s.upcase} #{env.url.path}"
@@ -71,7 +73,7 @@ module ScriptedSync
       reply = ScriptedSync.reply(env)
       if (kind = reply['network'])
         error = ScriptedSync::NETWORK.fetch(kind).call
-        actual = kind.start_with?('binance_') ? error.message : "#{error.class}: #{error.message}" # what the venue's client reports
+        actual = kind.start_with?('binance_', 'kucoin_') ? error.message : "#{error.class}: #{error.message}" # what the venue's client reports
         raise Harness::Unscripted, "#{kind}: the script says #{reply['message'].inspect}, Ruby says #{actual.inspect}" unless actual == reply['message']
 
         raise error
@@ -357,6 +359,44 @@ module SyncParity
     ctx[:binance] = venue
   end
 
+  # A KuCoin key on the classic (trade) account, with the pairs its fills name.
+  def kucoin(ctx)
+    venue = Exchanges::Kucoin.create!(name: 'KuCoin', maker_fee: '0.1', taker_fee: '0.1')
+    assets = ctx[:assets]
+    assets['USDT'] ||= Asset.create!(external_id: 'tether', symbol: 'USDT', name: 'Tether', category: 'Cryptocurrency')
+    %w[BTC ETH USDT].each { |s| ExchangeAsset.create!(exchange: venue, asset: assets[s], available: true) }
+    coin = { base_decimals: 8, quote_decimals: 6, price_decimals: 1, minimum_base_size: '0.00001', minimum_quote_size: '0.1' }
+    [%w[BTC USDT], %w[ETH USDT], %w[ETH BTC]].each do |base, quote|
+      Ticker.create!(exchange: venue, ticker: "#{base}-#{quote}", base:, quote:, base_asset: assets[base], quote_asset: assets[quote], **coin)
+    end
+    key = ApiKey.new(user: ctx[:user], exchange: venue, **KEY.symbolize_keys, status: :correct, key_type: :read_only)
+    key.save!(validate: false)
+    ActiveRecord::Base.connection.exec_update('UPDATE api_keys SET key = ?, secret = ?, passphrase = ? WHERE id = ?', 'plain credentials',
+                                              [KEY['key'], KEY['secret'], KEY['passphrase'], key.id])
+    ctx[:key] = key
+    ctx[:kucoin] = venue
+  end
+
+  def kc_page(items, page: 1, pages: nil, total: nil)
+    ok('code' => '200000', 'data' => { 'currentPage' => page, 'pageSize' => 500, 'totalNum' => total || items.size,
+                                       'totalPage' => pages || (items.empty? ? 0 : 1), 'items' => items })
+  end
+  def kc_fill(trade, symbol, side, size, funds, at, fee: '0.06', fee_currency: 'USDT', order: "o#{trade}")
+    { 'symbol' => symbol, 'tradeId' => trade, 'orderId' => order, 'side' => side, 'type' => 'market', 'price' => (funds.to_d / size.to_d).round(8).to_s('F'),
+      'size' => size, 'funds' => funds, 'fee' => fee, 'feeCurrency' => fee_currency, 'createdAt' => at.is_a?(Integer) ? at : ms(at) }
+  end
+  def kc_transfer(id, currency, amount, at, fee: '0', wallet: "0xk#{id}")
+    { 'id' => id, 'currency' => currency, 'amount' => amount, 'fee' => fee, 'walletTxId' => wallet, 'status' => 'SUCCESS',
+      'createdAt' => at.is_a?(Integer) ? at : ms(at) }.compact
+  end
+  KC_FILLS = 'GET /api/v1/fills'.freeze
+  KC_DEPOSITS = 'GET /api/v1/deposits'.freeze
+  KC_WITHDRAWALS = 'GET /api/v1/withdrawals'.freeze
+  # A ledger run over KuCoin's scripted answers: each path's replies in order, the last one repeated.
+  def kucoin_ledger(at, fills: [kc_page([])], deposits: [kc_page([])], withdrawals: [kc_page([])])
+    { 'kind' => 'ledger', 'at' => at, 'kucoin' => { KC_FILLS => fills, KC_DEPOSITS => deposits, KC_WITHDRAWALS => withdrawals } }
+  end
+
   def ms(time) = (time.to_r * 1000).to_i
 
   def bn_trade(id, order, price, qty, at, buyer:, commission: '0.00000000', asset: 'BNB')
@@ -455,6 +495,7 @@ module SyncParity
       %i[broadcast_remove_to broadcast_update_to broadcast_append_to broadcast_replace_to broadcast_refresh_to].each { |m| define_method(m) { |*, **| nil } }
     end)
     AccountTransaction::SyncJob.prepend(Module.new { def sleep(*) = nil })
+    Exchanges::Kucoin.prepend(Module.new { def sleep(*) = nil }) # each_page's 10 s throttle wait (LEDGER_THROTTLE_WAIT)
     PortfolioSnapshot.singleton_class.prepend(Module.new { def record!(*) = nil })
     Dir[File.join(root, '*/scenario.json')].sort.each do |path|
       dir = File.dirname(path)
@@ -468,6 +509,7 @@ module SyncParity
         ScriptedSync.alpaca = step.fetch('alpaca', {}).transform_values(&:dup)
         ScriptedSync.binance = step.fetch('binance', {}).transform_values(&:dup)
         ScriptedSync.binance_state = step['binance_state']
+        ScriptedSync.kucoin = step.fetch('kucoin', {}).transform_values(&:dup)
         ScriptedSync.market = step.fetch('market', {}).transform_values(&:dup)
         ScriptedSync.requests = []
         ScriptedSync.filters_after = step['server_filters_after'] == true

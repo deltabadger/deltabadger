@@ -127,7 +127,8 @@ fn bot_reasons_with(c: &Connection, bot: &Bot, splits: &mut SplitRows) -> Result
     if !index && bot.bot_type != "Bots::DcaMultiAsset" { r.push(format!("type {} (only DCA baskets and index bots)", bot.bot_type)); }
     let exchange: Option<String> = c.query_row("SELECT type FROM exchanges WHERE id = ?1", [bot.exchange_id], |r| r.get(0)).optional()?;
     // Kraken and Binance: buying baskets (P1-T0 reverses spec E2's owner question 4) without an amount limit.
-    let kraken = match exchange.as_deref() { Some("Exchanges::Kraken") => Some("Kraken"), Some("Exchanges::Binance") => Some("Binance"), _ => None };
+    let kraken = match exchange.as_deref() { Some("Exchanges::Kraken") => Some("Kraken"), Some("Exchanges::Binance") => Some("Binance"),
+                                             Some("Exchanges::Kucoin") if parity_admits_kucoin() => Some("KuCoin"), _ => None };
     let alpaca = exchange.as_deref() == Some("Exchanges::Alpaca");
     let members = if index { index_reasons(c, bot, &mut r)? } else { composition_reasons(bot, &mut r) };
     let selling = bot.settings.get("direction").is_some_and(|v| v == "selling");
@@ -201,6 +202,8 @@ pub fn admission(exchange: Option<&str>, index: bool, members: usize, selling: b
         Some("Exchanges::Alpaca") => {}
         Some("Exchanges::Kraken" | "Exchanges::Binance") if index => return Some("an index bot on Kraken or Binance (only on Alpaca)"),
         Some("Exchanges::Kraken" | "Exchanges::Binance") => {}
+        Some("Exchanges::Kucoin") if parity_admits_kucoin() && index => return Some("an index bot on KuCoin (only on Alpaca)"),
+        Some("Exchanges::Kucoin") if parity_admits_kucoin() => {}
         _ => return Some("a bot on an exchange other than Alpaca, Kraken and Binance"),
     }
     match (selling, index) {
@@ -209,6 +212,18 @@ pub fn admission(exchange: Option<&str>, index: bool, members: usize, selling: b
         _ => None,
     }
 }
+
+thread_local! { static PARITY_KUCOIN: std::cell::Cell<bool> = const { std::cell::Cell::new(false) }; }
+fn parity_admits_kucoin() -> bool { PARITY_KUCOIN.with(std::cell::Cell::get) }
+
+/// KuCoin bots are admitted, under the Kraken/Binance restrictions (plan K ruling O6), only while a parity run holds this
+/// (parity::decide on a marked scratch copy, on its own thread). Nothing else admits them: no factory builds a KuCoin
+/// venue yet. ponytail: K4 replaces this with KuCoin's own arm in `admission` and the factory.
+pub(crate) struct ParityKucoin(());
+impl ParityKucoin {
+    pub(crate) fn admit() -> Self { PARITY_KUCOIN.with(|c| c.set(true)); Self(()) }
+}
+impl Drop for ParityKucoin { fn drop(&mut self) { PARITY_KUCOIN.with(|c| c.set(false)); } }
 
 /// The venue whose baskets and index bots this engine rebalances and sells member by member (6b): Alpaca. Kraken and
 /// Binance rebalancing stays Rails' ("rebalance_enabled").

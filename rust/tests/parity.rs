@@ -292,6 +292,76 @@ async fn rails_and_rust_decide_identically_across_the_binance_grid() {
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
 }
 
+/// KuCoin grid variants where Rust deliberately decides otherwise than Rails (plan K r4/r5), each asserted on its own terms:
+/// a placement that may have reached KuCoin (a 5xx, a lost reply, an unreadable answer, a 200000 without an orderId, and
+/// the 500000 / 230005 envelopes) keeps the intent, which on KuCoin waits for the operator, where Rails writes a failed row.
+const KUCOIN_DIVERGENCES: [&str; 6] = ["add_server_error", "add_timeout_after_send", "add_unreadable", "add_no_order_id", "add_internal_500000", "add_busy_230005"];
+
+/// An order type Rails' #parse_order_data refuses raises out of #get_orders, so the run's error is that sentence alone;
+/// Rust reports it inside the sweep's "Failed to fetch orders … Result: [...]". Same outcome (the run fails, no row
+/// changes, one error mail); only the wording differs.
+fn unknown_type_wrapped(rails_out: &serde_json::Value, rust_out: &serde_json::Value) -> Result<(), String> {
+    let normalised = rust_out.to_string().replace(r#"Failed to fetch orders KC-208. Result: [\"Unknown KuCoin order type: stop\"]"#, "Unknown KuCoin order type: stop");
+    if serde_json::from_str::<serde_json::Value>(&normalised).unwrap() != *rails_out {
+        return Err(format!("beyond the error's wrapper the sides differ\n  rails: {rails_out}\n  rust:  {rust_out}"));
+    }
+    Ok(())
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn rails_and_rust_decide_identically_across_the_kucoin_grid() {
+    let rails_root = tempfile::tempdir().unwrap();
+    let rust_root = tempfile::tempdir().unwrap();
+    built_grid("grid-kucoin", rails_root.path());
+    let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
+    dirs.sort();
+    assert_eq!(dirs.len(), 172, "the KuCoin grid has {} scenarios", dirs.len());
+    for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
+    rails(&["record", rails_root.path().to_str().unwrap()]);
+
+    let mut failures = vec![];
+    for d in &dirs {
+        let name = d.file_name().unwrap().to_string_lossy().to_string();
+        let rails_out: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(d.join("rails.json")).unwrap()).unwrap();
+        let rust_dir = rust_root.path().join(&name);
+        let rust_out = deltabadger::parity::decide(&rust_dir).await.unwrap();
+        let rails_out = r5_cleanup_expected(&rails_out, &rust_out);
+        let listed = if KUCOIN_DIVERGENCES.iter().any(|v| name.ends_with(&format!("-{v}"))) {
+            Some(intent_kept(&rust_dir, &rails_out, &rust_out))
+        } else if name.ends_with("-add_network_pre_send") {
+            Some(refused_like_rails(&rails_out, &rust_out))
+        } else if name.ends_with("-sweep_unknown_type") {
+            Some(unknown_type_wrapped(&rails_out, &rust_out))
+        } else {
+            None
+        };
+        match listed {
+            Some(Err(e)) => failures.push(format!("{name} (listed divergence): {e}")),
+            Some(Ok(())) => {}
+            None if rails_out != rust_out => failures.push(format!("{name}\n  rails: {rails_out}\n  rust:  {rust_out}")),
+            None => {}
+        }
+    }
+    // Pin what Rails does where a silent pair of sides would otherwise pass.
+    for d in &dirs {
+        let name = d.file_name().unwrap().to_string_lossy().to_string();
+        let rails_out: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(d.join("rails.json")).unwrap()).unwrap();
+        let mailed: Vec<&str> = rails_out["mails"].as_array().unwrap().iter().map(|m| m["mail"].as_str().unwrap()).collect();
+        let expected: Option<&[&str]> = [("-insufficient", &["end_of_funds"][..]), ("-invalid_key", &["stopped_by_error"]), ("-low_funds", &["end_of_funds"]),
+                                         ("-on_schedule", &[]), ("-timestamp_envelope", &[]), ("-timestamp_400", &[]), ("-sweep_forgotten_young", &["notify_about_error"])].into_iter().find(|(suffix, _)| name.ends_with(suffix)).map(|(_, m)| m);
+        if let Some(expected) = expected { assert_eq!(mailed, expected, "{name}: the mails Rails enqueued"); }
+        let rows = rails_out["changes"]["transactions"].as_array().unwrap();
+        if name.contains("-timestamp_") { assert!(rows.is_empty() && rails_out["sent"].as_array().unwrap().len() == 1, "{name}: 400002 writes no row"); }
+        if name.ends_with("-market-quote_min_decides") { assert!(rails_out["sent"][0]["funds"].is_string(), "{name}: a market buy by funds"); }
+        if name.ends_with("-market-first_tick") { assert!(rails_out["sent"][0]["size"].is_string(), "{name}: a market buy by size"); }
+        if name.ends_with("-limit-first_tick") { assert!(rails_out["sent"][0]["price"].is_string() && rails_out["sent"][0]["size"].is_string(), "{name}: a limit buy"); }
+        if name.ends_with("-poll_done_no_deal") { assert!(rails_out["poll_error"].as_str().is_some_and(|e| e.contains("status is unknown")), "{name}"); }
+        if name.ends_with("-sweep_forgotten_old") { assert!(rows.iter().any(|t| t["after"]["external_id"] == "KC-211" && t["after"]["external_status"] == 4), "{name}: abandoned"); }
+        if name.ends_with("-sweep_forgotten_filled") { assert!(rows.iter().any(|t| t["after"]["external_id"] == "KC-209" && t["after"]["external_status"] == 2), "{name}: settled from its fills"); }
+    }
+    assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
+}
+
 /// Slice 6a: a one-asset basket selling on Kraken, Binance and Alpaca (script/rust/decisions.rb sell_scenarios), compared whole.
 #[tokio::test(flavor = "current_thread")]
 async fn rails_and_rust_decide_identically_across_the_sell_grid() {

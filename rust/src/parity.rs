@@ -101,6 +101,12 @@ fn binance_sent(t: &ScriptedTransport) -> Vec<Value> {
                                 .map(|(k, v)| (k.to_string(), Value::String(v))).collect())).collect()
 }
 
+/// The orders the KuCoin adapter POSTed, as the Rails harness records them: the JSON body without the clientOid.
+fn kucoin_sent(t: &ScriptedTransport) -> Vec<Value> {
+    t.requests().into_iter().filter(|r| r.method == "POST" && r.path == "/api/v1/orders").filter_map(|r| r.body)
+        .map(|mut b| { if let Value::Object(m) = &mut b { m.shift_remove("clientOid"); } b }).collect()
+}
+
 /// The mails this engine owes since `before`, in the shape Rails' harness reports the mails it enqueued: the mailer action,
 /// the error sentence Bot::ActionJob.humanized_errors hands it (in the user's language), the quote asset's symbol.
 fn mails(c: &Connection, before: &[Pending]) -> Result<Value, EngineError> {
@@ -196,6 +202,23 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
         let funds_notified: bool = o.primary.query_row("SELECT last_end_of_funds_notification IS NOT NULL FROM bots WHERE id = ?1", [bot_id], |r| r.get(0))?;
         let mut out = json!({ "sent": binance_sent(&transport), "changes": diff(&before, &snapshot(&o.primary)?), "mails": mails(&o.primary, &owed)?,
                           "funds_notified": funds_notified, "poll_error": poll_error });
+        if let Some(c) = checks { out["checks"] = json!(c); }
+        return Ok(out);
+    }
+    if scenario["venue"] == "kucoin" {
+        // Rust's KuCoin adapter over the bodies Rails' harness serves beneath Honeymaker::Clients::Kucoin, with the
+        // scenario's own tickers. KuCoin is admitted for this run only (plan K5: nothing wires it into the engine yet).
+        let _admitted = crate::engine::eligibility::ParityKucoin::admit();
+        let transport = ScriptedTransport::from_script(&scenario["script"]["kucoin"]);
+        let exchange_id: i64 = o.primary.query_row("SELECT id FROM exchanges WHERE type = 'Exchanges::Kucoin'", [], |r| r.get(0))?;
+        let pairs = crate::venue::binance::Pairs::load(&o.primary, exchange_id).map_err(EngineError::Data)?;
+        let venue = crate::venue::kucoin::KucoinVenue::new(transport.clone(), crate::venue::kucoin::URL).with_pairs(pairs);
+        let posted = || kucoin_sent(&transport).len();
+        let (poll, _, checks) = play(&o, &venue, &scenario, bot_id, start, &posted).await?;
+        let poll_error = match poll { Some(polling::PollFailure::General(m)) => json!(m), _ => Value::Null };
+        let funds_notified: bool = o.primary.query_row("SELECT last_end_of_funds_notification IS NOT NULL FROM bots WHERE id = ?1", [bot_id], |r| r.get(0))?;
+        let mut out = json!({ "sent": kucoin_sent(&transport), "changes": diff(&before, &snapshot(&o.primary)?), "mails": mails(&o.primary, &owed)?,
+                              "funds_notified": funds_notified, "poll_error": poll_error });
         if let Some(c) = checks { out["checks"] = json!(c); }
         return Ok(out);
     }

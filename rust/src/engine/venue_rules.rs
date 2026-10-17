@@ -65,6 +65,10 @@ pub struct VenueRules {
     /// Whether a lookup that finds nothing can ever prove an order absent (placement::recover_since's absence rule). False on
     /// KuCoin (plan K r4): its lookups can only FIND an order, so an unfound one waits for `deltabadger resolve-placement`.
     pub absence_provable: bool,
+    /// Exchange#authoritative_missing_orders? false where #get_orders names missing ids: a young order the venue left out
+    /// fails the sweep ("Exchange omitted recent order(s)"). Kraken is authoritative; Alpaca's and Binance's #get_orders
+    /// never name one in Rails, so the guard cannot fire there.
+    pub young_missing_fails: bool,
 }
 
 fn any(patterns: &[&str], messages: &[String]) -> bool { patterns.iter().any(|p| messages.iter().any(|m| m.contains(p))) }
@@ -102,6 +106,7 @@ pub static KRAKEN: VenueRules = VenueRules {
     follow_up_strict: false, market_hours: false,
     reports_missing: true,
     absence_provable: true,
+    young_missing_fails: false,
 };
 
 /// Client::NETWORK_TRANSIENT_PATTERNS: Exchange#transient_error? applies them to every venue.
@@ -134,6 +139,7 @@ pub static ALPACA: VenueRules = VenueRules {
     follow_up_strict: true, market_hours: true,
     reports_missing: true,
     absence_provable: true,
+    young_missing_fails: false,
 };
 
 /// Exchanges::Binance::ERRORS[:transient]: the -1021 strings (also Exchange::PLACEMENT_SAFE_TRANSIENT_ERRORS).
@@ -170,6 +176,7 @@ pub static BINANCE: VenueRules = VenueRules {
     follow_up_strict: true, market_hours: false,
     reports_missing: false,
     absence_provable: true,
+    young_missing_fails: false,
 };
 
 /// Exchange#transient_error? for KuCoin: Client::NETWORK_TRANSIENT_PATTERNS plus Exchanges::Kucoin::ERRORS[:transient].
@@ -205,8 +212,9 @@ pub static KUCOIN: VenueRules = VenueRules {
     // #get_orders names a forgotten order under `missing` (kucoin.rb:312).
     reports_missing: true,
     absence_provable: false,
+    young_missing_fails: true,
 };
 
 pub fn for_exchange(exchange_type: &str) -> Option<&'static VenueRules> {
-    [&KRAKEN, &ALPACA, &BINANCE].into_iter().find(|r| r.exchange_type == exchange_type)
+    [&KRAKEN, &ALPACA, &BINANCE, &KUCOIN].into_iter().find(|r| r.exchange_type == exchange_type)
 }

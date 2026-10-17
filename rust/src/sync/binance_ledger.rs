@@ -171,9 +171,9 @@ pub fn windows(start: i64, end: i64, days: i64) -> Vec<(i64, i64)> {
 
 /// A read that failed: the text the key records, and whether Rails would have raised (a malformed answer) rather
 /// than returned the venue's failure.
-type Fail = (String, bool);
+pub(super) type Fail = (String, bool);
 
-fn page_of(text: &str, what: &str, nodes: usize) -> Result<Node, Fail> {
+pub(super) fn page_of(text: &str, what: &str, nodes: usize) -> Result<Node, Fail> {
     match wire::read(text, &mut Budget(nodes), None) {
         Ok(node) => Ok(node),
         // Not JSON: honeymaker's failure is the body itself.
@@ -182,7 +182,7 @@ fn page_of(text: &str, what: &str, nodes: usize) -> Result<Node, Fail> {
     }
 }
 
-fn objects(node: &Node, what: &str) -> Result<Vec<Raw>, Fail> {
+pub(super) fn objects(node: &Node, what: &str) -> Result<Vec<Raw>, Fail> {
     let Node::Array(items) = node else { return Err((format!("unreadable {what}"), true)) };
     items.iter().map(|item| Raw::from_node(item).map_err(|_| (format!("unreadable {what}"), true))).collect()
 }
@@ -193,7 +193,7 @@ fn integer(raw: &Raw, key: &str, what: &str) -> Result<i64, Fail> {
 }
 
 /// `field.to_d`, strictly: a number the venue wrote, never a missing or garbage value read as 0 (D2b ruling Q10).
-fn amount(raw: &Raw, key: &str, what: &str) -> Result<BigDec, Fail> {
+pub(super) fn amount(raw: &Raw, key: &str, what: &str) -> Result<BigDec, Fail> {
     match raw.number(key) {
         Ok(Some(n)) => Ok(n),
         Ok(None) => Err((format!("unreadable {what} {key}: missing"), true)),
@@ -202,11 +202,11 @@ fn amount(raw: &Raw, key: &str, what: &str) -> Result<BigDec, Fail> {
 }
 
 /// A JSON value as Rails would store it in a string column (`tx_id`): a string as it is, a number as its digits.
-fn text(v: Option<&Value>) -> Option<String> {
+pub(super) fn text(v: Option<&Value>) -> Option<String> {
     match v { Some(Value::String(s)) => Some(s.clone()), Some(Value::Number(n)) => Some(n.to_string()), _ => None }
 }
 
-fn entry(entry_type: i64, base: &str, base_amount: BigDec, raw: &Raw, at: DateTime<Utc>) -> Entry {
+pub(super) fn entry(entry_type: i64, base: &str, base_amount: BigDec, raw: &Raw, at: DateTime<Utc>) -> Entry {
     Entry { entry_type, base_currency: Some(base.to_string()), base_amount, quote_currency: None, quote_amount: None, fee_currency: None, fee_amount: None,
             tx_id: None, group_id: None, description: None, transacted_at: Some(at), raw: raw.clone() }
 }
