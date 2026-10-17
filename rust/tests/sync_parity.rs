@@ -766,19 +766,20 @@ async fn an_api_sync_during_an_import_waits_for_it_and_dedupes_against_the_whole
     });
     inside_rx.recv().unwrap(); // the import holds the write lock, one row written
     let (path, keys) = (db.clone(), cipher());
+    let (ready, ready_rx) = mpsc::channel::<()>();
     let unit = std::thread::spawn(move || {
         let c = rusqlite::Connection::open(path).unwrap();
         deltabadger::store::configure(&c).unwrap();
-        let started = std::time::Instant::now();
-        let seen = deltabadger::sync::write(&c, &keys, |c| Ok((count(c), false))).unwrap();
-        (started.elapsed(), seen)
+        ready.send(()).unwrap(); // SQLite is open; the write unit begins next
+        deltabadger::sync::write(&c, &keys, |c| Ok((count(c), false))).unwrap()
     });
-    std::thread::sleep(std::time::Duration::from_millis(400));
+    ready_rx.recv().unwrap();
+    std::thread::sleep(std::time::Duration::from_millis(200));
     go.send(()).unwrap();
     assert!(matches!(importer.join().unwrap(), deltabadger::tracker::import::run::Answer::Written { imported: 3, .. }));
-    let (waited, seen) = unit.join().unwrap();
-    assert!(waited >= std::time::Duration::from_millis(400), "the sync's unit waited for the import: {waited:?}");
-    assert_eq!(seen, before + 3, "and read the whole file");
+    // Ordering, not timing: begun while the import held the lock, the unit could only have counted the file's rows
+    // (uncommitted ones are invisible to it) once the import had committed.
+    assert_eq!(unit.join().unwrap(), before + 3, "the sync's unit ran after the import's commit and read the whole file");
     let out = deltabadger::sync::parity::run(&dir, cipher()).await.unwrap();
     let changed = rows(&out, "account_transactions");
     let claimed: Vec<_> = changed.iter().filter(|r| !r["before"].is_null() && r["before"]["tx_id"].is_null()).map(|r| r["after"]["tx_id"].clone()).collect();
