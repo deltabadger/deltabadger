@@ -6,6 +6,7 @@
 //! authenticates and gates as Rails does, then answers the 501 `not_ported` envelope; a path Rails does not route
 //! (a locale prefix included: the API is outside the locale scope) is the 404 every missing page is.
 use super::bot_api::{self, Domain, Res};
+use super::mcp::reads;
 use super::{bearer, consent, headers, layout, App, Params, WebError, BODY_READ_TIMEOUT, FORM_LIMIT};
 use axum::body::{to_bytes, Body};
 use axum::extract::{Request, State};
@@ -28,7 +29,11 @@ enum Gate { Tool(&'static str), BotType, OrderType }
 
 /// The routes this build serves; every other one is `Unported`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Action { Bots, Exchanges, Transactions, TaxJurisdictions, Indices, Write(bot_api::Write), Unported }
+enum Action { Bots, Exchanges, Transactions, TaxJurisdictions, Indices, Write(bot_api::Write), Read(Reading), Unported }
+
+/// The reads that may ask a venue (BotApi::Bots::Get, Exchanges::Balances, Orders::ListOpen, Portfolio::Summary).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Reading { Details, Balances, Orders, Portfolio }
 
 /// `bad`: a path parameter that is no UTF-8 once decoded, which Rails' router refuses (400) before any controller.
 struct Route { gate: Gate, action: Action, path: Vec<(&'static str, String)>, bad: bool }
@@ -84,7 +89,8 @@ fn route(method: &Method, path: &str) -> Option<Route> {
                 ["redeploy"] if post => Some("answer_redeploy_offer"),
                 _ => None,
             };
-            (name.map(Gate::Tool), name.and_then(bot_api::Write::tool).map_or(Action::Unported, Action::Write))
+            let action = if name == Some("get_bot_details") { Action::Read(Reading::Details) } else { name.and_then(bot_api::Write::tool).map_or(Action::Unported, Action::Write) };
+            (name.map(Gate::Tool), action)
         }
         ["transactions"] if get => (tool("list_transactions"), Action::Transactions),
         ["transactions", "account"] if get => (tool("list_account_transactions"), Action::Unported),
@@ -93,11 +99,11 @@ fn route(method: &Method, path: &str) -> Option<Route> {
         ["transactions", "account", id, "price"] if method == Method::PATCH => { path.push(("id", id.to_string())); (tool("set_transaction_price"), Action::Unported) }
         ["tracker", "sync"] if post => (tool("sync_tracker"), Action::Unported),
         ["exchanges"] if get => (tool("list_exchanges"), Action::Exchanges),
-        ["exchanges", id, "balances"] if get => { path.push(("id", id.to_string())); (tool("get_exchange_balances"), Action::Unported) }
-        ["orders"] if get => (tool("list_open_orders"), Action::Unported),
+        ["exchanges", id, "balances"] if get => { path.push(("id", id.to_string())); (tool("get_exchange_balances"), Action::Read(Reading::Balances)) }
+        ["orders"] if get => (tool("list_open_orders"), Action::Read(Reading::Orders)),
         ["orders"] if post => (Some(Gate::OrderType), Action::Unported),
         ["orders", id] if delete => { path.push(("id", id.to_string())); (tool("cancel_order"), Action::Unported) }
-        ["portfolio"] if get => (tool("get_portfolio_summary"), Action::Unported),
+        ["portfolio"] if get => (tool("get_portfolio_summary"), Action::Read(Reading::Portfolio)),
         ["indices"] if get => (tool("list_indices"), Action::Indices),
         ["rules"] if get => (tool("list_rules"), Action::Unported),
         ["rules"] if post => (tool("create_rule"), Action::Unported),
@@ -154,13 +160,15 @@ fn json_body(content_type: Option<&str>) -> bool {
 }
 
 /// An answer before the shared headers: the envelope a controller renders, or a response made below the controllers.
-enum Answer { Json(StatusCode, String), Below(Box<Response>) }
+/// `Pending`: a read's venue fetch, run outside the database before the read is finished and rendered.
+enum Answer { Json(StatusCode, String), Below(Box<Response>), Pending(Box<super::mcp::reads::Fetch>) }
 
 /// Api::V1::BaseController#status_for.
 fn status_for(status: Domain) -> StatusCode {
     match status {
         Domain::Success => StatusCode::OK, Domain::ValidationFailed => StatusCode::UNPROCESSABLE_ENTITY, Domain::NotFound => StatusCode::NOT_FOUND,
-        Domain::Conflict => StatusCode::CONFLICT, Domain::UpstreamFailed => StatusCode::BAD_GATEWAY, Domain::NotPorted => StatusCode::NOT_IMPLEMENTED,
+        Domain::PermissionDenied => StatusCode::FORBIDDEN, Domain::Conflict => StatusCode::CONFLICT, Domain::UpstreamFailed => StatusCode::BAD_GATEWAY,
+        Domain::NotPorted => StatusCode::NOT_IMPLEMENTED, Domain::Raised => StatusCode::INTERNAL_SERVER_ERROR,
     }
 }
 
@@ -168,8 +176,10 @@ fn failure(status: StatusCode, code: &str, message: &str) -> Answer {
     Answer::Json(status, encode(&json!({"data": null, "error": {"code": code, "message": message}})))
 }
 
-/// render_result: the data on a success, the code and message on a failure.
+/// render_result: the data on a success, the code and message on a failure. What Rails raises is its 500, below the
+/// controllers.
 fn render(res: Res) -> Answer {
+    if res.status == Domain::Raised { return Answer::Below(Box::new(WebError::Config(res.message).into_response())); }
     match res.code {
         None => Answer::Json(status_for(res.status), encode(&json!({"data": res.data, "error": null}))),
         Some(code) => failure(status_for(res.status), code, &res.message),
@@ -254,6 +264,23 @@ fn dispatch(c: &Connection, app: &App, route: &Route, input: &Input, authorizati
             let submitted = super::bot::action_params::ActionParams::from_service(service_arguments(write, p));
             render(bot_api::write_result(bot_api::bot_write(c, app, user, id, write, &submitted)?))
         }
+        Action::Read(reading) => {
+            // The summary reads no parameter, so a body Rails cannot parse never reaches it.
+            let none = Map::new();
+            let p = if reading == Reading::Portfolio { &none } else { match params() { Ok(p) => p, Err(()) => return Ok(bad_request()) } };
+            let ask = match reading {
+                // `params[:id].to_i`
+                Reading::Details => reads::Ask::Details(p.get("id").and_then(bot_api::to_i).unwrap_or(0)),
+                Reading::Balances => reads::Ask::Balances { name: String::new(), id: Some(p.get("id").map(super::mcp::tools::str_value).unwrap_or_default()) },
+                // `params[:exchange_name]`, looked up when present.
+                Reading::Orders => reads::Ask::Orders(p.get("exchange_name").filter(|v| bot_api::present(v)).map(super::mcp::tools::str_value)),
+                Reading::Portfolio => reads::Ask::Summary,
+            };
+            match reads::plan_ask(c, app, user, ask)? {
+                reads::Planned::Done(read) => render(read.res),
+                reads::Planned::Fetch(fetch) => Answer::Pending(Box::new(fetch)),
+            }
+        }
         Action::Unported => failure(StatusCode::NOT_IMPLEMENTED, "not_ported", &format!("{method} {path} is not served by this build yet.")),
     })
 }
@@ -288,9 +315,20 @@ pub async fn handle(State(app): State<App>, request: Request) -> Response {
             let app2 = app.clone();
             let shown = params.full_path.clone();
             let method = parts.method.clone();
-            match app.db(move |c| dispatch(c, &app2, &route, &Input { params: &params, json, path: &route.path }, authorization.as_deref(), &method, &shown)).await {
+            let answer = match app.db(move |c| dispatch(c, &app2, &route, &Input { params: &params, json, path: &route.path }, authorization.as_deref(), &method, &shown)).await {
                 Ok(answer) => answer,
                 Err(error) => Answer::Below(Box::new(error.into_response())),
+            };
+            // A venue read: fetched outside the database, then finished on one snapshot of it.
+            match answer {
+                Answer::Pending(fetch) => {
+                    let fetched = reads::fetch(&app, *fetch).await;
+                    match app.db(move |c| reads::finish_read(c, fetched)).await {
+                        Ok(read) => render(read.res),
+                        Err(error) => Answer::Below(Box::new(error.into_response())),
+                    }
+                }
+                answer => answer,
             }
         }
     };
@@ -317,6 +355,7 @@ fn finish(app: &App, answer: Answer, head: bool, if_none_match: Option<&str>) ->
             }
             response
         }
+        Answer::Pending(_) => WebError::Config("a venue read was not fetched".into()).into_response(),
         Answer::Below(response) => {
             let mut response = *response;
             let status = response.status();

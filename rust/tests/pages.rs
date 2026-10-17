@@ -314,6 +314,7 @@ async fn run(dir: &Path) -> Value {
     }
     wiremock::Mock::given(wiremock::matchers::path_regex("/v2/positions$")).and(wiremock::matchers::header("APCA-API-KEY-ID","r9-unnamed-position")).respond_with(wiremock::ResponseTemplate::new(200).set_body_json(json!([{"asset_class":"us_equity","qty":"2"}]))).with_priority(1).mount(&key_server).await;
     mount_key_checks(&key_server).await;
+    mount_account_reads(&key_server).await;
     let app = web::app(dir, scenario["secret_key_base"].as_str().unwrap(), clock.clone()).with_settings_mailer(std::sync::Arc::new(TestMail)).unwrap().with_settings_key_boundary(venue_hosts(&key_server.uri()),deltabadger::web::settings::keys::logger()).unwrap()
         .with_venue_key_urls(&format!("{}/api.kraken.com", key_server.uri()), &format!("{}/api.binance.com", key_server.uri())).unwrap();
     let wake = std::sync::Arc::new(tokio::sync::Notify::new());
@@ -445,6 +446,27 @@ async fn mount_key_checks(server: &wiremock::MockServer) {
         let answer = body.map_or_else(|| ResponseTemplate::new(status), |body| ResponseTemplate::new(status).set_body_json(body));
         Mock::given(matchers::method("GET")).and(matchers::path("/api.binance.com/sapi/v1/account/apiRestrictions")).and(matchers::header("X-MBX-APIKEY", key))
             .respond_with(answer).mount(server).await;
+    }
+}
+
+/// pages_api.rb's account reads, answered by the Alpaca key a scenario gives the owner (`alpaca_key`): no open orders
+/// by default, and PKRICH's account, positions and open orders. (failure-key's 503 is mounted above, on every path.)
+async fn mount_account_reads(server: &wiremock::MockServer) {
+    use wiremock::{matchers, Mock, ResponseTemplate};
+    Mock::given(matchers::method("GET")).and(matchers::path_regex("/v2/orders$")).respond_with(ResponseTemplate::new(200).set_body_json(json!([]))).with_priority(10).mount(server).await;
+    let order = |id: &str, symbol: &str, class: &str, side: &str, kind: &str, status: &str, qty: Value, filled: &str, price: Value, limit: Value, notional: Value| json!({
+        "id": id, "symbol": symbol, "asset_class": class, "side": side, "type": kind, "status": status, "qty": qty, "filled_qty": filled,
+        "filled_avg_price": price, "limit_price": limit, "notional": notional});
+    // pages_api.rb's HELD_ACCOUNT, HELD_POSITIONS and OPEN_ORDERS.
+    let answers = [("/v2/account$", json!({"status": "ACTIVE", "cash": "1234.5", "buying_power": "2000"})),
+                   ("/v2/positions$", json!([{"symbol": "QQQM", "asset_class": "us_equity", "qty": "2.5", "qty_available": "2"}])),
+                   ("/v2/orders$", json!([order("venue-1", "QQQM", "us_equity", "buy", "limit", "new", json!("1.5"), "0", Value::Null, json!("401.5"), Value::Null),
+                                          order("venue-2", "IBIT", "us_equity", "sell", "market", "partially_filled", json!("3"), "1", json!("55.25"), Value::Null, Value::Null),
+                                          order("order-1-QQQM-2026-09-10T11:00:00Z", "QQQM", "us_equity", "buy", "limit", "new", json!("0.12247"), "0", Value::Null, json!("408.25"), Value::Null),
+                                          order("venue-3", "BTC/USD", "crypto", "buy", "market", "new", Value::Null, "0", Value::Null, Value::Null, json!("10"))]))];
+    for (path, body) in answers {
+        Mock::given(matchers::method("GET")).and(matchers::path_regex(path)).and(matchers::header("APCA-API-KEY-ID", "PKRICH"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(body)).with_priority(1).mount(server).await;
     }
 }
 
@@ -895,10 +917,10 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
     println!("{} scenarios; {countdown_pages} pages where only Rails knows when the bot acts next", dirs.len());
     if std::env::var("PAGES").is_err() {
-        assert_eq!(dirs.iter().filter(|dir| !dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_") || n.to_string_lossy().starts_with("settings_"))).count(), 160 + 4 + 9 + 2 + 6 + 3 + 38 + 68 + 61, "completed read-only baseline (with the market-closed weekend page and the expired start on bots that are not stopped), with D5b's two missing_ and two not_ported_ connect scenarios, the venue pages (eight served, one refused), the selling pages (three served, one cap refused, in place of two refusals), the venue basket pages (seven served, in place of the one refusal), the asset search on each venue, the wizard's chooser and order switch (twelve served, one unrouted GET), its asset and exchange steps (ten served), its broker, key and quote steps to a created bot (nine served), the index and signal tiles and the IBKR and KuCoin key steps (four not_ported_), and the first empty bots page that opens it (two), and the REST API's (thirty-five on the five served reads' tokens and grants, twelve on the routes it gates but does not serve, three on typed creates, nine unrouted paths, seven on parameters, one on conditional GETs and one on an install without an admin; sixty-one on the six bot writes: six per route on its tokens, grants, ids and malformed bodies, five on settings values, fourteen on lifecycle states one start the engine guard refuses, the broadcasts an open page hears (in English and in its owner's German), encoded path ids and two oversized parameters)");
+        assert_eq!(dirs.iter().filter(|dir| !dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_") || n.to_string_lossy().starts_with("settings_"))).count(), 160 + 4 + 9 + 2 + 6 + 3 + 38 + 68 + 61 + 38, "completed read-only baseline (with the market-closed weekend page and the expired start on bots that are not stopped), with D5b's two missing_ and two not_ported_ connect scenarios, the venue pages (eight served, one refused), the selling pages (three served, one cap refused, in place of two refusals), the venue basket pages (seven served, in place of the one refusal), the asset search on each venue, the wizard's chooser and order switch (twelve served, one unrouted GET), its asset and exchange steps (ten served), its broker, key and quote steps to a created bot (nine served), the index and signal tiles and the IBKR and KuCoin key steps (four not_ported_), and the first empty bots page that opens it (two), and the REST API's (sixty-three on the nine served reads' tokens and grants, ten on the four venue reads' lookups and venue answers, twelve on the routes it gates but does not serve, three on typed creates, nine unrouted paths, seven on parameters, one on conditional GETs and one on an install without an admin; sixty-one on the six bot writes: six per route on its tokens, grants, ids and malformed bodies, five on settings values, fourteen on lifecycle states one start the engine guard refuses, the broadcasts an open page hears (in English and in its owner's German), encoded path ids and two oversized parameters)");
         assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("settings_"))).count(), 413 + 3 + 45 + 52 + 5 + 1 + 71, "complete S1 inventory, D5b's connect flow, the preference writes, the following client's card, the switch back to the default locale and the settings dialog (two more sections, in-place confirms, the page behind a language change)");
         assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_"))).count(), 197 + 50, "action inventory (with the five ⇄ rotations and nine sell-settings writes, twenty-two Kraken/Binance venue actions, and fifty on their baskets)");
-        assert_eq!(dirs.len(), 160 + 4 + 9 + 2 + 6 + 3 + 38 + 68 + 61 + 197 + 50 + 413 + 3 + 45 + 52 + 5 + 1 + 71, "a scenario was dropped or added without this count");
+        assert_eq!(dirs.len(), 160 + 4 + 9 + 2 + 6 + 3 + 38 + 68 + 61 + 38 + 197 + 50 + 413 + 3 + 45 + 52 + 5 + 1 + 71, "a scenario was dropped or added without this count");
         assert_eq!(countdown_pages, 4, "the pages where Rails knows a time this build does not: the listed divergence grew or shrank");
     }
 }
