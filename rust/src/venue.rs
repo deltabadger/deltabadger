@@ -7,6 +7,7 @@ pub mod alpaca;
 pub mod http;
 pub mod binance;
 pub mod kraken;
+pub mod kucoin;
 pub mod live;
 
 use crate::crypto::Credentials;
@@ -16,7 +17,7 @@ use crate::ruby::BigDec;
 use crate::sync::balances::Catalog;
 use chrono::{DateTime, Utc};
 
-/// What an intent records of the key a Kraken or Binance order is sent under (Alpaca's is `alpaca::placement_identity`):
+/// What an intent records of the key a Kraken, Binance or KuCoin order is sent under (Alpaca's is `alpaca::placement_identity`):
 /// the host and a fingerprint of the public key id. Never the secret.
 pub fn key_identity(host: &str, credentials: &Credentials) -> serde_json::Value {
     use sha2::{Digest, Sha256};

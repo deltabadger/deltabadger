@@ -175,7 +175,7 @@ fn builder(connect: Duration, read: Duration, total: Duration) -> reqwest::Clien
 }
 
 #[derive(Clone)]
-pub struct ReqwestTransport { client: reqwest::Client, key: String, secret: String, refused: Option<String>, sensitive: Vec<String>, clock: std::sync::Arc<dyn crate::engine::Clock + Send + Sync>, wire: Wire }
+pub struct ReqwestTransport { client: reqwest::Client, key: String, secret: String, passphrase: String, refused: Option<String>, sensitive: Vec<String>, clock: std::sync::Arc<dyn crate::engine::Clock + Send + Sync>, wire: Wire }
 
 /// Whose headers and body a request carries.
 #[derive(Clone, Copy, PartialEq)]
@@ -186,15 +186,24 @@ enum Wire {
     Binance,
     /// Honeymaker::Clients::Kraken (venue::kraken): a private call is a nonce-first form body signed at send time.
     Kraken,
+    /// Honeymaker::Clients::Kucoin (venue::kucoin): KC-API-* headers signed at send time over the exact query and body sent.
+    Kucoin,
 }
 
 impl ReqwestTransport {
     /// Use the same clock that creates the order deadline; production defaults to SystemClock.
     pub fn with_clock(mut self, clock: std::sync::Arc<dyn crate::engine::Clock + Send + Sync>) -> Self { self.clock = clock; self }
     /// `key`/`secret` as Clients::Alpaca sends them (`@api_key.to_s`: a missing key is an empty header).
-    pub fn new(client: reqwest::Client, key: String, secret: String) -> Self { Self { client, sensitive:vec![key.clone(),secret.clone()],key, secret, refused: None, clock: std::sync::Arc::new(crate::engine::SystemClock), wire: Wire::Alpaca } }
+    pub fn new(client: reqwest::Client, key: String, secret: String) -> Self { Self { client, sensitive:vec![key.clone(),secret.clone()],key, secret, passphrase: String::new(), refused: None, clock: std::sync::Arc::new(crate::engine::SystemClock), wire: Wire::Alpaca } }
     /// Honeymaker::Clients::Binance's wire.
     pub fn binance(client: reqwest::Client, key: String, secret: String) -> Self { Self { wire: Wire::Binance, ..Self::new(client, key, secret) } }
+    /// Honeymaker::Clients::Kucoin's wire: the passphrase is HMAC'd with the secret, and neither is ever sent as it is.
+    pub fn kucoin(client: reqwest::Client, key: String, secret: String, passphrase: String) -> Self {
+        let mut t = Self { wire: Wire::Kucoin, ..Self::new(client, key, secret) };
+        if !passphrase.is_empty() { t.sensitive.push(passphrase.clone()); }
+        t.passphrase = passphrase;
+        t
+    }
     pub fn with_sensitive_values(mut self,values:Vec<String>)->Self{self.sensitive.extend(values);self}
     /// Speak Kraken's wire: Honeymaker::Clients::Kraken's headers, form bodies and signature.
     pub fn kraken(mut self)->Self{self.wire=Wire::Kraken;self}
@@ -204,12 +213,12 @@ impl ReqwestTransport {
     pub fn failure_line(&self, response: &HttpResponse) -> String {
         let diagnostic = |status: Option<u16>, body: &str| {
             let line = diagnostic(status, body);
-            match self.wire { Wire::Kraken => line.replacen("[Alpaca]", "[Kraken]", 1), Wire::Binance => line.replacen("[Alpaca]", "[Binance]", 1), Wire::Alpaca => line }
+            match self.wire { Wire::Kraken => line.replacen("[Alpaca]", "[Kraken]", 1), Wire::Binance => line.replacen("[Alpaca]", "[Binance]", 1), Wire::Kucoin => line.replacen("[Alpaca]", "[KuCoin]", 1), Wire::Alpaca => line }
         };
         self.redact_diagnostic(&diagnostic(Some(response.status),&response.body))
     }
     /// Answers every request with NotSent and sends nothing (a venue this build must not reach).
-    pub fn refused(reason: &str) -> Self { Self { client: client(), key: String::new(), secret: String::new(), refused: Some(reason.into()),sensitive:Vec::new(), clock: std::sync::Arc::new(crate::engine::SystemClock), wire: Wire::Alpaca } }
+    pub fn refused(reason: &str) -> Self { Self { client: client(), key: String::new(), secret: String::new(), passphrase: String::new(), refused: Some(reason.into()),sensitive:Vec::new(), clock: std::sync::Arc::new(crate::engine::SystemClock), wire: Wire::Alpaca } }
 }
 
 impl Transport for ReqwestTransport {
@@ -237,8 +246,20 @@ impl ReqwestTransport {
     pub async fn send_unsettled(&self, r: &HttpRequest, limit: usize) -> Result<HttpResponse, TransportError> {
         if let Some(reason) = &self.refused { return Err(TransportError::NotSent(reason.clone())); }
         let method = reqwest::Method::from_bytes(r.method.as_bytes()).expect("a static method name");
-        let mut b = self.client.request(method, r.url());
+        let mut url = r.url();
+        if self.wire == Wire::Kucoin {
+            // The query exactly as Faraday::Utils.build_query writes it, which is what the signature covers.
+            let q = crate::venue::kucoin::query_text(r);
+            url.set_query((!q.is_empty()).then_some(q.as_str()));
+        }
+        let mut b = self.client.request(method, url);
         match self.wire {
+            Wire::Kucoin => {
+                // The timestamp is read here, at send time, and the signature covers the exact bytes sent.
+                let ts = crate::venue::binance::timestamp_ms(self.clock.now());
+                for (k, v) in crate::venue::kucoin::headers(r, &self.key, &self.secret, &self.passphrase, ts) { b = b.header(k, v); }
+                if let Some(body) = crate::venue::kucoin::body_text(r) { b = b.body(body); }
+            }
             Wire::Alpaca | Wire::Binance => {
                 b = if self.wire == Wire::Binance { b.header("X-MBX-APIKEY", &self.key) } else { b.header("APCA-API-KEY-ID", &self.key).header("APCA-API-SECRET-KEY", &self.secret) };
                 b = b.header("Accept", "application/json").header("Content-Type", "application/json");
