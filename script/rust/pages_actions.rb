@@ -194,7 +194,45 @@ module Pages
       add.call("venue_#{kind}_sell_amount", 'update', { 'sell_amount' => '0.0035' }, { 'kind' => kind, 'settings' => venue_sells, 'columns' => { 'status' => 'stopped' } }, decided)
     end
 
-    raise "expected 197 bot action cases" unless cases.size == 197
+    # Baskets of two on Kraken (bitcoin, ether in EUR) and Binance (ether, solana in USDT): the sliders, the structural edits, a move
+    # to the other venue, the sentence, the lifecycle and its modals. Asset ids as the fixtures create them: 16 BTC, 17 ETH, 20 SOL;
+    # exchanges 3 Kraken, 4 Binance. The amount limit is refused on both venues, so no limit edit is made here; Start on a capped
+    # basket is the guard's refusal, and ⇄ flips a basket of several into selling, which this build does not trade there.
+    rows = { 'raw_rows' => { 'bots' => '*', 'bot_index_assets' => '*' } }
+    { 'kraken' => [%w[16 17], '20', '4'], 'binance' => [%w[17 20], '16', '3'] }.each do |venue, ((first, second), other, elsewhere)|
+      kind = "#{venue}_basket"
+      basket = ->(name, action, form = {}, spec = {}, extra = {}) { add.call("venue_basket_#{venue}_#{name}", action, form, { 'kind' => kind }.merge(spec), extra) }
+      at_work = { 'columns' => { 'status' => 'scheduled', 'started_at' => '2026-09-09T12:00:00Z' } }
+      # Bitcoin and ether in USDT, which both venues list once Kraken carries them in USDT.
+      movable = { 'settings' => { 'quote_asset_id' => 19, 'allocations' => { '16' => 0.6, '17' => 0.4 } } }
+      basket.('sliders', 'update', { 'allocations' => { first => '70', second => '30' } }, {}, rows)
+      basket.('sliders_off', 'update', { 'allocations' => { first => '50', second => '30' } }, {}, rows)
+      basket.('normalize', 'update', { 'allocations' => { first => '30', second => '30' }, 'normalize_allocations' => '1' }, {}, rows)
+      basket.('add', 'update', { 'add_asset_id' => other }, {}, rows)
+      basket.('remove', 'update', { 'allocations' => { first => '60', second => '40' }, 'remove_asset_id' => second }, {}, rows)
+      basket.('exchange', 'update', { 'exchange_id' => elsewhere }, movable, rows.merge('kraken_usdt' => true))
+      basket.('exchange_unsupported', 'update', { 'exchange_id' => elsewhere }, {}, rows)
+      basket.('exchange_working', 'update', { 'exchange_id' => elsewhere }, movable.merge(at_work), rows.merge('kraken_usdt' => true))
+      basket.('amount', 'update', { 'quote_amount' => '37.25' }, {}, rows)
+      basket.('interval', 'update', { 'interval' => 'month' })
+      basket.('limit', 'update', { 'limit_ordered' => '1', 'limit_order_pcnt_distance' => '2' })
+      basket.('smart', 'update', { 'smart_intervaled' => '1', 'smart_interval_quote_amount' => '10' })
+      basket.('rename', 'update', { 'label' => 'Venue basket' })
+      basket.('html', 'update', { 'label' => 'Renamed' }, {}, { 'html' => true })
+      basket.('modal', 'modal')
+      basket.('start', 'start?start_fresh=true')
+      basket.('start_unbalanced', 'start?start_fresh=true', {}, { 'stored' => { 'allocations' => { first => 0.5, second => 0.3 } } })
+      basket.('start_capped', 'start?start_fresh=true', {}, { 'settings' => { 'quote_amount_limited' => true, 'quote_amount_limit' => 200 } })
+      basket.('stop', 'stop', {}, at_work)
+      basket.('archive', 'archive')
+      basket.('unarchive', 'unarchive', {}, { 'columns' => { 'status' => 'archived' } })
+      basket.('delete_modal', 'delete_modal')
+      basket.('delete', 'delete')
+      basket.('rename_modal', 'rename_modal')
+      basket.('not_ported_reverse', 'reverse', {}, { 'columns' => { 'status' => 'stopped' } }, decided)
+    end
+
+    raise "expected 247 bot action cases" unless cases.size == 247
     names = cases.map { |entry| "actions_#{entry.first}".gsub(/[^a-zA-Z0-9_-]/, "_") }
     raise "action case names collide after filesystem conversion" unless names.uniq.size == names.size
     cases
@@ -207,7 +245,8 @@ module Pages
   ACTION_EXCEPTIONS = {
     'actions_extra_html_archive' => 406,
     'actions_extra_html_update' => 406, 'actions_extra_html_start_start_fresh_true' => 406,
-    'actions_extra_html_stop' => 406, 'actions_extra_empty_root' => 400
+    'actions_extra_html_stop' => 406, 'actions_extra_empty_root' => 400,
+    'actions_venue_basket_kraken_html' => 406, 'actions_venue_basket_binance_html' => 406
   }.freeze
 
   # Enumerate the actual primary schema, including tables without an id (schema_migrations).
@@ -243,8 +282,9 @@ module Pages
       end
       scenario['extra_users'] = [user('email' => 'other@example.com', 'admin' => false)] if extra['foreign']
       scenario['venues'] = true if VENUE_KINDS.key?(spec['kind'])
+      scenario['kraken_usdt'] = true if extra['kraken_usdt']
       [name, scenario]
-    end.tap { |grid| raise 'action case names collide' unless grid.size == 197 }
+    end.tap { |grid| raise 'action case names collide' unless grid.size == 247 }
   end
 end
 

@@ -100,6 +100,14 @@ module Pages
       Ticker.create!(exchange:, base_asset:, quote_asset:, base:, quote: quote_asset.symbol, ticker:, base_decimals:, quote_decimals:, price_decimals:,
                      minimum_base_size:, minimum_quote_size:)
     end
+    # 'kraken_usdt' => true: Kraken lists bitcoin and ether in USDT too, so a USDT basket of them can move between the two venues.
+    if scenario['kraken_usdt']
+      [[btc, 'XBT', 'XBTUSDT', '0.00005'], [eth, 'ETH', 'ETHUSDT', '0.002']].each do |base_asset, base, ticker, minimum_base_size|
+        ExchangeAsset.find_or_create_by!(exchange: kraken, asset: usdt)
+        Ticker.create!(exchange: kraken, base_asset:, quote_asset: usdt, base:, quote: 'USDT', ticker:, base_decimals: 8, quote_decimals: 5,
+                       price_decimals: 2, minimum_base_size:, minimum_quote_size: '5')
+      end
+    end
     more_coins([[kraken, eur], [binance, usdt]]) if scenario['more_coins']
     keys = scenario.fetch('venue_keys', { 'kraken' => 'correct', 'binance' => 'correct' })
     { 'kraken' => kraken, 'binance' => binance }.each do |name, exchange|

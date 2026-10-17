@@ -26,7 +26,8 @@ fn fragments(c: &Connection, ctx: &Ctx, draft: &Draft) -> Result<(String, String
     let user = ctx.user().ok_or_else(||WebError::Config("action has no authenticated user".into()))?;
     let csrf = ctx.csrf_token();
     let (_, configured) = bots::market_data(c, &ctx.app)?;
-    let state = status::render(c,ctx,&csrf,&draft.candidate,configured)?;
+    let stored = (!draft.errors.is_empty()).then_some(&draft.original);
+    let state = status::render_unsaved(c,ctx,&csrf,&draft.candidate,stored,configured)?;
     let forms = settings::draft_column(c,ctx,&csrf,draft,&user.time_zone,user.hide_balances)?;
     let exchange = page::exchange_select(c,ctx,&csrf,&draft.candidate,user.id)?;
     Ok((forms,exchange,state))

@@ -117,6 +117,13 @@ impl Draft {
             submitted_label: None, submitted_exchange_id: None, parsed: Map::new(), errors: vec![], sliders: None, submitted: Map::new(), callback_zone: None, parse_errors: vec![], exchange_missing: false, error_codes: vec![] }
     }
 
+    /// This draft's candidate as an unsaved change of `stored`: dirty tracking reads the stored row.
+    pub(super) fn as_unsaved_of(&mut self, stored: &Bot) {
+        self.raw_settings = stored.settings.clone();
+        self.raw_transient = stored.transient.clone();
+        self.original = stored.clone();
+    }
+
     pub fn parse(&mut self, c: &Connection, params: &Value, zone: &str, now: DateTime<Utc>) -> Result<(), ParseError> {
         self.submitted = params.as_object().cloned().unwrap_or_default();
         match self.parse_inner(c, params, zone, now) {
@@ -706,11 +713,15 @@ impl Draft {
         }
         if self.candidate.kind == Kind::Basket && self.candidate.exchange.id != self.original.exchange.id {
             let first = self.candidate.tickers.iter().min_by(|a, b| a.base.as_bytes().cmp(b.base.as_bytes())).map(|t| t.id);
+            // Each concern's before_save, in include order. A store_accessor's `_was` reads nil while the settings column is
+            // unchanged, so a concern that runs before any setting moved takes the default subject, and the ones after it map
+            // their stored subject onto the new venue.
             for prefix in ["price_limit", "price_drop_limit", "moving_average_limit", "indicator_limit"] {
                 let key = format!("{prefix}_in_ticker_id");
                 let sell_key = format!("sell_{key}");
+                let dirty = !equal(&Value::Object(self.raw_settings.clone()), &Value::Object(settings.clone()));
                 let old_subject = |key: &str| -> Result<Option<Ticker>, WebError> {
-                    let Some(id) = self.raw_settings.get(key).filter(|v| present(v)) else { return Ok(None) };
+                    let Some(id) = self.raw_settings.get(key).filter(|v| dirty && present(v)) else { return Ok(None) };
                     let id = numeric(id, true)?.as_i64().unwrap_or(0);
                     Ok(Ticker::all(c, "t.id = ?1", &[&id])?.into_iter().next())
                 };

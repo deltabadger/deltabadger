@@ -76,7 +76,14 @@ pub struct Check {
 /// The read-only page shares the complete validator, then projects its field errors onto the
 /// existing form controls. Persisted-row refusal still runs before this entry point.
 pub fn check(c: &Connection, bot: &Bot, now: DateTime<Utc>, market_data_configured: bool, locale: &str) -> Result<Check, WebError> {
+    check_unsaved(c, bot, None, now, market_data_configured, locale)
+}
+
+/// `invalid?(:start)` on a bot an update refused: Rails asks the unsaved record, whose changes (a venue, a composition) are
+/// still measured against the stored row.
+pub fn check_unsaved(c: &Connection, bot: &Bot, stored: Option<&Bot>, now: DateTime<Utc>, market_data_configured: bool, locale: &str) -> Result<Check, WebError> {
     let mut draft = super::draft::Draft::from_bot(bot.clone());
+    if let Some(stored) = stored { draft.as_unsaved_of(stored); }
     draft.validate(c, super::draft::ValidationContext::Start, now, market_data_configured, locale)?;
     Ok(draft.check())
 }
