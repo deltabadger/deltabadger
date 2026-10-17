@@ -142,7 +142,8 @@ class Exchanges::Kucoin < Exchange
       next unless asset_ids.include?(asset.id)
 
       free = Utilities::Hash.dig_or_raise(balance, 'available').to_d
-      locked = Utilities::Hash.dig_or_raise(balance, 'holds').to_d
+      # KuCoin's 2026-08-27 changelog renames `holds` to `locked` in this answer; either shape is read.
+      locked = balance.fetch('locked') { Utilities::Hash.dig_or_raise(balance, 'holds') }.to_d
 
       balances[asset.id] = { free: free, locked: locked }
     end
