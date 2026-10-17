@@ -70,24 +70,46 @@ pub fn reading(c: &Connection, user_id: i64) -> Result<Vec<Reading>, SyncError> 
     }).collect())
 }
 
-/// Import::Run#import!: `bytes` read in `format` at `offset` and written for `user_id`. `chosen` is the `api_key_id`
-/// the Binance/Binance.US question was answered with: taken only when it is one of the accounts offered. Routing and
-/// writing run under one write lock (`BEGIN IMMEDIATE`).
-pub fn import(c: &Connection, user_id: i64, format: &str, bytes: &[u8], offset: Option<&str>, chosen: Option<&str>, now: DateTime<Utc>) -> Result<Answer, SyncError> {
+/// A file as read, before any database is touched: each entry with the venue it names (None: the format's own venue),
+/// and the operations the reader did not recognise.
+pub struct Read { entries: Vec<(Option<String>, Entry)>, unrecognised: Vec<String> }
+
+/// What a column holds of an amount: its nearest double, which must be finite (Rails stores 1e309 as Infinity, which
+/// no later read takes; this refuses the file instead).
+fn storable(e: &Entry) -> bool {
+    [Some(&e.base_amount), e.quote_amount.as_ref(), e.fee_amount.as_ref()].into_iter().flatten().all(|d| d.to_f().is_finite())
+}
+
+/// Import::Run#outcome up to routing: the file read in `format` at `offset`, or the answer refusing it. Pure: run it
+/// before taking a connection.
+pub fn read(format: &str, bytes: &[u8], offset: Option<&str>) -> Result<Read, Answer> {
     let text = csv::as_text(bytes);
-    // Each entry, and the venue it names (None: the format's own venue).
     let (entries, unrecognised): (Vec<(Option<String>, Entry)>, Vec<String>) = match format {
         "binance" => match binance::read(&text, offset) {
             Ok(read) => (read.entries.into_iter().map(|e| (None, e)).collect(), read.unrecognised),
-            Err(_) => return Ok(Answer::Error("malformed")),
+            Err(_) => return Err(Answer::Error("malformed")),
         },
         "deltabadger" => match deltabadger::read(&text) {
             Ok((rows, unrecognised)) => (rows.into_iter().map(|r| (r.exchange, r.entry)).collect(), unrecognised),
-            Err(_) => return Ok(Answer::Error("malformed")),
+            Err(_) => return Err(Answer::Error("malformed")),
         },
-        _ => return Ok(Answer::Error("unreadable")),
+        _ => return Err(Answer::Error("unreadable")),
     };
-    if entries.is_empty() && unrecognised.is_empty() { return Ok(Answer::Error("unreadable")); }
+    if !entries.iter().all(|(_, e)| storable(e)) { return Err(Answer::Error("malformed")); }
+    if entries.is_empty() && unrecognised.is_empty() { return Err(Answer::Error("unreadable")); }
+    Ok(Read { entries, unrecognised })
+}
+
+/// Import::Run#import!: `bytes` read in `format` at `offset` and written for `user_id` (`read`, then `write`).
+pub fn import(c: &Connection, user_id: i64, format: &str, bytes: &[u8], offset: Option<&str>, chosen: Option<&str>, now: DateTime<Utc>) -> Result<Answer, SyncError> {
+    match read(format, bytes, offset) { Ok(file) => write(c, user_id, format, file, chosen, now), Err(answer) => Ok(answer) }
+}
+
+/// Import::Run#route and #write for a file `read` accepted. `chosen` is the `api_key_id` the Binance/Binance.US
+/// question was answered with: taken only when it is one of the accounts offered. Routing and writing run under one
+/// write lock (`BEGIN IMMEDIATE`).
+pub fn write(c: &Connection, user_id: i64, format: &str, file: Read, chosen: Option<&str>, now: DateTime<Utc>) -> Result<Answer, SyncError> {
+    let Read { entries, unrecognised } = file;
     let tx = model::immediate(c)?;
     let keys = reading(&tx, user_id)?;
     // #route: [account, its entries] in the order the rows first name them, and the venues nothing here takes.
@@ -130,6 +152,15 @@ pub fn import(c: &Connection, user_id: i64, format: &str, bytes: &[u8], offset: 
 
 #[cfg(test)]
 mod tests {
+    /// An amount BigDec holds but the column's double does not (Ruby's BigDecimal holds it too, and Rails stores
+    /// Infinity) refuses the file before any database is touched.
+    #[test]
+    fn an_amount_no_double_holds_is_malformed() {
+        let c = rusqlite::Connection::open_in_memory().unwrap();
+        let file = "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2026-08-01 10:00:00,Spot,Deposit,USDT,1e309,";
+        assert_eq!(super::import(&c, 1, "binance", file.as_bytes(), Some("+00:00"), None, chrono::Utc::now()).unwrap(), super::Answer::Error("malformed"));
+    }
+
     #[test]
     fn a_permission_error_is_read_per_venue() {
         assert!(super::missing_permission("Exchanges::Kraken", Some("EGeneral:Permission denied")));
