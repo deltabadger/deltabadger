@@ -1024,3 +1024,16 @@ async fn a_cacheless_bots_first_order_holds_back_the_stale_headline() {
     assert!(shown["account"].is_null(), "a bot with a submitted order and no cache: User#global_pnl_snapshot is loading");
 }
 
+
+#[tokio::test]
+async fn a_sell_control_a_live_minimum_removes_is_not_shown_stale() {
+    let install = Install::new(1, 150);
+    let before = warm_with(&install, 0).await;
+    assert!(before["bots"]["1"]["metrics"].as_str().unwrap().contains("/liquidation/new?"), "AAA is sellable");
+    install.connection().execute("UPDATE tickers SET minimum_base_size=1000 WHERE id=1", []).unwrap();
+    let snapshot = loading::prepare(&install.app, 1).await.unwrap();
+    let clock = install.app.clock.clone();
+    let shown = install.app.db(move |c| loading::render(c, 1, &snapshot, "en", "token", "", &*clock)).await.unwrap();
+    let metrics = shown.as_ref().and_then(|v| v["bots"]["1"]["metrics"].as_str().map(str::to_string));
+    assert!(metrics.is_none_or(|m| !m.contains("/liquidation/new?")), "sellable_holdings drops a holding under the minimum: no Sell link");
+}
