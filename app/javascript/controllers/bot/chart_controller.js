@@ -1237,11 +1237,24 @@ export default class extends Controller {
             below: this.#setTransparency(down, 0.12),
           },
         },
-        // Interpolated exactly as the value curve is, and not as the step function the cash
-        // actually is: the ribbon is the area between the two lines, and a step under a curve
-        // paints a wedge of profit at every buy — value climbs across the day, invested lands
-        // at its end — where the PnL did not move at all.
-        this.#lineDataset(this.#color("--benchmark"), series[1], points),
+        // The ribbon's lower edge: interpolated exactly as the value curve is, and not as the
+        // step function the cash actually is, because a step under a curve paints a wedge of
+        // profit at every buy — value climbs across the day, invested lands at its end — where
+        // the PnL did not move at all. Kept as dataset 1 (the fill's target) and not drawn.
+        {
+          ...this.#lineDataset("transparent", series[1], points),
+          borderWidth: 0,
+          pointRadius: 0,
+          pointHoverRadius: 0,
+        },
+        // The invested line as drawn: the step function the cash is, flat between buys and
+        // rising on the day one lands.
+        {
+          ...this.#lineDataset(this.#color("--benchmark"), series[1], points),
+          cubicInterpolationMode: "default",
+          tension: 0,
+          stepped: "after",
+        },
       ],
     };
   }
