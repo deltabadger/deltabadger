@@ -736,6 +736,34 @@ module Pages
     end
   end
   NETWORK = [] # rubocop:disable Style/MutableConstant
+  # The venue requests a step made that a stub answered (pages_settings.rb records them through WebMock), as
+  # method, host, path and params, without what a clock or a key makes up (a signature, a timestamp, a nonce).
+  # rust/tests/pages.rs holds the requests this crate sent to its wiremock server to the same list.
+  VENUE = [] # rubocop:disable Style/MutableConstant
+  UNSIGNED = %w[signature timestamp nonce].freeze
+
+  def venue_request(request)
+    params = URI.decode_www_form(request.uri.query.to_s)
+    body = request.body.to_s
+    form = request.headers.to_h.any? { |name, value| name.casecmp?('Content-Type') && value.to_s.start_with?('application/x-www-form-urlencoded') }
+    params += URI.decode_www_form(body) if form
+    entry = { 'method' => request.method.to_s.upcase, 'host' => request.uri.host, 'path' => request.uri.path,
+              'params' => params.reject { |name, _| UNSIGNED.include?(name) }.sort }
+    entry['body'] = body unless form || body.empty?
+    entry
+  end
+
+  # A step's 'raw_rows' ({ table => columns or '*' }): the rows as stored, JSON columns as their text. Columns named in
+  # 'raw_clock' ("table.column") read "[clock]" where they hold a time, for a time the two sides' clocks write apart.
+  def raw_rows(spec, clock)
+    connection = ActiveRecord::Base.connection
+    spec.to_h do |table, columns|
+      selection = columns == '*' ? '*' : columns.map { |column| connection.quote_column_name(column) }.join(', ')
+      rows = connection.select_all("SELECT #{selection} FROM #{connection.quote_table_name(table)} ORDER BY id").to_a
+      rows.each { |row| row.each_key { |column| row[column] = '[clock]' if clock.include?("#{table}.#{column}") && row[column] } }
+      [table, rows]
+    end
+  end
 
   BOT_COLUMNS = %w[id status label position settings transient_data stop_message_key started_at updated_at].freeze
 
@@ -781,6 +809,7 @@ module Pages
             params['authenticity_token'] = form_token(client[:page], action) or raise "#{dir} step #{index}: the last page has no form posting to #{action}"
           end
           headers['X-CSRF-Token'] = meta_token(client[:page]) if %w[header both].include?(step['csrf'])
+          VENUE.clear
           if step['action_snapshot']
             rows_before = action_rows
             other_before = action_other_rows
@@ -827,6 +856,11 @@ module Pages
           answer['body'] = ''
         end
         answer['settings_rows'] = settings_rows if step['settings_snapshot']
+        answer['venue_requests'] = VENUE.dup unless VENUE.empty?
+        answer['may_mutate'] = step['may_mutate'] if step['may_mutate']
+        answer['raw_rows'] = raw_rows(step['raw_rows'], step.fetch('raw_clock', [])) if step['raw_rows']
+        # Decoded session values a step names, compared with what this crate's cookie decodes to.
+        answer['session'] = step['session'].to_h { |key| [key, content[key].as_json] } if step['session']
         answer['broadcasts'] = broadcasts if step['broadcasts']
         answer
       end
