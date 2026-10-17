@@ -37,6 +37,7 @@ pub mod tracker;
 pub mod string_column;
 pub mod turbo;
 mod user;
+pub mod wizard;
 
 use crate::crypto::{hash_password, verify_password, Cipher, EncryptionKeys};
 use crate::engine::{Clock, EngineError};
@@ -639,8 +640,13 @@ fn routes(app: App) -> Router {
         .route("/tracker/transactions/{id}/price", only(patch(tracker::transaction::update_price)))
         .route("/tracker/transactions/{id}/toggle_transfer", only(patch(tracker::transaction::toggle_transfer)))
         .route("/oauth/authorize", only(get(consent::new).post(consent::create).delete(consent::destroy)))
-        // The new-bot wizard, not served yet; named so that it is not read as a bot's id.
-        .route("/bots/new", axum::routing::any(layout::not_ported))
+        .route("/bots/new", only(get(wizard::new)))
+        .route("/bots/dca_single_assets/order", only(post(wizard::order)))
+        // What the chooser's tiles and the order switch lead to: wizard steps this build does not serve yet.
+        .route("/bots/dca_single_assets/pick_exchange/new", any(layout::not_ported))
+        .route("/bots/dca_single_assets/pick_buyable_asset/new", any(layout::not_ported))
+        .route("/bots/dca_indexes/setup_coingecko/new", any(layout::not_ported))
+        .route("/bots/signals/pick_buyable_asset/new", any(layout::not_ported))
         .route("/bots/reorder", only(patch(layout::not_ported)))
         .route("/bots/{id}", only(get(bot::page::show).patch(bot::actions::update)))
         .route("/bots/{id}/start", only(patch(bot::actions::start)))
@@ -910,7 +916,14 @@ pub fn router_with_routes(app: App, routes: Router, body_read_timeout: Duration)
 fn finish(app: &App, session: &session::Session, before: &session::SessionData, nonce: &str, now: DateTime<Utc>, signed_in: bool, mut response: Response) -> Response {
     let data = session.snapshot();
     if data != *before {
-        response.headers_mut().append(header::SET_COOKIE, session::set_cookie(&session::seal(&app.keys.session, &data, now), now, app.config.force_ssl));
+        let sealed = session::seal(&app.keys.session, &data, now);
+        if session::overflows(&sealed) {
+            // ActionDispatch::Cookies::CookieOverflow: the request fails and the browser keeps the session it sent.
+            response = WebError::Config(format!("the session cookie would be {} bytes (CookieOverflow)", session::COOKIE.len() + sealed.len())).into_response();
+            response.extensions_mut().insert(headers::BelowControllers);
+        } else {
+            response.headers_mut().append(header::SET_COOKIE, session::set_cookie(&sealed, now, app.config.force_ssl));
+        }
     }
     headers::policy(response.headers_mut(), nonce, app.config.force_ssl);
     let status = response.status();

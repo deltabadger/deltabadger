@@ -899,6 +899,7 @@ end
 require_relative 'pages_bots'
 require_relative 'pages_actions'
 require_relative 'pages_settings'
+require_relative 'pages_wizard'
 
 # script/rust/oauth.rb loads this file for its helpers and runs its own command.
 unless defined?(OAUTH_PARITY)
