@@ -229,6 +229,24 @@ class Exchanges::KucoinTest < ActiveSupport::TestCase
     assert_predicate result, :failure?
   end
 
+  # A 200000 envelope with no orderId: the order may be on the book, so it must read as unknown.
+  test 'a placement answered with no orderId is an unacknowledged failure, never a success' do
+    ticker = create(:ticker, exchange: @exchange, base_symbol: 'BTC', quote_symbol: 'USDT',
+                             price_decimals: 2, base_decimals: 6)
+    @exchange.send(:client).stubs(:place_order).returns(Result::Success.new(order_id: nil, raw: { 'code' => '200000', 'data' => {} }))
+
+    market = with_dry_run(false) { @exchange.market_buy(ticker: ticker, amount: BigDecimal('10'), amount_type: :quote) }
+    limit = with_dry_run(false) do
+      @exchange.send(:set_limit_order, ticker: ticker, amount: BigDecimal('10'), amount_type: :quote, side: :buy,
+                                       price: BigDecimal('62795'))
+    end
+
+    [market, limit].each do |result|
+      assert_predicate result, :failure?
+      assert @exchange.ambiguous_placement_error?(result)
+    end
+  end
+
   # == lost orders ==
   # KuCoin forgets a cancelled order after ~2 days and a filled one after ~7. That answer must read as
   # not_found, or Bot::StaleOrderResolver never gets to retire the order and the bot polls it forever.
