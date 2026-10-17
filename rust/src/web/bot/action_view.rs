@@ -119,9 +119,11 @@ pub(super) fn lifecycle_response(c: &Connection, ctx: &Ctx, id: i64, action: Act
     Ok(Prepared { response: response(if matches!(action,Action::Delete|Action::Unarchive) { body } else { body + "\n" },false), broadcasts: if action == Action::Stop { broadcasts(c,ctx,view,action).unwrap_or_default() } else { broadcasts(c,ctx,view,action)? },
         after_scheduling: if action == Action::Start { awaits_scheduling(c,ctx,view)? } else { None } })
 }
+/// The stream messages a service write sends, and the bot whose bars wait for the engine to schedule it.
+pub type ServiceBroadcasts = (Vec<(String,String)>, Option<i64>);
 /// What a lifecycle write through the services (REST, MCP) sends after it commits, as the web's own action does: the
 /// owner's bot streams, and a Continue's bars once the engine has scheduled it.
-pub fn service_broadcasts(c: &Connection, ctx: &Ctx, view: &LifecycleView, action: Action) -> Result<(Vec<(String,String)>, Option<i64>), WebError> {
+pub fn service_broadcasts(c: &Connection, ctx: &Ctx, view: &LifecycleView, action: Action) -> Result<ServiceBroadcasts, WebError> {
     let sent = if action == Action::Stop { broadcasts(c,ctx,view,action).unwrap_or_default() } else { broadcasts(c,ctx,view,action)? };
     Ok((sent, if action == Action::Start { awaits_scheduling(c,ctx,view)? } else { None }))
 }
