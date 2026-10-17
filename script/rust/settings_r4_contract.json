@@ -225,7 +225,7 @@
       "Ok(crate::engine::model::Produced::new(value,Some(self.producer.clone())))"
     ],
     "web/settings/keys.rs": [
-      "let result=handle.check(&app.alpaca_trading_url(handle.credentials()),kind).await?;",
+      "let result=handle.check_on(app,venue,kind).await?;",
       "let key=validated.columns[0].clone();",
       "validated.result.current_for(&Some(validated.handle.producer().clone()))",
       "check_credential_result(&tx,status.origin())?",

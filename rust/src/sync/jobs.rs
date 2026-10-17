@@ -250,7 +250,7 @@ impl<C:Connect> Job for Validator<C>{
         let venue=self.venues.connect(handle.credentials());
         let result=match handle.check(&venue.urls().trading,kind).await{Ok(v)=>v,Err(_)=>return before_result(Outcome::Failed("credential validation unavailable".into()))};
         use crate::web::settings::validator::Validity;
-        let status=result.map(|result|match result{Validity::Correct=>(1,None),Validity::Incorrect=>(2,Some("incorrect key".to_string())),Validity::Pending(e)=>{let safe=crate::web::settings::keys::scrub(&e.log_text(),&values);crate::engine::log(&safe);(0,Some(safe))}});
+        let status=result.map(|result|match result{Validity::Correct=>(1,None),Validity::Incorrect=>(2,Some("incorrect key".to_string())),Validity::Permissions{..}=>(2,Some("incorrect key".to_string())),Validity::Pending(e)=>{let safe=crate::web::settings::keys::scrub(&e.log_text(),&values);crate::engine::log(&safe);(0,Some(safe))}});
         let origin=status.origin().clone();
         let Some(version)=origin.clone() else{return crate::engine::model::Produced::new(Outcome::NothingNew,None)};
         let error=status.value.1.clone();

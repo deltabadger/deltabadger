@@ -46,12 +46,12 @@ fn refusal_text(ctx: &Ctx, reason: &str) -> String {
     else { i18n::text(ctx.locale, "engine.write_refused", &[("reason", i18n::Arg::Text(reason))]) }
 }
 #[derive(Clone)]
-struct Key {
-    id: Option<i64>,
-    key: Option<String>,
-    secret: Option<String>,
-    passphrase: Option<String>,
-    status: i64,
+pub(crate) struct Key {
+    pub(crate) id: Option<i64>,
+    pub(crate) key: Option<String>,
+    pub(crate) secret: Option<String>,
+    pub(crate) passphrase: Option<String>,
+    pub(crate) status: i64,
     last_error: Option<String>,
     updated_at: Option<String>,
     extras: [Option<String>;4],
@@ -59,7 +59,7 @@ struct Key {
     version: Option<crate::engine::model::CredentialVersion>,
 }
 impl Key {
-    fn read(
+    pub(crate) fn read(
         c: &Connection,
         app: &App,
         user: i64,
@@ -133,13 +133,13 @@ struct ValidatedKey {
     handle:super::validator::ValidationHandle,
     result:crate::engine::model::Produced<Validity>,
 }
-async fn validate(app:&App,key:&Key,original:&Key,kind:i64)->Result<ValidatedKey,WebError>{
+async fn validate(app:&App,key:&Key,original:&Key,kind:i64,venue:&str)->Result<ValidatedKey,WebError>{
     let mut values=key.extras.iter().flatten().cloned().collect::<Vec<_>>();
     values.extend([original.key.as_ref(),original.secret.as_ref(),original.passphrase.as_ref()].into_iter().flatten().chain(original.extras.iter().flatten()).cloned());
     let columns=[key.key.as_ref(),key.secret.as_ref(),key.passphrase.as_ref(),key.extras[0].as_ref(),key.extras[1].as_ref(),key.extras[2].as_ref(),key.extras[3].as_ref()].map(|value|value.map(|value|app.cipher.encrypt(value)));
     let producer=crate::engine::model::prepared_credential_version(key.id.unwrap_or(0),&columns);
     let handle=super::validator::ValidationHandle::stored(crate::crypto::Credentials{redaction_values:values,key:key.key.clone().unwrap_or_default(),secret:key.secret.clone().unwrap_or_default(),passphrase:key.passphrase.clone()},producer);
-    let result=handle.check(&app.alpaca_trading_url(handle.credentials()),kind).await?;
+    let result=handle.check_on(app,venue,kind).await?;
     app.observe_validation(result.origin().clone())?;
     Ok(ValidatedKey{key:key.clone(),columns,handle,result})
 }
@@ -212,6 +212,42 @@ pub async fn save(
             ctx.turbo_frame.as_deref(),
         ));
     }
+    let outcome = submit(&app, &ctx, user.id, exchange, "Exchanges::Alpaca", "Alpaca", kind, original).await?;
+    match outcome {
+        Submitted::Correct => {}
+        Submitted::Incorrect | Submitted::Permissions(..) => return flash_response(&ctx, StatusCode::UNPROCESSABLE_ENTITY, "errors.incorrect_api_key_permissions"),
+        Submitted::Failed => return flash_response(
+            &ctx,
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "errors.api_key_permission_validation_failed",
+        ),
+        Submitted::Refused(reason) => {
+            let text = refusal_text(&ctx, &reason);
+            let body = turbo::prepend_flash(&flash::render(&flash::take(&ctx.session, &[(flash::ALERT, text)]))?);
+            return Ok((StatusCode::UNPROCESSABLE_ENTITY, [(header::CONTENT_TYPE, turbo::CONTENT_TYPE)], body).into_response());
+        }
+    }
+    if bot_request {
+        flash::set(&ctx.session,flash::NOTICE,ctx.t("errors.bots.api_key_success"));
+        return Ok(([(header::CONTENT_TYPE,turbo::CONTENT_TYPE)],turbo::refresh()).into_response());
+    }
+    ctx.session.lock().tracker_connect=None;
+    // The warnings widget is rebuilt from persisted rows, as in Tracker::AddApiKeysController.
+    let v=ctx.clone();let owner=ctx.user().ok_or_else(||WebError::Config("missing warning owner".into()))?.id;
+    let warnings = app.db(move|c|warnings(c,&v,owner)).await?;
+    let body = turbo::stream("update", "sync-warnings", &warnings)
+        + &turbo::redirect(&ctx.path("/tracker"));
+    Ok(([(header::CONTENT_TYPE, turbo::CONTENT_TYPE)], body).into_response())
+}
+
+/// What a credential submission came to: ApiKey#validate_credentials!, then, for a correct key, its save.
+pub(crate) enum Submitted { Correct, Incorrect, Permissions(Vec<String>, Vec<String>), Failed, Refused(String) }
+
+/// The submitted `api_key[...]` fields over the stored key (`original`), validated on `venue` outside the write lock, and a
+/// correct one saved (status correct, sync error cleared) inside it: rechecked against what was validated, guarded, then the
+/// syncs a reading key has woken after the commit. An incorrect or unverified key is not saved.
+#[allow(clippy::too_many_arguments)]
+pub(crate) async fn submit(app: &App, ctx: &Ctx, user: i64, exchange: i64, venue: &str, venue_name: &str, kind: i64, original: Key) -> Result<Submitted, WebError> {
     let mut candidate = original.clone();
     if let Some(value) = ctx.params.form("api_key[key]") {
         candidate.key = Some(value.into());
@@ -226,14 +262,12 @@ pub async fn save(
         if let Some(value)=ctx.params.form(&format!("api_key[{name}]")){candidate.extras[i]=Some(value.into());}
     }
     if let Some(value)=ctx.params.form("api_key[ibkr_realm]"){candidate.realm=Some(value.into());}
-    let validated=validate(&app,&candidate,&original,kind).await?;
+    let validated=validate(app,&candidate,&original,kind,venue).await?;
     match &validated.result.value {
-        Validity::Incorrect => {
-            return flash_response(
-                &ctx,
-                StatusCode::UNPROCESSABLE_ENTITY,
-                "errors.incorrect_api_key_permissions",
-            )
+        Validity::Incorrect => return Ok(Submitted::Incorrect),
+        Validity::Permissions { missing, forbidden } => {
+            app.settings_key_logger.warn(&format!("[{venue_name}] API key validation: permissions do not match the steps"));
+            return Ok(Submitted::Permissions(missing.clone(), forbidden.clone()));
         }
         Validity::Pending(diagnostic) => {
             let mut values = vec![
@@ -247,34 +281,31 @@ pub async fn save(
             values.extend(candidate.extras.iter().cloned());values.extend(original.extras.iter().cloned());
             let redaction_material = values;
             app.settings_key_logger.warn(&format!(
-                "[Alpaca] API key validation failed: {}",
+                "[{venue_name}] API key validation failed: {}",
                 scrub(&diagnostic.log_text(),&redaction_material)
             ));
-            return flash_response(
-                &ctx,
-                StatusCode::UNPROCESSABLE_ENTITY,
-                "errors.api_key_permission_validation_failed",
-            );
+            return Ok(Submitted::Failed);
         }
         Validity::Correct => {}
     }
     let jobs=app.job_wakers()?;
     let inner = app.clone();
+    let user_id=user;
     let outcome=app.db(move|c|{
   let tx=Transaction::new_unchecked(c,TransactionBehavior::Immediate)?;
-  let current=Key::read(&tx,&inner,user.id,exchange,kind)?;
+  let current=Key::read(&tx,&inner,user_id,exchange,kind)?;
   if !original.same(&current){return Ok(Some("credential changed during validation".into()));}
   if !validated.result.current_for(&Some(validated.handle.producer().clone())).is_fresh(){return Ok(Some("credential changed during validation".into()));}
   let candidate=&validated.key;
   let now=format_time(inner.now());
   let changed=!(same(&candidate.key,&current.key)&&same(&candidate.secret,&current.secret)&&same(&candidate.passphrase,&current.passphrase)&&candidate.extras.iter().zip(&current.extras).all(|(a,b)|same(a,b))&&candidate.realm==current.realm&&current.status==1&&current.last_error.is_none());
-  if current.id.is_some() && settling(&tx,user.id,exchange)? { return Ok(Some(SETTLING.into())); }
+  if current.id.is_some() && settling(&tx,user_id,exchange)? { return Ok(Some(SETTLING.into())); }
   {
    let now=if changed {now} else {current.updated_at.clone().unwrap_or(now)};
    let key=validated.columns[0].clone();let secret=validated.columns[1].clone();let passphrase=validated.columns[2].clone();
    match current.id{
-    Some(id)=>{tx.execute("UPDATE api_keys SET key=?1,secret=?2,passphrase=?3,status=1,last_sync_error=NULL,updated_at=?4 WHERE id=?5 AND user_id=?6",(key,secret,passphrase,&now,id,user.id))?;},
-    None=>{tx.execute("INSERT INTO api_keys(user_id,exchange_id,key_type,key,secret,passphrase,status,created_at,updated_at)VALUES(?1,?2,?3,?4,?5,?6,1,?7,?7)",(user.id,exchange,kind,key,secret,passphrase,&now))?;}
+    Some(id)=>{tx.execute("UPDATE api_keys SET key=?1,secret=?2,passphrase=?3,status=1,last_sync_error=NULL,updated_at=?4 WHERE id=?5 AND user_id=?6",(key,secret,passphrase,&now,id,user_id))?;},
+    None=>{tx.execute("INSERT INTO api_keys(user_id,exchange_id,key_type,key,secret,passphrase,status,created_at,updated_at)VALUES(?1,?2,?3,?4,?5,?6,1,?7,?7)",(user_id,exchange,kind,key,secret,passphrase,&now))?;}
    }
   }
   // #497: another credential may be another account, which syncs its own full history; its rows stay linked.
@@ -282,9 +313,9 @@ pub async fn save(
    tx.execute("UPDATE api_keys SET last_synced_at=NULL WHERE id=?1",[id])?;
    tx.execute("DELETE FROM app_configs WHERE key IN (?1,?2)",(format!("rust_sync.ledger:{id}"),format!("rust_sync.ledger_splits:{id}")))?;
   }
-  tx.execute("UPDATE api_keys SET access_token=?1,rsa_signature_key=?2,rsa_encryption_key=?3,dh_param=?4,ibkr_realm=?5 WHERE user_id=?6 AND exchange_id=?7 AND key_type=?8",rusqlite::params![validated.columns[3],validated.columns[4],validated.columns[5],validated.columns[6],candidate.realm,user.id,exchange,kind])?;
+  tx.execute("UPDATE api_keys SET access_token=?1,rsa_signature_key=?2,rsa_encryption_key=?3,dh_param=?4,ibkr_realm=?5 WHERE user_id=?6 AND exchange_id=?7 AND key_type=?8",rusqlite::params![validated.columns[3],validated.columns[4],validated.columns[5],validated.columns[6],candidate.realm,user_id,exchange,kind])?;
   if let Err(refusal)=eligibility::guard(&tx,&inner.cipher,None){return Ok(Some(refusal.reason()));}
-  let id:i64=tx.query_row("SELECT id FROM api_keys WHERE user_id=?1 AND exchange_id=?2 AND key_type=?3",(user.id,exchange,kind),|r|r.get(0))?;
+  let id:i64=tx.query_row("SELECT id FROM api_keys WHERE user_id=?1 AND exchange_id=?2 AND key_type=?3",(user_id,exchange,kind),|r|r.get(0))?;
   // The slots a restart would register (sync::jobs::register, tracker::jobs::register): a key that reads for its
   // venue gets its syncs, and its owner the tracker's jobs. Woken after the commit only.
   let reading=crate::sync::reading_keys(&tx).map_err(|e|WebError::Config(e.0))?.contains(&id);
@@ -292,34 +323,11 @@ pub async fn save(
   if kind==0 {inner.wake_engine();}
   if reading {
    for job in [crate::sync::jobs::LEDGER_SYNC,crate::sync::jobs::BALANCE_SYNC] {jobs.wake(job,Some(&id.to_string()),None);}
-   for job in [crate::tracker::jobs::TRACKER_LEDGER,crate::tracker::jobs::PORTFOLIO_BACKFILL] {jobs.wake(job,Some(&user.id.to_string()),None);}
+   for job in [crate::tracker::jobs::TRACKER_LEDGER,crate::tracker::jobs::PORTFOLIO_BACKFILL] {jobs.wake(job,Some(&user_id.to_string()),None);}
   }
   Ok(None)
  }).await?;
-    if let Some(reason) = outcome {
-        let text = refusal_text(&ctx, &reason);
-        let body = turbo::prepend_flash(&flash::render(&flash::take(
-            &ctx.session,
-            &[(flash::ALERT, text)],
-        ))?);
-        return Ok((
-            StatusCode::UNPROCESSABLE_ENTITY,
-            [(header::CONTENT_TYPE, turbo::CONTENT_TYPE)],
-            body,
-        )
-            .into_response());
-    }
-    if bot_request {
-        flash::set(&ctx.session,flash::NOTICE,ctx.t("errors.bots.api_key_success"));
-        return Ok(([(header::CONTENT_TYPE,turbo::CONTENT_TYPE)],turbo::refresh()).into_response());
-    }
-    ctx.session.lock().tracker_connect=None;
-    // The warnings widget is rebuilt from persisted rows, as in Tracker::AddApiKeysController.
-    let v=ctx.clone();let owner=ctx.user().ok_or_else(||WebError::Config("missing warning owner".into()))?.id;
-    let warnings = app.db(move|c|warnings(c,&v,owner)).await?;
-    let body = turbo::stream("update", "sync-warnings", &warnings)
-        + &turbo::redirect(&ctx.path("/tracker"));
-    Ok(([(header::CONTENT_TYPE, turbo::CONTENT_TYPE)], body).into_response())
+    Ok(outcome.map_or(Submitted::Correct, Submitted::Refused))
 }
 
 #[derive(Template)]
@@ -356,7 +364,7 @@ pub(crate) fn warnings(c:&Connection,v:&Ctx,user:i64)->Result<String,WebError>{
     Ok(Warnings{title:i18n::t(v.locale,"tracker.sync_failed_for",&[("exchanges",i18n::Arg::Text(&names))]),fixes}.render()?+"\n")
 }
 
-fn lookup(locale: &str, key: &str) -> Option<&'static str> {
+pub(crate) fn lookup(locale: &str, key: &str) -> Option<&'static str> {
     for language in [locale, i18n::DEFAULT] {
         let key = format!("{language}.{key}");
         if let Some((_, text)) = i18n::all().iter().find(|(name, _)| *name == key) {
@@ -632,25 +640,30 @@ pub async fn legacy(
 }
 
 /// Recheck a committed slot without rewriting its credentials. Q binds the result to the captured digest.
-async fn revalidate(app:&App,id:i64)->Result<Option<String>,WebError>{
+pub(crate) async fn revalidate(app:&App,id:i64)->Result<Option<String>,WebError>{
     let inner=app.clone();
     let (credentials,version,values,kind)=app.db(move|c|{
         let (credentials,version,values)=crate::sync::validation_material(c,&inner.cipher,id).map_err(|_|WebError::Config("cannot read stored credential".into()))?;
-        let kind=c.query_row("SELECT key_type FROM api_keys WHERE id=?1",[id],|r|r.get::<_,i64>(0))?;
-        Ok((credentials,version,values,kind))
+        let (kind,venue,name)=c.query_row("SELECT k.key_type,e.type,e.name FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE k.id=?1",[id],|r|Ok((r.get::<_,i64>(0)?,r.get::<_,String>(1)?,r.get::<_,String>(2)?)))?;
+        Ok((credentials,version,values,(kind,venue,name)))
     }).await?;
+    let (kind,venue,name)=kind;
     let handle=super::validator::ValidationHandle::stored(credentials,version);
-    let result=handle.check(&app.alpaca_trading_url(handle.credentials()),kind).await?;
-    let status=result.map(|result|match result {Validity::Correct=>1,Validity::Incorrect=>2,Validity::Pending(ref e)=>{
-        app.settings_key_logger.warn(&format!("[Alpaca] API key validation failed: {}",scrub(&e.log_text(),&values)));0
+    let result=handle.check_on(app,&venue,kind).await?;
+    let status=result.map(|result|match result {Validity::Correct=>1,Validity::Incorrect=>2,Validity::Permissions{..}=>{
+        app.settings_key_logger.warn(&format!("[{name}] API key validation: permissions do not match the steps"));2
+    },Validity::Pending(ref e)=>{
+        app.settings_key_logger.warn(&format!("[{name}] API key validation failed: {}",scrub(&e.log_text(),&values)));0
     }});
     let jobs=app.job_wakers()?;let inner=app.clone();
     let result=app.db(move|c|{
         let tx=Transaction::new_unchecked(c,TransactionBehavior::Immediate)?;
         let fenced=crate::engine::model::check_credential_result(&tx,status.origin())?;
+        let before:i64=fenced.query_row("SELECT status FROM api_keys WHERE id=?1",[id],|r|r.get(0))?;
         store_status(&fenced,&status,id,inner.now()).map_err(|_|WebError::Config("cannot store credential status".into()))?;
         if let Err(refusal)=eligibility::guard(&tx,&inner.cipher,None){return Ok(Some(refusal.reason()))}
-        tx.commit()?;inner.wake_engine();Ok(None)
+        // The engine is woken by a status that moved; the same answer again changes nothing it reads.
+        tx.commit()?;if before!=status.value{inner.wake_engine();}Ok(None)
     }).await;
     match result{
         Err(WebError::Engine(crate::engine::EngineError::CredentialsChanged))=>{jobs.wake(crate::sync::jobs::API_KEY_VALIDATOR,Some(&id.to_string()),None);Ok(None)},
@@ -660,7 +673,20 @@ async fn revalidate(app:&App,id:i64)->Result<Option<String>,WebError>{
 
 #[derive(Template)]
 #[template(path="settings/alpaca_form.html")]
-struct AlpacaForm<'a> { v:&'a Ctx, csrf:&'a str, action:String, form_data:&'a str, connect_title:String, instructions_title:String, instructions:String, live:bool, modal:bool }
+struct AlpacaForm<'a> { v:&'a Ctx, csrf:&'a str, action:String, form_data:&'a str, connect_title:String, instructions_title:String, instructions:String, live:bool, modal:bool,
+    name_id:String, mark:&'static str, alpaca:bool, key_label:String, secret_label:String }
+
+/// shared/_api_key_form inside shared/_connect_form: the venue's connect card. `name`/`class` are the exchange row's name and
+/// type; `instructions` the walkthrough under it; the fields are the key and secret, and Alpaca's Paper/Live switch before them.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn card(ctx:&Ctx,csrf:&str,action:String,form_data:&str,name:&str,class:&str,live:bool,modal:bool,instructions:String)->Result<String,WebError>{
+    let name_id=crate::tracker::rows::name_id(class);
+    // BotHelper#api_key_field_label: the venue's own word for a field, else the generic one.
+    let label=|field:&str|{let specific=format!("bot.api.{name_id}.{field}");if lookup(ctx.locale,&specific).is_some(){ctx.t(&specific)}else{ctx.t(&format!("bot.api.{field}_label"))}};
+    Ok(AlpacaForm{v:ctx,csrf,action,form_data,connect_title:i18n::t(ctx.locale,"bot.setup.connect_to",&[("name",i18n::Arg::Text(name))]),
+        instructions_title:i18n::t(ctx.locale,"bot.setup.how_to_get_keys",&[("exchange",i18n::Arg::Text(name))]),instructions,live,modal,
+        mark:crate::web::bot::exchange_svg(&name_id),alpaca:class=="Exchanges::Alpaca",key_label:label("public_key"),secret_label:label("private_key"),name_id}.render()?)
+}
 #[derive(Template)]
 #[template(path="settings/alpaca_modal.html")]
 struct AlpacaModal<'a> { card:&'a str }
@@ -698,7 +724,7 @@ pub async fn form(axum::extract::State(app):axum::extract::State<App>, axum::ext
     let csrf=ctx.csrf_token();
     let modal=ctx.turbo_frame.as_deref()==Some("modal");
     let instructions_key=if kind==2&&lookup(ctx.locale,"read_only_api.alpaca.instructions").is_some(){"read_only_api.alpaca.instructions"}else{"bot.api.alpaca.instructions"};
-    let card=AlpacaForm{v:&ctx,csrf:&csrf,action:ctx.path(&format!("/tracker/add_api_key?exchange_id={exchange}&key_type={}",if kind==0{"trading"}else{"read_only"})),form_data:if modal{"data-controller=\"\" data-action=\"turbo:submit-end-&gt;modal--base#submitEnd\""}else{"data-controller=\"form--label-animations form--html5-validations\" data-turbo-frame=\"modal_content\""},connect_title:i18n::t(ctx.locale,"bot.setup.connect_to",&[("name",i18n::Arg::Text("Alpaca"))]),instructions_title:i18n::t(ctx.locale,"bot.setup.how_to_get_keys",&[("exchange",i18n::Arg::Text("Alpaca"))]),instructions:format!("<p>{}</p>",lookup(ctx.locale,instructions_key).unwrap_or("")),live:key.passphrase.as_deref()==Some("live"),modal}.render()?;
+    let card=card(&ctx,&csrf,ctx.path(&format!("/tracker/add_api_key?exchange_id={exchange}&key_type={}",if kind==0{"trading"}else{"read_only"})),if modal{"data-controller=\"\" data-action=\"turbo:submit-end-&gt;modal--base#submitEnd\""}else{"data-controller=\"form--label-animations form--html5-validations\" data-turbo-frame=\"modal_content\""},"Alpaca","Exchanges::Alpaca",key.passphrase.as_deref()==Some("live"),modal,format!("<p>{}</p>",lookup(ctx.locale,instructions_key).unwrap_or("")))?;
     let body=if modal{AlpacaModal{card:&card}.render()?}else{AlpacaFull{v:&ctx,card:&card,progress_title:i18n::t(ctx.locale,"bot.setup.progress_steps.connect",&[])}.render()?};
     crate::web::shell::application(&ctx,&csrf,&user,&shell,crate::web::layout::Page{status:StatusCode::OK,body,flash_now:vec![]})
 }
@@ -745,7 +771,7 @@ pub async fn bot_form(axum::extract::State(app):axum::extract::State<App>,axum::
     let (venue,key,shell)=app.db(move|c|Ok((c.query_row("SELECT type FROM exchanges WHERE id=?1",[exchange],|r|r.get::<_,String>(0))?,Key::read(c,&inner,owner.id,exchange,0)?,crate::web::shell::Shell::load(c,&inner,&owner)?))).await?;
     if venue!="Exchanges::Alpaca"{return Ok(crate::web::layout::not_ported_response(&ctx.method,&ctx.params.fullpath,ctx.turbo_frame.as_deref()))}
     let csrf=ctx.csrf_token();let action=ctx.path(ctx.params.route_path.trim_end_matches("/new"));
-    let card=AlpacaForm{v:&ctx,csrf:&csrf,action,form_data:"data-controller=\"\" data-action=\"turbo:submit-end-&gt;modal--base#submitEnd\"",connect_title:i18n::t(ctx.locale,"bot.setup.connect_to",&[("name",i18n::Arg::Text("Alpaca"))]),instructions_title:i18n::t(ctx.locale,"bot.setup.how_to_get_keys",&[("exchange",i18n::Arg::Text("Alpaca"))]),instructions:format!("<p>{}</p>",lookup(ctx.locale,"bot.api.alpaca.instructions").unwrap_or("")),live:key.passphrase.as_deref()==Some("live"),modal:true}.render()?;
+    let card=card(&ctx,&csrf,action,"data-controller=\"\" data-action=\"turbo:submit-end-&gt;modal--base#submitEnd\"","Alpaca","Exchanges::Alpaca",key.passphrase.as_deref()==Some("live"),true,format!("<p>{}</p>",lookup(ctx.locale,"bot.api.alpaca.instructions").unwrap_or("")))?;
     let body=AlpacaModal{card:&card}.render()?;
     crate::web::shell::application(&ctx,&csrf,&user,&shell,crate::web::layout::Page{status:StatusCode::OK,body,flash_now:vec![]})
 }

@@ -13,6 +13,7 @@ use super::{auth, colors, i18n, App, WebError};
 
 pub mod assets;
 pub mod exchanges;
+pub mod keys;
 use askama::Template;
 use axum::extract::{Extension, State};
 use axum::http::StatusCode;
