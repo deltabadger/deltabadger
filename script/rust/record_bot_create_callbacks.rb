@@ -1,13 +1,15 @@
-# Records every callback Rails runs when the new-bot wizard saves a Bots::DcaMultiAsset (plan P2-T7a), for
-# rust/src/web/wizard/create.rs, which names how it handles each one (ported, or a no-op on create and why).
+# Records every callback Rails runs when the new-bot wizard saves a bot (plan P2-T7a), for rust/src/web/wizard/create.rs
+# (a Bots::DcaMultiAsset, the default) and rust/src/web/wizard/index_create.rs (Bots::DcaIndex), which name how they handle
+# each one (ported, or a no-op on create and why).
 #   bin/rails runner script/rust/record_bot_create_callbacks.rb rust/tests/fixtures/bot_create_callbacks.json
+#   bin/rails runner script/rust/record_bot_create_callbacks.rb rust/tests/fixtures/index_create_callbacks.json Bots::DcaIndex
 # The chains are the class's own, with every concern's: after_initialize, validation (before/after_validation),
 # validate (validate/validates), save, create and commit. A callback added, removed or moved in Rails, or a change to
 # a file that defines one, makes the pin stale (script/rust/repin), and the Rust table must follow.
 require 'json'
 require 'digest'
 
-klass = Bots::DcaMultiAsset
+klass = { 'Bots::DcaMultiAsset' => Bots::DcaMultiAsset, 'Bots::DcaIndex' => Bots::DcaIndex }.fetch(ARGV.fetch(1, 'Bots::DcaMultiAsset'))
 root = "#{Rails.root}/"
 gem_dir = %r{\A#{Regexp.escape(Gem.dir)}/gems/}
 
@@ -54,7 +56,7 @@ describe_filter = lambda do |filter|
   end
 end
 
-sources = Set.new(%w[app/models/bot.rb app/models/bots/dca_multi_asset.rb])
+sources = Set.new(['app/models/bot.rb', "app/models/#{klass.name.underscore}.rb"])
 chains = %w[initialize validation validate save create commit].to_h do |chain|
   callbacks = klass.public_send("_#{chain}_callbacks").map do |callback|
     name, defined_at = describe_filter.(callback.filter)

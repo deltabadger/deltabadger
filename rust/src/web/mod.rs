@@ -671,8 +671,18 @@ fn routes(app: App) -> Router {
         .route("/bots/dca_multi_assets/pick_stock_broker", only(post(wizard::brokers::create)))
         .route("/bots/dca_multi_assets/pick_spendable_asset/new", only(get(wizard::spendable::new)))
         .route("/bots/dca_multi_assets/pick_spendable_asset", only(post(wizard::spendable::create)))
-        // The index and signal wizards are not served.
-        .route("/bots/dca_indexes/setup_coingecko/new", any(layout::not_ported))
+        .route("/bots/dca_indexes/setup_coingecko/new", only(get(wizard::index::setup_new)))
+        .route("/bots/dca_indexes/pick_index/new", only(get(wizard::index::pick_new)))
+        .route("/bots/dca_indexes/pick_index", only(post(wizard::index::pick_create)))
+        .route("/bots/dca_indexes/pick_exchange/new", only(get(wizard::index::exchange_new)))
+        .route("/bots/dca_indexes/pick_exchange", only(post(wizard::index::exchange_create)))
+        .route("/bots/dca_indexes/add_api_key/new", only(get(wizard::keys::index_new)))
+        .route("/bots/dca_indexes/add_api_key", only(post(wizard::keys::index_create)))
+        .route("/bots/dca_indexes/pick_spendable_asset/new", only(get(wizard::index::quote_new)))
+        .route("/bots/dca_indexes/pick_spendable_asset", only(post(wizard::index::quote_create)))
+        // The CoinGecko key itself (this build has no CoinGecko provider), the legacy settings step and the signal wizard are
+        // not served.
+        .route("/bots/dca_indexes/setup_coingecko", any(layout::not_ported))
         .route("/bots/signals/pick_buyable_asset/new", any(layout::not_ported))
         .route("/bots/reorder", only(patch(layout::not_ported)))
         .route("/bots/{id}", only(get(bot::page::show).patch(bot::actions::update)))

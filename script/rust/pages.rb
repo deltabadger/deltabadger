@@ -729,7 +729,9 @@ module Pages
     'change_password' => -> { User.first.update_columns(encrypted_password: User.new(password: 'Another-horse-7').encrypted_password) },
     'unconfirm' => -> { User.first.update_columns(confirmed_at: nil) },
     # The venue stops trading bitcoin in EUR on Kraken (the wizard's chosen pair).
-    'disable_kraken_xbt' => -> { Ticker.where(ticker: 'XBTEUR').update_all(available: false) }
+    'disable_kraken_xbt' => -> { Ticker.where(ticker: 'XBTEUR').update_all(available: false) },
+    # data-api's ND100 publishes one member (the index wizard's chosen index).
+    'shrink_nasdaq' => -> { Index.where(external_id: 'nasdaq-100').update_all(top_coins: ['nvda.us']) }
   }.freeze
 
   # What a browser's FormData posts for a form with `multipart: true`: the flat text fields, then each

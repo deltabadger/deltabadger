@@ -36,12 +36,10 @@ module Pages
                                                                                                           'csrf' => 'none', 'headers' => TURBO.merge('Referer' => 'http://localhost:3000/bots/new')), chooser.()) },
         'wizard_order_signed_out' => { 'steps' => [get('/login'), order.('asset_first', ORDER, 'csrf' => 'header').merge('expect' => 302)] },
         'unrouted_wizard_order_get' => { 'user' => owner, 'steps' => signed_in(chooser.(), get(ORDER)) },
-        # The tiles past the DCA wizard: the index and signal wizards.
-        'not_ported_wizard_index_tile' => { 'user' => owner, 'steps' => signed_in(chooser.('/bots/new', MODAL),
-                                                                                get('/bots/dca_indexes/setup_coingecko/new', STEP)) },
+        # The tile past the DCA and index wizards: the signal wizard.
         'not_ported_wizard_signal_tile' => { 'user' => advanced, 'steps' => signed_in(chooser.('/bots/new', MODAL),
                                                                                     get('/bots/signals/pick_buyable_asset/new', STEP)) }
-      }.merge(asset_step_scenarios(watch, chooser, order)).merge(create_scenarios(chooser, order))
+      }.merge(asset_step_scenarios(watch, chooser, order)).merge(create_scenarios(chooser, order)).merge(index_scenarios(chooser))
     end
 
     SINGLE = '/bots/dca_single_assets'.freeze
@@ -175,6 +173,7 @@ module Pages
                        quote_decimals: 6, price_decimals: 1, minimum_base_size: '0.00001', minimum_quote_size: '0.1')
       end
       Exchanges::Bitmart.create!(name: 'BitMart', maker_fee: '0.25', taker_fee: '0.25') if scenario['retired']
+      index_fixture(scenario)
     end
 
     def create_scenarios(chooser, order)
@@ -256,6 +255,108 @@ module Pages
         'bots_empty_first_visit_stale_wizard' => { 'user' => owner, 'steps' => [
           get('/login'), login, chooser.('/bots/new', MODAL), order.('asset_first'), get('/de/bots').merge('session' => %w[bot_config]),
           get('/de/bots').merge('session' => %w[bot_config])
+        ] }
+      }
+    end
+
+    IDX = '/bots/dca_indexes'.freeze
+    IDX_SETUP_NEW = "#{IDX}/setup_coingecko/new".freeze
+    IDX_PICK = "#{IDX}/pick_index".freeze
+    IDX_PICK_NEW = "#{IDX_PICK}/new".freeze
+    IDX_EXCHANGE = "#{IDX}/pick_exchange".freeze
+    IDX_EXCHANGE_NEW = "#{IDX_EXCHANGE}/new".freeze
+    IDX_KEY = "#{IDX}/add_api_key".freeze
+    IDX_KEY_NEW = "#{IDX_KEY}/new".freeze
+    IDX_QUOTE = "#{IDX}/pick_spendable_asset".freeze
+    IDX_QUOTE_NEW = "#{IDX_QUOTE}/new".freeze
+    ND100 = { 'index_type' => 'category', 'index_category_id' => 'nasdaq-100', 'index_name' => 'ND100' }.freeze
+    TOP = { 'index_type' => 'top', 'index_category_id' => '', 'index_name' => '' }.freeze
+    LAYER1 = { 'index_type' => 'category', 'index_category_id' => 'layer-1', 'index_name' => 'Layer 1 <L1>' }.freeze
+
+    # The index wizard's tile (the index picker posts the clicked tile's hidden fields), venue and quote; the last one saves the bot.
+    def ix_pick = ->(form, path = IDX_PICK) { wz_submit.(path, form) }
+    def ix_exchange = ->(id, path = IDX_EXCHANGE) { wz_exchange.(id, path, 'bots_dca_index') }
+    def ix_quote = lambda { |id, path = IDX_QUOTE, opts = {}|
+      wz_submit.(path, { 'bots_dca_index[quote_asset_id]' => id.to_s })
+        .merge('action_snapshot' => true, 'may_mutate' => %w[bots bot_index_assets], 'raw_rows' => BOT_ROWS).merge(opts)
+    }
+
+    # 'crypto_indices' => true (with 'venues'): the internal Top coins ranking and a CoinGecko category beside data-api's ND100, as the
+    # syncs store them; 'market_data' => 'none': no provider configured.
+    def index_fixture(scenario)
+      if scenario['crypto_indices']
+        coins = %w[btc eth solana ada-coin avax-coin dot-coin link-coin]
+        Index.create!(external_id: 'top-coins', source: 'internal', name: 'Top Coins', top_coins: coins, weight: 0,
+                      description: 'The largest coins by market cap.', available_exchanges: { 'Exchanges::Kraken' => 7, 'Exchanges::Binance' => 7 })
+        Index.create!(external_id: 'layer-1', source: 'coingecko', name: 'Layer 1 <L1>', top_coins: coins.drop(1), weight: 12, market_cap: 900,
+                      description: "Base chains & their tokens. #{'Long text ' * 20}", available_exchanges: { 'Exchanges::Binance' => 6 })
+      end
+      AppConfig.where(key: %w[market_data_provider market_data_url market_data_token]).delete_all if scenario['market_data'] == 'none'
+    end
+
+    def index_scenarios(chooser)
+      member = owner('email' => 'second@example.com', 'admin' => false)
+      {
+        # ND100 on Alpaca, its key correct: the tile, the picker (nothing chosen, a category without its id), the venue (searched, blank),
+        # the key step skipped, the quote (searched, blank), the bot saved, its page.
+        'wizard_index_alpaca' => { 'user' => owner, 'install' => 'alpaca', 'steps' => signed_in(
+          chooser.('/bots/new', MODAL), wz_step.(IDX_SETUP_NEW), wz_step.(IDX_PICK_NEW), ix_pick.({}), ix_pick.(ND100.merge('index_category_id' => '')),
+          ix_pick.(ND100), wz_step.(IDX_EXCHANGE_NEW), wz_step.("#{IDX_EXCHANGE_NEW}?query=alp", EXCHANGE_PICKER),
+          wz_step.("#{IDX_EXCHANGE_NEW}?query=zzzz", EXCHANGE_PICKER), wz_step.(IDX_EXCHANGE_NEW), ix_exchange.(''), ix_exchange.(1),
+          wz_step.(IDX_KEY_NEW), wz_step.(IDX_QUOTE_NEW), wz_step.("#{IDX_QUOTE_NEW}?query=us", PICKER), wz_step.(IDX_QUOTE_NEW),
+          wz_submit.(IDX_QUOTE, { 'bots_dca_index[quote_asset_id]' => '' }), wz_step.(IDX_QUOTE_NEW), ix_quote.(1), get('/bots/1')
+        ) },
+        'wizard_index_locales' => { 'user' => owner, 'install' => 'alpaca', 'steps' => signed_in(
+          chooser.('/de/bots/new', MODAL), wz_step.("/de#{IDX_SETUP_NEW}"), wz_step.("/de#{IDX_PICK_NEW}"), ix_pick.({}, "/de#{IDX_PICK}"),
+          wz_step.("/pl#{IDX_PICK_NEW}"), ix_pick.(ND100, "/pl#{IDX_PICK}"), wz_step.("/pl#{IDX_EXCHANGE_NEW}"), ix_exchange.(1, "/pl#{IDX_EXCHANGE}"),
+          wz_step.("/de#{IDX_QUOTE_NEW}"), wz_step.("/pl#{IDX_QUOTE_NEW}"), wz_step.("/de#{IDX_QUOTE_NEW}"), ix_quote.(1, "/de#{IDX_QUOTE}"), get('/de/bots/1')
+        ) },
+        # No Alpaca key yet: refused, then a paper key; back to the index and the venue (the key now correct), then the bot.
+        'wizard_index_alpaca_key' => { 'user' => owner, 'install' => 'alpaca', 'api_keys' => {}, 'steps' => signed_in(
+          chooser.('/bots/new', MODAL), wz_step.(IDX_PICK_NEW), ix_pick.(ND100), wz_step.(IDX_EXCHANGE_NEW), ix_exchange.(1), wz_step.(IDX_KEY_NEW), wz_step.("/de#{IDX_KEY_NEW}"),
+          wz_key.('incorrect-key', "/de#{IDX_KEY}", 'api_key[passphrase]' => 'paper'), wz_key.('PKTEST', "/de#{IDX_KEY}", 'api_key[passphrase]' => 'paper'),
+          wz_step.(IDX_PICK_NEW), ix_pick.(ND100), wz_step.(IDX_EXCHANGE_NEW), ix_exchange.(1), wz_step.(IDX_KEY_NEW), wz_step.(IDX_QUOTE_NEW), ix_quote.(1)
+        ) },
+        # The index's universe shrinks to one member before the last POST: Rails refuses the count (422, the reason), no row is written.
+        'wizard_index_member_count' => { 'user' => owner, 'install' => 'alpaca', 'steps' => signed_in(
+          chooser.('/bots/new', MODAL), wz_step.(IDX_PICK_NEW), ix_pick.(ND100), wz_step.(IDX_EXCHANGE_NEW), ix_exchange.(1), wz_step.(IDX_QUOTE_NEW),
+          ix_quote.(1, IDX_QUOTE, 'before' => 'shrink_nasdaq'), wz_step.(IDX_QUOTE_NEW), wz_step.("/pl#{IDX_QUOTE_NEW}")
+        ) },
+        # Crypto indices beside ND100: the picker's order and pills; Top coins and Layer 1 each narrow the venues as Rails does.
+        'wizard_index_crypto_picker' => venue_wizard(signed_in(
+          chooser.('/bots/new', MODAL), wz_step.(IDX_PICK_NEW), wz_step.("/de#{IDX_PICK_NEW}"), wz_step.(IDX_PICK_NEW), ix_pick.(TOP), wz_step.(IDX_EXCHANGE_NEW),
+          wz_step.("#{IDX_EXCHANGE_NEW}?query=bin", EXCHANGE_PICKER), wz_step.(IDX_PICK_NEW), ix_pick.(LAYER1), wz_step.(IDX_EXCHANGE_NEW), ix_exchange.(4)
+        ), 'crypto_indices' => true),
+        # What the engine does not run is refused at the key step (no key stored yet, so Rails shows its form): Top coins on Kraken
+        # and on Alpaca.
+        'not_ported_wizard_index_kraken_key' => venue_wizard(signed_in(
+          chooser.('/bots/new', MODAL), wz_step.(IDX_PICK_NEW), ix_pick.(TOP), wz_step.(IDX_EXCHANGE_NEW), ix_exchange.(3), wz_step.(IDX_KEY_NEW)
+        ), 'crypto_indices' => true, 'venue_keys' => {}),
+        'not_ported_wizard_index_top_alpaca' => venue_wizard(signed_in(
+          chooser.('/bots/new', MODAL), wz_step.(IDX_PICK_NEW), ix_pick.(TOP), wz_step.(IDX_EXCHANGE_NEW), ix_exchange.(1), wz_step.(IDX_KEY_NEW)
+        ), 'crypto_indices' => true, 'api_keys' => {}),
+        # The legacy settings step (no link reaches it).
+        'not_ported_wizard_index_confirm_settings' => { 'user' => owner, 'install' => 'alpaca', 'steps' => signed_in(
+          chooser.('/bots/new', MODAL), wz_step.(IDX_PICK_NEW), ix_pick.(ND100), wz_step.(IDX_EXCHANGE_NEW), ix_exchange.(1), wz_step.("#{IDX}/confirm_settings/new")
+        ) },
+        # Each step goes back to the first one missing: no index, no venue, no correct key.
+        'wizard_index_stale_step' => { 'user' => owner, 'install' => 'alpaca', 'api_keys' => { 'alpaca' => 'incorrect' }, 'steps' => signed_in(
+          chooser.('/bots/new', MODAL), wz_step.(IDX_EXCHANGE_NEW), wz_step.(IDX_KEY_NEW), wz_step.(IDX_QUOTE_NEW), wz_step.("/de#{IDX_PICK_NEW}"), ix_pick.(ND100, "/de#{IDX_PICK}"),
+          wz_step.(IDX_KEY_NEW), wz_step.(IDX_QUOTE_NEW), wz_step.(IDX_EXCHANGE_NEW), ix_exchange.(1), wz_step.(IDX_QUOTE_NEW)
+        ) },
+        # No wizard begun (nil) or only begun ({}): the guarded POSTs send the browser to the root; the index POST begins one.
+        'wizard_index_expired_session' => { 'user' => owner, 'install' => 'alpaca', 'steps' => signed_in(
+          get('/bots'), wz_bare.(IDX_EXCHANGE, { 'bots_dca_index[exchange_id]' => '1' }), wz_bare.(IDX_QUOTE, { 'bots_dca_index[quote_asset_id]' => '1' }),
+          wz_step.(IDX_PICK_NEW), wz_bare.(IDX_EXCHANGE, { 'bots_dca_index[exchange_id]' => '1' }), wz_bare.("/de#{IDX_QUOTE}", { 'bots_dca_index[quote_asset_id]' => '1' }),
+          wz_bare.(IDX_PICK, ND100), wz_step.(IDX_EXCHANGE_NEW)
+        ) },
+        # No market data: every step goes to the CoinGecko step, which asks an admin for a key and tells anyone else to ask theirs.
+        'wizard_index_unconfigured' => { 'user' => owner, 'install' => 'alpaca', 'market_data' => 'none', 'steps' => signed_in(
+          chooser.('/bots/new', MODAL), wz_step.(IDX_SETUP_NEW), wz_step.("/de#{IDX_SETUP_NEW}"), wz_step.("/pl#{IDX_SETUP_NEW}"), wz_step.(IDX_PICK_NEW),
+          wz_bare.(IDX_PICK, ND100), wz_step.(IDX_EXCHANGE_NEW), wz_step.(IDX_KEY_NEW), wz_step.(IDX_QUOTE_NEW)
+        ) },
+        'wizard_index_unconfigured_member' => { 'user' => owner, 'install' => 'alpaca', 'market_data' => 'none', 'extra_users' => [member], 'steps' => [
+          get('/login'), login(email: 'second@example.com'), chooser.('/bots/new', MODAL), wz_step.(IDX_SETUP_NEW), wz_step.("/de#{IDX_SETUP_NEW}")
         ] }
       }
     end

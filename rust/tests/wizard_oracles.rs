@@ -1,6 +1,7 @@
 //! The wizard's two recorded oracles that are not pages: how Rails judges a Kraken or Binance key (key_verdicts.json, every
 //! case replayed through web::settings::key_check) and which callbacks Rails runs when the wizard saves a bot
-//! (bot_create_callbacks.json, each one named in web::wizard::create::CALLBACKS).
+//! (bot_create_callbacks.json and index_create_callbacks.json, each one named in web::wizard::create::CALLBACKS and
+//! web::wizard::index_create::CALLBACKS).
 use deltabadger::venue::http::{HttpResponse, TransportError};
 use deltabadger::web::settings::key_check::{self, Verdict};
 use serde_json::{json, Value};
@@ -96,10 +97,10 @@ fn key_verdicts_replay_every_recorded_case() {
     assert_eq!((replayed, us), (447, 212), "a recorded case was added or dropped");
 }
 
-#[test]
-fn bot_create_callbacks_are_all_handled() {
-    assert_pinned("bot_create_callbacks.json");
-    let recorded = fixture("bot_create_callbacks.json");
+/// A pinned callback list against a port's table: the same callbacks, in Rails' order, each handled.
+fn assert_handled(fixture_name: &str, table: &[(&str, &str, &str, &str, &str)]) {
+    assert_pinned(fixture_name);
+    let recorded = fixture(fixture_name);
     let mut theirs = vec![];
     for (chain, callbacks) in recorded["callbacks"].as_object().unwrap() {
         for callback in callbacks.as_array().unwrap() {
@@ -108,9 +109,20 @@ fn bot_create_callbacks_are_all_handled() {
             theirs.push((chain.clone(), callback["kind"].as_str().unwrap().to_string(), callback["callback"].as_str().unwrap().to_string(), conditions));
         }
     }
-    let ours: Vec<(String, String, String, String)> = deltabadger::web::wizard::create::CALLBACKS.iter()
+    let ours: Vec<(String, String, String, String)> = table.iter()
         .map(|(chain, kind, callback, conditions, _)| (chain.to_string(), kind.to_string(), callback.to_string(), conditions.to_string())).collect();
-    for (index, (a, b)) in theirs.iter().zip(&ours).enumerate() { assert_eq!(a, b, "callback {index}: Rails changed it; port it or name why it does nothing on create"); }
-    assert_eq!(theirs.len(), ours.len(), "Rails added or removed a callback");
-    assert!(deltabadger::web::wizard::create::CALLBACKS.iter().all(|(.., handling)| handling.starts_with("ported") || handling.starts_with("no-op") || handling.starts_with("passes")));
+    for (index, (a, b)) in theirs.iter().zip(&ours).enumerate() { assert_eq!(a, b, "{fixture_name} callback {index}: Rails changed it; port it or name why it does nothing on create"); }
+    assert_eq!(theirs.len(), ours.len(), "{fixture_name}: Rails added or removed a callback");
+    assert!(table.iter().all(|(.., handling)| handling.starts_with("ported") || handling.starts_with("no-op") || handling.starts_with("passes")));
+}
+
+#[test]
+fn bot_create_callbacks_are_all_handled() {
+    assert_handled("bot_create_callbacks.json", deltabadger::web::wizard::create::CALLBACKS);
+}
+
+#[test]
+fn index_create_callbacks_are_all_handled() {
+    assert_eq!(fixture("index_create_callbacks.json")["class"], "Bots::DcaIndex");
+    assert_handled("index_create_callbacks.json", deltabadger::web::wizard::index_create::CALLBACKS);
 }
