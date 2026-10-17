@@ -1,0 +1,1172 @@
+{
+  "sources": {
+    "app/models/automation/configurable.rb": "be369cfb1e0d9c7ab73b1d18a34e9bc5c874a11767c87c78f48e9d1d932cc387",
+    "app/models/automation/exchange_connectable.rb": "a50a0cb0986aad465b5ede3d53571dd4c6fc7de822f53afdbbe15b77ccc00ac7",
+    "app/models/automation/labelable.rb": "c74146252aa822b400bcbcc4294af18aeff8e0425ab2afe8a0a28b6ce4790da9",
+    "app/models/bot.rb": "d09ba7581bf639bf6a0b0a49047271a36e16448a8b15df310ddef4faa2a9cdf6",
+    "app/models/bot/accountable.rb": "2d12969ad2d7e35bfb4e31b9b67dfb9ef3be94a03f3252ac5a5ac6ddccd37a3c",
+    "app/models/bot/asset_configurable.rb": "a8b983ca18fb299623af807b226ed362f4ee86b2426dd22985f8aa1251ac401e",
+    "app/models/bot/base_amount_limitable.rb": "0ae736fa810fe2977c54a0da02f7d863e84789a29596b9ecb317902d37066295",
+    "app/models/bot/composition/allocatable.rb": "7501fe31dbff0c48fc62095963ba3b81466a5fe9ce9397f335c55958ea05ec45",
+    "app/models/bot/composition/measurable.rb": "f6188fe85c00cf443b9a9b88cec472fcdbe7dfd9b9a87b385b515250f2e3a8b4",
+    "app/models/bot/indicator_limitable.rb": "35babe72370a6f398335fcb4f68bcf21ececefd5af9a7243e0298a4a5d65b8dc",
+    "app/models/bot/limit_orderable.rb": "101bfdce8ac4aa78fb6ae496725944c0752cb6814171f3fedc097547ad5d757f",
+    "app/models/bot/moving_average_limitable.rb": "768b743cde5682cb8a531c1c53279d959729204a7294a9d312b1587d1fd7d7df",
+    "app/models/bot/price_drop_limitable.rb": "565381b74942747e8d56e47cd393c211d83ff5de961d8cfb3fb58c163767d070",
+    "app/models/bot/price_limitable.rb": "d0f00a1c80cf0a29f9fb2ba084a5755345010b4dac04c01106b09331855b67c0",
+    "app/models/bot/quote_amount_limitable.rb": "164d4fa19650fe3faecba512de5031aaf057f7bd48d0699e88a1ba46d121f220",
+    "app/models/bot/reversible.rb": "dc751df2041cd682b24a6d384ee612884191caa379decfe77f8210a4f8a2ec60",
+    "app/models/bot/smart_intervalable.rb": "a6afa6f794439c866a880147dbebe2c2c2437513dc73f79843976d9a4f1a9c11",
+    "app/models/bot/startable.rb": "f4639a047a1ed1896ef5b3d3239f51bf727b9c7099ce7a569fb0955b5c8bbbe1",
+    "app/models/bots/dca_multi_asset.rb": "25700ff65cf3d723e5da8e649f36fd0276300acea56783526e6402ce086b1f12",
+    "app/models/bots/dca_multi_asset/allocatable.rb": "b2088e229826c18178137f15be5964c140353a5d62765e6f6d7155a4d3d9744a"
+  },
+  "gems": {
+    "activemodel": "8.1.4",
+    "activerecord": "8.1.4",
+    "activesupport": "8.1.4"
+  },
+  "class": "Bots::DcaMultiAsset",
+  "callbacks": {
+    "initialize": [
+      {
+        "kind": "after",
+        "callback": "initialize_indicator_limitable_settings",
+        "defined_at": "app/models/bot/indicator_limitable.rb:351",
+        "if": [
+          "the callback did not return false"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "after",
+        "callback": "initialize_moving_average_limitable_settings",
+        "defined_at": "app/models/bot/moving_average_limitable.rb:330",
+        "if": [
+          "the callback did not return false"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "after",
+        "callback": "initialize_price_drop_limitable_settings",
+        "defined_at": "app/models/bot/price_drop_limitable.rb:333",
+        "if": [
+          "the callback did not return false"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "after",
+        "callback": "initialize_price_limitable_settings",
+        "defined_at": "app/models/bot/price_limitable.rb:310",
+        "if": [
+          "the callback did not return false"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "after",
+        "callback": "initialize_quote_amount_limitable_settings",
+        "defined_at": "app/models/bot/quote_amount_limitable.rb:117",
+        "if": [
+          "the callback did not return false"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "after",
+        "callback": "initialize_limit_orderable_settings",
+        "defined_at": "app/models/bot/limit_orderable.rb:60",
+        "if": [
+          "the callback did not return false"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "after",
+        "callback": "initialize_smart_intervalable_settings",
+        "defined_at": "app/models/bot/smart_intervalable.rb:169",
+        "if": [
+          "the callback did not return false"
+        ],
+        "unless": []
+      }
+    ],
+    "validation": [
+      {
+        "kind": "after",
+        "callback": "_ensure_no_duplicate_errors",
+        "defined_at": "activerecord-8.1.4/lib/active_record/autosave_association.rb:592",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "normalize_changed_in_place_attributes",
+        "defined_at": "activemodel-8.1.4/lib/active_model/attributes/normalization.rb:140",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "set_default_label",
+        "defined_at": "app/models/automation/labelable.rb:29",
+        "if": [
+          "proc app/models/automation/labelable.rb:9"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "seed_smart_interval_base_amount",
+        "defined_at": "app/models/bot/smart_intervalable.rb:184",
+        "if": [
+          "proc app/models/bot/smart_intervalable.rb:14"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "derive_allocations_from_base_asset_ids",
+        "defined_at": "app/models/bots/dca_multi_asset/allocatable.rb:126",
+        "if": [
+          "on create"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "pin_lone_weight",
+        "defined_at": "app/models/bots/dca_multi_asset/allocatable.rb:135",
+        "if": [],
+        "unless": []
+      }
+    ],
+    "validate": [
+      {
+        "kind": "before",
+        "callback": "cant_modify_encrypted_attributes_when_frozen",
+        "defined_at": "activerecord-8.1.4/lib/active_record/encryption/encryptable_record.rb:223",
+        "if": [
+          "proc activerecord-8.1.4/lib/active_record/encryption/encryptable_record.rb:13"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "validate_exchange_not_retired",
+        "defined_at": "app/models/automation/exchange_connectable.rb:29",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "validate_exchange_order_placement_available",
+        "defined_at": "app/models/automation/exchange_connectable.rb:40",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveRecord::Validations::PresenceValidator(label)",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "validate_associated_records_for_bot_activity_logs",
+        "defined_at": "activerecord-8.1.4/lib/active_record/autosave_association.rb:162",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveRecord::Validations::PresenceValidator(user) {\"message\":\"required\"}",
+        "if": [
+          "proc activerecord-8.1.4/lib/active_record/associations/builder/belongs_to.rb:148"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "validate_associated_records_for_transactions",
+        "defined_at": "activerecord-8.1.4/lib/active_record/autosave_association.rb:162",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "not_archived",
+        "defined_at": "app/models/bot.rb:93",
+        "if": [
+          "on start"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "trading_key_ready",
+        "defined_at": "app/models/bot.rb:97",
+        "if": [
+          "on start"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveRecord::Validations::PresenceValidator(quote_amount)",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveRecord::Validations::NumericalityValidator(quote_amount) {\"greater_than\":0}",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveModel::Validations::InclusionValidator(weighting) {\"allow_nil\":true,\"in\":[\"manual\",\"market_cap\"]}",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "validate_external_ids",
+        "defined_at": "app/models/bot/asset_configurable.rb:92",
+        "if": [
+          "on update"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "validate_unchangeable_assets",
+        "defined_at": "app/models/bot/asset_configurable.rb:98",
+        "if": [
+          "on update"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "validate_unchangeable_interval",
+        "defined_at": "app/models/bot/asset_configurable.rb:107",
+        "if": [
+          "on update"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "validate_unchangeable_exchange",
+        "defined_at": "app/models/bot/asset_configurable.rb:116",
+        "if": [
+          "on update"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "validate_tickers_available",
+        "defined_at": "app/models/bots/dca_multi_asset.rb:350",
+        "if": [
+          "on start"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "validate_condition_subjects_in_composition",
+        "defined_at": "app/models/bots/dca_multi_asset.rb:334",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveModel::Validations::InclusionValidator(smart_intervaled) {\"in\":[true,false]}",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveRecord::Validations::NumericalityValidator(smart_interval_quote_amount)",
+        "if": [
+          "proc app/models/bot/smart_intervalable.rb:27"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "validate_smart_interval_quote_minimum",
+        "defined_at": "app/models/bot/smart_intervalable.rb:124",
+        "if": [
+          "proc app/models/bot/smart_intervalable.rb:29"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveRecord::Validations::NumericalityValidator(smart_interval_base_amount)",
+        "if": [
+          "proc app/models/bot/smart_intervalable.rb:31"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "validate_smart_interval_base_minimum",
+        "defined_at": "app/models/bot/smart_intervalable.rb:128",
+        "if": [
+          "proc app/models/bot/smart_intervalable.rb:33"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveModel::Validations::InclusionValidator(limit_ordered) {\"in\":[true,false]}",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveRecord::Validations::NumericalityValidator(limit_order_pcnt_distance) {\"greater_than_or_equal_to\":0,\"less_than_or_equal_to\":1}",
+        "if": [
+          "limit_ordered"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "limit_ordered_required_for_exchange",
+        "defined_at": "app/models/bot/limit_orderable.rb:65",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveModel::Validations::InclusionValidator(quote_amount_limited) {\"in\":[true,false]}",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveRecord::Validations::NumericalityValidator(quote_amount_limit) {\"greater_than_or_equal_to\":\"proc\"}",
+        "if": [
+          "quote_amount_limited?"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "validate_quote_amount_limit_not_reached",
+        "defined_at": "app/models/bot/quote_amount_limitable.rb:128",
+        "if": [
+          "on start",
+          "proc app/models/bot/quote_amount_limitable.rb:21"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveModel::Validations::InclusionValidator(base_amount_limited) {\"in\":[true,false]}",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveRecord::Validations::NumericalityValidator(base_amount_limit) {\"greater_than\":0}",
+        "if": [
+          "proc app/models/bot/base_amount_limitable.rb:22"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "validate_base_amount_limit_not_reached",
+        "defined_at": "app/models/bot/base_amount_limitable.rb:115",
+        "if": [
+          "on start",
+          "proc app/models/bot/base_amount_limitable.rb:25"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveModel::Validations::InclusionValidator(price_limited) {\"in\":[true,false]}",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveRecord::Validations::NumericalityValidator(price_limit) {\"greater_than_or_equal_to\":0}",
+        "if": [
+          "price_limited?"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveRecord::Validations::NumericalityValidator(price_limit_range_lower_bound) {\"greater_than_or_equal_to\":0}",
+        "if": [
+          "price_limited?"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveRecord::Validations::NumericalityValidator(price_limit_range_upper_bound) {\"greater_than_or_equal_to\":0}",
+        "if": [
+          "price_limited?"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveModel::Validations::InclusionValidator(price_limit_timing_condition) {\"in\":[\"while\",\"after\"]}",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveModel::Validations::InclusionValidator(price_limit_value_condition) {\"in\":[\"above\",\"below\",\"between\"]}",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveModel::Validations::InclusionValidator(price_limit_action) {\"in\":[\"pause\",\"start_selling\"]}",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveRecord::Validations::NumericalityValidator(sell_price_limit) {\"greater_than_or_equal_to\":0}",
+        "if": [
+          "sell_price_limited?"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveRecord::Validations::NumericalityValidator(sell_price_limit_range_lower_bound) {\"greater_than_or_equal_to\":0}",
+        "if": [
+          "sell_price_limited?"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveRecord::Validations::NumericalityValidator(sell_price_limit_range_upper_bound) {\"greater_than_or_equal_to\":0}",
+        "if": [
+          "sell_price_limited?"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveModel::Validations::InclusionValidator(sell_price_limit_action) {\"in\":[\"pause\",\"start_buying\"]}",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveModel::Validations::InclusionValidator(price_drop_limited) {\"in\":[true,false]}",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveRecord::Validations::NumericalityValidator(price_drop_limit) {\"greater_than_or_equal_to\":0,\"less_than_or_equal_to\":1}",
+        "if": [
+          "price_drop_limited?"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveModel::Validations::InclusionValidator(price_drop_limit_time_window_condition) {\"in\":[\"ath\",\"twenty_four_hours\"]}",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveModel::Validations::InclusionValidator(sell_price_drop_limit_time_window_condition) {\"in\":[\"twenty_four_hours\",\"seven_days\"]}",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveModel::Validations::InclusionValidator(price_drop_limit_action) {\"in\":[\"pause\",\"start_selling\"]}",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveRecord::Validations::NumericalityValidator(sell_price_drop_limit) {\"greater_than_or_equal_to\":0,\"less_than_or_equal_to\":1}",
+        "if": [
+          "sell_price_drop_limited?"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveModel::Validations::InclusionValidator(sell_price_drop_limit_action) {\"in\":[\"pause\",\"start_buying\"]}",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveModel::Validations::InclusionValidator(moving_average_limited) {\"in\":[true,false]}",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveModel::Validations::InclusionValidator(moving_average_limit_timing_condition) {\"in\":[\"while\",\"after\"]}",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveModel::Validations::InclusionValidator(moving_average_limit_value_condition) {\"in\":[\"above\",\"below\"]}",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveModel::Validations::InclusionValidator(moving_average_limit_in_ma_type) {\"in\":[\"sma\",\"ema\"]}",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveModel::Validations::InclusionValidator(moving_average_limit_in_timeframe) {\"in\":[\"one_hour\",\"four_hours\",\"one_day\",\"three_days\",\"one_week\",\"one_month\"]}",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveRecord::Validations::NumericalityValidator(moving_average_limit_in_period) {\"only_integer\":true,\"greater_than\":0}",
+        "if": [
+          "moving_average_limited?"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveModel::Validations::InclusionValidator(moving_average_limit_action) {\"in\":[\"pause\",\"start_selling\"]}",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveModel::Validations::InclusionValidator(sell_moving_average_limited) {\"in\":[true,false]}",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveModel::Validations::InclusionValidator(sell_moving_average_limit_timing_condition) {\"in\":[\"while\",\"after\"]}",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveModel::Validations::InclusionValidator(sell_moving_average_limit_value_condition) {\"in\":[\"above\",\"below\"]}",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveModel::Validations::InclusionValidator(sell_moving_average_limit_in_ma_type) {\"in\":[\"sma\",\"ema\"]}",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveModel::Validations::InclusionValidator(sell_moving_average_limit_in_timeframe) {\"in\":[\"one_hour\",\"four_hours\",\"one_day\",\"three_days\",\"one_week\",\"one_month\"]}",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveRecord::Validations::NumericalityValidator(sell_moving_average_limit_in_period) {\"only_integer\":true,\"greater_than\":0}",
+        "if": [
+          "sell_moving_average_limited?"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveModel::Validations::InclusionValidator(sell_moving_average_limit_action) {\"in\":[\"pause\",\"start_buying\"]}",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveModel::Validations::InclusionValidator(indicator_limited) {\"in\":[true,false]}",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveRecord::Validations::NumericalityValidator(indicator_limit) {\"message\":\"proc\"}",
+        "if": [
+          "indicator_limited?"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveModel::Validations::InclusionValidator(indicator_limit_timing_condition) {\"in\":[\"while\",\"after\"]}",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveModel::Validations::InclusionValidator(indicator_limit_value_condition) {\"in\":[\"above\",\"below\"]}",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveModel::Validations::InclusionValidator(indicator_limit_in_indicator) {\"in\":[\"rsi\"]}",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveModel::Validations::InclusionValidator(indicator_limit_in_timeframe) {\"in\":[\"one_hour\",\"four_hours\",\"one_day\",\"three_days\",\"one_week\",\"one_month\"]}",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveModel::Validations::InclusionValidator(indicator_limit_action) {\"in\":[\"pause\",\"start_selling\"]}",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveModel::Validations::InclusionValidator(sell_indicator_limited) {\"in\":[true,false]}",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveRecord::Validations::NumericalityValidator(sell_indicator_limit) {\"message\":\"proc\"}",
+        "if": [
+          "sell_indicator_limited?"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveModel::Validations::InclusionValidator(sell_indicator_limit_timing_condition) {\"in\":[\"while\",\"after\"]}",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveModel::Validations::InclusionValidator(sell_indicator_limit_value_condition) {\"in\":[\"above\",\"below\"]}",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveModel::Validations::InclusionValidator(sell_indicator_limit_in_indicator) {\"in\":[\"rsi\"]}",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveModel::Validations::InclusionValidator(sell_indicator_limit_in_timeframe) {\"in\":[\"one_hour\",\"four_hours\",\"one_day\",\"three_days\",\"one_week\",\"one_month\"]}",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveModel::Validations::InclusionValidator(sell_indicator_limit_action) {\"in\":[\"pause\",\"start_buying\"]}",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveRecord::Validations::PresenceValidator(interval)",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveModel::Validations::InclusionValidator(interval) {\"in\":[\"hour\",\"day\",\"week\",\"month\"]}",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "validate_starting_time_settings",
+        "defined_at": "app/models/bot/startable.rb:211",
+        "if": [
+          "on start"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveRecord::Validations::NumericalityValidator(missed_quote_amount) {\"greater_than_or_equal_to\":0}",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveRecord::Validations::NumericalityValidator(rebalance_threshold) {\"greater_than\":0,\"less_than_or_equal_to\":1}",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "validate_associated_records_for_bot_index_assets",
+        "defined_at": "activerecord-8.1.4/lib/active_record/autosave_association.rb:162",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "validate_associated_records_for_index_assets",
+        "defined_at": "activerecord-8.1.4/lib/active_record/autosave_association.rb:162",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "validate_allocations",
+        "defined_at": "app/models/bots/dca_multi_asset/allocatable.rb:142",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "validate_member_count",
+        "defined_at": "app/models/bots/dca_multi_asset/allocatable.rb:160",
+        "if": [
+          "on start"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "validate_allocations_balanced",
+        "defined_at": "app/models/bots/dca_multi_asset/allocatable.rb:167",
+        "if": [
+          "on start"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "validate_composition_pairs",
+        "defined_at": "app/models/bots/dca_multi_asset/allocatable.rb:175",
+        "if": [
+          "proc app/models/bots/dca_multi_asset/allocatable.rb:14"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "validate_composition_frozen_while_working",
+        "defined_at": "app/models/bots/dca_multi_asset/allocatable.rb:193",
+        "if": [
+          "on update"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveModel::Validations::InclusionValidator(direction) {\"allow_nil\":true,\"in\":[\"buying\",\"selling\"]}",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveModel::Validations::InclusionValidator(sell_denomination) {\"allow_nil\":true,\"in\":[\"base\",\"quote\"]}",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveRecord::Validations::NumericalityValidator(sell_amount) {\"allow_nil\":true,\"greater_than\":0}",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveRecord::Validations::NumericalityValidator(sell_quote_amount) {\"allow_nil\":true,\"greater_than\":0}",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveModel::Validations::InclusionValidator(sell_interval) {\"in\":[\"hour\",\"day\",\"week\",\"month\"]}",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "validate_unchangeable_sell_interval",
+        "defined_at": "app/models/bot/reversible.rb:347",
+        "if": [
+          "on update"
+        ],
+        "unless": []
+      }
+    ],
+    "save": [
+      {
+        "kind": "after",
+        "callback": "refresh_composition",
+        "defined_at": "app/models/bot/composition/allocatable.rb:21",
+        "if": [
+          "proc app/models/bots/dca_multi_asset.rb:26",
+          "the callback did not return false"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "after",
+        "callback": "proc app/models/automation/labelable.rb:11",
+        "defined_at": "app/models/automation/labelable.rb:11",
+        "if": [
+          "the callback did not return false"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "update_settings_changed_at",
+        "defined_at": "app/models/automation/configurable.rb:39",
+        "if": [
+          "will_save_change_to_settings?"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "autosave_associated_records_for_exchange",
+        "defined_at": "activerecord-8.1.4/lib/active_record/autosave_association.rb:162",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "autosave_associated_records_for_user",
+        "defined_at": "activerecord-8.1.4/lib/active_record/autosave_association.rb:162",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "store_previous_exchange_id",
+        "defined_at": "app/models/bot.rb:443",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "set_tickers",
+        "defined_at": "app/models/bots/dca_multi_asset.rb:364",
+        "if": [
+          "will_save_change_to_exchange_id?"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "set_quote_amount_limit_enabled_at",
+        "defined_at": "app/models/bot/quote_amount_limitable.rb:122",
+        "if": [
+          "will_save_change_to_settings?"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "set_base_amount_limit_enabled_at",
+        "defined_at": "app/models/bot/base_amount_limitable.rb:107",
+        "if": [
+          "will_save_change_to_settings?"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "set_price_limit_enabled_at",
+        "defined_at": "app/models/bot/price_limitable.rb:321",
+        "if": [
+          "will_save_change_to_settings?"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "set_price_limit_condition_met_at",
+        "defined_at": "app/models/bot/price_limitable.rb:330",
+        "if": [
+          "will_save_change_to_settings?"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "set_price_limit_in_ticker_id",
+        "defined_at": "app/models/bot/price_limitable.rb:335",
+        "if": [
+          "will_save_change_to_exchange_id?"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "reset_price_limit_info_cache",
+        "defined_at": "app/models/bot/price_limitable.rb:274",
+        "if": [
+          "will_save_change_to_settings?"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "set_price_limit_value_condition",
+        "defined_at": "app/models/bot/price_limitable.rb:356",
+        "if": [
+          "will_save_change_to_settings?"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "set_price_drop_limit_enabled_at",
+        "defined_at": "app/models/bot/price_drop_limitable.rb:341",
+        "if": [
+          "will_save_change_to_settings?"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "set_price_drop_limit_condition_met_at",
+        "defined_at": "app/models/bot/price_drop_limitable.rb:350",
+        "if": [
+          "will_save_change_to_settings?"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "set_price_drop_limit_in_ticker_id",
+        "defined_at": "app/models/bot/price_drop_limitable.rb:355",
+        "if": [
+          "will_save_change_to_exchange_id?"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "reset_price_drop_limit_info_cache",
+        "defined_at": "app/models/bot/price_drop_limitable.rb:307",
+        "if": [
+          "will_save_change_to_settings?"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "set_moving_average_limit_enabled_at",
+        "defined_at": "app/models/bot/moving_average_limitable.rb:341",
+        "if": [
+          "will_save_change_to_settings?"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "set_moving_average_limit_condition_met_at",
+        "defined_at": "app/models/bot/moving_average_limitable.rb:350",
+        "if": [
+          "will_save_change_to_settings?"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "set_moving_average_limit_in_ticker_id",
+        "defined_at": "app/models/bot/moving_average_limitable.rb:355",
+        "if": [
+          "will_save_change_to_exchange_id?"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "reset_moving_average_limit_info_cache",
+        "defined_at": "app/models/bot/moving_average_limitable.rb:285",
+        "if": [
+          "will_save_change_to_settings?"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "set_indicator_limit_enabled_at",
+        "defined_at": "app/models/bot/indicator_limitable.rb:362",
+        "if": [
+          "will_save_change_to_settings?"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "set_indicator_limit_condition_met_at",
+        "defined_at": "app/models/bot/indicator_limitable.rb:371",
+        "if": [
+          "will_save_change_to_settings?"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "set_indicator_limit_in_ticker_id",
+        "defined_at": "app/models/bot/indicator_limitable.rb:376",
+        "if": [
+          "will_save_change_to_exchange_id?"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "reset_indicator_limit_info_cache",
+        "defined_at": "app/models/bot/indicator_limitable.rb:308",
+        "if": [
+          "will_save_change_to_settings?"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "check_missed_quote_amount_was_set",
+        "defined_at": "app/models/bot/accountable.rb:119",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "around",
+        "callback": "around_save_collection_association",
+        "defined_at": "activerecord-8.1.4/lib/active_record/autosave_association.rb:402",
+        "if": [],
+        "unless": []
+      }
+    ],
+    "create": [
+      {
+        "kind": "after",
+        "callback": "autosave_associated_records_for_index_assets",
+        "defined_at": "activerecord-8.1.4/lib/active_record/autosave_association.rb:162",
+        "if": [
+          "the callback did not return false"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "after",
+        "callback": "autosave_associated_records_for_bot_index_assets",
+        "defined_at": "activerecord-8.1.4/lib/active_record/autosave_association.rb:162",
+        "if": [
+          "the callback did not return false"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "after",
+        "callback": "autosave_associated_records_for_transactions",
+        "defined_at": "activerecord-8.1.4/lib/active_record/autosave_association.rb:162",
+        "if": [
+          "the callback did not return false"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "after",
+        "callback": "autosave_associated_records_for_bot_activity_logs",
+        "defined_at": "activerecord-8.1.4/lib/active_record/autosave_association.rb:162",
+        "if": [
+          "the callback did not return false"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "assign_position",
+        "defined_at": "app/models/bot.rb:461",
+        "if": [],
+        "unless": []
+      }
+    ],
+    "commit": [
+      {
+        "kind": "after",
+        "callback": "broadcast_metrics_panel",
+        "defined_at": "app/models/bot/composition/measurable.rb:339",
+        "if": [
+          "on update",
+          "on update",
+          "proc app/models/bots/dca_multi_asset.rb:28"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "after",
+        "callback": "proc app/models/bot.rb:41",
+        "defined_at": "app/models/bot.rb:41",
+        "if": [
+          "on update",
+          "on update"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "after",
+        "callback": "broadcast_columns_lock_update",
+        "defined_at": "app/models/bot.rb:306",
+        "if": [
+          "on update",
+          "on update",
+          "saved_change_to_status?"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "after",
+        "callback": "broadcast_status_button_update",
+        "defined_at": "app/models/bot.rb:295",
+        "if": [
+          "on update",
+          "on update",
+          "saved_change_to_status?"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "after",
+        "callback": "broadcast_status_bar_update",
+        "defined_at": "app/models/bot.rb:280",
+        "if": [
+          "on update",
+          "on update",
+          "proc app/models/bot.rb:38"
+        ],
+        "unless": []
+      }
+    ]
+  }
+}

@@ -38,6 +38,7 @@ pub mod tracker;
 pub mod string_column;
 pub mod turbo;
 mod user;
+pub mod wizard;
 
 use crate::crypto::{hash_password, verify_password, Cipher, EncryptionKeys};
 use crate::engine::{Clock, EngineError};
@@ -344,6 +345,8 @@ pub struct Inner {
     settings_smtp_provider_name:String,
     settings_market_provider_name:String,
     pub settings_key_hosts:crate::venue::alpaca::Hosts,
+    /// Where the Kraken and Binance key checks go (the wizard's key step): the venues, or a test server.
+    pub venue_key_urls:(String,String),
     pub settings_key_logger:Arc<dyn settings::keys::Logger>,
     settings_validation_observer:Mutex<Option<ValidationObserver>>,
     pub settings_mailer:Arc<dyn settings::mail::Mailer>,
@@ -406,7 +409,7 @@ impl App {
             fx_cache: tracker::fx::Cache::default(),
             figure_service: figure::service::Service::default(), figure_source: figure::loading::Source::Live,
             mcp_instructions: mcp::instructions(&primary)?,
-            settings_key_hosts:crate::venue::alpaca::Hosts::alpaca(),settings_key_logger:settings::keys::logger(),settings_validation_observer:Mutex::new(None),
+            settings_key_hosts:crate::venue::alpaca::Hosts::alpaca(),venue_key_urls:(crate::venue::kraken::URL.into(),crate::venue::binance::URL.into()),settings_key_logger:settings::keys::logger(),settings_validation_observer:Mutex::new(None),
             settings_market_provider_name:env("MARKET_DATA_PROVIDER_NAME").or_else(||env("MARKET_DATA_URL")).unwrap_or_default(),settings_jobs:std::sync::OnceLock::new(),settings_smtp:crate::mail::smtp::Env::read(env),settings_smtp_provider_name:env("SMTP_PROVIDER_NAME").or_else(||env("SMTP_ADDRESS")).unwrap_or_default(),settings_mailer:settings::mail::live(),
             config, keys, cipher, clock, limiter: rate_limit::Limiter::default(), hub: cable::Hub::default(),
             cable_ping: Duration::from_secs(3), cable_recheck: Duration::from_secs(60),
@@ -439,6 +442,12 @@ impl App {
     pub fn with_settings_key_boundary(self,hosts:crate::venue::alpaca::Hosts,logger:Arc<dyn settings::keys::Logger>)->Result<Self,WebError>{
         let mut inner=Arc::try_unwrap(self.0).map_err(|_|WebError::Config("the app is already shared".into()))?;
         inner.settings_key_hosts=hosts;inner.settings_key_logger=logger;Ok(Self(Arc::new(inner)))
+    }
+
+    /// For tests: the Kraken and Binance key checks sent to `kraken` and `binance` instead. Only before sharing the App.
+    pub fn with_venue_key_urls(self,kraken:&str,binance:&str)->Result<Self,WebError>{
+        let mut inner=Arc::try_unwrap(self.0).map_err(|_|WebError::Config("the app is already shared".into()))?;
+        inner.venue_key_urls=(kraken.into(),binance.into());Ok(Self(Arc::new(inner)))
     }
 
     /// The trading host a key is validated on: its own mode's (`Urls::pick`), from the credentials that will sign the request.
@@ -642,8 +651,27 @@ fn routes(app: App) -> Router {
         .route("/tracker/transactions/{id}/price", only(patch(tracker::transaction::update_price)))
         .route("/tracker/transactions/{id}/toggle_transfer", only(patch(tracker::transaction::toggle_transfer)))
         .route("/oauth/authorize", only(get(consent::new).post(consent::create).delete(consent::destroy)))
-        // The new-bot wizard, not served yet; named so that it is not read as a bot's id.
-        .route("/bots/new", axum::routing::any(layout::not_ported))
+        .route("/bots/new", only(get(wizard::new)))
+        .route("/bots/dca_single_assets/order", only(post(wizard::order)))
+        .route("/bots/dca_single_assets/pick_buyable_asset/new", only(get(wizard::assets::new)))
+        .route("/bots/dca_single_assets/pick_buyable_asset", only(post(wizard::assets::create)))
+        .route("/bots/dca_single_assets/pick_buyable_asset/remove", only(post(wizard::assets::remove)))
+        .route("/bots/dca_single_assets/pick_buyable_asset/advance", only(post(wizard::assets::advance)))
+        .route("/bots/dca_single_assets/pick_exchange/new", only(get(wizard::exchanges::single_new)))
+        .route("/bots/dca_single_assets/pick_exchange", only(post(wizard::exchanges::single_create)))
+        .route("/bots/dca_multi_assets/pick_exchange/new", only(get(wizard::exchanges::multi_new)))
+        .route("/bots/dca_multi_assets/pick_exchange", only(post(wizard::exchanges::multi_create)))
+        .route("/bots/dca_single_assets/add_api_key/new", only(get(wizard::keys::single_new)))
+        .route("/bots/dca_single_assets/add_api_key", only(post(wizard::keys::single_create)))
+        .route("/bots/dca_multi_assets/add_api_key/new", only(get(wizard::keys::multi_new)))
+        .route("/bots/dca_multi_assets/add_api_key", only(post(wizard::keys::multi_create)))
+        .route("/bots/dca_multi_assets/pick_stock_broker/new", only(get(wizard::brokers::new)))
+        .route("/bots/dca_multi_assets/pick_stock_broker", only(post(wizard::brokers::create)))
+        .route("/bots/dca_multi_assets/pick_spendable_asset/new", only(get(wizard::spendable::new)))
+        .route("/bots/dca_multi_assets/pick_spendable_asset", only(post(wizard::spendable::create)))
+        // The index and signal wizards are not served.
+        .route("/bots/dca_indexes/setup_coingecko/new", any(layout::not_ported))
+        .route("/bots/signals/pick_buyable_asset/new", any(layout::not_ported))
         .route("/bots/reorder", only(patch(layout::not_ported)))
         .route("/bots/{id}", only(get(bot::page::show).patch(bot::actions::update)))
         .route("/bots/{id}/start", only(patch(bot::actions::start)))
@@ -935,7 +963,14 @@ pub fn router_with_routes(app: App, routes: Router, body_read_timeout: Duration)
 fn finish(app: &App, session: &session::Session, before: &session::SessionData, nonce: &str, now: DateTime<Utc>, signed_in: bool, mut response: Response) -> Response {
     let data = session.snapshot();
     if data != *before {
-        response.headers_mut().append(header::SET_COOKIE, session::set_cookie(&session::seal(&app.keys.session, &data, now), now, app.config.force_ssl));
+        let sealed = session::seal(&app.keys.session, &data, now);
+        if session::overflows(&sealed) {
+            // ActionDispatch::Cookies::CookieOverflow: the request fails and the browser keeps the session it sent.
+            response = WebError::Config(format!("the session cookie would be {} bytes (CookieOverflow)", session::COOKIE.len() + sealed.len())).into_response();
+            response.extensions_mut().insert(headers::BelowControllers);
+        } else {
+            response.headers_mut().append(header::SET_COOKIE, session::set_cookie(&sealed, now, app.config.force_ssl));
+        }
     }
     headers::policy(response.headers_mut(), nonce, app.config.force_ssl);
     let status = response.status();

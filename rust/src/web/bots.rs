@@ -204,6 +204,14 @@ enum Listing {
 }
 
 /// GET /bots.
+/// StockTradingSettings.active?: a hosted install, or a synced stock catalog (Exchange::STOCK_TYPES).
+pub(crate) fn stocks_active(c: &rusqlite::Connection, app: &App) -> Result<bool, WebError> {
+    Ok(app.config.market_data_url
+        || app_config(c, &app.cipher, "market_data_provider")?.as_deref() == Some("deltabadger")
+        || c.query_row("SELECT EXISTS(SELECT 1 FROM tickers JOIN exchanges ON exchanges.id = tickers.exchange_id \
+                        WHERE tickers.available = 1 AND exchanges.type IN ('Exchanges::Alpaca', 'Exchanges::Ibkr'))", [], |r| r.get(0))?)
+}
+
 pub async fn index(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> {
     let Some(user) = ctx.user().cloned() else { return Ok(auth::unauthenticated(&ctx)) };
     // With exactly one bot the list is that bot's page. Decided first: a redirect renders no form, so it gives the session no token.
@@ -218,11 +226,7 @@ pub async fn index(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Re
         let shell = Shell::load(c, &inner, user)?;
         let ids = Bot::ids(c, user.id)?;
         if ids.is_empty() {
-            // StockTradingSettings.active?: a hosted install, or a synced stock catalog (Exchange::STOCK_TYPES).
-            let stocks_active = inner.config.market_data_url
-                || app_config(c, &inner.cipher, "market_data_provider")?.as_deref() == Some("deltabadger")
-                || c.query_row("SELECT EXISTS(SELECT 1 FROM tickers JOIN exchanges ON exchanges.id = tickers.exchange_id \
-                                WHERE tickers.available = 1 AND exchanges.type IN ('Exchanges::Alpaca', 'Exchanges::Ibkr'))", [], |r| r.get(0))?;
+            let stocks_active = stocks_active(c, &inner)?;
             return Ok((shell, Listing::Empty { ask_admin_for_stocks: !stocks_active && !user.admin }));
         }
         let (deltabadger, configured) = market_data(c, &inner)?;
@@ -298,14 +302,21 @@ pub async fn index(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Re
         Listing::NotPorted(reason) => return Ok(layout::refused(&ctx, reason)),
         Listing::Body(body) => body,
         Listing::Empty { ask_admin_for_stocks } => {
-            // Rails opens the new-bot wizard on the first bots page after a sign-in: `hide-chrome` on the body
-            // (which hides the navbar and the main content until the modal closes) and a `src` on the modal
-            // frame. There is no wizard in this build, and hidden chrome with nothing to close would leave an
-            // empty page. So the flag is consumed, as in Rails, and the page is the one of any later visit.
-            // Porting the wizard restores both and removes `without_wizard` from tests/pages.rs.
-            ctx.session.lock().auto_open_bot_wizard = false;
+            // The first bots page after a sign-in with no bots opens the new-bot wizard over hidden chrome, and every wizard
+            // begun before it starts over (`session.delete(:auto_open_bot_wizard)`, then `session[:bot_config] = {}`).
+            let opening = {
+                let mut session = ctx.session.lock();
+                let opening = std::mem::take(&mut session.auto_open_bot_wizard);
+                if opening { session.bot_config = Some(serde_json::json!({})); }
+                opening
+            };
             let (preferences, bot_updates) = (format!("user_{}:preferences", user.id), format!("user_{}:bot_updates", user.id));
-            EmptyView { v: &ctx, preferences: &preferences, bot_updates: &bot_updates, ask_admin_for_stocks }.render()?
+            let body = EmptyView { v: &ctx, preferences: &preferences, bot_updates: &bot_updates, ask_admin_for_stocks }.render()?;
+            if opening {
+                let src = format!("{}?auto_open=true", ctx.path("/bots/dca_single_assets/pick_exchange/new"));
+                return shell::application_opening(&ctx, &ctx.csrf_token(), &user, &shell, Page { status: StatusCode::OK, body, flash_now: Vec::new() }, src);
+            }
+            body
         }
     };
     shell::application(&ctx, &ctx.csrf_token(), &user, &shell, Page { status: StatusCode::OK, body, flash_now: Vec::new() })

@@ -223,6 +223,14 @@ pub fn not_ported_response(method: &Method, path: &str, frame: Option<&str>) -> 
     }
 }
 
+/// ActionController::ParameterMissing: 400 with public/400.html, made below the controllers.
+pub fn bad_request() -> Response {
+    let body = assets::find("/400.html").map_or(&b"Bad Request"[..], |file| file.body);
+    let mut response = (StatusCode::BAD_REQUEST, [(header::CONTENT_TYPE, "text/html; charset=utf-8")], body).into_response();
+    response.extensions_mut().insert(super::headers::BelowControllers);
+    response
+}
+
 /// A record that is not there for this user, where Rails lets ActiveRecord::RecordNotFound through:
 /// 404 with public/404.html. (Rails in production then redirects to the root; a page that is not
 /// there is not made to look like one that is.)

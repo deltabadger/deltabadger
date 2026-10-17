@@ -210,6 +210,7 @@ mod sessions {
             flash: vec![("alert".into(), "Zażółć \"it\"".into()), ("notice".into(), "ok".into())],
             pending: Some(Pending { user_id: 7, started_at: 1_789_041_630 }), return_to: Some("/bots?filter=active".into()), auto_open_bot_wizard: true, tracker_connect: Some(3),
             setup_token: Some("expected-token".into()), platform_identity: Some((Some("Owner".into()), None)),
+            bot_config: Some(serde_json::json!({ "flow": "asset_first", "settings": { "base_asset_ids": [3] } })),
             import_offsets: [("0123456789abcdef".to_string(), "+03:00".to_string())].into(),
         }
     }

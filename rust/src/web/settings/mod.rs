@@ -5,6 +5,7 @@ pub mod api;
 pub mod clients;
 pub mod dialog;
 pub mod keys;
+pub mod key_check;
 pub mod validator;
 pub mod mail;
 pub mod preferences;

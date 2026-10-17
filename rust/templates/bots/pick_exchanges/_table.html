@@ -1,0 +1,14 @@
+<turbo-frame data-action="keydown@window-&gt;arrow-keys-navigation#navigate" data-controller="arrow-keys-navigation" class="selectable-options" id="exchange-picker">
+  <form action="{{ table.action }}" accept-charset="UTF-8" method="post"><input type="hidden" name="authenticity_token" value="{{ table.csrf }}" />
+    <div class="exchange-grid">
+{%- for venue in table.venues %}
+        <div class="exchange-grid__option">
+          <button name="{{ table.param_name }}" type="submit" value="{{ venue.id }}" class="exchange-grid__item"{% if venue.unavailable %} disabled="disabled"{% endif %} data-arrow-keys-navigation-target="item button" data-turbo-frame="modal_content">
+            {{ venue.mark|safe }}
+</button>
+{%- if venue.unavailable %}
+            <p class="exchange-grid__unavailable-note">{{ table.unavailable_note|safe }}</p>
+{%- endif %}        </div>
+{%- endfor %}
+    </div>
+</form></turbo-frame>

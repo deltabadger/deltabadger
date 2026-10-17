@@ -727,7 +727,9 @@ module Pages
   # Things that happen to the install between two requests, outside any browser.
   BEFORE = {
     'change_password' => -> { User.first.update_columns(encrypted_password: User.new(password: 'Another-horse-7').encrypted_password) },
-    'unconfirm' => -> { User.first.update_columns(confirmed_at: nil) }
+    'unconfirm' => -> { User.first.update_columns(confirmed_at: nil) },
+    # The venue stops trading bitcoin in EUR on Kraken (the wizard's chosen pair).
+    'disable_kraken_xbt' => -> { Ticker.where(ticker: 'XBTEUR').update_all(available: false) }
   }.freeze
 
   # What a browser's FormData posts for a form with `multipart: true`: the flat text fields, then each
@@ -946,6 +948,7 @@ end
 require_relative 'pages_bots'
 require_relative 'pages_actions'
 require_relative 'pages_settings'
+require_relative 'pages_wizard'
 
 # script/rust/oauth.rb loads this file for its helpers and runs its own command.
 unless defined?(OAUTH_PARITY)

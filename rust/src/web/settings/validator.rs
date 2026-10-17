@@ -3,6 +3,8 @@ use crate::web::WebError;
 pub enum Validity {
     Correct,
     Incorrect,
+    /// A key a venue reports the permissions of (Kraken), holding the wrong ones: incorrect, and the message names them.
+    Permissions { missing: Vec<String>, forbidden: Vec<String> },
     Pending(Diagnostic),
 }
 /// Credential material and its producer are captured together, before any request.
@@ -18,6 +20,22 @@ impl ValidationHandle {
     pub(crate) fn producer(&self)->&crate::engine::model::CredentialVersion { &self.producer }
     pub(crate) async fn check(&self,url:&str,kind:i64)->Result<crate::engine::model::Produced<Validity>,WebError> {
         let value=check(url,&self.credentials,kind).await?;
+        Ok(crate::engine::model::Produced::new(value,Some(self.producer.clone())))
+    }
+    /// `check` on the venue the key belongs to: Alpaca's account read, or Kraken's and Binance's own key checks
+    /// (`key_check`), through the venue's proxy when one is configured (ExchangeProxy.for).
+    pub(crate) async fn check_on(&self,app:&crate::web::App,venue:&str,kind:i64)->Result<crate::engine::model::Produced<Validity>,WebError> {
+        let (name,base)=match venue {
+            "Exchanges::Kraken"=>("kraken",app.venue_key_urls.0.clone()),
+            "Exchanges::Binance"=>("binance",app.venue_key_urls.1.clone()),
+            _=>return self.check(&app.alpaca_trading_url(&self.credentials),kind).await,
+        };
+        let cipher=app.cipher.clone();
+        let egress=app.db(move|c|Ok(crate::venue::live::egress(c,&cipher,&|k|std::env::var(k).ok(),name,&crate::venue::http::client()))).await?;
+        let value=match egress {
+            Ok((client,_))=>super::key_check::check(venue,&base,client,&self.credentials,kind).await,
+            Err(why)=>Validity::Pending(Diagnostic{text:why,status:None,body:String::new()}),
+        };
         Ok(crate::engine::model::Produced::new(value,Some(self.producer.clone())))
     }
 }

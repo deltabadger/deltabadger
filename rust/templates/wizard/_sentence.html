@@ -1,0 +1,85 @@
+
+<div class="conversational conversational--bot-setup"
+     data-bot-kind="{{ s.kind }}" data-wizard-step="{{ s.step }}"
+     data-controller="conversational-sentence"
+     data-action="click->conversational-sentence#activate input->conversational-sentence#updateFilled">
+
+{% if s.invite_only %}
+    <span class="conversational__lead">You can also start with</span>
+    <form class="conversational__link conversational__link--placeholder conversational__link--switch" data-turbo-frame="modal_content" action="{{ s.order_url }}" accept-charset="UTF-8" method="post"><input type="hidden" name="authenticity_token" value="{{ s.csrf }}" />
+      <input value="asset_first" type="hidden" name="flow" id="flow" />
+      <input placeholder="assets" readonly tabindex="-1">
+</form>{% else %}
+  <span class="conversational__lead">Buy</span>
+
+  <div class="conversational__assets">
+{%- if !s.chips.is_empty() %}
+{%- if s.on_asset_step %}
+      <div class="conversational__stack conversational__stack--toggle" data-action="click-&gt;class-toggle#toggle">
+{%- else %}
+      <a class="conversational__stack" href="{{ s.asset_step_url }}" data-turbo-frame="modal_content" data-wizard-dir="back">
+{%- endif %}
+        <div class="ticker-group {{ s.stack_class }}">
+{%- for chip in s.chips.iter().take(5) %}
+            <div class="{{ chip.class }}" style="background: {{ chip.pill }}" data-ticker-symbol="{{ chip.symbol }}" data-ticker-asset-id="{{ chip.id }}">{{ chip.symbol }}</div>
+{%- endfor %}
+        </div>
+{%- if s.chips.len() > 5 %}
+          <span class="conversational__stack-count">+{{ s.chips.len() - 5 }}</span>
+{%- endif %}
+{% if s.on_asset_step %}</div>{% else %}</a>{% endif %}
+{%- endif %}
+{%- if s.on_asset_step %}
+{%- if s.chips.is_empty() %}
+        <span class="ticker ticker--placeholder"></span>
+{%- endif %}
+{%- else if s.chips.is_empty() %}
+      <form class="ticker ticker--placeholder ticker--switch" data-turbo-frame="modal_content" action="{{ s.order_url }}" accept-charset="UTF-8" method="post"><input type="hidden" name="authenticity_token" value="{{ s.csrf }}" />
+        <input value="asset_first" type="hidden" name="flow" id="flow" />
+        <input placeholder="" readonly tabindex="-1">
+</form>
+{%- endif %}
+  </div>
+
+  <span class="conversational__lead">on</span>
+{%- if s.exchange == "active" %}
+    <form class="conversational__link active" data-controller="form--submit-after-delay" data-turbo-frame="exchange-picker" action="{{ s.exchange_url }}" accept-charset="UTF-8" method="get">
+      <input autofocus="autofocus" autocomplete="off" placeholder="exchange" data-action="input-&gt;form--submit-after-delay#submit" type="text" name="query" id="query" />
+</form>
+{%- else if s.exchange == "filled_advance" %}
+    <form class="conversational__link filled" data-turbo-frame="modal_content"{% if s.exchange_back %} data-wizard-dir="back"{% endif %} action="{{ s.advance_url }}" accept-charset="UTF-8" method="post"><input type="hidden" name="authenticity_token" value="{{ s.csrf }}" />
+      <input value="exchange" type="hidden" name="to" id="to" />
+      <input value="{{ s.exchange_name }}" readonly tabindex="-1">
+</form>
+{%- else if s.exchange == "filled" %}
+    <form class="conversational__link filled" data-turbo-frame="modal_content" data-wizard-dir="back" action="{{ s.exchange_url }}" accept-charset="UTF-8" method="get">
+      <input value="{{ s.exchange_name }}" readonly tabindex="-1">
+</form>
+{%- else if s.exchange == "switch" %}
+    <form class="conversational__link conversational__link--placeholder conversational__link--switch" data-turbo-frame="modal_content" action="{{ s.order_url }}" accept-charset="UTF-8" method="post"><input type="hidden" name="authenticity_token" value="{{ s.csrf }}" />
+      <input value="exchange_first" type="hidden" name="flow" id="flow" />
+      <input placeholder="exchange" readonly tabindex="-1">
+</form>
+{%- else if s.exchange == "advance" %}
+    <form class="conversational__link conversational__link--placeholder conversational__link--advance" data-turbo-frame="modal_content" action="{{ s.advance_url }}" accept-charset="UTF-8" method="post"><input type="hidden" name="authenticity_token" value="{{ s.csrf }}" />
+      <input placeholder="exchange" readonly tabindex="-1">
+</form>
+{%- else %}
+    <span class="conversational__link conversational__link--placeholder">exchange</span>
+{%- endif %}
+
+{% if s.quote_visible %}
+    <span class="conversational__lead">spending</span>
+{%- if s.step == "spendable" %}
+      <form class="ticker active" data-controller="form--submit-after-delay" data-turbo-frame="asset-picker" action="{{ s.quote_search_url }}" accept-charset="UTF-8" method="get">
+        <input autofocus="autofocus" autocomplete="off" placeholder="USD" data-action="input-&gt;form--submit-after-delay#submit" type="text" name="query" id="query" />
+</form>
+{%- else if s.on_asset_step %}
+      <form class="ticker ticker--placeholder ticker--advance" data-turbo-frame="modal_content" action="{{ s.advance_url }}" accept-charset="UTF-8" method="post"><input type="hidden" name="authenticity_token" value="{{ s.csrf }}" />
+        <input placeholder="" readonly tabindex="-1">
+</form>
+{%- else %}
+      <span class="ticker ticker--placeholder"></span>
+{% endif %}
+{%- else %}
+{% endif %}{% endif %}</div>

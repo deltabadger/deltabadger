@@ -23,6 +23,13 @@ use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 pub const COOKIE: &str = "_deltabadger_rust_session";
 /// `expire_after: 30.days` (pinned by tests/session.rs against the recorded Rails setting).
 pub const LIFETIME_SECONDS: i64 = 30 * 24 * 60 * 60;
+/// ActionDispatch::Cookies::MAX_COOKIE_SIZE: a cookie's name and value together.
+pub const MAX_COOKIE_BYTES: usize = 4096;
+
+/// Rails' `check_for_overflow!`: a session this large is refused (CookieOverflow), never cut short.
+pub fn overflows(sealed: &str) -> bool {
+    COOKIE.len() + sealed.len() > MAX_COOKIE_BYTES
+}
 
 /// The second-factor step of a sign-in that has passed the password stage (Users::SessionsController).
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -33,6 +40,9 @@ pub struct Pending {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct SessionData {
+    /// The new-bot wizard's `session[:bot_config]`, string keys as Rails' JSON cookie serializer holds them.
+    /// `None` (never set) and `{}` (BotsController#new) are different sessions.
+    pub bot_config: Option<Value>,
     /// Who is signed in, with Devise's salt check: the first 29 characters of `encrypted_password`,
     /// so a password change ends every other session.
     pub user: Option<(i64, String)>,
@@ -71,6 +81,7 @@ impl SessionData {
             "tracker_connect": self.tracker_connect,
             "setup_token": self.setup_token,
             "platform_identity": self.platform_identity.as_ref().map(|(name, email)| json!([name, email])),
+            "bot_config": self.bot_config,
             "import_offsets": self.import_offsets,
         })
     }
@@ -87,6 +98,7 @@ impl SessionData {
             tracker_connect: v["tracker_connect"].as_i64(),
             setup_token: text(&v["setup_token"]),
             platform_identity: v["platform_identity"].as_array().map(|a| (a.first().and_then(text), a.get(1).and_then(text))),
+            bot_config: v.get("bot_config").filter(|config| !config.is_null()).cloned(),
             import_offsets: v["import_offsets"].as_object().map(|o| o.iter().filter_map(|(k, v)| Some((k.clone(), text(v)?))).collect()).unwrap_or_default(),
         }
     }
@@ -174,5 +186,32 @@ impl Session {
 
     pub fn snapshot(&self) -> SessionData {
         self.lock().clone()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn bot_config_round_trips_and_keeps_none_apart_from_empty() {
+        let key = [7u8; 32];
+        let now = Utc::now();
+        for config in [None, Some(json!({})), Some(json!({"flow": "asset_first", "settings": {"base_asset_ids": [1, 2]}}))] {
+            let data = SessionData { bot_config: config.clone(), ..SessionData::default() };
+            assert_eq!(open(&key, &seal(&key, &data, now), now).unwrap().bot_config, config);
+        }
+        assert_ne!(SessionData::default(), SessionData { bot_config: Some(json!({})), ..SessionData::default() }, "nil -> {{}} is a change");
+    }
+
+    #[test]
+    fn a_session_too_large_for_its_cookie_overflows() {
+        let key = [7u8; 32];
+        let now = Utc::now();
+        let ids: Vec<i64> = (1_000_000..1_000_100).collect();
+        let fits = SessionData { bot_config: Some(json!({"settings": {"base_asset_ids": ids}})), ..SessionData::default() };
+        assert!(!overflows(&seal(&key, &fits, now)), "a hundred members fit");
+        let huge = SessionData { bot_config: Some(json!({"x": "y".repeat(3000)})), ..SessionData::default() };
+        assert!(overflows(&seal(&key, &huge, now)));
     }
 }

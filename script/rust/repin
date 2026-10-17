@@ -39,6 +39,7 @@ RECORDED = {
     FIX + 'rebalance_math.json': ('test', [runner('record_rebalance_math.rb', '{out}')], None),
     FIX + 'import_vectors.json': ('test', [runner('record_import_vectors.rb', '{out}')], None),
     FIX + 'key_verdicts.json': ('test', [runner('record_key_verdicts.rb', '{out}')], None),
+    FIX + 'bot_create_callbacks.json': ('test', [runner('record_bot_create_callbacks.rb', '{out}')], None),
     FIX + 'run_ownership.json': ('test', [runner('record_run_ownership.rb', '{out}')], None),
     FIX + 'condition_vectors.json': ('test', [runner('record_condition_vectors.rb', '{out}')], None),
     FIX + 'search_vectors.json': ('test', [runner('record_search_vectors.rb', '{out}')], None),
@@ -68,7 +69,7 @@ NEEDS_ASSETS = {FIX + 'setup_vectors.json'}
 MASK = {FIX + 'setup_vectors.json': r'[A-Za-z0-9+/=_%.$-]{16,}|127\.0\.0\.1:\d+|"p":"[^"]*"'}
 HASH_ONLY = [FIX + n for n in ('page_figure_sources.json', 'tracker_connect_sources.json', 'tracker_first_sync_sources.json',
                                'tracker_holdings_sources.json', 'tracker_index_sources.json', 'tracker_populated_sources.json',
-                               'tracker_walk_sources.json')]
+                               'tracker_walk_sources.json', 'wizard_sources.json')]
 SHA = re.compile(r'^[0-9a-f]{64}$')
 
 def sha(path):
