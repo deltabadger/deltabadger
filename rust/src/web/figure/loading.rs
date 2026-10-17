@@ -92,8 +92,8 @@ fn shape(c:&Connection,user:i64)->Result<Value,rusqlite::Error> {
 fn shape_key(revision:u64)->String { serde_json::json!(["shape",revision]).to_string() }
 /// Stale figures as a page may show them: none if the account's own values moved; otherwise every bot whose own values
 /// are as they were when they were filled, the others left out (their panels show the loading state, as a bot Rails has
-/// no cache for); and the headline only if no bot it would sum was left out or appeared since with an accepted order
-/// (User#global_pnl_snapshot: loading while a bot with a submitted order has no cache).
+/// no cache for); and the headline only if no bot it would sum was left out, and every bot with an accepted order now
+/// has cached figures (User#global_pnl_snapshot: loading while a bot with a submitted order has no cache).
 fn stale_shown(mut shown:Value,then:&Value,now:&Value)->Option<Value> {
     if then.is_null() || now.is_null() || then["user"]!=now["user"] { return None; }
     let (Some(before),Some(after))=(then["bots"].as_object(),now["bots"].as_object()) else { return None };
@@ -104,6 +104,9 @@ fn stale_shown(mut shown:Value,then:&Value,now:&Value)->Option<Value> {
         let at=after.get(id);
         if at.is_none_or(|v|v[2]==true || v[1]==true) { headline=false; }
     }
+    // Whatever its row: a live bot with an accepted order now and no cached figures then (none kept, or kept as Rails
+    // would not cache them) holds the headline back, as Rails' snapshot is loading.
+    if after.iter().any(|(id,v)|v[1]==true && v[2]!=true && shown["bots"][id.as_str()]["cached"]!=true) { headline=false; }
     if let Some(bots)=shown.get_mut("bots").and_then(Value::as_object_mut) { bots.retain(|id,_|!moved(id)); }
     if !headline { if let Some(figures)=shown.as_object_mut() { figures.remove("account"); } }
     Some(shown)
