@@ -81,6 +81,24 @@ async fn a_missing_order_is_abandoned_only_after_fourteen_days() {
     assert_eq!(serde_json::from_str::<serde_json::Value>(&logged).unwrap(), json!({ "order_id": "OTX-O" }));
 }
 
+/// 387d9df90: an order QueryOrders dropped and a capped TradesHistory walk did not see, in a window of more than 1,000 trades,
+/// may have filled further back. The sweep keeps it waiting however old; the follow-up fails as Rails' get_order does.
+#[tokio::test(flavor = "current_thread")]
+async fn an_order_beyond_the_trades_walk_reach_is_never_abandoned() {
+    let (_d, o, s, b) = setup(json!({}));
+    let old = seed::insert_tx(&o.primary, &s, b, &open_market("2026-09-10 10:00:00", "OTX-FAR"));
+    let v = FakeVenue::from_script(&json!({ "http": { "/0/private/TradesHistory": [{ "error": [], "result": { "count": 5000, "trades": {} } }] } }));
+    polling::sweep(&o.primary, &v, &bot(&o, b), now()).await.unwrap();
+    let ext: i64 = o.primary.query_row("SELECT external_status FROM transactions WHERE id = ?1", [old], |r| r.get(0)).unwrap();
+    assert_eq!(ext, 0, "still waiting");
+    let logged: i64 = o.primary.query_row("SELECT count(*) FROM bot_activity_logs WHERE event = 'order_abandoned'", [], |r| r.get(0)).unwrap();
+    assert_eq!(logged, 0);
+    match polling::follow_up(&o.primary, &v, b, old, now()).await {
+        Err(PollFailure::General(m)) => assert_eq!(m, format!(r#"Failed to fetch order {old}. Result: ["Kraken could not tell whether order OTX-FAR filled"]"#)),
+        other => panic!("{other:?}"),
+    }
+}
+
 #[tokio::test(flavor = "current_thread")]
 async fn a_follow_up_recovers_a_fill_queryorders_dropped_from_trades_history() {
     let (_d, o, s, b) = setup(json!({}));

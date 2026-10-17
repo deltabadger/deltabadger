@@ -17,6 +17,7 @@
 pub mod backfill;
 pub mod figures;
 pub mod fx;
+pub mod import;
 pub mod jobs;
 pub mod parity;
 pub mod prices;

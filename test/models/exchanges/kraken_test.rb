@@ -215,6 +215,7 @@ class Exchanges::KrakenTest < ActiveSupport::TestCase
     @exchange.send(:client).stubs(:query_orders_info).returns(Result::Success.new({}))
     # No fill in TradesHistory either → genuinely not_found.
     @exchange.send(:client).stubs(:closed_orders_from_trades).returns(Result::Success.new({}))
+    @exchange.send(:client).stubs(:get_trades_history).returns(trades_history_count(3))
 
     result = @exchange.get_order(order_id: 'TXID-STALE')
 
@@ -235,6 +236,7 @@ class Exchanges::KrakenTest < ActiveSupport::TestCase
     )
     # No fill in TradesHistory for TXID-STALE → it stays missing.
     @exchange.send(:client).stubs(:closed_orders_from_trades).returns(Result::Success.new({}))
+    @exchange.send(:client).stubs(:get_trades_history).returns(trades_history_count(3))
 
     result = @exchange.get_orders(order_ids: %w[TXID-A TXID-STALE])
 
@@ -277,6 +279,7 @@ class Exchanges::KrakenTest < ActiveSupport::TestCase
     client = @exchange.send(:client)
     client.stubs(:query_orders_info).returns(Result::Success.new({}))
     client.stubs(:closed_orders_from_trades).returns(Result::Success.new({}))
+    client.stubs(:get_trades_history).returns(trades_history_count(3))
 
     result = @exchange.get_orders(order_ids: ['OGONE'])
     assert_includes result.data[:missing], 'OGONE'
@@ -314,6 +317,55 @@ class Exchanges::KrakenTest < ActiveSupport::TestCase
     assert result.success?
     assert_equal :closed, result.data[:status]
     assert_equal :limit_order, result.data[:order_type] # mapped, not :limit
+  end
+
+  def trades_history_count(count)
+    Result::Success.new({ 'error' => [], 'result' => { 'trades' => {}, 'count' => count } })
+  end
+
+  # closed_orders_from_trades stops after 20 pages (1,000 trades) and returns what it saw. An order
+  # it did not see in a longer window may have filled further back, so it must not be written off.
+  test 'get_orders keeps an unseen order out of missing when TradesHistory is longer than the walk reads' do
+    waiting_kraken_tx('OFAR')
+    @exchange.set_client
+    client = @exchange.send(:client)
+    client.stubs(:query_orders_info).returns(Result::Success.new({}))
+    client.stubs(:closed_orders_from_trades).returns(Result::Success.new({}))
+    client.stubs(:get_trades_history).returns(trades_history_count(1_001))
+
+    result = @exchange.get_orders(order_ids: ['OFAR'])
+
+    assert_predicate result, :success?
+    assert_empty result.data[:missing]
+    assert_empty result.data[:orders]
+  end
+
+  test 'get_order does not report not_found when TradesHistory is longer than the walk reads' do
+    waiting_kraken_tx('OFAR2')
+    @exchange.set_client
+    client = @exchange.send(:client)
+    client.stubs(:query_orders_info).returns(Result::Success.new({}))
+    client.stubs(:closed_orders_from_trades).returns(Result::Success.new({}))
+    client.stubs(:get_trades_history).returns(trades_history_count(5_000))
+
+    result = @exchange.get_order(order_id: 'OFAR2')
+
+    assert_predicate result, :failure?
+    refute result.data.is_a?(Hash) && result.data[:not_found]
+  end
+
+  test 'get_orders propagates a failed TradesHistory count read' do
+    waiting_kraken_tx('OCNT')
+    @exchange.set_client
+    client = @exchange.send(:client)
+    client.stubs(:query_orders_info).returns(Result::Success.new({}))
+    client.stubs(:closed_orders_from_trades).returns(Result::Success.new({}))
+    client.stubs(:get_trades_history).returns(Result::Success.new({ 'error' => ['EService:Unavailable'] }))
+
+    result = @exchange.get_orders(order_ids: ['OCNT'])
+
+    assert_predicate result, :failure?
+    assert_includes result.errors, 'EService:Unavailable'
   end
 
   test 'get_order propagates a transient TradesHistory failure' do

@@ -59,7 +59,7 @@ pub(super) fn render_with(c:&Connection,ctx:&Ctx,owner:i64,cold:Option<super::ho
     if !shape.is_null() && !shape.is_object(){return Err(super::row::invalid());}
     // Rails' show_cash? expects a JSON object; syntax and shape are checked before this helper.
     let show_cash=crate::web::bots::show_cash(settings.as_deref());
-    let options=vec![SegmentedOption{value:"pos",label:i18n::text(ctx.locale,"tracker.positions",&[]),active:true,href:None},SegmentedOption{value:"tx",label:i18n::text(ctx.locale,"tracker.transactions",&[]),active:false,href:None}];
+    let options=vec![SegmentedOption{value:"pos".into(),label:i18n::text(ctx.locale,"tracker.positions",&[]),active:true,href:None},SegmentedOption{value:"tx".into(),label:i18n::text(ctx.locale,"tracker.transactions",&[]),active:false,href:None}];
     let record_switch=format!("\n{}",Segmented{fluid:true,label:i18n::text(ctx.locale,"tracker.positions",&[]),key:Some("tracker-record"),options,links:false}.render()?.lines().filter(|line|!line.is_empty()).collect::<Vec<_>>().join("\n").replace("->","-&gt;").replace("</svg>\n","</svg>\n\n"));
     let value=i18n::text(ctx.locale,"bot.details.stats.portfolio_value",&[]);
     let invested=i18n::text(ctx.locale,"bot.details.stats.total_invested",&[]);

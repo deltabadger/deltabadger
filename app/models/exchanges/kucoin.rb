@@ -5,12 +5,22 @@ class Exchanges::Kucoin < Exchange
     # 'The API key does not exist or site mismatch.' is code 400003, captured from a live probe —
     # the message a revoked or wrong-environment key actually returns. Without it a dead KuCoin key
     # was never flagged :incorrect, so the user saw failures with no prompt to replace it.
+    # The rest per https://www.kucoin.com/docs-new/error-code/spot, in both the documented wording and
+    # the one the venue sends (400004 "KC-API-PASSPHRASE error" / "Invalid KC-API-PASSPHRASE").
     invalid_key: ['Invalid API-Key', 'Invalid KC-API-SIGN', 'Invalid passphrase',
-                  'The API key does not exist or site mismatch.'],
+                  'The API key does not exist or site mismatch.',
+                  'KC-API-KEY does not exist', 'KC-API-KEY not exists', # 400003
+                  'KC-API-PASSPHRASE', # 400004
+                  'Signature error'], # 400005
+    # 400007: the key is fine, it lacks the scope this call needs.
+    permission_denied: ['Access Denied'],
+    # 429000. Retried on the longer rate-limit wait; the ledger walk waits a throttled page out itself.
+    throttle: ['429000', 'Too Many Requests'],
     # 400002: the signed timestamp fell outside KuCoin's window. Same class as Binance's -1021 —
     # a correct, NTP-synced clock still trips it whenever a request stalls behind a slow exchange
     # proxy for longer than the window. Retried, surfaced gray, no "your bot failed" email.
-    transient: ['Invalid KC-API-TIMESTAMP'],
+    # 500000 and 230005: the venue's own outage and busy answers.
+    transient: ['Invalid KC-API-TIMESTAMP', 'Internal Server Error', 'The system is busy'],
     # Listed again, deliberately: 400002 is raised while verifying the signature (the timestamp is
     # part of the signed payload), so the order never reached the book and re-placing it next
     # interval cannot double-buy. See Exchange#placement_transient_error?.
@@ -404,8 +414,10 @@ class Exchanges::Kucoin < Exchange
   end
 
   # `/api/v1/fills` serves at most a 7-day range and measures it from `startAt`, so a start older
-  # than a week returns a window that already ended.
-  def ledger_window = 7.days
+  # than a week returns a window that already ended. get_ledger walks these windows from start_time
+  # to now itself, so `ledger_window` stays nil: the sync's floor would drop everything between a
+  # quiet account's last sync and a week ago (syncs run only when the tracker is opened).
+  FILLS_WINDOW = 7.days
 
   # `/api/v1/fills` has nothing before KuCoin's v2 data starts on 2019-02-18, so a full-history sync
   # walks its weekly windows from there.
@@ -421,7 +433,7 @@ class Exchanges::Kucoin < Exchange
     window_start = (start_time || FILLS_HISTORY_FROM).to_i * 1000
     now_ms = Time.now.utc.to_i * 1000
     while window_start < now_ms
-      window_end = [window_start + (ledger_window.to_i * 1000), now_ms].min
+      window_end = [window_start + (FILLS_WINDOW.to_i * 1000), now_ms].min
       failed = read_fills(hm_client, window_start, window_end) do |fill|
         symbol = fill['symbol'] # e.g. "BTC-USDT"
         parts = symbol.split('-')
@@ -438,13 +450,17 @@ class Exchanges::Kucoin < Exchange
       window_start = window_end
     end
 
+    # Transfers are keyed by the record id. walletTxId is the on-chain hash, which every withdrawal (or
+    # deposit) batched into one transaction shares, and the sync keeps one row per tx_id. It is empty
+    # for an internal transfer. A record without an `id` (a deposit's is in KuCoin's example, not its
+    # schema) keeps the hash, as the rows stored before the switch do (see the 20261016140000 migration).
     start_ms = start_time ? (start_time.to_f * 1000).to_i : nil
     fetch = ->(page) { hm_client.get_deposits(start_at: start_ms, status: 'SUCCESS', current_page: page, page_size: 500) }
     failed = each_page(fetch) do |dep|
       entries << { entry_type: :deposit, base_currency: dep['currency'], base_amount: dep['amount'].to_d,
                    quote_currency: nil, quote_amount: nil,
                    fee_currency: dep['currency'], fee_amount: dep['fee'].to_d,
-                   tx_id: dep['walletTxId'], group_id: nil, description: nil,
+                   tx_id: dep['id'].presence || dep['walletTxId'].presence, group_id: nil, description: nil,
                    transacted_at: Time.at(dep['createdAt'].to_i / 1000.0).utc, raw_data: dep }
     end
     return failed if failed
@@ -454,7 +470,7 @@ class Exchanges::Kucoin < Exchange
       entries << { entry_type: :withdrawal, base_currency: wd['currency'], base_amount: wd['amount'].to_d,
                    quote_currency: nil, quote_amount: nil,
                    fee_currency: wd['currency'], fee_amount: wd['fee'].to_d,
-                   tx_id: wd['walletTxId'] || wd['id'], group_id: nil, description: nil,
+                   tx_id: wd['id'].presence || wd['walletTxId'].presence, group_id: nil, description: nil,
                    transacted_at: Time.at(wd['createdAt'].to_i / 1000.0).utc, raw_data: wd }
     end
     return failed if failed
@@ -483,9 +499,7 @@ class Exchanges::Kucoin < Exchange
   # Each page costs KuCoin's request quota, and a first sync walks some 400 weekly windows, so a long
   # history runs into the limit part way. A throttled page is waited out and asked for again, as
   # Kraken's ledger does: failing here throws away every page read so far, and the next sync starts
-  # over from 2019. Kept out of ERRORS[:throttle] on purpose, which would also change how order
-  # placement and polling treat a 429.
-  LEDGER_THROTTLE = ['429000', 'Too Many Requests'].freeze
+  # over from 2019.
   LEDGER_THROTTLE_WAIT = 10
   LEDGER_THROTTLE_RETRIES = 6
 
@@ -501,8 +515,7 @@ class Exchanges::Kucoin < Exchange
         result = Result::Failure.new("Failed to get #{name} history: #{result.data.values_at('code', 'msg').compact.join(' ')}")
       end
       if result.failure?
-        message = Array(result.errors).join(' ')
-        return result unless LEDGER_THROTTLE.any? { |m| message.include?(m) } && throttled < LEDGER_THROTTLE_RETRIES
+        return result unless throttled_error?(result.errors) && throttled < LEDGER_THROTTLE_RETRIES
 
         throttled += 1
         sleep(LEDGER_THROTTLE_WAIT)

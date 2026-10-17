@@ -264,7 +264,9 @@ fn same_rows_and_watermark(rails: &Value, rust: &Value) -> Result<(), String> {
 }
 
 fn binance_ledger(name: &str, rails: &Value, rust: &Value) -> Option<Result<(), String>> {
-    if !name.starts_with("binance-ledger-") { return None; }
+    const BESIDE_SYNC: [&str; 6] = ["import-file_then_api_transfers", "import-api_then_file_transfers", "import-file_then_api_dust", "import-api_then_file_dust",
+                                    "import-file_then_api_dust_rounding", "import-api_then_file_dust_rounding"];
+    if !name.starts_with("binance-ledger-") && !BESIDE_SYNC.contains(&name) { return None; }
     let refused = |text: &str| -> Result<(), String> {
         check(tx_ids(rust).is_empty() && moved_watermark(rust).is_none(), &format!("Rust stored {:?}", tx_ids(rust)))?;
         check(key_error(rust) == text, &format!("Rust's error: {}", key_error(rust)))
@@ -277,6 +279,9 @@ fn binance_ledger(name: &str, rails: &Value, rust: &Value) -> Option<Result<(), 
         | "binance-ledger-file_transfer_claimed_once" | "binance-ledger-file_second_after" | "binance-ledger-deposit_600" | "binance-ledger-idless_repeats"
         | "binance-ledger-preexisting_repeats" | "binance-ledger-known_id_repeat" | "binance-ledger-file_dust" | "binance-ledger-file_dust_rounding"
         | "binance-ledger-twin_repeats" => same_rows_and_watermark(rails, rust),
+        // An import beside the sync over the same history, in either order: the sync's requests are its own (above).
+        "import-file_then_api_transfers" | "import-api_then_file_transfers" | "import-file_then_api_dust" | "import-api_then_file_dust"
+        | "import-file_then_api_dust_rounding" | "import-api_then_file_dust_rounding" => same_rows_and_watermark(rails, rust),
         // Listed divergence: Rails reads `purchaseAmount`/`rewards` where Binance writes `amount`, and stores 0.
         "binance-ledger-earn_documented_amounts" => (|| {
             let misread = ["lock-reward-1787184000000-BNB", "flex-sub-26055", "lock-sub-26056"];
@@ -375,13 +380,13 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
     dirs.sort();
     let named = |prefix: &str| dirs.iter().filter(|d| d.file_name().unwrap().to_string_lossy().starts_with(prefix)).count();
-    assert_eq!((named("ledger-"), named("balances-"), named("binance-balances-"), named("binance-ledger-"), dirs.len()), (58, 44, 21, 26, 149), "the sync grid");
+    assert_eq!((named("ledger-"), named("balances-"), named("binance-balances-"), named("binance-ledger-"), named("import-"), dirs.len()), (58, 44, 21, 26, 21, 170), "the sync grid");
     for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
     for scenario in ["ledger-split_future", "ledger-split_nested_duplicate_keys", "binance-ledger-two_nights"] { copy_dir(&rails_root.path().join(scenario), &handback.path().join(scenario)); }
     rails(&["record", rails_root.path().to_str().unwrap()]);
 
     let cipher = cipher();
-    let ported = ["ledger-", "balances-", "binance-balances-", "binance-ledger-"];
+    let ported = ["ledger-", "balances-", "binance-balances-", "binance-ledger-", "import-"];
     let mut outputs: Vec<(String, Value, Value)> = vec![];
     for d in &dirs {
         let name = d.file_name().unwrap().to_string_lossy().to_string();
@@ -401,7 +406,7 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), outputs.len(), failures.join("\n"));
     let mut expected=["binance-ledger-flexible_rewards_type", "binance-ledger-other_sources", "binance-ledger-two_nights", "binance-ledger-earn_documented_amounts", "binance-ledger-earn_fails", "binance-ledger-crypto_pair_later", "binance-ledger-over_500_trades", "binance-ledger-deposit_credited", "binance-ledger-pending_withdrawal",
                       "binance-ledger-symbol_fails", "binance-ledger-away_100_days", "binance-ledger-garbage_amount", "binance-ledger-us_refused",
-                      "binance-ledger-full", "binance-ledger-idle", "binance-ledger-deposit_fails", "binance-ledger-file_transfers", "binance-ledger-file_transfer_claimed_once", "binance-ledger-file_second_after", "binance-ledger-deposit_600", "binance-ledger-idless_repeats", "binance-ledger-preexisting_repeats", "binance-ledger-known_id_repeat", "binance-ledger-file_dust", "binance-ledger-file_dust_rounding", "binance-ledger-twin_repeats", "binance-balances-blank_free", "binance-balances-garbage_free", "binance-balances-whitespace_free", "binance-balances-rate_spelling", "binance-balances-rate_zero_padded", "binance-balances-price_underscore_exponent", "binance-balances-no_rate", "balances-account_null", "balances-no_trade_keeps_last_price", "balances-no_trade_market_price", "balances-no_trade_unpriced", "balances-positions_not_array", "ledger-pages_stalled", "ledger-split_hostile_quantity"].to_vec();
+                      "binance-ledger-full", "binance-ledger-idle", "binance-ledger-deposit_fails", "binance-ledger-file_transfers", "binance-ledger-file_transfer_claimed_once", "binance-ledger-file_second_after", "binance-ledger-deposit_600", "binance-ledger-idless_repeats", "binance-ledger-preexisting_repeats", "binance-ledger-known_id_repeat", "binance-ledger-file_dust", "binance-ledger-file_dust_rounding", "binance-ledger-twin_repeats", "import-file_then_api_transfers", "import-api_then_file_transfers", "import-file_then_api_dust", "import-api_then_file_dust", "import-file_then_api_dust_rounding", "import-api_then_file_dust_rounding", "binance-balances-blank_free", "binance-balances-garbage_free", "binance-balances-whitespace_free", "binance-balances-rate_spelling", "binance-balances-rate_zero_padded", "binance-balances-price_underscore_exponent", "binance-balances-no_rate", "balances-account_null", "balances-no_trade_keeps_last_price", "balances-no_trade_market_price", "balances-no_trade_unpriced", "balances-positions_not_array", "ledger-pages_stalled", "ledger-split_hostile_quantity"].to_vec();
     expected.extend_from_slice(UNKNOWN_PRICE_ORIGIN);
     expected.extend_from_slice(&["balances-snapshots_network", "ledger-long_error", "ledger-network_pre_send"]);
     expected.sort();
@@ -447,6 +452,37 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     let (taken, stored) = claimed("binance-ledger-file_dust_rounding");
     assert_eq!(taken, ["dust-4359340-in", "dust-4359340-out", "dust-4359341-in", "dust-4359341-out", "dust-4359342-in", "dust-4359342-out"]);
     assert!(["dust-4359343-in", "dust-4359343-out"].iter().all(|id| stored.contains(&id.to_string())), "{stored:?}");
+    // The import's file side (Rails' output; Rust's was found identical above): an API row a later file pairs with is
+    // stamped with the file row's date, raw only; a file row an API row arrives for takes its id; a dust credit with no
+    // spend is income (#593).
+    let stamps = |name: &str| rows(&rails_of(name), "account_transactions").iter()
+        .filter_map(|r| Some((r["after"]["tx_id"].as_str()?.to_string(), r["after"]["raw_data"]["file_twin_at"].as_str()?.to_string()))).collect::<Vec<_>>();
+    assert_eq!(stamps("import-api_then_file_transfers").iter().map(|(id, _)| id.as_str()).collect::<Vec<_>>(), ["0xd1", "0xd2", "0xw1"]);
+    assert_eq!(stamps("import-api_then_file_dust").iter().map(|(id, at)| format!("{id} {at}")).collect::<Vec<_>>(),
+               ["dust-4359321-out", "dust-4359321-in", "dust-4359322-out", "dust-4359322-in"].map(|id| format!("{id} 2026-08-17T10:00:01.000000Z")));
+    assert_eq!(rails_of("import-api_then_file_transfers")["steps"][1]["import"]["duplicates"], 3);
+    assert_eq!(tx_ids(&rails_of("import-file_then_api_dust"))[..4], ["dust-4359321-out", "dust-4359321-in", "dust-4359322-out", "dust-4359322-in"], "the file's legs take the API's ids");
+    let income = |name: &str| rows(&rails_of(name), "account_transactions").iter().filter(|r| r["after"]["entry_type"] == 11).count();
+    assert_eq!((income("import-file_then_api_dust"), income("import-api_then_file_dust")), (1, 1));
+    let import_of = |name: &str, step: usize| rails_of(name)["steps"][step]["import"].clone();
+    assert_eq!((import_of("import-same_file_twice", 1)["imported"].clone(), import_of("import-repeated_rows", 0)["imported"].clone(), import_of("import-repeated_rows", 1)["duplicates"].clone()), (json!(0), json!(3), json!(3)));
+    assert_eq!((import_of("import-legacy_purchase_then_convert", 0)["imported"].clone(), import_of("import-legacy_token_swap", 0)["imported"].clone()), (json!(2), json!(1)), "the replaced pairs and the old token swap are skipped");
+    assert_eq!(rows(&rails_of("import-bot_order_by_tx_id"), "account_transactions")[0]["after"]["transaction_id"], 2, "the bot order on Binance, not Alpaca's");
+    assert_eq!(import_of("import-deltabadger_three_venues", 0)["unrouted"], json!(["kraken"]));
+    assert_eq!((import_of("import-binance_us_ambiguous", 0)["ambiguous"].clone(), import_of("import-binance_us_ambiguous", 1)["ambiguous"].clone(), import_of("import-binance_us_ambiguous", 2)["imported"].clone()),
+               (json!([2, 3]), json!([2, 3]), json!(3)), "asked, asked again for another venue's key, answered");
+    let assets = |name: &str| rows(&rails_of(name), "account_transactions").iter().map(|r| r["after"]["base_asset_id"].clone()).collect::<Vec<_>>();
+    assert_eq!(assets("import-luna_alias"), [json!(10), json!(9)], "2021's LUNA is Terra's old coin; 2023's the listing");
+    // The export's rounded BNB, in either order: one unit off pairs (ADA up, USDT down), two units off (XRP) does not.
+    let rounded = ["4359340", "4359341"].iter().flat_map(|n| [format!("dust-{n}-out"), format!("dust-{n}-in")]).collect::<Vec<_>>();
+    assert_eq!(stamps("import-api_then_file_dust_rounding").into_iter().map(|(id, _)| id).collect::<Vec<_>>(), rounded);
+    let mut taken = tx_ids(&rails_of("import-file_then_api_dust_rounding")).into_iter().filter(|id| id.starts_with("dust-")).take(4).collect::<Vec<_>>();
+    taken.sort();
+    let mut expected_taken = rounded.clone();
+    expected_taken.sort();
+    assert_eq!(taken, expected_taken, "the file's legs take the API's ids, XRP's excepted");
+    assert_eq!((import_of("import-api_then_file_dust_rounding", 1)["imported"].clone(), import_of("import-api_then_file_dust_rounding", 1)["duplicates"].clone()), (json!(2), json!(4)));
+    assert_eq!((assets("import-ibkr_luna"), assets("import-ibkr_luna_no_terra")), (vec![json!(7)], vec![json!(7)]), "IBKR's LUNA is its listed security");
     for value in ["NaN", "Infinity", "-Infinity", "garbage"] {
         for fallback in ["market", "stale"] {
             let out = rails_of(&format!("balances-unreadable_price_{value}_{fallback}"));
@@ -666,4 +702,87 @@ fn an_unscripted_call_fails_the_rails_run() {
         let err = try_rails(&["record", root.path().to_str().unwrap()]).expect_err(&format!("{scenario}: an unscripted call must fail the run"));
         assert!(err.contains("unscripted"), "{scenario}: {err}");
     }
+}
+
+/// A copy of one scenario of the grid, with its scenario.json, for a test of its own.
+fn grid_copy(name: &str) -> (tempfile::TempDir, PathBuf, Value) {
+    let grid = tempfile::tempdir().unwrap();
+    built_grid(grid.path());
+    let dir = grid.path().join(name);
+    let scenario = read(&dir.join("scenario.json"));
+    (grid, dir, scenario)
+}
+
+fn file_of(scenario: &Value) -> (i64, String) { (scenario["user_id"].as_i64().unwrap(), scenario["steps"][0]["text"].as_str().unwrap().to_string()) }
+fn count(c: &rusqlite::Connection) -> i64 { c.query_row("SELECT count(*) FROM account_transactions", [], |r| r.get(0)).unwrap() }
+
+/// One transaction for the whole file (the I3 ruling): a crash before the commit writes nothing, and the retry imports
+/// every row once.
+#[test]
+fn an_import_that_fails_part_way_writes_nothing_and_its_retry_imports_once() {
+    use deltabadger::tracker::import::run::{import, Answer};
+    let (_grid, dir, scenario) = grid_copy("import-file_then_api_transfers");
+    let (user, text) = file_of(&scenario);
+    let c = rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap();
+    let now = "2026-09-19T12:00:00Z".parse().unwrap();
+    let before = count(&c);
+    // The third row of the file fails as it is written.
+    c.execute_batch("CREATE TEMP TRIGGER crash BEFORE INSERT ON account_transactions WHEN NEW.entry_type = 5 BEGIN SELECT RAISE(ABORT, 'crash'); END;").unwrap();
+    assert!(import(&c, user, "binance", text.as_bytes(), Some("+00:00"), None, now).is_err());
+    assert_eq!(count(&c), before, "nothing of the file is written");
+    c.execute_batch("DROP TRIGGER crash").unwrap();
+    let written = |answer| match answer { Answer::Written { imported, .. } => imported, other => panic!("{other:?}") };
+    assert_eq!(written(import(&c, user, "binance", text.as_bytes(), Some("+00:00"), None, now).unwrap()), 3);
+    assert_eq!(written(import(&c, user, "binance", text.as_bytes(), Some("+00:00"), None, now).unwrap()), 0, "the retry's retry adds nothing");
+    assert_eq!(count(&c), before + 3);
+}
+
+/// An API sync of the same venue that starts while an import is writing waits for its commit: the sync's write unit
+/// (`sync::write`, BEGIN IMMEDIATE) takes the lock the import holds, so it runs once the whole file is stored and reads
+/// all of it. The sync after it then dedupes against the complete file: the API's deposits and withdrawal take the
+/// file rows' empty ids instead of landing again.
+#[tokio::test(flavor = "current_thread")]
+async fn an_api_sync_during_an_import_waits_for_it_and_dedupes_against_the_whole_file() {
+    use std::sync::{atomic::{AtomicBool, Ordering}, mpsc};
+    let (_grid, dir, mut scenario) = grid_copy("import-file_then_api_transfers");
+    let (user, text) = file_of(&scenario);
+    scenario["steps"] = json!([scenario["steps"][1].clone()]);
+    std::fs::write(dir.join("scenario.json"), scenario.to_string()).unwrap();
+    let db = dir.join("production.sqlite3");
+    let before = count(&rusqlite::Connection::open(&db).unwrap());
+    let (inside, inside_rx) = mpsc::channel::<()>();
+    let (go, go_rx) = mpsc::channel::<()>();
+    let path = db.clone();
+    let importer = std::thread::spawn(move || {
+        let c = rusqlite::Connection::open(path).unwrap();
+        let paused = AtomicBool::new(false);
+        let (inside, go_rx) = (std::sync::Mutex::new(inside), std::sync::Mutex::new(go_rx));
+        c.create_scalar_function("import_pause", 0, rusqlite::functions::FunctionFlags::SQLITE_UTF8, move |_| {
+            if !paused.swap(true, Ordering::SeqCst) { inside.lock().unwrap().send(()).unwrap(); go_rx.lock().unwrap().recv().unwrap(); }
+            Ok(0)
+        }).unwrap();
+        c.execute_batch("CREATE TEMP TRIGGER pause AFTER INSERT ON account_transactions BEGIN SELECT import_pause(); END;").unwrap();
+        deltabadger::tracker::import::run::import(&c, user, "binance", text.as_bytes(), Some("+00:00"), None, "2026-09-19T12:00:00Z".parse().unwrap()).unwrap()
+    });
+    inside_rx.recv().unwrap(); // the import holds the write lock, one row written
+    let (path, keys) = (db.clone(), cipher());
+    let (ready, ready_rx) = mpsc::channel::<()>();
+    let unit = std::thread::spawn(move || {
+        let c = rusqlite::Connection::open(path).unwrap();
+        deltabadger::store::configure(&c).unwrap();
+        ready.send(()).unwrap(); // SQLite is open; the write unit begins next
+        deltabadger::sync::write(&c, &keys, |c| Ok((count(c), false))).unwrap()
+    });
+    ready_rx.recv().unwrap();
+    std::thread::sleep(std::time::Duration::from_millis(200));
+    go.send(()).unwrap();
+    assert!(matches!(importer.join().unwrap(), deltabadger::tracker::import::run::Answer::Written { imported: 3, .. }));
+    // Ordering, not timing: begun while the import held the lock, the unit could only have counted the file's rows
+    // (uncommitted ones are invisible to it) once the import had committed.
+    assert_eq!(unit.join().unwrap(), before + 3, "the sync's unit ran after the import's commit and read the whole file");
+    let out = deltabadger::sync::parity::run(&dir, cipher()).await.unwrap();
+    let changed = rows(&out, "account_transactions");
+    let claimed: Vec<_> = changed.iter().filter(|r| !r["before"].is_null() && r["before"]["tx_id"].is_null()).map(|r| r["after"]["tx_id"].clone()).collect();
+    assert_eq!(claimed, [json!("0xd1"), json!("0xd2"), json!("0xw1")], "the API's deposits and withdrawal take the file's rows");
+    assert!(!changed.iter().any(|r| r["before"].is_null() && ["0xd1", "0xd2", "0xw1"].contains(&r["after"]["tx_id"].as_str().unwrap_or_default())), "and land no second time");
 }

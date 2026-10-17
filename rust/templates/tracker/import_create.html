@@ -1,0 +1,47 @@
+<turbo-frame complete="" id="modal">
+  <dialog data-controller="modal--base" data-action="click->modal--base#clickOutside" class="dialog" data-hw-animate-in="animate-modal-in" data-hw-animate-out="animate-modal-out">
+    <div class="dialog__vertical-center">
+      
+  <div class="modal">
+    <button name="button" type="button" class="modal__close" data-action="modal--base#animateOutCloseAndCleanUp">
+      <svg class="icon-24" fill="none" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M5.7 4.3a1 1 0 0 0-1.4 1.4l6.3 6.3-6.3 6.3a1 1 0 1 0 1.4 1.4l6.3-6.3 6.3 6.3a1 1 0 0 0 1.4-1.4L13.4 12l6.3-6.3a1 1 0 0 0-1.4-1.4L12 10.6 5.7 4.3Z" fill="#2948A1"></path>
+</svg>
+
+</button>    <div class="modal__header">
+      <h1 class="modal__title">{{ ctx.t("tracker.import.title")|safe }}</h1>
+    </div>
+{% match body %}{% when Body::Error with (error) %}
+      <p class="tracker-empty">{{ ctx.t(error)|safe }}</p>
+{%- when Body::Ambiguous with { csrf, token, format, accounts, first } %}
+      <form class="form" data-turbo-frame="modal_content" action="{{ ctx.path("/tracker/import") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+        <input type="hidden" name="token" id="token" value="{{ token }}" />
+        <input type="hidden" name="format" id="format" value="{{ format }}" />
+        <p>{{ ctx.t("tracker.import.which_account")|safe }}</p>
+        <div class="filters" data-controller="form--segmented-field"
+             data-action="segmented:change->form--segmented-field#set">
+          
+{{ accounts|safe }}
+          <input type="hidden" name="api_key_id" id="api_key_id" value="{{ first }}" data-form--segmented-field-target="field" />
+        </div>
+        <div class="modal__footer">
+          <input type="submit" name="commit" value="{{ ctx.t("tracker.import.confirm")|safe }}" class="rbutton rbutton--primary" data-turbo-submits-with="{{ ctx.t("tracker.import.importing")|safe }}" data-disable-with="{{ ctx.t("tracker.import.confirm")|safe }}" />
+        </div>
+</form>
+{%- when Body::NothingNew with { skipped, unrouted, unrecognised } %}
+      <p>{{ ctx.t("tracker.import.nothing_new")|safe }}</p>
+{%- if let Some(skipped) = skipped %}
+        <p class="import-note">{{ skipped|safe }}</p>
+{%- endif %}
+{%- if let Some(unrouted) = unrouted %}
+        <p class="import-note">{{ unrouted|safe }}</p>
+{%- endif %}
+{%- if let Some(unrecognised) = unrecognised %}
+        <p class="import-note">{{ unrecognised|safe }}</p>
+{%- endif %}
+{%- endmatch %}{% if !form %}
+{% endif %}  </div>
+
+    </div>
+  </dialog>
+</turbo-frame>
