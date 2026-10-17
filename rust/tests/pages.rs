@@ -553,16 +553,35 @@ fn unmet_expectation(name: &str, scenario: &Value, rails: &Value) -> Option<Stri
     None
 }
 
-/// Builds the grid with Rails, records Rails' answers, and returns (rails_root, rust_root, scenario dirs).
-fn recorded_grid() -> (tempfile::TempDir, tempfile::TempDir, Vec<PathBuf>) {
-    let (scratch, rails_root, rust_root) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
-    common::rails(scratch.path(), "test", &["db:schema:load"]);
-    common::rails(scratch.path(), "test", &["runner", "script/rust/pages.rb", "grid", rails_root.path().to_str().unwrap()]);
-    let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
+/// Builds the grid with Rails, records Rails' answers (common::recording: once per state of Rails' inputs and
+/// PAGES), and returns (the recording, rust_root, scenario dirs). The recording keeps `rails/` (each scenario's
+/// scenario.json and rails.json) and `rust/` (the installs as the grid built them, before Rails' requests);
+/// this run's Rust side works on its own copy of `rust/`.
+fn recorded_grid() -> (common::Recording, tempfile::TempDir, Vec<PathBuf>) {
+    let recording = common::recording("pages", |dir| dir.join("rails").is_dir() && dir.join("rust").is_dir(), |out| {
+        let (scratch, rails_root, rust_root) = (tempfile::tempdir().unwrap(), out.join("rails"), out.join("rust"));
+        std::fs::create_dir_all(&rails_root).unwrap();
+        common::rails(scratch.path(), "test", &["db:schema:load"]);
+        common::rails(scratch.path(), "test", &["runner", "script/rust/pages.rb", "grid", rails_root.to_str().unwrap()]);
+        for dir in std::fs::read_dir(&rails_root).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()) {
+            copy_scenario(&dir, &rust_root.join(dir.file_name().unwrap())); // before Rails writes to its copies
+        }
+        std::fs::create_dir_all(&rust_root).unwrap();
+        common::rails(scratch.path(), "test", &["runner", "script/rust/pages.rb", "record", rails_root.to_str().unwrap()]);
+        only_json(&rails_root); // the comparison reads Rails' answers, never the databases Rails left
+    });
+    let rust_root = tempfile::tempdir().unwrap();
+    common::copy_tree(&recording.path.join("rust"), rust_root.path());
+    let mut dirs: Vec<PathBuf> = std::fs::read_dir(recording.path.join("rails")).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
     dirs.sort();
-    for dir in &dirs { copy_scenario(dir, &rust_root.path().join(dir.file_name().unwrap())); } // before Rails writes to its copies
-    common::rails(scratch.path(), "test", &["runner", "script/rust/pages.rb", "record", rails_root.path().to_str().unwrap()]);
-    (rails_root, rust_root, dirs)
+    (recording, rust_root, dirs)
+}
+
+fn only_json(dir: &Path) {
+    for entry in std::fs::read_dir(dir).unwrap().flatten() {
+        let path = entry.path();
+        if path.is_dir() { only_json(&path) } else if path.extension().is_none_or(|e| e != "json") { std::fs::remove_file(&path).unwrap(); }
+    }
 }
 
 /// Scenarios whose LAST response this crate deliberately answers otherwise than Rails. Everything

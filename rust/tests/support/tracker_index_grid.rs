@@ -81,10 +81,8 @@ pub async fn check_grid(script:&str,variable:&str,count:usize,selected:&[&str],m
     let generated;
     let root=match std::env::var(variable) {
         Ok(root)=>root,
-        Err(_)=>{let boot=tempfile::tempdir().unwrap();generated=tempfile::tempdir().unwrap();let root=generated.path().to_str().unwrap();
-            common::rails(boot.path(),"test",&["db:schema:load"]);
-            for command in ["grid","record"]{common::rails(boot.path(),"test",&["runner",script,command,root]);}
-            root.to_string()}
+        Err(_)=>{generated=common::recording(script,common::has_subdirs,|out|common::record_grid(script,out));
+            generated.path.to_str().unwrap().to_string()}
     };
     let mut names=std::fs::read_dir(&root).unwrap().map(|e|e.unwrap()).filter(|e|e.file_type().unwrap().is_dir()).map(|e|e.file_name().into_string().unwrap()).collect::<Vec<_>>();names.sort();
     assert_eq!(names.len(),count);
