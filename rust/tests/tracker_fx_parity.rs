@@ -86,13 +86,8 @@ async fn compare(cases: &[&str]) {
     let root = match std::env::var("D5_FX_GRID") {
         Ok(root) => root,
         Err(_) => {
-            let boot = tempfile::tempdir().unwrap();
-            generated = tempfile::tempdir().unwrap();
-            let root = generated.path().to_str().unwrap();
-            common::rails(boot.path(),"test",&["db:schema:load"]);
-            common::rails(boot.path(),"test",&["runner","script/rust/pages_tracker_fx.rb","grid",root]);
-            common::rails(boot.path(),"test",&["runner","script/rust/pages_tracker_fx.rb","record",root]);
-            root.to_string()
+            generated = common::recording("pages_tracker_fx", common::has_subdirs, |out| common::record_grid("script/rust/pages_tracker_fx.rb", out));
+            generated.path.to_str().unwrap().to_string()
         }
     };
     let mut names=cases.iter().map(|s|s.to_string()).collect::<Vec<_>>();
