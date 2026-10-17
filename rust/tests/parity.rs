@@ -1,44 +1,7 @@
 #![cfg(unix)] // shells out to bin/rails and sets Unix file modes, so it only builds and runs on Unix
 use std::path::{Path, PathBuf};
 use std::process::Command;
-
-pub fn rails(args: &[&str]) { if let Err(e) = try_rails(args) { panic!("{e}"); } }
-
-pub fn try_rails(args: &[&str]) -> Result<(), String> {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-    let scratch = tempfile::tempdir().unwrap();
-    let run = |rails_args: &[&str]| -> Result<(), String> {
-        let mut cmd = Command::new(root.join("bin/rails"));
-        cmd.current_dir(root).args(rails_args).env_remove("DATABASE_URL")
-            .env("PROXY_KRAKEN", "http://127.0.0.1:9") // any unscripted real call fails fast instead of trading
-            .env("APP_ROOT_URL", "http://localhost:3000") // config/environments/development.rb requires it
-            .env("SKIP_TEST_DATABASE", "true"); // schema:load in development also purges the repo's storage/test*.sqlite3
-        for db in ["primary", "queue", "cache", "cable"] {
-            cmd.env(format!("{}_DATABASE_URL", db.to_uppercase()), format!("sqlite3:{}/{db}.sqlite3", scratch.path().display()));
-        }
-        let out = cmd.output().expect("bin/rails runs");
-        if out.status.success() { Ok(()) } else { Err(format!("bin/rails {rails_args:?} failed:\n{}", String::from_utf8_lossy(&out.stderr))) }
-    };
-    // The oracle's own queue/cache/cable databases must exist (ActionJob queries Solid Queue directly,
-    // broadcasts write Solid Cable): load every schema into the scratch files first.
-    run(&["db:schema:load"])?;
-    let mut full = vec!["runner", "script/rust/decisions.rb"];
-    full.extend_from_slice(args);
-    run(&full)
-}
-
-/// `command`'s grid, as `rails(&[command, into])` builds it: built once per test run (common::run_template), and
-/// copied into `into` for every test that asks.
-fn built_grid(command: &str, into: &Path) {
-    let template = common::run_template(&format!("decisions-{command}"), common::has_subdirs,
-        |out| rails(&[command, out.to_str().unwrap()]));
-    common::copy_tree(&template, into);
-}
-
-fn copy_dir(from: &Path, to: &Path) {
-    std::fs::create_dir_all(to).unwrap();
-    for f in ["production.sqlite3", "production_queue.sqlite3", "scenario.json"] { std::fs::copy(from.join(f), to.join(f)).unwrap(); }
-}
+use common::decisions::{built_grid, copy_dir, r5_cleanup_expected, rails, try_rails};
 
 /// Grid variants where Rust deliberately decides otherwise than Rails, each asserted on its own terms below.
 /// add_service_unavailable: AddOrder answered EService:Unavailable may still have been placed. Rails writes a failed
@@ -365,6 +328,96 @@ async fn rails_and_rust_decide_identically_across_the_sell_grid() {
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
 }
 
+/// Slice 6b: a wider Alpaca basket's ranked DCA-out (script/rust/decisions.rb basket_sell_scenarios), compared whole.
+#[tokio::test(flavor = "current_thread")]
+async fn rails_and_rust_decide_identically_across_the_basket_sell_grid() {
+    let (_copies, outputs) = grid_outputs("grid-basket-sell", 74).await;
+    let mut failures = vec![];
+    for (name, _, rails_out, rust_out) in &outputs {
+        if rails_out != rust_out { failures.push(format!("{name}\n  rails: {rails_out}\n  rust:  {rust_out}")); }
+    }
+    assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), outputs.len(), failures.join("\n"));
+    // Pin what Rails does, so that two silent sides cannot pass: which members each cell sells.
+    let sold = |out: &serde_json::Value| -> Vec<String> { out["sent"].as_array().unwrap().iter().map(|o| o["symbol"].as_str().unwrap().to_string()).collect() };
+    for (name, _, rails_out, _) in &outputs {
+        let sold = sold(rails_out);
+        let rows = rails_out["changes"]["transactions"].as_array().unwrap();
+        let skipped = rows.iter().filter(|r| r["after"]["status"] == 2).count();
+        let expect: Option<&[&str]> = if name.contains("-base-") || ["-unpriced_member-", "-stale_feed-", "-feed_unreachable-", "-no_holdings-", "-all_under_floor-", "-balance_error-"].iter().any(|v| name.contains(v)) {
+            Some(&[])
+        // tiers: SOL sits furthest over its smaller target once BTC cannot sell; "tie" is a tie only at w50's equal targets.
+        } else if ["-tiers-floor_handover-", "-tiers-nothing_free_top-", "-tiers-tie-"].iter().any(|v| name.contains(v)) { Some(&["SOL/USD", "ETH/USD"])
+        } else if name.contains("-tiers-foreign_crypto-") || name.contains("-tiers-free_below-") { Some(&["BTC/USD", "SOL/USD", "ETH/USD"])
+        // w50 tie: 64 USD of each member, so BTC (composition order) sells out and ETH takes the rest of the 100.
+        } else if name.contains("-w50-tie-") { Some(&["BTC/USD", "ETH/USD"])
+        } else if name.contains("-over_top-") || name.contains("-rejected-") { Some(&["BTC/USD"])
+        } else if name.contains("-w50-foreign_crypto-") { Some(&["BTC/USD", "ETH/USD"])
+        } else if name.contains("-floor_handover-") || name.contains("-nothing_free_top-") { Some(&["ETH/USD"])
+        } else if name.contains("-free_below-") || name.contains("-resting_top-") { Some(&["BTC/USD", "ETH/USD"])
+        } else if name.starts_with("basket-sell-stock-open-") { Some(&["AAPL"])
+        } else if name.starts_with("basket-sell-stock-foreign-") { Some(&["MSFT"])
+        } else if name.starts_with("basket-sell-stock-closed-") { Some(&[])
+        } else { None };
+        match expect { Some(e) => if sold != e { failures.push(format!("{name}: sold {sold:?}")); }, None => failures.push(format!("{name}: no expectation pinned")) }
+        assert_eq!(skipped, usize::from(name.contains("-all_under_floor-")), "{name}: the first member's attempt only, once: {rails_out}");
+        if name.contains("-foreign_crypto-") { assert_eq!(rails_out["sent"][0]["qty"], "0.010000000", "{name}: the local 0.01, not the merged 1.01"); }
+    }
+    assert!(failures.is_empty(), "pinned expectations:\n{}", failures.join("\n"));
+}
+
+/// Slice 6b: threshold rebalancing on a stopped Alpaca basket (script/rust/decisions.rb rebalance_scenarios), fire by fire.
+/// Sanctioned divergence `unknown_outcome`: Rails halts a swap whose placement outcome is unknown (a lost reply, a 5xx, an
+/// accepted order without an id) at once; the engine keeps the intent with its phase and resolves it by client order id
+/// (placement::recover_since), halting only if the venue still cannot answer a full absence window later.
+#[tokio::test(flavor = "current_thread")]
+async fn rails_and_rust_rebalance_identically() {
+    let (_copies, outputs) = grid_outputs("grid-rebalance", 51).await;
+    let unknown = ["-post_send", "-server_error", "-no_order_id"];
+    let mut failures = vec![];
+    let phase = |out: &serde_json::Value| -> serde_json::Value {
+        out["changes"]["bots"].as_array().unwrap().last().map(|b| b["after"]["transient_data"]["rebalance_pending"]["phase"].clone()).unwrap_or_default()
+    };
+    for (name, _, rails_out, rust_out) in &outputs {
+        if unknown.iter().any(|u| name.ends_with(u)) {
+            // Both sent the one sell; Rails halted, the engine waits on its intent with the selling phase, no row on either.
+            assert_eq!(rails_out["sent"], rust_out["sent"], "{name}");
+            assert_eq!((phase(rails_out), phase(rust_out)), (serde_json::json!("ambiguous"), serde_json::json!("selling")), "{name}: {rails_out}\n{rust_out}");
+            assert_eq!(rust_out["changes"]["transactions"], rails_out["changes"]["transactions"], "{name}");
+            continue;
+        }
+        if rails_out != rust_out { failures.push(format!("{name}\n  rails: {rails_out}\n  rust:  {rust_out}")); }
+    }
+    assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), outputs.len(), failures.join("\n"));
+    // Pin what Rails does, so that two silent sides cannot pass: what each cell sent, and the phase it left.
+    let mut pins = vec![];
+    for (name, _, rails_out, _) in &outputs {
+        let sent: Vec<(String, String)> = rails_out["sent"].as_array().unwrap().iter().map(|o| (o["symbol"].as_str().unwrap().into(), o["side"].as_str().unwrap().into())).collect();
+        let state = name.split_once('-').unwrap().1.split_once('-').unwrap().1;
+        let expect: &[(&str, &str)] = match state {
+            "under_threshold" | "rule_off" | "selling" | "open_buy" | "sell_below_minimum" | "at_threshold" | "unbalanced" => &[],
+            "owed_buy" | "unbalanced_owed_buy" => &[("ETH/USD", "buy")],
+            "exited_member" => &[("AAA", "sell")],
+            "swap" | "buy_capped" | "buy_rejected" | "cancelled_partial_sell" => &[("BTC/USD", "sell"), ("ETH/USD", "buy")],
+            "partial_buy" => &[("BTC/USD", "sell"), ("ETH/USD", "buy"), ("ETH/USD", "buy")],
+            _ => &[("BTC/USD", "sell")],
+        };
+        let expect: Vec<(String, String)> = expect.iter().map(|(a, b)| ((*a).into(), (*b).into())).collect();
+        // tiers: the underweight member after BTC's sale is SOL or ETH by the figures; only the sides are pinned there.
+        let same = if name.contains("-tiers-") { sent.iter().map(|s| &s.1).eq(expect.iter().map(|s| &s.1)) } else { sent == expect };
+        if !same { pins.push(format!("{name}: sent {sent:?}, pinned {expect:?}")); }
+        let left = phase(rails_out);
+        let want = match state {
+            "swap" | "nothing_sold" | "buy_below_minimum" | "under_threshold" | "rule_off" | "selling" | "open_buy" | "sell_below_minimum" | "pre_send"
+            | "at_threshold" | "unbalanced" => serde_json::Value::Null,
+            "rejected" | "rejected_400" | "buy_rejected" | "post_send" | "server_error" | "no_order_id" => serde_json::json!("ambiguous"),
+            "resting_sell" | "open_buy_stale" | "below_drift" | "exited_member" => serde_json::json!("selling"),
+            _ => serde_json::json!("buying"),
+        };
+        if left != want { pins.push(format!("{name}: phase {left}, pinned {want}")); }
+    }
+    assert!(pins.is_empty(), "pinned expectations:\n{}", pins.join("\n"));
+}
+
 const ALPACA_DIVERGENCES: [&str; 3] = ["add_server_error", "add_unreadable", "untradable_clock_closed"];
 
 fn crypto_ignores_the_stock_clock(dir: &Path, rails_out: &serde_json::Value, rust_out: &serde_json::Value) -> Result<(), String> {
@@ -520,23 +573,6 @@ fn an_unscripted_call_fails_the_run_on_both_venues() {
     }
 }
 
-/// R5: failure bookkeeping preserves unrelated NULL evidence. The recorded grids expose
-/// Rails deleting this pre-existing NULL flag; require Rust to preserve it explicitly.
-/// Return a comparison copy of Rails; never rewrite either recorded output or any money field.
-fn r5_cleanup_expected(rails: &serde_json::Value, rust: &serde_json::Value) -> serde_json::Value {
-    const KEY: &str = "missed_quote_amount_was_set";
-    let mut expected = rails.clone();
-    for row in expected["changes"]["bots"].as_array_mut().unwrap() {
-        if row["before"]["transient_data"].get(KEY) != Some(&serde_json::Value::Null)
-            || !row["after"]["transient_data"].is_object()
-            || row["after"]["transient_data"].get(KEY).is_some() { continue; }
-        let mine = rust["changes"]["bots"].as_array().unwrap().iter().find(|b| b["id"] == row["id"]).unwrap();
-        assert_eq!(mine["before"]["transient_data"].get(KEY), Some(&serde_json::Value::Null), "R5 same initial NULL flag");
-        assert_eq!(mine["after"]["transient_data"].get(KEY), Some(&serde_json::Value::Null), "R5 failure cleanup preserves unrelated NULL flag");
-        row["after"]["transient_data"][KEY] = serde_json::Value::Null;
-    }
-    expected
-}
 
 type Outputs = Vec<(String, PathBuf, serde_json::Value, serde_json::Value)>;
 

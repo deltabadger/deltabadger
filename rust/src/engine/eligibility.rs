@@ -19,6 +19,23 @@ const SUPPORTED_FLAGS: [&str; 3] = ["limit_ordered", "smart_intervaled", "quote_
 pub const MAX_ASSETS: usize = 100;
 /// Bots::DcaMultiAsset::Allocatable::ALLOCATION_TOLERANCE: Rails starts a manual basket only this close to 100 %.
 const ALLOCATION_TOLERANCE: f64 = 0.001;
+/// The reason a basket's sliders are off 100 %. It refuses a working bot, never a rebalance: a stopped bot's sliders may be
+/// saved off 100 %, and Rails' DcaMultiAsset#rebalance_targets then reads no targets (nothing is due) unless a swap is
+/// already owed its buy, which still lands.
+pub const UNBALANCED: &str = "allocations: weights sum to";
+
+/// Bots::DcaMultiAsset::Allocatable#allocations_balanced?: a market-cap basket does not own its weights; a manual one's
+/// slider total (Array#sum) is within the tolerance of one. Not a basket: true.
+pub fn allocations_balanced(bot: &Bot) -> bool {
+    if bot.bot_type != "Bots::DcaMultiAsset" || bot.weighting() == "market_cap" { return true; }
+    let weights: Vec<f64> = bot.allocations().unwrap_or_default().into_iter().map(|(_, w)| w).collect();
+    (crate::ruby::float_sum(&weights) - 1.0).abs() <= ALLOCATION_TOLERANCE
+}
+
+/// bot_reasons, less the reason a rebalance does not care about (UNBALANCED): what refuses a rebalance's order.
+pub fn rebalance_reasons(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError> {
+    Ok(bot_reasons(c, bot)?.into_iter().filter(|r| !r.starts_with(UNBALANCED)).collect())
+}
 /// One rule set with the page and the write path (web/bot/mod.rs, web/figure/holdings.rs): a selling batch is in flight too.
 const PENDING_KEYS: [&str; 4] = ["rebalance_pending", "liquidation_pending", "liquidation_selling_since", "redeploy_pending"];
 
@@ -36,14 +53,34 @@ fn rails_work(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError> {
     // may still be working at the venue, whatever this bot's own status.
     let unknown: i64 = c.query_row("SELECT count(*) FROM transactions WHERE bot_id = ?1 AND (status IS NULL OR status NOT IN (0, 1, 2))", [bot.id], |r| r.get(0))?;
     if unknown > 0 { r.push(format!("{unknown} {UNKNOWN_STATUS}")); }
+    // Slice 6b: threshold rebalancing runs here for an Alpaca basket or index bot (rebalance.rs, run::run_rebalances). Its
+    // pending swap is admitted in a phase this engine resumes (selling, buying), or halted ambiguous by this engine itself
+    // (idle until the user resolves it after a handback); an ambiguous halt Rails wrote stays Rails'.
+    let rebalances = rebalances_here(c, bot)?;
     // Deliberately broader than Rails' automatic jobs: a false refusal costs one check message, a takeover mid-liquidation costs money.
-    for key in PENDING_KEYS { if bot.transient.get(key).is_some_and(|v| !v.is_null()) { r.push(key.to_string()); } }
+    for key in PENDING_KEYS {
+        if bot.transient.get(key).is_none_or(Value::is_null) { continue; }
+        if key == super::rebalance::PENDING_KEY && rebalances {
+            match super::rebalance::pending(&bot.transient) {
+                Ok(Some(p)) if [super::rebalance::PHASE_SELLING, super::rebalance::PHASE_BUYING].contains(&p.phase.as_str()) => continue,
+                Ok(Some(p)) if p.phase == super::rebalance::PHASE_AMBIGUOUS && bot.transient.get(super::rebalance::RUST_HALT_KEY).is_some_and(set) => continue,
+                Ok(None) => continue,
+                Ok(Some(p)) => { r.push(format!("rebalance_pending in phase {:?}", p.phase)); continue; }
+                Err(e) => { r.push(format!("{e:?}")); continue; }
+            }
+        }
+        r.push(key.to_string());
+    }
     // Bot::EvaluateRebalancersJob#candidates: REBALANCEABLE_TYPES, `.where.not(status: %i[deleted archived])`. A stopped bot still rebalances.
     let rebalanceable = matches!(bot.bot_type.as_str(), "Bots::DcaIndex" | "Bots::DcaMultiAsset") && !matches!(bot.status, BotStatus::Deleted | BotStatus::Archived);
-    if rebalanceable && bot.settings.get("rebalance_enabled").is_some_and(set) { r.push("rebalance_enabled".into()); }
+    if rebalanceable && bot.settings.get("rebalance_enabled").is_some_and(set) {
+        if !rebalances { r.push("rebalance_enabled".into()); }
+        else if let Err(e) = super::rebalance::threshold(&bot.settings) { r.push(format!("{e:?}")); }
+    }
     let non_regular: i64 = c.query_row(
-        "SELECT count(*) FROM transactions WHERE bot_id = ?1 AND transaction_type <> 'REGULAR' AND status = 0 AND external_status IN (0, 1)",
-        [bot.id], |r| r.get(0))?;
+        "SELECT count(*) FROM transactions WHERE bot_id = ?1 AND transaction_type <> 'REGULAR' AND NOT (?2 AND transaction_type = 'REBALANCE') \
+         AND status = 0 AND external_status IN (0, 1)",
+        params![bot.id, rebalances], |r| r.get(0))?;
     if non_regular > 0 { r.push(format!("{non_regular} waiting LIQUIDATION/REDEPLOY/REBALANCE order(s)")); }
     // Bot::LiquidationState#unresolved_liquidation_orders: ids the user attested to (liquidation_resolved_orders) are accounted for.
     // Ruby's `to_i`; an id this cannot read counts as unresolved.
@@ -65,6 +102,13 @@ fn rails_work(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError> {
     Ok(r)
 }
 
+/// Whether this engine rebalances the bot: an Alpaca basket or index bot (`rebalances_on`).
+fn rebalances_here(c: &Connection, bot: &Bot) -> Result<bool, EngineError> {
+    if !matches!(bot.bot_type.as_str(), "Bots::DcaIndex" | "Bots::DcaMultiAsset") { return Ok(false); }
+    let exchange: Option<String> = c.query_row("SELECT type FROM exchanges WHERE id = ?1", [bot.exchange_id], |r| r.get(0)).optional()?;
+    Ok(rebalances_on(exchange.as_deref()))
+}
+
 pub fn bot_reasons(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError> {
     bot_reasons_with(c, bot, &mut SplitRows::new())
 }
@@ -82,16 +126,15 @@ fn bot_reasons_with(c: &Connection, bot: &Bot, splits: &mut SplitRows) -> Result
     let index = bot.bot_type == "Bots::DcaIndex";
     if !index && bot.bot_type != "Bots::DcaMultiAsset" { r.push(format!("type {} (only DCA baskets and index bots)", bot.bot_type)); }
     let exchange: Option<String> = c.query_row("SELECT type FROM exchanges WHERE id = ?1", [bot.exchange_id], |r| r.get(0)).optional()?;
-    if !matches!(exchange.as_deref(), Some("Exchanges::Kraken" | "Exchanges::Alpaca" | "Exchanges::Binance")) {
-        r.push(format!("exchange {} (only Kraken, Binance and Alpaca)", exchange.as_deref().unwrap_or_default()));
-    }
-    // Kraken and Binance (spec E2, owner question 4): one-asset bots without an amount limit.
+    // Kraken and Binance: buying baskets (P1-T0 reverses spec E2's owner question 4) without an amount limit.
     let kraken = match exchange.as_deref() { Some("Exchanges::Kraken") => Some("Kraken"), Some("Exchanges::Binance") => Some("Binance"), _ => None };
     let alpaca = exchange.as_deref() == Some("Exchanges::Alpaca");
-    let members = if index { index_reasons(c, bot, alpaca, &mut r)? } else { composition_reasons(bot, kraken, &mut r) };
+    let members = if index { index_reasons(c, bot, &mut r)? } else { composition_reasons(bot, &mut r) };
+    let selling = bot.settings.get("direction").is_some_and(|v| v == "selling");
+    if let Some(why) = admission(exchange.as_deref(), index, members.len(), selling) { r.push(why.into()); }
     match bot.settings.get("direction") {
         None | Some(Value::Null) => {}, Some(v) if v == "buying" => {},
-        Some(v) if v == "selling" => sell_reasons(c, bot, index, &members, &mut r)?,
+        Some(v) if v == "selling" => sell_reasons(c, bot, alpaca, &mut r)?,
         Some(d) => r.push(format!("direction {d}")),
     }
     if let Some(obj) = bot.settings.as_object() {
@@ -125,7 +168,14 @@ fn bot_reasons_with(c: &Connection, bot: &Bot, splits: &mut SplitRows) -> Result
     member_reasons(c, bot, alpaca, &members, &mut r)?;
     // The walk must read; every recorded split applied (the last instant the figures represent), so no clock is read here.
     let sold: bool = c.query_row("SELECT EXISTS (SELECT 1 FROM transactions WHERE bot_id = ?1 AND side = 1)", [bot.id], |r| r.get(0))?;
-    if (alpaca || sold) && r.is_empty() { super::basket::walk(c, bot, DateTime::from_timestamp_nanos(i64::MAX))?; }
+    if (alpaca || sold) && r.is_empty() {
+        if let Err(e) = super::basket::walk(c, bot, DateTime::from_timestamp_nanos(i64::MAX)) {
+            // A swap whose pending sell or buy closed before its figures are known: admitted awaiting them. The DCA tick stands
+            // down while it is pending; the rebalance fire re-reads that row before anything else is decided.
+            if !super::rebalance::awaiting_figures(c, bot)? { return Err(e); }
+            return Ok(r);
+        }
+    }
     if alpaca && r.is_empty() { super::accounting::validate_stored_amounts(&bot.settings, &bot.transient)?; super::accounting::quote_amount_available_num(c, bot)?; }
     Ok(r)
 }
@@ -141,15 +191,36 @@ fn price_rule_reason(bot: &Bot, key: &str, value: &Value) -> Option<String> {
     }
 }
 
-/// Selling (slice 6a): a one-asset basket on Kraken, Binance or Alpaca (one_asset_sell_orders_data), sized from the sell
-/// sentence and scheduled on the sell cadence. Refused: an index bot (not reversible), a wider basket (the ranked DCA-out is
-/// 6b), rows on another venue (Rails caps such a sale at this venue's own units, which this build does not port), and a
-/// sell cadence no schedule here can hold.
-fn sell_reasons(c: &Connection, bot: &Bot, index: bool, members: &[i64], r: &mut Vec<String>) -> Result<(), EngineError> {
-    if index { r.push("selling (an index bot)".into()); return Ok(()); }
-    if members.len() != 1 { r.push(format!("selling with {} assets (only one-asset baskets sell in this engine yet)", members.len())); }
+/// Which bots this build runs, by venue, class and member count: the one rule the engine's guard and the bot pages
+/// (web::bot::refusal) both apply, so a page is never served for a bot the engine refuses. Kraken and Binance take buying
+/// baskets of any size (P1-T0); index bots run on Alpaca only; an index bot never sells (not reversible); a wider basket
+/// sells on Alpaca only (6b, the ranked DCA-out), one asset elsewhere (6a). Rebalancing is Alpaca's too (`rebalances_on`).
+/// What else a bot needs (its amount limit on Kraken/Binance, market-cap weights) is each side's own named reason.
+pub fn admission(exchange: Option<&str>, index: bool, members: usize, selling: bool) -> Option<&'static str> {
+    match exchange {
+        Some("Exchanges::Alpaca") => {}
+        Some("Exchanges::Kraken" | "Exchanges::Binance") if index => return Some("an index bot on Kraken or Binance (only on Alpaca)"),
+        Some("Exchanges::Kraken" | "Exchanges::Binance") => {}
+        _ => return Some("a bot on an exchange other than Alpaca, Kraken and Binance"),
+    }
+    match (selling, index) {
+        (true, true) => Some("an index bot that sells"),
+        (true, false) if members != 1 && !rebalances_on(exchange) => Some("a basket of several assets that sells"),
+        _ => None,
+    }
+}
+
+/// The venue whose baskets and index bots this engine rebalances and sells member by member (6b): Alpaca. Kraken and
+/// Binance rebalancing stays Rails' ("rebalance_enabled").
+pub fn rebalances_on(exchange: Option<&str>) -> bool { exchange == Some("Exchanges::Alpaca") }
+
+/// Selling: a one-asset basket on Kraken, Binance or Alpaca (slice 6a, one_asset_sell_orders_data), or a wider Alpaca basket
+/// (6b, the ranked DCA-out of get_sell_orders_data), sized from the sell sentence and scheduled on the sell cadence. Refused
+/// (beyond `admission`): rows on another venue outside Alpaca (there live_free_balance caps a sale at this venue's own
+/// units), and a sell cadence no schedule here can hold.
+fn sell_reasons(c: &Connection, bot: &Bot, alpaca: bool, r: &mut Vec<String>) -> Result<(), EngineError> {
     let foreign: i64 = c.query_row("SELECT count(*) FROM transactions WHERE bot_id = ?1 AND status = 0 AND exchange_id != ?2", params![bot.id, bot.exchange_id], |r| r.get(0))?;
-    if foreign > 0 { r.push(format!("selling with {foreign} order(s) placed on another venue")); }
+    if foreign > 0 && !alpaca { r.push(format!("selling with {foreign} order(s) placed on another venue")); }
     if let Some(v) = bot.settings.get("sell_interval").filter(|v| !v.is_null() && v.as_str().is_none_or(|s| !s.trim().is_empty())) {
         if v.as_str().and_then(super::schedule::Interval::parse).is_none() { r.push(format!("sell_interval {v}")); }
     }
@@ -218,9 +289,9 @@ fn start_time_reason(c: &Connection, bot: &Bot) -> Result<Option<String>, Engine
                     local.format("%H:%M:%S"), bot.settings.get("start_time_of_day"))))
 }
 
-/// settings.allocations: what Rails would start, within what this build ports (manual weights, 1..MAX_ASSETS members;
-/// Kraken keeps one member). Returns the member asset ids in settings order.
-fn composition_reasons(bot: &Bot, kraken: Option<&str>, r: &mut Vec<String>) -> Vec<i64> {
+/// settings.allocations: what Rails would start, within what this build ports (manual weights, 1..MAX_ASSETS members on
+/// every venue). Returns the member asset ids in settings order.
+fn composition_reasons(bot: &Bot, r: &mut Vec<String>) -> Vec<i64> {
     if bot.weighting() != "manual" { r.push(format!("weighting {} (market-cap weights are not supported by this engine yet)", bot.weighting())); }
     let Some(a) = bot.allocations() else {
         r.push("allocations: an asset id or a weight this build does not read".into());
@@ -228,13 +299,9 @@ fn composition_reasons(bot: &Bot, kraken: Option<&str>, r: &mut Vec<String>) -> 
     };
     if a.is_empty() { r.push("allocations: none".into()); }
     if a.len() > MAX_ASSETS { r.push(format!("allocations: {} assets (at most {MAX_ASSETS})", a.len())); }
-    if let Some(venue) = kraken.filter(|_| a.len() > 1) { r.push(format!("allocations: {} assets ({venue}: only one-asset bots are supported by this engine yet)", a.len())); }
-    // Bots::DcaMultiAsset::Allocatable#allocations_balanced?. The tolerance dwarfs the difference between this plain sum and
-    // Ruby's compensated one.
-    let total: f64 = a.iter().map(|(_, w)| w).sum();
-    if a.iter().any(|(_, w)| *w < 0.0) || (total - 1.0).abs() > ALLOCATION_TOLERANCE {
-        r.push(format!("allocations: weights sum to {total}, not 1"));
-    }
+    // Bots::DcaMultiAsset::Allocatable#allocations_balanced?.
+    if a.iter().any(|(_, w)| *w < 0.0) { r.push("allocations: a negative weight".into()); }
+    if !allocations_balanced(bot) { r.push(format!("{UNBALANCED} {}, not 1", crate::ruby::float_sum(&a.iter().map(|(_, w)| *w).collect::<Vec<_>>()))); }
     // Keys that name one id ("7", "07") would make the basket carry one asset as two members.
     let ids: Vec<i64> = a.into_iter().map(|(id, _)| id).collect();
     for (i, id) in ids.iter().enumerate() {
@@ -291,6 +358,12 @@ fn order_kind_reasons(c: &Connection, bot: &Bot, alpaca: bool, r: &mut Vec<Strin
 /// those special_reasons names.
 fn special_row_reasons(c: &Connection, bot: &Bot, alpaca: bool, r: &mut Vec<String>) -> Result<(), EngineError> {
     if alpaca && bot.bot_type == "Bots::DcaIndex" { return special_reasons(c, bot, r); }
+    // A rebalancing Alpaca basket (6b): its REBALANCE rows are read as the index bot's are; the walk books them.
+    if alpaca && bot.bot_type == "Bots::DcaMultiAsset" {
+        let other: i64 = c.query_row("SELECT count(*) FROM transactions WHERE bot_id = ?1 AND transaction_type NOT IN ('REGULAR', 'REBALANCE')", [bot.id], |r| r.get(0))?;
+        if other > 0 { r.push(format!("{other} LIQUIDATION/REDEPLOY row(s) in its history")); }
+        return special_reasons(c, bot, r);
+    }
     let other: i64 = c.query_row("SELECT count(*) FROM transactions WHERE bot_id = ?1 AND transaction_type <> 'REGULAR'", [bot.id], |r| r.get(0))?;
     if other > 0 { r.push(format!("{other} REBALANCE/LIQUIDATION/REDEPLOY row(s) in its history")); }
     Ok(())
@@ -401,8 +474,15 @@ fn install(c: &Connection, mut items: Option<&mut std::collections::BTreeSet<Str
             if let Some(i) = items.as_deref_mut() { i.extend(reasons.iter().map(|r| format!("bot {id}: {r}"))); member_findings(c, id, i)?; }
             continue;
         }
-        let outstanding: i64 = c.query_row("SELECT count(*) FROM transactions WHERE bot_id = ?1 AND status = 0 AND external_status IN (0, 1)", [id], |r| r.get(0))?;
+        // UNBALANCED alone refuses ticking only: a stopped bot does not tick, and its swap still places, polls and settles
+        // (Rails' rebalance_targets: `rebalance_pending? || allocations_balanced?`). Its REBALANCE orders are this engine's.
+        let rebalances = rebalances_here(c, &bot)?;
+        let swap_only = rebalances && reasons.iter().all(|r| r.starts_with(UNBALANCED));
+        let outstanding: i64 = c.query_row("SELECT count(*) FROM transactions WHERE bot_id = ?1 AND status = 0 AND external_status IN (0, 1) \
+                                            AND NOT (?2 AND transaction_type = 'REBALANCE')", params![id, swap_only], |r| r.get(0))?;
         let mut work = rails_work(c, &bot)?;
+        // A stopped bot still rebalances (run::run_rebalances), so whatever else it carries must be within the slice.
+        if super::rebalance::candidate(&bot) && rebalances && !swap_only { work.push("rebalancing".into()); }
         if outstanding > 0 { work.push(format!("{outstanding} outstanding order(s)")); }
         if !work.is_empty() {
             report.problems.push(format!("bot {id} ({}) has work only the full app handles ({}); outside the slice: {}", bot.status.label(), work.join(", "), reasons.join(", ")));
@@ -578,9 +658,8 @@ fn reconciling(tx: &Connection) -> Result<Result<(), Refusal>, EngineError> {
 /// Bots::DcaIndex within what Plan 2d ports: Alpaca, USD, a data-api category index this install holds (MarketData.get_top_coins
 /// reads the local row only on a data-api install; on a CoinGecko one it calls CoinGecko live), a readable count and
 /// flattening. Returns the assets of every bot_index_assets row, in or out of the index, for member_reasons.
-fn index_reasons(c: &Connection, bot: &Bot, alpaca: bool, r: &mut Vec<String>) -> Result<Vec<i64>, EngineError> {
+fn index_reasons(c: &Connection, bot: &Bot, r: &mut Vec<String>) -> Result<Vec<i64>, EngineError> {
     if super::provider::config(c)?.is_none() { r.push("index requires a configured deltabadger market-data provider".into()); }
-    if !alpaca { r.push("index bot (only on Alpaca)".into()); }
     if model::quote_symbol(c, bot)? != "USD" { r.push(format!("quote {} (Alpaca: only USD)", model::quote_symbol(c, bot)?)); }
     if bot.index_type() != Some("category") { r.push(format!("index_type {:?} (only a data-api category index)", bot.index_type())); }
     match bot.index_category_id() {

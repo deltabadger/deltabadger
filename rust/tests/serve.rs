@@ -1708,7 +1708,7 @@ fn a_bot_row_is_read_as_the_pages_need_it_and_refused_when_this_build_cannot_ren
         ("UPDATE bots SET type = 'Bots::Signal'", "a bot of a type this build does not render"),
         ("UPDATE bots SET transient_data = '{\"rebalance_pending\":{\"phase\":\"selling\"}}'", "a rebalance, liquidation or redeploy in progress"),
         ("UPDATE exchanges SET type = 'Exchanges::Kucoin'", "a bot on an exchange other than Alpaca, Kraken and Binance"),
-        ("UPDATE exchanges SET type = 'Exchanges::Kraken'; UPDATE bots SET type = 'Bots::DcaIndex'", "a Kraken or Binance bot other than a one-asset basket"),
+        ("UPDATE exchanges SET type = 'Exchanges::Kraken'; UPDATE bots SET type = 'Bots::DcaIndex'", "an index bot on Kraken or Binance (only on Alpaca)"),
         // A ticker's decimals size the rounding: one past the bound, a negative one and the largest number the column holds.
         ("UPDATE tickers SET base_decimals = 15", "a ticker with more decimals than this build rounds to"),
         ("UPDATE tickers SET quote_decimals = -1", "a ticker with more decimals than this build rounds to"),
@@ -1725,6 +1725,15 @@ fn a_bot_row_is_read_as_the_pages_need_it_and_refused_when_this_build_cannot_ren
     assert!(unnamed.label_unsaved && !unnamed.label.trim().is_empty(), "named in memory: {:?}", unnamed.label);
     assert_eq!(c.query_row("SELECT label FROM bots WHERE id = ?1", [id], |r| r.get::<_, String>(0)).unwrap(), "  ", "and not saved");
     c.execute_batch("ROLLBACK TO unnamed; RELEASE unnamed;").unwrap();
+    // A Kraken or Binance basket of several assets is served as the engine trades it (P1-T1); an index bot there is not.
+    for venue in ["Exchanges::Kraken", "Exchanges::Binance"] {
+        c.execute_batch(&format!("SAVEPOINT venue; UPDATE exchanges SET type = '{venue}'; \
+                                  UPDATE bots SET settings = json_set(settings, '$.allocations', json_object('{}', 0.6, '999', 0.4));", seeded.btc)).unwrap();
+        assert_eq!(refusal(), None, "{venue} basket");
+        c.execute_batch("UPDATE bots SET type = 'Bots::DcaIndex'").unwrap();
+        assert_eq!(refusal(), Some("an index bot on Kraken or Binance (only on Alpaca)"), "{venue} index");
+        c.execute_batch("ROLLBACK TO venue; RELEASE venue;").unwrap();
+    }
     // At the bound the bot is served, and what the pages compute from the decimals is computed.
     c.execute_batch(&format!("SAVEPOINT bound; UPDATE tickers SET base_decimals = {0}, quote_decimals = {0};", bot::MAX_DECIMALS)).unwrap();
     assert_eq!((bot::MAX_DECIMALS, refusal()), (14, None));
@@ -1770,8 +1779,14 @@ fn a_bot_row_is_read_as_the_pages_need_it_and_refused_when_this_build_cannot_ren
     assert_eq!(bot::refusal(c, id, Some(false), true, bot::For::Settings).unwrap(), None);
     assert_eq!(bot::refusal(c, id, Some(false), true, bot::For::FiguresPage).unwrap(), None);
     assert_eq!(refusal(), Some(bot::REALISED_WITHOUT_FIGURES));
-    // A basket with an index bot's special rows is still refused, by the page and the settings; the feed does not ask.
-    for (side, kind) in [(1, "REBALANCE"), (1, "LIQUIDATION"), (0, "REDEPLOY")] {
+    // A settled REBALANCE sell on an Alpaca basket is read by the engine's walk since 6b T8: the settings serve it, and the page
+    // refuses it as it refuses any sale.
+    order(1, "REBALANCE");
+    assert_eq!(bot::refusal(c, id, Some(false), true, bot::For::Settings).unwrap(), None);
+    assert_eq!(bot::refusal(c, id, Some(false), true, bot::For::Page).unwrap(), Some(bot::REALISED_WITHOUT_FIGURES));
+    c.execute("DELETE FROM transactions WHERE transaction_type = 'REBALANCE'", []).unwrap();
+    // A basket's LIQUIDATION and REDEPLOY rows are still refused, by the page and the settings; the feed does not ask.
+    for (side, kind) in [(1, "LIQUIDATION"), (0, "REDEPLOY")] {
         order(side, kind);
         for asked in [bot::For::Page, bot::For::Settings] {
             assert_eq!(bot::refusal(c, id, Some(false), true, asked).unwrap(), Some(bot::UNREAD_ORDERS), "{kind}");

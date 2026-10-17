@@ -475,3 +475,81 @@ fn an_exhausted_buy_cap_never_trims_a_sell_at_placement() {
     let intent = placement::begin(&o.primary, &bot, &plan, &FixedClock(at(T0))).unwrap();
     assert_eq!((intent.plan.volume.clone(), intent.plan.quote_amount.clone()), (plan.volume.clone(), plan.quote_amount.clone()), "untrimmed");
 }
+
+// ---- 6b T1: a REBALANCE order is not a contribution (Bot::OrderCreator#order_identity_values; Rails scopes the carry, the
+// spend cap and the pending-buy spending to 'REGULAR').
+
+fn buy_plan(o: &store::Opened, bot: &model::Bot, kind: amount::TxKind) -> amount::OrderPlan {
+    let ticker = model::ticker_for(&o.primary, bot).unwrap().unwrap();
+    let amount::Sizing::Place(mut plan) = amount::size(bot, &ticker, &bd("60"), &bd("64000"), deltabadger::engine::venue_rules::ALPACA.minimum_logic).unwrap() else { panic!() };
+    plan.kind = kind;
+    plan
+}
+
+#[test]
+fn an_unresolved_rebalance_buy_intent_is_not_counted_as_buy_spending() {
+    let (_d, o, s) = common::install_alpaca();
+    let id = seed::insert_bot(&o.primary, &s, &limited(json!(100.0)));
+    let set = |kind: &str| o.primary.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.rust_placement', json(?1)) WHERE id = ?2",
+        rusqlite::params![json!({ "quote_amount": "60", "side": "buy", "transaction_type": kind }).to_string(), id]).unwrap();
+    set("REBALANCE");
+    assert_eq!(available(&o, id), Some(bd("100")), "an owed rebalance buy spends none of the DCA cap");
+    assert_eq!(amount::exact_cap_available(&o.primary, &model::load_bot(&o.primary, id).unwrap()).unwrap(), Some(bd("100")));
+    set("REGULAR");
+    assert_eq!(available(&o, id), Some(bd("40")));
+}
+
+#[test]
+fn a_stopped_bot_with_an_exhausted_dca_cap_still_sizes_an_owed_rebalance_buy() {
+    let (_d, o, s) = common::install_alpaca();
+    let id = seed::insert_bot(&o.primary, &s, &BotSpec { status: BotStatus::Stopped as i64, ..limited(json!(60.0)) });
+    seed::insert_tx(&o.primary, &s, id, &closed("OTX-1", "60"));
+    let bot = model::load_bot(&o.primary, id).unwrap();
+    assert_eq!(amount::exact_cap_available(&o.primary, &bot).unwrap(), Some(BigDec::zero()), "the DCA cap is spent");
+    let rebalance = buy_plan(&o, &bot, amount::TxKind::Rebalance);
+    let amount::CapGuard::Place(placed) = amount::guard_exact_cap(&o.primary, &bot, &rebalance).unwrap() else { panic!("a rebalance buy is not the DCA cap's") };
+    assert_eq!((placed.volume, placed.quote_amount, placed.kind), (rebalance.volume.clone(), rebalance.quote_amount.clone(), amount::TxKind::Rebalance));
+    assert!(!matches!(amount::guard_exact_cap(&o.primary, &bot, &buy_plan(&o, &bot, amount::TxKind::Regular)), Ok(amount::CapGuard::Place(_))),
+        "a REGULAR buy is still refused by the spent cap");
+}
+
+#[test]
+fn a_rebalance_row_is_written_as_rebalance_and_its_fill_owes_the_carry_and_the_cap_nothing() {
+    let (_d, o, s) = common::install_alpaca();
+    let id = seed::insert_bot(&o.primary, &s, &limited(json!(100.0)));
+    let bot = model::load_bot(&o.primary, id).unwrap();
+    let now = at("2026-09-01T10:00:01Z");
+    let owed = amount::pending_quote_amount(&o.primary, &bot, now.timestamp_micros()).unwrap();
+    for (kind, external_id) in [(amount::TxKind::Rebalance, "OTX-R"), (amount::TxKind::Regular, "OTX-G")] {
+        let tx = o.primary.unchecked_transaction().unwrap();
+        let row = amount::write_accepted_order(&tx, &bot, &buy_plan(&o, &bot, kind), external_id, now, None).unwrap();
+        tx.commit().unwrap();
+        o.primary.execute("UPDATE transactions SET external_status = 2, quote_amount_exec = 60, amount_exec = 0.0009375 WHERE id = ?1", [row]).unwrap();
+        let t: String = o.primary.query_row("SELECT transaction_type FROM transactions WHERE id = ?1", [row], |r| r.get(0)).unwrap();
+        assert_eq!(t, kind.as_str());
+        let bot = model::load_bot(&o.primary, id).unwrap();
+        let (left, pending) = (available(&o, id), amount::pending_quote_amount(&o.primary, &bot, now.timestamp_micros()).unwrap());
+        if kind == amount::TxKind::Rebalance {
+            assert_eq!((left, pending), (Some(bd("100")), owed.clone()), "a rebalance fill moves neither the cap nor the carry");
+        } else {
+            assert_eq!(left, Some(bd("40")));
+            assert!(pending < owed, "a REGULAR fill is a contribution");
+        }
+    }
+}
+
+/// Transaction's after_commit runs handle_quote_amount_limit_update for any BUY whose executed quote changed, a REBALANCE leg
+/// included; the re-check itself counts REGULAR rows only.
+#[tokio::test(flavor = "current_thread")]
+async fn a_rebalance_buy_fill_rechecks_the_cap_as_any_buy_fill_does() {
+    for (regular_spent, stopped) in [(false, false), (true, true)] {
+        let (_d, o, s) = common::install_alpaca();
+        let id = seed::insert_bot(&o.primary, &s, &limited(json!(60.0)));
+        if regular_spent { seed::insert_tx(&o.primary, &s, id, &closed("OTX-1", "60")); }
+        let order = seed::insert_tx(&o.primary, &s, id, &tx(0, Some(0), Some("OTX-P"), 0, None, Some("60"), Some("64000"), None, None, IN));
+        o.primary.execute("UPDATE transactions SET transaction_type = 'REBALANCE' WHERE id = ?1", [order]).unwrap();
+        let t = script(json!({ "GET /v2/orders/OTX-P": [filled("OTX-P", "0.0009375")] }));
+        polling::follow_up(&o.primary, &venue(&t), id, order, at("2026-09-01T10:00:06Z")).await.unwrap();
+        assert_eq!(model::load_bot(&o.primary, id).unwrap().status == BotStatus::Stopped, stopped, "REGULAR spent: {regular_spent}");
+    }
+}

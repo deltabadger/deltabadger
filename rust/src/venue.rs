@@ -113,6 +113,7 @@ impl<V:Venue> Venue for &V {
     async fn free_base_balance(&self,t:&Ticker)->Result<BigDec,VenueError>{(*self).free_base_balance(t).await}
     async fn free_base_identified<F>(&self,t:&Ticker,catalog:F)->Result<BigDec,VenueError> where F:FnOnce()->Result<Catalog,VenueError>{(*self).free_base_identified(t,catalog).await}
     async fn settled_quote_balance<F>(&self,t:&Ticker,catalog:F)->Result<BigDec,VenueError> where F:FnOnce()->Result<Catalog,VenueError>{(*self).settled_quote_balance(t,catalog).await}
+    async fn tickers_prices(&self,symbols:&[String])->Result<Vec<(String,serde_json::Value)>,VenueError>{(*self).tickers_prices(symbols).await}
     async fn cancel(&self,txid:&str)->Result<(),VenueError>{(*self).cancel(txid).await}
 }
 impl<V:Venue> Venue for Handle<V> {
@@ -132,6 +133,7 @@ impl<V:Venue> Venue for Handle<V> {
     async fn free_base_balance(&self,t:&Ticker)->Result<BigDec,VenueError>{self.venue.free_base_balance(t).await}
     async fn free_base_identified<F>(&self,t:&Ticker,catalog:F)->Result<BigDec,VenueError> where F:FnOnce()->Result<Catalog,VenueError>{self.venue.free_base_identified(t,catalog).await}
     async fn settled_quote_balance<F>(&self,t:&Ticker,catalog:F)->Result<BigDec,VenueError> where F:FnOnce()->Result<Catalog,VenueError>{self.venue.settled_quote_balance(t,catalog).await}
+    async fn tickers_prices(&self,symbols:&[String])->Result<Vec<(String,serde_json::Value)>,VenueError>{self.venue.tickers_prices(symbols).await}
     async fn cancel(&self,txid:&str)->Result<(),VenueError>{self.venue.cancel(txid).await}
 }
 /// Apply one immutable handle producer to success and failure values, never from a post-call lookup.
@@ -205,6 +207,10 @@ pub trait Venue {
     /// free). Absent is 0; unreadable is `Err`, never 0.
     async fn settled_quote_balance<F>(&self, _ticker: &Ticker, _catalog: F) -> Result<BigDec, VenueError>
     where F: FnOnce() -> Result<Catalog, VenueError> { Err(VenueError::Rejected(vec!["the settled quote balance is not connected for this venue".into()])) }
+    /// Exchange#get_tickers_prices(symbols:): each priced code's last price as the venue's JSON holds it (null included),
+    /// for Bot::Composition::Measurable#metrics_with_current_prices. A failed answer is `Rejected` (the figures go stale), a
+    /// transport failure `Transient` (Rails raises it to the job's retry).
+    async fn tickers_prices(&self, _symbols: &[String]) -> Result<Vec<(String, serde_json::Value)>, VenueError> { Err(VenueError::Rejected(vec!["bulk prices are not connected for this venue".into()])) }
     /// Exchange#cancel_order: best effort, as Bot::Reversible#cancel_unfilled_orders uses it. `Ok` only when the venue
     /// accepted the cancel; anything else is the venue's (or the transport's) failure.
     async fn cancel(&self, _txid: &str) -> Result<(), VenueError> { Err(VenueError::Rejected(vec!["cancel is not connected for this venue".into()])) }

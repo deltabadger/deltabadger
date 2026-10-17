@@ -7,8 +7,8 @@
     "app/helpers/locale_helper.rb": "827f9f4c25c1003ecfb10094502e6ba4a38a396323601e5448b1bdc49c34e678",
     "app/models/smtp_settings.rb": "17925ff7524d72808a7ebd6132cfacde62cc4910053fcb5180861ae1eb389b7d",
     "app/mailers/application_mailer.rb": "22b6a6b5b4125ce54553936c08f0a9a38e3e2a5b24ba82773b5e750b347f6aea",
-    "app/models/exchanges/alpaca.rb": "657631b2764487fe31682892b1d6ac7e76d57c19200bc4850e55d0343c068e0f",
-    "app/services/account_transaction_sync.rb": "48841d205755284cf0c3423fff7752943c2f9016e059e8ec25f4676bfa334931",
+    "app/models/exchanges/alpaca.rb": "75dec9187bd8b25f5a54d1dec62943f6de8ced4a8bc72242a0ad150fdd3f1381",
+    "app/services/account_transaction_sync.rb": "b9c77c65b07bdedb77dafd2b13dc222ca8fd29b910b9ee3b7c37537a490dcba7",
     "app/views/settings/widgets/_rest.html.erb": "a581e7a1ff2169a131dc0b783b738e60e60436ccf3946d8de71e07bc72222ce3",
     "app/views/settings/widgets/_market_data.html.erb": "7f8f206ac477b908b7ef0e42c9f961c4314869820ea5d2c4b3fb40987f5f30d1",
     "app/views/settings/widgets/_email_notifications.html.erb": "d9e7d42df17eba67915b83262ac9bb93d73430069f074858477c9cd4b76b7b22"

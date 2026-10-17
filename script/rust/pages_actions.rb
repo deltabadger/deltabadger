@@ -16,6 +16,7 @@ module Pages
         ACTION_JSON.fetch(table, []).each do |column|
           row[column] = JSON.parse(row[column]) if row[column].is_a?(String)
         end
+        decrypted!(table, row)
       end
       [table, rows]
     end
@@ -49,7 +50,7 @@ module Pages
     headers['Accept'] = 'text/html' if extra['html']
     headers['Accept'] = 'text/html' if action == 'modal' || action.end_with?('_modal')
     { 'method' => method, 'path' => path, 'form' => fields, 'csrf' => 'header',
-      'headers' => headers, 'action_snapshot' => true }
+      'headers' => headers, 'action_snapshot' => true }.merge(extra.slice('raw_rows', 'raw_clock'))
   end
 end
 
@@ -98,11 +99,13 @@ module Pages
       'time_bad'=>{'start_time_enabled'=>'1','start_time_mode'=>'date','start_at'=>'nonsense'},
       'allocations'=>{'allocations'=>{'2'=>'20','3'=>'80'}},
       'normalize'=>{'allocations'=>{'2'=>'20','3'=>'20'},'normalize_allocations'=>'true'},
-      'remove'=>{'remove_asset_id'=>'3'}, 'add'=>{'add_asset_id'=>'4'},
+      'remove'=>{'remove_asset_id'=>'3'},
       'quote_bad'=>{'quote_asset_id'=>'99999'}, 'exchange_bad'=>{'exchange_id'=>'99999'},
       'exchange_ibkr'=>{'exchange_id'=>'2'},'trigger'=>{'price_limited'=>'1','price_limit_mode'=>'above','price_limit'=>'100'},
       'unknown'=>{'status'=>'3','user_id'=>'100','direction'=>'selling','nonsense'=>'foo'}
     }.each { |n,f| add.call("update_#{n}",'update',f,{'kind'=>'basket'}) }
+    # A structural edit, held to the stored text of the whole bot and member rows.
+    add.call('update_add', 'update', { 'add_asset_id' => '4' }, { 'kind' => 'basket' }, { 'raw_rows' => { 'bots' => '*', 'bot_index_assets' => '*' } })
     add.call('index_unchanged_slider','update',{'num_coins'=>'5','num_coins_rendered'=>'5','num_coins_ceiling'=>'5'},{'kind'=>'index'})
     add.call('index_changed_slider','update',{'num_coins'=>'5','num_coins_rendered'=>'10','num_coins_ceiling'=>'5'},{'kind'=>'index'})
     add.call('index_bad_flat','update',{'allocation_flattening'=>'1.1'},{'kind'=>'index'})
@@ -144,7 +147,8 @@ module Pages
 
     # One-asset baskets on Kraken and Binance, in their venues' own quotes.
     %w[kraken binance].each do |kind|
-      add.call("venue_#{kind}_amount", 'update', { 'quote_amount' => '37.25' }, { 'kind' => kind })
+      add.call("venue_#{kind}_amount", 'update', { 'quote_amount' => '37.25' }, { 'kind' => kind },
+               { 'raw_rows' => { 'bots' => %w[id settings transient_data] } })
       add.call("venue_#{kind}_modal", 'modal', {}, { 'kind' => kind })
       add.call("venue_#{kind}_start", 'start?start_fresh=true', {}, { 'kind' => kind })
       add.call("venue_#{kind}_stop", 'stop', {}, { 'kind' => kind, 'columns' => { 'status' => 'scheduled' } })

@@ -117,20 +117,19 @@ fn deferred_classes_and_existing_refusals_still_roll_back() {
         ("UPDATE bots SET settings=json_set(settings,'$.start_time_enabled',json('true'),'$.start_at','2026-01-06T12:00:00Z')","start_time_enabled"),
         ("UPDATE bots SET settings=json_set(settings,'$.price_drop_limited',json('true'))","price_drop_limited"),
         ("UPDATE bots SET settings=json_set(settings,'$.indicator_limited',json('true'))","indicator_limited"),
-        // 6a sells for a one-asset basket only: this two-asset Alpaca basket's selling stays deferred (6b).
-        ("UPDATE bots SET settings=json_set(settings,'$.direction','selling')","selling with 2 assets"),
         ("UPDATE bots SET settings=json_set(settings,'$.direction','sideways')","direction \"sideways\""),
         ("UPDATE bots SET settings=json_set(settings,'$.weighting','market_cap')","weighting"),
         ("UPDATE bots SET transient_data=json_set(transient_data,'$.liquidation_pending',json('{}'))","liquidation_pending"),
         ("UPDATE bots SET transient_data=json_set(transient_data,'$.redeploy_pending',json('{}'))","redeploy_pending"),
-        ("UPDATE bots SET transient_data=json_set(transient_data,'$.rebalance_pending',json('{}'))","rebalance_pending"),
-        ("UPDATE bots SET settings=json_set(settings,'$.rebalance_enabled',json('true'))","rebalance_enabled"),
+        // 6b T8: an Alpaca basket rebalances here (admitted below); a halt Rails wrote and a threshold it cannot read do not.
+        ("UPDATE bots SET transient_data=json_set(transient_data,'$.rebalance_pending',json('{\"phase\":\"ambiguous\"}'))","rebalance_pending in phase"),
+        ("UPDATE bots SET settings=json_set(settings,'$.rebalance_enabled',json('true'),'$.rebalance_threshold',json('[1]'))","rebalance_threshold"),
         ("UPDATE users SET wash_sale_enabled=1","wash_sale"),
         ("UPDATE transactions SET external_id='imported_test' WHERE side=1","imported"),
         ("UPDATE transactions SET base_asset_id=NULL WHERE side=1","without base_asset_id"),
-        ("UPDATE transactions SET transaction_type='REBALANCE' WHERE side=1","REBALANCE/LIQUIDATION/REDEPLOY"),
-        ("UPDATE transactions SET transaction_type='REDEPLOY' WHERE side=0","REBALANCE/LIQUIDATION/REDEPLOY"),
-        ("UPDATE transactions SET transaction_type='LIQUIDATION' WHERE side=1","REBALANCE/LIQUIDATION/REDEPLOY"),
+        ("UPDATE transactions SET transaction_type='REBALANCE',external_status=4 WHERE side=1","abandoned REBALANCE"),
+        ("UPDATE transactions SET transaction_type='REDEPLOY' WHERE side=0","LIQUIDATION/REDEPLOY row(s) in its history"),
+        ("UPDATE transactions SET transaction_type='LIQUIDATION' WHERE side=1","LIQUIDATION/REDEPLOY row(s) in its history"),
         ("UPDATE transactions SET transaction_type='LIQUIDATION',external_status=1 WHERE side=1","waiting LIQUIDATION"),
         ("UPDATE transactions SET transaction_type='LIQUIDATION',external_status=4 WHERE side=1","unresolved abandoned LIQUIDATION"),
     ] {
@@ -142,6 +141,20 @@ fn deferred_classes_and_existing_refusals_still_roll_back() {
         assert!(error.reason().contains(reason),"{reason}: {error:?}");
         drop(tx);
         assert!(eligibility::check_install(&o.primary).unwrap().problems.is_empty(),"{reason}: rollback");
+    }
+    // What 6b T8 lifted for an Alpaca basket: the rule, a swap pending in a phase this engine resumes (an empty hash is no
+    // swap, Rails' `present?`), and a settled REBALANCE row the walk books.
+    for sql in [
+        "UPDATE bots SET settings=json_set(settings,'$.rebalance_enabled',json('true'))",
+        "UPDATE bots SET transient_data=json_set(transient_data,'$.rebalance_pending',json('{}'))",
+        "UPDATE bots SET transient_data=json_set(transient_data,'$.rebalance_pending',json('{\"phase\":\"buying\",\"remaining_quote_amount\":\"10.0\"}'))",
+        "UPDATE transactions SET transaction_type='REBALANCE' WHERE side=1",
+    ] {
+        let tx=model::immediate(&o.primary).unwrap();
+        tx.execute_batch(sql).unwrap();
+        let report=eligibility::check_install(&tx).unwrap();
+        assert!(report.problems.is_empty(),"{sql}: {:?}",report.problems);
+        eligibility::guard(&tx,cipher(),Some(id)).unwrap_or_else(|e| panic!("{sql}: {e:?}"));
     }
 }
 
@@ -171,10 +184,11 @@ async fn every_remaining_eligibility_branch_has_a_named_witness() {
     let dynamic = [
         (format!("UPDATE bots SET settings=json_set(settings,'$.allocations',json('{{\"{}\":0.5,\"0{}\":0.5}}'))",ids["AAA"],ids["AAA"]),"listed more than once"),
         (format!("UPDATE bots SET settings=json_set(settings,'$.allocations',json('{}'))",Value::Object(many)),"101 assets"),
+        (format!("UPDATE bots SET settings=json_set(settings,'$.allocations',json('{{\"{}\":1.5,\"{}\":-0.5}}'))",ids["AAA"],ids["BBB"]),"a negative weight"),
     ];
     let fixed = [
         ("UPDATE bots SET type='Bots::Unsupported'","type Bots::Unsupported"),
-        ("UPDATE exchanges SET type='Exchanges::Kucoin'","exchange Exchanges::Kucoin"),
+        ("UPDATE exchanges SET type='Exchanges::Kucoin'","a bot on an exchange other than Alpaca, Kraken and Binance"),
         ("UPDATE bots SET settings=json_set(settings,'$.smart_intervaled',json('true'))","smart interval amount missing"),
         ("UPDATE bots SET settings=json_set(settings,'$.limit_ordered',json('true'),'$.limit_order_pcnt_distance','broken')","limit_order_pcnt_distance"),
         ("UPDATE bots SET started_at=NULL","started_at missing"),
@@ -188,7 +202,6 @@ async fn every_remaining_eligibility_branch_has_a_named_witness() {
         ("UPDATE exchanges SET type='Exchanges::Kraken'; UPDATE bots SET transient_data=json_set(transient_data,'$.merged_history_until_id',3)","merged history"),
         // Sell rows are no refusal since 6a (the walk reads them on every venue); a direction Rails does not have still is.
         ("UPDATE bots SET settings=json_set(settings,'$.direction','sideways')","direction \"sideways\""),
-        ("UPDATE exchanges SET type='Exchanges::Kraken'","Kraken: only one-asset"),
         ("UPDATE bots SET settings=json_set(settings,'$.allocations',json('{\"bad\":1}'))","a weight this build does not read"),
         ("UPDATE bots SET settings=json_set(settings,'$.allocations',json('{}'))","allocations: none"),
         ("UPDATE bots SET settings=json_set(settings,'$.allocations',json('{\"123456\":0.5}'))","weights sum"),
@@ -199,7 +212,11 @@ async fn every_remaining_eligibility_branch_has_a_named_witness() {
         ("INSERT INTO bot_index_assets (bot_id,asset_id,ticker_id,in_index,created_at,updated_at) SELECT id,999,1,1,'2026-01-01','2026-01-01' FROM bots","index assets present"),
         ("INSERT INTO account_transactions (user_id,exchange_id,entry_type,base_currency,base_amount,transacted_at,raw_data,created_at,updated_at) SELECT user_id,exchange_id,15,'AAA',0,'2026-01-01','{\"corporate_action\":\"split\"}','2026-01-01','2026-01-01' FROM bots","split(s) recorded"),
         ("UPDATE bots SET type='Bots::DcaIndex'","configured deltabadger market-data provider"),
-        ("UPDATE bots SET type='Bots::DcaIndex'; UPDATE exchanges SET type='Exchanges::Kraken'","index bot (only on Alpaca)"),
+        ("UPDATE bots SET type='Bots::DcaIndex'; UPDATE exchanges SET type='Exchanges::Kraken'","an index bot on Kraken or Binance (only on Alpaca)"),
+        ("UPDATE bots SET type='Bots::DcaIndex',settings=json_set(settings,'$.direction','selling')","an index bot that sells"),
+        // A wider basket sells and rebalances on Alpaca only (6b); on Kraken and Binance both stay refused.
+        ("UPDATE exchanges SET type='Exchanges::Kraken'; UPDATE bots SET settings=json_set(settings,'$.direction','selling')","a basket of several assets that sells"),
+        ("UPDATE exchanges SET type='Exchanges::Kraken'; UPDATE bots SET settings=json_set(settings,'$.rebalance_enabled',json('true'))","rebalance_enabled"),
         ("UPDATE bots SET type='Bots::DcaIndex'; UPDATE assets SET symbol='EUR' WHERE symbol='USD'","quote EUR"),
         ("UPDATE bots SET type='Bots::DcaIndex'","index_type"),
         ("UPDATE bots SET type='Bots::DcaIndex'","index_category_id missing"),

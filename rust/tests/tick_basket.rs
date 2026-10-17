@@ -568,6 +568,205 @@ async fn ownership_engine_keeps_the_run_selected_before_venue_creation() {
     assert!(bot.last_action_job_at_us().unwrap().is_none());
 }
 
+// ---- 6b T4: a wider basket's DCA-out (Bot::Composition::OrderSetter#get_sell_orders_data) ----
+
+const SELL_AT: &str = "2026-09-01T10:00:01Z";
+/// A 50/50 BTC/ETH basket selling for `quote` USD a week, holding 0.01 BTC (640 USD) and 0.02 ETH (50 USD).
+fn basket_seller(quote: f64) -> (tempfile::TempDir, store::Opened, i64, seed::Seeded, i64) {
+    let (d, o, s) = common::install_alpaca();
+    let (eth, _) = seed::add_eth_sol(&o.primary, &s);
+    let spec = BotSpec::weekly(60.0, "2026-09-01 10:00:00").weights(&[(s.btc, 0.5), (eth, 0.5)])
+        .with("direction", json!("selling")).with("sell_denomination", json!("quote")).with("sell_quote_amount", json!(quote));
+    let id = seed::insert_bot(&o.primary, &s, &spec);
+    let buy = |n: &str, amount: &str, value: &str, price: &str| json!({ "status": 0, "external_status": 2, "external_id": n, "order_type": 0, "amount": amount,
+        "amount_exec": amount, "quote_amount": value, "quote_amount_exec": value, "price": price, "created_at": "2026-09-01 09:00:00" });
+    seed::insert_row(&o.primary, &s, id, s.btc, &buy("OB-BTC", "0.01", "640", "64000"));
+    seed::insert_row(&o.primary, &s, id, eth, &buy("OB-ETH", "0.02", "50", "2500"));
+    (d, o, id, s, eth)
+}
+fn position(symbol: &str, qty: &str, available: &str) -> Value { json!({ "asset_class": "crypto", "symbol": symbol, "qty": qty, "qty_available": available }) }
+/// Bids 64000 and 2500, both held free unless `positions` says otherwise.
+fn selling(positions: Value, over: Value) -> ScriptedTransport {
+    let mut m = json!({ "GET /v1beta3/crypto/us/latest/quotes": [ok(json!({ "quotes": { "BTC/USD": { "ap": 64010, "bp": 64000 }, "ETH/USD": { "ap": 2501, "bp": 2500 } } }))],
+                        "GET /v2/positions": [ok(positions)] });
+    for (k, v) in over.as_object().unwrap() { m[k] = v.clone(); }
+    script(m)
+}
+fn sells(t: &ScriptedTransport) -> Vec<(String, String, String)> {
+    t.posted_orders().iter().map(|o| (o["symbol"].as_str().unwrap().into(), o["side"].as_str().unwrap().into(), o["qty"].as_str().unwrap_or("").into())).collect()
+}
+fn positions_read(t: &ScriptedTransport) -> usize { t.requests().iter().filter(|r| r.method == "GET" && r.path == "/v2/positions").count() }
+fn both_free() -> Value { json!([position("BTCUSD", "0.01", "0.01"), position("ETHUSD", "0.02", "0.02")]) }
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_basket_sells_its_withdrawal_out_of_the_most_overweight_member_only() {
+    let (_d, o, id, _, _) = basket_seller(100.0);
+    let t = selling(both_free(), json!({}));
+    assert!(matches!(run(&o, &venue(&t), id, at(SELL_AT)).await, TickOutcome::Done { placed: true }));
+    // 690 held, 590 left after the withdrawal: BTC sits 345 over its half, ETH 245 under. 100 / 64000 of BTC.
+    assert_eq!(sells(&t), vec![("BTC/USD".into(), "sell".into(), "0.001562500".into())]);
+    assert_eq!(one::<i64>(&o, "SELECT count(*) FROM transactions WHERE side = 1 AND status = 0"), 1);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_top_member_under_the_floor_hands_the_withdrawal_to_the_next() {
+    let (_d, o, id, _, _) = basket_seller(100.0);
+    // Only 0.00001 BTC is free (Alpaca's floor is 0.000027 here): ETH sells what it holds.
+    let t = selling(json!([position("BTCUSD", "0.01", "0.00001"), position("ETHUSD", "0.02", "0.02")]), json!({}));
+    assert!(matches!(run(&o, &venue(&t), id, at(SELL_AT)).await, TickOutcome::Done { placed: true }));
+    assert_eq!(sells(&t), vec![("ETH/USD".into(), "sell".into(), "0.020000000".into())], "min(100 / 2500, 0.02 held)");
+    assert_eq!(one::<i64>(&o, "SELECT count(*) FROM transactions WHERE status = 2"), 0, "a placed order: no skipped row");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_member_free_below_what_the_bot_holds_sells_what_is_free_and_the_rest_moves_on() {
+    let (_d, o, id, _, _) = basket_seller(100.0);
+    let t = selling(json!([position("BTCUSD", "0.01", "0.001"), position("ETHUSD", "0.02", "0.02")]), json!({}));
+    run(&o, &venue(&t), id, at(SELL_AT)).await;
+    // 0.001 BTC is 64 USD; the 36 left is 0.0144 ETH.
+    assert_eq!(sells(&t), vec![("BTC/USD".into(), "sell".into(), "0.001000000".into()), ("ETH/USD".into(), "sell".into(), "0.014400000".into())]);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_resting_sell_counts_against_the_member_it_sells() {
+    let (_d, o, id, s, _) = basket_seller(100.0);
+    seed::insert_row(&o.primary, &s, id, s.btc, &json!({ "status": 0, "external_status": 1, "external_id": "OREST", "order_type": 1, "side": 1, "amount": "0.009",
+        "amount_exec": "0", "quote_amount_exec": "0", "price": "65000", "created_at": "2026-09-01 09:30:00" }));
+    let rest = ok(json!({ "id": "OREST", "status": "new", "symbol": "BTC/USD", "asset_class": "crypto", "side": "sell", "type": "limit", "order_type": "limit",
+                          "qty": "0.009", "filled_qty": "0", "limit_price": "65000", "time_in_force": "gtc" }));
+    let t = selling(both_free(), json!({ "GET /v2/orders/OREST": [rest] }));
+    run(&o, &venue(&t), id, at(SELL_AT)).await;
+    // BTC is worth 64 net of the 0.009 resting and holds 0.001 beyond it: 0.001 sells, and 36 USD of ETH.
+    assert_eq!(sells(&t), vec![("BTC/USD".into(), "sell".into(), "0.001000000".into()), ("ETH/USD".into(), "sell".into(), "0.014400000".into())]);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn every_member_under_the_floor_reports_the_first_once() {
+    let (_d, o, id, _, _) = basket_seller(0.5);
+    let t = selling(both_free(), json!({}));
+    assert!(matches!(run(&o, &venue(&t), id, at(SELL_AT)).await, TickOutcome::Done { placed: false }));
+    assert!(sells(&t).is_empty());
+    assert_eq!(one::<String>(&o, "SELECT base FROM transactions WHERE status = 2"), "BTC", "one skipped row: the top-ranked member's");
+    assert_eq!(one::<i64>(&o, "SELECT count(*) FROM bot_activity_logs WHERE event = 'order_skipped'"), 1);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn holdings_the_venue_cannot_price_retry_before_anything_is_sold() {
+    let (_d, o, id, _, _) = basket_seller(100.0);
+    let t = selling(both_free(), json!({ "GET /v1beta3/crypto/us/latest/trades": [ok(json!({ "trades": { "BTC/USD": { "p": 64000 } } }))] }));
+    assert!(matches!(run(&o, &venue(&t), id, at(SELL_AT)).await, TickOutcome::RetryAfter(_)), "ETH held and unpriced: no valuation");
+    assert!(sells(&t).is_empty());
+    assert_eq!(positions_read(&t), 0, "no balance is read");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_basket_with_nothing_held_skips_without_reading_balances() {
+    let (_d, o, id, _, _) = basket_seller(100.0);
+    o.primary.execute("DELETE FROM transactions", []).unwrap();
+    let t = selling(both_free(), json!({}));
+    assert!(matches!(run(&o, &venue(&t), id, at(SELL_AT)).await, TickOutcome::Done { placed: false }));
+    assert!(sells(&t).is_empty());
+    assert_eq!((positions_read(&t), one::<i64>(&o, "SELECT count(*) FROM transactions")), (0, 0));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_price_this_build_cannot_hold_is_no_valuation_and_retries() {
+    let (_d, o, id, _, _) = basket_seller(100.0);
+    // Finite to Ruby's BigDecimal (Rails values it), beyond `dec`'s limits here: never a guessed ranking.
+    let t = selling(both_free(), json!({ "GET /v1beta3/crypto/us/latest/trades": [ok(json!({ "trades": { "BTC/USD": { "p": 64000 }, "ETH/USD": { "p": "1e1000000" } } }))] }));
+    assert!(matches!(run(&o, &venue(&t), id, at(SELL_AT)).await, TickOutcome::RetryAfter(_)));
+    assert!(sells(&t).is_empty());
+    assert_eq!(one::<i64>(&o, "SELECT count(*) FROM bot_activity_logs WHERE event = 'execution_failed'"), 0);
+}
+
+// ---- 6b T3: Bot::Rebalancer#live_free_balance caps a merged seller at what it bought on this venue ----
+
+/// A 1.0 `asset` buy a merge brought in from another venue.
+fn foreign_buy(o: &store::Opened, s: &seed::Seeded, id: i64, asset: i64, amount: &str, price: &str) {
+    o.primary.execute("INSERT INTO exchanges (type, name, maker_fee, taker_fee, created_at, updated_at) VALUES ('Exchanges::Binance', 'Binance', '0.1', '0.1', '2026-08-01', '2026-08-01')", []).unwrap();
+    let binance = o.primary.last_insert_rowid();
+    let row = seed::insert_row(&o.primary, s, id, asset, &json!({ "status": 0, "external_status": 2, "external_id": "OFOREIGN", "order_type": 0, "amount": amount,
+        "amount_exec": amount, "price": price, "created_at": "2026-09-01 08:00:00" }));
+    o.primary.execute("UPDATE transactions SET exchange_id = ?1 WHERE id = ?2", rusqlite::params![binance, row]).unwrap();
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_merged_crypto_seller_sells_no_more_than_its_net_local_units() {
+    let (_d, o, id, s, _) = basket_seller(6000.0);
+    foreign_buy(&o, &s, id, s.btc, "1.0", "60000");
+    let t = selling(json!([position("BTCUSD", "0.5", "0.5"), position("ETHUSD", "0.02", "0.02")]), json!({}));
+    run(&o, &venue(&t), id, at(SELL_AT)).await;
+    // 6000 / 64000 = 0.09375 BTC wanted, 0.5 free, but only the 0.01 bought here is this venue's to sell; 5360 is left for ETH.
+    assert_eq!(sells(&t), vec![("BTC/USD".into(), "sell".into(), "0.010000000".into()), ("ETH/USD".into(), "sell".into(), "0.020000000".into())]);
+}
+
+/// A 50/50 AAPL/ETH basket selling 6000 USD: 1 AAPL and 0.02 ETH bought here, plus (`merged`) 100 AAPL a merge brought in;
+/// Alpaca holds 50 AAPL free. Returns what was sent and the request paths.
+async fn share_seller(merged: bool) -> (Vec<(String, String, String)>, Vec<String>) {
+    let (_d, o, s) = common::install_alpaca();
+    let (eth, _) = seed::add_eth_sol(&o.primary, &s);
+    let (aapl, _) = seed::add_alpaca_stock(&o.primary, &s, "AAPL");
+    // The venue lists it (exchange.assets), so a position names it.
+    o.primary.execute("INSERT INTO exchange_assets (exchange_id, asset_id, available, created_at, updated_at) VALUES (?1, ?2, 1, '2026-09-01 09:00:00', '2026-09-01 09:00:00')",
+                      rusqlite::params![s.exchange_id, aapl]).unwrap();
+    let spec = BotSpec::weekly(60.0, "2026-09-01 10:00:00").weights(&[(aapl, 0.5), (eth, 0.5)])
+        .with("direction", json!("selling")).with("sell_denomination", json!("quote")).with("sell_quote_amount", json!(6000.0));
+    let id = seed::insert_bot(&o.primary, &s, &spec);
+    let buy = |n: &str, amount: &str, price: &str| json!({ "status": 0, "external_status": 2, "external_id": n, "order_type": 0, "amount": amount,
+        "amount_exec": amount, "price": price, "created_at": "2026-09-01 09:00:00" });
+    seed::insert_row(&o.primary, &s, id, aapl, &buy("OB-AAPL", "1", "180"));
+    seed::insert_row(&o.primary, &s, id, eth, &buy("OB-ETH", "0.02", "2500"));
+    if merged { foreign_buy(&o, &s, id, aapl, "100", "180"); }
+    seed::fresh_stock_jobs(&o.primary, at(SELL_AT));
+    let open = json!({ "timestamp": "2026-09-01T06:00:01-04:00", "is_open": true, "next_open": "2099-01-02T09:30:00-05:00", "next_close": "2099-01-01T16:00:00-05:00" });
+    let t = selling(json!([{ "asset_class": "us_equity", "symbol": "AAPL", "qty": "50", "qty_available": "50" }, position("ETHUSD", "0.02", "0.02")]), json!({
+        "GET /v2/clock": [ok(open)],
+        "GET /v2/stocks/snapshots": [ok(json!({ "AAPL": { "latestTrade": { "p": 187.41 } } }))],
+        "GET /v2/stocks/AAPL/quotes/latest": [ok(json!({ "quote": { "ap": 187.43, "bp": 187.4 } }))],
+        "GET /v2/stocks/AAPL/trades/latest": [ok(json!({ "trade": { "p": 187.41 } }))],
+    }));
+    let out = run(&o, &venue(&t), id, at(SELL_AT)).await;
+    let paths = std::iter::once(format!("{out:?}")).chain(t.requests().iter().map(|r| format!("{} {}", r.method, r.path))).collect();
+    (sells(&t), paths)
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_share_bought_here_sells_from_the_top_of_the_ranking() {
+    let (sold, paths) = share_seller(false).await;
+    // The 1 share held here (187.4 USD), then ETH for the rest of the withdrawal.
+    assert_eq!(sold.iter().map(|o| o.0.as_str()).collect::<Vec<_>>(), vec!["AAPL", "ETH/USD"], "{paths:?}");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_merged_seller_of_a_share_sells_none_of_it_here() {
+    let (sold, paths) = share_seller(true).await;
+    // AAPL ranks first and 50 shares are free, but a sum of fills is not what a share holds after a split: none sells here.
+    assert_eq!(sold, vec![("ETH/USD".into(), "sell".into(), "0.020000000".into())], "{paths:?}");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_resting_sell_lowers_its_members_rank() {
+    let (_d, o, id, s, _) = basket_seller(10.0);
+    seed::insert_row(&o.primary, &s, id, s.btc, &json!({ "status": 0, "external_status": 1, "external_id": "OREST", "order_type": 1, "side": 1, "amount": "0.0095",
+        "amount_exec": "0", "quote_amount_exec": "0", "price": "65000", "created_at": "2026-09-01 09:30:00" }));
+    let rest = ok(json!({ "id": "OREST", "status": "new", "symbol": "BTC/USD", "asset_class": "crypto", "side": "sell", "type": "limit", "order_type": "limit",
+                          "qty": "0.0095", "filled_qty": "0", "limit_price": "65000", "time_in_force": "gtc" }));
+    let t = selling(both_free(), json!({ "GET /v2/orders/OREST": [rest] }));
+    run(&o, &venue(&t), id, at(SELL_AT)).await;
+    // BTC is worth 32 USD net of its resting 0.0095 (640 gross), under ETH's 50: ETH is the most overweight. 10 / 2500.
+    assert_eq!(sells(&t), vec![("ETH/USD".into(), "sell".into(), "0.004000000".into())]);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_wider_basket_sells_its_quote_sentence_whatever_denomination_is_stored() {
+    let (_d, o, id, _, _) = basket_seller(100.0);
+    o.primary.execute("UPDATE bots SET settings = json_set(settings, '$.sell_denomination', 'base', '$.sell_amount', 0.01) WHERE id = ?1", [id]).unwrap();
+    let t = selling(both_free(), json!({}));
+    run(&o, &venue(&t), id, at(SELL_AT)).await;
+    // Bots::DcaMultiAsset#sell_denomination: 'quote' unless one_asset?. 100 / 64000 of BTC, never 0.01 BTC.
+    assert_eq!(sells(&t), vec![("BTC/USD".into(), "sell".into(), "0.001562500".into())]);
+}
+
 // Slice 7a: the price rule's gate, between the restatement stand-down and the sweep (dca_multi_asset.rb:34-44).
 
 /// A one-asset BTC basket of 60 USD a week, with a buy-side price rule `below <limit>`; BTC trades at 64000.
@@ -659,4 +858,68 @@ async fn a_pause_still_runs_the_funds_check() {
     assert!(matches!(run(&o, &venue(&t), id, at(T0)).await, TickOutcome::Paused));
     assert!(t.requests().iter().any(|r| r.path == "/v2/account"), "the balance was read");
     assert_eq!(model::load_bot(&o.primary, id).unwrap().status, BotStatus::Waiting);
+}
+
+/// P1-T0: buying baskets of two and three members on Kraken (EUR) and Binance (USDT), replayed against Rails' own decisions
+/// (script/rust/decisions.rb grid-venue-basket): each member priced and placed on its own pair (Kraken's XBTEUR), sized with
+/// its own decimals, a leg under its own minimum skipped and carried to the next checkpoint, a member that stops trading
+/// exited, one unpriced member failing the whole tick. Every scenario's bot is one the engine admits.
+#[cfg(unix)]
+#[tokio::test(flavor = "current_thread")]
+async fn kraken_and_binance_baskets_decide_as_rails() {
+    use common::decisions::{built_grid, copy_dir, r5_cleanup_expected, rails};
+    use deltabadger::engine::eligibility;
+    let rails_root = tempfile::tempdir().unwrap();
+    let rust_root = tempfile::tempdir().unwrap();
+    built_grid("grid-venue-basket", rails_root.path());
+    let mut dirs: Vec<std::path::PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
+    dirs.sort();
+    assert_eq!(dirs.len(), 29, "the venue basket grid has {} scenarios", dirs.len());
+    for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
+    rails(&["record", rails_root.path().to_str().unwrap()]);
+    let mut failures = vec![];
+    for d in &dirs {
+        let name = d.file_name().unwrap().to_string_lossy().to_string();
+        let rust_dir = rust_root.path().join(&name);
+        let admitted = {
+            let c = rusqlite::Connection::open(rust_dir.join("production.sqlite3")).unwrap();
+            eligibility::check_install(&c).unwrap()
+        };
+        if !admitted.problems.is_empty() || admitted.eligible.len() != 1 { failures.push(format!("{name}: refused {:?}", admitted.problems)); continue; }
+        // The Smart Intervals floor of a basket of several members is its members' largest venue minimum, as Rails computes it.
+        {
+            use deltabadger::web::bot::{start, Bot as WebBot, For};
+            let c = rusqlite::Connection::open(rust_dir.join("production.sqlite3")).unwrap();
+            let scenario: Value = serde_json::from_str(&std::fs::read_to_string(rust_dir.join("scenario.json")).unwrap()).unwrap();
+            let (user, id): (i64, i64) = c.query_row("SELECT user_id, id FROM bots", [], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+            let floor = start::smart_interval_minimum(&WebBot::find(&c, user, id, For::Settings, "en").unwrap().unwrap());
+            let mine = json!({ "value": floor.value.to_f(), "reason": format!("{:?}", floor.reason).to_lowercase() });
+            if mine != scenario["rails_floor"] { failures.push(format!("{name}: Smart Intervals floor {mine}, Rails {}", scenario["rails_floor"])); }
+        }
+        let rails_out: Value = serde_json::from_str(&std::fs::read_to_string(d.join("rails.json")).unwrap()).unwrap();
+        let rust_out = deltabadger::parity::decide(&rust_dir).await.unwrap();
+        // Rails drops a NULL missed_quote_amount_was_set on a failed run; the engine keeps it (R5, as every grid compares).
+        let rails_out = r5_cleanup_expected(&rails_out, &rust_out);
+        if rails_out != rust_out { failures.push(format!("{name}\n  rails: {rails_out}\n  rust:  {rust_out}")); }
+        // Rails' side must show what each cell exists for, or an equal comparison proves nothing.
+        let sent = rails_out["sent"].as_array().unwrap();
+        let rows = rails_out["changes"]["transactions"].as_array().unwrap();
+        let events = rails_out["changes"]["bot_activity_logs"].to_string();
+        let pairs: Vec<&str> = sent.iter().filter_map(|o| o["pair"].as_str().or_else(|| o["symbol"].as_str())).collect();
+        let case = name.split_once('-').unwrap().1.split_once('-').unwrap().1;
+        let pinned = match case {
+            c if c.starts_with("tiers-first_tick") => pairs.len() == 3 && pairs[0].starts_with(if name.contains("kraken") { "XBT" } else { "BTC" }),
+            c if c.starts_with("w70-first_tick") => pairs.len() == 2,
+            c if c.starts_with("tiers-one_below-") && c != "tiers-one_below-next" => pairs.len() == 2 && events.contains("orders_below_minimum"),
+            "tiers-one_below-next" => pairs.len() == 5 && pairs[4] == "SOLEUR",
+            "tiers-below_carried" => pairs.len() == 3,
+            "w70-all_below" => sent.is_empty() && rows.iter().filter(|r| r["after"]["status"] == 2).count() == 2,
+            "tiers-price_missing-middle" => sent.is_empty(),
+            "w70-untradable-one" => pairs.len() == 1,
+            "tiers-unavailable-one" => pairs.len() == 2,
+            _ => true,
+        };
+        if !pinned { failures.push(format!("{name}: Rails no longer shows what this cell is for: {rails_out}")); }
+    }
+    assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
 }

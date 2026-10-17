@@ -930,6 +930,9 @@ class Exchanges::Kraken < Exchange
   def key_permission_validity(api_key)
     result = Honeymaker.client('kraken', api_key: api_key.key, api_secret: api_key.secret,
                                          proxy: ExchangeProxy.for('kraken')).get_api_key_info
+    # An empty or non-JSON 200 parses to nil or a String: no verdict either way.
+    return Result::Failure.new('Kraken sent an unreadable answer to the key check') if result.success? && !result.data.is_a?(Hash)
+
     errors = result.failure? ? Array(result.errors) : Array(result.data['error'])
     return Result::Success.new(false) if errors.any? { |error| error.to_s.in?(ERRORS[:invalid_key]) }
     return Result::Failure.new(*errors) if errors.any?

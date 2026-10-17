@@ -250,7 +250,7 @@ class Exchanges::BingxTest < ActiveSupport::TestCase
       t = (now - i.days).to_i * 1000
       [t, '10', '12', '9', '11', '100'] # [time_ms, open, high, low, close, volume]
     end
-    client = Object.new
+    client = Honeymaker.client('bingx')
     client.define_singleton_method(:get_public) { |_path, _params| Result::Success.new(window) }
     @exchange.stubs(:client).returns(client)
 
@@ -271,7 +271,7 @@ class Exchanges::BingxTest < ActiveSupport::TestCase
   test 'get_candles asks for candles on UTC boundaries' do
     ticker = create(:ticker, exchange: @exchange, base_symbol: 'BTC', quote_symbol: 'USDT', ticker: 'BTC-USDT')
     asked = []
-    client = Object.new
+    client = Honeymaker.client('bingx')
     client.define_singleton_method(:get_public) do |path, params|
       asked << [path, params]
       Result::Success.new({ 'code' => 0, 'data' => [[1_792_108_800_000, 82_239.81, 82_533.22, 81_698.79, 82_302.01, 602.9]] })
@@ -288,7 +288,7 @@ class Exchanges::BingxTest < ActiveSupport::TestCase
   # == Ledger ==
 
   # What BingX answers a path it does not have, captured live for /openApi/spot/v1/trade/fills and
-  # /openApi/wallets/v1/capital/{deposit/hisrec,withdraw/history} — the paths honeymaker asks.
+  # /openApi/wallets/v1/capital/{deposit/hisrec,withdraw/history}.
   GONE_PATH = { 'code' => 100_400, 'msg' => 'this api is not exist,please refer to the API docs https://bingx-api.github.io/docs',
                 'timestamp' => 1_792_137_475_001 }.freeze
 
@@ -296,14 +296,11 @@ class Exchanges::BingxTest < ActiveSupport::TestCase
     create(:api_key, exchange: @exchange, key_type: :read_only)
   end
 
-  # A client whose honeymaker ledger methods answer like the live venue (GONE_PATH) and whose signed
-  # requests are served by `routes`: path => ->(params) { body }; a pair has no trades unless routed.
+  # A client whose signed requests are served by `routes`: path => ->(params) { body }; an unrouted
+  # path answers like the live venue (GONE_PATH); a pair has no trades unless routed.
   def fake_ledger_client(routes, asked: [])
     routes = { TRADES => trades_route([]) }.merge(routes)
     fake = Honeymaker.client('bingx')
-    %i[get_trade_fills deposit_history withdraw_history].each do |m|
-      fake.define_singleton_method(m) { |**| Result::Success.new(GONE_PATH) }
-    end
     fake.define_singleton_method(:get_raw_balances) do |**|
       Result::Success.new({ 'code' => 0, 'data' => { 'balances' => [{ 'asset' => 'BTC', 'free' => '1', 'locked' => '0' }] } })
     end

@@ -1,4 +1,4 @@
-//! The bot engine: DCA baskets of one or more assets (Kraken one-asset, Alpaca), decided exactly as Rails decides them.
+//! The bot engine: DCA baskets of one or more assets (Kraken, Binance, Alpaca), decided exactly as Rails decides them.
 use chrono::{DateTime, Utc};
 
 pub trait Clock {
@@ -71,6 +71,7 @@ pub mod splits;
 pub mod index;
 
 pub mod accounting;
+pub mod rebalance;
 
 pub mod reversal;
 pub mod conditions;

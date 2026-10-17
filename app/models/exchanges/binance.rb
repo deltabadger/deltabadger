@@ -8,7 +8,8 @@ class Exchanges::Binance < Exchange
     transient: ['Timestamp for this request is outside of the recvWindow', 'Timestamp for this request was']
   }.freeze # https://developers.binance.com/docs/binance-spot-api-docs/errors
   ERROR_CODES = {
-    invalid_key: [-2014, -2015]
+    # -2008 is what an unknown key gets (Binance.US answers it; Binance lists it as BAD_API_ID).
+    invalid_key: [-2008, -2014, -2015]
   }.freeze # https://developers.binance.com/docs/binance-spot-api-docs/errors
 
   # Signed READS use Binance's max recvWindow so a request delayed by exchange-proxy latency isn't
@@ -54,10 +55,10 @@ class Exchanges::Binance < Exchange
 
   def set_client(api_key: nil)
     @api_key = api_key
-    @client = Honeymaker.client('binance',
+    @client = Honeymaker.client(name_id,
                                 api_key: api_key&.key,
                                 api_secret: api_key&.secret,
-                                proxy: ExchangeProxy.for('binance'))
+                                proxy: ExchangeProxy.for(name_id))
   end
 
   def get_tickers_info(force: false)
@@ -412,10 +413,24 @@ class Exchanges::Binance < Exchange
   end
 
   def get_api_key_validity(api_key:)
-    result = Honeymaker.client('binance',
+    trading_key_validity(api_key)
+  end
+
+  # The tracker's reading key, held to its own steps (read_only_api.binance): Enable Reading on and
+  # Withdrawals off. Trading is "not needed" there, so it is not held against the key.
+  def get_read_api_key_validity(api_key:)
+    return Result::Success.new(true) if dry_run?
+
+    reading_key_validity(api_key)
+  end
+
+  def trading_key_validity(api_key)
+    result = Honeymaker.client(name_id,
                                api_key: api_key.key,
                                api_secret: api_key.secret,
-                               proxy: ExchangeProxy.for('binance')).api_description
+                               proxy: ExchangeProxy.for(name_id)).api_description
+    # An empty or non-JSON 200 parses to nil or a String: no verdict either way.
+    return Result::Failure.new("#{name} sent an unreadable answer to the key check") if result.success? && !result.data.is_a?(Hash)
 
     if result.success?
       common_checks = result.data['ipRestrict'] == true &&
@@ -446,14 +461,11 @@ class Exchanges::Binance < Exchange
     end
   end
 
-  # The tracker's reading key, held to its own steps (read_only_api.binance): Enable Reading on and
-  # Withdrawals off. Trading is "not needed" there, so it is not held against the key. Binance.US
-  # inherits this; its flags may omit fields the trading check reads, so only these two are asked.
-  def get_read_api_key_validity(api_key:)
-    return Result::Success.new(true) if dry_run?
-
+  def reading_key_validity(api_key)
     result = Honeymaker.client(name_id, api_key: api_key.key, api_secret: api_key.secret,
                                         proxy: ExchangeProxy.for(name_id)).api_description
+    return Result::Failure.new("#{name} sent an unreadable answer to the key check") if result.success? && !result.data.is_a?(Hash)
+
     if result.success?
       Result::Success.new(result.data['enableReading'] == true && result.data['enableWithdrawals'] != true)
     elsif parse_error_code(result).in?(ERROR_CODES[:invalid_key])
@@ -462,6 +474,7 @@ class Exchanges::Binance < Exchange
       result
     end
   end
+  private :trading_key_validity, :reading_key_validity
 
   def minimum_amount_logic(order_type:, **)
     if order_type == :market_order
@@ -596,7 +609,7 @@ class Exchanges::Binance < Exchange
   end
 
   def fetch_withdrawal_fees!
-    with_authenticated_fee_client('binance', 'PROXY_BINANCE') do |hm_client|
+    with_authenticated_fee_client(name_id, "PROXY_#{name_id.upcase}") do |hm_client|
       result = hm_client.get_all_coins_information
       return result if result.failure?
 

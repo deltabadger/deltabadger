@@ -273,3 +273,19 @@ async fn follow_up_strict<V: Venue + Attributed>(c: &Connection, venue: &V, bot:
     if state.status == OrderStatus::Unknown { return Err(PollFailure::General(format!("Order {ext} status is unknown."))); }
     apply_committed(c, bot.id, id, &state, now, true, &version).map_err(poll_error)
 }
+
+/// Bot::FetchAndUpdateOrderJob for one row the caller names, whatever its external status (Bot::Rebalancer#refresh_pending_order!
+/// re-fetches the pending transaction even once closed: a closed sell may still lack its proceeds). Only this venue's rows
+/// are asked (the job skips a row placed elsewhere); a row not submitted is left alone.
+pub async fn refresh<V: Venue>(c: &Connection, venue: &V, bot_id: i64, tx_id: i64, now: DateTime<Utc>) -> Result<(), PollFailure> {
+    let db = |e: EngineError| poll_error(e);
+    let bot = model::load_bot(c, bot_id).map_err(db)?;
+    let handle = crate::venue::Handle::for_bot(venue, c, &bot).map_err(db)?;
+    let venue = &handle;
+    let mut s = c.prepare("SELECT id, external_id, created_at FROM transactions WHERE id = ?1 AND bot_id = ?2 AND exchange_id = ?3 AND status = 0 \
+                           AND external_id IS NOT NULL AND external_id NOT LIKE 'imported_%'").map_err(|e| db(e.into()))?;
+    let rows = s.query_map(params![tx_id, bot.id, bot.exchange_id], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?)))
+        .and_then(|rows| rows.collect::<Result<Vec<_>, _>>()).map_err(|e| db(e.into()))?;
+    let rows = rows.into_iter().map(|(id, ext, at)| Ok((id, ext, created_us(&at)?))).collect::<Result<Vec<_>, EngineError>>().map_err(db)?;
+    if venue.rules().follow_up_strict { follow_up_strict(c, venue, &bot, rows, tx_id, now).await } else { poll_rows(c, venue, &bot, rows, now, false).await }
+}

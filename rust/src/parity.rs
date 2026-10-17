@@ -24,8 +24,8 @@ const TABLES: [&str; 4] = ["bots", "transactions", "bot_activity_logs", "bot_ind
 const JSON_COLUMNS: [&str; 4] = ["settings", "transient_data", "details", "error_messages"];
 const MAX_ATTEMPTS: usize = 6;
 /// transient_data keys only this engine writes, besides the mail markers (notice::KEYS): Rails has none of them.
-const RUST_KEYS: [&str; 7] = ["run_generation", "tick_generation", "rust_placement", "rust_defer_until", "rust_amount_limit_stops_pending", "rust_failure_origin",
-                               crate::engine::conditions::DEAD];
+const RUST_KEYS: [&str; 8] = ["run_generation", "tick_generation", "rust_placement", "rust_defer_until", "rust_amount_limit_stops_pending", "rust_failure_origin",
+                               "rust_rebalance_halted", crate::engine::conditions::DEAD];
 
 fn raw(v: ValueRef<'_>) -> Value {
     match v {
@@ -261,6 +261,11 @@ async fn play<V: Venue>(o: &Opened, venue: &V, scenario: &Value, bot_id: i64, st
         }
     }
     if let Some(when) = at("next_at")? { ticks(o, venue, bot_id, when, &cx).await?; }
+    // Bot::EvaluateRebalancersJob's fires: one Bot::RebalanceJob each.
+    for when in scenario["rebalance_at"].as_array().into_iter().flatten() {
+        let when: DateTime<Utc> = when.as_str().and_then(|s| s.parse().ok()).ok_or_else(|| EngineError::Data(format!("scenario.rebalance_at: {when}")))?;
+        crate::engine::rebalance::run(&o.primary, venue, bot_id, &FixedClock(when), &cx).await?;
+    }
     Ok((poll, recover_sent, listing.then_some(checks)))
 }
 

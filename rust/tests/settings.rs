@@ -3777,3 +3777,16 @@ fn d5b_tracker_connect_oracle_sources_stay_pinned(){
         assert_eq!(std::fs::read(&rendered).unwrap(),std::fs::read(root.join("app/views/svg/exchanges").join(&path)).unwrap(),"{path}: run script/rust/render_static_partials.rb");
     }
 }
+
+/// Exchanges::Alpaca#get_api_key_validity: a 200 that is not a JSON object says nothing about the key.
+#[tokio::test(flavor="current_thread")]
+async fn alpaca_unreadable_200_leaves_the_key_pending(){
+    let server=MockServer::start().await;
+    let key=deltabadger::crypto::Credentials{key:"k".into(),secret:"s".into(),passphrase:None,redaction_values:vec![]};
+    for body in ["\"OK\"","","OK"]{
+        server.reset().await;
+        Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_string(body)).mount(&server).await;
+        let validity=deltabadger::web::settings::validator::check(&server.uri(),&key,0).await.unwrap();
+        assert!(matches!(validity,deltabadger::web::settings::validator::Validity::Pending(_)),"{body:?}");
+    }
+}

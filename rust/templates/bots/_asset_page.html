@@ -1,0 +1,8 @@
+<turbo-frame id="{{ frame_id }}">{% if !items.is_empty() || next.is_some() %}
+  {%- for item in items %}
+    {% include "bots/_asset_search_result.html" %}
+  {%- endfor %}
+  {%- if let Some((next_id, next_url)) = next %}
+    <turbo-frame loading="lazy" id="{{ next_id }}" src="{{ next_url }}"></turbo-frame>
+  {%- endif %}
+{% endif %}</turbo-frame>

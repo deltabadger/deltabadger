@@ -145,7 +145,7 @@ async fn a_tick_sized_before_the_reversal_is_fenced_and_the_barrier_holds_placem
     assert!(model::require_run(&e.primary, &sized).is_err(), "the bumped generation fences a tick that claimed the old run");
     let d = |x: &str| deltabadger::ruby::BigDec::parse(x).unwrap();
     let plan = deltabadger::engine::amount::OrderPlan { ticker: model::ticker_for(&e.primary, &sized).unwrap().unwrap(), side: deltabadger::venue::Side::Buy, limit: false,
-        price: d("50000"), amount: d("0.0012"), quote_amount: d("60"), quote_type: true, volume: d("60") };
+        price: d("50000"), amount: d("0.0012"), quote_amount: d("60"), quote_type: true, volume: d("60"), kind: deltabadger::engine::amount::TxKind::Regular };
     assert!(placement::begin(&e.primary, &bot(&e.primary, id), &plan, &at("2026-09-03T12:00:00Z")).is_err(), "no intent while a captured cancel is unrecorded");
     assert!(bot(&e.primary, id).rust_placement().is_none());
 }

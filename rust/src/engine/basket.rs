@@ -93,6 +93,12 @@ pub fn reserved(c: &Connection, bot: &Bot) -> Result<HashMap<i64, BigDec>, Engin
     crate::figures::budget::within(|| fill::reserved(c,bot.id)).map_err(data)
 }
 
+/// reserved_waiting_amounts(:sell): the unexecuted remainder of every waiting sell, by asset. The basket DCA-out caps each
+/// member at what is held net of it, and values the member net of it.
+pub fn reserved_sells(c: &Connection, bot: &Bot) -> Result<HashMap<i64, BigDec>, EngineError> {
+    crate::figures::budget::within(|| fill::reserved_side(c,bot.id,1)).map_err(data)
+}
+
 /// bot_index_assets.target_allocation as ActiveRecord reads it back: ActiveModel::Type::Decimal(precision 10, scale 6). A REAL
 /// goes through the Float cast; an INTEGER or TEXT through BigDecimal, then round(6).
 pub fn target_from_sql(v: ValueRef<'_>) -> Result<Option<BigDec>, EngineError> {
