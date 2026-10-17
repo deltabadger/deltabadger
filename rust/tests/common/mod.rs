@@ -185,9 +185,10 @@ pub fn record_grid(script: &str, out: &Path) {
 }
 
 /// Everything a Rails recording can depend on, as bytes to hash: every file of the app, its config, schema,
-/// gems' lockfile, the recorders (script/rust) and the built assets (app/assets/builds); the Ruby that runs it;
+/// gems' lockfile, the recorders (script/rust), the built assets (app/assets/builds) and the version manifest
+/// (src-tauri/Cargo.toml, read by config/initializers/version.rb); the Ruby that runs it;
 /// the machine's zone; and the value of every environment variable those sources read (`ENV['X']`, `ENV.fetch('X'`,
-/// `PROXY_*`; PAGES among them). The test databases are scratch files and so not an input.
+/// any quoted all-caps literal, `PROXY_*`; PAGES among them). The test databases are scratch files and so not an input.
 pub fn rails_inputs() -> Vec<u8> {
     fn walk(root: &Path, rel: &Path, out: &mut Vec<(PathBuf, Vec<u8>)>) {
         let Ok(entries) = std::fs::read_dir(root.join(rel)) else { return };
@@ -200,7 +201,7 @@ pub fn rails_inputs() -> Vec<u8> {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
     let mut files = vec![];
     for top in ["app", "bin", "config", "db", "lib", "public", "vendor", "script/rust", "Gemfile", "Gemfile.lock", ".ruby-version",
-                ".tool-versions", "config.ru", "Rakefile", ".env", ".env.test", ".env.test.local"] {
+                ".tool-versions", "config.ru", "Rakefile", "src-tauri/Cargo.toml", ".env", ".env.test", ".env.test.local"] {
         let path = Path::new(top);
         if root.join(path).is_dir() { walk(root, path, &mut files) } else if let Ok(bytes) = std::fs::read(root.join(path)) { files.push((path.into(), bytes)) }
     }
@@ -214,6 +215,10 @@ pub fn rails_inputs() -> Vec<u8> {
                 let var: String = rest.chars().take_while(|c| c.is_ascii_alphanumeric() || *c == '_').collect();
                 if !var.is_empty() { names.insert(var); }
             }
+        }
+        // Names read indirectly (`MARKER = 'DELTABADGER_PLATFORM'`, then `env[MARKER]`): every quoted all-caps literal.
+        for part in text.split(['\'', '"']) {
+            if part.len() > 2 && part.chars().all(|c| c.is_ascii_uppercase() || c.is_ascii_digit() || c == '_') { names.insert(part.into()); }
         }
         out.extend(format!("{}\0{}\0", path.display(), bytes.len()).as_bytes());
         out.extend(bytes);
