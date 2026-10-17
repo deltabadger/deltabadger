@@ -2,7 +2,7 @@
 //! of placed orders so recovery by cl_ord_id behaves like the real venue.
 use super::*;
 use crate::engine::venue_rules::KRAKEN;
-use super::kraken::{aggregate_trades, check, free_balance, parse_order, ticker_price};
+use super::kraken::{aggregate_trades, check, trades_count, free_balance, parse_order, ticker_price};
 use serde_json::{json, Value};
 use std::cell::RefCell;
 use std::collections::{HashMap, VecDeque};
@@ -192,7 +192,17 @@ impl Venue for FakeVenue {
             for (id, t) in page { if seen.insert(id) { trades.push(t); } }
             if seen.len() as u64 >= body["result"]["count"].as_u64().unwrap_or(0) { break; }
         }
-        aggregate_trades(&trades, txids)
+        // Exchanges::Kraken#recover_missing_from_trades: an unseen id in a window over 1,000 trades is inconclusive (Unknown).
+        let mut found = aggregate_trades(&trades, txids)?;
+        let unseen: Vec<String> = txids.iter().filter(|t| !found.iter().any(|o| &o.txid == *t)).cloned().collect();
+        if unseen.is_empty() { return Ok(found); }
+        let Some(body) = self.body("/0/private/TradesHistory") else { return Ok(found) };
+        check(&body)?;
+        if trades_count(&body) > 1000 {
+            found.extend(unseen.into_iter().map(|txid| OrderState { asset_class: None, txid, status: OrderStatus::Unknown, price: None, amount: None,
+                quote_amount: None, amount_exec: BigDec::zero(), quote_amount_exec: None, limit: false, sell: false, pair: None }));
+        }
+        Ok(found)
     }
 
     async fn balance(&self, asset_symbol: &str, _all_crypto: bool) -> Result<BigDec, VenueError> {

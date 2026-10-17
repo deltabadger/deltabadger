@@ -17,6 +17,19 @@ class Exchanges::KucoinTest < ActiveSupport::TestCase
     assert_kind_of Array, errors[:invalid_key]
   end
 
+  # https://www.kucoin.com/docs-new/error-code/spot
+  test 'documented key, permission, throttle and outage codes are recognised' do
+    assert @exchange.invalid_key_error?(['{"code":"400004","msg":"Invalid KC-API-PASSPHRASE"}'])
+    assert @exchange.invalid_key_error?(['KuCoin API error 400004: KC-API-PASSPHRASE error'])
+    assert @exchange.invalid_key_error?(['{"code":"400003","msg":"KC-API-KEY does not exist"}'])
+    assert @exchange.invalid_key_error?(['{"code":"400005","msg":"Signature error"}'])
+    assert @exchange.permission_error?(['{"code":"400007","msg":"Access Denied"}'])
+    assert_not @exchange.invalid_key_error?(['{"code":"400007","msg":"Access Denied"}'])
+    assert @exchange.throttled_error?(['{"code":"429000","msg":"Too Many Requests"}'])
+    assert @exchange.transient_error?(['{"code":"500000","msg":"Internal Server Error"}'])
+    assert @exchange.transient_error?(['KuCoin API error 230005: The system is busy, please try again later'])
+  end
+
   # 400002 is a stalled request, not a broken bot: retry it like Binance's -1021 instead of
   # failing the run loudly. Observed in production 2026-08-16 while the UK exchange proxy hung.
   test 'transient_error? recognises a stale KC-API-TIMESTAMP rejection' do
@@ -313,7 +326,7 @@ class Exchanges::KucoinTest < ActiveSupport::TestCase
 
   test 'get_ledger reads every page of deposits and withdrawals' do
     hm_client = stub_ledger_client
-    row = ->(id) { { 'currency' => 'BTC', 'amount' => '1', 'fee' => '0', 'walletTxId' => id, 'createdAt' => 1_710_936_000_000 } }
+    row = ->(id) { { 'id' => id, 'currency' => 'BTC', 'amount' => '1', 'fee' => '0', 'walletTxId' => 'hash', 'createdAt' => 1_710_936_000_000 } }
     hm_client.stubs(:get_deposits).with(has_entry(current_page: 1)).returns(kucoin_page([row.call('d1')], total_page: 2))
     hm_client.stubs(:get_deposits).with(has_entry(current_page: 2)).returns(kucoin_page([row.call('d2')], total_page: 2))
     hm_client.stubs(:get_withdrawals).with(has_entry(current_page: 1)).returns(kucoin_page([row.call('w1')], total_page: 2))
@@ -323,6 +336,18 @@ class Exchanges::KucoinTest < ActiveSupport::TestCase
 
     assert_predicate result, :success?
     assert_equal %w[d1 d2 w1 w2], result.data.map { |e| e[:tx_id] }.sort
+  end
+
+  # Withdrawals batched into one on-chain transaction share walletTxId; the sync keeps one row per tx_id.
+  test 'get_ledger keys deposits and withdrawals by record id, not the on-chain hash' do
+    hm_client = stub_ledger_client
+    row = ->(id) { { 'id' => id, 'currency' => 'USDT', 'amount' => '5', 'fee' => '1', 'walletTxId' => '0xbatch', 'createdAt' => 1_710_936_000_000 } }
+    hm_client.stubs(:get_withdrawals).returns(kucoin_page([row.call('w1'), row.call('w2')]))
+    hm_client.stubs(:get_deposits).returns(kucoin_page([row.call('d1'), row.call(nil)]))
+
+    result = @exchange.get_ledger(api_key: ledger_api_key, start_time: 1.day.ago)
+
+    assert_equal %w[0xbatch d1 w1 w2], result.data.map { |e| e[:tx_id] }.sort
   end
 
   # Fills serve one week per call, so a first sync with no start must walk back in weekly windows.
