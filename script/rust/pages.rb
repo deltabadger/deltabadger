@@ -235,7 +235,7 @@ module Pages
      { 'kind' => 'basket', 'columns' => { 'label' => 'Basket' } }]
   end
 
-  # One-asset baskets on Kraken and Binance, buying and selling, as the engine trades them; and a wider Kraken basket, which it does not.
+  # Baskets on Kraken and Binance, one asset buying and selling, and several assets buying, as the engine trades them.
   def venue_scenarios
     rules = { 'smart_intervaled' => true, 'smart_interval_quote_amount' => 5, 'limit_ordered' => true, 'limit_order_pcnt_distance' => 0.002,
               'price_limited' => true, 'price_limit' => 50_000, 'price_limit_value_condition' => 'below' }
@@ -265,10 +265,36 @@ module Pages
                                                 .merge(acted('2026-09-09T13:30:00.800Z')))
       end + [{ 'kind' => 'basket' }], signed_in(get('/bots/1'), get('/bots/2'), get('/de/bots/1'), get('/bots/1.turbo_stream', FEED), get('/bots/2.turbo_stream', FEED),
                                                 get('/bots'))),
-      'not_ported_bots_list_venue_basket' => venue.([{ 'kind' => 'kraken', 'settings' => { 'allocations' => { '16' => 0.5, '17' => 0.5 } } }, { 'kind' => 'basket' }],
-                                                    signed_in(get('/bots')))
+      # Baskets of several members on Kraken and Binance, as the engine trades them since P1-T0, beside one-asset venue bots and a stock basket.
+      'venue_basket_list' => venue.(venue_baskets + [stopped('kraken'), { 'kind' => 'basket', 'columns' => { 'label' => 'Basket' } }],
+                                    signed_in(get('/bots'), get('/de/bots'))),
+      'venue_basket_page' => venue.(venue_baskets, signed_in(get('/bots/1'), get('/bots/2'), get('/de/bots/1'), get('/pl/bots/2'),
+                                                             get('/bots/1/chart', 'Turbo-Frame' => 'bot_chart'), get('/bots/2/chart', 'Turbo-Frame' => 'bot_chart'))),
+      'venue_basket_page_hidden' => venue.(venue_baskets, signed_in(get('/bots/1'), get('/bots/2'), get('/bots/2/chart', 'Turbo-Frame' => 'bot_chart'), get('/bots')),
+                                           'user' => owner('hide_balances' => true, 'locale' => 'de')),
+      'venue_basket_history' => venue.([running('kraken_basket', '2026-09-08T13:30:00Z', { 'orders' => 'venue_basket_history' }.merge(acted('2026-09-10T13:30:00.800Z'))),
+                                        running('binance_basket', '2026-09-08T13:30:00Z', { 'orders' => 'venue_basket_history' }.merge(acted('2026-09-08T13:30:00.800Z')))],
+                                       signed_in(get('/bots/1'), get('/bots/2'), get('/de/bots/1'), get('/bots/1.turbo_stream', FEED), get('/bots/2.turbo_stream', FEED),
+                                                 get('/bots'))),
+      # Legs under each member's minimum: skipped, with the venue's minimum in the Smart Intervals note.
+      'venue_basket_below_minimum' => venue.(
+        [running('binance_basket', '2026-09-08T13:30:00Z', { 'settings' => { 'quote_amount' => 6 }, 'orders' => 'venue_basket_skipped',
+                                                             'logs' => [['orders_below_minimum', { 'count' => 2, 'bases' => 'ETH, SOL' }, '2026-09-09T13:30:01Z']] }
+                                                             .merge(acted('2026-09-09T13:30:00.800Z'))),
+         stopped('kraken_basket', 'settings' => { 'smart_intervaled' => true, 'smart_interval_quote_amount' => 1 }, 'stored' => { 'quote_amount' => 0.8 })],
+        signed_in(get('/bots/1'), get('/bots/2'), get('/bots/1.turbo_stream', FEED), get('/de/bots/2'))
+      ),
+      # Sliders a stopped basket was left with, off 100 % (Start then refuses them). Asset ids as the fixtures create them:
+      # BTC 16, ETH 17, SOL 20.
+      'venue_basket_unbalanced' => venue.([stopped('kraken_basket', 'stored' => { 'allocations' => { '16' => 0.5, '17' => 0.3 } }),
+                                           stopped('binance_basket', 'stored' => { 'allocations' => { '17' => 0.7, '20' => 0.45 } })],
+                                          signed_in(get('/bots/1'), get('/bots/2'), get('/bots'))),
+      'venue_basket_key_incorrect' => venue.(venue_baskets, signed_in(get('/bots/1'), get('/bots/2'), get('/bots')), 'venue_keys' => { 'kraken' => 'incorrect' })
     }
   end
+
+  # A stopped Kraken basket and a Binance basket at work.
+  def venue_baskets = [stopped('kraken_basket'), running('binance_basket', '2026-09-08T13:30:00Z', acted('2026-09-08T13:30:00.800Z'))]
 
   # The "+ Add asset" modal on each venue (bot 1): opened blank in the modal frame and as a whole page, searched by the form
   # in its asset-picker frame (a prefix, a fuzzy spelling, a word every extra listing has), the second page of 20 in its lazy
