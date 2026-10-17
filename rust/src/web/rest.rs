@@ -30,7 +30,24 @@ enum Gate { Tool(&'static str), BotType, OrderType }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Action { Bots, Exchanges, Transactions, TaxJurisdictions, Indices, Write(bot_api::Write), Unported }
 
-struct Route { gate: Gate, action: Action, path: Vec<(&'static str, String)> }
+/// `bad`: a path parameter that is no UTF-8 once decoded, which Rails' router refuses (400) before any controller.
+struct Route { gate: Gate, action: Action, path: Vec<(&'static str, String)>, bad: bool }
+
+/// Journey::Router::Utils.unescape_uri: each `%XX` is its byte, anything else (a `+`, a stray `%`) stays as it is; the
+/// bytes must then be UTF-8.
+fn unescape(segment: &str) -> Option<String> {
+    let bytes = segment.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        let hex = |b: u8| (b as char).to_digit(16);
+        match (bytes[i], bytes.get(i + 1).copied().and_then(hex), bytes.get(i + 2).copied().and_then(hex)) {
+            (b'%', Some(high), Some(low)) => { out.push((high * 16 + low) as u8); i += 3; }
+            (b, ..) => { out.push(b); i += 1; }
+        }
+    }
+    String::from_utf8(out).ok()
+}
 
 /// config/routes.rb's `namespace :api { namespace :v1 { ... } }`, matched on the path past `/api/v1` as Rails' router
 /// matches it: a dynamic segment is anything without `/` or `.`, and the last segment may end in `.<format>`.
@@ -103,7 +120,9 @@ fn route(method: &Method, path: &str) -> Option<Route> {
         _ => (None, Action::Unported),
     };
     if let Some(format) = format { path.push(("format", format.to_string())); }
-    gate.map(|gate| Route { gate, action, path })
+    let decoded: Option<Vec<_>> = path.iter().map(|(name, value)| unescape(value).map(|value| (*name, value))).collect();
+    let bad = decoded.is_none();
+    gate.map(|gate| Route { gate, action, path: decoded.unwrap_or(path), bad })
 }
 
 /// The request's parameters as Rails' `params` holds them (ActionDispatch::Http::Parameters#parameters): the body's,
@@ -249,6 +268,12 @@ pub async fn handle(State(app): State<App>, request: Request) -> Response {
         .then(|| super::header_text(request.headers(), "if-none-match").map(str::to_string)).flatten();
     let method = request.method().clone();
     let found = if params.path_locale.is_some() { None } else { route(&method, &params.route_path) };
+    // ActionController::BadRequest from the router (a path parameter that is no UTF-8), answered by ShowExceptions
+    // above every other middleware: public/400.html and its content type alone.
+    if found.as_ref().is_some_and(|r| r.bad) {
+        let body = super::assets::find("/400.html").map_or(&b"Bad Request"[..], |file| file.body);
+        return (StatusCode::BAD_REQUEST, [(header::CONTENT_TYPE, "text/html; charset=UTF-8")], if head { &b""[..] } else { body }).into_response();
+    }
     let answer = match found {
         None => Answer::Below(Box::new(layout::missing())),
         Some(route) => {
@@ -385,5 +410,9 @@ mod tests {
         assert!(found(Method::PUT, "/api/v1/transactions/account/1/price").is_none());
         assert_eq!(found(Method::PUT, "/api/v1/bots/7.xml").map(|r| r.2), Some(vec![("id", "7".into()), ("format", "xml".into())]));
         assert_eq!(found(Method::POST, "/api/v1/orders").map(|r| r.0), Some(Gate::OrderType));
+        // The router hands the action decoded parameters: `%30` is a digit, `+` and a stray `%` stay as they are.
+        assert_eq!(found(Method::POST, "/api/v1/bots/1%30/stop").map(|r| r.2), Some(vec![("id", "10".into())]));
+        assert_eq!(found(Method::POST, "/api/v1/bots/1+%/stop").map(|r| r.2), Some(vec![("id", "1+%".into())]));
+        assert!(route(&Method::POST, "/api/v1/bots/%E2%82/stop").is_some_and(|r| r.bad));
     }
 }

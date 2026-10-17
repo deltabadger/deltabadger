@@ -687,6 +687,15 @@ fn without_counters(bot: &mut Value) {
     bot["transient_data"] = json!(text);
 }
 
+/// ActionController::BadRequest raised by the router (a path parameter that is no UTF-8), below every controller: the
+/// test environment's debugging page stands where production's ShowExceptions sends public/400.html, under the content
+/// type alone (the headers Rails recorded).
+fn as_router_bad_request(answer: &mut Value) {
+    let page = answer["body"].as_array().map(|lines| lines.iter().filter_map(Value::as_str).collect::<Vec<_>>().join("\n")).unwrap_or_default();
+    if answer["status"] != 400 || !page.contains("Action Controller: Exception caught") || !page.contains("ActionController::BadRequest") { return; }
+    answer["body"] = json!(html::normalize(&String::from_utf8_lossy(deltabadger::web::assets::find("/400.html").expect("public/400.html is embedded").body)));
+}
+
 fn as_parse_error(answer: &mut Value) {
     if answer["exception"]["class"] != "ActionDispatch::Http::Parameters::ParseError" || answer["status"] != 400 { return; }
     let page = html::normalize(&String::from_utf8_lossy(deltabadger::web::assets::find("/400.html").expect("public/400.html is embedded").body));
@@ -860,7 +869,7 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
             for answer in rails["responses"].as_array_mut().unwrap() { as_record_invalid(answer); }
         }
         if name.starts_with("api_") {
-            for answer in rails["responses"].as_array_mut().unwrap() { as_parse_error(answer); }
+            for answer in rails["responses"].as_array_mut().unwrap() { as_parse_error(answer); as_router_bad_request(answer); }
             for answer in rails["responses"].as_array_mut().unwrap().iter_mut().chain(rust["responses"].as_array_mut().unwrap()) { without_ownership(answer); }
             for bot in rust["bots"].as_array_mut().unwrap() { without_counters(bot); }
             // A cable payload is markup: compared as a page is (html::normalize), whitespace between tags aside.
@@ -886,10 +895,10 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
     println!("{} scenarios; {countdown_pages} pages where only Rails knows when the bot acts next", dirs.len());
     if std::env::var("PAGES").is_err() {
-        assert_eq!(dirs.iter().filter(|dir| !dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_") || n.to_string_lossy().starts_with("settings_"))).count(), 160 + 4 + 9 + 2 + 6 + 3 + 38 + 68 + 57, "completed read-only baseline (with the market-closed weekend page and the expired start on bots that are not stopped), with D5b's two missing_ and two not_ported_ connect scenarios, the venue pages (eight served, one refused), the selling pages (three served, one cap refused, in place of two refusals), the venue basket pages (seven served, in place of the one refusal), the asset search on each venue, the wizard's chooser and order switch (twelve served, one unrouted GET), its asset and exchange steps (ten served), its broker, key and quote steps to a created bot (nine served), the index and signal tiles and the IBKR and KuCoin key steps (four not_ported_), and the first empty bots page that opens it (two), and the REST API's (thirty-five on the five served reads' tokens and grants, twelve on the routes it gates but does not serve, three on typed creates, nine unrouted paths, seven on parameters, one on conditional GETs and one on an install without an admin; fifty-six on the six bot writes: six per route on its tokens, grants, ids and malformed bodies, five on settings values, fourteen on lifecycle states and one start the engine guard refuses)");
+        assert_eq!(dirs.iter().filter(|dir| !dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_") || n.to_string_lossy().starts_with("settings_"))).count(), 160 + 4 + 9 + 2 + 6 + 3 + 38 + 68 + 58, "completed read-only baseline (with the market-closed weekend page and the expired start on bots that are not stopped), with D5b's two missing_ and two not_ported_ connect scenarios, the venue pages (eight served, one refused), the selling pages (three served, one cap refused, in place of two refusals), the venue basket pages (seven served, in place of the one refusal), the asset search on each venue, the wizard's chooser and order switch (twelve served, one unrouted GET), its asset and exchange steps (ten served), its broker, key and quote steps to a created bot (nine served), the index and signal tiles and the IBKR and KuCoin key steps (four not_ported_), and the first empty bots page that opens it (two), and the REST API's (thirty-five on the five served reads' tokens and grants, twelve on the routes it gates but does not serve, three on typed creates, nine unrouted paths, seven on parameters, one on conditional GETs and one on an install without an admin; fifty-six on the six bot writes: six per route on its tokens, grants, ids and malformed bodies, five on settings values, fourteen on lifecycle states and one start the engine guard refuses)");
         assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("settings_"))).count(), 413 + 3 + 45 + 52 + 5 + 1 + 71, "complete S1 inventory, D5b's connect flow, the preference writes, the following client's card, the switch back to the default locale and the settings dialog (two more sections, in-place confirms, the page behind a language change)");
         assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_"))).count(), 197 + 50, "action inventory (with the five ⇄ rotations and nine sell-settings writes, twenty-two Kraken/Binance venue actions, and fifty on their baskets)");
-        assert_eq!(dirs.len(), 160 + 4 + 9 + 2 + 6 + 3 + 38 + 68 + 57 + 197 + 50 + 413 + 3 + 45 + 52 + 5 + 1 + 71, "a scenario was dropped or added without this count");
+        assert_eq!(dirs.len(), 160 + 4 + 9 + 2 + 6 + 3 + 38 + 68 + 58 + 197 + 50 + 413 + 3 + 45 + 52 + 5 + 1 + 71, "a scenario was dropped or added without this count");
         assert_eq!(countdown_pages, 4, "the pages where Rails knows a time this build does not: the listed divergence grew or shrank");
     }
 }

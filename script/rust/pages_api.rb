@@ -141,13 +141,18 @@ module Pages
     # The path's id as the router hands it over (percent-decoded, `+` kept, a bad escape or byte refused), and
     # parameters past this build's per-request bounds.
     def api_edge_scenarios
+      theirs = { 'kind' => 'basket', 'owner' => 'second@example.com', 'columns' => { 'status' => 1, 'started_at' => '2026-09-09T12:00:00Z' } }
       streams = { 'broadcasts' => %w[user_1:bot_updates user_1:bot_1] }
       {
         # The owner's bots page is open while an API client acts: it hears what the web's own actions send.
         'api_broadcasts' => write_case(signed_in(get('/bots')) + [write('POST', '/api/v1/bots/1/start').merge(streams), write('POST', '/api/v1/bots/1/stop').merge(streams),
                                                                  write('POST', '/api/v1/bots/1/archive').merge(streams), write('DELETE', '/api/v1/bots/1/archive').merge(streams),
                                                                  write('PATCH', '/api/v1/bots/1', body: '{"quote_amount":70}').merge(streams),
-                                                                 write('DELETE', '/api/v1/bots/1').merge(streams)], 2)
+                                                                 write('DELETE', '/api/v1/bots/1').merge(streams)], 2),
+        'api_stop_encoded_ids' => write_case([write('POST', '/api/v1/bots/1%30/stop'), write('POST', '/api/v1/bots/%35/stop'),
+                                              write('POST', '/api/v1/bots/%E2%82/stop'),
+                                              write('POST', '/api/v1/bots/%35/stop', 'second-token'), write('POST', '/api/v1/bots/1+/stop'),
+                                              write('POST', '/api/v1/bots/%31/stop')], 1).tap { |c| c['bots'] << theirs }
       }
     end
 
