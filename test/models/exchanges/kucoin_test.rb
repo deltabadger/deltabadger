@@ -247,6 +247,20 @@ class Exchanges::KucoinTest < ActiveSupport::TestCase
     end
   end
 
+  test 'get_balances reads the frozen amount as locked or as holds' do
+    btc = create(:asset, :bitcoin)
+    create(:ticker, exchange: @exchange, base_asset: btc, base_symbol: 'BTC', quote_symbol: 'USDT')
+    [{ 'locked' => '0.25' }, { 'holds' => '0.25' }].each do |frozen|
+      account = { 'currency' => 'BTC', 'available' => '1.5' }.merge(frozen)
+      @exchange.send(:client).stubs(:get_accounts).returns(Result::Success.new({ 'code' => '200000', 'data' => [account] }))
+
+      result = with_dry_run(false) { @exchange.get_balances(asset_ids: [btc.id]) }
+
+      assert_predicate result, :success?
+      assert_equal({ free: BigDecimal('1.5'), locked: BigDecimal('0.25') }, result.data[btc.id], frozen.keys.first)
+    end
+  end
+
   # == lost orders ==
   # KuCoin forgets a cancelled order after ~2 days and a filled one after ~7. That answer must read as
   # not_found, or Bot::StaleOrderResolver never gets to retire the order and the bot polls it forever.
