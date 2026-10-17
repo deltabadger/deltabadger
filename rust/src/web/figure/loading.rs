@@ -57,7 +57,9 @@ fn hash_value(value:rusqlite::types::ValueRef<'_>,hash:&mut impl std::hash::Hash
     }
 }
 /// What kept figures show besides their numbers, as values: the account's row and its wash-sale locks (`user`), and per
-/// bot its row with the operation flags (`bots`: id → [hash, has a submitted order, deleted]). Rails renders these on
+/// bot its row with the operation flags, its index membership, and the listings of what it holds on its venue, whose
+/// minimum sizes decide its Sell links (holdings::render, Rails' sellable_holdings) (`bots`: id → [hash, has a
+/// submitted order, deleted]). Rails renders these on
 /// every request around a bot's cached numbers; kept figures carry them rendered, so stale figures are shown only for
 /// the bots whose own values are as they were (`stale_shown`).
 // ponytail: a whole bot's row, not the columns its panels read; a write to any column shows that bot loading until refilled.
@@ -74,6 +76,10 @@ fn shape(c:&Connection,user:i64)->Result<Value,rusqlite::Error> {
     }
     let mut statement=c.prepare(&format!("SELECT b.*,CASE WHEN json_valid(b.transient_data) THEN json_array(json_extract(b.transient_data,'$.rebalance_pending'),\
         json_extract(b.transient_data,'$.liquidation_pending'),json_extract(b.transient_data,'$.liquidation_selling_since'),json_extract(b.transient_data,'$.redeploy_pending')) END AS operations__, \
+        (SELECT json_group_array(json_array(asset_id,ticker_id,in_index)) FROM (SELECT * FROM bot_index_assets WHERE bot_id=b.id ORDER BY id)) AS members__, \
+        (SELECT json_group_array(json_array(id,base,base_asset_id,quote_asset_id,minimum_base_size,minimum_quote_size,available,trading_enabled)) FROM (SELECT * FROM tickers t \
+          WHERE t.exchange_id=b.exchange_id AND (t.base_asset_id IN (SELECT base_asset_id FROM transactions WHERE bot_id=b.id) \
+          OR t.base IN (SELECT base FROM transactions WHERE bot_id=b.id) OR t.id IN (SELECT ticker_id FROM bot_index_assets WHERE bot_id=b.id)) ORDER BY t.id)) AS listings__, \
         EXISTS(SELECT 1 FROM transactions t WHERE t.bot_id=b.id AND t.status={}) AS submitted__ FROM bots b WHERE b.user_id=?1 ORDER BY b.id",crate::enums::TxStatus::Submitted as i64))?;
     let names:Vec<String>=statement.column_names().iter().map(|n|n.to_string()).collect();
     let at=|name:&str|names.iter().position(|n|n==name);
