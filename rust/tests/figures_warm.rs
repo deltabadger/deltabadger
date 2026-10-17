@@ -930,3 +930,73 @@ async fn a_failed_render_only_pass_keeps_its_publication_for_the_next_fill() {
     install.app.figure_service.enqueue(1, Work { publish: false, locales: Default::default(), not_before: install.now() });
     until(10, "the publication the failed pass owed", async || published(&install.app, 1).await).await;
 }
+
+// ---- Stale while refilling: Rails' per-bot cache outlives another bot's writes ------------------------------------------
+
+/// Bot `bot` of account 1, started (scheduled), on AAA like the account's first.
+fn start_bot(c: &rusqlite::Connection, bot: i64) {
+    c.execute("INSERT INTO bots(id,user_id,exchange_id,type,status,settings,transient_data,created_at,updated_at) \
+               VALUES (?1,1,1,'Bots::DcaMultiAsset',1,'{\"quote_asset_id\":1,\"allocations\":{\"2\":1.0}}','{}','2026-03-18','2026-03-18')", [bot]).unwrap();
+}
+/// An accepted buy of AAA by `bot`.
+fn order(c: &rusqlite::Connection, bot: i64, external: &str) {
+    c.execute("INSERT INTO transactions(bot_id,exchange_id,base,base_asset_id,quote,quote_asset_id,amount,amount_exec,price,quote_amount_exec,side,status,external_status,external_id,transaction_type,created_at,updated_at) \
+               VALUES (?1,1,'AAA',2,'USD',1,1,1,100,100,0,0,2,?2,'REGULAR','2026-03-17 14:30:00','2026-03-18')", rusqlite::params![bot, external]).unwrap();
+}
+
+#[tokio::test]
+async fn another_bots_start_and_order_keep_a_bots_figures_until_the_refill_swaps_them() {
+    let install = Install::new(1, 150);
+    let _stop = install.consume();
+    install.app.figure_service.enqueue(1, Work { publish: true, locales: own(), not_before: install.now() });
+    until(10, "the first figures", async || published(&install.app, 1).await).await;
+    let (before, _) = page_figures(&install.app, 1, "en", "").await;
+    let before = before.expect("ready figures");
+    let tile = before["bots"]["1"]["tile"].clone();
+    assert!(tile.is_string() && before["account"].is_string());
+    // Bot B is started, then gets an order: A's tile, page metrics and chart are A's throughout, never the loading state.
+    let c = install.connection();
+    start_bot(&c, 100);
+    let (shown, _) = page_figures(&install.app, 1, "en", "").await;
+    let shown = shown.expect("A's figures while B's start is refilled, not the loading state");
+    for panel in ["tile", "metrics", "chart"] { assert_eq!(shown["bots"]["1"][panel], before["bots"]["1"][panel], "A's {panel}"); }
+    assert!(shown["bots"]["100"].is_null(), "B has no figures yet: its panels show the loading state");
+    assert!(shown["account"].is_string(), "B has no accepted order: the headline sums A, as User#global_pnl_snapshot does");
+    order(&c, 100, "b1");
+    until(10, "both bots' figures", async || {
+        let (shown, _) = page_figures(&install.app, 1, "en", "").await;
+        let shown = shown.expect("never the loading state for A");
+        assert_eq!(shown["bots"]["1"]["tile"], tile, "A's tile");
+        if shown["bots"]["100"].is_null() { assert!(shown["account"].is_null(), "B's order has no figures yet: the headline waits"); }
+        shown["bots"]["100"]["tile"].is_string() && shown["account"].is_string()
+    }).await;
+    // B's figures read before its order may show a moment, as its Rails cache would; the refill after the order swaps in.
+    until(10, "the refill for the current revision", async || {
+        let (shown, _) = page_figures(&install.app, 1, "en", "").await;
+        assert_eq!(shown.expect("never the loading state for A")["bots"]["1"]["tile"], tile, "A's tile");
+        matches!(loading::prepare(&install.app, 1).await.unwrap(), loading::Snapshot::Ready(..))
+    }).await;
+}
+
+#[tokio::test]
+async fn writes_during_every_refill_still_end_in_saved_figures() {
+    let install = Install::new(1, 50);
+    let c = install.connection();
+    assert!(matches!(loading::prepare(&install.app, 1).await.unwrap(), loading::Snapshot::Cold), "nothing saved yet");
+    // A write lands every couple of milliseconds, before and during every fill, until figures are shown.
+    let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let writer = { let (stop, file) = (stop.clone(), install.file.clone()); std::thread::spawn(move || {
+        let c = rusqlite::Connection::open(file).unwrap();
+        c.busy_timeout(Duration::from_secs(5)).unwrap();
+        let mut n = 0u32;
+        while !stop.load(std::sync::atomic::Ordering::Relaxed) { n += 1; order(&c, 1, &format!("w{n}")); std::thread::sleep(Duration::from_millis(2)); }
+        n
+    }) };
+    until(10, "figures saved under churn", async || {
+        let (shown, _) = page_figures(&install.app, 1, "en", "").await;
+        shown.is_some_and(|shown| shown["bots"]["1"]["tile"].is_string())
+    }).await;
+    stop.store(true, std::sync::atomic::Ordering::Relaxed);
+    assert!(writer.join().unwrap() > 1, "the writes kept coming");
+    drop(c);
+}

@@ -42,7 +42,11 @@ struct State { active:usize, active_users:BTreeSet<i64>, serial:u64, entries:BTr
 /// payload) one per target as a publication carries them, within the mailbox's bounds.
 /// And the held conversions its figures read.
 type Latest=(u64,bool,Vec<(Arc<str>,Arc<str>)>,FxDeps);
-struct Entry { identity:String,revision:u64,serial:u64,started:i64,until:i64,loading:bool,ready:bool,reason:Option<&'static str>,cache:Cache }
+struct Entry { identity:String,revision:u64,serial:u64,started:i64,until:i64,loading:bool,ready:bool,reason:Option<&'static str>,cache:Cache,
+    /// The last ready figures before this entry's fill began: (cache, until, revision), shown while it runs (`stale`).
+    last:Option<Saved> }
+/// Ready figures kept past a write: their cache, until when they may be shown, and the revision their fill read.
+pub type Saved=(Cache,i64,u64);
 /// `Busy`: both fills are taken by other accounts. `Failed` also when a fill is needed and the waiting account has no
 /// allowance left.
 /// `Ready`: the cache, when its fill began, and until when its figures may be shown (`Entry::until`).
@@ -153,8 +157,18 @@ impl Service {
         if let Some(allowance)=state.wanted.get_mut(&user) { *allowance-=1; }
         let cache=state.entries.get(&user).filter(|e|crate::engine::model::identity_current_for(&e.identity,identity).is_fresh()).map(|e|e.cache.clone()).unwrap_or_default(); // allow-swallow: an Option; an account with no cache for these credentials starts empty
         state.serial=state.serial.wrapping_add(1);let serial=state.serial;state.active+=1;state.active_users.insert(user);
-        state.entries.insert(user,Entry{identity:identity.into(),revision,serial,started:now,until:now,loading:true,ready:false,reason:None,cache:cache.clone()});
+        // Rails keeps a bot's cached figures until its recompute overwrites them: the last ready ones stay showable.
+        let last=state.entries.get(&user).filter(|e|crate::engine::model::identity_current_for(&e.identity,identity).is_fresh()).and_then(Entry::saved);
+        state.entries.insert(user,Entry{identity:identity.into(),revision,serial,started:now,until:now,loading:true,ready:false,reason:None,cache:cache.clone(),last});
         Load::Start(Ticket{service:self.clone(),user,serial,finished:false},cache)
+    }
+    /// The last ready figures of this account for these credentials, whatever revision they were filled for, while their
+    /// lifetime lasts: what a page shows while a fill for a later revision runs or waits (Rails' per-bot cache, read
+    /// until its recompute overwrites it).
+    pub fn stale(&self,user:i64,identity:&str,now:i64)->Option<Saved> {
+        let state=self.state();
+        let entry=state.entries.get(&user).filter(|e|crate::engine::model::identity_current_for(&e.identity,identity).is_fresh())?;
+        entry.saved().filter(|(_,until,_)|*until>now)
     }
     /// A page asked for this user's figures and they could not be published yet (loading::publish). A fill already
     /// running for it was its first attempt.
@@ -235,6 +249,9 @@ impl Service {
         Some((kept.iter().filter(|(on,_)|&**on==stream).map(|(_,html)|html.clone()).collect(),fx.clone()))
     }
 }
+impl Entry {
+    fn saved(&self)->Option<Saved> { if self.ready&&!self.loading { Some((self.cache.clone(),self.until,self.revision)) } else { self.last.clone() } }
+}
 impl Ticket {
     /// `now`: when the fill ended. A failure is kept for a minute from then, however long the fill ran.
     pub fn finish(self,cache:Cache,ready:bool,now:i64) { self.finish_with_reason(cache,ready,None,now); }
@@ -246,6 +263,7 @@ impl Ticket {
         state.active=state.active.saturating_sub(1);state.active_users.remove(&self.user);
         if let Some(entry)=state.entries.get_mut(&self.user).filter(|e|e.serial==self.serial) {
             entry.loading=false;entry.ready=ready;entry.reason=if ready{None}else{reason};entry.cache=cache;
+            if ready { entry.last=None; }
             // Ready figures last until the next five-minute cut (UTC midnight is one), or a lock's end before it.
             entry.until=if ready { entry.started.saturating_add(300-entry.started.rem_euclid(300)).min(deadline.unwrap_or(i64::MAX)) } else { ended.unwrap_or(entry.started).max(entry.started).saturating_add(60) };
         }
