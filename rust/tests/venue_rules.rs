@@ -27,7 +27,9 @@ fn each_venue_carries_rails_minimum_logic_wire_and_absence_window() {
     assert_eq!(ALPACA.absence_margin_secs, 1200, "20 minutes: past Linux's tcp_retries2 (~924 s) and tcp_orphan_retries (~100 s)");
     assert!(!ALPACA.add_outcome_unknown(&["internal server error".into()]), "a 5xx is ambiguous at the venue, not by text");
     assert_eq!(for_exchange("Exchanges::Binance").unwrap().minimum_logic, MinimumLogic { market: AmountLogic::BaseOrQuote, limit: AmountLogic::BaseAndQuoteInBase });
-    assert!(for_exchange("Exchanges::Kucoin").is_none());
+    let kucoin = for_exchange("Exchanges::Kucoin").unwrap();
+    assert_eq!((kucoin.name, kucoin.minimum_logic, kucoin.deadline_sent), ("KuCoin", MinimumLogic { market: AmountLogic::BaseOrQuote, limit: AmountLogic::BaseAndQuoteInBase }, false));
+    assert!(!kucoin.absence_provable, "KuCoin never concludes a lost placement absent (plan K r4)");
     assert_eq!(for_exchange("Exchanges::Alpaca").unwrap().name, "Alpaca");
 }
 
