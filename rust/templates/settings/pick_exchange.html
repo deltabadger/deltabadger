@@ -26,17 +26,7 @@
       {{ v.t("tracker.import_from") }}
     </div>
 
-    <turbo-frame data-action="keydown@window-&gt;arrow-keys-navigation#navigate" data-controller="arrow-keys-navigation" class="selectable-options" id="exchange-picker">
-  <form action="{{ v.path("/tracker/pick_exchange") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
-    <div class="exchange-grid">
-{%- for (id, mark) in venues %}
-        <div class="exchange-grid__option">
-          <button name="exchange_id" type="submit" value="{{ id }}" class="exchange-grid__item" data-arrow-keys-navigation-target="item button" data-turbo-frame="modal_content">
-            {{ mark|safe }}
-</button>        </div>
-{%- endfor %}
-    </div>
-</form></turbo-frame>
+    {% include "bots/pick_exchanges/_table.html" %}
   </div>
 
 </turbo-frame>    </div>

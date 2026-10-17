@@ -68,7 +68,7 @@ NEEDS_ASSETS = {FIX + 'setup_vectors.json'}
 MASK = {FIX + 'setup_vectors.json': r'[A-Za-z0-9+/=_%.$-]{16,}|127\.0\.0\.1:\d+|"p":"[^"]*"'}
 HASH_ONLY = [FIX + n for n in ('page_figure_sources.json', 'tracker_connect_sources.json', 'tracker_first_sync_sources.json',
                                'tracker_holdings_sources.json', 'tracker_index_sources.json', 'tracker_populated_sources.json',
-                               'tracker_walk_sources.json')]
+                               'tracker_walk_sources.json', 'wizard_sources.json')]
 SHA = re.compile(r'^[0-9a-f]{64}$')
 
 def sha(path):

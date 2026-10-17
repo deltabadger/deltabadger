@@ -204,6 +204,14 @@ enum Listing {
 }
 
 /// GET /bots.
+/// StockTradingSettings.active?: a hosted install, or a synced stock catalog (Exchange::STOCK_TYPES).
+pub(crate) fn stocks_active(c: &rusqlite::Connection, app: &App) -> Result<bool, WebError> {
+    Ok(app.config.market_data_url
+        || app_config(c, &app.cipher, "market_data_provider")?.as_deref() == Some("deltabadger")
+        || c.query_row("SELECT EXISTS(SELECT 1 FROM tickers JOIN exchanges ON exchanges.id = tickers.exchange_id \
+                        WHERE tickers.available = 1 AND exchanges.type IN ('Exchanges::Alpaca', 'Exchanges::Ibkr'))", [], |r| r.get(0))?)
+}
+
 pub async fn index(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> {
     let Some(user) = ctx.user().cloned() else { return Ok(auth::unauthenticated(&ctx)) };
     // With exactly one bot the list is that bot's page. Decided first: a redirect renders no form, so it gives the session no token.
@@ -218,11 +226,7 @@ pub async fn index(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Re
         let shell = Shell::load(c, &inner, user)?;
         let ids = Bot::ids(c, user.id)?;
         if ids.is_empty() {
-            // StockTradingSettings.active?: a hosted install, or a synced stock catalog (Exchange::STOCK_TYPES).
-            let stocks_active = inner.config.market_data_url
-                || app_config(c, &inner.cipher, "market_data_provider")?.as_deref() == Some("deltabadger")
-                || c.query_row("SELECT EXISTS(SELECT 1 FROM tickers JOIN exchanges ON exchanges.id = tickers.exchange_id \
-                                WHERE tickers.available = 1 AND exchanges.type IN ('Exchanges::Alpaca', 'Exchanges::Ibkr'))", [], |r| r.get(0))?;
+            let stocks_active = stocks_active(c, &inner)?;
             return Ok((shell, Listing::Empty { ask_admin_for_stocks: !stocks_active && !user.admin }));
         }
         let (deltabadger, configured) = market_data(c, &inner)?;

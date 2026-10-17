@@ -1,0 +1,68 @@
+<turbo-frame id="modal">
+  <dialog data-controller="modal--base" data-modal--base-close-url-value="{{ close_url }}" class="dialogview" data-hw-animate-in="animate-modal-in" data-hw-animate-out="animate-modal-out">
+    <div class="dialogview__vertical-center">
+      <button name="button" type="button" class="modal__close" data-action="modal--base#animateOutCloseAndCleanUp">
+        {% include "svg/_24x24_close.html" %}
+</button>      <turbo-frame id="modal_content">
+        
+  <div class="bot-creation-layout" data-controller="class-toggle" data-class-toggle-toggle-classes-value='["hidden"]'>
+
+    {{ progress|safe }}
+
+    {{ sentence|safe }}
+
+    <div class="wizard-assets vt-step-body">
+{%- if !chosen.is_empty() %}
+        <div class="wizard-assets__list {% if !basket_open %}hidden{% endif %}" data-class-toggle-target="togglable">
+{%- for chip in chosen %}
+            <div class="wizard-assets__row">
+              <div class="modal--search__cell">
+                <div class="{{ chip.class }}" style="background: {{ chip.pill }}" data-ticker-symbol="{{ chip.symbol }}" data-ticker-asset-id="{{ chip.id }}">{{ chip.symbol }}</div>
+              </div>
+              <div class="modal--search__cell">{{ chip.name }}</div>
+              <div class="modal--search__cell wizard-assets__action">
+                <form data-turbo-frame="modal_content" data-wizard-dir="stay" class="button_to" method="post" action="{{ remove_url }}"><button class="rbutton rbutton--small" title="{{ remove_title|safe }}" type="submit">×</button><input type="hidden" name="authenticity_token" value="{{ csrf }}" /><input type="hidden" name="bots_dca_single_asset[base_asset_id]" value="{{ chip.id }}" /></form>
+              </div>
+            </div>
+{%- endfor %}
+        </div>
+{%- endif %}
+
+{%- if let Some(warning) = no_common_exchange %}
+        <p class="wizard-assets__warning" role="alert">{{ warning|safe }}</p>
+{%- endif %}
+
+{%- if let Some(reached) = max_reached %}
+        <p class="text-inactive text-center">{{ reached|safe }}</p>
+{%- else %}
+        <div class="modal--search">
+          <form data-controller="form--submit-after-delay" data-turbo-frame="asset-picker" style="position:relative" action="{{ search_url }}" accept-charset="UTF-8" method="get">
+            {% include "svg/_24x24_zoom.html" %}
+            <input autofocus="autofocus" autocomplete="off" placeholder="{{ v.t("utils.search.placeholder.asset")|safe }}" data-action="input-&gt;form--submit-after-delay#submit" class="modal--search__input" type="text" name="query" id="query" />
+</form>        </div>
+        <turbo-frame data-action="keydown@window-&gt;arrow-keys-navigation#navigate" data-controller="arrow-keys-navigation" class="modal--search__assets selectable-options" id="asset-picker">
+{%- if let Some(syncing) = syncing %}
+            <div class="assets-syncing">
+  {{ syncing|safe }}
+</div>
+{%- else %}
+            <form data-wizard-dir="stay" action="{{ create_url }}" accept-charset="UTF-8" method="post"><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+{%- for item in items %}
+                {% include "bots/_asset_search_result.html" %}
+{%- endfor %}
+{%- if let Some((next_id, next_url)) = next %}
+                <turbo-frame loading="lazy" id="{{ next_id }}" src="{{ next_url }}"></turbo-frame>
+{%- endif %}
+{%- if !items.is_empty() || next.is_some() %}
+{% endif %}</form>
+{%- endif %}
+          {{ notice|safe }}
+</turbo-frame>
+{%- endif %}
+    </div>
+
+  </div>
+
+</turbo-frame>    </div>
+  </dialog>
+</turbo-frame>

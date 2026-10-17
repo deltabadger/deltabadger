@@ -6,7 +6,7 @@
 //! Two forms submitted at once cannot make two admins, and a claim in flight cannot change configuration after
 //! setup closes. A losing admin creation redirects to the root; a losing claim renders a failure.
 use super::layout::{self, Ctx, Page};
-use super::{assets, auth, i18n, i18n::Arg, launchpad, locale, turbo, App, Params, WebError};
+use super::{auth, i18n, i18n::Arg, launchpad, locale, turbo, App, Params, WebError};
 use crate::codec::format_time;
 use askama::Template;
 use axum::extract::{Extension, State};
@@ -413,11 +413,7 @@ pub async fn create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> R
         return Ok(answer);
     }
     let Some(fields) = submitted(&ctx.params) else {
-        // ActionController::ParameterMissing: 400 with public/400.html.
-        let body = assets::find("/400.html").map_or(&b"Bad Request"[..], |file| file.body);
-        let mut response = (StatusCode::BAD_REQUEST, [(axum::http::header::CONTENT_TYPE, "text/html; charset=utf-8")], body).into_response();
-        response.extensions_mut().insert(super::headers::BelowControllers);
-        return Ok(response);
+        return Ok(super::layout::bad_request());
     };
     let email = fields.email.as_deref().map(normalized_email).unwrap_or_default();
     // Devise hashes on assignment, before validation, and only a present password.

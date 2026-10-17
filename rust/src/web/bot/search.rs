@@ -46,12 +46,32 @@ fn offered(side: Side) -> String {
         // ?5 is empty here: named only so both sides bind the same five values.
         Side::Quote => "(?4 = 0 OR t.base_asset_id IN (SELECT value FROM json_each(?3))) AND t.base_asset_id NOT IN (SELECT value FROM json_each(?5))",
     };
-    // eligible_pairs: (venue, quote) pairs listing every member; Exchange.tradeable is available and not retired.
-    format!("SELECT t.* FROM tickers t WHERE t.available = 1 AND t.trading_enabled = 1 AND {filter} AND (t.exchange_id, t.quote_asset_id) IN (\
-             SELECT p.exchange_id, p.quote_asset_id FROM tickers p JOIN exchanges e ON e.id = p.exchange_id \
-             WHERE p.available = 1 AND p.trading_enabled = 1 AND e.available = 1 AND e.type IS NOT 'Exchanges::Bitmart' AND (?1 IS NULL OR e.id = ?1) \
-             AND (?2 IS NULL OR p.quote_asset_id = ?2) AND (?4 = 0 OR p.base_asset_id IN (SELECT value FROM json_each(?3))) \
-             GROUP BY p.exchange_id, p.quote_asset_id HAVING ?4 = 0 OR COUNT(DISTINCT p.base_asset_id) = ?4)")
+    format!("SELECT t.* FROM tickers t WHERE t.available = 1 AND t.trading_enabled = 1 AND {filter} AND (t.exchange_id, t.quote_asset_id) IN ({})", ELIGIBLE_PAIRS)
+}
+
+/// Bots::DcaMultiAsset#eligible_pairs over ?1 venue, ?2 quote, ?3 members (JSON), ?4 their count: the (venue, quote) pairs listing
+/// every member; Exchange.tradeable is available and not retired.
+const ELIGIBLE_PAIRS: &str = "SELECT p.exchange_id, p.quote_asset_id FROM tickers p JOIN exchanges e ON e.id = p.exchange_id \
+     WHERE p.available = 1 AND p.trading_enabled = 1 AND e.available = 1 AND e.type IS NOT 'Exchanges::Bitmart' AND (?1 IS NULL OR e.id = ?1) \
+     AND (?2 IS NULL OR p.quote_asset_id = ?2) AND (?4 = 0 OR p.base_asset_id IN (SELECT value FROM json_each(?3))) \
+     GROUP BY p.exchange_id, p.quote_asset_id HAVING ?4 = 0 OR COUNT(DISTINCT p.base_asset_id) = ?4";
+
+/// Bots::DcaMultiAsset#available_exchanges_for_current_settings (every tradeable venue, the basket's own venue not narrowing it):
+/// the venues with an eligible pair, by id. With `single`, Bot::AssetConfigurable's one-pair version for the wizard's blank
+/// one-asset bot: any available venue (retired ones included) with a tradeable ticker in the quote and of the base it holds.
+pub fn available_exchanges(c: &Connection, basket: &Basket, single: Option<Option<i64>>) -> Result<Vec<super::Exchange>, WebError> {
+    let (_, quote, members, count, _) = offered_params(basket, Side::Base);
+    let row = |r: &rusqlite::Row| Ok(super::Exchange {
+        id: r.get(0)?, name: r.get::<_, Option<String>>(1)?.unwrap_or_default(), class: r.get::<_, Option<String>>(2)?.unwrap_or_default(), maker_fee: r.get(3)?,
+    });
+    let found = match single {
+        Some(base) => c.prepare("SELECT id, name, type, maker_fee FROM exchanges WHERE available = 1 AND id IN (SELECT exchange_id FROM tickers \
+                                 WHERE available = 1 AND trading_enabled = 1 AND (?1 IS NULL OR quote_asset_id = ?1) AND (?2 IS NULL OR base_asset_id = ?2)) ORDER BY id")?
+            .query_map(params![quote, base], row)?.collect::<Result<Vec<_>, _>>()?,
+        None => c.prepare(&format!("SELECT id, name, type, maker_fee FROM exchanges WHERE id IN (SELECT exchange_id FROM ({ELIGIBLE_PAIRS})) ORDER BY id"))?
+            .query_map(params![Option::<i64>::None, quote, members, count], row)?.collect::<Result<Vec<_>, _>>()?,
+    };
+    Ok(found)
 }
 
 fn offered_params(basket: &Basket, side: Side) -> (Option<i64>, Option<i64>, String, i64, String) {
@@ -103,7 +123,7 @@ pub fn jaro_winkler(a: &str, b: &str) -> f64 {
 }
 
 /// `CGI.escape`.
-fn cgi_escape(text: &str) -> String {
+pub(crate) fn cgi_escape(text: &str) -> String {
     let mut out = String::new();
     for byte in text.bytes() {
         match byte {
@@ -168,7 +188,7 @@ pub fn next_page_query(raw: &str, offset: i64) -> String {
 }
 
 /// `String#to_i`: leading whitespace, a sign, digits (single underscores between them); 0 when there are none.
-fn to_i(text: &str) -> i64 {
+pub(crate) fn to_i(text: &str) -> i64 {
     let text = text.trim_start();
     let (negative, digits) = match text.as_bytes().first() {
         Some(b'-') => (true, &text[1..]),
@@ -230,6 +250,13 @@ pub fn filtered_rows(c: &Connection, basket: &Basket, side: Side, query: Option<
     Ok(found.into_iter().filter(|row| !blank(&row.symbol)).collect())
 }
 
+/// `basket.available_assets_for_current_settings(asset_type: side).exists?(id)`: whether the basket offers that Asset.
+pub fn offers(c: &Connection, basket: &Basket, side: Side, id: i64) -> Result<bool, WebError> {
+    let (venue, quote, members, count, excluded) = offered_params(basket, side);
+    let sql = format!("SELECT EXISTS(SELECT 1 FROM assets WHERE id = ?6 AND id IN (SELECT {} FROM ({})))", side.column(), offered(side));
+    Ok(c.query_row(&sql, params![venue, quote, members, count, excluded, id], |r| r.get(0))?)
+}
+
 /// Bots::Searchable#parse_exchanges: Binance.US shown as Binance where Binance trades, then `uniq.sort`.
 pub fn parse_exchanges(exchanges: Vec<(String, String)>, binance_name: Option<&str>) -> Vec<(String, String)> {
     let mut parsed: Vec<(String, String)> = exchanges.into_iter().map(|(name_id, name)| match binance_name {
@@ -276,16 +303,16 @@ pub fn page_of(rows: Vec<Row>, offset: i64) -> Vec<Row> {
 
 /// A row as the result partial shows it.
 pub struct Item {
-    id: i64,
-    symbol: String,
-    name: String,
-    ticker_class: &'static str,
-    pill: String,
-    logo: String,
-    exchanges: Vec<(String, &'static str)>,
+    pub(crate) id: i64,
+    pub(crate) symbol: String,
+    pub(crate) name: String,
+    pub(crate) ticker_class: &'static str,
+    pub(crate) pill: String,
+    pub(crate) logo: String,
+    pub(crate) exchanges: Vec<(String, &'static str)>,
 }
 
-fn items(rows: Vec<Row>) -> Result<Vec<Item>, WebError> {
+pub(crate) fn items(rows: Vec<Row>) -> Result<Vec<Item>, WebError> {
     rows.into_iter().map(|row| Ok(Item {
         id: row.id,
         ticker_class: colors::ticker_class(row.category.as_deref(), row.color.as_deref()),
@@ -303,7 +330,7 @@ struct Edit<'a> { v: &'a Ctx, csrf: &'a str, search_url: String, bot_url: String
 
 #[derive(Template)]
 #[template(path = "bots/_asset_page.html")]
-struct AssetPage { frame_id: String, field_name: String, items: Vec<Item>, next: Option<(String, String)> }
+pub(crate) struct AssetPage { pub(crate) frame_id: String, pub(crate) field_name: String, pub(crate) items: Vec<Item>, pub(crate) next: Option<(String, String)> }
 
 /// GET /bots/:id/asset_search/edit.
 pub async fn edit(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path(segment): Path<String>) -> Result<Response, WebError> {

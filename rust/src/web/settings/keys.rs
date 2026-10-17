@@ -705,7 +705,7 @@ pub async fn form(axum::extract::State(app):axum::extract::State<App>, axum::ext
 
 #[derive(Template)]
 #[template(path="settings/pick_exchange.html")]
-struct PickExchange<'a> { v:&'a Ctx, csrf:&'a str, progress_title:String, venues:Vec<(i64,&'static str)> }
+struct PickExchange<'a> { v:&'a Ctx, progress_title:String, table:crate::web::wizard::exchanges::Table }
 /// Tracker::PickExchangesController#new: every available venue, stable ones first (Bots::Searchable), none disabled.
 pub async fn pick_form(axum::extract::State(app):axum::extract::State<App>,axum::extract::Extension(ctx):axum::extract::Extension<Ctx>)->Result<Response,WebError>{
     let Some(user)=ctx.user().cloned() else {return Ok(auth::unauthenticated(&ctx))};
@@ -713,11 +713,12 @@ pub async fn pick_form(axum::extract::State(app):axum::extract::State<App>,axum:
     let (venues,shell)=app.db(move|c|{
         let mut s=c.prepare("SELECT id,type FROM exchanges WHERE available=1 ORDER BY type IN ('Exchanges::Binance','Exchanges::BinanceUs','Exchanges::Coinbase','Exchanges::Kraken') DESC,name")?;
         let venues=s.query_map([],|r|Ok((r.get::<_,i64>(0)?,r.get::<_,String>(1)?)))?.collect::<Result<Vec<_>,_>>()?;
-        let venues=venues.into_iter().map(|(id,class)|(id,crate::web::bot::exchange_wordmark(&crate::web::bot::Exchange{id,name:String::new(),class,maker_fee:None}.name_id()))).collect::<Vec<_>>();
+        let venues=venues.into_iter().map(|(id,class)|crate::web::wizard::exchanges::Venue{id,mark:crate::web::bot::exchange_wordmark(&crate::web::bot::Exchange{id,name:String::new(),class,maker_fee:None}.name_id()),unavailable:false}).collect::<Vec<_>>();
         Ok((venues,crate::web::shell::Shell::load(c,&inner,&owner)?))
     }).await?;
     let csrf=ctx.csrf_token();
-    let body=PickExchange{v:&ctx,csrf:&csrf,progress_title:i18n::t(ctx.locale,"bot.setup.progress_steps.exchange",&[]),venues}.render()?;
+    let table=crate::web::wizard::exchanges::Table{action:ctx.path("/tracker/pick_exchange"),csrf:csrf.clone(),param_name:"exchange_id".into(),venues,unavailable_note:String::new()};
+    let body=PickExchange{v:&ctx,progress_title:i18n::t(ctx.locale,"bot.setup.progress_steps.exchange",&[]),table}.render()?;
     crate::web::shell::application(&ctx,&csrf,&user,&shell,crate::web::layout::Page{status:StatusCode::OK,body,flash_now:vec![]})
 }
 /// Tracker::PickExchangesController#create: `Exchange.find` (any row), the session keeps only its id.
