@@ -117,20 +117,19 @@ fn deferred_classes_and_existing_refusals_still_roll_back() {
         ("UPDATE bots SET settings=json_set(settings,'$.start_time_enabled',json('true'),'$.start_at','2026-01-06T12:00:00Z')","start_time_enabled"),
         ("UPDATE bots SET settings=json_set(settings,'$.price_drop_limited',json('true'))","price_drop_limited"),
         ("UPDATE bots SET settings=json_set(settings,'$.indicator_limited',json('true'))","indicator_limited"),
-        // 6a sells for a one-asset basket only: this two-asset Alpaca basket's selling stays deferred (6b).
-        ("UPDATE bots SET settings=json_set(settings,'$.direction','selling')","selling with 2 assets"),
         ("UPDATE bots SET settings=json_set(settings,'$.direction','sideways')","direction \"sideways\""),
         ("UPDATE bots SET settings=json_set(settings,'$.weighting','market_cap')","weighting"),
         ("UPDATE bots SET transient_data=json_set(transient_data,'$.liquidation_pending',json('{}'))","liquidation_pending"),
         ("UPDATE bots SET transient_data=json_set(transient_data,'$.redeploy_pending',json('{}'))","redeploy_pending"),
-        ("UPDATE bots SET transient_data=json_set(transient_data,'$.rebalance_pending',json('{}'))","rebalance_pending"),
-        ("UPDATE bots SET settings=json_set(settings,'$.rebalance_enabled',json('true'))","rebalance_enabled"),
+        // 6b T8: an Alpaca basket rebalances here (admitted below); a halt Rails wrote and a threshold it cannot read do not.
+        ("UPDATE bots SET transient_data=json_set(transient_data,'$.rebalance_pending',json('{\"phase\":\"ambiguous\"}'))","rebalance_pending in phase"),
+        ("UPDATE bots SET settings=json_set(settings,'$.rebalance_enabled',json('true'),'$.rebalance_threshold',json('[1]'))","rebalance_threshold"),
         ("UPDATE users SET wash_sale_enabled=1","wash_sale"),
         ("UPDATE transactions SET external_id='imported_test' WHERE side=1","imported"),
         ("UPDATE transactions SET base_asset_id=NULL WHERE side=1","without base_asset_id"),
-        ("UPDATE transactions SET transaction_type='REBALANCE' WHERE side=1","REBALANCE/LIQUIDATION/REDEPLOY"),
-        ("UPDATE transactions SET transaction_type='REDEPLOY' WHERE side=0","REBALANCE/LIQUIDATION/REDEPLOY"),
-        ("UPDATE transactions SET transaction_type='LIQUIDATION' WHERE side=1","REBALANCE/LIQUIDATION/REDEPLOY"),
+        ("UPDATE transactions SET transaction_type='REBALANCE',external_status=4 WHERE side=1","abandoned REBALANCE"),
+        ("UPDATE transactions SET transaction_type='REDEPLOY' WHERE side=0","LIQUIDATION/REDEPLOY row(s) in its history"),
+        ("UPDATE transactions SET transaction_type='LIQUIDATION' WHERE side=1","LIQUIDATION/REDEPLOY row(s) in its history"),
         ("UPDATE transactions SET transaction_type='LIQUIDATION',external_status=1 WHERE side=1","waiting LIQUIDATION"),
         ("UPDATE transactions SET transaction_type='LIQUIDATION',external_status=4 WHERE side=1","unresolved abandoned LIQUIDATION"),
     ] {
@@ -142,6 +141,20 @@ fn deferred_classes_and_existing_refusals_still_roll_back() {
         assert!(error.reason().contains(reason),"{reason}: {error:?}");
         drop(tx);
         assert!(eligibility::check_install(&o.primary).unwrap().problems.is_empty(),"{reason}: rollback");
+    }
+    // What 6b T8 lifted for an Alpaca basket: the rule, a swap pending in a phase this engine resumes (an empty hash is no
+    // swap, Rails' `present?`), and a settled REBALANCE row the walk books.
+    for sql in [
+        "UPDATE bots SET settings=json_set(settings,'$.rebalance_enabled',json('true'))",
+        "UPDATE bots SET transient_data=json_set(transient_data,'$.rebalance_pending',json('{}'))",
+        "UPDATE bots SET transient_data=json_set(transient_data,'$.rebalance_pending',json('{\"phase\":\"buying\",\"remaining_quote_amount\":\"10.0\"}'))",
+        "UPDATE transactions SET transaction_type='REBALANCE' WHERE side=1",
+    ] {
+        let tx=model::immediate(&o.primary).unwrap();
+        tx.execute_batch(sql).unwrap();
+        let report=eligibility::check_install(&tx).unwrap();
+        assert!(report.problems.is_empty(),"{sql}: {:?}",report.problems);
+        eligibility::guard(&tx,cipher(),Some(id)).unwrap_or_else(|e| panic!("{sql}: {e:?}"));
     }
 }
 

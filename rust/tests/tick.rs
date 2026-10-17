@@ -650,3 +650,52 @@ fn a_stopped_seller_continued_within_its_sell_interval_waits() {
     assert!(!deltabadger::engine::amount::continue_runs_now(&o.primary, &b, now("2026-09-01T20:00:00Z")).unwrap(), "frozen carry, but within a day");
     assert!(deltabadger::engine::amount::continue_runs_now(&o.primary, &b, now("2026-09-02T10:00:01Z")).unwrap());
 }
+
+// ---- 6b T5: a rebalance in flight stands the DCA leg down (Bot::Rebalanceable#execute_action) ----
+
+fn pending_swap() -> serde_json::Value {
+    json!({ "phase": "buying", "sell_transaction_id": 7, "buy_transaction_id": null, "remaining_quote_amount": "99.0", "buy_attempted": false })
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_pending_rebalance_stands_the_dca_leg_down_and_the_carry_keeps_accruing() {
+    let (_d, o, id) = setup(BotSpec::weekly(60.0, "2026-09-01 10:00:00").transient("rebalance_pending", pending_swap()));
+    let v = priced();
+    assert!(matches!(run(&o, &v, id, "2026-09-01T10:00:00.5Z").await, TickOutcome::Done { placed: false }));
+    assert!(v.sent().is_empty());
+    assert_eq!((v.calls("/0/public/Ticker"), v.calls("/0/private/BalanceEx"), v.calls("/0/private/QueryOrders")), (0, 0, 0), "nothing read, nothing swept");
+    assert_eq!(one::<String>(&o, "SELECT event FROM bot_activity_logs"), "dca_skipped_rebalance_pending");
+    let b = bot(&o, id);
+    assert_eq!(b.status, BotStatus::Scheduled);
+    assert_eq!(b.transient["rebalance_pending"], pending_swap(), "the swap's state is the rebalancer's, untouched");
+    // The swap finishes; the next tick buys both weeks' contributions.
+    deltabadger::engine::rebalance::clear_pending(&o.primary, id).unwrap();
+    let v = priced();
+    run(&o, &v, id, "2026-09-08T10:00:01Z").await;
+    assert_eq!(v.sent()[0].volume, "0.0024", "120 / 50000");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn an_empty_pending_hash_is_nothing_pending() {
+    let (_d, o, id) = setup(BotSpec::weekly(60.0, "2026-09-01 10:00:00").transient("rebalance_pending", json!({})));
+    let v = priced();
+    run(&o, &v, id, "2026-09-01T10:00:00.5Z").await;
+    // No stand-down: the tick sizes its order. (Eligibility still refuses the key itself until T8 admits rebalancing bots.)
+    assert_eq!(one::<i64>(&o, "SELECT count(*) FROM bot_activity_logs WHERE event = 'dca_skipped_rebalance_pending'"), 0);
+    assert_eq!(v.calls("/0/public/Ticker"), 1, "priced, so past the stand-down");
+}
+
+#[test]
+fn the_below_minimum_flag_is_stamped_once_and_cleared_only_when_it_stands() {
+    use deltabadger::engine::rebalance::{below_minimum, clear_below_minimum, flag_below_minimum};
+    let (_d, o, id) = setup(BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    let read = || bot(&o, id).transient;
+    let first: chrono::DateTime<chrono::Utc> = "2026-09-01T10:00:00.7Z".parse().unwrap();
+    flag_below_minimum(&o.primary, id, &read(), first).unwrap();
+    assert_eq!(read()["rebalance_below_minimum_at"], "2026-09-01T10:00:00Z", "Time.current.iso8601");
+    flag_below_minimum(&o.primary, id, &read(), first + chrono::Duration::hours(4)).unwrap();
+    assert_eq!(read()["rebalance_below_minimum_at"], "2026-09-01T10:00:00Z", "the first stamp stands");
+    assert!(below_minimum(&read()));
+    clear_below_minimum(&o.primary, id, &read()).unwrap();
+    assert!(read().get("rebalance_below_minimum_at").is_none(), "merge_transient_data! compacts the nil away");
+}
