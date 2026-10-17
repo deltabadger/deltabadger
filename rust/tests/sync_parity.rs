@@ -264,7 +264,8 @@ fn same_rows_and_watermark(rails: &Value, rust: &Value) -> Result<(), String> {
 }
 
 fn binance_ledger(name: &str, rails: &Value, rust: &Value) -> Option<Result<(), String>> {
-    const BESIDE_SYNC: [&str; 4] = ["import-file_then_api_transfers", "import-api_then_file_transfers", "import-file_then_api_dust", "import-api_then_file_dust"];
+    const BESIDE_SYNC: [&str; 6] = ["import-file_then_api_transfers", "import-api_then_file_transfers", "import-file_then_api_dust", "import-api_then_file_dust",
+                                    "import-file_then_api_dust_rounding", "import-api_then_file_dust_rounding"];
     if !name.starts_with("binance-ledger-") && !BESIDE_SYNC.contains(&name) { return None; }
     let refused = |text: &str| -> Result<(), String> {
         check(tx_ids(rust).is_empty() && moved_watermark(rust).is_none(), &format!("Rust stored {:?}", tx_ids(rust)))?;
@@ -279,7 +280,8 @@ fn binance_ledger(name: &str, rails: &Value, rust: &Value) -> Option<Result<(), 
         | "binance-ledger-preexisting_repeats" | "binance-ledger-known_id_repeat" | "binance-ledger-file_dust" | "binance-ledger-file_dust_rounding"
         | "binance-ledger-twin_repeats" => same_rows_and_watermark(rails, rust),
         // An import beside the sync over the same history, in either order: the sync's requests are its own (above).
-        "import-file_then_api_transfers" | "import-api_then_file_transfers" | "import-file_then_api_dust" | "import-api_then_file_dust" => same_rows_and_watermark(rails, rust),
+        "import-file_then_api_transfers" | "import-api_then_file_transfers" | "import-file_then_api_dust" | "import-api_then_file_dust"
+        | "import-file_then_api_dust_rounding" | "import-api_then_file_dust_rounding" => same_rows_and_watermark(rails, rust),
         // Listed divergence: Rails reads `purchaseAmount`/`rewards` where Binance writes `amount`, and stores 0.
         "binance-ledger-earn_documented_amounts" => (|| {
             let misread = ["lock-reward-1787184000000-BNB", "flex-sub-26055", "lock-sub-26056"];
@@ -378,7 +380,7 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
     dirs.sort();
     let named = |prefix: &str| dirs.iter().filter(|d| d.file_name().unwrap().to_string_lossy().starts_with(prefix)).count();
-    assert_eq!((named("ledger-"), named("balances-"), named("binance-balances-"), named("binance-ledger-"), named("import-"), dirs.len()), (58, 44, 21, 26, 19, 168), "the sync grid");
+    assert_eq!((named("ledger-"), named("balances-"), named("binance-balances-"), named("binance-ledger-"), named("import-"), dirs.len()), (58, 44, 21, 26, 21, 170), "the sync grid");
     for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
     for scenario in ["ledger-split_future", "ledger-split_nested_duplicate_keys", "binance-ledger-two_nights"] { copy_dir(&rails_root.path().join(scenario), &handback.path().join(scenario)); }
     rails(&["record", rails_root.path().to_str().unwrap()]);
@@ -404,7 +406,7 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), outputs.len(), failures.join("\n"));
     let mut expected=["binance-ledger-flexible_rewards_type", "binance-ledger-other_sources", "binance-ledger-two_nights", "binance-ledger-earn_documented_amounts", "binance-ledger-earn_fails", "binance-ledger-crypto_pair_later", "binance-ledger-over_500_trades", "binance-ledger-deposit_credited", "binance-ledger-pending_withdrawal",
                       "binance-ledger-symbol_fails", "binance-ledger-away_100_days", "binance-ledger-garbage_amount", "binance-ledger-us_refused",
-                      "binance-ledger-full", "binance-ledger-idle", "binance-ledger-deposit_fails", "binance-ledger-file_transfers", "binance-ledger-file_transfer_claimed_once", "binance-ledger-file_second_after", "binance-ledger-deposit_600", "binance-ledger-idless_repeats", "binance-ledger-preexisting_repeats", "binance-ledger-known_id_repeat", "binance-ledger-file_dust", "binance-ledger-file_dust_rounding", "binance-ledger-twin_repeats", "import-file_then_api_transfers", "import-api_then_file_transfers", "import-file_then_api_dust", "import-api_then_file_dust", "binance-balances-blank_free", "binance-balances-garbage_free", "binance-balances-whitespace_free", "binance-balances-rate_spelling", "binance-balances-rate_zero_padded", "binance-balances-price_underscore_exponent", "binance-balances-no_rate", "balances-account_null", "balances-no_trade_keeps_last_price", "balances-no_trade_market_price", "balances-no_trade_unpriced", "balances-positions_not_array", "ledger-pages_stalled", "ledger-split_hostile_quantity"].to_vec();
+                      "binance-ledger-full", "binance-ledger-idle", "binance-ledger-deposit_fails", "binance-ledger-file_transfers", "binance-ledger-file_transfer_claimed_once", "binance-ledger-file_second_after", "binance-ledger-deposit_600", "binance-ledger-idless_repeats", "binance-ledger-preexisting_repeats", "binance-ledger-known_id_repeat", "binance-ledger-file_dust", "binance-ledger-file_dust_rounding", "binance-ledger-twin_repeats", "import-file_then_api_transfers", "import-api_then_file_transfers", "import-file_then_api_dust", "import-api_then_file_dust", "import-file_then_api_dust_rounding", "import-api_then_file_dust_rounding", "binance-balances-blank_free", "binance-balances-garbage_free", "binance-balances-whitespace_free", "binance-balances-rate_spelling", "binance-balances-rate_zero_padded", "binance-balances-price_underscore_exponent", "binance-balances-no_rate", "balances-account_null", "balances-no_trade_keeps_last_price", "balances-no_trade_market_price", "balances-no_trade_unpriced", "balances-positions_not_array", "ledger-pages_stalled", "ledger-split_hostile_quantity"].to_vec();
     expected.extend_from_slice(UNKNOWN_PRICE_ORIGIN);
     expected.extend_from_slice(&["balances-snapshots_network", "ledger-long_error", "ledger-network_pre_send"]);
     expected.sort();
@@ -471,6 +473,15 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
                (json!([2, 3]), json!([2, 3]), json!(3)), "asked, asked again for another venue's key, answered");
     let assets = |name: &str| rows(&rails_of(name), "account_transactions").iter().map(|r| r["after"]["base_asset_id"].clone()).collect::<Vec<_>>();
     assert_eq!(assets("import-luna_alias"), [json!(10), json!(9)], "2021's LUNA is Terra's old coin; 2023's the listing");
+    // The export's rounded BNB, in either order: one unit off pairs (ADA up, USDT down), two units off (XRP) does not.
+    let rounded = ["4359340", "4359341"].iter().flat_map(|n| [format!("dust-{n}-out"), format!("dust-{n}-in")]).collect::<Vec<_>>();
+    assert_eq!(stamps("import-api_then_file_dust_rounding").into_iter().map(|(id, _)| id).collect::<Vec<_>>(), rounded);
+    let mut taken = tx_ids(&rails_of("import-file_then_api_dust_rounding")).into_iter().filter(|id| id.starts_with("dust-")).take(4).collect::<Vec<_>>();
+    taken.sort();
+    let mut expected_taken = rounded.clone();
+    expected_taken.sort();
+    assert_eq!(taken, expected_taken, "the file's legs take the API's ids, XRP's excepted");
+    assert_eq!((import_of("import-api_then_file_dust_rounding", 1)["imported"].clone(), import_of("import-api_then_file_dust_rounding", 1)["duplicates"].clone()), (json!(2), json!(4)));
     assert_eq!((assets("import-ibkr_luna"), assets("import-ibkr_luna_no_terra")), (vec![json!(7)], vec![json!(7)]), "IBKR's LUNA is its listed security");
     for value in ["NaN", "Infinity", "-Infinity", "garbage"] {
         for fallback in ["market", "stale"] {

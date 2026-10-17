@@ -955,11 +955,13 @@ fn conversion(raw: &Value) -> (Option<String>, BigDec, BigDec) {
     (raw["fromAsset"].as_str().map(str::to_string), d("amount"), &d("transferedAmount") - &d("serviceChargeAmount"))
 }
 
-/// #dust_leg: which leg of the conversion an export row is (`true`: the coin out), if any.
+/// #dust_leg: which leg of the conversion an export row is (`true`: the coin out), if any. The export rounds the BNB
+/// net on its own: within DUST_ROUNDING (one unit of the 8th decimal) of the API's net is that leg.
 fn dust_leg(e: &Entry, (coin, amount, net): &(Option<String>, BigDec, BigDec)) -> Option<bool> {
+    let unit = BigDec::parse("0.00000001").ok()?;
     match e.entry_type {
         SWAP_OUT => (e.base_currency == *coin && e.base_amount == *amount).then_some(true),
-        SWAP_IN => (e.base_currency.as_deref() == Some("BNB") && e.base_amount == *net).then_some(false),
+        SWAP_IN => (e.base_currency.as_deref() == Some("BNB") && e.base_amount >= net - &unit && e.base_amount <= net + &unit).then_some(false),
         _ => None,
     }
 }

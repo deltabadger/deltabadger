@@ -959,6 +959,20 @@ module SyncScenarios
                         ['2026-08-17 10:00:01', 'Spot', 'Small Assets Exchange BNB', 'XRP', '-1.5', 'XRP to BNB'],
                         ['2026-08-17 10:00:01', 'Spot', 'Small Assets Exchange BNB', 'BNB', '0.000432', 'XRP to BNB'],
                         ['2026-08-18 10:00:00', 'Spot', 'Small Assets Exchange BNB', 'BNB', '0.0001', 'SHIB to BNB'])
+    # A sweep the export rounds on its own: its BNB one unit of the 8th decimal off either way pairs; two off do not.
+    # Six rows: macOS Ruby's sort_by (the recorder's) is unstable beyond that on rows of one second; the app's Linux
+    # image, and Rust, sort stably.
+    rounding = [%w[ADA 0.0031 0.00001042 0.00000021 0.00001022], %w[USDT 0.9 0.000441 0.000009 0.00043199], %w[XRP 1.5 0.000441 0.000009 0.00043202]]
+    rounding_state = state.merge('dust' => [{ 'operateTime' => 1_786_960_800_777, 'totalTransferedAmount' => '0.00089242', 'totalServiceChargeAmount' => '0.00001821',
+                                              'transId' => 45_178_372_833,
+                                              'userAssetDribbletDetails' => rounding.each_with_index.map do |(coin, amount, gross, charge, _), i|
+                                                { 'transId' => 4_359_340 + i, 'serviceChargeAmount' => charge, 'amount' => amount, 'operateTime' => 1_786_960_800_777,
+                                                  'transferedAmount' => gross, 'fromAsset' => coin, 'targetAsset' => 'BNB' }
+                                              end }])
+    rounded = binance_csv.(*rounding.flat_map do |coin, amount, _, _, net|
+      [['2026-08-17 10:00:01', 'Spot', 'Small Assets Exchange BNB', coin, "-#{amount}", "#{coin} to BNB"],
+       ['2026-08-17 10:00:01', 'Spot', 'Small Assets Exchange BNB', 'BNB', net, "#{coin} to BNB"]]
+    end)
     binance = ->(ctx) { P.binance(ctx) }
     both = lambda do |ctx|
       P.binance(ctx)
@@ -973,6 +987,10 @@ module SyncScenarios
         steps: [P.import(before, 'binance', dust, filename: utc0), P.binance_ledger(night, state)] },
       { name: 'import-api_then_file_dust', setup: binance,
         steps: [P.binance_ledger(night, state), P.import(after, 'binance', dust, filename: utc0)] },
+      { name: 'import-file_then_api_dust_rounding', setup: binance,
+        steps: [P.import(before, 'binance', rounded, filename: utc0), P.binance_ledger(night, rounding_state)] },
+      { name: 'import-api_then_file_dust_rounding', setup: binance,
+        steps: [P.binance_ledger(night, rounding_state), P.import(after, 'binance', rounded, filename: utc0)] },
       # The same file twice, and a file whose identical rows are each a real credit, imported twice.
       { name: 'import-same_file_twice', setup: binance,
         steps: [P.import(before, 'binance', transfers, filename: utc0), P.import(after, 'binance', transfers, filename: utc0)] },
