@@ -24,10 +24,15 @@ fn masked_nonce(policy: &str) -> (String, Option<String>) {
     (format!("{}'nonce-[nonce]{}", &policy[..start], &policy[end..]), Some(policy[start + 7..end].to_string()))
 }
 
+/// A step's `headers_extra`: the headers compared beside HEADERS on that step alone (an API answer's etag).
+fn extra_headers(step: &Value) -> Vec<String> {
+    step["headers_extra"].as_array().into_iter().flatten().filter_map(Value::as_str).map(str::to_string).collect()
+}
+
 /// One response as the comparison sees it: status, the listed headers, and the normalised body.
-fn comparable(status: u64, headers: &BTreeMap<String, Vec<String>>, body: &str) -> Value {
+fn comparable(status: u64, headers: &BTreeMap<String, Vec<String>>, body: &str, extra: &[String]) -> Value {
     let mut out = BTreeMap::new();
-    for name in HEADERS {
+    for name in HEADERS.iter().copied().chain(extra.iter().map(String::as_str)) {
         let Some(values) = headers.get(name) else { continue };
         let value = match name {
             "location" => html::location(&values[0]),
@@ -88,7 +93,7 @@ fn without_countdown(body: &mut Value) -> Vec<String> {
 /// where pages.rb recorded that the content changed (`session_changed`). The comparison then demands
 /// both directions: where Rails' session changed, this crate must set a cookie with the same
 /// attributes; where it did not, this crate must set none.
-fn rails_answer(recorded: &Value) -> Value {
+fn rails_answer(recorded: &Value, step: &Value) -> Value {
     let changed = recorded["session_changed"].as_bool().expect("pages.rb records whether the session's content changed");
     let headers = recorded["headers"].as_object().unwrap().iter().filter(|(name, _)| changed || name.as_str() != "set-cookie").map(|(name, value)| {
         let values = match value {
@@ -101,18 +106,29 @@ fn rails_answer(recorded: &Value) -> Value {
     let body = recorded["body"].as_str().unwrap_or_else(|| panic!("recorded response has no body"));
     let safe_body=body.to_string();
     // #498 and locale filtering are now the oracle: compare the rendered bytes directly.
-    let mut answer = comparable(status, &headers, &safe_body);
+    let mut answer = comparable(status, &headers, &safe_body, &extra_headers(step));
     for key in ["action_snapshot", "rows_before", "rows_after", "other_rows_before", "other_rows_after", "exception", "settings_rows", "broadcasts",
-                "venue_requests", "may_mutate", "raw_rows", "session"] {
+                "venue_requests", "may_mutate", "raw_rows", "session", "job_classes"] {
         if let Some(value) = recorded.get(key) { answer[key] = value.clone(); }
     }
     answer
 }
 
-fn rust_answer(answer: &Answer) -> Value {
+fn rust_answer(answer: &Answer, step: &Value) -> Value {
     let mut headers: BTreeMap<String, Vec<String>> = BTreeMap::new();
     for (name, value) in &answer.headers { headers.entry(name.clone()).or_default().push(value.clone()); }
-    comparable(answer.status.into(), &headers, &answer.body)
+    comparable(answer.status.into(), &headers, &answer.body, &extra_headers(step))
+}
+
+/// The Rails job a wake of this crate's runner stands for, for a step's `jobs` (pages.rb records the classes its
+/// step enqueued). A wake with no counterpart is written as its own name, so it can never match a Rails class.
+const JOB_CLASSES: [(&str, &str); 3] = [("api_key_validator", "ApiKeyValidatorJob"), ("tracker_ledger", "Tracker::LedgerJob"),
+                                        ("portfolio_backfill", "PortfolioSnapshot::BackfillJob")];
+
+fn job_classes(wakes: &[(String, Option<String>)]) -> Value {
+    let mut classes: Vec<String> = wakes.iter().map(|(name, _)| JOB_CLASSES.iter().find(|(rust, _)| rust == name).map_or_else(|| format!("rust:{name}"), |(_, rails)| rails.to_string())).collect();
+    classes.sort();
+    json!(classes)
 }
 
 /// Masking must not hide a broken value: every CSRF token this crate rendered has to unmask to the
@@ -333,8 +349,10 @@ async fn run(dir: &Path) -> Value {
             other => other,
         };
         let snapshot = step["action_snapshot"] == true;
-        if snapshot && observer.is_none() {
-            let cookie = browsers.get("main").and_then(|browser| browser.cookie.as_deref()).map(str::to_owned);
+        // An API step has no signed-in browser to watch the streams with; such a step must write nothing (below).
+        let watcher = browsers.get("main").and_then(|browser| browser.cookie.as_deref()).map(str::to_owned);
+        if snapshot && observer.is_none() && watcher.is_some() {
+            let cookie = watcher;
             observer = Some(ActionObserver::open(&app, cookie.as_deref(), &["user_1:bot_updates", "user_1:bot_1"]).await.unwrap_or_else(|e| panic!("action observer: {e}")));
         }
         // A step that names streams records what this crate sent on them, as pages.rb records Rails' payloads.
@@ -346,12 +364,15 @@ async fn run(dir: &Path) -> Value {
         let browser = browsers.entry(step["client"].as_str().unwrap_or("main").to_string()).or_default();
         let seen = key_server.received_requests().await.map_or(0, |requests| requests.len());
         let before = snapshot.then(|| action_rows(dir, &app.cipher).unwrap_or_else(|error| panic!("action rows before: {error}")));
-        let answer = match step["json"].as_str() {
+        let woken = app.job_wakers().map_or(0, |jobs| jobs.pending().len());
+        // `raw_body`: a body sent as it is, whatever the method (pages.rb hands it to Rails unparsed).
+        let answer = match step["json"].as_str().or(step["raw_body"].as_str()) {
             Some(json) => browser.send_body(&app, step["method"].as_str().unwrap(), &request_path, Some(json.to_string()), csrf, &headers).await,
             None => browser.send(&app, step["method"].as_str().unwrap(), &request_path, form.as_deref(), csrf, &headers).await,
         };
         assert_genuine(&app, browser, &answer, now, &format!("{} step {index}", dir.file_name().unwrap().to_string_lossy()));
-        let mut response = rust_answer(&answer);
+        let mut response = rust_answer(&answer, step);
+        if step["jobs"] == true { response["job_classes"] = job_classes(&app.job_wakers().map(|jobs| jobs.pending()).unwrap_or_default()[woken..]); }
         if step["settings_snapshot"] == true { response["settings_rows"] = settings_snapshot::rows(dir,&app.cipher); }
         let requests = venue_transcript(&key_server.received_requests().await.unwrap_or_default()[seen..]);
         if !requests.is_empty() { response["venue_requests"] = json!(requests); }
@@ -368,7 +389,8 @@ async fn run(dir: &Path) -> Value {
             let woke = tokio::time::timeout(std::time::Duration::ZERO, wake.notified()).await.is_ok();
             let broadcasts = match observer.as_mut() {
                 Some(observer) => observer.drain(&app).await.unwrap_or_else(|e| panic!("action broadcasts: {e}")),
-                None => panic!("missing action observer"),
+                None if !changed => vec![],
+                None => panic!("missing action observer: a step that writes needs a signed-in browser to watch its broadcasts"),
             };
             assert_eq!(woke, changed, "wake must follow an action write: {step}");
             if !changed {
@@ -488,7 +510,7 @@ fn difference(name: &str, rails: &Value, rust: &Value) -> Option<String> {
     for (index, (a, b)) in theirs.iter().zip(ours).enumerate() {
         if a == b { continue; }
         if a.get("settings_rows") != b.get("settings_rows") { return Some(format!("{name} step {index}: settings rows differ\n  rails: {}\n  rust: {}",a["settings_rows"],b["settings_rows"])); }
-        for key in ["venue_requests", "raw_rows", "session"] {
+        for key in ["venue_requests", "raw_rows", "session", "job_classes"] {
             if a.get(key) != b.get(key) { return Some(format!("{name} step {index}: {key} differ\n  rails: {}\n  rust:  {}", a[key], b[key])); }
         }
         if a.get("broadcasts") != b.get("broadcasts") { return Some(format!("{name} step {index}: broadcasts differ\n  rails: {}\n  rust:  {}",a["broadcasts"],b["broadcasts"])); }
@@ -600,6 +622,20 @@ fn as_record_invalid(answer: &mut Value) {
     answer.as_object_mut().unwrap().remove("exception");
 }
 
+/// A REST request whose JSON body Rails cannot parse (ActionDispatch::Http::Parameters::ParseError, raised where an
+/// action first reads `params`): the test environment answers 400 with its debugging page; this crate answers 400 with
+/// public/400.html, made below the controllers, as it does for every request Rails refuses before an action.
+fn as_parse_error(answer: &mut Value) {
+    if answer["exception"]["class"] != "ActionDispatch::Http::Parameters::ParseError" || answer["status"] != 400 { return; }
+    let page = html::normalize(&String::from_utf8_lossy(deltabadger::web::assets::find("/400.html").expect("public/400.html is embedded").body));
+    answer["body"] = json!(page);
+    answer["headers"] = json!({
+        "content-type": "text/html; charset=utf-8", "cache-control": "no-cache",
+        "content-security-policy-report-only": masked_nonce(&deltabadger::web::headers::content_security_policy("n")).0,
+    });
+    answer.as_object_mut().unwrap().remove("exception");
+}
+
 /// A listed divergence of the `settings_pref_regenerate*` scenarios: the personal REST token and the personal
 /// application's uid are random on either side. Each recorded step's revealed token must be the one live
 /// token of its own side's rows, every token 64 hex digits, the uid and secret present; then they read as placeholders.
@@ -631,7 +667,7 @@ fn without_random_tokens(answer: &mut Value) -> Result<(), String> {
 }
 
 fn listed_divergence(name: &str, scenario: &Value, rails: &Value, rust: &Value) -> Option<Result<(), String>> {
-    let kind = ["unrouted_", "not_ported_", "stricter_", "missing_"].into_iter().find(|prefix| name.starts_with(prefix))?;
+    let kind = ["unrouted_", "not_ported_api_", "not_ported_", "stricter_", "missing_"].into_iter().find(|prefix| name.starts_with(prefix))?;
     let responses = |v: &Value| v["responses"].as_array().unwrap().clone();
     let (mut theirs, mut ours) = (responses(rails), responses(rust));
     let (Some(rails_last), Some(rust_last)) = (theirs.pop(), ours.pop()) else { return Some(Err("no responses".into())) };
@@ -648,6 +684,18 @@ fn listed_divergence(name: &str, scenario: &Value, rails: &Value, rust: &Value) 
             Err(format!("expected Rails to go back to the referer and this crate to `/`: rails {}, rust {}", rails_last["headers"]["location"], rust_last["headers"]["location"]))
         }
         "stricter_" => Ok(()),
+        "not_ported_api_" => {
+            // The 501 envelope behind Rails' own authentication and tool gate (which the api_gated_ scenarios compare).
+            let path = step["path"].as_str().unwrap().split('?').next().unwrap();
+            let body = format!("{{\"data\":null,\"error\":{{\"code\":\"not_ported\",\"message\":\"{} {path} is not served by this build yet.\"}}}}", step["method"].as_str().unwrap());
+            let mut headers = refusal_headers(false);
+            headers["content-type"] = json!("application/json; charset=utf-8");
+            let expected = json!({ "status": 501, "headers": headers, "body": body });
+            let without_snapshot = |v: &Value| json!({ "status": v["status"], "headers": v["headers"], "body": v["body"] });
+            if rails_last["status"] == 501 { Err("Rails now answers 501: drop or rename this scenario".into()) }
+            else if without_snapshot(&rust_last) != expected { Err(format!("expected the not_ported envelope:\n  expected: {expected}\n  rust:     {rust_last}")) }
+            else { Ok(()) }
+        }
         "missing_" => {
             let page = html::normalize(&String::from_utf8_lossy(deltabadger::web::assets::find("/404.html").expect("public/404.html is embedded").body));
             let expected = json!({ "status": 404, "body": page, "headers": {
@@ -709,7 +757,7 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
         let dir = &dir.join(scope);
         let scenario = scenario(dir);
         let recorded: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("rails.json")).unwrap()).unwrap();
-        let mut answers: Vec<Value> = recorded["responses"].as_array().unwrap().iter().map(rails_answer).collect();
+        let mut answers: Vec<Value> = recorded["responses"].as_array().unwrap().iter().zip(scenario["steps"].as_array().unwrap()).map(|(answer, step)| rails_answer(answer, step)).collect();
         let rails_countdowns: Vec<Vec<String>> = if name.starts_with("countdown_") { answers.iter_mut().map(|answer| without_countdown(&mut answer["body"])).collect() } else { vec![] };
         let rails = json!({ "responses": answers, "users": recorded["users"], "bots": recorded["bots"] });
         if let Some(message) = unmet_expectation(&name, &scenario, &rails) { failures.push(message); }
@@ -735,6 +783,9 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
         if name.starts_with("settings_") {
             for answer in rails["responses"].as_array_mut().unwrap() { as_record_invalid(answer); }
         }
+        if name.starts_with("api_") {
+            for answer in rails["responses"].as_array_mut().unwrap() { as_parse_error(answer); }
+        }
         if name.starts_with("settings_pref_regenerate") {
             if let Err(message) = without_random_tokens(&mut rails).and_then(|()| without_random_tokens(&mut rust)) {
                 failures.push(format!("{name} (listed divergence): {message}"));
@@ -751,10 +802,10 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
     println!("{} scenarios; {countdown_pages} pages where only Rails knows when the bot acts next", dirs.len());
     if std::env::var("PAGES").is_err() {
-        assert_eq!(dirs.iter().filter(|dir| !dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_") || n.to_string_lossy().starts_with("settings_"))).count(), 160 + 4 + 9 + 2 + 6 + 3 + 38, "completed read-only baseline (with the market-closed weekend page and the expired start on bots that are not stopped), with D5b's two missing_ and two not_ported_ connect scenarios, the venue pages (eight served, one refused), the selling pages (three served, one cap refused, in place of two refusals), the venue basket pages (seven served, in place of the one refusal), the asset search on each venue, the wizard's chooser and order switch (twelve served, one unrouted GET), its asset and exchange steps (ten served), its broker, key and quote steps to a created bot (nine served), the index and signal tiles and the IBKR and KuCoin key steps (four not_ported_), and the first empty bots page that opens it (two)");
+        assert_eq!(dirs.iter().filter(|dir| !dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_") || n.to_string_lossy().starts_with("settings_"))).count(), 160 + 4 + 9 + 2 + 6 + 3 + 38 + 68, "completed read-only baseline (with the market-closed weekend page and the expired start on bots that are not stopped), with D5b's two missing_ and two not_ported_ connect scenarios, the venue pages (eight served, one refused), the selling pages (three served, one cap refused, in place of two refusals), the venue basket pages (seven served, in place of the one refusal), the asset search on each venue, the wizard's chooser and order switch (twelve served, one unrouted GET), its asset and exchange steps (ten served), its broker, key and quote steps to a created bot (nine served), the index and signal tiles and the IBKR and KuCoin key steps (four not_ported_), and the first empty bots page that opens it (two), and the REST API's (thirty-five on the five served reads' tokens and grants, fourteen on the routes it gates but does not serve, three on typed creates, nine unrouted paths, seven on parameters)");
         assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("settings_"))).count(), 413 + 3 + 45 + 52 + 5 + 1 + 71, "complete S1 inventory, D5b's connect flow, the preference writes, the following client's card, the switch back to the default locale and the settings dialog (two more sections, in-place confirms, the page behind a language change)");
         assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_"))).count(), 197 + 50, "action inventory (with the five ⇄ rotations and nine sell-settings writes, twenty-two Kraken/Binance venue actions, and fifty on their baskets)");
-        assert_eq!(dirs.len(), 160 + 4 + 9 + 2 + 6 + 3 + 38 + 197 + 50 + 413 + 3 + 45 + 52 + 5 + 1 + 71, "a scenario was dropped or added without this count");
+        assert_eq!(dirs.len(), 160 + 4 + 9 + 2 + 6 + 3 + 38 + 68 + 197 + 50 + 413 + 3 + 45 + 52 + 5 + 1 + 71, "a scenario was dropped or added without this count");
         assert_eq!(countdown_pages, 4, "the pages where Rails knows a time this build does not: the listed divergence grew or shrank");
     }
 }
@@ -855,12 +906,12 @@ fn action_snapshot_scopes_writes_to_the_declared_tables() {
 fn venue_transcripts_raw_rows_and_session_values_are_compared() {
     let account = json!({"method": "GET", "host": "paper-api.alpaca.markets", "path": "/v2/account", "params": []});
     let rails = json!({"responses": [{"status": 200, "headers": {}, "body": "same", "venue_requests": [account],
-        "raw_rows": {"bots": [{"id": 1, "settings": "{\"a\":1.0}"}]}, "session": {"tracker_connect": {"exchange_id": 1}}}], "users": [], "bots": []});
+        "raw_rows": {"bots": [{"id": 1, "settings": "{\"a\":1.0}"}]}, "session": {"tracker_connect": {"exchange_id": 1}}, "job_classes": []}], "users": [], "bots": []});
     assert_eq!(difference("transcript", &rails, &rails), None);
     let changed = |key: &str, value: Value| { let mut rust = rails.clone(); rust["responses"][0][key] = value; rust };
     let extra = json!([account, {"method": "DELETE", "host": "paper-api.alpaca.markets", "path": "/v2/orders/1", "params": []}]);
     for (key, value) in [("venue_requests", extra), ("venue_requests", Value::Null), ("raw_rows", json!({"bots": [{"id": 1, "settings": "{\"a\":1}"}]})),
-                         ("session", json!({"tracker_connect": null}))] {
+                         ("session", json!({"tracker_connect": null})), ("job_classes", json!(["rust:ledger_sync"])), ("job_classes", Value::Null)] {
         let message = difference("transcript", &rails, &changed(key, value.clone())).unwrap_or_else(|| panic!("{key} = {value} passed"));
         assert!(message.contains(key), "{message}");
     }
@@ -1205,5 +1256,17 @@ fn wizard_oracle_sources_stay_pinned() {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
     for (path, hash) in pins {
         assert_eq!(format!("{:x}", Sha256::digest(std::fs::read(root.join(&path)).unwrap())), hash, "{path}: record the wizard_ page grid again (script/rust/repin)");
+    }
+}
+
+/// The Rails files the REST routes this build serves port (web::rest, web::bot_api, and the MCP list tools that format
+/// bot_api's data): a change to one of them re-records the api_ page grid and updates the Rust side in the same change.
+#[test]
+fn api_oracle_sources_stay_pinned() {
+    use sha2::{Digest, Sha256};
+    let pins: std::collections::BTreeMap<String, String> = serde_json::from_str(include_str!("fixtures/api_sources.json")).unwrap();
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+    for (path, hash) in pins {
+        assert_eq!(format!("{:x}", Sha256::digest(std::fs::read(root.join(&path)).unwrap())), hash, "{path}: record the api_ page grid again (script/rust/repin)");
     }
 }

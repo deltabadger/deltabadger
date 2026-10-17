@@ -140,7 +140,7 @@ pub fn stored_members(members: &[(String, Node)]) -> String {
 /// escapes for backspace, tab, newline, form feed and return, `\u00XX` for every other control character, `&`, `<`
 /// and `>` as `\u0026`, `\u003c` and `\u003e`, U+2028 and U+2029 escaped, everything else as it is (DEL and all
 /// non-ASCII raw, `/` unescaped).
-fn stored_string(s: &str, out: &mut String) {
+pub(crate) fn stored_string(s: &str, out: &mut String) {
     out.push('"');
     for c in s.chars() {
         match c {

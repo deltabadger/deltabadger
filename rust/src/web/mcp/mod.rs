@@ -90,8 +90,7 @@ pub async fn entry(app:App,request:Request,deadline:std::time::Duration)->Respon
     let answer=app.db(move|c|{
         let who=match bearer::authenticate(c,auth.as_deref(),"mcp",app2.clock.as_ref())?{
             Ok(w)=>w,Err(why)=>{
-                let message=match why{bearer::Refusal::Missing=>"Missing bearer token",bearer::Refusal::Invalid=>"Invalid access token",bearer::Refusal::Revoked=>"Access token revoked",bearer::Refusal::Expired=>"Access token expired",bearer::Refusal::InsufficientScope=>"Access token missing required scope",bearer::Refusal::UserNotFound=>"User not found"};
-                let mut r=err(401,&payload["id"],-32000,message);add(&mut r,"www-authenticate","Bearer error=\"invalid_token\"");return Ok((r,None));
+                let mut r=err(401,&payload["id"],-32000,why.message());add(&mut r,"www-authenticate","Bearer error=\"invalid_token\"");return Ok((r,None));
             }
         };
         let initializing=payload["method"]=="initialize";

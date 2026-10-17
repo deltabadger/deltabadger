@@ -885,6 +885,11 @@ module Pages
             ActiveJob::Base.queue_adapter.enqueued_jobs.clear
           end
           env = step['action_snapshot'] ? { 'action_dispatch.show_exceptions' => :all } : {}
+          # A body sent as it is, whatever the method (a GET's body is not params to the integration session).
+          if step['raw_body']
+            env = env.merge('RAW_POST_DATA' => step['raw_body'], 'CONTENT_LENGTH' => step['raw_body'].bytesize.to_s)
+            params = nil
+          end
           capture = ->(*args) { request_exception = args.last[:exception_object] if args.last[:exception_object] }
           # The cable payloads the request sent on the streams the step names, in order.
           sent = ->(*args) { broadcasts << args.last[:message].to_str if step['broadcasts']&.include?(args.last[:broadcasting]) }
@@ -904,7 +909,8 @@ module Pages
         content = client[:session].request.session.to_h.except('session_id')
         session_changed = content != client[:content]
         client[:content] = content
-        answer = { 'status' => response.status, 'headers' => HEADERS.to_h { |name| [name, response.headers[name]] }.compact, 'body' => response.body,
+        answer = { 'status' => response.status, 'headers' => (HEADERS + step.fetch('headers_extra', [])).to_h { |name| [name, response.headers[name]] }.compact,
+                   'body' => response.body,
           'session_changed' => session_changed }
         if step['action_snapshot']
           answer.merge!('action_snapshot' => true, 'rows_before' => rows_before, 'rows_after' => action_rows,
@@ -927,6 +933,12 @@ module Pages
         end
         answer['settings_rows'] = settings_rows if step['settings_snapshot']
         answer['venue_requests'] = VENUE.dup unless VENUE.empty?
+        # The classes of the jobs the step enqueued, compared with the job wakes this crate's step made.
+        if step['jobs']
+          raise "#{dir} step #{index}: 'jobs' needs 'action_snapshot'" unless step['action_snapshot']
+
+          answer['job_classes'] = answer['jobs'].map { |job| job['job_class'] }.sort
+        end
         answer['may_mutate'] = step['may_mutate'] if step['may_mutate']
         answer['raw_rows'] = raw_rows(step['raw_rows'], step.fetch('raw_clock', [])) if step['raw_rows']
         # Decoded session values a step names, compared with what this crate's cookie decodes to.
@@ -949,6 +961,7 @@ require_relative 'pages_bots'
 require_relative 'pages_actions'
 require_relative 'pages_settings'
 require_relative 'pages_wizard'
+require_relative 'pages_api'
 
 # script/rust/oauth.rb loads this file for its helpers and runs its own command.
 unless defined?(OAUTH_PARITY)
