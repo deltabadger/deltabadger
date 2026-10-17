@@ -265,6 +265,7 @@ fn before(dir: &Path, what: &str) {
     match what {
         "change_password" => c.execute("UPDATE users SET encrypted_password = ?1 WHERE id = (SELECT min(id) FROM users)", [deltabadger::crypto::hash_password("Another-horse-7").unwrap()]).unwrap(),
         "unconfirm" => c.execute("UPDATE users SET confirmed_at = NULL WHERE id = (SELECT min(id) FROM users)", []).unwrap(),
+        "disable_kraken_xbt" => c.execute("UPDATE tickers SET available = 0 WHERE ticker = 'XBTEUR'", []).unwrap(),
         other => panic!("unknown step.before {other}"),
     };
 }
@@ -296,7 +297,9 @@ async fn run(dir: &Path) -> Value {
         wiremock::Mock::given(wiremock::matchers::path_regex("/v2/account$")).and(wiremock::matchers::header("APCA-API-KEY-ID",key)).respond_with(wiremock::ResponseTemplate::new(200).set_body_json(body)).with_priority(1).mount(&key_server).await;
     }
     wiremock::Mock::given(wiremock::matchers::path_regex("/v2/positions$")).and(wiremock::matchers::header("APCA-API-KEY-ID","r9-unnamed-position")).respond_with(wiremock::ResponseTemplate::new(200).set_body_json(json!([{"asset_class":"us_equity","qty":"2"}]))).with_priority(1).mount(&key_server).await;
-    let app = web::app(dir, scenario["secret_key_base"].as_str().unwrap(), clock.clone()).with_settings_mailer(std::sync::Arc::new(TestMail)).unwrap().with_settings_key_boundary(venue_hosts(&key_server.uri()),deltabadger::web::settings::keys::logger()).unwrap();
+    mount_key_checks(&key_server).await;
+    let app = web::app(dir, scenario["secret_key_base"].as_str().unwrap(), clock.clone()).with_settings_mailer(std::sync::Arc::new(TestMail)).unwrap().with_settings_key_boundary(venue_hosts(&key_server.uri()),deltabadger::web::settings::keys::logger()).unwrap()
+        .with_venue_key_urls(&format!("{}/api.kraken.com", key_server.uri()), &format!("{}/api.binance.com", key_server.uri())).unwrap();
     let wake = std::sync::Arc::new(tokio::sync::Notify::new());
     app.attach_engine(wake.clone());
     app.attach_jobs(Default::default()).unwrap();
@@ -381,6 +384,29 @@ async fn run(dir: &Path) -> Value {
     }
     drop(app);
     json!({ "responses": responses, "users": users(dir), "bots": rows(dir, "bots", &BOT_COLUMNS) })
+}
+
+/// pages_wizard.rb's key checks, answered by the key a step sends: Kraken's GetApiKeyInfo (`API-Key`) and Binance's
+/// apiRestrictions (`X-MBX-APIKEY`).
+async fn mount_key_checks(server: &wiremock::MockServer) {
+    use wiremock::{matchers, Mock, ResponseTemplate};
+    let required = json!(["query-funds", "query-open-trades", "query-closed-trades", "modify-trades", "close-trades", "query-ledger"]);
+    let permission = json!(["query-funds", "query-open-trades", "query-closed-trades", "modify-trades", "close-trades", "withdraw-funds"]);
+    for (key, body) in [("kraken-key", json!({"error": [], "result": {"permissions": required}})), ("kraken-correct", json!({"error": [], "result": {"permissions": required}})),
+                        ("kraken-incorrect", json!({"error": ["EAPI:Invalid key"]})), ("kraken-permission", json!({"error": [], "result": {"permissions": permission}})),
+                        ("kraken-failure", json!({"error": ["EService:Unavailable"]}))] {
+        Mock::given(matchers::method("POST")).and(matchers::path("/api.kraken.com/0/private/GetApiKeyInfo")).and(matchers::header("API-Key", key))
+            .respond_with(ResponseTemplate::new(200).set_body_json(body)).mount(server).await;
+    }
+    let flags = |restricted: bool| json!({"ipRestrict": restricted, "enableFixApiTrade": false, "enableFixReadOnly": false, "enableFutures": false,
+        "enableInternalTransfer": false, "enableMargin": false, "enablePortfolioMarginTrading": false, "enableReading": true, "enableSpotAndMarginTrading": true,
+        "enableVanillaOptions": false, "enableWithdrawals": false, "permitsUniversalTransfer": false});
+    for (key, status, body) in [("binance-key", 200, Some(flags(false))), ("binance-correct", 200, Some(flags(true))), ("binance-unrestricted", 200, Some(flags(false))),
+                                ("binance-incorrect", 401, Some(json!({"code": -2015, "msg": "Invalid API-key, IP, or permissions for action."}))), ("binance-failure", 500, None)] {
+        let answer = body.map_or_else(|| ResponseTemplate::new(status), |body| ResponseTemplate::new(status).set_body_json(body));
+        Mock::given(matchers::method("GET")).and(matchers::path("/api.binance.com/sapi/v1/account/apiRestrictions")).and(matchers::header("X-MBX-APIKEY", key))
+            .respond_with(answer).mount(server).await;
+    }
 }
 
 /// The venue hosts this crate calls, each a path prefix on the one wiremock server: the server sees the requests in the
@@ -692,7 +718,9 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
         if !network.is_empty() { failures.push(format!("{name}: Rails reached the network: {network:?}")); }
         // Rails must leave the bots as the grid built them (the copy this crate runs on was taken before Rails' requests).
         let built = rows(&rust_root.path().join(&name).join(scope), "bots", &BOT_COLUMNS);
-        if !name.starts_with("actions_") && recorded["bots"] != built { failures.push(format!("{name}: Rails changed a bot while it rendered:\n  before: {built}\n  after:  {}", recorded["bots"])); }
+        // A wizard's last step creates a bot (it declares `may_mutate`), and the rows it writes are compared step by step.
+        let creates = scenario["steps"].as_array().unwrap().iter().any(|step| step["may_mutate"].as_array().is_some_and(|tables| tables.iter().any(|t| t == "bots")));
+        if !name.starts_with("actions_") && !creates && recorded["bots"] != built { failures.push(format!("{name}: Rails changed a bot while it rendered:\n  before: {built}\n  after:  {}", recorded["bots"])); }
         let mut rust = run(&rust_root.path().join(&name).join(scope)).await;
         if name.starts_with("countdown_") {
             let ours: Vec<Vec<String>> = rust["responses"].as_array_mut().unwrap().iter_mut().map(|answer| without_countdown(&mut answer["body"])).collect();
@@ -723,10 +751,10 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
     println!("{} scenarios; {countdown_pages} pages where only Rails knows when the bot acts next", dirs.len());
     if std::env::var("PAGES").is_err() {
-        assert_eq!(dirs.iter().filter(|dir| !dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_") || n.to_string_lossy().starts_with("settings_"))).count(), 160 + 4 + 9 + 2 + 6 + 3 + 27, "completed read-only baseline (with the market-closed weekend page and the expired start on bots that are not stopped), with D5b's two missing_ and two not_ported_ connect scenarios, the venue pages (eight served, one refused), the selling pages (three served, one cap refused, in place of two refusals), the venue basket pages (seven served, in place of the one refusal), the asset search on each venue, the wizard's chooser and order switch (twelve served, one unrouted GET), its asset and exchange steps (ten served) and four not_ported_ steps past them");
+        assert_eq!(dirs.iter().filter(|dir| !dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_") || n.to_string_lossy().starts_with("settings_"))).count(), 160 + 4 + 9 + 2 + 6 + 3 + 38, "completed read-only baseline (with the market-closed weekend page and the expired start on bots that are not stopped), with D5b's two missing_ and two not_ported_ connect scenarios, the venue pages (eight served, one refused), the selling pages (three served, one cap refused, in place of two refusals), the venue basket pages (seven served, in place of the one refusal), the asset search on each venue, the wizard's chooser and order switch (twelve served, one unrouted GET), its asset and exchange steps (ten served), its broker, key and quote steps to a created bot (nine served), the index and signal tiles and the IBKR and KuCoin key steps (four not_ported_), and the first empty bots page that opens it (two)");
         assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("settings_"))).count(), 413 + 3 + 45 + 52 + 5 + 1 + 71, "complete S1 inventory, D5b's connect flow, the preference writes, the following client's card, the switch back to the default locale and the settings dialog (two more sections, in-place confirms, the page behind a language change)");
         assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_"))).count(), 197, "action inventory (with the five ⇄ rotations and nine sell-settings writes, and twenty-two Kraken/Binance venue actions)");
-        assert_eq!(dirs.len(), 160 + 4 + 9 + 2 + 6 + 3 + 27 + 197 + 413 + 3 + 45 + 52 + 5 + 1 + 71, "a scenario was dropped or added without this count");
+        assert_eq!(dirs.len(), 160 + 4 + 9 + 2 + 6 + 3 + 38 + 197 + 413 + 3 + 45 + 52 + 5 + 1 + 71, "a scenario was dropped or added without this count");
         assert_eq!(countdown_pages, 4, "the pages where Rails knows a time this build does not: the listed divergence grew or shrank");
     }
 }
