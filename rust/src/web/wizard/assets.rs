@@ -249,14 +249,7 @@ pub async fn advance(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> 
             let config = data.bot_config.get_or_insert_with(|| json!({}));
             match chosen {
                 // finalize_stock_broker!: the one broker and the USD quote default.
-                Some((broker, usd)) => {
-                    config["exchange_id"] = json!(broker);
-                    if let Some(usd) = usd {
-                        let settings = &mut config["settings"];
-                        if !settings.is_object() { *settings = json!({}); }
-                        settings["quote_asset_id"] = json!(usd);
-                    }
-                }
+                Some((broker, usd)) => super::brokers::finalize(config, broker, usd),
                 None => if let Some(entries) = config.as_object_mut() { entries.remove(EXCHANGE_KEY[0]); },
             }
             drop(data);

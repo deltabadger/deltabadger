@@ -665,8 +665,9 @@ fn routes(app: App) -> Router {
         .route("/bots/dca_single_assets/add_api_key", only(post(wizard::keys::single_create)))
         .route("/bots/dca_multi_assets/add_api_key/new", only(get(wizard::keys::multi_new)))
         .route("/bots/dca_multi_assets/add_api_key", only(post(wizard::keys::multi_create)))
+        .route("/bots/dca_multi_assets/pick_stock_broker/new", only(get(wizard::brokers::new)))
+        .route("/bots/dca_multi_assets/pick_stock_broker", only(post(wizard::brokers::create)))
         // The wizard's steps this build does not serve yet; the index and signal wizards.
-        .route("/bots/dca_multi_assets/pick_stock_broker/new", any(layout::not_ported))
         .route("/bots/dca_multi_assets/pick_spendable_asset/new", any(layout::not_ported))
         .route("/bots/dca_indexes/setup_coingecko/new", any(layout::not_ported))
         .route("/bots/signals/pick_buyable_asset/new", any(layout::not_ported))

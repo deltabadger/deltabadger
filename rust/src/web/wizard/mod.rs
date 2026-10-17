@@ -12,7 +12,9 @@ use super::shell::{self, Shell};
 use super::{auth, colors, i18n, App, WebError};
 
 pub mod assets;
+pub mod brokers;
 pub mod exchanges;
+pub mod keys;
 pub mod keys;
 use askama::Template;
 use axum::extract::{Extension, State};
