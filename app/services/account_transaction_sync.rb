@@ -566,12 +566,14 @@ class AccountTransactionSync
   #
   # A conversion is paired whole instead, and only with the other source: the API's coin and amount out
   # and its gross less the charge in, against the one export group (`dustcsv_…`) holding that out leg
-  # and that in leg, each once, dated within DUST_REACH of `operateTime` either side. One leg alone pairs
+  # and that in leg, each once, dated within DUST_REACH of `operateTime` either side. The export rounds the
+  # net on its own, so its BNB may sit DUST_ROUNDING (one unit of Binance's 8th decimal) off. One leg alone pairs
   # with nothing. Written down as a transfer is: an API conversion arriving first-time gives both file
   # legs its ids, and a file group arriving after the API stamps the API rows with `file_twin_at`. Two
   # candidates either way are a visible double.
   DUST_LEGS = %w[swap_out swap_in].freeze
   DUST_REACH = 1.second
+  DUST_ROUNDING = BigDecimal('0.00000001')
 
   def file_dust?(row)
     row[:group_id].to_s.start_with?('dustcsv') && DUST_LEGS.include?(row[:entry_type].to_s)
@@ -589,7 +591,7 @@ class AccountTransactionSync
   def dust_leg(row, (coin, amount, net))
     case row[:entry_type].to_s
     when 'swap_out' then :out if row[:base_currency] == coin && row[:base_amount].to_d == amount
-    when 'swap_in' then :in if row[:base_currency] == 'BNB' && row[:base_amount].to_d == net
+    when 'swap_in' then :in if row[:base_currency] == 'BNB' && (row[:base_amount].to_d - net).abs <= DUST_ROUNDING
     end
   end
 
@@ -618,7 +620,8 @@ class AccountTransactionSync
       # The database compares the amounts, as the rule above does: a stored amount is what the column kept.
       near = scope.where(tx_id: nil).where('group_id LIKE ?', 'dustcsv%').where(dust_reach(at))
       out, inn = file_dust_legs(near.where(entry_type: :swap_out, base_currency: coin, base_amount: amount).to_a +
-                                near.where(entry_type: :swap_in, base_currency: 'BNB', base_amount: net).to_a)
+                                near.where(entry_type: :swap_in, base_currency: 'BNB',
+                                           base_amount: (net - DUST_ROUNDING)..(net + DUST_ROUNDING)).to_a)
       return false unless out
       return true if both? { take!(out, "#{id}-out") && take!(inn, "#{id}-in") }
     end

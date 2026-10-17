@@ -420,6 +420,23 @@ impl<T: Transport> Venue for AlpacaVenue<T> {
         self.free_of_diagnostic_source(t.quote_asset_id, catalog()?).await.map_err(|error| self.redact_error(error))
     }
 
+    /// Exchanges::Alpaca#get_tickers_prices: stocks by their snapshots' latest trade, then crypto pairs (a `/` in the code) by
+    /// their latest trade, each list sorted; the first failed request is the answer.
+    async fn tickers_prices(&self, symbols: &[String]) -> Result<Vec<(String, Value)>, VenueError> {
+        let mut out = vec![];
+        for crypto in [false, true] {
+            let mut names: Vec<&str> = symbols.iter().filter(|s| s.contains('/') == crypto).map(String::as_str).collect();
+            if names.is_empty() { continue; }
+            names.sort_unstable();
+            let path = if crypto { "/v1beta3/crypto/us/latest/trades" } else { "/v2/stocks/snapshots" };
+            let body = self.get(self.request("GET", true, path.into(), vec![("symbols", names.join(","))], None)).await.map_err(|e| self.redact_error(e))?;
+            let entries = if crypto { body.get("trades").cloned().unwrap_or_else(|| json!({})) } else { body };
+            for (code, item) in entries.as_object().into_iter().flatten() {
+                out.push((code.clone(), if crypto { item["p"].clone() } else { item["latestTrade"]["p"].clone() }));
+            }
+        }
+        Ok(out)
+    }
     fn rules(&self)-> &'static VenueRules{&ALPACA}
     fn placement_identity(&self)->Option<Value>{self.identity.clone()}
     async fn positions(&self)->Result<std::collections::HashMap<String, BigDec>,VenueError>{self.positions_diagnostic_source().await.map_err(|error|self.redact_error(error))}

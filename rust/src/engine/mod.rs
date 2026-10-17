@@ -71,6 +71,7 @@ pub mod splits;
 pub mod index;
 
 pub mod accounting;
+pub mod rebalance;
 
 pub mod reversal;
 pub mod conditions;

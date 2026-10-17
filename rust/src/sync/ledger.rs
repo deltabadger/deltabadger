@@ -828,7 +828,7 @@ fn file_dust(entry_type: i64, group_id: Option<&str>) -> bool {
 }
 
 /// #api_dust_twin?: the second-wide rule (#same_event?) still holds against every id-less row but a file dust leg; then the one export
-/// group holding this conversion's coin leg and its BNB net of the charge, each once, within a second either side,
+/// group holding this conversion's coin leg and its BNB net of the charge (one unit of the 8th decimal either way), each once, within a second either side,
 /// takes both of its ids. One leg alone, or two candidates, pair with nothing; an id stored meanwhile is this row.
 fn api_dust_twin(c: &Connection, key: &Key, e: &Entry, tx_id: &str, stored_now: &HashSet<i64>, repeat: usize) -> Result<bool, SyncError> {
     let Some(at) = e.transacted_at else { return Ok(false) };
@@ -846,9 +846,12 @@ fn api_dust_twin(c: &Connection, key: &Key, e: &Entry, tx_id: &str, stored_now: 
     let raw = &e.raw.value;
     let d = |k: &str| json_to_d(&raw[k]).ok().flatten().unwrap_or_else(BigDec::zero); // `.to_d`: nil is 0
     let net = &d("transferedAmount") - &d("serviceChargeAmount");
+    // DUST_ROUNDING: the export rounds the net on its own, one unit of the 8th decimal either way.
+    let unit = BigDec::parse("0.00000001").map_err(|e| SyncError(format!("{e:?}")))?;
     let legs = rows(&format!("{base} AND group_id LIKE 'dustcsv%' AND transacted_at >= ?3 AND transacted_at <= ?4 AND ((entry_type = {SWAP_OUT} \
-                              AND base_currency = ?5 AND base_amount = ?6) OR (entry_type = {SWAP_IN} AND base_currency = 'BNB' AND base_amount = ?7))"),
-                    params![key.user_id, key.exchange_id, sql_time(from), sql_time(to), raw["fromAsset"].as_str(), real(&d("amount")), real(&net)])?;
+                              AND base_currency = ?5 AND base_amount = ?6) OR (entry_type = {SWAP_IN} AND base_currency = 'BNB' AND base_amount BETWEEN ?7 AND ?8))"),
+                    params![key.user_id, key.exchange_id, sql_time(from), sql_time(to), raw["fromAsset"].as_str(), real(&d("amount")),
+                            real(&(&net - &unit)), real(&(&net + &unit))])?;
     let mut groups: HashMap<Option<String>, (Vec<i64>, Vec<i64>)> = HashMap::new();
     for (id, t, g) in legs {
         let group = groups.entry(g).or_default();

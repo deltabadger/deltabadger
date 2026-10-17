@@ -225,11 +225,13 @@ fn rails_cap_availability(limit: Num, rows: &[Commitment], intent: Option<BigDec
     Ok((left, reached))
 }
 
-/// An unresolved placement intent's quote, counted as spent until it settles: a BUY's only. A sell spends nothing of the quote
-/// cap (its rows are not commitments either); an intent written before selling existed names no side and is a buy.
+/// An unresolved placement intent's quote, counted as spent until it settles: a REGULAR BUY's only. A sell spends nothing of
+/// the quote cap (its rows are not commitments either), nor does a REBALANCE buy (its row is not a contribution); an intent
+/// written before selling or rebalancing existed names no side or kind and is a REGULAR buy.
 fn buy_intent_quote(bot: &Bot) -> Result<Option<BigDec>, EngineError> {
     let Some(intent) = bot.rust_placement() else { return Ok(None) };
     if intent.get("side").is_some_and(|s| s == "sell") { return Ok(None); }
+    if intent.get("transaction_type").is_some_and(|k| k == "REBALANCE") { return Ok(None); }
     let quote = intent["quote_amount"].as_str().ok_or_else(||data("unreadable intent quote"))?;
     BigDec::parse(quote).map(Some).map_err(data)
 }
@@ -294,7 +296,9 @@ pub enum CapGuard { Place(OrderPlan), BelowMinimum(OrderPlan) }
 /// RULING-B2A-R2: compare the EXACT cost after venue quantization, never rounded division or cents.
 /// A safe order retains Rails' entire sizing/minimum decision. Only an actual reduction checks a minimum.
 /// At most four venue increments may be removed; a larger change refuses with a reason, under the intent lock.
+/// Only a REGULAR buy spends the DCA cap: a REBALANCE buy (an owed swap leg, even on a stopped bot whose cap is spent) passes.
 pub fn guard_exact_cap(c: &Connection, bot: &Bot, plan: &OrderPlan) -> Result<CapGuard, EngineError> {
+    if plan.kind != super::amount::TxKind::Regular { return Ok(CapGuard::Place(plan.clone())); }
     let Some(exact) = exact_cap_available(c, bot)? else { return Ok(CapGuard::Place(plan.clone())); };
     let (base, quote, price_scale) = plan.ticker.scales().map_err(EngineError::Data)?;
     let price = if plan.limit { plan.price.floor(price_scale) } else { plan.price.clone() };
