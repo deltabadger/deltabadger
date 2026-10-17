@@ -601,7 +601,10 @@ pub(super) fn stored_merged(c: &Connection, key: &Key) -> Result<HashSet<String>
 /// The read before the store: the activities as entries (#normalize_activity, #merge_split_entries), the venue's
 /// listings, and the merged legs already stored (one row per split the account ever had). `Ok(Err(text))`: an
 /// activity this port cannot read.
-fn prepare(c: &Connection, key: &Key, activities: &[Raw]) -> Result<Result<(Arc<Vec<Entry>>, Progress), String>, SyncError> {
+/// What `prepare` reads: the entries and the store's start, or an activity this port cannot read.
+type Prepared = Result<(Arc<Vec<Entry>>, Progress), String>;
+
+fn prepare(c: &Connection, key: &Key, activities: &[Raw]) -> Result<Prepared, SyncError> {
     let pairs = crypto_pairs(c, key.exchange_id)?;
     let mut entries = Vec::with_capacity(activities.len());
     for a in activities {
