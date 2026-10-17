@@ -288,6 +288,11 @@ pub struct Status {
 }
 
 pub fn render(c: &Connection, ctx: &Ctx, csrf: &str, bot: &Bot, market_data_configured: bool) -> Result<Status, WebError> {
+    render_unsaved(c, ctx, csrf, bot, None, market_data_configured)
+}
+
+/// `render` of a bot an update refused (`stored` is the row it left unchanged): its Start asks the unsaved record.
+pub fn render_unsaved(c: &Connection, ctx: &Ctx, csrf: &str, bot: &Bot, stored: Option<&Bot>, market_data_configured: bool) -> Result<Status, WebError> {
     let t = |key: &str| i18n::text(ctx.locale, key, &[]);
     // When the bot acts next and since when it has waited: Rails' `next_action_job_at` and `progress_start_time`.
     let timing = || -> Result<(Option<Instant>, Option<DateTime<Utc>>), WebError> {
@@ -341,7 +346,7 @@ pub fn render(c: &Connection, ctx: &Ctx, csrf: &str, bot: &Bot, market_data_conf
     let progress = Progress { id: bot.dom_id("progress_bar"), fill }.render()?;
     // _status_button.html.erb runs `bot.invalid?(:start)` whatever the status, and the errors it leaves are printed
     // under their fields by the settings rendered after it.
-    let check = start::check(c, bot, ctx.now, market_data_configured, ctx.locale)?;
+    let check = start::check_unsaved(c, bot, stored, ctx.now, market_data_configured, ctx.locale)?;
     let disabled = check.invalid || !bot.api_key_correct();
     let button = match bot.status {
         BotStatus::Archived => Button::Reactivate,
