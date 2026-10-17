@@ -15,6 +15,7 @@ pub const SWAP_IN: i64 = 2;
 pub const SWAP_OUT: i64 = 3;
 pub const DEPOSIT: i64 = 4;
 pub const WITHDRAWAL: i64 = 5;
+pub const AIRDROP: i64 = 8;
 pub const FEE: i64 = 10;
 pub const OTHER_INCOME: i64 = 11;
 pub const WITHHOLDING_TAX: i64 = 13;

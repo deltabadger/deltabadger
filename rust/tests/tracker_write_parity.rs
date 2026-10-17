@@ -80,6 +80,7 @@ fn mask_csrf(body: &str) -> String {
         result.push_str("[csrf]\""); rest=after;
     }
     result.push_str(rest);
+    let mut result = mask_import_token(&result);
     for path in common::html::masked_values(&result).assets {
         if let Some((base,tail))=path.rsplit_once('-') {
             if let Some((digest,extension))=tail.split_once('.') {
@@ -90,6 +91,21 @@ fn mask_csrf(body: &str) -> String {
         }
     }
     result
+}
+
+#[tokio::test(flavor="current_thread")]
+async fn import_dialog_and_the_no_file_answer_match_rails() {
+    compare(&["import_new","import_missing"]).await;
+}
+
+#[tokio::test(flavor="current_thread")]
+async fn importing_a_file_matches_rails_bytes_and_all_primary_rows() {
+    compare(&["import_binance_ok","import_nothing_new","import_unknown_timezone","import_unreadable","import_ambiguous","import_answer","import_bad_key"]).await;
+}
+
+/// The token a parked upload is filed under is random on both sides: masked like a CSRF token.
+fn mask_import_token(body: &str) -> String {
+    regex::Regex::new(r#"name="token" id="token" value="[0-9a-f]{16}""#).unwrap().replace_all(body, r#"name="token" id="token" value="[token]""#).into_owned()
 }
 
 #[tokio::test(flavor="current_thread")]
@@ -138,7 +154,7 @@ async fn compare(cases: &[&str]) {
             }
         }
         // Explicit IDs are part of equality. DELETE does not rewind SQLite's sequence.
-        c.execute("DELETE FROM sqlite_sequence WHERE name='fund_classifications'",[]).unwrap();
+        c.execute("DELETE FROM sqlite_sequence WHERE name IN ('fund_classifications','account_transactions')",[]).unwrap();
         c.execute_batch("COMMIT; PRAGMA foreign_keys=ON").unwrap();
         let secret = scenario["secret_key_base"].as_str().unwrap();
         let app = web::app(dir.path(),secret,TestClock::at(scenario["at"].as_str().unwrap()));
@@ -149,9 +165,30 @@ async fn compare(cases: &[&str]) {
         let mut browser = Browser { cookie: Some(session::seal(&app.keys.session,&data,app.now())),page:Some(format!("<meta name=\"csrf-token\" content=\"{}\">",csrf::masked(&token))) };
         let mut fields = vec![];
         flat("",&step["form"],&mut fields);
+        // A step that submits the previous response's form: that request first, then its hidden values.
+        if let Some(from_last) = step["form_from_last"].as_object() {
+            let earlier = &scenario["steps"].as_array().unwrap()[scenario["steps"].as_array().unwrap().len() - 2];
+            let files: Vec<(&str,&str,&[u8])> = earlier["multipart"].as_array().unwrap().iter().map(|f|(f["name"].as_str().unwrap(),f["filename"].as_str().unwrap(),f["content"].as_str().unwrap().as_bytes())).collect();
+            let mut earlier_fields = vec![];
+            flat("",&earlier["form"],&mut earlier_fields);
+            let form: Vec<_> = earlier_fields.iter().map(|(k,v)|(k.as_str(),v.as_str())).collect();
+            let (content_type,body) = web::multipart(&form,&files);
+            let mut headers: Vec<_> = earlier["headers"].as_object().unwrap().iter().map(|(k,v)|(k.as_str(),v.as_str().unwrap())).collect();
+            headers.push(("content-type",content_type.as_str()));
+            let last = browser.send_bytes(&app,"POST",earlier["path"].as_str().unwrap(),Some(body),Csrf::Header,&headers).await;
+            for (name,pattern) in from_last {
+                let value = regex::Regex::new(pattern.as_str().unwrap()).unwrap().captures(&last.body).unwrap_or_else(||panic!("{name}: no {name} in the previous answer"))[1].to_string();
+                fields.push((name.clone(),value));
+            }
+        }
         let form: Vec<_> = fields.iter().map(|(k,v)|(k.as_str(),v.as_str())).collect();
         let headers: Vec<_> = step["headers"].as_object().unwrap().iter().map(|(k,v)|(k.as_str(),v.as_str().unwrap())).collect();
-        let answer = if let Some(body) = step["json"].as_str() {
+        let answer = if let Some(files) = step["multipart"].as_array() {
+            let files: Vec<(&str,&str,&[u8])> = files.iter().map(|f|(f["name"].as_str().unwrap(),f["filename"].as_str().unwrap(),f["content"].as_str().unwrap().as_bytes())).collect();
+            let (content_type,body) = web::multipart(&form,&files);
+            let mut headers = headers.clone(); headers.push(("content-type",content_type.as_str()));
+            browser.send_bytes(&app,step["method"].as_str().unwrap(),step["path"].as_str().unwrap(),Some(body),Csrf::Header,&headers).await
+        } else if let Some(body) = step["json"].as_str() {
             browser.send_body(&app,step["method"].as_str().unwrap(),step["path"].as_str().unwrap(),Some(body.into()),Csrf::Header,&headers).await
         } else { browser.send(&app,step["method"].as_str().unwrap(),step["path"].as_str().unwrap(),Some(&form),Csrf::Header,&headers).await };
         assert_eq!(u64::from(answer.status),expected["status"].as_u64().unwrap(),"{name}");

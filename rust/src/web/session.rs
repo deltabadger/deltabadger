@@ -50,6 +50,9 @@ pub struct SessionData {
     pub setup_token: Option<String>,
     /// The subscriber's name and email from a redeemed platform claim, prefilled on /setup until the admin is made.
     pub platform_identity: Option<(Option<String>, Option<String>)>,
+    /// Tracker::ImportsController's `session[:import_offsets]`: the zone of each upload parked for the Binance/Binance.US
+    /// question, by its token.
+    pub import_offsets: std::collections::BTreeMap<String, String>,
 }
 
 impl SessionData {
@@ -68,6 +71,7 @@ impl SessionData {
             "tracker_connect": self.tracker_connect,
             "setup_token": self.setup_token,
             "platform_identity": self.platform_identity.as_ref().map(|(name, email)| json!([name, email])),
+            "import_offsets": self.import_offsets,
         })
     }
 
@@ -83,6 +87,7 @@ impl SessionData {
             tracker_connect: v["tracker_connect"].as_i64(),
             setup_token: text(&v["setup_token"]),
             platform_identity: v["platform_identity"].as_array().map(|a| (a.first().and_then(text), a.get(1).and_then(text))),
+            import_offsets: v["import_offsets"].as_object().map(|o| o.iter().filter_map(|(k, v)| Some((k.clone(), text(v)?))).collect()).unwrap_or_default(),
         }
     }
 }

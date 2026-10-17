@@ -730,6 +730,18 @@ module Pages
     'unconfirm' => -> { User.first.update_columns(confirmed_at: nil) }
   }.freeze
 
+  # What a browser's FormData posts for a form with `multipart: true`: the flat text fields, then each
+  # file part ({'name', 'filename', 'content'}); a file input left empty is a part with filename="".
+  MULTIPART_BOUNDARY = '----RustPagesBoundary7MA4YWxkTrZu0gW'
+  def multipart(fields, files)
+    parts = fields.map { |name, value| %(Content-Disposition: form-data; name="#{name}"\r\n\r\n#{value}) }
+    parts += files.map do |file|
+      %(Content-Disposition: form-data; name="#{file['name']}"; filename="#{file['filename']}"\r\n) +
+        "Content-Type: application/octet-stream\r\n\r\n#{file['content']}"
+    end
+    (parts.map { |part| "--#{MULTIPART_BOUNDARY}\r\n#{part}\r\n" }.join + "--#{MULTIPART_BOUNDARY}--\r\n").b
+  end
+
   def meta_token(page) = page.to_s[/<meta name="csrf-token" content="([^"]+)"/, 1]
 
   # [opening tag, inner markup] of every form on the page.
@@ -856,6 +868,14 @@ module Pages
             params['authenticity_token'] = form_token(client[:page], action) or raise "#{dir} step #{index}: the last page has no form posting to #{action}"
           end
           headers['X-CSRF-Token'] = meta_token(client[:page]) if %w[header both].include?(step['csrf'])
+          # Fields a form on the previous response carried (its hidden values), read as a browser submitting it would.
+          (step['form_from_last'] || {}).each do |name, pattern|
+            params[name] = client[:last].to_s[Regexp.new(pattern), 1] or raise "#{dir} step #{index}: the last response has no #{name}"
+          end
+          if step['multipart']
+            headers['Content-Type'] = "multipart/form-data; boundary=#{MULTIPART_BOUNDARY}"
+            params = multipart(params, step['multipart'])
+          end
           VENUE.clear
           if step['action_snapshot']
             rows_before = action_rows
@@ -875,6 +895,7 @@ module Pages
         response = client[:session].response
         verify_rendered!("#{dir} step #{index}", client[:session])
         client[:page] = response.body if meta_token(response.body)
+        client[:last] = response.body
         # Rails writes its session cookie on every response; this crate writes it when the session's
         # content changed. So what the session holds after each request is compared with what it held
         # before. session_id is Rails' own bookkeeping and not content.

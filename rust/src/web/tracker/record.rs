@@ -19,7 +19,7 @@ fn segmented(label: String, key: Option<&str>, fluid: bool, options: Vec<Segment
     let html = Segmented { fluid, label, key, options, links: false }.render()?;
     Ok(format!("\n{}", html.lines().filter(|line| !line.is_empty()).collect::<Vec<_>>().join("\n").replace("->", "-&gt;").replace("</svg>\n", "</svg>\n\n")))
 }
-fn option(value: &'static str, label: String, active: bool) -> SegmentedOption { SegmentedOption { value, label, active, href: None } }
+fn option(value: &'static str, label: String, active: bool) -> SegmentedOption { SegmentedOption { value: value.into(), label, active, href: None } }
 
 // ---- the chart ------------------------------------------------------------------------------------------------------
 

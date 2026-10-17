@@ -307,15 +307,15 @@ module SyncParity
     end
   end
 
-  # A bot with one closed buy of `symbol`, placed at `at` (insert!: no callbacks, no jobs).
-  def holder(ctx, symbol, at:, amount: '10', external_id: nil, side: 0)
+  # A bot with one closed buy of `symbol`, placed at `at` (insert!: no callbacks, no jobs). The order is on `venue`.
+  def holder(ctx, symbol, at:, amount: '10', external_id: nil, side: 0, venue: ctx[:alpaca])
     bot = ctx[:user].bots.new(type: 'Bots::DcaMultiAsset', exchange: ctx[:alpaca], settings: {
       'quote_asset_id' => ctx[:assets]['USD'].id, 'quote_amount' => 60.0, 'interval' => 'week', 'weighting' => 'manual',
       'allocations' => { ctx[:assets].fetch(symbol).id.to_s => 1.0 }
     })
     bot.set_missed_quote_amount
     bot.save!
-    Transaction.insert!({ 'bot_id' => bot.id, 'exchange_id' => ctx[:alpaca].id, 'base_asset_id' => ctx[:assets].fetch(symbol).id,
+    Transaction.insert!({ 'bot_id' => bot.id, 'exchange_id' => venue.id, 'base_asset_id' => ctx[:assets].fetch(symbol).id,
                           'quote_asset_id' => ctx[:assets]['USD'].id, 'base' => symbol, 'quote' => 'USD', 'side' => side, 'status' => 0,
                           'external_status' => 2, 'external_id' => external_id || "order-#{bot.id}", 'order_type' => 0, 'price' => '100',
                           'amount' => amount, 'amount_exec' => amount, 'quote_amount_exec' => (amount.to_d * 100).to_s('F'),
@@ -376,6 +376,30 @@ module SyncParity
   end
 
   def binance_ledger(at, state) = { 'kind' => 'ledger', 'at' => at, 'binance_state' => state }
+
+  # A file read by the tracker's import: `text` is the upload's bytes (UTF-8); `answer` names the venue of the key the
+  # Binance/Binance.US question is answered with (its first key of that exchange type).
+  def import(at, format, text, filename: nil, answer: nil)
+    { 'kind' => 'import', 'at' => at, 'format' => format, 'filename' => filename, 'text' => text, 'answer' => answer }.compact
+  end
+
+  # Tracker::ImportsController#create's zone and chosen-key steps, then Import::Run#import!: what it answers, with the
+  # accounts of an ambiguous file by id. The controller refuses a zone-less Binance name before reading a byte.
+  def run_import(user_id, step)
+    user = User.find(user_id)
+    bytes = step['text'].b
+    reader = Import::Run.reader_for(step['format'])
+    offset = reader.requires_offset? ? Import::BinanceCsv.offset_from(step['filename'], bytes) : nil
+    none = { 'imported' => 0, 'duplicates' => 0, 'skipped' => 0, 'unrecognised' => [], 'unrouted' => [], 'error' => nil, 'ambiguous' => nil }
+    return none.merge('error' => 'unknown_timezone') if reader.requires_offset? && offset.nil?
+
+    answered = step['answer'] && ApiKey.joins(:exchange).where(user:, exchanges: { type: step['answer'] }).order(:id).pick(:id)
+    chosen = answered && ApiKey.reading(user.api_keys.includes(:exchange)).find { |key| key.id.to_s == answered.to_s }
+    result = Import::Run.new(user:, format: step['format'], text: bytes, offset:, api_key: chosen).import!
+    none.merge('imported' => result[:imported], 'duplicates' => result[:duplicates], 'skipped' => result[:skipped],
+               'unrecognised' => result[:unrecognised], 'unrouted' => result[:unrouted], 'error' => result[:error]&.to_s,
+               'ambiguous' => result[:ambiguous] ? result[:candidates].map(&:id) : nil)
+  end
 
   BINANCE_ACCOUNT = 'GET /api/v3/account'.freeze
   EXCHANGE_RATES = 'GET /api/v1/exchange_rates'.freeze
@@ -448,10 +472,12 @@ module SyncParity
         ScriptedSync.requests = []
         ScriptedSync.filters_after = step['server_filters_after'] == true
         raised = false
+        imported = nil
         travel_to(Time.iso8601(step['at']), with_usec: true) do
           case step['kind']
           when 'ledger' then AccountTransaction::SyncJob.perform_now(ApiKey.find(sc['api_key_id']))
           when 'balances' then AccountBalance::SyncJob.perform_now(sc['user_id'], [sc['api_key_id']])
+          when 'import' then imported = run_import(sc['user_id'], step)
           else raise ArgumentError, "unknown step kind #{step['kind'].inspect}"
           end
         rescue StandardError
@@ -459,7 +485,8 @@ module SyncParity
         end
         travel_back
         # After every step, each bot's restatement_generation: a split that arrives in two syncs moves it twice.
-        { 'requests' => ScriptedSync.requests, 'raised' => raised, 'generations' => Bot.order(:id).pluck(:id, :restatement_generation) }
+        { 'requests' => ScriptedSync.requests, 'raised' => raised, 'generations' => Bot.order(:id).pluck(:id, :restatement_generation),
+          'import' => imported }.compact
       end
       # max_nesting: a raw_data nested to the parser's limit sits several levels down in this report.
       # What Rails itself reads as a split row afterwards (Bot::Restatable#split_row?): a raw_data its JSON type cannot read is nil.

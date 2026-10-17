@@ -24,6 +24,7 @@ pub mod launchpad;
 pub mod layout;
 pub mod locale;
 pub mod mcp;
+pub mod multipart;
 pub mod oauth;
 pub mod rate_limit;
 pub mod ring;
@@ -633,6 +634,8 @@ fn routes(app: App) -> Router {
         .route("/tracker/save_export_settings", only(patch(tracker::save_export_settings)))
         .route("/tracker/fund_classifications", only(patch(tracker::fund_classifications)))
         .route("/tracker/sync", only(post(tracker::sync)))
+        .route("/tracker/import", only(post(tracker::import::create)))
+        .route("/tracker/import/new", only(get(tracker::import::new)))
         .route("/tracker/tax_report", only(get(tracker::modal::deferred_report)))
         .route("/tracker/export", only(get(tracker::export)))
         .route("/tracker/export_modal", only(get(tracker::modal::export_modal)))
@@ -686,6 +689,8 @@ pub struct Params {
     pub form: Vec<(String, String)>,
     /// A parsed JSON body; on setup routes, the Rails-merged query/body parameter object.
     pub json: Option<serde_json::Value>,
+    /// POST /tracker/import's `file` part: its raw bytes and its filename (web::multipart).
+    pub upload: Option<(Vec<u8>, String)>,
 }
 
 impl Params {
@@ -778,11 +783,17 @@ pub const QUERY_FIELDS: usize = FORM_FIELDS;
 pub const JSON_PATHS: [&str; 3] = ["/oauth/register", "/oauth/token", "/oauth/revoke"];
 /// How long the whole of a form's body may take to arrive.
 pub const BODY_READ_TIMEOUT: Duration = Duration::from_secs(10);
+/// The one multipart body read (POST /tracker/import, web::multipart): a file of transactions. Rails
+/// sets no bound; these follow FORM_LIMIT's. A five-year exchange export is a few MB.
+pub const IMPORT_PATH: &str = "/tracker/import";
+pub const IMPORT_LIMIT: usize = 32 * 1024 * 1024;
+pub const IMPORT_READ_TIMEOUT: Duration = Duration::from_secs(120);
 
 /// Everything that has to happen before a route is chosen:
 /// - a request for a host this deployment does not allow is refused, before anything reads it;
 /// - a static file is answered at once, as Rails' static file server sits in front of the app;
 /// - form bodies on POST/PATCH/PUT/DELETE are parsed under one byte/field/deadline bound;
+/// - POST /tracker/import's multipart body is parsed under IMPORT_LIMIT and IMPORT_READ_TIMEOUT;
 /// - only an original POST applies `_method`, as Rack::MethodOverride does;
 /// - the path is normalised and its locale prefix taken off, so one set of routes serves `/login`
 ///   and `/de/login`.
@@ -828,7 +839,21 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
     let json_post = (setup_json || bot_json || broadcast_json || (original_method == Method::POST && route_path=="/api/api_keys") || (original_method == Method::POST && JSON_PATHS.contains(&full_path.as_str())))
         && content_type.split(';').next().is_some_and(|media_type| media_type.trim().eq_ignore_ascii_case("application/json"));
     let mut json = None;
-    let (form, body) = if form_post || json_post {
+    let mut upload = None;
+    let multipart_boundary = (original_method == Method::POST && route_path == IMPORT_PATH)
+        .then(|| multipart::boundary(content_type)).flatten();
+    let (form, body) = if let Some(boundary) = multipart_boundary {
+        let read = match tokio::time::timeout(IMPORT_READ_TIMEOUT, axum::body::to_bytes(body, IMPORT_LIMIT)).await {
+            Ok(read) => read,
+            Err(_) => return (StatusCode::REQUEST_TIMEOUT, [(header::CONNECTION, "close")], "The form did not arrive in time\n").into_response(),
+        };
+        let Ok(bytes) = read else { return (StatusCode::PAYLOAD_TOO_LARGE, "Form too large\n").into_response() };
+        match multipart::parse(&bytes, &boundary) {
+            Ok(parsed) => { upload = parsed.file; (parsed.fields, Body::empty()) }
+            Err(multipart::Error::TooManyParts) => return (StatusCode::BAD_REQUEST, "Too many form fields\n").into_response(),
+            Err(multipart::Error::Malformed) => return (StatusCode::BAD_REQUEST, "Bad Request\n").into_response(),
+        }
+    } else if form_post || json_post {
         // The one place a request body is read. It has a deadline for the whole of it: a client that
         // declares a body and stops sending gets a 408, and `connection: close` makes hyper drop the
         // connection, so it does not keep its place. (A body no handler reads is not waited for: hyper
@@ -863,7 +888,7 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
     let fullpath = with_query(&full_path);
     let Ok(uri) = with_query(&route_path).parse::<Uri>() else { return (StatusCode::BAD_REQUEST, "Bad Request\n").into_response() };
     parts.uri = uri;
-    let mut params = Params { full_path, fullpath, route_path, path_locale, query, form, json };
+    let mut params = Params { full_path, fullpath, route_path, path_locale, query, form, json, upload };
     if params.path_locale.is_none() && (matches!(params.route_path.as_str(), "/setup" | "/setup/platform_connection")
         || params.route_path.strip_prefix("/setup.").is_some_and(|format| !format.contains('/'))) {
         // Rails 8.1.4 shallow-merges query keys over body keys. Normalize once before the

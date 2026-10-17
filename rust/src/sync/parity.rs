@@ -206,6 +206,32 @@ fn generations(c: &Connection) -> Result<Vec<(i64, i64)>, SyncError> {
     Ok(rows)
 }
 
+/// A step of kind `import`, as script/rust/sync.rb's `run_import` reports it: the controller's zone step, the key the
+/// step's `answer` names (the user's first key on that exchange type), then the run.
+fn import_step(c: &Connection, user_id: i64, step: &Value, at: DateTime<Utc>) -> Result<Value, SyncError> {
+    use crate::tracker::import::run::{self, Answer};
+    let (format, bytes) = (step["format"].as_str().unwrap_or_default(), step["text"].as_str().unwrap_or_default().as_bytes());
+    let none = json!({ "imported": 0, "duplicates": 0, "skipped": 0, "unrecognised": [], "unrouted": [], "error": null, "ambiguous": null });
+    let offset = match run::offset(format, step["filename"].as_str(), bytes) {
+        Some(None) => { let mut out = none; out["error"] = json!("unknown_timezone"); return Ok(out); }
+        Some(Some(offset)) => Some(offset),
+        None => None,
+    };
+    let answered: Option<i64> = match step["answer"].as_str() {
+        Some(kind) => rusqlite::OptionalExtension::optional(c.query_row("SELECT k.id FROM api_keys k JOIN exchanges e ON e.id = k.exchange_id WHERE k.user_id = ?1 AND e.type = ?2 ORDER BY k.id LIMIT 1",
+                                                                       rusqlite::params![user_id, kind], |r| r.get(0)))?,
+        None => None,
+    };
+    let mut out = none;
+    match run::import(c, user_id, format, bytes, offset.as_deref(), answered.map(|id| id.to_string()).as_deref(), at)? {
+        Answer::Error(error) => out["error"] = json!(error),
+        Answer::Ambiguous(keys) => out["ambiguous"] = json!(keys.iter().map(|k| k.id).collect::<Vec<_>>()),
+        Answer::Written { imported, duplicates, skipped, unrecognised, unrouted } =>
+            out = json!({ "imported": imported, "duplicates": duplicates, "skipped": skipped, "unrecognised": unrecognised, "unrouted": unrouted, "error": null, "ambiguous": null }),
+    }
+    Ok(out)
+}
+
 /// Runs the scenario in `dir` (a scratch copy the Rails harness built) and reports what Rails' `record` reports.
 pub async fn run(dir: &Path, cipher: Arc<Cipher>) -> Result<Value, SyncError> {
     let data = |what: &str| SyncError(format!("scenario.json: {what}"));
@@ -237,7 +263,13 @@ pub async fn run(dir: &Path, cipher: Arc<Cipher>) -> Result<Value, SyncError> {
         let served = Served { script: transport.clone(), filters_after: step["server_filters_after"] == true };
         let venue = AlpacaVenue::new(served, Urls::for_passphrase(credentials.passphrase.as_deref()));
         let prices = ScriptedPrices::from_script(&step["market"]).with_rate_cache(rate_cache.clone());
+        let mut imported = None;
         let raised = match (step["kind"].as_str(), &fake) {
+            (Some("import"), _) => {
+                let (user_id, step) = (scenario["user_id"].as_i64().ok_or_else(|| data("user_id"))?, step.clone());
+                imported = Some(db.run(move |c, _| import_step(c, user_id, &step, at).map_err(|e| e.0)).await.map_err(SyncError)?);
+                false
+            }
             (Some("ledger"), Some(fake)) => super::binance_ledger::sync(&db, fake.clone(), key_id, &credentials, &FixedClock(at), super::binance_ledger::Pacing::NONE).await?.is_err_and(|f| f.raised),
             (kind, _) => match kind {
             Some("ledger") => ledger::sync(&db, &venue, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
@@ -255,7 +287,9 @@ pub async fn run(dir: &Path, cipher: Arc<Cipher>) -> Result<Value, SyncError> {
         requests.extend((0..prices.rate_requests()).map(|_| json!([format!("GET {EXCHANGE_RATES_PATH}"), []])));
         requests.extend(prices.requests().iter().map(|ids| json!([format!("GET {PRICES_PATH}"), [["coin_ids", ids.join(",")], ["vs_currencies", "usd"]]])));
         let generations = db.run(|c, _| generations(c).map_err(|e| e.0)).await.map_err(SyncError)?;
-        steps.push(json!({ "requests": requests, "raised": raised, "generations": generations }));
+        let mut out = json!({ "requests": requests, "raised": raised, "generations": generations });
+        if let Some(imported) = imported { out["import"] = imported; }
+        steps.push(out);
     }
     let after = db.run(|c, _| snapshot(c).map_err(|e| e.0)).await.map_err(SyncError)?;
     // What Rails reads as a split row afterwards (Bot::Restatable#split_row?): its JSON type gives nil for a raw_data
