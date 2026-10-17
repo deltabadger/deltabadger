@@ -1000,3 +1000,27 @@ async fn writes_during_every_refill_still_end_in_saved_figures() {
     assert!(writer.join().unwrap() > 1, "the writes kept coming");
     drop(c);
 }
+
+/// Ready figures of account 1, published and shown, with bots 1 and `extra` (none if 0) of AAA.
+async fn warm_with(install: &Install, extra: i64) -> Value {
+    if extra != 0 { start_bot(&install.connection(), extra); }
+    let _stop = install.consume();
+    install.app.figure_service.enqueue(1, Work { publish: true, locales: own(), not_before: install.now() });
+    until(10, "the first figures", async || published(&install.app, 1).await).await;
+    page_figures(&install.app, 1, "en", "").await.0.expect("ready figures")
+}
+
+#[tokio::test]
+async fn a_cacheless_bots_first_order_holds_back_the_stale_headline() {
+    let install = Install::new(1, 150);
+    let before = warm_with(&install, 100).await;
+    assert_eq!(before["bots"]["100"]["cached"], false, "no order: Rails caches nothing for it");
+    order(&install.connection(), 100, "b1");
+    let snapshot = loading::prepare(&install.app, 1).await.unwrap();
+    assert!(matches!(snapshot, loading::Snapshot::Stale(..)), "the refill runs");
+    let clock = install.app.clock.clone();
+    let shown = install.app.db(move |c| loading::render(c, 1, &snapshot, "en", "token", "", &*clock)).await.unwrap().expect("A's figures");
+    assert_eq!(shown["bots"]["1"]["tile"], before["bots"]["1"]["tile"], "A's tile");
+    assert!(shown["account"].is_null(), "a bot with a submitted order and no cache: User#global_pnl_snapshot is loading");
+}
+
