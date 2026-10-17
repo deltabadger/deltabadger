@@ -1,0 +1,17 @@
+<div class="modal--search__assets__item" data-arrow-keys-navigation-target="item">
+  <button name="{{ field_name }}" type="submit" value="{{ item.id }}" data-arrow-keys-navigation-target="button" data-turbo-frame="modal_content">
+    <div class="modal--search__cell modal--search__cell--ticker">
+      <div class="{{ item.ticker_class }}" style="background: {{ item.pill }}" data-ticker-symbol="{{ item.symbol }}" data-ticker-asset-id="{{ item.id }}">{{ item.symbol }}</div>
+    </div>
+    <div class="modal--search__cell modal--search__cell--name">
+      {{ item.logo|safe }}
+      <span class="modal--search__cell--name__label">{{ item.name }}</span>
+    </div>
+    <div class="modal--search__cell modal--search__cell--exchanges">
+      {%- for (title, svg) in item.exchanges %}
+        <span style="display: inline-flex" title="{{ title }}">
+          {{ svg|safe }}
+        </span>
+      {%- endfor %}
+    </div>
+</button></div>
