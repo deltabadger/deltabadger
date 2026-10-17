@@ -212,10 +212,10 @@ impl Dec {
     }
 
     /// Float#to_d: the shortest digits that read back as the Float, cut (not rounded) at sixteen.
-    fn float_digits(f: f64) -> Result<(String, i64), NumError> {
+    fn float_digits(f: f64, keep: usize) -> Result<(String, i64), NumError> {
         if !f.is_finite() { return Err(NumError::NotANumber); }
         let (_, digits, exponent) = shortest(f);
-        let cut = &digits[..digits.len().min(16)];
+        let cut = &digits[..digits.len().min(keep)];
         let kept = cut.trim_end_matches('0');
         Ok((kept.trim_start_matches('0').to_string(), kept.len() as i64 - 1 - i64::from(exponent)))
     }
@@ -255,9 +255,20 @@ impl Dec {
         }
     }
 
+    /// A venue's price as Exchanges::Alpaca#parse_venue_number reads it, `BigDecimal(value.to_s)`: a JSON Float keeps every
+    /// digit of Float#to_s (up to 17), where `to_d` (Float#to_d) keeps 16. Anything else as `to_d`.
+    pub fn venue_number(v: &Value) -> Result<Dec, NumError> {
+        match v {
+            Value::Number(n) if n.is_f64() => Dec::real_digits(n.as_f64().ok_or(NumError::NotANumber)?, Door::Venue, 17),
+            _ => Dec::to_d(v),
+        }
+    }
+
     /// A Float on its way in (a REAL column, a JSON number with a fraction): Float#to_d.
-    fn real(f: f64, door: Door) -> Result<Dec, NumError> {
-        let (digits, scale) = Dec::float_digits(f)?;
+    fn real(f: f64, door: Door) -> Result<Dec, NumError> { Dec::real_digits(f, door, 16) }
+
+    fn real_digits(f: f64, door: Door, keep: usize) -> Result<Dec, NumError> {
+        let (digits, scale) = Dec::float_digits(f, keep)?;
         match door {
             Door::Database => { crate::ruby::BigDec::from_f64(f).map_err(|_| NumError::OutOfRange)?; }
             Door::Venue => { crate::ruby::json_to_d(&serde_json::json!(f)).map_err(|_| NumError::OutOfRange)?; }

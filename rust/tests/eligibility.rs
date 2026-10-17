@@ -53,6 +53,24 @@ fn a_one_asset_seller_with_sells_in_its_history_is_eligible_on_alpaca() {
     assert_eq!(r.eligible, vec![id]);
 }
 
+/// 6b: a wider Alpaca basket sells (the ranked DCA-out), rows a merge brought from another venue included: live_free_balance
+/// caps what it sells here at its own units.
+#[test]
+fn a_two_asset_seller_with_foreign_rows_is_eligible_on_alpaca() {
+    let (_d, o, s) = common::install_alpaca();
+    let (eth, _) = seed::add_eth_sol(&o.primary, &s);
+    let id = seed::insert_bot(&o.primary, &s, &plain().with("direction", json!("selling")).with("sell_denomination", json!("quote")).with("sell_quote_amount", json!(50.0))
+        .weights(&[(s.btc, 0.5), (eth, 0.5)]));
+    seed::insert_tx(&o.primary, &s, id, &closed("2026-09-02 10:00:00"));
+    let foreign = seed::insert_tx(&o.primary, &s, id, &closed("2026-09-03 10:00:00"));
+    o.primary.execute("INSERT INTO exchanges (type, name, created_at, updated_at) VALUES ('Exchanges::Kraken', 'Kraken', '2026-01-01', '2026-01-01')", []).unwrap();
+    o.primary.execute("UPDATE transactions SET exchange_id = last_insert_rowid() WHERE id = ?1", [foreign]).unwrap();
+    o.primary.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.merged_history_until_id', ?1) WHERE id = ?2", rusqlite::params![foreign, id]).unwrap();
+    let r = eligibility::check_install(&o.primary).unwrap();
+    assert!(r.problems.is_empty(), "{:?}", r.problems);
+    assert_eq!(r.eligible, vec![id]);
+}
+
 type Make = Box<dyn Fn(&rusqlite::Connection, &seed::Seeded) -> i64>;
 
 #[test]
@@ -69,6 +87,7 @@ fn each_thing_outside_the_slice_is_refused_with_its_reason() {
         ("start_time_enabled", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("start_time_enabled", json!(true)).with("start_at", json!("2020-01-01T00:00:00Z"))))),
         ("rebalance_enabled", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("rebalance_enabled", json!(true))))),
         ("direction \"sideways\"", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("direction", json!("sideways"))))),
+        // Kraken sells one-asset baskets only (the ranked DCA-out is Alpaca's, 6b).
         ("a basket of several assets that sells", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("direction", json!("selling")).with("allocations", json!({ s.btc.to_string(): 0.5, s.quote.to_string(): 0.5 }))))),
         ("sell_interval \"fortnight\"", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("direction", json!("selling")).with("sell_interval", json!("fortnight"))))),
         ("sell_amount is negative", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("direction", json!("selling")).with("sell_amount", json!(-1))))),
@@ -256,7 +275,6 @@ fn malformed_asset_categories_incomplete_indices_and_other_quotes_are_refused() 
         ("instrument tokenized", Box::new(|c, s| { c.execute("UPDATE assets SET instrument_type = 'tokenized' WHERE id = ?1", [s.btc]).unwrap(); seed::insert_bot(c, s, &plain()) })),
         ("no ticker for the asset", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("allocations", json!({ s.btc.to_string(): 0.5, s.quote.to_string(): 0.5 }))))),
         ("index_category_id missing", Box::new(|c, s| { let id = seed::insert_bot(c, s, &plain()); c.execute("UPDATE bots SET type = 'Bots::DcaIndex' WHERE id = ?1", [id]).unwrap(); id })),
-        ("a basket of several assets that sells", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("direction", json!("selling")).with("allocations", json!({ s.btc.to_string(): 0.5, s.quote.to_string(): 0.5 }))))),
         ("quote USDT (Alpaca: only USD)", Box::new(|c, s| { c.execute("UPDATE assets SET symbol = 'USDT' WHERE id = ?1", [s.quote]).unwrap(); seed::insert_bot(c, s, &plain()) })),
     ];
     for (reason, make) in cases {
@@ -453,7 +471,8 @@ fn a_basket_outside_what_the_engine_ports_is_refused_with_its_reason() {
             let many: serde_json::Map<String, serde_json::Value> = (0..101).map(|i| ((5000 + i).to_string(), json!(1.0 / 101.0))).collect();
             seed::insert_bot(c, s, &plain().with("allocations", serde_json::Value::Object(many)))
         })),
-        ("1 REBALANCE/LIQUIDATION/REDEPLOY row(s)", Box::new(move |c, s, eth| { let id = seed::insert_bot(c, s, &half(s, eth)); history_row(c, s, id, 0, "REBALANCE", Some(s.btc), "OREB"); id })),
+        // An Alpaca basket's REBALANCE rows are read since 6b (tests/rebalance.rs); a liquidation is still not.
+        ("1 LIQUIDATION/REDEPLOY row(s)", Box::new(move |c, s, eth| { let id = seed::insert_bot(c, s, &half(s, eth)); history_row(c, s, id, 1, "LIQUIDATION", Some(s.btc), "OLIQ"); id })),
         ("1 imported row(s)", Box::new(move |c, s, eth| { let id = seed::insert_bot(c, s, &half(s, eth)); history_row(c, s, id, 0, "REGULAR", Some(s.btc), "imported_1"); id })),
         ("1 order(s) recorded without base_asset_id", Box::new(move |c, s, eth| { let id = seed::insert_bot(c, s, &half(s, eth)); history_row(c, s, id, 0, "REGULAR", None, "ONOASSET"); id })),
         ("asset {btc} listed more than once", Box::new(|c, s, _| seed::insert_bot(c, s, &plain().with("allocations", json!({ s.btc.to_string(): 0.5, format!("0{}", s.btc): 0.5 }))))),
@@ -729,16 +748,22 @@ fn a_price_rule_with_the_pause_action_is_eligible() {
 }
 
 /// P1-T1: the one admission rule the engine and the bot pages share. Kraken and Binance take buying baskets of any size;
-/// index bots stay on Alpaca; selling stays one asset (6b) and never an index bot.
+/// index bots stay on Alpaca; selling stays one asset there (a wider basket sells on Alpaca, 6b) and never an index bot.
 #[test]
 fn one_admission_rule_for_engine_and_pages() {
     use eligibility::admission;
     for venue in ["Exchanges::Kraken", "Exchanges::Binance", "Exchanges::Alpaca"] {
         for members in [1, 2, 20] { assert_eq!(admission(Some(venue), false, members, false), None, "{venue} {members}"); }
         assert_eq!(admission(Some(venue), false, 1, true), None, "{venue} one-asset seller");
-        assert_eq!(admission(Some(venue), false, 2, true), Some("a basket of several assets that sells"), "{venue}");
         assert!(admission(Some(venue), true, 0, true).is_some(), "{venue} index seller");
     }
+    for venue in ["Exchanges::Kraken", "Exchanges::Binance"] {
+        assert_eq!(admission(Some(venue), false, 2, true), Some("a basket of several assets that sells"), "{venue}");
+        assert!(!eligibility::rebalances_on(Some(venue)), "{venue} rebalancing stays Rails'");
+    }
+    // 6b: a wider Alpaca basket sells (the ranked DCA-out) and rebalances.
+    assert_eq!(admission(Some("Exchanges::Alpaca"), false, 2, true), None);
+    assert!(eligibility::rebalances_on(Some("Exchanges::Alpaca")));
     for venue in ["Exchanges::Kraken", "Exchanges::Binance"] {
         assert_eq!(admission(Some(venue), true, 10, false), Some("an index bot on Kraken or Binance (only on Alpaca)"));
     }

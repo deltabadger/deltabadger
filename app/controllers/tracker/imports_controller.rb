@@ -23,7 +23,7 @@ class Tracker::ImportsController < ApplicationController
     @token, text, filename = fetch_upload
     return render_error(:no_file) if text.blank?
 
-    @offset = resolve_offset(filename)
+    @offset = resolve_offset(filename, text)
     return render_error(:unknown_timezone) if @offset == :unknown
 
     @result = Import::Run.new(user: current_user, format: @format, text: text,
@@ -49,19 +49,19 @@ class Tracker::ImportsController < ApplicationController
     render turbo_stream: [turbo_stream_prepend_flash, turbo_stream_redirect(tracker_path)]
   end
 
-  # The zone is a property of the FILE — Binance puts it in the name — and is never offered as a
+  # The zone is a property of the FILE — Binance puts it in the name, or an older export in a
+  # `UTC_Time` header — and is never offered as a
   # field: the only edit a user could make to it is a wrong one, and a wrong one matches nothing
   # already stored, so the whole history lands again, hours out of place. A name that no longer
   # carries it is refused for the same reason.
   #
   # Parked beside the upload rather than round-tripped through the form, because the second request
   # (the Binance/Binance.US answer) carries a token, not a filename.
-  def resolve_offset(filename)
+  def resolve_offset(filename, text)
     return nil unless Import::Run.reader_for(@format)&.requires_offset?
     return parked_offsets[@token] || :unknown if params[:token].present?
 
-    offset = Import::BinanceCsv.offset_from(filename)
-    offset || :unknown
+    Import::BinanceCsv.offset_from(filename, text) || :unknown
   end
 
   # Only ever one of the accounts the run itself offered. A hand-crafted request naming a Hyperliquid

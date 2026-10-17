@@ -36,6 +36,8 @@ RECORDED = {
     FIX + 'mail_vectors.json': ('test', [runner('mail_vectors.rb', '{out}')], None),
     FIX + 'alpaca_hosts.json': ('test', [runner('record_alpaca_hosts.rb', '{out}')], None),
     FIX + 'binance_vectors.json': ('test', [runner('record_binance_vectors.rb', '{out}')], None),
+    FIX + 'rebalance_math.json': ('test', [runner('record_rebalance_math.rb', '{out}')], None),
+    FIX + 'import_vectors.json': ('test', [runner('record_import_vectors.rb', '{out}')], None),
     FIX + 'key_verdicts.json': ('test', [runner('record_key_verdicts.rb', '{out}')], None),
     FIX + 'run_ownership.json': ('test', [runner('record_run_ownership.rb', '{out}')], None),
     FIX + 'condition_vectors.json': ('test', [runner('record_condition_vectors.rb', '{out}')], None),

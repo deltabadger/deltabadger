@@ -51,10 +51,14 @@ pub fn r5_cleanup_expected(rails: &serde_json::Value, rust: &serde_json::Value) 
         if row["before"]["transient_data"].get(KEY) != Some(&serde_json::Value::Null)
             || !row["after"]["transient_data"].is_object()
             || row["after"]["transient_data"].get(KEY).is_some() { continue; }
-        let mine = rust["changes"]["bots"].as_array().unwrap().iter().find(|b| b["id"] == row["id"]).unwrap();
-        assert_eq!(mine["before"]["transient_data"].get(KEY), Some(&serde_json::Value::Null), "R5 same initial NULL flag");
-        assert_eq!(mine["after"]["transient_data"].get(KEY), Some(&serde_json::Value::Null), "R5 failure cleanup preserves unrelated NULL flag");
+        // Rust left the bot row untouched (a swap that started and ended within the run): the flag kept is all Rails changed.
+        if let Some(mine) = rust["changes"]["bots"].as_array().unwrap().iter().find(|b| b["id"] == row["id"]) {
+            assert_eq!(mine["before"]["transient_data"].get(KEY), Some(&serde_json::Value::Null), "R5 same initial NULL flag");
+            assert_eq!(mine["after"]["transient_data"].get(KEY), Some(&serde_json::Value::Null), "R5 failure cleanup preserves unrelated NULL flag");
+        }
         row["after"]["transient_data"][KEY] = serde_json::Value::Null;
     }
+    // A row whose only change was that flag is no change at all once it is kept.
+    expected["changes"]["bots"].as_array_mut().unwrap().retain(|row| row["before"] != row["after"]);
     expected
 }

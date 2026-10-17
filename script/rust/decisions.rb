@@ -6,6 +6,8 @@
 #   bin/rails runner script/rust/decisions.rb grid-binance <root> # Binance spot, scripted beneath honeymaker at the Faraday adapter
 #   bin/rails runner script/rust/decisions.rb grid-sell <root>    # a one-asset basket selling on Kraken, Binance and Alpaca (slice 6a)
 #   bin/rails runner script/rust/decisions.rb grid-venue-basket <root> # buying baskets of 2 and 3 members on Kraken (EUR) and Binance (USDT)
+#   bin/rails runner script/rust/decisions.rb grid-basket-sell <root> # a wider Alpaca basket's ranked DCA-out (slice 6b)
+#   bin/rails runner script/rust/decisions.rb grid-rebalance <root>   # threshold rebalancing on a stopped Alpaca basket (slice 6b)
 #   bin/rails runner script/rust/decisions.rb grid-conditions <root> # price_limit / sell_price_limit with `pause`, and the minute check (slice 7a)
 #   bin/rails runner script/rust/decisions.rb record <root>  # Rails' ticks (and retries) per <root>/<scenario>/ -> rails.json
 # Always run with every *_DATABASE_URL pointing at scratch files and PROXY_KRAKEN at a dead address. Kraken is
@@ -115,7 +117,7 @@ module Decisions
   # What only the Rust engine writes into transient_data: its placement intent, and the mails it owes (rust/src/engine/notice.rs).
   MAIL_MARKERS = %w[rust_funds_mail_pending rust_error_mail_pending rust_stopped_mail_pending rust_limit_mail_pending].freeze
   # Its waits and counted amount-limit stops are the engine's own too (rust/src/engine/placement.rs, polling.rs).
-  RUST_KEYS = (%w[rust_placement rust_defer_until rust_amount_limit_stops_pending run_generation tick_generation] + MAIL_MARKERS).freeze
+  RUST_KEYS = (%w[rust_placement rust_defer_until rust_amount_limit_stops_pending run_generation tick_generation rust_rebalance_halted] + MAIL_MARKERS).freeze
   # One marker of each kind, as the engine leaves them: Rails must carry them through every write of a tick, untouched.
   SEEDED_MARKERS = { 'rust_funds_mail_pending' => { 'quote_asset' => 2, 'stamped_at' => '2026-08-31T09:00:00.000Z' },
                      'rust_error_mail_pending' => { 'unknown' => { 'error' => 'an <old> "error"', 'stamped_at' => '2026-08-31T09:00:00.000Z' } },
@@ -182,6 +184,9 @@ module Decisions
     [binance, btc, usdt, ticker, nil]
   end
 
+  # The other venue a merge brought rows from (Bot::Merge): a row marked `foreign` was placed there.
+  def foreign_venue = Exchanges::Kraken.find_or_create_by!(name: 'Kraken') { |k| k.assign_attributes(maker_fee: '0.25', taker_fee: '0.4') }
+
   def build(dir, sc)
     SchemaTemplate.install(dir)
     ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: File.join(dir, 'production.sqlite3'))
@@ -212,8 +217,9 @@ module Decisions
                        .merge(sc['bot_columns'] || {}))
     sc['transactions'].each do |t|
       asset = assets.fetch(t.fetch('asset', 'BTC'))
-      Transaction.insert!(t.except('asset').merge('bot_id' => bot.id, 'exchange_id' => exchange.id, 'base_asset_id' => asset.id, 'quote_asset_id' => quote.id,
-                                                  'base' => asset.symbol, 'quote' => quote.symbol, 'side' => t.fetch('side', 0), 'transaction_type' => 'REGULAR',
+      Transaction.insert!(t.except('asset', 'foreign').merge('bot_id' => bot.id, 'exchange_id' => t['foreign'] ? foreign_venue.id : exchange.id,
+                                                  'base_asset_id' => asset.id, 'quote_asset_id' => quote.id,
+                                                  'base' => asset.symbol, 'quote' => quote.symbol, 'side' => t.fetch('side', 0), 'transaction_type' => t.fetch('transaction_type', 'REGULAR'),
                                                   'bot_interval' => sc['interval'], 'bot_quote_amount' => sc['quote_amount'], 'error_messages' => [],
                                                   'updated_at' => t['created_at']))
     end
@@ -996,7 +1002,8 @@ module Decisions
                        transient_data: bot.reload.transient_data.merge(sc['transient']))
     sc['transactions'].each do |t|
       sym = t.fetch('symbol', members.first.first)
-      Transaction.insert!(t.except('symbol').merge('bot_id' => bot.id, 'exchange_id' => alpaca.id, 'base_asset_id' => assets.fetch(sym).id,
+      Transaction.insert!(t.except('symbol', 'foreign').merge('bot_id' => bot.id, 'exchange_id' => t['foreign'] ? foreign_venue.id : alpaca.id,
+                                                   'base_asset_id' => assets.fetch(sym).id,
                                                    'quote_asset_id' => usd.id, 'base' => sym, 'quote' => 'USD', 'side' => 0, 'transaction_type' => 'REGULAR',
                                                    'bot_interval' => sc['interval'], 'bot_quote_amount' => sc['quote_amount'], 'error_messages' => [],
                                                    'updated_at' => t['created_at']))
@@ -1156,10 +1163,11 @@ module Decisions
     bot = Bots::DcaIndex.new(user:, exchange: alpaca, settings: {
       'quote_asset_id' => usd.id, 'quote_amount' => 60.0, 'interval' => 'week', 'index_type' => 'category', 'index_category_id' => 'nasdaq-100',
       'num_coins' => sc['num_coins'], 'allocation_flattening' => sc['flattening'], 'hold_all' => sc['hold_all']
-    })
+    }.merge(sc['settings'] || {}))
     bot.set_missed_quote_amount
     bot.save!(validate: false)
-    bot.update_columns(status: Bot.statuses[:scheduled], settings_changed_at: nil, label: 'ND100', started_at: Time.iso8601(STOCK_STARTED))
+    bot.update_columns({ status: Bot.statuses[:scheduled], settings_changed_at: nil, label: 'ND100', started_at: Time.iso8601(STOCK_STARTED) }
+                       .merge((sc['bot_columns'] || {}).transform_keys(&:to_sym)))
     sc['members'].each do |m|
       BotIndexAsset.insert!({ 'bot_id' => bot.id, 'asset_id' => tickers.fetch(m['symbol']).base_asset_id, 'ticker_id' => tickers.fetch(m['symbol']).id,
                               'target_allocation' => m['target'], 'in_index' => m['in_index'], 'entered_at' => '2026-08-01 00:00:00',
@@ -1340,6 +1348,199 @@ module Decisions
         end
       end
     end
+  end
+
+  # Slice 6b: a wider Alpaca basket selling (Bot::Composition::OrderSetter#get_sell_orders_data). Members held at the ask,
+  # valued at the last trade; free is each position's qty_available.
+  def basket_sell_scenarios
+    modes = { 'market' => {}, 'limit' => { 'limit_ordered' => true, 'limit_order_pcnt_distance' => 0.0025 } }
+    denominations = { 'quote' => { 'sell_denomination' => 'quote', 'sell_quote_amount' => 100.0 },
+                      'base' => { 'sell_denomination' => 'base', 'sell_amount' => 0.01 } }
+    held = lambda do |n, sym, qty, **extra|
+      ask = BASKET_PRICES.fetch(sym)[0].to_d
+      { 'asset' => sym, 'status' => 0, 'external_status' => 2, 'external_id' => "OHELD-#{n}", 'order_type' => 0, 'amount' => qty, 'amount_exec' => qty,
+        'quote_amount' => (qty.to_d * ask).to_s('F'), 'quote_amount_exec' => (qty.to_d * ask).to_s('F'), 'price' => ask.to_s('F'),
+        'created_at' => '2026-09-01 10:00:01' }.merge(extra)
+    end
+    pos = ->(sym, qty, free = qty) { position("#{sym}USD", qty).merge('qty_available' => free) }
+    sold = ->(n, sym) { ok(alpaca_order("OTX-#{n}", 'pending_new', symbol: "#{sym}/USD", notional: nil).merge('side' => 'sell')) }
+    holdings = { 'w50' => { 'BTC' => '0.01', 'ETH' => '0.02' }, 'tiers' => { 'BTC' => '0.01', 'ETH' => '0.02', 'SOL' => '0.1' } }
+    list = []
+    WEIGHTS.slice('w50', 'tiers').each do |w, weights|
+      qty = holdings.fetch(w)
+      rows = qty.each_with_index.map { |(sym, q), i| held.(i + 1, sym, q) }
+      positions = ->(over = {}) { ok(qty.map { |sym, q| pos.(sym, q, over.fetch(sym, q)) }) }
+      resting = { 'asset' => 'BTC', 'status' => 0, 'external_status' => 1, 'external_id' => 'OREST-1', 'order_type' => 1, 'side' => 1, 'amount' => '0.009',
+                  'price' => '65000', 'amount_exec' => '0', 'quote_amount_exec' => '0', 'created_at' => '2026-09-01 10:00:02' }
+      rest_reply = ok(alpaca_order('OREST-1', 'new', type: 'limit', notional: nil, qty: '0.009', limit_price: '65000').merge('side' => 'sell'))
+      no_eth = basket_trades.tap { |r| r['body'] = { 'trades' => r['body']['trades'].except('ETH/USD') } }
+      states = {
+        'over_top' => {},
+        # Every member at its own value and target: the tie goes to composition order.
+        # 64 USD of every member at these last trades (w50: one value and one target each, so composition order decides).
+        'tie' => { 'rows' => qty.keys.each_with_index.map { |sym, i| held.(i + 1, sym, { 'BTC' => '0.001', 'ETH' => '0.0256', 'SOL' => '0.4' }.fetch(sym)) },
+                   'positions' => ok(qty.keys.map { |sym| pos.(sym, '10') }),
+                   'http' => { 'GET /v1beta3/crypto/us/latest/trades' => [basket_trades('BTC' => [64_000.0, 64_000.0], 'ETH' => [2500.0, 2500.0], 'SOL' => [150.0, 160.0])] } },
+        'resting_top' => { 'rows' => rows + [resting], 'http' => { 'GET /v2/orders/OREST-1' => [rest_reply] } },
+        'free_below' => { 'positions' => positions.('BTC' => '0.001') },
+        'floor_handover' => { 'positions' => positions.('BTC' => '0.00001') },
+        'nothing_free_top' => { 'positions' => positions.('BTC' => '0') },
+        'all_under_floor' => { 'settings' => { 'sell_quote_amount' => 0.5 } },
+        # 1 BTC a merge brought from Kraken: the 1,000 USD withdrawal takes only this venue's 0.01 of it, then moves on.
+        'foreign_crypto' => { 'rows' => rows + [held.(9, 'BTC', '1.0', 'foreign' => true, 'external_id' => 'OFOREIGN-1')], 'positions' => positions.('BTC' => '1.01'),
+                              'settings' => { 'sell_quote_amount' => 1000.0 } },
+        'unpriced_member' => { 'http' => { 'GET /v1beta3/crypto/us/latest/trades' => [no_eth] } },
+        'stale_feed' => { 'http' => { 'GET /v1beta3/crypto/us/latest/trades' => [FIVE_XX] } },
+        'feed_unreachable' => { 'http' => { 'GET /v1beta3/crypto/us/latest/trades' => [DATA_PRE_SEND] } },
+        'no_holdings' => { 'rows' => [] },
+        'rejected' => { 'http' => { 'POST /v2/orders' => [{ 'status' => 403, 'body' => { 'code' => 40_310_000, 'message' => 'insufficient balance for BTC (requested: 0.0015, available: 0)' } }] } },
+        'balance_error' => { 'positions' => { 'status' => 403, 'body' => { 'code' => 40_310_000, 'message' => 'forbidden.' } } }
+      }
+      states.each do |state, st|
+        modes.each do |mode, msettings|
+          denominations.each do |denom, dsettings|
+            next if denom == 'base' && !%w[over_top no_holdings stale_feed].include?(state) # a zero withdrawal: valued, then nothing
+            settings = { 'direction' => 'selling' }.merge(dsettings, msettings, st.fetch('settings', {}))
+            http = { 'GET /v2/positions' => [st.fetch('positions', positions.())], 'POST /v2/orders' => [sold.(1, 'BTC'), sold.(2, 'ETH'), sold.(3, 'SOL')] }
+                   .merge(st.fetch('http', {}))
+            list << basket("basket-sell-#{w}-#{state}-#{denom}-#{mode}", weights, at: basket_at(1), settings:, transactions: st.fetch('rows', rows), http:)
+          end
+        end
+      end
+    end
+    list.concat(stock_basket_sell_scenarios(modes))
+  end
+
+  # A stock basket selling: the market open (it sells), closed (it parks), and a merged holding (a share may have split:
+  # nothing of it is this venue's to sell).
+  def stock_basket_sell_scenarios(modes)
+    at = (Time.iso8601(STOCK_STARTED).utc.beginning_of_day + 1.day + 14.hours + 1).iso8601(6)
+    bought = lambda do |n, sym, qty, price, **extra|
+      { 'symbol' => sym, 'status' => 0, 'external_status' => 2, 'external_id' => "OHELD-#{n}", 'order_type' => 0, 'amount' => qty, 'amount_exec' => qty,
+        'quote_amount' => (qty.to_d * price.to_d).to_s('F'), 'quote_amount_exec' => (qty.to_d * price.to_d).to_s('F'), 'price' => price,
+        'created_at' => '2026-09-01 14:00:01' }.merge(extra)
+    end
+    rows = [bought.(1, 'AAPL', '2', '187.5'), bought.(2, 'MSFT', '0.1', '400')]
+    stock_pos = ->(sym, qty) { { 'symbol' => sym, 'asset_class' => 'us_equity', 'qty' => qty, 'qty_available' => qty } }
+    snapshots = ok('AAPL' => { 'latestTrade' => { 'p' => 187.41 } }, 'MSFT' => { 'latestTrade' => { 'p' => 401.2 } })
+    sold = ->(id, sym) { ok(stock_order(id, 'new', sym:, notional: nil).merge('side' => 'sell')) }
+    states = {
+      'open' => {},
+      'closed' => { 'http' => { 'GET /v2/clock' => [closed_clock(at)] } },
+      'foreign' => { 'rows' => rows + [bought.(9, 'AAPL', '5', '150', 'foreign' => true, 'external_id' => 'OFOREIGN-1')], 'aapl' => '7' }
+    }
+    states.flat_map do |state, st|
+      modes.map do |mode, msettings|
+        http = { 'GET /v2/clock' => [open_clock(at)], 'GET /v2/stocks/snapshots' => [snapshots],
+                 'GET /v2/stocks/AAPL/quotes/latest' => [stock_quote('AAPL', 187.43)], 'GET /v2/stocks/AAPL/trades/latest' => [stock_trade('AAPL', 187.41)],
+                 'GET /v2/stocks/MSFT/quotes/latest' => [stock_quote('MSFT', 401.25)], 'GET /v2/stocks/MSFT/trades/latest' => [stock_trade('MSFT', 401.2)],
+                 'POST /v2/orders' => [sold.('OTX-1', 'AAPL'), sold.('OTX-2', 'MSFT')], 'GET /v2/account' => [stock_account('100000', '200000')],
+                 'GET /v2/positions' => [ok([stock_pos.('AAPL', st.fetch('aapl', '2')), stock_pos.('MSFT', '0.1')])] }.merge(st.fetch('http', {}))
+        { 'name' => "basket-sell-stock-#{state}-#{mode}", 'venue' => 'alpaca', 'asset' => 'stock', 'interval' => 'day', 'quote_amount' => 60.0,
+          'started_at' => STOCK_STARTED, 'settings' => { 'direction' => 'selling', 'sell_denomination' => 'quote', 'sell_quote_amount' => 100.0 }.merge(msettings),
+          'transient' => {}, 'transactions' => st.fetch('rows', rows), 'members' => [['AAPL', 0.5], ['MSFT', 0.5]], 'at' => at,
+          'script' => { 'alpaca' => http }, 'tick' => true }
+      end
+    end
+  end
+
+  # Slice 6b: threshold rebalancing (Bot::Rebalancer through Bot::RebalanceJob) on a stopped Alpaca basket, one fire per
+  # entry of `rebalance_at` (4 hours apart). BTC holds 0.01 (640 USD) beside 0.04 ETH (100 USD): far over a 5-point band.
+  def rebalance_scenarios
+    held = lambda do |n, sym, qty, **extra|
+      ask = BASKET_PRICES.fetch(sym)[0].to_d
+      { 'asset' => sym, 'status' => 0, 'external_status' => 2, 'external_id' => "OHELD-#{n}", 'order_type' => 0, 'amount' => qty, 'amount_exec' => qty,
+        'quote_amount' => (qty.to_d * ask).to_s('F'), 'quote_amount_exec' => (qty.to_d * ask).to_s('F'), 'price' => ask.to_s('F'),
+        'created_at' => '2026-09-01 10:00:01' }.merge(extra)
+    end
+    pos = ->(sym, qty) { position("#{sym}USD", qty) }
+    fires = (1..3).map { |k| (Time.iso8601(BASKET_STARTED).beginning_of_day + 12.hours + 30.minutes + (4 * (k - 1)).hours).iso8601(6) }
+    sell = ->(status, filled, avg) { ok(alpaca_order('OTX-1', status, symbol: 'BTC/USD', notional: nil, qty: '0.004218784', filled_qty: filled, filled_avg_price: avg).merge('side' => 'sell')) }
+    buy = ->(id, status, notional, filled, avg, sym = 'ETH') { ok(alpaca_order(id, status, symbol: "#{sym}/USD", notional:, filled_qty: filled, filled_avg_price: avg)) }
+    filled_sell = sell.('filled', '0.004218784', '63990')
+    holdings = { 'w50' => { 'BTC' => '0.01', 'ETH' => '0.04' }, 'tiers' => { 'BTC' => '0.01', 'ETH' => '0.04', 'SOL' => '0.2' } }
+    # The swap's buy: 270 USD of the most underweight member after BTC's sale (ETH at 50/50, SOL in the tiers), covering
+    # the 269.96 the sell realized, so the swap completes.
+    whole_buy = { 'w50' => ['0.108', '2500', 'ETH'], 'tiers' => ['1.8', '150', 'SOL'] }
+    owed = { 'rebalance_pending' => { 'phase' => 'buying', 'sell_transaction_id' => nil, 'buy_transaction_id' => nil,
+                                      'remaining_quote_amount' => '120.0', 'buy_attempted' => false } }
+    list = []
+    WEIGHTS.slice('w50', 'tiers').each do |w, weights|
+      qty = holdings.fetch(w)
+      rows = qty.each_with_index.map { |(sym, q), i| held.(i + 1, sym, q) }
+      positions = ok(qty.map { |sym, q| pos.(sym, q) })
+      resting_buy = { 'asset' => 'BTC', 'status' => 0, 'external_status' => 1, 'external_id' => 'OREST-1', 'order_type' => 1, 'amount' => '0.001',
+                      'price' => '60000', 'amount_exec' => '0', 'quote_amount_exec' => '0', 'created_at' => '2026-09-01 10:00:02' }
+      rest = ->(status) { { 'GET /v2/orders/OREST-1' => [ok(alpaca_order('OREST-1', status, type: 'limit', notional: nil, qty: '0.001', limit_price: '60000',
+                                                                           filled_qty: status == 'filled' ? '0.001' : '0', filled_avg_price: status == 'filled' ? '60000' : nil))] } }
+      states = {
+        # The whole swap: the sell, its fill and the buy, the buy's fill.
+        'swap' => { 'fires' => 3, 'http' => { 'GET /v2/orders/OTX-1' => [filled_sell], 'GET /v2/orders/OTX-2' => [buy.('OTX-2', 'filled', nil, *whole_buy.fetch(w))] } },
+        'under_threshold' => { 'fires' => 1, 'settings' => { 'rebalance_threshold' => 0.5 } },
+        'rule_off' => { 'fires' => 1, 'settings' => { 'rebalance_enabled' => false } },
+        'selling' => { 'fires' => 1, 'settings' => { 'direction' => 'selling', 'sell_denomination' => 'quote', 'sell_quote_amount' => 10.0 } },
+        'resting_sell' => { 'fires' => 2, 'http' => { 'GET /v2/orders/OTX-1' => [sell.('new', '0', nil)] } },
+        'cancelled_partial_sell' => { 'fires' => 2, 'http' => { 'GET /v2/orders/OTX-1' => [sell.('canceled', '0.002', '63990')] } },
+        'nothing_sold' => { 'fires' => 2, 'http' => { 'GET /v2/orders/OTX-1' => [sell.('canceled', '0', nil)] } },
+        'partial_buy' => { 'fires' => 3, 'http' => { 'GET /v2/orders/OTX-1' => [filled_sell], 'GET /v2/orders/OTX-2' => [buy.('OTX-2', 'canceled', nil, '0.04', '2500')] } },
+        'open_buy' => { 'fires' => 1, 'rows' => rows + [resting_buy], 'http' => rest.('new') },
+        'open_buy_stale' => { 'fires' => 1, 'rows' => rows + [resting_buy], 'http' => rest.('filled') },
+        'sell_below_minimum' => { 'fires' => 1, 'tickers_after' => { 'BTC' => { 'minimum_quote_size' => '500' } } },
+        'buy_below_minimum' => { 'fires' => 2, 'http' => { 'GET /v2/orders/OTX-1' => [filled_sell], 'GET /v2/account' => [account('0.5')] } },
+        'buy_capped' => { 'fires' => 2, 'http' => { 'GET /v2/orders/OTX-1' => [filled_sell], 'GET /v2/account' => [account('150')] } },
+        'rejected' => { 'fires' => 1, 'http' => { 'POST /v2/orders' => [{ 'status' => 403, 'body' => { 'code' => 40_310_000, 'message' => 'insufficient balance for BTC' } }] } },
+        'buy_rejected' => { 'fires' => 2, 'http' => { 'GET /v2/orders/OTX-1' => [filled_sell],
+                                                      'POST /v2/orders' => [placed(1, 'BTC'), { 'status' => 403, 'body' => { 'code' => 40_310_000, 'message' => 'insufficient balance' } }] } },
+        'pre_send' => { 'fires' => 1, 'http' => { 'POST /v2/orders' => [{ 'network' => 'pre_send', 'message' => 'Faraday::ConnectionFailed: Connection refused - connect(2) for "paper-api.alpaca.markets" port 443' }] } },
+        # Rails halts at once on an unknown outcome; the engine keeps the intent and asks the venue (named divergences).
+        'post_send' => { 'fires' => 1, 'http' => { 'POST /v2/orders' => [{ 'network' => 'post_send', 'message' => 'Faraday::TimeoutError: Net::ReadTimeout' }] } },
+        'server_error' => { 'fires' => 1, 'http' => { 'POST /v2/orders' => [FIVE_XX] } },
+        'no_order_id' => { 'fires' => 1, 'http' => { 'POST /v2/orders' => [ok('status' => 'pending_new')] } },
+        # A swap already owed (rule switched off meanwhile): the buy still goes.
+        'owed_buy' => { 'fires' => 1, 'settings' => { 'rebalance_enabled' => false }, 'transient' => owed },
+        # Only BTC held: every drift is exactly 0.5 whatever the prices, and a threshold of 0.5 is not exceeded (strictly greater).
+        'at_threshold' => { 'fires' => 1, 'settings' => { 'rebalance_threshold' => 0.5 }, 'rows' => rows.first(1),
+                            'http' => { 'GET /v2/positions' => [ok([pos.('BTC', qty.fetch('BTC'))])] } },
+        # The same at 0.49: the band is exceeded, and BTC sells.
+        'below_drift' => { 'fires' => 1, 'settings' => { 'rebalance_threshold' => 0.49 }, 'rows' => rows.first(1),
+                           'http' => { 'GET /v2/positions' => [ok([pos.('BTC', qty.fetch('BTC'))])] } },
+        # Sliders summing to 120% (saved, never started): DcaMultiAsset#rebalance_targets is nil, so nothing is due...
+        'unbalanced' => { 'fires' => 1, 'scale' => 1.2 },
+        # ...unless a swap is already owed its buy: that one still lands.
+        'unbalanced_owed_buy' => { 'fires' => 1, 'scale' => 1.2, 'transient' => owed },
+        # A plain 400: not a pre-trade rejection Rails can prove, so the swap halts.
+        'rejected_400' => { 'fires' => 1, 'http' => { 'POST /v2/orders' => [{ 'status' => 400, 'body' => { 'code' => 40_010_001, 'message' => 'qty must be > 0' } }] } }
+      }
+      states.each do |state, st|
+        http = { 'GET /v2/positions' => [positions], 'POST /v2/orders' => [placed(1, 'BTC'), placed(2, 'ETH'), placed(3, 'ETH')] }.merge(st.fetch('http', {}))
+        members = st['scale'] ? weights.transform_values { |v| v * st['scale'] } : weights
+        list << basket("rebalance-#{w}-#{state}", members, at: fires.first, settings: { 'rebalance_enabled' => true }.merge(st.fetch('settings', {})),
+                       transient: st.fetch('transient', {}), transactions: st.fetch('rows', rows), http:, tick: false,
+                       rebalance_at: fires.first(st.fetch('fires')), tickers_after: st['tickers_after'], bot_columns: { 'status' => Bot.statuses[:stopped] })
+      end
+    end
+    list << index_rebalance_scenario
+  end
+
+  # A stopped index bot whose CCC left the index (in_index false, 0.5 still held) and stays out (top_coins AAA BBB DDD): the
+  # exited holding is outside the arithmetic, so the drift is DDD's shortfall among AAA, BBB and DDD, and AAA is sold.
+  def index_rebalance_scenario
+    fire = '2026-09-08T16:30:00.000000Z'
+    prices = INDEX_SYMBOLS.zip([100, 200, 300, 400, 500]).to_h
+    held = [%w[AAA 1.0], %w[BBB 0.3], %w[CCC 0.5], %w[DDD 0.01]]
+    pos = held.map { |sym, q| { 'symbol' => sym, 'asset_class' => 'us_equity', 'qty' => q, 'qty_available' => q } }
+    http = { 'GET /v2/clock' => [open_clock(fire)], 'GET /v2/account' => [stock_account('100000', '200000')], 'GET /v2/positions' => [ok(pos)],
+             'GET /v2/stocks/snapshots' => [ok(prices.transform_values { |p| { 'latestTrade' => { 'p' => p } } })],
+             'POST /v2/orders' => [ok(stock_order('OTX-1', 'new', sym: 'AAA', notional: nil).merge('side' => 'sell'))] }
+    prices.each do |sym, p|
+      http["GET /v2/stocks/#{sym}/quotes/latest"] = [stock_quote(sym, p)]
+      http["GET /v2/stocks/#{sym}/trades/latest"] = [stock_trade(sym, p)]
+    end
+    member = ->(sym, target, in_index: true) { { 'symbol' => sym, 'target' => target, 'in_index' => in_index } }
+    { 'name' => 'rebalance-index-exited_member', 'venue' => 'alpaca', 'kind' => 'index', 'at' => fire, 'top_coins' => %w[AAA BBB DDD],
+      'members' => [member.('AAA', 0.5), member.('BBB', 0.3), member.('CCC', 0.2, in_index: false), member.('DDD', 0.2)],
+      'transactions' => held, 'num_coins' => 3, 'flattening' => 0.0, 'hold_all' => false, 'settings' => { 'rebalance_enabled' => true },
+      'bot_columns' => { 'status' => Bot.statuses[:stopped] }, 'script' => { 'alpaca' => http }, 'tick' => false, 'rebalance_at' => [fire] }
   end
 
   def binance_scenarios
@@ -1578,7 +1779,7 @@ module Decisions
       enc = ActiveRecord::Encryption.config
       File.write(File.join(dir, 'scenario.json'),
                  JSON.pretty_generate({ 'encryption' => (sc['kind'] == 'index' ? { 'primary_key' => Array(enc.primary_key).first, 'key_derivation_salt' => enc.key_derivation_salt } : nil), 'parity_scratch' => true, 'bot_id' => bot.id, 'at' => sc['at'], 'venue' => sc['venue'], 'script' => sc['script'],
-                                        'tick' => sc['tick'], 'poll' => sc['poll'], 'recover_at' => sc['recover_at'], 'next_at' => sc['next_at'],
+                                        'tick' => sc['tick'], 'poll' => sc['poll'], 'recover_at' => sc['recover_at'], 'next_at' => sc['next_at'], 'rebalance_at' => sc['rebalance_at'],
                                         'between' => sc['between'], 'rails_cache' => sc['rails_cache'], 'check_at' => sc['check_at'],
                                         'conditions' => sc['conditions'],
                                         # Bot::SmartIntervalable#smart_interval_minimum(:quote) as Rails computes it for the built bot.
@@ -1707,6 +1908,17 @@ module Decisions
         tick_at(sc, Time.iso8601(sc['next_at']), mails)
         settle.(Time.iso8601(sc['next_at']))
       end
+      # Bot::EvaluateRebalancersJob's fires: one Bot::RebalanceJob each (it has no retry_on; a raise ends that run). The
+      # FetchAndUpdateOrderJob it enqueues is not run: the next fire's refresh_pending_order! reads the order itself.
+      (sc['rebalance_at'] || []).each do |time|
+        ActiveJob::Base.queue_adapter.enqueued_jobs.clear
+        travel_to(Time.iso8601(time), with_usec: true) do
+          Bot::RebalanceJob.perform_now(Bot.find(sc['bot_id']))
+        rescue StandardError => e
+          Rails.logger.info("rebalance raised: #{e.message}")
+        end
+        settle.(Time.iso8601(time))
+      end
       mails.concat(enqueued_mails)
       sent = if alpaca then ScriptedAlpaca.sent elsif binance then ScriptedBinance.sent else ScriptedKraken.sent end
       out = { 'sent' => sent, 'changes' => diff(before, snapshot), 'mails' => mails.sort_by { |m| m['mail'] } }
@@ -1752,7 +1964,7 @@ def web_save(dir)
 end
 
 command, root = ARGV
-USAGE = 'usage: grid <root> | grid-alpaca <root> | grid-basket <root> | grid-limit <root> | grid-binance <root> | grid-sell <root> | grid-conditions <root> | record <root> | web-save <dir>'.freeze
+USAGE = 'usage: grid <root> | grid-alpaca <root> | grid-basket <root> | grid-limit <root> | grid-binance <root> | grid-sell <root> | grid-venue-basket <root> | grid-conditions <root> | grid-basket-sell <root> | grid-rebalance <root> | record <root> | web-save <dir>'.freeze
 raise ArgumentError, USAGE unless root
 
 case command
@@ -1765,6 +1977,8 @@ when 'grid-limit' then Decisions.grid(root, Decisions.limit_scenarios)
 when 'grid-binance' then Decisions.grid(root, Decisions.binance_scenarios)
 when 'grid-sell' then Decisions.grid(root, Decisions.sell_scenarios)
 when 'grid-venue-basket' then Decisions.grid(root, Decisions.venue_basket_scenarios)
+when 'grid-basket-sell' then Decisions.grid(root, Decisions.basket_sell_scenarios)
+when 'grid-rebalance' then Decisions.grid(root, Decisions.rebalance_scenarios)
 when 'grid-conditions' then Decisions.grid(root, Decisions.condition_scenarios)
 when 'record' then Decisions.record(root)
 when 'record-normalized'

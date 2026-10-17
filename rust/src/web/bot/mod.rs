@@ -443,11 +443,10 @@ pub fn refusal(c: &Connection, bot_id: i64, wash_sale_enabled: Option<bool>, pro
     let truthy = |value: Option<&Value>| value.is_some_and(|v| !matches!(v, Value::Null | Value::Bool(false)) && v.as_str() != Some("") && v.as_str() != Some("0") && v.as_str() != Some("false"));
     let class = class.unwrap_or_default();
     if class != "Bots::DcaMultiAsset" && class != "Bots::DcaIndex" { return Ok(Some("a bot of a type this build does not render")); }
-    // The venues, classes and member counts the engine runs: one rule for both (a one-asset basket sells as Rails renders it;
-    // a wider one sells by ranking its members, 6b).
-    let members = settings.get("allocations").and_then(Value::as_object).map_or(0, |weights| weights.len());
+    // The venues, classes and member counts the engine runs: one rule for both.
+    let member_count = settings.get("allocations").and_then(Value::as_object).map_or(0, |weights| weights.len());
     let selling = settings.get("direction").and_then(Value::as_str) == Some("selling");
-    if let Some(why) = crate::engine::eligibility::admission(exchange.as_deref(), class == "Bots::DcaIndex", members, selling) { return Ok(Some(why)); }
+    if let Some(why) = crate::engine::eligibility::admission(exchange.as_deref(), class == "Bots::DcaIndex", member_count, selling) { return Ok(Some(why)); }
     // What the wizard always stores and no concern has a default for. Every other setting a row may
     // lack is given the value Rails gives it on load (`Bot::fill_defaults`).
     let needed: &[&str] = if class == "Bots::DcaIndex" { &["quote_asset_id", "interval", "index_type"] } else { &["quote_asset_id", "interval", "allocations"] };
@@ -467,7 +466,9 @@ pub fn refusal(c: &Connection, bot_id: i64, wash_sale_enabled: Option<bool>, pro
     let distance_ok = defaulted("limit_order_pcnt_distance") || settings.get("limit_order_pcnt_distance").and_then(Value::as_f64).is_some_and(|share| (0.0..=1.0).contains(&share));
     let interval_ok = matches!(settings.get("interval").and_then(Value::as_str), Some("hour" | "day" | "week" | "month"));
     if !positive("quote_amount") || !interval_ok || !mode_known || !smart_ok || !distance_ok { return Ok(Some("settings no form would have saved")); }
-    // A cap on what is sold (6d) is not counted here.
+    // A one-asset basket sells as Rails renders it; a wider Alpaca one sells by ranking its members (6b), which these pages
+    // do not render yet, and a cap on what is sold (6d) is not counted here.
+    if selling && member_count != 1 { return Ok(Some("a basket of several assets that sells")); }
     if selling && settings.get("base_amount_limited") == Some(&Value::Bool(true)) { return Ok(Some("a cap on what a selling bot sells")); }
     if truthy(settings.get("rebalance_enabled")) { return Ok(Some("rebalancing")); }
     if settings.get("weighting").and_then(Value::as_str) == Some("market_cap") { return Ok(Some("market-cap weights")); }
