@@ -47,7 +47,7 @@ struct EmptyView<'a> {
 
 /// One option of shared/_segmented.html.erb.
 pub struct SegmentedOption {
-    pub value: &'static str,
+    pub value: std::borrow::Cow<'static, str>,
     pub label: String,
     pub active: bool,
     pub href: Option<String>,
@@ -251,7 +251,7 @@ pub async fn index(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Re
         let filters = if (total > 1 && has_active && has_inactive) || has_archived {
             let names: &[&'static str] = if has_archived { &["all", "active", "inactive", "archived"] } else { &["all", "active", "inactive"] };
             let options = names.iter().map(|name| SegmentedOption {
-                value: name, label: i18n::text(ctx.locale, &format!("bot_filters.{name}"), &[]), active: filter == *name,
+                value: (*name).into(), label: i18n::text(ctx.locale, &format!("bot_filters.{name}"), &[]), active: filter == *name,
                 href: Some(format!("{}?filter={name}", ctx.path("/bots"))),
             }).collect();
             Some(Segmented { fluid: true, label: i18n::text(ctx.locale, "bot_filters.all", &[]), key: None, options, links: true }.render()?)

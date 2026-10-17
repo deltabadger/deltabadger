@@ -43,7 +43,7 @@ use crate::venue::http::Transport;
 use chrono::{DateTime, Duration, TimeZone, Utc};
 use rusqlite::{params, Connection};
 use serde_json::Value;
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::sync::Arc;
 
 pub const DEPOSITS_PATH: &str = "/sapi/v1/capital/deposit/hisrec";
@@ -596,17 +596,16 @@ pub(crate) async fn sync_captured<T: Transport>(db: &Db, transport: T, base: &st
     };
     let (prior, raw_watermark) = (start.watermark, start.raw_watermark);
     let key = Arc::new(start.key);
-    let progress = {
-        let key = key.clone();
-        phase(db, move |c| Ok(Progress { out: Outcome::default(), assets: Arc::new(ledger::crypto_rule(c, key.exchange_id, "binance")?), merged: ledger::stored_merged(c, &key)?, min_skipped: None, stored: HashSet::new(), repeats: BTreeMap::new() })).await?
-    };
     let entries = Arc::new(fetched.entries);
-    let mut progress = progress;
+    let mut progress = {
+        let (key, batch) = (key.clone(), entries.clone());
+        phase(db, move |c| Ok(Progress::new(ledger::asset_rule(c, key.exchange_id, &key.exchange_type)?, ledger::stored_merged(c, &key)?, batch))).await?
+    };
     let mut from_entry = 0;
     while from_entry < entries.len() {
-        let (key, batch, to) = (key.clone(), entries.clone(), entries.len().min(from_entry + BATCH));
+        let (key, to) = (key.clone(), entries.len().min(from_entry + BATCH));
         let at = from_entry;
-        progress = super::commit_for(db, version, move |c| ledger::store(c, &key, &batch[at..to], None, progress, now)).await?;
+        progress = super::commit_for(db, version, move |c| ledger::store(c, &key, at..to, None, progress, now)).await?;
         from_entry = to;
     }
     ledger::resolve_recent(db, version, &key, progress.assets.clone(), now).await?;

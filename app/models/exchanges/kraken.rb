@@ -353,8 +353,10 @@ class Exchanges::Kraken < Exchange
       recovery = recover_missing_from_trades([order_id])
       return recovery if recovery.failure?
 
-      recovered = recovery.data[order_id]
+      recovered = recovery.data[:recovered][order_id]
       return Result::Success.new(recovered) if recovered
+      # Not seen, but the walk did not reach back far enough to say it never filled.
+      return Result::Failure.new("Kraken could not tell whether order #{order_id} filled") if recovery.data[:inconclusive].any?
 
       return Result::Failure.new(
         "Kraken did not return data for order #{order_id}",
@@ -395,11 +397,16 @@ class Exchanges::Kraken < Exchange
       # "Exchange omitted recent order(s)" hard raise.
       return recovery if recovery.failure?
 
-      recovered = recovery.data
+      recovered = recovery.data[:recovered]
       # Operator observability: watch the bug's prevalence + confirm the fix in prod.
       Rails.logger.info("[kraken-reconcile] recovered #{recovered.size} fill(s) via TradesHistory: #{recovered.keys.join(',')}") if recovered.any?
       orders.merge!(recovered)
       missing -= recovered.keys
+      # Neither found nor gone: the order stays waiting and is asked about again.
+      if recovery.data[:inconclusive].any?
+        Rails.logger.warn("[kraken-reconcile] TradesHistory too long to rule out a fill: #{recovery.data[:inconclusive].join(',')}")
+        missing -= recovery.data[:inconclusive]
+      end
     end
 
     Result::Success.new(orders: orders, missing: missing)
@@ -807,13 +814,39 @@ class Exchanges::Kraken < Exchange
   # `start` is an inclusive lower time bound, so too tight a bound would miss the fill.
   # Returns a Result — a failure is PROPAGATED by the caller into the job's typed-error retry,
   # never swallowed (so a transient/throttle blip retries instead of hard-raising).
+  #
+  # The walk reads at most TRADES_RECOVERY_REACH trades, newest first, and says nothing when it stops
+  # there. An id it did not see is only proven never-filled when the window holds no more trades than
+  # that; otherwise it comes back under :inconclusive, never as missing.
+  # ponytail: an order whose fill lies past the reach is re-asked every sweep and never resolves; a
+  # full cursor walk (with_cursor) is the upgrade if that log line shows up.
+  TRADES_RECOVERY_REACH = 20 * 50 # honeymaker's closed_orders_from_trades max_pages × Kraken's 50-trade page
+
   def recover_missing_from_trades(missing_ids)
     since = transactions.where(external_id: missing_ids).minimum(:created_at)
     start = since ? (since - 1.hour).to_i : nil
     result = client.closed_orders_from_trades(order_ids: missing_ids, start: start)
     return result if result.failure?
 
-    Result::Success.new(result.data.transform_values { |aggregate| order_data_from_trade_aggregate(aggregate) })
+    recovered = result.data.transform_values { |aggregate| order_data_from_trade_aggregate(aggregate) }
+    unseen = missing_ids - recovered.keys
+    return Result::Success.new(recovered:, inconclusive: []) if unseen.empty?
+
+    total = trades_history_count(start)
+    return total if total.failure?
+
+    Result::Success.new(recovered:, inconclusive: total.data > TRADES_RECOVERY_REACH ? unseen : [])
+  end
+
+  def trades_history_count(start)
+    result = client.get_trades_history(start: start, ofs: 0)
+    return result if result.failure?
+    return Result::Failure.new("Unreadable #{name} TradesHistory answer", data: { unreadable: true }) unless result.data.is_a?(Hash)
+
+    errors = Array(result.data['error'])
+    return Result::Failure.new(*errors) if errors.any?
+
+    Result::Success.new(result.data.dig('result', 'count').to_i)
   end
 
   # Map honeymaker's per-order trade aggregate into the same shape parse_order_data returns,

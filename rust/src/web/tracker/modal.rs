@@ -17,7 +17,7 @@ fn render(c:&Connection,ctx:&Ctx,owner:i64)->Result<String,WebError>{
     if !settings.is_object(){return Err(invalid())}
     let transactions=settings["export_type"]=="transactions";
     let checked=|yes|if yes{"checked"}else{""};let hidden=|yes|if yes{"hidden"}else{""};
-    let option=|value:&'static str,active:bool|crate::web::bots::SegmentedOption{value,label:ctx.t(&format!("tracker.export_modal.{value}")),active,href:None};
+    let option=|value:&'static str,active:bool|crate::web::bots::SegmentedOption{value:value.into(),label:ctx.t(&format!("tracker.export_modal.{value}")),active,href:None};
     let type_switch=crate::web::bots::Segmented{fluid:true,label:ctx.t("tracker.export_modal.title"),key:None,options:vec![option("tax_report",!transactions),option("transactions",transactions)],links:false}.render()?;
     let mut countries=String::new();
     for code in COUNTRIES{

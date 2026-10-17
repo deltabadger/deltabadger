@@ -73,7 +73,7 @@ pub fn call(c:&Connection,app:&App,who:Bearer,name:&str,args:&Value)->Result<Val
     let id=numeric_id as i64;
     let submitted=ActionParams::from_mcp(args.clone()).map_err(|_|WebError::Config("MCP arguments exceed parameter bounds".into()))?;
     // English is ActionMCP's locale; browser cookies, locale and sessions do not authenticate this call.
-    let ctx=Ctx{app:app.clone(),params:Arc::new(crate::web::Params{full_path:"/mcp".into(),fullpath:"/mcp".into(),route_path:"/mcp".into(),path_locale:None,query:vec![],form:vec![],json:None}),
+    let ctx=Ctx{app:app.clone(),params:Arc::new(crate::web::Params{full_path:"/mcp".into(),fullpath:"/mcp".into(),route_path:"/mcp".into(),path_locale:None,query:vec![],form:vec![],json:None,upload:None}),
         session:crate::web::session::Session::new(Default::default()),current:crate::web::auth::Current::SignedOut,
         method:axum::http::Method::POST,locale:"en",nonce:String::new(),now:app.now(),turbo_frame:None};
     // Unsupported classes have no Draft representation. This is a refusal-only transaction,

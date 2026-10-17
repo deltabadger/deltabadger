@@ -82,7 +82,7 @@ fn ctx(app: &deltabadger::web::App, c: &Connection, owner: i64, path: &str, toke
     let locale = deltabadger::web::locale::LOCALES.iter().copied().find(|l| route.starts_with(&format!("/{l}/")));
     let route_path = locale.map_or(route.to_string(), |l| route[l.len() + 1..].to_string());
     let query = query.split('&').filter(|p| !p.is_empty()).map(|p| { let (k, v) = p.split_once('=').unwrap_or((p, "")); (k.to_string(), v.to_string()) }).collect();
-    let params = Params { full_path: route.into(), fullpath: path.into(), route_path, path_locale: locale, query, form: vec![], json: None };
+    let params = Params { full_path: route.into(), fullpath: path.into(), route_path, path_locale: locale, query, form: vec![], json: None, upload: None };
     let user = auth::User::find(c, owner).unwrap().unwrap();
     let hash: String = c.query_row("SELECT encrypted_password FROM users WHERE id=?1", [owner], |r| r.get(0)).unwrap();
     let data = session::SessionData { user: Some((owner, hash.chars().take(29).collect())), csrf: Some(token.into()), ..Default::default() };

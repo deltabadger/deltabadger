@@ -7,7 +7,7 @@ use rusqlite::OptionalExtension;
 fn modes(locale: &str) -> Result<String, FiguresError> {
     let label = |key: &str| i18n::text(locale, &format!("bot.details.stats.chart.{key}"), &[]);
     Segmented { fluid:true,label:label("modes"),key:Some("chart-mode"),links:false,
-        options:vec![SegmentedOption{value:"pnl",label:label("pnl"),active:true,href:None},SegmentedOption{value:"value",label:label("value"),active:false,href:None}]
+        options:vec![SegmentedOption{value:"pnl".into(),label:label("pnl"),active:true,href:None},SegmentedOption{value:"value".into(),label:label("value"),active:false,href:None}]
     }.render().map_err(|_| FiguresError::Data("Chart modes unavailable".into()))
 }
 /// bots/_chart.html.erb's `orders_row`, as ERB writes it: the page draws a ready chart inline, byte for byte.
