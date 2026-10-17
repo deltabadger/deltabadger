@@ -52,23 +52,6 @@ fn comparable(status: u64, headers: &BTreeMap<String, Vec<String>>, body: &str) 
     json!({ "status": status, "headers": out, "body": if html_body { json!(html::normalize(body)) } else { json!(body) } })
 }
 
-/// A listed divergence, to be removed by the plan that ports the wizard: on the first bots page after
-/// a sign-in with no bots, Rails hides the page's chrome (`<body class="hide-chrome">`) and opens the
-/// wizard in the modal frame (`src="...auto_open=true"`). This crate serves no wizard yet, and chrome
-/// hidden behind a frame that cannot be closed would leave the user with an empty page, so it renders
-/// that page as any later visit. Here Rails' page is brought to that form, after checking it has both
-/// marks; the comparison that follows then holds this crate to having neither. Returns whether it applied.
-fn without_wizard(body: &mut Value) -> bool {
-    let Value::Array(lines) = body else { return false };
-    let text = |line: &Value| line.as_str().unwrap_or_default().to_string();
-    let Some(frame) = lines.iter().position(|l| text(l).trim_start().starts_with("<turbo-frame id=\"modal\" src=\"") && text(l).ends_with("/bots/dca_single_assets/pick_exchange/new?auto_open=true\">")) else { return false };
-    let hidden = lines.iter().position(|l| text(l).trim_start().starts_with("<body class=\"hide-chrome")).expect("Rails hides the chrome whenever it opens the wizard");
-    let indent = |line: &Value| text(line).chars().take_while(|c| *c == ' ').collect::<String>();
-    lines[frame] = json!(format!("{}<turbo-frame id=\"modal\">", indent(&lines[frame])));
-    lines[hidden] = json!(text(&lines[hidden]).replacen(" class=\"hide-chrome\"", "", 1).replacen("class=\"hide-chrome ", "class=\"", 1));
-    true
-}
-
 /// A listed divergence of the `countdown_*` scenarios: when a bot acts next. Rails reads it from its
 /// job table. This build has no job table and derives it from the bot's row (the next interval
 /// checkpoint), which is the same instant after every completed tick; two times are in no row: when a
@@ -689,7 +672,7 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
     if std::env::var("PAGES").ok().as_deref() == Some("actions") {
         assert_eq!(dirs.len(), 197, "all action scenarios must remain selected");
     }
-    let (mut failures, mut wizard_pages, mut countdown_pages) = (vec![], 0, 0);
+    let (mut failures, mut countdown_pages) = (vec![], 0);
     for dir in &dirs {
         let name = dir.file_name().unwrap().to_string_lossy().to_string();
         if name.starts_with("actions_") { assert!(dir.join("de/scenario.json").is_file(), "missing German variant: {name}"); }
@@ -701,7 +684,6 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
         let scenario = scenario(dir);
         let recorded: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("rails.json")).unwrap()).unwrap();
         let mut answers: Vec<Value> = recorded["responses"].as_array().unwrap().iter().map(rails_answer).collect();
-        wizard_pages += answers.iter_mut().filter_map(|answer| without_wizard(&mut answer["body"]).then_some(())).count();
         let rails_countdowns: Vec<Vec<String>> = if name.starts_with("countdown_") { answers.iter_mut().map(|answer| without_countdown(&mut answer["body"])).collect() } else { vec![] };
         let rails = json!({ "responses": answers, "users": recorded["users"], "bots": recorded["bots"] });
         if let Some(message) = unmet_expectation(&name, &scenario, &rails) { failures.push(message); }
@@ -739,14 +721,13 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
     }
     }
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
-    println!("{} scenarios; Rails opened the wizard on {wizard_pages} pages; {countdown_pages} pages where only Rails knows when the bot acts next", dirs.len());
+    println!("{} scenarios; {countdown_pages} pages where only Rails knows when the bot acts next", dirs.len());
     if std::env::var("PAGES").is_err() {
         assert_eq!(dirs.iter().filter(|dir| !dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_") || n.to_string_lossy().starts_with("settings_"))).count(), 160 + 4 + 9 + 2 + 6 + 3 + 27, "completed read-only baseline (with the market-closed weekend page and the expired start on bots that are not stopped), with D5b's two missing_ and two not_ported_ connect scenarios, the venue pages (eight served, one refused), the selling pages (three served, one cap refused, in place of two refusals), the venue basket pages (seven served, in place of the one refusal), the asset search on each venue, the wizard's chooser and order switch (twelve served, one unrouted GET), its asset and exchange steps (ten served) and four not_ported_ steps past them");
         assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("settings_"))).count(), 413 + 3 + 45 + 52 + 5 + 1 + 71, "complete S1 inventory, D5b's connect flow, the preference writes, the following client's card, the switch back to the default locale and the settings dialog (two more sections, in-place confirms, the page behind a language change)");
         assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_"))).count(), 197, "action inventory (with the five ⇄ rotations and nine sell-settings writes, and twenty-two Kraken/Binance venue actions)");
         assert_eq!(dirs.len(), 160 + 4 + 9 + 2 + 6 + 3 + 27 + 197 + 413 + 3 + 45 + 52 + 5 + 1 + 71, "a scenario was dropped or added without this count");
         assert_eq!(countdown_pages, 4, "the pages where Rails knows a time this build does not: the listed divergence grew or shrank");
-        assert_eq!(wizard_pages, 17, "the pages where Rails opens the wizard and this crate does not: the listed divergence grew or shrank");
     }
 }
 

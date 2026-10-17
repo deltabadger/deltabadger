@@ -46,6 +46,6 @@
       </div>
     </main>
 
-    {% match v.settings_reopen_src() %}{% when Some(src) %}<turbo-frame id="modal" src="{{ src }}"></turbo-frame>{% when None %}<turbo-frame id="modal"></turbo-frame>{% endmatch %}
+    {% match modal_src %}{% when Some(src) %}<turbo-frame id="modal" src="{{ src }}"></turbo-frame>{% when None %}<turbo-frame id="modal"></turbo-frame>{% endmatch %}
 
 </body></html>
