@@ -65,11 +65,16 @@ fn shown_label(c: &Connection, user: i64, id: i64, stored: &Value) -> Value {
 /// REST's as its strong parameters permit them). English is the services' locale. A class this build does not write
 /// is refused under the engine's guard, never a second mutation path.
 pub fn bot_write(c: &Connection, app: &App, user: i64, id: i64, write: Write, submitted: &ActionParams) -> Result<Outcome<Shown>, WebError> {
+    let owner = super::auth::User::find(c, user)?;
     let ctx = Ctx { app: app.clone(), params: Arc::new(super::Params { full_path: "/mcp".into(), fullpath: "/mcp".into(), route_path: "/mcp".into(), path_locale: None,
             query: vec![], form: vec![], json: None, upload: None }),
-        session: super::session::Session::new(Default::default()), current: match super::auth::User::find(c, user)? {
-            Some(owner) => super::auth::Current::SignedIn(Arc::new(owner)), None => return Ok(Outcome::Missing) },
+        session: super::session::Session::new(Default::default()), current: match &owner {
+            Some(owner) => super::auth::Current::SignedIn(Arc::new(owner.clone())), None => return Ok(Outcome::Missing) },
         method: axum::http::Method::POST, locale: "en", nonce: String::new(), now: app.now(), turbo_frame: None };
+    // Bot#with_user_locale: what the owner's open pages hear is in the owner's language; the answer stays English.
+    let mut heard = ctx.clone();
+    heard.locale = owner.as_ref().and_then(|o| o.locale.as_deref()).and_then(super::locale::known).unwrap_or("en");
+    let deferred = std::cell::Cell::new(None);
     let class: Option<String> = c.query_row("SELECT type FROM bots WHERE id=?1 AND user_id=?2 AND status<>3", (id, user), |r| r.get(0)).optional()?;
     let Some(class) = class else { return Ok(Outcome::Missing) };
     if !["Bots::DcaMultiAsset", "Bots::DcaIndex"].contains(&class.as_str()) {
@@ -91,7 +96,7 @@ pub fn bot_write(c: &Connection, app: &App, user: i64, id: i64, write: Write, su
             else { format!("Failed to update bot: {}", mcp_input::full_messages(&draft.errors)) };
             Ok(shown(json!({"id": id, "label": draft.candidate.label, "updated": updated}), text))
         }),
-        Write::Lifecycle(action) => write::lifecycle(c, &ctx, user, id, action, submitted, |c, ctx, view| {
+        Write::Lifecycle(action) => write::lifecycle(c, &ctx, user, id, action, submitted, |c, _, view| {
             let stored: String = c.query_row("SELECT COALESCE(label,'') FROM bots WHERE id=?1", [id], |r| r.get(0))?;
             let text = if view.errors.is_empty() {
                 match action {
@@ -117,10 +122,13 @@ pub fn bot_write(c: &Connection, app: &App, user: i64, id: i64, write: Write, su
             };
             let status: usize = c.query_row("SELECT status FROM bots WHERE id=?1", [id], |r| r.get(0))?;
             let data = json!({"id": id, "label": stored, "status": STATUSES.get(status).copied().unwrap_or("")});
-            let (broadcasts, after_scheduling) = if view.errors.is_empty() { super::bot::action_view::service_broadcasts(c, ctx, view, action)? } else { (vec![], None) };
-            Ok(Prepared { response: Shown { data, text }, broadcasts, after_scheduling })
+            let (broadcasts, after_scheduling) = if view.errors.is_empty() { super::bot::action_view::service_broadcasts(c, &heard, view, action)? } else { (vec![], None) };
+            // A Continue's bars follow once the engine has scheduled it, in the owner's language too (below).
+            deferred.set(after_scheduling);
+            Ok(Prepared { response: Shown { data, text }, broadcasts, after_scheduling: None })
         }),
     }?;
+    if let (Outcome::Committed(_), Some(id)) = (&out, deferred.get()) { super::bot::action_view::broadcast_after_scheduling(heard, id); }
     Ok(match (write, out) {
         (Write::Lifecycle(_), Outcome::Committed(mut answer)) => { answer.data["label"] = shown_label(c, user, id, &answer.data["label"]); Outcome::Committed(answer) }
         (Write::Lifecycle(_), Outcome::NoChange(mut answer)) => { answer.data["label"] = shown_label(c, user, id, &answer.data["label"]); Outcome::NoChange(answer) }

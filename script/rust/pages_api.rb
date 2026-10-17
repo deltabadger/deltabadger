@@ -150,6 +150,10 @@ module Pages
                                                                  write('POST', '/api/v1/bots/1/archive').merge(streams), write('DELETE', '/api/v1/bots/1/archive').merge(streams),
                                                                  write('PATCH', '/api/v1/bots/1', body: '{"quote_amount":70}').merge(streams),
                                                                  write('DELETE', '/api/v1/bots/1').merge(streams)], 2),
+        # Rails renders a bot's broadcasts in its owner's locale (Bot#with_user_locale); the API's answers stay English.
+        'api_broadcasts_de' => write_case(signed_in(get('/bots')) + [write('POST', '/api/v1/bots/1/start').merge(streams), write('POST', '/api/v1/bots/1/stop').merge(streams),
+                                                                    write('POST', '/api/v1/bots/1/archive').merge(streams), write('DELETE', '/api/v1/bots/1/archive').merge(streams)],
+                                          2, {}, 'user' => owner('locale' => 'de')),
         'api_stop_encoded_ids' => write_case([write('POST', '/api/v1/bots/1%30/stop'), write('POST', '/api/v1/bots/%35/stop'),
                                               write('POST', '/api/v1/bots/%E2%82/stop'),
                                               write('POST', '/api/v1/bots/%35/stop', 'second-token'), write('POST', '/api/v1/bots/1+/stop'),

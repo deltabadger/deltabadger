@@ -165,7 +165,7 @@ fn awaits_scheduling(c: &Connection, ctx: &Ctx, view: &LifecycleView) -> Result<
 }
 /// Bot::BroadcastAfterScheduledActionJob for a Continue: waits up to five seconds (Rails' 50 × 0.1 s) for the engine to take
 /// the request, then broadcasts the bot's status and progress bars as they are then, whatever it found.
-pub(super) fn broadcast_after_scheduling(ctx: Ctx, id: i64) {
+pub fn broadcast_after_scheduling(ctx: Ctx, id: i64) {
     tokio::spawn(async move {
         for _ in 0..50 {
             let pending = ctx.app.db(move |c| Ok(c.query_row("SELECT json_type(transient_data, '$.rust_continue_start') IS NOT NULL FROM bots WHERE id = ?1",
