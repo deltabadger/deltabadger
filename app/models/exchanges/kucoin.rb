@@ -434,6 +434,8 @@ class Exchanges::Kucoin < Exchange
     now_ms = Time.now.utc.to_i * 1000
     while window_start < now_ms
       window_end = [window_start + (FILLS_WINDOW.to_i * 1000), now_ms].min
+      # tradeId only counts up within one symbol (KuCoin documents it per symbol), and the sync keeps one
+      # row per tx_id, so two symbols' fills with the same tradeId would collapse into one. Keyed by both.
       failed = read_fills(hm_client, window_start, window_end) do |fill|
         symbol = fill['symbol'] # e.g. "BTC-USDT"
         parts = symbol.split('-')
@@ -442,7 +444,7 @@ class Exchanges::Kucoin < Exchange
                      base_currency: parts[0], base_amount: fill['size'].to_d,
                      quote_currency: parts[1], quote_amount: fill['funds'].to_d,
                      fee_currency: fill['feeCurrency'], fee_amount: fill['fee'].to_d.abs,
-                     tx_id: fill['tradeId'], group_id: nil, description: nil,
+                     tx_id: "#{symbol}-#{fill['tradeId']}", group_id: nil, description: nil,
                      transacted_at: Time.at(fill['createdAt'].to_i / 1000.0).utc, raw_data: fill }
       end
       return failed if failed

@@ -369,6 +369,22 @@ class Exchanges::KucoinTest < ActiveSupport::TestCase
     assert(windows.each_cons(2).all? { |(_, to), (from, _)| from == to }, 'windows must be contiguous')
   end
 
+  # tradeId counts up per symbol, so two markets can each hold a fill with the same one; the sync keeps
+  # one row per tx_id and would drop the second.
+  test 'get_ledger keeps fills that share a tradeId on two symbols, and a re-sync adds none' do
+    hm_client = stub_ledger_client
+    fill = lambda do |symbol|
+      { 'symbol' => symbol, 'side' => 'buy', 'size' => '1', 'funds' => '10', 'feeCurrency' => 'USDT',
+        'fee' => '0', 'tradeId' => '7', 'createdAt' => 2.hours.ago.to_i * 1000 }
+    end
+    hm_client.stubs(:get_fills).returns(kucoin_page([fill.call('BTC-USDT'), fill.call('ETH-USDT')]))
+    connection = create(:api_key, exchange: @exchange, raw_passphrase: 'pass', last_synced_at: 1.hour.ago)
+
+    2.times { assert_predicate AccountTransactionSync.new(connection).sync!, :success? }
+
+    assert_equal %w[BTC-USDT-7 ETH-USDT-7], AccountTransaction.where(exchange: @exchange).order(:tx_id).pluck(:tx_id)
+  end
+
   # A first sync walks some 400 weekly windows. A throttle part way must be waited out, not throw
   # away every window read so far.
   test 'get_ledger waits out a throttled fills page and asks for it again' do
@@ -382,7 +398,7 @@ class Exchanges::KucoinTest < ActiveSupport::TestCase
     result = @exchange.get_ledger(api_key: ledger_api_key, start_time: 1.day.ago)
 
     assert_predicate result, :success?
-    assert_equal(['t1'], result.data.map { |e| e[:tx_id] })
+    assert_equal(['BTC-USDT-t1'], result.data.map { |e| e[:tx_id] })
   end
 
   test 'get_ledger gives up on a throttle that does not lift' do
