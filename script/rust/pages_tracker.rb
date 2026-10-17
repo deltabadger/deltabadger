@@ -49,6 +49,27 @@ module D5Grid
     # The dialog's own submission with no file chosen: Turbo's FormData, the empty file input included.
     add.call('import_missing', [request.call('POST', '/tracker/import', { 'format' => 'deltabadger' }, 422)
       .merge('multipart' => [{ 'name' => 'file', 'filename' => '', 'content' => '' }])])
+    # Reading a file (synthetic: User ID 1, made-up amounts). The Binance/Binance.US question parks the upload under a
+    # random token; the answer carries it back from the question's own form.
+    binance_csv = ->(*rows) { (['User ID,Time,Account,Operation,Coin,Change,Remark'] + rows.map { |r| "1,#{r}" }).join("\n") }
+    utc0 = 'Binance-Transaction-History-202609190000(UTC+0)-part1-of1.csv'
+    deposits = binance_csv.('2026-08-01 10:00:46,Spot,Deposit,USDT,1000,', '2026-08-02 09:03:00,Spot,Deposit,BTC,0.1,')
+    upload = lambda do |form, content, filename = utc0, status = 200|
+      request.call('POST', '/tracker/import', form, status).merge('multipart' => [{ 'name' => 'file', 'filename' => filename, 'content' => content }])
+    end
+    ours = ([AccountTransaction.csv_headers.join(',')] + ['2026-08-05T10:00:00Z,deposit,,5,,,,,binance,,,', '2026-08-06T10:00:00Z,deposit,EUR,10,,,,,kraken,,,',
+                                                         '2026-08-07T10:00:00Z,teleport,EUR,10,,,,,binance,,,']).join("\n")
+    add.call('import_binance_ok', [upload.call({ 'format' => 'binance' }, deposits)], 'binance_key')
+    add.call('import_nothing_new', [upload.call({ 'format' => 'deltabadger' }, ours, 'export.csv')], 'binance_key')
+    add.call('import_unknown_timezone', [upload.call({ 'format' => 'binance' }, deposits, 'export.csv', 422)], 'binance_key')
+    add.call('import_unreadable', [upload.call({ 'format' => 'binance' }, binance_csv.(), utc0, 422)], 'binance_key')
+    add.call('import_ambiguous', [upload.call({ 'format' => 'binance' }, deposits)], 'binance_both')
+    add.call('import_answer', [upload.call({ 'format' => 'binance' }, deposits),
+                               request.call('POST', '/tracker/import', { 'format' => 'binance' }).merge(
+                                 'form_from_last' => { 'token' => 'name="token" id="token" value="([0-9a-f]{16})"',
+                                                       'api_key_id' => 'name="api_key_id" id="api_key_id" value="([0-9]+)"' }
+                               )], 'binance_both')
+    add.call('import_bad_key', [upload.call({ 'format' => 'binance', 'api_key_id' => '999' }, deposits)], 'binance_both')
     add.call('sync_empty', [request.call('POST', '/tracker/sync', {}, 204)])
     add.call('sync_alpaca', [request.call('POST', '/tracker/sync')], 'alpaca')
     add.call('sync_read_only', [request.call('POST', '/tracker/sync')], 'alpaca_read_only')
@@ -175,6 +196,15 @@ module D5Grid
     return if scenario['d5_fixture'] == 'empty'
 
     user = User.first
+    if scenario['d5_fixture'].start_with?('binance_')
+      venues = [Exchanges::Binance.create!(name: 'Binance', maker_fee: '0.1', taker_fee: '0.1')]
+      venues << Exchanges::BinanceUs.create!(name: 'Binance.US', maker_fee: '0.1', taker_fee: '0.1') if scenario['d5_fixture'] == 'binance_both'
+      venues.each do |venue|
+        ApiKey.new(user: user, exchange: venue, key: 'synthetic-d5-binance-key', secret: 'synthetic-d5-binance-secret',
+                   key_type: :read_only, status: ApiKey.statuses.key(1)).save!(validate: false)
+      end
+      return
+    end
     if scenario['d5_fixture'].start_with?('alpaca')
       exchange = Exchanges::Alpaca.create!(name: 'Alpaca', maker_fee: 0, taker_fee: 0)
       kind = case scenario['d5_fixture']

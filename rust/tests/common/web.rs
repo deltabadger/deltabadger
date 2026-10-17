@@ -46,9 +46,12 @@ pub fn app(dir: &Path, secret: &str, clock: Arc<TestClock>) -> App {
 /// `app` on a deployment whose ALLOWED_HOSTS is `allowed_hosts`.
 pub fn app_allowing(dir: &Path, secret: &str, allowed_hosts: Option<&str>, clock: Arc<TestClock>) -> App {
     let opened = store::open(&Paths::from_env(&|_| None, dir)).expect("the install passes store::check");
+    // Uploads parked for a question (the tracker import) go under the install, not the working directory.
+    let tmp = dir.join("tmp").display().to_string();
     let env = |name: &str| match name {
         "SECRET_KEY_BASE" => Some(secret.to_string()),
         "ALLOWED_HOSTS" => allowed_hosts.map(str::to_string),
+        "APP_TMP_DIR" => Some(tmp.clone()),
         _ => None,
     };
     App::new(Config::from_env(&env).unwrap(), &env, opened.primary, clock).unwrap().with_figure_source(web::figure::loading::Source::Disabled).unwrap()

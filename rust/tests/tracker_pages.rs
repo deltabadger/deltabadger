@@ -115,10 +115,13 @@ async fn the_import_reads_a_multipart_body_under_its_bounds() {
     }
     let answer = post(&[("format", "binance")], &[]).await;
     assert_ne!(answer.status, 422, "no token, no import");
+    // A file is read: one with headers and no rows is refused as unreadable.
     let answer = post(&[("authenticity_token", &masked)], &[("file", "Binance (UTC+3).csv", "\u{feff}Time\r\n".as_bytes())]).await;
-    assert_eq!(answer.status, 501, "reading a file is not served yet");
+    assert_eq!(answer.status, 422, "a file with nothing in it: {}", answer.body);
+    assert!(answer.body.contains("<p class=\"tracker-empty\">"));
+    // A parked-upload answer whose upload is gone is an answer with no file.
     let answer = post(&[("authenticity_token", &masked), ("token", "0123456789abcdef")], &[]).await;
-    assert_eq!(answer.status, 501, "neither is the parked-upload answer");
+    assert_eq!(answer.status, 422, "no parked upload: {}", answer.body);
     let (content_type, body) = web::multipart(&[("authenticity_token", &masked)], &[]);
     let truncated = browser.send_bytes(&app, "POST", "/tracker/import", Some(body[..body.len() - 8].to_vec()), Csrf::None, &[("content-type", content_type.as_str())]).await;
     assert_eq!(truncated.status, 400);

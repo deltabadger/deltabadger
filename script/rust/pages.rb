@@ -793,6 +793,10 @@ module Pages
             params['authenticity_token'] = form_token(client[:page], action) or raise "#{dir} step #{index}: the last page has no form posting to #{action}"
           end
           headers['X-CSRF-Token'] = meta_token(client[:page]) if %w[header both].include?(step['csrf'])
+          # Fields a form on the previous response carried (its hidden values), read as a browser submitting it would.
+          (step['form_from_last'] || {}).each do |name, pattern|
+            params[name] = client[:last].to_s[Regexp.new(pattern), 1] or raise "#{dir} step #{index}: the last response has no #{name}"
+          end
           if step['multipart']
             headers['Content-Type'] = "multipart/form-data; boundary=#{MULTIPART_BOUNDARY}"
             params = multipart(params, step['multipart'])
@@ -815,6 +819,7 @@ module Pages
         response = client[:session].response
         verify_rendered!("#{dir} step #{index}", client[:session])
         client[:page] = response.body if meta_token(response.body)
+        client[:last] = response.body
         # Rails writes its session cookie on every response; this crate writes it when the session's
         # content changed. So what the session holds after each request is compared with what it held
         # before. session_id is Rails' own bookkeeping and not content.
