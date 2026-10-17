@@ -133,6 +133,11 @@ module Pages
       { 'quote_asset_id' => asset_id('EUR'), 'quote_amount' => 25, 'interval' => 'day', 'allocations' => { asset_id('BTC').to_s => 1.0 } }
     when 'binance'
       { 'quote_asset_id' => asset_id('USDT'), 'quote_amount' => 15.5, 'interval' => 'week', 'allocations' => { asset_id('ETH').to_s => 1.0 } }
+    # Baskets on each venue: bitcoin (XBT on Kraken) and ether in EUR, which Alpaca lists too; ether and solana in USDT, which it does not.
+    when 'kraken_basket'
+      { 'quote_asset_id' => asset_id('EUR'), 'quote_amount' => 40, 'interval' => 'day', 'allocations' => { asset_id('BTC').to_s => 0.6, asset_id('ETH').to_s => 0.4 } }
+    when 'binance_basket'
+      { 'quote_asset_id' => asset_id('USDT'), 'quote_amount' => 30, 'interval' => 'week', 'allocations' => { asset_id('ETH').to_s => 0.6, asset_id('SOL').to_s => 0.4 } }
     when 'index'
       { 'quote_asset_id' => usd, 'quote_amount' => 100, 'interval' => 'week', 'num_coins' => 10, 'hold_all' => false,
         'index_type' => 'category', 'index_category_id' => 'nasdaq-100', 'index_name' => 'Nasdaq 100', 'index_name_prefix' => 'ND',
@@ -145,7 +150,7 @@ module Pages
     'binance' => ['Invalid API-key, IP, or permissions for action.', 'Timestamp for this request is outside of the recvWindow.']
   }.freeze
 
-  VENUE_KINDS = { 'kraken' => 'Kraken', 'binance' => 'Binance' }.freeze
+  VENUE_KINDS = { 'kraken' => 'Kraken', 'binance' => 'Binance', 'kraken_basket' => 'Kraken', 'binance_basket' => 'Binance' }.freeze
 
   # One bot: 'kind' (basket, single, index, coins, wide; kraken and binance on their venue), then what the scenario says about it.
   # 'settings' and 'transient' are merged over the wizard's; 'stored' is merged into the settings
@@ -330,6 +335,28 @@ module Pages
                                                                            quote_amount: '15.5', error_messages: ['EOrder:Insufficient funds'])),
               order_row(record, symbol, '2026-09-10T11:00:00Z', pair.merge(external_status: 'open', order_type: 'limit_order', price: '2398.5',
                                                                            amount: '0.0064', amount_exec: '0', quote_amount: nil, quote_amount_exec: '0'))]
+           when 'venue_basket_history'
+             # Each member filled on its own ticker, in the venue's spelling; then a failed leg and a limit leg resting.
+             first, second = record.settings['allocations'].keys.map do |id|
+               ticker = record.exchange.tickers.find_by!(quote_asset_id: record.quote_asset_id, base_asset_id: id.to_i)
+               [ticker.base_asset.symbol, { base: ticker.base, quote: ticker.quote, base_asset_id: ticker.base_asset_id, quote_asset_id: ticker.quote_asset_id }]
+             end
+             [order_row(record, first[0], '2026-09-08T13:30:01Z', first[1].merge(price: '52000.5', amount: '0.00046', amount_exec: '0.00046',
+                                                                               quote_amount: '24', quote_amount_exec: '23.92023')),
+              order_row(record, second[0], '2026-09-08T13:30:02Z', second[1].merge(price: '2412.37', amount: '0.0066', amount_exec: '0.0066',
+                                                                                quote_amount: '16', quote_amount_exec: '15.921642')),
+              order_row(record, first[0], '2026-09-09T13:30:01Z', first[1].merge(status: 'failed', external_status: nil, external_id: nil, amount: nil,
+                                                                               quote_amount: '24', error_messages: ['EOrder:Insufficient funds'])),
+              order_row(record, second[0], '2026-09-10T11:00:00Z', second[1].merge(external_status: 'open', order_type: 'limit_order', price: '2398.5',
+                                                                                amount: '0.0066', amount_exec: '0', quote_amount: nil, quote_amount_exec: '0'))]
+           when 'venue_basket_skipped'
+             # Both legs under their ticker's minimum: skipped, and their amounts carried.
+             record.settings['allocations'].map do |id, weight|
+               ticker = record.exchange.tickers.find_by!(quote_asset_id: record.quote_asset_id, base_asset_id: id.to_i)
+               order_row(record, ticker.base_asset.symbol, '2026-09-09T13:30:01Z',
+                         base: ticker.base, quote: ticker.quote, base_asset_id: ticker.base_asset_id, quote_asset_id: ticker.quote_asset_id, status: 'skipped',
+                         external_status: nil, external_id: nil, amount: nil, quote_amount: (record.quote_amount * weight).to_s)
+             end
            when 'venue_errors'
              # Two failed orders in the venue's own words, the latest one last: Kraken's regional restriction then its
              # nonce (Honeymaker's own sentences), Binance's key rejection then its recvWindow (the generic buckets).

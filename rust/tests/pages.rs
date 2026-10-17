@@ -119,7 +119,8 @@ fn rails_answer(recorded: &Value) -> Value {
     let safe_body=body.to_string();
     // #498 and locale filtering are now the oracle: compare the rendered bytes directly.
     let mut answer = comparable(status, &headers, &safe_body);
-    for key in ["action_snapshot", "rows_before", "rows_after", "other_rows_before", "other_rows_after", "exception", "settings_rows", "broadcasts"] {
+    for key in ["action_snapshot", "rows_before", "rows_after", "other_rows_before", "other_rows_after", "exception", "settings_rows", "broadcasts",
+                "venue_requests", "may_mutate", "raw_rows", "session"] {
         if let Some(value) = recorded.get(key) { answer[key] = value.clone(); }
     }
     answer
@@ -199,14 +200,20 @@ fn rows(dir: &Path, table: &str, columns: &[&str]) -> Value {
 }
 
 // Called only before send or after its awaited response. The App has no background engine/writer.
-fn action_rows(dir: &Path) -> Result<(Value, Value), Box<dyn std::error::Error>> {
+// Credentials are compared as they decrypt (settings_snapshot::decrypted), never as ciphertext.
+fn action_rows(dir: &Path, cipher: &deltabadger::crypto::Cipher) -> Result<(Value, Value), Box<dyn std::error::Error>> {
     let c = rusqlite::Connection::open(dir.join("production.sqlite3"))?;
     let mut statement = c.prepare("SELECT name FROM sqlite_schema WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name")?;
     let tables = statement.query_map([], |row| row.get::<_, String>(0))?.collect::<rusqlite::Result<Vec<_>>>()?;
     let (mut actions, mut others) = (serde_json::Map::new(), serde_json::Map::new());
     for table in tables {
-        let value = read_rows(&c, &table, &[], true)?;
-        if ACTION_TABLES.contains(&table.as_str()) { actions.insert(table, value); }
+        let mut value = read_rows(&c, &table, &[], true)?;
+        if ACTION_TABLES.contains(&table.as_str()) {
+            for row in value.as_array_mut().into_iter().flatten().filter_map(Value::as_object_mut) {
+                for (name, column) in row.iter_mut() { *column = settings_snapshot::decrypted(&table, name, column.take(), cipher); }
+            }
+            actions.insert(table, value);
+        }
         else { others.insert(table, value); }
     }
     Ok((Value::Object(actions), Value::Object(others)))
@@ -250,12 +257,18 @@ fn action_snapshot_difference(context: &str, rails: &Value, rust: &Value) -> Opt
                 }
             }
         }
+        // A step may declare the tables it may write (`may_mutate`); without one, a bot action's.
+        let allowed: Vec<&str> = match response.get("may_mutate") {
+            Some(list) => list.as_array().into_iter().flatten().filter_map(Value::as_str).collect(),
+            None => ACTION_MUTATION_TABLES.to_vec(),
+        };
         let unchanged = |key: &str| -> Value {
             Value::Object(response[key].as_object().into_iter().flatten()
-                .filter(|(table, _)| !ACTION_MUTATION_TABLES.contains(&table.as_str())).map(|(k, v)| (k.clone(), v.clone())).collect())
+                .filter(|(table, _)| !allowed.contains(&table.as_str())).map(|(k, v)| (k.clone(), v.clone())).collect())
         };
-        if let Some(message) = row_difference(&format!("{context} {side} forbidden write"), &unchanged("rows_before"), &unchanged("rows_after")) { return Some(message); }
-        if let Some(message) = row_difference(&format!("{context} {side} forbidden write"), &response["other_rows_before"], &response["other_rows_after"]) { return Some(message); }
+        for (before, after) in [("rows_before", "rows_after"), ("other_rows_before", "other_rows_after")] {
+            if let Some(message) = row_difference(&format!("{context} {side} forbidden write"), &unchanged(before), &unchanged(after)) { return Some(message); }
+        }
     }
     for key in ["rows_before", "rows_after", "other_rows_before", "other_rows_after"] {
         if let Some(message) = row_difference(&format!("{context} {key}"), &rails[key], &rust[key]) { return Some(message); }
@@ -291,16 +304,16 @@ async fn run(dir: &Path) -> Value {
     let mut now: chrono::DateTime<chrono::Utc> = scenario["at"].as_str().unwrap().parse().unwrap();
     let clock = TestClock::at(scenario["at"].as_str().unwrap());
     let key_server=wiremock::MockServer::start().await;
-    wiremock::Mock::given(wiremock::matchers::method("GET")).and(wiremock::matchers::path("/v2/account")).respond_with(wiremock::ResponseTemplate::new(200).set_body_json(json!({"status":"ACTIVE","cash":"0"}))).with_priority(10).mount(&key_server).await;
-    wiremock::Mock::given(wiremock::matchers::method("GET")).and(wiremock::matchers::path("/v2/positions")).respond_with(wiremock::ResponseTemplate::new(200).set_body_json(json!([]))).mount(&key_server).await;
+    wiremock::Mock::given(wiremock::matchers::method("GET")).and(wiremock::matchers::path_regex("/v2/account$")).respond_with(wiremock::ResponseTemplate::new(200).set_body_json(json!({"status":"ACTIVE","cash":"0"}))).with_priority(10).mount(&key_server).await;
+    wiremock::Mock::given(wiremock::matchers::method("GET")).and(wiremock::matchers::path_regex("/v2/positions$")).respond_with(wiremock::ResponseTemplate::new(200).set_body_json(json!([]))).mount(&key_server).await;
     wiremock::Mock::given(wiremock::matchers::header("APCA-API-KEY-ID","incorrect-key")).respond_with(wiremock::ResponseTemplate::new(401)).with_priority(1).mount(&key_server).await;
     wiremock::Mock::given(wiremock::matchers::header("APCA-API-KEY-ID","failure-key")).respond_with(wiremock::ResponseTemplate::new(503).set_body_json(json!({"message":"unavailable"}))).with_priority(1).mount(&key_server).await;
-    wiremock::Mock::given(wiremock::matchers::path("/v2/positions")).and(wiremock::matchers::header("APCA-API-KEY-ID","positions-bad")).respond_with(wiremock::ResponseTemplate::new(401).set_body_json(json!({"message":"unauthorized"}))).with_priority(1).mount(&key_server).await;
+    wiremock::Mock::given(wiremock::matchers::path_regex("/v2/positions$")).and(wiremock::matchers::header("APCA-API-KEY-ID","positions-bad")).respond_with(wiremock::ResponseTemplate::new(401).set_body_json(json!({"message":"unauthorized"}))).with_priority(1).mount(&key_server).await;
     for (key,body) in [("r9-no-cash",json!({"status":"ACTIVE"})),("r9-null-cash",json!({"status":"ACTIVE","cash":null}))]{
-        wiremock::Mock::given(wiremock::matchers::path("/v2/account")).and(wiremock::matchers::header("APCA-API-KEY-ID",key)).respond_with(wiremock::ResponseTemplate::new(200).set_body_json(body)).with_priority(1).mount(&key_server).await;
+        wiremock::Mock::given(wiremock::matchers::path_regex("/v2/account$")).and(wiremock::matchers::header("APCA-API-KEY-ID",key)).respond_with(wiremock::ResponseTemplate::new(200).set_body_json(body)).with_priority(1).mount(&key_server).await;
     }
-    wiremock::Mock::given(wiremock::matchers::path("/v2/positions")).and(wiremock::matchers::header("APCA-API-KEY-ID","r9-unnamed-position")).respond_with(wiremock::ResponseTemplate::new(200).set_body_json(json!([{"asset_class":"us_equity","qty":"2"}]))).with_priority(1).mount(&key_server).await;
-    let app = web::app(dir, scenario["secret_key_base"].as_str().unwrap(), clock.clone()).with_settings_mailer(std::sync::Arc::new(TestMail)).unwrap().with_settings_key_boundary(deltabadger::venue::alpaca::Hosts::all(&key_server.uri()),deltabadger::web::settings::keys::logger()).unwrap();
+    wiremock::Mock::given(wiremock::matchers::path_regex("/v2/positions$")).and(wiremock::matchers::header("APCA-API-KEY-ID","r9-unnamed-position")).respond_with(wiremock::ResponseTemplate::new(200).set_body_json(json!([{"asset_class":"us_equity","qty":"2"}]))).with_priority(1).mount(&key_server).await;
+    let app = web::app(dir, scenario["secret_key_base"].as_str().unwrap(), clock.clone()).with_settings_mailer(std::sync::Arc::new(TestMail)).unwrap().with_settings_key_boundary(venue_hosts(&key_server.uri()),deltabadger::web::settings::keys::logger()).unwrap();
     let wake = std::sync::Arc::new(tokio::sync::Notify::new());
     app.attach_engine(wake.clone());
     app.attach_jobs(Default::default()).unwrap();
@@ -345,7 +358,8 @@ async fn run(dir: &Path) -> Value {
             Some(ActionObserver::open(&app, cookie.as_deref(), &streams).await.unwrap_or_else(|e| panic!("broadcast listener: {e}")))
         };
         let browser = browsers.entry(step["client"].as_str().unwrap_or("main").to_string()).or_default();
-        let before = snapshot.then(|| action_rows(dir).unwrap_or_else(|error| panic!("action rows before: {error}")));
+        let seen = key_server.received_requests().await.map_or(0, |requests| requests.len());
+        let before = snapshot.then(|| action_rows(dir, &app.cipher).unwrap_or_else(|error| panic!("action rows before: {error}")));
         let answer = match step["json"].as_str() {
             Some(json) => browser.send_body(&app, step["method"].as_str().unwrap(), &request_path, Some(json.to_string()), csrf, &headers).await,
             None => browser.send(&app, step["method"].as_str().unwrap(), &request_path, form.as_deref(), csrf, &headers).await,
@@ -353,9 +367,17 @@ async fn run(dir: &Path) -> Value {
         assert_genuine(&app, browser, &answer, now, &format!("{} step {index}", dir.file_name().unwrap().to_string_lossy()));
         let mut response = rust_answer(&answer);
         if step["settings_snapshot"] == true { response["settings_rows"] = settings_snapshot::rows(dir,&app.cipher); }
+        let requests = venue_transcript(&key_server.received_requests().await.unwrap_or_default()[seen..]);
+        if !requests.is_empty() { response["venue_requests"] = json!(requests); }
+        if let Some(tables) = step.get("may_mutate") { response["may_mutate"] = tables.clone(); }
+        if let Some(spec) = step["raw_rows"].as_object() { response["raw_rows"] = raw_rows(dir, spec, &step["raw_clock"]); }
+        if let Some(keys) = step["session"].as_array() {
+            let data = browser.cookie.as_deref().and_then(|cookie| session::open(&app.keys.session, cookie, now)).unwrap_or_default();
+            response["session"] = keys.iter().filter_map(Value::as_str).map(|key| (key.to_string(), session_value(&data, key))).collect::<serde_json::Map<_, _>>().into();
+        }
         if let Some(listener) = listener.as_mut() { response["broadcasts"] = json!(listener.drain(&app).await.unwrap_or_else(|e| panic!("broadcasts: {e}"))); }
         if let Some((rows_before, other_before)) = before {
-            let (rows_after, other_after) = action_rows(dir).unwrap_or_else(|error| panic!("action rows after: {error}"));
+            let (rows_after, other_after) = action_rows(dir, &app.cipher).unwrap_or_else(|error| panic!("action rows after: {error}"));
             let changed = rows_before != rows_after;
             let woke = tokio::time::timeout(std::time::Duration::ZERO, wake.notified()).await.is_ok();
             let broadcasts = match observer.as_mut() {
@@ -376,6 +398,55 @@ async fn run(dir: &Path) -> Value {
     }
     drop(app);
     json!({ "responses": responses, "users": users(dir), "bots": rows(dir, "bots", &BOT_COLUMNS) })
+}
+
+/// The venue hosts this crate calls, each a path prefix on the one wiremock server: the server sees the requests in the
+/// order they were made, and the first path segment names the host Rails' WebMock saw.
+fn venue_hosts(uri: &str) -> deltabadger::venue::alpaca::Hosts {
+    let at = |host: &str| format!("{uri}/{host}");
+    deltabadger::venue::alpaca::Hosts { paper: at("paper-api.alpaca.markets"), live: at("api.alpaca.markets"), data: at("data.alpaca.markets") }
+}
+
+/// What reached the venue server, as pages.rb `venue_request` writes Rails' requests: method, host, path, and the
+/// query and form params sorted, without a signature, timestamp or nonce; any other body as its text.
+fn venue_transcript(requests: &[wiremock::Request]) -> Vec<Value> {
+    const UNSIGNED: [&str; 3] = ["signature", "timestamp", "nonce"];
+    requests.iter().map(|request| {
+        let (host, path) = request.url.path().trim_start_matches('/').split_once('/').map_or(("", request.url.path()), |(host, rest)| (host, rest));
+        let form = request.headers.get("content-type").and_then(|v| v.to_str().ok()).is_some_and(|v| v.starts_with("application/x-www-form-urlencoded"));
+        let mut params: Vec<(String, String)> = request.url.query_pairs().into_owned().collect();
+        if form { params.extend(form_urlencoded::parse(&request.body).into_owned()); }
+        params.retain(|(name, _)| !UNSIGNED.contains(&name.as_str()));
+        params.sort();
+        let mut entry = json!({ "method": request.method.as_str(), "host": host, "path": format!("/{path}"), "params": params });
+        if !form && !request.body.is_empty() { entry["body"] = json!(String::from_utf8_lossy(&request.body)); }
+        entry
+    }).collect()
+}
+
+/// pages.rb `raw_rows`: the named tables' rows as stored, JSON columns as their text, "[clock]" in the `raw_clock` columns.
+fn raw_rows(dir: &Path, spec: &serde_json::Map<String, Value>, clock: &Value) -> Value {
+    let c = rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap();
+    let clock: Vec<&str> = clock.as_array().into_iter().flatten().filter_map(Value::as_str).collect();
+    spec.iter().map(|(table, columns)| {
+        let columns: Vec<&str> = columns.as_array().into_iter().flatten().filter_map(Value::as_str).collect();
+        let mut rows = read_rows(&c, table, &columns, false).unwrap_or_else(|error| panic!("raw rows of {table}: {error}"));
+        for row in rows.as_array_mut().into_iter().flatten().filter_map(Value::as_object_mut) {
+            for (name, value) in row.iter_mut() {
+                if clock.contains(&format!("{table}.{name}").as_str()) && !value.is_null() { *value = json!("[clock]"); }
+            }
+        }
+        (table.clone(), rows)
+    }).collect::<serde_json::Map<_, _>>().into()
+}
+
+/// A Rails session key as this crate's session holds it, in the JSON Rails' cookie serializer gives it.
+fn session_value(data: &session::SessionData, key: &str) -> Value {
+    match key {
+        "tracker_connect" => data.tracker_connect.map_or(Value::Null, |id| json!({ "exchange_id": id })),
+        "auto_open_bot_wizard" => if data.auto_open_bot_wizard { json!(true) } else { Value::Null },
+        other => panic!("session key {other} has no counterpart in this crate's session"),
+    }
 }
 
 fn copy_scenario(from: &Path, to: &Path) {
@@ -407,6 +478,9 @@ fn difference(name: &str, rails: &Value, rust: &Value) -> Option<String> {
     for (index, (a, b)) in theirs.iter().zip(ours).enumerate() {
         if a == b { continue; }
         if a.get("settings_rows") != b.get("settings_rows") { return Some(format!("{name} step {index}: settings rows differ\n  rails: {}\n  rust: {}",a["settings_rows"],b["settings_rows"])); }
+        for key in ["venue_requests", "raw_rows", "session"] {
+            if a.get(key) != b.get(key) { return Some(format!("{name} step {index}: {key} differ\n  rails: {}\n  rust:  {}", a[key], b[key])); }
+        }
         if a.get("broadcasts") != b.get("broadcasts") { return Some(format!("{name} step {index}: broadcasts differ\n  rails: {}\n  rust:  {}",a["broadcasts"],b["broadcasts"])); }
         if a["status"] != b["status"] || a["headers"] != b["headers"] {
             return Some(format!("{name} step {index}:\n  rails: {} {}\n  rust:  {} {}", a["status"], a["headers"], b["status"], b["headers"]));
@@ -666,10 +740,10 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
     println!("{} scenarios; Rails opened the wizard on {wizard_pages} pages; {countdown_pages} pages where only Rails knows when the bot acts next", dirs.len());
     if std::env::var("PAGES").is_err() {
-        assert_eq!(dirs.iter().filter(|dir| !dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_") || n.to_string_lossy().starts_with("settings_"))).count(), 160 + 4 + 9 + 2 + 3, "completed read-only baseline (with the market-closed weekend page and the expired start on bots that are not stopped), with D5b's two missing_ and two not_ported_ connect scenarios, the venue pages (eight served, one refused), and the selling pages (three served, one cap refused, in place of two refusals), and the asset search on each venue");
+        assert_eq!(dirs.iter().filter(|dir| !dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_") || n.to_string_lossy().starts_with("settings_"))).count(), 160 + 4 + 9 + 2 + 6 + 3, "completed read-only baseline (with the market-closed weekend page and the expired start on bots that are not stopped), with D5b's two missing_ and two not_ported_ connect scenarios, the venue pages (eight served, one refused), the selling pages (three served, one cap refused, in place of two refusals), the venue basket pages (seven served, in place of the one refusal), and the asset search on each venue");
         assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("settings_"))).count(), 413 + 3 + 45 + 52 + 5 + 1 + 71, "complete S1 inventory, D5b's connect flow, the preference writes, the following client's card, the switch back to the default locale and the settings dialog (two more sections, in-place confirms, the page behind a language change)");
         assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_"))).count(), 197, "action inventory (with the five ⇄ rotations and nine sell-settings writes, and twenty-two Kraken/Binance venue actions)");
-        assert_eq!(dirs.len(), 160 + 4 + 9 + 2 + 3 + 197 + 413 + 3 + 45 + 52 + 5 + 1 + 71, "a scenario was dropped or added without this count");
+        assert_eq!(dirs.len(), 160 + 4 + 9 + 2 + 6 + 3 + 197 + 413 + 3 + 45 + 52 + 5 + 1 + 71, "a scenario was dropped or added without this count");
         assert_eq!(countdown_pages, 4, "the pages where Rails knows a time this build does not: the listed divergence grew or shrank");
         assert_eq!(wizard_pages, 17, "the pages where Rails opens the wizard and this crate does not: the listed divergence grew or shrank");
     }
@@ -750,6 +824,36 @@ fn action_snapshot_forbids_other_primary_writes() {
     let message = action_snapshot_difference("actions_forbidden", &response, &response)
         .unwrap_or_else(|| panic!("transaction insert passed"));
     assert!(message.contains("transactions") && message.contains("forbidden write"), "{message}");
+}
+
+#[test]
+fn action_snapshot_scopes_writes_to_the_declared_tables() {
+    let rows: serde_json::Map<String, Value> = ACTION_TABLES.into_iter().map(|table| (table.to_string(), json!([]))).collect();
+    let mut response = json!({"may_mutate": ["api_keys"], "rows_before": rows, "rows_after": rows, "other_rows_before": {}, "other_rows_after": {}});
+    response["rows_after"]["api_keys"] = json!([{"id": 1, "key": "placeholder-key"}]);
+    assert_eq!(action_snapshot_difference("scoped", &response, &response), None, "a declared table may change");
+    response["rows_after"]["bots"] = json!([{"id": 1}]);
+    let message = action_snapshot_difference("scoped", &response, &response).unwrap_or_else(|| panic!("an undeclared bot insert passed"));
+    assert!(message.contains("forbidden write") && message.contains("bots"), "{message}");
+    response["rows_after"]["bots"] = json!([]);
+    response.as_object_mut().unwrap().remove("may_mutate");
+    let message = action_snapshot_difference("scoped", &response, &response).unwrap_or_else(|| panic!("a key write passed a bot action"));
+    assert!(message.contains("forbidden write") && message.contains("api_keys"), "{message}");
+}
+
+#[test]
+fn venue_transcripts_raw_rows_and_session_values_are_compared() {
+    let account = json!({"method": "GET", "host": "paper-api.alpaca.markets", "path": "/v2/account", "params": []});
+    let rails = json!({"responses": [{"status": 200, "headers": {}, "body": "same", "venue_requests": [account],
+        "raw_rows": {"bots": [{"id": 1, "settings": "{\"a\":1.0}"}]}, "session": {"tracker_connect": {"exchange_id": 1}}}], "users": [], "bots": []});
+    assert_eq!(difference("transcript", &rails, &rails), None);
+    let changed = |key: &str, value: Value| { let mut rust = rails.clone(); rust["responses"][0][key] = value; rust };
+    let extra = json!([account, {"method": "DELETE", "host": "paper-api.alpaca.markets", "path": "/v2/orders/1", "params": []}]);
+    for (key, value) in [("venue_requests", extra), ("venue_requests", Value::Null), ("raw_rows", json!({"bots": [{"id": 1, "settings": "{\"a\":1}"}]})),
+                         ("session", json!({"tracker_connect": null}))] {
+        let message = difference("transcript", &rails, &changed(key, value.clone())).unwrap_or_else(|| panic!("{key} = {value} passed"));
+        assert!(message.contains(key), "{message}");
+    }
 }
 
 /// The explicitly different action contracts still assert both databases, including Rails' writes.
@@ -834,6 +938,12 @@ fn action_divergence(name: &str, scenario: &Value, rails: &Value, rust: &Value) 
                     let bot=a["rows_after"]["bots"].as_array_mut().and_then(|rows|rows.iter_mut().find(|row|row["id"]==1)).ok_or("Rails bot 1")?;
                     if bot["transient_data"]["flip_reserve_pending"]!=json!([1]) { return Err("Rails no longer leaves the resting buy's reserve to its final poll".into()) }
                     bot["transient_data"][deltabadger::engine::reversal::CANCELS]=json!([{"id":1,"registered":true,"sent":false}]);
+                    // Rails cancels and re-reads the order inline; this crate sends nothing from the request.
+                    let order=|method:&str| json!({"method":method,"host":"paper-api.alpaca.markets","path":"/v2/orders/order-1-BTC-2026-09-10T11:00:00Z","params":[]});
+                    if a.get("venue_requests")!=Some(&json!([order("DELETE"),order("GET")])) || b.get("venue_requests").is_some() {
+                        return Err(format!("{n}: expected Rails' inline cancel and no request from this crate: {:?} / {:?}",a.get("venue_requests"),b.get("venue_requests")))
+                    }
+                    a.as_object_mut().ok_or("response object")?.remove("venue_requests");
                 }
                 a["body"]=b["body"].clone();
                 continue;

@@ -235,7 +235,7 @@ module Pages
      { 'kind' => 'basket', 'columns' => { 'label' => 'Basket' } }]
   end
 
-  # One-asset baskets on Kraken and Binance, buying and selling, as the engine trades them; and a wider Kraken basket, which it does not.
+  # Baskets on Kraken and Binance, one asset buying and selling, and several assets buying, as the engine trades them.
   def venue_scenarios
     rules = { 'smart_intervaled' => true, 'smart_interval_quote_amount' => 5, 'limit_ordered' => true, 'limit_order_pcnt_distance' => 0.002,
               'price_limited' => true, 'price_limit' => 50_000, 'price_limit_value_condition' => 'below' }
@@ -265,10 +265,36 @@ module Pages
                                                 .merge(acted('2026-09-09T13:30:00.800Z')))
       end + [{ 'kind' => 'basket' }], signed_in(get('/bots/1'), get('/bots/2'), get('/de/bots/1'), get('/bots/1.turbo_stream', FEED), get('/bots/2.turbo_stream', FEED),
                                                 get('/bots'))),
-      'not_ported_bots_list_venue_basket' => venue.([{ 'kind' => 'kraken', 'settings' => { 'allocations' => { '16' => 0.5, '17' => 0.5 } } }, { 'kind' => 'basket' }],
-                                                    signed_in(get('/bots')))
+      # Baskets of several members on Kraken and Binance, as the engine trades them since P1-T0, beside one-asset venue bots and a stock basket.
+      'venue_basket_list' => venue.(venue_baskets + [stopped('kraken'), { 'kind' => 'basket', 'columns' => { 'label' => 'Basket' } }],
+                                    signed_in(get('/bots'), get('/de/bots'))),
+      'venue_basket_page' => venue.(venue_baskets, signed_in(get('/bots/1'), get('/bots/2'), get('/de/bots/1'), get('/pl/bots/2'),
+                                                             get('/bots/1/chart', 'Turbo-Frame' => 'bot_chart'), get('/bots/2/chart', 'Turbo-Frame' => 'bot_chart'))),
+      'venue_basket_page_hidden' => venue.(venue_baskets, signed_in(get('/bots/1'), get('/bots/2'), get('/bots/2/chart', 'Turbo-Frame' => 'bot_chart'), get('/bots')),
+                                           'user' => owner('hide_balances' => true, 'locale' => 'de')),
+      'venue_basket_history' => venue.([running('kraken_basket', '2026-09-08T13:30:00Z', { 'orders' => 'venue_basket_history' }.merge(acted('2026-09-10T13:30:00.800Z'))),
+                                        running('binance_basket', '2026-09-08T13:30:00Z', { 'orders' => 'venue_basket_history' }.merge(acted('2026-09-08T13:30:00.800Z')))],
+                                       signed_in(get('/bots/1'), get('/bots/2'), get('/de/bots/1'), get('/bots/1.turbo_stream', FEED), get('/bots/2.turbo_stream', FEED),
+                                                 get('/bots'))),
+      # Legs under each member's minimum: skipped, with the venue's minimum in the Smart Intervals note.
+      'venue_basket_below_minimum' => venue.(
+        [running('binance_basket', '2026-09-08T13:30:00Z', { 'settings' => { 'quote_amount' => 6 }, 'orders' => 'venue_basket_skipped',
+                                                             'logs' => [['orders_below_minimum', { 'count' => 2, 'bases' => 'ETH, SOL' }, '2026-09-09T13:30:01Z']] }
+                                                             .merge(acted('2026-09-09T13:30:00.800Z'))),
+         stopped('kraken_basket', 'settings' => { 'smart_intervaled' => true, 'smart_interval_quote_amount' => 1 }, 'stored' => { 'quote_amount' => 0.8 })],
+        signed_in(get('/bots/1'), get('/bots/2'), get('/bots/1.turbo_stream', FEED), get('/de/bots/2'))
+      ),
+      # Sliders a stopped basket was left with, off 100 % (Start then refuses them). Asset ids as the fixtures create them:
+      # BTC 16, ETH 17, SOL 20.
+      'venue_basket_unbalanced' => venue.([stopped('kraken_basket', 'stored' => { 'allocations' => { '16' => 0.5, '17' => 0.3 } }),
+                                           stopped('binance_basket', 'stored' => { 'allocations' => { '17' => 0.7, '20' => 0.45 } })],
+                                          signed_in(get('/bots/1'), get('/bots/2'), get('/bots'))),
+      'venue_basket_key_incorrect' => venue.(venue_baskets, signed_in(get('/bots/1'), get('/bots/2'), get('/bots')), 'venue_keys' => { 'kraken' => 'incorrect' })
     }
   end
+
+  # A stopped Kraken basket and a Binance basket at work.
+  def venue_baskets = [stopped('kraken_basket'), running('binance_basket', '2026-09-08T13:30:00Z', acted('2026-09-08T13:30:00.800Z'))]
 
   # The "+ Add asset" modal on each venue (bot 1): opened blank in the modal frame and as a whole page, searched by the form
   # in its asset-picker frame (a prefix, a fuzzy spelling, a word every extra listing has), the second page of 20 in its lazy
@@ -769,6 +795,34 @@ module Pages
     end
   end
   NETWORK = [] # rubocop:disable Style/MutableConstant
+  # The venue requests a step made that a stub answered (pages_settings.rb records them through WebMock), as
+  # method, host, path and params, without what a clock or a key makes up (a signature, a timestamp, a nonce).
+  # rust/tests/pages.rs holds the requests this crate sent to its wiremock server to the same list.
+  VENUE = [] # rubocop:disable Style/MutableConstant
+  UNSIGNED = %w[signature timestamp nonce].freeze
+
+  def venue_request(request)
+    params = URI.decode_www_form(request.uri.query.to_s)
+    body = request.body.to_s
+    form = request.headers.to_h.any? { |name, value| name.casecmp?('Content-Type') && value.to_s.start_with?('application/x-www-form-urlencoded') }
+    params += URI.decode_www_form(body) if form
+    entry = { 'method' => request.method.to_s.upcase, 'host' => request.uri.host, 'path' => request.uri.path,
+              'params' => params.reject { |name, _| UNSIGNED.include?(name) }.sort }
+    entry['body'] = body unless form || body.empty?
+    entry
+  end
+
+  # A step's 'raw_rows' ({ table => columns or '*' }): the rows as stored, JSON columns as their text. Columns named in
+  # 'raw_clock' ("table.column") read "[clock]" where they hold a time, for a time the two sides' clocks write apart.
+  def raw_rows(spec, clock)
+    connection = ActiveRecord::Base.connection
+    spec.to_h do |table, columns|
+      selection = columns == '*' ? '*' : columns.map { |column| connection.quote_column_name(column) }.join(', ')
+      rows = connection.select_all("SELECT #{selection} FROM #{connection.quote_table_name(table)} ORDER BY id").to_a
+      rows.each { |row| row.each_key { |column| row[column] = '[clock]' if clock.include?("#{table}.#{column}") && row[column] } }
+      [table, rows]
+    end
+  end
 
   BOT_COLUMNS = %w[id status label position settings transient_data stop_message_key started_at updated_at].freeze
 
@@ -822,6 +876,7 @@ module Pages
             headers['Content-Type'] = "multipart/form-data; boundary=#{MULTIPART_BOUNDARY}"
             params = multipart(params, step['multipart'])
           end
+          VENUE.clear
           if step['action_snapshot']
             rows_before = action_rows
             other_before = action_other_rows
@@ -869,6 +924,11 @@ module Pages
           answer['body'] = ''
         end
         answer['settings_rows'] = settings_rows if step['settings_snapshot']
+        answer['venue_requests'] = VENUE.dup unless VENUE.empty?
+        answer['may_mutate'] = step['may_mutate'] if step['may_mutate']
+        answer['raw_rows'] = raw_rows(step['raw_rows'], step.fetch('raw_clock', [])) if step['raw_rows']
+        # Decoded session values a step names, compared with what this crate's cookie decodes to.
+        answer['session'] = step['session'].to_h { |key| [key, content[key].as_json] } if step['session']
         answer['broadcasts'] = broadcasts if step['broadcasts']
         answer
       end

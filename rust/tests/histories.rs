@@ -184,10 +184,11 @@ async fn every_remaining_eligibility_branch_has_a_named_witness() {
     let dynamic = [
         (format!("UPDATE bots SET settings=json_set(settings,'$.allocations',json('{{\"{}\":0.5,\"0{}\":0.5}}'))",ids["AAA"],ids["AAA"]),"listed more than once"),
         (format!("UPDATE bots SET settings=json_set(settings,'$.allocations',json('{}'))",Value::Object(many)),"101 assets"),
+        (format!("UPDATE bots SET settings=json_set(settings,'$.allocations',json('{{\"{}\":1.5,\"{}\":-0.5}}'))",ids["AAA"],ids["BBB"]),"a negative weight"),
     ];
     let fixed = [
         ("UPDATE bots SET type='Bots::Unsupported'","type Bots::Unsupported"),
-        ("UPDATE exchanges SET type='Exchanges::Kucoin'","exchange Exchanges::Kucoin"),
+        ("UPDATE exchanges SET type='Exchanges::Kucoin'","a bot on an exchange other than Alpaca, Kraken and Binance"),
         ("UPDATE bots SET settings=json_set(settings,'$.smart_intervaled',json('true'))","smart interval amount missing"),
         ("UPDATE bots SET settings=json_set(settings,'$.limit_ordered',json('true'),'$.limit_order_pcnt_distance','broken')","limit_order_pcnt_distance"),
         ("UPDATE bots SET started_at=NULL","started_at missing"),
@@ -201,7 +202,6 @@ async fn every_remaining_eligibility_branch_has_a_named_witness() {
         ("UPDATE exchanges SET type='Exchanges::Kraken'; UPDATE bots SET transient_data=json_set(transient_data,'$.merged_history_until_id',3)","merged history"),
         // Sell rows are no refusal since 6a (the walk reads them on every venue); a direction Rails does not have still is.
         ("UPDATE bots SET settings=json_set(settings,'$.direction','sideways')","direction \"sideways\""),
-        ("UPDATE exchanges SET type='Exchanges::Kraken'","Kraken: only one-asset"),
         ("UPDATE bots SET settings=json_set(settings,'$.allocations',json('{\"bad\":1}'))","a weight this build does not read"),
         ("UPDATE bots SET settings=json_set(settings,'$.allocations',json('{}'))","allocations: none"),
         ("UPDATE bots SET settings=json_set(settings,'$.allocations',json('{\"123456\":0.5}'))","weights sum"),
@@ -212,7 +212,11 @@ async fn every_remaining_eligibility_branch_has_a_named_witness() {
         ("INSERT INTO bot_index_assets (bot_id,asset_id,ticker_id,in_index,created_at,updated_at) SELECT id,999,1,1,'2026-01-01','2026-01-01' FROM bots","index assets present"),
         ("INSERT INTO account_transactions (user_id,exchange_id,entry_type,base_currency,base_amount,transacted_at,raw_data,created_at,updated_at) SELECT user_id,exchange_id,15,'AAA',0,'2026-01-01','{\"corporate_action\":\"split\"}','2026-01-01','2026-01-01' FROM bots","split(s) recorded"),
         ("UPDATE bots SET type='Bots::DcaIndex'","configured deltabadger market-data provider"),
-        ("UPDATE bots SET type='Bots::DcaIndex'; UPDATE exchanges SET type='Exchanges::Kraken'","index bot (only on Alpaca)"),
+        ("UPDATE bots SET type='Bots::DcaIndex'; UPDATE exchanges SET type='Exchanges::Kraken'","an index bot on Kraken or Binance (only on Alpaca)"),
+        ("UPDATE bots SET type='Bots::DcaIndex',settings=json_set(settings,'$.direction','selling')","an index bot that sells"),
+        // A wider basket sells and rebalances on Alpaca only (6b); on Kraken and Binance both stay refused.
+        ("UPDATE exchanges SET type='Exchanges::Kraken'; UPDATE bots SET settings=json_set(settings,'$.direction','selling')","a basket of several assets that sells"),
+        ("UPDATE exchanges SET type='Exchanges::Kraken'; UPDATE bots SET settings=json_set(settings,'$.rebalance_enabled',json('true'))","rebalance_enabled"),
         ("UPDATE bots SET type='Bots::DcaIndex'; UPDATE assets SET symbol='EUR' WHERE symbol='USD'","quote EUR"),
         ("UPDATE bots SET type='Bots::DcaIndex'","index_type"),
         ("UPDATE bots SET type='Bots::DcaIndex'","index_category_id missing"),

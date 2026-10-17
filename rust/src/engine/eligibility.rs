@@ -102,11 +102,11 @@ fn rails_work(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError> {
     Ok(r)
 }
 
-/// Whether this engine rebalances the bot: an Alpaca basket or index bot (Kraken and Binance hold one asset only).
+/// Whether this engine rebalances the bot: an Alpaca basket or index bot (`rebalances_on`).
 fn rebalances_here(c: &Connection, bot: &Bot) -> Result<bool, EngineError> {
     if !matches!(bot.bot_type.as_str(), "Bots::DcaIndex" | "Bots::DcaMultiAsset") { return Ok(false); }
     let exchange: Option<String> = c.query_row("SELECT type FROM exchanges WHERE id = ?1", [bot.exchange_id], |r| r.get(0)).optional()?;
-    Ok(exchange.as_deref() == Some("Exchanges::Alpaca"))
+    Ok(rebalances_on(exchange.as_deref()))
 }
 
 pub fn bot_reasons(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError> {
@@ -126,16 +126,15 @@ fn bot_reasons_with(c: &Connection, bot: &Bot, splits: &mut SplitRows) -> Result
     let index = bot.bot_type == "Bots::DcaIndex";
     if !index && bot.bot_type != "Bots::DcaMultiAsset" { r.push(format!("type {} (only DCA baskets and index bots)", bot.bot_type)); }
     let exchange: Option<String> = c.query_row("SELECT type FROM exchanges WHERE id = ?1", [bot.exchange_id], |r| r.get(0)).optional()?;
-    if !matches!(exchange.as_deref(), Some("Exchanges::Kraken" | "Exchanges::Alpaca" | "Exchanges::Binance")) {
-        r.push(format!("exchange {} (only Kraken, Binance and Alpaca)", exchange.as_deref().unwrap_or_default()));
-    }
-    // Kraken and Binance (spec E2, owner question 4): one-asset bots without an amount limit.
+    // Kraken and Binance: buying baskets (P1-T0 reverses spec E2's owner question 4) without an amount limit.
     let kraken = match exchange.as_deref() { Some("Exchanges::Kraken") => Some("Kraken"), Some("Exchanges::Binance") => Some("Binance"), _ => None };
     let alpaca = exchange.as_deref() == Some("Exchanges::Alpaca");
-    let members = if index { index_reasons(c, bot, alpaca, &mut r)? } else { composition_reasons(bot, kraken, &mut r) };
+    let members = if index { index_reasons(c, bot, &mut r)? } else { composition_reasons(bot, &mut r) };
+    let selling = bot.settings.get("direction").is_some_and(|v| v == "selling");
+    if let Some(why) = admission(exchange.as_deref(), index, members.len(), selling) { r.push(why.into()); }
     match bot.settings.get("direction") {
         None | Some(Value::Null) => {}, Some(v) if v == "buying" => {},
-        Some(v) if v == "selling" => sell_reasons(c, bot, index, alpaca, &mut r)?,
+        Some(v) if v == "selling" => sell_reasons(c, bot, alpaca, &mut r)?,
         Some(d) => r.push(format!("direction {d}")),
     }
     if let Some(obj) = bot.settings.as_object() {
@@ -192,12 +191,34 @@ fn price_rule_reason(bot: &Bot, key: &str, value: &Value) -> Option<String> {
     }
 }
 
+/// Which bots this build runs, by venue, class and member count: the one rule the engine's guard and the bot pages
+/// (web::bot::refusal) both apply, so a page is never served for a bot the engine refuses. Kraken and Binance take buying
+/// baskets of any size (P1-T0); index bots run on Alpaca only; an index bot never sells (not reversible); a wider basket
+/// sells on Alpaca only (6b, the ranked DCA-out), one asset elsewhere (6a). Rebalancing is Alpaca's too (`rebalances_on`).
+/// What else a bot needs (its amount limit on Kraken/Binance, market-cap weights) is each side's own named reason.
+pub fn admission(exchange: Option<&str>, index: bool, members: usize, selling: bool) -> Option<&'static str> {
+    match exchange {
+        Some("Exchanges::Alpaca") => {}
+        Some("Exchanges::Kraken" | "Exchanges::Binance") if index => return Some("an index bot on Kraken or Binance (only on Alpaca)"),
+        Some("Exchanges::Kraken" | "Exchanges::Binance") => {}
+        _ => return Some("a bot on an exchange other than Alpaca, Kraken and Binance"),
+    }
+    match (selling, index) {
+        (true, true) => Some("an index bot that sells"),
+        (true, false) if members != 1 && !rebalances_on(exchange) => Some("a basket of several assets that sells"),
+        _ => None,
+    }
+}
+
+/// The venue whose baskets and index bots this engine rebalances and sells member by member (6b): Alpaca. Kraken and
+/// Binance rebalancing stays Rails' ("rebalance_enabled").
+pub fn rebalances_on(exchange: Option<&str>) -> bool { exchange == Some("Exchanges::Alpaca") }
+
 /// Selling: a one-asset basket on Kraken, Binance or Alpaca (slice 6a, one_asset_sell_orders_data), or a wider Alpaca basket
-/// (6b, the ranked DCA-out of get_sell_orders_data; composition_reasons keeps Kraken and Binance to one asset), sized from
-/// the sell sentence and scheduled on the sell cadence. Refused: an index bot (not reversible), rows on another venue outside
-/// Alpaca (there live_free_balance caps a sale at this venue's own units), and a sell cadence no schedule here can hold.
-fn sell_reasons(c: &Connection, bot: &Bot, index: bool, alpaca: bool, r: &mut Vec<String>) -> Result<(), EngineError> {
-    if index { r.push("selling (an index bot)".into()); return Ok(()); }
+/// (6b, the ranked DCA-out of get_sell_orders_data), sized from the sell sentence and scheduled on the sell cadence. Refused
+/// (beyond `admission`): rows on another venue outside Alpaca (there live_free_balance caps a sale at this venue's own
+/// units), and a sell cadence no schedule here can hold.
+fn sell_reasons(c: &Connection, bot: &Bot, alpaca: bool, r: &mut Vec<String>) -> Result<(), EngineError> {
     let foreign: i64 = c.query_row("SELECT count(*) FROM transactions WHERE bot_id = ?1 AND status = 0 AND exchange_id != ?2", params![bot.id, bot.exchange_id], |r| r.get(0))?;
     if foreign > 0 && !alpaca { r.push(format!("selling with {foreign} order(s) placed on another venue")); }
     if let Some(v) = bot.settings.get("sell_interval").filter(|v| !v.is_null() && v.as_str().is_none_or(|s| !s.trim().is_empty())) {
@@ -268,9 +289,9 @@ fn start_time_reason(c: &Connection, bot: &Bot) -> Result<Option<String>, Engine
                     local.format("%H:%M:%S"), bot.settings.get("start_time_of_day"))))
 }
 
-/// settings.allocations: what Rails would start, within what this build ports (manual weights, 1..MAX_ASSETS members;
-/// Kraken keeps one member). Returns the member asset ids in settings order.
-fn composition_reasons(bot: &Bot, kraken: Option<&str>, r: &mut Vec<String>) -> Vec<i64> {
+/// settings.allocations: what Rails would start, within what this build ports (manual weights, 1..MAX_ASSETS members on
+/// every venue). Returns the member asset ids in settings order.
+fn composition_reasons(bot: &Bot, r: &mut Vec<String>) -> Vec<i64> {
     if bot.weighting() != "manual" { r.push(format!("weighting {} (market-cap weights are not supported by this engine yet)", bot.weighting())); }
     let Some(a) = bot.allocations() else {
         r.push("allocations: an asset id or a weight this build does not read".into());
@@ -278,7 +299,6 @@ fn composition_reasons(bot: &Bot, kraken: Option<&str>, r: &mut Vec<String>) -> 
     };
     if a.is_empty() { r.push("allocations: none".into()); }
     if a.len() > MAX_ASSETS { r.push(format!("allocations: {} assets (at most {MAX_ASSETS})", a.len())); }
-    if let Some(venue) = kraken.filter(|_| a.len() > 1) { r.push(format!("allocations: {} assets ({venue}: only one-asset bots are supported by this engine yet)", a.len())); }
     // Bots::DcaMultiAsset::Allocatable#allocations_balanced?.
     if a.iter().any(|(_, w)| *w < 0.0) { r.push("allocations: a negative weight".into()); }
     if !allocations_balanced(bot) { r.push(format!("{UNBALANCED} {}, not 1", crate::ruby::float_sum(&a.iter().map(|(_, w)| *w).collect::<Vec<_>>()))); }
@@ -638,9 +658,8 @@ fn reconciling(tx: &Connection) -> Result<Result<(), Refusal>, EngineError> {
 /// Bots::DcaIndex within what Plan 2d ports: Alpaca, USD, a data-api category index this install holds (MarketData.get_top_coins
 /// reads the local row only on a data-api install; on a CoinGecko one it calls CoinGecko live), a readable count and
 /// flattening. Returns the assets of every bot_index_assets row, in or out of the index, for member_reasons.
-fn index_reasons(c: &Connection, bot: &Bot, alpaca: bool, r: &mut Vec<String>) -> Result<Vec<i64>, EngineError> {
+fn index_reasons(c: &Connection, bot: &Bot, r: &mut Vec<String>) -> Result<Vec<i64>, EngineError> {
     if super::provider::config(c)?.is_none() { r.push("index requires a configured deltabadger market-data provider".into()); }
-    if !alpaca { r.push("index bot (only on Alpaca)".into()); }
     if model::quote_symbol(c, bot)? != "USD" { r.push(format!("quote {} (Alpaca: only USD)", model::quote_symbol(c, bot)?)); }
     if bot.index_type() != Some("category") { r.push(format!("index_type {:?} (only a data-api category index)", bot.index_type())); }
     match bot.index_category_id() {
