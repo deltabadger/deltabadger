@@ -133,7 +133,7 @@ module PageFigures
   # What the owner's figures look like over time, a step at a time: what a page reads from Rails' caches as they stand
   # (`actual`), and a fresh computation (`fresh`): every cache layer cleared (the three metrics keys, the candle series,
   # the rates), rendered at `t_c`, the moment the figures being compared were computed. `t_r` is when the page reads.
-  #   warm; a reread with no write; an order filled (Bot::UpdateMetricsJob and its broadcast); a reread; the cut; the
+  #   warm; a reread with no write; another bot started; an order filled (Bot::UpdateMetricsJob and its broadcast); a reread; the cut; the
   #   provider failing at the next cut.
   # `writes`: the rows a step committed, as stored. The provider failure's `script` replaces the market's from its step on.
   def chronology(root)
@@ -173,6 +173,14 @@ module PageFigures
     step.call('warm', t0, t0)
     step.call('reread', t0 + 90, t0)
     basket = bots.first
+    # Another bot is started: its row is the only write, and every other bot's cache is read as it was (BotsController#index
+    # reads each bot's own key). It has no order, so the headline still sums the others (User#global_pnl_snapshot).
+    started_at = t0 + 100
+    started = basket.attributes.except('id').merge('label' => 'Started later', 'status' => Bot.statuses['scheduled'],
+                                                   'created_at' => started_at, 'updated_at' => started_at)
+    started_id = Bot.insert!(started).rows.first&.first || Bot.find_by!(label: 'Started later').id
+    started_row = ActiveRecord::Base.connection.select_one("SELECT * FROM bots WHERE id = #{started_id.to_i}")
+    step.call('started', started_at, t0, writes: [['bots', started_row]])
     row = { 'bot_id' => basket.id, 'exchange_id' => basket.exchange_id, 'base_asset_id' => assets['AAA'], 'quote_asset_id' => basket.settings['quote_asset_id'],
             'base' => 'AAA', 'quote' => 'USD', 'side' => 'buy', 'transaction_type' => 'REGULAR', 'status' => 'submitted', 'external_status' => 'closed',
             'external_id' => 'chronology-fill', 'order_type' => 'market_order', 'price' => '104.5', 'amount' => '0.2', 'amount_exec' => '0.2',

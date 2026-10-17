@@ -15,7 +15,10 @@ pub enum Source { #[default] Live, Disabled, Script(Value),
 #[derive(Clone)]
 /// Ready: the cache, its stamp, the revision it was prepared against, where the database stood when that revision was
 /// read (`unchanged_since`), if on the connection that renders it, and until when (Unix seconds) its figures may be shown.
-pub enum Snapshot { Cold, Failed(Option<&'static str>), Ready(Cache,At,u64,Option<Mark>,i64) }
+/// Stale: the last ready figures, filled for an earlier revision (the cache, its stamp, that revision, until when), shown
+/// while the fill for the current one runs or waits, as Rails shows a bot's cached figures until its recompute
+/// overwrites them. Only the bots whose own rows are as they were then are shown (`stale_shown`).
+pub enum Snapshot { Cold, Failed(Option<&'static str>), Ready(Cache,At,u64,Option<Mark>,i64), Stale(Cache,At,u64,i64) }
 pub(crate) struct Info { identity:String,revision:u64,mark:Mark,pub(crate) credentials:Credentials,pub(crate) origin:crate::engine::model::CredentialVersion }
 /// Where a connection's view of the database stands: what other connections committed (`PRAGMA data_version`) and what
 /// it wrote itself (total changes). Equal on that connection, nothing was written in between.
@@ -43,9 +46,80 @@ fn ids_source(ids:impl Iterator<Item=i64>)->String {
     if ids.is_empty(){String::new()}else{format!(" UNION SELECT CAST(value AS INTEGER) FROM json_each('[{}]')",ids.join(","))}
 }
 
+fn hash_value(value:rusqlite::types::ValueRef<'_>,hash:&mut impl std::hash::Hasher) {
+    use rusqlite::types::ValueRef;
+    use std::hash::Hash;
+    match value {
+        ValueRef::Null=>0u8.hash(hash),
+        ValueRef::Integer(v)=>(1u8,v).hash(hash),
+        ValueRef::Real(v)=>(2u8,v.to_bits()).hash(hash),
+        ValueRef::Text(v)|ValueRef::Blob(v)=>(3u8,v).hash(hash),
+    }
+}
+/// What kept figures show besides their numbers, as values: the account's row and its wash-sale locks (`user`), and per
+/// bot its row with the operation flags, its index membership, and the listings of what it holds on its venue, whose
+/// minimum sizes decide its Sell links (holdings::render, Rails' sellable_holdings) (`bots`: id → [hash, has a
+/// submitted order, deleted]). Rails renders these on
+/// every request around a bot's cached numbers; kept figures carry them rendered, so stale figures are shown only for
+/// the bots whose own values are as they were (`stale_shown`).
+// ponytail: a whole bot's row, not the columns its panels read; a write to any column shows that bot loading until refilled.
+fn shape(c:&Connection,user:i64)->Result<Value,rusqlite::Error> {
+    use std::hash::Hasher;
+    let unread=["updated_at","transient_data"];
+    let mut account=std::hash::DefaultHasher::new();
+    for sql in ["SELECT * FROM users WHERE id=?1","SELECT * FROM wash_sale_locks WHERE user_id=?1 ORDER BY id"] {
+        let mut statement=c.prepare(sql)?;
+        let kept:Vec<usize>=statement.column_names().iter().enumerate().filter(|(_,column)|!unread.contains(*column)).map(|(i,_)|i).collect();
+        let mut rows=statement.query([user])?;
+        while let Some(row)=rows.next()? { for &i in &kept { hash_value(row.get_ref(i)?,&mut account); } }
+        account.write_u8(0xff);
+    }
+    let mut statement=c.prepare(&format!("SELECT b.*,CASE WHEN json_valid(b.transient_data) THEN json_array(json_extract(b.transient_data,'$.rebalance_pending'),\
+        json_extract(b.transient_data,'$.liquidation_pending'),json_extract(b.transient_data,'$.liquidation_selling_since'),json_extract(b.transient_data,'$.redeploy_pending')) END AS operations__, \
+        (SELECT json_group_array(json_array(asset_id,ticker_id,in_index)) FROM (SELECT * FROM bot_index_assets WHERE bot_id=b.id ORDER BY id)) AS members__, \
+        (SELECT json_group_array(json_array(id,base,base_asset_id,quote_asset_id,minimum_base_size,minimum_quote_size,available,trading_enabled)) FROM (SELECT * FROM tickers t \
+          WHERE t.exchange_id=b.exchange_id AND (t.base_asset_id IN (SELECT base_asset_id FROM transactions WHERE bot_id=b.id) \
+          OR t.base IN (SELECT base FROM transactions WHERE bot_id=b.id) OR t.id IN (SELECT ticker_id FROM bot_index_assets WHERE bot_id=b.id)) ORDER BY t.id)) AS listings__, \
+        EXISTS(SELECT 1 FROM transactions t WHERE t.bot_id=b.id AND t.status={}) AS submitted__ FROM bots b WHERE b.user_id=?1 ORDER BY b.id",crate::enums::TxStatus::Submitted as i64))?;
+    let names:Vec<String>=statement.column_names().iter().map(|n|n.to_string()).collect();
+    let at=|name:&str|names.iter().position(|n|n==name);
+    let (Some(id),Some(status),Some(submitted))=(at("id"),at("status"),at("submitted__")) else { return Ok(Value::Null) };
+    let kept:Vec<usize>=(0..names.len()).filter(|i|*i!=submitted&&!unread.contains(&names[*i].as_str())).collect();
+    let mut bots=serde_json::Map::new();
+    let mut rows=statement.query([user])?;
+    while let Some(row)=rows.next()? {
+        let mut hash=std::hash::DefaultHasher::new();
+        for &i in &kept { hash_value(row.get_ref(i)?,&mut hash); }
+        let deleted=row.get::<_,i64>(status)?==crate::enums::BotStatus::Deleted as i64;
+        bots.insert(row.get::<_,i64>(id)?.to_string(),serde_json::json!([hash.finish(),row.get::<_,bool>(submitted)?,deleted]));
+    }
+    Ok(serde_json::json!({"user":account.finish(),"bots":bots}))
+}
+fn shape_key(revision:u64)->String { serde_json::json!(["shape",revision]).to_string() }
+/// Stale figures as a page may show them: none if the account's own values moved; otherwise every bot whose own values
+/// are as they were when they were filled, the others left out (their panels show the loading state, as a bot Rails has
+/// no cache for); and the headline only if no bot it would sum was left out, and every bot with an accepted order now
+/// has cached figures (User#global_pnl_snapshot: loading while a bot with a submitted order has no cache).
+fn stale_shown(mut shown:Value,then:&Value,now:&Value)->Option<Value> {
+    if then.is_null() || now.is_null() || then["user"]!=now["user"] { return None; }
+    let (Some(before),Some(after))=(then["bots"].as_object(),now["bots"].as_object()) else { return None };
+    let moved=|id:&str|before.get(id).map(|v|&v[0])!=after.get(id).map(|v|&v[0]);
+    let mut headline=true;
+    for id in before.keys().chain(after.keys()) {
+        if !moved(id) { continue; }
+        let at=after.get(id);
+        if at.is_none_or(|v|v[2]==true || v[1]==true) { headline=false; }
+    }
+    // Whatever its row: a live bot with an accepted order now and no cached figures then (none kept, or kept as Rails
+    // would not cache them) holds the headline back, as Rails' snapshot is loading.
+    if after.iter().any(|(id,v)|v[1]==true && v[2]!=true && shown["bots"][id.as_str()]["cached"]!=true) { headline=false; }
+    if let Some(bots)=shown.get_mut("bots").and_then(Value::as_object_mut) { bots.retain(|id,_|!moved(id)); }
+    if !headline { if let Some(figures)=shown.as_object_mut() { figures.remove("account"); } }
+    Some(shown)
+}
+
 pub fn revision(c:&Connection,user:i64)->Result<(u64,usize),rusqlite::Error> {
     use std::hash::{Hash,Hasher};
-    use rusqlite::types::ValueRef;
     use crate::figures::FiguresError;
     let mut hash=std::hash::DefaultHasher::new();
     let mut read=0;
@@ -136,14 +210,7 @@ pub fn revision(c:&Connection,user:i64)->Result<(u64,usize),rusqlite::Error> {
         name.hash(&mut hash);
         while let Some(row)=rows.next()? {
             read+=1;
-            for &i in &kept {
-                match row.get_ref(i)? {
-                    ValueRef::Null=>0u8.hash(&mut hash),
-                    ValueRef::Integer(v)=>(1u8,v).hash(&mut hash),
-                    ValueRef::Real(v)=>(2u8,v.to_bits()).hash(&mut hash),
-                    ValueRef::Text(v)|ValueRef::Blob(v)=>(3u8,v).hash(&mut hash),
-                }
-            }
+            for &i in &kept { hash_value(row.get_ref(i)?,&mut hash); }
         }
     }
     Ok((hash.finish(),read))
@@ -375,12 +442,15 @@ fn begin(app:&App,user:i64)->Begun<'_>{ Box::pin(async move {
         return Ok(app.figure_service.unkeyed(user,revision,app.now().timestamp()).map_or(Snapshot::Cold,Snapshot::Failed));
     };
     let Some(now)=At::from_utc(app.now()) else{return Ok(Snapshot::Failed(None))};
+    // While the current revision's figures are being made, or wait for a fill, the last ready ones are shown.
+    let stale=|app:&App|app.figure_service.stale(user,&info.identity,now.utc().timestamp())
+        .map_or(Snapshot::Cold,|(cache,until,revision)|{let at=cache.stamp().unwrap_or(now);Snapshot::Stale(cache.with_fx(app.fx_cache.store.clone()),at,revision,until)});
     match app.figure_service.begin(user,&info.identity,info.revision,now.utc().timestamp()) {
-        Load::Cold=>Ok(Snapshot::Cold),Load::Failed(reason)=>Ok(Snapshot::Failed(reason)),
+        Load::Cold=>Ok(stale(app)),Load::Failed(reason)=>Ok(Snapshot::Failed(reason)),
         // Other accounts hold both fills: the demand is kept, and the end of one of theirs serves it.
-        Load::Busy=>{app.figure_service.want(user);Ok(Snapshot::Cold)},
+        Load::Busy=>{app.figure_service.want(user);Ok(stale(app))},
         Load::Ready(cache,_,until)=>{let at=cache.stamp().unwrap_or(now);Ok(Snapshot::Ready(cache.with_fx(app.fx_cache.store.clone()),at,info.revision,Some(info.mark),until))},
-        Load::Start(ticket,cache)=>{ spawn_fill(app,user,info,now,ticket,cache.with_fx(app.fx_cache.store.clone()),None); Ok(Snapshot::Cold) }
+        Load::Start(ticket,cache)=>{ let shown=stale(app); spawn_fill(app,user,info,now,ticket,cache.with_fx(app.fx_cache.store.clone()),None); Ok(shown) }
     }
 })}
 /// A fill of this account's market cache, on a task of its own. `work`: what the queue asked of it (`follow`).
@@ -388,6 +458,8 @@ fn spawn_fill(app:&App,user:i64,info:Info,now:At,ticket:super::service::Ticket,m
     let inner=app.clone();let source=app.figure_source.clone();
     tokio::spawn(async move {
         let wire=Wire::new(&info.credentials,source).with_origin(info.origin.clone()).settled_under(inner.figure_service.compute());
+        // What the figures show besides their numbers, read before them: stale figures are held to it (`stale_shown`).
+        let shape=inner.db(move|c|Ok(shape(c,user)?)).await.unwrap_or(Value::Null); // allow-swallow: no shape, and the figures are never shown stale
         let keys=work.as_ref().map(|work|work.locales.clone()).unwrap_or_default();
         // Past its deadline the fill stops waiting; a worker it started finishes on its own, holding the compute permit.
         let timed=tokio::time::timeout(inner.figure_service.fill_timeout(),fill(&inner,user,&mut cache,&wire,now,keys)).await;
@@ -395,12 +467,20 @@ fn spawn_fill(app:&App,user:i64,info:Info,now:At,ticket:super::service::Ticket,m
         let result=timed.unwrap_or(Err(None));
         let check=inner.clone();
         let current=inner.db(move|c|read_info(c,&check,user)).await;
-        let unchanged=matches!(current,Ok(Some(ref current)) if crate::engine::model::current_for(Some(&info.origin),Some(&current.origin)).is_fresh() && current.revision==info.revision);
+        let credentials=matches!(current,Ok(Some(ref current)) if crate::engine::model::current_for(Some(&info.origin),Some(&current.origin)).is_fresh());
+        let unchanged=credentials && matches!(current,Ok(Some(ref current)) if current.revision==info.revision);
         cache.set_stamp(now);
         let (ready,reason,deadline)=match result {
-            // What the last pass rendered is kept with the cache: no page computes it.
-            Ok(rendered) if unchanged=>match build(&inner,move|c|lock_deadline(c,user,now)).await {
-                Ok(deadline)=>{ for ((locale,prefix),rendered,deps) in rendered { cache.keep(kept_key(info.revision,now,&locale,&prefix),kept_value(rendered,&deps)); } (true,None,deadline) }
+            // What the last pass rendered is kept with the cache: no page computes it. Kept too when a write overtook the
+            // fill, for the revision it read: shown as stale (`Snapshot::Stale`) while the next fill runs, never as
+            // current (`Service::begin` serves ready figures of the current revision only), so a stream of writes cannot
+            // keep every fill from ending in figures.
+            Ok(rendered) if credentials=>match build(&inner,move|c|lock_deadline(c,user,now)).await {
+                Ok(deadline)=>{
+                    for ((locale,prefix),rendered,deps) in rendered { cache.keep(kept_key(info.revision,now,&locale,&prefix),kept_value(rendered,&deps)); }
+                    cache.keep(shape_key(info.revision),std::sync::Arc::new(shape));
+                    (true,None,deadline)
+                }
                 Err(_)=>(false,None,None), // a lifetime that cannot be read is no lifetime: the next read fills again
             },
             Err(Some(reason)) if unchanged=>(false,Some(reason),None),
@@ -467,6 +547,14 @@ pub fn render(c:&Connection,user:i64,snapshot:&Snapshot,locale:&str,csrf:&str,pr
             }
             None
         }
+        Snapshot::Stale(cache,at,revision,until)=>{
+            let current=cache.producer().as_ref().is_some_and(|origin|crate::engine::model::credential_is_current(c,origin).unwrap_or(false));
+            if !current || clock.now().timestamp()>=*until { return Ok(None); }
+            let (Some(kept),Some(then))=(cache.kept(&kept_key(*revision,*at,locale,prefix)),cache.kept(&shape_key(*revision))) else { return Ok(None) };
+            if !fx_holds(c,cache,&kept_fx(&kept),clock.now().timestamp()) { return Ok(None); }
+            let Ok(slots)=serde_json::from_value::<super::Slots>(kept["slots"].clone()) else { return Ok(None) };
+            return Ok(stale_shown(with_token(&kept["figures"],&slots,csrf),&then,&shape(c,user)?));
+        }
     };
     let no_value=match reason {
         Some("Currency conversion unavailable")=>"<span class=\"no-value\">Currency conversion unavailable</span>",
@@ -488,7 +576,7 @@ pub fn render(c:&Connection,user:i64,snapshot:&Snapshot,locale:&str,csrf:&str,pr
 /// and publishes them in the page's locale and paths.
 pub fn render_page(app:&App,c:&Connection,user:i64,snapshot:&Snapshot,locale:&str,csrf:&str,prefix:&str)->Result<Option<Value>,WebError>{
     let shown=render(c,user,snapshot,locale,csrf,prefix,&*app.clock)?;
-    if shown.is_none() && !matches!(app.figure_source,Source::Disabled) { enqueue_page(app,user,locale,prefix); }
+    if (shown.is_none() || matches!(snapshot,Snapshot::Stale(..))) && !matches!(app.figure_source,Source::Disabled) { enqueue_page(app,user,locale,prefix); }
     Ok(shown)
 }
 /// Puts the user's figures on their streams (`figure::streams`): every tile, each bot page's metrics and chart, and the
@@ -507,7 +595,8 @@ async fn publish_with(app:App,user:i64)->Result<bool,WebError>{
     // ready anew or starts a fill whose end publishes.
     for _ in 0..2 {
         let snapshot=begin(&app,user).await?;
-        if matches!(snapshot,Snapshot::Cold){app.figure_service.want(user);return Ok(false);}
+        // Stale figures are never published: the fill for the current revision publishes as it ends.
+        if matches!(snapshot,Snapshot::Cold|Snapshot::Stale(..)){app.figure_service.want(user);return Ok(false);}
         let serial=app.figure_service.settled(user);
         let ready=matches!(snapshot,Snapshot::Ready(..));
         let inner=app.clone();

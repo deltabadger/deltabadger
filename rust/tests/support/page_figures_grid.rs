@@ -854,7 +854,8 @@ async fn figures_fragments_match_the_rails_page_partials() {
             if name == "owner_account" {
                 let original=app.db(|c| Ok(c.query_row("SELECT quote_amount_exec FROM transactions ORDER BY id LIMIT 1",[],|r|r.get::<_,rusqlite::types::Value>(0))?)).await.unwrap();
                 app.db(|c| { c.execute("UPDATE transactions SET quote_amount_exec=quote_amount_exec+1 WHERE id=(SELECT min(id) FROM transactions)",[])?; Ok(()) }).await.unwrap();
-                assert!(matches!(loading::prepare(&app,user).await.unwrap(),loading::Snapshot::Cold));
+                // Never served as current: a refill runs, and what was kept shows meanwhile, as Rails' cache does until its recompute.
+                assert!(matches!(loading::prepare(&app,user).await.unwrap(),loading::Snapshot::Stale(..)));
                 tokio::time::timeout(std::time::Duration::from_secs(5),async {
                     loop {
                         match loading::prepare(&app,user).await.unwrap() {
@@ -1139,9 +1140,11 @@ async fn chronology_matches_rails_fresh_bytes() {
     let open = |script: &Value| App::new(Config::from_env(&env).unwrap(), &env, rusqlite::Connection::open(&file).unwrap(), clock.clone()).unwrap().with_figure_source(Source::Script(script.clone())).unwrap();
     let mut app = open(&sc["script"]);
     let w1: Vec<&str> = chronology["w1"].as_array().unwrap().iter().map(|n| n.as_str().unwrap()).collect();
+    // The scenario's bots: the one started later has no figures in Rails' read, and is left out of the comparison.
+    let ids: Vec<String> = sc["bot_ids"].as_array().unwrap().iter().map(|id| id.to_string()).collect();
     let parts = |figures: &Value| -> BTreeMap<String, Vec<String>> {
         let mut out = BTreeMap::new();
-        for (id, bot) in figures["bots"].as_object().unwrap() {
+        for (id, bot) in figures["bots"].as_object().unwrap().iter().filter(|(id, _)| ids.contains(id)) {
             for part in ["tile", "metrics", "chart"] { out.insert(format!("{id} {part}"), common::html::normalize(bot[part].as_str().unwrap())); }
         }
         out.insert("account".into(), common::html::normalize(figures["account"].as_str().unwrap()));
@@ -1170,14 +1173,17 @@ async fn chronology_matches_rails_fresh_bytes() {
         let reread = name.starts_with("reread");
         let mut snapshot = loading::prepare(&app, user).await.unwrap();
         if reread { assert!(matches!(snapshot, Snapshot::Ready(..)), "{name}: a reread with no write is served what was kept, with no fill"); }
+        // Another bot's start: what was kept is shown while the account refills, as Rails reads each bot's own cache.
+        let stale = name == "started";
+        if stale { assert!(matches!(snapshot, Snapshot::Stale(..)), "{name}: the kept figures are shown while the refill runs"); }
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
-        while matches!(snapshot, Snapshot::Cold) {
+        while matches!(snapshot, Snapshot::Cold) || (!stale && matches!(snapshot, Snapshot::Stale(..))) {
             assert!(std::time::Instant::now() < deadline, "{name}: the fill never ended");
             tokio::time::sleep(std::time::Duration::from_millis(20)).await;
             snapshot = loading::prepare(&app, user).await.unwrap();
         }
         let t_c = common::web::at(step["t_c"].as_str().unwrap());
-        if let Snapshot::Ready(_, at, ..) = &snapshot { assert_eq!(at.utc(), t_c, "{name}: the figures shown were computed at t_c, whenever they are read"); }
+        if let Snapshot::Ready(_, at, ..) | Snapshot::Stale(_, at, ..) = &snapshot { assert_eq!(at.utc(), t_c, "{name}: the figures shown were computed at t_c, whenever they are read"); }
         let shown = snapshot.clone();
         let read_at = deltabadger::engine::FixedClock(common::web::at(step["t_r"].as_str().unwrap()));
         let rendered = app.db(move |c| loading::render(c, user, &shown, "en", "", "", &read_at)).await.unwrap().expect("figures");
