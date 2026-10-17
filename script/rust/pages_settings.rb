@@ -22,23 +22,29 @@ module Pages
             row['confirmation_token'] = '<valid confirmation token>'
           end
         end
-        SECRET_COLUMNS.fetch(table, []).each do |column|
-          next if row[column].nil?
-
-          # AppConfig encrypts only selected names, handled by its accessor rather than a blanket mask.
-          if table == 'app_configs'
-            row[column] = AppConfig.get(row['key'])
-          else
-            record = table == 'users' ? User.find(row['id']) : ApiKey.find(row['id'])
-            row[column] = record.public_send(column)
-          end
-        end
+        decrypted!(table, row)
         %w[mcp_settings rest_settings tracker_settings settings transient_data mcp_tools rest_tools].each do |column|
           row[column] = JSON.parse(row[column]) if row[column].is_a?(String)
         end
       end
       [table, rows]
     end
+  end
+
+  # The credentials of a row as the model reads them: snapshots compare what a key is, never its ciphertext.
+  def self.decrypted!(table, row)
+    SECRET_COLUMNS.fetch(table, []).each do |column|
+      next if row[column].nil?
+
+      # AppConfig encrypts only selected names, handled by its accessor rather than a blanket mask.
+      if table == 'app_configs'
+        row[column] = AppConfig.get(row['key'])
+      else
+        record = table == 'users' ? User.find(row['id']) : ApiKey.find(row['id'])
+        row[column] = record.public_send(column)
+      end
+    end
+    row
   end
 
   module SettingsGrid
@@ -91,6 +97,12 @@ module Pages
     def record(root)
       WebMock.enable!
       WebMock.disable_net_connect!
+      # Every request a stub answers goes to the step's venue transcript; one no stub answers is the network.
+      WebMock.after_request { |request, _response| VENUE << venue_request(request) }
+      WebMock.globally_stub_request(:after_local_stubs) do |request|
+        NETWORK << request.uri.to_s
+        nil
+      end
       # Validations call the real client and model against a deterministic paper account response.
       WebMock.stub_request(:get, 'https://paper-api.alpaca.markets/v2/positions').to_return(status: 200, body: '[]',
                                                                                             headers: { 'Content-Type' => 'application/json' })
@@ -323,7 +335,8 @@ module Pages
     %w[placeholder incorrect failure].each do |branch|
       request = post('/bots/1/add_api_key',
                      { 'api_key[key]' => "#{branch}-key", 'api_key[secret]' => 'placeholder-value-123', 'api_key[passphrase]' => 'paper' },
-                     'csrf' => 'header', 'headers' => TURBO, 'expect' => branch == 'placeholder' ? 200 : 422, 'settings_snapshot' => true)
+                     'csrf' => 'header', 'headers' => TURBO, 'expect' => branch == 'placeholder' ? 200 : 422, 'settings_snapshot' => true,
+                     'action_snapshot' => true, 'may_mutate' => %w[api_keys])
       grid["settings_bot_key_save_#{branch}"] =
         settings_case(request, fixture: 'keys').merge('install' => 'alpaca', 'api_keys' => {}, 'bots' => [{ 'kind' => 'basket' }])
     end
@@ -552,7 +565,9 @@ module Pages
       grid["settings_pick_frame_#{locale}"] = settings_case(get("/#{locale}/tracker/pick_exchange/new", 'Turbo-Frame' => 'modal'), fixture: 'venues')
     end
     grid['settings_pick_signed_out'] = { 'steps' => [pick] }
-    grid['settings_pick_create_alpaca'] = settings_case(pick, choose.call('1', 'expect' => 302), get('/tracker/add_api_key/new'), fixture: 'venues')
+    grid['settings_pick_create_alpaca'] = settings_case(pick.merge('session' => %w[tracker_connect]),
+                                                        choose.call('1', 'expect' => 302, 'session' => %w[tracker_connect]),
+                                                        get('/tracker/add_api_key/new'), fixture: 'venues')
     grid['settings_pick_create_unavailable'] = settings_case(pick, choose.call('7', 'expect' => 302), fixture: 'venues')
     grid['settings_pick_csrf'] = settings_case(pick, choose.call('1', 'csrf' => 'none', 'expect' => 302), fixture: 'venues')
     grid['missing_tracker_pick_unknown'] = settings_case(pick, choose.call('999'), fixture: 'venues')
