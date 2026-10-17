@@ -279,7 +279,7 @@ fn trigger_field(key: &str) -> bool {
     false
 }
 
-fn normalize(weights: &mut Map<String, Value>) -> Result<(), WebError> {
+pub(crate) fn normalize(weights: &mut Map<String, Value>) -> Result<(), WebError> {
     if weights.is_empty() { return Ok(()); }
     let mut values = weights.values().map(|v| numeric(v, false).and_then(|n| n.as_f64().ok_or_else(|| failure("allocation"))).map(|n| n.max(0.0))).collect::<Result<Vec<_>, _>>()?;
     values.iter().try_fold(0.0, |sum, value| {

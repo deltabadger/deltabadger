@@ -1,9 +1,8 @@
 //! The new-bot wizard: BotsController#new (the bot-type chooser) and the order switch
 //! (Bots::DcaSingleAssets::OrdersController), with the step order they share (Bots::Wizard::StepOrder and
-//! Bots::Wizard::Navigable). The steps after the chooser are not served yet: their routes are named refusals.
-//!
-//! The asset step is `assets`, the exchange step (single and multi namespaces) `exchanges`; the conversational sentence, the
-//! progress bar and the stock activation notice they share are here.
+//! Bots::Wizard::Navigable), and its steps: assets (`assets`), exchange (`exchanges`, single and multi namespaces), stock broker
+//! (`brokers`), API key (`keys`, both namespaces) and quote (`spendable`), whose POST saves the bot (`create`). The
+//! conversational sentence, the progress bar and the stock activation notice the steps share are here.
 //!
 //! The wizard's state is `session[:bot_config]` (web::session), a JSON object with string keys as Rails'
 //! cookie serializer holds it.
@@ -13,9 +12,10 @@ use super::{auth, colors, i18n, App, WebError};
 
 pub mod assets;
 pub mod brokers;
+pub mod create;
 pub mod exchanges;
 pub mod keys;
-pub mod keys;
+pub mod spendable;
 use askama::Template;
 use axum::extract::{Extension, State};
 use axum::http::StatusCode;
