@@ -278,7 +278,7 @@ fn binance_ledger(name: &str, rails: &Value, rust: &Value) -> Option<Result<(), 
         "binance-ledger-full" | "binance-ledger-idle" | "binance-ledger-other_sources" | "binance-ledger-two_nights" | "binance-ledger-file_transfers"
         | "binance-ledger-file_transfer_claimed_once" | "binance-ledger-file_second_after" | "binance-ledger-deposit_600" | "binance-ledger-idless_repeats"
         | "binance-ledger-preexisting_repeats" | "binance-ledger-known_id_repeat" | "binance-ledger-file_dust" | "binance-ledger-file_dust_rounding"
-        | "binance-ledger-twin_repeats" => same_rows_and_watermark(rails, rust),
+        | "binance-ledger-twin_repeats" | "binance-ledger-stored_trade_newer" | "binance-ledger-stored_trades_over_500" | "binance-ledger-stored_trade_before_floor" => same_rows_and_watermark(rails, rust),
         // An import beside the sync over the same history, in either order: the sync's requests are its own (above).
         "import-file_then_api_transfers" | "import-api_then_file_transfers" | "import-file_then_api_dust" | "import-api_then_file_dust"
         | "import-file_then_api_dust_rounding" | "import-api_then_file_dust_rounding" => same_rows_and_watermark(rails, rust),
@@ -380,7 +380,7 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
     dirs.sort();
     let named = |prefix: &str| dirs.iter().filter(|d| d.file_name().unwrap().to_string_lossy().starts_with(prefix)).count();
-    assert_eq!((named("ledger-"), named("balances-"), named("binance-balances-"), named("binance-ledger-"), named("import-"), dirs.len()), (58, 44, 21, 26, 21, 170), "the sync grid");
+    assert_eq!((named("ledger-"), named("balances-"), named("binance-balances-"), named("binance-ledger-"), named("import-"), dirs.len()), (58, 44, 21, 29, 21, 173), "the sync grid");
     for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
     for scenario in ["ledger-split_future", "ledger-split_nested_duplicate_keys", "binance-ledger-two_nights"] { copy_dir(&rails_root.path().join(scenario), &handback.path().join(scenario)); }
     rails(&["record", rails_root.path().to_str().unwrap()]);
@@ -406,7 +406,7 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), outputs.len(), failures.join("\n"));
     let mut expected=["binance-ledger-flexible_rewards_type", "binance-ledger-other_sources", "binance-ledger-two_nights", "binance-ledger-earn_documented_amounts", "binance-ledger-earn_fails", "binance-ledger-crypto_pair_later", "binance-ledger-over_500_trades", "binance-ledger-deposit_credited", "binance-ledger-pending_withdrawal",
                       "binance-ledger-symbol_fails", "binance-ledger-away_100_days", "binance-ledger-garbage_amount", "binance-ledger-us_refused",
-                      "binance-ledger-full", "binance-ledger-idle", "binance-ledger-deposit_fails", "binance-ledger-file_transfers", "binance-ledger-file_transfer_claimed_once", "binance-ledger-file_second_after", "binance-ledger-deposit_600", "binance-ledger-idless_repeats", "binance-ledger-preexisting_repeats", "binance-ledger-known_id_repeat", "binance-ledger-file_dust", "binance-ledger-file_dust_rounding", "binance-ledger-twin_repeats", "import-file_then_api_transfers", "import-api_then_file_transfers", "import-file_then_api_dust", "import-api_then_file_dust", "import-file_then_api_dust_rounding", "import-api_then_file_dust_rounding", "binance-balances-blank_free", "binance-balances-garbage_free", "binance-balances-whitespace_free", "binance-balances-rate_spelling", "binance-balances-rate_zero_padded", "binance-balances-price_underscore_exponent", "binance-balances-no_rate", "balances-account_null", "balances-no_trade_keeps_last_price", "balances-no_trade_market_price", "balances-no_trade_unpriced", "balances-positions_not_array", "ledger-pages_stalled", "ledger-split_hostile_quantity"].to_vec();
+                      "binance-ledger-full", "binance-ledger-idle", "binance-ledger-deposit_fails", "binance-ledger-file_transfers", "binance-ledger-file_transfer_claimed_once", "binance-ledger-file_second_after", "binance-ledger-deposit_600", "binance-ledger-idless_repeats", "binance-ledger-preexisting_repeats", "binance-ledger-known_id_repeat", "binance-ledger-file_dust", "binance-ledger-file_dust_rounding", "binance-ledger-twin_repeats", "binance-ledger-stored_trade_newer", "binance-ledger-stored_trades_over_500", "binance-ledger-stored_trade_before_floor", "import-file_then_api_transfers", "import-api_then_file_transfers", "import-file_then_api_dust", "import-api_then_file_dust", "import-file_then_api_dust_rounding", "import-api_then_file_dust_rounding", "binance-balances-blank_free", "binance-balances-garbage_free", "binance-balances-whitespace_free", "binance-balances-rate_spelling", "binance-balances-rate_zero_padded", "binance-balances-price_underscore_exponent", "binance-balances-no_rate", "balances-account_null", "balances-no_trade_keeps_last_price", "balances-no_trade_market_price", "balances-no_trade_unpriced", "balances-positions_not_array", "ledger-pages_stalled", "ledger-split_hostile_quantity"].to_vec();
     expected.extend_from_slice(UNKNOWN_PRICE_ORIGIN);
     expected.extend_from_slice(&["balances-snapshots_network", "ledger-long_error", "ledger-network_pre_send"]);
     expected.sort();
@@ -436,6 +436,11 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     assert_eq!(added("binance-ledger-file_second_after", "BTC").iter().filter(|id| *id == "sec1-in").count(), 0, "the file's Convert, a second on");
     assert_eq!(added("binance-ledger-file_second_after", "XRP"), [Value::Null], "two id-less rows a second apart are two");
     assert_eq!(claimed("binance-ledger-deposit_600").0, ["0xd8"]);
+    // The watermark counts the stored trades Rails' trade page re-reads: 500 from the floored start.
+    let watermark = |name: &str| moved_watermark(&rails_of(name));
+    assert_eq!(watermark("binance-ledger-stored_trade_newer"), Some(json!("2026-09-15 00:00:00")));
+    assert_eq!(watermark("binance-ledger-stored_trades_over_500"), Some(json!("2026-09-15 08:20:00")));
+    assert_eq!(watermark("binance-ledger-stored_trade_before_floor"), None);
     assert_eq!(added("binance-ledger-idless_repeats", "XRP"), [Value::Null, Value::Null]);
     assert_eq!(added("binance-ledger-preexisting_repeats", "XRP"), [Value::Null]);
     assert_eq!(added("binance-ledger-preexisting_repeats", "BNB").len(), 1);

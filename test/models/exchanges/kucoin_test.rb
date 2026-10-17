@@ -229,6 +229,38 @@ class Exchanges::KucoinTest < ActiveSupport::TestCase
     assert_predicate result, :failure?
   end
 
+  # A 200000 envelope with no orderId: the order may be on the book, so it must read as unknown.
+  test 'a placement answered with no orderId is an unacknowledged failure, never a success' do
+    ticker = create(:ticker, exchange: @exchange, base_symbol: 'BTC', quote_symbol: 'USDT',
+                             price_decimals: 2, base_decimals: 6)
+    @exchange.send(:client).stubs(:place_order).returns(Result::Success.new(order_id: nil, raw: { 'code' => '200000', 'data' => {} }))
+
+    market = with_dry_run(false) { @exchange.market_buy(ticker: ticker, amount: BigDecimal('10'), amount_type: :quote) }
+    limit = with_dry_run(false) do
+      @exchange.send(:set_limit_order, ticker: ticker, amount: BigDecimal('10'), amount_type: :quote, side: :buy,
+                                       price: BigDecimal('62795'))
+    end
+
+    [market, limit].each do |result|
+      assert_predicate result, :failure?
+      assert @exchange.ambiguous_placement_error?(result)
+    end
+  end
+
+  test 'get_balances reads the frozen amount as locked or as holds' do
+    btc = create(:asset, :bitcoin)
+    create(:ticker, exchange: @exchange, base_asset: btc, base_symbol: 'BTC', quote_symbol: 'USDT')
+    [{ 'locked' => '0.25' }, { 'holds' => '0.25' }].each do |frozen|
+      account = { 'currency' => 'BTC', 'available' => '1.5' }.merge(frozen)
+      @exchange.send(:client).stubs(:get_accounts).returns(Result::Success.new({ 'code' => '200000', 'data' => [account] }))
+
+      result = with_dry_run(false) { @exchange.get_balances(asset_ids: [btc.id]) }
+
+      assert_predicate result, :success?
+      assert_equal({ free: BigDecimal('1.5'), locked: BigDecimal('0.25') }, result.data[btc.id], frozen.keys.first)
+    end
+  end
+
   # == lost orders ==
   # KuCoin forgets a cancelled order after ~2 days and a filled one after ~7. That answer must read as
   # not_found, or Bot::StaleOrderResolver never gets to retire the order and the bot polls it forever.
@@ -252,6 +284,58 @@ class Exchanges::KucoinTest < ActiveSupport::TestCase
 
     assert_predicate result, :failure?
     assert_not result.data.is_a?(Hash) && result.data[:not_found]
+  end
+
+  # KuCoin forgets a filled order after ~7 days. An instance off for longer polls an order the venue
+  # answers "does not exist" for, past Bot::StaleOrderResolver's 14 days: its fills must decide.
+  def forgotten_order_bot
+    bot = create(:dca_single_asset, :started, exchange: @exchange)
+    order = create(:transaction, bot: bot, status: :submitted, external_status: :open, external_id: 'o-gone',
+                                 amount_exec: nil, quote_amount_exec: nil,
+                                 created_at: (Bot::StaleOrderResolver::STALE_ORDER_THRESHOLD + 6.days).ago)
+    Honeymaker::Clients::Kucoin.any_instance.stubs(:get_order)
+                               .returns(Result::Failure.new('KuCoin API error 400100: order not exist.'))
+    [bot, order]
+  end
+
+  def stub_fills(page)
+    filled_at = 10.days.ago.to_i * 1000
+    Honeymaker::Clients::Kucoin.any_instance.stubs(:get_fills).returns(kucoin_page([]))
+    Honeymaker::Clients::Kucoin.any_instance.stubs(:get_fills)
+                               .with { |**kw| kw[:order_id] == 'o-gone' && kw[:start_at] <= filled_at && filled_at < kw[:end_at] }
+                               .returns(page)
+  end
+
+  test 'an order KuCoin forgot after it filled is booked from its fills, not abandoned' do
+    bot, order = forgotten_order_bot
+    fill = { 'orderId' => 'o-gone', 'tradeId' => '1', 'symbol' => bot.ticker.ticker, 'side' => 'buy', 'type' => 'market',
+             'size' => '0.002', 'funds' => '100', 'createdAt' => 10.days.ago.to_i * 1000 }
+    stub_fills(kucoin_page([fill, fill.merge('tradeId' => '2')]))
+
+    with_dry_run(false) { Bot::FetchAndUpdateOpenOrdersJob.new.perform(bot) }
+
+    order.reload
+    assert_equal 'closed', order.external_status
+    assert_equal BigDecimal('0.004'), order.amount_exec
+    assert_equal BigDecimal('200'), order.quote_amount_exec
+  end
+
+  test 'a forgotten order with no fills is retired' do
+    bot, order = forgotten_order_bot
+    stub_fills(kucoin_page([]))
+
+    with_dry_run(false) { Bot::FetchAndUpdateOpenOrdersJob.new.perform(bot) }
+
+    assert_equal 'abandoned', order.reload.external_status
+  end
+
+  test 'a forgotten order whose fills cannot be read keeps waiting' do
+    bot, order = forgotten_order_bot
+    stub_fills(Result::Failure.new('KuCoin API error 400100: Parameter Error'))
+
+    assert_raises(RuntimeError) { with_dry_run(false) { Bot::FetchAndUpdateOpenOrdersJob.new.perform(bot) } }
+
+    assert_equal 'open', order.reload.external_status
   end
 
   test 'get_orders reports a gone order under missing and keeps reading the rest' do
@@ -369,6 +453,22 @@ class Exchanges::KucoinTest < ActiveSupport::TestCase
     assert(windows.each_cons(2).all? { |(_, to), (from, _)| from == to }, 'windows must be contiguous')
   end
 
+  # tradeId counts up per symbol, so two markets can each hold a fill with the same one; the sync keeps
+  # one row per tx_id and would drop the second.
+  test 'get_ledger keeps fills that share a tradeId on two symbols, and a re-sync adds none' do
+    hm_client = stub_ledger_client
+    fill = lambda do |symbol|
+      { 'symbol' => symbol, 'side' => 'buy', 'size' => '1', 'funds' => '10', 'feeCurrency' => 'USDT',
+        'fee' => '0', 'tradeId' => '7', 'createdAt' => 2.hours.ago.to_i * 1000 }
+    end
+    hm_client.stubs(:get_fills).returns(kucoin_page([fill.call('BTC-USDT'), fill.call('ETH-USDT')]))
+    connection = create(:api_key, exchange: @exchange, raw_passphrase: 'pass', last_synced_at: 1.hour.ago)
+
+    2.times { assert_predicate AccountTransactionSync.new(connection).sync!, :success? }
+
+    assert_equal %w[BTC-USDT-7 ETH-USDT-7], AccountTransaction.where(exchange: @exchange).order(:tx_id).pluck(:tx_id)
+  end
+
   # A first sync walks some 400 weekly windows. A throttle part way must be waited out, not throw
   # away every window read so far.
   test 'get_ledger waits out a throttled fills page and asks for it again' do
@@ -382,7 +482,7 @@ class Exchanges::KucoinTest < ActiveSupport::TestCase
     result = @exchange.get_ledger(api_key: ledger_api_key, start_time: 1.day.ago)
 
     assert_predicate result, :success?
-    assert_equal(['t1'], result.data.map { |e| e[:tx_id] })
+    assert_equal(['BTC-USDT-t1'], result.data.map { |e| e[:tx_id] })
   end
 
   test 'get_ledger gives up on a throttle that does not lift' do

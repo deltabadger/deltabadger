@@ -696,7 +696,7 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
     let (_rails_root, rust_root, dirs) = recorded_grid();
     assert!(!dirs.is_empty(), "the grid is empty: no scenario name starts with a prefix in PAGES");
     if std::env::var("PAGES").ok().as_deref() == Some("actions") {
-        assert_eq!(dirs.len(), 197, "all action scenarios must remain selected");
+        assert_eq!(dirs.len(), 247, "all action scenarios must remain selected");
     }
     let (mut failures, mut countdown_pages) = (vec![], 0);
     for dir in &dirs {
@@ -753,8 +753,8 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
     if std::env::var("PAGES").is_err() {
         assert_eq!(dirs.iter().filter(|dir| !dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_") || n.to_string_lossy().starts_with("settings_"))).count(), 160 + 4 + 9 + 2 + 6 + 3 + 38, "completed read-only baseline (with the market-closed weekend page and the expired start on bots that are not stopped), with D5b's two missing_ and two not_ported_ connect scenarios, the venue pages (eight served, one refused), the selling pages (three served, one cap refused, in place of two refusals), the venue basket pages (seven served, in place of the one refusal), the asset search on each venue, the wizard's chooser and order switch (twelve served, one unrouted GET), its asset and exchange steps (ten served), its broker, key and quote steps to a created bot (nine served), the index and signal tiles and the IBKR and KuCoin key steps (four not_ported_), and the first empty bots page that opens it (two)");
         assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("settings_"))).count(), 413 + 3 + 45 + 52 + 5 + 1 + 71, "complete S1 inventory, D5b's connect flow, the preference writes, the following client's card, the switch back to the default locale and the settings dialog (two more sections, in-place confirms, the page behind a language change)");
-        assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_"))).count(), 197, "action inventory (with the five ⇄ rotations and nine sell-settings writes, and twenty-two Kraken/Binance venue actions)");
-        assert_eq!(dirs.len(), 160 + 4 + 9 + 2 + 6 + 3 + 38 + 197 + 413 + 3 + 45 + 52 + 5 + 1 + 71, "a scenario was dropped or added without this count");
+        assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_"))).count(), 197 + 50, "action inventory (with the five ⇄ rotations and nine sell-settings writes, twenty-two Kraken/Binance venue actions, and fifty on their baskets)");
+        assert_eq!(dirs.len(), 160 + 4 + 9 + 2 + 6 + 3 + 38 + 197 + 50 + 413 + 3 + 45 + 52 + 5 + 1 + 71, "a scenario was dropped or added without this count");
         assert_eq!(countdown_pages, 4, "the pages where Rails knows a time this build does not: the listed divergence grew or shrank");
     }
 }
@@ -924,6 +924,19 @@ fn action_divergence(name: &str, scenario: &Value, rails: &Value, rust: &Value) 
                     if let Some(error)=row_difference(side,&response["rows_before"],&response["rows_after"]) { return Err(error); }
                 }
             }
+            if let Some(venue)=n.strip_prefix("venue_basket_").and_then(|rest|rest.strip_suffix("_not_ported_reverse")) {
+                // Rails flips a buying basket of several into selling. This crate commits the same rotation and answers the listed
+                // ⇄ refresh (below), and the page it refreshes to is then refused: the engine does not sell a basket of several on
+                // Kraken or Binance (eligibility::admission). Not ported until it does.
+                let exchange=if venue=="kraken" {"Exchanges::Kraken"} else {"Exchanges::Binance"};
+                if deltabadger::engine::eligibility::admission(Some(exchange),false,2,true).is_none() { return Err(format!("{n}: a selling basket of several is served on {venue} now: retire this case")) }
+                if a["status"]!=200 || b["status"]!=200 { return Err(format!("{n}: expected 200 from both, got {} / {}",a["status"],b["status"])) }
+                let flipped=a["rows_after"]["bots"].as_array().and_then(|rows|rows.iter().find(|row|row["id"]==1)).ok_or("Rails bot 1")?;
+                if flipped["settings"]["direction"]!="selling" { return Err(format!("{n}: Rails no longer flips the basket into selling")) }
+                if b["body"]!=json!(html::normalize(deltabadger::web::turbo::refresh())) { return Err(format!("{n}: expected a refresh, got {}",b["body"])) }
+                a["body"]=b["body"].clone();
+                continue;
+            }
             if let Some(rotation)=n.strip_prefix("reverse_").or_else(|| n.strip_prefix("venue_kraken_reverse_")).or_else(|| n.strip_prefix("venue_binance_reverse_")) {
                 // Listed divergence (plan 6a, Revision r4): Rails answers ⇄ with the settings, Start/Stop and metrics panels
                 // (bots/reverse.turbo_stream.erb). The metrics panel is drawn from figures this build does not compute for a
@@ -959,7 +972,8 @@ fn action_divergence(name: &str, scenario: &Value, rails: &Value, rust: &Value) 
                 continue;
             }
             let start_guard=matches!(n,"single_start"|"basket_start"|"index_start"|"start_created"|"start_stopped"|"start_missing"|"start_future"|"start_missed_false"|"start_missed_true"|"extra_paid_start_start_fresh_false"|"extra_paid_start_start_fresh_true"|"extra_defaults_start_start_fresh_true"|"extra_hour"|"extra_start_0"|"extra_start_1"|"extra_start_TRUE"|"extra_start_false"
-                |"index_history_start_false"|"index_history_start_true"|"basket_sold_start_false"|"basket_sold_start_true");
+                |"index_history_start_false"|"index_history_start_true"|"basket_sold_start_false"|"basket_sold_start_true"
+                |"venue_basket_kraken_start_capped"|"venue_basket_binance_start_capped");
             // Their histories pass the page and the engine; the guard refuses only what refuses every stock bot of this grid, whose
             // listings carry no instrument type.
             if n.starts_with("index_history_start") || n.starts_with("basket_sold_start") {
@@ -970,7 +984,7 @@ fn action_divergence(name: &str, scenario: &Value, rails: &Value, rust: &Value) 
             }
             let working_start=matches!(n,"start_scheduled"|"start_executing"|"start_retrying"|"start_waiting");
             let working_settings=matches!(n,"working_amount"|"working_limit"|"working_smart");
-            let html=matches!(n,"extra_html_update"|"extra_html_start_start_fresh_true"|"extra_html_stop"|"extra_html_archive");
+            let html=matches!(n,"extra_html_update"|"extra_html_start_start_fresh_true"|"extra_html_stop"|"extra_html_archive"|"venue_basket_kraken_html"|"venue_basket_binance_html");
             let scope=matches!(n,"start_invalid"|"modal_within_modal"|"start_within_true"|"start_within_false"|"update_exchange_ibkr");
             let safety=matches!(n,"stop_invalid"|"archive_invalid"|"stop_archived");
             // No flag starts fresh (start_missing is an ordinary guarded start); only a junk flag is refused as such.

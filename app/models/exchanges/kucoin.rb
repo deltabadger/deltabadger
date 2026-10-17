@@ -142,7 +142,8 @@ class Exchanges::Kucoin < Exchange
       next unless asset_ids.include?(asset.id)
 
       free = Utilities::Hash.dig_or_raise(balance, 'available').to_d
-      locked = Utilities::Hash.dig_or_raise(balance, 'holds').to_d
+      # KuCoin's 2026-08-27 changelog renames `holds` to `locked` in this answer; either shape is read.
+      locked = balance.fetch('locked') { Utilities::Hash.dig_or_raise(balance, 'holds') }.to_d
 
       balances[asset.id] = { free: free, locked: locked }
     end
@@ -292,9 +293,7 @@ class Exchanges::Kucoin < Exchange
     if result.failure?
       return result unless order_not_found?(result)
 
-      # Flagged so Bot::StaleOrderResolver can retire the order instead of polling it forever.
-      return Result::Failure.new("KuCoin no longer knows order #{order_id}",
-                                 data: { not_found: true, missing_ids: [order_id] })
+      return order_from_fills(order_id)
     end
 
     normalized_order_data = parse_order_data(order_id, result.data[:raw])
@@ -434,6 +433,8 @@ class Exchanges::Kucoin < Exchange
     now_ms = Time.now.utc.to_i * 1000
     while window_start < now_ms
       window_end = [window_start + (FILLS_WINDOW.to_i * 1000), now_ms].min
+      # tradeId only counts up within one symbol (KuCoin documents it per symbol), and the sync keeps one
+      # row per tx_id, so two symbols' fills with the same tradeId would collapse into one. Keyed by both.
       failed = read_fills(hm_client, window_start, window_end) do |fill|
         symbol = fill['symbol'] # e.g. "BTC-USDT"
         parts = symbol.split('-')
@@ -442,7 +443,7 @@ class Exchanges::Kucoin < Exchange
                      base_currency: parts[0], base_amount: fill['size'].to_d,
                      quote_currency: parts[1], quote_amount: fill['funds'].to_d,
                      fee_currency: fill['feeCurrency'], fee_amount: fill['fee'].to_d.abs,
-                     tx_id: fill['tradeId'], group_id: nil, description: nil,
+                     tx_id: "#{symbol}-#{fill['tradeId']}", group_id: nil, description: nil,
                      transacted_at: Time.at(fill['createdAt'].to_i / 1000.0).utc, raw_data: fill }
       end
       return failed if failed
@@ -486,14 +487,16 @@ class Exchanges::Kucoin < Exchange
   FILLS_RANGE_CAP = 50_000
   FILLS_MIN_RANGE = 1.hour
 
-  def read_fills(hm_client, from_ms, to_ms, &)
-    fetch = ->(page) { hm_client.get_fills(start_at: from_ms, end_at: to_ms, current_page: page, limit: 500) }
+  def read_fills(hm_client, from_ms, to_ms, order_id: nil, &)
+    fetch = lambda do |page|
+      hm_client.get_fills(order_id: order_id, start_at: from_ms, end_at: to_ms, current_page: page, limit: 500)
+    end
     failed = each_page(fetch, max_items: FILLS_RANGE_CAP, &)
     return failed unless failed&.data.is_a?(Hash) && failed.data[:over_cap]
     return failed if to_ms - from_ms <= FILLS_MIN_RANGE.to_i * 1000
 
     middle = from_ms + ((to_ms - from_ms) / 2)
-    read_fills(hm_client, from_ms, middle, &) || read_fills(hm_client, middle, to_ms, &)
+    read_fills(hm_client, from_ms, middle, order_id: order_id, &) || read_fills(hm_client, middle, to_ms, order_id: order_id, &)
   end
 
   # Each page costs KuCoin's request quota, and a first sync walks some 400 weekly windows, so a long
@@ -532,6 +535,57 @@ class Exchanges::Kucoin < Exchange
 
       page += 1
     end
+  end
+
+  # KuCoin forgets a filled order after ~7 days, so "does not exist" does not mean it never traded: an
+  # instance that was off for longer would write the fill off. Its fills decide, read in weekly windows
+  # from the order's own row (less an hour for clock skew) to now. A fill books the order as filled; only
+  # a complete read with none flags it not_found, so Bot::StaleOrderResolver can retire it; a failed read
+  # is returned as it is, and the order keeps waiting.
+  def order_from_fills(order_id)
+    since = transactions.where(external_id: order_id).minimum(:created_at)
+    gone = Result::Failure.new("KuCoin no longer knows order #{order_id}", data: { not_found: true, missing_ids: [order_id] })
+    return gone unless since
+
+    fills = {}
+    window_start = (since - 1.hour).to_i * 1000
+    now_ms = Time.now.utc.to_i * 1000
+    while window_start < now_ms
+      window_end = [window_start + (FILLS_WINDOW.to_i * 1000), now_ms].min
+      # Keyed by tradeId: KuCoin may ignore the range when orderId is given, and every window then
+      # answers the same fills.
+      failed = read_fills(client, window_start, window_end, order_id: order_id) do |fill|
+        fills[fill['tradeId']] = fill if fill['orderId'].to_s == order_id.to_s
+      end
+      return failed if failed
+
+      window_start = window_end
+    end
+    return gone if fills.empty?
+
+    Result::Success.new(order_data_from_fills(order_id, fills.values))
+  end
+
+  def order_data_from_fills(order_id, fills)
+    amount_exec = fills.sum(BigDecimal('0')) { |fill| fill['size'].to_d }
+    quote_amount_exec = fills.sum(BigDecimal('0')) { |fill| fill['funds'].to_d }
+    ticker = tickers.find_by(ticker: fills.first['symbol'])
+    price = quote_amount_exec / amount_exec if amount_exec.positive?
+    price = ticker.adjusted_price(price: price, method: :round) if price && ticker.present?
+    {
+      order_id: order_id,
+      ticker: ticker,
+      price: price,
+      amount: nil,
+      quote_amount: nil,
+      amount_exec: amount_exec,
+      quote_amount_exec: quote_amount_exec,
+      side: fills.first['side'].to_s.downcase.to_sym,
+      order_type: parse_order_type(fills.first['type'].to_s),
+      error_messages: [],
+      status: :closed,
+      exchange_response: { 'fills' => fills }
+    }
   end
 
   def order_not_found?(result)
@@ -577,10 +631,7 @@ class Exchanges::Kucoin < Exchange
       size: amount_type == :base ? amount.to_d.to_s('F') : nil,
       funds: amount_type == :quote ? amount.to_d.to_s('F') : nil
     }
-    result = client.place_order(**order_settings)
-    return result if result.failure?
-
-    Result::Success.new({ order_id: result.data[:order_id] })
+    placement_result(client.place_order(**order_settings))
   end
 
   # @param amount [Float] must be a positive number
@@ -605,10 +656,18 @@ class Exchanges::Kucoin < Exchange
       price: price.to_d.to_s('F'),
       size: base_amount.to_d.to_s('F')
     }
-    result = client.place_order(**order_settings)
+    placement_result(client.place_order(**order_settings))
+  end
+
+  # A 200000 answer with no orderId took the order (or may have) and lost its id. Flagged unacknowledged so
+  # Exchange#ambiguous_placement_error? reads it as unknown, never as a placed order with no id.
+  def placement_result(result)
     return result if result.failure?
 
-    Result::Success.new({ order_id: result.data[:order_id] })
+    order_id = result.data[:order_id]
+    return Result::Failure.new("#{name} answered the order with no order id", data: { unacknowledged: true }) if order_id.blank?
+
+    Result::Success.new({ order_id: order_id })
   end
 
   def parse_order_data(order_id, order_data)
