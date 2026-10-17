@@ -712,6 +712,11 @@ module SyncScenarios
     later = { 'symbols' => symbols, 'balances' => [%w[BTC 0.04], %w[USDT 400], %w[ETH 0.7]],
               'trades' => { 'BTCUSDT' => btc.first(1) + [P.bn_trade(102, 12, '62000', '0.001', t.(2026, 9, 19, 21), buyer: true, asset: 'BNB', commission: '0.0001')],
                             'ETHBTC' => eth + [P.bn_trade(8, 4, '0.041', '0.2', t.(2026, 9, 19, 20, 30), buyer: true, commission: '0.0002', asset: 'ETH')] } }
+    newer_trade = ->(id, order, at) { P.bn_trade(id, order, '62000', '0.001', at, buyer: true, asset: 'BNB', commission: '0.0001') }
+    stored_trade = lambda do |ctx, id, order, at|
+      P.stored(ctx, exchange: ctx[:binance], entry_type: 0, base_currency: 'BTC', base_amount: '0.001', quote_currency: 'USDT', quote_amount: '62',
+                    fee_currency: 'BNB', fee_amount: '0.0001', tx_id: "BTCUSDT-#{order}-#{id}", transacted_at: at)
+    end
     # The sources after the trades: converts, fiat payments, dust, dividends and Simple Earn, in the shapes Binance
     # documents. Rails' fields everywhere here; the earn rows Rails misreads are their own scenario below.
     at = ->(*args) { P.ms(Time.utc(*args)) }
@@ -777,6 +782,16 @@ module SyncScenarios
         steps: [P.binance_ledger(night, later.merge('trades' => { 'BTCUSDT' => btc.first(1), 'ETHBTC' => eth }))] },
       { name: 'binance-ledger-deposit_fails', setup: ->(ctx) { P.binance(ctx) },
         steps: [P.binance_ledger(night, basic.merge('fail' => { '/sapi/v1/capital/deposit/hisrec' => { 'status' => 500, 'body' => { 'code' => -1000, 'msg' => 'An unknown error occurred while processing the request.' } } }))] },
+      # The watermark counts the trades Rails re-reads: from the floored start, 500 per pair, those already stored too.
+      { name: 'binance-ledger-stored_trade_newer', setup: incremental.call(t.(2026, 9, 10)) { |ctx| stored_trade.call(ctx, 102, 12, t.(2026, 9, 15)) },
+        steps: [P.binance_ledger(night, { 'symbols' => symbols, 'balances' => [%w[BTC 1]], 'deposits' => [P.bn_deposit(11, 'BTC', '1', t.(2026, 9, 12))],
+                                          'trades' => { 'BTCUSDT' => [newer_trade.call(102, 12, t.(2026, 9, 15))] } })] },
+      { name: 'binance-ledger-stored_trades_over_500',
+        setup: incremental.call(t.(2026, 9, 10)) { |ctx| (1..501).each { |i| stored_trade.call(ctx, i, i, t.(2026, 9, 15) + (i * 60)) } },
+        steps: [P.binance_ledger(night, { 'symbols' => symbols, 'balances' => [%w[BTC 1]],
+                                          'trades' => { 'BTCUSDT' => (1..501).map { |i| newer_trade.call(i, i, t.(2026, 9, 15) + (i * 60)) } } })] },
+      { name: 'binance-ledger-stored_trade_before_floor', setup: incremental.call(t.(2026, 6, 1)) { |ctx| stored_trade.call(ctx, 102, 12, t.(2026, 6, 15)) },
+        steps: [P.binance_ledger(night, { 'symbols' => symbols, 'balances' => [%w[BTC 1]], 'trades' => { 'BTCUSDT' => [newer_trade.call(102, 12, t.(2026, 6, 15))] } })] },
       # ---- listed divergences: Rust reads what Rails misses (D2b rulings Q1-Q3, Q7, Q10, Q14, and the window floor) ----
       { name: 'binance-ledger-crypto_pair_later', setup: incremental.call(t.(2026, 9, 19, 2)) { |ctx| stored.call(ctx) }, steps: [P.binance_ledger(night, later)] },
       { name: 'binance-ledger-over_500_trades', setup: ->(ctx) { P.binance(ctx) },

@@ -9,6 +9,8 @@
 //!   symbol or source and stores a garbage amount as 0);
 //! - trades are read per symbol by id (`fromId`: one past the largest trade id stored for it, else 0), every page of
 //!   1000, so a symbol's history is whole whatever its length (Rails reads the 500 most recent, or 500 from a time);
+//!   the watermark still counts what Rails' read returns, stored trades included (`rails_trades_seen`), so it moves as
+//!   Rails' does;
 //! - the symbols are found again every run, from Binance's exchange information: every pair whose base or quote the
 //!   account ever held (this run's transfers, today's balances, every stored row); Rails re-reads only fiat-quoted pairs
 //!   it already stored, so a coin/coin pair or a new pair is never read again after the first sync;
@@ -58,6 +60,10 @@ pub const WINDOW_DAYS: i64 = 89;
 /// TRANSFER_HISTORY_FROM: Binance opened in July 2017.
 pub const HISTORY_FROM_MS: i64 = 1_498_867_200_000; // 2017-07-01T00:00:00Z
 pub const OVERLAP_HOURS: i64 = 25;
+/// Exchanges::Binance#ledger_window: Rails floors an incremental start to 80 days ago.
+pub const LEDGER_WINDOW_DAYS: i64 = 80;
+/// What one myTrades answer holds when Rails sends no limit.
+pub const RAILS_TRADES: usize = 500;
 /// What one answer may hold. The exchange information lists every symbol Binance ever had (a few thousand).
 pub const MAX_PAGE_BYTES: usize = 8 * 1024 * 1024;
 pub const MAX_INFO_BYTES: usize = 64 * 1024 * 1024;
@@ -291,7 +297,10 @@ pub fn trade_cursor(tx_id: &str) -> Option<(String, i64)> {
 }
 
 /// What the run starts from, read in one phase.
-struct Start { key: Key, watermark: Option<DateTime<Utc>>, raw_watermark: Option<i64>, coins: BTreeSet<String>, cursors: HashMap<String, i64> }
+/// `stored`: every stored trade per symbol (id, time); `pairs`: Exchanges::Binance#known_traded_symbols, the pairs Rails
+/// re-reads on an incremental sync (base and quote of a stored trade row with a quote).
+struct Start { key: Key, watermark: Option<DateTime<Utc>>, raw_watermark: Option<i64>, coins: BTreeSet<String>, cursors: HashMap<String, i64>,
+               stored: HashMap<String, Vec<(i64, DateTime<Utc>)>>, pairs: HashSet<String> }
 
 fn start(c: &Connection, key_id: i64, version: &crate::engine::model::CredentialVersion) -> Result<Start, SyncError> {
     let key = load_key_of(c, key_id, &[BINANCE, BINANCE_US])?;
@@ -300,16 +309,22 @@ fn start(c: &Connection, key_id: i64, version: &crate::engine::model::Credential
     let watermark = if super::cache::ledger_produced_by(c, key_id, version)? { key.last_synced_at } else { None };
     let mut coins = BTreeSet::new();
     let mut cursors: HashMap<String, i64> = HashMap::new();
-    let mut s = c.prepare("SELECT base_currency, quote_currency, fee_currency, tx_id, entry_type FROM account_transactions WHERE user_id = ?1 AND exchange_id = ?2")?;
+    let mut stored: HashMap<String, Vec<(i64, DateTime<Utc>)>> = HashMap::new();
+    let mut pairs = HashSet::new();
+    let mut s = c.prepare("SELECT base_currency, quote_currency, fee_currency, tx_id, entry_type, transacted_at FROM account_transactions WHERE user_id = ?1 AND exchange_id = ?2")?;
     let mut rows = s.query(params![key.user_id, key.exchange_id])?;
     while let Some(r) = rows.next()? {
         for i in 0..3 { if let Some(coin) = r.get::<_, Option<String>>(i)? { coins.insert(coin); } }
-        if let (Some(tx_id), true) = (r.get::<_, Option<String>>(3)?, [BUY, SELL, SWAP_IN, SWAP_OUT].contains(&r.get::<_, i64>(4)?)) {
-            if let Some((symbol, id)) = trade_cursor(&tx_id) { let max = cursors.entry(symbol).or_insert(id); *max = (*max).max(id); }
+        if ![BUY, SELL, SWAP_IN, SWAP_OUT].contains(&r.get::<_, i64>(4)?) { continue; }
+        if let (Some(base), Some(quote)) = (r.get::<_, Option<String>>(0)?, r.get::<_, Option<String>>(1)?) { pairs.insert(format!("{base}{quote}")); }
+        if let Some((symbol, id)) = r.get::<_, Option<String>>(3)?.as_deref().and_then(trade_cursor) {
+            let max = cursors.entry(symbol.clone()).or_insert(id);
+            *max = (*max).max(id);
+            if let Some(at) = r.get::<_, Option<String>>(5)? { stored.entry(symbol).or_default().push((id, crate::codec::parse_time(&at)?)); }
         }
     }
     drop(rows);
-    Ok(Start { key, watermark, raw_watermark, coins, cursors })
+    Ok(Start { key, watermark, raw_watermark, coins, cursors, stored, pairs })
 }
 
 struct Symbol { base: String, quote: String, trading: bool }
@@ -340,7 +355,8 @@ fn held(text: &str) -> Result<Vec<String>, Fail> {
     Ok(out)
 }
 
-struct Fetched { entries: Vec<Entry>, pending: Option<DateTime<Utc>> }
+/// `seen`: the newest row time Rails' read of the same venue returns (AccountTransactionSync's `max_seen`).
+struct Fetched { entries: Vec<Entry>, pending: Option<DateTime<Utc>>, seen: Option<DateTime<Utc>> }
 
 /// Every read of the run; no database handle in reach.
 async fn fetch<T: Transport>(venue: &BinanceVenue<T>, clock: &dyn Clock, pacing: Pacing, from: i64, start: &Start, full: bool) -> Result<Fetched, Fail> {
@@ -373,15 +389,20 @@ async fn fetch<T: Transport>(venue: &BinanceVenue<T>, clock: &dyn Clock, pacing:
         .await.map_err(|e| (e, false))?;
     let mut coins = start.coins.clone();
     coins.extend(t.coins.iter().cloned());
-    coins.extend(tokio::task::spawn_blocking(move || held(&account)).await.unwrap_or_else(|_| Err(("reading the venue's answer was interrupted".into(), true)))?);
+    let balances = tokio::task::spawn_blocking(move || held(&account)).await.unwrap_or_else(|_| Err(("reading the venue's answer was interrupted".into(), true)))?;
+    coins.extend(balances.iter().cloned());
     let list: Vec<(&str, &str, &str, bool)> = all.iter().map(|(n, s)| (n.as_str(), s.base.as_str(), s.quote.as_str(), s.trading)).collect();
     let held: HashSet<&str> = coins.iter().map(String::as_str).collect();
     let stored: HashSet<&str> = start.cursors.keys().map(String::as_str).collect();
     let candidates = candidate_symbols(&list, &held, &stored, full);
+    let mut seen = t.entries.iter().filter_map(|e| e.transacted_at).max();
+    // Rails' trade read starts at the floored start (an incremental sync), or reads the latest page (a full one).
+    let rails_from = (!full).then(|| from.max(ms(now - Duration::days(LEDGER_WINDOW_DAYS))));
     let mut entries = t.entries;
     let mut calls = 0;
     for name in &candidates {
         let s = &all[name];
+        let mut read: Vec<(i64, DateTime<Utc>)> = vec![];
         let mut from_id = start.cursors.get(name).map_or(0, |id| id + 1);
         loop {
             if calls > 0 { tokio::time::sleep(pacing.trades).await; }
@@ -393,15 +414,22 @@ async fn fetch<T: Transport>(venue: &BinanceVenue<T>, clock: &dyn Clock, pacing:
                 let id = integer(raw, "id", "trade")?;
                 if id < from_id || last.is_some_and(|l| id <= l) { return Err(("the trade list's ids do not advance: nothing was read".into(), true)); }
                 last = Some(id);
-                entries.extend(normalize_trade(raw, name, &s.base, &s.quote)?);
+                let rows = normalize_trade(raw, name, &s.base, &s.quote)?;
+                if let Some(at) = rows[0].transacted_at { read.push((id, at)); }
+                entries.extend(rows);
             }
             if entries.len() > MAX_ENTRIES { return Err((format!("more than {MAX_ENTRIES} ledger entries in one run"), true)); }
             match (trades.len() < PAGE, last) { (true, _) | (_, None) => break, (false, Some(l)) => from_id = l + 1 }
         }
+        let rails_reads = if full { t.coins.contains(&s.base) || balances.contains(&s.base) } else { start.pairs.contains(name) };
+        let newest = if rails_reads { rails_trades_seen(start.stored.get(name).map_or(&[][..], Vec::as_slice), &read, rails_from) } else { read.iter().map(|r| r.1).max() };
+        seen = seen.max(newest);
     }
-    entries.extend(others(venue, clock, pacing, (!full).then_some(from)).await?);
+    let rest = others(venue, clock, pacing, (!full).then_some(from)).await?;
+    seen = seen.max(rest.iter().filter_map(|e| e.transacted_at).max());
+    entries.extend(rest);
     if entries.len() > MAX_ENTRIES { return Err((format!("more than {MAX_ENTRIES} ledger entries in one run"), true)); }
-    Ok(Fetched { entries, pending: t.pending })
+    Ok(Fetched { entries, pending: t.pending, seen })
 }
 
 /// One signed GET whose answer is an object.
@@ -610,8 +638,8 @@ pub(crate) async fn sync_captured<T: Transport>(db: &Db, transport: T, base: &st
     }
     ledger::resolve_recent(db, version, &key, progress.assets.clone(), now).await?;
     let mut outcome = progress.out;
-    let max_seen = entries.iter().filter_map(|e| e.transacted_at).max();
-    // The watermark: the newest row read, held back by a row that could not be saved and by a transfer still pending,
+    let max_seen = fetched.seen;
+    // The watermark: the newest row Rails' read returns (its trade page re-reads stored trades; Rust's reads by id never do), held back by a row that could not be saved and by a transfer still pending,
     // never past the moment this sync began; unchanged when nothing was read.
     let watermark = [max_seen, progress.min_skipped, fetched.pending].into_iter().flatten().min().or(prior).map(|w| w.min(now));
     // `update!(last_synced_at:, last_sync_error: nil)`: written only when one of them moves.
@@ -626,6 +654,17 @@ pub(crate) async fn sync_captured<T: Transport>(db: &Db, transport: T, base: &st
     outcome.complete = true;
     outcome.linked = ledger::link_transfers_for(db, user_id, Some(version), clock.now()).await?;
     Ok(Ok(outcome))
+}
+
+/// The newest trade time Rails' `account_trade_list` returns for one pair, the venue holding `stored` and `read` (by id):
+/// the first RAILS_TRADES from `from` (an incremental sync), else the latest RAILS_TRADES, which end at the newest.
+pub fn rails_trades_seen(stored: &[(i64, DateTime<Utc>)], read: &[(i64, DateTime<Utc>)], from: Option<i64>) -> Option<DateTime<Utc>> {
+    let venue: std::collections::BTreeMap<i64, DateTime<Utc>> = stored.iter().chain(read).copied().collect();
+    match from {
+        // A stored time is Ruby's float read of the venue's milliseconds, at most a microsecond under them.
+        Some(from) => venue.values().filter(|at| ms(**at + Duration::microseconds(1)) >= from).take(RAILS_TRADES).max().copied(),
+        None => venue.values().rev().take(RAILS_TRADES).max().copied(),
+    }
 }
 
 /// The symbols a run reads, in name order: every pair whose base or quote the account held; on an incremental run only
@@ -666,6 +705,18 @@ mod tests {
         assert_eq!(trade_cursor("0xd1"), None);
         assert_eq!(trade_cursor("fiat-buy-123"), None);
         assert_eq!(trade_cursor("ETHBTC-3-7-x"), None);
+    }
+
+    #[test]
+    fn rails_trade_page_is_500_from_the_start_or_the_latest_500() {
+        let venue_ms = |m: i64| 1_785_000_000_123 + m * 60_000;
+        let at = |m: i64| ruby_time_at_ms(venue_ms(m)).unwrap();
+        let stored: Vec<_> = (0..400).map(|i| (i, at(i))).collect();
+        let read: Vec<_> = (400..700).map(|i| (i, at(i))).collect();
+        assert_eq!(rails_trades_seen(&stored, &read, Some(venue_ms(10))), Some(at(509)), "500 from the start, stored ones first");
+        assert_eq!(rails_trades_seen(&stored, &read, Some(ms(at(699)))), Some(at(699)), "a trade at the start's millisecond is read");
+        assert_eq!(rails_trades_seen(&stored, &read, Some(venue_ms(699) + 1)), None);
+        assert_eq!(rails_trades_seen(&stored, &read, None), Some(at(699)));
     }
 
     #[test]
