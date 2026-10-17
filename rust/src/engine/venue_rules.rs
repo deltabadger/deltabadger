@@ -62,6 +62,9 @@ pub struct VenueRules {
     /// ones (Bot::StaleOrderResolver). Exchanges::Binance#get_orders always answers `missing: []`: an id it did not return is
     /// simply left waiting.
     pub reports_missing: bool,
+    /// Whether a lookup that finds nothing can ever prove an order absent (placement::recover_since's absence rule). False on
+    /// KuCoin (plan K r4): its lookups can only FIND an order, so an unfound one waits for `deltabadger resolve-placement`.
+    pub absence_provable: bool,
 }
 
 fn any(patterns: &[&str], messages: &[String]) -> bool { patterns.iter().any(|p| messages.iter().any(|m| m.contains(p))) }
@@ -98,6 +101,7 @@ pub static KRAKEN: VenueRules = VenueRules {
     transport_raises: false,
     follow_up_strict: false, market_hours: false,
     reports_missing: true,
+    absence_provable: true,
 };
 
 /// Client::NETWORK_TRANSIENT_PATTERNS: Exchange#transient_error? applies them to every venue.
@@ -129,6 +133,7 @@ pub static ALPACA: VenueRules = VenueRules {
     transport_raises: true,
     follow_up_strict: true, market_hours: true,
     reports_missing: true,
+    absence_provable: true,
 };
 
 /// Exchanges::Binance::ERRORS[:transient]: the -1021 strings (also Exchange::PLACEMENT_SAFE_TRANSIENT_ERRORS).
@@ -164,6 +169,42 @@ pub static BINANCE: VenueRules = VenueRules {
     // Bot::FetchAndUpdateOrderJob asks Exchanges::Binance#get_order (GET /api/v3/order): one order, strict.
     follow_up_strict: true, market_hours: false,
     reports_missing: false,
+    absence_provable: true,
+};
+
+/// Exchange#transient_error? for KuCoin: Client::NETWORK_TRANSIENT_PATTERNS plus Exchanges::Kucoin::ERRORS[:transient].
+const KUCOIN_TRANSIENT: [&str; 15] = ["Net::ReadTimeout", "Net::OpenTimeout", "Faraday::TimeoutError", "Faraday::ConnectionFailed",
+    "execution expired", "Connection reset", "Errno::ECONNRESET", "connection refused", "Connection refused", "Errno::ECONNREFUSED",
+    "end of file reached", "unexpected eof while reading",
+    "Invalid KC-API-TIMESTAMP", "Internal Server Error", "The system is busy"];
+
+pub static KUCOIN: VenueRules = VenueRules {
+    exchange_type: "Exchanges::Kucoin",
+    name: "KuCoin",
+    // Exchanges::Kucoin::ERRORS (kucoin.rb:3-28), pinned by tests/kucoin.rs against the recorded list.
+    kinds: [("insufficient_funds", &["Balance insufficient!", "Insufficient balance"]),
+            ("invalid_key", &["Invalid API-Key", "Invalid KC-API-SIGN", "Invalid passphrase", "The API key does not exist or site mismatch.",
+                              "KC-API-KEY does not exist", "KC-API-KEY not exists", "KC-API-PASSPHRASE", "Signature error"]),
+            ("permission_denied", &["Access Denied"]), ("restricted", &[]), ("throttle", &["429000", "Too Many Requests"]),
+            ("transient", &["Invalid KC-API-TIMESTAMP", "Internal Server Error", "The system is busy"])],
+    transient_text: &KUCOIN_TRANSIENT,
+    // Plan K r5: the venue's outage and busy answers (500000, 230005) leave a placement unknown whatever the HTTP status, as
+    // Exchange#ambiguous_placement_error? reads ERRORS[:transient]; "Invalid KC-API-TIMESTAMP" (400002) is placement-safe
+    // instead. The network patterns are left to the transport, which knows whether the request left (Client.pre_transmission?).
+    add_outcome_unknown: &["Internal Server Error", "The system is busy", "500000", "230005"],
+    // Exchanges::Kucoin#minimum_amount_logic: market :base_or_quote, limit :base_and_quote_in_base (kucoin.rb:362).
+    minimum_logic: MinimumLogic { market: AmountLogic::BaseOrQuote, limit: AmountLogic::BaseAndQuoteInBase },
+    // Honeymaker::Clients::Kucoin#place_order sends BigDecimal#to_s('F') strings.
+    wire: WireFormat::Kraken,
+    deadline_sent: false,
+    reach_within_secs: 55,
+    absence_margin_secs: 1200,
+    transport_raises: false,
+    // Bot::FetchAndUpdateOrderJob asks Exchanges::Kucoin#get_order: one order, strict.
+    follow_up_strict: true, market_hours: false,
+    // #get_orders names a forgotten order under `missing` (kucoin.rb:312).
+    reports_missing: true,
+    absence_provable: false,
 };
 
 pub fn for_exchange(exchange_type: &str) -> Option<&'static VenueRules> {

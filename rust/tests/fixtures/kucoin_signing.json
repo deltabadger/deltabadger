@@ -1,0 +1,494 @@
+{
+  "sources": {
+    "app/models/exchanges/kucoin.rb": "a4dd07679ac5297f73d7713a812122728872629f60c13cf82d5f1b5c205fef45",
+    "app/models/exchange.rb": "ab627a2812bc0c7b4a546459e64f8f5d93617c496308d5f03163f44cef12d8d7",
+    "app/models/client.rb": "f5a9f759c2007fae9a264dca94d315b1092c8cb391381905bc686e374c22683b",
+    "app/models/ticker.rb": "1ae4dac68cab58acaa6679c9bca83e700212ad4baf19e2d8c0946b07eaaabbbc",
+    "script/rust/record_kucoin_signing.rb": "6feb5eb5295a481fe1ae521f64362a48a838ec5f7197062faa4360b1e7fdb192"
+  },
+  "gems": {
+    "honeymaker": "0.12.5"
+  },
+  "api_key": [
+    "6716e9b2a1c3f00001a2b3c4",
+    "4f1e8a2c-7b3d-4e6f-9a1b-2c3d4e5f6a7b",
+    "my-passphrase"
+  ],
+  "errors": {
+    "insufficient_funds": [
+      "Balance insufficient!",
+      "Insufficient balance"
+    ],
+    "invalid_key": [
+      "Invalid API-Key",
+      "Invalid KC-API-SIGN",
+      "Invalid passphrase",
+      "The API key does not exist or site mismatch.",
+      "KC-API-KEY does not exist",
+      "KC-API-KEY not exists",
+      "KC-API-PASSPHRASE",
+      "Signature error"
+    ],
+    "permission_denied": [
+      "Access Denied"
+    ],
+    "throttle": [
+      "429000",
+      "Too Many Requests"
+    ],
+    "transient": [
+      "Invalid KC-API-TIMESTAMP",
+      "Internal Server Error",
+      "The system is busy"
+    ],
+    "placement_safe_transient": [
+      "Invalid KC-API-TIMESTAMP"
+    ]
+  },
+  "network_transient": [
+    "Net::ReadTimeout",
+    "Net::OpenTimeout",
+    "Faraday::TimeoutError",
+    "Faraday::ConnectionFailed",
+    "execution expired",
+    "Connection reset",
+    "Errno::ECONNRESET",
+    "connection refused",
+    "Connection refused",
+    "Errno::ECONNREFUSED",
+    "end of file reached",
+    "unexpected eof while reading"
+  ],
+  "placement_safe": [
+    "Timestamp for this request is outside of the recvWindow",
+    "Timestamp for this request was"
+  ],
+  "signing": [
+    {
+      "method": "GET",
+      "path": "/api/v1/accounts",
+      "query": "type=trade",
+      "body": null,
+      "headers": {
+        "Kc-api-key": "6716e9b2a1c3f00001a2b3c4",
+        "Kc-api-sign": "BMZzI2U0WCxyt+eFIklUOgWviPMxyR/ja5Ddmz+R94U=",
+        "Kc-api-timestamp": "1789871400751",
+        "Kc-api-passphrase": "ikwHYfq0zVmDjQuNIuFc2oruCKT1S03O5C5NfHn70DI=",
+        "Kc-api-key-version": "2",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "get_accounts",
+      "api_key": "6716e9b2a1c3f00001a2b3c4",
+      "api_secret": "4f1e8a2c-7b3d-4e6f-9a1b-2c3d4e5f6a7b",
+      "passphrase": "my-passphrase",
+      "timestamp": 1789871400751
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/orders/6716f0a2c1b6d10007a3b1c5",
+      "query": null,
+      "body": null,
+      "headers": {
+        "Kc-api-key": "6716e9b2a1c3f00001a2b3c4",
+        "Kc-api-sign": "RN6LFfaBZkM25N+w8hFol8qTcFnNXqgme+3twhfecGo=",
+        "Kc-api-timestamp": "1789871400752",
+        "Kc-api-passphrase": "ikwHYfq0zVmDjQuNIuFc2oruCKT1S03O5C5NfHn70DI=",
+        "Kc-api-key-version": "2",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "get_order",
+      "api_key": "6716e9b2a1c3f00001a2b3c4",
+      "api_secret": "4f1e8a2c-7b3d-4e6f-9a1b-2c3d4e5f6a7b",
+      "passphrase": "my-passphrase",
+      "timestamp": 1789871400752
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/fills",
+      "query": "currentPage=2&endAt=1789604800000&orderId=6716f0a2c1b6d10007a3b1c5&pageSize=500&startAt=1789000000000",
+      "body": null,
+      "headers": {
+        "Kc-api-key": "6716e9b2a1c3f00001a2b3c4",
+        "Kc-api-sign": "UFO6ll3IRa9UjhciN7gGXn47jzz4TCeW5UvogMpxaWM=",
+        "Kc-api-timestamp": "1789871400753",
+        "Kc-api-passphrase": "ikwHYfq0zVmDjQuNIuFc2oruCKT1S03O5C5NfHn70DI=",
+        "Kc-api-key-version": "2",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "get_fills",
+      "api_key": "6716e9b2a1c3f00001a2b3c4",
+      "api_secret": "4f1e8a2c-7b3d-4e6f-9a1b-2c3d4e5f6a7b",
+      "passphrase": "my-passphrase",
+      "timestamp": 1789871400753
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/accounts",
+      "query": "currency=A+B%2F~%2A%C3%A9&type=trade",
+      "body": null,
+      "headers": {
+        "Kc-api-key": "6716e9b2a1c3f00001a2b3c4",
+        "Kc-api-sign": "8klMxsl7Kq0LNtY1niLU3IBPu6vnx+XU3Wh/F47GQ3Q=",
+        "Kc-api-timestamp": "1789871400754",
+        "Kc-api-passphrase": "ikwHYfq0zVmDjQuNIuFc2oruCKT1S03O5C5NfHn70DI=",
+        "Kc-api-key-version": "2",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "get_accounts escaped",
+      "api_key": "6716e9b2a1c3f00001a2b3c4",
+      "api_secret": "4f1e8a2c-7b3d-4e6f-9a1b-2c3d4e5f6a7b",
+      "passphrase": "my-passphrase",
+      "timestamp": 1789871400754
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/orders",
+      "query": null,
+      "body": "{\"clientOid\":\"5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01\",\"side\":\"buy\",\"symbol\":\"BTC-USDT\",\"type\":\"market\",\"funds\":\"60.5\"}",
+      "headers": {
+        "Kc-api-key": "6716e9b2a1c3f00001a2b3c4",
+        "Kc-api-sign": "SJ15ATeeG+pdk29kaQYklt3q7ajEYt3/yUkaYcrGz+o=",
+        "Kc-api-timestamp": "1789871400755",
+        "Kc-api-passphrase": "ikwHYfq0zVmDjQuNIuFc2oruCKT1S03O5C5NfHn70DI=",
+        "Kc-api-key-version": "2",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "place_order market funds",
+      "api_key": "6716e9b2a1c3f00001a2b3c4",
+      "api_secret": "4f1e8a2c-7b3d-4e6f-9a1b-2c3d4e5f6a7b",
+      "passphrase": "my-passphrase",
+      "timestamp": 1789871400755
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/orders",
+      "query": null,
+      "body": "{\"clientOid\":\"5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01\",\"side\":\"sell\",\"symbol\":\"BTC-USDT\",\"type\":\"limit\",\"size\":\"0.00093\",\"price\":\"64150.5\"}",
+      "headers": {
+        "Kc-api-key": "6716e9b2a1c3f00001a2b3c4",
+        "Kc-api-sign": "B0xB3hFJQ9VMrPntZIwiQSZjVAGDgQmCVL32Oiy2MyQ=",
+        "Kc-api-timestamp": "1789871400756",
+        "Kc-api-passphrase": "ikwHYfq0zVmDjQuNIuFc2oruCKT1S03O5C5NfHn70DI=",
+        "Kc-api-key-version": "2",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "place_order limit",
+      "api_key": "6716e9b2a1c3f00001a2b3c4",
+      "api_secret": "4f1e8a2c-7b3d-4e6f-9a1b-2c3d4e5f6a7b",
+      "passphrase": "my-passphrase",
+      "timestamp": 1789871400756
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/orders/6716f0a2c1b6d10007a3b1c5",
+      "query": null,
+      "body": null,
+      "headers": {
+        "Kc-api-key": "6716e9b2a1c3f00001a2b3c4",
+        "Kc-api-sign": "NqojCX4mfURF7J+JeulGRPfSWV7Fyh6o4nGut+TTdPA=",
+        "Kc-api-timestamp": "1789871400757",
+        "Kc-api-passphrase": "ikwHYfq0zVmDjQuNIuFc2oruCKT1S03O5C5NfHn70DI=",
+        "Kc-api-key-version": "2",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "cancel_order",
+      "api_key": "6716e9b2a1c3f00001a2b3c4",
+      "api_secret": "4f1e8a2c-7b3d-4e6f-9a1b-2c3d4e5f6a7b",
+      "passphrase": "my-passphrase",
+      "timestamp": 1789871400757
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/accounts",
+      "query": "type=trade",
+      "body": null,
+      "headers": {
+        "Kc-api-key": "k",
+        "Kc-api-sign": "6c6g5//3NrPYOuv/WNO3Ubihb26lpqCATCpUpjzg3Wg=",
+        "Kc-api-timestamp": "1789871401751",
+        "Kc-api-passphrase": "LXpkUHDr0eFlY5lejzb0ssvlyVfDYywkMCIrGIKhokY=",
+        "Kc-api-key-version": "2",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "get_accounts",
+      "api_key": "k",
+      "api_secret": "s3cr3t~/+=",
+      "passphrase": "pass phrase/é",
+      "timestamp": 1789871401751
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/orders/6716f0a2c1b6d10007a3b1c5",
+      "query": null,
+      "body": null,
+      "headers": {
+        "Kc-api-key": "k",
+        "Kc-api-sign": "2n/4eJ6XnbgTlGF4SkM0b//yoi7C6uJ9WT/Fy8tt1Dc=",
+        "Kc-api-timestamp": "1789871401752",
+        "Kc-api-passphrase": "LXpkUHDr0eFlY5lejzb0ssvlyVfDYywkMCIrGIKhokY=",
+        "Kc-api-key-version": "2",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "get_order",
+      "api_key": "k",
+      "api_secret": "s3cr3t~/+=",
+      "passphrase": "pass phrase/é",
+      "timestamp": 1789871401752
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/fills",
+      "query": "currentPage=2&endAt=1789604800000&orderId=6716f0a2c1b6d10007a3b1c5&pageSize=500&startAt=1789000000000",
+      "body": null,
+      "headers": {
+        "Kc-api-key": "k",
+        "Kc-api-sign": "Urt+nXjwG/rJOAMVjoV7PbiGAyDxdfG5+sFGQlItD/s=",
+        "Kc-api-timestamp": "1789871401753",
+        "Kc-api-passphrase": "LXpkUHDr0eFlY5lejzb0ssvlyVfDYywkMCIrGIKhokY=",
+        "Kc-api-key-version": "2",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "get_fills",
+      "api_key": "k",
+      "api_secret": "s3cr3t~/+=",
+      "passphrase": "pass phrase/é",
+      "timestamp": 1789871401753
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/accounts",
+      "query": "currency=A+B%2F~%2A%C3%A9&type=trade",
+      "body": null,
+      "headers": {
+        "Kc-api-key": "k",
+        "Kc-api-sign": "0uz4sPyWxapus3+Oi9/GCAJR2DwjgeABziWEy8zgQtM=",
+        "Kc-api-timestamp": "1789871401754",
+        "Kc-api-passphrase": "LXpkUHDr0eFlY5lejzb0ssvlyVfDYywkMCIrGIKhokY=",
+        "Kc-api-key-version": "2",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "get_accounts escaped",
+      "api_key": "k",
+      "api_secret": "s3cr3t~/+=",
+      "passphrase": "pass phrase/é",
+      "timestamp": 1789871401754
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/orders",
+      "query": null,
+      "body": "{\"clientOid\":\"5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01\",\"side\":\"buy\",\"symbol\":\"BTC-USDT\",\"type\":\"market\",\"funds\":\"60.5\"}",
+      "headers": {
+        "Kc-api-key": "k",
+        "Kc-api-sign": "df/CaV+xezPR/8zUrLIHB9z3cNvlfUmUi7mKOT6pJmI=",
+        "Kc-api-timestamp": "1789871401755",
+        "Kc-api-passphrase": "LXpkUHDr0eFlY5lejzb0ssvlyVfDYywkMCIrGIKhokY=",
+        "Kc-api-key-version": "2",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "place_order market funds",
+      "api_key": "k",
+      "api_secret": "s3cr3t~/+=",
+      "passphrase": "pass phrase/é",
+      "timestamp": 1789871401755
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/orders",
+      "query": null,
+      "body": "{\"clientOid\":\"5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01\",\"side\":\"sell\",\"symbol\":\"BTC-USDT\",\"type\":\"limit\",\"size\":\"0.00093\",\"price\":\"64150.5\"}",
+      "headers": {
+        "Kc-api-key": "k",
+        "Kc-api-sign": "dDLYBBSF28J6fnNYG+0ZKQq+62g9201r5+rXdA5hK3g=",
+        "Kc-api-timestamp": "1789871401756",
+        "Kc-api-passphrase": "LXpkUHDr0eFlY5lejzb0ssvlyVfDYywkMCIrGIKhokY=",
+        "Kc-api-key-version": "2",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "place_order limit",
+      "api_key": "k",
+      "api_secret": "s3cr3t~/+=",
+      "passphrase": "pass phrase/é",
+      "timestamp": 1789871401756
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/orders/6716f0a2c1b6d10007a3b1c5",
+      "query": null,
+      "body": null,
+      "headers": {
+        "Kc-api-key": "k",
+        "Kc-api-sign": "zQPM+dWIveTOANIig2KeNFqLyehrJ8PX0XKErUf2GZI=",
+        "Kc-api-timestamp": "1789871401757",
+        "Kc-api-passphrase": "LXpkUHDr0eFlY5lejzb0ssvlyVfDYywkMCIrGIKhokY=",
+        "Kc-api-key-version": "2",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "cancel_order",
+      "api_key": "k",
+      "api_secret": "s3cr3t~/+=",
+      "passphrase": "pass phrase/é",
+      "timestamp": 1789871401757
+    }
+  ],
+  "orders": [
+    {
+      "type": "market",
+      "side": "buy",
+      "amount_type": "quote",
+      "amount": "60.1234567",
+      "price": null,
+      "body": "{\"clientOid\":\"5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01\",\"side\":\"buy\",\"symbol\":\"BTC-USDT\",\"type\":\"market\",\"funds\":\"60.123456\"}",
+      "headers": {
+        "Kc-api-key": "6716e9b2a1c3f00001a2b3c4",
+        "Kc-api-sign": "AKDzaAG5KTLWt1IyeC0BXM77jibpAZ9WPt2csB28jWA=",
+        "Kc-api-timestamp": "1789871400750",
+        "Kc-api-passphrase": "ikwHYfq0zVmDjQuNIuFc2oruCKT1S03O5C5NfHn70DI=",
+        "Kc-api-key-version": "2",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "timestamp": 1789871400750
+    },
+    {
+      "type": "market",
+      "side": "sell",
+      "amount_type": "quote",
+      "amount": "60.1234567",
+      "price": null,
+      "body": "{\"clientOid\":\"5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01\",\"side\":\"sell\",\"symbol\":\"BTC-USDT\",\"type\":\"market\",\"funds\":\"60.123456\"}",
+      "headers": {
+        "Kc-api-key": "6716e9b2a1c3f00001a2b3c4",
+        "Kc-api-sign": "MwrZZusuoCoa4NYpg5NYX8qG9ZX47S74kFawA5oRL6Y=",
+        "Kc-api-timestamp": "1789871400750",
+        "Kc-api-passphrase": "ikwHYfq0zVmDjQuNIuFc2oruCKT1S03O5C5NfHn70DI=",
+        "Kc-api-key-version": "2",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "timestamp": 1789871400750
+    },
+    {
+      "type": "market",
+      "side": "buy",
+      "amount_type": "base",
+      "amount": "0.000123456789",
+      "price": null,
+      "body": "{\"clientOid\":\"5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01\",\"side\":\"buy\",\"symbol\":\"BTC-USDT\",\"type\":\"market\",\"size\":\"0.00012345\"}",
+      "headers": {
+        "Kc-api-key": "6716e9b2a1c3f00001a2b3c4",
+        "Kc-api-sign": "lTJ0AY3SPNsvIIC82NTR9yPK+eRcuAzt7nWF6GNV1ZI=",
+        "Kc-api-timestamp": "1789871400750",
+        "Kc-api-passphrase": "ikwHYfq0zVmDjQuNIuFc2oruCKT1S03O5C5NfHn70DI=",
+        "Kc-api-key-version": "2",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "timestamp": 1789871400750
+    },
+    {
+      "type": "market",
+      "side": "sell",
+      "amount_type": "base",
+      "amount": "0.000123456789",
+      "price": null,
+      "body": "{\"clientOid\":\"5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01\",\"side\":\"sell\",\"symbol\":\"BTC-USDT\",\"type\":\"market\",\"size\":\"0.00012345\"}",
+      "headers": {
+        "Kc-api-key": "6716e9b2a1c3f00001a2b3c4",
+        "Kc-api-sign": "QFAVo9M4NwBVG85jw6GWQ8JxnxZl51Yl42FTbwprsGk=",
+        "Kc-api-timestamp": "1789871400750",
+        "Kc-api-passphrase": "ikwHYfq0zVmDjQuNIuFc2oruCKT1S03O5C5NfHn70DI=",
+        "Kc-api-key-version": "2",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "timestamp": 1789871400750
+    },
+    {
+      "type": "limit",
+      "side": "buy",
+      "amount_type": "base",
+      "amount": "0.000935",
+      "price": "64150.57",
+      "body": "{\"clientOid\":\"5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01\",\"side\":\"buy\",\"symbol\":\"BTC-USDT\",\"type\":\"limit\",\"size\":\"0.000935\",\"price\":\"64150.5\"}",
+      "headers": {
+        "Kc-api-key": "6716e9b2a1c3f00001a2b3c4",
+        "Kc-api-sign": "FPKg/BM7IQyxh+z2j/7zzxddWks3YOBBB/3tQxYunDM=",
+        "Kc-api-timestamp": "1789871400750",
+        "Kc-api-passphrase": "ikwHYfq0zVmDjQuNIuFc2oruCKT1S03O5C5NfHn70DI=",
+        "Kc-api-key-version": "2",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "timestamp": 1789871400750
+    },
+    {
+      "type": "limit",
+      "side": "sell",
+      "amount_type": "base",
+      "amount": "0.000935",
+      "price": "64150.57",
+      "body": "{\"clientOid\":\"5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01\",\"side\":\"sell\",\"symbol\":\"BTC-USDT\",\"type\":\"limit\",\"size\":\"0.000935\",\"price\":\"64150.5\"}",
+      "headers": {
+        "Kc-api-key": "6716e9b2a1c3f00001a2b3c4",
+        "Kc-api-sign": "XG9APqdj8oT00IglWSWzxzQnae9GCyX2SFn7qMa+4Yo=",
+        "Kc-api-timestamp": "1789871400750",
+        "Kc-api-passphrase": "ikwHYfq0zVmDjQuNIuFc2oruCKT1S03O5C5NfHn70DI=",
+        "Kc-api-key-version": "2",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "timestamp": 1789871400750
+    },
+    {
+      "type": "limit",
+      "side": "buy",
+      "amount_type": "quote",
+      "amount": "60",
+      "price": "64150.57",
+      "body": "{\"clientOid\":\"5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01\",\"side\":\"buy\",\"symbol\":\"BTC-USDT\",\"type\":\"limit\",\"size\":\"0.0009353\",\"price\":\"64150.5\"}",
+      "headers": {
+        "Kc-api-key": "6716e9b2a1c3f00001a2b3c4",
+        "Kc-api-sign": "nVBYIXfz4ZSKKdVyUz7wY3rWpeR/Ht0WsXjV/iSidbI=",
+        "Kc-api-timestamp": "1789871400750",
+        "Kc-api-passphrase": "ikwHYfq0zVmDjQuNIuFc2oruCKT1S03O5C5NfHn70DI=",
+        "Kc-api-key-version": "2",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "timestamp": 1789871400750
+    },
+    {
+      "type": "limit",
+      "side": "sell",
+      "amount_type": "quote",
+      "amount": "60",
+      "price": "64150.57",
+      "body": "{\"clientOid\":\"5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01\",\"side\":\"sell\",\"symbol\":\"BTC-USDT\",\"type\":\"limit\",\"size\":\"0.0009353\",\"price\":\"64150.5\"}",
+      "headers": {
+        "Kc-api-key": "6716e9b2a1c3f00001a2b3c4",
+        "Kc-api-sign": "4TPRN3xXqwW8yiGOJAzUayul4Gk+zPGKdWmL4oZ8mdE=",
+        "Kc-api-timestamp": "1789871400750",
+        "Kc-api-passphrase": "ikwHYfq0zVmDjQuNIuFc2oruCKT1S03O5C5NfHn70DI=",
+        "Kc-api-key-version": "2",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "timestamp": 1789871400750
+    }
+  ]
+}

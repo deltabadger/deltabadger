@@ -20,8 +20,9 @@ pub const DEADLINE_SECONDS: i64 = 10;
 /// Kraken enforces server-side anyway.
 pub const SEND_WINDOW_SECONDS: i64 = DEADLINE_SECONDS;
 pub const ABSENCE_AFTER_SECONDS: i64 = 60;
-/// Exchange::PLACEMENT_SAFE_TRANSIENT_ERRORS: definitive pre-trade rejections.
-pub const PLACEMENT_SAFE_TRANSIENT_ERRORS: [&str; 2] = ["Timestamp for this request is outside of the recvWindow", "Timestamp for this request was"];
+/// Exchange::PLACEMENT_SAFE_TRANSIENT_ERRORS: definitive pre-trade rejections, plus Exchanges::Kucoin::ERRORS[:placement_safe_transient]
+/// (400002). Rails scopes the KuCoin string to KuCoin; it is listed for every venue here, a string only KuCoin sends.
+pub const PLACEMENT_SAFE_TRANSIENT_ERRORS: [&str; 3] = ["Timestamp for this request is outside of the recvWindow", "Timestamp for this request was", "Invalid KC-API-TIMESTAMP"];
 
 #[derive(Debug, Clone)]
 pub struct Intent { pub cl_ord_id: String, pub deadline: DateTime<Utc>, pub at: DateTime<Utc>, pub plan: OrderPlan,
@@ -518,7 +519,7 @@ pub async fn recover_since<V: Venue>(c: &Connection, venue: &V, bot: &Bot, clock
             tx.commit()?;
             Ok(Recovery::Recorded(id))
         }
-        Ok(None) if started >= absent_from => {
+        Ok(None) if rules.absence_provable && started >= absent_from => {
             let tx = model::immediate(c)?;
             let fenced=model::check_credential_result(&tx, &intent.credential_version)?;
             if !still_pending(&tx, bot.id, &intent.cl_ord_id)? { return Ok(Recovery::NoIntent); }
