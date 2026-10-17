@@ -8,6 +8,7 @@ pub mod assets;
 pub mod auth;
 pub mod bearer;
 pub mod bot;
+pub mod bot_api;
 pub mod bots;
 pub mod broadcasts;
 pub mod below_minimum;
@@ -27,6 +28,7 @@ pub mod mcp;
 pub mod multipart;
 pub mod oauth;
 pub mod rate_limit;
+pub mod rest;
 pub mod ring;
 pub mod server;
 pub mod session;
@@ -695,6 +697,8 @@ fn routes(app: App) -> Router {
         .fallback(layout::not_ported)
         .layer(middleware::from_fn_with_state(app.clone(), pipeline))
         .merge(oauth_api(app.clone()))
+        // ActionController::API: outside the session/CSRF pipeline, as in Rails.
+        .merge(rest::router())
         // Outside the session/CSRF pipeline, as in Rails.
         .route("/up", only(get(up)))
         .route("/health-check", only(get(health_check)))

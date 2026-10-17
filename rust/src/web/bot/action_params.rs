@@ -119,7 +119,7 @@ pub fn json(bytes: &[u8]) -> Result<Param, ParamError> {
     Ok(value)
 }
 
-fn form(pairs: &[(String, String)]) -> Result<Param, ParamError> {
+pub(crate) fn form(pairs: &[(String, String)]) -> Result<Param, ParamError> {
     if pairs.len() > FORM_FIELDS { return Err(ParamError::Limit); }
     let mut out = Value::Object(Map::new());
     for (name, value) in pairs { normalize(&mut out, name, value, 0)?; }

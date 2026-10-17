@@ -297,8 +297,18 @@ pub async fn destroy(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> 
 
 /// The same consent helpers, reused by MCP. A personal application bypasses grants only for its owner.
 pub(crate) fn mcp_access(c: &Connection, user_id: i64, application_id: i64) -> Result<(Vec<String>, Vec<String>), WebError> {
-    let enabled = enabled_tools(c,user_id,&SURFACES[0])?;
+    access(c, user_id, application_id, &SURFACES[0])
+}
+
+/// ToolAccess#rest_enabled?'s two halves for REST: the owner's enabled tools and the client's grant. Read on every
+/// request, never cached. A personal application bypasses the grant only for its owner (acting_as_self?).
+pub(crate) fn rest_access(c: &Connection, user_id: i64, application_id: i64) -> Result<(Vec<String>, Vec<String>), WebError> {
+    access(c, user_id, application_id, &SURFACES[1])
+}
+
+fn access(c: &Connection, user_id: i64, application_id: i64, surface: &Surface) -> Result<(Vec<String>, Vec<String>), WebError> {
+    let enabled = enabled_tools(c,user_id,surface)?;
     let personal = c.query_row("SELECT personal_access_token AND personal_owner_id=?2 FROM oauth_applications WHERE id=?1",(application_id,user_id),|r|r.get::<_,Option<bool>>(0)).optional()?.flatten().unwrap_or(false);
-    let granted = if personal {enabled.clone()} else {granted_tools(c,user_id,application_id,&SURFACES[0])?.unwrap_or_default()};
+    let granted = if personal {enabled.clone()} else {granted_tools(c,user_id,application_id,surface)?.unwrap_or_default()};
     Ok((enabled,granted))
 }

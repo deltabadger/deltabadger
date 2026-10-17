@@ -38,6 +38,30 @@ impl Refusal {
             Self::UserNotFound => "user_not_found",
         }
     }
+
+    /// ApiOauthAuthentication::ERROR_CODES: the code a REST refusal carries.
+    pub fn code(self) -> &'static str {
+        match self {
+            Self::Missing => "missing_token",
+            Self::Invalid => "invalid_token",
+            Self::Revoked => "token_revoked",
+            Self::Expired => "token_expired",
+            Self::InsufficientScope => "insufficient_scope",
+            Self::UserNotFound => "user_not_found",
+        }
+    }
+
+    /// ApiOauthAuthentication::ERROR_MESSAGES, which the MCP endpoint's refusals also say.
+    pub fn message(self) -> &'static str {
+        match self {
+            Self::Missing => "Missing bearer token",
+            Self::Invalid => "Invalid access token",
+            Self::Revoked => "Access token revoked",
+            Self::Expired => "Access token expired",
+            Self::InsufficientScope => "Access token missing required scope",
+            Self::UserNotFound => "User not found",
+        }
+    }
 }
 
 /// Who a valid token speaks for, and through which client. The caller loads what it needs of each.
