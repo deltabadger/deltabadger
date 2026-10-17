@@ -579,10 +579,7 @@ class Exchanges::Kucoin < Exchange
       size: amount_type == :base ? amount.to_d.to_s('F') : nil,
       funds: amount_type == :quote ? amount.to_d.to_s('F') : nil
     }
-    result = client.place_order(**order_settings)
-    return result if result.failure?
-
-    Result::Success.new({ order_id: result.data[:order_id] })
+    placement_result(client.place_order(**order_settings))
   end
 
   # @param amount [Float] must be a positive number
@@ -607,10 +604,18 @@ class Exchanges::Kucoin < Exchange
       price: price.to_d.to_s('F'),
       size: base_amount.to_d.to_s('F')
     }
-    result = client.place_order(**order_settings)
+    placement_result(client.place_order(**order_settings))
+  end
+
+  # A 200000 answer with no orderId took the order (or may have) and lost its id. Flagged unacknowledged so
+  # Exchange#ambiguous_placement_error? reads it as unknown, never as a placed order with no id.
+  def placement_result(result)
     return result if result.failure?
 
-    Result::Success.new({ order_id: result.data[:order_id] })
+    order_id = result.data[:order_id]
+    return Result::Failure.new("#{name} answered the order with no order id", data: { unacknowledged: true }) if order_id.blank?
+
+    Result::Success.new({ order_id: order_id })
   end
 
   def parse_order_data(order_id, order_data)
