@@ -10,6 +10,7 @@ pub mod mcp_input;
 pub mod composition;
 pub mod orders;
 pub mod page;
+pub mod search;
 pub mod settings;
 pub mod start;
 pub mod status;

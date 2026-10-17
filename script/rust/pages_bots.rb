@@ -39,11 +39,46 @@ module Pages
                   weights: members.each_with_index.to_h { |id, position| [id, 20 - position] })
     { 'market_data_provider' => 'deltabadger', 'market_data_url' => 'http://data-api:3000', 'market_data_token' => 'token' }
       .each { |key, value| AppConfig.set(key, value) }
+    more_stocks(alpaca, usd) if scenario['more_stocks']
     keys = scenario.fetch('api_keys', { 'alpaca' => 'correct' })
     { 'alpaca' => alpaca, 'ibkr' => ibkr }.each do |name, exchange|
-      next unless keys[name]
+      # The status comes from ApiKey's own list, never straight from scenario data.
+      status = ApiKey.statuses.keys.find { |known| known == keys[name] }
+      next unless status
 
-      ApiKey.create!(user: User.first, exchange:, key: 'PKTEST', secret: 'secret', passphrase: 'paper', status: keys[name], key_type: :trading)
+      ApiKey.create!(user: User.first, exchange:, key: 'PKTEST', secret: 'secret', passphrase: 'paper', status:, key_type: :trading)
+    end
+  end
+
+  MORE_STOCKS = %w[ADBE AMAT ASML BKNG CMCSA CSCO CSX DXCM EA EXC FAST FTNT GILD HON IDXX INTC INTU ISRG KDP KLAC LRCX MAR MDLZ MELI MNST
+                   MU ORLY PANW PYPL QCOM].freeze
+
+  # 'more_stocks' => true: thirty more Alpaca listings, every third one ranked by market cap, so an asset search runs past its
+  # first page of 20 and orders ranked rows before unranked ones.
+  def more_stocks(alpaca, usd)
+    MORE_STOCKS.each_with_index do |symbol, position|
+      asset = Asset.create!(external_id: "#{symbol.downcase}.us", symbol:, name: "#{symbol} Inc", category: 'Stock',
+                            market_cap_rank: (position % 3).zero? ? 300 - position : nil)
+      ExchangeAsset.create!(exchange: alpaca, asset:)
+      Ticker.create!(exchange: alpaca, base_asset: asset, quote_asset: usd, base: symbol, quote: 'USD', ticker: symbol, base_decimals: 9,
+                     quote_decimals: 2, price_decimals: 2, minimum_base_size: '0.000000001', minimum_quote_size: '1')
+    end
+  end
+
+  MORE_COINS = %w[ADA AVAX DOT LINK LTC XRP DOGE TRX BCH XLM ATOM UNI AAVE NEAR FIL ALGO ICP ETC XTZ EOS MKR COMP SNX CRV GRT SAND MANA AXS
+                  CHZ ENJ].freeze
+
+  # 'more_coins' => true: thirty more coins on Kraken and Binance, every third one ranked by market cap, so an asset search on
+  # either venue runs past its first page of 20, blank or searched for "coin".
+  def more_coins(venues)
+    MORE_COINS.each_with_index do |symbol, position|
+      asset = Asset.create!(external_id: "#{symbol.downcase}-coin", symbol:, name: "#{symbol} Coin", category: 'Cryptocurrency',
+                            market_cap_rank: (position % 3).zero? ? 300 - position : nil)
+      venues.each do |exchange, quote_asset|
+        ExchangeAsset.create!(exchange:, asset:)
+        Ticker.create!(exchange:, base_asset: asset, quote_asset:, base: symbol, quote: quote_asset.symbol, ticker: "#{symbol}#{quote_asset.symbol}",
+                       base_decimals: 8, quote_decimals: 5, price_decimals: 4, minimum_base_size: '0.1', minimum_quote_size: '5')
+      end
     end
   end
 
@@ -65,6 +100,7 @@ module Pages
       Ticker.create!(exchange:, base_asset:, quote_asset:, base:, quote: quote_asset.symbol, ticker:, base_decimals:, quote_decimals:, price_decimals:,
                      minimum_base_size:, minimum_quote_size:)
     end
+    more_coins([[kraken, eur], [binance, usdt]]) if scenario['more_coins']
     keys = scenario.fetch('venue_keys', { 'kraken' => 'correct', 'binance' => 'correct' })
     { 'kraken' => kraken, 'binance' => binance }.each do |name, exchange|
       # The status comes from ApiKey's own list, never straight from scenario data.

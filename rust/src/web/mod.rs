@@ -657,6 +657,7 @@ fn routes(app: App) -> Router {
         .route("/bots/{id}/delete.turbo_stream", only(delete(bot::actions::delete)))
         .route("/bots/{id}/archive.turbo_stream", only(post(bot::actions::archive).delete(bot::actions::unarchive)))
         .route("/bots/{id}/chart", only(get(bot::page::chart_frame)))
+        .route("/bots/{id}/asset_search/edit", only(get(bot::search::edit)))
         .route("/broadcasts/metrics_update", only(post(broadcasts::metrics_update)))
         .route("/broadcasts/pnl_update", only(post(broadcasts::pnl_update)))
         .route("/broadcasts/global_pnl_update", only(post(broadcasts::global_pnl_update)))
