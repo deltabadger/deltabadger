@@ -62,9 +62,20 @@ impl Cipher {
     /// ActiveSupport::KeyGenerator.new(primary_key, hash_digest_class: SHA256).generate_key(salt, 32).
     /// 65,536 PBKDF2 rounds: call it at startup only, before a runtime runs, never on the runtime thread (`serve` runs
     /// the engine and the web on one thread). Its callers: `main.rs`'s `open_install` and `web::App::new`.
+    /// Derived once per process and keys, as Rails' CachingKeyGenerator does: a process that builds many Apps (the
+    /// page-parity grid builds one per scenario) pays for the rounds once.
     pub fn new(keys: &EncryptionKeys) -> Self {
-        let mut key = [0u8; 32];
-        pbkdf2::pbkdf2_hmac::<Sha256>(keys.primary_key.as_bytes(), keys.key_derivation_salt.as_bytes(), 65_536, &mut key);
+        static DERIVED: std::sync::Mutex<Vec<(String, String, [u8; 32])>> = std::sync::Mutex::new(Vec::new());
+        let mut derived = DERIVED.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        let key = match derived.iter().find(|(primary, salt, _)| *primary == keys.primary_key && *salt == keys.key_derivation_salt) {
+            Some((_, _, key)) => *key,
+            None => {
+                let mut key = [0u8; 32];
+                pbkdf2::pbkdf2_hmac::<Sha256>(keys.primary_key.as_bytes(), keys.key_derivation_salt.as_bytes(), 65_536, &mut key);
+                derived.push((keys.primary_key.clone(), keys.key_derivation_salt.clone(), key));
+                key
+            }
+        };
         Self { aead: Aes256Gcm::new(&key.into()) }
     }
 

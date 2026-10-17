@@ -87,3 +87,17 @@ overflow-checks = true
 
 [profile.dev.package."*"]
 debug = false
+
+# Every page-parity request derives the session keys (PBKDF2-SHA256) and a sign-in checks a bcrypt hash; unoptimised,
+# these crates were most of the CPU of the page grid's Rust side. Optimisation only: debug assertions and overflow
+# checks stay as the dev profile sets them.
+[profile.dev.package.sha2]
+opt-level = 3
+[profile.dev.package.hmac]
+opt-level = 3
+[profile.dev.package.pbkdf2]
+opt-level = 3
+[profile.dev.package.bcrypt]
+opt-level = 3
+[profile.dev.package.blowfish]
+opt-level = 3
