@@ -50,15 +50,19 @@ fn to_i(v: &Value) -> Option<i64> {
     }
 }
 
+/// A status filter's member as text; a value that cannot name a status is empty.
+fn scalar_text(v: &Value) -> String {
+    match v { Value::String(s) => s.clone(), Value::Number(n) => n.to_string(), _ => String::new() }
+}
+
 /// BotApi::Bots::List. `status`: the filter as given (nil or blank lists all); a number names the enum's value.
 pub fn bots(c: &Connection, user: i64, status: Option<&Value>) -> Result<Res, WebError> {
-    let filter: Option<String> = match status.filter(|v| present(v)) {
-        None => None,
-        Some(Value::String(s)) => Some(s.clone()),
-        Some(Value::Number(n)) => Some(n.to_string()),
-        // ponytail: `where(status: true)` and friends match no row; such a filter is taken as one that matches nothing.
-        Some(_) => Some("\0".into()),
-    };
+    // `where(status: value)`: a list names any of its members. A member that is no enum name or stored number (blank,
+    // unknown, a nested value) matches no row.
+    let filter: Option<Vec<String>> = status.filter(|v| present(v)).map(|v| match v {
+        Value::Array(items) => items.iter().map(scalar_text).collect(),
+        one => vec![scalar_text(one)],
+    });
     let mut q = c.prepare("SELECT b.type,b.label,b.settings,b.status,e.name,b.id FROM bots b LEFT JOIN exchanges e ON b.exchange_id=e.id WHERE b.user_id=?1 AND b.status != 3")?;
     let rows = q.query_map([user],|r|Ok((r.get::<_,String>(0)?,r.get::<_,Option<String>>(1)?,r.get::<_,String>(2)?,r.get::<_,i64>(3)?,r.get::<_,Option<String>>(4)?,r.get::<_,i64>(5)?)))?.collect::<Result<Vec<_>,_>>()?;
     let mut bots = vec![];
@@ -66,7 +70,7 @@ pub fn bots(c: &Connection, user: i64, status: Option<&Value>) -> Result<Res, We
         if !["Bots::DcaMultiAsset","Bots::DcaSingleAsset","Bots::DcaIndex","Bots::Signal"].contains(&kind.as_str()) { return Err(WebError::Config("unknown bot class".into())); }
         let name = usize::try_from(status).ok().and_then(|i| STATUSES.get(i)).copied().unwrap_or("");
         // `where(status:)`: an enum name, or the stored number.
-        if filter.as_deref().is_some_and(|f| f != name && f.parse::<i64>().ok() != Some(status)) { continue; }
+        if filter.as_ref().is_some_and(|wanted| !wanted.iter().any(|f| !f.is_empty() && (f == name || f.parse::<i64>().ok() == Some(status)))) { continue; }
         let s: Value = serde_json::from_str(&settings).unwrap_or(Value::Null);
         let quote = asset(c, &s["quote_asset_id"])?;
         let multi = kind == "Bots::DcaMultiAsset";
