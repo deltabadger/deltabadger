@@ -1,0 +1,39 @@
+<div class="bot-creation-layout bot-creation-layout--api">
+    {{ progress|safe }}
+{% if admin %}
+      <div class="set-api set-api--connect">
+    <header class="set-api__brand">
+  <span class="set-api__mark " aria-hidden="true">{% include "svg/_coingecko.html" %}
+</span>
+  <h2 class="set-api__title">{{ title }}</h2>
+</header>
+
+  <form class="set-api__form form" data-controller="form--html5-validations form--label-animations" data-turbo-frame="modal_content" action="{{ action }}" accept-charset="UTF-8" method="post"><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+    
+        <div class="form__row form__row--input">
+          <input required="required" autofocus="autofocus" autocomplete="off" data-controller="autofocus" class="form__input" type="text" name="api_key" id="api_key" />
+          <label class="form__label" for="api_key">{{ v.t("setup.coingecko_api_key")|safe }}</label>
+        </div>
+
+    
+    <div class="set-api__actions">
+      <input type="submit" name="commit" value="{{ v.t("button.connect") }}" class="button button--sky" data-turbo-stream="true" data-turbo-submits-with="{{ v.t("bot.setup.validating") }}" data-disable-with="{{ v.t("button.connect") }}" />
+      
+    </div>
+</form>        <section class="set-api__instructions">
+        <h3 class="set-api__eyebrow">{{ how }}</h3>
+        {{ v.t("setup.coingecko_api_key_hint_html")|safe }}
+      </section>
+
+</div>
+{% else %}
+      <div class="set-api set-api--connect">
+        <header class="set-api__brand">
+  <span class="set-api__mark " aria-hidden="true">{% include "svg/_coingecko.html" %}
+</span>
+  <h2 class="set-api__title">{{ title }}</h2>
+</header>
+
+        <p class="set-api__note">{{ v.t("setup.coingecko_admin_only")|safe }}</p>
+      </div>
+{% endif %}  </div>

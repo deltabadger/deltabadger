@@ -16,7 +16,8 @@ PARTIALS = {
   'svg/24x24_reverse' => 'svg/_24x24_reverse.html',
   'svg/24x24_info' => 'svg/_24x24_info.html',
   'svg/24x24_info-filled' => 'svg/_24x24_info_filled.html',
-  'svg/landscape_empty' => 'svg/_landscape_empty.html'
+  'svg/landscape_empty' => 'svg/_landscape_empty.html',
+  'svg/coingecko' => 'svg/_coingecko.html'
 }.merge(
   # One mark per exchange class (Exchange#name_id), for the tiles and the exchange menu.
   Dir[Rails.root.join('app/views/svg/_exchange-*.html.erb')].sort.to_h do |path|

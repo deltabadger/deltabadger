@@ -1,0 +1,34 @@
+<div class="bot-creation-layout">
+    {{ progress|safe }}
+
+{{ sentence|safe }}
+
+    <turbo-frame data-action="keydown@window-&gt;arrow-keys-navigation#navigate" data-controller="arrow-keys-navigation" class="modal--search__assets selectable-options" id="asset-picker">
+      <form action="{{ create_url }}" accept-charset="UTF-8" method="post"><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+{%- for row in rows %}
+          <div class="modal--search__assets__item modal--search__assets__item--with-coins" data-arrow-keys-navigation-target="item">
+  <button name="bots_dca_index[quote_asset_id]" type="submit" value="{{ row.item.id }}" data-arrow-keys-navigation-target="button" data-turbo-frame="modal_content">
+    <div class="modal--search__cell modal--search__cell--ticker">
+      <div class="{{ row.item.ticker_class }}" style="background: {{ row.item.pill }}" data-ticker-symbol="{{ row.item.symbol }}" data-ticker-asset-id="{{ row.item.id }}">{{ row.item.symbol }}</div>
+    </div>
+    <div class="modal--search__cell modal--search__cell--name">
+      {{ row.item.logo|safe }}
+      <span class="modal--search__cell--name__label">{{ row.item.name }}</span>
+    </div>
+    <div class="modal--search__cell modal--search__cell--exchanges">
+{%- if !row.pills.is_empty() %}
+        <div class="ticker-group ticker-group--many">
+{%- for pill in row.pills %}
+            <span class="ticker" style="background-color: {{ pill.color }}" data-ticker-symbol="{{ pill.symbol }}" data-ticker-asset-id="{{ pill.id }}">{{ pill.symbol }}</span>
+{%- endfor %}
+{%- if row.more > 0 %}
+            <span class="ticker ticker--more">+{{ row.more }}</span>
+{%- endif %}
+        </div>
+{%- endif %}
+    </div>
+</button></div>
+{%- endfor %}{% if !rows.is_empty() %}
+
+{% endif %}</form></turbo-frame>
+  </div>

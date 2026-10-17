@@ -1,0 +1,540 @@
+{
+  "sources": {
+    "app/models/automation/configurable.rb": "be369cfb1e0d9c7ab73b1d18a34e9bc5c874a11767c87c78f48e9d1d932cc387",
+    "app/models/automation/exchange_connectable.rb": "a50a0cb0986aad465b5ede3d53571dd4c6fc7de822f53afdbbe15b77ccc00ac7",
+    "app/models/automation/labelable.rb": "c74146252aa822b400bcbcc4294af18aeff8e0425ab2afe8a0a28b6ce4790da9",
+    "app/models/bot.rb": "d09ba7581bf639bf6a0b0a49047271a36e16448a8b15df310ddef4faa2a9cdf6",
+    "app/models/bot/accountable.rb": "2d12969ad2d7e35bfb4e31b9b67dfb9ef3be94a03f3252ac5a5ac6ddccd37a3c",
+    "app/models/bot/asset_configurable.rb": "a8b983ca18fb299623af807b226ed362f4ee86b2426dd22985f8aa1251ac401e",
+    "app/models/bot/limit_orderable.rb": "101bfdce8ac4aa78fb6ae496725944c0752cb6814171f3fedc097547ad5d757f",
+    "app/models/bot/smart_intervalable.rb": "a6afa6f794439c866a880147dbebe2c2c2437513dc73f79843976d9a4f1a9c11",
+    "app/models/bot/startable.rb": "f4639a047a1ed1896ef5b3d3239f51bf727b9c7099ce7a569fb0955b5c8bbbe1",
+    "app/models/bots/dca_index.rb": "b12bd11f5cefb0857a98159c9a02b9ed265a0924ba3764e6ad7396f64d7c4945",
+    "app/models/bots/dca_index/index_allocatable.rb": "b0fb2d59692ccfdb582ca65ca2bbee4732f0ab3e37ce7f2ab72b93e355fd84dd"
+  },
+  "gems": {
+    "activemodel": "8.1.4",
+    "activerecord": "8.1.4",
+    "activesupport": "8.1.4"
+  },
+  "class": "Bots::DcaIndex",
+  "callbacks": {
+    "initialize": [
+      {
+        "kind": "after",
+        "callback": "initialize_index_allocatable_settings",
+        "defined_at": "app/models/bots/dca_index/index_allocatable.rb:34",
+        "if": [
+          "the callback did not return false"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "after",
+        "callback": "initialize_limit_orderable_settings",
+        "defined_at": "app/models/bot/limit_orderable.rb:60",
+        "if": [
+          "the callback did not return false"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "after",
+        "callback": "initialize_smart_intervalable_settings",
+        "defined_at": "app/models/bot/smart_intervalable.rb:169",
+        "if": [
+          "the callback did not return false"
+        ],
+        "unless": []
+      }
+    ],
+    "validation": [
+      {
+        "kind": "after",
+        "callback": "_ensure_no_duplicate_errors",
+        "defined_at": "activerecord-8.1.4/lib/active_record/autosave_association.rb:592",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "normalize_changed_in_place_attributes",
+        "defined_at": "activemodel-8.1.4/lib/active_model/attributes/normalization.rb:140",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "set_default_label",
+        "defined_at": "app/models/automation/labelable.rb:29",
+        "if": [
+          "proc app/models/automation/labelable.rb:9"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "clamp_num_coins_to_bounded_index",
+        "defined_at": "app/models/bots/dca_index.rb:360",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "seed_smart_interval_base_amount",
+        "defined_at": "app/models/bot/smart_intervalable.rb:184",
+        "if": [
+          "proc app/models/bot/smart_intervalable.rb:14"
+        ],
+        "unless": []
+      }
+    ],
+    "validate": [
+      {
+        "kind": "before",
+        "callback": "cant_modify_encrypted_attributes_when_frozen",
+        "defined_at": "activerecord-8.1.4/lib/active_record/encryption/encryptable_record.rb:223",
+        "if": [
+          "proc activerecord-8.1.4/lib/active_record/encryption/encryptable_record.rb:13"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "validate_exchange_not_retired",
+        "defined_at": "app/models/automation/exchange_connectable.rb:29",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "validate_exchange_order_placement_available",
+        "defined_at": "app/models/automation/exchange_connectable.rb:40",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveRecord::Validations::PresenceValidator(label)",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "validate_associated_records_for_bot_activity_logs",
+        "defined_at": "activerecord-8.1.4/lib/active_record/autosave_association.rb:162",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveRecord::Validations::PresenceValidator(user) {\"message\":\"required\"}",
+        "if": [
+          "proc activerecord-8.1.4/lib/active_record/associations/builder/belongs_to.rb:148"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "validate_associated_records_for_transactions",
+        "defined_at": "activerecord-8.1.4/lib/active_record/autosave_association.rb:162",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "not_archived",
+        "defined_at": "app/models/bot.rb:93",
+        "if": [
+          "on start"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "trading_key_ready",
+        "defined_at": "app/models/bot.rb:97",
+        "if": [
+          "on start"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveRecord::Validations::PresenceValidator(quote_amount)",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveRecord::Validations::NumericalityValidator(quote_amount) {\"greater_than\":0}",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveRecord::Validations::PresenceValidator(num_coins)",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveRecord::Validations::NumericalityValidator(num_coins) {\"greater_than_or_equal_to\":2,\"less_than_or_equal_to\":\"validation_max_coins\"}",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveRecord::Validations::PresenceValidator(allocation_flattening)",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveRecord::Validations::NumericalityValidator(allocation_flattening) {\"greater_than_or_equal_to\":0,\"less_than_or_equal_to\":1}",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveRecord::Validations::PresenceValidator(index_type)",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveModel::Validations::InclusionValidator(index_type) {\"in\":[\"top\",\"category\"]}",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "validate_bot_exchange",
+        "defined_at": "app/models/bot/asset_configurable.rb:124",
+        "if": [
+          "on start,update",
+          "exchange_id?"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "validate_external_ids",
+        "defined_at": "app/models/bot/asset_configurable.rb:92",
+        "if": [
+          "on update"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "validate_unchangeable_assets",
+        "defined_at": "app/models/bot/asset_configurable.rb:98",
+        "if": [
+          "on update"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "validate_unchangeable_interval",
+        "defined_at": "app/models/bot/asset_configurable.rb:107",
+        "if": [
+          "on update"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "validate_unchangeable_exchange",
+        "defined_at": "app/models/bot/asset_configurable.rb:116",
+        "if": [
+          "on update"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "validate_market_data_configured",
+        "defined_at": "app/models/bots/dca_index.rb:400",
+        "if": [
+          "on start"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveModel::Validations::InclusionValidator(smart_intervaled) {\"in\":[true,false]}",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveRecord::Validations::NumericalityValidator(smart_interval_quote_amount)",
+        "if": [
+          "proc app/models/bot/smart_intervalable.rb:27"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "validate_smart_interval_quote_minimum",
+        "defined_at": "app/models/bot/smart_intervalable.rb:124",
+        "if": [
+          "proc app/models/bot/smart_intervalable.rb:29"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveRecord::Validations::NumericalityValidator(smart_interval_base_amount)",
+        "if": [
+          "proc app/models/bot/smart_intervalable.rb:31"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "validate_smart_interval_base_minimum",
+        "defined_at": "app/models/bot/smart_intervalable.rb:128",
+        "if": [
+          "proc app/models/bot/smart_intervalable.rb:33"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveModel::Validations::InclusionValidator(limit_ordered) {\"in\":[true,false]}",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveRecord::Validations::NumericalityValidator(limit_order_pcnt_distance) {\"greater_than_or_equal_to\":0,\"less_than_or_equal_to\":1}",
+        "if": [
+          "limit_ordered"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "limit_ordered_required_for_exchange",
+        "defined_at": "app/models/bot/limit_orderable.rb:65",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveRecord::Validations::PresenceValidator(interval)",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveModel::Validations::InclusionValidator(interval) {\"in\":[\"hour\",\"day\",\"week\",\"month\"]}",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "validate_starting_time_settings",
+        "defined_at": "app/models/bot/startable.rb:211",
+        "if": [
+          "on start"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveRecord::Validations::NumericalityValidator(missed_quote_amount) {\"greater_than_or_equal_to\":0}",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "ActiveRecord::Validations::NumericalityValidator(rebalance_threshold) {\"greater_than\":0,\"less_than_or_equal_to\":1}",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "validate_associated_records_for_bot_index_assets",
+        "defined_at": "activerecord-8.1.4/lib/active_record/autosave_association.rb:162",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "validate_associated_records_for_index_assets",
+        "defined_at": "activerecord-8.1.4/lib/active_record/autosave_association.rb:162",
+        "if": [],
+        "unless": []
+      }
+    ],
+    "save": [
+      {
+        "kind": "after",
+        "callback": "proc app/models/automation/labelable.rb:11",
+        "defined_at": "app/models/automation/labelable.rb:11",
+        "if": [
+          "the callback did not return false"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "update_settings_changed_at",
+        "defined_at": "app/models/automation/configurable.rb:39",
+        "if": [
+          "will_save_change_to_settings?"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "autosave_associated_records_for_exchange",
+        "defined_at": "activerecord-8.1.4/lib/active_record/autosave_association.rb:162",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "autosave_associated_records_for_user",
+        "defined_at": "activerecord-8.1.4/lib/active_record/autosave_association.rb:162",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "store_previous_exchange_id",
+        "defined_at": "app/models/bot.rb:443",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "set_tickers",
+        "defined_at": "app/models/bots/dca_index.rb:407",
+        "if": [
+          "will_save_change_to_exchange_id?"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "check_missed_quote_amount_was_set",
+        "defined_at": "app/models/bot/accountable.rb:119",
+        "if": [],
+        "unless": []
+      },
+      {
+        "kind": "around",
+        "callback": "around_save_collection_association",
+        "defined_at": "activerecord-8.1.4/lib/active_record/autosave_association.rb:402",
+        "if": [],
+        "unless": []
+      }
+    ],
+    "create": [
+      {
+        "kind": "after",
+        "callback": "autosave_associated_records_for_index_assets",
+        "defined_at": "activerecord-8.1.4/lib/active_record/autosave_association.rb:162",
+        "if": [
+          "the callback did not return false"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "after",
+        "callback": "autosave_associated_records_for_bot_index_assets",
+        "defined_at": "activerecord-8.1.4/lib/active_record/autosave_association.rb:162",
+        "if": [
+          "the callback did not return false"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "after",
+        "callback": "autosave_associated_records_for_transactions",
+        "defined_at": "activerecord-8.1.4/lib/active_record/autosave_association.rb:162",
+        "if": [
+          "the callback did not return false"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "after",
+        "callback": "autosave_associated_records_for_bot_activity_logs",
+        "defined_at": "activerecord-8.1.4/lib/active_record/autosave_association.rb:162",
+        "if": [
+          "the callback did not return false"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "before",
+        "callback": "assign_position",
+        "defined_at": "app/models/bot.rb:461",
+        "if": [],
+        "unless": []
+      }
+    ],
+    "commit": [
+      {
+        "kind": "after",
+        "callback": "resync_index_composition",
+        "defined_at": "app/models/bots/dca_index.rb:396",
+        "if": [
+          "on update",
+          "on update",
+          "proc app/models/bots/dca_index.rb:54"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "after",
+        "callback": "proc app/models/bot.rb:41",
+        "defined_at": "app/models/bot.rb:41",
+        "if": [
+          "on update",
+          "on update"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "after",
+        "callback": "broadcast_columns_lock_update",
+        "defined_at": "app/models/bot.rb:306",
+        "if": [
+          "on update",
+          "on update",
+          "saved_change_to_status?"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "after",
+        "callback": "broadcast_status_button_update",
+        "defined_at": "app/models/bot.rb:295",
+        "if": [
+          "on update",
+          "on update",
+          "saved_change_to_status?"
+        ],
+        "unless": []
+      },
+      {
+        "kind": "after",
+        "callback": "broadcast_status_bar_update",
+        "defined_at": "app/models/bot.rb:280",
+        "if": [
+          "on update",
+          "on update",
+          "proc app/models/bot.rb:38"
+        ],
+        "unless": []
+      }
+    ]
+  }
+}

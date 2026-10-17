@@ -1,0 +1,18 @@
+    <div class="conversational conversational--bot-setup">
+      {{ v.t("bot.setup.sentence.invest_in")|safe }}
+      <a data-turbo-frame="modal_content" class="conversational__link" href="{{ index_url }}">{{ index_name }}</a>
+      {{ v.t("bot.dca_index.setup.sentence.portfolio")|safe }}
+      {{ v.t("bot.setup.sentence.at")|safe }}
+{%- if let Some(venue) = venue %}
+      <a data-turbo-frame="modal_content" class="sbutton sbutton--exchange sbutton--exchange--{{ venue.name_id }}" href="{{ exchange_url }}">
+        {{ venue.mark|safe }}
+        <span class="hide-on-mobile">{{ venue.name }}</span>
+</a>      {{ v.t("bot.setup.sentence.spending")|safe }}
+      <form class="ticker active" data-controller="form--submit-after-delay" data-turbo-frame="asset-picker" action="{{ search_url }}" accept-charset="UTF-8" method="get">
+        <input autofocus="autofocus" autocomplete="off" placeholder="..." data-action="input-&gt;form--submit-after-delay#submit" type="text" name="query" id="query" />
+</form>    </div>
+{%- else %}
+      <form data-controller="form--submit-after-delay" data-turbo-frame="exchange-picker" action="{{ search_url }}" accept-charset="UTF-8" method="get">
+        <input autofocus="autofocus" autocomplete="off" placeholder="..." data-action="input-&gt;form--submit-after-delay#submit" class="conversational__input sinput" type="text" name="query" id="query" />
+</form>    </div>
+{%- endif %}
