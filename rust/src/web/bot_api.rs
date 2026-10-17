@@ -50,13 +50,15 @@ fn shown(data: Value, text: String) -> Prepared<Shown> { Prepared { response: Sh
 /// The engine's refusal of a write, in the user's words (engine.write_refused).
 pub fn refused(reason: &str) -> String { i18n::text("en", "engine.write_refused", &[("reason", i18n::Arg::Text(reason))]) }
 
-/// Bot#label: the stored name, or the one a bot stored without one is shown under.
-fn label(c: &Connection, user: i64, id: i64) -> Result<String, WebError> {
-    let (label, kind, settings): (Option<String>, String, String) = c.query_row("SELECT label,type,settings FROM bots WHERE id=?1", [id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?;
-    match label.filter(|l| !l.trim().is_empty()) {
-        Some(label) => Ok(label),
-        None => super::mcp::reads::generated_label(c, user, id, &kind, &serde_json::from_str(&settings).unwrap_or(Value::Null), "en"),
-    }
+/// Bot#label for a bot stored without a name: the one it is shown under. Read after the write has committed, and only
+/// for the answer: a bot whose page cannot be read keeps the stored (empty) name, and its write stands.
+fn shown_label(c: &Connection, user: i64, id: i64, stored: &Value) -> Value {
+    if stored.as_str().is_some_and(|l| !l.trim().is_empty()) { return stored.clone(); }
+    let generated = (|| {
+        let (kind, settings): (String, String) = c.query_row("SELECT type,settings FROM bots WHERE id=?1", [id], |r| Ok((r.get(0)?, r.get(1)?)))?;
+        super::mcp::reads::generated_label(c, user, id, &kind, &serde_json::from_str(&settings).unwrap_or(Value::Null), "en")
+    })();
+    generated.map_or_else(|_| stored.clone(), Value::from) // allow-swallow: the label is display only; the committed write stands.
 }
 
 /// One bot write through bot::write, as the service does it: `submitted` holds the service's arguments (MCP's as sent,
@@ -79,7 +81,7 @@ pub fn bot_write(c: &Connection, app: &App, user: i64, id: i64, write: Write, su
         let text = refused(&reason);
         return Ok(Outcome::GuardRefused(Shown { data: Value::Null, text }));
     }
-    match write {
+    let out = match write {
         Write::Settings => write::settings(c, &ctx, user, id, submitted, |_, _, draft| {
             let updated: Vec<&String> = draft.submitted.keys().collect();
             let text = if draft.errors.is_empty() {
@@ -113,10 +115,15 @@ pub fn bot_write(c: &Connection, app: &App, user: i64, id: i64, write: Write, su
                 }}
             };
             let status: usize = c.query_row("SELECT status FROM bots WHERE id=?1", [id], |r| r.get(0))?;
-            let data = json!({"id": id, "label": label(c, user, id)?, "status": STATUSES.get(status).copied().unwrap_or("")});
+            let data = json!({"id": id, "label": stored, "status": STATUSES.get(status).copied().unwrap_or("")});
             Ok(shown(data, text))
         }),
-    }
+    }?;
+    Ok(match (write, out) {
+        (Write::Lifecycle(_), Outcome::Committed(mut answer)) => { answer.data["label"] = shown_label(c, user, id, &answer.data["label"]); Outcome::Committed(answer) }
+        (Write::Lifecycle(_), Outcome::NoChange(mut answer)) => { answer.data["label"] = shown_label(c, user, id, &answer.data["label"]); Outcome::NoChange(answer) }
+        (_, out) => out,
+    })
 }
 
 /// A bot write as BotApi::Result: the service's data on a success, its failure otherwise. The engine's refusal (the

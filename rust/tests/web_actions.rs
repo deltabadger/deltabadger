@@ -928,6 +928,22 @@ mod action_write {
         fn status(&self) -> Result<i64> { Ok(self.c.query_row("SELECT status FROM bots WHERE id=?1",[self.id],|r|r.get(0))?) }
     }
 
+    /// A Stop through the services (REST, MCP) commits whatever the answer can show: an unnamed bot whose page cannot be
+    /// read (a stored time it cannot parse) is stopped all the same, answered under its stored name; a named one too.
+    #[test]
+    fn service_stop_survives_an_unrenderable_label() -> Result {
+        for label in ["NULL", "'Named'"] {
+            let f=Fixture::new()?;
+            f.c.execute(&format!("UPDATE bots SET type='Bots::DcaIndex', label={label}, status=1, settings_changed_at='garbage' WHERE id=?1"),[f.id])?;
+            let submitted=ActionParams::from_mcp(json!({})).map_err(|e|format!("{e:?}"))?;
+            let out=web::bot_api::bot_write(&f.c,&f.ctx.app,f.seed.user_id,f.id,web::bot_api::Write::Lifecycle(write::Action::Stop),&submitted).map_err(|e|format!("{e:?}"))?;
+            let Outcome::Committed(shown)=out else { return Err(format!("the stop of a bot labelled {label} was not committed").into()) };
+            assert_eq!(shown.data["status"],"stopped");
+            assert_eq!(f.status()?,2);
+        }
+        Ok(())
+    }
+
     async fn lifecycle_wake(notify: &tokio::sync::Notify, expected: bool) -> Result {
         assert_eq!(tokio::time::timeout(std::time::Duration::from_millis(5), notify.notified()).await.is_ok(), expected);
         assert!(tokio::time::timeout(std::time::Duration::from_millis(5), notify.notified()).await.is_err());
