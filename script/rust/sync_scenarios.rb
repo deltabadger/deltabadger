@@ -908,5 +908,138 @@ module SyncScenarios
     ]
   end
 
-  def all = ledger_scenarios + balance_scenarios + binance_balance_scenarios + binance_ledger_scenarios
+  # The tracker's import (Import::Run#import!, after the controller's zone and chosen-key steps), alone and beside the
+  # Binance API sync over the same history in either order. Every file is SYNTHETIC: User ID 1, made-up amounts.
+  def import_scenarios
+    night = '2026-09-20T02:00:00.250000Z'
+    before = '2026-09-19T12:00:00.500000Z'
+    after = '2026-09-20T03:00:00.500000Z'
+    t = ->(*args) { Time.utc(*args) }
+    utc0 = 'Binance-Transaction-History-202609190000(UTC+0)-part1-of1.csv'
+    binance_csv = ->(*rows) { (['User ID,Time,Account,Operation,Coin,Change,Remark'] + rows.map { |r| "1,#{r.join(',')}" }).join("\n") }
+    ours = ->(*rows) { ([AccountTransaction.csv_headers.join(',')] + rows.map { |r| r.join(',') }).join("\n") }
+    state = {
+      'symbols' => [%w[BTCUSDT BTC USDT], %w[ETHUSDT ETH USDT], %w[BNBUSDT BNB USDT], %w[XRPUSDT XRP USDT]], 'balances' => [%w[BTC 0.05]], 'trades' => {},
+      'deposits' => [P.bn_deposit(1, 'USDT', '1000', 1_785_578_400_123), P.bn_deposit(2, 'BTC', '0.1', t.(2026, 8, 2, 9))],
+      'withdrawals' => [P.bn_withdrawal(1, 'BTC', '0.05', t.(2026, 8, 10, 12)).merge('completeTime' => '2026-08-10 12:12:00')],
+      'dust' => [{ 'operateTime' => 1_786_960_800_777, 'totalTransferedAmount' => '0.000882', 'totalServiceChargeAmount' => '0.000018', 'transId' => 45_178_372_831,
+                   'userAssetDribbletDetails' => [
+                     { 'transId' => 4_359_321, 'serviceChargeAmount' => '0.000009', 'amount' => '0.9', 'operateTime' => 1_786_960_800_777, 'transferedAmount' => '0.000441',
+                       'fromAsset' => 'USDT', 'targetAsset' => 'BNB' },
+                     { 'transId' => 4_359_322, 'serviceChargeAmount' => '0.000009', 'amount' => '1.5', 'operateTime' => 1_786_960_800_777, 'transferedAmount' => '0.000441',
+                       'fromAsset' => 'XRP', 'targetAsset' => 'BNB' }] }]
+    }
+    # The export's copy of the same history: deposits as credited (46 s and 3 min on), the withdrawal gross at its
+    # completion, the dust sweep a second on with the BNB net of the charge, and a dust credit with no spend (#593).
+    transfers = binance_csv.(['2026-08-01 10:00:46', 'Spot', 'Deposit', 'USDT', '1000', ''], ['2026-08-02 09:03:00', 'Spot', 'Deposit', 'BTC', '0.1', ''],
+                             ['2026-08-10 12:12:00', 'Spot', 'Withdraw', 'BTC', '-0.0505', 'Withdraw fee is included'])
+    dust = binance_csv.(['2026-08-17 10:00:01', 'Spot', 'Small Assets Exchange BNB', 'USDT', '-0.9', 'USDT to BNB'],
+                        ['2026-08-17 10:00:01', 'Spot', 'Small Assets Exchange BNB', 'BNB', '0.000432', 'USDT to BNB'],
+                        ['2026-08-17 10:00:01', 'Spot', 'Small Assets Exchange BNB', 'XRP', '-1.5', 'XRP to BNB'],
+                        ['2026-08-17 10:00:01', 'Spot', 'Small Assets Exchange BNB', 'BNB', '0.000432', 'XRP to BNB'],
+                        ['2026-08-18 10:00:00', 'Spot', 'Small Assets Exchange BNB', 'BNB', '0.0001', 'SHIB to BNB'])
+    binance = ->(ctx) { P.binance(ctx) }
+    both = lambda do |ctx|
+      P.binance(ctx)
+      P.binance(ctx, us: true)
+    end
+    [
+      { name: 'import-file_then_api_transfers', setup: binance,
+        steps: [P.import(before, 'binance', transfers, filename: utc0), P.binance_ledger(night, state)] },
+      { name: 'import-api_then_file_transfers', setup: binance,
+        steps: [P.binance_ledger(night, state), P.import(after, 'binance', transfers, filename: utc0)] },
+      { name: 'import-file_then_api_dust', setup: binance,
+        steps: [P.import(before, 'binance', dust, filename: utc0), P.binance_ledger(night, state)] },
+      { name: 'import-api_then_file_dust', setup: binance,
+        steps: [P.binance_ledger(night, state), P.import(after, 'binance', dust, filename: utc0)] },
+      # The same file twice, and a file whose identical rows are each a real credit, imported twice.
+      { name: 'import-same_file_twice', setup: binance,
+        steps: [P.import(before, 'binance', transfers, filename: utc0), P.import(after, 'binance', transfers, filename: utc0)] },
+      { name: 'import-repeated_rows', setup: binance,
+        steps: Array.new(2) do |i|
+          P.import(i.zero? ? before : after, 'binance',
+                   binance_csv.(*Array.new(3) { ['2026-08-05 10:00:00', 'Spot', 'Commission Rebate', 'BNB', '0.001', ''] }), filename: utc0)
+        end },
+      # A file a zone ahead: every time read three hours back.
+      { name: 'import-zone_ahead', setup: binance,
+        steps: [P.import(before, 'binance', transfers, filename: 'Binance-Transaction-History-202609190000(UTC+3)-part1-of1.csv')] },
+      # A Convert an older import stored as a purchase (and one as a sale): the pair is skipped whole. One at another
+      # amount is imported.
+      { name: 'import-legacy_purchase_then_convert',
+        setup: lambda do |ctx|
+          P.binance(ctx)
+          P.stored(ctx, exchange: ctx[:binance], entry_type: 0, base_currency: 'BNB', base_amount: '0.25', quote_currency: 'USDT', quote_amount: '100',
+                        tx_id: nil, transacted_at: t.(2026, 8, 15, 10, 30))
+          P.stored(ctx, exchange: ctx[:binance], entry_type: 1, base_currency: 'ETH', base_amount: '0.5', quote_currency: 'USDT', quote_amount: '1200',
+                        tx_id: nil, transacted_at: t.(2026, 8, 16, 11))
+        end,
+        steps: [P.import(before, 'binance', binance_csv.(['2026-08-15 10:30:00', 'Spot', 'Binance Convert', 'USDT', '-100', ''],
+                                                         ['2026-08-15 10:30:00', 'Spot', 'Binance Convert', 'BNB', '0.25', ''],
+                                                         ['2026-08-16 11:00:00', 'Spot', 'Binance Convert', 'ETH', '-0.5', ''],
+                                                         ['2026-08-16 11:00:00', 'Spot', 'Binance Convert', 'USDT', '1200', ''],
+                                                         ['2026-08-17 11:00:00', 'Spot', 'Binance Convert', 'USDT', '-40', ''],
+                                                         ['2026-08-17 11:00:00', 'Spot', 'Binance Convert', 'BNB', '0.1', '']), filename: utc0)] },
+      { name: 'import-legacy_token_swap',
+        setup: lambda do |ctx|
+          P.binance(ctx)
+          P.stored(ctx, exchange: ctx[:binance], entry_type: 11, base_currency: 'NEWT', base_amount: '12', tx_id: nil, transacted_at: t.(2026, 8, 20, 8),
+                        raw_data: { 'operation' => 'Token Swap - Distribution' })
+        end,
+        steps: [P.import(before, 'binance', binance_csv.(['2026-08-20 08:00:00', 'Spot', 'Token Swap - Distribution', 'NEWT', '12', ''],
+                                                         ['2026-08-21 08:00:00', 'Spot', 'Token Swap - Distribution', 'NEWT', '3', '']), filename: utc0)] },
+      # A row's id names a bot order on its own venue only (#591): the same id on Alpaca is another order.
+      { name: 'import-bot_order_by_tx_id',
+        setup: lambda do |ctx|
+          P.binance(ctx)
+          P.holder(ctx, 'AAPL', at: t.(2026, 8, 5, 9), external_id: 'order-591')
+          P.holder(ctx, 'AAPL', at: t.(2026, 8, 5, 9), external_id: 'order-591', venue: ctx[:binance])
+        end,
+        steps: [P.import(before, 'deltabadger', ours.(['2026-08-05T10:00:00Z', 'buy', 'BTC', '0.01', 'USDT', '600', '', '', 'binance', 'order-591', '', '']))] },
+      # Our own export across three venues: each row finds its account; the venue nothing is connected to is reported.
+      { name: 'import-deltabadger_three_venues', setup: binance,
+        steps: [P.import(before, 'deltabadger', ours.(['2026-08-05T10:00:00Z', 'deposit', 'USDT', '5', '', '', '', '', 'binance', '', '', 'from a friend'],
+                                                     ['2026-08-06T15:30:00Z', 'buy', 'AAPL', '1', 'USD', '150', 'USD', '0', 'alpaca', 'fill-1', '', ''],
+                                                     ['2026-08-07T10:00:00Z', 'deposit', 'EUR', '10', '', '', '', '', 'kraken', '', '', ''],
+                                                     ['2026-08-08T10:00:00Z', 'deposit', 'EUR', '10', '', '', '', '', '', '', '', ''],
+                                                     ['2026-08-09T10:00:00Z', 'teleport', 'EUR', '10', '', '', '', '', 'binance', '', '', '']))] },
+      # Binance and Binance.US write the same export: the file is parked until the user says which; an answer naming
+      # another venue's key is no answer.
+      { name: 'import-binance_us_ambiguous', setup: both,
+        steps: [P.import(before, 'binance', transfers, filename: utc0),
+                P.import(before, 'binance', transfers, filename: utc0, answer: 'Exchanges::Alpaca'),
+                P.import(after, 'binance', transfers, filename: utc0, answer: 'Exchanges::BinanceUs')] },
+      { name: 'import-no_account', steps: [P.import(before, 'binance', transfers, filename: utc0)] },
+      { name: 'import-unknown_timezone', setup: binance, steps: [P.import(before, 'binance', transfers, filename: 'export.csv')] },
+      { name: 'import-unreadable', setup: binance, steps: [P.import(before, 'binance', binance_csv.(), filename: utc0)] },
+      { name: 'import-malformed', setup: binance, steps: [P.import(before, 'binance', "#{binance_csv.()}\n1,2026-08-01 10:00:00,Spot,Deposit,US\"DT,1,", filename: utc0)] },
+      # LUNA before Terra collapsed is the coin the alias names, on a crypto venue; after it, the listing.
+      { name: 'import-luna_alias',
+        setup: lambda do |ctx|
+          P.binance(ctx)
+          luna = Asset.create!(external_id: 'terra-luna-2', symbol: 'LUNA', name: 'Terra', category: 'Cryptocurrency')
+          Asset.create!(external_id: 'terra-luna', symbol: 'LUNC', name: 'Terra Luna Classic', category: 'Cryptocurrency')
+          ExchangeAsset.create!(exchange: ctx[:binance], asset: luna, available: true)
+          Ticker.create!(exchange: ctx[:binance], ticker: 'LUNAUSDT', base: 'LUNA', quote: 'USDT', base_asset: luna, quote_asset: ctx[:assets]['USDT'],
+                         base_decimals: 8, quote_decimals: 8, price_decimals: 2, minimum_base_size: '0.01', minimum_quote_size: '5')
+        end,
+        steps: [P.import(before, 'binance', binance_csv.(['2021-05-01 10:00:00', 'Spot', 'Deposit', 'LUNA', '100', ''],
+                                                         ['2023-01-01 10:00:00', 'Spot', 'Deposit', 'LUNA', '5', '']), filename: utc0)] }
+    ] + [true, false].map do |terra|
+      # A stock venue never reads a crypto alias: IBKR's LUNA in 2021 is the listed security, with Terra in the
+      # catalogue or not.
+      { name: "import-ibkr_luna#{'_no_terra' unless terra}",
+        setup: lambda do |ctx|
+          ibkr = Exchanges::Ibkr.create!(name: 'IBKR', maker_fee: 0, taker_fee: 0)
+          stock = Asset.create!(external_id: 'LUNA.US', symbol: 'LUNA', name: 'Luna Innovations', category: 'Stock', instrument_type: 'stock')
+          Asset.create!(external_id: 'terra-luna', symbol: 'LUNC', name: 'Terra Luna Classic', category: 'Cryptocurrency') if terra
+          [stock, ctx[:assets]['USD']].each { |asset| ExchangeAsset.create!(exchange: ibkr, asset:, available: true) }
+          Ticker.create!(exchange: ibkr, ticker: 'LUNA', base: 'LUNA', quote: 'USD', base_asset: stock, quote_asset: ctx[:assets]['USD'],
+                         base_decimals: 0, quote_decimals: 2, price_decimals: 2, minimum_base_size: '1', minimum_quote_size: '1')
+          ApiKey.new(user: ctx[:user], exchange: ibkr, key: 'ibkr-key', secret: 'ibkr-secret', status: ApiKey.statuses.key(1), key_type: :read_only).save!(validate: false)
+        end,
+        steps: [P.import(before, 'deltabadger', ours.(['2021-03-01T15:00:00Z', 'buy', 'LUNA', '10', 'USD', '50', '', '', 'ibkr', 'ibkr-1', '', '']))] }
+    end
+  end
+
+  def all = ledger_scenarios + balance_scenarios + binance_balance_scenarios + binance_ledger_scenarios + import_scenarios
 end
