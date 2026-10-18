@@ -19,7 +19,7 @@ gem 'importmap-rails' # Required by mission_control-jobs
 gem 'net-smtp', require: false
 gem 'net-imap', require: false
 gem 'net-pop', require: false
-gem 'sqlite3', '~> 2.9'
+gem 'sqlite3', '~> 2.10'
 gem 'puma', '~> 8.0'
 gem 'rack-attack'
 gem 'rails', '~> 8.1.4'
