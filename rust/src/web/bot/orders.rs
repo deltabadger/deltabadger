@@ -392,15 +392,16 @@ fn load_one(c: &Connection, bot: &Bot, id: i64) -> Result<Option<Order>, WebErro
     Ok(Some(order))
 }
 
-/// Bot#broadcast_new_order (app/models/bot.rb:316-348): the placeholder goes with the bot's first order, the order's sentence
+/// Bot#broadcast_new_order (app/models/bot.rb:316-348): the placeholder goes, the order's sentence
 /// row and, for an accepted order, its columnar row are prepended on the bot's page stream, then the filters are replaced.
 pub fn new_order(c: &Connection, ctx: &Ctx, bot: &Bot, user: &User, id: i64) -> Result<Vec<(String, String)>, WebError> {
     let Some(order) = load_one(c, bot, id)? else { return Ok(vec![]) };
     let rows = Rows { broadcast: true, ..Rows::new(ctx, bot, user) };
     let page = super::page::page_stream(bot);
-    let mut out = vec![];
-    let count: i64 = c.query_row("SELECT count(*) FROM (SELECT 1 FROM transactions WHERE bot_id = ?1 LIMIT 2)", [bot.id], |r| r.get(0))?;
-    if count == 1 { out.push((page.clone(), turbo::remove("orders_list_placeholder"))); }
+    // Rails removes it with the bot's first transaction. Here every new row removes it: rows a tick inserted together are
+    // rendered once all are in, so none would read as the first, and Turbo's remove of a target no longer on the page
+    // does nothing (StreamElement#targetElementsById answers [], @hotwired/turbo).
+    let mut out = vec![(page.clone(), turbo::remove("orders_list_placeholder"))];
     out.push((page.clone(), turbo::stream("prepend", "orders_list", &rows.timeline(&order))));
     if order.submitted() { out.push((page, turbo::stream("prepend", "orders_list", &rows.order(&order)))); }
     out.push((format!("user_{}:bot_updates", user.id), super::page::filters_broadcast(c, ctx, bot, user.hide_balances)?));
