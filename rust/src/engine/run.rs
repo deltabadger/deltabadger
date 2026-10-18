@@ -309,7 +309,10 @@ async fn run_reversals<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) ->
         match done {
             Ok((txs, producer)) => {
                 let at = clock.now().timestamp_micros() + POLL_AFTER_US;
-                for tx in txs { e.polls.insert(tx, model::Produced::new((id, at, Attempts::default()), producer.clone())); }
+                for tx in txs {
+                    e.polls.insert(tx, model::Produced::new((id, at, Attempts::default()), producer.clone()));
+                    e.events.send(EngineEvent::OrderWritten { bot_id: id, transaction_id: tx });
+                }
                 e.events.send(EngineEvent::OrderUpdated { bot_id: id });
             }
             Err(err @ (EngineError::Lease(_) | EngineError::Store(_))) => return Err(err),
@@ -468,7 +471,7 @@ pub async fn rebalance_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &
     let stop = e.stop.clone();
     let stopping = move || stop.load(Ordering::SeqCst);
     let cx = TickContext { credential_version: producer.clone(), prices: &e.prices, process_start: e.process_start.ok_or_else(|| EngineError::Data("engine start time missing".into()))?,
-                           stopping: &stopping, below_minimum: &|_, _| {} };
+                           stopping: &stopping, below_minimum: &|_, _| {}, claimed: &|_| {} };
     let outcome = super::rebalance::run(&e.primary, &venue, id, clock, &cx).await;
     e.events.send(EngineEvent::OrderUpdated { bot_id: id });
     // An order recovered for an earlier intent carries that intent's time: found by its id instead.
@@ -504,6 +507,7 @@ async fn run_polls<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock, wake: 
         };
         // Whatever the poll wrote, on success or on error, the bot is announced; nothing is read to decide.
         e.events.send(EngineEvent::OrderUpdated { bot_id: id });
+        e.events.send(EngineEvent::OrderWritten { bot_id: id, transaction_id: tx });
         if let Some((wait, m)) = retry {
             if announce_retry {super::log(&format!("[engine] bot {id}: follow-up poll failed ({m}); retrying in {}s", wait.as_secs()));}
             e.polls.insert(tx, model::Produced::new((id, clock.now().timestamp_micros() + wait.as_micros() as i64, attempts),producer));
@@ -694,7 +698,8 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
         let stop = e.stop.clone();
         let stopping = move || stop.load(Ordering::SeqCst);
         let below_minimum = |bot_id, transaction_ids| e.events.send(EngineEvent::BelowMinimum { bot_id, transaction_ids });
-        let cx = TickContext { credential_version, prices: &e.prices, process_start: e.process_start.ok_or_else(||EngineError::Data("engine start time missing".into()))?, stopping: &stopping, below_minimum: &below_minimum };
+        let claimed = |bot_id| e.events.send(EngineEvent::Claimed { bot_id });
+        let cx = TickContext { credential_version, prices: &e.prices, process_start: e.process_start.ok_or_else(||EngineError::Data("engine start time missing".into()))?, stopping: &stopping, below_minimum: &below_minimum, claimed: &claimed };
         // What this tick records is announced after it returns, when its writes have committed: rows by id (every row
         // the tick inserts, as Rails' after_create_commit hears every create), and a new funds mail marker.
         let last_tx: i64 = e.primary.query_row("SELECT coalesce(max(id), 0) FROM transactions", [], |r| r.get(0))?;
@@ -706,6 +711,8 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
         // nothing read to decide; each order it placed is announced and gets its follow-up poll (`after_tick`).
         e.events.send(EngineEvent::OrderUpdated { bot_id: id });
         let committed = after_tick(e, id, &tick_start, last_tx, recovered, clock,&retry_producer);
+        // After its rows are announced, so the page shows the failed order its status bar names.
+        e.events.send(EngineEvent::TickEnded { bot_id: id });
         let outcome = ticked?;
         e.run_keys.insert(id, bot.run_identity()?);
         committed?;

@@ -214,7 +214,7 @@ async fn a_retry_within_five_seconds_reuses_the_cached_price() {
                                                  { "status": 200, "body": { "trades": { "BTC/USD": { "p": 70000 } } } }],
         "POST /v2/orders": [{ "network": "pre_send", "message": PRE_SEND }, { "status": 200, "body": { "id": "OTX-1", "status": "new" } }] }));
     let prices = PriceCache::default();
-    let cx = TickContext { credential_version: model::credential_version(&o.primary, &model::load_bot(&o.primary, id).unwrap()).unwrap(), prices: &prices, process_start: at(T0), stopping: &|| false, below_minimum: &|_, _| {} };
+    let cx = TickContext { credential_version: model::credential_version(&o.primary, &model::load_bot(&o.primary, id).unwrap()).unwrap(), prices: &prices, process_start: at(T0), stopping: &|| false, below_minimum: &|_, _| {}, claimed: &|_| {} };
     let (mut now, mut attempts) = (at(T0), Attempts::default());
     loop {
         match tick::tick_recovering(&o.primary, &venue(&t), id, &FixedClock(now), &mut attempts, &mut None, &cx).await.unwrap() {

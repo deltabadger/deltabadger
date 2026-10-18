@@ -252,7 +252,7 @@ async fn play<V: Venue>(o: &Opened, venue: &V, scenario: &Value, bot_id: i64, st
     -> Result<(Option<polling::PollFailure>, Option<usize>, Option<Vec<String>>), EngineError> {
     // One price cache across retries and phases, as Rails' 5 s cache spans its retried jobs.
     let prices = PriceCache::default();
-    let cx = TickContext { credential_version: crate::engine::model::credential_version(&o.primary, &crate::engine::model::load_bot(&o.primary, bot_id)?)?, prices: &prices, process_start: DateTime::<Utc>::MIN_UTC, stopping: &|| false, below_minimum: &|_, _| {} };
+    let cx = TickContext { credential_version: crate::engine::model::credential_version(&o.primary, &crate::engine::model::load_bot(&o.primary, bot_id)?)?, prices: &prices, process_start: DateTime::<Utc>::MIN_UTC, stopping: &|| false, below_minimum: &|_, _| {}, claimed: &|_| {} };
     let at = |key: &str| -> Result<Option<DateTime<Utc>>, EngineError> {
         scenario[key].as_str().map(|s| s.parse::<DateTime<Utc>>().map_err(|e| EngineError::Data(format!("scenario.{key}: {e}")))).transpose()
     };

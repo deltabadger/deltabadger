@@ -54,7 +54,7 @@ async fn evaluate_on<V: deltabadger::venue::Venue>(o: &store::Opened, v: &V, id:
     let prices = PriceCache::default();
     let bot = model::load_bot(&o.primary, id).unwrap();
     let cx = TickContext { credential_version: model::credential_version(&o.primary, &bot).unwrap(), prices: &prices,
-                           process_start: DateTime::<Utc>::MIN_UTC, stopping: &|| false, below_minimum: &|_, _| {} };
+                           process_start: DateTime::<Utc>::MIN_UTC, stopping: &|| false, below_minimum: &|_, _| {}, claimed: &|_| {} };
     rebalance::run(&o.primary, v, id, &FixedClock(when), &cx).await.unwrap()
 }
 fn pending(o: &store::Opened, id: i64) -> Value { model::load_bot(&o.primary, id).unwrap().transient.get("rebalance_pending").cloned().unwrap_or(Value::Null) }
