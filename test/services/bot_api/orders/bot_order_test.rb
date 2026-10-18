@@ -401,6 +401,23 @@ class BotApi::Orders::BotOrderTest < ActiveSupport::TestCase
     assert_empty @bot.transactions
   end
 
+  # A stop that lands while the order waits for the lease: read again under the lease, it answers as a stopped bot.
+  test 'a bot stopped while its order waits for the lease places nothing' do
+    hold_lease!
+    Exchanges::Binance.any_instance.expects(:market_buy).never
+    BotApi::Orders::BotOrder.any_instance.stubs(:pause).with do |*|
+      Bot.where(id: @bot.id).update_all(status: Bot.statuses[:stopped])
+      SolidQueue::Semaphore.where(key: lease_key).update_all(value: 1)
+      true
+    end
+
+    result = buy
+
+    assert_equal 'bot_not_running', result.error_code
+    assert_empty @bot.transactions
+    assert_equal 1, SolidQueue::Semaphore.find_by(key: lease_key).value, 'the lease is handed back'
+  end
+
   test 'a dry run takes no lease' do
     hold_lease!
     BotApi::Orders::BotOrder.any_instance.expects(:pause).never

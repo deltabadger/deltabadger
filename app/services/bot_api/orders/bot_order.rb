@@ -60,10 +60,15 @@ module BotApi
         # Under the venue's lease, so no webhook job or other API order on this exchange is between
         # its own marker check and its placement while this one sizes and places.
         outcome = nil
+        late_refusal = nil
         held = with_venue_lease(bot) do
-          outcome = bot.execute_api_order(side: @side, amount: amount, amount_type: @amount_type.to_sym)
+          # The wait may have outlasted a stop or a new marker: the bot is read again under the lease.
+          bot.reload
+          late_refusal = bot_refusal(bot)
+          outcome = bot.execute_api_order(side: @side, amount: amount, amount_type: @amount_type.to_sym) unless late_refusal
         end
         return venue_busy(bot) unless held
+        return late_refusal if late_refusal
 
         answer(bot, outcome)
       end
