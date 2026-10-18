@@ -118,6 +118,7 @@ en:
             coingecko_required: "CoinGecko API key is required for Index bots"
             market_data_required: "A market data provider must be configured for Index bots. Go to Settings to connect one."
             signal_minimum: "Cannot remove the last signal"
+            signal_locked_while_running: "Stop the bot to change its signals"
         messages:
             accepted: 'must be accepted'
             already_confirmed: 'was already confirmed, please try signing in.'

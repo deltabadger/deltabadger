@@ -117,6 +117,7 @@ nl:
             coingecko_required: "CoinGecko API-sleutel is vereist voor Index bots"
             market_data_required: "Er moet een marktgegevensprovider worden geconfigureerd voor Index bots. Ga naar Instellingen om er een te verbinden."
             signal_minimum: "Kan het laatste signaal niet verwijderen"
+            signal_locked_while_running: "Stop de bot om zijn signalen te wijzigen"
         messages:
             accepted: 'moet worden geaccepteerd'
             already_confirmed: 'was reeds bevestigd, probeer u aan te melden.'

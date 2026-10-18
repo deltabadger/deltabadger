@@ -3,6 +3,9 @@ class Bots::BotSignalsController < ApplicationController
 
   before_action :authenticate_user!
   before_action :set_bot
+  # The controls are disabled on a running bot; a stale tab still posts. A rule edited under a
+  # running bot changes what the next webhook call trades.
+  before_action :refuse_while_running
 
   def create
     @bot.bot_signals.create!(direction: :buy, amount: 100)
@@ -35,6 +38,15 @@ class Bots::BotSignalsController < ApplicationController
   end
 
   private
+
+  def refuse_while_running
+    return unless @bot.working?
+
+    flash.now[:alert] = t('errors.bots.signal_locked_while_running')
+    render turbo_stream: [turbo_stream_prepend_flash,
+                          turbo_stream.replace('settings', partial: 'bots/signals/settings', locals: { bot: @bot })],
+           status: :unprocessable_entity
+  end
 
   def render_settings
     @bot.reload

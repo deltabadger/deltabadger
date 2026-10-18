@@ -110,6 +110,7 @@ cs:
             coingecko_required: "Pro indexové boty je vyžadován CoinGecko API klíč"
             market_data_required: "Pro indexové boty musí být nakonfigurován poskytovatel tržních dat. Přejděte do Nastavení a připojte ho."
             signal_minimum: "Poslední signál nelze odebrat"
+            signal_locked_while_running: "Zastav bota, abys mohl změnit jeho signály"
         messages:
             accepted: 'musí být přijato'
             already_confirmed: 'již bylo potvrzeno, zkuste se přihlásit.'

@@ -110,6 +110,7 @@ da:
             coingecko_required: "CoinGecko API-nøgle er påkrævet for indeksbots"
             market_data_required: "En markedsdataudbyder skal konfigureres for indeksbots. Gå til Indstillinger for at forbinde en."
             signal_minimum: "Kan ikke fjerne det sidste signal"
+            signal_locked_while_running: "Stop botten for at ændre dens signaler"
         messages:
             accepted: 'skal accepteres'
             already_confirmed: 'er allerede bekræftet, prøv venligst at logge ind.'

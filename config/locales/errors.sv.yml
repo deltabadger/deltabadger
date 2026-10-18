@@ -110,6 +110,7 @@ sv:
             coingecko_required: "CoinGecko API-nyckel krävs för indexbotar"
             market_data_required: "En marknadsdataleverantör måste konfigureras för indexbotar. Gå till Inställningar för att ansluta en."
             signal_minimum: "Kan inte ta bort den sista signalen"
+            signal_locked_while_running: "Stoppa boten för att ändra dess signaler"
         messages:
             accepted: 'måste accepteras'
             already_confirmed: 'har redan bekräftats, försök logga in.'
