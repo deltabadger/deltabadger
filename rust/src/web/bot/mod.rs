@@ -676,8 +676,8 @@ impl Bot {
                     defaults.extend(["price_limit_in_ticker_id", "price_drop_limit_in_ticker_id", "moving_average_limit_in_ticker_id", "indicator_limit_in_ticker_id"].map(|key| (key, json!(ticker_id))));
                 }
             }
-            // `default_num_coins`: all of a bounded index, else ten.
-            Kind::Index => defaults.extend([("num_coins", json!(self.bounded_universe_size().unwrap_or(10))), ("allocation_flattening", json!(0.0))]),
+            // `default_num_coins`: ten, or all of a bounded index smaller than that.
+            Kind::Index => defaults.extend([("num_coins", json!(self.bounded_universe_size().map_or(10, |size| size.min(10)))), ("allocation_flattening", json!(0.0))]),
         }
         for (key, value) in defaults {
             if matches!(self.settings.get(key), None | Some(Value::Null | Value::Bool(false))) { self.settings.insert(key.to_string(), value); }

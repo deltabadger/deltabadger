@@ -9,8 +9,8 @@
     "app/models/bot/limit_orderable.rb": "101bfdce8ac4aa78fb6ae496725944c0752cb6814171f3fedc097547ad5d757f",
     "app/models/bot/smart_intervalable.rb": "a6afa6f794439c866a880147dbebe2c2c2437513dc73f79843976d9a4f1a9c11",
     "app/models/bot/startable.rb": "f4639a047a1ed1896ef5b3d3239f51bf727b9c7099ce7a569fb0955b5c8bbbe1",
-    "app/models/bots/dca_index.rb": "b12bd11f5cefb0857a98159c9a02b9ed265a0924ba3764e6ad7396f64d7c4945",
-    "app/models/bots/dca_index/index_allocatable.rb": "b0fb2d59692ccfdb582ca65ca2bbee4732f0ab3e37ce7f2ab72b93e355fd84dd"
+    "app/models/bots/dca_index.rb": "bd5180193a68acefc0083e89337d2e3c4e3cd70ca9a1880cda6d5b393c80f24b",
+    "app/models/bots/dca_index/index_allocatable.rb": "767f8aa95f6a8560f24ee311254c5f13bcde1e8a11db8593101994426e96539a"
   },
   "gems": {
     "activemodel": "8.1.4",
@@ -75,7 +75,7 @@
       {
         "kind": "before",
         "callback": "clamp_num_coins_to_bounded_index",
-        "defined_at": "app/models/bots/dca_index.rb:360",
+        "defined_at": "app/models/bots/dca_index.rb:362",
         "if": [],
         "unless": []
       },
@@ -256,7 +256,7 @@
       {
         "kind": "before",
         "callback": "validate_market_data_configured",
-        "defined_at": "app/models/bots/dca_index.rb:400",
+        "defined_at": "app/models/bots/dca_index.rb:402",
         "if": [
           "on start"
         ],
@@ -414,7 +414,7 @@
       {
         "kind": "before",
         "callback": "set_tickers",
-        "defined_at": "app/models/bots/dca_index.rb:407",
+        "defined_at": "app/models/bots/dca_index.rb:409",
         "if": [
           "will_save_change_to_exchange_id?"
         ],
@@ -484,7 +484,7 @@
       {
         "kind": "after",
         "callback": "resync_index_composition",
-        "defined_at": "app/models/bots/dca_index.rb:396",
+        "defined_at": "app/models/bots/dca_index.rb:398",
         "if": [
           "on update",
           "on update",

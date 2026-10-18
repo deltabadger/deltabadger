@@ -495,7 +495,7 @@ class Bots::DcaIndexTest < ActiveSupport::TestCase
 
   # --- index-size default (item 6) ---------------------------------------------
 
-  test 'a new bot on a bounded deltabadger index defaults num_coins to the full index size' do
+  test 'a new bot on a bounded deltabadger index defaults num_coins to ten' do
     Index.create!(external_id: 'nasdaq-100', source: Index::SOURCE_DELTABADGER,
                   name: 'Nasdaq 20', top_coins: (1..20).map { |i| "s#{i}" })
 
@@ -503,10 +503,10 @@ class Bots::DcaIndexTest < ActiveSupport::TestCase
                              settings: { 'index_type' => Bots::DcaIndex::INDEX_TYPE_CATEGORY,
                                          'index_category_id' => 'nasdaq-100' })
 
-    assert_equal 20, bot.num_coins
+    assert_equal 10, bot.num_coins
   end
 
-  test 'a bounded index larger than the crypto ceiling starts at its whole universe' do
+  test 'a new bot on a bounded index larger than the crypto ceiling starts at ten' do
     Index.create!(external_id: 'big-index', source: Index::SOURCE_DELTABADGER,
                   name: 'Big', top_coins: (1..60).map { |i| "s#{i}" })
 
@@ -514,8 +514,8 @@ class Bots::DcaIndexTest < ActiveSupport::TestCase
                              settings: { 'index_type' => Bots::DcaIndex::INDEX_TYPE_CATEGORY,
                                          'index_category_id' => 'big-index' })
 
-    assert_equal 60, bot.num_coins, 'a bounded index can be held whole (the crypto cap is for rankings)'
-    assert bot.hold_all?
+    assert_equal 10, bot.num_coins
+    assert_not bot.hold_all?, 'the user moves the slider up to the whole universe'
   end
 
   test 'a new crypto Top bot defaults num_coins to 10' do
@@ -751,12 +751,32 @@ class Bots::DcaIndexTest < ActiveSupport::TestCase
     assert bot.valid?, bot.errors.full_messages.to_sentence
   end
 
-  test 'a new bot on a bounded index starts at the whole universe' do
+  test 'a new bot on a bounded index starts at ten' do
     Index.create!(external_id: 'nasdaq-100', source: Index::SOURCE_DELTABADGER,
                   name: 'ND100', top_coins: (1..101).map { |i| "s#{i}" })
     bot = Bots::DcaIndex.new(settings: { 'index_type' => Bots::DcaIndex::INDEX_TYPE_CATEGORY, 'index_category_id' => 'nasdaq-100' })
 
-    assert_equal 101, bot.num_coins
+    assert_equal 10, bot.num_coins
+    assert_equal 'ND10', bot.display_index_name
+  end
+
+  test 'a new bot on a bounded index smaller than ten starts at its whole universe' do
+    Index.create!(external_id: 'small-index', source: Index::SOURCE_DELTABADGER,
+                  name: 'Small', top_coins: (1..7).map { |i| "s#{i}" })
+    bot = Bots::DcaIndex.new(settings: { 'index_type' => Bots::DcaIndex::INDEX_TYPE_CATEGORY, 'index_category_id' => 'small-index' })
+
+    assert_equal 7, bot.num_coins
+  end
+
+  test 'the quote step lists the assets of an index in its own order, not by crypto rank' do
+    Index.create!(external_id: 'nasdaq-100', source: Index::SOURCE_DELTABADGER, name: 'ND100', top_coins: %w[NVDA.US AAPL.US ADBE.US])
+    usd = create(:asset, external_id: 'usd-test', symbol: 'USD')
+    assets = %w[ADBE.US AAPL.US NVDA.US].map { |id| create(:asset, external_id: id, symbol: id.delete_suffix('.US'), market_cap_rank: nil) }
+    assets.each { |asset| create(:ticker, exchange: @exchange, base_asset: asset, quote_asset: usd) }
+    bot = Bots::DcaIndex.new(exchange: @exchange,
+                             settings: { 'index_type' => Bots::DcaIndex::INDEX_TYPE_CATEGORY, 'index_category_id' => 'nasdaq-100' })
+
+    assert_equal %w[NVDA AAPL ADBE], bot.top_base_assets_by_quote_for_current_setup[usd.id].map(&:symbol)
   end
 
   test 'the settings preview of an existing bot is not cut at the crypto ceiling' do

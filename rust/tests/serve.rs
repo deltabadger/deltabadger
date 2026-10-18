@@ -761,6 +761,8 @@ async fn a_sign_in_for_an_unknown_email_costs_what_a_wrong_password_costs() {
         assert_eq!(browser.post(&app, "/login", &[("user[email]", email), ("user[password]", "wrong")]).await.status, 422);
         started.elapsed()
     };
+    // A first attempt pays the once-per-process costs (the session keys' derivation), so neither timed one does.
+    timed("warm@example.com").await;
     let (known, unknown) = (timed("o@example.com").await, timed("nobody@example.com").await);
     assert!(unknown * 4 > known, "an unknown email was refused in {unknown:?}, a wrong password in {known:?}");
 }

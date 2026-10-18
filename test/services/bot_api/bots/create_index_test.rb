@@ -93,7 +93,7 @@ class BotApi::Bots::CreateIndexTest < ActiveSupport::TestCase
     assert_equal 'market_data_not_configured', BotApi::Bots::CreateIndex.call(user: @user, **params).error_code
   end
 
-  test 'an explicit count below the universe is a fixed count, no count means the whole universe' do
+  test 'an explicit count below the universe is a fixed count, no count is the wizard default' do
     create(:index, external_id: 'nasdaq-100', source: Index::SOURCE_DELTABADGER, name: 'ND100',
                    top_coins: %w[bitcoin ethereum solana], available_exchanges: { 'Exchanges::Kraken' => 3 })
 
@@ -102,9 +102,9 @@ class BotApi::Bots::CreateIndexTest < ActiveSupport::TestCase
     assert_equal false, @user.bots.find(two.data[:id]).hold_all?
     assert_equal 2, @user.bots.find(two.data[:id]).effective_num_coins
 
-    whole = BotApi::Bots::CreateIndex.call(user: @user, **params(index: 'nasdaq-100'))
-    assert whole.success?, whole.error_message
-    assert @user.bots.find(whole.data[:id]).hold_all?
-    assert_equal 3, @user.bots.find(whole.data[:id]).effective_num_coins
+    default = BotApi::Bots::CreateIndex.call(user: @user, **params(index: 'nasdaq-100'))
+    assert default.success?, default.error_message
+    assert_not @user.bots.find(default.data[:id]).hold_all?
+    assert_equal 3, @user.bots.find(default.data[:id]).effective_num_coins, 'ten, or the whole index when it is smaller'
   end
 end

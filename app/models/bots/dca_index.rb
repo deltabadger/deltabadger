@@ -196,11 +196,13 @@ class Bots::DcaIndex < Bot
     base_assets = Asset.where(external_id: external_ids).index_by(&:id)
     return {} if base_assets.empty?
 
+    # In the index's own order (largest first): market_cap_rank is a crypto ranking, and stocks have none.
+    position = external_ids.each_with_index.to_h
     Ticker.available.trading_enabled
           .where(exchange_id: exchange.id, base_asset_id: base_assets.keys)
-          .joins(:base_asset)
-          .order(Arel.sql('assets.market_cap_rank IS NULL'), Arel.sql('assets.market_cap_rank ASC'))
+          .order(:id)
           .pluck(:quote_asset_id, :base_asset_id)
+          .sort_by.with_index { |(_, base_id), i| [position.fetch(base_assets[base_id].external_id), i] }
           .each_with_object({}) do |(quote_id, base_id), acc|
             acc[quote_id] ||= []
             acc[quote_id] << base_assets[base_id]
