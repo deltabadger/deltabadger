@@ -2,7 +2,8 @@
 //! (Bots::DcaSingleAssets::OrdersController), with the step order they share (Bots::Wizard::StepOrder and
 //! Bots::Wizard::Navigable), and its steps: assets (`assets`), exchange (`exchanges`, single and multi namespaces), stock broker
 //! (`brokers`), API key (`keys`, both namespaces) and quote (`spendable`), whose POST saves the bot (`create`). The
-//! conversational sentence, the progress bar and the stock activation notice the steps share are here.
+//! conversational sentence, the progress bar and the stock activation notice the steps share are here. The index wizard
+//! (Bots::DcaIndexes::*) is `index`, its save `index_create`; it shares the exchange table, the key step and the quote search.
 //!
 //! The wizard's state is `session[:bot_config]` (web::session), a JSON object with string keys as Rails'
 //! cookie serializer holds it.
@@ -14,6 +15,8 @@ pub mod assets;
 pub mod brokers;
 pub mod create;
 pub mod exchanges;
+pub mod index;
+pub mod index_create;
 pub mod keys;
 pub mod spendable;
 use askama::Template;
@@ -272,7 +275,12 @@ struct Progress { title: String, progress: i64 }
 /// "Pick exchange".
 pub fn progress(ctx: &Ctx, order: &StepOrder, step: Step) -> Result<String, WebError> {
     let key = if step == Step::Exchange { "pick_exchange".to_string() } else { step.key().to_string() };
-    Ok(Progress { title: ctx.t(&format!("bot.setup.progress_steps.{key}")), progress: order.progress(step) }.render()?)
+    progress_bar(ctx.t(&format!("bot.setup.progress_steps.{key}")), order.progress(step))
+}
+
+/// bots/_new_step_progress_bar: a step's title and its share of the wizard.
+pub fn progress_bar(title: String, progress: i64) -> Result<String, WebError> {
+    Ok(Progress { title, progress }.render()?)
 }
 
 /// What bots/wizard/_sentence reads.

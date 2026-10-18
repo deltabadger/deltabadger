@@ -1,0 +1,47 @@
+<div class="bot-creation-layout index-picker-layout" data-controller="index-filter" data-dialog-size="wide">
+    {{ progress|safe }}
+
+    <div class="index-search">
+  <input type="text"
+         class="index-search__input"
+         placeholder="{{ v.t("utils.search.placeholder.index") }}"
+         autocomplete="off"
+         autofocus
+         data-index-filter-target="input"
+         data-action="input->index-filter#filter">
+</div>
+
+<form class="itiles selectable-options" data-turbo-frame="modal_content" action="{{ action }}" accept-charset="UTF-8" method="post"><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+{%- for tile in tiles %}
+      <button type="submit"
+              name="index_type"
+              value="{{ tile.index_type }}"
+              class="itile {% if tile.top %}itile--top{% endif %}"
+              data-index-filter-target="tile"
+              data-index-order="{{ loop.index0 }}"
+              data-index-name="{{ tile.name }}"
+              data-index-category-id="{{ tile.external_id }}"
+              data-index-description="{{ tile.description }}"
+              data-action="click->index-filter#select">
+        <h4>{{ tile.name }}</h4>
+        <p>{{ tile.summary }}</p>
+{%- if tile.has_coins %}
+          <div class="ticker-group ticker-group--many">
+{%- for pill in tile.pills %}
+                <span class="ticker" style="background-color: {{ pill.color }}" data-ticker-symbol="{{ pill.symbol }}" data-ticker-asset-id="{{ pill.id }}">{{ pill.symbol }}</span>
+{%- endfor %}
+{%- if tile.more > 0 %}
+              <span class="ticker ticker--more">+{{ tile.more }}</span>
+{%- endif %}
+          </div>
+{%- endif %}
+      </button>
+{%- endfor %}
+  <input type="hidden" name="index_category_id" id="index_category_id" value="" data-index-filter-target="categoryIdField" />
+  <input type="hidden" name="index_name" id="index_name" value="" data-index-filter-target="nameField" />
+</form>
+<div class="index-search__empty" data-index-filter-target="empty" style="display: none;">
+  <p>{{ v.t("utils.search.no_results")|safe }}</p>
+</div>
+
+  </div>

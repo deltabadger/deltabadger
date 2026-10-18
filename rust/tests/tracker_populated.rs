@@ -106,12 +106,8 @@ async fn populated_regions_match_rails() {
     let root = match std::env::var("D5_POPULATED_GRID") {
         Ok(root) => root,
         Err(_) => {
-            let boot = tempfile::tempdir().unwrap();
-            generated = tempfile::tempdir().unwrap();
-            let root = generated.path().to_str().unwrap().to_string();
-            common::rails(boot.path(), "test", &["db:schema:load"]);
-            for command in ["grid", "record"] { common::rails(boot.path(), "test", &["runner", "script/rust/pages_tracker_populated.rb", command, &root]); }
-            root
+            generated = common::recording("pages_tracker_populated", common::has_subdirs, |out| common::record_grid("script/rust/pages_tracker_populated.rb", out));
+            generated.path.to_str().unwrap().to_string()
         }
     };
     let selected = std::env::var("D5_POPULATED_CASES").unwrap_or_default();

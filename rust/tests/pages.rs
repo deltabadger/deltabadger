@@ -282,6 +282,7 @@ fn before(dir: &Path, what: &str) {
         "change_password" => c.execute("UPDATE users SET encrypted_password = ?1 WHERE id = (SELECT min(id) FROM users)", [deltabadger::crypto::hash_password("Another-horse-7").unwrap()]).unwrap(),
         "unconfirm" => c.execute("UPDATE users SET confirmed_at = NULL WHERE id = (SELECT min(id) FROM users)", []).unwrap(),
         "disable_kraken_xbt" => c.execute("UPDATE tickers SET available = 0 WHERE ticker = 'XBTEUR'", []).unwrap(),
+        "shrink_nasdaq" => c.execute("UPDATE indices SET top_coins = '[\"nvda.us\"]' WHERE external_id = 'nasdaq-100'", []).unwrap(),
         other => panic!("unknown step.before {other}"),
     };
 }
@@ -563,16 +564,35 @@ fn unmet_expectation(name: &str, scenario: &Value, rails: &Value) -> Option<Stri
     None
 }
 
-/// Builds the grid with Rails, records Rails' answers, and returns (rails_root, rust_root, scenario dirs).
-fn recorded_grid() -> (tempfile::TempDir, tempfile::TempDir, Vec<PathBuf>) {
-    let (scratch, rails_root, rust_root) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
-    common::rails(scratch.path(), "test", &["db:schema:load"]);
-    common::rails(scratch.path(), "test", &["runner", "script/rust/pages.rb", "grid", rails_root.path().to_str().unwrap()]);
-    let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
+/// Builds the grid with Rails, records Rails' answers (common::recording: once per state of Rails' inputs and
+/// PAGES), and returns (the recording, rust_root, scenario dirs). The recording keeps `rails/` (each scenario's
+/// scenario.json and rails.json) and `rust/` (the installs as the grid built them, before Rails' requests);
+/// this run's Rust side works on its own copy of `rust/`.
+fn recorded_grid() -> (common::Recording, tempfile::TempDir, Vec<PathBuf>) {
+    let recording = common::recording("pages", |dir| dir.join("rails").is_dir() && dir.join("rust").is_dir(), |out| {
+        let (scratch, rails_root, rust_root) = (tempfile::tempdir().unwrap(), out.join("rails"), out.join("rust"));
+        std::fs::create_dir_all(&rails_root).unwrap();
+        common::rails(scratch.path(), "test", &["db:schema:load"]);
+        common::rails(scratch.path(), "test", &["runner", "script/rust/pages.rb", "grid", rails_root.to_str().unwrap()]);
+        for dir in std::fs::read_dir(&rails_root).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()) {
+            copy_scenario(&dir, &rust_root.join(dir.file_name().unwrap())); // before Rails writes to its copies
+        }
+        std::fs::create_dir_all(&rust_root).unwrap();
+        common::rails(scratch.path(), "test", &["runner", "script/rust/pages.rb", "record", rails_root.to_str().unwrap()]);
+        only_json(&rails_root); // the comparison reads Rails' answers, never the databases Rails left
+    });
+    let rust_root = tempfile::tempdir().unwrap();
+    common::copy_tree(&recording.path.join("rust"), rust_root.path());
+    let mut dirs: Vec<PathBuf> = std::fs::read_dir(recording.path.join("rails")).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
     dirs.sort();
-    for dir in &dirs { copy_scenario(dir, &rust_root.path().join(dir.file_name().unwrap())); } // before Rails writes to its copies
-    common::rails(scratch.path(), "test", &["runner", "script/rust/pages.rb", "record", rails_root.path().to_str().unwrap()]);
-    (rails_root, rust_root, dirs)
+    (recording, rust_root, dirs)
+}
+
+fn only_json(dir: &Path) {
+    for entry in std::fs::read_dir(dir).unwrap().flatten() {
+        let path = entry.path();
+        if path.is_dir() { only_json(&path) } else if path.extension().is_none_or(|e| e != "json") { std::fs::remove_file(&path).unwrap(); }
+    }
 }
 
 /// Scenarios whose LAST response this crate deliberately answers otherwise than Rails. Everything
@@ -895,10 +915,10 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
     println!("{} scenarios; {countdown_pages} pages where only Rails knows when the bot acts next", dirs.len());
     if std::env::var("PAGES").is_err() {
-        assert_eq!(dirs.iter().filter(|dir| !dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_") || n.to_string_lossy().starts_with("settings_"))).count(), 160 + 4 + 9 + 2 + 6 + 3 + 38 + 68 + 61, "completed read-only baseline (with the market-closed weekend page and the expired start on bots that are not stopped), with D5b's two missing_ and two not_ported_ connect scenarios, the venue pages (eight served, one refused), the selling pages (three served, one cap refused, in place of two refusals), the venue basket pages (seven served, in place of the one refusal), the asset search on each venue, the wizard's chooser and order switch (twelve served, one unrouted GET), its asset and exchange steps (ten served), its broker, key and quote steps to a created bot (nine served), the index and signal tiles and the IBKR and KuCoin key steps (four not_ported_), and the first empty bots page that opens it (two), and the REST API's (thirty-five on the five served reads' tokens and grants, twelve on the routes it gates but does not serve, three on typed creates, nine unrouted paths, seven on parameters, one on conditional GETs and one on an install without an admin; sixty-one on the six bot writes: six per route on its tokens, grants, ids and malformed bodies, five on settings values, fourteen on lifecycle states one start the engine guard refuses, the broadcasts an open page hears (in English and in its owner's German), encoded path ids and two oversized parameters)");
+        assert_eq!(dirs.iter().filter(|dir| !dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_") || n.to_string_lossy().starts_with("settings_"))).count(), 160 + 4 + 9 + 2 + 6 + 3 + 49 + 68 + 61, "completed read-only baseline (with the market-closed weekend page and the expired start on bots that are not stopped), with D5b's two missing_ and two not_ported_ connect scenarios, the venue pages (eight served, one refused), the selling pages (three served, one cap refused, in place of two refusals), the venue basket pages (seven served, in place of the one refusal), the asset search on each venue, the wizard's chooser and order switch (twelve served, one unrouted GET), its asset and exchange steps (ten served), its broker, key and quote steps to a created bot (nine served), the signal tile and the IBKR and KuCoin key steps (three not_ported_), the first empty bots page that opens it (two), the index wizard (nine served; its Kraken and Top Coins key steps and legacy settings step three not_ported_), and the REST API's (thirty-five on the five served reads' tokens and grants, twelve on the routes it gates but does not serve, three on typed creates, nine unrouted paths, seven on parameters, one on conditional GETs and one on an install without an admin; sixty-one on the six bot writes: six per route on its tokens, grants, ids and malformed bodies, five on settings values, fourteen on lifecycle states one start the engine guard refuses, the broadcasts an open page hears (in English and in its owner's German), encoded path ids and two oversized parameters)");
         assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("settings_"))).count(), 413 + 3 + 45 + 52 + 5 + 1 + 71, "complete S1 inventory, D5b's connect flow, the preference writes, the following client's card, the switch back to the default locale and the settings dialog (two more sections, in-place confirms, the page behind a language change)");
         assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_"))).count(), 197 + 50, "action inventory (with the five ⇄ rotations and nine sell-settings writes, twenty-two Kraken/Binance venue actions, and fifty on their baskets)");
-        assert_eq!(dirs.len(), 160 + 4 + 9 + 2 + 6 + 3 + 38 + 68 + 61 + 197 + 50 + 413 + 3 + 45 + 52 + 5 + 1 + 71, "a scenario was dropped or added without this count");
+        assert_eq!(dirs.len(), 160 + 4 + 9 + 2 + 6 + 3 + 49 + 68 + 61 + 197 + 50 + 413 + 3 + 45 + 52 + 5 + 1 + 71, "a scenario was dropped or added without this count");
         assert_eq!(countdown_pages, 4, "the pages where Rails knows a time this build does not: the listed divergence grew or shrank");
     }
 }
