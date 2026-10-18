@@ -7,7 +7,7 @@
   "app/models/bot/wash_sale_guard.rb": "fd0aef8ce8779045e372ca9a1155fb7d5cb89e8e98e117eee02ed6d13d43561f",
   "app/helpers/bot_helper.rb": "49d305ee88d506460c4d95dff8f23ed1823916118a09e305629549715eb6a01b",
   "app/views/bots/composition/_metrics.html.erb": "a4ba28f2bc397d71c49686e50a99b73177c16648051d8ed3879d6469c8f436f7",
-  "app/views/bots/composition/_assets_table.html.erb": "97ad4231e885ec64be078e2e418e1a254dc81348f6c13db683fe425dac9e62be",
+  "app/views/bots/composition/_assets_table.html.erb": "1b45137cc1b06039900032f4a3a15aa40af17c79de8ced55edd7db61ab0319e1",
   "app/views/bots/composition/_locked_table.html.erb": "dd0cf3f090747413a8c562d45585ba06f0ae80188aa1dd5cfb3420eada3f87f7",
   "app/views/bots/_assets_table.html.erb": "abfbcbe1bf982556f8b1f0663d59e4e70863eb52112d222afe061916e78ce827",
   "app/views/bots/bot_tile/_bot_tile_pnl.html.erb": "b6f8ad6668ca4ca197b97e1d412e12d3d6cfc54a3bf7a66cd6f335e3a5e1367d",

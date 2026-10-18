@@ -80,8 +80,8 @@ module BotApi
         bot.quote_asset_id = quote.id
         bot.quote_amount = quote_amount.to_f
         bot.num_coins = num_coins if num_coins
-        # An explicit count is a fixed count; no count means the whole universe (after_initialize
-        # already said so for a new bounded-index bot).
+        # An explicit count is a fixed count, at the ceiling it holds all; no count is the wizard's
+        # default (ten, or the whole index when it is smaller).
         bot.hold_all = num_coins >= bot.max_coins if num_coins
         save_and_start(bot)
       end
