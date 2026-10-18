@@ -35,6 +35,16 @@ class Bots::SignalResolutionsControllerTest < ActionDispatch::IntegrationTest
     assert_equal({ 'user_id' => @bot.user_id, 'marker_id' => @marker_id }, log.details)
   end
 
+  test 'an open bot page drops the marker when it is resolved, and nothing is sent for a stale one' do
+    streams = capture_turbo_stream_broadcasts(@bot.page_stream) { resolve }
+
+    stream = streams.sole
+    assert_equal %w[replace signal-unresolved-placement], [stream['action'], stream['target']]
+    assert_not_includes stream.to_html, 'marker_id'
+
+    assert_empty(capture_turbo_stream_broadcasts(@bot.page_stream) { resolve })
+  end
+
   test 'a different marker id changes nothing' do
     before = state
 

@@ -37,7 +37,10 @@ class Bot::SignalJob < BotJob
     bot.ensure_exchange_authenticated
     return refuse(bot, signal, 'signal_market_closed') unless bot.exchange.market_open?(tickers: bot.tickers.to_a)
 
-    bot.execute_signal(signal)
+    # Read again inside the order setter, from the committed row: an API order may have gone
+    # ambiguous on this bot since the check above.
+    outcome = bot.execute_signal(signal)
+    wait_for_resolution(bot, signal) if outcome.status == :unresolved
   rescue StandardError => e
     # Only the checks above can raise into here — the order setter answers for its own phases —
     # and nothing has reached the venue yet.

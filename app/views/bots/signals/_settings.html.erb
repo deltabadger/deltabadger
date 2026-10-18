@@ -1,15 +1,6 @@
 <div id="<%= bot.new_record? ? "new-settings" : "settings" %>" class="column gap-1">
   <%= render partial: "bots/signals/settings/main", locals: { bot: bot } %>
-  <%# An order of unknown fate holds every later one back until the user has looked at the venue.
-      The form names this marker, so a stale tab cannot lift a newer one. %>
-  <% if !bot.new_record? && (marker = bot.unresolved_placement) %>
-    <div class="widget redeploy-prompt">
-      <span class="text-error"><%= t('bot.signal.unresolved', exchange: bot.exchange.name) %></span>
-      <%= button_to t('bot.signal.resolve', exchange: bot.exchange.name),
-                    bot_signal_resolution_path(bot), params: { marker_id: marker['id'] },
-                    class: 'rbutton rbutton--danger' %>
-    </div>
-  <% end %>
+  <%= render partial: "bots/signals/unresolved_placement", locals: { bot: bot } %>
   <% bot.bot_signals.each_with_index do |signal, index| %>
     <%= render partial: "bots/signals/signal_widget", locals: { bot: bot, signal: signal, index: index } %>
   <% end %>

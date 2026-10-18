@@ -1605,7 +1605,7 @@
     "app/models/bots/dca_multi_asset.rb": "25700ff65cf3d723e5da8e649f36fd0276300acea56783526e6402ce086b1f12",
     "app/models/bots/dca_multi_asset/allocatable.rb": "b2088e229826c18178137f15be5964c140353a5d62765e6f6d7155a4d3d9744a",
     "app/models/bots/dca_index.rb": "bd5180193a68acefc0083e89337d2e3c4e3cd70ca9a1880cda6d5b393c80f24b",
-    "app/models/bots/signal.rb": "5bdb9bf4b8812d9e6ce31b7ef8185f625f2e44a9f1049cfd5fe12c83137772c0",
+    "app/models/bots/signal.rb": "fe9a5db0f304e0f233a843601fa3d6932b2d028fa1f0bacc70e4cffec5b50eb9",
     "app/models/automation/labelable.rb": "c74146252aa822b400bcbcc4294af18aeff8e0425ab2afe8a0a28b6ce4790da9",
     "app/models/tax/jurisdictions.rb": "e3044502f3d68b0c921388f6ff9649b187d3c9402302a2b44f1ad2dec556c935",
     "app/mcp/application_gateway.rb": "a014f9d4a7d091170dd5ccc840daab787d3d11c2faef49c77468489d9b6a8130",

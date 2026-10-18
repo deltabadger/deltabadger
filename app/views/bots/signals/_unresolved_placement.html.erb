@@ -1,0 +1,15 @@
+<%# An order of unknown fate holds every later one back until the user has looked at the venue.
+    The form names this marker, so a stale tab cannot lift a newer one. Its own id, so the marker
+    can be shown and lifted on an open page (Bots::Signal#broadcast_unresolved_placement) without
+    re-rendering the rule widgets, whose webhook URL needs the request. %>
+<% marker = bot.unresolved_placement unless bot.new_record? %>
+<% if marker %>
+  <div id="signal-unresolved-placement" class="widget redeploy-prompt">
+    <span class="text-error"><%= t('bot.signal.unresolved', exchange: bot.exchange.name) %></span>
+    <%= button_to t('bot.signal.resolve', exchange: bot.exchange.name),
+                  bot_signal_resolution_path(bot), params: { marker_id: marker['id'] },
+                  class: 'rbutton rbutton--danger' %>
+  </div>
+<% else %>
+  <div id="signal-unresolved-placement" hidden></div>
+<% end %>

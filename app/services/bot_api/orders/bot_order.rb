@@ -13,6 +13,12 @@ module BotApi
       AMOUNT_TYPES = %w[quote base].freeze
       # Matches the accountless services: a buy spends quote, a sell sells base.
       DEFAULT_AMOUNT_TYPE = { buy: 'quote', sell: 'base' }.freeze
+      # How long an order waits for the venue's trading lease (Bot::VenueLease) — the semaphore every
+      # trading job on that exchange holds, Bot::SignalJob included — before it is turned away. A
+      # tick holds it for seconds; the caller is still on the line.
+      # ponytail: a fixed poll; a long liquidation on the venue answers venue_busy until it is done.
+      LEASE_WAIT = 10.seconds
+      LEASE_POLL = 0.25
 
       def self.call(user:, **opts)
         new(user: user, **opts).call
@@ -51,7 +57,15 @@ module BotApi
         refusal = market_refusal(bot)
         return refusal if refusal
 
-        answer(bot, bot.execute_api_order(side: @side, amount: amount, amount_type: @amount_type.to_sym))
+        # Under the venue's lease, so no webhook job or other API order on this exchange is between
+        # its own marker check and its placement while this one sizes and places.
+        outcome = nil
+        held = with_venue_lease(bot) do
+          outcome = bot.execute_api_order(side: @side, amount: amount, amount_type: @amount_type.to_sym)
+        end
+        return venue_busy(bot) unless held
+
+        answer(bot, outcome)
       end
 
       private
@@ -64,11 +78,7 @@ module BotApi
                          "Bot #{bot.id} is not a signal bot. Only a signal bot takes orders; every other type places its own.")
         end
         return failure(:conflict, 'bot_not_running', "Bot #{bot.id} is not running. Start it to place orders through it.") unless bot.working?
-        if bot.placement_unresolved?
-          return failure(:conflict, 'placement_unresolved',
-                         "An earlier order from bot #{bot.id} may or may not have been placed; " \
-                         "check #{bot.exchange.name} and resolve it on the bot page.")
-        end
+        return placement_unresolved(bot) if bot.placement_unresolved?
         return failure(:not_found, 'pair_not_found', "Bot #{bot.id} has no tradable pair on its exchange.") unless bot.ticker
 
         pair_mismatch(bot) || Lookup.untradable_refusal(bot.exchange, bot.ticker)
@@ -118,6 +128,7 @@ module BotApi
         when :skipped
           failure(:validation_failed, 'below_minimum_amount',
                   "The order is below #{bot.exchange.name}'s minimum for #{pair(bot)}.")
+        when :unresolved then placement_unresolved(bot)
         when :locked
           failure(:conflict, 'wash_sale_locked', "#{base(bot)} is locked after a sale at a loss.")
         when :ambiguous
@@ -127,6 +138,28 @@ module BotApi
           failure(:upstream_failed, 'order_failed', "Order failed: #{errors}")
         end
       end
+
+      def placement_unresolved(bot)
+        failure(:conflict, 'placement_unresolved',
+                "An earlier order from bot #{bot.id} may or may not have been placed; " \
+                "check #{bot.exchange.name} and resolve it on the bot page.")
+      end
+
+      def venue_busy(bot)
+        failure(:conflict, 'venue_busy', "#{bot.exchange.name} is busy with another order from your bots. Nothing was placed; try again.")
+      end
+
+      def with_venue_lease(bot, &block)
+        deadline = LEASE_WAIT.from_now
+        loop do
+          return true if Bot::VenueLease.hold([bot.exchange], holder: "BotApi::Orders::BotOrder for bot #{bot.id}", &block)
+          return false if Time.current >= deadline
+
+          pause
+        end
+      end
+
+      def pause = sleep(LEASE_POLL)
 
       # `outcome` is nil on a dry run: nothing was placed, so there is nothing to point at.
       def success(bot, outcome)

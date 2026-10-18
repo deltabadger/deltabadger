@@ -471,6 +471,35 @@ class Bot::SignalJobTest < ActiveSupport::TestCase
     assert_predicate last_transaction, :submitted?
   end
 
+  # Another entry point (an API order) can commit a marker after this job's own check; the order
+  # setter reads the committed row again before sizing and before placing.
+  test 'a marker committed while the call is being sized stops it before the request, and it waits' do
+    signal = rule
+    @exchange.expects(:market_buy).never
+    @ticker.stubs(:get_ask_price).with do |*|
+      Bots::Signal.find(@bot.id).mark_placement_unresolved!(side: :buy, error: 'Net::ReadTimeout') unless @bot.reload.placement_unresolved?
+      true
+    end.returns(Result::Success.new(50_000))
+    triggered_at = 1.minute.ago
+
+    assert_enqueued_with(job: Bot::SignalJob, args: [@bot, signal, triggered_at]) do
+      Bot::SignalJob.perform_now(@bot, signal, triggered_at)
+    end
+    assert_nil last_transaction
+  end
+
+  test 'an open bot page is shown the marker when it is written' do
+    @exchange.stubs(:market_buy).raises(Client::AmbiguousPlacementError, 'Net::ReadTimeout')
+
+    streams = capture_turbo_stream_broadcasts(@bot.page_stream) { perform(rule) }
+
+    marker_id = @bot.reload.unresolved_placement['id']
+    stream = streams.sole
+    assert_equal %w[replace signal-unresolved-placement], [stream['action'], stream['target']]
+    assert_includes stream.to_html, marker_id
+    assert_includes stream.to_html, I18n.t('bot.signal.resolve', exchange: @exchange.name)
+  end
+
   # A 4xx is the venue saying no. That one is a failed row.
   test 'a client-side rejection stays a failed order' do
     signal = rule

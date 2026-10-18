@@ -141,9 +141,18 @@ class Bots::Signal < Bot
 
   def placement_unresolved? = unresolved_placement.present?
 
+  # The committed row, not this instance: the other entry point (a webhook job, an API order) may
+  # have written a marker since this one was loaded. Read under the venue's trading lease, just
+  # before sizing and again before placing.
+  def placement_unresolved_now?
+    marker = self.class.where(id:).pick(:transient_data).to_h[UNRESOLVED_PLACEMENT_KEY]
+    marker.is_a?(Hash)
+  end
+
   def mark_placement_unresolved!(side:, error:)
     marker = { 'id' => SecureRandom.uuid, 'at' => Time.current.iso8601, 'side' => side.to_s, 'error' => error.to_s }
     merge_transient_data!(UNRESOLVED_PLACEMENT_KEY => marker)
+    broadcast_unresolved_placement
   end
 
   # Compare-and-clear under the row lock, with the activity line in the same transaction. Returns
@@ -165,6 +174,18 @@ class Bots::Signal < Bot
 
     write_attribute(:transient_data, remaining)
     clear_attribute_change(:transient_data)
+    broadcast_unresolved_placement
     true
+  end
+
+  # An open bot page shows the marker, and drops it, without a reload. In the owner's language, and
+  # never raised: the marker is what matters, the redraw is a courtesy.
+  def broadcast_unresolved_placement
+    with_user_locale do
+      broadcast_replace_to(page_stream, target: 'signal-unresolved-placement',
+                                        partial: 'bots/signals/unresolved_placement', locals: { bot: self })
+    end
+  rescue StandardError => e
+    Rails.logger.error("signal bot=#{id} event=unresolved_broadcast_failed error=#{e.message}")
   end
 end
