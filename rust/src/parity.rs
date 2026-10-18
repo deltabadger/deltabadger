@@ -213,8 +213,7 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
     }
     if scenario["venue"] == "kucoin" {
         // Rust's KuCoin adapter over the bodies Rails' harness serves beneath Honeymaker::Clients::Kucoin, with the
-        // scenario's own tickers. KuCoin is admitted for this run only (plan K5: nothing wires it into the engine yet).
-        let _admitted = crate::engine::eligibility::ParityKucoin::admit();
+        // scenario's own tickers.
         let transport = ScriptedTransport::from_script(&scenario["script"]["kucoin"]);
         let exchange_id: i64 = o.primary.query_row("SELECT id FROM exchanges WHERE type = 'Exchanges::Kucoin'", [], |r| r.get(0))?;
         let pairs = crate::venue::binance::Pairs::load(&o.primary, exchange_id).map_err(EngineError::Data)?;

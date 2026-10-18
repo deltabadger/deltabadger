@@ -389,7 +389,7 @@ async fn a_stock_only_index_ignores_stale_unrelated_crypto_feeds() {
 /// does; a basket bot on that venue does not.
 #[test]
 fn a_crypto_venue_index_bot_waits_on_stale_indices_and_market_caps() {
-    for venue in ["Kraken", "Binance"] { crypto_venue_index_staleness(venue); }
+    for venue in ["Kraken", "Binance", "Kucoin"] { crypto_venue_index_staleness(venue); }
 }
 
 fn crypto_venue_index_staleness(venue: &str) {

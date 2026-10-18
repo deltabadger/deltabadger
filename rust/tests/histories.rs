@@ -188,7 +188,7 @@ async fn every_remaining_eligibility_branch_has_a_named_witness() {
     ];
     let fixed = [
         ("UPDATE bots SET type='Bots::Unsupported'","type Bots::Unsupported"),
-        ("UPDATE exchanges SET type='Exchanges::Kucoin'","a bot on an exchange other than Alpaca, Kraken and Binance"),
+        ("UPDATE exchanges SET type='Exchanges::Coinbase'","a bot on an exchange other than Alpaca, Kraken, Binance and KuCoin"),
         ("UPDATE bots SET settings=json_set(settings,'$.smart_intervaled',json('true'))","smart interval amount missing"),
         ("UPDATE bots SET settings=json_set(settings,'$.limit_ordered',json('true'),'$.limit_order_pcnt_distance','broken')","limit_order_pcnt_distance"),
         ("UPDATE bots SET started_at=NULL","started_at missing"),
