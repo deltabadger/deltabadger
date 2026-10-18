@@ -37,7 +37,7 @@ pub fn offset(format: &str, filename: Option<&str>, bytes: &[u8]) -> Option<Opti
 
 /// Exchange#permission_error?'s `known_errors[:permission_denied]`, by venue: a key whose last sync failed on one of
 /// these is `missing_permission?`.
-const PERMISSION_DENIED: [(&str, &[&str]); 8] = [
+const PERMISSION_DENIED: [(&str, &[&str]); 9] = [
     ("Exchanges::Bingx", &["API key was created without the permission", "IP does not match IP whitelist"]),
     ("Exchanges::Mexc", &["No permission to access the endpoint", "IP non white list"]),
     ("Exchanges::Bitget", &["Incorrect permissions", "The user does not have this permission"]),
@@ -46,9 +46,10 @@ const PERMISSION_DENIED: [(&str, &[&str]); 8] = [
     ("Exchanges::Bitrue", &["You don't have permission", "has no operation privilege"]),
     ("Exchanges::Bybit", &["Permission denied, please check your API key permissions"]),
     ("Exchanges::Kraken", &["EGeneral:Permission denied"]),
+    ("Exchanges::Kucoin", &["Access Denied"]),
 ];
 
-fn missing_permission(exchange_type: &str, error: Option<&str>) -> bool {
+pub(crate) fn missing_permission(exchange_type: &str, error: Option<&str>) -> bool {
     let Some(error) = error.filter(|e| !crate::ruby::blank(e)) else { return false };
     PERMISSION_DENIED.iter().find(|(t, _)| *t == exchange_type).is_some_and(|(_, words)| words.iter().any(|w| error.contains(w)))
 }
@@ -165,6 +166,8 @@ mod tests {
     fn a_permission_error_is_read_per_venue() {
         assert!(super::missing_permission("Exchanges::Kraken", Some("EGeneral:Permission denied")));
         assert!(!super::missing_permission("Exchanges::Binance", Some("EGeneral:Permission denied")));
+        // KuCoin's 400007: the key is fine, it lacks the scope the sync needs.
+        assert!(super::missing_permission("Exchanges::Kucoin", Some(r#"{"code":"400007","msg":"Access Denied"}"#)));
         assert!(!super::missing_permission("Exchanges::Kraken", Some(" ")) && !super::missing_permission("Exchanges::Kraken", None));
     }
 }

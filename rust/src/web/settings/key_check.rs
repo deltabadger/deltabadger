@@ -1,7 +1,8 @@
 //! The key checks of the venues that report what a key may do: Exchanges::Kraken#key_permission_validity (GetApiKeyInfo's
 //! permission list against KEY_PERMISSIONS) and Exchanges::Binance#trading_key_validity / #reading_key_validity (the
 //! apiRestrictions flags). Each verdict is a pure function of the venue's answer, replayed against the recorded Rails
-//! verdicts (tests/fixtures/key_verdicts.json); `check` sends the one request and reads it. Binance.US checks a key another
+//! verdicts (tests/fixtures/key_verdicts.json); `check` sends the one request and reads it. Exchanges::Kucoin#get_api_key_validity
+//! probes instead (a cancel of the zero order id, or a trading-account read for a withdrawal key). Binance.US checks a key another
 //! way (an account read and a cancel probe) and is not ported: its key step stays a named refusal.
 use super::validator::{Diagnostic, Validity};
 use crate::venue::http::{HttpRequest, HttpResponse, Transport, TransportError};
@@ -104,6 +105,45 @@ pub fn binance_verdict(kind: i64, reading: bool, answer: &Result<HttpResponse, T
                    else { common && is("enableSpotAndMarginTrading", true) && is("enableWithdrawals", false) })
 }
 
+/// Exchanges::Kucoin::KEY_CHECK_REJECTED and KEY_CHECK_INCONCLUSIVE.
+pub const KUCOIN_REJECTED: [&str; 5] = ["400003", "400004", "400005", "400006", "400007"];
+pub const KUCOIN_INCONCLUSIVE: [&str; 7] = ["400001", "400002", "429000", "500000", "230005", "404000", "200002"];
+/// The order id #get_api_key_validity cancels: no order has it, so only the key is judged.
+pub const KUCOIN_PROBE_ORDER: &str = "000000000000000000000000";
+
+/// Exchanges::Kucoin#get_api_key_validity on its probe's answer (`kind` 1, a withdrawal key, read its trading account): the
+/// envelope's or error body's code and msg (#response_field) decide; any other venue code passes a trading probe.
+pub fn kucoin_verdict(kind: i64, answer: &Result<HttpResponse, TransportError>, method: &str, url: &str) -> Verdict {
+    let (body, failure) = match answer {
+        Err(error) => (None, Some(transport(error))),
+        Ok(response) if (200..300).contains(&response.status) => match serde_json::from_str::<Value>(&response.body) {
+            Ok(value) => (Some(value), None),
+            // Faraday's JSON middleware leaves an empty body nil, and raises on one it cannot parse (#with_rescue: its body).
+            Err(_) if response.body.trim().is_empty() => (None, None),
+            Err(_) => (None, Some(response.body.clone())),
+        },
+        Ok(response) => { let text = raised(response, method, url); (serde_json::from_str::<Value>(&text).ok(), Some(text)) }
+    };
+    let field = |name: &str| body.as_ref().filter(|b| b.is_object()).and_then(|b| b.get(name)).filter(|v| !v.is_null())
+        .map(|v| v.as_str().map_or_else(|| v.to_string(), str::to_string));
+    let (code, message) = (field("code"), field("msg").unwrap_or_default());
+    if code.as_deref() == Some("200000") { return Verdict::Valid(true); }
+    if code.as_deref().is_some_and(|c| KUCOIN_REJECTED.contains(&c)) || crate::engine::venue_rules::KUCOIN.is_invalid_key(std::slice::from_ref(&message)) {
+        return Verdict::Valid(false);
+    }
+    if code.is_none() || code.as_deref().is_some_and(|c| KUCOIN_INCONCLUSIVE.contains(&c)) || kind == 1 {
+        return Verdict::Failure(failure.unwrap_or_else(|| if message.is_empty() { format!("KuCoin answered code {}", code.map_or("nil".into(), |c| format!("{c:?}"))) } else { message }));
+    }
+    Verdict::Valid(true)
+}
+
+/// #get_api_key_validity's probe: honeymaker's #cancel_order of the zero id, or #get_accounts(type: 'trade') for a withdrawal key.
+pub fn kucoin_request(base: &str, kind: i64) -> HttpRequest {
+    let (method, path, query) = if kind == 1 { ("GET", "/api/v1/accounts".to_string(), vec![("type", "trade".to_string())]) }
+                                else { ("DELETE", format!("/api/v1/orders/{KUCOIN_PROBE_ORDER}"), vec![]) };
+    HttpRequest { method, base: base.into(), path, query, body: None, not_after: None }
+}
+
 /// Honeymaker's GetApiKeyInfo call: a private POST with only its nonce (added and signed by the Kraken wire at send time).
 pub fn kraken_request(base: &str) -> HttpRequest {
     HttpRequest { method: "POST", base: base.into(), path: KRAKEN_PATH.into(), query: vec![], body: Some(Value::Object(Default::default())), not_after: None }
@@ -122,6 +162,13 @@ pub async fn check(venue: &str, base: &str, client: reqwest::Client, credentials
         let transport = ReqwestTransport::new(client, credentials.key.clone(), credentials.secret.clone()).kraken().with_sensitive_values(redaction);
         let answer = transport.send(&kraken_request(base)).await;
         let verdict = kraken_verdict(kind, &answer);
+        (answer, verdict)
+    } else if venue == crate::venue::kucoin::KUCOIN {
+        let passphrase = credentials.passphrase.clone().unwrap_or_default();
+        let transport = ReqwestTransport::kucoin(client, credentials.key.clone(), credentials.secret.clone(), passphrase).with_sensitive_values(redaction);
+        let request = kucoin_request(base, kind);
+        let answer = transport.send(&request).await;
+        let verdict = kucoin_verdict(kind, &answer, request.method, request.url().as_str());
         (answer, verdict)
     } else {
         let transport = ReqwestTransport::binance(client, credentials.key.clone(), credentials.secret.clone()).with_sensitive_values(redaction);
