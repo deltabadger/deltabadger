@@ -150,6 +150,10 @@ en:
             never_triggered: "never triggered"
             last_triggered: "last triggered %{time} ago"
             api_hint: "This bot also takes orders from the API and MCP: call market_buy or market_sell with bot_id %{id}."
+            unresolved: "Unconfirmed order — new signals wait until you check %{exchange}"
+            resolve: "I checked %{exchange}"
+            resolved: "Done. The bot takes signals again."
+            resolution_stale: "That order was already resolved."
         buy: Buy
         counter: '%{countdown}'
         day: Day

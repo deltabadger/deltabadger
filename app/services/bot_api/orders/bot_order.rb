@@ -64,6 +64,11 @@ module BotApi
                          "Bot #{bot.id} is not a signal bot. Only a signal bot takes orders; every other type places its own.")
         end
         return failure(:conflict, 'bot_not_running', "Bot #{bot.id} is not running. Start it to place orders through it.") unless bot.working?
+        if bot.placement_unresolved?
+          return failure(:conflict, 'placement_unresolved',
+                         "An earlier order from bot #{bot.id} may or may not have been placed; " \
+                         "check #{bot.exchange.name} and resolve it on the bot page.")
+        end
         return failure(:not_found, 'pair_not_found', "Bot #{bot.id} has no tradable pair on its exchange.") unless bot.ticker
 
         pair_mismatch(bot) || Lookup.untradable_refusal(bot.exchange, bot.ticker)

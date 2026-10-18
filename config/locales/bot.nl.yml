@@ -150,6 +150,10 @@ nl:
             never_triggered: "nog nooit geactiveerd"
             last_triggered: "laatst geactiveerd %{time} geleden"
             api_hint: "Deze bot neemt ook orders aan via de API en MCP: roep market_buy of market_sell aan met bot_id %{id}."
+            unresolved: "Onbevestigde order — nieuwe signalen wachten tot je %{exchange} hebt gecontroleerd"
+            resolve: "Ik heb %{exchange} gecontroleerd"
+            resolved: "Klaar. De bot neemt weer signalen aan."
+            resolution_stale: "Die order is al afgehandeld."
         buy: Kopen
         counter: '%{countdown}'
         day: Dag

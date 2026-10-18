@@ -765,6 +765,7 @@ ru:
             signal_api_key_pending: "Сигнал проигнорирован — API-ключ ещё ожидает активации"
             signal_expired: "Сигнал отброшен — слишком долго ждал в очереди"
             signal_ignored: "Сигнал проигнорирован — к моменту выполнения бот был остановлен или правило отключено"
+            signal_placement_resolved: "Неподтверждённый ордер снят вручную"
         transactions:
             bought: 'Куплено %{amount} %{base} за %{quote_amount} %{quote}'
             sold: 'Продано %{amount} %{base} за %{quote_amount} %{quote}'

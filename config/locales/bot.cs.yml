@@ -150,6 +150,10 @@ cs:
             never_triggered: "zatím nespuštěn"
             last_triggered: "naposledy spuštěn před %{time}"
             api_hint: "Tento bot přijímá příkazy také přes API a MCP: zavolejte market_buy nebo market_sell s bot_id %{id}."
+            unresolved: "Nepotvrzený příkaz — nové signály počkají, než zkontroluješ %{exchange}"
+            resolve: "Zkontroloval jsem %{exchange}"
+            resolved: "Hotovo. Bot znovu přijímá signály."
+            resolution_stale: "Tento příkaz už byl vyřešen."
         buy: Nákup
         counter: '%{countdown}'
         day: Den

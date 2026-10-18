@@ -266,6 +266,7 @@ Rails.application.routes.draw do
       resource :index, only: %i[new create], controller: 'bots/indices'
       resource :custom_allocation, only: :create, controller: 'bots/custom_allocations'
       resources :rebalance_resolutions, only: [:create], controller: 'bots/rebalance_resolutions'
+      resource :signal_resolution, only: :create, controller: 'bots/signal_resolutions'
       resource :liquidation, only: %i[new create], controller: 'bots/liquidations'
       resources :liquidation_resolutions, only: [:create], controller: 'bots/liquidation_resolutions'
       resource :redeploy, only: %i[create destroy], controller: 'bots/redeploys'

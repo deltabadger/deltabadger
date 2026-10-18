@@ -351,7 +351,11 @@ class Bot::SignalJobTest < ActiveSupport::TestCase
              .then.returns(Result::Failure.new('Hyperliquid order failed: no statuses returned', data: { unacknowledged: true }))
     @bot.expects(:notify_about_error).never
 
-    4.times { perform(signal) }
+    # Each one leaves the marker that would hold the next call back; lifted here so all four run.
+    4.times do
+      perform(signal)
+      @bot.update_columns(transient_data: {})
+    end
 
     assert_equal 4, @bot.bot_activity_logs.where(event: 'placement_ambiguous').count
     assert_nil last_transaction
@@ -367,6 +371,104 @@ class Bot::SignalJobTest < ActiveSupport::TestCase
 
     assert_equal 1, @bot.bot_activity_logs.where(event: 'placement_ambiguous').count
     assert_nil last_transaction
+  end
+
+  # --- the unresolved-placement marker ------------------------------------------------------------
+
+  test 'an ambiguous placement leaves a marker naming itself, the side and the error' do
+    signal = rule(direction: :sell, amount: 10, amount_type: :percentage)
+    @exchange.stubs(:market_sell).raises(Client::AmbiguousPlacementError, 'Net::ReadTimeout')
+
+    freeze_time do
+      perform(signal)
+
+      marker = @bot.reload.transient_data['signal_placement_unresolved']
+      assert_equal %w[at error id side], marker.keys.sort
+      assert_match(/\A\h{8}-\h{4}-\h{4}-\h{4}-\h{12}\z/, marker['id'])
+      assert_equal Time.current.iso8601, marker['at']
+      assert_equal 'sell', marker['side']
+      assert_equal 'Net::ReadTimeout', marker['error']
+    end
+    assert_nil last_transaction
+  end
+
+  test 'the marker leaves the rest of the bot state alone' do
+    @bot.update_columns(transient_data: { 'rust_placement' => { 'x' => 1 } })
+    @exchange.stubs(:market_buy).raises(Client::AmbiguousPlacementError, 'Net::ReadTimeout')
+
+    perform(rule)
+
+    assert_equal({ 'x' => 1 }, @bot.reload.transient_data['rust_placement'])
+    assert @bot.placement_unresolved?
+  end
+
+  test 'a marker that cannot be written still ends as ambiguous, not as a failed row' do
+    @exchange.stubs(:market_buy).raises(Client::AmbiguousPlacementError, 'Net::ReadTimeout')
+    @bot.stubs(:mark_placement_unresolved!).raises(ActiveRecord::StatementInvalid, 'database is locked')
+
+    perform(rule)
+
+    assert_equal 1, @bot.bot_activity_logs.where(event: 'placement_ambiguous').count
+    assert_nil last_transaction
+  end
+
+  test 'a call behind an unresolved placement sizes nothing and looks again in 30 seconds' do
+    signal = rule
+    @bot.mark_placement_unresolved!(side: :buy, error: 'Net::ReadTimeout')
+    marker = @bot.unresolved_placement
+    @exchange.expects(:market_buy).never
+    @exchange.expects(:get_balances).never
+    triggered_at = 1.minute.ago
+
+    freeze_time do
+      assert_enqueued_with(job: Bot::SignalJob, args: [@bot, signal, triggered_at], at: 30.seconds.from_now) do
+        Bot::SignalJob.perform_now(@bot, signal, triggered_at)
+      end
+    end
+
+    assert_empty @bot.bot_activity_logs
+    assert_nil last_transaction
+    assert_equal marker, @bot.reload.unresolved_placement
+  end
+
+  # Strict, as for any other call: at exactly MAX_AGE it still waits; past it, it is dropped.
+  test 'a call still waiting at the end of the window expires, and is not re-queued' do
+    signal = rule
+    @bot.mark_placement_unresolved!(side: :buy, error: 'Net::ReadTimeout')
+    @exchange.expects(:market_buy).never
+
+    freeze_time do
+      assert_enqueued_jobs 1, only: Bot::SignalJob do
+        Bot::SignalJob.perform_now(@bot, signal, Bot::SignalJob::MAX_AGE.ago)
+      end
+      assert_no_enqueued_jobs only: Bot::SignalJob do
+        Bot::SignalJob.perform_now(@bot, signal, Bot::SignalJob::MAX_AGE.ago - 1.second)
+      end
+    end
+
+    assert_equal 1, @bot.bot_activity_logs.where(event: 'signal_expired').count
+    assert_nil last_transaction
+  end
+
+  test 'a stopped bot behind a marker ignores the call rather than waiting' do
+    signal = rule
+    @bot.mark_placement_unresolved!(side: :buy, error: 'Net::ReadTimeout')
+    @bot.update!(status: :stopped)
+
+    assert_no_enqueued_jobs { perform(signal) }
+
+    assert_equal 1, @bot.bot_activity_logs.where(event: 'signal_ignored').count
+  end
+
+  test 'once resolved, the waiting call places' do
+    signal = rule
+    @bot.mark_placement_unresolved!(side: :buy, error: 'Net::ReadTimeout')
+    @bot.resolve_unresolved_placement!(@bot.unresolved_placement['id'], user_id: @bot.user_id)
+    @exchange.expects(:market_buy).returns(Result::Success.new(order_id: 'sig-r1'))
+
+    perform(signal)
+
+    assert_predicate last_transaction, :submitted?
   end
 
   # A 4xx is the venue saying no. That one is a failed row.

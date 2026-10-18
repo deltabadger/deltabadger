@@ -762,6 +762,7 @@ fr:
             signal_api_key_pending: "Signal ignoré — la clé API est encore en attente d'activation"
             signal_expired: "Signal abandonné — resté trop longtemps dans la file d'attente"
             signal_ignored: "Signal ignoré — le bot a été arrêté ou la règle désactivée avant son exécution"
+            signal_placement_resolved: "Ordre non confirmé levé manuellement"
         transactions:
             bought: 'Acheté %{amount} %{base} pour %{quote_amount} %{quote}'
             sold: 'Vendu %{amount} %{base} pour %{quote_amount} %{quote}'

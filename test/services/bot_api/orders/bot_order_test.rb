@@ -274,6 +274,40 @@ class BotApi::Orders::BotOrderTest < ActiveSupport::TestCase
     assert_empty @bot.transactions
   end
 
+  # The marker an ambiguous placement leaves holds every later order back, from any caller, until
+  # the user has checked the venue — a retry on top of an order that did land buys twice.
+  test 'an unknown outcome leaves the marker, and the next order is refused as placement_unresolved' do
+    Exchanges::Binance.any_instance.expects(:market_buy).once.raises(Client::AmbiguousPlacementError, 'Net::ReadTimeout')
+
+    assert_equal 'placement_ambiguous', buy.error_code
+    assert_predicate @bot.reload, :placement_unresolved?
+
+    result = buy
+
+    assert_equal 'placement_unresolved', result.error_code
+    assert_equal :conflict, result.status
+    assert_equal "An earlier order from bot #{@bot.id} may or may not have been placed; " \
+                 'check Binance and resolve it on the bot page.', result.error_message
+    assert_empty @bot.transactions
+  end
+
+  test 'a dry run behind an unresolved placement is refused too, and a sell as well' do
+    @bot.mark_placement_unresolved!(side: :buy, error: 'Net::ReadTimeout')
+    Exchanges::Binance.any_instance.expects(:market_buy).never
+    Exchanges::Binance.any_instance.expects(:market_sell).never
+
+    assert_equal 'placement_unresolved', buy(dry_run: true).error_code
+    assert_equal 'placement_unresolved', BotApi::Orders::MarketSell.call(user: @user, bot_id: @bot.id, amount: '0.5').error_code
+  end
+
+  # Stopped is the answer that tells the caller what to do first.
+  test 'a stopped bot behind an unresolved placement answers bot_not_running' do
+    @bot.mark_placement_unresolved!(side: :buy, error: 'Net::ReadTimeout')
+    @bot.update!(status: :stopped)
+
+    assert_equal 'bot_not_running', buy.error_code
+  end
+
   test 'a limit order naming a bot is refused rather than placed unattributed' do
     Exchanges::Binance.any_instance.expects(:limit_buy).never
     Exchanges::Binance.any_instance.expects(:limit_sell).never

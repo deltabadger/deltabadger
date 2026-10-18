@@ -772,6 +772,7 @@ sv:
             signal_api_key_pending: "Signalen ignorerades — API-nyckeln väntar fortfarande på aktivering"
             signal_expired: "Signalen förkastades — den låg för länge i kön"
             signal_ignored: "Signalen ignorerades — boten stoppades eller regeln stängdes av innan den hann köras"
+            signal_placement_resolved: "Obekräftad order frigjord manuellt"
         # TODO: translate transactions (English placeholders)
         transactions:
             bought: 'Bought %{amount} %{base} for %{quote_amount} %{quote}'

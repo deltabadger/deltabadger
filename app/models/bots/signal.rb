@@ -125,4 +125,46 @@ class Bots::Signal < Bot
   def restarting?
     false
   end
+
+  # An order whose fate is unknown (Bots::Signal::OrderSetter#ambiguous_placement). While it stands
+  # the bot places nothing: a webhook call waits and then expires, an API order is refused. Only the
+  # user can lift it, after looking at the venue; there is no order id to look anything up by.
+  #
+  # `id` is the marker's own and never rewritten, so a Resolve can name the one ambiguity it is
+  # about: a stale tab must not lift a newer one.
+  UNRESOLVED_PLACEMENT_KEY = 'signal_placement_unresolved'.freeze
+
+  def unresolved_placement
+    marker = transient_data.to_h[UNRESOLVED_PLACEMENT_KEY]
+    marker.is_a?(Hash) ? marker : nil
+  end
+
+  def placement_unresolved? = unresolved_placement.present?
+
+  def mark_placement_unresolved!(side:, error:)
+    marker = { 'id' => SecureRandom.uuid, 'at' => Time.current.iso8601, 'side' => side.to_s, 'error' => error.to_s }
+    merge_transient_data!(UNRESOLVED_PLACEMENT_KEY => marker)
+  end
+
+  # Compare-and-clear under the row lock, with the activity line in the same transaction. Returns
+  # whether this call lifted the marker; false when it was already gone or is a different one.
+  def resolve_unresolved_placement!(marker_id, user_id:)
+    return false if marker_id.blank?
+
+    remaining = nil
+    self.class.transaction do
+      fresh = self.class.lock.find(id)
+      marker = fresh.transient_data.to_h[UNRESOLVED_PLACEMENT_KEY]
+      if marker.is_a?(Hash) && marker['id'] == marker_id
+        remaining = fresh.transient_data.except(UNRESOLVED_PLACEMENT_KEY)
+        fresh.update_columns(transient_data: remaining)
+        log_activity('signal_placement_resolved', details: { user_id:, marker_id: })
+      end
+    end
+    return false if remaining.nil?
+
+    write_attribute(:transient_data, remaining)
+    clear_attribute_change(:transient_data)
+    true
+  end
 end

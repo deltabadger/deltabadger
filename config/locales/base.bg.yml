@@ -772,6 +772,7 @@ bg:
             signal_api_key_pending: "Сигналът е игнориран — API ключът все още чака активиране"
             signal_expired: "Сигналът е отхвърлен — престоя твърде дълго в опашката"
             signal_ignored: "Сигналът е игнориран — ботът или правилото бяха спрени, преди да бъде обработен"
+            signal_placement_resolved: "Непотвърдената поръчка е изчистена ръчно"
         # TODO: translate transactions (English placeholders)
         transactions:
             bought: 'Bought %{amount} %{base} for %{quote_amount} %{quote}'

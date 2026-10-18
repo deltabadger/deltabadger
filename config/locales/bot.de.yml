@@ -148,6 +148,10 @@ de:
             never_triggered: "noch nie ausgelöst"
             last_triggered: "zuletzt ausgelöst vor %{time}"
             api_hint: "Dieser Bot nimmt auch Aufträge über API und MCP an: market_buy oder market_sell mit bot_id %{id} aufrufen."
+            unresolved: "Unbestätigte Order — neue Signale warten, bis du %{exchange} geprüft hast"
+            resolve: "Ich habe %{exchange} geprüft"
+            resolved: "Erledigt. Der Bot nimmt wieder Signale an."
+            resolution_stale: "Diese Order wurde bereits geklärt."
         buy: Kauf
         counter: '%{countdown}'
         day: Tag

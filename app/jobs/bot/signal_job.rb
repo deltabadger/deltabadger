@@ -11,6 +11,8 @@ class Bot::SignalJob < BotJob
   # asked for. Dropped visibly — the sender was told the call was accepted.
   # ponytail: one fixed window; make it a rule setting if a trader wants a stricter or looser one.
   MAX_AGE = 5.minutes
+  # How often a call parked behind an unresolved placement looks again.
+  UNRESOLVED_RETRY_WAIT = 30.seconds
 
   # Explicitly joins Bot::ActionJob's semaphore: Solid Queue keys the lock on [group, key], so
   # without the group a signal would run against a DCA tick on the same exchange account, both
@@ -26,6 +28,9 @@ class Bot::SignalJob < BotJob
     return refuse(bot, signal, 'signal_expired') if triggered_at < MAX_AGE.ago
     # The claim was won at the door; the world may have moved since.
     return refuse(bot, signal, 'signal_ignored') unless bot.working? && signal.enabled?
+    # An earlier order may be on the venue. Wait for the user to resolve it, until the call expires.
+    # Nothing was sized or sent, so the retry replays no placement.
+    return wait_for_resolution(bot, signal) if bot.placement_unresolved?
     # An IBKR key registered but not yet activated must never reach a live IBKR call.
     return refuse(bot, signal, 'signal_api_key_pending') if bot.api_key&.pending_activation?
 
@@ -41,6 +46,11 @@ class Bot::SignalJob < BotJob
   end
 
   private
+
+  def wait_for_resolution(bot, signal)
+    Rails.logger.info("SignalJob for bot #{bot.id}: waiting for an unresolved placement (signal #{signal.id})")
+    retry_job(wait: UNRESOLVED_RETRY_WAIT)
+  end
 
   def refuse(bot, signal, event)
     Rails.logger.info("SignalJob for bot #{bot.id}: #{event} (signal #{signal.id})")

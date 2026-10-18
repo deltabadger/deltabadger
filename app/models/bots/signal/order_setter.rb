@@ -213,7 +213,15 @@ module Bots::Signal::OrderSetter
     ambiguous_placement(order_data, e.message)
   end
 
+  # The marker first: it is what stops the next call from placing on top of this one, so it must
+  # outlive this process. A marker that cannot be written is said out loud, never raised — this is
+  # still an ambiguous placement, not a failed row.
   def ambiguous_placement(order_data, message)
+    begin
+      mark_placement_unresolved!(side: order_data[:side], error: message)
+    rescue StandardError => e
+      Rails.logger.error("execute_signal bot=#{id} event=unresolved_marker_failed error=#{e.message}")
+    end
     Rails.logger.warn(
       "execute_signal bot=#{id} event=placement_ambiguous #{order_log_fields(order_data)} error=#{message}"
     )

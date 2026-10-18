@@ -772,6 +772,7 @@ da:
             signal_api_key_pending: "Signal ignoreret — API-nøglen venter stadig på aktivering"
             signal_expired: "Signal kasseret — det ventede for længe i køen"
             signal_ignored: "Signal ignoreret — botten var stoppet, eller reglen var slået fra, inden det nåede at køre"
+            signal_placement_resolved: "Ubekræftet ordre frigivet manuelt"
         # TODO: translate transactions (English placeholders)
         transactions:
             bought: 'Bought %{amount} %{base} for %{quote_amount} %{quote}'

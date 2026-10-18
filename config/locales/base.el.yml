@@ -772,6 +772,7 @@ el:
             signal_api_key_pending: "Το σήμα αγνοήθηκε — το κλειδί API περιμένει ακόμη ενεργοποίηση"
             signal_expired: "Το σήμα απορρίφθηκε — περίμενε πολλή ώρα στην ουρά"
             signal_ignored: "Το σήμα αγνοήθηκε — το bot είχε σταματήσει ή ο κανόνας είχε απενεργοποιηθεί πριν εκτελεστεί"
+            signal_placement_resolved: "Η μη επιβεβαιωμένη εντολή αποδεσμεύτηκε χειροκίνητα"
         # TODO: translate transactions (English placeholders)
         transactions:
             bought: 'Bought %{amount} %{base} for %{quote_amount} %{quote}'
