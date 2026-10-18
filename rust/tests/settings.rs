@@ -2997,7 +2997,7 @@ async fn r2_stored_errors_and_mcp_answers_check_every_column_and_encoding(){
         h.app=h.app.with_figure_source(Source::Script(script)).unwrap();
         let balances=reads::fetch(&h.app,reads::Fetch::Balances{user:h.seed.user_id,exchange:h.seed.exchange_id,name:"Alpaca".into(),credentials:deltabadger::web::mcp::reads::Material::load(&h.c,&h.app.cipher,h.seed.api_key_id).unwrap()}).await;
         let response=reads::finish(&h.c,balances).unwrap().to_string();assert!(response.contains(deltabadger::crypto::VENUE_TEXT_REDACTED),"MCP balances: {encoded:?}");assert!(!response.contains(&encoded),"no reflected balances diagnostic");
-        let orders=reads::fetch(&h.app,reads::Fetch::Orders{user:h.seed.user_id,local:vec![],ids:Default::default(),venues:vec![(h.seed.exchange_id,"Alpaca".into(),Some(deltabadger::web::mcp::reads::Material::load(&h.c,&h.app.cipher,h.seed.api_key_id).unwrap()))]}).await;
+        let orders=reads::fetch(&h.app,reads::Fetch::Orders{user:h.seed.user_id,local:vec![],rows:vec![],ids:Default::default(),venues:vec![(h.seed.exchange_id,"Alpaca".into(),Some(deltabadger::web::mcp::reads::Material::load(&h.c,&h.app.cipher,h.seed.api_key_id).unwrap()))]}).await;
         let response=reads::finish(&h.c,orders).unwrap().to_string();assert!(response.contains(deltabadger::crypto::VENUE_TEXT_REDACTED),"MCP orders: {encoded:?}");assert!(!response.contains(&encoded),"no reflected orders diagnostic");
     }
     }

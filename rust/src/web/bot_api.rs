@@ -2,8 +2,8 @@
 //! `Res` (BotApi::Result): a domain status, and the data or an error code and message. `data` is the Hash Rails builds,
 //! in its key order, with its values already as Rails renders them: a BigDecimal as its `to_s` text, a time as
 //! ISO 8601 in UTC with milliseconds, a settings value as stored. REST encodes it (web::rest); MCP writes text from it.
-//! Ported here: the services of the REST routes this build serves (slices A and B); the others stay where their MCP
-//! tool is.
+//! Ported here: the services of the REST routes this build serves (slices A and B); the four reads (slice C) are built
+//! in web::mcp::reads, beside their venue fetches, as `Read`; the others stay where their MCP tool is.
 use super::mcp::{protocol::metadata, tools::{asset, STATUSES}};
 use super::{bot::{action_params::{numeric, ActionParams}, mcp_input, write::{self, Action, Failure, Outcome, Prepared}}, i18n, layout::Ctx, App, WebError};
 use std::sync::Arc;
@@ -12,7 +12,9 @@ use serde_json::{json, Value};
 
 /// BotApi::Result's status symbols.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Domain { Success, ValidationFailed, NotFound, Conflict, UpstreamFailed, NotPorted }
+pub enum Domain { Success, ValidationFailed, PermissionDenied, NotFound, Conflict, UpstreamFailed, NotPorted,
+    /// What Rails raises past the service (a venue's transient network error): its 500, never an envelope.
+    Raised }
 
 pub struct Res {
     pub status: Domain,
@@ -23,9 +25,14 @@ pub struct Res {
 }
 
 impl Res {
-    fn success(data: Value) -> Self { Self { status: Domain::Success, data, code: None, message: String::new() } }
-    fn failure(status: Domain, code: &'static str, message: String) -> Self { Self { status, data: Value::Null, code: Some(code), message } }
+    pub(crate) fn success(data: Value) -> Self { Self { status: Domain::Success, data, code: None, message: String::new() } }
+    pub(crate) fn failure(status: Domain, code: &'static str, message: String) -> Self { Self { status, data: Value::Null, code: Some(code), message } }
 }
+
+/// A read's answer for both surfaces (BotApi::Bots::Get, Exchanges::Balances, Orders::ListOpen, Portfolio::Summary):
+/// what the service returns, as the REST surface renders it (Time.zone UTC), and the text the MCP tool says for it (in
+/// the user's zone), with whether that text is a tool error. Built in one pass over the same snapshot.
+pub struct Read { pub res: Res, pub text: String, pub is_error: bool }
 
 /// A bot write's answer, built under its lock for both surfaces: what the service returns (`data`) and the text the
 /// MCP tool says for it.
@@ -149,7 +156,7 @@ pub fn write_result(out: Outcome<Shown>) -> Res {
 }
 
 /// Ruby's `present?` for a parameter: nil, false, a blank string and an empty list or hash are not.
-fn present(v: &Value) -> bool {
+pub(crate) fn present(v: &Value) -> bool {
     match v {
         Value::Null | Value::Bool(false) => false,
         Value::String(s) => !s.trim().is_empty(),

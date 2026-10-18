@@ -19,9 +19,12 @@ module Pages
     EXTRA = %w[etag content-disposition x-total-transactions x-returned-transactions x-truncated].freeze
     READS = { 'bots' => ['/api/v1/bots', 'list_bots'], 'exchanges' => ['/api/v1/exchanges', 'list_exchanges'],
               'transactions' => ['/api/v1/transactions', 'list_transactions'],
-              'tax' => ['/api/v1/tax/jurisdictions', 'list_tax_jurisdictions'], 'indices' => ['/api/v1/indices', 'list_indices'] }.freeze
+              'tax' => ['/api/v1/tax/jurisdictions', 'list_tax_jurisdictions'], 'indices' => ['/api/v1/indices', 'list_indices'],
+              # Slice C: the reads that may ask a venue (Alpaca, stubbed: WebMock here, wiremock in rust/tests/pages.rs).
+              'bot' => ['/api/v1/bots/1', 'get_bot_details'], 'balances' => ['/api/v1/exchanges/1/balances', 'get_exchange_balances'],
+              'orders' => ['/api/v1/orders', 'list_open_orders'], 'portfolio' => ['/api/v1/portfolio', 'get_portfolio_summary'] }.freeze
     # Routes this build answers with the 501 envelope, past the same authentication and tool gate as Rails.
-    GATED = [['GET', '/api/v1/bots/1', 'get_bot_details'], ['GET', '/api/v1/portfolio', 'get_portfolio_summary'],
+    GATED = [['GET', '/api/v1/rules', 'list_rules'], ['GET', '/api/v1/transactions/account', 'list_account_transactions'],
              ['DELETE', '/api/v1/rules/1', 'delete_rule'], ['GET', '/api/v1/tax/reports/DE/2025/download', 'download_tax_report']].freeze
     # The bot writes (slice B): the route, its tool, and the status bot 1 needs for the route to succeed.
     WRITES = { 'update' => ['PATCH', '/api/v1/bots/1', 'update_bot_settings', 0], 'start' => ['POST', '/api/v1/bots/1/start', 'start_bot', 0],
@@ -71,7 +74,7 @@ module Pages
                                                api(path, method: 'HEAD'), api(path, headers: { 'Accept' => 'text/html' })])
         # Only an action that reads `params` parses the body: Rails' 400 is theirs alone.
         malformed = json_body(path, '{"limit":')
-        malformed['rails_exception_status'] = 400 if %w[bots transactions indices].include?(name)
+        malformed['rails_exception_status'] = 400 if %w[bots transactions indices bot balances orders].include?(name)
         grid["api_#{name}_malformed_json"] = api_case([malformed])
       end
       GATED.each do |method, path, tool|
@@ -105,7 +108,7 @@ module Pages
                                               json_body('/api/v1/bots', '{"type":"nope"}').merge('method' => 'POST', 'if_none_match' => 'last')])
       # The setup gate is ApplicationController's: an install without an admin still answers the API.
       grid['api_no_admin'] = api_case([api(bots), api(bots, nil)], {}, 'user' => owner('admin' => false))
-      grid.merge(api_param_scenarios).merge(api_write_scenarios)
+      grid.merge(api_param_scenarios).merge(api_write_scenarios).merge(api_read_scenarios)
     end
 
     # Bot 1 in the status a route needs (one that ran has a start time); bots 2 to 4 as api_case has them.
@@ -259,6 +262,62 @@ module Pages
       }
     end
 
+    # Slice C's reads past the gate: each service's lookups and the venue's answers (paper and live hosts, a failing
+    # venue). Every step still writes nothing. A bot with fills is left out: Rails prices it from data.alpaca.markets,
+    # which this build's reads do not ask (their figures come from the walk alone).
+    def api_read_scenarios
+      bot = '/api/v1/bots'
+      balances = ->(id) { "/api/v1/exchanges/#{id}/balances" }
+      orders = '/api/v1/orders'
+      {
+        'api_bot_lookups' => api_case([api("#{bot}/1"), api("#{bot}/2"), api("#{bot}/3"), api("#{bot}/4"), api("#{bot}/999"), api("#{bot}/abc"),
+                                       api("#{bot}/2abc"), api("#{bot}/1?id=2"), api("#{bot}/1", 'second-token'), api("#{bot}/1", 'personal-token')]),
+        'api_bot_started' => api_case([api("#{bot}/1")]).tap { |c| c['bots'][0]['columns'] = { 'label' => 'Basket <&>', 'status' => 1, 'started_at' => '2026-09-09T12:00:00Z' } },
+        'api_balances_lookups' => api_case([api(balances.(1)), api(balances.(2)), api(balances.(999)), api(balances.('abc')), api(balances.('1abc')),
+                                            api(balances.(1), 'second-token'), api("#{balances.(1)}?id=2")]),
+        'api_balances_held' => api_case([api(balances.(1)), api("#{balances.(1)}.json")], { 'alpaca_key' => 'PKRICH' }),
+        'api_balances_live' => api_case([api(balances.(1)), api(orders)], { 'alpaca_key' => 'PKRICH', 'passphrase' => 'live' }),
+        'api_balances_venue_down' => api_case([api(balances.(1)), api(orders)], { 'alpaca_key' => 'failure-key' }),
+        'api_balances_positions_refused' => api_case([api(balances.(1))], { 'alpaca_key' => 'positions-bad' }),
+        'api_orders_rows' => api_case([api(orders), api("#{orders}?exchange_name=alpaca"), api("#{orders}?exchange_name=Kraken"),
+                                       api("#{orders}?exchange_name=Nope%3Cx%3E"), api("#{orders}?exchange_name=%20"), api(orders, 'second-token')],
+                                      { 'alpaca_key' => 'PKRICH' }).tap { |c| c['bots'][0]['orders'] = 'open' },
+        'api_orders_no_key' => api_case([api(orders), api("#{orders}?exchange_name=Alpaca")], {}, 'api_keys' => {}),
+        'api_portfolio_none' => api_case([api('/api/v1/portfolio'), api("#{bot}/1")], {}, 'bots' => [])
+      }
+    end
+
+    # The Alpaca answers the read scenarios stub, by key (`alpaca_key`), after pages_settings.rb's own (WebMock answers
+    # the last stub declared first). The same answers are mounted on rust/tests/pages.rs's wiremock server.
+    HELD_ACCOUNT = '{"status":"ACTIVE","cash":"1234.5","buying_power":"2000"}'
+    HELD_POSITIONS = '[{"symbol":"QQQM","asset_class":"us_equity","qty":"2.5","qty_available":"2"}]'
+    OPEN_ORDERS = '[{"id":"venue-1","symbol":"QQQM","asset_class":"us_equity","side":"buy","type":"limit","status":"new","qty":"1.5","filled_qty":"0",' \
+                  '"filled_avg_price":null,"limit_price":"401.5","notional":null},' \
+                  '{"id":"venue-2","symbol":"IBIT","asset_class":"us_equity","side":"sell","type":"market","status":"partially_filled","qty":"3",' \
+                  '"filled_qty":"1","filled_avg_price":"55.25","limit_price":null,"notional":null},' \
+                  '{"id":"order-1-QQQM-2026-09-10T11:00:00Z","symbol":"QQQM","asset_class":"us_equity","side":"buy","type":"limit","status":"new",' \
+                  '"qty":"0.12247","filled_qty":"0","filled_avg_price":null,"limit_price":"408.25","notional":null},' \
+                  '{"id":"venue-3","symbol":"BTC/USD","asset_class":"crypto","side":"buy","type":"market","status":"new","qty":null,"filled_qty":"0",' \
+                  '"filled_avg_price":null,"limit_price":null,"notional":"10"}]'
+
+    # ponytail: declared again at every scenario's connect (harmless repeats), so they always follow pages_settings.rb's.
+    def connect(dir)
+      super
+      json = { 'Content-Type' => 'application/json' }
+      %w[paper-api.alpaca.markets api.alpaca.markets].each do |host|
+        WebMock.stub_request(:get, "https://#{host}/v2/orders?limit=50&status=open").to_return(status: 200, body: '[]', headers: json)
+        WebMock.stub_request(:get, "https://#{host}/v2/orders?limit=50&status=open").with(headers: { 'APCA-API-KEY-ID' => 'PKRICH' }).to_return(status: 200, body: OPEN_ORDERS, headers: json)
+        WebMock.stub_request(:get, "https://#{host}/v2/orders?limit=50&status=open").with(headers: { 'APCA-API-KEY-ID' => 'failure-key' })
+               .to_return(status: 503, body: '{"message":"unavailable"}', headers: json)
+        WebMock.stub_request(:get, "https://#{host}/v2/account").with(headers: { 'APCA-API-KEY-ID' => 'PKRICH' }).to_return(status: 200, body: HELD_ACCOUNT, headers: json)
+        WebMock.stub_request(:get, "https://#{host}/v2/positions").with(headers: { 'APCA-API-KEY-ID' => 'PKRICH' }).to_return(status: 200, body: HELD_POSITIONS, headers: json)
+      end
+      WebMock.stub_request(:get, 'https://api.alpaca.markets/v2/account').with { |request| request.headers['Apca-Api-Key-Id'] != 'PKRICH' }
+             .to_return(status: 200, body: '{"status":"ACTIVE","cash":"0"}', headers: json)
+      WebMock.stub_request(:get, 'https://api.alpaca.markets/v2/positions').with { |request| request.headers['Apca-Api-Key-Id'] != 'PKRICH' }
+             .to_return(status: 200, body: '[]', headers: json)
+    end
+
     def action_fixture(scenario)
       super
       spec = scenario['api'] or return
@@ -293,6 +352,10 @@ module Pages
       api_transactions if spec['transactions']
       api_indices(spec) if spec['indices']
       api_keys(owner, second) if spec['keys']
+      # The owner's Alpaca key as another account (its stubbed answers) or in live mode (the live host).
+      if spec['alpaca_key']
+        ApiKey.find_by!(user: owner, exchange: Exchange.find_by!(name: 'Alpaca')).update_columns(key: spec['alpaca_key'], passphrase: spec.fetch('passphrase', 'paper'))
+      end
       # MarketData's listings sync types every stock listing (CATEGORY_BY_TYPE); the grid's alpaca install leaves them untyped.
       unless spec['untyped']
         Asset.where(category: 'Stock').find_each { |asset| asset.update_columns(instrument_type: %w[QQQM IBIT].include?(asset.symbol) ? 'etf' : 'stock') }
