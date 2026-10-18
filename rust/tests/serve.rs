@@ -1710,7 +1710,7 @@ fn a_bot_row_is_read_as_the_pages_need_it_and_refused_when_this_build_cannot_ren
         ("UPDATE bots SET type = 'Bots::Signal'", "a bot of a type this build does not render"),
         ("UPDATE bots SET transient_data = '{\"rebalance_pending\":{\"phase\":\"selling\"}}'", "a rebalance, liquidation or redeploy in progress"),
         ("UPDATE exchanges SET type = 'Exchanges::Kucoin'", "a bot on an exchange other than Alpaca, Kraken and Binance"),
-        ("UPDATE exchanges SET type = 'Exchanges::Kraken'; UPDATE bots SET type = 'Bots::DcaIndex'", "an index bot on Kraken or Binance (only on Alpaca)"),
+        ("UPDATE exchanges SET type = 'Exchanges::Kraken'; UPDATE bots SET type = 'Bots::DcaIndex', settings = json_set(settings, '$.direction', 'selling')", "an index bot that sells"),
         // A ticker's decimals size the rounding: one past the bound, a negative one and the largest number the column holds.
         ("UPDATE tickers SET base_decimals = 15", "a ticker with more decimals than this build rounds to"),
         ("UPDATE tickers SET quote_decimals = -1", "a ticker with more decimals than this build rounds to"),
@@ -1727,13 +1727,13 @@ fn a_bot_row_is_read_as_the_pages_need_it_and_refused_when_this_build_cannot_ren
     assert!(unnamed.label_unsaved && !unnamed.label.trim().is_empty(), "named in memory: {:?}", unnamed.label);
     assert_eq!(c.query_row("SELECT label FROM bots WHERE id = ?1", [id], |r| r.get::<_, String>(0)).unwrap(), "  ", "and not saved");
     c.execute_batch("ROLLBACK TO unnamed; RELEASE unnamed;").unwrap();
-    // A Kraken or Binance basket of several assets is served as the engine trades it (P1-T1); an index bot there is not.
+    // A Kraken or Binance basket of several assets is served as the engine trades it (P1-T1), and so is an index bot there (plan CI).
     for venue in ["Exchanges::Kraken", "Exchanges::Binance"] {
         c.execute_batch(&format!("SAVEPOINT venue; UPDATE exchanges SET type = '{venue}'; \
                                   UPDATE bots SET settings = json_set(settings, '$.allocations', json_object('{}', 0.6, '999', 0.4));", seeded.btc)).unwrap();
         assert_eq!(refusal(), None, "{venue} basket");
-        c.execute_batch("UPDATE bots SET type = 'Bots::DcaIndex'").unwrap();
-        assert_eq!(refusal(), Some("an index bot on Kraken or Binance (only on Alpaca)"), "{venue} index");
+        c.execute_batch("UPDATE bots SET type = 'Bots::DcaIndex', settings = json_set(settings, '$.index_type', 'top')").unwrap();
+        assert_eq!(refusal(), None, "{venue} index");
         c.execute_batch("ROLLBACK TO venue; RELEASE venue;").unwrap();
     }
     // At the bound the bot is served, and what the pages compute from the decimals is computed.

@@ -212,15 +212,13 @@ async fn every_remaining_eligibility_branch_has_a_named_witness() {
         ("INSERT INTO bot_index_assets (bot_id,asset_id,ticker_id,in_index,created_at,updated_at) SELECT id,999,1,1,'2026-01-01','2026-01-01' FROM bots","index assets present"),
         ("INSERT INTO account_transactions (user_id,exchange_id,entry_type,base_currency,base_amount,transacted_at,raw_data,created_at,updated_at) SELECT user_id,exchange_id,15,'AAA',0,'2026-01-01','{\"corporate_action\":\"split\"}','2026-01-01','2026-01-01' FROM bots","split(s) recorded"),
         ("UPDATE bots SET type='Bots::DcaIndex'","configured deltabadger market-data provider"),
-        ("UPDATE bots SET type='Bots::DcaIndex'; UPDATE exchanges SET type='Exchanges::Kraken'","an index bot on Kraken or Binance (only on Alpaca)"),
+        ("UPDATE bots SET type='Bots::DcaIndex',settings=json_set(settings,'$.direction','selling'); UPDATE exchanges SET type='Exchanges::Kraken'","an index bot that sells"),
         ("UPDATE bots SET type='Bots::DcaIndex',settings=json_set(settings,'$.direction','selling')","an index bot that sells"),
         // A wider basket sells and rebalances on Alpaca only (6b); on Kraken and Binance both stay refused.
         ("UPDATE exchanges SET type='Exchanges::Kraken'; UPDATE bots SET settings=json_set(settings,'$.direction','selling')","a basket of several assets that sells"),
         ("UPDATE exchanges SET type='Exchanges::Kraken'; UPDATE bots SET settings=json_set(settings,'$.rebalance_enabled',json('true'))","rebalance_enabled"),
         ("UPDATE bots SET type='Bots::DcaIndex'; UPDATE assets SET symbol='EUR' WHERE symbol='USD'","quote EUR"),
         ("UPDATE bots SET type='Bots::DcaIndex'","index_type"),
-        ("UPDATE bots SET type='Bots::DcaIndex'","index_category_id missing"),
-        ("UPDATE bots SET type='Bots::DcaIndex',settings=json_set(settings,'$.index_category_id','SYNTH')","index SYNTH is not a data-api"),
         ("UPDATE bots SET type='Bots::DcaIndex'","num_coins is not a positive integer"),
         ("UPDATE bots SET type='Bots::DcaIndex',settings=json_set(settings,'$.allocation_flattening',2)","allocation_flattening"),
     ];

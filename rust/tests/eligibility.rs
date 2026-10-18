@@ -274,7 +274,7 @@ fn malformed_asset_categories_incomplete_indices_and_other_quotes_are_refused() 
         ("category etf", Box::new(|c, s| { c.execute("UPDATE assets SET category = 'etf' WHERE id = ?1", [s.btc]).unwrap(); seed::insert_bot(c, s, &plain()) })),
         ("instrument tokenized", Box::new(|c, s| { c.execute("UPDATE assets SET instrument_type = 'tokenized' WHERE id = ?1", [s.btc]).unwrap(); seed::insert_bot(c, s, &plain()) })),
         ("no ticker for the asset", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("allocations", json!({ s.btc.to_string(): 0.5, s.quote.to_string(): 0.5 }))))),
-        ("index_category_id missing", Box::new(|c, s| { let id = seed::insert_bot(c, s, &plain()); c.execute("UPDATE bots SET type = 'Bots::DcaIndex' WHERE id = ?1", [id]).unwrap(); id })),
+        ("index_type None", Box::new(|c, s| { let id = seed::insert_bot(c, s, &plain()); c.execute("UPDATE bots SET type = 'Bots::DcaIndex' WHERE id = ?1", [id]).unwrap(); id })),
         ("quote USDT (Alpaca: only USD)", Box::new(|c, s| { c.execute("UPDATE assets SET symbol = 'USDT' WHERE id = ?1", [s.quote]).unwrap(); seed::insert_bot(c, s, &plain()) })),
     ];
     for (reason, make) in cases {
@@ -425,7 +425,7 @@ fn a_kraken_or_binance_basket_is_eligible() {
     }
 }
 
-/// What a Kraken or Binance basket still may not do in this engine: the amount limit, selling, rebalancing, and an index bot.
+/// What a Kraken or Binance basket still may not do in this engine: the amount limit, selling, rebalancing, and an index bot that sells.
 #[test]
 fn a_kraken_or_binance_basket_outside_the_slice_is_refused_with_its_reason() {
     type Case = Box<dyn Fn(&rusqlite::Connection, &seed::Seeded, i64) -> i64>;
@@ -437,8 +437,8 @@ fn a_kraken_or_binance_basket_outside_the_slice_is_refused_with_its_reason() {
             ("a basket of several assets that sells".into(), Box::new(move |c, s, eth| seed::insert_bot(c, s, &half(s, eth).with("direction", json!("selling"))
                 .with("sell_denomination", json!("base")).with("sell_amount", json!(0.001))))),
             ("rebalance_enabled".into(), Box::new(move |c, s, eth| seed::insert_bot(c, s, &half(s, eth).with("rebalance_enabled", json!(true))))),
-            ("an index bot on Kraken or Binance (only on Alpaca)".into(), Box::new(move |c, s, eth| { let id = seed::insert_bot(c, s, &half(s, eth));
-                c.execute("UPDATE bots SET type = 'Bots::DcaIndex' WHERE id = ?1", [id]).unwrap(); id })),
+            ("an index bot that sells".into(), Box::new(move |c, s, _| { let id = seed::index_bot(c, s, "layer-1", 3, 0.0, false);
+                c.execute("UPDATE bots SET settings = json_set(settings, '$.direction', 'selling') WHERE id = ?1", [id]).unwrap(); id })),
         ];
         for (reason, make) in cases {
             let (_d, o, s) = install();
@@ -450,6 +450,30 @@ fn a_kraken_or_binance_basket_outside_the_slice_is_refused_with_its_reason() {
             assert!(r.eligible.is_empty(), "{venue} {reason}");
         }
     }
+}
+
+/// Plan CI: a Top coins bot at EUR on Kraken, and a category bot quoted in BTC on Binance, are admitted on a data-api install,
+/// with or without their `indices` row (a missing row is the tick's "Index not found", never an install refusal).
+#[test]
+fn a_crypto_index_bot_on_kraken_or_binance_is_admitted() {
+    let (_d, o, s) = install();
+    let top = seed::index_bot(&o.primary, &s, "ignored", 3, 0.5, false);
+    o.primary.execute("UPDATE bots SET settings = json_remove(json_set(settings, '$.index_type', 'top'), '$.index_category_id') WHERE id = ?1", [top]).unwrap();
+    let r = eligibility::check_install(&o.primary).unwrap();
+    assert!(r.problems.is_empty(), "{:?}", r.problems);
+    assert_eq!(r.eligible, vec![top]);
+
+    let (_d, o, s) = install();
+    o.primary.execute("UPDATE exchanges SET type = 'Exchanges::Binance', name = 'Binance'", []).unwrap();
+    let eth = venue_member(&o.primary, &s, "ETH");
+    o.primary.execute("UPDATE tickers SET ticker = 'ETHBTC', quote = 'BTC', quote_asset_id = ?1 WHERE base_asset_id = ?2", [s.btc, eth]).unwrap();
+    let id = seed::index_bot(&o.primary, &s, "layer-1", 3, 0.0, false);
+    o.primary.execute("UPDATE bots SET settings = json_set(settings, '$.quote_asset_id', ?1) WHERE id = ?2", [s.btc, id]).unwrap();
+    seed::insert_index(&o.primary, "layer-1", &["bitcoin", "ethereum"], &json!({}));
+    o.primary.execute("UPDATE indices SET source = 'coingecko'", []).unwrap();
+    let r = eligibility::check_install(&o.primary).unwrap();
+    assert!(r.problems.is_empty(), "{:?}", r.problems);
+    assert_eq!(r.eligible, vec![id]);
 }
 
 /// One history row of `bot`: closed, of `side`, `kind`, `asset`, with this external id.
@@ -764,10 +788,7 @@ fn one_admission_rule_for_engine_and_pages() {
     // 6b: a wider Alpaca basket sells (the ranked DCA-out) and rebalances.
     assert_eq!(admission(Some("Exchanges::Alpaca"), false, 2, true), None);
     assert!(eligibility::rebalances_on(Some("Exchanges::Alpaca")));
-    for venue in ["Exchanges::Kraken", "Exchanges::Binance"] {
-        assert_eq!(admission(Some(venue), true, 10, false), Some("an index bot on Kraken or Binance (only on Alpaca)"));
-    }
-    assert_eq!(admission(Some("Exchanges::Alpaca"), true, 10, false), None);
+    for venue in ["Exchanges::Kraken", "Exchanges::Binance", "Exchanges::Alpaca"] { assert_eq!(admission(Some(venue), true, 10, false), None, "{venue} index"); }
     for venue in [Some("Exchanges::Kucoin"), None] {
         assert_eq!(admission(venue, false, 1, false), Some("a bot on an exchange other than Alpaca, Kraken and Binance"));
     }

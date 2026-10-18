@@ -116,6 +116,11 @@ impl Bot {
     /// Bots::DcaIndex settings (dca_index.rb:19-30): 'top' or 'category'.
     pub fn index_type(&self) -> Option<&str> { self.settings.get("index_type")?.as_str() }
     pub fn index_category_id(&self) -> Option<&str> { self.settings.get("index_category_id")?.as_str().filter(|s| !s.trim().is_empty()) }
+    /// The `indices` row MarketData.get_top_coins reads (market_data.rb:118-122): a category index with a present
+    /// index_category_id reads that row, anything else the Top coins row.
+    pub fn index_external_id(&self) -> &str {
+        match self.index_category_id() { Some(id) if self.index_type() == Some("category") => id, _ => "top-coins" }
+    }
     /// `num_coins.to_i`: a JSON integer or a string of digits (the slider posts strings). None for anything else: refused.
     pub fn num_coins(&self) -> Option<i64> {
         match self.settings.get("num_coins")? { Value::Number(n) => n.as_i64(), Value::String(s) => s.trim().parse().ok(), _ => None }

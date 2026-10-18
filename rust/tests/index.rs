@@ -159,14 +159,18 @@ async fn hold_all_buys_the_whole_universe_with_flattened_weights() {
 }
 
 #[test]
-fn an_index_bot_is_admitted_on_a_data_api_category_index_only() {
+fn an_index_bot_is_admitted_on_a_top_or_category_index_of_any_source() {
     let (_d, o, _s, id, _) = universe(3, 0.0, false);
     let reasons = |o: &store::Opened| eligibility::bot_reasons(&o.primary, &model::load_bot(&o.primary, id).unwrap()).unwrap();
     assert_eq!(reasons(&o), Vec::<String>::new());
+    // Any source (MarketData.get_top_coins' find_by has no source filter), and a missing row is the tick's Failure.
     o.primary.execute("UPDATE indices SET source = 'coingecko'", []).unwrap();
-    assert!(reasons(&o).iter().any(|r| r.contains("not a data-api index")), "{:?}", reasons(&o));
-    o.primary.execute("UPDATE indices SET source = 'deltabadger'", []).unwrap();
+    assert_eq!(reasons(&o), Vec::<String>::new());
+    o.primary.execute("DELETE FROM indices", []).unwrap();
+    assert_eq!(reasons(&o), Vec::<String>::new());
     o.primary.execute("UPDATE bots SET settings = json_set(settings, '$.index_type', 'top')", []).unwrap();
+    assert_eq!(reasons(&o), Vec::<String>::new());
+    o.primary.execute("UPDATE bots SET settings = json_set(settings, '$.index_type', 'custom')", []).unwrap();
     assert!(reasons(&o).iter().any(|r| r.starts_with("index_type")), "{:?}", reasons(&o));
     o.primary.execute("UPDATE bots SET settings = json_set(settings, '$.index_type', 'category', '$.num_coins', 'ten', '$.allocation_flattening', 1.5)", []).unwrap();
     let r = reasons(&o);
@@ -522,4 +526,20 @@ async fn a_split_correction_during_the_swaps_reads_is_never_sized_through() {
         assert!(matches!(out, Outcome::Skipped("split_hold" | "changed")), "read {at_read}: {out:?}");
         assert!(t.posted_orders().is_empty(), "read {at_read}");
     }
+}
+
+/// T1: MarketData.get_top_coins' row: the category's own with a present index_category_id, else `top-coins` (any source).
+#[test]
+fn a_top_bot_and_a_category_bot_without_an_id_read_the_top_coins_row() {
+    let (_d, o, _s, id, _) = universe(3, 0.0, false);
+    let bot = || model::load_bot(&o.primary, id).unwrap();
+    assert_eq!(bot().index_external_id(), "nasdaq-100");
+    o.primary.execute("UPDATE bots SET settings = json_set(settings, '$.index_category_id', '  ')", []).unwrap();
+    assert_eq!(bot().index_external_id(), "top-coins", "a blank id is not present?");
+    o.primary.execute("UPDATE bots SET settings = json_set(settings, '$.index_category_id', 'nasdaq-100', '$.index_type', 'top')", []).unwrap();
+    assert_eq!(bot().index_external_id(), "top-coins");
+    assert_eq!(index::candidate_pairs(&o.primary, &bot()).unwrap(), Vec::<String>::new(), "no top-coins row yet");
+    seed::insert_index(&o.primary, "top-coins", &["CCC.US", "AAA.US"], &json!({}));
+    o.primary.execute("UPDATE indices SET source = 'internal' WHERE external_id = 'top-coins'", []).unwrap();
+    assert_eq!(index::candidate_pairs(&o.primary, &bot()).unwrap(), vec!["AAA", "CCC"]);
 }

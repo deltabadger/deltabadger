@@ -130,7 +130,7 @@ fn bot_reasons_with(c: &Connection, bot: &Bot, splits: &mut SplitRows) -> Result
     let kraken = match exchange.as_deref() { Some("Exchanges::Kraken") => Some("Kraken"), Some("Exchanges::Binance") => Some("Binance"),
                                              Some("Exchanges::Kucoin") if parity_admits_kucoin() => Some("KuCoin"), _ => None };
     let alpaca = exchange.as_deref() == Some("Exchanges::Alpaca");
-    let members = if index { index_reasons(c, bot, &mut r)? } else { composition_reasons(bot, &mut r) };
+    let members = if index { index_reasons(c, bot, alpaca, &mut r)? } else { composition_reasons(bot, &mut r) };
     let selling = bot.settings.get("direction").is_some_and(|v| v == "selling");
     if let Some(why) = admission(exchange.as_deref(), index, members.len(), selling) { r.push(why.into()); }
     match bot.settings.get("direction") {
@@ -194,13 +194,12 @@ fn price_rule_reason(bot: &Bot, key: &str, value: &Value) -> Option<String> {
 
 /// Which bots this build runs, by venue, class and member count: the one rule the engine's guard and the bot pages
 /// (web::bot::refusal) both apply, so a page is never served for a bot the engine refuses. Kraken and Binance take buying
-/// baskets of any size (P1-T0); index bots run on Alpaca only; an index bot never sells (not reversible); a wider basket
+/// baskets and index bots of any size (P1-T0, plan CI); an index bot never sells (not reversible); a wider basket
 /// sells on Alpaca only (6b, the ranked DCA-out), one asset elsewhere (6a). Rebalancing is Alpaca's too (`rebalances_on`).
 /// What else a bot needs (its amount limit on Kraken/Binance, market-cap weights) is each side's own named reason.
 pub fn admission(exchange: Option<&str>, index: bool, members: usize, selling: bool) -> Option<&'static str> {
     match exchange {
         Some("Exchanges::Alpaca") => {}
-        Some("Exchanges::Kraken" | "Exchanges::Binance") if index => return Some("an index bot on Kraken or Binance (only on Alpaca)"),
         Some("Exchanges::Kraken" | "Exchanges::Binance") => {}
         Some("Exchanges::Kucoin") if parity_admits_kucoin() && index => return Some("an index bot on KuCoin (only on Alpaca)"),
         Some("Exchanges::Kucoin") if parity_admits_kucoin() => {}
@@ -670,20 +669,15 @@ fn reconciling(tx: &Connection) -> Result<Result<(), Refusal>, EngineError> {
     }).collect())))
 }
 
-/// Bots::DcaIndex within what Plan 2d ports: Alpaca, USD, a data-api category index this install holds (MarketData.get_top_coins
-/// reads the local row only on a data-api install; on a CoinGecko one it calls CoinGecko live), a readable count and
-/// flattening. Returns the assets of every bot_index_assets row, in or out of the index, for member_reasons.
-fn index_reasons(c: &Connection, bot: &Bot, r: &mut Vec<String>) -> Result<Vec<i64>, EngineError> {
+/// Bots::DcaIndex within what this build ports: a data-api install (MarketData.get_top_coins reads the local row only there;
+/// on a CoinGecko one it calls CoinGecko live), USD on Alpaca, a Top coins or category index, a readable count and
+/// flattening. A missing `indices` row is the tick's own Failure ("Index not found"), never an install refusal. Returns the
+/// assets of every bot_index_assets row, in or out of the index, for member_reasons.
+fn index_reasons(c: &Connection, bot: &Bot, alpaca: bool, r: &mut Vec<String>) -> Result<Vec<i64>, EngineError> {
     if super::provider::config(c)?.is_none() { r.push("index requires a configured deltabadger market-data provider".into()); }
-    if model::quote_symbol(c, bot)? != "USD" { r.push(format!("quote {} (Alpaca: only USD)", model::quote_symbol(c, bot)?)); }
-    if bot.index_type() != Some("category") { r.push(format!("index_type {:?} (only a data-api category index)", bot.index_type())); }
-    match bot.index_category_id() {
-        None => r.push("index_category_id missing".into()),
-        Some(id) => {
-            let source: Option<Option<String>> = c.query_row("SELECT source FROM indices WHERE external_id = ?1 ORDER BY id LIMIT 1", [id], |r| r.get(0)).optional()?;
-            if source.flatten().as_deref() != Some("deltabadger") { r.push(format!("index {id} is not a data-api index on this install")); }
-        }
-    }
+    // member_reasons checks the quote only through a member's ticker, so a bot with no members yet is checked here.
+    if alpaca && model::quote_symbol(c, bot)? != "USD" { r.push(format!("quote {} (Alpaca: only USD)", model::quote_symbol(c, bot)?)); }
+    if !matches!(bot.index_type(), Some("top" | "category")) { r.push(format!("index_type {:?} (only Top coins or a category index)", bot.index_type())); }
     if !bot.num_coins().is_some_and(|n| (1..=1000).contains(&n)) { r.push("num_coins is not a positive integer".into()); }
     if !bot.allocation_flattening().is_some_and(|f| (0.0..=1.0).contains(&f)) { r.push("allocation_flattening is not a number in 0..1".into()); }
     let mut s = c.prepare("SELECT asset_id FROM bot_index_assets WHERE bot_id = ?1 ORDER BY id")?;

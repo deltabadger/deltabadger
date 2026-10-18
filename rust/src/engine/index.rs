@@ -94,7 +94,7 @@ async fn refresh_owned<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &B
     let before = match claimed { Some(v) => v.clone(), None => super::placement::composition_snapshot(c, bot)? };
     let provider_before = super::provider::fingerprint(c)?;
     if provider_before.is_none() { return Ok(Err(Refusal::Failure("Index provider not configured".into()))); }
-    let category = bot.index_category_id().unwrap_or_default();
+    let category = bot.index_external_id();
     let row: Option<(Option<String>, Option<String>, Option<String>)> = c.query_row(
         "SELECT source, top_coins, weights FROM indices WHERE external_id = ?1 ORDER BY id LIMIT 1", [category],
         |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).optional()?;
@@ -166,7 +166,8 @@ async fn refresh_owned<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &B
         for ticker in &priced_tickers { changed |= model::ticker_by_id(tx, bot.exchange_id, ticker.id)?.as_ref() != Some(ticker); }
         if changed { return Ok(Err(Refusal::Transient("index changed during price probes".into()))); }
         let mut reasons = super::eligibility::bot_reasons(tx, &current)?;
-        super::eligibility::member_reasons(tx, &current, true, &members.iter().map(|m| m.0).collect::<Vec<_>>(), &mut reasons)?;
+        let alpaca = model::exchange_type(tx, &current)? == "Exchanges::Alpaca";
+        super::eligibility::member_reasons(tx, &current, alpaca, &members.iter().map(|m| m.0).collect::<Vec<_>>(), &mut reasons)?;
         if !reasons.is_empty() { return Ok(Err(Refusal::Failure(reasons.join("; ")))); }
         basket::write_members(tx, bot.id, &members, clock.now())?;
         // Any unexpected ineligibility rolls the transaction back (not a nested Ok(Err)).
@@ -179,7 +180,7 @@ async fn refresh_owned<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &B
 /// (incumbents at Step 1, newcomers at their probe). For a parity copy (parity::plan_copy).
 pub fn candidate_pairs(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError> {
     let top: Option<Option<String>> = c.query_row("SELECT top_coins FROM indices WHERE external_id = ?1 ORDER BY id LIMIT 1",
-        [bot.index_category_id().unwrap_or_default()], |r| r.get(0)).optional()?;
+        [bot.index_external_id()], |r| r.get(0)).optional()?;
     let top = top.flatten().filter(|t| t.trim_start().starts_with('[')).unwrap_or_else(|| "[]".into());
     let mut s = c.prepare("SELECT t.ticker FROM tickers t JOIN assets a ON a.id = t.base_asset_id WHERE t.exchange_id = ?1 AND t.quote_asset_id = ?2 \
                            AND t.available = 1 AND t.trading_enabled = 1 AND a.external_id IN (SELECT value FROM json_each(?3)) ORDER BY t.id")?;

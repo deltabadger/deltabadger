@@ -444,7 +444,7 @@ fn continue_start(c: &Connection, expected: &model::Bot, now: DateTime<Utc>) -> 
 fn market_wait_key(c: &Connection, bot: &model::Bot) -> Result<serde_json::Value, EngineError> {
     let stopped: Option<String> = c.query_row("SELECT stopped_at FROM bots WHERE id=?1", [bot.id], |r| r.get(0))?;
     let index: String = c.query_row("SELECT json_group_array(json_array(source,top_coins,weights)) FROM indices WHERE external_id=?1",
-        [bot.index_category_id()], |r| r.get(0))?;
+        [(bot.bot_type == "Bots::DcaIndex").then(|| bot.index_external_id())], |r| r.get(0))?;
     Ok(serde_json::json!({"composition":placement::composition_snapshot(c, bot)?, "index":index,
         "started":bot.started_at_us()?, "generation":bot.run_generation(), "stopped":stopped, "changed":bot.settings_changed_at_us()?}))
 }
