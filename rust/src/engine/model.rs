@@ -182,6 +182,8 @@ impl Bot {
         }
     }
     pub fn asset_ids(&self) -> Vec<i64> {
+        // Bots::Signal has one pair, settings.base_asset_id (its #ticker is the one ticker set_tickers wrote).
+        if self.bot_type == SIGNAL_TYPE { return self.settings.get("base_asset_id").and_then(Value::as_i64).into_iter().collect(); }
         self.settings.get("allocations").and_then(Value::as_object).map(|m| m.keys().filter_map(|k| k.parse().ok()).collect()).unwrap_or_default()
     }
     pub fn quote_asset_id(&self) -> Option<i64> { self.settings.get("quote_asset_id")?.as_i64() }
@@ -299,6 +301,17 @@ impl Bot {
         let continued = self.transient.get("rust_continue_start").is_some();
         Ok(Some((v["count"].as_i64().unwrap_or(0), !continued && v["key"].as_str() == Some(self.amount_limit_key()?.as_str()))))
     }
+    /// transient_data.rust_signal_calls: the webhook calls waiting for this engine, oldest first (the hook appends). Absent is
+    /// none; anything but an array of `{source, signal_id, triggered_at}` is refused, never read as none.
+    pub fn signal_calls(&self) -> Result<Vec<SignalCall>, EngineError> {
+        let Some(v) = self.transient.get(SIGNAL_CALLS_KEY) else { return Ok(vec![]) };
+        let bad = || EngineError::Data(format!("bot {}: unreadable {SIGNAL_CALLS_KEY}", self.id));
+        v.as_array().ok_or_else(bad)?.iter().map(|c| Ok(SignalCall {
+            source: c.get("source").and_then(Value::as_str).filter(|s| !s.is_empty()).ok_or_else(bad)?.to_string(),
+            signal_id: c.get("signal_id").and_then(Value::as_i64).ok_or_else(bad)?,
+            triggered_at: crate::codec::optional_time(c.get("triggered_at")).map_err(|_| bad())?.ok_or_else(bad)?,
+        })).collect()
+    }
     pub fn rust_placement(&self) -> Option<Value> { self.transient.get("rust_placement").filter(|v| !v.is_null()).cloned() }
     pub fn last_failure_kind(&self) -> Option<String> { self.transient.get("last_failure_kind")?.as_str().map(str::to_string) }
     pub fn last_action_job_at_us(&self) -> Result<Option<i64>, EngineError> {
@@ -357,6 +370,81 @@ impl Bot {
             ticker_id, action, met_at_us: met_at,
         }))
     }
+}
+
+pub const SIGNAL_TYPE: &str = "Bots::Signal";
+/// A Rust-only key (outside the parity snapshots, written with json_set, updated_at left alone, like rust_placement).
+pub const SIGNAL_CALLS_KEY: &str = "rust_signal_calls";
+
+/// One webhook call a signal bot's hook accepted (the arguments of Bot::SignalJob): which rule, and when it arrived. `source`
+/// names it once: "hook:<uuid>" for a call the hook took, "rails:<active_job_id>" for a job imported at takeover.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SignalCall { pub source: String, pub signal_id: i64, pub triggered_at: DateTime<Utc> }
+
+impl SignalCall {
+    pub fn to_json(&self) -> Value {
+        serde_json::json!({ "source": self.source, "signal_id": self.signal_id,
+                            "triggered_at": self.triggered_at.to_rfc3339_opts(chrono::SecondsFormat::Micros, true) })
+    }
+}
+
+/// Appends `call` to the bot's waiting calls (the hook's write, and the tests'). In the caller's transaction, else its own.
+pub fn append_signal_call(c: &Connection, bot_id: i64, call: &SignalCall) -> Result<(), EngineError> {
+    locked(c, |c| {
+        let mut calls: Vec<Value> = load_bot(c, bot_id)?.signal_calls()?.iter().map(SignalCall::to_json).collect();
+        calls.push(call.to_json());
+        set_signal_calls(c, bot_id, &calls)
+    })
+}
+
+/// Removes the call named `source`, the key itself with the last one. In the caller's transaction (the one that commits the
+/// call's intent, its row or its line).
+pub fn remove_signal_call(c: &Connection, bot_id: i64, source: &str) -> Result<(), EngineError> {
+    let calls: Vec<Value> = load_bot(c, bot_id)?.signal_calls()?.iter().filter(|x| x.source != source).map(SignalCall::to_json).collect();
+    set_signal_calls(c, bot_id, &calls)
+}
+
+fn set_signal_calls(c: &Connection, bot_id: i64, calls: &[Value]) -> Result<(), EngineError> {
+    let path = format!("$.{SIGNAL_CALLS_KEY}");
+    if calls.is_empty() {
+        c.execute("UPDATE bots SET transient_data = json_remove(transient_data, ?1) WHERE id = ?2", params![path, bot_id])?;
+    } else {
+        c.execute("UPDATE bots SET transient_data = json_set(transient_data, ?1, json(?2)) WHERE id = ?3", params![path, Value::Array(calls.to_vec()).to_string(), bot_id])?;
+    }
+    Ok(())
+}
+
+/// A BotSignal row (bot_signals): one rule of a signal bot.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SignalRule {
+    pub id: i64, pub bot_id: i64, pub side: crate::venue::Side,
+    /// amount_type :percentage (else :fixed, in quote).
+    pub percentage: bool,
+    pub amount: BigDec, pub enabled: bool, pub last_triggered_at: Option<String>,
+}
+
+const SIGNAL_SELECT: &str = "SELECT id, bot_id, direction, amount_type, amount, enabled, last_triggered_at FROM bot_signals";
+
+fn signal_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<Result<SignalRule, EngineError>> {
+    let id: i64 = r.get(0)?;
+    let bad = |what: &str| EngineError::Data(format!("bot_signals {id}: {what}"));
+    let side = match r.get::<_, i64>(2)? { 0 => Ok(crate::venue::Side::Buy), 1 => Ok(crate::venue::Side::Sell), n => Err(bad(&format!("direction {n}"))) };
+    let percentage = match r.get::<_, i64>(3)? { 0 => Ok(false), 1 => Ok(true), n => Err(bad(&format!("amount_type {n}"))) };
+    let amount = from_sql(r.get_ref(4)?).map_err(|e| bad(&format!("amount {e:?}"))).and_then(|a| a.ok_or_else(|| bad("amount missing")));
+    Ok((|| Ok(SignalRule { id, bot_id: r.get(1).map_err(EngineError::from)?, side: side?, percentage: percentage?, amount: amount?,
+                            enabled: r.get(5).map_err(EngineError::from)?, last_triggered_at: r.get(6).map_err(EngineError::from)? }))())
+}
+
+/// The bot's rules in id order (Bots::Signal#bot_signals). An unknown enum or an unreadable amount is an `Err`.
+pub fn signals(c: &Connection, bot_id: i64) -> Result<Vec<SignalRule>, EngineError> {
+    let mut s = c.prepare(&format!("{SIGNAL_SELECT} WHERE bot_id = ?1 ORDER BY id"))?;
+    let rows = s.query_map([bot_id], signal_row)?.collect::<Result<Vec<_>, _>>()?;
+    rows.into_iter().collect()
+}
+
+/// One rule by its id, None when it is gone.
+pub fn signal(c: &Connection, id: i64) -> Result<Option<SignalRule>, EngineError> {
+    c.query_row(&format!("{SIGNAL_SELECT} WHERE id = ?1"), [id], signal_row).optional()?.transpose()
 }
 
 /// One side's price rule as Bot::PriceLimitable reads it (price_limitable.rb:131-169, after_initialize).

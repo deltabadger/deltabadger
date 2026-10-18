@@ -24,7 +24,7 @@ const TABLES: [&str; 4] = ["bots", "transactions", "bot_activity_logs", "bot_ind
 const JSON_COLUMNS: [&str; 4] = ["settings", "transient_data", "details", "error_messages"];
 const MAX_ATTEMPTS: usize = 6;
 /// transient_data keys only this engine writes, besides the mail markers (notice::KEYS): Rails has none of them.
-const RUST_KEYS: [&str; 9] = ["run_generation", "tick_generation", "rust_placement", "rust_defer_until", "rust_amount_limit_stops_pending", "rust_failure_origin",
+const RUST_KEYS: [&str; 10] = ["run_generation", "tick_generation", "rust_placement", crate::engine::model::SIGNAL_CALLS_KEY, "rust_defer_until", "rust_amount_limit_stops_pending", "rust_failure_origin",
                                "rust_rebalance_halted", crate::engine::conditions::DEAD, crate::engine::index::RESYNC_KEY];
 
 fn raw(v: ValueRef<'_>) -> Value {
@@ -278,6 +278,7 @@ async fn play<V: Venue>(o: &Opened, venue: &V, scenario: &Value, bot_id: i64, st
         }
     }
     if scenario["tick"] != false { if let Some(t) = ticks(o, venue, bot_id, start, &cx).await? { checks.push(queued(crate::engine::conditions::end_of_minute(t))); } }
+    if scenario["signals"].is_array() { signal_calls(o, venue, scenario, bot_id, start, &cx).await?; }
     // ponytail: the poll's retries are not replayed; no grid scenario fails a poll with a retryable error.
     let mut poll = None;
     if let Some(ext) = scenario["poll"].as_str() {
@@ -314,6 +315,31 @@ async fn play<V: Venue>(o: &Opened, venue: &V, scenario: &Value, bot_id: i64, st
         crate::engine::rebalance::run(&o.primary, venue, bot_id, &FixedClock(when), &cx).await?;
     }
     Ok((poll, recover_sent, listing.then_some(checks)))
+}
+
+/// Plan 8a: each Bot::SignalJob of the scenario as the hook leaves it (a waiting call), then the engine's executor at `start`,
+/// call after call; a call held by the barrier is tried again every 30 s, Bot::SignalJob's own retry cadence, until it
+/// expires (the engine itself wakes at the expiry instead: tests/signal.rs). `before_signal` is the SQL Rails' side ran after
+/// enqueueing (a rule removed).
+async fn signal_calls<V: Venue>(o: &Opened, venue: &V, scenario: &Value, bot_id: i64, start: DateTime<Utc>, cx: &TickContext<'_>) -> Result<(), EngineError> {
+    use crate::engine::signal::{run_next, Step};
+    for (i, c) in scenario["signals"].as_array().into_iter().flatten().enumerate() {
+        let triggered_at = c["triggered_at"].as_str().and_then(|s| s.parse().ok()).ok_or_else(|| EngineError::Data(format!("scenario.signals: {c}")))?;
+        let call = model::SignalCall { source: format!("grid:{i}"), signal_id: c["signal_id"].as_i64().ok_or_else(|| EngineError::Data(format!("scenario.signals: {c}")))?, triggered_at };
+        model::append_signal_call(&o.primary, bot_id, &call)?;
+    }
+    for sql in scenario["before_signal"].as_array().into_iter().flatten() {
+        o.primary.execute_batch(sql.as_str().ok_or_else(|| EngineError::Data(format!("scenario.before_signal: {sql}")))?)?;
+    }
+    let mut at = start;
+    for _ in 0..40 {
+        match run_next(&o.primary, venue, bot_id, &FixedClock(at), cx).await? {
+            Step::Idle => break,
+            Step::Ran => {}
+            Step::Waiting(_) | Step::Again => at += chrono::Duration::seconds(30),
+        }
+    }
+    Ok(())
 }
 
 /// One Bot::ActionJob run at `start` and the retries it enqueues for itself. Some(at): the run at `at` paused the bot.

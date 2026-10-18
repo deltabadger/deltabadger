@@ -83,6 +83,12 @@ pub fn validate_bot_times(settings:&serde_json::Value, transient:&serde_json::Va
             }
         }
     }
+    // A waiting webhook call's arrival decides its expiry (engine::signal::expired): one that cannot be read is damage.
+    if let Some(calls)=transient.get("rust_signal_calls") {
+        for call in calls.as_array().ok_or_else(||CodecError::Time("unreadable rust_signal_calls".into()))? {
+            optional_time(call.get("triggered_at"))?.ok_or_else(||CodecError::Time("missing signal call timestamp".into()))?;
+        }
+    }
     Ok(())
 }
 

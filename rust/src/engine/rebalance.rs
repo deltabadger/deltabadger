@@ -537,7 +537,7 @@ async fn start<V: Venue + Attributed>(c: &Connection, venue: &V, claim: &Claim, 
     if !amount.is_positive() { return Ok(Outcome::Skipped("below_minimum")); }
     if waiting_buy_blocks_sell(c, venue, bot, &ticker, clock.now()).await? { return Ok(Outcome::Skipped("open_buy")); }
     let quote = &amount * &price;
-    let (plan, below) = super::amount::size_rebalance(&ticker, Side::Sell, &price, &amount, &quote, venue.rules().minimum_logic)?;
+    let (plan, below) = super::amount::size_order(&ticker, Side::Sell, &price, &amount, &quote, venue.rules().minimum_logic, TxKind::Rebalance)?;
     if below {
         // #abandon_below_minimum!(selling): silent, but the widget's flag says why a breached band does not trade.
         flag_below_minimum(c, bot.id, &bot.transient, clock.now())?;
@@ -671,7 +671,7 @@ async fn place_pending_buy<V: Venue + Attributed>(c: &Connection, venue: &V, cla
     let spend = least([owed.clone(), shortfall, free]).expect("three values");
     if !spend.is_positive() { return unavailable; }
     let amount = spend.div(&price).expect("the price is positive");
-    let (plan, below) = super::amount::size_rebalance(&ticker, Side::Buy, &price, &amount, &spend, venue.rules().minimum_logic)?;
+    let (plan, below) = super::amount::size_order(&ticker, Side::Buy, &price, &amount, &spend, venue.rules().minimum_logic, TxKind::Rebalance)?;
     if below {
         // #abandon_below_minimum!(buying): the user's own cash left unconvertible, said once.
         let now = clock.now();

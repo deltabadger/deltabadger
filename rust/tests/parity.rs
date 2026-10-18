@@ -1341,3 +1341,101 @@ async fn rails_and_rust_decide_identically_across_the_venue_index_grid() -> Resu
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), outputs.len(), failures.join("\n"));
     Ok(())
 }
+
+/// Plan 8a: one webhook call of a signal bot (script/rust/decisions.rb signal_scenarios): Bot::SignalJob at `at` with its own
+/// retries, against the engine's executor on a pristine copy, on Kraken, Binance, KuCoin and Alpaca (crypto and a stock).
+/// Recorded per case: the rows, the lines, the mails and every order request the venue received (the assertion against a
+/// double placement). The marker's `id` is the one value the two sides draw differently: Rails a fresh uuid, the engine its
+/// intent's cl_ord_id. Listed, each asserted on its own terms:
+/// - transport wording (Kraken, Binance, KuCoin): the harness scripts a transport failure as Client.network_failure names
+///   it ("Faraday::ConnectionFailed: …", "Faraday::TimeoutError: …"); honeymaker's #with_rescue reports the exception's own
+///   message. Same rows, lines and mails otherwise (as `refused_like_rails`).
+/// - ambiguous wording (`unreadable`, `no_order_id`): both sides send once, write no row, raise the marker and log one
+///   placement_ambiguous; only the error text in the two differs (the adapters name what they could not read).
+/// - Alpaca `pre_send`: a refused connection provably sent nothing. Rails' Clients::Alpaca raises it and
+///   #place_signal_order reads any raise as ambiguous (the marker, no row); the engine writes the failed row and mails, as
+///   for any other definitive refusal, and the next call places.
+#[tokio::test(flavor = "current_thread", start_paused = true)] // Exchange#with_transient_retry's backoff, never slept
+async fn rails_and_rust_decide_identically_across_the_signal_grid() {
+    let (_copies, outputs) = grid_outputs("grid-signal", 420).await;
+    let marker = |out: &serde_json::Value| -> Option<serde_json::Value> {
+        out["changes"]["bots"].as_array().unwrap().iter().find_map(|b| b["after"]["transient_data"].get("signal_placement_unresolved").cloned())
+    };
+    let normalised = |out: &serde_json::Value, wording: bool| -> serde_json::Value {
+        let mut out = out.clone();
+        for b in out["changes"]["bots"].as_array_mut().unwrap() {
+            if let Some(m) = b["after"]["transient_data"].get_mut("signal_placement_unresolved").and_then(|m| m.as_object_mut()) {
+                m.insert("id".into(), serde_json::json!("<id>"));
+                if wording { m.insert("error".into(), serde_json::json!("<error>")); }
+            }
+        }
+        if wording {
+            for l in out["changes"]["bot_activity_logs"].as_array_mut().unwrap() {
+                if l["after"]["event"] == "placement_ambiguous" { l["after"]["details"]["error"] = serde_json::json!("<error>"); }
+            }
+        }
+        out
+    };
+    let mut failures = vec![];
+    for (name, _, rails_out, rust_out) in &outputs {
+        let honeymaker = ["signal-kraken-", "signal-binance-", "signal-kucoin-"].iter().any(|p| name.starts_with(p));
+        let alpaca = name.starts_with("signal-alpaca");
+        let variant = |v: &str| name.ends_with(&format!("-{v}"));
+        let differs = if alpaca && variant("pre_send") {
+            let rows = |out: &serde_json::Value| out["changes"]["transactions"].as_array().unwrap().iter().map(|t| t["after"]["status"].clone()).collect::<Vec<_>>();
+            let one_sent = rails_out["sent"].as_array().unwrap().len() == 1 && rust_out["sent"] == rails_out["sent"];
+            let rails_ambiguous = marker(rails_out).is_some() && rows(rails_out).is_empty() && rails_out["mails"].as_array().unwrap().is_empty();
+            let rust_failed = marker(rust_out).is_none() && rows(rust_out) == [serde_json::json!(1)] && rust_out["mails"].as_array().unwrap().len() == 1;
+            !(one_sent && rails_ambiguous && rust_failed)
+        } else if variant("unreadable") || variant("no_order_id") {
+            marker(rails_out).is_none() || normalised(rails_out, true) != normalised(rust_out, true)
+        } else if honeymaker && (variant("pre_send") || variant("price_failed") || variant("timeout")) {
+            let rust = rust_out.to_string().replace("Faraday::ConnectionFailed: ", "").replace("Faraday::TimeoutError: ", "");
+            normalised(rails_out, false) != normalised(&serde_json::from_str(&rust).unwrap(), false)
+        } else {
+            normalised(rails_out, false) != normalised(rust_out, false)
+        };
+        if differs { failures.push(format!("{name}\n  rails: {rails_out}\n  rust:  {rust_out}")); }
+    }
+    assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), outputs.len(), failures.join("\n"));
+    // Pinned on Rails' side, so that two silent sides cannot pass: what each case names really happened there.
+    let mut pins = vec![];
+    for (name, _, out, _) in &outputs {
+        let variant = name.splitn(5, '-').nth(4).unwrap_or_default();
+        let sent = out["sent"].as_array().unwrap().len();
+        let rows: Vec<i64> = out["changes"]["transactions"].as_array().unwrap().iter().filter(|t| t["before"].is_null()).map(|t| t["after"]["status"].as_i64().unwrap()).collect();
+        let lines: Vec<&str> = out["changes"]["bot_activity_logs"].as_array().unwrap().iter().map(|l| l["after"]["event"].as_str().unwrap()).collect();
+        let mails = out["mails"].as_array().unwrap().len();
+        let sell = name.contains("-sell-");
+        let reads_balance = sell || name.contains("-percentage-");
+        let expect: (usize, Vec<i64>, Vec<&str>, usize, bool) = match variant {
+            "expired" | "unresolved_marker" => (0, vec![], vec!["signal_expired"], 0, false),
+            "stopped" | "disabled" => (0, vec![], vec!["signal_ignored"], 0, false),
+            "key_pending" => (0, vec![], vec!["signal_api_key_pending"], 0, false),
+            "market_closed" => (0, vec![], vec!["signal_market_closed"], 0, false),
+            "rule_removed" => (0, vec![], vec![], 0, false),
+            "accepted" | "at_max_age" | "price_retried" | "free_below_fixed" => (1, vec![0], vec![], 0, false),
+            "no_holding" if sell => (0, vec![2], vec!["order_skipped"], 0, false),
+            "no_holding" => (1, vec![0], vec![], 0, false),
+            "two_calls" => (2, vec![0, 0], vec![], 0, false),
+            "price_failed" | "price_refused" => (0, vec![1], vec![], 1, false),
+            "balance_failed" if reads_balance => (0, vec![1], vec![], 1, false),
+            "balance_failed" => (1, vec![0], vec![], 0, false),
+            "below_minimum" => (0, vec![2], vec!["order_skipped"], 0, false),
+            "rejected" | "rejected_after_success" => (1, vec![1], vec![], 1, false),
+            "rejected_after_failure" | "rejected_after_skip" => (1, vec![1], vec![], 0, false),
+            "server_error" | "timeout" | "unreadable" | "no_order_id" => (1, vec![], vec!["placement_ambiguous"], 0, true),
+            "pre_send" if name.starts_with("signal-alpaca") => (1, vec![], vec!["placement_ambiguous"], 0, true),
+            "pre_send" => (1, vec![1], vec![], 1, false),
+            "safe_then_accepted" => (2, vec![0], vec![], 0, false),
+            "safe_then_rejected" | "safe_twice" => (2, vec![1], vec![], 1, false),
+            other => { pins.push(format!("{name}: no expectation pinned for {other}")); continue; }
+        };
+        let got = (sent, rows, lines, mails, marker(out).is_some());
+        if got != expect { pins.push(format!("{name}: Rails did {got:?}, pinned {expect:?}")); }
+        if variant == "free_below_fixed" && name.contains("-sell-fixed-") && !out["sent"].to_string().contains(if name.contains("stock") { "\"0.100000000\"" } else { "0.001" }) {
+            pins.push(format!("{name}: the fixed sell is not capped at the free base: {}", out["sent"]));
+        }
+    }
+    assert!(pins.is_empty(), "pinned expectations:\n{}", pins.join("\n"));
+}
