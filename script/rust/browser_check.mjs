@@ -5,13 +5,14 @@
 // driven over its DevTools protocol with bun's own WebSocket and fetch.
 // It checks what the page-parity harness cannot see: that the compiled JS and CSS leave the page
 // visible after sign-in, and that the real @rails/actioncable client connects once, receives the
-// server's pings, and keeps that one connection.
+// server's pings, and keeps that one connection. With UNPORTED_VENUE (an exchange id), it also picks that venue in the index
+// wizard's venue step, where the refusal must show in the modal.
 import { spawn } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-const { BASE_URL, EMAIL, PASSWORD, BOT_ID } = process.env;
+const { BASE_URL, EMAIL, PASSWORD, BOT_ID, UNPORTED_VENUE } = process.env;
 if (!BASE_URL || !EMAIL || !PASSWORD) {
   console.error("set BASE_URL, EMAIL and PASSWORD");
   process.exit(2);
@@ -162,6 +163,27 @@ try {
   }
   console.log(JSON.stringify({ first, later, cable: sockets.map(({ pings, closed }) => ({ pings: pings.length, closed })) }));
   if (wrong.length) throw new Error(wrong.join("\n"));
+  if (UNPORTED_VENUE) {
+    // The venue's button submits the nested #exchange-picker form into #modal_content; the POST redirects to the key step,
+    // whose refusal (a venue this build does not trade) must show in the modal, never Turbo's "Content missing".
+    await send("Page.navigate", { url: `${BASE_URL}/bots` });
+    await until("the bots page", () => evaluate(`location.pathname === "/bots" && !!document.querySelector("turbo-frame#modal")`));
+    await evaluate(`document.querySelector("turbo-frame#modal").src = "/bots/new"`);
+    await until("the wizard's modal", () => evaluate(`!!document.querySelector("turbo-frame#modal_content")`));
+    // The chooser begins a new wizard, so the index is picked after it, as a person picks it.
+    const picked = (await send("Runtime.evaluate", { awaitPromise: true, returnByValue: true, expression: `fetch("/bots/dca_indexes/pick_index", {
+      method: "POST", headers: { "X-CSRF-Token": document.querySelector('meta[name="csrf-token"]').content,
+      "Content-Type": "application/x-www-form-urlencoded", Accept: "text/vnd.turbo-stream.html, text/html" },
+      body: "index_type=top&index_category_id=&index_name=" }).then((response) => response.status)` })).result?.result?.value;
+    if (picked >= 400) throw new Error(`picking Top coins answered ${picked}`);
+    await evaluate(`document.querySelector("turbo-frame#modal_content").src = "/bots/dca_indexes/pick_exchange/new"`);
+    const button = `#exchange-picker button[value="${UNPORTED_VENUE}"]`;
+    await until("the venue step", () => evaluate(`!!document.querySelector(${JSON.stringify(button)})`));
+    await evaluate(`document.querySelector(${JSON.stringify(button)}).click()`);
+    await until("the refusal in the modal", () => evaluate(`(document.querySelector("turbo-frame#modal_content")?.innerText ?? "").includes("Not available in the Rust build yet")`));
+    if (await evaluate(`document.body.innerText.includes("Content missing")`)) throw new Error("the page shows Turbo's Content missing");
+    console.log("unported venue: the key step's refusal shows in the wizard's modal");
+  }
   if (BOT_ID) {
     const path = `/bots/${BOT_ID}`;
     const quotedPath = JSON.stringify(path);

@@ -217,6 +217,9 @@ fn settings_inner<T>(
     if draft.candidate.kind == Kind::Basket && (effects.composition_changed || exchange_changed) {
         composition::reconcile(&tx, &draft.candidate, ctx.now)?;
     }
+    // Bots::DcaIndex#resync_index_composition: an index-definition key or the exchange changed (dca_index.rb:53-54, :393-396).
+    let redefined = INDEX_DEFINITION_KEYS.iter().any(|key| !super::draft::equal(draft.raw_settings.get(*key).unwrap_or(&Value::Null), final_settings.get(*key).unwrap_or(&Value::Null)));
+    if draft.candidate.kind == Kind::Index && (redefined || exchange_changed) { crate::engine::index::mark_resync(&tx, id, ctx.now)?; }
     if let Err(refusal) = eligibility::guard(&tx, &ctx.app.cipher, Some(id)) {
         let reason = refusal.reason();
         draft.errors.push(FieldError { field: "base".into(), message: i18n::text(ctx.locale, "engine.write_refused", &[("reason", i18n::Arg::Text(&reason))]) });
@@ -268,6 +271,9 @@ const WEB_START: &str = "UPDATE bots SET status = 1, stop_message_key = NULL, \
       '$.last_action_job_at', json('null'), '$.missed_quote_amount', json('null')) \
       ELSE transient_data END, '$.run_generation', coalesce(json_extract(transient_data, '$.run_generation'), 0) + 1), updated_at = ?5 \
     WHERE id = ?1 AND user_id = ?2 AND type = ?3 AND status IN (0, 2)";
+
+/// Bots::DcaIndex::INDEX_DEFINITION_KEYS (dca_index.rb:388-389).
+const INDEX_DEFINITION_KEYS: [&str; 7] = ["num_coins", "hold_all", "index_type", "index_category_id", "quote_asset_id", "limit_ordered", "allocation_flattening"];
 
 // Provisional spelling: MUST match the merged engine PR before execution.
 const START_DECISION_KEY: &str = "rust_continue_start";
@@ -565,6 +571,8 @@ fn lifecycle_inner<T>(
             // waiting for their buy's final state, so a later final poll cannot credit spending the start discarded.
             if fresh { tx.execute(REMOVE_TRANSIENT,(path(crate::engine::reversal::RESERVE_PENDING,true)?,id,owner,&class))?; }
             if let Some(future)=delayed { one(tx.execute("UPDATE bots SET started_at=?4 WHERE id=?1 AND user_id=?2 AND type=?3 AND status=1",(id,owner,&class,codec::format_time(future)))?)?; }
+            // Bots::DcaIndex#start: every start, a delayed one included, resyncs the composition.
+            if class=="Bots::DcaIndex" { crate::engine::index::mark_resync(&tx,id,ctx.now)?; }
             if !fresh {
                 // PR #457 accepted requested_at; preserve the original status too, so a
                 // created bot with a historical stamp cannot inherit stopped-only scheduling.

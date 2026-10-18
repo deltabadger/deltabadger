@@ -103,6 +103,29 @@ class EngineLeaseTest < ActiveSupport::TestCase
     assert_equal 1, enqueued_jobs.count { |j| j['job_class'] == 'Bot::FetchAndUpdateOrderJob' }, 'closed orders are not polled'
   end
 
+  test 'adoption resyncs every index bot the rust engine left a resync on, once, and removes only that key' do
+    venue = { quote_asset: create(:asset, :eur), exchange: create(:kraken_exchange) }
+    marked = create(:dca_index, status: :stopped, **venue)
+    marked.update_columns(transient_data: marked.transient_data.merge('rust_index_resync' => { 'n' => 2, 'at' => '2026-10-18T10:00:00.000Z' },
+                                                                      'missed_quote_amount' => '1.5'))
+    archived = create(:dca_index, status: :archived, **venue)
+    archived.update_columns(transient_data: { 'rust_index_resync' => { 'n' => 1, 'at' => '2026-10-18T10:00:00.000Z' } })
+    unmarked = create(:dca_index, status: :scheduled, **venue)
+    lease!(engine: 'none', released_by: 'rust', handed_back: true, at: Time.current.iso8601)
+    EngineLease.check_handover!
+    resyncs = enqueued_jobs.select { |j| j['job_class'] == 'Bot::ResyncIndexCompositionJob' }
+    assert_equal [marked.to_global_id.to_s], resyncs.map { |j| j['arguments'].first['_aj_globalid'] }, 'not the archived one, not the unmarked one'
+    assert_equal({ 'missed_quote_amount' => '1.5' }, marked.reload.transient_data.slice('rust_index_resync', 'missed_quote_amount'))
+    assert_not archived.reload.transient_data.key?('rust_index_resync')
+    assert_equal unmarked.transient_data, unmarked.reload.transient_data
+
+    # A second handback finds no marker left: nothing is enqueued twice.
+    clear_enqueued_jobs
+    lease!(engine: 'none', released_by: 'rust', handed_back: true, at: Time.current.iso8601)
+    EngineLease.check_handover!
+    assert_equal(0, enqueued_jobs.count { |j| j['job_class'] == 'Bot::ResyncIndexCompositionJob' })
+  end
+
   test 'a release that is not a completed handback is refused' do
     lease!(engine: 'none', released_by: 'rust', handed_back: false)
     assert_raises(EngineLease::HeldError) { EngineLease.check_handover! }

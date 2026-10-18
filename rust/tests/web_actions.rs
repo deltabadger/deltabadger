@@ -371,7 +371,7 @@ mod action_draft {
             app: common::web::app(dir.path(), common::web::SECRET, common::web::TestClock::at(field(group, "now").as_str().ok_or("now")?)),
             params: std::sync::Arc::new(Params { upload: None, full_path: String::new(), fullpath: String::new(), route_path: String::new(), path_locale: None, query: vec![], form: vec![], json: None }),
             session: deltabadger::web::session::Session::new(Default::default()),
-            current: deltabadger::web::auth::Current::SignedOut, method: axum::http::Method::PATCH, locale: "en", nonce: String::new(), now, turbo_frame: None,
+            current: deltabadger::web::auth::Current::SignedOut, method: axum::http::Method::PATCH, locale: "en", nonce: String::new(), now, turbo_frame: None, stream: false,
         };
         for recorded in cases {
             let mut resolved = recorded.clone();
@@ -509,7 +509,7 @@ mod action_write {
             let app = harness::app(dir.path(), "engine-test-secret", harness::TestClock::at(NOW));
             let ctx = Ctx { app, params: Arc::new(Params { upload: None, full_path: String::new(), fullpath: String::new(), route_path: String::new(), path_locale: None, query: vec![], form: vec![], json: None }),
                 session: web::session::Session::new(Default::default()), current: web::auth::Current::SignedOut,
-                method: axum::http::Method::PATCH, locale: "en", nonce: String::new(), now: harness::at(NOW), turbo_frame: None };
+                method: axum::http::Method::PATCH, locale: "en", nonce: String::new(), now: harness::at(NOW), turbo_frame: None, stream: false };
             Ok(Self { _dir: dir, c, ctx, seed: s, id })
         }
         fn params(fields: Value) -> Result<ActionParams> {
@@ -1300,10 +1300,33 @@ mod action_write {
             f.c.execute("INSERT INTO app_configs(key,value,created_at,updated_at) VALUES(?1,?2,'2026-01-01','2026-01-01')",(key,f.ctx.app.cipher.encrypt(value)))?;
         }
         f.c.execute("UPDATE bots SET type='Bots::DcaIndex',settings=json_set(settings,'$.index_type','top','$.num_coins',2,'$.quote_amount',60)",[])?;
+        // The engine's own refusal of an Alpaca index (eligibility::index_reasons: only USD), reached through the guard.
+        f.c.execute("UPDATE assets SET symbol='USDT' WHERE id=?1",[f.seed.quote])?;
         let before=f.snapshot()?;
         let result=f.lifecycle(write::Action::Start,Some(json!(false)))?;
         let Outcome::GuardRefused(_) = result else { return Err("index must reach the actual engine guard".into()) };
         assert_eq!(f.snapshot()?,before);
+        // A Top coins index the engine runs starts, and its start leaves the composition resync for the engine (Bots::DcaIndex#start).
+        f.c.execute("UPDATE assets SET symbol='USD' WHERE id=?1",[f.seed.quote])?;
+        assert!(matches!(f.lifecycle(write::Action::Start,Some(json!(false)))?,Outcome::Committed(_)));
+        let marker:String=f.c.query_row("SELECT json_extract(transient_data,'$.rust_index_resync') FROM bots WHERE id=?1",[f.id],|r|r.get(0))?;
+        assert_eq!(serde_json::from_str::<Value>(&marker)?,json!({"n":1,"at":"2026-09-10T12:00:30.123Z"}));
+        f.c.execute("UPDATE bots SET status=2",[])?;
+        // A save that changes an index-definition key resyncs (Bots::DcaIndex#resync_index_composition); one that does not, does not.
+        let index_params=|fields:Value| -> Result<ActionParams> {
+            let p=Params { upload: None, full_path: String::new(), fullpath: String::new(), route_path: String::new(), path_locale: None, query: vec![], form: vec![], json: Some(json!({"bots_dca_index":fields})) };
+            ActionParams::parse(&p).map_err(|e| format!("{e:?}").into())
+        };
+        let save=|fields:Value| -> Result<bool> {
+            let done=write::settings(&f.c,&f.ctx,f.seed.user_id,f.id,&index_params(fields)?,|_,_,_| Ok(Prepared { response: (), broadcasts: vec![], after_scheduling: None })).map_err(|e|format!("{e:?}"))?;
+            Ok(matches!(done,Outcome::Committed(_)))
+        };
+        let marker=|| -> Result<Option<String>> { Ok(f.c.query_row("SELECT json_extract(transient_data,'$.rust_index_resync.n') FROM bots WHERE id=?1",[f.id],|r|r.get::<_,Option<i64>>(0))?.map(|n|n.to_string())) };
+        assert!(save(json!({"label":"Renamed"}))?);
+        assert_eq!(marker()?.as_deref(),Some("1"),"a label alone changes no index-definition key");
+        assert!(save(json!({"num_coins":"3"}))?);
+        assert_eq!(marker()?.as_deref(),Some("2"),"num_coins is an index-definition key");
+        let before=f.snapshot()?;
         for action in [write::Action::Start,write::Action::Stop,write::Action::Delete,write::Action::Archive,write::Action::Unarchive] {
             let result=write::lifecycle::<()>(&f.c,&f.ctx,f.seed.user_id+1,f.id,action,&Fixture::params(json!({}))?,|_,_,_|panic!("foreign bot rendered")).map_err(|e|format!("{e:?}"))?;
             assert!(matches!(result,Outcome::Missing));

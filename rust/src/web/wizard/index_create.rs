@@ -255,7 +255,8 @@ pub fn insert(c: &Connection, user: i64, bot: Built, now: DateTime<Utc>) -> Resu
     let transient = json!({"missed_quote_amount": 0, "missed_quote_amount_was_set": null});
     c.execute("INSERT INTO bots (user_id, exchange_id, type, status, label, position, settings, transient_data, settings_changed_at, created_at, updated_at) \
                VALUES (?1, ?2, 'Bots::DcaIndex', 0, ?3, ?4, ?5, ?6, ?7, ?7, ?7)",
-              rusqlite::params![user, bot.exchange_id, bot.label, position, Value::Object(bot.settings).to_string(), transient.to_string(), at])?;
+              // The settings column as ActiveRecord's JSON coder writes it (ActiveSupport escapes <, > and &: an index's name may hold them).
+              rusqlite::params![user, bot.exchange_id, bot.label, position, crate::web::bots::json(&Value::Object(bot.settings)), transient.to_string(), at])?;
     Ok(c.last_insert_rowid())
 }
 

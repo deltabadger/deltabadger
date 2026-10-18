@@ -106,7 +106,8 @@ async fn the_balance_is_the_free_amount_of_the_quote_assets_venue_code() {
     let (_, v) = venue(json!({ "GET /api/v3/account": ok(json!({ "balances": [{ "asset": "USDT", "free": "garbage", "locked": "0" }] })) }));
     assert!(matches!(v.balance("USDT", true).await, Err(VenueError::Ambiguous(_))), "an unreadable balance is never a zero");
     let (_, v) = venue(json!({ "GET /api/v3/account": fail(401, json!({ "code": -2015, "msg": "Invalid API-key, IP, or permissions for action." })) }));
-    assert_eq!(v.balance("USDT", true).await, Err(VenueError::Rejected(vec!["Invalid API-key, IP, or permissions for action.".into()])));
+    // A read's 401 carries its status (Exchange#invalid_key_error?), with the text Rejected carries.
+    assert_eq!(v.balance("USDT", true).await, Err(VenueError::Unauthorized(vec!["Invalid API-key, IP, or permissions for action.".into()])));
 }
 
 // ---- placement: Exchanges::Binance#set_market_order / #set_limit_order, Exchange#ambiguous_placement_error?

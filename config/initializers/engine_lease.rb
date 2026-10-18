@@ -4,6 +4,9 @@
 module EngineLease
   module_function
 
+  # The other engine's pending composition resync (rust/src/engine/index.rs RESYNC_KEY).
+  RESYNC_KEY = 'rust_index_resync'.freeze
+
   def check_handover!
     return unless AppConfig.table_exists?
 
@@ -34,9 +37,17 @@ module EngineLease
   # Orders still unknown/open are polled explicitly, on ANY bot: one accepted just before the bot was
   # stopped belongs to a bot no sweep visits. The marker goes last; if boot dies in between, the next
   # boot adopts again, and a duplicate poll is harmless.
+  #
+  # A composition resync the other engine still owed is left on the bot as `rust_index_resync`: each
+  # gets its Bot::ResyncIndexCompositionJob, then loses the key (that key only), so a boot that dies
+  # in between enqueues it again, and a second resync is harmless.
   def adopt_handback!
     Transaction.submitted.where(external_status: %i[unknown open]).find_each do |order|
       Bot::FetchAndUpdateOrderJob.perform_later(order, update_missed_quote_amount: true)
+    end
+    Bots::DcaIndex.where("json_type(transient_data, '$.#{RESYNC_KEY}') IS NOT NULL").find_each do |bot|
+      Bot::ResyncIndexCompositionJob.perform_later(bot) unless bot.deleted? || bot.archived? || bot.exchange_id.nil?
+      Bot.where(id: bot.id).update_all("transient_data = json_remove(transient_data, '$.#{RESYNC_KEY}')")
     end
     Bot::RepairOrphanedBotsJob.perform_later
     AppConfig.where(key: KEY).delete_all

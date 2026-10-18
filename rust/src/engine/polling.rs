@@ -103,9 +103,9 @@ pub fn apply_in(c: &model::FencedTransaction<'_>, bot_id: i64, tx_id: i64, s: &O
 
 fn classify(e: VenueError, ids: &[String], rules: &VenueRules) -> PollFailure {
     match e {
-        VenueError::Rejected(errs) if rules.is_throttle(&errs) => PollFailure::RateLimited(to_sentence(&errs)),
-        VenueError::Rejected(errs) if rules.is_transient(&errs) => PollFailure::Transient(to_sentence(&errs)),
-        VenueError::Rejected(errs) => PollFailure::General(format!("Failed to fetch orders {}. Result: {}", to_sentence(ids), inspect(&errs))),
+        VenueError::Rejected(errs) | VenueError::Unauthorized(errs) if rules.is_throttle(&errs) => PollFailure::RateLimited(to_sentence(&errs)),
+        VenueError::Rejected(errs) | VenueError::Unauthorized(errs) if rules.is_transient(&errs) => PollFailure::Transient(to_sentence(&errs)),
+        VenueError::Rejected(errs) | VenueError::Unauthorized(errs) => PollFailure::General(format!("Failed to fetch orders {}. Result: {}", to_sentence(ids), inspect(&errs))),
         VenueError::Transient(m) | VenueError::Ambiguous(m) => PollFailure::Transient(m),
     }
 }
@@ -273,9 +273,9 @@ async fn follow_up_strict<V: Venue + Attributed>(c: &Connection, venue: &V, bot:
         Ok((_, skipped)) if skipped.contains(&ext) => return Err(PollFailure::General(format!("Failed to fetch order {tx_id}. Result: unsupported class or unmapped/ambiguous order identity"))),
         Ok((mut found, _)) if !found.is_empty() => found.remove(0),
         Ok(_) => return Err(PollFailure::General(format!("Failed to fetch order {tx_id}. Result: []"))),
-        Err(VenueError::Rejected(errs)) if rules.is_throttle(&errs) => return Err(PollFailure::RateLimited(to_sentence(&errs))),
-        Err(VenueError::Rejected(errs)) if rules.is_transient(&errs) => return Err(PollFailure::Transient(to_sentence(&errs))),
-        Err(VenueError::Rejected(errs)) => return Err(PollFailure::General(format!("Failed to fetch order {tx_id}. Result: {}", inspect(&errs)))),
+        Err(VenueError::Rejected(errs) | VenueError::Unauthorized(errs)) if rules.is_throttle(&errs) => return Err(PollFailure::RateLimited(to_sentence(&errs))),
+        Err(VenueError::Rejected(errs) | VenueError::Unauthorized(errs)) if rules.is_transient(&errs) => return Err(PollFailure::Transient(to_sentence(&errs))),
+        Err(VenueError::Rejected(errs) | VenueError::Unauthorized(errs)) => return Err(PollFailure::General(format!("Failed to fetch order {tx_id}. Result: {}", inspect(&errs)))),
         Err(VenueError::Transient(m) | VenueError::Ambiguous(m)) => return Err(PollFailure::Transient(m)),
     };
     if state.status == OrderStatus::Unknown { return Err(PollFailure::General(format!("Order {ext} status is unknown."))); }

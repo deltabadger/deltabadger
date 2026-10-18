@@ -377,8 +377,8 @@ async fn send_to_venue<V: Venue>(venue: &V, intent: &Intent, clock: &dyn Clock) 
     };
     match venue.placement_result(&order).await.value {
         Ok(txid) => Sent::Accepted(txid),
-        Err(VenueError::Rejected(e)) if rules.add_outcome_unknown(&e) => Sent::Ambiguous(crate::ruby::to_sentence(&e)),
-        Err(VenueError::Rejected(e)) => Sent::Rejected(e),
+        Err(VenueError::Rejected(e) | VenueError::Unauthorized(e)) if rules.add_outcome_unknown(&e) => Sent::Ambiguous(crate::ruby::to_sentence(&e)),
+        Err(VenueError::Rejected(e) | VenueError::Unauthorized(e)) => Sent::Rejected(e),
         Err(VenueError::Ambiguous(m)) => Sent::Ambiguous(m),
         Err(VenueError::Transient(m)) => Sent::NotSent(m),
     }

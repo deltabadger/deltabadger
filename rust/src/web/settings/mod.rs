@@ -44,11 +44,7 @@ pub async fn show(
         "/settings/mcp" => api::show(app, ctx, "mcp").await,
         "/settings/api" => api::show(app, ctx, "rest").await,
         p if p.starts_with("/settings/api_key_permissions/") => keys::modal(app, ctx).await,
-        _ => Ok(layout::not_ported_response(
-            &ctx.method,
-            &ctx.params.fullpath,
-            ctx.turbo_frame.as_deref(),
-        )),
+        _ => Ok(layout::not_ported_for(&ctx)),
     }
 }
 pub async fn write(
@@ -133,10 +129,6 @@ pub async fn write(
     {
         account::write(app, ctx, headers).await
     } else {
-        Ok(layout::not_ported_response(
-            &ctx.method,
-            &ctx.params.fullpath,
-            ctx.turbo_frame.as_deref(),
-        ))
+        Ok(layout::not_ported_for(&ctx))
     }
 }

@@ -71,7 +71,8 @@ async fn one_side_per_call_and_a_zero_or_missing_price_is_rails_error() {
         assert_eq!(v.price(&btc_usd(), PriceSide::Ask).await, Err(VenueError::Rejected(vec![message.into()])));
     }
     let (_, v) = venue(json!({ "GET /v1beta3/crypto/us/latest/trades": status(401, json!("<html><body>401 Authorization Required</body></html>")) }));
-    assert_eq!(v.price(&btc_usd(), PriceSide::Last).await, Err(VenueError::Rejected(vec!["HTTP 401".into()])));
+    // HTTP 401 carries its status (Exchange#invalid_key_error?), with the text Rejected carried before.
+    assert_eq!(v.price(&btc_usd(), PriceSide::Last).await, Err(VenueError::Unauthorized(vec!["HTTP 401".into()])));
     let (_, v) = venue(json!({ "GET /v1beta3/crypto/us/latest/quotes": [{ "network": "pre_send", "message": "Faraday::ConnectionFailed: x" }] }));
     assert_eq!(v.price(&btc_usd(), PriceSide::Ask).await, Err(VenueError::Transient("Faraday::ConnectionFailed: x".into())));
 }

@@ -49,6 +49,11 @@ pub fn remove_class(target: &str, class_name: &str) -> String {
 }
 
 /// The id of the frame a request was made for; such a request gets turbo-rails' minimal frame layout.
+/// Whether the request's Accept names a Turbo Stream (`request.format.turbo_stream?`'s media type).
+pub fn accepts_stream(headers: &HeaderMap) -> bool {
+    headers.get_all(axum::http::header::ACCEPT).iter().filter_map(|v| v.to_str().ok()).any(|v| v.split(',').any(|m| m.split(';').next().is_some_and(|m| m.trim() == "text/vnd.turbo-stream.html")))
+}
+
 pub fn frame(headers: &HeaderMap) -> Option<&str> {
     headers.get("turbo-frame").and_then(|v| v.to_str().ok())
 }

@@ -218,7 +218,7 @@ impl<T: Transport> KucoinVenue<T> {
     /// message only, or the gem's "Order not found" for a success envelope without one).
     async fn get_order(&self, order_id: &str) -> Result<Option<Value>, VenueError> {
         let body = match self.get(format!("/api/v1/orders/{order_id}"), vec![], http::MAX_BODY).await {
-            Err(VenueError::Rejected(m)) if not_found(&m) => return Ok(None),
+            Err(VenueError::Rejected(m) | VenueError::Unauthorized(m)) if not_found(&m) => return Ok(None),
             other => other?,
         };
         if code(&body)? != OK {

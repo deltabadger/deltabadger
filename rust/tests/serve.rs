@@ -1362,7 +1362,11 @@ async fn a_real_browser_signs_in_and_sees_the_app_with_live_streams() -> Result<
     }
     // Hold the engine: this browser proof exercises the real HTTP/CSRF/guard/cable path
     // on a scripted paper install; the executable smoke test separately proves placement.
-    let app = web::app(dir.path(), "engine-test-secret", TestClock::at(NOW));
+    // A venue this build does not trade, for the index wizard's refusal inside its nested frame (plan CI T7).
+    c.execute("INSERT INTO exchanges (type, name, maker_fee, taker_fee, available, created_at, updated_at) VALUES ('Exchanges::Coinbase', 'Coinbase', '0.1', '0.1', 1, '2026-01-01', '2026-01-01')", [])?;
+    let coinbase = c.last_insert_rowid();
+    // The real time: a browser drops a session cookie whose expiry (the clock's now plus its lifetime) has passed.
+    let app = web::app(dir.path(), "engine-test-secret", TestClock::starting(chrono::Utc::now()));
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
     let address = listener.local_addr()?;
     struct Server(tokio::task::JoinHandle<()>);
@@ -1371,7 +1375,7 @@ async fn a_real_browser_signs_in_and_sees_the_app_with_live_streams() -> Result<
     let log = tempfile::tempfile()?;
     let mut check = Child(Command::new("bun").arg(concat!(env!("CARGO_MANIFEST_DIR"), "/../script/rust/browser_check.mjs"))
         .env("BASE_URL",format!("http://{address}")).env("EMAIL","o@example.com").env("PASSWORD","Correct-horse-9")
-        .env("BOT_ID",bot.to_string()).stdout(log.try_clone()?).stderr(log.try_clone()?).spawn()?);
+        .env("BOT_ID",bot.to_string()).env("UNPORTED_VENUE",coinbase.to_string()).stdout(log.try_clone()?).stderr(log.try_clone()?).spawn()?);
     let deadline = Instant::now() + Duration::from_secs(150);
     let status = loop {
         if let Some(status) = check.0.try_wait()? { break status; }
@@ -1710,7 +1714,7 @@ fn a_bot_row_is_read_as_the_pages_need_it_and_refused_when_this_build_cannot_ren
         ("UPDATE bots SET type = 'Bots::Signal'", "a bot of a type this build does not render"),
         ("UPDATE bots SET transient_data = '{\"rebalance_pending\":{\"phase\":\"selling\"}}'", "a rebalance, liquidation or redeploy in progress"),
         ("UPDATE exchanges SET type = 'Exchanges::Kucoin'", "a bot on an exchange other than Alpaca, Kraken and Binance"),
-        ("UPDATE exchanges SET type = 'Exchanges::Kraken'; UPDATE bots SET type = 'Bots::DcaIndex'", "an index bot on Kraken or Binance (only on Alpaca)"),
+        ("UPDATE exchanges SET type = 'Exchanges::Kraken'; UPDATE bots SET type = 'Bots::DcaIndex', settings = json_set(settings, '$.direction', 'selling')", "an index bot that sells"),
         // A ticker's decimals size the rounding: one past the bound, a negative one and the largest number the column holds.
         ("UPDATE tickers SET base_decimals = 15", "a ticker with more decimals than this build rounds to"),
         ("UPDATE tickers SET quote_decimals = -1", "a ticker with more decimals than this build rounds to"),
@@ -1727,13 +1731,13 @@ fn a_bot_row_is_read_as_the_pages_need_it_and_refused_when_this_build_cannot_ren
     assert!(unnamed.label_unsaved && !unnamed.label.trim().is_empty(), "named in memory: {:?}", unnamed.label);
     assert_eq!(c.query_row("SELECT label FROM bots WHERE id = ?1", [id], |r| r.get::<_, String>(0)).unwrap(), "  ", "and not saved");
     c.execute_batch("ROLLBACK TO unnamed; RELEASE unnamed;").unwrap();
-    // A Kraken or Binance basket of several assets is served as the engine trades it (P1-T1); an index bot there is not.
+    // A Kraken or Binance basket of several assets is served as the engine trades it (P1-T1), and so is an index bot there (plan CI).
     for venue in ["Exchanges::Kraken", "Exchanges::Binance"] {
         c.execute_batch(&format!("SAVEPOINT venue; UPDATE exchanges SET type = '{venue}'; \
                                   UPDATE bots SET settings = json_set(settings, '$.allocations', json_object('{}', 0.6, '999', 0.4));", seeded.btc)).unwrap();
         assert_eq!(refusal(), None, "{venue} basket");
-        c.execute_batch("UPDATE bots SET type = 'Bots::DcaIndex'").unwrap();
-        assert_eq!(refusal(), Some("an index bot on Kraken or Binance (only on Alpaca)"), "{venue} index");
+        c.execute_batch("UPDATE bots SET type = 'Bots::DcaIndex', settings = json_set(settings, '$.index_type', 'top')").unwrap();
+        assert_eq!(refusal(), None, "{venue} index");
         c.execute_batch("ROLLBACK TO venue; RELEASE venue;").unwrap();
     }
     // At the bound the bot is served, and what the pages compute from the decimals is computed.
@@ -2285,6 +2289,13 @@ fn bot_action_executable_smoke() -> Result<(), Box<dyn std::error::Error>> {
     );
     c.execute("UPDATE bots SET status=2,label='Smoke '||id", [])?;
     c.execute("UPDATE bots SET type='Bots::DcaIndex' WHERE id=?1", [index])?;
+    // An index bot the engine still refuses (Alpaca: only USD), now that Top coins indices are admitted (plan CI).
+    c.execute("INSERT INTO assets (external_id, symbol, name, category, created_at, updated_at) VALUES ('EUR.FOREX', 'EUR', 'Euro', 'Currency', '2026-01-01', '2026-01-01')", [])?;
+    let eur = c.last_insert_rowid();
+    c.execute("INSERT INTO tickers (exchange_id, ticker, base, quote, base_asset_id, quote_asset_id, base_decimals, quote_decimals, price_decimals, \
+               minimum_base_size, minimum_quote_size, trading_enabled, available, created_at, updated_at) \
+               VALUES (?1, 'BTC/EUR', 'BTC', 'EUR', ?2, ?3, 9, 2, 2, '0.000027', '1', 1, 1, '2026-01-01', '2026-01-01')", (seeded.exchange_id, seeded.btc, eur))?;
+    c.execute("UPDATE bots SET settings=json_set(settings,'$.quote_asset_id',?1) WHERE id=?2", (eur, index))?;
     for (key, value) in [
         ("market_data_provider", "deltabadger"),
         ("market_data_url", "http://example.test"),

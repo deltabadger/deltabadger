@@ -89,7 +89,7 @@ async fn placement_answers_map_to_rails_ambiguity_rules() {
         (ok(json!("<html>maintenance</html>")), Err(VenueError::Ambiguous("Kraken: unreadable response".into()))),
         (ok(json!({ "result": { "txid": ["O1"] } })), Err(VenueError::Ambiguous("Kraken: unreadable response".into()))),
         (json!([{ "status": 502, "body": "bad gateway" }]), Err(VenueError::Ambiguous("bad gateway".into()))),
-        (json!([{ "status": 429, "body": "" }]), Err(VenueError::Rejected(vec!["the server responded with status 429".into()]))),
+        (json!([{ "status": 429, "body": "" }]), Err(VenueError::Rejected(vec!["the server responded with status 429 for POST https://api.kraken.com/0/private/AddOrder".into()]))),
         (json!([{ "network": "post_send", "message": "read timeout" }]), Err(VenueError::Ambiguous("read timeout".into()))),
         (json!([{ "network": "pre_send", "message": "refused" }]), Err(VenueError::Transient("refused".into()))),
         (json!([{ "network": "permanent", "message": "certificate" }]), Err(VenueError::Rejected(vec!["certificate".into()]))),

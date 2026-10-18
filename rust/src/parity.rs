@@ -24,8 +24,8 @@ const TABLES: [&str; 4] = ["bots", "transactions", "bot_activity_logs", "bot_ind
 const JSON_COLUMNS: [&str; 4] = ["settings", "transient_data", "details", "error_messages"];
 const MAX_ATTEMPTS: usize = 6;
 /// transient_data keys only this engine writes, besides the mail markers (notice::KEYS): Rails has none of them.
-const RUST_KEYS: [&str; 8] = ["run_generation", "tick_generation", "rust_placement", "rust_defer_until", "rust_amount_limit_stops_pending", "rust_failure_origin",
-                               "rust_rebalance_halted", crate::engine::conditions::DEAD];
+const RUST_KEYS: [&str; 9] = ["run_generation", "tick_generation", "rust_placement", "rust_defer_until", "rust_amount_limit_stops_pending", "rust_failure_origin",
+                               "rust_rebalance_halted", crate::engine::conditions::DEAD, crate::engine::index::RESYNC_KEY];
 
 fn raw(v: ValueRef<'_>) -> Value {
     match v {
@@ -149,7 +149,13 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
         let cipher=Cipher::new(&EncryptionKeys{primary_key:primary.into(),key_derivation_salt:salt.into()});
         crate::engine::provider::bind(&o.primary,&cipher,&|_|None)?;
     }
-    if scenario["script"]["alpaca"].as_object().is_some_and(|m| m.keys().any(|k| k.contains("/v2/stocks/"))) {
+    let index_bot = model::load_bot(&o.primary, bot_id)?.bot_type == "Bots::DcaIndex";
+    if index_bot && scenario["venue"] != "alpaca" {
+        // A crypto index bot's reference data, as fresh as the scenario's Rails install (engine::staleness).
+        if let Some(hash)=crate::engine::provider::fingerprint(&o.primary)? {crate::engine::provider::record(&o.primary,&hash,start)?;}
+        for job in [reference::INDICES,reference::ASSETS] { jobs::state::record_success(&o.primary,job,None,start).map_err(EngineError::Data)?; }
+    }
+    if scenario["script"]["alpaca"].as_object().is_some_and(|m| m.keys().any(|k| k.contains("/v2/stocks/")) || index_bot) {
         if let Some(hash)=crate::engine::provider::fingerprint(&o.primary)? {crate::engine::provider::record(&o.primary,&hash,start)?;}
         for job in [reference::STOCKS,reference::INDICES,reference::ASSETS] { jobs::state::record_success(&o.primary,job,None,start).map_err(EngineError::Data)?; }
         let mut stmt=o.primary.prepare("SELECT id FROM api_keys WHERE key_type=0")?;
@@ -222,8 +228,10 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
         if let Some(c) = checks { out["checks"] = json!(c); }
         return Ok(out);
     }
-    // Rust's real Kraken adapter over the bodies Rails' harness serves beneath Honeymaker::Clients::Kraken.
-    let transport = ScriptedTransport::from_script(&kraken_script(&scenario["script"]));
+    // Rust's real Kraken adapter over the bodies Rails' harness serves beneath Honeymaker::Clients::Kraken, or at the
+    // Faraday adapter beneath it (`kraken_http`: the HTTP status and the transport failures too).
+    let script = if scenario["script"]["kraken_http"].is_object() { scenario["script"]["kraken_http"].clone() } else { kraken_script(&scenario["script"]) };
+    let transport = ScriptedTransport::from_script(&script);
     let posted = || kraken_sent(&transport).len();
     let venue = KrakenVenue::new(transport.clone());
     let (poll, _, checks) = play(&o, &venue, &scenario, bot_id, start, &posted).await?;
@@ -253,6 +261,23 @@ async fn play<V: Venue>(o: &Opened, venue: &V, scenario: &Value, bot_id: i64, st
     let listing = scenario["conditions"] == true;
     let mut checks = vec![];
     let queued = |t: DateTime<Utc>| t.to_rfc3339_opts(chrono::SecondsFormat::Micros, true);
+    // Plan CI T3b: what triggers Bot::ResyncIndexCompositionJob (the same SQL ran on Rails' copy), the marker it leaves, then
+    // the engine's own resync and its retries, each at its time, before the tick.
+    if let Some(when) = at("resync_at")? {
+        for sql in scenario["trigger"].as_array().into_iter().flatten() {
+            o.primary.execute_batch(sql.as_str().ok_or_else(|| EngineError::Data(format!("scenario.trigger: {sql}")))?)?;
+        }
+        crate::engine::index::mark_resync(&o.primary, bot_id, when)?;
+        let mut state = crate::engine::run::Resyncs::default();
+        let mut now = when;
+        for _ in 0..3 {
+            let Some((_, marker)) = crate::engine::index::resync_marked(&o.primary)?.into_iter().find(|(id, _)| *id == bot_id) else { break };
+            let handle = |bot: &model::Bot| { let h = crate::venue::Handle::for_bot(venue, &o.primary, bot)?; let version = h.producer(); Ok((h, version)) };
+            let mut wake = i64::MAX;
+            crate::engine::run::resync_bot(&o.primary, bot_id, &marker, &FixedClock(now), &prices, &mut state, handle, &mut wake).await?;
+            match state.retry_at(bot_id) { Some(at) => now = DateTime::from_timestamp_micros(at).ok_or_else(|| EngineError::Data("resync retry out of range".into()))?, None => break }
+        }
+    }
     if scenario["tick"] != false { if let Some(t) = ticks(o, venue, bot_id, start, &cx).await? { checks.push(queued(crate::engine::conditions::end_of_minute(t))); } }
     // ponytail: the poll's retries are not replayed; no grid scenario fails a poll with a retryable error.
     let mut poll = None;

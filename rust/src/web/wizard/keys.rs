@@ -3,7 +3,7 @@
 //! and asks the venue again, on the GET, when a stored key is not known to be (the one wizard GET that calls a venue and
 //! writes); `create` checks the submitted key and saves it when it is correct. Alpaca, Kraken and Binance are checked here;
 //! any other venue's key step is a named refusal, so the wizard never makes a bot this build does not trade. The index wizard's
-//! key step (Bots::DcaIndexes::AddApiKeysController) is the third namespace: Alpaca only, for an index this engine runs.
+//! key step (Bots::DcaIndexes::AddApiKeysController) is the third namespace, for an index this engine runs (index::refusal).
 use super::{basket_ids, chips, current_variant, exchange_id, exchange_name, first_incomplete, prerequisite, progress, sentence, step_complete, BotType,
             SentenceOf, Step, StepOrder};
 use crate::web::layout::{self, Ctx, Page};
@@ -137,7 +137,7 @@ async fn new(app: App, ctx: Ctx, namespace: Namespace) -> Result<Response, WebEr
     let (venue, key) = match routed {
         Route::To(path) => return Ok(layout::redirect(StatusCode::FOUND, &ctx.path(path))),
         Route::Retired(path) => return Ok(retired(&ctx, path)),
-        Route::Refused => return Ok(layout::not_ported_response(&ctx.method, &ctx.params.fullpath, ctx.turbo_frame.as_deref())),
+        Route::Refused => return Ok(layout::not_ported_for(&ctx)),
         Route::Ready(venue, key) => (venue, key),
     };
     // Only a key that is there and not known to be correct is asked about again.
@@ -173,7 +173,7 @@ async fn create(app: App, ctx: Ctx, namespace: Namespace) -> Result<Response, We
     let (venue, key) = match app.db(move |c| route(c, &inner, user.id, held.as_ref(), namespace, false)).await? {
         Route::To(path) => return Ok(layout::redirect(StatusCode::FOUND, &ctx.path(path))),
         Route::Retired(path) => return Ok(retired(&ctx, path)),
-        Route::Refused => return Ok(layout::not_ported_response(&ctx.method, &ctx.params.fullpath, ctx.turbo_frame.as_deref())),
+        Route::Refused => return Ok(layout::not_ported_for(&ctx)),
         Route::Ready(venue, key) => (venue, key),
     };
     // `params.require(:api_key)`.

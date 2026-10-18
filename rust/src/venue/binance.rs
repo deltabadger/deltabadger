@@ -219,6 +219,7 @@ impl<T: Transport> BinanceVenue<T> {
             }
             let message = if resp.body.is_empty() { format!("the server responded with status {} for {} {}", resp.status, r.method, r.url()) }
                           else { error_message(&resp.body) };
+            if !placement && resp.status == 401 { return Err(VenueError::Unauthorized(vec![message])); }
             let definitive = (400..500).contains(&resp.status) || crate::engine::placement::safe_rejection(std::slice::from_ref(&message));
             return Err(if placement && !definitive { VenueError::Ambiguous(message) } else { VenueError::Rejected(vec![message]) });
         }
@@ -461,7 +462,7 @@ impl<T: Transport> super::Venue for BinanceVenue<T> {
                                                           ("recvWindow", READ_RECV_WINDOW.into())]);
         let body = match self.call(&r, false).await {
             Ok(body) => body,
-            Err(super::VenueError::Rejected(e)) if e.iter().any(|m| m == "Order does not exist.") => return Err(super::VenueError::Ambiguous(ABSENCE_UNPROVEN.into())),
+            Err(super::VenueError::Rejected(e) | super::VenueError::Unauthorized(e)) if e.iter().any(|m| m == "Order does not exist.") => return Err(super::VenueError::Ambiguous(ABSENCE_UNPROVEN.into())),
             Err(e) => return Err(e),
         };
         let ext = match &body["orderId"] { serde_json::Value::Number(n) if n.is_i64() || n.is_u64() => n.to_string(), _ => return Err(unreadable()) };

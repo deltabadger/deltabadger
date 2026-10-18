@@ -27,6 +27,8 @@ pub struct Ctx {
     pub now: DateTime<Utc>,
     /// The id in a `Turbo-Frame` request header.
     pub turbo_frame: Option<String>,
+    /// The request's Accept names `text/vnd.turbo-stream.html` (Turbo's fetch, and the redirect it follows).
+    pub stream: bool,
 }
 
 pub struct Language {
@@ -45,7 +47,8 @@ impl Ctx {
     pub fn new(app: App, params: Arc<Params>, session: Session, current: Current, nonce: String, now: DateTime<Utc>, request: &Request) -> Self {
         let locale = locale::switch(params.locale(), current.user().and_then(|u| u.locale.as_deref()));
         let turbo_frame = turbo::frame(request.headers()).map(str::to_string);
-        Self { app, params, session, current, method: request.method().clone(), locale, nonce, now, turbo_frame }
+        let stream = turbo::accepts_stream(request.headers());
+        Self { app, params, session, current, method: request.method().clone(), locale, nonce, now, turbo_frame, stream }
     }
 
     pub fn user(&self) -> Option<&User> {
@@ -184,6 +187,13 @@ struct NotPorted<'a> {
     path: &'a str,
 }
 
+#[derive(Template)]
+#[template(path = "not_ported_message.html")]
+struct NotPortedMessage<'a> {
+    method: &'a str,
+    path: &'a str,
+}
+
 /// A rendered view on its way into a layout.
 pub struct Page<'a> {
     pub status: StatusCode,
@@ -213,15 +223,27 @@ pub fn devise(ctx: &Ctx, csrf: &str, page: Page) -> Result<Response, WebError> {
 
 /// The answer for everything Rails serves and this build does not yet: 501, naming the request.
 /// Never a redirect, so a missing page cannot pass for a working one. The message sits in a
-/// `<turbo-frame>` with the id the request asked for, so Turbo shows it where the content would have gone.
-pub fn not_ported_response(method: &Method, path: &str, frame: Option<&str>) -> Response {
+/// `<turbo-frame>` with the id the request asked for, so Turbo shows it where the content would have gone. A frame
+/// request that also accepts a Turbo Stream (the redirect a nested frame's form submission follows: Turbo renders a stream
+/// before it looks at the status, and loads a failed submission into the frame that holds the form) gets the message as a
+/// stream that updates that frame instead.
+pub fn not_ported_response(method: &Method, path: &str, frame: Option<&str>, stream: bool) -> Response {
     let safe=locale::without_secret_query(path);
+    if let (Some(frame), true) = (frame, stream) {
+        return match (NotPortedMessage { method: method.as_str(), path: &safe }).render() {
+            Ok(inner) => (StatusCode::NOT_IMPLEMENTED, [(header::CONTENT_TYPE, turbo::CONTENT_TYPE)], turbo::stream("update", frame, &inner)).into_response(),
+            Err(error) => WebError::from(error).into_response(),
+        };
+    }
     let page = NotPorted { frame: frame.unwrap_or("not-ported"), method: method.as_str(), path:&safe };
     match page.render() {
         Ok(body) => html(StatusCode::NOT_IMPLEMENTED, body),
         Err(error) => WebError::from(error).into_response(),
     }
 }
+
+/// `not_ported_response` for the request `ctx` holds.
+pub fn not_ported_for(ctx: &Ctx) -> Response { not_ported_response(&ctx.method, &ctx.params.fullpath, ctx.turbo_frame.as_deref(), ctx.stream) }
 
 /// ActionController::ParameterMissing: 400 with public/400.html, made below the controllers.
 pub fn bad_request() -> Response {
@@ -245,7 +267,7 @@ pub fn missing() -> Response {
 /// goes to the log: the page names the request, which is what its reader can act on.
 pub fn refused(ctx: &Ctx, reason: &str) -> Response {
     eprintln!("deltabadger: {} {} is not served: {reason}", ctx.method, locale::without_secret_query(&ctx.params.fullpath));
-    not_ported_response(&ctx.method, &ctx.params.fullpath, ctx.turbo_frame.as_deref())
+    not_ported_for(ctx)
 }
 
 /// The answer to a failed read of a bot: the 501 page when it failed on a stored number this build
@@ -257,5 +279,5 @@ pub fn or_refused(ctx: &Ctx, error: WebError) -> Result<Response, WebError> {
 pub async fn not_ported(request: Request) -> Response {
     // The path as it was requested: `entry` has taken the locale prefix off the URI by now.
     let path = request.extensions().get::<Arc<Params>>().map_or_else(|| request.uri().path().to_string(), |params| params.fullpath.clone());
-    not_ported_response(request.method(), &path, header_text(request.headers(), "turbo-frame"))
+    not_ported_response(request.method(), &path, header_text(request.headers(), "turbo-frame"), turbo::accepts_stream(request.headers()))
 }

@@ -567,7 +567,7 @@ async fn price_gate<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &mode
             let m = conditions::raised(&e).unwrap_or_default();
             Gated::Fail(Fail::General { message: m, errors: vec![], failed_row: false })
         }
-        Evaluated::Failed(VenueError::Rejected(e)) if rules.failure_kind(&e) == Some("invalid_key") => {
+        Evaluated::Failed(VenueError::Rejected(e) | VenueError::Unauthorized(e)) if rules.failure_kind(&e) == Some("invalid_key") => {
             Gated::Fail(Fail::General { message: format!("{} rejected the API key: {}", rules.name, to_sentence(&e)), errors: vec![], failed_row: false })
         }
         Evaluated::Failed(VenueError::Transient(m)) if rules.transport_raises => Gated::Fail(Fail::Transient(m)),
@@ -601,7 +601,7 @@ async fn fundable<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model:
             return Ok(Err(if placed { Fail::TransientAfterPlacement } else { Fail::Transient(m) }));
         }
         // honeymaker's with_rescue turns a network failure into a Failure result: "not low", the tick succeeds.
-        Err(VenueError::Rejected(_) | VenueError::Transient(_)) => {}
+        Err(VenueError::Rejected(_) | VenueError::Unauthorized(_) | VenueError::Transient(_)) => {}
         // An unreadable body raises a plain StandardError in Rails: execution_failed, no retry.
         Err(VenueError::Ambiguous(m)) => return Ok(Err(Fail::General { errors: vec![m.clone()], message: m, failed_row: false })),
     }
@@ -743,7 +743,7 @@ async fn reference<V: Venue + Attributed>(venue: &V, bot: &model::Bot, ticker: &
     match fetched {
         Ok(p) => Ok(p),
         // A zero book is the venue's own "Wrong … price" error, which the composition rescues into "No price for …".
-        Err(VenueError::Rejected(e)) => Err(Fail::Transient(format!("No price for {named}: {}", to_sentence(&e)))),
+        Err(VenueError::Rejected(e) | VenueError::Unauthorized(e)) => Err(Fail::Transient(format!("No price for {named}: {}", to_sentence(&e)))),
         // An in-app client raises the transport failure itself (Client.network_failure); the composition re-raises it
         // unwrapped, so it reaches retry_on with its own message.
         Err(VenueError::Transient(m)) if venue.rules().transport_raises => Err(Fail::Transient(m)),
@@ -805,11 +805,11 @@ fn local_units(c: &Connection, bot: &model::Bot, asset_id: i64) -> Result<BigDec
 /// A failed live_free_balance as Bot::Rebalancer raises it: throttled, transient, else a plain error.
 fn balance_failure<V: Venue>(venue: &V, bot: &model::Bot, e: VenueError) -> Fail {
     match e {
-        VenueError::Rejected(e) if venue.rules().is_throttle(&e) => Fail::RateLimited(to_sentence(&e)),
+        VenueError::Rejected(e) | VenueError::Unauthorized(e) if venue.rules().is_throttle(&e) => Fail::RateLimited(to_sentence(&e)),
         VenueError::Transient(m) => Fail::Transient(m),
         // Exchange#transient_failure?'s text rules (Kraken's HTTP-200 "EGeneral:Internal error").
-        VenueError::Rejected(e) if venue.rules().is_transient(&e) => Fail::Transient(to_sentence(&e)),
-        VenueError::Rejected(e) => {
+        VenueError::Rejected(e) | VenueError::Unauthorized(e) if venue.rules().is_transient(&e) => Fail::Transient(to_sentence(&e)),
+        VenueError::Rejected(e) | VenueError::Unauthorized(e) => {
             let m = format!("Failed to read balance for bot {}: {}", bot.id, to_sentence(&e));
             Fail::General { errors: vec![m.clone()], message: m, failed_row: false }
         }

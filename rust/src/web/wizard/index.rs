@@ -3,7 +3,7 @@
 //! (PickExchangesController), the key (keys.rs, `Namespace::Index`) and the quote (PickSpendableAssetsController), whose POST
 //! saves the bot (index_create). Every step but the first sends the browser to it while no market data is configured.
 //!
-//! What this engine runs is an index bot on Alpaca following a data-api index (eligibility::admission and index_reasons);
+//! What this engine runs is an index bot on Alpaca, Kraken or Binance on a data-api install (eligibility::admission and index_reasons);
 //! the steps offer what Rails offers, and the key and quote steps refuse, by name, an index bot this build would not run.
 use super::exchanges::{ordered, Table, Venue as Tile};
 use super::index_create::{self as create, count_named, display_index_name, index_row};
@@ -51,15 +51,12 @@ fn settings_of(config: Option<&Value>) -> Map<String, Value> {
 /// MarketData.configured?
 fn configured(c: &Connection, app: &App) -> Result<bool, WebError> { Ok(crate::web::bots::market_data(c, app)?.1) }
 
-/// Why this engine would not run an index bot built from the session on a venue of `class`, if it would not: Alpaca only,
-/// following a data-api category index on a data-api install.
-pub fn refusal(c: &Connection, app: &App, config: Option<&Value>, class: &str) -> Result<Option<&'static str>, WebError> {
-    if class != "Exchanges::Alpaca" { return Ok(Some("an index bot on a venue other than Alpaca")) }
+/// Why this engine would not run an index bot built from the session on a venue of `class`, if it would not: a venue the
+/// engine admits index bots on (eligibility::admission), on a data-api install.
+pub fn refusal(c: &Connection, app: &App, _config: Option<&Value>, class: &str) -> Result<Option<&'static str>, WebError> {
+    if let Some(why) = eligibility::admission(Some(class), true, 0, false) { return Ok(Some(why)) }
     if !crate::web::bots::market_data(c, app)?.0 { return Ok(Some("an index bot whose market data comes from CoinGecko")) }
-    let settings = settings_of(config);
-    let data_api = settings.get("index_type").and_then(Value::as_str) == Some("category")
-        && index_row(c, &settings)?.is_some_and(|index| index.source.as_deref() == Some("deltabadger"));
-    Ok((!data_api).then_some("an index other than a data-api index"))
+    Ok(None)
 }
 
 /// `session[:bot_config] ||= {}`.
@@ -395,7 +392,7 @@ pub async fn quote_new(State(app): State<App>, Extension(ctx): Extension<Ctx>) -
     let (inner, config) = (app.clone(), ctx.session.lock().bot_config.clone());
     match app.db(move |c| quote_gate(c, &inner, user.id, config.as_ref(), true)).await? {
         QuoteGate::To(path) => Ok(redirect(&ctx, path)),
-        QuoteGate::Refused => Ok(layout::not_ported_response(&ctx.method, &ctx.params.fullpath, ctx.turbo_frame.as_deref())),
+        QuoteGate::Refused => Ok(layout::not_ported_for(&ctx)),
         QuoteGate::Open => quote_render(&app, &ctx, StatusCode::OK, vec![]).await,
     }
 }
@@ -412,7 +409,7 @@ pub async fn quote_create(State(app): State<App>, Extension(ctx): Extension<Ctx>
     let (inner, held) = (app.clone(), ctx.session.lock().bot_config.clone());
     match app.db(move |c| quote_gate(c, &inner, user.id, held.as_ref(), false)).await? {
         QuoteGate::To(path) => return Ok(redirect(&ctx, path)),
-        QuoteGate::Refused => return Ok(layout::not_ported_response(&ctx.method, &ctx.params.fullpath, ctx.turbo_frame.as_deref())),
+        QuoteGate::Refused => return Ok(layout::not_ported_for(&ctx)),
         QuoteGate::Open => {}
     }
     let Some(quote) = ctx.params.form(QUOTE_FIELD).or_else(|| ctx.params.query(QUOTE_FIELD)).map(str::to_string) else { return Ok(layout::bad_request()) };

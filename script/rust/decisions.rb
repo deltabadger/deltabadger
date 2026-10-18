@@ -7,6 +7,7 @@
 #   bin/rails runner script/rust/decisions.rb grid-kucoin <root>  # KuCoin spot, scripted beneath honeymaker at the Faraday adapter
 #   bin/rails runner script/rust/decisions.rb grid-sell <root>    # a one-asset basket selling on Kraken, Binance and Alpaca (slice 6a)
 #   bin/rails runner script/rust/decisions.rb grid-venue-basket <root> # buying baskets of 2 and 3 members on Kraken (EUR) and Binance (USDT)
+#   bin/rails runner script/rust/decisions.rb grid-venue-index <root>  # crypto index bots on Kraken, Binance and Alpaca, and their resync (plan CI)
 #   bin/rails runner script/rust/decisions.rb grid-basket-sell <root> # a wider Alpaca basket's ranked DCA-out (slice 6b)
 #   bin/rails runner script/rust/decisions.rb grid-rebalance <root>   # threshold rebalancing on a stopped Alpaca basket (slice 6b)
 #   bin/rails runner script/rust/decisions.rb grid-conditions <root> # price_limit / sell_price_limit with `pause`, and the minute check (slice 7a)
@@ -41,8 +42,25 @@ module ScriptedKraken
   end
 
   module Http
-    def get_public(path, params = {}) = ScriptedKraken.reply(path, params)
-    def post_private(path, body = {}) = ScriptedKraken.reply(path, body)
+    # No `http` (a `kraken_http` scenario): the real client, down to the Faraday adapter (ScriptedKrakenHttp).
+    def get_public(path, params = {}) = ScriptedKraken.http ? ScriptedKraken.reply(path, params) : super
+    def post_private(path, body = {}) = ScriptedKraken.http ? ScriptedKraken.reply(path, body) : super
+  end
+end
+
+# Kraken at the Faraday adapter beneath Honeymaker::Clients::Kraken, for the scenarios that script `kraken_http` (the crypto
+# index grid): honeymaker's own with_rescue (an HTTP status, a transport failure) and Exchanges::Kraken's parsing all run.
+# A request is named "METHOD path" (a public one with its query); the order Rails POSTs is recorded as its form, without the
+# nonce that changes per send.
+module ScriptedKrakenHttp
+  mattr_accessor :http, :sent
+
+  def self.reply(env)
+    key = "#{env.method.to_s.upcase} #{env.url.path}"
+    sent << URI.decode_www_form(env.request_body.to_s).to_h.except('nonce') if key == 'POST /0/private/AddOrder'
+    keyed = "#{key}?#{Rack::Utils.parse_query(env.url.query).map { |k, v| "#{k}=#{v}" }.sort.join('&')}" if env.url.query
+    queue = (keyed && http[keyed]) || http[key] or raise Harness::Unscripted, "unscripted Kraken call #{keyed || key}"
+    queue.size > 1 ? queue.shift : queue.first
   end
 end
 
@@ -57,6 +75,7 @@ module ScriptedAlpaca
     'pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "paper-api.alpaca.markets" port 443')) },
     'binance_pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "api.binance.com" port 443')) },
     'kucoin_pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "api.kucoin.com" port 443')) },
+    'kraken_pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "api.kraken.com" port 443')) },
     'post_send' => -> { Faraday::TimeoutError.new(Net::ReadTimeout.new) },
     # Client.network_failure returns a Failure for an SSL cause (not retried): "Faraday::SSLError: certificate verify failed".
     'permanent' => -> { Faraday::SSLError.new(OpenSSL::SSL::SSLError.new('certificate verify failed')) }
@@ -74,7 +93,7 @@ module ScriptedAlpaca
   module Adapter
     def call(env)
       # Binance's honeymaker client uses the same adapter: its host is answered by ScriptedBinance.
-      scripted = { 'api.binance.com' => ScriptedBinance, 'api.kucoin.com' => ScriptedKucoin }.fetch(env.url.host, ScriptedAlpaca)
+      scripted = { 'api.binance.com' => ScriptedBinance, 'api.kucoin.com' => ScriptedKucoin, 'api.kraken.com' => ScriptedKrakenHttp }.fetch(env.url.host, ScriptedAlpaca)
       raise Harness::Unscripted, "unscripted HTTP call #{env.method.to_s.upcase} #{env.url}" if scripted.http.nil?
 
       reply = scripted.reply(env)
@@ -134,7 +153,8 @@ module Decisions
   # What only the Rust engine writes into transient_data: its placement intent, and the mails it owes (rust/src/engine/notice.rs).
   MAIL_MARKERS = %w[rust_funds_mail_pending rust_error_mail_pending rust_stopped_mail_pending rust_limit_mail_pending].freeze
   # Its waits and counted amount-limit stops are the engine's own too (rust/src/engine/placement.rs, polling.rs).
-  RUST_KEYS = (%w[rust_placement rust_defer_until rust_amount_limit_stops_pending run_generation tick_generation rust_rebalance_halted] + MAIL_MARKERS).freeze
+  RUST_KEYS = (%w[rust_placement rust_defer_until rust_amount_limit_stops_pending run_generation tick_generation rust_rebalance_halted
+                  rust_index_resync] + MAIL_MARKERS).freeze
   # One marker of each kind, as the engine leaves them: Rails must carry them through every write of a tick, untouched.
   SEEDED_MARKERS = { 'rust_funds_mail_pending' => { 'quote_asset' => 2, 'stamped_at' => '2026-08-31T09:00:00.000Z' },
                      'rust_error_mail_pending' => { 'unknown' => { 'error' => 'an <old> "error"', 'stamped_at' => '2026-08-31T09:00:00.000Z' } },
@@ -1264,6 +1284,349 @@ module Decisions
     end.tap { |list| raise "the index grid has #{list.size} scenarios, not 66" unless list.size == 66 }
   end
 
+  # Plan CI (T4): crypto index bots (Top coins and a CoinGecko category) on Kraken (EUR), Binance (USDT, and BTC: a quote
+  # that is itself a coin), and Alpaca (USD crypto beside USD stocks), on a data-api install, every venue scripted at the
+  # Faraday adapter. The assets are as the data-api asset sync imports them (category Cryptocurrency, market_cap set); the
+  # two indices as the syncs store them: `top-coins` (the image's seed, source internal) and `layer-1` (source coingecko),
+  # neither with weights.
+  VI_COINS = { 'bitcoin' => ['BTC', 1.3e12], 'ethereum' => ['ETH', 4e11], 'tether' => ['USDT', 1.2e11], 'usd-coin' => ['USDC', 6e10],
+               'solana' => ['SOL', 8e10], 'cardano' => ['ADA', 2e10], 'avalanche-2' => ['AVAX', 1e10] }.freeze
+  VI_TOP = %w[bitcoin ethereum tether usd-coin solana cardano avalanche-2].freeze
+  VI_L1 = %w[bitcoin ethereum solana cardano avalanche-2].freeze
+  VI_QUOTE = { 'kraken' => 'EUR', 'binance' => 'USDT', 'binance_btc' => 'BTC', 'alpaca' => 'USD' }.freeze
+  # [ask, last] per base listed at the quote (bid = last).
+  VI_PRICES = {
+    'EUR' => { 'BTC' => %w[60000.2 59990.1], 'ETH' => %w[2300.25 2300.01], 'USDT' => %w[0.9201 0.92], 'USDC' => %w[0.9202 0.9201],
+               'SOL' => %w[140.125 140.001], 'ADA' => %w[0.40012 0.4001], 'AVAX' => %w[25.012 25.001] },
+    'USDT' => { 'BTC' => %w[64000.11 64000.05], 'ETH' => %w[2500.51 2500.47], 'USDC' => %w[1.0001 1.0], 'SOL' => %w[150.125 150.123],
+                'ADA' => %w[0.4501 0.45], 'AVAX' => %w[27.01 27.0] },
+    'BTC' => { 'ETH' => %w[0.03901 0.039], 'SOL' => %w[0.002301 0.0023], 'ADA' => %w[0.00000701 0.000007], 'AVAX' => %w[0.000401 0.0004] },
+    'USD' => { 'BTC' => %w[64000.0 63990.0], 'ETH' => %w[2500.0 2499.5], 'USDT' => %w[1.0001 1.0], 'USDC' => %w[1.0002 1.0001], 'SOL' => %w[150.0 149.9] }
+  }.freeze
+  VI_STARTED = '2026-09-01T10:00:00.123456Z'
+
+  def vi_ticker(venue, sym)
+    quote = VI_QUOTE.fetch(venue)
+    case venue
+    when 'kraken' then sym == 'BTC' ? 'XBTEUR' : "#{sym}EUR"
+    when 'alpaca' then "#{sym}/USD"
+    else "#{sym}#{quote}"
+    end
+  end
+
+  def vi_pair(venue, sym)
+    price_decimals = VI_PRICES.fetch(VI_QUOTE.fetch(venue)).fetch(sym)[0].split('.').last.size
+    case venue
+    when 'kraken' then { 'base_decimals' => 8, 'quote_decimals' => 5, 'price_decimals' => price_decimals, 'minimum_base_size' => '0.00001', 'minimum_quote_size' => '0.5' }
+    when 'binance' then { 'base_decimals' => 5, 'quote_decimals' => 8, 'price_decimals' => price_decimals, 'minimum_base_size' => '0.00001', 'minimum_quote_size' => '5' }
+    when 'binance_btc' then { 'base_decimals' => 4, 'quote_decimals' => 8, 'price_decimals' => price_decimals, 'minimum_base_size' => '0.0001', 'minimum_quote_size' => '0.0001' }
+    else { 'base_decimals' => 9, 'quote_decimals' => 2, 'price_decimals' => price_decimals, 'minimum_base_size' => '0.000001', 'minimum_quote_size' => '1' }
+    end
+  end
+
+  def build_venue_index(dir, sc)
+    SchemaTemplate.install(dir)
+    ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: File.join(dir, 'production.sqlite3'))
+    user = User.new(name: 'Owner', email: 'owner@example.com', encrypted_password: SchemaTemplate.owner_password('correct horse battery staple'), admin: true,
+                    confirmed_at: Time.current, setup_completed: true)
+    user.save!(validate: false)
+    venue = sc['venue_key']
+    exchange = case venue
+               when 'kraken' then Exchanges::Kraken.create!(name: 'Kraken', maker_fee: '0.25', taker_fee: '0.4')
+               when 'alpaca' then Exchanges::Alpaca.create!(name: 'Alpaca', maker_fee: '0.15', taker_fee: '0.25')
+               else Exchanges::Binance.create!(name: 'Binance', maker_fee: '0.1', taker_fee: '0.1')
+               end
+    assets = VI_COINS.to_h do |ext, (sym, cap)|
+      [sym, Asset.create!(external_id: ext, symbol: sym, name: sym, category: 'Cryptocurrency', market_cap: (sc['zero_cap'] || []).include?(sym) ? 0 : cap)]
+    end
+    quote = assets[VI_QUOTE.fetch(venue)] ||
+            Asset.create!(external_id: venue == 'kraken' ? 'EUR.FOREX' : 'usd', symbol: VI_QUOTE.fetch(venue), name: VI_QUOTE.fetch(venue), category: 'Currency')
+    ([quote] + assets.values).uniq.each { |a| ExchangeAsset.create!(exchange:, asset: a, available: true) }
+    tickers = VI_PRICES.fetch(quote.symbol).keys.reject { |sym| (sc['unlisted'] || []).include?(sym) }.to_h do |sym|
+      base = venue == 'kraken' && sym == 'BTC' ? 'XBT' : sym
+      [sym, Ticker.create!(exchange:, ticker: vi_ticker(venue, sym), base:, quote: quote.symbol, base_asset: assets.fetch(sym), quote_asset: quote,
+                           **vi_pair(venue, sym).symbolize_keys)]
+    end
+    # Alpaca's catalog lists USD stocks too (data-api's listings sync), so a Top crypto bot is not all crypto: its tick reads the clock.
+    if venue == 'alpaca'
+      %w[AAA BBB].each do |sym|
+        stock = Asset.create!(external_id: "#{sym}.US", symbol: sym, name: sym, category: 'Stock', instrument_type: 'stock')
+        ExchangeAsset.create!(exchange:, asset: stock, available: true)
+        Ticker.create!(exchange:, ticker: sym, base: sym, quote: 'USD', base_asset: stock, quote_asset: quote, **MarketData::STOCK_TICKER_DEFAULTS.transform_keys(&:to_sym))
+      end
+    end
+    AppConfig.market_data_provider = 'deltabadger'
+    AppConfig.market_data_url = 'https://data.invalid'
+    AppConfig.market_data_token = 'scripted-token'
+    unless sc['index_missing']
+      Index.create!(external_id: 'top-coins', source: 'internal', name: 'Top coins', top_coins: sc['top'] || VI_TOP, weights: sc['weights'] || {},
+                    top_coins_by_exchange: {}, available_exchanges: {}, weight: 0)
+      Index.create!(external_id: 'layer-1', source: 'coingecko', name: 'Layer 1', top_coins: sc['l1'] || VI_L1, weights: sc['weights'] || {},
+                    top_coins_by_exchange: {}, available_exchanges: {}, weight: 0)
+    end
+    ApiKey.new(user:, exchange:, key: 'k', secret: 's', passphrase: venue == 'alpaca' ? 'paper' : nil, status: :correct, key_type: :trading).save!(validate: false)
+    bot = Bots::DcaIndex.new(user:, exchange:, settings: {
+      'quote_asset_id' => quote.id, 'quote_amount' => sc['quote_amount'], 'interval' => 'day', 'index_type' => sc['index_type'],
+      'index_category_id' => sc['index_type'] == 'category' ? 'layer-1' : nil, 'num_coins' => sc['num_coins'], 'allocation_flattening' => sc['flattening'],
+      'hold_all' => false
+    }.compact.merge(sc['settings'] || {}))
+    bot.set_missed_quote_amount
+    bot.save!(validate: false)
+    bot.update_columns({ status: Bot.statuses[sc.fetch('status', 'scheduled')], settings_changed_at: nil, label: 'Crypto index',
+                         started_at: Time.iso8601(VI_STARTED), transient_data: bot.reload.transient_data.merge(sc['transient'] || {}) })
+    (sc['members'] || []).each do |sym, target, in_index|
+      t = tickers.fetch(sym)
+      BotIndexAsset.insert!({ 'bot_id' => bot.id, 'asset_id' => t.base_asset_id, 'ticker_id' => t.id, 'target_allocation' => target, 'in_index' => in_index != false,
+                              'entered_at' => '2026-08-01 00:00:00', 'exited_at' => in_index == false ? '2026-08-15 10:30:00' : nil,
+                              'created_at' => '2026-08-01 00:00:00', 'updated_at' => '2026-08-01 00:00:00' })
+    end
+    (sc['transactions'] || []).each_with_index do |row, i|
+      t = tickers.fetch(row['symbol'])
+      Transaction.insert!({ 'bot_id' => bot.id, 'exchange_id' => exchange.id, 'external_id' => row.fetch('external_id', "OHELD-#{i}"), 'status' => 0,
+                            'external_status' => row.fetch('external_status', 2), 'side' => 0, 'order_type' => row.fetch('order_type', 0), 'amount' => row['amount'],
+                            'price' => row['price'], 'amount_exec' => row['amount_exec'], 'quote_amount' => row['quote_amount'], 'quote_amount_exec' => row['quote_amount_exec'],
+                            'base' => t.base_asset.symbol, 'quote' => quote.symbol, 'base_asset_id' => t.base_asset_id, 'quote_asset_id' => quote.id,
+                            'transaction_type' => 'REGULAR', 'bot_interval' => 'day', 'bot_quote_amount' => sc['quote_amount'], 'error_messages' => [],
+                            'created_at' => '2026-09-01 10:00:01', 'updated_at' => '2026-09-01 10:00:01' })
+    end
+    Ticker.where(exchange:, base_asset_id: (sc['unavailable'] || []).map { |sym| assets.fetch(sym).id }).update_all(available: false)
+    bot
+  end
+
+  # One member's closed buy of `value` quote at its ask.
+  def vi_held(venue, sym, value)
+    ask = VI_PRICES.fetch(VI_QUOTE.fetch(venue)).fetch(sym)[0].to_d
+    qty = (value.to_d / ask).round(vi_pair(venue, sym)['base_decimals'])
+    { 'symbol' => sym, 'quote_amount' => value.to_d.to_s('F'), 'quote_amount_exec' => (qty * ask).to_s('F'), 'amount_exec' => qty.to_s('F'),
+      'amount' => qty.to_s('F'), 'price' => ask.to_s('F') }
+  end
+
+  def vi_kraken_ticker(pair, ask, last) = { 'error' => [], 'result' => { pair => {
+    'a' => [ask, '1', '1.000'], 'b' => [last, '1', '1.000'], 'c' => [last, '0.001'], 'v' => ['12.5', '30.1'], 'p' => [last, last],
+    't' => [100, 250], 'l' => [last, last], 'h' => [ask, ask], 'o' => last } } }
+
+  # The price replies of every listed member, with `prices` overriding one symbol's replies (a list: answered in turn).
+  def vi_prices(venue, prices)
+    quote = VI_QUOTE.fetch(venue)
+    VI_PRICES.fetch(quote).flat_map do |sym, (ask, last)|
+      pair = vi_ticker(venue, sym)
+      over = prices[sym]
+      case venue
+      when 'kraken' then [["GET /0/public/Ticker?pair=#{pair}", over || [ok(vi_kraken_ticker(pair, ask, last))]]]
+      when 'alpaca' then []
+      else [["GET /api/v3/ticker/bookTicker?symbol=#{pair}", over || [ok('symbol' => pair, 'bidPrice' => last, 'bidQty' => '1.5', 'askPrice' => ask, 'askQty' => '0.2')]],
+            ["GET /api/v3/ticker/price?symbol=#{pair}", over || [ok('symbol' => pair, 'price' => last)]]]
+      end
+    end.to_h
+  end
+
+  def vi_http(venue, prices: {}, open: true, over: {})
+    quote = VI_QUOTE.fetch(venue)
+    http = case venue
+           when 'kraken'
+             { 'POST /0/private/AddOrder' => (1..6).map { |n| ok('error' => [], 'result' => { 'txid' => ["OTX-#{n}"] }) },
+               'POST /0/private/BalanceEx' => [ok(balance_body('100000'))], 'POST /0/private/QueryOrders' => [ok(query_body({}))],
+               'POST /0/private/TradesHistory' => [ok('error' => [], 'result' => { 'trades' => {}, 'count' => 0 })] }
+           when 'alpaca'
+             listed = VI_PRICES.fetch('USD')
+             { 'GET /v2/clock' => [ok(clock_body(open, '2026-09-03T09:30:00-04:00', '2026-09-02T16:00:00-04:00', '2026-09-02T06:00:01-04:00'))],
+               'GET /v1beta3/crypto/us/latest/quotes' => prices['quotes'] || [ok('quotes' => listed.to_h { |s, (a, l)| ["#{s}/USD", { 'ap' => a.to_f, 'as' => 0.5, 'bp' => l.to_f, 'bs' => 0.4, 't' => '2026-09-01T10:00:00Z' }] })],
+               'GET /v1beta3/crypto/us/latest/trades' => prices['trades'] || [ok('trades' => listed.to_h { |s, (_a, l)| ["#{s}/USD", { 'p' => l.to_f, 's' => 0.01, 't' => '2026-09-01T10:00:00Z', 'i' => 1, 'tks' => 'B' }] })],
+               'GET /v2/account' => [account('100000')], 'GET /v2/positions' => [ok([])],
+               'POST /v2/orders' => (1..6).map { |n| ok(alpaca_order("OTX-#{n}", 'pending_new')) } }
+           else
+             { 'POST /api/v3/order' => (1..6).map { |n| ok('symbol' => "BTC#{quote}", 'orderId' => 28_456 + n, 'orderListId' => -1, 'clientOrderId' => 'x', 'transactTime' => 1_788_000_000_000) },
+               'GET /api/v3/account' => [ok('makerCommission' => 10, 'canTrade' => true, 'balances' => [{ 'asset' => quote, 'free' => '100000.00000000', 'locked' => '0' }])],
+               'GET /api/v3/allOrders' => [ok([])], 'GET /api/v3/myTrades' => [ok([])],
+               # The whole market's last prices (Exchange#get_tickers_prices), as the first-tick notice values the skipped legs.
+               'GET /api/v3/ticker/price' => [ok(VI_PRICES.fetch(quote).map { |sym, (_ask, last)| { 'symbol' => vi_ticker(venue, sym), 'price' => last } })] }
+           end
+    http.merge(vi_prices(venue, prices)).merge(over)
+  end
+
+  def venue_index(venue, kind, name, at:, num_coins: 3, flattening: 0.0, quote_amount: nil, prices: {}, open: true, over: {}, **extra)
+    script_key = { 'kraken' => 'kraken_http', 'alpaca' => 'alpaca' }.fetch(venue, 'binance')
+    { 'name' => "vi-#{venue}-#{kind}-#{name}", 'kind' => 'venue_index', 'venue' => venue.sub('_btc', ''), 'venue_key' => venue, 'index_type' => kind,
+      'num_coins' => num_coins, 'flattening' => flattening, 'quote_amount' => quote_amount || (venue == 'binance_btc' ? 0.001 : 60.0), 'at' => at,
+      'script' => { script_key => vi_http(venue, prices:, open:, over:) }, 'tick' => true }.merge(extra.transform_keys(&:to_s))
+  end
+
+  # The listed coins of `kind`'s index at the venue's quote, in its ranking order (the quote's own coin has no pair).
+  def vi_ranked(venue, list) = list.map { |ext| VI_COINS.fetch(ext)[0] }.select { |sym| VI_PRICES.fetch(VI_QUOTE.fetch(venue)).key?(sym) }
+
+  # The first three as an earlier tick left them, at their market-cap weights.
+  def vi_steady(ranked)
+    caps = ranked.first(3).to_h { |sym| [sym, VI_COINS.values.to_h.fetch(sym)] }
+    Bot::Composition::Weightable.blend(market_caps: caps, flattening: 0.0).map { |sym, w| [sym, w.round(6)] }
+  end
+
+  def vi_unpriced(venue, _sym)
+    case venue
+    when 'kraken' then ok('error' => ['EQuery:Unknown asset pair'])
+    else { 'status' => 400, 'body' => { 'code' => -1121, 'msg' => 'Invalid symbol.' } }
+    end
+  end
+
+  # T3's probe table: a newcomer's price read answered (rejected keys, transport failures, a server error) as Rails reads it.
+  def vi_probe_failures(venue)
+    html = '<html><head><title>401 Authorization Required</title></head><body>401 Authorization Required</body></html>'
+    shared = { '401_empty' => { 'status' => 401, 'body' => '' }, '401_html' => { 'status' => 401, 'body' => html },
+               '401_json' => { 'status' => 401, 'body' => { 'msg' => 'nope' } },
+               'maybe_sent' => { 'network' => 'post_send', 'message' => 'Faraday::TimeoutError: Net::ReadTimeout' } }
+    case venue
+    when 'kraken'
+      shared.merge('invalid_key' => ok('error' => ['EAPI:Invalid key']),
+                   'not_sent' => { 'network' => 'kraken_pre_send', 'message' => 'Faraday::ConnectionFailed: Connection refused - connect(2) for "api.kraken.com" port 443' },
+                   '5xx' => { 'status' => 503, 'body' => { 'error' => ['EService:Unavailable'] } })
+    else
+      shared.merge('invalid_key' => { 'status' => 400, 'body' => { 'code' => -2015, 'msg' => 'Invalid API-key, IP, or permissions for action.' } },
+                   'not_sent' => { 'network' => 'binance_pre_send', 'message' => 'Faraday::ConnectionFailed: Connection refused - connect(2) for "api.binance.com" port 443' },
+                   '5xx' => { 'status' => 502, 'body' => { 'code' => -1001, 'msg' => 'Internal error; unable to process your request. Please try again.' } })
+    end
+  end
+
+  def venue_index_scenarios
+    first = (Time.iso8601(VI_STARTED) + 0.5).iso8601(6)
+    day = ->(n) { (Time.iso8601(VI_STARTED) + n.days + 1).iso8601(6) }
+    modes = { 'market' => {}, 'limit' => { 'limit_ordered' => true, 'limit_order_pcnt_distance' => 0.0025 } }
+    lists = { 'top' => VI_TOP, 'category' => VI_L1 }
+    list = []
+    %w[kraken binance binance_btc].each do |venue|
+      lists.each do |kind, index|
+        ranked = vi_ranked(venue, index)
+        key = kind == 'top' ? 'top' : 'l1'
+        steady = vi_steady(ranked)
+        held = ranked.first(3).zip([30.0, 20.0, 10.0]).map { |sym, v| vi_held(venue, sym, venue == 'binance_btc' ? v / 60_000 : v) }
+        swapped = index.dup
+        a, b = [ranked[2], ranked[3]].map { |sym| index.index(VI_COINS.find { |_, (s, _)| s == sym }[0]) }
+        swapped[a], swapped[b] = swapped[b], swapped[a]
+        second = ranked[1]
+        compositions = {
+          'fresh' => {}, 'steady' => { 'members' => steady, 'transactions' => held },
+          'leaver' => { 'members' => steady, 'transactions' => held, key => swapped },
+          'reentrant' => { 'members' => steady[0..1] + [[steady[2][0], steady[2][1], false]], 'transactions' => held },
+          'entrant_unpriced' => { 'prices' => { second => [vi_unpriced(venue, second)] } },
+          'incumbent_unpriced' => { 'members' => steady, 'transactions' => held, 'prices' => { ranked[2] => [vi_unpriced(venue, ranked[2])] } },
+          'entrant_no_ticker' => { 'unlisted' => [second] }, 'member_unavailable' => { 'members' => steady, 'transactions' => held, 'unavailable' => [ranked[2]] },
+          'index_missing' => { 'members' => steady, 'transactions' => held, 'index_missing' => true }, 'fewer_than_n' => { 'num_coins' => 20 },
+          'zero_market_cap' => { 'zero_cap' => [second] }, 'duplicate' => { key => [index[0]] + index }
+        }
+        compositions.each do |cname, comp|
+          modes.each do |mode, settings|
+            at = comp['members'] ? day.(1) : first
+            list << venue_index(venue, kind, "#{cname}-#{mode}", at:, settings:, prices: comp.fetch('prices', {}), **comp.except('prices').transform_keys(&:to_sym))
+          end
+        end
+      end
+    end
+    # The probe table, on a fresh Top coins bot: the second-ranked newcomer's read fails.
+    %w[kraken binance].each do |venue|
+      second = vi_ranked(venue, VI_TOP)[1]
+      vi_probe_failures(venue).each do |fname, reply|
+        modes.each { |mode, settings| list << venue_index(venue, 'top', "probe_#{fname}-#{mode}", at: first, settings:, prices: { second => [reply] }) }
+      end
+    end
+    # Weights flattened, and legs below the venue minimum (one skipped with its amount carried, then all: the notice).
+    { 'kraken' => [8.0, 0.6], 'binance' => [40.0, 6.0], 'binance_btc' => [0.001, 0.0001] }.each do |venue, (one, all)|
+      list << venue_index(venue, 'category', 'flattened-market', at: first, flattening: 0.5)
+      list << venue_index(venue, 'category', 'one_below-market', at: first, quote_amount: one)
+      list << venue_index(venue, 'category', 'all_below-market', at: first, quote_amount: all)
+    end
+    # Rotation with obligations: the leaver holds a resting limit order (open, then partly filled), and a carry across a change.
+    %w[kraken binance].each do |venue|
+      ranked = vi_ranked(venue, VI_L1)
+      steady = vi_steady(ranked)
+      swapped = VI_L1.dup.tap { |l| l[2], l[3] = l[3], l[2] } # solana leaves, cardano enters
+      leaver = ranked[2]
+      pair = vi_ticker(venue, leaver)
+      ask = VI_PRICES.fetch(VI_QUOTE.fetch(venue)).fetch(leaver)[0]
+      { 'open' => '0', 'partial' => '0.01' }.each do |state, exec|
+        ext = venue == 'kraken' ? 'OLIMIT-1' : "#{pair}-90001"
+        resting = { 'symbol' => leaver, 'external_id' => ext, 'external_status' => 1, 'order_type' => 1, 'amount' => '0.1', 'price' => ask, 'quote_amount' => (BigDecimal(ask) * BigDecimal('0.1')).to_s('F') }
+        over = if venue == 'kraken'
+                 { 'POST /0/private/QueryOrders' => [ok(query_body(ext => { 'status' => 'open', 'vol' => '0.1', 'vol_exec' => exec, 'cost' => (BigDecimal(ask) * BigDecimal(exec)).to_s('F'),
+                                                                            'price' => exec == '0' ? '0' : ask, 'oflags' => '',
+                                                                            'descr' => { 'pair' => pair, 'type' => 'buy', 'ordertype' => 'limit', 'price' => ask } }))] }
+               else
+                 executed = BigDecimal(exec)
+                 order = { 'symbol' => pair, 'orderId' => 90_001, 'orderListId' => -1, 'clientOrderId' => 'web_90001', 'price' => ask, 'origQty' => '0.1',
+                           'executedQty' => executed.to_s('F'), 'cummulativeQuoteQty' => (executed * BigDecimal(ask)).to_s('F'),
+                           'status' => executed.zero? ? 'NEW' : 'PARTIALLY_FILLED', 'timeInForce' => 'GTC', 'type' => 'LIMIT', 'side' => 'BUY',
+                           'origQuoteOrderQty' => '0.00000000', 'time' => 1_788_000_000_000 }
+                 trades = executed.zero? ? [] : [{ 'symbol' => pair, 'id' => 7001, 'orderId' => 90_001, 'orderListId' => -1, 'price' => ask, 'qty' => exec,
+                                                    'quoteQty' => (executed * BigDecimal(ask)).to_s('F'), 'commission' => '0', 'commissionAsset' => 'BNB',
+                                                    'time' => 1_788_000_000_001, 'isBuyer' => true, 'isMaker' => true, 'isBestMatch' => true }]
+                 { 'GET /api/v3/allOrders' => [ok([order])], 'GET /api/v3/myTrades' => [ok(trades)] }
+               end
+        list << venue_index(venue, 'category', "leaver_#{state}_limit-market", at: day.(1), members: steady, l1: swapped, over:,
+                            transactions: ranked.first(2).zip([30.0, 20.0]).map { |sym, v| vi_held(venue, sym, v) } + [resting])
+      end
+      one = venue == 'kraken' ? 8.0 : 40.0
+      list << venue_index(venue, 'category', 'carry_across_rotation-market', at: first, quote_amount: one, next_at: day.(1),
+                          between: [%(UPDATE indices SET top_coins = '#{swapped.to_json}' WHERE external_id = 'layer-1')])
+    end
+    # T3b: a trigger, its resync, then a tick; plain, with the resync's newcomer unpriced at the resync, and at the tick.
+    %w[kraken binance].each do |venue|
+      ranked = vi_ranked(venue, VI_L1)
+      steady = vi_steady(ranked)
+      held = ranked.first(3).zip([30.0, 20.0, 10.0]).map { |sym, v| vi_held(venue, sym, v) }
+      swapped = VI_L1.dup.tap { |l| l[2], l[3] = l[3], l[2] }
+      resync = (Time.iso8601(VI_STARTED) + 3600).iso8601(6)
+      sequences = {
+        'start_then_tick' => [ranked[1], { 'status' => 'stopped', 'resync_at' => first, 'at' => first,
+                                           'trigger' => ["UPDATE bots SET status = 1, started_at = '2026-09-01 10:00:00.123456'"] }],
+        'delayed_start_then_tick' => [ranked[1], { 'status' => 'stopped', 'resync_at' => first, 'at' => day.(1),
+                                                   'trigger' => ["UPDATE bots SET status = 1, started_at = '2026-09-02 10:00:00.123456'"] }],
+        'settings_then_tick' => [ranked[2], { 'num_coins' => 2, 'members' => steady.first(2), 'transactions' => held.first(2), 'resync_at' => resync, 'at' => day.(1),
+                                              'trigger' => ["UPDATE bots SET settings = json_set(settings, '$.num_coins', 3)"] }],
+        'index_sync_then_tick' => [ranked[3], { 'members' => steady, 'transactions' => held, 'resync_at' => resync, 'at' => day.(1),
+                                                'trigger' => [%(UPDATE indices SET top_coins = '#{swapped.to_json}' WHERE external_id = 'layer-1')] }],
+        'empty_sync_then_tick' => [ranked[2], { 'members' => steady[0..1] + [[steady[2][0], steady[2][1], false]], 'transactions' => held,
+                                                'resync_at' => resync, 'at' => day.(1) }]
+      }
+      sequences.each do |sname, (newcomer, sc)|
+        ok_reply = vi_prices(venue, {}).select { |k, _| k.include?("=#{vi_ticker(venue, newcomer)}") }
+        { 'plain' => {}, 'unpriced_at_resync' => [vi_unpriced(venue, newcomer), :ok], 'unpriced_at_tick' => [:ok, vi_unpriced(venue, newcomer)] }.each do |fname, order|
+          over = order.is_a?(Array) ? ok_reply.transform_values { |(good)| order.map { |r| r == :ok ? good : r } } : {}
+          list << venue_index(venue, 'category', "#{sname}-#{fname}", over:, **sc.transform_keys(&:to_sym))
+        end
+      end
+    end
+    # The resync's own failure kinds, then the tick: a rejected key raises (no retry, nothing written), an Alpaca transport
+    # failure is retried (n⁴ + 2 s) and succeeds, or fails three times and the job ends.
+    started = ["UPDATE bots SET status = 1, started_at = '2026-09-01 10:00:00.123456'"]
+    a_minute = (Time.iso8601(VI_STARTED) + 60).iso8601(6)
+    %w[kraken binance].each do |venue|
+      eth = vi_ticker(venue, 'ETH')
+      rejected = { 'status' => 401, 'body' => { 'msg' => 'nope' } }
+      over = vi_prices(venue, {}).select { |k, _| k.include?("=#{eth}") }.transform_values { |(good)| [rejected, good] }
+      list << venue_index(venue, 'category', 'start_then_tick-rejected_at_resync', status: 'stopped', resync_at: first, at: a_minute, trigger: started, over:)
+    end
+    fail_quotes = ->(n) { { 'GET /v1beta3/crypto/us/latest/quotes' => [DATA_PRE_SEND] * n + vi_http('alpaca')['GET /v1beta3/crypto/us/latest/quotes'] } }
+    list << venue_index('alpaca', 'top', 'start_then_tick-transient_at_resync', status: 'stopped', resync_at: first, at: a_minute, trigger: started, over: fail_quotes.(1))
+    list << venue_index('alpaca', 'top', 'start_then_tick-exhausted_at_resync', status: 'stopped', resync_at: first, at: a_minute, trigger: started, over: fail_quotes.(3))
+    # Alpaca: Top coins in USD crypto on a catalog that also lists stocks: its tick reads the clock; the resync (no market gate)
+    # probes a crypto newcomer on its ask even with the market closed.
+    list << venue_index('alpaca', 'top', 'fresh-open', at: first)
+    list << venue_index('alpaca', 'top', 'fresh-closed', at: first, open: false)
+    list << venue_index('alpaca', 'top', 'closed_resync', at: first, open: false, resync_at: first)
+    # The ND100 stock index's resync with the market closed: the stock newcomer DDD is probed on its last and seated. At the
+    # open tick its ask fails and it keeps its seat (an incumbent is never probed): EEE does not replace it.
+    stock_at = (Time.iso8601(STOCK_STARTED) + 1.week + 1).iso8601(6)
+    stock_resync = (Time.iso8601(STOCK_STARTED) + 2.days).iso8601(6)
+    http = { 'GET /v2/clock' => [closed_clock(stock_resync), open_clock(stock_at)], 'GET /v2/account' => [stock_account('100000', '200000')],
+             'GET /v2/positions' => [ok([])], 'POST /v2/orders' => (1..5).map { |n| ok(stock_order("OTX-#{n}", 'new')) } }
+    INDEX_SYMBOLS.zip([100, 200, 300, 400, 500]).each do |sym, ask|
+      http["GET /v2/stocks/#{sym}/quotes/latest"] = [stock_quote(sym, sym == 'DDD' ? 0 : ask)]
+      http["GET /v2/stocks/#{sym}/trades/latest"] = [stock_trade(sym, ask)]
+    end
+    list << { 'name' => 'vi-alpaca-stock-closed_resync', 'venue' => 'alpaca', 'kind' => 'index', 'at' => stock_at, 'resync_at' => stock_resync,
+              'top_coins' => %w[AAA BBB DDD EEE CCC], 'transactions' => [], 'num_coins' => 3, 'flattening' => 0.0, 'hold_all' => false,
+              'members' => [{ 'symbol' => 'AAA', 'target' => 0.6, 'in_index' => true }, { 'symbol' => 'BBB', 'target' => 0.4, 'in_index' => true }],
+              'script' => { 'alpaca' => http }, 'tick' => true }
+    list.tap { |l| raise "the venue index grid has #{l.size} scenarios, not 225" unless l.size == 225 }
+  end
+
   # Binance spot (spec E2), one asset on BTCUSDT: Rails' own answers to the bodies below, beneath honeymaker.
   def bn_order(id, status, type: 'MARKET', executed: '0.00000000', cumulative: '0.00000000', price: nil, qty: nil, quote: '60.00000000')
     limit = type == 'LIMIT'
@@ -1929,13 +2292,17 @@ module Decisions
         %w[production.sqlite3 production_queue.sqlite3 scenario.json].each { |f| FileUtils.cp(File.join(seed_dir, f), File.join(dir, f)) }
         next
       end
-      bot = if sc['kind'] == 'index' then build_index(dir, sc) elsif sc['asset'] == 'stock' then build_stock(dir, sc) else build(dir, sc) end
+      bot = case sc['kind']
+            when 'index' then build_index(dir, sc)
+            when 'venue_index' then build_venue_index(dir, sc)
+            else sc['asset'] == 'stock' ? build_stock(dir, sc) : build(dir, sc)
+            end
       enc = ActiveRecord::Encryption.config
       File.write(File.join(dir, 'scenario.json'),
-                 JSON.pretty_generate({ 'encryption' => (sc['kind'] == 'index' ? { 'primary_key' => Array(enc.primary_key).first, 'key_derivation_salt' => enc.key_derivation_salt } : nil), 'parity_scratch' => true, 'bot_id' => bot.id, 'at' => sc['at'], 'venue' => sc['venue'], 'script' => sc['script'],
+                 JSON.pretty_generate({ 'encryption' => (%w[index venue_index].include?(sc['kind']) ? { 'primary_key' => Array(enc.primary_key).first, 'key_derivation_salt' => enc.key_derivation_salt } : nil), 'parity_scratch' => true, 'bot_id' => bot.id, 'at' => sc['at'], 'venue' => sc['venue'], 'script' => sc['script'],
                                         'tick' => sc['tick'], 'poll' => sc['poll'], 'recover_at' => sc['recover_at'], 'next_at' => sc['next_at'], 'rebalance_at' => sc['rebalance_at'],
                                         'between' => sc['between'], 'rails_cache' => sc['rails_cache'], 'check_at' => sc['check_at'],
-                                        'conditions' => sc['conditions'],
+                                        'conditions' => sc['conditions'], 'resync_at' => sc['resync_at'], 'trigger' => sc['trigger'],
                                         # Bot::SmartIntervalable#smart_interval_minimum(:quote) as Rails computes it for the built bot.
                                         'rails_floor' => (sc['record_floor'] && bot.reload.smart_interval_minimum(:quote).then { |m| { 'value' => m[:value].to_f, 'reason' => m[:reason].to_s } }) }.compact))
       ActiveRecord::Base.connection_pool.disconnect!
@@ -1965,6 +2332,24 @@ module Decisions
     end
   end
 
+  # Bot::ResyncIndexCompositionJob at `at` and the retries its retry_on enqueues (3 attempts in all), each at its own time. A
+  # raise ends the job, as Solid Queue's execution does.
+  def resync_at(sc, at)
+    ActiveJob::Base.queue_adapter.enqueued_jobs.clear
+    run = -> { Bot::ResyncIndexCompositionJob.perform_now(Bot.find(sc['bot_id'])) }
+    3.times do
+      begin
+        travel_to(at, with_usec: true) { run.() }
+      rescue StandardError => e
+        Rails.logger.info("resync raised: #{e.message}")
+      end
+      job = ActiveJob::Base.queue_adapter.enqueued_jobs.find { |j| j['job_class'] == 'Bot::ResyncIndexCompositionJob' } or break
+      ActiveJob::Base.queue_adapter.enqueued_jobs.delete(job)
+      at = Time.at(job[:at])
+      run = -> { ActiveJob::Base.execute(job.stringify_keys) }
+    end
+  end
+
   def record(root)
     ActiveJob::Base.queue_adapter = :test # jobs are Rust's to replace; only retries are replayed below
     ActiveJob::Base.retry_jitter = 0.0
@@ -1976,6 +2361,8 @@ module Decisions
       %i[broadcast_status_bar_update broadcast_new_order broadcast_updated_order broadcast_metrics_panel
          broadcast_quote_amount_limit_update broadcast_replace_to].each { |m| define_method(m) { |*, **| nil } }
     end)
+    # A composition bot's own (Bot::ResyncIndexCompositionJob calls it): its module sits before Bot in the ancestors.
+    Bot::Composition::Measurable.prepend(Module.new { def broadcast_metrics_panel(*, **) = nil })
     Dir[File.join(root, '*/scenario.json')].sort.each do |path|
       dir = File.dirname(path)
       next if ENV['RUST_GRID_CACHE'] && File.exist?(File.join(dir, 'rails.json'))
@@ -1986,8 +2373,10 @@ module Decisions
       alpaca = sc['venue'] == 'alpaca'
       binance = sc['venue'] == 'binance'
       kucoin = sc['venue'] == 'kucoin'
-      ScriptedKraken.http = alpaca || binance || kucoin ? {} : sc['script']['http'].transform_values(&:dup)
+      ScriptedKraken.http = alpaca || binance || kucoin ? {} : sc['script']['http']&.transform_values(&:dup)
       ScriptedKraken.sent = []
+      ScriptedKrakenHttp.http = sc['script']['kraken_http']&.transform_values(&:dup)
+      ScriptedKrakenHttp.sent = []
       ScriptedAlpaca.http = alpaca ? sc['script']['alpaca'].transform_values(&:dup) : {} # {}: any Alpaca call in a Kraken scenario is unscripted
       ScriptedAlpaca.sent = []
       ScriptedBinance.http = binance ? sc['script']['binance'].transform_values(&:dup) : {}
@@ -2018,6 +2407,14 @@ module Decisions
         ActiveJob::Base.queue_adapter.enqueued_jobs.select { |j| j['job_class'] == 'Bot::PriceLimitCheckJob' }.map do |j|
           (j['scheduled_at'] ? Time.iso8601(j['scheduled_at']) : Time.at(j[:at] || j['at'])).utc.iso8601(6)
         end
+      end
+      # Plan CI T3b: what triggers a Bot::ResyncIndexCompositionJob (the same SQL runs on Rust's copy), then the job and the
+      # retries it enqueues for itself, as Solid Queue would run them, before the tick.
+      if sc['resync_at']
+        (sc['trigger'] || []).each { |sql| ActiveRecord::Base.connection.execute(sql) }
+        resync_at(sc, Time.iso8601(sc['resync_at']))
+        mails.concat(enqueued_mails)
+        ActiveJob::Base.queue_adapter.enqueued_jobs.clear
       end
       if sc.fetch('tick', true)
         tick_at(sc, Time.iso8601(sc['at']), mails)
@@ -2077,7 +2474,8 @@ module Decisions
         settle.(Time.iso8601(time))
       end
       mails.concat(enqueued_mails)
-      sent = if alpaca then ScriptedAlpaca.sent elsif binance then ScriptedBinance.sent elsif kucoin then ScriptedKucoin.sent else ScriptedKraken.sent end
+      sent = if alpaca then ScriptedAlpaca.sent elsif binance then ScriptedBinance.sent elsif kucoin then ScriptedKucoin.sent
+             elsif ScriptedKrakenHttp.http then ScriptedKrakenHttp.sent else ScriptedKraken.sent end
       out = { 'sent' => sent, 'changes' => diff(before, snapshot), 'mails' => mails.sort_by { |m| m['mail'] } }
       out['checks'] = checks if sc['conditions']
       # Only where the scenario seeded the Rust engine's markers: what Rails left of them.
@@ -2121,7 +2519,7 @@ def web_save(dir)
 end
 
 command, root = ARGV
-USAGE = 'usage: grid <root> | grid-alpaca <root> | grid-basket <root> | grid-limit <root> | grid-binance <root> | grid-kucoin <root> | grid-sell <root> | grid-venue-basket <root> | grid-conditions <root> | grid-basket-sell <root> | grid-rebalance <root> | record <root> | web-save <dir>'.freeze
+USAGE = 'usage: grid <root> | grid-alpaca <root> | grid-basket <root> | grid-limit <root> | grid-binance <root> | grid-kucoin <root> | grid-sell <root> | grid-venue-basket <root> | grid-venue-index <root> | grid-conditions <root> | grid-basket-sell <root> | grid-rebalance <root> | record <root> | web-save <dir>'.freeze
 raise ArgumentError, USAGE unless root
 
 case command
@@ -2130,6 +2528,7 @@ when 'grid-alpaca' then Decisions.grid(root, Decisions.alpaca_scenarios)
 when 'grid-basket' then Decisions.grid(root, Decisions.basket_scenarios)
 when 'grid-stock' then Decisions.grid(root, Decisions.stock_scenarios)
 when 'grid-index' then Decisions.grid(root, Decisions.index_scenarios)
+when 'grid-venue-index' then Decisions.grid(root, Decisions.venue_index_scenarios)
 when 'grid-limit' then Decisions.grid(root, Decisions.limit_scenarios)
 when 'grid-binance' then Decisions.grid(root, Decisions.binance_scenarios)
 when 'grid-kucoin' then Decisions.grid(root, Decisions.kucoin_scenarios)

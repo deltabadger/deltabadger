@@ -77,7 +77,7 @@ pub fn bot_write(c: &Connection, app: &App, user: i64, id: i64, write: Write, su
             query: vec![], form: vec![], json: None, upload: None }),
         session: super::session::Session::new(Default::default()), current: match &owner {
             Some(owner) => super::auth::Current::SignedIn(Arc::new(owner.clone())), None => return Ok(Outcome::Missing) },
-        method: axum::http::Method::POST, locale: "en", nonce: String::new(), now: app.now(), turbo_frame: None };
+        method: axum::http::Method::POST, locale: "en", nonce: String::new(), now: app.now(), turbo_frame: None, stream: false };
     // Bot#with_user_locale: what the owner's open pages hear is in the owner's language; the answer stays English.
     let mut heard = ctx.clone();
     heard.locale = owner.as_ref().and_then(|o| o.locale.as_deref()).and_then(super::locale::known).unwrap_or("en");

@@ -113,7 +113,7 @@ impl Venue for FakeVenue {
             Some(o) => o,
             None => match self.body("/0/private/AddOrder") {
                 Some(b) => match (check(&b), b["result"]["txid"][0].as_str()) {
-                    (Err(VenueError::Rejected(e)), _) => AddOutcome::Reject(e),
+                    (Err(VenueError::Rejected(e) | VenueError::Unauthorized(e)), _) => AddOutcome::Reject(e),
                     (Err(e), _) => AddOutcome::AmbiguousNotPlaced(match e { VenueError::Ambiguous(m) => m, _ => String::new() }),
                     (Ok(()), Some(t)) => AddOutcome::Accept(t.to_string()),
                     (Ok(()), None) => AddOutcome::AmbiguousNotPlaced("Failed to set Kraken order (order_id is nil)".into()),

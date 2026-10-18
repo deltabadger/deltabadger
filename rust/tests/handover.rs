@@ -423,3 +423,56 @@ async fn a_price_paused_bot_is_handed_over_paused_and_rails_restarts_its_check()
         "Bot::RepairOrphanedBotsJob.perform_now\nraise 'no check chain' unless Bot.find({b}).pending_limit_check_job?\nraise 'not waiting' unless Bot.find({b}).waiting?"));
     assert!(booted, "{err}");
 }
+
+/// Plan CI T3b: a Bot::ResyncIndexCompositionJob Rails has not finished (ready, scheduled or claimed; a failed one is over)
+/// becomes its bot's `rust_index_resync` marker at takeover, for a created or stopped index bot too, never for an archived
+/// one; a takeover repeated after a crash between the marker and the delete marks again. At handback the markers stay: a
+/// Rust reclaim finds them, and Rails' adoption enqueues one job per marked bot however many handbacks came first.
+#[tokio::test(flavor = "current_thread")]
+async fn rails_pending_resyncs_become_markers_at_takeover_and_rails_adopts_them_once_after_handbacks() {
+    let dir = common::rails_install();
+    let p = Paths::from_env(&|_| None, dir.path());
+    let l = lease::lock(&p, now()).unwrap();
+    let o = store::open(&p).unwrap();
+    let s = seed::seed_kraken(&o.primary, &seed::cipher());
+    let index = |status: i64| { let id = seed::index_bot(&o.primary, &s, "layer-1", 3, 0.0, false);
+                                o.primary.execute("UPDATE bots SET status = ?1 WHERE id = ?2", [status, id]).unwrap(); id };
+    let (created, stopped, archived) = (index(0), index(2), index(7));
+    let gid = |id: i64| format!("gid://deltabadger/Bots::DcaIndex/{id}");
+    let resync = |id: i64| { o.queue.execute("INSERT INTO solid_queue_jobs (queue_name, class_name, arguments, priority, created_at, updated_at) VALUES ('default', 'Bot::ResyncIndexCompositionJob', ?1, 0, '2026-09-30 11:00:00', '2026-09-30 11:00:00')",
+                                             [json!({ "job_class": "Bot::ResyncIndexCompositionJob", "arguments": [{ "_aj_globalid": gid(id) }] }).to_string()]).unwrap();
+                             o.queue.last_insert_rowid() };
+    resync(created); // ready
+    let failed = resync(created);
+    o.queue.execute("INSERT INTO solid_queue_failed_executions (job_id, error, created_at) VALUES (?1, 'boom', '2026-09-30 11:00:00')", [failed]).unwrap();
+    job(&o.queue, "Bot::ResyncIndexCompositionJob", &gid(stopped)); // scheduled (a retry)
+    let claimed = resync(stopped);
+    o.queue.execute("INSERT INTO solid_queue_claimed_executions (job_id, process_id, created_at) VALUES (?1, 1, '2026-09-30 11:00:00')", [claimed]).unwrap();
+    resync(archived);
+    let n = |id: i64| o.primary.query_row("SELECT json_extract(transient_data, '$.rust_index_resync.n') FROM bots WHERE id = ?1", [id], |r| r.get::<_, Option<i64>>(0)).unwrap();
+    let rows = |o: &store::Opened| count(&o.queue, "SELECT count(*) FROM solid_queue_jobs WHERE class_name = 'Bot::ResyncIndexCompositionJob'");
+    let t = handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
+    assert_eq!(t.deleted_jobs, 3);
+    assert_eq!((n(created), n(stopped), n(archived)), (Some(1), Some(2), None), "one mark per pending row");
+    assert_eq!(rows(&o), 2, "the failed row and the archived bot's stay");
+    resync(stopped); // the delete was lost to a crash: the repeated takeover marks again and deletes it
+    handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
+    assert_eq!((n(stopped), rows(&o)), (Some(3), 2));
+
+    handover::hand_back(&l, &o, &FakeFactory::default(), &seed::cipher(), &deltabadger::engine::FixedClock(now())).await.unwrap();
+    assert_eq!((n(created), n(stopped)), (Some(1), Some(3)), "kept for Rails");
+    handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap(); // a Rust reclaim before Rails booted
+    assert_eq!((n(created), n(stopped)), (Some(1), Some(3)), "found intact");
+    handover::hand_back(&l, &o, &FakeFactory::default(), &seed::cipher(), &deltabadger::engine::FixedClock(now())).await.unwrap();
+    drop((l, o));
+    let (booted, err) = rails_boot(dir.path());
+    assert!(booted, "{err}");
+    let q = rusqlite::Connection::open(dir.path().join("production_queue.sqlite3")).unwrap();
+    let mut s = q.prepare("SELECT arguments FROM solid_queue_jobs WHERE class_name = 'Bot::ResyncIndexCompositionJob' AND finished_at IS NULL \
+                           AND id NOT IN (SELECT job_id FROM solid_queue_failed_executions) ORDER BY id").unwrap();
+    let enqueued: Vec<String> = s.query_map([], |r| r.get::<_, String>(0)).unwrap().map(Result::unwrap)
+        .map(|a| serde_json::from_str::<serde_json::Value>(&a).unwrap()["arguments"][0]["_aj_globalid"].as_str().unwrap().to_string()).collect();
+    assert_eq!(enqueued, [gid(archived), gid(created), gid(stopped)], "the archived bot's own Rails row, then one per marked bot");
+    let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    assert_eq!(count(&c, "SELECT count(*) FROM bots WHERE json_type(transient_data, '$.rust_index_resync') IS NOT NULL"), 0, "adopted: the key goes");
+}

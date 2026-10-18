@@ -159,14 +159,18 @@ async fn hold_all_buys_the_whole_universe_with_flattened_weights() {
 }
 
 #[test]
-fn an_index_bot_is_admitted_on_a_data_api_category_index_only() {
+fn an_index_bot_is_admitted_on_a_top_or_category_index_of_any_source() {
     let (_d, o, _s, id, _) = universe(3, 0.0, false);
     let reasons = |o: &store::Opened| eligibility::bot_reasons(&o.primary, &model::load_bot(&o.primary, id).unwrap()).unwrap();
     assert_eq!(reasons(&o), Vec::<String>::new());
+    // Any source (MarketData.get_top_coins' find_by has no source filter), and a missing row is the tick's Failure.
     o.primary.execute("UPDATE indices SET source = 'coingecko'", []).unwrap();
-    assert!(reasons(&o).iter().any(|r| r.contains("not a data-api index")), "{:?}", reasons(&o));
-    o.primary.execute("UPDATE indices SET source = 'deltabadger'", []).unwrap();
+    assert_eq!(reasons(&o), Vec::<String>::new());
+    o.primary.execute("DELETE FROM indices", []).unwrap();
+    assert_eq!(reasons(&o), Vec::<String>::new());
     o.primary.execute("UPDATE bots SET settings = json_set(settings, '$.index_type', 'top')", []).unwrap();
+    assert_eq!(reasons(&o), Vec::<String>::new());
+    o.primary.execute("UPDATE bots SET settings = json_set(settings, '$.index_type', 'custom')", []).unwrap();
     assert!(reasons(&o).iter().any(|r| r.starts_with("index_type")), "{:?}", reasons(&o));
     o.primary.execute("UPDATE bots SET settings = json_set(settings, '$.index_type', 'category', '$.num_coins', 'ten', '$.allocation_flattening', 1.5)", []).unwrap();
     let r = reasons(&o);
@@ -381,6 +385,39 @@ async fn a_stock_only_index_ignores_stale_unrelated_crypto_feeds() {
     assert_eq!(posted_symbols(&t), ["AAA", "BBB", "CCC"]);
 }
 
+/// A crypto venue's index bot sizes from the index rows and the crypto market caps, so it waits on them as an Alpaca one
+/// does; a basket bot on that venue does not.
+#[test]
+fn a_crypto_venue_index_bot_waits_on_stale_indices_and_market_caps() {
+    for venue in ["Kraken", "Binance"] { crypto_venue_index_staleness(venue); }
+}
+
+fn crypto_venue_index_staleness(venue: &str) {
+    use deltabadger::engine::staleness;
+    let (_d, o, s) = common::install();
+    let c = &o.primary;
+    c.execute("UPDATE exchanges SET type = 'Exchanges::' || ?1, name = ?1", [venue]).unwrap();
+    seed::insert_index(c, "layer-1", &["bitcoin"], &json!({}));
+    let index = seed::index_bot(c, &s, "layer-1", 2, 0.0, false);
+    let basket = seed::insert_bot(c, &s, &seed::BotSpec::weekly(60.0, "2026-09-01 14:00:00"));
+    let now = at(T0);
+    for (job, label) in [(deltabadger::jobs::reference::INDICES, "Indices"), (deltabadger::jobs::reference::ASSETS, "Crypto assets")] {
+        seed::fresh_stock_jobs(c, now);
+        deltabadger::jobs::state::record_success(c, job, None, now - Duration::days(7)).unwrap();
+        let stale = staleness::stale(c, &model::load_bot(c, index).unwrap(), now).unwrap().expect(label);
+        assert_eq!(stale.source, label, "{venue}");
+        // The door also trusts Rails' own refresh stamp: it refuses once that is as old.
+        let old = (now - Duration::days(7)).format("%Y-%m-%d %H:%M:%S").to_string();
+        c.execute(if label == "Indices" { "UPDATE indices SET updated_at = ?1" } else { "UPDATE assets SET updated_at = ?1 WHERE category = 'Cryptocurrency'" }, [&old]).unwrap();
+        assert!(matches!(staleness::verdict(c, &model::load_bot(c, index).unwrap(), now).unwrap(), staleness::Verdict::Stale(_)), "{venue} {label}: the door refuses too");
+        c.execute("UPDATE indices SET updated_at = ?1", [&at(T0).format("%Y-%m-%d %H:%M:%S").to_string()]).unwrap();
+        c.execute("UPDATE assets SET updated_at = ?1 WHERE category = 'Cryptocurrency'", [&at(T0).format("%Y-%m-%d %H:%M:%S").to_string()]).unwrap();
+        assert!(staleness::stale(c, &model::load_bot(c, basket).unwrap(), now).unwrap().is_none(), "{label}: a basket bot does not size from it");
+    }
+    seed::fresh_stock_jobs(c, now);
+    assert!(staleness::stale(c, &model::load_bot(c, index).unwrap(), now).unwrap().is_none());
+}
+
 /// Slice 6b: an index bot's swap sell whose reply was lost, then the index itself changes (data-api's sync) before the engine
 /// restarts. The restarted evaluation settles the lost order by its client order id first, and only then refreshes the
 /// membership (before_rebalance): the swap resumes on the order it sent, never a second sell under the new composition.
@@ -522,4 +559,20 @@ async fn a_split_correction_during_the_swaps_reads_is_never_sized_through() {
         assert!(matches!(out, Outcome::Skipped("split_hold" | "changed")), "read {at_read}: {out:?}");
         assert!(t.posted_orders().is_empty(), "read {at_read}");
     }
+}
+
+/// T1: MarketData.get_top_coins' row: the category's own with a present index_category_id, else `top-coins` (any source).
+#[test]
+fn a_top_bot_and_a_category_bot_without_an_id_read_the_top_coins_row() {
+    let (_d, o, _s, id, _) = universe(3, 0.0, false);
+    let bot = || model::load_bot(&o.primary, id).unwrap();
+    assert_eq!(bot().index_external_id(), "nasdaq-100");
+    o.primary.execute("UPDATE bots SET settings = json_set(settings, '$.index_category_id', '  ')", []).unwrap();
+    assert_eq!(bot().index_external_id(), "top-coins", "a blank id is not present?");
+    o.primary.execute("UPDATE bots SET settings = json_set(settings, '$.index_category_id', 'nasdaq-100', '$.index_type', 'top')", []).unwrap();
+    assert_eq!(bot().index_external_id(), "top-coins");
+    assert_eq!(index::candidate_pairs(&o.primary, &bot()).unwrap(), Vec::<String>::new(), "no top-coins row yet");
+    seed::insert_index(&o.primary, "top-coins", &["CCC.US", "AAA.US"], &json!({}));
+    o.primary.execute("UPDATE indices SET source = 'internal' WHERE external_id = 'top-coins'", []).unwrap();
+    assert_eq!(index::candidate_pairs(&o.primary, &bot()).unwrap(), vec!["AAA", "CCC"]);
 }

@@ -206,11 +206,7 @@ pub async fn save(
     }
     if venue.as_deref() == Some("Exchanges::Alpaca") && !bot_request {ctx.session.lock().tracker_connect=Some(exchange);}
     if venue.as_deref() != Some("Exchanges::Alpaca") {
-        return Ok(crate::web::layout::not_ported_response(
-            &ctx.method,
-            &ctx.params.fullpath,
-            ctx.turbo_frame.as_deref(),
-        ));
+        return Ok(crate::web::layout::not_ported_for(&ctx));
     }
     let outcome = submit(&app, &ctx, user.id, exchange, "Exchanges::Alpaca", "Alpaca", kind, original).await?;
     match outcome {
@@ -476,7 +472,7 @@ pub async fn modal(app: App, ctx: Ctx) -> Result<Response, WebError> {
         return Ok(crate::web::layout::missing());
     };
     if venue != "Exchanges::Alpaca" {
-        return Ok(crate::web::layout::not_ported_response(&ctx.method, &ctx.params.fullpath, ctx.turbo_frame.as_deref()));
+        return Ok(crate::web::layout::not_ported_for(&ctx));
     }
     let csrf = ctx.csrf_token();
     let pane = format!(
@@ -630,7 +626,7 @@ pub async fn legacy(
   if let Err(refusal)=eligibility::guard(&tx,&inner.cipher,None){return Ok(Err(Some(refusal.reason())));}
   tx.commit()?;inner.wake_engine();jobs.wake(crate::sync::jobs::API_KEY_VALIDATOR,Some(&id.to_string()),None);if !same_keys{jobs.wake(crate::sync::jobs::LEDGER_SYNC,Some(&id.to_string()),None);}Ok(Ok(()))
  }).await?;
-    if matches!(&saved,Err(Some(reason)) if reason=="credential venue is not ported"){return Ok(layout::not_ported_response(&ctx.method,&ctx.params.fullpath,ctx.turbo_frame.as_deref()));}
+    if matches!(&saved,Err(Some(reason)) if reason=="credential venue is not ported"){return Ok(layout::not_ported_for(&ctx));}
     let (status, data) = match saved {
         Ok(()) => (StatusCode::CREATED, serde_json::json!({"data":true})),
         Err(None) => (StatusCode::UNPROCESSABLE_ENTITY, serde_json::json!({"data":false})),
@@ -709,7 +705,7 @@ pub async fn form(axum::extract::State(app):axum::extract::State<App>, axum::ext
     if venue.is_none(){return Ok(crate::web::layout::redirect(StatusCode::FOUND,&ctx.path("/tracker/pick_exchange/new")))}
     if venue.as_deref().is_some_and(crate::web::bot::retired_type){ctx.session.lock().tracker_connect=Some(exchange);return Ok(retired_answer(&ctx))}
     if venue.as_deref()==Some("Exchanges::Alpaca"){ctx.session.lock().tracker_connect=Some(exchange);}
-    if venue.as_deref()!=Some("Exchanges::Alpaca"){return Ok(crate::web::layout::not_ported_response(&ctx.method,&ctx.params.fullpath,ctx.turbo_frame.as_deref()))}
+    if venue.as_deref()!=Some("Exchanges::Alpaca"){return Ok(crate::web::layout::not_ported_for(&ctx))}
     if !(requested.is_none()&&healthy)&&key.status!=1&&key.key.as_deref().is_some_and(|s|!crate::ruby::blank(s))&&key.secret.as_deref().is_some_and(|s|!crate::ruby::blank(s)){
         if let Some(id)=key.id{
             if let Some(reason)=revalidate(&app,id).await?{
@@ -769,7 +765,7 @@ pub async fn bot_form(axum::extract::State(app):axum::extract::State<App>,axum::
     let Some(exchange)=owned_bot_exchange(&app,&ctx).await? else{return Ok(crate::web::layout::missing())};
     let inner=app.clone();let owner=user.clone();
     let (venue,key,shell)=app.db(move|c|Ok((c.query_row("SELECT type FROM exchanges WHERE id=?1",[exchange],|r|r.get::<_,String>(0))?,Key::read(c,&inner,owner.id,exchange,0)?,crate::web::shell::Shell::load(c,&inner,&owner)?))).await?;
-    if venue!="Exchanges::Alpaca"{return Ok(crate::web::layout::not_ported_response(&ctx.method,&ctx.params.fullpath,ctx.turbo_frame.as_deref()))}
+    if venue!="Exchanges::Alpaca"{return Ok(crate::web::layout::not_ported_for(&ctx))}
     let csrf=ctx.csrf_token();let action=ctx.path(ctx.params.route_path.trim_end_matches("/new"));
     let card=card(&ctx,&csrf,action,"data-controller=\"\" data-action=\"turbo:submit-end-&gt;modal--base#submitEnd\"","Alpaca","Exchanges::Alpaca",key.passphrase.as_deref()==Some("live"),true,format!("<p>{}</p>",lookup(ctx.locale,"bot.api.alpaca.instructions").unwrap_or("")))?;
     let body=AlpacaModal{card:&card}.render()?;

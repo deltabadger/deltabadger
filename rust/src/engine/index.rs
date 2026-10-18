@@ -17,6 +17,48 @@ use std::collections::{HashMap, HashSet};
 #[derive(Debug, PartialEq)]
 pub enum Refusal { Failure(String), Transient(String) }
 
+/// What the closing re-check returns when anything the derivation read moved during its price probes (no Rails equivalent).
+pub const CHANGED: &str = "index changed during price probes";
+
+/// Bot::ResyncIndexCompositionJob's pending run, as a durable per-bot marker in `bots.transient_data` (Rails never reads a
+/// `rust_*` key and merges transient_data, so it survives every Rails write and a handback, where
+/// EngineLease.adopt_handback! enqueues the job for it). `{"n", "at"}`: every trigger bumps `n`, so two triggers in one
+/// millisecond still differ, and a run clears it only when it is still the value that run read.
+pub const RESYNC_KEY: &str = "rust_index_resync";
+
+/// Marks every index bot `filter` selects (an SQL condition on `bots`; `?1` is `id`) for a resync, in the caller's
+/// transaction. Returns how many were marked.
+fn mark(c: &Connection, filter: &str, id: Option<i64>, now: chrono::DateTime<chrono::Utc>) -> Result<usize, EngineError> {
+    let at = now.to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
+    Ok(c.execute(&format!("UPDATE bots SET transient_data = json_set(transient_data, '$.{RESYNC_KEY}', \
+                           json_object('n', coalesce(json_extract(transient_data, '$.{RESYNC_KEY}.n'), 0) + 1, 'at', ?2)) \
+                           WHERE type = 'Bots::DcaIndex' AND json_type(transient_data) = 'object' AND {filter}"), params![id, at])?)
+}
+
+/// Bots::DcaIndex#start and #resync_index_composition (an index-definition or exchange change): this bot.
+pub fn mark_resync(c: &Connection, bot_id: i64, now: chrono::DateTime<chrono::Utc>) -> Result<usize, EngineError> { mark(c, "id = ?1", Some(bot_id), now) }
+
+/// Index::SyncFromCoingeckoJob#recheck_index_bots (sync_from_coingecko_job.rb:151-155): every index bot neither deleted nor
+/// archived that has an exchange.
+pub fn mark_resync_all(c: &Connection, now: chrono::DateTime<chrono::Utc>) -> Result<usize, EngineError> {
+    use crate::enums::BotStatus::{Archived, Deleted};
+    mark(c, &format!("status NOT IN ({}, {}) AND exchange_id IS NOT NULL", Deleted as i64, Archived as i64), None, now)
+}
+
+/// Every index bot with a pending resync, whatever its status: (id, the marker's JSON text).
+pub fn resync_marked(c: &Connection) -> Result<Vec<(i64, String)>, EngineError> {
+    let mut s = c.prepare(&format!("SELECT id, json_extract(transient_data, '$.{RESYNC_KEY}') FROM bots WHERE type = 'Bots::DcaIndex' \
+                                    AND json_type(transient_data, '$.{RESYNC_KEY}') IS NOT NULL ORDER BY id"))?;
+    let rows = s.query_map([], |r| Ok((r.get(0)?, r.get::<_, String>(1)?)))?.collect::<Result<Vec<_>, _>>()?;
+    Ok(rows)
+}
+
+/// Clears the marker only if it is still `read`: a trigger that landed meanwhile keeps it, for another run.
+pub fn clear_resync(c: &Connection, bot_id: i64, read: &str) -> Result<bool, EngineError> {
+    Ok(c.execute(&format!("UPDATE bots SET transient_data = json_remove(transient_data, '$.{RESYNC_KEY}') WHERE id = ?1 \
+                           AND json_extract(transient_data, '$.{RESYNC_KEY}') = ?2"), params![bot_id, read])? == 1)
+}
+
 /// Bot::Composition::Weightable.blend: `cap / Σcap × (1 − f) + (1 / n) × f`, in Float, with Ruby's compensated sum; a zero
 /// total weighs everything equally.
 pub fn blend(caps: &[f64], flattening: f64) -> Vec<f64> {
@@ -50,22 +92,49 @@ fn top_coins(c: &Connection, ids: &[String], weights: &Map<String, Value>) -> Re
 }
 
 /// Ticker#priced?(side) through Rails' 5 s price cache (Exchange#get_*_price fills it), so Step 1's read of a newcomer reuses
-/// the probe's answer. A zero or failed price is false; a transport failure raises (retry_on); a rejected key raises
-/// Exchange#raise_on_invalid_key!'s error.
+/// the probe's answer, in Rails' order: a price is priced when positive; a rejected key (HTTP 401, or the venue's own
+/// invalid-key text) raises Exchange#raise_on_invalid_key!'s error; a transport failure raises only where the client raises
+/// it (Clients::Alpaca, `transport_raises`: retry_on), and honeymaker's Failure reads as unpriced; anything else is unpriced.
 async fn priced<V: Venue + Attributed>(venue: &V, bot: &Bot, t: &Ticker, side: PriceSide, clock: &dyn Clock, prices: &PriceCache, version: &Option<model::CredentialVersion>) -> Result<bool, Refusal> {
     let key = (bot.exchange_id, t.id, side);
     if prices.get(key, clock.now(), version).is_some() { return Ok(true); }
     let result=venue.price_result(t,side).await;
     let origin=result.origin().clone();
+    let rejected = |e: &[String]| Refusal::Failure(format!("{} rejected the API key: {}", t.exchange_name, to_sentence(e)));
     match result.value {
         Ok(p) => { prices.put_result(key,clock.now(),model::Produced::new(p.clone(),origin)); Ok(p.is_positive()) }
-        Err(VenueError::Transient(m)) => Err(Refusal::Transient(m)),
-        // ponytail: Exchange#invalid_key_error? also reads the HTTP status; Alpaca's own 401 says "unauthorized", and an HTML
-        // 401 is "HTTP 401". Another 401 body would read as unpriced here.
-        Err(VenueError::Rejected(e)) if e.iter().any(|m| m.contains("unauthorized") || m == "HTTP 401") =>
-            Err(Refusal::Failure(format!("{} rejected the API key: {}", t.exchange_name, to_sentence(&e)))),
+        Err(VenueError::Unauthorized(e)) => Err(rejected(&e)),
+        Err(VenueError::Rejected(e)) if venue.rules().is_invalid_key(&e) => Err(rejected(&e)),
+        Err(VenueError::Transient(m)) if venue.rules().transport_raises => Err(Refusal::Transient(m)),
         Err(_) => Ok(false),
     }
+}
+
+/// IndexAllocatable#probe_side: the last for a limit bot; else the ask while Exchange#market_open?(tickers: [ticker]) — always
+/// on a venue without market hours and for a crypto ticker on Alpaca, otherwise Alpaca's clock, read once per derivation
+/// (Rails' one-minute clock cache; a tick or a rebalance passed its own open gate, so `open` starts known): a rejected key raises, a transport failure raises (retry_on), and any other failure
+/// reads as nil, which is open.
+async fn probe_side<V: Venue>(venue: &V, bot: &Bot, t: &Ticker, open: &mut Option<bool>) -> Result<PriceSide, Refusal> {
+    if bot.limit_distance().is_some() { return Ok(PriceSide::Last); }
+    if !venue.rules().market_hours || t.crypto { return Ok(PriceSide::Ask); }
+    let open = match *open {
+        Some(o) => o,
+        None => {
+            let o = match venue.clock().await {
+                Ok(crate::venue::ClockAnswer::Body(b)) => serde_json::from_str::<Value>(&b).map_or(true, |v| v.get("is_open") == Some(&Value::Bool(true))),
+                Ok(crate::venue::ClockAnswer::Failed { status, message }) if status == Some(401) || venue.rules().is_invalid_key(std::slice::from_ref(&message)) =>
+                    return Err(Refusal::Failure(format!("{} rejected the API key: {message}", t.exchange_name))),
+                Ok(crate::venue::ClockAnswer::Failed { .. }) => true,
+                Err(VenueError::Transient(m) | VenueError::Ambiguous(m)) => return Err(Refusal::Transient(m)),
+                Err(e) if e.rejection().is_some_and(|e| venue.rules().is_invalid_key(e)) =>
+                    return Err(Refusal::Failure(format!("{} rejected the API key: {}", t.exchange_name, to_sentence(e.rejection().unwrap_or_default())))),
+                Err(_) => true,
+            };
+            *open = Some(o);
+            o
+        }
+    };
+    Ok(if open { PriceSide::Ask } else { PriceSide::Last })
 }
 
 /// Bot::Composition::Allocatable#refresh_composition for an index bot: derive_composition, then update_bot_index_assets.
@@ -76,7 +145,7 @@ pub async fn refresh_composition<V: Venue>(c: &Connection, venue: &V, bot: &Bot,
     refresh_composition_captured(c, venue, bot, clock, prices, &version).await
 }
 pub(crate) async fn refresh_composition_captured<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, clock: &dyn Clock, prices: &PriceCache, version: &Option<model::CredentialVersion>) -> Result<Result<(), Refusal>, EngineError> {
-    Ok(refresh_owned(c, venue, bot, clock, prices, version, None).await?.map(|_| ()))
+    Ok(refresh_owned(c, venue, bot, clock, prices, version, None, Some(true)).await?.map(|_| ()))
 }
 
 /// Bot::Composition::Rebalancer#before_rebalance for an index bot: the same refresh for a bot in any status but deleted or
@@ -84,17 +153,30 @@ pub(crate) async fn refresh_composition_captured<V: Venue + Attributed>(c: &Conn
 /// composition the rebalance pass read before its first await: the write lock compares against it, never against a copy
 /// read after the venue was asked. Ok carries the composition as written, read under the same lock.
 pub(crate) async fn refresh_for_rebalance<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, claimed: &Value, clock: &dyn Clock, prices: &PriceCache, version: &Option<model::CredentialVersion>) -> Result<Result<Value, Refusal>, EngineError> {
-    refresh_owned(c, venue, bot, clock, prices, version, Some(claimed)).await
+    refresh_owned(c, venue, bot, clock, prices, version, Some(claimed), Some(true)).await
+}
+
+/// Bot::ResyncIndexCompositionJob#perform's refresh_composition: the rebalance's refresh (any status but deleted or
+/// archived, no DCA run owned), with no market gate (the job has none), so a stock newcomer's probe side reads the clock.
+/// `marker` is the value read at pass start: the membership write clears it in the same transaction, if unchanged.
+#[allow(clippy::too_many_arguments)]
+pub(crate) async fn refresh_for_resync<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, claimed: &Value, marker: &str, clock: &dyn Clock, prices: &PriceCache, version: &Option<model::CredentialVersion>) -> Result<Result<Value, Refusal>, EngineError> {
+    refresh_owned_marked(c, venue, bot, clock, prices, version, Some(claimed), None, Some(marker)).await
 }
 
 #[allow(clippy::too_many_arguments)]
-async fn refresh_owned<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, clock: &dyn Clock, prices: &PriceCache, version: &Option<model::CredentialVersion>, claimed: Option<&Value>) -> Result<Result<Value, Refusal>, EngineError> {
+async fn refresh_owned<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, clock: &dyn Clock, prices: &PriceCache, version: &Option<model::CredentialVersion>, claimed: Option<&Value>, open: Option<bool>) -> Result<Result<Value, Refusal>, EngineError> {
+    refresh_owned_marked(c, venue, bot, clock, prices, version, claimed, open, None).await
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn refresh_owned_marked<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, clock: &dyn Clock, prices: &PriceCache, version: &Option<model::CredentialVersion>, claimed: Option<&Value>, mut open: Option<bool>, marker: Option<&str>) -> Result<Result<Value, Refusal>, EngineError> {
     // A DCA tick owns its run and refreshes from what it reads here; a rebalance pass brings its own earlier claim.
     let run_owned = claimed.is_none();
     let before = match claimed { Some(v) => v.clone(), None => super::placement::composition_snapshot(c, bot)? };
     let provider_before = super::provider::fingerprint(c)?;
     if provider_before.is_none() { return Ok(Err(Refusal::Failure("Index provider not configured".into()))); }
-    let category = bot.index_category_id().unwrap_or_default();
+    let category = bot.index_external_id();
     let row: Option<(Option<String>, Option<String>, Option<String>)> = c.query_row(
         "SELECT source, top_coins, weights FROM indices WHERE external_id = ?1 ORDER BY id LIMIT 1", [category],
         |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).optional()?;
@@ -121,10 +203,9 @@ async fn refresh_owned<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &B
         if let Some(ext) = ext.filter(|e| !e.is_empty()) { by_external.insert(ext, id); }
     }
     // Incumbents keep their seat without a probe (keyed on ticker_id); everyone else must show a live price on the side the
-    // order would use. The tick only gets here with the market open, so #probe_side is the ask, or the last for a limit bot.
+    // order would use (#probe_side, per ticker).
     let mut s = c.prepare("SELECT ticker_id FROM bot_index_assets WHERE bot_id = ?1 AND in_index = 1")?;
     let incumbents: HashSet<i64> = s.query_map([bot.id], |r| r.get(0))?.collect::<Result<_, _>>()?;
-    let side = if bot.limit_distance().is_some() { PriceSide::Last } else { PriceSide::Ask };
     let mut chosen: Vec<(i64, i64, f64)> = vec![];
     let mut priced_tickers = vec![];
     for (coin, cap) in ranked {
@@ -133,6 +214,7 @@ async fn refresh_owned<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &B
         let ticker = model::ticker_by_id(c, bot.exchange_id, ticker_id)?
             .ok_or_else(|| EngineError::Data(format!("bot {}: ticker {ticker_id} vanished mid-derivation", bot.id)))?;
         if !incumbents.contains(&ticker_id) {
+            let side = match probe_side(venue, bot, &ticker, &mut open).await { Ok(side) => side, Err(r) => return Ok(Err(r)) };
             match priced(venue, bot, &ticker, side, clock, prices, version).await {
                 Ok(true) => {}
                 Ok(false) => continue,
@@ -164,11 +246,14 @@ async fn refresh_owned<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &B
             |r| Ok((r.get(0)?,r.get(1)?,r.get(2)?))).optional()?;
         let mut changed = current.status != bot.status || super::placement::composition_snapshot(tx, &current)? != before || source_now != source_before || super::provider::fingerprint(tx)? != provider_before;
         for ticker in &priced_tickers { changed |= model::ticker_by_id(tx, bot.exchange_id, ticker.id)?.as_ref() != Some(ticker); }
-        if changed { return Ok(Err(Refusal::Transient("index changed during price probes".into()))); }
+        if changed { return Ok(Err(Refusal::Transient(CHANGED.into()))); }
         let mut reasons = super::eligibility::bot_reasons(tx, &current)?;
-        super::eligibility::member_reasons(tx, &current, true, &members.iter().map(|m| m.0).collect::<Vec<_>>(), &mut reasons)?;
+        let alpaca = model::exchange_type(tx, &current)? == "Exchanges::Alpaca";
+        super::eligibility::member_reasons(tx, &current, alpaca, &members.iter().map(|m| m.0).collect::<Vec<_>>(), &mut reasons)?;
         if !reasons.is_empty() { return Ok(Err(Refusal::Failure(reasons.join("; ")))); }
         basket::write_members(tx, bot.id, &members, clock.now())?;
+        // A resync's marker goes with the membership it asked for, in this one commit; a trigger since it was read keeps it.
+        if let Some(read) = marker { clear_resync(tx, bot.id, read)?; }
         // Any unexpected ineligibility rolls the transaction back (not a nested Ok(Err)).
         super::eligibility::check_install(tx)?.refusal().map_err(|r| EngineError::Data(r.reason()))?;
         Ok(Ok(super::placement::composition_snapshot(tx, &current)?))
@@ -179,7 +264,7 @@ async fn refresh_owned<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &B
 /// (incumbents at Step 1, newcomers at their probe). For a parity copy (parity::plan_copy).
 pub fn candidate_pairs(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError> {
     let top: Option<Option<String>> = c.query_row("SELECT top_coins FROM indices WHERE external_id = ?1 ORDER BY id LIMIT 1",
-        [bot.index_category_id().unwrap_or_default()], |r| r.get(0)).optional()?;
+        [bot.index_external_id()], |r| r.get(0)).optional()?;
     let top = top.flatten().filter(|t| t.trim_start().starts_with('[')).unwrap_or_else(|| "[]".into());
     let mut s = c.prepare("SELECT t.ticker FROM tickers t JOIN assets a ON a.id = t.base_asset_id WHERE t.exchange_id = ?1 AND t.quote_asset_id = ?2 \
                            AND t.available = 1 AND t.trading_enabled = 1 AND a.external_id IN (SELECT value FROM json_each(?3)) ORDER BY t.id")?;

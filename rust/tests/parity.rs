@@ -1294,3 +1294,46 @@ async fn rails_and_rust_decide_identically_across_the_condition_grid() {
     }
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
 }
+
+/// Plan CI T4: crypto index bots on Kraken (EUR), Binance (USDT and BTC) and Alpaca (USD crypto beside stocks), every venue
+/// scripted at the Faraday adapter; the probe table (rejected keys, transport failures, a 5xx); rotation with a resting leaver
+/// order and a carry; and each resync trigger followed by a tick (plan CI T3b), all decided by Rails and by Rust alike.
+#[tokio::test(flavor = "current_thread")]
+async fn rails_and_rust_decide_identically_across_the_venue_index_grid() -> Result<(), Box<dyn std::error::Error>> {
+    let (_copies, outputs) = grid_outputs("grid-venue-index", 225).await;
+    let mut failures = vec![];
+    for (name, _dir, rails_out, rust_out) in &outputs {
+        if rails_out != rust_out { failures.push(format!("{name}\n  rails: {rails_out}\n  rust:  {rust_out}")); }
+        // Pinned on Rails' side, so that two silent engines cannot pass: what each case names really happened there.
+        let sent: Vec<String> = rails_out["sent"].as_array().ok_or("sent")?.iter()
+            .map(|o| o.get("pair").or_else(|| o.get("symbol")).and_then(|v| v.as_str()).unwrap_or_default().to_string()).collect();
+        let members = rails_out["changes"]["bot_index_assets"].as_array().ok_or("members")?;
+        let seated = members.iter().filter(|m| m["after"]["in_index"] == 1).count();
+        let exited = members.iter().any(|m| m["after"]["in_index"] == 0 && m["after"]["exited_at"].is_string());
+        let errors: Vec<String> = rails_out["changes"]["bot_activity_logs"].as_array().ok_or("logs")?.iter()
+            .filter_map(|l| l["after"]["details"]["error"].as_str().map(str::to_string)).collect();
+        let pinned = |ok: bool, what: &str| if ok { Ok(()) } else { Err(format!("{name}: Rails did not {what}: {rails_out}")) };
+        let mut checks = vec![];
+        if ["probe_401_", "probe_invalid_key"].iter().any(|c| name.contains(c)) {
+            checks.push(pinned(sent.is_empty() && errors.iter().any(|e| e.contains(" rejected the API key: ")), "refuse the rejected key"));
+        }
+        if ["probe_not_sent", "probe_maybe_sent", "probe_5xx", "-entrant_unpriced-", "-entrant_no_ticker-", "-zero_market_cap-"].iter().any(|c| name.contains(c)) {
+            let second = if name.starts_with("vi-binance_btc-") { "SOL" } else { "ETH" };
+            checks.push(pinned(seated == 3 && !sent.iter().any(|p| p.starts_with(second)), "skip the second-ranked newcomer and seat the next"));
+        }
+        if name.contains("-leaver") || name.contains("-member_unavailable-") || name.contains("index_sync_then_tick") {
+            checks.push(pinned(exited, "mark a member out of the index"));
+        }
+        if name.contains("-index_missing-") { checks.push(pinned(sent.is_empty() && errors == ["Index not found"], "fail with Index not found")); }
+        if name.starts_with("vi-binance-top-") { checks.push(pinned(!sent.iter().any(|p| p == "USDTUSDT"), "skip the quote's own coin")); }
+        if name == "vi-binance-top-fresh-market" { checks.push(pinned(seated == 3, "seat USDC beside BTC and ETH")); }
+        if name.starts_with("vi-binance_btc-") { checks.push(pinned(!sent.iter().any(|p| p.starts_with("BTC")), "skip the quote's own coin")); }
+        if name.contains("start_then_tick-unpriced_at_resync") { checks.push(pinned(exited, "seat the resync's choice and rotate it at the tick")); }
+        if name.ends_with("closed_resync") { checks.push(pinned(sent.is_empty() && seated == 3, "resync with the market closed")); }
+        // The resync's failure kinds: its newcomer probes are the tick's first reads, so the tick buys after each of them.
+        if name.contains("_at_resync") && !name.contains("unpriced") { checks.push(pinned(!sent.is_empty() && seated >= 2, "buy at the tick after the failed resync")); }
+        failures.extend(checks.into_iter().filter_map(Result::err));
+    }
+    assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), outputs.len(), failures.join("\n"));
+    Ok(())
+}

@@ -1264,3 +1264,26 @@ mod status_bar {
         assert!(cases.len() > 300 && off_grid > 30 && early > 30, "{} cases, {off_grid} where the rounded checkpoint would be held elsewhere, {early} held before it", cases.len());
     }
 }
+
+/// Plan CI T7: a refusal inside a nested frame. A frame request that accepts a Turbo Stream (the redirect Turbo follows after
+/// a nested frame's form submission) gets a stream that updates that frame with the refusal; every other request the
+/// HTML page, whose frame Turbo swaps in. The path is scrubbed of a secret query either way.
+#[tokio::test(flavor = "current_thread")]
+async fn a_refusal_in_a_nested_frame_is_a_stream_that_updates_that_frame() {
+    use axum::http::Method;
+    use deltabadger::web::{layout, turbo};
+    let read = |r: axum::response::Response| async move {
+        let ty = r.headers().get("content-type").unwrap().to_str().unwrap().to_string();
+        (r.status().as_u16(), ty, String::from_utf8(axum::body::to_bytes(r.into_body(), usize::MAX).await.unwrap().to_vec()).unwrap())
+    };
+    let path = "/bots/dca_indexes/add_api_key/new?token=s3cret&x=1";
+    let message = "<h1>Not available in the Rust build yet</h1>\n      <p><code>GET /bots/dca_indexes/add_api_key/new?x=1</code> is served by the Rails app only.</p>";
+    let (status, ty, body) = read(layout::not_ported_response(&Method::GET, path, Some("exchange-\"picker"), true)).await;
+    assert_eq!((status, ty.as_str()), (501, turbo::CONTENT_TYPE));
+    assert_eq!(body, format!("<turbo-stream action=\"update\" target=\"exchange-&quot;picker\"><template>{message}</template></turbo-stream>"));
+    for (frame, stream) in [(Some("modal_content"), false), (None, true), (None, false)] {
+        let (status, ty, body) = read(layout::not_ported_response(&Method::GET, path, frame, stream)).await;
+        assert_eq!((status, ty.as_str()), (501, "text/html; charset=utf-8"), "{frame:?} {stream}");
+        assert!(body.contains(&format!("<turbo-frame id=\"{}\">", frame.unwrap_or("not-ported"))) && body.contains(message) && !body.contains("s3cret"), "{body}");
+    }
+}
