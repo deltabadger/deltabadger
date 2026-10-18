@@ -49,6 +49,7 @@ RECORDED = {
     FIX + 'search_vectors.json': ('test', [runner('record_search_vectors.rb', '{out}')], None),
     FIX + 'sell_vectors.json': ('test', [runner('record_sell_vectors.rb', '{out}')], None),
     FIX + 'sell_sizing_vectors.json': ('test', [runner('record_sell_sizing_vectors.rb', '{out}')], None),
+    FIX + 'signal_sizing.json': ('test', [runner('record_signal_vectors.rb', '{out}')], None),
     FIX + 'settings_r9_vectors.json': ('test', [runner('settings_r9_vectors.rb', '{out}')], None),
     FIX + 'setup_vectors.json': ('test', [runner('setup.rb', '{scratch}', '{out}')], None),
     FIX + 'start_time_vectors.json': ('test', [runner('start_time.rb', '{out}')], None),
