@@ -1592,6 +1592,19 @@ module Decisions
         end
       end
     end
+    # The resync's own failure kinds, then the tick: a rejected key raises (no retry, nothing written), an Alpaca transport
+    # failure is retried (n⁴ + 2 s) and succeeds, or fails three times and the job ends.
+    started = ["UPDATE bots SET status = 1, started_at = '2026-09-01 10:00:00.123456'"]
+    a_minute = (Time.iso8601(VI_STARTED) + 60).iso8601(6)
+    %w[kraken binance].each do |venue|
+      eth = vi_ticker(venue, 'ETH')
+      rejected = { 'status' => 401, 'body' => { 'msg' => 'nope' } }
+      over = vi_prices(venue, {}).select { |k, _| k.include?("=#{eth}") }.transform_values { |(good)| [rejected, good] }
+      list << venue_index(venue, 'category', 'start_then_tick-rejected_at_resync', status: 'stopped', resync_at: first, at: a_minute, trigger: started, over:)
+    end
+    fail_quotes = ->(n) { { 'GET /v1beta3/crypto/us/latest/quotes' => [DATA_PRE_SEND] * n + vi_http('alpaca')['GET /v1beta3/crypto/us/latest/quotes'] } }
+    list << venue_index('alpaca', 'top', 'start_then_tick-transient_at_resync', status: 'stopped', resync_at: first, at: a_minute, trigger: started, over: fail_quotes.(1))
+    list << venue_index('alpaca', 'top', 'start_then_tick-exhausted_at_resync', status: 'stopped', resync_at: first, at: a_minute, trigger: started, over: fail_quotes.(3))
     # Alpaca: Top coins in USD crypto on a catalog that also lists stocks: its tick reads the clock; the resync (no market gate)
     # probes a crypto newcomer on its ask even with the market closed.
     list << venue_index('alpaca', 'top', 'fresh-open', at: first)
@@ -1611,7 +1624,7 @@ module Decisions
               'top_coins' => %w[AAA BBB DDD EEE CCC], 'transactions' => [], 'num_coins' => 3, 'flattening' => 0.0, 'hold_all' => false,
               'members' => [{ 'symbol' => 'AAA', 'target' => 0.6, 'in_index' => true }, { 'symbol' => 'BBB', 'target' => 0.4, 'in_index' => true }],
               'script' => { 'alpaca' => http }, 'tick' => true }
-    list.tap { |l| raise "the venue index grid has #{l.size} scenarios, not 221" unless l.size == 221 }
+    list.tap { |l| raise "the venue index grid has #{l.size} scenarios, not 225" unless l.size == 225 }
   end
 
   # Binance spot (spec E2), one asset on BTCUSDT: Rails' own answers to the bodies below, beneath honeymaker.
