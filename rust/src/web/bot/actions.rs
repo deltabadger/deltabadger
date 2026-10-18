@@ -41,7 +41,7 @@ async fn mutate(app: App, ctx: Ctx, segment: String, action: Option<Action>) -> 
             }
             Ok(response)
         }
-        Ok(Outcome::NoChange((response,_)) | Outcome::Invalid((response,_)) | Outcome::GuardRefused((response,_))) => Ok(response),
+        Ok(Outcome::NoChange((response,_)) | Outcome::Invalid((response,_),_) | Outcome::GuardRefused((response,_))) => Ok(response),
         Err(e) => layout::or_refused(&ctx,e),
     }
 }

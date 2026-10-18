@@ -397,10 +397,20 @@ async fn run(dir: &Path) -> Value {
             let woke = tokio::time::timeout(std::time::Duration::ZERO, wake.notified()).await.is_ok();
             let broadcasts = match observer.as_mut() {
                 Some(observer) => observer.drain(&app).await.unwrap_or_else(|e| panic!("action broadcasts: {e}")),
-                None if !changed => vec![],
+                // An API client has no browser to watch the streams with.
+                None if !changed || step["client"] == "api" => vec![],
                 None => panic!("missing action observer: a step that writes needs a signed-in browser to watch its broadcasts"),
             };
             assert_eq!(woke, changed, "wake must follow an action write: {step}");
+            // Rails enqueues Bot::ActionJob for a bot its step scheduled; this crate's engine, just woken, schedules it
+            // from the row.
+            if step["jobs"] == true {
+                let was_scheduled = |id: &Value| rows_before["bots"].as_array().into_iter().flatten().any(|bot| bot["id"] == *id && bot["status"] == 1);
+                let mut classes: Vec<Value> = response["job_classes"].as_array().cloned().unwrap_or_default();
+                classes.extend(rows_after["bots"].as_array().into_iter().flatten().filter(|bot| bot["status"] == 1 && !was_scheduled(&bot["id"])).map(|_| json!("Bot::ActionJob")));
+                classes.sort_by(|a, b| a.as_str().cmp(&b.as_str()));
+                response["job_classes"] = json!(classes);
+            }
             if !changed {
                 assert!(broadcasts.is_empty(), "unchanged action woke engine or broadcast: {step}");
             }
@@ -652,6 +662,60 @@ fn as_record_invalid(answer: &mut Value) {
 /// A REST request whose JSON body Rails cannot parse (ActionDispatch::Http::Parameters::ParseError, raised where an
 /// action first reads `params`): the test environment answers 400 with its debugging page; this crate answers 400 with
 /// public/400.html, made below the controllers, as it does for every request Rails refuses before an action.
+/// The run-ownership counters this crate keeps in `bots.transient_data` (run_generation, tick_generation) and Rails
+/// has no counterpart of, out of an API write's rows: as `actions_*` compares them (common::ownership_business_rows),
+/// and out of the stored text, where json_set appended them.
+/// A Continue (start_fresh false) is also left for the engine in `rust_continue_start` (plan 3c divergence 9, as
+/// mcp_control compares it): it must name the bot as it was, scheduled now, before it is taken out.
+fn without_ownership(answer: &mut Value) {
+    for key in ["rows_before", "rows_after"] {
+        if answer.get(key).is_some() { answer[key] = common::ownership_business_rows(answer[key].take()); }
+    }
+    let take = |bot: &mut Value| bot["transient_data"].as_object_mut().and_then(|t| t.shift_remove("rust_continue_start"));
+    let mut earlier = vec![];
+    for bot in answer["rows_before"]["bots"].as_array_mut().into_iter().flatten() { earlier.push((bot["id"].clone(), bot["status"].clone(), take(bot))); }
+    for bot in answer["rows_after"]["bots"].as_array_mut().into_iter().flatten() {
+        let Some(request) = take(bot) else { continue };
+        let row = earlier.iter().find(|(id, ..)| *id == bot["id"]);
+        // A request an earlier step left stays until the engine takes it.
+        if row.is_some_and(|(.., left)| left.as_ref() == Some(&request)) { continue; }
+        let was = row.map(|(_, status, _)| status.clone());
+        assert_eq!(bot["status"], 1, "a continue request on a bot that is not scheduled: {request}");
+        assert!(request["requested_at"].as_str().is_some_and(|t| chrono::DateTime::parse_from_rfc3339(t).is_ok()), "continue request: {request}");
+        assert_eq!(request["was_stopped"], json!(was == Some(json!(2))), "continue request: {request}");
+    }
+    for bot in answer["raw_rows"]["bots"].as_array_mut().into_iter().flatten() { without_counters(bot); }
+}
+
+/// A bot row's stored transient_data text without the ownership counters json_set appended to it.
+fn without_counters(bot: &mut Value) {
+    let Some(text) = bot["transient_data"].as_str() else { return };
+    let mut text = text.to_string();
+    // The continue request, an object of scalars (checked on the parsed rows above).
+    if let Some(start) = text.find("\"rust_continue_start\":{") {
+        let end = start + text[start..].find('}').unwrap() + 1;
+        let (from, to) = if text[..start].ends_with(',') { (start - 1, end) } else if text[end..].starts_with(',') { (start, end + 1) } else { (start, end) };
+        text.replace_range(from..to, "");
+    }
+    for counter in ["run_generation", "tick_generation"] {
+        let Some(start) = text.find(&format!("\"{counter}\":")) else { continue };
+        let end = start + text[start..].find([',', '}']).unwrap();
+        let (from, to) = if text[..start].ends_with(',') { (start - 1, end) } else if text[end..].starts_with(',') { (start, end + 1) } else { (start, end) };
+        assert!(text[start + counter.len() + 3..end].parse::<u64>().is_ok(), "invalid ownership counter in {text}");
+        text.replace_range(from..to, "");
+    }
+    bot["transient_data"] = json!(text);
+}
+
+/// ActionController::BadRequest raised by the router (a path parameter that is no UTF-8), below every controller: the
+/// test environment's debugging page stands where production's ShowExceptions sends public/400.html, under the content
+/// type alone (the headers Rails recorded).
+fn as_router_bad_request(answer: &mut Value) {
+    let page = answer["body"].as_array().map(|lines| lines.iter().filter_map(Value::as_str).collect::<Vec<_>>().join("\n")).unwrap_or_default();
+    if answer["status"] != 400 || !page.contains("Action Controller: Exception caught") || !page.contains("ActionController::BadRequest") { return; }
+    answer["body"] = json!(html::normalize(&String::from_utf8_lossy(deltabadger::web::assets::find("/400.html").expect("public/400.html is embedded").body)));
+}
+
 fn as_parse_error(answer: &mut Value) {
     if answer["exception"]["class"] != "ActionDispatch::Http::Parameters::ParseError" || answer["status"] != 400 { return; }
     let page = html::normalize(&String::from_utf8_lossy(deltabadger::web::assets::find("/400.html").expect("public/400.html is embedded").body));
@@ -694,11 +758,13 @@ fn without_random_tokens(answer: &mut Value) -> Result<(), String> {
 }
 
 fn listed_divergence(name: &str, scenario: &Value, rails: &Value, rust: &Value) -> Option<Result<(), String>> {
-    let kind = ["unrouted_", "not_ported_api_", "not_ported_", "stricter_", "missing_"].into_iter().find(|prefix| name.starts_with(prefix))?;
+    let kind = ["unrouted_", "refused_api_", "not_ported_api_", "not_ported_", "stricter_", "missing_"].into_iter().find(|prefix| name.starts_with(prefix))?;
     let responses = |v: &Value| v["responses"].as_array().unwrap().clone();
     let (mut theirs, mut ours) = (responses(rails), responses(rust));
     let (Some(rails_last), Some(rust_last)) = (theirs.pop(), ours.pop()) else { return Some(Err("no responses".into())) };
-    if let Some(message) = difference(name, &json!({ "responses": theirs, "users": rails["users"], "bots": rails["bots"] }), &json!({ "responses": ours, "users": rust["users"], "bots": rust["bots"] })) {
+    // A refused write leaves the bots Rails changed as they were: its last step's rows hold that (below).
+    let rails_bots = if kind == "refused_api_" { &rust["bots"] } else { &rails["bots"] };
+    if let Some(message) = difference(name, &json!({ "responses": theirs, "users": rails["users"], "bots": rails_bots }), &json!({ "responses": ours, "users": rust["users"], "bots": rust["bots"] })) {
         return Some(Err(format!("before its last response: {message}")));
     }
     let step = scenario["steps"].as_array().unwrap().last().unwrap().clone();
@@ -721,6 +787,18 @@ fn listed_divergence(name: &str, scenario: &Value, rails: &Value, rust: &Value) 
             let without_snapshot = |v: &Value| json!({ "status": v["status"], "headers": v["headers"], "body": v["body"] });
             if rails_last["status"] == 501 { Err("Rails now answers 501: drop or rename this scenario".into()) }
             else if without_snapshot(&rust_last) != expected { Err(format!("expected the not_ported envelope:\n  expected: {expected}\n  rust:     {rust_last}")) }
+            else { Ok(()) }
+        }
+        "refused_api_" => {
+            // Plan §7's second divergence: a write Rails makes and this build's engine guard refuses, as the 409
+            // `write_refused` envelope, having written nothing.
+            let body: Value = serde_json::from_str(rust_last["body"].as_str().unwrap_or_default()).unwrap_or_default();
+            let unchanged = rust_last["rows_before"] == rust_last["rows_after"] && rust_last["other_rows_before"] == rust_last["other_rows_after"];
+            if !rails_last["status"].as_u64().is_some_and(|s| (200..300).contains(&s)) { Err(format!("Rails now refuses ({}): drop or rename this scenario", rails_last["status"])) }
+            else if rust_last["status"] != 409 || body["error"]["code"] != "write_refused" || !body["error"]["message"].as_str().is_some_and(|m| m.starts_with("This app can't run that yet: ")) {
+                Err(format!("expected the write_refused envelope: {rust_last}"))
+            }
+            else if !unchanged || rust_last["job_classes"] != json!([]) { Err("the refused write changed rows or enqueued work".into()) }
             else { Ok(()) }
         }
         "missing_" => {
@@ -811,7 +889,15 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
             for answer in rails["responses"].as_array_mut().unwrap() { as_record_invalid(answer); }
         }
         if name.starts_with("api_") {
-            for answer in rails["responses"].as_array_mut().unwrap() { as_parse_error(answer); }
+            for answer in rails["responses"].as_array_mut().unwrap() { as_parse_error(answer); as_router_bad_request(answer); }
+            for answer in rails["responses"].as_array_mut().unwrap().iter_mut().chain(rust["responses"].as_array_mut().unwrap()) { without_ownership(answer); }
+            for bot in rust["bots"].as_array_mut().unwrap() { without_counters(bot); }
+            // A cable payload is markup: compared as a page is (html::normalize), whitespace between tags aside.
+            for answer in rails["responses"].as_array_mut().unwrap().iter_mut().chain(rust["responses"].as_array_mut().unwrap()) {
+                if let Some(sent) = answer.get_mut("broadcasts").and_then(Value::as_array_mut) {
+                    for payload in sent.iter_mut() { *payload = json!(html::normalize(payload.as_str().unwrap_or_default())); }
+                }
+            }
         }
         if name.starts_with("settings_pref_regenerate") {
             if let Err(message) = without_random_tokens(&mut rails).and_then(|()| without_random_tokens(&mut rust)) {
@@ -829,10 +915,10 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
     println!("{} scenarios; {countdown_pages} pages where only Rails knows when the bot acts next", dirs.len());
     if std::env::var("PAGES").is_err() {
-        assert_eq!(dirs.iter().filter(|dir| !dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_") || n.to_string_lossy().starts_with("settings_"))).count(), 160 + 4 + 9 + 2 + 6 + 3 + 49 + 70, "completed read-only baseline (with the market-closed weekend page and the expired start on bots that are not stopped), with D5b's two missing_ and two not_ported_ connect scenarios, the venue pages (eight served, one refused), the selling pages (three served, one cap refused, in place of two refusals), the venue basket pages (seven served, in place of the one refusal), the asset search on each venue, the wizard's chooser and order switch (twelve served, one unrouted GET), its asset and exchange steps (ten served), its broker, key and quote steps to a created bot (nine served), the signal tile and the IBKR and KuCoin key steps (three not_ported_), the first empty bots page that opens it (two), the index wizard (nine served; its Kraken and Top Coins key steps and legacy settings step three not_ported_), and the REST API's (thirty-five on the five served reads' tokens and grants, fourteen on the routes it gates but does not serve, three on typed creates, nine unrouted paths, seven on parameters, one on conditional GETs and one on an install without an admin)");
+        assert_eq!(dirs.iter().filter(|dir| !dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_") || n.to_string_lossy().starts_with("settings_"))).count(), 160 + 4 + 9 + 2 + 6 + 3 + 49 + 68 + 61, "completed read-only baseline (with the market-closed weekend page and the expired start on bots that are not stopped), with D5b's two missing_ and two not_ported_ connect scenarios, the venue pages (eight served, one refused), the selling pages (three served, one cap refused, in place of two refusals), the venue basket pages (seven served, in place of the one refusal), the asset search on each venue, the wizard's chooser and order switch (twelve served, one unrouted GET), its asset and exchange steps (ten served), its broker, key and quote steps to a created bot (nine served), the signal tile and the IBKR and KuCoin key steps (three not_ported_), the first empty bots page that opens it (two), the index wizard (nine served; its Kraken and Top Coins key steps and legacy settings step three not_ported_), and the REST API's (thirty-five on the five served reads' tokens and grants, twelve on the routes it gates but does not serve, three on typed creates, nine unrouted paths, seven on parameters, one on conditional GETs and one on an install without an admin; sixty-one on the six bot writes: six per route on its tokens, grants, ids and malformed bodies, five on settings values, fourteen on lifecycle states one start the engine guard refuses, the broadcasts an open page hears (in English and in its owner's German), encoded path ids and two oversized parameters)");
         assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("settings_"))).count(), 413 + 3 + 45 + 52 + 5 + 1 + 71, "complete S1 inventory, D5b's connect flow, the preference writes, the following client's card, the switch back to the default locale and the settings dialog (two more sections, in-place confirms, the page behind a language change)");
         assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_"))).count(), 197 + 50, "action inventory (with the five ⇄ rotations and nine sell-settings writes, twenty-two Kraken/Binance venue actions, and fifty on their baskets)");
-        assert_eq!(dirs.len(), 160 + 4 + 9 + 2 + 6 + 3 + 49 + 70 + 197 + 50 + 413 + 3 + 45 + 52 + 5 + 1 + 71, "a scenario was dropped or added without this count");
+        assert_eq!(dirs.len(), 160 + 4 + 9 + 2 + 6 + 3 + 49 + 68 + 61 + 197 + 50 + 413 + 3 + 45 + 52 + 5 + 1 + 71, "a scenario was dropped or added without this count");
         assert_eq!(countdown_pages, 4, "the pages where Rails knows a time this build does not: the listed divergence grew or shrank");
     }
 }

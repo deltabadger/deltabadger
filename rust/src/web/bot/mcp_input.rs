@@ -1,5 +1,5 @@
 //! BotApi input dialect. No SQL writes: the shared writer owns validation and persistence.
-use super::{draft::{Draft, FieldError}, Kind};
+use super::{draft::{Draft, FieldError}, write::Failure, Kind};
 use crate::{ruby::BigDec, web::WebError};
 use rusqlite::Connection;
 use serde_json::{json, Map, Value};
@@ -35,12 +35,17 @@ pub fn number(v: &Value) -> Option<BigDec> {
 fn in_range(v: &Value, max: i64) -> Option<BigDec> {
     number(v).filter(|n| n >= &BigDec::zero() && n <= &BigDec::from_i64(max))
 }
-fn invalid(setting: &str) -> String { format!("{setting} must be a number.") }
-fn unsupported(setting: &str, kind: &str) -> String { format!("{setting} applies to {kind} bots only.") }
-fn fail(draft: &mut Draft, message: String) { draft.errors.push(FieldError { field: "base".into(), message }); }
+fn invalid(setting: &str) -> (&'static str, String) { ("invalid_number", format!("{setting} must be a number.")) }
+fn unsupported(setting: &str, kind: &str) -> (&'static str, String) { ("unsupported_setting", format!("{setting} applies to {kind} bots only.")) }
+/// A service refusal: the page's base error, and BotApi's failure (a validation one unless it says otherwise).
+fn fail(draft: &mut Draft, (code, message): (&'static str, String)) -> InputOutcome {
+    draft.errors.push(FieldError { field: "base".into(), message: message.clone() });
+    let failure = if code == "bot_running" { Failure::conflict(code, message) } else { Failure::invalid(code, message) };
+    InputOutcome::Refused(failure)
+}
 
 /// First service refusal wins, in catalogue order. Model errors stay ordered.
-pub enum InputOutcome { Parsed, AsciiAliasRefused }
+pub enum InputOutcome { Parsed, Refused(Failure), AsciiAliasRefused }
 
 /// The settings catalogue in order (BotApi::Bots::SettingsFields, recorded in the tool's schema): the order
 /// refusals are checked in and the order the answer lists what changed.
@@ -51,14 +56,16 @@ fn catalogue() -> Vec<(&'static str, &'static Value)> {
         .map_or_else(Vec::new, |p| p.iter().filter(|(k, _)| k.as_str() != "bot_id").map(|(k, v)| (k.as_str(), v)).collect())
 }
 
+/// BotApi::Bots::SettingsFields::NAMES.
+pub fn setting_names() -> Vec<&'static str> { catalogue().into_iter().map(|(name, _)| name).collect() }
+
 fn blank(v: &Value) -> bool { v.is_null() || v.as_str().is_some_and(|s| strip(s).is_empty()) }
 
 /// The automation dialect, turned into exactly what the settings page would post; the page's own parser
 /// (`Draft::parse`) then reads it. No setting is written here.
 pub fn apply(c: &Connection, draft: &mut Draft, fields: &Value, zone: &str, now: chrono::DateTime<chrono::Utc>) -> Result<InputOutcome, WebError> {
     if draft.original.working() {
-        fail(draft, format!("Bot must be stopped before updating settings. Current status: {}.", draft.original.status.label()));
-        return Ok(InputOutcome::Parsed);
+        return Ok(fail(draft, ("bot_running", format!("Bot must be stopped before updating settings. Current status: {}.", draft.original.status.label()))));
     }
     let kind = draft.original.kind;
     let mut form = Map::new();
@@ -70,50 +77,53 @@ pub fn apply(c: &Connection, draft: &mut Draft, fields: &Value, zone: &str, now:
             continue;
         }
         let index_only = matches!(name, "num_coins" | "allocation_flattening");
-        if index_only && kind != Kind::Index { fail(draft, unsupported("num_coins / allocation_flattening", "index")); return Ok(InputOutcome::Parsed); }
+        if index_only && kind != Kind::Index { return Ok(fail(draft, unsupported("num_coins / allocation_flattening", "index"))); }
         let shared = index_only || super::draft::form_field(Kind::Index, name) || matches!(name, "label" | "exchange_id");
-        if !shared && kind != Kind::Basket { fail(draft, unsupported(name, "basket")); return Ok(InputOutcome::Parsed); }
+        if !shared && kind != Kind::Basket { return Ok(fail(draft, unsupported(name, "basket"))); }
         let posted = match name {
             "label" => value.clone(),
             "allocations" => match weights(draft, value) {
                 Ok(posted) => posted,
-                Err(message) => {
+                Err((code, message)) => {
                     // Classify the unsupported alias only; this cannot resolve an asset or
                     // enable a write. NBSP and other Rails-invalid names retain Invalid.
                     let alias = message.strip_suffix(" is not in this basket; add it with add_asset_id first.")
                         .is_some_and(|name| unicode_ascii_alias(draft, name));
-                    fail(draft, message);
-                    return Ok(if alias { InputOutcome::AsciiAliasRefused } else { InputOutcome::Parsed });
+                    let refused = fail(draft, (code, message));
+                    return Ok(if alias { InputOutcome::AsciiAliasRefused } else { refused });
                 }
             },
             "quote_amount" => match number(value).filter(|n| n > &BigDec::zero()) {
                 Some(n) => json!(n.to_s_f()),
-                None => { fail(draft, invalid(name)); return Ok(InputOutcome::Parsed); }
+                None => return Ok(fail(draft, invalid(name))),
             },
             "allocation_flattening" => match in_range(value, 1) {
                 Some(n) => json!(n.to_s_f()),
-                None => { fail(draft, invalid(name)); return Ok(InputOutcome::Parsed); }
+                None => return Ok(fail(draft, invalid(name))),
             },
             _ => match schema["type"].as_str().or_else(|| schema["type"][0].as_str()) {
-                // A page switch posts "1" or "0"; a bare false would be blank to the page's parser.
-                Some("boolean") => json!(if value.as_bool() == Some(true) { "1" } else if value.as_bool() == Some(false) { "0" } else { return Err(super::data("MCP switch has invalid shape".into())) }),
+                // A page switch posts "1" or "0"; a bare false would be blank to the page's parser. Anything else (REST's
+                // text) is posted as its `to_s`.
+                Some("boolean") => json!(match value { Value::Bool(true) => "1".into(), Value::Bool(false) => "0".into(), other => ruby_s(other) }),
                 Some("number") if name.ends_with("_id") || name.ends_with("_period") || name == "num_coins" => {
                     // BotApi::Number.integer: a whole number however it arrived; the Float itself is judged first.
-                    match value.as_f64().filter(|n| n.fract() == 0.0).and_then(|_| number(value)) {
+                    let whole = value.as_f64().is_none_or(|n| n.fract() == 0.0);
+                    match number(value).filter(|n| whole && n.to_s_f().ends_with(".0")) {
                         Some(n) => json!(n.to_s_f().trim_end_matches(".0")),
-                        None => { fail(draft, invalid(name)); return Ok(InputOutcome::Parsed); }
+                        None => return Ok(fail(draft, invalid(name))),
                     }
                 },
                 Some("number") => match number(value) {
                     Some(n) => json!(n.to_s_f()),
-                    None => { fail(draft, invalid(name)); return Ok(InputOutcome::Parsed); }
+                    None => return Ok(fail(draft, invalid(name))),
                 },
-                _ => value.clone(),
+                // `value.to_s`.
+                _ => json!(ruby_s(value)),
             },
         };
         form.insert(name.into(), posted);
     }
-    if form.is_empty() { fail(draft, "No settings provided to update.".into()); return Ok(InputOutcome::Parsed); }
+    if form.is_empty() { return Ok(fail(draft, ("no_updates_provided", "No settings provided to update.".into()))); }
     let accepted: Map<String, Value> = form.keys().map(|k| (k.clone(), Value::Null)).collect();
     draft.callback_zone = Some(zone.to_owned());
     match draft.parse(c, &Value::Object(form), zone, now) {
@@ -135,8 +145,11 @@ fn unicode_ascii_alias(draft:&Draft,name:&str)->bool {
         .is_some_and(|symbol|symbol.is_ascii() && symbol.eq_ignore_ascii_case(&alias)))
 }
 
-fn weights(draft: &Draft, value: &Value) -> Result<Value,String> {
-    let invalid = || "allocations must be 'SYMBOL:percent,…' or {symbol: percent}.".to_owned();
+/// `value.to_s` for a scalar parameter.
+fn ruby_s(value: &Value) -> String { crate::web::mcp::tools::str_value(value) }
+
+fn weights(draft: &Draft, value: &Value) -> Result<Value,(&'static str,String)> {
+    let invalid = || ("invalid_allocations", "allocations must be 'SYMBOL:percent,…' or {symbol: percent}.".to_owned());
     let mut given=Vec::new();
     match value {
         Value::String(s) => {
@@ -149,7 +162,7 @@ fn weights(draft: &Draft, value: &Value) -> Result<Value,String> {
         Value::Object(o) => for (key,value) in o { given.push((key.clone(),value.clone())); },
         _ => return Err(invalid()),
     }
-    if given.is_empty() || given.len()>1000 { return Err(invalid()); }
+    if given.is_empty() { return Err(invalid()); }
     let mut identifiers=std::collections::HashSet::new();
     let mut parsed=Vec::new();
     for (name,pct) in given {
@@ -168,15 +181,15 @@ fn weights(draft: &Draft, value: &Value) -> Result<Value,String> {
             if let Ok(id)=name.parse::<i64>() { if keys.iter().any(|(member,_)| *member==id) && !ids.contains(&id) {ids.push(id);} }
         }
         if ids.is_empty() { ids=draft.candidate.base_assets.iter().filter(|a|a.symbol.as_deref().is_some_and(|s|s.eq_ignore_ascii_case(&name))).map(|a|a.id).collect(); }
-        if ids.is_empty() { return Err(format!("{name} is not in this basket; add it with add_asset_id first.")); }
+        if ids.is_empty() { return Err(("asset_not_in_basket", format!("{name} is not in this basket; add it with add_asset_id first."))); }
         if ids.len()>1 {
             let names:Vec<_>=ids.iter().filter_map(|id|keys.iter().find(|(member,_)|member==id).map(|(_,key)|key.as_str())).collect();
-            return Err(format!("{name} names more than one basket asset: {}. Use one of those.",names.join(", ")));
+            return Err(("ambiguous_basket_asset", format!("{name} names more than one basket asset: {}. Use one of those.",names.join(", "))));
         }
         let id=ids[0];
         if weights.contains_key(&id.to_string()) {
             let key=keys.iter().find(|(member,_)|*member==id).map(|(_,k)|k.as_str()).ok_or_else(invalid)?;
-            return Err(format!("{key} is given twice."));
+            return Err(("invalid_allocations", format!("{key} is given twice.")));
         }
         weights.insert(id.to_string(),json!(pct.to_s_f()));
     }

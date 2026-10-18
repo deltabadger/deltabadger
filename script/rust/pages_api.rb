@@ -21,9 +21,16 @@ module Pages
               'transactions' => ['/api/v1/transactions', 'list_transactions'],
               'tax' => ['/api/v1/tax/jurisdictions', 'list_tax_jurisdictions'], 'indices' => ['/api/v1/indices', 'list_indices'] }.freeze
     # Routes this build answers with the 501 envelope, past the same authentication and tool gate as Rails.
-    GATED = [['GET', '/api/v1/bots/1', 'get_bot_details'], ['POST', '/api/v1/bots/1/start', 'start_bot'], ['GET', '/api/v1/portfolio', 'get_portfolio_summary'],
+    GATED = [['GET', '/api/v1/bots/1', 'get_bot_details'], ['GET', '/api/v1/portfolio', 'get_portfolio_summary'],
              ['DELETE', '/api/v1/rules/1', 'delete_rule'], ['GET', '/api/v1/tax/reports/DE/2025/download', 'download_tax_report']].freeze
-    TOOLS = (READS.values.map(&:last) + GATED.map(&:last) + %w[create_bot create_index_bot market_buy]).freeze
+    # The bot writes (slice B): the route, its tool, and the status bot 1 needs for the route to succeed.
+    WRITES = { 'update' => ['PATCH', '/api/v1/bots/1', 'update_bot_settings', 0], 'start' => ['POST', '/api/v1/bots/1/start', 'start_bot', 0],
+               'stop' => ['POST', '/api/v1/bots/1/stop', 'stop_bot', 1], 'archive' => ['POST', '/api/v1/bots/1/archive', 'archive_bot', 2],
+               'unarchive' => ['DELETE', '/api/v1/bots/1/archive', 'unarchive_bot', 7], 'delete' => ['DELETE', '/api/v1/bots/1', 'delete_bot', 2] }.freeze
+    TOOLS = (READS.values.map(&:last) + GATED.map(&:last) + WRITES.values.map { |w| w[2] } + %w[create_bot create_index_bot market_buy]).freeze
+    # What a bot write may change, and the rows compared as stored.
+    WRITE_TABLES = %w[bots bot_activity_logs bot_index_assets].freeze
+    WRITE_ROWS = { 'bots' => '*', 'bot_activity_logs' => '*', 'bot_index_assets' => '*' }.freeze
 
     def api(path, token = 'api-token', method: 'GET', headers: {}, body: nil, expect: nil)
       step = { 'method' => method, 'path' => path, 'headers' => (token ? { 'Authorization' => "Bearer #{token}" } : {}).merge(headers),
@@ -34,6 +41,12 @@ module Pages
     end
 
     def json_body(path, body, token = 'api-token', **opts) = api(path, token, headers: { 'Content-Type' => 'application/json' }, body:, **opts)
+
+    # A step that may write a bot: the tables it may touch and their rows as stored.
+    def write(method, path, token = 'api-token', body: nil, **opts)
+      step = body ? json_body(path, body, token, method:, **opts) : api(path, token, method:, **opts)
+      step.merge('may_mutate' => WRITE_TABLES, 'raw_rows' => WRITE_ROWS)
+    end
 
     def api_case(steps, api = {}, attrs = {})
       { 'user' => owner, 'install' => 'alpaca', 'venues' => true, 'extra_users' => [user('email' => 'second@example.com', 'admin' => false)],
@@ -92,7 +105,127 @@ module Pages
                                               json_body('/api/v1/bots', '{"type":"nope"}').merge('method' => 'POST', 'if_none_match' => 'last')])
       # The setup gate is ApplicationController's: an install without an admin still answers the API.
       grid['api_no_admin'] = api_case([api(bots), api(bots, nil)], {}, 'user' => owner('admin' => false))
-      grid.merge(api_param_scenarios)
+      grid.merge(api_param_scenarios).merge(api_write_scenarios)
+    end
+
+    # Bot 1 in the status a route needs (one that ran has a start time); bots 2 to 4 as api_case has them.
+    def write_case(steps, status, api = {}, attrs = {}, bot = {})
+      columns = { 'label' => 'Basket <&>', 'status' => status }
+      columns['started_at'] = '2026-09-09T12:00:00Z' unless status.zero?
+      api_case(steps, api, attrs).tap do |c|
+        c['bots'] = [{ 'kind' => 'basket', 'columns' => columns }.merge(bot)] + c['bots'].drop(1)
+      end
+    end
+
+    def api_write_scenarios
+      grid = {}
+      WRITES.each do |name, (method, path, tool, status)|
+        body = name == 'update' ? '{"quote_amount":60}' : nil
+        ok = ->(token = 'api-token') { write(method, path, token, body:) }
+        # Every refusal first (no writes), then the one token that acts.
+        grid["api_#{name}_tokens"] = write_case([ok.(nil), ok.('nope'), ok.('mcp-token'), ok.('second-token'), ok.('foreign-personal-token'),
+                                                 ok.('revoked-token'), ok.('expired-token'), ok.('personal-token')], status)
+        grid["api_#{name}_tool_off"] = write_case([ok.(), ok.('personal-token')], status, 'tools' => TOOLS - [tool])
+        grid["api_#{name}_not_granted"] = write_case([ok.(), ok.('personal-token')], status, 'grant' => TOOLS - [tool])
+        grid["api_#{name}_null_grant"] = write_case([ok.()], status, 'grant' => nil)
+        # Rails' params: the path's id wins over the query's and the body's; an id Rails' to_i reads as another.
+        grid["api_#{name}_ids"] = write_case([write(method, "#{path.sub('/1', '/999')}?id=1", body: '{"id":1,"quote_amount":60}'),
+                                              write(method, path.sub('/1', '/abc')), write(method, path.sub('/1', '/0')),
+                                              write(method, path.sub('/1', '/1abc'), body:),
+                                              write(method, "#{path}?id=2", body: '{"id":3,"quote_amount":60}')], status)
+        grid["api_#{name}_malformed_json"] = write_case([write(method, path, body: '{"quote_amount":').merge('rails_exception_status' => 400)], status)
+      end
+      grid.merge(api_update_scenarios, api_lifecycle_scenarios, api_edge_scenarios)
+    end
+
+    # The path's id as the router hands it over (percent-decoded, `+` kept, a bad escape or byte refused), and
+    # parameters past this build's per-request bounds.
+    def api_edge_scenarios
+      theirs = { 'kind' => 'basket', 'owner' => 'second@example.com', 'columns' => { 'status' => 1, 'started_at' => '2026-09-09T12:00:00Z' } }
+      many = (1..1001).map { |i| "\"S#{i}\":1" }.join(',')
+      streams = { 'broadcasts' => %w[user_1:bot_updates user_1:bot_1] }
+      {
+        # The owner's bots page is open while an API client acts: it hears what the web's own actions send.
+        'api_broadcasts' => write_case(signed_in(get('/bots')) + [write('POST', '/api/v1/bots/1/start').merge(streams), write('POST', '/api/v1/bots/1/stop').merge(streams),
+                                                                 write('POST', '/api/v1/bots/1/archive').merge(streams), write('DELETE', '/api/v1/bots/1/archive').merge(streams),
+                                                                 write('PATCH', '/api/v1/bots/1', body: '{"quote_amount":70}').merge(streams),
+                                                                 write('DELETE', '/api/v1/bots/1').merge(streams)], 2),
+        # Rails renders a bot's broadcasts in its owner's locale (Bot#with_user_locale); the API's answers stay English.
+        'api_broadcasts_de' => write_case(signed_in(get('/bots')) + [write('POST', '/api/v1/bots/1/start').merge(streams), write('POST', '/api/v1/bots/1/stop').merge(streams),
+                                                                    write('POST', '/api/v1/bots/1/archive').merge(streams), write('DELETE', '/api/v1/bots/1/archive').merge(streams)],
+                                          2, {}, 'user' => owner('locale' => 'de')),
+        'api_stop_encoded_ids' => write_case([write('POST', '/api/v1/bots/1%30/stop'), write('POST', '/api/v1/bots/%35/stop'),
+                                              write('POST', '/api/v1/bots/%E2%82/stop'),
+                                              write('POST', '/api/v1/bots/%35/stop', 'second-token'), write('POST', '/api/v1/bots/1+/stop'),
+                                              write('POST', '/api/v1/bots/%31/stop')], 1).tap { |c| c['bots'] << theirs },
+        'api_start_oversized' => write_case([write('POST', '/api/v1/bots/1/start', body: "{\"start_fresh\":[#{(['true'] * 1001).join(',')}]}")], 2),
+        'api_update_oversized' => write_case([write('PATCH', '/api/v1/bots/1', body: "{\"allocations\":{#{many}}}"),
+                                              write('PATCH', '/api/v1/bots/1', body: "{\"label\":[#{(['1'] * 1001).join(',')}],\"quote_amount\":61}")], 2)
+      }
+    end
+
+    def api_update_scenarios
+      bot = '/api/v1/bots/1'
+      upd = ->(body, path = bot, method: 'PATCH') { write(method, path, body:) }
+      {
+        'api_update_values' => write_case([upd.('{"quote_amount":"75.5","interval":"week","label":"New <b>&"}'),
+                                           write('PUT', "#{bot}?quote_amount=80&smart_intervaled=false"),
+                                           write('PATCH', "#{bot}?smart_intervaled=true&smart_interval_quote_amount=7"),
+                                           upd.('{"allocations":{"QQQM":70,"IBIT":30}}'), upd.('{"allocations":"qqqm:50,IBIT:50"}'),
+                                           upd.('{"limit_ordered":false,"label":null}'), upd.('{"quote_amount":60.0}')], 2),
+        'api_update_refusals' => write_case([upd.(''), upd.('{}'), upd.('{"nope":1}'), upd.('{"quote_amount":"abc"}'), upd.('{"quote_amount":-5}'),
+                                             upd.('{"quote_amount":"1e3"}'), upd.('{"num_coins":5}'),
+                                             # Overlapping causes: the catalogue's order picks the refusal.
+                                             upd.('{"num_coins":5,"quote_amount":"abc"}'), upd.('{"quote_amount":"abc","num_coins":5}'),
+                                             upd.('{"allocations":"NOPE:50"}'), upd.('{"allocations":"QQQM:50,qqqm:50"}'), upd.('{"allocations":[1]}'),
+                                             upd.('{"allocations":"QQQM:150"}'), upd.('{"label":["a"],"quote_amount":{"a":1}}'),
+                                             upd.('{"quote_amount":0.5}'), upd.('{"interval":"fortnight"}'), upd.('{"quote_amount":"abc","label":""}'),
+                                             upd.('{"label":"   "}'), upd.('{"quote_amount":null}')], 2),
+        'api_update_running' => write_case([upd.('{"quote_amount":"abc"}'), upd.('{}'), upd.('{"quote_amount":60}')], 1),
+        # Rails resyncs an index bot's composition in Bot::ResyncIndexCompositionJob; this build derives it at every tick
+        # (engine::index), so the job is not compared where the composition changes.
+        'api_update_index' => write_case([write('PATCH', '/api/v1/bots/3', body: '{"num_coins":5,"allocation_flattening":"0.5"}').merge('jobs' => false),
+                                          write('PATCH', '/api/v1/bots/3', body: '{"allocation_flattening":2}'),
+                                          write('PATCH', '/api/v1/bots/3', body: '{"allocations":"QQQM:50"}'),
+                                          write('PATCH', '/api/v1/bots/3', body: '{"num_coins":2.5}'),
+                                          write('PATCH', '/api/v1/bots/3?num_coins=7').merge('jobs' => false)], 2),
+        'api_update_others' => write_case([write('PATCH', '/api/v1/bots/1', 'second-token', body: '{"quote_amount":60}'),
+                                           write('PATCH', '/api/v1/bots/999', body: '{"quote_amount":60}'),
+                                           write('PATCH', '/api/v1/bots/4', body: '{"quote_amount":60}'),
+                                           write('PATCH', '/api/v1/bots/1', body: '{"quote_amount":60}')], 7)
+      }
+    end
+
+    def api_lifecycle_scenarios
+      bot = '/api/v1/bots/1'
+      start = ->(query = '', token = 'api-token', body: nil) { write('POST', "#{bot}/start#{query}", token, body:) }
+      owed = { 'user' => owner('wash_sale_enabled' => nil) }
+      selling = { 'settings' => { 'rebalance_enabled' => true } }
+      {
+        'api_start_flags' => write_case([start.('?start_fresh=junk'), start.('?start_fresh=false'), start.(), start.('?start_fresh=junk'),
+                                         start.('?start_fresh=true')], 2),
+        'api_start_flag_values' => write_case([start.('', body: '{"start_fresh":"yes"}'), start.('', body: '{"start_fresh":[true]}'),
+                                               start.('?start_fresh=', body: nil), start.('', body: '{"start_fresh":0}')], 2),
+        'api_start_fresh_json' => write_case([start.('', body: '{"start_fresh":true}')], 2),
+        'api_start_continue_json' => write_case([start.('?start_fresh=1', body: '{"start_fresh":false}')], 0),
+        # Rails asks the wash-sale question first, then reads the flag, then whether the bot runs.
+        'api_start_wash_sale' => write_case([start.('?start_fresh=junk'), start.()], 1, {}, owed, selling),
+        'api_start_wash_sale_buyer' => write_case([start.()], 0, {}, owed),
+        'api_start_invalid' => write_case([start.(), start.('?start_fresh=junk')], 0, {}, {}, 'stored' => { 'quote_amount' => 0 }),
+        'api_start_coins' => write_case([start.()], 0, {}, {}, { 'kind' => 'coins' }),
+        # Named divergence: Rails starts a bot on a stock listing no sync has typed (instrument_type nil); this build's
+        # guard refuses it (engine::eligibility, "only plain cryptocurrencies, and stocks and ETFs on Alpaca"), writing nothing.
+        'refused_api_start_untyped' => write_case([start.()], 0, { 'untyped' => true }),
+        'api_start_archived' => write_case([start.()], 7),
+        'api_start_no_key' => write_case([start.()], 0, {}, 'api_keys' => {}),
+        'api_start_others' => write_case([start.('', 'second-token'), write('POST', '/api/v1/bots/999/start'), write('POST', '/api/v1/bots/4/start')], 0),
+        'api_stop_states' => write_case([write('POST', "#{bot}/stop"), write('POST', "#{bot}/stop"), write('POST', '/api/v1/bots/3/stop'),
+                                         write('POST', '/api/v1/bots/1/stop', 'second-token')], 4),
+        'api_archive_states' => write_case([write('POST', "#{bot}/archive"), write('POST', "#{bot}/archive"), write('DELETE', "#{bot}/archive"),
+                                            write('DELETE', "#{bot}/archive"), write('POST', '/api/v1/bots/3/archive')], 1),
+        'api_delete_states' => write_case([write('DELETE', bot), write('DELETE', bot), write('POST', "#{bot}/start"), write('DELETE', '/api/v1/bots/4'),
+                                           write('DELETE', '/api/v1/bots/3', 'second-token')], 1)
+      }
     end
 
     def api_param_scenarios
@@ -160,6 +293,10 @@ module Pages
       api_transactions if spec['transactions']
       api_indices(spec) if spec['indices']
       api_keys(owner, second) if spec['keys']
+      # MarketData's listings sync types every stock listing (CATEGORY_BY_TYPE); the grid's alpaca install leaves them untyped.
+      unless spec['untyped']
+        Asset.where(category: 'Stock').find_each { |asset| asset.update_columns(instrument_type: %w[QQQM IBIT].include?(asset.symbol) ? 'etf' : 'stock') }
+      end
     end
 
     # Rows with every value shape a transaction renders: decimals of each scale, nil amounts, a sell, a failure, and

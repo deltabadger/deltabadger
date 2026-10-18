@@ -653,7 +653,7 @@ mod action_write {
     fn action_write_validation_retains_draft_rolls_back_all_rows() -> Result {
         let f = Fixture::new()?; let before=f.snapshot()?;
         let outcome=f.write(json!({"quote_amount":"0","label":"Rejected"}))?;
-        let Outcome::Invalid(response)=outcome else { return Err("expected invalid".into()) };
+        let Outcome::Invalid(response,_)=outcome else { return Err("expected invalid".into()) };
         assert_eq!(response["settings"]["quote_amount"],json!(0.0));
         assert!(!response["errors"].as_array().ok_or("errors")?.is_empty());
         assert_eq!(f.snapshot()?,before); Ok(())
@@ -691,7 +691,7 @@ mod action_write {
             if pending { f.c.execute("UPDATE bots SET transient_data=json_set(transient_data,'$.rebalance_pending',1) WHERE id=?1",[f.id])?; }
             else { f.c.execute("UPDATE bots SET status=1 WHERE id=?1",[f.id])?; }
             let before=f.snapshot()?;
-            let Outcome::Invalid(response)=f.write(json!({"add_asset_id":eth.to_string()}))? else { return Err("expected composition lock".into()) };
+            let Outcome::Invalid(response,_)=f.write(json!({"add_asset_id":eth.to_string()}))? else { return Err("expected composition lock".into()) };
             assert!(response["errors"].to_string().contains("cannot be changed while the bot is running"),"{response}"); assert_eq!(f.snapshot()?,before);
         }
         Ok(())
@@ -928,6 +928,22 @@ mod action_write {
         fn status(&self) -> Result<i64> { Ok(self.c.query_row("SELECT status FROM bots WHERE id=?1",[self.id],|r|r.get(0))?) }
     }
 
+    /// A Stop through the services (REST, MCP) commits whatever the answer can show: an unnamed bot whose page cannot be
+    /// read (a stored time it cannot parse) is stopped all the same, answered under its stored name; a named one too.
+    #[test]
+    fn service_stop_survives_an_unrenderable_label() -> Result {
+        for label in ["NULL", "'Named'"] {
+            let f=Fixture::new()?;
+            f.c.execute(&format!("UPDATE bots SET type='Bots::DcaIndex', label={label}, status=1, settings_changed_at='garbage' WHERE id=?1"),[f.id])?;
+            let submitted=ActionParams::from_mcp(json!({})).map_err(|e|format!("{e:?}"))?;
+            let out=web::bot_api::bot_write(&f.c,&f.ctx.app,f.seed.user_id,f.id,web::bot_api::Write::Lifecycle(write::Action::Stop),&submitted).map_err(|e|format!("{e:?}"))?;
+            let Outcome::Committed(shown)=out else { return Err(format!("the stop of a bot labelled {label} was not committed").into()) };
+            assert_eq!(shown.data["status"],"stopped");
+            assert_eq!(f.status()?,2);
+        }
+        Ok(())
+    }
+
     async fn lifecycle_wake(notify: &tokio::sync::Notify, expected: bool) -> Result {
         assert_eq!(tokio::time::timeout(std::time::Duration::from_millis(5), notify.notified()).await.is_ok(), expected);
         assert!(tokio::time::timeout(std::time::Duration::from_millis(5), notify.notified()).await.is_err());
@@ -947,7 +963,7 @@ mod action_write {
                 let result = f.lifecycle(action,None)?;
                 let no_change = status == 3 || action == Start && ![0,2].contains(&status) || action == Archive && status == 7 || action == Unarchive && status != 7;
                 if status == 3 { assert!(matches!(result,Outcome::Missing)); }
-                else if action == Start && ![0,2].contains(&status) { assert!(matches!(result,Outcome::Invalid(_)),"{action:?} {status}"); }
+                else if action == Start && ![0,2].contains(&status) { assert!(matches!(result,Outcome::Invalid(..)),"{action:?} {status}"); }
                 else if no_change { assert!(matches!(result,Outcome::NoChange(_))); }
                 else { assert!(matches!(result,Outcome::Committed(_)),"{action:?} {status}"); }
                 if no_change { assert_eq!(f.snapshot()?,before,"{action:?} {status}"); }
@@ -1000,7 +1016,7 @@ mod action_write {
         }
         for flag in [json!("bad"),json!([]),json!({})] {
             let f=Fixture::new()?; let before=f.snapshot()?;
-            assert!(matches!(f.lifecycle(write::Action::Start,Some(flag))?,Outcome::Invalid(_)));
+            assert!(matches!(f.lifecycle(write::Action::Start,Some(flag))?,Outcome::Invalid(..)));
             assert_eq!(f.snapshot()?,before);
         }
         Ok(())
@@ -1047,7 +1063,7 @@ mod action_write {
             if sql.contains("SET key=") || sql.contains("category='Stock'") {
                 assert!(matches!(result,Outcome::GuardRefused(_)),"guard must roll back the continue request: {sql}");
             } else {
-                assert!(matches!(result,Outcome::Invalid(_)|Outcome::GuardRefused(_)|Outcome::Unported(_)),"{sql}");
+                assert!(matches!(result,Outcome::Invalid(..)|Outcome::GuardRefused(_)|Outcome::Unported(_)),"{sql}");
             }
             assert_eq!(f.snapshot()?,before,"{sql}"); lifecycle_wake(&notify,false).await?;
         }
@@ -1237,7 +1253,7 @@ mod action_write {
         f.c.execute("UPDATE bots SET settings=json_set(settings,'$.quote_amount_limited',json('true'),'$.quote_amount_limit',5),transient_data=json_set(transient_data,'$.quote_amount_limit_enabled_at','2026-09-01T00:00:00Z')",[])?;
         seed::insert_tx(&f.c,&f.seed,f.id,&seed::TxSpec {status:0,external_status:Some(2),external_id:Some("cap".into()),order_type:0,amount:Some("0.001"),quote_amount:Some("5"),price:Some("5000"),quote_amount_exec:Some("5"),amount_exec:Some("0.001"),created_at:"2026-09-10 12:00:01".into()});
         let before=f.snapshot()?;
-        assert!(matches!(f.lifecycle(write::Action::Start,None)?,Outcome::Invalid(_)));
+        assert!(matches!(f.lifecycle(write::Action::Start,None)?,Outcome::Invalid(..)));
         assert_eq!(f.snapshot()?,before);
         for unbalanced in [false,true] {
             let f=Fixture::new()?;
@@ -1248,7 +1264,7 @@ mod action_write {
             f.c.execute("UPDATE bots SET settings=json_set(settings,'$.allocations',json(?1))",[weights.to_string()])?;
             let before=f.snapshot()?;
             let result=f.lifecycle(write::Action::Start,None)?;
-            if unbalanced { assert!(matches!(result,Outcome::Invalid(_))); assert_eq!(f.snapshot()?,before); }
+            if unbalanced { assert!(matches!(result,Outcome::Invalid(..))); assert_eq!(f.snapshot()?,before); }
             else { assert!(matches!(result,Outcome::Committed(_)),"PR #457's supported crypto basket must remain eligible"); }
         }
         for action in [write::Action::Stop,write::Action::Delete,write::Action::Archive] {
@@ -1297,7 +1313,7 @@ mod action_write {
         f.c.execute("UPDATE bots SET status=7,settings=json_set(settings,'$.quote_amount',0)",[])?;
         let before=f.snapshot()?;
         let notify=Arc::new(tokio::sync::Notify::new()); f.ctx.app.attach_engine(notify.clone());
-        assert!(matches!(f.lifecycle(write::Action::Unarchive,None)?,Outcome::Invalid(_)));
+        assert!(matches!(f.lifecycle(write::Action::Unarchive,None)?,Outcome::Invalid(..)));
         assert_eq!(f.snapshot()?,before);
         lifecycle_wake(&notify,false).await?;
         Ok(())
