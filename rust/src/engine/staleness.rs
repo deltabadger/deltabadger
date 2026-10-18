@@ -160,9 +160,7 @@ fn judge(c: &Connection, s: &Source, at: DateTime<Utc>, now: DateTime<Utc>) -> O
 /// The door (`check` and the takeover, through eligibility::check_install_at): the newer of the job record and Rails'
 /// column where it is trusted, so a takeover after Rails refreshed the data is admitted even when a record from an earlier
 /// takeover is older, and a partial import of this engine never is. With neither, Unknown: noted, never refused.
-/// Kraken has no source yet: it is not connected for real.
 fn source_verdict(c: &Connection, bot: &Bot, s: &Source, now: DateTime<Utc>) -> Result<Verdict, EngineError> {
-    if model::exchange_type(c, bot)? != "Exchanges::Alpaca" { return Ok(Verdict::Fresh); }
     match record_at(c, s)?.flatten().max(trusted_column(c, s, s.per_exchange.then_some(bot.exchange_id))?) {
         Some(at) => Ok(judge(c, s, at, now).map_or(Verdict::Fresh, Verdict::Stale)),
         None => Ok(Verdict::Unknown(Stale { source: s.name, message: format!(
@@ -174,7 +172,6 @@ fn source_verdict(c: &Connection, bot: &Bot, s: &Source, now: DateTime<Utc>) -> 
 /// The tick (tick.rs). Once the job has a record (seeded at the takeover), only its completed runs count: no complete
 /// refresh at all is stale. Before any takeover, the door's verdict (Unknown is not stale).
 fn source_stale(c: &Connection, bot: &Bot, s: &Source, now: DateTime<Utc>) -> Result<Option<Stale>, EngineError> {
-    if model::exchange_type(c, bot)? != "Exchanges::Alpaca" { return Ok(None); }
     Ok(match record_at(c, s)? {
         Some(Some(at)) => judge(c, s, at, now),
         Some(None) => Some(Stale { source: s.name, message: format!(
@@ -242,10 +239,11 @@ pub fn report(c: &Connection, now: DateTime<Utc>) -> Result<Vec<String>, EngineE
 }
 
 
-/// Only sources this bot sizes from; index candidates can include both stocks and crypto.
+/// Only sources this bot sizes from; index candidates can include both stocks and crypto. A crypto venue's index bot
+/// sizes from the index rows and the crypto market caps; its venue tickers are not refused on (VENUE_TICKERS).
 fn bot_sources(c: &Connection, bot: &Bot) -> Result<Vec<&'static Source>, EngineError> {
-    if model::exchange_type(c, bot)? != "Exchanges::Alpaca" { return Ok(vec![]); }
     let index = bot.bot_type == "Bots::DcaIndex";
+    if model::exchange_type(c, bot)? != "Exchanges::Alpaca" { return Ok(if index { vec![&INDICES, &CRYPTO_ASSETS] } else { vec![] }); }
     let mut sources = vec![];
     let (stocks, crypto): (bool, bool) = if index {
         let pairs = serde_json::to_string(&super::index::candidate_pairs(c, bot)?).map_err(|e| EngineError::Data(e.to_string()))?;

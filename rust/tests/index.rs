@@ -385,6 +385,29 @@ async fn a_stock_only_index_ignores_stale_unrelated_crypto_feeds() {
     assert_eq!(posted_symbols(&t), ["AAA", "BBB", "CCC"]);
 }
 
+/// A crypto venue's index bot sizes from the index rows and the crypto market caps, so it waits on them as an Alpaca one
+/// does; a basket bot on that venue does not.
+#[test]
+fn a_crypto_venue_index_bot_waits_on_stale_indices_and_market_caps() {
+    use deltabadger::engine::staleness;
+    let (_d, o, s) = common::install();
+    let c = &o.primary;
+    c.execute("UPDATE exchanges SET type = 'Exchanges::Binance', name = 'Binance'", []).unwrap();
+    seed::insert_index(c, "layer-1", &["bitcoin"], &json!({}));
+    let index = seed::index_bot(c, &s, "layer-1", 2, 0.0, false);
+    let basket = seed::insert_bot(c, &s, &seed::BotSpec::weekly(60.0, "2026-09-01 14:00:00"));
+    let now = at(T0);
+    for (job, label) in [(deltabadger::jobs::reference::INDICES, "Indices"), (deltabadger::jobs::reference::ASSETS, "Crypto assets")] {
+        seed::fresh_stock_jobs(c, now);
+        deltabadger::jobs::state::record_success(c, job, None, now - Duration::days(7)).unwrap();
+        let stale = staleness::stale(c, &model::load_bot(c, index).unwrap(), now).unwrap().expect(label);
+        assert_eq!(stale.source, label);
+        assert!(staleness::stale(c, &model::load_bot(c, basket).unwrap(), now).unwrap().is_none(), "{label}: a basket bot does not size from it");
+    }
+    seed::fresh_stock_jobs(c, now);
+    assert!(staleness::stale(c, &model::load_bot(c, index).unwrap(), now).unwrap().is_none());
+}
+
 /// Slice 6b: an index bot's swap sell whose reply was lost, then the index itself changes (data-api's sync) before the engine
 /// restarts. The restarted evaluation settles the lost order by its client order id first, and only then refreshes the
 /// membership (before_rebalance): the swap resumes on the order it sent, never a second sell under the new composition.
