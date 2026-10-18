@@ -1588,7 +1588,7 @@
   "sources": {
     "Gemfile.lock": "b51f3db1a960a0968b70bf816f6ab904cb1e84fca948429dddd4c20968245b39",
     "config/mcp.yml": "f6e14ea3897ca14cf79a06f33b4c65a4df515e2db575b6cab835bcef9a05f951",
-    "config/routes.rb": "9b2f5fb0b8eaae582dcd16627ac7d3f290794d7ecec352f0173d29ab6373bfce",
+    "config/routes.rb": "88a02435a20f94a8e1cec694d89ce72047a3009e10a82b9d8d0772d050903269",
     "config/initializers/rack_attack.rb": "b25478892de782257f505cb1eb3203a7b9495dd4a223d0d4179bcfd7301c3a29",
     "config/initializers/mcp_instructions.rb": "9aa196116e366726e8dbecf2472bc3f3a7fd3ee615441b5491aae4b07a93ac84",
     "config/initializers/version.rb": "0b047ced29695420c080951e60f42c5aef8d05d733e9ca79e70884ff73f74233",
@@ -1605,7 +1605,7 @@
     "app/models/bots/dca_multi_asset.rb": "25700ff65cf3d723e5da8e649f36fd0276300acea56783526e6402ce086b1f12",
     "app/models/bots/dca_multi_asset/allocatable.rb": "b2088e229826c18178137f15be5964c140353a5d62765e6f6d7155a4d3d9744a",
     "app/models/bots/dca_index.rb": "bd5180193a68acefc0083e89337d2e3c4e3cd70ca9a1880cda6d5b393c80f24b",
-    "app/models/bots/signal.rb": "4c3c7af8c01a9f0a833aa4da7f37a08b5c6ca3ada803973b4083859ff71d36e1",
+    "app/models/bots/signal.rb": "5bdb9bf4b8812d9e6ce31b7ef8185f625f2e44a9f1049cfd5fe12c83137772c0",
     "app/models/automation/labelable.rb": "c74146252aa822b400bcbcc4294af18aeff8e0425ab2afe8a0a28b6ce4790da9",
     "app/models/tax/jurisdictions.rb": "e3044502f3d68b0c921388f6ff9649b187d3c9402302a2b44f1ad2dec556c935",
     "app/mcp/application_gateway.rb": "a014f9d4a7d091170dd5ccc840daab787d3d11c2faef49c77468489d9b6a8130",
