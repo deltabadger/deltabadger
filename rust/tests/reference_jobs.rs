@@ -871,3 +871,39 @@ async fn collision_same_class_display_pairs_are_deduped_and_reconciled() {
     assert_eq!(one::<String>(&c, "SELECT ticker FROM tickers WHERE base='BTC'"), "OTHER");
     assert_eq!(one::<i64>(&c, &format!("SELECT available FROM tickers WHERE base_asset_id={first}")), 0);
 }
+
+/// Index::SyncFromCoingeckoJob#recheck_index_bots after a pull that did not fail, an empty one included: every index bot that
+/// is neither deleted nor archived and has an exchange gets its composition resync marker (engine::index::RESYNC_KEY), in any
+/// status. A failed pull marks nothing.
+#[tokio::test(flavor = "current_thread")]
+async fn an_index_pull_that_did_not_fail_marks_every_live_index_bot_for_a_resync() {
+    let bots = |c: &Connection| {
+        let ex = exchange(c, "Exchanges::Kraken", true);
+        c.execute("INSERT INTO users (id, email, encrypted_password, name, admin, created_at, updated_at) VALUES (1, 'o@example.com', 'x', 'Owner', 1, '2026-01-01', '2026-01-01')", []).unwrap();
+        // created, scheduled, stopped, deleted, archived; a created one with no exchange; a basket.
+        for (ty, status, exchange) in [("Bots::DcaIndex", 0, Some(ex)), ("Bots::DcaIndex", 1, Some(ex)), ("Bots::DcaIndex", 2, Some(ex)), ("Bots::DcaIndex", 3, Some(ex)),
+                                       ("Bots::DcaIndex", 7, Some(ex)), ("Bots::DcaIndex", 0, None), ("Bots::DcaMultiAsset", 1, Some(ex))] {
+            c.execute("INSERT INTO bots (type, status, exchange_id, user_id, settings, transient_data, created_at, updated_at) VALUES (?1, ?2, ?3, 1, '{}', '{}', '2026-01-01', '2026-01-01')",
+                      rusqlite::params![ty, status, exchange]).unwrap();
+        }
+    };
+    let marked = |c: &Connection| -> Vec<i64> {
+        let mut s = c.prepare("SELECT status FROM bots WHERE json_extract(transient_data, '$.rust_index_resync.n') = 1 ORDER BY id").unwrap();
+        s.query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect()
+    };
+    let index = json!({ "external_id": "layer-1", "source": "coingecko", "name": "Layer 1", "top_coins": ["bitcoin"] });
+    for (body, expected) in [(json!({ "data": [index] }), Outcome::Done), (json!({ "data": [] }), Outcome::NothingNew)] {
+        let (d, c) = db();
+        bots(&c);
+        let t = ScriptedTransport::default();
+        t.reply("GET /api/v2/indices", 200, body);
+        assert_eq!(run(reference::INDICES, scripted(&t), c, "2026-10-02T10:30:00Z").await, expected);
+        assert_eq!(marked(&reopen(&d)), vec![0, 1, 2], "{expected:?}: created, scheduled and stopped index bots with an exchange");
+    }
+    let (d, c) = db();
+    bots(&c);
+    let t = ScriptedTransport::default();
+    t.reply("GET /api/v2/indices", 500, json!({ "error": "boom" }));
+    assert!(matches!(run(reference::INDICES, scripted(&t), c, "2026-10-02T10:30:00Z").await, Outcome::Transient(_)));
+    assert_eq!(marked(&reopen(&d)), Vec::<i64>::new(), "PullFailed: no recheck");
+}

@@ -222,7 +222,8 @@ async fn tickers<T: Transport>(api: &DataApi<T>, cx: &Cx<'_>) -> Outcome {
 }
 
 /// Index::SyncFromCoingeckoJob's deltabadger branch → sync_indices_from_deltabadger!. Any failure is PullFailed, retried.
-/// `recheck_index_bots` (:151-155) is left to the engine.
+/// A pull that did not fail, an empty one included, ends in `recheck_index_bots` (:22-27, :151-155): every index bot is
+/// marked for the engine's composition resync (engine::index::mark_resync_all), in the job's last unit.
 async fn indices<T: Transport>(api: &DataApi<T>, cx: &Cx<'_>) -> Outcome {
     let config = api.configuration().clone();
     let captured = cx.db.run(move |c,_| {
@@ -238,7 +239,13 @@ async fn indices<T: Transport>(api: &DataApi<T>, cx: &Cx<'_>) -> Outcome {
         import::plan_indices(rows.as_array().ok_or_else(|| "the indices payload's data is not a list".to_string())?)
     }).await;
     let result = match plan {
-        Ok(rows) if rows.is_empty() => return Outcome::NothingNew, // Rails writes nothing; the indices keep their age
+        Ok(rows) if rows.is_empty() => { // Rails writes nothing; the indices keep their age
+            let now = cx.clock.now();
+            return match cx.db.run(move |c, _| crate::engine::model::locked(c, |tx| crate::engine::index::mark_resync_all(tx, now)).map_err(|e| format!("{e:?}"))).await {
+                Ok(_) => { cx.wakers.wake_engine(); Outcome::NothingNew }
+                Err(e) => Outcome::Failed(e),
+            };
+        }
         Ok(rows) => match incomplete(cx, INDICES, now).await { Ok(()) => import::import_indices(&cx.db, rows, now).await, Err(m) => Err(m) },
         Err(m) => Err(m),
     };
@@ -246,9 +253,10 @@ async fn indices<T: Transport>(api: &DataApi<T>, cx: &Cx<'_>) -> Outcome {
         Ok(()) => match cx.db.run(move |c,_| {
             crate::engine::model::locked(c,|tx| {
                 if crate::engine::provider::fingerprint(tx)?.as_deref()!=Some(&captured) {return Err(crate::engine::EngineError::Data("index configuration changed during refresh".into()));}
-                crate::engine::provider::record(tx,&captured,now)
+                crate::engine::provider::record(tx,&captured,now)?;
+                crate::engine::index::mark_resync_all(tx,now).map(|_|())
             }).map_err(|_|"index configuration changed during refresh; refresh again".to_string())
-        }).await {Ok(())=>Outcome::Done,Err(e)=>Outcome::Failed(e)},
+        }).await {Ok(())=>{cx.wakers.wake_engine();Outcome::Done},Err(e)=>Outcome::Failed(e)},
         Err(m)=>Outcome::Transient(m)
     }
 }

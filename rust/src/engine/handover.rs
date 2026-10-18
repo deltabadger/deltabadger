@@ -66,7 +66,27 @@ pub fn take_over(lock: &EngineLock, o: &Opened, cipher: &Cipher, version: &str, 
     let doomed: Vec<i64> = jobs.into_iter()
         .filter(|(_, args)| args.as_deref().and_then(first_gid).is_some_and(|g| gids.contains(&g)))
         .map(|(id, _)| id).collect();
-    for id in &doomed { o.queue.execute("DELETE FROM solid_queue_jobs WHERE id = ?1", [id])?; } // executions cascade
+    // Bot::ResyncIndexCompositionJob rows Rails has not finished (ready, scheduled, blocked or claimed; a failed one is over),
+    // for every index bot neither deleted nor archived that has an exchange, whatever its status: each becomes the bot's
+    // resync marker, committed before the rows go, so a crash between the two marks again on the next takeover. A claimed
+    // row of a dead Rails process is included: the resync runs at least once.
+    let mut s = o.primary.prepare(&format!("SELECT id FROM bots WHERE type = 'Bots::DcaIndex' AND status NOT IN ({}, {}) AND exchange_id IS NOT NULL",
+                                           BotStatus::Deleted as i64, BotStatus::Archived as i64))?;
+    let index_gids: Vec<(i64, String)> = s.query_map([], |r| r.get::<_, i64>(0))?.map(|id| id.map(|id| (id, format!("gid://deltabadger/Bots::DcaIndex/{id}"))))
+        .collect::<Result<_, _>>()?;
+    drop(s);
+    let mut s = o.queue.prepare("SELECT j.id, j.arguments FROM solid_queue_jobs j WHERE j.finished_at IS NULL AND j.class_name = 'Bot::ResyncIndexCompositionJob' \
+                                 AND NOT EXISTS (SELECT 1 FROM solid_queue_failed_executions f WHERE f.job_id = j.id)")?;
+    let resyncs: Vec<(i64, Option<String>)> = s.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<_, _>>()?;
+    drop(s);
+    let resyncs: Vec<(i64, i64)> = resyncs.into_iter().filter_map(|(job, args)| {
+        let gid = args.as_deref().and_then(first_gid)?;
+        index_gids.iter().find(|(_, g)| *g == gid).map(|(bot, _)| (job, *bot))
+    }).collect();
+    let tx = model::immediate(&o.primary)?;
+    for (_, bot) in &resyncs { super::index::mark_resync(&tx, *bot, now)?; }
+    tx.commit()?;
+    for id in doomed.iter().chain(resyncs.iter().map(|(job, _)| job)) { o.queue.execute("DELETE FROM solid_queue_jobs WHERE id = ?1", [id])?; } // executions cascade
 
     let tx = model::immediate(&o.primary)?;
     let mut normalised = 0;
@@ -74,7 +94,7 @@ pub fn take_over(lock: &EngineLock, o: &Opened, cipher: &Cipher, version: &str, 
         normalised += model::unstick(&tx, *id, now)? as usize; // the last run (Rails' or ours) was cut short
     }
     tx.commit()?;
-    Ok(Takeover { claim, eligible: report.eligible, deleted_jobs: doomed.len(), normalised })
+    Ok(Takeover { claim, eligible: report.eligible, deleted_jobs: doomed.len() + resyncs.len(), normalised })
 }
 
 pub async fn hand_back<F: VenueFactory>(lock: &EngineLock, o: &Opened, factory: &F, cipher: &Cipher, clock: &dyn Clock) -> Result<usize, EngineError> {
@@ -129,6 +149,8 @@ pub async fn hand_back_since<F: VenueFactory>(lock: &EngineLock, o: &Opened, fac
     // run-now wait (placement::run_now, a continue Rails would run at once) that has not ticked yet is dropped: the bot runs
     // one checkpoint late, with the amount carried.
     placement::remove_wait(&tx, None)?;
+    // A pending composition resync (index::RESYNC_KEY) stays on its bot: EngineLease.adopt_handback! enqueues
+    // Bot::ResyncIndexCompositionJob for it and removes the key, and a reclaim before that finds it here still.
     // A continue start the engine never handled goes the same way: Rails' adoption re-arms the bot at its next checkpoint.
     tx.execute("UPDATE bots SET transient_data = json_remove(transient_data, '$.rust_continue_start') \
                 WHERE json_type(transient_data, '$.rust_continue_start') IS NOT NULL", [])?;

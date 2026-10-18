@@ -127,6 +127,12 @@ async fn control_transcripts() {
         let name=dir.file_name().unwrap().to_string_lossy();
         let mut requests=0;
         for (row,rails) in got["rows"]["bots"].as_array_mut().unwrap().iter_mut().zip(want["rows"]["bots"].as_array().unwrap()) {
+            // Plan CI T3b: the composition resync Rails enqueues (Bots::DcaIndex#start, #resync_index_composition) is the
+            // engine's marker on the row; tests/web_actions.rs and tests/index_resync.rs pin when it is written.
+            if let Some(marker)=row["transient_data"].as_object_mut().unwrap().shift_remove("rust_index_resync") {
+                assert_eq!(row["type"],"Bots::DcaIndex","{name}");
+                assert!(marker["n"].as_i64().is_some_and(|n| n>0) && marker["at"].is_string(),"{name}: {marker}");
+            }
             if let Some(request)=row["transient_data"].as_object_mut().unwrap().shift_remove("rust_continue_start") {
                 requests+=1;
                 assert_eq!(request,json!({"requested_at":AT,"was_stopped":name!="start_continue_created"}));

@@ -41,6 +41,7 @@ fn main() {
             // Every background job's last run and every reference source's age (informational, no keys needed).
             for (name, s) in match deltabadger::jobs::state::all(&c){Ok(states)=>states,Err(_)=>fail("cannot read job state")} { let description=if ["ledger_sync","balance_sync","api_key_validator"].iter().any(|job|name.starts_with(job)){s.describe_venue()}else{s.describe()};println!("job {name}: {description}"); }
             for line in deltabadger::engine::staleness::report(&c, chrono::Utc::now()).unwrap_or_default() { println!("reference {line}"); }
+            for (id, _) in deltabadger::engine::index::resync_marked(&c).unwrap_or_default() { println!("resync bot {id}: a composition resync is pending"); }
             // The words `serve` refuses with too (Refusal::message). A source with no stamp is noted, never refused.
             match check_install_at(&c, chrono::Utc::now()).map_err(Refusal::Failed) {
                 Ok(report) => {

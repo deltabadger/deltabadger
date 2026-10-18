@@ -17,6 +17,48 @@ use std::collections::{HashMap, HashSet};
 #[derive(Debug, PartialEq)]
 pub enum Refusal { Failure(String), Transient(String) }
 
+/// What the closing re-check returns when anything the derivation read moved during its price probes (no Rails equivalent).
+pub const CHANGED: &str = "index changed during price probes";
+
+/// Bot::ResyncIndexCompositionJob's pending run, as a durable per-bot marker in `bots.transient_data` (Rails never reads a
+/// `rust_*` key and merges transient_data, so it survives every Rails write and a handback, where
+/// EngineLease.adopt_handback! enqueues the job for it). `{"n", "at"}`: every trigger bumps `n`, so two triggers in one
+/// millisecond still differ, and a run clears it only when it is still the value that run read.
+pub const RESYNC_KEY: &str = "rust_index_resync";
+
+/// Marks every index bot `filter` selects (an SQL condition on `bots`; `?1` is `id`) for a resync, in the caller's
+/// transaction. Returns how many were marked.
+fn mark(c: &Connection, filter: &str, id: Option<i64>, now: chrono::DateTime<chrono::Utc>) -> Result<usize, EngineError> {
+    let at = now.to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
+    Ok(c.execute(&format!("UPDATE bots SET transient_data = json_set(transient_data, '$.{RESYNC_KEY}', \
+                           json_object('n', coalesce(json_extract(transient_data, '$.{RESYNC_KEY}.n'), 0) + 1, 'at', ?2)) \
+                           WHERE type = 'Bots::DcaIndex' AND json_type(transient_data) = 'object' AND {filter}"), params![id, at])?)
+}
+
+/// Bots::DcaIndex#start and #resync_index_composition (an index-definition or exchange change): this bot.
+pub fn mark_resync(c: &Connection, bot_id: i64, now: chrono::DateTime<chrono::Utc>) -> Result<usize, EngineError> { mark(c, "id = ?1", Some(bot_id), now) }
+
+/// Index::SyncFromCoingeckoJob#recheck_index_bots (sync_from_coingecko_job.rb:151-155): every index bot neither deleted nor
+/// archived that has an exchange.
+pub fn mark_resync_all(c: &Connection, now: chrono::DateTime<chrono::Utc>) -> Result<usize, EngineError> {
+    use crate::enums::BotStatus::{Archived, Deleted};
+    mark(c, &format!("status NOT IN ({}, {}) AND exchange_id IS NOT NULL", Deleted as i64, Archived as i64), None, now)
+}
+
+/// Every index bot with a pending resync, whatever its status: (id, the marker's JSON text).
+pub fn resync_marked(c: &Connection) -> Result<Vec<(i64, String)>, EngineError> {
+    let mut s = c.prepare(&format!("SELECT id, json_extract(transient_data, '$.{RESYNC_KEY}') FROM bots WHERE type = 'Bots::DcaIndex' \
+                                    AND json_type(transient_data, '$.{RESYNC_KEY}') IS NOT NULL ORDER BY id"))?;
+    let rows = s.query_map([], |r| Ok((r.get(0)?, r.get::<_, String>(1)?)))?.collect::<Result<Vec<_>, _>>()?;
+    Ok(rows)
+}
+
+/// Clears the marker only if it is still `read`: a trigger that landed meanwhile keeps it, for another run.
+pub fn clear_resync(c: &Connection, bot_id: i64, read: &str) -> Result<bool, EngineError> {
+    Ok(c.execute(&format!("UPDATE bots SET transient_data = json_remove(transient_data, '$.{RESYNC_KEY}') WHERE id = ?1 \
+                           AND json_extract(transient_data, '$.{RESYNC_KEY}') = ?2"), params![bot_id, read])? == 1)
+}
+
 /// Bot::Composition::Weightable.blend: `cap / Σcap × (1 − f) + (1 / n) × f`, in Float, with Ruby's compensated sum; a zero
 /// total weighs everything equally.
 pub fn blend(caps: &[f64], flattening: f64) -> Vec<f64> {
@@ -114,8 +156,20 @@ pub(crate) async fn refresh_for_rebalance<V: Venue + Attributed>(c: &Connection,
     refresh_owned(c, venue, bot, clock, prices, version, Some(claimed), Some(true)).await
 }
 
+/// Bot::ResyncIndexCompositionJob#perform's refresh_composition: the rebalance's refresh (any status but deleted or
+/// archived, no DCA run owned), with no market gate (the job has none), so a stock newcomer's probe side reads the clock.
+/// `marker` is the value read at pass start: the membership write clears it in the same transaction, if unchanged.
+pub(crate) async fn refresh_for_resync<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, claimed: &Value, marker: &str, clock: &dyn Clock, prices: &PriceCache, version: &Option<model::CredentialVersion>) -> Result<Result<Value, Refusal>, EngineError> {
+    refresh_owned_marked(c, venue, bot, clock, prices, version, Some(claimed), None, Some(marker)).await
+}
+
 #[allow(clippy::too_many_arguments)]
-async fn refresh_owned<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, clock: &dyn Clock, prices: &PriceCache, version: &Option<model::CredentialVersion>, claimed: Option<&Value>, mut open: Option<bool>) -> Result<Result<Value, Refusal>, EngineError> {
+async fn refresh_owned<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, clock: &dyn Clock, prices: &PriceCache, version: &Option<model::CredentialVersion>, claimed: Option<&Value>, open: Option<bool>) -> Result<Result<Value, Refusal>, EngineError> {
+    refresh_owned_marked(c, venue, bot, clock, prices, version, claimed, open, None).await
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn refresh_owned_marked<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, clock: &dyn Clock, prices: &PriceCache, version: &Option<model::CredentialVersion>, claimed: Option<&Value>, mut open: Option<bool>, marker: Option<&str>) -> Result<Result<Value, Refusal>, EngineError> {
     // A DCA tick owns its run and refreshes from what it reads here; a rebalance pass brings its own earlier claim.
     let run_owned = claimed.is_none();
     let before = match claimed { Some(v) => v.clone(), None => super::placement::composition_snapshot(c, bot)? };
@@ -191,12 +245,14 @@ async fn refresh_owned<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &B
             |r| Ok((r.get(0)?,r.get(1)?,r.get(2)?))).optional()?;
         let mut changed = current.status != bot.status || super::placement::composition_snapshot(tx, &current)? != before || source_now != source_before || super::provider::fingerprint(tx)? != provider_before;
         for ticker in &priced_tickers { changed |= model::ticker_by_id(tx, bot.exchange_id, ticker.id)?.as_ref() != Some(ticker); }
-        if changed { return Ok(Err(Refusal::Transient("index changed during price probes".into()))); }
+        if changed { return Ok(Err(Refusal::Transient(CHANGED.into()))); }
         let mut reasons = super::eligibility::bot_reasons(tx, &current)?;
         let alpaca = model::exchange_type(tx, &current)? == "Exchanges::Alpaca";
         super::eligibility::member_reasons(tx, &current, alpaca, &members.iter().map(|m| m.0).collect::<Vec<_>>(), &mut reasons)?;
         if !reasons.is_empty() { return Ok(Err(Refusal::Failure(reasons.join("; ")))); }
         basket::write_members(tx, bot.id, &members, clock.now())?;
+        // A resync's marker goes with the membership it asked for, in this one commit; a trigger since it was read keeps it.
+        if let Some(read) = marker { clear_resync(tx, bot.id, read)?; }
         // Any unexpected ineligibility rolls the transaction back (not a nested Ok(Err)).
         super::eligibility::check_install(tx)?.refusal().map_err(|r| EngineError::Data(r.reason()))?;
         Ok(Ok(super::placement::composition_snapshot(tx, &current)?))
