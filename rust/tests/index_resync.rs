@@ -297,3 +297,81 @@ async fn a_tokenized_member_fails_only_its_index_bots_tick() {
     assert_eq!(members(), 2, "BTC and ETH");
     assert!(t.requests().iter().filter(|r| r.method == "POST" && r.path == "/api/v3/order").count() >= 2, "the index bot buys");
 }
+
+/// Bots::DcaIndex#start enqueues Bot::ActionJob and Bot::ResyncIndexCompositionJob side by side: the first tick does not wait
+/// for the resync. Here the start's resync and its first tick share the engine's first pass: no pass is lost between them.
+#[tokio::test(flavor = "current_thread")]
+async fn a_fresh_start_ticks_in_the_same_pass_as_its_resync() {
+    let r = Rig::with(true, [100.0, 200.0, 300.0, 400.0, 500.0], json!({
+        "POST /v2/orders": ok(json!({ "id": "OTX-1", "status": "accepted" })),
+        "GET /v2/account": ok(json!({ "cash": "100000", "buying_power": "200000", "non_marginable_buying_power": "100000" })),
+        "GET /v2/positions": ok(json!([])),
+    }));
+    let c = r.c();
+    seed::fresh_stock_jobs(&c, at(NOW));
+    c.execute("UPDATE bots SET status = 1, started_at = '2026-09-03 14:59:59' WHERE id = ?1", [r.id]).unwrap();
+    r.mark();
+    step(&mut r.engine(), NOW).await;
+    assert_eq!(r.marker(), None, "the start's resync ran");
+    let ticked: Option<String> = c.query_row("SELECT json_extract(transient_data, '$.last_action_job_at') FROM bots WHERE id = ?1", [r.id], |r| r.get(0)).unwrap();
+    assert_eq!(ticked.as_deref(), Some("2026-09-03T15:00:00.000Z"), "the first tick ran in the resync's pass");
+}
+
+/// The page of a freshly started bot hears its first tick as Rails broadcasts it, here one whose order the venue refuses
+/// (the key rejected). The engine announces the claim, each row and the end, in that order; each is rendered for the
+/// owner's page as Rails renders it:
+/// - the claim (`executing`, Bot after_update_commit, app/models/bot.rb:38-40): status and progress bars, both Start/Stop
+///   buttons, the columns lock, on `user_<id>:bot_updates`;
+/// - the failed row (Transaction after_create_commit → Bot#broadcast_new_order, bot.rb:316-348): the placeholder removed
+///   with the bot's first row, the row's sentence prepended on the bot's page stream (no columnar row: it was not
+///   accepted), the order filters replaced;
+/// - the end (Bot::ActionJob's rescue and Bot::BroadcastAfterScheduledActionJob, app/jobs/bot/action_job.rb): the bars,
+///   now naming the failure and the next try.
+#[tokio::test(flavor = "current_thread")]
+async fn the_page_hears_the_first_tick_as_rails_broadcasts_it() {
+    let r = Rig::with(true, [100.0, 200.0, 300.0, 400.0, 500.0], json!({
+        "POST /v2/orders": [{ "status": 401, "body": { "code": 40110000, "message": "unauthorized." } }],
+        "GET /v2/account": ok(json!({ "cash": "100000", "buying_power": "200000", "non_marginable_buying_power": "100000" })),
+        "GET /v2/positions": ok(json!([])),
+    }));
+    let c = r.c();
+    seed::fresh_stock_jobs(&c, at(NOW));
+    c.execute("UPDATE bots SET status = 1, started_at = '2026-09-03 14:59:59' WHERE id = ?1", [r.id]).unwrap();
+    r.mark();
+    let mut e = r.engine();
+    let mut events = e.subscribe_to(EngineEvent::is_live);
+    step(&mut e, NOW).await;
+    let mut heard = vec![];
+    while let Ok(event) = events.try_recv() { heard.push(event); }
+    let failed: Vec<i64> = c.prepare("SELECT id FROM transactions WHERE bot_id = ?1 AND status = 1 ORDER BY id").unwrap()
+        .query_map([r.id], |r| r.get(0)).unwrap().map(Result::unwrap).collect();
+    assert!(!failed.is_empty(), "the refused order is a failed row");
+    let mut expected = vec![EngineEvent::StatusChanged { bot_id: r.id }];
+    expected.extend(failed.iter().map(|&tx| EngineEvent::OrderRecorded { bot_id: r.id, transaction_id: tx }));
+    expected.push(EngineEvent::TickEnded { bot_id: r.id });
+    assert_eq!(heard, expected);
+
+    let app = common::web::app(r.dir.path(), common::web::SECRET, common::web::TestClock::at(NOW));
+    let render = |event: &EngineEvent| deltabadger::web::bot::live::render(&c, &app, event).unwrap();
+    let user = format!("user_{}:bot_updates", r.s.user_id);
+    let page = deltabadger::web::bot::page::page_stream(&deltabadger::web::bot::Bot::find(&c, r.s.user_id, r.id, deltabadger::web::bot::For::Page, "en").unwrap().unwrap());
+    let shape = |messages: &[(String, String)]| messages.iter().map(|(stream, html)| {
+        let action = html.split("action=\"").nth(1).and_then(|s| s.split('"').next()).unwrap_or_default().to_string();
+        let target = html.split("target=\"").nth(1).and_then(|s| s.split('"').next()).unwrap_or_default().to_string();
+        (if *stream == user { "user" } else if *stream == page { "page" } else { "?" }, action, target)
+    }).collect::<Vec<_>>();
+    let dom = |name: &str| format!("{name}_bots_dca_index_{}", r.id);
+    let owned = |v: &[(&'static str, &str, String)]| v.iter().map(|(s, a, t)| (*s, a.to_string(), t.clone())).collect::<Vec<_>>();
+
+    assert_eq!(shape(&render(&heard[0])), owned(&[("user", "replace", dom("status_bar")), ("user", "replace", dom("progress_bar")),
+        ("user", "replace", dom("status_button")), ("user", "replace", dom("tile_status_button")), ("user", "add_class", dom("columns"))]));
+
+    let first = render(&heard[1]);
+    assert_eq!(shape(&first), owned(&[("page", "remove", "orders_list_placeholder".into()), ("page", "prepend", "orders_list".into()), ("user", "replace", dom("order_filters"))]));
+    assert!(first[1].1.contains(&format!("id=\"timeline_transaction_{}\"", failed[0])) && first[1].1.contains("rejected the API key"), "{}", first[1].1);
+    assert!(!first.iter().any(|(_, html)| html.contains("authenticity_token")), "a broadcast carries no session token");
+
+    let ended = render(heard.last().unwrap());
+    assert_eq!(shape(&ended), owned(&[("user", "replace", dom("status_bar")), ("user", "replace", dom("progress_bar"))]));
+    assert!(ended[0].1.contains("rejected the API key") && ended[0].1.contains("countdown"), "the retrying bar names the failure: {}", ended[0].1);
+}

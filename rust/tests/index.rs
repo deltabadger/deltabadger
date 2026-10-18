@@ -453,7 +453,7 @@ async fn an_index_change_between_a_lost_swap_reply_and_a_restart_resumes_the_sen
             let prices = PriceCache::default();
             let bot = model::load_bot(&o.primary, id).unwrap();
             let cx = TickContext { credential_version: model::credential_version(&o.primary, &bot).unwrap(), prices: &prices,
-                                   process_start: started, stopping: &|| false, below_minimum: &|_, _| {} };
+                                   process_start: started, stopping: &|| false, below_minimum: &|_, _| {}, claimed: &|_| {} };
             rebalance::run(&o.primary, &venue(t), id, &FixedClock(at(when)), &cx).await.unwrap()
         }
     };
@@ -512,7 +512,7 @@ async fn evaluate_swap<T: deltabadger::venue::http::Transport>(o: &store::Opened
     let prices = PriceCache::default();
     let bot = model::load_bot(&o.primary, id).unwrap();
     let cx = TickContext { credential_version: model::credential_version(&o.primary, &bot).unwrap(), prices: &prices,
-                           process_start: DateTime::<Utc>::MIN_UTC, stopping: &|| false, below_minimum: &|_, _| {} };
+                           process_start: DateTime::<Utc>::MIN_UTC, stopping: &|| false, below_minimum: &|_, _| {}, claimed: &|_| {} };
     deltabadger::engine::rebalance::run(&o.primary, v, id, &FixedClock(at("2026-09-01T16:30:00Z")), &cx).await.unwrap()
 }
 

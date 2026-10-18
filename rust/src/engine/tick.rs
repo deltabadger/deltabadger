@@ -188,6 +188,8 @@ pub struct TickContext<'a> {
     pub credential_version: Option<model::CredentialVersion>,
     pub prices: &'a PriceCache,
     pub below_minimum: &'a dyn Fn(i64, Vec<i64>),
+    /// The tick moved the bot to `executing`; called once that write has committed.
+    pub claimed: &'a dyn Fn(i64),
     /// When this process started: Alpaca absence is trusted only a full margin (20 min) after it (placement::recover_since).
     pub process_start: chrono::DateTime<chrono::Utc>,
     /// A stop was requested (the engine's Shutdown); checked between recovery and execution.
@@ -254,7 +256,7 @@ fn record_notified_failure(c: &model::FencedTransaction<'_>, bot_id: i64, kind: 
 pub async fn tick<V: Venue>(c: &Connection, venue: &V, bot_id: i64, clock: &dyn Clock, attempts: &mut Attempts) -> Result<TickOutcome, EngineError> {
     let mut bot = model::load_bot(c, bot_id)?;
     let prices = PriceCache::default();
-    let cx = TickContext { credential_version: model::credential_version(c, &bot)?, prices: &prices, process_start: chrono::DateTime::<chrono::Utc>::MIN_UTC, stopping: &|| false, below_minimum: &|_, _| {} };
+    let cx = TickContext { credential_version: model::credential_version(c, &bot)?, prices: &prices, process_start: chrono::DateTime::<chrono::Utc>::MIN_UTC, stopping: &|| false, below_minimum: &|_, _| {}, claimed: &|_| {} };
     tick_recovering_for_run(c, venue, &mut bot, clock, attempts, &mut None, &cx).await
 }
 
@@ -479,6 +481,7 @@ async fn execute<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::
     // is placed and Fundable is skipped.
     let first_tick = own_rows(c, bot)?.is_empty();
     model::transition_owned(c, bot, BotStatus::Executing, clock.now())?;
+    (cx.claimed)(bot_id);
     let mut claimed = bot.clone();
     claimed.status = BotStatus::Executing;
     let bot = &claimed;
