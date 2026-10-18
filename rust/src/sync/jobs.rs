@@ -42,6 +42,11 @@ pub trait Connect {
     }
     /// How far apart a Binance ledger read's calls go; a test against a local server waits for nothing.
     fn binance_pacing(&self) -> crate::sync::binance_ledger::Pacing { crate::sync::binance_ledger::Pacing::LIVE }
+    /// How a KuCoin key's syncs reach KuCoin (Honeymaker.client('kucoin', passphrase:, proxy: ExchangeProxy.for('kucoin'))).
+    /// By default nothing is sent.
+    fn kucoin_transport(&self, _credentials: &Credentials, _proxy: Option<&str>) -> ReqwestTransport {
+        ReqwestTransport::refused("KuCoin is not connected here")
+    }
 }
 impl Connect for LiveFactory {
     fn ecb(&self) -> Option<crate::tracker::fx::Source> { Some(crate::tracker::fx::Source::Live(crate::tracker::fx::Plain::default())) }
@@ -54,18 +59,31 @@ impl Connect for LiveFactory {
         };
         ReqwestTransport::binance(client, credentials.key.clone(), credentials.secret.clone()).with_sensitive_values(credentials.redaction_values.clone())
     }
+    fn kucoin_transport(&self, credentials: &Credentials, proxy: Option<&str>) -> ReqwestTransport {
+        let client = match proxy {
+            None => crate::venue::http::client(),
+            Some(proxy) => match crate::venue::http::client_via(proxy) { Ok(client) => client, Err(why) => return ReqwestTransport::refused(&why) },
+        };
+        ReqwestTransport::kucoin(client, credentials.key.clone(), credentials.secret.clone(), credentials.passphrase.clone().unwrap_or_default())
+            .with_sensitive_values(credentials.redaction_values.clone())
+    }
 }
 
-/// The venue type of a key and, for Binance and Binance.US, the proxy its reads go through: AppConfig `proxy_<name>`
-/// (decrypted) or ENV `PROXY_<NAME>`, as ExchangeProxy.for resolves it.
+/// The ExchangeProxy name of a venue whose syncs go through its proxy: Binance, Binance.US and KuCoin.
+fn proxied(venue: &str) -> Option<&'static str> {
+    crate::venue::binance::host(venue).map(|(_, name)| name).or((venue == crate::venue::kucoin::KUCOIN).then_some("kucoin"))
+}
+
+/// The venue type of a key and, for Binance, Binance.US and KuCoin, the proxy its reads go through: AppConfig
+/// `proxy_<name>` (decrypted) or ENV `PROXY_<NAME>`, as ExchangeProxy.for resolves it.
 async fn venue_of(db: &Db, key: i64) -> Result<(String, Option<String>), SyncError> {
     let (venue, stored) = db.run(move |c, cipher| {
         let venue: String = c.query_row("SELECT e.type FROM api_keys k JOIN exchanges e ON e.id = k.exchange_id WHERE k.id = ?1", [key], |r| r.get(0)).map_err(|e| e.to_string())?;
-        let Some((_, name)) = crate::venue::binance::host(&venue) else { return Ok((venue, None)) };
+        let Some(name) = proxied(&venue) else { return Ok((venue, None)) };
         let stored = crate::app_config::get(c, cipher, &format!("proxy_{name}"))?;
         Ok((venue, stored))
     }).await.map_err(SyncError)?;
-    let proxy = crate::venue::binance::host(&venue).and_then(|(_, name)| crate::venue::http::proxy_for(name, stored, &|k| std::env::var(k).ok()));
+    let proxy = proxied(&venue).and_then(|name| crate::venue::http::proxy_for(name, stored, &|k| std::env::var(k).ok()));
     Ok((venue, proxy))
 }
 
@@ -146,6 +164,9 @@ impl<C: Connect> Job for LedgerSync<C> {
                     crate::sync::binance_ledger::sync_captured(&cx.db, self.venues.binance_transport(&credentials, proxy.as_deref()),
                                                                &self.venues.binance_base(&venue).unwrap_or_default(), self.key_id, &credentials, cx.clock,
                                                                self.venues.binance_pacing(), &version).await,
+                Ok((venue, proxy)) if venue == crate::venue::kucoin::KUCOIN =>
+                    crate::sync::kucoin_ledger::sync(&cx.db, self.venues.kucoin_transport(&credentials, proxy.as_deref()), self.key_id, &credentials, cx.clock,
+                                                     crate::sync::kucoin_ledger::THROTTLE_WAIT).await,
                 Ok(_) => ledger::sync_captured(&cx.db, &self.venues.connect(&credentials), self.key_id, &credentials, cx.clock, self.limits, &version).await,
             };
             let outcome = outcome(done, |out| out.complete);
@@ -192,6 +213,8 @@ impl<C: Connect> Job for BalanceSync<C> {
                 Err(e) => Err(e),
                 Ok((venue, proxy)) if crate::venue::binance::host(&venue).is_some() =>
                     balances::sync_binance_captured(&cx.db, self.venues.binance_transport(&credentials, proxy.as_deref()), &|t| self.venues.binance_base(t), self.prices.as_ref(), self.key_id, &credentials, cx.clock, &version).await,
+                Ok((venue, proxy)) if venue == crate::venue::kucoin::KUCOIN =>
+                    balances::sync_kucoin_captured(&cx.db, self.venues.kucoin_transport(&credentials, proxy.as_deref()), self.prices.as_ref(), self.key_id, &credentials, cx.clock, &version).await,
                 Ok(_) => balances::sync_captured(&cx.db, &self.venues.connect(&credentials), self.prices.as_ref(), self.key_id, &credentials, cx.clock, &version).await,
             };
             let outcome = outcome(done, |_| true);
@@ -207,7 +230,7 @@ impl<C: Connect> Job for BalanceSync<C> {
     }
 }
 
-/// The jobs of an install, for the scheduler's start: per reading Alpaca, Binance or Binance.US key (`ApiKey.reading`,
+/// The jobs of an install, for the scheduler's start: per reading Alpaca, Binance, Binance.US or KuCoin key (`ApiKey.reading`,
 /// what Rails' nightly jobs iterate) one ledger job and one balance job (a Binance.US ledger run reads nothing and
 /// completes), every ledger job before every balance job, so jobs due together run in Rails' order. New scopes are registered by the same constructors on their first wake.
 pub fn register<C: Connect + Clone + 'static>(c: &Connection, venues: &C, prices: Rc<dyn PriceSource>) -> Result<Vec<Box<dyn Job>>, SyncError> {
