@@ -159,6 +159,7 @@ pub(crate) async fn refresh_for_rebalance<V: Venue + Attributed>(c: &Connection,
 /// Bot::ResyncIndexCompositionJob#perform's refresh_composition: the rebalance's refresh (any status but deleted or
 /// archived, no DCA run owned), with no market gate (the job has none), so a stock newcomer's probe side reads the clock.
 /// `marker` is the value read at pass start: the membership write clears it in the same transaction, if unchanged.
+#[allow(clippy::too_many_arguments)]
 pub(crate) async fn refresh_for_resync<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, claimed: &Value, marker: &str, clock: &dyn Clock, prices: &PriceCache, version: &Option<model::CredentialVersion>) -> Result<Result<Value, Refusal>, EngineError> {
     refresh_owned_marked(c, venue, bot, clock, prices, version, Some(claimed), None, Some(marker)).await
 }

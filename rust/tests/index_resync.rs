@@ -285,7 +285,7 @@ async fn a_tokenized_member_fails_only_its_index_bots_tick() {
     let mut e = Engine::new(store::open(&paths).unwrap().primary, Binance(t.clone(), pairs), seed::cipher(), lock);
     let members = || -> i64 { c.query_row("SELECT count(*) FROM bot_index_assets WHERE bot_id = ?1", [index], |r| r.get(0)).unwrap() };
     run::step(&mut e, &FixedClock(at("2026-09-01T14:00:00.5Z"))).await.expect("the pass stays Ok");
-    assert!(t.requests().iter().any(|r| r.method == "GET" && r.path.ends_with("Orders") || r.path == "/api/v3/order" && r.method == "GET"), "the basket's open order is polled");
+    assert!(t.requests().iter().any(|r| r.method == "GET" && (r.path.ends_with("Orders") || r.path == "/api/v3/order")), "the basket's open order is polled");
     assert!(t.requests().iter().all(|r| r.method != "POST"), "nothing placed");
     assert_eq!(members(), 0);
     let failed: String = c.query_row("SELECT details FROM bot_activity_logs WHERE bot_id = ?1 AND event = 'execution_failed'", [index], |r| r.get(0)).unwrap();

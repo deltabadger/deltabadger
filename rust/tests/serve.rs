@@ -2289,6 +2289,13 @@ fn bot_action_executable_smoke() -> Result<(), Box<dyn std::error::Error>> {
     );
     c.execute("UPDATE bots SET status=2,label='Smoke '||id", [])?;
     c.execute("UPDATE bots SET type='Bots::DcaIndex' WHERE id=?1", [index])?;
+    // An index bot the engine still refuses (Alpaca: only USD), now that Top coins indices are admitted (plan CI).
+    c.execute("INSERT INTO assets (external_id, symbol, name, category, created_at, updated_at) VALUES ('EUR.FOREX', 'EUR', 'Euro', 'Currency', '2026-01-01', '2026-01-01')", [])?;
+    let eur = c.last_insert_rowid();
+    c.execute("INSERT INTO tickers (exchange_id, ticker, base, quote, base_asset_id, quote_asset_id, base_decimals, quote_decimals, price_decimals, \
+               minimum_base_size, minimum_quote_size, trading_enabled, available, created_at, updated_at) \
+               VALUES (?1, 'BTC/EUR', 'BTC', 'EUR', ?2, ?3, 9, 2, 2, '0.000027', '1', 1, 1, '2026-01-01', '2026-01-01')", (seeded.exchange_id, seeded.btc, eur))?;
+    c.execute("UPDATE bots SET settings=json_set(settings,'$.quote_asset_id',?1) WHERE id=?2", (eur, index))?;
     for (key, value) in [
         ("market_data_provider", "deltabadger"),
         ("market_data_url", "http://example.test"),

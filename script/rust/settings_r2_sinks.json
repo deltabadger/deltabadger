@@ -75,7 +75,7 @@
     "label": "activity-rejected",
     "file": "venue/alpaca.rs",
     "anchor": "messages.into_iter().map(|m|self.transport.redact_diagnostic(&m)).collect()",
-    "count": 1
+    "count": 2
   },
   {
     "label": "activity-transient",
