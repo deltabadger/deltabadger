@@ -7,7 +7,7 @@
 #   bin/rails runner script/rust/decisions.rb grid-kucoin <root>  # KuCoin spot, scripted beneath honeymaker at the Faraday adapter
 #   bin/rails runner script/rust/decisions.rb grid-sell <root>    # a one-asset basket selling on Kraken, Binance and Alpaca (slice 6a)
 #   bin/rails runner script/rust/decisions.rb grid-venue-basket <root> # buying baskets of 2 and 3 members on Kraken (EUR) and Binance (USDT)
-#   bin/rails runner script/rust/decisions.rb grid-venue-index <root>  # crypto index bots on Kraken, Binance and Alpaca, and their resync (plan CI)
+#   bin/rails runner script/rust/decisions.rb grid-venue-index <root>  # crypto index bots on Kraken, Binance, KuCoin and Alpaca, and their resync (plan CI)
 #   bin/rails runner script/rust/decisions.rb grid-basket-sell <root> # a wider Alpaca basket's ranked DCA-out (slice 6b)
 #   bin/rails runner script/rust/decisions.rb grid-rebalance <root>   # threshold rebalancing on a stopped Alpaca basket (slice 6b)
 #   bin/rails runner script/rust/decisions.rb grid-conditions <root> # price_limit / sell_price_limit with `pause`, and the minute check (slice 7a)
@@ -1293,13 +1293,16 @@ module Decisions
                'solana' => ['SOL', 8e10], 'cardano' => ['ADA', 2e10], 'avalanche-2' => ['AVAX', 1e10] }.freeze
   VI_TOP = %w[bitcoin ethereum tether usd-coin solana cardano avalanche-2].freeze
   VI_L1 = %w[bitcoin ethereum solana cardano avalanche-2].freeze
-  VI_QUOTE = { 'kraken' => 'EUR', 'binance' => 'USDT', 'binance_btc' => 'BTC', 'alpaca' => 'USD' }.freeze
+  VI_QUOTE = { 'kraken' => 'EUR', 'binance' => 'USDT', 'binance_btc' => 'BTC', 'kucoin' => 'USDT', 'kucoin_usdc' => 'USDC', 'alpaca' => 'USD' }.freeze
+  KUCOIN_VENUES = %w[kucoin kucoin_usdc].freeze
   # [ask, last] per base listed at the quote (bid = last).
   VI_PRICES = {
     'EUR' => { 'BTC' => %w[60000.2 59990.1], 'ETH' => %w[2300.25 2300.01], 'USDT' => %w[0.9201 0.92], 'USDC' => %w[0.9202 0.9201],
                'SOL' => %w[140.125 140.001], 'ADA' => %w[0.40012 0.4001], 'AVAX' => %w[25.012 25.001] },
     'USDT' => { 'BTC' => %w[64000.11 64000.05], 'ETH' => %w[2500.51 2500.47], 'USDC' => %w[1.0001 1.0], 'SOL' => %w[150.125 150.123],
                 'ADA' => %w[0.4501 0.45], 'AVAX' => %w[27.01 27.0] },
+    'USDC' => { 'BTC' => %w[64001.12 64001.05], 'ETH' => %w[2500.71 2500.6], 'USDT' => %w[0.9999 0.9998], 'SOL' => %w[150.13 150.12],
+                'ADA' => %w[0.4502 0.4501], 'AVAX' => %w[27.02 27.01] },
     'BTC' => { 'ETH' => %w[0.03901 0.039], 'SOL' => %w[0.002301 0.0023], 'ADA' => %w[0.00000701 0.000007], 'AVAX' => %w[0.000401 0.0004] },
     'USD' => { 'BTC' => %w[64000.0 63990.0], 'ETH' => %w[2500.0 2499.5], 'USDT' => %w[1.0001 1.0], 'USDC' => %w[1.0002 1.0001], 'SOL' => %w[150.0 149.9] }
   }.freeze
@@ -1310,6 +1313,7 @@ module Decisions
     case venue
     when 'kraken' then sym == 'BTC' ? 'XBTEUR' : "#{sym}EUR"
     when 'alpaca' then "#{sym}/USD"
+    when *KUCOIN_VENUES then "#{sym}-#{quote}"
     else "#{sym}#{quote}"
     end
   end
@@ -1320,6 +1324,8 @@ module Decisions
     when 'kraken' then { 'base_decimals' => 8, 'quote_decimals' => 5, 'price_decimals' => price_decimals, 'minimum_base_size' => '0.00001', 'minimum_quote_size' => '0.5' }
     when 'binance' then { 'base_decimals' => 5, 'quote_decimals' => 8, 'price_decimals' => price_decimals, 'minimum_base_size' => '0.00001', 'minimum_quote_size' => '5' }
     when 'binance_btc' then { 'base_decimals' => 4, 'quote_decimals' => 8, 'price_decimals' => price_decimals, 'minimum_base_size' => '0.0001', 'minimum_quote_size' => '0.0001' }
+    # As Exchanges::Kucoin#get_tickers_info stores a spot pair: baseIncrement/quoteIncrement decimals, baseMinSize, quoteMinSize.
+    when *KUCOIN_VENUES then { 'base_decimals' => 8, 'quote_decimals' => 6, 'price_decimals' => price_decimals, 'minimum_base_size' => '0.00001', 'minimum_quote_size' => '0.1' }
     else { 'base_decimals' => 9, 'quote_decimals' => 2, 'price_decimals' => price_decimals, 'minimum_base_size' => '0.000001', 'minimum_quote_size' => '1' }
     end
   end
@@ -1334,6 +1340,7 @@ module Decisions
     exchange = case venue
                when 'kraken' then Exchanges::Kraken.create!(name: 'Kraken', maker_fee: '0.25', taker_fee: '0.4')
                when 'alpaca' then Exchanges::Alpaca.create!(name: 'Alpaca', maker_fee: '0.15', taker_fee: '0.25')
+               when *KUCOIN_VENUES then Exchanges::Kucoin.create!(name: 'KuCoin', maker_fee: '0.1', taker_fee: '0.1')
                else Exchanges::Binance.create!(name: 'Binance', maker_fee: '0.1', taker_fee: '0.1')
                end
     assets = VI_COINS.to_h do |ext, (sym, cap)|
@@ -1364,7 +1371,8 @@ module Decisions
       Index.create!(external_id: 'layer-1', source: 'coingecko', name: 'Layer 1', top_coins: sc['l1'] || VI_L1, weights: sc['weights'] || {},
                     top_coins_by_exchange: {}, available_exchanges: {}, weight: 0)
     end
-    ApiKey.new(user:, exchange:, key: 'k', secret: 's', passphrase: venue == 'alpaca' ? 'paper' : nil, status: :correct, key_type: :trading).save!(validate: false)
+    passphrase = { 'alpaca' => 'paper', 'kucoin' => 'p', 'kucoin_usdc' => 'p' }[venue]
+    ApiKey.new(user:, exchange:, key: 'k', secret: 's', passphrase:, status: :correct, key_type: :trading).save!(validate: false)
     bot = Bots::DcaIndex.new(user:, exchange:, settings: {
       'quote_asset_id' => quote.id, 'quote_amount' => sc['quote_amount'], 'interval' => 'day', 'index_type' => sc['index_type'],
       'index_category_id' => sc['index_type'] == 'category' ? 'layer-1' : nil, 'num_coins' => sc['num_coins'], 'allocation_flattening' => sc['flattening'],
@@ -1414,10 +1422,17 @@ module Decisions
       case venue
       when 'kraken' then [["GET /0/public/Ticker?pair=#{pair}", over || [ok(vi_kraken_ticker(pair, ask, last))]]]
       when 'alpaca' then []
+      when *KUCOIN_VENUES then [["GET /api/v1/market/orderbook/level2_20?symbol=#{pair}", over || [kc_book(ask, bid: last)]]]
       else [["GET /api/v3/ticker/bookTicker?symbol=#{pair}", over || [ok('symbol' => pair, 'bidPrice' => last, 'bidQty' => '1.5', 'askPrice' => ask, 'askQty' => '0.2')]],
             ["GET /api/v3/ticker/price?symbol=#{pair}", over || [ok('symbol' => pair, 'price' => last)]]]
       end
-    end.to_h
+    end.to_h.merge(KUCOIN_VENUES.include?(venue) ? { 'GET /api/v1/market/allTickers' => [vi_kucoin_tickers(venue, prices.keys)] } : {})
+  end
+
+  # KuCoin's last prices come from one allTickers body (#get_last_price, #get_tickers_prices): an unpriced symbol is left out.
+  def vi_kucoin_tickers(venue, unpriced)
+    rows = VI_PRICES.fetch(VI_QUOTE.fetch(venue)).reject { |sym, _| unpriced.include?(sym) }.map { |sym, (_ask, last)| { 'symbol' => vi_ticker(venue, sym), 'last' => last } }
+    kc_ok('time' => 1_788_000_000_000, 'ticker' => rows)
   end
 
   def vi_http(venue, prices: {}, open: true, over: {})
@@ -1434,6 +1449,10 @@ module Decisions
                'GET /v1beta3/crypto/us/latest/trades' => prices['trades'] || [ok('trades' => listed.to_h { |s, (_a, l)| ["#{s}/USD", { 'p' => l.to_f, 's' => 0.01, 't' => '2026-09-01T10:00:00Z', 'i' => 1, 'tks' => 'B' }] })],
                'GET /v2/account' => [account('100000')], 'GET /v2/positions' => [ok([])],
                'POST /v2/orders' => (1..6).map { |n| ok(alpaca_order("OTX-#{n}", 'pending_new')) } }
+           when *KUCOIN_VENUES
+             { 'POST /api/v1/orders' => (1..6).map { |n| kc_ok('orderId' => "6716f0a2c1b6d10007a3b1c#{n}") },
+               'GET /api/v1/accounts' => [kc_ok([{ 'id' => 'q', 'currency' => quote, 'type' => 'trade', 'balance' => '100000', 'available' => '100000', 'holds' => '0' }])],
+               'GET /api/v1/fills' => [kc_fills([])] }
            else
              { 'POST /api/v3/order' => (1..6).map { |n| ok('symbol' => "BTC#{quote}", 'orderId' => 28_456 + n, 'orderListId' => -1, 'clientOrderId' => 'x', 'transactTime' => 1_788_000_000_000) },
                'GET /api/v3/account' => [ok('makerCommission' => 10, 'canTrade' => true, 'balances' => [{ 'asset' => quote, 'free' => '100000.00000000', 'locked' => '0' }])],
@@ -1445,8 +1464,8 @@ module Decisions
   end
 
   def venue_index(venue, kind, name, at:, num_coins: 3, flattening: 0.0, quote_amount: nil, prices: {}, open: true, over: {}, **extra)
-    script_key = { 'kraken' => 'kraken_http', 'alpaca' => 'alpaca' }.fetch(venue, 'binance')
-    { 'name' => "vi-#{venue}-#{kind}-#{name}", 'kind' => 'venue_index', 'venue' => venue.sub('_btc', ''), 'venue_key' => venue, 'index_type' => kind,
+    script_key = { 'kraken' => 'kraken_http', 'alpaca' => 'alpaca', 'kucoin' => 'kucoin', 'kucoin_usdc' => 'kucoin' }.fetch(venue, 'binance')
+    { 'name' => "vi-#{venue}-#{kind}-#{name}", 'kind' => 'venue_index', 'venue' => venue.sub(/_(btc|usdc)\z/, ''), 'venue_key' => venue, 'index_type' => kind,
       'num_coins' => num_coins, 'flattening' => flattening, 'quote_amount' => quote_amount || (venue == 'binance_btc' ? 0.001 : 60.0), 'at' => at,
       'script' => { script_key => vi_http(venue, prices:, open:, over:) }, 'tick' => true }.merge(extra.transform_keys(&:to_s))
   end
@@ -1463,6 +1482,7 @@ module Decisions
   def vi_unpriced(venue, _sym)
     case venue
     when 'kraken' then ok('error' => ['EQuery:Unknown asset pair'])
+    when *KUCOIN_VENUES then ok('code' => '400100', 'msg' => 'symbol not exists')
     else { 'status' => 400, 'body' => { 'code' => -1121, 'msg' => 'Invalid symbol.' } }
     end
   end
@@ -1478,6 +1498,10 @@ module Decisions
       shared.merge('invalid_key' => ok('error' => ['EAPI:Invalid key']),
                    'not_sent' => { 'network' => 'kraken_pre_send', 'message' => 'Faraday::ConnectionFailed: Connection refused - connect(2) for "api.kraken.com" port 443' },
                    '5xx' => { 'status' => 503, 'body' => { 'error' => ['EService:Unavailable'] } })
+    when 'kucoin'
+      shared.merge('invalid_key' => { 'status' => 400, 'body' => { 'code' => '400003', 'msg' => 'KC-API-KEY not exists' } },
+                   'not_sent' => { 'network' => 'kucoin_pre_send', 'message' => 'Faraday::ConnectionFailed: Connection refused - connect(2) for "api.kucoin.com" port 443' },
+                   '5xx' => { 'status' => 503, 'body' => { 'code' => '500000', 'msg' => 'Internal Server Error' } })
     else
       shared.merge('invalid_key' => { 'status' => 400, 'body' => { 'code' => -2015, 'msg' => 'Invalid API-key, IP, or permissions for action.' } },
                    'not_sent' => { 'network' => 'binance_pre_send', 'message' => 'Faraday::ConnectionFailed: Connection refused - connect(2) for "api.binance.com" port 443' },
@@ -1491,7 +1515,7 @@ module Decisions
     modes = { 'market' => {}, 'limit' => { 'limit_ordered' => true, 'limit_order_pcnt_distance' => 0.0025 } }
     lists = { 'top' => VI_TOP, 'category' => VI_L1 }
     list = []
-    %w[kraken binance binance_btc].each do |venue|
+    (%w[kraken binance binance_btc] + KUCOIN_VENUES).each do |venue|
       lists.each do |kind, index|
         ranked = vi_ranked(venue, index)
         key = kind == 'top' ? 'top' : 'l1'
@@ -1526,6 +1550,11 @@ module Decisions
         modes.each { |mode, settings| list << venue_index(venue, 'top', "probe_#{fname}-#{mode}", at: first, settings:, prices: { second => [reply] }) }
       end
     end
+    # KuCoin's (plan K O6): its ask is the newcomer's own order book; a limit probe reads the one allTickers body every
+    # member shares, so only the market probe fails one newcomer alone.
+    second = vi_ranked('kucoin', VI_TOP)[1]
+    vi_probe_failures('kucoin').each { |fname, reply| list << venue_index('kucoin', 'top', "probe_#{fname}-market", at: first, prices: { second => [reply] }) }
+    KUCOIN_VENUES.each { |venue| list << venue_index(venue, 'category', 'flattened-market', at: first, flattening: 0.5) }
     # Weights flattened, and legs below the venue minimum (one skipped with its amount carried, then all: the notice).
     { 'kraken' => [8.0, 0.6], 'binance' => [40.0, 6.0], 'binance_btc' => [0.001, 0.0001] }.each do |venue, (one, all)|
       list << venue_index(venue, 'category', 'flattened-market', at: first, flattening: 0.5)
@@ -1624,7 +1653,7 @@ module Decisions
               'top_coins' => %w[AAA BBB DDD EEE CCC], 'transactions' => [], 'num_coins' => 3, 'flattening' => 0.0, 'hold_all' => false,
               'members' => [{ 'symbol' => 'AAA', 'target' => 0.6, 'in_index' => true }, { 'symbol' => 'BBB', 'target' => 0.4, 'in_index' => true }],
               'script' => { 'alpaca' => http }, 'tick' => true }
-    list.tap { |l| raise "the venue index grid has #{l.size} scenarios, not 225" unless l.size == 225 }
+    list.tap { |l| raise "the venue index grid has #{l.size} scenarios, not 330" unless l.size == 330 }
   end
 
   # Binance spot (spec E2), one asset on BTCUSDT: Rails' own answers to the bodies below, beneath honeymaker.
