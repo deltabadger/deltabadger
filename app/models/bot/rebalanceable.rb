@@ -196,6 +196,40 @@ module Bot::Rebalanceable
     merge_transient_data!(PENDING_KEY => nil)
   end
 
+  # The user's resolution of an :ambiguous halt (Bots::RebalanceResolutionsController), once no known
+  # rebalance order is still waiting. A halt that names a recorded order which settled (closed or
+  # cancelled) is put back in that leg's own phase with its id, so the next fire's resume_selling! /
+  # resume_buying! does the arithmetic it already has: a recovered sell's proceeds become the owed buy,
+  # a recovered buy's fill comes off what is owed. Forgetting the row would strand a sell's proceeds or
+  # buy the whole owed amount again on top of a buy that already filled.
+  #
+  # An abandoned row says nothing about what executed, so it is never put back (resume_* would halt on
+  # it straight away). It, and a halt with no recorded order, keep the user-attested resolution: the
+  # owed buy is handed back if anything is owed, else the state is cleared.
+  def resolve_rebalance_halt!
+    pending = rebalance_pending || {}
+    owed = rebalance_remaining_quote_amount
+    buy = recovered_rebalance_leg(pending[:buy_transaction_id])
+    sell = recovered_rebalance_leg(pending[:sell_transaction_id])
+
+    if buy && owed
+      set_rebalance_pending!(phase: PHASE_BUYING, sell_transaction_id: pending[:sell_transaction_id],
+                             buy_transaction_id: buy.id, remaining_quote_amount: owed, buy_attempted: true)
+    elsif sell && owed.nil?
+      set_rebalance_pending!(phase: PHASE_SELLING, sell_transaction_id: sell.id)
+    elsif owed&.positive?
+      set_rebalance_pending!(phase: PHASE_BUYING, sell_transaction_id: pending[:sell_transaction_id],
+                             remaining_quote_amount: owed)
+    else
+      clear_rebalance_pending!
+    end
+  end
+
+  def recovered_rebalance_leg(id)
+    transaction = id.present? && transactions.find_by(id: id)
+    transaction if transaction && (transaction.closed? || transaction.cancelled?)
+  end
+
   # --- "drifted, but no trade is big enough" -------------------------------------------------
   # With two assets, a correction below the venue minimum just means the drift is tiny, so staying
   # silent is right. With more, the drift that TRIPS the band and the trade that FIXES it are

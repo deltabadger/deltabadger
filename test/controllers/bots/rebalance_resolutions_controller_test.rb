@@ -56,6 +56,24 @@ class Bots::RebalanceResolutionsControllerTest < ActionDispatch::IntegrationTest
     assert_not pending[:buy_attempted], 'the retry is a fresh attempt'
   end
 
+  test 'a halt that names a settled buy keeps it, so its fill comes off what is owed' do
+    # Bot::Rebalanceable#resolve_rebalance_halt! owns the cases; this pins that the endpoint uses it.
+    buy = create(:transaction, bot: @bot, exchange: @bot.exchange, status: :submitted,
+                               external_status: :cancelled, external_id: 'recovered',
+                               side: :buy, transaction_type: 'REBALANCE',
+                               base: @bot.base_assets.last.symbol, quote: @bot.quote_asset.symbol,
+                               price: 100, amount: 0.8, quote_amount: 80, amount_exec: 0.4, quote_amount_exec: 40)
+    @bot.set_rebalance_pending!(phase: Bot::Rebalanceable::PHASE_AMBIGUOUS, buy_transaction_id: buy.id,
+                                remaining_quote_amount: 80, buy_attempted: true)
+    Bot::FetchAndUpdateOrderJob.stubs(:perform_now)
+
+    post bot_rebalance_resolutions_path(bot_id: @bot.id)
+
+    pending = @bot.reload.rebalance_pending
+    assert_equal [Bot::Rebalanceable::PHASE_BUYING, buy.id, true],
+                 [pending[:phase], pending[:buy_transaction_id], pending[:buy_attempted]]
+  end
+
   test 'a live rebalance order the pending payload never referenced still blocks the clear' do
     # A worker can die after persist_accepted_order! but before the id reaches the state.
     create(:transaction, bot: @bot, exchange: @bot.exchange, status: :submitted,

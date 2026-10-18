@@ -34,7 +34,7 @@
     "app/models/bot/liquidation_state.rb": "a865f2f7e80a618a5d5ede2b711e1c2f47e22065683a0be47c57e79b97926a9e",
     "app/models/bot/composition/redeployable.rb": "3b2d9bd6f00f991a437dcdf3a13e2532a9164ff2f4934dad5ae0e280a01b49e6",
     "app/models/bot/composition/liquidatable.rb": "4f90f627421c7b574c5f0e52036cc869342567ab08c09df5db50e27a9916f67d",
-    "app/models/bot/rebalanceable.rb": "18e41a69d15ec01ee50fcc6dcb42ed69aa220f4aed0961c9e18e4a980082784e",
+    "app/models/bot/rebalanceable.rb": "cda8eb4b1b300ebd2dad68c2a779084e3bcf7adc4fb32aaa57fbff0133e0f8de",
     "app/models/bot/rebalancer.rb": "aa1b95a2d20476d4ecd27222cd039d5a45188f0baca13f23b33abb1278f3a30f",
     "app/models/bot/composition/rebalancer.rb": "e87f1addea2a1831df090fd959fd8dfe54031c2eb92da971652476ce8d96a02b",
     "app/jobs/bot/evaluate_rebalancers_job.rb": "e264f8d0aacb1f39af9049fd2f58e2eed0ac061f30ae1e3c8cb7221da4ed5643",
