@@ -66,11 +66,21 @@ pub struct Engine<F: VenueFactory> {
     /// Bot::EvaluateRebalancersJob's next fire (`30 */4 * * *`), in memory: set at the first pass to the first fire after it,
     /// so a fire missed while the engine was down is not run late (Solid Queue does not backfill a recurring task either).
     rebalance_at: Option<i64>,
-    /// A composition resync's retry (Alpaca transport failures only): failed attempts and when the next one runs, µs. In
-    /// memory: a restart grants a fresh budget.
-    resync_retry: HashMap<i64, (u32, i64)>,
+    /// The composition resyncs' retry waits and once-only logs.
+    resyncs: Resyncs,
+}
+
+/// What `resync_bot` keeps between passes, in memory (a restart grants a fresh retry budget, which Rails' timing allows).
+#[derive(Default)]
+pub struct Resyncs {
+    /// A resync's retry (Alpaca transport failures only): failed attempts and when the next one runs, µs.
+    retry: HashMap<i64, (u32, i64)>,
     /// Bots whose pending resync is left to Rails (outside this engine's slice) or keeps failing here: logged once.
-    resync_logged: HashSet<i64>,
+    logged: HashSet<i64>,
+}
+impl Resyncs {
+    /// When the bot's resync is tried again, µs, if it waits for a retry.
+    pub fn retry_at(&self, id: i64) -> Option<i64> { self.retry.get(&id).map(|(_, at)| *at) }
 }
 
 impl<F: VenueFactory> Engine<F> {
@@ -78,7 +88,7 @@ impl<F: VenueFactory> Engine<F> {
         Self { primary, factory, cipher, lock, started: false, attempts: HashMap::new(), run_keys: HashMap::new(), retry_at: HashMap::new(), closed_until: HashMap::new(), condition_at: HashMap::new(), cache_insert_step:None, polls: HashMap::new(), reconcile_at: HashMap::new(),
                prices: PriceCache::default(), process_start: None, wake: Arc::new(Notify::new()), stop: Arc::new(AtomicBool::new(false)),
                stopped: Arc::new(tokio::sync::watch::Sender::new(false)), writers_guarded: false, stale_logged: HashMap::new(), defer_refused: HashSet::new(),
-               events: EngineEvents::default(), settle_scan_at: 0, rebalance_at: None, resync_retry: HashMap::new(), resync_logged: HashSet::new() }
+               events: EngineEvents::default(), settle_scan_at: 0, rebalance_at: None, resyncs: Resyncs::default() }
     }
     #[doc(hidden)] pub fn inject_cache_insert_step(&mut self, step: impl FnOnce(&Connection)->Result<(),EngineError> + 'static) { self.cache_insert_step=Some(Box::new(step)); }
     pub fn wake_handle(&self) -> Arc<Notify> { self.wake.clone() }
@@ -91,10 +101,12 @@ impl<F: VenueFactory> Engine<F> {
     /// Tests only: the rebalancers' next fire, as if the engine had started before it.
     #[doc(hidden)] pub fn inject_rebalance_at(&mut self, at: DateTime<Utc>) { self.rebalance_at = Some(at.timestamp_micros()); }
     #[doc(hidden)] pub fn inject_stale_retry(&mut self, bot: i64, at_us: i64) { self.retry_at.insert(bot, model::Produced::new(at_us,None)); }
-    fn venue_for(&self, bot: &model::Bot) -> Result<(crate::venue::Handle<F::V>, Option<model::CredentialVersion>), EngineError> {
-        let (credentials,version,sensitive)=model::credentials_with_redaction(&self.primary,&self.cipher,bot)?;
-        Ok((crate::venue::Handle::new(self.factory.for_bot_with_redaction(&model::exchange_type(&self.primary, bot)?, credentials,sensitive),version.clone()),version))
-    }
+    fn venue_for(&self, bot: &model::Bot) -> Result<(crate::venue::Handle<F::V>, Option<model::CredentialVersion>), EngineError> { venue_for(&self.primary, &self.factory, &self.cipher, bot) }
+}
+
+fn venue_for<F: VenueFactory>(primary: &Connection, factory: &F, cipher: &Cipher, bot: &model::Bot) -> Result<(crate::venue::Handle<F::V>, Option<model::CredentialVersion>), EngineError> {
+    let (credentials,version,sensitive)=model::credentials_with_redaction(primary,cipher,bot)?;
+    Ok((crate::venue::Handle::new(factory.for_bot_with_redaction(&model::exchange_type(primary, bot)?, credentials,sensitive),version.clone()),version))
 }
 
 /// A stop request for the loop: the tick in hand finishes, nothing new starts, and `run` returns `EngineError::Stopped`.
@@ -328,83 +340,88 @@ const RESYNC_RETRY: crate::jobs::Retry = crate::jobs::Retry::Polynomial { attemp
 /// created or stopped bot too. A bot's failure is logged; its marker decides whether it runs again.
 async fn run_resyncs<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock, wake: &mut i64) -> Result<(), EngineError> {
     let marked = super::index::resync_marked(&e.primary)?;
-    e.resync_retry.retain(|id, _| marked.iter().any(|(m, _)| m == id));
+    e.resyncs.retry.retain(|id, _| marked.iter().any(|(m, _)| m == id));
     for (id, marker) in marked {
         if e.stopping() { break; }
-        match resync_bot(e, id, &marker, clock, wake).await {
+        let Engine { primary, factory, cipher, prices, resyncs, .. } = &mut *e;
+        match resync_bot(primary, id, &marker, clock, prices, resyncs, |bot| venue_for(primary, factory, cipher, bot), wake).await {
             Err(err @ (EngineError::Lease(_) | EngineError::Store(_))) => return Err(err),
-            Err(err) => if e.resync_logged.insert(id) { super::log(&format!("[engine] bot {id}: its composition resync failed: {err:?}; retried at the next pass")); },
-            Ok(()) => {}
+            Err(err) => if e.resyncs.logged.insert(id) { super::log(&format!("[engine] bot {id}: its composition resync failed: {err:?}; retried at the next pass")); },
+            Ok(true) => e.events.send(EngineEvent::OrderUpdated { bot_id: id }),
+            Ok(false) => {}
         }
     }
     Ok(())
 }
 
-/// One Bot::ResyncIndexCompositionJob#perform for a marked bot, or why it waits. The marker is cleared where Rails' job
-/// ends (done, a returned Failure, a raise, retries spent) and kept where it would still run: a bot this engine does not
-/// run (Rails resyncs it after a handback), an unresolved placement (the membership its order was sized against stays until
-/// it settles), a retry wait, a trigger that landed during the run.
-async fn resync_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, marker: &str, clock: &dyn Clock, wake: &mut i64) -> Result<(), EngineError> {
+/// One Bot::ResyncIndexCompositionJob#perform for a marked bot, or why it waits; `venue` builds the bot's venue, asked only
+/// once the bot is known to run here. The marker is cleared where Rails' job ends (done, a returned Failure, a raise,
+/// retries spent) and kept where it would still run: a bot this engine does not run (Rails resyncs it after a handback),
+/// an unresolved placement (the membership its order was sized against stays until it settles), a retry wait, a trigger
+/// that landed during the run. Ok(true): the job's broadcast_metrics_panel is owed.
+#[allow(clippy::too_many_arguments)]
+pub async fn resync_bot<V: crate::venue::Attributed>(c: &Connection, id: i64, marker: &str, clock: &dyn Clock, prices: &PriceCache, state: &mut Resyncs,
+                                                     venue: impl FnOnce(&model::Bot) -> Result<(V, Option<model::CredentialVersion>), EngineError>, wake: &mut i64) -> Result<bool, EngineError> {
     use crate::enums::BotStatus::{Archived, Deleted};
     use super::index::{clear_resync, Refusal};
     let now_us = clock.now().timestamp_micros();
-    let clear = |e: &Engine<F>| model::locked(&e.primary, |tx| clear_resync(tx, id, marker).map(|_| ()));
-    let no_exchange: bool = e.primary.query_row("SELECT exchange_id IS NULL FROM bots WHERE id = ?1", [id], |r| r.get(0))?;
-    if no_exchange { return clear(e); } // never enqueued for one (sync_from_coingecko_job.rb:151-153)
-    let bot = model::load_bot(&e.primary, id)?;
-    if matches!(bot.status, Deleted | Archived) { return clear(e); } // `return if bot.deleted? || bot.archived?`
-    let reasons = eligibility::bot_reasons(&e.primary, &bot)?;
+    let clear = || model::locked(c, |tx| clear_resync(tx, id, marker).map(|_| ()));
+    let no_exchange: bool = c.query_row("SELECT exchange_id IS NULL FROM bots WHERE id = ?1", [id], |r| r.get(0))?;
+    if no_exchange { clear()?; return Ok(false); } // never enqueued for one (sync_from_coingecko_job.rb:151-153)
+    let bot = model::load_bot(c, id)?;
+    if matches!(bot.status, Deleted | Archived) { clear()?; return Ok(false); } // `return if bot.deleted? || bot.archived?`
+    let reasons = eligibility::bot_reasons(c, &bot)?;
     if !reasons.is_empty() {
-        if e.resync_logged.insert(id) { super::log(&format!("[engine] bot {id}: its composition resync is left to Rails ({})", reasons.join(", "))); }
-        return Ok(());
+        if state.logged.insert(id) { super::log(&format!("[engine] bot {id}: its composition resync is left to Rails ({})", reasons.join(", "))); }
+        return Ok(false);
     }
-    if bot.rust_placement().is_some() { return Ok(()); }
-    if let Some((_, at)) = e.resync_retry.get(&id) { if *at > now_us { *wake = (*wake).min(*at); return Ok(()); } }
-    let (venue, version) = e.venue_for(&bot)?;
-    let claimed = placement::composition_snapshot(&e.primary, &bot)?;
-    let refreshed = super::index::refresh_for_resync(&e.primary, &venue, &bot, &claimed, marker, clock, &e.prices, &version).await;
+    if bot.rust_placement().is_some() { return Ok(false); }
+    if let Some(at) = state.retry_at(id) { if at > now_us { *wake = (*wake).min(at); return Ok(false); } }
+    let (venue, version) = venue(&bot)?;
+    let claimed = placement::composition_snapshot(c, &bot)?;
+    let refreshed = super::index::refresh_for_resync(c, &venue, &bot, &claimed, marker, clock, prices, &version).await;
     match refreshed {
         Ok(Ok(_)) => {
-            e.resync_retry.remove(&id);
-            e.resync_logged.remove(&id);
+            state.retry.remove(&id);
+            state.logged.remove(&id);
             super::log(&format!("bot {id}: composition resynced"));
-            e.events.send(EngineEvent::OrderUpdated { bot_id: id });
+            Ok(true)
         }
-        Ok(Err(Refusal::Transient(m))) if m == super::index::CHANGED => *wake = (*wake).min(now_us + 1_000_000),
+        Ok(Err(Refusal::Transient(m))) if m == super::index::CHANGED => { *wake = (*wake).min(now_us + 1_000_000); Ok(false) }
         Ok(Err(Refusal::Transient(m))) => {
-            let n = e.resync_retry.get(&id).map_or(0, |(n, _)| *n) + 1;
+            let n = state.retry.get(&id).map_or(0, |(n, _)| *n) + 1;
             match RESYNC_RETRY.wait(n) {
                 Some(wait) => {
                     super::log(&format!("bot {id}: composition resync failed: {m} (retrying in {} s)", wait.as_secs()));
                     let at = now_us + wait.as_micros() as i64;
-                    e.resync_retry.insert(id, (n, at));
+                    state.retry.insert(id, (n, at));
                     *wake = (*wake).min(at);
                 }
                 None => {
                     super::log(&format!("bot {id}: composition resync failed: {m} (attempts exhausted)"));
-                    e.resync_retry.remove(&id);
-                    clear(e)?;
+                    state.retry.remove(&id);
+                    clear()?;
                 }
             }
+            Ok(false)
         }
         Ok(Err(Refusal::Failure(m))) => {
             // The engine's own refusal of a bot that became ineligible during the run stays Rails' to resync.
-            let reasons = eligibility::bot_reasons(&e.primary, &model::load_bot(&e.primary, id)?)?;
+            let reasons = eligibility::bot_reasons(c, &model::load_bot(c, id)?)?;
             if !reasons.is_empty() {
-                if e.resync_logged.insert(id) { super::log(&format!("[engine] bot {id}: its composition resync is left to Rails ({m})")); }
-                return Ok(());
+                if state.logged.insert(id) { super::log(&format!("[engine] bot {id}: its composition resync is left to Rails ({m})")); }
+                return Ok(false);
             }
             super::log(&format!("bot {id}: composition resync failed: {m}"));
-            e.resync_retry.remove(&id);
-            clear(e)?;
+            state.retry.remove(&id);
+            clear()?;
             // A returned Failure is broadcast (the job completes); a rejected key raised, and nothing is.
-            if !m.contains(" rejected the API key: ") { e.events.send(EngineEvent::OrderUpdated { bot_id: id }); }
+            Ok(!m.contains(" rejected the API key: "))
         }
-        Err(EngineError::RunFenced) => clear(e)?, // deleted or archived during the run
-        Err(EngineError::CredentialsChanged) => *wake = (*wake).min(now_us + 1_000_000),
-        Err(err) => return Err(err),
+        Err(EngineError::RunFenced) => { clear()?; Ok(false) } // deleted or archived during the run
+        Err(EngineError::CredentialsChanged) => { *wake = (*wake).min(now_us + 1_000_000); Ok(false) }
+        Err(err) => Err(err),
     }
-    Ok(())
 }
 
 /// Bot::EvaluateRebalancersJob's schedule (config/recurring.yml).

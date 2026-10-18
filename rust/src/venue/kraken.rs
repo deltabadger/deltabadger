@@ -269,7 +269,8 @@ impl<T: Transport> KrakenVenue<T> {
             if !placement && matches!(resp.status, 429 | 418) {
                 return Err(VenueError::Rejected(vec![format!("the server responded with status {} ({HTTP_THROTTLE})", resp.status)]));
             }
-            let message = if resp.body.trim().is_empty() { format!("the server responded with status {}", resp.status) } else { resp.body.clone() };
+            // Faraday's own message for an empty body names the request (Faraday::Response::RaiseError).
+            let message = if resp.body.trim().is_empty() { format!("the server responded with status {} for {} {}", resp.status, r.method, r.url()) } else { resp.body.clone() };
             if !placement && resp.status == 401 { return Err(VenueError::Unauthorized(vec![message])); }
             return Err(if placement && !(400..500).contains(&resp.status) { VenueError::Ambiguous(message) } else { VenueError::Rejected(vec![message]) });
         }
