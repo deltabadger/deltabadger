@@ -12,7 +12,7 @@ use serde_json::{json, Map, Value};
 
 /// (chain, kind, callback, its conditions joined by " & ", how this port handles it), as in wizard::create::CALLBACKS.
 pub const CALLBACKS: &[(&str, &str, &str, &str, &str)] = &[
-    ("initialize", "after", "initialize_index_allocatable_settings", "the callback did not return false", "ported: defaults (build: num_coins, hold_all, allocation_flattening)"),
+    ("initialize", "after", "initialize_index_allocatable_settings", "the callback did not return false", "ported: defaults (build: num_coins, allocation_flattening)"),
     ("initialize", "after", "initialize_limit_orderable_settings", "the callback did not return false", "ported: defaults (build)"),
     ("initialize", "after", "initialize_smart_intervalable_settings", "the callback did not return false", "ported: defaults (build, smart_quote with the venue minimum)"),
     ("validation", "after", "_ensure_no_duplicate_errors", "", "ported: one message per failure"),
@@ -213,8 +213,7 @@ pub fn build(c: &Connection, config: &Value, locale: &str) -> Result<Built, WebE
     default(&mut settings, "limit_ordered", json!(false));
     default(&mut settings, "limit_order_pcnt_distance", json!(0.001));
     let bounded = bounded(index_row(c, &settings)?.as_ref());
-    default(&mut settings, "num_coins", json!(bounded.unwrap_or(10)));
-    if bounded.is_some() && settings.get("hold_all").is_none_or(Value::is_null) { settings.insert("hold_all".into(), json!(true)); }
+    default(&mut settings, "num_coins", json!(bounded.map_or(10, |size| size.min(10))));
     default(&mut settings, "allocation_flattening", json!(0.0));
     // clamp_num_coins_to_bounded_index.
     if let (Some(count), Some(size)) = (num_coins(&settings), bounded) {

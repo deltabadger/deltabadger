@@ -231,8 +231,7 @@ struct Sentence<'a> { v: &'a Ctx, index_url: String, index_name: String, venue: 
 fn index_name(c: &Connection, config: Option<&Value>, locale: &str) -> Result<String, WebError> {
     let mut settings = settings_of(config);
     let bounded = create::bounded(index_row(c, &settings)?.as_ref());
-    if matches!(settings.get("num_coins"), None | Some(Value::Null)) { settings.insert("num_coins".into(), json!(bounded.unwrap_or(10))); }
-    if bounded.is_some() && settings.get("hold_all").is_none_or(Value::is_null) { settings.insert("hold_all".into(), json!(true)); }
+    if matches!(settings.get("num_coins"), None | Some(Value::Null)) { settings.insert("num_coins".into(), json!(bounded.map_or(10, |size| size.min(10)))); }
     Ok(display_index_name(&settings, bounded, locale))
 }
 
@@ -354,8 +353,8 @@ fn quote_page(c: &Connection, ctx: &Ctx, csrf: &str, config: Option<&Value>) -> 
         if index.is_some() && !coins.is_empty() {
             let mut s = c.prepare("SELECT t.quote_asset_id, a.id, a.symbol, a.color FROM tickers t JOIN assets a ON a.id = t.base_asset_id \
                                    WHERE t.available = 1 AND t.trading_enabled = 1 AND t.exchange_id = ?1 AND a.external_id IN (SELECT value FROM json_each(?2)) \
-                                   ORDER BY a.market_cap_rank IS NULL, a.market_cap_rank, t.id")?;
-            // ponytail: ties on rank in ticker order; Rails leaves them to SQLite's plan, which reads the tickers in that order here.
+                                   ORDER BY (SELECT MIN(CAST(j.key AS INTEGER)) FROM json_each(?2) j WHERE j.value = a.external_id), t.id")?;
+            // The index's own order (largest first), ties in ticker order: market_cap_rank is a crypto ranking, and stocks have none.
             for row in s.query_map(rusqlite::params![venue.id, json!(coins).to_string()], |r| Ok((r.get::<_, Option<i64>>(0)?, r.get::<_, i64>(1)?, r.get::<_, Option<String>>(2)?, r.get::<_, Option<String>>(3)?)))? {
                 let (quote, id, symbol, color) = row?;
                 let Some(quote) = quote else { continue };

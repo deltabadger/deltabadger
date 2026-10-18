@@ -33,18 +33,13 @@ module Bots::DcaIndex::IndexAllocatable
 
   def initialize_index_allocatable_settings
     self.num_coins ||= default_num_coins
-    # A NEW bot on a bounded index holds all of it (Decision 17); the user trims from there. Only a
-    # new record: this runs on every load too, and a persisted bot saved at twenty must stay at
-    # twenty when the setting is absent (the B1 migration also writes false explicitly).
-    self.hold_all = true if new_record? && hold_all.nil? && bounded_universe_size.present?
     self.allocation_flattening ||= 0.0
   end
 
-  # A bounded (deltabadger-sourced) index starts the bot at its full universe — the user
-  # then trims down with the slider (an ND100 bot down to "ND7"). Crypto/category indices
-  # keep the standard starting count.
+  # Every new bot starts at ten assets, a bounded index too (an ND100 bot starts as "ND10"); the
+  # user moves the slider from there, up to the whole universe.
   def default_num_coins
-    bounded_universe_size || 10
+    [10, bounded_universe_size].compact.min
   end
 
   # The quote a newcomer has to show to earn a seat: the ask a market buy would take, or the last
