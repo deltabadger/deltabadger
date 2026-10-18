@@ -132,7 +132,7 @@ fn bot_reasons_with(c: &Connection, bot: &Bot, splits: &mut SplitRows) -> Result
     let alpaca = exchange.as_deref() == Some("Exchanges::Alpaca");
     let members = if index { index_reasons(c, bot, alpaca, &mut r)? } else { composition_reasons(bot, &mut r) };
     let selling = bot.settings.get("direction").is_some_and(|v| v == "selling");
-    if let Some(why) = admission(exchange.as_deref(), index, members.len(), selling) { r.push(why.into()); }
+    if let Some(why) = admission(exchange.as_deref(), index, selling) { r.push(why.into()); }
     match bot.settings.get("direction") {
         None | Some(Value::Null) => {}, Some(v) if v == "buying" => {},
         Some(v) if v == "selling" => sell_reasons(c, bot, alpaca, &mut r)?,
@@ -194,20 +194,16 @@ fn price_rule_reason(bot: &Bot, key: &str, value: &Value) -> Option<String> {
 
 /// Which bots this build runs, by venue, class and member count: the one rule the engine's guard and the bot pages
 /// (web::bot::refusal) both apply, so a page is never served for a bot the engine refuses. Kraken, Binance and KuCoin take
-/// buying baskets and index bots of any size (P1-T0, plan CI, plan K O6); an index bot never sells (not reversible); a wider basket
-/// sells on Alpaca only (6b, the ranked DCA-out), one asset elsewhere (6a). Rebalancing is Alpaca's too (`rebalances_on`).
+/// buying baskets and index bots of any size (P1-T0, plan CI, plan K O6); an index bot never sells (Bots::DcaIndex is not
+/// Bot::Reversible); a basket of any size sells on every venue (6a, 6b, plan CB T3: the ranked DCA-out is venue-neutral).
 /// What else a bot needs (its amount limit on Kraken/Binance, market-cap weights) is each side's own named reason.
-pub fn admission(exchange: Option<&str>, index: bool, members: usize, selling: bool) -> Option<&'static str> {
+pub fn admission(exchange: Option<&str>, index: bool, selling: bool) -> Option<&'static str> {
     match exchange {
         Some("Exchanges::Alpaca") => {}
         Some("Exchanges::Kraken" | "Exchanges::Binance" | "Exchanges::Kucoin") => {}
         _ => return Some("a bot on an exchange other than Alpaca, Kraken, Binance and KuCoin"),
     }
-    match (selling, index) {
-        (true, true) => Some("an index bot that sells"),
-        (true, false) if members != 1 && !rebalances_on(exchange) => Some("a basket of several assets that sells"),
-        _ => None,
-    }
+    if selling && index { Some("an index bot that sells") } else { None }
 }
 
 /// The venue whose baskets and index bots this engine rebalances and sells member by member (6b): Alpaca. Kraken and

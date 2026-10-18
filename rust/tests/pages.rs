@@ -1130,10 +1130,8 @@ fn action_divergence(name: &str, scenario: &Value, rails: &Value, rust: &Value) 
             }
             if let Some(venue)=n.strip_prefix("venue_basket_").and_then(|rest|rest.strip_suffix("_not_ported_reverse")) {
                 // Rails flips a buying basket of several into selling. This crate commits the same rotation and answers the listed
-                // ⇄ refresh (below), and the page it refreshes to is then refused: the engine does not sell a basket of several on
-                // Kraken or Binance (eligibility::admission). Not ported until it does.
-                let exchange=if venue=="kraken" {"Exchanges::Kraken"} else {"Exchanges::Binance"};
-                if deltabadger::engine::eligibility::admission(Some(exchange),false,2,true).is_none() { return Err(format!("{n}: a selling basket of several is served on {venue} now: retire this case")) }
+                // ⇄ refresh (below), and the page it refreshes to is then refused: the engine sells a basket of several on
+                // {venue} (plan CB T3), but these pages do not render one that sells on any venue yet (6b-web).
                 if a["status"]!=200 || b["status"]!=200 { return Err(format!("{n}: expected 200 from both, got {} / {}",a["status"],b["status"])) }
                 let flipped=a["rows_after"]["bots"].as_array().and_then(|rows|rows.iter().find(|row|row["id"]==1)).ok_or("Rails bot 1")?;
                 if flipped["settings"]["direction"]!="selling" { return Err(format!("{n}: Rails no longer flips the basket into selling")) }

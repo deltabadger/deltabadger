@@ -87,8 +87,6 @@ fn each_thing_outside_the_slice_is_refused_with_its_reason() {
         ("start_time_enabled", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("start_time_enabled", json!(true)).with("start_at", json!("2020-01-01T00:00:00Z"))))),
         ("rebalance_enabled", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("rebalance_enabled", json!(true))))),
         ("direction \"sideways\"", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("direction", json!("sideways"))))),
-        // Kraken sells one-asset baskets only (the ranked DCA-out is Alpaca's, 6b).
-        ("a basket of several assets that sells", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("direction", json!("selling")).with("allocations", json!({ s.btc.to_string(): 0.5, s.quote.to_string(): 0.5 }))))),
         ("sell_interval \"fortnight\"", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("direction", json!("selling")).with("sell_interval", json!("fortnight"))))),
         ("sell_amount is negative", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("direction", json!("selling")).with("sell_amount", json!(-1))))),
         ("sell cadence under a second", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("direction", json!("selling")).with("sell_denomination", json!("base"))
@@ -425,7 +423,7 @@ fn a_kraken_or_binance_basket_is_eligible() {
     }
 }
 
-/// What a Kraken or Binance basket still may not do in this engine: the amount limit, selling, rebalancing, and an index bot that sells.
+/// What a Kraken, Binance or KuCoin basket still may not do in this engine: the amount limit, rebalancing, and an index bot that sells.
 #[test]
 fn a_kraken_or_binance_basket_outside_the_slice_is_refused_with_its_reason() {
     type Case = Box<dyn Fn(&rusqlite::Connection, &seed::Seeded, i64) -> i64>;
@@ -434,8 +432,6 @@ fn a_kraken_or_binance_basket_outside_the_slice_is_refused_with_its_reason() {
         let cases: Vec<(String, Case)> = vec![
             (format!("quote_amount_limited ({name}: amount limits are not supported"), Box::new(move |c, s, eth| seed::insert_bot(c, s,
                 &half(s, eth).with("quote_amount_limited", json!(true)).with("quote_amount_limit", json!(500.0))))),
-            ("a basket of several assets that sells".into(), Box::new(move |c, s, eth| seed::insert_bot(c, s, &half(s, eth).with("direction", json!("selling"))
-                .with("sell_denomination", json!("base")).with("sell_amount", json!(0.001))))),
             ("rebalance_enabled".into(), Box::new(move |c, s, eth| seed::insert_bot(c, s, &half(s, eth).with("rebalance_enabled", json!(true))))),
             ("an index bot that sells".into(), Box::new(move |c, s, _| { let id = seed::index_bot(c, s, "layer-1", 3, 0.0, false);
                 c.execute("UPDATE bots SET settings = json_set(settings, '$.direction', 'selling') WHERE id = ?1", [id]).unwrap(); id })),
@@ -449,6 +445,21 @@ fn a_kraken_or_binance_basket_outside_the_slice_is_refused_with_its_reason() {
             assert!(r.problems.iter().any(|p| p.contains(&format!("bot {id}")) && p.contains(&reason)), "{venue} {reason}: {:?}", r.problems);
             assert!(r.eligible.is_empty(), "{venue} {reason}");
         }
+    }
+}
+
+/// Plan CB T3: a basket of three that sells is admitted on Kraken, Binance and KuCoin (the ranked DCA-out is venue-neutral).
+#[test]
+fn a_wider_crypto_basket_that_sells_is_admitted() {
+    for venue in ["Exchanges::Kraken", "Exchanges::Binance", "Exchanges::Kucoin"] {
+        let (_d, o, s) = install();
+        o.primary.execute("UPDATE exchanges SET type = ?1", [venue]).unwrap();
+        let (eth, sol) = (venue_member(&o.primary, &s, "ETH"), venue_member(&o.primary, &s, "SOL"));
+        let id = seed::insert_bot(&o.primary, &s, &plain().weights(&[(s.btc, 0.5), (eth, 0.3), (sol, 0.2)]).with("direction", json!("selling"))
+            .with("sell_denomination", json!("quote")).with("sell_quote_amount", json!(100.0)));
+        let r = eligibility::check_install(&o.primary).unwrap();
+        assert!(r.problems.is_empty(), "{venue}: {:?}", r.problems);
+        assert_eq!(r.eligible, vec![id], "{venue}");
     }
 }
 
@@ -789,25 +800,20 @@ fn a_price_rule_with_the_pause_action_is_eligible() {
     }
 }
 
-/// P1-T1: the one admission rule the engine and the bot pages share. Kraken and Binance take buying baskets of any size;
-/// index bots stay on Alpaca; selling stays one asset there (a wider basket sells on Alpaca, 6b) and never an index bot.
+/// P1-T1: the one admission rule the engine and the bot pages share. Every venue takes buying baskets of any size and index
+/// bots; a basket of any size sells on every venue (6a, 6b, plan CB T3); an index bot never sells (Rails has none).
 #[test]
 fn one_admission_rule_for_engine_and_pages() {
     use eligibility::admission;
     for venue in ["Exchanges::Kraken", "Exchanges::Binance", "Exchanges::Kucoin", "Exchanges::Alpaca"] {
-        for members in [1, 2, 20] { assert_eq!(admission(Some(venue), false, members, false), None, "{venue} {members}"); }
-        assert_eq!(admission(Some(venue), false, 1, true), None, "{venue} one-asset seller");
-        assert!(admission(Some(venue), true, 0, true).is_some(), "{venue} index seller");
+        assert_eq!(admission(Some(venue), false, false), None, "{venue} buyer");
+        assert_eq!(admission(Some(venue), false, true), None, "{venue} seller of any size");
+        assert_eq!(admission(Some(venue), true, true), Some("an index bot that sells"), "{venue} index seller");
+        assert_eq!(admission(Some(venue), true, false), None, "{venue} index");
     }
-    for venue in ["Exchanges::Kraken", "Exchanges::Binance", "Exchanges::Kucoin"] {
-        assert_eq!(admission(Some(venue), false, 2, true), Some("a basket of several assets that sells"), "{venue}");
-        assert!(!eligibility::rebalances_on(Some(venue)), "{venue} rebalancing stays Rails'");
-    }
-    // 6b: a wider Alpaca basket sells (the ranked DCA-out) and rebalances.
-    assert_eq!(admission(Some("Exchanges::Alpaca"), false, 2, true), None);
     assert!(eligibility::rebalances_on(Some("Exchanges::Alpaca")));
-    for venue in ["Exchanges::Kraken", "Exchanges::Binance", "Exchanges::Kucoin", "Exchanges::Alpaca"] { assert_eq!(admission(Some(venue), true, 10, false), None, "{venue} index"); }
+    for venue in ["Exchanges::Kraken", "Exchanges::Binance", "Exchanges::Kucoin"] { assert!(!eligibility::rebalances_on(Some(venue)), "{venue} rebalancing stays Rails'"); }
     for venue in [Some("Exchanges::Coinbase"), None] {
-        assert_eq!(admission(venue, false, 1, false), Some("a bot on an exchange other than Alpaca, Kraken, Binance and KuCoin"));
+        assert_eq!(admission(venue, false, false), Some("a bot on an exchange other than Alpaca, Kraken, Binance and KuCoin"));
     }
 }

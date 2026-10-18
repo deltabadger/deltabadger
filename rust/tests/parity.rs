@@ -398,32 +398,57 @@ async fn rails_and_rust_decide_identically_across_the_sell_grid() {
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
 }
 
-/// Slice 6b: a wider Alpaca basket's ranked DCA-out (script/rust/decisions.rb basket_sell_scenarios), compared whole.
+/// Slice 6b: a wider basket's ranked DCA-out (script/rust/decisions.rb basket_sell_scenarios), compared whole: on Alpaca, and
+/// (plan CB T3) on Kraken, Binance and KuCoin, valued by each venue's bulk price read.
+/// Sanctioned divergence `unreadable_string_price` (plan CB Q6, ruby::json_to_d): a Binance or KuCoin price that is no decimal
+/// ("abc", "12x") leaves its member unpriced, so nothing is valued and nothing sells, where Rails' String#to_d values it at 0
+/// or 12 and trades on that.
 #[tokio::test(flavor = "current_thread")]
 async fn rails_and_rust_decide_identically_across_the_basket_sell_grid() {
-    let (_copies, outputs) = grid_outputs("grid-basket-sell", 74).await;
+    let (_copies, outputs) = grid_outputs("grid-basket-sell", 278).await;
     let mut failures = vec![];
+    let diverges = |name: &str| name.contains("-unreadable_price-") && (name.contains("-binance-") || name.contains("-kucoin-"));
     for (name, _, rails_out, rust_out) in &outputs {
+        if diverges(name) {
+            if !rust_out["sent"].as_array().unwrap().is_empty() { failures.push(format!("{name}: Rust sold on an unreadable price\n  rust:  {rust_out}")); }
+            if rails_out["sent"].as_array().unwrap().is_empty() { failures.push(format!("{name}: Rails no longer trades on its String#to_d price: drop the divergence\n  rails: {rails_out}")); }
+            continue;
+        }
         if rails_out != rust_out { failures.push(format!("{name}\n  rails: {rails_out}\n  rust:  {rust_out}")); }
     }
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), outputs.len(), failures.join("\n"));
-    // Pin what Rails does, so that two silent sides cannot pass: which members each cell sells.
-    let sold = |out: &serde_json::Value| -> Vec<String> { out["sent"].as_array().unwrap().iter().map(|o| o["symbol"].as_str().unwrap().to_string()).collect() };
+    // Pin what Rails does, so that two silent sides cannot pass: which members each cell sells, by base asset.
+    let base = |o: &serde_json::Value| -> String {
+        let code = o["symbol"].as_str().or(o["pair"].as_str()).unwrap();
+        if code == "XBTEUR" { return "BTC".into(); }
+        code.split(['/', '-']).next().unwrap().trim_end_matches("USDT").trim_end_matches("EUR").to_string()
+    };
+    let sold = |out: &serde_json::Value| -> Vec<String> { out["sent"].as_array().unwrap().iter().map(base).collect() };
     for (name, _, rails_out, _) in &outputs {
+        if diverges(name) { continue; }
         let sold = sold(rails_out);
         let rows = rails_out["changes"]["transactions"].as_array().unwrap();
         let skipped = rows.iter().filter(|r| r["after"]["status"] == 2).count();
-        let expect: Option<&[&str]> = if name.contains("-base-") || ["-unpriced_member-", "-stale_feed-", "-feed_unreachable-", "-no_holdings-", "-all_under_floor-", "-balance_error-"].iter().any(|v| name.contains(v)) {
+        let nothing = ["-unpriced_member-", "-stale_feed-", "-feed_unreachable-", "-no_holdings-", "-all_under_floor-", "-balance_error-",
+                       "-unreadable_price-", "-raised_price-"];
+        let crypto = ["-kraken-", "-binance-", "-kucoin-"].iter().any(|v| name.contains(v));
+        let expect: Option<&[&str]> = if name.contains("-base-") || nothing.iter().any(|v| name.contains(v)) {
             Some(&[])
+        // A crypto tie: 100 of each member. w50: BTC (composition order) sells all it holds, and what is left of ETH's share
+        // is under the venue floor; tiers: SOL sits furthest over its target and its bid covers the whole 100.
+        } else if crypto && name.contains("-w50-tie-") { Some(&["BTC"])
+        } else if crypto && name.contains("-tiers-tie-") { Some(&["SOL"])
+        // Kraken: net of the resting 0.009, BTC's 0.001 is worth 49.995 at its last price, just under ETH's 50.0002.
+        } else if name.contains("-kraken-") && name.contains("-resting_top-") { Some(&["ETH", "BTC"])
         // tiers: SOL sits furthest over its smaller target once BTC cannot sell; "tie" is a tie only at w50's equal targets.
-        } else if ["-tiers-floor_handover-", "-tiers-nothing_free_top-", "-tiers-tie-"].iter().any(|v| name.contains(v)) { Some(&["SOL/USD", "ETH/USD"])
-        } else if name.contains("-tiers-foreign_crypto-") || name.contains("-tiers-free_below-") { Some(&["BTC/USD", "SOL/USD", "ETH/USD"])
-        // w50 tie: 64 USD of each member, so BTC (composition order) sells out and ETH takes the rest of the 100.
-        } else if name.contains("-w50-tie-") { Some(&["BTC/USD", "ETH/USD"])
-        } else if name.contains("-over_top-") || name.contains("-rejected-") { Some(&["BTC/USD"])
-        } else if name.contains("-w50-foreign_crypto-") { Some(&["BTC/USD", "ETH/USD"])
-        } else if name.contains("-floor_handover-") || name.contains("-nothing_free_top-") { Some(&["ETH/USD"])
-        } else if name.contains("-free_below-") || name.contains("-resting_top-") { Some(&["BTC/USD", "ETH/USD"])
+        } else if ["-tiers-floor_handover-", "-tiers-nothing_free_top-", "-tiers-tie-"].iter().any(|v| name.contains(v)) { Some(&["SOL", "ETH"])
+        } else if name.contains("-tiers-foreign_crypto-") || name.contains("-tiers-free_below-") { Some(&["BTC", "SOL", "ETH"])
+        // w50 tie: as much of each member, so BTC (composition order) sells out and ETH takes the rest of the 100.
+        } else if name.contains("-w50-tie-") { Some(&["BTC", "ETH"])
+        } else if name.contains("-over_top-") || name.contains("-rejected-") || name.contains("-cancelled_partial_sell-") { Some(&["BTC"])
+        } else if name.contains("-w50-foreign_crypto-") { Some(&["BTC", "ETH"])
+        } else if name.contains("-floor_handover-") || name.contains("-nothing_free_top-") { Some(&["ETH"])
+        } else if name.contains("-free_below-") || name.contains("-resting_top-") { Some(&["BTC", "ETH"])
         } else if name.starts_with("basket-sell-stock-open-") { Some(&["AAPL"])
         } else if name.starts_with("basket-sell-stock-foreign-") { Some(&["MSFT"])
         } else if name.starts_with("basket-sell-stock-closed-") { Some(&[])
