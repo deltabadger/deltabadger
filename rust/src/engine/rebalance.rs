@@ -293,7 +293,7 @@ pub async fn value<V: crate::venue::Venue>(c: &rusqlite::Connection, venue: &V, 
             Ok(raw) => Ok(raw.into_iter().map(|(code, v)| (code, crate::figures::dec::Dec::venue_number(&v)))
                 .filter(|(_, p)| !matches!(p, Err(crate::figures::num::NumError::NotANumber))).collect()),
             Err(VenueError::Transient(m)) => return Ok(Err(ValueFail::Transient(m))),
-            Err(VenueError::Rejected(e)) => Err(Failure::Failed(crate::ruby::to_sentence(&e))),
+            Err(VenueError::Rejected(e) | VenueError::Unauthorized(e)) => Err(Failure::Failed(crate::ruby::to_sentence(&e))),
             Err(VenueError::Ambiguous(m)) => Err(Failure::Failed(m)),
         }
     };

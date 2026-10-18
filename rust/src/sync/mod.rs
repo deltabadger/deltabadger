@@ -288,7 +288,7 @@ pub fn decrypted(cipher: &Cipher, key_id: i64, (key, secret, passphrase): (Optio
 /// text), and Client.network_failure raises Client::TransientNetworkError for a transport failure a retry could fix.
 pub fn venue_failure(e: VenueError) -> (String, bool) {
     match e {
-        VenueError::Rejected(errors) => (errors.into_iter().next().unwrap_or_default(), false),
+        VenueError::Rejected(errors) | VenueError::Unauthorized(errors) => (errors.into_iter().next().unwrap_or_default(), false),
         VenueError::Transient(m) | VenueError::Ambiguous(m) => (format!("Client::TransientNetworkError: {m}"), true),
     }
 }

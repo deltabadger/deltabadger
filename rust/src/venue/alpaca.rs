@@ -177,6 +177,7 @@ impl<T: Transport> AlpacaVenue<T> {
     fn redact_error(&self,error:VenueError)->VenueError{
         match error{
             VenueError::Rejected(messages)=>VenueError::Rejected(messages.into_iter().map(|m|self.transport.redact_diagnostic(&m)).collect()),
+            VenueError::Unauthorized(messages)=>VenueError::Unauthorized(messages.into_iter().map(|m|self.transport.redact_diagnostic(&m)).collect()),
             VenueError::Ambiguous(message)=>VenueError::Ambiguous(self.transport.redact_diagnostic(&message)),
             VenueError::Transient(message)=>VenueError::Transient(self.transport.redact_diagnostic(&message)),
         }
@@ -217,6 +218,7 @@ impl<T: Transport> AlpacaVenue<T> {
             Err(TransportError::Permanent(m)) => Err(VenueError::Rejected(vec![m])),
             Err(TransportError::NotSent(m) | TransportError::MaybeSent(m)) => Err(VenueError::Transient(m)),
             Ok(resp) if (200..300).contains(&resp.status) => http::decode_json(&resp.body).map_err(|e| VenueError::Rejected(vec![unreadable(e, &r, &resp)])),
+            Ok(resp) if resp.status == 401 => Err(VenueError::Unauthorized(vec![error_message(&r, &resp)])),
             Ok(resp) => Err(VenueError::Rejected(vec![error_message(&r, &resp)])),
         }
     }

@@ -270,6 +270,7 @@ impl<T: Transport> KrakenVenue<T> {
                 return Err(VenueError::Rejected(vec![format!("the server responded with status {} ({HTTP_THROTTLE})", resp.status)]));
             }
             let message = if resp.body.trim().is_empty() { format!("the server responded with status {}", resp.status) } else { resp.body.clone() };
+            if !placement && resp.status == 401 { return Err(VenueError::Unauthorized(vec![message])); }
             return Err(if placement && !(400..500).contains(&resp.status) { VenueError::Ambiguous(message) } else { VenueError::Rejected(vec![message]) });
         }
         let body = match http::decode_json(&resp.body) {

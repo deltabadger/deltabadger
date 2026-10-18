@@ -22,7 +22,7 @@ pub fn gate(answer: Result<ClockAnswer, VenueError>, exchange_name: &str, now: D
     let body = match answer {
         // Client.network_failure raises: Rails retries too (parity, `clock_timeout`).
         Err(VenueError::Transient(m) | VenueError::Ambiguous(m)) => return Gate::Retry(m),
-        Err(VenueError::Rejected(e)) => return Gate::Retry(format!("market clock unavailable: {}", to_sentence(&e))),
+        Err(VenueError::Rejected(e) | VenueError::Unauthorized(e)) => return Gate::Retry(format!("market clock unavailable: {}", to_sentence(&e))),
         Ok(ClockAnswer::Failed { status, message }) => {
             // Exchange#invalid_key_error?: HTTP 401, or Exchanges::Alpaca::ERRORS[:invalid_key] ('unauthorized').
             if status == Some(401) || message.contains("unauthorized") { return Gate::InvalidKey(format!("{exchange_name} rejected the API key: {message}")); }

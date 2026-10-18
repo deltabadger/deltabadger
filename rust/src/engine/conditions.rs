@@ -145,7 +145,7 @@ pub enum Checked {
 /// parse_venue_number's ArgumentError (alpaca.rb:611), which the adapter words "unreadable … price for …" or, for a number
 /// out of range, "unreadable number …". VenueError carries no raise/Result distinction, so this reads that wording.
 pub fn raised(e: &VenueError) -> Option<String> {
-    match e { VenueError::Rejected(m) if m.first().is_some_and(|m| m.starts_with("Wrong ") || m.starts_with("invalid value for BigDecimal") || m.starts_with("unreadable ")) => Some(crate::ruby::to_sentence(m)), _ => None }
+    match e { VenueError::Rejected(m) | VenueError::Unauthorized(m) if m.first().is_some_and(|m| m.starts_with("Wrong ") || m.starts_with("invalid value for BigDecimal") || m.starts_with("unreadable ")) => Some(crate::ruby::to_sentence(m)), _ => None }
 }
 
 /// Rust-only marker of a check that raised (Bot::LimitCheckJobBase lets the job die): the chain waits for Repair.

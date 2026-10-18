@@ -77,14 +77,35 @@ pub struct OrderState {
     pub asset_class: Option<String>,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub enum VenueError {
     /// The venue answered and refused (its own error text). Nothing was placed.
     Rejected(Vec<String>),
+    /// A read the venue answered with HTTP 401, with the text `Rejected` would carry: Exchange#invalid_key_error?'s status
+    /// signal (exchange.rb:304-341). Everything but the index's price probe (index::priced) reads it as `Rejected`
+    /// (`rejection`); a placement's 401 stays `Rejected`.
+    Unauthorized(Vec<String>),
     /// The request may have reached the venue (lost reply, timeout after send, a 5xx or unreadable answer to a placement).
     Ambiguous(String),
     /// Nothing reached the venue (refused connection, DNS, TLS before send), or a read failed in transport.
     Transient(String),
+}
+
+impl VenueError {
+    /// The refusal's text, for `Rejected` and `Unauthorized` alike.
+    pub fn rejection(&self) -> Option<&[String]> { match self { Self::Rejected(e) | Self::Unauthorized(e) => Some(e), _ => None } }
+}
+
+/// As derived, except that `Unauthorized` prints as `Rejected`: a message built from `{:?}` reads as it did before the
+/// status was carried.
+impl std::fmt::Debug for VenueError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Rejected(e) | Self::Unauthorized(e) => f.debug_tuple("Rejected").field(e).finish(),
+            Self::Ambiguous(m) => f.debug_tuple("Ambiguous").field(m).finish(),
+            Self::Transient(m) => f.debug_tuple("Transient").field(m).finish(),
+        }
+    }
 }
 
 /// Credentials and their digest are captured once, before this handle is built.

@@ -79,6 +79,8 @@ impl VenueRules {
     }
     pub fn is_throttle(&self, messages: &[String]) -> bool { self.kinds.iter().any(|(k, pats)| *k == "throttle" && any(pats, messages)) }
     pub fn is_transient(&self, messages: &[String]) -> bool { any(self.transient_text, messages) }
+    /// Exchange#invalid_key_error?'s string half: a message carrying one of `known_errors[:invalid_key]`.
+    pub fn is_invalid_key(&self, messages: &[String]) -> bool { self.kinds.iter().any(|(k, pats)| *k == "invalid_key" && any(pats, messages)) }
     pub fn add_outcome_unknown(&self, messages: &[String]) -> bool { any(self.add_outcome_unknown, messages) }
 }
 
