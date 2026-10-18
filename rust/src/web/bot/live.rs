@@ -1,6 +1,7 @@
 //! What the bot page hears while the engine works on the bot: the broadcasts Rails makes from its jobs and callbacks,
-//! rendered as the owner sees them (Bot#with_user_locale) from the rows as they are when the event is read. A tick's claim
-//! (`executing`) redraws the status as Rails' after_update_commit does (app/models/bot.rb:38-40); a tick's end redraws the
+//! rendered as the owner sees them (Bot#with_user_locale) from the rows as they are when the event is read. A status the
+//! engine changed (a tick's claim, a follow-up fill's amount-limit stop) redraws the status as Rails' after_update_commit
+//! does (app/models/bot.rb:38-40); a tick's end redraws the
 //! bars, as Bot::ActionJob's rescue and Bot::BroadcastAfterScheduledActionJob do, and the buttons and columns lock too when
 //! the tick stopped the bot (Bot::StopJob's status change); each order inserted or written is Transaction's
 //! after_create_commit / after_update_commit (Bot#broadcast_new_order, #broadcast_updated_order).
@@ -24,7 +25,7 @@ fn owner_ctx(app: &App, owner: User) -> Ctx {
 /// The messages one event owes the bot's page, in Rails' order.
 pub fn render(c: &Connection, app: &App, event: &EngineEvent) -> Result<Vec<(String, String)>, WebError> {
     let bot_id = match event {
-        EngineEvent::Claimed { bot_id } | EngineEvent::TickEnded { bot_id } | EngineEvent::OrderRecorded { bot_id, .. } | EngineEvent::OrderWritten { bot_id, .. } => *bot_id,
+        EngineEvent::StatusChanged { bot_id } | EngineEvent::TickEnded { bot_id } | EngineEvent::OrderRecorded { bot_id, .. } | EngineEvent::OrderWritten { bot_id, .. } => *bot_id,
         _ => return Ok(vec![]),
     };
     let owner: Option<i64> = rusqlite::OptionalExtension::optional(c.query_row("SELECT user_id FROM bots WHERE id = ?1", [bot_id], |r| r.get(0)))?;
@@ -36,7 +37,7 @@ pub fn render(c: &Connection, app: &App, event: &EngineEvent) -> Result<Vec<(Str
     let stream = format!("user_{}:bot_updates", owner.id);
     let state = || -> Result<status::Status, WebError> { status::broadcast(c, &ctx, &bot, bots::market_data(c, app)?.1) };
     Ok(match event {
-        EngineEvent::Claimed { .. } => {
+        EngineEvent::StatusChanged { .. } => {
             let state = state()?;
             let mut out = action_view::bar_broadcasts(&stream, &bot, &state).to_vec();
             out.extend(action_view::button_broadcasts(&stream, &bot, &state));

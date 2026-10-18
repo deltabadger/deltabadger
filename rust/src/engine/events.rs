@@ -22,13 +22,15 @@ pub enum EngineEvent {
     /// funds mail marker with it: the daily budget per (user, quote asset) was free and is now spent (Bot::Fundable,
     /// Bot::Failable#record_failure!). The mail service's wake.
     FundsLow { bot_id: i64, user_id: i64, quote_asset_id: Option<i64> },
-    /// A tick moved the bot to `executing` (Statusable#transition_working!): Rails' after_update_commit on the status
-    /// broadcasts its status and progress bars, its two Start/Stop buttons and the columns lock (app/models/bot.rb:38-40).
-    Claimed { bot_id: i64 },
+    /// The engine changed the bot's status with an `update!` in Rails: a tick's claim (`executing`,
+    /// Statusable#transition_working!) or a follow-up fill's amount-limit stop (Bot::StopJob → Bot#stop). Rails'
+    /// after_update_commit on the status broadcasts its status and progress bars, its two Start/Stop buttons and the
+    /// columns lock (app/models/bot.rb:38-40).
+    StatusChanged { bot_id: i64 },
     /// A tick of this bot ended, whatever it did: Rails broadcasts its bars from the job's rescue and from
     /// Bot::BroadcastAfterScheduledActionJob once the next tick is enqueued (app/jobs/bot/action_job.rb).
     TickEnded { bot_id: i64 },
-    /// A poll or a reversal's cancel wrote this order (Transaction after_update_commit → Bot#broadcast_updated_order,
+    /// A poll (a follow-up or a tick's sweep) or a reversal's cancel wrote this order (Transaction after_update_commit → Bot#broadcast_updated_order,
     /// app/models/transaction.rb:22).
     OrderWritten { bot_id: i64, transaction_id: i64 },
 }
@@ -38,12 +40,12 @@ impl EngineEvent {
     /// The kinds a subscriber hears unless it asks for others: all but `OrderUpdated`, which only the figures service
     /// wants, and the bot page's own.
     pub fn is_classic(&self) -> bool {
-        !matches!(self, Self::OrderUpdated { .. } | Self::BelowMinimum { .. } | Self::Claimed { .. } | Self::TickEnded { .. } | Self::OrderWritten { .. })
+        !matches!(self, Self::OrderUpdated { .. } | Self::BelowMinimum { .. } | Self::StatusChanged { .. } | Self::TickEnded { .. } | Self::OrderWritten { .. })
     }
 
     /// What the bot page hears live (web::bot::live): its status, and each order inserted or written.
     pub fn is_live(&self) -> bool {
-        matches!(self, Self::Claimed { .. } | Self::TickEnded { .. } | Self::OrderWritten { .. } | Self::OrderRecorded { .. })
+        matches!(self, Self::StatusChanged { .. } | Self::TickEnded { .. } | Self::OrderWritten { .. } | Self::OrderRecorded { .. })
     }
 
     /// An order inserted or written: what the figures service hears.

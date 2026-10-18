@@ -346,7 +346,7 @@ async fn the_page_hears_the_first_tick_as_rails_broadcasts_it() {
     let failed: Vec<i64> = c.prepare("SELECT id FROM transactions WHERE bot_id = ?1 AND status = 1 ORDER BY id").unwrap()
         .query_map([r.id], |r| r.get(0)).unwrap().map(Result::unwrap).collect();
     assert!(!failed.is_empty(), "the refused order is a failed row");
-    let mut expected = vec![EngineEvent::Claimed { bot_id: r.id }];
+    let mut expected = vec![EngineEvent::StatusChanged { bot_id: r.id }];
     expected.extend(failed.iter().map(|&tx| EngineEvent::OrderRecorded { bot_id: r.id, transaction_id: tx }));
     expected.push(EngineEvent::TickEnded { bot_id: r.id });
     assert_eq!(heard, expected);

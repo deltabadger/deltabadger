@@ -9,7 +9,7 @@ use crate::crypto::Cipher;
 use crate::lease::EngineLock;
 use crate::venue::VenueFactory;
 use chrono::{DateTime, Utc};
-use rusqlite::Connection;
+use rusqlite::{Connection, OptionalExtension};
 use std::collections::{HashMap, HashSet};
 use std::convert::Infallible;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -179,6 +179,26 @@ fn after_tick<F: VenueFactory>(e: &mut Engine<F>, id: i64, tick_start: &str, las
     Ok(())
 }
 
+/// The bot's waiting orders, each with what a poll writes on it: a tick's sweep that changed one is announced as Rails'
+/// update! of it is (OrderWritten).
+fn waiting_rows(c: &Connection, bot_id: i64) -> Result<Vec<(i64, String)>, EngineError> {
+    let mut s = c.prepare("SELECT id, json_array(status, external_status, amount, quote_amount, amount_exec, quote_amount_exec, price, updated_at) \
+                           FROM transactions WHERE bot_id = ?1 AND status = 0 AND external_status IN (0, 1) ORDER BY id")?;
+    let rows = s.query_map([bot_id], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<Vec<_>, _>>()?;
+    Ok(rows)
+}
+
+/// The rows of `before` that are no longer as they were.
+fn written_since(c: &Connection, before: &[(i64, String)]) -> Result<Vec<i64>, EngineError> {
+    let mut written = vec![];
+    for (id, was) in before {
+        let now: Option<String> = c.query_row("SELECT json_array(status, external_status, amount, quote_amount, amount_exec, quote_amount_exec, price, updated_at) \
+                                               FROM transactions WHERE id = ?1", [id], |r| r.get(0)).optional()?;
+        if now.as_ref() != Some(was) { written.push(*id); }
+    }
+    Ok(written)
+}
+
 /// Bots outside the working set that still hold a placement intent (stopped after an ambiguous send). No tick
 /// runs for them, so the loop reconciles them itself, every 30 s until settled.
 fn idle_bots_with_intents(c: &Connection) -> Result<Vec<i64>, EngineError> {
@@ -245,7 +265,7 @@ pub async fn step<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) -> Resu
             match tick::run_pending_amount_limit_stops(&e.primary, id, clock.now()) {
                 Err(err @ (EngineError::Lease(_) | EngineError::Store(_))) => return Err(err),
                 Err(err) => super::log(&format!("[engine] bot {id}: its counted amount-limit stops could not run: {err:?}; skipped")),
-                Ok(()) => {}
+                Ok(()) => e.events.send(EngineEvent::StatusChanged { bot_id: id }),
             }
         }
         e.started = true;
@@ -496,6 +516,8 @@ async fn run_polls<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock, wake: 
         if fresh && at>now_us {continue}
         e.polls.remove(&tx);
         if !fresh {attempts=Attempts::default();}
+        let status_of = |c: &Connection| c.query_row("SELECT status FROM bots WHERE id = ?1", [id], |r| r.get::<_, i64>(0)).optional();
+        let status_before = status_of(&e.primary);
         let mut announce_retry=true;
         let retry = match polling::follow_up(&e.primary, &venue, id, tx, clock.now()).await {
             Ok(polling::FollowUp::Done) => None,
@@ -508,6 +530,8 @@ async fn run_polls<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock, wake: 
         // Whatever the poll wrote, on success or on error, the bot is announced; nothing is read to decide.
         e.events.send(EngineEvent::OrderUpdated { bot_id: id });
         e.events.send(EngineEvent::OrderWritten { bot_id: id, transaction_id: tx });
+        // A fill that spent the amount limit stopped the bot (polling::apply_committed, Bot::StopJob).
+        if let (Ok(before), Ok(after)) = (status_before, status_of(&e.primary)) { if before != after { e.events.send(EngineEvent::StatusChanged { bot_id: id }); } }
         if let Some((wait, m)) = retry {
             if announce_retry {super::log(&format!("[engine] bot {id}: follow-up poll failed ({m}); retrying in {}s", wait.as_secs()));}
             e.polls.insert(tx, model::Produced::new((id, clock.now().timestamp_micros() + wait.as_micros() as i64, attempts),producer));
@@ -698,7 +722,7 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
         let stop = e.stop.clone();
         let stopping = move || stop.load(Ordering::SeqCst);
         let below_minimum = |bot_id, transaction_ids| e.events.send(EngineEvent::BelowMinimum { bot_id, transaction_ids });
-        let claimed = |bot_id| e.events.send(EngineEvent::Claimed { bot_id });
+        let claimed = |bot_id| e.events.send(EngineEvent::StatusChanged { bot_id });
         let cx = TickContext { credential_version, prices: &e.prices, process_start: e.process_start.ok_or_else(||EngineError::Data("engine start time missing".into()))?, stopping: &stopping, below_minimum: &below_minimum, claimed: &claimed };
         // What this tick records is announced after it returns, when its writes have committed: rows by id (every row
         // the tick inserts, as Rails' after_create_commit hears every create), and a new funds mail marker.
@@ -706,11 +730,14 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
         let funds_marker = |c: &Connection| c.query_row(&format!("SELECT json_extract(transient_data, '$.{}') FROM bots WHERE id = ?1", tick::FUNDS_MAIL_PENDING),
                                                          [id], |r| r.get::<_, Option<String>>(0));
         let funds_before = funds_marker(&e.primary)?;
+        let waiting = waiting_rows(&e.primary, id)?;
         let ticked = tick::tick_recovering_for_run(&e.primary, &venue, &mut bot, clock, attempts, &mut recovered, &cx).await;
         // Whatever the tick wrote (its sweep's fills, its placement), on success or on error, the bot is announced, with
         // nothing read to decide; each order it placed is announced and gets its follow-up poll (`after_tick`).
         e.events.send(EngineEvent::OrderUpdated { bot_id: id });
         let committed = after_tick(e, id, &tick_start, last_tx, recovered, clock,&retry_producer);
+        // The sweep's writes (polling::sweep), those committed before an error of it included.
+        for tx in written_since(&e.primary, &waiting).unwrap_or_default() { e.events.send(EngineEvent::OrderWritten { bot_id: id, transaction_id: tx }); } // allow-swallow: what the page hears is display only; the tick's own outcome follows
         // After its rows are announced, so the page shows the failed order its status bar names.
         e.events.send(EngineEvent::TickEnded { bot_id: id });
         let outcome = ticked?;
