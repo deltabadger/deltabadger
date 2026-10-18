@@ -371,7 +371,7 @@ mod action_draft {
             app: common::web::app(dir.path(), common::web::SECRET, common::web::TestClock::at(field(group, "now").as_str().ok_or("now")?)),
             params: std::sync::Arc::new(Params { upload: None, full_path: String::new(), fullpath: String::new(), route_path: String::new(), path_locale: None, query: vec![], form: vec![], json: None }),
             session: deltabadger::web::session::Session::new(Default::default()),
-            current: deltabadger::web::auth::Current::SignedOut, method: axum::http::Method::PATCH, locale: "en", nonce: String::new(), now, turbo_frame: None,
+            current: deltabadger::web::auth::Current::SignedOut, method: axum::http::Method::PATCH, locale: "en", nonce: String::new(), now, turbo_frame: None, stream: false,
         };
         for recorded in cases {
             let mut resolved = recorded.clone();
@@ -509,7 +509,7 @@ mod action_write {
             let app = harness::app(dir.path(), "engine-test-secret", harness::TestClock::at(NOW));
             let ctx = Ctx { app, params: Arc::new(Params { upload: None, full_path: String::new(), fullpath: String::new(), route_path: String::new(), path_locale: None, query: vec![], form: vec![], json: None }),
                 session: web::session::Session::new(Default::default()), current: web::auth::Current::SignedOut,
-                method: axum::http::Method::PATCH, locale: "en", nonce: String::new(), now: harness::at(NOW), turbo_frame: None };
+                method: axum::http::Method::PATCH, locale: "en", nonce: String::new(), now: harness::at(NOW), turbo_frame: None, stream: false };
             Ok(Self { _dir: dir, c, ctx, seed: s, id })
         }
         fn params(fields: Value) -> Result<ActionParams> {

@@ -231,6 +231,11 @@ module Pages
         'not_ported_wizard_kucoin_key' => venue_wizard(signed_in(
           chooser.('/bots/new', MODAL), wz_step.(EXCHANGE_NEW), wz_exchange.(5), wz_step.(KEY_NEW)
         ), 'kucoin' => true),
+        # The same key step as the browser reaches it after the venue picker's nested form (a frame request accepting a Turbo
+        # Stream): the refusal updates the frame (plan CI T7).
+        'not_ported_wizard_kucoin_key_stream' => venue_wizard(signed_in(
+          chooser.('/bots/new', MODAL), wz_step.(EXCHANGE_NEW), wz_exchange.(5), wz_step.(KEY_NEW, STEP.merge(TURBO.slice('Accept')))
+        ), 'kucoin' => true),
         # Stored keys not known to be correct: the key step asks the venue on the GET. Kraken's is correct now (the step moves on),
         # Binance's is not (the form, the key now incorrect).
         'wizard_key_revalidate_on_get' => venue_wizard(signed_in(
@@ -327,14 +332,21 @@ module Pages
           chooser.('/bots/new', MODAL), wz_step.(IDX_PICK_NEW), wz_step.("/de#{IDX_PICK_NEW}"), wz_step.(IDX_PICK_NEW), ix_pick.(TOP), wz_step.(IDX_EXCHANGE_NEW),
           wz_step.("#{IDX_EXCHANGE_NEW}?query=bin", EXCHANGE_PICKER), wz_step.(IDX_PICK_NEW), ix_pick.(LAYER1), wz_step.(IDX_EXCHANGE_NEW), ix_exchange.(4)
         ), 'crypto_indices' => true),
-        # What the engine does not run is refused at the key step (no key stored yet, so Rails shows its form): Top coins on Kraken
-        # and on Alpaca.
-        'not_ported_wizard_index_kraken_key' => venue_wizard(signed_in(
-          chooser.('/bots/new', MODAL), wz_step.(IDX_PICK_NEW), ix_pick.(TOP), wz_step.(IDX_EXCHANGE_NEW), ix_exchange.(3), wz_step.(IDX_KEY_NEW)
+        # Crypto index bots the engine runs (plan CI): Top coins on Kraken with no key yet (its form, the key, the EUR quote, the bot
+        # and its page), Top coins on Alpaca the same way, and Layer 1 on Binance with its stored key (the quote picker narrowed
+        # to the index's coins there, then USDT).
+        'wizard_index_kraken_key' => venue_wizard(signed_in(
+          chooser.('/bots/new', MODAL), wz_step.(IDX_PICK_NEW), ix_pick.(TOP), wz_step.(IDX_EXCHANGE_NEW), ix_exchange.(3), wz_step.(IDX_KEY_NEW),
+          wz_key.('kraken-correct', IDX_KEY), wz_step.(IDX_QUOTE_NEW), ix_quote.(18), get('/bots/1')
         ), 'crypto_indices' => true, 'venue_keys' => {}),
-        'not_ported_wizard_index_top_alpaca' => venue_wizard(signed_in(
-          chooser.('/bots/new', MODAL), wz_step.(IDX_PICK_NEW), ix_pick.(TOP), wz_step.(IDX_EXCHANGE_NEW), ix_exchange.(1), wz_step.(IDX_KEY_NEW)
+        'wizard_index_top_alpaca' => venue_wizard(signed_in(
+          chooser.('/bots/new', MODAL), wz_step.(IDX_PICK_NEW), ix_pick.(TOP), wz_step.(IDX_EXCHANGE_NEW), ix_exchange.(1), wz_step.(IDX_KEY_NEW),
+          wz_key.('PKTEST', IDX_KEY, 'api_key[passphrase]' => 'paper'), wz_step.(IDX_QUOTE_NEW), ix_quote.(1), get('/bots/1')
         ), 'crypto_indices' => true, 'api_keys' => {}),
+        'wizard_index_layer1_binance' => venue_wizard(signed_in(
+          chooser.('/bots/new', MODAL), wz_step.(IDX_PICK_NEW), ix_pick.(LAYER1), wz_step.(IDX_EXCHANGE_NEW), ix_exchange.(4), wz_step.(IDX_KEY_NEW),
+          wz_step.(IDX_QUOTE_NEW), wz_step.("#{IDX_QUOTE_NEW}?query=us", PICKER), ix_quote.(19), get('/bots/1')
+        ), 'crypto_indices' => true),
         # The legacy settings step (no link reaches it).
         'not_ported_wizard_index_confirm_settings' => { 'user' => owner, 'install' => 'alpaca', 'steps' => signed_in(
           chooser.('/bots/new', MODAL), wz_step.(IDX_PICK_NEW), ix_pick.(ND100), wz_step.(IDX_EXCHANGE_NEW), ix_exchange.(1), wz_step.("#{IDX}/confirm_settings/new")

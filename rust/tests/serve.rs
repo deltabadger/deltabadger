@@ -1362,7 +1362,11 @@ async fn a_real_browser_signs_in_and_sees_the_app_with_live_streams() -> Result<
     }
     // Hold the engine: this browser proof exercises the real HTTP/CSRF/guard/cable path
     // on a scripted paper install; the executable smoke test separately proves placement.
-    let app = web::app(dir.path(), "engine-test-secret", TestClock::at(NOW));
+    // A venue this build does not trade, for the index wizard's refusal inside its nested frame (plan CI T7).
+    c.execute("INSERT INTO exchanges (type, name, maker_fee, taker_fee, available, created_at, updated_at) VALUES ('Exchanges::Coinbase', 'Coinbase', '0.1', '0.1', 1, '2026-01-01', '2026-01-01')", [])?;
+    let coinbase = c.last_insert_rowid();
+    // The real time: a browser drops a session cookie whose expiry (the clock's now plus its lifetime) has passed.
+    let app = web::app(dir.path(), "engine-test-secret", TestClock::starting(chrono::Utc::now()));
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
     let address = listener.local_addr()?;
     struct Server(tokio::task::JoinHandle<()>);
@@ -1371,7 +1375,7 @@ async fn a_real_browser_signs_in_and_sees_the_app_with_live_streams() -> Result<
     let log = tempfile::tempfile()?;
     let mut check = Child(Command::new("bun").arg(concat!(env!("CARGO_MANIFEST_DIR"), "/../script/rust/browser_check.mjs"))
         .env("BASE_URL",format!("http://{address}")).env("EMAIL","o@example.com").env("PASSWORD","Correct-horse-9")
-        .env("BOT_ID",bot.to_string()).stdout(log.try_clone()?).stderr(log.try_clone()?).spawn()?);
+        .env("BOT_ID",bot.to_string()).env("UNPORTED_VENUE",coinbase.to_string()).stdout(log.try_clone()?).stderr(log.try_clone()?).spawn()?);
     let deadline = Instant::now() + Duration::from_secs(150);
     let status = loop {
         if let Some(status) = check.0.try_wait()? { break status; }

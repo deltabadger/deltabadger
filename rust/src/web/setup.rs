@@ -232,7 +232,7 @@ async fn redeem(app: &App, code: serde_json::Value, now: chrono::DateTime<chrono
 /// other single-segment path is this build's refusal, as without this route.
 pub async fn formatted(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> {
     if ctx.params.path_locale.is_some() || !ctx.params.route_path.starts_with("/setup.") {
-        return Ok(layout::not_ported_response(&ctx.method, &ctx.params.fullpath, ctx.turbo_frame.as_deref()));
+        return Ok(layout::not_ported_for(&ctx));
     }
     if ctx.params.route_path == "/setup.html" {
         match ctx.method {

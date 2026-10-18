@@ -289,7 +289,13 @@ module Pages
       'venue_basket_unbalanced' => venue.([stopped('kraken_basket', 'stored' => { 'allocations' => { '16' => 0.5, '17' => 0.3 } }),
                                            stopped('binance_basket', 'stored' => { 'allocations' => { '17' => 0.7, '20' => 0.45 } })],
                                           signed_in(get('/bots/1'), get('/bots/2'), get('/bots'))),
-      'venue_basket_key_incorrect' => venue.(venue_baskets, signed_in(get('/bots/1'), get('/bots/2'), get('/bots')), 'venue_keys' => { 'kraken' => 'incorrect' })
+      'venue_basket_key_incorrect' => venue.(venue_baskets, signed_in(get('/bots/1'), get('/bots/2'), get('/bots')), 'venue_keys' => { 'kraken' => 'incorrect' }),
+      # Crypto index bots on Kraken (Top coins, EUR) and Binance (Layer 1, USDT), stopped and at work (plan CI T6): the
+      # composition tables with a member out of the index, the coins slider and its label, the settings preview, the list.
+      'venue_index_page' => venue.([stopped('kraken_index'), running('binance_index', '2026-09-08T13:30:00Z', acted('2026-09-08T13:30:00.800Z'))],
+                                   signed_in(get('/bots/1'), get('/bots/2'), get('/de/bots/1'), get('/pl/bots/2'), get('/bots'))),
+      'venue_index_page_running' => venue.([running('kraken_index', '2026-09-09T13:30:00Z', acted('2026-09-10T13:30:00.800Z')), stopped('binance_index')],
+                                           signed_in(get('/bots/1'), get('/bots/2'), get('/bots/1/chart', 'Turbo-Frame' => 'bot_chart'), get('/bots')))
     }
   end
 

@@ -146,6 +146,13 @@ module Pages
       { 'quote_asset_id' => asset_id('EUR'), 'quote_amount' => 40, 'interval' => 'day', 'allocations' => { asset_id('BTC').to_s => 0.6, asset_id('ETH').to_s => 0.4 } }
     when 'binance_basket'
       { 'quote_asset_id' => asset_id('USDT'), 'quote_amount' => 30, 'interval' => 'week', 'allocations' => { asset_id('ETH').to_s => 0.6, asset_id('SOL').to_s => 0.4 } }
+    # Crypto index bots (plan CI): Top coins on Kraken in EUR, Layer 1 on Binance in USDT.
+    when 'kraken_index'
+      { 'quote_asset_id' => asset_id('EUR'), 'quote_amount' => 30, 'interval' => 'day', 'num_coins' => 2, 'hold_all' => false,
+        'index_type' => 'top', 'allocation_flattening' => 0.0 }
+    when 'binance_index'
+      { 'quote_asset_id' => asset_id('USDT'), 'quote_amount' => 40, 'interval' => 'week', 'num_coins' => 2, 'hold_all' => false,
+        'index_type' => 'category', 'index_category_id' => 'layer-1', 'index_name' => 'Layer 1 <L1>', 'allocation_flattening' => 0.5 }
     when 'index'
       { 'quote_asset_id' => usd, 'quote_amount' => 100, 'interval' => 'week', 'num_coins' => 10, 'hold_all' => false,
         'index_type' => 'category', 'index_category_id' => 'nasdaq-100', 'index_name' => 'Nasdaq 100', 'index_name_prefix' => 'ND',
@@ -158,7 +165,11 @@ module Pages
     'binance' => ['Invalid API-key, IP, or permissions for action.', 'Timestamp for this request is outside of the recvWindow.']
   }.freeze
 
-  VENUE_KINDS = { 'kraken' => 'Kraken', 'binance' => 'Binance', 'kraken_basket' => 'Kraken', 'binance_basket' => 'Binance' }.freeze
+  VENUE_KINDS = { 'kraken' => 'Kraken', 'binance' => 'Binance', 'kraken_basket' => 'Kraken', 'binance_basket' => 'Binance',
+                  'kraken_index' => 'Kraken', 'binance_index' => 'Binance' }.freeze
+  # The crypto indices a venue index bot follows, as the syncs store them (Top coins from the image's seed, Layer 1 from
+  # CoinGecko), over the venues' own coins.
+  CRYPTO_INDICES = { 'top-coins' => ['internal', 'Top Coins', %w[btc eth solana]], 'layer-1' => ['coingecko', 'Layer 1 <L1>', %w[eth solana btc]] }.freeze
 
   # One bot: 'kind' (basket, single, index, coins, wide; kraken and binance on their venue), then what the scenario says about it.
   # 'settings' and 'transient' are merged over the wizard's; 'stored' is merged into the settings
@@ -166,13 +177,15 @@ module Pages
   # they are (status, started_at, stop_message_key, label); 'orders' and 'logs' name a history
   # below; 'delist' withdraws a listing afterwards.
   def bot(spec)
-    klass = spec['kind'] == 'index' ? Bots::DcaIndex : Bots::DcaMultiAsset
+    klass = spec['kind'].end_with?('index') ? Bots::DcaIndex : Bots::DcaMultiAsset
+    crypto_indices if spec['kind'].end_with?('_index')
     owner = User.find_by!(email: spec.fetch('owner', 'owner@example.com'))
     exchange = Exchange.find_by!(name: spec.fetch('exchange', VENUE_KINDS.fetch(spec['kind'], 'Alpaca')))
     record = klass.new(user: owner, exchange:, settings: bot_settings(spec['kind']).merge(spec.fetch('settings', {})))
     record.set_missed_quote_amount
     record.save!
     index_members(record) if spec['kind'] == 'index'
+    crypto_index_members(record) if spec['kind'].end_with?('_index')
     columns = spec.fetch('columns', {}).to_h { |name, value| [name, name.end_with?('_at') && value ? Time.iso8601(value) : value] }
     record.update_columns(columns.merge('transient_data' => record.transient_data.merge(spec.fetch('transient', {}))))
     # What no form would save, written past the validations: a row an older version or a migration left behind.
@@ -211,6 +224,30 @@ module Pages
 
   # What Bot::ResyncIndexCompositionJob leaves behind: the first ten index members that trade here,
   # weighted by the index's own weights. Written directly: the job prices every candidate on the venue.
+  def crypto_indices
+    CRYPTO_INDICES.each do |external_id, (source, name, coins)|
+      Index.find_or_create_by!(external_id:, source:) do |index|
+        index.assign_attributes(name:, top_coins: coins, weight: 0, available_exchanges: { 'Exchanges::Kraken' => 3, 'Exchanges::Binance' => 3 })
+      end
+    end
+  end
+
+  # The first num_coins coins of its index as members, by market cap, and the next one out of the index (exited a week ago).
+  def crypto_index_members(record)
+    external_id = record.index_type == 'top' ? 'top-coins' : 'layer-1'
+    coins = Index.find_by!(external_id:).top_coins.map { |id| Asset.find_by!(external_id: id) }
+    members = coins.first(record.num_coins)
+    caps = members.to_h { |asset| [asset.id, asset.market_cap.to_f] }
+    weights = Bot::Composition::Weightable.blend(market_caps: caps, flattening: record.allocation_flattening)
+    members.each do |asset|
+      BotIndexAsset.create!(bot: record, asset:, ticker: record.exchange.tickers.find_by!(base_asset: asset), target_allocation: weights[asset.id].round(6),
+                            in_index: true, entered_at: Time.current)
+    end
+    exited = coins[record.num_coins]
+    BotIndexAsset.create!(bot: record, asset: exited, ticker: record.exchange.tickers.find_by!(base_asset: exited), target_allocation: 0.1,
+                          in_index: false, entered_at: Time.current - 2.weeks, exited_at: Time.current - 1.week)
+  end
+
   def index_members(record)
     ids = Index.find_by!(external_id: 'nasdaq-100').top_coins.first(record.num_coins)
     assets = Asset.where(external_id: ids).index_by(&:external_id)

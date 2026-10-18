@@ -185,13 +185,13 @@ module Pages
                                              upd.('{"quote_amount":0.5}'), upd.('{"interval":"fortnight"}'), upd.('{"quote_amount":"abc","label":""}'),
                                              upd.('{"label":"   "}'), upd.('{"quote_amount":null}')], 2),
         'api_update_running' => write_case([upd.('{"quote_amount":"abc"}'), upd.('{}'), upd.('{"quote_amount":60}')], 1),
-        # Rails resyncs an index bot's composition in Bot::ResyncIndexCompositionJob; this build derives it at every tick
-        # (engine::index), so the job is not compared where the composition changes.
-        'api_update_index' => write_case([write('PATCH', '/api/v1/bots/3', body: '{"num_coins":5,"allocation_flattening":"0.5"}').merge('jobs' => false),
+        # Rails resyncs an index bot's composition in Bot::ResyncIndexCompositionJob where an index-definition key changed;
+        # this build leaves the engine its resync marker there (engine::index::RESYNC_KEY), compared as that job.
+        'api_update_index' => write_case([write('PATCH', '/api/v1/bots/3', body: '{"num_coins":5,"allocation_flattening":"0.5"}'),
                                           write('PATCH', '/api/v1/bots/3', body: '{"allocation_flattening":2}'),
                                           write('PATCH', '/api/v1/bots/3', body: '{"allocations":"QQQM:50"}'),
                                           write('PATCH', '/api/v1/bots/3', body: '{"num_coins":2.5}'),
-                                          write('PATCH', '/api/v1/bots/3?num_coins=7').merge('jobs' => false)], 2),
+                                          write('PATCH', '/api/v1/bots/3?num_coins=7')], 2),
         'api_update_others' => write_case([write('PATCH', '/api/v1/bots/1', 'second-token', body: '{"quote_amount":60}'),
                                            write('PATCH', '/api/v1/bots/999', body: '{"quote_amount":60}'),
                                            write('PATCH', '/api/v1/bots/4', body: '{"quote_amount":60}'),

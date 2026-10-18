@@ -285,6 +285,10 @@ pub fn ownership_business_rows(mut tables: serde_json::Value) -> serde_json::Val
                     assert!(value.as_i64().is_some_and(|n| n >= 0), "invalid ownership counter: {value}");
                 }
             }
+            // The engine's composition resync marker (engine::index::RESYNC_KEY), where Rails enqueues its job.
+            if let Some(marker) = bot["transient_data"].as_object_mut().unwrap().remove("rust_index_resync") {
+                assert!(marker["n"].as_i64().is_some_and(|n| n > 0) && marker["at"].is_string(), "invalid resync marker: {marker}");
+            }
         }
     }
     if let Some(rows) = tables["transactions"].as_array_mut() {
