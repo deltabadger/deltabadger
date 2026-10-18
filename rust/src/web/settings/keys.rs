@@ -314,11 +314,13 @@ pub(crate) async fn submit(app: &App, ctx: &Ctx, user: i64, exchange: i64, venue
   let id:i64=tx.query_row("SELECT id FROM api_keys WHERE user_id=?1 AND exchange_id=?2 AND key_type=?3",(user_id,exchange,kind),|r|r.get(0))?;
   // The slots a restart would register (sync::jobs::register, tracker::jobs::register): a key that reads for its
   // venue gets its syncs, and its owner the tracker's jobs. Woken after the commit only.
-  let reading=crate::sync::reading_keys(&tx).map_err(|e|WebError::Config(e.0))?.contains(&id);
+  let ledger=crate::sync::ledger_reading_keys(&tx).map_err(|e|WebError::Config(e.0))?.contains(&id);
+  let balances=crate::sync::balance_reading_keys(&tx).map_err(|e|WebError::Config(e.0))?.contains(&id);
   tx.commit()?;
   if kind==0 {inner.wake_engine();}
-  if reading {
-   for job in [crate::sync::jobs::LEDGER_SYNC,crate::sync::jobs::BALANCE_SYNC] {jobs.wake(job,Some(&id.to_string()),None);}
+  if ledger {jobs.wake(crate::sync::jobs::LEDGER_SYNC,Some(&id.to_string()),None);}
+  if balances {jobs.wake(crate::sync::jobs::BALANCE_SYNC,Some(&id.to_string()),None);}
+  if ledger||balances {
    for job in [crate::tracker::jobs::TRACKER_LEDGER,crate::tracker::jobs::PORTFOLIO_BACKFILL] {jobs.wake(job,Some(&user_id.to_string()),None);}
   }
   Ok(None)
