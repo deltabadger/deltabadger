@@ -392,6 +392,19 @@ module SyncParity
   KC_FILLS = 'GET /api/v1/fills'.freeze
   KC_DEPOSITS = 'GET /api/v1/deposits'.freeze
   KC_WITHDRAWALS = 'GET /api/v1/withdrawals'.freeze
+  KC_ACCOUNTS = 'GET /api/v1/accounts'.freeze
+  # KuCoin's trade-account rows: [currency, available, holds] (holds 0 when left out); `locked:` names the column `locked`.
+  def kucoin_accounts(*rows, locked: false)
+    ok('code' => '200000', 'data' => rows.map do |currency, available, held|
+      { 'id' => "a-#{currency}", 'currency' => currency, 'type' => 'trade', 'balance' => available, 'available' => available,
+        (locked ? 'locked' : 'holds') => held || '0' }
+    end)
+  end
+  # A balances run over KuCoin's scripted accounts answer, with the market API's prices and rates.
+  def kucoin_balances(at, accounts:, prices: nil, rates: nil)
+    { 'kind' => 'balances', 'at' => at, 'kucoin' => { KC_ACCOUNTS => [accounts] },
+      'market' => { EXCHANGE_RATES => rates && [rates], PRICES => prices && [prices] }.compact }
+  end
   # A ledger run over KuCoin's scripted answers: each path's replies in order, the last one repeated.
   def kucoin_ledger(at, fills: [kc_page([])], deposits: [kc_page([])], withdrawals: [kc_page([])])
     { 'kind' => 'ledger', 'at' => at, 'kucoin' => { KC_FILLS => fills, KC_DEPOSITS => deposits, KC_WITHDRAWALS => withdrawals } }
@@ -503,7 +516,7 @@ module SyncParity
       ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: File.join(dir, 'production.sqlite3'))
       Rails.cache.clear
       before = snapshot
-      reading = ApiKey.reading(ApiKey.includes(:exchange)).select { |k| k.exchange.is_a?(Exchanges::Alpaca) || k.exchange.is_a?(Exchanges::Binance) }.map(&:id).sort
+      reading = ApiKey.reading(ApiKey.includes(:exchange)).select { |k| [Exchanges::Alpaca, Exchanges::Binance, Exchanges::Kucoin].any? { |c| k.exchange.is_a?(c) } }.map(&:id).sort
       steps = sc['steps'].map do |step|
         ActiveJob::Base.queue_adapter.enqueued_jobs.clear
         ScriptedSync.alpaca = step.fetch('alpaca', {}).transform_values(&:dup)

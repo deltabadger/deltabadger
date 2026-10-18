@@ -476,6 +476,33 @@ fn each_reading_key_gets_a_ledger_job_and_a_balance_job_scoped_by_its_id() {
     assert_eq!(names(&c), vec![("credential_scope_factory", None)], "incorrect keys have no sync jobs; the factory waits for a later settings write");
 }
 
+/// Plan K4: a reading KuCoin key is scheduled as every venue's is (AccountTransaction::SyncAllJob and AccountBalance::SyncAllJob
+/// iterate ApiKey.reading), and its runs go to KuCoin's own sync, through its transport (here one that sends nothing).
+#[tokio::test(flavor = "current_thread")]
+async fn a_reading_kucoin_key_gets_a_ledger_job_and_a_balance_job_that_reach_kucoin() {
+    let (dir, db, s) = install();
+    let c = Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    c.execute("UPDATE exchanges SET type = 'Exchanges::Kucoin', name = 'KuCoin' WHERE id = (SELECT exchange_id FROM api_keys WHERE id = ?1)", [s.api_key_id]).unwrap();
+    let venues = Scripted(ScriptedTransport::default());
+    let names = jobs::register(&c, &venues, Rc::new(NoPrices)).unwrap().iter().map(|j| (j.spec().name, j.spec().scope)).collect::<Vec<_>>();
+    let key = Some(s.api_key_id.to_string());
+    assert_eq!(names, vec![("ledger_sync", key.clone()), ("balance_sync", key), ("credential_scope_factory", None)]);
+    let clock = clock();
+    for outcome in [LedgerSync::new(venues.clone(), s.api_key_id).run(cx(&db, &clock), vec![Wake::Schedule]).await,
+                    BalanceSync::new(venues.clone(), Rc::new(NoPrices), s.api_key_id).run(cx(&db, &clock), vec![Wake::Schedule]).await] {
+        let Outcome::Failed(why) = outcome else { panic!("{outcome:?}") };
+        assert!(why.contains("KuCoin is not connected here"), "{why}");
+    }
+    assert!(venues.0.requests().is_empty(), "nothing went to Alpaca");
+    // ApiKey.reading: a trading key lacking a permission KuCoin names gives way to the read-only key.
+    let read_only = { c.execute("INSERT INTO api_keys (user_id, exchange_id, key_type, key, secret, status, created_at, updated_at) \
+                                 SELECT user_id, exchange_id, 2, key, secret, 1, created_at, updated_at FROM api_keys WHERE id = ?1", [s.api_key_id]).unwrap(); c.last_insert_rowid() };
+    c.execute("UPDATE api_keys SET key_type = 0, last_sync_error = '{\"code\":\"400007\",\"msg\":\"Access Denied\"}' WHERE id = ?1", [s.api_key_id]).unwrap();
+    assert_eq!(deltabadger::sync::ledger_reading_keys(&c).unwrap(), vec![read_only]);
+    c.execute("UPDATE api_keys SET last_sync_error = NULL WHERE id = ?1", [s.api_key_id]).unwrap();
+    assert_eq!(deltabadger::sync::ledger_reading_keys(&c).unwrap(), vec![s.api_key_id]);
+}
+
 #[tokio::test(flavor = "current_thread")]
 async fn a_run_reports_done_even_with_nothing_to_import_and_failed_with_the_keys_error() {
     let (_dir, db, s) = install();

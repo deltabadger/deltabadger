@@ -154,6 +154,7 @@ module Pages
       wz_submit.(path, { 'api_key[key]' => key, 'api_key[secret]' => 'c2VjcmV0' }.merge(extra)).merge('action_snapshot' => true, 'may_mutate' => %w[api_keys])
     }
     # A key step opened with a stored key that is not correct: Rails asks the venue again, on the GET, and writes the status.
+    KC_PASS = { 'api_key[passphrase]' => 'kc-passphrase' }.freeze
     def wz_key_page = ->(path = KEY_NEW) { wz_step.(path).merge('action_snapshot' => true, 'may_mutate' => %w[api_keys]) }
     # The last step: the quote, then the bot is saved; its whole row and its members' rows as stored.
     def wz_quote = lambda { |id, path = QUOTE, opts = {}|
@@ -167,10 +168,15 @@ module Pages
       super
       if scenario['kucoin']
         kucoin = Exchanges::Kucoin.create!(name: 'KuCoin', maker_fee: '0.1', taker_fee: '0.1')
-        btc, usdt = Asset.find_by!(symbol: 'BTC'), Asset.find_by!(symbol: 'USDT')
-        [btc, usdt].each { |asset| ExchangeAsset.create!(exchange: kucoin, asset:) }
-        Ticker.create!(exchange: kucoin, base_asset: btc, quote_asset: usdt, base: 'BTC', quote: 'USDT', ticker: 'BTC-USDT', base_decimals: 8,
-                       quote_decimals: 6, price_decimals: 1, minimum_base_size: '0.00001', minimum_quote_size: '0.1')
+        usdt = Asset.find_by!(symbol: 'USDT')
+        ExchangeAsset.create!(exchange: kucoin, asset: usdt)
+        # As Exchanges::Kucoin#get_tickers_info stores them: BTC-USDT, and with 'kucoin_coins' ether, solana and the more coins too.
+        bases = Asset.where(symbol: scenario['kucoin_coins'] ? %w[BTC ETH SOL] + MORE_COINS : %w[BTC]).order(:id)
+        bases.each do |base_asset|
+          ExchangeAsset.create!(exchange: kucoin, asset: base_asset)
+          Ticker.create!(exchange: kucoin, base_asset:, quote_asset: usdt, base: base_asset.symbol, quote: 'USDT', ticker: "#{base_asset.symbol}-USDT",
+                         base_decimals: 8, quote_decimals: 6, price_decimals: 1, minimum_base_size: '0.00001', minimum_quote_size: '0.1')
+        end
       end
       Exchanges::Bitmart.create!(name: 'BitMart', maker_fee: '0.25', taker_fee: '0.25') if scenario['retired']
       index_fixture(scenario)
@@ -228,12 +234,21 @@ module Pages
           chooser.('/bots/new', MODAL), order.('asset_first'), wz_step.(ASSETS_NEW), wz_pick.(2), wz_step.(ASSETS_NEW), wz_pick.(3),
           wz_step.(ASSETS_NEW), wz_advance.(), wz_step.(BROKER_NEW), wz_broker.(2), wz_step.(MULTI_KEY_NEW)
         ) },
-        'not_ported_wizard_kucoin_key' => venue_wizard(signed_in(
-          chooser.('/bots/new', MODAL), wz_step.(EXCHANGE_NEW), wz_exchange.(5), wz_step.(KEY_NEW)
-        ), 'kucoin' => true),
-        # The same key step as the browser reaches it after the venue picker's nested form (a frame request accepting a Turbo
+        # KuCoin (plan K O6) with no key yet: its form (key, secret and passphrase), a refused key (400003), an inconclusive answer
+        # (429000), then accepted; bitcoin in USDT, the bot and its page.
+        'wizard_create_kucoin' => venue_wizard(signed_in(
+          chooser.('/bots/new', MODAL), wz_step.(EXCHANGE_NEW), wz_exchange.(5), wz_step.(KEY_NEW), wz_key.('kucoin-incorrect', KEY, KC_PASS),
+          wz_key.('kucoin-failure', KEY, KC_PASS), wz_step.("/de#{KEY_NEW}"), wz_key.('kucoin-correct', "/de#{KEY}", KC_PASS),
+          wz_step.(ASSETS_NEW), wz_pick.(16), wz_step.(ASSETS_NEW), wz_advance.(), wz_step.(QUOTE_NEW), wz_quote.(19), get('/bots/1')
+        ), 'kucoin' => true, 'venue_keys' => {}),
+        # A key step this build does not serve, reached from the venue picker's nested form (a frame request accepting a Turbo
         # Stream): the refusal updates the frame (plan CI T7).
-        'not_ported_wizard_kucoin_key_stream' => venue_wizard(signed_in(
+        'not_ported_wizard_ibkr_key_stream' => { 'user' => owner, 'install' => 'alpaca', 'steps' => signed_in(
+          chooser.('/bots/new', MODAL), order.('asset_first'), wz_step.(ASSETS_NEW), wz_pick.(2), wz_step.(ASSETS_NEW), wz_pick.(3),
+          wz_step.(ASSETS_NEW), wz_advance.(), wz_step.(BROKER_NEW), wz_broker.(2), wz_step.(MULTI_KEY_NEW, STEP.merge(TURBO.slice('Accept')))
+        ) },
+        # The KuCoin key step as the browser reaches it after the venue picker's nested form (a frame request accepting a Turbo Stream).
+        'wizard_kucoin_key_stream' => venue_wizard(signed_in(
           chooser.('/bots/new', MODAL), wz_step.(EXCHANGE_NEW), wz_exchange.(5), wz_step.(KEY_NEW, STEP.merge(TURBO.slice('Accept')))
         ), 'kucoin' => true),
         # Stored keys not known to be correct: the key step asks the venue on the GET. Kraken's is correct now (the step moves on),
@@ -291,8 +306,9 @@ module Pages
     def index_fixture(scenario)
       if scenario['crypto_indices']
         coins = %w[btc eth solana ada-coin avax-coin dot-coin link-coin]
+        top_venues = { 'Exchanges::Kraken' => 7, 'Exchanges::Binance' => 7 }.merge(scenario['kucoin'] ? { 'Exchanges::Kucoin' => 7 } : {})
         Index.create!(external_id: 'top-coins', source: 'internal', name: 'Top Coins', top_coins: coins, weight: 0,
-                      description: 'The largest coins by market cap.', available_exchanges: { 'Exchanges::Kraken' => 7, 'Exchanges::Binance' => 7 })
+                      description: 'The largest coins by market cap.', available_exchanges: top_venues)
         Index.create!(external_id: 'layer-1', source: 'coingecko', name: 'Layer 1 <L1>', top_coins: coins.drop(1), weight: 12, market_cap: 900,
                       description: "Base chains & their tokens. #{'Long text ' * 20}", available_exchanges: { 'Exchanges::Binance' => 6 })
       end
@@ -347,6 +363,11 @@ module Pages
           chooser.('/bots/new', MODAL), wz_step.(IDX_PICK_NEW), ix_pick.(LAYER1), wz_step.(IDX_EXCHANGE_NEW), ix_exchange.(4), wz_step.(IDX_KEY_NEW),
           wz_step.(IDX_QUOTE_NEW), wz_step.("#{IDX_QUOTE_NEW}?query=us", PICKER), ix_quote.(19), get('/bots/1')
         ), 'crypto_indices' => true),
+        # Top coins on KuCoin (plan K O6) with no key yet: the form with its passphrase row, the key, the USDT quote, the bot and its page.
+        'wizard_index_kucoin_key' => venue_wizard(signed_in(
+          chooser.('/bots/new', MODAL), wz_step.(IDX_PICK_NEW), ix_pick.(TOP), wz_step.(IDX_EXCHANGE_NEW), ix_exchange.(5), wz_step.(IDX_KEY_NEW),
+          wz_key.('kucoin-incorrect', IDX_KEY, KC_PASS), wz_key.('kucoin-correct', IDX_KEY, KC_PASS), wz_step.(IDX_QUOTE_NEW), ix_quote.(19), get('/bots/1')
+        ), 'crypto_indices' => true, 'kucoin' => true, 'kucoin_coins' => true, 'venue_keys' => {}),
         # The legacy settings step (no link reaches it).
         'not_ported_wizard_index_confirm_settings' => { 'user' => owner, 'install' => 'alpaca', 'steps' => signed_in(
           chooser.('/bots/new', MODAL), wz_step.(IDX_PICK_NEW), ix_pick.(ND100), wz_step.(IDX_EXCHANGE_NEW), ix_exchange.(1), wz_step.("#{IDX}/confirm_settings/new")
@@ -374,9 +395,10 @@ module Pages
     end
 
     # The venues' key checks, answered by the key a step submits (the stored keys of the venues install are kraken-key and
-    # binance-key): Kraken's GetApiKeyInfo and Binance's apiRestrictions, as the recorded verdicts (key_verdicts.json) have them.
+    # binance-key): Kraken's GetApiKeyInfo, Binance's apiRestrictions and KuCoin's cancel probe, as the recorded verdicts (key_verdicts.json) have them.
     KRAKEN_INFO = 'https://api.kraken.com/0/private/GetApiKeyInfo'.freeze
     BINANCE_RESTRICTIONS = %r{\Ahttps://api\.binance\.com/sapi/v1/account/apiRestrictions}
+    KUCOIN_PROBE = "https://api.kucoin.com/api/v1/orders/#{'0' * 24}".freeze
     def record(root)
       json = ->(status, body) { { status:, body: body.to_json, headers: { 'Content-Type' => 'application/json' } } }
       required = Exchanges::Kraken::KEY_PERMISSIONS[:trading][:required]
@@ -395,6 +417,10 @@ module Pages
       binance.('binance-unrestricted', json.(200, flags.merge('ipRestrict' => false)))
       binance.('binance-incorrect', json.(401, { 'code' => -2015, 'msg' => 'Invalid API-key, IP, or permissions for action.' }))
       binance.('binance-failure', { status: 500, body: '' })
+      kucoin = ->(key, answer) { WebMock.stub_request(:delete, KUCOIN_PROBE).with(headers: { 'KC-API-KEY' => key }).to_return(answer) }
+      kucoin.('kucoin-correct', json.(200, { 'code' => '200000', 'data' => { 'cancelledOrderIds' => [] } }))
+      kucoin.('kucoin-incorrect', json.(401, { 'code' => '400003', 'msg' => 'KC-API-KEY not exists' }))
+      kucoin.('kucoin-failure', json.(429, { 'code' => '429000', 'msg' => 'Too Many Requests' }))
       super
     end
   end

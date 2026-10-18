@@ -200,7 +200,7 @@ pub struct Key {
 }
 
 /// The venues whose balances this build syncs. The ledger is synced for Alpaca only (`load_key`).
-pub const BALANCE_VENUES: [&str; 3] = [ALPACA, crate::venue::binance::BINANCE, crate::venue::binance::BINANCE_US];
+pub const BALANCE_VENUES: [&str; 4] = [ALPACA, crate::venue::binance::BINANCE, crate::venue::binance::BINANCE_US, crate::venue::kucoin::KUCOIN];
 
 /// The key being synced, when it is an Alpaca key: the ledger sync's key.
 pub fn load_key(c: &Connection, id: i64) -> Result<Key, SyncError> {
@@ -229,33 +229,33 @@ pub fn load_key_of(c: &Connection, id: i64, venues: &[&str]) -> Result<Key, Sync
 /// permission error.) This is what the nightly jobs iterate.
 pub fn reading_keys(c: &Connection) -> Result<Vec<i64>, SyncError> { reading_keys_of(c, &[ALPACA]) }
 
-/// ApiKey.reading over the venues whose balances this build syncs (Binance and Binance.US list no permission error
-/// either, so `missing_permission?` cannot hold for them).
+/// ApiKey.reading over the venues whose balances this build syncs.
 pub fn balance_reading_keys(c: &Connection) -> Result<Vec<i64>, SyncError> { reading_keys_of(c, &BALANCE_VENUES) }
 
-/// The venues with a ledger job: Alpaca, Binance, and Binance.US (whose run reads nothing and completes,
-/// see binance_ledger).
-pub const LEDGER_VENUES: [&str; 3] = [ALPACA, crate::venue::binance::BINANCE, crate::venue::binance::BINANCE_US];
+/// The venues with a ledger job: Alpaca, Binance, Binance.US (whose run reads nothing and completes, see binance_ledger)
+/// and KuCoin (kucoin_ledger).
+pub const LEDGER_VENUES: [&str; 4] = [ALPACA, crate::venue::binance::BINANCE, crate::venue::binance::BINANCE_US, crate::venue::kucoin::KUCOIN];
 
 /// ApiKey.reading over LEDGER_VENUES.
 pub fn ledger_reading_keys(c: &Connection) -> Result<Vec<i64>, SyncError> { reading_keys_of(c, &LEDGER_VENUES) }
 
+/// ApiKey.reading: per user and venue, the trading key that lacks no permission (`missing_permission?`), else the
+/// read-only one, else the first; status correct, never a withdrawal key.
 fn reading_keys_of(c: &Connection, venues: &[&str]) -> Result<Vec<i64>, SyncError> {
     let mut s = c.prepare(
-        "SELECT k.id, k.user_id, k.exchange_id, k.key_type, e.type FROM api_keys k JOIN exchanges e ON e.id = k.exchange_id \
+        "SELECT k.id, k.user_id, k.exchange_id, k.key_type, e.type, k.last_sync_error FROM api_keys k JOIN exchanges e ON e.id = k.exchange_id \
          WHERE k.status = 1 AND k.key_type != 1 ORDER BY k.id")?;
-    let rows = s.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?, r.get::<_, i64>(2)?, r.get::<_, i64>(3)?, r.get::<_, Option<String>>(4)?)))?
+    let rows = s.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?, r.get::<_, i64>(2)?, r.get::<_, i64>(3)?, r.get::<_, Option<String>>(4)?.unwrap_or_default(),
+                                      r.get::<_, Option<String>>(5)?)))?
         .collect::<Result<Vec<_>, _>>()?;
-    let rows = rows.into_iter().filter(|r| r.4.as_deref().is_some_and(|t| venues.contains(&t))).map(|r| (r.0, r.1, r.2, r.3));
-    let mut picked: Vec<(i64, i64, i64, i64)> = vec![];
-    for row in rows {
-        match picked.iter_mut().find(|p| (p.1, p.2) == (row.1, row.2)) {
-            Some(p) if p.3 != 0 && row.3 == 0 => *p = row, // a trading key replaces the read-only one
-            Some(_) => {}
-            None => picked.push(row),
-        }
-    }
-    Ok(picked.into_iter().map(|p| p.0).collect())
+    let rows: Vec<_> = rows.into_iter().filter(|r| venues.contains(&r.4.as_str())).collect();
+    let mut groups: Vec<(i64, i64)> = vec![];
+    for r in &rows { if !groups.contains(&(r.1, r.2)) { groups.push((r.1, r.2)); } }
+    Ok(groups.into_iter().filter_map(|g| {
+        let group: Vec<_> = rows.iter().filter(|r| (r.1, r.2) == g).collect();
+        group.iter().find(|r| r.3 == 0 && !crate::tracker::import::run::missing_permission(&r.4, r.5.as_deref()))
+            .or_else(|| group.iter().find(|r| r.3 == 2)).or_else(|| group.first()).map(|r| r.0)
+    }).collect())
 }
 
 /// Capture all seven encrypted columns.

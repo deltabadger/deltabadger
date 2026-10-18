@@ -1139,5 +1139,49 @@ module SyncScenarios
     ]
   end
 
-  def all = ledger_scenarios + balance_scenarios + binance_balance_scenarios + binance_ledger_scenarios + import_scenarios + kucoin_ledger_scenarios
+  # Exchanges::Kucoin#get_balances with AccountBalance::Sync (plan K4): the classic trade account, each currency by the
+  # venue's tickers, `holds` or (since KuCoin's 2026-08-27 rename) `locked`; only the success code means balances.
+  def kucoin_balance_scenarios
+    night = '2026-09-20T02:30:00.750000Z'
+    coins = P.prices_body('bitcoin' => 60_000.5, 'ethereum' => 2500.25, 'tether' => 1.0001)
+    install = ->(ctx) { P.kucoin(ctx) }
+    seeded = lambda do |ctx|
+      P.kucoin(ctx)
+      P.balance(ctx, 'BTC', free: '0.4', usd_price: '59000.5', usd_value: '23600.2', exchange: ctx[:kucoin])
+      P.balance(ctx, 'ETH', free: '1', usd_price: '2400', usd_value: '2400', exchange: ctx[:kucoin])
+    end
+    held = P.kucoin_accounts(%w[BTC 0.5 0.1], %w[ETH 2], %w[USDT 100.5], %w[KCS 3], %w[DOGE 0])
+    [
+      # Coins by the market's prices; a currency the venue lists no ticker for (KCS) is not a balance; holds count.
+      { name: 'kucoin-balances-first', setup: install, steps: [P.kucoin_balances(night, accounts: held, prices: coins)] },
+      { name: 'kucoin-balances-locked', setup: install,
+        steps: [P.kucoin_balances(night, accounts: P.kucoin_accounts(%w[BTC 0 0.25], %w[ETH 1.5 0.5], locked: true), prices: coins)] },
+      # What was held and is gone, and a price the market cannot give.
+      { name: 'kucoin-balances-stale_and_gone', setup: seeded, steps: [P.kucoin_balances(night, accounts: P.kucoin_accounts(%w[BTC 0.45]), prices: P::SERVER_ERROR)] },
+      { name: 'kucoin-balances-invalid_key', setup: seeded,
+        steps: [P.kucoin_balances(night, accounts: { 'status' => 401, 'body' => { 'code' => '400003', 'msg' => 'KC-API-KEY not exists' } })] },
+      { name: 'kucoin-balances-invalid_key_envelope', setup: seeded,
+        steps: [P.kucoin_balances(night, accounts: P.ok('code' => '400005', 'msg' => 'Signature error'))] },
+      { name: 'kucoin-balances-access_denied', setup: seeded,
+        steps: [P.kucoin_balances(night, accounts: { 'status' => 400, 'body' => { 'code' => '400007', 'msg' => 'Access Denied' } })] },
+      { name: 'kucoin-balances-throttled', setup: seeded,
+        steps: [P.kucoin_balances(night, accounts: { 'status' => 429, 'body' => { 'code' => '429000', 'msg' => 'Too Many Requests' } })] },
+      { name: 'kucoin-balances-bad_gateway', setup: seeded, steps: [P.kucoin_balances(night, accounts: { 'status' => 502, 'body' => '<html>502 Bad Gateway</html>' })] },
+      { name: 'kucoin-balances-not_json', setup: seeded, steps: [P.kucoin_balances(night, accounts: { 'status' => 200, 'body' => 'maintenance' })] },
+      { name: 'kucoin-balances-network', setup: seeded,
+        steps: [P.kucoin_balances(night, accounts: { 'network' => 'kucoin_pre_send', 'message' => 'Connection refused - connect(2) for "api.kucoin.com" port 443' })] },
+      { name: 'kucoin-balances-no_data', setup: seeded, steps: [P.kucoin_balances(night, accounts: P.ok('code' => '200000'))] },
+      { name: 'kucoin-balances-error_with_data', setup: seeded, steps: [P.kucoin_balances(night, accounts: P.ok('code' => '400100', 'msg' => 'nope', 'data' => []))] },
+      { name: 'kucoin-balances-no_currency', setup: seeded,
+        steps: [P.kucoin_balances(night, accounts: P.ok('code' => '200000', 'data' => [{ 'available' => '1', 'holds' => '0' }]))] },
+      { name: 'kucoin-balances-no_available', setup: seeded,
+        steps: [P.kucoin_balances(night, accounts: P.ok('code' => '200000', 'data' => [{ 'currency' => 'BTC', 'holds' => '0' }]))] },
+      { name: 'kucoin-balances-no_holds', setup: seeded,
+        steps: [P.kucoin_balances(night, accounts: P.ok('code' => '200000', 'data' => [{ 'currency' => 'BTC', 'available' => '1' }]))] },
+      { name: 'kucoin-balances-nothing', setup: seeded, steps: [P.kucoin_balances(night, accounts: P.kucoin_accounts)] }
+    ]
+  end
+
+  def all = ledger_scenarios + balance_scenarios + binance_balance_scenarios + binance_ledger_scenarios + import_scenarios + kucoin_ledger_scenarios +
+            kucoin_balance_scenarios
 end

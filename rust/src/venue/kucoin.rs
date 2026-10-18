@@ -1,6 +1,6 @@
 //! Honeymaker::Clients::Kucoin and Exchanges::Kucoin for the engine's spot orders (plan K, slices K1-K3): prices, balances,
 //! placement, polls, cancel and recovery by client order id. Rails is the oracle; each method names the Ruby it ports. The
-//! classic (LF) endpoints, as Rails runs them. Nothing builds this venue yet (K4 wires it), so nothing trades KuCoin.
+//! classic (LF) endpoints, as Rails runs them (plan K ruling O1); `venue::live` builds it for every KuCoin bot.
 //!
 //! Signing (Honeymaker::Clients::Kucoin#signed_headers): KC-API-SIGN = base64(HMAC-SHA256(secret, timestamp + METHOD + path +
 //! `?query` (a GET with params) | the JSON body (a POST) | nothing (a DELETE))), the passphrase likewise HMAC'd, key version 2.
@@ -169,6 +169,8 @@ impl<T: Transport> KucoinVenue<T> {
         };
         if !(200..300).contains(&resp.status) {
             let message = if resp.body.is_empty() { format!("the server responded with status {} for {} {}", resp.status, r.method, r.url()) } else { resp.body };
+            // Honeymaker attaches the status (data: { status: }) and Exchange#raise_on_invalid_key! reads a 401 as a rejected key.
+            if !placement && resp.status == 401 { return Err(VenueError::Unauthorized(vec![message])); }
             let definitive = (400..500).contains(&resp.status) || crate::engine::placement::safe_rejection(std::slice::from_ref(&message));
             return Err(if placement && !definitive { VenueError::Ambiguous(message) } else { VenueError::Rejected(vec![message]) });
         }

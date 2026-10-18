@@ -22,12 +22,13 @@ impl ValidationHandle {
         let value=check(url,&self.credentials,kind).await?;
         Ok(crate::engine::model::Produced::new(value,Some(self.producer.clone())))
     }
-    /// `check` on the venue the key belongs to: Alpaca's account read, or Kraken's and Binance's own key checks
+    /// `check` on the venue the key belongs to: Alpaca's account read, or Kraken's, Binance's and KuCoin's own key checks
     /// (`key_check`), through the venue's proxy when one is configured (ExchangeProxy.for).
     pub(crate) async fn check_on(&self,app:&crate::web::App,venue:&str,kind:i64)->Result<crate::engine::model::Produced<Validity>,WebError> {
         let (name,base)=match venue {
             "Exchanges::Kraken"=>("kraken",app.venue_key_urls.0.clone()),
             "Exchanges::Binance"=>("binance",app.venue_key_urls.1.clone()),
+            crate::venue::kucoin::KUCOIN=>("kucoin",app.venue_key_urls.2.clone()),
             _=>return self.check(&app.alpaca_trading_url(&self.credentials),kind).await,
         };
         let cipher=app.cipher.clone();

@@ -560,6 +560,25 @@ impl VenueFactory for LiveFactory {
                 let venue = super::binance::BinanceVenue::new(transport.with_sensitive_values(sensitive), super::binance::URL, &secret).with_pairs(pairs);
                 LiveVenue::Binance(match &identity { Some(c) => venue.with_identity(c), None => venue })
             }
+            // Exchanges::Kucoin: Honeymaker.client('kucoin', passphrase:, proxy: ExchangeProxy.for('kucoin')), read at each build,
+            // and the exchange's tickers (#parse_order_data's rounding, #asset_from_symbol).
+            super::kucoin::KUCOIN => {
+                let pairs = |c: &Connection| -> Result<super::binance::Pairs, String> {
+                    let id: i64 = c.query_row("SELECT id FROM exchanges WHERE type = ?1", [exchange_type], |r| r.get(0))
+                        .map_err(|_| "the KuCoin exchange row is unreadable".to_string())?;
+                    super::binance::Pairs::load(c, id).map_err(|_| "the KuCoin tickers are unreadable".to_string())
+                };
+                let (transport, pairs) = match self.egress_and("kucoin", pairs) {
+                    Err(why) => (refused(format!(": {why}")), super::binance::Pairs::default()),
+                    Ok(((client, proxy), pairs)) => {
+                        let (key, secret, passphrase, mut values) = credentials.map(|c| (c.key, c.secret, c.passphrase.unwrap_or_default(), c.redaction_values)).unwrap_or_default();
+                        values.extend(proxy);
+                        (ReqwestTransport::kucoin(client, key, secret, passphrase).with_sensitive_values(values).with_clock(self.clock.clone()), pairs)
+                    }
+                };
+                let venue = super::kucoin::KucoinVenue::new(transport.with_sensitive_values(sensitive), super::kucoin::URL).with_pairs(pairs);
+                LiveVenue::Kucoin(match &identity { Some(c) => venue.with_identity(c), None => venue })
+            }
             _ => LiveVenue::Alpaca(AlpacaVenue::new(refused(String::new()), Urls::for_passphrase(None))),
         }
     }
@@ -594,7 +613,7 @@ fn bot_problem(c: &Connection, cipher: &Cipher, id: i64) -> Result<Option<String
     let bot = model::load_bot(c, id)?;
     let exchange = model::exchange_type(c, &bot)?;
     let Some(rules) = crate::engine::venue_rules::for_exchange(&exchange) else {
-        return Ok(Some(format!("{exchange} is not connected in this build (only Kraken, Binance and Alpaca)")));
+        return Ok(Some(format!("{exchange} is not connected in this build (only Kraken, Binance, KuCoin and Alpaca)")));
     };
     Ok(match model::credentials_for(c, cipher, &bot)? {
         None => Some(format!("no {} API key", rules.name)),

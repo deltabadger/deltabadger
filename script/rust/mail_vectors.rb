@@ -71,13 +71,16 @@ ints = ['587', '+587', '-25', ' 2525', "\t25 ", '5_87', '5__87', '_587', '587_',
        .map { |text| [text, text.to_i.clamp(-(2**63), (2**63) - 1)] }
 
 # Exchange#humanize_error (the sentence a mail carries), per venue this crate trades and per locale of the mail grid.
-venues = { 'Exchanges::Kraken' => Exchanges::Kraken.new(name: 'Kraken'), 'Exchanges::Alpaca' => Exchanges::Alpaca.new(name: 'Alpaca') }
+venues = { 'Exchanges::Kraken' => Exchanges::Kraken.new(name: 'Kraken'), 'Exchanges::Alpaca' => Exchanges::Alpaca.new(name: 'Alpaca'),
+           'Exchanges::Kucoin' => Exchanges::Kucoin.new(name: 'KuCoin') }
 errors = ['EAccount:Invalid permissions:XMR trading restricted for PL.', 'EAccount:Invalid permissions:XMR trading restricted for PL',
           'EAccount:Invalid permissions:XMR trading restricted for PL and EAPI:Invalid nonce', 'EAccount:Invalid permissions',
           'EAccount:Invalid permissions: trading restricted for PL', 'EAccount:Invalid permissions:X Y trading restricted for PL',
           'EAccount:Invalid permissions:XMR trading restricted for P-L', 'EAPI:Invalid nonce', 'EService:Busy', 'EGeneral:Internal error',
           'EService:Deadline elapsed', 'EOrder:Insufficient funds', 'EAPI:Invalid key', 'EGeneral:Permission denied', 'EAPI:Rate limit exceeded',
-          'insufficient buying power', 'unauthorized.', 'HTTP 401', 'something <b>else</b> & more', '']
+          'insufficient buying power', 'unauthorized.', 'HTTP 401', 'something <b>else</b> & more', '',
+          'Balance insufficient!', 'KuCoin API error 400003: KC-API-KEY not exists', '{"code":"400007","msg":"Access Denied"}',
+          '{"code":"429000","msg":"Too Many Requests"}', 'KuCoin API error 230005: The system is busy, please try again later.']
 humanize = venues.flat_map do |type, exchange|
   %w[en pl ru].flat_map do |locale|
     errors.map { |m| { 'exchange_type' => type, 'name' => exchange.name, 'locale' => locale, 'message' => m, 'out' => I18n.with_locale(locale) { exchange.humanize_error(m) } } }

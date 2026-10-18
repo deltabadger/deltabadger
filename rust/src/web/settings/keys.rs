@@ -314,11 +314,13 @@ pub(crate) async fn submit(app: &App, ctx: &Ctx, user: i64, exchange: i64, venue
   let id:i64=tx.query_row("SELECT id FROM api_keys WHERE user_id=?1 AND exchange_id=?2 AND key_type=?3",(user_id,exchange,kind),|r|r.get(0))?;
   // The slots a restart would register (sync::jobs::register, tracker::jobs::register): a key that reads for its
   // venue gets its syncs, and its owner the tracker's jobs. Woken after the commit only.
-  let reading=crate::sync::reading_keys(&tx).map_err(|e|WebError::Config(e.0))?.contains(&id);
+  let ledger=crate::sync::ledger_reading_keys(&tx).map_err(|e|WebError::Config(e.0))?.contains(&id);
+  let balances=crate::sync::balance_reading_keys(&tx).map_err(|e|WebError::Config(e.0))?.contains(&id);
   tx.commit()?;
   if kind==0 {inner.wake_engine();}
-  if reading {
-   for job in [crate::sync::jobs::LEDGER_SYNC,crate::sync::jobs::BALANCE_SYNC] {jobs.wake(job,Some(&id.to_string()),None);}
+  if ledger {jobs.wake(crate::sync::jobs::LEDGER_SYNC,Some(&id.to_string()),None);}
+  if balances {jobs.wake(crate::sync::jobs::BALANCE_SYNC,Some(&id.to_string()),None);}
+  if ledger||balances {
    for job in [crate::tracker::jobs::TRACKER_LEDGER,crate::tracker::jobs::PORTFOLIO_BACKFILL] {jobs.wake(job,Some(&user_id.to_string()),None);}
   }
   Ok(None)
@@ -333,7 +335,8 @@ struct Fix{message:String,trading:bool,trading_path:String,reading_path:String,t
 struct WarningKey{exchange:i64,name:String,venue:String,status:i64,kind:i64,error:Option<String>}
 impl WarningKey{
     fn failed(&self)->bool{self.error.as_deref().is_some_and(|e|!crate::ruby::blank(e))}
-    fn permission(&self)->bool{self.venue=="Exchanges::Kraken"&&self.error.as_deref().is_some_and(|e|e.contains("EGeneral:Permission denied"))}
+    /// ApiKey#missing_permission?: the venue's own permission_denied texts (Exchange#permission_error?), one table for every venue.
+    fn permission(&self)->bool{crate::tracker::import::run::missing_permission(&self.venue,self.error.as_deref())}
 }
 /// `ApiKey.sync_warnings` rendered as tracker/_sync_warnings: the contents of #sync-warnings.
 pub(crate) fn warnings(c:&Connection,v:&Ctx,user:i64)->Result<String,WebError>{
@@ -670,8 +673,10 @@ pub(crate) async fn revalidate(app:&App,id:i64)->Result<Option<String>,WebError>
 #[derive(Template)]
 #[template(path="settings/alpaca_form.html")]
 struct AlpacaForm<'a> { v:&'a Ctx, csrf:&'a str, action:String, form_data:&'a str, connect_title:String, instructions_title:String, instructions:String, live:bool, modal:bool,
-    name_id:String, mark:&'static str, alpaca:bool, key_label:String, secret_label:String }
+    name_id:String, mark:&'static str, alpaca:bool, passphrase:bool, key_label:String, secret_label:String }
 
+/// Exchange#requires_passphrase? outside Alpaca (whose passphrase is its Paper/Live switch): the API Passphrase row.
+fn requires_passphrase(class:&str)->bool{matches!(class,"Exchanges::Kucoin"|"Exchanges::Bitget")}
 /// shared/_api_key_form inside shared/_connect_form: the venue's connect card. `name`/`class` are the exchange row's name and
 /// type; `instructions` the walkthrough under it; the fields are the key and secret, and Alpaca's Paper/Live switch before them.
 #[allow(clippy::too_many_arguments)]
@@ -681,7 +686,7 @@ pub(crate) fn card(ctx:&Ctx,csrf:&str,action:String,form_data:&str,name:&str,cla
     let label=|field:&str|{let specific=format!("bot.api.{name_id}.{field}");if lookup(ctx.locale,&specific).is_some(){ctx.t(&specific)}else{ctx.t(&format!("bot.api.{field}_label"))}};
     Ok(AlpacaForm{v:ctx,csrf,action,form_data,connect_title:i18n::t(ctx.locale,"bot.setup.connect_to",&[("name",i18n::Arg::Text(name))]),
         instructions_title:i18n::t(ctx.locale,"bot.setup.how_to_get_keys",&[("exchange",i18n::Arg::Text(name))]),instructions,live,modal,
-        mark:crate::web::bot::exchange_svg(&name_id),alpaca:class=="Exchanges::Alpaca",key_label:label("public_key"),secret_label:label("private_key"),name_id}.render()?)
+        mark:crate::web::bot::exchange_svg(&name_id),alpaca:class=="Exchanges::Alpaca",passphrase:requires_passphrase(class),key_label:label("public_key"),secret_label:label("private_key"),name_id}.render()?)
 }
 #[derive(Template)]
 #[template(path="settings/alpaca_modal.html")]

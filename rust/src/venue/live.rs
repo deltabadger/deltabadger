@@ -5,6 +5,7 @@ use super::alpaca::AlpacaVenue;
 use super::binance::BinanceVenue;
 use super::http::{self, ReqwestTransport};
 use super::kraken::KrakenVenue;
+use super::kucoin::KucoinVenue;
 use super::{ClockAnswer, NewOrder, OrderState, PriceSide, Venue, VenueError};
 use crate::crypto::Cipher;
 use crate::engine::model::Ticker;
@@ -14,9 +15,10 @@ use chrono::{DateTime, Utc};
 use rusqlite::Connection;
 
 /// A bot's venue, picked by its exchange type (no trait objects: the engine stays generic over one concrete type).
-pub enum LiveVenue { Alpaca(AlpacaVenue<ReqwestTransport>), Kraken(KrakenVenue<ReqwestTransport>), Binance(BinanceVenue<ReqwestTransport>) }
+pub enum LiveVenue { Alpaca(AlpacaVenue<ReqwestTransport>), Kraken(KrakenVenue<ReqwestTransport>), Binance(BinanceVenue<ReqwestTransport>),
+                     Kucoin(KucoinVenue<ReqwestTransport>) }
 
-macro_rules! each { ($s:expr, $v:ident => $e:expr) => { match $s { LiveVenue::Alpaca($v) => $e, LiveVenue::Kraken($v) => $e, LiveVenue::Binance($v) => $e } } }
+macro_rules! each { ($s:expr, $v:ident => $e:expr) => { match $s { LiveVenue::Alpaca($v) => $e, LiveVenue::Kraken($v) => $e, LiveVenue::Binance($v) => $e, LiveVenue::Kucoin($v) => $e } } }
 
 impl Venue for LiveVenue {
     fn rules(&self) -> &'static VenueRules { each!(self, v => v.rules()) }

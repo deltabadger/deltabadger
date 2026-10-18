@@ -91,10 +91,30 @@ fn key_verdicts_replay_every_recorded_case() {
         assert_eq!(case["request"]["key_header"], "test-key");
         replayed += 1;
     }
+    let kucoin = &recorded["kucoin"];
+    let listed = |name: &str| -> Vec<String> { serde_json::from_value(kucoin[name].clone()).unwrap() };
+    assert_eq!(listed("rejected_codes"), key_check::KUCOIN_REJECTED);
+    assert_eq!(listed("inconclusive_codes"), key_check::KUCOIN_INCONCLUSIVE);
+    let invalid: Vec<String> = deltabadger::engine::venue_rules::KUCOIN.kinds.iter().find(|(k, _)| *k == "invalid_key").unwrap().1.iter().map(|s| s.to_string()).collect();
+    assert_eq!(listed("invalid_key_errors"), invalid);
+    for case in kucoin["cases"].as_array().unwrap() {
+        let (name, kind) = (case["case"].as_str().unwrap(), kind(case["key_type"].as_str().unwrap()));
+        let request = key_check::kucoin_request(deltabadger::venue::kucoin::URL, kind);
+        let ours = key_check::kucoin_verdict(kind, &answer(&case["response"]), request.method, request.url().as_str());
+        let theirs = expected(&case["verdict"]);
+        assert!(same(&ours, &theirs), "kucoin {} {name}: {ours:?}, Rails {theirs:?}", case["key_type"]);
+        let query: serde_json::Map<String, Value> = request.query.iter().map(|(k, v)| (k.to_string(), json!(v))).collect();
+        assert_eq!((request.method, request.url().host_str().unwrap(), request.path.as_str(), Value::Object(query), json!({})),
+                   (case["request"]["method"].as_str().unwrap(), case["request"]["host"].as_str().unwrap(), case["request"]["path"].as_str().unwrap(),
+                    case["request"]["query"].clone(), case["request"]["form"].clone()), "kucoin {name}");
+        let headers = deltabadger::venue::kucoin::headers(&request, "test-key", "test-secret", "test-passphrase", 1);
+        assert!(headers.iter().any(|(h, v)| h == "KC-API-KEY" && json!(v) == case["request"]["key_header"]), "kucoin {name}: the key header");
+        replayed += 1;
+    }
     // Binance.US checks a key with an account read and a cancel probe; its key step is a named refusal, so its cases are
     // recorded and not replayed.
     let us = recorded["binance_us"]["cases"].as_array().unwrap().len();
-    assert_eq!((replayed, us), (447, 212), "a recorded case was added or dropped");
+    assert_eq!((replayed, us), (527, 212), "a recorded case was added or dropped");
 }
 
 /// A pinned callback list against a port's table: the same callbacks, in Rails' order, each handled.

@@ -340,6 +340,107 @@ pub(crate) async fn sync_binance_captured<T: Transport>(db: &Db, transport: T, h
     }
 }
 
+/// What KuCoin's trade-account answer may hold: one row per currency held.
+pub const KUCOIN_ACCOUNTS_PATH: &str = "/api/v1/accounts";
+
+/// One balance sync of one KuCoin key, as AccountBalance::SyncJob runs it for that key: Exchanges::Kucoin#get_balances
+/// (the classic `trade` account, as Rails reads it) then AccountBalance::Sync. Read only: one signed GET. A failure records
+/// the venue's text; KuCoin's invalid-key words mark the key incorrect unless they name a missing permission
+/// (ApiKeyFailureHandling#failure_reason).
+pub async fn sync_kucoin<T: Transport>(db: &Db, transport: T, prices: &dyn PriceSource, key_id: i64, credentials: &Credentials, clock: &dyn Clock)
+                                       -> Result<Result<Summary, Failure>, SyncError> {
+    let version = super::capture_bound_version(db, key_id, credentials).await?;
+    sync_kucoin_captured(db, transport, prices, key_id, credentials, clock, &version).await
+}
+
+pub(crate) async fn sync_kucoin_captured<T: Transport>(db: &Db, transport: T, prices: &dyn PriceSource, key_id: i64, credentials: &Credentials,
+                                                       clock: &dyn Clock, version: &crate::engine::model::CredentialVersion)
+                                                       -> Result<Result<Summary, Failure>, SyncError> {
+    use crate::venue::kucoin::{KucoinVenue, KUCOIN, URL};
+    let (catalog, names, exchange_type) = phase(db, move |c| {
+        let key = super::load_key_of(c, key_id, &[KUCOIN])?;
+        if key.status != 1 || key.key_type == 1 { return Err(SyncError(format!("api key {key_id} is not a reading key"))); }
+        Ok((catalog_for(c, key.user_id, key.exchange_id)?, binance_names(c, key.exchange_id)?, key.exchange_type))
+    }).await?;
+    let venue = KucoinVenue::new(transport, URL);
+    let fail = |text: String, condemn: bool| {
+        let (creds, now, venue_type) = (credentials.clone(), clock.now(), exchange_type.clone());
+        async move {
+            let error = super::commit_for(db, version, move |c| {
+                let messages = [text.clone()];
+                let permission = crate::tracker::import::run::missing_permission(&venue_type, Some(&text));
+                if condemn && !permission && crate::engine::venue_rules::KUCOIN.is_invalid_key(&messages) {
+                    c.execute("UPDATE api_keys SET status = 2, updated_at = ?1 WHERE id = ?2 AND status != 2", params![sql_time(now), key_id])?;
+                }
+                record_sync_error(c, key_id, &text, &creds)
+            }).await?;
+            Ok::<_, SyncError>(Err(Failure { error, raised: false }))
+        }
+    };
+    let text = match venue.read_text(KUCOIN_ACCOUNTS_PATH, vec![("type", "trade".to_string())], MAX_BINANCE_ACCOUNT_BYTES).await {
+        Ok(text) => text,
+        Err(text) => return fail(text, true).await,
+    };
+    let asset_ids = catalog.asset_ids.clone();
+    let read = tokio::task::spawn_blocking(move || kucoin_held(&text, &names, &asset_ids).map_err(|unread| (unread, text))).await
+        .unwrap_or_else(|_| Err((Unread::Raised("reading the venue's answer was interrupted".into()), String::new())));
+    let held = match read {
+        Ok(Ok(held)) => held,
+        Ok(Err((why, condemn))) => return fail(why, condemn).await,
+        // A 2xx body that is not JSON: honeymaker's failure is the body itself, read as any failure is.
+        Err((Unread::NotJson, body)) => return fail(body, true).await,
+        Err((Unread::Raised(why), _)) => return fail(why, false).await,
+    };
+    let ids: Vec<i64> = held.iter().map(|(id, _, _)| *id).collect();
+    let assets = Arc::new(phase(db, move |c| assets(c, &ids)).await?);
+    match finish(db, version, &catalog, held, assets, HashMap::new(), vec![], prices, key_id, clock, None).await? {
+        Ok(summary) => Ok(Ok(summary)),
+        Err(why) => fail(why, false).await,
+    }
+}
+
+/// Exchanges::Kucoin#get_balances then AccountBalance::Sync's `nonzero`. Only the success code with `data` means balances,
+/// else "Failed to get KuCoin balances: <code> <msg>" (a Failure the key's failure handling reads: `true`). Each row's
+/// `currency` must be there; a row naming no listed asset is skipped; `available` and `locked` (before KuCoin's
+/// 2026-08-27 rename `holds`) are read for the rest, a later row for the same asset winning. A missing field is Rails'
+/// KeyError; a quantity that is no number fails the sync (Rails reads it as 0: the Binance sync's listed divergence).
+fn kucoin_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> Result<Result<Vec<Held>, (String, bool)>, Unread> {
+    let node = wire::read(text, &mut Budget(MAX_BINANCE_ACCOUNT_NODES), None).map_err(|r| Unread::refused(r, "an account"))?;
+    let Ok(body) = Raw::from_node(&node) else { return Ok(Err(("unreadable account".into(), false))) };
+    let part = |v: &Value| match v { Value::Null => None, Value::String(s) => Some(s.clone()), other => Some(other.to_string()) };
+    let code = part(&body.value["code"]);
+    let rows = match body.member("data") {
+        Some(Node::Array(rows)) if code.as_deref() == Some("200000") => rows,
+        Some(Node::Scalar(token)) if token != "null" && code.as_deref() == Some("200000") => return Ok(Err(("unreadable balances".into(), false))),
+        Some(Node::Object(_)) if code.as_deref() == Some("200000") => return Ok(Err(("unreadable balances".into(), false))),
+        _ => {
+            let detail: Vec<String> = [code, part(&body.value["msg"])].into_iter().flatten().collect();
+            return Ok(Err((format!("Failed to get KuCoin balances: {}", detail.join(" ")), true)));
+        }
+    };
+    let mut found: HashMap<i64, (BigDec, BigDec)> = HashMap::new();
+    for row in rows {
+        let Ok(row) = Raw::from_node(row) else { return Ok(Err(("unreadable balance".into(), false))) };
+        let Some(currency) = row.value.get("currency").filter(|v| !v.is_null()) else { return Ok(Err(("KeyError: Key path currency not found".into(), false))) };
+        let Some(asset) = currency.as_str().and_then(|c| names.get(c)).filter(|id| asset_ids.contains(id)) else { continue };
+        let quantity = |key: &str| match row.number(key) {
+            _ if row.value[key].as_str().is_some_and(|s| s.trim().is_empty()) => Err(format!("unreadable {key}: not a plain decimal number")),
+            Ok(Some(n)) => Ok(n),
+            Ok(None) => Err(format!("KeyError: Key path {key} not found")),
+            Err(why) => Err(why),
+        };
+        let free = match quantity("available") { Ok(n) => n, Err(why) => return Ok(Err((why, false))) };
+        // `balance.fetch('locked') { dig_or_raise('holds') }.to_d`: a present null is nil.to_d, 0.
+        let locked = match row.member("locked") {
+            Some(Node::Scalar(token)) if token == "null" => BigDec::zero(),
+            Some(_) => match quantity("locked") { Ok(n) => n, Err(why) => return Ok(Err((why, false))) },
+            None => match quantity("holds") { Ok(n) => n, Err(why) => return Ok(Err((why, false))) },
+        };
+        found.insert(*asset, (free, locked));
+    }
+    Ok(Ok(asset_ids.iter().filter_map(|id| found.remove(id).map(|(free, locked)| (*id, free, locked))).filter(|(_, free, locked)| (free + locked).is_positive()).collect()))
+}
+
 /// Exchange#asset_from_symbol: the venue's available tickers in id order, each naming its base asset and then its quote
 /// asset by the ticker's own spelling; the first ticker to name a symbol wins it.
 fn binance_names(c: &Connection, exchange_id: i64) -> Result<HashMap<String, i64>, SyncError> {

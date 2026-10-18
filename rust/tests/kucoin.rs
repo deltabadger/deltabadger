@@ -613,3 +613,63 @@ fn every_recorded_rails_order_parse_is_reproduced() {
         assert_eq!((got.sell, got.limit), (c["side"] == "sell", c["order_type"] == "limit_order"), "{c}");
     }
 }
+
+// ---- K4: wiring
+
+/// A 401 on a read carries its status (plan CI T3): the index probe and the tick read it as a rejected key, as
+/// Exchange#raise_on_invalid_key! does with honeymaker's `data: { status: 401 }`. A placement's 401 stays a definitive refusal.
+#[tokio::test(flavor = "current_thread")]
+async fn a_401_read_is_unauthorized_and_a_401_placement_is_rejected() {
+    let body = json!({ "code": "400003", "msg": "KC-API-KEY not exists" });
+    let (_, v) = venue(json!({ "GET /api/v1/market/orderbook/level2_20": fail(401, body.clone()), "GET /api/v1/accounts": fail(401, json!("")) }));
+    assert_eq!(v.price(&btc_usdt(), PriceSide::Ask).await, Err(VenueError::Unauthorized(vec![body.to_string()])));
+    let Err(VenueError::Unauthorized(e)) = v.free_base_balance(&btc_usdt()).await else { panic!("an empty 401 is Unauthorized too") };
+    assert_eq!(e, ["the server responded with status 401 for GET https://api.kucoin.com/api/v1/accounts?type=trade"]);
+    let (_, v) = venue(json!({ "POST /api/v1/orders": fail(401, body.clone()) }));
+    assert_eq!(v.add_order(&order(OrderKind::Market, true, "60", Side::Buy)).await, Err(VenueError::Rejected(vec![body.to_string()])));
+}
+
+/// The factory builds every KuCoin bot's venue through ExchangeProxy.for('kucoin'), read at each build, signing with the
+/// key's passphrase; with no install to read the proxy setting from, nothing is sent.
+#[tokio::test(flavor = "current_thread")]
+async fn the_factory_builds_kucoin_through_its_proxy_with_the_keys_passphrase_per_build() {
+    use deltabadger::venue::live::LiveVenue;
+    use deltabadger::venue::{alpaca::LiveFactory, VenueFactory};
+    use wiremock::{matchers::{header, method}, Mock, MockServer, ResponseTemplate};
+    let (key, secret, passphrase) = ("kc-key-0123456789abcdef", "kc-secret-0123456789abcdef0123456789", "kc-passphrase-01");
+    let probe = HttpRequest { method: "GET", base: URL.into(), path: "/api/v1/accounts".into(), query: vec![], body: None, not_after: None };
+    let signed = kucoin::headers(&probe, key, secret, passphrase, 1).into_iter().find(|(h, _)| h == "KC-API-PASSPHRASE").unwrap().1;
+    let rows = r#"{"code":"200000","data":[{"currency":"BTC","available":"0.25","holds":"0"}]}"#;
+    let (a, b, direct) = (MockServer::start().await, MockServer::start().await, MockServer::start().await);
+    for server in [&a, &b] {
+        Mock::given(method("GET")).and(header("KC-API-PASSPHRASE", signed.as_str())).and(header("KC-API-KEY", key))
+            .respond_with(ResponseTemplate::new(200).set_body_string(rows)).expect(1).mount(server).await;
+    }
+    Mock::given(method("GET")).respond_with(ResponseTemplate::new(200).set_body_string(rows)).expect(0).mount(&direct).await;
+    let dir = tempfile::tempdir().unwrap();
+    let c = rusqlite::Connection::open(dir.path().join("primary.sqlite3")).unwrap();
+    c.execute_batch("CREATE TABLE app_configs (id INTEGER PRIMARY KEY AUTOINCREMENT, key TEXT NOT NULL, value TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+        CREATE TABLE exchanges (id INTEGER PRIMARY KEY, type TEXT);
+        CREATE TABLE assets (id INTEGER PRIMARY KEY, symbol TEXT);
+        CREATE TABLE tickers (id INTEGER PRIMARY KEY, exchange_id INTEGER, ticker TEXT, base TEXT, quote TEXT, price_decimals INTEGER, available BOOLEAN, base_asset_id INTEGER, quote_asset_id INTEGER);
+        INSERT INTO exchanges VALUES (9, 'Exchanges::Kucoin');").unwrap();
+    let cipher = deltabadger::crypto::Cipher::new(&deltabadger::crypto::EncryptionKeys::resolve(&|_| None, "engine-test-secret").unwrap());
+    let factory = LiveFactory::for_install(&c, &cipher);
+    let creds = Some(deltabadger::crypto::Credentials { redaction_values: vec![], key: key.into(), secret: secret.into(), passphrase: Some(passphrase.into()) });
+    for proxy in [&a, &b] {
+        deltabadger::app_config::set(&c, &cipher, "proxy_kucoin", &proxy.uri(), Utc::now()).unwrap();
+        let LiveVenue::Kucoin(v) = factory.for_bot("Exchanges::Kucoin", creds.clone()) else { panic!("a KuCoin bot gets the KuCoin venue") };
+        assert!(std::ptr::eq(v.rules(), &KUCOIN));
+        assert_eq!(v.placement_identity().unwrap()["host"], URL);
+        assert_eq!(v.with_base(&direct.uri()).free_base_balance(&btc_usdt()).await, Ok(bd("0.25")), "the proxy read at this build");
+    }
+    for server in [&a, &b, &direct] { server.verify().await; }
+    let LiveVenue::Kucoin(v) = LiveFactory::new().for_bot("Exchanges::Kucoin", creds) else { panic!() };
+    match v.free_base_balance(&btc_usdt()).await { Err(VenueError::Transient(m)) => assert!(m.contains("proxy"), "{m}"), other => panic!("{other:?}") }
+}
+
+#[test]
+fn the_kucoin_log_line_is_labelled_kucoin() {
+    let t = http::ReqwestTransport::kucoin(http::client(), "KEY".into(), "SECRET".into(), "PASS".into());
+    assert_eq!(t.failure_line(&http::HttpResponse { status: 400, body: r#"{"code":"400100","msg":"x"}"#.into() }), "[KuCoin] HTTP 400; venue response diagnostic omitted");
+}

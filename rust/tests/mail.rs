@@ -190,7 +190,7 @@ use deltabadger::web::{i18n, locale};
 #[test]
 fn errors_are_humanised_as_exchange_humanize_error_does() {
     let cases = vectors()["humanize"].as_array().unwrap().clone();
-    assert_eq!(cases.len(), 120);
+    assert_eq!(cases.len(), 225);
     for c in &cases {
         let s = |k: &str| c[k].as_str().unwrap();
         assert_eq!(render::humanize_error(s("exchange_type"), s("name"), s("locale"), s("message")), s("out"), "{} {} {:?}", s("exchange_type"), s("locale"), s("message"));

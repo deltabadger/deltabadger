@@ -816,6 +816,41 @@
     {
       "exchange_type": "Exchanges::Kraken",
       "name": "Kraken",
+      "locale": "en",
+      "message": "Balance insufficient!",
+      "out": "Balance insufficient!"
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "en",
+      "message": "KuCoin API error 400003: KC-API-KEY not exists",
+      "out": "KuCoin API error 400003: KC-API-KEY not exists"
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "en",
+      "message": "{\"code\":\"400007\",\"msg\":\"Access Denied\"}",
+      "out": "{\"code\":\"400007\",\"msg\":\"Access Denied\"}"
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "en",
+      "message": "{\"code\":\"429000\",\"msg\":\"Too Many Requests\"}",
+      "out": "{\"code\":\"429000\",\"msg\":\"Too Many Requests\"}"
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "en",
+      "message": "KuCoin API error 230005: The system is busy, please try again later.",
+      "out": "KuCoin API error 230005: The system is busy, please try again later."
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
       "locale": "pl",
       "message": "EAccount:Invalid permissions:XMR trading restricted for PL.",
       "out": "Kraken ogranicza handel XMR w kraju PL"
@@ -956,6 +991,41 @@
     {
       "exchange_type": "Exchanges::Kraken",
       "name": "Kraken",
+      "locale": "pl",
+      "message": "Balance insufficient!",
+      "out": "Balance insufficient!"
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "pl",
+      "message": "KuCoin API error 400003: KC-API-KEY not exists",
+      "out": "KuCoin API error 400003: KC-API-KEY not exists"
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "pl",
+      "message": "{\"code\":\"400007\",\"msg\":\"Access Denied\"}",
+      "out": "{\"code\":\"400007\",\"msg\":\"Access Denied\"}"
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "pl",
+      "message": "{\"code\":\"429000\",\"msg\":\"Too Many Requests\"}",
+      "out": "{\"code\":\"429000\",\"msg\":\"Too Many Requests\"}"
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "pl",
+      "message": "KuCoin API error 230005: The system is busy, please try again later.",
+      "out": "KuCoin API error 230005: The system is busy, please try again later."
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
       "locale": "ru",
       "message": "EAccount:Invalid permissions:XMR trading restricted for PL.",
       "out": "Kraken ограничивает торговлю XMR в стране PL"
@@ -1092,6 +1162,41 @@
       "locale": "ru",
       "message": "",
       "out": ""
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "ru",
+      "message": "Balance insufficient!",
+      "out": "Balance insufficient!"
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "ru",
+      "message": "KuCoin API error 400003: KC-API-KEY not exists",
+      "out": "KuCoin API error 400003: KC-API-KEY not exists"
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "ru",
+      "message": "{\"code\":\"400007\",\"msg\":\"Access Denied\"}",
+      "out": "{\"code\":\"400007\",\"msg\":\"Access Denied\"}"
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "ru",
+      "message": "{\"code\":\"429000\",\"msg\":\"Too Many Requests\"}",
+      "out": "{\"code\":\"429000\",\"msg\":\"Too Many Requests\"}"
+    },
+    {
+      "exchange_type": "Exchanges::Kraken",
+      "name": "Kraken",
+      "locale": "ru",
+      "message": "KuCoin API error 230005: The system is busy, please try again later.",
+      "out": "KuCoin API error 230005: The system is busy, please try again later."
     },
     {
       "exchange_type": "Exchanges::Alpaca",
@@ -1236,6 +1341,41 @@
     {
       "exchange_type": "Exchanges::Alpaca",
       "name": "Alpaca",
+      "locale": "en",
+      "message": "Balance insufficient!",
+      "out": "Balance insufficient!"
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "en",
+      "message": "KuCoin API error 400003: KC-API-KEY not exists",
+      "out": "KuCoin API error 400003: KC-API-KEY not exists"
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "en",
+      "message": "{\"code\":\"400007\",\"msg\":\"Access Denied\"}",
+      "out": "{\"code\":\"400007\",\"msg\":\"Access Denied\"}"
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "en",
+      "message": "{\"code\":\"429000\",\"msg\":\"Too Many Requests\"}",
+      "out": "{\"code\":\"429000\",\"msg\":\"Too Many Requests\"}"
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "en",
+      "message": "KuCoin API error 230005: The system is busy, please try again later.",
+      "out": "KuCoin API error 230005: The system is busy, please try again later."
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
       "locale": "pl",
       "message": "EAccount:Invalid permissions:XMR trading restricted for PL.",
       "out": "EAccount:Invalid permissions:XMR trading restricted for PL."
@@ -1376,6 +1516,41 @@
     {
       "exchange_type": "Exchanges::Alpaca",
       "name": "Alpaca",
+      "locale": "pl",
+      "message": "Balance insufficient!",
+      "out": "Balance insufficient!"
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "pl",
+      "message": "KuCoin API error 400003: KC-API-KEY not exists",
+      "out": "KuCoin API error 400003: KC-API-KEY not exists"
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "pl",
+      "message": "{\"code\":\"400007\",\"msg\":\"Access Denied\"}",
+      "out": "{\"code\":\"400007\",\"msg\":\"Access Denied\"}"
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "pl",
+      "message": "{\"code\":\"429000\",\"msg\":\"Too Many Requests\"}",
+      "out": "{\"code\":\"429000\",\"msg\":\"Too Many Requests\"}"
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "pl",
+      "message": "KuCoin API error 230005: The system is busy, please try again later.",
+      "out": "KuCoin API error 230005: The system is busy, please try again later."
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
       "locale": "ru",
       "message": "EAccount:Invalid permissions:XMR trading restricted for PL.",
       "out": "EAccount:Invalid permissions:XMR trading restricted for PL."
@@ -1512,6 +1687,566 @@
       "locale": "ru",
       "message": "",
       "out": ""
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "ru",
+      "message": "Balance insufficient!",
+      "out": "Balance insufficient!"
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "ru",
+      "message": "KuCoin API error 400003: KC-API-KEY not exists",
+      "out": "KuCoin API error 400003: KC-API-KEY not exists"
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "ru",
+      "message": "{\"code\":\"400007\",\"msg\":\"Access Denied\"}",
+      "out": "{\"code\":\"400007\",\"msg\":\"Access Denied\"}"
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "ru",
+      "message": "{\"code\":\"429000\",\"msg\":\"Too Many Requests\"}",
+      "out": "{\"code\":\"429000\",\"msg\":\"Too Many Requests\"}"
+    },
+    {
+      "exchange_type": "Exchanges::Alpaca",
+      "name": "Alpaca",
+      "locale": "ru",
+      "message": "KuCoin API error 230005: The system is busy, please try again later.",
+      "out": "KuCoin API error 230005: The system is busy, please try again later."
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "en",
+      "message": "EAccount:Invalid permissions:XMR trading restricted for PL.",
+      "out": "EAccount:Invalid permissions:XMR trading restricted for PL."
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "en",
+      "message": "EAccount:Invalid permissions:XMR trading restricted for PL",
+      "out": "EAccount:Invalid permissions:XMR trading restricted for PL"
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "en",
+      "message": "EAccount:Invalid permissions:XMR trading restricted for PL and EAPI:Invalid nonce",
+      "out": "EAccount:Invalid permissions:XMR trading restricted for PL and EAPI:Invalid nonce"
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "en",
+      "message": "EAccount:Invalid permissions",
+      "out": "EAccount:Invalid permissions"
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "en",
+      "message": "EAccount:Invalid permissions: trading restricted for PL",
+      "out": "EAccount:Invalid permissions: trading restricted for PL"
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "en",
+      "message": "EAccount:Invalid permissions:X Y trading restricted for PL",
+      "out": "EAccount:Invalid permissions:X Y trading restricted for PL"
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "en",
+      "message": "EAccount:Invalid permissions:XMR trading restricted for P-L",
+      "out": "EAccount:Invalid permissions:XMR trading restricted for P-L"
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "en",
+      "message": "EAPI:Invalid nonce",
+      "out": "EAPI:Invalid nonce"
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "en",
+      "message": "EService:Busy",
+      "out": "EService:Busy"
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "en",
+      "message": "EGeneral:Internal error",
+      "out": "EGeneral:Internal error"
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "en",
+      "message": "EService:Deadline elapsed",
+      "out": "EService:Deadline elapsed"
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "en",
+      "message": "EOrder:Insufficient funds",
+      "out": "EOrder:Insufficient funds"
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "en",
+      "message": "EAPI:Invalid key",
+      "out": "EAPI:Invalid key"
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "en",
+      "message": "EGeneral:Permission denied",
+      "out": "EGeneral:Permission denied"
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "en",
+      "message": "EAPI:Rate limit exceeded",
+      "out": "EAPI:Rate limit exceeded"
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "en",
+      "message": "insufficient buying power",
+      "out": "insufficient buying power"
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "en",
+      "message": "unauthorized.",
+      "out": "unauthorized."
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "en",
+      "message": "HTTP 401",
+      "out": "HTTP 401"
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "en",
+      "message": "something <b>else</b> & more",
+      "out": "something <b>else</b> & more"
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "en",
+      "message": "",
+      "out": ""
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "en",
+      "message": "Balance insufficient!",
+      "out": "Not enough funds on your KuCoin account."
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "en",
+      "message": "KuCoin API error 400003: KC-API-KEY not exists",
+      "out": "KuCoin rejected the API key. Check it's still active, that trading is enabled for it, and that no IP restriction blocks it."
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "en",
+      "message": "{\"code\":\"400007\",\"msg\":\"Access Denied\"}",
+      "out": "The API key is missing a permission KuCoin needs for this."
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "en",
+      "message": "{\"code\":\"429000\",\"msg\":\"Too Many Requests\"}",
+      "out": "KuCoin is rate-limiting requests. The bot will retry automatically."
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "en",
+      "message": "KuCoin API error 230005: The system is busy, please try again later.",
+      "out": "KuCoin is temporarily unavailable. The bot will retry automatically."
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "pl",
+      "message": "EAccount:Invalid permissions:XMR trading restricted for PL.",
+      "out": "EAccount:Invalid permissions:XMR trading restricted for PL."
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "pl",
+      "message": "EAccount:Invalid permissions:XMR trading restricted for PL",
+      "out": "EAccount:Invalid permissions:XMR trading restricted for PL"
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "pl",
+      "message": "EAccount:Invalid permissions:XMR trading restricted for PL and EAPI:Invalid nonce",
+      "out": "EAccount:Invalid permissions:XMR trading restricted for PL and EAPI:Invalid nonce"
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "pl",
+      "message": "EAccount:Invalid permissions",
+      "out": "EAccount:Invalid permissions"
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "pl",
+      "message": "EAccount:Invalid permissions: trading restricted for PL",
+      "out": "EAccount:Invalid permissions: trading restricted for PL"
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "pl",
+      "message": "EAccount:Invalid permissions:X Y trading restricted for PL",
+      "out": "EAccount:Invalid permissions:X Y trading restricted for PL"
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "pl",
+      "message": "EAccount:Invalid permissions:XMR trading restricted for P-L",
+      "out": "EAccount:Invalid permissions:XMR trading restricted for P-L"
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "pl",
+      "message": "EAPI:Invalid nonce",
+      "out": "EAPI:Invalid nonce"
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "pl",
+      "message": "EService:Busy",
+      "out": "EService:Busy"
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "pl",
+      "message": "EGeneral:Internal error",
+      "out": "EGeneral:Internal error"
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "pl",
+      "message": "EService:Deadline elapsed",
+      "out": "EService:Deadline elapsed"
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "pl",
+      "message": "EOrder:Insufficient funds",
+      "out": "EOrder:Insufficient funds"
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "pl",
+      "message": "EAPI:Invalid key",
+      "out": "EAPI:Invalid key"
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "pl",
+      "message": "EGeneral:Permission denied",
+      "out": "EGeneral:Permission denied"
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "pl",
+      "message": "EAPI:Rate limit exceeded",
+      "out": "EAPI:Rate limit exceeded"
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "pl",
+      "message": "insufficient buying power",
+      "out": "insufficient buying power"
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "pl",
+      "message": "unauthorized.",
+      "out": "unauthorized."
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "pl",
+      "message": "HTTP 401",
+      "out": "HTTP 401"
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "pl",
+      "message": "something <b>else</b> & more",
+      "out": "something <b>else</b> & more"
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "pl",
+      "message": "",
+      "out": ""
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "pl",
+      "message": "Balance insufficient!",
+      "out": "Za mało środków na Twoim koncie KuCoin."
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "pl",
+      "message": "KuCoin API error 400003: KC-API-KEY not exists",
+      "out": "KuCoin odrzucił klucz API. Sprawdź, czy nadal jest aktywny, czy ma włączony handel i czy nie blokuje go ograniczenie IP."
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "pl",
+      "message": "{\"code\":\"400007\",\"msg\":\"Access Denied\"}",
+      "out": "Kluczowi API brakuje uprawnienia, którego KuCoin do tego wymaga."
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "pl",
+      "message": "{\"code\":\"429000\",\"msg\":\"Too Many Requests\"}",
+      "out": "KuCoin ogranicza liczbę żądań. Bot automatycznie ponowi próbę."
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "pl",
+      "message": "KuCoin API error 230005: The system is busy, please try again later.",
+      "out": "KuCoin jest chwilowo niedostępny. Bot automatycznie ponowi próbę."
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "ru",
+      "message": "EAccount:Invalid permissions:XMR trading restricted for PL.",
+      "out": "EAccount:Invalid permissions:XMR trading restricted for PL."
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "ru",
+      "message": "EAccount:Invalid permissions:XMR trading restricted for PL",
+      "out": "EAccount:Invalid permissions:XMR trading restricted for PL"
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "ru",
+      "message": "EAccount:Invalid permissions:XMR trading restricted for PL and EAPI:Invalid nonce",
+      "out": "EAccount:Invalid permissions:XMR trading restricted for PL and EAPI:Invalid nonce"
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "ru",
+      "message": "EAccount:Invalid permissions",
+      "out": "EAccount:Invalid permissions"
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "ru",
+      "message": "EAccount:Invalid permissions: trading restricted for PL",
+      "out": "EAccount:Invalid permissions: trading restricted for PL"
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "ru",
+      "message": "EAccount:Invalid permissions:X Y trading restricted for PL",
+      "out": "EAccount:Invalid permissions:X Y trading restricted for PL"
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "ru",
+      "message": "EAccount:Invalid permissions:XMR trading restricted for P-L",
+      "out": "EAccount:Invalid permissions:XMR trading restricted for P-L"
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "ru",
+      "message": "EAPI:Invalid nonce",
+      "out": "EAPI:Invalid nonce"
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "ru",
+      "message": "EService:Busy",
+      "out": "EService:Busy"
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "ru",
+      "message": "EGeneral:Internal error",
+      "out": "EGeneral:Internal error"
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "ru",
+      "message": "EService:Deadline elapsed",
+      "out": "EService:Deadline elapsed"
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "ru",
+      "message": "EOrder:Insufficient funds",
+      "out": "EOrder:Insufficient funds"
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "ru",
+      "message": "EAPI:Invalid key",
+      "out": "EAPI:Invalid key"
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "ru",
+      "message": "EGeneral:Permission denied",
+      "out": "EGeneral:Permission denied"
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "ru",
+      "message": "EAPI:Rate limit exceeded",
+      "out": "EAPI:Rate limit exceeded"
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "ru",
+      "message": "insufficient buying power",
+      "out": "insufficient buying power"
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "ru",
+      "message": "unauthorized.",
+      "out": "unauthorized."
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "ru",
+      "message": "HTTP 401",
+      "out": "HTTP 401"
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "ru",
+      "message": "something <b>else</b> & more",
+      "out": "something <b>else</b> & more"
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "ru",
+      "message": "",
+      "out": ""
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "ru",
+      "message": "Balance insufficient!",
+      "out": "Недостаточно средств на вашем счёте KuCoin."
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "ru",
+      "message": "KuCoin API error 400003: KC-API-KEY not exists",
+      "out": "KuCoin отклонил API-ключ. Проверьте, что он ещё активен, что для него включена торговля и что его не блокирует ограничение по IP."
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "ru",
+      "message": "{\"code\":\"400007\",\"msg\":\"Access Denied\"}",
+      "out": "У API-ключа нет разрешения, которое для этого требует KuCoin."
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "ru",
+      "message": "{\"code\":\"429000\",\"msg\":\"Too Many Requests\"}",
+      "out": "KuCoin ограничивает частоту запросов. Бот повторит попытку автоматически."
+    },
+    {
+      "exchange_type": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "locale": "ru",
+      "message": "KuCoin API error 230005: The system is busy, please try again later.",
+      "out": "KuCoin временно недоступен. Бот повторит попытку автоматически."
     }
   ],
   "smtp": [

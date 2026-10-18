@@ -1295,12 +1295,12 @@ async fn rails_and_rust_decide_identically_across_the_condition_grid() {
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
 }
 
-/// Plan CI T4: crypto index bots on Kraken (EUR), Binance (USDT and BTC) and Alpaca (USD crypto beside stocks), every venue
+/// Plan CI T4: crypto index bots on Kraken (EUR), Binance (USDT and BTC), KuCoin (USDT and USDC) and Alpaca (USD crypto beside stocks), every venue
 /// scripted at the Faraday adapter; the probe table (rejected keys, transport failures, a 5xx); rotation with a resting leaver
 /// order and a carry; and each resync trigger followed by a tick (plan CI T3b), all decided by Rails and by Rust alike.
 #[tokio::test(flavor = "current_thread")]
 async fn rails_and_rust_decide_identically_across_the_venue_index_grid() -> Result<(), Box<dyn std::error::Error>> {
-    let (_copies, outputs) = grid_outputs("grid-venue-index", 225).await;
+    let (_copies, outputs) = grid_outputs("grid-venue-index", 330).await;
     let mut failures = vec![];
     for (name, _dir, rails_out, rust_out) in &outputs {
         if rails_out != rust_out { failures.push(format!("{name}\n  rails: {rails_out}\n  rust:  {rust_out}")); }
@@ -1328,6 +1328,10 @@ async fn rails_and_rust_decide_identically_across_the_venue_index_grid() -> Resu
         if name.starts_with("vi-binance-top-") { checks.push(pinned(!sent.iter().any(|p| p == "USDTUSDT"), "skip the quote's own coin")); }
         if name == "vi-binance-top-fresh-market" { checks.push(pinned(seated == 3, "seat USDC beside BTC and ETH")); }
         if name.starts_with("vi-binance_btc-") { checks.push(pinned(!sent.iter().any(|p| p.starts_with("BTC")), "skip the quote's own coin")); }
+        // KuCoin (plan K O6) at USDT and at USDC: each quote's own coin is skipped, the other stablecoin is a member.
+        if name.starts_with("vi-kucoin-top-") { checks.push(pinned(!sent.iter().any(|p| p == "USDT-USDT"), "skip the quote's own coin")); }
+        if name.starts_with("vi-kucoin_usdc-top-") { checks.push(pinned(!sent.iter().any(|p| p == "USDC-USDC"), "skip the quote's own coin")); }
+        if name == "vi-kucoin_usdc-top-fresh-market" { checks.push(pinned(sent == ["BTC-USDC", "ETH-USDC", "USDT-USDC"], "seat USDT beside BTC and ETH at USDC")); }
         if name.contains("start_then_tick-unpriced_at_resync") { checks.push(pinned(exited, "seat the resync's choice and rotate it at the tick")); }
         if name.ends_with("closed_resync") { checks.push(pinned(sent.is_empty() && seated == 3, "resync with the market closed")); }
         // The resync's failure kinds: its newcomer probes are the tick's first reads, so the tick buys after each of them.
