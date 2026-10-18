@@ -81,6 +81,38 @@ struct Show<'a> {
 }
 
 /// `[bot, :bot_updates]` as Turbo names it: the bot's GlobalID parameter, then the suffix.
+/// orders/_order_filters.html.erb's locals: the tab the log opens on, the one shown, and the control when more than one
+/// named tab is offered.
+pub(super) struct Filters { pub default_filter: &'static str, pub order_filter: String, pub order_filters: Option<String> }
+
+/// BotHelper#order_filter_tabs: [value, available?], and the tab the log opens on.
+pub(super) fn filters(c: &Connection, ctx: &Ctx, bot: &Bot, hide_money: bool) -> Result<Filters, WebError> {
+    let exists = |sql: &str| -> Result<bool, WebError> { Ok(c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM {sql})"), [bot.id], |r| r.get(0))?) };
+    let activities = exists("bot_activity_logs WHERE bot_id = ?1 AND event NOT IN ('order_skipped', 'order_ignored')")?;
+    let mut tabs: Vec<(&'static str, &'static str, bool)> = vec![];
+    if !hide_money { tabs.push(("all", "order_filters.all", true)); }
+    tabs.push(("successful", "order_filters.transactions", exists("transactions WHERE bot_id = ?1 AND status = 0 AND external_status = 2")?));
+    tabs.push(("waiting", "order_filters.waiting", bot.has_waiting_orders));
+    tabs.push(("other", "order_filters.other", exists("transactions WHERE bot_id = ?1 AND (external_status IN (3, 4) OR status IN (1, 2))")? || (hide_money && activities)));
+    let default_filter = tabs.iter().find(|(_, _, available)| *available).map_or("successful", |(value, _, _)| *value);
+    let order_filter = ctx.params.query("order_filter").unwrap_or(default_filter).to_string();
+    let order_filters = if tabs.iter().filter(|(value, _, available)| *available && *value != "all").count() > 1 {
+        let options = tabs.iter().filter(|(_, _, available)| *available).map(|(value, label, _)| SegmentedOption { value: (*value).into(), label: i18n::text(ctx.locale, label, &[]), active: order_filter == *value, href: None }).collect();
+        Some(Segmented { fluid: true, label: i18n::text(ctx.locale, "order_filters.all", &[]), key: None, options, links: false }.render()?)
+    } else {
+        None
+    };
+    Ok(Filters { default_filter, order_filter, order_filters })
+}
+
+/// Bot#broadcast_order_filters_update: orders/_order_filters.html.erb, as show.html prints it.
+pub(super) fn filters_broadcast(c: &Connection, ctx: &Ctx, bot: &Bot, hide_money: bool) -> Result<String, WebError> {
+    let Filters { default_filter, order_filters, .. } = filters(c, ctx, bot, hide_money)?;
+    let id = bot.dom_id("order_filters");
+    let inner = order_filters.map_or(String::new(), |filters| format!("    {filters}\n"));
+    Ok(crate::web::turbo::stream("replace", &id, &format!("<div id=\"{id}\" class=\"filters\" data-order-filter-target=\"filterContainer\"\n     data-order-filter-default=\"{default_filter}\"\n     data-action=\"segmented:change->order-filter#filter\">\n{inner}</div>")))
+}
+
 pub fn page_stream(bot: &Bot) -> String {
     let class = match bot.kind { Kind::Basket => "Bots::DcaMultiAsset", Kind::Index => "Bots::DcaIndex" };
     format!("{}:bot_updates", URL_SAFE_NO_PAD.encode(format!("gid://deltabadger/{class}/{}", bot.id)))
@@ -231,22 +263,8 @@ pub async fn show(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path(s
         let inline_chart = figures.as_ref().filter(|_|cached).and_then(|v|v["bots"][bot.id.to_string()]["chart"].as_str()).map(str::to_string);
         let status = status::render(c, ctx, csrf, &bot, configured)?;
         let forms = settings::Forms { ctx, csrf, bot: &bot, path: path.clone(), hide_balances: hide_money, time_zone: &user.time_zone, check: status.check.as_ref() };
-        // BotHelper#order_filter_tabs: [value, available?], and the tab the log opens on.
-        let exists = |sql: &str| -> Result<bool, WebError> { Ok(c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM {sql})"), [bot.id], |r| r.get(0))?) };
-        let activities = exists("bot_activity_logs WHERE bot_id = ?1 AND event NOT IN ('order_skipped', 'order_ignored')")?;
-        let mut tabs: Vec<(&'static str, &'static str, bool)> = vec![];
-        if !hide_money { tabs.push(("all", "order_filters.all", true)); }
-        tabs.push(("successful", "order_filters.transactions", exists("transactions WHERE bot_id = ?1 AND status = 0 AND external_status = 2")?));
-        tabs.push(("waiting", "order_filters.waiting", bot.has_waiting_orders));
-        tabs.push(("other", "order_filters.other", exists("transactions WHERE bot_id = ?1 AND (external_status IN (3, 4) OR status IN (1, 2))")? || (hide_money && activities)));
-        let default_filter = tabs.iter().find(|(_, _, available)| *available).map_or("successful", |(value, _, _)| *value);
-        let order_filter = ctx.params.query("order_filter").unwrap_or(default_filter).to_string();
-        let order_filters = if tabs.iter().filter(|(value, _, available)| *available && *value != "all").count() > 1 {
-            let options = tabs.iter().filter(|(_, _, available)| *available).map(|(value, label, _)| SegmentedOption { value: (*value).into(), label: i18n::text(ctx.locale, label, &[]), active: order_filter == *value, href: None }).collect();
-            Some(Segmented { fluid: true, label: i18n::text(ctx.locale, "order_filters.all", &[]), key: None, options, links: false }.render()?)
-        } else {
-            None
-        };
+        let activities = c.query_row("SELECT EXISTS(SELECT 1 FROM bot_activity_logs WHERE bot_id = ?1 AND event NOT IN ('order_skipped', 'order_ignored'))", [bot.id], |r| r.get::<_, bool>(0))?;
+        let Filters { default_filter, order_filter, order_filters } = filters(c, ctx, &bot, hide_money)?;
         let (preferences, bot_updates, page_stream) = (format!("user_{}:preferences", user.id), format!("user_{}:bot_updates", user.id), page_stream(&bot));
         let body = Show {
             v: ctx, csrf, preferences: &preferences, bot_updates: &bot_updates, page_stream: &page_stream, path: path.clone(),

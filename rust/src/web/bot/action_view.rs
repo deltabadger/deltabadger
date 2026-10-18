@@ -143,15 +143,18 @@ fn broadcasts(c: &Connection, ctx: &Ctx, view: &LifecycleView, action: Action) -
     let delayed = action == Action::Start && bot.started_at.is_some_and(|at|at>ctx.now);
     let deferred = delayed || awaits_scheduling(c,ctx,view)?.is_some();
     if !deferred { output.extend(bar_broadcasts(&stream,bot,&state)); }
-    // Bot#broadcast_status_button_update: one message per target.
-    output.push((stream.clone(),turbo::stream("replace",&bot.dom_id("status_button"),&state.button)));
-    output.push((stream.clone(),turbo::stream("replace",&bot.dom_id("tile_status_button"),&state.tile_button)));
-    output.push((stream.clone(),if bot.working() { turbo::add_class(&bot.dom_id("columns"),"bot-locked") } else { turbo::remove_class(&bot.dom_id("columns"),"bot-locked") }));
+    output.extend(button_broadcasts(&stream,bot,&state));
     if delayed { output.extend(bar_broadcasts(&stream,bot,&state)); }
     Ok(output)
 }
+/// Bot#broadcast_status_button_update (one message per target), then Bot#broadcast_columns_lock_update.
+pub(super) fn button_broadcasts(stream: &str, bot: &Bot, state: &status::Status) -> [(String,String); 3] {
+    [(stream.to_string(),turbo::stream("replace",&bot.dom_id("status_button"),&state.button)),
+     (stream.to_string(),turbo::stream("replace",&bot.dom_id("tile_status_button"),&state.tile_button)),
+     (stream.to_string(),if bot.working() { turbo::add_class(&bot.dom_id("columns"),"bot-locked") } else { turbo::remove_class(&bot.dom_id("columns"),"bot-locked") })]
+}
 /// Bot#broadcast_status_bar_update: the status bar, then the progress bar, one message each.
-fn bar_broadcasts(stream: &str, bot: &Bot, state: &status::Status) -> [(String,String); 2] {
+pub(super) fn bar_broadcasts(stream: &str, bot: &Bot, state: &status::Status) -> [(String,String); 2] {
     [(stream.to_string(),turbo::stream("replace",&bot.dom_id("status_bar"),&format!("{}\n",state.bar.trim_end()))),
      (stream.to_string(),turbo::stream("replace",&bot.dom_id("progress_bar"),state.progress.trim_end()))]
 }

@@ -11,7 +11,7 @@ use crate::web::i18n::{self, escape, Arg};
 use crate::web::layout::Ctx;
 use crate::web::{turbo, WebError};
 use chrono::{DateTime, Utc};
-use rusqlite::Connection;
+use rusqlite::{Connection, OptionalExtension};
 use serde_json::Value;
 use std::collections::HashMap;
 
@@ -114,23 +114,28 @@ fn before(cursor: Option<&Cursor>, activity: bool) -> (String, Vec<rusqlite::typ
     }
 }
 
+const ORDER_COLUMNS: &str = "id, created_at, status, external_status, side, base, quote, base_asset_id, quote_asset_id, error_messages";
+
+fn time(text: String) -> Result<DateTime<Utc>, rusqlite::Error> { parse_time(&text).map_err(|e| rusqlite::Error::InvalidColumnName(format!("{e:?}"))) }
+
+/// One `transactions` row as `ORDER_COLUMNS` reads it, its amounts still unread (`Order::read`).
+fn order_row(r: &rusqlite::Row) -> Result<Order, rusqlite::Error> {
+    let messages: Option<String> = r.get(9)?;
+    Ok(Order {
+        id: r.get(0)?, created_at: time(r.get(1)?)?, status: r.get(2)?, external_status: r.get(3)?, sell: r.get::<_, Option<i64>>(4)? == Some(1),
+        price: None, amount: None, quote_amount: None, amount_exec: None, quote_amount_exec: None,
+        base: r.get(5)?, quote: r.get(6)?, base_asset_id: r.get(7)?, quote_asset_id: r.get(8)?,
+        error_messages: messages.and_then(|text| serde_json::from_str::<Vec<Value>>(&text).ok()).unwrap_or_default().iter()
+            .map(|m| m.as_str().map_or_else(|| m.to_string(), str::to_string)).collect(),
+    })
+}
+
 fn load(c: &Connection, bot: &Bot, cursor: Option<&Cursor>) -> Result<Vec<Item>, WebError> {
-    let time = |text: String| parse_time(&text).map_err(|e| rusqlite::Error::InvalidColumnName(format!("{e:?}")));
     let mut items = vec![];
     let (condition, mut values) = before(cursor, false);
     values.insert(0, rusqlite::types::Value::Integer(bot.id));
-    let mut orders = c.prepare(&format!("SELECT id, created_at, status, external_status, side, base, quote, \
-                                         base_asset_id, quote_asset_id, error_messages FROM transactions WHERE bot_id = ?1{condition} ORDER BY created_at DESC, id DESC LIMIT {}", PAGE + 1))?;
-    let rows = orders.query_map(rusqlite::params_from_iter(values), |r| {
-        let messages: Option<String> = r.get(9)?;
-        Ok(Order {
-            id: r.get(0)?, created_at: time(r.get(1)?)?, status: r.get(2)?, external_status: r.get(3)?, sell: r.get::<_, Option<i64>>(4)? == Some(1),
-            price: None, amount: None, quote_amount: None, amount_exec: None, quote_amount_exec: None,
-            base: r.get(5)?, quote: r.get(6)?, base_asset_id: r.get(7)?, quote_asset_id: r.get(8)?,
-            error_messages: messages.and_then(|text| serde_json::from_str::<Vec<Value>>(&text).ok()).unwrap_or_default().iter()
-                .map(|m| m.as_str().map_or_else(|| m.to_string(), str::to_string)).collect(),
-        })
-    })?.collect::<Result<Vec<_>, _>>()?;
+    let mut orders = c.prepare(&format!("SELECT {ORDER_COLUMNS} FROM transactions WHERE bot_id = ?1{condition} ORDER BY created_at DESC, id DESC LIMIT {}", PAGE + 1))?;
+    let rows = orders.query_map(rusqlite::params_from_iter(values), order_row)?.collect::<Result<Vec<_>, _>>()?;
     items.extend(rows.into_iter().map(|order| Item::Order(Box::new(order))));
     let (condition, mut values) = before(cursor, true);
     values.insert(0, rusqlite::types::Value::Integer(bot.id));
@@ -153,6 +158,8 @@ struct Rows<'a> {
     hidden: bool,
     /// BotsController#composition_decimals: the precision of each asset, by its id and by its symbols.
     decimals: HashMap<String, u8>,
+    /// A broadcast has no session: its Cancel form carries no token, and Turbo sends the receiving page's.
+    broadcast: bool,
 }
 
 const NO_VALUE: &str = "<span class=\"no-value\">—</span>";
@@ -166,7 +173,23 @@ fn round_amount(value: &BigDec, decimals: Option<u8>, currency: Option<&str>) ->
     decimals.map_or_else(|| value.to_s_f(), |decimals| value.round(decimals).to_s_f())
 }
 
-impl Rows<'_> {
+impl<'a> Rows<'a> {
+    fn new(ctx: &'a Ctx, bot: &'a Bot, user: &'a User) -> Self {
+        let mut decimals = HashMap::new();
+        if let (Some(quote), Some(precision)) = (bot.quote_asset.as_ref(), bot.quote_decimals()) {
+            decimals.insert(quote.id.to_string(), precision);
+            decimals.insert(quote.symbol().to_string(), precision);
+        }
+        // Holdings that left the composition still appear in the feed and keep their ticker's precision.
+        for membership in &bot.memberships {
+            let Some(ticker) = membership.ticker.as_ref() else { continue };
+            decimals.insert(membership.asset.id.to_string(), ticker.base_decimals);
+            decimals.insert(ticker.base.clone(), ticker.base_decimals);
+            if let Some(symbol) = membership.asset.symbol.as_deref().filter(|symbol| !symbol.is_empty()) { decimals.entry(symbol.to_string()).or_insert(ticker.base_decimals); }
+        }
+        Rows { ctx, bot, zone: &user.time_zone, hidden: user.hide_balances, decimals, broadcast: false }
+    }
+
     fn t(&self, key: &str, args: &[(&str, Arg)]) -> String {
         i18n::t(self.ctx.locale, key, args)
     }
@@ -195,9 +218,10 @@ impl Rows<'_> {
         if !order.open() { return "\n  ".to_string(); }
         format!("\n      <div data-controller=\"class-toggle\" data-class-toggle-toggle-classes-value='[\"hidden\"]'>\n        \
                  <form class=\"button_to\" method=\"post\" action=\"{}\"><input type=\"hidden\" name=\"_method\" value=\"delete\" /><button class=\"sinput sinput--small sinput--hover-warning\" \
-                 data-class-toggle-target=\"togglable\" data-action=\"click-&gt;class-toggle#toggle\" type=\"submit\">{}</button><input type=\"hidden\" name=\"authenticity_token\" value=\"{}\" /></form>\n        \
+                 data-class-toggle-target=\"togglable\" data-action=\"click-&gt;class-toggle#toggle\" type=\"submit\">{}</button>{}</form>\n        \
                  <div class=\"loader--small hidden\" style=\"position: unset; float: right; margin-right: 0.5rem;\" data-class-toggle-target=\"togglable\"></div>\n      </div>\n  ",
-                escape(&self.ctx.path(&format!("/bots/{}/transactions/{}", self.bot.id, order.id))), self.t("bot.cancel_order", &[]), escape(&self.ctx.csrf_token()))
+                escape(&self.ctx.path(&format!("/bots/{}/transactions/{}", self.bot.id, order.id))), self.t("bot.cancel_order", &[]),
+                if self.broadcast { String::new() } else { format!("<input type=\"hidden\" name=\"authenticity_token\" value=\"{}\" />", escape(&self.ctx.csrf_token())) })
     }
 
     /// orders/_order.html.erb: the columnar row of an accepted order.
@@ -338,19 +362,7 @@ pub fn feed(c: &Connection, ctx: &Ctx, bot: &Bot, user: &User) -> Result<String,
     for item in items.iter_mut().take(PAGE) {
         if let Item::Order(order) = item { order.read(c)?; }
     }
-    let mut decimals = HashMap::new();
-    if let (Some(quote), Some(precision)) = (bot.quote_asset.as_ref(), bot.quote_decimals()) {
-        decimals.insert(quote.id.to_string(), precision);
-        decimals.insert(quote.symbol().to_string(), precision);
-    }
-    // Holdings that left the composition still appear in the feed and keep their ticker's precision.
-    for membership in &bot.memberships {
-        let Some(ticker) = membership.ticker.as_ref() else { continue };
-        decimals.insert(membership.asset.id.to_string(), ticker.base_decimals);
-        decimals.insert(ticker.base.clone(), ticker.base_decimals);
-        if let Some(symbol) = membership.asset.symbol.as_deref().filter(|symbol| !symbol.is_empty()) { decimals.entry(symbol.to_string()).or_insert(ticker.base_decimals); }
-    }
-    let rows = Rows { ctx, bot, zone: &user.time_zone, hidden: user.hide_balances, decimals };
+    let rows = Rows::new(ctx, bot, user);
     let mut appended = String::new();
     for item in items.iter().take(PAGE) {
         match item {
@@ -370,4 +382,39 @@ pub fn feed(c: &Connection, ctx: &Ctx, bot: &Bot, user: &User) -> Result<String,
         body.push_str(&turbo::stream("replace", "orders_pagination", &format!("\n    {frame}\n")));
     }
     Ok(body)
+}
+
+/// One of the bot's orders, its amounts read; None once it is gone.
+fn load_one(c: &Connection, bot: &Bot, id: i64) -> Result<Option<Order>, WebError> {
+    let order = c.query_row(&format!("SELECT {ORDER_COLUMNS} FROM transactions WHERE bot_id = ?1 AND id = ?2"), [bot.id, id], order_row).optional()?;
+    let Some(mut order) = order else { return Ok(None) };
+    order.read(c)?;
+    Ok(Some(order))
+}
+
+/// Bot#broadcast_new_order (app/models/bot.rb:316-348): the placeholder goes with the bot's first order, the order's sentence
+/// row and, for an accepted order, its columnar row are prepended on the bot's page stream, then the filters are replaced.
+pub fn new_order(c: &Connection, ctx: &Ctx, bot: &Bot, user: &User, id: i64) -> Result<Vec<(String, String)>, WebError> {
+    let Some(order) = load_one(c, bot, id)? else { return Ok(vec![]) };
+    let rows = Rows { broadcast: true, ..Rows::new(ctx, bot, user) };
+    let page = super::page::page_stream(bot);
+    let mut out = vec![];
+    let count: i64 = c.query_row("SELECT count(*) FROM (SELECT 1 FROM transactions WHERE bot_id = ?1 LIMIT 2)", [bot.id], |r| r.get(0))?;
+    if count == 1 { out.push((page.clone(), turbo::remove("orders_list_placeholder"))); }
+    out.push((page.clone(), turbo::stream("prepend", "orders_list", &rows.timeline(&order))));
+    if order.submitted() { out.push((page, turbo::stream("prepend", "orders_list", &rows.order(&order)))); }
+    out.push((format!("user_{}:bot_updates", user.id), super::page::filters_broadcast(c, ctx, bot, user.hide_balances)?));
+    Ok(out)
+}
+
+/// Bot#broadcast_updated_order (app/models/bot.rb:359-379): both rows of the order replaced, then the filters.
+pub fn updated_order(c: &Connection, ctx: &Ctx, bot: &Bot, user: &User, id: i64) -> Result<Vec<(String, String)>, WebError> {
+    let Some(order) = load_one(c, bot, id)? else { return Ok(vec![]) };
+    let rows = Rows { broadcast: true, ..Rows::new(ctx, bot, user) };
+    let stream = format!("user_{}:bot_updates", user.id);
+    Ok(vec![
+        (stream.clone(), turbo::stream("replace", &format!("transaction_{id}"), &rows.order(&order))),
+        (stream.clone(), turbo::stream("replace", &format!("timeline_transaction_{id}"), &rows.timeline(&order))),
+        (stream, super::page::filters_broadcast(c, ctx, bot, user.hide_balances)?),
+    ])
 }

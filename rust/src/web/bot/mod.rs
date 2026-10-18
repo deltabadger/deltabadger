@@ -5,6 +5,7 @@ pub mod action_params;
 pub mod actions;
 pub mod action_view;
 pub mod draft;
+pub mod live;
 pub mod write;
 pub mod mcp_input;
 pub mod composition;
