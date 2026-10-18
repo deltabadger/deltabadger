@@ -348,7 +348,7 @@ pub struct Inner {
     settings_market_provider_name:String,
     pub settings_key_hosts:crate::venue::alpaca::Hosts,
     /// Where the Kraken and Binance key checks go (the wizard's key step): the venues, or a test server.
-    pub venue_key_urls:(String,String),
+    pub venue_key_urls:(String,String,String),
     pub settings_key_logger:Arc<dyn settings::keys::Logger>,
     settings_validation_observer:Mutex<Option<ValidationObserver>>,
     pub settings_mailer:Arc<dyn settings::mail::Mailer>,
@@ -411,7 +411,7 @@ impl App {
             fx_cache: tracker::fx::Cache::default(),
             figure_service: figure::service::Service::default(), figure_source: figure::loading::Source::Live,
             mcp_instructions: mcp::instructions(&primary)?,
-            settings_key_hosts:crate::venue::alpaca::Hosts::alpaca(),venue_key_urls:(crate::venue::kraken::URL.into(),crate::venue::binance::URL.into()),settings_key_logger:settings::keys::logger(),settings_validation_observer:Mutex::new(None),
+            settings_key_hosts:crate::venue::alpaca::Hosts::alpaca(),venue_key_urls:(crate::venue::kraken::URL.into(),crate::venue::binance::URL.into(),crate::venue::kucoin::URL.into()),settings_key_logger:settings::keys::logger(),settings_validation_observer:Mutex::new(None),
             settings_market_provider_name:env("MARKET_DATA_PROVIDER_NAME").or_else(||env("MARKET_DATA_URL")).unwrap_or_default(),settings_jobs:std::sync::OnceLock::new(),settings_smtp:crate::mail::smtp::Env::read(env),settings_smtp_provider_name:env("SMTP_PROVIDER_NAME").or_else(||env("SMTP_ADDRESS")).unwrap_or_default(),settings_mailer:settings::mail::live(),
             config, keys, cipher, clock, limiter: rate_limit::Limiter::default(), hub: cable::Hub::default(),
             cable_ping: Duration::from_secs(3), cable_recheck: Duration::from_secs(60),
@@ -447,9 +447,9 @@ impl App {
     }
 
     /// For tests: the Kraken and Binance key checks sent to `kraken` and `binance` instead. Only before sharing the App.
-    pub fn with_venue_key_urls(self,kraken:&str,binance:&str)->Result<Self,WebError>{
+    pub fn with_venue_key_urls(self,kraken:&str,binance:&str,kucoin:&str)->Result<Self,WebError>{
         let mut inner=Arc::try_unwrap(self.0).map_err(|_|WebError::Config("the app is already shared".into()))?;
-        inner.venue_key_urls=(kraken.into(),binance.into());Ok(Self(Arc::new(inner)))
+        inner.venue_key_urls=(kraken.into(),binance.into(),kucoin.into());Ok(Self(Arc::new(inner)))
     }
 
     /// The trading host a key is validated on: its own mode's (`Urls::pick`), from the credentials that will sign the request.

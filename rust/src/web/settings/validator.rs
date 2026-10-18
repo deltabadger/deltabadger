@@ -28,7 +28,7 @@ impl ValidationHandle {
         let (name,base)=match venue {
             "Exchanges::Kraken"=>("kraken",app.venue_key_urls.0.clone()),
             "Exchanges::Binance"=>("binance",app.venue_key_urls.1.clone()),
-            crate::venue::kucoin::KUCOIN=>("kucoin",crate::venue::kucoin::URL.to_string()),
+            crate::venue::kucoin::KUCOIN=>("kucoin",app.venue_key_urls.2.clone()),
             _=>return self.check(&app.alpaca_trading_url(&self.credentials),kind).await,
         };
         let cipher=app.cipher.clone();

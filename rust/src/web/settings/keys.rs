@@ -671,8 +671,10 @@ pub(crate) async fn revalidate(app:&App,id:i64)->Result<Option<String>,WebError>
 #[derive(Template)]
 #[template(path="settings/alpaca_form.html")]
 struct AlpacaForm<'a> { v:&'a Ctx, csrf:&'a str, action:String, form_data:&'a str, connect_title:String, instructions_title:String, instructions:String, live:bool, modal:bool,
-    name_id:String, mark:&'static str, alpaca:bool, key_label:String, secret_label:String }
+    name_id:String, mark:&'static str, alpaca:bool, passphrase:bool, key_label:String, secret_label:String }
 
+/// Exchange#requires_passphrase? outside Alpaca (whose passphrase is its Paper/Live switch): the API Passphrase row.
+fn requires_passphrase(class:&str)->bool{matches!(class,"Exchanges::Kucoin"|"Exchanges::Bitget")}
 /// shared/_api_key_form inside shared/_connect_form: the venue's connect card. `name`/`class` are the exchange row's name and
 /// type; `instructions` the walkthrough under it; the fields are the key and secret, and Alpaca's Paper/Live switch before them.
 #[allow(clippy::too_many_arguments)]
@@ -682,7 +684,7 @@ pub(crate) fn card(ctx:&Ctx,csrf:&str,action:String,form_data:&str,name:&str,cla
     let label=|field:&str|{let specific=format!("bot.api.{name_id}.{field}");if lookup(ctx.locale,&specific).is_some(){ctx.t(&specific)}else{ctx.t(&format!("bot.api.{field}_label"))}};
     Ok(AlpacaForm{v:ctx,csrf,action,form_data,connect_title:i18n::t(ctx.locale,"bot.setup.connect_to",&[("name",i18n::Arg::Text(name))]),
         instructions_title:i18n::t(ctx.locale,"bot.setup.how_to_get_keys",&[("exchange",i18n::Arg::Text(name))]),instructions,live,modal,
-        mark:crate::web::bot::exchange_svg(&name_id),alpaca:class=="Exchanges::Alpaca",key_label:label("public_key"),secret_label:label("private_key"),name_id}.render()?)
+        mark:crate::web::bot::exchange_svg(&name_id),alpaca:class=="Exchanges::Alpaca",passphrase:requires_passphrase(class),key_label:label("public_key"),secret_label:label("private_key"),name_id}.render()?)
 }
 #[derive(Template)]
 #[template(path="settings/alpaca_modal.html")]

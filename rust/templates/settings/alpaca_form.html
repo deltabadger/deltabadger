@@ -42,6 +42,11 @@
     <div class="srow"><div class="srow__text"><div class="srow__label">{{ secret_label|safe }}</div></div><div class="srow__control">
       <input autocomplete="off" class="rinput rinput--outline rinput--text" aria-label="{{ secret_label|safe }}" type="text" name="api_key[secret]" id="api_key_secret" />
 </div></div>
+{%- if passphrase %}
+    <div class="srow"><div class="srow__text"><div class="srow__label">API Passphrase</div></div><div class="srow__control">
+      <input autocomplete="off" class="rinput rinput--outline rinput--text" aria-label="API Passphrase" type="text" name="api_key[passphrase]" id="api_key_passphrase" />
+</div></div>
+{%- endif %}
     <section class="set-api__instructions">
       <h3 class="set-api__eyebrow">{{ instructions_title|safe }}</h3>
       {{ instructions|safe }}
@@ -60,6 +65,12 @@
     <input autocomplete="off" class="form__input" type="text" name="api_key[secret]" id="api_key_secret" />
     <label class="form__label" for="api_key_secret">{{ secret_label|safe }}</label>
   </div>
+{%- if passphrase %}
+  <div class="form__row form__row--input">
+    <input autocomplete="off" class="form__input" type="text" name="api_key[passphrase]" id="api_key_passphrase" />
+    <label class="form__label" for="api_key_passphrase">API Passphrase</label>
+  </div>
+{%- endif %}
 
     <div class="set-api__actions">
       <input type="submit" name="commit" value="{{ v.t("button.connect") }}" class="button button--sky" data-turbo-stream="true" data-turbo-submits-with="{{ v.t("bot.setup.validating") }}" data-disable-with="{{ v.t("button.connect") }}" />
