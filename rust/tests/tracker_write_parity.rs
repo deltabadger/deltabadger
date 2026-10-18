@@ -120,13 +120,8 @@ async fn compare(cases: &[&str]) {
     let root = match std::env::var("D5_GRID") {
         Ok(root) => root,
         Err(_) => {
-            let boot = tempfile::tempdir().unwrap();
-            generated = tempfile::tempdir().unwrap();
-            let root = generated.path().to_str().unwrap();
-            common::rails(boot.path(),"test",&["db:schema:load"]);
-            common::rails(boot.path(),"test",&["runner","script/rust/pages_tracker.rb","grid",root]);
-            common::rails(boot.path(),"test",&["runner","script/rust/pages_tracker.rb","record",root]);
-            root.to_string()
+            generated = common::recording("pages_tracker", common::has_subdirs, |out| common::record_grid("script/rust/pages_tracker.rb", out));
+            generated.path.to_str().unwrap().to_string()
         }
     };
     for &name in cases {

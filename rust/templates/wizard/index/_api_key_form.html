@@ -1,0 +1,11 @@
+<div class="bot-creation-layout bot-creation-layout--api">
+  {{ progress|safe }}
+  <div class="conversational conversational--bot-setup">
+    {{ v.t("bot.dca_index.setup.sentence.build_index")|safe }}
+    {{ v.t("bot.setup.sentence.at")|safe }}
+    <a data-turbo-frame="modal_content" class="sbutton sbutton--exchange sbutton--exchange--{{ name_id }}" href="{{ exchange_url }}">
+      {{ mark|safe }}
+      <span class="hide-on-mobile">{{ name }}</span>
+</a>  </div>
+  {{ card|safe }}
+</div>

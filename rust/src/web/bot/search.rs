@@ -207,9 +207,11 @@ pub(crate) fn to_i(text: &str) -> i64 {
     if negative { -value } else { value }
 }
 
-fn rows(c: &Connection, sql: &str, args: impl rusqlite::Params) -> Result<Vec<Row>, WebError> {
+/// The statement binds the first of `args` up to the highest placeholder it names.
+fn rows(c: &Connection, sql: &str, args: &[rusqlite::types::Value]) -> Result<Vec<Row>, WebError> {
     let mut statement = c.prepare(sql)?;
-    let found = statement.query_map(args, |r| Ok(Row {
+    let bound = statement.parameter_count();
+    let found = statement.query_map(rusqlite::params_from_iter(&args[..bound]), |r| Ok(Row {
         id: r.get(0)?, symbol: r.get::<_, Option<String>>(1)?.unwrap_or_default(), name: r.get(2)?, color: r.get(3)?, category: r.get(4)?,
         image_url: r.get(5)?, market_cap_rank: r.get(6)?, exchanges: vec![],
     }))?.collect::<Result<Vec<_>, _>>()?;
@@ -220,25 +222,29 @@ fn rows(c: &Connection, sql: &str, args: impl rusqlite::Params) -> Result<Vec<Ro
 pub fn filtered_rows(c: &Connection, basket: &Basket, side: Side, query: Option<&str>) -> Result<Vec<Row>, WebError> {
     let (venue, quote, members, count, excluded) = offered_params(basket, side);
     let available = format!("id IN (SELECT DISTINCT {} FROM ({}))", side.column(), offered(side));
+    ranked_rows(c, &available, vec![venue.into(), quote.into(), members.into(), count.into(), excluded.into()], query)
+}
+
+/// Bots::Searchable#filter_assets_by_query over the assets `available` (SQL naming at most ?1 to ?5, bound from `args`) admits,
+/// in four phases for a query, else by market-cap rank, without exchanges and without a blank symbol.
+pub fn ranked_rows(c: &Connection, available: &str, mut args: Vec<rusqlite::types::Value>, query: Option<&str>) -> Result<Vec<Row>, WebError> {
+    use rusqlite::types::Value as Sql;
+    args.resize(5, Sql::Null);
     let select = "SELECT id, symbol, name, color, category, image_url, market_cap_rank FROM assets WHERE";
     let ranked = "ORDER BY market_cap_rank IS NULL, market_cap_rank, id";
     let found = match query.filter(|query| !blank(query)) {
-        None => rows(c, &format!("{select} {available} ORDER BY market_cap_rank IS NULL, market_cap_rank, symbol, id"), params![venue, quote, members, count, excluded])?,
+        None => rows(c, &format!("{select} {available} ORDER BY market_cap_rank IS NULL, market_cap_rank, symbol, id"), &args)?,
         Some(query) => {
             let q = downcase(query);
-            use rusqlite::types::Value as Sql;
-            let mut args: Vec<Sql> = vec![venue.into(), quote.into(), members.into(), count.into(), excluded.into(), q.clone().into(),
-                                          format!("{q}%").into(), format!("%{q}%").into()];
-            // Each statement binds ?1 up to the highest it names.
-            let upto = |n: usize, args: &[Sql]| rusqlite::params_from_iter(args[..n].to_vec());
+            args.extend([Sql::from(q.clone()), format!("{q}%").into(), format!("%{q}%").into()]);
             let exact = "SELECT id FROM assets WHERE LOWER(symbol) = ?6";
             let prefix = format!("SELECT id FROM assets WHERE LOWER(symbol) LIKE ?7 AND id NOT IN ({exact})");
-            let mut found = rows(c, &format!("{select} {available} AND LOWER(symbol) = ?6 {ranked}"), upto(6, &args))?;
-            found.extend(rows(c, &format!("{select} {available} AND LOWER(symbol) LIKE ?7 AND id NOT IN ({exact}) {ranked}"), upto(7, &args))?);
-            found.extend(rows(c, &format!("{select} {available} AND LOWER(name) LIKE ?8 AND id NOT IN ({exact}) AND id NOT IN ({prefix}) {ranked}"), upto(8, &args))?);
+            let mut found = rows(c, &format!("{select} {available} AND LOWER(symbol) = ?6 {ranked}"), &args)?;
+            found.extend(rows(c, &format!("{select} {available} AND LOWER(symbol) LIKE ?7 AND id NOT IN ({exact}) {ranked}"), &args)?);
+            found.extend(rows(c, &format!("{select} {available} AND LOWER(name) LIKE ?8 AND id NOT IN ({exact}) AND id NOT IN ({prefix}) {ranked}"), &args)?);
             // Phase 4: the first 2000 others in rowid order (Rails' LIMIT without ORDER BY), kept when symbol or name is 0.85 alike.
             args.push(serde_json::json!(found.iter().map(|row| row.id).collect::<Vec<_>>()).to_string().into());
-            let candidates = rows(c, &format!("{select} {available} AND id NOT IN (SELECT value FROM json_each(?9)) ORDER BY id LIMIT 2000"), upto(9, &args))?;
+            let candidates = rows(c, &format!("{select} {available} AND id NOT IN (SELECT value FROM json_each(?9)) ORDER BY id LIMIT 2000"), &args)?;
             let score = |text: &Option<String>| text.as_deref().filter(|text| !blank(text)).map_or(0.0, |text| jaro_winkler(&downcase(text), &q));
             let mut fuzzy: Vec<Row> = candidates.into_iter().filter(|row| score(&Some(row.symbol.clone())).max(score(&row.name)) >= 0.85).collect();
             // ponytail: a stable sort; Ruby's sort_by is not, so 17 or more fuzzy matches tied on rank may come out in another order.

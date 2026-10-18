@@ -150,6 +150,90 @@ fn sweep_old_templates(base: &Path) {
     }
 }
 
+/// A Rails recording (`recording`): the shared cached directory, or a fresh one recorded live.
+pub struct Recording { pub path: PathBuf, _live: Option<tempfile::TempDir> }
+
+/// Rails' side of a grid: `build(out)` boots Rails and records into `out`. Away from CI it is recorded once per
+/// state of everything that can change Rails' answer (`rails_inputs`) and `name`, and reused from
+/// `<target>/tmp/rails-recordings` by every later run and worktree; the Rust side is always run live. The cached
+/// directory is shared, so a caller copies what it writes to. CI, or PAGES_RERECORD=1, records live every time.
+pub fn recording(name: &str, is_whole: fn(&Path) -> bool, build: impl FnOnce(&Path)) -> Recording {
+    if std::env::var_os("CI").is_some() || std::env::var_os("PAGES_RERECORD").is_some_and(|v| v != "0") {
+        let dir = tempfile::tempdir().unwrap();
+        build(dir.path());
+        return Recording { path: dir.path().into(), _live: Some(dir) };
+    }
+    use sha2::{Digest, Sha256};
+    let key = |inputs: &[u8]| format!("{:x}", Sha256::new().chain_update(name).chain_update([0]).chain_update(inputs).finalize());
+    let before = key(&rails_inputs());
+    let base = Path::new(env!("CARGO_TARGET_TMPDIR")).join("rails-recordings");
+    let path = shared_template(&base, &format!("{}-{}", name.replace('/', "_"), &before[..20]), is_whole, |out| {
+        build(out);
+        // A source edited while Rails recorded may or may not be in the recording: publish it under neither state.
+        assert_eq!(key(&rails_inputs()), before, "Rails' sources changed while {name} was recorded; run it again");
+    });
+    // Keeps the sweep (a day unused) off a recording still in use.
+    let _ = std::fs::File::open(&path).and_then(|dir| dir.set_modified(std::time::SystemTime::now()));
+    Recording { path, _live: None }
+}
+
+/// `<script> grid` then `<script> record` into `out`, against scratch databases with the schemas loaded.
+pub fn record_grid(script: &str, out: &Path) {
+    let boot = tempfile::tempdir().unwrap();
+    rails(boot.path(), "test", &["db:schema:load"]);
+    for command in ["grid", "record"] { rails(boot.path(), "test", &["runner", script, command, out.to_str().unwrap()]); }
+}
+
+/// Everything a Rails recording can depend on, as bytes to hash: every file of the app, its config, schema,
+/// gems' lockfile, the recorders (script/rust), the built assets (app/assets/builds) and the version manifest
+/// (src-tauri/Cargo.toml, read by config/initializers/version.rb); the Ruby that runs it;
+/// the machine's zone; and the value of every environment variable those sources read (`ENV['X']`, `ENV.fetch('X'`,
+/// any quoted all-caps literal, `PROXY_*`; PAGES among them). The test databases are scratch files and so not an input.
+pub fn rails_inputs() -> Vec<u8> {
+    fn walk(root: &Path, rel: &Path, out: &mut Vec<(PathBuf, Vec<u8>)>) {
+        let Ok(entries) = std::fs::read_dir(root.join(rel)) else { return };
+        for entry in entries.flatten() {
+            let (name, path) = (entry.file_name(), rel.join(entry.file_name()));
+            if name == ".DS_Store" || name == "__pycache__" { continue; }
+            if entry.file_type().is_ok_and(|t| t.is_dir()) { walk(root, &path, out) } else if let Ok(bytes) = std::fs::read(root.join(&path)) { out.push((path, bytes)) }
+        }
+    }
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+    let mut files = vec![];
+    for top in ["app", "bin", "config", "db", "lib", "public", "vendor", "script/rust", "Gemfile", "Gemfile.lock", ".ruby-version",
+                ".tool-versions", "config.ru", "Rakefile", "src-tauri/Cargo.toml", ".env", ".env.test", ".env.test.local"] {
+        let path = Path::new(top);
+        if root.join(path).is_dir() { walk(root, path, &mut files) } else if let Ok(bytes) = std::fs::read(root.join(path)) { files.push((path.into(), bytes)) }
+    }
+    files.sort();
+    let mut names = std::collections::BTreeSet::new();
+    let mut out = vec![];
+    for (path, bytes) in &files {
+        let text = String::from_utf8_lossy(bytes);
+        for opener in ["ENV['", "ENV[\"", "ENV.fetch('", "ENV.fetch(\""] {
+            for rest in text.split(opener).skip(1) {
+                let var: String = rest.chars().take_while(|c| c.is_ascii_alphanumeric() || *c == '_').collect();
+                if !var.is_empty() { names.insert(var); }
+            }
+        }
+        // Names read indirectly (`MARKER = 'DELTABADGER_PLATFORM'`, then `env[MARKER]`): every quoted all-caps literal.
+        for part in text.split(['\'', '"']) {
+            if part.len() > 2 && part.chars().all(|c| c.is_ascii_uppercase() || c.is_ascii_digit() || c == '_') { names.insert(part.into()); }
+        }
+        out.extend(format!("{}\0{}\0", path.display(), bytes.len()).as_bytes());
+        out.extend(bytes);
+    }
+    let env: std::collections::BTreeMap<String, String> = std::env::vars_os().map(|(k, v)| (k.to_string_lossy().into(), v.to_string_lossy().into())).collect();
+    for (var, value) in env.iter().filter(|(var, _)| names.contains(*var) || var.starts_with("PROXY_")) {
+        out.extend(format!("env {var}={value}\0").as_bytes());
+    }
+    let ruby = Command::new("ruby").current_dir(root).args(["-e", "print RUBY_DESCRIPTION"]).output().expect("ruby runs");
+    assert!(ruby.status.success(), "ruby -e failed: {}", String::from_utf8_lossy(&ruby.stderr));
+    out.extend(&ruby.stdout);
+    out.extend(std::fs::read_link("/etc/localtime").unwrap_or_default().as_os_str().as_encoded_bytes());
+    out
+}
+
 /// A grid template is whole once it holds a scenario directory (the rename publishes it complete).
 pub fn has_subdirs(dir: &Path) -> bool { dir.read_dir().is_ok_and(|mut e| e.any(|e| e.is_ok_and(|e| e.path().is_dir()))) }
 

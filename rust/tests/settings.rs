@@ -1985,14 +1985,17 @@ async fn legacy_save_runs_validation_and_its_real_balance_sync_without_restart()
         let response=h.submit("POST","/api/api_keys",&[("api_key[exchange_id]","1"),("api_key[key_type]","trading"),("api_key[key]","account-b-key"),("api_key[secret]","account-b-secret"),("api_key[passphrase]","paper")],Csrf::Header).await;
         let deadline=tokio::time::Instant::now()+std::time::Duration::from_secs(20); /* exits at the condition; the bound only fails a hang */
         let mut synced=false;
+        h.c.busy_timeout(std::time::Duration::ZERO).unwrap(); // A blocking wait would hold the one thread the writer needs.
         while tokio::time::Instant::now()<deadline {
-            let ready:bool=h.c.query_row("SELECT EXISTS(SELECT 1 FROM account_balances b JOIN api_keys k ON k.exchange_id=b.exchange_id AND k.user_id=b.user_id WHERE k.user_id=?1 AND k.key_type=0 AND k.status=1 AND k.id=?2 AND b.usd_value=2000)",[h.seed.user_id,h.seed.api_key_id],|r|r.get(0)).unwrap();
-            synced=ready&&!deltabadger::sync::cache::stale(&h.c,h.seed.user_id,None).unwrap();
+            // A busy answer is the scheduler mid-write on this one thread: not ready yet, so yield to it.
+            let ready:bool=h.c.query_row("SELECT EXISTS(SELECT 1 FROM account_balances b JOIN api_keys k ON k.exchange_id=b.exchange_id AND k.user_id=b.user_id WHERE k.user_id=?1 AND k.key_type=0 AND k.status=1 AND k.id=?2 AND b.usd_value=2000)",[h.seed.user_id,h.seed.api_key_id],|r|r.get(0)).unwrap_or(false);
+            synced=ready&&!deltabadger::sync::cache::stale(&h.c,h.seed.user_id,None).unwrap_or(true);
             if synced {break}tokio::time::sleep(std::time::Duration::from_millis(25)).await;
         }
         stop.send(true).unwrap();(response.status,synced)
     };
     let (run,(status,synced))=tokio::join!(scheduler.run(stopped,clock.as_ref()),control);run.unwrap();
+    h.c.busy_timeout(std::time::Duration::from_secs(5)).unwrap();
     assert_eq!(status,201);
     assert!(synced,"legacy save must complete actual validation and the enqueued balance sync without restart");
     assert!(!deltabadger::sync::cache::stale(&h.c,h.seed.user_id,None).unwrap(),"the completed legacy sync publishes B's producer digest under the retained identity");
