@@ -190,7 +190,7 @@ pub fn begin_unless_changed(c: &Connection, sized_from: &Bot, plan: &OrderPlan, 
     begin_checked(c, sized_from, plan, clock, Some((tickers, composition, reconciled)), None, None, None)
 }
 
-/// BelowMinimum: Alpaca's exact-cap guard (amount::guard_exact_cap) reduced the order below the venue minimum; the
+/// BelowMinimum: the exact-cap guard (amount::guard_exact_cap) reduced the order below the venue minimum; the
 /// leg is reported as skipped, never placed. Fenced: a stop, or a stop and a restart, took the run from the tick that
 /// sized the order (Automation::Statusable::FENCED); that tick writes nothing more to the bot.
 /// LedgerStale: the account ledger stopped being fresh after the order was sized (a sync started or failed meanwhile);
@@ -277,7 +277,7 @@ fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock,
     let guarded;
     // The exact quote cap bounds what a REGULAR BUY spends; a sell spends nothing (Rails' QuoteAmountLimitable decorates the buy
     // carry), and guard_exact_cap passes a REBALANCE buy through untouched.
-    let plan = if plan.side == Side::Buy && model::exchange_type(&tx, &current)? == "Exchanges::Alpaca" {
+    let plan = if plan.side == Side::Buy {
         let safe = match super::amount::guard_exact_cap(&tx, &current, plan)? {
             super::amount::CapGuard::Place(safe) => safe,
             super::amount::CapGuard::BelowMinimum(skipped) => return Ok(Begun::BelowMinimum(Box::new(skipped))),

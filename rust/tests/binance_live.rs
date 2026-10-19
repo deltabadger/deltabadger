@@ -115,3 +115,30 @@ async fn record_the_testnet_answers_the_port_relies_on() {
     write_bodies(&dir, &log.borrow()).expect("recordings written");
     eprintln!("wrote {} exchanges to {dir}", log.borrow().len());
 }
+
+/// Plan CB T4: one two-member swap on the testnet, the wire Bot::Rebalancer uses on Binance: the bulk last prices
+/// (Exchange#get_tickers_prices), a MARKET SELL of BTC by quantity, then a MARKET BUY of ETH by quoteOrderQty for what the
+/// sell realised, each read back with its trades (net of a quote commission, as the owed buy reads it).
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "places real orders on the Binance spot testnet; needs BINANCE_TESTNET_KEY, BINANCE_TESTNET_SECRET and BINANCE_RECORD_DIR"]
+async fn record_a_two_member_swap_on_the_testnet() {
+    let Some((key, secret, dir)) = testnet_key() else { return };
+    refuse_inside_repo(&dir);
+    let log = Rc::new(RefCell::new(vec![]));
+    let transport = Recording(ReqwestTransport::binance(client(), key, secret.clone()), log.clone());
+    let v = BinanceVenue::new(transport.clone(), TESTNET, &secret);
+    let deadline = || chrono::Utc::now() + chrono::Duration::seconds(10);
+    let prices = v.tickers_prices(&["BTCUSDT".into(), "ETHUSDT".into()]).await.expect("the bulk prices");
+    assert!(["BTCUSDT", "ETHUSDT"].iter().all(|s| prices.iter().any(|(code, _)| code == s)), "both members priced: {} codes", prices.len());
+    let order = |pair: &str, side, volume: &str, quote_volume| NewOrder { pair: pair.into(), side, kind: OrderKind::Market, volume: volume.into(), quote_volume,
+                                                                          cl_ord_id: uuid::Uuid::new_v4().to_string(), deadline: deadline(), day: false };
+    let sold = v.add_order(&order("BTCUSDT", deltabadger::venue::Side::Sell, "0.0002", false)).await.expect("a market sell by quantity");
+    let (sell, _) = v.order_identified(&sold, |_, _, _| Ok(true)).await.expect("the sell read back");
+    let proceeds = sell[0].quote_amount_exec.clone().expect("the sell's proceeds");
+    let bought = v.add_order(&order("ETHUSDT", deltabadger::venue::Side::Buy, &proceeds.floor(2).to_s_f(), true)).await.expect("a market buy by quote");
+    let (buy, _) = v.order_identified(&bought, |_, _, _| Ok(true)).await.expect("the buy read back");
+    eprintln!("sold {:?}, bought {:?}", sell[0], buy[0]);
+    // Its own subdirectory: the other recorder numbers its files from 00.json in the same directory.
+    let swap = std::path::Path::new(&dir).join("swap");
+    write_bodies(swap.to_str().expect("a UTF-8 path"), &log.borrow()).expect("recordings written");
+}

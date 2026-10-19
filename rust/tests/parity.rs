@@ -398,32 +398,57 @@ async fn rails_and_rust_decide_identically_across_the_sell_grid() {
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
 }
 
-/// Slice 6b: a wider Alpaca basket's ranked DCA-out (script/rust/decisions.rb basket_sell_scenarios), compared whole.
+/// Slice 6b: a wider basket's ranked DCA-out (script/rust/decisions.rb basket_sell_scenarios), compared whole: on Alpaca, and
+/// (plan CB T3) on Kraken, Binance and KuCoin, valued by each venue's bulk price read.
+/// Sanctioned divergence `unreadable_string_price` (plan CB Q6, ruby::json_to_d): a Binance or KuCoin price that is no decimal
+/// ("abc", "12x") leaves its member unpriced, so nothing is valued and nothing sells, where Rails' String#to_d values it at 0
+/// or 12 and trades on that.
 #[tokio::test(flavor = "current_thread")]
 async fn rails_and_rust_decide_identically_across_the_basket_sell_grid() {
-    let (_copies, outputs) = grid_outputs("grid-basket-sell", 74).await;
+    let (_copies, outputs) = grid_outputs("grid-basket-sell", 278).await;
     let mut failures = vec![];
+    let diverges = |name: &str| name.contains("-unreadable_price-") && (name.contains("-binance-") || name.contains("-kucoin-"));
     for (name, _, rails_out, rust_out) in &outputs {
+        if diverges(name) {
+            if !rust_out["sent"].as_array().unwrap().is_empty() { failures.push(format!("{name}: Rust sold on an unreadable price\n  rust:  {rust_out}")); }
+            if rails_out["sent"].as_array().unwrap().is_empty() { failures.push(format!("{name}: Rails no longer trades on its String#to_d price: drop the divergence\n  rails: {rails_out}")); }
+            continue;
+        }
         if rails_out != rust_out { failures.push(format!("{name}\n  rails: {rails_out}\n  rust:  {rust_out}")); }
     }
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), outputs.len(), failures.join("\n"));
-    // Pin what Rails does, so that two silent sides cannot pass: which members each cell sells.
-    let sold = |out: &serde_json::Value| -> Vec<String> { out["sent"].as_array().unwrap().iter().map(|o| o["symbol"].as_str().unwrap().to_string()).collect() };
+    // Pin what Rails does, so that two silent sides cannot pass: which members each cell sells, by base asset.
+    let base = |o: &serde_json::Value| -> String {
+        let code = o["symbol"].as_str().or(o["pair"].as_str()).unwrap();
+        if code == "XBTEUR" { return "BTC".into(); }
+        code.split(['/', '-']).next().unwrap().trim_end_matches("USDT").trim_end_matches("EUR").to_string()
+    };
+    let sold = |out: &serde_json::Value| -> Vec<String> { out["sent"].as_array().unwrap().iter().map(base).collect() };
     for (name, _, rails_out, _) in &outputs {
+        if diverges(name) { continue; }
         let sold = sold(rails_out);
         let rows = rails_out["changes"]["transactions"].as_array().unwrap();
         let skipped = rows.iter().filter(|r| r["after"]["status"] == 2).count();
-        let expect: Option<&[&str]> = if name.contains("-base-") || ["-unpriced_member-", "-stale_feed-", "-feed_unreachable-", "-no_holdings-", "-all_under_floor-", "-balance_error-"].iter().any(|v| name.contains(v)) {
+        let nothing = ["-unpriced_member-", "-stale_feed-", "-feed_unreachable-", "-no_holdings-", "-all_under_floor-", "-balance_error-",
+                       "-unreadable_price-", "-raised_price-"];
+        let crypto = ["-kraken-", "-binance-", "-kucoin-"].iter().any(|v| name.contains(v));
+        let expect: Option<&[&str]> = if name.contains("-base-") || nothing.iter().any(|v| name.contains(v)) {
             Some(&[])
+        // A crypto tie: 100 of each member. w50: BTC (composition order) sells all it holds, and what is left of ETH's share
+        // is under the venue floor; tiers: SOL sits furthest over its target and its bid covers the whole 100.
+        } else if crypto && name.contains("-w50-tie-") { Some(&["BTC"])
+        } else if crypto && name.contains("-tiers-tie-") { Some(&["SOL"])
+        // Kraken: net of the resting 0.009, BTC's 0.001 is worth 49.995 at its last price, just under ETH's 50.0002.
+        } else if name.contains("-kraken-") && name.contains("-resting_top-") { Some(&["ETH", "BTC"])
         // tiers: SOL sits furthest over its smaller target once BTC cannot sell; "tie" is a tie only at w50's equal targets.
-        } else if ["-tiers-floor_handover-", "-tiers-nothing_free_top-", "-tiers-tie-"].iter().any(|v| name.contains(v)) { Some(&["SOL/USD", "ETH/USD"])
-        } else if name.contains("-tiers-foreign_crypto-") || name.contains("-tiers-free_below-") { Some(&["BTC/USD", "SOL/USD", "ETH/USD"])
-        // w50 tie: 64 USD of each member, so BTC (composition order) sells out and ETH takes the rest of the 100.
-        } else if name.contains("-w50-tie-") { Some(&["BTC/USD", "ETH/USD"])
-        } else if name.contains("-over_top-") || name.contains("-rejected-") { Some(&["BTC/USD"])
-        } else if name.contains("-w50-foreign_crypto-") { Some(&["BTC/USD", "ETH/USD"])
-        } else if name.contains("-floor_handover-") || name.contains("-nothing_free_top-") { Some(&["ETH/USD"])
-        } else if name.contains("-free_below-") || name.contains("-resting_top-") { Some(&["BTC/USD", "ETH/USD"])
+        } else if ["-tiers-floor_handover-", "-tiers-nothing_free_top-", "-tiers-tie-"].iter().any(|v| name.contains(v)) { Some(&["SOL", "ETH"])
+        } else if name.contains("-tiers-foreign_crypto-") || name.contains("-tiers-free_below-") { Some(&["BTC", "SOL", "ETH"])
+        // w50 tie: as much of each member, so BTC (composition order) sells out and ETH takes the rest of the 100.
+        } else if name.contains("-w50-tie-") { Some(&["BTC", "ETH"])
+        } else if name.contains("-over_top-") || name.contains("-rejected-") || name.contains("-cancelled_partial_sell-") { Some(&["BTC"])
+        } else if name.contains("-w50-foreign_crypto-") { Some(&["BTC", "ETH"])
+        } else if name.contains("-floor_handover-") || name.contains("-nothing_free_top-") { Some(&["ETH"])
+        } else if name.contains("-free_below-") || name.contains("-resting_top-") { Some(&["BTC", "ETH"])
         } else if name.starts_with("basket-sell-stock-open-") { Some(&["AAPL"])
         } else if name.starts_with("basket-sell-stock-foreign-") { Some(&["MSFT"])
         } else if name.starts_with("basket-sell-stock-closed-") { Some(&[])
@@ -435,55 +460,101 @@ async fn rails_and_rust_decide_identically_across_the_basket_sell_grid() {
     assert!(failures.is_empty(), "pinned expectations:\n{}", failures.join("\n"));
 }
 
-/// Slice 6b: threshold rebalancing on a stopped Alpaca basket (script/rust/decisions.rb rebalance_scenarios), fire by fire.
+/// Slice 6b: threshold rebalancing on a stopped basket (script/rust/decisions.rb rebalance_scenarios), fire by fire: on Alpaca,
+/// and (plan CB T4) on Kraken, Binance and KuCoin, with each venue's fees, floors and placement answers.
 /// Sanctioned divergence `unknown_outcome`: Rails halts a swap whose placement outcome is unknown (a lost reply, a 5xx, an
-/// accepted order without an id) at once; the engine keeps the intent with its phase and resolves it by client order id
-/// (placement::recover_since), halting only if the venue still cannot answer a full absence window later.
+/// accepted order without an id, a venue's unknown-outcome text) at once; the engine keeps the intent with its phase and
+/// resolves it by client order id (placement::recover_since), halting only if the venue still cannot answer a full absence
+/// window later.
+/// Sanctioned divergence `unreadable_string_price` (plan CB Q6): a Binance or KuCoin price that is no decimal leaves its
+/// member unpriced, so nothing is due, where Rails' String#to_d values it at 0 or 12 and sells on the drift that makes.
 #[tokio::test(flavor = "current_thread")]
 async fn rails_and_rust_rebalance_identically() {
-    let (_copies, outputs) = grid_outputs("grid-rebalance", 51).await;
-    let unknown = ["-post_send", "-server_error", "-no_order_id"];
+    let (_copies, outputs) = grid_outputs("grid-rebalance", 238).await;
+    let unknown = ["-post_send", "-server_error", "-no_order_id", "-unknown_text"];
+    let diverges = |name: &str| name.ends_with("-unreadable_price") && (name.contains("-binance-") || name.contains("-kucoin-"));
     let mut failures = vec![];
     let phase = |out: &serde_json::Value| -> serde_json::Value {
         out["changes"]["bots"].as_array().unwrap().last().map(|b| b["after"]["transient_data"]["rebalance_pending"]["phase"].clone()).unwrap_or_default()
     };
     for (name, _, rails_out, rust_out) in &outputs {
         if unknown.iter().any(|u| name.ends_with(u)) {
-            // Both sent the one sell; Rails halted, the engine waits on its intent with the selling phase, no row on either.
+            // Both sent the one sell; Rails halted (or, on Binance's id-less answer, stored "BTCUSDT-" and waits on it), the
+            // engine waits on its intent with the selling phase, no row on its side.
             assert_eq!(rails_out["sent"], rust_out["sent"], "{name}");
-            assert_eq!((phase(rails_out), phase(rust_out)), (serde_json::json!("ambiguous"), serde_json::json!("selling")), "{name}: {rails_out}\n{rust_out}");
-            assert_eq!(rust_out["changes"]["transactions"], rails_out["changes"]["transactions"], "{name}");
+            assert_eq!(phase(rust_out), serde_json::json!("selling"), "{name}: {rust_out}");
+            assert!(rust_out["changes"]["transactions"].as_array().unwrap().is_empty(), "{name}: {rust_out}");
+            continue;
+        }
+        if diverges(name) {
+            if !rust_out["sent"].as_array().unwrap().is_empty() { failures.push(format!("{name}: Rust traded on an unreadable price\n  rust:  {rust_out}")); }
+            if rails_out["sent"].as_array().unwrap().is_empty() { failures.push(format!("{name}: Rails no longer trades on its String#to_d price: drop the divergence")); }
             continue;
         }
         if rails_out != rust_out { failures.push(format!("{name}\n  rails: {rails_out}\n  rust:  {rust_out}")); }
     }
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), outputs.len(), failures.join("\n"));
-    // Pin what Rails does, so that two silent sides cannot pass: what each cell sent, and the phase it left.
+    // Pin what Rails does, so that two silent sides cannot pass: what each cell sent (by base asset), and the phase it left.
+    let base = |o: &serde_json::Value| -> String {
+        let code = o["symbol"].as_str().or(o["pair"].as_str()).unwrap();
+        if code == "XBTEUR" { return "BTC".into(); }
+        code.split(['/', '-']).next().unwrap().trim_end_matches("USDT").trim_end_matches("EUR").to_string()
+    };
+    let side = |o: &serde_json::Value| -> String {
+        o["side"].as_str().or(o["type"].as_str().filter(|t| *t == "buy" || *t == "sell")).unwrap_or("").to_lowercase()
+    };
     let mut pins = vec![];
     for (name, _, rails_out, _) in &outputs {
-        let sent: Vec<(String, String)> = rails_out["sent"].as_array().unwrap().iter().map(|o| (o["symbol"].as_str().unwrap().into(), o["side"].as_str().unwrap().into())).collect();
-        let state = name.split_once('-').unwrap().1.split_once('-').unwrap().1;
-        let expect: &[(&str, &str)] = match state {
-            "under_threshold" | "rule_off" | "selling" | "open_buy" | "sell_below_minimum" | "at_threshold" | "unbalanced" => &[],
-            "owed_buy" | "unbalanced_owed_buy" => &[("ETH/USD", "buy")],
+        if diverges(name) { continue; }
+        let sent: Vec<(String, String)> = rails_out["sent"].as_array().unwrap().iter().map(|o| (base(o), side(o))).collect();
+        let state = name.split('-').skip(3).collect::<Vec<_>>().join("-");
+        let state = if name.starts_with("rebalance-w50-") || name.starts_with("rebalance-tiers-") || name.starts_with("rebalance-index-") {
+            name.split_once('-').unwrap().1.split_once('-').unwrap().1.to_string()
+        } else { state };
+        let expect: &[(&str, &str)] = match state.as_str() {
+            "under_threshold" | "rule_off" | "selling" | "open_buy" | "sell_below_minimum" | "at_threshold" | "unbalanced" | "raised_price"
+            | "unpriced_member" | "unreadable_price" | "takeover_sell_no_id" | "takeover_buy_attempted_no_id" | "takeover_proceeds_unknown" => &[],
+            "owed_buy" | "unbalanced_owed_buy" | "takeover_buy_not_attempted" | "takeover_partial_buy" | "takeover_resolved_sell" => &[("ETH", "buy")],
+            // A crypto Layer 1 bot: SOL left for ADA (unheld), so ETH sits furthest over its target.
+            "exited_member" if !name.starts_with("rebalance-index-") => &[("ETH", "sell")],
             "exited_member" => &[("AAA", "sell")],
-            "swap" | "buy_capped" | "buy_rejected" | "cancelled_partial_sell" => &[("BTC/USD", "sell"), ("ETH/USD", "buy")],
-            "partial_buy" => &[("BTC/USD", "sell"), ("ETH/USD", "buy"), ("ETH/USD", "buy")],
-            _ => &[("BTC/USD", "sell")],
+            "swap" | "buy_capped" | "buy_rejected" | "cancelled_partial_sell" => &[("BTC", "sell"), ("ETH", "buy")],
+            s if s.starts_with("fee_") && s.ends_with("_swap") => &[("BTC", "sell"), ("ETH", "buy")],
+            "partial_buy" => &[("BTC", "sell"), ("ETH", "buy"), ("ETH", "buy")],
+            s if s.starts_with("fee_") && s.ends_with("_partial_buy") => &[("BTC", "sell"), ("ETH", "buy"), ("ETH", "buy")],
+            _ => &[("BTC", "sell")],
         };
         let expect: Vec<(String, String)> = expect.iter().map(|(a, b)| ((*a).into(), (*b).into())).collect();
         // tiers: the underweight member after BTC's sale is SOL or ETH by the figures; only the sides are pinned there.
         let same = if name.contains("-tiers-") { sent.iter().map(|s| &s.1).eq(expect.iter().map(|s| &s.1)) } else { sent == expect };
         if !same { pins.push(format!("{name}: sent {sent:?}, pinned {expect:?}")); }
         let left = phase(rails_out);
-        let want = match state {
+        let want = match state.as_str() {
             "swap" | "nothing_sold" | "buy_below_minimum" | "under_threshold" | "rule_off" | "selling" | "open_buy" | "sell_below_minimum" | "pre_send"
-            | "at_threshold" | "unbalanced" => serde_json::Value::Null,
-            "rejected" | "rejected_400" | "buy_rejected" | "post_send" | "server_error" | "no_order_id" => serde_json::json!("ambiguous"),
+            | "at_threshold" | "unbalanced" | "safe_rejection" | "raised_price" | "unpriced_member" | "unreadable_price" | "takeover_proceeds_unknown" => serde_json::Value::Null,
+            "rejected" | "rejected_400" | "buy_rejected" | "post_send" | "server_error" | "unknown_text" | "takeover_sell_no_id" | "takeover_buy_attempted_no_id" => serde_json::json!("ambiguous"),
+            // Binance stores an id-less answer as "BTCUSDT-" and waits on it; elsewhere Rails halts.
+            "no_order_id" if name.contains("-binance-") => serde_json::json!("selling"),
+            "no_order_id" => serde_json::json!("ambiguous"),
             "resting_sell" | "open_buy_stale" | "below_drift" | "exited_member" => serde_json::json!("selling"),
             _ => serde_json::json!("buying"),
         };
         if left != want { pins.push(format!("{name}: phase {left}, pinned {want}")); }
+        // What the swap owes after the fees (plan CB Q1, ported as Rails has it): a Binance quote commission comes off the
+        // proceeds; a base or BNB commission does not; Kraken's `cost` and KuCoin's `dealFunds` are gross.
+        let owed = match name.as_str() {
+            "rebalance-binance-w50-fee_quote_swap" => Some("255.7304"), "rebalance-binance-w50-fee_base_swap" | "rebalance-binance-w50-fee_bnb_swap" => Some("256.0004"),
+            "rebalance-kraken-w50-fee_quote_swap" => Some("199.96"), "rebalance-kucoin-w50-fee_quote_swap" => Some("256.0"),
+            "rebalance-binance-w50-fee_quote_partial_buy" => Some("127.434288"), "rebalance-kraken-w50-fee_quote_partial_buy" => Some("99.98"),
+            "rebalance-kucoin-w50-fee_quote_partial_buy" => Some("128.0"),
+            // R0: a resolved halt that named a buy which filled 40 of the 80 owed buys the remainder only.
+            "rebalance-kraken-w50-takeover_partial_buy" | "rebalance-kucoin-w50-takeover_partial_buy" => Some("40.0"),
+            "rebalance-binance-w50-takeover_partial_buy" => Some("39.99184"), _ => None,
+        };
+        if let Some(owed) = owed {
+            let left = &rails_out["changes"]["bots"].as_array().unwrap().last().unwrap()["after"]["transient_data"]["rebalance_pending"]["remaining_quote_amount"];
+            if left != owed { pins.push(format!("{name}: owes {left}, pinned {owed}")); }
+        }
     }
     assert!(pins.is_empty(), "pinned expectations:\n{}", pins.join("\n"));
 }
@@ -1005,6 +1076,43 @@ const LIMIT_MAILS: [&str; 10] = ["limit-poll-reaches", "limit-poll-reaches-limit
                                  "limit-sweep-reaches", "limit-sweep-reaches-under_floor", "limit-sweep-reaches-twice", "limit-poll-cancelled_partial_reaches",
                                  "limit-poll-cancelled_fractional_reaches", "limit-tick_then_poll"];
 
+/// Plan CB T2's crypto cells (decisions.rb venue_limit_scenarios) in which Rails mails stopped_by_amount_limit: the fills that
+/// spend the cap, a slipped base-sized fill past it, and Binance's fee-inclusive executed quote (Kraken's and KuCoin's are
+/// gross, so the same fill leaves 0.06 and stops nothing).
+fn venue_limit_mails(name: &str) -> bool {
+    ["kraken", "binance", "kucoin"].iter().any(|v| ["poll-reaches", "sweep-reaches", "slippage-base"].iter().any(|c| name == format!("limit-{v}-{c}")))
+        || name == "limit-binance-fee-quote"
+}
+
+/// The exact-cap guard's trim on a crypto venue (listed divergence, RULING-B2A-R2): Rails sizes 0.0002 BTC from its Float
+/// remainder and spends past the exact cap by a few 1e-15; Rust sends one base increment less. Beyond that order's volume and
+/// its row's amount and quote_amount, both sides are equal.
+fn guard_trimmed(name: &str, rails_out: &serde_json::Value, rust_out: &serde_json::Value) -> Result<(), String> {
+    use deltabadger::ruby::BigDec;
+    let (field, step, ask, exact) = match name {
+        "limit-kraken-guard-trim" => ("volume", "0.00000001", "15900.000000000015", "3.18"),
+        "limit-kucoin-guard-trim" => ("size", "0.00000001", "15900.000000000015", "3.18"),
+        _ => ("quantity", "0.00001", "35900.000000000015", "7.18"),
+    };
+    let bd = |s: &str| BigDec::parse(s).unwrap();
+    let volume = |out: &serde_json::Value| -> Result<BigDec, String> {
+        let sent = out["sent"].as_array().filter(|s| s.len() == 1).ok_or_else(|| format!("not one order: {out}"))?;
+        sent[0][field].as_str().map(bd).ok_or_else(|| format!("no {field}: {out}"))
+    };
+    let (rails, rust) = (volume(rails_out)?, volume(rust_out)?);
+    if &rails * &bd(ask) <= bd(exact) { return Err(format!("Rails no longer sizes past the exact cap ({} sent): drop the listed divergence", rails.to_s_f())); }
+    if rust.checked_add(&bd(step)).unwrap() != rails || &rust * &bd(ask) > bd(exact) {
+        return Err(format!("Rust sent {} where Rails sent {}: not one increment under, within the cap", rust.to_s_f(), rails.to_s_f()));
+    }
+    let mut patched = rust_out.clone();
+    patched["sent"] = rails_out["sent"].clone();
+    let rows = |out: &serde_json::Value| out["changes"]["transactions"].as_array().cloned().unwrap_or_default();
+    if rows(rails_out).len() != 1 || rows(rust_out).len() != 1 { return Err(format!("not one order row each\n  rails: {rails_out}\n  rust:  {rust_out}")); }
+    for col in ["amount", "quote_amount"] { patched["changes"]["transactions"][0]["after"][col] = rails_out["changes"]["transactions"][0]["after"][col].clone(); }
+    if patched != *rails_out { return Err(format!("beyond the trimmed volume\n  rails: {rails_out}\n  rust:  {rust_out}")); }
+    Ok(())
+}
+
 /// An unresolved intent counts as spent. Rails writes no row for the ambiguous 60 USD order that in fact landed, so its next
 /// checkpoint spends the whole 100 USD cap again (160 sent against the cap); Rust recovers the order by its client order id,
 /// counts it, and spends the 40 left (100 sent).
@@ -1018,7 +1126,7 @@ fn overspend_prevented(dir: &Path, rails_out: &serde_json::Value, rust_out: &ser
 
 #[tokio::test(flavor = "current_thread")]
 async fn rails_and_rust_decide_identically_across_the_amount_limit_grid() {
-    let (_copies, outputs) = grid_outputs("grid-limit", 45).await;
+    let (_copies, outputs) = grid_outputs("grid-limit", 90).await;
     let reference = |name: &str| outputs.iter().find(|(n, ..)| *n == format!("{name}-reference")).map(|(_, d, r, _)| (d.as_path(), r));
     let mut failures = vec![];
     for (name, dir, rails_out, rust_out) in &outputs {
@@ -1029,7 +1137,7 @@ async fn rails_and_rust_decide_identically_across_the_amount_limit_grid() {
         // Rails' side pinned, so that two silent sides cannot pass.
         let expected: &[&str] = if name == "limit-sweep-reaches-twice" {
             &["stopped_by_amount_limit", "stopped_by_amount_limit"] // one per callback
-        } else if LIMIT_MAILS.contains(&name.as_str()) {
+        } else if LIMIT_MAILS.contains(&name.as_str()) || venue_limit_mails(name) {
             &["stopped_by_amount_limit"]
         } else if name.ends_with("-5xx") {
             &["notify_about_error"] // Rails' failed row for the 5xx leg (Bot::Notifyable#notify_about_error)
@@ -1043,7 +1151,9 @@ async fn rails_and_rust_decide_identically_across_the_amount_limit_grid() {
             rails_out["mails"] = rust_out["mails"].clone();
         }
         let rust_out = &rust_out;
-        let listed = if name == "limit-ambiguous_overspend" {
+        let listed = if name.ends_with("-guard-trim") {
+            Some(guard_trimmed(name, &rails_out, rust_out))
+        } else if name == "limit-ambiguous_overspend" {
             Some(overspend_prevented(dir, &rails_out, rust_out, reference(name)))
         } else if name.ends_with("-landed") {
             Some(landed_matches_reference(dir, &rails_out, rust_out, reference(name), &Landed { k: 2, pair: "ETH/USD", quote: 36.0, base: 0.0144, gap: 36.0 }))
@@ -1065,13 +1175,18 @@ async fn rails_and_rust_decide_identically_across_the_amount_limit_grid() {
         let bot = rails_out["changes"]["bots"].as_array().unwrap().first().map(|b| b["after"].clone()).unwrap_or_default();
         let sent: Vec<&str> = rails_out["sent"].as_array().unwrap().iter().filter_map(|o| o["notional"].as_str()).collect();
         let skipped = rails_out["changes"]["transactions"].as_array().unwrap().iter().filter(|r| r["after"]["status"] == 2).count();
-        if LIMIT_MAILS.contains(&name.as_str()) && name != "limit-poll-archived" {
+        if (LIMIT_MAILS.contains(&name.as_str()) && name != "limit-poll-archived") || venue_limit_mails(name) {
             assert_eq!((bot["status"].clone(), bot["stop_message_key"].clone()), (serde_json::json!(2), serde_json::json!("bot.settings.extra_amount_limit.amount_spent")), "{name}");
         }
         match name.as_str() {
             "limit-poll-short" => assert_ne!(bot["status"], 2, "{name}: 40 left, not reached"),
             "limit-state-exact" | "limit-state-overspent" => assert!(sent.is_empty() && rails_out["changes"]["bot_activity_logs"].as_array().unwrap().is_empty(), "{name}: no order, no log"),
             "limit-cut-market" | "limit-tally-closed" => assert_eq!(sent, vec!["40.00"], "{name}: cut to what is left"),
+            "limit-kraken-fee-quote" | "limit-kucoin-fee-quote" => assert_ne!(bot["status"], 2, "{name}: the gross 60 leaves 0.06 of the cap"),
+            // A cut to 40 of the 60 owed: 40 at each venue's ask, in base (Kraken, KuCoin) or in quote (Binance's NOTIONAL binds).
+            "limit-kraken-tally-closed" => assert_eq!(rails_out["sent"][0]["volume"], "0.00079999", "{name}"),
+            "limit-binance-tally-closed" => assert_eq!(rails_out["sent"][0]["quoteOrderQty"], "40.0", "{name}"),
+            "limit-kucoin-tally-closed" => assert_eq!(rails_out["sent"][0]["size"], "0.00062499", "{name}"),
             "limit-tally-cancelled_partial" => assert_eq!(sent, vec!["80.00"], "{name}: the 20 filled counts in pending and in the cap"),
             "limit-sweep-reaches-under_floor" => assert_eq!((sent.len(), skipped), (0, 1), "{name}: the run sizes the 0.005 left before Bot::StopJob runs"),
             "limit-sweep-reaches-twice" => assert_eq!(rails_out["changes"]["bot_activity_logs"].as_array().unwrap().iter()

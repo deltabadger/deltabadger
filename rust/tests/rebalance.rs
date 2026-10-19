@@ -1,4 +1,4 @@
-//! Slice 6b: threshold rebalancing (Bot::Rebalancer, Bot::RebalanceJob, Bot::EvaluateRebalancersJob) on Alpaca.
+//! Slice 6b: threshold rebalancing (Bot::Rebalancer, Bot::RebalanceJob, Bot::EvaluateRebalancersJob) on Alpaca, and (plan CB T4) on Kraken, Binance and KuCoin.
 mod common;
 use chrono::{DateTime, Duration, Utc};
 use common::scripted::{accepted, not_found, ok, POST_SEND, PRE_SEND};
@@ -419,12 +419,15 @@ fn a_stopped_rebalancing_bot_outside_the_slice_is_refused() {
 }
 
 #[test]
-fn rebalancing_off_alpaca_is_still_refused() {
+fn rebalancing_on_kraken_is_admitted() {
+    // Plan CB T4: Bot::Rebalancer names no venue; a Kraken rebalancer is this engine's.
     let dir = common::rails_install();
     let o = store::open(&store::Paths::from_env(&|_| None, dir.path())).unwrap();
     let s = seed::seed_kraken(&o.primary, &seed::cipher());
-    seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00").with("rebalance_enabled", json!(true)));
-    assert!(eligibility::check_install(&o.primary).unwrap().problems.iter().any(|p| p.contains("rebalance_enabled")));
+    let id = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00").with("rebalance_enabled", json!(true)));
+    let r = eligibility::check_install(&o.primary).unwrap();
+    assert!(r.problems.is_empty(), "{:?}", r.problems);
+    assert_eq!(r.eligible, vec![id]);
 }
 
 // ---- T7: the clock ----
@@ -576,5 +579,291 @@ async fn an_allocation_edit_during_any_of_the_swaps_reads_places_nothing_and_kee
         assert_eq!(targets(&o, id), vec![0.9, 0.1], "{path}: the members the edit wrote");
         // The next fire decides from the edit: on target, nothing is due.
         assert_eq!(evaluate(&o, &t, id, at(T0)).await, Outcome::Skipped("not_due"), "{path}");
+    }
+}
+
+// ---- plan CB T4: rebalancing on Kraken, Binance and KuCoin ----
+
+/// A stopped 50/50 BTC/ETH basket on a crypto venue (quote EUR, as the seed has it), rebalancing on, holding 0.01 BTC (500)
+/// and 0.04 ETH (100) at 50,000 and 2,500: BTC sits 33 points over, and the swap sells 0.004 BTC for 200.
+fn crypto_swap_bot(venue: &str, transient: Value) -> (tempfile::TempDir, i64, i64) {
+    let (d, o, s) = common::install();
+    let (class, name, btc, eth) = match venue {
+        "binance" => ("Exchanges::Binance", "Binance", "BTCEUR", "ETHEUR"), "kucoin" => ("Exchanges::Kucoin", "KuCoin", "BTC-EUR", "ETH-EUR"),
+        _ => ("Exchanges::Kraken", "Kraken", "XBTEUR", "ETHEUR"),
+    };
+    o.primary.execute("UPDATE exchanges SET type = ?1, name = ?2", [class, name]).unwrap();
+    if venue != "kraken" { o.primary.execute("UPDATE tickers SET ticker = ?1, base = 'BTC'", [btc]).unwrap(); }
+    o.primary.execute("INSERT INTO assets (external_id, symbol, name, category, created_at, updated_at) VALUES ('ethereum', 'ETH', 'ETH', 'Cryptocurrency', '2026-01-01', '2026-01-01')", []).unwrap();
+    let eth_id = o.primary.last_insert_rowid();
+    o.primary.execute("INSERT INTO tickers (exchange_id, ticker, base, quote, base_asset_id, quote_asset_id, base_decimals, quote_decimals, price_decimals, \
+                       minimum_base_size, minimum_quote_size, trading_enabled, available, created_at, updated_at) \
+                       VALUES (?1, ?2, 'ETH', 'EUR', ?3, ?4, 8, 5, 2, '0.0001', '0.5', 1, 1, '2026-01-01', '2026-01-01')",
+                      rusqlite::params![s.exchange_id, eth, eth_id, s.quote]).unwrap();
+    let mut spec = stopped().with("rebalance_enabled", json!(true)).weights(&[(s.btc, 0.5), (eth_id, 0.5)]);
+    spec.transient = transient;
+    let id = seed::insert_bot(&o.primary, &s, &spec);
+    deltabadger::engine::basket::refresh_composition(&o.primary, &model::load_bot(&o.primary, id).unwrap(), at("2026-09-01T09:00:00Z")).unwrap().unwrap();
+    for (asset, qty, price, quote, n) in [(s.btc, "0.01", "50000", "500", 1), (eth_id, "0.04", "2500", "100", 2)] {
+        seed::insert_row(&o.primary, &s, id, asset, &json!({ "external_status": 2, "external_id": format!("OHELD-{n}"), "amount": qty, "amount_exec": qty,
+            "quote_amount": quote, "quote_amount_exec": quote, "price": price, "created_at": "2026-09-01 10:00:01" }));
+    }
+    let exchange = s.exchange_id;
+    drop(o);
+    (d, id, exchange)
+}
+
+/// One venue's answers for a swap: both members at one price for bid, ask and last (the bulk read and each book), the free
+/// balances, and `over` replacing whole keys.
+fn crypto_script(venue: &str, over: Value) -> ScriptedTransport {
+    let mut m = match venue {
+        "binance" => {
+            let book = |sym: &str, p: &str| ok(json!({ "symbol": sym, "bidPrice": p, "bidQty": "1", "askPrice": p, "askQty": "1" }));
+            json!({ "GET /api/v3/ticker/price": [ok(json!([{ "symbol": "BTCEUR", "price": "50000" }, { "symbol": "ETHEUR", "price": "2500" }]))],
+                    "GET /api/v3/ticker/bookTicker?symbol=BTCEUR": [book("BTCEUR", "50000")], "GET /api/v3/ticker/bookTicker?symbol=ETHEUR": [book("ETHEUR", "2500")],
+                    "GET /api/v3/account": [ok(json!({ "balances": [{ "asset": "BTC", "free": "0.01", "locked": "0" }, { "asset": "ETH", "free": "0.04", "locked": "0" },
+                                                                     { "asset": "EUR", "free": "100000", "locked": "0" }] }))] })
+        }
+        "kucoin" => {
+            let book = |p: &str| ok(json!({ "code": "200000", "data": { "time": 1, "sequence": "1", "bids": [[p, "1"]], "asks": [[p, "1"]] } }));
+            json!({ "GET /api/v1/market/allTickers": [ok(json!({ "code": "200000", "data": { "time": 1, "ticker": [{ "symbol": "BTC-EUR", "last": "50000" }, { "symbol": "ETH-EUR", "last": "2500" }] } }))],
+                    "GET /api/v1/market/orderbook/level2_20?symbol=BTC-EUR": [book("50000")], "GET /api/v1/market/orderbook/level2_20?symbol=ETH-EUR": [book("2500")],
+                    "GET /api/v1/accounts": [ok(json!({ "code": "200000", "data": [
+                        { "id": "b", "currency": "BTC", "type": "trade", "balance": "0.01", "available": "0.01", "holds": "0" },
+                        { "id": "e", "currency": "ETH", "type": "trade", "balance": "0.04", "available": "0.04", "holds": "0" },
+                        { "id": "q", "currency": "EUR", "type": "trade", "balance": "100000", "available": "100000", "holds": "0" }] }))] })
+        }
+        _ => {
+            let entry = |p: &str| json!({ "a": [p, "1", "1.000"], "b": [p, "1", "1.000"], "c": [p, "0.1"] });
+            json!({ "GET /0/public/Ticker": [ok(json!({ "error": [], "result": { "XXBTZEUR": entry("50000"), "ETHEUR": entry("2500") } }))],
+                    "GET /0/public/Ticker?pair=XBTEUR": [ok(json!({ "error": [], "result": { "XXBTZEUR": entry("50000") } }))],
+                    "GET /0/public/Ticker?pair=ETHEUR": [ok(json!({ "error": [], "result": { "ETHEUR": entry("2500") } }))],
+                    "POST /0/private/BalanceEx": [ok(json!({ "error": [], "result": { "XXBT": { "balance": "0.01", "hold_trade": "0" },
+                        "XETH": { "balance": "0.04", "hold_trade": "0" }, "ZEUR": { "balance": "100000", "hold_trade": "0" } } }))],
+                    "POST /0/private/AddOrder": [ok(json!({ "error": [], "result": { "txid": ["OTX-1"] } })), ok(json!({ "error": [], "result": { "txid": ["OTX-2"] } }))] })
+        }
+    };
+    for (k, v) in over.as_object().unwrap() { m[k] = v.clone(); }
+    ScriptedTransport::from_script(&m)
+}
+
+/// The venue over a script, with the install's pairs (Binance and KuCoin read them).
+enum Crypto { Kraken(deltabadger::venue::kraken::KrakenVenue<ScriptedTransport>), Binance(deltabadger::venue::binance::BinanceVenue<ScriptedTransport>),
+              Kucoin(deltabadger::venue::kucoin::KucoinVenue<ScriptedTransport>) }
+fn crypto_venue(venue: &str, o: &store::Opened, exchange: i64, t: &ScriptedTransport) -> Crypto {
+    use deltabadger::venue::{binance, kucoin};
+    match venue {
+        "binance" => Crypto::Binance(binance::BinanceVenue::new(t.clone(), binance::URL, "s").with_pairs(binance::Pairs::load(&o.primary, exchange).unwrap())),
+        "kucoin" => Crypto::Kucoin(kucoin::KucoinVenue::new(t.clone(), kucoin::URL).with_pairs(binance::Pairs::load(&o.primary, exchange).unwrap())),
+        _ => Crypto::Kraken(deltabadger::venue::kraken::KrakenVenue::new(t.clone())),
+    }
+}
+async fn crypto_fire(venue: &str, o: &store::Opened, exchange: i64, t: &ScriptedTransport, id: i64, when: DateTime<Utc>) -> Outcome {
+    match crypto_venue(venue, o, exchange, t) { Crypto::Kraken(v) => evaluate_on(o, &v, id, when).await, Crypto::Binance(v) => evaluate_on(o, &v, id, when).await,
+                                               Crypto::Kucoin(v) => evaluate_on(o, &v, id, when).await }
+}
+/// The orders a script's venue was asked to place, as (pair, side, quote amount or base volume).
+fn crypto_posts(venue: &str, t: &ScriptedTransport) -> Vec<(String, String, String)> {
+    t.requests().into_iter().filter(|r| r.method == "POST" && ["/0/private/AddOrder", "/api/v3/order", "/api/v1/orders"].contains(&r.path.as_str())).map(|r| {
+        let q = |k: &str| r.query.iter().find(|(key, _)| *key == k).map(|(_, v)| v.clone()).unwrap_or_default();
+        let b = r.body.clone().unwrap_or_default();
+        let s = |k: &str| b[k].as_str().unwrap_or_default().to_string();
+        match venue {
+            "binance" => (q("symbol"), q("side").to_lowercase(), if q("quoteOrderQty").is_empty() { q("quantity") } else { q("quoteOrderQty") }),
+            "kucoin" => (s("symbol"), s("side"), if s("funds").is_empty() { s("size") } else { s("funds") }),
+            _ => (s("pair"), s("type"), s("volume")),
+        }
+    }).collect()
+}
+
+/// Rails' halt resolution (Bots::RebalanceResolutionsController, R0's Bot::Rebalanceable#resolve_rebalance_halt!) on the
+/// handed-back install, once the controller's refresh has found no rebalance order still waiting.
+fn rails_resolves_the_halt(dir: &std::path::Path, bot_id: i64) {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+    let boot = tempfile::tempdir().unwrap();
+    let mut cmd = std::process::Command::new(root.join("bin/rails"));
+    cmd.current_dir(root).args(["runner", &format!("Bot.find({bot_id}).resolve_rebalance_halt!")]).env_remove("DATABASE_URL")
+        .env("APP_ROOT_URL", "http://localhost:3000").env("SECRET_KEY_BASE", "engine-test-secret")
+        .env("PRIMARY_DATABASE_URL", format!("sqlite3:{}/production.sqlite3", dir.display()))
+        .env("QUEUE_DATABASE_URL", format!("sqlite3:{}/production_queue.sqlite3", dir.display()));
+    for db in ["cache", "cable"] { cmd.env(format!("{}_DATABASE_URL", db.to_uppercase()), format!("sqlite3:{}/{db}.sqlite3", boot.path().display())); }
+    let run = cmd.output().expect("bin/rails runs");
+    assert!(run.status.success(), "the Rails resolution failed:\n{}", String::from_utf8_lossy(&run.stderr));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_stopped_kraken_basket_sells_the_overweight_member_then_buys_with_its_gross_proceeds() {
+    let (d, id, exchange) = crypto_swap_bot("kraken", json!({}));
+    let o = store::open(&store::Paths::from_env(&|_| None, d.path())).unwrap();
+    let t = crypto_script("kraken", json!({}));
+    assert!(matches!(crypto_fire("kraken", &o, exchange, &t, id, at(T0)).await, Outcome::Placed(_)));
+    assert_eq!(crypto_posts("kraken", &t), vec![("XBTEUR".into(), "sell".into(), "0.004".into())]);
+    // Kraken's `cost` is gross: the 0.5 fee is not taken off what the buy is owed (Q1, as Rails has it).
+    let sold = ok(json!({ "error": [], "result": { "OTX-1": { "status": "closed", "vol": "0.004", "vol_exec": "0.004", "cost": "200", "fee": "0.5", "price": "50000",
+                          "oflags": "", "descr": { "pair": "XBTEUR", "type": "sell", "ordertype": "market", "price": "0" } } } }));
+    let t = crypto_script("kraken", json!({ "POST /0/private/QueryOrders": [sold], "POST /0/private/AddOrder": [ok(json!({ "error": [], "result": { "txid": ["OTX-2"] } }))] }));
+    assert!(matches!(crypto_fire("kraken", &o, exchange, &t, id, at(T0) + Duration::hours(4)).await, Outcome::Placed(_)));
+    assert_eq!(crypto_posts("kraken", &t), vec![("ETHEUR".into(), "buy".into(), "0.08".into())], "200 of ETH at 2,500");
+    assert_eq!(pending(&o, id)["remaining_quote_amount"], "200.0");
+}
+
+/// The venue's answer for the recovered order: the sell filled whole (0.004 BTC for 200), the buy cancelled after 80 of the
+/// 200 owed (0.032 ETH).
+fn recovered_read(venue: &str, pair: &str, ext: &str, leg: &str) -> Value {
+    let (side, filled, quote, price) = if leg == "sell" { ("SELL", "0.004", "200", "50000") } else { ("BUY", "0.032", "80", "2500") };
+    if venue == "binance" {
+        json!({ "GET /api/v3/order": [ok(json!({ "symbol": pair, "orderId": 28457, "orderListId": -1, "clientOrderId": "x", "price": "0", "origQty": "0",
+                                                 "executedQty": filled, "cummulativeQuoteQty": quote, "status": if leg == "sell" { "FILLED" } else { "CANCELED" },
+                                                 "timeInForce": "GTC", "type": "MARKET", "side": side, "origQuoteOrderQty": "0", "time": 1 }))],
+                "GET /api/v3/myTrades": [ok(json!([{ "symbol": pair, "id": 1, "orderId": 28457, "orderListId": -1, "price": price, "qty": filled, "quoteQty": quote,
+                                                    "commission": "0", "commissionAsset": "BNB", "time": 1, "isBuyer": leg == "buy", "isMaker": false, "isBestMatch": true }]))] })
+    } else {
+        json!({ format!("GET /api/v1/orders/{ext}"): [ok(json!({ "code": "200000", "data": { "id": ext, "symbol": pair, "opType": "DEAL", "type": "market",
+            "side": side.to_lowercase(), "price": "0", "size": "0", "funds": "0", "dealSize": filled, "dealFunds": quote, "fee": "0", "feeCurrency": "EUR",
+            "clientOid": "x", "isActive": false, "cancelExist": leg == "buy", "cancelReason": "", "createdAt": 1 } }))] })
+    }
+}
+
+/// Binance and KuCoin cannot prove an unfound order absent. A swap whose placement reply was lost halts once the absence
+/// window has passed; the operator settles the intent (`deltabadger resolve-placement`), the engine hands back, the user
+/// resolves the halt in Rails (R0), and the next fire after a re-takeover follows Rails' resolution: a recovered sell's
+/// proceeds are bought once, a recovered buy's fill comes off what is owed, and the lost order is never sent again.
+#[tokio::test(flavor = "current_thread")]
+async fn an_unfound_crypto_swap_order_halts_and_its_resolution_never_submits_it_twice() {
+    use deltabadger::engine::placement::{resolve_by_operator, OperatorResolution};
+    for venue in ["binance", "kucoin"] {
+        for (leg, placed) in [("sell", true), ("sell", false), ("buy", true)] {
+            let label = format!("{venue} {leg} placed={placed}");
+            let owed = json!({ "rebalance_pending": { "phase": "buying", "sell_transaction_id": null, "buy_transaction_id": null,
+                                                      "remaining_quote_amount": "200.0", "buy_attempted": false } });
+            let (d, id, exchange) = crypto_swap_bot(venue, if leg == "buy" { owed } else { json!({}) });
+            let paths = store::Paths::from_env(&|_| None, d.path());
+            let lock = deltabadger::lease::lock(&paths, at(T0)).unwrap();
+            let o = store::open(&paths).unwrap();
+            deltabadger::engine::handover::take_over(&lock, &o, &seed::cipher(), "0.2.0", at(T0)).unwrap();
+            let place = if venue == "binance" { "POST /api/v3/order" } else { "POST /api/v1/orders" };
+            let lost = crypto_script(venue, json!({ place: [{ "network": "post_send", "message": POST_SEND }] }));
+            crypto_fire(venue, &o, exchange, &lost, id, at(T0)).await;
+            assert_eq!(crypto_posts(venue, &lost).len(), 1, "{label}");
+            assert!(model::load_bot(&o.primary, id).unwrap().rust_placement().is_some(), "{label}: the intent is kept");
+            // A day on, the venue still cannot find it: the swap halts, nothing is sent.
+            let unfound = crypto_script(venue, json!({ "GET /api/v3/order": [{ "status": 400, "body": { "code": -2013, "msg": "Order does not exist." } }],
+                "GET /api/v1/order/client-order/".to_string() + model::load_bot(&o.primary, id).unwrap().rust_placement().unwrap()["cl_ord_id"].as_str().unwrap():
+                    [{ "status": 404, "body": { "code": "400100", "msg": "order not exist." } }],
+                "GET /api/v1/orders": [ok(json!({ "code": "200000", "data": { "currentPage": 1, "pageSize": 500, "totalNum": 0, "totalPage": 0, "items": [] } }))] }));
+            assert_eq!(crypto_fire(venue, &o, exchange, &unfound, id, at(T0) + Duration::days(1)).await, Outcome::Skipped("ambiguous"), "{label}");
+            assert!(crypto_posts(venue, &unfound).is_empty(), "{label}");
+            assert_eq!(pending(&o, id)["phase"], "ambiguous", "{label}");
+            // The operator checked the venue.
+            let (pair, ext) = match (venue, leg) {
+                ("binance", "sell") => ("BTCEUR", "BTCEUR-28457".to_string()), ("binance", _) => ("ETHEUR", "ETHEUR-28457".to_string()),
+                (_, "sell") => ("BTC-EUR", "6716f0a2c1b6d10007a3b1c1".to_string()), _ => ("ETH-EUR", "6716f0a2c1b6d10007a3b1c1".to_string()),
+            };
+            let resolution = if placed { OperatorResolution::Placed(ext.clone()) } else { OperatorResolution::NotPlaced };
+            resolve_by_operator(&o.primary, id, resolution, at(T0) + Duration::days(1)).unwrap();
+            let row: Option<i64> = o.primary.query_row("SELECT id FROM transactions WHERE external_id = ?1", [&ext], |r| r.get(0)).ok();
+            assert_eq!(row.is_some(), placed, "{label}");
+            if let Some(row) = row {
+                let key = if leg == "sell" { "sell_transaction_id" } else { "buy_transaction_id" };
+                assert_eq!(pending(&o, id)[key], row, "{label}: the halt names the recovered order");
+                // The engine's follow-up poll reads it settled: the sell filled whole (200), the buy 80 of the 200 owed.
+                let read = recovered_read(venue, pair, &ext, leg);
+                let poll = crypto_script(venue, read);
+                match crypto_venue(venue, &o, exchange, &poll) {
+                    Crypto::Binance(v) => { deltabadger::engine::polling::follow_up(&o.primary, &v, id, row, at(T0) + Duration::days(1)).await.unwrap(); }
+                    Crypto::Kucoin(v) => { deltabadger::engine::polling::follow_up(&o.primary, &v, id, row, at(T0) + Duration::days(1)).await.unwrap(); }
+                    Crypto::Kraken(_) => unreachable!(),
+                }
+            }
+            deltabadger::engine::handover::hand_back(&lock, &o, &Factory(script(json!({}))), &seed::cipher(), &FixedClock(at(T0) + Duration::days(1))).await.unwrap();
+            drop(o);
+            drop(lock);
+            rails_resolves_the_halt(d.path(), id);
+            let lock = deltabadger::lease::lock(&paths, at(T0) + Duration::days(2)).unwrap();
+            let o = store::open(&paths).unwrap();
+            deltabadger::engine::handover::take_over(&lock, &o, &seed::cipher(), "0.2.0", at(T0) + Duration::days(2)).unwrap();
+            let after = pending(&o, id);
+            // The next fire: one further order at most, and never the lost one again.
+            let mut over = json!({ place: [ok(if venue == "binance" { json!({ "symbol": "ETHEUR", "orderId": 30001, "orderListId": -1, "transactTime": 1 }) }
+                                              else { json!({ "code": "200000", "data": { "orderId": "6716f0a2c1b6d10007a3b1d9" } }) })] });
+            if placed {
+                // resume_* refreshes the recovered order first: it reads as the poll left it.
+                let read = recovered_read(venue, pair, &ext, leg);
+                for (k, v) in read.as_object().unwrap() { over[k] = v.clone(); }
+            }
+            let reads = crypto_script(venue, over);
+            crypto_fire(venue, &o, exchange, &reads, id, at(T0) + Duration::days(2)).await;
+            let posts = crypto_posts(venue, &reads);
+            // A buy's size in the quote: its quote amount, or its base volume at ETH's 2,500.
+            let spent = |p: &(String, String, String)| { let n: f64 = p.2.parse().unwrap(); if n < 1.0 { n * 2500.0 } else { n } };
+            match (leg, placed) {
+                // R0 put the recovered sell back: its 200 of proceeds are owed, and bought once.
+                ("sell", true) => {
+                    assert_eq!(after["phase"], "selling", "{label}: {after}");
+                    assert_eq!(posts.len(), 1, "{label}: {posts:?}");
+                    assert_eq!((posts[0].1.as_str(), spent(&posts[0])), ("buy", 200.0), "{label}: {posts:?}");
+                }
+                // Attested never placed: Rails cleared the swap; the fire decides afresh (a new sell, not the lost one).
+                ("sell", false) => {
+                    assert_eq!(after, Value::Null, "{label}");
+                    assert!(posts.len() <= 1 && posts.iter().all(|p| p.1 == "sell"), "{label}: {posts:?}");
+                }
+                // R0 kept the recovered buy: 80 of the 200 filled, so only the 120 still owed is bought.
+                _ => {
+                    assert_eq!((after["phase"].as_str(), after["buy_attempted"].as_bool()), (Some("buying"), Some(true)), "{label}: {after}");
+                    assert_eq!(posts.len(), 1, "{label}: {posts:?}");
+                    assert_eq!((posts[0].1.as_str(), spent(&posts[0])), ("buy", 120.0), "{label}: the remainder, not the 200 again: {posts:?}");
+                }
+            }
+        }
+    }
+}
+
+/// Bot::Rebalancer#waiting_buy_blocks_sell? reads every bot on the account: another Kraken basket's resting BTC buy (on the
+/// same key) stands the swap's BTC sale down.
+#[tokio::test(flavor = "current_thread")]
+async fn a_resting_buy_of_another_bot_on_the_kraken_key_blocks_the_sale() {
+    let (d, id, exchange) = crypto_swap_bot("kraken", json!({}));
+    let o = store::open(&store::Paths::from_env(&|_| None, d.path())).unwrap();
+    o.primary.execute_batch(&format!("INSERT INTO bots (user_id, exchange_id, type, status, settings, transient_data, created_at, updated_at) \
+        SELECT user_id, exchange_id, type, 2, json_remove(settings, '$.rebalance_enabled'), '{{}}', created_at, updated_at FROM bots WHERE id = {id}")).unwrap();
+    let other = o.primary.last_insert_rowid();
+    o.primary.execute(&format!("INSERT INTO transactions (bot_id, exchange_id, external_id, status, external_status, side, order_type, amount, price, base, quote, \
+        base_asset_id, quote_asset_id, bot_interval, bot_quote_amount, transaction_type, error_messages, created_at, updated_at) \
+        SELECT {other}, exchange_id, 'OREST-9', 0, 1, 0, 1, 0.001, 45000, base, quote, base_asset_id, quote_asset_id, 'day', 60, 'REGULAR', '[]', created_at, created_at \
+        FROM transactions WHERE bot_id = {id} AND external_id = 'OHELD-1'"), []).unwrap();
+    let open = ok(json!({ "error": [], "result": { "OREST-9": { "status": "open", "vol": "0.001", "vol_exec": "0", "cost": "0", "price": "0", "oflags": "",
+                                                               "descr": { "pair": "XBTEUR", "type": "buy", "ordertype": "limit", "price": "45000" } } } }));
+    let t = crypto_script("kraken", json!({ "POST /0/private/QueryOrders": [open] }));
+    assert_eq!(crypto_fire("kraken", &o, exchange, &t, id, at(T0)).await, Outcome::Skipped("open_buy"));
+    assert!(crypto_posts("kraken", &t).is_empty());
+    assert_eq!(pending(&o, id), Value::Null);
+}
+
+/// Plan CB T4: a crypto rebalancer is admitted in every phase this engine resumes, a Rails-written ambiguous halt stays
+/// Rails' to resolve, and a swap Rails left mid-way is taken over and handed back in Rails' own shape.
+#[tokio::test(flavor = "current_thread")]
+async fn a_crypto_rebalancer_is_admitted_mid_swap_and_handed_back_as_rails_left_it() {
+    for venue in ["kraken", "binance", "kucoin"] {
+        let (d, id, _) = crypto_swap_bot(venue, json!({}));
+        let paths = store::Paths::from_env(&|_| None, d.path());
+        let o = store::open(&paths).unwrap();
+        let check = || eligibility::check_install(&o.primary).unwrap();
+        assert!(check().problems.is_empty(), "{venue}: {:?}", check().problems);
+        // A resting REBALANCE sell, and the swap Rails left selling on it.
+        o.primary.execute("UPDATE transactions SET external_status = 1, transaction_type = 'REBALANCE', side = 1 WHERE external_id = 'OHELD-1'", []).unwrap();
+        let sell: i64 = one(&o, "SELECT id FROM transactions WHERE external_id = 'OHELD-1'");
+        let swap = json!({ "phase": "selling", "sell_transaction_id": sell, "buy_transaction_id": null, "remaining_quote_amount": null, "buy_attempted": false });
+        o.primary.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.rebalance_pending', json(?1))", [swap.to_string()]).unwrap();
+        assert!(check().problems.is_empty(), "{venue}: {:?}", check().problems);
+        drop(o);
+        let lock = deltabadger::lease::lock(&paths, at(T0)).unwrap();
+        let o = store::open(&paths).unwrap();
+        deltabadger::engine::handover::take_over(&lock, &o, &seed::cipher(), "0.2.0", at(T0)).unwrap();
+        deltabadger::engine::handover::hand_back(&lock, &o, &Factory(script(json!({}))), &seed::cipher(), &FixedClock(at(T0))).await.unwrap();
+        assert_eq!(pending(&o, id), swap, "{venue}: Rails reads back the swap it left");
+        // Rails' own ambiguous halt is Rails' to resolve.
+        o.primary.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.rebalance_pending.phase', 'ambiguous')", []).unwrap();
+        assert!(eligibility::check_install(&o.primary).unwrap().problems.iter().any(|p| p.contains("ambiguous")), "{venue}");
     }
 }

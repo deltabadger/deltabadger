@@ -53,10 +53,10 @@ fn rails_work(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError> {
     // may still be working at the venue, whatever this bot's own status.
     let unknown: i64 = c.query_row("SELECT count(*) FROM transactions WHERE bot_id = ?1 AND (status IS NULL OR status NOT IN (0, 1, 2))", [bot.id], |r| r.get(0))?;
     if unknown > 0 { r.push(format!("{unknown} {UNKNOWN_STATUS}")); }
-    // Slice 6b: threshold rebalancing runs here for an Alpaca basket or index bot (rebalance.rs, run::run_rebalances). Its
+    // Slice 6b, plan CB T4: threshold rebalancing runs here for a basket or index bot on every venue (rebalance.rs, run::run_rebalances). Its
     // pending swap is admitted in a phase this engine resumes (selling, buying), or halted ambiguous by this engine itself
     // (idle until the user resolves it after a handback); an ambiguous halt Rails wrote stays Rails'.
-    let rebalances = rebalances_here(c, bot)?;
+    let rebalances = rebalances_here(bot);
     // Deliberately broader than Rails' automatic jobs: a false refusal costs one check message, a takeover mid-liquidation costs money.
     for key in PENDING_KEYS {
         if bot.transient.get(key).is_none_or(Value::is_null) { continue; }
@@ -74,8 +74,7 @@ fn rails_work(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError> {
     // Bot::EvaluateRebalancersJob#candidates: REBALANCEABLE_TYPES, `.where.not(status: %i[deleted archived])`. A stopped bot still rebalances.
     let rebalanceable = matches!(bot.bot_type.as_str(), "Bots::DcaIndex" | "Bots::DcaMultiAsset") && !matches!(bot.status, BotStatus::Deleted | BotStatus::Archived);
     if rebalanceable && bot.settings.get("rebalance_enabled").is_some_and(set) {
-        if !rebalances { r.push("rebalance_enabled".into()); }
-        else if let Err(e) = super::rebalance::threshold(&bot.settings) { r.push(format!("{e:?}")); }
+        if let Err(e) = super::rebalance::threshold(&bot.settings) { r.push(format!("{e:?}")); }
     }
     let non_regular: i64 = c.query_row(
         "SELECT count(*) FROM transactions WHERE bot_id = ?1 AND transaction_type <> 'REGULAR' AND NOT (?2 AND transaction_type = 'REBALANCE') \
@@ -102,12 +101,9 @@ fn rails_work(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError> {
     Ok(r)
 }
 
-/// Whether this engine rebalances the bot: an Alpaca basket or index bot (`rebalances_on`).
-fn rebalances_here(c: &Connection, bot: &Bot) -> Result<bool, EngineError> {
-    if !matches!(bot.bot_type.as_str(), "Bots::DcaIndex" | "Bots::DcaMultiAsset") { return Ok(false); }
-    let exchange: Option<String> = c.query_row("SELECT type FROM exchanges WHERE id = ?1", [bot.exchange_id], |r| r.get(0)).optional()?;
-    Ok(rebalances_on(exchange.as_deref()))
-}
+/// Whether this engine rebalances the bot: a basket or index bot (Bot::EvaluateRebalancersJob's REBALANCEABLE_TYPES). Bot::Rebalancer
+/// names no venue, and `admission` refuses every venue this engine does not run (plan CB T4).
+fn rebalances_here(bot: &Bot) -> bool { matches!(bot.bot_type.as_str(), "Bots::DcaIndex" | "Bots::DcaMultiAsset") }
 
 pub fn bot_reasons(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError> {
     bot_reasons_with(c, bot, &mut SplitRows::new())
@@ -126,13 +122,10 @@ fn bot_reasons_with(c: &Connection, bot: &Bot, splits: &mut SplitRows) -> Result
     let index = bot.bot_type == "Bots::DcaIndex";
     if !index && bot.bot_type != "Bots::DcaMultiAsset" { r.push(format!("type {} (only DCA baskets and index bots)", bot.bot_type)); }
     let exchange: Option<String> = c.query_row("SELECT type FROM exchanges WHERE id = ?1", [bot.exchange_id], |r| r.get(0)).optional()?;
-    // Kraken, Binance and KuCoin (plan K ruling O6): buying baskets (P1-T0 reverses spec E2's owner question 4) without an amount limit.
-    let kraken = match exchange.as_deref() { Some("Exchanges::Kraken") => Some("Kraken"), Some("Exchanges::Binance") => Some("Binance"),
-                                             Some("Exchanges::Kucoin") => Some("KuCoin"), _ => None };
     let alpaca = exchange.as_deref() == Some("Exchanges::Alpaca");
     let members = if index { index_reasons(c, bot, alpaca, &mut r)? } else { composition_reasons(bot, &mut r) };
     let selling = bot.settings.get("direction").is_some_and(|v| v == "selling");
-    if let Some(why) = admission(exchange.as_deref(), index, members.len(), selling) { r.push(why.into()); }
+    if let Some(why) = admission(exchange.as_deref(), index, selling) { r.push(why.into()); }
     match bot.settings.get("direction") {
         None | Some(Value::Null) => {}, Some(v) if v == "buying" => {},
         Some(v) if v == "selling" => sell_reasons(c, bot, alpaca, &mut r)?,
@@ -160,7 +153,6 @@ fn bot_reasons_with(c: &Connection, bot: &Bot, splits: &mut SplitRows) -> Result
     let wash: Option<Option<bool>> = c.query_row("SELECT wash_sale_enabled FROM users WHERE id = ?1", [bot.user_id], |r| r.get(0)).optional()?;
     match wash { None => r.push("user not found".into()), Some(Some(true)) => r.push("wash_sale enabled for the user".into()), _ => {} }
     if bot.quote_amount_limited() {
-        if let Some(venue) = kraken { r.push(format!("quote_amount_limited ({venue}: amount limits are not supported by this engine yet)")); }
         if let Err(e) = bot.quote_amount_limit() { r.push(e); }
         if let Err(e) = bot.quote_amount_limit_enabled_at_us() { r.push(e); }
     }
@@ -177,7 +169,7 @@ fn bot_reasons_with(c: &Connection, bot: &Bot, splits: &mut SplitRows) -> Result
             return Ok(r);
         }
     }
-    if alpaca && r.is_empty() { super::accounting::validate_stored_amounts(&bot.settings, &bot.transient)?; super::accounting::quote_amount_available_num(c, bot)?; }
+    if r.is_empty() { super::accounting::validate_stored_amounts(&bot.settings, &bot.transient)?; super::accounting::quote_amount_available_num(c, bot)?; }
     Ok(r)
 }
 
@@ -194,25 +186,18 @@ fn price_rule_reason(bot: &Bot, key: &str, value: &Value) -> Option<String> {
 
 /// Which bots this build runs, by venue, class and member count: the one rule the engine's guard and the bot pages
 /// (web::bot::refusal) both apply, so a page is never served for a bot the engine refuses. Kraken, Binance and KuCoin take
-/// buying baskets and index bots of any size (P1-T0, plan CI, plan K O6); an index bot never sells (not reversible); a wider basket
-/// sells on Alpaca only (6b, the ranked DCA-out), one asset elsewhere (6a). Rebalancing is Alpaca's too (`rebalances_on`).
+/// buying baskets and index bots of any size (P1-T0, plan CI, plan K O6); an index bot never sells (Bots::DcaIndex is not
+/// Bot::Reversible); a basket of any size sells on every venue (6a, 6b, plan CB T3: the ranked DCA-out is venue-neutral).
 /// What else a bot needs (its amount limit on Kraken/Binance, market-cap weights) is each side's own named reason.
-pub fn admission(exchange: Option<&str>, index: bool, members: usize, selling: bool) -> Option<&'static str> {
+pub fn admission(exchange: Option<&str>, index: bool, selling: bool) -> Option<&'static str> {
     match exchange {
         Some("Exchanges::Alpaca") => {}
         Some("Exchanges::Kraken" | "Exchanges::Binance" | "Exchanges::Kucoin") => {}
         _ => return Some("a bot on an exchange other than Alpaca, Kraken, Binance and KuCoin"),
     }
-    match (selling, index) {
-        (true, true) => Some("an index bot that sells"),
-        (true, false) if members != 1 && !rebalances_on(exchange) => Some("a basket of several assets that sells"),
-        _ => None,
-    }
+    if selling && index { Some("an index bot that sells") } else { None }
 }
 
-/// The venue whose baskets and index bots this engine rebalances and sells member by member (6b): Alpaca. Kraken and
-/// Binance rebalancing stays Rails' ("rebalance_enabled").
-pub fn rebalances_on(exchange: Option<&str>) -> bool { exchange == Some("Exchanges::Alpaca") }
 
 /// Selling: a one-asset basket on Kraken, Binance or Alpaca (slice 6a, one_asset_sell_orders_data), or a wider Alpaca basket
 /// (6b, the ranked DCA-out of get_sell_orders_data), sized from the sell sentence and scheduled on the sell cadence. Refused
@@ -354,12 +339,13 @@ fn order_kind_reasons(c: &Connection, bot: &Bot, alpaca: bool, r: &mut Vec<Strin
     Ok(())
 }
 
-/// The LIQUIDATION, REDEPLOY and REBALANCE rows this build does not read: every one off an Alpaca index bot, and on one
-/// those special_reasons names.
+/// The LIQUIDATION, REDEPLOY and REBALANCE rows this build does not read: on an Alpaca index bot those special_reasons
+/// names; on a basket, and on an index bot off Alpaca, every LIQUIDATION and REDEPLOY row too (6c is Alpaca's).
 fn special_row_reasons(c: &Connection, bot: &Bot, alpaca: bool, r: &mut Vec<String>) -> Result<(), EngineError> {
     if alpaca && bot.bot_type == "Bots::DcaIndex" { return special_reasons(c, bot, r); }
-    // A rebalancing Alpaca basket (6b): its REBALANCE rows are read as the index bot's are; the walk books them.
-    if alpaca && bot.bot_type == "Bots::DcaMultiAsset" {
+    // A rebalancing basket (6b), and an index bot on a crypto venue (plan CB T4): its REBALANCE rows are read as the Alpaca
+    // index bot's are; the walk books them.
+    if bot.bot_type == "Bots::DcaMultiAsset" || bot.bot_type == "Bots::DcaIndex" {
         let other: i64 = c.query_row("SELECT count(*) FROM transactions WHERE bot_id = ?1 AND transaction_type NOT IN ('REGULAR', 'REBALANCE')", [bot.id], |r| r.get(0))?;
         if other > 0 { r.push(format!("{other} LIQUIDATION/REDEPLOY row(s) in its history")); }
         return special_reasons(c, bot, r);
@@ -476,7 +462,7 @@ fn install(c: &Connection, mut items: Option<&mut std::collections::BTreeSet<Str
         }
         // UNBALANCED alone refuses ticking only: a stopped bot does not tick, and its swap still places, polls and settles
         // (Rails' rebalance_targets: `rebalance_pending? || allocations_balanced?`). Its REBALANCE orders are this engine's.
-        let rebalances = rebalances_here(c, &bot)?;
+        let rebalances = rebalances_here(&bot);
         let swap_only = rebalances && reasons.iter().all(|r| r.starts_with(UNBALANCED));
         let outstanding: i64 = c.query_row("SELECT count(*) FROM transactions WHERE bot_id = ?1 AND status = 0 AND external_status IN (0, 1) \
                                             AND NOT (?2 AND transaction_type = 'REBALANCE')", params![id, swap_only], |r| r.get(0))?;
