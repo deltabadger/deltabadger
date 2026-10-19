@@ -2,7 +2,7 @@
 #   bin/rails runner script/rust/decisions.rb grid <root>    # one install per scenario, built with Rails' own models
 #   bin/rails runner script/rust/decisions.rb grid-alpaca <root> # the same for Alpaca, scripted beneath Clients::Alpaca at the Faraday adapter
 #   bin/rails runner script/rust/decisions.rb grid-basket <root>  # Alpaca crypto baskets, with the engine's recovery and the next checkpoint
-#   bin/rails runner script/rust/decisions.rb grid-limit <root>   # the amount limit, its stop and its mail, on Alpaca crypto
+#   bin/rails runner script/rust/decisions.rb grid-limit <root>   # the amount limit, its stop and its mail, on Alpaca crypto, Kraken, Binance and KuCoin
 #   bin/rails runner script/rust/decisions.rb grid-binance <root> # Binance spot, scripted beneath honeymaker at the Faraday adapter
 #   bin/rails runner script/rust/decisions.rb grid-kucoin <root>  # KuCoin spot, scripted beneath honeymaker at the Faraday adapter
 #   bin/rails runner script/rust/decisions.rb grid-sell <root>    # a one-asset basket selling on Kraken, Binance and Alpaca (slice 6a)
@@ -1035,6 +1035,115 @@ module Decisions
                     http: { 'POST /v2/orders' => [POST_SEND, placed(2, 'BTC')], 'GET /v2/orders:by_client_order_id' => [NOT_FOUND] })
     # The recovery scenarios under a cap.
     list.concat(recover_scenarios(prefix: 'limit', limit_for: ->(members) { members ? 200.0 : 100.0 }, stamp: LIMIT_STAMP))
+    list.concat(venue_limit_scenarios)
+  end
+
+  # Plan CB T2: the same cap on Kraken (EUR), Binance and KuCoin (USDT), one BTC asset, each venue scripted by its own bodies:
+  # [script key, pair, the tick's placed id, a waiting row's external id, sweep/poll replies for a resting limit, an open
+  # market order, and a fill of `quote` for `qty` at `price` with a quote fee (Kraken `cost` and KuCoin `dealFunds` are gross,
+  # Binance's executed quote is rebuilt from its trades: quote + a USDT commission)].
+  def venue_limit_kit(venue)
+    case venue
+    when 'kraken'
+      order = lambda do |id, status, qty, exec, cost, price, limit: false, fee: '0'|
+        { '/0/private/QueryOrders' => [query_body(id => raw_order(status:, vol: limit ? qty : (exec == '0' ? '60' : qty), vol_exec: exec, cost:, price:,
+                                                                   viqc: false, limit_price: limit ? '50000' : '0').merge('fee' => fee))] }
+      end
+      { 'key' => 'http', 'ticker' => VENUE_PAIRS['kraken']['BTC'], 'placed' => 'OTX-1', 'ext' => ->(n) { "OK-#{n}" },
+        'http' => { '/0/public/Ticker' => [ticker_body('49990.1', '50000.2', '49995.3')], '/0/private/AddOrder' => [{ 'error' => [], 'result' => { 'txid' => ['OTX-1'] } }],
+                    '/0/private/BalanceEx' => [balance_body('100000')], '/0/private/QueryOrders' => [query_body({})],
+                    '/0/private/TradesHistory' => [{ 'error' => [], 'result' => { 'trades' => {}, 'count' => 0 } }] },
+        'resting' => ->(id) { order.(id, 'open', '0.00093', '0', '0', '0', limit: true) },
+        'open_market' => ->(id) { order.(id, 'open', '0.0012', '0', '0', '0') },
+        'fill' => ->(id, quote, qty, price, fee: '0') { order.(id, 'closed', qty, qty, quote, price, fee:) },
+        'ask' => ->(ask) { { '/0/public/Ticker' => [ticker_body('49990.1', ask, '49995.3')] } } }
+    when 'binance'
+      order = lambda do |id, status, type: 'MARKET', executed: '0.00000000', cumulative: '0.00000000', trades: []|
+        n = id.delete_prefix('BTCUSDT-').to_i
+        { 'GET /api/v3/allOrders' => [ok([bn_order(n, status, type:, executed:, cumulative:)])], 'GET /api/v3/order' => [ok(bn_order(n, status, type:, executed:, cumulative:))],
+          'GET /api/v3/myTrades' => [ok(trades)] }
+      end
+      { 'key' => 'binance', 'ticker' => VENUE_PAIRS['binance']['BTC'], 'placed' => 'BTCUSDT-28457', 'ext' => ->(n) { "BTCUSDT-#{500 + n}" },
+        'http' => { 'GET /api/v3/ticker/bookTicker' => [bn_book('64000.11000000')], 'GET /api/v3/ticker/price' => [bn_last('64000.05000000')],
+                    'POST /api/v3/order' => [ok('symbol' => 'BTCUSDT', 'orderId' => 28_457, 'orderListId' => -1, 'clientOrderId' => 'x', 'transactTime' => 1_788_000_000_000)],
+                    'GET /api/v3/account' => [bn_account('100000.00000000')], 'GET /api/v3/allOrders' => [ok([])], 'GET /api/v3/myTrades' => [ok([])] },
+        'resting' => ->(id) { order.(id, 'NEW', type: 'LIMIT') },
+        'open_market' => ->(id) { order.(id, 'NEW') },
+        'fill' => lambda do |id, quote, qty, price, fee: '0'|
+          n = id.delete_prefix('BTCUSDT-').to_i
+          order.(id, 'FILLED', executed: qty, cumulative: quote, trades: [bn_trade(1, n, price, qty, commission: fee, asset: 'USDT')])
+        end,
+        'ask' => ->(ask) { { 'GET /api/v3/ticker/bookTicker' => [bn_book(ask)] } } }
+    else
+      order = ->(id, o) { { "GET /api/v1/orders/#{id}" => [kc_ok(o.merge('id' => id))] } }
+      { 'key' => 'kucoin', 'ticker' => { 'base_decimals' => 8, 'quote_decimals' => 6, 'price_decimals' => 1, 'minimum_base_size' => '0.00001', 'minimum_quote_size' => '0.1' },
+        'placed' => '6716f0a2c1b6d10007a3b1c5', 'ext' => ->(n) { "KC-#{n}" },
+        'http' => { 'GET /api/v1/market/orderbook/level2_20' => [kc_book('64000.2')], 'GET /api/v1/market/allTickers' => [kc_tickers('64000.05')],
+                    'POST /api/v1/orders' => [kc_ok('orderId' => '6716f0a2c1b6d10007a3b1c5')], 'GET /api/v1/accounts' => [kc_accounts('100000')],
+                    'GET /api/v1/fills' => [kc_fills([])] },
+        'resting' => ->(id) { order.(id, kc_order(id, active: true, type: 'limit', price: '64000', size: '0.00093', funds: '0')) },
+        'open_market' => ->(id) { order.(id, kc_order(id, active: true)) },
+        'fill' => ->(id, quote, qty, _price, fee: '0') { order.(id, kc_order(id, active: false, deal_size: qty, deal_funds: quote).merge('fee' => fee)) },
+        'ask' => ->(ask) { { 'GET /api/v1/market/orderbook/level2_20' => [kc_book(ask)] } } }
+    end
+  end
+
+  # One capped scenario on `venue`: the daily 60 BTC bot with its limit switched on at its start.
+  def venue_limited(venue, name, at:, limit: 100.0, settings: {}, transient: {}, transactions: [], http: {}, ticker: nil, **extra)
+    kit = venue_limit_kit(venue)
+    { 'name' => "limit-#{venue}-#{name}", 'venue' => venue, 'interval' => 'day', 'quote_amount' => 60.0, 'started_at' => BASKET_STARTED,
+      'settings' => { 'quote_amount_limited' => true, 'quote_amount_limit' => limit }.merge(settings), 'settings_changed_at' => nil,
+      'transient' => { 'quote_amount_limit_enabled_at' => LIMIT_STAMP }.merge(transient), 'transactions' => transactions,
+      'ticker' => ticker || kit['ticker'], 'members' => nil, 'at' => at, 'script' => { kit['key'] => kit['http'].merge(http) }, 'tick' => true }
+      .merge(extra.transform_keys(&:to_s))
+  end
+
+  def venue_limit_scenarios
+    limit_order = { 'limit_ordered' => true, 'limit_order_pcnt_distance' => 0.0025 }
+    %w[kraken binance kucoin].flat_map do |venue|
+      kit = venue_limit_kit(venue)
+      ext = kit['ext']
+      waiting_market = ->(id, quote = '60') { limit_row(id, 0, quote_amount: quote, price: '50000') }
+      waiting_limit = ->(id) { limit_row(id, 1, order_type: 1, amount: '0.00093', price: '50000', amount_exec: '0', quote_amount_exec: '0') }
+      list = []
+      # The tally (10), at the second checkpoint (120 owed).
+      tally = {
+        'closed' => [[limit_closed(ext.(1), '60')], {}],
+        'open_limit' => [[waiting_limit.(ext.(2))], kit['resting'].(ext.(2))],
+        'unknown_market' => [[waiting_market.(ext.(3))], kit['open_market'].(ext.(3))],
+        'cancelled_partial' => [[limit_row(ext.(4), 3, quote_amount: '60', quote_amount_exec: '20', amount_exec: '0.000311769')], {}],
+        'cancelled_unfilled' => [[limit_row(ext.(5), 3, quote_amount: '60', quote_amount_exec: '0', amount_exec: '0')], {}],
+        'abandoned' => [[limit_row(ext.(6), 4, quote_amount: '60')], {}],
+        'failed' => [[limit_row(nil, nil, status: 1, quote_amount: '60', quote_amount_exec: '0', amount_exec: '0')], {}],
+        'skipped' => [[limit_row(nil, nil, status: 2, quote_amount: '0.4', quote_amount_exec: '0', amount_exec: '0')], {}],
+        'before_stamp' => [[limit_closed(ext.(7), '100')], {}]
+      }
+      tally.each do |kind, (rows, http)|
+        transient = kind == 'before_stamp' ? { 'quote_amount_limit_enabled_at' => '2026-09-01T12:00:00.000Z' } : {}
+        list << venue_limited(venue, "tally-#{kind}", at: basket_at(1), transient:, transactions: rows, http:)
+      end
+      list << venue_limited(venue, 'tally-closed-limit_order', at: basket_at(1), settings: limit_order, transactions: [limit_closed(ext.(1), '60')])
+      # The stop on a fill: found by the follow-up, and by the tick's sweep (Bot::StopJob after the run), each with its mail.
+      list << venue_limited(venue, 'poll-reaches', at: basket_at(1), limit: 60.0, tick: false, poll: ext.(8), transactions: [waiting_market.(ext.(8))],
+                            http: kit['fill'].(ext.(8), '60', '0.0012', '50000'))
+      list << venue_limited(venue, 'sweep-reaches', at: basket_at(1), limit: 60.0, transactions: [waiting_market.(ext.(9))],
+                            http: kit['fill'].(ext.(9), '60', '0.0012', '50000'))
+      # Fee-inclusive buy totals: a 0.06 quote fee on a 60 fill under a 60.06 cap. Binance's executed quote is 60 + 0.06 (the
+      # cap is spent and the bot stops); Kraken's and KuCoin's are the gross 60 (0.06 is left, over the precision floor).
+      list << venue_limited(venue, 'fee-quote', at: basket_at(1), limit: 60.06, tick: false, poll: ext.(10), transactions: [waiting_market.(ext.(10))],
+                            http: kit['fill'].(ext.(10), '60', '0.0012', '50000', fee: '0.06'))
+      # A base-sized market buy that fills above its sized price: the cap is soft there (Rails spends past it, then stops).
+      list << venue_limited(venue, 'slippage-base', at: basket_at(1), transactions: [limit_closed(ext.(1), '40')], poll: kit['placed'],
+                            ticker: venue == 'binance' ? kit['ticker'].merge('minimum_base_size' => '0.0001') : nil,
+                            http: kit['fill'].(kit['placed'], '60.45', '0.00093', '65000'))
+      # The exact-cap guard's trim (a listed divergence, rust/tests/parity.rs): 100 - 96.82 (or 92.82) is the Float
+      # 3.180000000000007 (7.180000000000007), so Rails sizes 0.0002 BTC at an ask a hair above 5000 × the exact remainder
+      # and spends 3e-15 over the cap; Rust removes one base increment.
+      spent, ask, ticker = venue == 'binance' ? ['92.82', '35900.000000000015', kit['ticker'].merge('minimum_base_size' => '0.00015')] : ['96.82', '15900.000000000015', nil]
+      list << venue_limited(venue, 'guard-trim', at: basket_at(1), ticker:, http: kit['ask'].(ask),
+                            transactions: [limit_row(ext.(11), 3, quote_amount: '100', quote_amount_exec: spent, amount_exec: '0.002')])
+      list
+    end.tap { |l| raise "the venue limit grid has #{l.size} scenarios, not 45" unless l.size == 45 }
   end
 
   # Plan 2d: Alpaca stocks and ETFs. Tuesday 2026-09-01, 10:00 EDT; September is EDT, so a session is 13:30–20:00 UTC.

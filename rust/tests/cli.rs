@@ -13,7 +13,11 @@ fn cli(dir: &Path, args: &[&str]) -> Command {
             for key in stmt.query_map([], |r| r.get::<_,i64>(0)).unwrap() {
                 let scope=key.unwrap().to_string();
                 for job in ["ledger_sync", "balance_sync"] {
-                    deltabadger::jobs::state::record_success(&c,job,Some(&scope),chrono::Utc::now()).unwrap();
+                    // A serve already holding this install answers the command with a refusal, so the seed is moot; its
+                    // engine keeps the database, and the write is refused at once.
+                    if let Err(e) = deltabadger::jobs::state::record_success(&c,job,Some(&scope),chrono::Utc::now()) {
+                        assert!(e.contains("database is locked"), "{e}");
+                    }
                 }
             }
         };

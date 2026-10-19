@@ -315,7 +315,7 @@ fn a_binance_bot_passes_preflight_like_rails_under_krakens_restrictions() {
     assert_eq!(alpaca::preflight(&o.primary, &seed::cipher()), Ok(vec![id]));
     o.primary.execute("UPDATE bots SET settings = json_set(settings, '$.quote_amount_limited', json('true'), '$.quote_amount_limit', 100) WHERE id = ?1", [id]).unwrap();
     let r = eligibility::check_install(&o.primary).unwrap();
-    assert!(r.problems.iter().any(|p| p.contains("quote_amount_limited (Binance: amount limits are not supported by this engine yet)")), "{:?}", r.problems);
+    assert!(r.problems.is_empty() && r.eligible == vec![id], "plan CB T2: the amount limit runs on Binance: {:?}", r.problems);
     o.primary.execute("UPDATE bots SET settings = json_remove(settings, '$.quote_amount_limited') WHERE id = ?1", [id]).unwrap();
     o.primary.execute("DELETE FROM api_keys", []).unwrap();
     assert_eq!(alpaca::preflight(&o.primary, &seed::cipher()), Err(vec![format!("bot {id}: no Binance API key")]));

@@ -86,32 +86,40 @@ pub fn size(bot: &Bot, ticker: &Ticker, x: &BigDec, reference: &BigDec, logic: M
     let distance = bot.limit_distance();
     let price = order_price(bot, ticker, reference)?;
     let Some(amount) = x.div(&price) else { return Ok(Sizing::ZeroPrice { decimals: ticker.price_decimals }) };
-    let (quote_type, below) = match if distance.is_some() { logic.limit } else { logic.market } {
-        // :quote. Only the quote amount floored to quote_decimals is compared, with minimum_quote_size; minimum_base_size is not
-        // checked here; a limit qty under it is refused at placement (OrderPlan::limit_refusal).
-        AmountLogic::Quote => (true, x.floor(quote_decimals) < ticker.minimum_quote_size),
-        AmountLogic::Base => (false, amount.floor(base_decimals) < ticker.minimum_base_size),
-        // :base_and_quote_in_base: the quote minimum in base, rounded UP to base_decimals, against the base floored DOWN.
-        AmountLogic::BaseAndQuoteInBase => {
-            let minimum_quote_size_in_base = ticker.minimum_quote_size.div(&price).expect("price is non-zero").ceil(base_decimals);
-            (false, amount.floor(base_decimals) < minimum_quote_size_in_base.max(ticker.minimum_base_size.clone()))
-        }
-        AmountLogic::BaseOrQuote => {
-            // :base_or_quote / :base_and_quote (Bot::OrderSetter#calculate_best_amount_info). Divisions are BigDecimal divisions.
-            let minimum_base_size_in_quote = (&ticker.minimum_base_size * &price).ceil(quote_decimals);
-            let minimum_quote_amount = minimum_base_size_in_quote.max(ticker.minimum_quote_size.clone());
-            let minimum_quote_amount_in_base = minimum_quote_amount.div(&price).expect("price is non-zero");
-            let minimum_quote_size_in_base = ticker.minimum_quote_size.div(&price).expect("price is non-zero").ceil(base_decimals);
-            let minimum_base_amount = minimum_quote_size_in_base.max(ticker.minimum_base_size.clone());
-            let quote = minimum_quote_amount_in_base < minimum_base_amount;
-            let below = if quote { x.floor(quote_decimals) < minimum_quote_amount } else { amount.floor(base_decimals) < minimum_base_amount };
-            (quote, below)
-        }
-    };
+    let rule = if distance.is_some() { logic.limit } else { logic.market };
+    let (quote_type, below) = buy_minimum(ticker, &price, rule, &x.floor(quote_decimals), &amount.floor(base_decimals))?;
     let volume = if quote_type { x.floor(quote_decimals) } else { amount.floor(base_decimals) };
     let plan = OrderPlan { ticker: ticker.clone(), side: Side::Buy, limit: distance.is_some(), price, amount: amount.clone(), quote_amount: x.clone(), quote_type, volume, kind: TxKind::Regular };
     if amount.is_zero() { return Ok(Sizing::Ignored(plan)); } // set_orders checks this before the minimums
     Ok(if below { Sizing::BelowMinimum(plan) } else { Sizing::Place(plan) })
+}
+
+/// Bot::OrderSetter#calculate_best_amount_info's minimum for a buy at `price` (non-zero) under `rule`, from the quote `quote` and
+/// the base `base` as they are compared (already floored): (sized in quote, below the minimum). `size` sizes with it, and the
+/// exact-cap guard re-checks a reduced order with it in the order's own denomination, at the order's own price.
+pub(crate) fn buy_minimum(ticker: &Ticker, price: &BigDec, rule: AmountLogic, quote: &BigDec, base: &BigDec) -> Result<(bool, bool), EngineError> {
+    let (base_decimals, quote_decimals, _) = ticker.scales().map_err(EngineError::Data)?;
+    Ok(match rule {
+        // :quote. Only the quote amount floored to quote_decimals is compared, with minimum_quote_size; minimum_base_size is not
+        // checked here; a limit qty under it is refused at placement (OrderPlan::limit_refusal).
+        AmountLogic::Quote => (true, *quote < ticker.minimum_quote_size),
+        AmountLogic::Base => (false, *base < ticker.minimum_base_size),
+        // :base_and_quote_in_base: the quote minimum in base, rounded UP to base_decimals, against the base floored DOWN.
+        AmountLogic::BaseAndQuoteInBase => {
+            let minimum_quote_size_in_base = ticker.minimum_quote_size.div(price).expect("price is non-zero").ceil(base_decimals);
+            (false, *base < minimum_quote_size_in_base.max(ticker.minimum_base_size.clone()))
+        }
+        AmountLogic::BaseOrQuote => {
+            // :base_or_quote / :base_and_quote (Bot::OrderSetter#calculate_best_amount_info). Divisions are BigDecimal divisions.
+            let minimum_base_size_in_quote = (&ticker.minimum_base_size * price).ceil(quote_decimals);
+            let minimum_quote_amount = minimum_base_size_in_quote.max(ticker.minimum_quote_size.clone());
+            let minimum_quote_amount_in_base = minimum_quote_amount.div(price).expect("price is non-zero");
+            let minimum_quote_size_in_base = ticker.minimum_quote_size.div(price).expect("price is non-zero").ceil(base_decimals);
+            let minimum_base_amount = minimum_quote_size_in_base.max(ticker.minimum_base_size.clone());
+            let in_quote = minimum_quote_amount_in_base < minimum_base_amount;
+            (in_quote, if in_quote { *quote < minimum_quote_amount } else { *base < minimum_base_amount })
+        }
+    })
 }
 
 /// Bot::OrderSetter#calculate_best_amount_info for a market order sized outside a DCA tick: a REBALANCE order

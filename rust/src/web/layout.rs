@@ -266,7 +266,7 @@ pub fn missing() -> Response {
 /// The same answer from a handler that knows why it does not serve a page Rails serves. The reason
 /// goes to the log: the page names the request, which is what its reader can act on.
 pub fn refused(ctx: &Ctx, reason: &str) -> Response {
-    eprintln!("deltabadger: {} {} is not served: {reason}", ctx.method, locale::without_secret_query(&ctx.params.fullpath));
+    eprintln!("deltabadger: {} {} is not served: {reason}", ctx.method, super::hook::mask_hook_path(&locale::without_secret_query(&ctx.params.fullpath)));
     not_ported_for(ctx)
 }
 
