@@ -167,7 +167,8 @@ fn awaits_scheduling(c: &Connection, ctx: &Ctx, view: &LifecycleView) -> Result<
     Ok(Some(bot.id))
 }
 /// Bot::BroadcastAfterScheduledActionJob for a Continue: waits up to five seconds (Rails' 50 × 0.1 s) for the engine to take
-/// the request, then broadcasts the bot's status and progress bars as they are then, whatever it found.
+/// the request, then broadcasts the bot's status and progress bars as they are then, whatever it found. Rendered as the
+/// owner sees them (Bot#with_user_locale), whatever the language of the request that asked: every tab of theirs hears it.
 pub fn broadcast_after_scheduling(ctx: Ctx, id: i64) {
     tokio::spawn(async move {
         for _ in 0..50 {
@@ -178,9 +179,9 @@ pub fn broadcast_after_scheduling(ctx: Ctx, id: i64) {
         }
         let app = ctx.app.clone();
         let rendered = app.db(move |c| {
-            let mut ctx = ctx;
-            ctx.now = ctx.app.clock.now();
             let user = ctx.user().ok_or_else(||WebError::Config("broadcast has no owner".into()))?;
+            let Some(user) = crate::web::auth::User::find(c,user.id)? else { return Ok(None) };
+            let ctx = super::live::owner_ctx(&ctx.app,user.clone());
             // A bot deleted meanwhile: Rails' job cannot load it, and broadcasts nothing.
             let Some(bot) = Bot::find(c,user.id,id,super::For::Page,ctx.locale)? else { return Ok(None) };
             let (_,configured) = bots::market_data(c,&ctx.app)?;
