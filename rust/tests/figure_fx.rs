@@ -280,3 +280,25 @@ fn only_alpaca_bots_name_the_symbols_alpaca_is_asked_for() {
     ")).unwrap();
     assert_eq!(loading::symbols(&c, 1).unwrap(), vec!["AAA".to_string(), "BTC/USDT".to_string()]);
 }
+
+#[tokio::test]
+async fn a_bot_on_a_venue_the_figures_cannot_read_leaves_the_others_figures() {
+    let install = install("EUR", script(true, json!(0.9993)));
+    let c = rusqlite::Connection::open(&install.file).unwrap();
+    let t = "'2026-01-01'";
+    // A KuCoin basket with an order: its chart asks for candles the reader has no venue for.
+    c.execute_batch(&format!("
+        INSERT INTO exchanges(id,type,name,created_at,updated_at) VALUES (2,'Exchanges::Kucoin','KuCoin',{t},{t});
+        INSERT INTO assets(id,category,external_id,symbol,name,created_at,updated_at) VALUES (5,'Cryptocurrency','usd-coin','USDC','USDC',{t},{t});
+        INSERT INTO tickers(id,base,base_asset_id,base_decimals,exchange_id,minimum_base_size,minimum_quote_size,price_decimals,quote,quote_asset_id,quote_decimals,ticker,available,trading_enabled,created_at,updated_at)
+            VALUES (3,'BTC',4,8,2,0,1,2,'USDC',5,2,'BTC-USDC',1,1,{t},{t});
+        INSERT INTO bots(id,user_id,exchange_id,type,status,settings,transient_data,created_at,updated_at) VALUES
+            (3,1,2,'Bots::DcaMultiAsset',1,'{{\"quote_asset_id\":5,\"allocations\":{{\"4\":1.0}}}}','{{}}',{t},{t});
+        INSERT INTO transactions(bot_id,exchange_id,base,base_asset_id,quote,quote_asset_id,amount,amount_exec,price,quote_amount_exec,side,status,external_status,external_id,transaction_type,created_at,updated_at) VALUES
+            (3,2,'BTC',4,'USDC',5,1,1,100,100,0,0,2,'o3','REGULAR','2026-03-02 14:30:00',{t});
+    ")).unwrap();
+    let _stop = install.consume();
+    let shown = install.shown("ready").await;
+    assert!(tile(&shown, 1).contains("<small>€</small>8.59"), "{}", tile(&shown, 1));
+    assert!(tile(&shown, 2).contains("<small>€</small>17.18"), "{}", tile(&shown, 2));
+}

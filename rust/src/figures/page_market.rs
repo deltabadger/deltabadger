@@ -329,8 +329,10 @@ impl MarketData for Reader<'_> {
         match failed { Some(error) => { self.failed.set(true); Err(error) }, None => Ok(prices) }
     }
     fn candles(&self, venue: &Venue, ticker: &Ticker, since: At, timeframe: i64, restated: bool) -> Fetch<Vec<(At, Dec)>> {
+        // A venue this reader cannot read has no candles, as it has no prices (`prices`): that holding goes without a
+        // grid, and the pass is not marked failed, which would fail every bot's figures.
+        if venue.exchange_type != "Exchanges::Alpaca" { return Err(Failure::Failed(UNAVAILABLE.into())); }
         let result = (|| {
-            if venue.exchange_type != "Exchanges::Alpaca" { return Err(Failure::Failed(UNAVAILABLE.into())); }
             let start = since.utc().format("%Y-%m-%dT%H:%M:%SZ").to_string();
             let name = match timeframe { 60 => "1Min", 300 => "5Min", 900 => "15Min", 1800 => "30Min", 3600 => "1Hour", 14400 => "4Hour", 604800 => "1Week", 2592000 => "1Month", _ => "1Day" };
             let crypto = ticker.base_category.as_deref() == Some("Cryptocurrency");
