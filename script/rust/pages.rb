@@ -903,6 +903,13 @@ module Pages
             env = env.merge('RAW_POST_DATA' => step['raw_body'], 'CONTENT_LENGTH' => step['raw_body'].bytesize.to_s)
             params = nil
           end
+          # A body handed to Rack as the request's input, as Puma hands it (pages_signals.rb): Rack::MethodOverride and
+          # ActionDispatch read it there. 'content_length' declares another length than the body's.
+          if step.key?('rack_input')
+            env = env.merge('rack.input' => StringIO.new(step['rack_input'].b),
+                            'CONTENT_LENGTH' => step.fetch('content_length', step['rack_input'].bytesize).to_s)
+            params = nil
+          end
           capture = ->(*args) { request_exception = args.last[:exception_object] if args.last[:exception_object] }
           # The cable payloads the request sent on the streams the step names, in order.
           sent = ->(*args) { broadcasts << args.last[:message].to_str if step['broadcasts']&.include?(args.last[:broadcasting]) }
@@ -976,6 +983,7 @@ require_relative 'pages_actions'
 require_relative 'pages_settings'
 require_relative 'pages_wizard'
 require_relative 'pages_api'
+require_relative 'pages_signals'
 
 # script/rust/oauth.rb loads this file for its helpers and runs its own command.
 unless defined?(OAUTH_PARITY)
