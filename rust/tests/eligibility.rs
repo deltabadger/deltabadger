@@ -446,7 +446,6 @@ fn a_crypto_basket_with_a_quote_amount_limit_is_admitted() {
 #[test]
 fn a_kraken_or_binance_basket_outside_the_slice_is_refused_with_its_reason() {
     type Case = Box<dyn Fn(&rusqlite::Connection, &seed::Seeded, i64) -> i64>;
-    let half = |s: &seed::Seeded, eth: i64| plain().weights(&[(s.btc, 0.5), (eth, 0.5)]);
     for venue in ["Exchanges::Kraken", "Exchanges::Binance", "Exchanges::Kucoin"] {
         let cases: Vec<(String, Case)> = vec![
             ("an index bot that sells".into(), Box::new(move |c, s, _| { let id = seed::index_bot(c, s, "layer-1", 3, 0.0, false);
@@ -687,7 +686,8 @@ fn the_49_hour_bound_is_inclusive() {
 fn refusals_and_notes_name_no_internal_plan() {
     let mut lines = vec![];
     let kraken: Vec<Make> = vec![
-        Box::new(|c, s| seed::insert_bot(c, s, &plain().with("rebalance_enabled", json!(true)))),
+        Box::new(|c, s| { let id = seed::index_bot(c, s, "layer-1", 3, 0.0, false);
+            c.execute("UPDATE bots SET settings = json_set(settings, '$.direction', 'selling') WHERE id = ?1", [id]).unwrap(); id }),
     ];
     for make in kraken {
         let (_d, o, s) = install();
@@ -703,7 +703,7 @@ fn refusals_and_notes_name_no_internal_plan() {
     let r = eligibility::check_install_at(&o.primary, "2026-09-01T10:00:00Z".parse().unwrap()).unwrap();
     lines.extend(r.problems);
     lines.extend(r.notes);
-    for needle in ["rebalance_enabled", "weighting", "split(s)"] {
+    for needle in ["an index bot that sells", "weighting", "split(s)"] {
         assert!(lines.iter().any(|l| l.contains(needle)), "{needle}: {lines:?}");
     }
     assert!(lines.iter().all(|l| !l.contains("Plan ")), "{lines:?}");

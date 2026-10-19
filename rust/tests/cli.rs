@@ -9,13 +9,15 @@ fn cli(dir: &Path, args: &[&str]) -> Command {
     // outside their short lifetime; their network behavior is tested through sync's scripted factory.
     if args.first().is_some_and(|arg| ["run", "serve"].contains(arg)) && dir.join("production.sqlite3").exists() {
         let c = rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap();
-        // An earlier serve of the same test may still be closing its connections: wait for them, as a long-lived job would.
-        c.busy_timeout(std::time::Duration::from_secs(60)).unwrap();
         if let Ok(mut stmt) = c.prepare("SELECT id FROM api_keys") {
             for key in stmt.query_map([], |r| r.get::<_,i64>(0)).unwrap() {
                 let scope=key.unwrap().to_string();
                 for job in ["ledger_sync", "balance_sync"] {
-                    deltabadger::jobs::state::record_success(&c,job,Some(&scope),chrono::Utc::now()).unwrap();
+                    // A serve already holding this install answers the command with a refusal, so the seed is moot; its
+                    // engine keeps the database, and the write is refused at once.
+                    if let Err(e) = deltabadger::jobs::state::record_success(&c,job,Some(&scope),chrono::Utc::now()) {
+                        assert!(e.contains("database is locked"), "{e}");
+                    }
                 }
             }
         };
