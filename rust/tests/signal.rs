@@ -361,7 +361,7 @@ async fn a_webhook_call_the_hook_accepts_is_placed_once_by_the_engine() {
     let mut s = buy();
     let now = t("2026-09-01T14:00:01.123456789Z");
     let updated: String = s.e.primary.query_row("SELECT updated_at FROM bots WHERE id = ?1", [s.bot], |r| r.get(0)).unwrap();
-    assert_eq!(hook::receive(&s.e.primary, "tok-1", now, |_, _| Ok(())).unwrap(), Outcome::Accepted);
+    assert_eq!(hook::receive(&s.e.primary, "tok-1", || now, |_, _| Ok(())).unwrap(), Outcome::Accepted);
     let claimed: String = s.e.primary.query_row("SELECT last_triggered_at FROM bot_signals WHERE id = ?1", [s.rule], |r| r.get(0)).unwrap();
     assert_eq!(claimed, "2026-09-01 14:00:01.123456");
     let waiting = model::load_bot(&s.e.primary, s.bot).unwrap().signal_calls().unwrap();
@@ -370,7 +370,7 @@ async fn a_webhook_call_the_hook_accepts_is_placed_once_by_the_engine() {
     assert_eq!(s.e.primary.query_row("SELECT updated_at FROM bots WHERE id = ?1", [s.bot], |r| r.get::<_, String>(0)).unwrap(), updated, "the call leaves updated_at alone");
     // The same instant and 29.999 s later are the cooldown; nothing more is queued.
     for later in [0, 29_999_999] {
-        assert_eq!(hook::receive(&s.e.primary, "tok-1", now + chrono::Duration::microseconds(later), |_, _| Ok(())).unwrap(), Outcome::Ignored("cooldown"));
+        assert_eq!(hook::receive(&s.e.primary, "tok-1", || now + chrono::Duration::microseconds(later), |_, _| Ok(())).unwrap(), Outcome::Ignored("cooldown"));
     }
     run::step(&mut s.e, &FixedClock(now + chrono::Duration::seconds(1))).await.unwrap();
     assert_eq!((s.venue.sent().len(), calls(&s.e.primary, s.bot)), (1, 0));
@@ -381,10 +381,44 @@ async fn a_webhook_call_the_hook_accepts_is_placed_once_by_the_engine() {
 fn a_webhook_call_the_guard_refuses_writes_nothing() {
     use deltabadger::web::hook::{self, Outcome};
     let s = buy();
-    let refused = hook::receive(&s.e.primary, "tok-1", t(T0), |_, _| Err("not admitted".into())).unwrap();
+    let refused = hook::receive(&s.e.primary, "tok-1", || t(T0), |_, _| Err("not admitted".into())).unwrap();
     assert_eq!(refused, Outcome::Refused("not admitted".into()));
     let claimed: Option<String> = s.e.primary.query_row("SELECT last_triggered_at FROM bot_signals WHERE id = ?1", [s.rule], |r| r.get(0)).unwrap();
     assert_eq!((claimed, calls(&s.e.primary, s.bot)), (None, 0));
     assert!(s.e.primary.is_autocommit());
-    assert_eq!(hook::receive(&s.e.primary, "nope", t(T0), |_, _| Ok(())).unwrap(), Outcome::NotFound);
+    assert_eq!(hook::receive(&s.e.primary, "nope", || t(T0), |_, _| Ok(())).unwrap(), Outcome::NotFound);
+}
+
+/// A call that waits for the write lock is claimed at the time it gets it, as Rails reads the clock inside claim_trigger!:
+/// one that arrived 29 s after the last claim and waited past the 30 s boundary claims, stamped with the later time.
+#[test]
+fn a_webhook_call_waiting_for_the_write_lock_is_judged_when_it_gets_it() {
+    use deltabadger::web::hook::{self, Outcome};
+    use std::sync::{Arc, Mutex};
+    let s = buy();
+    let first = t("2026-09-01T14:00:00Z");
+    assert_eq!(hook::receive(&s.e.primary, "tok-1", || first, |_, _| Ok(())).unwrap(), Outcome::Accepted);
+    let clock = Arc::new(Mutex::new(first + chrono::Duration::seconds(29)));
+    let path = s._dir.path().join("production.sqlite3");
+    let holder = Connection::open(&path).unwrap();
+    holder.execute_batch("BEGIN IMMEDIATE").unwrap();
+    let (started, waiting) = std::sync::mpsc::channel();
+    let caller = {
+        let (clock, path) = (clock.clone(), path.clone());
+        std::thread::spawn(move || {
+            let c = Connection::open(&path).unwrap();
+            c.busy_timeout(std::time::Duration::from_secs(30)).unwrap();
+            started.send(()).unwrap();
+            hook::receive(&c, "tok-1", || *clock.lock().unwrap(), |_, _| Ok(())).unwrap()
+        })
+    };
+    waiting.recv().unwrap();
+    std::thread::sleep(std::time::Duration::from_millis(300)); // the caller is now waiting on the held lock
+    *clock.lock().unwrap() = first + chrono::Duration::seconds(31);
+    holder.execute_batch("COMMIT").unwrap();
+    assert_eq!(caller.join().unwrap(), Outcome::Accepted, "judged at 31 s, not at the 29 s it arrived");
+    let claimed: String = s.e.primary.query_row("SELECT last_triggered_at FROM bot_signals WHERE id = ?1", [s.rule], |r| r.get(0)).unwrap();
+    assert_eq!(claimed, "2026-09-01 14:00:31.000000");
+    let waiting_calls = model::load_bot(&s.e.primary, s.bot).unwrap().signal_calls().unwrap();
+    assert_eq!(waiting_calls.last().unwrap().triggered_at, first + chrono::Duration::seconds(31));
 }

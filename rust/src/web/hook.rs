@@ -80,8 +80,11 @@ fn db_time(at: DateTime<Utc>) -> String { at.format("%Y-%m-%d %H:%M:%S%.6f").to_
 /// One call, in one immediate transaction: the lookup, BotSignal#claim_trigger!'s conditional UPDATE, #ignore_reason, and
 /// the call appended for the engine. `keep` judges the write before it commits (the web passes `eligibility::guard`); a
 /// refusal rolls the claim back with it.
-pub fn receive(c: &Connection, token: &str, now: DateTime<Utc>, keep: impl FnOnce(&Connection, i64) -> Result<(), String>) -> Result<Outcome, WebError> {
+/// `now` is read once the write lock is held, as BotSignal#claim_trigger! reads Time.current after the lookup: a call that
+/// waited for the lock is judged, and stamped, at the time it is claimed.
+pub fn receive(c: &Connection, token: &str, now: impl FnOnce() -> DateTime<Utc>, keep: impl FnOnce(&Connection, i64) -> Result<(), String>) -> Result<Outcome, WebError> {
     let tx = model::immediate(c).map_err(|e| WebError::Config(format!("{e:?}")))?;
+    let now = now();
     let found: Option<(i64, i64, i64, Option<bool>)> = tx.query_row(
         "SELECT s.id, s.bot_id, b.status, s.enabled FROM bot_signals s JOIN bots b ON b.id = s.bot_id WHERE s.token = ?1",
         [token], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))).optional()?;
@@ -111,9 +114,9 @@ pub async fn handle(State(app): State<App>, request: Request) -> Response {
     let Some(token) = found else { return rest::finish(&app, Answer::Below(Box::new(layout::missing())), head, None) };
     let Some(token) = token else { return rest::router_bad_request(head) };
     if request.extensions().get::<Unparseable>().is_some() { return rest::router_bad_request(head); }
-    let (now, worker) = (app.now(), app.clone());
+    let worker = app.clone();
     let outcome = app.db(move |c| {
-        let outcome = receive(c, &token, now, |tx, bot_id| eligibility::guard(tx, &worker.cipher, Some(bot_id)).map_err(|r| r.reason()))?;
+        let outcome = receive(c, &token, || worker.now(), |tx, bot_id| eligibility::guard(tx, &worker.cipher, Some(bot_id)).map_err(|r| r.reason()))?;
         // After the commit, inside the job: a dropped request cannot lose the wake.
         if outcome == Outcome::Accepted { worker.wake_engine(); }
         Ok(outcome)
