@@ -168,14 +168,17 @@ async fn a_conversion_that_cannot_be_had_is_never_the_figures_reason() {
     let snapshot=tokio::time::timeout(std::time::Duration::from_secs(5),async {
         loop { let s=loading::prepare(&app,owner).await.unwrap();if !matches!(s,Snapshot::Cold){break s;}tokio::task::yield_now().await; }
     }).await.unwrap();
-    // As in Rails, a missing rate costs only the amounts that needed it (a Failure, nil): the figures here fail for the
-    // unscripted market alone, and neither the failure nor its cached repeat names the conversion.
+    // As in Rails, a missing rate costs only the amounts that needed it (a Failure, nil). The bot's venue (Kraken) has no
+    // market here, which the figures state as the exchange not answering: neither they nor their cached repeat name
+    // the conversion.
     for snapshot in [snapshot,loading::prepare(&app,owner).await.unwrap()] {
-        assert!(!matches!(snapshot,Snapshot::Ready(..)));
-        let out=app.db(move|c|loading::render(c,owner,&snapshot,"en","token","",&deltabadger::engine::FixedClock(chrono::Utc::now()))).await.unwrap().unwrap();
+        assert!(matches!(snapshot,Snapshot::Ready(..)));
+        let out=app.db(move|c|loading::render(c,owner,&snapshot,"en","token","",&deltabadger::engine::FixedClock(common::web::at("2026-09-10T12:00:00Z")))).await.unwrap().unwrap();
         assert!(!out.to_string().contains("Currency conversion unavailable"),"{out}");
-        // No figure stands where one cannot be had: no widget, no dash.
-        for field in ["tile","metrics","chart"] {let html=out["bots"][bot.to_string()][field].as_str().unwrap();assert!(!html.contains("no-value")&&!html.contains("widget")&&!html.contains("pnl-percent"),"{html}");}
+        let metrics=out["bots"][bot.to_string()]["metrics"].as_str().unwrap();
+        assert!(metrics.contains("The exchange API does not respond"),"{metrics}");
+        // No chart is drawn without the venue's prices: the target stays, hidden.
+        assert!(out["bots"][bot.to_string()]["chart"].as_str().unwrap().contains("hidden=\"hidden\""),"{out}");
     }
     assert_eq!(rows(&c),before);
 }
