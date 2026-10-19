@@ -286,7 +286,133 @@ class Bots::DcaMultiAssetRebalanceResumeTest < ActiveSupport::TestCase
     assert @bot.transactions.where(side: :buy, status: :submitted).exists?
   end
 
+  # == Resolving a halt (Bot::Rebalanceable#resolve_rebalance_halt!) ==
+  # The user's Resume, then the next fire. A recorded order that settled keeps its leg, so the resume
+  # arithmetic runs on it; an abandoned row or no row keeps the user-attested clear or owed-buy handoff.
+
+  test 'a resolved halt on a closed sell buys with its proceeds' do
+    order = sell_order(external_status: :closed, quote_amount_exec: 20)
+    halt(sell_transaction_id: order.id)
+
+    @bot.resolve_rebalance_halt!
+    assert_equal Bot::Rebalanceable::PHASE_SELLING, stored_pending[:phase]
+    @bot.rebalance!
+
+    buy = @bot.transactions.where(side: :buy).sole
+    assert_in_delta 20, buy.quote_amount.to_f, 0.01, 'the recovered sale proceeds are owed to the buy leg'
+  end
+
+  test 'a resolved halt on a cancelled, partially filled sell buys what it realized' do
+    order = sell_order(external_status: :cancelled, quote_amount_exec: 15)
+    halt(sell_transaction_id: order.id)
+
+    @bot.resolve_rebalance_halt!
+    @bot.rebalance!
+
+    assert_in_delta 15, @bot.transactions.where(side: :buy).sole.quote_amount.to_f, 0.01
+  end
+
+  test 'a resolved halt on a sell that executed nothing clears' do
+    order = sell_order(external_status: :cancelled, quote_amount_exec: 0)
+    halt(sell_transaction_id: order.id)
+
+    @bot.resolve_rebalance_halt!
+    @bot.rebalance!
+
+    assert_not @bot.reload.rebalance_pending?
+    assert_not @bot.transactions.where(side: :buy).exists?
+  end
+
+  test 'a resolved halt on a fully filled buy completes with no further order' do
+    buy = buy_order(external_status: :closed, quote_amount_exec: 40)
+    halt(buy_transaction_id: buy.id, remaining_quote_amount: 40)
+
+    @bot.resolve_rebalance_halt!
+    @bot.exchange.expects(:market_buy).never
+    @bot.rebalance!
+
+    assert_not @bot.reload.rebalance_pending?
+  end
+
+  test 'a resolved halt on a partially filled buy places exactly the remainder, whatever the free quote' do
+    # 80 owed, 40 filled, 10,000 free quote. Forgetting the fill sized the buy against all 80: the
+    # shortfall at a total of 180 is 60. Only the 40 still owed is spent.
+    buy = buy_order(external_status: :cancelled, quote_amount_exec: 40)
+    halt(buy_transaction_id: buy.id, remaining_quote_amount: 80)
+
+    @bot.resolve_rebalance_halt!
+    pending = stored_pending
+    assert_equal [Bot::Rebalanceable::PHASE_BUYING, buy.id, true],
+                 [pending[:phase], pending[:buy_transaction_id], pending[:buy_attempted]]
+    @bot.rebalance!
+
+    retried = @bot.transactions.where(side: :buy).where.not(id: buy.id).sole
+    assert_in_delta 40, retried.quote_amount.to_f, 0.01, 'the remainder, not 60'
+  end
+
+  test 'a resolved halt on an abandoned sell clears, even after a known partial execution' do
+    # Abandonment says nothing about what executed, so the row is not put back (resume_selling!
+    # would halt on it again); the user attested the venue, and the clear stands as it always has.
+    order = sell_order(external_status: :abandoned, quote_amount_exec: 15)
+    halt(sell_transaction_id: order.id)
+
+    @bot.resolve_rebalance_halt!
+    assert_nil stored_pending
+    @bot.rebalance!
+
+    assert_not @bot.reload.rebalance_ambiguous?, 'no loop back into the halt'
+  end
+
+  test 'a resolved halt on an abandoned buy hands back the whole owed buy, even after a known partial fill' do
+    buy = buy_order(external_status: :abandoned, quote_amount_exec: 12)
+    halt(buy_transaction_id: buy.id, remaining_quote_amount: 40)
+
+    @bot.resolve_rebalance_halt!
+    pending = stored_pending
+    assert_equal [Bot::Rebalanceable::PHASE_BUYING, nil, false],
+                 [pending[:phase], pending[:buy_transaction_id], pending[:buy_attempted]]
+    assert_in_delta 40, @bot.rebalance_remaining_quote_amount.to_f, 0.01
+    @bot.rebalance!
+
+    assert_not @bot.reload.rebalance_ambiguous?, 'no loop back into the halt'
+    assert_in_delta 40, @bot.transactions.where(side: :buy).where.not(id: buy.id).sole.quote_amount.to_f, 0.01
+  end
+
+  test 'a resolved halt with no recorded order keeps the attested handoff or clear' do
+    halt(remaining_quote_amount: 40)
+    @bot.resolve_rebalance_halt!
+    pending = stored_pending
+    assert_equal [Bot::Rebalanceable::PHASE_BUYING, nil, false],
+                 [pending[:phase], pending[:buy_transaction_id], pending[:buy_attempted]]
+
+    halt
+    @bot.resolve_rebalance_halt!
+    assert_not @bot.reload.rebalance_pending?
+  end
+
+  test 'a resolved buy halt whose recorded sell settled hands back the owed buy, never the sell' do
+    # The sell's proceeds are already the 40 owed; putting the sell back would buy them twice.
+    order = sell_order(external_status: :closed, quote_amount_exec: 40)
+    halt(sell_transaction_id: order.id, remaining_quote_amount: 40)
+
+    @bot.resolve_rebalance_halt!
+    pending = stored_pending
+    assert_equal [Bot::Rebalanceable::PHASE_BUYING, order.id, nil],
+                 [pending[:phase], pending[:sell_transaction_id], pending[:buy_transaction_id]]
+    assert_in_delta 40, @bot.rebalance_remaining_quote_amount.to_f, 0.01
+  end
+
   private
+
+  # Read from a fresh row: reloading @bot would drop the pinned tickers the next fire needs.
+  def stored_pending
+    Bot.find(@bot.id).rebalance_pending
+  end
+
+  def halt(**payload)
+    @bot.set_rebalance_pending!(phase: Bot::Rebalanceable::PHASE_AMBIGUOUS, buy_attempted: payload.key?(:buy_transaction_id),
+                                **payload)
+  end
 
   def update_settings(**attrs)
     @bot.settings = @bot.settings.merge(attrs.transform_keys(&:to_s))

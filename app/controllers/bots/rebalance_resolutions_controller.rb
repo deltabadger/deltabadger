@@ -17,28 +17,12 @@ class Bots::RebalanceResolutionsController < ApplicationController
       return
     end
 
-    resume_owed_buy_or_clear
+    @bot.resolve_rebalance_halt!
     @bot.log_activity('rebalance_manually_resolved', level: :info, details: { user_id: current_user.id })
     redirect_back fallback_location: bot_path(@bot), notice: t('bot.settings.rebalance.resolved')
   end
 
   private
-
-  # A halt during the BUY leg still holds the sale proceeds in remaining_quote_amount. Clearing that
-  # outright would lose the ledger: metrics cannot see the cash, so the next poll would read the
-  # post-sell holdings as fresh drift and trade against money that is already committed. Handing the
-  # owed buy back instead is safe whichever way the unknown order went — the buy is capped at the
-  # live free quote balance, so if it did fill there is nothing left to spend and it clears as dust.
-  def resume_owed_buy_or_clear
-    owed = @bot.rebalance_remaining_quote_amount
-    if owed&.positive?
-      @bot.set_rebalance_pending!(phase: Bot::Rebalanceable::PHASE_BUYING,
-                                  sell_transaction_id: @bot.rebalance_pending[:sell_transaction_id],
-                                  remaining_quote_amount: owed)
-    else
-      @bot.clear_rebalance_pending!
-    end
-  end
 
   def set_bot
     @bot = current_user.bots.find(params[:bot_id])

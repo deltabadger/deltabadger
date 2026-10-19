@@ -1,7 +1,7 @@
 {"sources": {
   "app/models/bot/composition/rebalancer.rb": "e87f1addea2a1831df090fd959fd8dfe54031c2eb92da971652476ce8d96a02b",
   "app/models/bot/rebalancer.rb": "aa1b95a2d20476d4ecd27222cd039d5a45188f0baca13f23b33abb1278f3a30f",
-  "app/models/bot/rebalanceable.rb": "18e41a69d15ec01ee50fcc6dcb42ed69aa220f4aed0961c9e18e4a980082784e",
+  "app/models/bot/rebalanceable.rb": "cda8eb4b1b300ebd2dad68c2a779084e3bcf7adc4fb32aaa57fbff0133e0f8de",
   "app/models/bot/composition/measurable.rb": "f6188fe85c00cf443b9a9b88cec472fcdbe7dfd9b9a87b385b515250f2e3a8b4",
   "app/models/bot/composition/allocatable.rb": "7501fe31dbff0c48fc62095963ba3b81466a5fe9ce9397f335c55958ea05ec45",
   "app/models/bot/composition/order_setter.rb": "8f189ecf4245935df07c66cde3df103cf84afd3b6a786617384b323169ee4e28",
