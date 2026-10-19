@@ -1184,8 +1184,7 @@ fn action_divergence(name: &str, scenario: &Value, rails: &Value, rust: &Value) 
                 continue;
             }
             let start_guard=matches!(n,"single_start"|"basket_start"|"index_start"|"start_created"|"start_stopped"|"start_missing"|"start_future"|"start_missed_false"|"start_missed_true"|"extra_paid_start_start_fresh_false"|"extra_paid_start_start_fresh_true"|"extra_defaults_start_start_fresh_true"|"extra_hour"|"extra_start_0"|"extra_start_1"|"extra_start_TRUE"|"extra_start_false"
-                |"index_history_start_false"|"index_history_start_true"|"basket_sold_start_false"|"basket_sold_start_true"
-                |"venue_basket_kraken_start_capped"|"venue_basket_binance_start_capped");
+                |"index_history_start_false"|"index_history_start_true"|"basket_sold_start_false"|"basket_sold_start_true");
             // Their histories pass the page and the engine; the guard refuses only what refuses every stock bot of this grid, whose
             // listings carry no instrument type.
             if n.starts_with("index_history_start") || n.starts_with("basket_sold_start") {

@@ -560,6 +560,8 @@ async fn a_rebalance_buy_fill_rechecks_the_cap_as_any_buy_fill_does() {
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum Form { Quote, Base, Limit }
 const CRYPTO: [(&str, &str); 3] = [("Exchanges::Kraken", "XBTEUR"), ("Exchanges::Binance", "BTCEUR"), ("Exchanges::Kucoin", "BTC-EUR")];
+/// (case, spent, requested quote, Some(guarded volume, its cost) placed / None skipped)
+type Cell = (&'static str, &'static str, &'static str, Option<(&'static str, &'static str)>);
 fn leak(s: &str) -> &'static str { Box::leak(s.to_string().into_boxed_str()) }
 /// The order price each form is sized at: quote-sized at 30000 (the 5 EUR floor binds, in quote), base-sized at 100000 (the
 /// 0.0001 BTC floor binds, in base), a limit buy at 30000 (distance 0, so the limit price is the reference).
@@ -594,8 +596,7 @@ fn the_exact_cap_guard_trims_every_crypto_order_form_and_checks_the_venues_whole
     for (venue, pair) in CRYPTO {
         let notional_limit = venue != "Exchanges::Kraken"; // Binance and KuCoin limit buys: :base_and_quote_in_base; Kraken's: :base
         for form in [Form::Quote, Form::Base, Form::Limit] {
-            // (case, spent, requested quote, Some(guarded volume, its cost) placed / None skipped)
-            let cells: Vec<(&str, &str, &str, Option<(&str, &str)>)> = match form {
+            let cells: Vec<Cell> = match form {
                 Form::Quote => vec![("trim", "80", "20.03", Some(("20", "20"))), ("minimum", "95", "5.02", Some(("5", "5"))), ("below", "95.01", "5.02", None)],
                 // 0.00009999 BTC costs 9.999, above the 5 EUR quote floor: only the base floor skips it.
                 Form::Base => vec![("trim", "80", "20.003", Some(("0.0002", "20"))), ("minimum", "90", "10.002", Some(("0.0001", "10"))), ("below", "90.001", "10.002", None)],
