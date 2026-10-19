@@ -24,9 +24,11 @@ fn id(ctx: &Ctx, name: &str) -> Option<i64> {
     }
 }
 
-/// As Rails' job does, the work never changes the answer. A publication that fails is retried by the `figures` service.
-async fn publish(app: &App, user: i64) {
-    if super::figure::loading::publish(app, user).await.is_err() { app.figure_service.mark_owner(user); }
+/// As Rails' job does, the work never changes the answer, and the answer never waits for it: it runs on a task of its
+/// own (`perform_later`). A publication that fails is retried by the `figures` service.
+fn publish(app: &App, user: i64) {
+    let app = app.clone();
+    tokio::spawn(async move { if super::figure::loading::publish(&app, user).await.is_err() { app.figure_service.mark_owner(user); } });
 }
 
 /// `metrics_update`: the bot page's metrics and chart. A bot that is not the user's is "not found"; a deleted one is found.
@@ -35,20 +37,21 @@ pub async fn metrics_update(State(app): State<App>, Extension(ctx): Extension<Ct
     let Some(id) = id(&ctx, "bot_id") else { return Ok(head(StatusCode::NOT_FOUND)) };
     let owned = app.db(move |c| Ok(c.query_row("SELECT EXISTS(SELECT 1 FROM bots WHERE id = ?1 AND user_id = ?2)", [id, user], |r| r.get::<_, bool>(0))?)).await?;
     if !owned { return Ok(head(StatusCode::NOT_FOUND)); }
-    publish(&app, user).await;
+    publish(&app, user);
     Ok(head(StatusCode::OK))
 }
 
 /// `pnl_update`: the tiles of `/bots`.
 pub async fn pnl_update(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> {
     let Some(user) = ctx.user().map(|user| user.id) else { return Ok(auth::unauthenticated(&ctx)) };
-    publish(&app, user).await;
+    publish(&app, user);
     Ok(head(StatusCode::OK))
 }
 
 /// `global_pnl_update`: the account headline.
 pub async fn global_pnl_update(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> {
     let Some(user) = ctx.user().map(|user| user.id) else { return Ok(auth::unauthenticated(&ctx)) };
-    publish(&app, user).await;
+    publish(&app, user);
     Ok(head(StatusCode::OK))
 }
+

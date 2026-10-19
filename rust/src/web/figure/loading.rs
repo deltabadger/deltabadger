@@ -63,6 +63,8 @@ fn hash_value(value:rusqlite::types::ValueRef<'_>,hash:&mut impl std::hash::Hash
 /// every request around a bot's cached numbers; kept figures carry them rendered, so stale figures are shown only for
 /// the bots whose own values are as they were (`stale_shown`).
 // ponytail: a whole bot's row, not the columns its panels read; a write to any column shows that bot loading until refilled.
+// The listings are found from the bot's distinct traded assets and names, each by its venue's index: an OR of three
+// subqueries in the tickers' WHERE ran them once per listing of the venue, seconds on a real account.
 fn shape(c:&Connection,user:i64)->Result<Value,rusqlite::Error> {
     use std::hash::Hasher;
     let unread=["updated_at","transient_data"];
@@ -78,8 +80,10 @@ fn shape(c:&Connection,user:i64)->Result<Value,rusqlite::Error> {
         json_extract(b.transient_data,'$.liquidation_pending'),json_extract(b.transient_data,'$.liquidation_selling_since'),json_extract(b.transient_data,'$.redeploy_pending')) END AS operations__, \
         (SELECT json_group_array(json_array(asset_id,ticker_id,in_index)) FROM (SELECT * FROM bot_index_assets WHERE bot_id=b.id ORDER BY id)) AS members__, \
         (SELECT json_group_array(json_array(id,base,base_asset_id,quote_asset_id,minimum_base_size,minimum_quote_size,available,trading_enabled)) FROM (SELECT * FROM tickers t \
-          WHERE t.exchange_id=b.exchange_id AND (t.base_asset_id IN (SELECT base_asset_id FROM transactions WHERE bot_id=b.id) \
-          OR t.base IN (SELECT base FROM transactions WHERE bot_id=b.id) OR t.id IN (SELECT ticker_id FROM bot_index_assets WHERE bot_id=b.id)) ORDER BY t.id)) AS listings__, \
+          WHERE t.exchange_id=b.exchange_id AND t.id IN (\
+            SELECT x.id FROM (SELECT DISTINCT base_asset_id a FROM transactions WHERE bot_id=b.id) o JOIN tickers x ON x.exchange_id=b.exchange_id AND x.base_asset_id=o.a \
+            UNION SELECT x.id FROM (SELECT DISTINCT base n FROM transactions WHERE bot_id=b.id) o JOIN tickers x ON x.exchange_id=b.exchange_id AND x.base=o.n \
+            UNION SELECT ticker_id FROM bot_index_assets WHERE bot_id=b.id) ORDER BY t.id)) AS listings__, \
         EXISTS(SELECT 1 FROM transactions t WHERE t.bot_id=b.id AND t.status={}) AS submitted__ FROM bots b WHERE b.user_id=?1 ORDER BY b.id",crate::enums::TxStatus::Submitted as i64))?;
     let names:Vec<String>=statement.column_names().iter().map(|n|n.to_string()).collect();
     let at=|name:&str|names.iter().position(|n|n==name);
@@ -458,13 +462,16 @@ fn spawn_fill(app:&App,user:i64,info:Info,now:At,ticket:super::service::Ticket,m
     let inner=app.clone();let source=app.figure_source.clone();
     tokio::spawn(async move {
         let wire=Wire::new(&info.credentials,source).with_origin(info.origin.clone()).settled_under(inner.figure_service.compute());
-        // What the figures show besides their numbers, read before them: stale figures are held to it (`stale_shown`).
-        let shape=inner.db(move|c|Ok(shape(c,user)?)).await.unwrap_or(Value::Null); // allow-swallow: no shape, and the figures are never shown stale
         let keys=work.as_ref().map(|work|work.locales.clone()).unwrap_or_default();
         // Past its deadline the fill stops waiting; a worker it started finishes on its own, holding the compute permit.
-        let timed=tokio::time::timeout(inner.figure_service.fill_timeout(),fill(&inner,user,&mut cache,&wire,now,keys)).await;
+        let timed=tokio::time::timeout(inner.figure_service.fill_timeout(),async {
+            // What the figures show besides their numbers, read before them: stale figures are held to it (`stale_shown`).
+            // On the builder's connection, as the fill's other reads: never the one pages use.
+            let shape=build(&inner,move|c|Ok(shape(c,user)?)).await.unwrap_or(Value::Null); // allow-swallow: no shape, and the figures are never shown stale
+            (shape,fill(&inner,user,&mut cache,&wire,now,keys).await)
+        }).await;
         let timed_out=timed.is_err();
-        let result=timed.unwrap_or(Err(None));
+        let (shape,result)=timed.unwrap_or((Value::Null,Err(None)));
         let check=inner.clone();
         let current=inner.db(move|c|read_info(c,&check,user)).await;
         let credentials=matches!(current,Ok(Some(ref current)) if crate::engine::model::current_for(Some(&info.origin),Some(&current.origin)).is_fresh());
@@ -939,6 +946,47 @@ mod tests {
         // the same id and precision, changes the request.
         c.execute("UPDATE tickers SET ticker='RENAMED' WHERE id=5000",[]).unwrap();
         assert_ne!(measure(&c).0,precision,"a never-held tradable listing in the index's venue and quote renamed");
+    }
+    /// What stale figures are held to (`shape`) finds each bot's listings from its distinct traded assets and names, by
+    /// the venue's index: on a real-size venue (7,967 listings) under two bots, twice the orders cost little more. Looked
+    /// up per listing, each listing re-read the bot's orders (193 M VM steps here, twice that for twice the orders): about
+    /// 5 s on a real account, all of it holding the connection pages use. Counted in SQLite VM steps, which do not depend
+    /// on the machine.
+    #[test]
+    fn the_shape_reads_no_orders_per_listing_at_real_sizes() {
+        use std::sync::{Arc,atomic::{AtomicU64,Ordering}};
+        let c=rusqlite::Connection::open_in_memory().unwrap();
+        c.execute_batch(include_str!("../../../tests/fixtures/settings_primary_schema.sql")).unwrap();
+        let t="'2024-01-01'";
+        c.execute_batch(&format!("
+            INSERT INTO users(id,email,encrypted_password,created_at,updated_at) VALUES (1,'o@example.com','x',{t},{t});
+            INSERT INTO exchanges(id,type,name,created_at,updated_at) VALUES (1,'Exchanges::Alpaca','Alpaca',{t},{t});
+            INSERT INTO assets(id,category,external_id,symbol,name,created_at,updated_at) VALUES (1,'Fiat','usd','USD','US Dollar',{t},{t});
+            WITH RECURSIVE n(i) AS (SELECT 2 UNION ALL SELECT i+1 FROM n WHERE i<7968)
+            INSERT INTO assets(id,category,external_id,symbol,name,created_at,updated_at) SELECT i,'Stock','s'||i,'S'||i,'S'||i||' Inc',{t},{t} FROM n;
+            INSERT INTO tickers(id,base,base_asset_id,base_decimals,exchange_id,minimum_base_size,minimum_quote_size,price_decimals,quote,quote_asset_id,quote_decimals,ticker,created_at,updated_at)
+                SELECT id,symbol,id,9,1,0,1,2,'USD',1,2,symbol,{t},{t} FROM assets WHERE id>1;
+            INSERT INTO bots(id,user_id,exchange_id,type,status,settings,transient_data,created_at,updated_at) VALUES
+                (1,1,1,'Bots::DcaMultiAsset',1,'{{\"quote_asset_id\":1,\"allocations\":{{\"2\":0.2,\"3\":0.2,\"4\":0.2,\"5\":0.2,\"6\":0.2}}}}','{{}}',{t},{t}),
+                (2,1,1,'Bots::DcaIndex',1,'{{\"quote_asset_id\":1,\"num_coins\":65}}','{{}}',{t},{t});
+            WITH RECURSIVE n(i) AS (SELECT 10 UNION ALL SELECT i+1 FROM n WHERE i<74)
+            INSERT INTO bot_index_assets(bot_id,asset_id,ticker_id,in_index,created_at,updated_at) SELECT 2,i,i,1,{t},{t} FROM n;
+            WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i+1 FROM n WHERE i<1991)
+            INSERT INTO transactions(bot_id,exchange_id,base,base_asset_id,quote,quote_asset_id,amount,amount_exec,price,quote_amount_exec,side,status,external_status,external_id,created_at,updated_at)
+                SELECT CASE WHEN i%3=0 THEN 1 ELSE 2 END,1,'S'||(10+i%65),10+i%65,'USD',1,0.1,0.1,100,10,0,0,2,'o'||i,datetime('2024-01-01','+'||(i/3)||' days'),{t} FROM n;
+        ")).unwrap();
+        let steps=Arc::new(AtomicU64::new(0));
+        let counter=steps.clone();
+        c.progress_handler(100,Some(move||{counter.fetch_add(100,Ordering::Relaxed);false}));
+        let measure=|c:&rusqlite::Connection|{ steps.store(0,Ordering::Relaxed); let shape=super::shape(c,1).unwrap(); (shape,steps.load(Ordering::Relaxed)) };
+        let (before,alone)=measure(&c);
+        assert_eq!(before["bots"].as_object().map(|bots|bots.len()),Some(2));
+        // Twice the orders, of the same assets: the same listings, found with little more work.
+        c.execute_batch(&format!("INSERT INTO transactions(bot_id,exchange_id,base,base_asset_id,quote,quote_asset_id,amount,amount_exec,price,quote_amount_exec,side,status,external_status,external_id,created_at,updated_at) \
+            SELECT bot_id,exchange_id,base,base_asset_id,quote,quote_asset_id,amount,amount_exec,price,quote_amount_exec,side,status,external_status,'again-'||external_id,created_at,{t} FROM transactions")).unwrap();
+        let (after,doubled)=measure(&c);
+        assert_eq!(before["bots"],after["bots"],"the same rows and listings");
+        assert!(doubled<=alone+alone/10,"the shape took {doubled} VM steps over twice the orders, {alone} over them once");
     }
     #[test]
     fn stored_text_that_looks_like_a_placeholder_gets_no_token() {
