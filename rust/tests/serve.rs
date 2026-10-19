@@ -745,28 +745,6 @@ async fn a_return_path_too_long_for_the_cookie_is_not_kept() {
     assert_eq!(browser.post(&app, "/login", &[("user[email]", "o@example.com"), ("user[password]", "Correct-horse-9")]).await.header("location"), Some("/"));
 }
 
-/// Exactly one bcrypt computation per sign-in attempt, whether the email is known or not: how long a
-/// refusal takes must not say which. bcrypt at cost 11 is nearly all of either request, so an unknown
-/// email answered without it would be many times faster; a quarter is far outside any noise.
-#[tokio::test(flavor = "current_thread")]
-async fn a_sign_in_for_an_unknown_email_costs_what_a_wrong_password_costs() {
-    let (dir, opened, seeded) = common::install();
-    let hash = deltabadger::crypto::hash_password("Correct-horse-9").unwrap();
-    opened.primary.execute("UPDATE users SET encrypted_password = ?1, confirmed_at = '2026-01-01 00:00:00' WHERE id = ?2", (hash, seeded.user_id)).unwrap();
-    let app = web::app(dir.path(), web::SECRET, TestClock::at(NOW));
-    let mut browser = Browser::default();
-    browser.get(&app, "/login").await;
-    let mut timed = async |email: &str| {
-        let started = Instant::now();
-        assert_eq!(browser.post(&app, "/login", &[("user[email]", email), ("user[password]", "wrong")]).await.status, 422);
-        started.elapsed()
-    };
-    // A first attempt pays the once-per-process costs (the session keys' derivation), so neither timed one does.
-    timed("warm@example.com").await;
-    let (known, unknown) = (timed("o@example.com").await, timed("nobody@example.com").await);
-    assert!(unknown * 4 > known, "an unknown email was refused in {unknown:?}, a wrong password in {known:?}");
-}
-
 /// A hook for `App::with_password_hook`: counts the bcrypt computations and, while `hold` is set,
 /// keeps each one where it is until the test lets it go.
 struct Gate {
