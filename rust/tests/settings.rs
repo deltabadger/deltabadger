@@ -2563,7 +2563,8 @@ async fn q_absent_recovery_result_cannot_erase_a_after_an_external_credential_re
 #[tokio::test(flavor="current_thread")]
 async fn owner_slice_refuses_other_venue_add_and_replace_routes_without_changes_or_network(){
     let server=MockServer::start().await;let mut h=Harness::new(server.uri()).await;h.link();
-    for venue in ["Binance","BinanceUs","Bingx","Bitget","Bitmart","Bitrue","Bitvavo","Bybit","Coinbase","Gemini","Hyperliquid","Ibkr","Kraken","Kucoin","Mexc"]{
+    // Kraken, Binance and KuCoin keys are checked (pages.rs settings_venue_key_*); every other venue refuses.
+    for venue in ["BinanceUs","Bingx","Bitget","Bitmart","Bitrue","Bitvavo","Bybit","Coinbase","Gemini","Hyperliquid","Ibkr","Mexc"]{
         h.c.execute("UPDATE exchanges SET type=?1,name=?2 WHERE id=1",(format!("Exchanges::{venue}"),venue)).unwrap();let before=h.snapshot();
         // D5b: a retired venue gets RetiredExchangeGuard's redirect to /tracker, every other one the refusal.
         let refused=if venue=="Bitmart"{302}else{501};
@@ -3677,7 +3678,7 @@ async fn d5b_pick_exchange_lists_available_venues_and_stores_only_the_exchange_i
 #[tokio::test(flavor="current_thread")]
 async fn d5b_retired_and_unported_venues_reach_no_venue_call_and_no_write(){
     let server=MockServer::start().await;let mut h=Harness::new(server.uri()).await;d5b_venues(&h.c);
-    let (kraken,bitmart)=(d5b_exchange(&h.c,"Kraken"),d5b_exchange(&h.c,"Bitmart"));
+    let (unported,bitmart)=(d5b_exchange(&h.c,"Gemini"),d5b_exchange(&h.c,"Bitmart"));
     let before=h.snapshot();
     let form=h.browser.send(&h.app,"GET",&format!("/tracker/add_api_key/new?exchange_id={bitmart}&key_type=read_only"),None,Csrf::None,&[]).await;
     assert_eq!((form.status,form.header("location")),(302,Some("/tracker")),"RetiredExchangeGuard");
@@ -3687,7 +3688,7 @@ async fn d5b_retired_and_unported_venues_reach_no_venue_call_and_no_write(){
     assert_eq!(refused.status,302,"the guard runs before params.require(:api_key)");
     let tracker=h.browser.send(&h.app,"GET","/tracker",None,Csrf::None,&[]).await;
     assert!(tracker.body.contains(&deltabadger::web::i18n::text("en","errors.exchange_retired",&[])),"the flash reaches the tracker page");
-    for (method,path,form) in [("GET",format!("/tracker/add_api_key/new?exchange_id={kraken}"),vec![]),("POST","/tracker/add_api_key".to_string(),vec![("exchange_id",kraken.as_str()),("key_type","read_only"),("api_key[key]","kraken-key"),("api_key[secret]","kraken-secret")])]{
+    for (method,path,form) in [("GET",format!("/tracker/add_api_key/new?exchange_id={unported}"),vec![]),("POST","/tracker/add_api_key".to_string(),vec![("exchange_id",unported.as_str()),("key_type","read_only"),("api_key[key]","kraken-key"),("api_key[secret]","kraken-secret")])]{
         let answer=if method=="GET"{h.browser.send(&h.app,method,&path,None,Csrf::None,&[]).await}else{h.submit(method,&path,&form,Csrf::Header).await};
         assert_eq!(answer.status,501,"{method} {path}");assert!(!answer.body.contains("kraken-secret"));
     }

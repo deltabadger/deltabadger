@@ -100,7 +100,8 @@ fn key_verdicts_replay_every_recorded_case() {
     for case in kucoin["cases"].as_array().unwrap() {
         let (name, kind) = (case["case"].as_str().unwrap(), kind(case["key_type"].as_str().unwrap()));
         let request = key_check::kucoin_request(deltabadger::venue::kucoin::URL, kind);
-        let ours = key_check::kucoin_verdict(kind, &answer(&case["response"]), request.method, request.url().as_str());
+        let ours = if kind == 2 { key_check::kucoin_read_verdict(&answer(&case["response"]), request.method, request.url().as_str()) }
+                   else { key_check::kucoin_verdict(kind, &answer(&case["response"]), request.method, request.url().as_str()) };
         let theirs = expected(&case["verdict"]);
         assert!(same(&ours, &theirs), "kucoin {} {name}: {ours:?}, Rails {theirs:?}", case["key_type"]);
         let query: serde_json::Map<String, Value> = request.query.iter().map(|(k, v)| (k.to_string(), json!(v))).collect();
@@ -114,7 +115,7 @@ fn key_verdicts_replay_every_recorded_case() {
     // Binance.US checks a key with an account read and a cancel probe; its key step is a named refusal, so its cases are
     // recorded and not replayed.
     let us = recorded["binance_us"]["cases"].as_array().unwrap().len();
-    assert_eq!((replayed, us), (527, 212), "a recorded case was added or dropped");
+    assert_eq!((replayed, us), (571, 212), "a recorded case was added or dropped");
 }
 
 /// A pinned callback list against a port's table: the same callbacks, in Rails' order, each handled.

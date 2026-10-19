@@ -251,6 +251,21 @@ kucoin_rows = []
   cases.merge!(transport)
   cases.each { |name, answer| kucoin_rows << record.(kucoin, key_type, method, name, answer) }
 end
+# A reading key reads its trade accounts (Exchange#get_read_api_key_validity -> Exchanges::Kucoin#get_balances): balances only
+# under the success code with data; any other answer is a failure, and incorrect where the venue's invalid_key words condemn it.
+read_cases = { 'ok' => json.(200, { 'code' => '200000', 'data' => [] }), 'ok_numeric_code' => json.(200, { 'code' => 200_000, 'data' => [] }),
+               'ok_no_data' => json.(200, { 'code' => '200000' }), 'no_code' => json.(200, { 'data' => [] }) }
+Exchanges::Kucoin::KEY_CHECK_REJECTED.each do |code|
+  read_cases["rejected #{code} http_401"] = kc.(401, code, 'refused')
+  read_cases["rejected #{code} http_200"] = kc.(200, code, 'refused')
+end
+Exchanges::Kucoin::ERRORS[:invalid_key].each do |m|
+  read_cases["invalid_key message #{m}"] = kc.(401, '400999', m)
+  read_cases["invalid_key message #{m} http_200"] = kc.(200, '400999', m)
+end
+Exchanges::Kucoin::KEY_CHECK_INCONCLUSIVE.each { |code| read_cases["inconclusive #{code}"] = kc.(code == '429000' ? 429 : 400, code, 'not now') }
+read_cases.merge!(transport.except('malformed_json', 'empty_json_body', 'plain_text_200')) # Rails raises on a body that is not a Hash
+read_cases.each { |name, answer| kucoin_rows << record.(kucoin, :read_only, :get_read_api_key_validity, name, answer) }
 out['kucoin'] = { 'rejected_codes' => Exchanges::Kucoin::KEY_CHECK_REJECTED, 'inconclusive_codes' => Exchanges::Kucoin::KEY_CHECK_INCONCLUSIVE,
                   'invalid_key_errors' => Exchanges::Kucoin::ERRORS[:invalid_key], 'cases' => kucoin_rows }
 

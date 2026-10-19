@@ -13,9 +13,9 @@
     "config/locales/api.pl.yml": "fda850e430e8d64f14a5b6f078061c674c1a371d7e2883cdf970ee2495f6591b",
     "config/locales/api_read_only.en.yml": "349b0cb8dbf472fa989661b0ca648c8df5cc216d68b5e9b375a246268a00d735",
     "config/locales/api_withdrawal.en.yml": "8ac2fa18ec06a6599e431b80ecf40da79f853193e78ce495e00902dae66bb41a",
-    "config/locales/errors.en.yml": "5c8b9455a0ddd3777d79899edcafe081f3218e786ee5a1ddf5c5688db31e66f2",
-    "config/locales/errors.de.yml": "9ed87da4b5c2773ae37783ff00b4ad7fa54732178ffe8171489962b602cd53f3",
-    "config/locales/errors.pl.yml": "4ede2653ca0512683565a373739b7b32836c92ad354d894dded7ab893bf59c01"
+    "config/locales/errors.en.yml": "a2a0b5a0569d67cf2409b05499a04b65a0728c10ad6cbea283424cc1de004ffe",
+    "config/locales/errors.de.yml": "e73be24561c1258127a608306956c648e2b7446ef06a387f2e30c5d80a70e941",
+    "config/locales/errors.pl.yml": "721b945505d6f3624ada170a644de23ac7efe5ef033b309831245d4185ff9a36"
   },
   "honeymaker": "0.12.5",
   "kraken": {
@@ -5127,7 +5127,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=eb230b1408dee0e49af45bb8ff9ce915e12e5dc1fb684f8400c5d928e8bc79ea&timestamp=1792356093179"
+            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=1e0dcb5629a71d2b1fd6a1899b9a3220c5a08042a583466f5f5eba19412306fe&timestamp=1792370380115"
           ]
         },
         "request": {
@@ -7055,7 +7055,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=7d4e82796459f2e1f5700af5290f5026055054d6f3b93beeda4de860bb5fb7c1&timestamp=1792356093213"
+            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=8604db591f71c5df4f699a041515fc091eada822fea01fdacd3c5ef721ea21f7&timestamp=1792370380133"
           ]
         },
         "request": {
@@ -8983,7 +8983,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=ece404e81fa78c25158ecf0982471fb1741e8eabb233610b51c8861c72499044&timestamp=1792356093245"
+            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=6bf1bf761b03e188d37d2b3385aeaf917194d9fb65480ba64fb4c0b69970f7b1&timestamp=1792370380150"
           ]
         },
         "request": {
@@ -10911,7 +10911,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=b7536de926b99b179085aa834f93ba857bacbfd7b6df99b2291d0e5c5bc6eb20&timestamp=1792356093275"
+            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=aedecc66fa05f0dd738c5336a7ffeb82b18deb9244d8bb623003b976da5589a0&timestamp=1792370380168"
           ]
         },
         "request": {
@@ -11652,7 +11652,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=38ccd4750a206593970a41d8b76f666dcfeec8a2c4b280465d30fa875c743d1f&timestamp=1792356093292"
+            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=8530f8c2eea86b12e9e3717ccc5fbff6c62e7c39346c73e437bb820d52906889&timestamp=1792370380177"
           ]
         },
         "request": {
@@ -13011,7 +13011,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for DELETE https://api.binance.us/api/v3/order?orderId=9999999999&recvWindow=5000&signature=703ab6da1992e0c1daf8fe7021c09831c27117034ddd07fc0d096f4871e4f287&symbol=ETHBTC&timestamp=1792356093308"
+            "the server responded with status 500 for DELETE https://api.binance.us/api/v3/order?orderId=9999999999&recvWindow=5000&signature=adc2ccdaf149423cf4dd3358c589d4e975e3a66f1e66708e9c6cfdce526cfa82&symbol=ETHBTC&timestamp=1792370380187"
           ]
         },
         "requests": [
@@ -13952,7 +13952,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=d5c5a298c5c3f1e28ca5b20564f7b4f9559e6d6113806072eac191f167fac747&timestamp=1792356093321"
+            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=71466e1017c2f50e8484f847df50edb8082d3ec9c33264c07b3cfaf698079752&timestamp=1792370380194"
           ]
         },
         "request": {
@@ -15311,7 +15311,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for DELETE https://api.binance.us/api/v3/order?orderId=9999999999&recvWindow=5000&signature=d17ffa8112c4a570380f9189836ec0f9c17e1ebc2abcc262cfc3304b378cd2aa&symbol=ETHBTC&timestamp=1792356093339"
+            "the server responded with status 500 for DELETE https://api.binance.us/api/v3/order?orderId=9999999999&recvWindow=5000&signature=d64bfd3e91fbedd0d4d1e979ab3681b7799a89c3da5f4c4ec89e989932ef4a0f&symbol=ETHBTC&timestamp=1792370380204"
           ]
         },
         "requests": [
@@ -16252,7 +16252,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=8372c00415bfc41c9c00f44c675930babed9ee299483819006fa3d3a5249c26a&timestamp=1792356093352"
+            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=b1a16d9cf006d7643adb564a72b89ca5941dc0a8d267fb9ddb0856a7d09ad2d2&timestamp=1792370380211"
           ]
         },
         "request": {
@@ -17611,7 +17611,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for DELETE https://api.binance.us/api/v3/order?orderId=9999999999&recvWindow=5000&signature=fdb513c127ca80bc005c9ed485a0e1437c662dcc830e60f27d1fcac786596e65&symbol=ETHBTC&timestamp=1792356093369"
+            "the server responded with status 500 for DELETE https://api.binance.us/api/v3/order?orderId=9999999999&recvWindow=5000&signature=bf15fd0f890a7c940a19f9096dbd23598310fae3ac203c5cc91bb4f8b753f7db&symbol=ETHBTC&timestamp=1792370380228"
           ]
         },
         "requests": [
@@ -18552,7 +18552,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=9be8a8eb1b59bcb7e94c3aea439f743bdbf23e95f27ccb817a25db157bddfd4a&timestamp=1792356093384"
+            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=46b925ae592661a073dada4c3a08e16efc82706bebad8198f3a89f1bf62d5e45&timestamp=1792370380236"
           ]
         },
         "request": {
@@ -20754,6 +20754,1110 @@
           "kind": "failure",
           "errors": [
             "KuCoin answered code nil"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.kucoin.com",
+          "path": "/api/v1/accounts",
+          "query": {
+            "type": "trade"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "ok",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":\"200000\",\"data\":[]}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.kucoin.com",
+          "path": "/api/v1/accounts",
+          "query": {
+            "type": "trade"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "ok_numeric_code",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":200000,\"data\":[]}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.kucoin.com",
+          "path": "/api/v1/accounts",
+          "query": {
+            "type": "trade"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "ok_no_data",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":\"200000\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Failed to get KuCoin balances: 200000"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.kucoin.com",
+          "path": "/api/v1/accounts",
+          "query": {
+            "type": "trade"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "no_code",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"data\":[]}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Failed to get KuCoin balances: "
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.kucoin.com",
+          "path": "/api/v1/accounts",
+          "query": {
+            "type": "trade"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "rejected 400003 http_401",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 401,
+          "body": "{\"code\":\"400003\",\"msg\":\"refused\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"code\":\"400003\",\"msg\":\"refused\"}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.kucoin.com",
+          "path": "/api/v1/accounts",
+          "query": {
+            "type": "trade"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "rejected 400003 http_200",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":\"400003\",\"msg\":\"refused\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Failed to get KuCoin balances: 400003 refused"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.kucoin.com",
+          "path": "/api/v1/accounts",
+          "query": {
+            "type": "trade"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "rejected 400004 http_401",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 401,
+          "body": "{\"code\":\"400004\",\"msg\":\"refused\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"code\":\"400004\",\"msg\":\"refused\"}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.kucoin.com",
+          "path": "/api/v1/accounts",
+          "query": {
+            "type": "trade"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "rejected 400004 http_200",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":\"400004\",\"msg\":\"refused\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Failed to get KuCoin balances: 400004 refused"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.kucoin.com",
+          "path": "/api/v1/accounts",
+          "query": {
+            "type": "trade"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "rejected 400005 http_401",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 401,
+          "body": "{\"code\":\"400005\",\"msg\":\"refused\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"code\":\"400005\",\"msg\":\"refused\"}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.kucoin.com",
+          "path": "/api/v1/accounts",
+          "query": {
+            "type": "trade"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "rejected 400005 http_200",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":\"400005\",\"msg\":\"refused\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Failed to get KuCoin balances: 400005 refused"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.kucoin.com",
+          "path": "/api/v1/accounts",
+          "query": {
+            "type": "trade"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "rejected 400006 http_401",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 401,
+          "body": "{\"code\":\"400006\",\"msg\":\"refused\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"code\":\"400006\",\"msg\":\"refused\"}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.kucoin.com",
+          "path": "/api/v1/accounts",
+          "query": {
+            "type": "trade"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "rejected 400006 http_200",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":\"400006\",\"msg\":\"refused\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Failed to get KuCoin balances: 400006 refused"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.kucoin.com",
+          "path": "/api/v1/accounts",
+          "query": {
+            "type": "trade"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "rejected 400007 http_401",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 401,
+          "body": "{\"code\":\"400007\",\"msg\":\"refused\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"code\":\"400007\",\"msg\":\"refused\"}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.kucoin.com",
+          "path": "/api/v1/accounts",
+          "query": {
+            "type": "trade"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "rejected 400007 http_200",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":\"400007\",\"msg\":\"refused\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Failed to get KuCoin balances: 400007 refused"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.kucoin.com",
+          "path": "/api/v1/accounts",
+          "query": {
+            "type": "trade"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_key message Invalid API-Key",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 401,
+          "body": "{\"code\":\"400999\",\"msg\":\"Invalid API-Key\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.kucoin.com",
+          "path": "/api/v1/accounts",
+          "query": {
+            "type": "trade"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_key message Invalid API-Key http_200",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":\"400999\",\"msg\":\"Invalid API-Key\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.kucoin.com",
+          "path": "/api/v1/accounts",
+          "query": {
+            "type": "trade"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_key message Invalid KC-API-SIGN",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 401,
+          "body": "{\"code\":\"400999\",\"msg\":\"Invalid KC-API-SIGN\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.kucoin.com",
+          "path": "/api/v1/accounts",
+          "query": {
+            "type": "trade"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_key message Invalid KC-API-SIGN http_200",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":\"400999\",\"msg\":\"Invalid KC-API-SIGN\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.kucoin.com",
+          "path": "/api/v1/accounts",
+          "query": {
+            "type": "trade"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_key message Invalid passphrase",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 401,
+          "body": "{\"code\":\"400999\",\"msg\":\"Invalid passphrase\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.kucoin.com",
+          "path": "/api/v1/accounts",
+          "query": {
+            "type": "trade"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_key message Invalid passphrase http_200",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":\"400999\",\"msg\":\"Invalid passphrase\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.kucoin.com",
+          "path": "/api/v1/accounts",
+          "query": {
+            "type": "trade"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_key message The API key does not exist or site mismatch.",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 401,
+          "body": "{\"code\":\"400999\",\"msg\":\"The API key does not exist or site mismatch.\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.kucoin.com",
+          "path": "/api/v1/accounts",
+          "query": {
+            "type": "trade"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_key message The API key does not exist or site mismatch. http_200",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":\"400999\",\"msg\":\"The API key does not exist or site mismatch.\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.kucoin.com",
+          "path": "/api/v1/accounts",
+          "query": {
+            "type": "trade"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_key message KC-API-KEY does not exist",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 401,
+          "body": "{\"code\":\"400999\",\"msg\":\"KC-API-KEY does not exist\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.kucoin.com",
+          "path": "/api/v1/accounts",
+          "query": {
+            "type": "trade"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_key message KC-API-KEY does not exist http_200",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":\"400999\",\"msg\":\"KC-API-KEY does not exist\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.kucoin.com",
+          "path": "/api/v1/accounts",
+          "query": {
+            "type": "trade"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_key message KC-API-KEY not exists",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 401,
+          "body": "{\"code\":\"400999\",\"msg\":\"KC-API-KEY not exists\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.kucoin.com",
+          "path": "/api/v1/accounts",
+          "query": {
+            "type": "trade"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_key message KC-API-KEY not exists http_200",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":\"400999\",\"msg\":\"KC-API-KEY not exists\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.kucoin.com",
+          "path": "/api/v1/accounts",
+          "query": {
+            "type": "trade"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_key message KC-API-PASSPHRASE",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 401,
+          "body": "{\"code\":\"400999\",\"msg\":\"KC-API-PASSPHRASE\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.kucoin.com",
+          "path": "/api/v1/accounts",
+          "query": {
+            "type": "trade"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_key message KC-API-PASSPHRASE http_200",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":\"400999\",\"msg\":\"KC-API-PASSPHRASE\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.kucoin.com",
+          "path": "/api/v1/accounts",
+          "query": {
+            "type": "trade"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_key message Signature error",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 401,
+          "body": "{\"code\":\"400999\",\"msg\":\"Signature error\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.kucoin.com",
+          "path": "/api/v1/accounts",
+          "query": {
+            "type": "trade"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_key message Signature error http_200",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":\"400999\",\"msg\":\"Signature error\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.kucoin.com",
+          "path": "/api/v1/accounts",
+          "query": {
+            "type": "trade"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "inconclusive 400001",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":\"400001\",\"msg\":\"not now\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"code\":\"400001\",\"msg\":\"not now\"}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.kucoin.com",
+          "path": "/api/v1/accounts",
+          "query": {
+            "type": "trade"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "inconclusive 400002",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":\"400002\",\"msg\":\"not now\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"code\":\"400002\",\"msg\":\"not now\"}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.kucoin.com",
+          "path": "/api/v1/accounts",
+          "query": {
+            "type": "trade"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "inconclusive 429000",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 429,
+          "body": "{\"code\":\"429000\",\"msg\":\"not now\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"code\":\"429000\",\"msg\":\"not now\"}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.kucoin.com",
+          "path": "/api/v1/accounts",
+          "query": {
+            "type": "trade"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "inconclusive 500000",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":\"500000\",\"msg\":\"not now\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"code\":\"500000\",\"msg\":\"not now\"}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.kucoin.com",
+          "path": "/api/v1/accounts",
+          "query": {
+            "type": "trade"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "inconclusive 230005",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":\"230005\",\"msg\":\"not now\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"code\":\"230005\",\"msg\":\"not now\"}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.kucoin.com",
+          "path": "/api/v1/accounts",
+          "query": {
+            "type": "trade"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "inconclusive 404000",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":\"404000\",\"msg\":\"not now\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"code\":\"404000\",\"msg\":\"not now\"}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.kucoin.com",
+          "path": "/api/v1/accounts",
+          "query": {
+            "type": "trade"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "inconclusive 200002",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":\"200002\",\"msg\":\"not now\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"code\":\"200002\",\"msg\":\"not now\"}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.kucoin.com",
+          "path": "/api/v1/accounts",
+          "query": {
+            "type": "trade"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_500",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 500,
+          "body": "",
+          "content_type": "text/plain"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "the server responded with status 500 for GET https://api.kucoin.com/api/v1/accounts?type=trade"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.kucoin.com",
+          "path": "/api/v1/accounts",
+          "query": {
+            "type": "trade"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_502_html",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 502,
+          "body": "<html><body>502 Bad Gateway</body></html>",
+          "content_type": "text/html"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "<html><body>502 Bad Gateway</body></html>"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.kucoin.com",
+          "path": "/api/v1/accounts",
+          "query": {
+            "type": "trade"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_503_json",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 503,
+          "body": "{\"msg\":\"Service unavailable\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"msg\":\"Service unavailable\"}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.kucoin.com",
+          "path": "/api/v1/accounts",
+          "query": {
+            "type": "trade"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_403_waf_html",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 403,
+          "body": "<html>Forbidden</html>",
+          "content_type": "text/html"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "<html>Forbidden</html>"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.kucoin.com",
+          "path": "/api/v1/accounts",
+          "query": {
+            "type": "trade"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_429",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 429,
+          "body": "{\"code\":-1003,\"msg\":\"Too many requests.\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"code\":-1003,\"msg\":\"Too many requests.\"}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.kucoin.com",
+          "path": "/api/v1/accounts",
+          "query": {
+            "type": "trade"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "timeout",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "timeout": true
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Net::ReadTimeout"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.kucoin.com",
+          "path": "/api/v1/accounts",
+          "query": {
+            "type": "trade"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "connection_refused",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "refused": true
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Failed to open TCP connection (Connection refused)"
           ]
         },
         "request": {

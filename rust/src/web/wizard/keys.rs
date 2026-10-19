@@ -93,9 +93,7 @@ struct Form { progress: String, sentence: String, card: String }
 /// The step's `_form`: progress, sentence and the venue's connect card. `live`: the Paper/Live switch on Live (Alpaca).
 #[allow(clippy::too_many_arguments)]
 fn form(c: &Connection, app: &App, ctx: &Ctx, csrf: &str, config: Option<&Value>, namespace: Namespace, venue: &Venue, live: bool) -> Result<String, WebError> {
-    let name_id = crate::tracker::rows::name_id(&venue.class);
-    let proxy = crate::venue::http::proxy_for(&name_id, crate::app_config::get(c, &app.cipher, &format!("proxy_{name_id}")).map_err(WebError::Config)?, &|k| std::env::var(k).ok());
-    let instructions = key_check::instructions_html(ctx.locale, "bot.api", &name_id, &venue.name, &key_check::whitelist_ip_html(ctx.locale, proxy.as_deref())).unwrap_or_default();
+    let instructions = keys::key_instructions(c, app, ctx, &venue.class, &venue.name, 0)?;
     let card = keys::card(ctx, csrf, ctx.path(namespace.action()), "data-controller=\"form--label-animations form--html5-validations\" data-turbo-frame=\"modal_content\"",
                           &venue.name, &venue.class, live, false, instructions)?;
     if namespace == Namespace::Index { return super::index::key_form(ctx, &venue.name, &venue.class, &card) }
