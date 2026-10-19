@@ -648,6 +648,7 @@ fn routes(app: App) -> Router {
         .route("/tracker/sync", only(post(tracker::sync)))
         .route("/tracker/import", only(post(tracker::import::create)))
         .route("/tracker/import/new", only(get(tracker::import::new)))
+        .route("/tracker/history_gap", only(get(tracker::gap::show)))
         .route("/tracker/tax_report", only(get(tracker::modal::deferred_report)))
         .route("/tracker/export", only(get(tracker::export)))
         .route("/tracker/export_modal", only(get(tracker::modal::export_modal)))

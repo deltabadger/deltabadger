@@ -1,0 +1,39 @@
+<turbo-frame complete="" id="modal">
+  <dialog data-controller="modal--base" data-action="click->modal--base#clickOutside" class="dialog" data-hw-animate-in="animate-modal-in" data-hw-animate-out="animate-modal-out">
+    <div class="dialog__vertical-center">
+
+  <div class="modal">
+    <button name="button" type="button" class="modal__close" data-action="modal--base#animateOutCloseAndCleanUp">
+      {% include "svg/_24x24_close.html" %}
+
+</button>    <div class="modal__header">
+      <h1 class="modal__title">{{ title|safe }}</h1>
+    </div>
+    <div class="modal__body">
+{% for line in why %}    <p>{{ line|safe }}</p>
+{% endfor %}{% if !evidence.is_empty() %}    <p><b>{{ v.t("tracker.history_gap.evidence")|safe }}</b></p>
+    <ul>
+{% for line in evidence %}      <li>{{ line|safe }}</li>
+{% endfor %}    </ul>
+{% endif %}{% if eligible %}    <ol>
+{% for step in steps %}      <li>{{ step|safe }}</li>
+{% endfor %}    </ol>
+{% if !examples.is_empty() %}    <p class="small-info">{{ v.t("tracker.history_gap.template_hint")|safe }}</p>
+    <pre style="overflow-x: auto;">{{ header }}</pre>
+{% for example in examples %}    <p class="small-info">{{ example.caption|safe }}</p>
+    <pre style="overflow-x: auto;">{{ example.rows|safe }}</pre>
+{% endfor %}{% endif %}{% else %}    <p>{{ cannot|safe }}</p>
+    <span class="key-fix">
+{% for fix in fixes %}    <a class="rbutton rbutton--small" data-turbo-frame="modal" href="{{ fix.href|safe }}">{{ fix.label|safe }}</a>
+{% endfor %}    </span>
+{% endif %}    <div class="modal__footer">
+      <button name="button" type="button" class="rbutton rbutton--secondary" data-action="modal--base#animateOutCloseAndCleanUp">
+        {{ v.t("button.cancel")|safe }}
+</button>{% if eligible %}      <a class="rbutton" data-turbo-frame="modal" href="{{ import|safe }}">{{ v.t("tracker.history_gap.open_import")|safe }}</a>
+{% endif %}    </div>
+    </div>
+  </div>
+
+    </div>
+  </dialog>
+</turbo-frame>
