@@ -201,6 +201,21 @@ impl<T: Transport> BinanceVenue<T> {
     /// (Exchange::PLACEMENT_SAFE_TRANSIENT_ERRORS) whatever its status, is definitive. HTTP 429/418 on a read is a throttle
     /// (`HTTP_THROTTLE`). A 2xx that is not JSON, or holds a number out of range, is unreadable: never a parsed zero.
     pub(crate) async fn call(&self, r: &HttpRequest, placement: bool) -> Result<serde_json::Value, super::VenueError> {
+        http::decode_json(&self.answer(r, placement).await?).map_err(|_| unreadable())
+    }
+
+    /// `call` for the bulk price read: a 2xx body that is not JSON is honeymaker's Failure (its text), as
+    /// Exchanges::Binance#get_tickers_prices returns it, never a raise.
+    async fn call_prices(&self, r: &HttpRequest) -> Result<serde_json::Value, super::VenueError> {
+        let text = self.answer(r, false).await?;
+        match http::decode_json(&text) {
+            Err(http::DecodeError::NotJson) => Err(super::VenueError::Rejected(vec![self.transport.redact_diagnostic(&text)])),
+            other => other.map_err(|_| unreadable()),
+        }
+    }
+
+    /// One send as honeymaker's #with_rescue reads it: the 2xx body's text, or the failure.
+    async fn answer(&self, r: &HttpRequest, placement: bool) -> Result<String, super::VenueError> {
         use super::VenueError;
         let redact = |m: String| self.transport.redact_diagnostic(&m);
         let resp = match self.transport.send(r).await {
@@ -223,7 +238,7 @@ impl<T: Transport> BinanceVenue<T> {
             let definitive = (400..500).contains(&resp.status) || crate::engine::placement::safe_rejection(std::slice::from_ref(&message));
             return Err(if placement && !definitive { VenueError::Ambiguous(message) } else { VenueError::Rejected(vec![message]) });
         }
-        http::decode_json(&resp.body).map_err(|_| unreadable())
+        Ok(resp.body)
     }
 }
 
@@ -498,6 +513,27 @@ impl<T: Transport> super::Venue for BinanceVenue<T> {
 
     async fn settled_quote_balance<F>(&self, ticker: &Ticker, _catalog: F) -> Result<BigDec, super::VenueError>
     where F: FnOnce() -> Result<crate::sync::balances::Catalog, super::VenueError> { self.free_of(&ticker.quote_code).await }
+
+    /// Exchanges::Binance#get_tickers_prices: /api/v3/ticker/price for every symbol (`symbols:` is ignored, as in Rails),
+    /// each `dig_or_raise`d `symbol` and `price`, the price as `price.to_d` reads it (an Integer exactly, a Float by
+    /// Float#to_d, a string as a decimal; a zero is kept). DIVERGES on purpose (ruby::json_to_d, Q6): a string that is no
+    /// decimal ("abc", "12x") is left out, so the member reads unpriced, where String#to_d makes it 0 or 12. Rails caches
+    /// the answer for a minute; this reads fresh. Each price is its decimal's `to_s('F')`.
+    async fn tickers_prices(&self, _symbols: &[String]) -> Result<Vec<(String, serde_json::Value)>, super::VenueError> {
+        let body = self.call_prices(&self.request("GET", "/api/v3/ticker/price", vec![])).await?;
+        let mut out: Vec<(String, serde_json::Value)> = vec![];
+        for row in body.as_array().ok_or_else(unreadable)? {
+            let symbol = super::dig_or_raise(row, "symbol")?.as_str().ok_or_else(unreadable)?.to_string();
+            let price = match super::dig_or_raise(row, "price")? {
+                v @ (serde_json::Value::String(_) | serde_json::Value::Number(_)) => crate::ruby::json_to_d(v).ok().flatten(),
+                _ => return Err(unreadable()),
+            };
+            // `prices_hash[ticker] = price`: a symbol listed twice keeps its last price.
+            out.retain(|(s, _)| *s != symbol);
+            if let Some(p) = price { out.push((symbol, serde_json::Value::String(p.to_s_f()))); }
+        }
+        Ok(out)
+    }
 
     /// #cancel_order through Clients::Binance#cancel_order: DELETE /api/v3/order by the stored "SYMBOL-<orderId>", with the
     /// gem's default recvWindow; a failure is #parse_error_message's text.

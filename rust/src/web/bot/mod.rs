@@ -445,10 +445,10 @@ pub fn refusal(c: &Connection, bot_id: i64, wash_sale_enabled: Option<bool>, pro
     let truthy = |value: Option<&Value>| value.is_some_and(|v| !matches!(v, Value::Null | Value::Bool(false)) && v.as_str() != Some("") && v.as_str() != Some("0") && v.as_str() != Some("false"));
     let class = class.unwrap_or_default();
     if class != "Bots::DcaMultiAsset" && class != "Bots::DcaIndex" { return Ok(Some("a bot of a type this build does not render")); }
-    // The venues, classes and member counts the engine runs: one rule for both.
+    // The venues and classes the engine runs: one rule for both.
     let member_count = settings.get("allocations").and_then(Value::as_object).map_or(0, |weights| weights.len());
     let selling = settings.get("direction").and_then(Value::as_str) == Some("selling");
-    if let Some(why) = crate::engine::eligibility::admission(exchange.as_deref(), class == "Bots::DcaIndex", member_count, selling) { return Ok(Some(why)); }
+    if let Some(why) = crate::engine::eligibility::admission(exchange.as_deref(), class == "Bots::DcaIndex", selling) { return Ok(Some(why)); }
     // What the wizard always stores and no concern has a default for. Every other setting a row may
     // lack is given the value Rails gives it on load (`Bot::fill_defaults`).
     let needed: &[&str] = if class == "Bots::DcaIndex" { &["quote_asset_id", "interval", "index_type"] } else { &["quote_asset_id", "interval", "allocations"] };

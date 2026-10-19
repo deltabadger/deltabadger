@@ -1,0 +1,4390 @@
+{
+  "sources": {
+    "app/models/exchanges/kraken.rb": "232820af94e9247375162d361eaff6437ae3f2c95b236bf3114b748026d2d902",
+    "app/models/exchanges/binance.rb": "72139d578fcf6df45576eb7e648185e71d7fad7b8be456bf4438af7dada57649",
+    "app/models/exchanges/kucoin.rb": "a4dd07679ac5297f73d7713a812122728872629f60c13cf82d5f1b5c205fef45",
+    "app/models/utilities/hash.rb": "c976d9a7c387bf813da7404a029df8f7afe8dae29567edee5d48ebc7f431cf11",
+    "script/rust/record_tickers_prices.rb": "c893d7503ebc050f45205b31fce0e6b1de89ce8e2627b6ef96eeecabd68c1e30"
+  },
+  "gems": {
+    "honeymaker": "0.12.5"
+  },
+  "cases": [
+    {
+      "venue": "kraken",
+      "name": "bulk_all",
+      "symbols": [
+        "ETHEUR",
+        "SOLEUR"
+      ],
+      "http": {
+        "GET /0/public/Ticker": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {
+                "ETHEUR": {
+                  "a": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "b": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "c": [
+                    "2500.01",
+                    "0.1"
+                  ],
+                  "v": [
+                    "1",
+                    "1"
+                  ]
+                },
+                "SOLEUR": {
+                  "a": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "b": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "c": [
+                    "150.001",
+                    "1"
+                  ],
+                  "v": [
+                    "1",
+                    "1"
+                  ]
+                },
+                "ADAEUR": {
+                  "a": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "b": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "c": [
+                    "0.4",
+                    "1"
+                  ],
+                  "v": [
+                    "1",
+                    "1"
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /0/public/Ticker"
+      ],
+      "prices": {
+        "ETHEUR": "2500.01",
+        "SOLEUR": "150.001"
+      }
+    },
+    {
+      "venue": "kraken",
+      "name": "renamed_pair",
+      "symbols": [
+        "XBTEUR",
+        "ETHEUR"
+      ],
+      "http": {
+        "GET /0/public/Ticker": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {
+                "XXBTZEUR": {
+                  "a": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "b": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "c": [
+                    "49995.3",
+                    "0.1"
+                  ],
+                  "v": [
+                    "1",
+                    "1"
+                  ]
+                },
+                "ETHEUR": {
+                  "a": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "b": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "c": [
+                    "2500.01",
+                    "0.1"
+                  ],
+                  "v": [
+                    "1",
+                    "1"
+                  ]
+                }
+              }
+            }
+          }
+        ],
+        "GET /0/public/Ticker?pair=XBTEUR": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {
+                "XXBTZEUR": {
+                  "a": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "b": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "c": [
+                    "49995.3",
+                    "0.1"
+                  ],
+                  "v": [
+                    "1",
+                    "1"
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /0/public/Ticker",
+        "GET /0/public/Ticker?pair=XBTEUR"
+      ],
+      "prices": {
+        "ETHEUR": "2500.01",
+        "XBTEUR": "49995.3"
+      }
+    },
+    {
+      "venue": "kraken",
+      "name": "fallback_in_order",
+      "symbols": [
+        "SOLEUR",
+        "XBTEUR",
+        "DOTEUR"
+      ],
+      "http": {
+        "GET /0/public/Ticker": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {
+                "ADAEUR": {
+                  "a": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "b": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "c": [
+                    "0.4",
+                    "1"
+                  ],
+                  "v": [
+                    "1",
+                    "1"
+                  ]
+                }
+              }
+            }
+          }
+        ],
+        "GET /0/public/Ticker?pair=SOLEUR": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {
+                "SOLEUR": {
+                  "a": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "b": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "c": [
+                    "150.001",
+                    "1"
+                  ],
+                  "v": [
+                    "1",
+                    "1"
+                  ]
+                }
+              }
+            }
+          }
+        ],
+        "GET /0/public/Ticker?pair=XBTEUR": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {
+                "XXBTZEUR": {
+                  "a": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "b": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "c": [
+                    "49995.3",
+                    "1"
+                  ],
+                  "v": [
+                    "1",
+                    "1"
+                  ]
+                }
+              }
+            }
+          }
+        ],
+        "GET /0/public/Ticker?pair=DOTEUR": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {
+                "DOTEUR": {
+                  "a": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "b": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "c": [
+                    "4.1234",
+                    "1"
+                  ],
+                  "v": [
+                    "1",
+                    "1"
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /0/public/Ticker",
+        "GET /0/public/Ticker?pair=SOLEUR",
+        "GET /0/public/Ticker?pair=XBTEUR",
+        "GET /0/public/Ticker?pair=DOTEUR"
+      ],
+      "prices": {
+        "SOLEUR": "150.001",
+        "XBTEUR": "49995.3",
+        "DOTEUR": "4.1234"
+      }
+    },
+    {
+      "venue": "kraken",
+      "name": "fallback_first_entry",
+      "symbols": [
+        "XBTEUR"
+      ],
+      "http": {
+        "GET /0/public/Ticker": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {}
+            }
+          }
+        ],
+        "GET /0/public/Ticker?pair=XBTEUR": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {
+                "XXBTZEUR": {
+                  "a": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "b": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "c": [
+                    "1.5",
+                    "1"
+                  ],
+                  "v": [
+                    "1",
+                    "1"
+                  ]
+                },
+                "XBTEUR": {
+                  "a": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "b": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "c": [
+                    "2.5",
+                    "1"
+                  ],
+                  "v": [
+                    "1",
+                    "1"
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /0/public/Ticker",
+        "GET /0/public/Ticker?pair=XBTEUR"
+      ],
+      "prices": {
+        "XBTEUR": "1.5"
+      }
+    },
+    {
+      "venue": "kraken",
+      "name": "unknown_pair_skipped",
+      "symbols": [
+        "ETHEUR",
+        "OLDEUR"
+      ],
+      "http": {
+        "GET /0/public/Ticker": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {
+                "ETHEUR": {
+                  "a": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "b": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "c": [
+                    "2500.01",
+                    "0.1"
+                  ],
+                  "v": [
+                    "1",
+                    "1"
+                  ]
+                }
+              }
+            }
+          }
+        ],
+        "GET /0/public/Ticker?pair=OLDEUR": [
+          {
+            "status": 200,
+            "body": {
+              "error": [
+                "EQuery:Unknown asset pair"
+              ]
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /0/public/Ticker",
+        "GET /0/public/Ticker?pair=OLDEUR"
+      ],
+      "prices": {
+        "ETHEUR": "2500.01"
+      }
+    },
+    {
+      "venue": "kraken",
+      "name": "unknown_pair_among_errors",
+      "symbols": [
+        "ETHEUR",
+        "OLDEUR"
+      ],
+      "http": {
+        "GET /0/public/Ticker": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {
+                "ETHEUR": {
+                  "a": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "b": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "c": [
+                    "2500.01",
+                    "0.1"
+                  ],
+                  "v": [
+                    "1",
+                    "1"
+                  ]
+                }
+              }
+            }
+          }
+        ],
+        "GET /0/public/Ticker?pair=OLDEUR": [
+          {
+            "status": 200,
+            "body": {
+              "error": [
+                "EGeneral:Temporary lockout",
+                "EQuery:Unknown asset pair"
+              ]
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /0/public/Ticker",
+        "GET /0/public/Ticker?pair=OLDEUR"
+      ],
+      "prices": {
+        "ETHEUR": "2500.01"
+      }
+    },
+    {
+      "venue": "kraken",
+      "name": "fallback_error_fails_all",
+      "symbols": [
+        "ETHEUR",
+        "OLDEUR",
+        "SOLEUR"
+      ],
+      "http": {
+        "GET /0/public/Ticker": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {
+                "ETHEUR": {
+                  "a": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "b": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "c": [
+                    "2500.01",
+                    "0.1"
+                  ],
+                  "v": [
+                    "1",
+                    "1"
+                  ]
+                }
+              }
+            }
+          }
+        ],
+        "GET /0/public/Ticker?pair=OLDEUR": [
+          {
+            "status": 200,
+            "body": {
+              "error": [
+                "EGeneral:Internal error"
+              ]
+            }
+          }
+        ],
+        "GET /0/public/Ticker?pair=SOLEUR": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {
+                "SOLEUR": {
+                  "a": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "b": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "c": [
+                    "150.001",
+                    "1"
+                  ],
+                  "v": [
+                    "1",
+                    "1"
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /0/public/Ticker",
+        "GET /0/public/Ticker?pair=OLDEUR"
+      ],
+      "failure": [
+        "EGeneral:Internal error"
+      ]
+    },
+    {
+      "venue": "kraken",
+      "name": "fallback_empty_result",
+      "symbols": [
+        "OLDEUR"
+      ],
+      "http": {
+        "GET /0/public/Ticker": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {}
+            }
+          }
+        ],
+        "GET /0/public/Ticker?pair=OLDEUR": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {}
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /0/public/Ticker",
+        "GET /0/public/Ticker?pair=OLDEUR"
+      ],
+      "failure": [
+        "Failed to get Kraken tickers prices (ticker: OLDEUR)"
+      ]
+    },
+    {
+      "venue": "kraken",
+      "name": "fallback_missing_result",
+      "symbols": [
+        "OLDEUR"
+      ],
+      "http": {
+        "GET /0/public/Ticker": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {}
+            }
+          }
+        ],
+        "GET /0/public/Ticker?pair=OLDEUR": [
+          {
+            "status": 200,
+            "body": {
+              "error": []
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /0/public/Ticker",
+        "GET /0/public/Ticker?pair=OLDEUR"
+      ],
+      "raised": "KeyError",
+      "message": "Key path result not found"
+    },
+    {
+      "venue": "kraken",
+      "name": "fallback_missing_error",
+      "symbols": [
+        "OLDEUR"
+      ],
+      "http": {
+        "GET /0/public/Ticker": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {}
+            }
+          }
+        ],
+        "GET /0/public/Ticker?pair=OLDEUR": [
+          {
+            "status": 200,
+            "body": {
+              "result": {}
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /0/public/Ticker",
+        "GET /0/public/Ticker?pair=OLDEUR"
+      ],
+      "raised": "KeyError",
+      "message": "Key path error not found"
+    },
+    {
+      "venue": "kraken",
+      "name": "fallback_unreadable_price",
+      "symbols": [
+        "OLDEUR"
+      ],
+      "http": {
+        "GET /0/public/Ticker": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {}
+            }
+          }
+        ],
+        "GET /0/public/Ticker?pair=OLDEUR": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {
+                "OLDEUR": {
+                  "a": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "b": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "c": [
+                    "x",
+                    "1"
+                  ],
+                  "v": [
+                    "1",
+                    "1"
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /0/public/Ticker",
+        "GET /0/public/Ticker?pair=OLDEUR"
+      ],
+      "prices": {}
+    },
+    {
+      "venue": "kraken",
+      "name": "fallback_missing_c",
+      "symbols": [
+        "OLDEUR"
+      ],
+      "http": {
+        "GET /0/public/Ticker": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {}
+            }
+          }
+        ],
+        "GET /0/public/Ticker?pair=OLDEUR": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {
+                "OLDEUR": {
+                  "a": [
+                    "1",
+                    "1",
+                    "1"
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /0/public/Ticker",
+        "GET /0/public/Ticker?pair=OLDEUR"
+      ],
+      "raised": "KeyError",
+      "message": "Key path c not found"
+    },
+    {
+      "venue": "kraken",
+      "name": "fallback_transport",
+      "symbols": [
+        "OLDEUR"
+      ],
+      "http": {
+        "GET /0/public/Ticker": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {}
+            }
+          }
+        ],
+        "GET /0/public/Ticker?pair=OLDEUR": [
+          {
+            "network": "pre_send",
+            "message": "pre_send"
+          }
+        ]
+      },
+      "requests": [
+        "GET /0/public/Ticker",
+        "GET /0/public/Ticker?pair=OLDEUR"
+      ],
+      "failure": [
+        "Connection refused - connect(2)"
+      ]
+    },
+    {
+      "venue": "kraken",
+      "name": "fallback_timeout",
+      "symbols": [
+        "OLDEUR"
+      ],
+      "http": {
+        "GET /0/public/Ticker": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {}
+            }
+          }
+        ],
+        "GET /0/public/Ticker?pair=OLDEUR": [
+          {
+            "network": "post_send",
+            "message": "post_send"
+          }
+        ]
+      },
+      "requests": [
+        "GET /0/public/Ticker",
+        "GET /0/public/Ticker?pair=OLDEUR"
+      ],
+      "failure": [
+        "Net::ReadTimeout"
+      ]
+    },
+    {
+      "venue": "kraken",
+      "name": "fallback_http_500",
+      "symbols": [
+        "OLDEUR"
+      ],
+      "http": {
+        "GET /0/public/Ticker": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {}
+            }
+          }
+        ],
+        "GET /0/public/Ticker?pair=OLDEUR": [
+          {
+            "status": 500,
+            "body": "upstream failed"
+          }
+        ]
+      },
+      "requests": [
+        "GET /0/public/Ticker",
+        "GET /0/public/Ticker?pair=OLDEUR"
+      ],
+      "failure": [
+        "upstream failed"
+      ]
+    },
+    {
+      "venue": "kraken",
+      "name": "bulk_error",
+      "symbols": [
+        "ETHEUR"
+      ],
+      "http": {
+        "GET /0/public/Ticker": [
+          {
+            "status": 200,
+            "body": {
+              "error": [
+                "EService:Unavailable"
+              ]
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /0/public/Ticker"
+      ],
+      "failure": [
+        "EService:Unavailable"
+      ]
+    },
+    {
+      "venue": "kraken",
+      "name": "bulk_two_errors",
+      "symbols": [
+        "ETHEUR"
+      ],
+      "http": {
+        "GET /0/public/Ticker": [
+          {
+            "status": 200,
+            "body": {
+              "error": [
+                "EService:Unavailable",
+                "EGeneral:Internal error"
+              ]
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /0/public/Ticker"
+      ],
+      "failure": [
+        "EService:Unavailable",
+        "EGeneral:Internal error"
+      ]
+    },
+    {
+      "venue": "kraken",
+      "name": "bulk_missing_error",
+      "symbols": [
+        "ETHEUR"
+      ],
+      "http": {
+        "GET /0/public/Ticker": [
+          {
+            "status": 200,
+            "body": {
+              "result": {}
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /0/public/Ticker"
+      ],
+      "raised": "KeyError",
+      "message": "Key path error not found"
+    },
+    {
+      "venue": "kraken",
+      "name": "bulk_missing_result",
+      "symbols": [
+        "ETHEUR"
+      ],
+      "http": {
+        "GET /0/public/Ticker": [
+          {
+            "status": 200,
+            "body": {
+              "error": []
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /0/public/Ticker"
+      ],
+      "raised": "NoMethodError"
+    },
+    {
+      "venue": "kraken",
+      "name": "bulk_null_result",
+      "symbols": [
+        "ETHEUR"
+      ],
+      "http": {
+        "GET /0/public/Ticker": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": null
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /0/public/Ticker"
+      ],
+      "raised": "NoMethodError"
+    },
+    {
+      "venue": "kraken",
+      "name": "bulk_transport",
+      "symbols": [
+        "ETHEUR"
+      ],
+      "http": {
+        "GET /0/public/Ticker": [
+          {
+            "network": "pre_send",
+            "message": "pre_send"
+          }
+        ]
+      },
+      "requests": [
+        "GET /0/public/Ticker"
+      ],
+      "failure": [
+        "Connection refused - connect(2)"
+      ]
+    },
+    {
+      "venue": "kraken",
+      "name": "bulk_timeout",
+      "symbols": [
+        "ETHEUR"
+      ],
+      "http": {
+        "GET /0/public/Ticker": [
+          {
+            "network": "post_send",
+            "message": "post_send"
+          }
+        ]
+      },
+      "requests": [
+        "GET /0/public/Ticker"
+      ],
+      "failure": [
+        "Net::ReadTimeout"
+      ]
+    },
+    {
+      "venue": "kraken",
+      "name": "bulk_http_500",
+      "symbols": [
+        "ETHEUR"
+      ],
+      "http": {
+        "GET /0/public/Ticker": [
+          {
+            "status": 500,
+            "body": "upstream failed"
+          }
+        ]
+      },
+      "requests": [
+        "GET /0/public/Ticker"
+      ],
+      "failure": [
+        "upstream failed"
+      ]
+    },
+    {
+      "venue": "kraken",
+      "name": "bulk_http_400_json",
+      "symbols": [
+        "ETHEUR"
+      ],
+      "http": {
+        "GET /0/public/Ticker": [
+          {
+            "status": 400,
+            "body": {
+              "error": [
+                "EGeneral:Invalid arguments"
+              ]
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /0/public/Ticker"
+      ],
+      "failure": [
+        "{\"error\":[\"EGeneral:Invalid arguments\"]}"
+      ]
+    },
+    {
+      "venue": "kraken",
+      "name": "bulk_not_json",
+      "symbols": [
+        "ETHEUR"
+      ],
+      "http": {
+        "GET /0/public/Ticker": [
+          {
+            "status": 200,
+            "body": "<html>"
+          }
+        ]
+      },
+      "requests": [
+        "GET /0/public/Ticker"
+      ],
+      "failure": [
+        "<html>"
+      ]
+    },
+    {
+      "venue": "kraken",
+      "name": "unwanted_unreadable_ignored",
+      "symbols": [
+        "ETHEUR"
+      ],
+      "http": {
+        "GET /0/public/Ticker": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {
+                "ETHEUR": {
+                  "a": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "b": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "c": [
+                    "2500.01",
+                    "1"
+                  ],
+                  "v": [
+                    "1",
+                    "1"
+                  ]
+                },
+                "ADAEUR": {
+                  "a": []
+                }
+              }
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /0/public/Ticker"
+      ],
+      "prices": {
+        "ETHEUR": "2500.01"
+      }
+    },
+    {
+      "venue": "kraken",
+      "name": "returned_c_null",
+      "symbols": [
+        "ETHEUR",
+        "SOLEUR"
+      ],
+      "http": {
+        "GET /0/public/Ticker": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {
+                "ETHEUR": {
+                  "a": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "b": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "c": [
+                    null,
+                    "1"
+                  ],
+                  "v": [
+                    "1",
+                    "1"
+                  ]
+                },
+                "SOLEUR": {
+                  "a": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "b": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "c": [
+                    "150.001",
+                    "1"
+                  ],
+                  "v": [
+                    "1",
+                    "1"
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /0/public/Ticker"
+      ],
+      "prices": {
+        "SOLEUR": "150.001"
+      }
+    },
+    {
+      "venue": "kraken",
+      "name": "returned_c_empty",
+      "symbols": [
+        "ETHEUR",
+        "SOLEUR"
+      ],
+      "http": {
+        "GET /0/public/Ticker": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {
+                "ETHEUR": {
+                  "a": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "b": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "c": [],
+                  "v": [
+                    "1",
+                    "1"
+                  ]
+                },
+                "SOLEUR": {
+                  "a": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "b": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "c": [
+                    "150.001",
+                    "1"
+                  ],
+                  "v": [
+                    "1",
+                    "1"
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /0/public/Ticker"
+      ],
+      "prices": {
+        "SOLEUR": "150.001"
+      }
+    },
+    {
+      "venue": "kraken",
+      "name": "returned_c_word",
+      "symbols": [
+        "ETHEUR",
+        "SOLEUR"
+      ],
+      "http": {
+        "GET /0/public/Ticker": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {
+                "ETHEUR": {
+                  "a": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "b": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "c": [
+                    "x",
+                    "1"
+                  ],
+                  "v": [
+                    "1",
+                    "1"
+                  ]
+                },
+                "SOLEUR": {
+                  "a": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "b": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "c": [
+                    "150.001",
+                    "1"
+                  ],
+                  "v": [
+                    "1",
+                    "1"
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /0/public/Ticker"
+      ],
+      "prices": {
+        "SOLEUR": "150.001"
+      }
+    },
+    {
+      "venue": "kraken",
+      "name": "returned_c_infinity",
+      "symbols": [
+        "ETHEUR",
+        "SOLEUR"
+      ],
+      "http": {
+        "GET /0/public/Ticker": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {
+                "ETHEUR": {
+                  "a": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "b": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "c": [
+                    "Infinity",
+                    "1"
+                  ],
+                  "v": [
+                    "1",
+                    "1"
+                  ]
+                },
+                "SOLEUR": {
+                  "a": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "b": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "c": [
+                    "150.001",
+                    "1"
+                  ],
+                  "v": [
+                    "1",
+                    "1"
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /0/public/Ticker"
+      ],
+      "prices": {
+        "SOLEUR": "150.001"
+      }
+    },
+    {
+      "venue": "kraken",
+      "name": "returned_c_minus_infinity",
+      "symbols": [
+        "ETHEUR",
+        "SOLEUR"
+      ],
+      "http": {
+        "GET /0/public/Ticker": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {
+                "ETHEUR": {
+                  "a": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "b": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "c": [
+                    "-Infinity"
+                  ],
+                  "v": [
+                    "1",
+                    "1"
+                  ]
+                },
+                "SOLEUR": {
+                  "a": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "b": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "c": [
+                    "150.001",
+                    "1"
+                  ],
+                  "v": [
+                    "1",
+                    "1"
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /0/public/Ticker"
+      ],
+      "prices": {
+        "SOLEUR": "150.001"
+      }
+    },
+    {
+      "venue": "kraken",
+      "name": "returned_c_nan",
+      "symbols": [
+        "ETHEUR",
+        "SOLEUR"
+      ],
+      "http": {
+        "GET /0/public/Ticker": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {
+                "ETHEUR": {
+                  "a": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "b": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "c": [
+                    "NaN",
+                    "1"
+                  ],
+                  "v": [
+                    "1",
+                    "1"
+                  ]
+                },
+                "SOLEUR": {
+                  "a": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "b": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "c": [
+                    "150.001",
+                    "1"
+                  ],
+                  "v": [
+                    "1",
+                    "1"
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /0/public/Ticker"
+      ],
+      "prices": {
+        "SOLEUR": "150.001"
+      }
+    },
+    {
+      "venue": "kraken",
+      "name": "returned_c_blank",
+      "symbols": [
+        "ETHEUR",
+        "SOLEUR"
+      ],
+      "http": {
+        "GET /0/public/Ticker": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {
+                "ETHEUR": {
+                  "a": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "b": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "c": [
+                    "",
+                    "1"
+                  ],
+                  "v": [
+                    "1",
+                    "1"
+                  ]
+                },
+                "SOLEUR": {
+                  "a": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "b": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "c": [
+                    "150.001",
+                    "1"
+                  ],
+                  "v": [
+                    "1",
+                    "1"
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /0/public/Ticker"
+      ],
+      "prices": {
+        "SOLEUR": "150.001"
+      }
+    },
+    {
+      "venue": "kraken",
+      "name": "returned_c_list",
+      "symbols": [
+        "ETHEUR",
+        "SOLEUR"
+      ],
+      "http": {
+        "GET /0/public/Ticker": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {
+                "ETHEUR": {
+                  "a": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "b": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "c": [
+                    [
+                      "1"
+                    ],
+                    "1"
+                  ],
+                  "v": [
+                    "1",
+                    "1"
+                  ]
+                },
+                "SOLEUR": {
+                  "a": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "b": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "c": [
+                    "150.001",
+                    "1"
+                  ],
+                  "v": [
+                    "1",
+                    "1"
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /0/public/Ticker"
+      ],
+      "prices": {
+        "SOLEUR": "150.001"
+      }
+    },
+    {
+      "venue": "kraken",
+      "name": "returned_c_string",
+      "symbols": [
+        "ETHEUR",
+        "SOLEUR"
+      ],
+      "http": {
+        "GET /0/public/Ticker": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {
+                "ETHEUR": {
+                  "a": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "b": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "c": "x",
+                  "v": [
+                    "1",
+                    "1"
+                  ]
+                },
+                "SOLEUR": {
+                  "a": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "b": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "c": [
+                    "150.001",
+                    "1"
+                  ],
+                  "v": [
+                    "1",
+                    "1"
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /0/public/Ticker"
+      ],
+      "prices": {
+        "SOLEUR": "150.001"
+      }
+    },
+    {
+      "venue": "kraken",
+      "name": "returned_c_string_digit",
+      "symbols": [
+        "ETHEUR",
+        "SOLEUR"
+      ],
+      "http": {
+        "GET /0/public/Ticker": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {
+                "ETHEUR": {
+                  "a": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "b": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "c": "7",
+                  "v": [
+                    "1",
+                    "1"
+                  ]
+                },
+                "SOLEUR": {
+                  "a": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "b": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "c": [
+                    "150.001",
+                    "1"
+                  ],
+                  "v": [
+                    "1",
+                    "1"
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /0/public/Ticker"
+      ],
+      "prices": {
+        "ETHEUR": "7.0",
+        "SOLEUR": "150.001"
+      }
+    },
+    {
+      "venue": "kraken",
+      "name": "returned_c_hash",
+      "symbols": [
+        "ETHEUR",
+        "SOLEUR"
+      ],
+      "http": {
+        "GET /0/public/Ticker": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {
+                "ETHEUR": {
+                  "a": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "b": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "c": {},
+                  "v": [
+                    "1",
+                    "1"
+                  ]
+                },
+                "SOLEUR": {
+                  "a": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "b": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "c": [
+                    "150.001",
+                    "1"
+                  ],
+                  "v": [
+                    "1",
+                    "1"
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /0/public/Ticker"
+      ],
+      "prices": {
+        "SOLEUR": "150.001"
+      }
+    },
+    {
+      "venue": "kraken",
+      "name": "returned_c_missing",
+      "symbols": [
+        "ETHEUR"
+      ],
+      "http": {
+        "GET /0/public/Ticker": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {
+                "ETHEUR": {
+                  "a": [
+                    "1",
+                    "1",
+                    "1"
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /0/public/Ticker"
+      ],
+      "raised": "KeyError",
+      "message": "Key path c not found"
+    },
+    {
+      "venue": "kraken",
+      "name": "returned_c_null_field",
+      "symbols": [
+        "ETHEUR"
+      ],
+      "http": {
+        "GET /0/public/Ticker": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {
+                "ETHEUR": {
+                  "a": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "b": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "c": null,
+                  "v": [
+                    "1",
+                    "1"
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /0/public/Ticker"
+      ],
+      "raised": "KeyError",
+      "message": "Key path c not found"
+    },
+    {
+      "venue": "kraken",
+      "name": "returned_c_true",
+      "symbols": [
+        "ETHEUR"
+      ],
+      "http": {
+        "GET /0/public/Ticker": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {
+                "ETHEUR": {
+                  "a": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "b": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "c": true,
+                  "v": [
+                    "1",
+                    "1"
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /0/public/Ticker"
+      ],
+      "raised": "NoMethodError"
+    },
+    {
+      "venue": "kraken",
+      "name": "returned_entry_string",
+      "symbols": [
+        "ETHEUR"
+      ],
+      "http": {
+        "GET /0/public/Ticker": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {
+                "ETHEUR": "x"
+              }
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /0/public/Ticker"
+      ],
+      "raised": "NoMethodError"
+    },
+    {
+      "venue": "kraken",
+      "name": "number_int",
+      "symbols": [
+        "ETHEUR"
+      ],
+      "http": {
+        "GET /0/public/Ticker": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {
+                "ETHEUR": {
+                  "a": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "b": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "c": [
+                    64321
+                  ],
+                  "v": [
+                    "1",
+                    "1"
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /0/public/Ticker"
+      ],
+      "prices": {
+        "ETHEUR": "64321.0"
+      }
+    },
+    {
+      "venue": "kraken",
+      "name": "number_big_int",
+      "symbols": [
+        "ETHEUR"
+      ],
+      "http": {
+        "GET /0/public/Ticker": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {
+                "ETHEUR": {
+                  "a": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "b": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "c": [
+                    9007199254740993
+                  ],
+                  "v": [
+                    "1",
+                    "1"
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /0/public/Ticker"
+      ],
+      "prices": {
+        "ETHEUR": "9007199254740993.0"
+      }
+    },
+    {
+      "venue": "kraken",
+      "name": "number_float17",
+      "symbols": [
+        "ETHEUR"
+      ],
+      "http": {
+        "GET /0/public/Ticker": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {
+                "ETHEUR": {
+                  "a": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "b": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "c": [
+                    1.234567890123457
+                  ],
+                  "v": [
+                    "1",
+                    "1"
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /0/public/Ticker"
+      ],
+      "prices": {
+        "ETHEUR": "1.234567890123457"
+      }
+    },
+    {
+      "venue": "kraken",
+      "name": "number_string17",
+      "symbols": [
+        "ETHEUR"
+      ],
+      "http": {
+        "GET /0/public/Ticker": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {
+                "ETHEUR": {
+                  "a": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "b": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "c": [
+                    "1.2345678901234567"
+                  ],
+                  "v": [
+                    "1",
+                    "1"
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /0/public/Ticker"
+      ],
+      "prices": {
+        "ETHEUR": "1.2345678901234567"
+      }
+    },
+    {
+      "venue": "kraken",
+      "name": "number_zero",
+      "symbols": [
+        "ETHEUR"
+      ],
+      "http": {
+        "GET /0/public/Ticker": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {
+                "ETHEUR": {
+                  "a": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "b": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "c": [
+                    "0"
+                  ],
+                  "v": [
+                    "1",
+                    "1"
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /0/public/Ticker"
+      ],
+      "prices": {
+        "ETHEUR": "0.0"
+      }
+    },
+    {
+      "venue": "kraken",
+      "name": "number_negative",
+      "symbols": [
+        "ETHEUR"
+      ],
+      "http": {
+        "GET /0/public/Ticker": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {
+                "ETHEUR": {
+                  "a": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "b": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "c": [
+                    "-5.5"
+                  ],
+                  "v": [
+                    "1",
+                    "1"
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /0/public/Ticker"
+      ],
+      "prices": {
+        "ETHEUR": "-5.5"
+      }
+    },
+    {
+      "venue": "kraken",
+      "name": "number_exponent",
+      "symbols": [
+        "ETHEUR"
+      ],
+      "http": {
+        "GET /0/public/Ticker": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {
+                "ETHEUR": {
+                  "a": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "b": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "c": [
+                    "1e5"
+                  ],
+                  "v": [
+                    "1",
+                    "1"
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /0/public/Ticker"
+      ],
+      "prices": {
+        "ETHEUR": "100000.0"
+      }
+    },
+    {
+      "venue": "kraken",
+      "name": "number_small_float",
+      "symbols": [
+        "ETHEUR"
+      ],
+      "http": {
+        "GET /0/public/Ticker": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {
+                "ETHEUR": {
+                  "a": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "b": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "c": [
+                    1e-07
+                  ],
+                  "v": [
+                    "1",
+                    "1"
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /0/public/Ticker"
+      ],
+      "prices": {
+        "ETHEUR": "0.0000001"
+      }
+    },
+    {
+      "venue": "kraken",
+      "name": "number_padded",
+      "symbols": [
+        "ETHEUR"
+      ],
+      "http": {
+        "GET /0/public/Ticker": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {
+                "ETHEUR": {
+                  "a": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "b": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "c": [
+                    " 7.5 "
+                  ],
+                  "v": [
+                    "1",
+                    "1"
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /0/public/Ticker"
+      ],
+      "prices": {
+        "ETHEUR": "7.5"
+      }
+    },
+    {
+      "venue": "kraken",
+      "name": "number_underscore",
+      "symbols": [
+        "ETHEUR"
+      ],
+      "http": {
+        "GET /0/public/Ticker": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {
+                "ETHEUR": {
+                  "a": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "b": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "c": [
+                    "1_000"
+                  ],
+                  "v": [
+                    "1",
+                    "1"
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /0/public/Ticker"
+      ],
+      "prices": {
+        "ETHEUR": "1000.0"
+      }
+    },
+    {
+      "venue": "kraken",
+      "name": "number_hex",
+      "symbols": [
+        "ETHEUR"
+      ],
+      "http": {
+        "GET /0/public/Ticker": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {
+                "ETHEUR": {
+                  "a": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "b": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "c": [
+                    "0x10"
+                  ],
+                  "v": [
+                    "1",
+                    "1"
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /0/public/Ticker"
+      ],
+      "prices": {}
+    },
+    {
+      "venue": "kraken",
+      "name": "number_trailing_dot",
+      "symbols": [
+        "ETHEUR"
+      ],
+      "http": {
+        "GET /0/public/Ticker": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {
+                "ETHEUR": {
+                  "a": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "b": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "c": [
+                    "5."
+                  ],
+                  "v": [
+                    "1",
+                    "1"
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /0/public/Ticker"
+      ],
+      "prices": {
+        "ETHEUR": "5.0"
+      }
+    },
+    {
+      "venue": "kraken",
+      "name": "number_leading_dot",
+      "symbols": [
+        "ETHEUR"
+      ],
+      "http": {
+        "GET /0/public/Ticker": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {
+                "ETHEUR": {
+                  "a": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "b": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "c": [
+                    ".5"
+                  ],
+                  "v": [
+                    "1",
+                    "1"
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /0/public/Ticker"
+      ],
+      "prices": {
+        "ETHEUR": "0.5"
+      }
+    },
+    {
+      "venue": "kraken",
+      "name": "number_plus",
+      "symbols": [
+        "ETHEUR"
+      ],
+      "http": {
+        "GET /0/public/Ticker": [
+          {
+            "status": 200,
+            "body": {
+              "error": [],
+              "result": {
+                "ETHEUR": {
+                  "a": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "b": [
+                    "1.0",
+                    "1",
+                    "1.000"
+                  ],
+                  "c": [
+                    "+3"
+                  ],
+                  "v": [
+                    "1",
+                    "1"
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /0/public/Ticker"
+      ],
+      "prices": {
+        "ETHEUR": "3.0"
+      }
+    },
+    {
+      "venue": "binance",
+      "name": "strings",
+      "symbols": [
+        "BTCUSDT"
+      ],
+      "http": {
+        "GET /api/v3/ticker/price": [
+          {
+            "status": 200,
+            "body": [
+              {
+                "symbol": "BTCUSDT",
+                "price": "64000.05000000"
+              },
+              {
+                "symbol": "ETHUSDT",
+                "price": "2500.47000000"
+              },
+              {
+                "symbol": "DEADUSDT",
+                "price": "0.00000000"
+              }
+            ]
+          }
+        ]
+      },
+      "requests": [
+        "GET /api/v3/ticker/price"
+      ],
+      "prices": {
+        "BTCUSDT": "64000.05",
+        "ETHUSDT": "2500.47",
+        "DEADUSDT": "0.0"
+      }
+    },
+    {
+      "venue": "binance",
+      "name": "number_int",
+      "symbols": [
+        "BTCUSDT"
+      ],
+      "http": {
+        "GET /api/v3/ticker/price": [
+          {
+            "status": 200,
+            "body": [
+              {
+                "symbol": "BTCUSDT",
+                "price": 64321
+              },
+              {
+                "symbol": "ETHUSDT",
+                "price": "2500.47"
+              }
+            ]
+          }
+        ]
+      },
+      "requests": [
+        "GET /api/v3/ticker/price"
+      ],
+      "prices": {
+        "BTCUSDT": "64321.0",
+        "ETHUSDT": "2500.47"
+      }
+    },
+    {
+      "venue": "binance",
+      "name": "number_big_int",
+      "symbols": [
+        "BTCUSDT"
+      ],
+      "http": {
+        "GET /api/v3/ticker/price": [
+          {
+            "status": 200,
+            "body": [
+              {
+                "symbol": "BTCUSDT",
+                "price": 9007199254740993
+              },
+              {
+                "symbol": "ETHUSDT",
+                "price": "2500.47"
+              }
+            ]
+          }
+        ]
+      },
+      "requests": [
+        "GET /api/v3/ticker/price"
+      ],
+      "prices": {
+        "BTCUSDT": "9007199254740993.0",
+        "ETHUSDT": "2500.47"
+      }
+    },
+    {
+      "venue": "binance",
+      "name": "number_float17",
+      "symbols": [
+        "BTCUSDT"
+      ],
+      "http": {
+        "GET /api/v3/ticker/price": [
+          {
+            "status": 200,
+            "body": [
+              {
+                "symbol": "BTCUSDT",
+                "price": 1.234567890123457
+              },
+              {
+                "symbol": "ETHUSDT",
+                "price": "2500.47"
+              }
+            ]
+          }
+        ]
+      },
+      "requests": [
+        "GET /api/v3/ticker/price"
+      ],
+      "prices": {
+        "BTCUSDT": "1.234567890123457",
+        "ETHUSDT": "2500.47"
+      }
+    },
+    {
+      "venue": "binance",
+      "name": "number_string17",
+      "symbols": [
+        "BTCUSDT"
+      ],
+      "http": {
+        "GET /api/v3/ticker/price": [
+          {
+            "status": 200,
+            "body": [
+              {
+                "symbol": "BTCUSDT",
+                "price": "1.2345678901234567"
+              },
+              {
+                "symbol": "ETHUSDT",
+                "price": "2500.47"
+              }
+            ]
+          }
+        ]
+      },
+      "requests": [
+        "GET /api/v3/ticker/price"
+      ],
+      "prices": {
+        "BTCUSDT": "1.2345678901234567",
+        "ETHUSDT": "2500.47"
+      }
+    },
+    {
+      "venue": "binance",
+      "name": "number_small_float",
+      "symbols": [
+        "BTCUSDT"
+      ],
+      "http": {
+        "GET /api/v3/ticker/price": [
+          {
+            "status": 200,
+            "body": [
+              {
+                "symbol": "BTCUSDT",
+                "price": 1e-07
+              },
+              {
+                "symbol": "ETHUSDT",
+                "price": "2500.47"
+              }
+            ]
+          }
+        ]
+      },
+      "requests": [
+        "GET /api/v3/ticker/price"
+      ],
+      "prices": {
+        "BTCUSDT": "0.0000001",
+        "ETHUSDT": "2500.47"
+      }
+    },
+    {
+      "venue": "binance",
+      "name": "number_zero_int",
+      "symbols": [
+        "BTCUSDT"
+      ],
+      "http": {
+        "GET /api/v3/ticker/price": [
+          {
+            "status": 200,
+            "body": [
+              {
+                "symbol": "BTCUSDT",
+                "price": 0
+              },
+              {
+                "symbol": "ETHUSDT",
+                "price": "2500.47"
+              }
+            ]
+          }
+        ]
+      },
+      "requests": [
+        "GET /api/v3/ticker/price"
+      ],
+      "prices": {
+        "BTCUSDT": "0.0",
+        "ETHUSDT": "2500.47"
+      }
+    },
+    {
+      "venue": "binance",
+      "name": "number_exponent",
+      "symbols": [
+        "BTCUSDT"
+      ],
+      "http": {
+        "GET /api/v3/ticker/price": [
+          {
+            "status": 200,
+            "body": [
+              {
+                "symbol": "BTCUSDT",
+                "price": "1e3"
+              },
+              {
+                "symbol": "ETHUSDT",
+                "price": "2500.47"
+              }
+            ]
+          }
+        ]
+      },
+      "requests": [
+        "GET /api/v3/ticker/price"
+      ],
+      "prices": {
+        "BTCUSDT": "1000.0",
+        "ETHUSDT": "2500.47"
+      }
+    },
+    {
+      "venue": "binance",
+      "name": "number_padded",
+      "symbols": [
+        "BTCUSDT"
+      ],
+      "http": {
+        "GET /api/v3/ticker/price": [
+          {
+            "status": 200,
+            "body": [
+              {
+                "symbol": "BTCUSDT",
+                "price": " 5 "
+              },
+              {
+                "symbol": "ETHUSDT",
+                "price": "2500.47"
+              }
+            ]
+          }
+        ]
+      },
+      "requests": [
+        "GET /api/v3/ticker/price"
+      ],
+      "prices": {
+        "BTCUSDT": "5.0",
+        "ETHUSDT": "2500.47"
+      }
+    },
+    {
+      "venue": "binance",
+      "name": "number_negative",
+      "symbols": [
+        "BTCUSDT"
+      ],
+      "http": {
+        "GET /api/v3/ticker/price": [
+          {
+            "status": 200,
+            "body": [
+              {
+                "symbol": "BTCUSDT",
+                "price": "-2.5"
+              },
+              {
+                "symbol": "ETHUSDT",
+                "price": "2500.47"
+              }
+            ]
+          }
+        ]
+      },
+      "requests": [
+        "GET /api/v3/ticker/price"
+      ],
+      "prices": {
+        "BTCUSDT": "-2.5",
+        "ETHUSDT": "2500.47"
+      }
+    },
+    {
+      "venue": "binance",
+      "name": "string_abc",
+      "symbols": [
+        "BTCUSDT"
+      ],
+      "http": {
+        "GET /api/v3/ticker/price": [
+          {
+            "status": 200,
+            "body": [
+              {
+                "symbol": "BTCUSDT",
+                "price": "abc"
+              },
+              {
+                "symbol": "ETHUSDT",
+                "price": "2500.47"
+              }
+            ]
+          }
+        ]
+      },
+      "requests": [
+        "GET /api/v3/ticker/price"
+      ],
+      "prices": {
+        "BTCUSDT": "0.0",
+        "ETHUSDT": "2500.47"
+      }
+    },
+    {
+      "venue": "binance",
+      "name": "string_12x",
+      "symbols": [
+        "BTCUSDT"
+      ],
+      "http": {
+        "GET /api/v3/ticker/price": [
+          {
+            "status": 200,
+            "body": [
+              {
+                "symbol": "BTCUSDT",
+                "price": "12x"
+              },
+              {
+                "symbol": "ETHUSDT",
+                "price": "2500.47"
+              }
+            ]
+          }
+        ]
+      },
+      "requests": [
+        "GET /api/v3/ticker/price"
+      ],
+      "prices": {
+        "BTCUSDT": "12.0",
+        "ETHUSDT": "2500.47"
+      }
+    },
+    {
+      "venue": "binance",
+      "name": "string_blank",
+      "symbols": [
+        "BTCUSDT"
+      ],
+      "http": {
+        "GET /api/v3/ticker/price": [
+          {
+            "status": 200,
+            "body": [
+              {
+                "symbol": "BTCUSDT",
+                "price": ""
+              },
+              {
+                "symbol": "ETHUSDT",
+                "price": "2500.47"
+              }
+            ]
+          }
+        ]
+      },
+      "requests": [
+        "GET /api/v3/ticker/price"
+      ],
+      "prices": {
+        "BTCUSDT": "0.0",
+        "ETHUSDT": "2500.47"
+      }
+    },
+    {
+      "venue": "binance",
+      "name": "string_infinity",
+      "symbols": [
+        "BTCUSDT"
+      ],
+      "http": {
+        "GET /api/v3/ticker/price": [
+          {
+            "status": 200,
+            "body": [
+              {
+                "symbol": "BTCUSDT",
+                "price": "Infinity"
+              },
+              {
+                "symbol": "ETHUSDT",
+                "price": "2500.47"
+              }
+            ]
+          }
+        ]
+      },
+      "requests": [
+        "GET /api/v3/ticker/price"
+      ],
+      "prices": {
+        "BTCUSDT": "Infinity",
+        "ETHUSDT": "2500.47"
+      }
+    },
+    {
+      "venue": "binance",
+      "name": "string_nan",
+      "symbols": [
+        "BTCUSDT"
+      ],
+      "http": {
+        "GET /api/v3/ticker/price": [
+          {
+            "status": 200,
+            "body": [
+              {
+                "symbol": "BTCUSDT",
+                "price": "NaN"
+              },
+              {
+                "symbol": "ETHUSDT",
+                "price": "2500.47"
+              }
+            ]
+          }
+        ]
+      },
+      "requests": [
+        "GET /api/v3/ticker/price"
+      ],
+      "prices": {
+        "BTCUSDT": "NaN",
+        "ETHUSDT": "2500.47"
+      }
+    },
+    {
+      "venue": "binance",
+      "name": "string_underscore",
+      "symbols": [
+        "BTCUSDT"
+      ],
+      "http": {
+        "GET /api/v3/ticker/price": [
+          {
+            "status": 200,
+            "body": [
+              {
+                "symbol": "BTCUSDT",
+                "price": "1_000"
+              },
+              {
+                "symbol": "ETHUSDT",
+                "price": "2500.47"
+              }
+            ]
+          }
+        ]
+      },
+      "requests": [
+        "GET /api/v3/ticker/price"
+      ],
+      "prices": {
+        "BTCUSDT": "1000.0",
+        "ETHUSDT": "2500.47"
+      }
+    },
+    {
+      "venue": "binance",
+      "name": "duplicate_symbol",
+      "symbols": [
+        "BTCUSDT"
+      ],
+      "http": {
+        "GET /api/v3/ticker/price": [
+          {
+            "status": 200,
+            "body": [
+              {
+                "symbol": "BTCUSDT",
+                "price": "1.5"
+              },
+              {
+                "symbol": "BTCUSDT",
+                "price": "2.5"
+              }
+            ]
+          }
+        ]
+      },
+      "requests": [
+        "GET /api/v3/ticker/price"
+      ],
+      "prices": {
+        "BTCUSDT": "2.5"
+      }
+    },
+    {
+      "venue": "binance",
+      "name": "missing_price",
+      "symbols": [
+        "BTCUSDT"
+      ],
+      "http": {
+        "GET /api/v3/ticker/price": [
+          {
+            "status": 200,
+            "body": [
+              {
+                "symbol": "BTCUSDT"
+              }
+            ]
+          }
+        ]
+      },
+      "requests": [
+        "GET /api/v3/ticker/price"
+      ],
+      "raised": "KeyError",
+      "message": "Key path price not found"
+    },
+    {
+      "venue": "binance",
+      "name": "null_price",
+      "symbols": [
+        "BTCUSDT"
+      ],
+      "http": {
+        "GET /api/v3/ticker/price": [
+          {
+            "status": 200,
+            "body": [
+              {
+                "symbol": "BTCUSDT",
+                "price": null
+              }
+            ]
+          }
+        ]
+      },
+      "requests": [
+        "GET /api/v3/ticker/price"
+      ],
+      "raised": "KeyError",
+      "message": "Key path price not found"
+    },
+    {
+      "venue": "binance",
+      "name": "true_price",
+      "symbols": [
+        "BTCUSDT"
+      ],
+      "http": {
+        "GET /api/v3/ticker/price": [
+          {
+            "status": 200,
+            "body": [
+              {
+                "symbol": "BTCUSDT",
+                "price": true
+              }
+            ]
+          }
+        ]
+      },
+      "requests": [
+        "GET /api/v3/ticker/price"
+      ],
+      "raised": "NoMethodError"
+    },
+    {
+      "venue": "binance",
+      "name": "list_price",
+      "symbols": [
+        "BTCUSDT"
+      ],
+      "http": {
+        "GET /api/v3/ticker/price": [
+          {
+            "status": 200,
+            "body": [
+              {
+                "symbol": "BTCUSDT",
+                "price": [
+                  "1"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "requests": [
+        "GET /api/v3/ticker/price"
+      ],
+      "raised": "NoMethodError"
+    },
+    {
+      "venue": "binance",
+      "name": "missing_symbol",
+      "symbols": [
+        "BTCUSDT"
+      ],
+      "http": {
+        "GET /api/v3/ticker/price": [
+          {
+            "status": 200,
+            "body": [
+              {
+                "price": "1"
+              }
+            ]
+          }
+        ]
+      },
+      "requests": [
+        "GET /api/v3/ticker/price"
+      ],
+      "raised": "KeyError",
+      "message": "Key path symbol not found"
+    },
+    {
+      "venue": "binance",
+      "name": "row_string",
+      "symbols": [
+        "BTCUSDT"
+      ],
+      "http": {
+        "GET /api/v3/ticker/price": [
+          {
+            "status": 200,
+            "body": [
+              "BTCUSDT"
+            ]
+          }
+        ]
+      },
+      "requests": [
+        "GET /api/v3/ticker/price"
+      ],
+      "raised": "NoMethodError"
+    },
+    {
+      "venue": "binance",
+      "name": "object_body",
+      "symbols": [
+        "BTCUSDT"
+      ],
+      "http": {
+        "GET /api/v3/ticker/price": [
+          {
+            "status": 200,
+            "body": {
+              "symbol": "BTCUSDT",
+              "price": "1"
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /api/v3/ticker/price"
+      ],
+      "raised": "TypeError"
+    },
+    {
+      "venue": "binance",
+      "name": "empty",
+      "symbols": [
+        "BTCUSDT"
+      ],
+      "http": {
+        "GET /api/v3/ticker/price": [
+          {
+            "status": 200,
+            "body": []
+          }
+        ]
+      },
+      "requests": [
+        "GET /api/v3/ticker/price"
+      ],
+      "prices": {}
+    },
+    {
+      "venue": "binance",
+      "name": "http_400",
+      "symbols": [
+        "BTCUSDT"
+      ],
+      "http": {
+        "GET /api/v3/ticker/price": [
+          {
+            "status": 400,
+            "body": {
+              "code": -1121,
+              "msg": "Invalid symbol."
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /api/v3/ticker/price"
+      ],
+      "failure": [
+        "Invalid symbol."
+      ]
+    },
+    {
+      "venue": "binance",
+      "name": "http_500_empty",
+      "symbols": [
+        "BTCUSDT"
+      ],
+      "http": {
+        "GET /api/v3/ticker/price": [
+          {
+            "status": 500,
+            "body": ""
+          }
+        ]
+      },
+      "requests": [
+        "GET /api/v3/ticker/price"
+      ],
+      "failure": [
+        "the server responded with status 500 for GET https://api.binance.com/api/v3/ticker/price"
+      ]
+    },
+    {
+      "venue": "binance",
+      "name": "http_503_text",
+      "symbols": [
+        "BTCUSDT"
+      ],
+      "http": {
+        "GET /api/v3/ticker/price": [
+          {
+            "status": 503,
+            "body": "Service Unavailable"
+          }
+        ]
+      },
+      "requests": [
+        "GET /api/v3/ticker/price"
+      ],
+      "failure": [
+        "Service Unavailable"
+      ]
+    },
+    {
+      "venue": "binance",
+      "name": "transport",
+      "symbols": [
+        "BTCUSDT"
+      ],
+      "http": {
+        "GET /api/v3/ticker/price": [
+          {
+            "network": "pre_send",
+            "message": "pre_send"
+          }
+        ]
+      },
+      "requests": [
+        "GET /api/v3/ticker/price"
+      ],
+      "failure": [
+        "Connection refused - connect(2)"
+      ]
+    },
+    {
+      "venue": "binance",
+      "name": "timeout",
+      "symbols": [
+        "BTCUSDT"
+      ],
+      "http": {
+        "GET /api/v3/ticker/price": [
+          {
+            "network": "post_send",
+            "message": "post_send"
+          }
+        ]
+      },
+      "requests": [
+        "GET /api/v3/ticker/price"
+      ],
+      "failure": [
+        "Net::ReadTimeout"
+      ]
+    },
+    {
+      "venue": "binance",
+      "name": "not_json",
+      "symbols": [
+        "BTCUSDT"
+      ],
+      "http": {
+        "GET /api/v3/ticker/price": [
+          {
+            "status": 200,
+            "body": "<html>"
+          }
+        ]
+      },
+      "requests": [
+        "GET /api/v3/ticker/price"
+      ],
+      "failure": [
+        "<html>"
+      ]
+    },
+    {
+      "venue": "kucoin",
+      "name": "strings",
+      "symbols": [
+        "BTC-USDT"
+      ],
+      "http": {
+        "GET /api/v1/market/allTickers": [
+          {
+            "status": 200,
+            "body": {
+              "code": "200000",
+              "data": {
+                "time": 1788000000000,
+                "ticker": [
+                  {
+                    "symbol": "BTC-USDT",
+                    "symbolName": "BTC-USDT",
+                    "last": "64000.1"
+                  },
+                  {
+                    "symbol": "ETH-USDT",
+                    "symbolName": "ETH-USDT",
+                    "last": "2500.47"
+                  },
+                  {
+                    "symbol": "DEAD-USDT",
+                    "symbolName": "DEAD-USDT",
+                    "last": "0"
+                  },
+                  {
+                    "symbol": "NEW-USDT",
+                    "symbolName": "NEW-USDT",
+                    "last": null
+                  },
+                  {
+                    "symbol": "BARE-USDT"
+                  },
+                  {
+                    "symbol": "NEG-USDT",
+                    "symbolName": "NEG-USDT",
+                    "last": "-1"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /api/v1/market/allTickers"
+      ],
+      "prices": {
+        "BTC-USDT": "64000.1",
+        "ETH-USDT": "2500.47"
+      }
+    },
+    {
+      "venue": "kucoin",
+      "name": "number_int",
+      "symbols": [
+        "BTC-USDT"
+      ],
+      "http": {
+        "GET /api/v1/market/allTickers": [
+          {
+            "status": 200,
+            "body": {
+              "code": "200000",
+              "data": {
+                "time": 1788000000000,
+                "ticker": [
+                  {
+                    "symbol": "BTC-USDT",
+                    "symbolName": "BTC-USDT",
+                    "last": 64321
+                  },
+                  {
+                    "symbol": "ETH-USDT",
+                    "symbolName": "ETH-USDT",
+                    "last": "2500.47"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /api/v1/market/allTickers"
+      ],
+      "prices": {
+        "BTC-USDT": "64321.0",
+        "ETH-USDT": "2500.47"
+      }
+    },
+    {
+      "venue": "kucoin",
+      "name": "number_big_int",
+      "symbols": [
+        "BTC-USDT"
+      ],
+      "http": {
+        "GET /api/v1/market/allTickers": [
+          {
+            "status": 200,
+            "body": {
+              "code": "200000",
+              "data": {
+                "time": 1788000000000,
+                "ticker": [
+                  {
+                    "symbol": "BTC-USDT",
+                    "symbolName": "BTC-USDT",
+                    "last": 9007199254740993
+                  },
+                  {
+                    "symbol": "ETH-USDT",
+                    "symbolName": "ETH-USDT",
+                    "last": "2500.47"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /api/v1/market/allTickers"
+      ],
+      "prices": {
+        "BTC-USDT": "9007199254740993.0",
+        "ETH-USDT": "2500.47"
+      }
+    },
+    {
+      "venue": "kucoin",
+      "name": "number_float17",
+      "symbols": [
+        "BTC-USDT"
+      ],
+      "http": {
+        "GET /api/v1/market/allTickers": [
+          {
+            "status": 200,
+            "body": {
+              "code": "200000",
+              "data": {
+                "time": 1788000000000,
+                "ticker": [
+                  {
+                    "symbol": "BTC-USDT",
+                    "symbolName": "BTC-USDT",
+                    "last": 1.234567890123457
+                  },
+                  {
+                    "symbol": "ETH-USDT",
+                    "symbolName": "ETH-USDT",
+                    "last": "2500.47"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /api/v1/market/allTickers"
+      ],
+      "prices": {
+        "BTC-USDT": "1.234567890123457",
+        "ETH-USDT": "2500.47"
+      }
+    },
+    {
+      "venue": "kucoin",
+      "name": "number_string17",
+      "symbols": [
+        "BTC-USDT"
+      ],
+      "http": {
+        "GET /api/v1/market/allTickers": [
+          {
+            "status": 200,
+            "body": {
+              "code": "200000",
+              "data": {
+                "time": 1788000000000,
+                "ticker": [
+                  {
+                    "symbol": "BTC-USDT",
+                    "symbolName": "BTC-USDT",
+                    "last": "1.2345678901234567"
+                  },
+                  {
+                    "symbol": "ETH-USDT",
+                    "symbolName": "ETH-USDT",
+                    "last": "2500.47"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /api/v1/market/allTickers"
+      ],
+      "prices": {
+        "BTC-USDT": "1.2345678901234567",
+        "ETH-USDT": "2500.47"
+      }
+    },
+    {
+      "venue": "kucoin",
+      "name": "number_small_float",
+      "symbols": [
+        "BTC-USDT"
+      ],
+      "http": {
+        "GET /api/v1/market/allTickers": [
+          {
+            "status": 200,
+            "body": {
+              "code": "200000",
+              "data": {
+                "time": 1788000000000,
+                "ticker": [
+                  {
+                    "symbol": "BTC-USDT",
+                    "symbolName": "BTC-USDT",
+                    "last": 1e-07
+                  },
+                  {
+                    "symbol": "ETH-USDT",
+                    "symbolName": "ETH-USDT",
+                    "last": "2500.47"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /api/v1/market/allTickers"
+      ],
+      "prices": {
+        "BTC-USDT": "0.0000001",
+        "ETH-USDT": "2500.47"
+      }
+    },
+    {
+      "venue": "kucoin",
+      "name": "number_exponent",
+      "symbols": [
+        "BTC-USDT"
+      ],
+      "http": {
+        "GET /api/v1/market/allTickers": [
+          {
+            "status": 200,
+            "body": {
+              "code": "200000",
+              "data": {
+                "time": 1788000000000,
+                "ticker": [
+                  {
+                    "symbol": "BTC-USDT",
+                    "symbolName": "BTC-USDT",
+                    "last": "1e3"
+                  },
+                  {
+                    "symbol": "ETH-USDT",
+                    "symbolName": "ETH-USDT",
+                    "last": "2500.47"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /api/v1/market/allTickers"
+      ],
+      "prices": {
+        "BTC-USDT": "1000.0",
+        "ETH-USDT": "2500.47"
+      }
+    },
+    {
+      "venue": "kucoin",
+      "name": "number_padded",
+      "symbols": [
+        "BTC-USDT"
+      ],
+      "http": {
+        "GET /api/v1/market/allTickers": [
+          {
+            "status": 200,
+            "body": {
+              "code": "200000",
+              "data": {
+                "time": 1788000000000,
+                "ticker": [
+                  {
+                    "symbol": "BTC-USDT",
+                    "symbolName": "BTC-USDT",
+                    "last": " 5 "
+                  },
+                  {
+                    "symbol": "ETH-USDT",
+                    "symbolName": "ETH-USDT",
+                    "last": "2500.47"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /api/v1/market/allTickers"
+      ],
+      "prices": {
+        "BTC-USDT": "5.0",
+        "ETH-USDT": "2500.47"
+      }
+    },
+    {
+      "venue": "kucoin",
+      "name": "string_abc",
+      "symbols": [
+        "BTC-USDT"
+      ],
+      "http": {
+        "GET /api/v1/market/allTickers": [
+          {
+            "status": 200,
+            "body": {
+              "code": "200000",
+              "data": {
+                "time": 1788000000000,
+                "ticker": [
+                  {
+                    "symbol": "BTC-USDT",
+                    "symbolName": "BTC-USDT",
+                    "last": "abc"
+                  },
+                  {
+                    "symbol": "ETH-USDT",
+                    "symbolName": "ETH-USDT",
+                    "last": "2500.47"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /api/v1/market/allTickers"
+      ],
+      "prices": {
+        "ETH-USDT": "2500.47"
+      }
+    },
+    {
+      "venue": "kucoin",
+      "name": "string_12x",
+      "symbols": [
+        "BTC-USDT"
+      ],
+      "http": {
+        "GET /api/v1/market/allTickers": [
+          {
+            "status": 200,
+            "body": {
+              "code": "200000",
+              "data": {
+                "time": 1788000000000,
+                "ticker": [
+                  {
+                    "symbol": "BTC-USDT",
+                    "symbolName": "BTC-USDT",
+                    "last": "12x"
+                  },
+                  {
+                    "symbol": "ETH-USDT",
+                    "symbolName": "ETH-USDT",
+                    "last": "2500.47"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /api/v1/market/allTickers"
+      ],
+      "prices": {
+        "BTC-USDT": "12.0",
+        "ETH-USDT": "2500.47"
+      }
+    },
+    {
+      "venue": "kucoin",
+      "name": "string_blank",
+      "symbols": [
+        "BTC-USDT"
+      ],
+      "http": {
+        "GET /api/v1/market/allTickers": [
+          {
+            "status": 200,
+            "body": {
+              "code": "200000",
+              "data": {
+                "time": 1788000000000,
+                "ticker": [
+                  {
+                    "symbol": "BTC-USDT",
+                    "symbolName": "BTC-USDT",
+                    "last": ""
+                  },
+                  {
+                    "symbol": "ETH-USDT",
+                    "symbolName": "ETH-USDT",
+                    "last": "2500.47"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /api/v1/market/allTickers"
+      ],
+      "prices": {
+        "ETH-USDT": "2500.47"
+      }
+    },
+    {
+      "venue": "kucoin",
+      "name": "string_infinity",
+      "symbols": [
+        "BTC-USDT"
+      ],
+      "http": {
+        "GET /api/v1/market/allTickers": [
+          {
+            "status": 200,
+            "body": {
+              "code": "200000",
+              "data": {
+                "time": 1788000000000,
+                "ticker": [
+                  {
+                    "symbol": "BTC-USDT",
+                    "symbolName": "BTC-USDT",
+                    "last": "Infinity"
+                  },
+                  {
+                    "symbol": "ETH-USDT",
+                    "symbolName": "ETH-USDT",
+                    "last": "2500.47"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /api/v1/market/allTickers"
+      ],
+      "prices": {
+        "BTC-USDT": "Infinity",
+        "ETH-USDT": "2500.47"
+      }
+    },
+    {
+      "venue": "kucoin",
+      "name": "string_nan",
+      "symbols": [
+        "BTC-USDT"
+      ],
+      "http": {
+        "GET /api/v1/market/allTickers": [
+          {
+            "status": 200,
+            "body": {
+              "code": "200000",
+              "data": {
+                "time": 1788000000000,
+                "ticker": [
+                  {
+                    "symbol": "BTC-USDT",
+                    "symbolName": "BTC-USDT",
+                    "last": "NaN"
+                  },
+                  {
+                    "symbol": "ETH-USDT",
+                    "symbolName": "ETH-USDT",
+                    "last": "2500.47"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /api/v1/market/allTickers"
+      ],
+      "prices": {
+        "ETH-USDT": "2500.47"
+      }
+    },
+    {
+      "venue": "kucoin",
+      "name": "duplicate_symbol",
+      "symbols": [
+        "BTC-USDT"
+      ],
+      "http": {
+        "GET /api/v1/market/allTickers": [
+          {
+            "status": 200,
+            "body": {
+              "code": "200000",
+              "data": {
+                "time": 1788000000000,
+                "ticker": [
+                  {
+                    "symbol": "BTC-USDT",
+                    "symbolName": "BTC-USDT",
+                    "last": "1.5"
+                  },
+                  {
+                    "symbol": "BTC-USDT",
+                    "symbolName": "BTC-USDT",
+                    "last": "0"
+                  },
+                  {
+                    "symbol": "ETH-USDT",
+                    "symbolName": "ETH-USDT",
+                    "last": "2"
+                  },
+                  {
+                    "symbol": "ETH-USDT",
+                    "symbolName": "ETH-USDT",
+                    "last": "3"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /api/v1/market/allTickers"
+      ],
+      "prices": {
+        "BTC-USDT": "1.5",
+        "ETH-USDT": "3.0"
+      }
+    },
+    {
+      "venue": "kucoin",
+      "name": "missing_symbol",
+      "symbols": [
+        "BTC-USDT"
+      ],
+      "http": {
+        "GET /api/v1/market/allTickers": [
+          {
+            "status": 200,
+            "body": {
+              "code": "200000",
+              "data": {
+                "time": 1788000000000,
+                "ticker": [
+                  {
+                    "last": "1"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /api/v1/market/allTickers"
+      ],
+      "raised": "KeyError",
+      "message": "Key path symbol not found"
+    },
+    {
+      "venue": "kucoin",
+      "name": "true_last",
+      "symbols": [
+        "BTC-USDT"
+      ],
+      "http": {
+        "GET /api/v1/market/allTickers": [
+          {
+            "status": 200,
+            "body": {
+              "code": "200000",
+              "data": {
+                "time": 1788000000000,
+                "ticker": [
+                  {
+                    "symbol": "BTC-USDT",
+                    "symbolName": "BTC-USDT",
+                    "last": true
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /api/v1/market/allTickers"
+      ],
+      "raised": "NoMethodError"
+    },
+    {
+      "venue": "kucoin",
+      "name": "hash_last",
+      "symbols": [
+        "BTC-USDT"
+      ],
+      "http": {
+        "GET /api/v1/market/allTickers": [
+          {
+            "status": 200,
+            "body": {
+              "code": "200000",
+              "data": {
+                "time": 1788000000000,
+                "ticker": [
+                  {
+                    "symbol": "BTC-USDT",
+                    "symbolName": "BTC-USDT",
+                    "last": {}
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /api/v1/market/allTickers"
+      ],
+      "raised": "NoMethodError"
+    },
+    {
+      "venue": "kucoin",
+      "name": "row_string",
+      "symbols": [
+        "BTC-USDT"
+      ],
+      "http": {
+        "GET /api/v1/market/allTickers": [
+          {
+            "status": 200,
+            "body": {
+              "code": "200000",
+              "data": {
+                "time": 1788000000000,
+                "ticker": [
+                  "BTC-USDT"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /api/v1/market/allTickers"
+      ],
+      "raised": "NoMethodError"
+    },
+    {
+      "venue": "kucoin",
+      "name": "ticker_hash",
+      "symbols": [
+        "BTC-USDT"
+      ],
+      "http": {
+        "GET /api/v1/market/allTickers": [
+          {
+            "status": 200,
+            "body": {
+              "code": "200000",
+              "data": {
+                "time": 1788000000000,
+                "ticker": {
+                  "symbol": "BTC-USDT"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /api/v1/market/allTickers"
+      ],
+      "raised": "TypeError"
+    },
+    {
+      "venue": "kucoin",
+      "name": "empty",
+      "symbols": [
+        "BTC-USDT"
+      ],
+      "http": {
+        "GET /api/v1/market/allTickers": [
+          {
+            "status": 200,
+            "body": {
+              "code": "200000",
+              "data": {
+                "time": 1788000000000,
+                "ticker": []
+              }
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /api/v1/market/allTickers"
+      ],
+      "prices": {}
+    },
+    {
+      "venue": "kucoin",
+      "name": "no_data",
+      "symbols": [
+        "BTC-USDT"
+      ],
+      "http": {
+        "GET /api/v1/market/allTickers": [
+          {
+            "status": 200,
+            "body": {
+              "code": "400100",
+              "msg": "Too many requests"
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /api/v1/market/allTickers"
+      ],
+      "failure": [
+        "Failed to get KuCoin tickers"
+      ]
+    },
+    {
+      "venue": "kucoin",
+      "name": "null_ticker",
+      "symbols": [
+        "BTC-USDT"
+      ],
+      "http": {
+        "GET /api/v1/market/allTickers": [
+          {
+            "status": 200,
+            "body": {
+              "code": "200000",
+              "data": {
+                "time": 1
+              }
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /api/v1/market/allTickers"
+      ],
+      "failure": [
+        "Failed to get KuCoin tickers"
+      ]
+    },
+    {
+      "venue": "kucoin",
+      "name": "data_string",
+      "symbols": [
+        "BTC-USDT"
+      ],
+      "http": {
+        "GET /api/v1/market/allTickers": [
+          {
+            "status": 200,
+            "body": {
+              "code": "200000",
+              "data": "x"
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /api/v1/market/allTickers"
+      ],
+      "raised": "TypeError"
+    },
+    {
+      "venue": "kucoin",
+      "name": "http_500",
+      "symbols": [
+        "BTC-USDT"
+      ],
+      "http": {
+        "GET /api/v1/market/allTickers": [
+          {
+            "status": 500,
+            "body": {
+              "code": "500000",
+              "msg": "Internal error"
+            }
+          }
+        ]
+      },
+      "requests": [
+        "GET /api/v1/market/allTickers"
+      ],
+      "failure": [
+        "{\"code\":\"500000\",\"msg\":\"Internal error\"}"
+      ]
+    },
+    {
+      "venue": "kucoin",
+      "name": "transport",
+      "symbols": [
+        "BTC-USDT"
+      ],
+      "http": {
+        "GET /api/v1/market/allTickers": [
+          {
+            "network": "pre_send",
+            "message": "pre_send"
+          }
+        ]
+      },
+      "requests": [
+        "GET /api/v1/market/allTickers"
+      ],
+      "failure": [
+        "Connection refused - connect(2)"
+      ]
+    },
+    {
+      "venue": "kucoin",
+      "name": "timeout",
+      "symbols": [
+        "BTC-USDT"
+      ],
+      "http": {
+        "GET /api/v1/market/allTickers": [
+          {
+            "network": "post_send",
+            "message": "post_send"
+          }
+        ]
+      },
+      "requests": [
+        "GET /api/v1/market/allTickers"
+      ],
+      "failure": [
+        "Net::ReadTimeout"
+      ]
+    },
+    {
+      "venue": "kucoin",
+      "name": "not_json",
+      "symbols": [
+        "BTC-USDT"
+      ],
+      "http": {
+        "GET /api/v1/market/allTickers": [
+          {
+            "status": 200,
+            "body": "<html>"
+          }
+        ]
+      },
+      "requests": [
+        "GET /api/v1/market/allTickers"
+      ],
+      "failure": [
+        "<html>"
+      ]
+    }
+  ]
+}

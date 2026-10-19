@@ -159,6 +159,11 @@ impl<T: Transport> KucoinVenue<T> {
     /// Transient on a read and Ambiguous on a placement. A non-2xx answer is its body (Faraday's message when empty); on a
     /// placement only a 4xx, or a placement-safe 400002 whatever its status, is definitive. A 2xx that is not JSON is unreadable.
     async fn call(&self, r: &HttpRequest, placement: bool, limit: usize) -> Result<Value, VenueError> {
+        http::decode_json(&self.answer(r, placement, limit).await?).map_err(|_| unreadable())
+    }
+
+    /// One send as honeymaker's #with_rescue reads it: the 2xx body's text, or the failure.
+    async fn answer(&self, r: &HttpRequest, placement: bool, limit: usize) -> Result<String, VenueError> {
         let redact = |m: String| self.transport.redact_diagnostic(&m);
         let resp = match self.transport.send_limited(r, limit).await {
             Ok(resp) => resp,
@@ -174,7 +179,7 @@ impl<T: Transport> KucoinVenue<T> {
             let definitive = (400..500).contains(&resp.status) || crate::engine::placement::safe_rejection(std::slice::from_ref(&message));
             return Err(if placement && !definitive { VenueError::Ambiguous(message) } else { VenueError::Rejected(vec![message]) });
         }
-        http::decode_json(&resp.body).map_err(|_| unreadable())
+        Ok(resp.body)
     }
 
     async fn get(&self, path: String, query: Vec<(&'static str, String)>, limit: usize) -> Result<Value, VenueError> {
@@ -406,6 +411,39 @@ impl<T: Transport> super::Venue for KucoinVenue<T> {
 
     async fn settled_quote_balance<F>(&self, ticker: &Ticker, _catalog: F) -> Result<BigDec, VenueError>
     where F: FnOnce() -> Result<crate::sync::balances::Catalog, VenueError> { self.available(|code| code == ticker.quote_code).await }
+
+    /// Exchanges::Kucoin#get_tickers_prices: the allTickers read `price(Last)` makes, every `data.ticker` row by its
+    /// `dig_or_raise`d `symbol`, the price `last&.to_d || 0` kept only when positive. No `data.ticker` is Rails' "Failed to
+    /// get KuCoin tickers". DIVERGES on purpose as Binance does (ruby::json_to_d, Q6): a `last` that is no decimal is left
+    /// out, where String#to_d reads "12x" as 12. Rails caches the answer for a minute; this reads fresh. Each price is its
+    /// decimal's `to_s('F')`.
+    async fn tickers_prices(&self, _symbols: &[String]) -> Result<Vec<(String, Value)>, VenueError> {
+        // A 2xx body that is not JSON is honeymaker's Failure (its text), never a raise.
+        let text = self.answer(&self.request("GET", "/api/v1/market/allTickers".into(), vec![], None), false, ALL_TICKERS_LIMIT).await?;
+        let body = match http::decode_json(&text) {
+            Err(http::DecodeError::NotJson) => return Err(VenueError::Rejected(vec![self.transport.redact_diagnostic(&text)])),
+            other => other.map_err(|_| unreadable())?,
+        };
+        let failed = || VenueError::Rejected(vec!["Failed to get KuCoin tickers".into()]);
+        // Hash#dig: a `data` that is not a hash (or a body that is not one) raises.
+        let data = match body.as_object().ok_or_else(unreadable)?.get("data") { None | Some(Value::Null) => return Err(failed()), Some(d) => d };
+        let rows = match data.as_object().ok_or_else(unreadable)?.get("ticker") { None | Some(Value::Null) => return Err(failed()), Some(t) => t };
+        let mut out: Vec<(String, Value)> = vec![];
+        for row in rows.as_array().ok_or_else(unreadable)? {
+            let symbol = super::dig_or_raise(row, "symbol")?.as_str().ok_or_else(unreadable)?.to_string();
+            let price = match &row["last"] {
+                Value::Null => None,
+                v @ (Value::String(_) | Value::Number(_)) => crate::ruby::json_to_d(v).ok().flatten(),
+                _ => return Err(unreadable()),
+            };
+            // `prices_hash[symbol] = price if price.positive?`: a later positive price for the same symbol replaces it.
+            if let Some(p) = price.filter(|p| *p > BigDec::zero()) {
+                out.retain(|(s, _)| *s != symbol);
+                out.push((symbol, Value::String(p.to_s_f())));
+            }
+        }
+        Ok(out)
+    }
 
     /// #cancel_order through Clients::Kucoin#cancel_order: DELETE /api/v1/orders/{id}. A divergence: Rails takes any 2xx as a
     /// cancel; here only the success code is, an error envelope is the venue's refusal.

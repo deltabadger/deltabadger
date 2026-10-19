@@ -109,6 +109,7 @@ module Pages
       end
     end
     more_coins([[kraken, eur], [binance, usdt]]) if scenario['more_coins']
+    kucoin(btc, eth, usdt) if scenario['kucoin_bots']
     keys = scenario.fetch('venue_keys', { 'kraken' => 'correct', 'binance' => 'correct' })
     { 'kraken' => kraken, 'binance' => binance }.each do |name, exchange|
       # The status comes from ApiKey's own list, never straight from scenario data.
@@ -117,6 +118,17 @@ module Pages
 
       ApiKey.create!(user: User.first, exchange:, key: "#{name}-key", secret: 'c2VjcmV0', status:, key_type: :trading)
     end
+  end
+
+  # 'kucoin_bots' => true: KuCoin beside them (plan CB), listing bitcoin and ether in USDT as its symbols read, with the user's key.
+  def kucoin(btc, eth, usdt)
+    kucoin = Exchanges::Kucoin.create!(name: 'KuCoin', maker_fee: '0.1', taker_fee: '0.1')
+    [[btc, 'BTC-USDT', 8, 1, '0.00001'], [eth, 'ETH-USDT', 7, 2, '0.0001']].each do |base_asset, ticker, base_decimals, price_decimals, minimum_base_size|
+      [base_asset, usdt].each { |asset| ExchangeAsset.find_or_create_by!(exchange: kucoin, asset:) }
+      Ticker.create!(exchange: kucoin, base_asset:, quote_asset: usdt, base: base_asset.symbol, quote: 'USDT', ticker:, base_decimals:, quote_decimals: 6,
+                     price_decimals:, minimum_base_size:, minimum_quote_size: '0.1')
+    end
+    ApiKey.create!(user: User.first, exchange: kucoin, key: 'kucoin-key', secret: 'secret', passphrase: 'pass', status: :correct, key_type: :trading)
   end
 
   def asset_id(symbol) = Asset.find_by!(symbol:).id
@@ -146,6 +158,8 @@ module Pages
       { 'quote_asset_id' => asset_id('EUR'), 'quote_amount' => 40, 'interval' => 'day', 'allocations' => { asset_id('BTC').to_s => 0.6, asset_id('ETH').to_s => 0.4 } }
     when 'binance_basket'
       { 'quote_asset_id' => asset_id('USDT'), 'quote_amount' => 30, 'interval' => 'week', 'allocations' => { asset_id('ETH').to_s => 0.6, asset_id('SOL').to_s => 0.4 } }
+    when 'kucoin_basket'
+      { 'quote_asset_id' => asset_id('USDT'), 'quote_amount' => 20, 'interval' => 'day', 'allocations' => { asset_id('BTC').to_s => 0.5, asset_id('ETH').to_s => 0.5 } }
     # Crypto index bots (plan CI): Top coins on Kraken in EUR, Layer 1 on Binance in USDT.
     when 'kraken_index'
       { 'quote_asset_id' => asset_id('EUR'), 'quote_amount' => 30, 'interval' => 'day', 'num_coins' => 2, 'hold_all' => false,
@@ -166,7 +180,7 @@ module Pages
   }.freeze
 
   VENUE_KINDS = { 'kraken' => 'Kraken', 'binance' => 'Binance', 'kraken_basket' => 'Kraken', 'binance_basket' => 'Binance',
-                  'kraken_index' => 'Kraken', 'binance_index' => 'Binance' }.freeze
+                  'kucoin_basket' => 'KuCoin', 'kraken_index' => 'Kraken', 'binance_index' => 'Binance' }.freeze
   # The crypto indices a venue index bot follows, as the syncs store them (Top coins from the image's seed, Layer 1 from
   # CoinGecko), over the venues' own coins.
   CRYPTO_INDICES = { 'top-coins' => ['internal', 'Top Coins', %w[btc eth solana]], 'layer-1' => ['coingecko', 'Layer 1 <L1>', %w[eth solana btc]] }.freeze
@@ -380,6 +394,22 @@ module Pages
                                                                            quote_amount: '15.5', error_messages: ['EOrder:Insufficient funds'])),
               order_row(record, symbol, '2026-09-10T11:00:00Z', pair.merge(external_status: 'open', order_type: 'limit_order', price: '2398.5',
                                                                            amount: '0.0064', amount_exec: '0', quote_amount: nil, quote_amount_exec: '0'))]
+           when 'venue_rebalance_history'
+             # Plan CB T4: a settled swap in the venue's spelling: each member bought, then a rebalance that sold part of the
+             # first (its fee taken in the quote) and bought the second with the proceeds.
+             ids = record.is_a?(Bots::DcaIndex) ? record.bot_index_assets.where(in_index: true).order(:id).limit(2).pluck(:asset_id) : record.settings['allocations'].keys
+             first, second = ids.map do |id|
+               ticker = record.exchange.tickers.find_by!(quote_asset_id: record.quote_asset_id, base_asset_id: id.to_i)
+               [ticker.base_asset.symbol, { base: ticker.base, quote: ticker.quote, base_asset_id: ticker.base_asset_id, quote_asset_id: ticker.quote_asset_id }]
+             end
+             [order_row(record, first[0], '2026-09-08T13:30:01Z', first[1].merge(price: '52000.5', amount: '0.00046', amount_exec: '0.00046',
+                                                                               quote_amount: '24', quote_amount_exec: '23.92023')),
+              order_row(record, second[0], '2026-09-08T13:30:02Z', second[1].merge(price: '2412.37', amount: '0.0066', amount_exec: '0.0066',
+                                                                                quote_amount: '16', quote_amount_exec: '15.921642')),
+              order_row(record, first[0], '2026-09-09T16:30:00Z', first[1].merge(transaction_type: 'REBALANCE', side: 'sell', price: '53000', amount: '0.0001',
+                                                                               amount_exec: '0.0001', quote_amount: nil, quote_amount_exec: '5.2947')),
+              order_row(record, second[0], '2026-09-09T20:30:00Z', second[1].merge(transaction_type: 'REBALANCE', price: '2450.1', amount: '0.00216',
+                                                                                amount_exec: '0.00216', quote_amount: '5.2947', quote_amount_exec: '5.292216'))]
            when 'venue_basket_history'
              # Each member filled on its own ticker, in the venue's spelling; then a failed leg and a limit leg resting.
              first, second = record.settings['allocations'].keys.map do |id|

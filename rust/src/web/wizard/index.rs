@@ -54,7 +54,7 @@ fn configured(c: &Connection, app: &App) -> Result<bool, WebError> { Ok(crate::w
 /// Why this engine would not run an index bot built from the session on a venue of `class`, if it would not: a venue the
 /// engine admits index bots on (eligibility::admission), on a data-api install.
 pub fn refusal(c: &Connection, app: &App, _config: Option<&Value>, class: &str) -> Result<Option<&'static str>, WebError> {
-    if let Some(why) = eligibility::admission(Some(class), true, 0, false) { return Ok(Some(why)) }
+    if let Some(why) = eligibility::admission(Some(class), true, false) { return Ok(Some(why)) }
     if !crate::web::bots::market_data(c, app)?.0 { return Ok(Some("an index bot whose market data comes from CoinGecko")) }
     Ok(None)
 }

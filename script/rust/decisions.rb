@@ -597,6 +597,7 @@ module Decisions
     ExchangeAsset.create!(exchange:, asset:, available: true)
     ticker, pair = case venue
                    when 'kraken', 'binance' then ["#{sym}#{quote.symbol}", VENUE_PAIRS.fetch(venue).fetch(sym)]
+                   when 'kucoin' then ["#{sym}-#{quote.symbol}", VENUE_PAIRS.fetch(venue).fetch(sym)]
                    else ["#{sym}/USD", BASKET_PAIRS.fetch(sym)]
                    end
     Ticker.create!(exchange:, ticker:, base: sym, quote: quote.symbol, base_asset: asset, quote_asset: quote, **pair.symbolize_keys)
@@ -823,16 +824,24 @@ module Decisions
       'BTC' => { 'base_decimals' => 5, 'quote_decimals' => 8, 'price_decimals' => 2, 'minimum_base_size' => '0.00001', 'minimum_quote_size' => '5' },
       'ETH' => { 'base_decimals' => 4, 'quote_decimals' => 8, 'price_decimals' => 2, 'minimum_base_size' => '0.0001', 'minimum_quote_size' => '5' },
       'SOL' => { 'base_decimals' => 3, 'quote_decimals' => 8, 'price_decimals' => 3, 'minimum_base_size' => '0.001', 'minimum_quote_size' => '6' }
+    },
+    # Plan CB: KuCoin's USDT pairs (baseMinSize, quoteMinSize, the increments' decimals).
+    'kucoin' => {
+      'BTC' => { 'base_decimals' => 8, 'quote_decimals' => 6, 'price_decimals' => 1, 'minimum_base_size' => '0.00001', 'minimum_quote_size' => '0.1' },
+      'ETH' => { 'base_decimals' => 7, 'quote_decimals' => 6, 'price_decimals' => 2, 'minimum_base_size' => '0.0001', 'minimum_quote_size' => '0.1' },
+      'SOL' => { 'base_decimals' => 4, 'quote_decimals' => 6, 'price_decimals' => 3, 'minimum_base_size' => '0.01', 'minimum_quote_size' => '0.1' }
     }
   }.freeze
   # [bid, ask, last] per member and venue.
   VENUE_PRICES = {
     'kraken' => { 'BTC' => %w[49990.1 50000.2 49995.3], 'ETH' => %w[2499.75 2500.25 2500.01], 'SOL' => %w[149.875 150.125 150.001] },
     'binance' => { 'BTC' => %w[64000.10000000 64000.11000000 64000.05000000], 'ETH' => %w[2500.50000000 2500.51000000 2500.47000000],
-                   'SOL' => %w[150.12400000 150.12500000 150.12300000] }
+                   'SOL' => %w[150.12400000 150.12500000 150.12300000] },
+    'kucoin' => { 'BTC' => %w[64000.1 64000.2 64000.15], 'ETH' => %w[2500.5 2500.51 2500.47], 'SOL' => %w[150.124 150.125 150.123] }
   }.freeze
   VENUE_TICKER = { 'kraken' => { 'BTC' => 'XBTEUR', 'ETH' => 'ETHEUR', 'SOL' => 'SOLEUR' },
-                   'binance' => { 'BTC' => 'BTCUSDT', 'ETH' => 'ETHUSDT', 'SOL' => 'SOLUSDT' } }.freeze
+                   'binance' => { 'BTC' => 'BTCUSDT', 'ETH' => 'ETHUSDT', 'SOL' => 'SOLUSDT' },
+                   'kucoin' => { 'BTC' => 'BTC-USDT', 'ETH' => 'ETH-USDT', 'SOL' => 'SOL-USDT' } }.freeze
 
   def kr_ticker(pair, bid, ask, last) = { 'error' => [], 'result' => { pair => {
     'a' => [ask, '1', '1.000'], 'b' => [bid, '1', '1.000'], 'c' => [last, '0.001'], 'v' => ['12.5', '30.1'], 'p' => [last, last],
@@ -1840,7 +1849,7 @@ module Decisions
         end
       end
     end
-    list.concat(stock_basket_sell_scenarios(modes))
+    list.concat(stock_basket_sell_scenarios(modes), cb_basket_sell_scenarios(modes, denominations))
   end
 
   # A stock basket selling: the market open (it sells), closed (it parks), and a merged holding (a share may have split:
@@ -1872,6 +1881,189 @@ module Decisions
           'started_at' => STOCK_STARTED, 'settings' => { 'direction' => 'selling', 'sell_denomination' => 'quote', 'sell_quote_amount' => 100.0 }.merge(msettings),
           'transient' => {}, 'transactions' => st.fetch('rows', rows), 'members' => [['AAPL', 0.5], ['MSFT', 0.5]], 'at' => at,
           'script' => { 'alpaca' => http }, 'tick' => true }
+      end
+    end
+  end
+
+  # ---- Plan CB: wider baskets on Kraken (EUR), Binance (USDT) and KuCoin (USDT), valued by each venue's bulk price read
+  # (Exchange#get_tickers_prices), sold at its bid, a member's free amount read from the venue's own balances.
+  CB_VENUES = %w[kraken binance kucoin].freeze
+  CB_SCRIPT = { 'kraken' => 'kraken_http', 'binance' => 'binance', 'kucoin' => 'kucoin' }.freeze
+  # Kraken's own codes in BalanceEx (the gem maps XXBT to XBT, XETH to ETH and ZEUR to EUR) and its bulk Ticker's key for BTC.
+  CB_BALANCE_CODE = { 'kraken' => { 'BTC' => 'XXBT', 'ETH' => 'XETH', 'SOL' => 'SOL', 'EUR' => 'ZEUR' } }.freeze
+  CB_NOT_SENT = {
+    'kraken' => { 'network' => 'kraken_pre_send', 'message' => 'Faraday::ConnectionFailed: Connection refused - connect(2) for "api.kraken.com" port 443' },
+    'binance' => { 'network' => 'binance_pre_send', 'message' => 'Faraday::ConnectionFailed: Connection refused - connect(2) for "api.binance.com" port 443' },
+    'kucoin' => { 'network' => 'kucoin_pre_send', 'message' => 'Faraday::ConnectionFailed: Connection refused - connect(2) for "api.kucoin.com" port 443' }
+  }.freeze
+  CB_QUOTE = { 'kraken' => 'EUR', 'binance' => 'USDT', 'kucoin' => 'USDT' }.freeze
+
+  def cb_pair(venue, sym) = VENUE_TICKER.fetch(venue).fetch(sym)
+  def cb_last(venue, sym) = VENUE_PRICES.fetch(venue).fetch(sym)[2]
+
+  # The bulk price read, every member at its last price unless `last` says otherwise (nil: the venue does not price it;
+  # a Hash: that row as given). Kraken keys BTC as XXBTZEUR, so its XBTEUR is asked again by pair.
+  def cb_bulk(venue, last = {})
+    price = ->(sym) { last.key?(sym) ? last[sym] : cb_last(venue, sym) }
+    priced = %w[BTC ETH SOL].reject { |sym| last.key?(sym) && last[sym].nil? }
+    case venue
+    when 'kraken'
+      rows = priced.to_h do |sym|
+        p = price.(sym)
+        [sym == 'BTC' ? 'XXBTZEUR' : cb_pair(venue, sym), p.is_a?(Hash) ? p : kr_ticker('x', p, p, p)['result']['x']]
+      end
+      { 'GET /0/public/Ticker' => [ok('error' => [], 'result' => rows.merge('ADAEUR' => kr_ticker('x', '0.4', '0.4', '0.4')['result']['x']))] }
+    when 'binance'
+      rows = priced.map { |sym| price.(sym).is_a?(Hash) ? price.(sym) : { 'symbol' => cb_pair(venue, sym), 'price' => price.(sym) } }
+      { 'GET /api/v3/ticker/price' => [ok(rows + [{ 'symbol' => 'ADAUSDT', 'price' => '0.40000000' }])] }
+    else
+      rows = priced.map { |sym| price.(sym).is_a?(Hash) ? price.(sym) : { 'symbol' => cb_pair(venue, sym), 'last' => price.(sym) } }
+      { 'GET /api/v1/market/allTickers' => [kc_ok('time' => 1_788_000_000_000, 'ticker' => rows + [{ 'symbol' => 'ADA-USDT', 'last' => '0.4' }])] }
+    end
+  end
+
+  # Each member's book (its bid prices a sell, its ask a buy) and last price, by pair. On Kraken the same reply answers
+  # the bulk read's fallback for XBTEUR; `unknown` answers a member as a pair the venue does not know.
+  def cb_books(venue, unknown: [])
+    VENUE_PRICES.fetch(venue).flat_map do |sym, (bid, ask, last)|
+      pair = cb_pair(venue, sym)
+      gone = unknown.include?(sym)
+      case venue
+      when 'kraken' then [["GET /0/public/Ticker?pair=#{pair}", [ok(gone ? { 'error' => ['EQuery:Unknown asset pair'] } : kr_ticker(pair, bid, ask, last))]]]
+      when 'binance'
+        bad = bn_fail(400, -1121, 'Invalid symbol.')
+        [["GET /api/v3/ticker/bookTicker?symbol=#{pair}", [gone ? bad : ok('symbol' => pair, 'bidPrice' => bid, 'bidQty' => '1.5', 'askPrice' => ask, 'askQty' => '0.2')]],
+         ["GET /api/v3/ticker/price?symbol=#{pair}", [gone ? bad : ok('symbol' => pair, 'price' => last)]]]
+      else [["GET /api/v1/market/orderbook/level2_20?symbol=#{pair}", [gone ? ok('code' => '400100', 'msg' => 'symbol not exists') : kc_book(ask, bid:)]]]
+      end
+    end.to_h
+  end
+
+  # The venue's balances: each member's free amount, and the quote's.
+  def cb_balances(venue, free, quote: '100000')
+    all = free.merge(CB_QUOTE.fetch(venue) => quote)
+    case venue
+    when 'kraken'
+      code = CB_BALANCE_CODE.fetch('kraken')
+      { 'POST /0/private/BalanceEx' => [ok('error' => [], 'result' => all.to_h { |sym, q| [code.fetch(sym, sym), { 'balance' => q, 'hold_trade' => '0' }] })] }
+    when 'binance'
+      { 'GET /api/v3/account' => [ok('makerCommission' => 10, 'canTrade' => true, 'balances' => all.map { |sym, q| { 'asset' => sym, 'free' => q, 'locked' => '0' } })] }
+    else
+      { 'GET /api/v1/accounts' => [kc_ok(all.map { |sym, q| { 'id' => sym.downcase, 'currency' => sym, 'type' => 'trade', 'balance' => q, 'available' => q, 'holds' => '0' } })] }
+    end
+  end
+
+  # The n-th order the venue accepts, by its own id.
+  def cb_placed(venue, n)
+    case venue
+    when 'kraken' then ok('error' => [], 'result' => { 'txid' => ["OTX-#{n}"] })
+    when 'binance' then ok('symbol' => 'BTCUSDT', 'orderId' => 28_456 + n, 'orderListId' => -1, 'clientOrderId' => 'x', 'transactTime' => 1_788_000_000_000)
+    else kc_ok('orderId' => "6716f0a2c1b6d10007a3b1c#{n}")
+    end
+  end
+
+  def cb_place_key(venue) = { 'kraken' => 'POST /0/private/AddOrder', 'binance' => 'POST /api/v3/order', 'kucoin' => 'POST /api/v1/orders' }.fetch(venue)
+
+  # A refusal of the placement as each venue words one.
+  def cb_rejected(venue)
+    case venue
+    when 'kraken' then ok('error' => ['EOrder:Insufficient funds'])
+    when 'binance' then bn_fail(400, -2010, 'Account has insufficient balance for requested action.')
+    else kc_err(400, '200004', 'Balance insufficient!')
+    end
+  end
+
+  # What a tick reads beside prices, balances and placements: no open orders, no trades.
+  def cb_quiet(venue)
+    case venue
+    when 'kraken'
+      { 'POST /0/private/QueryOrders' => [ok(query_body({}))], 'POST /0/private/TradesHistory' => [ok('error' => [], 'result' => { 'trades' => {}, 'count' => 0 })] }
+    when 'binance' then { 'GET /api/v3/allOrders' => [ok([])], 'GET /api/v3/myTrades' => [ok([])] }
+    else { 'GET /api/v1/fills' => [kc_fills([])] }
+    end
+  end
+
+  def cb_http(venue, free, last: {}, unknown: [], quote: '100000')
+    { cb_place_key(venue) => (1..6).map { |n| cb_placed(venue, n) } }.merge(cb_quiet(venue), cb_books(venue, unknown:), cb_balances(venue, free, quote:),
+                                                                         cb_bulk(venue, last))
+  end
+
+  # A closed buy that left `qty` of the member, at its ask.
+  def cb_held(venue, n, sym, qty, **extra)
+    ask = VENUE_PRICES.fetch(venue).fetch(sym)[1].to_d
+    { 'asset' => sym, 'status' => 0, 'external_status' => 2, 'external_id' => "OHELD-#{n}", 'order_type' => 0, 'amount' => qty, 'amount_exec' => qty,
+      'quote_amount' => (qty.to_d * ask).to_s('F'), 'quote_amount_exec' => (qty.to_d * ask).to_s('F'), 'price' => ask.to_s('F'),
+      'created_at' => '2026-09-01 10:00:01' }.merge(extra)
+  end
+
+  # The venue's id for a resting sell row and its open answer to the tick's sweep.
+  def cb_resting(venue, sym, qty, price)
+    pair = cb_pair(venue, sym)
+    case venue
+    when 'kraken'
+      ['OREST-1', { 'POST /0/private/QueryOrders' => [ok(query_body('OREST-1' => { 'status' => 'open', 'vol' => qty, 'vol_exec' => '0', 'cost' => '0', 'price' => '0',
+                                                                                   'oflags' => '', 'descr' => { 'pair' => pair, 'type' => 'sell', 'ordertype' => 'limit', 'price' => price } }))] }]
+    when 'binance'
+      ["#{pair}-30001", { 'GET /api/v3/allOrders' => [ok([bn_order(30_001, 'NEW', type: 'LIMIT', price:, qty:).merge('symbol' => pair, 'side' => 'SELL')])] }]
+    else
+      id = '6716f0a2c1b6d10007a3b0e1'
+      [id, { "GET /api/v1/orders/#{id}" => [kc_ok(kc_order(id, active: true, type: 'limit', price:, size: qty, funds: '0').merge('symbol' => pair, 'side' => 'sell'))] }]
+    end
+  end
+
+  # T3: a wider basket's ranked DCA-out (get_sell_orders_data) on each crypto venue.
+  def cb_basket_sell_scenarios(modes, denominations)
+    holdings = { 'w50' => { 'BTC' => '0.01', 'ETH' => '0.02' }, 'tiers' => { 'BTC' => '0.01', 'ETH' => '0.02', 'SOL' => '0.1' } }
+    unreadable = { 'kraken' => { 'ETH' => kr_ticker('x', 'x', 'x', 'x')['result']['x'] }, 'binance' => { 'ETH' => 'abc' }, 'kucoin' => { 'ETH' => '12x' } }
+    raised = { 'kraken' => { 'ETH' => { 'a' => %w[1 1 1] } }, 'binance' => { 'ETH' => { 'symbol' => 'ETHUSDT' } }, 'kucoin' => { 'ETH' => { 'last' => '2500.47' } } }
+    stale = { 'kraken' => ok('error' => ['EService:Unavailable']), 'binance' => bn_fail(503, -1001, 'Internal error; unable to process your request. Please try again.'),
+              'kucoin' => ok('code' => '400100', 'msg' => 'Too many requests') }
+    bulk_key = { 'kraken' => 'GET /0/public/Ticker', 'binance' => 'GET /api/v3/ticker/price', 'kucoin' => 'GET /api/v1/market/allTickers' }
+    CB_VENUES.flat_map do |venue|
+      floor = { 'kraken' => 0.5, 'binance' => 0.5, 'kucoin' => 0.05 }.fetch(venue)
+      WEIGHTS.slice('w50', 'tiers').flat_map do |w, weights|
+        qty = holdings.fetch(w)
+        rows = qty.each_with_index.map { |(sym, q), i| cb_held(venue, i + 1, sym, q) }
+        rest_id, rest_http = cb_resting(venue, 'BTC', '0.009', '65000')
+        resting = { 'asset' => 'BTC', 'status' => 0, 'external_status' => 1, 'external_id' => rest_id, 'order_type' => 1, 'side' => 1, 'amount' => '0.009',
+                    'price' => '65000', 'amount_exec' => '0', 'quote_amount_exec' => '0', 'created_at' => '2026-09-01 10:00:02' }
+        # The prices of a tie: every member worth 100 of the quote.
+        tie_last = { 'BTC' => '50000', 'ETH' => '2500', 'SOL' => '125' }
+        tie_qty = { 'BTC' => '0.002', 'ETH' => '0.04', 'SOL' => '0.8' }
+        states = {
+          'over_top' => {},
+          # (Kraken prices XBTEUR by its pair, the bulk read naming it XXBTZEUR.)
+          'tie' => { 'rows' => qty.keys.each_with_index.map { |sym, i| cb_held(venue, i + 1, sym, tie_qty.fetch(sym)) }, 'free' => qty.keys.to_h { |sym| [sym, '10'] },
+                     'last' => tie_last.slice(*qty.keys),
+                     'http' => venue == 'kraken' ? { 'GET /0/public/Ticker?pair=XBTEUR' => [ok(kr_ticker('XBTEUR', '49990.1', '50000.2', '50000'))] } : {} },
+          'resting_top' => { 'rows' => rows + [resting], 'http' => rest_http },
+          'free_below' => { 'free' => qty.merge('BTC' => '0.001') },
+          'floor_handover' => { 'free' => qty.merge('BTC' => '0.000001') },
+          'all_under_floor' => { 'settings' => { 'sell_quote_amount' => floor } },
+          'unpriced_member' => venue == 'kucoin' ? { 'last' => { 'ETH' => nil } } : { 'last' => { 'ETH' => nil }, 'unknown' => ['ETH'] },
+          'unreadable_price' => { 'last' => unreadable.fetch(venue) },
+          'raised_price' => { 'last' => raised.fetch(venue) },
+          'stale_feed' => { 'http' => { bulk_key.fetch(venue) => [stale.fetch(venue)] } },
+          'feed_unreachable' => { 'http' => { bulk_key.fetch(venue) => [CB_NOT_SENT.fetch(venue)] } },
+          'no_holdings' => { 'rows' => [] },
+          'rejected' => { 'http' => { cb_place_key(venue) => [cb_rejected(venue)] } },
+          # A sell cancelled after selling part of BTC: the rest is still held, and the ranking reads the ledger as it is now.
+          'cancelled_partial_sell' => { 'rows' => rows + [cb_held(venue, 8, 'BTC', '0.004', 'side' => 1, 'external_status' => 3, 'external_id' => 'OCAN-1',
+                                                                 'amount' => '0.008', 'quote_amount' => nil)] }
+        }
+        states.flat_map do |state, st|
+          modes.flat_map do |mode, msettings|
+            denominations.filter_map do |denom, dsettings|
+              next if denom == 'base' && !%w[over_top no_holdings stale_feed].include?(state)
+
+              settings = { 'direction' => 'selling' }.merge(dsettings, msettings, st.fetch('settings', {}))
+              http = cb_http(venue, st.fetch('free', qty), last: st.fetch('last', {}), unknown: st.fetch('unknown', [])).merge(st.fetch('http', {}))
+              { 'name' => "basket-sell-#{venue}-#{w}-#{state}-#{denom}-#{mode}", 'venue' => venue, 'interval' => 'day', 'quote_amount' => 60.0,
+                'started_at' => BASKET_STARTED, 'settings' => settings, 'settings_changed_at' => nil, 'transient' => {}, 'transactions' => st.fetch('rows', rows),
+                'ticker' => VENUE_PAIRS.fetch(venue)['BTC'], 'members' => weights, 'at' => basket_at(1), 'script' => { CB_SCRIPT.fetch(venue) => http }, 'tick' => true }
+            end
+          end
+        end
       end
     end
   end
@@ -1952,6 +2144,204 @@ module Decisions
       end
     end
     list << index_rebalance_scenario
+    list.concat(cb_rebalance_scenarios, cb_index_rebalance_scenarios)
+  end
+
+  # Plan CB T4: a stopped Layer 1 index bot on each crypto venue whose third member left the index (in_index false, still
+  # held): the exited holding is outside the arithmetic, and the swap is valued by the venue's bulk price read (Kraken's
+  # names BTC XXBTZEUR, so XBTEUR is asked again by pair).
+  def cb_index_rebalance_scenarios
+    fire = (Time.iso8601(VI_STARTED) + 1.day + 2.hours + 30.minutes).iso8601(6)
+    CB_VENUES.map do |venue|
+      ranked = vi_ranked(venue, VI_L1)
+      steady = vi_steady(ranked)
+      held = ranked.first(3).zip([300.0, 200.0, 100.0]).map { |sym, v| vi_held(venue, sym, v) }
+      last = VI_PRICES.fetch(VI_QUOTE.fetch(venue)).to_h { |sym, (_ask, l)| [sym, l] }
+      bulk = case venue
+             when 'kraken'
+               { 'GET /0/public/Ticker' => [ok('error' => [], 'result' => last.to_h do |sym, l|
+                 [sym == 'BTC' ? 'XXBTZEUR' : vi_ticker(venue, sym), vi_kraken_ticker('x', l, l)['result']['x']]
+               end)] }
+             else {}
+             end
+      # The third ranked coin left Layer 1 for the fourth, which the refresh brings in unheld.
+      swapped = VI_L1.dup.tap { |l| l[2], l[3] = l[3], l[2] }
+      free = held.to_h { |row| [row['symbol'], row['amount']] }
+      venue_index(venue, 'category', 'rebalance_exited', at: fire, members: steady[0..1] + [[steady[2][0], steady[2][1], false]], transactions: held,
+                  l1: swapped, settings: { 'rebalance_enabled' => true }, status: 'stopped', tick: false, rebalance_at: [fire],
+                  over: bulk.merge(cb_balances(venue, free)))
+        .merge('name' => "rebalance-#{venue}-index-exited_member")
+    end
+  end
+
+  # ---- Plan CB T4: threshold rebalancing on a stopped Kraken, Binance or KuCoin basket, fire by fire. ----
+
+  # The venue's id for its n-th accepted order (cb_placed), as Rails stores it.
+  def cb_ext(venue, n, sym)
+    case venue
+    when 'kraken' then "OTX-#{n}"
+    when 'binance' then "#{cb_pair(venue, sym)}-#{28_456 + n}"
+    else "6716f0a2c1b6d10007a3b1c#{n}"
+    end
+  end
+
+  # One order as the venue answers a read of it: `status` open, closed or cancelled; `filled` base and `quote` executed.
+  def cb_order(venue, n, sym, side, status, qty:, filled:, quote:, price:, fee: '0')
+    pair = cb_pair(venue, sym)
+    buy = side == 'buy'
+    case venue
+    when 'kraken'
+      { 'status' => { 'cancelled' => 'canceled' }.fetch(status, status), 'vol' => buy ? quote : qty, 'vol_exec' => filled, 'cost' => quote, 'fee' => fee,
+        'price' => price, 'oflags' => buy ? 'viqc' : '', 'descr' => { 'pair' => pair, 'type' => side, 'ordertype' => 'market', 'price' => '0' } }
+    when 'binance'
+      bn_order(28_456 + n, { 'open' => 'NEW', 'closed' => 'FILLED', 'cancelled' => 'CANCELED' }.fetch(status), executed: filled, cumulative: quote,
+               qty: buy ? '0.00000000' : qty, quote: buy ? quote : '0.00000000').merge('symbol' => pair, 'side' => side.upcase)
+    else
+      kc_order(cb_ext(venue, n, sym), active: status == 'open', cancel: status == 'cancelled', deal_size: filled, deal_funds: quote,
+               size: buy ? '0' : qty, funds: buy ? quote : '0').merge('symbol' => pair, 'side' => side, 'fee' => fee)
+    end
+  end
+
+  # The reads that refresh the swap's orders, in the order the fires ask for them: `orders` is a list of
+  # [n, sym, side, status, qty, filled, quote, price, fee, trades]; Binance's trades are [price, qty, commission, asset].
+  def cb_order_reads(venue, orders)
+    case venue
+    when 'kraken'
+      { 'POST /0/private/QueryOrders' => [ok(query_body(orders.to_h do |n, sym, side, status, qty, filled, quote, price, fee, _|
+        [cb_ext(venue, n, sym), cb_order(venue, n, sym, side, status, qty:, filled:, quote:, price:, fee:)]
+      end))] }
+    when 'binance'
+      trades = orders.reject { |o| o[5].to_d.zero? }.map do |n, sym, side, _, _, _, _, _, _, list|
+        ok(list.each_with_index.map do |(price, qty, commission, asset), i|
+          bn_trade(i + 1, 28_456 + n, price, qty, commission:, asset:, buyer: side == 'buy').merge('symbol' => cb_pair(venue, sym))
+        end)
+      end
+      { 'GET /api/v3/order' => orders.map { |n, sym, side, status, qty, filled, quote, price, fee, _| ok(cb_order(venue, n, sym, side, status, qty:, filled:, quote:, price:, fee:)) },
+        'GET /api/v3/myTrades' => trades.presence || [ok([])] }
+    else
+      orders.to_h do |n, sym, side, status, qty, filled, quote, price, fee, _|
+        ["GET /api/v1/orders/#{cb_ext(venue, n, sym)}", [kc_ok(cb_order(venue, n, sym, side, status, qty:, filled:, quote:, price:, fee:))]]
+      end
+    end
+  end
+
+  def cb_rebalance_scenarios
+    fires = (1..3).map { |k| (Time.iso8601(BASKET_STARTED).beginning_of_day + 12.hours + 30.minutes + (4 * (k - 1)).hours).iso8601(6) }
+    holdings = { 'w50' => { 'BTC' => '0.01', 'ETH' => '0.04' }, 'tiers' => { 'BTC' => '0.01', 'ETH' => '0.04', 'SOL' => '0.02' } }
+    buy_sym = { 'w50' => 'ETH', 'tiers' => 'SOL' }
+    owed = { 'rebalance_pending' => { 'phase' => 'buying', 'sell_transaction_id' => nil, 'buy_transaction_id' => nil,
+                                      'remaining_quote_amount' => '120.0', 'buy_attempted' => false } }
+    unreadable = { 'kraken' => { 'ETH' => kr_ticker('x', 'x', 'x', 'x')['result']['x'] }, 'binance' => { 'ETH' => 'abc' }, 'kucoin' => { 'ETH' => '12x' } }
+    raised = { 'kraken' => { 'ETH' => { 'a' => %w[1 1 1] } }, 'binance' => { 'ETH' => { 'symbol' => 'ETHUSDT' } }, 'kucoin' => { 'ETH' => { 'last' => '2500.47' } } }
+    five_xx = { 'kraken' => { 'status' => 503, 'body' => { 'error' => ['EService:Unavailable'] } },
+                'binance' => bn_fail(502, -1001, 'Internal error; unable to process your request. Please try again.'),
+                'kucoin' => { 'status' => 503, 'body' => { 'code' => '500000', 'msg' => 'Internal Server Error' } } }
+    no_id = { 'kraken' => ok('error' => [], 'result' => { 'descr' => { 'order' => 'sell' } }), 'binance' => ok('symbol' => 'BTCUSDT', 'orderListId' => -1),
+              'kucoin' => kc_ok({}) }
+    # A placement the venue refused before trading (Exchange::PLACEMENT_SAFE_TRANSIENT_ERRORS), and one whose outcome it leaves unknown.
+    safe = { 'binance' => bn_fail(400, -1021, BN_1021), 'kucoin' => kc_err(400, '400002', 'Invalid KC-API-TIMESTAMP') }
+    unknown = { 'kraken' => ok('error' => ['EService:Busy']), 'kucoin' => kc_err(200, '500000', 'Internal Server Error') }
+    CB_VENUES.flat_map do |venue|
+      bid = ->(sym) { VENUE_PRICES.fetch(venue).fetch(sym)[0] }
+      ask = ->(sym) { VENUE_PRICES.fetch(venue).fetch(sym)[1] }
+      WEIGHTS.slice('w50', 'tiers').flat_map do |w, weights|
+        qty = holdings.fetch(w)
+        rows = qty.each_with_index.map { |(sym, q), i| cb_held(venue, i + 1, sym, q) }
+        b = buy_sym.fetch(w)
+        # The sell: 0.004 BTC at its bid; Binance's proceeds net of a quote commission.
+        sell_quote = (BigDecimal('0.004') * bid.('BTC').to_d).round(2).to_s('F')
+        sell = lambda do |status, filled = '0.004', quote = sell_quote, fee: '0', trades: nil|
+          [1, 'BTC', 'sell', status, '0.004', filled, quote, filled.to_d.zero? ? '0' : bid.('BTC'), fee, trades || [[bid.('BTC'), filled, '0', 'BNB']]]
+        end
+        buy = lambda do |n, status, quote, fee: '0', trades: nil|
+          filled = (quote.to_d / ask.(b).to_d).round(4).to_s('F')
+          [n, b, 'buy', status, '0', filled, quote, filled.to_d.zero? ? '0' : ask.(b), fee, trades || [[ask.(b), filled, '0', 'BNB']]]
+        end
+        half = (sell_quote.to_d / 2).round(2).to_s('F')
+        resting_buy = { 'asset' => 'BTC', 'status' => 0, 'external_status' => 1, 'external_id' => cb_ext(venue, 9, 'BTC'), 'order_type' => 1, 'amount' => '0.001',
+                        'price' => '60000', 'amount_exec' => '0', 'quote_amount_exec' => '0', 'created_at' => '2026-09-01 10:00:02' }
+        states = {
+          'swap' => { 'fires' => 3, 'orders' => [sell.('closed'), buy.(2, 'closed', sell_quote)] },
+          'under_threshold' => { 'fires' => 1, 'settings' => { 'rebalance_threshold' => 0.5 } },
+          'rule_off' => { 'fires' => 1, 'settings' => { 'rebalance_enabled' => false } },
+          'selling' => { 'fires' => 1, 'settings' => { 'direction' => 'selling', 'sell_denomination' => 'quote', 'sell_quote_amount' => 10.0 } },
+          'resting_sell' => { 'fires' => 2, 'orders' => [sell.('open', '0', '0')] },
+          'cancelled_partial_sell' => { 'fires' => 2, 'orders' => [sell.('cancelled', '0.002', (sell_quote.to_d / 2).round(2).to_s('F'))] },
+          'nothing_sold' => { 'fires' => 2, 'orders' => [sell.('cancelled', '0', '0')] },
+          'partial_buy' => { 'fires' => 3, 'orders' => [sell.('closed'), buy.(2, 'cancelled', half)] },
+          'open_buy' => { 'fires' => 1, 'rows' => rows + [resting_buy],
+                          'orders' => [[9, 'BTC', 'buy', 'open', '0.001', '0', '0', '0', '0', []]] },
+          'sell_below_minimum' => { 'fires' => 1, 'tickers_after' => { 'BTC' => { 'minimum_quote_size' => '5000', 'minimum_base_size' => '1' } } },
+          'buy_below_minimum' => { 'fires' => 2, 'orders' => [sell.('closed')], 'quote' => '0.01' },
+          'buy_capped' => { 'fires' => 2, 'orders' => [sell.('closed')], 'quote' => '150' },
+          'rejected' => { 'fires' => 1, 'http' => { cb_place_key(venue) => [cb_rejected(venue)] } },
+          'server_error' => { 'fires' => 1, 'http' => { cb_place_key(venue) => [five_xx.fetch(venue)] } },
+          'post_send' => { 'fires' => 1, 'http' => { cb_place_key(venue) => [POST_SEND] } },
+          'no_order_id' => { 'fires' => 1, 'http' => { cb_place_key(venue) => [no_id.fetch(venue)] } },
+          'owed_buy' => { 'fires' => 1, 'settings' => { 'rebalance_enabled' => false }, 'transient' => owed },
+          'unreadable_price' => { 'fires' => 1, 'last' => unreadable.fetch(venue) },
+          'raised_price' => { 'fires' => 1, 'last' => raised.fetch(venue) },
+          'unpriced_member' => { 'fires' => 1, 'last' => { 'ETH' => nil }, 'unknown' => venue == 'kucoin' ? [] : ['ETH'] }
+        }
+        # The takeover group: swap states Rails wrote, as its own crash windows and its halt resolution (R0) leave them.
+        pending = lambda do |phase, sell: nil, buy: nil, rem: nil, attempted: false|
+          { 'rebalance_pending' => { 'phase' => phase, 'sell_transaction_id' => sell, 'buy_transaction_id' => buy, 'remaining_quote_amount' => rem,
+                                     'buy_attempted' => attempted } }
+        end
+        swap_row = lambda do |n, sym, side, status, filled, quote, price|
+          { 'asset' => sym, 'status' => 0, 'external_status' => { 'closed' => 2, 'cancelled' => 3 }.fetch(status), 'external_id' => cb_ext(venue, n, sym),
+            'order_type' => 0, 'side' => side == 'sell' ? 1 : 0, 'transaction_type' => 'REBALANCE', 'amount' => side == 'sell' ? '0.004' : nil,
+            'quote_amount' => side == 'buy' ? '80' : nil, 'amount_exec' => filled, 'quote_amount_exec' => quote, 'price' => price, 'created_at' => '2026-09-01 12:00:00' }
+        end
+        sell_id = rows.size + 1
+        buy_qty = (BigDecimal('40') / ask.(b).to_d).round(4).to_s('F')
+        states['takeover_sell_no_id'] = { 'fires' => 1, 'transient' => pending.('selling') }
+        states['takeover_buy_attempted_no_id'] = { 'fires' => 1, 'transient' => pending.('buying', rem: '120.0', attempted: true) }
+        states['takeover_buy_not_attempted'] = { 'fires' => 1, 'transient' => pending.('buying', rem: '120.0') }
+        # R0: a resolved halt that named a cancelled buy which filled 40 of the 80 owed: only the remainder is bought.
+        states['takeover_partial_buy'] = { 'fires' => 1, 'rows' => rows + [swap_row.(7, 'BTC', 'sell', 'closed', '0.004', sell_quote, bid.('BTC')),
+                                                                           swap_row.(8, b, 'buy', 'cancelled', buy_qty, '40', ask.(b))],
+                                           'transient' => pending.('buying', sell: sell_id, buy: sell_id + 1, rem: '80.0', attempted: true),
+                                           'orders' => [[8, b, 'buy', 'cancelled', '0', buy_qty, '40', ask.(b), '0', [[ask.(b), buy_qty, '0', 'BNB']]]] }
+        # R0: a resolved halt that named a sell which filled: its proceeds are owed to the buy leg.
+        states['takeover_resolved_sell'] = { 'fires' => 1, 'rows' => rows + [swap_row.(7, 'BTC', 'sell', 'closed', '0.004', sell_quote, bid.('BTC'))],
+                                             'transient' => pending.('selling', sell: sell_id),
+                                             'orders' => [[7, 'BTC', 'sell', 'closed', '0.004', '0.004', sell_quote, bid.('BTC'), '0', [[bid.('BTC'), '0.004', '0', 'BNB']]]] }
+        # A closed sell whose proceeds were never read, and the refresh fails: the swap waits for them, and trades nothing.
+        read_fails = { 'kraken' => { 'POST /0/private/QueryOrders' => [ok('error' => ['EService:Unavailable'])] },
+                       'binance' => { 'GET /api/v3/order' => [bn_fail(503, -1001, 'Internal error; unable to process your request. Please try again.')] },
+                       'kucoin' => { "GET /api/v1/orders/#{cb_ext(venue, 7, 'BTC')}" => [kc_err(503, '500000', 'Internal Server Error')] } }
+        states['takeover_proceeds_unknown'] = { 'fires' => 1, 'rows' => rows + [swap_row.(7, 'BTC', 'sell', 'closed', nil, nil, nil)],
+                                                'transient' => pending.('selling', sell: sell_id), 'http' => read_fails.fetch(venue) }
+        states['safe_rejection'] = { 'fires' => 1, 'http' => { cb_place_key(venue) => [safe.fetch(venue)] } } if safe.key?(venue)
+        states['unknown_text'] = { 'fires' => 1, 'http' => { cb_place_key(venue) => [unknown.fetch(venue)] } } if unknown.key?(venue)
+        # Fees: the owed buy is the sell's recorded proceeds (gross on Kraken and KuCoin, net of a Binance quote commission);
+        # a partial buy owes the remainder of what it recorded.
+        fee_cases = if venue == 'binance'
+                      { 'quote' => ['0.27', 'USDT'], 'base' => ['0.000004', 'BTC'], 'bnb' => ['0.0005', 'BNB'] }
+                    else { 'quote' => ['0.27', CB_QUOTE.fetch(venue)] }
+                    end
+        fee_cases.each do |kind, (c, asset)|
+          sell_trades = [[bid.('BTC'), '0.004', c, asset]]
+          buy_c = asset == 'BTC' ? '0.00001' : c
+          buy_asset = asset == 'BTC' ? b : asset
+          half_qty = (half.to_d / ask.(b).to_d).round(4).to_s('F')
+          fee = venue == 'binance' ? '0' : c
+          states["fee_#{kind}_swap"] = { 'fires' => 2, 'orders' => [sell.('closed', fee:, trades: sell_trades)] }
+          states["fee_#{kind}_partial_buy"] = { 'fires' => 3, 'orders' => [sell.('closed', fee:, trades: sell_trades),
+                                                                         buy.(2, 'cancelled', half, fee:, trades: [[ask.(b), half_qty, buy_c, buy_asset]])] }
+        end
+        states.map do |state, st|
+          http = cb_http(venue, qty, last: st.fetch('last', {}), unknown: st.fetch('unknown', []), quote: st.fetch('quote', '100000'))
+                 .merge(cb_order_reads(venue, st.fetch('orders', [])), st.fetch('http', {}))
+          { 'name' => "rebalance-#{venue}-#{w}-#{state}", 'venue' => venue, 'interval' => 'day', 'quote_amount' => 60.0, 'started_at' => BASKET_STARTED,
+            'settings' => { 'rebalance_enabled' => true }.merge(st.fetch('settings', {})), 'settings_changed_at' => nil, 'transient' => st.fetch('transient', {}),
+            'transactions' => st.fetch('rows', rows), 'ticker' => VENUE_PAIRS.fetch(venue)['BTC'], 'members' => weights, 'at' => fires.first,
+            'script' => { CB_SCRIPT.fetch(venue) => http }, 'tick' => false, 'rebalance_at' => fires.first(st.fetch('fires')),
+            'tickers_after' => st['tickers_after'], 'bot_columns' => { 'status' => Bot.statuses[:stopped] } }
+        end
+      end
+    end
   end
 
   # A stopped index bot whose CCC left the index (in_index false, 0.5 still held) and stays out (top_coins AAA BBB DDD): the

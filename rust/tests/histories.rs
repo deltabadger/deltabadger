@@ -214,9 +214,6 @@ async fn every_remaining_eligibility_branch_has_a_named_witness() {
         ("UPDATE bots SET type='Bots::DcaIndex'","configured deltabadger market-data provider"),
         ("UPDATE bots SET type='Bots::DcaIndex',settings=json_set(settings,'$.direction','selling'); UPDATE exchanges SET type='Exchanges::Kraken'","an index bot that sells"),
         ("UPDATE bots SET type='Bots::DcaIndex',settings=json_set(settings,'$.direction','selling')","an index bot that sells"),
-        // A wider basket sells and rebalances on Alpaca only (6b); on Kraken and Binance both stay refused.
-        ("UPDATE exchanges SET type='Exchanges::Kraken'; UPDATE bots SET settings=json_set(settings,'$.direction','selling')","a basket of several assets that sells"),
-        ("UPDATE exchanges SET type='Exchanges::Kraken'; UPDATE bots SET settings=json_set(settings,'$.rebalance_enabled',json('true'))","rebalance_enabled"),
         ("UPDATE bots SET type='Bots::DcaIndex'; UPDATE assets SET symbol='EUR' WHERE symbol='USD'","quote EUR"),
         ("UPDATE bots SET type='Bots::DcaIndex'","index_type"),
         ("UPDATE bots SET type='Bots::DcaIndex'","num_coins is not a positive integer"),
