@@ -514,7 +514,8 @@ fn ticker_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<Ticker> {
 }
 
 fn one_ticker(c: &Connection, filter: &str, p: impl rusqlite::Params) -> Result<Option<Ticker>, EngineError> {
-    Ok(c.query_row(&format!("{TICKER_SELECT} WHERE {filter}"), p, ticker_row).optional()?)
+    // Cached: eligibility asks once per member of every bot, on every pass and every guarded write.
+    Ok(c.prepare_cached(&format!("{TICKER_SELECT} WHERE {filter}"))?.query_row(p, ticker_row).optional()?)
 }
 
 /// The first allocation's ticker: this venue, that asset, the bot's quote asset (Bots::DcaMultiAsset#set_tickers).
@@ -887,10 +888,14 @@ pub fn quote_symbol(c: &Connection, bot: &Bot) -> Result<String, EngineError> {
 /// Read from the assets, whatever their tickers' availability: a crypto bot whose ticker went untradable stays all crypto
 /// (Plan 2b's `untradable_clock_closed` ruling), where Rails' empty ticker list is not.
 pub fn all_crypto(c: &Connection, bot: &Bot) -> Result<bool, EngineError> {
-    let (members, crypto): (i64, i64) = if bot.bot_type == "Bots::DcaIndex" {
-        c.query_row("SELECT count(*), coalesce(sum(a.category = 'Cryptocurrency'), 0) FROM tickers t JOIN assets a ON a.id = t.base_asset_id \
-                     WHERE t.exchange_id = ?1 AND t.quote_asset_id = ?2", params![bot.exchange_id, bot.quote_asset_id()], |r| Ok((r.get(0)?, r.get(1)?)))?
-    } else {
+    if bot.bot_type == "Bots::DcaIndex" {
+        // Some listing, and none that is not a cryptocurrency: a stock venue answers at its first listing, not after
+        // reading all of them (thousands, on every pass and every guarded write).
+        let listed = "FROM tickers t JOIN assets a ON a.id = t.base_asset_id WHERE t.exchange_id = ?1 AND t.quote_asset_id = ?2";
+        return Ok(c.query_row(&format!("SELECT EXISTS(SELECT 1 {listed}) AND NOT EXISTS(SELECT 1 {listed} AND a.category IS NOT 'Cryptocurrency')"),
+                              params![bot.exchange_id, bot.quote_asset_id()], |r| r.get(0))?);
+    }
+    let (members, crypto): (i64, i64) = {
         let mut ids = bot.asset_ids();
         let mut s = c.prepare("SELECT asset_id FROM bot_index_assets WHERE bot_id = ?1")?;
         for a in s.query_map([bot.id], |r| r.get::<_, i64>(0))? { let a = a?; if !ids.contains(&a) { ids.push(a); } }
