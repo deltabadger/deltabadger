@@ -189,29 +189,35 @@ pub async fn save(
     let found = app
         .db(move |c| {
             let venue = c
-                .query_row("SELECT type FROM exchanges WHERE id=?1", [exchange], |r| {
-                    r.get::<_, String>(0)
+                .query_row("SELECT type,name FROM exchanges WHERE id=?1", [exchange], |r| {
+                    Ok((r.get::<_, String>(0)?, r.get::<_, Option<String>>(1)?.unwrap_or_default()))
                 })
                 .optional()?;
             Ok((venue, Key::read(c, &inner, id, exchange, kind)?))
         })
         .await?;
     let (venue, original) = found;
-    if !bot_request && venue.as_deref().is_some_and(crate::web::bot::retired_type) {
+    if !bot_request && venue.as_ref().is_some_and(|(class, _)| crate::web::bot::retired_type(class)) {
         ctx.session.lock().tracker_connect=Some(exchange);
         return Ok(retired_answer(&ctx));
     }
     if !ctx.params.form.iter().any(|(name, _)| name.starts_with("api_key[")) {
         return Ok(StatusCode::BAD_REQUEST.into_response());
     }
-    if venue.as_deref() == Some("Exchanges::Alpaca") && !bot_request {ctx.session.lock().tracker_connect=Some(exchange);}
-    if venue.as_deref() != Some("Exchanges::Alpaca") {
+    let Some((class, name)) = venue.filter(|(class, _)| ported(class)) else {
         return Ok(crate::web::layout::not_ported_for(&ctx));
-    }
-    let outcome = submit(&app, &ctx, user.id, exchange, "Exchanges::Alpaca", "Alpaca", kind, original).await?;
+    };
+    if !bot_request {ctx.session.lock().tracker_connect=Some(exchange);}
+    let outcome = submit(&app, &ctx, user.id, exchange, &class, &name, kind, original).await?;
     match outcome {
         Submitted::Correct => {}
-        Submitted::Incorrect | Submitted::Permissions(..) => return flash_response(&ctx, StatusCode::UNPROCESSABLE_ENTITY, "errors.incorrect_api_key_permissions"),
+        Submitted::Incorrect => return flash_response(&ctx, StatusCode::UNPROCESSABLE_ENTITY, "errors.incorrect_api_key_permissions"),
+        // ApplicationController#incorrect_api_key_message: the flags the venue named.
+        Submitted::Permissions(missing, forbidden) => {
+            let text = super::key_check::permission_message(ctx.locale, &crate::tracker::rows::name_id(&class), &name, kind, &missing, &forbidden);
+            let body = turbo::prepend_flash(flash::render(&flash::take(&ctx.session, &[(flash::ALERT, text)]))?.trim_end());
+            return Ok((StatusCode::UNPROCESSABLE_ENTITY, [(header::CONTENT_TYPE, turbo::CONTENT_TYPE)], body).into_response());
+        }
         Submitted::Failed => return flash_response(
             &ctx,
             StatusCode::UNPROCESSABLE_ENTITY,
@@ -470,21 +476,23 @@ pub async fn modal(app: App, ctx: Ctx) -> Result<Response, WebError> {
         return Ok(crate::web::layout::missing());
     };
     let inner = app.clone();
-    let found=app.db(move|c|{let key=c.query_row("SELECT e.name,e.type,k.key_type FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE k.id=?1 AND k.user_id=?2",(id,user.id),|r|Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?,r.get::<_,i64>(2)?))).optional()?;key.map(|k|Ok((k,crate::web::shell::Shell::load(c,&inner,&user)?,super::view::connect_visible(c,&inner,&user)?))).transpose()}).await?;
-    let Some(((name, venue, _kind), shell, connect)) = found else {
+    let v = ctx.clone();
+    let found=app.db(move|c|{let key=c.query_row("SELECT e.name,e.type,k.key_type FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE k.id=?1 AND k.user_id=?2",(id,user.id),|r|Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?,r.get::<_,i64>(2)?))).optional()?;
+        key.map(|(name,venue,kind)|Ok(((name.clone(),venue.clone()),key_instructions(c,&inner,&v,&venue,&name,kind)?,crate::web::shell::Shell::load(c,&inner,&user)?,super::view::connect_visible(c,&inner,&user)?))).transpose()}).await?;
+    let Some(((name, venue), instructions, shell, connect)) = found else {
         return Ok(crate::web::layout::missing());
     };
-    if venue != "Exchanges::Alpaca" {
+    if !ported(&venue) {
         return Ok(crate::web::layout::not_ported_for(&ctx));
     }
     let csrf = ctx.csrf_token();
     let pane = format!(
-        "  <a class=\"settings__back\" href=\"{}\">\n    {}{}\n</a>  <h3 class=\"settings__heading\">{}</h3>\n  <div class=\"settings__prose\"><p>{}</p></div>\n",
+        "  <a class=\"settings__back\" href=\"{}\">\n    {}{}\n</a>  <h3 class=\"settings__heading\">{}</h3>\n  <div class=\"settings__prose\">{}</div>\n",
         i18n::escape(&ctx.path("/settings/api_keys")),
         super::dialog::BACK,
         ctx.t("settings.index.api_keys_section"),
         i18n::t(ctx.locale, "bot.setup.how_to_get_keys", &[("exchange", i18n::Arg::Text(&name))]),
-        lookup(ctx.locale, "bot.api.alpaca.instructions").unwrap_or("")
+        instructions
     );
     let user = ctx.user().ok_or_else(|| WebError::Config("missing key owner".into()))?;
     super::view::section_page(&ctx, &csrf, user, &shell, "api_keys", connect, &pane, StatusCode::OK, vec![])
@@ -611,7 +619,7 @@ pub async fn legacy(
    let agent=crate::ruby::validation_regex(r"\A(0x)?[0-9a-fA-F]{64}\z").map_err(|_|WebError::Config("invalid agent pattern".into()))?;
    if !address.is_match(key.as_deref().unwrap_or(""))||!agent.is_match(secret.as_deref().unwrap_or("")){return Ok(Err(None));}
   }
-  if venue!="Exchanges::Alpaca"{return Ok(Err(Some("credential venue is not ported".into())));}
+  if !ported(&venue){return Ok(Err(Some("credential venue is not ported".into())));}
   let now=format_time(inner.now());
   let saved_passphrase=if same_keys {passphrase.as_ref().or(current.passphrase.as_ref())}else{passphrase.as_ref()};
   let id=if let Some(id)=current.id{
@@ -675,6 +683,17 @@ pub(crate) async fn revalidate(app:&App,id:i64)->Result<Option<String>,WebError>
 struct AlpacaForm<'a> { v:&'a Ctx, csrf:&'a str, action:String, form_data:&'a str, connect_title:String, instructions_title:String, instructions:String, live:bool, modal:bool,
     name_id:String, mark:&'static str, alpaca:bool, passphrase:bool, key_label:String, secret_label:String }
 
+/// The venues whose keys this build checks (the wizard's list): every other venue's key route is a named refusal.
+fn ported(class:&str)->bool{crate::web::wizard::keys::PORTED.contains(&class)}
+/// BotHelper#render_api_key_instructions for a key of `kind` on venue `class` named `name`: the walkthrough, the IP its
+/// keys are bound to (the venue's proxy, ExchangeProxy.for) in it; a reading key's own list, else the bot's.
+pub(crate) fn key_instructions(c:&Connection,app:&App,ctx:&Ctx,class:&str,name:&str,kind:i64)->Result<String,WebError>{
+    let name_id=crate::tracker::rows::name_id(class);
+    let proxy=crate::venue::http::proxy_for(&name_id,crate::app_config::get(c,&app.cipher,&format!("proxy_{name_id}")).map_err(WebError::Config)?,&|k|std::env::var(k).ok());
+    let ip=super::key_check::whitelist_ip_html(ctx.locale,proxy.as_deref());
+    let html=|prefix:&str|super::key_check::instructions_html(ctx.locale,prefix,&name_id,name,&ip);
+    Ok(match kind{1=>html("withdrawal_api"),2=>html("read_only_api").or_else(||html("bot.api")),_=>html("bot.api")}.unwrap_or_default())
+}
 /// Exchange#requires_passphrase? outside Alpaca (whose passphrase is its Paper/Live switch): the API Passphrase row.
 fn requires_passphrase(class:&str)->bool{matches!(class,"Exchanges::Kucoin"|"Exchanges::Bitget")}
 /// shared/_api_key_form inside shared/_connect_form: the venue's connect card. `name`/`class` are the exchange row's name and
@@ -693,7 +712,7 @@ pub(crate) fn card(ctx:&Ctx,csrf:&str,action:String,form_data:&str,name:&str,cla
 struct AlpacaModal<'a> { card:&'a str }
 #[derive(Template)]
 #[template(path="settings/alpaca_full.html")]
-struct AlpacaFull<'a> { v:&'a Ctx, card:&'a str, progress_title:String }
+struct AlpacaFull<'a> { v:&'a Ctx, card:&'a str, progress_title:String, name:&'a str }
 pub async fn form(axum::extract::State(app):axum::extract::State<App>, axum::extract::Extension(ctx):axum::extract::Extension<Ctx>) -> Result<Response,WebError> {
     let Some(user)=ctx.user().cloned() else {return Ok(auth::unauthenticated(&ctx))};
     let exchange=tracker_exchange(&app,&ctx).await?;
@@ -702,15 +721,17 @@ pub async fn form(axum::extract::State(app):axum::extract::State<App>, axum::ext
     let kind=if requested==Some("trading"){0}else{2};
     let inner=app.clone();let owner=user.clone();
     let found=app.db(move|c| {
-        let venue:Option<String>=c.query_row("SELECT type FROM exchanges WHERE id=?1",[exchange],|r|r.get(0)).optional()?;
-        let healthy:bool=c.query_row("SELECT EXISTS(SELECT 1 FROM api_keys WHERE user_id=?1 AND exchange_id=?2 AND key_type=0 AND status=1)",[owner.id,exchange],|r|r.get(0))?;
+        let venue:Option<(String,String)>=c.query_row("SELECT type,name FROM exchanges WHERE id=?1",[exchange],|r|Ok((r.get(0)?,r.get::<_,Option<String>>(1)?.unwrap_or_default()))).optional()?;
+        // healthy_trading_key: a correct bot key that lacks no permission the sync needs.
+        let errors=c.prepare("SELECT last_sync_error FROM api_keys WHERE user_id=?1 AND exchange_id=?2 AND key_type=0 AND status=1 ORDER BY id LIMIT 1")?.query_map([owner.id,exchange],|r|r.get::<_,Option<String>>(0))?.collect::<Result<Vec<_>,_>>()?;
+        let healthy=venue.as_ref().is_some_and(|(class,_)|errors.iter().any(|error|!crate::tracker::import::run::missing_permission(class,error.as_deref())));
         Ok((venue,healthy,Key::read(c,&inner,owner.id,exchange,kind)?,crate::web::shell::Shell::load(c,&inner,&owner)?))
     }).await?;
     let (venue,healthy,mut key,shell)=found;
-    if venue.is_none(){return Ok(crate::web::layout::redirect(StatusCode::FOUND,&ctx.path("/tracker/pick_exchange/new")))}
-    if venue.as_deref().is_some_and(crate::web::bot::retired_type){ctx.session.lock().tracker_connect=Some(exchange);return Ok(retired_answer(&ctx))}
-    if venue.as_deref()==Some("Exchanges::Alpaca"){ctx.session.lock().tracker_connect=Some(exchange);}
-    if venue.as_deref()!=Some("Exchanges::Alpaca"){return Ok(crate::web::layout::not_ported_for(&ctx))}
+    let Some((class,name))=venue else {return Ok(crate::web::layout::redirect(StatusCode::FOUND,&ctx.path("/tracker/pick_exchange/new")))};
+    if crate::web::bot::retired_type(&class){ctx.session.lock().tracker_connect=Some(exchange);return Ok(retired_answer(&ctx))}
+    if !ported(&class){return Ok(crate::web::layout::not_ported_for(&ctx))}
+    ctx.session.lock().tracker_connect=Some(exchange);
     if !(requested.is_none()&&healthy)&&key.status!=1&&key.key.as_deref().is_some_and(|s|!crate::ruby::blank(s))&&key.secret.as_deref().is_some_and(|s|!crate::ruby::blank(s)){
         if let Some(id)=key.id{
             if let Some(reason)=revalidate(&app,id).await?{
@@ -721,12 +742,13 @@ pub async fn form(axum::extract::State(app):axum::extract::State<App>, axum::ext
             key=app.db(move|c|Key::read(c,&inner,user_id,exchange,kind)).await?;
         }
     }
-    if requested.is_none()&&(healthy||key.status==1){return Ok(crate::web::layout::redirect(StatusCode::FOUND,&ctx.path("/tracker")))}
+    if requested.is_none()&&(healthy||(key.status==1&&!crate::tracker::import::run::missing_permission(&class,key.last_error.as_deref()))){return Ok(crate::web::layout::redirect(StatusCode::FOUND,&ctx.path("/tracker")))}
     let csrf=ctx.csrf_token();
     let modal=ctx.turbo_frame.as_deref()==Some("modal");
-    let instructions_key=if kind==2&&lookup(ctx.locale,"read_only_api.alpaca.instructions").is_some(){"read_only_api.alpaca.instructions"}else{"bot.api.alpaca.instructions"};
-    let card=card(&ctx,&csrf,ctx.path(&format!("/tracker/add_api_key?exchange_id={exchange}&key_type={}",if kind==0{"trading"}else{"read_only"})),if modal{"data-controller=\"\" data-action=\"turbo:submit-end-&gt;modal--base#submitEnd\""}else{"data-controller=\"form--label-animations form--html5-validations\" data-turbo-frame=\"modal_content\""},"Alpaca","Exchanges::Alpaca",key.passphrase.as_deref()==Some("live"),modal,format!("<p>{}</p>",lookup(ctx.locale,instructions_key).unwrap_or("")))?;
-    let body=if modal{AlpacaModal{card:&card}.render()?}else{AlpacaFull{v:&ctx,card:&card,progress_title:i18n::t(ctx.locale,"bot.setup.progress_steps.connect",&[])}.render()?};
+    let (inner,v,venue_class,venue_name)=(app.clone(),ctx.clone(),class.clone(),name.clone());
+    let instructions=app.db(move|c|key_instructions(c,&inner,&v,&venue_class,&venue_name,kind)).await?;
+    let card=card(&ctx,&csrf,ctx.path(&format!("/tracker/add_api_key?exchange_id={exchange}&key_type={}",if kind==0{"trading"}else{"read_only"})),if modal{"data-controller=\"\" data-action=\"turbo:submit-end-&gt;modal--base#submitEnd\""}else{"data-controller=\"form--label-animations form--html5-validations\" data-turbo-frame=\"modal_content\""},&name,&class,key.passphrase.as_deref()==Some("live"),modal,instructions)?;
+    let body=if modal{AlpacaModal{card:&card}.render()?}else{AlpacaFull{v:&ctx,card:&card,progress_title:i18n::t(ctx.locale,"bot.setup.progress_steps.connect",&[]),name:&name}.render()?};
     crate::web::shell::application(&ctx,&csrf,&user,&shell,crate::web::layout::Page{status:StatusCode::OK,body,flash_now:vec![]})
 }
 
@@ -769,10 +791,15 @@ pub async fn bot_form(axum::extract::State(app):axum::extract::State<App>,axum::
     let Some(user)=ctx.user().cloned() else{return Ok(auth::unauthenticated(&ctx))};
     let Some(exchange)=owned_bot_exchange(&app,&ctx).await? else{return Ok(crate::web::layout::missing())};
     let inner=app.clone();let owner=user.clone();
-    let (venue,key,shell)=app.db(move|c|Ok((c.query_row("SELECT type FROM exchanges WHERE id=?1",[exchange],|r|r.get::<_,String>(0))?,Key::read(c,&inner,owner.id,exchange,0)?,crate::web::shell::Shell::load(c,&inner,&owner)?))).await?;
-    if venue!="Exchanges::Alpaca"{return Ok(crate::web::layout::not_ported_for(&ctx))}
+    let v=ctx.clone();
+    let ((class,name),key,shell,instructions)=app.db(move|c|{
+        let (class,name)=c.query_row("SELECT type,name FROM exchanges WHERE id=?1",[exchange],|r|Ok((r.get::<_,String>(0)?,r.get::<_,Option<String>>(1)?.unwrap_or_default())))?;
+        let instructions=if ported(&class){key_instructions(c,&inner,&v,&class,&name,0)?}else{String::new()};
+        Ok(((class,name),Key::read(c,&inner,owner.id,exchange,0)?,crate::web::shell::Shell::load(c,&inner,&owner)?,instructions))
+    }).await?;
+    if !ported(&class){return Ok(crate::web::layout::not_ported_for(&ctx))}
     let csrf=ctx.csrf_token();let action=ctx.path(ctx.params.route_path.trim_end_matches("/new"));
-    let card=card(&ctx,&csrf,action,"data-controller=\"\" data-action=\"turbo:submit-end-&gt;modal--base#submitEnd\"","Alpaca","Exchanges::Alpaca",key.passphrase.as_deref()==Some("live"),true,format!("<p>{}</p>",lookup(ctx.locale,"bot.api.alpaca.instructions").unwrap_or("")))?;
+    let card=card(&ctx,&csrf,action,"data-controller=\"\" data-action=\"turbo:submit-end-&gt;modal--base#submitEnd\"",&name,&class,key.passphrase.as_deref()==Some("live"),true,instructions)?;
     let body=AlpacaModal{card:&card}.render()?;
     crate::web::shell::application(&ctx,&csrf,&user,&shell,crate::web::layout::Page{status:StatusCode::OK,body,flash_now:vec![]})
 }

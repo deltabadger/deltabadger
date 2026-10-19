@@ -2563,7 +2563,8 @@ async fn q_absent_recovery_result_cannot_erase_a_after_an_external_credential_re
 #[tokio::test(flavor="current_thread")]
 async fn owner_slice_refuses_other_venue_add_and_replace_routes_without_changes_or_network(){
     let server=MockServer::start().await;let mut h=Harness::new(server.uri()).await;h.link();
-    for venue in ["Binance","BinanceUs","Bingx","Bitget","Bitmart","Bitrue","Bitvavo","Bybit","Coinbase","Gemini","Hyperliquid","Ibkr","Kraken","Kucoin","Mexc"]{
+    // Kraken, Binance and KuCoin keys are checked (pages.rs settings_venue_key_*); every other venue refuses.
+    for venue in ["BinanceUs","Bingx","Bitget","Bitmart","Bitrue","Bitvavo","Bybit","Coinbase","Gemini","Hyperliquid","Ibkr","Mexc"]{
         h.c.execute("UPDATE exchanges SET type=?1,name=?2 WHERE id=1",(format!("Exchanges::{venue}"),venue)).unwrap();let before=h.snapshot();
         // D5b: a retired venue gets RetiredExchangeGuard's redirect to /tracker, every other one the refusal.
         let refused=if venue=="Bitmart"{302}else{501};
@@ -3677,7 +3678,7 @@ async fn d5b_pick_exchange_lists_available_venues_and_stores_only_the_exchange_i
 #[tokio::test(flavor="current_thread")]
 async fn d5b_retired_and_unported_venues_reach_no_venue_call_and_no_write(){
     let server=MockServer::start().await;let mut h=Harness::new(server.uri()).await;d5b_venues(&h.c);
-    let (kraken,bitmart)=(d5b_exchange(&h.c,"Kraken"),d5b_exchange(&h.c,"Bitmart"));
+    let (unported,bitmart)=(d5b_exchange(&h.c,"Gemini"),d5b_exchange(&h.c,"Bitmart"));
     let before=h.snapshot();
     let form=h.browser.send(&h.app,"GET",&format!("/tracker/add_api_key/new?exchange_id={bitmart}&key_type=read_only"),None,Csrf::None,&[]).await;
     assert_eq!((form.status,form.header("location")),(302,Some("/tracker")),"RetiredExchangeGuard");
@@ -3687,7 +3688,7 @@ async fn d5b_retired_and_unported_venues_reach_no_venue_call_and_no_write(){
     assert_eq!(refused.status,302,"the guard runs before params.require(:api_key)");
     let tracker=h.browser.send(&h.app,"GET","/tracker",None,Csrf::None,&[]).await;
     assert!(tracker.body.contains(&deltabadger::web::i18n::text("en","errors.exchange_retired",&[])),"the flash reaches the tracker page");
-    for (method,path,form) in [("GET",format!("/tracker/add_api_key/new?exchange_id={kraken}"),vec![]),("POST","/tracker/add_api_key".to_string(),vec![("exchange_id",kraken.as_str()),("key_type","read_only"),("api_key[key]","kraken-key"),("api_key[secret]","kraken-secret")])]{
+    for (method,path,form) in [("GET",format!("/tracker/add_api_key/new?exchange_id={unported}"),vec![]),("POST","/tracker/add_api_key".to_string(),vec![("exchange_id",unported.as_str()),("key_type","read_only"),("api_key[key]","kraken-key"),("api_key[secret]","kraken-secret")])]{
         let answer=if method=="GET"{h.browser.send(&h.app,method,&path,None,Csrf::None,&[]).await}else{h.submit(method,&path,&form,Csrf::Header).await};
         assert_eq!(answer.status,501,"{method} {path}");assert!(!answer.body.contains("kraken-secret"));
     }
@@ -3820,4 +3821,76 @@ async fn alpaca_unreadable_200_leaves_the_key_pending(){
         let validity=deltabadger::web::settings::validator::check(&server.uri(),&key,0).await.unwrap();
         assert!(matches!(validity,deltabadger::web::settings::validator::Validity::Pending(_)),"{body:?}");
     }
+}
+
+/// The validator job on a key its own venue checks (Kraken, Binance, KuCoin): every venue as LocalAlpaca's server.
+struct LocalVenues(String);
+impl deltabadger::sync::jobs::Connect for LocalVenues {
+    type T=deltabadger::venue::http::ReqwestTransport;
+    fn connect(&self,c:&deltabadger::crypto::Credentials)->deltabadger::venue::alpaca::AlpacaVenue<Self::T> { LocalAlpaca(self.0.clone()).connect(c) }
+    /// The server for every venue, through the stored proxy when the test stores one: never the process' PROXY_* or system proxies.
+    fn key_check_egress(&self,_:&str,stored_proxy:Option<String>)->Result<(String,reqwest::Client),String> {
+        let builder=reqwest::Client::builder().no_proxy();
+        let builder=match stored_proxy {Some(proxy)=>builder.proxy(reqwest::Proxy::all(proxy).map_err(|e|e.to_string())?),None=>builder};
+        Ok((self.0.clone(),builder.build().map_err(|e|e.to_string())?))
+    }
+}
+/// ApiKeyValidatorJob as Rails performs it on a pending key (validator_effects.json, script/rust/record_validator_effects.rb):
+/// the venue's own check, the status it leaves, and the balance sync a correct trading key enqueues.
+#[tokio::test(flavor="current_thread")]
+async fn validator_job_matches_rails_on_every_checked_venue(){
+    use deltabadger::{jobs::{Job,Cx,Db,Outcome},sync::jobs::{Validator,BALANCE_SYNC}};
+    let root=std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+    let recorded:serde_json::Value=serde_json::from_str(&std::fs::read_to_string(root.join("tests/fixtures/validator_effects.json")).unwrap()).unwrap();
+    for (path,hash) in recorded["sources"].as_object().unwrap(){
+        use sha2::{Digest,Sha256};
+        assert_eq!(&serde_json::json!(format!("{:x}",Sha256::digest(std::fs::read(root.parent().unwrap().join(path)).unwrap()))),hash,"{path}: re-record validator_effects.json (script/rust/repin)");
+    }
+    let cases=recorded["cases"].as_array().unwrap();
+    assert_eq!(cases.len(),35,"a recorded case was added or dropped");
+    for case in cases {
+        let text=|name:&str|case[name].as_str().unwrap().to_string();
+        let label=format!("{} {} {}",text("name"),text("key_type"),text("answer"));
+        let server=MockServer::start().await;
+        let request=&case["requests"][0];
+        let reply=ResponseTemplate::new(case["reply"]["status"].as_u64().unwrap() as u16).set_body_string(text_or_empty(&case["reply"]["body"])).insert_header("Content-Type","application/json");
+        Mock::given(method(request["method"].as_str().unwrap())).and(path(request["path"].as_str().unwrap())).respond_with(reply).expect(1).mount(&server).await;
+        let h=Harness::new(server.uri()).await;
+        let kind=match case["key_type"].as_str().unwrap(){"trading"=>0,"withdrawal"=>1,_=>2};
+        let kucoin=text("venue")=="Exchanges::Kucoin";
+        h.c.execute("UPDATE exchanges SET type=?1,name=?2 WHERE id=?3",(text("venue"),text("name"),h.seed.exchange_id)).unwrap();
+        h.c.execute("UPDATE api_keys SET status=0,key_type=?1,key=?2,secret=?3,passphrase=?4 WHERE id=?5",(kind,h.app.cipher.encrypt("test-key"),h.app.cipher.encrypt("dGVzdC1zZWNyZXQ="),kucoin.then(||h.app.cipher.encrypt("test-passphrase")),h.seed.api_key_id)).unwrap();
+        let notify=Arc::new(tokio::sync::Notify::new());h.app.attach_engine(notify.clone());
+        let wakers=h.app.job_wakers().unwrap();let before=wakers.pending().len();
+        let cx=Cx{db:Db::new(rusqlite::Connection::open(h._dir.path().join("production.sqlite3")).unwrap(),h.app.cipher.clone()),clock:h.clock.as_ref(),wakers:wakers.clone()};
+        let outcome=Validator{venues:LocalVenues(server.uri()),key_id:h.seed.api_key_id}.run(cx,vec![]).await;
+        let status=h.c.query_row("SELECT status FROM api_keys WHERE id=?1",[h.seed.api_key_id],|r|r.get::<_,i64>(0)).unwrap();
+        let expected=match case["status"].as_str().unwrap(){"pending_validation"=>0,"correct"=>1,"incorrect"=>2,other=>panic!("{label}: status {other}")};
+        assert_eq!(status,expected,"{label}: the key's status after the job");
+        assert_eq!(outcome==Outcome::Done,expected==1,"{label}: {outcome:?}");
+        let balance=wakers.pending()[before..].iter().any(|(job,scope)|job==BALANCE_SYNC&&scope.as_deref()==Some(&h.seed.api_key_id.to_string()));
+        assert_eq!(balance,case["jobs"].as_array().unwrap().iter().any(|job|job=="AccountBalance::SyncJob"),"{label}: the balance sync a correct trading key enqueues");
+        if expected==1 {assert!(tokio::time::timeout(std::time::Duration::from_millis(50),notify.notified()).await.is_ok(),"{label}: a key now correct wakes the engine, whose bots trade on it");}
+        server.verify().await;
+    }
+}
+fn text_or_empty(value:&serde_json::Value)->String{value.as_str().unwrap_or_default().to_string()}
+
+/// The validator's check goes through the venue's stored proxy (AppConfig proxy_kraken, ExchangeProxy.for): a local proxy
+/// answers it, and the venue's own host sees nothing.
+#[tokio::test(flavor="current_thread")]
+async fn validator_job_sends_a_venue_key_check_through_its_stored_proxy(){
+    use deltabadger::{jobs::{Job,Cx,Db,Outcome},sync::jobs::Validator};
+    let (venue,proxy)=(MockServer::start().await,MockServer::start().await);
+    Mock::given(method("POST")).and(path("/0/private/GetApiKeyInfo")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"error":[],"result":{"permissions":
+        ["query-funds","query-open-trades","query-closed-trades","modify-trades","close-trades","query-ledger"]}}))).expect(1).mount(&proxy).await;
+    let h=Harness::new(venue.uri()).await;
+    h.c.execute("UPDATE exchanges SET type='Exchanges::Kraken',name='Kraken' WHERE id=?1",[h.seed.exchange_id]).unwrap();
+    h.c.execute("UPDATE api_keys SET status=0,key=?1,secret=?2 WHERE id=?3",(h.app.cipher.encrypt("test-key"),h.app.cipher.encrypt("dGVzdC1zZWNyZXQ="),h.seed.api_key_id)).unwrap();
+    deltabadger::app_config::set(&h.c,&h.app.cipher,"proxy_kraken",&proxy.uri(),h.app.now()).unwrap();
+    let cx=Cx{db:Db::new(rusqlite::Connection::open(h._dir.path().join("production.sqlite3")).unwrap(),h.app.cipher.clone()),clock:h.clock.as_ref(),wakers:h.app.job_wakers().unwrap()};
+    assert_eq!(Validator{venues:LocalVenues(venue.uri()),key_id:h.seed.api_key_id}.run(cx,vec![]).await,Outcome::Done);
+    assert_eq!(h.c.query_row("SELECT status FROM api_keys WHERE id=?1",[h.seed.api_key_id],|r|r.get::<_,i64>(0)).unwrap(),1);
+    assert!(venue.received_requests().await.unwrap().is_empty(),"the check never goes around the configured proxy");
+    proxy.verify().await;
 }

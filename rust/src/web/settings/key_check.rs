@@ -137,9 +137,40 @@ pub fn kucoin_verdict(kind: i64, answer: &Result<HttpResponse, TransportError>, 
     Verdict::Valid(true)
 }
 
-/// #get_api_key_validity's probe: honeymaker's #cancel_order of the zero id, or #get_accounts(type: 'trade') for a withdrawal key.
+/// Exchange#get_read_api_key_validity on KuCoin (a reading key): #get_balances(asset_ids: []), its trading-account read. Balances
+/// only under the success code with `data`; else the failure Exchanges::Kucoin#get_balances writes, and a key the venue's
+/// invalid_key words condemn (#condemning_invalid_key_error?) is incorrect.
+pub fn kucoin_read_verdict(answer: &Result<HttpResponse, TransportError>, method: &str, url: &str) -> Verdict {
+    let text = |v: &Value| v.as_str().map_or_else(|| v.to_string(), str::to_string);
+    let failure = match answer {
+        Err(error) => transport(error),
+        Ok(response) if !(200..300).contains(&response.status) => raised(response, method, url),
+        Ok(response) => match serde_json::from_str::<Value>(&response.body) {
+            Ok(Value::Object(body)) => {
+                let code = body.get("code").filter(|v| !v.is_null()).map(text);
+                if code.as_deref() == Some("200000") && body.get("data").is_some_and(|data| !data.is_null()) {
+                    // The balances, read as #get_balances walks them (each one's `currency` first): any other shape raises there.
+                    let readable = match &body["data"] {
+                        Value::Array(balances) => balances.iter().all(|balance| balance.get("currency").is_some_and(|currency| !currency.is_null())),
+                        Value::Object(pairs) => pairs.is_empty(),
+                        _ => false,
+                    };
+                    return if readable { Verdict::Valid(true) } else { Verdict::Failure("KuCoin sent balances it cannot read".into()) };
+                }
+                let parts: Vec<String> = ["code", "msg"].iter().filter_map(|name| body.get(*name).filter(|v| !v.is_null()).map(text)).collect();
+                format!("Failed to get KuCoin balances: {}", parts.join(" "))
+            }
+            // ponytail: Ruby raises on an envelope that is not a Hash (a 500); here it is no verdict.
+            _ => "KuCoin sent an unreadable answer to the key check".into(),
+        },
+    };
+    if crate::engine::venue_rules::KUCOIN.is_invalid_key(std::slice::from_ref(&failure)) { Verdict::Valid(false) } else { Verdict::Failure(failure) }
+}
+
+/// #get_api_key_validity's probe: honeymaker's #cancel_order of the zero id, or #get_accounts(type: 'trade') for a withdrawal key
+/// and for a reading key's balance read.
 pub fn kucoin_request(base: &str, kind: i64) -> HttpRequest {
-    let (method, path, query) = if kind == 1 { ("GET", "/api/v1/accounts".to_string(), vec![("type", "trade".to_string())]) }
+    let (method, path, query) = if kind != 0 { ("GET", "/api/v1/accounts".to_string(), vec![("type", "trade".to_string())]) }
                                 else { ("DELETE", format!("/api/v1/orders/{KUCOIN_PROBE_ORDER}"), vec![]) };
     HttpRequest { method, base: base.into(), path, query, body: None, not_after: None }
 }
@@ -168,7 +199,8 @@ pub async fn check(venue: &str, base: &str, client: reqwest::Client, credentials
         let transport = ReqwestTransport::kucoin(client, credentials.key.clone(), credentials.secret.clone(), passphrase).with_sensitive_values(redaction);
         let request = kucoin_request(base, kind);
         let answer = transport.send(&request).await;
-        let verdict = kucoin_verdict(kind, &answer, request.method, request.url().as_str());
+        let verdict = if kind == 2 { kucoin_read_verdict(&answer, request.method, request.url().as_str()) }
+                      else { kucoin_verdict(kind, &answer, request.method, request.url().as_str()) };
         (answer, verdict)
     } else {
         let transport = ReqwestTransport::binance(client, credentials.key.clone(), credentials.secret.clone()).with_sensitive_values(redaction);

@@ -26,7 +26,7 @@
          data-action="click->conversational-sentence#activate input->conversational-sentence#updateFilled">
       {{ v.t("tracker.import_from")|safe }}
       <form class="conversational__link filled" data-turbo-frame="modal_content" data-wizard-dir="back" action="{{ v.path("/tracker/pick_exchange/new") }}" accept-charset="UTF-8" method="get">
-        <input value="Alpaca" readonly tabindex="-1">
+        <input value="{{ name }}" readonly tabindex="-1">
 </form>    </div>
     {{ card|safe }}
 
