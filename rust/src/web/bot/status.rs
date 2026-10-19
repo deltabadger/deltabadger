@@ -189,6 +189,7 @@ struct Bar<'a> {
     v: &'a Ctx,
     id: String,
     active: bool,
+    executing: bool,
     text: Option<String>,
     dots: bool,
     countdown: Option<Countdown>,
@@ -342,7 +343,7 @@ pub fn render_unsaved(c: &Connection, ctx: &Ctx, csrf: &str, bot: &Bot, stored: 
         }
         BotStatus::Created | BotStatus::Deleted => {}
     }
-    let bar = Bar { v: ctx, id: bot.dom_id("status_bar"), active: bot.status == BotStatus::Scheduled, text, dots, countdown, connect }.render()?;
+    let bar = Bar { v: ctx, id: bot.dom_id("status_bar"), active: bot.status == BotStatus::Scheduled, executing: bot.status == BotStatus::Executing, text, dots, countdown, connect }.render()?;
     let progress = Progress { id: bot.dom_id("progress_bar"), fill }.render()?;
     // _status_button.html.erb runs `bot.invalid?(:start)` whatever the status, and the errors it leaves are printed
     // under their fields by the settings rendered after it.
