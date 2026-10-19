@@ -566,9 +566,9 @@ pub fn guard(tx: &Connection, cipher: &Cipher, bot_id: Option<i64>) -> Result<()
         Refusal::Failed(e)
     };
     super::provider::bind_cipher(tx,cipher).map_err(failed)?;
-    check_install(tx).map_err(failed)?.refusal()?;
+    let eligible = check_install(tx).map_err(failed)?.refusal()?;
     reconciling(tx).map_err(failed)??;
-    crate::venue::alpaca::preflight(tx, cipher).map(|_| ()).map_err(Refusal::Untradable)
+    crate::venue::alpaca::preflight_after(tx, cipher, eligible, vec![]).map(|_| ()).map_err(Refusal::Untradable)
 }
 
 /// Each member's own findings for a bot check_install refuses, named by member: its member_reasons (or their read error), or,
@@ -624,10 +624,11 @@ pub fn guard_reference_write(tx: &Connection, cipher: &Cipher, before: impl FnOn
     let report = install(tx, Some(&mut after)).map_err(failed)?;
     let whole: Vec<String> = report.problems.iter().cloned()
         .chain(report.unreadable.iter().map(|(id, e)| format!("bot {id}: unreadable ({e})"))).collect();
+    let eligible = report.eligible.clone();
     if !whole.is_empty() && after.difference(&before().map_err(failed)?).next().is_some() { report.refusal()?; }
     reconciling(tx).map_err(failed)??;
     // preflight repeats check_install's lines, judged above; what is left is its own.
-    match crate::venue::alpaca::preflight(tx, cipher) {
+    match crate::venue::alpaca::preflight_after(tx, cipher, eligible, whole.clone()) {
         Err(lines) => {
             let own: Vec<String> = lines.into_iter().filter(|l| !whole.contains(l)).collect();
             if own.is_empty() { Ok(()) } else { Err(Refusal::Untradable(own)) }

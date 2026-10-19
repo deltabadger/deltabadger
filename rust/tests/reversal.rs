@@ -271,3 +271,41 @@ async fn a_buy_whose_cancel_is_recorded_is_not_registered_again_by_later_reversa
     assert_eq!(bot(&e.primary, id).settings["direction"], "selling");
     assert_eq!(reversal::work(&bot(&e.primary, id)).0, vec![tx], "registered once across two buy → sell reversals");
 }
+
+/// A ⇄ click while the account's figures are being refilled answers at once, as Rails' does: the refill's reads run on
+/// the figures' own connection, and the metrics a refreshed page asks for are published on a task of their own. The
+/// refill is held at its first read (the builder's connection opening) for the whole of the requests.
+#[tokio::test(flavor = "current_thread")]
+async fn a_reverse_during_a_figures_refill_does_not_wait_for_it() {
+    use common::web::{self as w, Csrf};
+    use std::time::Duration;
+    const HASH: &str = "$2a$04$abcdefghijklmnopqrstuuKq8n2RkM1bXh0Zc3TtYw5LpJv7dEoGi";
+    let dir = common::rails_install();
+    let o = store::open(&Paths::from_env(&|_| None, dir.path())).unwrap();
+    let s = seed::seed_alpaca(&o.primary, &seed::cipher());
+    let id = seed::insert_bot(&o.primary, &s, &BotSpec { status: 0, started_at: None, ..BotSpec::weekly(60.0, "2026-09-01 10:00:00") });
+    o.primary.execute("UPDATE users SET encrypted_password = ?1, confirmed_at = '2026-01-01 00:00:00', setup_completed = 1 WHERE id = ?2", rusqlite::params![HASH, s.user_id]).unwrap();
+    let app = w::app(dir.path(), "engine-test-secret", w::TestClock::starting(chrono::Utc::now()))
+        .with_figure_source(deltabadger::web::figure::loading::Source::Script(json!({}))).unwrap();
+    let (entered_tx, entered) = std::sync::mpsc::channel::<()>();
+    let (release, released) = std::sync::mpsc::channel::<()>();
+    app.figure_service.on_builder(move |_| { entered_tx.send(()).unwrap(); let _ = released.recv(); });
+    let cookie = deltabadger::web::session::seal(&app.keys.session, &deltabadger::web::session::SessionData { user: Some((s.user_id, HASH[..29].to_string())), ..Default::default() }, app.now());
+    let mut browser = w::Browser { cookie: Some(cookie), page: None };
+    // The page starts the refill, which is then held.
+    assert_eq!(browser.get(&app, &format!("/bots/{id}")).await.status, 200);
+    tokio::task::spawn_blocking(move || entered.recv_timeout(Duration::from_secs(10)).expect("the refill reached its first read")).await.unwrap();
+    assert!(app.figure_service.filling(s.user_id));
+    let answered = tokio::time::timeout(Duration::from_secs(10), async {
+        let reversed = browser.send(&app, "POST", &format!("/bots/{id}/reverse"), Some(&[]), Csrf::Header, &[("accept", "text/vnd.turbo-stream.html, text/html")]).await;
+        let asked = browser.send_body(&app, "POST", "/en/broadcasts/metrics_update", Some(json!({ "bot_id": id }).to_string()), Csrf::Header, &[("content-type", "application/json")]).await;
+        (reversed, asked)
+    }).await;
+    let still_held = app.figure_service.filling(s.user_id);
+    release.send(()).unwrap();
+    let (reversed, asked) = answered.expect("the reverse and the metrics request waited for the held refill");
+    assert_eq!((reversed.status, reversed.body.trim()), (200, "<turbo-stream action=\"refresh\"></turbo-stream>"));
+    assert_eq!(asked.status, 200);
+    assert!(still_held, "both were answered while the refill was held");
+    assert_eq!(bot(&o.primary, id).settings["direction"], "selling");
+}

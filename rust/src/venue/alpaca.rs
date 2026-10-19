@@ -592,7 +592,12 @@ pub fn preflight(c: &Connection, cipher: &Cipher) -> Result<Vec<i64>, Vec<String
     let report = eligibility::check_install(c).map_err(|e| vec![format!("{e:?}")])?;
     let mut problems = report.problems.clone();
     problems.extend(report.unreadable.iter().map(|(id, e)| format!("bot {id}: unreadable ({e})")));
-    let mut ids = report.eligible.clone();
+    preflight_after(c, cipher, report.eligible, problems)
+}
+
+/// `preflight` for the bots a `check_install` just found eligible, with the problems it found: the guard has its own
+/// report in hand, and does not read the whole install a second time.
+pub fn preflight_after(c: &Connection, cipher: &Cipher, mut ids: Vec<i64>, mut problems: Vec<String>) -> Result<Vec<i64>, Vec<String>> {
     let mut s = c.prepare(
         "SELECT bot_id FROM transactions WHERE status = 0 AND external_status IN (0, 1) AND bot_id IS NOT NULL \
          UNION SELECT id FROM bots WHERE json_extract(transient_data, '$.rust_placement') IS NOT NULL ORDER BY 1")

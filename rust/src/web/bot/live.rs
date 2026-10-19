@@ -14,7 +14,7 @@ use rusqlite::Connection;
 use std::sync::Arc;
 
 /// A request-less Ctx for `owner`: their locale and its paths, no session.
-fn owner_ctx(app: &App, owner: User) -> Ctx {
+pub(super) fn owner_ctx(app: &App, owner: User) -> Ctx {
     let locale = owner.locale.as_deref().and_then(crate::web::locale::known).unwrap_or("en");
     Ctx { app: app.clone(), params: Arc::new(crate::web::Params { full_path: String::new(), fullpath: String::new(), route_path: String::new(), path_locale: None,
             query: vec![], form: vec![], json: None, upload: None }),

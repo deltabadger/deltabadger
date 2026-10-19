@@ -333,20 +333,22 @@ module Pages
     { 'method' => 'POST', 'path' => path, 'json' => args.to_json, 'csrf' => 'header', 'headers' => { 'Content-Type' => 'application/json' } }
   end
 
-  # POST /broadcasts/* for the three figures a page waits on. Rails answers at once and leaves the work to a job.
+  # POST /broadcasts/* for the three figures a page waits on, and the wake a page sends when it is shown again.
+  # Rails answers at once and leaves the work to a job.
   def broadcast_scenarios
     asks = [broadcast('metrics_update', 'bot_id' => 1).merge('expect' => 200), broadcast('metrics_update', 'bot_id' => '2'),
             broadcast('pnl_update', 'bot_ids' => [1, 2, 3]), broadcast('pnl_update'), broadcast('global_pnl_update'), get('/de/bots/3'),
             broadcast('metrics_update', { 'bot_id' => 3 }, '/de/broadcasts/metrics_update'),
-            broadcast('global_pnl_update', {}, '/broadcasts/global_pnl_update')]
+            broadcast('global_pnl_update', {}, '/broadcasts/global_pnl_update'), broadcast('wake_dispatcher').merge('expect' => 200)]
     # A bot that is not the user's, a number that is no bot's, and no bot at all: "not found"; the other two do not look.
     strangers = [broadcast('metrics_update', 'bot_id' => 3).merge('expect' => 404), broadcast('metrics_update', 'bot_id' => 99),
                  broadcast('metrics_update'), broadcast('pnl_update', 'bot_ids' => [3]), broadcast('global_pnl_update')]
     {
       'broadcasts' => with_bots(three, signed_in(get('/bots'), *asks)),
       'broadcasts_of_another_user' => two_users.merge('steps' => signed_in(get('/bots'), *strangers)),
-      'broadcasts_without_token' => with_bots(three, signed_in(get('/bots'), broadcast('global_pnl_update').merge('csrf' => 'none'))),
-      'broadcasts_signed_out' => with_bots(three, [get('/login'), broadcast('global_pnl_update'), broadcast('metrics_update', 'bot_id' => 1)])
+      'broadcasts_without_token' => with_bots(three, signed_in(get('/bots'), broadcast('global_pnl_update').merge('csrf' => 'none'),
+                                                                   broadcast('wake_dispatcher').merge('csrf' => 'none'))),
+      'broadcasts_signed_out' => with_bots(three, [get('/login'), broadcast('global_pnl_update'), broadcast('metrics_update', 'bot_id' => 1), broadcast('wake_dispatcher')])
     }
   end
 

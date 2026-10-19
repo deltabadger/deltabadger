@@ -821,3 +821,52 @@ async fn completion_notifications_reach_only_the_owners_cable_stream() {
     owner.close(None).await.unwrap();
     second.close(None).await.unwrap();
 }
+
+/// A page shown again posts /broadcasts/wake_dispatcher under its own locale; the working bots' status bars it brings
+/// (Bot::BroadcastAfterScheduledActionJob) are rendered as the owner sees them (Bot#with_user_locale), since every tab of
+/// theirs hears them: a German owner's bars are German from /en/ as from /de/, and an English owner's are not.
+#[tokio::test(flavor = "current_thread")]
+async fn wake_dispatcher_bars_are_in_the_owners_locale_whatever_the_request_s() {
+    use common::seed::{self, BotSpec};
+    const HASH: &str = "$2a$04$abcdefghijklmnopqrstuuKq8n2RkM1bXh0Zc3TtYw5LpJv7dEoGi";
+    let dir = common::rails_install();
+    let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    let s = seed::seed_kraken(&c, &seed::cipher());
+    let bot = seed::insert_bot(&c, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    c.execute("UPDATE users SET encrypted_password = ?1, confirmed_at = '2026-01-01 00:00:00', setup_completed = 1, locale = 'de' WHERE id = ?2", rusqlite::params![HASH, s.user_id]).unwrap();
+    let app = web::app(dir.path(), "engine-test-secret", TestClock::starting(chrono::Utc::now()));
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
+    let served = app.clone();
+    let server = tokio::spawn(async move { let _ = server::serve_on(listener, served, Default::default()).await; });
+    let cookie = signed_in_with(&app, s.user_id, HASH);
+    let mut request = format!("ws://{address}/cable").into_client_request().unwrap();
+    request.headers_mut().insert("origin", format!("http://{address}").parse().unwrap());
+    request.headers_mut().insert("sec-websocket-protocol", "actioncable-v1-json".parse().unwrap());
+    request.headers_mut().insert("cookie", format!("_deltabadger_rust_session={cookie}").parse().unwrap());
+    let (mut socket, _) = tokio_tungstenite::connect_async(request).await.unwrap();
+    let stream = format!("user_{}:bot_updates", s.user_id);
+    let identifier = json!({"channel": "Turbo::StreamsChannel", "signed_stream_name": cable::signed_stream_name(&app.keys.streams, &stream)}).to_string();
+    socket.send(Message::Text(json!({"command": "subscribe", "identifier": identifier}).to_string().into())).await.unwrap();
+    let mut browser = web::Browser { cookie: Some(cookie), page: None };
+    let page = browser.get(&app, &format!("/de/bots/{bot}")).await;
+    assert_eq!(page.status, 200, "{:?}", page.header("location"));
+    let mut wake = async |path: &str| -> Vec<String> {
+        let answer = browser.send_body(&app, "POST", path, Some("{}".into()), web::Csrf::Header, &[("content-type", "application/json")]).await;
+        assert_eq!(answer.status, 200, "{path}");
+        let mut heard = vec![];
+        while let Ok(Some(Ok(Message::Text(text)))) = tokio::time::timeout(Duration::from_millis(2500), socket.next()).await {
+            let value: Value = serde_json::from_str(&text).unwrap();
+            if value["identifier"] == identifier.as_str() && value["message"].is_string() { heard.push(value["message"].as_str().unwrap().to_string()); }
+        }
+        assert!(!heard.is_empty(), "{path}: the bars were broadcast");
+        heard
+    };
+    let from_en = wake("/en/broadcasts/wake_dispatcher").await;
+    let from_de = wake("/de/broadcasts/wake_dispatcher").await;
+    assert_eq!(from_en, from_de, "the request's locale does not choose the bars' language");
+    c.execute("UPDATE users SET locale = 'en' WHERE id = ?1", [s.user_id]).unwrap();
+    let english = wake("/de/broadcasts/wake_dispatcher").await;
+    assert_ne!(english, from_de, "the bars are localized: an English owner's differ");
+    server.abort();
+}
