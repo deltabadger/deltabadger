@@ -556,11 +556,14 @@ pub fn render(c:&Connection,user:i64,snapshot:&Snapshot,locale:&str,csrf:&str,pr
             return Ok(stale_shown(with_token(&kept["figures"],&slots,csrf),&then,&shape(c,user)?));
         }
     };
+    // A known reason is said in place of each figure; without one the figures are simply absent: no widget, no dash,
+    // only the targets a later publication replaces.
     let no_value=match reason {
-        Some("Currency conversion unavailable")=>"<span class=\"no-value\">Currency conversion unavailable</span>",
-        Some("executed fill value unavailable")=>"<span class=\"no-value\">Figures unavailable: executed fill value unavailable</span>",
-        _=>super::NO_VALUE,
+        Some("Currency conversion unavailable")=>Some("<span class=\"no-value\">Currency conversion unavailable</span>"),
+        Some("executed fill value unavailable")=>Some("<span class=\"no-value\">Figures unavailable: executed fill value unavailable</span>"),
+        _=>None,
     };
+    let absent=|id:&str|match no_value { Some(text)=>format!("<div id=\"{id}\">{text}</div>"), None if id=="chart"=>super::plot::NOT_CHARTED.into(), None=>format!("<div id=\"{id}\"></div>") };
     // The fallback is every bot's no value, or nothing: a failure to read the bots fails the render, never publishes the
     // headline alone. Read as `db::account_bots` reads them, outside any figure's budget.
     let mut bots=serde_json::Map::new();
@@ -568,9 +571,9 @@ pub fn render(c:&Connection,user:i64,snapshot:&Snapshot,locale:&str,csrf:&str,pr
     for row in statement.query_map(rusqlite::params![user,crate::enums::BotStatus::Deleted as i64],|r|Ok((r.get::<_,i64>(0)?,r.get::<_,Option<String>>(1)?)))? {
         let (id,kind)=row?;
         let kind=if kind.as_deref()==Some("Bots::DcaIndex"){"dca_index"}else{"dca_multi_asset"};
-        bots.insert(id.to_string(),serde_json::json!({"tile":format!("<div id=\"pnl_bots_{kind}_{id}\">{}</div>",no_value),"metrics":format!("<div id=\"metrics\">{}</div>",no_value),"chart":format!("<div id=\"chart\">{}</div>",no_value)}));
+        bots.insert(id.to_string(),serde_json::json!({"tile":absent(&format!("pnl_bots_{kind}_{id}")),"metrics":absent("metrics"),"chart":absent("chart")}));
     }
-    Ok(Some(serde_json::json!({"bots":bots,"account":format!("<div id=\"global-pnl\">{}</div>",no_value)})))
+    Ok(Some(serde_json::json!({"bots":bots,"account":absent("global-pnl")})))
 }
 /// What a page shows: the kept figures, or None (Rails' loading state) while they are not kept, and then the queue makes
 /// and publishes them in the page's locale and paths.

@@ -720,6 +720,27 @@ async fn repeated_overtakes_never_lose_the_request() {
     assert!(matches!(page_figures(&install.app, 1, "fr", "/fr").await, (Some(_), 0)), "the French figures, after eight overtakes");
 }
 
+/// A failed fill with no reason to say leaves every figure out: no widget, no dash, only the targets its publication
+/// replaces (the chart in its not-charted form), so a later publication finds each of them.
+#[tokio::test]
+async fn a_failure_without_a_reason_shows_no_widget_and_no_dash() {
+    let install = Install::new(1, 0);
+    let clock = install.app.clock.clone();
+    let (page, streams) = install.app.db(move |c| {
+        let page = loading::render(c, 1, &loading::Snapshot::Failed(None), "en", "token", "", &*clock)?.expect("the fallback");
+        let streams = deltabadger::web::figure::streams(c, 1, &page).unwrap();
+        Ok((page, streams))
+    }).await.unwrap();
+    assert_eq!(page, json!({"bots": {"1": {"tile": "<div id=\"pnl_bots_dca_multi_asset_1\"></div>", "metrics": "<div id=\"metrics\"></div>",
+        "chart": "<div id=\"chart\" hidden=\"hidden\">\n</div>\n"}}, "account": "<div id=\"global-pnl\"></div>"}));
+    assert_eq!(streams.len(), 4);
+    for (_, payload) in streams {
+        assert!(!payload.contains('—') && !payload.contains("no-value") && !payload.contains("widget"), "{payload}");
+        let target = ["pnl_bots_dca_multi_asset_1", "metrics", "chart", "global-pnl"].into_iter().find(|t| payload.contains(&format!("target=\"{t}\""))).expect("a known target");
+        assert!(payload.contains(&format!("id=\"{target}\"")), "the replacement keeps its target: {payload}");
+    }
+}
+
 #[tokio::test]
 async fn an_account_without_an_alpaca_key_reads_a_precomputed_reason() {
     let install = Install::new(1, 0);

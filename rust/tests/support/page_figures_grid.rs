@@ -574,7 +574,7 @@ async fn figures_fragments_match_the_rails_page_partials() {
                 late.set(now.utc()+chrono::Duration::seconds(120)); // the fill ends two minutes after it began
                 let ended=watching.until(&wanted).await;
                 assert_eq!(ended.len(),wanted.len(),"{name}: a fill that failed late never ended the wait");
-                assert!(ended.values().all(|html|html.contains("no-value")),"{name}: a failed fill published a figure");
+                for html in ended.values() { no_widget(html,None); }
                 // A page that stays mounted while its connection drops the final publication: its mailbox is past its
                 // bounds, so the publication is dropped and the connection closed. The page reconnects and subscribes
                 // again, asks nothing (`broadcast--on-connect` asks once), and ends with the current figures: replayed
@@ -744,7 +744,7 @@ async fn figures_fragments_match_the_rails_page_partials() {
                 app.db(|c| { c.execute_batch("ALTER TABLE bots_away RENAME TO bots")?; Ok(()) }).await.unwrap();
                 let ended=watching.until(&wanted).await;
                 assert_eq!(ended.len(),wanted.len(),"{name}: a fallback whose bots could not be read published part of the page");
-                assert!(ended.values().all(|html|html.contains("no-value")),"{name}: a failed fill published a figure");
+                for html in ended.values() { no_widget(html,None); }
                 drop(watching);
                 stop_broken.send(true).unwrap();
                 assert_eq!(tokio::time::timeout(Duration::from_secs(5),broken_follower).await.unwrap().unwrap(),Ok(()));
@@ -887,10 +887,16 @@ async fn figures_fragments_match_the_rails_page_partials() {
             for parts in actual["bots"].as_object().unwrap().values() {
                 for part in ["tile", "metrics", "chart"] {
                     let html = parts[part].as_str().unwrap();
-                    assert!(html.contains("no-value"), "{name}: stale {part} published");
                     assert!(!html.contains("data-bot--chart-series"));
                     assert!(!html.contains("rbutton--success"));
                 }
+                // The tile and the chart cannot be stated: neither is shown, and their targets stay.
+                no_widget(parts["tile"].as_str().unwrap(), Some("pnl_bots_"));
+                assert_eq!(parts["chart"].as_str().unwrap(), "<div id=\"chart\" hidden=\"hidden\">\n</div>\n", "{name}: chart");
+            }
+            // Live updates replace the same targets with the same nothing.
+            for (_, payload) in deltabadger::web::figure::streams(&c, sc["user_id"].as_i64().unwrap(), &actual).unwrap() {
+                if !payload.contains("target=\"metrics\"") { no_widget(&payload, None); }
             }
             let metrics = scraper::Html::parse_fragment(actual["bots"]["1"]["metrics"].as_str().unwrap());
             let rows = metrics.select(&scraper::Selector::parse("tr[data-symbol]").unwrap()).collect::<Vec<_>>();
@@ -898,7 +904,7 @@ async fn figures_fragments_match_the_rails_page_partials() {
             for row in rows {
                 assert_eq!(row.select(&scraper::Selector::parse(".no-value").unwrap()).count(), 2, "{name}: stale holding value or P/L published");
             }
-            assert!(actual["account"].as_str().unwrap().contains("no-value"), "{name}: stale account published");
+            assert_eq!(actual["account"].as_str().unwrap(), "<div id=\"global-pnl\"></div>", "{name}: stale account published");
             assert!(!actual["account"].as_str().unwrap().contains("<svg"), "{name}: stale sparkline published");
             continue; // Deliberate unavailable state; Rails retains stale ledger figures here.
         }
@@ -959,13 +965,18 @@ async fn figures_fragments_match_the_rails_page_partials() {
         let components = std::env::var("FIGURE_PARTS").unwrap_or_else(|_| "tile,metrics,chart,account".into());
         if components.split(',').any(|p| p == "account") {
             let got = actual["account"].as_str().unwrap();
-            if ["price_untraded", "index_rotation", "old_rows"].contains(&name) { assert!(got.contains("no-value")); }
+            if ["price_untraded", "index_rotation", "old_rows"].contains(&name) { assert_eq!(got, "<div id=\"global-pnl\"></div>", "{name} account"); }
             else { assert_eq!(common::html::normalize(got),common::html::normalize(expected["account"].as_str().unwrap()),"{name} account"); }
         }
         for (id, parts) in expected["bots"].as_object().unwrap() {
             for part in components.split(',').filter(|p| *p != "account") {
                 let got = &actual["bots"][id][part];
-                if name == "price_untraded" || name == "index_rotation" || name == "old_rows" { assert!(got.as_str().unwrap().contains("no-value"), "{name} {part}"); continue; }
+                if name == "price_untraded" || name == "index_rotation" || name == "old_rows" {
+                    // Missing prices: the holdings keep a dash per unknown value; the tile and chart are not shown at all.
+                    let got = got.as_str().unwrap();
+                    match part { "metrics" => assert!(got.contains("no-value"), "{name} {part}"), "chart" => assert_eq!(got, "<div id=\"chart\" hidden=\"hidden\">\n</div>\n", "{name} chart"), _ => no_widget(got, Some("pnl_bots_")) }
+                    continue;
+                }
                 let mut got = got.as_str().unwrap().to_string();
                 if ["stranded_offset", "liquidations", "index_specials"].contains(&name) && part == "metrics" {
                     let refusal = "<p role=\"status\">Redeploy unavailable</p>\n";
@@ -1081,7 +1092,7 @@ async fn unreadable_split_report(dir: &Path, sc: &Value, expected: &Value, now: 
     let mut cable = Cable::open(&app, &cookie, &streams).await;
     loading::publish(&app, user).await.unwrap();
     let unavailable = |html: &str| {
-        assert!(html.contains("no-value"), "{name}: an unreadable split produced a money figure: {html}");
+        no_widget(html, None);
         assert!(!html.contains("data-symbol="), "{name}: a partial share count escaped");
         assert!(!html.contains("data-bot--chart-series"), "{name}: a partial chart escaped");
     };
@@ -1110,6 +1121,14 @@ async fn unreadable_split_report(dir: &Path, sc: &Value, expected: &Value, now: 
     let chart = browser.get(&app, &format!("/bots/{bot}/chart")).await;
     assert_eq!(chart.status, 200);
     unavailable(&chart.body);
+}
+
+/// A figure this build cannot state is no widget at all: no box, no dash in its place, its target id (or id prefix) kept for
+/// the next publication (`target`, when given).
+fn no_widget(html: &str, target: Option<&str>) {
+    assert!(!html.contains("<span class=\"no-value\">—</span>"), "a dash in place of a widget: {html}");
+    assert!(!html.contains("widget--chart") && !html.contains("pnl-percent"), "a widget published: {html}");
+    if let Some(target) = target { assert!(html.contains(&format!("id=\"{target}")), "target {target} lost: {html}"); }
 }
 
 fn db_time(text: &str) -> chrono::DateTime<chrono::Utc> {
@@ -1190,10 +1209,13 @@ async fn chronology_matches_rails_fresh_bytes() {
         let (ours, fresh, actual) = (parts(&rendered), parts(&step["fresh"]), parts(&step["actual"]));
         if matches!(snapshot, Snapshot::Failed(_)) {
             // Nothing was kept: the market refused this fill. What was kept before it is never shown past its cut; the
-            // page shows this build's unavailable state (Rails shows its stale figures there, a difference older than kept
+            // page shows no figures at all, only their targets (Rails shows its stale figures there, a difference older than kept
             // figures, held by the grid's refused-price case).
             assert_eq!(name, "provider_failure", "{name}: the fill failed");
-            assert!(ours.values().all(|lines| lines.iter().any(|line| line.contains("\"—\""))), "{name}: {ours:?}");
+            for (key, html) in rendered["bots"].as_object().unwrap().iter().flat_map(|(id, parts)| parts.as_object().unwrap().iter().map(move |(part, html)| (format!("{id} {part}"), html))) {
+                no_widget(html.as_str().unwrap(), Some(if key.ends_with(" chart") { "chart" } else if key.ends_with(" metrics") { "metrics" } else { "pnl_bots_" }));
+            }
+            no_widget(rendered["account"].as_str().unwrap(), Some("global-pnl"));
         } else {
             for (key, want) in &fresh { assert_eq!(ours.get(key), Some(want), "{name}: {key}: this build against Rails computed fresh at t_c"); }
             assert_eq!(ours.len(), fresh.len(), "{name}");
