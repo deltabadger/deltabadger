@@ -75,8 +75,8 @@ pub fn denominated(currency: &str, rate: &str, usd: &str, digits: usize) -> Resu
 fn tile(s: &Subject, m: &Metrics, unavailable: bool, profit: Option<&Num>, d: &totals::Denomination) -> Result<String, FiguresError> {
     let kind = if s.bot.kind == db::Kind::Basket { "dca_multi_asset" } else { "dca_index" };
     let mut body = String::new();
-    if unavailable { body.push_str(NO_VALUE); }
-    else if let Some(pnl) = &m.pnl {
+    // Figures that cannot be stated leave the tile without them: no widget, no dash.
+    if let Some(pnl) = m.pnl.as_ref().filter(|_| !unavailable) {
         body = format!("<div class=\"bot-tile__pnl {}\">\n<span class=\"pnl-percent\">{}</span>\n", colour(pnl), percent(pnl, 2)?);
         // Bot#profit_in_usd in the account's currency; absent with balances hidden or without a rate, as in Rails.
         if let Some(profit) = profit {

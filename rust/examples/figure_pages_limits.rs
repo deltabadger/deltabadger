@@ -43,11 +43,12 @@ pub fn run()->Result<(),String>{
     let failed=loading::render(&c,1,&Snapshot::Failed(None),"en","token","",&deltabadger::engine::FixedClock(now.utc())).map_err(|e|format!("{e:?}"))?.ok_or("terminal state missing")?;
     for part in ["tile","metrics","chart"] {
         let html=failed["bots"]["1"][part].as_str().ok_or("part missing")?;
-        if !html.contains("no-value")||html.contains("loader")||html.contains("0.00"){return Err(format!("dishonest terminal {part}"));}
+        // No figure, no dash, no loader: the terminal state shows nothing where the widget would be.
+        if html.contains("no-value")||html.contains("widget")||html.contains("loader")||html.contains("0.00"){return Err(format!("dishonest terminal {part}"));}
     }
     let (_,after)=budget::scope(FIGURE,||figure::account(&c,1,&market,now,"en","token",""));
     if after!=used{return Err("a prior render leaked its decimal meter".into());}
     Ok(())
 }
 #[allow(dead_code)]
-fn main(){match run(){Ok(())=>println!("page figures and serialization keep the budget; failures show no value"),Err(e)=>{eprintln!("{e}");std::process::exit(1);}}}
+fn main(){match run(){Ok(())=>println!("page figures and serialization keep the budget; failures show no widget"),Err(e)=>{eprintln!("{e}");std::process::exit(1);}}}
