@@ -673,3 +673,21 @@ fn the_kucoin_log_line_is_labelled_kucoin() {
     let t = http::ReqwestTransport::kucoin(http::client(), "KEY".into(), "SECRET".into(), "PASS".into());
     assert_eq!(t.failure_line(&http::HttpResponse { status: 400, body: r#"{"code":"400100","msg":"x"}"#.into() }), "[KuCoin] HTTP 400; venue response diagnostic omitted");
 }
+
+/// The engine reads the stored passphrase of a KuCoin key, as Rails' ApiKey#passphrase gives it to the KuCoin client: an
+/// empty one signs every order "400004 Invalid KC-API-PASSPHRASE". (The factory test above hands its credentials in directly.)
+#[test]
+fn the_engine_loads_a_kucoin_keys_stored_passphrase() {
+    let (_d, o, s) = common::install();
+    let c = &o.primary;
+    let cipher = seed::cipher();
+    c.execute("UPDATE exchanges SET type = 'Exchanges::Kucoin', name = 'KuCoin'", []).unwrap();
+    c.execute("UPDATE api_keys SET passphrase = ?1", [cipher.encrypt("kc-passphrase-01")]).unwrap();
+    let id = seed::insert_bot(c, &s, &BotSpec::weekly(60.0, "2026-09-01 14:00:00"));
+    let bot = deltabadger::engine::model::load_bot(c, id).unwrap();
+    let creds = deltabadger::engine::model::credentials_for(c, &cipher, &bot).unwrap().expect("the key");
+    assert_eq!(creds.passphrase.as_deref(), Some("kc-passphrase-01"));
+    // A venue whose client takes none reads none, even with a value stored.
+    c.execute("UPDATE exchanges SET type = 'Exchanges::Kraken', name = 'Kraken'", []).unwrap();
+    assert_eq!(deltabadger::engine::model::credentials_for(c, &cipher, &bot).unwrap().expect("the key").passphrase, None);
+}
