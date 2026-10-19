@@ -138,5 +138,7 @@ async fn record_a_two_member_swap_on_the_testnet() {
     let bought = v.add_order(&order("ETHUSDT", deltabadger::venue::Side::Buy, &proceeds.floor(2).to_s_f(), true)).await.expect("a market buy by quote");
     let (buy, _) = v.order_identified(&bought, |_, _, _| Ok(true)).await.expect("the buy read back");
     eprintln!("sold {:?}, bought {:?}", sell[0], buy[0]);
-    write_bodies(&dir, &log.borrow()).expect("recordings written");
+    // Its own subdirectory: the other recorder numbers its files from 00.json in the same directory.
+    let swap = std::path::Path::new(&dir).join("swap");
+    write_bodies(swap.to_str().expect("a UTF-8 path"), &log.borrow()).expect("recordings written");
 }
