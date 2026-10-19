@@ -426,7 +426,9 @@ async fn fill_result<T:Send+'static>(app:&App,user:i64,cache:&mut Cache,wire:&Wi
             Ok(result.ok()) // allow-swallow: computation failure becomes a failed fill; only the safe reason above is retained
         }).await;
         let Ok(Some((demands,fx_demands,out,reason)))=pass else { return Err(None) };
-        if demands.is_empty() && fx_demands.is_empty(){return out.ok_or(reason);}
+        // Made under this key even when it read no market data (every bot on a venue the reader cannot read): ready
+        // figures are current while the key is (`render`), and an unrecorded key would leave them never shown.
+        if demands.is_empty() && fx_demands.is_empty(){ if out.is_some() { cache.produced_by(wire.producer()); } return out.ok_or(reason);}
         if demands.len()>crate::figures::page_market::MAX_ENTRIES{return Err(None);}
         // Conversions from the market-data provider, never over the venue's wire (it carries the venue's key).
         if !fx_demands.is_empty() && crate::web::tracker::fx::fill(app,&identity,config,fx_demands).await.is_err() { return Err(None); }
@@ -537,9 +539,7 @@ pub fn render(c:&Connection,user:i64,snapshot:&Snapshot,locale:&str,csrf:&str,pr
         // Whatever the failure, its figures are absent; the reason is the queue's, not the page's.
         Snapshot::Failed(_)=>{}
         Snapshot::Ready(cache,now,prepared_revision,read,until)=>{
-            // No producer: the fill read no market data under any key (every bot on a venue the reader cannot read), so no
-            // change of key outdates it.
-            let current=cache.producer().as_ref().is_none_or(|origin|crate::engine::model::credential_is_current(c,origin).unwrap_or(false));
+            let current=cache.producer().as_ref().is_some_and(|origin|crate::engine::model::credential_is_current(c,origin).unwrap_or(false));
             // The fingerprint is the most expensive read of a warm page, and `prepare` read it a moment ago on this
             // connection (App::db's one): read again only if anything was written since.
             let unchanged=read.is_some_and(|read|mark(c).ok()==Some(read));
@@ -560,7 +560,7 @@ pub fn render(c:&Connection,user:i64,snapshot:&Snapshot,locale:&str,csrf:&str,pr
             }
         }
         Snapshot::Stale(cache,at,revision,until)=>{
-            let current=cache.producer().as_ref().is_none_or(|origin|crate::engine::model::credential_is_current(c,origin).unwrap_or(false));
+            let current=cache.producer().as_ref().is_some_and(|origin|crate::engine::model::credential_is_current(c,origin).unwrap_or(false));
             if !current || clock.now().timestamp()>=*until { return Ok(None); }
             let (Some(kept),Some(then))=(cache.kept(&kept_key(*revision,*at,locale,prefix)),cache.kept(&shape_key(*revision))) else { return Ok(None) };
             if !fx_holds(c,cache,&kept_fx(&kept),clock.now().timestamp()) { return Ok(None); }
