@@ -1,7 +1,7 @@
 //! BroadcastsController, for the three figures a page waits on: `broadcast--on-connect` posts here once every stream
 //! source of the page is connected (app/javascript/controllers/broadcast/on_connect_controller.js). Rails answers
 //! `head :ok` at once and leaves the broadcast to a job; so does this build, and the work is `figure::loading::publish`.
-//! The other methods of the controller (open orders, the limit rules' info, the wake) are not served yet.
+//! `wake_dispatcher` is served too; the other methods of the controller (open orders, the limit rules' info) are not yet.
 use super::layout::Ctx;
 use super::{auth, bot, App, WebError};
 use axum::extract::{Extension, State};
@@ -55,3 +55,18 @@ pub async fn global_pnl_update(State(app): State<App>, Extension(ctx): Extension
     Ok(head(StatusCode::OK))
 }
 
+/// `wake_dispatcher`: a page back from the background. Rails releases the overdue scheduled jobs and, a second on,
+/// broadcasts each working bot's status bar (Bot::BroadcastAfterScheduledActionJob). This build has no job queue to
+/// release: the engine is woken to look at its bots now, and the bars go out as that job sends them.
+pub async fn wake_dispatcher(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> {
+    let Some(user) = ctx.user().map(|user| user.id) else { return Ok(auth::unauthenticated(&ctx)) };
+    app.wake_engine();
+    let working = crate::enums::BOT_WORKING.iter().map(|s| (*s as i64).to_string()).collect::<Vec<_>>().join(",");
+    let ids = app.db(move |c| Ok(c.prepare(&format!("SELECT id FROM bots WHERE user_id = ?1 AND status IN ({working}) ORDER BY id"))?
+        .query_map([user], |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?)).await?;
+    tokio::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+        for id in ids { bot::action_view::broadcast_after_scheduling(ctx.clone(), id); }
+    });
+    Ok(head(StatusCode::OK))
+}

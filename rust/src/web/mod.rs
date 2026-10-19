@@ -706,6 +706,7 @@ fn routes(app: App) -> Router {
         .route("/broadcasts/metrics_update", only(post(broadcasts::metrics_update)))
         .route("/broadcasts/pnl_update", only(post(broadcasts::pnl_update)))
         .route("/broadcasts/global_pnl_update", only(post(broadcasts::global_pnl_update)))
+        .route("/broadcasts/wake_dispatcher", only(post(broadcasts::wake_dispatcher)))
         .fallback(layout::not_ported)
         .layer(middleware::from_fn_with_state(app.clone(), pipeline))
         .merge(oauth_api(app.clone()))
