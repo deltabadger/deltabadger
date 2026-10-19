@@ -648,15 +648,15 @@ pub fn column(c: &Connection, forms: &Forms) -> Result<String, WebError> {
             let lone = if bot.base_assets.len() == 1 { bot.base_assets.first().map(pill).transpose()? } else { None };
             let sliders = if lone.is_some() { vec![] } else {
                 bot.base_assets.iter().map(|asset| {
-                    let weight = bot.allocations().iter().find(|(id, _)| *id == asset.id).map_or(0.0, |(_, weight)| *weight);
+                    let weight = bot.displayed_allocation_for(asset.id);
                     Ok(Slider { pill: pill(asset)?, percent: format::float_to_s(format::float_round(weight * 100.0, 1)) })
                 }).collect::<Result<Vec<_>, WebError>>()?
             };
-            let total = format::number_with_precision(&Num::Float(bot.allocations_total() * 100.0), 1, false).unwrap_or_default();
+            let total = format::number_with_precision(&Num::Float(bot.displayed_allocations_total() * 100.0), 1, false).unwrap_or_default();
             let composition_locked = bot.working() || bot.rebalance_pending();
             out.push_str(&BasketMain {
                 v: ctx, csrf: forms.csrf, path: &forms.path, locked: bot.working(), composition_locked,
-                weights_locked: composition_locked || bot.text("weighting") == Some("market_cap"), quote, quote_asset_id, amount_field, interval_words, interval_select, lone,
+                weights_locked: composition_locked || bot.market_cap_weighted(), quote, quote_asset_id, amount_field, interval_words, interval_select, lone,
                 reverse_confirm: bot.has_regular_waiting_orders.then(|| i18n::text(ctx.locale, "bot.reverse_confirm", &[])), sell,
                 several: bot.base_assets.len() > 1, sliders, balanced: bot.allocations_balanced(), total,
                 // A member is added by buying it, which a selling basket does not do.
@@ -703,7 +703,7 @@ pub fn column(c: &Connection, forms: &Forms) -> Result<String, WebError> {
     Ok(out)
 }
 
-/// bots/dca_multi_assets/settings/_marketcap_allocation.html.erb, switched off (market-cap weights are not served yet).
+/// bots/dca_multi_assets/settings/_marketcap_allocation.html.erb.
 fn market_cap_rule(forms: &Forms) -> String {
     let key = forms.key();
     format!("<form class=\"widget main-rule main-rule--multi-asset {active}\" data-controller=\"class-toggle form--submit\" data-class-toggle-target=\"togglable\" \

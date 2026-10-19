@@ -1602,7 +1602,7 @@ fn a_bot_row_is_read_as_the_pages_need_it_and_refused_when_this_build_cannot_ren
     // Selling owes the wash-sale question before anything is held (Bot#sell_capable?).
     assert_eq!(refused(&one, None, true), Some("the wash-sale question not answered yet"));
     assert_eq!(refused(&|s| s["rebalance_enabled"] = json!(true), Some(false), true), Some("rebalancing"));
-    assert_eq!(refused(&|s| s["weighting"] = json!("market_cap"), Some(false), true), Some("market-cap weights"));
+    assert_eq!(refused(&|s| s["weighting"] = json!("market_cap"), Some(false), true), None, "plan CB T6: market-cap weights are served");
     assert_eq!(refused(&|s| s["quote_amount"] = json!(0), Some(false), true), Some("settings no form would have saved"));
     assert_eq!(refused(&|s| s["interval"] = json!("year"), Some(false), true), Some("settings no form would have saved"));
     assert_eq!(refused(&|s| s["start_time_mode"] = json!("noon"), Some(false), true), Some("settings no form would have saved"));

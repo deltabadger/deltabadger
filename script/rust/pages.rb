@@ -290,6 +290,12 @@ module Pages
                                            stopped('binance_basket', 'stored' => { 'allocations' => { '17' => 0.7, '20' => 0.45 } })],
                                           signed_in(get('/bots/1'), get('/bots/2'), get('/bots'))),
       'venue_basket_key_incorrect' => venue.(venue_baskets, signed_in(get('/bots/1'), get('/bots/2'), get('/bots')), 'venue_keys' => { 'kraken' => 'incorrect' }),
+      # Market-cap weights (plan CB T5/T6): each basket's save derived its members' weights from their caps, and the settings
+      # show the traded weights (displayed_allocation_for) under locked sliders, with the rule switched on.
+      'venue_basket_market_cap' => venue.([stopped('kraken_basket', 'settings' => { 'weighting' => 'market_cap' }),
+                                           stopped('binance_basket', 'settings' => { 'weighting' => 'market_cap' }),
+                                           stopped('kucoin_basket', 'settings' => { 'weighting' => 'market_cap' })],
+                                          signed_in(get('/bots/1'), get('/bots/2'), get('/bots/3'), get('/de/bots/3'), get('/bots')), 'kucoin_bots' => true),
       # Crypto index bots on Kraken (Top coins, EUR) and Binance (Layer 1, USDT), stopped and at work (plan CI T6): the
       # composition tables with a member out of the index, the coins slider and its label, the settings preview, the list.
       'venue_index_page' => venue.([stopped('kraken_index'), running('binance_index', '2026-09-08T13:30:00Z', acted('2026-09-08T13:30:00.800Z'))],
@@ -529,6 +535,12 @@ module Pages
       'bot_page_no_key' => with_bots(three, signed_in(get('/bots/2')), 'api_keys' => {}),
       'bot_page_wide' => with_bots([{ 'kind' => 'wide' }, { 'kind' => 'coins' }, running('wide', '2026-08-31T10:00:00Z', acted('2026-08-31T10:00:00.900Z'))],
                                    signed_in(get('/bots/1'), get('/bots/2'), get('/bots/3'))),
+      # Market-cap weights (plan CB T5/T6): a coin basket whose caps decided its weights (0.7/0.3 sliders, traded as the caps
+      # split them), the same at work, and a stock basket with no caps that keeps its sliders.
+      'bot_page_market_cap' => with_bots([stopped('coins', 'settings' => { 'weighting' => 'market_cap' }),
+                                          running('coins', '2026-09-08T13:30:00Z', { 'settings' => { 'weighting' => 'market_cap' } }.merge(acted('2026-09-10T11:30:00.800Z'))),
+                                          stopped('basket', 'settings' => { 'weighting' => 'market_cap' })],
+                                         signed_in(get('/bots/1'), get('/bots/2'), get('/bots/3'), get('/de/bots/1'), get('/bots'))),
       # A four-member basket as the Rust engine leaves it mid-run: a leg per member, an unresolved intent on its own
       # ticker, and the engine's own transient_data keys.
       'bot_page_engine_basket' => with_bots([running('wide', '2026-08-31T10:00:00Z', acted('2026-09-09T13:30:00.900Z')).merge('orders' => 'engine_legs')],
@@ -647,8 +659,6 @@ module Pages
       'not_ported_bot_selling_cap' => with_bots([stopped('single', 'settings' => selling_base.merge('base_amount_limited' => true, 'base_amount_limit' => 3)),
                                                  { 'kind' => 'basket' }], signed_in(get('/bots/2'), get('/bots/1'))),
       'not_ported_bot_rebalancing' => with_bots([stopped('basket', 'settings' => { 'rebalance_enabled' => true }), { 'kind' => 'single' }], signed_in(get('/bots/1'))),
-      'not_ported_bot_market_cap_weights' => with_bots([stopped('coins', 'settings' => { 'weighting' => 'market_cap' }), { 'kind' => 'single' }],
-                                                       signed_in(get('/bots/1'))),
       'not_ported_bot_that_sold' => with_bots([stopped('single', 'orders' => 'sold'), { 'kind' => 'basket' }], signed_in(get('/bots/1'))),
       # An index bot's liquidation, redeploy and rebalance legs: the engine reads them, and its start modal and starts are served
       # (actions_index_history_*). A page without figures has no realised profit or loss to show, so this grid's page is refused;

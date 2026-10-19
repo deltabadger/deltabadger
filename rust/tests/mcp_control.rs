@@ -221,19 +221,21 @@ async fn control_transcripts() {
             // Named divergence: settings that need what this build does not run yet. Rails saves them; Rust
             // refuses the whole call by its reason and writes nothing. Rebalancing runs here for an Alpaca basket or
             // index bot (6b T8), stopped ones included, so the engine guard refuses it only on a bot otherwise
-            // outside the slice: the Index bot (2), whose stock members name no instrument. A market-cap basket's
-            // derived composition is refused by the writer, as the settings page refuses that bot.
+            // outside the slice: the Index bot (2), whose stock members name no instrument. A market-cap basket's derived
+            // composition (Plan CB T5) is compared in full, bot_index_assets included.
             let rebalancing=want["rows"]["bots"].as_array().unwrap().iter().any(|b|b["id"]==json!(2)&&b["settings"]["rebalance_enabled"]==json!(true));
-            let market_cap=want["rows"]["bots"][0]["settings"]["weighting"]=="market_cap"
-                && (got["before_business"]["bots"][0]["settings"]["allocations"]!=want["rows"]["bots"][0]["settings"]["allocations"]
-                    || got["before_business"]["bots"][0]["settings"]["weighting"]!=json!("market_cap"));
-            if rebalancing || market_cap {
+            // Plan CB T5: Rails' save derived the members from the caps (BTC 1.3e12 of 1.7e12), or back from the sliders.
+            if name.starts_with("settings_form_case_market_cap_") {
+                let derived=want["rows"]["bot_index_assets"].as_array().unwrap().iter()
+                    .any(|r|r["bot_id"]==json!(1)&&(r["in_index"]==json!(1)||r["in_index"]==json!(true))&&r["target_allocation"]["float_bits"].as_str().and_then(|b|u64::from_str_radix(b,16).ok()).is_some_and(|b|(f64::from_bits(b)-1.3/1.7).abs()<1e-6));
+                assert_eq!(derived,name!="settings_form_case_market_cap_off","{name}: {}",want["rows"]["bot_index_assets"]);
+            }
+            if rebalancing {
                 let rails:Value=serde_json::from_str(want["responses"][2]["body"].as_str().unwrap()).unwrap();
                 assert!(rails["result"]["content"][0]["text"].as_str().unwrap().contains("settings updated:"),"Rails saves {name}");
                 let response:Value=serde_json::from_str(got["responses"][2]["body"].as_str().unwrap()).unwrap();
                 let text=response["result"]["content"][0]["text"].as_str().unwrap();
-                let reason=if rebalancing {"has work only the full app handles (rebalancing)"} else {"market-cap weights"};
-                assert!(text.starts_with("This app can't run that yet:") && text.contains(reason),"{name}: {text}");
+                assert!(text.starts_with("This app can't run that yet:") && text.contains("has work only the full app handles (rebalancing)"),"{name}: {text}");
                 assert_eq!(response["result"]["isError"],true,"{name}");
                 for table in ["bots","transactions","api_keys","bot_index_assets","bot_activity_logs","users"] {
                     assert_eq!(got["rows"][table],got["before_business"][table],"{name} refusal writes nothing: {table}");
