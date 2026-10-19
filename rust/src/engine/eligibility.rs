@@ -274,10 +274,9 @@ fn start_time_reason(c: &Connection, bot: &Bot) -> Result<Option<String>, Engine
                     local.format("%H:%M:%S"), bot.settings.get("start_time_of_day"))))
 }
 
-/// settings.allocations: what Rails would start, within what this build ports (manual weights, 1..MAX_ASSETS members on
+/// settings.allocations: what Rails would start, within what this build ports (manual or market-cap weights, 1..MAX_ASSETS members on
 /// every venue). Returns the member asset ids in settings order.
 fn composition_reasons(bot: &Bot, r: &mut Vec<String>) -> Vec<i64> {
-    if bot.weighting() != "manual" { r.push(format!("weighting {} (market-cap weights are not supported by this engine yet)", bot.weighting())); }
     let Some(a) = bot.allocations() else {
         r.push("allocations: an asset id or a weight this build does not read".into());
         return vec![];

@@ -118,7 +118,6 @@ fn deferred_classes_and_existing_refusals_still_roll_back() {
         ("UPDATE bots SET settings=json_set(settings,'$.price_drop_limited',json('true'))","price_drop_limited"),
         ("UPDATE bots SET settings=json_set(settings,'$.indicator_limited',json('true'))","indicator_limited"),
         ("UPDATE bots SET settings=json_set(settings,'$.direction','sideways')","direction \"sideways\""),
-        ("UPDATE bots SET settings=json_set(settings,'$.weighting','market_cap')","weighting"),
         ("UPDATE bots SET transient_data=json_set(transient_data,'$.liquidation_pending',json('{}'))","liquidation_pending"),
         ("UPDATE bots SET transient_data=json_set(transient_data,'$.redeploy_pending',json('{}'))","redeploy_pending"),
         // 6b T8: an Alpaca basket rebalances here (admitted below); a halt Rails wrote and a threshold it cannot read do not.
