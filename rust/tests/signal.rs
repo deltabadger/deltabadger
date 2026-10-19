@@ -352,3 +352,39 @@ async fn run_next_reports_idle_waiting_and_ran() {
     s.e.primary.execute("UPDATE bots SET transient_data = json_remove(transient_data, '$.signal_placement_unresolved')", []).unwrap();
     assert_eq!(signal::run_next(&s.e.primary, &s.venue, s.bot, &at(T0), &cx).await.unwrap(), Step::Ran);
 }
+
+/// Plan 8b: the hook's transaction (web::hook::receive, with the guard that 8d will pass) claims the rule as Active Record
+/// writes it and leaves the engine the call with the claim's time; the engine places it once.
+#[tokio::test(flavor = "current_thread", start_paused = true)]
+async fn a_webhook_call_the_hook_accepts_is_placed_once_by_the_engine() {
+    use deltabadger::web::hook::{self, Outcome};
+    let mut s = buy();
+    let now = t("2026-09-01T14:00:01.123456789Z");
+    let updated: String = s.e.primary.query_row("SELECT updated_at FROM bots WHERE id = ?1", [s.bot], |r| r.get(0)).unwrap();
+    assert_eq!(hook::receive(&s.e.primary, "tok-1", now, |_, _| Ok(())).unwrap(), Outcome::Accepted);
+    let claimed: String = s.e.primary.query_row("SELECT last_triggered_at FROM bot_signals WHERE id = ?1", [s.rule], |r| r.get(0)).unwrap();
+    assert_eq!(claimed, "2026-09-01 14:00:01.123456");
+    let waiting = model::load_bot(&s.e.primary, s.bot).unwrap().signal_calls().unwrap();
+    assert_eq!(waiting.len(), 1);
+    assert!(waiting[0].source.starts_with("hook:") && waiting[0].signal_id == s.rule && waiting[0].triggered_at == t("2026-09-01T14:00:01.123456Z"), "{waiting:?}");
+    assert_eq!(s.e.primary.query_row("SELECT updated_at FROM bots WHERE id = ?1", [s.bot], |r| r.get::<_, String>(0)).unwrap(), updated, "the call leaves updated_at alone");
+    // The same instant and 29.999 s later are the cooldown; nothing more is queued.
+    for later in [0, 29_999_999] {
+        assert_eq!(hook::receive(&s.e.primary, "tok-1", now + chrono::Duration::microseconds(later), |_, _| Ok(())).unwrap(), Outcome::Ignored("cooldown"));
+    }
+    run::step(&mut s.e, &FixedClock(now + chrono::Duration::seconds(1))).await.unwrap();
+    assert_eq!((s.venue.sent().len(), calls(&s.e.primary, s.bot)), (1, 0));
+}
+
+/// A call the guard refuses rolls its claim back with it: nothing written, so a retry is not a cooldown.
+#[test]
+fn a_webhook_call_the_guard_refuses_writes_nothing() {
+    use deltabadger::web::hook::{self, Outcome};
+    let s = buy();
+    let refused = hook::receive(&s.e.primary, "tok-1", t(T0), |_, _| Err("not admitted".into())).unwrap();
+    assert_eq!(refused, Outcome::Refused("not admitted".into()));
+    let claimed: Option<String> = s.e.primary.query_row("SELECT last_triggered_at FROM bot_signals WHERE id = ?1", [s.rule], |r| r.get(0)).unwrap();
+    assert_eq!((claimed, calls(&s.e.primary, s.bot)), (None, 0));
+    assert!(s.e.primary.is_autocommit());
+    assert_eq!(hook::receive(&s.e.primary, "nope", t(T0), |_, _| Ok(())).unwrap(), Outcome::NotFound);
+}

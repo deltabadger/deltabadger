@@ -152,7 +152,9 @@ mod action_transport {
     async fn post_patch_override() {
         let h = Harness::new(); let (_, got) = h.form("POST", &format!("{VALID}&_method=patch")).await;
         assert_eq!(got["method"], "PATCH"); assert!(got["form"].as_array().is_some_and(|v| v.len() == 2));
-        assert_eq!(h.form("POST", "_method=patch&a=1&a[b]=2").await.0, 400);
+        // A form Rack cannot parse names no method (Rack::MethodOverride logs and reads the header): it stays a POST,
+        // which no bot route takes.
+        assert_eq!(h.form("POST", "_method=patch&a=1&a[b]=2").await.0, 501);
     }
     #[tokio::test]
     async fn native_method_not_overridden() {

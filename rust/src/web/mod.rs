@@ -20,6 +20,7 @@ pub mod flash;
 pub mod figure;
 pub mod format;
 pub mod headers;
+pub mod hook;
 pub mod i18n;
 pub mod launchpad;
 pub mod layout;
@@ -709,6 +710,8 @@ fn routes(app: App) -> Router {
         .merge(oauth_api(app.clone()))
         // ActionController::API: outside the session/CSRF pipeline, as in Rails.
         .merge(rest::router())
+        // HooksController (ActionController::API): outside the pipeline, as in Rails.
+        .merge(hook::router())
         // Outside the session/CSRF pipeline, as in Rails.
         .route("/up", only(get(up)))
         .route("/health-check", only(get(health_check)))
@@ -780,16 +783,15 @@ fn pairs(encoded: &[u8]) -> Vec<(String, String)> {
     form_urlencoded::parse(encoded).map(|(k, v)| (k.into_owned(), v.into_owned())).collect()
 }
 
-/// Rack::MethodOverride: the method a form's `_method` field asks for, when it is one a form may ask
-/// for. A repeated field is read as Rack reads it: the last value.
-pub fn method_override(form: &[(String, String)]) -> Option<Method> {
-    let (_, method) = form.iter().rfind(|(name, _)| name == "_method")?;
-    match method.to_ascii_uppercase().as_str() {
-        "PATCH" => Some(Method::PATCH),
-        "PUT" => Some(Method::PUT),
-        "DELETE" => Some(Method::DELETE),
-        _ => None,
-    }
+/// Rack::MethodOverride, for an original POST: the form's `_method` field (the last of a repeated one, as Rack reads it)
+/// or, with no such field, the X-HTTP-Method-Override header, upper-cased, when it is one of Rack's HTTP_METHODS. A field
+/// that names no such method (empty included) leaves the request a POST and the header unread. `form` is None when Rack
+/// read no form, or could not parse it (it then logs and reads the header).
+pub fn method_override(form: Option<&[(String, String)]>, header: Option<&str>) -> Option<Method> {
+    let field = form.and_then(|form| form.iter().rfind(|(name, _)| name == "_method")).map(|(_, value)| value.as_str());
+    let method = field.or(header)?.to_ascii_uppercase();
+    ["GET", "HEAD", "PUT", "POST", "DELETE", "OPTIONS", "PATCH", "LINK", "UNLINK"].contains(&method.as_str())
+        .then(|| Method::from_bytes(method.as_bytes()).ok()).flatten()
 }
 
 #[derive(Clone)]
@@ -836,7 +838,7 @@ pub const IMPORT_READ_TIMEOUT: Duration = Duration::from_secs(120);
 /// - a static file is answered at once, as Rails' static file server sits in front of the app;
 /// - form bodies on POST/PATCH/PUT/DELETE are parsed under one byte/field/deadline bound;
 /// - POST /tracker/import's multipart body is parsed under IMPORT_LIMIT and IMPORT_READ_TIMEOUT;
-/// - only an original POST applies `_method`, as Rack::MethodOverride does;
+/// - only an original POST applies `_method` or X-HTTP-Method-Override, as Rack::MethodOverride does;
 /// - the path is normalised and its locale prefix taken off, so one set of routes serves `/login`
 ///   and `/de/login`.
 async fn entry(State(entry): State<Entry>, request: Request) -> Response {
@@ -852,7 +854,12 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
     if form_urlencoded::parse(raw_query.as_bytes()).nth(QUERY_FIELDS).is_some() {
         return (StatusCode::BAD_REQUEST, "Too many query fields\n").into_response();
     }
+    let override_header = header_text(&parts.headers, "x-http-method-override").map(str::to_string);
     if parts.uri.path().starts_with("/mcp") {
+        // Rack::MethodOverride sits above every route; an MCP body is JSON, so only the header can ask.
+        if parts.method == Method::POST {
+            if let Some(method) = method_override(None, override_header.as_deref()) { parts.method = method; }
+        }
         let force_ssl = entry.app.config.force_ssl;
         let mut response = mcp::entry(entry.app, Request::from_parts(parts, body), entry.body_read_timeout).await;
         headers::policy(response.headers_mut(), &headers::new_nonce(), force_ssl);
@@ -878,10 +885,16 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
     let broadcast_json = original_method == Method::POST && route_path.starts_with("/broadcasts/");
     let setup_json = original_method == Method::POST && path_locale.is_none()
         && matches!(route_path.as_str(), "/setup" | "/setup.html" | "/setup/platform_connection");
+    // POST /hook/*: its body is read whatever its type (bounded, so a stalled body spends no claim) and parsed only as
+    // Rack parses it (web::hook::body).
+    let hook_post = original_method == Method::POST && (route_path == "/hook" || route_path.starts_with("/hook/"));
     let json_post = (setup_json || bot_json || broadcast_json || (original_method == Method::POST && route_path=="/api/api_keys") || (original_method == Method::POST && JSON_PATHS.contains(&full_path.as_str())))
         && content_type.split(';').next().is_some_and(|media_type| media_type.trim().eq_ignore_ascii_case("application/json"));
     let mut json = None;
     let mut upload = None;
+    // What Rack read as the form, for the override: None when it read none, or could not parse it.
+    let mut rack_form = true;
+    let mut unparseable = hook_post && !(hook::rack_form_ok(raw_query.as_bytes()) && bot::action_params::form(&query).is_ok());
     let multipart_boundary = (original_method == Method::POST && route_path == IMPORT_PATH)
         .then(|| multipart::boundary(content_type)).flatten();
     let (form, body) = if let Some(boundary) = multipart_boundary {
@@ -895,7 +908,7 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
             Err(multipart::Error::TooManyParts) => return (StatusCode::BAD_REQUEST, "Too many form fields\n").into_response(),
             Err(multipart::Error::Malformed) => return (StatusCode::BAD_REQUEST, "Bad Request\n").into_response(),
         }
-    } else if form_post || json_post {
+    } else if form_post || json_post || hook_post {
         // The one place a request body is read. It has a deadline for the whole of it: a client that
         // declares a body and stops sending gets a 408, and `connection: close` makes hyper drop the
         // connection, so it does not keep its place. (A body no handler reads is not waited for: hyper
@@ -905,6 +918,11 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
             Err(_) => return (StatusCode::REQUEST_TIMEOUT, [(header::CONNECTION, "close")], "The form did not arrive in time\n").into_response(),
         };
         match read {
+            Ok(bytes) if hook_post => {
+                let (fields, ok) = hook::body(&bytes, content_type);
+                if !ok { unparseable = true; rack_form = false; }
+                (fields, Body::empty())
+            }
             // A JSON body that is not JSON is Rails' 400, answered before any controller. One that is not
             // an object names no parameter, and neither does an empty one.
             Ok(bytes) if json_post && bot_json => match bot::action_params::json(&bytes) {
@@ -917,15 +935,20 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
                 Err(_) => return (StatusCode::BAD_REQUEST, "Bad Request\n").into_response(),
             },
             Ok(bytes) if form_urlencoded::parse(&bytes).nth(FORM_FIELDS).is_some() => return (StatusCode::BAD_REQUEST, "Too many form fields\n").into_response(),
-            Ok(bytes) => (pairs(&bytes), Body::empty()),
+            Ok(bytes) => {
+                let fields = pairs(&bytes);
+                rack_form = hook::rack_form_ok(&bytes) && bot::action_params::form(&fields).is_ok();
+                (fields, Body::empty())
+            }
             Err(_) => return (StatusCode::PAYLOAD_TOO_LARGE, "Form too large\n").into_response(),
         }
     } else {
         (Vec::new(), body)
     };
     if original_method == Method::POST {
-        if let Some(method) = method_override(&form) { parts.method = method; }
+        if let Some(method) = method_override(rack_form.then_some(form.as_slice()), override_header.as_deref()) { parts.method = method; }
     }
+    if unparseable { parts.extensions.insert(hook::Unparseable); }
     let with_query = |path: &str| parts.uri.query().map_or_else(|| path.to_string(), |q| format!("{path}?{q}"));
     let fullpath = with_query(&full_path);
     let Ok(uri) = with_query(&route_path).parse::<Uri>() else { return (StatusCode::BAD_REQUEST, "Bad Request\n").into_response() };

@@ -174,7 +174,10 @@ async fn a_form_post_can_carry_another_method() {
     drop(opened);
     let app = web::app(dir.path(), web::SECRET, TestClock::at(NOW));
     let mut browser = Browser::default();
-    for (given, routed) in [("patch", "PATCH"), ("PUT", "PUT"), ("Delete", "DELETE"), ("get", "POST"), ("trace", "POST")] {
+    // Rack's HTTP_METHODS include GET: POST /up with `_method=get` is the health page.
+    let get = browser.send(&app, "POST", "/up", Some(&[("_method", "get")]), web::Csrf::None, &[]).await;
+    assert_eq!(get.status, 200, "_method=get: {}", get.body);
+    for (given, routed) in [("patch", "PATCH"), ("PUT", "PUT"), ("Delete", "DELETE"), ("trace", "POST"), ("", "POST")] {
         let answer = browser.send(&app, "POST", "/up", Some(&[("a", "1"), ("_method", given)]), web::Csrf::None, &[]).await;
         assert!(answer.status == 501 && answer.body.contains(&format!("{routed} /up")), "_method={given}: {}", answer.body);
     }
@@ -2620,4 +2623,97 @@ fn bot_action_executable_smoke() -> Result<(), Box<dyn std::error::Error>> {
         .map_err(|_| "script panic")?
         .map_err(|e| format!("venue: {e}"))?;
     Ok(())
+}
+
+/// Plan 8b: a stopped signal bot on the seeded Kraken install (an install `serve` takes over) with two rules,
+/// `tok-stopped` and `tok-other`: a call that reaches the hook spends a claim (ignored, bot_not_running).
+fn seed_signal_bot(dir: &std::path::Path) -> rusqlite::Connection {
+    let c = rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap();
+    let (exchange, user, btc, eur): (i64, i64, i64, i64) = c.query_row(
+        "SELECT t.exchange_id, (SELECT min(id) FROM users), t.base_asset_id, t.quote_asset_id FROM tickers t WHERE t.ticker = 'XBTEUR'", [],
+        |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))).unwrap();
+    c.execute("INSERT INTO bots (type, status, exchange_id, user_id, settings, transient_data, created_at, updated_at) \
+               VALUES ('Bots::Signal', 2, ?1, ?2, ?3, '{}', '2026-08-25 09:00:00', '2026-08-25 09:00:00')",
+              rusqlite::params![exchange, user, serde_json::json!({ "base_asset_id": btc, "quote_asset_id": eur }).to_string()]).unwrap();
+    let bot = c.last_insert_rowid();
+    for token in ["tok-stopped", "tok-other"] {
+        c.execute("INSERT INTO bot_signals (bot_id, direction, amount_type, amount, enabled, token, created_at, updated_at) \
+                   VALUES (?1, 0, 0, 10, 1, ?2, '2026-08-25 09:00:00', '2026-08-25 09:00:00')", rusqlite::params![bot, token]).unwrap();
+    }
+    c
+}
+
+fn claimed(c: &rusqlite::Connection, token: &str) -> Option<String> {
+    c.query_row("SELECT last_triggered_at FROM bot_signals WHERE token = ?1", [token], |r| r.get(0)).unwrap()
+}
+
+/// Puma hands Rails a request only once its body is in, so a call whose body stalls never reaches the hook. Here the
+/// hook's body is read under the form's deadline and bound: a stalled or oversized body is answered (408, 413) and
+/// spends no claim; one that arrives is the call.
+#[tokio::test(flavor = "current_thread")]
+async fn a_webhook_whose_body_stalls_or_overflows_spends_no_claim() {
+    use deltabadger::web::server::Limits;
+    let (dir, _app, address) = served_under(Limits { body_read_timeout: Duration::from_millis(300), ..Limits::default() }).await;
+    let c = seed_signal_bot(dir.path());
+    let patience = Duration::from_secs(5);
+    for stalled in [
+        &b"POST /hook/tok-stopped HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/json\r\nContent-Length: 100\r\n\r\n{\"a\""[..],
+        b"POST /hook/tok-stopped HTTP/1.1\r\nHost: localhost\r\nTransfer-Encoding: chunked\r\n\r\n3\r\na=1\r\n",
+        b"POST /hook/tok-stopped HTTP/1.1\r\nHost: localhost\r\nContent-Length: 10\r\n\r\n",
+    ] {
+        let answer = web::until_closed(address, stalled, patience).await.unwrap();
+        assert!(answer.starts_with("HTTP/1.1 408") && answer.to_lowercase().contains("connection: close"), "{answer}");
+        assert_eq!(claimed(&c, "tok-stopped"), None, "a stalled body spent the claim");
+    }
+    let mut oversized = b"POST /hook/tok-stopped HTTP/1.1\r\nHost: localhost\r\nContent-Type: text/plain\r\nContent-Length: 70000\r\nConnection: close\r\n\r\n".to_vec();
+    oversized.extend(std::iter::repeat_n(b'x', 70_000));
+    let answer = web::until_closed(address, Box::leak(oversized.into_boxed_slice()), patience).await.unwrap();
+    assert!(answer.starts_with("HTTP/1.1 413"), "{answer}");
+    assert_eq!(claimed(&c, "tok-stopped"), None, "an oversized body spent the claim");
+    let whole = web::until_closed(address, b"POST /hook/tok-stopped HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/json\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{}", patience).await.unwrap();
+    assert!(whole.starts_with("HTTP/1.1 200") && whole.ends_with(r#"{"status":"ignored","reason":"bot_not_running"}"#), "{whole}");
+    assert_eq!(claimed(&c, "tok-stopped").as_deref(), Some("2026-09-10 12:00:30.000000"));
+}
+
+/// The token is a bearer secret (HookTokenFilter): `serve` writes it in no line, for a call that is ignored, one in its
+/// cooldown, an unknown token, a body Rack refuses, a method the override turns away, and a claim that fails (503,
+/// nothing written: the claim's UPDATE is made to raise).
+#[test]
+fn serve_logs_no_webhook_token() {
+    let (dir, opened, _) = common::install();
+    drop(opened);
+    let c = seed_signal_bot(dir.path());
+    c.execute_batch("CREATE TRIGGER hook_boom BEFORE UPDATE ON bot_signals WHEN OLD.token = 'tok-other' BEGIN SELECT RAISE(ABORT, 'boom'); END;").unwrap();
+    let port = free_port();
+    let mut server = serve_command(dir.path(), port).stderr(Stdio::piped()).spawn().unwrap();
+    let started = Instant::now();
+    while http_get(port, "/up").is_none() {
+        assert!(started.elapsed() < Duration::from_secs(10) && server.try_wait().unwrap().is_none(), "serve did not come up");
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    let post = |path: &str, extra: &str, body: &str| -> String {
+        let mut stream = std::net::TcpStream::connect(("127.0.0.1", port)).unwrap();
+        stream.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+        write!(stream, "POST {path} HTTP/1.1\r\nHost: localhost\r\n{extra}Content-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len()).unwrap();
+        let mut answer = String::new();
+        stream.read_to_string(&mut answer).unwrap();
+        answer
+    };
+    let form = "Content-Type: application/x-www-form-urlencoded\r\n";
+    for (path, extra, body, status) in [
+        ("/hook/tok-stopped", "", "", "200"), ("/hook/tok-stopped", "", "", "200"), ("/hook/tok-unknown", "", "", "404"),
+        ("/hook/tok-stopped", form, "a=%zz", "400"), ("/hook/tok-stopped", form, "_method=delete", "404"),
+        ("/hook/tok-stopped", "X-HTTP-Method-Override: GET\r\n", "", "404"), ("/de/hook/tok-stopped", "", "", "404"),
+        ("/hook/tok-other", "", "", "503"),
+    ] {
+        let answer = post(path, extra, body);
+        assert!(answer.starts_with(&format!("HTTP/1.1 {status}")), "{path} {extra}: {answer}");
+    }
+    assert_eq!(claimed(&c, "tok-other"), None, "the failed claim wrote nothing");
+    server.kill().unwrap();
+    let mut log = String::new();
+    server.stderr.take().unwrap().read_to_string(&mut log).unwrap();
+    server.wait().unwrap();
+    assert!(log.contains("a signal call failed"), "the failure is logged: {log}");
+    assert!(!log.contains("tok-"), "a webhook token reached the log: {log}");
 }
