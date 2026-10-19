@@ -26,6 +26,11 @@
         font-weight: 600
         white-space: nowrap
         text-overflow: ellipsis
+        // Orders are being set: the bar breathes until the tick ends.
+        &.executing
+            animation: bot-control-status-pulse 2.4s ease-in-out infinite
+            @media (prefers-reduced-motion: reduce)
+                animation: none
         &__text
             position: relative
             display: inline-block
@@ -108,3 +113,8 @@
 
 turbo-cable-stream-source
     display: none !important
+@keyframes bot-control-status-pulse
+    0%, 100%
+        opacity: 1
+    50%
+        opacity: 0.6

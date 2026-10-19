@@ -1,5 +1,5 @@
 {#- bots/status/_status_bar.html.erb: the first state that applies. -#}
-<div id="{{ id }}" class="bot-control__status {% if active %}active{% endif %}" data-controller="marquee" style="display: flex;">
+<div id="{{ id }}" class="bot-control__status {% if active %}active{% endif %}{% if executing %}executing{% endif %}" data-controller="marquee" style="display: flex;">
 {% if let Some(connect) = connect %}
     <div class="bot-control__status__text bot-control__status__disconnected" data-marquee-target="text">
       {{ v.t("bot.status.disconnected")|safe }}

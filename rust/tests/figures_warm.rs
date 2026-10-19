@@ -720,6 +720,29 @@ async fn repeated_overtakes_never_lose_the_request() {
     assert!(matches!(page_figures(&install.app, 1, "fr", "/fr").await, (Some(_), 0)), "the French figures, after eight overtakes");
 }
 
+/// A failed fill, whatever its reason, leaves every figure out: no widget, no dash, no message, only the targets its
+/// publication replaces (the chart in its not-charted form), so a later publication finds each of them.
+#[tokio::test]
+async fn a_failed_fill_shows_no_widget_no_dash_and_no_message() {
+    let install = Install::new(1, 0);
+    for reason in [None, Some("Currency conversion unavailable"), Some("executed fill value unavailable")] {
+        let clock = install.app.clock.clone();
+        let (page, streams) = install.app.db(move |c| {
+            let page = loading::render(c, 1, &loading::Snapshot::Failed(reason), "en", "token", "", &*clock)?.expect("the fallback");
+            let streams = deltabadger::web::figure::streams(c, 1, &page).unwrap();
+            Ok((page, streams))
+        }).await.unwrap();
+        assert_eq!(page, json!({"bots": {"1": {"tile": "<div id=\"pnl_bots_dca_multi_asset_1\"></div>", "metrics": "<div id=\"metrics\"></div>",
+            "chart": "<div id=\"chart\" hidden=\"hidden\">\n</div>\n"}}, "account": "<div id=\"global-pnl\"></div>"}), "{reason:?}");
+        assert_eq!(streams.len(), 4);
+        for (_, payload) in streams {
+            assert!(!payload.contains('—') && !payload.contains("no-value") && !payload.contains("widget") && !payload.contains("unavailable"), "{reason:?}: {payload}");
+            let target = ["pnl_bots_dca_multi_asset_1", "metrics", "chart", "global-pnl"].into_iter().find(|t| payload.contains(&format!("target=\"{t}\""))).expect("a known target");
+            assert!(payload.contains(&format!("id=\"{target}\"")), "the replacement keeps its target: {payload}");
+        }
+    }
+}
+
 #[tokio::test]
 async fn an_account_without_an_alpaca_key_reads_a_precomputed_reason() {
     let install = Install::new(1, 0);
@@ -732,7 +755,6 @@ async fn an_account_without_an_alpaca_key_reads_a_precomputed_reason() {
         INSERT INTO transactions(bot_id,exchange_id,base,base_asset_id,quote,quote_asset_id,amount,amount_exec,side,status,external_status,external_id,transaction_type,created_at,updated_at) \
         VALUES (1,1,'AAA',2,'USD',1,1,1,0,0,2,'unpriced','REGULAR','2026-03-10 00:00:00','2026-01-01');").unwrap();
     let _stop = install.consume();
-    let absent = "<span class=\"no-value\">Figures unavailable: executed fill value unavailable</span>";
     let shown = |snapshot: loading::Snapshot| { let app = install.app.clone(); async move { app.clone().db(move |c| loading::render_page(&app, c, 1, &snapshot, "en", "token", "")).await.unwrap() } };
     // The first view may show the loading state while the queue reads the reason; every view after it reads it.
     let first = loading::prepare(&install.app, 1).await.unwrap();
@@ -741,10 +763,10 @@ async fn an_account_without_an_alpaca_key_reads_a_precomputed_reason() {
     // A view runs no order walk on the page's connection (the fingerprint, which hashes whole rows, is no walk).
     let walks = order_walks(&install.app).await;
     let snapshot = loading::prepare(&install.app, 1).await.unwrap();
-    let page = shown(snapshot).await.expect("the account's no-value figures");
+    let page = shown(snapshot).await.expect("the account's absent figures");
     assert_eq!(walks.finish(&install.app).await, 0, "a page view walked the orders");
-    assert_eq!(page, json!({"bots": {"1": {"tile": format!("<div id=\"pnl_bots_dca_multi_asset_1\">{absent}</div>"), "metrics": format!("<div id=\"metrics\">{absent}</div>"),
-        "chart": format!("<div id=\"chart\">{absent}</div>")}}, "account": format!("<div id=\"global-pnl\">{absent}</div>")}));
+    // The reason is the queue's: the page shows no figure, no dash and no message, only the targets.
+    assert_eq!(page, json!({"bots": {"1": {"tile": "<div id=\"pnl_bots_dca_multi_asset_1\"></div>", "metrics": "<div id=\"metrics\"></div>", "chart": "<div id=\"chart\" hidden=\"hidden\">\n</div>\n"}}, "account": "<div id=\"global-pnl\"></div>"}));
 }
 
 /// Statements on the page's connection that read the orders' values the way a walk does (`db::orders`: price and amounts,
@@ -864,7 +886,9 @@ async fn a_no_key_publication_overtaken_by_the_cut_is_still_delivered() {
     let delivered = tokio::time::timeout(Duration::from_secs(10), async {
         loop {
             let message = socket.next().await.unwrap().unwrap();
-            if message.to_text().unwrap().contains("Figures unavailable: executed fill value unavailable") { break; }
+            // The fallback's publication: the headline's empty target.
+            let frame: Value = serde_json::from_str(message.to_text().unwrap()).unwrap_or(Value::Null);
+            if frame["message"].as_str().is_some_and(|html| html.contains("<div id=\"global-pnl\"></div>")) { break; }
         }
     }).await;
     server.abort();
