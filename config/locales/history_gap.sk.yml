@@ -1,0 +1,26 @@
+sk:
+    tracker:
+        history_gap:
+            button: "Importovať históriu"
+            title: "Doplň svoju históriu z %{exchange}"
+            why_kucoin_reach: "API KuCoinu vracia obchody, vklady a výbery len približne za posledných 12 mesiacov."
+            why_kucoin_hf_convert: "Obchody na obchodnom účte HF v KuCoine a výmeny Convert sa nedajú prečítať vôbec, ani tie najnovšie."
+            why_kucoin_transfers: "Chýbajú aj staršie vklady a výbery."
+            why_binance: "API Binance vracia obchody len pre páry, ktoré sú stále kótované, a Convert, prevody prachu a Simple Earn len od dátumov, od ktorých ich Binance uchováva. Margin a futures sa nenačítavajú."
+            why_other: "Na %{exchange} je viac, než vysvetľuje história, ktorú odtiaľ Deltabadger dokázal načítať."
+            evidence: "Čo tracker našiel"
+            steps_binance_1: "Na Binance otvor Peňaženka → História transakcií → Export. Exportuj jeden súbor za každý rok, až po založenie účtu."
+            steps_binance_2: "Súbory nepremenúvaj: z názvu je vidno, aké časové pásmo Binance použil."
+            steps_binance_3: "Klikni na Importovať súbor, vyber Binance CSV a nahrávaj súbory po jednom. Riadky, ktoré už v histórii máš, sa preskočia."
+            steps_kucoin_1: "Na KuCoine otvor históriu obchodov (spot, HF a Convert) a históriu vkladov a výberov za obdobie, ktoré tu chýba."
+            steps_kucoin_2: "Deltabadger zatiaľ nevie čítať export z KuCoinu, preto chýbajúce riadky prepíš do CSV Deltabadgera. Daňový prehľad → Všetky ti dá súbor so správnymi stĺpcami."
+            steps_kucoin_3: "Klikni na Importovať súbor a vyber Deltabadger CSV."
+            steps_other_1: "Zapíš chýbajúce riadky do CSV Deltabadgera. Daňový prehľad → Všetky ti dá súbor so správnymi stĺpcami."
+            steps_other_2: "Klikni na Importovať súbor a vyber Deltabadger CSV."
+            template_hint: "Každý súbor začína týmto riadkom hlavičky. Sumy sú kladné; výmena je swap_out a swap_in s rovnakým group_id."
+            csv_example_caption:
+                swap: "Stará výmena: obe strany, jedno group_id"
+                convert: "Nedávna výmena Convert alebo HF"
+                deposit: "Samostatný vklad"
+            open_import: "Importovať súbor"
+            cannot_import: "%{exchange} nemá funkčný kľúč, do ktorého by sa dalo importovať. Najprv oprav kľúč a potom sa sem vráť."

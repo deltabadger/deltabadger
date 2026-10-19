@@ -393,7 +393,13 @@ impl<T: Transport> Job for LedgerWalk<T> {
             match cached_ledger_run(&cx, (*self.api).as_ref(), self.ecb.as_ref(), self.user_id, self.wall.clone()).await {
                 // The page reloads only for a ledger it can now read: a run that left the cache cold (no current
                 // import yet) would reload a page that wakes it again, with nothing new to walk.
-                Ok(published) => { if published { cx.db.notifications.ledger_done(self.user_id); } Outcome::Done }
+                Ok(published) => {
+                    if published { cx.db.notifications.ledger_done(self.user_id); }
+                    // After today's refresh, never before it: the history-gap step, its own budget and row (tracker::gaps).
+                    // A second refresh only when it wrote a gap to show; its failure is a log line, and a deadline here loses only that.
+                    if published && super::gaps::derive_logged(&cx.db, self.user_id, self.wall.clone()).await { cx.db.notifications.ledger_done(self.user_id); }
+                    Outcome::Done
+                }
                 Err(e) => Outcome::Failed(e),
             }
         })

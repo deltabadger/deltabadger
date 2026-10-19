@@ -9,6 +9,7 @@
 //! - `jobs`: the scheduler's jobs that run them; `parity`: the Rust half of the parity harness.
 //!
 //! - `fx`: Tax::EcbFxRates, the ECB's rates and their loading.
+//! - `gaps`: the "import history" line (Rust only): a venue holding more than its readable history, judged after a publish.
 //!
 //! The walk takes every venue's rows as Rails does: swaps, fees carried on rows, other cash at the ECB's rates, transfers
 //! between venues, the funding a venue that does not lend cash never reported. A price nobody has is a zero and the
@@ -17,6 +18,7 @@
 pub mod backfill;
 pub mod figures;
 pub mod fx;
+pub mod gaps;
 pub mod import;
 pub mod jobs;
 pub mod parity;

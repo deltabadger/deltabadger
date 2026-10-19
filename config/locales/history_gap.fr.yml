@@ -1,0 +1,26 @@
+fr:
+    tracker:
+        history_gap:
+            button: "Importer l'historique"
+            title: "Complète ton historique %{exchange}"
+            why_kucoin_reach: "L'API de KuCoin ne renvoie qu'environ les 12 derniers mois de trades, de dépôts et de retraits."
+            why_kucoin_hf_convert: "Les trades du compte de trading HF de KuCoin et les échanges Convert ne peuvent pas être lus du tout, même récents."
+            why_kucoin_transfers: "Les dépôts et retraits plus anciens manquent aussi."
+            why_binance: "L'API de Binance ne renvoie les trades que pour les paires encore listées, et Convert, les conversions de poussière et Simple Earn seulement à partir des dates que Binance conserve. Le margin et les futures ne sont pas lus."
+            why_other: "%{exchange} détient plus que ce qu'explique l'historique que Deltabadger a pu y lire."
+            evidence: "Ce que le tracker a trouvé"
+            steps_binance_1: "Sur Binance, ouvre Portefeuille → Historique des transactions → Exporter. Exporte un fichier par année, jusqu'à l'ouverture de ton compte."
+            steps_binance_2: "Ne renomme pas les fichiers : le nom indique le fuseau horaire utilisé par Binance."
+            steps_binance_3: "Clique sur Importer un fichier, choisis Binance CSV et téléverse un fichier à la fois. Les lignes déjà présentes dans ton historique sont ignorées."
+            steps_kucoin_1: "Sur KuCoin, ouvre ton historique de trades (spot, HF et Convert) ainsi que l'historique de tes dépôts et retraits pour la période qui manque ici."
+            steps_kucoin_2: "Deltabadger ne sait pas encore lire l'export de KuCoin : copie donc les lignes manquantes dans un CSV Deltabadger. Rapport fiscal → Tout te donne un fichier avec les bonnes colonnes."
+            steps_kucoin_3: "Clique sur Importer un fichier et choisis Deltabadger CSV."
+            steps_other_1: "Ajoute les lignes manquantes dans un CSV Deltabadger. Rapport fiscal → Tout te donne un fichier avec les bonnes colonnes."
+            steps_other_2: "Clique sur Importer un fichier et choisis Deltabadger CSV."
+            template_hint: "Chaque fichier commence par cette ligne d'en-tête. Les montants sont positifs ; un échange est un swap_out et un swap_in partageant le même group_id."
+            csv_example_caption:
+                swap: "Un ancien échange : les deux côtés, un seul group_id"
+                convert: "Un échange Convert ou HF récent"
+                deposit: "Un dépôt seul"
+            open_import: "Importer un fichier"
+            cannot_import: "%{exchange} n'a aucune clé valide dans laquelle importer. Répare d'abord la clé, puis reviens ici."

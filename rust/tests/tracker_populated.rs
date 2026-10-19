@@ -143,6 +143,7 @@ async fn populated_regions_match_rails() {
         if !matches!(name.as_str(), "populated_cold" | "populated_cold_hidden" | "populated_cold_scope" | "populated_dead") {
             let db = deltabadger::jobs::Db::new(Connection::open(dir.path().join("production.sqlite3")).unwrap(), deltabadger::crypto::Cipher::new(&deltabadger::crypto::EncryptionKeys::resolve(&|_| None, scenario["secret_key_base"].as_str().unwrap()).unwrap()));
             deltabadger::tracker::jobs::ledger_run(&db, None::<&deltabadger::jobs::data_api::DataApi<deltabadger::venue::http::ScriptedTransport>>, None, owner, &deltabadger::engine::FixedClock(at), Arc::new(move || at), &mut deltabadger::tracker::jobs::Allowance::run()).await.unwrap_or_else(|e| panic!("{name}: ledger pass: {e}"));
+            history_gap_absent(&c, &name, owner, at);
         }
         c.execute_batch("DELETE FROM portfolio_snapshots; INSERT INTO portfolio_snapshots SELECT * FROM kept_whole; DELETE FROM portfolio_venue_snapshots; INSERT INTO portfolio_venue_snapshots SELECT * FROM kept_venues; DROP TABLE kept_whole; DROP TABLE kept_venues;").unwrap();
         let env = { let secret = scenario["secret_key_base"].as_str().unwrap().to_string(); let tmp = tmp.display().to_string(); move |n: &str| match n { "SECRET_KEY_BASE" => Some(secret.clone()), "APP_TMP_DIR" => Some(tmp.clone()), _ => None } };
@@ -173,6 +174,36 @@ async fn populated_regions_match_rails() {
         }
     }
     assert!(failures.is_empty(), "{} pages differ (rust/rails pairs written beside the grid):\n{}", failures.len(), failures.join("\n"));
+}
+
+/// The history-gap line is absent from every recorded page because of the notes, not because a gate kept the step out
+/// (the fixtures stamp the ledgers current): over every venue's cached Summary and balances, `gaps::resolve` finds no
+/// venue with ten dollars of assets arrived; where nothing is pending it agrees with `compute_on` note for note; and
+/// the step, run, writes `[]`, which the page then reads.
+fn history_gap_absent(c: &Connection, name: &str, owner: i64, at: chrono::DateTime<chrono::Utc>) {
+    use deltabadger::tracker::{cache, figures, gaps};
+    let cache::Published::Warm { venues, .. } = cache::read_published(c, owner, at).unwrap() else { return };
+    let fx = deltabadger::tracker::fx::FxTable::load(c).unwrap();
+    for (venue, summary) in &venues {
+        let venue_name: String = c.query_row("SELECT name FROM exchanges WHERE id=?1", [venue], |r| r.get(0)).unwrap();
+        let balances = figures::balances(c, owner, Some(*venue)).unwrap();
+        let notes = gaps::resolve(summary, &balances, &venue_name).unwrap();
+        let arrived = notes.iter().filter(|n| n.kind == "arrived").fold(deltabadger::figures::dec::Dec::zero(), |sum, n| (&sum + &n.amount).unwrap());
+        assert!(arrived < deltabadger::figures::dec::Dec::from_i64(10), "{name}: venue {venue} would show a line ({arrived:?}): stop and report, never edit a fixture");
+        if !figures::pending(c, owner, Some(*venue)).unwrap().is_empty() { continue; }
+        let Ok(computed) = figures::compute_on(c, owner, summary, &balances, &[], &fx, at.date_naive()) else { continue };
+        let key = |n: &figures::Note| (n.kind, n.symbol.clone(), n.history.clone(), n.held.clone(), n.amount.clone());
+        let theirs: Vec<_> = computed.notes.iter().filter(|n| matches!(n.kind, "arrived" | "left")).collect();
+        assert_eq!(notes.iter().map(key).collect::<Vec<_>>(), theirs.iter().map(|n| key(n)).collect::<Vec<_>>(), "{name}: venue {venue}");
+        for (ours, theirs) in notes.iter().zip(&theirs) {
+            assert!(theirs.exchange.is_none() || theirs.exchange == ours.exchange, "{name}: venue {venue}: {theirs:?}");
+        }
+    }
+    assert!(!gaps::derive(c, owner, at).unwrap(), "{name}: no gap to show");
+    {
+        let row: serde_json::Value = serde_json::from_str(&deltabadger::app_config::get_plain(c, &gaps::key(owner)).unwrap().unwrap()).unwrap();
+        assert_eq!(row["gaps"], json!([]), "{name}");
+    }
 }
 
 /// The Rails files the grid was recorded from: a change to one is recorded again with the Rust side in the same change.

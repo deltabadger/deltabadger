@@ -7,6 +7,9 @@ use serde_json::Value;
 fn key(user: i64, exchange: i64) -> String {
     state::key("balance_origin", Some(&format!("{user}:{exchange}")))
 }
+/// The balance origin row of a user's venue (`rust_job.balance_origin:<user>:<exchange>`): its `updated_at` moves once per
+/// balance sync, which is what the tracker's history-gap line checks its balances against.
+pub fn balance_origin_key(user: i64, exchange: i64) -> String { key(user, exchange) }
 /// Call in the checked balance write transaction. Incomplete batches cannot publish current figures.
 pub fn record(c: &model::FencedTransaction<'_>, user: i64, exchange: i64, version: &CredentialVersion, complete: bool, now: DateTime<Utc>) -> Result<(), EngineError> {
 
@@ -68,6 +71,13 @@ impl ReadOrigin {
             if !ledger_produced_by(c,version.id,version)? || state::read(c,"ledger_sync",Some(&version.id.to_string())).map_err(EngineError::Data)?.incomplete_since.is_some() {return Ok(false)}
         }
         Ok(true)
+    }
+    /// Whether `key`, as this read captured it, produced its venue's current ledger import (no run left incomplete) and
+    /// its venue's complete balances: what the tracker's history-gap step asks of a venue's reading key.
+    pub fn key_read_complete(&self,c:&Connection,key:i64,exchange:i64)->Result<bool,EngineError>{
+        let Some(version)=self.versions.iter().find(|version|version.id==key) else {return Ok(false)};
+        if !ledger_produced_by(c,key,version)? || state::read(c,"ledger_sync",Some(&key.to_string())).map_err(EngineError::Data)?.incomplete_since.is_some() {return Ok(false)}
+        produced_by(c,self.user,exchange,version)
     }
     pub fn derive<T>(self,value:T)->ReadValue<T>{ReadValue{value,origin:self}}
     /// Snapshot inputs retain their stored balance producer even when the current key has rotated.

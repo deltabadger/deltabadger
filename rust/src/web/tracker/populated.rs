@@ -85,6 +85,8 @@ struct Portfolio {
     warm: Option<page::Warm>,
     /// The scoped ledger the warm figures were computed from (`@scoped_ledger`).
     ledger: Option<Box<crate::tracker::walk::Summary>>,
+    /// The warm entry's publication, which the history-gap row is read against.
+    published: Option<crate::tracker::cache::Fingerprint>,
     cold: page::Cold,
     has_keys: bool,
     never_synced: bool,
@@ -94,12 +96,14 @@ fn portfolio(c: &Connection, ctx: &Ctx, owner: i64, scope: Option<i64>, show_cas
     let figures_error = |e: crate::figures::FiguresError| match e { crate::figures::FiguresError::Sqlite(e) => WebError::from(e), _ => invalid() };
     let cold = crate::figures::budget::within(|| page::cold(c, owner, scope, show_cash)).map_err(figures_error)?;
     let now = ctx.app.now();
-    let mut ledger = None;
-    let warm = match crate::figures::budget::within(|| crate::tracker::cache::read(c, owner, scope, now)).map_err(figures_error)? {
+    let (mut ledger, mut published) = (None, None);
+    let entry = crate::figures::budget::within(|| crate::tracker::cache::read_published(c, owner, now)).map_err(figures_error)?;
+    let from = match &entry { crate::tracker::cache::Published::Warm { from, .. } => Some(from.clone()), _ => None };
+    let warm = match entry.scoped(scope) {
         crate::tracker::cache::State::Warm(summary) => {
             let fx = crate::figures::budget::within(|| crate::tracker::fx::FxTable::load(c)).map_err(figures_error)?;
             match crate::figures::budget::within(|| page::warm(c, owner, scope, show_cash, &summary, &fx, now.date_naive())) {
-                Ok(warm) => { ledger = Some(summary); Some(warm) }
+                Ok(warm) => { ledger = Some(summary); published = from; Some(warm) }
                 Err(crate::figures::FiguresError::NotComputed(message)) if message.contains("ambiguous asset class") => return Ok(Err(message)),
                 Err(e) => return Err(figures_error(e)),
             }
@@ -110,7 +114,7 @@ fn portfolio(c: &Connection, ctx: &Ctx, owner: i64, scope: Option<i64>, show_cas
     let has_keys: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM api_keys WHERE user_id=?1 AND status=1 AND key_type!=1)", [owner], |r| r.get(0))?;
     let balances: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM account_balances WHERE user_id=?1 AND (?2 IS NULL OR exchange_id=?2) AND free+locked>0)", rusqlite::params![owner, scope], |r| r.get(0))?;
     let marked: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM api_keys WHERE user_id=?1 AND balances_synced_at IS NOT NULL)", [owner], |r| r.get(0))?;
-    Ok(Ok(Portfolio { warm, ledger, cold, has_keys, never_synced: has_keys && !balances && !marked }))
+    Ok(Ok(Portfolio { warm, ledger, published, cold, has_keys, never_synced: has_keys && !balances && !marked }))
 }
 
 fn signed(d: &Dec, den: &Denomination) -> Result<String, WebError> { Ok(format!("{}{}", if d.is_negative() { "" } else { "+" }, money(d, den)?)) }
@@ -201,7 +205,7 @@ fn fixed(d: &Dec, digits: i64) -> Result<String, WebError> {
 }
 
 /// `tracker_note`: the assumption in words, its money masked while balances are hidden.
-fn note_text(ctx: &Ctx, n: &Note, den: &Denomination, hidden: bool) -> Result<String, WebError> {
+pub(super) fn note_text(ctx: &Ctx, n: &Note, den: &Denomination, hidden: bool) -> Result<String, WebError> {
     let quantity = |units: &Option<Dec>| -> Result<String, WebError> {
         if hidden && crate::tracker::cash(&n.symbol) { return Ok("•••".into()); }
         units.as_ref().map(|u| super::row::amount_text(u, &n.symbol)).transpose().map(Option::unwrap_or_default)
@@ -359,13 +363,17 @@ pub fn regions(c: &Connection, ctx: &Ctx, owner: i64, fx: &Prepared) -> Result<B
     // `Denomination.for` falls back to dollars when no rate is had: the chart and the positions are drawn in them.
     let usd = Denomination { currency: "USD".into(), rate: Dec::one() };
     let shown = den.as_ref().unwrap_or(&usd);
+    // The history-gap line: read against the entry this page read; any doubt is no line and the page as it was.
+    let gaps = crate::tracker::gaps::read(c, owner, scope, p.published.as_ref(), None).unwrap_or_else(|e| {
+        crate::engine::log(&format!("[tracker] history gap for user {owner} not read: {}", crate::tracker::jobs::message(e))); vec![]
+    });
     Ok(Built::Regions(Regions {
         pending: pending_report(ctx, owner, &settings)?,
         filters: filters(c, ctx, owner, scope, show_cash, sync)?,
         tiles: tiles(ctx, &p, den.as_ref(), withheld)?,
         holdings: holdings(c, ctx, &p, den.as_ref(), withheld)?,
         chart: super::record::chart(c, ctx, owner, scope, show_cash, shown)?,
-        record: super::record::record(c, ctx, owner, scope, p.warm.as_ref().zip(p.ledger.as_deref()), den.as_ref(), shown)?,
+        record: super::record::record(c, ctx, owner, scope, p.warm.as_ref().zip(p.ledger.as_deref()), den.as_ref(), shown, &gaps)?,
         warnings: crate::web::settings::keys::warnings(c, ctx, owner)?,
     }))
 }

@@ -1,0 +1,26 @@
+it:
+    tracker:
+        history_gap:
+            button: "Importa lo storico"
+            title: "Completa il tuo storico %{exchange}"
+            why_kucoin_reach: "L'API di KuCoin restituisce solo circa gli ultimi 12 mesi di trade, depositi e prelievi."
+            why_kucoin_hf_convert: "I trade sul conto di trading HF di KuCoin e gli scambi Convert non si possono leggere affatto, per quanto recenti."
+            why_kucoin_transfers: "Mancano anche i depositi e i prelievi più vecchi."
+            why_binance: "L'API di Binance restituisce i trade solo per le coppie ancora quotate, e Convert, le conversioni di polvere e Simple Earn solo dalle date da cui Binance li conserva. Margin e futures non vengono letti."
+            why_other: "%{exchange} detiene più di quanto spieghi lo storico che Deltabadger è riuscito a leggere."
+            evidence: "Cosa ha trovato il tracker"
+            steps_binance_1: "Su Binance apri Wallet → Cronologia transazioni → Esporta. Esporta un file per anno, fino all'apertura del conto."
+            steps_binance_2: "Non rinominare i file: il nome indica il fuso orario usato da Binance."
+            steps_binance_3: "Clicca su Importa un file, scegli Binance CSV e carica un file alla volta. Le righe già presenti nel tuo storico vengono saltate."
+            steps_kucoin_1: "Su KuCoin apri lo storico dei trade (spot, HF e Convert) e quello di depositi e prelievi per il periodo che qui manca."
+            steps_kucoin_2: "Deltabadger non sa ancora leggere l'export di KuCoin, quindi copia le righe mancanti in un CSV Deltabadger. Report fiscale → Tutto ti dà un file con le colonne giuste."
+            steps_kucoin_3: "Clicca su Importa un file e scegli Deltabadger CSV."
+            steps_other_1: "Inserisci le righe mancanti in un CSV Deltabadger. Report fiscale → Tutto ti dà un file con le colonne giuste."
+            steps_other_2: "Clicca su Importa un file e scegli Deltabadger CSV."
+            template_hint: "Ogni file inizia con questa riga di intestazione. Gli importi sono positivi; uno scambio è uno swap_out e uno swap_in con lo stesso group_id."
+            csv_example_caption:
+                swap: "Uno scambio vecchio: entrambi i lati, un solo group_id"
+                convert: "Uno scambio Convert o HF recente"
+                deposit: "Un deposito da solo"
+            open_import: "Importa un file"
+            cannot_import: "%{exchange} non ha una chiave funzionante in cui importare. Sistema prima la chiave, poi torna qui."

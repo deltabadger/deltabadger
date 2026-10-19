@@ -17,6 +17,7 @@ pub mod transaction;
 pub mod modal;
 pub mod classifications;
 pub mod import;
+pub mod gap;
 
 struct Prepared {
     response: Response,

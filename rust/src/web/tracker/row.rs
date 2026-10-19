@@ -161,6 +161,15 @@ fn venue(class: &str) -> String {
     out.replace('-',"_")
 }
 
+/// The history-gap line (Rust only): the venue's button to the import steps, in the columns the header has; its cells
+/// say nothing, as nothing about the line is a transaction.
+pub fn gap_row(ctx:&Ctx,gap:&crate::tracker::gaps::StoredGap,hidden:bool)->String {
+    let unknown="<span class=\"no-value\">?</span>";
+    let (amount,money)=if hidden{(String::new(),String::new())}else{(format!("  <td>{unknown}</td>\n"),format!("  <td class=\"tracker-row__value\">{unknown}</td>\n  <td class=\"tracker-row__fee\">{unknown}</td>\n"))};
+    format!("<tr id=\"history_gap_{id}\" class=\"tracker-row\" data-order-filter-target=\"row\" data-order-type=\"all\">\n  <td class=\"text-left tracker-row__when table__when\">\n    <a class=\"rbutton rbutton--small\" data-turbo-frame=\"modal\" href=\"{}\">{}</a>\n  </td>\n  <td class=\"tracker-exchange-icon\">{}</td>\n  <td class=\"text-left\">{unknown}</td>\n  <td class=\"text-left\">{unknown}</td>\n{amount}  <td class=\"tracker-row__price\">{unknown}</td>\n{money}  <td>{unknown}</td>\n</tr>\n",
+        escape(&ctx.path(&format!("/tracker/history_gap?exchange_id={}",gap.exchange_id))),ctx.t("tracker.history_gap.button"),crate::web::bot::exchange_svg(&crate::tracker::rows::name_id(&gap.kind)),id=gap.exchange_id)
+}
+
 /// FX refusal replaces every monetary cell; never a zero or a mislabeled dollar figure.
 pub fn unavailable(id:i64)->String {
     format!("<tr id=\"account_transaction_{id}\" class=\"tracker-row\"><td colspan=\"10\"><span class=\"no-value\">Currency conversion unavailable</span></td></tr>\n")

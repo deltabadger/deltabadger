@@ -1,0 +1,26 @@
+da:
+    tracker:
+        history_gap:
+            button: "Importér historik"
+            title: "Gør din historik fra %{exchange} komplet"
+            why_kucoin_reach: "KuCoins API returnerer handler, indbetalinger og udbetalinger kun for omtrent de seneste 12 måneder."
+            why_kucoin_hf_convert: "Handler på KuCoins HF-handelskonto og Convert-byt kan slet ikke læses, uanset hvor nye de er."
+            why_kucoin_transfers: "Ældre indbetalinger og udbetalinger mangler også."
+            why_binance: "Binances API returnerer kun handler for par, der stadig er noteret, og Convert, støvkonverteringer og Simple Earn kun fra de datoer, Binance gemmer dem fra. Margin og futures læses ikke."
+            why_other: "%{exchange} indeholder mere, end den historik Deltabadger kunne læse derfra forklarer."
+            evidence: "Det fandt trackeren"
+            steps_binance_1: "Åbn Wallet → Transaktionshistorik → Eksportér på Binance. Eksportér én fil pr. år, helt tilbage til du oprettede kontoen."
+            steps_binance_2: "Omdøb ikke filerne: navnet viser, hvilken tidszone Binance brugte."
+            steps_binance_3: "Klik på Importér en fil, vælg Binance CSV, og upload én fil ad gangen. Rækker, der allerede er i din historik, springes over."
+            steps_kucoin_1: "Åbn din handelshistorik (spot, HF og Convert) og din historik for indbetalinger og udbetalinger på KuCoin for den periode, der mangler her."
+            steps_kucoin_2: "Deltabadger kan endnu ikke læse KuCoins egen eksport, så kopiér de manglende rækker over i en Deltabadger-CSV. Skatterapport → Alle giver dig en fil med de rigtige kolonner."
+            steps_kucoin_3: "Klik på Importér en fil, og vælg Deltabadger CSV."
+            steps_other_1: "Skriv de manglende rækker ind i en Deltabadger-CSV. Skatterapport → Alle giver dig en fil med de rigtige kolonner."
+            steps_other_2: "Klik på Importér en fil, og vælg Deltabadger CSV."
+            template_hint: "Hver fil begynder med denne overskriftsrække. Beløb er positive; et byt er en swap_out og en swap_in med samme group_id."
+            csv_example_caption:
+                swap: "Et gammelt byt: begge sider, ét group_id"
+                convert: "Et nyt Convert- eller HF-byt"
+                deposit: "En enkelt indbetaling"
+            open_import: "Importér en fil"
+            cannot_import: "%{exchange} har ingen fungerende nøgle at importere til. Ret nøglen først, og kom så tilbage."

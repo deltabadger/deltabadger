@@ -141,6 +141,9 @@ impl Holding {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Note { pub kind: &'static str, pub symbol: String, pub exchange: Option<String>, pub history: Option<Dec>, pub held: Option<Dec>, pub amount: Dec }
 
+/// `NOTE_FLOOR`: an assumption of a dollar or more is stated; below it, applied in silence unless always stated.
+pub(crate) fn stated(amount: &Dec) -> bool { (if amount.is_negative() { amount.neg() } else { amount.clone() }) >= Dec::one() }
+
 /// The notes a computation wrote, in the order it wrote them (`@notes`).
 #[derive(Default)]
 struct Notes(Vec<Note>);
@@ -149,8 +152,7 @@ impl Notes {
     /// `note`: below a dollar an assumption is applied in silence (`NOTE_FLOOR`), unless it is always stated.
     #[allow(clippy::too_many_arguments)] // Rails' `note(kind, symbol, exchange, history, held, amount_usd, always:)`
     fn note(&mut self, kind: &'static str, symbol: &str, exchange: Option<&str>, history: Option<&Dec>, held: Option<&Dec>, amount: Dec, always: bool) -> Option<Note> {
-        let floor = if amount.is_negative() { amount.neg() } else { amount.clone() } >= Dec::one();
-        if !(always || floor) { return None; }
+        if !(always || stated(&amount)) { return None; }
         let note = Note { kind, symbol: symbol.into(), exchange: exchange.map(Into::into), history: history.cloned(), held: held.cloned(), amount };
         self.0.push(note.clone());
         Some(note)

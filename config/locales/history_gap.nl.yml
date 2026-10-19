@@ -1,0 +1,26 @@
+nl:
+    tracker:
+        history_gap:
+            button: "Historie importeren"
+            title: "Maak je %{exchange}-historie compleet"
+            why_kucoin_reach: "De API van KuCoin geeft trades, stortingen en opnames maar van ongeveer de laatste 12 maanden."
+            why_kucoin_hf_convert: "Trades op de HF-handelsrekening van KuCoin en Convert-ruilen zijn helemaal niet uit te lezen, hoe recent ook."
+            why_kucoin_transfers: "Oudere stortingen en opnames ontbreken ook."
+            why_binance: "De API van Binance geeft trades alleen voor paren die nog genoteerd zijn, en Convert, dust-omzettingen en Simple Earn pas vanaf de data die Binance bewaart. Margin en futures worden niet gelezen."
+            why_other: "%{exchange} bevat meer dan de historie verklaart die Deltabadger daar kon lezen."
+            evidence: "Wat de tracker vond"
+            steps_binance_1: "Open op Binance Wallet → Transactiegeschiedenis → Exporteren. Exporteer één bestand per jaar, terug tot de opening van je account."
+            steps_binance_2: "Geef de bestanden geen andere naam: de naam zegt welke tijdzone Binance gebruikte."
+            steps_binance_3: "Klik op Bestand importeren, kies Binance CSV en upload één bestand tegelijk. Regels die al in je historie staan, worden overgeslagen."
+            steps_kucoin_1: "Open op KuCoin je handelsgeschiedenis (spot, HF en Convert) en je stortings- en opnamegeschiedenis voor de periode die hier ontbreekt."
+            steps_kucoin_2: "Deltabadger kan de eigen export van KuCoin nog niet lezen, dus kopieer de ontbrekende regels naar een Deltabadger-CSV. Belastingrapport → Alles geeft je een bestand met de juiste kolommen."
+            steps_kucoin_3: "Klik op Bestand importeren en kies Deltabadger CSV."
+            steps_other_1: "Zet de ontbrekende regels in een Deltabadger-CSV. Belastingrapport → Alles geeft je een bestand met de juiste kolommen."
+            steps_other_2: "Klik op Bestand importeren en kies Deltabadger CSV."
+            template_hint: "Elk bestand begint met deze kopregel. Bedragen zijn positief; een ruil is een swap_out en een swap_in met dezelfde group_id."
+            csv_example_caption:
+                swap: "Een oude ruil: beide kanten, één group_id"
+                convert: "Een recente Convert- of HF-ruil"
+                deposit: "Een losse storting"
+            open_import: "Bestand importeren"
+            cannot_import: "%{exchange} heeft geen werkende sleutel om in te importeren. Herstel eerst de sleutel en kom dan terug."
