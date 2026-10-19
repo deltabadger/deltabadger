@@ -537,7 +537,9 @@ pub fn render(c:&Connection,user:i64,snapshot:&Snapshot,locale:&str,csrf:&str,pr
         // Whatever the failure, its figures are absent; the reason is the queue's, not the page's.
         Snapshot::Failed(_)=>{}
         Snapshot::Ready(cache,now,prepared_revision,read,until)=>{
-            let current=cache.producer().as_ref().is_some_and(|origin|crate::engine::model::credential_is_current(c,origin).unwrap_or(false));
+            // No producer: the fill read no market data under any key (every bot on a venue the reader cannot read), so no
+            // change of key outdates it.
+            let current=cache.producer().as_ref().is_none_or(|origin|crate::engine::model::credential_is_current(c,origin).unwrap_or(false));
             // The fingerprint is the most expensive read of a warm page, and `prepare` read it a moment ago on this
             // connection (App::db's one): read again only if anything was written since.
             let unchanged=read.is_some_and(|read|mark(c).ok()==Some(read));
@@ -558,7 +560,7 @@ pub fn render(c:&Connection,user:i64,snapshot:&Snapshot,locale:&str,csrf:&str,pr
             }
         }
         Snapshot::Stale(cache,at,revision,until)=>{
-            let current=cache.producer().as_ref().is_some_and(|origin|crate::engine::model::credential_is_current(c,origin).unwrap_or(false));
+            let current=cache.producer().as_ref().is_none_or(|origin|crate::engine::model::credential_is_current(c,origin).unwrap_or(false));
             if !current || clock.now().timestamp()>=*until { return Ok(None); }
             let (Some(kept),Some(then))=(cache.kept(&kept_key(*revision,*at,locale,prefix)),cache.kept(&shape_key(*revision))) else { return Ok(None) };
             if !fx_holds(c,cache,&kept_fx(&kept),clock.now().timestamp()) { return Ok(None); }
