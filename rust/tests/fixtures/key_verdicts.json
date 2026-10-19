@@ -13,9 +13,9 @@
     "config/locales/api.pl.yml": "fda850e430e8d64f14a5b6f078061c674c1a371d7e2883cdf970ee2495f6591b",
     "config/locales/api_read_only.en.yml": "349b0cb8dbf472fa989661b0ca648c8df5cc216d68b5e9b375a246268a00d735",
     "config/locales/api_withdrawal.en.yml": "8ac2fa18ec06a6599e431b80ecf40da79f853193e78ce495e00902dae66bb41a",
-    "config/locales/errors.en.yml": "a2a0b5a0569d67cf2409b05499a04b65a0728c10ad6cbea283424cc1de004ffe",
-    "config/locales/errors.de.yml": "e73be24561c1258127a608306956c648e2b7446ef06a387f2e30c5d80a70e941",
-    "config/locales/errors.pl.yml": "721b945505d6f3624ada170a644de23ac7efe5ef033b309831245d4185ff9a36"
+    "config/locales/errors.en.yml": "5c8b9455a0ddd3777d79899edcafe081f3218e786ee5a1ddf5c5688db31e66f2",
+    "config/locales/errors.de.yml": "9ed87da4b5c2773ae37783ff00b4ad7fa54732178ffe8171489962b602cd53f3",
+    "config/locales/errors.pl.yml": "4ede2653ca0512683565a373739b7b32836c92ad354d894dded7ab893bf59c01"
   },
   "honeymaker": "0.12.5",
   "kraken": {
@@ -5127,7 +5127,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=ed27b87e7b0704bf4f5d363631c995f721591b57851fd17d3c5538a5b33d5e22&timestamp=1792376828110"
+            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=d0e4df4897a7a69b7ca2539702f984dd491b1d0c260d0cc56b08d8c112c7b3b6&timestamp=1792378497725"
           ]
         },
         "request": {
@@ -7055,7 +7055,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=d569a6aedff3383a2e036980b42d960c117e1db3a5cf75007e4287a212276378&timestamp=1792376828129"
+            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=b9416c84799e87bd91ec6f5ad283d933d198d55dd0d790cd55f6b3317b149645&timestamp=1792378497748"
           ]
         },
         "request": {
@@ -8983,7 +8983,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=3a69ca3d122520c0578c4d32ee125ac84d8b46f3d82d47e28843498e0c1ab621&timestamp=1792376828149"
+            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=8c31bcc9262bd0a832fd19a77b458a719ce2bb79d18456609de85a12c8825736&timestamp=1792378497769"
           ]
         },
         "request": {
@@ -10911,7 +10911,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=f47f7ec7fe525c7acfbb71631ecc2c9e34884c52e6a59262ce9b6f97b19c4cff&timestamp=1792376828170"
+            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=fb48577166b56486f07d74df3d74fab2c9cea308e48240648cc5df0f37f79717&timestamp=1792378497791"
           ]
         },
         "request": {
@@ -11652,7 +11652,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=7ca094f96c2166742d40894c61b9c2cc0ebf1b1ccd64a3ae096821c81fe634ff&timestamp=1792376828187"
+            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=f37f37497a5209efe0391219dbc68bcf531ab7dbd30f4fc0308905f28f38e0f9&timestamp=1792378497809"
           ]
         },
         "request": {
@@ -13011,7 +13011,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for DELETE https://api.binance.us/api/v3/order?orderId=9999999999&recvWindow=5000&signature=0a32890324ea3ef5e7a83294abed080bfe9df5e3565fa179e4c91d2336f630e3&symbol=ETHBTC&timestamp=1792376828201"
+            "the server responded with status 500 for DELETE https://api.binance.us/api/v3/order?orderId=9999999999&recvWindow=5000&signature=5b12b2290b48fd9df773abb0152ae1ecc5a9ddc2e13c771ece6db7202f3f2eb4&symbol=ETHBTC&timestamp=1792378497825"
           ]
         },
         "requests": [
@@ -13952,7 +13952,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=b53f7d4b6b652ab8b3380a5971e848df7d71cf6d3abf167b3661204adce38de8&timestamp=1792376828211"
+            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=9a4942a717a8c21643505cfef5712ac287e2fe6c0774977422174c4c4aa53275&timestamp=1792378497834"
           ]
         },
         "request": {
@@ -15311,7 +15311,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for DELETE https://api.binance.us/api/v3/order?orderId=9999999999&recvWindow=5000&signature=d6a5efc19f0f242a6156edbfa9ed5d6e04df3d57dd8bce9b80c3dbe09585e0f9&symbol=ETHBTC&timestamp=1792376828224"
+            "the server responded with status 500 for DELETE https://api.binance.us/api/v3/order?orderId=9999999999&recvWindow=5000&signature=7881f3b90ffdf0cf15d8b441f0ad92a9d1a5b372d33f0e783129701ce52cd508&symbol=ETHBTC&timestamp=1792378497847"
           ]
         },
         "requests": [
@@ -16252,7 +16252,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=eb923916babfef4971ec47c98800eed965750e6d78a1cc41637ee09e17079170&timestamp=1792376828233"
+            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=8bca74b953a7bcce5b0c13fd5c18533952c7c97e4f68e206925bd043d36b58b2&timestamp=1792378497859"
           ]
         },
         "request": {
@@ -17611,7 +17611,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for DELETE https://api.binance.us/api/v3/order?orderId=9999999999&recvWindow=5000&signature=41b9235ab696b9e7373c115b21325e6efad5a0f0783836da184f30b65ed3872d&symbol=ETHBTC&timestamp=1792376828244"
+            "the server responded with status 500 for DELETE https://api.binance.us/api/v3/order?orderId=9999999999&recvWindow=5000&signature=162e2780a514ab70243034aa219ca5d7ddb601391c08ff627363f5a17e5728ac&symbol=ETHBTC&timestamp=1792378497873"
           ]
         },
         "requests": [
@@ -18552,7 +18552,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=edb58583a5633216a4e0560c6c079cdc33bb24b8024ef0f17693984cfd85f43f&timestamp=1792376828253"
+            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=db8ddc79dd0ce9a99698a90f9f9cf55a91479a81306d237a7e7e10244fa19688&timestamp=1792378497890"
           ]
         },
         "request": {
