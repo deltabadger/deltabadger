@@ -117,7 +117,20 @@ module Pages
       # A call Rails accepts (202, Bot::SignalJob enqueued with the claim's time) on a working bot with an enabled rule.
       grid['refused_hook_accepted'] = signal_case([hook(at('buy'))])
       grid['refused_hook_accepted_with_body'] = signal_case([hook(at('buy'), body: '{"action":"buy"}', type: 'application/json')])
-      grid
+      grid.merge(override_scenarios)
+    end
+
+    # Rack::MethodOverride's header on a bot action that reads a JSON body: the route (and its body parser) is the
+    # overridden method's: a settings update keeps its value.
+    def override_scenarios
+      json = ->(path, body) { { 'method' => 'POST', 'path' => path, 'json' => body, 'csrf' => 'header', 'action_snapshot' => true,
+                                'may_mutate' => %w[bots bot_index_assets bot_activity_logs],
+                                'headers' => TURBO.merge('Referer' => 'http://localhost:3000/bots/1', 'Content-Type' => 'application/json',
+                                                         'X-HTTP-Method-Override' => 'PATCH') } }
+      # (A continue under the header is checked by rust/tests/web_actions.rs: on this grid's baskets the engine guard refuses
+      # every start, so the flag would not show.)
+      { 'override_update_json' => with_bots([{ 'kind' => 'basket' }, { 'kind' => 'single' }],
+                                            signed_in(get('/bots/1'), json.('/bots/1', '{"bots_dca_multi_asset":{"quote_amount":"37.25"}}'))) }
     end
 
     def bot(spec)

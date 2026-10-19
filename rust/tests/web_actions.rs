@@ -156,6 +156,25 @@ mod action_transport {
         // which no bot route takes.
         assert_eq!(h.form("POST", "_method=patch&a=1&a[b]=2").await.0, 501);
     }
+    /// Rack::MethodOverride's header turns a JSON POST into the action's method before its body is classified: the start
+    /// keeps `start_fresh: false` and an update keeps its value (override_* pages scenarios record the Rails side).
+    #[tokio::test]
+    async fn the_override_header_keeps_a_json_body() {
+        let h = Harness::new();
+        for (path, body, method) in [("/bots/1/start", r#"{"start_fresh":false}"#, "PATCH"), ("/bots/1", r#"{"bots_dca_multi_asset":{"quote_amount":"37.25"}}"#, "PATCH")] {
+            let router = web::router_with_routes(h.app.clone(), Router::new().fallback(probe), Duration::from_millis(200));
+            let request = match Request::builder().method("POST").uri(path).header("content-type", "application/json")
+                .header("accept", "text/vnd.turbo-stream.html").header("x-http-method-override", "PATCH").body(Body::from(body)) {
+                Ok(r) => r, Err(e) => panic!("request: {e}")
+            };
+            let response = match router.oneshot(request).await { Ok(r) => r, Err(e) => match e {} };
+            assert_eq!(response.status().as_u16(), 200, "{path}");
+            let bytes = match to_bytes(response.into_body(), 200_000).await { Ok(b) => b, Err(e) => panic!("body: {e}") };
+            let got: Value = serde_json::from_slice(&bytes).unwrap_or(Value::Null);
+            assert_eq!(got["method"], method, "{path}");
+            assert_eq!(got["merged"], serde_json::from_str::<Value>(body).unwrap(), "{path}: the JSON body was read");
+        }
+    }
     #[tokio::test]
     async fn native_method_not_overridden() {
         let h = Harness::new(); let (_, got) = h.form("PATCH", &format!("{VALID}&_method=delete")).await;

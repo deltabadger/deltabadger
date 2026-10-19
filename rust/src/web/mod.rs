@@ -875,21 +875,28 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
     let original_method = parts.method.clone();
     let (path_locale, route_path) = locale::split(&full_path);
     let route_path = route_path.to_string();
-    let bot_json = bot::action_params::action(&route_path, &original_method).is_some()
-        || (original_method == Method::PATCH && matches!(route_path.as_str(), "/tracker/save_export_settings" | "/tracker/fund_classifications"))
-        || (original_method == Method::PATCH && route_path.starts_with("/tracker/transactions/"));
     let content_type = header_text(&parts.headers, "content-type").unwrap_or("");
+    let json_type = content_type.split(';').next().is_some_and(|media_type| media_type.trim().eq_ignore_ascii_case("application/json"));
+    // The method a JSON body's route is chosen by: Rack::MethodOverride reads no JSON body, so only the header can turn
+    // its POST into another method, before any route (and its body parser) sees it.
+    let json_method = match (&original_method, json_type) {
+        (&Method::POST, true) => method_override(None, override_header.as_deref()).unwrap_or(Method::POST),
+        _ => original_method.clone(),
+    };
+    let bot_json = bot::action_params::action(&route_path, &json_method).is_some()
+        || (json_method == Method::PATCH && matches!(route_path.as_str(), "/tracker/save_export_settings" | "/tracker/fund_classifications"))
+        || (json_method == Method::PATCH && route_path.starts_with("/tracker/transactions/"));
     let form_post = matches!(original_method, Method::POST | Method::PATCH | Method::PUT | Method::DELETE)
         && content_type.split(';').next().is_some_and(|v| v.trim().eq_ignore_ascii_case("application/x-www-form-urlencoded"));
     // What broadcast--on-connect posts (web::broadcasts), under any locale.
-    let broadcast_json = original_method == Method::POST && route_path.starts_with("/broadcasts/");
-    let setup_json = original_method == Method::POST && path_locale.is_none()
+    let broadcast_json = json_method == Method::POST && route_path.starts_with("/broadcasts/");
+    let setup_json = json_method == Method::POST && path_locale.is_none()
         && matches!(route_path.as_str(), "/setup" | "/setup.html" | "/setup/platform_connection");
     // POST /hook/*: its body is read whatever its type (bounded, so a stalled body spends no claim) and parsed only as
     // Rack parses it (web::hook::body).
     let hook_post = original_method == Method::POST && (route_path == "/hook" || route_path.starts_with("/hook/"));
-    let json_post = (setup_json || bot_json || broadcast_json || (original_method == Method::POST && route_path=="/api/api_keys") || (original_method == Method::POST && JSON_PATHS.contains(&full_path.as_str())))
-        && content_type.split(';').next().is_some_and(|media_type| media_type.trim().eq_ignore_ascii_case("application/json"));
+    let json_post = (setup_json || bot_json || broadcast_json || (json_method == Method::POST && route_path=="/api/api_keys") || (json_method == Method::POST && JSON_PATHS.contains(&full_path.as_str())))
+        && json_type;
     let mut json = None;
     let mut upload = None;
     // What Rack read as the form, for the override: None when it read none, or could not parse it.
