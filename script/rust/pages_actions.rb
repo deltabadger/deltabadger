@@ -298,7 +298,24 @@ module Pages
       scenario['kraken_usdt'] = true if extra['kraken_usdt']
       scenario['kucoin_bots'] = true if extra['kucoin_bots']
       [name, scenario]
-    end.tap { |grid| raise 'action case names collide' unless grid.size == 254 }
+    end.tap { |grid| raise 'action case names collide' unless grid.size == 254 }.merge(typing_scenarios)
+  end
+
+  # An amount below one typed key by key, as the form posts it (form--submit-after-delay): "0" is invalid, the decimal
+  # separator and the zeros after it wait for a digit, and the finished amount saves. Each answer replaces the form, so it
+  # must show what was typed: a selling basket's base amount, and a buying basket's quote amount.
+  def typing_scenarios
+    selling = { 'kind' => 'single', 'settings' => { 'direction' => 'selling', 'sell_denomination' => 'base', 'sell_interval' => 'week' },
+                'columns' => { 'status' => 'stopped' } }
+    {
+      'actions_typing_sell_amount' => [selling, 'sell_amount', { 'sell_interval' => 'week' }, %w[0 0.001], { 'wash_off' => true }],
+      'actions_typing_quote_amount' => [{ 'kind' => 'basket' }, 'quote_amount', { 'interval' => 'day' }, %w[0 0.5], {}]
+    }.to_h do |name, (spec, field, rest, typed, extra)|
+      requests = typed.map { |value| action_request('update', { field => value }.merge(rest), spec['kind'], extra).merge('expect' => value == '0' ? 422 : 200) }
+      [name, { 'install' => 'alpaca', 'user' => owner('wash_sale_enabled' => nil),
+               'bots' => [spec, { 'kind' => 'basket', 'columns' => { 'status' => 7 } }], 'action_extra' => extra,
+               'steps' => signed_in(get('/bots/2').merge('expect' => 200), *requests) }]
+    end
   end
 end
 

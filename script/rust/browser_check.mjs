@@ -12,7 +12,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-const { BASE_URL, EMAIL, PASSWORD, BOT_ID, UNPORTED_VENUE } = process.env;
+const { BASE_URL, EMAIL, PASSWORD, BOT_ID, UNPORTED_VENUE, TYPING } = process.env;
 if (!BASE_URL || !EMAIL || !PASSWORD) {
   console.error("set BASE_URL, EMAIL and PASSWORD");
   process.exit(2);
@@ -163,6 +163,45 @@ try {
   }
   console.log(JSON.stringify({ first, later, cable: sockets.map(({ pings, closed }) => ({ pings: pings.length, closed })) }));
   if (wrong.length) throw new Error(wrong.join("\n"));
+  // TYPING: [{ bot, field, keys, saved }]. Keys are pressed one by one, slower than the form's 250 ms debounce, as a
+  // person types: every value the form submits ("0" is invalid) is answered, and the field keeps what was typed and
+  // the focus through each answer, so the next key lands after the last one. "ArrowLeft" moves the caret, so a saved
+  // amount can be edited in the middle ("15" into "1.5"). `saved` is the amount the last answer, a 200, draws back.
+  for (const { bot, field, keys, saved } of JSON.parse(TYPING || "[]")) {
+    const selector = JSON.stringify(`#${field}`);
+    await send("Page.navigate", { url: `${BASE_URL}/bots/${bot}` });
+    await until(`bot ${bot}'s ${field}`, () => evaluate(`location.pathname === "/bots/${bot}" && !!document.querySelector(${selector})`));
+    // Each answer: its status, and the amount its stream draws the field with.
+    await evaluate(`(() => { window.answers = []; document.addEventListener("turbo:submit-end", async event => {
+        const response = event.detail.fetchResponse;
+        const page = new DOMParser().parseFromString(await response.response.clone().text(), "text/html");
+        const drawn = [...page.querySelectorAll("template")].map(template => template.content.querySelector(${selector})).find(Boolean);
+        window.answers.push({ status: response.statusCode, value: drawn?.getAttribute("value") ?? null });
+      });
+      const input = document.querySelector(${selector}); input.value = ""; input.focus(); })()`);
+    let typed = "";
+    for (const key of keys) {
+      if (key === "ArrowLeft") {
+        for (const type of ["keyDown", "keyUp"]) await send("Input.dispatchKeyEvent", { type, key, code: key, windowsVirtualKeyCode: 37 });
+        typed = null; // from here the field is checked by what was saved
+      } else {
+        await send("Input.insertText", { text: key });
+        if (typed !== null) typed += key;
+      }
+      await sleep(700);
+      const look = await evaluate(`(() => { const input = document.querySelector(${selector});
+        return { value: input?.value, focused: document.activeElement === input, answers: window.answers.slice() }; })()`);
+      console.log(JSON.stringify({ bot, field, key, ...look }));
+      // Chrome reads "0." as "0": a separator just typed shows on the screen, not in the value.
+      const kept = typed === null || look.value === typed || look.value === typed.replace(/[.,]$/, "");
+      if (!kept || !look.focused) throw new Error(`typing ${keys.join(" ")} into ${field}: after ${key} the field shows ${JSON.stringify(look.value)} (typed ${JSON.stringify(typed)}), focused: ${look.focused}`);
+    }
+    const last = await evaluate("window.answers.at(-1)");
+    const value = await evaluate(`document.querySelector(${selector}).value`);
+    if (last?.status !== 200 || last.value !== saved || value !== saved) {
+      throw new Error(`typing ${keys.join(" ")} into ${field}: the last answer was ${JSON.stringify(last)} and the field shows ${JSON.stringify(value)}, not a 200 saving ${saved}`);
+    }
+  }
   if (UNPORTED_VENUE) {
     // The venue's button submits the nested #exchange-picker form into #modal_content; the POST redirects to the key step,
     // whose refusal (a venue this build does not trade) must show in the modal, never Turbo's "Content missing".
