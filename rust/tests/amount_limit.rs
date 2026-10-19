@@ -553,3 +553,188 @@ async fn a_rebalance_buy_fill_rechecks_the_cap_as_any_buy_fill_does() {
         assert_eq!(model::load_bot(&o.primary, id).unwrap().status == BotStatus::Stopped, stopped, "REGULAR spent: {regular_spent}");
     }
 }
+
+// ---- plan CB T2: the quote cap on Kraken, Binance and KuCoin. The exact-cap guard runs for every REGULAR buy; a reduced
+// order is checked against the venue's whole minimum (Exchange#minimum_amount_logic) in its own denomination, at its own price.
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum Form { Quote, Base, Limit }
+const CRYPTO: [(&str, &str); 3] = [("Exchanges::Kraken", "XBTEUR"), ("Exchanges::Binance", "BTCEUR"), ("Exchanges::Kucoin", "BTC-EUR")];
+fn leak(s: &str) -> &'static str { Box::leak(s.to_string().into_boxed_str()) }
+/// The order price each form is sized at: quote-sized at 30000 (the 5 EUR floor binds, in quote), base-sized at 100000 (the
+/// 0.0001 BTC floor binds, in base), a limit buy at 30000 (distance 0, so the limit price is the reference).
+fn form_price(form: Form) -> &'static str { if form == Form::Base { "100000" } else { "30000" } }
+
+/// A weekly BTC bot on `venue`, capped at 100 EUR with `spent` of it filled, on a pair of 8 base and 2 quote decimals whose
+/// floors are 0.0001 BTC and 5 EUR.
+fn crypto_capped(venue: &str, pair: &str, spent: &str, form: Form) -> (tempfile::TempDir, store::Opened, model::Bot) {
+    let (d, o, s) = common::install();
+    o.primary.execute("UPDATE exchanges SET type = ?1", [venue]).unwrap();
+    o.primary.execute("UPDATE tickers SET ticker = ?1, base_decimals = 8, quote_decimals = 2, price_decimals = 1, minimum_base_size = '0.0001', minimum_quote_size = '5'", [pair]).unwrap();
+    let mut spec = limited(json!(100));
+    if form == Form::Limit { spec = spec.with("limit_ordered", json!(true)).with("limit_order_pcnt_distance", json!(0)); }
+    let id = seed::insert_bot(&o.primary, &s, &spec);
+    seed::insert_tx(&o.primary, &s, id, &closed("OC-1", leak(spent)));
+    let bot = model::load_bot(&o.primary, id).unwrap();
+    (d, o, bot)
+}
+
+fn sized(o: &store::Opened, bot: &model::Bot, venue: &str, x: &str, form: Form) -> amount::OrderPlan {
+    let ticker = model::ticker_for(&o.primary, bot).unwrap().unwrap();
+    let logic = deltabadger::engine::venue_rules::for_exchange(venue).unwrap().minimum_logic;
+    let amount::Sizing::Place(plan) = amount::size(bot, &ticker, &bd(x), &bd(form_price(form)), logic).unwrap() else { panic!("{venue} {form:?} {x}: sized to place") };
+    assert_eq!(plan.quote_type, form == Form::Quote, "{venue} {form:?}: Rails sizes this form");
+    plan
+}
+
+/// The 9 cells (3 venues × quote-sized MARKET, base-sized MARKET, LIMIT), each: a trim within 4 increments, a trim landing
+/// exactly on the venue minimum (placed), and one increment below it (a skipped row).
+#[test]
+fn the_exact_cap_guard_trims_every_crypto_order_form_and_checks_the_venues_whole_minimum() {
+    for (venue, pair) in CRYPTO {
+        let notional_limit = venue != "Exchanges::Kraken"; // Binance and KuCoin limit buys: :base_and_quote_in_base; Kraken's: :base
+        for form in [Form::Quote, Form::Base, Form::Limit] {
+            // (case, spent, requested quote, Some(guarded volume, its cost) placed / None skipped)
+            let cells: Vec<(&str, &str, &str, Option<(&str, &str)>)> = match form {
+                Form::Quote => vec![("trim", "80", "20.03", Some(("20", "20"))), ("minimum", "95", "5.02", Some(("5", "5"))), ("below", "95.01", "5.02", None)],
+                // 0.00009999 BTC costs 9.999, above the 5 EUR quote floor: only the base floor skips it.
+                Form::Base => vec![("trim", "80", "20.003", Some(("0.0002", "20"))), ("minimum", "90", "10.002", Some(("0.0001", "10"))), ("below", "90.001", "10.002", None)],
+                Form::Limit if notional_limit => vec![("trim", "80", "20.0009", Some(("0.00066666", "19.9998"))),
+                    ("minimum", "94.9999", "5.0007", Some(("0.00016667", "5.0001"))), ("below", "95", "5.0007", None)],
+                // Kraken's limit floor is the base one: 0.0001 BTC at 3 EUR is placed although it is under the 5 EUR quote floor.
+                Form::Limit => vec![("trim", "80", "20.0009", Some(("0.00066666", "19.9998"))), ("minimum", "97", "3.0006", Some(("0.0001", "3"))),
+                    ("below", "97.0003", "3.0006", None)],
+            };
+            for (case, spent, x, want) in cells {
+                let (_d, o, bot) = crypto_capped(venue, pair, spent, form);
+                let plan = sized(&o, &bot, venue, x, form);
+                let exact = amount::exact_cap_available(&o.primary, &bot).unwrap().unwrap();
+                let label = format!("{venue} {form:?} {case}");
+                match (amount::guard_exact_cap(&o.primary, &bot, &plan).unwrap(), want) {
+                    (amount::CapGuard::Place(g), Some((volume, cost))) => {
+                        assert_eq!((g.volume.clone(), g.quote_amount.clone()), (bd(volume), bd(cost)), "{label}");
+                        assert!(g.quote_amount <= exact, "{label}: within the exact cap");
+                        // The denomination is kept: a quote-sized market buy stays in quote, the others store base units.
+                        assert_eq!((g.quote_type, g.limit, g.price.clone()), (form == Form::Quote, form == Form::Limit, plan.price.clone()), "{label}");
+                        assert!(g.volume < plan.volume, "{label}: reduced");
+                    }
+                    (amount::CapGuard::BelowMinimum(g), None) => assert!(g.quote_amount <= exact, "{label}"),
+                    (_, want) => panic!("{label}: expected {want:?}"),
+                }
+                // Placement runs the same guard on every venue: a skipped trim writes no intent.
+                let begun = placement::begin(&o.primary, &bot, &plan, &FixedClock(at(T0)));
+                assert_eq!(begun.is_ok(), want.is_some(), "{label}: {:?}", begun.as_ref().err());
+                assert_eq!(model::load_bot(&o.primary, bot.id).unwrap().rust_placement().is_some(), want.is_some(), "{label}");
+            }
+        }
+    }
+}
+
+/// The trimmed intent of each cell, on each venue's own wire: its reply lost, then recovered by its client order id. The
+/// intent reads back (Intent::from_json) in its guarded denomination, and the row is the guarded order's.
+#[tokio::test(flavor = "current_thread")]
+async fn a_trimmed_intent_is_sent_and_recovered_in_its_own_denomination_on_each_crypto_wire() {
+    use deltabadger::engine::venue_rules::WireFormat;
+    use deltabadger::venue::http::ScriptedTransport;
+    for (venue, pair) in CRYPTO {
+        for (form, spent, x) in [(Form::Quote, "80", "20.03"), (Form::Base, "80", "20.003"), (Form::Limit, "80", "20.0009")] {
+            let (_d, o, bot) = crypto_capped(venue, pair, spent, form);
+            let plan = sized(&o, &bot, venue, x, form);
+            let intent = placement::begin(&o.primary, &bot, &plan, &FixedClock(at(T0))).unwrap();
+            let label = format!("{venue} {form:?}");
+            let stored = model::load_bot(&o.primary, bot.id).unwrap().rust_placement().unwrap().clone();
+            assert_eq!((stored["quote_type"].as_bool(), bd(stored["volume"].as_str().unwrap())), (Some(form == Form::Quote), intent.plan.volume.clone()), "{label}");
+            let wire = intent.plan.to_order(intent.cl_ord_id.clone(), intent.deadline, WireFormat::Kraken).unwrap();
+            let want_volume = match form { Form::Quote => "20", Form::Base => "0.0002", Form::Limit => "0.00066666" };
+            assert_eq!((bd(&wire.volume), wire.quote_volume), (bd(want_volume), form == Form::Quote), "{label}: the volume sent");
+            let cl = intent.cl_ord_id.clone();
+            let (kind, price) = if form == Form::Limit { ("limit", "30000") } else { ("market", "0") };
+            let clock = FixedClock(at(T0) + Duration::seconds(5));
+            let bot = model::load_bot(&o.primary, bot.id).unwrap();
+            let recovered = match venue {
+                "Exchanges::Kraken" => {
+                    let raw = json!({ "status": "open", "cl_ord_id": cl, "oflags": if form == Form::Quote { "viqc" } else { "" }, "vol": wire.volume, "vol_exec": "0",
+                                      "cost": "0", "price": "0", "descr": { "pair": pair, "type": "buy", "ordertype": kind, "price": price } });
+                    let t = ScriptedTransport::from_script(&json!({ "POST /0/private/OpenOrders": [{ "status": 200, "body": { "error": [], "result": { "open": { "OTX-R": raw } } } }] }));
+                    placement::recover(&o.primary, &deltabadger::venue::kraken::KrakenVenue::new(t), &bot, &clock).await.unwrap()
+                }
+                "Exchanges::Binance" => {
+                    let (qty, quote) = if form == Form::Quote { ("0.00000000", wire.volume.as_str()) } else { (wire.volume.as_str(), "0.00000000") };
+                    let raw = json!({ "symbol": pair, "orderId": 28457, "orderListId": -1, "clientOrderId": cl, "price": if form == Form::Limit { "30000.00000000" } else { "0.00000000" },
+                                      "origQty": qty, "executedQty": "0.00000000", "cummulativeQuoteQty": "0.00000000", "status": "NEW", "timeInForce": "GTC",
+                                      "type": kind.to_uppercase(), "side": "BUY", "origQuoteOrderQty": quote });
+                    let t = ScriptedTransport::from_script(&json!({ "GET /api/v3/order": [{ "status": 200, "body": raw }] }));
+                    let mut pairs = deltabadger::venue::binance::Pairs::default();
+                    pairs.by_symbol.insert(pair.into(), deltabadger::venue::binance::Pair { base: "BTC".into(), quote: "EUR".into(), price_decimals: 1 });
+                    let v = deltabadger::venue::binance::BinanceVenue::new(t, "https://api.binance.com", "s").with_pairs(pairs);
+                    placement::recover(&o.primary, &v, &bot, &clock).await.unwrap()
+                }
+                _ => {
+                    let (size, funds) = if form == Form::Quote { ("0", wire.volume.as_str()) } else { (wire.volume.as_str(), "0") };
+                    let raw = json!({ "id": "KC-R", "symbol": pair, "opType": "DEAL", "type": kind, "side": "buy", "price": price, "size": size, "funds": funds,
+                                      "dealFunds": "0", "dealSize": "0", "fee": "0", "feeCurrency": "EUR", "clientOid": cl, "isActive": true, "cancelExist": false, "createdAt": 1788000000000u64 });
+                    let t = ScriptedTransport::from_script(&json!({ format!("GET /api/v1/order/client-order/{cl}"): [{ "status": 200, "body": { "code": "200000", "data": raw } }] }));
+                    placement::recover(&o.primary, &deltabadger::venue::kucoin::KucoinVenue::new(t, deltabadger::venue::kucoin::URL), &bot, &clock).await.unwrap()
+                }
+            };
+            assert!(matches!(recovered, placement::Recovery::Recorded(_)), "{label}: {recovered:?}");
+            assert!(model::load_bot(&o.primary, bot.id).unwrap().rust_placement().is_none(), "{label}");
+            // The row as the recovered order reads (#parse_order_data): the guarded quote for a quote-sized buy, else the guarded base.
+            let (quote, amount, order_type): (f64, f64, i64) = o.primary.query_row("SELECT quote_amount, amount, order_type FROM transactions WHERE external_id NOT LIKE 'OC-%'",
+                [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap();
+            let sized = if form == Form::Quote { quote } else { amount };
+            assert_eq!((sized, order_type), (want_volume.parse::<f64>().unwrap(), i64::from(form == Form::Limit)), "{label}: the guarded order's row");
+        }
+    }
+}
+
+/// The stop on a fill (Bot::QuoteAmountLimitable#handle_quote_amount_limit_update) is venue-neutral: a Kraken fill recovered
+/// from TradesHistory and a KuCoin fill recovered from /fills after #get_order named it missing stop the bot and owe the mail,
+/// as a polled fill does; the same late fill on a bot flipped into selling stops nothing (`return if selling?`).
+#[tokio::test(flavor = "current_thread")]
+async fn a_fill_recovered_from_kraken_trades_or_kucoin_fills_that_spends_the_cap_stops_the_bot() {
+    use deltabadger::venue::http::ScriptedTransport;
+    for venue in ["Exchanges::Kraken", "Exchanges::Kucoin"] {
+        for selling in [false, true] {
+            let (_d, o, s) = common::install();
+            o.primary.execute("UPDATE exchanges SET type = ?1", [venue]).unwrap();
+            let mut spec = limited(json!(60));
+            if selling { spec = spec.with("direction", json!("selling")); }
+            let id = seed::insert_bot(&o.primary, &s, &spec);
+            let order = seed::insert_tx(&o.primary, &s, id, &tx(0, Some(0), Some("OTX-7"), 0, None, Some("60"), Some("50000"), None, None, IN));
+            let now = at("2026-09-01T10:00:06Z");
+            if venue == "Exchanges::Kraken" {
+                let v = deltabadger::venue::fake::FakeVenue::from_script(&json!({ "http": { "/0/private/TradesHistory": [{ "error": [], "result": { "count": 1, "trades": {
+                    "T1": { "ordertxid": "OTX-7", "vol": "0.0012", "cost": "60", "fee": "0.156", "type": "buy", "ordertype": "market" } } } }] } }));
+                polling::follow_up(&o.primary, &v, id, order, now).await.unwrap();
+                assert!(v.calls("/0/private/TradesHistory") > 0, "recovered from TradesHistory");
+            } else {
+                let fill = json!({ "symbol": "BTC-EUR", "tradeId": "t1", "orderId": "OTX-7", "side": "buy", "type": "market", "price": "50000", "size": "0.0012",
+                                   "funds": "60", "fee": "0.06", "feeCurrency": "EUR", "createdAt": 1788220801000u64 });
+                let t = ScriptedTransport::from_script(&json!({
+                    "GET /api/v1/orders/OTX-7": [{ "status": 404, "body": { "code": "400100", "msg": "order not exist." } }],
+                    "GET /api/v1/fills": [{ "status": 200, "body": { "code": "200000", "data": { "currentPage": 1, "pageSize": 500, "totalNum": 1, "totalPage": 1, "items": [fill] } } }] }));
+                // KuCoin's follow-up asks for its one order only (a forgotten one is its error); the tick's sweep recovers it.
+                let v = deltabadger::venue::kucoin::KucoinVenue::new(t.clone(), deltabadger::venue::kucoin::URL);
+                polling::sweep(&o.primary, &v, &model::load_bot(&o.primary, id).unwrap(), now).await.unwrap();
+                assert!(t.requests().iter().any(|r| r.path == "/api/v1/fills"), "recovered from the fills");
+            }
+            let (ext, qexec): (i64, f64) = o.primary.query_row("SELECT external_status, quote_amount_exec FROM transactions WHERE id = ?1", [order], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+            assert_eq!((ext, qexec), (2, 60.0), "{venue} selling {selling}: the fill is recorded");
+            let b = model::load_bot(&o.primary, id).unwrap();
+            if selling {
+                assert_eq!(b.status, BotStatus::Scheduled, "{venue}: a late buy after the flip does not stop the seller");
+                assert!(b.transient.get(deltabadger::engine::notice::LIMIT).is_none(), "{venue}");
+                assert!(b.pending_amount_limit_stops().unwrap().is_none(), "{venue}");
+            } else if venue == "Exchanges::Kraken" {
+                let key: String = one(&o, "SELECT stop_message_key FROM bots");
+                assert_eq!((b.status, key.as_str()), (BotStatus::Stopped, tick::AMOUNT_SPENT), "{venue}: the follow-up's stop lands with the fill");
+                assert!(b.transient.get(deltabadger::engine::notice::LIMIT).is_some(), "{venue}: the limit mail is owed");
+            } else {
+                // The sweep's stop runs after the tick (Bot::StopJob after Bot::ActionJob): counted with the fill.
+                assert_eq!(one::<i64>(&o, "SELECT json_extract(transient_data, '$.rust_amount_limit_stops_pending.count') FROM bots"), 1, "{venue}");
+                assert!(b.transient.get(deltabadger::engine::notice::LIMIT).is_some(), "{venue}: the limit mail is owed");
+            }
+        }
+    }
+}

@@ -78,7 +78,6 @@ fn each_thing_outside_the_slice_is_refused_with_its_reason() {
     let cases: Vec<(&str, Make)> = vec![
         ("price_drop_limited", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("price_drop_limited", json!(true))))),
         ("indicator_limited", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("indicator_limited", json!(true))))),
-        ("quote_amount_limited", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("quote_amount_limited", json!(true))))),
         // Lifting the starting time left the suffix rule whole: any other `*_limited`, `*_ordered`, `*_intervaled` refuses.
         ("stop_ordered", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("stop_ordered", json!(true))))),
         ("volume_intervaled", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("volume_intervaled", json!("1"))))),
@@ -425,15 +424,32 @@ fn a_kraken_or_binance_basket_is_eligible() {
     }
 }
 
-/// What a Kraken or Binance basket still may not do in this engine: the amount limit, selling, rebalancing, and an index bot that sells.
+/// Plan CB T2: the quote amount limit is venue-neutral (Bot::QuoteAmountLimitable): a capped basket is admitted on each crypto venue.
+#[test]
+fn a_crypto_basket_with_a_quote_amount_limit_is_admitted() {
+    for venue in ["Exchanges::Kraken", "Exchanges::Binance", "Exchanges::Kucoin"] {
+        let (_d, o, s) = install();
+        o.primary.execute("UPDATE exchanges SET type = ?1", [venue]).unwrap();
+        let eth = venue_member(&o.primary, &s, "ETH");
+        let id = seed::insert_bot(&o.primary, &s, &plain().weights(&[(s.btc, 0.5), (eth, 0.5)]).with("quote_amount_limited", json!(true))
+            .with("quote_amount_limit", json!(500.0)).transient("quote_amount_limit_enabled_at", json!("2026-01-01T00:00:00.000Z")));
+        let r = eligibility::check_install(&o.primary).unwrap();
+        assert!(r.problems.is_empty(), "{venue}: {:?}", r.problems);
+        assert_eq!(r.eligible, vec![id], "{venue}");
+        // An unreadable cap still refuses, on every venue.
+        o.primary.execute("UPDATE bots SET settings = json_set(settings, '$.quote_amount_limit', 'bad')", []).unwrap();
+        let r = eligibility::check_install(&o.primary).unwrap();
+        assert!(r.problems.iter().any(|p| p.contains("quote_amount_limit")), "{venue}: {:?}", r.problems);
+    }
+}
+
+/// What a Kraken or Binance basket still may not do in this engine: selling, rebalancing, and an index bot that sells.
 #[test]
 fn a_kraken_or_binance_basket_outside_the_slice_is_refused_with_its_reason() {
     type Case = Box<dyn Fn(&rusqlite::Connection, &seed::Seeded, i64) -> i64>;
     let half = |s: &seed::Seeded, eth: i64| plain().weights(&[(s.btc, 0.5), (eth, 0.5)]);
-    for (venue, name) in [("Exchanges::Kraken", "Kraken"), ("Exchanges::Binance", "Binance"), ("Exchanges::Kucoin", "KuCoin")] {
+    for venue in ["Exchanges::Kraken", "Exchanges::Binance", "Exchanges::Kucoin"] {
         let cases: Vec<(String, Case)> = vec![
-            (format!("quote_amount_limited ({name}: amount limits are not supported"), Box::new(move |c, s, eth| seed::insert_bot(c, s,
-                &half(s, eth).with("quote_amount_limited", json!(true)).with("quote_amount_limit", json!(500.0))))),
             ("a basket of several assets that sells".into(), Box::new(move |c, s, eth| seed::insert_bot(c, s, &half(s, eth).with("direction", json!("selling"))
                 .with("sell_denomination", json!("base")).with("sell_amount", json!(0.001))))),
             ("rebalance_enabled".into(), Box::new(move |c, s, eth| seed::insert_bot(c, s, &half(s, eth).with("rebalance_enabled", json!(true))))),
@@ -660,7 +676,7 @@ fn the_49_hour_bound_is_inclusive() {
 fn refusals_and_notes_name_no_internal_plan() {
     let mut lines = vec![];
     let kraken: Vec<Make> = vec![
-        Box::new(|c, s| seed::insert_bot(c, s, &plain().with("quote_amount_limited", json!(true)))),
+        Box::new(|c, s| seed::insert_bot(c, s, &plain().with("rebalance_enabled", json!(true)))),
     ];
     for make in kraken {
         let (_d, o, s) = install();
@@ -676,7 +692,7 @@ fn refusals_and_notes_name_no_internal_plan() {
     let r = eligibility::check_install_at(&o.primary, "2026-09-01T10:00:00Z".parse().unwrap()).unwrap();
     lines.extend(r.problems);
     lines.extend(r.notes);
-    for needle in ["quote_amount_limited", "weighting", "split(s)"] {
+    for needle in ["rebalance_enabled", "weighting", "split(s)"] {
         assert!(lines.iter().any(|l| l.contains(needle)), "{needle}: {lines:?}");
     }
     assert!(lines.iter().all(|l| !l.contains("Plan ")), "{lines:?}");

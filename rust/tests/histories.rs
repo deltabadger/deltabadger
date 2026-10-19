@@ -196,7 +196,6 @@ async fn every_remaining_eligibility_branch_has_a_named_witness() {
         ("UPDATE bots SET settings=json_set(settings,'$.quote_amount',0)","quote_amount"),
         ("UPDATE bots SET restatement_generation=1","restated prices"),
         ("DELETE FROM users","user not found"),
-        ("UPDATE exchanges SET type='Exchanges::Kraken'; UPDATE bots SET settings=json_set(settings,'$.quote_amount_limited',json('true'))","quote_amount_limited (Kraken"),
         ("UPDATE bots SET settings=json_set(settings,'$.quote_amount_limited',json('true'),'$.quote_amount_limit','bad')","quote_amount_limit"),
         ("UPDATE bots SET settings=json_set(settings,'$.quote_amount_limited',json('true')),transient_data=json_set(transient_data,'$.quote_amount_limit_enabled_at',json('{}'))","quote_amount_limit_enabled_at"),
         ("UPDATE exchanges SET type='Exchanges::Kraken'; UPDATE bots SET transient_data=json_set(transient_data,'$.merged_history_until_id',3)","merged history"),

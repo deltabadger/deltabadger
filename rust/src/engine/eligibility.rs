@@ -126,9 +126,6 @@ fn bot_reasons_with(c: &Connection, bot: &Bot, splits: &mut SplitRows) -> Result
     let index = bot.bot_type == "Bots::DcaIndex";
     if !index && bot.bot_type != "Bots::DcaMultiAsset" { r.push(format!("type {} (only DCA baskets and index bots)", bot.bot_type)); }
     let exchange: Option<String> = c.query_row("SELECT type FROM exchanges WHERE id = ?1", [bot.exchange_id], |r| r.get(0)).optional()?;
-    // Kraken, Binance and KuCoin (plan K ruling O6): buying baskets (P1-T0 reverses spec E2's owner question 4) without an amount limit.
-    let kraken = match exchange.as_deref() { Some("Exchanges::Kraken") => Some("Kraken"), Some("Exchanges::Binance") => Some("Binance"),
-                                             Some("Exchanges::Kucoin") => Some("KuCoin"), _ => None };
     let alpaca = exchange.as_deref() == Some("Exchanges::Alpaca");
     let members = if index { index_reasons(c, bot, alpaca, &mut r)? } else { composition_reasons(bot, &mut r) };
     let selling = bot.settings.get("direction").is_some_and(|v| v == "selling");
@@ -160,7 +157,6 @@ fn bot_reasons_with(c: &Connection, bot: &Bot, splits: &mut SplitRows) -> Result
     let wash: Option<Option<bool>> = c.query_row("SELECT wash_sale_enabled FROM users WHERE id = ?1", [bot.user_id], |r| r.get(0)).optional()?;
     match wash { None => r.push("user not found".into()), Some(Some(true)) => r.push("wash_sale enabled for the user".into()), _ => {} }
     if bot.quote_amount_limited() {
-        if let Some(venue) = kraken { r.push(format!("quote_amount_limited ({venue}: amount limits are not supported by this engine yet)")); }
         if let Err(e) = bot.quote_amount_limit() { r.push(e); }
         if let Err(e) = bot.quote_amount_limit_enabled_at_us() { r.push(e); }
     }
@@ -177,7 +173,7 @@ fn bot_reasons_with(c: &Connection, bot: &Bot, splits: &mut SplitRows) -> Result
             return Ok(r);
         }
     }
-    if alpaca && r.is_empty() { super::accounting::validate_stored_amounts(&bot.settings, &bot.transient)?; super::accounting::quote_amount_available_num(c, bot)?; }
+    if r.is_empty() { super::accounting::validate_stored_amounts(&bot.settings, &bot.transient)?; super::accounting::quote_amount_available_num(c, bot)?; }
     Ok(r)
 }
 
