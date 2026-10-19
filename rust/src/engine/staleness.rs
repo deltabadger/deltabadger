@@ -243,7 +243,15 @@ pub fn report(c: &Connection, now: DateTime<Utc>) -> Result<Vec<String>, EngineE
 /// sizes from the index rows and the crypto market caps; its venue tickers are not refused on (VENUE_TICKERS).
 fn bot_sources(c: &Connection, bot: &Bot) -> Result<Vec<&'static Source>, EngineError> {
     let index = bot.bot_type == "Bots::DcaIndex";
-    if model::exchange_type(c, bot)? != "Exchanges::Alpaca" { return Ok(if index { vec![&INDICES, &CRYPTO_ASSETS] } else { vec![] }); }
+    // A market-cap basket sizes from its crypto members' caps as an index bot does (Bots::DcaMultiAsset#apply_market_cap_weights).
+    let market_cap = bot.bot_type == "Bots::DcaMultiAsset" && bot.weighting() == "market_cap";
+    let crypto_member = || -> Result<bool, EngineError> {
+        let ids = serde_json::to_string(&bot.asset_ids()).map_err(|_| EngineError::Data("unreadable allocations".into()))?;
+        Ok(c.query_row("SELECT EXISTS(SELECT 1 FROM assets WHERE category = 'Cryptocurrency' AND id IN (SELECT value FROM json_each(?1)))", [ids], |r| r.get(0))?)
+    };
+    if model::exchange_type(c, bot)? != "Exchanges::Alpaca" {
+        return Ok(if index { vec![&INDICES, &CRYPTO_ASSETS] } else if market_cap && crypto_member()? { vec![&CRYPTO_ASSETS] } else { vec![] });
+    }
     let mut sources = vec![];
     let (stocks, crypto): (bool, bool) = if index {
         let pairs = serde_json::to_string(&super::index::candidate_pairs(c, bot)?).map_err(|e| EngineError::Data(e.to_string()))?;
@@ -258,7 +266,8 @@ fn bot_sources(c: &Connection, bot: &Bot) -> Result<Vec<&'static Source>, Engine
     };
     if stocks { sources.push(&ALPACA_STOCK_TICKERS); }
     if crypto { sources.push(&ALPACA_CRYPTO_TICKERS); }
-    if index { sources.push(&INDICES); if crypto { sources.push(&CRYPTO_ASSETS); } }
+    if index { sources.push(&INDICES); }
+    if (index || market_cap) && crypto { sources.push(&CRYPTO_ASSETS); }
     Ok(sources)
 }
 

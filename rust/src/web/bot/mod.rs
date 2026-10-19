@@ -473,7 +473,6 @@ pub fn refusal(c: &Connection, bot_id: i64, wash_sale_enabled: Option<bool>, pro
     if selling && member_count != 1 { return Ok(Some("a basket of several assets that sells")); }
     if selling && settings.get("base_amount_limited") == Some(&Value::Bool(true)) { return Ok(Some("a cap on what a selling bot sells")); }
     if truthy(settings.get("rebalance_enabled")) { return Ok(Some("rebalancing")); }
-    if settings.get("weighting").and_then(Value::as_str) == Some("market_cap") { return Ok(Some("market-cap weights")); }
     if ["rebalance_pending", "liquidation_pending", "liquidation_selling_since", "redeploy_pending"].iter().any(|key| transient.get(key).is_some_and(|v| !v.is_null())) {
         return Ok(Some("a rebalance, liquidation or redeploy in progress"));
     }
@@ -898,7 +897,25 @@ impl Bot {
 
     /// Bots::DcaMultiAsset::Allocatable#allocations_balanced?: within 0.001 of one. An index bot has no such rule.
     pub fn allocations_balanced(&self) -> bool {
-        self.kind != Kind::Basket || (self.allocations_total() - 1.0).abs() <= 0.001
+        // A derived basket does not own its weights, so the slider total is not a gate on starting it.
+        self.kind != Kind::Basket || self.market_cap_weighted() || (self.allocations_total() - 1.0).abs() <= 0.001
+    }
+
+    /// Bots::DcaMultiAsset#market_cap_weighted?.
+    pub fn market_cap_weighted(&self) -> bool { self.kind == Kind::Basket && self.text("weighting") == Some("market_cap") }
+
+    /// Allocatable#displayed_allocation_for: the slider, or for a market-cap basket the in_index row's traded
+    /// `target_allocation.to_f`, falling back to the slider.
+    pub fn displayed_allocation_for(&self, asset_id: i64) -> f64 {
+        let slider = self.allocations().iter().find(|(id, _)| *id == asset_id).map_or(0.0, |(_, weight)| *weight);
+        if !self.market_cap_weighted() { return slider; }
+        self.memberships.iter().find(|m| m.in_index && m.asset.id == asset_id).and_then(|m| m.target_allocation.as_ref()).map_or(slider, BigDec::to_f)
+    }
+
+    /// Allocatable#displayed_allocations_total: the header total from the same source as the rows.
+    pub fn displayed_allocations_total(&self) -> f64 {
+        if !self.market_cap_weighted() { return self.allocations_total(); }
+        float_sum(self.allocations().iter().map(|(id, _)| self.displayed_allocation_for(*id)))
     }
 
     pub fn excess_members(&self) -> usize {

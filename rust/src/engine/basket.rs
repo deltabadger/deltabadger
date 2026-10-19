@@ -111,21 +111,61 @@ pub fn target_from_sql(v: ValueRef<'_>) -> Result<Option<BigDec>, EngineError> {
 /// Bots::DcaMultiAsset#refresh_composition, on every tick before anything is sized: derive_composition, then
 /// update_bot_index_assets. Err(message) is Rails' Failure, which fails the tick; nothing is written then.
 pub fn refresh_composition(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<Result<(), String>, EngineError> {
+    let members = match derive_composition(c, bot)? { Ok(members) => members, Err(failure) => return Ok(Err(failure)) };
+    write_members(c, bot.id, &members, now)?;
+    Ok(Ok(()))
+}
+
+/// A derived member: (asset, ticker, weight).
+pub type Derived = (i64, i64, f64);
+
+/// Bots::DcaMultiAsset#derive_composition: each member in settings order, the weights renormalised to sum to one, or Rails'
+/// Failure message.
+pub fn derive_composition(c: &Connection, bot: &Bot) -> Result<Result<Vec<Derived>, String>, EngineError> {
     let allocations = bot.allocations().ok_or_else(|| EngineError::Data(format!("bot {}: allocations this build does not read", bot.id)))?;
-    // derive_composition: in settings order, a member counts only with an available, trading-enabled ticker at the quote.
-    let mut matched: Vec<(i64, i64, f64)> = vec![];
+    // In settings order, a member counts only with an available, trading-enabled ticker at the quote.
+    let mut matched: Vec<Derived> = vec![];
     for (asset_id, weight) in allocations {
         let ticker: Option<i64> = c.query_row(
             "SELECT id FROM tickers WHERE exchange_id = ?1 AND base_asset_id = ?2 AND quote_asset_id = ?3 AND available = 1 AND trading_enabled = 1",
             params![bot.exchange_id, asset_id, bot.quote_asset_id()], |r| r.get(0)).optional()?;
         if let Some(ticker_id) = ticker { matched.push((asset_id, ticker_id, weight)); }
     }
+    if bot.weighting() == "market_cap" {
+        if let Some(caps) = market_cap_weights(c, &matched.iter().map(|(asset, _, _)| *asset).collect::<Vec<_>>())? {
+            for (member, weight) in matched.iter_mut().zip(caps) { member.2 = weight; }
+        }
+    }
     // `matched.sum { weight }` is Ruby's compensated Float sum; each weight is renormalised in Float (`weight / total`).
     let total = float_sum(&matched.iter().map(|(_, _, w)| *w).collect::<Vec<_>>());
     if total <= 0.0 { return Ok(Err(format!("None of the portfolio's weighted assets trade on {}", model::exchange_name(c, bot)?))); }
-    let members: Vec<(i64, i64, f64)> = matched.iter().map(|(asset, ticker, weight)| (*asset, *ticker, weight / total)).collect();
-    write_members(c, bot.id, &members, now)?;
-    Ok(Ok(()))
+    Ok(Ok(matched.iter().map(|(asset, ticker, weight)| (*asset, *ticker, weight / total)).collect()))
+}
+
+/// Bots::DcaMultiAsset#apply_market_cap_weights over the matched members' asset ids: `pluck(:id, :market_cap)` (the bigint
+/// read as ActiveModel's Integer type reads it, then `.to_f`; a missing row or NULL is 0), in the primary-key order SQLite
+/// answers an `IN` lookup with. None when any member has no positive cap: every slider is kept. Otherwise each member's
+/// `Weightable.blend(flattening: 0)` weight, in `matched` order. The engine's derivation and the settings writer both call
+/// this, so they cannot derive different splits.
+pub fn market_cap_weights(c: &Connection, matched: &[i64]) -> Result<Option<Vec<f64>>, EngineError> {
+    let ids = serde_json::to_string(matched).map_err(data)?;
+    let mut s = c.prepare("SELECT id, market_cap FROM assets WHERE id IN (SELECT value FROM json_each(?1)) ORDER BY id")?;
+    let caps = s.query_map([ids], |r| {
+        let cap = match r.get_ref(1)? {
+            ValueRef::Integer(i) => Some(i as f64),
+            ValueRef::Real(f) => Some(f.trunc()),
+            ValueRef::Text(t) => Some(crate::ruby::to_i(&String::from_utf8_lossy(t)) as f64),
+            ValueRef::Null => Some(0.0),
+            ValueRef::Blob(_) => None,
+        };
+        Ok((r.get::<_, i64>(0)?, cap))
+    })?.collect::<Result<Vec<_>, _>>()?;
+    let caps: Vec<(i64, f64)> = caps.into_iter().map(|(id, cap)| cap.map(|cap| (id, cap)).ok_or_else(|| data(format!("asset {id}: a market_cap blob"))))
+        .collect::<Result<_, _>>()?;
+    let cap_of = |asset: &i64| caps.iter().find(|(id, _)| id == asset).map_or(0.0, |(_, cap)| *cap);
+    if !matched.iter().all(|asset| cap_of(asset) > 0.0) { return Ok(None); }
+    let derived = super::index::blend(&caps.iter().map(|(_, cap)| *cap).collect::<Vec<_>>(), 0.0);
+    Ok(Some(matched.iter().map(|asset| derived[caps.iter().position(|(id, _)| id == asset).expect("every member has a cap")]).collect()))
 }
 
 /// A member's row: id, ticker_id, target_allocation (as read back), in_index, entered_at, exited_at.

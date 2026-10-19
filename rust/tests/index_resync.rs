@@ -375,3 +375,98 @@ async fn the_page_hears_the_first_tick_as_rails_broadcasts_it() {
     assert_eq!(shape(&ended), owned(&[("user", "replace", dom("status_bar")), ("user", "replace", dom("progress_bar"))]));
     assert!(ended[0].1.contains("rejected the API key") && ended[0].1.contains("countdown"), "the retrying bar names the failure: {}", ended[0].1);
 }
+
+/// The owner's switch of a Layer-1 index bot from Binance to KuCoin (settings saved while stopped, then a start): its stored
+/// members still name Binance's tickers, ZEC among them, and KuCoin lists no ZEC at its quote. Rails' resync re-derives the
+/// members from KuCoin's tickers (IndexAllocatable#derive_composition), marks ZEC out of the index (update_bot_index_assets)
+/// and the next Bot::ActionJob buys what it seated. A stored member without a ticker here is what that resync replaces, not
+/// a reason to leave the bot to Rails: the marker is consumed, the members are KuCoin's, the start is admitted and it ticks.
+#[tokio::test(flavor = "current_thread")]
+async fn an_index_bot_switched_to_a_venue_without_one_of_its_members_resyncs_and_ticks() {
+    use deltabadger::venue::{binance::Pairs, kucoin::{KucoinVenue, URL}};
+    struct Kucoin(ScriptedTransport, Pairs);
+    impl deltabadger::venue::VenueFactory for Kucoin {
+        type V = KucoinVenue<ScriptedTransport>;
+        fn for_bot(&self, t: &str, _c: Option<deltabadger::crypto::Credentials>) -> Self::V {
+            assert_eq!(t, "Exchanges::Kucoin", "only the bot's current venue is built");
+            KucoinVenue::new(self.0.clone(), URL).with_pairs(self.1.clone())
+        }
+    }
+    let (dir, o, s) = common::install();
+    let c = &o.primary;
+    let kucoin = s.exchange_id;
+    c.execute("UPDATE exchanges SET type = 'Exchanges::Kucoin', name = 'KuCoin', maker_fee = '0.1', taker_fee = '0.1'", []).unwrap();
+    c.execute("UPDATE assets SET external_id = 'tether', symbol = 'USDT', category = 'Cryptocurrency' WHERE id = ?1", [s.quote]).unwrap();
+    c.execute("UPDATE assets SET market_cap = 1.3e12 WHERE id = ?1", [s.btc]).unwrap();
+    c.execute("UPDATE tickers SET ticker = 'BTC-USDT', base = 'BTC', quote = 'USDT', base_decimals = 8, quote_decimals = 6, price_decimals = 1, \
+               minimum_base_size = '0.00001', minimum_quote_size = '0.1'", []).unwrap();
+    c.execute("INSERT INTO exchanges (type, name, maker_fee, taker_fee, created_at, updated_at) VALUES ('Exchanges::Binance', 'Binance', '0.1', '0.1', '2026-01-01', '2026-01-01')", []).unwrap();
+    let binance = c.last_insert_rowid();
+    let ticker = |exchange: i64, pair: &str, base: &str, asset: i64| -> i64 {
+        c.execute("INSERT INTO tickers (exchange_id, ticker, base, quote, base_asset_id, quote_asset_id, base_decimals, quote_decimals, price_decimals, \
+                   minimum_base_size, minimum_quote_size, trading_enabled, available, created_at, updated_at) VALUES (?1, ?2, ?3, 'USDT', ?4, ?5, 5, 6, 2, '0.0001', '0.1', 1, 1, '2026-01-01', '2026-01-01')",
+                  rusqlite::params![exchange, pair, base, asset, s.quote]).unwrap();
+        c.last_insert_rowid()
+    };
+    let asset = |ext: &str, sym: &str, cap: f64| -> i64 {
+        c.execute("INSERT INTO assets (external_id, symbol, name, category, market_cap, created_at, updated_at) VALUES (?1, ?2, ?2, 'Cryptocurrency', ?3, '2026-01-01', '2026-01-01')",
+                  rusqlite::params![ext, sym, cap]).unwrap();
+        c.last_insert_rowid()
+    };
+    let (zec, eth) = (asset("zcash", "ZEC", 9e11), asset("ethereum", "ETH", 4e11));
+    ticker(kucoin, "ETH-USDT", "ETH", eth); // KuCoin lists no ZEC-USDT
+    let old: Vec<i64> = [("BTCUSDT", "BTC", s.btc), ("ZECUSDT", "ZEC", zec), ("ETHUSDT", "ETH", eth)].iter().map(|(p, b, a)| ticker(binance, p, b, *a)).collect();
+    seed::insert_index(c, "layer-1", &["bitcoin", "zcash", "ethereum"], &json!({}));
+    let id = seed::index_bot(c, &s, "layer-1", 2, 0.0, false);
+    c.execute("UPDATE bots SET status = 2, settings = json_set(settings, '$.quote_asset_id', ?2) WHERE id = ?1", [id, s.quote]).unwrap();
+    // What Binance left: BTC and ZEC seated on Binance's tickers, each bought there once.
+    seed::insert_member(c, id, s.btc, old[0], 0.59, true, "2026-08-01 00:00:00", None);
+    seed::insert_member(c, id, zec, old[1], 0.41, true, "2026-08-01 00:00:00", None);
+    for (n, (a, sym, qty, price)) in [(s.btc, "BTC", "0.0005", "64000"), (zec, "ZEC", "0.5", "50")].into_iter().enumerate() {
+        c.execute("INSERT INTO transactions (bot_id, exchange_id, external_id, status, external_status, side, order_type, amount, quote_amount, price, amount_exec, \
+                   quote_amount_exec, base, quote, base_asset_id, quote_asset_id, bot_interval, bot_quote_amount, transaction_type, error_messages, created_at, updated_at) \
+                   VALUES (?1, ?2, ?3, 0, 2, 0, 0, ?4, 32, ?5, ?4, 32, ?6, 'USDT', ?7, ?8, 'week', 60, 'REGULAR', '[]', '2026-08-25 14:00:01', '2026-08-25 14:00:01')",
+                  rusqlite::params![id, binance, format!("{}", 28_000 + n), qty, price, sym, a, s.quote]).unwrap();
+    }
+    // The settings save that moved it (Bot#custom_exchange_id_changed? enqueues the resync).
+    c.execute("UPDATE bots SET exchange_id = ?2 WHERE id = ?1", [id, kucoin]).unwrap();
+    let now = "2026-09-01T14:00:00.5Z";
+    seed::fresh_stock_jobs(c, at(now));
+    index::mark_resync(c, id, at(now)).unwrap();
+    let pairs = Pairs::load(c, kucoin).unwrap();
+    let kc = |body: Value| json!([{ "status": 200, "body": { "code": "200000", "data": body } }]);
+    let book = |p: &str| kc(json!({ "time": 1, "sequence": "1", "bids": [[p, "1"]], "asks": [[p, "1"]] }));
+    let t = ScriptedTransport::from_script(&json!({
+        "GET /api/v1/market/orderbook/level2_20?symbol=BTC-USDT": book("64000.0"), "GET /api/v1/market/orderbook/level2_20?symbol=ETH-USDT": book("2500.00"),
+        "GET /api/v1/market/allTickers": kc(json!({ "time": 1, "ticker": [{ "symbol": "BTC-USDT", "last": "64000.0" }, { "symbol": "ETH-USDT", "last": "2500.00" }] })),
+        "GET /api/v1/accounts": kc(json!([{ "id": "q", "currency": "USDT", "type": "trade", "balance": "100000", "available": "100000", "holds": "0" }])),
+        "GET /api/v1/fills": kc(json!({ "currentPage": 1, "pageSize": 500, "totalNum": 0, "totalPage": 0, "items": [] })),
+        "POST /api/v1/orders": (1..=4).map(|n| json!({ "status": 200, "body": { "code": "200000", "data": { "orderId": format!("6716f0a2c1b6d10007a3b1c{n}") } } })).collect::<Vec<_>>(),
+    }));
+    let paths = Paths::from_env(&|_| None, dir.path());
+    let lock = deltabadger::lease::lock(&paths, at(now)).unwrap();
+    let mut e = Engine::new(store::open(&paths).unwrap().primary, Kucoin(t.clone(), pairs), seed::cipher(), lock);
+    let rows = || -> Vec<(String, bool, i64)> {
+        let mut q = c.prepare("SELECT a.symbol, m.in_index, m.ticker_id FROM bot_index_assets m JOIN assets a ON a.id = m.asset_id WHERE m.bot_id = ?1 ORDER BY a.symbol").unwrap();
+        q.query_map([id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap().map(Result::unwrap).collect()
+    };
+    let resync: Option<String> = c.query_row("SELECT json_extract(transient_data, '$.rust_index_resync') FROM bots WHERE id = ?1", [id], |r| r.get(0)).unwrap();
+    assert!(resync.is_some());
+    run::step(&mut e, &FixedClock(at(now))).await.expect("the pass stays Ok");
+    let resync: Option<String> = c.query_row("SELECT json_extract(transient_data, '$.rust_index_resync') FROM bots WHERE id = ?1", [id], |r| r.get(0)).unwrap();
+    assert_eq!(resync, None, "the resync ran here, not left to Rails");
+    let eth_kc: i64 = c.query_row("SELECT id FROM tickers WHERE exchange_id = ?1 AND ticker = 'ETH-USDT'", [kucoin], |r| r.get(0)).unwrap();
+    assert_eq!(rows(), vec![("BTC".into(), true, s.ticker_id), ("ETH".into(), true, eth_kc), ("ZEC".into(), false, old[1])],
+               "BTC and ETH seated on KuCoin's tickers; ZEC, untradable there, out of the index (its row a holding only)");
+    assert!(t.posted_orders().is_empty(), "a resync places nothing");
+
+    // The start (Bots::DcaIndex#start): admitted by the shared rule, and the next pass ticks it on KuCoin.
+    let tx = model::immediate(c).unwrap();
+    tx.execute("UPDATE bots SET status = 1, started_at = '2026-09-01 14:00:01' WHERE id = ?1", [id]).unwrap();
+    deltabadger::engine::eligibility::guard(&tx, &seed::cipher(), Some(id)).expect("the start is admitted");
+    tx.commit().unwrap();
+    run::step(&mut e, &FixedClock(at("2026-09-01T14:00:02Z"))).await.expect("the pass stays Ok");
+    let pairs: Vec<String> = t.requests().iter().filter(|r| r.method == "POST" && r.path == "/api/v1/orders")
+        .map(|r| r.body.clone().unwrap_or_default()["symbol"].as_str().unwrap_or_default().to_string()).collect();
+    assert_eq!(pairs, ["BTC-USDT", "ETH-USDT"], "the bot buys what the resync seated");
+}

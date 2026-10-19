@@ -251,6 +251,8 @@ module Decisions
     # A basket's other members, created after BTC so that a one-asset scenario's ids are what they were.
     assets = { 'BTC' => btc }
     (sc['members'] || {}).each_key { |sym| assets[sym] ||= basket_member(exchange, quote, sym, sc['venue']) }
+    # Plan CB T5: the members' market caps as the asset sync stores them, before the save derives a market-cap basket's weights.
+    (sc['market_caps'] || {}).each { |sym, cap| assets.fetch(sym).update_columns(market_cap: cap) }
     ApiKey.new(user:, exchange:, key: 'k', secret: 's', passphrase:, status: :correct, key_type: :trading).save!(validate: false)
     allocations = sc['members'] ? sc['members'].to_h { |sym, w| [assets.fetch(sym).id.to_s, w] } : { btc.id.to_s => 1.0 }
     # As BotApi::Bots::Create does (create_basket + save_and_start), without starting a job; its after_save writes bot_index_assets.
@@ -810,6 +812,11 @@ module Decisions
                            'GET /v2/orders:by_client_order_id' => [sol_landed] })
     list << landed_reference('basket-exited-intent-tiers-k3-landed', WEIGHTS['tiers'], legs: [%w[OTX-1 BTC 60], %w[OTX-2 ETH 36]],
                              landed: %w[SOL 24], quote_amount: 120.0, exited: ['SOL'], tickers_after: { 'SOL' => off })
+    # Market-cap weights (plan CB T5, 5).
+    market_cap_cases(basket_first, basket_at(1), [closed_leg(1, 'BTC', 60.0)]).each do |name, members, opts|
+      list << basket("basket-market_cap-#{name}", members, **opts)
+    end
+    list
   end
 
   # P1-T0: buying baskets on Kraken (EUR) and Binance (USDT). Each member has its venue's own spelling (Kraken's XBT), its
@@ -891,14 +898,34 @@ module Decisions
     { 'name' => "vb-#{venue}-#{name}", 'venue' => venue, 'interval' => 'day', 'quote_amount' => quote_amount, 'started_at' => BASKET_STARTED,
       'settings' => settings, 'settings_changed_at' => nil, 'transient' => transient, 'transactions' => transactions,
       'ticker' => VENUE_PAIRS.fetch(venue)['BTC'], 'members' => members, 'at' => at,
-      'script' => { (venue == 'kraken' ? 'http' : venue) => venue_http(venue, fail:).merge(http) }, 'tick' => true,
+      'script' => { (venue == 'kraken' ? 'http' : venue) => (venue == 'kucoin' ? cb_http(venue, {}) : venue_http(venue, fail:)).merge(http) }, 'tick' => true,
       'record_floor' => true }.merge(extra.transform_keys(&:to_s))
+  end
+
+  # Plan CB T5: the members' caps (bigints, as the asset sync stores them), and the cases of a market-cap basket's derivation.
+  MARKET_CAPS = { 'BTC' => 1_300_000_000_000, 'ETH' => 400_000_000_000, 'SOL' => 80_000_000_000 }.freeze
+
+  def market_cap_cases(at_first, at_next, held)
+    mc = { 'weighting' => 'market_cap' }
+    # SOL parked at 0 %: with every cap it is bought at its cap weight; with one cap missing or zero the sliders stay, so it is not.
+    parked = { 'BTC' => 0.6, 'ETH' => 0.4, 'SOL' => 0.0 }
+    { 'first_tick' => [WEIGHTS['tiers'], MARKET_CAPS, at_first, []],
+      'missing_cap' => [parked, MARKET_CAPS.except('SOL'), at_first, []],
+      'zero_cap' => [parked, MARKET_CAPS.merge('ETH' => 0), at_first, []],
+      'parked' => [parked, MARKET_CAPS, at_first, []],
+      'drifted' => [WEIGHTS['tiers'], MARKET_CAPS, at_next, held] }.map do |name, (members, caps, at, rows)|
+      # 300 a day, so SOL's cap share (4.5 %) clears each venue's minimum.
+      [name, members, { at:, quote_amount: 300.0, settings: mc, market_caps: caps, transactions: rows }]
+    end
   end
 
   def venue_basket_scenarios
     modes = { 'market' => {}, 'limit' => { 'limit_ordered' => true, 'limit_order_pcnt_distance' => 0.0025 } }
     off = { 'trading_enabled' => false }
-    %w[kraken binance].flat_map do |venue|
+    kucoin = market_cap_cases(basket_first, basket_at(1), [venue_leg('kucoin', 1, 'BTC', 60.0)]).map do |name, members, opts|
+      venue_basket('kucoin', "market_cap-#{name}", members, **opts)
+    end
+    crypto = %w[kraken binance].flat_map do |venue|
       small, tiny = venue == 'kraken' ? [20.0, 2.0] : [20.0, 6.0] # SOL's 4 under its minimum; every leg of the 70/30 under its own
       list = []
       %w[w70 tiers].product(modes.keys).each do |w, mode|
@@ -918,6 +945,9 @@ module Decisions
       list << venue_basket(venue, 'tiers-smart-first_tick', WEIGHTS['tiers'], at: basket_first,
                            settings: { 'smart_intervaled' => true, 'smart_interval_quote_amount' => 20.0 })
       list << venue_basket(venue, 'tiers-carry', WEIGHTS['tiers'], at: basket_at(1), transient: { 'missed_quote_amount' => '12.5' })
+      market_cap_cases(basket_first, basket_at(1), [venue_leg(venue, 1, 'BTC', 60.0)]).each do |name, members, opts|
+        list << venue_basket(venue, "market_cap-#{name}", members, **opts)
+      end
       next list unless venue == 'kraken'
 
       # The same day's legs swept closed before tomorrow's split, SOL carried across the two ticks (Kraken: one QueryOrders
@@ -927,7 +957,8 @@ module Decisions
                          'OTX-2' => kr_order(t['ETH'], status: 'closed', vol: '6', vol_exec: '0.0023997', cost: '6', price: '2500.25'))
       list << venue_basket(venue, 'tiers-one_below-next', WEIGHTS['tiers'], at: basket_first, quote_amount: small, next_at: basket_at(1),
                            http: { '/0/private/QueryOrders' => [swept] })
-    end.tap { |list| raise "the venue basket grid has #{list.size} scenarios, not 29" unless list.size == 29 }
+    end
+    (kucoin + crypto).tap { |list| raise "the venue basket grid has #{list.size} scenarios, not 44" unless list.size == 44 }
   end
 
   LIMIT_STAMP = '2026-09-01T10:00:00.123Z' # Time#as_json of the bot's start, to the millisecond: when its limit was switched on
@@ -1473,6 +1504,14 @@ module Decisions
       [sym, Ticker.create!(exchange:, ticker: vi_ticker(venue, sym), base:, quote: quote.symbol, base_asset: assets.fetch(sym), quote_asset: quote,
                            **vi_pair(venue, sym).symbolize_keys)]
     end
+    # A venue switch (`former_venue`): the members and buys the bot left on the venue it was moved off, every coin listed there
+    # at the same quote; the bot itself is on `venue_key` (the settings save that moved it is behind it).
+    former = sc['former_venue'] && Exchanges::Binance.create!(name: 'Binance', maker_fee: '0.1', taker_fee: '0.1') # the one former venue the grid moves off
+    ([quote] + assets.values).uniq.each { |a| ExchangeAsset.create!(exchange: former, asset: a, available: true) } if former
+    former_tickers = former && VI_PRICES.fetch(quote.symbol).keys.to_h do |sym|
+      [sym, Ticker.create!(exchange: former, ticker: vi_ticker(sc['former_venue'], sym), base: sym, quote: quote.symbol, base_asset: assets.fetch(sym), quote_asset: quote,
+                           **vi_pair(sc['former_venue'], sym).symbolize_keys)]
+    end
     # Alpaca's catalog lists USD stocks too (data-api's listings sync), so a Top crypto bot is not all crypto: its tick reads the clock.
     if venue == 'alpaca'
       %w[AAA BBB].each do |sym|
@@ -1502,14 +1541,14 @@ module Decisions
     bot.update_columns({ status: Bot.statuses[sc.fetch('status', 'scheduled')], settings_changed_at: nil, label: 'Crypto index',
                          started_at: Time.iso8601(VI_STARTED), transient_data: bot.reload.transient_data.merge(sc['transient'] || {}) })
     (sc['members'] || []).each do |sym, target, in_index|
-      t = tickers.fetch(sym)
+      t = (former_tickers || tickers).fetch(sym)
       BotIndexAsset.insert!({ 'bot_id' => bot.id, 'asset_id' => t.base_asset_id, 'ticker_id' => t.id, 'target_allocation' => target, 'in_index' => in_index != false,
                               'entered_at' => '2026-08-01 00:00:00', 'exited_at' => in_index == false ? '2026-08-15 10:30:00' : nil,
                               'created_at' => '2026-08-01 00:00:00', 'updated_at' => '2026-08-01 00:00:00' })
     end
     (sc['transactions'] || []).each_with_index do |row, i|
-      t = tickers.fetch(row['symbol'])
-      Transaction.insert!({ 'bot_id' => bot.id, 'exchange_id' => exchange.id, 'external_id' => row.fetch('external_id', "OHELD-#{i}"), 'status' => 0,
+      t = (former_tickers || tickers).fetch(row['symbol'])
+      Transaction.insert!({ 'bot_id' => bot.id, 'exchange_id' => (former || exchange).id, 'external_id' => row.fetch('external_id', "OHELD-#{i}"), 'status' => 0,
                             'external_status' => row.fetch('external_status', 2), 'side' => 0, 'order_type' => row.fetch('order_type', 0), 'amount' => row['amount'],
                             'price' => row['price'], 'amount_exec' => row['amount_exec'], 'quote_amount' => row['quote_amount'], 'quote_amount_exec' => row['quote_amount_exec'],
                             'base' => t.base_asset.symbol, 'quote' => quote.symbol, 'base_asset_id' => t.base_asset_id, 'quote_asset_id' => quote.id,
@@ -1740,6 +1779,13 @@ module Decisions
         end
       end
     end
+    # The owner's venue switch: a Layer-1 bot moved off Binance to KuCoin (stopped, settings saved, then started) whose stored
+    # members are Binance's, the third (SOL here) unlisted on KuCoin. The resync seats KuCoin's own top three and marks SOL out.
+    ranked = vi_ranked('kucoin', VI_L1)
+    held = ranked.first(3).zip([30.0, 20.0, 10.0]).map { |sym, v| vi_held('binance', sym, v) }
+    list << venue_index('kucoin', 'category', 'venue_switch_then_tick-market', former_venue: 'binance', unlisted: [ranked[2]], members: vi_steady(ranked),
+                        transactions: held, status: 'stopped', resync_at: (Time.iso8601(VI_STARTED) + 3600).iso8601(6), at: day.(1),
+                        trigger: ["UPDATE bots SET status = 1, started_at = '2026-09-01 10:00:00.123456'"])
     # The resync's own failure kinds, then the tick: a rejected key raises (no retry, nothing written), an Alpaca transport
     # failure is retried (n⁴ + 2 s) and succeeds, or fails three times and the job ends.
     started = ["UPDATE bots SET status = 1, started_at = '2026-09-01 10:00:00.123456'"]
@@ -1772,7 +1818,7 @@ module Decisions
               'top_coins' => %w[AAA BBB DDD EEE CCC], 'transactions' => [], 'num_coins' => 3, 'flattening' => 0.0, 'hold_all' => false,
               'members' => [{ 'symbol' => 'AAA', 'target' => 0.6, 'in_index' => true }, { 'symbol' => 'BBB', 'target' => 0.4, 'in_index' => true }],
               'script' => { 'alpaca' => http }, 'tick' => true }
-    list.tap { |l| raise "the venue index grid has #{l.size} scenarios, not 330" unless l.size == 330 }
+    list.tap { |l| raise "the venue index grid has #{l.size} scenarios, not 331" unless l.size == 331 }
   end
 
   # Binance spot (spec E2), one asset on BTCUSDT: Rails' own answers to the bodies below, beneath honeymaker.

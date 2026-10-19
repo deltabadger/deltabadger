@@ -410,8 +410,8 @@ fn an_alpaca_rebalancing_bot_is_eligible_in_every_phase_this_engine_resumes() {
 #[test]
 fn a_stopped_rebalancing_bot_outside_the_slice_is_refused() {
     // Rebalancing runs on stopped bots, so a stopped one is this engine's work: whatever else it carries must be supported.
-    let (_d, o, _, _, _) = swap_bot(stopped().with("weighting", json!("market_cap")));
-    assert!(eligibility::check_install(&o.primary).unwrap().problems.iter().any(|p| p.contains("weighting market_cap")));
+    let (_d, o, _, _, _) = swap_bot(stopped().with("direction", json!("sideways")));
+    assert!(eligibility::check_install(&o.primary).unwrap().problems.iter().any(|p| p.contains("direction \"sideways\"")));
     // Sliders off 100% are not such a thing: Rails' rebalance_targets reads them as no targets (the grid's `unbalanced`).
     let (_d, o, _, _, _) = swap_bot(stopped());
     o.primary.execute("UPDATE bots SET settings = json_set(settings, '$.allocations', json((SELECT json_group_object(key, 0.6) FROM json_each(bots.settings, '$.allocations'))))", []).unwrap();

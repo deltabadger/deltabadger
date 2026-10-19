@@ -463,6 +463,21 @@ fn a_kraken_or_binance_basket_outside_the_slice_is_refused_with_its_reason() {
     }
 }
 
+/// Plan CB T5: market-cap weights are derived from the assets table (Bots::DcaMultiAsset#apply_market_cap_weights), on every
+/// venue the same way: a market-cap basket is admitted on Alpaca, Kraken, Binance and KuCoin.
+#[test]
+fn a_market_cap_basket_is_admitted_on_every_venue() {
+    for venue in ["Exchanges::Alpaca", "Exchanges::Kraken", "Exchanges::Binance", "Exchanges::Kucoin"] {
+        let (_d, o, s) = if venue == "Exchanges::Alpaca" { common::install_alpaca() } else { install() };
+        if venue != "Exchanges::Alpaca" { o.primary.execute("UPDATE exchanges SET type = ?1", [venue]).unwrap(); }
+        let eth = if venue == "Exchanges::Alpaca" { seed::add_eth_sol(&o.primary, &s).0 } else { venue_member(&o.primary, &s, "ETH") };
+        let id = seed::insert_bot(&o.primary, &s, &plain().weights(&[(s.btc, 0.7), (eth, 0.3)]).with("weighting", json!("market_cap")));
+        let r = eligibility::check_install(&o.primary).unwrap();
+        assert!(r.problems.is_empty(), "{venue}: {:?}", r.problems);
+        assert_eq!(r.eligible, vec![id], "{venue}");
+    }
+}
+
 /// Plan CB T3: a basket of three that sells is admitted on Kraken, Binance and KuCoin (the ranked DCA-out is venue-neutral).
 #[test]
 fn a_wider_crypto_basket_that_sells_is_admitted() {
@@ -532,7 +547,6 @@ fn a_basket_outside_what_the_engine_ports_is_refused_with_its_reason() {
     type Case = Box<dyn Fn(&rusqlite::Connection, &seed::Seeded, i64) -> i64>;
     let half = |s: &seed::Seeded, eth: i64| plain().weights(&[(s.btc, 0.5), (eth, 0.5)]);
     let cases: Vec<(&str, Case)> = vec![
-        ("weighting market_cap", Box::new(move |c, s, eth| seed::insert_bot(c, s, &half(s, eth).with("weighting", json!("market_cap"))))),
         ("not 1", Box::new(|c, s, eth| seed::insert_bot(c, s, &plain().weights(&[(s.btc, 0.5), (eth, 0.3)])))),
         ("a weight this build does not read", Box::new(|c, s, eth| seed::insert_bot(c, s, &plain().with("allocations", json!({ s.btc.to_string(): "0.5", eth.to_string(): 0.5 }))))),
         ("101 assets (at most 100)", Box::new(|c, s, _| {
@@ -696,14 +710,14 @@ fn refusals_and_notes_name_no_internal_plan() {
     }
     let (_d, o, s) = common::install_alpaca();
     let (eth, _) = seed::add_eth_sol(&o.primary, &s);
-    seed::insert_bot(&o.primary, &s, &plain().weights(&[(s.btc, 0.5), (eth, 0.5)]).with("weighting", json!("market_cap")));
+    seed::insert_bot(&o.primary, &s, &plain().weights(&[(s.btc, 0.5), (eth, 0.5)]).with("direction", json!("sideways")));
     o.primary.execute("INSERT INTO account_transactions (user_id, exchange_id, entry_type, base_currency, base_amount, raw_data, transacted_at, created_at, updated_at) \
                        VALUES (?1, ?2, 15, 'BTC', 0, '{\"corporate_action\":\"split\"}', '2026-09-01', '2026-09-01', '2026-09-01')", rusqlite::params![s.user_id, s.exchange_id]).unwrap();
     o.primary.execute("DELETE FROM app_configs WHERE key = 'alpaca_crypto_listings_last_good_count'", []).unwrap();
     let r = eligibility::check_install_at(&o.primary, "2026-09-01T10:00:00Z".parse().unwrap()).unwrap();
     lines.extend(r.problems);
     lines.extend(r.notes);
-    for needle in ["an index bot that sells", "weighting", "split(s)"] {
+    for needle in ["an index bot that sells", "direction", "split(s)"] {
         assert!(lines.iter().any(|l| l.contains(needle)), "{needle}: {lines:?}");
     }
     assert!(lines.iter().all(|l| !l.contains("Plan ")), "{lines:?}");

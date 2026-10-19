@@ -980,7 +980,7 @@ fn equal_up_to_tie_order(rails_out: &serde_json::Value, rust_out: &serde_json::V
 
 #[tokio::test(flavor = "current_thread")]
 async fn rails_and_rust_decide_identically_across_the_basket_grid() {
-    let (_copies, outputs) = grid_outputs("grid-basket", 79).await;
+    let (_copies, outputs) = grid_outputs("grid-basket", 84).await;
     let reference = |name: &str| outputs.iter().find(|(n, ..)| *n == format!("{name}-reference")).map(|(_, d, r, _)| (d.as_path(), r));
     let mut failures = vec![];
     for (name, dir, rails_out, rust_out) in &outputs {
@@ -1034,6 +1034,9 @@ async fn rails_and_rust_decide_identically_across_the_basket_grid() {
         if name == "basket-recover-tiers-k2-network" { assert_eq!(sent, 5, "{name}: two in the first tick, three at the next checkpoint"); }
         if name == "basket-exited-holds-tiers" { assert_eq!(sent, 2, "{name}: the exited SOL is never bought"); }
         if name == "basket-exited-intent-tiers-k3-landed" { assert_eq!(sent, 5, "{name}: three legs, then BTC and ETH only"); }
+        // Plan CB T5: a parked member is bought at its cap weight only when every member has a cap.
+        if matches!(name.as_str(), "basket-market_cap-parked" | "basket-market_cap-first_tick") { assert_eq!(sent, 3, "{name}: every member at its cap weight"); }
+        if matches!(name.as_str(), "basket-market_cap-missing_cap" | "basket-market_cap-zero_cap") { assert_eq!(sent, 2, "{name}: the sliders stay"); }
     }
 }
 
@@ -1415,7 +1418,7 @@ async fn rails_and_rust_decide_identically_across_the_condition_grid() {
 /// order and a carry; and each resync trigger followed by a tick (plan CI T3b), all decided by Rails and by Rust alike.
 #[tokio::test(flavor = "current_thread")]
 async fn rails_and_rust_decide_identically_across_the_venue_index_grid() -> Result<(), Box<dyn std::error::Error>> {
-    let (_copies, outputs) = grid_outputs("grid-venue-index", 330).await;
+    let (_copies, outputs) = grid_outputs("grid-venue-index", 331).await;
     let mut failures = vec![];
     for (name, _dir, rails_out, rust_out) in &outputs {
         if rails_out != rust_out { failures.push(format!("{name}\n  rails: {rails_out}\n  rust:  {rust_out}")); }
@@ -1448,6 +1451,10 @@ async fn rails_and_rust_decide_identically_across_the_venue_index_grid() -> Resu
         if name.starts_with("vi-kucoin_usdc-top-") { checks.push(pinned(!sent.iter().any(|p| p == "USDC-USDC"), "skip the quote's own coin")); }
         if name == "vi-kucoin_usdc-top-fresh-market" { checks.push(pinned(sent == ["BTC-USDC", "ETH-USDC", "USDT-USDC"], "seat USDT beside BTC and ETH at USDC")); }
         if name.contains("start_then_tick-unpriced_at_resync") { checks.push(pinned(exited, "seat the resync's choice and rotate it at the tick")); }
+        // The owner's switch off Binance: SOL, a Binance-era member with no KuCoin pair, leaves; KuCoin's top three are bought.
+        if name.contains("venue_switch_then_tick") {
+            checks.push(pinned(exited && seated == 3 && sent == ["BTC-USDT", "ETH-USDT", "ADA-USDT"], "reseat the members on the new venue and buy them"));
+        }
         if name.ends_with("closed_resync") { checks.push(pinned(sent.is_empty() && seated == 3, "resync with the market closed")); }
         // The resync's failure kinds: its newcomer probes are the tick's first reads, so the tick buys after each of them.
         if name.contains("_at_resync") && !name.contains("unpriced") { checks.push(pinned(!sent.is_empty() && seated >= 2, "buy at the tick after the failed resync")); }

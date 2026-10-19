@@ -245,6 +245,17 @@ module McpControl
     s['settings_form_case_market_cap_weights'] =
       McpParity.ready + [tool('update_bot_settings', { allocations: 'BTC:60,ETH:40' },
                               ["UPDATE bots SET settings=json_set(settings,'$.weighting','market_cap') WHERE id=1"])]
+    # Plan CB T5: with every member capped, the save derives the members' weights from the caps (apply_market_cap_weights);
+    # switched back to manual, the sliders are the weights again.
+    caps = "UPDATE assets SET market_cap=CASE symbol WHEN 'BTC' THEN 1300000000000 WHEN 'ETH' THEN 400000000000 END WHERE symbol IN ('BTC','ETH')"
+    s['settings_form_case_market_cap_capped'] = McpParity.ready + [tool('update_bot_settings', { weighting: 'market_cap' }, [caps])]
+    s['settings_form_case_market_cap_capped_allocations'] =
+      McpParity.ready + [tool('update_bot_settings', { allocations: 'BTC:60,ETH:40' },
+                              [caps, "UPDATE bots SET settings=json_set(settings,'$.weighting','market_cap') WHERE id=1"])]
+    s['settings_form_case_market_cap_off'] =
+      McpParity.ready + [tool('update_bot_settings', { weighting: 'manual' },
+                              [caps, "UPDATE bots SET settings=json_set(settings,'$.weighting','market_cap') WHERE id=1",
+                               "UPDATE bot_index_assets SET target_allocation=0.764706 WHERE bot_id=1 AND asset_id=(SELECT id FROM assets WHERE symbol='BTC')"])]
     s['settings_form_case_unbalanced_normalize'] =
       McpParity.ready + [tool('update_bot_settings', { normalize_allocations: true },
                               ["UPDATE bots SET settings=json_set(settings,'$.allocations',json('{\"16\":0.6,\"17\":0.6}')) WHERE id=1"])]
