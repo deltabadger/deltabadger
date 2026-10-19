@@ -54,6 +54,8 @@ module Pages
 
     def action_fixture(scenario)
       super
+      # 'key_sync_error': what the last sync of the stored keys recorded (a missing permission, for one).
+      ApiKey.update_all(last_sync_error: scenario['key_sync_error']) if scenario['key_sync_error']
       return unless scenario['settings_fixture']
 
       owner = User.first
@@ -422,6 +424,7 @@ module Pages
     grid['settings_key_permissions_page'] = settings_case(get('/settings/api_key_permissions/1'), fixture: 'keys')
     grid['settings_key_delete'] = settings_case(settings_write('destroy_api_key/1', { '_method' => 'delete' }), fixture: 'keys')
     tracker_connect_scenarios(grid)
+    venue_key_scenarios(grid)
     preference_scenarios(grid)
     { 'nbsp' => "\u00a0", 'em_space' => "\u2003", 'nul' => "\0" }.each do |name, padding|
       accepted = name == 'nul'
@@ -556,6 +559,74 @@ module Pages
     grid['settings_pref_regenerate_de'] = settings_case(get('/de/settings/api'), regenerate.call('/de/settings/regenerate_api_token'))
   end
 
+  # The key routes on the venues the engine trades (Kraken 3, Binance 4, KuCoin 5 on the venues install), each answered by the
+  # key a step submits (pages_wizard.rb's venue stubs): the tracker's form and its connect flow, a correct, a rejected and an
+  # inconclusive answer for a trading and a reading key, a replacement, a stored key asked again, the bot's key, the legacy
+  # JSON endpoint (a reading, a withdrawal, a replaced and a resubmitted key) and the walkthroughs.
+  def self.venue_key_scenarios(grid)
+    on = ->(*steps, **attrs) { settings_case(*steps).merge('install' => 'alpaca', 'venues' => true, 'kucoin' => true, 'venue_keys' => {}).merge(attrs.transform_keys(&:to_s)) }
+    stored = ->(venue, status = 'correct') { venue == 'kucoin' ? { 'kucoin_key' => status } : { 'venue_keys' => { venue => status } } }
+    { 'kraken' => 3, 'binance' => 4, 'kucoin' => 5 }.each do |venue, id|
+      pass = venue == 'kucoin' ? { 'api_key[passphrase]' => 'kc-passphrase' } : {}
+      save = lambda do |type, key, status, path = '/tracker/add_api_key'|
+        post(path, { 'exchange_id' => id.to_s, 'key_type' => type, 'api_key[key]' => key, 'api_key[secret]' => 'c2VjcmV0' }.merge(pass),
+             'csrf' => 'header', 'headers' => TURBO, 'expect' => status, 'settings_snapshot' => true, 'session' => %w[tracker_connect])
+      end
+      form = ->(type, headers = {}, locale = '') { get("#{locale}/tracker/add_api_key/new?exchange_id=#{id}&key_type=#{type}", headers) }
+      legacy = lambda do |type, key|
+        post('/api/api_keys', { 'api_key[exchange_id]' => id.to_s, 'api_key[key_type]' => type, 'api_key[key]' => key, 'api_key[secret]' => 'c2VjcmV0' }.merge(pass),
+             'csrf' => 'header', 'expect' => 201, 'settings_snapshot' => true)
+      end
+      name = "settings_venue_key_#{venue}"
+      grid["#{name}_form"] = on.(form.('read_only'), form.('trading', 'Turbo-Frame' => 'modal'), form.('read_only', {}, '/de'))
+      grid["#{name}_read_only_correct"] = on.(form.('read_only'), save.('read_only', "#{venue}-correct", 200))
+      grid["#{name}_trading_correct"] = on.(save.('trading', "#{venue}-correct", 200))
+      grid["#{name}_rejected"] = on.(save.('trading', "#{venue}-incorrect", 422))
+      grid["#{name}_read_only_rejected"] = on.(save.('read_only', "#{venue}-incorrect", 422))
+      grid["#{name}_inconclusive"] = on.(save.('trading', "#{venue}-failure", 422))
+      grid["#{name}_read_only_inconclusive"] = on.(save.('read_only', "#{venue}-failure", 422, "/de/tracker/add_api_key"))
+      grid["#{name}_connect"] =
+        on.(get('/tracker/pick_exchange/new'),
+            post('/tracker/pick_exchange', { 'exchange_id' => id.to_s }, 'csrf' => 'both', 'headers' => TURBO, 'expect' => 302, 'session' => %w[tracker_connect]),
+            get('/tracker/add_api_key/new').merge('session' => %w[tracker_connect]),
+            post("/tracker/add_api_key?exchange_id=#{id}&key_type=read_only", { 'api_key[key]' => "#{venue}-correct", 'api_key[secret]' => 'c2VjcmV0' }.merge(pass),
+                 'csrf' => 'header', 'headers' => TURBO, 'expect' => 200, 'settings_snapshot' => true, 'session' => %w[tracker_connect]))
+      grid["#{name}_replace"] = on.(form.('trading', 'Turbo-Frame' => 'modal'), save.('trading', "#{venue}-correct", 200), **stored.(venue))
+      grid["#{name}_passive"] = on.(form.('trading').merge('settings_snapshot' => true), **stored.(venue, 'incorrect'))
+      grid["#{name}_legacy_create"] = on.(legacy.('read_only', "#{venue}-correct"), get('/settings/api_keys'), get('/settings/api_key_permissions/1'))
+      grid["#{name}_legacy_withdrawal"] = on.(legacy.('withdrawal', "#{venue}-correct"), get('/settings/api_key_permissions/1'))
+      grid["#{name}_legacy_replace"] = on.(legacy.('trading', "#{venue}-correct"), **stored.(venue))
+      grid["#{name}_legacy_revalidate"] = on.(legacy.('trading', "#{venue}-key"), **stored.(venue, 'incorrect'))
+      grid["#{name}_instructions"] = on.(get('/settings/api_keys'), get('/settings/api_key_permissions/1', 'Turbo-Frame' => 'settings_pane'),
+                                         get('/settings/api_key_permissions/1'), **stored.(venue))
+      next if venue == 'kucoin'
+
+      bot = lambda do |key, status|
+        post('/bots/1/add_api_key', { 'api_key[key]' => key, 'api_key[secret]' => 'c2VjcmV0' }, 'csrf' => 'header', 'headers' => TURBO, 'expect' => status,
+                                                                                                 'settings_snapshot' => true, 'action_snapshot' => true, 'may_mutate' => %w[api_keys])
+      end
+      grid["#{name}_bot"] = on.(get('/bots/1/add_api_key/new', 'Turbo-Frame' => 'modal'), bot.("#{venue}-incorrect", 422), bot.("#{venue}-correct", 200),
+                                bots: [stopped(venue)])
+      grid["#{name}_bot_de"] = on.(get('/de/bots/1/add_api_key/new', 'Turbo-Frame' => 'modal'), bots: [stopped(venue)])
+    end
+    # Kraken names the permissions a key lacks or must not hold; a working bot key the sync found lacking one is no tracker key.
+    permission = lambda do |type, locale = ''|
+      post("#{locale}/tracker/add_api_key", { 'exchange_id' => '3', 'key_type' => type, 'api_key[key]' => 'kraken-permission', 'api_key[secret]' => 'c2VjcmV0' },
+           'csrf' => 'header', 'headers' => TURBO, 'expect' => 422, 'settings_snapshot' => true)
+    end
+    grid['settings_venue_key_kraken_permission'] = on.(permission.('trading'), permission.('trading', '/de'), permission.('read_only', '/pl'))
+    grid['settings_venue_key_kraken_untyped_healthy'] = on.(get('/tracker/add_api_key/new?exchange_id=3').merge('expect' => 302), **stored.('kraken'))
+    grid['settings_venue_key_kraken_untyped_missing_permission'] =
+      on.(get('/tracker/add_api_key/new?exchange_id=3'), **stored.('kraken'), key_sync_error: 'EGeneral:Permission denied')
+    # Binance: a key without its IP restriction may not trade, and may read.
+    unrestricted = lambda do |type, status|
+      post('/tracker/add_api_key', { 'exchange_id' => '4', 'key_type' => type, 'api_key[key]' => 'binance-unrestricted', 'api_key[secret]' => 'c2VjcmV0' },
+           'csrf' => 'header', 'headers' => TURBO, 'expect' => status, 'settings_snapshot' => true)
+    end
+    grid['settings_venue_key_binance_unrestricted'] = on.(unrestricted.('trading', 422))
+    grid['settings_venue_key_binance_read_only_unrestricted'] = on.(unrestricted.('read_only', 200))
+  end
+
   # D5b: the tracker's "connect an exchange" flow (Tracker::PickExchangesController, Tracker::AddApiKeysController).
   def self.tracker_connect_scenarios(grid)
     pick = get('/tracker/pick_exchange/new')
@@ -573,7 +644,7 @@ module Pages
     grid['missing_tracker_pick_unknown'] = settings_case(pick, choose.call('999'), fixture: 'venues')
     grid['missing_tracker_pick_without_id'] = settings_case(pick, choose.call(nil), fixture: 'venues')
     grid['not_ported_tracker_key_form_unavailable'] = settings_case(pick, choose.call('7'), get('/tracker/add_api_key/new'), fixture: 'venues')
-    grid['not_ported_tracker_key_form_kraken'] = settings_case(get('/tracker/add_api_key/new?exchange_id=5'), fixture: 'venues')
+    grid['settings_key_form_kraken'] = settings_case(get('/tracker/add_api_key/new?exchange_id=5'), fixture: 'venues')
     grid['settings_key_no_exchange'] = settings_case(get('/tracker/add_api_key/new'), fixture: 'venues')
     grid['settings_key_retired_form'] = settings_case(get('/tracker/add_api_key/new?exchange_id=6&key_type=read_only').merge('expect' => 302),
                                                       fixture: 'venues')

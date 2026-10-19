@@ -177,6 +177,12 @@ module Pages
           Ticker.create!(exchange: kucoin, base_asset:, quote_asset: usdt, base: base_asset.symbol, quote: 'USDT', ticker: "#{base_asset.symbol}-USDT",
                          base_decimals: 8, quote_decimals: 6, price_decimals: 1, minimum_base_size: '0.00001', minimum_quote_size: '0.1')
         end
+        # 'kucoin_key' => status: the owner's trading key on it, as the venues install stores Kraken's and Binance's.
+        status = ApiKey.statuses.keys.find { |known| known == scenario['kucoin_key'] }
+        if status
+          ApiKey.create!(user: User.first, exchange: kucoin, key: 'kucoin-key', secret: 'c2VjcmV0', passphrase: 'kc-passphrase', status:,
+                         key_type: :trading)
+        end
       end
       Exchanges::Bitmart.create!(name: 'BitMart', maker_fee: '0.25', taker_fee: '0.25') if scenario['retired']
       index_fixture(scenario)
@@ -399,6 +405,8 @@ module Pages
     KRAKEN_INFO = 'https://api.kraken.com/0/private/GetApiKeyInfo'.freeze
     BINANCE_RESTRICTIONS = %r{\Ahttps://api\.binance\.com/sapi/v1/account/apiRestrictions}
     KUCOIN_PROBE = "https://api.kucoin.com/api/v1/orders/#{'0' * 24}".freeze
+    # A reading key's check (Exchange#get_read_api_key_validity): its trade accounts.
+    KUCOIN_ACCOUNTS = %r{\Ahttps://api\.kucoin\.com/api/v1/accounts}
     def record(root)
       json = ->(status, body) { { status:, body: body.to_json, headers: { 'Content-Type' => 'application/json' } } }
       required = Exchanges::Kraken::KEY_PERMISSIONS[:trading][:required]
@@ -418,9 +426,14 @@ module Pages
       binance.('binance-incorrect', json.(401, { 'code' => -2015, 'msg' => 'Invalid API-key, IP, or permissions for action.' }))
       binance.('binance-failure', { status: 500, body: '' })
       kucoin = ->(key, answer) { WebMock.stub_request(:delete, KUCOIN_PROBE).with(headers: { 'KC-API-KEY' => key }).to_return(answer) }
+      kucoin.('kucoin-key', json.(200, { 'code' => '200000', 'data' => { 'cancelledOrderIds' => [] } }))
       kucoin.('kucoin-correct', json.(200, { 'code' => '200000', 'data' => { 'cancelledOrderIds' => [] } }))
       kucoin.('kucoin-incorrect', json.(401, { 'code' => '400003', 'msg' => 'KC-API-KEY not exists' }))
       kucoin.('kucoin-failure', json.(429, { 'code' => '429000', 'msg' => 'Too Many Requests' }))
+      accounts = ->(key, answer) { WebMock.stub_request(:get, KUCOIN_ACCOUNTS).with(headers: { 'KC-API-KEY' => key }).to_return(answer) }
+      %w[kucoin-key kucoin-correct].each { |key| accounts.(key, json.(200, { 'code' => '200000', 'data' => [] })) }
+      accounts.('kucoin-incorrect', json.(401, { 'code' => '400003', 'msg' => 'KC-API-KEY not exists' }))
+      accounts.('kucoin-failure', json.(429, { 'code' => '429000', 'msg' => 'Too Many Requests' }))
       super
     end
   end
