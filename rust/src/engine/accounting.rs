@@ -324,10 +324,19 @@ pub fn guard_exact_cap(c: &Connection, bot: &Bot, plan: &OrderPlan) -> Result<Ca
     guarded.amount = if quantity_wire { units.clone() } else {
         cost.div(&price).ok_or_else(||EngineError::Data("zero order price".into()))?
     };
-    // A reduced Alpaca limit intent stores base units. Recovery must not divide a rounded cost again.
+    // A reduced limit intent stores base units (on Alpaca too, whose limit wire is quote-sized). Recovery must not divide a
+    // rounded cost again.
     guarded.quote_type = !quantity_wire;
     guarded.volume = units;
-    if guarded.volume.is_zero() || cost < plan.ticker.minimum_quote_size {
+    // The venue's whole minimum (Bot::OrderSetter#calculate_best_amount_info, Exchange#minimum_amount_logic), on the reduced
+    // order as it is sent: its own denomination, at its own price, with no second limit adjustment. Kraken's base floor
+    // (ordermin) and Binance's and KuCoin's notional floor bind here, not only minimum_quote_size.
+    let rules = super::venue_rules::for_exchange(&super::model::exchange_type(c, bot)?)
+        .ok_or_else(|| EngineError::Data("no venue rules for the bot's exchange".into()))?;
+    let rule = if plan.limit { rules.minimum_logic.limit } else { rules.minimum_logic.market };
+    let base_units = if quantity_wire { guarded.volume.clone() } else { guarded.amount.floor(base) };
+    let (_, below) = super::amount::buy_minimum(&plan.ticker, &price, rule, &cost, &base_units)?;
+    if guarded.volume.is_zero() || below {
         return Ok(CapGuard::BelowMinimum(guarded));
     }
     Ok(CapGuard::Place(guarded))
