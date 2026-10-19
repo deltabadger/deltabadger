@@ -19,13 +19,12 @@ fn toggles(locale: &str) -> String {
     }
     out.push_str("</div>\n");out
 }
+pub(super) const NOT_CHARTED: &str = "<div id=\"chart\" hidden=\"hidden\">\n</div>\n";
 #[allow(clippy::too_many_arguments)]
 pub(super) fn render(c: &Connection, s: &Subject, m: &Metrics, missing: &[String], hidden: bool, locale: &str, zone: &str) -> Result<String, FiguresError> {
     let charted:bool = c.query_row("SELECT EXISTS(SELECT 1 FROM transactions WHERE bot_id=?1)",[s.bot.id],|r|r.get(0))?;
-    if !charted { return Ok("<div id=\"chart\" hidden=\"hidden\">\n</div>\n".into()); }
-    if m.prices_stale || !missing.is_empty() || !m.chart_omitted.is_empty() {
-        return Ok(format!("<div id=\"chart\" class=\"widget widget--chart\">\n{NO_VALUE}\n</div>\n"));
-    }
+    // Not charted, or a chart that cannot be stated: no widget, no dash. The target stays for the next replace.
+    if !charted || m.prices_stale || !missing.is_empty() || !m.chart_omitted.is_empty() { return Ok(NOT_CHARTED.into()); }
     let Some(page) = chart::page(c,s,m,hidden)? else {
         let pnl = if hidden { "" } else { "<div class=\"widget--chart__pnl\">&nbsp;<small>&nbsp;</small></div>" };
         let percent = if hidden { "widget--chart__pnl" } else { "widget--chart__percent" };

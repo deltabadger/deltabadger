@@ -34,8 +34,8 @@ fn spark(history: &History) -> (String, String, f64, f64, f64, bool) {
     (path,area,scale,float_round(points.last().map_or(100.0,|p|p.1)/2.0,3),float_round((history.days/30.0).min(1.0)*100.0,2),history.percent.last().is_none_or(|n|*n>=0.0))
 }
 pub(super) fn render(pnl: Option<&GlobalPnl>, history: Option<&History>, unavailable: bool, hidden: bool, d: &crate::figures::totals::Denomination) -> Result<String, FiguresError> {
-    if unavailable { return Ok(format!("<div id=\"global-pnl\">\n{NO_VALUE}\n</div>")); }
-    let Some(pnl)=pnl else { return Ok("<div id=\"global-pnl\"></div>".into()); };
+    // Figures that cannot be stated show no headline: no widget, no dash.
+    let Some(pnl)=pnl.filter(|_|!unavailable) else { return Ok("<div id=\"global-pnl\"></div>".into()); };
     let history=history.filter(|h|h.percent.len()>1);
     let mut attrs=String::new();let mut curve=String::new();
     if let Some(h)=history {

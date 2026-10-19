@@ -107,8 +107,8 @@ async fn four_reads_match_rails() {
             assert!(format!("{page:?}").contains("executed fill value unavailable"),"pages cannot publish the skipped-fill figure");
             // A fill that fails keeps why with the failure (page_figures_grid's row_readings): the page reads no order.
             let rendered=figure::loading::render(&c,1,&figure::loading::Snapshot::Failed(Some("executed fill value unavailable")),"en","","",&deltabadger::engine::FixedClock(chrono::Utc::now())).unwrap().unwrap();
-            for key in ["tile","metrics","chart"]{assert!(rendered["bots"]["1"][key].as_str().unwrap().contains("Figures unavailable: executed fill value unavailable"));}
-            assert!(rendered["account"].as_str().unwrap().contains("Figures unavailable: executed fill value unavailable"));
+            // The reason is the queue's; the page shows no figure, no dash and no message, only the targets.
+            assert_eq!(rendered,serde_json::json!({"bots":{"1":{"tile":format!("<div id=\"pnl_bots_{}_1\"></div>",if dir.file_name().unwrap().to_str().unwrap().contains("index"){"dca_index"}else{"dca_multi_asset"}),"metrics":"<div id=\"metrics\"></div>","chart":"<div id=\"chart\" hidden=\"hidden\">\n</div>\n"}},"account":"<div id=\"global-pnl\"></div>"}));
         }
         actual.push((dir,steps,got));
     }

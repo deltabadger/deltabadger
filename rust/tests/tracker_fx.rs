@@ -174,7 +174,8 @@ async fn a_conversion_that_cannot_be_had_is_never_the_figures_reason() {
         assert!(!matches!(snapshot,Snapshot::Ready(..)));
         let out=app.db(move|c|loading::render(c,owner,&snapshot,"en","token","",&deltabadger::engine::FixedClock(chrono::Utc::now()))).await.unwrap().unwrap();
         assert!(!out.to_string().contains("Currency conversion unavailable"),"{out}");
-        for field in ["tile","metrics","chart"] {assert!(out["bots"][bot.to_string()][field].as_str().unwrap().contains("no-value"));}
+        // No figure stands where one cannot be had: no widget, no dash.
+        for field in ["tile","metrics","chart"] {let html=out["bots"][bot.to_string()][field].as_str().unwrap();assert!(!html.contains("no-value")&&!html.contains("widget")&&!html.contains("pnl-percent"),"{html}");}
     }
     assert_eq!(rows(&c),before);
 }
