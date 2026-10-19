@@ -40,7 +40,7 @@ struct Route { gate: Gate, action: Action, path: Vec<(&'static str, String)>, ba
 
 /// Journey::Router::Utils.unescape_uri: each `%XX` is its byte, anything else (a `+`, a stray `%`) stays as it is; the
 /// bytes must then be UTF-8.
-fn unescape(segment: &str) -> Option<String> {
+pub(crate) fn unescape(segment: &str) -> Option<String> {
     let bytes = segment.as_bytes();
     let mut out = Vec::with_capacity(bytes.len());
     let mut i = 0;
@@ -161,7 +161,8 @@ fn json_body(content_type: Option<&str>) -> bool {
 
 /// An answer before the shared headers: the envelope a controller renders, or a response made below the controllers.
 /// `Pending`: a read's venue fetch, run outside the database before the read is finished and rendered.
-enum Answer { Json(StatusCode, String), Below(Box<Response>), Pending(Box<super::mcp::reads::Fetch>) }
+/// `Head`: `head <status>` (an empty body under `text/html`, the controller's headers).
+pub(crate) enum Answer { Json(StatusCode, String), Head(StatusCode), Below(Box<Response>), Pending(Box<super::mcp::reads::Fetch>) }
 
 /// Api::V1::BaseController#status_for.
 fn status_for(status: Domain) -> StatusCode {
@@ -296,10 +297,7 @@ pub async fn handle(State(app): State<App>, request: Request) -> Response {
     let found = if params.path_locale.is_some() { None } else { route(&method, &params.route_path) };
     // ActionController::BadRequest from the router (a path parameter that is no UTF-8), answered by ShowExceptions
     // above every other middleware: public/400.html and its content type alone.
-    if found.as_ref().is_some_and(|r| r.bad) {
-        let body = super::assets::find("/400.html").map_or(&b"Bad Request"[..], |file| file.body);
-        return (StatusCode::BAD_REQUEST, [(header::CONTENT_TYPE, "text/html; charset=UTF-8")], if head { &b""[..] } else { body }).into_response();
-    }
+    if found.as_ref().is_some_and(|r| r.bad) { return router_bad_request(head); }
     let answer = match found {
         None => Answer::Below(Box::new(layout::missing())),
         Some(route) => {
@@ -335,11 +333,18 @@ pub async fn handle(State(app): State<App>, request: Request) -> Response {
     finish(&app, answer, head, conditional.as_deref())
 }
 
+/// ActionController::BadRequest raised below the controllers (a path parameter that is no UTF-8, a body Rack cannot
+/// parse), answered by ShowExceptions above every other middleware: public/400.html and its content type alone.
+pub(crate) fn router_bad_request(head: bool) -> Response {
+    let body = super::assets::find("/400.html").map_or(&b"Bad Request"[..], |file| file.body);
+    (StatusCode::BAD_REQUEST, [(header::CONTENT_TYPE, "text/html; charset=UTF-8")], if head { &b""[..] } else { body }).into_response()
+}
+
 /// What the middleware below the router adds: the policy header, the controller's default headers (or, below the
 /// controllers, the cache header alone), and Rack::ETag's weak tag on a 200 or 201 with a body. Rack::ConditionalGet
 /// then answers a GET or HEAD whose If-None-Match is exactly that tag with a 304: no body, no content type. HEAD keeps
 /// the headers and drops the body (Rack::Head).
-fn finish(app: &App, answer: Answer, head: bool, if_none_match: Option<&str>) -> Response {
+pub(crate) fn finish(app: &App, answer: Answer, head: bool, if_none_match: Option<&str>) -> Response {
     let mut response = match answer {
         Answer::Json(status, body) => {
             let tag = (matches!(status, StatusCode::OK | StatusCode::CREATED) && !body.is_empty())
@@ -353,6 +358,11 @@ fn finish(app: &App, answer: Answer, head: bool, if_none_match: Option<&str>) ->
                 response.headers_mut().remove(header::CONTENT_TYPE);
                 *response.body_mut() = Body::empty();
             }
+            response
+        }
+        Answer::Head(status) => {
+            let mut response = (status, [(header::CONTENT_TYPE, "text/html")]).into_response();
+            headers::controller_defaults(response.headers_mut(), status, false);
             response
         }
         Answer::Pending(_) => WebError::Config("a venue read was not fetched".into()).into_response(),

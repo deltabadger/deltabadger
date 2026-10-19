@@ -173,10 +173,24 @@ mod form_fields {
 
     #[test]
     fn a_repeated_method_field_uses_its_last_value() {
-        assert_eq!(method_override(&fields(&[("_method", "delete"), ("_method", "patch")])), Some(Method::PATCH));
-        assert_eq!(method_override(&fields(&[("_method", "delete"), ("_method", "get")])), None, "the last one decides, also when it asks for nothing");
-        assert_eq!(method_override(&fields(&[("_method", "Put")])), Some(Method::PUT));
-        assert_eq!(method_override(&fields(&[("a", "1")])), None);
+        let o = |form: &[(&str, &str)], header: Option<&str>| method_override(Some(&fields(form)), header);
+        assert_eq!(o(&[("_method", "delete"), ("_method", "patch")], None), Some(Method::PATCH));
+        assert_eq!(o(&[("_method", "delete"), ("_method", "get")], None), Some(Method::GET), "the last one decides; Rack's HTTP_METHODS include GET");
+        assert_eq!(o(&[("_method", "Put")], None), Some(Method::PUT));
+        assert_eq!(o(&[("_method", "link")], None).map(|m| m.to_string()), Some("LINK".into()));
+        assert_eq!(o(&[("a", "1")], None), None);
+    }
+
+    #[test]
+    fn the_header_asks_only_when_the_form_has_no_method_field() {
+        let o = |form: &[(&str, &str)], header: Option<&str>| method_override(Some(&fields(form)), header);
+        assert_eq!(o(&[], Some("delete")), Some(Method::DELETE));
+        assert_eq!(method_override(None, Some("PATCH")), Some(Method::PATCH), "a form Rack could not parse leaves the header");
+        assert_eq!(o(&[("_method", "bogus")], Some("DELETE")), None, "the field wins even when it names no method");
+        assert_eq!(o(&[("_method", "")], Some("DELETE")), None);
+        assert_eq!(o(&[("_method", "patch")], Some("DELETE")), Some(Method::PATCH));
+        assert_eq!(o(&[], Some("bogus")), None);
+        assert_eq!(o(&[], Some("post")), Some(Method::POST));
     }
 }
 

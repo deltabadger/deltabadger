@@ -374,7 +374,10 @@ async fn run(dir: &Path) -> Value {
         let before = snapshot.then(|| action_rows(dir, &app.cipher).unwrap_or_else(|error| panic!("action rows before: {error}")));
         let woken = app.job_wakers().map_or(0, |jobs| jobs.pending().len());
         // `raw_body`: a body sent as it is, whatever the method (pages.rb hands it to Rails unparsed).
-        let answer = match step["json"].as_str().or(step["raw_body"].as_str()) {
+        // `rack_input` (pages_signals.rb): the body Rack reads, with the Content-Length a step may declare apart from it.
+        let declared = step["content_length"].as_u64().map(|n| n.to_string());
+        if let Some(length) = declared.as_deref() { headers.push(("content-length", length)); }
+        let answer = match step["json"].as_str().or(step["raw_body"].as_str()).or(step["rack_input"].as_str()) {
             Some(json) => browser.send_body(&app, step["method"].as_str().unwrap(), &request_path, Some(json.to_string()), csrf, &headers).await,
             None => browser.send(&app, step["method"].as_str().unwrap(), &request_path, form.as_deref(), csrf, &headers).await,
         };
@@ -399,7 +402,7 @@ async fn run(dir: &Path) -> Value {
             let broadcasts = match observer.as_mut() {
                 Some(observer) => observer.drain(&app).await.unwrap_or_else(|e| panic!("action broadcasts: {e}")),
                 // An API client has no browser to watch the streams with.
-                None if !changed || step["client"] == "api" => vec![],
+                None if !changed || step["client"] == "api" || step["client"] == "hook" => vec![],
                 None => panic!("missing action observer: a step that writes needs a signed-in browser to watch its broadcasts"),
             };
             assert_eq!(woke, changed, "wake must follow an action write: {step}");
@@ -420,6 +423,16 @@ async fn run(dir: &Path) -> Value {
             if !changed {
                 assert!(broadcasts.is_empty(), "unchanged action woke engine or broadcast: {step}");
             }
+            // Rails enqueues Bot::SignalJob where this crate's hook leaves the engine its call (transient_data.rust_signal_calls).
+            let (mut rows_before, mut rows_after) = (rows_before, rows_after);
+            let calls = without_signal_calls(&mut rows_before);
+            let after = without_signal_calls(&mut rows_after);
+            if step["jobs"] == true && after.iter().any(|call| !calls.contains(call)) {
+                let mut classes: Vec<Value> = response["job_classes"].as_array().cloned().unwrap_or_default();
+                classes.extend(after.iter().filter(|call| !calls.contains(call)).map(|_| json!("Bot::SignalJob")));
+                classes.sort_by(|a, b| a.as_str().cmp(&b.as_str()));
+                response["job_classes"] = json!(classes);
+            }
             response["action_snapshot"] = json!(true);
             response["rows_before"] = rows_before;
             response["rows_after"] = rows_after;
@@ -429,7 +442,22 @@ async fn run(dir: &Path) -> Value {
         responses.push(response);
     }
     drop(app);
-    json!({ "responses": responses, "users": users(dir), "bots": rows(dir, "bots", &BOT_COLUMNS) })
+    let mut bots = rows(dir, "bots", &BOT_COLUMNS);
+    for bot in bots.as_array_mut().into_iter().flatten() {
+        let Some(mut data) = bot["transient_data"].as_str().and_then(|t| serde_json::from_str::<Value>(t).ok()) else { continue };
+        if data.as_object_mut().and_then(|d| d.shift_remove("rust_signal_calls")).is_some() { bot["transient_data"] = json!(data.to_string()); }
+    }
+    json!({ "responses": responses, "users": users(dir), "bots": bots })
+}
+
+/// The calls this crate's hook left the engine (`rust_signal_calls`), taken out of an action snapshot's bot rows: Rails
+/// keeps them as Bot::SignalJob rows in its queue database instead.
+fn without_signal_calls(rows: &mut Value) -> Vec<Value> {
+    let mut calls = vec![];
+    for bot in rows["bots"].as_array_mut().into_iter().flatten() {
+        if let Some(Value::Array(taken)) = bot["transient_data"].as_object_mut().and_then(|t| t.shift_remove("rust_signal_calls")) { calls.extend(taken); }
+    }
+    calls
 }
 
 /// pages_wizard.rb's key checks, answered by the key a step sends: Kraken's GetApiKeyInfo (`API-Key`) and Binance's
@@ -801,7 +829,7 @@ fn without_random_tokens(answer: &mut Value) -> Result<(), String> {
 }
 
 fn listed_divergence(name: &str, scenario: &Value, rails: &Value, rust: &Value) -> Option<Result<(), String>> {
-    let kind = ["unrouted_", "refused_api_", "not_ported_api_", "not_ported_", "stricter_", "missing_"].into_iter().find(|prefix| name.starts_with(prefix))?;
+    let kind = ["unrouted_", "refused_api_", "refused_hook_", "not_ported_api_", "not_ported_", "stricter_", "missing_"].into_iter().find(|prefix| name.starts_with(prefix))?;
     let responses = |v: &Value| v["responses"].as_array().unwrap().clone();
     let (mut theirs, mut ours) = (responses(rails), responses(rust));
     let (Some(rails_last), Some(rust_last)) = (theirs.pop(), ours.pop()) else { return Some(Err("no responses".into())) };
@@ -844,8 +872,27 @@ fn listed_divergence(name: &str, scenario: &Value, rails: &Value, rust: &Value) 
             else if !unchanged || rust_last["job_classes"] != json!([]) { Err("the refused write changed rows or enqueued work".into()) }
             else { Ok(()) }
         }
+        "refused_hook_" => {
+            // Plan 8b: a webhook call Rails accepts (202, Bot::SignalJob) on a working signal bot, which this build's engine
+            // guard refuses until plan 8d admits signal bots: the 503 Rails gives when its enqueue fails, the claim rolled
+            // back with the call (nothing written, nothing enqueued, no wake).
+            let unchanged = rust_last["rows_before"] == rust_last["rows_after"] && rust_last["other_rows_before"] == rust_last["other_rows_after"];
+            if rails_last["status"] != 202 || rails_last["job_classes"] != json!(["Bot::SignalJob"]) { Err(format!("Rails no longer accepts the call ({}): drop or rename this scenario", rails_last["status"])) }
+            else if rust_last["status"] != 503 || rust_last["body"] != json!(html::normalize("")) { Err(format!("expected an empty 503: {rust_last}")) }
+            else if !unchanged || rust_last["job_classes"] != json!([]) { Err("the refused call changed rows or enqueued work".into()) }
+            else { Ok(()) }
+        }
         "missing_" => {
-            let page = html::normalize(&String::from_utf8_lossy(deltabadger::web::assets::find("/404.html").expect("public/404.html is embedded").body));
+            // A step with a snapshot (the webhook's): what it wrote and enqueued is Rails', key by key; then the answer alone.
+            let snapshot = ["action_snapshot", "rows_before", "rows_after", "other_rows_before", "other_rows_after", "may_mutate", "raw_rows", "job_classes"];
+            if let Some(key) = snapshot.iter().find(|key| rails_last.get(**key) != rust_last.get(**key)) {
+                return Some(Err(format!("the refusal's {key} differs:\n  rails: {}\n  rust:  {}", rails_last[*key], rust_last[*key])));
+            }
+            let mut rust_last = rust_last.clone();
+            for key in snapshot { rust_last.as_object_mut().unwrap().remove(key); }
+            let head = step["method"] == "HEAD" || step["form"]["_method"].as_str().is_some_and(|m| m.eq_ignore_ascii_case("head"))
+                || step["rack_input"].as_str().is_some_and(|b| b.eq_ignore_ascii_case("_method=head"));
+            let page = if head { html::normalize("") } else { html::normalize(&String::from_utf8_lossy(deltabadger::web::assets::find("/404.html").expect("public/404.html is embedded").body)) };
             let expected = json!({ "status": 404, "body": page, "headers": {
                 "content-type": "text/html; charset=utf-8", "cache-control": "no-cache",
                 "content-security-policy-report-only": masked_nonce(&deltabadger::web::headers::content_security_policy("n")).0,
@@ -936,6 +983,14 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
         if name.starts_with("settings_") {
             for answer in rails["responses"].as_array_mut().unwrap() { as_record_invalid(answer); }
         }
+        if name.starts_with("hook_") {
+            for answer in rails["responses"].as_array_mut().unwrap() { as_router_bad_request(answer); }
+        }
+        if name.starts_with("override_") {
+            // A bot action under Rack's override header: compared as the API's bot writes are, without the ownership counters.
+            for answer in rails["responses"].as_array_mut().unwrap().iter_mut().chain(rust["responses"].as_array_mut().unwrap()) { without_ownership(answer); }
+            for bot in rust["bots"].as_array_mut().unwrap() { without_counters(bot); }
+        }
         if name.starts_with("api_") {
             for answer in rails["responses"].as_array_mut().unwrap() { as_parse_error(answer); as_router_bad_request(answer); }
             for answer in rails["responses"].as_array_mut().unwrap().iter_mut().chain(rust["responses"].as_array_mut().unwrap()) { without_ownership(answer); }
@@ -963,10 +1018,12 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
     println!("{} scenarios; {countdown_pages} pages where only Rails knows when the bot acts next", dirs.len());
     if std::env::var("PAGES").is_err() {
-        assert_eq!(dirs.iter().filter(|dir| !dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_") || n.to_string_lossy().starts_with("settings_"))).count(), 160 + 3 + 9 + 2 + 6 + 3 + 49 + 68 + 61 + 38 + 1 + 2 + 1 + 2 + 1, "completed read-only baseline (with the market-closed weekend page and the expired start on bots that are not stopped), with D5b's two missing_ connect scenarios and the one not_ported_ (a venue no tracker key step serves), the venue pages (eight served, one refused), the selling pages (three served, one cap refused, in place of two refusals), the venue basket pages (seven served, in place of the one refusal), the asset search on each venue, the wizard's chooser and order switch (twelve served, one unrouted GET), its asset and exchange steps (ten served), its broker, key and quote steps to a created bot (nine served), the signal tile and the IBKR key step (two not_ported_), the first empty bots page that opens it (two), the index wizard (twelve served, its Kraken, Alpaca Top Coins and Binance Layer 1 bots among them; its legacy settings step one not_ported_), the crypto index bot pages on Kraken and Binance (two), the IBKR key step reached from the nested venue frame (one not_ported_, as a stream), the KuCoin wizard (plan K O6: a basket to its bot, its key step from the nested frame, and a Top coins index bot), and the REST API's (sixty-three on the nine served reads' tokens and grants, ten on the four venue reads' lookups and venue answers, twelve on the routes it gates but does not serve, three on typed creates, nine unrouted paths, seven on parameters, one on conditional GETs and one on an install without an admin; sixty-one on the six bot writes: six per route on its tokens, grants, ids and malformed bodies, five on settings values, fourteen on lifecycle states one start the engine guard refuses, the broadcasts an open page hears (in English and in its owner's German), encoded path ids and two oversized parameters), and plan CB T6's market-cap baskets (an Alpaca page and a venue page served, in place of the one refusal)");
+        let hook = |dir: &&PathBuf| dir.file_name().is_some_and(|n| ["hook_", "missing_hook_", "refused_hook_", "override_"].iter().any(|p| n.to_string_lossy().starts_with(p)));
+        assert_eq!(dirs.iter().filter(hook).count(), 27 + 23 + 2 + 1, "the signal webhook (pages_signals.rb): twenty-seven compared whole, twenty-three the router's 404 (methods, overrides, paths), two calls the engine guard refuses until 8d; and a settings update under the override header");
+        assert_eq!(dirs.iter().filter(|dir| !hook(dir) && !dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_") || n.to_string_lossy().starts_with("settings_"))).count(), 160 + 3 + 9 + 2 + 6 + 3 + 49 + 68 + 61 + 38 + 1 + 2 + 1 + 2 + 1, "completed read-only baseline (with the market-closed weekend page and the expired start on bots that are not stopped), with D5b's two missing_ connect scenarios and the one not_ported_ (a venue no tracker key step serves), the venue pages (eight served, one refused), the selling pages (three served, one cap refused, in place of two refusals), the venue basket pages (seven served, in place of the one refusal), the asset search on each venue, the wizard's chooser and order switch (twelve served, one unrouted GET), its asset and exchange steps (ten served), its broker, key and quote steps to a created bot (nine served), the signal tile and the IBKR key step (two not_ported_), the first empty bots page that opens it (two), the index wizard (twelve served, its Kraken, Alpaca Top Coins and Binance Layer 1 bots among them; its legacy settings step one not_ported_), the crypto index bot pages on Kraken and Binance (two), the IBKR key step reached from the nested venue frame (one not_ported_, as a stream), the KuCoin wizard (plan K O6: a basket to its bot, its key step from the nested frame, and a Top coins index bot), and the REST API's (sixty-three on the nine served reads' tokens and grants, ten on the four venue reads' lookups and venue answers, twelve on the routes it gates but does not serve, three on typed creates, nine unrouted paths, seven on parameters, one on conditional GETs and one on an install without an admin; sixty-one on the six bot writes: six per route on its tokens, grants, ids and malformed bodies, five on settings values, fourteen on lifecycle states one start the engine guard refuses, the broadcasts an open page hears (in English and in its owner's German), encoded path ids and two oversized parameters), and plan CB T6's market-cap baskets (an Alpaca page and a venue page served, in place of the one refusal)");
         assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("settings_"))).count(), 413 + 3 + 45 + 52 + 5 + 1 + 71 + 55, "complete S1 inventory, D5b's connect flow (its Kraken key form served now), the preference writes, the following client's card, the switch back to the default locale, the settings dialog (two more sections, in-place confirms, the page behind a language change) and the key routes on Kraken, Binance and KuCoin (fifty-four)");
         assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_"))).count(), 197 + 53 + 4, "action inventory (with the five ⇄ rotations and nine sell-settings writes, twenty-two Kraken/Binance venue actions, fifty on their baskets, plan CB T4's three saves of a crypto basket with settled rebalance history, and plan CB T5's four market-cap saves)");
-        assert_eq!(dirs.len(), 160 + 3 + 9 + 2 + 6 + 3 + 49 + 68 + 61 + 38 + 1 + 2 + 1 + 2 + 1 + 197 + 53 + 4 + 413 + 3 + 45 + 52 + 5 + 1 + 71 + 55, "a scenario was dropped or added without this count");
+        assert_eq!(dirs.len(), 27 + 23 + 2 + 1 + 160 + 3 + 9 + 2 + 6 + 3 + 49 + 68 + 61 + 38 + 1 + 2 + 1 + 2 + 1 + 197 + 53 + 4 + 413 + 3 + 45 + 52 + 5 + 1 + 71 + 55, "a scenario was dropped or added without this count");
         assert_eq!(countdown_pages, 4, "the pages where Rails knows a time this build does not: the listed divergence grew or shrank");
     }
 }
@@ -1426,5 +1483,16 @@ fn api_oracle_sources_stay_pinned() {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
     for (path, hash) in pins {
         assert_eq!(format!("{:x}", Sha256::digest(std::fs::read(root.join(&path)).unwrap())), hash, "{path}: record the api_ page grid again (script/rust/repin)");
+    }
+}
+
+/// The Rails sources the webhook's scenarios (hook_, missing_hook_, refused_hook_) were recorded from.
+#[test]
+fn hook_oracle_sources_stay_pinned() {
+    use sha2::{Digest, Sha256};
+    let pins: std::collections::BTreeMap<String, String> = serde_json::from_str(include_str!("fixtures/hook_sources.json")).unwrap();
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+    for (path, hash) in pins {
+        assert_eq!(format!("{:x}", Sha256::digest(std::fs::read(root.join(&path)).unwrap())), hash, "{path}: record the hook page grid again (script/rust/repin)");
     }
 }
