@@ -32,9 +32,14 @@ pub struct Intent { pub cl_ord_id: String, pub deadline: DateTime<Utc>, pub at: 
     credential_version: Option<model::CredentialVersion>,
     bot_id: i64,
     run: Option<model::RunIdentity>,
+    /// Who placed an order outside a DCA run or a rebalance: "signal" (a webhook call of a signal bot, engine::signal).
+    pub source: Option<String>,
 }
 
 impl Intent {
+    /// A signal bot's order (`begin_signal`).
+    pub fn signal(&self) -> bool { self.source.as_deref() == Some(SIGNAL_SOURCE) }
+    pub fn bot_id(&self) -> i64 { self.bot_id }
     /// `Err` when a value would not read back through `from_json` (BigDec::to_persisted): such an intent is never written.
     fn to_json(&self) -> Result<Value, EngineError> {
         let p = &self.plan;
@@ -42,7 +47,8 @@ impl Intent {
         Ok(json!({ "cl_ord_id": self.cl_ord_id, "deadline": self.deadline.to_rfc3339(), "at": self.at.to_rfc3339(), "ticker_id": p.ticker.id, "symbol": self.symbol,
                    "base_asset_id": p.ticker.base_asset_id,
                    "limit": p.limit, "price": d("price", &p.price)?, "amount": d("amount", &p.amount)?, "quote_amount": d("quote_amount", &p.quote_amount)?,
-                   "quote_type": p.quote_type, "volume": d("volume", &p.volume)?, "side": p.side.as_str(), "transaction_type": p.kind.as_str(), "run_identity": self.run.as_ref().map(model::RunIdentity::to_json) }))
+                   "quote_type": p.quote_type, "volume": d("volume", &p.volume)?, "side": p.side.as_str(), "transaction_type": p.kind.as_str(), "run_identity": self.run.as_ref().map(model::RunIdentity::to_json),
+                   "source": self.source }))
     }
     fn from_json(c: &Connection, bot: &Bot, v: &Value, producer:Option<model::CredentialVersion>) -> Result<Self, EngineError> {
         let bad = || EngineError::Data(format!("rust_placement {v}"));
@@ -58,7 +64,8 @@ impl Intent {
         let side = match v.get("side") { None | Some(Value::Null) => Side::Buy, Some(x) if x == "buy" => Side::Buy, Some(x) if x == "sell" => Side::Sell, _ => return Err(bad()) };
         // An intent written before rebalancing existed names no kind: it was a REGULAR order.
         let kind = match v.get("transaction_type") { None | Some(Value::Null) => TxKind::Regular, Some(x) => x.as_str().and_then(TxKind::parse).ok_or_else(bad)? };
-        Ok(Self { symbol, bot_id: bot.id, run: v.get("run_identity").filter(|v| !v.is_null()).map(|v| model::RunIdentity::from_json(v).ok_or_else(bad)).transpose()?, credential_version: producer, cl_ord_id: v["cl_ord_id"].as_str().ok_or_else(bad)?.to_string(), deadline: t("deadline")?, at: t("at")?,
+        let source = match v.get("source") { None | Some(Value::Null) => None, Some(Value::String(s)) => Some(s.clone()), Some(_) => return Err(bad()) };
+        Ok(Self { source, symbol, bot_id: bot.id, run: v.get("run_identity").filter(|v| !v.is_null()).map(|v| model::RunIdentity::from_json(v).ok_or_else(bad)).transpose()?, credential_version: producer, cl_ord_id: v["cl_ord_id"].as_str().ok_or_else(bad)?.to_string(), deadline: t("deadline")?, at: t("at")?,
                   plan: OrderPlan { ticker, side, limit: b("limit")?, price: d("price")?, amount: d("amount")?, quote_amount: d("quote_amount")?,
                                     quote_type: b("quote_type")?, volume: d("volume")?, kind } })
     }
@@ -107,13 +114,13 @@ pub fn backfill_snapshots(c: &Connection) -> Result<usize, EngineError> {
 }
 
 /// Re-read under the write lock: is the intent with this cl_ord_id still the bot's unresolved one?
-fn still_pending(c: &Connection, bot_id: i64, cl_ord_id: &str) -> Result<bool, EngineError> {
+pub(crate) fn still_pending(c: &Connection, bot_id: i64, cl_ord_id: &str) -> Result<bool, EngineError> {
     Ok(model::load_bot(c, bot_id)?.rust_placement().is_some_and(|v| v["cl_ord_id"] == cl_ord_id))
 }
 fn gone(bot_id: i64) -> EngineError { EngineError::Data(format!("bot {bot_id} has no matching unresolved order")) }
 
 // A Rust-only key, written and removed without touching updated_at: a clean tick leaves nothing Rails would not.
-fn set_intent(c: &Connection, bot_id: i64, v: Option<&Value>) -> Result<(), EngineError> {
+pub(crate) fn set_intent(c: &Connection, bot_id: i64, v: Option<&Value>) -> Result<(), EngineError> {
     match v {
         Some(v) => c.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.rust_placement', json(?1)) WHERE id = ?2", params![v.to_string(), bot_id])?,
         None => c.execute("UPDATE bots SET transient_data = json_remove(transient_data, '$.rust_placement') WHERE id = ?1", [bot_id])?,
@@ -279,7 +286,7 @@ fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock,
         &guarded
     } else { plan };
     let now = clock.now(); // the deadline must be in the future when Kraken receives the order
-    let intent = Intent { symbol: plan.ticker.ticker.clone(), bot_id: bot.id, run: if rebalance.is_some() { None } else { Some(bot.run_identity()?) }, credential_version: match version {Some(v)=>v.clone(),None=>model::credential_version(&tx,bot)?}, cl_ord_id: uuid::Uuid::new_v4().to_string(), deadline: now.checked_add_signed(Duration::seconds(DEADLINE_SECONDS)).ok_or_else(super::schedule::time_range_error)?, at: now, plan: plan.clone() };
+    let intent = Intent { source: None, symbol: plan.ticker.ticker.clone(), bot_id: bot.id, run: if rebalance.is_some() { None } else { Some(bot.run_identity()?) }, credential_version: match version {Some(v)=>v.clone(),None=>model::credential_version(&tx,bot)?}, cl_ord_id: uuid::Uuid::new_v4().to_string(), deadline: now.checked_add_signed(Duration::seconds(DEADLINE_SECONDS)).ok_or_else(super::schedule::time_range_error)?, at: now, plan: plan.clone() };
     // Before anything is committed or sent: an intent recovery or `resolve-placement` could not read back would strand the
     // bot after a real order. Such a plan is refused as Rails fails a StandardError raised inside execute_action
     // (execution_failed, no retry; the next checkpoint sizes afresh). Dropping `tx` rolls back. The read-back resolves the
@@ -296,6 +303,65 @@ fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock,
     if let Some(state) = rebalance { super::rebalance::set_pending(&tx, bot.id, state)?; }
     tx.commit()?; // durable before the send
     Ok(Begun::Intent(Box::new(intent)))
+}
+
+/// `Intent::source` of a signal bot's order.
+pub const SIGNAL_SOURCE: &str = "signal";
+
+/// What `begin_signal` found under the intent's write lock. Only `Intent` wrote one; `Stopped` and `Disabled` consumed the
+/// call with its `signal_ignored` line; the others changed nothing, and the call stays for the next pass.
+#[derive(Debug)]
+pub enum SignalClaim { Intent(Box<Intent>), Blocked, Stopped, Disabled, Gone, Changed, CredentialsChanged }
+
+/// A signal bot's intent (plan 8a §R4, §R10): `run: None`, `source: "signal"`. In its own immediate transaction:
+/// - the barrier (engine::signal::blocked: Rails' unresolved marker or an unresolved intent) stands → `Blocked`;
+/// - for a webhook `call`: it is still queued (`Gone`), the bot still works (a stop that committed first: `Stopped`, which
+///   logs `signal_ignored` as Rails' job would at its start) and the rule is still on (`Disabled`, the same line);
+/// - the exchange and the pair are what the order was sized from (`Changed`), and the credentials too;
+/// - the call is removed in the transaction that writes the intent.
+///
+/// `call` is None for the one more attempt after a placement-safe rejection: Rails places it at once, whatever happened
+/// meanwhile, so only the barrier, the pair and the credentials are asked.
+#[allow(clippy::too_many_arguments)]
+pub fn begin_signal(c: &Connection, sized_from: &Bot, plan: &OrderPlan, call: Option<&model::SignalCall>, version: &Option<model::CredentialVersion>, identity: Option<Value>, clock: &dyn Clock) -> Result<SignalClaim, EngineError> {
+    let tx = model::immediate(c)?;
+    let current = model::load_bot(&tx, sized_from.id)?;
+    if super::signal::blocked(&current) { return Ok(SignalClaim::Blocked); }
+    let now = clock.now();
+    if let Some(call) = call {
+        if !current.signal_calls()?.iter().any(|x| x.source == call.source) { return Ok(SignalClaim::Gone); }
+        let refused = if !crate::enums::BOT_WORKING.contains(&current.status) { Some(SignalClaim::Stopped) }
+            else if !model::signal(&tx, call.signal_id)?.is_some_and(|s| s.enabled) { Some(SignalClaim::Disabled) }
+            else { None };
+        if let Some(refused) = refused {
+            super::signal::consume(&tx, current.id, call, Some("signal_ignored"), now)?;
+            tx.commit()?;
+            return Ok(refused);
+        }
+    }
+    if (current.exchange_id, &current.settings) != (sized_from.exchange_id, &sized_from.settings) {
+        super::log(&format!("[engine] bot {}: {} order not placed: its exchange or pair changed after it was sized", sized_from.id, plan.ticker.ticker));
+        return Ok(SignalClaim::Changed);
+    }
+    let fresh = match version { Some(v) => model::credential_is_current(&tx, v)?, None => false };
+    if !fresh {
+        super::log(&format!("[engine] bot {}: credentials changed; order not placed; retry with fresh credentials", sized_from.id));
+        return Ok(SignalClaim::CredentialsChanged);
+    }
+    let intent = Intent { source: Some(SIGNAL_SOURCE.into()), symbol: plan.ticker.ticker.clone(), bot_id: current.id, run: None, credential_version: version.clone(),
+                          cl_ord_id: uuid::Uuid::new_v4().to_string(), deadline: now.checked_add_signed(Duration::seconds(DEADLINE_SECONDS)).ok_or_else(super::schedule::time_range_error)?,
+                          at: now, plan: plan.clone() };
+    let mut v = intent.to_json()?;
+    Intent::from_json(&tx, &current, &v, intent.credential_version.clone())?;
+    v["exchange_id"] = json!(current.exchange_id);
+    v["quote_asset_id"] = json!(current.quote_asset_id());
+    v["allocations"] = current.settings.get("allocations").cloned().unwrap_or(Value::Null);
+    v["composition"] = composition_snapshot(&tx, &current)?;
+    if let Some(Value::Object(identity)) = identity { for (k, value) in identity { v[k] = value; } }
+    set_intent(&tx, current.id, Some(&v))?;
+    if let Some(call) = call { super::signal::consume(&tx, current.id, call, None, now)?; }
+    tx.commit()?; // durable before the send, the call with it
+    Ok(SignalClaim::Intent(Box::new(intent)))
 }
 
 #[derive(Debug)]
@@ -347,7 +413,16 @@ pub async fn send_recorded<V: Venue>(c: &Connection, venue: &V, bot: &Bot, inten
 
 fn intent_owned(c: &Connection, intent: &Intent) -> Result<bool, EngineError> {
     if intent.plan.kind == TxKind::Rebalance { return rebalance_claim_holds(c, intent.bot_id); }
+    if intent.signal() { return signal_claim_holds(c, intent.bot_id); }
     match &intent.run { Some(run) => model::owns_identity(c, intent.bot_id, run), None => Ok(false) }
+}
+
+/// A signal bot's intent (`begin_signal`) is owned while the bot is not deleted or archived and no reversal bars it, as a
+/// REBALANCE one's without the composition check (its pair cannot change while it is working; `stranded` refuses it anyway).
+/// A stop after the claim leaves the order, as Rails' job would.
+fn signal_claim_holds(c: &Connection, bot_id: i64) -> Result<bool, EngineError> {
+    let bot = model::load_bot(c, bot_id)?;
+    Ok(!matches!(bot.status, crate::enums::BotStatus::Deleted | crate::enums::BotStatus::Archived) && !super::reversal::barred(&bot))
 }
 
 /// A REBALANCE intent's claim (`begin_rebalance`): the bot is not deleted or archived, no reversal bars it, and its
@@ -514,8 +589,9 @@ pub async fn recover_since<V: Venue>(c: &Connection, venue: &V, bot: &Bot, clock
                 polling::owe_limit_mail(&tx, bot.id, now)?;
                 super::tick::stop_for_amount_limit(&tx, bot.id, now)?;
             }
-            // A REBALANCE order belongs to no DCA run: the schedule is not deferred for it.
-            if !rebalance && (intent.run.is_none() || intent_owned(&tx, &intent)?) { defer_failure(&fenced, &model::load_bot(&tx, bot.id)?, now)?; }
+            // A REBALANCE order belongs to no DCA run, and a signal bot has no schedule: neither is deferred.
+            if intent.signal() { super::signal::clear_marker(&tx, bot.id, &intent.cl_ord_id)?; }
+            else if !rebalance && (intent.run.is_none() || intent_owned(&tx, &intent)?) { defer_failure(&fenced, &model::load_bot(&tx, bot.id)?, now)?; }
             tx.commit()?;
             Ok(Recovery::Recorded(id))
         }
@@ -525,6 +601,7 @@ pub async fn recover_since<V: Venue>(c: &Connection, venue: &V, bot: &Bot, clock
             if !still_pending(&tx, bot.id, &intent.cl_ord_id)? { return Ok(Recovery::NoIntent); }
             set_intent(&tx, bot.id, None)?;
             if intent.plan.kind == TxKind::Rebalance { super::rebalance::settle(&tx, bot.id, &intent.plan, super::rebalance::Settlement::NotPlaced, started)?; }
+            else if intent.signal() { super::signal::clear_marker(&tx, bot.id, &intent.cl_ord_id)?; }
             else if intent.run.is_none() || intent_owned(&tx, &intent)? { defer_failure(&fenced, &model::load_bot(&tx, bot.id)?, started)?; }
             model::log_activity(&tx, bot.id, "placement_ambiguous", Level::Warning,
                 json!({ "error": format!("the order never reached {}", rules.name), "resolution": "not_placed", "source": "rust", "cl_ord_id": intent.cl_ord_id }), started)?;
@@ -557,7 +634,8 @@ pub fn resolve_by_operator(c: &Connection, bot_id: i64, resolution: OperatorReso
     };
     set_intent(&tx, bot_id, None)?;
     if intent.plan.kind == TxKind::Rebalance { super::rebalance::settle(&tx, bot_id, &intent.plan, settlement, now)?; }
-    else if intent.run.is_none() || intent_owned(&tx, &intent)? { defer_to_next_checkpoint(&tx, &bot, now)?; }
+    // A signal bot has no schedule to defer; its marker is the user's to resolve (the bot page).
+    else if !intent.signal() && (intent.run.is_none() || intent_owned(&tx, &intent)?) { defer_to_next_checkpoint(&tx, &bot, now)?; }
     model::log_activity(&tx, bot_id, "placement_ambiguous", Level::Warning,
         json!({ "error": "resolved by the operator", "resolution": label, "source": "operator", "cl_ord_id": intent.cl_ord_id, "order_id": txid }), now)?;
     tx.commit()?;

@@ -68,6 +68,8 @@ pub struct Engine<F: VenueFactory> {
     rebalance_at: Option<i64>,
     /// The composition resyncs' retry waits and once-only logs.
     resyncs: Resyncs,
+    /// Tests only, until slice 8d admits Bots::Signal: `step` reads the install as if its signal bots were admitted.
+    signal_admitted: bool,
 }
 
 /// What `resync_bot` keeps between passes, in memory (a restart grants a fresh retry budget, which Rails' timing allows).
@@ -88,7 +90,7 @@ impl<F: VenueFactory> Engine<F> {
         Self { primary, factory, cipher, lock, started: false, attempts: HashMap::new(), run_keys: HashMap::new(), retry_at: HashMap::new(), closed_until: HashMap::new(), condition_at: HashMap::new(), cache_insert_step:None, polls: HashMap::new(), reconcile_at: HashMap::new(),
                prices: PriceCache::default(), process_start: None, wake: Arc::new(Notify::new()), stop: Arc::new(AtomicBool::new(false)),
                stopped: Arc::new(tokio::sync::watch::Sender::new(false)), writers_guarded: false, stale_logged: HashMap::new(), defer_refused: HashSet::new(),
-               events: EngineEvents::default(), settle_scan_at: 0, rebalance_at: None, resyncs: Resyncs::default() }
+               events: EngineEvents::default(), settle_scan_at: 0, rebalance_at: None, resyncs: Resyncs::default(), signal_admitted: false }
     }
     #[doc(hidden)] pub fn inject_cache_insert_step(&mut self, step: impl FnOnce(&Connection)->Result<(),EngineError> + 'static) { self.cache_insert_step=Some(Box::new(step)); }
     pub fn wake_handle(&self) -> Arc<Notify> { self.wake.clone() }
@@ -100,6 +102,9 @@ impl<F: VenueFactory> Engine<F> {
     fn stopping(&self) -> bool { self.stop.load(Ordering::SeqCst) }
     /// Tests only: the rebalancers' next fire, as if the engine had started before it.
     #[doc(hidden)] pub fn inject_rebalance_at(&mut self, at: DateTime<Utc>) { self.rebalance_at = Some(at.timestamp_micros()); }
+    /// Tests only (the seam until slice 8d's admission): the install's signal bots count as admitted, so `step` runs their
+    /// webhook calls through the production path while eligibility still refuses them everywhere else.
+    #[doc(hidden)] pub fn admit_signal_bots_for_tests(&mut self) { self.signal_admitted = true; }
     #[doc(hidden)] pub fn inject_stale_retry(&mut self, bot: i64, at_us: i64) { self.retry_at.insert(bot, model::Produced::new(at_us,None)); }
     fn venue_for(&self, bot: &model::Bot) -> Result<(crate::venue::Handle<F::V>, Option<model::CredentialVersion>), EngineError> { venue_for(&self.primary, &self.factory, &self.cipher, bot) }
 }
@@ -201,10 +206,11 @@ fn written_since(c: &Connection, before: &[(i64, String)]) -> Result<Vec<i64>, E
 
 /// Bots outside the working set that still hold a placement intent (stopped after an ambiguous send). No tick
 /// runs for them, so the loop reconciles them itself, every 30 s until settled.
+/// A signal bot is working but never ticks, so its intents are reconciled here whatever its status.
 fn idle_bots_with_intents(c: &Connection) -> Result<Vec<i64>, EngineError> {
     let mut s = c.prepare(&format!(
-        "SELECT id FROM bots WHERE json_extract(transient_data, '$.rust_placement') IS NOT NULL AND status NOT IN ({}) ORDER BY id",
-        model::working_list()))?;
+        "SELECT id FROM bots WHERE json_extract(transient_data, '$.rust_placement') IS NOT NULL AND (status NOT IN ({}) OR type = '{}') ORDER BY id",
+        model::working_list(), model::SIGNAL_TYPE))?;
     let ids = s.query_map([], |r| r.get(0))?.collect::<Result<Vec<i64>, _>>()?;
     Ok(ids)
 }
@@ -233,7 +239,12 @@ async fn reconcile_idle<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn
 pub async fn step<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) -> Result<i64, EngineError> {
     e.process_start.get_or_insert(clock.now());
     super::provider::bind_cipher(&e.primary,&e.cipher)?;
-    let report = eligibility::check_install(&e.primary)?;
+    let mut report = eligibility::check_install(&e.primary)?;
+    if e.signal_admitted {
+        let mut s = e.primary.prepare(&format!("SELECT id FROM bots WHERE type = '{}'", model::SIGNAL_TYPE))?;
+        let signal: Vec<i64> = s.query_map([], |r| r.get(0))?.collect::<Result<_, _>>()?;
+        report.problems.retain(|p| !signal.iter().any(|id| p.starts_with(&format!("bot {id} ("))));
+    }
     // In one process every other writer of `bots` runs eligibility::guard, so this is a write that skipped it.
     // Debug builds (every test) name the bot; release builds end the engine, and the process with it.
     #[cfg(debug_assertions)]
@@ -287,6 +298,7 @@ pub async fn step<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) -> Resu
             wake = wake.min(at);
         }
     }
+    run_signals(e, clock, &mut wake).await?;
     run_resyncs(e, clock, &mut wake).await?;
     for id in report.eligible {
         if e.stopping() { break; }
@@ -354,6 +366,41 @@ async fn run_reversals<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) ->
         }
     }
     Ok(())
+}
+
+/// Every signal bot's first waiting webhook call (engine::signal), one per bot per pass, oldest first; the next pass comes at
+/// once while calls wait, and a call held by the barrier wakes the loop when it expires. What a call placed is polled and
+/// announced, as a tick's is. A bot's failure is logged; its call stays, and runs again on the next pass (until it expires).
+async fn run_signals<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock, wake: &mut i64) -> Result<(), EngineError> {
+    for id in super::signal::bots_with_calls(&e.primary)? {
+        if e.stopping() { break; }
+        match signal_call(e, id, clock).await {
+            Ok(super::signal::Step::Waiting(until)) => *wake = (*wake).min(until.timestamp_micros()),
+            Ok(super::signal::Step::Ran) => if model::load_bot(&e.primary, id)?.signal_calls().is_ok_and(|c| !c.is_empty()) { *wake = (*wake).min(clock.now().timestamp_micros()); },
+            // Sized under credentials or a pair that changed meanwhile: sized again at once, on a fresh handle.
+            Ok(super::signal::Step::Again) => *wake = (*wake).min(clock.now().timestamp_micros()),
+            Ok(super::signal::Step::Idle) => {}
+            Err(err @ (EngineError::Lease(_) | EngineError::Store(_))) => return Err(err),
+            Err(err) => super::log(&format!("[engine] bot {id}: its signal call failed: {err:?}; retried at the next pass")),
+        }
+    }
+    Ok(())
+}
+
+/// One call, with the engine's price cache and credentials; what it placed is polled and announced.
+async fn signal_call<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock) -> Result<super::signal::Step, EngineError> {
+    let bot = model::load_bot(&e.primary, id)?;
+    let (venue, producer) = e.venue_for(&bot)?;
+    let start = crate::codec::format_time(clock.now());
+    let last_tx: i64 = e.primary.query_row("SELECT coalesce(max(id), 0) FROM transactions", [], |r| r.get(0))?;
+    let stop = e.stop.clone();
+    let stopping = move || stop.load(Ordering::SeqCst);
+    let cx = TickContext { credential_version: producer.clone(), prices: &e.prices, process_start: e.process_start.ok_or_else(|| EngineError::Data("engine start time missing".into()))?,
+                           stopping: &stopping, below_minimum: &|_, _| {}, claimed: &|_| {} };
+    let step = super::signal::run_next(&e.primary, &venue, id, clock, &cx).await;
+    e.events.send(EngineEvent::OrderUpdated { bot_id: id });
+    after_tick(e, id, &start, last_tx, None, clock, &producer)?;
+    step
 }
 
 /// Bot::ResyncIndexCompositionJob (`retry_on Client::TransientNetworkError, wait: :polynomially_longer, attempts: 3`).

@@ -11,6 +11,7 @@
 #   bin/rails runner script/rust/decisions.rb grid-basket-sell <root> # a wider Alpaca basket's ranked DCA-out (slice 6b)
 #   bin/rails runner script/rust/decisions.rb grid-rebalance <root>   # threshold rebalancing on a stopped Alpaca basket (slice 6b)
 #   bin/rails runner script/rust/decisions.rb grid-conditions <root> # price_limit / sell_price_limit with `pause`, and the minute check (slice 7a)
+#   bin/rails runner script/rust/decisions.rb grid-signal <root>  # Bot::SignalJob, one webhook call of a signal bot, on all four venues (slice 8a)
 #   bin/rails runner script/rust/decisions.rb record <root>  # Rails' ticks (and retries) per <root>/<scenario>/ -> rails.json
 # Always run with every *_DATABASE_URL pointing at scratch files and PROXY_KRAKEN at a dead address. Kraken is
 # scripted beneath the real client (Honeymaker::Clients::Kraken#get_public/#post_private), so every line of
@@ -153,7 +154,7 @@ module Decisions
   # What only the Rust engine writes into transient_data: its placement intent, and the mails it owes (rust/src/engine/notice.rs).
   MAIL_MARKERS = %w[rust_funds_mail_pending rust_error_mail_pending rust_stopped_mail_pending rust_limit_mail_pending].freeze
   # Its waits and counted amount-limit stops are the engine's own too (rust/src/engine/placement.rs, polling.rs).
-  RUST_KEYS = (%w[rust_placement rust_defer_until rust_amount_limit_stops_pending run_generation tick_generation rust_rebalance_halted
+  RUST_KEYS = (%w[rust_placement rust_signal_calls rust_defer_until rust_amount_limit_stops_pending run_generation tick_generation rust_rebalance_halted
                   rust_index_resync] + MAIL_MARKERS).freeze
   # One marker of each kind, as the engine leaves them: Rails must carry them through every write of a tick, untouched.
   SEEDED_MARKERS = { 'rust_funds_mail_pending' => { 'quote_asset' => 2, 'stamped_at' => '2026-08-31T09:00:00.000Z' },
@@ -2311,6 +2312,208 @@ module Decisions
     end
   end
 
+  # ---- Plan 8a: Bot::SignalJob, one webhook call of a signal bot (grid-signal) --------------------------------------------
+  # A weekday session (10:00 EDT), so the stock clock is open.
+  SIGNAL_AT = '2026-09-01T14:00:01.250000Z'
+  SIGNAL_STARTED = '2026-08-25T09:00:00.123456Z'
+
+  # A Bots::Signal as BotApi::Bots::CreateSignal leaves it (created, started), with its rules, on one of the four venues.
+  def build_signal(dir, sc)
+    SchemaTemplate.install(dir)
+    ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: File.join(dir, 'production.sqlite3'))
+    user = User.new(name: 'Owner', email: 'owner@example.com', encrypted_password: SchemaTemplate.owner_password('correct horse battery staple'), admin: true,
+                    confirmed_at: Time.current, setup_completed: true)
+    user.save!(validate: false)
+    exchange, base, quote, _ticker, passphrase = case sc['venue']
+                                                 when 'alpaca' then sc['asset'] == 'stock' ? signal_stock_venue : alpaca_venue(sc)
+                                                 when 'binance' then binance_venue(sc)
+                                                 when 'kucoin' then kucoin_venue(sc)
+                                                 else kraken_venue(sc)
+                                                 end
+    unless sc['no_key']
+      ApiKey.new(user:, exchange:, key: 'k', secret: 's', passphrase:, status: sc.fetch('key_status', 'correct'), key_type: :trading).save!(validate: false)
+    end
+    bot = user.bots.new(type: 'Bots::Signal', exchange:, settings: { 'base_asset_id' => base.id, 'quote_asset_id' => quote.id })
+    bot.save!
+    bot.update_columns(status: Bot.statuses.fetch(sc.fetch('status', 'scheduled')), started_at: Time.iso8601(SIGNAL_STARTED),
+                       transient_data: bot.reload.transient_data.merge(sc.fetch('transient', {})))
+    sc['rules'].each { |r| BotSignal.create!(bot:, direction: r['direction'], amount_type: r['amount_type'], amount: r['amount'], enabled: r.fetch('enabled', true)) }
+    sc.fetch('transactions', []).each do |t|
+      Transaction.insert!(t.merge('bot_id' => bot.id, 'exchange_id' => exchange.id, 'base_asset_id' => base.id, 'quote_asset_id' => quote.id,
+                                  'base' => base.symbol, 'quote' => quote.symbol, 'side' => t.fetch('side', 0), 'transaction_type' => 'REGULAR',
+                                  'bot_interval' => '', 'bot_quote_amount' => 0, 'error_messages' => t.fetch('error_messages', []), 'updated_at' => t['created_at']))
+    end
+    bot
+  end
+
+  def signal_stock_venue
+    alpaca = Exchanges::Alpaca.create!(name: 'Alpaca', maker_fee: '0.15', taker_fee: '0.25')
+    usd = Asset.create!(external_id: 'usd', symbol: 'USD', name: 'US Dollar', category: 'Fiat')
+    aapl = Asset.create!(external_id: 'AAPL.US', symbol: 'AAPL', name: 'AAPL', category: 'Stock', instrument_type: 'stock')
+    [usd, aapl].each { |a| ExchangeAsset.create!(exchange: alpaca, asset: a, available: true) }
+    ticker = Ticker.create!(exchange: alpaca, ticker: 'AAPL', base: 'AAPL', quote: 'USD', base_asset: aapl, quote_asset: usd,
+                            **MarketData::STOCK_TICKER_DEFAULTS.transform_keys(&:to_sym))
+    [alpaca, aapl, usd, ticker, 'paper']
+  end
+
+  def sg_kraken_order(side, vol, cost, price) = { 'status' => 'closed', 'vol' => vol, 'vol_exec' => vol, 'cost' => cost, 'price' => price, 'oflags' => side == 'buy' ? 'viqc' : '',
+                                                    'descr' => { 'pair' => 'XBTEUR', 'type' => side, 'ordertype' => 'market', 'price' => '0' } }
+  def sg_alpaca_fail(status, code, message) = { 'status' => status, 'body' => { 'code' => code, 'message' => message } }
+
+  # Per venue: the ticker, the bodies a call that places reads, and the replies each case swaps in. Prices: bid / ask.
+  def signal_venues
+    kr_balance = ->(eur, xbt) { ok('error' => [], 'result' => { 'ZEUR' => { 'balance' => eur, 'hold_trade' => '0' }, 'XXBT' => { 'balance' => xbt, 'hold_trade' => '0' } }) }
+    kr_net = { 'network' => 'kraken_pre_send', 'message' => 'Faraday::ConnectionFailed: Connection refused - connect(2) for "api.kraken.com" port 443' }
+    bn_net = { 'network' => 'binance_pre_send', 'message' => 'Faraday::ConnectionFailed: Connection refused - connect(2) for "api.binance.com" port 443' }
+    kc_net = { 'network' => 'kucoin_pre_send', 'message' => 'Faraday::ConnectionFailed: Connection refused - connect(2) for "api.kucoin.com" port 443' }
+    bn_holding = ->(usdt, btc) { ok('makerCommission' => 10, 'canTrade' => true, 'balances' => [{ 'asset' => 'BTC', 'free' => btc, 'locked' => '0' }, { 'asset' => 'USDT', 'free' => usdt, 'locked' => '0' }]) }
+    kc_holding = ->(usdt, btc) { kc_ok([{ 'id' => 'a1', 'currency' => 'BTC', 'type' => 'trade', 'balance' => btc, 'available' => btc, 'holds' => '0' },
+                                        { 'id' => 'a2', 'currency' => 'USDT', 'type' => 'trade', 'balance' => usdt, 'available' => usdt, 'holds' => '0' }]) }
+    al_book = ->(bid, ask) { ok('quotes' => { 'BTC/USD' => { 'ap' => ask, 'as' => 0.5, 'bp' => bid, 'bs' => 0.4, 't' => '2026-09-01T14:00:00Z' } }) }
+    al_held = ->(sym, cls, qty) { ok(qty.nil? ? [] : [{ 'symbol' => sym, 'asset_class' => cls, 'qty' => qty, 'qty_available' => qty, 'side' => 'long' }]) }
+    stock_book = ->(bid, ask) { ok('symbol' => 'AAPL', 'quote' => { 'ap' => ask, 'as' => 100, 'bp' => bid, 'bs' => 100, 't' => '2026-09-01T14:00:00Z' }) }
+    {
+      'kraken' => {
+        'ticker' => { 'base_decimals' => 8, 'quote_decimals' => 5, 'price_decimals' => 1, 'minimum_base_size' => '0.00005', 'minimum_quote_size' => '0.5' },
+        'key' => 'kraken_http', 'order' => 'OTX-1', 'second' => ok('error' => [], 'result' => { 'txid' => ['OTX-2'] }),
+        'http' => { 'GET /0/public/Ticker?pair=XBTEUR' => [ok(kr_ticker('XBTEUR', '49990.1', '50000.2', '49995.3'))],
+                    'POST /0/private/BalanceEx' => [kr_balance.('10000', '0.5')],
+                    'POST /0/private/AddOrder' => [ok('error' => [], 'result' => { 'txid' => ['OTX-1'] })],
+                    'POST /0/private/TradesHistory' => [ok('error' => [], 'result' => { 'trades' => {}, 'count' => 0 })] },
+        'filled' => ->(side) { { 'POST /0/private/QueryOrders' => [ok(query_body('OTX-1' => sg_kraken_order(side, '0.002', '100.0', '50000.2')))] } },
+        'free' => ->(btc) { { 'POST /0/private/BalanceEx' => [kr_balance.('10000', btc)] } },
+        'price_transient' => [kr_net], 'price_refused' => [ok('error' => ['EQuery:Unknown asset pair'])], 'price_key' => 'GET /0/public/Ticker?pair=XBTEUR',
+        'balance_failed' => { 'POST /0/private/BalanceEx' => [ok('error' => ['EAPI:Invalid key'])] },
+        'add' => 'POST /0/private/AddOrder', 'rejected' => ok('error' => ['EOrder:Insufficient funds']), 'safe' => nil,
+        'server_error' => { 'status' => 503, 'body' => { 'error' => ['EService:Unavailable'] } }, 'no_order_id' => ok('error' => [], 'result' => {}),
+        'pre_send' => kr_net
+      },
+      'binance' => {
+        'ticker' => { 'base_decimals' => 5, 'quote_decimals' => 8, 'price_decimals' => 2, 'minimum_base_size' => '0.00001', 'minimum_quote_size' => '5' },
+        'key' => 'binance', 'order' => 'BTCUSDT-28457',
+        'second' => ok('symbol' => 'BTCUSDT', 'orderId' => 28_458, 'orderListId' => -1, 'clientOrderId' => 'y', 'transactTime' => 1_788_000_000_000),
+        'http' => { 'GET /api/v3/ticker/bookTicker' => [bn_book('64000.11000000')], 'GET /api/v3/account' => [bn_holding.('10000.00000000', '0.50000000')],
+                    'POST /api/v3/order' => [ok('symbol' => 'BTCUSDT', 'orderId' => 28_457, 'orderListId' => -1, 'clientOrderId' => 'x', 'transactTime' => 1_788_000_000_000)],
+                    'GET /api/v3/myTrades' => [ok([])] },
+        'filled' => ->(side) { { 'GET /api/v3/order' => [ok(bn_order(28_457, 'FILLED', executed: '0.00156000', cumulative: '99.84000000').merge('side' => side.upcase))] } },
+        'free' => ->(btc) { { 'GET /api/v3/account' => [bn_holding.('10000.00000000', btc)] } },
+        'price_transient' => [bn_net], 'price_refused' => [bn_fail(400, -1121, 'Invalid symbol.')], 'price_key' => 'GET /api/v3/ticker/bookTicker',
+        'balance_failed' => { 'GET /api/v3/account' => [bn_fail(400, -2015, 'Invalid API-key, IP, or permissions for action.')] },
+        'add' => 'POST /api/v3/order', 'rejected' => bn_fail(400, -2010, 'Account has insufficient balance for requested action.'),
+        'safe' => bn_fail(400, -1021, BN_1021),
+        'server_error' => bn_fail(503, -1001, 'Internal error; unable to process your request. Please try again.'), 'no_order_id' => ok('symbol' => 'BTCUSDT'),
+        'pre_send' => bn_net
+      },
+      'kucoin' => {
+        'ticker' => { 'base_decimals' => 8, 'quote_decimals' => 6, 'price_decimals' => 1, 'minimum_base_size' => '0.00001', 'minimum_quote_size' => '0.1' },
+        'key' => 'kucoin', 'order' => '6716f0a2c1b6d10007a3b1c5', 'second' => kc_ok('orderId' => '6716f0a2c1b6d10007a3b1c6'),
+        'http' => { 'GET /api/v1/market/orderbook/level2_20' => [kc_book('64000.2')], 'GET /api/v1/accounts' => [kc_holding.('10000', '0.5')],
+                    'POST /api/v1/orders' => [kc_ok('orderId' => '6716f0a2c1b6d10007a3b1c5')], 'GET /api/v1/fills' => [kc_fills([])] },
+        'filled' => ->(side) { { 'GET /api/v1/orders/6716f0a2c1b6d10007a3b1c5' => [kc_ok(kc_order('6716f0a2c1b6d10007a3b1c5', active: false, deal_size: '0.00156', deal_funds: '99.84').merge('side' => side))] } },
+        'free' => ->(btc) { { 'GET /api/v1/accounts' => [kc_holding.('10000', btc)] } },
+        'price_transient' => [kc_net], 'price_refused' => [ok('code' => '400100', 'msg' => 'symbol not exists')], 'price_key' => 'GET /api/v1/market/orderbook/level2_20',
+        'balance_failed' => { 'GET /api/v1/accounts' => [ok('code' => '400003', 'msg' => 'KC-API-KEY not exists')] },
+        'add' => 'POST /api/v1/orders', 'rejected' => ok('code' => '200004', 'msg' => 'Balance insufficient!'),
+        'safe' => ok('code' => '400002', 'msg' => 'Invalid KC-API-TIMESTAMP'),
+        'server_error' => { 'status' => 503, 'body' => '<html>upstream</html>' }, 'no_order_id' => kc_ok({}),
+        'pre_send' => kc_net
+      },
+      'alpaca' => {
+        'ticker' => { 'base_decimals' => 9, 'quote_decimals' => 2, 'price_decimals' => 2, 'minimum_base_size' => '0.000027', 'minimum_quote_size' => '1' },
+        'key' => 'alpaca', 'order' => 'OTX-1', 'second' => ok(alpaca_order('OTX-2', 'pending_new')),
+        'http' => { 'GET /v1beta3/crypto/us/latest/quotes' => [al_book.(64_300.25, 64_321.47)], 'GET /v2/account' => [account('10000', '4000')],
+                    'GET /v2/positions' => [al_held.('BTCUSD', 'crypto', '0.5')], 'POST /v2/orders' => [ok(alpaca_order('OTX-1', 'pending_new'))] },
+        'filled' => ->(side) { { 'GET /v2/orders/OTX-1' => [ok(alpaca_order('OTX-1', 'filled', filled_qty: '0.00155', filled_avg_price: '64321.47').merge('side' => side))] } },
+        'free' => ->(btc) { { 'GET /v2/positions' => [al_held.('BTCUSD', 'crypto', btc == '0' ? nil : btc)] } },
+        'price_transient' => [DATA_PRE_SEND], 'price_refused' => [sg_alpaca_fail(403, 40_310_000, 'forbidden.')], 'price_key' => 'GET /v1beta3/crypto/us/latest/quotes',
+        'balance_failed' => { 'GET /v2/account' => [sg_alpaca_fail(403, 40_310_000, 'forbidden.')], 'GET /v2/positions' => [sg_alpaca_fail(403, 40_310_000, 'forbidden.')] },
+        'add' => 'POST /v2/orders', 'rejected' => sg_alpaca_fail(403, 40_310_000, 'insufficient balance for USD (requested: 100, available: 50)'), 'safe' => nil,
+        'server_error' => sg_alpaca_fail(500, 50_010_000, 'internal server error'), 'no_order_id' => ok('status' => 'accepted'),
+        'pre_send' => PRE_SEND
+      },
+      'alpaca_stock' => {
+        'venue' => 'alpaca', 'asset' => 'stock', 'key' => 'alpaca', 'order' => 'OTX-1', 'second' => ok(stock_order('OTX-2', 'new')),
+        'http' => { 'GET /v2/clock' => [open_clock(SIGNAL_AT)], 'GET /v2/stocks/AAPL/quotes/latest' => [stock_book.(187.41, 187.43)],
+                    'GET /v2/account' => [stock_account('10000', '20000')], 'GET /v2/positions' => [al_held.('AAPL', 'us_equity', '3')],
+                    'POST /v2/orders' => [ok(stock_order('OTX-1', 'new'))] },
+        'filled' => ->(side) { { 'GET /v2/orders/OTX-1' => [ok(stock_order('OTX-1', 'filled', filled_qty: '0.533', filled_avg_price: '187.43').merge('side' => side))] } },
+        'free' => ->(qty) { { 'GET /v2/positions' => [al_held.('AAPL', 'us_equity', qty == '0' ? nil : qty)] } },
+        'price_transient' => [DATA_PRE_SEND], 'price_refused' => [sg_alpaca_fail(403, 40_310_000, 'forbidden.')], 'price_key' => 'GET /v2/stocks/AAPL/quotes/latest',
+        'balance_failed' => { 'GET /v2/account' => [sg_alpaca_fail(403, 40_310_000, 'forbidden.')], 'GET /v2/positions' => [sg_alpaca_fail(403, 40_310_000, 'forbidden.')] },
+        'add' => 'POST /v2/orders', 'rejected' => sg_alpaca_fail(403, 40_310_000, 'insufficient buying power'), 'safe' => nil,
+        'server_error' => sg_alpaca_fail(500, 50_010_000, 'internal server error'), 'no_order_id' => ok('status' => 'accepted'),
+        'pre_send' => PRE_SEND
+      }
+    }
+  end
+
+  def signal_scenarios
+    at = Time.iso8601(SIGNAL_AT)
+    before = ->(s) { (at - s).iso8601(6) }
+    row = ->(status, ext, created) { { 'status' => status, 'external_status' => ext, 'external_id' => ext && "PRIOR-#{created.delete('^0-9')}", 'order_type' => 0,
+                                       'amount' => '0.001', 'quote_amount' => '50', 'price' => '50000', 'amount_exec' => '0', 'quote_amount_exec' => '0', 'created_at' => created } }
+    failed = row.(1, nil, '2026-09-01 12:00:00').merge('error_messages' => ['an earlier failure'])
+    skipped = row.(2, nil, '2026-09-01 13:00:00')
+    submitted = row.(0, 2, '2026-09-01 13:00:00')
+    marker = { 'signal_placement_unresolved' => { 'id' => 'marker-1', 'at' => '2026-09-01T13:59:00Z', 'side' => 'buy', 'error' => 'Faraday::TimeoutError: Net::ReadTimeout' } }
+    rules = { 'buy-fixed' => { 'direction' => 'buy', 'amount_type' => 'fixed', 'amount' => '100' },
+              'buy-percentage' => { 'direction' => 'buy', 'amount_type' => 'percentage', 'amount' => '10' },
+              'sell-fixed' => { 'direction' => 'sell', 'amount_type' => 'fixed', 'amount' => '100' },
+              'sell-percentage' => { 'direction' => 'sell', 'amount_type' => 'percentage', 'amount' => '50' } }
+    list = []
+    signal_venues.each do |vkey, vn|
+      add = vn['add']
+      # The decision before any sizing: one rule is enough (the rule's amount is never read).
+      gates = { 'expired' => { 'triggered_at' => before.(300.000001) }, 'at_max_age' => { 'triggered_at' => before.(300), 'filled' => true },
+                'stopped' => { 'status' => 'stopped' }, 'disabled' => { 'enabled' => false }, 'key_pending' => { 'key_status' => 'pending_activation' },
+                # No key: not here. The install refuses a working bot without one (alpaca::preflight), so no call runs.
+                'unresolved_marker' => { 'transient' => marker },
+                'rule_removed' => { 'before_signal' => ['DELETE FROM bot_signals'] } }
+      gates['market_closed'] = { 'http' => { 'GET /v2/clock' => [closed_clock(SIGNAL_AT)] } } if vn['asset'] == 'stock'
+      sizing = {
+        'accepted' => { 'filled' => true },
+        # Two calls in a row on one account: two orders, the second sized after the first was placed.
+        'two_calls' => { 'calls' => 2, 'http' => { add => [vn['http'][add].first, vn['second']] } },
+        'price_retried' => { 'http' => { vn['price_key'] => vn['price_transient'] + vn['http'][vn['price_key']] } },
+        'price_failed' => { 'http' => { vn['price_key'] => vn['price_transient'] } },
+        'price_refused' => { 'http' => { vn['price_key'] => vn['price_refused'] } },
+        'balance_failed' => { 'http' => vn['balance_failed'] },
+        'free_below_fixed' => { 'http' => vn['free'].(vkey == 'alpaca_stock' ? '0.1' : '0.001') },
+        'no_holding' => { 'http' => vn['free'].('0') },
+        'below_minimum' => { 'tiny' => true },
+        'rejected' => { 'http' => { add => [vn['rejected']] } },
+        'rejected_after_failure' => { 'http' => { add => [vn['rejected']] }, 'transactions' => [failed] },
+        'rejected_after_skip' => { 'http' => { add => [vn['rejected']] }, 'transactions' => [failed, skipped] },
+        'rejected_after_success' => { 'http' => { add => [vn['rejected']] }, 'transactions' => [failed, submitted] },
+        'server_error' => { 'http' => { add => [vn['server_error']] } },
+        'timeout' => { 'http' => { add => [POST_SEND] } },
+        'unreadable' => { 'http' => { add => [{ 'status' => 200, 'body' => '<html>upstream</html>' }] } },
+        'no_order_id' => { 'http' => { add => [vn['no_order_id']] } },
+        'pre_send' => { 'http' => { add => [vn['pre_send']] } }
+      }
+      if vn['safe']
+        accepted = vn['http'][add].first
+        sizing['safe_then_accepted'] = { 'http' => { add => [vn['safe'], accepted] }, 'filled' => true }
+        sizing['safe_then_rejected'] = { 'http' => { add => [vn['safe'], vn['rejected']] } }
+        sizing['safe_twice'] = { 'http' => { add => [vn['safe'], vn['safe']] } }
+      end
+      cells = gates.map { |name, v| ['buy-fixed', name, v] } + rules.keys.product(sizing.to_a).map { |r, (name, v)| [r, name, v] }
+      cells.each do |rule_name, name, v|
+        rule = rules.fetch(rule_name).merge('enabled' => v.fetch('enabled', true))
+        rule = rule.merge('amount' => rule['amount_type'] == 'fixed' ? '0.01' : '0.00001') if v['tiny']
+        http = vn['http'].merge(v['filled'] ? vn['filled'].(rule['direction']) : {}).merge(v.fetch('http', {}))
+        triggered = v.fetch('triggered_at', SIGNAL_AT)
+        list << { 'name' => "signal-#{vkey}-#{rule_name}-#{name}", 'kind' => 'signal', 'venue' => vn.fetch('venue', vkey), 'asset' => vn['asset'],
+                  'ticker' => vn['ticker'], 'rules' => [rule], 'status' => v['status'], 'key_status' => v['key_status'], 'no_key' => v['no_key'],
+                  'transient' => v.fetch('transient', {}), 'transactions' => v.fetch('transactions', []), 'at' => SIGNAL_AT,
+                  'calls' => Array.new(n = v.fetch('calls', 1)) { |i| { 'rule' => 0, 'triggered_at' => (Time.iso8601(triggered) - (31 * (n - 1 - i))).iso8601(6) } },
+                  'before_signal' => v['before_signal'], 'script' => { vn['key'] => http }, 'tick' => false,
+                  'poll' => (vn['order'] if v['filled']) }.compact
+      end
+    end
+    list.tap { |l| raise "the signal grid has #{l.size} scenarios, not 420" unless l.size == 420 }
+  end
+
   def grid(root, list)
     ActiveJob::Base.queue_adapter = :test
     list.each do |sc|
@@ -2324,6 +2527,7 @@ module Decisions
       bot = case sc['kind']
             when 'index' then build_index(dir, sc)
             when 'venue_index' then build_venue_index(dir, sc)
+            when 'signal' then build_signal(dir, sc)
             else sc['asset'] == 'stock' ? build_stock(dir, sc) : build(dir, sc)
             end
       enc = ActiveRecord::Encryption.config
@@ -2332,6 +2536,9 @@ module Decisions
                                         'tick' => sc['tick'], 'poll' => sc['poll'], 'recover_at' => sc['recover_at'], 'next_at' => sc['next_at'], 'rebalance_at' => sc['rebalance_at'],
                                         'between' => sc['between'], 'rails_cache' => sc['rails_cache'], 'check_at' => sc['check_at'],
                                         'conditions' => sc['conditions'], 'resync_at' => sc['resync_at'], 'trigger' => sc['trigger'],
+                                        # Bot::SignalJob's arguments: the rule (by its id) and when the call arrived.
+                                        'signals' => sc['calls']&.map { |c| { 'signal_id' => bot.bot_signals.order(:id)[c['rule']].id, 'triggered_at' => c['triggered_at'] } },
+                                        'before_signal' => sc['before_signal'],
                                         # Bot::SmartIntervalable#smart_interval_minimum(:quote) as Rails computes it for the built bot.
                                         'rails_floor' => (sc['record_floor'] && bot.reload.smart_interval_minimum(:quote).then { |m| { 'value' => m[:value].to_f, 'reason' => m[:reason].to_s } }) }.compact))
       ActiveRecord::Base.connection_pool.disconnect!
@@ -2379,11 +2586,34 @@ module Decisions
     end
   end
 
+  # Bot::SignalJob for each call at `at`, one after another as the per-exchange semaphore runs them, each with the retries it
+  # enqueues for itself (an unresolved placement waits 30 s), each at its own time. The jobs are serialized first, as the hook
+  # enqueued them, so a rule removed afterwards (`before_signal`) is discarded on deserialization.
+  def signal_calls(sc, mails)
+    bot = Bot.find(sc['bot_id'])
+    jobs = sc['signals'].map { |c| Bot::SignalJob.new(bot, BotSignal.find(c['signal_id']), Time.iso8601(c['triggered_at'])).serialize }
+    (sc['before_signal'] || []).each { |sql| ActiveRecord::Base.connection.execute(sql) }
+    jobs.each do |job|
+      at = Time.iso8601(sc['at'])
+      20.times do
+        ActiveJob::Base.queue_adapter.enqueued_jobs.clear
+        travel_to(at, with_usec: true) { ActiveJob::Base.execute(job) }
+        mails.concat(enqueued_mails)
+        retry_job = ActiveJob::Base.queue_adapter.enqueued_jobs.find { |j| j['job_class'] == 'Bot::SignalJob' } or break
+        at = retry_job['scheduled_at'] ? Time.iso8601(retry_job['scheduled_at']) : Time.at(retry_job[:at] || retry_job['at'])
+        job = retry_job.stringify_keys
+      end
+    end
+    ActiveJob::Base.queue_adapter.enqueued_jobs.clear
+  end
+
   def record(root)
     ActiveJob::Base.queue_adapter = :test # jobs are Rust's to replace; only retries are replayed below
     ActiveJob::Base.retry_jitter = 0.0
     # A real cache, as production has: development's :null_store would skip Exchange#get_*_price's 5 s cache.
     Rails.cache = ActiveSupport::Cache::MemoryStore.new
+    # Exchange#with_transient_retry's backoff (a signal's reads): the times are the scenario's, never slept.
+    Exchange.prepend(Module.new { def sleep(*) = nil })
     Honeymaker::Clients::Kraken.prepend(ScriptedKraken::Http)
     Faraday::Adapter.lookup_middleware(:net_http_persistent).prepend(ScriptedAlpaca::Adapter)
     Bot.prepend(Module.new do # broadcasts are UI side effects outside the comparison
@@ -2450,6 +2680,7 @@ module Decisions
         checks.concat(limit_checks.())
         settle.(Time.iso8601(sc['at']))
       end
+      signal_calls(sc, mails) if sc['signals']
       if sc['check_at']
         ActiveJob::Base.queue_adapter.enqueued_jobs.clear
         check_time = Time.iso8601(sc['check_at'])
@@ -2548,7 +2779,7 @@ def web_save(dir)
 end
 
 command, root = ARGV
-USAGE = 'usage: grid <root> | grid-alpaca <root> | grid-basket <root> | grid-limit <root> | grid-binance <root> | grid-kucoin <root> | grid-sell <root> | grid-venue-basket <root> | grid-venue-index <root> | grid-conditions <root> | grid-basket-sell <root> | grid-rebalance <root> | record <root> | web-save <dir>'.freeze
+USAGE = 'usage: grid <root> | grid-signal <root> | grid-alpaca <root> | grid-basket <root> | grid-limit <root> | grid-binance <root> | grid-kucoin <root> | grid-sell <root> | grid-venue-basket <root> | grid-venue-index <root> | grid-conditions <root> | grid-basket-sell <root> | grid-rebalance <root> | record <root> | web-save <dir>'.freeze
 raise ArgumentError, USAGE unless root
 
 case command
@@ -2566,6 +2797,7 @@ when 'grid-venue-basket' then Decisions.grid(root, Decisions.venue_basket_scenar
 when 'grid-basket-sell' then Decisions.grid(root, Decisions.basket_sell_scenarios)
 when 'grid-rebalance' then Decisions.grid(root, Decisions.rebalance_scenarios)
 when 'grid-conditions' then Decisions.grid(root, Decisions.condition_scenarios)
+when 'grid-signal' then Decisions.grid(root, Decisions.signal_scenarios)
 when 'record' then Decisions.record(root)
 when 'record-normalized'
   require_relative 'histories_normalized'

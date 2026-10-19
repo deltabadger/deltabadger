@@ -248,3 +248,55 @@ fn unstick_leaves_a_price_paused_bot_waiting() {
     assert_eq!(model::load_bot(&o.primary, paused).unwrap().status, BotStatus::Waiting);
     assert!(model::unstick(&o.primary, superseded, now()).unwrap());
 }
+
+/// Plan 8a T1: a signal bot's pair, its rules as BotSignal stores them, and its waiting calls (transient_data.rust_signal_calls).
+#[test]
+fn a_signal_bot_its_rules_and_its_waiting_calls_read_as_stored() {
+    let (_d, o, s) = install();
+    let c = &o.primary;
+    c.execute("INSERT INTO bots (type, status, exchange_id, user_id, settings, transient_data, created_at, updated_at) VALUES ('Bots::Signal', 1, ?1, ?2, ?3, '{}', '2026-09-01 10:00:00', '2026-09-01 10:00:00')",
+              rusqlite::params![s.exchange_id, s.user_id, json!({ "base_asset_id": s.btc, "quote_asset_id": s.quote }).to_string()]).unwrap();
+    let id = c.last_insert_rowid();
+    let b = model::load_bot(c, id).unwrap();
+    assert_eq!(b.asset_ids(), vec![s.btc], "Bots::Signal#ticker: the one pair");
+    assert_eq!(model::ticker_for(c, &b).unwrap().unwrap().ticker, "XBTEUR");
+    // Rails stores the amount in a NUMERIC column: 100 comes back an INTEGER, 0.5 a REAL.
+    for (direction, kind, amount, enabled) in [(0, 0, "100", 1), (1, 1, "0.5", 0)] {
+        c.execute("INSERT INTO bot_signals (bot_id, direction, amount_type, amount, enabled, token, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, '2026-09-01 10:00:00', '2026-09-01 10:00:00')",
+                  rusqlite::params![id, direction, kind, amount, enabled, format!("t{direction}")]).unwrap();
+    }
+    let rules = model::signals(c, id).unwrap();
+    assert_eq!(rules.iter().map(|r| (r.side, r.percentage, r.amount.to_s_f(), r.enabled)).collect::<Vec<_>>(),
+               [(deltabadger::venue::Side::Buy, false, "100.0".to_string(), true), (deltabadger::venue::Side::Sell, true, "0.5".to_string(), false)]);
+    assert_eq!(model::signal(c, rules[1].id).unwrap().unwrap(), rules[1]);
+    assert!(model::signal(c, 999).unwrap().is_none());
+    // An unknown enum or an amount that does not read is refused, never guessed.
+    c.execute("UPDATE bot_signals SET direction = 2 WHERE id = ?1", [rules[0].id]).unwrap();
+    assert!(model::signals(c, id).is_err());
+    c.execute("UPDATE bot_signals SET direction = 0, amount_type = 7 WHERE id = ?1", [rules[0].id]).unwrap();
+    assert!(model::signal(c, rules[0].id).is_err());
+    c.execute("UPDATE bot_signals SET amount_type = 0, amount = 'lots' WHERE id = ?1", [rules[0].id]).unwrap();
+    assert!(model::signal(c, rules[0].id).is_err());
+    // The calls: appended in order, removed by source, the key gone with the last one.
+    assert!(b.signal_calls().unwrap().is_empty());
+    let call = |n: i64, at: &str| model::SignalCall { source: format!("hook:{n}"), signal_id: n, triggered_at: at.parse().unwrap() };
+    model::append_signal_call(c, id, &call(1, "2026-09-01T10:00:00.25Z")).unwrap();
+    model::append_signal_call(c, id, &call(2, "2026-09-01T10:00:31Z")).unwrap();
+    let raw: String = c.query_row("SELECT json_extract(transient_data, '$.rust_signal_calls') FROM bots WHERE id = ?1", [id], |r| r.get(0)).unwrap();
+    assert_eq!(serde_json::from_str::<serde_json::Value>(&raw).unwrap(),
+               json!([{ "source": "hook:1", "signal_id": 1, "triggered_at": "2026-09-01T10:00:00.250000Z" }, { "source": "hook:2", "signal_id": 2, "triggered_at": "2026-09-01T10:00:31.000000Z" }]));
+    assert_eq!(model::load_bot(c, id).unwrap().signal_calls().unwrap(), [call(1, "2026-09-01T10:00:00.25Z"), call(2, "2026-09-01T10:00:31Z")]);
+    let updated: String = c.query_row("SELECT updated_at FROM bots WHERE id = ?1", [id], |r| r.get(0)).unwrap();
+    assert_eq!(updated, "2026-09-01 10:00:00", "a Rust-only key: updated_at stays");
+    model::remove_signal_call(c, id, "hook:1").unwrap();
+    model::remove_signal_call(c, id, "hook:2").unwrap();
+    let td: String = c.query_row("SELECT transient_data FROM bots WHERE id = ?1", [id], |r| r.get(0)).unwrap();
+    assert_eq!(td, "{}");
+    // Anything but an array of readable calls is refused, by the reader and by the shared time rule.
+    for bad in [json!({}), json!([{ "source": "hook:1", "signal_id": 1 }]), json!([{ "source": "hook:1", "signal_id": "1", "triggered_at": "2026-09-01T10:00:00Z" }]),
+                json!([{ "source": "", "signal_id": 1, "triggered_at": "2026-09-01T10:00:00Z" }]), json!([{ "source": "h", "signal_id": 1, "triggered_at": "soon" }])] {
+        c.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.rust_signal_calls', json(?1)) WHERE id = ?2", rusqlite::params![bad.to_string(), id]).unwrap();
+        assert!(model::load_bot(c, id).unwrap().signal_calls().is_err(), "{bad}");
+    }
+    assert!(model::load_bot(c, id).unwrap().validate_times().is_err(), "an unreadable triggered_at is a time error too");
+}

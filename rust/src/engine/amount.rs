@@ -114,10 +114,12 @@ pub fn size(bot: &Bot, ticker: &Ticker, x: &BigDec, reference: &BigDec, logic: M
     Ok(if below { Sizing::BelowMinimum(plan) } else { Sizing::Place(plan) })
 }
 
-/// Bot::OrderSetter#calculate_best_amount_info for a REBALANCE order (Bot::Rebalancer#rebalance_order_data): always a market
-/// order at `price` (Exchange#market_price_for, already floored), `amount` base or `quote_amount` quote. A sell sizes in base
-/// under :base_and_quote_in_base; a buy by the venue's market rule. Returns the plan and whether it is below the minimum.
-pub fn size_rebalance(ticker: &Ticker, side: Side, price: &BigDec, amount: &BigDec, quote_amount: &BigDec, logic: MinimumLogic) -> Result<(OrderPlan, bool), EngineError> {
+/// Bot::OrderSetter#calculate_best_amount_info for a market order sized outside a DCA tick: a REBALANCE order
+/// (Bot::Rebalancer#rebalance_order_data) or a signal bot's REGULAR one (Bots::Signal::OrderSetter#checked_amount_info), at
+/// `price` (Exchange#market_price_for, already floored), `amount` base or `quote_amount` quote. A sell sizes in base under
+/// :base_and_quote_in_base; a buy by the venue's market rule. Returns the plan (written with `kind`) and whether it is below
+/// the minimum.
+pub fn size_order(ticker: &Ticker, side: Side, price: &BigDec, amount: &BigDec, quote_amount: &BigDec, logic: MinimumLogic, kind: TxKind) -> Result<(OrderPlan, bool), EngineError> {
     let (base_decimals, quote_decimals, _) = ticker.scales().map_err(EngineError::Data)?;
     let zero = || EngineError::Data("a rebalance price of zero".into());
     let in_base = |x: &BigDec| -> Result<BigDec, EngineError> { Ok(x.div(price).ok_or_else(zero)?.ceil(base_decimals)) };
@@ -136,7 +138,7 @@ pub fn size_rebalance(ticker: &Ticker, side: Side, price: &BigDec, amount: &BigD
     let volume = if quote_type { quote_amount.floor(quote_decimals) } else { amount.floor(base_decimals) };
     let below = volume < minimum;
     Ok((OrderPlan { ticker: ticker.clone(), side, limit: false, price: price.clone(), amount: amount.clone(), quote_amount: quote_amount.clone(),
-                    quote_type, volume, kind: TxKind::Rebalance }, below))
+                    quote_type, volume, kind }, below))
 }
 
 /// Exchanges::Alpaca#wire_decimal: the value floored to `places` and spelled with exactly `places` fractional digits,
@@ -187,6 +189,13 @@ impl OrderPlan {
         };
         Ok(NewOrder { pair: t.ticker.clone(), side: self.side, kind, volume, quote_volume, cl_ord_id, deadline, day: !t.crypto })
     }
+    /// Bots::Signal::OrderSetter#execute_api_order's `amount_info.merge(amount:, amount_type:)` where #venue_takes? (slice 8f):
+    /// the caller's amount sent in its own denomination. `quote_type` and `volume` change together, the volume floored at that
+    /// side's decimals as the venue's adapter floors it; the row's amounts stay what was sized.
+    pub fn in_denomination(&self, amount: &BigDec, quote: bool) -> Result<OrderPlan, String> {
+        let (base_decimals, quote_decimals, _) = self.ticker.scales()?;
+        Ok(OrderPlan { quote_type: quote, volume: amount.floor(if quote { quote_decimals } else { base_decimals }), ..self.clone() })
+    }
     /// Bot::OrderSetter#order_log_details: BigDecimals serialise as `to_s('F')` strings.
     pub fn log_details(&self) -> Value {
         json!({ "base": self.ticker.base_symbol, "quote": self.ticker.quote_symbol, "amount": self.amount.to_s_f(),
@@ -222,7 +231,8 @@ fn write_order_row_in(c: &Connection, bot: &Bot, plan: &OrderPlan, kind: RowKind
             params![bot.exchange_id, id], |r| r.get(0)).optional()?;
         if let Some(existing) = existing { return Ok(existing); }
     }
-    let bot_quote_amount = bot.quote_amount_num()?.to_dec().map_err(data)?;
+    // A signal bot has no schedule: Bot::OrderCreator#order_identity_values leaves the two columns at their defaults.
+    let bot_quote_amount = if bot.bot_type == super::model::SIGNAL_TYPE { BigDec::zero() } else { bot.quote_amount_num()?.to_dec().map_err(data)? };
     c.execute(
         "INSERT INTO transactions (bot_id, exchange_id, external_id, status, external_status, side, order_type, amount, quote_amount, price, \
          amount_exec, quote_amount_exec, base, quote, base_asset_id, quote_asset_id, bot_interval, bot_quote_amount, transaction_type, error_messages, created_at, updated_at) \
@@ -234,6 +244,18 @@ fn write_order_row_in(c: &Connection, bot: &Bot, plan: &OrderPlan, kind: RowKind
             bot.interval().map(|i| i.as_str()).unwrap_or_default(), to_sql(&bot_quote_amount),
             serde_json::to_string(&errors).unwrap(), format_time(created_at), plan.side.code(), plan.kind.as_str(),
         ])?;
+    Ok(c.last_insert_rowid())
+}
+
+/// Bots::Signal::OrderSetter#record_signal_failure before anything was sized (a price or balance read that failed, a check
+/// that raised): create_failed_order! from `{ticker, side, order_type: :market_order}` alone, so no price or amounts; the
+/// schedule columns at their defaults.
+pub fn write_unsized_failure(c: &Connection, bot: &Bot, ticker: &Ticker, side: Side, errors: &[String], created_at: DateTime<Utc>) -> Result<i64, EngineError> {
+    c.execute(
+        "INSERT INTO transactions (bot_id, exchange_id, status, side, order_type, amount_exec, quote_amount_exec, base, quote, base_asset_id, quote_asset_id, \
+         bot_interval, bot_quote_amount, transaction_type, error_messages, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, 0, ?5, ?5, ?6, ?7, ?8, ?9, '', ?10, 'REGULAR', ?11, ?12, ?12)",
+        params![bot.id, bot.exchange_id, TxStatus::Failed as i64, side.code(), 0.0f64, ticker.base_symbol, ticker.quote_symbol, ticker.base_asset_id, ticker.quote_asset_id,
+                to_sql(&BigDec::zero()), serde_json::to_string(errors).unwrap(), format_time(created_at)])?;
     Ok(c.last_insert_rowid())
 }
 

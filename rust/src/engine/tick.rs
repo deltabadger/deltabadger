@@ -762,10 +762,20 @@ async fn reference<V: Venue + Attributed>(venue: &V, bot: &model::Bot, ticker: &
 /// every other price read, then Ticker#adjusted_price (floored to price_decimals). None for a failed read or a price that is
 /// not positive (Bot::Rebalancer#side_price's nil).
 pub(crate) async fn market_price_for<V: Venue + Attributed>(venue: &V, bot: &model::Bot, ticker: &model::Ticker, side: crate::venue::Side, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<Option<BigDec>, EngineError> {
+    Ok(market_price_read(venue, bot, ticker, side, clock, cx).await?.ok().filter(BigDec::is_positive))
+}
+
+/// Exchange#market_price_for with the venue's failure kept (a signal's failed row names it): the same 5-second cache and the
+/// same floor as `market_price_for`, and a price that floors to zero handed back as such.
+pub(crate) async fn market_price_read<V: Venue + Attributed>(venue: &V, bot: &model::Bot, ticker: &model::Ticker, side: crate::venue::Side, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<Result<BigDec, VenueError>, EngineError> {
     let price_side = if side == crate::venue::Side::Sell { PriceSide::Bid } else { PriceSide::Ask };
-    let Ok(price) = reference(venue, bot, ticker, price_side, &ticker.base_code, clock, cx).await else { return Ok(None) };
+    let key = (bot.exchange_id, ticker.id, price_side);
+    let fetched = match cx.prices.get(key, clock.now(), &cx.credential_version) {
+        Some(hit) => Ok(hit),
+        None => { let result = venue.price_result(ticker, price_side).await; if let Ok(price) = &result.value { cx.prices.put_result(key, clock.now(), result.clone().map(|_| price.clone())); } result.value }
+    };
     let (_, _, price_decimals) = ticker.scales().map_err(EngineError::Data)?;
-    Ok(Some(price.floor(price_decimals)).filter(BigDec::is_positive))
+    Ok(fetched.map(|p| p.floor(price_decimals)))
 }
 
 pub async fn live_free_balance<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot, ticker: &model::Ticker, asset_id: i64) -> Result<Result<BigDec, VenueError>, EngineError> {
