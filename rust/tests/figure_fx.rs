@@ -263,3 +263,20 @@ async fn a_rate_refreshed_between_render_and_acceptance_refuses_the_publication(
     assert!(install.gate.armed.lock().unwrap().is_none(), "the publication never reached its acceptance");
     assert!(loading::latest(&install.app, 1, stream).await.is_none(), "a publication in the old rate was accepted");
 }
+
+#[test]
+fn only_alpaca_bots_name_the_symbols_alpaca_is_asked_for() {
+    let install = install("USD", script(true, json!(1.0)));
+    let c = rusqlite::Connection::open(&install.file).unwrap();
+    let t = "'2026-01-01'";
+    // KuCoin writes its pairs `BTC-USDC`: an invalid symbol at Alpaca, which then fails the whole request.
+    c.execute_batch(&format!("
+        INSERT INTO exchanges(id,type,name,created_at,updated_at) VALUES (2,'Exchanges::Kucoin','KuCoin',{t},{t});
+        INSERT INTO assets(id,category,external_id,symbol,name,created_at,updated_at) VALUES (5,'Cryptocurrency','usd-coin','USDC','USDC',{t},{t});
+        INSERT INTO tickers(id,base,base_asset_id,base_decimals,exchange_id,minimum_base_size,minimum_quote_size,price_decimals,quote,quote_asset_id,quote_decimals,ticker,available,trading_enabled,created_at,updated_at)
+            VALUES (3,'BTC',4,8,2,0,1,2,'USDC',5,2,'BTC-USDC',1,1,{t},{t});
+        INSERT INTO bots(id,user_id,exchange_id,type,status,settings,transient_data,created_at,updated_at) VALUES
+            (3,1,2,'Bots::DcaMultiAsset',1,'{{\"quote_asset_id\":5,\"allocations\":{{\"4\":1.0}}}}','{{}}',{t},{t});
+    ")).unwrap();
+    assert_eq!(loading::symbols(&c, 1).unwrap(), vec!["AAA".to_string(), "BTC/USDT".to_string()]);
+}
