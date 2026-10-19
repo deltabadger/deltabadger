@@ -1,7 +1,8 @@
 //! The decision-parity grids of script/rust/decisions.rb: built and recorded by Rails on scratch databases, played by
 //! deltabadger::parity::decide on pristine copies (tests/parity.rs, tests/tick_basket.rs).
 use std::path::Path;
-use std::process::Command;
+use std::process::{Command, Stdio};
+use std::time::Duration;
 
 pub fn rails(args: &[&str]) { if let Err(e) = try_rails(args) { panic!("{e}"); } }
 
@@ -17,7 +18,21 @@ pub fn try_rails(args: &[&str]) -> Result<(), String> {
         for db in ["primary", "queue", "cache", "cable"] {
             cmd.env(format!("{}_DATABASE_URL", db.to_uppercase()), format!("sqlite3:{}/{db}.sqlite3", scratch.path().display()));
         }
-        let out = cmd.output().expect("bin/rails runs");
+        // A Rails run stuck on something never shows up in nextest's hour-long TIMEOUT: kill it after 20 minutes
+        // (a whole grid records in under 3) and print what it had written.
+        let child = cmd.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().expect("bin/rails runs");
+        let pid = child.id();
+        let (done, finished) = std::sync::mpsc::channel::<()>();
+        let watchdog = std::thread::spawn(move || {
+            let timed_out = finished.recv_timeout(Duration::from_secs(20 * 60)).is_err();
+            if timed_out { let _ = Command::new("kill").args(["-9", &pid.to_string()]).status(); }
+            timed_out
+        });
+        let out = child.wait_with_output().expect("bin/rails runs");
+        let _ = done.send(());
+        let timed_out = watchdog.join().unwrap();
+        let output = || format!("stdout:\n{}\nstderr:\n{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
+        if timed_out { return Err(format!("bin/rails {rails_args:?} still ran after 20 minutes and was killed\n{}", output())); }
         if out.status.success() { Ok(()) } else { Err(format!("bin/rails {rails_args:?} failed:\n{}", String::from_utf8_lossy(&out.stderr))) }
     };
     // The oracle's own queue/cache/cable databases must exist (ActionJob queries Solid Queue directly,

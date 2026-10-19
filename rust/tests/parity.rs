@@ -1296,6 +1296,7 @@ async fn rails_and_rust_decide_identically_across_the_index_grid() -> Result<(),
     let mut failures = vec![];
     for d in &dirs {
         let name = d.file_name().unwrap().to_string_lossy().to_string();
+        eprintln!("deciding {name}"); // nextest prints this on a TIMEOUT: the scenario that hung
         let rails_out: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(d.join("rails.json"))?)?;
         let rust_out = deltabadger::parity::decide(&rust_root.path().join(&name)).await.map_err(|e| format!("{e:?}"))?;
         let rails_out = r5_cleanup_expected(&rails_out, &rust_out);
