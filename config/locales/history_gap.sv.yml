@@ -1,0 +1,26 @@
+sv:
+    tracker:
+        history_gap:
+            button: "Importera historik"
+            title: "Komplettera din historik från %{exchange}"
+            why_kucoin_reach: "KuCoins API returnerar affärer, insättningar och uttag bara för ungefär de senaste 12 månaderna."
+            why_kucoin_hf_convert: "Affärer på KuCoins HF-handelskonto och Convert-byten går inte att läsa alls, hur nya de än är."
+            why_kucoin_transfers: "Äldre insättningar och uttag saknas också."
+            why_binance: "Binances API returnerar affärer bara för par som fortfarande är listade, och Convert, dammomvandlingar och Simple Earn bara från de datum Binance sparar dem. Margin och terminer läses inte."
+            why_other: "%{exchange} innehåller mer än historiken Deltabadger kunde läsa därifrån förklarar."
+            evidence: "Det här hittade trackern"
+            steps_binance_1: "Öppna Plånbok → Transaktionshistorik → Exportera på Binance. Exportera en fil per år, ända tillbaka till när du öppnade kontot."
+            steps_binance_2: "Byt inte namn på filerna: namnet visar vilken tidszon Binance använde."
+            steps_binance_3: "Klicka på Importera en fil, välj Binance CSV och ladda upp en fil i taget. Rader som redan finns i din historik hoppas över."
+            steps_kucoin_1: "Öppna din handelshistorik (spot, HF och Convert) och din insättnings- och uttagshistorik på KuCoin för perioden som saknas här."
+            steps_kucoin_2: "Deltabadger kan ännu inte läsa KuCoins egen export, så kopiera de saknade raderna till en Deltabadger-CSV. Skatterapport → Alla ger dig en fil med rätt kolumner."
+            steps_kucoin_3: "Klicka på Importera en fil och välj Deltabadger CSV."
+            steps_other_1: "Lägg in de saknade raderna i en Deltabadger-CSV. Skatterapport → Alla ger dig en fil med rätt kolumner."
+            steps_other_2: "Klicka på Importera en fil och välj Deltabadger CSV."
+            template_hint: "Varje fil börjar med den här rubrikraden. Beloppen är positiva; ett byte är en swap_out och en swap_in med samma group_id."
+            csv_example_caption:
+                swap: "Ett gammalt byte: båda sidor, ett group_id"
+                convert: "Ett nytt Convert- eller HF-byte"
+                deposit: "En insättning för sig"
+            open_import: "Importera en fil"
+            cannot_import: "%{exchange} har ingen fungerande nyckel att importera till. Laga nyckeln först och kom sedan tillbaka."

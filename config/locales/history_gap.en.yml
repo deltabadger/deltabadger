@@ -1,0 +1,26 @@
+en:
+    tracker:
+        history_gap:
+            button: "Import history"
+            title: "Complete your %{exchange} history"
+            why_kucoin_reach: "KuCoin's API returns only about the last 12 months of trades, deposits and withdrawals."
+            why_kucoin_hf_convert: "Trades on KuCoin's HF trading account and Convert swaps can't be read at all, however recent."
+            why_kucoin_transfers: "Deposits and withdrawals older than that window are missing as well."
+            why_binance: "Binance's API returns trades only for pairs it still lists, and Convert, dust conversions and Simple Earn only from the dates Binance keeps them. Margin and futures aren't read."
+            why_other: "%{exchange} holds more than the history Deltabadger could read from it."
+            evidence: "What the tracker found"
+            steps_binance_1: "On Binance, open Wallet → Transaction History → Export. Export one file per year, back to when you opened the account."
+            steps_binance_2: "Don't rename the files: the name tells which time zone Binance used."
+            steps_binance_3: "Click Import a file, pick Binance CSV and upload one file at a time. Rows already in your history are skipped."
+            steps_kucoin_1: "On KuCoin, open your trade history (spot, HF and Convert) and your deposit and withdrawal history for the period missing here."
+            steps_kucoin_2: "Deltabadger can't read KuCoin's own export yet, so copy the missing rows into a Deltabadger CSV. Tax Report → All gives you a file with the right columns."
+            steps_kucoin_3: "Click Import a file and pick Deltabadger CSV."
+            steps_other_1: "Put the missing rows in a Deltabadger CSV. Tax Report → All gives you a file with the right columns."
+            steps_other_2: "Click Import a file and pick Deltabadger CSV."
+            template_hint: "Every file starts with this header. Amounts are positive; a swap is a swap_out and a swap_in sharing one group_id."
+            csv_example_caption:
+                swap: "An old swap: both legs, one group_id"
+                convert: "A recent Convert or HF swap"
+                deposit: "A deposit on its own"
+            open_import: "Import a file"
+            cannot_import: "%{exchange} has no working key to import into. Fix the key first, then come back."

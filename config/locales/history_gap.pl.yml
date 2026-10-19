@@ -1,0 +1,26 @@
+pl:
+    tracker:
+        history_gap:
+            button: "Importuj historię"
+            title: "Uzupełnij historię z %{exchange}"
+            why_kucoin_reach: "API KuCoin zwraca transakcje, wpłaty i wypłaty tylko z mniej więcej ostatnich 12 miesięcy."
+            why_kucoin_hf_convert: "Transakcji z konta handlowego HF w KuCoin ani wymian Convert nie da się w ogóle odczytać, nawet tych najnowszych."
+            why_kucoin_transfers: "Brakuje też starszych wpłat i wypłat."
+            why_binance: "API Binance zwraca transakcje tylko dla par, które są nadal notowane, a Convert, zamiany pyłu i Simple Earn dopiero od dat, od których Binance je przechowuje. Margin i kontrakty futures nie są odczytywane."
+            why_other: "%{exchange} ma więcej, niż wynika z historii, którą Deltabadger zdołał stamtąd odczytać."
+            evidence: "Co znalazł tracker"
+            steps_binance_1: "W Binance otwórz Portfel → Historia transakcji → Eksportuj. Eksportuj jeden plik na każdy rok, aż do założenia konta."
+            steps_binance_2: "Nie zmieniaj nazw plików: nazwa mówi, jakiej strefy czasowej użył Binance."
+            steps_binance_3: "Kliknij Importuj plik, wybierz Binance CSV i wgrywaj pliki po jednym. Wiersze, które już są w Twojej historii, zostaną pominięte."
+            steps_kucoin_1: "W KuCoin otwórz historię transakcji (spot, HF i Convert) oraz historię wpłat i wypłat za okres, którego tu brakuje."
+            steps_kucoin_2: "Deltabadger nie umie jeszcze odczytać eksportu z KuCoin, więc przepisz brakujące wiersze do pliku CSV Deltabadger. Raport podatkowy → Wszystko daje plik z właściwymi kolumnami."
+            steps_kucoin_3: "Kliknij Importuj plik i wybierz Deltabadger CSV."
+            steps_other_1: "Wpisz brakujące wiersze do pliku CSV Deltabadger. Raport podatkowy → Wszystko daje plik z właściwymi kolumnami."
+            steps_other_2: "Kliknij Importuj plik i wybierz Deltabadger CSV."
+            template_hint: "Każdy plik zaczyna się od tego wiersza nagłówka. Kwoty są dodatnie; wymiana to swap_out i swap_in z tym samym group_id."
+            csv_example_caption:
+                swap: "Stara wymiana: obie strony, jeden group_id"
+                convert: "Niedawna wymiana Convert lub HF"
+                deposit: "Sama wpłata"
+            open_import: "Importuj plik"
+            cannot_import: "%{exchange} nie ma działającego klucza, do którego można importować. Najpierw napraw klucz, a potem wróć tutaj."

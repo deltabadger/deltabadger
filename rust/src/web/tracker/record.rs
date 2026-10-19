@@ -233,7 +233,8 @@ fn position_row(c: &Connection, ctx: &Ctx, r: &Position, den: &Denomination, hid
 fn offered(options: Vec<SegmentedOption>) -> Vec<SegmentedOption> { if options.iter().filter(|o| o.value != "all").count() > 1 { options } else { vec![] } }
 
 /// tracker/_record. `warm` is the scoped ledger and its figures (none while it warms: the positions pane spins).
-pub fn record(c: &Connection, ctx: &Ctx, owner: i64, scope: Option<i64>, warm: Option<(&page::Warm, &Summary)>, den: Option<&Denomination>, shown: &Denomination) -> Result<String, WebError> {
+#[allow(clippy::too_many_arguments)] // tracker/_record's locals, and the history-gap lines above its newest row
+pub fn record(c: &Connection, ctx: &Ctx, owner: i64, scope: Option<i64>, warm: Option<(&page::Warm, &Summary)>, den: Option<&Denomination>, shown: &Denomination, gaps: &[crate::tracker::gaps::StoredGap]) -> Result<String, WebError> {
     let hidden = ctx.user().ok_or_else(invalid)?.hide_balances;
     let all = ctx.params.query("all").is_some_and(|v| !v.trim().is_empty());
     let sql = format!("SELECT id FROM account_transactions WHERE user_id=?1 AND (?2 IS NULL OR exchange_id=?2) ORDER BY transacted_at DESC{}", if all { String::new() } else { format!(" LIMIT {ROW_LIMIT}") });
@@ -256,8 +257,10 @@ pub fn record(c: &Connection, ctx: &Ctx, owner: i64, scope: Option<i64>, warm: O
     let switch = segmented(i18n::text(ctx.locale, "tracker.positions", &[]), Some("tracker-record"), true,
                            vec![option("pos", i18n::text(ctx.locale, "tracker.positions", &[]), true), option("tx", i18n::text(ctx.locale, "tracker.transactions", &[]), false)])?;
     let filter = |label: String, options: Vec<SegmentedOption>| -> Result<String, WebError> { if options.is_empty() { Ok(String::new()) } else { Ok(format!("        {}\n", segmented(label, None, true, options)?)) } };
-    let tx_table = if rows.is_empty() { format!("        <p class=\"tracker-empty\">{}</p>\n", ctx.t("tracker.no_results")) } else {
+    let tx_table = if rows.is_empty() && gaps.is_empty() { format!("        <p class=\"tracker-empty\">{}</p>\n", ctx.t("tracker.no_results")) } else {
         let mut body = String::new();
+        // The history-gap lines first: an action about today's holdings, above the newest row.
+        for gap in gaps { body.push_str(&format!("              {}\n", super::row::gap_row(ctx, gap, hidden))); }
         for row in &rows { body.push_str(&format!("              {}\n", match den { Some(den) => super::row::render(c, ctx, row, den)?, None => super::row::unavailable(row.id) })); }
         let amount = if hidden { String::new() } else { format!("<th>{}</th>", column("amount")) };
         let money = if hidden { String::new() } else { format!("                <th>{} <small>{}</small></th>\n                <th>{}</th>\n", column("quote_amount"), escape(den.map_or("$", |d| match d.currency.as_str() { "USD" => "$", "EUR" => "€", "GBP" => "£", "CHF" => "Fr.", "PLN" => "zł", other => other })), column("fee")) };
