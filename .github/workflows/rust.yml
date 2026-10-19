@@ -445,6 +445,11 @@ jobs:
         run: bash script/rust/build_assets.sh
       # The same tests as `cargo test` (the crate has no doctests), each in its own process, spread over three
       # runners; every test lands in exactly one partition, and rust/.config/nextest.toml applies as it does locally.
+      # Rails writes tmp/local_secret.txt on its first development boot, not atomically: tests that boot Rails at the
+      # same moment can read it empty ("secret_key_base ... got: \"\""). Written once here, before any of them.
+      - name: Create Rails' development secret
+        working-directory: .
+        run: mkdir -p tmp && { [ -s tmp/local_secret.txt ] || openssl rand -hex 64 > tmp/local_secret.txt; }
       - name: Test the full Rust suite
         working-directory: rust
         run: cargo nextest run --locked --no-fail-fast --partition count:${{ matrix.partition }}/3
