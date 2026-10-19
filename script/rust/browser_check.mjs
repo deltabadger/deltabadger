@@ -111,6 +111,11 @@ try {
     });
   // `undefined` while a navigation is replacing the document: callers wait with `until`.
   const evaluate = async (expression) => (await send("Runtime.evaluate", { expression, returnByValue: true })).result?.result?.value;
+  // A fixed function called with its arguments as values: nothing is built into code from data.
+  const call = async (fn, ...args) => {
+    const page = (await send("Runtime.evaluate", { expression: "window" })).result?.result?.objectId;
+    return (await send("Runtime.callFunctionOn", { objectId: page, functionDeclaration: fn.toString(), arguments: args.map((value) => ({ value })), returnByValue: true, awaitPromise: true })).result?.result?.value;
+  };
 
   // For a failure message: where the browser is and what it shows.
   where = async () => `\n  at ${await evaluate("location.href")}\n  showing: ${JSON.stringify(await evaluate("document.body.innerText.slice(0, 300)"))}`;
@@ -123,11 +128,11 @@ try {
   // start_url ("/") is then still in flight with the signed-out cookie. When the session cookie was
   // written on every response, its late answer put the signed-out session back and this sign-in was
   // lost. The cookie is now written only when the session changed (web::session).
-  await evaluate(`(() => {
-    document.querySelector("#user_email").value = ${JSON.stringify(EMAIL)};
-    document.querySelector("#user_password").value = ${JSON.stringify(PASSWORD)};
+  await call(function (email, password) {
+    document.querySelector("#user_email").value = email;
+    document.querySelector("#user_password").value = password;
     document.querySelector("#user_password").form.requestSubmit();
-  })()`);
+  }, EMAIL, PASSWORD);
   await until("the bots page after signing in", () => evaluate(`location.pathname === "/bots" && !!document.querySelector("main.main")`));
 
   const first = await until("every stream source to connect", async () => {
@@ -168,17 +173,19 @@ try {
   // the focus through each answer, so the next key lands after the last one. "ArrowLeft" moves the caret, so a saved
   // amount can be edited in the middle ("15" into "1.5"). `saved` is the amount the last answer, a 200, draws back.
   for (const { bot, field, keys, saved } of JSON.parse(TYPING || "[]")) {
-    const selector = JSON.stringify(`#${field}`);
     await send("Page.navigate", { url: `${BASE_URL}/bots/${bot}` });
-    await until(`bot ${bot}'s ${field}`, () => evaluate(`location.pathname === "/bots/${bot}" && !!document.querySelector(${selector})`));
+    await until(`bot ${bot}'s ${field}`, () => call(function (path, id) { return location.pathname === path && !!document.getElementById(id); }, `/bots/${bot}`, field));
     // Each answer: its status, and the amount its stream draws the field with.
-    await evaluate(`(() => { window.answers = []; document.addEventListener("turbo:submit-end", async event => {
+    await call(function (id) {
+      window.answers = [];
+      document.addEventListener("turbo:submit-end", async (event) => {
         const response = event.detail.fetchResponse;
         const page = new DOMParser().parseFromString(await response.response.clone().text(), "text/html");
-        const drawn = [...page.querySelectorAll("template")].map(template => template.content.querySelector(${selector})).find(Boolean);
+        const drawn = [...page.querySelectorAll("template")].map((template) => template.content.getElementById(id)).find(Boolean);
         window.answers.push({ status: response.statusCode, value: drawn?.getAttribute("value") ?? null });
       });
-      const input = document.querySelector(${selector}); input.value = ""; input.focus(); })()`);
+      const input = document.getElementById(id); input.value = ""; input.focus();
+    }, field);
     let typed = "";
     for (const key of keys) {
       if (key === "ArrowLeft") {
@@ -189,15 +196,17 @@ try {
         if (typed !== null) typed += key;
       }
       await sleep(700);
-      const look = await evaluate(`(() => { const input = document.querySelector(${selector});
-        return { value: input?.value, focused: document.activeElement === input, answers: window.answers.slice() }; })()`);
+      const look = await call(function (id) {
+        const input = document.getElementById(id);
+        return { value: input?.value, focused: document.activeElement === input, answers: window.answers.slice() };
+      }, field);
       console.log(JSON.stringify({ bot, field, key, ...look }));
       // Chrome reads "0." as "0": a separator just typed shows on the screen, not in the value.
       const kept = typed === null || look.value === typed || look.value === typed.replace(/[.,]$/, "");
       if (!kept || !look.focused) throw new Error(`typing ${keys.join(" ")} into ${field}: after ${key} the field shows ${JSON.stringify(look.value)} (typed ${JSON.stringify(typed)}), focused: ${look.focused}`);
     }
     const last = await evaluate("window.answers.at(-1)");
-    const value = await evaluate(`document.querySelector(${selector}).value`);
+    const value = await call(function (id) { return document.getElementById(id).value; }, field);
     if (last?.status !== 200 || last.value !== saved || value !== saved) {
       throw new Error(`typing ${keys.join(" ")} into ${field}: the last answer was ${JSON.stringify(last)} and the field shows ${JSON.stringify(value)}, not a 200 saving ${saved}`);
     }
@@ -217,8 +226,8 @@ try {
     if (picked >= 400) throw new Error(`picking Top coins answered ${picked}`);
     await evaluate(`document.querySelector("turbo-frame#modal_content").src = "/bots/dca_indexes/pick_exchange/new"`);
     const button = `#exchange-picker button[value="${UNPORTED_VENUE}"]`;
-    await until("the venue step", () => evaluate(`!!document.querySelector(${JSON.stringify(button)})`));
-    await evaluate(`document.querySelector(${JSON.stringify(button)}).click()`);
+    await until("the venue step", () => call(function (sel) { return !!document.querySelector(sel); }, button));
+    await call(function (sel) { document.querySelector(sel).click(); }, button);
     await until("the refusal in the modal", () => evaluate(`(document.querySelector("turbo-frame#modal_content")?.innerText ?? "").includes("Not available in the Rust build yet")`));
     if (await evaluate(`document.body.innerText.includes("Content missing")`)) throw new Error("the page shows Turbo's Content missing");
     console.log("unported venue: the key step's refusal shows in the wizard's modal");
@@ -229,22 +238,22 @@ try {
     const columns = `#columns_bots_dca_multi_asset_${BOT_ID}`;
     const amount = "#bots_dca_multi_asset_quote_amount";
     const click = async (selector) => {
-      const clicked = await evaluate(`(() => { const element = document.querySelector(${JSON.stringify(selector)}); if (!element) return false; element.click(); return true; })()`);
+      const clicked = await call(function (sel) { const element = document.querySelector(sel); if (!element) return false; element.click(); return true; }, selector);
       if (!clicked) throw new Error(`missing control: ${selector}`);
     };
     await send("Page.navigate", { url: BASE_URL + path });
-    await until("bot settings", () => evaluate(`location.pathname === ${quotedPath} && !!document.querySelector(${JSON.stringify(amount)})`));
+    await until("bot settings", () => call(function (p, sel) { return location.pathname === p && !!document.querySelector(sel); }, path, amount));
     await evaluate(`document.addEventListener("turbo:submit-end", event => { window.lastSubmission = event.detail.fetchResponse?.statusCode; })`);
     const edit = async (value, status) => {
-      await evaluate(`(() => { window.lastSubmission = null; const field = document.querySelector(${JSON.stringify(amount)}); field.value = ${JSON.stringify(value)}; field.dispatchEvent(new Event("input", { bubbles: true })); })()`);
-      await until(`amount ${value} response ${status}`, () => evaluate(`window.lastSubmission === ${status}`));
-      await until(`amount ${value} remains in form`, () => evaluate(`document.querySelector(${JSON.stringify(amount)})?.value === ${JSON.stringify(value)} && location.pathname === ${quotedPath}`));
+      await call(function (sel, v) { window.lastSubmission = null; const field = document.querySelector(sel); field.value = v; field.dispatchEvent(new Event("input", { bubbles: true })); }, amount, value);
+      await until(`amount ${value} response ${status}`, () => call(function (s) { return window.lastSubmission === s; }, status));
+      await until(`amount ${value} remains in form`, () => call(function (sel, v, p) { return document.querySelector(sel)?.value === v && location.pathname === p; }, amount, value, path));
     };
     await edit("7", 200);
     await edit("0", 422);
-    await until("inline amount error", () => evaluate(`!!document.querySelector("${amount}.is-invalid") && !!document.querySelector("#settings .form__info--invalid")`));
+    await until("inline amount error", () => call(function (sel) { return !!document.querySelector(sel + ".is-invalid") && !!document.querySelector("#settings .form__info--invalid"); }, amount));
     await edit("7", 200);
-    await until("cleared inline error", () => evaluate(`!document.querySelector("${amount}.is-invalid")`));
+    await until("cleared inline error", () => call(function (sel) { return !document.querySelector(sel + ".is-invalid"); }, amount));
 
     // A separate page target shares only the browser session, not the first tab's DOM.
     const tab = await (await fetch(`http://127.0.0.1:${port}/json/new?${encodeURIComponent(BASE_URL + path)}`, { method: "PUT" })).json();
