@@ -1,0 +1,721 @@
+{
+  "sources": {
+    "app/jobs/api_key_validator_job.rb": "bae28705fa6c3798785907827847598c841ed5f93cdd3c9b603f89406fbcd417",
+    "app/services/api_key_validator.rb": "d7d01a549dc633d199e0b93c0788e345655f339398f6d2dd046a21648753da13",
+    "app/models/api_key.rb": "e7f1435042602815925d093baa51160be9236c600b2f8aebdcf0517f5119ef91",
+    "app/models/exchange.rb": "ab627a2812bc0c7b4a546459e64f8f5d93617c496308d5f03163f44cef12d8d7",
+    "app/models/exchanges/kraken.rb": "232820af94e9247375162d361eaff6437ae3f2c95b236bf3114b748026d2d902",
+    "app/models/exchanges/binance.rb": "72139d578fcf6df45576eb7e648185e71d7fad7b8be456bf4438af7dada57649",
+    "app/models/exchanges/kucoin.rb": "a4dd07679ac5297f73d7713a812122728872629f60c13cf82d5f1b5c205fef45",
+    "script/rust/record_validator_effects.rb": "732938f638eaee30c8500d48bfbb9090a9b404061a62c27b6cb7be8c0c75c097"
+  },
+  "honeymaker": "0.12.5",
+  "cases": [
+    {
+      "venue": "Exchanges::Kraken",
+      "name": "Kraken",
+      "key_type": "trading",
+      "answer": "correct",
+      "reply": {
+        "status": 200,
+        "body": "{\"error\":[],\"result\":{\"permissions\":[\"query-funds\",\"query-open-trades\",\"query-closed-trades\",\"modify-trades\",\"close-trades\",\"query-ledger\"]}}"
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "host": "api.kraken.com",
+          "path": "/0/private/GetApiKeyInfo"
+        }
+      ],
+      "status": "correct",
+      "jobs": [
+        "AccountBalance::SyncJob"
+      ],
+      "logged": []
+    },
+    {
+      "venue": "Exchanges::Kraken",
+      "name": "Kraken",
+      "key_type": "trading",
+      "answer": "rejected",
+      "reply": {
+        "status": 200,
+        "body": "{\"error\":[\"EAPI:Invalid key\"]}"
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "host": "api.kraken.com",
+          "path": "/0/private/GetApiKeyInfo"
+        }
+      ],
+      "status": "incorrect",
+      "jobs": [],
+      "logged": [
+        "[Kraken] API key validation: incorrect key"
+      ]
+    },
+    {
+      "venue": "Exchanges::Kraken",
+      "name": "Kraken",
+      "key_type": "trading",
+      "answer": "inconclusive",
+      "reply": {
+        "status": 200,
+        "body": "{\"error\":[\"EService:Unavailable\"]}"
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "host": "api.kraken.com",
+          "path": "/0/private/GetApiKeyInfo"
+        }
+      ],
+      "status": "pending_validation",
+      "jobs": [],
+      "logged": [
+        "[Kraken] API key validation failed"
+      ]
+    },
+    {
+      "venue": "Exchanges::Kraken",
+      "name": "Kraken",
+      "key_type": "trading",
+      "answer": "permission",
+      "reply": {
+        "status": 200,
+        "body": "{\"error\":[],\"result\":{\"permissions\":[\"query-open-trades\",\"query-closed-trades\",\"modify-trades\",\"close-trades\",\"query-ledger\",\"withdraw-funds\"]}}"
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "host": "api.kraken.com",
+          "path": "/0/private/GetApiKeyInfo"
+        }
+      ],
+      "status": "incorrect",
+      "jobs": [],
+      "logged": []
+    },
+    {
+      "venue": "Exchanges::Kraken",
+      "name": "Kraken",
+      "key_type": "read_only",
+      "answer": "correct",
+      "reply": {
+        "status": 200,
+        "body": "{\"error\":[],\"result\":{\"permissions\":[\"query-funds\",\"query-ledger\"]}}"
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "host": "api.kraken.com",
+          "path": "/0/private/GetApiKeyInfo"
+        }
+      ],
+      "status": "correct",
+      "jobs": [],
+      "logged": []
+    },
+    {
+      "venue": "Exchanges::Kraken",
+      "name": "Kraken",
+      "key_type": "read_only",
+      "answer": "rejected",
+      "reply": {
+        "status": 200,
+        "body": "{\"error\":[\"EAPI:Invalid key\"]}"
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "host": "api.kraken.com",
+          "path": "/0/private/GetApiKeyInfo"
+        }
+      ],
+      "status": "incorrect",
+      "jobs": [],
+      "logged": [
+        "[Kraken] API key validation: incorrect key"
+      ]
+    },
+    {
+      "venue": "Exchanges::Kraken",
+      "name": "Kraken",
+      "key_type": "read_only",
+      "answer": "inconclusive",
+      "reply": {
+        "status": 200,
+        "body": "{\"error\":[\"EService:Unavailable\"]}"
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "host": "api.kraken.com",
+          "path": "/0/private/GetApiKeyInfo"
+        }
+      ],
+      "status": "pending_validation",
+      "jobs": [],
+      "logged": [
+        "[Kraken] API key validation failed"
+      ]
+    },
+    {
+      "venue": "Exchanges::Kraken",
+      "name": "Kraken",
+      "key_type": "read_only",
+      "answer": "permission",
+      "reply": {
+        "status": 200,
+        "body": "{\"error\":[],\"result\":{\"permissions\":[\"query-ledger\",\"withdraw-funds\"]}}"
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "host": "api.kraken.com",
+          "path": "/0/private/GetApiKeyInfo"
+        }
+      ],
+      "status": "incorrect",
+      "jobs": [],
+      "logged": []
+    },
+    {
+      "venue": "Exchanges::Kraken",
+      "name": "Kraken",
+      "key_type": "withdrawal",
+      "answer": "correct",
+      "reply": {
+        "status": 200,
+        "body": "{\"error\":[],\"result\":{\"permissions\":[\"query-funds\",\"withdraw-funds\"]}}"
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "host": "api.kraken.com",
+          "path": "/0/private/GetApiKeyInfo"
+        }
+      ],
+      "status": "correct",
+      "jobs": [],
+      "logged": []
+    },
+    {
+      "venue": "Exchanges::Kraken",
+      "name": "Kraken",
+      "key_type": "withdrawal",
+      "answer": "rejected",
+      "reply": {
+        "status": 200,
+        "body": "{\"error\":[\"EAPI:Invalid key\"]}"
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "host": "api.kraken.com",
+          "path": "/0/private/GetApiKeyInfo"
+        }
+      ],
+      "status": "incorrect",
+      "jobs": [],
+      "logged": [
+        "[Kraken] API key validation: incorrect key"
+      ]
+    },
+    {
+      "venue": "Exchanges::Kraken",
+      "name": "Kraken",
+      "key_type": "withdrawal",
+      "answer": "inconclusive",
+      "reply": {
+        "status": 200,
+        "body": "{\"error\":[\"EService:Unavailable\"]}"
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "host": "api.kraken.com",
+          "path": "/0/private/GetApiKeyInfo"
+        }
+      ],
+      "status": "pending_validation",
+      "jobs": [],
+      "logged": [
+        "[Kraken] API key validation failed"
+      ]
+    },
+    {
+      "venue": "Exchanges::Kraken",
+      "name": "Kraken",
+      "key_type": "withdrawal",
+      "answer": "permission",
+      "reply": {
+        "status": 200,
+        "body": "{\"error\":[],\"result\":{\"permissions\":[\"withdraw-funds\",\"query-open-trades\"]}}"
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "host": "api.kraken.com",
+          "path": "/0/private/GetApiKeyInfo"
+        }
+      ],
+      "status": "incorrect",
+      "jobs": [],
+      "logged": []
+    },
+    {
+      "venue": "Exchanges::Binance",
+      "name": "Binance",
+      "key_type": "trading",
+      "answer": "correct",
+      "reply": {
+        "status": 200,
+        "body": "{\"ipRestrict\":true,\"enableFixApiTrade\":false,\"enableFixReadOnly\":false,\"enableFutures\":false,\"enableInternalTransfer\":false,\"enableMargin\":false,\"enablePortfolioMarginTrading\":false,\"enableReading\":true,\"enableSpotAndMarginTrading\":true,\"enableVanillaOptions\":false,\"enableWithdrawals\":false,\"permitsUniversalTransfer\":false}"
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "host": "api.binance.com",
+          "path": "/sapi/v1/account/apiRestrictions"
+        }
+      ],
+      "status": "correct",
+      "jobs": [
+        "AccountBalance::SyncJob"
+      ],
+      "logged": []
+    },
+    {
+      "venue": "Exchanges::Binance",
+      "name": "Binance",
+      "key_type": "trading",
+      "answer": "rejected",
+      "reply": {
+        "status": 401,
+        "body": "{\"code\":-2015,\"msg\":\"Invalid API-key, IP, or permissions for action.\"}"
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "host": "api.binance.com",
+          "path": "/sapi/v1/account/apiRestrictions"
+        }
+      ],
+      "status": "incorrect",
+      "jobs": [],
+      "logged": [
+        "[Binance] API key validation: incorrect key"
+      ]
+    },
+    {
+      "venue": "Exchanges::Binance",
+      "name": "Binance",
+      "key_type": "trading",
+      "answer": "inconclusive",
+      "reply": {
+        "status": 500,
+        "body": ""
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "host": "api.binance.com",
+          "path": "/sapi/v1/account/apiRestrictions"
+        }
+      ],
+      "status": "pending_validation",
+      "jobs": [],
+      "logged": [
+        "[Binance] API key validation failed"
+      ]
+    },
+    {
+      "venue": "Exchanges::Binance",
+      "name": "Binance",
+      "key_type": "trading",
+      "answer": "permission",
+      "reply": {
+        "status": 200,
+        "body": "{\"ipRestrict\":false,\"enableFixApiTrade\":false,\"enableFixReadOnly\":false,\"enableFutures\":false,\"enableInternalTransfer\":false,\"enableMargin\":false,\"enablePortfolioMarginTrading\":false,\"enableReading\":true,\"enableSpotAndMarginTrading\":true,\"enableVanillaOptions\":false,\"enableWithdrawals\":false,\"permitsUniversalTransfer\":false}"
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "host": "api.binance.com",
+          "path": "/sapi/v1/account/apiRestrictions"
+        }
+      ],
+      "status": "incorrect",
+      "jobs": [],
+      "logged": [
+        "[Binance] API key validation: incorrect key"
+      ]
+    },
+    {
+      "venue": "Exchanges::Binance",
+      "name": "Binance",
+      "key_type": "read_only",
+      "answer": "correct",
+      "reply": {
+        "status": 200,
+        "body": "{\"ipRestrict\":true,\"enableFixApiTrade\":false,\"enableFixReadOnly\":false,\"enableFutures\":false,\"enableInternalTransfer\":false,\"enableMargin\":false,\"enablePortfolioMarginTrading\":false,\"enableReading\":true,\"enableSpotAndMarginTrading\":true,\"enableVanillaOptions\":false,\"enableWithdrawals\":false,\"permitsUniversalTransfer\":false}"
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "host": "api.binance.com",
+          "path": "/sapi/v1/account/apiRestrictions"
+        }
+      ],
+      "status": "correct",
+      "jobs": [],
+      "logged": []
+    },
+    {
+      "venue": "Exchanges::Binance",
+      "name": "Binance",
+      "key_type": "read_only",
+      "answer": "rejected",
+      "reply": {
+        "status": 401,
+        "body": "{\"code\":-2015,\"msg\":\"Invalid API-key, IP, or permissions for action.\"}"
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "host": "api.binance.com",
+          "path": "/sapi/v1/account/apiRestrictions"
+        }
+      ],
+      "status": "incorrect",
+      "jobs": [],
+      "logged": [
+        "[Binance] API key validation: incorrect key"
+      ]
+    },
+    {
+      "venue": "Exchanges::Binance",
+      "name": "Binance",
+      "key_type": "read_only",
+      "answer": "inconclusive",
+      "reply": {
+        "status": 500,
+        "body": ""
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "host": "api.binance.com",
+          "path": "/sapi/v1/account/apiRestrictions"
+        }
+      ],
+      "status": "pending_validation",
+      "jobs": [],
+      "logged": [
+        "[Binance] API key validation failed"
+      ]
+    },
+    {
+      "venue": "Exchanges::Binance",
+      "name": "Binance",
+      "key_type": "read_only",
+      "answer": "permission",
+      "reply": {
+        "status": 200,
+        "body": "{\"ipRestrict\":false,\"enableFixApiTrade\":false,\"enableFixReadOnly\":false,\"enableFutures\":false,\"enableInternalTransfer\":false,\"enableMargin\":false,\"enablePortfolioMarginTrading\":false,\"enableReading\":true,\"enableSpotAndMarginTrading\":true,\"enableVanillaOptions\":false,\"enableWithdrawals\":false,\"permitsUniversalTransfer\":false}"
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "host": "api.binance.com",
+          "path": "/sapi/v1/account/apiRestrictions"
+        }
+      ],
+      "status": "correct",
+      "jobs": [],
+      "logged": []
+    },
+    {
+      "venue": "Exchanges::Binance",
+      "name": "Binance",
+      "key_type": "withdrawal",
+      "answer": "correct",
+      "reply": {
+        "status": 200,
+        "body": "{\"ipRestrict\":true,\"enableFixApiTrade\":false,\"enableFixReadOnly\":false,\"enableFutures\":false,\"enableInternalTransfer\":false,\"enableMargin\":false,\"enablePortfolioMarginTrading\":false,\"enableReading\":true,\"enableSpotAndMarginTrading\":false,\"enableVanillaOptions\":false,\"enableWithdrawals\":true,\"permitsUniversalTransfer\":false}"
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "host": "api.binance.com",
+          "path": "/sapi/v1/account/apiRestrictions"
+        }
+      ],
+      "status": "correct",
+      "jobs": [],
+      "logged": []
+    },
+    {
+      "venue": "Exchanges::Binance",
+      "name": "Binance",
+      "key_type": "withdrawal",
+      "answer": "rejected",
+      "reply": {
+        "status": 401,
+        "body": "{\"code\":-2015,\"msg\":\"Invalid API-key, IP, or permissions for action.\"}"
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "host": "api.binance.com",
+          "path": "/sapi/v1/account/apiRestrictions"
+        }
+      ],
+      "status": "incorrect",
+      "jobs": [],
+      "logged": [
+        "[Binance] API key validation: incorrect key"
+      ]
+    },
+    {
+      "venue": "Exchanges::Binance",
+      "name": "Binance",
+      "key_type": "withdrawal",
+      "answer": "inconclusive",
+      "reply": {
+        "status": 500,
+        "body": ""
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "host": "api.binance.com",
+          "path": "/sapi/v1/account/apiRestrictions"
+        }
+      ],
+      "status": "pending_validation",
+      "jobs": [],
+      "logged": [
+        "[Binance] API key validation failed"
+      ]
+    },
+    {
+      "venue": "Exchanges::Binance",
+      "name": "Binance",
+      "key_type": "withdrawal",
+      "answer": "permission",
+      "reply": {
+        "status": 200,
+        "body": "{\"ipRestrict\":false,\"enableFixApiTrade\":false,\"enableFixReadOnly\":false,\"enableFutures\":false,\"enableInternalTransfer\":false,\"enableMargin\":false,\"enablePortfolioMarginTrading\":false,\"enableReading\":true,\"enableSpotAndMarginTrading\":false,\"enableVanillaOptions\":false,\"enableWithdrawals\":true,\"permitsUniversalTransfer\":false}"
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "host": "api.binance.com",
+          "path": "/sapi/v1/account/apiRestrictions"
+        }
+      ],
+      "status": "incorrect",
+      "jobs": [],
+      "logged": [
+        "[Binance] API key validation: incorrect key"
+      ]
+    },
+    {
+      "venue": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "key_type": "trading",
+      "answer": "correct",
+      "reply": {
+        "status": 200,
+        "body": "{\"code\":\"200000\",\"data\":{\"cancelledOrderIds\":[]}}"
+      },
+      "requests": [
+        {
+          "method": "DELETE",
+          "host": "api.kucoin.com",
+          "path": "/api/v1/orders/000000000000000000000000"
+        }
+      ],
+      "status": "correct",
+      "jobs": [
+        "AccountBalance::SyncJob"
+      ],
+      "logged": []
+    },
+    {
+      "venue": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "key_type": "trading",
+      "answer": "rejected",
+      "reply": {
+        "status": 401,
+        "body": "{\"code\":\"400003\",\"msg\":\"KC-API-KEY not exists\"}"
+      },
+      "requests": [
+        {
+          "method": "DELETE",
+          "host": "api.kucoin.com",
+          "path": "/api/v1/orders/000000000000000000000000"
+        }
+      ],
+      "status": "incorrect",
+      "jobs": [],
+      "logged": [
+        "[KuCoin] API key validation: incorrect key"
+      ]
+    },
+    {
+      "venue": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "key_type": "trading",
+      "answer": "inconclusive",
+      "reply": {
+        "status": 429,
+        "body": "{\"code\":\"429000\",\"msg\":\"Too Many Requests\"}"
+      },
+      "requests": [
+        {
+          "method": "DELETE",
+          "host": "api.kucoin.com",
+          "path": "/api/v1/orders/000000000000000000000000"
+        }
+      ],
+      "status": "pending_validation",
+      "jobs": [],
+      "logged": [
+        "[KuCoin] API key validation failed"
+      ]
+    },
+    {
+      "venue": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "key_type": "read_only",
+      "answer": "correct",
+      "reply": {
+        "status": 200,
+        "body": "{\"code\":\"200000\",\"data\":[]}"
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "host": "api.kucoin.com",
+          "path": "/api/v1/accounts"
+        }
+      ],
+      "status": "correct",
+      "jobs": [],
+      "logged": []
+    },
+    {
+      "venue": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "key_type": "read_only",
+      "answer": "rejected",
+      "reply": {
+        "status": 401,
+        "body": "{\"code\":\"400003\",\"msg\":\"KC-API-KEY not exists\"}"
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "host": "api.kucoin.com",
+          "path": "/api/v1/accounts"
+        }
+      ],
+      "status": "incorrect",
+      "jobs": [],
+      "logged": [
+        "[KuCoin] API key validation: incorrect key"
+      ]
+    },
+    {
+      "venue": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "key_type": "read_only",
+      "answer": "inconclusive",
+      "reply": {
+        "status": 429,
+        "body": "{\"code\":\"429000\",\"msg\":\"Too Many Requests\"}"
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "host": "api.kucoin.com",
+          "path": "/api/v1/accounts"
+        }
+      ],
+      "status": "pending_validation",
+      "jobs": [],
+      "logged": [
+        "[KuCoin] API key validation failed"
+      ]
+    },
+    {
+      "venue": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "key_type": "withdrawal",
+      "answer": "correct",
+      "reply": {
+        "status": 200,
+        "body": "{\"code\":\"200000\",\"data\":[]}"
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "host": "api.kucoin.com",
+          "path": "/api/v1/accounts"
+        }
+      ],
+      "status": "correct",
+      "jobs": [],
+      "logged": []
+    },
+    {
+      "venue": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "key_type": "withdrawal",
+      "answer": "rejected",
+      "reply": {
+        "status": 401,
+        "body": "{\"code\":\"400003\",\"msg\":\"KC-API-KEY not exists\"}"
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "host": "api.kucoin.com",
+          "path": "/api/v1/accounts"
+        }
+      ],
+      "status": "incorrect",
+      "jobs": [],
+      "logged": [
+        "[KuCoin] API key validation: incorrect key"
+      ]
+    },
+    {
+      "venue": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "key_type": "withdrawal",
+      "answer": "inconclusive",
+      "reply": {
+        "status": 429,
+        "body": "{\"code\":\"429000\",\"msg\":\"Too Many Requests\"}"
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "host": "api.kucoin.com",
+          "path": "/api/v1/accounts"
+        }
+      ],
+      "status": "pending_validation",
+      "jobs": [],
+      "logged": [
+        "[KuCoin] API key validation failed"
+      ]
+    }
+  ]
+}

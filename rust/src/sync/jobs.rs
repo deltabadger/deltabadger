@@ -47,8 +47,18 @@ pub trait Connect {
     fn kucoin_transport(&self, _credentials: &Credentials, _proxy: Option<&str>) -> ReqwestTransport {
         ReqwestTransport::refused("KuCoin is not connected here")
     }
+    /// Where the validator sends a Kraken, Binance or KuCoin key's check (`key_check`); by default nowhere.
+    fn key_check_base(&self, _exchange_type: &str) -> Option<String> { None }
 }
 impl Connect for LiveFactory {
+    fn key_check_base(&self, exchange_type: &str) -> Option<String> {
+        match exchange_type {
+            "Exchanges::Kraken" => Some(crate::venue::kraken::URL.into()),
+            "Exchanges::Binance" => Some(crate::venue::binance::URL.into()),
+            crate::venue::kucoin::KUCOIN => Some(crate::venue::kucoin::URL.into()),
+            _ => None,
+        }
+    }
     fn ecb(&self) -> Option<crate::tracker::fx::Source> { Some(crate::tracker::fx::Source::Live(crate::tracker::fx::Plain::default())) }
     type T = ReqwestTransport;
     fn connect(&self, credentials: &Credentials) -> AlpacaVenue<ReqwestTransport> { self.alpaca(Some(credentials.clone()), Vec::new()) }
@@ -267,13 +277,32 @@ impl<C:Connect> Job for Validator<C>{
         let (credentials,version,values)=match cx.db.run(move|c,cipher|super::validation_material(c,cipher,id).map_err(|e|e.0)).await{Ok(v)=>v,Err(e)=>return crate::engine::model::Produced::new(Outcome::Failed(e),None)};
         let handle=crate::web::settings::validator::ValidationHandle::stored(credentials,version);
         let before_result=|value|crate::engine::model::Produced::new(value,Some(handle.producer().clone()));
-        let exchange=match cx.db.run(move|c,_|c.query_row("SELECT e.type FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE k.id=?1",[id],|r|r.get::<_,String>(0)).map_err(|_|"cannot read credential exchange".into())).await{Ok(e)=>e,Err(e)=>return before_result(Outcome::Failed(e))};
-        if exchange!=ALPACA{return before_result(Outcome::Failed("credential validation unavailable for this exchange".into()))}
+        let (exchange,name)=match cx.db.run(move|c,_|c.query_row("SELECT e.type,e.name FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE k.id=?1",[id],|r|Ok((r.get::<_,String>(0)?,r.get::<_,Option<String>>(1)?.unwrap_or_default()))).map_err(|_|"cannot read credential exchange".into())).await{Ok(e)=>e,Err(e)=>return before_result(Outcome::Failed(e))};
+        let checked=crate::web::settings::validator::key_check_venue(&exchange);
+        if exchange!=ALPACA&&checked.is_none(){return before_result(Outcome::Failed("credential validation unavailable for this exchange".into()))}
         let kind=match cx.db.run(move|c,_|c.query_row("SELECT key_type FROM api_keys WHERE id=?1",[id],|r|r.get::<_,i64>(0)).map_err(|_|"cannot read credential capability".into())).await{Ok(k)=>k,Err(e)=>return before_result(Outcome::Failed(e))};
-        let venue=self.venues.connect(handle.credentials());
-        let result=match handle.check(&venue.urls().trading,kind).await{Ok(v)=>v,Err(_)=>return before_result(Outcome::Failed("credential validation unavailable".into()))};
+        // ApiKey#get_validity: Alpaca's account read, or the venue's own key check through its proxy (ExchangeProxy.for).
+        let result=if let Some(proxy)=checked {
+            let egress=match self.venues.key_check_base(&exchange) {
+                None=>Err(format!("{name} is not connected here")),
+                Some(base)=>match cx.db.run(move|c,cipher|Ok(crate::venue::live::egress(c,cipher,&|k|std::env::var(k).ok(),proxy,&crate::venue::http::client()))).await{
+                    Ok(egress)=>egress.map(|(client,_)|(client,base)),Err(e)=>return before_result(Outcome::Failed(e)),
+                },
+            };
+            match egress {
+                Ok((client,base))=>handle.check_via(&exchange,&base,Ok(client),kind).await,
+                Err(why)=>handle.check_via(&exchange,"",Err(why),kind).await,
+            }
+        } else {
+            let venue=self.venues.connect(handle.credentials());
+            match handle.check(&venue.urls().trading,kind).await{Ok(v)=>v,Err(_)=>return before_result(Outcome::Failed("credential validation unavailable".into()))}
+        };
         use crate::web::settings::validator::Validity;
-        let status=result.map(|result|match result{Validity::Correct=>(1,None),Validity::Incorrect=>(2,Some("incorrect key".to_string())),Validity::Permissions{..}=>(2,Some("incorrect key".to_string())),Validity::Pending(e)=>{let safe=crate::web::settings::keys::scrub(&e.log_text(),&values);crate::engine::log(&safe);(0,Some(safe))}});
+        // ApiKey#update_status!: a permission problem is incorrect; a failure leaves the key pending, its reason logged.
+        let status=result.map(|result|match result{Validity::Correct=>(1,None),
+            Validity::Incorrect=>{crate::engine::log(&format!("[{name}] API key validation: incorrect key"));(2,Some("incorrect key".to_string()))},
+            Validity::Permissions{..}=>(2,Some("incorrect key".to_string())),
+            Validity::Pending(e)=>{let safe=crate::web::settings::keys::scrub(&e.log_text(),&values);crate::engine::log(&format!("[{name}] API key validation failed: {safe}"));(0,Some(safe))}});
         let origin=status.origin().clone();
         let Some(version)=origin.clone() else{return crate::engine::model::Produced::new(Outcome::NothingNew,None)};
         let error=status.value.1.clone();

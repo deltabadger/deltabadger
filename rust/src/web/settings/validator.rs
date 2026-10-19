@@ -25,20 +25,28 @@ impl ValidationHandle {
     /// `check` on the venue the key belongs to: Alpaca's account read, or Kraken's, Binance's and KuCoin's own key checks
     /// (`key_check`), through the venue's proxy when one is configured (ExchangeProxy.for).
     pub(crate) async fn check_on(&self,app:&crate::web::App,venue:&str,kind:i64)->Result<crate::engine::model::Produced<Validity>,WebError> {
-        let (name,base)=match venue {
-            "Exchanges::Kraken"=>("kraken",app.venue_key_urls.0.clone()),
-            "Exchanges::Binance"=>("binance",app.venue_key_urls.1.clone()),
-            crate::venue::kucoin::KUCOIN=>("kucoin",app.venue_key_urls.2.clone()),
+        let base=match venue {
+            "Exchanges::Kraken"=>app.venue_key_urls.0.clone(),
+            "Exchanges::Binance"=>app.venue_key_urls.1.clone(),
+            crate::venue::kucoin::KUCOIN=>app.venue_key_urls.2.clone(),
             _=>return self.check(&app.alpaca_trading_url(&self.credentials),kind).await,
         };
-        let cipher=app.cipher.clone();
+        let (cipher,name)=(app.cipher.clone(),key_check_venue(venue).unwrap_or_default());
         let egress=app.db(move|c|Ok(crate::venue::live::egress(c,&cipher,&|k|std::env::var(k).ok(),name,&crate::venue::http::client()))).await?;
+        Ok(self.check_via(venue,&base,egress.map(|(client,_)|client),kind).await)
+    }
+    /// The key check of `venue` (a `key_check_venue`) sent to `base` through `egress` (the venue's proxy client, or why there is none).
+    pub(crate) async fn check_via(&self,venue:&str,base:&str,egress:Result<reqwest::Client,String>,kind:i64)->crate::engine::model::Produced<Validity> {
         let value=match egress {
-            Ok((client,_))=>super::key_check::check(venue,&base,client,&self.credentials,kind).await,
+            Ok(client)=>super::key_check::check(venue,base,client,&self.credentials,kind).await,
             Err(why)=>Validity::Pending(Diagnostic{text:why,status:None,body:String::new()}),
         };
-        Ok(crate::engine::model::Produced::new(value,Some(self.producer.clone())))
+        crate::engine::model::Produced::new(value,Some(self.producer.clone()))
     }
+}
+/// The venues `key_check` checks a key on, as their ExchangeProxy names.
+pub(crate) fn key_check_venue(venue:&str)->Option<&'static str>{
+    match venue { "Exchanges::Kraken"=>Some("kraken"), "Exchanges::Binance"=>Some("binance"), crate::venue::kucoin::KUCOIN=>Some("kucoin"), _=>None }
 }
 pub struct Diagnostic { pub text: String, pub status: Option<u16>, pub body: String }
 impl Diagnostic {

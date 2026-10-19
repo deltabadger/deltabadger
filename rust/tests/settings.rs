@@ -3822,3 +3822,51 @@ async fn alpaca_unreadable_200_leaves_the_key_pending(){
         assert!(matches!(validity,deltabadger::web::settings::validator::Validity::Pending(_)),"{body:?}");
     }
 }
+
+/// The validator job on a key its own venue checks (Kraken, Binance, KuCoin): every venue as LocalAlpaca's server.
+struct LocalVenues(String);
+impl deltabadger::sync::jobs::Connect for LocalVenues {
+    type T=deltabadger::venue::http::ReqwestTransport;
+    fn connect(&self,c:&deltabadger::crypto::Credentials)->deltabadger::venue::alpaca::AlpacaVenue<Self::T> { LocalAlpaca(self.0.clone()).connect(c) }
+    fn key_check_base(&self,_:&str)->Option<String> { Some(self.0.clone()) }
+}
+/// ApiKeyValidatorJob as Rails performs it on a pending key (validator_effects.json, script/rust/record_validator_effects.rb):
+/// the venue's own check, the status it leaves, and the balance sync a correct trading key enqueues.
+#[tokio::test(flavor="current_thread")]
+async fn validator_job_matches_rails_on_every_checked_venue(){
+    use deltabadger::{jobs::{Job,Cx,Db,Outcome},sync::jobs::{Validator,BALANCE_SYNC}};
+    let root=std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+    let recorded:serde_json::Value=serde_json::from_str(&std::fs::read_to_string(root.join("tests/fixtures/validator_effects.json")).unwrap()).unwrap();
+    for (path,hash) in recorded["sources"].as_object().unwrap(){
+        use sha2::{Digest,Sha256};
+        assert_eq!(&serde_json::json!(format!("{:x}",Sha256::digest(std::fs::read(root.parent().unwrap().join(path)).unwrap()))),hash,"{path}: re-record validator_effects.json (script/rust/repin)");
+    }
+    let cases=recorded["cases"].as_array().unwrap();
+    assert_eq!(cases.len(),33,"a recorded case was added or dropped");
+    for case in cases {
+        let text=|name:&str|case[name].as_str().unwrap().to_string();
+        let label=format!("{} {} {}",text("name"),text("key_type"),text("answer"));
+        let server=MockServer::start().await;
+        let request=&case["requests"][0];
+        let reply=ResponseTemplate::new(case["reply"]["status"].as_u64().unwrap() as u16).set_body_string(text_or_empty(&case["reply"]["body"])).insert_header("Content-Type","application/json");
+        Mock::given(method(request["method"].as_str().unwrap())).and(path(request["path"].as_str().unwrap())).respond_with(reply).expect(1).mount(&server).await;
+        let h=Harness::new(server.uri()).await;
+        let kind=match case["key_type"].as_str().unwrap(){"trading"=>0,"withdrawal"=>1,_=>2};
+        let kucoin=text("venue")=="Exchanges::Kucoin";
+        h.c.execute("UPDATE exchanges SET type=?1,name=?2 WHERE id=?3",(text("venue"),text("name"),h.seed.exchange_id)).unwrap();
+        h.c.execute("UPDATE api_keys SET status=0,key_type=?1,key=?2,secret=?3,passphrase=?4 WHERE id=?5",(kind,h.app.cipher.encrypt("test-key"),h.app.cipher.encrypt("dGVzdC1zZWNyZXQ="),kucoin.then(||h.app.cipher.encrypt("test-passphrase")),h.seed.api_key_id)).unwrap();
+        let notify=Arc::new(tokio::sync::Notify::new());h.app.attach_engine(notify.clone());
+        let wakers=h.app.job_wakers().unwrap();let before=wakers.pending().len();
+        let cx=Cx{db:Db::new(rusqlite::Connection::open(h._dir.path().join("production.sqlite3")).unwrap(),h.app.cipher.clone()),clock:h.clock.as_ref(),wakers:wakers.clone()};
+        let outcome=Validator{venues:LocalVenues(server.uri()),key_id:h.seed.api_key_id}.run(cx,vec![]).await;
+        let status=h.c.query_row("SELECT status FROM api_keys WHERE id=?1",[h.seed.api_key_id],|r|r.get::<_,i64>(0)).unwrap();
+        let expected=match case["status"].as_str().unwrap(){"pending_validation"=>0,"correct"=>1,"incorrect"=>2,other=>panic!("{label}: status {other}")};
+        assert_eq!(status,expected,"{label}: the key's status after the job");
+        assert_eq!(outcome==Outcome::Done,expected==1,"{label}: {outcome:?}");
+        let balance=wakers.pending()[before..].iter().any(|(job,scope)|job==BALANCE_SYNC&&scope.as_deref()==Some(&h.seed.api_key_id.to_string()));
+        assert_eq!(balance,case["jobs"].as_array().unwrap().iter().any(|job|job=="AccountBalance::SyncJob"),"{label}: the balance sync a correct trading key enqueues");
+        if expected==1 {assert!(tokio::time::timeout(std::time::Duration::from_millis(50),notify.notified()).await.is_ok(),"{label}: a key now correct wakes the engine, whose bots trade on it");}
+        server.verify().await;
+    }
+}
+fn text_or_empty(value:&serde_json::Value)->String{value.as_str().unwrap_or_default().to_string()}
