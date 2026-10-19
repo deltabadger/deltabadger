@@ -232,7 +232,14 @@ module Pages
       basket.('not_ported_reverse', 'reverse', {}, { 'columns' => { 'status' => 'stopped' } }, decided)
     end
 
-    raise "expected 247 bot action cases" unless cases.size == 247
+    # Plan CB T4: a save on a basket on each crypto venue whose history holds a settled swap (the engine reads its REBALANCE
+    # rows now, so the settings it saves are this build's).
+    %w[kraken binance kucoin].each do |venue|
+      add.call("venue_rebalance_history_#{venue}_rename", 'update', { 'label' => 'Rebalanced' }, { 'kind' => "#{venue}_basket", 'orders' => 'venue_rebalance_history' },
+               { 'wash_off' => true }.merge(venue == 'kucoin' ? { 'kucoin_bots' => true } : {}))
+    end
+
+    raise "expected 250 bot action cases" unless cases.size == 250
     names = cases.map { |entry| "actions_#{entry.first}".gsub(/[^a-zA-Z0-9_-]/, "_") }
     raise "action case names collide after filesystem conversion" unless names.uniq.size == names.size
     cases
@@ -283,8 +290,9 @@ module Pages
       scenario['extra_users'] = [user('email' => 'other@example.com', 'admin' => false)] if extra['foreign']
       scenario['venues'] = true if VENUE_KINDS.key?(spec['kind'])
       scenario['kraken_usdt'] = true if extra['kraken_usdt']
+      scenario['kucoin_bots'] = true if extra['kucoin_bots']
       [name, scenario]
-    end.tap { |grid| raise 'action case names collide' unless grid.size == 247 }
+    end.tap { |grid| raise 'action case names collide' unless grid.size == 250 }
   end
 end
 

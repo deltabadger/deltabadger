@@ -292,9 +292,13 @@ pub async fn value<V: crate::venue::Venue>(c: &rusqlite::Connection, venue: &V, 
             // `rescue ArgumentError; next`: a price that is no number is left out, not read as zero.
             Ok(raw) => Ok(raw.into_iter().map(|(code, v)| (code, crate::figures::dec::Dec::venue_number(&v)))
                 .filter(|(_, p)| !matches!(p, Err(crate::figures::num::NumError::NotANumber))).collect()),
-            Err(VenueError::Transient(m)) => return Ok(Err(ValueFail::Transient(m))),
+            // A transport failure raises out of Clients::Alpaca (`transport_raises`); honeymaker returns it as a Failure, which
+            // leaves the figures stale (index::priced and the tick's price reads apply the same rule).
+            Err(VenueError::Transient(m)) if venue.rules().transport_raises => return Ok(Err(ValueFail::Transient(m))),
+            Err(VenueError::Transient(m)) => Err(Failure::Failed(m)),
             Err(VenueError::Rejected(e) | VenueError::Unauthorized(e)) => Err(Failure::Failed(crate::ruby::to_sentence(&e))),
-            Err(VenueError::Ambiguous(m)) => Err(Failure::Failed(m)),
+            // An answer the venue's reader cannot read: Rails' dig_or_raise KeyError, which nothing on the way rescues.
+            Err(VenueError::Ambiguous(m)) => return Ok(Err(ValueFail::Raised(m))),
         }
     };
     let data = match live::live(c, &subject, &walked, &Prefetched(prices), at) {

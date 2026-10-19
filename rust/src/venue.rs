@@ -17,6 +17,12 @@ use crate::ruby::BigDec;
 use crate::sync::balances::Catalog;
 use chrono::{DateTime, Utc};
 
+/// Utilities::Hash.dig_or_raise for one key: an absent or null value is Rails' KeyError, "Key path <key> not found", which
+/// nothing on a price read rescues (`Ambiguous`, as the adapters' unreadable answers).
+pub(crate) fn dig_or_raise<'a>(v: &'a serde_json::Value, key: &str) -> Result<&'a serde_json::Value, VenueError> {
+    v.get(key).filter(|x| !x.is_null()).ok_or_else(|| VenueError::Ambiguous(format!("Key path {key} not found")))
+}
+
 /// What an intent records of the key a Kraken, Binance or KuCoin order is sent under (Alpaca's is `alpaca::placement_identity`):
 /// the host and a fingerprint of the public key id. Never the secret.
 pub fn key_identity(host: &str, credentials: &Credentials) -> serde_json::Value {

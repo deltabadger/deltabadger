@@ -135,6 +135,8 @@ pub(crate) fn private_form(r: &HttpRequest, key: &str) -> String {
 /// Rails' `.to_d` reads "garbage" as 0 and "NaN" as NaN.
 fn dec(v: &Value) -> Result<Option<BigDec>, VenueError> { crate::ruby::json_to_d(v).map_err(|_| unreadable()) }
 pub(crate) fn unreadable() -> VenueError { VenueError::Ambiguous(UNREADABLE.into()) }
+/// `#to_s` of a JSON scalar, as Ruby interpolates an `error` entry.
+fn ruby_to_s(v: &Value) -> String { v.as_str().map_or_else(|| v.to_string(), str::to_string) }
 
 /// `Ok(())` for a clean body; `Rejected` for a non-empty `error`; `Ambiguous` when `error` is missing or not an array, or a
 /// success body has no `result` (honeymaker 0.12.3: unreadable).
@@ -184,6 +186,23 @@ pub(crate) fn ticker_price(body: &Value, ticker: &Ticker, side: PriceSide) -> Re
     let p = dec(&t[key][0])?.unwrap_or_else(BigDec::zero);
     if p.is_zero() { return Err(VenueError::Rejected(vec![format!("Wrong {label} price for {}: {}", ticker.ticker, p.to_s_f())])); }
     Ok(p)
+}
+
+/// One Ticker entry's last price as Exchanges::Kraken#get_tickers_prices reads it: `parse_venue_number(dig_or_raise(data,
+/// 'c')[0])`. A missing or null `c` raises (unreadable); a `c[0]` that is no finite decimal (null, `[]`, "x", "Infinity")
+/// is Rails' rescued ArgumentError: None, the pair omitted.
+pub(crate) fn last_price(data: &Value) -> Result<Option<BigDec>, VenueError> {
+    let first = match super::dig_or_raise(data, "c")? {
+        Value::Array(c) => c.first().cloned().unwrap_or(Value::Null),
+        // String#[0]: its first character.
+        Value::String(c) => Value::String(c.chars().take(1).collect()),
+        // Hash#[0]: no such key.
+        Value::Object(_) => Value::Null,
+        _ => return Err(unreadable()),
+    };
+    // BigDecimal(value.to_s): the gem's JSON hands a number over as an Integer (exact) or a Float, whose to_s → BigDecimal
+    // keeps Float#to_d's digits (recorded: 1.2345678901234567 reads 1.234567890123457).
+    Ok(match &first { Value::String(_) | Value::Number(_) => crate::ruby::json_to_d(&first).ok().flatten(), _ => None })
 }
 
 /// Exchanges::Kraken#get_balances for one asset: balance − hold_trade under the gem's ASSET_MAP. Rails assigns per row, so
@@ -255,6 +274,32 @@ impl<T: Transport> KrakenVenue<T> {
     /// (Exchange#ambiguous_placement_error?). A non-2xx answer is Faraday's raise_error: the body (or its status) refused,
     /// except that on a placement only a 4xx is definitive. A 2xx that is not a readable JSON object is unreadable.
     async fn call(&self, r: &HttpRequest, placement: bool) -> Result<Value, VenueError> {
+        let body = self.fetch(r, placement).await?;
+        check(&body)?;
+        Ok(body)
+    }
+
+    /// `call` before the body's `error`/`result` check: what honeymaker returns, for a reader that inspects `error` itself.
+    async fn fetch(&self, r: &HttpRequest, placement: bool) -> Result<Value, VenueError> {
+        match http::decode_json(&self.answer(r, placement).await?) {
+            Ok(v) if v.is_object() => Ok(v),
+            Ok(_) | Err(DecodeError::NotJson | DecodeError::OutOfRange(_)) => Err(unreadable()),
+        }
+    }
+
+    /// `fetch` for a bulk price read: a 2xx body that is not JSON is honeymaker's Failure (its text), as
+    /// Exchanges::Kraken#get_tickers_prices returns it, never a raise.
+    async fn fetch_prices(&self, r: &HttpRequest) -> Result<Value, VenueError> {
+        let text = self.answer(r, false).await?;
+        match http::decode_json(&text) {
+            Ok(v) if v.is_object() => Ok(v),
+            Err(DecodeError::NotJson) => Err(VenueError::Rejected(vec![self.transport.redact_diagnostic(&text)])),
+            Ok(_) | Err(DecodeError::OutOfRange(_)) => Err(unreadable()),
+        }
+    }
+
+    /// One send as honeymaker's with_rescue reads it: the 2xx body's text, or the failure.
+    async fn answer(&self, r: &HttpRequest, placement: bool) -> Result<String, VenueError> {
         let redact = |m: String| self.transport.redact_diagnostic(&m);
         let resp = match self.transport.send(r).await {
             Ok(resp) => resp,
@@ -274,12 +319,7 @@ impl<T: Transport> KrakenVenue<T> {
             if !placement && resp.status == 401 { return Err(VenueError::Unauthorized(vec![message])); }
             return Err(if placement && !(400..500).contains(&resp.status) { VenueError::Ambiguous(message) } else { VenueError::Rejected(vec![message]) });
         }
-        let body = match http::decode_json(&resp.body) {
-            Ok(v) if v.is_object() => v,
-            Ok(_) | Err(DecodeError::NotJson | DecodeError::OutOfRange(_)) => return Err(unreadable()),
-        };
-        check(&body)?;
-        Ok(body)
+        Ok(resp.body)
     }
 }
 
@@ -372,6 +412,36 @@ impl<T: Transport> Venue for KrakenVenue<T> {
     where F: FnOnce() -> Result<crate::sync::balances::Catalog, VenueError> {
         let body = self.call(&self.private("/0/private/BalanceEx", &[]), false).await?;
         free_balance(&body, &ticker.quote_code)
+    }
+
+    /// Exchanges::Kraken#get_tickers_prices(symbols:): one bulk Ticker with no pair, kept to the wanted codes; then one
+    /// Ticker per wanted code the bulk did not return as a key (Kraken names some pairs its own way: XBTEUR comes back as
+    /// XXBTZEUR), keyed by the requested code. A returned key whose price is unreadable is left out, never retried. In the
+    /// fallback an `Unknown asset pair` skips that code; any other error, or an empty `result`, fails the whole read.
+    /// Rails caches the answer for a minute; this reads fresh (the 6b cache divergence). Each price is its decimal's
+    /// `to_s('F')`.
+    async fn tickers_prices(&self, symbols: &[String]) -> Result<Vec<(String, Value)>, VenueError> {
+        let body = self.fetch_prices(&self.public("/0/public/Ticker", vec![])).await?;
+        let errors = super::dig_or_raise(&body, "error")?.as_array().ok_or_else(unreadable)?;
+        if !errors.is_empty() { return Err(VenueError::Rejected(errors.iter().map(ruby_to_s).collect())); }
+        let returned = body["result"].as_object().ok_or_else(unreadable)?;
+        let mut out = vec![];
+        for (code, data) in returned {
+            if !symbols.contains(code) { continue; }
+            if let Some(p) = last_price(data)? { out.push((code.clone(), Value::String(p.to_s_f()))); }
+        }
+        for code in symbols.iter().filter(|s| !returned.contains_key(*s)) {
+            let body = self.fetch_prices(&self.public("/0/public/Ticker", vec![("pair", code.clone())])).await?;
+            let errors = super::dig_or_raise(&body, "error")?.as_array().ok_or_else(unreadable)?;
+            if errors.iter().any(|e| ruby_to_s(e).contains("Unknown asset pair")) { continue; }
+            if !errors.is_empty() { return Err(VenueError::Rejected(errors.iter().map(ruby_to_s).collect())); }
+            let entries = super::dig_or_raise(&body, "result")?.as_object().ok_or_else(unreadable)?;
+            let Some(data) = entries.values().next() else {
+                return Err(VenueError::Rejected(vec![format!("Failed to get Kraken tickers prices (ticker: {code})")]));
+            };
+            if let Some(p) = last_price(data)? { out.push((code.clone(), Value::String(p.to_s_f()))); }
+        }
+        Ok(out)
     }
 
     /// #cancel_order through Clients::Kraken#cancel_order: CancelOrder by txid; the body's `error` is the failure.
