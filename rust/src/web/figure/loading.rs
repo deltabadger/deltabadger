@@ -281,7 +281,10 @@ impl Transport for Wire {
 pub fn symbols(c:&Connection,user:i64)->Result<Vec<String>,crate::figures::FiguresError>{
     let mut names=std::collections::BTreeSet::new();
     for (id,_) in db::account_bots(c,user)? {
-        let kind:String=c.query_row("SELECT type FROM bots WHERE id=?1",[id],|r|r.get(0))?;
+        // The names go to Alpaca's market data, the only venue the reader prices: another venue's (KuCoin's `BTC-USDC`)
+        // is an invalid symbol there, and one invalid symbol fails the whole request.
+        let (kind,venue):(String,Option<String>)=c.query_row("SELECT b.type,e.type FROM bots b LEFT JOIN exchanges e ON e.id=b.exchange_id WHERE b.id=?1",[id],|r|Ok((r.get(0)?,r.get(1)?)))?;
+        if venue.as_deref()!=Some("Exchanges::Alpaca") { continue; }
         if matches!(kind.as_str(),"Bots::DcaSingleAsset"|"Bots::Signal"){
             for ticker in crate::figures::pair::load(c,id)?.tickers{names.insert(ticker.ticker);}
             continue;
