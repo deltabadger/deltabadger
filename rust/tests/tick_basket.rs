@@ -866,7 +866,7 @@ async fn a_pause_still_runs_the_funds_check() {
 /// exited, one unpriced member failing the whole tick. Every scenario's bot is one the engine admits.
 #[cfg(unix)]
 #[tokio::test(flavor = "current_thread")]
-async fn kraken_and_binance_baskets_decide_as_rails() {
+async fn kraken_binance_and_kucoin_baskets_decide_as_rails() {
     use common::decisions::{built_grid, copy_dir, r5_cleanup_expected, rails};
     use deltabadger::engine::eligibility;
     let rails_root = tempfile::tempdir().unwrap();
@@ -874,7 +874,7 @@ async fn kraken_and_binance_baskets_decide_as_rails() {
     built_grid("grid-venue-basket", rails_root.path());
     let mut dirs: Vec<std::path::PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
     dirs.sort();
-    assert_eq!(dirs.len(), 29, "the venue basket grid has {} scenarios", dirs.len());
+    assert_eq!(dirs.len(), 44, "the venue basket grid has {} scenarios", dirs.len());
     for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
     rails(&["record", rails_root.path().to_str().unwrap()]);
     let mut failures = vec![];
@@ -917,6 +917,9 @@ async fn kraken_and_binance_baskets_decide_as_rails() {
             "tiers-price_missing-middle" => sent.is_empty(),
             "w70-untradable-one" => pairs.len() == 1,
             "tiers-unavailable-one" => pairs.len() == 2,
+            // Plan CB T5: a parked member is bought at its cap weight only when every member has a cap.
+            "market_cap-first_tick" | "market_cap-parked" => pairs.len() == 3,
+            "market_cap-missing_cap" | "market_cap-zero_cap" => pairs.len() == 2,
             _ => true,
         };
         if !pinned { failures.push(format!("{name}: Rails no longer shows what this cell is for: {rails_out}")); }

@@ -386,7 +386,7 @@ async fn a_stock_only_index_ignores_stale_unrelated_crypto_feeds() {
 }
 
 /// A crypto venue's index bot sizes from the index rows and the crypto market caps, so it waits on them as an Alpaca one
-/// does; a basket bot on that venue does not.
+/// does; a basket bot on that venue does not, unless it is weighted by market cap (plan CB T5): then it waits on the caps only.
 #[test]
 fn a_crypto_venue_index_bot_waits_on_stale_indices_and_market_caps() {
     for venue in ["Kraken", "Binance", "Kucoin"] { crypto_venue_index_staleness(venue); }
@@ -400,12 +400,15 @@ fn crypto_venue_index_staleness(venue: &str) {
     seed::insert_index(c, "layer-1", &["bitcoin"], &json!({}));
     let index = seed::index_bot(c, &s, "layer-1", 2, 0.0, false);
     let basket = seed::insert_bot(c, &s, &seed::BotSpec::weekly(60.0, "2026-09-01 14:00:00"));
+    let market_cap = seed::insert_bot(c, &s, &seed::BotSpec::weekly(60.0, "2026-09-01 14:00:00").with("weighting", json!("market_cap")));
     let now = at(T0);
     for (job, label) in [(deltabadger::jobs::reference::INDICES, "Indices"), (deltabadger::jobs::reference::ASSETS, "Crypto assets")] {
         seed::fresh_stock_jobs(c, now);
         deltabadger::jobs::state::record_success(c, job, None, now - Duration::days(7)).unwrap();
         let stale = staleness::stale(c, &model::load_bot(c, index).unwrap(), now).unwrap().expect(label);
         assert_eq!(stale.source, label, "{venue}");
+        let weighted = staleness::stale(c, &model::load_bot(c, market_cap).unwrap(), now).unwrap();
+        assert_eq!(weighted.map(|s| s.source), (label == "Crypto assets").then_some(label), "{venue} {label}: a market-cap basket");
         // The door also trusts Rails' own refresh stamp: it refuses once that is as old.
         let old = (now - Duration::days(7)).format("%Y-%m-%d %H:%M:%S").to_string();
         c.execute(if label == "Indices" { "UPDATE indices SET updated_at = ?1" } else { "UPDATE assets SET updated_at = ?1 WHERE category = 'Cryptocurrency'" }, [&old]).unwrap();

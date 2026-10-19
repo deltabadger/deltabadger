@@ -196,3 +196,73 @@ fn every_recorded_rails_amount_cap_is_reproduced() {
         assert_eq!(amount::quote_amount_limit_reached(&o.primary, &bot).unwrap(), case["reached"] == true, "case {i}: {case}");
     }
 }
+
+/// Plan CB T5: Bots::DcaMultiAsset#derive_composition with market-cap weights, against Rails' recorded derivations
+/// (script/rust/record_vectors.rb, MARKET_CAP_WEIGHTS_ONLY): caps near 2^53, 1-100 members whose settings order is not their
+/// id order (the caps are summed in `pluck` order), a NULL or 0 cap keeping every slider, a member without a tradable ticker
+/// left out before the caps are read, and a parked (0 %) member still weighted by its cap.
+#[test]
+fn every_recorded_rails_market_cap_derivation_is_reproduced() {
+    let cases = common::vectors()["market_cap_weights"].as_array().unwrap().clone();
+    assert_eq!(cases.len(), 407);
+    let pair = json!({ "base_decimals": 8, "quote_decimals": 2, "price_decimals": 2, "minimum_base_size": "0.0001", "minimum_quote_size": "1" });
+    for (i, case) in cases.iter().enumerate() {
+        let (_d, o, s) = common::install_alpaca();
+        o.primary.execute("UPDATE exchanges SET name = 'Alpaca'", []).unwrap();
+        let mut ids = HashMap::new();
+        for member in case["members"].as_array().unwrap() {
+            let sym = member[0].as_str().unwrap();
+            let (asset, ticker) = seed::add_alpaca_crypto(&o.primary, &s, sym, &pair);
+            o.primary.execute("UPDATE assets SET market_cap = ?1 WHERE id = ?2", rusqlite::params![member[1].as_i64(), asset]).unwrap();
+            if member[2] == false { o.primary.execute("UPDATE tickers SET trading_enabled = 0 WHERE id = ?1", [ticker]).unwrap(); }
+            ids.insert(sym.to_string(), asset);
+        }
+        let allocations: serde_json::Map<String, Value> = case["allocations"].as_object().unwrap().iter().map(|(sym, w)| (ids[sym].to_string(), w.clone())).collect();
+        let id = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00").with("weighting", json!("market_cap")).with("allocations", Value::Object(allocations)));
+        let got = match basket::derive_composition(&o.primary, &model::load_bot(&o.primary, id).unwrap()).unwrap() {
+            Ok(members) => json!({ "weights": members.iter().map(|(a, _, w)| json!([symbol_of(&ids, *a), format!("{:016x}", w.to_bits())])).collect::<Vec<_>>() }),
+            Err(failure) => json!({ "failure": failure }),
+        };
+        let want = json!({ "weights": case["weights"], "failure": case["failure"] });
+        let want: serde_json::Map<String, Value> = want.as_object().unwrap().iter().filter(|(_, v)| !v.is_null()).map(|(k, v)| (k.clone(), v.clone())).collect();
+        assert_eq!(got, Value::Object(want), "case {i}: {case}");
+    }
+}
+
+/// Plan CB T5: the settings writer (web::bot::composition::reconcile, the after-save callback) and the tick
+/// (basket::refresh_composition) derive one market-cap composition, so a save and the next tick write identical rows.
+#[test]
+fn a_market_cap_save_and_the_next_tick_write_identical_rows() {
+    use deltabadger::web::bot::{composition, Bot as WebBot, For};
+    let rows = |c: &rusqlite::Connection| -> String {
+        c.query_row("SELECT json_group_array(json_array(asset_id, ticker_id, target_allocation, in_index, entered_at, exited_at, updated_at)) \
+                     FROM (SELECT * FROM bot_index_assets ORDER BY id)", [], |r| r.get(0)).unwrap()
+    };
+    for caps in [[Some(1_300_000_000_000i64), Some(400_000_000_000), Some(80_000_000_000)], [Some(1_300_000_000_000), None, Some(80_000_000_000)]] {
+        let mut out = vec![];
+        for web in [true, false] {
+            let (_d, o, s) = common::install_alpaca();
+            let (eth, sol) = seed::add_eth_sol(&o.primary, &s);
+            for (asset, cap) in [s.btc, eth, sol].into_iter().zip(caps) {
+                o.primary.execute("UPDATE assets SET market_cap = ?1 WHERE id = ?2", rusqlite::params![cap, asset]).unwrap();
+            }
+            let id = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00").with("weighting", json!("market_cap"))
+                .weights(&[(sol, 0.0), (s.btc, 0.6), (eth, 0.4)]));
+            let now = at("2026-09-01T10:00:00Z");
+            if web {
+                let (user,): (i64,) = o.primary.query_row("SELECT user_id FROM bots WHERE id = ?1", [id], |r| Ok((r.get(0)?,))).unwrap();
+                let bot = WebBot::find(&o.primary, user, id, For::Settings, "en").unwrap().unwrap();
+                composition::reconcile(&o.primary, &bot, now).unwrap();
+            } else {
+                basket::refresh_composition(&o.primary, &model::load_bot(&o.primary, id).unwrap(), now).unwrap().unwrap();
+            }
+            out.push(rows(&o.primary));
+        }
+        assert_eq!(out[0], out[1], "caps {caps:?}");
+        // Every cap known: the caps decide, the parked SOL included; one missing: the sliders stay, SOL at 0.
+        let targets: Vec<f64> = serde_json::from_str::<Vec<Value>>(&out[0]).unwrap().iter().map(|row| row[2].as_f64().unwrap()).collect();
+        // Rows in insertion order: SOL, BTC, ETH (the settings order).
+        let want = if caps[1].is_some() { [0.044944, 0.730337, 0.224719] } else { [0.0, 0.6, 0.4] };
+        assert_eq!(targets, want, "{}", out[0]);
+    }
+}

@@ -980,7 +980,7 @@ fn equal_up_to_tie_order(rails_out: &serde_json::Value, rust_out: &serde_json::V
 
 #[tokio::test(flavor = "current_thread")]
 async fn rails_and_rust_decide_identically_across_the_basket_grid() {
-    let (_copies, outputs) = grid_outputs("grid-basket", 79).await;
+    let (_copies, outputs) = grid_outputs("grid-basket", 84).await;
     let reference = |name: &str| outputs.iter().find(|(n, ..)| *n == format!("{name}-reference")).map(|(_, d, r, _)| (d.as_path(), r));
     let mut failures = vec![];
     for (name, dir, rails_out, rust_out) in &outputs {
@@ -1034,6 +1034,9 @@ async fn rails_and_rust_decide_identically_across_the_basket_grid() {
         if name == "basket-recover-tiers-k2-network" { assert_eq!(sent, 5, "{name}: two in the first tick, three at the next checkpoint"); }
         if name == "basket-exited-holds-tiers" { assert_eq!(sent, 2, "{name}: the exited SOL is never bought"); }
         if name == "basket-exited-intent-tiers-k3-landed" { assert_eq!(sent, 5, "{name}: three legs, then BTC and ETH only"); }
+        // Plan CB T5: a parked member is bought at its cap weight only when every member has a cap.
+        if matches!(name.as_str(), "basket-market_cap-parked" | "basket-market_cap-first_tick") { assert_eq!(sent, 3, "{name}: every member at its cap weight"); }
+        if matches!(name.as_str(), "basket-market_cap-missing_cap" | "basket-market_cap-zero_cap") { assert_eq!(sent, 2, "{name}: the sliders stay"); }
     }
 }
 

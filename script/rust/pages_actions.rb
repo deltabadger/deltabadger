@@ -104,6 +104,12 @@ module Pages
       'exchange_ibkr'=>{'exchange_id'=>'2'},'trigger'=>{'price_limited'=>'1','price_limit_mode'=>'above','price_limit'=>'100'},
       'unknown'=>{'status'=>'3','user_id'=>'100','direction'=>'selling','nonsense'=>'foo'}
     }.each { |n,f| add.call("update_#{n}",'update',f,{'kind'=>'basket'}) }
+    # Market-cap weights (plan CB T5): switched on over capped coins (the save derives the member rows from the caps), off again
+    # (the sliders are the rows), on over stocks with no cap (the sliders are kept), and on over a KuCoin basket.
+    add.call('market_cap_on', 'update', { 'weighting' => 'market_cap' }, { 'kind' => 'coins' })
+    add.call('market_cap_off', 'update', { 'weighting' => 'manual' }, { 'kind' => 'coins', 'settings' => { 'weighting' => 'market_cap' } })
+    add.call('market_cap_uncapped', 'update', { 'weighting' => 'market_cap' }, { 'kind' => 'basket' })
+    add.call('market_cap_kucoin', 'update', { 'weighting' => 'market_cap' }, { 'kind' => 'kucoin_basket' }, { 'kucoin_bots' => true })
     # A structural edit, held to the stored text of the whole bot and member rows.
     add.call('update_add', 'update', { 'add_asset_id' => '4' }, { 'kind' => 'basket' }, { 'raw_rows' => { 'bots' => '*', 'bot_index_assets' => '*' } })
     add.call('index_unchanged_slider','update',{'num_coins'=>'5','num_coins_rendered'=>'5','num_coins_ceiling'=>'5'},{'kind'=>'index'})
@@ -239,7 +245,7 @@ module Pages
                { 'wash_off' => true }.merge(venue == 'kucoin' ? { 'kucoin_bots' => true } : {}))
     end
 
-    raise "expected 250 bot action cases" unless cases.size == 250
+    raise "expected 254 bot action cases" unless cases.size == 254
     names = cases.map { |entry| "actions_#{entry.first}".gsub(/[^a-zA-Z0-9_-]/, "_") }
     raise "action case names collide after filesystem conversion" unless names.uniq.size == names.size
     cases
@@ -292,7 +298,7 @@ module Pages
       scenario['kraken_usdt'] = true if extra['kraken_usdt']
       scenario['kucoin_bots'] = true if extra['kucoin_bots']
       [name, scenario]
-    end.tap { |grid| raise 'action case names collide' unless grid.size == 250 }
+    end.tap { |grid| raise 'action case names collide' unless grid.size == 254 }
   end
 end
 

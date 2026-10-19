@@ -408,6 +408,68 @@ if ENV['ACTION_LIFECYCLE_ONLY'] == 'true'
   exit
 end
 
+# Plan CB T5: Bots::DcaMultiAsset#derive_composition with market-cap weights (apply_market_cap_weights), on random caps near
+# 2^53, 1-100 members in an order unlike their ids, some without a cap (nil or 0) and some without a tradable ticker.
+#   MARKET_CAP_WEIGHTS_ONLY=true bin/rails runner script/rust/record_vectors.rb
+# Each case lists its members in creation (id) order: [symbol, cap, tradable]; `allocations` is the settings order; the
+# result is each matched member's weight as its IEEE bits, or the Failure.
+if ENV['MARKET_CAP_WEIGHTS_ONLY'] == 'true'
+  rng = Random.new(2_026_101_9)
+  bits = ->(f) { [f].pack('G').unpack1('H*') }
+  specs = Array.new(400) do |i|
+    n = [1, 2, 3, 5, 20, 100].sample(random: rng)
+    members = Array.new(n) do |m|
+      cap = case rng.rand(20)
+            when 0 then nil
+            when 1 then 0
+            when 2..5 then (2**53) - rng.rand(10_000)
+            when 6..8 then (2**53) + rng.rand(10_000)
+            else rng.rand(1..(2**53))
+            end
+      cap = (2**53) - rng.rand(10_000) if cap.nil? && i.even? # most cases have every cap, so the derivation runs
+      ["M#{m}", cap, rng.rand(12).positive?]
+    end
+    order = members.map(&:first).shuffle(random: rng)
+    weights = order.to_h { |sym| [sym, [0.0, rng.rand.round(3), 1.0 / n].sample(random: rng)] }
+    { 'members' => members, 'allocations' => weights }
+  end
+  specs += [
+    { 'members' => [['M0', 3, true], ['M1', 1, true]], 'allocations' => { 'M1' => 0.5, 'M0' => 0.5 } },
+    { 'members' => [['M0', 3, true], ['M1', nil, true]], 'allocations' => { 'M0' => 0.7, 'M1' => 0.3 } },
+    { 'members' => [['M0', 3, true], ['M1', 0, true]], 'allocations' => { 'M0' => 0.7, 'M1' => 0.3 } },
+    { 'members' => [['M0', 3, true], ['M1', 7, false]], 'allocations' => { 'M0' => 0.0, 'M1' => 1.0 } },
+    { 'members' => [['M0', 3, true], ['M1', 7, true]], 'allocations' => { 'M0' => 0.0, 'M1' => 0.0 } },
+    { 'members' => [['M0', nil, true], ['M1', 7, true]], 'allocations' => { 'M0' => 0.0, 'M1' => 0.0 } },
+    { 'members' => [['M0', 5, false]], 'allocations' => { 'M0' => 1.0 } }
+  ]
+  group = specs.map do |spec|
+    result = nil
+    ActiveRecord::Base.transaction do
+      alpaca = Exchanges::Alpaca.create!(name: 'Alpaca', maker_fee: '0.15', taker_fee: '0.25')
+      usd = Asset.create!(external_id: 'mc-usd', symbol: 'USD', name: 'US Dollar', category: 'Currency')
+      ExchangeAsset.create!(exchange: alpaca, asset: usd, available: true)
+      ids = spec['members'].to_h do |sym, cap, tradable|
+        asset = Asset.create!(external_id: "mc-#{sym.downcase}", symbol: sym, name: sym, category: 'Cryptocurrency', market_cap: cap)
+        ExchangeAsset.create!(exchange: alpaca, asset:, available: true)
+        Ticker.create!(exchange: alpaca, ticker: "#{sym}/USD", base: sym, quote: 'USD', base_asset: asset, quote_asset: usd, base_decimals: 8,
+                       quote_decimals: 2, price_decimals: 2, minimum_base_size: '0.0001', minimum_quote_size: '1', trading_enabled: tradable)
+        [sym, asset.id]
+      end
+      bot = Bots::DcaMultiAsset.new(exchange: alpaca, settings: { 'quote_asset_id' => usd.id, 'weighting' => 'market_cap',
+                                                                  'allocations' => spec['allocations'].transform_keys { |sym| ids.fetch(sym).to_s } })
+      derived = bot.send(:derive_composition)
+      symbol_of = ids.invert
+      result = derived.success? ? { 'weights' => derived.data.map { |m| [symbol_of.fetch(m[:asset_id]), bits.(m[:weight])] } } : { 'failure' => derived.errors.to_sentence }
+      raise ActiveRecord::Rollback
+    end
+    spec.merge(result)
+  end
+  path = Rails.root.join('rust/tests/fixtures/ruby_vectors.json')
+  write_vector_group(path, 'market_cap_weights', group)
+  puts "wrote #{group.size} market_cap_weights vectors in #{path}"
+  exit
+end
+
 # The task's no-argument command adds only the new group. Earlier recordings contain random
 # encryption material; preserve their bytes and avoid writing unrelated generated zone files.
 if ARGV.empty?

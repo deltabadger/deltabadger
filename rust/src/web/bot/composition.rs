@@ -1,17 +1,22 @@
-//! Manual composition's after-save callback, inside the settings writer's transaction.
+//! A basket's after-save composition callback (manual or market-cap weights), inside the settings writer's transaction.
 use super::Bot;
 use crate::{codec, ruby::BigDec, web::{format::Num, WebError}};
 use chrono::{DateTime, Utc};
 use rusqlite::{Connection, OptionalExtension};
 
 pub fn reconcile(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<(), WebError> {
-    if bot.text("weighting") == Some("market_cap") { return Ok(()); }
     let weights = bot.allocations();
     if weights.len() > 1000 { return Err(super::start::history_error()); }
-    let matched: Vec<_> = weights.iter().filter_map(|(asset, weight)| {
+    let mut matched: Vec<(i64, i64, f64)> = weights.iter().filter_map(|(asset, weight)| {
         bot.tickers.iter().find(|ticker| ticker.base_asset_id == *asset && ticker.tradable())
             .map(|ticker| (*asset, ticker.id, *weight))
     }).collect();
+    if bot.text("weighting") == Some("market_cap") {
+        let ids: Vec<i64> = matched.iter().map(|(asset, _, _)| *asset).collect();
+        if let Some(caps) = crate::engine::basket::market_cap_weights(c, &ids)? {
+            for (member, weight) in matched.iter_mut().zip(caps) { member.2 = weight; }
+        }
+    }
     let total = super::float_sum(matched.iter().map(|(_,_,weight)| *weight));
     // Rails returns a failed derivation; the after-save callback does not abort the save.
     if total <= 0.0 { return Ok(()); }
