@@ -388,7 +388,11 @@ pub(crate) fn member_reasons(c: &Connection, bot: &Bot, alpaca: bool, members: &
     let mut quote_checked = false;
     for &asset_id in members {
         let Some(t) = model::ticker_for_asset(c, bot, asset_id)? else {
-            r.push(format!("no ticker for the asset {asset_id} on this venue"));
+            // An index bot's stored rows are not what it trades: every derivation (the tick, the resync, the rebalance) seats
+            // members from this venue's tickers alone and marks every other row out of the index (index_allocatable.rb:69-102,
+            // allocatable.rb:118-128), so a row without a ticker here, one a venue switch left, is a holding only. A basket's
+            // members are its own settings and must trade here.
+            if bot.bot_type != "Bots::DcaIndex" { r.push(format!("no ticker for the asset {asset_id} on this venue")); }
             continue;
         };
         // An unbounded integer column used as a rounding scale: refused here, before any leg is sized with it.
