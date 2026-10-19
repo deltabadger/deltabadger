@@ -1337,6 +1337,18 @@ async fn a_real_browser_signs_in_and_sees_the_app_with_live_streams() -> Result<
     spec.status = 2;
     let bot = seed::insert_bot(c, &seeded, &spec);
     for _ in 0..2 { seed::insert_bot(c, &seeded, &spec); }
+    // A one-asset basket selling N base, its amount not set yet, for typing an amount below one.
+    let mut selling = seed::BotSpec::weekly(5.0, "2026-09-01 10:00:00").with("direction", json!("selling")).with("sell_denomination", json!("base"))
+        .with("sell_interval", json!("week"));
+    selling.status = 2;
+    let seller = seed::insert_bot(c, &seeded, &selling);
+    // Appended key by key ("0" is invalid, the separator waits for its digits), and a saved amount edited: a separator put
+    // between its digits ("15" into "1.5") is a finished amount and saves, one added at its end ("12" into "12.5") waits.
+    let (sell, quote) = ("bots_dca_multi_asset_sell_amount", "bots_dca_multi_asset_quote_amount");
+    let typing = json!([{ "bot": seller, "field": sell, "keys": ["0", ".", "0", "0", "1"], "saved": "0.001" },
+                        { "bot": bot, "field": quote, "keys": ["0", ".", "5"], "saved": "0.5" },
+                        { "bot": bot, "field": quote, "keys": ["1", "5", "ArrowLeft", "."], "saved": "1.5" },
+                        { "bot": bot, "field": quote, "keys": ["1", "2", ".", "5"], "saved": "12.5" }]);
     c.execute("UPDATE bots SET label='Browser '||id", [])?;
     for (key,value) in [("market_data_provider","deltabadger"),("market_data_url","http://example.test"),("market_data_token","test")] {
         c.execute("INSERT INTO app_configs(key,value,created_at,updated_at) VALUES(?1,?2,'2026-01-01','2026-01-01')",(key,seed::cipher().encrypt(value)))?;
@@ -1356,7 +1368,7 @@ async fn a_real_browser_signs_in_and_sees_the_app_with_live_streams() -> Result<
     let log = tempfile::tempfile()?;
     let mut check = Child(Command::new("bun").arg(concat!(env!("CARGO_MANIFEST_DIR"), "/../script/rust/browser_check.mjs"))
         .env("BASE_URL",format!("http://{address}")).env("EMAIL","o@example.com").env("PASSWORD","Correct-horse-9")
-        .env("BOT_ID",bot.to_string()).env("UNPORTED_VENUE",coinbase.to_string()).stdout(log.try_clone()?).stderr(log.try_clone()?).spawn()?);
+        .env("BOT_ID",bot.to_string()).env("UNPORTED_VENUE",coinbase.to_string()).env("TYPING",typing.to_string()).stdout(log.try_clone()?).stderr(log.try_clone()?).spawn()?);
     let deadline = Instant::now() + Duration::from_secs(150);
     let status = loop {
         if let Some(status) = check.0.try_wait()? { break status; }

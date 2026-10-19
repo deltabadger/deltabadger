@@ -5,15 +5,32 @@ import debounce from "debounce";
 
 // Connects to data-controller="form--submit-after-delay"
 export default class extends Controller {
+  // What each field read at its last input event. A field not typed in yet reads what the server drew.
+  #seen = new WeakMap();
+
   initialize() {
-    this.submit = debounce(this.submit.bind(this), 250);
+    this.submitLater = debounce(this.#submit.bind(this), 250);
   }
 
   disconnect() {
-    this.submit.clear();
+    this.submitLater.clear();
   }
 
-  submit() {
+  submit(event) {
+    const field = event?.target;
+    const before = this.#seen.has(field) ? this.#seen.get(field) : field?.defaultValue;
+    if (field) this.#seen.set(field, field.value);
+    // Chrome reads a number field holding "0." as "0": a separator typed at the end leaves the value as it was.
+    // Submitting it would answer with the form drawn again from "0", and the separator would be gone, so it waits
+    // for the digits after it. A separator that changes the value ("15" into "1.5") is a finished edit.
+    if ((event?.data === "." || event?.data === ",") && field?.value === before) {
+      this.submitLater.clear();
+      return;
+    }
+    this.submitLater();
+  }
+
+  #submit() {
     const inputElements = this.element.querySelectorAll("input");
     let someNumericInputHasToBeFilledBeforeSubmit = false;
 
