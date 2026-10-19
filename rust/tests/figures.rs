@@ -138,7 +138,8 @@ fn compare(what: &str, pick: impl Fn(&Value) -> Value) {
                 if scenario.name.starts_with("account_string_price_") {
                     let control=grid.scenarios.iter().find(|s|s.name=="account_deltabadger").unwrap();
                     for field in ["global_pnl","global_pnl_snapshot"] {
-                        assert!(expected[field].as_str().unwrap().contains("TypeError"));
+                        let recorded = &expected[field];
+                        assert!(recorded.as_str().is_some_and(|text| text.contains("TypeError")), "{}: Rails' {field} was {recorded}, not its TypeError", scenario.name);
                         expected[field]=control.normalized[field].clone();
                     }
                 }
