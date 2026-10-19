@@ -49,7 +49,10 @@ venues = {
     probe = key_type == :trading
     reply = { 'correct' => json.(200, { 'code' => '200000', 'data' => probe ? { 'cancelledOrderIds' => [] } : [] }),
               'rejected' => json.(401, { 'code' => '400003', 'msg' => 'KC-API-KEY not exists' }),
-              'inconclusive' => json.(429, { 'code' => '429000', 'msg' => 'Too Many Requests' }) }.fetch(answer)
+              'inconclusive' => json.(429, { 'code' => '429000', 'msg' => 'Too Many Requests' }),
+              # Balances #get_balances cannot walk: it raises, and the job is discarded.
+              'data_false' => json.(200, { 'code' => '200000', 'data' => false }),
+              'data_without_currency' => json.(200, { 'code' => '200000', 'data' => [{ 'available' => '1' }] }) }.fetch(answer)
     probe ? [:delete, "https://api.kucoin.com/api/v1/orders/#{'0' * 24}", reply] : [:get, %r{\Ahttps://api\.kucoin\.com/api/v1/accounts}, reply]
   end
 }
@@ -63,6 +66,7 @@ venues.each do |klass, answers|
   %i[trading read_only withdrawal].each do |key_type|
     names = %w[correct rejected inconclusive]
     names << 'permission' unless klass == 'Kucoin'
+    names += %w[data_false data_without_currency] if klass == 'Kucoin' && key_type == :read_only
     names.each do |answer|
       method, url, reply = answers.call(key_type, answer)
       WebMock.reset!

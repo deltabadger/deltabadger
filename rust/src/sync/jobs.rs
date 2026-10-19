@@ -47,17 +47,27 @@ pub trait Connect {
     fn kucoin_transport(&self, _credentials: &Credentials, _proxy: Option<&str>) -> ReqwestTransport {
         ReqwestTransport::refused("KuCoin is not connected here")
     }
-    /// Where the validator sends a Kraken, Binance or KuCoin key's check (`key_check`); by default nowhere.
-    fn key_check_base(&self, _exchange_type: &str) -> Option<String> { None }
+    /// Where and how the validator sends a Kraken, Binance or KuCoin key's check (`key_check`): the venue's host and a client
+    /// through its proxy, given the stored AppConfig `proxy_<name>` (decrypted). By default nowhere.
+    fn key_check_egress(&self, exchange_type: &str, _stored_proxy: Option<String>) -> Result<(String, reqwest::Client), String> {
+        Err(format!("{exchange_type} is not connected here"))
+    }
 }
 impl Connect for LiveFactory {
-    fn key_check_base(&self, exchange_type: &str) -> Option<String> {
-        match exchange_type {
-            "Exchanges::Kraken" => Some(crate::venue::kraken::URL.into()),
-            "Exchanges::Binance" => Some(crate::venue::binance::URL.into()),
-            crate::venue::kucoin::KUCOIN => Some(crate::venue::kucoin::URL.into()),
-            _ => None,
-        }
+    /// ExchangeProxy.for(name): the stored proxy, else ENV `PROXY_<NAME>`; never around a configured one.
+    fn key_check_egress(&self, exchange_type: &str, stored_proxy: Option<String>) -> Result<(String, reqwest::Client), String> {
+        let base = match exchange_type {
+            "Exchanges::Kraken" => crate::venue::kraken::URL,
+            "Exchanges::Binance" => crate::venue::binance::URL,
+            crate::venue::kucoin::KUCOIN => crate::venue::kucoin::URL,
+            _ => return Err(format!("{exchange_type} is not connected here")),
+        };
+        let name = crate::web::settings::validator::key_check_venue(exchange_type).unwrap_or_default();
+        let client = match crate::venue::http::proxy_for(name, stored_proxy, &|k| std::env::var(k).ok()) {
+            None => crate::venue::http::client(),
+            Some(proxy) => crate::venue::http::client_via(&proxy).map_err(|e| format!("{e} ({name})"))?,
+        };
+        Ok((base.into(), client))
     }
     fn ecb(&self) -> Option<crate::tracker::fx::Source> { Some(crate::tracker::fx::Source::Live(crate::tracker::fx::Plain::default())) }
     type T = ReqwestTransport;
@@ -283,14 +293,10 @@ impl<C:Connect> Job for Validator<C>{
         let kind=match cx.db.run(move|c,_|c.query_row("SELECT key_type FROM api_keys WHERE id=?1",[id],|r|r.get::<_,i64>(0)).map_err(|_|"cannot read credential capability".into())).await{Ok(k)=>k,Err(e)=>return before_result(Outcome::Failed(e))};
         // ApiKey#get_validity: Alpaca's account read, or the venue's own key check through its proxy (ExchangeProxy.for).
         let result=if let Some(proxy)=checked {
-            let egress=match self.venues.key_check_base(&exchange) {
-                None=>Err(format!("{name} is not connected here")),
-                Some(base)=>match cx.db.run(move|c,cipher|Ok(crate::venue::live::egress(c,cipher,&|k|std::env::var(k).ok(),proxy,&crate::venue::http::client()))).await{
-                    Ok(egress)=>egress.map(|(client,_)|(client,base)),Err(e)=>return before_result(Outcome::Failed(e)),
-                },
-            };
+            let stored=match cx.db.run(move|c,cipher|crate::app_config::get(c,cipher,&format!("proxy_{proxy}")).map_err(|_|format!("the {proxy} proxy setting is unreadable"))).await{Ok(s)=>s,Err(e)=>return before_result(Outcome::Failed(e))};
+            let egress=self.venues.key_check_egress(&exchange,stored);
             match egress {
-                Ok((client,base))=>handle.check_via(&exchange,&base,Ok(client),kind).await,
+                Ok((base,client))=>handle.check_via(&exchange,&base,Ok(client),kind).await,
                 Err(why)=>handle.check_via(&exchange,"",Err(why),kind).await,
             }
         } else {

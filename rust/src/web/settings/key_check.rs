@@ -148,7 +148,15 @@ pub fn kucoin_read_verdict(answer: &Result<HttpResponse, TransportError>, method
         Ok(response) => match serde_json::from_str::<Value>(&response.body) {
             Ok(Value::Object(body)) => {
                 let code = body.get("code").filter(|v| !v.is_null()).map(text);
-                if code.as_deref() == Some("200000") && body.get("data").is_some_and(|data| !data.is_null()) { return Verdict::Valid(true); }
+                if code.as_deref() == Some("200000") && body.get("data").is_some_and(|data| !data.is_null()) {
+                    // The balances, read as #get_balances walks them (each one's `currency` first): any other shape raises there.
+                    let readable = match &body["data"] {
+                        Value::Array(balances) => balances.iter().all(|balance| balance.get("currency").is_some_and(|currency| !currency.is_null())),
+                        Value::Object(pairs) => pairs.is_empty(),
+                        _ => false,
+                    };
+                    return if readable { Verdict::Valid(true) } else { Verdict::Failure("KuCoin sent balances it cannot read".into()) };
+                }
                 let parts: Vec<String> = ["code", "msg"].iter().filter_map(|name| body.get(*name).filter(|v| !v.is_null()).map(text)).collect();
                 format!("Failed to get KuCoin balances: {}", parts.join(" "))
             }

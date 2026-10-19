@@ -102,7 +102,10 @@ fn key_verdicts_replay_every_recorded_case() {
         let request = key_check::kucoin_request(deltabadger::venue::kucoin::URL, kind);
         let ours = if kind == 2 { key_check::kucoin_read_verdict(&answer(&case["response"]), request.method, request.url().as_str()) }
                    else { key_check::kucoin_verdict(kind, &answer(&case["response"]), request.method, request.url().as_str()) };
-        let theirs = expected(&case["verdict"]);
+        // A reading key's balances #get_balances cannot walk raise in Rails (the form answers 500, the queued job is discarded
+        // and the key stays pending): no verdict, as an inconclusive answer.
+        let raised = kind == 2 && case["verdict"]["kind"] == "raises";
+        let theirs = if raised { Verdict::Failure(String::new()) } else { expected(&case["verdict"]) };
         assert!(same(&ours, &theirs), "kucoin {} {name}: {ours:?}, Rails {theirs:?}", case["key_type"]);
         let query: serde_json::Map<String, Value> = request.query.iter().map(|(k, v)| (k.to_string(), json!(v))).collect();
         assert_eq!((request.method, request.url().host_str().unwrap(), request.path.as_str(), Value::Object(query), json!({})),
@@ -115,7 +118,7 @@ fn key_verdicts_replay_every_recorded_case() {
     // Binance.US checks a key with an account read and a cancel probe; its key step is a named refusal, so its cases are
     // recorded and not replayed.
     let us = recorded["binance_us"]["cases"].as_array().unwrap().len();
-    assert_eq!((replayed, us), (571, 212), "a recorded case was added or dropped");
+    assert_eq!((replayed, us), (578, 212), "a recorded case was added or dropped");
 }
 
 /// A pinned callback list against a port's table: the same callbacks, in Rails' order, each handled.

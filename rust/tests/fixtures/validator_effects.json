@@ -7,7 +7,7 @@
     "app/models/exchanges/kraken.rb": "232820af94e9247375162d361eaff6437ae3f2c95b236bf3114b748026d2d902",
     "app/models/exchanges/binance.rb": "72139d578fcf6df45576eb7e648185e71d7fad7b8be456bf4438af7dada57649",
     "app/models/exchanges/kucoin.rb": "a4dd07679ac5297f73d7713a812122728872629f60c13cf82d5f1b5c205fef45",
-    "script/rust/record_validator_effects.rb": "732938f638eaee30c8500d48bfbb9090a9b404061a62c27b6cb7be8c0c75c097"
+    "script/rust/record_validator_effects.rb": "a3d76d31567b9672843a3a34fe39d4debec12372ed392e5ad2e8534fafd011a5"
   },
   "honeymaker": "0.12.5",
   "cases": [
@@ -652,6 +652,46 @@
       "logged": [
         "[KuCoin] API key validation failed"
       ]
+    },
+    {
+      "venue": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "key_type": "read_only",
+      "answer": "data_false",
+      "reply": {
+        "status": 200,
+        "body": "{\"code\":\"200000\",\"data\":false}"
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "host": "api.kucoin.com",
+          "path": "/api/v1/accounts"
+        }
+      ],
+      "status": "pending_validation",
+      "jobs": [],
+      "logged": []
+    },
+    {
+      "venue": "Exchanges::Kucoin",
+      "name": "KuCoin",
+      "key_type": "read_only",
+      "answer": "data_without_currency",
+      "reply": {
+        "status": 200,
+        "body": "{\"code\":\"200000\",\"data\":[{\"available\":\"1\"}]}"
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "host": "api.kucoin.com",
+          "path": "/api/v1/accounts"
+        }
+      ],
+      "status": "pending_validation",
+      "jobs": [],
+      "logged": []
     },
     {
       "venue": "Exchanges::Kucoin",

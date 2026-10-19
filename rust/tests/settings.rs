@@ -3828,7 +3828,12 @@ struct LocalVenues(String);
 impl deltabadger::sync::jobs::Connect for LocalVenues {
     type T=deltabadger::venue::http::ReqwestTransport;
     fn connect(&self,c:&deltabadger::crypto::Credentials)->deltabadger::venue::alpaca::AlpacaVenue<Self::T> { LocalAlpaca(self.0.clone()).connect(c) }
-    fn key_check_base(&self,_:&str)->Option<String> { Some(self.0.clone()) }
+    /// The server for every venue, through the stored proxy when the test stores one: never the process' PROXY_* or system proxies.
+    fn key_check_egress(&self,_:&str,stored_proxy:Option<String>)->Result<(String,reqwest::Client),String> {
+        let builder=reqwest::Client::builder().no_proxy();
+        let builder=match stored_proxy {Some(proxy)=>builder.proxy(reqwest::Proxy::all(proxy).map_err(|e|e.to_string())?),None=>builder};
+        Ok((self.0.clone(),builder.build().map_err(|e|e.to_string())?))
+    }
 }
 /// ApiKeyValidatorJob as Rails performs it on a pending key (validator_effects.json, script/rust/record_validator_effects.rb):
 /// the venue's own check, the status it leaves, and the balance sync a correct trading key enqueues.
@@ -3842,7 +3847,7 @@ async fn validator_job_matches_rails_on_every_checked_venue(){
         assert_eq!(&serde_json::json!(format!("{:x}",Sha256::digest(std::fs::read(root.parent().unwrap().join(path)).unwrap()))),hash,"{path}: re-record validator_effects.json (script/rust/repin)");
     }
     let cases=recorded["cases"].as_array().unwrap();
-    assert_eq!(cases.len(),33,"a recorded case was added or dropped");
+    assert_eq!(cases.len(),35,"a recorded case was added or dropped");
     for case in cases {
         let text=|name:&str|case[name].as_str().unwrap().to_string();
         let label=format!("{} {} {}",text("name"),text("key_type"),text("answer"));
@@ -3870,3 +3875,22 @@ async fn validator_job_matches_rails_on_every_checked_venue(){
     }
 }
 fn text_or_empty(value:&serde_json::Value)->String{value.as_str().unwrap_or_default().to_string()}
+
+/// The validator's check goes through the venue's stored proxy (AppConfig proxy_kraken, ExchangeProxy.for): a local proxy
+/// answers it, and the venue's own host sees nothing.
+#[tokio::test(flavor="current_thread")]
+async fn validator_job_sends_a_venue_key_check_through_its_stored_proxy(){
+    use deltabadger::{jobs::{Job,Cx,Db,Outcome},sync::jobs::Validator};
+    let (venue,proxy)=(MockServer::start().await,MockServer::start().await);
+    Mock::given(method("POST")).and(path("/0/private/GetApiKeyInfo")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"error":[],"result":{"permissions":
+        ["query-funds","query-open-trades","query-closed-trades","modify-trades","close-trades","query-ledger"]}}))).expect(1).mount(&proxy).await;
+    let h=Harness::new(venue.uri()).await;
+    h.c.execute("UPDATE exchanges SET type='Exchanges::Kraken',name='Kraken' WHERE id=?1",[h.seed.exchange_id]).unwrap();
+    h.c.execute("UPDATE api_keys SET status=0,key=?1,secret=?2 WHERE id=?3",(h.app.cipher.encrypt("test-key"),h.app.cipher.encrypt("dGVzdC1zZWNyZXQ="),h.seed.api_key_id)).unwrap();
+    deltabadger::app_config::set(&h.c,&h.app.cipher,"proxy_kraken",&proxy.uri(),h.app.now()).unwrap();
+    let cx=Cx{db:Db::new(rusqlite::Connection::open(h._dir.path().join("production.sqlite3")).unwrap(),h.app.cipher.clone()),clock:h.clock.as_ref(),wakers:h.app.job_wakers().unwrap()};
+    assert_eq!(Validator{venues:LocalVenues(venue.uri()),key_id:h.seed.api_key_id}.run(cx,vec![]).await,Outcome::Done);
+    assert_eq!(h.c.query_row("SELECT status FROM api_keys WHERE id=?1",[h.seed.api_key_id],|r|r.get::<_,i64>(0)).unwrap(),1);
+    assert!(venue.received_requests().await.unwrap().is_empty(),"the check never goes around the configured proxy");
+    proxy.verify().await;
+}

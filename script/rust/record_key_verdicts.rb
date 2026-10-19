@@ -254,7 +254,12 @@ end
 # A reading key reads its trade accounts (Exchange#get_read_api_key_validity -> Exchanges::Kucoin#get_balances): balances only
 # under the success code with data; any other answer is a failure, and incorrect where the venue's invalid_key words condemn it.
 read_cases = { 'ok' => json.(200, { 'code' => '200000', 'data' => [] }), 'ok_numeric_code' => json.(200, { 'code' => 200_000, 'data' => [] }),
-               'ok_no_data' => json.(200, { 'code' => '200000' }), 'no_code' => json.(200, { 'data' => [] }) }
+               'ok_no_data' => json.(200, { 'code' => '200000' }), 'no_code' => json.(200, { 'data' => [] }),
+               'ok_balance' => json.(200, { 'code' => '200000', 'data' => [{ 'currency' => 'BTC', 'available' => '1', 'holds' => '0' }] }),
+               'ok_empty_object' => json.(200, { 'code' => '200000', 'data' => {} }) }
+# Balances #get_balances cannot walk (it reads each one's currency first): Rails raises.
+{ 'data_false' => false, 'data_string' => 'balances', 'data_null_item' => [nil], 'data_without_currency' => [{ 'available' => '1' }],
+  'data_object' => { 'currency' => 'BTC' } }.each { |name, data| read_cases[name] = json.(200, { 'code' => '200000', 'data' => data }) }
 Exchanges::Kucoin::KEY_CHECK_REJECTED.each do |code|
   read_cases["rejected #{code} http_401"] = kc.(401, code, 'refused')
   read_cases["rejected #{code} http_200"] = kc.(200, code, 'refused')

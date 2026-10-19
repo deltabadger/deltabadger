@@ -5127,7 +5127,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=1e0dcb5629a71d2b1fd6a1899b9a3220c5a08042a583466f5f5eba19412306fe&timestamp=1792370380115"
+            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=ed27b87e7b0704bf4f5d363631c995f721591b57851fd17d3c5538a5b33d5e22&timestamp=1792376828110"
           ]
         },
         "request": {
@@ -7055,7 +7055,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=8604db591f71c5df4f699a041515fc091eada822fea01fdacd3c5ef721ea21f7&timestamp=1792370380133"
+            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=d569a6aedff3383a2e036980b42d960c117e1db3a5cf75007e4287a212276378&timestamp=1792376828129"
           ]
         },
         "request": {
@@ -8983,7 +8983,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=6bf1bf761b03e188d37d2b3385aeaf917194d9fb65480ba64fb4c0b69970f7b1&timestamp=1792370380150"
+            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=3a69ca3d122520c0578c4d32ee125ac84d8b46f3d82d47e28843498e0c1ab621&timestamp=1792376828149"
           ]
         },
         "request": {
@@ -10911,7 +10911,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=aedecc66fa05f0dd738c5336a7ffeb82b18deb9244d8bb623003b976da5589a0&timestamp=1792370380168"
+            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=f47f7ec7fe525c7acfbb71631ecc2c9e34884c52e6a59262ce9b6f97b19c4cff&timestamp=1792376828170"
           ]
         },
         "request": {
@@ -11652,7 +11652,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=8530f8c2eea86b12e9e3717ccc5fbff6c62e7c39346c73e437bb820d52906889&timestamp=1792370380177"
+            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=7ca094f96c2166742d40894c61b9c2cc0ebf1b1ccd64a3ae096821c81fe634ff&timestamp=1792376828187"
           ]
         },
         "request": {
@@ -13011,7 +13011,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for DELETE https://api.binance.us/api/v3/order?orderId=9999999999&recvWindow=5000&signature=adc2ccdaf149423cf4dd3358c589d4e975e3a66f1e66708e9c6cfdce526cfa82&symbol=ETHBTC&timestamp=1792370380187"
+            "the server responded with status 500 for DELETE https://api.binance.us/api/v3/order?orderId=9999999999&recvWindow=5000&signature=0a32890324ea3ef5e7a83294abed080bfe9df5e3565fa179e4c91d2336f630e3&symbol=ETHBTC&timestamp=1792376828201"
           ]
         },
         "requests": [
@@ -13952,7 +13952,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=71466e1017c2f50e8484f847df50edb8082d3ec9c33264c07b3cfaf698079752&timestamp=1792370380194"
+            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=b53f7d4b6b652ab8b3380a5971e848df7d71cf6d3abf167b3661204adce38de8&timestamp=1792376828211"
           ]
         },
         "request": {
@@ -15311,7 +15311,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for DELETE https://api.binance.us/api/v3/order?orderId=9999999999&recvWindow=5000&signature=d64bfd3e91fbedd0d4d1e979ab3681b7799a89c3da5f4c4ec89e989932ef4a0f&symbol=ETHBTC&timestamp=1792370380204"
+            "the server responded with status 500 for DELETE https://api.binance.us/api/v3/order?orderId=9999999999&recvWindow=5000&signature=d6a5efc19f0f242a6156edbfa9ed5d6e04df3d57dd8bce9b80c3dbe09585e0f9&symbol=ETHBTC&timestamp=1792376828224"
           ]
         },
         "requests": [
@@ -16252,7 +16252,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=b1a16d9cf006d7643adb564a72b89ca5941dc0a8d267fb9ddb0856a7d09ad2d2&timestamp=1792370380211"
+            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=eb923916babfef4971ec47c98800eed965750e6d78a1cc41637ee09e17079170&timestamp=1792376828233"
           ]
         },
         "request": {
@@ -17611,7 +17611,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for DELETE https://api.binance.us/api/v3/order?orderId=9999999999&recvWindow=5000&signature=bf15fd0f890a7c940a19f9096dbd23598310fae3ac203c5cc91bb4f8b753f7db&symbol=ETHBTC&timestamp=1792370380228"
+            "the server responded with status 500 for DELETE https://api.binance.us/api/v3/order?orderId=9999999999&recvWindow=5000&signature=41b9235ab696b9e7373c115b21325e6efad5a0f0783836da184f30b65ed3872d&symbol=ETHBTC&timestamp=1792376828244"
           ]
         },
         "requests": [
@@ -18552,7 +18552,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=46b925ae592661a073dada4c3a08e16efc82706bebad8198f3a89f1bf62d5e45&timestamp=1792370380236"
+            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=edb58583a5633216a4e0560c6c079cdc33bb24b8024ef0f17693984cfd85f43f&timestamp=1792376828253"
           ]
         },
         "request": {
@@ -20855,6 +20855,179 @@
           "errors": [
             "Failed to get KuCoin balances: "
           ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.kucoin.com",
+          "path": "/api/v1/accounts",
+          "query": {
+            "type": "trade"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "ok_balance",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":\"200000\",\"data\":[{\"currency\":\"BTC\",\"available\":\"1\",\"holds\":\"0\"}]}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.kucoin.com",
+          "path": "/api/v1/accounts",
+          "query": {
+            "type": "trade"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "ok_empty_object",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":\"200000\",\"data\":{}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.kucoin.com",
+          "path": "/api/v1/accounts",
+          "query": {
+            "type": "trade"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "data_false",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":\"200000\",\"data\":false}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "raises",
+          "class": "NoMethodError",
+          "message": "undefined method 'each' for false"
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.kucoin.com",
+          "path": "/api/v1/accounts",
+          "query": {
+            "type": "trade"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "data_string",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":\"200000\",\"data\":\"balances\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "raises",
+          "class": "NoMethodError",
+          "message": "undefined method 'each' for an instance of String"
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.kucoin.com",
+          "path": "/api/v1/accounts",
+          "query": {
+            "type": "trade"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "data_null_item",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":\"200000\",\"data\":[null]}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "raises",
+          "class": "NoMethodError",
+          "message": "undefined method 'dig' for nil"
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.kucoin.com",
+          "path": "/api/v1/accounts",
+          "query": {
+            "type": "trade"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "data_without_currency",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":\"200000\",\"data\":[{\"available\":\"1\"}]}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "raises",
+          "class": "KeyError",
+          "message": "Key path currency not found"
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.kucoin.com",
+          "path": "/api/v1/accounts",
+          "query": {
+            "type": "trade"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "data_object",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":\"200000\",\"data\":{\"currency\":\"BTC\"}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "raises",
+          "class": "TypeError",
+          "message": "no implicit conversion of String into Integer"
         },
         "request": {
           "method": "GET",
