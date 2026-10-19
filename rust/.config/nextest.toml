@@ -1,3 +1,8 @@
+# A hung test is ended after an hour (the longest, the pages grid recording Rails live, takes well under that) instead of
+# holding its CI partition until the job's 2-hour timeout.
+[profile.default]
+slow-timeout = { period = "60s", terminate-after = 60 }
+
 # Scheduling order only; nothing is skipped or changed. The longest tests start first, so the run's tail is short tests
 # on every slot.
 [[profile.default.overrides]]
