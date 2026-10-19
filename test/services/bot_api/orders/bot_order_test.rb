@@ -274,6 +274,157 @@ class BotApi::Orders::BotOrderTest < ActiveSupport::TestCase
     assert_empty @bot.transactions
   end
 
+  # The marker an ambiguous placement leaves holds every later order back, from any caller, until
+  # the user has checked the venue — a retry on top of an order that did land buys twice.
+  test 'an unknown outcome leaves the marker, and the next order is refused as placement_unresolved' do
+    Exchanges::Binance.any_instance.expects(:market_buy).once.raises(Client::AmbiguousPlacementError, 'Net::ReadTimeout')
+
+    assert_equal 'placement_ambiguous', buy.error_code
+    assert_predicate @bot.reload, :placement_unresolved?
+
+    result = buy
+
+    assert_equal 'placement_unresolved', result.error_code
+    assert_equal :conflict, result.status
+    assert_equal "An earlier order from bot #{@bot.id} may or may not have been placed; " \
+                 'check Binance and resolve it on the bot page.', result.error_message
+    assert_empty @bot.transactions
+  end
+
+  test 'a dry run behind an unresolved placement is refused too, and a sell as well' do
+    @bot.mark_placement_unresolved!(side: :buy, error: 'Net::ReadTimeout')
+    Exchanges::Binance.any_instance.expects(:market_buy).never
+    Exchanges::Binance.any_instance.expects(:market_sell).never
+
+    assert_equal 'placement_unresolved', buy(dry_run: true).error_code
+    assert_equal 'placement_unresolved', BotApi::Orders::MarketSell.call(user: @user, bot_id: @bot.id, amount: '0.5').error_code
+  end
+
+  # Stopped is the answer that tells the caller what to do first.
+  test 'a stopped bot behind an unresolved placement answers bot_not_running' do
+    @bot.mark_placement_unresolved!(side: :buy, error: 'Net::ReadTimeout')
+    @bot.update!(status: :stopped)
+
+    assert_equal 'bot_not_running', buy.error_code
+  end
+
+  # --- the venue's trading lease ---------------------------------------------------------------
+  # An order through a bot sizes and places under the semaphore every trading job on the exchange
+  # holds (Bot::SignalJob included), and the order setter re-reads the committed marker inside it.
+  # So an order that passed the door while another one was still in flight cannot place on top of
+  # an ambiguity that one left behind.
+
+  def lease_key = Bot::VenueLease::ExchangeLease.for(@bot.exchange).concurrency_key
+
+  def hold_lease! = SolidQueue::Semaphore.create!(key: lease_key, value: 0, expires_at: 5.minutes.from_now)
+
+  def release_lease! = SolidQueue::Semaphore.where(key: lease_key).delete_all
+
+  # Runs `hook` once, the first time an order finds the lease taken and waits.
+  def while_waiting_for_the_lease(&hook)
+    BotApi::Orders::BotOrder.any_instance.stubs(:pause).with do |*|
+      pending = hook
+      hook = nil
+      pending&.call
+      true
+    end
+  end
+
+  test 'API + API: an order waiting while another goes ambiguous places nothing' do
+    hold_lease!
+    Exchanges::Binance.any_instance.expects(:market_buy).once.raises(Client::AmbiguousPlacementError, 'Net::ReadTimeout')
+    first = nil
+    while_waiting_for_the_lease do
+      release_lease!
+      first = buy
+    end
+
+    second = buy
+
+    assert_equal 'placement_ambiguous', first.error_code
+    assert_equal 'placement_unresolved', second.error_code
+    assert_equal :conflict, second.status
+    assert_empty @bot.transactions
+  end
+
+  test 'webhook + API: an order waiting while a webhook call goes ambiguous places nothing' do
+    signal = create(:bot_signal, bot: @bot, direction: :buy, amount: 100, amount_type: :fixed)
+    hold_lease!
+    Exchanges::Binance.any_instance.expects(:market_buy).once.raises(Client::AmbiguousPlacementError, 'Net::ReadTimeout')
+    while_waiting_for_the_lease do
+      release_lease!
+      Bot::SignalJob.new.perform(Bots::Signal.find(@bot.id), signal, Time.current)
+    end
+
+    result = buy
+
+    assert_equal 'placement_unresolved', result.error_code
+    assert_equal 1, @bot.bot_activity_logs.where(event: 'placement_ambiguous').count
+    assert_empty @bot.transactions
+  end
+
+  # The window inside the lease: sizing reads the venue, and the marker is read again after it.
+  test 'a marker committed while the order is being sized stops it before the request' do
+    Exchanges::Binance.any_instance.expects(:market_buy).never
+    Ticker.any_instance.stubs(:get_ask_price).with do |*|
+      Bots::Signal.find(@bot.id).mark_placement_unresolved!(side: :buy, error: 'Net::ReadTimeout') unless @bot.reload.placement_unresolved?
+      true
+    end.returns(Result::Success.new(50_000))
+
+    assert_equal 'placement_unresolved', buy.error_code
+    assert_empty @bot.transactions
+  end
+
+  test 'the order is placed while holding the lease, and hands it back' do
+    held_during = nil
+    Exchanges::Binance.any_instance.expects(:market_buy).with do |*|
+      held_during = SolidQueue::Semaphore.find_by(key: lease_key)&.value
+      true
+    end.returns(Result::Success.new(order_id: 'api-l1'))
+
+    assert buy.success?
+
+    assert_equal 0, held_during
+    assert_equal 1, SolidQueue::Semaphore.find_by(key: lease_key).value
+  end
+
+  # A trading job on the venue that outlasts the wait: nothing is placed, and the caller is told so.
+  test 'a lease that stays taken past the wait answers venue_busy and places nothing' do
+    hold_lease!
+    Exchanges::Binance.any_instance.expects(:market_buy).never
+    BotApi::Orders::BotOrder.any_instance.stubs(:pause).with { |*| travel(1.second) || true }
+
+    result = buy
+
+    assert_equal 'venue_busy', result.error_code
+    assert_equal :conflict, result.status
+    assert_empty @bot.transactions
+  end
+
+  # A stop that lands while the order waits for the lease: read again under the lease, it answers as a stopped bot.
+  test 'a bot stopped while its order waits for the lease places nothing' do
+    hold_lease!
+    Exchanges::Binance.any_instance.expects(:market_buy).never
+    BotApi::Orders::BotOrder.any_instance.stubs(:pause).with do |*|
+      Bot.where(id: @bot.id).update_all(status: Bot.statuses[:stopped])
+      SolidQueue::Semaphore.where(key: lease_key).update_all(value: 1)
+      true
+    end
+
+    result = buy
+
+    assert_equal 'bot_not_running', result.error_code
+    assert_empty @bot.transactions
+    assert_equal 1, SolidQueue::Semaphore.find_by(key: lease_key).value, 'the lease is handed back'
+  end
+
+  test 'a dry run takes no lease' do
+    hold_lease!
+    BotApi::Orders::BotOrder.any_instance.expects(:pause).never
+
+    assert buy(dry_run: true).success?
+  end
+
   test 'a limit order naming a bot is refused rather than placed unattributed' do
     Exchanges::Binance.any_instance.expects(:limit_buy).never
     Exchanges::Binance.any_instance.expects(:limit_sell).never

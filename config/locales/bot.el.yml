@@ -150,6 +150,10 @@ el:
             never_triggered: "δεν έχει ενεργοποιηθεί ποτέ"
             last_triggered: "τελευταία ενεργοποίηση πριν από %{time}"
             api_hint: "Αυτό το bot δέχεται εντολές και μέσω API και MCP: καλέστε market_buy ή market_sell με bot_id %{id}."
+            unresolved: "Μη επιβεβαιωμένη εντολή — τα νέα σήματα περιμένουν μέχρι να ελέγξεις το %{exchange}"
+            resolve: "Έλεγξα το %{exchange}"
+            resolved: "Έγινε. Το bot δέχεται ξανά σήματα."
+            resolution_stale: "Αυτή η εντολή έχει ήδη επιλυθεί."
         buy: Αγορά
         counter: '%{countdown}'
         day: Ημέρα

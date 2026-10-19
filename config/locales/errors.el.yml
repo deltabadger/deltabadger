@@ -110,6 +110,7 @@ el:
             coingecko_required: "Απαιτείται κλειδί CoinGecko API για bots δείκτη"
             market_data_required: "Πρέπει να ρυθμιστεί πάροχος δεδομένων αγοράς για bots δείκτη. Πήγαινε στις ρυθμίσεις για σύνδεση."
             signal_minimum: "Δεν μπορείς να αφαιρέσεις το τελευταίο σήμα"
+            signal_locked_while_running: "Σταμάτησε το bot για να αλλάξεις τα σήματά του"
         messages:
             accepted: 'πρέπει να γίνει αποδεκτό'
             already_confirmed: 'έχει ήδη επιβεβαιωθεί, δοκίμασε να συνδεθείς.'

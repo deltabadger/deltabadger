@@ -101,6 +101,7 @@ fr:
             coingecko_required: "Une clé API CoinGecko est requise pour les bots d'indice"
             market_data_required: "Un fournisseur de données de marché doit être configuré pour les bots d'indice. Allez dans les Paramètres pour en connecter un."
             signal_minimum: "Impossible de supprimer le dernier signal"
+            signal_locked_while_running: "Arrête le bot pour modifier ses signaux"
         bitcoin_address_not_updated: 'L''adresse Bitcoin n''a pas pu être mise à jour'
         format: '%{attribute} %{message}'
         frequency_limit: 'Limite de fréquence dépassée'

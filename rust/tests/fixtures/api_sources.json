@@ -1,5 +1,5 @@
 {
-  "config/routes.rb": "9b2f5fb0b8eaae582dcd16627ac7d3f290794d7ecec352f0173d29ab6373bfce",
+  "config/routes.rb": "88a02435a20f94a8e1cec694d89ce72047a3009e10a82b9d8d0772d050903269",
   "config/initializers/wrap_parameters.rb": "7021fb9d3b221ade976a6c4574c004d906f4f61df64d914c574588cdaf04457c",
   "app/controllers/api/v1/base_controller.rb": "637aadb3f545093534127302989c060b11120f3413af85b68e032e133da04c58",
   "app/controllers/concerns/api_oauth_authentication.rb": "d0a8edf0591ef3c5a59badce4266d445577e6413488357078149da25f40ef74d",

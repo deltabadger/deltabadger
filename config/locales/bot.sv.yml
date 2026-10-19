@@ -150,6 +150,10 @@ sv:
             never_triggered: "aldrig utlöst"
             last_triggered: "senast utlöst för %{time} sedan"
             api_hint: "Den här boten tar också emot order via API och MCP: anropa market_buy eller market_sell med bot_id %{id}."
+            unresolved: "Obekräftad order — nya signaler väntar tills du har kollat %{exchange}"
+            resolve: "Jag har kollat %{exchange}"
+            resolved: "Klart. Boten tar emot signaler igen."
+            resolution_stale: "Den ordern är redan löst."
         buy: Köp
         counter: '%{countdown}'
         day: Dag

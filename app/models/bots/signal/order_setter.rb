@@ -27,6 +27,8 @@ module Bots::Signal::OrderSetter
   #   :failed     nothing reached the venue; a failed row
   #   :ambiguous  the request may have gone out; no row, never retried
   #   :locked     a wash-sale lock refused the buy; nothing recorded
+  #   :unresolved an earlier placement's fate is still unknown (Bots::Signal#unresolved_placement);
+  #               nothing sized, sent or recorded
   Outcome = Data.define(:status, :transaction, :order_id, :errors) do
     def self.of(status, transaction: nil, order_id: nil, errors: [])
       new(status:, transaction:, order_id:, errors: Array(errors))
@@ -34,6 +36,8 @@ module Bots::Signal::OrderSetter
   end
 
   def execute_signal(signal)
+    return Outcome.of(:unresolved) if placement_unresolved_now?
+
     side = signal.direction.to_sym
     # Before signal_order_data: that one reads the venue and can record a failure the user is emailed
     # about, all for a signal that is about to be skipped anyway. The asset is known from the bot's
@@ -56,6 +60,7 @@ module Bots::Signal::OrderSetter
     # the webhook path gets the same from Bot::SignalJob's own rescue. Placement is deliberately
     # OUTSIDE this rescue: past that line an exception no longer proves nothing was sent.
     begin
+      return Outcome.of(:unresolved) if placement_unresolved_now?
       return Outcome.of(:locked) if buy_locked?(side)
 
       order_data = api_order_data(side, amount, amount_type)
@@ -124,11 +129,24 @@ module Bots::Signal::OrderSetter
   end
 
   # Nothing in here raises: placement answers for its own failures, and so does tracking.
+  #
+  # The marker is read once more right before the request: sizing reads the venue, and the other
+  # entry point may have gone ambiguous meanwhile.
   def place_and_track(side, order_data, amount_info)
+    held_back = unresolved_before_placing(side)
+    return held_back if held_back
+
     placed = place_signal_order(side, order_data, amount_info)
     return placed unless placed.status == :submitted
 
     placed.with(transaction: track_signal_order(order_data, placed.order_id))
+  end
+
+  # Nothing has been sent yet, so a read that raises here is a failed row, like any other.
+  def unresolved_before_placing(side)
+    Outcome.of(:unresolved) if placement_unresolved_now?
+  rescue StandardError => e
+    record_signal_failure(side, [e.message])
   end
 
   # Sizing a rule. Every read here is idempotent and retried in place; what still fails becomes a
@@ -213,7 +231,15 @@ module Bots::Signal::OrderSetter
     ambiguous_placement(order_data, e.message)
   end
 
+  # The marker first: it is what stops the next call from placing on top of this one, so it must
+  # outlive this process. A marker that cannot be written is said out loud, never raised — this is
+  # still an ambiguous placement, not a failed row.
   def ambiguous_placement(order_data, message)
+    begin
+      mark_placement_unresolved!(side: order_data[:side], error: message)
+    rescue StandardError => e
+      Rails.logger.error("execute_signal bot=#{id} event=unresolved_marker_failed error=#{e.message}")
+    end
     Rails.logger.warn(
       "execute_signal bot=#{id} event=placement_ambiguous #{order_log_fields(order_data)} error=#{message}"
     )

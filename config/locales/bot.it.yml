@@ -150,6 +150,10 @@ it:
             never_triggered: "mai attivato"
             last_triggered: "ultima attivazione %{time} fa"
             api_hint: "Questo bot accetta ordini anche da API e MCP: chiama market_buy o market_sell con bot_id %{id}."
+            unresolved: "Ordine non confermato — i nuovi segnali aspettano che tu controlli %{exchange}"
+            resolve: "Ho controllato %{exchange}"
+            resolved: "Fatto. Il bot accetta di nuovo i segnali."
+            resolution_stale: "Questo ordine è già stato risolto."
         buy: Compra
         counter: '%{countdown}'
         day: Giorno

@@ -776,6 +776,7 @@ en:
             signal_api_key_pending: 'Signal ignored — the API key is still waiting for activation'
             signal_expired: 'Signal dropped — it waited too long in the queue'
             signal_ignored: 'Signal ignored — the bot was stopped or the rule switched off before it ran'
+            signal_placement_resolved: "Unconfirmed order cleared manually"
         transactions:
             bought: 'Bought %{amount} %{base} for %{quote_amount} %{quote}'
             sold: 'Sold %{amount} %{base} for %{quote_amount} %{quote}'

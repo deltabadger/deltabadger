@@ -311,6 +311,20 @@ class Api::V1::OrdersControllerTest < ActionDispatch::IntegrationTest
     assert_equal 'placement_ambiguous', JSON.parse(response.body)['error']['code']
   end
 
+  test 'POST /api/v1/orders with bot_id answers 409 placement_unresolved behind an unresolved placement' do
+    bot = create(:signal_bot, :started, user: @user, exchange: @exchange, base_asset: @btc, quote_asset: @usd)
+    bot.mark_placement_unresolved!(side: :buy, error: 'Net::ReadTimeout')
+    Exchanges::Binance.any_instance.expects(:market_buy).never
+    @user.set_rest_tool_enabled('market_buy', true)
+
+    post '/api/v1/orders', params: { type: 'market_buy', bot_id: bot.id, amount: 100 },
+                           headers: bearer(api_token).merge('Idempotency-Key' => SecureRandom.uuid), as: :json
+
+    assert_response :conflict
+    assert_equal 'placement_unresolved', JSON.parse(response.body)['error']['code']
+    assert_empty bot.transactions
+  end
+
   test 'POST /api/v1/orders with a blank bot_id beside a complete pair is 422, not an unattributed order' do
     Exchanges::Binance.any_instance.expects(:market_buy).never
     @user.set_rest_tool_enabled('market_buy', true)

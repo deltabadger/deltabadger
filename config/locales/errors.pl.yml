@@ -117,6 +117,7 @@ pl:
             coingecko_required: "Klucz API CoinGecko jest wymagany dla botów indeksowych"
             market_data_required: "Dostawca danych rynkowych musi być skonfigurowany dla botów indeksowych. Przejdź do Ustawień, aby go połączyć."
             signal_minimum: "Nie można usunąć ostatniego sygnału"
+            signal_locked_while_running: "Zatrzymaj bota, aby zmienić jego sygnały"
         messages:
             accepted: 'musi zostać zaakceptowane'
             already_confirmed: 'został już potwierdzony, spróbuj się zalogować.'

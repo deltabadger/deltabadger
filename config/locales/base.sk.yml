@@ -780,6 +780,7 @@ sk:
             signal_api_key_pending: "Signál ignorovaný — API kľúč ešte čaká na aktiváciu"
             signal_expired: "Signál zahodený — čakal vo fronte príliš dlho"
             signal_ignored: "Signál ignorovaný — bot bol medzitým zastavený alebo pravidlo vypnuté"
+            signal_placement_resolved: "Nepotvrdený príkaz ručne uvoľnený"
         # TODO: translate transactions (English placeholders)
         transactions:
             bought: 'Bought %{amount} %{base} for %{quote_amount} %{quote}'

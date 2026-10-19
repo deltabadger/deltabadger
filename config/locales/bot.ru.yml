@@ -150,6 +150,10 @@ ru:
             never_triggered: "ещё не срабатывал"
             last_triggered: "последнее срабатывание %{time} назад"
             api_hint: "Этот бот также принимает ордера через API и MCP: вызовите market_buy или market_sell с bot_id %{id}."
+            unresolved: "Неподтверждённый ордер — новые сигналы ждут, пока вы не проверите %{exchange}"
+            resolve: "Я проверил %{exchange}"
+            resolved: "Готово. Бот снова принимает сигналы."
+            resolution_stale: "Этот ордер уже разрешён."
         buy: Купить
         counter: ''
         day: День

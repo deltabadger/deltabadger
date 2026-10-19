@@ -1,5 +1,6 @@
 <div id="<%= bot.new_record? ? "new-settings" : "settings" %>" class="column gap-1">
   <%= render partial: "bots/signals/settings/main", locals: { bot: bot } %>
+  <%= render partial: "bots/signals/unresolved_placement", locals: { bot: bot } %>
   <% bot.bot_signals.each_with_index do |signal, index| %>
     <%= render partial: "bots/signals/signal_widget", locals: { bot: bot, signal: signal, index: index } %>
   <% end %>

@@ -765,6 +765,7 @@ pl:
             signal_api_key_pending: "Sygnał zignorowany — klucz API wciąż czeka na aktywację"
             signal_expired: "Sygnał odrzucony — zbyt długo czekał w kolejce"
             signal_ignored: "Sygnał zignorowany — zanim zdążył zadziałać, bot został zatrzymany albo reguła wyłączona"
+            signal_placement_resolved: "Niepotwierdzone zlecenie odblokowane ręcznie"
         transactions:
             bought: 'Kupiono %{amount} %{base} za %{quote_amount} %{quote}'
             sold: 'Sprzedano %{amount} %{base} za %{quote_amount} %{quote}'
