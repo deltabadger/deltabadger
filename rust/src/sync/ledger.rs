@@ -690,7 +690,7 @@ fn merged_ids(raw: &Value) -> Vec<String> {
 
 /// The index on `transacted_at` (db/schema.rb). The two lookups by time name it, because SQLite's planner otherwise
 /// takes the index on `user_id` and walks the user's whole history for each row, inside the write transaction.
-const BY_TIME: &str = "INDEXED BY index_account_transactions_on_transacted_at";
+pub(crate) const BY_TIME: &str = "INDEXED BY index_account_transactions_on_transacted_at";
 
 /// #duplicate?, scoped to the user and the venue, not the key. With an id: a leg of a stored merged split, a stored
 /// row with that id, an API transfer or dust leg its export copy already holds, or an id-less stored row of the same

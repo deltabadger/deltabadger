@@ -94,23 +94,58 @@ pub fn publish(c:&crate::engine::model::FencedTransaction<'_>,owner:i64,before:&
     app_config::set_plain(c,&key(owner),&payload,now).map_err(FiguresError::Data)?;
     Ok(true)
 }
+/// The published entry's own `history`, `prices`, `expires` and `producers`, as stored. `expires` is new with every
+/// publish, so equal fingerprints are one publication (tracker::gaps keeps its row against it).
+#[derive(Clone, Debug, PartialEq)]
+pub struct Fingerprint(Value);
+impl Fingerprint {
+    fn of(v:&Value)->Self { Fingerprint(json!({"history":v["history"],"prices":v["prices"],"expires":v["expires"],"producers":v["producers"]})) }
+    pub fn to_json(&self)->&Value { &self.0 }
+    pub fn from_json(v:&Value)->Self { Self::of(v) }
+}
+/// Every scope of a warm entry, with the publication it came from.
+#[derive(Clone, Debug)]
+pub enum Published { Cold, Failed(&'static str), Warm { whole:Box<Summary>, venues:Vec<(i64,Summary)>, from:Fingerprint } }
+impl Published {
+    /// The scope a page reads: the whole account, or one venue's (empty when it has none).
+    pub fn scoped(self,exchange:Option<i64>)->State {
+        match self {
+            Published::Cold=>State::Cold,
+            Published::Failed(m)=>State::Failed(m),
+            Published::Warm{whole,venues,..}=>State::Warm(match exchange {
+                None=>whole,
+                Some(id)=>Box::new(venues.into_iter().find(|(venue,_)|*venue==id).map_or_else(Summary::empty,|(_,summary)|summary)),
+            }),
+        }
+    }
+}
+/// The stored entry's fingerprint, unvalidated (None without a readable entry): what a write guarded on a publication
+/// re-reads under its write lock.
+pub fn fingerprint(c:&Connection,owner:i64)->Result<Option<Fingerprint>,FiguresError> {
+    let Some(raw)=app_config::get_plain(c,&key(owner)).map_err(FiguresError::Data)? else {return Ok(None)};
+    Ok(serde_json::from_str::<Value>(&raw).ok().filter(Value::is_object).map(|v|Fingerprint::of(&v)))
+}
 /// Cold includes absent/expired/obsolete/malformed cache entries, as Rails' shape guard does.
 /// SQL failures propagate; a computed failure has its own safe, stated reason.
 pub fn read(c:&Connection,owner:i64,exchange:Option<i64>,now:DateTime<Utc>)->Result<State,FiguresError> {
-    if c.is_autocommit(){let tx=c.unchecked_transaction()?;let out=read(&tx,owner,exchange,now)?;tx.commit()?;return Ok(out)}
-    let Some(raw)=app_config::get_plain(c,&key(owner)).map_err(FiguresError::Data)? else {return Ok(State::Cold)};
-    if raw.len()>MAX_PAYLOAD {crate::engine::log("[tracker] ledger cache cold: payload exceeds 8388608-byte limit");return Ok(State::Cold)}
-    let Ok(v)=serde_json::from_str::<Value>(&raw) else {return Ok(State::Cold)};
-    if v["schema"].as_u64()!=Some(SCHEMA) || v["owner"].as_i64()!=Some(owner) {return Ok(State::Cold)}
-    let Some(expires)=v["expires"].as_str().and_then(|s|s.parse::<DateTime<Utc>>().ok()) else {return Ok(State::Cold)};
-    if now>=expires {return Ok(State::Cold)}
+    Ok(read_published(c,owner,now)?.scoped(exchange))
+}
+/// `read` before the scope is picked: one parse, every scope, and the publication's fingerprint.
+pub fn read_published(c:&Connection,owner:i64,now:DateTime<Utc>)->Result<Published,FiguresError> {
+    if c.is_autocommit(){let tx=c.unchecked_transaction()?;let out=read_published(&tx,owner,now)?;tx.commit()?;return Ok(out)}
+    let Some(raw)=app_config::get_plain(c,&key(owner)).map_err(FiguresError::Data)? else {return Ok(Published::Cold)};
+    if raw.len()>MAX_PAYLOAD {crate::engine::log("[tracker] ledger cache cold: payload exceeds 8388608-byte limit");return Ok(Published::Cold)}
+    let Ok(v)=serde_json::from_str::<Value>(&raw) else {return Ok(Published::Cold)};
+    if v["schema"].as_u64()!=Some(SCHEMA) || v["owner"].as_i64()!=Some(owner) {return Ok(Published::Cold)}
+    let Some(expires)=v["expires"].as_str().and_then(|s|s.parse::<DateTime<Utc>>().ok()) else {return Ok(Published::Cold)};
+    if now>=expires {return Ok(Published::Cold)}
     let current=version(c,owner)?;
-    if v["history"].as_str()!=Some(current.history.as_str()) || v["prices"].as_i64()!=Some(current.prices) {return Ok(State::Cold)}
-    if !crate::engine::model::stamp_set_current_for(&v["producers"],&current.producers) {return Ok(State::Cold)}
+    if v["history"].as_str()!=Some(current.history.as_str()) || v["prices"].as_i64()!=Some(current.prices) {return Ok(Published::Cold)}
+    if !crate::engine::model::stamp_set_current_for(&v["producers"],&current.producers) {return Ok(Published::Cold)}
     let origin=crate::sync::cache::capture_read(c,owner,None).map_err(|_|FiguresError::Data("ledger cache provenance unavailable".into()))?;
-    if !origin.ledger_is_current(c).map_err(|_|FiguresError::Data("ledger cache producer unavailable".into()))? {return Ok(State::Cold)}
-    if !v.as_object().is_some_and(|o|o.contains_key("whole") && o.contains_key("venues")) {return Ok(State::Cold)}
-    if v["whole"].is_null() && v["venues"].is_null() {return Ok(State::Failed(UNAVAILABLE))}
+    if !origin.ledger_is_current(c).map_err(|_|FiguresError::Data("ledger cache producer unavailable".into()))? {return Ok(Published::Cold)}
+    if !v.as_object().is_some_and(|o|o.contains_key("whole") && o.contains_key("venues")) {return Ok(Published::Cold)}
+    if v["whole"].is_null() && v["venues"].is_null() {return Ok(Published::Failed(UNAVAILABLE))}
     type Scopes=(Summary,Vec<(i64,Summary)>);
     let decoded=(||->Result<Scopes,FiguresError>{
         let whole=decode(&v["whole"])?;
@@ -123,11 +158,8 @@ pub fn read(c:&Connection,owner:i64,exchange:Option<i64>,now:DateTime<Utc>)->Res
         Ok((whole,venues))
     })();
     match decoded {
-        Ok((whole,venues))=>Ok(State::Warm(Box::new(match exchange {
-            None=>whole,
-            Some(id)=>venues.into_iter().find(|(venue,_)|*venue==id).map_or_else(Summary::empty,|(_,summary)|summary),
-        }))),
-        Err(_)=>Ok(State::Cold),
+        Ok((whole,venues))=>Ok(Published::Warm{whole:Box::new(whole),venues,from:Fingerprint::of(&v)}),
+        Err(_)=>Ok(Published::Cold),
     }
 }
 

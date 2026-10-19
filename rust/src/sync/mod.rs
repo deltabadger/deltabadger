@@ -236,6 +236,10 @@ pub fn balance_reading_keys(c: &Connection) -> Result<Vec<i64>, SyncError> { rea
 /// and KuCoin (kucoin_ledger).
 pub const LEDGER_VENUES: [&str; 4] = [ALPACA, crate::venue::binance::BINANCE, crate::venue::binance::BINANCE_US, crate::venue::kucoin::KUCOIN];
 
+/// The venues whose ledger job really reads a history (Binance.US's run reads nothing yet stamps its ledger current, see
+/// binance_ledger): the only ones the tracker's history-gap step judges (tracker::gaps).
+pub const LEDGER_READ_VENUES: [&str; 3] = [ALPACA, crate::venue::binance::BINANCE, crate::venue::kucoin::KUCOIN];
+
 /// ApiKey.reading over LEDGER_VENUES.
 pub fn ledger_reading_keys(c: &Connection) -> Result<Vec<i64>, SyncError> { reading_keys_of(c, &LEDGER_VENUES) }
 
