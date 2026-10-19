@@ -343,15 +343,12 @@ async fn figures_fragments_match_the_rails_page_partials() {
             }}).await.unwrap();
             assert!(matches!(failed,Snapshot::Failed(Some("executed fill value unavailable"))),"{name}: the fill keeps its reason");
             let rendered=loading::render(&c,user,&failed,"en","token","",&*app.clock).unwrap().unwrap();
-            let absent="<span class=\"no-value\">Figures unavailable: executed fill value unavailable</span>";
-            assert_eq!(rendered,serde_json::json!({"bots":{"1":{
-                "tile":format!("<div id=\"pnl_bots_dca_multi_asset_1\">{absent}</div>"),
-                "metrics":format!("<div id=\"metrics\">{absent}</div>"),
-                "chart":format!("<div id=\"chart\">{absent}</div>")}},
-                "account":format!("<div id=\"global-pnl\">{absent}</div>")}));
+            // The reason stays with the failure; the page shows nothing for it: no widget, no dash, no message.
+            assert_eq!(rendered,serde_json::json!({"bots":{"1":{"tile":"<div id=\"pnl_bots_dca_multi_asset_1\"></div>","metrics":"<div id=\"metrics\"></div>","chart":"<div id=\"chart\" hidden=\"hidden\">\n</div>\n"}},
+                "account":"<div id=\"global-pnl\"></div>"}));
             let streams=deltabadger::web::figure::streams(&c,sc["user_id"].as_i64().unwrap(),&rendered).unwrap();
             assert_eq!(streams.len(),4);
-            for (_,payload) in streams {assert!(payload.contains(absent));assert!(!payload.contains("data-bot--chart-series"));}
+            for (_,payload) in streams {no_widget(&payload,None);assert!(!payload.contains("Figures unavailable"));}
             continue; // Exact unavailable output above replaces the named Rails money defect.
         }
         if std::env::var("FIGURE_ROUTES").as_deref() != Ok("0") && name == "no_orders" {

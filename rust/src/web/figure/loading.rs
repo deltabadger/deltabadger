@@ -522,9 +522,10 @@ fn with_token(figures:&Value,slots:&super::Slots,csrf:&str)->Value {
 /// Converts a terminal computation failure into absence at every dependent presentation target.
 /// `Ok(None)` while the figures are cold; an error only when the fallback cannot read the account's bots.
 pub fn render(c:&Connection,user:i64,snapshot:&Snapshot,locale:&str,csrf:&str,prefix:&str,clock:&dyn crate::engine::Clock)->Result<Option<Value>,WebError>{
-    let reason=match snapshot {
+    match snapshot {
         Snapshot::Cold=>return Ok(None),
-        Snapshot::Failed(reason)=>*reason,
+        // Whatever the failure, its figures are absent; the reason is the queue's, not the page's.
+        Snapshot::Failed(_)=>{}
         Snapshot::Ready(cache,now,prepared_revision,read,until)=>{
             let current=cache.producer().as_ref().is_some_and(|origin|crate::engine::model::credential_is_current(c,origin).unwrap_or(false));
             // The fingerprint is the most expensive read of a warm page, and `prepare` read it a moment ago on this
@@ -545,7 +546,6 @@ pub fn render(c:&Connection,user:i64,snapshot:&Snapshot,locale:&str,csrf:&str,pr
                 if clock.now().timestamp()>=*until { return Ok(None); }
                 return Ok(Some(shown));
             }
-            None
         }
         Snapshot::Stale(cache,at,revision,until)=>{
             let current=cache.producer().as_ref().is_some_and(|origin|crate::engine::model::credential_is_current(c,origin).unwrap_or(false));
@@ -555,16 +555,11 @@ pub fn render(c:&Connection,user:i64,snapshot:&Snapshot,locale:&str,csrf:&str,pr
             let Ok(slots)=serde_json::from_value::<super::Slots>(kept["slots"].clone()) else { return Ok(None) };
             return Ok(stale_shown(with_token(&kept["figures"],&slots,csrf),&then,&shape(c,user)?));
         }
-    };
-    // A known reason is said in place of each figure; without one the figures are simply absent: no widget, no dash,
-    // only the targets a later publication replaces.
-    let no_value=match reason {
-        Some("Currency conversion unavailable")=>Some("<span class=\"no-value\">Currency conversion unavailable</span>"),
-        Some("executed fill value unavailable")=>Some("<span class=\"no-value\">Figures unavailable: executed fill value unavailable</span>"),
-        _=>None,
-    };
-    let absent=|id:&str|match no_value { Some(text)=>format!("<div id=\"{id}\">{text}</div>"), None if id=="chart"=>super::plot::NOT_CHARTED.into(), None=>format!("<div id=\"{id}\"></div>") };
-    // The fallback is every bot's no value, or nothing: a failure to read the bots fails the render, never publishes the
+    }
+    // Figures that cannot be had are absent: no widget, no dash, no message, only the targets a later publication
+    // replaces (the chart in its not-charted form).
+    let absent=|id:&str| if id=="chart" { super::plot::NOT_CHARTED.to_string() } else { format!("<div id=\"{id}\"></div>") };
+    // The fallback is every bot's empty targets, or nothing: a failure to read the bots fails the render, never publishes the
     // headline alone. Read as `db::account_bots` reads them, outside any figure's budget.
     let mut bots=serde_json::Map::new();
     let mut statement=c.prepare("SELECT id, type FROM bots WHERE user_id = ?1 AND status != ?2")?;
