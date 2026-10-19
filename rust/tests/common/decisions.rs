@@ -19,13 +19,18 @@ pub fn try_rails(args: &[&str]) -> Result<(), String> {
             cmd.env(format!("{}_DATABASE_URL", db.to_uppercase()), format!("sqlite3:{}/{db}.sqlite3", scratch.path().display()));
         }
         // A Rails run stuck on something never shows up in nextest's hour-long TIMEOUT: kill it after 20 minutes
-        // (a whole grid records in under 3) and print what it had written.
+        // (a whole grid records in under 3) and print what it had written, with every thread's backtrace, which
+        // script/rust/decisions.rb prints on SIGUSR1 (ten seconds to do it before the kill).
         let child = cmd.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().expect("bin/rails runs");
         let pid = child.id();
         let (done, finished) = std::sync::mpsc::channel::<()>();
         let watchdog = std::thread::spawn(move || {
             let timed_out = finished.recv_timeout(Duration::from_secs(20 * 60)).is_err();
-            if timed_out { let _ = Command::new("kill").args(["-9", &pid.to_string()]).status(); }
+            if timed_out {
+                let _ = Command::new("kill").args(["-USR1", &pid.to_string()]).status();
+                std::thread::sleep(Duration::from_secs(10));
+                let _ = Command::new("kill").args(["-9", &pid.to_string()]).status();
+            }
             timed_out
         });
         let out = child.wait_with_output().expect("bin/rails runs");
