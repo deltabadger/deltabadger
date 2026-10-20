@@ -9,6 +9,10 @@ pub mod binance;
 pub mod kraken;
 pub mod kucoin;
 pub mod live;
+pub mod registry;
+pub mod sign;
+pub mod signers;
+pub(crate) mod json;
 
 use crate::crypto::Credentials;
 use crate::engine::model::Ticker;

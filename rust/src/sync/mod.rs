@@ -199,8 +199,8 @@ pub struct Key {
     pub exchange_type: String,
 }
 
-/// The venues whose balances this build syncs. The ledger is synced for Alpaca only (`load_key`).
-pub const BALANCE_VENUES: [&str; 4] = [ALPACA, crate::venue::binance::BINANCE, crate::venue::binance::BINANCE_US, crate::venue::kucoin::KUCOIN];
+/// The venues whose balances this build syncs (`registry::Row::balances`).
+pub fn balance_venues() -> Vec<&'static str> { crate::venue::registry::types(|r| r.balances.is_some()) }
 
 /// The key being synced, when it is an Alpaca key: the ledger sync's key.
 pub fn load_key(c: &Connection, id: i64) -> Result<Key, SyncError> {
@@ -230,18 +230,17 @@ pub fn load_key_of(c: &Connection, id: i64, venues: &[&str]) -> Result<Key, Sync
 pub fn reading_keys(c: &Connection) -> Result<Vec<i64>, SyncError> { reading_keys_of(c, &[ALPACA]) }
 
 /// ApiKey.reading over the venues whose balances this build syncs.
-pub fn balance_reading_keys(c: &Connection) -> Result<Vec<i64>, SyncError> { reading_keys_of(c, &BALANCE_VENUES) }
+pub fn balance_reading_keys(c: &Connection) -> Result<Vec<i64>, SyncError> { reading_keys_of(c, &balance_venues()) }
 
-/// The venues with a ledger job: Alpaca, Binance, Binance.US (whose run reads nothing and completes, see binance_ledger)
-/// and KuCoin (kucoin_ledger).
-pub const LEDGER_VENUES: [&str; 4] = [ALPACA, crate::venue::binance::BINANCE, crate::venue::binance::BINANCE_US, crate::venue::kucoin::KUCOIN];
+/// The venues with a ledger job (`registry::Row::ledger`; Binance.US's run reads nothing and completes, see binance_ledger).
+pub fn ledger_venues() -> Vec<&'static str> { crate::venue::registry::types(|r| r.ledger.is_some()) }
 
 /// The venues whose ledger job really reads a history (Binance.US's run reads nothing yet stamps its ledger current, see
 /// binance_ledger): the only ones the tracker's history-gap step judges (tracker::gaps).
-pub const LEDGER_READ_VENUES: [&str; 3] = [ALPACA, crate::venue::binance::BINANCE, crate::venue::kucoin::KUCOIN];
+pub fn ledger_read_venues() -> Vec<&'static str> { crate::venue::registry::types(|r| r.ledger.is_some_and(|l| l.reads_history())) }
 
-/// ApiKey.reading over LEDGER_VENUES.
-pub fn ledger_reading_keys(c: &Connection) -> Result<Vec<i64>, SyncError> { reading_keys_of(c, &LEDGER_VENUES) }
+/// ApiKey.reading over `ledger_venues`.
+pub fn ledger_reading_keys(c: &Connection) -> Result<Vec<i64>, SyncError> { reading_keys_of(c, &ledger_venues()) }
 
 /// ApiKey.reading: per user and venue, the trading key that lacks no permission (`missing_permission?`), else the
 /// read-only one, else the first; status correct, never a withdrawal key.

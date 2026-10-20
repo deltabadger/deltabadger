@@ -30,9 +30,10 @@ pub const HTTP_THROTTLE: &str = "Binance: request rate limit exceeded";
 /// Exchanges::Binance::ERRORS[:invalid_key]: the venue's words that condemn a key (Exchange#condemning_invalid_key_error?).
 pub const INVALID_KEY: [&str; 3] = ["API-key format invalid.", "Invalid API-key, IP, or permissions for action.", "Invalid Api-Key ID."];
 
-/// The venue an exchange type reads from, and ExchangeProxy's name for it.
+/// The host a Binance-shaped venue (its registry row syncs balances through this adapter) reads from, and ExchangeProxy's
+/// name for it.
 pub fn host(exchange_type: &str) -> Option<(&'static str, &'static str)> {
-    match exchange_type { BINANCE => Some((URL, "binance")), BINANCE_US => Some((US_URL, "binance_us")), _ => None }
+    super::registry::row(exchange_type).filter(|r| r.balances == Some(super::registry::BalanceSync::Binance)).map(|r| (r.base, r.name_id))
 }
 
 /// Faraday::Utils.escape: everything but `[a-zA-Z0-9 .~_-]` percent-encoded (upper-case hex), then a space as "+".
@@ -217,17 +218,7 @@ impl<T: Transport> BinanceVenue<T> {
     /// One send as honeymaker's #with_rescue reads it: the 2xx body's text, or the failure.
     async fn answer(&self, r: &HttpRequest, placement: bool) -> Result<String, super::VenueError> {
         use super::VenueError;
-        let redact = |m: String| self.transport.redact_diagnostic(&m);
-        let resp = match self.transport.send(r).await {
-            Ok(resp) => resp,
-            Err(TransportError::Permanent(m)) => return Err(VenueError::Rejected(vec![redact(m)])),
-            // Honeymaker returns a transport failure as a Failure (it never raises): on a placement that provably sent nothing
-            // it is a definitive refusal, a failed row as Rails writes one (Exchange#ambiguous_placement_error?: pre-transmission).
-            Err(TransportError::NotSent(m)) if placement => return Err(VenueError::Rejected(vec![redact(m)])),
-            Err(TransportError::NotSent(m)) => return Err(VenueError::Transient(redact(m))),
-            Err(TransportError::MaybeSent(m)) if placement => return Err(VenueError::Ambiguous(redact(m))),
-            Err(TransportError::MaybeSent(m)) => return Err(VenueError::Transient(redact(m))),
-        };
+        let resp = self.transport.send(r).await.map_err(|e| http::transport_failure(e, placement, |m| self.transport.redact_diagnostic(&m)))?;
         if !(200..300).contains(&resp.status) {
             if !placement && matches!(resp.status, 429 | 418) {
                 return Err(VenueError::Rejected(vec![format!("the server responded with status {} ({HTTP_THROTTLE})", resp.status)]));
@@ -275,10 +266,7 @@ pub struct Trade { pub price: BigDec, pub amount: BigDec, pub quote_amount: BigD
 #[derive(Clone, Debug, PartialEq)]
 pub struct Fill { pub price: BigDec, pub amount_exec: BigDec, pub quote_amount_exec: BigDec }
 
-/// Utilities::Hash.dig_or_raise: absent or null is unreadable.
-fn field<'a>(v: &'a serde_json::Value, key: &str) -> Result<&'a serde_json::Value, super::VenueError> {
-    v.get(key).filter(|x| !x.is_null()).ok_or_else(unreadable)
-}
+fn field<'a>(v: &'a serde_json::Value, key: &str) -> Result<&'a serde_json::Value, super::VenueError> { super::json::field(v, key, unreadable) }
 
 /// Exchanges::Binance#parse_order_data. ORDER_STATUS_MAP; a status it does not list is Unknown (Rails raises; the poll
 /// decides, spec E §2.4). An order type other than MARKET or LIMIT is refused, as Rails raises.
@@ -346,11 +334,7 @@ pub fn aggregate(trades: &[Trade], pair: Option<&Pair>) -> Result<Fill, super::V
     Ok(Fill { price, amount_exec: total(|t| &t.amount_exec), quote_amount_exec: total(|t| &t.quote_amount_exec) })
 }
 
-/// A Binance decimal string or number: present and readable, or the whole answer is unreadable (never a zero). DIVERGES from
-/// Ruby on purpose (ruby::json_to_d): Rails' `.to_d` reads "garbage" as 0.
-fn required(v: &serde_json::Value) -> Result<BigDec, super::VenueError> {
-    crate::ruby::json_to_d(v).ok().flatten().ok_or_else(unreadable)
-}
+fn required(v: &serde_json::Value) -> Result<BigDec, super::VenueError> { super::json::required(v, unreadable) }
 
 impl<T: Transport> BinanceVenue<T> {
     /// #get_balances' `free` for one Binance asset code (never free + locked). Absent is 0; unreadable is an error.

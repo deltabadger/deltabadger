@@ -755,7 +755,7 @@ pub fn credentials_with_redaction(c:&Connection,cipher:&Cipher,bot:&Bot)->Result
     let open = |v: &Option<String>| v.as_ref().map(|v| cipher.decrypt(v).map_err(|_| EngineError::Data(format!("api key unreadable for bot {}", bot.id)))).transpose();
     // ApiKey#passphrase where the venue's client takes it: KuCoin signs with it, Alpaca reads its mode from it. Others never
     // read the field, so an unreadable leftover there does not stop their key.
-    let passphrase = if matches!(exchange_type.as_deref(), Some("Exchanges::Alpaca" | "Exchanges::Kucoin")) {open(&columns[2])?} else {None};
+    let passphrase = if exchange_type.as_deref().and_then(crate::venue::registry::row).is_some_and(|r| r.passphrase) {open(&columns[2])?} else {None};
     let credentials = match (open(&columns[0])?,open(&columns[1])?) { (Some(key),Some(secret))=>Some(Credentials { redaction_values:vec![],key,secret,passphrase}), _=>None };
     let mut sensitive=Vec::new();
     for value in columns.iter().flatten() {

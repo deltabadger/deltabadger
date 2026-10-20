@@ -438,9 +438,9 @@ impl<'a> Reader<'a> {
 
 /// Whether the figures read this venue's market data at all. A venue they do not read yet has no prices or candles here,
 /// which is no failure of the venue's: its bots show what is known without a price, and no note that it did not answer.
-pub fn reads(venue: &Venue) -> bool { venue.exchange_type == "Exchanges::Alpaca" || venue.exchange_type == crate::venue::kucoin::KUCOIN }
+pub fn reads(venue: &Venue) -> bool { crate::venue::registry::row(&venue.exchange_type).is_some_and(|r| r.figures.is_some()) }
 /// Whether the figures read this venue's candles.
-fn reads_candles(venue: &Venue) -> bool { venue.exchange_type == "Exchanges::Alpaca" || venue.exchange_type == crate::venue::kucoin::KUCOIN }
+fn reads_candles(venue: &Venue) -> bool { crate::venue::registry::row(&venue.exchange_type).and_then(|r| r.figures).is_some_and(|f| f.candles()) }
 /// Exchanges::Kucoin#get_candles' interval names, for the timeframes the chart asks for (`chart::timeframe`). Rails' 3 days
 /// and 1 month are rebuilt from 1day/1week candles; the chart never asks for them, so they have no series here.
 fn kucoin_type(timeframe: i64) -> Option<&'static str> {

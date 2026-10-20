@@ -1,0 +1,456 @@
+{
+  "sources": {
+    "script/rust/record_venue_signing.rb": "21fbf2750881d55011fbeb7f3a22cc67feb948a4277179192b602b7e3189e479"
+  },
+  "gems": {
+    "honeymaker": "0.12.5",
+    "hyperliquid-rb": "0.1.1",
+    "jwt": "2.10.3",
+    "rbnacl": "7.1.2",
+    "eth": "0.5.18",
+    "msgpack": "1.8.5"
+  },
+  "api_key": "organizations/0f8e7d6c-5b4a-4321-9876-0123456789ab/apiKeys/fedcba98-7654-4321-8abc-def012345678",
+  "secrets": {
+    "es256": "-----BEGIN EC PRIVATE KEY-----\nMHcCAQEEIMFTz7EqPCw/LWAEfvFmbyk59sPmhzbnkj6aV7BoJqu0oAoGCCqGSM49\nAwEHoUQDQgAEb3vZdG1GH6yn5IcQnkHYCkWhJOvHJS93DJisoZR2O0hubksq23ml\nEsxmvwYgoIA3BO1Vfbohnb1Y/FjSIXax5A==\n-----END EC PRIVATE KEY-----\n",
+    "es256 pasted with CRLF": "-----BEGIN EC PRIVATE KEY-----\r\nMHcCAQEEIMFTz7EqPCw/LWAEfvFmbyk59sPmhzbnkj6aV7BoJqu0oAoGCCqGSM49\r\nAwEHoUQDQgAEb3vZdG1GH6yn5IcQnkHYCkWhJOvHJS93DJisoZR2O0hubksq23ml\r\nEsxmvwYgoIA3BO1Vfbohnb1Y/FjSIXax5A==\r\n-----END EC PRIVATE KEY-----\r\n",
+    "ed25519": "r/CIE8TkMjoZwqjH9imoUUOWO3DT0Gz6lwM1uWc2oXSy5AdIXS0Ofu8cSyjfY1beI3BPc9ls+Z1vhczQ2lwgQw==",
+    "ed25519 wrapped": "r/CIE8TkMjoZwqjH9imoUUOWO3DT0Gz6lwM1uWc2\noXSy5AdIXS0Ofu8cSyjfY1beI3BPc9ls+Z1vhczQ2lwgQw==\n",
+    "ed25519 seed only": "r/CIE8TkMjoZwqjH9imoUUOWO3DT0Gz6lwM1uWc2oXQ=",
+    "ed25519 too short": "eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eA==",
+    "es256 unreadable": "-----BEGIN EC PRIVATE KEY-----\nnot a key\n-----END EC PRIVATE KEY-----\n"
+  },
+  "es256_public_key": "046f7bd9746d461faca7e487109e41d80a45a124ebc7252f770c98aca194763b486e6e4b2adb79a512cc66bf0620a0803704ed557dba219dbd58fc58d22176b1e4",
+  "signing": [
+    {
+      "key": "es256",
+      "call": "list_accounts",
+      "method": "GET",
+      "path": "/api/v3/brokerage/accounts",
+      "now": 1789871400,
+      "headers": {
+        "Authorization": "Bearer eyJraWQiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsIm5vbmNlIjoiNmIxZjBjMmE5ZThkN2Y2ZTVkNGMzYjJhMTkwODdmNmUiLCJhbGciOiJFUzI1NiJ9.eyJzdWIiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsImlzcyI6ImNvaW5iYXNlLWNsb3VkIiwibmJmIjoxNzg5ODcxNDAwLCJleHAiOjE3ODk4NzE1MjAsInVyaSI6IkdFVCBhcGkuY29pbmJhc2UuY29tL2FwaS92My9icm9rZXJhZ2UvYWNjb3VudHMifQ.ZjJEDbsfQ_vT9iHFlIjQtFEShDol2nY9MHXtzmaeXZO0ESrswOvLnlSX2SC7q8fpVbTaImsMdqRFa1ijEYJLsw",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "jwt": "eyJraWQiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsIm5vbmNlIjoiNmIxZjBjMmE5ZThkN2Y2ZTVkNGMzYjJhMTkwODdmNmUiLCJhbGciOiJFUzI1NiJ9.eyJzdWIiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsImlzcyI6ImNvaW5iYXNlLWNsb3VkIiwibmJmIjoxNzg5ODcxNDAwLCJleHAiOjE3ODk4NzE1MjAsInVyaSI6IkdFVCBhcGkuY29pbmJhc2UuY29tL2FwaS92My9icm9rZXJhZ2UvYWNjb3VudHMifQ.ZjJEDbsfQ_vT9iHFlIjQtFEShDol2nY9MHXtzmaeXZO0ESrswOvLnlSX2SC7q8fpVbTaImsMdqRFa1ijEYJLsw",
+      "jwt_header": "{\"kid\":\"organizations/0f8e7d6c-5b4a-4321-9876-0123456789ab/apiKeys/fedcba98-7654-4321-8abc-def012345678\",\"nonce\":\"6b1f0c2a9e8d7f6e5d4c3b2a19087f6e\",\"alg\":\"ES256\"}",
+      "jwt_payload": "{\"sub\":\"organizations/0f8e7d6c-5b4a-4321-9876-0123456789ab/apiKeys/fedcba98-7654-4321-8abc-def012345678\",\"iss\":\"coinbase-cloud\",\"nbf\":1789871400,\"exp\":1789871520,\"uri\":\"GET api.coinbase.com/api/v3/brokerage/accounts\"}",
+      "signature": "ZjJEDbsfQ_vT9iHFlIjQtFEShDol2nY9MHXtzmaeXZO0ESrswOvLnlSX2SC7q8fpVbTaImsMdqRFa1ijEYJLsw"
+    },
+    {
+      "key": "es256",
+      "call": "get_api_key_permissions",
+      "method": "GET",
+      "path": "/api/v3/brokerage/key_permissions",
+      "now": 1789871401,
+      "headers": {
+        "Authorization": "Bearer eyJraWQiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsIm5vbmNlIjoiMDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWYiLCJhbGciOiJFUzI1NiJ9.eyJzdWIiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsImlzcyI6ImNvaW5iYXNlLWNsb3VkIiwibmJmIjoxNzg5ODcxNDAxLCJleHAiOjE3ODk4NzE1MjEsInVyaSI6IkdFVCBhcGkuY29pbmJhc2UuY29tL2FwaS92My9icm9rZXJhZ2Uva2V5X3Blcm1pc3Npb25zIn0.mVeUFlVdvUzdsb0KU1HM2Dx5OP9mEilIF1_tb4maLry4Svo-eQLL0gEQyaiUXePh8DbHPvJl35DaFqESi2MGNA",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "jwt": "eyJraWQiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsIm5vbmNlIjoiMDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWYiLCJhbGciOiJFUzI1NiJ9.eyJzdWIiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsImlzcyI6ImNvaW5iYXNlLWNsb3VkIiwibmJmIjoxNzg5ODcxNDAxLCJleHAiOjE3ODk4NzE1MjEsInVyaSI6IkdFVCBhcGkuY29pbmJhc2UuY29tL2FwaS92My9icm9rZXJhZ2Uva2V5X3Blcm1pc3Npb25zIn0.mVeUFlVdvUzdsb0KU1HM2Dx5OP9mEilIF1_tb4maLry4Svo-eQLL0gEQyaiUXePh8DbHPvJl35DaFqESi2MGNA",
+      "jwt_header": "{\"kid\":\"organizations/0f8e7d6c-5b4a-4321-9876-0123456789ab/apiKeys/fedcba98-7654-4321-8abc-def012345678\",\"nonce\":\"0123456789abcdef0123456789abcdef\",\"alg\":\"ES256\"}",
+      "jwt_payload": "{\"sub\":\"organizations/0f8e7d6c-5b4a-4321-9876-0123456789ab/apiKeys/fedcba98-7654-4321-8abc-def012345678\",\"iss\":\"coinbase-cloud\",\"nbf\":1789871401,\"exp\":1789871521,\"uri\":\"GET api.coinbase.com/api/v3/brokerage/key_permissions\"}",
+      "signature": "mVeUFlVdvUzdsb0KU1HM2Dx5OP9mEilIF1_tb4maLry4Svo-eQLL0gEQyaiUXePh8DbHPvJl35DaFqESi2MGNA"
+    },
+    {
+      "key": "es256",
+      "call": "list_orders batch",
+      "method": "GET",
+      "path": "/api/v3/brokerage/orders/historical/batch",
+      "now": 1789871402,
+      "headers": {
+        "Authorization": "Bearer eyJraWQiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsIm5vbmNlIjoiNmIxZjBjMmE5ZThkN2Y2ZTVkNGMzYjJhMTkwODdmNmUiLCJhbGciOiJFUzI1NiJ9.eyJzdWIiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsImlzcyI6ImNvaW5iYXNlLWNsb3VkIiwibmJmIjoxNzg5ODcxNDAyLCJleHAiOjE3ODk4NzE1MjIsInVyaSI6IkdFVCBhcGkuY29pbmJhc2UuY29tL2FwaS92My9icm9rZXJhZ2Uvb3JkZXJzL2hpc3RvcmljYWwvYmF0Y2gifQ.12gP1ZgRnqCSxthG_6EY9y2JHEKXywVctETEO0d7Kdo8Z7zEk3yCuqnE2OlEzz3nqaBo60BOV9dCjb3I-91naw",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "jwt": "eyJraWQiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsIm5vbmNlIjoiNmIxZjBjMmE5ZThkN2Y2ZTVkNGMzYjJhMTkwODdmNmUiLCJhbGciOiJFUzI1NiJ9.eyJzdWIiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsImlzcyI6ImNvaW5iYXNlLWNsb3VkIiwibmJmIjoxNzg5ODcxNDAyLCJleHAiOjE3ODk4NzE1MjIsInVyaSI6IkdFVCBhcGkuY29pbmJhc2UuY29tL2FwaS92My9icm9rZXJhZ2Uvb3JkZXJzL2hpc3RvcmljYWwvYmF0Y2gifQ.12gP1ZgRnqCSxthG_6EY9y2JHEKXywVctETEO0d7Kdo8Z7zEk3yCuqnE2OlEzz3nqaBo60BOV9dCjb3I-91naw",
+      "jwt_header": "{\"kid\":\"organizations/0f8e7d6c-5b4a-4321-9876-0123456789ab/apiKeys/fedcba98-7654-4321-8abc-def012345678\",\"nonce\":\"6b1f0c2a9e8d7f6e5d4c3b2a19087f6e\",\"alg\":\"ES256\"}",
+      "jwt_payload": "{\"sub\":\"organizations/0f8e7d6c-5b4a-4321-9876-0123456789ab/apiKeys/fedcba98-7654-4321-8abc-def012345678\",\"iss\":\"coinbase-cloud\",\"nbf\":1789871402,\"exp\":1789871522,\"uri\":\"GET api.coinbase.com/api/v3/brokerage/orders/historical/batch\"}",
+      "signature": "12gP1ZgRnqCSxthG_6EY9y2JHEKXywVctETEO0d7Kdo8Z7zEk3yCuqnE2OlEzz3nqaBo60BOV9dCjb3I-91naw"
+    },
+    {
+      "key": "es256",
+      "call": "create_order",
+      "method": "POST",
+      "path": "/api/v3/brokerage/orders",
+      "now": 1789871403,
+      "headers": {
+        "Authorization": "Bearer eyJraWQiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsIm5vbmNlIjoiMDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWYiLCJhbGciOiJFUzI1NiJ9.eyJzdWIiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsImlzcyI6ImNvaW5iYXNlLWNsb3VkIiwibmJmIjoxNzg5ODcxNDAzLCJleHAiOjE3ODk4NzE1MjMsInVyaSI6IlBPU1QgYXBpLmNvaW5iYXNlLmNvbS9hcGkvdjMvYnJva2VyYWdlL29yZGVycyJ9.VeuYyZYYSZjNFBVsevk0vzVnx3I1MWkc46qMMB_hoWIJmSm6rRM4nbweldgpBvT_KCcpGulIEuv6Pn1vZj-53w",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "jwt": "eyJraWQiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsIm5vbmNlIjoiMDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWYiLCJhbGciOiJFUzI1NiJ9.eyJzdWIiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsImlzcyI6ImNvaW5iYXNlLWNsb3VkIiwibmJmIjoxNzg5ODcxNDAzLCJleHAiOjE3ODk4NzE1MjMsInVyaSI6IlBPU1QgYXBpLmNvaW5iYXNlLmNvbS9hcGkvdjMvYnJva2VyYWdlL29yZGVycyJ9.VeuYyZYYSZjNFBVsevk0vzVnx3I1MWkc46qMMB_hoWIJmSm6rRM4nbweldgpBvT_KCcpGulIEuv6Pn1vZj-53w",
+      "jwt_header": "{\"kid\":\"organizations/0f8e7d6c-5b4a-4321-9876-0123456789ab/apiKeys/fedcba98-7654-4321-8abc-def012345678\",\"nonce\":\"0123456789abcdef0123456789abcdef\",\"alg\":\"ES256\"}",
+      "jwt_payload": "{\"sub\":\"organizations/0f8e7d6c-5b4a-4321-9876-0123456789ab/apiKeys/fedcba98-7654-4321-8abc-def012345678\",\"iss\":\"coinbase-cloud\",\"nbf\":1789871403,\"exp\":1789871523,\"uri\":\"POST api.coinbase.com/api/v3/brokerage/orders\"}",
+      "signature": "VeuYyZYYSZjNFBVsevk0vzVnx3I1MWkc46qMMB_hoWIJmSm6rRM4nbweldgpBvT_KCcpGulIEuv6Pn1vZj-53w"
+    },
+    {
+      "key": "es256",
+      "call": "cancel_orders",
+      "method": "POST",
+      "path": "/api/v3/brokerage/orders/batch_cancel",
+      "now": 1789871404,
+      "headers": {
+        "Authorization": "Bearer eyJraWQiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsIm5vbmNlIjoiNmIxZjBjMmE5ZThkN2Y2ZTVkNGMzYjJhMTkwODdmNmUiLCJhbGciOiJFUzI1NiJ9.eyJzdWIiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsImlzcyI6ImNvaW5iYXNlLWNsb3VkIiwibmJmIjoxNzg5ODcxNDA0LCJleHAiOjE3ODk4NzE1MjQsInVyaSI6IlBPU1QgYXBpLmNvaW5iYXNlLmNvbS9hcGkvdjMvYnJva2VyYWdlL29yZGVycy9iYXRjaF9jYW5jZWwifQ.5Cnr50Fk0h7ZeDcnHy87Rfp5OSQa5FzA_XVD-fpxjwLtdZ12NYGqDQO1PQXrZBOdyzGzigRfz56ozU5mk5-i9A",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "jwt": "eyJraWQiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsIm5vbmNlIjoiNmIxZjBjMmE5ZThkN2Y2ZTVkNGMzYjJhMTkwODdmNmUiLCJhbGciOiJFUzI1NiJ9.eyJzdWIiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsImlzcyI6ImNvaW5iYXNlLWNsb3VkIiwibmJmIjoxNzg5ODcxNDA0LCJleHAiOjE3ODk4NzE1MjQsInVyaSI6IlBPU1QgYXBpLmNvaW5iYXNlLmNvbS9hcGkvdjMvYnJva2VyYWdlL29yZGVycy9iYXRjaF9jYW5jZWwifQ.5Cnr50Fk0h7ZeDcnHy87Rfp5OSQa5FzA_XVD-fpxjwLtdZ12NYGqDQO1PQXrZBOdyzGzigRfz56ozU5mk5-i9A",
+      "jwt_header": "{\"kid\":\"organizations/0f8e7d6c-5b4a-4321-9876-0123456789ab/apiKeys/fedcba98-7654-4321-8abc-def012345678\",\"nonce\":\"6b1f0c2a9e8d7f6e5d4c3b2a19087f6e\",\"alg\":\"ES256\"}",
+      "jwt_payload": "{\"sub\":\"organizations/0f8e7d6c-5b4a-4321-9876-0123456789ab/apiKeys/fedcba98-7654-4321-8abc-def012345678\",\"iss\":\"coinbase-cloud\",\"nbf\":1789871404,\"exp\":1789871524,\"uri\":\"POST api.coinbase.com/api/v3/brokerage/orders/batch_cancel\"}",
+      "signature": "5Cnr50Fk0h7ZeDcnHy87Rfp5OSQa5FzA_XVD-fpxjwLtdZ12NYGqDQO1PQXrZBOdyzGzigRfz56ozU5mk5-i9A"
+    },
+    {
+      "key": "es256 pasted with CRLF",
+      "call": "list_accounts",
+      "method": "GET",
+      "path": "/api/v3/brokerage/accounts",
+      "now": 1789871400,
+      "headers": {
+        "Authorization": "Bearer eyJraWQiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsIm5vbmNlIjoiMDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWYiLCJhbGciOiJFUzI1NiJ9.eyJzdWIiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsImlzcyI6ImNvaW5iYXNlLWNsb3VkIiwibmJmIjoxNzg5ODcxNDAwLCJleHAiOjE3ODk4NzE1MjAsInVyaSI6IkdFVCBhcGkuY29pbmJhc2UuY29tL2FwaS92My9icm9rZXJhZ2UvYWNjb3VudHMifQ.OI_h0wDyQQKhmDxSkZK3wVP2F6AdzQfRttC1C7MZwe3fzyiJPoisARR8m3va43iBN1kq5pG6Fkp3A5D5ezcMNw",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "jwt": "eyJraWQiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsIm5vbmNlIjoiMDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWYiLCJhbGciOiJFUzI1NiJ9.eyJzdWIiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsImlzcyI6ImNvaW5iYXNlLWNsb3VkIiwibmJmIjoxNzg5ODcxNDAwLCJleHAiOjE3ODk4NzE1MjAsInVyaSI6IkdFVCBhcGkuY29pbmJhc2UuY29tL2FwaS92My9icm9rZXJhZ2UvYWNjb3VudHMifQ.OI_h0wDyQQKhmDxSkZK3wVP2F6AdzQfRttC1C7MZwe3fzyiJPoisARR8m3va43iBN1kq5pG6Fkp3A5D5ezcMNw",
+      "jwt_header": "{\"kid\":\"organizations/0f8e7d6c-5b4a-4321-9876-0123456789ab/apiKeys/fedcba98-7654-4321-8abc-def012345678\",\"nonce\":\"0123456789abcdef0123456789abcdef\",\"alg\":\"ES256\"}",
+      "jwt_payload": "{\"sub\":\"organizations/0f8e7d6c-5b4a-4321-9876-0123456789ab/apiKeys/fedcba98-7654-4321-8abc-def012345678\",\"iss\":\"coinbase-cloud\",\"nbf\":1789871400,\"exp\":1789871520,\"uri\":\"GET api.coinbase.com/api/v3/brokerage/accounts\"}",
+      "signature": "OI_h0wDyQQKhmDxSkZK3wVP2F6AdzQfRttC1C7MZwe3fzyiJPoisARR8m3va43iBN1kq5pG6Fkp3A5D5ezcMNw"
+    },
+    {
+      "key": "es256 pasted with CRLF",
+      "call": "get_api_key_permissions",
+      "method": "GET",
+      "path": "/api/v3/brokerage/key_permissions",
+      "now": 1789871401,
+      "headers": {
+        "Authorization": "Bearer eyJraWQiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsIm5vbmNlIjoiNmIxZjBjMmE5ZThkN2Y2ZTVkNGMzYjJhMTkwODdmNmUiLCJhbGciOiJFUzI1NiJ9.eyJzdWIiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsImlzcyI6ImNvaW5iYXNlLWNsb3VkIiwibmJmIjoxNzg5ODcxNDAxLCJleHAiOjE3ODk4NzE1MjEsInVyaSI6IkdFVCBhcGkuY29pbmJhc2UuY29tL2FwaS92My9icm9rZXJhZ2Uva2V5X3Blcm1pc3Npb25zIn0.fiRJzDje3yWvpwWfmcdz6Se34MOPh-xy9qPK4r-caNxSiQBztztGfIviMejma-UjQjQKhiMCoNPv8-nrY0dZYQ",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "jwt": "eyJraWQiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsIm5vbmNlIjoiNmIxZjBjMmE5ZThkN2Y2ZTVkNGMzYjJhMTkwODdmNmUiLCJhbGciOiJFUzI1NiJ9.eyJzdWIiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsImlzcyI6ImNvaW5iYXNlLWNsb3VkIiwibmJmIjoxNzg5ODcxNDAxLCJleHAiOjE3ODk4NzE1MjEsInVyaSI6IkdFVCBhcGkuY29pbmJhc2UuY29tL2FwaS92My9icm9rZXJhZ2Uva2V5X3Blcm1pc3Npb25zIn0.fiRJzDje3yWvpwWfmcdz6Se34MOPh-xy9qPK4r-caNxSiQBztztGfIviMejma-UjQjQKhiMCoNPv8-nrY0dZYQ",
+      "jwt_header": "{\"kid\":\"organizations/0f8e7d6c-5b4a-4321-9876-0123456789ab/apiKeys/fedcba98-7654-4321-8abc-def012345678\",\"nonce\":\"6b1f0c2a9e8d7f6e5d4c3b2a19087f6e\",\"alg\":\"ES256\"}",
+      "jwt_payload": "{\"sub\":\"organizations/0f8e7d6c-5b4a-4321-9876-0123456789ab/apiKeys/fedcba98-7654-4321-8abc-def012345678\",\"iss\":\"coinbase-cloud\",\"nbf\":1789871401,\"exp\":1789871521,\"uri\":\"GET api.coinbase.com/api/v3/brokerage/key_permissions\"}",
+      "signature": "fiRJzDje3yWvpwWfmcdz6Se34MOPh-xy9qPK4r-caNxSiQBztztGfIviMejma-UjQjQKhiMCoNPv8-nrY0dZYQ"
+    },
+    {
+      "key": "es256 pasted with CRLF",
+      "call": "list_orders batch",
+      "method": "GET",
+      "path": "/api/v3/brokerage/orders/historical/batch",
+      "now": 1789871402,
+      "headers": {
+        "Authorization": "Bearer eyJraWQiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsIm5vbmNlIjoiMDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWYiLCJhbGciOiJFUzI1NiJ9.eyJzdWIiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsImlzcyI6ImNvaW5iYXNlLWNsb3VkIiwibmJmIjoxNzg5ODcxNDAyLCJleHAiOjE3ODk4NzE1MjIsInVyaSI6IkdFVCBhcGkuY29pbmJhc2UuY29tL2FwaS92My9icm9rZXJhZ2Uvb3JkZXJzL2hpc3RvcmljYWwvYmF0Y2gifQ.Eqa5T-XtR7aZ7bEuE1jeKwYdvXhEWEGNtP4HA2dJwk0LL2CdsxeK-Gb_r2cQ7L32896abzZhPPqtp5af2wqUUQ",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "jwt": "eyJraWQiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsIm5vbmNlIjoiMDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWYiLCJhbGciOiJFUzI1NiJ9.eyJzdWIiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsImlzcyI6ImNvaW5iYXNlLWNsb3VkIiwibmJmIjoxNzg5ODcxNDAyLCJleHAiOjE3ODk4NzE1MjIsInVyaSI6IkdFVCBhcGkuY29pbmJhc2UuY29tL2FwaS92My9icm9rZXJhZ2Uvb3JkZXJzL2hpc3RvcmljYWwvYmF0Y2gifQ.Eqa5T-XtR7aZ7bEuE1jeKwYdvXhEWEGNtP4HA2dJwk0LL2CdsxeK-Gb_r2cQ7L32896abzZhPPqtp5af2wqUUQ",
+      "jwt_header": "{\"kid\":\"organizations/0f8e7d6c-5b4a-4321-9876-0123456789ab/apiKeys/fedcba98-7654-4321-8abc-def012345678\",\"nonce\":\"0123456789abcdef0123456789abcdef\",\"alg\":\"ES256\"}",
+      "jwt_payload": "{\"sub\":\"organizations/0f8e7d6c-5b4a-4321-9876-0123456789ab/apiKeys/fedcba98-7654-4321-8abc-def012345678\",\"iss\":\"coinbase-cloud\",\"nbf\":1789871402,\"exp\":1789871522,\"uri\":\"GET api.coinbase.com/api/v3/brokerage/orders/historical/batch\"}",
+      "signature": "Eqa5T-XtR7aZ7bEuE1jeKwYdvXhEWEGNtP4HA2dJwk0LL2CdsxeK-Gb_r2cQ7L32896abzZhPPqtp5af2wqUUQ"
+    },
+    {
+      "key": "es256 pasted with CRLF",
+      "call": "create_order",
+      "method": "POST",
+      "path": "/api/v3/brokerage/orders",
+      "now": 1789871403,
+      "headers": {
+        "Authorization": "Bearer eyJraWQiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsIm5vbmNlIjoiNmIxZjBjMmE5ZThkN2Y2ZTVkNGMzYjJhMTkwODdmNmUiLCJhbGciOiJFUzI1NiJ9.eyJzdWIiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsImlzcyI6ImNvaW5iYXNlLWNsb3VkIiwibmJmIjoxNzg5ODcxNDAzLCJleHAiOjE3ODk4NzE1MjMsInVyaSI6IlBPU1QgYXBpLmNvaW5iYXNlLmNvbS9hcGkvdjMvYnJva2VyYWdlL29yZGVycyJ9.FOvgHM5U2kZwbZzeZ8UK4R5c8XoNHBuMAlCs9MjiqzP0_59j5He5GGcDlynwJUCQXZrO3GddcD-JvI2CuCNTGQ",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "jwt": "eyJraWQiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsIm5vbmNlIjoiNmIxZjBjMmE5ZThkN2Y2ZTVkNGMzYjJhMTkwODdmNmUiLCJhbGciOiJFUzI1NiJ9.eyJzdWIiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsImlzcyI6ImNvaW5iYXNlLWNsb3VkIiwibmJmIjoxNzg5ODcxNDAzLCJleHAiOjE3ODk4NzE1MjMsInVyaSI6IlBPU1QgYXBpLmNvaW5iYXNlLmNvbS9hcGkvdjMvYnJva2VyYWdlL29yZGVycyJ9.FOvgHM5U2kZwbZzeZ8UK4R5c8XoNHBuMAlCs9MjiqzP0_59j5He5GGcDlynwJUCQXZrO3GddcD-JvI2CuCNTGQ",
+      "jwt_header": "{\"kid\":\"organizations/0f8e7d6c-5b4a-4321-9876-0123456789ab/apiKeys/fedcba98-7654-4321-8abc-def012345678\",\"nonce\":\"6b1f0c2a9e8d7f6e5d4c3b2a19087f6e\",\"alg\":\"ES256\"}",
+      "jwt_payload": "{\"sub\":\"organizations/0f8e7d6c-5b4a-4321-9876-0123456789ab/apiKeys/fedcba98-7654-4321-8abc-def012345678\",\"iss\":\"coinbase-cloud\",\"nbf\":1789871403,\"exp\":1789871523,\"uri\":\"POST api.coinbase.com/api/v3/brokerage/orders\"}",
+      "signature": "FOvgHM5U2kZwbZzeZ8UK4R5c8XoNHBuMAlCs9MjiqzP0_59j5He5GGcDlynwJUCQXZrO3GddcD-JvI2CuCNTGQ"
+    },
+    {
+      "key": "es256 pasted with CRLF",
+      "call": "cancel_orders",
+      "method": "POST",
+      "path": "/api/v3/brokerage/orders/batch_cancel",
+      "now": 1789871404,
+      "headers": {
+        "Authorization": "Bearer eyJraWQiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsIm5vbmNlIjoiMDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWYiLCJhbGciOiJFUzI1NiJ9.eyJzdWIiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsImlzcyI6ImNvaW5iYXNlLWNsb3VkIiwibmJmIjoxNzg5ODcxNDA0LCJleHAiOjE3ODk4NzE1MjQsInVyaSI6IlBPU1QgYXBpLmNvaW5iYXNlLmNvbS9hcGkvdjMvYnJva2VyYWdlL29yZGVycy9iYXRjaF9jYW5jZWwifQ.gMAvGZAT6PIoleIRijnaOqBKehh98KvTYLqql3Xz3YCuxwxY6a4IEcX972CXe_OHvvtyuFeuYbN6EJtLctNxuQ",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "jwt": "eyJraWQiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsIm5vbmNlIjoiMDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWYiLCJhbGciOiJFUzI1NiJ9.eyJzdWIiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsImlzcyI6ImNvaW5iYXNlLWNsb3VkIiwibmJmIjoxNzg5ODcxNDA0LCJleHAiOjE3ODk4NzE1MjQsInVyaSI6IlBPU1QgYXBpLmNvaW5iYXNlLmNvbS9hcGkvdjMvYnJva2VyYWdlL29yZGVycy9iYXRjaF9jYW5jZWwifQ.gMAvGZAT6PIoleIRijnaOqBKehh98KvTYLqql3Xz3YCuxwxY6a4IEcX972CXe_OHvvtyuFeuYbN6EJtLctNxuQ",
+      "jwt_header": "{\"kid\":\"organizations/0f8e7d6c-5b4a-4321-9876-0123456789ab/apiKeys/fedcba98-7654-4321-8abc-def012345678\",\"nonce\":\"0123456789abcdef0123456789abcdef\",\"alg\":\"ES256\"}",
+      "jwt_payload": "{\"sub\":\"organizations/0f8e7d6c-5b4a-4321-9876-0123456789ab/apiKeys/fedcba98-7654-4321-8abc-def012345678\",\"iss\":\"coinbase-cloud\",\"nbf\":1789871404,\"exp\":1789871524,\"uri\":\"POST api.coinbase.com/api/v3/brokerage/orders/batch_cancel\"}",
+      "signature": "gMAvGZAT6PIoleIRijnaOqBKehh98KvTYLqql3Xz3YCuxwxY6a4IEcX972CXe_OHvvtyuFeuYbN6EJtLctNxuQ"
+    },
+    {
+      "key": "ed25519",
+      "call": "list_accounts",
+      "method": "GET",
+      "path": "/api/v3/brokerage/accounts",
+      "now": 1789871400,
+      "headers": {
+        "Authorization": "Bearer eyJraWQiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsIm5vbmNlIjoiNmIxZjBjMmE5ZThkN2Y2ZTVkNGMzYjJhMTkwODdmNmUiLCJhbGciOiJFZERTQSJ9.eyJzdWIiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsImlzcyI6ImNvaW5iYXNlLWNsb3VkIiwibmJmIjoxNzg5ODcxNDAwLCJleHAiOjE3ODk4NzE1MjAsInVyaSI6IkdFVCBhcGkuY29pbmJhc2UuY29tL2FwaS92My9icm9rZXJhZ2UvYWNjb3VudHMifQ.uQnXjCr1_fb50ZAcDVO-lGEzrPnRlnXSY_i5lz5a2xjAV1zNHF9pcfoLNQv_98EDyi-XF6NgO-v7d_d0vDO6Aw",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "jwt": "eyJraWQiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsIm5vbmNlIjoiNmIxZjBjMmE5ZThkN2Y2ZTVkNGMzYjJhMTkwODdmNmUiLCJhbGciOiJFZERTQSJ9.eyJzdWIiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsImlzcyI6ImNvaW5iYXNlLWNsb3VkIiwibmJmIjoxNzg5ODcxNDAwLCJleHAiOjE3ODk4NzE1MjAsInVyaSI6IkdFVCBhcGkuY29pbmJhc2UuY29tL2FwaS92My9icm9rZXJhZ2UvYWNjb3VudHMifQ.uQnXjCr1_fb50ZAcDVO-lGEzrPnRlnXSY_i5lz5a2xjAV1zNHF9pcfoLNQv_98EDyi-XF6NgO-v7d_d0vDO6Aw",
+      "jwt_header": "{\"kid\":\"organizations/0f8e7d6c-5b4a-4321-9876-0123456789ab/apiKeys/fedcba98-7654-4321-8abc-def012345678\",\"nonce\":\"6b1f0c2a9e8d7f6e5d4c3b2a19087f6e\",\"alg\":\"EdDSA\"}",
+      "jwt_payload": "{\"sub\":\"organizations/0f8e7d6c-5b4a-4321-9876-0123456789ab/apiKeys/fedcba98-7654-4321-8abc-def012345678\",\"iss\":\"coinbase-cloud\",\"nbf\":1789871400,\"exp\":1789871520,\"uri\":\"GET api.coinbase.com/api/v3/brokerage/accounts\"}",
+      "signature": "uQnXjCr1_fb50ZAcDVO-lGEzrPnRlnXSY_i5lz5a2xjAV1zNHF9pcfoLNQv_98EDyi-XF6NgO-v7d_d0vDO6Aw"
+    },
+    {
+      "key": "ed25519",
+      "call": "get_api_key_permissions",
+      "method": "GET",
+      "path": "/api/v3/brokerage/key_permissions",
+      "now": 1789871401,
+      "headers": {
+        "Authorization": "Bearer eyJraWQiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsIm5vbmNlIjoiMDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWYiLCJhbGciOiJFZERTQSJ9.eyJzdWIiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsImlzcyI6ImNvaW5iYXNlLWNsb3VkIiwibmJmIjoxNzg5ODcxNDAxLCJleHAiOjE3ODk4NzE1MjEsInVyaSI6IkdFVCBhcGkuY29pbmJhc2UuY29tL2FwaS92My9icm9rZXJhZ2Uva2V5X3Blcm1pc3Npb25zIn0.JitBEgeuaA3l7KD9SYk31YSkf3N4HrDSNDSstIG_mVgfjktNHXqmJ4sNR9iUYQquZKrOz5M-xx3WOvCLTkVnCQ",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "jwt": "eyJraWQiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsIm5vbmNlIjoiMDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWYiLCJhbGciOiJFZERTQSJ9.eyJzdWIiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsImlzcyI6ImNvaW5iYXNlLWNsb3VkIiwibmJmIjoxNzg5ODcxNDAxLCJleHAiOjE3ODk4NzE1MjEsInVyaSI6IkdFVCBhcGkuY29pbmJhc2UuY29tL2FwaS92My9icm9rZXJhZ2Uva2V5X3Blcm1pc3Npb25zIn0.JitBEgeuaA3l7KD9SYk31YSkf3N4HrDSNDSstIG_mVgfjktNHXqmJ4sNR9iUYQquZKrOz5M-xx3WOvCLTkVnCQ",
+      "jwt_header": "{\"kid\":\"organizations/0f8e7d6c-5b4a-4321-9876-0123456789ab/apiKeys/fedcba98-7654-4321-8abc-def012345678\",\"nonce\":\"0123456789abcdef0123456789abcdef\",\"alg\":\"EdDSA\"}",
+      "jwt_payload": "{\"sub\":\"organizations/0f8e7d6c-5b4a-4321-9876-0123456789ab/apiKeys/fedcba98-7654-4321-8abc-def012345678\",\"iss\":\"coinbase-cloud\",\"nbf\":1789871401,\"exp\":1789871521,\"uri\":\"GET api.coinbase.com/api/v3/brokerage/key_permissions\"}",
+      "signature": "JitBEgeuaA3l7KD9SYk31YSkf3N4HrDSNDSstIG_mVgfjktNHXqmJ4sNR9iUYQquZKrOz5M-xx3WOvCLTkVnCQ"
+    },
+    {
+      "key": "ed25519",
+      "call": "list_orders batch",
+      "method": "GET",
+      "path": "/api/v3/brokerage/orders/historical/batch",
+      "now": 1789871402,
+      "headers": {
+        "Authorization": "Bearer eyJraWQiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsIm5vbmNlIjoiNmIxZjBjMmE5ZThkN2Y2ZTVkNGMzYjJhMTkwODdmNmUiLCJhbGciOiJFZERTQSJ9.eyJzdWIiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsImlzcyI6ImNvaW5iYXNlLWNsb3VkIiwibmJmIjoxNzg5ODcxNDAyLCJleHAiOjE3ODk4NzE1MjIsInVyaSI6IkdFVCBhcGkuY29pbmJhc2UuY29tL2FwaS92My9icm9rZXJhZ2Uvb3JkZXJzL2hpc3RvcmljYWwvYmF0Y2gifQ.Rm81GNilQfaluzHmhrVJoB2ea43MP8Dj7YDzXvJyhqyNmqjS5mCPQdCrW6jGlvEljn9pYoqU0hM2DfTITWxlDQ",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "jwt": "eyJraWQiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsIm5vbmNlIjoiNmIxZjBjMmE5ZThkN2Y2ZTVkNGMzYjJhMTkwODdmNmUiLCJhbGciOiJFZERTQSJ9.eyJzdWIiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsImlzcyI6ImNvaW5iYXNlLWNsb3VkIiwibmJmIjoxNzg5ODcxNDAyLCJleHAiOjE3ODk4NzE1MjIsInVyaSI6IkdFVCBhcGkuY29pbmJhc2UuY29tL2FwaS92My9icm9rZXJhZ2Uvb3JkZXJzL2hpc3RvcmljYWwvYmF0Y2gifQ.Rm81GNilQfaluzHmhrVJoB2ea43MP8Dj7YDzXvJyhqyNmqjS5mCPQdCrW6jGlvEljn9pYoqU0hM2DfTITWxlDQ",
+      "jwt_header": "{\"kid\":\"organizations/0f8e7d6c-5b4a-4321-9876-0123456789ab/apiKeys/fedcba98-7654-4321-8abc-def012345678\",\"nonce\":\"6b1f0c2a9e8d7f6e5d4c3b2a19087f6e\",\"alg\":\"EdDSA\"}",
+      "jwt_payload": "{\"sub\":\"organizations/0f8e7d6c-5b4a-4321-9876-0123456789ab/apiKeys/fedcba98-7654-4321-8abc-def012345678\",\"iss\":\"coinbase-cloud\",\"nbf\":1789871402,\"exp\":1789871522,\"uri\":\"GET api.coinbase.com/api/v3/brokerage/orders/historical/batch\"}",
+      "signature": "Rm81GNilQfaluzHmhrVJoB2ea43MP8Dj7YDzXvJyhqyNmqjS5mCPQdCrW6jGlvEljn9pYoqU0hM2DfTITWxlDQ"
+    },
+    {
+      "key": "ed25519",
+      "call": "create_order",
+      "method": "POST",
+      "path": "/api/v3/brokerage/orders",
+      "now": 1789871403,
+      "headers": {
+        "Authorization": "Bearer eyJraWQiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsIm5vbmNlIjoiMDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWYiLCJhbGciOiJFZERTQSJ9.eyJzdWIiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsImlzcyI6ImNvaW5iYXNlLWNsb3VkIiwibmJmIjoxNzg5ODcxNDAzLCJleHAiOjE3ODk4NzE1MjMsInVyaSI6IlBPU1QgYXBpLmNvaW5iYXNlLmNvbS9hcGkvdjMvYnJva2VyYWdlL29yZGVycyJ9.y4UMV73hgMS6uUJxlqpQVANroHzO5xkoNmeke_IQ0quUYQEPeM1D3OKkFfHxmX6GPK0YPHcIXy0CkDxzTo6XDg",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "jwt": "eyJraWQiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsIm5vbmNlIjoiMDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWYiLCJhbGciOiJFZERTQSJ9.eyJzdWIiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsImlzcyI6ImNvaW5iYXNlLWNsb3VkIiwibmJmIjoxNzg5ODcxNDAzLCJleHAiOjE3ODk4NzE1MjMsInVyaSI6IlBPU1QgYXBpLmNvaW5iYXNlLmNvbS9hcGkvdjMvYnJva2VyYWdlL29yZGVycyJ9.y4UMV73hgMS6uUJxlqpQVANroHzO5xkoNmeke_IQ0quUYQEPeM1D3OKkFfHxmX6GPK0YPHcIXy0CkDxzTo6XDg",
+      "jwt_header": "{\"kid\":\"organizations/0f8e7d6c-5b4a-4321-9876-0123456789ab/apiKeys/fedcba98-7654-4321-8abc-def012345678\",\"nonce\":\"0123456789abcdef0123456789abcdef\",\"alg\":\"EdDSA\"}",
+      "jwt_payload": "{\"sub\":\"organizations/0f8e7d6c-5b4a-4321-9876-0123456789ab/apiKeys/fedcba98-7654-4321-8abc-def012345678\",\"iss\":\"coinbase-cloud\",\"nbf\":1789871403,\"exp\":1789871523,\"uri\":\"POST api.coinbase.com/api/v3/brokerage/orders\"}",
+      "signature": "y4UMV73hgMS6uUJxlqpQVANroHzO5xkoNmeke_IQ0quUYQEPeM1D3OKkFfHxmX6GPK0YPHcIXy0CkDxzTo6XDg"
+    },
+    {
+      "key": "ed25519",
+      "call": "cancel_orders",
+      "method": "POST",
+      "path": "/api/v3/brokerage/orders/batch_cancel",
+      "now": 1789871404,
+      "headers": {
+        "Authorization": "Bearer eyJraWQiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsIm5vbmNlIjoiNmIxZjBjMmE5ZThkN2Y2ZTVkNGMzYjJhMTkwODdmNmUiLCJhbGciOiJFZERTQSJ9.eyJzdWIiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsImlzcyI6ImNvaW5iYXNlLWNsb3VkIiwibmJmIjoxNzg5ODcxNDA0LCJleHAiOjE3ODk4NzE1MjQsInVyaSI6IlBPU1QgYXBpLmNvaW5iYXNlLmNvbS9hcGkvdjMvYnJva2VyYWdlL29yZGVycy9iYXRjaF9jYW5jZWwifQ.KDz6frKgSWMDMikMBVg5SU4kvpOkvTpiJQ28VUCCl5FTE7EYTPcNwN5y9KpwCnnVieDflxHjkghHXwjM-VaVBg",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "jwt": "eyJraWQiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsIm5vbmNlIjoiNmIxZjBjMmE5ZThkN2Y2ZTVkNGMzYjJhMTkwODdmNmUiLCJhbGciOiJFZERTQSJ9.eyJzdWIiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsImlzcyI6ImNvaW5iYXNlLWNsb3VkIiwibmJmIjoxNzg5ODcxNDA0LCJleHAiOjE3ODk4NzE1MjQsInVyaSI6IlBPU1QgYXBpLmNvaW5iYXNlLmNvbS9hcGkvdjMvYnJva2VyYWdlL29yZGVycy9iYXRjaF9jYW5jZWwifQ.KDz6frKgSWMDMikMBVg5SU4kvpOkvTpiJQ28VUCCl5FTE7EYTPcNwN5y9KpwCnnVieDflxHjkghHXwjM-VaVBg",
+      "jwt_header": "{\"kid\":\"organizations/0f8e7d6c-5b4a-4321-9876-0123456789ab/apiKeys/fedcba98-7654-4321-8abc-def012345678\",\"nonce\":\"6b1f0c2a9e8d7f6e5d4c3b2a19087f6e\",\"alg\":\"EdDSA\"}",
+      "jwt_payload": "{\"sub\":\"organizations/0f8e7d6c-5b4a-4321-9876-0123456789ab/apiKeys/fedcba98-7654-4321-8abc-def012345678\",\"iss\":\"coinbase-cloud\",\"nbf\":1789871404,\"exp\":1789871524,\"uri\":\"POST api.coinbase.com/api/v3/brokerage/orders/batch_cancel\"}",
+      "signature": "KDz6frKgSWMDMikMBVg5SU4kvpOkvTpiJQ28VUCCl5FTE7EYTPcNwN5y9KpwCnnVieDflxHjkghHXwjM-VaVBg"
+    },
+    {
+      "key": "ed25519 wrapped",
+      "call": "list_accounts",
+      "method": "GET",
+      "path": "/api/v3/brokerage/accounts",
+      "now": 1789871400,
+      "headers": {
+        "Authorization": "Bearer eyJraWQiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsIm5vbmNlIjoiMDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWYiLCJhbGciOiJFZERTQSJ9.eyJzdWIiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsImlzcyI6ImNvaW5iYXNlLWNsb3VkIiwibmJmIjoxNzg5ODcxNDAwLCJleHAiOjE3ODk4NzE1MjAsInVyaSI6IkdFVCBhcGkuY29pbmJhc2UuY29tL2FwaS92My9icm9rZXJhZ2UvYWNjb3VudHMifQ.EhvNSOeL2kueQd1L-3WVE921ia9iaSOaYVj1d-gZzrS2WCvFyAHTyvbdC6FxeJJ6DKiN8EPswZeRlyRW5xGaBQ",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "jwt": "eyJraWQiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsIm5vbmNlIjoiMDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWYiLCJhbGciOiJFZERTQSJ9.eyJzdWIiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsImlzcyI6ImNvaW5iYXNlLWNsb3VkIiwibmJmIjoxNzg5ODcxNDAwLCJleHAiOjE3ODk4NzE1MjAsInVyaSI6IkdFVCBhcGkuY29pbmJhc2UuY29tL2FwaS92My9icm9rZXJhZ2UvYWNjb3VudHMifQ.EhvNSOeL2kueQd1L-3WVE921ia9iaSOaYVj1d-gZzrS2WCvFyAHTyvbdC6FxeJJ6DKiN8EPswZeRlyRW5xGaBQ",
+      "jwt_header": "{\"kid\":\"organizations/0f8e7d6c-5b4a-4321-9876-0123456789ab/apiKeys/fedcba98-7654-4321-8abc-def012345678\",\"nonce\":\"0123456789abcdef0123456789abcdef\",\"alg\":\"EdDSA\"}",
+      "jwt_payload": "{\"sub\":\"organizations/0f8e7d6c-5b4a-4321-9876-0123456789ab/apiKeys/fedcba98-7654-4321-8abc-def012345678\",\"iss\":\"coinbase-cloud\",\"nbf\":1789871400,\"exp\":1789871520,\"uri\":\"GET api.coinbase.com/api/v3/brokerage/accounts\"}",
+      "signature": "EhvNSOeL2kueQd1L-3WVE921ia9iaSOaYVj1d-gZzrS2WCvFyAHTyvbdC6FxeJJ6DKiN8EPswZeRlyRW5xGaBQ"
+    },
+    {
+      "key": "ed25519 wrapped",
+      "call": "get_api_key_permissions",
+      "method": "GET",
+      "path": "/api/v3/brokerage/key_permissions",
+      "now": 1789871401,
+      "headers": {
+        "Authorization": "Bearer eyJraWQiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsIm5vbmNlIjoiNmIxZjBjMmE5ZThkN2Y2ZTVkNGMzYjJhMTkwODdmNmUiLCJhbGciOiJFZERTQSJ9.eyJzdWIiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsImlzcyI6ImNvaW5iYXNlLWNsb3VkIiwibmJmIjoxNzg5ODcxNDAxLCJleHAiOjE3ODk4NzE1MjEsInVyaSI6IkdFVCBhcGkuY29pbmJhc2UuY29tL2FwaS92My9icm9rZXJhZ2Uva2V5X3Blcm1pc3Npb25zIn0.50yUQoO9gghSVrxeWBfiiWnDCNYgFndKezVr8wy_hx50vkCC7CK4JQFMHDq9_KBZTD-1y_S2iBCzxiThpbsHBg",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "jwt": "eyJraWQiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsIm5vbmNlIjoiNmIxZjBjMmE5ZThkN2Y2ZTVkNGMzYjJhMTkwODdmNmUiLCJhbGciOiJFZERTQSJ9.eyJzdWIiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsImlzcyI6ImNvaW5iYXNlLWNsb3VkIiwibmJmIjoxNzg5ODcxNDAxLCJleHAiOjE3ODk4NzE1MjEsInVyaSI6IkdFVCBhcGkuY29pbmJhc2UuY29tL2FwaS92My9icm9rZXJhZ2Uva2V5X3Blcm1pc3Npb25zIn0.50yUQoO9gghSVrxeWBfiiWnDCNYgFndKezVr8wy_hx50vkCC7CK4JQFMHDq9_KBZTD-1y_S2iBCzxiThpbsHBg",
+      "jwt_header": "{\"kid\":\"organizations/0f8e7d6c-5b4a-4321-9876-0123456789ab/apiKeys/fedcba98-7654-4321-8abc-def012345678\",\"nonce\":\"6b1f0c2a9e8d7f6e5d4c3b2a19087f6e\",\"alg\":\"EdDSA\"}",
+      "jwt_payload": "{\"sub\":\"organizations/0f8e7d6c-5b4a-4321-9876-0123456789ab/apiKeys/fedcba98-7654-4321-8abc-def012345678\",\"iss\":\"coinbase-cloud\",\"nbf\":1789871401,\"exp\":1789871521,\"uri\":\"GET api.coinbase.com/api/v3/brokerage/key_permissions\"}",
+      "signature": "50yUQoO9gghSVrxeWBfiiWnDCNYgFndKezVr8wy_hx50vkCC7CK4JQFMHDq9_KBZTD-1y_S2iBCzxiThpbsHBg"
+    },
+    {
+      "key": "ed25519 wrapped",
+      "call": "list_orders batch",
+      "method": "GET",
+      "path": "/api/v3/brokerage/orders/historical/batch",
+      "now": 1789871402,
+      "headers": {
+        "Authorization": "Bearer eyJraWQiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsIm5vbmNlIjoiMDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWYiLCJhbGciOiJFZERTQSJ9.eyJzdWIiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsImlzcyI6ImNvaW5iYXNlLWNsb3VkIiwibmJmIjoxNzg5ODcxNDAyLCJleHAiOjE3ODk4NzE1MjIsInVyaSI6IkdFVCBhcGkuY29pbmJhc2UuY29tL2FwaS92My9icm9rZXJhZ2Uvb3JkZXJzL2hpc3RvcmljYWwvYmF0Y2gifQ.0Qg5tOD0jaXBZAZJedd4Z6-WrAOb1tSLER7uUFGFRYfnyN0LkwBRZxnMxM9KLs9ra-XUpbdOTezC9i_HAwhZBw",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "jwt": "eyJraWQiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsIm5vbmNlIjoiMDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWYiLCJhbGciOiJFZERTQSJ9.eyJzdWIiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsImlzcyI6ImNvaW5iYXNlLWNsb3VkIiwibmJmIjoxNzg5ODcxNDAyLCJleHAiOjE3ODk4NzE1MjIsInVyaSI6IkdFVCBhcGkuY29pbmJhc2UuY29tL2FwaS92My9icm9rZXJhZ2Uvb3JkZXJzL2hpc3RvcmljYWwvYmF0Y2gifQ.0Qg5tOD0jaXBZAZJedd4Z6-WrAOb1tSLER7uUFGFRYfnyN0LkwBRZxnMxM9KLs9ra-XUpbdOTezC9i_HAwhZBw",
+      "jwt_header": "{\"kid\":\"organizations/0f8e7d6c-5b4a-4321-9876-0123456789ab/apiKeys/fedcba98-7654-4321-8abc-def012345678\",\"nonce\":\"0123456789abcdef0123456789abcdef\",\"alg\":\"EdDSA\"}",
+      "jwt_payload": "{\"sub\":\"organizations/0f8e7d6c-5b4a-4321-9876-0123456789ab/apiKeys/fedcba98-7654-4321-8abc-def012345678\",\"iss\":\"coinbase-cloud\",\"nbf\":1789871402,\"exp\":1789871522,\"uri\":\"GET api.coinbase.com/api/v3/brokerage/orders/historical/batch\"}",
+      "signature": "0Qg5tOD0jaXBZAZJedd4Z6-WrAOb1tSLER7uUFGFRYfnyN0LkwBRZxnMxM9KLs9ra-XUpbdOTezC9i_HAwhZBw"
+    },
+    {
+      "key": "ed25519 wrapped",
+      "call": "create_order",
+      "method": "POST",
+      "path": "/api/v3/brokerage/orders",
+      "now": 1789871403,
+      "headers": {
+        "Authorization": "Bearer eyJraWQiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsIm5vbmNlIjoiNmIxZjBjMmE5ZThkN2Y2ZTVkNGMzYjJhMTkwODdmNmUiLCJhbGciOiJFZERTQSJ9.eyJzdWIiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsImlzcyI6ImNvaW5iYXNlLWNsb3VkIiwibmJmIjoxNzg5ODcxNDAzLCJleHAiOjE3ODk4NzE1MjMsInVyaSI6IlBPU1QgYXBpLmNvaW5iYXNlLmNvbS9hcGkvdjMvYnJva2VyYWdlL29yZGVycyJ9.-9pKydOSyuvq4qwNWAPTxYTknI-AyAjmFBRK3cOTgdOAnQwhN3wPk278QMesGA7ZfyRrAuMxpi0Oes8enus2Dw",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "jwt": "eyJraWQiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsIm5vbmNlIjoiNmIxZjBjMmE5ZThkN2Y2ZTVkNGMzYjJhMTkwODdmNmUiLCJhbGciOiJFZERTQSJ9.eyJzdWIiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsImlzcyI6ImNvaW5iYXNlLWNsb3VkIiwibmJmIjoxNzg5ODcxNDAzLCJleHAiOjE3ODk4NzE1MjMsInVyaSI6IlBPU1QgYXBpLmNvaW5iYXNlLmNvbS9hcGkvdjMvYnJva2VyYWdlL29yZGVycyJ9.-9pKydOSyuvq4qwNWAPTxYTknI-AyAjmFBRK3cOTgdOAnQwhN3wPk278QMesGA7ZfyRrAuMxpi0Oes8enus2Dw",
+      "jwt_header": "{\"kid\":\"organizations/0f8e7d6c-5b4a-4321-9876-0123456789ab/apiKeys/fedcba98-7654-4321-8abc-def012345678\",\"nonce\":\"6b1f0c2a9e8d7f6e5d4c3b2a19087f6e\",\"alg\":\"EdDSA\"}",
+      "jwt_payload": "{\"sub\":\"organizations/0f8e7d6c-5b4a-4321-9876-0123456789ab/apiKeys/fedcba98-7654-4321-8abc-def012345678\",\"iss\":\"coinbase-cloud\",\"nbf\":1789871403,\"exp\":1789871523,\"uri\":\"POST api.coinbase.com/api/v3/brokerage/orders\"}",
+      "signature": "-9pKydOSyuvq4qwNWAPTxYTknI-AyAjmFBRK3cOTgdOAnQwhN3wPk278QMesGA7ZfyRrAuMxpi0Oes8enus2Dw"
+    },
+    {
+      "key": "ed25519 wrapped",
+      "call": "cancel_orders",
+      "method": "POST",
+      "path": "/api/v3/brokerage/orders/batch_cancel",
+      "now": 1789871404,
+      "headers": {
+        "Authorization": "Bearer eyJraWQiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsIm5vbmNlIjoiMDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWYiLCJhbGciOiJFZERTQSJ9.eyJzdWIiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsImlzcyI6ImNvaW5iYXNlLWNsb3VkIiwibmJmIjoxNzg5ODcxNDA0LCJleHAiOjE3ODk4NzE1MjQsInVyaSI6IlBPU1QgYXBpLmNvaW5iYXNlLmNvbS9hcGkvdjMvYnJva2VyYWdlL29yZGVycy9iYXRjaF9jYW5jZWwifQ.OlqGy3YFUJabXZR77135Z8V5VykPNH33dl48wpKK1-8AcbtsTtOaOEjs4JqJyPviLm-o_iIFjRy34rHAvIpVCg",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "jwt": "eyJraWQiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsIm5vbmNlIjoiMDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWYiLCJhbGciOiJFZERTQSJ9.eyJzdWIiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsImlzcyI6ImNvaW5iYXNlLWNsb3VkIiwibmJmIjoxNzg5ODcxNDA0LCJleHAiOjE3ODk4NzE1MjQsInVyaSI6IlBPU1QgYXBpLmNvaW5iYXNlLmNvbS9hcGkvdjMvYnJva2VyYWdlL29yZGVycy9iYXRjaF9jYW5jZWwifQ.OlqGy3YFUJabXZR77135Z8V5VykPNH33dl48wpKK1-8AcbtsTtOaOEjs4JqJyPviLm-o_iIFjRy34rHAvIpVCg",
+      "jwt_header": "{\"kid\":\"organizations/0f8e7d6c-5b4a-4321-9876-0123456789ab/apiKeys/fedcba98-7654-4321-8abc-def012345678\",\"nonce\":\"0123456789abcdef0123456789abcdef\",\"alg\":\"EdDSA\"}",
+      "jwt_payload": "{\"sub\":\"organizations/0f8e7d6c-5b4a-4321-9876-0123456789ab/apiKeys/fedcba98-7654-4321-8abc-def012345678\",\"iss\":\"coinbase-cloud\",\"nbf\":1789871404,\"exp\":1789871524,\"uri\":\"POST api.coinbase.com/api/v3/brokerage/orders/batch_cancel\"}",
+      "signature": "OlqGy3YFUJabXZR77135Z8V5VykPNH33dl48wpKK1-8AcbtsTtOaOEjs4JqJyPviLm-o_iIFjRy34rHAvIpVCg"
+    },
+    {
+      "key": "ed25519 seed only",
+      "call": "list_accounts",
+      "method": "GET",
+      "path": "/api/v3/brokerage/accounts",
+      "now": 1789871400,
+      "headers": {
+        "Authorization": "Bearer eyJraWQiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsIm5vbmNlIjoiNmIxZjBjMmE5ZThkN2Y2ZTVkNGMzYjJhMTkwODdmNmUiLCJhbGciOiJFZERTQSJ9.eyJzdWIiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsImlzcyI6ImNvaW5iYXNlLWNsb3VkIiwibmJmIjoxNzg5ODcxNDAwLCJleHAiOjE3ODk4NzE1MjAsInVyaSI6IkdFVCBhcGkuY29pbmJhc2UuY29tL2FwaS92My9icm9rZXJhZ2UvYWNjb3VudHMifQ.uQnXjCr1_fb50ZAcDVO-lGEzrPnRlnXSY_i5lz5a2xjAV1zNHF9pcfoLNQv_98EDyi-XF6NgO-v7d_d0vDO6Aw",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "jwt": "eyJraWQiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsIm5vbmNlIjoiNmIxZjBjMmE5ZThkN2Y2ZTVkNGMzYjJhMTkwODdmNmUiLCJhbGciOiJFZERTQSJ9.eyJzdWIiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsImlzcyI6ImNvaW5iYXNlLWNsb3VkIiwibmJmIjoxNzg5ODcxNDAwLCJleHAiOjE3ODk4NzE1MjAsInVyaSI6IkdFVCBhcGkuY29pbmJhc2UuY29tL2FwaS92My9icm9rZXJhZ2UvYWNjb3VudHMifQ.uQnXjCr1_fb50ZAcDVO-lGEzrPnRlnXSY_i5lz5a2xjAV1zNHF9pcfoLNQv_98EDyi-XF6NgO-v7d_d0vDO6Aw",
+      "jwt_header": "{\"kid\":\"organizations/0f8e7d6c-5b4a-4321-9876-0123456789ab/apiKeys/fedcba98-7654-4321-8abc-def012345678\",\"nonce\":\"6b1f0c2a9e8d7f6e5d4c3b2a19087f6e\",\"alg\":\"EdDSA\"}",
+      "jwt_payload": "{\"sub\":\"organizations/0f8e7d6c-5b4a-4321-9876-0123456789ab/apiKeys/fedcba98-7654-4321-8abc-def012345678\",\"iss\":\"coinbase-cloud\",\"nbf\":1789871400,\"exp\":1789871520,\"uri\":\"GET api.coinbase.com/api/v3/brokerage/accounts\"}",
+      "signature": "uQnXjCr1_fb50ZAcDVO-lGEzrPnRlnXSY_i5lz5a2xjAV1zNHF9pcfoLNQv_98EDyi-XF6NgO-v7d_d0vDO6Aw"
+    },
+    {
+      "key": "ed25519 seed only",
+      "call": "get_api_key_permissions",
+      "method": "GET",
+      "path": "/api/v3/brokerage/key_permissions",
+      "now": 1789871401,
+      "headers": {
+        "Authorization": "Bearer eyJraWQiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsIm5vbmNlIjoiMDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWYiLCJhbGciOiJFZERTQSJ9.eyJzdWIiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsImlzcyI6ImNvaW5iYXNlLWNsb3VkIiwibmJmIjoxNzg5ODcxNDAxLCJleHAiOjE3ODk4NzE1MjEsInVyaSI6IkdFVCBhcGkuY29pbmJhc2UuY29tL2FwaS92My9icm9rZXJhZ2Uva2V5X3Blcm1pc3Npb25zIn0.JitBEgeuaA3l7KD9SYk31YSkf3N4HrDSNDSstIG_mVgfjktNHXqmJ4sNR9iUYQquZKrOz5M-xx3WOvCLTkVnCQ",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "jwt": "eyJraWQiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsIm5vbmNlIjoiMDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWYiLCJhbGciOiJFZERTQSJ9.eyJzdWIiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsImlzcyI6ImNvaW5iYXNlLWNsb3VkIiwibmJmIjoxNzg5ODcxNDAxLCJleHAiOjE3ODk4NzE1MjEsInVyaSI6IkdFVCBhcGkuY29pbmJhc2UuY29tL2FwaS92My9icm9rZXJhZ2Uva2V5X3Blcm1pc3Npb25zIn0.JitBEgeuaA3l7KD9SYk31YSkf3N4HrDSNDSstIG_mVgfjktNHXqmJ4sNR9iUYQquZKrOz5M-xx3WOvCLTkVnCQ",
+      "jwt_header": "{\"kid\":\"organizations/0f8e7d6c-5b4a-4321-9876-0123456789ab/apiKeys/fedcba98-7654-4321-8abc-def012345678\",\"nonce\":\"0123456789abcdef0123456789abcdef\",\"alg\":\"EdDSA\"}",
+      "jwt_payload": "{\"sub\":\"organizations/0f8e7d6c-5b4a-4321-9876-0123456789ab/apiKeys/fedcba98-7654-4321-8abc-def012345678\",\"iss\":\"coinbase-cloud\",\"nbf\":1789871401,\"exp\":1789871521,\"uri\":\"GET api.coinbase.com/api/v3/brokerage/key_permissions\"}",
+      "signature": "JitBEgeuaA3l7KD9SYk31YSkf3N4HrDSNDSstIG_mVgfjktNHXqmJ4sNR9iUYQquZKrOz5M-xx3WOvCLTkVnCQ"
+    },
+    {
+      "key": "ed25519 seed only",
+      "call": "list_orders batch",
+      "method": "GET",
+      "path": "/api/v3/brokerage/orders/historical/batch",
+      "now": 1789871402,
+      "headers": {
+        "Authorization": "Bearer eyJraWQiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsIm5vbmNlIjoiNmIxZjBjMmE5ZThkN2Y2ZTVkNGMzYjJhMTkwODdmNmUiLCJhbGciOiJFZERTQSJ9.eyJzdWIiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsImlzcyI6ImNvaW5iYXNlLWNsb3VkIiwibmJmIjoxNzg5ODcxNDAyLCJleHAiOjE3ODk4NzE1MjIsInVyaSI6IkdFVCBhcGkuY29pbmJhc2UuY29tL2FwaS92My9icm9rZXJhZ2Uvb3JkZXJzL2hpc3RvcmljYWwvYmF0Y2gifQ.Rm81GNilQfaluzHmhrVJoB2ea43MP8Dj7YDzXvJyhqyNmqjS5mCPQdCrW6jGlvEljn9pYoqU0hM2DfTITWxlDQ",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "jwt": "eyJraWQiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsIm5vbmNlIjoiNmIxZjBjMmE5ZThkN2Y2ZTVkNGMzYjJhMTkwODdmNmUiLCJhbGciOiJFZERTQSJ9.eyJzdWIiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsImlzcyI6ImNvaW5iYXNlLWNsb3VkIiwibmJmIjoxNzg5ODcxNDAyLCJleHAiOjE3ODk4NzE1MjIsInVyaSI6IkdFVCBhcGkuY29pbmJhc2UuY29tL2FwaS92My9icm9rZXJhZ2Uvb3JkZXJzL2hpc3RvcmljYWwvYmF0Y2gifQ.Rm81GNilQfaluzHmhrVJoB2ea43MP8Dj7YDzXvJyhqyNmqjS5mCPQdCrW6jGlvEljn9pYoqU0hM2DfTITWxlDQ",
+      "jwt_header": "{\"kid\":\"organizations/0f8e7d6c-5b4a-4321-9876-0123456789ab/apiKeys/fedcba98-7654-4321-8abc-def012345678\",\"nonce\":\"6b1f0c2a9e8d7f6e5d4c3b2a19087f6e\",\"alg\":\"EdDSA\"}",
+      "jwt_payload": "{\"sub\":\"organizations/0f8e7d6c-5b4a-4321-9876-0123456789ab/apiKeys/fedcba98-7654-4321-8abc-def012345678\",\"iss\":\"coinbase-cloud\",\"nbf\":1789871402,\"exp\":1789871522,\"uri\":\"GET api.coinbase.com/api/v3/brokerage/orders/historical/batch\"}",
+      "signature": "Rm81GNilQfaluzHmhrVJoB2ea43MP8Dj7YDzXvJyhqyNmqjS5mCPQdCrW6jGlvEljn9pYoqU0hM2DfTITWxlDQ"
+    },
+    {
+      "key": "ed25519 seed only",
+      "call": "create_order",
+      "method": "POST",
+      "path": "/api/v3/brokerage/orders",
+      "now": 1789871403,
+      "headers": {
+        "Authorization": "Bearer eyJraWQiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsIm5vbmNlIjoiMDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWYiLCJhbGciOiJFZERTQSJ9.eyJzdWIiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsImlzcyI6ImNvaW5iYXNlLWNsb3VkIiwibmJmIjoxNzg5ODcxNDAzLCJleHAiOjE3ODk4NzE1MjMsInVyaSI6IlBPU1QgYXBpLmNvaW5iYXNlLmNvbS9hcGkvdjMvYnJva2VyYWdlL29yZGVycyJ9.y4UMV73hgMS6uUJxlqpQVANroHzO5xkoNmeke_IQ0quUYQEPeM1D3OKkFfHxmX6GPK0YPHcIXy0CkDxzTo6XDg",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "jwt": "eyJraWQiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsIm5vbmNlIjoiMDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWYiLCJhbGciOiJFZERTQSJ9.eyJzdWIiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsImlzcyI6ImNvaW5iYXNlLWNsb3VkIiwibmJmIjoxNzg5ODcxNDAzLCJleHAiOjE3ODk4NzE1MjMsInVyaSI6IlBPU1QgYXBpLmNvaW5iYXNlLmNvbS9hcGkvdjMvYnJva2VyYWdlL29yZGVycyJ9.y4UMV73hgMS6uUJxlqpQVANroHzO5xkoNmeke_IQ0quUYQEPeM1D3OKkFfHxmX6GPK0YPHcIXy0CkDxzTo6XDg",
+      "jwt_header": "{\"kid\":\"organizations/0f8e7d6c-5b4a-4321-9876-0123456789ab/apiKeys/fedcba98-7654-4321-8abc-def012345678\",\"nonce\":\"0123456789abcdef0123456789abcdef\",\"alg\":\"EdDSA\"}",
+      "jwt_payload": "{\"sub\":\"organizations/0f8e7d6c-5b4a-4321-9876-0123456789ab/apiKeys/fedcba98-7654-4321-8abc-def012345678\",\"iss\":\"coinbase-cloud\",\"nbf\":1789871403,\"exp\":1789871523,\"uri\":\"POST api.coinbase.com/api/v3/brokerage/orders\"}",
+      "signature": "y4UMV73hgMS6uUJxlqpQVANroHzO5xkoNmeke_IQ0quUYQEPeM1D3OKkFfHxmX6GPK0YPHcIXy0CkDxzTo6XDg"
+    },
+    {
+      "key": "ed25519 seed only",
+      "call": "cancel_orders",
+      "method": "POST",
+      "path": "/api/v3/brokerage/orders/batch_cancel",
+      "now": 1789871404,
+      "headers": {
+        "Authorization": "Bearer eyJraWQiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsIm5vbmNlIjoiNmIxZjBjMmE5ZThkN2Y2ZTVkNGMzYjJhMTkwODdmNmUiLCJhbGciOiJFZERTQSJ9.eyJzdWIiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsImlzcyI6ImNvaW5iYXNlLWNsb3VkIiwibmJmIjoxNzg5ODcxNDA0LCJleHAiOjE3ODk4NzE1MjQsInVyaSI6IlBPU1QgYXBpLmNvaW5iYXNlLmNvbS9hcGkvdjMvYnJva2VyYWdlL29yZGVycy9iYXRjaF9jYW5jZWwifQ.KDz6frKgSWMDMikMBVg5SU4kvpOkvTpiJQ28VUCCl5FTE7EYTPcNwN5y9KpwCnnVieDflxHjkghHXwjM-VaVBg",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "jwt": "eyJraWQiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsIm5vbmNlIjoiNmIxZjBjMmE5ZThkN2Y2ZTVkNGMzYjJhMTkwODdmNmUiLCJhbGciOiJFZERTQSJ9.eyJzdWIiOiJvcmdhbml6YXRpb25zLzBmOGU3ZDZjLTViNGEtNDMyMS05ODc2LTAxMjM0NTY3ODlhYi9hcGlLZXlzL2ZlZGNiYTk4LTc2NTQtNDMyMS04YWJjLWRlZjAxMjM0NTY3OCIsImlzcyI6ImNvaW5iYXNlLWNsb3VkIiwibmJmIjoxNzg5ODcxNDA0LCJleHAiOjE3ODk4NzE1MjQsInVyaSI6IlBPU1QgYXBpLmNvaW5iYXNlLmNvbS9hcGkvdjMvYnJva2VyYWdlL29yZGVycy9iYXRjaF9jYW5jZWwifQ.KDz6frKgSWMDMikMBVg5SU4kvpOkvTpiJQ28VUCCl5FTE7EYTPcNwN5y9KpwCnnVieDflxHjkghHXwjM-VaVBg",
+      "jwt_header": "{\"kid\":\"organizations/0f8e7d6c-5b4a-4321-9876-0123456789ab/apiKeys/fedcba98-7654-4321-8abc-def012345678\",\"nonce\":\"6b1f0c2a9e8d7f6e5d4c3b2a19087f6e\",\"alg\":\"EdDSA\"}",
+      "jwt_payload": "{\"sub\":\"organizations/0f8e7d6c-5b4a-4321-9876-0123456789ab/apiKeys/fedcba98-7654-4321-8abc-def012345678\",\"iss\":\"coinbase-cloud\",\"nbf\":1789871404,\"exp\":1789871524,\"uri\":\"POST api.coinbase.com/api/v3/brokerage/orders/batch_cancel\"}",
+      "signature": "KDz6frKgSWMDMikMBVg5SU4kvpOkvTpiJQ28VUCCl5FTE7EYTPcNwN5y9KpwCnnVieDflxHjkghHXwjM-VaVBg"
+    },
+    {
+      "key": "ed25519 too short",
+      "call": "list_accounts",
+      "method": "GET",
+      "path": "/api/v3/brokerage/accounts",
+      "now": 1789871400,
+      "headers": {
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "jwt": null,
+      "jwt_header": null,
+      "jwt_payload": null,
+      "signature": null
+    },
+    {
+      "key": "es256 unreadable",
+      "call": "list_accounts",
+      "method": "GET",
+      "path": "/api/v3/brokerage/accounts",
+      "now": 1789871400,
+      "headers": {
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "jwt": null,
+      "jwt_header": null,
+      "jwt_payload": null,
+      "signature": null
+    }
+  ]
+}

@@ -27,8 +27,8 @@ impl Namespace {
     }
 }
 
-/// The venues whose keys this build checks.
-pub const PORTED: [&str; 4] = ["Exchanges::Alpaca", "Exchanges::Kraken", "Exchanges::Binance", "Exchanges::Kucoin"];
+/// The venues whose keys this build checks (`registry::Row::wizard`).
+pub fn ported(class: &str) -> bool { crate::venue::registry::row(class).is_some_and(|r| r.wizard) }
 
 /// `bot.exchange`: the row the session's exchange id names.
 #[derive(Clone)]
@@ -115,7 +115,7 @@ fn route(c: &Connection, app: &App, user: i64, config: Option<&Value>, namespace
     if venue.as_ref().is_some_and(|venue| crate::web::bot::retired_type(&venue.class)) { return Ok(Route::Retired(missing_exchange_path(c, config, namespace)?)) }
     if on_new { if let Some(path) = prerequisite_path(c, user, config, namespace)? { return Ok(Route::To(path)) } }
     if exchange_id(config).is_none() { return Ok(Route::To(missing_exchange_path(c, config, namespace)?)) }
-    let Some(venue) = venue.filter(|venue| PORTED.contains(&venue.class.as_str())) else { return Ok(Route::Refused) };
+    let Some(venue) = venue.filter(|venue| ported(&venue.class)) else { return Ok(Route::Refused) };
     if namespace == Namespace::Index && super::index::refusal(c, app, config, &venue.class)?.is_some() { return Ok(Route::Refused) }
     let key = keys::Key::read(c, app, user, venue.id, 0)?;
     Ok(Route::Ready(venue, Box::new(key)))

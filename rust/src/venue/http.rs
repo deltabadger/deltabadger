@@ -177,18 +177,7 @@ fn builder(connect: Duration, read: Duration, total: Duration) -> reqwest::Clien
 #[derive(Clone)]
 pub struct ReqwestTransport { client: reqwest::Client, key: String, secret: String, passphrase: String, refused: Option<String>, sensitive: Vec<String>, clock: std::sync::Arc<dyn crate::engine::Clock + Send + Sync>, wire: Wire }
 
-/// Whose headers and body a request carries.
-#[derive(Clone, Copy, PartialEq)]
-enum Wire {
-    /// Clients::Alpaca: key and secret headers, a JSON body.
-    Alpaca,
-    /// Honeymaker::Clients::Binance#headers: the key in X-MBX-APIKEY; the secret only signs (`venue::binance`) and is never sent.
-    Binance,
-    /// Honeymaker::Clients::Kraken (venue::kraken): a private call is a nonce-first form body signed at send time.
-    Kraken,
-    /// Honeymaker::Clients::Kucoin (venue::kucoin): KC-API-* headers signed at send time over the exact query and body sent.
-    Kucoin,
-}
+use super::sign::Wire;
 
 impl ReqwestTransport {
     /// Use the same clock that creates the order deadline; production defaults to SystemClock.
@@ -211,10 +200,7 @@ impl ReqwestTransport {
     /// The venue's label goes in BEFORE redaction, so the whole printed line is what gets scrubbed (a relabel after the scrub
     /// could rebuild a credential). `diagnostic` is shadowed by the labelling closure so the pinned sink line stays verbatim.
     pub fn failure_line(&self, response: &HttpResponse) -> String {
-        let diagnostic = |status: Option<u16>, body: &str| {
-            let line = diagnostic(status, body);
-            match self.wire { Wire::Kraken => line.replacen("[Alpaca]", "[Kraken]", 1), Wire::Binance => line.replacen("[Alpaca]", "[Binance]", 1), Wire::Kucoin => line.replacen("[Alpaca]", "[KuCoin]", 1), Wire::Alpaca => line }
-        };
+        let diagnostic = |status: Option<u16>, body: &str| diagnostic(status, body).replacen("[Alpaca]", &format!("[{}]", self.wire.label()), 1);
         self.redact_diagnostic(&diagnostic(Some(response.status),&response.body))
     }
     /// Answers every request with NotSent and sends nothing (a venue this build must not reach).
@@ -245,34 +231,8 @@ impl ReqwestTransport {
     /// `send_limited` without `settle`: the answer as it was read.
     pub async fn send_unsettled(&self, r: &HttpRequest, limit: usize) -> Result<HttpResponse, TransportError> {
         if let Some(reason) = &self.refused { return Err(TransportError::NotSent(reason.clone())); }
-        let method = reqwest::Method::from_bytes(r.method.as_bytes()).expect("a static method name");
-        let mut url = r.url();
-        if self.wire == Wire::Kucoin {
-            // The query exactly as Faraday::Utils.build_query writes it, which is what the signature covers.
-            let q = crate::venue::kucoin::query_text(r);
-            url.set_query((!q.is_empty()).then_some(q.as_str()));
-        }
-        let mut b = self.client.request(method, url);
-        match self.wire {
-            Wire::Kucoin => {
-                // The timestamp is read here, at send time, and the signature covers the exact bytes sent.
-                let ts = crate::venue::binance::timestamp_ms(self.clock.now());
-                for (k, v) in crate::venue::kucoin::headers(r, &self.key, &self.secret, &self.passphrase, ts) { b = b.header(k, v); }
-                if let Some(body) = crate::venue::kucoin::body_text(r) { b = b.body(body); }
-            }
-            Wire::Alpaca | Wire::Binance => {
-                b = if self.wire == Wire::Binance { b.header("X-MBX-APIKEY", &self.key) } else { b.header("APCA-API-KEY-ID", &self.key).header("APCA-API-SECRET-KEY", &self.secret) };
-                b = b.header("Accept", "application/json").header("Content-Type", "application/json");
-                if let Some(body) = &r.body { b = b.body(body.to_string()); }
-            }
-            Wire::Kraken if r.method == "POST" => {
-                // The nonce is minted here, at send time, and the signature covers the exact bytes sent.
-                let form = crate::venue::kraken::private_form(r, &self.key);
-                for (k, v) in crate::venue::kraken::private_headers(&r.path, &form, &self.key, &self.secret) { b = b.header(k, v); }
-                b = b.body(form);
-            }
-            Wire::Kraken => { for (k, v) in crate::venue::kraken::public_headers() { b = b.header(k, v); } }
-        }
+        let keys = super::sign::Keys { key: &self.key, secret: &self.secret, passphrase: &self.passphrase };
+        let mut b = super::sign::request(self.wire, &self.client, r, keys, &*self.clock);
         if let Some(not_after) = r.not_after {
             // Use the deadline producer's clock immediately before the send: what is left of the absolute bound becomes this request's whole timeout.
             // LISTED RESIDUAL: this bounds when a send may start and how long reqwest keeps it alive, not when the bytes leave.
@@ -289,6 +249,21 @@ impl ReqwestTransport {
             }
         }
         read_limited(b.send().await.map_err(classify)?, limit).await
+    }
+}
+
+/// Honeymaker's #with_rescue over a transport failure, as Exchanges::Binance and Exchanges::Kucoin read it (plan VB §1.4:
+/// the one split their `call`s share; Kraken's and Alpaca's are their own). Honeymaker returns a transport failure as a
+/// Failure, it never raises: on a placement that provably sent nothing it is a definitive refusal, a failed row as Rails
+/// writes one (Exchange#ambiguous_placement_error?: pre-transmission); one that may have sent is Ambiguous on a placement
+/// and Transient on a read. `redact` scrubs the message of the transport's credentials.
+pub(crate) fn transport_failure(e: TransportError, placement: bool, redact: impl Fn(String) -> String) -> super::VenueError {
+    use super::VenueError;
+    match e {
+        TransportError::Permanent(m) => VenueError::Rejected(vec![redact(m)]),
+        TransportError::NotSent(m) if placement => VenueError::Rejected(vec![redact(m)]),
+        TransportError::MaybeSent(m) if placement => VenueError::Ambiguous(redact(m)),
+        TransportError::NotSent(m) | TransportError::MaybeSent(m) => VenueError::Transient(redact(m)),
     }
 }
 
@@ -402,6 +377,8 @@ impl Transport for ScriptedTransport {
         let message = reply["message"].as_str().unwrap_or_default().to_string();
         match reply["network"].as_str() {
             Some("pre_send" | "pre_send_data" | "binance_pre_send" | "kucoin_pre_send" | "kraken_pre_send") => Err(TransportError::NotSent(message)),
+            // The parity harness's per-venue kind (decisions.rb `NETWORK`): one spelling for every venue's host.
+            Some(kind) if kind.starts_with("pre_send:") => Err(TransportError::NotSent(message)),
             Some("permanent") => Err(TransportError::Permanent(message)),
             Some("post_send") => Err(TransportError::MaybeSent(message)),
             Some(other) => panic!("unknown network kind {other:?} scripted for {key}"),
