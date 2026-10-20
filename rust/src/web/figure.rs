@@ -5,6 +5,7 @@ use serde_json::{json, Map, Value};
 
 mod holdings;
 pub(crate) use holdings::redeploy_offer;
+pub(crate) use plot::NOT_CHARTED;
 mod plot;
 mod headline;
 pub mod service;
@@ -125,12 +126,28 @@ fn computed(c: &Connection, user_id: i64, market: &dyn MarketData, now: At, loca
         // One rate into the account's currency, and one per quote currency, for the whole page (BotsController#index).
         let shown_in = denomination(c, market, &user.display_currency)?;
         let mut rates = totals::Rates::default();
+        // A bot whose live prices raised (a transient read) is left out, as Rails' metrics job for that bot raises and is
+        // retried: its panels stay loading while every other bot's figures stand. The headline is held back while such a
+        // bot has orders (User#global_pnl_snapshot: loading while a traded bot has no figures).
+        let mut withheld = false;
+        let mut raised = vec![];
+        let mut history_cold = false;
         for (id, _) in db::account_bots(c, user_id)? {
             let subject = Subject::load(c, id)?;
             let walked = walk::metrics(c, &subject, now)?;
-            let marked_live = live::live(c, &subject, &walked, market, now)?;
+            let marked_live = match live::live(c, &subject, &walked, market, now) {
+                Err(FiguresError::Raised(_)) => {
+                    // Empty targets, as a failed fill's (`loading::render`): no widget and no loader left waiting, and the
+                    // next fill's publication replaces them.
+                    let kind = if subject.bot.kind == db::Kind::Index { "dca_index" } else { "dca_multi_asset" };
+                    bots.insert(id.to_string(), json!({ "tile": format!("<div id=\"pnl_bots_{kind}_{id}\"></div>"), "metrics": "<div id=\"metrics\"></div>",
+                        "chart": plot::NOT_CHARTED, "missing": [], "cached": false, "chart_cached": false }));
+                    withheld |= !subject.orders.is_empty(); raised.push(id); continue;
+                }
+                other => other?,
+            };
             let missing = missing(&subject, &marked_live, market)?;
-            let marked = chart::marked(c, &subject, &marked_live, market, now)?;
+            let (marked, gridded) = chart::marked_at(c, &subject, &marked_live, market, now)?;
             let mut offsets = vec![];
             let mut token = match csrf { None => holdings::Token::Slots(&mut offsets), Some(token) => holdings::Token::Value(token) };
             let metrics = holdings::render(c, &subject, &marked_live, &missing, user.hide_balances, locale, &mut token, prefix, now)?;
@@ -145,14 +162,31 @@ fn computed(c: &Connection, user_id: i64, market: &dyn MarketData, now: At, loca
             bots.insert(id.to_string(), json!({ "tile": tile(&subject, &marked_live, marked_live.prices_stale || !missing.is_empty(), profit.as_ref(), &shown_in)?, "metrics": metrics, "chart": plot::render(c, &subject, &marked, &missing, user.hide_balances, locale, &user.time_zone)?, "missing": missing,
                 // What Rails would find in its cache (Measurable#metrics_with_current_prices): stale figures, or ones with no
                 // chart point yet, are never written, so its bot page reads them as still loading.
-                "cached": !marked_live.prices_stale && !marked_live.chart.labels.is_empty() }));
+                "cached": !marked_live.prices_stale && !marked_live.chart.labels.is_empty(),
+                // And the marked chart (metrics_with_current_prices_and_candles) only once a holding had candles to mark it
+                // with (`chart::marked_at`).
+                "chart_cached": !marked_live.prices_stale && !marked_live.chart.labels.is_empty() && gridded }));
+            // User::PnlHistory#marked_metrics: figures cached without a marked chart are a cold track, and one cold track
+            // is the whole account's history waiting.
+            history_cold |= !marked_live.prices_stale && !marked_live.chart.labels.is_empty() && !gridded;
             computed.push((subject, marked_live, marked, missing));
         }
         let unavailable = computed.iter().any(|(_,live,m,missing)| live.prices_stale || !missing.is_empty() || !m.chart_omitted.is_empty());
         let parts = |marked: bool| computed.iter().map(|(s,live,chart,_)| totals::Part { bot_id:s.bot.id, quote:s.quote.as_deref(),traded:!s.orders.is_empty(),figures:Ok(Some(if marked { chart } else { live })) }).collect::<Vec<_>>();
         let pnl = without_fx(totals::global_pnl(c,market,&mut totals::Rates::default(),&parts(false)))?;
         let history = without_fx(totals::pnl_history(c,market,&mut totals::Rates::default(),&parts(true)).map(|h|h.result))?;
-        let out = json!({"bots": bots, "account": headline::render(pnl.as_ref(),history.as_ref(),unavailable,user.hide_balances,&shown_in)?});
+        let mut out = json!({"bots": bots});
+        if !raised.is_empty() { out["raised"] = json!(raised); }
+        // A traded bot without figures: no total without it (User#global_pnl_snapshot), and its target stays empty for the
+        // next fill's publication.
+        if withheld { out["account"] = Value::String("<div id=\"global-pnl\"></div>".into()); }
+        if !withheld {
+            // The publication is Rails' live pass (PnlHistory.snapshot(live: true)): its history reads every bot's chart as
+            // computed, marked or not. A page reads Rails' caches: while a bot's marked chart is cold, its headline has no
+            // history yet, and the page asks for the live pass (@global_pnl_history_loading).
+            out["account"] = Value::String(headline::render(pnl.as_ref(),history.as_ref(),unavailable,user.hide_balances,&shown_in)?);
+            if history_cold { out["account_page"] = Value::String(headline::render(pnl.as_ref(),None,unavailable,user.hide_balances,&shown_in)?); }
+        }
         let bytes = out.to_string().len();
         if bytes > 8 * 1024 * 1024 { return Err(FiguresError::NotComputed(crate::figures::OVER_BUDGET.into())); }
         budget::charge(bytes as u64,0)?;

@@ -302,3 +302,21 @@ async fn a_bot_on_a_venue_the_figures_cannot_read_leaves_the_others_figures() {
     assert!(tile(&shown, 1).contains("<small>€</small>8.59"), "{}", tile(&shown, 1));
     assert!(tile(&shown, 2).contains("<small>€</small>17.18"), "{}", tile(&shown, 2));
 }
+
+#[tokio::test]
+async fn a_raised_price_read_leaves_only_its_bot_without_figures_and_holds_the_headline() {
+    // The crypto quote raises (a transient network failure): the tether basket's figures stay loading, as Rails' metrics job for
+    // that bot raises and is retried. The dollar basket keeps its figures, and the headline waits while the traded bot has none.
+    let mut sc = script(true, json!(0.9993));
+    sc["GET data.alpaca.markets/v1beta3/crypto/us/latest/trades"] = json!({"network": "transient", "message": "Faraday::ConnectionFailed: connection refused"});
+    let install = install("EUR", sc);
+    let _stop = install.consume();
+    let shown = install.shown("ready").await;
+    assert!(tile(&shown, 1).contains("<small>€</small>8.59"), "{}", tile(&shown, 1));
+    assert_eq!(shown["bots"]["2"]["metrics"], "<div id=\"metrics\"></div>", "the bot whose prices raised shows no figures");
+    assert_eq!(shown["bots"]["2"]["tile"], "<div id=\"pnl_bots_dca_multi_asset_2\"></div>");
+    assert_eq!(shown["account"], "<div id=\"global-pnl\"></div>", "no total while a traded bot has no figures");
+    // They last only the price's minute: the next read fills again and asks the quote afresh.
+    let loading::Snapshot::Ready(.., until) = loading::prepare(&install.app, 1).await.unwrap() else { panic!("not ready") };
+    assert!(until <= common::web::at(AT).timestamp() + 60, "figures with a raised bot outlived the price's minute: {until}");
+}

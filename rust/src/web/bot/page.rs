@@ -260,7 +260,9 @@ pub async fn show(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path(s
         // BotsController#show: @metrics_loading is "Rails cached no figures"; a ready chart is drawn only beside cached ones,
         // exactly when its frame would ask for no refresh.
         let cached = metrics.is_some() && figures.as_ref().is_some_and(|v|v["bots"][bot.id.to_string()]["cached"].as_bool() == Some(true));
-        let inline_chart = figures.as_ref().filter(|_|cached).and_then(|v|v["bots"][bot.id.to_string()]["chart"].as_str()).map(str::to_string);
+        // @chart_metrics: Rails' marked chart is cached apart from its figures, and not when no holding had candles.
+        let chart_cached = cached && figures.as_ref().is_some_and(|v|v["bots"][bot.id.to_string()]["chart_cached"].as_bool() == Some(true));
+        let inline_chart = figures.as_ref().filter(|_|chart_cached).and_then(|v|v["bots"][bot.id.to_string()]["chart"].as_str()).map(str::to_string);
         let status = status::render(c, ctx, csrf, &bot, configured)?;
         let forms = settings::Forms { ctx, csrf, bot: &bot, path: path.clone(), hide_balances: hide_money, time_zone: &user.time_zone, check: status.check.as_ref() };
         let activities = c.query_row("SELECT EXISTS(SELECT 1 FROM bot_activity_logs WHERE bot_id = ?1 AND event NOT IN ('order_skipped', 'order_ignored'))", [bot.id], |r| r.get::<_, bool>(0))?;
@@ -297,7 +299,9 @@ pub async fn chart_frame(State(app): State<App>, Extension(ctx): Extension<Ctx>,
     let snapshot = crate::web::figure::loading::prepare(&app,user.id).await?;
     let (view,owner,id,token,inner)=(ctx.clone(),user.clone(),bot.id,csrf.clone(),app.clone());
     let ready = app.db(move|c|Ok(crate::web::figure::loading::render_page(&inner,c,owner.id,&snapshot,view.locale,&token,&view.path(""))?
-        .and_then(|v|v["bots"][id.to_string()]["chart"].as_str().map(str::to_string)))).await?;
+        // metrics_with_current_prices_and_candles_from_cache: a drawn chart only as Rails caches it (`chart_cached`); a chart
+        // that cannot be stated stays its hidden target, never a loading frame that would never resolve.
+        .and_then(|v|{ let bot=&v["bots"][id.to_string()]; let chart=bot["chart"].as_str()?; (bot["chart_cached"]==true || chart==crate::web::figure::NOT_CHARTED).then(||chart.to_string()) }))).await?;
     // Bots::ChartsController: a refresh is asked for by a cold chart, or by a page whose own panels found no figures.
     let refresh = ready.is_none() || ctx.params.query("metrics_missing").is_some_and(|value| !value.trim().is_empty());
     let chart = match ready { Some(ready)=>ready,None=>chart(&ctx,&bot,user.hide_balances)? };

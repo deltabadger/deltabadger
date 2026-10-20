@@ -3,7 +3,7 @@
 {{ v.stream_from(preferences)|safe }}
 {{ v.stream_from(bot_updates)|safe }}
 
-  <section class="dash-intro{% if pnl_pass || headline.is_some() %} dash-intro--plotted{% endif %}"{% if pnl_pass %} data-controller="broadcast--on-connect" data-broadcast--on-connect-method-value="global_pnl_update" data-broadcast--on-connect-retry-while-value="#global-pnl .dash-intro__loading"{% endif %}>
+  <section class="dash-intro{% if pnl_pass || headline.is_some() %} dash-intro--plotted{% endif %}"{% if pnl_pass %} data-controller="broadcast--on-connect" data-broadcast--on-connect-method-value="global_pnl_update"{% if pnl_loading %} data-broadcast--on-connect-retry-while-value="#global-pnl .dash-intro__loading"{% endif %}{% endif %}>
 {% if let Some(headline) = headline %}
 {{ headline|safe }}
 {% else %}
