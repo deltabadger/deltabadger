@@ -115,10 +115,39 @@ fn key_verdicts_replay_every_recorded_case() {
         assert!(headers.iter().any(|(h, v)| h == "KC-API-KEY" && json!(v) == case["request"]["key_header"]), "kucoin {name}: the key header");
         replayed += 1;
     }
-    // Binance.US checks a key with an account read and a cancel probe; its key step is a named refusal, so its cases are
-    // recorded and not replayed.
-    let us = recorded["binance_us"]["cases"].as_array().unwrap().len();
-    assert_eq!((replayed, us), (578, 212), "a recorded case was added or dropped");
+    // Binance.US (plan VB slice A2): the account read, then the cancel probe, each case's whole request sequence replayed
+    // through the check itself over Rails' recorded answers.
+    let us = &recorded["binance_us"];
+    assert_eq!(serde_json::from_value::<Vec<i64>>(us["invalid_key_codes"].clone()).unwrap(), key_check::BINANCE_INVALID_KEY);
+    assert_eq!(json!({ "symbol": key_check::BINANCE_US_PROBE[0].1, "order_id": key_check::BINANCE_US_PROBE[1].1 }), us["trade_probe"]);
+    let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+    for case in us["cases"].as_array().unwrap() {
+        let (name, kind) = (case["case"].as_str().unwrap(), kind(case["key_type"].as_str().unwrap()));
+        let reading = case["method"] == "get_read_api_key_validity";
+        let answers: Vec<Value> = case["responses"].as_array().cloned().unwrap_or_else(|| vec![case["response"].clone()]);
+        let sent: Vec<Value> = case["requests"].as_array().cloned().unwrap_or_else(|| vec![case["request"].clone()]);
+        let reply = |a: &Value| if a["timeout"] == true { json!({ "network": "post_send", "message": "Net::ReadTimeout" }) }
+                                else if a["refused"] == true { json!({ "network": "pre_send", "message": "Connection refused" }) }
+                                else { json!({ "status": a["status"], "body": a["body"] }) };
+        let mut script = serde_json::Map::new();
+        for (request, answer) in sent.iter().zip(&answers) {
+            script.insert(format!("{} {}", request["method"].as_str().unwrap(), request["path"].as_str().unwrap()), json!([reply(answer)]));
+        }
+        let transport = deltabadger::venue::http::ScriptedTransport::from_script(&Value::Object(script));
+        let venue = deltabadger::venue::binance::BinanceVenue::new(transport.clone(), deltabadger::venue::binance::US_URL, "test-secret");
+        let (_, ours) = rt.block_on(key_check::binance_us_check(&transport, &venue, kind, reading));
+        let theirs = expected(&case["verdict"]);
+        assert!(same(&ours, &theirs), "binance_us {} {} {name}: {ours:?}, Rails {theirs:?}", case["key_type"], case["method"]);
+        let ours_sent: Vec<Value> = transport.requests().iter().map(|r| {
+            let query: serde_json::Map<String, Value> = r.query.iter().filter(|(k, _)| !["signature", "timestamp"].contains(k)).map(|(k, v)| (k.to_string(), json!(v))).collect();
+            json!([r.method, r.url().host_str().unwrap(), r.path, query])
+        }).collect();
+        let theirs_sent: Vec<Value> = sent.iter().map(|r| json!([r["method"], r["host"], r["path"], r["query"]])).collect();
+        assert_eq!(ours_sent, theirs_sent, "binance_us {} {} {name}: the request sequence", case["key_type"], case["method"]);
+        assert!(sent.iter().all(|r| r["key_header"] == "test-key" && r["form"] == json!({})), "{name}");
+        replayed += 1;
+    }
+    assert_eq!(replayed, 578 + 212, "a recorded case was added or dropped");
 }
 
 /// A pinned callback list against a port's table: the same callbacks, in Rails' order, each handled.
@@ -149,4 +178,26 @@ fn bot_create_callbacks_are_all_handled() {
 fn index_create_callbacks_are_all_handled() {
     assert_eq!(fixture("index_create_callbacks.json")["class"], "Bots::DcaIndex");
     assert_handled("index_create_callbacks.json", deltabadger::web::wizard::index_create::CALLBACKS);
+}
+
+/// The live key check of a Binance.US key, as the wizard and settings send it: the signed account read, then the probe, both
+/// to the venue's host with the key in X-MBX-APIKEY; a read-only key is judged by the read alone.
+#[tokio::test(flavor = "current_thread")]
+async fn a_binance_us_key_is_checked_by_a_read_and_a_probe() {
+    use wiremock::{matchers::{header, method, path}, Mock, MockServer, ResponseTemplate};
+    use deltabadger::web::settings::validator::Validity;
+    let server = MockServer::start().await;
+    Mock::given(method("GET")).and(path("/api/v3/account")).and(header("X-MBX-APIKEY", "us-key"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "canTrade": true, "balances": [] }))).mount(&server).await;
+    Mock::given(method("DELETE")).and(path("/api/v3/order")).and(header("X-MBX-APIKEY", "us-key"))
+        .respond_with(ResponseTemplate::new(400).set_body_json(json!({ "code": -2011, "msg": "Unknown order sent." }))).mount(&server).await;
+    let credentials = deltabadger::crypto::Credentials { key: "us-key".into(), secret: "us-secret".into(), passphrase: None, redaction_values: vec![] };
+    let base = server.uri();
+    let check = |kind| key_check::check("Exchanges::BinanceUs", &base, deltabadger::venue::http::client(), &credentials, kind);
+    assert!(matches!(check(0).await, Validity::Correct), "a trading key that reads and may trade");
+    assert!(matches!(check(1).await, Validity::Incorrect), "a withdrawal key that may trade");
+    assert!(matches!(check(2).await, Validity::Correct), "a reading key that reads");
+    let sent: Vec<(String, String)> = server.received_requests().await.unwrap().iter().map(|r| (r.method.to_string(), r.url.path().to_string())).collect();
+    let (read, probe) = (("GET".to_string(), "/api/v3/account".to_string()), ("DELETE".to_string(), "/api/v3/order".to_string()));
+    assert_eq!(sent, [read.clone(), probe.clone(), read.clone(), probe, read]);
 }

@@ -217,7 +217,12 @@ const BINANCE_TRANSIENT: [&str; 14] = ["Net::ReadTimeout", "Net::OpenTimeout", "
     "end of file reached", "unexpected eof while reading",
     "Timestamp for this request is outside of the recvWindow", "Timestamp for this request was"];
 
-pub static BINANCE: VenueRules = VenueRules {
+pub static BINANCE: VenueRules = BINANCE_RULES;
+/// Exchanges::BinanceUs: Binance's own rules (#known_errors is Binance's ERRORS, every other rule inherited), under its
+/// own type and name.
+pub static BINANCE_US: VenueRules = VenueRules { exchange_type: "Exchanges::BinanceUs", name: "Binance.US", ..BINANCE_RULES };
+
+const BINANCE_RULES: VenueRules = VenueRules {
     exchange_type: "Exchanges::Binance",
     name: "Binance",
     // Exchanges::Binance::ERRORS (binance.rb:3-9). Rails has no throttle list; the one text is venue::binance::HTTP_THROTTLE,

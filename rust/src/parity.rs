@@ -195,13 +195,14 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
         if let Some(c) = checks { out["checks"] = json!(c); }
         return Ok(out);
     }
-    if scenario["venue"] == "binance" {
-        // Rust's real Binance adapter over the bodies Rails' harness serves beneath Honeymaker::Clients::Binance, with the
-        // scenario's own tickers.
-        let transport = ScriptedTransport::from_script(&scenario["script"]["binance"]);
-        let exchange_id: i64 = o.primary.query_row("SELECT id FROM exchanges WHERE type = 'Exchanges::Binance'", [], |r| r.get(0))?;
+    if let Some(row) = scenario["venue"].as_str().filter(|v| ["binance", "binance_us"].contains(v)).and_then(|v| crate::venue::registry::ROWS.iter().find(|r| r.name_id == v)) {
+        // Rust's real Binance adapter (Binance.US: configured with its host and rules) over the bodies Rails' harness serves
+        // beneath Honeymaker::Clients::Binance (::BinanceUs), with the scenario's own tickers.
+        let transport = ScriptedTransport::from_script(&scenario["script"][row.name_id]);
+        let exchange_id: i64 = o.primary.query_row("SELECT id FROM exchanges WHERE type = ?1", [row.exchange_type], |r| r.get(0))?;
         let pairs = crate::venue::binance::Pairs::load(&o.primary, exchange_id).map_err(EngineError::Data)?;
-        let venue = crate::venue::binance::BinanceVenue::new(transport.clone(), crate::venue::binance::URL, "s").with_pairs(pairs);
+        let rules = row.rules.ok_or_else(|| EngineError::Data(format!("{} does not trade", row.name)))?;
+        let venue = crate::venue::binance::BinanceVenue::new(transport.clone(), row.base, "s").with_pairs(pairs).with_rules(rules);
         let posted = || binance_sent(&transport).len();
         let (poll, _, checks) = play(&o, &venue, &scenario, bot_id, start, &posted).await?;
         let poll_error = match poll { Some(polling::PollFailure::General(m)) => json!(m), _ => Value::Null };

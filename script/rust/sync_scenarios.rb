@@ -809,7 +809,11 @@ module SyncScenarios
         steps: [P.binance_ledger(night, { 'symbols' => symbols, 'balances' => [%w[BTC 1]], 'deposits' => [P.bn_deposit(6, 'BTC', '1', t.(2026, 6, 20))] })] },
       { name: 'binance-ledger-garbage_amount', setup: ->(ctx) { P.binance(ctx) },
         steps: [P.binance_ledger(night, basic.merge('deposits' => [P.bn_deposit(7, 'BTC', 'abc', t.(2026, 9, 1))]))] },
-      { name: 'binance-ledger-us_refused', setup: ->(ctx) { P.binance(ctx, us: true) }, steps: [P.binance_ledger(night, basic)] },
+      # Binance.US (plan VB slice A2): the same walk at api.binance.us over every source served; Exchanges::BinanceUs asks only
+      # deposits, withdrawals, trades and dividends.
+      { name: 'binance-ledger-us_every_source', setup: ->(ctx) { P.binance(ctx, us: true) }, steps: [P.binance_ledger(night, everything)] },
+      { name: 'binance-ledger-us_two_nights', setup: ->(ctx) { P.binance(ctx, us: true) },
+        steps: [P.binance_ledger(night, everything), P.binance_ledger('2026-09-22T02:00:00.250000Z', second)] },
       # ---- a file imported before the sync: the export's copy of a transfer (credited later; gross at completion) ----
       { name: 'binance-ledger-file_transfers',
         setup: lambda do |ctx|

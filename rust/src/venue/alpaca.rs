@@ -554,8 +554,9 @@ impl VenueFactory for LiveFactory {
                 let venue = super::kraken::KrakenVenue::new(transport);
                 LiveVenue::Kraken(match &identity { Some(c) => venue.with_identity(c), None => venue })
             }
-            super::binance::BINANCE => {
-                let venue = super::binance::BinanceVenue::new(transport, row.base, &secret).with_pairs(pairs);
+            super::binance::BINANCE | super::binance::BINANCE_US => {
+                let rules = row.rules.expect("a trading row has its rules");
+                let venue = super::binance::BinanceVenue::new(transport, row.base, &secret).with_pairs(pairs).with_rules(rules);
                 LiveVenue::Binance(match &identity { Some(c) => venue.with_identity(c), None => venue })
             }
             super::kucoin::KUCOIN => {
@@ -601,7 +602,7 @@ fn bot_problem(c: &Connection, cipher: &Cipher, id: i64) -> Result<Option<String
     let bot = model::load_bot(c, id)?;
     let exchange = model::exchange_type(c, &bot)?;
     let Some(rules) = crate::engine::venue_rules::for_exchange(&exchange) else {
-        return Ok(Some(format!("{exchange} is not connected in this build (only Kraken, Binance, KuCoin and Alpaca)")));
+        return Ok(Some(format!("{exchange} is not connected in this build (only Kraken, Binance, Binance.US, KuCoin and Alpaca)")));
     };
     Ok(match model::credentials_for(c, cipher, &bot)? {
         None => Some(format!("no {} API key", rules.name)),
