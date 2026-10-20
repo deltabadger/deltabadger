@@ -380,7 +380,7 @@ async fn figures_fragments_match_the_rails_page_partials() {
                 assert_eq!(bot_chart(&page.body),bot_chart(expected["warm"]["bots"][id]["page"].as_str().unwrap()),"{name} warm: the page's chart frame");
             }
         }
-        if std::env::var("FIGURE_ROUTES").as_deref() != Ok("0") && ["basket_buys", "hidden", "owner_account"].contains(&name) {
+        if std::env::var("FIGURE_ROUTES").as_deref() != Ok("0") && ["basket_buys", "hidden", "owner_account", "owner_candles_failed"].contains(&name) {
             use deltabadger::web::{App,Config,session::{self,SessionData},figure::loading::{self,Source}};
             let env=common::web::env(common::web::SECRET);
             let clock=common::web::TestClock::at(sc["at"].as_str().unwrap());
@@ -429,9 +429,10 @@ async fn figures_fragments_match_the_rails_page_partials() {
             let want=scraper::Html::parse_fragment(expected["bots"][&id]["metrics"].as_str().unwrap());
             let want=want.select(&selector).next().unwrap().html();
             assert_eq!(common::html::normalize(&got),common::html::normalize(&want),"warm route {name}");
-            // Warm: the chart is drawn with the page, and asks for nothing.
+            // Warm: the chart is drawn with the page, and asks for nothing. Where a market read failed, Rails' own frame is
+            // what `chart_frames` compared: a bot without candles or prices has no cached chart to draw.
             let chart=chart_frames(name,"warm",&id,&mut browser,&app,&expected["warm"]["bots"][&id]).await;
-            assert!(chart.contains("data-controller=\"bot--chart\""));
+            if !name.ends_with("_failed") { assert!(chart.contains("data-controller=\"bot--chart\"")); }
             }
             dashboard(name,"warm",&mut browser,&app,&expected["warm"]["dashboard"]).await;
             // The scheduler records each job's run (an app_configs row) and its syncs touch the reference data, from a
@@ -480,7 +481,7 @@ async fn figures_fragments_match_the_rails_page_partials() {
                 refused.fill(&wire,demands,at.utc().timestamp()).await;
                 let reader=Reader::new(&refused,at.utc().timestamp()).with_symbols(names);
                 assert!(reader.prices(&venue,&[]).is_err());
-                assert!(reader.failed());
+                assert!(!reader.pending(),"a refused price answer is settled");
                 assert!(reader.demands().is_empty());
                 let refused=loading::Snapshot::Ready(refused,at,revision,None,until);
                 let refused=app.db(move|c| loading::render(c,user,&refused,"en","token","",&deltabadger::engine::FixedClock(at.utc()))).await.unwrap().unwrap();
@@ -506,8 +507,7 @@ async fn figures_fragments_match_the_rails_page_partials() {
                     assert!(wire.calls.borrow().iter().any(|key| key.contains("/bars")));
                     let reader = Reader::new(&cache, at.utc().timestamp()).with_symbols(names);
                     let _ = deltabadger::web::figure::account(&c,user,&reader,at,"en","token","");
-                    assert!(reader.demands().is_empty(), "publication must fail on cached candles, not pending reads");
-                    assert!(reader.failed(), "cached candle failure escaped publication guard");
+                    assert!(!reader.pending(), "a cached candle failure is settled, not a pending read");
                     let snapshot = loading::Snapshot::Ready(cache,at,revision,None,until);
                     let rendered = app.db(move|c| loading::render(c,user,&snapshot,"en","token","",&deltabadger::engine::FixedClock(at.utc()))).await.unwrap().unwrap();
                     assert_eq!(rendered,failed,"failed candles published a chart or account sparkline");
@@ -560,7 +560,9 @@ async fn figures_fragments_match_the_rails_page_partials() {
                 loading::deliver(&app,many).await;
                 assert_eq!(cable.until(&keys).await.len(),600,"a connection fell behind the hub");
                 cable.drain(&app,&user_stream).await;
-                // Market data that fails after the failure window has run out: the wait ends, with no value.
+                // Market data that fails after the failure window has run out: the wait ends. Each bot shows its prices as
+                // stale (the note, what is known without a price, a single unknown value as its dash), never a chart or a P/L
+                // drawn from prices it does not have.
                 let mut failing=sc["script"].clone();
                 for (key,reply) in failing.as_object_mut().unwrap() { if key.contains("/snapshots") { *reply=json!({"status":503,"body":{},"delay_ms":300}); } }
                 let late=common::web::TestClock::at(sc["at"].as_str().unwrap());
@@ -571,7 +573,7 @@ async fn figures_fragments_match_the_rails_page_partials() {
                 late.set(now.utc()+chrono::Duration::seconds(120)); // the fill ends two minutes after it began
                 let ended=watching.until(&wanted).await;
                 assert_eq!(ended.len(),wanted.len(),"{name}: a fill that failed late never ended the wait");
-                for html in ended.values() { no_widget(html,None); }
+                for html in ended.values() { assert!(!html.contains("widget--chart") && !html.contains("pnl-percent"), "{name}: a figure drawn from failed prices: {html}"); }
                 // A page that stays mounted while its connection drops the final publication: its mailbox is past its
                 // bounds, so the publication is dropped and the connection closed. The page reconnects and subscribes
                 // again, asks nothing (`broadcast--on-connect` asks once), and ends with the current figures: replayed
@@ -1213,6 +1215,17 @@ async fn chronology_matches_rails_fresh_bytes() {
                 no_widget(html.as_str().unwrap(), Some(if key.ends_with(" chart") { "chart" } else if key.ends_with(" metrics") { "metrics" } else { "pnl_bots_" }));
             }
             no_widget(rendered["account"].as_str().unwrap(), Some("global-pnl"));
+        } else if name == "provider_failure" {
+            // The market's prices fail; its candles answer. The failure stays with each bot (its prices stale), and the
+            // fill is kept. Rails shows its stale figures here. This build withholds every price-dependent value while a
+            // bot's prices are stale (`figure::missing`), a difference older than kept figures: no chart is drawn, and
+            // each bot with orders says the exchange did not answer.
+            assert_eq!(ours.keys().collect::<Vec<_>>(), fresh.keys().collect::<Vec<_>>(), "{name}");
+            for (key, html) in rendered["bots"].as_object().unwrap().iter().flat_map(|(id, parts)| ["tile", "metrics", "chart"].map(|part| (format!("{id} {part}"), parts[part].as_str().unwrap().to_string()))) {
+                if key.ends_with(" chart") { assert!(html.contains("hidden=\"hidden\"") && !html.contains("widget--chart"), "{name}: {key}: {html}"); }
+                let unpriced = rendered["bots"][key.split(' ').next().unwrap()]["missing"].as_array().is_some_and(|missing| !missing.is_empty());
+                if key.ends_with(" metrics") && unpriced { assert!(html.contains("The exchange API does not respond"), "{name}: {key}: {html}"); }
+            }
         } else {
             for (key, want) in &fresh { assert_eq!(ours.get(key), Some(want), "{name}: {key}: this build against Rails computed fresh at t_c"); }
             assert_eq!(ours.len(), fresh.len(), "{name}");

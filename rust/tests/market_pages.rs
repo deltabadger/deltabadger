@@ -242,7 +242,7 @@ async fn failed_refresh_and_hostile_bare_numbers_never_become_prices() {
         cache.fill(&Reply(reply),reader.demands(),0).await;
         let reader=Reader::new(&cache,0);
         let error=reader.prices(&venue(),&symbols).unwrap_err();
-        assert!(reader.failed());
+        assert!(!reader.pending(), "a failed price answer is settled, never pending");
         assert!(!format!("{error:?}").contains("secret echo"));
         assert!(reader.demands().is_empty());
         assert!(Reader::new(&cache,60).prices(&venue(),&symbols).is_err());
@@ -281,7 +281,7 @@ async fn candle_failures_mark_the_reader_failed_without_pending_demands() {
             cache.fill(&Reply(reply.clone()), reader.demands(), 120).await;
             let reader = Reader::new(&cache, 120);
             let error = reader.candles(&venue(), &ticker(crypto), At(0), 60, true).unwrap_err();
-            assert!(reader.failed(), "candle failure escaped publication guard: {error:?}");
+            assert!(!reader.pending(), "a failed candle answer is settled, never pending: {error:?}");
             assert!(reader.demands().is_empty());
             assert!(!format!("{error:?}").contains("secret echo"));
         }
@@ -308,10 +308,10 @@ async fn closed_candle_prices_must_be_present_and_readable_but_may_be_zero() {
                 let bars = result.unwrap();
                 assert_eq!(bars.len(), 1);
                 assert_eq!(bars[0].1.to_s_f(), if price == Some(json!(0)) { "0.0" } else { "12.5" });
-                assert!(!reader.failed());
+                assert!(!reader.pending());
             } else {
                 assert!(result.is_err(), "unreadable candle became a price: {price:?}");
-                assert!(reader.failed(), "unreadable candle escaped publication guard: {price:?}");
+                assert!(!reader.pending(), "an unreadable candle is settled, never pending: {price:?}");
             }
             assert!(reader.demands().is_empty());
         }
@@ -345,7 +345,7 @@ async fn kept_opens_read_exactly_as_the_venues_answer() {
                 assert_eq!(bars.len(), 1);
                 assert_eq!(bars[0].0, At(0));
                 assert_eq!(bars[0].1.to_s_f(), expected, "open {open} read at {now}");
-                assert!(reader.demands().is_empty() && !reader.failed());
+                assert!(!reader.pending());
             }
         }
     }
@@ -368,12 +368,12 @@ async fn kept_price_answers_read_as_the_whole_answer() {
         cache.fill(&Reply(Ok(HttpResponse { status: 200, body: body.to_string() })), reader.demands(), 0).await;
         let reader = Reader::new(&cache, 0);
         let prices = reader.prices(&venue(), &symbols).map(|p| p.into_iter().map(|(code, price)| (code, price.unwrap().to_s_f())).collect::<Vec<_>>());
-        (prices.ok(), reader.failed())
+        (prices.ok(), reader.pending())
     };
     assert_eq!(read(good_stocks, stocks.clone()).await,
         (Some(vec![("AAA".into(), "12.5".into()), ("BBB".into(), "0.0".into()), ("ZZZ".into(), "7.0".into())]), false));
     assert_eq!(read(good_crypto, crypto.clone()).await,
         (Some(vec![("BTC/USD".into(), "12.5".into()), ("ETH/USD".into(), "0.0".into()), ("XRP/USD".into(), "2.0".into())]), false));
-    for malformed in [json!(null), json!([]), json!("AAA")] { assert_eq!(read(malformed, stocks.clone()).await, (None, true)); }
-    for malformed in [json!({"trades":null}), json!({}), json!({"trades":[]}), json!(null)] { assert_eq!(read(malformed, crypto.clone()).await, (None, true)); }
+    for malformed in [json!(null), json!([]), json!("AAA")] { assert_eq!(read(malformed, stocks.clone()).await, (None, false)); }
+    for malformed in [json!({"trades":null}), json!({}), json!({"trades":[]}), json!(null)] { assert_eq!(read(malformed, crypto.clone()).await, (None, false)); }
 }

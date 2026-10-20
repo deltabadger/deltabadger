@@ -118,7 +118,7 @@ fn stale_shown(mut shown:Value,then:&Value,now:&Value)->Option<Value> {
     // would not cache them) holds the headline back, as Rails' snapshot is loading.
     if after.iter().any(|(id,v)|v[1]==true && v[2]!=true && shown["bots"][id.as_str()]["cached"]!=true) { headline=false; }
     if let Some(bots)=shown.get_mut("bots").and_then(Value::as_object_mut) { bots.retain(|id,_|!moved(id)); }
-    if !headline { if let Some(figures)=shown.as_object_mut() { figures.remove("account"); } }
+    if !headline { if let Some(figures)=shown.as_object_mut() { figures.remove("account"); figures.remove("account_page"); } }
     Some(shown)
 }
 
@@ -337,7 +337,7 @@ async fn fill(app:&App,user:i64,cache:&mut Cache,wire:&Wire,now:At,keys:std::col
         for (locale,prefix) in keys {
             let rendered=super::kept_account(c,user,reader,now,&locale,&prefix)?;
             // A pass that still lacks market data fetches it first; only the last pass renders every key.
-            if reader.failed() || !reader.demands().is_empty() || !reader.fx_demands().is_empty() { return Ok(vec![]); }
+            if reader.pending() { return Ok(vec![]); }
             out.push(((locale,prefix),rendered,reader.fx_deps()));
         }
         Ok(out)
@@ -385,7 +385,7 @@ fn keep(c:&Connection,user:i64,cache:&Cache,at:At,prepared:u64,keys:&std::collec
             let reader=Reader::new(cache,at.utc().timestamp()).with_current(c).with_symbols(names.clone()).with_fx(fx.clone());
             let rendered=super::kept_account(c,user,&reader,at,locale,prefix)?;
             asked.extend(reader.fx_demands());
-            if reader.failed() || !reader.demands().is_empty() { return Err(crate::figures::FiguresError::NotComputed("Market data unavailable".into())); }
+            if reader.pending() { return Err(crate::figures::FiguresError::NotComputed("Market data unavailable".into())); }
             Ok((rendered,reader.fx_deps()))
         });
         match rendered { Ok((rendered,deps))=>out.push((kept_key(prepared,at,locale,prefix),rendered,deps)), Err(e)=>failed.push(format!("{locale}: {e:?}")) }
@@ -415,9 +415,9 @@ async fn fill_result<T:Send+'static>(app:&App,user:i64,cache:&mut Cache,wire:&Wi
                 let names=symbols(c,user)?;
                 let reader=Reader::new(&snapshot,now.utc().timestamp()).with_current(c).with_symbols(names).with_fx(fx);
                 let result=work(c,&reader);
-                let failed=reader.failed();
+                let pending=reader.pending();
                 let (out,reason)=match result {
-                    Ok(out)=>(Some(out).filter(|_|!failed),None),
+                    Ok(out)=>(Some(out).filter(|_|!pending),None),
                     Err(crate::figures::FiguresError::NotComputed(reason)) if reason=="Currency conversion unavailable"=>(None,Some("Currency conversion unavailable")),
                     Err(_)=>(None,None),
                 };

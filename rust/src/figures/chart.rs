@@ -368,21 +368,27 @@ pub fn marked_at_market(chart: &Chart, grids: &Grids, display: &Grids, priceable
 /// Measurable#metrics_with_current_prices_and_candles: `live`'s figures with the chart marked at market. With no
 /// candles for any holding, the fill marks the walk drew are the chart.
 pub fn marked(c: &Connection, s: &Subject, live: &Metrics, market: &dyn MarketData, now: At) -> Result<Metrics, FiguresError> {
+    marked_at(c, s, live, market, now).map(|(data, _)| data)
+}
+/// `marked`, and whether any holding had a candle grid to mark it with. Rails caches the marked chart only then
+/// (`metrics_with_current_prices_and_candles` returns from its cache block when the grids are blank), so a bot page draws
+/// it inline only then; otherwise the chart arrives in its own frame.
+pub fn marked_at(c: &Connection, s: &Subject, live: &Metrics, market: &dyn MarketData, now: At) -> Result<(Metrics, bool), FiguresError> {
     budget::within(|| at_market(c, s, live, market, now))
 }
 
-fn at_market(c: &Connection, s: &Subject, live: &Metrics, market: &dyn MarketData, now: At) -> Result<Metrics, FiguresError> {
+fn at_market(c: &Connection, s: &Subject, live: &Metrics, market: &dyn MarketData, now: At) -> Result<(Metrics, bool), FiguresError> {
     charge_chart(&live.chart)?;
     let mut data = live.clone();
-    let (Some(first), Some(last)) = (data.chart.labels.first().copied(), data.chart.labels.last().copied()) else { return Ok(data) };
+    let (Some(first), Some(last)) = (data.chart.labels.first().copied(), data.chart.labels.last().copied()) else { return Ok((data, false)) };
     let symbols: Vec<String> = data.asset_breakdown.iter().map(|(key, _)| key.clone()).collect();
-    if s.tickers.is_empty() || symbols.is_empty() { return Ok(data); }
+    if s.tickers.is_empty() || symbols.is_empty() { return Ok((data, false)); }
     // Candles from one timeframe before the first transaction, so the first buy has a mark below it.
     let timeframe = timeframe(now.minus(first));
     let since = first.plus_seconds(-timeframe).ok_or_else(|| FiguresError::Data("a first order at the edge of time".into()))?;
     let window = Window { s, metrics: &data, market, since, timeframe, now };
     let grids = window.candle_grids(&symbols, false)?;
-    if grids.is_empty() { return Ok(data); }
+    if grids.is_empty() { return Ok((data, false)); }
     let events = splits::events(c, s.bot.user_id, &s.orders, &data.holdings()?, now)?;
     let grids = split_pinned(backfilled(grids, &symbols, first, last, &events, s, &data)?, &events)?;
 
@@ -415,7 +421,7 @@ fn at_market(c: &Connection, s: &Subject, live: &Metrics, market: &dyn MarketDat
         data.chart_omitted.push(Unpriced { key: key.clone(), asset_id, reason: unlisted(c, s, asset_id)? });
     }
     data.chart = marked_at_market(&data.chart, &grids, &display, &priceable)?;
-    Ok(data)
+    Ok((data, true))
 }
 
 /// What the chart on the bot's page is drawn from: the data attributes of `bots/_chart`.
