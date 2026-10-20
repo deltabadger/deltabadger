@@ -739,8 +739,8 @@
     "edits": [
       {
         "file": "web/figure/loading.rs",
-        "old": "let identity=serde_json::json!([user,version.cache_stamp()]).to_string();",
-        "new": "let stored:(Option<String>,Option<String>,Option<String>)=c.query_row(\"SELECT key,secret,passphrase FROM api_keys WHERE id=?1\",[id],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?)))?;let _=version;let identity=serde_json::json!([user,stored]).to_string();",
+        "old": "(Some(credentials),Some(version))=>(serde_json::json!([user,version.cache_stamp()]),Producer::Alpaca(version),Some(credentials)),",
+        "new": "(Some(credentials),Some(version))=>{let stored:(Option<String>,Option<String>,Option<String>)=c.query_row(\"SELECT key,secret,passphrase FROM api_keys WHERE id=?1\",[version.id],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?)))?;(serde_json::json!([user,stored]),Producer::Alpaca(version),Some(credentials))},",
         "count": 1,
         "which": null
       }

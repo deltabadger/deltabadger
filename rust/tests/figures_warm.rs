@@ -603,7 +603,7 @@ async fn boot_enqueues_every_user_with_bots() {
     c.execute(&format!("UPDATE users SET locale='fr',updated_at={t} WHERE id=2"), []).unwrap();
     deltabadger::web::figure::warm::boot(&install.app).await;
     let queued = queued(&install.app);
-    assert_eq!(queued.keys().copied().collect::<Vec<_>>(), vec![1, 2, 5], "the accounts with bots and an Alpaca key");
+    assert_eq!(queued.keys().copied().collect::<Vec<_>>(), vec![1, 2, 5, 6], "the accounts with bots, with an Alpaca key or none");
     assert_eq!(queued[&1], Work { publish: true, locales: own(), not_before: install.now() });
     assert_eq!(queued[&2].locales, BTreeSet::from([("fr".to_string(), "/fr".to_string())]), "each in its own locale");
 }
@@ -822,8 +822,9 @@ async fn a_fill_repaired_in_the_same_second_changes_the_no_key_reason() {
     assert!(!matches!(stale, loading::Snapshot::Failed(Some(_))), "the old reason, after the fill was repaired");
     let app = install.app.clone();
     install.app.db(move |c| loading::render_page(&app, c, 1, &stale, "en", "", "")).await.unwrap();
-    until(10, "the repaired account's reason", async || matches!(loading::prepare(&install.app, 1).await.unwrap(), loading::Snapshot::Failed(None))).await;
-    assert_eq!(fills(&install.app, 1), 0, "no key: the reason comes from the stored fills, never from a market read");
+    // With no key the account still has figures (its Alpaca bot's prices are a settled failure: stale), so the repaired
+    // fill makes them ready.
+    until(10, "the repaired account's figures", async || matches!(loading::prepare(&install.app, 1).await.unwrap(), loading::Snapshot::Ready(..))).await;
 }
 
 /// A live key reads market data as a paper key does (Rails' market_data_client): its account gets figures, and every
