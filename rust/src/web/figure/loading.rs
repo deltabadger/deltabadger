@@ -236,7 +236,9 @@ pub(crate) fn read_info(c:&Connection,app:&App,user:i64)->Result<Info,WebError> 
     };
     let (identity,producer,credentials)=match (credentials,version) {
         (Some(credentials),Some(version))=>(serde_json::json!([user,version.cache_stamp()]),Producer::Alpaca(version),Some(credentials)),
-        (_,key)=>(serde_json::json!([user,crate::engine::model::NO_ALPACA_IDENTITY]),Producer::NoAlpaca{user,key},None),
+        // The version of a key it cannot read is part of it: removing or replacing that key changes the identity, and the
+        // service refills instead of serving figures whose producer no longer holds.
+        (_,key)=>(serde_json::json!([user,crate::engine::model::NO_ALPACA_IDENTITY,key.as_ref().map(|k|k.cache_stamp())]),Producer::NoAlpaca{user,key},None),
     };
     let revision=revision(c,user)?.0;
     Ok(Info{identity:identity.to_string(),revision,mark:mark(c)?,credentials,producer})

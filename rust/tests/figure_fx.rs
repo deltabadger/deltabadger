@@ -479,6 +479,14 @@ async fn an_undecryptable_alpaca_key_leaves_its_alpaca_bots_stale_and_the_rest_f
     let shown = install.shown("ready").await;
     assert!(shown["bots"]["1"]["metrics"].as_str().unwrap().contains("does not respond"), "the Alpaca bot is stale: {}", shown["bots"]["1"]["metrics"]);
     assert!(tile(&shown, 3).contains("30.00%"), "the KuCoin bot is priced: {}", tile(&shown, 3));
+    // Removing the unreadable key changes the account's identity: the figures are filled again, never served blank.
+    c.execute("DELETE FROM api_keys", []).unwrap();
+    let deadline = Instant::now() + Duration::from_secs(10);
+    loop {
+        if let Some(v) = install.page().await { if v["bots"]["3"]["tile"].as_str().is_some_and(|t| t.contains("30.00%")) { break; } }
+        assert!(Instant::now() < deadline, "the KuCoin figures did not come back after the unreadable key was removed");
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
 }
 
 #[tokio::test]
