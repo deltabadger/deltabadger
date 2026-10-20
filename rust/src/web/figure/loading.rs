@@ -1,6 +1,6 @@
 //! Network work never owns the database lock. Only raw JSON and request descriptions cross threads.
 use super::service::{Load,Work};
-use crate::figures::{at::At,budget,db,page_market::{Cache,FxDeps,FxSnapshot,Reader}};
+use crate::figures::{at::At,budget,db,page_market::{Cache,FxDeps,FxSnapshot,Producer,Reader}};
 use crate::venue::http::{self,HttpRequest,HttpResponse,ReqwestTransport,Transport,TransportError};
 use crate::web::{App,WebError};
 use crate::crypto::Credentials;
@@ -19,7 +19,10 @@ pub enum Source { #[default] Live, Disabled, Script(Value),
 /// while the fill for the current one runs or waits, as Rails shows a bot's cached figures until its recompute
 /// overwrites them. Only the bots whose own rows are as they were then are shown (`stale_shown`).
 pub enum Snapshot { Cold, Failed(Option<&'static str>), Ready(Cache,At,u64,Option<Mark>,i64), Stale(Cache,At,u64,i64) }
-pub(crate) struct Info { identity:String,revision:u64,mark:Mark,pub(crate) credentials:Credentials,pub(crate) origin:crate::engine::model::CredentialVersion }
+/// `credentials`: the Alpaca key market data is read with, if the account has one that can be read. `producer`: what its
+/// figures are made under (`Producer`), and `identity` the same as the service keys accounts by: `[user, stamp]` with a
+/// key, `[user, "no-alpaca"]` without one.
+pub(crate) struct Info { identity:String,revision:u64,mark:Mark,pub(crate) credentials:Option<Credentials>,pub(crate) producer:Producer }
 /// Where a connection's view of the database stands: what other connections committed (`PRAGMA data_version`) and what
 /// it wrote itself (total changes). Equal on that connection, nothing was written in between.
 pub type Mark=(i64,u64);
@@ -219,23 +222,36 @@ pub fn revision(c:&Connection,user:i64)->Result<(u64,usize),rusqlite::Error> {
     }
     Ok((hash.finish(),read))
 }
-pub(crate) fn read_info(c:&Connection,app:&App,user:i64)->Result<Option<Info>,WebError> {
+/// What the account's figures are made under, read in one transaction. Every account has figures (Rails prices every
+/// venue's bots with no Alpaca key); one without a usable key reads every other venue, and its Alpaca reads are settled
+/// failures (its Alpaca bots stale). A failure to read the key is the read's failure: the caller's retry keeps the demand.
+/// An undecryptable key (this install's configuration, not a passing fault) is no usable key.
+pub(crate) fn read_info(c:&Connection,app:&App,user:i64)->Result<Info,WebError> {
     if c.is_autocommit(){let tx=c.unchecked_transaction()?;let out=read_info(&tx,app,user)?;tx.commit()?;return Ok(out)}
-    let id:Option<i64>=c.query_row("SELECT k.id FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE k.user_id=?1 AND k.key_type=0 AND e.type='Exchanges::Alpaca' ORDER BY k.id LIMIT 1",[user],|r|r.get(0)).optional()?;
-    let Some(id)=id else { return Ok(None) };
-    // A failure to read the key is the read's failure: the caller's retry keeps the demand. Only an undecryptable key
-    // means no figures (this install's configuration, not a passing fault).
-    let columns=crate::sync::credential_columns(c,id)?;
-    let credentials=match crate::sync::credentials_from_columns(&app.cipher,id,&columns) { Ok(c)=>c,Err(_)=>return Ok(None) };
-    let Some(version)=crate::engine::model::credential_version_by_id(c,id)? else{return Ok(None)};
-    let identity=serde_json::json!([user,version.cache_stamp()]).to_string();
+    let id:Option<i64>=c.query_row(crate::figures::page_market::ALPACA_KEY,[user],|r|r.get(0)).optional()?;
+    let version=match id { Some(id)=>crate::engine::model::credential_version_by_id(c,id)?, None=>None };
+    let credentials=match (id,&version) {
+        (Some(id),Some(_))=>crate::sync::credentials_from_columns(&app.cipher,id,&crate::sync::credential_columns(c,id)?).ok(),
+        _=>None,
+    };
+    let (identity,producer,credentials)=match (credentials,version) {
+        (Some(credentials),Some(version))=>(serde_json::json!([user,version.cache_stamp()]),Producer::Alpaca(version),Some(credentials)),
+        // The version of a key it cannot read is part of it: removing or replacing that key changes the identity, and the
+        // service refills instead of serving figures whose producer no longer holds.
+        (_,key)=>(serde_json::json!([user,crate::engine::model::NO_ALPACA_IDENTITY,key.as_ref().map(|k|k.cache_stamp())]),Producer::NoAlpaca{user,key},None),
+    };
     let revision=revision(c,user)?.0;
-    Ok(Some(Info{identity,revision,mark:mark(c)?,credentials,origin:version}))
+    Ok(Info{identity:identity.to_string(),revision,mark:mark(c)?,credentials,producer})
 }
-pub(crate) struct Wire { real:ReqwestTransport,kucoin:Result<ReqwestTransport,String>,source:Source,origin:Option<crate::engine::model::CredentialVersion>,compute:Option<std::sync::Arc<tokio::sync::Semaphore>> }
+/// `alpaca`: whether `real` carries an Alpaca key. Without one, Alpaca's market data is a settled failure: never sent.
+pub(crate) struct Wire { real:ReqwestTransport,alpaca:bool,kucoin:Result<ReqwestTransport,String>,source:Source,origin:Option<crate::engine::model::CredentialVersion>,compute:Option<std::sync::Arc<tokio::sync::Semaphore>> }
 impl Wire {
     pub(crate) fn with_origin(mut self,origin:crate::engine::model::CredentialVersion)->Self { self.origin=Some(origin);self }
-    pub(crate) fn new(credentials:&Credentials,source:Source)->Self { Wire{real:ReqwestTransport::new(http::client(),credentials.key.clone(),credentials.secret.clone()).with_sensitive_values(credentials.redaction_values.clone()),kucoin:Err("KuCoin is not connected here".into()),source,origin:None,compute:None} }
+    pub(crate) fn new(credentials:&Credentials,source:Source)->Self { Wire{real:ReqwestTransport::new(http::client(),credentials.key.clone(),credentials.secret.clone()).with_sensitive_values(credentials.redaction_values.clone()),alpaca:true,kucoin:Err("KuCoin is not connected here".into()),source,origin:None,compute:None} }
+    /// The wire of an account's figures: its Alpaca key if it has a usable one (`Info`), and none otherwise.
+    pub(crate) fn of(credentials:Option<&Credentials>,source:Source)->Self {
+        match credentials { Some(credentials)=>Self::new(credentials,source), None=>Wire{real:ReqwestTransport::new(http::client(),String::new(),String::new()),alpaca:false,kucoin:Err("KuCoin is not connected here".into()),source,origin:None,compute:None} }
+    }
     /// KuCoin's public market data, as Exchanges::Kucoin reads it: through the install's KuCoin egress (ExchangeProxy.for,
     /// `venue::live::egress`), unsigned (public endpoints carry no key). An egress that cannot be had (an unusable proxy)
     /// is that venue's settled failure, never a direct connection.
@@ -245,7 +261,8 @@ impl Wire {
     }
     /// The transport for a request's host: KuCoin's for KuCoin, Alpaca's (with its key) for Alpaca's market data.
     fn transport(&self,r:&HttpRequest)->Result<&ReqwestTransport,TransportError> {
-        if r.base==crate::venue::kucoin::URL { self.kucoin.as_ref().map_err(|_|TransportError::Permanent("Market data unavailable".into())) } else { Ok(&self.real) }
+        if r.base==crate::venue::kucoin::URL { self.kucoin.as_ref().map_err(|_|TransportError::Permanent("Market data unavailable".into())) }
+        else if self.alpaca { Ok(&self.real) } else { Err(TransportError::Permanent("Market data unavailable".into())) }
     }
     /// Each answer is settled (a pass over the whole body) off the runtime's thread, under the figures' compute permit.
     pub(crate) fn settled_under(mut self,compute:std::sync::Arc<tokio::sync::Semaphore>)->Self { self.compute=Some(compute);self }
@@ -267,6 +284,8 @@ impl Transport for Wire {
             Source::Live=>{ let transport=self.transport(r)?; self.settle(transport,transport.send_unsettled(r,http::MAX_BODY).await?,true).await },
             Source::Disabled=>Err(TransportError::Permanent("Market data unavailable".into())),
             Source::Script(script)|Source::Counted(script,_)=>{
+                // No Alpaca key: Alpaca's market data is refused before it is asked for, as on the live wire.
+                if r.base!=crate::venue::kucoin::URL && !self.alpaca { return Err(TransportError::Permanent("Market data unavailable".into())); }
                 // Market data is scripted by the parameters that pick a series; any other host by its whole sorted query.
                 let host=r.base.split_once("://").map_or(r.base.as_str(),|(_,h)|h);
                 let data=host=="data.alpaca.markets";
@@ -424,6 +443,9 @@ async fn fill_result<T:Send+'static>(app:&App,user:i64,cache:&mut Cache,wire:&Wi
         let snapshot=cache.clone();let work=work.clone();
         let pass=build(app,move|c|{
             if !admit(c,user)? { return Ok(None); }
+            // The account is no longer what this fill makes figures for (a key added, replaced or removed): nothing it
+            // reads now can be kept, so it stops instead of asking the market again.
+            if snapshot.producer().as_ref().is_some_and(|producer|!producer.is_current(c).unwrap_or(false)) { return Ok(None); }
             let result=budget::within(||{
                 let names=symbols(c,user)?;
                 let reader=Reader::new(&snapshot,now.utc().timestamp()).with_current(c).with_symbols(names).with_fx(fx);
@@ -441,7 +463,7 @@ async fn fill_result<T:Send+'static>(app:&App,user:i64,cache:&mut Cache,wire:&Wi
         let Ok(Some((demands,fx_demands,out,reason)))=pass else { return Err(None) };
         // Made under this key even when it read no market data (every bot on a venue the reader cannot read): ready
         // figures are current while the key is (`render`), and an unrecorded key would leave them never shown.
-        if demands.is_empty() && fx_demands.is_empty(){ if out.is_some() { cache.produced_by(wire.producer()); } return out.ok_or(reason);}
+        if demands.is_empty() && fx_demands.is_empty(){ return out.ok_or(reason);}
         // Conversions from the market-data provider, never over the venue's wire (it carries the venue's key).
         if !fx_demands.is_empty() && crate::web::tracker::fx::fill(app,&identity,config,fx_demands).await.is_err() { return Err(None); }
         if !demands.is_empty() { cache.fill_bounded(wire,demands,now.utc().timestamp(),&app.figure_service.compute()).await; }
@@ -456,12 +478,7 @@ type Begun<'a>=std::pin::Pin<Box<dyn std::future::Future<Output=Result<Snapshot,
 fn begin(app:&App,user:i64)->Begun<'_>{ Box::pin(async move {
     if matches!(app.figure_source,Source::Disabled){return Ok(Snapshot::Cold);}
     let inner=app.clone();
-    // No Alpaca key, so no fill: why its figures are absent was read by the queue (`consume`) against the same
-    // fingerprint the figures are held to; until it is, the page shows the loading state and asks for it.
-    let Some(info)=app.db(move|c|read_info(c,&inner,user)).await? else{
-        let revision=app.db(move|c|Ok(revision(c,user)?.0)).await?;
-        return Ok(app.figure_service.unkeyed(user,revision,app.now().timestamp()).map_or(Snapshot::Cold,Snapshot::Failed));
-    };
+    let info=app.db(move|c|read_info(c,&inner,user)).await?;
     let Some(now)=At::from_utc(app.now()) else{return Ok(Snapshot::Failed(None))};
     // While the current revision's figures are being made, or wait for a fill, the last ready ones are shown.
     let stale=|app:&App|app.figure_service.stale(user,&info.identity,now.utc().timestamp())
@@ -483,7 +500,9 @@ fn spawn_fill(app:&App,user:i64,info:Info,now:At,ticket:super::service::Ticket,m
         let timed=tokio::time::timeout(inner.figure_service.fill_timeout(),async {
             // The KuCoin egress is a settings read, inside the deadline and outside the compute permit.
             let egress={ let cipher=inner.cipher.clone(); inner.db(move|c|Ok(crate::venue::live::egress(c,&cipher,&|k|std::env::var(k).ok(),"kucoin",&http::client()))).await.unwrap_or_else(|e|Err(format!("{e:?}"))) };
-            let wire=Wire::new(&info.credentials,source).with_kucoin(egress).with_origin(info.origin.clone()).settled_under(inner.figure_service.compute());
+            let mut wire=Wire::of(info.credentials.as_ref(),source).with_kucoin(egress).settled_under(inner.figure_service.compute());
+            if let Producer::Alpaca(version)=&info.producer { wire=wire.with_origin(version.clone()); }
+            cache.produced_by(info.producer.clone());
             // What the figures show besides their numbers, read before them: stale figures are held to it (`stale_shown`).
             // On the builder's connection, as the fill's other reads: never the one pages use.
             let shape=build(&inner,move|c|Ok(shape(c,user)?)).await.unwrap_or(Value::Null); // allow-swallow: no shape, and the figures are never shown stale
@@ -493,8 +512,9 @@ fn spawn_fill(app:&App,user:i64,info:Info,now:At,ticket:super::service::Ticket,m
         let (shape,result)=timed.unwrap_or((Value::Null,Err(None)));
         let check=inner.clone();
         let current=inner.db(move|c|read_info(c,&check,user)).await;
-        let credentials=matches!(current,Ok(Some(ref current)) if crate::engine::model::current_for(Some(&info.origin),Some(&current.origin)).is_fresh());
-        let unchanged=credentials && matches!(current,Ok(Some(ref current)) if current.revision==info.revision);
+        // Made under the producer the account still has: a key added, replaced or removed meanwhile is another one.
+        let credentials=matches!(current,Ok(ref current) if info.producer.same(&current.producer));
+        let unchanged=credentials && matches!(current,Ok(ref current) if current.revision==info.revision);
         cache.set_stamp(now);
         // A bot left without figures after a transient price read (`figure::computed`'s `raised`): these figures last only
         // the price's minute, so the next read fills again and asks the quote afresh, as Rails retries its metrics job.
@@ -558,7 +578,7 @@ pub fn render(c:&Connection,user:i64,snapshot:&Snapshot,locale:&str,csrf:&str,pr
         // Whatever the failure, its figures are absent; the reason is the queue's, not the page's.
         Snapshot::Failed(_)=>{}
         Snapshot::Ready(cache,now,prepared_revision,read,until)=>{
-            let current=cache.producer().as_ref().is_some_and(|origin|crate::engine::model::credential_is_current(c,origin).unwrap_or(false));
+            let current=cache.producer().as_ref().is_some_and(|producer|producer.is_current(c).unwrap_or(false));
             // The fingerprint is the most expensive read of a warm page, and `prepare` read it a moment ago on this
             // connection (App::db's one): read again only if anything was written since.
             let unchanged=read.is_some_and(|read|mark(c).ok()==Some(read));
@@ -579,7 +599,7 @@ pub fn render(c:&Connection,user:i64,snapshot:&Snapshot,locale:&str,csrf:&str,pr
             }
         }
         Snapshot::Stale(cache,at,revision,until)=>{
-            let current=cache.producer().as_ref().is_some_and(|origin|crate::engine::model::credential_is_current(c,origin).unwrap_or(false));
+            let current=cache.producer().as_ref().is_some_and(|producer|producer.is_current(c).unwrap_or(false));
             if !current || clock.now().timestamp()>=*until { return Ok(None); }
             let (Some(kept),Some(then))=(cache.kept(&kept_key(*revision,*at,locale,prefix)),cache.kept(&shape_key(*revision))) else { return Ok(None) };
             if !fx_holds(c,cache,&kept_fx(&kept),clock.now().timestamp()) { return Ok(None); }
@@ -639,7 +659,7 @@ async fn publish_with(app:App,user:i64)->Result<bool,WebError>{
                 Some(rendered)=>(super::streams(c,user,&rendered).map_err(|e|WebError::Task(format!("figure streams: {e:?}")))?,None),
                 None=>(vec![],(ready&&!expired).then_some(key)),
             };
-            let info=if ready { read_info(c,&inner,user)? } else { None };
+            let info=if ready { Some(read_info(c,&inner,user)?) } else { None };
             // The provider the conversions are checked against as the publication is accepted.
             let provider=if fx.pairs.is_empty() { String::new() } else { crate::web::tracker::fx::provider(c).map(|(identity,_)|identity).unwrap_or_default() };
             Ok((streams,info,unkept,expired,fx,provider))
@@ -679,7 +699,7 @@ pub async fn deliver(app:&App,streams:Vec<(String,String)>){
 /// The account's latest publication on `stream` while its figures are fresh (`Service::latest`), asking nothing.
 pub async fn latest(app:&App,user:i64,stream:&str)->Option<Vec<std::sync::Arc<str>>>{
     let inner=app.clone();
-    let info=app.db(move|c|read_info(c,&inner,user)).await.ok()??;
+    let info=app.db(move|c|read_info(c,&inner,user)).await.ok()?;
     app.figure_service.latest(user,&info.identity,info.revision,app.now().timestamp(),stream)
 }
 /// A page in `locale` under `prefix` found no figures to show: they are made and published by the queue.
@@ -693,19 +713,7 @@ async fn consume(app:&App,user:i64,mut work:Work) {
     if matches!(app.figure_source,Source::Disabled){return;}
     let inner=app.clone();
     let info=match app.db(move|c|read_info(c,&inner,user)).await {
-        Ok(Some(info))=>info,
-        // No Alpaca key, so no figures: why, from the stored fills, for the page to read (`begin`), and published if asked.
-        Ok(None)=>{
-            let now=app.now().timestamp();
-            let read=build(app,move|c|Ok((revision(c,user)?.0,walk_reason(c,user)))).await;
-            // The builder could not read: tried again a second on, as a failed account read is.
-            let Ok((revision,reason))=read else { work.not_before=app.now().timestamp().saturating_add(1); app.figure_service.enqueue(user,work); return; };
-            app.figure_service.set_unkeyed(user,revision,now.saturating_add(300-now.rem_euclid(300)),reason);
-            // A write after the fingerprint was read, or the cut while the reason was read: the page would find it cold,
-            // and no fill ends to publish for this account. The work is queued again and reads it anew.
-            match publish_with(app.clone(),user).await { Ok(false) if work.publish=>app.figure_service.enqueue(user,work), Err(_) if work.publish=>app.figure_service.mark_owner(user), _=>{} }
-            return;
-        }
+        Ok(info)=>info,
         Err(_)=>{ work.not_before=app.now().timestamp().saturating_add(1); app.figure_service.enqueue(user,work); return; }
     };
     let Some(now)=At::from_utc(app.now()) else{return};
@@ -752,7 +760,6 @@ pub async fn resubscribed(app:&App,user:i64,stream:&str)->Vec<std::sync::Arc<str
     let inner=app.clone();
     // A failure to read the account (a transient database error) asks for the publication through the retry path.
     let info=match app.db(move|c|read_info(c,&inner,user)).await { Ok(info)=>info, Err(_)=>{ app.figure_service.mark_owner(user); return Vec::new(); } };
-    let Some(info)=info else { return Vec::new() };
     if let Some((kept,fx))=app.figure_service.latest_with(user,&info.identity,info.revision,app.now().timestamp(),stream) {
         // Rendered with conversions that no longer hold (a tracker request refreshed the display rate, one expired, the
         // provider changed): not replayed; a publication is asked for instead.
@@ -859,13 +866,13 @@ mod credential_cache_tests {
         let wire=ScriptedTransport::from_script(&serde_json::json!({"GET /v2/stocks/quotes/latest":[{"status":200,"body":{"quotes":{"AAA":{"ap":10000}}}}]}));
         for column in columns {
             let service=crate::web::figure::service::Service::default();
-            let info=read_info(&c,&app,1).unwrap().unwrap();
+            let info=read_info(&c,&app,1).unwrap();
             let Load::Start(ticket,mut cache)=service.begin(1,&info.identity,info.revision,now.timestamp()) else{panic!("fresh source must start")};
             cache.fill(&wire,vec![request.clone()],now.timestamp()).await;assert!(cache.bytes()>0);ticket.finish(cache,true,now.timestamp());
             assert!(matches!(service.begin(1,&info.identity,info.revision,now.timestamp()),Load::Ready(..)),"R4 unchanged handle identity must reuse its ready cache");
             let replacement=if column=="passphrase"{"paper"}else{"b"};
             c.execute(&format!("UPDATE api_keys SET {column}=?1 WHERE id=1"),[app.cipher.encrypt(replacement)]).unwrap();
-            let info=read_info(&c,&app,1).unwrap().unwrap();
+            let info=read_info(&c,&app,1).unwrap();
             let Load::Start(ticket,cache)=service.begin(1,&info.identity,info.revision,now.timestamp()) else{panic!("new digest must start")};
             assert_eq!(cache.bytes(),0,"R must discard A market entries when encrypted {column} changes");drop(ticket);
         }
@@ -882,7 +889,7 @@ mod credential_cache_tests {
         let now="2026-09-10T12:00:00Z".parse().unwrap();let env=|name:&str|(name=="SECRET_KEY_BASE").then(||"settings-capture-test-secret".to_string());
         let app=App::new(Config::from_env(&env).unwrap(),&env,Connection::open(&file).unwrap(),Arc::new(FixedClock(now))).unwrap();
         c.execute("INSERT INTO api_keys(user_id,exchange_id,key_type,status,key,secret,passphrase,created_at,updated_at)VALUES(1,1,0,1,?1,?2,?3,'2026-01-01','2026-01-01')",(app.cipher.encrypt("a"),app.cipher.encrypt("a-secret"),app.cipher.encrypt("paper"))).unwrap();
-        let before=read_info(&c,&app,1).unwrap().unwrap().identity;
+        let before=read_info(&c,&app,1).unwrap().identity;
         let writer=Connection::open(&file).unwrap();let b=app.cipher.encrypt("b");let b_secret=app.cipher.encrypt("b-secret");let fired=Arc::new(AtomicBool::new(false));let signal=fired.clone();
         c.authorizer(Some(move|context:rusqlite::hooks::AuthContext<'_>|{
             if matches!(context.action,AuthAction::Read{table_name:"api_keys",column_name:"access_token"})&&!signal.swap(true,Ordering::SeqCst){
@@ -890,10 +897,10 @@ mod credential_cache_tests {
             }
             Authorization::Allow
         }));
-        let captured=read_info(&c,&app,1).unwrap().unwrap();assert!(fired.load(Ordering::SeqCst),"an encrypted replacement must actually commit between the auth and origin reads");
-        assert_eq!(captured.credentials.key,"a","the auth read precedes the committed replacement");
+        let captured=read_info(&c,&app,1).unwrap();assert!(fired.load(Ordering::SeqCst),"an encrypted replacement must actually commit between the auth and origin reads");
+        assert_eq!(captured.credentials.as_ref().unwrap().key,"a","the auth read precedes the committed replacement");
         assert!(captured.identity==before,"A credentials must never be tagged with B cache provenance");
-        assert_eq!(read_info(&c,&app,1).unwrap().unwrap().credentials.key,"b","the next read sees the replacement");
+        assert_eq!(read_info(&c,&app,1).unwrap().credentials.unwrap().key,"b","the next read sees the replacement");
     }
 
 }

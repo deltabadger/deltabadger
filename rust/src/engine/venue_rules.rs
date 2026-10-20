@@ -2,6 +2,9 @@
 //! Exchanges::*::ERRORS with Exchange#failure_kind (substring, first kind wins, FAILURE_KINDS order), the polls'
 //! #transient_error? / #throttled_error?, #minimum_amount_logic, the order wire format, and when an order the engine
 //! sent can be proven absent.
+use super::model::Ticker;
+use crate::ruby::BigDec;
+use crate::venue::Side;
 
 /// One branch of Bot::OrderSetter#calculate_best_amount_info (order_setter.rb:23-77).
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -29,6 +32,25 @@ pub enum WireFormat {
     /// a market buy is `notional`, a limit buy `qty` + `limit_price`.
     Alpaca,
 }
+
+/// Exchange#adjusted_price: how a price is put on the venue's tick before it is used or sent.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum PriceRule {
+    /// Exchange#adjusted_price's default: `price_decimals` places.
+    Decimals,
+    /// Exchanges::Hyperliquid#adjusted_price: at most `figures` significant figures and at most
+    /// `max_decimals - base_decimals` places (SIGNIFICANT_FIGURES 5, SPOT_MAX_DECIMALS 8); an integer is always valid.
+    SignificantFigures { figures: i64, max_decimals: i64 },
+}
+
+/// Exchanges::Hyperliquid's rule (SIGNIFICANT_FIGURES 5, SPOT_MAX_DECIMALS 8), for its row (plan VB slice B1).
+pub const HYPERLIQUID_PRICE_RULE: PriceRule = PriceRule::SignificantFigures { figures: 5, max_decimals: 8 };
+/// Exchanges::Gemini::MARKET_CROSS and Exchanges::Hyperliquid::MARKET_CROSS, for their rows (slices B1, B3).
+pub const MARKET_CROSS: &str = "0.01";
+
+/// The `method:` of Ticker#adjusted_price.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Rounding { Floor, Ceil, Round }
 
 pub struct VenueRules {
     /// The exchanges.type STI name this table belongs to.
@@ -69,6 +91,18 @@ pub struct VenueRules {
     /// fails the sweep ("Exchange omitted recent order(s)"). Kraken is authoritative; Alpaca's and Binance's #get_orders
     /// never name one in Rails, so the guard cannot fire there.
     pub young_missing_fails: bool,
+    /// Exchange#adjusted_price (plan VB slice P).
+    pub price_rule: PriceRule,
+    /// MARKET_CROSS of a venue whose #market_price_for crosses the book (Gemini, Hyperliquid: "0.01"), as decimal text.
+    pub cross: Option<&'static str>,
+}
+
+/// BigDecimal#exponent of a non-zero value: the n with |x| = 0.d… × 10^n (66.6 → 2, 3.5 → 1, 0.0234 → -1). From the plain
+/// text, as `ruby.rs` is a hash-pinned accounting primitive.
+fn exponent(price: &BigDec) -> i64 {
+    let text = price.to_s_f();
+    let (whole, fraction) = text.trim_start_matches('-').split_once('.').unwrap_or(("0", ""));
+    if whole != "0" { whole.len() as i64 } else { -((fraction.len() - fraction.trim_start_matches('0').len()) as i64) }
 }
 
 fn any(patterns: &[&str], messages: &[String]) -> bool { patterns.iter().any(|p| messages.iter().any(|m| m.contains(p))) }
@@ -82,6 +116,33 @@ impl VenueRules {
     /// Exchange#invalid_key_error?'s string half: a message carrying one of `known_errors[:invalid_key]`.
     pub fn is_invalid_key(&self, messages: &[String]) -> bool { self.kinds.iter().any(|(k, pats)| *k == "invalid_key" && any(pats, messages)) }
     pub fn add_outcome_unknown(&self, messages: &[String]) -> bool { any(self.add_outcome_unknown, messages) }
+
+    /// Ticker#adjusted_price → Exchange#adjusted_price. `Err` where Rails raises: a scale outside `ruby::MAX_SCALE`, or
+    /// Hyperliquid's `clamp(0, max_decimals)` with a negative max (base_decimals above 8 raises ArgumentError).
+    pub fn adjusted_price(&self, price: &BigDec, ticker: &Ticker, method: Rounding) -> Result<BigDec, String> {
+        let decimals = match self.price_rule {
+            PriceRule::Decimals => ticker.price_decimals,
+            PriceRule::SignificantFigures { figures, max_decimals } => {
+                if price.is_zero() { return Ok(price.clone()); }
+                let max = max_decimals - ticker.base_decimals;
+                if max < 0 { return Err(format!("ticker base_decimals {} leaves no price decimals", ticker.base_decimals)); }
+                (figures - exponent(price)).clamp(0, max)
+            }
+        };
+        let places = crate::ruby::scale(decimals).map_err(|_| format!("price decimals {decimals} (only 0..={})", crate::ruby::MAX_SCALE))?;
+        Ok(match method { Rounding::Floor => price.floor(places), Rounding::Ceil => price.ceil(places), Rounding::Round => price.round(places) })
+    }
+
+    /// Exchange#market_price_for after its read of `touch` (the ask for a buy, the bid for a sell): adjusted_price(touch);
+    /// on a crossing venue (Gemini#/Hyperliquid#market_price_for) adjusted AGAIN after × (1 ± cross), as Rails does:
+    /// adjust(adjust(touch) × cross), not adjust(touch × cross).
+    pub fn market_price(&self, touch: &BigDec, ticker: &Ticker, side: Side) -> Result<BigDec, String> {
+        let adjusted = self.adjusted_price(touch, ticker, Rounding::Floor)?;
+        let Some(cross) = self.cross else { return Ok(adjusted) };
+        let cross = BigDec::parse(cross).map_err(|e| format!("{e:?}"))?;
+        let multiplier = if side == Side::Buy { &BigDec::one() + &cross } else { &BigDec::one() - &cross };
+        self.adjusted_price(&(&adjusted * &multiplier), ticker, Rounding::Floor)
+    }
 }
 
 pub static KRAKEN: VenueRules = VenueRules {
@@ -109,6 +170,8 @@ pub static KRAKEN: VenueRules = VenueRules {
     reports_missing: true,
     absence_provable: true,
     young_missing_fails: false,
+    price_rule: PriceRule::Decimals,
+    cross: None,
 };
 
 /// Client::NETWORK_TRANSIENT_PATTERNS: Exchange#transient_error? applies them to every venue.
@@ -142,6 +205,8 @@ pub static ALPACA: VenueRules = VenueRules {
     reports_missing: true,
     absence_provable: true,
     young_missing_fails: false,
+    price_rule: PriceRule::Decimals,
+    cross: None,
 };
 
 /// Exchanges::Binance::ERRORS[:transient]: the -1021 strings (also Exchange::PLACEMENT_SAFE_TRANSIENT_ERRORS).
@@ -179,6 +244,8 @@ pub static BINANCE: VenueRules = VenueRules {
     reports_missing: false,
     absence_provable: true,
     young_missing_fails: false,
+    price_rule: PriceRule::Decimals,
+    cross: None,
 };
 
 /// Exchange#transient_error? for KuCoin: Client::NETWORK_TRANSIENT_PATTERNS plus Exchanges::Kucoin::ERRORS[:transient].
@@ -215,6 +282,8 @@ pub static KUCOIN: VenueRules = VenueRules {
     reports_missing: true,
     absence_provable: false,
     young_missing_fails: true,
+    price_rule: PriceRule::Decimals,
+    cross: None,
 };
 
 /// The rules of a venue the engine trades on (`venue::registry`).

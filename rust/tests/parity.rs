@@ -237,46 +237,17 @@ fn refused_like_rails(rails_out: &serde_json::Value, rust_out: &serde_json::Valu
 
 #[tokio::test(flavor = "current_thread")]
 async fn rails_and_rust_decide_identically_across_the_binance_grid() {
-    let rails_root = tempfile::tempdir().unwrap();
-    let rust_root = tempfile::tempdir().unwrap();
-    built_grid("grid-binance", rails_root.path());
-    let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
-    dirs.sort();
-    assert_eq!(dirs.len(), 176, "the Binance grid has {} scenarios", dirs.len());
-    for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
-    rails(&["record", rails_root.path().to_str().unwrap()]);
-
-    let mut failures = vec![];
-    for d in &dirs {
-        let name = d.file_name().unwrap().to_string_lossy().to_string();
-        let rails_out: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(d.join("rails.json")).unwrap()).unwrap();
-        let rust_dir = rust_root.path().join(&name);
-        let rust_out = deltabadger::parity::decide(&rust_dir).await.unwrap();
-        let rails_out = r5_cleanup_expected(&rails_out, &rust_out);
-        let listed = if name.contains(UNREADABLE) {
-            Some(unreadable_number_refused(&name, &rust_dir, &rails_out, &rust_out, false))
-        } else if name.ends_with("-add_no_order_id") {
-            Some(unacknowledged_kept(&rust_dir, &rails_out, &rust_out))
-        } else if BINANCE_DIVERGENCES.iter().any(|v| name.ends_with(&format!("-{v}"))) {
-            Some(intent_kept(&rust_dir, &rails_out, &rust_out))
-        } else if name.ends_with("-sweep_rate_limited") {
-            Some(throttle_waits(&rails_out, &rust_out))
-        } else if name.ends_with("-add_network_pre_send") {
-            Some(refused_like_rails(&rails_out, &rust_out))
-        } else {
-            None
-        };
-        match listed {
-            Some(Err(e)) => failures.push(format!("{name} (listed divergence): {e}")),
-            Some(Ok(())) => {}
-            None if rails_out != rust_out => failures.push(format!("{name}\n  rails: {rails_out}\n  rust:  {rust_out}")),
-            None => {}
-        }
-    }
+    use common::venue_grid::{ending, run_venue_grid, Validator};
+    let unreadable = |n: &str| n.contains(UNREADABLE);
+    let outputs = run_venue_grid("grid-binance", 176, &[
+        Validator { names: &unreadable, check: &|n, d, r, u| unreadable_number_refused(n, d, r, u, false) },
+        Validator { names: &ending(&["add_no_order_id"]), check: &|_, d, r, u| unacknowledged_kept(d, r, u) },
+        Validator { names: &ending(&BINANCE_DIVERGENCES), check: &|_, d, r, u| intent_kept(d, r, u) },
+        Validator { names: &ending(&["sweep_rate_limited"]), check: &|_, _, r, u| throttle_waits(r, u) },
+        Validator { names: &ending(&["add_network_pre_send"]), check: &|_, _, r, u| refused_like_rails(r, u) },
+    ]).await;
     // Pin what Rails does where a silent pair of sides would otherwise pass.
-    for d in &dirs {
-        let name = d.file_name().unwrap().to_string_lossy().to_string();
-        let rails_out: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(d.join("rails.json")).unwrap()).unwrap();
+    for (name, rails_out) in &outputs {
         let mailed: Vec<&str> = rails_out["mails"].as_array().unwrap().iter().map(|m| m["mail"].as_str().unwrap()).collect();
         let expected: Option<&[&str]> = [("-insufficient", &["end_of_funds"][..]), ("-invalid_key", &["stopped_by_error"]), ("-low_funds", &["end_of_funds"]),
                                          ("-on_schedule", &[]), ("-minus_1021", &[])].into_iter().find(|(suffix, _)| name.ends_with(suffix)).map(|(_, m)| m);
@@ -289,7 +260,6 @@ async fn rails_and_rust_decide_identically_across_the_binance_grid() {
         if name.ends_with("-sweep_not_returned_waits") { assert!(!rows.iter().any(|t| t["after"]["external_id"] == "BTCUSDT-210"), "{name}: never abandoned"); }
         if name.ends_with("-sweep_rounding_two_decimals") { assert_eq!(rows[0]["after"]["price"], 1, "{name}: 1.00/1.01/1.00 rounds to 1.0"); }
     }
-    assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
 }
 
 /// KuCoin grid variants where Rust deliberately decides otherwise than Rails (plan K r4/r5), each asserted on its own terms:
@@ -310,42 +280,14 @@ fn unknown_type_wrapped(rails_out: &serde_json::Value, rust_out: &serde_json::Va
 
 #[tokio::test(flavor = "current_thread")]
 async fn rails_and_rust_decide_identically_across_the_kucoin_grid() {
-    let rails_root = tempfile::tempdir().unwrap();
-    let rust_root = tempfile::tempdir().unwrap();
-    built_grid("grid-kucoin", rails_root.path());
-    let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
-    dirs.sort();
-    assert_eq!(dirs.len(), 172, "the KuCoin grid has {} scenarios", dirs.len());
-    for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
-    rails(&["record", rails_root.path().to_str().unwrap()]);
-
-    let mut failures = vec![];
-    for d in &dirs {
-        let name = d.file_name().unwrap().to_string_lossy().to_string();
-        let rails_out: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(d.join("rails.json")).unwrap()).unwrap();
-        let rust_dir = rust_root.path().join(&name);
-        let rust_out = deltabadger::parity::decide(&rust_dir).await.unwrap();
-        let rails_out = r5_cleanup_expected(&rails_out, &rust_out);
-        let listed = if KUCOIN_DIVERGENCES.iter().any(|v| name.ends_with(&format!("-{v}"))) {
-            Some(intent_kept(&rust_dir, &rails_out, &rust_out))
-        } else if name.ends_with("-add_network_pre_send") {
-            Some(refused_like_rails(&rails_out, &rust_out))
-        } else if name.ends_with("-sweep_unknown_type") {
-            Some(unknown_type_wrapped(&rails_out, &rust_out))
-        } else {
-            None
-        };
-        match listed {
-            Some(Err(e)) => failures.push(format!("{name} (listed divergence): {e}")),
-            Some(Ok(())) => {}
-            None if rails_out != rust_out => failures.push(format!("{name}\n  rails: {rails_out}\n  rust:  {rust_out}")),
-            None => {}
-        }
-    }
+    use common::venue_grid::{ending, run_venue_grid, Validator};
+    let outputs = run_venue_grid("grid-kucoin", 172, &[
+        Validator { names: &ending(&KUCOIN_DIVERGENCES), check: &|_, d, r, u| intent_kept(d, r, u) },
+        Validator { names: &ending(&["add_network_pre_send"]), check: &|_, _, r, u| refused_like_rails(r, u) },
+        Validator { names: &ending(&["sweep_unknown_type"]), check: &|_, _, r, u| unknown_type_wrapped(r, u) },
+    ]).await;
     // Pin what Rails does where a silent pair of sides would otherwise pass.
-    for d in &dirs {
-        let name = d.file_name().unwrap().to_string_lossy().to_string();
-        let rails_out: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(d.join("rails.json")).unwrap()).unwrap();
+    for (name, rails_out) in &outputs {
         let mailed: Vec<&str> = rails_out["mails"].as_array().unwrap().iter().map(|m| m["mail"].as_str().unwrap()).collect();
         let expected: Option<&[&str]> = [("-insufficient", &["end_of_funds"][..]), ("-invalid_key", &["stopped_by_error"]), ("-low_funds", &["end_of_funds"]),
                                          ("-on_schedule", &[]), ("-timestamp_envelope", &[]), ("-timestamp_400", &[]), ("-sweep_forgotten_young", &["notify_about_error"])].into_iter().find(|(suffix, _)| name.ends_with(suffix)).map(|(_, m)| m);
@@ -359,7 +301,6 @@ async fn rails_and_rust_decide_identically_across_the_kucoin_grid() {
         if name.ends_with("-sweep_forgotten_old") { assert!(rows.iter().any(|t| t["after"]["external_id"] == "KC-211" && t["after"]["external_status"] == 4), "{name}: abandoned"); }
         if name.ends_with("-sweep_forgotten_filled") { assert!(rows.iter().any(|t| t["after"]["external_id"] == "KC-209" && t["after"]["external_status"] == 2), "{name}: settled from its fills"); }
     }
-    assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
 }
 
 /// Slice 6a: a one-asset basket selling on Kraken, Binance and Alpaca (script/rust/decisions.rb sell_scenarios), compared whole.

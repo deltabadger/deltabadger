@@ -34,7 +34,6 @@ struct State { active:usize, active_users:BTreeSet<i64>, serial:u64, entries:BTr
     signed_in:BTreeMap<i64,i64>,
     /// An account with no Alpaca key: why its figures are absent, read by the queue from its stored fills, for the
     /// revision (`loading::revision`) it was read against, until the next cut.
-    unkeyed:BTreeMap<i64,(u64,i64,Option<&'static str>)>,
     /// Conversions (from, to) a page found no held answer for: filled by the queue (`loading::follow`), whatever the
     /// account (a tracker-only account has no paper key, and its rate is wanted all the same).
     fx_wanted:BTreeSet<(String,String)> }
@@ -127,11 +126,6 @@ impl Service {
     pub fn mark_active(&self,user:i64,now:i64) { self.state().signed_in.insert(user,now); }
     /// The accounts signed in since `since`.
     pub fn active_since(&self,since:i64)->BTreeSet<i64> { let mut state=self.state(); state.signed_in.retain(|_,at|*at>=since); state.signed_in.keys().copied().collect() }
-    /// The reason read for an account with no Alpaca key, if read against this `revision` and still before its cut.
-    pub fn unkeyed(&self,user:i64,revision:u64,now:i64)->Option<Option<&'static str>> {
-        self.state().unkeyed.get(&user).filter(|(at,until,_)|*at==revision&&*until>now).map(|(_,_,reason)|*reason)
-    }
-    pub fn set_unkeyed(&self,user:i64,revision:u64,until:i64,reason:Option<&'static str>) { self.state().unkeyed.insert(user,(revision,until,reason)); }
     /// Whether a fill of this account is running.
     pub fn filling(&self,user:i64)->bool { self.state().active_users.contains(&user) }
     /// When the earliest queued work is due.

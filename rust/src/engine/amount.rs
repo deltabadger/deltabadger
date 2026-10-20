@@ -5,7 +5,7 @@ use super::EngineError;
 use crate::codec::format_time;
 use crate::enums::{TxExternalStatus, TxStatus};
 use crate::ruby::{to_sql, BigDec};
-use super::venue_rules::{AmountLogic, MinimumLogic, WireFormat};
+use super::venue_rules::{AmountLogic, MinimumLogic, Rounding, VenueRules, WireFormat};
 use crate::venue::{NewOrder, OrderKind, Side};
 use chrono::{DateTime, Utc};
 use rusqlite::{params, Connection, OptionalExtension};
@@ -43,21 +43,18 @@ impl TxKind {
 #[derive(Debug)]
 pub enum Sizing { Nothing, Ignored(OrderPlan), BelowMinimum(OrderPlan), Place(OrderPlan), ZeroPrice { decimals: i64 } }
 
-/// Bot::OrderSetter#order_price for a buy: a limit buy goes below the last trade, floored to the pair's price decimals; a
-/// market buy is the ask itself. The split values holdings at this price too. Only `Ticker#adjusted_price`'s default rule
-/// (floor to price_decimals) is ported: a venue that overrides adjusted_price (Hyperliquid: 5 significant figures) is not
-/// covered. `Err` only for a price precision outside `ruby::MAX_SCALE`, which eligibility refuses before any tick.
-pub fn order_price(bot: &Bot, ticker: &Ticker, reference: &BigDec) -> Result<BigDec, EngineError> { side_price(bot, ticker, reference, Side::Buy) }
+/// Bot::OrderSetter#order_price for a buy: a limit buy goes below the last trade, put on the venue's tick
+/// (Ticker#adjusted_price, floor); a market buy is the ask itself, unadjusted. The split values holdings at this price too.
+/// `Err` only where Rails' adjusted_price raises (`VenueRules::adjusted_price`), which eligibility refuses before any tick.
+pub fn order_price(bot: &Bot, ticker: &Ticker, reference: &BigDec, rules: &VenueRules) -> Result<BigDec, EngineError> { side_price(bot, ticker, reference, Side::Buy, rules) }
 
-/// Bot::OrderSetter#order_price for either side: a limit sell goes ABOVE the last trade, `(reference × (1 + d))` floored to
-/// the pair's price decimals (Ticker#adjusted_price); a market order is the reference itself (the bid for a sell).
-pub fn side_price(bot: &Bot, ticker: &Ticker, reference: &BigDec, side: Side) -> Result<BigDec, EngineError> {
-    let (_, _, price_decimals) = ticker.scales().map_err(EngineError::Data)?;
-    Ok(match bot.limit_distance() {
-        Some(d) if side == Side::Sell => (reference * &(&BigDec::one() + &d)).floor(price_decimals),
-        Some(d) => (reference * &(&BigDec::one() - &d)).floor(price_decimals),
-        None => reference.clone(),
-    })
+/// Bot::OrderSetter#order_price for either side: a limit sell goes ABOVE the last trade, `adjusted_price(reference × (1 + d))`
+/// (a limit buy below it, × (1 - d)); a market order is the reference itself (the raw bid for a sell, the raw ask for a buy).
+pub fn side_price(bot: &Bot, ticker: &Ticker, reference: &BigDec, side: Side, rules: &VenueRules) -> Result<BigDec, EngineError> {
+    ticker.scales().map_err(EngineError::Data)?;
+    let Some(d) = bot.limit_distance() else { return Ok(reference.clone()) };
+    let multiplier = if side == Side::Sell { &BigDec::one() + &d } else { &BigDec::one() - &d };
+    rules.adjusted_price(&(reference * &multiplier), ticker, Rounding::Floor).map_err(EngineError::Data)
 }
 
 /// set_orders for one sell order (Bot::Composition::OrderSetter#sell_order_data, then #calculate_best_amount_info): `amount`
@@ -80,11 +77,11 @@ pub fn size_sell(bot: &Bot, ticker: &Ticker, amount: &BigDec, price: &BigDec) ->
 }
 
 /// `Err` only for a ticker precision outside `ruby::MAX_SCALE`, which eligibility refuses before any tick.
-pub fn size(bot: &Bot, ticker: &Ticker, x: &BigDec, reference: &BigDec, logic: MinimumLogic) -> Result<Sizing, EngineError> {
+pub fn size(bot: &Bot, ticker: &Ticker, x: &BigDec, reference: &BigDec, rules: &VenueRules) -> Result<Sizing, EngineError> {
     if x.is_zero() { return Ok(Sizing::Nothing); }
     let (base_decimals, quote_decimals, _) = ticker.scales().map_err(EngineError::Data)?;
-    let distance = bot.limit_distance();
-    let price = order_price(bot, ticker, reference)?;
+    let (distance, logic) = (bot.limit_distance(), rules.minimum_logic);
+    let price = order_price(bot, ticker, reference, rules)?;
     let Some(amount) = x.div(&price) else { return Ok(Sizing::ZeroPrice { decimals: ticker.price_decimals }) };
     let rule = if distance.is_some() { logic.limit } else { logic.market };
     let (quote_type, below) = buy_minimum(ticker, &price, rule, &x.floor(quote_decimals), &amount.floor(base_decimals))?;

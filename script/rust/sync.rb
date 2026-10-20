@@ -339,42 +339,42 @@ module SyncParity
 
   def ledger(at, *pages) = { 'kind' => 'ledger', 'at' => at, 'alpaca' => { ACTIVITIES => pages.map { |p| p.is_a?(Array) ? ok(p) : p } } }
 
-  # A Binance or Binance.US install beside the Alpaca one: the venue, its assets and tickers, and a reading key that
-  # becomes the scenario's key. EUR is cash (category Fiat) priced through the market API's exchange rates.
-  def binance(ctx, us: false)
-    venue = (us ? Exchanges::BinanceUs : Exchanges::Binance).create!(name: us ? 'Binance.US' : 'Binance', maker_fee: '0.1', taker_fee: '0.1')
-    assets = ctx[:assets]
-    assets['USDT'] ||= Asset.create!(external_id: 'tether', symbol: 'USDT', name: 'Tether', category: 'Cryptocurrency')
-    assets['EUR'] ||= Asset.create!(external_id: 'eur', symbol: 'EUR', name: 'Euro', category: 'Fiat')
-    %w[BTC ETH USDT EUR].each { |s| ExchangeAsset.create!(exchange: venue, asset: assets[s], available: true) }
-    coin = { base_decimals: 8, quote_decimals: 8, price_decimals: 2, minimum_base_size: '0.00001', minimum_quote_size: '5' }
-    [%w[BTC USDT], %w[ETH USDT], %w[BTC EUR], %w[ETH BTC]].each do |base, quote|
-      Ticker.create!(exchange: venue, ticker: "#{base}#{quote}", base:, quote:, base_asset: assets[base], quote_asset: assets[quote], **coin)
+  # The assets a venue install may add beside the Alpaca one's: [external_id, name, category].
+  VENUE_ASSETS = { 'USDT' => %w[tether Tether Cryptocurrency], 'EUR' => %w[eur Euro Fiat] }.freeze
+
+  # A venue's install beside the Alpaca one (plan VB §1.8, one builder for every venue's sync scenarios): the exchange row,
+  # the `assets` it lists (any missing from VENUE_ASSETS created first, in that order), its `pairs` as `pair` spells them
+  # with the `coin` precisions, and a reading key that becomes the scenario's key, saved under `ctx[as]`.
+  def venue(ctx, type, name, as:, assets:, pairs:, coin:, pair:)
+    venue = type.create!(name:, maker_fee: '0.1', taker_fee: '0.1')
+    all = ctx[:assets]
+    assets.each do |s|
+      spec = VENUE_ASSETS[s] or next
+      all[s] ||= Asset.create!(external_id: spec[0], symbol: s, name: spec[1], category: spec[2])
+    end
+    assets.each { |s| ExchangeAsset.create!(exchange: venue, asset: all[s], available: true) }
+    pairs.each do |base, quote|
+      Ticker.create!(exchange: venue, ticker: pair.(base, quote), base:, quote:, base_asset: all[base], quote_asset: all[quote], **coin)
     end
     key = ApiKey.new(user: ctx[:user], exchange: venue, **KEY.symbolize_keys, status: :correct, key_type: :read_only)
     key.save!(validate: false)
     ActiveRecord::Base.connection.exec_update('UPDATE api_keys SET key = ?, secret = ?, passphrase = ? WHERE id = ?', 'plain credentials',
                                               [KEY['key'], KEY['secret'], KEY['passphrase'], key.id])
     ctx[:key] = key
-    ctx[:binance] = venue
+    ctx[as] = venue
+  end
+
+  # A Binance or Binance.US install. EUR is cash (category Fiat) priced through the market API's exchange rates.
+  def binance(ctx, us: false)
+    venue(ctx, us ? Exchanges::BinanceUs : Exchanges::Binance, us ? 'Binance.US' : 'Binance', as: :binance, assets: %w[BTC ETH USDT EUR],
+          pairs: [%w[BTC USDT], %w[ETH USDT], %w[BTC EUR], %w[ETH BTC]], pair: ->(b, q) { "#{b}#{q}" },
+          coin: { base_decimals: 8, quote_decimals: 8, price_decimals: 2, minimum_base_size: '0.00001', minimum_quote_size: '5' })
   end
 
   # A KuCoin key on the classic (trade) account, with the pairs its fills name.
   def kucoin(ctx)
-    venue = Exchanges::Kucoin.create!(name: 'KuCoin', maker_fee: '0.1', taker_fee: '0.1')
-    assets = ctx[:assets]
-    assets['USDT'] ||= Asset.create!(external_id: 'tether', symbol: 'USDT', name: 'Tether', category: 'Cryptocurrency')
-    %w[BTC ETH USDT].each { |s| ExchangeAsset.create!(exchange: venue, asset: assets[s], available: true) }
-    coin = { base_decimals: 8, quote_decimals: 6, price_decimals: 1, minimum_base_size: '0.00001', minimum_quote_size: '0.1' }
-    [%w[BTC USDT], %w[ETH USDT], %w[ETH BTC]].each do |base, quote|
-      Ticker.create!(exchange: venue, ticker: "#{base}-#{quote}", base:, quote:, base_asset: assets[base], quote_asset: assets[quote], **coin)
-    end
-    key = ApiKey.new(user: ctx[:user], exchange: venue, **KEY.symbolize_keys, status: :correct, key_type: :read_only)
-    key.save!(validate: false)
-    ActiveRecord::Base.connection.exec_update('UPDATE api_keys SET key = ?, secret = ?, passphrase = ? WHERE id = ?', 'plain credentials',
-                                              [KEY['key'], KEY['secret'], KEY['passphrase'], key.id])
-    ctx[:key] = key
-    ctx[:kucoin] = venue
+    venue(ctx, Exchanges::Kucoin, 'KuCoin', as: :kucoin, assets: %w[BTC ETH USDT], pairs: [%w[BTC USDT], %w[ETH USDT], %w[ETH BTC]],
+          pair: ->(b, q) { "#{b}-#{q}" }, coin: { base_decimals: 8, quote_decimals: 6, price_decimals: 1, minimum_base_size: '0.00001', minimum_quote_size: '0.1' })
   end
 
   def kc_page(items, page: 1, pages: nil, total: nil)

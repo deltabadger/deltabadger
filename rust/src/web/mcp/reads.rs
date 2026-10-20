@@ -33,7 +33,8 @@ pub enum Fetch {
     Bound{inner:Box<Fetch>,versions:Vec<crate::engine::model::CredentialVersion>},
     Balances{user:i64,exchange:i64,name:String,credentials:Material},
     Orders{user:i64,local:Vec<String>,rows:Vec<Value>,ids:HashSet<String>,venues:Vec<(i64,String,Option<Material>)>},
-    Summary{user:i64,credentials:Option<Material>,now:At},
+    /// `producer`: what the account's figures are made under (an Alpaca key or none, `loading::read_info`).
+    Summary{user:i64,credentials:Option<Material>,producer:crate::figures::page_market::Producer,now:At},
 }
 impl Fetch {
     fn producers(&self)->Vec<crate::engine::model::CredentialVersion>{
@@ -131,8 +132,9 @@ fn plan_inner(c:&Connection,app:&App,user:i64,ask:Ask)->Result<Planned,WebError>
                 }Ok(false)
             })?;
             if refused{return Ok(Planned::Done(unported(ONLY,false)))}
-            let credentials=figure::loading::read_info(c,app,user)?.map(|i|Material{credentials:i.credentials,origin:i.origin});
-            Ok(Planned::Fetch(Fetch::Summary{user,credentials,now}))
+            let info=figure::loading::read_info(c,app,user)?;
+            let credentials=match (info.credentials,info.producer.alpaca()) { (Some(credentials),Some(origin))=>Some(Material{credentials,origin:origin.clone()}), _=>None };
+            Ok(Planned::Fetch(Fetch::Summary{user,credentials,producer:info.producer,now}))
         },
     }
 }
@@ -179,12 +181,12 @@ async fn fetch_inner(app:&App,fetch:Fetch)->Fetched{
             }
             Fetched::Orders(user,local,rows,ids,out)
         },
-        Fetch::Summary{user,credentials,now}=>{
+        Fetch::Summary{user,credentials,producer,now}=>{
             let mut cache=Cache::default();
-            let ready=if let Some(credentials)=credentials{
-                let wire=Wire::new(&credentials,app.figure_source.clone()).with_origin(credentials.origin.clone());
-                figure::loading::fill_with(app,user,&mut cache,&wire,now,read_limits::check,move|c,r|global(c,user,r,now).is_ok()).await
-            }else{true}; // An empty market cache can still compute local cash-only USD totals.
+            cache.produced_by(producer);
+            // Without a usable Alpaca key the other venues are read, and Alpaca's market data is a settled failure.
+            let wire=match &credentials { Some(credentials)=>Wire::new(credentials,app.figure_source.clone()).with_origin(credentials.origin.clone()), None=>Wire::of(None,app.figure_source.clone()) };
+            let ready=figure::loading::fill_with(app,user,&mut cache,&wire,now,read_limits::check,move|c,r|global(c,user,r,now).is_ok()).await;
             Fetched::Summary(user,cache,now,ready)
         }
     }

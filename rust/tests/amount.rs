@@ -73,7 +73,7 @@ fn every_recorded_rails_sizing_is_reproduced() {
     for c in cases {
         let bot = if c["order_type"] == "limit_order" { &limit } else { &market };
         let p = bd(c["last_or_ask"].as_str().unwrap());
-        let sizing = amount::size(bot, &sizing_ticker(&c["ticker"]), &bd(c["x"].as_str().unwrap()), &p, deltabadger::engine::venue_rules::KRAKEN.minimum_logic).unwrap();
+        let sizing = amount::size(bot, &sizing_ticker(&c["ticker"]), &bd(c["x"].as_str().unwrap()), &p, &deltabadger::engine::venue_rules::KRAKEN).unwrap();
         let (plan, below) = match sizing { Sizing::Place(p) => (p, false), Sizing::BelowMinimum(p) => (p, true), other => panic!("{c}: {other:?}") };
         assert_eq!(plan.price.to_s_f(), c["price"].as_str().unwrap(), "price {c}");
         assert_eq!(plan.amount.to_s_f(), c["amount"].as_str().unwrap(), "unrounded amount (Ruby's division) {c}");
@@ -90,7 +90,7 @@ fn a_limit_price_that_floors_to_zero_is_refused() {
         .with("limit_ordered", json!(true)))).unwrap();
     let t = sizing_ticker(&json!({"base_decimals": "0", "quote_decimals": "0", "price_decimals": "0", "minimum_base_size": "1", "minimum_quote_size": "5"}));
     let p = bd("0.9");
-    assert!(matches!(amount::size(&bot, &t, &bd("60"), &p, deltabadger::engine::venue_rules::KRAKEN.minimum_logic).unwrap(), Sizing::ZeroPrice { decimals: 0 }));
+    assert!(matches!(amount::size(&bot, &t, &bd("60"), &p, &deltabadger::engine::venue_rules::KRAKEN).unwrap(), Sizing::ZeroPrice { decimals: 0 }));
 }
 
 #[test]
@@ -99,7 +99,7 @@ fn rows_bind_decimals_as_rails_does() {
     let bot = model::load_bot(&o.primary, seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"))).unwrap();
     let t = model::ticker_for(&o.primary, &bot).unwrap().unwrap();
     let p = bd("50000.2");
-    let Sizing::BelowMinimum(plan) = amount::size(&bot, &t, &bd("0.4"), &p, deltabadger::engine::venue_rules::KRAKEN.minimum_logic).unwrap() else { panic!() };
+    let Sizing::BelowMinimum(plan) = amount::size(&bot, &t, &bd("0.4"), &p, &deltabadger::engine::venue_rules::KRAKEN).unwrap() else { panic!() };
     assert_eq!(plan.log_details()["amount"], "0.000007999968000127999488002047991808", "Ruby's 31 digits, unrounded");
     let id = {
         let tx=o.primary.unchecked_transaction().unwrap();
@@ -125,7 +125,7 @@ fn every_recorded_rails_alpaca_sizing_and_wire_is_reproduced() {
     for c in cases {
         let bot = if c["order_type"] == "limit_order" { &limit } else { &market };
         let t = Ticker { ticker: "BTC/USD".into(), base_code: "BTC".into(), quote_code: "USD".into(), quote_symbol: "USD".into(), exchange_name: "Alpaca".into(), ..sizing_ticker(&c["ticker"]) };
-        let sizing = amount::size(bot, &t, &bd(c["x"].as_str().unwrap()), &bd(c["last_or_ask"].as_str().unwrap()), ALPACA.minimum_logic).unwrap();
+        let sizing = amount::size(bot, &t, &bd(c["x"].as_str().unwrap()), &bd(c["last_or_ask"].as_str().unwrap()), &ALPACA).unwrap();
         let (plan, below) = match sizing { Sizing::Place(p) => (p, false), Sizing::BelowMinimum(p) => (p, true), other => panic!("{c}: {other:?}") };
         assert_eq!(plan.price.to_s_f(), c["price"].as_str().unwrap(), "price {c}");
         assert_eq!(plan.amount.to_s_f(), c["amount"].as_str().unwrap(), "unrounded amount {c}");
@@ -251,7 +251,7 @@ fn every_recorded_rails_alpaca_stock_wire_is_reproduced() {
     let deadline = "2026-09-01T14:00:10Z".parse().unwrap();
     for c in cases {
         let bot = if c["order_type"] == "limit_order" { &limit } else { &market };
-        let (plan, below) = match amount::size(bot, &t, &bd(c["x"].as_str().unwrap()), &bd(c["last_or_ask"].as_str().unwrap()), ALPACA.minimum_logic).unwrap() {
+        let (plan, below) = match amount::size(bot, &t, &bd(c["x"].as_str().unwrap()), &bd(c["last_or_ask"].as_str().unwrap()), &ALPACA).unwrap() {
             Sizing::Place(p) => (p, false), Sizing::BelowMinimum(p) => (p, true), other => panic!("{c}: {other:?}"),
         };
         assert_eq!(plan.price.to_s_f(), c["price"].as_str().unwrap(), "price {c}");
@@ -303,7 +303,7 @@ fn every_recorded_rails_binance_sizing_and_wire_is_reproduced() {
         let bot = if c["order_type"] == "limit_order" { &limit } else { &market };
         let shape = &vectors["binance_tickers"][c["ticker"].as_u64().unwrap() as usize];
         let t = Ticker { ticker: "BTCUSDT".into(), base_code: "BTC".into(), quote_code: "USDT".into(), quote_symbol: "USDT".into(), exchange_name: "Binance".into(), ..sizing_ticker(shape) };
-        let sizing = amount::size(bot, &t, &bd(c["x"].as_str().unwrap()), &bd(c["last_or_ask"].as_str().unwrap()), BINANCE.minimum_logic).unwrap();
+        let sizing = amount::size(bot, &t, &bd(c["x"].as_str().unwrap()), &bd(c["last_or_ask"].as_str().unwrap()), &BINANCE).unwrap();
         let (plan, below) = match sizing { Sizing::Place(p) => (p, false), Sizing::BelowMinimum(p) => (p, true), other => panic!("{c}: {other:?}") };
         assert_eq!(plan.price.to_s_f(), c["price"].as_str().unwrap(), "price {c}");
         assert_eq!(plan.amount.to_s_f(), c["amount"].as_str().unwrap(), "unrounded amount {c}");
@@ -334,7 +334,7 @@ fn every_recorded_rails_binance_sizing_and_wire_is_reproduced() {
 }
 
 /// Exchanges::Kucoin's sizing (Bot::OrderSetter under :base_or_quote / :base_and_quote_in_base) and #set_market_order /
-/// #set_limit_order's wire, replayed through amount::size, limit_refusal and to_order (script/rust/record_kucoin_vectors.rb).
+/// #set_limit_order's wire, replayed through amount::size, limit_refusal and to_order (script/rust/record_venue_vectors.rb kucoin).
 #[test]
 fn every_recorded_rails_kucoin_sizing_and_wire_is_reproduced() {
     use deltabadger::engine::venue_rules::KUCOIN;
@@ -356,7 +356,7 @@ fn every_recorded_rails_kucoin_sizing_and_wire_is_reproduced() {
         let bot = if c["order_type"] == "limit_order" { &limit } else { &market };
         let shape = &vectors["kucoin_tickers"][c["ticker"].as_u64().unwrap() as usize];
         let t = Ticker { ticker: "BTC-USDT".into(), base_code: "BTC".into(), quote_code: "USDT".into(), quote_symbol: "USDT".into(), exchange_name: "KuCoin".into(), ..sizing_ticker(shape) };
-        let sizing = amount::size(bot, &t, &bd(c["x"].as_str().unwrap()), &bd(c["last_or_ask"].as_str().unwrap()), KUCOIN.minimum_logic).unwrap();
+        let sizing = amount::size(bot, &t, &bd(c["x"].as_str().unwrap()), &bd(c["last_or_ask"].as_str().unwrap()), &KUCOIN).unwrap();
         let (plan, below) = match sizing { Sizing::Place(p) => (p, false), Sizing::BelowMinimum(p) => (p, true), other => panic!("{c}: {other:?}") };
         assert_eq!(plan.price.to_s_f(), c["price"].as_str().unwrap(), "price {c}");
         assert_eq!(plan.amount.to_s_f(), c["amount"].as_str().unwrap(), "unrounded amount {c}");
@@ -407,9 +407,9 @@ fn a_sell_is_priced_above_the_last_trade_and_sized_in_base_under_base_and_quote_
         .with("limit_ordered", json!(true)).with("limit_order_pcnt_distance", json!(0.01)))).unwrap();
     let t = sizing_ticker(&json!({"base_decimals": "5", "quote_decimals": "2", "price_decimals": "2", "minimum_base_size": "0.00001", "minimum_quote_size": "5"}));
     let last = bd("60000.004");
-    assert_eq!(amount::side_price(&limit, &t, &last, Side::Sell).unwrap(), bd("60600"), "(1 + d), floored");
-    assert_eq!(amount::side_price(&limit, &t, &last, Side::Buy).unwrap(), bd("59400"), "(1 - d), floored");
-    assert_eq!(amount::side_price(&market, &t, &last, Side::Sell).unwrap(), last, "a market sell is the bid itself");
+    assert_eq!(amount::side_price(&limit, &t, &last, Side::Sell, &deltabadger::engine::venue_rules::KRAKEN).unwrap(), bd("60600"), "(1 + d), floored");
+    assert_eq!(amount::side_price(&limit, &t, &last, Side::Buy, &deltabadger::engine::venue_rules::KRAKEN).unwrap(), bd("59400"), "(1 - d), floored");
+    assert_eq!(amount::side_price(&market, &t, &last, Side::Sell, &deltabadger::engine::venue_rules::KRAKEN).unwrap(), last, "a market sell is the bid itself");
     let price = bd("60600");
     // ceil(5 / 60600, 5) = 0.00009 is the floor; the amount is floored to 5 decimals against it.
     let size = |a: &str| amount::size_sell(&limit, &t, &bd(a), &price).unwrap();
@@ -444,16 +444,16 @@ fn every_recorded_rails_sell_sizing_and_wire_is_reproduced() {
     };
     let bots: Vec<(serde_json::Value, model::Bot)> = [json!(null), json!(0.0025), json!(0.01), json!(0.001), json!(0.1234)].into_iter().map(|d| { let b = bot(&d); (d, b) }).collect();
     let deadline = "2026-09-01T10:00:10Z".parse().unwrap();
-    for (venue, wire, pair, base, quote, expected) in [("kraken", KRAKEN.wire, "XXBTZEUR", "XBT", "EUR", (2_102, 790, 509)),
-                                                        ("binance", BINANCE.wire, "BTCUSDT", "BTC", "USDT", (2_130, 810, 485)),
-                                                        ("alpaca", ALPACA.wire, "BTC/USD", "BTC", "USD", (2_127, 858, 535))] {
+    for (venue, rules, pair, base, quote, expected) in [("kraken", &KRAKEN, "XXBTZEUR", "XBT", "EUR", (2_102, 790, 509)),
+                                                        ("binance", &BINANCE, "BTCUSDT", "BTC", "USDT", (2_130, 810, 485)),
+                                                        ("alpaca", &ALPACA, "BTC/USD", "BTC", "USD", (2_127, 858, 535))] {
         let cases = vectors[format!("{venue}_sell")].as_array().unwrap();
         let (mut below_n, mut refused_n) = (0, 0);
         for c in cases {
             let bot = &bots.iter().find(|(d, _)| *d == c["d"]).unwrap().1;
             let t = Ticker { ticker: pair.into(), base_code: base.into(), quote_code: quote.into(), quote_symbol: quote.into(),
                              ..sizing_ticker(&vectors["tickers"][c["t"].as_u64().unwrap() as usize]) };
-            let price = amount::side_price(bot, &t, &bd(c["reference"].as_str().unwrap()), Side::Sell).unwrap();
+            let price = amount::side_price(bot, &t, &bd(c["reference"].as_str().unwrap()), Side::Sell, rules).unwrap();
             assert_eq!(price.to_s_f(), c["price"].as_str().unwrap(), "price {c}");
             // tick::sell's `base || quote / price`, then `[amount, free].min`.
             let wanted = bd(c["wanted"].as_str().unwrap());
@@ -470,7 +470,7 @@ fn every_recorded_rails_sell_sizing_and_wire_is_reproduced() {
             let refusal = plan.limit_refusal().unwrap();
             assert_eq!(refusal.as_deref(), c["refused"].as_str(), "refusal {c}");
             if refusal.is_some() { refused_n += 1; continue; }
-            let order = plan.to_order("cl".into(), deadline, wire).unwrap();
+            let order = plan.to_order("cl".into(), deadline, rules.wire).unwrap();
             let w = &c["wire"];
             assert!(order.side == Side::Sell && !order.quote_volume, "{c}");
             if venue == "kraken" {

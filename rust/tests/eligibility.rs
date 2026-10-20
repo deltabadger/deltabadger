@@ -736,7 +736,7 @@ fn a_legacy_intent_gets_its_snapshot_at_takeover_and_a_stopped_bot_stays_frozen(
     let bot = model::load_bot(&o.primary, id).unwrap();
     let ticker = model::ticker_for(&o.primary, &bot).unwrap().unwrap();
     let amount::Sizing::Place(plan) = amount::size(&bot, &ticker, &BigDec::from_i64(60), &BigDec::from_i64(64_000),
-        deltabadger::engine::venue_rules::ALPACA.minimum_logic).unwrap() else { panic!("sized") };
+        &deltabadger::engine::venue_rules::ALPACA).unwrap() else { panic!("sized") };
     placement::begin(&o.primary, &bot, &plan, &FixedClock(now)).unwrap();
     // As the earlier build wrote it: no exchange, quote or allocations recorded.
     o.primary.execute("UPDATE bots SET transient_data = json_remove(transient_data, '$.rust_placement.exchange_id', \

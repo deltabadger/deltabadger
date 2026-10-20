@@ -2,6 +2,8 @@
 
 #[cfg(unix)]
 pub mod decisions;
+#[cfg(unix)]
+pub mod venue_grid;
 pub mod html;
 pub mod seed;
 pub mod scripted;

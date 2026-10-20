@@ -58,7 +58,9 @@ async fn served_under(recheck: Duration, limits: server::Limits, root_url: Optio
     };
     let clock = TestClock::at("2026-09-10T12:00:30Z");
     let app = App::new(Config::from_env(&env).unwrap(), &env, opened.primary, clock.clone()).unwrap();
-    let app = app.with_cable_timing(Duration::from_millis(50), recheck).unwrap();
+    // The transport alone: no figures are filled or published on these streams (every account has figures, with an
+    // Alpaca key or without).
+    let app = app.with_cable_timing(Duration::from_millis(50), recheck).unwrap().with_figure_source(deltabadger::web::figure::loading::Source::Disabled).unwrap();
     OWNER_COOKIE.get_or_init(|| signed_in(&app, OWNER));
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let address = listener.local_addr().unwrap();
