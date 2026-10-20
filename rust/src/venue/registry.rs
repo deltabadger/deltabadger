@@ -33,12 +33,12 @@ pub enum KeyCheck { Alpaca, Kraken, Binance, Kucoin }
 pub enum Figures {
     /// Prices and candles.
     Alpaca,
-    /// allTickers prices; no candles yet.
+    /// allTickers prices and market candles.
     Kucoin,
 }
 
 impl Figures {
-    pub fn candles(self) -> bool { self == Self::Alpaca }
+    pub fn candles(self) -> bool { matches!(self, Self::Alpaca | Self::Kucoin) }
 }
 
 pub struct Row {
@@ -121,7 +121,7 @@ mod tests {
         assert_eq!(types(|r| r.trades), [alpaca, kraken, binance, kucoin], "venue_rules::for_exchange, eligibility::admission, LiveFactory");
         assert_eq!(types(|r| r.passphrase), [alpaca, kucoin], "model::credentials_with_redaction's passphrase");
         assert_eq!(types(|r| r.figures.is_some()), [alpaca, kucoin], "page_market::reads");
-        assert_eq!(types(|r| r.figures.is_some_and(Figures::candles)), [alpaca], "page_market::reads_candles");
+        assert_eq!(types(|r| r.figures.is_some_and(Figures::candles)), [alpaca, kucoin], "page_market::reads_candles");
         assert_eq!(types(|r| r.needs_pairs && r.trades), [binance, kucoin], "LiveFactory's Pairs::load");
         let proxies: Vec<_> = ROWS.iter().filter_map(|r| key_check_proxy(r.exchange_type).map(|p| (r.exchange_type, p, r.base))).collect();
         assert_eq!(proxies, [(kraken, "kraken", crate::venue::kraken::URL), (binance, "binance", crate::venue::binance::URL), (kucoin, "kucoin", crate::venue::kucoin::URL)],
