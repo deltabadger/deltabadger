@@ -479,8 +479,8 @@ async fn figures_fragments_match_the_rails_page_partials() {
                 let demands=reader.demands();
                 let wire=Wire{script:serde_json::json!({"GET data.alpaca.markets/v2/stocks/snapshots":{"status":503,"body":{}},"GET data.alpaca.markets/v1beta3/crypto/us/latest/trades":{"status":503,"body":{}}}),calls:RefCell::default()};
                 refused.fill(&wire,demands,at.utc().timestamp()).await;
-                let reader=Reader::new(&refused,at.utc().timestamp()).with_symbols(names);
-                assert!(reader.prices(&venue,&[]).is_err());
+                let reader=Reader::new(&refused,at.utc().timestamp()).with_symbols(names.clone());
+                assert!(reader.prices(&venue,&names).is_err());
                 assert!(!reader.pending(),"a refused price answer is settled");
                 assert!(reader.demands().is_empty());
                 let refused=loading::Snapshot::Ready(refused,at,revision,None,until);
