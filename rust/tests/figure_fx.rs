@@ -288,10 +288,10 @@ async fn a_bot_on_a_venue_the_figures_cannot_read_leaves_the_others_figures() {
     let t = "'2026-01-01'";
     // A KuCoin basket with an order: its chart asks for candles the reader has no venue for.
     c.execute_batch(&format!("
-        INSERT INTO exchanges(id,type,name,created_at,updated_at) VALUES (2,'Exchanges::Kucoin','KuCoin',{t},{t});
+        INSERT INTO exchanges(id,type,name,created_at,updated_at) VALUES (2,'Exchanges::Bitget','Bitget',{t},{t});
         INSERT INTO assets(id,category,external_id,symbol,name,created_at,updated_at) VALUES (5,'Cryptocurrency','usd-coin','USDC','USDC',{t},{t});
         INSERT INTO tickers(id,base,base_asset_id,base_decimals,exchange_id,minimum_base_size,minimum_quote_size,price_decimals,quote,quote_asset_id,quote_decimals,ticker,available,trading_enabled,created_at,updated_at)
-            VALUES (3,'BTC',4,8,2,0,1,2,'USDC',5,2,'BTC-USDC',1,1,{t},{t});
+            VALUES (3,'BTC',4,8,2,0,1,2,'USDC',5,2,'BTCUSDC',1,1,{t},{t});
         INSERT INTO bots(id,user_id,exchange_id,type,status,settings,transient_data,created_at,updated_at) VALUES
             (3,1,2,'Bots::DcaMultiAsset',1,'{{\"quote_asset_id\":5,\"allocations\":{{\"4\":1.0}}}}','{{}}',{t},{t});
         INSERT INTO transactions(bot_id,exchange_id,base,base_asset_id,quote,quote_asset_id,amount,amount_exec,price,quote_amount_exec,side,status,external_status,external_id,transaction_type,created_at,updated_at) VALUES
@@ -329,10 +329,10 @@ async fn a_sell_only_bot_on_a_venue_the_figures_do_not_read_says_what_it_sold_an
     let c = rusqlite::Connection::open(&install.file).unwrap();
     let t = "'2026-01-01'";
     c.execute_batch(&format!("
-        INSERT INTO exchanges(id,type,name,created_at,updated_at) VALUES (2,'Exchanges::Kucoin','KuCoin',{t},{t});
+        INSERT INTO exchanges(id,type,name,created_at,updated_at) VALUES (2,'Exchanges::Bitget','Bitget',{t},{t});
         INSERT INTO assets(id,category,external_id,symbol,name,created_at,updated_at) VALUES (5,'Cryptocurrency','usd-coin','USDC','USDC',{t},{t});
         INSERT INTO tickers(id,base,base_asset_id,base_decimals,exchange_id,minimum_base_size,minimum_quote_size,price_decimals,quote,quote_asset_id,quote_decimals,ticker,available,trading_enabled,created_at,updated_at)
-            VALUES (3,'BTC',4,8,2,0,1,2,'USDC',5,2,'BTC-USDC',1,1,{t},{t});
+            VALUES (3,'BTC',4,8,2,0,1,2,'USDC',5,2,'BTCUSDC',1,1,{t},{t});
         INSERT INTO bots(id,user_id,exchange_id,type,status,settings,transient_data,created_at,updated_at) VALUES
             (3,1,2,'Bots::DcaMultiAsset',1,'{{\"quote_asset_id\":5,\"allocations\":{{\"4\":1.0}},\"direction\":\"selling\"}}','{{}}',{t},{t});
         INSERT INTO transactions(bot_id,exchange_id,base,base_asset_id,quote,quote_asset_id,amount,amount_exec,price,quote_amount_exec,side,status,external_status,external_id,transaction_type,created_at,updated_at) VALUES
@@ -347,4 +347,33 @@ async fn a_sell_only_bot_on_a_venue_the_figures_do_not_read_says_what_it_sold_an
     assert!(!metrics.contains("Total invested") && !metrics.contains("does not respond"), "{metrics}");
     // A bot that bought keeps its investment.
     assert!(shown["bots"]["1"]["metrics"].as_str().unwrap().contains("Total invested"));
+}
+
+#[tokio::test]
+async fn a_kucoin_bot_is_priced_from_the_venues_tickers_and_counts_in_the_headline() {
+    // Exchanges::Kucoin#get_tickers_prices: the whole market from allTickers, through the KuCoin egress. The basket is valued
+    // at its last price, and with every bot priced the account has its headline.
+    let mut sc = script(true, json!(0.9993));
+    sc["GET api.kucoin.com/api/v1/market/allTickers"] = json!({"body": {"code": "200000", "data": {"time": 1, "ticker": [
+        {"symbol": "BTC-USDC", "last": "130", "buy": "129.9", "vol": "1"}, {"symbol": "ETH-USDC", "last": "0"}, {"symbol": "XRP-USDC", "last": null}]}}});
+    sc["GET data-api:3000/api/v1/prices?coin_ids=usd-coin&vs_currencies=usd"] = json!({"body": {"data": {"usd-coin": {"usd": 1.0}}}});
+    let install = install("USD", sc);
+    let c = rusqlite::Connection::open(&install.file).unwrap();
+    let t = "'2026-01-01'";
+    c.execute_batch(&format!("
+        INSERT INTO exchanges(id,type,name,created_at,updated_at) VALUES (2,'Exchanges::Kucoin','KuCoin',{t},{t});
+        INSERT INTO assets(id,category,external_id,symbol,name,created_at,updated_at) VALUES (5,'Cryptocurrency','usd-coin','USDC','USDC',{t},{t});
+        INSERT INTO tickers(id,base,base_asset_id,base_decimals,exchange_id,minimum_base_size,minimum_quote_size,price_decimals,quote,quote_asset_id,quote_decimals,ticker,available,trading_enabled,created_at,updated_at)
+            VALUES (3,'BTC',4,8,2,0,1,2,'USDC',5,2,'BTC-USDC',1,1,{t},{t});
+        INSERT INTO bots(id,user_id,exchange_id,type,status,settings,transient_data,created_at,updated_at) VALUES
+            (3,1,2,'Bots::DcaMultiAsset',1,'{{\"quote_asset_id\":5,\"allocations\":{{\"4\":1.0}}}}','{{}}',{t},{t});
+        INSERT INTO transactions(bot_id,exchange_id,base,base_asset_id,quote,quote_asset_id,amount,amount_exec,price,quote_amount_exec,side,status,external_status,external_id,transaction_type,created_at,updated_at) VALUES
+            (3,2,'BTC',4,'USDC',5,1,1,100,100,0,0,2,'o3','REGULAR','2026-03-02 14:30:00',{t});
+    ")).unwrap();
+    let _stop = install.consume();
+    let shown = install.shown("ready").await;
+    let metrics = shown["bots"]["3"]["metrics"].as_str().unwrap();
+    assert!(metrics.contains("130.00 <small>USDC</small>") && !metrics.contains("does not respond"), "{metrics}");
+    assert!(tile(&shown, 3).contains("30.00%"), "{}", tile(&shown, 3));
+    assert!(shown["account"].as_str().is_some_and(|h| h.contains("pnl-percent")), "{}", shown["account"]);
 }

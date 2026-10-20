@@ -232,16 +232,27 @@ pub(crate) fn read_info(c:&Connection,app:&App,user:i64)->Result<Option<Info>,We
     let revision=revision(c,user)?.0;
     Ok(Some(Info{identity,revision,mark:mark(c)?,credentials,origin:version}))
 }
-pub(crate) struct Wire { real:ReqwestTransport,source:Source,origin:Option<crate::engine::model::CredentialVersion>,compute:Option<std::sync::Arc<tokio::sync::Semaphore>> }
+pub(crate) struct Wire { real:ReqwestTransport,kucoin:Result<ReqwestTransport,String>,source:Source,origin:Option<crate::engine::model::CredentialVersion>,compute:Option<std::sync::Arc<tokio::sync::Semaphore>> }
 impl Wire {
     pub(crate) fn with_origin(mut self,origin:crate::engine::model::CredentialVersion)->Self { self.origin=Some(origin);self }
-    pub(crate) fn new(credentials:&Credentials,source:Source)->Self { Wire{real:ReqwestTransport::new(http::client(),credentials.key.clone(),credentials.secret.clone()).with_sensitive_values(credentials.redaction_values.clone()),source,origin:None,compute:None} }
+    pub(crate) fn new(credentials:&Credentials,source:Source)->Self { Wire{real:ReqwestTransport::new(http::client(),credentials.key.clone(),credentials.secret.clone()).with_sensitive_values(credentials.redaction_values.clone()),kucoin:Err("KuCoin is not connected here".into()),source,origin:None,compute:None} }
+    /// KuCoin's public market data, as Exchanges::Kucoin reads it: through the install's KuCoin egress (ExchangeProxy.for,
+    /// `venue::live::egress`), unsigned (public endpoints carry no key). An egress that cannot be had (an unusable proxy)
+    /// is that venue's settled failure, never a direct connection.
+    pub(crate) fn with_kucoin(mut self,egress:crate::venue::live::Egress)->Self {
+        self.kucoin=egress.map(|(client,proxy)|ReqwestTransport::kucoin(client,String::new(),String::new(),String::new()).with_sensitive_values(proxy.into_iter().collect()));
+        self
+    }
+    /// The transport for a request's host: KuCoin's for KuCoin, Alpaca's (with its key) for Alpaca's market data.
+    fn transport(&self,r:&HttpRequest)->Result<&ReqwestTransport,TransportError> {
+        if r.base==crate::venue::kucoin::URL { self.kucoin.as_ref().map_err(|_|TransportError::Permanent("Market data unavailable".into())) } else { Ok(&self.real) }
+    }
     /// Each answer is settled (a pass over the whole body) off the runtime's thread, under the figures' compute permit.
     pub(crate) fn settled_under(mut self,compute:std::sync::Arc<tokio::sync::Semaphore>)->Self { self.compute=Some(compute);self }
     /// A live answer as `ReqwestTransport::settle` settles it (checked and scrubbed); a scripted one scrubbed as a live
     /// body is. Off the runtime's thread when the fill says so (`settled_under`).
-    async fn settle(&self,reply:HttpResponse,live:bool)->Result<HttpResponse,TransportError> {
-        let real=self.real.clone();
+    async fn settle(&self,transport:&ReqwestTransport,reply:HttpResponse,live:bool)->Result<HttpResponse,TransportError> {
+        let real=transport.clone();
         let work=move||if live { real.settle(reply) } else { HttpResponse{status:reply.status,body:real.redact_diagnostic(&reply.body)} };
         let Some(compute)=&self.compute else { return Ok(work()) };
         let permit=compute.clone().acquire_owned().await.map_err(|_|TransportError::Permanent("Market data unavailable".into()))?;
@@ -253,7 +264,7 @@ impl Transport for Wire {
     fn redact_diagnostic(&self,text:&str)->String{self.real.redact_diagnostic(text)}
     async fn send(&self,r:&HttpRequest)->Result<HttpResponse,TransportError> {
         match &self.source {
-            Source::Live=>self.settle(self.real.send_unsettled(r,http::MAX_BODY).await?,true).await,
+            Source::Live=>{ let transport=self.transport(r)?; self.settle(transport,transport.send_unsettled(r,http::MAX_BODY).await?,true).await },
             Source::Disabled=>Err(TransportError::Permanent("Market data unavailable".into())),
             Source::Script(script)|Source::Counted(script,_)=>{
                 // Market data is scripted by the parameters that pick a series; any other host by its whole sorted query.
@@ -268,12 +279,12 @@ impl Transport for Wire {
                 if reply["network"].is_string(){return Err(TransportError::NotSent("Market data unavailable".into()));}
                 // A test holds an answer back to keep a fill in flight; the live source never reads a script.
                 if let Some(ms)=reply["delay_ms"].as_u64(){tokio::time::sleep(Duration::from_millis(ms)).await;}
-                self.settle(HttpResponse{status:reply["status"].as_u64().unwrap_or(200) as u16,body:reply["body"].as_str().map(str::to_string).unwrap_or_else(||reply["body"].to_string())},false).await
+                self.settle(&self.real,HttpResponse{status:reply["status"].as_u64().unwrap_or(200) as u16,body:reply["body"].as_str().map(str::to_string).unwrap_or_else(||reply["body"].to_string())},false).await
             }
         }
     }
     async fn send_limited(&self,r:&HttpRequest,limit:usize)->Result<HttpResponse,TransportError>{
-        if matches!(self.source,Source::Live){return self.settle(self.real.send_unsettled(r,limit).await?,true).await;}
+        if matches!(self.source,Source::Live){ let transport=self.transport(r)?; return self.settle(transport,transport.send_unsettled(r,limit).await?,true).await; }
         let reply=self.send(r).await?;
         if reply.body.len()>limit{Err(TransportError::Permanent("Market data unavailable".into()))}else{Ok(reply)}
     }
@@ -466,7 +477,8 @@ fn begin(app:&App,user:i64)->Begun<'_>{ Box::pin(async move {
 fn spawn_fill(app:&App,user:i64,info:Info,now:At,ticket:super::service::Ticket,mut cache:Cache,work:Option<Work>) {
     let inner=app.clone();let source=app.figure_source.clone();
     tokio::spawn(async move {
-        let wire=Wire::new(&info.credentials,source).with_origin(info.origin.clone()).settled_under(inner.figure_service.compute());
+        let egress={ let cipher=inner.cipher.clone(); build(&inner,move|c|Ok(crate::venue::live::egress(c,&cipher,&|k|std::env::var(k).ok(),"kucoin",&http::client()))).await.unwrap_or_else(|e|Err(format!("{e:?}"))) };
+        let wire=Wire::new(&info.credentials,source).with_kucoin(egress).with_origin(info.origin.clone()).settled_under(inner.figure_service.compute());
         let keys=work.as_ref().map(|work|work.locales.clone()).unwrap_or_default();
         // Past its deadline the fill stops waiting; a worker it started finishes on its own, holding the compute permit.
         let timed=tokio::time::timeout(inner.figure_service.fill_timeout(),async {

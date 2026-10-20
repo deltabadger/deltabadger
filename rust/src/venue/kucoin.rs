@@ -139,6 +139,31 @@ pub fn parse_order(order_id: &str, o: &Value, pairs: &Pairs) -> Result<OrderStat
                     amount_exec, quote_amount_exec: Some(deal_funds.unwrap_or_else(BigDec::zero)), limit, sell, pair: Some(symbol.into()), asset_class: None })
 }
 
+/// The prices of an allTickers answer, as Exchanges::Kucoin#get_tickers_prices reads them: every `data.ticker` row by its
+/// `dig_or_raise`d `symbol`, its `last` kept only when positive, a later row for a symbol replacing an earlier one. No
+/// `data.ticker` is Rails' "Failed to get KuCoin tickers". Shared by the engine (`tickers_prices`) and the figures.
+pub fn all_tickers(body: &Value) -> Result<Vec<(String, BigDec)>, VenueError> {
+    let failed = || VenueError::Rejected(vec!["Failed to get KuCoin tickers".into()]);
+    // Hash#dig: a `data` that is not a hash (or a body that is not one) raises.
+    let data = match body.as_object().ok_or_else(unreadable)?.get("data") { None | Some(Value::Null) => return Err(failed()), Some(d) => d };
+    let rows = match data.as_object().ok_or_else(unreadable)?.get("ticker") { None | Some(Value::Null) => return Err(failed()), Some(t) => t };
+    let mut out: Vec<(String, BigDec)> = vec![];
+    for row in rows.as_array().ok_or_else(unreadable)? {
+        let symbol = super::dig_or_raise(row, "symbol")?.as_str().ok_or_else(unreadable)?.to_string();
+        let price = match &row["last"] {
+            Value::Null => None,
+            v @ (Value::String(_) | Value::Number(_)) => crate::ruby::json_to_d(v).ok().flatten(),
+            _ => return Err(unreadable()),
+        };
+        // `prices_hash[symbol] = price if price.positive?`: a later positive price for the same symbol replaces it.
+        if let Some(p) = price.filter(|p| *p > BigDec::zero()) {
+            out.retain(|(s, _)| *s != symbol);
+            out.push((symbol, p));
+        }
+    }
+    Ok(out)
+}
+
 impl<T: Transport> KucoinVenue<T> {
     pub fn new(transport: T, base: &str) -> Self { Self { transport, base: base.into(), pairs: Pairs::default(), identity: None } }
     /// The key this venue sends with (`venue::key_identity`), recorded in each intent and compared before a recovery asks.
@@ -424,25 +449,7 @@ impl<T: Transport> super::Venue for KucoinVenue<T> {
             Err(http::DecodeError::NotJson) => return Err(VenueError::Rejected(vec![self.transport.redact_diagnostic(&text)])),
             other => other.map_err(|_| unreadable())?,
         };
-        let failed = || VenueError::Rejected(vec!["Failed to get KuCoin tickers".into()]);
-        // Hash#dig: a `data` that is not a hash (or a body that is not one) raises.
-        let data = match body.as_object().ok_or_else(unreadable)?.get("data") { None | Some(Value::Null) => return Err(failed()), Some(d) => d };
-        let rows = match data.as_object().ok_or_else(unreadable)?.get("ticker") { None | Some(Value::Null) => return Err(failed()), Some(t) => t };
-        let mut out: Vec<(String, Value)> = vec![];
-        for row in rows.as_array().ok_or_else(unreadable)? {
-            let symbol = super::dig_or_raise(row, "symbol")?.as_str().ok_or_else(unreadable)?.to_string();
-            let price = match &row["last"] {
-                Value::Null => None,
-                v @ (Value::String(_) | Value::Number(_)) => crate::ruby::json_to_d(v).ok().flatten(),
-                _ => return Err(unreadable()),
-            };
-            // `prices_hash[symbol] = price if price.positive?`: a later positive price for the same symbol replaces it.
-            if let Some(p) = price.filter(|p| *p > BigDec::zero()) {
-                out.retain(|(s, _)| *s != symbol);
-                out.push((symbol, Value::String(p.to_s_f())));
-            }
-        }
-        Ok(out)
+        Ok(all_tickers(&body)?.into_iter().map(|(symbol, price)| (symbol, Value::String(price.to_s_f()))).collect())
     }
 
     /// #cancel_order through Clients::Kucoin#cancel_order: DELETE /api/v1/orders/{id}. A divergence: Rails takes any 2xx as a

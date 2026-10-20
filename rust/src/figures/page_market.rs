@@ -41,11 +41,15 @@ pub struct Cache { entries: RefCell<BTreeMap<String, Entry>>, heads: RefCell<BTr
     /// The install's held conversions, which kept figures are checked against as they are shown (`fx_current`).
     fx: Option<Arc<FxStore>> }
 
+const ALPACA: &str = "https://data.alpaca.markets";
+/// A request's cache key: its path and query, behind its host for any venue but Alpaca's market data (whose keys predate
+/// other venues and stay as they were).
 fn key(request: &HttpRequest) -> String {
-    format!("{}?{}", request.path, request.query.iter().map(|(k,v)| format!("{k}={v}")).collect::<Vec<_>>().join("&"))
+    let query = format!("{}?{}", request.path, request.query.iter().map(|(k,v)| format!("{k}={v}")).collect::<Vec<_>>().join("&"));
+    if request.base == ALPACA { query } else { format!("{} {query}", request.base) }
 }
 fn request(path: &str, query: Vec<(&'static str, String)>) -> HttpRequest {
-    HttpRequest { method: "GET", base: "https://data.alpaca.markets".into(), path: path.into(), query, body: None, not_after: None }
+    HttpRequest { method: "GET", base: ALPACA.into(), path: path.into(), query, body: None, not_after: None }
 }
 
 pub const CANDLE_TTL: i64 = 30 * 86_400;
@@ -83,6 +87,12 @@ fn size(value: &Value) -> usize { value.to_string().len() }
 /// names, in its order. An answer whose symbols are not an object is kept whole, so that it fails there as it did. The
 /// snapshot of an index's whole venue listing is thousands of symbols of five quotes each; a price is all a figure reads.
 fn prices_only(path: &str, mut body: Value) -> Value {
+    // KuCoin's allTickers: every row's symbol and last price, the rest of each row dropped (`kucoin::all_tickers` reads them).
+    if path == ALL_TICKERS {
+        let Some(Value::Array(rows)) = body.get_mut("data").and_then(|data| data.get_mut("ticker")) else { return body };
+        let kept: Vec<Value> = std::mem::take(rows).into_iter().map(|mut row| serde_json::json!({ "symbol": row.get_mut("symbol").map_or(Value::Null, Value::take), "last": row.get_mut("last").map_or(Value::Null, Value::take) })).collect();
+        return serde_json::json!({ "data": { "ticker": kept } });
+    }
     let crypto = path.ends_with("/latest/trades");
     if !crypto && !path.ends_with("/snapshots") { return body; }
     let symbols = if crypto { body.get_mut("trades") } else { Some(&mut body) };
@@ -308,11 +318,22 @@ impl<'a> Reader<'a> {
 
 /// Whether the figures read this venue's market data at all. A venue they do not read yet has no prices or candles here,
 /// which is no failure of the venue's: its bots show what is known without a price, and no note that it did not answer.
-pub fn reads(venue: &Venue) -> bool { venue.exchange_type == "Exchanges::Alpaca" }
+pub fn reads(venue: &Venue) -> bool { venue.exchange_type == "Exchanges::Alpaca" || venue.exchange_type == crate::venue::kucoin::KUCOIN }
+/// Whether the figures read this venue's candles: Alpaca's only so far.
+fn reads_candles(venue: &Venue) -> bool { venue.exchange_type == "Exchanges::Alpaca" }
+const ALL_TICKERS: &str = "/api/v1/market/allTickers";
 
 impl MarketData for Reader<'_> {
     fn prices(&self, venue: &Venue, symbols: &[String]) -> Fetch<Vec<(String, Member<Dec>)>> {
         if !reads(venue) { return Err(Failure::Failed(UNAVAILABLE.into())); }
+        if venue.exchange_type == crate::venue::kucoin::KUCOIN {
+            // Exchanges::Kucoin#get_tickers_prices: the whole market, its symbols ignored, one read for every KuCoin bot.
+            let request = HttpRequest { method: "GET", base: crate::venue::kucoin::URL.into(), path: ALL_TICKERS.into(), query: vec![], body: None, not_after: None };
+            return match self.get(request)? {
+                Answer::Json(body) => crate::venue::kucoin::all_tickers(&body).map(|rows| rows.into_iter().map(|(symbol, price)| (symbol, Dec::venue_number(&Value::String(price.to_s_f())))).collect()).map_err(|_| Failure::Failed(UNAVAILABLE.into())),
+                Answer::Bars(_) => Err(Failure::Failed(UNAVAILABLE.into())),
+            };
+        }
         // The account's names make one shared request per kind (`with_symbols`). A failed one fails only a caller that
         // asks for a symbol of its kind, as Rails asks per bot (Exchanges::Alpaca#get_tickers_prices with the bot's own
         // symbols): a stock basket never sees the crypto quote fail.
@@ -345,7 +366,7 @@ impl MarketData for Reader<'_> {
     fn candles(&self, venue: &Venue, ticker: &Ticker, since: At, timeframe: i64, restated: bool) -> Fetch<Vec<(At, Dec)>> {
         // A venue this reader cannot read has no candles, as it has no prices (`prices`): that holding goes without a
         // grid, and the pass is not marked failed, which would fail every bot's figures.
-        if !reads(venue) { return Err(Failure::Failed(UNAVAILABLE.into())); }
+        if !reads_candles(venue) { return Err(Failure::Failed(UNAVAILABLE.into())); }
         let result = (|| {
             let start = since.utc().format("%Y-%m-%dT%H:%M:%SZ").to_string();
             let name = match timeframe { 60 => "1Min", 300 => "5Min", 900 => "15Min", 1800 => "30Min", 3600 => "1Hour", 14400 => "4Hour", 604800 => "1Week", 2592000 => "1Month", _ => "1Day" };
