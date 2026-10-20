@@ -227,35 +227,109 @@ async fn an_expensive_first_page_is_read_and_stored_and_the_second_is_refused() 
     assert_eq!((sent, result(&db).await.3), (1, true), "admitted, checkpointed; the second refused");
 }
 
-/// A cut between two units of a page (the runner drops the run at an await) replays the page: the rows its first unit
-/// stored are not stored again, two identical id-less deposits are stored twice (not once, not three times), and the
-/// watermark has not moved.
-#[tokio::test(flavor = "current_thread")]
-async fn a_cut_mid_page_replays_it_and_stores_every_row_exactly_once() {
-    let mut a = account();
+/// A KuCoin account of deposits only, read whole in one run on a fresh install: the rows every multi-run import of it
+/// must equal.
+async fn one_run_of(account: &Rc<Account>, per_page: usize) -> Vec<String> {
+    let (_dir, db, _) = install();
+    let v = venue(account, per_page, &Rc::new(Watch::default()), |_| Duration::from_secs(1));
+    assert!(run(&db, &v, LONG, CHAIN_RUNS).await.unwrap().unwrap().unwrap().complete);
+    result(&db).await.0
+}
+
+/// `n` deposits with ids, and at each of `twins` an identical deposit without an id or a walletTxId.
+fn deposits(n: i64, twins: &[usize]) -> Account {
     let t = start_ms() + 2 * DAY_MS;
-    a.fills.clear();
-    a.withdrawals.clear();
-    a.deposits = (0..150).map(|i| json!({ "id": format!("d{i}"), "currency": "USDT", "amount": format!("{}", 1 + i), "fee": "0", "createdAt": t + i })).collect();
-    // The identical pair, without an id or a walletTxId, on each side of the unit boundary (rows 100 and 101).
-    let twin = json!({ "currency": "USDT", "amount": "777", "fee": "0", "createdAt": t + 500 });
-    a.deposits.insert(99, twin.clone());
-    a.deposits.insert(100, twin);
-    let account = Rc::new(a);
+    let mut deposits: Vec<Value> = (0..n).map(|i| json!({ "id": format!("d{i}"), "currency": "USDT", "amount": format!("{}", 1 + i), "fee": "0", "createdAt": t + i })).collect();
+    for at in twins { deposits.insert(*at, json!({ "currency": "USDT", "amount": "777", "fee": "0", "createdAt": t + 500 })); }
+    Account { fills: vec![], deposits, withdrawals: vec![] }
+}
+
+/// The runner cuts a run at an await while a page's write is on the blocking pool: the page lands whole with its
+/// checkpoint (a page is one transaction), the run stops, and the next run goes on from there, storing every row once.
+#[tokio::test(flavor = "current_thread")]
+async fn a_cut_at_a_pages_write_leaves_it_whole_and_the_next_run_stores_nothing_twice() {
+    let account = Rc::new(deposits(150, &[99, 100]));
+    let rows = one_run_of(&account, 500).await;
+    assert_eq!((rows.len(), rows.iter().filter(|r| r.contains("777")).count()), (152, 2), "every deposit once, the identical pair twice");
     let (_dir, db, _) = install();
     let watch = Rc::new(Watch::default());
     let v = venue(&account, 500, &watch, |_| Duration::from_secs(1));
     watch.cut_at_unit.set(Some(1));
-    assert!(run(&db, &v, LONG, CHAIN_RUNS).await.is_none(), "cut at the first unit");
-    let (rows, w, _, record) = result(&db).await;
-    assert_eq!((rows.len(), w.as_deref(), record), (100, Some(deltabadger::sync::sql_time(WATERMARK.parse().unwrap())).as_deref(), false),
-               "the first unit is stored; no checkpoint, no watermark");
+    assert!(run(&db, &v, LONG, CHAIN_RUNS).await.is_none(), "cut at the page's write");
+    let (stored, w, _, record) = result(&db).await;
+    assert_eq!((stored.len(), w, record), (152, Some(deltabadger::sync::sql_time(WATERMARK.parse().unwrap())), true),
+               "the page and its checkpoint landed; the watermark did not move");
     watch.cut_at_unit.set(None);
-    let out = run(&db, &v, LONG, CHAIN_RUNS).await.unwrap().unwrap().unwrap();
-    assert!(out.complete);
-    let (rows, ..) = result(&db).await;
-    assert_eq!(rows.len(), 152, "every deposit once, the identical pair twice");
-    assert_eq!(rows.iter().filter(|r| r.contains("777")).count(), 2, "{:?}", rows.iter().filter(|r| r.contains("Null")).take(3).collect::<Vec<_>>());
+    assert!(run(&db, &v, LONG, CHAIN_RUNS).await.unwrap().unwrap().unwrap().complete);
+    assert_eq!(result(&db).await.0, rows);
+}
+
+/// Review repro: an id-less deposit checkpointed on one page, an identical one on the next page written in one go with
+/// the rest, and a cut at any write: 301 rows, never 302.
+#[tokio::test(flavor = "current_thread")]
+async fn identical_idless_rows_on_two_pages_survive_a_cut_at_any_write() {
+    let account = Rc::new(deposits(299, &[50, 220]));
+    let rows = one_run_of(&account, 200).await;
+    assert_eq!(rows.len(), 301);
+    for cut in 1..=4 {
+        let (_dir, db, _) = install();
+        let watch = Rc::new(Watch::default());
+        let v = venue(&account, 200, &watch, |_| Duration::from_secs(1));
+        watch.cut_at_unit.set(Some(cut));
+        let _ = run(&db, &v, LONG, CHAIN_RUNS).await;
+        watch.cut_at_unit.set(None);
+        while !run(&db, &v, LONG, CHAIN_RUNS).await.unwrap().unwrap().unwrap().complete {}
+        assert_eq!(result(&db).await.0, rows, "cut at write {cut}");
+    }
+    // And over runs of one page each, no cut.
+    let (_dir, db, _) = install();
+    let v = venue(&account, 200, &Rc::new(Watch::default()), |_| Duration::from_secs(10));
+    while !run(&db, &v, deadline_for(1), usize::MAX).await.unwrap().unwrap().unwrap().complete {}
+    assert_eq!(result(&db).await.0, rows);
+}
+
+/// A trade imported from a file (no id) at `at`: 0.5 BTC bought.
+async fn file_row(db: &Db, at: i64) {
+    let at = deltabadger::sync::sql_time(chrono::DateTime::from_timestamp_millis(at).unwrap());
+    db.run(move |c, _| c.execute("INSERT INTO account_transactions (user_id, exchange_id, entry_type, base_currency, base_amount, transacted_at, raw_data, \
+                                  manual_values, transfer_link_rejected, created_at, updated_at) SELECT user_id, exchange_id, 0, 'BTC', 0.5, ?1, '{}', '{}', 0, ?1, ?1 \
+                                  FROM api_keys", [at]).map(|_| ()).map_err(|e| e.to_string())).await.unwrap();
+}
+
+/// Review repro: a trade imported from a file before the import (no id) matches two fills with distinct ids read in
+/// different runs. One store marks the first a duplicate of the file row and stores the second; so must two runs.
+#[tokio::test(flavor = "current_thread")]
+async fn a_file_row_matching_two_fills_in_different_runs_absorbs_only_the_first() {
+    let at = start_ms() + DAY_MS;
+    let fill = |id: &str| json!({ "symbol": "BTC-USDT", "tradeId": id, "orderId": "o1", "side": "buy", "price": "100", "size": "0.5", "funds": "50",
+                                 "fee": "0.01", "feeCurrency": "USDT", "createdAt": at });
+    let account = Rc::new(Account { fills: vec![fill("t1"), fill("t2")], deposits: vec![], withdrawals: vec![] });
+    let (_dir, db, _) = install();
+    file_row(&db, at).await;
+    let v = venue(&account, 1, &Rc::new(Watch::default()), |_| Duration::from_secs(1));
+    assert!(run(&db, &v, LONG, CHAIN_RUNS).await.unwrap().unwrap().unwrap().complete);
+    let rows = result(&db).await.0;
+    assert_eq!(rows.len(), 2, "the file row and the second fill");
+    let (_dir, db, _) = install();
+    file_row(&db, at).await;
+    let v = venue(&account, 1, &Rc::new(Watch::default()), |_| Duration::from_secs(10));
+    let mut runs = 0;
+    while !run(&db, &v, deadline_for(1), usize::MAX).await.unwrap().unwrap().unwrap().complete { runs += 1; }
+    assert!(runs >= 2, "the two fills were read in different runs");
+    assert_eq!(result(&db).await.0, rows);
+}
+
+/// Review repro: a run that stores one page, slowly, keeps that page's measured cost for the next run's estimate.
+#[tokio::test(flavor = "current_thread")]
+async fn a_slow_single_write_is_kept_for_the_next_runs_estimate() {
+    let (_dir, db, _) = install();
+    let (account, watch) = (Rc::new(account()), Rc::new(Watch::default()));
+    let v = venue(&account, 4, &watch, |_| Duration::from_secs(10));
+    *watch.unit_delay.borrow_mut() = Some(Box::new(|_| Duration::from_secs(150)));
+    assert!(!run(&db, &v, deadline_for(1), CHAIN_RUNS).await.unwrap().unwrap().unwrap().complete);
+    let units: Value = db.run(|c, _| c.query_row("SELECT value FROM app_configs WHERE key LIKE 'rust_sync.venue_ledger:%'", [], |r| r.get::<_, String>(0))
+        .map_err(|e| e.to_string())).await.map(|t| serde_json::from_str::<Value>(&t).unwrap()["units"].clone()).unwrap();
+    assert_eq!(units, json!([150_000]));
 }
 
 /// Runs cut before their first checkpoint make no progress: after STALLS of them the next run fails at once with a sync
