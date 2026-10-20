@@ -398,3 +398,42 @@ async fn a_credential_replacement_mid_import_starts_the_walk_again() {
     assert_eq!(v.log.borrow()[0], format!("{FILLS_PATH} Some({from}) Some({}) Some(1)", from + 7 * DAY_MS), "not the old cursor ({first})");
     assert_eq!(result(&db).await.0, rows, "the rows of one import, none twice");
 }
+
+/// Review repro: a trade imported from a file between two runs (id > the record's floor, not this import's) matches a
+/// fill the next run reads. One store over the file row marks the fill a duplicate; the run after the file import must
+/// too: the rows this import stored are the ones it wrote, not every newer row.
+#[tokio::test(flavor = "current_thread")]
+async fn a_file_row_imported_between_runs_absorbs_the_fill_it_matches() {
+    let t0 = start_ms() + DAY_MS;
+    let later = t0 + 21 * DAY_MS;
+    let fill = |id: &str, at: i64| json!({ "symbol": "BTC-USDT", "tradeId": id, "orderId": id, "side": "buy", "price": "100", "size": "0.5", "funds": "50",
+                                           "fee": "0.01", "feeCurrency": "USDT", "createdAt": at });
+    let account = Rc::new(Account { fills: vec![fill("t1", t0), fill("t2", later)], deposits: vec![], withdrawals: vec![] });
+    let (_dir, db, _) = install();
+    let v = venue(&account, 1, &Rc::new(Watch::default()), |_| Duration::from_secs(10));
+    assert!(!run(&db, &v, deadline_for(1), usize::MAX).await.unwrap().unwrap().unwrap().complete);
+    assert_eq!(result(&db).await.0.len(), 1, "the first fill stored");
+    file_row(&db, later).await;
+    while !run(&db, &v, deadline_for(1), usize::MAX).await.unwrap().unwrap().unwrap().complete {}
+    assert_eq!(result(&db).await.0.len(), 2, "the first fill and the file row; the second fill is its duplicate");
+}
+
+/// Review repro: a new credential rereads history already stored. Every entry is known by its id, so no identity's
+/// count decides anything and the record carries none.
+#[tokio::test(flavor = "current_thread")]
+async fn a_reread_of_known_history_carries_no_repeat_counts() {
+    let (_dir, db, _) = install();
+    let (account, watch) = (Rc::new(account()), Rc::new(Watch::default()));
+    let v = venue(&account, 4, &watch, |_| Duration::from_secs(10));
+    assert!(run(&db, &v, LONG, CHAIN_RUNS).await.unwrap().unwrap().unwrap().complete);
+    db.run(|c, cipher| c.execute("UPDATE api_keys SET secret = ?1", [cipher.encrypt("paper-secret")]).map(|_| ()).map_err(|e| e.to_string())).await.unwrap();
+    // The new import reads from KuCoin's first day: empty weeks first, then the known rows. Stop part-way through them.
+    let mut checked = false;
+    while !run(&db, &v, deadline_for(5), usize::MAX).await.unwrap().unwrap().unwrap().complete {
+        let record: Value = db.run(|c, _| c.query_row("SELECT value FROM app_configs WHERE key LIKE 'rust_sync.venue_ledger:%'", [], |r| r.get::<_, String>(0))
+            .map_err(|e| e.to_string())).await.map(|t| serde_json::from_str::<Value>(&t).unwrap()).unwrap();
+        assert_eq!(record["repeats"], json!([]), "no zero counts recorded");
+        checked |= !record["max_seen"].is_null();
+    }
+    assert!(checked, "a run stopped after rereading known rows");
+}

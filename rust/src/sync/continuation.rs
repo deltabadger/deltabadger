@@ -19,9 +19,9 @@
 //!   page limit, 500 rows on KuCoin.)
 //! - **Replay.** The runner may still cut a run at an await. A page is stored with its checkpoint or not at all, rows are
 //!   stored by their identity (`ledger::store`'s duplicate rules), and what one store carries from row to row is carried
-//!   from run to run: the rows this import stored (every row of the user's on the venue above the record's `floor`) are no
-//!   evidence against a later entry, and each identity's count of entries read is kept where a row stored before the
-//!   import could match it. The watermark moves only on completion, so a cut run replays from its last checkpoint and
+//!   from run to run: the rows this import stored (the ids it wrote, recorded as runs of consecutive ids) are no evidence
+//!   against a later entry, while rows a file import wrote between runs are; and each identity's nonzero count of entries
+//!   read is kept where a row stored before the import could match it. The watermark moves only on completion, so a cut run replays from its last checkpoint and
 //!   stores nothing twice, and N runs store what one store over every page stores.
 //! - **Progress.** A run always stores its first page, so a run that ends by itself has progressed. A run cut before its
 //!   first checkpoint has not: each run of a recorded import is counted before it reads, and one that starts after `STALLS`
@@ -41,7 +41,7 @@ use crate::jobs::Db;
 use chrono::{DateTime, Utc};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::{json, Value};
-use std::collections::VecDeque;
+use std::collections::{BTreeMap, VecDeque};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -102,12 +102,14 @@ struct Record {
     min_skipped: Option<DateTime<Utc>>,
     /// The last units' end-to-end times, in milliseconds.
     units: Vec<u64>,
-    /// The largest account_transactions id when the import began: the user's rows on this venue above it are the ones
-    /// this import stored (`Progress::stored`: no evidence against a later entry, as within one store).
+    /// The largest account_transactions id when the import began: rows at or below it were stored before the import.
     floor: i64,
+    /// The ids this import stored, as inclusive runs of consecutive ids (`Progress::stored`: no evidence against a later
+    /// entry, as within one store). Rows others stored meanwhile (a file import between runs) are evidence, as in one store.
+    ours: Vec<(i64, i64)>,
     /// `Progress::repeats` for the identities a row stored before the import could match (#same_event?): how many entries
-    /// of each the import has read. Any other identity's count decides nothing, so it is not carried.
-    repeats: Vec<(ledger::EventKey, usize)>,
+    /// of each the import has read. Any other identity's count, and a zero count, decides nothing, so it is not carried.
+    repeats: BTreeMap<ledger::EventKey, usize>,
 }
 
 fn record_key(key_id: i64) -> String { format!("rust_sync.venue_ledger:{key_id}") }
@@ -123,7 +125,7 @@ impl Record {
     fn json(&self) -> Value {
         json!({ "credential_origin": self.credential_origin, "watermark": self.watermark, "start": micros(self.start), "started": self.started.timestamp_micros(),
                 "cursor": self.cursor, "runs": self.runs, "chain": self.chain, "stalls": self.stalls, "max_seen": micros(self.max_seen),
-                "min_skipped": micros(self.min_skipped), "units": self.units, "floor": self.floor,
+                "min_skipped": micros(self.min_skipped), "units": self.units, "floor": self.floor, "ours": self.ours,
                 "repeats": self.repeats.iter().map(|(k, n)| json!([event_json(k), n])).collect::<Vec<_>>() })
     }
 }
@@ -140,7 +142,7 @@ fn load(c: &Connection, key: &Key, version: &CredentialVersion) -> Result<Option
         credential_origin: v["credential_origin"].clone(), watermark: v["watermark"].as_i64(), start: time(&v["start"]), started, cursor: v["cursor"].clone(),
         runs: count("runs"), chain: count("chain"), stalls: count("stalls"), max_seen: time(&v["max_seen"]), min_skipped: time(&v["min_skipped"]),
         units: v["units"].as_array().into_iter().flatten().filter_map(Value::as_u64).collect(),
-        floor, repeats: v["repeats"].as_array().into_iter().flatten().filter_map(|p| Some((event_of(&p[0])?, p[1].as_u64()? as usize))).collect(),
+        floor, ours: serde_json::from_value(v["ours"].clone()).unwrap_or_default(), repeats: v["repeats"].as_array().into_iter().flatten().filter_map(|p| Some((event_of(&p[0])?, p[1].as_u64()? as usize))).collect(),
     }))
 }
 
@@ -202,7 +204,7 @@ pub(super) async fn sync<W: Walk>(db: &Db, version: &CredentialVersion, key: Key
     let fresh = resumed.is_none();
     let mut record = resumed.unwrap_or_else(|| Record {
         credential_origin: version.cache_stamp(), watermark: raw_watermark, start: watermark.map(|w| w.min(now) - overlap), started: now, cursor: Value::Null,
-        runs: 0, chain: 0, stalls: 0, max_seen: None, min_skipped: None, units: vec![], floor, repeats: vec![],
+        runs: 0, chain: 0, stalls: 0, max_seen: None, min_skipped: None, units: vec![], floor, ours: vec![], repeats: BTreeMap::new(),
     });
     let fail = |text: String, raised: bool, record: Option<Record>| {
         let creds = credentials.clone();
@@ -247,15 +249,11 @@ pub(super) async fn sync<W: Walk>(db: &Db, version: &CredentialVersion, key: Key
     // page wholly stored and checkpointed, or not at all, so a replay never meets half a page.
     let key = Arc::new(key);
     let mut progress = {
-        let (k, floor) = (key.clone(), record.floor);
-        phase(db, move |c| {
-            let mut p = Progress::new(ledger::asset_rule(c, k.exchange_id, &k.exchange_type)?, ledger::stored_merged(c, &k)?, Arc::new(vec![]));
-            let mut s = c.prepare("SELECT id FROM account_transactions WHERE user_id = ?1 AND exchange_id = ?2 AND id > ?3")?;
-            for id in s.query_map(params![k.user_id, k.exchange_id, floor], |r| r.get::<_, i64>(0))? { p.stored.insert(id?); }
-            Ok(p)
-        }).await?
+        let k = key.clone();
+        phase(db, move |c| Ok(Progress::new(ledger::asset_rule(c, k.exchange_id, &k.exchange_type)?, ledger::stored_merged(c, &k)?, Arc::new(vec![])))).await?
     };
-    progress.repeats.extend(record.repeats.iter().cloned());
+    progress.stored.extend(record.ours.iter().flat_map(|&(a, b)| a..=b));
+    progress.repeats.extend(record.repeats.clone());
     let segments = read.segments.len();
     let mut stored_segments = 0;
     for (i, (rows, cursor)) in read.segments.into_iter().enumerate() {
@@ -276,11 +274,18 @@ pub(super) async fn sync<W: Walk>(db: &Db, version: &CredentialVersion, key: Key
             let mut r = r;
             let to = p.batch.len();
             let p = ledger::store(c, &k, 0..to, None, p, now)?;
+            // Every id stored before this page is in `ours`, at or below its last; the page's own are above it.
+            let top = r.ours.last().map_or(r.floor, |&(_, b)| b);
+            let mut new: Vec<i64> = p.stored.iter().copied().filter(|id| *id > top).collect();
+            new.sort_unstable();
+            for id in new {
+                match r.ours.last_mut() { Some((_, b)) if *b + 1 == id => *b = id, _ => r.ours.push((id, id)) }
+            }
             r.min_skipped = [r.min_skipped, p.min_skipped].into_iter().flatten().min();
             for id in &identities {
                 if !before_import(c, &k, id, r.floor)? { continue; }
-                let n = p.repeats.get(id).copied().unwrap_or(0);
-                match r.repeats.iter_mut().find(|(key, _)| key == id) { Some((_, m)) => *m = n, None => r.repeats.push((id.clone(), n)) }
+                // Absent restores as zero: an entry its id names (a reread of known history) is never counted.
+                if let Some(&n) = p.repeats.get(id).filter(|n| **n > 0) { r.repeats.insert(id.clone(), n); }
             }
             save(c, key_id, &r, now)?;
             Ok((p, r))
