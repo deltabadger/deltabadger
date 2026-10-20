@@ -37,9 +37,44 @@ struct Head { until: i64, bars: Arc<[Bar]>, origin:Option<crate::engine::model::
 type Rendered = Arc<Mutex<Vec<(String, Arc<Value>)>>>;
 #[derive(Clone, Default)]
 /// `bytes`: what the retained responses take, kept as they are inserted, replaced and removed.
-pub struct Cache { entries: RefCell<BTreeMap<String, Entry>>, heads: RefCell<BTreeMap<String, Head>>, stamp: Option<At>, origin:Option<crate::engine::model::CredentialVersion>, rendered: Rendered, bytes: Cell<usize>,
+pub struct Cache { entries: RefCell<BTreeMap<String, Entry>>, heads: RefCell<BTreeMap<String, Head>>, stamp: Option<At>, origin:Option<Producer>, rendered: Rendered, bytes: Cell<usize>,
     /// The install's held conversions, which kept figures are checked against as they are shown (`fx_current`).
     fx: Option<Arc<FxStore>> }
+
+/// What an account's figures are made under (figures-specific provenance): its Alpaca key's version, or no usable Alpaca
+/// key. `NoAlpaca` names the account and the version of the key row it has that cannot be read (none: no key at all), so
+/// that adding, replacing or removing a key changes it, and checking it needs no decryption (`is_current`).
+#[derive(Clone, Debug)]
+pub enum Producer { Alpaca(crate::engine::model::CredentialVersion), NoAlpaca { user: i64, key: Option<crate::engine::model::CredentialVersion> } }
+/// Two key versions made the same answers: both absent, or the same version.
+fn same_key(a: Option<&crate::engine::model::CredentialVersion>, b: Option<&crate::engine::model::CredentialVersion>) -> bool {
+    match (a, b) { (None, None) => true, (Some(a), Some(b)) => crate::engine::model::current_for(Some(a), Some(b)).is_fresh(), _ => false }
+}
+impl Producer {
+    /// The Alpaca key market data is read with, if any.
+    pub fn alpaca(&self) -> Option<&crate::engine::model::CredentialVersion> { match self { Producer::Alpaca(v) => Some(v), Producer::NoAlpaca { .. } => None } }
+    /// The same producer: one key version, or the same account without a usable key in the same state.
+    pub fn same(&self, other: &Producer) -> bool {
+        match (self, other) {
+            (Producer::Alpaca(a), Producer::Alpaca(b)) => same_key(Some(a), Some(b)),
+            (Producer::NoAlpaca { user: a, key: x }, Producer::NoAlpaca { user: b, key: y }) => a == b && same_key(x.as_ref(), y.as_ref()),
+            _ => false,
+        }
+    }
+    /// Whether the account is still as this producer found it, read in the caller's transaction: its key unchanged, or still
+    /// no Alpaca key (or the same unreadable one).
+    pub fn is_current(&self, c: &rusqlite::Connection) -> Result<bool, crate::engine::EngineError> {
+        match self {
+            Producer::Alpaca(version) => crate::engine::model::credential_is_current(c, version),
+            Producer::NoAlpaca { user, key } => {
+                let id: Option<i64> = rusqlite::OptionalExtension::optional(c.query_row(ALPACA_KEY, [user], |r| r.get(0)))?;
+                Ok(match (id, key) { (None, None) => true, (Some(id), Some(version)) => id == version.id && crate::engine::model::credential_is_current(c, version)?, _ => false })
+            }
+        }
+    }
+}
+/// The account's Alpaca trading key, as the figures pick it (`loading::read_info`).
+pub const ALPACA_KEY: &str = "SELECT k.id FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE k.user_id=?1 AND k.key_type=0 AND e.type='Exchanges::Alpaca' ORDER BY k.id LIMIT 1";
 
 const ALPACA: &str = "https://data.alpaca.markets";
 /// A request's cache key: its path and query, behind its host for any venue but Alpaca's market data (whose keys predate
@@ -213,9 +248,9 @@ impl Cache {
     fn remove_head(&self, key: &str) { if let Some(head) = self.heads.borrow_mut().remove(key) { self.sub(head.size); } }
     fn clear_entries(&self) { let gone: usize = self.entries.borrow().values().map(|e| e.size).sum(); self.entries.borrow_mut().clear(); self.sub(gone); }
     fn clear_heads(&self) { let gone: usize = self.heads.borrow().values().map(|h| h.size).sum(); self.heads.borrow_mut().clear(); self.sub(gone); }
-    pub fn producer(&self)->&Option<crate::engine::model::CredentialVersion> { &self.origin }
-    /// The key the cache's figures were made under, for a fill that made no request (`fill_bounded` records it otherwise).
-    pub fn produced_by(&mut self, origin: Option<crate::engine::model::CredentialVersion>) { if self.origin.is_none() { self.origin = origin; } }
+    pub fn producer(&self)->&Option<Producer> { &self.origin }
+    /// What the cache's figures are made under: recorded by every fill, one that made no request too.
+    pub fn produced_by(&mut self, producer: Producer) { self.origin = Some(producer); }
     pub fn stamp(&self) -> Option<At> { self.stamp }
     pub fn with_fx(mut self, fx: Arc<FxStore>) -> Self { self.fx = Some(fx); self }
     /// Whether the conversions kept figures read (`deps`) still hold at `now` for the provider configured now. Figures that
@@ -240,12 +275,15 @@ impl Cache {
     pub async fn fill_bounded(&mut self, wire: &impl Transport, demands: Vec<HttpRequest>, now: i64, compute: &Arc<tokio::sync::Semaphore>) {
         use futures_util::stream::{self, StreamExt};
         self.rendered = Rendered::default();
-        self.origin=wire.producer();
+        // A wire with an Alpaca key makes its answers under it. One without makes them for an account with no usable key
+        // (what the fill recorded, `produced_by`), never under a key it does not carry.
+        self.origin = match wire.producer() { Some(version) => Some(Producer::Alpaca(version)), None => self.origin.take().filter(|p| matches!(p, Producer::NoAlpaca { .. })) };
         let producer = wire.producer();
         // What each candle demand starts from: its stored head, unless another key's head or an expired one.
         let jobs: Vec<(HttpRequest, Option<Arc<[Bar]>>)> = demands.into_iter().map(|request| {
             let cache_key = key(&request);
-            if self.heads.borrow().get(&cache_key).is_some_and(|h|!crate::engine::model::current_for(h.origin.as_ref(),wire.producer().as_ref()).is_fresh()) { self.remove_head(&cache_key); }
+            // A head made with no key is current for a fill with no key (the same account's: `Service` keys caches by identity).
+            if self.heads.borrow().get(&cache_key).is_some_and(|h|(h.origin.is_some()||wire.producer().is_some())&&!crate::engine::model::current_for(h.origin.as_ref(),wire.producer().as_ref()).is_fresh()) { self.remove_head(&cache_key); }
             let old = request.path.ends_with("/bars").then(|| self.heads.borrow().get(&cache_key).filter(|h| h.until > now).map(|h| h.bars.clone())).flatten();
             (request, old)
         }).collect();
@@ -295,8 +333,10 @@ impl<'a> Reader<'a> {
     fn get(&self, request: HttpRequest) -> Fetch<Answer> {
         let fresh=|origin:&Option<crate::engine::model::CredentialVersion>|->Result<bool,Failure> {
             let Some(c)=self.current else { return Ok(true) }; // The unbound numerical harness reads no stored credentials.
-            if !crate::engine::model::current_for(origin.as_ref(),self.cache.origin.as_ref()).is_fresh(){return Ok(false)}
-            match origin {Some(origin)=>crate::engine::model::credential_is_current(c,origin).map_err(|_|Failure::Failed(UNAVAILABLE.into())),None=>Ok(false)}
+            // An answer is the cache's producer's (its key, or no key), and that producer is still the account's.
+            let Some(producer)=self.cache.origin.as_ref() else { return Ok(false) };
+            if !same_key(origin.as_ref(),producer.alpaca()){return Ok(false)}
+            producer.is_current(c).map_err(|_|Failure::Failed(UNAVAILABLE.into()))
         };
         let key = key(&request);
         if let Some(entry)=self.cache.entries.borrow().get(&key){fresh(&entry.origin)?;}

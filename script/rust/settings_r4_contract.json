@@ -200,9 +200,9 @@
       "return finish_in(c,*inner)"
     ],
     "web/figure/loading.rs": [
-      "with_origin(info.origin.clone())",
+      "wire.with_origin(version.clone())",
       "with_current(c)",
-      "current_for(Some(&info.origin),Some(&current.origin))"
+      "info.producer.same(&current.producer)"
     ],
     "web/figure/service.rs": [
       "identity_current_for",
@@ -211,8 +211,9 @@
     "figures/page_market.rs": [
       "origin:Option<crate::engine::model::CredentialVersion>",
       "current_for(h.origin.as_ref(),wire.producer().as_ref())",
-      "current_for(origin.as_ref(),self.cache.origin.as_ref())",
-      "credential_is_current(c,origin)",
+      "same_key(origin.as_ref(),producer.alpaca())",
+      "producer.is_current(c)",
+      "Producer::Alpaca(version) => crate::engine::model::credential_is_current(c, version)",
       "self.cache.entries.borrow_mut().remove(&key)",
       "self.cache.heads.borrow_mut().remove(&key)"
     ],

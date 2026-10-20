@@ -377,3 +377,121 @@ async fn a_kucoin_bot_is_priced_from_the_venues_tickers_and_counts_in_the_headli
     assert!(tile(&shown, 3).contains("30.00%"), "{}", tile(&shown, 3));
     assert!(shown["account"].as_str().is_some_and(|h| h.contains("pnl-percent")), "{}", shown["account"]);
 }
+
+// ---- S1: figures without an Alpaca key
+
+/// The KuCoin basket of `a_kucoin_bot_is_priced…` on an account with no Alpaca key and no Alpaca bots, its market counted.
+fn keyless(script_extra: impl FnOnce(&mut Value)) -> (Install, Arc<std::sync::Mutex<Vec<String>>>) {
+    let mut sc = script(true, json!(0.9993));
+    sc["GET api.kucoin.com/api/v1/market/allTickers"] = json!({"body": {"code": "200000", "data": {"time": 1, "ticker": [{"symbol": "BTC-USDC", "last": "130"}]}}});
+    sc["GET data-api:3000/api/v1/prices?coin_ids=usd-coin&vs_currencies=usd"] = json!({"body": {"data": {"usd-coin": {"usd": 1.0}}}});
+    script_extra(&mut sc);
+    let log = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let install = install_with("USD", Source::Counted(sc, log.clone()));
+    let c = rusqlite::Connection::open(&install.file).unwrap();
+    let t = "'2026-01-01'";
+    c.execute_batch(&format!("
+        DELETE FROM api_keys; DELETE FROM transactions; DELETE FROM bots;
+        INSERT INTO exchanges(id,type,name,created_at,updated_at) VALUES (2,'Exchanges::Kucoin','KuCoin',{t},{t});
+        INSERT INTO assets(id,category,external_id,symbol,name,created_at,updated_at) VALUES (5,'Cryptocurrency','usd-coin','USDC','USDC',{t},{t});
+        INSERT INTO tickers(id,base,base_asset_id,base_decimals,exchange_id,minimum_base_size,minimum_quote_size,price_decimals,quote,quote_asset_id,quote_decimals,ticker,available,trading_enabled,created_at,updated_at)
+            VALUES (3,'BTC',4,8,2,0,1,2,'USDC',5,2,'BTC-USDC',1,1,{t},{t});
+        INSERT INTO bots(id,user_id,exchange_id,type,status,settings,transient_data,created_at,updated_at) VALUES
+            (3,1,2,'Bots::DcaMultiAsset',1,'{{\"quote_asset_id\":5,\"allocations\":{{\"4\":1.0}}}}','{{}}',{t},{t});
+        INSERT INTO transactions(bot_id,exchange_id,base,base_asset_id,quote,quote_asset_id,amount,amount_exec,price,quote_amount_exec,side,status,external_status,external_id,transaction_type,created_at,updated_at) VALUES
+            (3,2,'BTC',4,'USDC',5,1,1,100,100,0,0,2,'o3','REGULAR','2026-03-02 14:30:00',{t});
+    ")).unwrap();
+    (install, log)
+}
+fn add_key(install: &Install, key: &str) {
+    let c = rusqlite::Connection::open(&install.file).unwrap();
+    c.execute("INSERT INTO api_keys(user_id,exchange_id,key_type,status,key,secret,passphrase,created_at,updated_at) VALUES (1,1,0,1,?1,?2,?3,'2026-01-01','2026-01-01')",
+              rusqlite::params![install.app.cipher.encrypt(key), install.app.cipher.encrypt("secret"), install.app.cipher.encrypt("paper")]).unwrap();
+}
+fn tickers_asked(log: &std::sync::Mutex<Vec<String>>) -> usize { log.lock().unwrap().iter().filter(|k| k.ends_with("/allTickers")).count() }
+async fn ready(install: &Install, what: &str) {
+    let deadline = Instant::now() + Duration::from_secs(20);
+    while !matches!(loading::prepare(&install.app, 1).await.unwrap(), Snapshot::Ready(..)) {
+        assert!(Instant::now() < deadline, "{what}: never ready");
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+}
+
+#[tokio::test]
+async fn an_account_without_an_alpaca_key_gets_its_kucoin_figures_and_keeps_them() {
+    let (install, log) = keyless(|_| {});
+    let _stop = install.consume();
+    let shown = install.shown("ready").await;
+    let metrics = shown["bots"]["3"]["metrics"].as_str().unwrap();
+    assert!(metrics.contains("130.00 <small>USDC</small>") && !metrics.contains("does not respond"), "{metrics}");
+    assert!(tile(&shown, 3).contains("30.00%"), "{}", tile(&shown, 3));
+    assert!(shown["account"].as_str().is_some_and(|h| h.contains("pnl-percent")), "{}", shown["account"]);
+    // Warm reads within the price's minute stay ready on the same cache: nothing is asked again.
+    for _ in 0..5 {
+        assert!(matches!(loading::prepare(&install.app, 1).await.unwrap(), Snapshot::Ready(..)), "a warm read of a keyless account is not ready");
+        assert!(install.page().await.is_some());
+    }
+    assert_eq!(tickers_asked(&log), 1, "{:?}", log.lock().unwrap());
+    assert!(log.lock().unwrap().iter().all(|k| !k.contains("data.alpaca.markets")), "no Alpaca request without a key: {:?}", log.lock().unwrap());
+}
+
+#[tokio::test]
+async fn adding_or_removing_an_alpaca_key_refills_under_the_new_identity() {
+    let (install, log) = keyless(|_| {});
+    let _stop = install.consume();
+    install.shown("keyless").await;
+    assert_eq!(tickers_asked(&log), 1);
+    // A key added: another producer, so the keyless cache is not reused and the figures are filled again under the key.
+    add_key(&install, "key");
+    assert!(!matches!(loading::prepare(&install.app, 1).await.unwrap(), Snapshot::Ready(..)), "the keyless figures served for a keyed account");
+    ready(&install, "keyed").await;
+    assert_eq!(tickers_asked(&log), 2, "{:?}", log.lock().unwrap());
+    // Removed again: the keyed figures are not the keyless account's.
+    rusqlite::Connection::open(&install.file).unwrap().execute("DELETE FROM api_keys", []).unwrap();
+    assert!(!matches!(loading::prepare(&install.app, 1).await.unwrap(), Snapshot::Ready(..)), "the keyed figures served without the key");
+    ready(&install, "keyless again").await;
+    assert_eq!(tickers_asked(&log), 3, "{:?}", log.lock().unwrap());
+}
+
+#[tokio::test]
+async fn an_undecryptable_alpaca_key_leaves_its_alpaca_bots_stale_and_the_rest_figured() {
+    let mut sc = script(true, json!(0.9993));
+    sc["GET api.kucoin.com/api/v1/market/allTickers"] = json!({"body": {"code": "200000", "data": {"time": 1, "ticker": [{"symbol": "BTC-USDC", "last": "130"}]}}});
+    sc["GET data-api:3000/api/v1/prices?coin_ids=usd-coin&vs_currencies=usd"] = json!({"body": {"data": {"usd-coin": {"usd": 1.0}}}});
+    let install = install("USD", sc);
+    let c = rusqlite::Connection::open(&install.file).unwrap();
+    // A key this install cannot read (another install's secret, a damaged row): no usable key.
+    let mut sealed: Value = serde_json::from_str(&install.app.cipher.encrypt("key")).unwrap();
+    sealed["h"]["at"] = json!("AAAAAAAAAAAAAAAAAAAAAA==");
+    c.execute("UPDATE api_keys SET key=?1", [sealed.to_string()]).unwrap();
+    let t = "'2026-01-01'";
+    c.execute_batch(&format!("
+        INSERT INTO exchanges(id,type,name,created_at,updated_at) VALUES (2,'Exchanges::Kucoin','KuCoin',{t},{t});
+        INSERT INTO assets(id,category,external_id,symbol,name,created_at,updated_at) VALUES (5,'Cryptocurrency','usd-coin','USDC','USDC',{t},{t});
+        INSERT INTO tickers(id,base,base_asset_id,base_decimals,exchange_id,minimum_base_size,minimum_quote_size,price_decimals,quote,quote_asset_id,quote_decimals,ticker,available,trading_enabled,created_at,updated_at)
+            VALUES (3,'BTC',4,8,2,0,1,2,'USDC',5,2,'BTC-USDC',1,1,{t},{t});
+        INSERT INTO bots(id,user_id,exchange_id,type,status,settings,transient_data,created_at,updated_at) VALUES
+            (3,1,2,'Bots::DcaMultiAsset',1,'{{\"quote_asset_id\":5,\"allocations\":{{\"4\":1.0}}}}','{{}}',{t},{t});
+        INSERT INTO transactions(bot_id,exchange_id,base,base_asset_id,quote,quote_asset_id,amount,amount_exec,price,quote_amount_exec,side,status,external_status,external_id,transaction_type,created_at,updated_at) VALUES
+            (3,2,'BTC',4,'USDC',5,1,1,100,100,0,0,2,'o3','REGULAR','2026-03-02 14:30:00',{t});
+    ")).unwrap();
+    let _stop = install.consume();
+    let shown = install.shown("ready").await;
+    assert!(shown["bots"]["1"]["metrics"].as_str().unwrap().contains("does not respond"), "the Alpaca bot is stale: {}", shown["bots"]["1"]["metrics"]);
+    assert!(tile(&shown, 3).contains("30.00%"), "the KuCoin bot is priced: {}", tile(&shown, 3));
+}
+
+#[tokio::test]
+async fn a_key_added_while_a_fill_runs_does_not_make_its_figures_current() {
+    // The keyless fill's market answer is held back; the key arrives while it waits.
+    let (install, log) = keyless(|sc| { sc["GET api.kucoin.com/api/v1/market/allTickers"]["delay_ms"] = json!(1500); });
+    let _stop = install.consume();
+    assert!(install.page().await.is_none());
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while tickers_asked(&log) == 0 { assert!(Instant::now() < deadline, "the fill never asked"); tokio::time::sleep(Duration::from_millis(10)).await; }
+    add_key(&install, "key");
+    // The keyless fill ends after the key was added: its figures are not kept as the keyed account's. A fill under the key
+    // asks again, and only its figures are shown.
+    ready(&install, "keyed").await;
+    assert_eq!(tickers_asked(&log), 2, "{:?}", log.lock().unwrap());
+}
