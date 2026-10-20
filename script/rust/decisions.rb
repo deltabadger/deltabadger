@@ -87,6 +87,15 @@ module ScriptedAlpaca
     'permanent' => -> { Faraday::SSLError.new(OpenSSL::SSL::SSLError.new('certificate verify failed')) }
   }.freeze
 
+  # A scripted transport failure: NETWORK's kinds, or `pre_send:<host>`, a connection to that venue's host refused (every
+  # venue a slice ports spells its own so; the older `<venue>_pre_send` kinds stay for the grids recorded with them).
+  def self.network(kind)
+    host = kind.delete_prefix('pre_send:') if kind.start_with?('pre_send:')
+    return Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new("connect(2) for \"#{host}\" port 443")) if host
+
+    NETWORK.fetch(kind).call
+  end
+
   def self.reply(env)
     raise Harness::Unscripted, "unscripted HTTP call to #{env.url}" unless env.url.host.to_s.end_with?('alpaca.markets')
 
@@ -98,13 +107,13 @@ module ScriptedAlpaca
 
   module Adapter
     def call(env)
-      # Binance's honeymaker client uses the same adapter: its host is answered by ScriptedBinance.
-      scripted = { 'api.binance.com' => ScriptedBinance, 'api.kucoin.com' => ScriptedKucoin, 'api.kraken.com' => ScriptedKrakenHttp }.fetch(env.url.host, ScriptedAlpaca)
+      # Every honeymaker client uses the same adapter: a venue's host is answered by its ScriptedVenue (VENUES).
+      scripted = VENUES.values.to_h { |v| [v.scripted.host, v.scripted] }.merge('api.kraken.com' => ScriptedKrakenHttp).fetch(env.url.host, ScriptedAlpaca)
       raise Harness::Unscripted, "unscripted HTTP call #{env.method.to_s.upcase} #{env.url}" if scripted.http.nil?
 
       reply = scripted.reply(env)
       if (kind = reply['network'])
-        error = ScriptedAlpaca::NETWORK.fetch(kind).call
+        error = ScriptedAlpaca.network(kind)
         actual = "#{error.class}: #{error.message}" # what Client.network_failure reports
         raise Harness::Unscripted, "#{kind}: the script says #{reply['message'].inspect}, Ruby says #{actual.inspect}" unless actual == reply['message']
 
@@ -118,37 +127,44 @@ module ScriptedAlpaca
   end
 end
 
-# Binance is scripted like Alpaca, at the Faraday adapter beneath Honeymaker::Clients::Binance, so honeymaker's own
-# signing, middleware (json, raise_error), #with_rescue and Exchanges::Binance's parsing all run. A request is named
-# "METHOD path"; the order Rails POSTs is recorded as its query, without the timestamp and signature that change per send.
-module ScriptedBinance
-  mattr_accessor :http, :sent
+# A venue scripted like Alpaca, at the Faraday adapter beneath its honeymaker client, so honeymaker's own signing, middleware
+# (json, raise_error), #with_rescue and the Exchange's parsing all run. A request is named "METHOD path"; one scripted with
+# its query ("GET /api/v3/ticker/bookTicker?symbol=ETHUSDT") is answered first: a basket prices each member (signed calls
+# carry a timestamp, so they only ever match their bare key). The order Rails sends to `order` is recorded as its query
+# (`body: :query`) or its JSON body, without the fields that change per send (`strip`: a timestamp and signature, or the
+# client order id Rails draws fresh while Rust sends the intent id).
+class ScriptedVenue
+  attr_accessor :http, :sent
+  attr_reader :host, :name, :order
 
-  def self.reply(env)
+  def initialize(host:, name:, order:, body:, strip:)
+    @host, @name, @order, @body, @strip = host, name, order, body, strip
+  end
+
+  def reply(env)
     key = "#{env.method.to_s.upcase} #{env.url.path}"
-    sent << Rack::Utils.parse_query(env.url.query).except('timestamp', 'signature') if key == 'POST /api/v3/order'
-    # A call scripted with its query ("GET /api/v3/ticker/bookTicker?symbol=ETHUSDT") is answered first: a basket prices
-    # each member. Signed calls carry a timestamp, so they only ever match their bare key.
+    sent << (@body == :query ? Rack::Utils.parse_query(env.url.query) : JSON.parse(env.request_body)).except(*@strip) if key == order
     keyed = "#{key}?#{Rack::Utils.parse_query(env.url.query).map { |k, v| "#{k}=#{v}" }.sort.join('&')}" if env.url.query
-    queue = (keyed && http[keyed]) || http[key] or raise Harness::Unscripted, "unscripted Binance call #{key}"
+    queue = (keyed && http[keyed]) || http[key] or raise Harness::Unscripted, "unscripted #{name} call #{key}"
     queue.size > 1 ? queue.shift : queue.first
   end
 end
 
-# KuCoin is scripted like Binance, at the Faraday adapter beneath Honeymaker::Clients::Kucoin, so its signing, middleware,
-# #with_rescue and Exchanges::Kucoin's parsing all run. The order Rails POSTs is recorded as its JSON body, without the
-# clientOid (Rails draws a fresh UUID; Rust sends the intent id).
-module ScriptedKucoin
-  mattr_accessor :http, :sent
-
-  def self.reply(env)
-    key = "#{env.method.to_s.upcase} #{env.url.path}"
-    sent << JSON.parse(env.request_body).except('clientOid') if key == 'POST /api/v1/orders'
-    keyed = "#{key}?#{Rack::Utils.parse_query(env.url.query).map { |k, v| "#{k}=#{v}" }.sort.join('&')}" if env.url.query
-    queue = (keyed && http[keyed]) || http[key] or raise Harness::Unscripted, "unscripted KuCoin call #{key}"
-    queue.size > 1 ? queue.shift : queue.first
-  end
+# The venues scripted beneath honeymaker (plan VB §1.8), one row each: its scripted host, the exchange row and BTC pair a
+# scenario builds (as the venue's #get_tickers_info stores it), the quote asset, the key's passphrase, and the reply that
+# never reached it. A venue slice adds its row here; its grids' bodies stay the grid's own.
+VenueRow = Struct.new(:scripted, :exchange, :name, :ticker, :quote, :passphrase, :pre_send, keyword_init: true) do
+  # The scripted reply to a request that never left: Client.network_failure's text for a refused connection.
+  def not_sent = { 'network' => pre_send || "pre_send:#{scripted.host}",
+                   'message' => "Faraday::ConnectionFailed: Connection refused - connect(2) for \"#{scripted.host}\" port 443" }
 end
+TETHER = %w[tether USDT Tether Cryptocurrency].freeze
+VENUES = {
+  'binance' => VenueRow.new(scripted: ScriptedVenue.new(host: 'api.binance.com', name: 'Binance', order: 'POST /api/v3/order', body: :query, strip: %w[timestamp signature]),
+                            exchange: 'Exchanges::Binance', name: 'Binance', ticker: 'BTCUSDT', quote: TETHER, passphrase: nil, pre_send: 'binance_pre_send'),
+  'kucoin' => VenueRow.new(scripted: ScriptedVenue.new(host: 'api.kucoin.com', name: 'KuCoin', order: 'POST /api/v1/orders', body: :json, strip: %w[clientOid]),
+                           exchange: 'Exchanges::Kucoin', name: 'KuCoin', ticker: 'BTC-USDT', quote: TETHER, passphrase: 'p', pre_send: 'kucoin_pre_send')
+}.freeze
 
 module Decisions
   extend ActiveSupport::Testing::TimeHelpers
@@ -216,26 +232,15 @@ module Decisions
     [alpaca, btc, usd, ticker, 'paper']
   end
 
-  # As Exchanges::Binance#get_tickers_info stores BTCUSDT (LOT_SIZE, NOTIONAL, quoteAssetPrecision, PRICE_FILTER).
-  def binance_venue(sc)
-    binance = Exchanges::Binance.create!(name: 'Binance', maker_fee: '0.1', taker_fee: '0.1')
+  # A VENUES row's exchange, BTC and its quote listed, and the BTC pair as `sc['ticker']` gives its precisions.
+  def venue_row(row, sc)
+    exchange = row.exchange.constantize.create!(name: row.name, maker_fee: '0.1', taker_fee: '0.1')
     btc = Asset.create!(external_id: 'bitcoin', symbol: 'BTC', name: 'Bitcoin', category: 'Cryptocurrency')
-    usdt = Asset.create!(external_id: 'tether', symbol: 'USDT', name: 'Tether', category: 'Cryptocurrency')
-    [btc, usdt].each { |a| ExchangeAsset.create!(exchange: binance, asset: a, available: true) }
-    ticker = Ticker.create!(exchange: binance, ticker: 'BTCUSDT', base: 'BTC', quote: 'USDT', base_asset: btc, quote_asset: usdt,
-                            **sc['ticker'].symbolize_keys)
-    [binance, btc, usdt, ticker, nil]
-  end
-
-  # As Exchanges::Kucoin#get_tickers_info stores BTC-USDT (baseMinSize, quoteMinSize, the increments' decimals).
-  def kucoin_venue(sc)
-    kucoin = Exchanges::Kucoin.create!(name: 'KuCoin', maker_fee: '0.1', taker_fee: '0.1')
-    btc = Asset.create!(external_id: 'bitcoin', symbol: 'BTC', name: 'Bitcoin', category: 'Cryptocurrency')
-    usdt = Asset.create!(external_id: 'tether', symbol: 'USDT', name: 'Tether', category: 'Cryptocurrency')
-    [btc, usdt].each { |a| ExchangeAsset.create!(exchange: kucoin, asset: a, available: true) }
-    ticker = Ticker.create!(exchange: kucoin, ticker: 'BTC-USDT', base: 'BTC', quote: 'USDT', base_asset: btc, quote_asset: usdt,
-                            **sc['ticker'].symbolize_keys)
-    [kucoin, btc, usdt, ticker, 'p']
+    external_id, symbol, name, category = row.quote
+    quote = Asset.create!(external_id:, symbol:, name:, category:)
+    [btc, quote].each { |a| ExchangeAsset.create!(exchange:, asset: a, available: true) }
+    ticker = Ticker.create!(exchange:, ticker: row.ticker, base: 'BTC', quote: symbol, base_asset: btc, quote_asset: quote, **sc['ticker'].symbolize_keys)
+    [exchange, btc, quote, ticker, row.passphrase]
   end
 
   # The other venue a merge brought rows from (Bot::Merge): a row marked `foreign` was placed there.
@@ -249,8 +254,7 @@ module Decisions
     user.save!(validate: false)
     exchange, btc, quote, ticker, passphrase = case sc['venue']
                                                when 'alpaca' then alpaca_venue(sc)
-                                               when 'binance' then binance_venue(sc)
-                                               when 'kucoin' then kucoin_venue(sc)
+                                               when *VENUES.keys then venue_row(VENUES.fetch(sc['venue']), sc)
                                                else kraken_venue(sc)
                                                end
     # A basket's other members, created after BTC so that a one-asset scenario's ids are what they were.
@@ -1659,15 +1663,15 @@ module Decisions
     case venue
     when 'kraken'
       shared.merge('invalid_key' => ok('error' => ['EAPI:Invalid key']),
-                   'not_sent' => { 'network' => 'kraken_pre_send', 'message' => 'Faraday::ConnectionFailed: Connection refused - connect(2) for "api.kraken.com" port 443' },
+                   'not_sent' => KRAKEN_NOT_SENT,
                    '5xx' => { 'status' => 503, 'body' => { 'error' => ['EService:Unavailable'] } })
     when 'kucoin'
       shared.merge('invalid_key' => { 'status' => 400, 'body' => { 'code' => '400003', 'msg' => 'KC-API-KEY not exists' } },
-                   'not_sent' => { 'network' => 'kucoin_pre_send', 'message' => 'Faraday::ConnectionFailed: Connection refused - connect(2) for "api.kucoin.com" port 443' },
+                   'not_sent' => VENUES.fetch('kucoin').not_sent,
                    '5xx' => { 'status' => 503, 'body' => { 'code' => '500000', 'msg' => 'Internal Server Error' } })
     else
       shared.merge('invalid_key' => { 'status' => 400, 'body' => { 'code' => -2015, 'msg' => 'Invalid API-key, IP, or permissions for action.' } },
-                   'not_sent' => { 'network' => 'binance_pre_send', 'message' => 'Faraday::ConnectionFailed: Connection refused - connect(2) for "api.binance.com" port 443' },
+                   'not_sent' => VENUES.fetch('binance').not_sent,
                    '5xx' => { 'status' => 502, 'body' => { 'code' => -1001, 'msg' => 'Internal error; unable to process your request. Please try again.' } })
     end
   end
@@ -2051,11 +2055,8 @@ module Decisions
   CB_SCRIPT = { 'kraken' => 'kraken_http', 'binance' => 'binance', 'kucoin' => 'kucoin' }.freeze
   # Kraken's own codes in BalanceEx (the gem maps XXBT to XBT, XETH to ETH and ZEUR to EUR) and its bulk Ticker's key for BTC.
   CB_BALANCE_CODE = { 'kraken' => { 'BTC' => 'XXBT', 'ETH' => 'XETH', 'SOL' => 'SOL', 'EUR' => 'ZEUR' } }.freeze
-  CB_NOT_SENT = {
-    'kraken' => { 'network' => 'kraken_pre_send', 'message' => 'Faraday::ConnectionFailed: Connection refused - connect(2) for "api.kraken.com" port 443' },
-    'binance' => { 'network' => 'binance_pre_send', 'message' => 'Faraday::ConnectionFailed: Connection refused - connect(2) for "api.binance.com" port 443' },
-    'kucoin' => { 'network' => 'kucoin_pre_send', 'message' => 'Faraday::ConnectionFailed: Connection refused - connect(2) for "api.kucoin.com" port 443' }
-  }.freeze
+  KRAKEN_NOT_SENT = { 'network' => 'kraken_pre_send', 'message' => 'Faraday::ConnectionFailed: Connection refused - connect(2) for "api.kraken.com" port 443' }.freeze
+  CB_NOT_SENT = { 'kraken' => KRAKEN_NOT_SENT }.merge(VENUES.transform_values(&:not_sent)).freeze
   CB_QUOTE = { 'kraken' => 'EUR', 'binance' => 'USDT', 'kucoin' => 'USDT' }.freeze
 
   def cb_pair(venue, sym) = VENUE_TICKER.fetch(venue).fetch(sym)
@@ -2122,7 +2123,7 @@ module Decisions
     end
   end
 
-  def cb_place_key(venue) = { 'kraken' => 'POST /0/private/AddOrder', 'binance' => 'POST /api/v3/order', 'kucoin' => 'POST /api/v1/orders' }.fetch(venue)
+  def cb_place_key(venue) = venue == 'kraken' ? 'POST /0/private/AddOrder' : VENUES.fetch(venue).scripted.order
 
   # A refusal of the placement as each venue words one.
   def cb_rejected(venue)
@@ -2570,8 +2571,7 @@ module Decisions
         'add_timeout_after_send' => { 'at' => after.(1), 'http' => { 'POST /api/v3/order' => [POST_SEND] } },
         'add_no_order_id' => { 'at' => after.(1), 'http' => { 'POST /api/v3/order' => [ok('symbol' => 'BTCUSDT')] } },
         'add_unreadable' => { 'at' => after.(1), 'http' => { 'POST /api/v3/order' => [{ 'status' => 200, 'body' => '<html>upstream</html>' }] } },
-        'add_network_pre_send' => { 'at' => after.(1), 'http' => { 'POST /api/v3/order' => [{ 'network' => 'binance_pre_send',
-          'message' => 'Faraday::ConnectionFailed: Connection refused - connect(2) for "api.binance.com" port 443' }] } },
+        'add_network_pre_send' => { 'at' => after.(1), 'http' => { 'POST /api/v3/order' => [VENUES.fetch('binance').not_sent] } },
         'low_funds' => { 'at' => after.(1), 'http' => { 'GET /api/v3/account' => [bn_account('1.00000000')] } },
         'zero_price' => { 'at' => after.(1), 'http' => { 'GET /api/v3/ticker/bookTicker' => [bn_book('0.00000000')], 'GET /api/v3/ticker/price' => [bn_last('0.00000000')] } },
         'no_price' => { 'at' => after.(1), 'http' => { 'GET /api/v3/ticker/bookTicker' => [bn_fail(400, -1121, 'Invalid symbol.')],
@@ -2711,8 +2711,7 @@ module Decisions
         'add_unreadable' => { 'at' => after.(1), 'http' => { 'POST /api/v1/orders' => [{ 'status' => 200, 'body' => '<html>upstream</html>' }] } },
         'add_internal_500000' => { 'at' => after.(1), 'http' => { 'POST /api/v1/orders' => [ok('code' => '500000', 'msg' => 'Internal Server Error')] } },
         'add_busy_230005' => { 'at' => after.(1), 'http' => { 'POST /api/v1/orders' => [ok('code' => '230005', 'msg' => 'The system is busy, please try again later.')] } },
-        'add_network_pre_send' => { 'at' => after.(1), 'http' => { 'POST /api/v1/orders' => [{ 'network' => 'kucoin_pre_send',
-          'message' => 'Faraday::ConnectionFailed: Connection refused - connect(2) for "api.kucoin.com" port 443' }] } },
+        'add_network_pre_send' => { 'at' => after.(1), 'http' => { 'POST /api/v1/orders' => [VENUES.fetch('kucoin').not_sent] } },
         'low_funds' => { 'at' => after.(1), 'http' => { 'GET /api/v1/accounts' => [kc_accounts('1')] } },
         'balance_refused' => { 'at' => after.(1), 'http' => { 'GET /api/v1/accounts' => [ok('code' => '400003', 'msg' => 'KC-API-KEY not exists')] } },
         'zero_price' => { 'at' => after.(1), 'http' => { 'GET /api/v1/market/orderbook/level2_20' => [kc_book('0', bid: '0')], 'GET /api/v1/market/allTickers' => [kc_tickers('0')] } },
@@ -2876,8 +2875,7 @@ module Decisions
     user.save!(validate: false)
     exchange, base, quote, _ticker, passphrase = case sc['venue']
                                                  when 'alpaca' then sc['asset'] == 'stock' ? signal_stock_venue : alpaca_venue(sc)
-                                                 when 'binance' then binance_venue(sc)
-                                                 when 'kucoin' then kucoin_venue(sc)
+                                                 when *VENUES.keys then venue_row(VENUES.fetch(sc['venue']), sc)
                                                  else kraken_venue(sc)
                                                  end
     unless sc['no_key']
@@ -2913,9 +2911,9 @@ module Decisions
   # Per venue: the ticker, the bodies a call that places reads, and the replies each case swaps in. Prices: bid / ask.
   def signal_venues
     kr_balance = ->(eur, xbt) { ok('error' => [], 'result' => { 'ZEUR' => { 'balance' => eur, 'hold_trade' => '0' }, 'XXBT' => { 'balance' => xbt, 'hold_trade' => '0' } }) }
-    kr_net = { 'network' => 'kraken_pre_send', 'message' => 'Faraday::ConnectionFailed: Connection refused - connect(2) for "api.kraken.com" port 443' }
-    bn_net = { 'network' => 'binance_pre_send', 'message' => 'Faraday::ConnectionFailed: Connection refused - connect(2) for "api.binance.com" port 443' }
-    kc_net = { 'network' => 'kucoin_pre_send', 'message' => 'Faraday::ConnectionFailed: Connection refused - connect(2) for "api.kucoin.com" port 443' }
+    kr_net = KRAKEN_NOT_SENT
+    bn_net = VENUES.fetch('binance').not_sent
+    kc_net = VENUES.fetch('kucoin').not_sent
     bn_holding = ->(usdt, btc) { ok('makerCommission' => 10, 'canTrade' => true, 'balances' => [{ 'asset' => 'BTC', 'free' => btc, 'locked' => '0' }, { 'asset' => 'USDT', 'free' => usdt, 'locked' => '0' }]) }
     kc_holding = ->(usdt, btc) { kc_ok([{ 'id' => 'a1', 'currency' => 'BTC', 'type' => 'trade', 'balance' => btc, 'available' => btc, 'holds' => '0' },
                                         { 'id' => 'a2', 'currency' => 'USDT', 'type' => 'trade', 'balance' => usdt, 'available' => usdt, 'holds' => '0' }]) }
@@ -3180,18 +3178,17 @@ module Decisions
       Rails.cache.clear # Exchanges::Kraken caches prices by exchange/ticker id, which every scenario shares
       ActiveJob::Base.queue_adapter.enqueued_jobs.clear
       alpaca = sc['venue'] == 'alpaca'
-      binance = sc['venue'] == 'binance'
-      kucoin = sc['venue'] == 'kucoin'
-      ScriptedKraken.http = alpaca || binance || kucoin ? {} : sc['script']['http']&.transform_values(&:dup)
+      honeymaker = VENUES[sc['venue']] # a venue scripted beneath honeymaker (Binance, KuCoin, ...)
+      ScriptedKraken.http = alpaca || honeymaker ? {} : sc['script']['http']&.transform_values(&:dup)
       ScriptedKraken.sent = []
       ScriptedKrakenHttp.http = sc['script']['kraken_http']&.transform_values(&:dup)
       ScriptedKrakenHttp.sent = []
       ScriptedAlpaca.http = alpaca ? sc['script']['alpaca'].transform_values(&:dup) : {} # {}: any Alpaca call in a Kraken scenario is unscripted
       ScriptedAlpaca.sent = []
-      ScriptedBinance.http = binance ? sc['script']['binance'].transform_values(&:dup) : {}
-      ScriptedBinance.sent = []
-      ScriptedKucoin.http = kucoin ? sc['script']['kucoin'].transform_values(&:dup) : {}
-      ScriptedKucoin.sent = []
+      VENUES.each do |key, row|
+        row.scripted.http = key == sc['venue'] ? sc['script'][key].transform_values(&:dup) : {}
+        row.scripted.sent = []
+      end
       before = snapshot
       markers = Bot.find(sc['bot_id']).transient_data.slice(*MAIL_MARKERS)
       mails = []
@@ -3256,7 +3253,7 @@ module Decisions
         rescue StandardError => e
           # A Kraken scenario must not fail its poll, except a listed unreadable-number divergence (honeymaker's strict
           # BigDecimal() raises on "garbage"): that raise is Rails' answer, recorded for rust/tests/parity.rs.
-          raise unless alpaca || binance || kucoin || File.basename(dir).include?('-unreadable_')
+          raise unless alpaca || honeymaker || File.basename(dir).include?('-unreadable_')
 
           poll_error = e.message # the job raised (a retry_on error is enqueued instead, and does not land here)
         end
@@ -3284,15 +3281,15 @@ module Decisions
         settle.(Time.iso8601(time))
       end
       mails.concat(enqueued_mails)
-      sent = if alpaca then ScriptedAlpaca.sent elsif binance then ScriptedBinance.sent elsif kucoin then ScriptedKucoin.sent
+      sent = if alpaca then ScriptedAlpaca.sent elsif honeymaker then honeymaker.scripted.sent
              elsif ScriptedKrakenHttp.http then ScriptedKrakenHttp.sent else ScriptedKraken.sent end
       out = { 'sent' => sent, 'changes' => diff(before, snapshot), 'mails' => mails.sort_by { |m| m['mail'] } }
       out['checks'] = checks if sc['conditions']
       # Only where the scenario seeded the Rust engine's markers: what Rails left of them.
       out['markers'] = Bot.find(sc['bot_id']).transient_data.slice(*MAIL_MARKERS) if markers.any?
       # Alpaca only: the funds notification (its column is excluded from the snapshot) and the follow-up's raise.
-      out.merge!('funds_notified' => Bot.find(sc['bot_id']).last_end_of_funds_notification.present?, 'poll_error' => poll_error) if alpaca || binance || kucoin
-      out['poll_error'] = poll_error if !alpaca && !binance && !kucoin && poll_error
+      out.merge!('funds_notified' => Bot.find(sc['bot_id']).last_end_of_funds_notification.present?, 'poll_error' => poll_error) if alpaca || honeymaker
+      out['poll_error'] = poll_error if !alpaca && !honeymaker && poll_error
       File.write(File.join(dir, 'rails.json'), JSON.pretty_generate(out))
       travel_back
       ActiveRecord::Base.connection_pool.disconnect!

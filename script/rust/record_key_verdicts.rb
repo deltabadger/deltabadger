@@ -1,4 +1,5 @@
-# Records how Rails judges a Kraken, Binance, Binance.US or KuCoin API key, for the Rust key step (P2-T6).
+# Records how Rails judges an API key on each venue of VENUE_CASES (Kraken, Binance, Binance.US, KuCoin), for the Rust key
+# step (P2-T6).
 #   bin/rails runner script/rust/record_key_verdicts.rb rust/tests/fixtures/key_verdicts.json
 # Each case scripts the venue's HTTP answer at the Faraday adapter (nothing leaves the machine; any real connection
 # raises) and records the request Rails sent (signature, nonce and timestamp left out), the answer, Rails' verdict and,
@@ -108,38 +109,6 @@ record = lambda do |exchange, key_type, method, name, answer|
   row
 end
 
-# Kraken: GetApiKeyInfo's permission list against KEY_PERMISSIONS[key_type].
-kraken = Exchanges::Kraken.new(name: 'Kraken')
-kraken_ok = ->(perms) { json.(200, { 'error' => [], 'result' => { 'apiKeyName' => 'k', 'permissions' => perms } }) }
-kraken_err = ->(errors) { json.(200, { 'error' => errors }) }
-kraken_rows = []
-[[:trading, :get_api_key_validity], [:withdrawal, :get_api_key_validity],
- [:read_only, :get_api_key_validity], [:read_only, :get_read_api_key_validity]].each do |key_type, method|
-  rules = Exchanges::Kraken::KEY_PERMISSIONS.fetch(key_type)
-  required, forbidden = rules[:required], rules[:forbidden]
-  cases = {
-    'correct' => kraken_ok.(required),
-    'correct_shuffled_with_unlisted_flags' => kraken_ok.(required.reverse + %w[export-data create-ws-token earn-funds]),
-    'no_permissions' => kraken_ok.([]),
-    'all_forbidden_and_none_required' => kraken_ok.(forbidden),
-    'missing_and_forbidden' => kraken_ok.(required.drop(1) + forbidden),
-    'permissions_not_a_list' => kraken_ok.('query-funds'),
-    'no_result' => json.(200, { 'error' => [] }),
-    'result_without_permissions' => json.(200, { 'error' => [], 'result' => { 'apiKeyName' => 'k' } })
-  }
-  required.each { |p| cases["missing_#{p}"] = kraken_ok.(required - [p]) }
-  forbidden.each { |p| cases["forbidden_#{p}"] = kraken_ok.(required + [p]) }
-  Exchanges::Kraken::ERRORS[:invalid_key].each { |e| cases["invalid_key #{e}"] = kraken_err.([e]) }
-  cases['invalid_key_among_others'] = kraken_err.(['EGeneral:Internal error', 'EAPI:Invalid key'])
-  ['EGeneral:Permission denied', 'EAPI:Rate limit exceeded', 'EGeneral:Temporary lockout', 'EService:Unavailable',
-   'EAPI:Invalid nonce', 'EAPI:Invalid key:extra'].each { |e| cases["error #{e}"] = kraken_err.([e]) }
-  cases['http_500_json_invalid_key'] = json.(500, { 'error' => ['EAPI:Invalid key'] })
-  cases.merge!(transport)
-  cases.each { |name, answer| kraken_rows << record.(kraken, key_type, method, name, answer) }
-end
-out['kraken'] = { 'key_permissions' => Exchanges::Kraken::KEY_PERMISSIONS.deep_stringify_keys,
-                  'invalid_key_errors' => Exchanges::Kraken::ERRORS[:invalid_key], 'cases' => kraken_rows }
-
 # Binance: the apiRestrictions flags.
 FLAGS = %w[ipRestrict enableFixApiTrade enableFixReadOnly enableFutures enableInternalTransfer enableMargin
            enablePortfolioMarginTrading enableReading enableSpotAndMarginTrading enableVanillaOptions enableWithdrawals
@@ -153,126 +122,167 @@ base_flags = lambda do |withdrawal|
 end
 binance_err = ->(status, code, msg) { json.(status, { 'code' => code, 'msg' => msg }) }
 
-[['binance', Exchanges::Binance.new(name: 'Binance')]].each do |id, exchange|
-  rows = []
-  [[:trading, :get_api_key_validity], [:withdrawal, :get_api_key_validity],
-   [:read_only, :get_api_key_validity], [:read_only, :get_read_api_key_validity]].each do |key_type, method|
-    good = base_flags.(key_type == :withdrawal)
-    cases = { 'correct' => json.(200, good), 'empty_object' => json.(200, {}) }
-    FLAGS.each do |flag|
-      cases["#{flag}_flipped"] = json.(200, good.merge(flag => !good[flag]))
-      cases["#{flag}_absent"] = json.(200, good.except(flag))
-      cases["#{flag}_null"] = json.(200, good.merge(flag => nil))
-      cases["#{flag}_string"] = json.(200, good.merge(flag => good[flag].to_s))
+# One entry per venue: its key checks over every case, each row the request sequence Rails sent (retries included) and its
+# verdict, per key type (plan VB §1.6, §1.8). A venue slice adds its entry; the shared answers above apply to every venue.
+VENUE_CASES = {
+  # Kraken: GetApiKeyInfo's permission list against KEY_PERMISSIONS[key_type].
+  'kraken' => lambda do
+    kraken = Exchanges::Kraken.new(name: 'Kraken')
+    kraken_ok = ->(perms) { json.(200, { 'error' => [], 'result' => { 'apiKeyName' => 'k', 'permissions' => perms } }) }
+    kraken_err = ->(errors) { json.(200, { 'error' => errors }) }
+    kraken_rows = []
+    [[:trading, :get_api_key_validity], [:withdrawal, :get_api_key_validity],
+     [:read_only, :get_api_key_validity], [:read_only, :get_read_api_key_validity]].each do |key_type, method|
+      rules = Exchanges::Kraken::KEY_PERMISSIONS.fetch(key_type)
+      required, forbidden = rules[:required], rules[:forbidden]
+      cases = {
+        'correct' => kraken_ok.(required),
+        'correct_shuffled_with_unlisted_flags' => kraken_ok.(required.reverse + %w[export-data create-ws-token earn-funds]),
+        'no_permissions' => kraken_ok.([]),
+        'all_forbidden_and_none_required' => kraken_ok.(forbidden),
+        'missing_and_forbidden' => kraken_ok.(required.drop(1) + forbidden),
+        'permissions_not_a_list' => kraken_ok.('query-funds'),
+        'no_result' => json.(200, { 'error' => [] }),
+        'result_without_permissions' => json.(200, { 'error' => [], 'result' => { 'apiKeyName' => 'k' } })
+      }
+      required.each { |p| cases["missing_#{p}"] = kraken_ok.(required - [p]) }
+      forbidden.each { |p| cases["forbidden_#{p}"] = kraken_ok.(required + [p]) }
+      Exchanges::Kraken::ERRORS[:invalid_key].each { |e| cases["invalid_key #{e}"] = kraken_err.([e]) }
+      cases['invalid_key_among_others'] = kraken_err.(['EGeneral:Internal error', 'EAPI:Invalid key'])
+      ['EGeneral:Permission denied', 'EAPI:Rate limit exceeded', 'EGeneral:Temporary lockout', 'EService:Unavailable',
+       'EAPI:Invalid nonce', 'EAPI:Invalid key:extra'].each { |e| cases["error #{e}"] = kraken_err.([e]) }
+      cases['http_500_json_invalid_key'] = json.(500, { 'error' => ['EAPI:Invalid key'] })
+      cases.merge!(transport)
+      cases.each { |name, answer| kraken_rows << record.(kraken, key_type, method, name, answer) }
     end
-    cases['ipRestrict_false_otherwise_correct'] = json.(200, good.merge('ipRestrict' => false))
-    cases['all_permissions_on'] = json.(200, FLAGS.to_h { |f| [f, true] })
-    cases['trading_and_withdrawals_on'] = json.(200, good.merge('enableSpotAndMarginTrading' => true, 'enableWithdrawals' => true))
-    cases['reading_only'] = json.(200, good.merge('enableSpotAndMarginTrading' => false, 'enableWithdrawals' => false))
-    Exchanges::Binance::ERROR_CODES[:invalid_key].each do |code|
-      cases["invalid_key #{code} http_401"] = binance_err.(401, code, 'Invalid API-key, IP, or permissions for action.')
-      cases["invalid_key #{code} http_400"] = binance_err.(400, code, 'API-key format invalid.')
-      cases["invalid_key #{code} as_string"] = binance_err.(401, code.to_s, 'Invalid API-key, IP, or permissions for action.')
+    { 'key_permissions' => Exchanges::Kraken::KEY_PERMISSIONS.deep_stringify_keys,
+      'invalid_key_errors' => Exchanges::Kraken::ERRORS[:invalid_key], 'cases' => kraken_rows }
+  end,
+  'binance' => lambda do
+    exchange = Exchanges::Binance.new(name: 'Binance')
+    rows = []
+    [[:trading, :get_api_key_validity], [:withdrawal, :get_api_key_validity],
+     [:read_only, :get_api_key_validity], [:read_only, :get_read_api_key_validity]].each do |key_type, method|
+      good = base_flags.(key_type == :withdrawal)
+      cases = { 'correct' => json.(200, good), 'empty_object' => json.(200, {}) }
+      FLAGS.each do |flag|
+        cases["#{flag}_flipped"] = json.(200, good.merge(flag => !good[flag]))
+        cases["#{flag}_absent"] = json.(200, good.except(flag))
+        cases["#{flag}_null"] = json.(200, good.merge(flag => nil))
+        cases["#{flag}_string"] = json.(200, good.merge(flag => good[flag].to_s))
+      end
+      cases['ipRestrict_false_otherwise_correct'] = json.(200, good.merge('ipRestrict' => false))
+      cases['all_permissions_on'] = json.(200, FLAGS.to_h { |f| [f, true] })
+      cases['trading_and_withdrawals_on'] = json.(200, good.merge('enableSpotAndMarginTrading' => true, 'enableWithdrawals' => true))
+      cases['reading_only'] = json.(200, good.merge('enableSpotAndMarginTrading' => false, 'enableWithdrawals' => false))
+      Exchanges::Binance::ERROR_CODES[:invalid_key].each do |code|
+        cases["invalid_key #{code} http_401"] = binance_err.(401, code, 'Invalid API-key, IP, or permissions for action.')
+        cases["invalid_key #{code} http_400"] = binance_err.(400, code, 'API-key format invalid.')
+        cases["invalid_key #{code} as_string"] = binance_err.(401, code.to_s, 'Invalid API-key, IP, or permissions for action.')
+      end
+      cases['signature_invalid -1022'] = binance_err.(400, -1022, 'Signature for this request is not valid.')
+      cases['timestamp -1021'] = binance_err.(400, -1021, 'Timestamp for this request is outside of the recvWindow.')
+      cases['ip_banned -1003 http_418'] = binance_err.(418, -1003, 'Way too many requests; IP banned.')
+      cases['unknown -1000 http_500'] = binance_err.(500, -1000, 'An unknown error occurred while processing the request.')
+      cases['invalid_key_message_without_code'] = json.(401, { 'msg' => 'Invalid API-key, IP, or permissions for action.' })
+      cases['http_200_error_envelope'] = binance_err.(200, -2015, 'Invalid API-key, IP, or permissions for action.')
+      cases.merge!(transport)
+      cases.each { |name, answer| rows << record.(exchange, key_type, method, name, answer) }
     end
-    cases['signature_invalid -1022'] = binance_err.(400, -1022, 'Signature for this request is not valid.')
-    cases['timestamp -1021'] = binance_err.(400, -1021, 'Timestamp for this request is outside of the recvWindow.')
-    cases['ip_banned -1003 http_418'] = binance_err.(418, -1003, 'Way too many requests; IP banned.')
-    cases['unknown -1000 http_500'] = binance_err.(500, -1000, 'An unknown error occurred while processing the request.')
-    cases['invalid_key_message_without_code'] = json.(401, { 'msg' => 'Invalid API-key, IP, or permissions for action.' })
-    cases['http_200_error_envelope'] = binance_err.(200, -2015, 'Invalid API-key, IP, or permissions for action.')
-    cases.merge!(transport)
-    cases.each { |name, answer| rows << record.(exchange, key_type, method, name, answer) }
+    { 'invalid_key_codes' => Exchanges::Binance::ERROR_CODES[:invalid_key], 'cases' => rows }
+  end,
+  # Binance.US: no apiRestrictions there, so a signed account read, then (for the trading check) a cancel of an order
+  # that cannot exist: -2011 (unknown order) means the key may trade.
+  'binance_us' => lambda do
+    us = Exchanges::BinanceUs.new(name: 'Binance.US')
+    account_ok = json.(200, { 'makerCommission' => 10, 'takerCommission' => 10, 'canTrade' => true, 'canWithdraw' => true,
+                              'canDeposit' => true, 'accountType' => 'SPOT', 'balances' => [], 'permissions' => ['SPOT'] })
+    invalid_key_cases = lambda do |prefix|
+      Exchanges::Binance::ERROR_CODES[:invalid_key].flat_map do |code|
+        [["#{prefix}invalid_key #{code} http_401", binance_err.(401, code, 'Invalid API-key, IP, or permissions for action.')],
+         ["#{prefix}invalid_key #{code} http_400", binance_err.(400, code, 'API-key format invalid.')],
+         ["#{prefix}invalid_key #{code} as_string", binance_err.(401, code.to_s, 'Invalid API-key, IP, or permissions for action.')]]
+      end.to_h
+    end
+    other_errors = {
+      'signature_invalid -1022' => binance_err.(400, -1022, 'Signature for this request is not valid.'),
+      'timestamp -1021' => binance_err.(400, -1021, 'Timestamp for this request is outside of the recvWindow.'),
+      'ip_banned -1003 http_418' => binance_err.(418, -1003, 'Way too many requests; IP banned.'),
+      'unknown -1000 http_500' => binance_err.(500, -1000, 'An unknown error occurred while processing the request.'),
+      'invalid_key_message_without_code' => json.(401, { 'msg' => 'Invalid API-key, IP, or permissions for action.' }),
+      'http_200_error_envelope' => binance_err.(200, -2015, 'Invalid API-key, IP, or permissions for action.'),
+      'http_200_error_envelope -1022' => binance_err.(200, -1022, 'Signature for this request is not valid.'),
+      'http_200_null' => json.(200, 'null'),
+      'html_200' => { status: 200, body: '<html><body>maintenance</body></html>', content_type: 'text/html' }
+    }.merge(transport)
+    account_fails = invalid_key_cases.('account ').merge(other_errors.transform_keys { |k| "account #{k}" })
+    probe = {
+      'unknown_order -2011' => binance_err.(400, -2011, 'Unknown order sent.'),
+      'unknown_order -2011 as_string' => binance_err.(400, '-2011', 'Unknown order sent.'),
+      'cancel_succeeded' => json.(200, { 'symbol' => 'ETHBTC', 'orderId' => 9_999_999_999, 'status' => 'CANCELED' }),
+      'unknown_order -2013' => binance_err.(400, -2013, 'Order does not exist.'),
+      'insufficient_permissions -2010' => binance_err.(400, -2010, 'This action is disabled on this account.')
+    }.merge(invalid_key_cases.('')).merge(other_errors)
+    us_rows = []
+    [[:trading, :get_api_key_validity], [:withdrawal, :get_api_key_validity],
+     [:read_only, :get_api_key_validity], [:read_only, :get_read_api_key_validity]].each do |key_type, method|
+      cases = account_fails.dup
+      if method == :get_read_api_key_validity
+        cases['account_ok'] = account_ok
+      else
+        probe.each { |name, answer| cases["account_ok, probe #{name}"] = [account_ok, answer] }
+      end
+      cases.each { |name, answer| us_rows << record.(us, key_type, method, name, answer) }
+    end
+    { 'invalid_key_codes' => Exchanges::Binance::ERROR_CODES[:invalid_key],
+      'trade_probe' => Exchanges::BinanceUs::TRADE_PROBE.stringify_keys, 'cases' => us_rows }
+  end,
+  # KuCoin: the trading key cancels an order that cannot exist, a withdrawal key reads its trade accounts; the verdict is
+  # the envelope's code (KEY_CHECK_REJECTED, KEY_CHECK_INCONCLUSIVE, lenient for any other code on the trading probe).
+  'kucoin' => lambda do
+    kucoin = Exchanges::Kucoin.new(name: 'KuCoin')
+    kc = ->(status, code, msg) { json.(status, { 'code' => code, 'msg' => msg }) }
+    kucoin_rows = []
+    [[:trading, :get_api_key_validity], [:withdrawal, :get_api_key_validity]].each do |key_type, method|
+      cases = { 'ok' => json.(200, { 'code' => '200000', 'data' => key_type == :trading ? { 'cancelledOrderIds' => [] } : [] }),
+                'ok_numeric_code' => json.(200, { 'code' => 200_000, 'data' => [] }),
+                'no_code' => json.(200, { 'data' => [] }) }
+      Exchanges::Kucoin::KEY_CHECK_REJECTED.each do |code|
+        cases["rejected #{code} http_400"] = kc.(400, code, 'Access Denied')
+        cases["rejected #{code} http_200"] = kc.(200, code, 'refused')
+      end
+      Exchanges::Kucoin::KEY_CHECK_INCONCLUSIVE.each { |code| cases["inconclusive #{code}"] = kc.(code == '429000' ? 429 : 400, code, 'not now') }
+      Exchanges::Kucoin::ERRORS[:invalid_key].each { |m| cases["invalid_key message #{m}"] = kc.(401, '400999', m) }
+      cases['other code 400100'] = kc.(400, '400100', 'order not exist.')
+      cases['other code 400100 http_200'] = kc.(200, '400100', 'order_not_exist_or_not_allow_to_cancel')
+      cases.merge!(transport)
+      cases.each { |name, answer| kucoin_rows << record.(kucoin, key_type, method, name, answer) }
+    end
+    # A reading key reads its trade accounts (Exchange#get_read_api_key_validity -> Exchanges::Kucoin#get_balances): balances only
+    # under the success code with data; any other answer is a failure, and incorrect where the venue's invalid_key words condemn it.
+    read_cases = { 'ok' => json.(200, { 'code' => '200000', 'data' => [] }), 'ok_numeric_code' => json.(200, { 'code' => 200_000, 'data' => [] }),
+                   'ok_no_data' => json.(200, { 'code' => '200000' }), 'no_code' => json.(200, { 'data' => [] }),
+                   'ok_balance' => json.(200, { 'code' => '200000', 'data' => [{ 'currency' => 'BTC', 'available' => '1', 'holds' => '0' }] }),
+                   'ok_empty_object' => json.(200, { 'code' => '200000', 'data' => {} }) }
+    # Balances #get_balances cannot walk (it reads each one's currency first): Rails raises.
+    { 'data_false' => false, 'data_string' => 'balances', 'data_null_item' => [nil], 'data_without_currency' => [{ 'available' => '1' }],
+      'data_object' => { 'currency' => 'BTC' } }.each { |name, data| read_cases[name] = json.(200, { 'code' => '200000', 'data' => data }) }
+    Exchanges::Kucoin::KEY_CHECK_REJECTED.each do |code|
+      read_cases["rejected #{code} http_401"] = kc.(401, code, 'refused')
+      read_cases["rejected #{code} http_200"] = kc.(200, code, 'refused')
+    end
+    Exchanges::Kucoin::ERRORS[:invalid_key].each do |m|
+      read_cases["invalid_key message #{m}"] = kc.(401, '400999', m)
+      read_cases["invalid_key message #{m} http_200"] = kc.(200, '400999', m)
+    end
+    Exchanges::Kucoin::KEY_CHECK_INCONCLUSIVE.each { |code| read_cases["inconclusive #{code}"] = kc.(code == '429000' ? 429 : 400, code, 'not now') }
+    read_cases.merge!(transport.except('malformed_json', 'empty_json_body', 'plain_text_200')) # Rails raises on a body that is not a Hash
+    read_cases.each { |name, answer| kucoin_rows << record.(kucoin, :read_only, :get_read_api_key_validity, name, answer) }
+    { 'rejected_codes' => Exchanges::Kucoin::KEY_CHECK_REJECTED, 'inconclusive_codes' => Exchanges::Kucoin::KEY_CHECK_INCONCLUSIVE,
+      'invalid_key_errors' => Exchanges::Kucoin::ERRORS[:invalid_key], 'cases' => kucoin_rows }
   end
-  out[id] = { 'invalid_key_codes' => Exchanges::Binance::ERROR_CODES[:invalid_key], 'cases' => rows }
-end
-
-# Binance.US: no apiRestrictions there, so a signed account read, then (for the trading check) a cancel of an order
-# that cannot exist: -2011 (unknown order) means the key may trade.
-us = Exchanges::BinanceUs.new(name: 'Binance.US')
-account_ok = json.(200, { 'makerCommission' => 10, 'takerCommission' => 10, 'canTrade' => true, 'canWithdraw' => true,
-                          'canDeposit' => true, 'accountType' => 'SPOT', 'balances' => [], 'permissions' => ['SPOT'] })
-invalid_key_cases = lambda do |prefix|
-  Exchanges::Binance::ERROR_CODES[:invalid_key].flat_map do |code|
-    [["#{prefix}invalid_key #{code} http_401", binance_err.(401, code, 'Invalid API-key, IP, or permissions for action.')],
-     ["#{prefix}invalid_key #{code} http_400", binance_err.(400, code, 'API-key format invalid.')],
-     ["#{prefix}invalid_key #{code} as_string", binance_err.(401, code.to_s, 'Invalid API-key, IP, or permissions for action.')]]
-  end.to_h
-end
-other_errors = {
-  'signature_invalid -1022' => binance_err.(400, -1022, 'Signature for this request is not valid.'),
-  'timestamp -1021' => binance_err.(400, -1021, 'Timestamp for this request is outside of the recvWindow.'),
-  'ip_banned -1003 http_418' => binance_err.(418, -1003, 'Way too many requests; IP banned.'),
-  'unknown -1000 http_500' => binance_err.(500, -1000, 'An unknown error occurred while processing the request.'),
-  'invalid_key_message_without_code' => json.(401, { 'msg' => 'Invalid API-key, IP, or permissions for action.' }),
-  'http_200_error_envelope' => binance_err.(200, -2015, 'Invalid API-key, IP, or permissions for action.'),
-  'http_200_error_envelope -1022' => binance_err.(200, -1022, 'Signature for this request is not valid.'),
-  'http_200_null' => json.(200, 'null'),
-  'html_200' => { status: 200, body: '<html><body>maintenance</body></html>', content_type: 'text/html' }
-}.merge(transport)
-account_fails = invalid_key_cases.('account ').merge(other_errors.transform_keys { |k| "account #{k}" })
-probe = {
-  'unknown_order -2011' => binance_err.(400, -2011, 'Unknown order sent.'),
-  'unknown_order -2011 as_string' => binance_err.(400, '-2011', 'Unknown order sent.'),
-  'cancel_succeeded' => json.(200, { 'symbol' => 'ETHBTC', 'orderId' => 9_999_999_999, 'status' => 'CANCELED' }),
-  'unknown_order -2013' => binance_err.(400, -2013, 'Order does not exist.'),
-  'insufficient_permissions -2010' => binance_err.(400, -2010, 'This action is disabled on this account.')
-}.merge(invalid_key_cases.('')).merge(other_errors)
-us_rows = []
-[[:trading, :get_api_key_validity], [:withdrawal, :get_api_key_validity],
- [:read_only, :get_api_key_validity], [:read_only, :get_read_api_key_validity]].each do |key_type, method|
-  cases = account_fails.dup
-  if method == :get_read_api_key_validity
-    cases['account_ok'] = account_ok
-  else
-    probe.each { |name, answer| cases["account_ok, probe #{name}"] = [account_ok, answer] }
-  end
-  cases.each { |name, answer| us_rows << record.(us, key_type, method, name, answer) }
-end
-out['binance_us'] = { 'invalid_key_codes' => Exchanges::Binance::ERROR_CODES[:invalid_key],
-                      'trade_probe' => Exchanges::BinanceUs::TRADE_PROBE.stringify_keys, 'cases' => us_rows }
-
-# KuCoin: the trading key cancels an order that cannot exist, a withdrawal key reads its trade accounts; the verdict is
-# the envelope's code (KEY_CHECK_REJECTED, KEY_CHECK_INCONCLUSIVE, lenient for any other code on the trading probe).
-kucoin = Exchanges::Kucoin.new(name: 'KuCoin')
-kc = ->(status, code, msg) { json.(status, { 'code' => code, 'msg' => msg }) }
-kucoin_rows = []
-[[:trading, :get_api_key_validity], [:withdrawal, :get_api_key_validity]].each do |key_type, method|
-  cases = { 'ok' => json.(200, { 'code' => '200000', 'data' => key_type == :trading ? { 'cancelledOrderIds' => [] } : [] }),
-            'ok_numeric_code' => json.(200, { 'code' => 200_000, 'data' => [] }),
-            'no_code' => json.(200, { 'data' => [] }) }
-  Exchanges::Kucoin::KEY_CHECK_REJECTED.each do |code|
-    cases["rejected #{code} http_400"] = kc.(400, code, 'Access Denied')
-    cases["rejected #{code} http_200"] = kc.(200, code, 'refused')
-  end
-  Exchanges::Kucoin::KEY_CHECK_INCONCLUSIVE.each { |code| cases["inconclusive #{code}"] = kc.(code == '429000' ? 429 : 400, code, 'not now') }
-  Exchanges::Kucoin::ERRORS[:invalid_key].each { |m| cases["invalid_key message #{m}"] = kc.(401, '400999', m) }
-  cases['other code 400100'] = kc.(400, '400100', 'order not exist.')
-  cases['other code 400100 http_200'] = kc.(200, '400100', 'order_not_exist_or_not_allow_to_cancel')
-  cases.merge!(transport)
-  cases.each { |name, answer| kucoin_rows << record.(kucoin, key_type, method, name, answer) }
-end
-# A reading key reads its trade accounts (Exchange#get_read_api_key_validity -> Exchanges::Kucoin#get_balances): balances only
-# under the success code with data; any other answer is a failure, and incorrect where the venue's invalid_key words condemn it.
-read_cases = { 'ok' => json.(200, { 'code' => '200000', 'data' => [] }), 'ok_numeric_code' => json.(200, { 'code' => 200_000, 'data' => [] }),
-               'ok_no_data' => json.(200, { 'code' => '200000' }), 'no_code' => json.(200, { 'data' => [] }),
-               'ok_balance' => json.(200, { 'code' => '200000', 'data' => [{ 'currency' => 'BTC', 'available' => '1', 'holds' => '0' }] }),
-               'ok_empty_object' => json.(200, { 'code' => '200000', 'data' => {} }) }
-# Balances #get_balances cannot walk (it reads each one's currency first): Rails raises.
-{ 'data_false' => false, 'data_string' => 'balances', 'data_null_item' => [nil], 'data_without_currency' => [{ 'available' => '1' }],
-  'data_object' => { 'currency' => 'BTC' } }.each { |name, data| read_cases[name] = json.(200, { 'code' => '200000', 'data' => data }) }
-Exchanges::Kucoin::KEY_CHECK_REJECTED.each do |code|
-  read_cases["rejected #{code} http_401"] = kc.(401, code, 'refused')
-  read_cases["rejected #{code} http_200"] = kc.(200, code, 'refused')
-end
-Exchanges::Kucoin::ERRORS[:invalid_key].each do |m|
-  read_cases["invalid_key message #{m}"] = kc.(401, '400999', m)
-  read_cases["invalid_key message #{m} http_200"] = kc.(200, '400999', m)
-end
-Exchanges::Kucoin::KEY_CHECK_INCONCLUSIVE.each { |code| read_cases["inconclusive #{code}"] = kc.(code == '429000' ? 429 : 400, code, 'not now') }
-read_cases.merge!(transport.except('malformed_json', 'empty_json_body', 'plain_text_200')) # Rails raises on a body that is not a Hash
-read_cases.each { |name, answer| kucoin_rows << record.(kucoin, :read_only, :get_read_api_key_validity, name, answer) }
-out['kucoin'] = { 'rejected_codes' => Exchanges::Kucoin::KEY_CHECK_REJECTED, 'inconclusive_codes' => Exchanges::Kucoin::KEY_CHECK_INCONCLUSIVE,
-                  'invalid_key_errors' => Exchanges::Kucoin::ERRORS[:invalid_key], 'cases' => kucoin_rows }
+}.freeze
+VENUE_CASES.each { |id, cases| out[id] = cases.call }
 
 File.write(ARGV.fetch(0), "#{JSON.pretty_generate(out)}\n")
-puts "#{ARGV[0]}: #{%w[kraken binance binance_us kucoin].sum { |k| out[k]['cases'].size }} cases"
+puts "#{ARGV[0]}: #{VENUE_CASES.keys.sum { |k| out[k]['cases'].size }} cases"

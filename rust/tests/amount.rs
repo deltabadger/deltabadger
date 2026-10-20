@@ -334,7 +334,7 @@ fn every_recorded_rails_binance_sizing_and_wire_is_reproduced() {
 }
 
 /// Exchanges::Kucoin's sizing (Bot::OrderSetter under :base_or_quote / :base_and_quote_in_base) and #set_market_order /
-/// #set_limit_order's wire, replayed through amount::size, limit_refusal and to_order (script/rust/record_kucoin_vectors.rb).
+/// #set_limit_order's wire, replayed through amount::size, limit_refusal and to_order (script/rust/record_venue_vectors.rb kucoin).
 #[test]
 fn every_recorded_rails_kucoin_sizing_and_wire_is_reproduced() {
     use deltabadger::engine::venue_rules::KUCOIN;
