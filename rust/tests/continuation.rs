@@ -51,10 +51,13 @@ fn account() -> Account {
 struct Account { fills: Vec<Value>, deposits: Vec<Value>, withdrawals: Vec<Value> }
 
 type Delay = Box<dyn Fn(usize) -> Duration>;
+type AfterUnit = Box<dyn Fn(usize)>;
 
 /// The scripted run clock: requests and units advance it as the test says.
 #[derive(Default)]
-struct Watch { at: Cell<Duration>, units: Cell<usize>, unit_delay: RefCell<Option<Delay>>, cut_at_unit: Cell<Option<usize>>, cut: tokio::sync::Notify }
+struct Watch { at: Cell<Duration>, units: Cell<usize>, unit_delay: RefCell<Option<Delay>>, cut_at_unit: Cell<Option<usize>>, cut: tokio::sync::Notify,
+               /// Called with the unit's number once it has committed (another writer committing between two pages).
+               after_unit: RefCell<Option<AfterUnit>> }
 impl Stopwatch for Watch {
     fn elapsed(&self) -> Duration { self.at.get() }
     /// A cut as the unit starts lands at its first await: the unit (already on the blocking pool) commits, the run stops.
@@ -63,6 +66,7 @@ impl Stopwatch for Watch {
         let n = self.units.get() + 1;
         self.units.set(n);
         if let Some(delay) = self.unit_delay.borrow().as_ref() { self.at.set(self.at.get() + delay(n)); }
+        if let Some(after) = self.after_unit.borrow().as_ref() { after(n); }
     }
 }
 
@@ -70,6 +74,8 @@ impl Stopwatch for Watch {
 /// requests answered 429000.
 #[derive(Clone)]
 struct Venue { account: Rc<Account>, per_page: usize, watch: Rc<Watch>, latency: Rc<dyn Fn(usize) -> Duration>, throttled: Rc<Cell<usize>>, log: Rc<RefCell<Vec<String>>>,
+               /// Every page answered with rows, as its log line.
+               served: Rc<RefCell<std::collections::HashSet<String>>>,
                /// Cut the run (as the runner's deadline would) once it has sent this many requests in all.
                cut_at_request: Rc<Cell<Option<usize>>> }
 
@@ -93,13 +99,14 @@ impl Transport for Venue {
         };
         let page = q("currentPage").unwrap() as usize;
         let items: Vec<&Value> = rows.iter().skip((page - 1) * self.per_page).take(self.per_page).copied().collect();
+        if !items.is_empty() { self.served.borrow_mut().insert(self.log.borrow().last().unwrap().clone()); }
         let body = json!({ "code": "200000", "data": { "currentPage": page, "pageSize": 500, "totalNum": rows.len(), "totalPage": rows.len().div_ceil(self.per_page), "items": items } });
         Ok(HttpResponse { status: 200, body: body.to_string() })
     }
 }
 
 fn venue(account: &Rc<Account>, per_page: usize, watch: &Rc<Watch>, latency: impl Fn(usize) -> Duration + 'static) -> Venue {
-    Venue { account: account.clone(), per_page, watch: watch.clone(), latency: Rc::new(latency), throttled: Rc::new(Cell::new(0)), log: Rc::default(), cut_at_request: Rc::default() }
+    Venue { account: account.clone(), per_page, watch: watch.clone(), latency: Rc::new(latency), throttled: Rc::new(Cell::new(0)), log: Rc::default(), served: Rc::default(), cut_at_request: Rc::default() }
 }
 
 type Ran = Result<Result<Outcome, Failure>, deltabadger::sync::SyncError>;
@@ -289,11 +296,18 @@ async fn identical_idless_rows_on_two_pages_survive_a_cut_at_any_write() {
 }
 
 /// A trade imported from a file (no id) at `at`: 0.5 BTC bought.
-async fn file_row(db: &Db, at: i64) {
-    let at = deltabadger::sync::sql_time(chrono::DateTime::from_timestamp_millis(at).unwrap());
-    db.run(move |c, _| c.execute("INSERT INTO account_transactions (user_id, exchange_id, entry_type, base_currency, base_amount, transacted_at, raw_data, \
-                                  manual_values, transfer_link_rejected, created_at, updated_at) SELECT user_id, exchange_id, 0, 'BTC', 0.5, ?1, '{}', '{}', 0, ?1, ?1 \
-                                  FROM api_keys", [at]).map(|_| ()).map_err(|e| e.to_string())).await.unwrap();
+async fn file_row(db: &Db, at: i64) { db.run(move |c, _| file_rows(c, &[(at, 0.5)]).map_err(|e| e.to_string())).await.unwrap(); }
+
+/// Trades imported from a file (no id), each `(at, BTC bought)`, in one transaction.
+fn file_rows(c: &rusqlite::Connection, rows: &[(i64, f64)]) -> rusqlite::Result<()> {
+    let tx = c.unchecked_transaction()?;
+    for &(at, amount) in rows {
+        let at = deltabadger::sync::sql_time(chrono::DateTime::from_timestamp_millis(at).unwrap());
+        tx.execute("INSERT INTO account_transactions (user_id, exchange_id, entry_type, base_currency, base_amount, transacted_at, raw_data, \
+                    manual_values, transfer_link_rejected, created_at, updated_at) SELECT user_id, exchange_id, 0, 'BTC', ?2, ?1, '{}', '{}', 0, ?1, ?1 \
+                    FROM api_keys", rusqlite::params![at, amount])?;
+    }
+    tx.commit()
 }
 
 /// Review repro: a trade imported from a file before the import (no id) matches two fills with distinct ids read in
@@ -399,8 +413,8 @@ async fn a_credential_replacement_mid_import_starts_the_walk_again() {
     assert_eq!(result(&db).await.0, rows, "the rows of one import, none twice");
 }
 
-/// Review repro: a trade imported from a file between two runs (id > the record's floor, not this import's) matches a
-/// fill the next run reads. One store over the file row marks the fill a duplicate; the run after the file import must
+/// Review repro: a trade imported from a file between two runs (not one of this import's rows) matches a fill the next
+/// run reads. One store over the file row marks the fill a duplicate; the run after the file import must
 /// too: the rows this import stored are the ones it wrote, not every newer row.
 #[tokio::test(flavor = "current_thread")]
 async fn a_file_row_imported_between_runs_absorbs_the_fill_it_matches() {
@@ -436,4 +450,104 @@ async fn a_reread_of_known_history_carries_no_repeat_counts() {
         checked |= !record["max_seen"].is_null();
     }
     assert!(checked, "a run stopped after rereading known rows");
+}
+
+/// Review repro: a trade imported from a file between two runs matches two fills with distinct ids, each read in a run of
+/// its own after it. One store marks the first a duplicate of the file row and stores the second: three rows, not two.
+#[tokio::test(flavor = "current_thread")]
+async fn a_file_row_imported_between_runs_absorbs_only_the_first_of_two_fills() {
+    let t0 = start_ms() + DAY_MS;
+    let later = t0 + 21 * DAY_MS;
+    let fill = |id: &str, at: i64| json!({ "symbol": "BTC-USDT", "tradeId": id, "orderId": id, "side": "buy", "price": "100", "size": "0.5", "funds": "50",
+                                           "fee": "0.01", "feeCurrency": "USDT", "createdAt": at });
+    let account = Rc::new(Account { fills: vec![fill("t1", t0), fill("t2", later), fill("t3", later)], deposits: vec![], withdrawals: vec![] });
+    // One store after the file import: the first run's fill, then everything else in a single run.
+    let (_dir, db, _) = install();
+    let v = venue(&account, 1, &Rc::new(Watch::default()), |_| Duration::from_secs(10));
+    assert!(!run(&db, &v, deadline_for(1), usize::MAX).await.unwrap().unwrap().unwrap().complete);
+    file_row(&db, later).await;
+    assert!(run(&db, &v, LONG, CHAIN_RUNS).await.unwrap().unwrap().unwrap().complete);
+    let rows = result(&db).await.0;
+    assert_eq!(rows.len(), 3, "the first fill, the file row and the third fill");
+    let (_dir, db, _) = install();
+    let v = venue(&account, 1, &Rc::new(Watch::default()), |_| Duration::from_secs(10));
+    assert!(!run(&db, &v, deadline_for(1), usize::MAX).await.unwrap().unwrap().unwrap().complete);
+    file_row(&db, later).await;
+    let mut runs = 0;
+    while !run(&db, &v, deadline_for(1), usize::MAX).await.unwrap().unwrap().unwrap().complete { runs += 1; }
+    assert!(runs >= 2, "the two later fills were read in different runs");
+    assert_eq!(result(&db).await.0, rows);
+}
+
+/// An account whose rows repeat: fills sharing an identity (type, amount, instant) under distinct ids, and identical
+/// deposits without ids.
+fn repeating_account() -> Account {
+    let t0 = start_ms() + DAY_MS;
+    let fill = |i: usize, at: i64, size: &str| json!({ "symbol": "BTC-USDT", "tradeId": format!("t{i}"), "orderId": format!("o{i}"), "side": "buy", "price": "100",
+                                                      "size": size, "funds": "1", "fee": "0.01", "feeCurrency": "USDT", "createdAt": at });
+    let plan: [(i64, &str); 14] = [(0, "0.1"), (0, "0.5"), (DAY_MS, "0.2"), (0, "0.5"), (8 * DAY_MS, "0.25"), (8 * DAY_MS, "0.3"), (0, "0.5"),
+                                   (8 * DAY_MS, "0.25"), (15 * DAY_MS, "0.4"), (22 * DAY_MS, "0.5"), (22 * DAY_MS, "0.5"), (8 * DAY_MS, "0.25"), (23 * DAY_MS, "0.6"), (0, "0.5")];
+    let fills = plan.iter().enumerate().map(|(i, (at, size))| fill(i, t0 + at, size)).collect();
+    let mut deposits = deposits(5, &[1, 3]).deposits;
+    deposits.push(json!({ "currency": "USDT", "amount": "777", "fee": "0", "createdAt": start_ms() + 2 * DAY_MS + 500 }));
+    Account { fills, deposits, withdrawals: vec![] }
+}
+
+/// What the file import commits: id-less trades matching some of the fills (two of the triple at t0, one of each pair).
+fn file_import() -> Vec<(i64, f64)> {
+    let t0 = start_ms() + DAY_MS;
+    vec![(t0, 0.5), (t0, 0.5), (t0 + 8 * DAY_MS, 0.25), (t0 + 22 * DAY_MS, 0.5)]
+}
+
+/// For random page sizes, run lengths, cuts at a page's write and a file import committed at a random point, the import
+/// over many runs leaves exactly what one run leaves with the file import committed after the same pages.
+#[tokio::test(flavor = "current_thread")]
+async fn any_split_cut_and_interleaved_file_import_equals_one_run() {
+    let account = Rc::new(repeating_account());
+    let mut seed: u64 = 0x5eed;
+    let mut next = |n: u64| { seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407); (seed >> 33) % n };
+    for case in 0..16 {
+        let per_page = 1 + next(3) as usize;
+        let commit_after_run = next(12);
+        // Many runs, each of 1-4 pages, some cut at one of their writes; the file import after a run that was not cut.
+        let (_dir, db, _) = install();
+        let watch = Rc::new(Watch::default());
+        let v = venue(&account, per_page, &watch, |_| Duration::from_secs(10));
+        let (mut runs, mut cut_last, mut committed) = (0u64, false, None);
+        loop {
+            if committed.is_none() && runs >= commit_after_run && !cut_last {
+                db.run(|c, _| file_rows(c, &file_import()).map_err(|e| e.to_string())).await.unwrap();
+                committed = Some(v.served.borrow().len());
+            }
+            let pages = 1 + next(4);
+            watch.cut_at_unit.set((next(3) == 0).then(|| 1 + next(pages) as usize));
+            runs += 1;
+            assert!(runs < 200, "case {case}: the import must end");
+            match run(&db, &v, deadline_for(pages), usize::MAX).await {
+                None => cut_last = true,
+                Some(out) => { cut_last = false; if out.unwrap().unwrap().complete { break; } }
+            }
+        }
+        let after_pages = match committed {
+            Some(n) => n,
+            None => { db.run(|c, _| file_rows(c, &file_import()).map_err(|e| e.to_string())).await.unwrap(); usize::MAX }
+        };
+        let many = result(&db).await;
+        // One run, the file import committed by another connection once that many pages with rows have been stored.
+        let (_dir, db, _) = install();
+        let path: String = db.run(|c, _| Ok(c.path().unwrap().to_string())).await.unwrap();
+        if after_pages == 0 { db.run(|c, _| file_rows(c, &file_import()).map_err(|e| e.to_string())).await.unwrap(); }
+        let watch = Rc::new(Watch::default());
+        *watch.after_unit.borrow_mut() = Some(Box::new(move |n| if n == after_pages {
+            let c = rusqlite::Connection::open(&path).unwrap();
+            c.busy_timeout(Duration::from_secs(5)).unwrap();
+            file_rows(&c, &file_import()).unwrap();
+        }));
+        let v = venue(&account, per_page, &watch, |_| Duration::from_secs(10));
+        assert!(run(&db, &v, LONG, CHAIN_RUNS).await.unwrap().unwrap().unwrap().complete);
+        if after_pages > v.served.borrow().len() {
+            db.run(|c, _| file_rows(c, &file_import()).map_err(|e| e.to_string())).await.unwrap();
+        }
+        assert_eq!(many, result(&db).await, "case {case}: {per_page} a page, file import after {after_pages} pages, {runs} runs");
+    }
 }
