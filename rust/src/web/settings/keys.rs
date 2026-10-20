@@ -684,7 +684,7 @@ struct AlpacaForm<'a> { v:&'a Ctx, csrf:&'a str, action:String, form_data:&'a st
     name_id:String, mark:&'static str, alpaca:bool, passphrase:bool, key_label:String, secret_label:String }
 
 /// The venues whose keys this build checks (the wizard's list): every other venue's key route is a named refusal.
-fn ported(class:&str)->bool{crate::web::wizard::keys::PORTED.contains(&class)}
+fn ported(class:&str)->bool{crate::web::wizard::keys::ported(class)}
 /// BotHelper#render_api_key_instructions for a key of `kind` on venue `class` named `name`: the walkthrough, the IP its
 /// keys are bound to (the venue's proxy, ExchangeProxy.for) in it; a reading key's own list, else the bot's.
 pub(crate) fn key_instructions(c:&Connection,app:&App,ctx:&Ctx,class:&str,name:&str,kind:i64)->Result<String,WebError>{
@@ -695,7 +695,7 @@ pub(crate) fn key_instructions(c:&Connection,app:&App,ctx:&Ctx,class:&str,name:&
     Ok(match kind{1=>html("withdrawal_api"),2=>html("read_only_api").or_else(||html("bot.api")),_=>html("bot.api")}.unwrap_or_default())
 }
 /// Exchange#requires_passphrase? outside Alpaca (whose passphrase is its Paper/Live switch): the API Passphrase row.
-fn requires_passphrase(class:&str)->bool{matches!(class,"Exchanges::Kucoin"|"Exchanges::Bitget")}
+fn requires_passphrase(class:&str)->bool{class!=crate::sync::ALPACA&&crate::venue::registry::row(class).is_some_and(|r|r.passphrase)}
 /// shared/_api_key_form inside shared/_connect_form: the venue's connect card. `name`/`class` are the exchange row's name and
 /// type; `instructions` the walkthrough under it; the fields are the key and secret, and Alpaca's Paper/Live switch before them.
 #[allow(clippy::too_many_arguments)]

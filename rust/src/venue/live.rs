@@ -14,11 +14,17 @@ use crate::ruby::BigDec;
 use chrono::{DateTime, Utc};
 use rusqlite::Connection;
 
-/// A bot's venue, picked by its exchange type (no trait objects: the engine stays generic over one concrete type).
-pub enum LiveVenue { Alpaca(AlpacaVenue<ReqwestTransport>), Kraken(KrakenVenue<ReqwestTransport>), Binance(BinanceVenue<ReqwestTransport>),
-                     Kucoin(KucoinVenue<ReqwestTransport>) }
+/// The enum and its dispatching `each!` from one list (`$d` is a literal `$`, so the inner macro keeps its own variables).
+macro_rules! live_venues {
+    ($d:tt $($variant:ident($venue:ty)),* $(,)?) => {
+        /// A bot's venue, picked by its exchange type (no trait objects: the engine stays generic over one concrete type).
+        pub enum LiveVenue { $($variant($venue)),* }
+        macro_rules! each { ($d s:expr, $d v:ident => $d e:expr) => { match $d s { $(LiveVenue::$variant($d v) => $d e),* } } }
+    };
+}
 
-macro_rules! each { ($s:expr, $v:ident => $e:expr) => { match $s { LiveVenue::Alpaca($v) => $e, LiveVenue::Kraken($v) => $e, LiveVenue::Binance($v) => $e, LiveVenue::Kucoin($v) => $e } } }
+live_venues!($ Alpaca(AlpacaVenue<ReqwestTransport>), Kraken(KrakenVenue<ReqwestTransport>), Binance(BinanceVenue<ReqwestTransport>),
+             Kucoin(KucoinVenue<ReqwestTransport>));
 
 impl Venue for LiveVenue {
     fn rules(&self) -> &'static VenueRules { each!(self, v => v.rules()) }

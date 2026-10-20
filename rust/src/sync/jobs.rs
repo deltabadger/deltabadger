@@ -56,13 +56,8 @@ pub trait Connect {
 impl Connect for LiveFactory {
     /// ExchangeProxy.for(name): the stored proxy, else ENV `PROXY_<NAME>`; never around a configured one.
     fn key_check_egress(&self, exchange_type: &str, stored_proxy: Option<String>) -> Result<(String, reqwest::Client), String> {
-        let base = match exchange_type {
-            "Exchanges::Kraken" => crate::venue::kraken::URL,
-            "Exchanges::Binance" => crate::venue::binance::URL,
-            crate::venue::kucoin::KUCOIN => crate::venue::kucoin::URL,
-            _ => return Err(format!("{exchange_type} is not connected here")),
-        };
-        let name = crate::web::settings::validator::key_check_venue(exchange_type).unwrap_or_default();
+        let Some(name) = crate::venue::registry::key_check_proxy(exchange_type) else { return Err(format!("{exchange_type} is not connected here")) };
+        let base = crate::venue::registry::row(exchange_type).expect("a checked venue has a row").base;
         let client = match crate::venue::http::proxy_for(name, stored_proxy, &|k| std::env::var(k).ok()) {
             None => crate::venue::http::client(),
             Some(proxy) => crate::venue::http::client_via(&proxy).map_err(|e| format!("{e} ({name})"))?,
@@ -89,9 +84,11 @@ impl Connect for LiveFactory {
     }
 }
 
-/// The ExchangeProxy name of a venue whose syncs go through its proxy: Binance, Binance.US and KuCoin.
+/// The ExchangeProxy name of a venue whose syncs go through its proxy: every synced venue but Alpaca (Rails has no
+/// PROXY_ALPACA).
 fn proxied(venue: &str) -> Option<&'static str> {
-    crate::venue::binance::host(venue).map(|(_, name)| name).or((venue == crate::venue::kucoin::KUCOIN).then_some("kucoin"))
+    use crate::venue::registry::{self, BalanceSync, LedgerSync};
+    registry::row(venue).filter(|r| r.balances.is_some_and(|b| b != BalanceSync::Alpaca) || r.ledger.is_some_and(|l| l != LedgerSync::Alpaca)).map(|r| r.name_id)
 }
 
 /// The venue type of a key and, for Binance, Binance.US and KuCoin, the proxy its reads go through: AppConfig
@@ -178,16 +175,20 @@ impl<C: Connect> Job for LedgerSync<C> {
             let key = self.key_id.to_string();
             let at = cx.clock.now();
             if let Err(e) = cx.db.run(move |c, _| crate::jobs::state::mark_incomplete(c, LEDGER_SYNC, Some(&key), at)).await { return Outcome::Failed(e); }
+            use crate::venue::registry::{self, LedgerSync};
             let done = match venue_of(&cx.db, self.key_id).await {
                 Err(e) => Err(e),
-                Ok((venue, proxy)) if crate::venue::binance::host(&venue).is_some() =>
-                    crate::sync::binance_ledger::sync_captured(&cx.db, self.venues.binance_transport(&credentials, proxy.as_deref()),
-                                                               &self.venues.binance_base(&venue).unwrap_or_default(), self.key_id, &credentials, cx.clock,
-                                                               self.venues.binance_pacing(), &version).await,
-                Ok((venue, proxy)) if venue == crate::venue::kucoin::KUCOIN =>
-                    crate::sync::kucoin_ledger::sync(&cx.db, self.venues.kucoin_transport(&credentials, proxy.as_deref()), self.key_id, &credentials, cx.clock,
-                                                     crate::sync::kucoin_ledger::THROTTLE_WAIT).await,
-                Ok(_) => ledger::sync_captured(&cx.db, &self.venues.connect(&credentials), self.key_id, &credentials, cx.clock, self.limits, &version).await,
+                Ok((venue, proxy)) => match registry::row(&venue).and_then(|r| r.ledger) {
+                    Some(LedgerSync::Binance | LedgerSync::BinanceUs) =>
+                        crate::sync::binance_ledger::sync_captured(&cx.db, self.venues.binance_transport(&credentials, proxy.as_deref()),
+                                                                   &self.venues.binance_base(&venue).unwrap_or_default(), self.key_id, &credentials, cx.clock,
+                                                                   self.venues.binance_pacing(), &version).await,
+                    Some(LedgerSync::Kucoin) =>
+                        crate::sync::kucoin_ledger::sync(&cx.db, self.venues.kucoin_transport(&credentials, proxy.as_deref()), self.key_id, &credentials, cx.clock,
+                                                         crate::sync::kucoin_ledger::THROTTLE_WAIT).await,
+                    // Alpaca's, and a key on any other venue: ledger::load_key refuses it as it always did.
+                    Some(LedgerSync::Alpaca) | None => ledger::sync_captured(&cx.db, &self.venues.connect(&credentials), self.key_id, &credentials, cx.clock, self.limits, &version).await,
+                },
             };
             let outcome = outcome(done, |out| out.complete);
             // S-7.7: an import that stopped at its page cap goes on as soon as the runner is free, as Rails' one job reads the
@@ -229,13 +230,17 @@ impl<C: Connect> Job for BalanceSync<C> {
             // written (a run dropped, or a hand run stopped, between two units); a start finding the mark runs the job at once.
             let (key, at) = (self.key_id.to_string(), cx.clock.now());
             if let Err(e) = cx.db.run(move |c, _| crate::jobs::state::mark_incomplete(c, BALANCE_SYNC, Some(&key), at)).await { return Outcome::Failed(e); }
+            use crate::venue::registry::{self, BalanceSync};
             let done = match venue_of(&cx.db, self.key_id).await {
                 Err(e) => Err(e),
-                Ok((venue, proxy)) if crate::venue::binance::host(&venue).is_some() =>
-                    balances::sync_binance_captured(&cx.db, self.venues.binance_transport(&credentials, proxy.as_deref()), &|t| self.venues.binance_base(t), self.prices.as_ref(), self.key_id, &credentials, cx.clock, &version).await,
-                Ok((venue, proxy)) if venue == crate::venue::kucoin::KUCOIN =>
-                    balances::sync_kucoin_captured(&cx.db, self.venues.kucoin_transport(&credentials, proxy.as_deref()), self.prices.as_ref(), self.key_id, &credentials, cx.clock, &version).await,
-                Ok(_) => balances::sync_captured(&cx.db, &self.venues.connect(&credentials), self.prices.as_ref(), self.key_id, &credentials, cx.clock, &version).await,
+                Ok((venue, proxy)) => match registry::row(&venue).and_then(|r| r.balances) {
+                    Some(BalanceSync::Binance) =>
+                        balances::sync_binance_captured(&cx.db, self.venues.binance_transport(&credentials, proxy.as_deref()), &|t| self.venues.binance_base(t), self.prices.as_ref(), self.key_id, &credentials, cx.clock, &version).await,
+                    Some(BalanceSync::Kucoin) =>
+                        balances::sync_kucoin_captured(&cx.db, self.venues.kucoin_transport(&credentials, proxy.as_deref()), self.prices.as_ref(), self.key_id, &credentials, cx.clock, &version).await,
+                    // Alpaca's, and a key on any other venue: the Alpaca sync's load_key refuses it as it always did.
+                    Some(BalanceSync::Alpaca) | None => balances::sync_captured(&cx.db, &self.venues.connect(&credentials), self.prices.as_ref(), self.key_id, &credentials, cx.clock, &version).await,
+                },
             };
             let outcome = outcome(done, |_| true);
             // Rails' AccountBalance::SyncJob ends in PortfolioSnapshot.record!, whatever the sync did: the user's tracker
@@ -288,7 +293,7 @@ impl<C:Connect> Job for Validator<C>{
         let handle=crate::web::settings::validator::ValidationHandle::stored(credentials,version);
         let before_result=|value|crate::engine::model::Produced::new(value,Some(handle.producer().clone()));
         let (exchange,name)=match cx.db.run(move|c,_|c.query_row("SELECT e.type,e.name FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE k.id=?1",[id],|r|Ok((r.get::<_,String>(0)?,r.get::<_,Option<String>>(1)?.unwrap_or_default()))).map_err(|_|"cannot read credential exchange".into())).await{Ok(e)=>e,Err(e)=>return before_result(Outcome::Failed(e))};
-        let checked=crate::web::settings::validator::key_check_venue(&exchange);
+        let checked=crate::venue::registry::key_check_proxy(&exchange);
         if exchange!=ALPACA&&checked.is_none(){return before_result(Outcome::Failed("credential validation unavailable for this exchange".into()))}
         let kind=match cx.db.run(move|c,_|c.query_row("SELECT key_type FROM api_keys WHERE id=?1",[id],|r|r.get::<_,i64>(0)).map_err(|_|"cannot read credential capability".into())).await{Ok(k)=>k,Err(e)=>return before_result(Outcome::Failed(e))};
         // ApiKey#get_validity: Alpaca's account read, or the venue's own key check through its proxy (ExchangeProxy.for).

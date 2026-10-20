@@ -318,9 +318,9 @@ impl<'a> Reader<'a> {
 
 /// Whether the figures read this venue's market data at all. A venue they do not read yet has no prices or candles here,
 /// which is no failure of the venue's: its bots show what is known without a price, and no note that it did not answer.
-pub fn reads(venue: &Venue) -> bool { venue.exchange_type == "Exchanges::Alpaca" || venue.exchange_type == crate::venue::kucoin::KUCOIN }
+pub fn reads(venue: &Venue) -> bool { crate::venue::registry::row(&venue.exchange_type).is_some_and(|r| r.figures.is_some()) }
 /// Whether the figures read this venue's candles: Alpaca's only so far.
-fn reads_candles(venue: &Venue) -> bool { venue.exchange_type == "Exchanges::Alpaca" }
+fn reads_candles(venue: &Venue) -> bool { crate::venue::registry::row(&venue.exchange_type).and_then(|r| r.figures).is_some_and(|f| f.candles()) }
 const ALL_TICKERS: &str = "/api/v1/market/allTickers";
 
 impl MarketData for Reader<'_> {

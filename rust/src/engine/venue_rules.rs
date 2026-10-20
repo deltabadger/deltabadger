@@ -217,6 +217,5 @@ pub static KUCOIN: VenueRules = VenueRules {
     young_missing_fails: true,
 };
 
-pub fn for_exchange(exchange_type: &str) -> Option<&'static VenueRules> {
-    [&KRAKEN, &ALPACA, &BINANCE, &KUCOIN].into_iter().find(|r| r.exchange_type == exchange_type)
-}
+/// The rules of a venue the engine trades on (`venue::registry`).
+pub fn for_exchange(exchange_type: &str) -> Option<&'static VenueRules> { crate::venue::registry::trading_rules(exchange_type) }
