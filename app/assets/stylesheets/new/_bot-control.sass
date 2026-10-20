@@ -10,6 +10,12 @@
         min-width: 9rem
         &.rbutton--start
             box-shadow: var(--shadow-strong)
+    // Orders are being set: the whole meter (progress, venue, status) breathes until the tick ends. Keyed off the status
+    // bar's class, which its broadcast replaces, so the meter needs no re-render of its own.
+    &__meter:has(.bot-control__status.executing)
+        animation: bot-control-status-pulse 2s ease-in-out infinite
+        @media (prefers-reduced-motion: reduce)
+            animation: none
     &__status
         overflow: hidden
         line-height: 4rem
@@ -26,11 +32,6 @@
         font-weight: 600
         white-space: nowrap
         text-overflow: ellipsis
-        // Orders are being set: the bar breathes until the tick ends.
-        &.executing
-            animation: bot-control-status-pulse 2.4s ease-in-out infinite
-            @media (prefers-reduced-motion: reduce)
-                animation: none
         &__text
             position: relative
             display: inline-block
@@ -117,4 +118,4 @@ turbo-cable-stream-source
     0%, 100%
         opacity: 1
     50%
-        opacity: 0.6
+        opacity: 0.4
