@@ -377,6 +377,9 @@ pub struct Inner {
     /// The wake handle of the engine in this process, once `supervisor::serve` attaches it. Empty when the app runs
     /// alone (every router test).
     engine: std::sync::OnceLock<Arc<tokio::sync::Notify>>,
+    /// Tests only, until slice 8d admits Bots::Signal (the engine's `admit_signal_bots_for_tests`): the pages read a signal
+    /// bot as its own type while every other refusal, and the engine's eligibility, still stands.
+    signal_pages: bool,
 }
 
 pub type PasswordHook = Arc<dyn Fn() + Send + Sync>;
@@ -419,8 +422,21 @@ impl App {
             password_slots: Arc::new(Semaphore::new(PASSWORD_CHECKS_AT_ONCE)), password_waiting: AtomicUsize::new(0), password_hook: None,
             db: Mutex::new(primary),
             engine: std::sync::OnceLock::new(),
+            signal_pages: false,
         })))
     }
+
+    /// Tests only (the seam until slice 8d's admission): a signal bot's pages are served as Rails serves them. Only before
+    /// the app is shared.
+    #[doc(hidden)]
+    pub fn admit_signal_bots_for_tests(self) -> Result<Self, WebError> {
+        let mut inner = Arc::try_unwrap(self.0).map_err(|_| WebError::Config("the app is already shared".into()))?;
+        inner.signal_pages = true;
+        Ok(Self(Arc::new(inner)))
+    }
+
+    /// Whether this app's pages read signal bots (`admit_signal_bots_for_tests`).
+    pub fn signal_pages(&self) -> bool { self.signal_pages }
 
     /// For tests: the same app with other /cable intervals. Only before the app is shared.
     pub fn with_cable_timing(self, ping: Duration, recheck: Duration) -> Result<Self, WebError> {

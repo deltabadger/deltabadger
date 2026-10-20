@@ -453,6 +453,8 @@ pub fn smart_interval_minimum(bot: &WebBot) -> start::Minimum {
         Kind::Basket if bot.one_asset() => 0.0,
         Kind::Basket => largest(bot.composition_tickers()),
         Kind::Index => largest(bot.tickers.iter().collect()),
+        // Bots::Signal has no Smart Intervals.
+        Kind::Signal => 0.0,
     };
     let reason = if exchange >= frequency && exchange >= precision { start::Reason::Exchange } else if frequency >= precision { start::Reason::Frequency } else { start::Reason::Precision };
     let rounded_up = round_up(frequency, scale); // Utilities::Number.round_up

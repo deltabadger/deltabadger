@@ -644,6 +644,7 @@ pub fn column(c: &Connection, forms: &Forms) -> Result<String, WebError> {
     let interval_select = forms.select(interval_key, &options, interval);
     let mut out = String::from("<div id=\"settings\" class=\"column gap-1\">\n  ");
     match bot.kind {
+        Kind::Signal => return Err(WebError::Config("a signal bot's settings are signal::column's".into())),
         Kind::Basket => {
             let lone = if bot.base_assets.len() == 1 { bot.base_assets.first().map(pill).transpose()? } else { None };
             let sliders = if lone.is_some() { vec![] } else {

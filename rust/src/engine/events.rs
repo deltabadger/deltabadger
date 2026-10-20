@@ -33,6 +33,10 @@ pub enum EngineEvent {
     /// A poll (a follow-up or a tick's sweep) or a reversal's cancel wrote this order (Transaction after_update_commit → Bot#broadcast_updated_order,
     /// app/models/transaction.rb:22).
     OrderWritten { bot_id: i64, transaction_id: i64 },
+    /// A signal bot's marker of an order of unknown fate was set or lifted (Bots::Signal#mark_placement_unresolved! and
+    /// the recovery that settles its intent): Rails redraws bots/signals/_unresolved_placement on the bot's page
+    /// (Bots::Signal#broadcast_unresolved_placement).
+    SignalMarkerChanged { bot_id: i64 },
 }
 
 impl EngineEvent {
@@ -40,12 +44,13 @@ impl EngineEvent {
     /// The kinds a subscriber hears unless it asks for others: all but `OrderUpdated`, which only the figures service
     /// wants, and the bot page's own.
     pub fn is_classic(&self) -> bool {
-        !matches!(self, Self::OrderUpdated { .. } | Self::BelowMinimum { .. } | Self::StatusChanged { .. } | Self::TickEnded { .. } | Self::OrderWritten { .. })
+        !matches!(self, Self::OrderUpdated { .. } | Self::BelowMinimum { .. } | Self::StatusChanged { .. } | Self::TickEnded { .. } | Self::OrderWritten { .. }
+                        | Self::SignalMarkerChanged { .. })
     }
 
     /// What the bot page hears live (web::bot::live): its status, and each order inserted or written.
     pub fn is_live(&self) -> bool {
-        matches!(self, Self::StatusChanged { .. } | Self::TickEnded { .. } | Self::OrderWritten { .. } | Self::OrderRecorded { .. })
+        matches!(self, Self::StatusChanged { .. } | Self::TickEnded { .. } | Self::OrderWritten { .. } | Self::OrderRecorded { .. } | Self::SignalMarkerChanged { .. })
     }
 
     /// An order inserted or written: what the figures service hears.

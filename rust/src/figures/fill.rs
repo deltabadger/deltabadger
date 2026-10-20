@@ -6,6 +6,8 @@ impl Raw {
     pub fn new(price:Option<Dec>,amount:Option<Dec>,amount_exec:Option<Dec>,quote_amount_exec:Option<Dec>)->Self{
         Self{price,amount,amount_exec,quote_amount_exec}
     }
+    /// The row's own `price` column, as Bots::DcaSingleAsset::Measurable reads it.
+    pub fn price(&self)->Option<&Dec>{ self.price.as_ref() }
 }
 #[derive(Clone,Debug,PartialEq)]
 pub struct Fill {pub quantity:Dec,pub value:Dec}

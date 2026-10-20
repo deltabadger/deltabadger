@@ -186,6 +186,8 @@ fn tile(c: &Connection, ctx: &Ctx, csrf: &str, bot: &Bot, market_data_configured
                 Title::Text(symbols.join(", "))
             }
         }
+        // `bot.signal? && bot.quote_asset_id.present? && bot.base_asset_id.present?`: the base's symbol.
+        Kind::Signal if quote_id.is_some() && bot.setting("base_asset_id").is_some() => Title::Text(bot.base_asset().map(|asset| asset.symbol().to_string()).unwrap_or_default()),
         _ => Title::None,
     };
     let status = status::render(c, ctx, csrf, bot, market_data_configured)?;
@@ -235,7 +237,7 @@ pub async fn index(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Re
         let wash_sale: Option<bool> = c.query_row("SELECT wash_sale_enabled FROM users WHERE id = ?1", [user.id], |r| r.get(0))?;
         let mut bots = vec![];
         for id in &ids {
-            if let Some(reason) = bot::refusal(c, *id, wash_sale, deltabadger, if matches!(inner.figure_source,crate::web::figure::loading::Source::Disabled) { bot::For::Page } else { bot::For::FiguresPage })? { return Ok((shell, Listing::NotPorted(reason))); }
+            if let Some(reason) = bot::refusal(c, *id, wash_sale, deltabadger, if matches!(inner.figure_source,crate::web::figure::loading::Source::Disabled) { bot::For::Page } else { bot::For::FiguresPage }, inner.signal_pages())? { return Ok((shell, Listing::NotPorted(reason))); }
             if let Some(bot) = Bot::find(c, user.id, *id, bot::For::Page, ctx.locale)? {
                 if let Some(reason) = bot.unrendered() { return Ok((shell, Listing::NotPorted(reason))); }
                 bots.push(bot);

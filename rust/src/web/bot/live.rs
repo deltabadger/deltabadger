@@ -25,7 +25,8 @@ pub(super) fn owner_ctx(app: &App, owner: User) -> Ctx {
 /// The messages one event owes the bot's page, in Rails' order.
 pub fn render(c: &Connection, app: &App, event: &EngineEvent) -> Result<Vec<(String, String)>, WebError> {
     let bot_id = match event {
-        EngineEvent::StatusChanged { bot_id } | EngineEvent::TickEnded { bot_id } | EngineEvent::OrderRecorded { bot_id, .. } | EngineEvent::OrderWritten { bot_id, .. } => *bot_id,
+        EngineEvent::StatusChanged { bot_id } | EngineEvent::TickEnded { bot_id } | EngineEvent::OrderRecorded { bot_id, .. } | EngineEvent::OrderWritten { bot_id, .. }
+        | EngineEvent::SignalMarkerChanged { bot_id } => *bot_id,
         _ => return Ok(vec![]),
     };
     let owner: Option<i64> = rusqlite::OptionalExtension::optional(c.query_row("SELECT user_id FROM bots WHERE id = ?1", [bot_id], |r| r.get(0)))?;
@@ -51,6 +52,10 @@ pub fn render(c: &Connection, app: &App, event: &EngineEvent) -> Result<Vec<(Str
         }
         EngineEvent::OrderRecorded { transaction_id, .. } => orders::new_order(c, &ctx, &bot, &owner, *transaction_id)?,
         EngineEvent::OrderWritten { transaction_id, .. } => orders::updated_order(c, &ctx, &bot, &owner, *transaction_id)?,
+        // Bots::Signal#broadcast_unresolved_placement: on the bot's own page, without the rule widgets (their webhook URL
+        // needs a request).
+        EngineEvent::SignalMarkerChanged { .. } if bot.kind == super::Kind::Signal =>
+            vec![(super::page::page_stream(&bot), crate::web::turbo::stream("replace", "signal-unresolved-placement", &super::signal::unresolved(&ctx, "", &bot)))],
         _ => vec![],
     })
 }

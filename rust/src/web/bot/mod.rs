@@ -13,6 +13,7 @@ pub mod orders;
 pub mod page;
 pub mod search;
 pub mod settings;
+pub mod signal;
 pub mod start;
 pub mod status;
 
@@ -241,6 +242,8 @@ pub enum Kind {
     Basket,
     /// Bots::DcaIndex.
     Index,
+    /// Bots::Signal: one pair, traded by its webhook rules and by orders through the API (plan 8).
+    Signal,
 }
 
 /// The `indices` row an index bot follows (Bots::DcaIndex#current_index), as far as the page reads it.
@@ -290,6 +293,8 @@ pub struct Bot {
     pub label_unsaved: bool,
     /// What Rails' sell-side readers give a key the row leaves nil or blank, while selling: read, never saved (Rails never persists them).
     pub sell_reads: Map<String, Value>,
+    /// A signal bot's rules (`bot.bot_signals`), in id order; none for any other type.
+    pub signals: Vec<signal::Rule>,
 }
 
 /// What a setting the pages read may be stored as. Rails validates each on every save, so a row a
@@ -436,7 +441,8 @@ pub enum For { Page, Feed, FiguresPage, Settings }
 
 /// Why a bot's pages are not served by this build. Rails serves each of these; porting what
 /// a line names removes it.
-pub fn refusal(c: &Connection, bot_id: i64, wash_sale_enabled: Option<bool>, provider_is_deltabadger: bool, asked: For) -> Result<Option<&'static str>, WebError> {
+/// `signals`: whether this app reads a signal bot's pages (App::signal_pages, tests only until slice 8d admits the type).
+pub fn refusal(c: &Connection, bot_id: i64, wash_sale_enabled: Option<bool>, provider_is_deltabadger: bool, asked: For, signals: bool) -> Result<Option<&'static str>, WebError> {
     let row = c.query_row("SELECT b.type, e.type, b.settings, b.transient_data FROM bots b LEFT JOIN exchanges e ON e.id = b.exchange_id WHERE b.id = ?1",
                           [bot_id], |r| Ok((r.get::<_, Option<String>>(0)?, r.get::<_, Option<String>>(1)?, r.get::<_, String>(2)?, r.get::<_, String>(3)?)))?;
     let (class, exchange, settings, transient) = row;
@@ -444,6 +450,7 @@ pub fn refusal(c: &Connection, bot_id: i64, wash_sale_enabled: Option<bool>, pro
     let transient: Value = serde_json::from_str(&transient).unwrap_or(Value::Null);
     let truthy = |value: Option<&Value>| value.is_some_and(|v| !matches!(v, Value::Null | Value::Bool(false)) && v.as_str() != Some("") && v.as_str() != Some("0") && v.as_str() != Some("false"));
     let class = class.unwrap_or_default();
+    if class == crate::engine::model::SIGNAL_TYPE { return signal::refusal(c, bot_id, exchange.as_deref(), &settings, &transient, wash_sale_enabled, asked, signals); }
     if class != "Bots::DcaMultiAsset" && class != "Bots::DcaIndex" { return Ok(Some("a bot of a type this build does not render")); }
     // The venues and classes the engine runs: one rule for both.
     let member_count = settings.get("allocations").and_then(Value::as_object).map_or(0, |weights| weights.len());
@@ -537,7 +544,7 @@ impl Bot {
             |r| Ok((r.get::<_, i64>(0)?, r.get::<_, Option<String>>(1)?, r.get::<_, i64>(2)?, r.get::<_, Option<String>>(3)?, r.get::<_, Option<i64>>(4)?,
                     r.get::<_, String>(5)?, r.get::<_, String>(6)?, r.get::<_, Option<String>>(7)?, r.get::<_, Option<String>>(8)?))).optional()?;
         let Some((id, class, status, label, exchange_id, settings, transient, started_at, stop_message_key)) = row else { return Ok(None) };
-        let kind = if class.as_deref() == Some("Bots::DcaIndex") { Kind::Index } else { Kind::Basket };
+        let kind = match class.as_deref() { Some("Bots::DcaIndex") => Kind::Index, Some(crate::engine::model::SIGNAL_TYPE) => Kind::Signal, _ => Kind::Basket };
         let status = BotStatus::from_i64(status).ok_or_else(|| data(format!("bot {id}: status {status}")))?;
         let (settings, transient) = (object(&settings, "bots.settings")?, object(&transient, "bots.transient_data")?);
         crate::codec::validate_bot_times(&Value::Object(settings.clone()), &Value::Object(transient.clone())).map_err(|e|data(format!("{e:?}")))?;
@@ -568,12 +575,19 @@ impl Bot {
                 if let Some(asset) = Asset::find(c, asset_id)? { base_assets.push(asset); }
             }
         }
+        // Bots::Signal#base_asset: its one pair's base.
+        if kind == Kind::Signal {
+            if let Some(asset) = settings.get("base_asset_id").and_then(Value::as_i64).map(|id| Asset::find(c, id)).transpose()?.flatten() { base_assets.push(asset); }
+        }
         // set_tickers: available, trading-enabled tickers of this venue in the quote; a basket's are
         // further narrowed to every asset that is or ever was in its composition. Each by the venue's index: the quote's
         // holds every venue's listings in it (`+`), and a basket's assets, as literals, take the (venue, base, quote) one.
         let tradable = "t.available = 1 AND t.trading_enabled = 1 AND t.exchange_id = ?1";
         let tickers = match kind {
             Kind::Index => Ticker::all(c, &format!("{tradable} AND +t.quote_asset_id IS ?2"), &[&exchange.id, &quote_asset_id])?,
+            // Bot::AssetConfigurable#set_tickers: the venue's listings of the pair, whatever their state.
+            Kind::Signal => Ticker::all(c, "t.exchange_id = ?1 AND t.base_asset_id IS ?2 AND t.quote_asset_id IS ?3",
+                                        &[&exchange.id, &settings.get("base_asset_id").and_then(Value::as_i64), &quote_asset_id])?,
             Kind::Basket => {
                 let known: std::collections::BTreeSet<i64> = allocation_ids(&settings).into_iter().chain(memberships.iter().map(|m| m.asset.id)).collect();
                 let known = known.iter().map(i64::to_string).collect::<Vec<_>>().join(",");
@@ -597,10 +611,11 @@ impl Bot {
         let mut bot = Bot {
             id, kind, status, label: label.unwrap_or_default(), label_unsaved, exchange, settings, transient, started_at, stop_message_key, quote_asset, base_assets, memberships,
             tickers, api_key, index, last_order, has_orders: exists("")?, has_waiting_orders: exists(" AND status = 0 AND external_status IN (0, 1)")?,
-            sell_reads: Map::new(), has_regular_waiting_orders: exists(" AND status = 0 AND external_status IN (0, 1) AND transaction_type = 'REGULAR'")?,
+            sell_reads: Map::new(), signals: if kind == Kind::Signal { signal::rules(c, id)? } else { vec![] }, has_regular_waiting_orders: exists(" AND status = 0 AND external_status IN (0, 1) AND transaction_type = 'REGULAR'")?,
             has_submitted_orders: exists(" AND status = 0")?,
         };
-        bot.fill_defaults();
+        // Bots::Signal includes none of the concerns that fill settings in on load.
+        if kind != Kind::Signal { bot.fill_defaults(); }
         if bot.label_unsaved { bot.label = bot.default_label(locale); }
         Ok(Some(bot))
     }
@@ -632,6 +647,8 @@ impl Bot {
                 }
                 name
             }
+            // Bots::Signal#default_label: its base's name.
+            Kind::Signal => self.base_asset().and_then(|asset| asset.name.clone()).unwrap_or_default(),
             Kind::Basket => {
                 let ids = allocation_ids(&self.settings);
                 let asset = |id: i64| self.base_assets.iter().find(|asset| asset.id == id);
@@ -676,6 +693,7 @@ impl Bot {
                     defaults.extend(["price_limit_in_ticker_id", "price_drop_limit_in_ticker_id", "moving_average_limit_in_ticker_id", "indicator_limit_in_ticker_id"].map(|key| (key, json!(ticker_id))));
                 }
             }
+            Kind::Signal => {}
             // `default_num_coins`: ten, or all of a bounded index smaller than that.
             Kind::Index => defaults.extend([("num_coins", json!(self.bounded_universe_size().map_or(10, |size| size.min(10)))), ("allocation_flattening", json!(0.0))]),
         }
@@ -759,6 +777,8 @@ impl Bot {
     }
 
     pub fn unrendered(&self) -> Option<&'static str> {
+        // A signal bot has no schedule and no spending cap.
+        if self.kind == Kind::Signal { return None; }
         if let Some(reason) = self.schedule_bounds() { return Some(reason); }
         // Bot::QuoteAmountLimitable validates a cap that is switched on as no less than the smallest amount the quote states
         // (`minimum_quote_amount_limit`), and prints the error under the field; the tickers that say what that is are loaded by now.
@@ -781,7 +801,7 @@ impl Bot {
 
     /// `model_name.param_key`, the root of the form's field names.
     pub fn param_key(&self) -> &'static str {
-        match self.kind { Kind::Basket => "bots_dca_multi_asset", Kind::Index => "bots_dca_index" }
+        match self.kind { Kind::Basket => "bots_dca_multi_asset", Kind::Index => "bots_dca_index", Kind::Signal => "bots_signal" }
     }
 
     pub fn working(&self) -> bool {
