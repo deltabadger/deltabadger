@@ -8,12 +8,22 @@ use crate::venue::http::{HttpRequest, Transport, TransportError};
 use serde_json::Value;
 use std::cell::{Cell, RefCell};
 use std::collections::BTreeMap;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
 pub const PRICE_TTL: i64 = 60;
 pub const MAX_BYTES: usize = 8 * 1024 * 1024;
 pub const MAX_ENTRIES: usize = 512;
+/// What the cache keeps in all: entries and heads together (the bound every answer is admitted under, `Cache::admit`).
+pub const CACHE_BYTES: usize = 32 * 1024 * 1024;
+/// One candle series as it accumulates, page by page: past it the series is a settled failure (a venue paging without end).
+pub const SERIES_BYTES: usize = MAX_BYTES;
+/// Every series in flight in one fill, together.
+pub const FILL_BYTES: usize = CACHE_BYTES;
+/// Exchanges::Kucoin::MAX_CANDLE_PAGES: the most windows one KuCoin series reads.
+pub const MAX_CANDLE_PAGES: usize = 1000;
 const UNAVAILABLE: &str = "Market data unavailable";
+const KUCOIN_CANDLES: &str = "/api/v1/market/candles";
 
 /// A closed candle as the figures read it: its time (`bar_time`), the venue's own text of it (the next tail's `start`), and
 /// its open exactly as the venue sent it, a number or a string, read by `Dec::to_d` as the answer itself is.
@@ -37,7 +47,10 @@ struct Head { until: i64, bars: Arc<[Bar]>, origin:Option<crate::engine::model::
 type Rendered = Arc<Mutex<Vec<(String, Arc<Value>)>>>;
 #[derive(Clone, Default)]
 /// `bytes`: what the retained responses take, kept as they are inserted, replaced and removed.
-pub struct Cache { entries: RefCell<BTreeMap<String, Entry>>, heads: RefCell<BTreeMap<String, Head>>, stamp: Option<At>, origin:Option<crate::engine::model::CredentialVersion>, rendered: Rendered, bytes: Cell<usize>,
+pub struct Cache { entries: RefCell<BTreeMap<String, Entry>>, heads: RefCell<BTreeMap<String, Head>>,
+    /// Answers the cache had no room for (`admit`), by key, until when: settled failures for every pass on this cache until
+    /// the next fill asks again (`clear_refusals`). Bounded by MAX_ENTRIES.
+    refused: RefCell<BTreeMap<String, i64>>, stamp: Option<At>, origin:Option<crate::engine::model::CredentialVersion>, rendered: Rendered, bytes: Cell<usize>,
     /// The install's held conversions, which kept figures are checked against as they are shown (`fx_current`).
     fx: Option<Arc<FxStore>> }
 
@@ -53,12 +66,18 @@ fn request(path: &str, query: Vec<(&'static str, String)>) -> HttpRequest {
 }
 
 pub const CANDLE_TTL: i64 = 30 * 86_400;
+/// A series' timeframe in seconds, from Alpaca's `timeframe` or KuCoin's `type`.
 fn seconds(request: &HttpRequest) -> i64 {
-    match request.query.iter().find(|(k,_)| *k == "timeframe").map(|(_,v)| v.as_str()) {
-        Some("1Min") => 60, Some("5Min") => 300, Some("15Min") => 900, Some("30Min") => 1800,
-        Some("1Hour") => 3600, Some("4Hour") => 14400, Some("1Week") => 604800, Some("1Month") => 2592000, _ => 86400,
+    match request.query.iter().find(|(k,_)| *k == "timeframe" || *k == "type").map(|(_,v)| v.as_str()) {
+        Some("1Min" | "1min") => 60, Some("5Min" | "5min") => 300, Some("15Min" | "15min") => 900, Some("30Min" | "30min") => 1800,
+        Some("1Hour" | "1hour") => 3600, Some("4Hour" | "4hour") => 14400, Some("1Week" | "1week") => 604800, Some("1Month") => 2592000, _ => 86400,
     }
 }
+/// Whether a demand is a candle series (kept as a head) rather than one answer: Alpaca's bars, or a KuCoin series. A KuCoin
+/// series is never sent as it is: its key names the series (symbol, since, type), and its pages are derived from it
+/// (`kucoin_pages`), so the head is found again by the next fill whatever `now` is.
+fn is_series(request: &HttpRequest) -> bool { request.path.ends_with("/bars") || request.path == KUCOIN_CANDLES }
+fn param<'r>(request: &'r HttpRequest, name: &str) -> &'r str { request.query.iter().find(|(k,_)| *k == name).map_or("", |(_,v)| v.as_str()) }
 fn bar_time(bar: &Value) -> Option<i64> {
     bar["t"].as_str().and_then(|t| chrono::DateTime::parse_from_rfc3339(t).ok()).map(|t| t.timestamp())
 }
@@ -105,11 +124,11 @@ fn prices_only(path: &str, mut body: Value) -> Value {
 }
 /// One demand's answer, ready to insert: the entry's value and size, and the candle head it leaves, if any.
 struct Answered { key: String, value: Fetch<Answer>, size: usize, head: Option<(Arc<[Bar]>, usize)> }
-async fn answer(wire: &impl Transport, request: HttpRequest, old: Option<Arc<[Bar]>>, now: i64, compute: &Arc<tokio::sync::Semaphore>) -> Answered {
+async fn answer(wire: &impl Transport, request: HttpRequest, old: Option<Arc<[Bar]>>, now: i64, compute: &Arc<tokio::sync::Semaphore>, in_flight: &AtomicUsize) -> Answered {
     let key = key(&request);
-    if request.path.ends_with("/bars") {
+    if is_series(&request) {
         // The entry shares the head's series; its bytes are counted once, on the head.
-        return match candles(wire, request, old, now, compute).await {
+        return match candles(wire, request, old, now, compute, in_flight).await {
             Ok(Some((bars, size))) => Answered { key, value: Ok(Answer::Bars(bars.clone())), size: 0, head: Some((bars, size)) },
             Ok(None) => Answered { key, value: Ok(Answer::Bars(Arc::from(Vec::new()))), size: 0, head: None },
             Err(failure) => Answered { key, value: Err(failure), size: 0, head: None },
@@ -125,14 +144,12 @@ async fn answer(wire: &impl Transport, request: HttpRequest, old: Option<Arc<[Ba
         Err(failure) => Answered { key, value: Err(failure), size: 0, head: None },
     }
 }
-/// A candle series: the tail since the last stored bar, merged onto it, or the whole series again when the venue rewrote
-/// the overlapping bar (a split). With its size; `None` for a series with no closed bar, which leaves no head.
-async fn candles(wire: &impl Transport, request: HttpRequest, old: Option<Arc<[Bar]>>, now: i64, compute: &Arc<tokio::sync::Semaphore>) -> Fetch<Option<(Arc<[Bar]>, usize)>> {
-    let mut tail_request = request.clone();
-    if let Some(last) = old.as_ref().and_then(|old| old.last()) {
-        for (name, value) in &mut tail_request.query { if *name == "start" { *value = last.t.to_string(); } }
-    }
-    let tail = pages(wire, &tail_request, now, compute).await?;
+/// A candle series (CandleSeriesCache#refresh): the tail from the last stored bar (AT it: the overlap tells a rewritten
+/// history from a continuing one), merged onto it, or the whole series again when the venue rewrote the overlapping bar.
+/// With its size; `None` for a series with no closed bar, which leaves no head. A merged series past SERIES_BYTES is a
+/// settled failure, and the stored head is left as it was.
+async fn candles(wire: &impl Transport, request: HttpRequest, old: Option<Arc<[Bar]>>, now: i64, compute: &Arc<tokio::sync::Semaphore>, in_flight: &AtomicUsize) -> Fetch<Option<(Arc<[Bar]>, usize)>> {
+    let tail = pages(wire, &request, old.as_ref().and_then(|old| old.last()), now, compute, in_flight).await?;
     let merging = request.clone();
     let merged = cpu(compute, move || {
         let adjusted = merging.query.iter().any(|(k,v)| *k == "adjustment" && v == "split");
@@ -143,7 +160,7 @@ async fn candles(wire: &impl Transport, request: HttpRequest, old: Option<Arc<[B
     }).await?;
     let unsorted = match merged {
         Some(bars) => bars,
-        None => pages(wire, &request, now, compute).await?,
+        None => pages(wire, &request, None, now, compute, in_flight).await?,
     };
     cpu(compute, move || {
         let mut bars = unsorted;
@@ -151,12 +168,33 @@ async fn candles(wire: &impl Transport, request: HttpRequest, old: Option<Arc<[B
         bars.sort_by_key(|bar| bar.at);
         bars.dedup_by_key(|bar| bar.at);
         let size = bars.iter().map(Bar::size).sum::<usize>();
+        if size > SERIES_BYTES { return Err(Failure::Failed(UNAVAILABLE.into())); }
         Ok((!bars.is_empty()).then(|| (Arc::from(bars), size)))
     }).await
 }
-/// The closed candles of every page of a bars answer. Alpaca answers a long range oldest first, a page at a time, each
-/// naming the next (`next_page_token`), as Clients::Alpaca reads them; the token joins the query in its sorted place.
-async fn pages(wire: &impl Transport, request: &HttpRequest, now: i64, compute: &Arc<tokio::sync::Semaphore>) -> Fetch<Vec<Bar>> {
+/// The bytes one series holds while its pages are read: counted against SERIES_BYTES for the series and FILL_BYTES for
+/// every series of the fill in flight, as each page is decoded; given back to the fill's count when the series ends.
+struct SeriesBytes<'a> { series: usize, in_flight: &'a AtomicUsize }
+impl SeriesBytes<'_> {
+    fn take(&mut self, size: usize) -> Fetch<()> {
+        self.series = self.series.saturating_add(size);
+        let fill = self.in_flight.fetch_add(size, Ordering::SeqCst).saturating_add(size);
+        if self.series > SERIES_BYTES || fill > FILL_BYTES { return Err(Failure::Failed(UNAVAILABLE.into())); }
+        Ok(())
+    }
+}
+impl Drop for SeriesBytes<'_> { fn drop(&mut self) { self.in_flight.fetch_sub(self.series, Ordering::SeqCst); } }
+/// The closed candles of every page of a series, from its start or from `tail` (the last stored bar), under the bounds
+/// (`SeriesBytes`): a series that crosses one is a settled failure, and nothing of it is kept.
+async fn pages(wire: &impl Transport, request: &HttpRequest, tail: Option<&Bar>, now: i64, compute: &Arc<tokio::sync::Semaphore>, in_flight: &AtomicUsize) -> Fetch<Vec<Bar>> {
+    let mut held = SeriesBytes { series: 0, in_flight };
+    if request.path == KUCOIN_CANDLES { return kucoin_pages(wire, request, tail.map(|bar| bar.at), now, compute, &mut held).await; }
+    // Alpaca answers a long range oldest first, a page at a time, each naming the next (`next_page_token`), as
+    // Clients::Alpaca reads them; the token joins the query in its sorted place. A tail starts at the last bar's own text.
+    let mut request = request.clone();
+    if let Some(last) = tail {
+        for (name, value) in &mut request.query { if *name == "start" { *value = last.t.to_string(); } }
+    }
     let mut out = vec![];
     let mut token: Option<String> = None;
     loop {
@@ -172,9 +210,62 @@ async fn pages(wire: &impl Transport, request: &HttpRequest, now: i64, compute: 
             let next = value.get("next_page_token").and_then(Value::as_str).filter(|t| !t.is_empty()).map(str::to_string);
             Ok((closed(value, &reading, now)?, next))
         }).await?;
+        held.take(bars.iter().map(Bar::size).sum())?;
         out.extend(bars);
         match next { Some(next) => token = Some(next), None => return Ok(out) }
     }
+}
+/// Exchanges::Kucoin#get_candles: windows of `startAt` .. `endAt` = min(start + 1500 timeframes, now), in seconds. A page
+/// with candles moves the start to its last candle + 1 s, an empty one to `endAt` + 1 s (windows before the listing are
+/// skipped, not the end); the walk ends at the window that reaches now, or after MAX_CANDLE_PAGES windows, with what it
+/// read. Any failed window fails the series.
+// ponytail: Rails compares `end_at >= now` with the clock's fraction; here both are whole seconds, so a window ending within
+// the same second as a fractional `now` ends the walk one window early. Carry nanoseconds if a recording ever shows it.
+async fn kucoin_pages(wire: &impl Transport, series: &HttpRequest, tail: Option<i64>, now: i64, compute: &Arc<tokio::sync::Semaphore>, held: &mut SeriesBytes<'_>) -> Fetch<Vec<Bar>> {
+    let timeframe = seconds(series);
+    let mut start: i64 = match tail { Some(at) => at, None => param(series, "since").parse().map_err(|_| Failure::Failed(UNAVAILABLE.into()))? };
+    let mut out = vec![];
+    for _ in 0..MAX_CANDLE_PAGES {
+        let end = start.saturating_add(timeframe.saturating_mul(1500)).min(now);
+        let page = HttpRequest { method: "GET", base: series.base.clone(), path: KUCOIN_CANDLES.into(), body: None, not_after: None,
+            query: vec![("endAt", end.to_string()), ("startAt", start.to_string()), ("symbol", param(series, "symbol").to_string()), ("type", param(series, "type").to_string())] };
+        let body = send(wire, &page).await?;
+        let (bars, last) = cpu(compute, move || kucoin_rows(decode(&body)?, timeframe, now)).await?;
+        held.take(bars.iter().map(Bar::size).sum())?;
+        out.extend(bars);
+        if end >= now { break; }
+        start = match last { Some(last) => last.saturating_add(1), None => end.saturating_add(1) };
+    }
+    Ok(out)
+}
+/// One KuCoin window: `data` rows of `[time, open, close, high, low, volume]` strings, read in time order. The closed ones,
+/// and the last row's time (closed or not), which is where the next window starts. No `data` is an empty window, as Rails'
+/// `data.present?` reads it.
+fn kucoin_rows(mut body: Value, timeframe: i64, now: i64) -> Fetch<(Vec<Bar>, Option<i64>)> {
+    let unreadable = || Failure::Failed(UNAVAILABLE.into());
+    if !body.is_object() { return Err(unreadable()); }
+    let rows = match body.get_mut("data").map(Value::take) {
+        None | Some(Value::Null) => vec![],
+        Some(Value::Array(rows)) => rows,
+        Some(Value::String(text)) if text.is_empty() => vec![],
+        Some(_) => return Err(unreadable()),
+    };
+    let mut read = vec![];
+    for row in rows {
+        let Value::Array(mut row) = row else { return Err(unreadable()) };
+        let at = match row.first() { Some(Value::String(t)) => t.parse::<i64>().ok(), Some(Value::Number(n)) => n.as_i64(), _ => None }.ok_or_else(unreadable)?;
+        read.push((at, row.get_mut(1).map_or(Value::Null, Value::take)));
+    }
+    read.sort_by_key(|(at, _)| *at);
+    let last = read.last().map(|(at, _)| *at);
+    let mut out = vec![];
+    for (at, open) in read {
+        if at.saturating_add(timeframe) <= now {
+            Dec::to_d(&open)?;
+            out.push(Bar { at, t: at.to_string().into(), o: open });
+        }
+    }
+    Ok((out, last))
 }
 /// The answer's closed candles, each checked as a price, taken out of the answer: nothing of it is kept but these.
 fn closed(mut body: Value, request: &HttpRequest, now: i64) -> Fetch<Vec<Bar>> {
@@ -211,8 +302,6 @@ impl Cache {
     fn sub(&self, size: usize) { self.bytes.set(self.bytes.get().saturating_sub(size)); }
     fn remove_entry(&self, key: &str) { if let Some(entry) = self.entries.borrow_mut().remove(key) { self.sub(entry.size); } }
     fn remove_head(&self, key: &str) { if let Some(head) = self.heads.borrow_mut().remove(key) { self.sub(head.size); } }
-    fn clear_entries(&self) { let gone: usize = self.entries.borrow().values().map(|e| e.size).sum(); self.entries.borrow_mut().clear(); self.sub(gone); }
-    fn clear_heads(&self) { let gone: usize = self.heads.borrow().values().map(|h| h.size).sum(); self.heads.borrow_mut().clear(); self.sub(gone); }
     pub fn producer(&self)->&Option<crate::engine::model::CredentialVersion> { &self.origin }
     /// The key the cache's figures were made under, for a fill that made no request (`fill_bounded` records it otherwise).
     pub fn produced_by(&mut self, origin: Option<crate::engine::model::CredentialVersion>) { if self.origin.is_none() { self.origin = origin; } }
@@ -236,37 +325,66 @@ impl Cache {
         if rendered.len() >= 8 { rendered.remove(0); }
         rendered.push((key, value));
     }
-    /// Every demand answered, eight requests at a time, with no CPU work on the runtime's thread (`cpu`).
-    pub async fn fill_bounded(&mut self, wire: &impl Transport, demands: Vec<HttpRequest>, now: i64, compute: &Arc<tokio::sync::Semaphore>) {
+    /// Expired entries and heads go first, oldest first: what `admit` makes room with before it refuses anything.
+    fn evict_expired(&self, now: i64) {
+        let mut entries: Vec<(i64, String)> = self.entries.borrow().iter().filter(|(_, e)| e.until <= now).map(|(k, e)| (e.until, k.clone())).collect();
+        entries.sort();
+        for (_, key) in entries { self.remove_entry(&key); }
+        let mut heads: Vec<(i64, String)> = self.heads.borrow().iter().filter(|(_, h)| h.until <= now).map(|(k, h)| (h.until, k.clone())).collect();
+        heads.sort();
+        for (_, key) in heads { self.remove_head(&key); }
+    }
+    /// The one admission rule for every answer the cache keeps (an entry, and a series' head with it): a replacement reuses
+    /// its key's slot and counts only its size difference; a new key needs a free slot (MAX_ENTRIES, entries and heads
+    /// apart); and the cache after it stays within CACHE_BYTES. Nothing kept is removed to make room but what has expired.
+    fn admit(&self, key: &str, entry: usize, head: Option<usize>, now: i64) -> bool {
+        self.evict_expired(now);
+        let (entries, heads) = (self.entries.borrow(), self.heads.borrow());
+        let old_entry = entries.get(key).map(|e| e.size);
+        let old_head = heads.get(key).map(|h| h.size);
+        if old_entry.is_none() && entries.len() >= MAX_ENTRIES { return false; }
+        if head.is_some() && old_head.is_none() && heads.len() >= MAX_ENTRIES { return false; }
+        // A head is replaced only by a head: an answer with none leaves the stored series as it is.
+        let replaced = old_entry.unwrap_or(0) + head.map_or(0, |_| old_head.unwrap_or(0));
+        self.bytes().saturating_sub(replaced).saturating_add(entry).saturating_add(head.unwrap_or(0)) <= CACHE_BYTES
+    }
+    /// An answer refused for room: a settled failure for every pass on this cache (`Reader::get`) until the next fill.
+    fn refuse(&self, key: String, now: i64) {
+        let mut refused = self.refused.borrow_mut();
+        refused.retain(|_, until| *until > now);
+        // ponytail: past MAX_ENTRIES refusals one goes unrecorded and is asked for again by the next pass of this fill.
+        if refused.len() < MAX_ENTRIES || refused.contains_key(&key) { refused.insert(key, now.saturating_add(PRICE_TTL)); }
+    }
+    /// A new fill asks again for what an earlier one had no room for.
+    pub fn clear_refusals(&self) { self.refused.borrow_mut().clear(); }
+    /// Every demand answered, eight requests at a time, with no CPU work on the runtime's thread (`cpu`). Demands past
+    /// MAX_ENTRIES are refused (`refuse`) for this fill, so the holdings that were admitted keep their figures.
+    pub async fn fill_bounded(&mut self, wire: &impl Transport, mut demands: Vec<HttpRequest>, now: i64, compute: &Arc<tokio::sync::Semaphore>) {
         use futures_util::stream::{self, StreamExt};
         self.rendered = Rendered::default();
         self.origin=wire.producer();
         let producer = wire.producer();
+        if demands.len() > MAX_ENTRIES { for request in demands.split_off(MAX_ENTRIES) { self.refuse(key(&request), now); } }
         // What each candle demand starts from: its stored head, unless another key's head or an expired one.
         let jobs: Vec<(HttpRequest, Option<Arc<[Bar]>>)> = demands.into_iter().map(|request| {
             let cache_key = key(&request);
             if self.heads.borrow().get(&cache_key).is_some_and(|h|!crate::engine::model::current_for(h.origin.as_ref(),wire.producer().as_ref()).is_fresh()) { self.remove_head(&cache_key); }
-            let old = request.path.ends_with("/bars").then(|| self.heads.borrow().get(&cache_key).filter(|h| h.until > now).map(|h| h.bars.clone())).flatten();
+            let old = is_series(&request).then(|| self.heads.borrow().get(&cache_key).filter(|h| h.until > now).map(|h| h.bars.clone())).flatten();
             (request, old)
         }).collect();
-        let mut answers = stream::iter(jobs).map(|(request, old)| answer(wire, request, old, now, compute)).buffer_unordered(8);
+        let in_flight = AtomicUsize::new(0);
+        let mut answers = stream::iter(jobs).map(|(request, old)| answer(wire, request, old, now, compute, &in_flight)).buffer_unordered(8);
         while let Some(answer) = answers.next().await {
+            if !self.admit(&answer.key, answer.size, answer.head.as_ref().map(|(_, size)| *size), now) { self.refuse(answer.key, now); continue; }
+            self.refused.borrow_mut().remove(&answer.key);
             if let Some((bars, size)) = answer.head {
-                if self.heads.borrow().len() >= MAX_ENTRIES { self.clear_heads(); }
                 self.remove_head(&answer.key);
                 self.heads.borrow_mut().insert(answer.key.clone(), Head { until: now.saturating_add(CANDLE_TTL), bars, origin: producer.clone(), size });
                 self.add(size);
             }
-            if self.entries.borrow().len() >= MAX_ENTRIES {
-                let expired: Vec<String> = self.entries.borrow().iter().filter(|(_, entry)| entry.until <= now).map(|(k, _)| k.clone()).collect();
-                for key in expired { self.remove_entry(&key); }
-            }
-            // This process is a cache, not a second database. Eviction only causes a new read.
-            if self.entries.borrow().len() >= MAX_ENTRIES { self.clear_entries(); }
             self.remove_entry(&answer.key);
             self.entries.borrow_mut().insert(answer.key, Entry { until: now.saturating_add(PRICE_TTL), value: answer.value, origin: producer.clone(), size: answer.size });
             self.add(answer.size);
-            if self.bytes() > 32 * 1024 * 1024 { self.clear_entries(); self.clear_heads(); }
         }
     }
     /// `fill_bounded` under a permit of its own: for a caller with no figures service (a test, a harness).
@@ -299,11 +417,13 @@ impl<'a> Reader<'a> {
             match origin {Some(origin)=>crate::engine::model::credential_is_current(c,origin).map_err(|_|Failure::Failed(UNAVAILABLE.into())),None=>Ok(false)}
         };
         let key = key(&request);
+        // An answer the cache had no room for is settled for this cache: asked again only by the next fill.
+        if self.cache.refused.borrow().get(&key).is_some_and(|until| *until > self.now) { return Err(Failure::Failed(UNAVAILABLE.into())); }
         if let Some(entry)=self.cache.entries.borrow().get(&key){fresh(&entry.origin)?;}
         if let Some(head)=self.cache.heads.borrow().get(&key){fresh(&head.origin)?;}
         if self.cache.entries.borrow().get(&key).is_some_and(|e|!fresh(&e.origin).unwrap_or(false)){let gone=self.cache.entries.borrow_mut().remove(&key);if let Some(e)=gone{self.cache.sub(e.size);}}
         if self.cache.heads.borrow().get(&key).is_some_and(|h|!fresh(&h.origin).unwrap_or(false)){let gone=self.cache.heads.borrow_mut().remove(&key);if let Some(h)=gone{self.cache.sub(h.size);}}
-        if request.path.ends_with("/bars") {
+        if is_series(&request) {
             if let Some(entry) = self.cache.entries.borrow().get(&key).filter(|entry| fresh(&entry.origin).unwrap_or(false) && entry.until > self.now) {
                 return entry.value.clone();
             }
@@ -319,8 +439,13 @@ impl<'a> Reader<'a> {
 /// Whether the figures read this venue's market data at all. A venue they do not read yet has no prices or candles here,
 /// which is no failure of the venue's: its bots show what is known without a price, and no note that it did not answer.
 pub fn reads(venue: &Venue) -> bool { venue.exchange_type == "Exchanges::Alpaca" || venue.exchange_type == crate::venue::kucoin::KUCOIN }
-/// Whether the figures read this venue's candles: Alpaca's only so far.
-fn reads_candles(venue: &Venue) -> bool { venue.exchange_type == "Exchanges::Alpaca" }
+/// Whether the figures read this venue's candles.
+fn reads_candles(venue: &Venue) -> bool { venue.exchange_type == "Exchanges::Alpaca" || venue.exchange_type == crate::venue::kucoin::KUCOIN }
+/// Exchanges::Kucoin#get_candles' interval names, for the timeframes the chart asks for (`chart::timeframe`). Rails' 3 days
+/// and 1 month are rebuilt from 1day/1week candles; the chart never asks for them, so they have no series here.
+fn kucoin_type(timeframe: i64) -> Option<&'static str> {
+    Some(match timeframe { 60 => "1min", 300 => "5min", 900 => "15min", 1800 => "30min", 3600 => "1hour", 14400 => "4hour", 86_400 => "1day", 604_800 => "1week", _ => return None })
+}
 const ALL_TICKERS: &str = "/api/v1/market/allTickers";
 
 impl MarketData for Reader<'_> {
@@ -367,6 +492,19 @@ impl MarketData for Reader<'_> {
         // A venue this reader cannot read has no candles, as it has no prices (`prices`): that holding goes without a
         // grid, and the pass is not marked failed, which would fail every bot's figures.
         if !reads_candles(venue) { return Err(Failure::Failed(UNAVAILABLE.into())); }
+        if venue.exchange_type == crate::venue::kucoin::KUCOIN {
+            // CandleSeriesCache's series for (ticker, since, timeframe): KuCoin has one history, so `restated` names the same
+            // series. The key is the series, not a page: its pages move with now (`kucoin_pages`), the key does not.
+            let Some(name) = kucoin_type(timeframe) else { return Err(Failure::Failed(UNAVAILABLE.into())) };
+            let since = since.0.div_euclid(1_000_000_000);
+            let series = HttpRequest { method: "GET", base: crate::venue::kucoin::URL.into(), path: KUCOIN_CANDLES.into(), body: None, not_after: None,
+                query: vec![("since", since.to_string()), ("symbol", ticker.ticker.clone()), ("type", name.into())] };
+            let Answer::Bars(bars) = self.get(series)? else { return Err(Failure::Failed(UNAVAILABLE.into())) };
+            return bars.iter().map(|bar| {
+                let at = chrono::DateTime::from_timestamp(bar.at, 0).and_then(At::from_utc).ok_or_else(|| Failure::Failed(UNAVAILABLE.into()))?;
+                Ok((at, Dec::to_d(&bar.o)?))
+            }).collect();
+        }
         let result = (|| {
             let start = since.utc().format("%Y-%m-%dT%H:%M:%SZ").to_string();
             let name = match timeframe { 60 => "1Min", 300 => "5Min", 900 => "15Min", 1800 => "30Min", 3600 => "1Hour", 14400 => "4Hour", 604800 => "1Week", 2592000 => "1Month", _ => "1Day" };
@@ -596,5 +734,245 @@ mod r4_cache_tests {
         cache.fill(&b,vec![req.clone()],now+61).await;
         assert_eq!(b.requests.borrow()[0].query,req.query,"R4 B must fetch a full series rather than A's cached tail");
         assert!(Reader::new(&cache,now+61).with_current(&c).get(req).is_ok());
+    }
+
+    // ---- KuCoin series (Exchanges::Kucoin#get_candles, CandleSeriesCache) and the cache's bounds
+
+    /// Answers KuCoin windows from a function of (startAt, endAt), and logs every one asked for.
+    struct Kucoin<F: Fn(i64, i64) -> HttpResponse> { answer: F, asked: RefCell<Vec<(i64, i64)>>, producer: CredentialVersion }
+    impl<F: Fn(i64, i64) -> HttpResponse> Transport for Kucoin<F> {
+        fn producer(&self)->Option<CredentialVersion>{Some(self.producer.clone())}
+        async fn send(&self,r:&HttpRequest)->Result<HttpResponse,TransportError>{
+            assert_eq!((r.base.as_str(), r.path.as_str()), (crate::venue::kucoin::URL, KUCOIN_CANDLES));
+            let names: Vec<&str> = r.query.iter().map(|(k,_)|*k).collect();
+            assert_eq!(names, ["endAt","startAt","symbol","type"], "Faraday's sorted parameters");
+            let (start, end) = (param(r,"startAt").parse().unwrap(), param(r,"endAt").parse().unwrap());
+            self.asked.borrow_mut().push((start, end));
+            Ok((self.answer)(start, end))
+        }
+    }
+    fn rows(times: impl IntoIterator<Item = i64>, open: impl Fn(i64) -> String) -> HttpResponse {
+        let data: Vec<Value> = times.into_iter().map(|t| serde_json::json!([t.to_string(), open(t), "1", "1", "1", "1"])).collect();
+        HttpResponse { status: 200, body: serde_json::json!({"code":"200000","data":data}).to_string() }
+    }
+    fn kucoin<F: Fn(i64, i64) -> HttpResponse>(answer: F) -> Kucoin<F> {
+        Kucoin { answer, asked: RefCell::default(), producer: model::credential_version_by_id(&db(),1).unwrap().unwrap() }
+    }
+    const H: i64 = 3600;
+    const SINCE: i64 = 1_767_225_600; // 2026-01-01T00:00:00Z
+    fn series(since: i64, kind: &str) -> HttpRequest {
+        HttpRequest { method: "GET", base: crate::venue::kucoin::URL.into(), path: KUCOIN_CANDLES.into(), body: None, not_after: None,
+                      query: vec![("since", since.to_string()), ("symbol", "BTC-USDT".into()), ("type", kind.into())] }
+    }
+    fn opens(cache: &Cache, key: &str) -> Vec<(i64, String)> {
+        cache.heads.borrow()[key].bars.iter().map(|bar| (bar.at, bar.o.as_str().unwrap().to_string())).collect()
+    }
+    fn hourly(start: i64, end: i64) -> impl Iterator<Item = i64> { (0..).map(move |i| start - start.rem_euclid(H) + i * H).skip_while(move |t| *t < start).take_while(move |t| *t <= end) }
+
+    #[tokio::test]
+    async fn a_kucoin_series_walks_its_windows_as_rails_does(){
+        // Windows of 1500 hours: candles, an empty one (a gap in the listing), candles, then the window that reaches now.
+        let now = SINCE + 3500 * H + 1800;
+        let listed = SINCE + 1700 * H;
+        let wire = kucoin(|start, end| rows(hourly(start, end).filter(|t| *t < SINCE + 100 * H || *t >= listed), |t| format!("{}.5", (t - SINCE) / H)));
+        let mut cache = Cache::default();
+        let req = series(SINCE, "1hour");
+        cache.fill(&wire, vec![req.clone()], now).await;
+        let last_of_first = SINCE + 99 * H;
+        assert_eq!(*wire.asked.borrow(), vec![
+            (SINCE, SINCE + 1500 * H),                          // candles: the next window starts past the last one
+            (last_of_first + 1, last_of_first + 1 + 1500 * H),  // empty: the next starts past its end
+            (last_of_first + 2 + 1500 * H, last_of_first + 2 + 3000 * H),
+            (SINCE + 3099 * H + 1, now),                        // reaches now: the walk ends
+        ]);
+        let bars = opens(&cache, &key(&req));
+        assert_eq!(bars.first().unwrap(), &(SINCE, "0.5".to_string()));
+        // The last candle opened at now - 30 min is not closed, and is left out; the one before it is the last.
+        assert_eq!(bars.last().unwrap().0, SINCE + 3499 * H);
+        assert_eq!(bars.len(), 100 + 1800, "the first 100 hours, then from the listing to the last closed candle");
+    }
+
+    #[tokio::test]
+    async fn a_kept_kucoin_series_is_reused_then_extended_from_its_last_candle(){
+        let now = SINCE + 10 * H;
+        let wire = kucoin(|start, end| rows(hourly(start, end), |t| format!("{}", 100 + (t - SINCE) / H)));
+        let mut cache = Cache::default();
+        let req = series(SINCE, "1hour");
+        cache.fill(&wire, vec![req.clone()], now).await;
+        assert_eq!(*wire.asked.borrow(), vec![(SINCE, now)]);
+        let key = key(&req);
+        assert_eq!(opens(&cache, &key).last().unwrap().0, SINCE + 9 * H);
+        // Before the next candle is due the head is the answer, with nothing asked.
+        let reader = Reader::new(&cache, now + 61);
+        assert!(reader.get(req.clone()).is_ok() && reader.demands().is_empty());
+        // Past it: a tail from the last stored candle (AT it), merged on.
+        let later = SINCE + 13 * H + 5;
+        let reader = Reader::new(&cache, later);
+        assert!(reader.get(req.clone()).is_err() && reader.demands().len() == 1, "the series is asked for again");
+        cache.fill(&wire, reader.demands(), later).await;
+        assert_eq!(wire.asked.borrow()[1], (SINCE + 9 * H, later));
+        let bars = opens(&cache, &key);
+        assert_eq!(bars.iter().map(|b| b.0).collect::<Vec<_>>(), (0..13).map(|i| SINCE + i * H).collect::<Vec<_>>());
+        assert_eq!(cache.bytes(), recount(&cache));
+    }
+
+    #[tokio::test]
+    async fn a_moved_overlap_rebuilds_the_kucoin_series_from_its_start(){
+        let now = SINCE + 10 * H;
+        let moved = std::cell::Cell::new(false);
+        let wire = kucoin(|start, end| rows(hourly(start, end), |t| if moved.get() { format!("{}", 2 * (100 + (t - SINCE) / H)) } else { format!("{}", 100 + (t - SINCE) / H) }));
+        let mut cache = Cache::default();
+        let req = series(SINCE, "1hour");
+        cache.fill(&wire, vec![req.clone()], now).await;
+        moved.set(true);
+        let later = SINCE + 13 * H;
+        cache.fill(&wire, vec![req.clone()], later).await;
+        assert_eq!(wire.asked.borrow()[1..], [(SINCE + 9 * H, later), (SINCE, later)], "the tail, then the whole series again");
+        assert_eq!(opens(&cache, &key(&req))[0], (SINCE, "200".to_string()));
+        // A bar that moved by 0.1% or less is rounding: the tail is merged.
+        let mut cache = Cache::default();
+        let small = kucoin(|start, end| rows(hourly(start, end), |t| if start > SINCE && t == SINCE + 9 * H { "109.1".into() } else { format!("{}", 100 + (t - SINCE) / H) }));
+        cache.fill(&small, vec![req.clone()], now).await;
+        cache.fill(&small, vec![req.clone()], later).await;
+        assert_eq!(small.asked.borrow().len(), 2);
+        assert_eq!(opens(&cache, &key(&req))[9], (SINCE + 9 * H, "109".to_string()), "the stored bar stands");
+    }
+
+    #[tokio::test]
+    async fn a_failed_later_window_fails_the_series_and_keeps_the_stored_one(){
+        let now = SINCE + 2000 * H;
+        let failing = std::cell::Cell::new(false);
+        let wire = kucoin(|start, end| if failing.get() && start > SINCE { HttpResponse { status: 500, body: "{}".into() } } else { rows(hourly(start, end), |_| "1".into()) });
+        let mut cache = Cache::default();
+        let req = series(SINCE, "1hour");
+        let key = key(&req);
+        cache.fill(&wire, vec![req.clone()], now).await;
+        let kept = opens(&cache, &key);
+        failing.set(true);
+        // A cold walk whose second window fails leaves no series.
+        let mut cold = Cache::default();
+        cold.fill(&wire, vec![req.clone()], now).await;
+        assert!(matches!(cold.entries.borrow()[&key].value, Err(Failure::Failed(_))) && cold.heads.borrow().is_empty());
+        // A tail that fails keeps the stored series.
+        let later = now + 3 * H;
+        cache.fill(&wire, vec![req.clone()], later).await;
+        assert!(matches!(cache.entries.borrow()[&key].value, Err(Failure::Failed(_))), "a settled failure: the holding has no grid");
+        assert_eq!(opens(&cache, &key), kept, "the stored series is left as it was");
+    }
+
+    #[tokio::test]
+    async fn a_kucoin_answer_without_candles_is_an_empty_window_and_an_unreadable_one_fails(){
+        let now = SINCE + 10 * H;
+        for (body, ok) in [(r#"{"code":"400100","msg":"bad"}"#, true), (r#"{"code":"200000","data":[]}"#, true), (r#"{"data":"x"}"#, false), ("[]", false), (r#"{"data":[["abc","1"]]}"#, false)] {
+            let wire = kucoin(|_, _| HttpResponse { status: 200, body: body.into() });
+            let mut cache = Cache::default();
+            cache.fill(&wire, vec![series(SINCE, "1hour")], now).await;
+            let value = &cache.entries.borrow()[&key(&series(SINCE, "1hour"))].value;
+            assert_eq!(value.is_ok(), ok, "{body}");
+            assert!(cache.heads.borrow().is_empty());
+        }
+    }
+
+    #[tokio::test]
+    async fn a_venue_paging_without_end_crosses_the_series_bound_and_keeps_the_previous_head(){
+        // Every window answers 200 one-minute candles and never reaches now.
+        let now = SINCE + 60 * 1500 * 2000;
+        let wire = kucoin(|start, _| rows((0..200).map(|i| start + i * 60), |_| "1.5".into()));
+        let mut cache = Cache::default();
+        let req = series(SINCE, "1min");
+        let key = key(&req);
+        let old: Arc<[Bar]> = Arc::from(vec![Bar { at: SINCE, t: SINCE.to_string().into(), o: serde_json::json!("1") }]);
+        cache.heads.borrow_mut().insert(key.clone(), Head { until: now + CANDLE_TTL, bars: old.clone(), origin: Some(wire.producer.clone()), size: old[0].size() });
+        cache.add(old[0].size());
+        // The tail from it never ends; the series bound stops it, and nothing of it is kept.
+        cache.fill(&wire, vec![req], now).await;
+        assert!(wire.asked.borrow().len() < MAX_CANDLE_PAGES, "stopped by the bound, {} windows", wire.asked.borrow().len());
+        assert!(matches!(cache.entries.borrow()[&key].value, Err(Failure::Failed(_))));
+        assert!(Arc::ptr_eq(&cache.heads.borrow()[&key].bars, &old), "the previous head stays");
+        assert_eq!(cache.bytes(), recount(&cache));
+    }
+
+    #[test]
+    fn every_series_in_flight_counts_against_one_fill_bound(){
+        let in_flight = AtomicUsize::new(0);
+        let near = SERIES_BYTES - 1;
+        let mut series: Vec<SeriesBytes> = (0..4).map(|_| SeriesBytes { series: 0, in_flight: &in_flight }).collect();
+        for s in &mut series { assert!(s.take(near).is_ok(), "each series alone is within its bound"); }
+        let mut fifth = SeriesBytes { series: 0, in_flight: &in_flight };
+        assert!(fifth.take(near).is_err(), "the fill's bound is shared");
+        drop(fifth);
+        drop(series.pop());
+        let mut again = SeriesBytes { series: 0, in_flight: &in_flight };
+        assert!(again.take(near).is_ok(), "a finished series gives its bytes back");
+        assert!(again.take(2).is_err(), "and one series past its own bound fails");
+    }
+
+    #[tokio::test]
+    async fn a_tail_that_makes_the_series_too_large_is_refused_and_the_old_head_stays(){
+        let now = SINCE + 10 * H;
+        let wire = kucoin(|start, end| rows(hourly(start, end), |_| "1".into()));
+        let mut cache = Cache::default();
+        let req = series(SINCE, "1hour");
+        let key = key(&req);
+        // A stored series just under the bound, its last candle long ago.
+        let unit = Bar { at: 0, t: "0".into(), o: serde_json::json!("1") }.size();
+        let big: Vec<Bar> = (0..(SERIES_BYTES / unit) as i64).map(|i| Bar { at: SINCE - 10_000_000 + i, t: "0".into(), o: serde_json::json!("1") }).collect();
+        let size: usize = big.iter().map(Bar::size).sum();
+        let big: Arc<[Bar]> = Arc::from(big);
+        cache.heads.borrow_mut().insert(key.clone(), Head { until: now + CANDLE_TTL, bars: big.clone(), origin: Some(wire.producer.clone()), size });
+        cache.add(size);
+        let other = request("/v2/stocks/snapshots", vec![("symbols","AAA".into())]);
+        cache.entries.borrow_mut().insert(key_of(&other), Entry { until: now + PRICE_TTL, value: Ok(Answer::Json(Arc::new(serde_json::json!({})))), origin: None, size: 2 });
+        cache.add(2);
+        cache.fill(&wire, vec![req], now).await;
+        assert!(matches!(cache.entries.borrow()[&key].value, Err(Failure::Failed(_))));
+        assert!(Arc::ptr_eq(&cache.heads.borrow()[&key].bars, &big), "the old head stays");
+        assert!(cache.entries.borrow().contains_key(&key_of(&other)), "other answers are untouched");
+        assert_eq!(cache.bytes(), recount(&cache));
+    }
+    fn key_of(r: &HttpRequest) -> String { key(r) }
+
+    #[tokio::test]
+    async fn a_full_cache_refuses_what_has_no_room_without_clearing_anything(){
+        let c=db();let producer=model::credential_version_by_id(&c,1).unwrap().unwrap();
+        let wire=BoundWire{producer,requests:RefCell::default()};
+        let now=chrono::DateTime::parse_from_rfc3339("2026-01-02T12:00:00Z").unwrap().timestamp();
+        let bars=|symbol:&str|request(&format!("/v2/stocks/{symbol}/bars"),vec![("start","2025-01-01T00:00:00Z".into()),("timeframe","1Day".into())]);
+        // A cache near its total: one kept answer takes nearly all of it.
+        let mut cache=Cache::default();
+        let held=request("/v2/stocks/snapshots",vec![("symbols","HELD".into())]);
+        cache.entries.borrow_mut().insert(key(&held),Entry{until:now+PRICE_TTL,value:Ok(Answer::Json(Arc::new(serde_json::json!({})))),origin:None,size:CACHE_BYTES-10});
+        cache.add(CACHE_BYTES-10);
+        cache.fill(&wire,vec![bars("NEW")],now).await;
+        assert!(cache.heads.borrow().is_empty() && cache.entries.borrow().contains_key(&key(&held)), "nothing cleared, the new series refused");
+        let reader=Reader::new(&cache,now);
+        assert!(reader.get(bars("NEW")).is_err() && reader.demands().is_empty(), "settled for this cache, not asked again");
+        // A render-only pass on a clone (another locale) reads it as settled too.
+        let copy=cache.clone();
+        let reader=Reader::new(&copy,now);
+        assert!(reader.get(bars("NEW")).is_err() && reader.demands().is_empty());
+        // The next fill asks again.
+        cache.clear_refusals();
+        let reader=Reader::new(&cache,now);
+        assert!(reader.get(bars("NEW")).is_err() && reader.demands().len()==1);
+
+        // More demands than MAX_ENTRIES: the admitted ones are kept, the rest refused, nothing cleared.
+        let mut cache=Cache::default();
+        let many:Vec<HttpRequest>=(0..MAX_ENTRIES+2).map(|i|request("/v2/stocks/snapshots",vec![("symbols",format!("S{i}"))])).collect();
+        cache.fill(&wire,many.clone(),now).await;
+        assert_eq!(cache.entries.borrow().len(),MAX_ENTRIES);
+        let reader=Reader::new(&cache,now);
+        assert!(reader.get(many[0].clone()).is_ok());
+        assert!(reader.get(many[MAX_ENTRIES+1].clone()).is_err() && reader.demands().is_empty(), "refused, not demanded again in this fill");
+        // A replacement of a kept key at full count is admitted.
+        cache.fill(&wire,vec![many[3].clone()],now+1).await;
+        assert_eq!(cache.entries.borrow()[&key(&many[3])].until,now+1+PRICE_TTL);
+        // A new key at full count is refused while every entry is current; once they expire it is admitted.
+        let late=request("/v2/stocks/snapshots",vec![("symbols","LATE".into())]);
+        cache.fill(&wire,vec![late.clone()],now+2).await;
+        assert!(!cache.entries.borrow().contains_key(&key(&late)));
+        cache.fill(&wire,vec![late.clone()],now+PRICE_TTL+5).await;
+        assert!(cache.entries.borrow().contains_key(&key(&late)));
+        assert_eq!(cache.bytes(),recount(&cache));
     }
 }

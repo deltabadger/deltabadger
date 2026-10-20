@@ -377,3 +377,52 @@ async fn a_kucoin_bot_is_priced_from_the_venues_tickers_and_counts_in_the_headli
     assert!(tile(&shown, 3).contains("30.00%"), "{}", tile(&shown, 3));
     assert!(shown["account"].as_str().is_some_and(|h| h.contains("pnl-percent")), "{}", shown["account"]);
 }
+
+/// A KuCoin basket of BTC bought on 2026-03-02: daily candles (16 days old) from one window, startAt one day before the
+/// order and endAt now, as Exchanges::Kucoin#get_candles asks for them. `window` answers that window.
+fn kucoin_basket(window: Value) -> Install {
+    let mut sc = script(true, json!(0.9993));
+    sc["GET api.kucoin.com/api/v1/market/allTickers"] = json!({"body": {"code": "200000", "data": {"time": 1, "ticker": [{"symbol": "BTC-USDC", "last": "130"}]}}});
+    sc["GET data-api:3000/api/v1/prices?coin_ids=usd-coin&vs_currencies=usd"] = json!({"body": {"data": {"usd-coin": {"usd": 1.0}}}});
+    sc["GET api.kucoin.com/api/v1/market/candles?endAt=1773835410&startAt=1772375400&symbol=BTC-USDC&type=1day"] = window;
+    let install = install("USD", sc);
+    let c = rusqlite::Connection::open(&install.file).unwrap();
+    let t = "'2026-01-01'";
+    c.execute_batch(&format!("
+        INSERT INTO exchanges(id,type,name,created_at,updated_at) VALUES (2,'Exchanges::Kucoin','KuCoin',{t},{t});
+        INSERT INTO assets(id,category,external_id,symbol,name,created_at,updated_at) VALUES (5,'Cryptocurrency','usd-coin','USDC','USDC',{t},{t});
+        INSERT INTO tickers(id,base,base_asset_id,base_decimals,exchange_id,minimum_base_size,minimum_quote_size,price_decimals,quote,quote_asset_id,quote_decimals,ticker,available,trading_enabled,created_at,updated_at)
+            VALUES (3,'BTC',4,8,2,0,1,2,'USDC',5,2,'BTC-USDC',1,1,{t},{t});
+        INSERT INTO bots(id,user_id,exchange_id,type,status,settings,transient_data,created_at,updated_at) VALUES
+            (3,1,2,'Bots::DcaMultiAsset',1,'{{\"quote_asset_id\":5,\"allocations\":{{\"4\":1.0}}}}','{{}}',{t},{t});
+        INSERT INTO transactions(bot_id,exchange_id,base,base_asset_id,quote,quote_asset_id,amount,amount_exec,price,quote_amount_exec,side,status,external_status,external_id,transaction_type,created_at,updated_at) VALUES
+            (3,2,'BTC',4,'USDC',5,1,1,100,100,0,0,2,'o3','REGULAR','2026-03-02 14:30:00',{t});
+    ")).unwrap();
+    install
+}
+
+#[tokio::test]
+async fn a_kucoin_bots_chart_is_marked_at_the_venues_candles() {
+    // Seventeen daily candles, newest first as KuCoin sends them; the one opened today is not closed and is left out.
+    let rows: Vec<Value> = (0..17).rev().map(|day| json!([(1_772_409_600 + day * 86_400).to_string(), format!("{}.5", 101 + day), "1", "1", "1", "1", "1"])).collect();
+    let install = kucoin_basket(json!({"body": {"code": "200000", "data": rows}}));
+    let _stop = install.consume();
+    let shown = install.shown("ready").await;
+    let chart = shown["bots"]["3"]["chart"].as_str().unwrap();
+    // Marked at each closed candle's open from the first after the order (03-03, 102.5) to yesterday's (03-17, 116.5), then
+    // at the live price.
+    assert!(chart.contains("&quot;102.5&quot;,&quot;103.5&quot;") && chart.contains("&quot;116.5&quot;,&quot;130.0&quot;"), "{chart}");
+    assert!(!chart.contains("117.5"), "today's candle is still open: {chart}");
+    // The Alpaca bots beside it keep their figures.
+    assert!(tile(&shown, 1).contains("10.00%"), "{}", tile(&shown, 1));
+}
+
+#[tokio::test]
+async fn a_failed_kucoin_window_leaves_that_holding_without_a_grid_and_the_rest_of_the_account_alone() {
+    let install = kucoin_basket(json!({"status": 500, "body": {"code": "500000", "msg": "busy"}}));
+    let _stop = install.consume();
+    let shown = install.shown("ready").await;
+    assert!(shown["bots"]["3"]["chart"].as_str().unwrap().contains("hidden"), "no grid: {}", shown["bots"]["3"]["chart"]);
+    assert!(tile(&shown, 3).contains("30.00%"), "the bot is still priced: {}", tile(&shown, 3));
+    assert!(tile(&shown, 1).contains("10.00%"), "{}", tile(&shown, 1));
+}

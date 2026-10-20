@@ -9,9 +9,9 @@ use std::process::Command;
 use std::sync::OnceLock;
 mod common;
 
-/// The scenarios of script/rust/figures.rb: 74 written by hand, one per branch of the code they name, and 24 seeded
+/// The scenarios of script/rust/figures.rb: 83 written by hand, one per branch of the code they name, and 24 seeded
 /// histories that mix every kind of order with splits.
-const SCENARIOS: usize = 105;
+const SCENARIOS: usize = 107;
 
 fn rails(args: &[&str]) {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
@@ -166,7 +166,7 @@ fn the_walk_over_the_orders_matches_rails_in_every_scenario() {
     // The grid means what it says only if the figures in it are figures: no scenario's walk ends in a raise.
     let walked = grid().scenarios.iter().flat_map(|s| s.rails["bots"].as_object().unwrap().values()).filter_map(|bot| bot["metrics"].as_str())
         .filter(|metrics| !metrics.contains("\"raised\"")).count();
-    assert_eq!(walked, 134, "bots walked on the Rails side");
+    assert_eq!(walked, 136, "bots walked on the Rails side");
 }
 
 #[test]
@@ -208,7 +208,7 @@ fn the_live_figures_match_rails_in_every_scenario() {
     let lives: Vec<&str> = grid().scenarios.iter().flat_map(|s| s.rails["bots"].as_object().unwrap().values()).filter_map(|bot| bot["live"].as_str()).collect();
     let count = |needle: &str| lives.iter().filter(|live| live.contains(needle)).count();
     // Every way the pass can end is met: marked at the market, fallen back to the last fills, or raised to a retry.
-    assert_eq!((count("\"live_prices\""), count("\"prices_stale\":true"), count("\"raised\"")), (116, 7, 1), "of {} bots", lives.len());
+    assert_eq!((count("\"live_prices\""), count("\"prices_stale\":true"), count("\"raised\"")), (118, 7, 1), "of {} bots", lives.len());
 }
 
 /// Rails leaves a held asset it cannot price out of the value without a word. The figures stay Rails'; beside them
@@ -248,7 +248,7 @@ fn the_chart_marked_at_market_matches_rails_in_every_scenario() {
     let charts: Vec<&Value> = grid().scenarios.iter().flat_map(|s| s.rails["bots"].as_object().unwrap().values()).map(|bot| &bot["chart"]).filter(|chart| chart.is_object()).collect();
     let with = |name: &str, needle: &str| charts.iter().filter(|chart| chart[name].as_str().is_some_and(|text| text.contains(needle))).count();
     // Points that kept their fill mark (a null in a holding's series) and prices outside a grid's reach are both met.
-    assert_eq!((charts.len(), with("assets", "null"), with("prices", "null"), with("pnl-only", "true")), (123, 11, 23, 1));
+    assert_eq!((charts.len(), with("assets", "null"), with("prices", "null"), with("pnl-only", "true")), (125, 12, 25, 1));
 }
 
 /// The chart marked at market leaves out of every point a holding the bot has no ticker for today, though the
@@ -302,7 +302,7 @@ fn the_market_is_asked_for_exactly_what_rails_asks_it() {
         assert_eq!(scenario.rails["requests"], scenario.rust.as_ref().unwrap()["requests"], "{}", scenario.name);
     }
     let asked: usize = grid().scenarios.iter().map(|s| s.rails["requests"].as_array().map_or(0, Vec::len)).sum();
-    assert_eq!(asked, 645, "requests on the Rails side");
+    assert_eq!(asked, 660, "requests on the Rails side");
 }
 
 /// The one scenario with a bot this library does not compute (a pair bot beside a basket).
@@ -388,4 +388,24 @@ fn normalized_oracle_changes_only_the_named_r4_histories() {
     // which Rails books P/L-neutral and judges "unknown" on purpose. B2b: random_6 and unpriced_sales differed from
     // Rails only in unpriced LIQUIDATION sells, which the counterfactual now reads raw, as Rails does (RULING-B2B-1 MQ6).
     assert_eq!(changed, vec!["random_10", "random_12", "random_14", "random_15", "random_17", "random_18", "random_19", "random_2", "random_20", "random_22", "random_24", "random_3", "random_4", "random_7", "random_9"]);
+}
+
+/// KuCoin's candles (Exchanges::Kucoin#get_candles under CandleSeriesCache), one market cache across a scenario's steps:
+/// a cold walk over two windows (and an empty one before a listing), a tail from the last stored candle, a tail whose
+/// overlapping candle moved and the whole series read again; and a failed later window, which leaves that holding
+/// without a grid. Every step asks the venue for exactly what Rails asked.
+#[test]
+fn a_kucoin_series_is_kept_across_steps_and_asked_for_as_rails_asks() {
+    let of = |name: &str| grid().scenarios.iter().find(|s| s.name == name).unwrap();
+    for name in ["kucoin_series", "kucoin_failed_window"] {
+        let scenario = of(name);
+        assert_eq!(scenario.rails["steps"], scenario.rust.as_ref().unwrap()["steps"], "{name}");
+    }
+    let steps = of("kucoin_series").rails["steps"].as_array().unwrap().clone();
+    let asked = |step: usize| steps[step]["requests"].as_array().unwrap().iter().filter(|r| r.as_str().unwrap().contains("/candles?")).count();
+    assert_eq!((asked(0), asked(1), asked(2)), (4, 2, 4), "a cold walk, two tails, a tail and a rebuild");
+    assert!(steps[1]["requests"].to_string().contains("startAt=1773187200"), "the tail starts AT the last stored candle");
+    // The failed window: that holding has no grid in the chart, the other has.
+    let chart = &of("kucoin_failed_window").rails["bots"].as_object().unwrap().values().next().unwrap()["chart"]["prices"];
+    assert!(chart.as_str().unwrap().contains("\"BTC\":[50000.0"), "{chart}");
 }

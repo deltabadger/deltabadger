@@ -38,6 +38,7 @@ module ScriptedMarket
             elsif path.end_with?('/bars') then %w[adjustment page_token]
             elsif path.end_with?('/prices') then %w[coin_ids vs_currencies]
             elsif path.end_with?('/simple/price') then %w[ids vs_currencies]
+            elsif path == '/api/v1/market/candles' then %w[endAt startAt symbol type] # a KuCoin window is its whole query
             else []
             end
     host = [80, 443].include?(env.url.port) ? env.url.host : "#{env.url.host}:#{env.url.port}"
@@ -206,9 +207,22 @@ module Figures
     bot
   end
 
+  # A KuCoin venue beside Alpaca, for the scenarios whose bots trade there: its listings quoted in USD, so no conversion
+  # stands between its figures and the account's.
+  def kucoin_venue(assets)
+    kucoin = Exchanges::Kucoin.create!(name: 'KuCoin', maker_fee: '0.1', taker_fee: '0.1')
+    %w[USD BTC ETH].each { |symbol| ExchangeAsset.create!(exchange: kucoin, asset: assets[symbol], available: true) }
+    %w[BTC ETH].each do |base|
+      Ticker.create!(exchange: kucoin, ticker: "#{base}-USD", base:, quote: 'USD', base_asset: assets[base], quote_asset: assets['USD'],
+                     base_decimals: 8, quote_decimals: 2, price_decimals: 2, minimum_base_size: '0.00000001', minimum_quote_size: '1')
+    end
+    kucoin
+  end
+
   def build(sc, template, asset_ids)
     user, alpaca, assets = install(sc, template, asset_ids)
-    bots = sc.fetch('bots').map { |spec| bot_for(user, alpaca, assets, spec) }
+    kucoin = kucoin_venue(assets) if sc['bots'].any? { |spec| spec['venue'] == 'kucoin' }
+    bots = sc.fetch('bots').map { |spec| bot_for(user, spec['venue'] == 'kucoin' ? kucoin : alpaca, assets, spec) }
     sc.fetch('splits', []).each_with_index do |split, i|
       AccountTransaction.insert!({
         'user_id' => user.id, 'exchange_id' => alpaca.id, 'entry_type' => 'adjustment', 'base_currency' => split.fetch('sym'),
@@ -267,6 +281,32 @@ module Figures
       out[key] = ok(reply['body'].merge('bars' => page.call(0), 'next_page_token' => 'p2'))
       out["#{path}?#{pairs}"] = ok(reply['body'].merge('bars' => page.call(1), 'next_page_token' => nil))
     end
+  end
+
+  KUCOIN = 'GET api.kucoin.com/api/v1/market'.freeze
+
+  # KuCoin's allTickers: the whole market, every row's last price as a string.
+  def kucoin_tickers(prices) = { "#{KUCOIN}/allTickers" => ok('code' => '200000', 'data' => { 'time' => 1, 'ticker' => prices.map { |symbol, last| { 'symbol' => symbol, 'last' => last.to_s, 'vol' => '1' } } }) }
+
+  # The windows Exchanges::Kucoin#get_candles asks for a daily series from `start` at `now` (startAt .. min(start + 1500 days,
+  # now); past the last candle of a page with candles, past the end of an empty one), each answered with the candles
+  # `open` gives a time (nil: none at that time), newest first as KuCoin sends them. `answer` may replace a window's reply.
+  def kucoin_walk(symbol, start, now, open, answer: ->(_window, reply) { reply })
+    script = {}
+    start = time(start).to_i
+    now = time(now).to_i
+    1000.times do
+      end_at = [start + (1500 * D), now].min
+      first = start + ((D - (start % D)) % D)
+      times = (first..end_at).step(D).select { |t| open.call(t) }
+      rows = times.reverse.map { |t| [t.to_s, open.call(t).to_s, '1', '1', '1', '1', '1'] }
+      key = "#{KUCOIN}/candles?endAt=#{end_at}&startAt=#{start}&symbol=#{symbol}&type=1day"
+      script[key] = answer.call([start, end_at], ok('code' => '200000', 'data' => rows))
+      break if end_at >= now
+
+      start = times.any? ? times.max + 1 : end_at + 1
+    end
+    script
   end
 
   # The hosted market-data API's answers: BTC-based rates for fiat pairs, a coin's price for the rest.
@@ -670,7 +710,49 @@ module Figures
                TWO.merge("#{ALPACA}/v2/stocks/AAA/trades/latest" => ok('trade' => { 'p' => 104.52 }))),
       scenario('account_nothing_invested', NOW, [basket(two, [], label: 'a'), basket(%w[CCC], [], label: 'b')], market)
     ]
-    list + (1..24).map { |seed| random_history(seed) }
+    list + kucoin_scenarios + (1..24).map { |seed| random_history(seed) }
+  end
+
+  # ---- KuCoin: Exchanges::Kucoin#get_tickers_prices and #get_candles under CandleSeriesCache, one cache across the steps
+
+  KC_FIRST = Time.utc(2021, 3, 2, 14, 30, 0) # five years of daily candles: more than one 1500-day window
+  KC_NOW = Time.utc(2026, 3, 12, 10, 0, 0) # today's candle (03-12) is not closed; yesterday's is the last one kept
+  KC_SINCE = KC_FIRST - D # one timeframe before the first order
+  ETH_LISTED = Time.utc(2025, 6, 1).to_i # before it, a whole window of nothing
+
+  def kc_btc(scale = 1) = ->(t) { format('%.2f', (30_000 + ((t - KC_SINCE.to_i) / D * 25.5)) * scale) }
+  def kc_eth = ->(t) { t >= ETH_LISTED ? format('%.2f', 2400 + ((t - ETH_LISTED) / D * 1.25)) : nil }
+
+  def kucoin_orders
+    [buy('BTC', KC_FIRST, '50000', '0.001'), buy('ETH', KC_FIRST + 1, '1500', '0.01'),
+     buy('BTC', KC_FIRST + (400 * D), '40000', '0.0012'), buy('ETH', KC_FIRST + (1600 * D), '2500', '0.008')]
+  end
+
+  def kucoin_step(at, extra = {})
+    kucoin_tickers('BTC-USD' => '91000.5', 'ETH-USD' => '2750.25', 'XRP-USD' => '0.5').merge(extra).then { |script| { 'at' => at, 'script' => script } }
+  end
+
+  def kucoin_scenarios
+    bot = basket(%w[BTC ETH], kucoin_orders, venue: 'kucoin')
+    last_a = Time.utc(2026, 3, 11) # the last closed candle at KC_NOW: where the next tail starts, at it
+    b = KC_NOW + (3 * D)
+    last_b = Time.utc(2026, 3, 14)
+    c = b + (3 * D)
+    [
+      # A cold walk (two BTC windows; an empty ETH window before its listing), a tail from the last stored candle, then a
+      # tail whose overlapping candle moved (BTC) and the whole series read again.
+      scenario('kucoin_series', c, bot, {}, steps: [
+        kucoin_step(KC_NOW, kucoin_walk('BTC-USD', KC_SINCE, KC_NOW, kc_btc).merge(kucoin_walk('ETH-USD', KC_SINCE, KC_NOW, kc_eth))),
+        kucoin_step(b, kucoin_walk('BTC-USD', last_a, b, kc_btc).merge(kucoin_walk('ETH-USD', last_a, b, kc_eth))),
+        kucoin_step(c, kucoin_walk('BTC-USD', last_b, c, kc_btc(2)).merge(kucoin_walk('BTC-USD', KC_SINCE, c, kc_btc(2)))
+                         .merge(kucoin_walk('ETH-USD', last_b, c, kc_eth)))
+      ]),
+      # A later window that fails: that holding has no grid, the other is charted.
+      scenario('kucoin_failed_window', KC_NOW, bot, {}, steps: [
+        kucoin_step(KC_NOW, kucoin_walk('BTC-USD', KC_SINCE, KC_NOW, kc_btc, answer: ->(window, reply) { window[0] > KC_SINCE.to_i ? SERVER_ERROR : reply })
+                              .merge(kucoin_walk('ETH-USD', KC_SINCE, KC_NOW, kc_eth)))
+      ])
+    ]
   end
 
   # ---- commands -------------------------------------------------------------------------------------------------
@@ -687,7 +769,8 @@ module Figures
       user, bots = build(sc.merge('dir' => dir), template, asset_ids)
       File.write(File.join(dir, 'scenario.json'), JSON.pretty_generate({
         'parity_scratch' => true, 'at' => time(sc['at']).utc.iso8601(9), 'user_id' => user.id, 'bot_ids' => bots.map(&:id),
-        'provider' => sc['provider'], 'script' => sc['script']
+        'provider' => sc['provider'], 'script' => sc['script'],
+        'steps' => sc['steps']&.map { |step| { 'at' => time(step['at']).utc.iso8601(9), 'script' => step['script'] } }
       }.compact))
       ActiveRecord::Base.connection_pool.disconnect!
     end
@@ -763,6 +846,22 @@ module Figures
   end
   ActiveRecord::Relation.prepend(RawSpecialSells)
 
+  # One scenario's figures, with every request it made. A scenario in steps keeps one cache across them (the clock moves,
+  # the cache is not cleared): its figures are the last step's, and each step's requests are listed apart.
+  def run(sc)
+    steps = sc['steps'] || [{ 'at' => sc['at'], 'script' => sc['script'] }]
+    asked = steps.map do |step|
+      ScriptedMarket.http = step['script']
+      ScriptedMarket.requests = []
+      out = travel_to(Time.iso8601(step['at']), with_usec: true) { figures(User.find(sc['user_id']), sc['bot_ids']) }
+      [out, ScriptedMarket.requests.uniq.sort]
+    end
+    out = asked.last[0]
+    out['requests'] = asked.flat_map(&:last).uniq.sort
+    out['steps'] = asked.map { |_, requests| { 'requests' => requests } } if sc['steps']
+    out
+  end
+
   def record(root)
     Rails.cache = ActiveSupport::Cache::MemoryStore.new # as production has one; development's null store would refetch everything
     ActiveSupport::JSON::Encoding.time_precision = 9 # every digit a Time carries, so two labels a microsecond apart differ
@@ -776,26 +875,21 @@ module Figures
       Rails.cache.clear
       MarketData.instance_variable_set(:@client, nil)
       MarketData.instance_variable_set(:@coingecko, nil)
-      ScriptedMarket.http = sc['script']
-      ScriptedMarket.requests = []
       ScriptedMarket.gaps = []
       started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       out = begin
-        travel_to(Time.iso8601(sc['at']), with_usec: true) { figures(User.find(sc['user_id']), sc['bot_ids']) }
+        run(sc)
       rescue Harness::Unscripted => e
         raise Harness::Unscripted, "#{File.basename(dir)}: #{e.message}"
       end
       raise Harness::Unscripted, "#{File.basename(dir)}: #{ScriptedMarket.gaps.uniq.join(', ')}" if ScriptedMarket.gaps.any?
 
       out['seconds'] = (Process.clock_gettime(Process::CLOCK_MONOTONIC) - started).round(3) # how long Rails took: printed beside this library's, never compared
-      out['requests'] = ScriptedMarket.requests.uniq.sort
       File.write(File.join(dir, 'rails.json'), JSON.pretty_generate(out))
       Rails.cache.clear
-      ScriptedMarket.requests = []
       begin
         Thread.current[:normalized_figure_rows] = true
-        normalized = travel_to(Time.iso8601(sc['at']), with_usec: true) { figures(User.find(sc['user_id']), sc['bot_ids']) }
-        normalized['requests'] = ScriptedMarket.requests.uniq.sort
+        normalized = run(sc)
         File.write(File.join(dir, 'normalized.json'), JSON.pretty_generate(normalized))
       ensure
         Thread.current[:normalized_figure_rows] = false
