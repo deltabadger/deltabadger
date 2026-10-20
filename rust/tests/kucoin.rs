@@ -592,7 +592,7 @@ async fn an_order_neither_lookup_finds_halts_the_bot_until_the_operator_resolves
     }
 }
 
-// ---- K5: #parse_order_data, recorded (script/rust/record_kucoin_vectors.rb)
+// ---- K5: #parse_order_data, recorded (script/rust/record_venue_vectors.rb kucoin)
 
 #[test]
 fn every_recorded_rails_order_parse_is_reproduced() {
