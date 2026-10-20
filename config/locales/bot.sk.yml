@@ -195,6 +195,7 @@ sk:
                 profit_loss: Zisk/Strata
                 price: 'Cena(%{quote})'
                 sold: Predané
+                received: 'Prijaté'
                 title: Štatistiky
                 total_invested: 'Celkom investované'
                 portfolio_value: 'Hodnota portfólia'

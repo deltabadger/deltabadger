@@ -195,6 +195,7 @@ en:
                 profit_loss: Profit/Loss
                 price: 'Rate(%{quote})'
                 sold: Sold
+                received: 'Received'
                 title: Statistics
                 total_invested: 'Total invested'
                 portfolio_value: 'Portfolio Value'

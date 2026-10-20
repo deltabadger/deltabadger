@@ -86,6 +86,24 @@ pub(crate) fn redeploy_offer(c: &Connection, s: &Subject, m: &Metrics, _members:
 /// writes its own token's field there and nowhere else (`with_token`), and a broadcast takes the fragment as it is.
 pub(crate) enum Token<'a> { Value(&'a str), Slots(&'a mut Vec<usize>) }
 
+/// A bot whose every order is a sell (it holds what it sells from outside): what it sold, when that is one asset (its
+/// amount and symbol), and the proceeds. None for any bot that bought.
+/// (amount and symbol when one asset, proceeds)
+type SellOnly = (Option<(crate::figures::dec::Dec, String)>, crate::figures::dec::Dec);
+fn sell_only(s: &Subject) -> Result<Option<SellOnly>, FiguresError> {
+    use crate::figures::{dec::Dec, fill};
+    if s.orders.is_empty() || s.orders.iter().any(|order| !order.sell) { return Ok(None); }
+    let (mut amount, mut received, mut bases) = (Dec::zero(), Dec::zero(), HashSet::new());
+    for order in &s.orders {
+        let Some(filled) = fill::parse(order)? else { continue };
+        amount = (&amount + &filled.quantity)?;
+        received = (&received + &filled.value)?;
+        if let Some(base) = &order.base { bases.insert(base.clone()); }
+    }
+    let sold = (bases.len() == 1).then(|| (amount, bases.into_iter().next().unwrap_or_default()));
+    Ok(Some((sold, received)))
+}
+
 fn token_field(csrf: &str) -> String { format!("<input type=\"hidden\" name=\"authenticity_token\" value=\"{}\" autocomplete=\"off\" />", escape(csrf)) }
 /// Kept metrics with the request's token field written at each recorded offset (`Token::Slots`), and nowhere else:
 /// stored text is never searched. No token (a broadcast): the fragment as it is.
@@ -157,12 +175,22 @@ pub(super) fn render(c: &Connection, s: &Subject, m: &Metrics, missing: &[String
         }
     }
     let mut out = "<div id=\"metrics\" style=\"display: flex; flex-direction: column; gap: 1rem;\">\n".to_string();
-    if m.prices_stale { out.push_str(&format!("<p class=\"status-button__hint\" role=\"status\">\n{}\n</p>\n", t(locale, "bot.details.stats.exchange_unavailable_html"))); }
+    // 3.0 (Rust only): a venue the figures do not read yet did not fail to answer.
+    if m.prices_stale && crate::figures::page_market::reads(&crate::figures::live::venue(s)?) { out.push_str(&format!("<p class=\"status-button__hint\" role=\"status\">\n{}\n</p>\n", t(locale, "bot.details.stats.exchange_unavailable_html"))); }
     if !hidden {
         out.push_str(&format!("<div class=\"widget data-grid {}\">\n", if m.realised_pnl.is_zero() { "data-grid--two-columns" } else { "" }));
-        for (label, value) in [("total_invested", Some(&m.total_quote_amount_invested)), ("portfolio_value", (!m.prices_stale && missing.is_empty()).then_some(&m.total_amount_value_in_quote))] {
-            let value = value.map(|n| money(n).map(|v| quoted(v, quote))).transpose()?.unwrap_or(NO_VALUE.into());
-            out.push_str(&format!("<div class=\"data-grid__item\" data-controller=\"tooltip\">\n<div class=\"label\">{}</div>\n<div class=\"data-grid__item__value\">\n{value}\n</div>\n</div>\n", t(locale, &format!("bot.details.stats.{label}"))));
+        let item = |label: &str, value: String| format!("<div class=\"data-grid__item\" data-controller=\"tooltip\">\n<div class=\"label\">{}</div>\n<div class=\"data-grid__item__value\">\n{value}\n</div>\n</div>\n", t(locale, &format!("bot.details.stats.{label}")));
+        if let Some((sold, received)) = sell_only(s)? {
+            // 3.0 (Rust only): a bot that only sells has no investment to state: what it sold, and what that brought in.
+            if let Some((amount, base)) = sold {
+                let amount = precision(&Num::Dec(amount), 6, false)?;
+                out.push_str(&item("sold", quoted(amount.trim_end_matches('0').trim_end_matches('.').to_string(), &base)));
+            }
+            out.push_str(&item("received", quoted(money(&Num::Dec(received))?, quote)));
+        } else {
+            for (label, value) in [("total_invested", Some(&m.total_quote_amount_invested)), ("portfolio_value", (!m.prices_stale && missing.is_empty()).then_some(&m.total_amount_value_in_quote))] {
+                out.push_str(&item(label, value.map(|n| money(n).map(|v| quoted(v, quote))).transpose()?.unwrap_or(NO_VALUE.into())));
+            }
         }
         if !m.realised_pnl.is_zero() {
             out.push_str(&format!("<div class=\"data-grid__item\" data-controller=\"tooltip\">\n<div class=\"label label--info\">\n{}\n<span class=\"tooltip-info-icon\" data-action=\"mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip click->tooltip#toggle\">\n{}\n</span>\n</div>\n<div class=\"data-grid__item__value {}\">\n{}{}\n</div>\n<div class=\"tooltip tooltip--note\">{}</div>\n</div>\n", t(locale,"bot.dca_index.realised_pnl"), include_str!("../../../templates/svg/_24x24_info.html"), if m.realised_pnl.is_negative() { "text-danger" } else { "text-success" }, if m.realised_pnl.is_negative() { "" } else { "+" }, quoted(precision(&m.realised_pnl,2,true)?,quote), t(locale,"bot.dca_index.realised_pnl_note")));

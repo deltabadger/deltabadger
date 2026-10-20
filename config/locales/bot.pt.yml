@@ -186,6 +186,7 @@ pt:
                 profit_loss: Lucro/perda
                 price: 'Taxa (%{quote})'
                 sold: Vendido
+                received: 'Recebido'
                 title: Estatísticas
                 total_invested: 'Total investido'
                 portfolio_value: 'Valor da carteira'

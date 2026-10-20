@@ -188,6 +188,7 @@ es:
                 profit_loss: Beneficios/pérdidas
                 price: 'Tasa(%{quote})'
                 sold: Vendido
+                received: 'Recibido'
                 title: Estadísticas
                 total_invested: 'Total invertido'
                 portfolio_value: 'Valor de la cartera'

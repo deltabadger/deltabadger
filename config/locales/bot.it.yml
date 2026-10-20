@@ -188,6 +188,7 @@ it:
                 profit_loss: Profitto/Perdita
                 price: 'Tasso(%{quote})'
                 sold: Venduto
+                received: 'Ricevuto'
                 title: Statistiche
                 total_invested: 'Totale investito'
                 portfolio_value: 'Valore del portafoglio'

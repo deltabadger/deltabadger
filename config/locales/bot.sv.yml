@@ -195,6 +195,7 @@ sv:
                 profit_loss: Vinst/förlust
                 price: 'Kurs(%{quote})'
                 sold: Sålt
+                received: 'Mottaget'
                 title: Statistik
                 total_invested: 'Totalt investerat'
                 portfolio_value: 'Portföljvärde'

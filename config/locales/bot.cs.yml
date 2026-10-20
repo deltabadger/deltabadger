@@ -195,6 +195,7 @@ cs:
                 profit_loss: Zisk/Ztráta
                 price: 'Cena(%{quote})'
                 sold: Prodáno
+                received: 'Přijato'
                 title: Statistiky
                 total_invested: 'Celkem investováno'
                 portfolio_value: 'Hodnota portfolia'
