@@ -41,6 +41,10 @@ RECORDED = {
     FIX + 'import_vectors.json': ('test', [runner('record_import_vectors.rb', '{out}')], None),
     FIX + 'kucoin_vectors.json': ('test', [runner('record_kucoin_vectors.rb', '{out}')], None),
     FIX + 'kucoin_signing.json': ('test', [runner('record_kucoin_signing.rb', '{out}')], None),
+    **{FIX + f'{v}_signing.json': ('test', [runner('record_venue_signing.rb', v, '{out}')], None) for v in ('gemini', 'hyperliquid')},
+    # ES256 signatures are randomized (OpenSSL's k), so a re-record redraws them.
+    FIX + 'coinbase_signing.json': ('test', [runner('record_venue_signing.rb', 'coinbase', '{out}')],
+                                    r'signing/\d+/(jwt|signature|headers/Authorization)'),
     FIX + 'tickers_prices_vectors.json': ('test', [runner('record_tickers_prices.rb', '{out}')], None),
     FIX + 'key_verdicts.json': ('test', [runner('record_key_verdicts.rb', '{out}')], None),
     FIX + 'validator_effects.json': ('test', [runner('record_validator_effects.rb', '{out}')], None),

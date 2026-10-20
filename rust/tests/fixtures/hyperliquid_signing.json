@@ -1,0 +1,751 @@
+{
+  "sources": {
+    "script/rust/record_venue_signing.rb": "21fbf2750881d55011fbeb7f3a22cc67feb948a4277179192b602b7e3189e479"
+  },
+  "gems": {
+    "honeymaker": "0.12.5",
+    "hyperliquid-rb": "0.1.1",
+    "jwt": "2.10.3",
+    "rbnacl": "7.1.2",
+    "eth": "0.5.18",
+    "msgpack": "1.8.5"
+  },
+  "agent_key": "0x7ee1a7025c514d5d7eda7a80f501c77fb6ffea7e3858ee01fba642229613f450",
+  "assets": {
+    "PURR/USDC": 10000,
+    "@1": 10001,
+    "HYPE/USDC": 10107,
+    "BTC": 0,
+    "X127": 127,
+    "X128": 128,
+    "X255": 255,
+    "X256": 256,
+    "X65535": 65535,
+    "X65536": 65536
+  },
+  "signing": [
+    {
+      "call": "order",
+      "path": "/exchange",
+      "body": "{\"action\":{\"type\":\"order\",\"orders\":[{\"a\":10000,\"b\":true,\"p\":\"0.19876\",\"s\":\"1234.5\",\"r\":false,\"t\":{\"limit\":{\"tif\":\"Gtc\"}}}],\"grouping\":\"na\"},\"nonce\":1789871400750,\"signature\":{\"r\":\"0xbb721f0494aafa70ad0764f06cb2a3db22a8698fb9665b531c8f7df2a7e88ad8\",\"s\":\"0x41fdd8c16ac2a4ed50b4ce5a4e90d5a8ed475a63ecae7a290b2e28616a30a45\",\"v\":28}}",
+      "nonce": 1789871400750,
+      "action": {
+        "type": "order",
+        "orders": [
+          {
+            "a": 10000,
+            "b": true,
+            "p": "0.19876",
+            "s": "1234.5",
+            "r": false,
+            "t": {
+              "limit": {
+                "tif": "Gtc"
+              }
+            }
+          }
+        ],
+        "grouping": "na"
+      },
+      "msgpack": "83a474797065a56f72646572a66f72646572739186a161cd2710a162c3a170a7302e3139383736a173a6313233342e35a172c2a17481a56c696d697481a3746966a3477463a867726f7570696e67a26e61",
+      "action_hash": "0f70d81a2faf2a7a50217d1d7bc806a50ca887908cbcf4bfa35a171300af8ec6",
+      "signature": {
+        "r": "0xbb721f0494aafa70ad0764f06cb2a3db22a8698fb9665b531c8f7df2a7e88ad8",
+        "s": "0x41fdd8c16ac2a4ed50b4ce5a4e90d5a8ed475a63ecae7a290b2e28616a30a45",
+        "v": 28
+      }
+    },
+    {
+      "call": "order sell",
+      "path": "/exchange",
+      "body": "{\"action\":{\"type\":\"order\",\"orders\":[{\"a\":10107,\"b\":false,\"p\":\"41.234\",\"s\":\"0.37\",\"r\":false,\"t\":{\"limit\":{\"tif\":\"Gtc\"}}}],\"grouping\":\"na\"},\"nonce\":1789871400760,\"signature\":{\"r\":\"0xc064bc3b749a8cd5806b4c3adcd48345d28097a3135f44a1d7e880d5b0e6a1cd\",\"s\":\"0x129c1a59ae62cd1e6e9318e7133eb065196e4b46548f1ae16ff7a84348572bf6\",\"v\":27}}",
+      "nonce": 1789871400760,
+      "action": {
+        "type": "order",
+        "orders": [
+          {
+            "a": 10107,
+            "b": false,
+            "p": "41.234",
+            "s": "0.37",
+            "r": false,
+            "t": {
+              "limit": {
+                "tif": "Gtc"
+              }
+            }
+          }
+        ],
+        "grouping": "na"
+      },
+      "msgpack": "83a474797065a56f72646572a66f72646572739186a161cd277ba162c2a170a634312e323334a173a4302e3337a172c2a17481a56c696d697481a3746966a3477463a867726f7570696e67a26e61",
+      "action_hash": "807d6b889ee5ee0cbfefca2475b18c5af24c93815462fa2a419800e9daf726e2",
+      "signature": {
+        "r": "0xc064bc3b749a8cd5806b4c3adcd48345d28097a3135f44a1d7e880d5b0e6a1cd",
+        "s": "0x129c1a59ae62cd1e6e9318e7133eb065196e4b46548f1ae16ff7a84348572bf6",
+        "v": 27
+      }
+    },
+    {
+      "call": "order cloid",
+      "path": "/exchange",
+      "body": "{\"action\":{\"type\":\"order\",\"orders\":[{\"a\":10000,\"b\":true,\"p\":\"0.2\",\"s\":\"10\",\"r\":false,\"t\":{\"limit\":{\"tif\":\"Gtc\"}},\"c\":\"0x5f1c1f3e2b8f4c4e9a590d9c3f1b6a01\"}],\"grouping\":\"na\"},\"nonce\":1789871400770,\"signature\":{\"r\":\"0x3d38e5dade28ed40a21f1d4cd1d82b50ad8c583fb4e596cbf0a7873b02510aad\",\"s\":\"0x3bc09e3ede5e66caee3fe79fc348f085f7d5b94dcf6366f98b4fc038f9774d2\",\"v\":28}}",
+      "nonce": 1789871400770,
+      "action": {
+        "type": "order",
+        "orders": [
+          {
+            "a": 10000,
+            "b": true,
+            "p": "0.2",
+            "s": "10",
+            "r": false,
+            "t": {
+              "limit": {
+                "tif": "Gtc"
+              }
+            },
+            "c": "0x5f1c1f3e2b8f4c4e9a590d9c3f1b6a01"
+          }
+        ],
+        "grouping": "na"
+      },
+      "msgpack": "83a474797065a56f72646572a66f72646572739187a161cd2710a162c3a170a3302e32a173a23130a172c2a17481a56c696d697481a3746966a3477463a163d92230783566316331663365326238663463346539613539306439633366316236613031a867726f7570696e67a26e61",
+      "action_hash": "8e7b6eaeda89bd6a9285316982521efd32678fbb9f4825802b248fa80693c0b6",
+      "signature": {
+        "r": "0x3d38e5dade28ed40a21f1d4cd1d82b50ad8c583fb4e596cbf0a7873b02510aad",
+        "s": "0x3bc09e3ede5e66caee3fe79fc348f085f7d5b94dcf6366f98b4fc038f9774d2",
+        "v": 28
+      }
+    },
+    {
+      "call": "cancel",
+      "path": "/exchange",
+      "body": "{\"action\":{\"type\":\"cancel\",\"cancels\":[{\"a\":10000,\"o\":41234567890}]},\"nonce\":1789871400780,\"signature\":{\"r\":\"0x573ac07054f849391317a77e6944228802716849627f1958b7a628a4e9d195b7\",\"s\":\"0x3ba308806208e4aadb3cf74e6f505855a43eef8172edb757b668ef522941e493\",\"v\":28}}",
+      "nonce": 1789871400780,
+      "action": {
+        "type": "cancel",
+        "cancels": [
+          {
+            "a": 10000,
+            "o": 41234567890
+          }
+        ]
+      },
+      "msgpack": "82a474797065a663616e63656ca763616e63656c739182a161cd2710a16fcf0000000999c592d2",
+      "action_hash": "c5cfdcb0ffdd307d7a26c41dc18b0770d8b0717ebd52aa437124a359fd1cd71b",
+      "signature": {
+        "r": "0x573ac07054f849391317a77e6944228802716849627f1958b7a628a4e9d195b7",
+        "s": "0x3ba308806208e4aadb3cf74e6f505855a43eef8172edb757b668ef522941e493",
+        "v": 28
+      }
+    },
+    {
+      "call": "cancel small",
+      "path": "/exchange",
+      "body": "{\"action\":{\"type\":\"cancel\",\"cancels\":[{\"a\":10001,\"o\":7}]},\"nonce\":1789871400790,\"signature\":{\"r\":\"0xb5a973e7aeb310eec43874dd6681c95b179975dc18f2f46149a34d150b8bdcb1\",\"s\":\"0x512135507f99e062da505528c0e1942b546e7a0e7a55d9acb690701454951133\",\"v\":27}}",
+      "nonce": 1789871400790,
+      "action": {
+        "type": "cancel",
+        "cancels": [
+          {
+            "a": 10001,
+            "o": 7
+          }
+        ]
+      },
+      "msgpack": "82a474797065a663616e63656ca763616e63656c739182a161cd2711a16f07",
+      "action_hash": "5b13dda8f4bcdb738ebb58eb40b46e338b88fa1b535bd96236516d1e88471aa8",
+      "signature": {
+        "r": "0xb5a973e7aeb310eec43874dd6681c95b179975dc18f2f46149a34d150b8bdcb1",
+        "s": "0x512135507f99e062da505528c0e1942b546e7a0e7a55d9acb690701454951133",
+        "v": 27
+      }
+    },
+    {
+      "call": "order asset PURR/USDC",
+      "path": "/exchange",
+      "body": "{\"action\":{\"type\":\"order\",\"orders\":[{\"a\":10000,\"b\":true,\"p\":\"1670.1\",\"s\":\"100\",\"r\":false,\"t\":{\"limit\":{\"tif\":\"Gtc\"}}}],\"grouping\":\"na\"},\"nonce\":1789871400850,\"signature\":{\"r\":\"0x2030b41a0dc7624af2378627a0f218f639804fe041ea3aeb90a873a05e4d4ac4\",\"s\":\"0x2ba1cf0cd17366bf04119fd632e6d20f4a6f76a30c0e244e27f9f44dc693ced3\",\"v\":27}}",
+      "nonce": 1789871400850,
+      "action": {
+        "type": "order",
+        "orders": [
+          {
+            "a": 10000,
+            "b": true,
+            "p": "1670.1",
+            "s": "100",
+            "r": false,
+            "t": {
+              "limit": {
+                "tif": "Gtc"
+              }
+            }
+          }
+        ],
+        "grouping": "na"
+      },
+      "msgpack": "83a474797065a56f72646572a66f72646572739186a161cd2710a162c3a170a6313637302e31a173a3313030a172c2a17481a56c696d697481a3746966a3477463a867726f7570696e67a26e61",
+      "action_hash": "22817f71c1e782d7a28e4bb198d498cec2ed4823dccce0c128c48b48af23581c",
+      "signature": {
+        "r": "0x2030b41a0dc7624af2378627a0f218f639804fe041ea3aeb90a873a05e4d4ac4",
+        "s": "0x2ba1cf0cd17366bf04119fd632e6d20f4a6f76a30c0e244e27f9f44dc693ced3",
+        "v": 27
+      }
+    },
+    {
+      "call": "order asset @1",
+      "path": "/exchange",
+      "body": "{\"action\":{\"type\":\"order\",\"orders\":[{\"a\":10001,\"b\":false,\"p\":\"1670.1\",\"s\":\"100\",\"r\":false,\"t\":{\"limit\":{\"tif\":\"Gtc\"}}}],\"grouping\":\"na\"},\"nonce\":1789871400851,\"signature\":{\"r\":\"0x650214fff11fe72a586b7a6114c5ec8643fc20231ab8ac0a6540a3e77466bfe3\",\"s\":\"0x47f3cb952c3c02a6dc84406bfa03fbf1b4cc5e83896dac55f3fcbaa61ea13c19\",\"v\":28}}",
+      "nonce": 1789871400851,
+      "action": {
+        "type": "order",
+        "orders": [
+          {
+            "a": 10001,
+            "b": false,
+            "p": "1670.1",
+            "s": "100",
+            "r": false,
+            "t": {
+              "limit": {
+                "tif": "Gtc"
+              }
+            }
+          }
+        ],
+        "grouping": "na"
+      },
+      "msgpack": "83a474797065a56f72646572a66f72646572739186a161cd2711a162c2a170a6313637302e31a173a3313030a172c2a17481a56c696d697481a3746966a3477463a867726f7570696e67a26e61",
+      "action_hash": "36b8c681d23886d49eca71549632e00cd97791cbe074110f569b253228574282",
+      "signature": {
+        "r": "0x650214fff11fe72a586b7a6114c5ec8643fc20231ab8ac0a6540a3e77466bfe3",
+        "s": "0x47f3cb952c3c02a6dc84406bfa03fbf1b4cc5e83896dac55f3fcbaa61ea13c19",
+        "v": 28
+      }
+    },
+    {
+      "call": "order asset HYPE/USDC",
+      "path": "/exchange",
+      "body": "{\"action\":{\"type\":\"order\",\"orders\":[{\"a\":10107,\"b\":true,\"p\":\"1670.1\",\"s\":\"100\",\"r\":false,\"t\":{\"limit\":{\"tif\":\"Gtc\"}}}],\"grouping\":\"na\"},\"nonce\":1789871400852,\"signature\":{\"r\":\"0x13085c72b42d3a70bb3a99c7b2a688b32664671569be806d76bac39b7ee18f43\",\"s\":\"0x981fdcdc0d8f49bf52f5f26ec18b8101dc03384aa2fc559e6220bc831aaab5e\",\"v\":28}}",
+      "nonce": 1789871400852,
+      "action": {
+        "type": "order",
+        "orders": [
+          {
+            "a": 10107,
+            "b": true,
+            "p": "1670.1",
+            "s": "100",
+            "r": false,
+            "t": {
+              "limit": {
+                "tif": "Gtc"
+              }
+            }
+          }
+        ],
+        "grouping": "na"
+      },
+      "msgpack": "83a474797065a56f72646572a66f72646572739186a161cd277ba162c3a170a6313637302e31a173a3313030a172c2a17481a56c696d697481a3746966a3477463a867726f7570696e67a26e61",
+      "action_hash": "07d8b2846d5fdeb3c479e44647918e85a897899157fa35b4a42c73e7f092337a",
+      "signature": {
+        "r": "0x13085c72b42d3a70bb3a99c7b2a688b32664671569be806d76bac39b7ee18f43",
+        "s": "0x981fdcdc0d8f49bf52f5f26ec18b8101dc03384aa2fc559e6220bc831aaab5e",
+        "v": 28
+      }
+    },
+    {
+      "call": "order asset BTC",
+      "path": "/exchange",
+      "body": "{\"action\":{\"type\":\"order\",\"orders\":[{\"a\":0,\"b\":false,\"p\":\"1670.1\",\"s\":\"100\",\"r\":false,\"t\":{\"limit\":{\"tif\":\"Gtc\"}}}],\"grouping\":\"na\"},\"nonce\":1789871400853,\"signature\":{\"r\":\"0x3378f464ba2557b4d5c2975d92caf5b4aa08574f10f987d40e097dd5d13390f6\",\"s\":\"0x64e1d3a7e5e114b33f4e40024787c2a96f6034fbe87173ac94c901fb3a174e57\",\"v\":27}}",
+      "nonce": 1789871400853,
+      "action": {
+        "type": "order",
+        "orders": [
+          {
+            "a": 0,
+            "b": false,
+            "p": "1670.1",
+            "s": "100",
+            "r": false,
+            "t": {
+              "limit": {
+                "tif": "Gtc"
+              }
+            }
+          }
+        ],
+        "grouping": "na"
+      },
+      "msgpack": "83a474797065a56f72646572a66f72646572739186a16100a162c2a170a6313637302e31a173a3313030a172c2a17481a56c696d697481a3746966a3477463a867726f7570696e67a26e61",
+      "action_hash": "97536e58785e89fb0882c7d5cf964b60e3f4c07ba8bc20d93e4a01bc78dfaf9e",
+      "signature": {
+        "r": "0x3378f464ba2557b4d5c2975d92caf5b4aa08574f10f987d40e097dd5d13390f6",
+        "s": "0x64e1d3a7e5e114b33f4e40024787c2a96f6034fbe87173ac94c901fb3a174e57",
+        "v": 27
+      }
+    },
+    {
+      "call": "order asset X127",
+      "path": "/exchange",
+      "body": "{\"action\":{\"type\":\"order\",\"orders\":[{\"a\":127,\"b\":true,\"p\":\"1670.1\",\"s\":\"100\",\"r\":false,\"t\":{\"limit\":{\"tif\":\"Gtc\"}}}],\"grouping\":\"na\"},\"nonce\":1789871400854,\"signature\":{\"r\":\"0xa158b9ed4cbdb06cc28f969c22a60a335b8434450032afe0703d0ef8cdb97082\",\"s\":\"0x522fc400d46da25707a5046041c47cdca10527137761327a52c493ab555a06bb\",\"v\":27}}",
+      "nonce": 1789871400854,
+      "action": {
+        "type": "order",
+        "orders": [
+          {
+            "a": 127,
+            "b": true,
+            "p": "1670.1",
+            "s": "100",
+            "r": false,
+            "t": {
+              "limit": {
+                "tif": "Gtc"
+              }
+            }
+          }
+        ],
+        "grouping": "na"
+      },
+      "msgpack": "83a474797065a56f72646572a66f72646572739186a1617fa162c3a170a6313637302e31a173a3313030a172c2a17481a56c696d697481a3746966a3477463a867726f7570696e67a26e61",
+      "action_hash": "d57ed4ce955c76d348a7aafa38694e7aa9a0dc689e9f20c2c7949e549aa14285",
+      "signature": {
+        "r": "0xa158b9ed4cbdb06cc28f969c22a60a335b8434450032afe0703d0ef8cdb97082",
+        "s": "0x522fc400d46da25707a5046041c47cdca10527137761327a52c493ab555a06bb",
+        "v": 27
+      }
+    },
+    {
+      "call": "order asset X128",
+      "path": "/exchange",
+      "body": "{\"action\":{\"type\":\"order\",\"orders\":[{\"a\":128,\"b\":false,\"p\":\"1670.1\",\"s\":\"100\",\"r\":false,\"t\":{\"limit\":{\"tif\":\"Gtc\"}}}],\"grouping\":\"na\"},\"nonce\":1789871400855,\"signature\":{\"r\":\"0x9091c0c9858f7ac137e40da5fdcd2c0c560cc9c5a515dcb1429db8d6a4bc6f2\",\"s\":\"0x3479db82d5a15262aa61e8be32c9442593736f1af1c1fa42c05c2f1a2c113bc1\",\"v\":27}}",
+      "nonce": 1789871400855,
+      "action": {
+        "type": "order",
+        "orders": [
+          {
+            "a": 128,
+            "b": false,
+            "p": "1670.1",
+            "s": "100",
+            "r": false,
+            "t": {
+              "limit": {
+                "tif": "Gtc"
+              }
+            }
+          }
+        ],
+        "grouping": "na"
+      },
+      "msgpack": "83a474797065a56f72646572a66f72646572739186a161cc80a162c2a170a6313637302e31a173a3313030a172c2a17481a56c696d697481a3746966a3477463a867726f7570696e67a26e61",
+      "action_hash": "195275b34b91af174b6c294b6a52ff7226e8924b3745cd5affa3fc3070365bd2",
+      "signature": {
+        "r": "0x9091c0c9858f7ac137e40da5fdcd2c0c560cc9c5a515dcb1429db8d6a4bc6f2",
+        "s": "0x3479db82d5a15262aa61e8be32c9442593736f1af1c1fa42c05c2f1a2c113bc1",
+        "v": 27
+      }
+    },
+    {
+      "call": "order asset X255",
+      "path": "/exchange",
+      "body": "{\"action\":{\"type\":\"order\",\"orders\":[{\"a\":255,\"b\":true,\"p\":\"1670.1\",\"s\":\"100\",\"r\":false,\"t\":{\"limit\":{\"tif\":\"Gtc\"}}}],\"grouping\":\"na\"},\"nonce\":1789871400856,\"signature\":{\"r\":\"0x53dbdf4c18475d609ab20abe4322bcca39321d17250e30a1b648b9521de0f588\",\"s\":\"0x7848ca200bea533e145d741bc9cda99759fc96233bbad6d5f9613b03f5a69e26\",\"v\":28}}",
+      "nonce": 1789871400856,
+      "action": {
+        "type": "order",
+        "orders": [
+          {
+            "a": 255,
+            "b": true,
+            "p": "1670.1",
+            "s": "100",
+            "r": false,
+            "t": {
+              "limit": {
+                "tif": "Gtc"
+              }
+            }
+          }
+        ],
+        "grouping": "na"
+      },
+      "msgpack": "83a474797065a56f72646572a66f72646572739186a161ccffa162c3a170a6313637302e31a173a3313030a172c2a17481a56c696d697481a3746966a3477463a867726f7570696e67a26e61",
+      "action_hash": "ae2e198348a043adf7c25805f299044ece51d3559ee7975bc8e1832ea2c91fc5",
+      "signature": {
+        "r": "0x53dbdf4c18475d609ab20abe4322bcca39321d17250e30a1b648b9521de0f588",
+        "s": "0x7848ca200bea533e145d741bc9cda99759fc96233bbad6d5f9613b03f5a69e26",
+        "v": 28
+      }
+    },
+    {
+      "call": "order asset X256",
+      "path": "/exchange",
+      "body": "{\"action\":{\"type\":\"order\",\"orders\":[{\"a\":256,\"b\":false,\"p\":\"1670.1\",\"s\":\"100\",\"r\":false,\"t\":{\"limit\":{\"tif\":\"Gtc\"}}}],\"grouping\":\"na\"},\"nonce\":1789871400857,\"signature\":{\"r\":\"0xb0a955ae3ed0ffaea47098d4cefc06fbe621f586cbd14483e5d53fdad1028986\",\"s\":\"0x311bbe479a739a0c9b85b865a4e7dd8055b6fa811cd4e60a495c91333293ceca\",\"v\":27}}",
+      "nonce": 1789871400857,
+      "action": {
+        "type": "order",
+        "orders": [
+          {
+            "a": 256,
+            "b": false,
+            "p": "1670.1",
+            "s": "100",
+            "r": false,
+            "t": {
+              "limit": {
+                "tif": "Gtc"
+              }
+            }
+          }
+        ],
+        "grouping": "na"
+      },
+      "msgpack": "83a474797065a56f72646572a66f72646572739186a161cd0100a162c2a170a6313637302e31a173a3313030a172c2a17481a56c696d697481a3746966a3477463a867726f7570696e67a26e61",
+      "action_hash": "652dc74509f5133411f1c77e7ceb4af10a00821cfb93fea3d3a1d6a3cd58cdf6",
+      "signature": {
+        "r": "0xb0a955ae3ed0ffaea47098d4cefc06fbe621f586cbd14483e5d53fdad1028986",
+        "s": "0x311bbe479a739a0c9b85b865a4e7dd8055b6fa811cd4e60a495c91333293ceca",
+        "v": 27
+      }
+    },
+    {
+      "call": "order asset X65535",
+      "path": "/exchange",
+      "body": "{\"action\":{\"type\":\"order\",\"orders\":[{\"a\":65535,\"b\":true,\"p\":\"1670.1\",\"s\":\"100\",\"r\":false,\"t\":{\"limit\":{\"tif\":\"Gtc\"}}}],\"grouping\":\"na\"},\"nonce\":1789871400858,\"signature\":{\"r\":\"0x85291d302f975efc3fb4714818eace154c6fac47e5931e73c01052b96f69f723\",\"s\":\"0x42c3c3b44a0be45eedb669b5f2d8f3d60fa06376a5e13078cc0bef718787f9d5\",\"v\":27}}",
+      "nonce": 1789871400858,
+      "action": {
+        "type": "order",
+        "orders": [
+          {
+            "a": 65535,
+            "b": true,
+            "p": "1670.1",
+            "s": "100",
+            "r": false,
+            "t": {
+              "limit": {
+                "tif": "Gtc"
+              }
+            }
+          }
+        ],
+        "grouping": "na"
+      },
+      "msgpack": "83a474797065a56f72646572a66f72646572739186a161cdffffa162c3a170a6313637302e31a173a3313030a172c2a17481a56c696d697481a3746966a3477463a867726f7570696e67a26e61",
+      "action_hash": "56a86bbb05600b96967430479a1a6eb8a077d0bc30f8911441186c2d5fb30a9f",
+      "signature": {
+        "r": "0x85291d302f975efc3fb4714818eace154c6fac47e5931e73c01052b96f69f723",
+        "s": "0x42c3c3b44a0be45eedb669b5f2d8f3d60fa06376a5e13078cc0bef718787f9d5",
+        "v": 27
+      }
+    },
+    {
+      "call": "order asset X65536",
+      "path": "/exchange",
+      "body": "{\"action\":{\"type\":\"order\",\"orders\":[{\"a\":65536,\"b\":false,\"p\":\"1670.1\",\"s\":\"100\",\"r\":false,\"t\":{\"limit\":{\"tif\":\"Gtc\"}}}],\"grouping\":\"na\"},\"nonce\":1789871400859,\"signature\":{\"r\":\"0x16fe4a0b77ecd6723dac6f7548a49b7e54a42ba3f38b4d15aaebcbdfb8ab1e97\",\"s\":\"0x2f8d0b47c726f5a51d3494a01a382c13546d704b45be561d3b696af89e7a0b0b\",\"v\":27}}",
+      "nonce": 1789871400859,
+      "action": {
+        "type": "order",
+        "orders": [
+          {
+            "a": 65536,
+            "b": false,
+            "p": "1670.1",
+            "s": "100",
+            "r": false,
+            "t": {
+              "limit": {
+                "tif": "Gtc"
+              }
+            }
+          }
+        ],
+        "grouping": "na"
+      },
+      "msgpack": "83a474797065a56f72646572a66f72646572739186a161ce00010000a162c2a170a6313637302e31a173a3313030a172c2a17481a56c696d697481a3746966a3477463a867726f7570696e67a26e61",
+      "action_hash": "38baf9231e6568d8956539126b2e40ff1967008dc2480338a5ee7051c4f11f47",
+      "signature": {
+        "r": "0x16fe4a0b77ecd6723dac6f7548a49b7e54a42ba3f38b4d15aaebcbdfb8ab1e97",
+        "s": "0x2f8d0b47c726f5a51d3494a01a382c13546d704b45be561d3b696af89e7a0b0b",
+        "v": 27
+      }
+    },
+    {
+      "call": "order wire 0.00000001 99999.999",
+      "path": "/exchange",
+      "body": "{\"action\":{\"type\":\"order\",\"orders\":[{\"a\":0,\"b\":true,\"p\":\"99999.999\",\"s\":\"0.00000001\",\"r\":false,\"t\":{\"limit\":{\"tif\":\"Gtc\"}}}],\"grouping\":\"na\"},\"nonce\":1789871400950,\"signature\":{\"r\":\"0xbd9929b15c16c25972e09baee61944dd294e81aab58f84bf8765eabd4334f373\",\"s\":\"0x26f83b84b0034d3e5fb3b56443562dd53f6d93075a48c1c92a06618e0be129e3\",\"v\":27}}",
+      "nonce": 1789871400950,
+      "action": {
+        "type": "order",
+        "orders": [
+          {
+            "a": 0,
+            "b": true,
+            "p": "99999.999",
+            "s": "0.00000001",
+            "r": false,
+            "t": {
+              "limit": {
+                "tif": "Gtc"
+              }
+            }
+          }
+        ],
+        "grouping": "na"
+      },
+      "msgpack": "83a474797065a56f72646572a66f72646572739186a16100a162c3a170a939393939392e393939a173aa302e3030303030303031a172c2a17481a56c696d697481a3746966a3477463a867726f7570696e67a26e61",
+      "action_hash": "d11e2559c8ed806e504121031895f6fe9dbdb3691b45fcd9c579a25457e3c0d4",
+      "signature": {
+        "r": "0xbd9929b15c16c25972e09baee61944dd294e81aab58f84bf8765eabd4334f373",
+        "s": "0x26f83b84b0034d3e5fb3b56443562dd53f6d93075a48c1c92a06618e0be129e3",
+        "v": 27
+      }
+    },
+    {
+      "call": "order wire 12345678.12345678 0.0147",
+      "path": "/exchange",
+      "body": "{\"action\":{\"type\":\"order\",\"orders\":[{\"a\":0,\"b\":true,\"p\":\"0.0147\",\"s\":\"12345678.12345678\",\"r\":false,\"t\":{\"limit\":{\"tif\":\"Gtc\"}}}],\"grouping\":\"na\"},\"nonce\":1789871400951,\"signature\":{\"r\":\"0x2bbb7f6a173cdefb00f19310b29d2ab8f7aefaf9878ffcd4cc3cef50376df944\",\"s\":\"0x7a6ab990e9ba4d841aaea3381b9332e5a89850f2615f21222d0252de6acbbc08\",\"v\":28}}",
+      "nonce": 1789871400951,
+      "action": {
+        "type": "order",
+        "orders": [
+          {
+            "a": 0,
+            "b": true,
+            "p": "0.0147",
+            "s": "12345678.12345678",
+            "r": false,
+            "t": {
+              "limit": {
+                "tif": "Gtc"
+              }
+            }
+          }
+        ],
+        "grouping": "na"
+      },
+      "msgpack": "83a474797065a56f72646572a66f72646572739186a16100a162c3a170a6302e30313437a173b131323334353637382e3132333435363738a172c2a17481a56c696d697481a3746966a3477463a867726f7570696e67a26e61",
+      "action_hash": "bdc3d94058e80d6bb2036377fe3c0bdc74525c2509cfdec67fb8eca771ad216f",
+      "signature": {
+        "r": "0x2bbb7f6a173cdefb00f19310b29d2ab8f7aefaf9878ffcd4cc3cef50376df944",
+        "s": "0x7a6ab990e9ba4d841aaea3381b9332e5a89850f2615f21222d0252de6acbbc08",
+        "v": 28
+      }
+    },
+    {
+      "call": "order wire 123456789012 1E+5",
+      "path": "/exchange",
+      "body": "{\"action\":{\"type\":\"order\",\"orders\":[{\"a\":0,\"b\":true,\"p\":\"100000\",\"s\":\"123456789012\",\"r\":false,\"t\":{\"limit\":{\"tif\":\"Gtc\"}}}],\"grouping\":\"na\"},\"nonce\":1789871400952,\"signature\":{\"r\":\"0x2ac3b0b1d20933acdaed4004a9cd85c178b69aadab66876e9ae140e3cef3db4f\",\"s\":\"0x149fbed799b1ce5e5b01d8b98a0f9f7a53e509e5a834085788c928dc5c72c3f4\",\"v\":27}}",
+      "nonce": 1789871400952,
+      "action": {
+        "type": "order",
+        "orders": [
+          {
+            "a": 0,
+            "b": true,
+            "p": "100000",
+            "s": "123456789012",
+            "r": false,
+            "t": {
+              "limit": {
+                "tif": "Gtc"
+              }
+            }
+          }
+        ],
+        "grouping": "na"
+      },
+      "msgpack": "83a474797065a56f72646572a66f72646572739186a16100a162c3a170a6313030303030a173ac313233343536373839303132a172c2a17481a56c696d697481a3746966a3477463a867726f7570696e67a26e61",
+      "action_hash": "f22daad16ac9cb12655906f0c701f35df761e8e96efa1ae07ab469755d4ea1c8",
+      "signature": {
+        "r": "0x2ac3b0b1d20933acdaed4004a9cd85c178b69aadab66876e9ae140e3cef3db4f",
+        "s": "0x149fbed799b1ce5e5b01d8b98a0f9f7a53e509e5a834085788c928dc5c72c3f4",
+        "v": 27
+      }
+    },
+    {
+      "call": "order wire 0.1 30000.5",
+      "path": "/exchange",
+      "body": "{\"action\":{\"type\":\"order\",\"orders\":[{\"a\":0,\"b\":true,\"p\":\"30000.5\",\"s\":\"0.1\",\"r\":false,\"t\":{\"limit\":{\"tif\":\"Gtc\"}}}],\"grouping\":\"na\"},\"nonce\":1789871400953,\"signature\":{\"r\":\"0x4ae9dcc72854cf5112f195e0e8903d4ff323147040876c145485094f48d7440d\",\"s\":\"0x7f2648d4f891f6f4131f75ba59617eb7b5e83fa28a02f2452a959efd485e0a8b\",\"v\":27}}",
+      "nonce": 1789871400953,
+      "action": {
+        "type": "order",
+        "orders": [
+          {
+            "a": 0,
+            "b": true,
+            "p": "30000.5",
+            "s": "0.1",
+            "r": false,
+            "t": {
+              "limit": {
+                "tif": "Gtc"
+              }
+            }
+          }
+        ],
+        "grouping": "na"
+      },
+      "msgpack": "83a474797065a56f72646572a66f72646572739186a16100a162c3a170a733303030302e35a173a3302e31a172c2a17481a56c696d697481a3746966a3477463a867726f7570696e67a26e61",
+      "action_hash": "f3d3963644d9b5666a4100e1f13d0d366631b835cfcc10739e9252bb48b749bc",
+      "signature": {
+        "r": "0x4ae9dcc72854cf5112f195e0e8903d4ff323147040876c145485094f48d7440d",
+        "s": "0x7f2648d4f891f6f4131f75ba59617eb7b5e83fa28a02f2452a959efd485e0a8b",
+        "v": 27
+      }
+    },
+    {
+      "call": "same ms order",
+      "path": "/exchange",
+      "body": "{\"action\":{\"type\":\"order\",\"orders\":[{\"a\":10000,\"b\":true,\"p\":\"0.2\",\"s\":\"50\",\"r\":false,\"t\":{\"limit\":{\"tif\":\"Gtc\"}}}],\"grouping\":\"na\"},\"nonce\":1789871401750,\"signature\":{\"r\":\"0x87c751e4f49436177ef047eda1d2200b20009d769f22cd0f18ae8b3cacb27890\",\"s\":\"0x6eda13282ad6fe89f649adad50d891280a1cdfeeed7626f8708e280f9ca222eb\",\"v\":28}}",
+      "nonce": 1789871401750,
+      "action": {
+        "type": "order",
+        "orders": [
+          {
+            "a": 10000,
+            "b": true,
+            "p": "0.2",
+            "s": "50",
+            "r": false,
+            "t": {
+              "limit": {
+                "tif": "Gtc"
+              }
+            }
+          }
+        ],
+        "grouping": "na"
+      },
+      "msgpack": "83a474797065a56f72646572a66f72646572739186a161cd2710a162c3a170a3302e32a173a23530a172c2a17481a56c696d697481a3746966a3477463a867726f7570696e67a26e61",
+      "action_hash": "f3f318054869d4afa1067c60a73fe2ab91bdeb79b78c742843e13bff87fe8b2b",
+      "signature": {
+        "r": "0x87c751e4f49436177ef047eda1d2200b20009d769f22cd0f18ae8b3cacb27890",
+        "s": "0x6eda13282ad6fe89f649adad50d891280a1cdfeeed7626f8708e280f9ca222eb",
+        "v": 28
+      }
+    },
+    {
+      "call": "same ms cancel",
+      "path": "/exchange",
+      "body": "{\"action\":{\"type\":\"cancel\",\"cancels\":[{\"a\":10000,\"o\":41234567891}]},\"nonce\":1789871401751,\"signature\":{\"r\":\"0x3cd7bec63197d4ca87f193710054700431087e3caa280a957b4dac5cdd9aefbb\",\"s\":\"0x9046a12f972f35e2ade5a960af7847864e3b6731685e76be10356f26646bfe2\",\"v\":27}}",
+      "nonce": 1789871401751,
+      "action": {
+        "type": "cancel",
+        "cancels": [
+          {
+            "a": 10000,
+            "o": 41234567891
+          }
+        ]
+      },
+      "msgpack": "82a474797065a663616e63656ca763616e63656c739182a161cd2710a16fcf0000000999c592d3",
+      "action_hash": "dc9662b974c0514659adedf080b66ee3c63707a4948270f642d8c9d9f9411522",
+      "signature": {
+        "r": "0x3cd7bec63197d4ca87f193710054700431087e3caa280a957b4dac5cdd9aefbb",
+        "s": "0x9046a12f972f35e2ade5a960af7847864e3b6731685e76be10356f26646bfe2",
+        "v": 27
+      }
+    }
+  ],
+  "float_to_wire": [
+    {
+      "x": "0",
+      "wire": "0"
+    },
+    {
+      "x": "1",
+      "wire": "1"
+    },
+    {
+      "x": "100",
+      "wire": "100"
+    },
+    {
+      "x": "100.0",
+      "wire": "100"
+    },
+    {
+      "x": "1670.1",
+      "wire": "1670.1"
+    },
+    {
+      "x": "0.0147",
+      "wire": "0.0147"
+    },
+    {
+      "x": "0.00000001",
+      "wire": "0.00000001"
+    },
+    {
+      "x": "0.000000005",
+      "error": "float_to_wire causes rounding: 0.000000005"
+    },
+    {
+      "x": "0.000000015",
+      "error": "float_to_wire causes rounding: 0.000000015"
+    },
+    {
+      "x": "0.123456789",
+      "error": "float_to_wire causes rounding: 0.123456789"
+    },
+    {
+      "x": "1.000000001",
+      "error": "float_to_wire causes rounding: 1.000000001"
+    },
+    {
+      "x": "99999999.99999999",
+      "wire": "99999999.99999999"
+    },
+    {
+      "x": "12345678.12345678",
+      "wire": "12345678.12345678"
+    },
+    {
+      "x": "123456789.12345678",
+      "error": "float_to_wire causes rounding: 123456789.12345678"
+    },
+    {
+      "x": "123456789012.34567",
+      "error": "float_to_wire causes rounding: 123456789012.34567"
+    },
+    {
+      "x": "1234567890123.5",
+      "wire": "1234567890123.5"
+    },
+    {
+      "x": "100000000000000000",
+      "wire": "100000000000000000"
+    },
+    {
+      "x": "0.30000000000000004",
+      "wire": "0.3"
+    },
+    {
+      "x": "-1.5",
+      "wire": "-1.5"
+    },
+    {
+      "x": "-0.000000001",
+      "error": "float_to_wire causes rounding: -0.000000001"
+    },
+    {
+      "x": "1E+20",
+      "wire": "100000000000000000000"
+    },
+    {
+      "x": "1E-8",
+      "wire": "0.00000001"
+    },
+    {
+      "x": "41.234",
+      "wire": "41.234"
+    },
+    {
+      "x": "64150.12345678",
+      "wire": "64150.12345678"
+    }
+  ]
+}
