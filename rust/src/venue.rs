@@ -9,6 +9,7 @@ pub mod binance;
 pub mod kraken;
 pub mod kucoin;
 pub mod live;
+pub mod signers;
 
 use crate::crypto::Credentials;
 use crate::engine::model::Ticker;
