@@ -204,6 +204,8 @@ impl Cache {
     fn clear_entries(&self) { let gone: usize = self.entries.borrow().values().map(|e| e.size).sum(); self.entries.borrow_mut().clear(); self.sub(gone); }
     fn clear_heads(&self) { let gone: usize = self.heads.borrow().values().map(|h| h.size).sum(); self.heads.borrow_mut().clear(); self.sub(gone); }
     pub fn producer(&self)->&Option<crate::engine::model::CredentialVersion> { &self.origin }
+    /// The key the cache's figures were made under, for a fill that made no request (`fill_bounded` records it otherwise).
+    pub fn produced_by(&mut self, origin: Option<crate::engine::model::CredentialVersion>) { if self.origin.is_none() { self.origin = origin; } }
     pub fn stamp(&self) -> Option<At> { self.stamp }
     pub fn with_fx(mut self, fx: Arc<FxStore>) -> Self { self.fx = Some(fx); self }
     /// Whether the conversions kept figures read (`deps`) still hold at `now` for the provider configured now. Figures that
