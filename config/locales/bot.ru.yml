@@ -186,6 +186,7 @@ ru:
                 profit_loss: Прибыль/Убытки
                 price: 'Цена(%{quote})'
                 sold: Продано
+                received: 'Получено'
                 title: Статистика
                 total_invested: 'Всего инвестировано'
                 portfolio_value: 'Стоимость портфеля'

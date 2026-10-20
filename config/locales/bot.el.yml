@@ -195,6 +195,7 @@ el:
                 profit_loss: Κέρδος/Ζημία
                 price: 'Τιμή(%{quote})'
                 sold: Πωλήθηκε
+                received: 'Ελήφθη'
                 title: Στατιστικά
                 total_invested: 'Σύνολο επένδυσης'
                 portfolio_value: 'Αξία χαρτοφυλακίου'

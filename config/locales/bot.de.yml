@@ -186,6 +186,7 @@ de:
                 profit_loss: Gewinn/Verlust
                 price: 'Rate(%{quote})'
                 sold: Verkauft
+                received: 'Erhalten'
                 title: Statistiken
                 total_invested: 'Insgesamt investiert'
                 portfolio_value: 'Portfoliowert'

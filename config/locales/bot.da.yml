@@ -195,6 +195,7 @@ da:
                 profit_loss: Gevinst/Tab
                 price: 'Kurs(%{quote})'
                 sold: Solgt
+                received: 'Modtaget'
                 title: Statistik
                 total_invested: 'Samlet investeret'
                 portfolio_value: 'Porteføljeværdi'

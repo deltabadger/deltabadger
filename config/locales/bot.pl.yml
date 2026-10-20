@@ -188,6 +188,7 @@ pl:
                 profit_loss: Zysk/Strata
                 price: 'Kurs (%{quote})'
                 sold: Sprzedane
+                received: 'Otrzymano'
                 title: Statystyki
                 total_invested: 'Zainwestowana suma'
                 portfolio_value: 'Wartość portfela'

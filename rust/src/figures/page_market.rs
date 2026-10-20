@@ -303,9 +303,13 @@ impl<'a> Reader<'a> {
     }
 }
 
+/// Whether the figures read this venue's market data at all. A venue they do not read yet has no prices or candles here,
+/// which is no failure of the venue's: its bots show what is known without a price, and no note that it did not answer.
+pub fn reads(venue: &Venue) -> bool { venue.exchange_type == "Exchanges::Alpaca" }
+
 impl MarketData for Reader<'_> {
     fn prices(&self, venue: &Venue, symbols: &[String]) -> Fetch<Vec<(String, Member<Dec>)>> {
-        if venue.exchange_type != "Exchanges::Alpaca" { return Err(Failure::Failed(UNAVAILABLE.into())); }
+        if !reads(venue) { return Err(Failure::Failed(UNAVAILABLE.into())); }
         let symbols = self.symbols.as_deref().unwrap_or(symbols);
         let mut prices = vec![];
         let mut failed = None;
@@ -333,7 +337,7 @@ impl MarketData for Reader<'_> {
     fn candles(&self, venue: &Venue, ticker: &Ticker, since: At, timeframe: i64, restated: bool) -> Fetch<Vec<(At, Dec)>> {
         // A venue this reader cannot read has no candles, as it has no prices (`prices`): that holding goes without a
         // grid, and the pass is not marked failed, which would fail every bot's figures.
-        if venue.exchange_type != "Exchanges::Alpaca" { return Err(Failure::Failed(UNAVAILABLE.into())); }
+        if !reads(venue) { return Err(Failure::Failed(UNAVAILABLE.into())); }
         let result = (|| {
             let start = since.utc().format("%Y-%m-%dT%H:%M:%SZ").to_string();
             let name = match timeframe { 60 => "1Min", 300 => "5Min", 900 => "15Min", 1800 => "30Min", 3600 => "1Hour", 14400 => "4Hour", 604800 => "1Week", 2592000 => "1Month", _ => "1Day" };

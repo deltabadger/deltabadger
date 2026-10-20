@@ -188,6 +188,7 @@ nl:
                 profit_loss: Winst/verlies
                 price: 'Tarief(%{quote})'
                 sold: Verkocht
+                received: 'Ontvangen'
                 title: Statistieken
                 total_invested: 'Totaal geïnvesteerd'
                 portfolio_value: 'Portfoliowaarde'

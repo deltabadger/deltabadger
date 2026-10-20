@@ -188,6 +188,7 @@ fr:
                 profit_loss: 'Gains/pertes'
                 price: 'Taux (%{quote})'
                 sold: 'Vendu'
+                received: 'Reçu'
                 title: 'Statistiques'
                 total_invested: 'Total investi'
                 portfolio_value: 'Valeur du portefeuille'

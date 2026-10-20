@@ -302,3 +302,31 @@ async fn a_bot_on_a_venue_the_figures_cannot_read_leaves_the_others_figures() {
     assert!(tile(&shown, 1).contains("<small>€</small>8.59"), "{}", tile(&shown, 1));
     assert!(tile(&shown, 2).contains("<small>€</small>17.18"), "{}", tile(&shown, 2));
 }
+
+#[tokio::test]
+async fn a_sell_only_bot_on_a_venue_the_figures_do_not_read_says_what_it_sold_and_received() {
+    // 3.0, Rust only: a bot that only sells (what it sells came from outside) states what it sold and what that brought
+    // in, not an investment. Its venue is not read yet, which is no failure of the venue's: no note that it did not answer.
+    let install = install("USD", script(true, json!(1.0)));
+    let c = rusqlite::Connection::open(&install.file).unwrap();
+    let t = "'2026-01-01'";
+    c.execute_batch(&format!("
+        INSERT INTO exchanges(id,type,name,created_at,updated_at) VALUES (2,'Exchanges::Kucoin','KuCoin',{t},{t});
+        INSERT INTO assets(id,category,external_id,symbol,name,created_at,updated_at) VALUES (5,'Cryptocurrency','usd-coin','USDC','USDC',{t},{t});
+        INSERT INTO tickers(id,base,base_asset_id,base_decimals,exchange_id,minimum_base_size,minimum_quote_size,price_decimals,quote,quote_asset_id,quote_decimals,ticker,available,trading_enabled,created_at,updated_at)
+            VALUES (3,'BTC',4,8,2,0,1,2,'USDC',5,2,'BTC-USDC',1,1,{t},{t});
+        INSERT INTO bots(id,user_id,exchange_id,type,status,settings,transient_data,created_at,updated_at) VALUES
+            (3,1,2,'Bots::DcaMultiAsset',1,'{{\"quote_asset_id\":5,\"allocations\":{{\"4\":1.0}},\"direction\":\"selling\"}}','{{}}',{t},{t});
+        INSERT INTO transactions(bot_id,exchange_id,base,base_asset_id,quote,quote_asset_id,amount,amount_exec,price,quote_amount_exec,side,status,external_status,external_id,transaction_type,created_at,updated_at) VALUES
+            (3,2,'BTC',4,'USDC',5,0.002,0.002,2500,5,1,0,2,'o3','REGULAR','2026-03-02 14:30:00',{t}),
+            (3,2,'BTC',4,'USDC',5,0.001,0.001,2600,2.6,1,0,2,'o4','REGULAR','2026-03-03 14:30:00',{t});
+    ")).unwrap();
+    let _stop = install.consume();
+    let shown = install.shown("ready").await;
+    let metrics = shown["bots"]["3"]["metrics"].as_str().unwrap();
+    assert!(metrics.contains(">Sold</div>") && metrics.contains("0.003 <small>BTC</small>"), "{metrics}");
+    assert!(metrics.contains(">Received</div>") && metrics.contains("7.60 <small>USDC</small>"), "{metrics}");
+    assert!(!metrics.contains("Total invested") && !metrics.contains("does not respond"), "{metrics}");
+    // A bot that bought keeps its investment.
+    assert!(shown["bots"]["1"]["metrics"].as_str().unwrap().contains("Total invested"));
+}

@@ -195,6 +195,7 @@ bg:
                 profit_loss: Печалба/Загуба
                 price: 'Цена(%{quote})'
                 sold: Продадено
+                received: 'Получено'
                 title: Статистика
                 total_invested: 'Общо инвестирано'
                 portfolio_value: 'Стойност на портфолиото'
