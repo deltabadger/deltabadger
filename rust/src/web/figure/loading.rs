@@ -477,11 +477,12 @@ fn begin(app:&App,user:i64)->Begun<'_>{ Box::pin(async move {
 fn spawn_fill(app:&App,user:i64,info:Info,now:At,ticket:super::service::Ticket,mut cache:Cache,work:Option<Work>) {
     let inner=app.clone();let source=app.figure_source.clone();
     tokio::spawn(async move {
-        let egress={ let cipher=inner.cipher.clone(); build(&inner,move|c|Ok(crate::venue::live::egress(c,&cipher,&|k|std::env::var(k).ok(),"kucoin",&http::client()))).await.unwrap_or_else(|e|Err(format!("{e:?}"))) };
-        let wire=Wire::new(&info.credentials,source).with_kucoin(egress).with_origin(info.origin.clone()).settled_under(inner.figure_service.compute());
         let keys=work.as_ref().map(|work|work.locales.clone()).unwrap_or_default();
         // Past its deadline the fill stops waiting; a worker it started finishes on its own, holding the compute permit.
         let timed=tokio::time::timeout(inner.figure_service.fill_timeout(),async {
+            // The KuCoin egress is a settings read, inside the deadline and outside the compute permit.
+            let egress={ let cipher=inner.cipher.clone(); inner.db(move|c|Ok(crate::venue::live::egress(c,&cipher,&|k|std::env::var(k).ok(),"kucoin",&http::client()))).await.unwrap_or_else(|e|Err(format!("{e:?}"))) };
+            let wire=Wire::new(&info.credentials,source).with_kucoin(egress).with_origin(info.origin.clone()).settled_under(inner.figure_service.compute());
             // What the figures show besides their numbers, read before them: stale figures are held to it (`stale_shown`).
             // On the builder's connection, as the fill's other reads: never the one pages use.
             let shape=build(&inner,move|c|Ok(shape(c,user)?)).await.unwrap_or(Value::Null); // allow-swallow: no shape, and the figures are never shown stale
