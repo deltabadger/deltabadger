@@ -50,9 +50,11 @@ fn account() -> Account {
 
 struct Account { fills: Vec<Value>, deposits: Vec<Value>, withdrawals: Vec<Value> }
 
+type Delay = Box<dyn Fn(usize) -> Duration>;
+
 /// The scripted run clock: requests and units advance it as the test says.
 #[derive(Default)]
-struct Watch { at: Cell<Duration>, units: Cell<usize>, unit_delay: RefCell<Option<Box<dyn Fn(usize) -> Duration>>>, cut_at_unit: Cell<Option<usize>>, cut: tokio::sync::Notify }
+struct Watch { at: Cell<Duration>, units: Cell<usize>, unit_delay: RefCell<Option<Delay>>, cut_at_unit: Cell<Option<usize>>, cut: tokio::sync::Notify }
 impl Stopwatch for Watch {
     fn elapsed(&self) -> Duration { self.at.get() }
     /// A cut as the unit starts lands at its first await: the unit (already on the blocking pool) commits, the run stops.
@@ -184,7 +186,8 @@ async fn a_slow_answer_and_a_throttle_end_the_run_by_checkpoint() {
     let v = venue(&account, 4, &watch, |_| Duration::from_secs(44));
     let out = run(&db, &v, Duration::from_secs(420), CHAIN_RUNS).await.unwrap().unwrap().unwrap();
     assert!(!out.complete);
-    assert_eq!((v.log.borrow().len(), result(&db).await.3), (1, true), "one page, then the checkpoint");
+    let sent = v.log.borrow().len();
+    assert_eq!((sent, result(&db).await.3), (1, true), "one page, then the checkpoint");
     // A throttled page asked again (each try 44 s): the retries count against the run, and the run ends with its cursor.
     v.throttled.set(3);
     let before = v.log.borrow().len();
@@ -198,7 +201,7 @@ async fn a_slow_answer_and_a_throttle_end_the_run_by_checkpoint() {
 #[tokio::test(flavor = "current_thread")]
 async fn slow_and_growing_commits_stop_the_store_in_time_and_the_next_run_goes_on() {
     let (rows, watermark, ..) = one_run(40).await;
-    for (name, delay) in [("slow", Box::new(|_: usize| Duration::from_secs(150)) as Box<dyn Fn(usize) -> Duration>),
+    for (name, delay) in [("slow", Box::new(|_: usize| Duration::from_secs(150)) as Delay),
                           ("growing", Box::new(|n: usize| Duration::from_secs(5 * n as u64 * n as u64)))] {
         let (_dir, db, _) = install();
         let (account, watch) = (Rc::new(account()), Rc::new(Watch::default()));
@@ -220,7 +223,8 @@ async fn an_expensive_first_page_is_read_and_stored_and_the_second_is_refused() 
     let v = venue(&account, 4, &watch, |n| if n == 0 { Duration::from_secs(5_000) } else { Duration::from_secs(1) });
     let out = run(&db, &v, Duration::from_secs(3_600), CHAIN_RUNS).await.unwrap().unwrap().unwrap();
     assert!(!out.complete && out.imported == 4, "{out:?}");
-    assert_eq!((v.log.borrow().len(), result(&db).await.3), (1, true), "admitted, checkpointed; the second refused");
+    let sent = v.log.borrow().len();
+    assert_eq!((sent, result(&db).await.3), (1, true), "admitted, checkpointed; the second refused");
 }
 
 /// A cut between two units of a page (the runner drops the run at an await) replays the page: the rows its first unit
@@ -297,7 +301,8 @@ async fn an_import_over_two_capped_chains_ends_with_the_one_run_rows() {
         assert!(capped < 50);
     }
     assert!(capped >= 2, "the import spans more than two chains");
-    assert_eq!(v.log.borrow().len(), one_run(4).await.4, "no page read twice");
+    let sent = v.log.borrow().len();
+    assert_eq!(sent, one_run(4).await.4, "no page read twice");
     assert_eq!(result(&db).await, (rows, watermark, None, false));
 }
 
