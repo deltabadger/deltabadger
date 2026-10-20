@@ -1,0 +1,161 @@
+{
+  "sources": {
+    "script/rust/record_venue_signing.rb": "21fbf2750881d55011fbeb7f3a22cc67feb948a4277179192b602b7e3189e479"
+  },
+  "gems": {
+    "honeymaker": "0.12.5",
+    "hyperliquid-rb": "0.1.1",
+    "jwt": "2.10.3",
+    "rbnacl": "7.1.2",
+    "eth": "0.5.18",
+    "msgpack": "1.8.5"
+  },
+  "api_key": "account-Zq8XtV2bLm4N7cRk",
+  "api_secret": "3xQnTq9hKpZ2vYw8RcLm5Fd7JgBs",
+  "signing": [
+    {
+      "method": "POST",
+      "path": "/v1/balances",
+      "query": null,
+      "body": "",
+      "headers": {
+        "X-gemini-apikey": "account-Zq8XtV2bLm4N7cRk",
+        "X-gemini-payload": "eyJyZXF1ZXN0IjoiL3YxL2JhbGFuY2VzIiwibm9uY2UiOiIxNzg5ODcxNDAwNzUxIn0=",
+        "X-gemini-signature": "70fd127fee2ed9092935254ff647203f1f965bd424de792a6d671d9ae5ef224a83d7c7e5a6068e8e13d8c357d70fc61b",
+        "Accept": "application/json",
+        "Content-type": "text/plain",
+        "Content-Length": "0"
+      },
+      "call": "get_raw_balances",
+      "nonce": 1789871400751
+    },
+    {
+      "method": "POST",
+      "path": "/v1/order/new",
+      "query": null,
+      "body": "",
+      "headers": {
+        "X-gemini-apikey": "account-Zq8XtV2bLm4N7cRk",
+        "X-gemini-payload": "eyJzeW1ib2wiOiJidGN1c2QiLCJhbW91bnQiOiIwLjAwMDEyIiwicHJpY2UiOiI2NDE1MC4xMiIsInNpZGUiOiJidXkiLCJ0eXBlIjoiZXhjaGFuZ2UgbGltaXQiLCJvcHRpb25zIjpbImltbWVkaWF0ZS1vci1jYW5jZWwiXSwicmVxdWVzdCI6Ii92MS9vcmRlci9uZXciLCJub25jZSI6IjE3ODk4NzE0MDA3NTIifQ==",
+        "X-gemini-signature": "4c1dcdc26683badc89c0a9d5131bdc97465832fc19bbf1fc52499b85175c67f918e216b54e7370b1bb81b5a9f73ac983",
+        "Accept": "application/json",
+        "Content-type": "text/plain",
+        "Content-Length": "0"
+      },
+      "call": "new_order ioc",
+      "nonce": 1789871400752
+    },
+    {
+      "method": "POST",
+      "path": "/v1/order/new",
+      "query": null,
+      "body": "",
+      "headers": {
+        "X-gemini-apikey": "account-Zq8XtV2bLm4N7cRk",
+        "X-gemini-payload": "eyJzeW1ib2wiOiJldGh1c2QiLCJhbW91bnQiOiIxLjUiLCJwcmljZSI6IjI0MDAiLCJzaWRlIjoic2VsbCIsInR5cGUiOiJleGNoYW5nZSBsaW1pdCIsIm9wdGlvbnMiOltdLCJyZXF1ZXN0IjoiL3YxL29yZGVyL25ldyIsIm5vbmNlIjoiMTc4OTg3MTQwMDc1MyJ9",
+        "X-gemini-signature": "a8c96a75f2784aaf985a73ff53da31e0d081de419eb38dd2c02980b9ca08cc2909b59484b6b20fb58ef33e8952d8b9f2",
+        "Accept": "application/json",
+        "Content-type": "text/plain",
+        "Content-Length": "0"
+      },
+      "call": "new_order limit",
+      "nonce": 1789871400753
+    },
+    {
+      "method": "POST",
+      "path": "/v1/order/new",
+      "query": null,
+      "body": "",
+      "headers": {
+        "X-gemini-apikey": "account-Zq8XtV2bLm4N7cRk",
+        "X-gemini-payload": "eyJzeW1ib2wiOiJkb2dldXNkIiwiYW1vdW50IjoiMTAiLCJwcmljZSI6IjAuMSIsInNpZGUiOiJidXkiLCJ0eXBlIjoiZXhjaGFuZ2UgbGltaXQiLCJjbGllbnRfb3JkZXJfaWQiOiI1ZjFjMWYzZS1cdTAwM2NcdTAwMjZcdTAwM2UvXCLDqVx1MjAyOFx1MjAyOSBcXHgiLCJvcHRpb25zIjpbImltbWVkaWF0ZS1vci1jYW5jZWwiXSwicmVxdWVzdCI6Ii92MS9vcmRlci9uZXciLCJub25jZSI6IjE3ODk4NzE0MDA3NTQifQ==",
+        "X-gemini-signature": "f96b7c57ad57a7dbbe3141eb90f73f326fdd0d8192161eecab25fd0275a08d2485ff1458e175ed9c57e7d4be6de710e6",
+        "Accept": "application/json",
+        "Content-type": "text/plain",
+        "Content-Length": "0"
+      },
+      "call": "new_order client id",
+      "nonce": 1789871400754
+    },
+    {
+      "method": "POST",
+      "path": "/v1/order/status",
+      "query": null,
+      "body": "",
+      "headers": {
+        "X-gemini-apikey": "account-Zq8XtV2bLm4N7cRk",
+        "X-gemini-payload": "eyJvcmRlcl9pZCI6IjEwNjgxNzgxMSIsInJlcXVlc3QiOiIvdjEvb3JkZXIvc3RhdHVzIiwibm9uY2UiOiIxNzg5ODcxNDAwNzU1In0=",
+        "X-gemini-signature": "d7ae1eeb3a73a14ecc8b4b48132612b468c8146a038232bde6f309b32525698e769238b45f5d3edfb13391c4e0697c05",
+        "Accept": "application/json",
+        "Content-type": "text/plain",
+        "Content-Length": "0"
+      },
+      "call": "order_status",
+      "nonce": 1789871400755
+    },
+    {
+      "method": "POST",
+      "path": "/v1/order/cancel",
+      "query": null,
+      "body": "",
+      "headers": {
+        "X-gemini-apikey": "account-Zq8XtV2bLm4N7cRk",
+        "X-gemini-payload": "eyJvcmRlcl9pZCI6MCwicmVxdWVzdCI6Ii92MS9vcmRlci9jYW5jZWwiLCJub25jZSI6IjE3ODk4NzE0MDA3NTYifQ==",
+        "X-gemini-signature": "089debe31c4448230e5b37168469069614851cbd6286f485de80b9284a23acea6b0917fa84352bed37666b472f9e8680",
+        "Accept": "application/json",
+        "Content-type": "text/plain",
+        "Content-Length": "0"
+      },
+      "call": "cancel_order probe",
+      "nonce": 1789871400756
+    },
+    {
+      "method": "POST",
+      "path": "/v1/order/cancel",
+      "query": null,
+      "body": "",
+      "headers": {
+        "X-gemini-apikey": "account-Zq8XtV2bLm4N7cRk",
+        "X-gemini-payload": "eyJvcmRlcl9pZCI6IjEwNjgxNzgxMSIsInJlcXVlc3QiOiIvdjEvb3JkZXIvY2FuY2VsIiwibm9uY2UiOiIxNzg5ODcxNDAwNzU3In0=",
+        "X-gemini-signature": "d90e50c8da7e2f6cb2b7e750ead20ac1699b5aaa0648ba673b09111fcaf2bd0028d62bf507b17a71584271d4e08a87c0",
+        "Accept": "application/json",
+        "Content-type": "text/plain",
+        "Content-Length": "0"
+      },
+      "call": "cancel_order",
+      "nonce": 1789871400757
+    },
+    {
+      "method": "POST",
+      "path": "/v1/mytrades",
+      "query": null,
+      "body": "",
+      "headers": {
+        "X-gemini-apikey": "account-Zq8XtV2bLm4N7cRk",
+        "X-gemini-payload": "eyJsaW1pdF90cmFkZXMiOjUwMCwidGltZXN0YW1wIjoxNzg5MDAwMDAwMDAxLCJyZXF1ZXN0IjoiL3YxL215dHJhZGVzIiwibm9uY2UiOiIxNzg5ODcxNDAwNzU4In0=",
+        "X-gemini-signature": "56a7dbd9fdb264dcb48128b3483f6ba1189dffc734a206b63b7fc7638697a869538f94f2b2e82e0b1e44e8a77dac9362",
+        "Accept": "application/json",
+        "Content-type": "text/plain",
+        "Content-Length": "0"
+      },
+      "call": "get_my_trades",
+      "nonce": 1789871400758
+    },
+    {
+      "method": "POST",
+      "path": "/v2/transfers",
+      "query": null,
+      "body": "",
+      "headers": {
+        "X-gemini-apikey": "account-Zq8XtV2bLm4N7cRk",
+        "X-gemini-payload": "eyJ0aW1lc3RhbXAiOjE3ODkwMDAwMDAwMDEsImxpbWl0X3RyYW5zZmVycyI6NTAsInJlcXVlc3QiOiIvdjIvdHJhbnNmZXJzIiwibm9uY2UiOiIxNzg5ODcxNDAwNzU5In0=",
+        "X-gemini-signature": "57b887b246e29982bd02167a02facfd93563f1858e53622fce0a194209102cfbb45284b4cabd39c43f0689eeb77681ee",
+        "Accept": "application/json",
+        "Content-type": "text/plain",
+        "Content-Length": "0"
+      },
+      "call": "get_transfers_v2",
+      "nonce": 1789871400759
+    }
+  ]
+}
