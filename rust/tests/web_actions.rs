@@ -570,7 +570,7 @@ mod action_write {
         let f = Fixture::new()?;
         let bot = model::load_bot(&f.c, f.id).unwrap();
         let ticker = model::ticker_for(&f.c, &bot).unwrap().ok_or("ticker")?;
-        let amount::Sizing::Place(plan) = amount::size(&bot, &ticker, &BigDec::from_i64(5), &BigDec::from_i64(50_000), deltabadger::engine::venue_rules::ALPACA.minimum_logic).unwrap() else { panic!("plan") };
+        let amount::Sizing::Place(plan) = amount::size(&bot, &ticker, &BigDec::from_i64(5), &BigDec::from_i64(50_000), &deltabadger::engine::venue_rules::ALPACA).unwrap() else { panic!("plan") };
         placement::begin(&f.c, &bot, &plan, &FixedClock(harness::at(NOW))).unwrap();
         let before = f.snapshot()?;
         assert!(matches!(f.write(json!({"quote_amount":"100"}))?, Outcome::GuardRefused(_)));

@@ -672,7 +672,7 @@ async fn buy<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot,
             Ok(p) => p,
             Err(f) => return Ok(Err(f)),
         };
-        let price = amount::order_price(bot, &member.ticker, &reference)?;
+        let price = amount::order_price(bot, &member.ticker, &reference, venue.rules())?;
         priced.push(basket::Priced { member, reference, price });
     }
     let split = match basket::split(&priced, &holdings, &reserved, x) {
@@ -684,7 +684,7 @@ async fn buy<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot,
     };
     let tickers: Vec<_> = priced.iter().map(|p| &p.member.ticker).collect();
     for leg in split {
-        match amount::size(bot, &leg.ticker, &leg.quote, &leg.reference, venue.rules().minimum_logic)? {
+        match amount::size(bot, &leg.ticker, &leg.quote, &leg.reference, venue.rules())? {
             Sizing::Nothing => {}
             Sizing::Ignored(plan) => { let now = clock.now(); model::run_write(c, bot, |tx| model::log_activity(tx, bot.id, "order_ignored", Level::Info, plan.log_details(), now))?; }
             Sizing::BelowMinimum(plan) => legs.skipped.push(plan), // reported once, at the end (record_skipped)
@@ -759,14 +759,14 @@ async fn reference<V: Venue + Attributed>(venue: &V, bot: &model::Bot, ticker: &
 /// on another venue (a merge) is capped at #local_units: the venue may sell in its name only what it bought there. `Err`
 /// is the venue's failed read, never an empty balance.
 /// Exchange#market_price_for(ticker:, side:): the bid for a sell, the ask for a buy, through the same 5-second price cache as
-/// every other price read, then Ticker#adjusted_price (floored to price_decimals). None for a failed read or a price that is
-/// not positive (Bot::Rebalancer#side_price's nil).
+/// every other price read, then the venue's adjusted price, crossed where the venue crosses (`VenueRules::market_price`).
+/// None for a failed read or a price that is not positive (Bot::Rebalancer#side_price's nil).
 pub(crate) async fn market_price_for<V: Venue + Attributed>(venue: &V, bot: &model::Bot, ticker: &model::Ticker, side: crate::venue::Side, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<Option<BigDec>, EngineError> {
     Ok(market_price_read(venue, bot, ticker, side, clock, cx).await?.ok().filter(BigDec::is_positive))
 }
 
 /// Exchange#market_price_for with the venue's failure kept (a signal's failed row names it): the same 5-second cache and the
-/// same floor as `market_price_for`, and a price that floors to zero handed back as such.
+/// same adjustment as `market_price_for`, and a price that floors to zero handed back as such.
 pub(crate) async fn market_price_read<V: Venue + Attributed>(venue: &V, bot: &model::Bot, ticker: &model::Ticker, side: crate::venue::Side, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<Result<BigDec, VenueError>, EngineError> {
     let price_side = if side == crate::venue::Side::Sell { PriceSide::Bid } else { PriceSide::Ask };
     let key = (bot.exchange_id, ticker.id, price_side);
@@ -774,8 +774,11 @@ pub(crate) async fn market_price_read<V: Venue + Attributed>(venue: &V, bot: &mo
         Some(hit) => Ok(hit),
         None => { let result = venue.price_result(ticker, price_side).await; if let Ok(price) = &result.value { cx.prices.put_result(key, clock.now(), result.clone().map(|_| price.clone())); } result.value }
     };
-    let (_, _, price_decimals) = ticker.scales().map_err(EngineError::Data)?;
-    Ok(fetched.map(|p| p.floor(price_decimals)))
+    ticker.scales().map_err(EngineError::Data)?;
+    match fetched {
+        Ok(touch) => Ok(Ok(venue.rules().market_price(&touch, ticker, side).map_err(EngineError::Data)?)),
+        Err(e) => Ok(Err(e)),
+    }
 }
 
 pub async fn live_free_balance<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot, ticker: &model::Ticker, asset_id: i64) -> Result<Result<BigDec, VenueError>, EngineError> {
@@ -854,7 +857,7 @@ async fn sell<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot
         Ok(p) => p,
         Err(f) => return Ok(Err(f)),
     };
-    let price = amount::side_price(bot, &ticker, &reference, crate::venue::Side::Sell)?;
+    let price = amount::side_price(bot, &ticker, &reference, crate::venue::Side::Sell, venue.rules())?;
     let wanted = match base {
         Some(base) => base,
         // `quote / price`: BigDecimal#/ by zero raises ZeroDivisionError, a plain StandardError.
@@ -928,7 +931,7 @@ async fn basket_sell<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &mod
         let held = &held_of(ticker.base_asset_id)? - resting.get(&ticker.base_asset_id).unwrap_or(&zero);
         if !held.is_positive() { continue; }
         let reference = match reference(venue, bot, &ticker, side, &ticker.base_code, clock, cx).await { Ok(p) => p, Err(f) => return Ok(Err(f)) };
-        let price = amount::side_price(bot, &ticker, &reference, crate::venue::Side::Sell)?;
+        let price = amount::side_price(bot, &ticker, &reference, crate::venue::Side::Sell, venue.rules())?;
         // `remaining / price`: BigDecimal#/ by zero raises ZeroDivisionError, a plain StandardError.
         let Some(wanted) = remaining.div(&price) else { return Ok(Err(general("divided by 0".into()))) };
         let amount = if held < wanted { held } else { wanted };

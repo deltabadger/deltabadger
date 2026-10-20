@@ -254,7 +254,7 @@ async fn a_send_resumed_past_its_bound_never_reaches_alpaca() {
     let v = AlpacaVenue::new(ReqwestTransport::new(client(), "k".into(), "s".into()), Urls { trading: server.uri(), data: server.uri() });
     let bot = model::load_bot(&o.primary, id).unwrap();
     let ticker = model::ticker_for(&o.primary, &bot).unwrap().unwrap();
-    let amount::Sizing::Place(plan) = amount::size(&bot, &ticker, &BigDec::from_i64(60), &BigDec::from_i64(64_000), ALPACA.minimum_logic).unwrap() else { panic!() };
+    let amount::Sizing::Place(plan) = amount::size(&bot, &ticker, &BigDec::from_i64(60), &BigDec::from_i64(64_000), &ALPACA).unwrap() else { panic!() };
     let at_ = chrono::Utc::now() - Duration::seconds(60);
     let intent = placement::begin(&o.primary, &bot, &plan, &FixedClock(at_)).unwrap();
     assert!(matches!(placement::send(&o.primary, &v, &intent, &FixedClock(at_)).await.unwrap(), Sent::NotSent(_)), "the freshness check passed; the bound did not");
@@ -501,7 +501,7 @@ async fn a_plan_whose_intent_would_not_read_back_is_refused_before_anything_is_w
     let bot = model::load_bot(&o.primary, id).unwrap();
     let ticker = model::ticker_for(&o.primary, &bot).unwrap().unwrap();
     // A 1e300 ask (venue caps refuse it now; the check must not rely on them): the amount, 6e-299, is 301 characters written out.
-    let amount::Sizing::Place(plan) = amount::size(&bot, &ticker, &BigDec::from_i64(60), &BigDec::parse("1e300").unwrap(), ALPACA.minimum_logic).unwrap() else { panic!() };
+    let amount::Sizing::Place(plan) = amount::size(&bot, &ticker, &BigDec::from_i64(60), &BigDec::parse("1e300").unwrap(), &ALPACA).unwrap() else { panic!() };
     let err = placement::begin(&o.primary, &bot, &plan, &FixedClock(at(T0))).unwrap_err();
     assert!(format!("{err:?}").contains("read back"), "{err:?}");
     assert!(model::load_bot(&o.primary, id).unwrap().rust_placement().is_none(), "no intent that recovery could not read");

@@ -311,7 +311,7 @@ fn setup() -> (tempfile::TempDir, store::Opened, model::Bot, amount::OrderPlan) 
     o.primary.execute_batch("UPDATE exchanges SET type = 'Exchanges::Kucoin', name = 'KuCoin'; UPDATE tickers SET ticker = 'BTC-EUR', base = 'BTC'").unwrap();
     let bot = model::load_bot(&o.primary, seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"))).unwrap();
     let ticker = model::ticker_for(&o.primary, &bot).unwrap().unwrap();
-    let Sizing::Place(plan) = amount::size(&bot, &ticker, &BigDec::from_i64(60), &BigDec::from_i64(50_000), KUCOIN.minimum_logic).unwrap() else { panic!() };
+    let Sizing::Place(plan) = amount::size(&bot, &ticker, &BigDec::from_i64(60), &BigDec::from_i64(50_000), &KUCOIN).unwrap() else { panic!() };
     (dir, o, bot, plan)
 }
 fn count(o: &store::Opened, sql: &str) -> i64 { o.primary.query_row(sql, [], |r| r.get(0)).unwrap() }

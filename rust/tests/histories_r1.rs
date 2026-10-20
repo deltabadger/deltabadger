@@ -50,7 +50,7 @@ fn r1_guard_limits_persisted_intents_and_alpaca_wire(){
         if limit {o.primary.execute("UPDATE tickers SET base_decimals=3",[]).unwrap();o.primary.execute("UPDATE bots SET settings=json_set(settings,'$.limit_ordered',json('true'),'$.limit_order_pcnt_distance',0)",[]).unwrap();}
         let bot=model::load_bot(&o.primary,id).unwrap();
         let ticker=model::ticker_by_id(&o.primary,bot.exchange_id,s.ticker_id).unwrap().unwrap();
-        let amount::Sizing::Place(plan)=amount::size(&bot,&ticker,&bd(requested),&bd("10"),ALPACA.minimum_logic).unwrap() else {panic!("place")};
+        let amount::Sizing::Place(plan)=amount::size(&bot,&ticker,&bd(requested),&bd("10"),&ALPACA).unwrap() else {panic!("place")};
         let intent=placement::begin(&o.primary,&bot,&plan,&FixedClock(now())).unwrap();
         let order=intent.plan.to_order(intent.cl_ord_id,intent.deadline,WireFormat::Alpaca).unwrap();
         assert_eq!(bd(&order.volume),bd(expected),"quantized wire must respect exact availability");
@@ -144,7 +144,7 @@ fn r1_guard_skips_if_reducing_one_increment_goes_below_minimum(){
     o.primary.execute("UPDATE tickers SET minimum_quote_size=0.01",[]).unwrap();
     let bot=model::load_bot(&o.primary,id).unwrap();
     let ticker=model::ticker_by_id(&o.primary,bot.exchange_id,s.ticker_id).unwrap().unwrap();
-    let amount::Sizing::Place(plan)=amount::size(&bot,&ticker,&bd("0.0100000000001"),&bd("10"),ALPACA.minimum_logic).unwrap()else{panic!("place")};
+    let amount::Sizing::Place(plan)=amount::size(&bot,&ticker,&bd("0.0100000000001"),&bd("10"),&ALPACA).unwrap()else{panic!("place")};
     assert!(placement::begin(&o.primary,&bot,&plan,&FixedClock(now())).is_err());
     assert!(model::load_bot(&o.primary,id).unwrap().rust_placement().is_none());
 }
@@ -225,7 +225,7 @@ fn r2_guard_preserves_safe_plan_and_persists_reduced_quantity(){
     for case in vectors["cases"].as_array().unwrap().iter().take(2) {
         let (_d,o,_s,id)=r2_setup(case);let bot=model::load_bot(&o.primary,id).unwrap();
         let ticker=model::ticker_for(&o.primary,&bot).unwrap().unwrap();
-        let amount::Sizing::Place(plan)=amount::size(&bot,&ticker,&bd(case["pending"].as_str().unwrap()),&bd(case["price"].as_str().unwrap()),ALPACA.minimum_logic).unwrap()else{panic!("place")};
+        let amount::Sizing::Place(plan)=amount::size(&bot,&ticker,&bd(case["pending"].as_str().unwrap()),&bd(case["price"].as_str().unwrap()),&ALPACA).unwrap()else{panic!("place")};
         let intent=placement::begin(&o.primary,&bot,&plan,&FixedClock(now())).unwrap();
         if case["steps"]==0 {
             assert_eq!(intent.plan.log_details(),plan.log_details());assert_eq!(intent.plan.volume,plan.volume);assert_eq!(intent.plan.quote_type,plan.quote_type);
@@ -255,7 +255,7 @@ fn r2_guard_refuses_when_four_increments_cannot_converge(){
     let (_d,o,s,id)=setup(json!(100),"99");
     let bot=model::load_bot(&o.primary,id).unwrap();
     let ticker=model::ticker_by_id(&o.primary,bot.exchange_id,s.ticker_id).unwrap().unwrap();
-    let amount::Sizing::Place(plan)=amount::size(&bot,&ticker,&bd("2"),&bd("10"),ALPACA.minimum_logic).unwrap()else{panic!("place")};
+    let amount::Sizing::Place(plan)=amount::size(&bot,&ticker,&bd("2"),&bd("10"),&ALPACA).unwrap()else{panic!("place")};
     let result=placement::begin(&o.primary,&bot,&plan,&FixedClock(now()));
     assert!(matches!(result,Err(deltabadger::engine::EngineError::Data(ref m)) if m.contains("did not converge within 4 venue increments")),"R2 bounded convergence refusal");
     assert!(model::load_bot(&o.primary,id).unwrap().rust_placement().is_none());

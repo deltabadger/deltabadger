@@ -1048,7 +1048,7 @@ async fn account_rotation_must_not_erase_an_unresolved_accepted_order() {
     let bot_id=common::seed::insert_bot(&h.c,&h.seed,&common::seed::BotSpec::weekly(60.0,&deltabadger::codec::format_time(at-chrono::Duration::seconds(1))));
     let bot=model::load_bot(&h.c,bot_id).unwrap();
     let ticker=model::ticker_for(&h.c,&bot).unwrap().unwrap();
-    let Sizing::Place(plan)=amount::size(&bot,&ticker,&BigDec::from_i64(60),&BigDec::from_i64(50_000),deltabadger::engine::venue_rules::ALPACA.minimum_logic).unwrap() else {panic!("fixture must size a real order")};
+    let Sizing::Place(plan)=amount::size(&bot,&ticker,&BigDec::from_i64(60),&BigDec::from_i64(50_000),&deltabadger::engine::venue_rules::ALPACA).unwrap() else {panic!("fixture must size a real order")};
     let intent=placement::begin(&h.c,&bot,&plan,&FixedClock(at)).unwrap();
     Mock::given(method("POST")).and(path("/v2/orders")).and(header("APCA-API-KEY-ID","previous-key"))
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"id":"account-a-accepted-order"}))).expect(1).mount(&server).await;
@@ -1158,7 +1158,7 @@ async fn credential_fence_rereads_intents_created_during_network_validation() {
         let c=rusqlite::Connection::open(&db_path).unwrap();
         let bot=model::load_bot(&c,bot_id).unwrap();
         let ticker=model::ticker_for(&c,&bot).unwrap().unwrap();
-        let Sizing::Place(plan)=amount::size(&bot,&ticker,&BigDec::from_i64(60),&BigDec::from_i64(50_000),deltabadger::engine::venue_rules::ALPACA.minimum_logic).unwrap() else {panic!("fixture")};
+        let Sizing::Place(plan)=amount::size(&bot,&ticker,&BigDec::from_i64(60),&BigDec::from_i64(50_000),&deltabadger::engine::venue_rules::ALPACA).unwrap() else {panic!("fixture")};
         placement::begin(&c,&bot,&plan,&FixedClock(at)).unwrap();
         ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"0"}))
     }).expect(1).mount(&server).await;
@@ -1358,7 +1358,7 @@ async fn credential_digest_covers_each_stored_column_and_ignores_sync_metadata()
     h.c.execute("UPDATE bots SET status=4 WHERE id=?1",[id]).unwrap();
     let bot=model::load_bot(&h.c,id).unwrap();
     let ticker=model::ticker_for(&h.c,&bot).unwrap().unwrap();
-    let Sizing::Place(plan)=amount::size(&bot,&ticker,&deltabadger::ruby::BigDec::from_i64(60),&deltabadger::ruby::BigDec::from_i64(50_000),deltabadger::engine::venue_rules::ALPACA.minimum_logic).unwrap() else {panic!("fixture")};
+    let Sizing::Place(plan)=amount::size(&bot,&ticker,&deltabadger::ruby::BigDec::from_i64(60),&deltabadger::ruby::BigDec::from_i64(50_000),&deltabadger::engine::venue_rules::ALPACA).unwrap() else {panic!("fixture")};
     let composition=placement::composition_snapshot(&h.c,&bot).unwrap();
     let reconciled=deltabadger::engine::splits::snapshot(&h.c,&bot).unwrap();
     for column in ["key","secret","passphrase","access_token","rsa_signature_key","rsa_encryption_key","dh_param"] {
@@ -1544,7 +1544,7 @@ fn q_order(h:&Harness)->(deltabadger::engine::model::Bot,deltabadger::engine::am
     let at=h.app.now();
     let id=common::seed::insert_bot(&h.c,&h.seed,&common::seed::BotSpec::weekly(60.0,&deltabadger::codec::format_time(at-chrono::Duration::seconds(1))));
     let bot=model::load_bot(&h.c,id).unwrap();let ticker=model::ticker_for(&h.c,&bot).unwrap().unwrap();
-    let Sizing::Place(plan)=amount::size(&bot,&ticker,&BigDec::from_i64(60),&BigDec::from_i64(50_000),deltabadger::engine::venue_rules::ALPACA.minimum_logic).unwrap() else {panic!("fixture")};
+    let Sizing::Place(plan)=amount::size(&bot,&ticker,&BigDec::from_i64(60),&BigDec::from_i64(50_000),&deltabadger::engine::venue_rules::ALPACA).unwrap() else {panic!("fixture")};
     (bot,plan)
 }
 fn q_venue(h:&Harness,url:&str)->deltabadger::venue::alpaca::AlpacaVenue<RotatesAtResponse> {
