@@ -216,7 +216,7 @@ async fn next_ticks_match_rails_and_refused_states_place_nothing() {
             let asks = &fixture()["universe"]["ask_prices"];
             let priced: Vec<basket::Priced> = basket::members(c, &bot).unwrap().into_iter().map(|member| {
                 let ask = BigDec::parse(asks[member.ticker.base_symbol.as_str()].as_str().unwrap()).unwrap();
-                basket::Priced { price: amount::order_price(&bot, &member.ticker, &ask).unwrap(), reference: ask, member }
+                basket::Priced { price: amount::order_price(&bot, &member.ticker, &ask, &deltabadger::engine::venue_rules::ALPACA).unwrap(), reference: ask, member }
             }).collect();
             let x = amount::pending_quote_amount(c, &bot, at().timestamp_micros()).unwrap();
             let legs: Vec<Value> = basket::split(&priced, &holdings, &basket::reserved(c, &bot).unwrap(), &x).unwrap().into_iter()

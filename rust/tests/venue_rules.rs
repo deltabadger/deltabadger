@@ -61,3 +61,81 @@ async fn every_recorded_venue_order_number_is_accepted_or_refused_as_in_rails() 
         assert_eq!(accepted, case["accepted"].as_bool().unwrap(), "{case}");
     }
 }
+
+// ---- plan VB slice P: Exchange#adjusted_price and #market_price_for, recorded from Rails (record_venue_vectors.rb prices)
+
+fn prices_fixture() -> serde_json::Value { serde_json::from_str(include_str!("fixtures/prices_vectors.json")).unwrap() }
+
+#[test]
+fn the_price_fixture_is_recorded_from_the_current_rails_sources() {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+    for (file, recorded) in prices_fixture()["sources"].as_object().unwrap() {
+        let now = hex::encode(Sha256::digest(std::fs::read(root.join(file)).unwrap()));
+        assert_eq!(&now, recorded.as_str().unwrap(), "{file} changed: re-record with script/rust/repin");
+    }
+}
+
+#[test]
+fn every_recorded_adjusted_and_market_price_is_reproduced() {
+    use deltabadger::engine::model::Ticker;
+    use deltabadger::engine::venue_rules::{PriceRule, Rounding, VenueRules, BINANCE, HYPERLIQUID_PRICE_RULE, KUCOIN, MARKET_CROSS};
+    use deltabadger::ruby::BigDec;
+    use deltabadger::venue::Side;
+    // The four ported venues by their own rows; Gemini's and Hyperliquid's rows come with B3/B1, so their price fields are
+    // set here on a borrowed row.
+    let gemini = VenueRules { cross: Some(MARKET_CROSS), ..KRAKEN };
+    let hyperliquid = VenueRules { price_rule: HYPERLIQUID_PRICE_RULE, cross: Some(MARKET_CROSS), ..KRAKEN };
+    for existing in [&KRAKEN, &ALPACA, &BINANCE, &KUCOIN] {
+        assert_eq!((existing.price_rule, existing.cross), (PriceRule::Decimals, None), "{}: the default rule, never crossed", existing.name);
+    }
+    let rules = |name: &str| -> &VenueRules {
+        match name { "Gemini" => &gemini, "Hyperliquid" => &hyperliquid, _ => for_exchange(&format!("Exchanges::{name}")).unwrap() }
+    };
+    let f = prices_fixture();
+    let tickers: Vec<Ticker> = f["price_tickers"].as_array().unwrap().iter().map(|t| Ticker {
+        id: 1, ticker: "BTCUSD".into(), base_code: "BTC".into(), quote_code: "USD".into(), base_symbol: "BTC".into(), quote_symbol: "USD".into(),
+        exchange_name: "X".into(), base_asset_id: 1, quote_asset_id: 2, base_decimals: t["base_decimals"].as_i64().unwrap(), quote_decimals: 2,
+        price_decimals: t["price_decimals"].as_i64().unwrap(), minimum_base_size: BigDec::zero(), minimum_quote_size: BigDec::zero(),
+        trading_enabled: true, available: true, crypto: true }).collect();
+    let shown = |r: Result<BigDec, String>| r.map_or_else(|_| "error: ArgumentError".to_string(), |p| p.to_s_f());
+    let (mut errors, mut crossed) = (0, 0);
+    for c in f["adjusted_price"].as_array().unwrap() {
+        let (name, t, price, method) = (c[0].as_str().unwrap(), &tickers[c[1].as_u64().unwrap() as usize], BigDec::parse(c[2].as_str().unwrap()).unwrap(), c[3].as_str().unwrap());
+        let method = match method { "floor" => Rounding::Floor, "ceil" => Rounding::Ceil, _ => Rounding::Round };
+        let got = shown(rules(name).adjusted_price(&price, t, method));
+        if got.starts_with("error") { errors += 1; }
+        assert_eq!(got, c[4].as_str().unwrap(), "adjusted_price {c}");
+    }
+    for c in f["market_price_for"].as_array().unwrap() {
+        let (name, t, touch) = (c[0].as_str().unwrap(), &tickers[c[1].as_u64().unwrap() as usize], BigDec::parse(c[2].as_str().unwrap()).unwrap());
+        let side = if c[3] == "buy" { Side::Buy } else { Side::Sell };
+        let got = shown(rules(name).market_price(&touch, t, side));
+        if rules(name).cross.is_some() && got != shown(rules(name).adjusted_price(&touch, t, Rounding::Floor)) { crossed += 1; }
+        assert_eq!(got, c[4].as_str().unwrap(), "market_price_for {c}");
+    }
+    assert_eq!((f["adjusted_price"].as_array().unwrap().len(), f["market_price_for"].as_array().unwrap().len()), (19_026, 12_684));
+    assert!(errors > 0 && crossed > 1_000, "the fixture reaches Hyperliquid's raise ({errors}) and the cross ({crossed})");
+}
+
+#[test]
+fn a_crossed_price_is_adjusted_twice_as_rails_does() {
+    use deltabadger::engine::model::Ticker;
+    use deltabadger::engine::venue_rules::{Rounding, VenueRules, HYPERLIQUID_PRICE_RULE, MARKET_CROSS};
+    use deltabadger::ruby::BigDec;
+    use deltabadger::venue::Side;
+    let d = |s: &str| BigDec::parse(s).unwrap();
+    let t = |price_decimals: i64, base_decimals: i64| Ticker { id: 1, ticker: "X".into(), base_code: "B".into(), quote_code: "Q".into(), base_symbol: "B".into(),
+        quote_symbol: "Q".into(), exchange_name: "X".into(), base_asset_id: 1, quote_asset_id: 2, base_decimals, quote_decimals: 2, price_decimals,
+        minimum_base_size: BigDec::zero(), minimum_quote_size: BigDec::zero(), trading_enabled: true, available: true, crypto: true };
+    let gemini = VenueRules { cross: Some(MARKET_CROSS), ..KRAKEN };
+    // adjust(adjust(1.239) × 1.01) = adjust(1.2423) = 1.24, not adjust(1.239 × 1.01) = 1.25.
+    assert_eq!(gemini.market_price(&d("1.239"), &t(2, 8), Side::Buy).unwrap(), d("1.24"));
+    // adjust(adjust(1.231) × 0.99) = adjust(1.2177) = 1.21.
+    assert_eq!(gemini.market_price(&d("1.231"), &t(2, 8), Side::Sell).unwrap(), d("1.21"));
+    assert_eq!(KRAKEN.market_price(&d("1.239"), &t(2, 8), Side::Buy).unwrap(), d("1.23"), "no cross: the touch floored");
+    let hl = VenueRules { price_rule: HYPERLIQUID_PRICE_RULE, cross: Some(MARKET_CROSS), ..KRAKEN };
+    assert_eq!(hl.adjusted_price(&d("123456.789"), &t(8, 2), Rounding::Floor).unwrap(), d("123456"), "an integer ≥ 10k keeps every digit");
+    assert_eq!(hl.adjusted_price(&d("12345.6"), &t(8, 2), Rounding::Ceil).unwrap(), d("12346"));
+    assert_eq!(hl.adjusted_price(&d("0.000012345678"), &t(8, 2), Rounding::Floor).unwrap(), d("0.000012"), "capped at 8 - base_decimals places");
+    assert!(hl.adjusted_price(&d("1.5"), &t(8, 9), Rounding::Floor).is_err(), "Rails' clamp(0, -1) raises");
+}

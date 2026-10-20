@@ -481,7 +481,7 @@ fn an_exhausted_buy_cap_never_trims_a_sell_at_placement() {
 
 fn buy_plan(o: &store::Opened, bot: &model::Bot, kind: amount::TxKind) -> amount::OrderPlan {
     let ticker = model::ticker_for(&o.primary, bot).unwrap().unwrap();
-    let amount::Sizing::Place(mut plan) = amount::size(bot, &ticker, &bd("60"), &bd("64000"), deltabadger::engine::venue_rules::ALPACA.minimum_logic).unwrap() else { panic!() };
+    let amount::Sizing::Place(mut plan) = amount::size(bot, &ticker, &bd("60"), &bd("64000"), &deltabadger::engine::venue_rules::ALPACA).unwrap() else { panic!() };
     plan.kind = kind;
     plan
 }
@@ -583,8 +583,8 @@ fn crypto_capped(venue: &str, pair: &str, spent: &str, form: Form) -> (tempfile:
 
 fn sized(o: &store::Opened, bot: &model::Bot, venue: &str, x: &str, form: Form) -> amount::OrderPlan {
     let ticker = model::ticker_for(&o.primary, bot).unwrap().unwrap();
-    let logic = deltabadger::engine::venue_rules::for_exchange(venue).unwrap().minimum_logic;
-    let amount::Sizing::Place(plan) = amount::size(bot, &ticker, &bd(x), &bd(form_price(form)), logic).unwrap() else { panic!("{venue} {form:?} {x}: sized to place") };
+    let rules = deltabadger::engine::venue_rules::for_exchange(venue).unwrap();
+    let amount::Sizing::Place(plan) = amount::size(bot, &ticker, &bd(x), &bd(form_price(form)), rules).unwrap() else { panic!("{venue} {form:?} {x}: sized to place") };
     assert_eq!(plan.quote_type, form == Form::Quote, "{venue} {form:?}: Rails sizes this form");
     plan
 }

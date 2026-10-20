@@ -197,7 +197,7 @@ async fn an_unresolved_placement_defers_the_resync_until_it_settles() {
     let bot = model::load_bot(&c, r.id).unwrap();
     let ticker_id: i64 = c.query_row("SELECT id FROM tickers WHERE ticker = 'AAA'", [], |r| r.get(0)).unwrap();
     let ticker = model::ticker_by_id(&c, r.s.exchange_id, ticker_id).unwrap().unwrap();
-    let amount::Sizing::Place(plan) = amount::size(&bot, &ticker, &BigDec::from_i64(60), &BigDec::from_i64(100), deltabadger::engine::venue_rules::ALPACA.minimum_logic).unwrap() else { panic!("plan") };
+    let amount::Sizing::Place(plan) = amount::size(&bot, &ticker, &BigDec::from_i64(60), &BigDec::from_i64(100), &deltabadger::engine::venue_rules::ALPACA).unwrap() else { panic!("plan") };
     placement::begin(&c, &bot, &plan, &FixedClock(at(NOW))).unwrap();
     r.mark();
     let mut e = r.engine();

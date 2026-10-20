@@ -2,6 +2,7 @@
 # recorder, a section per venue):
 #   bin/rails runner script/rust/record_venue_vectors.rb binance rust/tests/fixtures/binance_vectors.json  # + the fill rebuild (binance_trade.rs)
 #   bin/rails runner script/rust/record_venue_vectors.rb kucoin rust/tests/fixtures/kucoin_vectors.json    # + #parse_order_data (kucoin.rs)
+#   bin/rails runner script/rust/record_venue_vectors.rb prices rust/tests/fixtures/prices_vectors.json     # plan VB slice P (venue_rules.rs)
 # Nothing is saved and nothing leaves the machine: the honeymaker client is replaced by a recorder, and any real
 # connection raises. Re-run (script/rust/repin) when a file under "sources" changes; the Rust tests fail until then.
 require 'json'
@@ -59,11 +60,17 @@ when 'kucoin'
     { minimum_base_size: '0.1', minimum_quote_size: '5', base_decimals: 1, quote_decimals: 0, price_decimals: 0 },
     { minimum_base_size: '0.00005', minimum_quote_size: '0.5', base_decimals: 8, quote_decimals: 5, price_decimals: 3 }
   ]
+when 'prices'
+  # Not one venue: every venue's Exchange#adjusted_price and #market_price_for, the default rule and its two overrides.
+  price_venues = %w[Kraken Alpaca Binance Kucoin Gemini Hyperliquid]
+  out = { 'sources' => pin.(%w[app/models/exchange.rb app/models/ticker.rb script/rust/record_venue_vectors.rb] +
+                            price_venues.map { |v| "app/models/exchanges/#{v.downcase}.rb" }) }
+  seed, tickers = 20_261_020, []
 else raise ArgumentError, "unknown venue #{venue}"
 end
 rng = Random.new(seed)
 decimal = ->(min_exp, max_exp) { (BigDecimal(rng.rand(1...(10**rng.rand(1..9))).to_s) * (BigDecimal(10)**rng.rand(min_exp..max_exp))).to_s('F') }
-pairs = Array.new(720) { [decimal.(-9, 6), decimal.(-5, 5)] }
+pairs = venue == 'prices' ? [] : Array.new(720) { [decimal.(-9, 6), decimal.(-5, 5)] }
 
 # Bot::OrderSetter's sizing at a market (the ask) or limit (the last, adjusted) price, then the order the venue would send.
 sizing = []
@@ -92,8 +99,10 @@ tickers.each do |t|
     end
   end
 end
-out["#{venue}_tickers"] = tickers.map { |t| t.transform_keys(&:to_s).transform_values(&:to_s) }
-out["#{venue}_sizing"] = sizing
+unless venue == 'prices'
+  out["#{venue}_tickers"] = tickers.map { |t| t.transform_keys(&:to_s).transform_values(&:to_s) }
+  out["#{venue}_sizing"] = sizing
+end
 
 # What else the venue's port replays.
 case venue
@@ -202,6 +211,36 @@ when 'kucoin'
   end
   out['kucoin_orders'] = orders
   extra = "#{orders.size} orders"
+when 'prices'
+  # Ticker#adjusted_price (Exchange#adjusted_price: price_decimals; Hyperliquid's 5 significant figures within
+  # 8 - base_decimals places) for floor, ceil and round, 1e-9..1e7, and Exchange#market_price_for over the same touch
+  # prices: adjusted_price(touch), and on Gemini and Hyperliquid adjusted_price(that × (1 ± MARKET_CROSS)) on top.
+  # A row is [venue, ticker, price, method or side, result]; a raise is recorded as "error: <class>".
+  out['price_tickers'] = [[0, 0], [2, 2], [5, 5], [8, 8], [1, 9], [4, 3], [6, 0]].map { |p, b| { 'price_decimals' => p, 'base_decimals' => b } }
+  special = %w[1.239 1.231 1.2345 0.00000001 0.000012345678 0.0234 3.5 66.6 9999.95 10000 12345 12345.6 99999.5 99999 100000 123456
+               123456.789 1000000 9999999.99 0.99999 1.000005]
+  prices = special + Array.new(130) { decimal.(-9, 6) }
+  result = lambda do |&value|
+    value.call.to_d.to_s('F')
+  rescue StandardError => e
+    "error: #{e.class}"
+  end
+  adjusted, market = [], []
+  price_venues.each do |name|
+    exchange = "Exchanges::#{name}".constantize.new(name:)
+    out['price_tickers'].each_with_index do |t, i|
+      prices.each do |p|
+        ticker = Ticker.new(exchange:, ticker: 'BTCUSD', base: 'BTC', quote: 'USD', **t.transform_keys(&:to_sym))
+        %i[floor ceil round].each { |m| adjusted << [name, i, p, m.to_s, result.call { ticker.adjusted_price(price: BigDecimal(p), method: m) }] }
+        ticker.define_singleton_method(:get_ask_price) { Result::Success.new(BigDecimal(p)) }
+        ticker.define_singleton_method(:get_bid_price) { Result::Success.new(BigDecimal(p)) }
+        %i[buy sell].each { |side| market << [name, i, p, side.to_s, result.call { exchange.market_price_for(ticker:, side:).data }] }
+      end
+    end
+  end
+  out['adjusted_price'] = adjusted
+  out['market_price_for'] = market
+  extra = "#{adjusted.size} adjusted prices, #{market.size} market prices"
 end
 
 # One case per line: the file stays reviewable in a diff and a third the size of pretty JSON.
