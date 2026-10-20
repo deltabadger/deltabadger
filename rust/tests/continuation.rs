@@ -11,7 +11,6 @@ use deltabadger::sync::kucoin_ledger::{self, DEPOSITS_PATH, FILLS_PATH, WITHDRAW
 use deltabadger::sync::ledger::Outcome;
 use deltabadger::sync::Failure;
 use deltabadger::venue::http::{HttpRequest, HttpResponse, Transport, TransportError};
-use rusqlite::OptionalExtension;
 use serde_json::{json, Value};
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
@@ -52,6 +51,8 @@ fn account() -> Account {
 struct Account { fills: Vec<Value>, deposits: Vec<Value>, withdrawals: Vec<Value> }
 
 type Delay = Box<dyn Fn(usize) -> Duration>;
+/// A transfer arriving just before the request of that number: (number, path, row).
+type Arrival = (usize, &'static str, Value);
 type AfterUnit = Box<dyn Fn(usize)>;
 
 /// The scripted run clock: requests and units advance it as the test says.
@@ -80,11 +81,14 @@ struct Venue { account: Rc<Account>, per_page: usize, watch: Rc<Watch>, latency:
                /// Cut the run (as the runner's deadline would) once it has sent this many requests in all.
                cut_at_request: Rc<Cell<Option<usize>>>,
                /// Transfers committed on the venue after the test began (path, row): served with the account's.
-               arrived: Rc<RefCell<Vec<(&'static str, Value)>>> }
+               arrived: Rc<RefCell<Vec<(&'static str, Value)>>>,
+               /// Transfers that arrive just before the request of that number (from 0) is answered.
+               pending: Rc<RefCell<Vec<Arrival>>> }
 
 impl Transport for Venue {
     async fn send(&self, r: &HttpRequest) -> Result<HttpResponse, TransportError> {
         let n = self.log.borrow().len();
+        self.pending.borrow_mut().retain(|(at, path, row)| if *at <= n { self.arrived.borrow_mut().push((path, row.clone())); false } else { true });
         self.watch.at.set(self.watch.at.get() + (self.latency)(n));
         if self.cut_at_request.get() == Some(n + 1) { self.watch.cut.notify_one(); }
         let q = |k: &str| r.query.iter().find(|(name, _)| *name == k).map(|(_, v)| v.parse::<i64>().unwrap());
@@ -116,7 +120,7 @@ impl Transport for Venue {
 }
 
 fn venue(account: &Rc<Account>, per_page: usize, watch: &Rc<Watch>, latency: impl Fn(usize) -> Duration + 'static) -> Venue {
-    Venue { account: account.clone(), per_page, watch: watch.clone(), latency: Rc::new(latency), throttled: Rc::new(Cell::new(0)), log: Rc::default(), served: Rc::default(), cut_at_request: Rc::default(), arrived: Rc::default() }
+    Venue { account: account.clone(), per_page, watch: watch.clone(), latency: Rc::new(latency), throttled: Rc::new(Cell::new(0)), log: Rc::default(), served: Rc::default(), cut_at_request: Rc::default(), arrived: Rc::default(), pending: Rc::default() }
 }
 
 type Ran = Result<Result<Outcome, Failure>, deltabadger::sync::SyncError>;
@@ -333,6 +337,35 @@ async fn a_transfer_arriving_between_runs_shifts_no_page_of_a_resumed_import() {
     assert_eq!(result(&db).await.0, rows);
 }
 
+/// The number (from 0) of the first request for `path`'s page `page`.
+fn request_of(log: &[String], path: &str, page: i64) -> usize { log.iter().position(|l| l.starts_with(path) && l.ends_with(&format!("Some({page})"))).unwrap() }
+
+/// Review repro: a deposit arriving between two pages of one run shifts the unbounded listing; a later run that
+/// bounded the listing at the page it resumed would skip the row the shift pushed past it (six deposits, five stored).
+/// Every page after the first is bounded at the first page's newest row, in that run and the next: all six once.
+#[tokio::test(flavor = "current_thread")]
+async fn a_deposit_arriving_between_pages_of_one_run_skips_no_row_of_the_next() {
+    let t = start_ms() + 2 * DAY_MS;
+    let account = Rc::new(Account { fills: vec![], withdrawals: vec![],
+                                    deposits: (0..6).map(|i| json!({ "id": format!("d{i}"), "currency": "USDT", "amount": format!("{}", 1 + i), "fee": "0", "createdAt": t + i * 1000 })).collect() });
+    let reference = venue(&account, 2, &Rc::new(Watch::default()), |_| Duration::from_secs(10));
+    let (_d, db, _) = install();
+    assert!(run(&db, &reference, LONG, CHAIN_RUNS).await.unwrap().unwrap().unwrap().complete);
+    let rows = result(&db).await.0;
+    assert_eq!(rows.len(), 6);
+    let (first, second) = (request_of(&reference.log.borrow(), DEPOSITS_PATH, 1), request_of(&reference.log.borrow(), DEPOSITS_PATH, 2));
+    let (_dir, db, _) = install();
+    let v = venue(&account, 2, &Rc::new(Watch::default()), |_| Duration::from_secs(10));
+    v.pending.borrow_mut().push((first + 1, DEPOSITS_PATH, json!({ "id": "new", "currency": "USDT", "amount": "5", "fee": "0", "createdAt": clock().now().timestamp_millis() })));
+    // The first run reads through the deposits' second page and stops by its deadline; the next ones finish.
+    let out = run(&db, &v, deadline_for(second as u64 + 1), usize::MAX).await.unwrap().unwrap().unwrap();
+    assert!(!out.complete && v.log.borrow().len() == second + 1, "{:?}", v.log.borrow());
+    while !run(&db, &v, LONG, usize::MAX).await.unwrap().unwrap().unwrap().complete {}
+    assert_eq!(result(&db).await.0, rows);
+    let pin = t + 5 * 1000 + 1;
+    assert!(v.log.borrow()[second..].iter().filter(|l| l.starts_with(DEPOSITS_PATH)).all(|l| l.contains(&format!("Some({pin})"))), "pages after the first ask endAt {pin}: {:?}", v.log.borrow());
+}
+
 /// A trade imported from a file (no id) at `at`: 0.5 BTC bought.
 async fn file_row(db: &Db, at: i64) { db.run(move |c, _| file_rows(c, &[(at, 0.5)]).map_err(|e| e.to_string())).await.unwrap(); }
 
@@ -537,15 +570,10 @@ fn file_import() -> Vec<(i64, f64)> {
     vec![(t0, 0.5), (t0, 0.5), (t0 + 8 * DAY_MS, 0.25), (t0 + 22 * DAY_MS, 0.5)]
 }
 
-/// Whether the import's checkpointed walk has read its deposits' first page (a deposit arriving now is not its to read).
-async fn past_first_deposits_page(db: &Db) -> bool {
-    let record: Option<String> = db.run(|c, _| c.query_row("SELECT value FROM app_configs WHERE key LIKE 'rust_sync.venue_ledger:%'", [], |r| r.get(0)).optional().map_err(|e| e.to_string())).await.unwrap();
-    record.is_some_and(|r| { let c = &serde_json::from_str::<Value>(&r).unwrap()["cursor"]; c["source"] != "fills" && (c["source"] != "deposits" || c["page"].as_i64() > Some(1)) })
-}
-
 /// For random page sizes, run lengths, cuts at a page's write, a file import committed and a deposit arriving on the
-/// venue at random points, the import over many runs leaves exactly what one run leaves with the file import committed
-/// after the same pages, and the deposit there if it arrived before the deposits' first page was stored.
+/// venue at a random request (between runs or between two pages of one), the import over many runs leaves exactly what
+/// one run leaves with the file import committed after the same pages, and the deposit there if it arrived before the
+/// deposits' first page was read the last time (the read the import kept).
 #[tokio::test(flavor = "current_thread")]
 async fn any_split_cut_and_interleaved_file_import_equals_one_run() {
     let account = Rc::new(repeating_account());
@@ -554,22 +582,18 @@ async fn any_split_cut_and_interleaved_file_import_equals_one_run() {
     for case in 0..16 {
         let per_page = 1 + next(3) as usize;
         let commit_after_run = next(12);
-        let arrive_after_run = next(12);
+        let arrive_at = next(40) as usize;
         let arrival = json!({ "currency": "USDT", "amount": "5", "fee": "0", "createdAt": clock().now().timestamp_millis() + 3_600_000 });
-        let mut one_run_sees_it = true;
         // Many runs, each of 1-4 pages, some cut at one of their writes; the file import after a run that was not cut.
         let (_dir, db, _) = install();
         let watch = Rc::new(Watch::default());
         let v = venue(&account, per_page, &watch, |_| Duration::from_secs(10));
+        v.pending.borrow_mut().push((arrive_at, DEPOSITS_PATH, arrival.clone()));
         let (mut runs, mut cut_last, mut committed) = (0u64, false, None);
         loop {
             if committed.is_none() && runs >= commit_after_run && !cut_last {
                 db.run(|c, _| file_rows(c, &file_import()).map_err(|e| e.to_string())).await.unwrap();
                 committed = Some(v.served.borrow().len());
-            }
-            if runs == arrive_after_run {
-                one_run_sees_it = !past_first_deposits_page(&db).await;
-                v.arrived.borrow_mut().push((DEPOSITS_PATH, arrival.clone()));
             }
             let pages = 1 + next(4);
             watch.cut_at_unit.set((next(3) == 0).then(|| 1 + next(pages) as usize));
@@ -585,6 +609,8 @@ async fn any_split_cut_and_interleaved_file_import_equals_one_run() {
             None => { db.run(|c, _| file_rows(c, &file_import()).map_err(|e| e.to_string())).await.unwrap(); usize::MAX }
         };
         let many = result(&db).await;
+        let last_first_page = v.log.borrow().iter().rposition(|l| l.starts_with(DEPOSITS_PATH) && l.ends_with("Some(1)")).unwrap();
+        let one_run_sees_it = arrive_at <= last_first_page;
         // One run, the file import committed by another connection once that many pages with rows have been stored.
         let (_dir, db, _) = install();
         let path: String = db.run(|c, _| Ok(c.path().unwrap().to_string())).await.unwrap();
@@ -596,11 +622,11 @@ async fn any_split_cut_and_interleaved_file_import_equals_one_run() {
             file_rows(&c, &file_import()).unwrap();
         }));
         let v = venue(&account, per_page, &watch, |_| Duration::from_secs(10));
-        if one_run_sees_it && arrive_after_run < runs { v.arrived.borrow_mut().push((DEPOSITS_PATH, arrival.clone())); }
+        if one_run_sees_it { v.arrived.borrow_mut().push((DEPOSITS_PATH, arrival.clone())); }
         assert!(run(&db, &v, LONG, CHAIN_RUNS).await.unwrap().unwrap().unwrap().complete);
         if after_pages > v.served.borrow().len() {
             db.run(|c, _| file_rows(c, &file_import()).map_err(|e| e.to_string())).await.unwrap();
         }
-        assert_eq!(many, result(&db).await, "case {case}: {per_page} a page, file import after {after_pages} pages, deposit after run {arrive_after_run} (one run sees it: {one_run_sees_it}), {runs} runs");
+        assert_eq!(many, result(&db).await, "case {case}: {per_page} a page, file import after {after_pages} pages, deposit before request {arrive_at} (one run sees it: {one_run_sees_it}), {runs} runs");
     }
 }
