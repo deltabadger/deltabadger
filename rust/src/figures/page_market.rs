@@ -123,15 +123,19 @@ fn prices_only(path: &str, mut body: Value) -> Value {
     if crypto { serde_json::json!({ "trades": kept }) } else { Value::Object(kept) }
 }
 /// One demand's answer, ready to insert: the entry's value and size, and the candle head it leaves, if any.
-struct Answered { key: String, value: Fetch<Answer>, size: usize, head: Option<(Arc<[Bar]>, usize)> }
-async fn answer(wire: &impl Transport, request: HttpRequest, old: Option<Arc<[Bar]>>, now: i64, compute: &Arc<tokio::sync::Semaphore>, in_flight: &AtomicUsize) -> Answered {
+/// `held`: a series' bytes stay counted against the fill's bound (`SeriesBytes`) until the fill admits or drops it: the field is only ever dropped, at the end of its admission.
+struct Answered<'a> { key: String, value: Fetch<Answer>, size: usize, head: Option<(Arc<[Bar]>, usize)>, _held: Option<SeriesBytes<'a>> }
+async fn answer<'a>(wire: &impl Transport, request: HttpRequest, old: Option<Arc<[Bar]>>, now: i64, compute: &Arc<tokio::sync::Semaphore>, in_flight: &'a AtomicUsize) -> Answered<'a> {
     let key = key(&request);
     if is_series(&request) {
+        let mut held = SeriesBytes { series: 0, in_flight };
         // The entry shares the head's series; its bytes are counted once, on the head.
-        return match candles(wire, request, old, now, compute, in_flight).await {
-            Ok(Some((bars, size))) => Answered { key, value: Ok(Answer::Bars(bars.clone())), size: 0, head: Some((bars, size)) },
-            Ok(None) => Answered { key, value: Ok(Answer::Bars(Arc::from(Vec::new()))), size: 0, head: None },
-            Err(failure) => Answered { key, value: Err(failure), size: 0, head: None },
+        let answered = candles(wire, request, old, now, compute, &mut held).await;
+        let held = Some(held);
+        return match answered {
+            Ok(Some((bars, size))) => Answered { key, value: Ok(Answer::Bars(bars.clone())), size: 0, head: Some((bars, size)), _held: held },
+            Ok(None) => Answered { key, value: Ok(Answer::Bars(Arc::from(Vec::new()))), size: 0, head: None, _held: held },
+            Err(failure) => Answered { key, value: Err(failure), size: 0, head: None, _held: held },
         };
     }
     let path = request.path.clone();
@@ -140,16 +144,18 @@ async fn answer(wire: &impl Transport, request: HttpRequest, old: Option<Arc<[Ba
         Err(failure) => Err(failure),
     };
     match answered {
-        Ok((size, value)) => Answered { key, value: Ok(Answer::Json(Arc::new(value))), size, head: None },
-        Err(failure) => Answered { key, value: Err(failure), size: 0, head: None },
+        Ok((size, value)) => Answered { key, value: Ok(Answer::Json(Arc::new(value))), size, head: None, _held: None },
+        Err(failure) => Answered { key, value: Err(failure), size: 0, head: None, _held: None },
     }
 }
 /// A candle series (CandleSeriesCache#refresh): the tail from the last stored bar (AT it: the overlap tells a rewritten
 /// history from a continuing one), merged onto it, or the whole series again when the venue rewrote the overlapping bar.
 /// With its size; `None` for a series with no closed bar, which leaves no head. A merged series past SERIES_BYTES is a
 /// settled failure, and the stored head is left as it was.
-async fn candles(wire: &impl Transport, request: HttpRequest, old: Option<Arc<[Bar]>>, now: i64, compute: &Arc<tokio::sync::Semaphore>, in_flight: &AtomicUsize) -> Fetch<Option<(Arc<[Bar]>, usize)>> {
-    let tail = pages(wire, &request, old.as_ref().and_then(|old| old.last()), now, compute, in_flight).await?;
+async fn candles(wire: &impl Transport, request: HttpRequest, old: Option<Arc<[Bar]>>, now: i64, compute: &Arc<tokio::sync::Semaphore>, held: &mut SeriesBytes<'_>) -> Fetch<Option<(Arc<[Bar]>, usize)>> {
+    let tail = pages(wire, &request, old.as_ref().and_then(|old| old.last()), now, compute, held).await?;
+    // The merge copies the stored series: its bytes count too, for as long as the copy lives.
+    if let Some(old) = &old { held.take(old.iter().map(Bar::size).sum())?; }
     let merging = request.clone();
     let merged = cpu(compute, move || {
         let adjusted = merging.query.iter().any(|(k,v)| *k == "adjustment" && v == "split");
@@ -160,7 +166,7 @@ async fn candles(wire: &impl Transport, request: HttpRequest, old: Option<Arc<[B
     }).await?;
     let unsorted = match merged {
         Some(bars) => bars,
-        None => pages(wire, &request, None, now, compute, in_flight).await?,
+        None => pages(wire, &request, None, now, compute, held).await?,
     };
     cpu(compute, move || {
         let mut bars = unsorted;
@@ -172,8 +178,9 @@ async fn candles(wire: &impl Transport, request: HttpRequest, old: Option<Arc<[B
         Ok((!bars.is_empty()).then(|| (Arc::from(bars), size)))
     }).await
 }
-/// The bytes one series holds while its pages are read: counted against SERIES_BYTES for the series and FILL_BYTES for
-/// every series of the fill in flight, as each page is decoded; given back to the fill's count when the series ends.
+/// The bytes one series holds from its first page until the fill admits or drops it: counted against SERIES_BYTES for the
+/// series and FILL_BYTES for every series of the fill in flight, as each page is decoded and as the merge copies the stored
+/// series; given back to the fill's count when the reservation is dropped (`Answered::held`).
 struct SeriesBytes<'a> { series: usize, in_flight: &'a AtomicUsize }
 impl SeriesBytes<'_> {
     fn take(&mut self, size: usize) -> Fetch<()> {
@@ -186,9 +193,8 @@ impl SeriesBytes<'_> {
 impl Drop for SeriesBytes<'_> { fn drop(&mut self) { self.in_flight.fetch_sub(self.series, Ordering::SeqCst); } }
 /// The closed candles of every page of a series, from its start or from `tail` (the last stored bar), under the bounds
 /// (`SeriesBytes`): a series that crosses one is a settled failure, and nothing of it is kept.
-async fn pages(wire: &impl Transport, request: &HttpRequest, tail: Option<&Bar>, now: i64, compute: &Arc<tokio::sync::Semaphore>, in_flight: &AtomicUsize) -> Fetch<Vec<Bar>> {
-    let mut held = SeriesBytes { series: 0, in_flight };
-    if request.path == KUCOIN_CANDLES { return kucoin_pages(wire, request, tail.map(|bar| bar.at), now, compute, &mut held).await; }
+async fn pages(wire: &impl Transport, request: &HttpRequest, tail: Option<&Bar>, now: i64, compute: &Arc<tokio::sync::Semaphore>, held: &mut SeriesBytes<'_>) -> Fetch<Vec<Bar>> {
+    if request.path == KUCOIN_CANDLES { return kucoin_pages(wire, request, tail.map(|bar| bar.at), now, compute, held).await; }
     // Alpaca answers a long range oldest first, a page at a time, each naming the next (`next_page_token`), as
     // Clients::Alpaca reads them; the token joins the query in its sorted place. A tail starts at the last bar's own text.
     let mut request = request.clone();
