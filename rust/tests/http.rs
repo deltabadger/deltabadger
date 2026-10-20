@@ -140,6 +140,15 @@ fn a_misspelt_network_kind_fails_loudly() {
 }
 
 #[test]
+fn a_per_host_pre_send_never_reached_the_venue() {
+    // decisions.rb's NETWORK kinds `pre_send:<host>`, one spelling for every venue (plan VB §1.8).
+    let t = ScriptedTransport::default();
+    t.network("GET /x", "pre_send:api.mexc.com", "refused");
+    let r = req("http://x", "GET", "/x", vec![], None);
+    assert_eq!(futures_lite_block(t.send(&r)), Err(TransportError::NotSent("refused".into())));
+}
+
+#[test]
 #[should_panic(expected = "has no status")]
 fn a_reply_without_a_status_fails_loudly() {
     let t = ScriptedTransport::from_script(&json!({ "GET /x": [{ "body": "{}" }] }));

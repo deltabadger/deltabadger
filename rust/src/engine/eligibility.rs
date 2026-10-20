@@ -190,11 +190,8 @@ fn price_rule_reason(bot: &Bot, key: &str, value: &Value) -> Option<String> {
 /// Bot::Reversible); a basket of any size sells on every venue (6a, 6b, plan CB T3: the ranked DCA-out is venue-neutral).
 /// What else a bot needs (its amount limit on Kraken/Binance, market-cap weights) is each side's own named reason.
 pub fn admission(exchange: Option<&str>, index: bool, selling: bool) -> Option<&'static str> {
-    match exchange {
-        Some("Exchanges::Alpaca") => {}
-        Some("Exchanges::Kraken" | "Exchanges::Binance" | "Exchanges::Kucoin") => {}
-        _ => return Some("a bot on an exchange other than Alpaca, Kraken, Binance and KuCoin"),
-    }
+    // The text names the venues whose registry rows trade; a venue's slice extends it with its row.
+    if exchange.is_none_or(|e| crate::venue::registry::trading_rules(e).is_none()) { return Some("a bot on an exchange other than Alpaca, Kraken, Binance and KuCoin") }
     if selling && index { Some("an index bot that sells") } else { None }
 }
 

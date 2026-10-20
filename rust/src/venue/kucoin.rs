@@ -77,12 +77,8 @@ pub struct KucoinVenue<T: Transport> { transport: T, base: String, pairs: Pairs,
 
 pub(crate) fn unreadable() -> VenueError { VenueError::Ambiguous(UNREADABLE.into()) }
 
-/// Utilities::Hash.dig_or_raise: absent or null is unreadable.
-fn field<'a>(v: &'a Value, key: &str) -> Result<&'a Value, VenueError> { v.get(key).filter(|x| !x.is_null()).ok_or_else(unreadable) }
-
-/// A decimal string or number: present and readable, or the answer is unreadable (never a zero; Ruby's `.to_d` reads
-/// "garbage" as 0, a listed divergence as on Binance).
-fn required(v: &Value) -> Result<BigDec, VenueError> { crate::ruby::json_to_d(v).ok().flatten().ok_or_else(unreadable) }
+fn field<'a>(v: &'a Value, key: &str) -> Result<&'a Value, VenueError> { super::json::field(v, key, unreadable) }
+fn required(v: &Value) -> Result<BigDec, VenueError> { super::json::required(v, unreadable) }
 /// `x&.to_d`: null or absent is None.
 fn optional(v: &Value) -> Result<Option<BigDec>, VenueError> { if v.is_null() { Ok(None) } else { required(v).map(Some) } }
 /// Ruby's truthiness of a JSON value: only null (or absent) and false are false.
@@ -189,14 +185,7 @@ impl<T: Transport> KucoinVenue<T> {
 
     /// One send as honeymaker's #with_rescue reads it: the 2xx body's text, or the failure.
     async fn answer(&self, r: &HttpRequest, placement: bool, limit: usize) -> Result<String, VenueError> {
-        let redact = |m: String| self.transport.redact_diagnostic(&m);
-        let resp = match self.transport.send_limited(r, limit).await {
-            Ok(resp) => resp,
-            Err(TransportError::Permanent(m)) => return Err(VenueError::Rejected(vec![redact(m)])),
-            Err(TransportError::NotSent(m)) if placement => return Err(VenueError::Rejected(vec![redact(m)])),
-            Err(TransportError::NotSent(m) | TransportError::MaybeSent(m)) if !placement => return Err(VenueError::Transient(redact(m))),
-            Err(TransportError::MaybeSent(m) | TransportError::NotSent(m)) => return Err(VenueError::Ambiguous(redact(m))),
-        };
+        let resp = self.transport.send_limited(r, limit).await.map_err(|e| http::transport_failure(e, placement, |m| self.transport.redact_diagnostic(&m)))?;
         if !(200..300).contains(&resp.status) {
             let message = if resp.body.is_empty() { format!("the server responded with status {} for {} {}", resp.status, r.method, r.url()) } else { resp.body };
             // Honeymaker attaches the status (data: { status: }) and Exchange#raise_on_invalid_key! reads a 401 as a rejected key.

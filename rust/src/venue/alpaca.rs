@@ -485,9 +485,8 @@ impl LiveFactory {
     pub fn for_install(c: &Connection, cipher: &Cipher) -> Self {
         Self { settings: c.path().filter(|p| !p.is_empty()).map(|p| (p.into(), cipher.clone())), ..Self::new() }
     }
-    /// A venue's egress now: its client and proxy URL (venue::live::egress), from a fresh read of the install's settings.
-    fn egress(&self, name: &str) -> super::live::Egress { self.egress_and(name, |_| Ok(())).map(|(e, ())| e) }
-    /// `egress`, and `read` of the same install database (Binance's tickers) in that one open.
+    /// A venue's egress now: its client and proxy URL (venue::live::egress), from a fresh read of the install's settings, and
+    /// `read` of the same install database (the exchange's tickers) in that one open.
     fn egress_and<R>(&self, name: &str, read: impl FnOnce(&Connection) -> Result<R, String>) -> Result<((reqwest::Client, Option<String>), R), String> {
         let (path, cipher) = self.settings.as_ref().ok_or(SETTINGS_UNREAD)?;
         let c = Connection::open_with_flags(path, rusqlite::OpenFlags::SQLITE_OPEN_READ_WRITE).map_err(|_| format!("the {name} proxy setting is unreadable"))?;
@@ -525,61 +524,45 @@ impl VenueFactory for LiveFactory {
     fn for_bot_with_redaction(&self,exchange_type:&str,credentials:Option<Credentials>,sensitive:Vec<String>)->Self::V{
         use super::live::LiveVenue;
         let refused = |why: String| ReqwestTransport::refused(&format!("{exchange_type} is not connected in this build{why}"));
+        let unconnected = || LiveVenue::Alpaca(AlpacaVenue::new(refused(String::new()), Urls::for_passphrase(None)));
+        let Some(row) = super::registry::row(exchange_type).filter(|r| r.trades) else { return unconnected() };
+        if row.exchange_type == crate::sync::ALPACA { return LiveVenue::Alpaca(self.alpaca(credentials, sensitive)); }
         let identity = credentials.clone();
-        match exchange_type {
-            "Exchanges::Alpaca" => LiveVenue::Alpaca(self.alpaca(credentials, sensitive)),
-            "Exchanges::Kraken" => {
-                let transport = match self.egress("kraken") {
-                    Err(why) => refused(format!(": {why}")),
-                    Ok((client, proxy)) => {
-                        let (key, secret, mut values) = credentials.map(|c| (c.key, c.secret, c.redaction_values)).unwrap_or_default();
-                        values.extend(proxy);
-                        ReqwestTransport::new(client, key, secret).kraken().with_sensitive_values(values).with_clock(self.clock.clone())
-                    }
+        // Honeymaker.client(<name_id>, proxy: ExchangeProxy.for(<name_id>)), read at each build, and where the adapter reads
+        // them the exchange's tickers (#parse_order_data, #parse_trade_data, #asset_from_symbol).
+        let pairs = |c: &Connection| -> Result<super::binance::Pairs, String> {
+            if !row.needs_pairs { return Ok(super::binance::Pairs::default()); }
+            let id: i64 = c.query_row("SELECT id FROM exchanges WHERE type = ?1", [exchange_type], |r| r.get(0))
+                .map_err(|_| format!("the {} exchange row is unreadable", row.name))?;
+            super::binance::Pairs::load(c, id).map_err(|_| format!("the {} tickers are unreadable", row.name))
+        };
+        let (key, secret, passphrase, values) = credentials.map(|c| (c.key, c.secret, c.passphrase.unwrap_or_default(), c.redaction_values)).unwrap_or_default();
+        let (transport, pairs) = match self.egress_and(row.name_id, pairs) {
+            Err(why) => (refused(format!(": {why}")), super::binance::Pairs::default()),
+            Ok(((client, proxy), pairs)) => {
+                let transport = match exchange_type {
+                    "Exchanges::Kraken" => ReqwestTransport::new(client, key, secret.clone()).kraken(),
+                    super::kucoin::KUCOIN => ReqwestTransport::kucoin(client, key, secret.clone(), passphrase),
+                    _ => ReqwestTransport::binance(client, key, secret.clone()),
                 };
-                let venue = super::kraken::KrakenVenue::new(transport.with_sensitive_values(sensitive));
+                (transport.with_sensitive_values(values.into_iter().chain(proxy).collect()).with_clock(self.clock.clone()), pairs)
+            }
+        };
+        let transport = transport.with_sensitive_values(sensitive);
+        match exchange_type {
+            "Exchanges::Kraken" => {
+                let venue = super::kraken::KrakenVenue::new(transport);
                 LiveVenue::Kraken(match &identity { Some(c) => venue.with_identity(c), None => venue })
             }
-            // Exchanges::Binance: ExchangeProxy.for('binance'), read at each build, and the exchange's tickers (#parse_order_data,
-            // #parse_trade_data, #asset_from_symbol). Binance.US trades nowhere in this build (only its tracker reads exist).
             super::binance::BINANCE => {
-                let pairs = |c: &Connection| -> Result<super::binance::Pairs, String> {
-                    let id: i64 = c.query_row("SELECT id FROM exchanges WHERE type = ?1", [exchange_type], |r| r.get(0))
-                        .map_err(|_| "the Binance exchange row is unreadable".to_string())?;
-                    super::binance::Pairs::load(c, id).map_err(|_| "the Binance tickers are unreadable".to_string())
-                };
-                let (transport, pairs) = match self.egress_and("binance", pairs) {
-                    Err(why) => (refused(format!(": {why}")), super::binance::Pairs::default()),
-                    Ok(((client, proxy), pairs)) => {
-                        let (key, secret, mut values) = credentials.clone().map(|c| (c.key, c.secret, c.redaction_values)).unwrap_or_default();
-                        values.extend(proxy);
-                        (ReqwestTransport::binance(client, key, secret).with_sensitive_values(values).with_clock(self.clock.clone()), pairs)
-                    }
-                };
-                let secret = credentials.as_ref().map(|c| c.secret.clone()).unwrap_or_default();
-                let venue = super::binance::BinanceVenue::new(transport.with_sensitive_values(sensitive), super::binance::URL, &secret).with_pairs(pairs);
+                let venue = super::binance::BinanceVenue::new(transport, row.base, &secret).with_pairs(pairs);
                 LiveVenue::Binance(match &identity { Some(c) => venue.with_identity(c), None => venue })
             }
-            // Exchanges::Kucoin: Honeymaker.client('kucoin', passphrase:, proxy: ExchangeProxy.for('kucoin')), read at each build,
-            // and the exchange's tickers (#parse_order_data's rounding, #asset_from_symbol).
             super::kucoin::KUCOIN => {
-                let pairs = |c: &Connection| -> Result<super::binance::Pairs, String> {
-                    let id: i64 = c.query_row("SELECT id FROM exchanges WHERE type = ?1", [exchange_type], |r| r.get(0))
-                        .map_err(|_| "the KuCoin exchange row is unreadable".to_string())?;
-                    super::binance::Pairs::load(c, id).map_err(|_| "the KuCoin tickers are unreadable".to_string())
-                };
-                let (transport, pairs) = match self.egress_and("kucoin", pairs) {
-                    Err(why) => (refused(format!(": {why}")), super::binance::Pairs::default()),
-                    Ok(((client, proxy), pairs)) => {
-                        let (key, secret, passphrase, mut values) = credentials.map(|c| (c.key, c.secret, c.passphrase.unwrap_or_default(), c.redaction_values)).unwrap_or_default();
-                        values.extend(proxy);
-                        (ReqwestTransport::kucoin(client, key, secret, passphrase).with_sensitive_values(values).with_clock(self.clock.clone()), pairs)
-                    }
-                };
-                let venue = super::kucoin::KucoinVenue::new(transport.with_sensitive_values(sensitive), super::kucoin::URL).with_pairs(pairs);
+                let venue = super::kucoin::KucoinVenue::new(transport, row.base).with_pairs(pairs);
                 LiveVenue::Kucoin(match &identity { Some(c) => venue.with_identity(c), None => venue })
             }
-            _ => LiveVenue::Alpaca(AlpacaVenue::new(refused(String::new()), Urls::for_passphrase(None))),
+            _ => unconnected(),
         }
     }
 }

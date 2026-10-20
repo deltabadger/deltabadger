@@ -189,12 +189,14 @@ pub fn binance_request<T: Transport>(venue: &crate::venue::binance::BinanceVenue
 pub async fn check(venue: &str, base: &str, client: reqwest::Client, credentials: &crate::crypto::Credentials, kind: i64) -> Validity {
     use crate::venue::http::ReqwestTransport;
     let redaction = credentials.redaction_values.clone();
-    let (answer, verdict) = if venue == "Exchanges::Kraken" {
+    use crate::venue::registry::KeyCheck;
+    let scheme = crate::venue::registry::row(venue).and_then(|r| r.key_check);
+    let (answer, verdict) = if scheme == Some(KeyCheck::Kraken) {
         let transport = ReqwestTransport::new(client, credentials.key.clone(), credentials.secret.clone()).kraken().with_sensitive_values(redaction);
         let answer = transport.send(&kraken_request(base)).await;
         let verdict = kraken_verdict(kind, &answer);
         (answer, verdict)
-    } else if venue == crate::venue::kucoin::KUCOIN {
+    } else if scheme == Some(KeyCheck::Kucoin) {
         let passphrase = credentials.passphrase.clone().unwrap_or_default();
         let transport = ReqwestTransport::kucoin(client, credentials.key.clone(), credentials.secret.clone(), passphrase).with_sensitive_values(redaction);
         let request = kucoin_request(base, kind);

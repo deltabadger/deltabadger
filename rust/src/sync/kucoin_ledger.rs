@@ -10,7 +10,7 @@
 //! Where it reads more strictly than Rails (as binance_ledger does): an unreadable answer or amount fails the sync (Rails
 //! stores a garbage amount as 0), and a walk past 10,000 pages fails rather than running on.
 //!
-//! Scheduled as every ledger job is (sync::jobs::LedgerSync, KuCoin in `LEDGER_VENUES`), through ExchangeProxy.for('kucoin').
+//! Scheduled as every ledger job is (sync::jobs::LedgerSync, KuCoin's registry row has a `ledger`), through ExchangeProxy.for('kucoin').
 use super::activities::{Entry, Raw, BUY, DEPOSIT, SELL, WITHDRAWAL};
 use super::binance_ledger::{amount, entry, objects, page_of, ruby_time_at_ms, text, Fail};
 use super::ledger::{self, Outcome, Progress};
