@@ -10,7 +10,7 @@ pub const ACTIVITY_WINDOW: i64 = 30 * 60;
 /// run never pushes it back (`Work` keeps the earlier due time).
 pub const DEBOUNCE: i64 = 5;
 
-/// The accounts with figures: a non-deleted bot and an Alpaca key.
+/// The accounts with figures: every one with a non-deleted bot (an Alpaca key or none: `loading::read_info`).
 async fn accounts(app: &App) -> Vec<(i64, (String, String))> {
     let inner = app.clone();
     let found = app.db(move |c| {
@@ -18,7 +18,8 @@ async fn accounts(app: &App) -> Vec<(i64, (String, String))> {
             .query_map([], |r| r.get(0))?.collect::<Result<_, _>>()?;
         let mut out = vec![];
         for user in users {
-            if loading::read_info(c, &inner, user)?.is_some() { out.push((user, loading::own_key(c, user)?)); }
+            loading::read_info(c, &inner, user)?;
+            out.push((user, loading::own_key(c, user)?));
         }
         Ok(out)
     }).await;
