@@ -11,7 +11,7 @@ module PageFigures
   NAMES = %w[no_orders basket_buys row_readings smart_slices index_rotation liquidations tax_lots old_rows sold_out crypto_basket split
              split_fresh split_unsized price_untraded].freeze
   # The scenarios whose bot pages Rust serves from its own routes (page_figures_grid.rs).
-  FRAMED = %w[no_orders basket_buys hidden owner_account].freeze
+  FRAMED = %w[no_orders basket_buys hidden owner_account owner_candles_failed].freeze
 
   # The dashboard, then each bot page and its chart frame, through Rails' own controllers, as a browser loads them: the
   # frame at the src its page gave it. Recorded cold, before any figure is cached, and warm, once they are.
@@ -238,6 +238,12 @@ module PageFigures
       list << list.find { |s| s['name'] == source }.merge('name' => name)
     end
     list << owner_account(list)
+    # A failure stays with what it failed: one holding's candles (Rails rescues each symbol's fetch), and the account's other
+    # figures stand. Failed prices are the chronology's provider_failure step.
+    owner = list.last
+    bars = owner['script'].keys.grep(%r{/v2/stocks/\w+/bars}).first[%r{/v2/stocks/(\w+)/bars}, 1]
+    list << owner.deep_dup.merge('name' => 'owner_candles_failed',
+                                 'script' => owner['script'].to_h { |key, reply| [key, key.include?("/v2/stocks/#{bars}/bars") ? Figures::SERVER_ERROR : reply] })
     # An index bot's liquidation, redeploy and rebalance legs: the bot page (GET /bots/:id) is compared on it too.
     specials = list.find { |s| s['name'] == 'liquidations' }.deep_dup
     specials['name'] = 'index_specials'

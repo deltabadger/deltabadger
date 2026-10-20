@@ -19,7 +19,7 @@ fn toggles(locale: &str) -> String {
     }
     out.push_str("</div>\n");out
 }
-pub(super) const NOT_CHARTED: &str = "<div id=\"chart\" hidden=\"hidden\">\n</div>\n";
+pub(crate) const NOT_CHARTED: &str = "<div id=\"chart\" hidden=\"hidden\">\n</div>\n";
 #[allow(clippy::too_many_arguments)]
 pub(super) fn render(c: &Connection, s: &Subject, m: &Metrics, missing: &[String], hidden: bool, locale: &str, zone: &str) -> Result<String, FiguresError> {
     let charted:bool = c.query_row("SELECT EXISTS(SELECT 1 FROM transactions WHERE bot_id=?1)",[s.bot.id],|r|r.get(0))?;

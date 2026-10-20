@@ -118,7 +118,7 @@ fn stale_shown(mut shown:Value,then:&Value,now:&Value)->Option<Value> {
     // would not cache them) holds the headline back, as Rails' snapshot is loading.
     if after.iter().any(|(id,v)|v[1]==true && v[2]!=true && shown["bots"][id.as_str()]["cached"]!=true) { headline=false; }
     if let Some(bots)=shown.get_mut("bots").and_then(Value::as_object_mut) { bots.retain(|id,_|!moved(id)); }
-    if !headline { if let Some(figures)=shown.as_object_mut() { figures.remove("account"); } }
+    if !headline { if let Some(figures)=shown.as_object_mut() { figures.remove("account"); figures.remove("account_page"); } }
     Some(shown)
 }
 
@@ -337,7 +337,7 @@ async fn fill(app:&App,user:i64,cache:&mut Cache,wire:&Wire,now:At,keys:std::col
         for (locale,prefix) in keys {
             let rendered=super::kept_account(c,user,reader,now,&locale,&prefix)?;
             // A pass that still lacks market data fetches it first; only the last pass renders every key.
-            if reader.failed() || !reader.demands().is_empty() || !reader.fx_demands().is_empty() { return Ok(vec![]); }
+            if reader.pending() { return Ok(vec![]); }
             out.push(((locale,prefix),rendered,reader.fx_deps()));
         }
         Ok(out)
@@ -385,7 +385,7 @@ fn keep(c:&Connection,user:i64,cache:&Cache,at:At,prepared:u64,keys:&std::collec
             let reader=Reader::new(cache,at.utc().timestamp()).with_current(c).with_symbols(names.clone()).with_fx(fx.clone());
             let rendered=super::kept_account(c,user,&reader,at,locale,prefix)?;
             asked.extend(reader.fx_demands());
-            if reader.failed() || !reader.demands().is_empty() { return Err(crate::figures::FiguresError::NotComputed("Market data unavailable".into())); }
+            if reader.pending() { return Err(crate::figures::FiguresError::NotComputed("Market data unavailable".into())); }
             Ok((rendered,reader.fx_deps()))
         });
         match rendered { Ok((rendered,deps))=>out.push((kept_key(prepared,at,locale,prefix),rendered,deps)), Err(e)=>failed.push(format!("{locale}: {e:?}")) }
@@ -415,9 +415,9 @@ async fn fill_result<T:Send+'static>(app:&App,user:i64,cache:&mut Cache,wire:&Wi
                 let names=symbols(c,user)?;
                 let reader=Reader::new(&snapshot,now.utc().timestamp()).with_current(c).with_symbols(names).with_fx(fx);
                 let result=work(c,&reader);
-                let failed=reader.failed();
+                let pending=reader.pending();
                 let (out,reason)=match result {
-                    Ok(out)=>(Some(out).filter(|_|!failed),None),
+                    Ok(out)=>(Some(out).filter(|_|!pending),None),
                     Err(crate::figures::FiguresError::NotComputed(reason)) if reason=="Currency conversion unavailable"=>(None,Some("Currency conversion unavailable")),
                     Err(_)=>(None,None),
                 };
@@ -482,6 +482,10 @@ fn spawn_fill(app:&App,user:i64,info:Info,now:At,ticket:super::service::Ticket,m
         let credentials=matches!(current,Ok(Some(ref current)) if crate::engine::model::current_for(Some(&info.origin),Some(&current.origin)).is_fresh());
         let unchanged=credentials && matches!(current,Ok(Some(ref current)) if current.revision==info.revision);
         cache.set_stamp(now);
+        // A bot left without figures after a transient price read (`figure::computed`'s `raised`): these figures last only
+        // the price's minute, so the next read fills again and asks the quote afresh, as Rails retries its metrics job.
+        let retry=matches!(&result,Ok(rendered) if rendered.iter().any(|(_,(figures,_),_)|figures["raised"].is_array()));
+        let retry_at=now.utc().timestamp().saturating_add(crate::figures::page_market::PRICE_TTL);
         let (ready,reason,deadline)=match result {
             // What the last pass rendered is kept with the cache: no page computes it. Kept too when a write overtook the
             // fill, for the revision it read: shown as stale (`Snapshot::Stale`) while the next fill runs, never as
@@ -491,7 +495,7 @@ fn spawn_fill(app:&App,user:i64,info:Info,now:At,ticket:super::service::Ticket,m
                 Ok(deadline)=>{
                     for ((locale,prefix),rendered,deps) in rendered { cache.keep(kept_key(info.revision,now,&locale,&prefix),kept_value(rendered,&deps)); }
                     cache.keep(shape_key(info.revision),std::sync::Arc::new(shape));
-                    (true,None,deadline)
+                    (true,None,if retry { Some(deadline.map_or(retry_at,|deadline:i64|deadline.min(retry_at))) } else { deadline })
                 }
                 Err(_)=>(false,None,None), // a lifetime that cannot be read is no lifetime: the next read fills again
             },
@@ -518,6 +522,7 @@ fn spawn_fill(app:&App,user:i64,info:Info,now:At,ticket:super::service::Ticket,m
         for waiting in publish {
             if publish_with(inner.clone(),waiting).await.is_err() { inner.figure_service.mark_owner(waiting); }
         }
+
     });
 }
 /// Kept figures with the request's form token written where the renderer left each form's empty token

@@ -265,10 +265,10 @@ impl Cache {
     }
 }
 
-pub struct Reader<'a> { cache: &'a Cache, now: i64, demands: RefCell<BTreeMap<String, HttpRequest>>, symbols: Option<Vec<String>>, failed: Cell<bool>, current:Option<&'a rusqlite::Connection>,
+pub struct Reader<'a> { cache: &'a Cache, now: i64, demands: RefCell<BTreeMap<String, HttpRequest>>, symbols: Option<Vec<String>>, current:Option<&'a rusqlite::Connection>,
     fx: Option<FxSnapshot>, fx_demands: RefCell<std::collections::BTreeSet<(String, String)>>, fx_used: RefCell<BTreeMap<String, u64>> }
 impl<'a> Reader<'a> {
-    pub fn new(cache: &'a Cache, now: i64) -> Self { Self { cache, now, demands: RefCell::default(), symbols: None, failed: Cell::new(false), current:None, fx: None, fx_demands: RefCell::default(), fx_used: RefCell::default() } }
+    pub fn new(cache: &'a Cache, now: i64) -> Self { Self { cache, now, demands: RefCell::default(), symbols: None, current:None, fx: None, fx_demands: RefCell::default(), fx_used: RefCell::default() } }
     /// Conversions answered from the held ones (`MarketData::held_rate`); one not held is a demand (`fx_demands`).
     pub fn with_fx(mut self, fx: FxSnapshot) -> Self { self.fx = Some(fx); self }
     /// The conversions this reader was asked for and does not hold: (from, to).
@@ -276,7 +276,10 @@ impl<'a> Reader<'a> {
     /// The held conversions it answered with.
     pub fn fx_deps(&self) -> FxDeps { FxDeps { identity: self.fx.as_ref().map(|fx| fx.identity.clone()).unwrap_or_default(), pairs: self.fx_used.borrow().clone() } }
     pub fn with_current(mut self,c:&'a rusqlite::Connection)->Self { self.current=Some(c);self }
-    pub fn failed(&self) -> bool { self.failed.get() }
+    /// Whether this pass still waits on reads: market data or a conversion it asked for and does not hold. A settled failure
+    /// (an error answer, a venue this reader cannot read) is not pending: it stays with its holding or bot, as Rails rescues
+    /// it there, and never fails the rest of the account's figures.
+    pub fn pending(&self) -> bool { !self.demands.borrow().is_empty() || !self.fx_demands.borrow().is_empty() }
     pub fn with_symbols(mut self, symbols: Vec<String>) -> Self { self.symbols = Some(symbols); self }
     pub fn demands(&self) -> Vec<HttpRequest> { self.demands.borrow().values().cloned().collect() }
     fn get(&self, request: HttpRequest) -> Fetch<Answer> {
@@ -310,6 +313,10 @@ pub fn reads(venue: &Venue) -> bool { venue.exchange_type == "Exchanges::Alpaca"
 impl MarketData for Reader<'_> {
     fn prices(&self, venue: &Venue, symbols: &[String]) -> Fetch<Vec<(String, Member<Dec>)>> {
         if !reads(venue) { return Err(Failure::Failed(UNAVAILABLE.into())); }
+        // The account's names make one shared request per kind (`with_symbols`). A failed one fails only a caller that
+        // asks for a symbol of its kind, as Rails asks per bot (Exchanges::Alpaca#get_tickers_prices with the bot's own
+        // symbols): a stock basket never sees the crypto quote fail.
+        let asks = |crypto: bool| symbols.iter().any(|s| s.contains('/') == crypto);
         let symbols = self.symbols.as_deref().unwrap_or(symbols);
         let mut prices = vec![];
         let mut failed = None;
@@ -319,11 +326,12 @@ impl MarketData for Reader<'_> {
             if names.is_empty() { continue; }
             let path = if crypto { "/v1beta3/crypto/us/latest/trades" } else { "/v2/stocks/snapshots" };
             match self.get(request(path, vec![("symbols", names.join(","))])) {
+                Err(_) | Ok(Answer::Bars(_)) if !asks(crypto) => {}
                 Err(error) => failed = Some(error),
                 Ok(Answer::Bars(_)) => failed = Some(Failure::Failed(UNAVAILABLE.into())),
                 Ok(Answer::Json(body)) => {
                     let entries = if crypto { &body["trades"] } else { &*body };
-                    let Some(entries) = entries.as_object() else { failed = Some(Failure::Failed(UNAVAILABLE.into())); continue; };
+                    let Some(entries) = entries.as_object() else { if asks(crypto) { failed = Some(Failure::Failed(UNAVAILABLE.into())); } continue; };
                     for (code, item) in entries {
                         let price = if crypto { &item["p"] } else { &item["latestTrade"]["p"] };
                         // Owner ruling: absent trades carry no price. A reported numeric zero remains a price.
@@ -332,7 +340,7 @@ impl MarketData for Reader<'_> {
                 }
             }
         }
-        match failed { Some(error) => { self.failed.set(true); Err(error) }, None => Ok(prices) }
+        match failed { Some(error) => Err(error), None => Ok(prices) }
     }
     fn candles(&self, venue: &Venue, ticker: &Ticker, since: At, timeframe: i64, restated: bool) -> Fetch<Vec<(At, Dec)>> {
         // A venue this reader cannot read has no candles, as it has no prices (`prices`): that holding goes without a
@@ -358,7 +366,6 @@ impl MarketData for Reader<'_> {
                 Ok((at, Dec::to_d(&bar.o)?))
             }).collect()
         })();
-        if result.is_err() { self.failed.set(true); }
         result
     }
     // Raw provider answers never reach a page pass: every conversion is a held one (`held_rate`), fetched by the fill.
@@ -375,7 +382,6 @@ impl MarketData for Reader<'_> {
             None => {
                 // Not held, or no longer: the fill asks the provider, and this pass is not kept.
                 self.fx_demands.borrow_mut().insert(key);
-                self.failed.set(true);
                 Some(Err(Failure::Failed(UNAVAILABLE.into())))
             }
         }

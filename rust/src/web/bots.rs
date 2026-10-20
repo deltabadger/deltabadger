@@ -109,6 +109,8 @@ struct IndexView<'a> {
     bot_updates: &'a str,
     /// No total yet and some bot has traded, so the account's total is on its way: the page asks for it.
     pnl_pass: bool,
+    /// @global_pnl_loading: the headline itself still waits (the ask retries while its loading mark stands).
+    pnl_loading: bool,
     headline: Option<String>,
     filters: Option<String>,
     select_mode: bool,
@@ -274,7 +276,9 @@ pub async fn index(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Re
         }
         let literal = |key: &str, name: &str| i18n::text(ctx.locale, key, &[(name, i18n::Arg::Text(&format!("%{{{name}}}")))]);
         let figures = crate::web::figure::loading::render_page(&inner,c,user.id,&snapshot,ctx.locale,csrf,&ctx.path(""))?;
-        let headline=figures.as_ref().and_then(|v|v["account"].as_str()).map(str::to_string);
+        let history_loading=figures.as_ref().is_some_and(|v|v["account_page"].is_string());
+        let pnl_loading=figures.as_ref().is_none_or(|v|!v["account"].is_string()) && bots.iter().any(|bot| bot.has_submitted_orders);
+        let headline=figures.as_ref().and_then(|v|v["account_page"].as_str().or_else(||v["account"].as_str())).map(str::to_string);
         let mut tiles = vec![];
         for bot in &listed {
             let mut tile=tile(c,ctx,csrf,bot,configured)?;
@@ -287,7 +291,8 @@ pub async fn index(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Re
         let body = IndexView {
             v: ctx, preferences: &preferences, bot_updates: &bot_updates,
             // User#global_pnl_snapshot with nothing computed: waiting as soon as any bot has an accepted order.
-            pnl_pass: headline.is_none() && bots.iter().any(|bot| bot.has_submitted_orders),
+            // And while the account's history waits on a bot's marked chart (@global_pnl_history_loading).
+            pnl_pass: pnl_loading || history_loading, pnl_loading,
             filters, select_mode: can_merge || can_split, can_merge, can_split, connected: json(&serde_json::json!(connected)), names: json(&Value::Object(names)),
             no_partner: literal("bot.merge.no_partner", "quote"), no_shared_exchange: literal("bot.merge.no_shared_exchange", "quote"),
             other_exchange: literal("bot.merge.other_exchange", "exchange"),
