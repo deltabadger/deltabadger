@@ -482,6 +482,10 @@ fn spawn_fill(app:&App,user:i64,info:Info,now:At,ticket:super::service::Ticket,m
         let credentials=matches!(current,Ok(Some(ref current)) if crate::engine::model::current_for(Some(&info.origin),Some(&current.origin)).is_fresh());
         let unchanged=credentials && matches!(current,Ok(Some(ref current)) if current.revision==info.revision);
         cache.set_stamp(now);
+        // A bot left without figures after a transient price read (`figure::computed`'s `raised`): these figures last only
+        // the price's minute, so the next read fills again and asks the quote afresh, as Rails retries its metrics job.
+        let retry=matches!(&result,Ok(rendered) if rendered.iter().any(|(_,(figures,_),_)|figures["raised"].is_array()));
+        let retry_at=now.utc().timestamp().saturating_add(crate::figures::page_market::PRICE_TTL);
         let (ready,reason,deadline)=match result {
             // What the last pass rendered is kept with the cache: no page computes it. Kept too when a write overtook the
             // fill, for the revision it read: shown as stale (`Snapshot::Stale`) while the next fill runs, never as
@@ -491,7 +495,7 @@ fn spawn_fill(app:&App,user:i64,info:Info,now:At,ticket:super::service::Ticket,m
                 Ok(deadline)=>{
                     for ((locale,prefix),rendered,deps) in rendered { cache.keep(kept_key(info.revision,now,&locale,&prefix),kept_value(rendered,&deps)); }
                     cache.keep(shape_key(info.revision),std::sync::Arc::new(shape));
-                    (true,None,deadline)
+                    (true,None,if retry { Some(deadline.map_or(retry_at,|deadline:i64|deadline.min(retry_at))) } else { deadline })
                 }
                 Err(_)=>(false,None,None), // a lifetime that cannot be read is no lifetime: the next read fills again
             },
@@ -518,6 +522,7 @@ fn spawn_fill(app:&App,user:i64,info:Info,now:At,ticket:super::service::Ticket,m
         for waiting in publish {
             if publish_with(inner.clone(),waiting).await.is_err() { inner.figure_service.mark_owner(waiting); }
         }
+
     });
 }
 /// Kept figures with the request's form token written where the renderer left each form's empty token

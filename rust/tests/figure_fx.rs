@@ -313,6 +313,10 @@ async fn a_raised_price_read_leaves_only_its_bot_without_figures_and_holds_the_h
     let _stop = install.consume();
     let shown = install.shown("ready").await;
     assert!(tile(&shown, 1).contains("<small>€</small>8.59"), "{}", tile(&shown, 1));
-    assert!(shown["bots"]["2"].is_null(), "the bot whose prices raised has no figures: {}", shown["bots"]["2"]);
-    assert!(shown["account"].is_null(), "the headline waits on a traded bot without figures: {}", shown["account"]);
+    assert_eq!(shown["bots"]["2"]["metrics"], "<div id=\"metrics\"></div>", "the bot whose prices raised shows no figures");
+    assert_eq!(shown["bots"]["2"]["tile"], "<div id=\"pnl_bots_dca_multi_asset_2\"></div>");
+    assert_eq!(shown["account"], "<div id=\"global-pnl\"></div>", "no total while a traded bot has no figures");
+    // They last only the price's minute: the next read fills again and asks the quote afresh.
+    let loading::Snapshot::Ready(.., until) = loading::prepare(&install.app, 1).await.unwrap() else { panic!("not ready") };
+    assert!(until <= common::web::at(AT).timestamp() + 60, "figures with a raised bot outlived the price's minute: {until}");
 }

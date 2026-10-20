@@ -130,12 +130,20 @@ fn computed(c: &Connection, user_id: i64, market: &dyn MarketData, now: At, loca
         // retried: its panels stay loading while every other bot's figures stand. The headline is held back while such a
         // bot has orders (User#global_pnl_snapshot: loading while a traded bot has no figures).
         let mut withheld = false;
+        let mut raised = vec![];
         let mut history_cold = false;
         for (id, _) in db::account_bots(c, user_id)? {
             let subject = Subject::load(c, id)?;
             let walked = walk::metrics(c, &subject, now)?;
             let marked_live = match live::live(c, &subject, &walked, market, now) {
-                Err(FiguresError::Raised(_)) => { withheld |= !subject.orders.is_empty(); continue; }
+                Err(FiguresError::Raised(_)) => {
+                    // Empty targets, as a failed fill's (`loading::render`): no widget and no loader left waiting, and the
+                    // next fill's publication replaces them.
+                    let kind = if subject.bot.kind == db::Kind::Index { "dca_index" } else { "dca_multi_asset" };
+                    bots.insert(id.to_string(), json!({ "tile": format!("<div id=\"pnl_bots_{kind}_{id}\"></div>"), "metrics": "<div id=\"metrics\"></div>",
+                        "chart": plot::NOT_CHARTED, "missing": [], "cached": false, "chart_cached": false }));
+                    withheld |= !subject.orders.is_empty(); raised.push(id); continue;
+                }
                 other => other?,
             };
             let missing = missing(&subject, &marked_live, market)?;
@@ -168,6 +176,10 @@ fn computed(c: &Connection, user_id: i64, market: &dyn MarketData, now: At, loca
         let pnl = without_fx(totals::global_pnl(c,market,&mut totals::Rates::default(),&parts(false)))?;
         let history = without_fx(totals::pnl_history(c,market,&mut totals::Rates::default(),&parts(true)).map(|h|h.result))?;
         let mut out = json!({"bots": bots});
+        if !raised.is_empty() { out["raised"] = json!(raised); }
+        // A traded bot without figures: no total without it (User#global_pnl_snapshot), and its target stays empty for the
+        // next fill's publication.
+        if withheld { out["account"] = Value::String("<div id=\"global-pnl\"></div>".into()); }
         if !withheld {
             // The publication is Rails' live pass (PnlHistory.snapshot(live: true)): its history reads every bot's chart as
             // computed, marked or not. A page reads Rails' caches: while a bot's marked chart is cold, its headline has no
