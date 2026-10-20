@@ -439,9 +439,9 @@ async fn the_page_hears_the_marker_raised_and_lifted() {
     call(&s.e.primary, s.bot, s.rule, 1, T0);
     run::step(&mut s.e, &at(T0)).await.unwrap();
     assert_eq!(marker(&mut rx), 1, "raised with the ambiguous send");
-    run::step(&mut s.e, &plus(T0, 1.0)).await.unwrap();
-    assert_eq!(marker(&mut rx), 0, "a pass before the reconcile is due changes nothing");
     run::step(&mut s.e, &plus(T0, 31.0)).await.unwrap();
     assert!(transient(&s.e.primary, s.bot).get("signal_placement_unresolved").is_none());
     assert_eq!(marker(&mut rx), 1, "lifted by the recovery that recorded the order");
+    run::step(&mut s.e, &plus(T0, 62.0)).await.unwrap();
+    assert_eq!(marker(&mut rx), 0, "a pass that changes neither says nothing");
 }

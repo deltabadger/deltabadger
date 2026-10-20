@@ -1748,7 +1748,7 @@ fn a_bot_row_is_read_as_the_pages_need_it_and_refused_when_this_build_cannot_ren
     assert_eq!(refused(&|_| {}, None, true), None, "not answered, and nothing traded: Rails asks nothing yet");
     store(&settings);
     for (sql, reason) in [
-        ("UPDATE bots SET type = 'Bots::Signal'", "a bot of a type this build does not render"),
+        ("UPDATE bots SET type = 'Bots::Signal'", "a signal bot (plan 8d admits the type)"),
         ("UPDATE bots SET transient_data = '{\"rebalance_pending\":{\"phase\":\"selling\"}}'", "a rebalance, liquidation or redeploy in progress"),
         ("UPDATE exchanges SET type = 'Exchanges::Coinbase'", "a bot on an exchange other than Alpaca, Kraken, Binance and KuCoin"),
         ("UPDATE exchanges SET type = 'Exchanges::Kraken'; UPDATE bots SET type = 'Bots::DcaIndex', settings = json_set(settings, '$.direction', 'selling')", "an index bot that sells"),
