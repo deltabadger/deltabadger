@@ -432,6 +432,8 @@ pub(crate) async fn fill_with(app:&App,user:i64,cache:&mut Cache,wire:&Wire,now:
 /// Compute, fetch demands and retry at most four times. Only a fixed public reason crosses into
 /// failed snapshots: arbitrary provider diagnostics and stored data cannot become page text.
 async fn fill_result<T:Send+'static>(app:&App,user:i64,cache:&mut Cache,wire:&Wire,now:At,admit:fn(&Connection,i64)->Result<bool,WebError>,work:impl Fn(&Connection,&Reader<'_>)->Result<T,crate::figures::FiguresError>+Clone+Send+'static)->Result<T,Option<&'static str>> {
+    // What an earlier fill had no room for is asked for again (`Cache::admit`); within this fill it stays settled.
+    cache.clear_refusals();
     for _ in 0..4 {
         // The held conversions as they stand now, of the provider configured now (read on App::db, which can read it).
         let Ok((identity,config))=app.db(crate::web::tracker::fx::provider).await else { return Err(None) };
@@ -460,7 +462,6 @@ async fn fill_result<T:Send+'static>(app:&App,user:i64,cache:&mut Cache,wire:&Wi
         // Made under this key even when it read no market data (every bot on a venue the reader cannot read): ready
         // figures are current while the key is (`render`), and an unrecorded key would leave them never shown.
         if demands.is_empty() && fx_demands.is_empty(){ return out.ok_or(reason);}
-        if demands.len()>crate::figures::page_market::MAX_ENTRIES{return Err(None);}
         // Conversions from the market-data provider, never over the venue's wire (it carries the venue's key).
         if !fx_demands.is_empty() && crate::web::tracker::fx::fill(app,&identity,config,fx_demands).await.is_err() { return Err(None); }
         if !demands.is_empty() { cache.fill_bounded(wire,demands,now.utc().timestamp(),&app.figure_service.compute()).await; }

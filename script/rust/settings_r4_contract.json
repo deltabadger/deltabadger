@@ -36,6 +36,11 @@
       "builds": "direct-entry Handle"
     },
     {
+      "file": "figures/parity.rs",
+      "function": "stepped",
+      "builds": "the stepped figures scenario's market-cache producer: the account key a fill makes figures under"
+    },
+    {
       "file": "tracker/parity.rs",
       "function": "run",
       "builds": "the parity fixture's balance-origin stamps, as a Rust balance sync records them"
