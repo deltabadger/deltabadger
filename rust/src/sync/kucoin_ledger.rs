@@ -147,15 +147,24 @@ impl Source {
 /// first run), a page at a time: the fills in weekly windows [`window_start`, `window_end`), a range over KuCoin's cap
 /// halved down to an hour (`ranges`: the window's ranges still to read, the one being read last), then SUCCESS deposits
 /// and withdrawals since `start`. `page` is the next currentPage of the range or source being read.
+///
+/// A fills range is bounded at both ends, so its pages hold the same rows in every run. The transfers are not (Rails
+/// sends no `endAt`) and come newest first: a transfer arriving between two runs would push rows already stored onto
+/// the next page, and one without an id or a hash would be stored twice. So a transfer source's first page records
+/// `pin`, just past its newest row, and every page of that source a later run reads asks `endAt` = `pin`: the rows stay
+/// where the first page found them, and what arrives after it is the next import's. Pages read in the run that read the
+/// first one send what Rails sends.
 struct Walk<'a, T: Transport> {
     venue: &'a KucoinVenue<T>, wait: std::time::Duration, start: Option<chrono::DateTime<chrono::Utc>>, end: i64,
     source: Source, window_start: i64, window_end: i64, ranges: Vec<(i64, i64)>, page: i64,
+    /// The transfer source's `endAt`, recorded by its first page (`pin`) and sent from the next run on (`end_at`).
+    pin: Option<i64>, end_at: Option<i64>,
 }
 
 impl<'a, T: Transport> Walk<'a, T> {
     fn new(venue: &'a KucoinVenue<T>, wait: std::time::Duration, begin: continuation::Begin<'_>) -> Self {
         let (start, end) = (begin.start, begin.end.timestamp() * 1000);
-        let mut walk = Self { venue, wait, start, end, source: Source::Fills, window_start: 0, window_end: 0, ranges: vec![], page: 1 };
+        let mut walk = Self { venue, wait, start, end, source: Source::Fills, window_start: 0, window_end: 0, ranges: vec![], page: 1, pin: None, end_at: None };
         match begin.cursor.and_then(|c| Some((c, Source::named(c["source"].as_str()?)?))) {
             Some((c, source)) => {
                 walk.source = source;
@@ -163,6 +172,7 @@ impl<'a, T: Transport> Walk<'a, T> {
                 walk.window_end = c["window_end"].as_i64().unwrap_or_default();
                 walk.ranges = c["ranges"].as_array().into_iter().flatten().filter_map(|r| Some((r[0].as_i64()?, r[1].as_i64()?))).collect();
                 walk.page = c["page"].as_i64().unwrap_or(1);
+                (walk.pin, walk.end_at) = (c["pin"].as_i64(), c["pin"].as_i64());
             }
             None => walk.window(begin.start.map_or(HISTORY_FROM_MS, |s| s.timestamp() * 1000)),
         }
@@ -185,7 +195,7 @@ impl<'a, T: Transport> Walk<'a, T> {
             if self.page > MAX_PAGES { return Err((format!("Too many pages of KuCoin {path}"), false)); }
             return Ok(());
         }
-        self.page = 1;
+        (self.page, self.pin, self.end_at) = (1, None, None);
         match self.source {
             Source::Fills => { self.ranges.pop(); if self.ranges.is_empty() { self.window(self.window_end); } }
             Source::Deposits => self.source = Source::Withdrawals,
@@ -199,7 +209,7 @@ impl<T: Transport> continuation::Walk for Walk<'_, T> {
     fn done(&self) -> bool { self.source == Source::Done }
     fn cursor(&self) -> Value {
         serde_json::json!({ "source": self.source.name(), "window_start": self.window_start, "window_end": self.window_end,
-                            "ranges": self.ranges.iter().map(|(a, b)| serde_json::json!([a, b])).collect::<Vec<_>>(), "page": self.page })
+                            "ranges": self.ranges.iter().map(|(a, b)| serde_json::json!([a, b])).collect::<Vec<_>>(), "page": self.page, "pin": self.pin })
     }
     fn page_rows(&self) -> usize { PAGE_ROWS }
     /// Every try at the transport's whole budget, and the throttle waits between them.
@@ -220,9 +230,12 @@ impl<T: Transport> continuation::Walk for Walk<'_, T> {
             Source::Deposits | Source::Withdrawals => {
                 let (path, kind) = if self.source == Source::Deposits { (DEPOSITS_PATH, DEPOSIT) } else { (WITHDRAWALS_PATH, WITHDRAWAL) };
                 let mut q: Vec<(&'static str, String)> = self.start.map(|s| ("startAt", s.timestamp_millis().to_string())).into_iter().collect();
+                q.extend(self.end_at.map(|e| ("endAt", e.to_string())));
                 q.push(("status", "SUCCESS".into()));
-                let mut read = |raw: Raw| -> Result<(), Fail> { rows.push(transfer(kind, raw)?); Ok(()) };
+                let mut newest = None;
+                let mut read = |raw: Raw| -> Result<(), Fail> { newest = newest.max(Some(to_i(&raw.value["createdAt"]))); rows.push(transfer(kind, raw)?); Ok(()) };
                 let last = read_page(self.venue, self.wait, path, &q, false, self.page, &mut read).await.map_err(|e| e.fail)?;
+                if self.page == 1 { self.pin = newest.map(|n| n + 1); }
                 self.next_page(last)?;
             }
             Source::Done => {}
