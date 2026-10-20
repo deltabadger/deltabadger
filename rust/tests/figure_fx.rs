@@ -319,6 +319,9 @@ async fn a_raised_price_read_leaves_only_its_bot_without_figures_and_holds_the_h
     // They last only the price's minute: the next read fills again and asks the quote afresh.
     let loading::Snapshot::Ready(.., until) = loading::prepare(&install.app, 1).await.unwrap() else { panic!("not ready") };
     assert!(until <= common::web::at(AT).timestamp() + 60, "figures with a raised bot outlived the price's minute: {until}");
+}
+
+#[tokio::test]
 async fn a_sell_only_bot_on_a_venue_the_figures_do_not_read_says_what_it_sold_and_received() {
     // 3.0, Rust only: a bot that only sells (what it sells came from outside) states what it sold and what that brought
     // in, not an investment. Its venue is not read yet, which is no failure of the venue's: no note that it did not answer.
