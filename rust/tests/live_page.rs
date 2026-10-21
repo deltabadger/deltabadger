@@ -142,6 +142,7 @@ fn a_signal_bots_marker_redraws_its_unresolved_placement_panel() {
     assert!(!html.contains("authenticity_token"), "a broadcast carries no token: {html}");
     c.execute("UPDATE bots SET transient_data = '{}' WHERE id = ?1", [signal]).unwrap();
     let lifted = r.render(&EngineEvent::SignalMarkerChanged { bot_id: signal });
-    assert_eq!(lifted, vec![(stream(signal), "<turbo-stream action=\"replace\" target=\"signal-unresolved-placement\"><template>    <div id=\"signal-unresolved-placement\" hidden></div>\n</template></turbo-stream>".to_string())]);
+    // The partial as Rails renders it on its own (signal_action_resolution records it), not as the settings column indents it.
+    assert_eq!(lifted, vec![(stream(signal), "<turbo-stream action=\"replace\" target=\"signal-unresolved-placement\"><template>  <div id=\"signal-unresolved-placement\" hidden></div>\n</template></turbo-stream>".to_string())]);
     assert!(r.render(&EngineEvent::SignalMarkerChanged { bot_id: r.id }).is_empty(), "a basket has no such panel");
 }

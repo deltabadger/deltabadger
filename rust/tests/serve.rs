@@ -1482,8 +1482,8 @@ async fn a_request_for_a_host_that_is_not_allowed_is_refused_before_anything_rea
     assert_eq!(ask(&open, "GET", "/up", "evil.example", Some("other.example")).await.0, 200, "no ALLOWED_HOSTS: no list");
 }
 
-/// Slice 8c-1: a signal bot's pages are read only where the app admits them (tests, until plan 8d), never its forms or
-/// actions (8c-2), and each shape its pages cannot print is named.
+/// Slices 8c-1 and 8c-2: a signal bot's pages, forms and actions are served only where the app admits them (tests, until
+/// plan 8d), and each shape its pages cannot print is named.
 #[test]
 fn a_signal_bot_is_refused_until_admitted_and_then_for_what_its_pages_cannot_print() {
     use deltabadger::web::bot::{self, For};
@@ -1501,7 +1501,8 @@ fn a_signal_bot_is_refused_until_admitted_and_then_for_what_its_pages_cannot_pri
     assert_eq!(refusal(Some(false), For::Page, false), Some("a signal bot (plan 8d admits the type)"), "production: refused until 8d");
     assert_eq!(refusal(Some(false), For::Page, true), None);
     assert_eq!(refusal(Some(false), For::Feed, true), None);
-    assert_eq!(refusal(Some(false), For::Settings, true), Some("a signal bot's settings, rules and actions (plan 8c-2)"));
+    assert_eq!(refusal(Some(false), For::Settings, true), None);
+    assert_eq!(refusal(Some(false), For::Settings, false), Some("a signal bot (plan 8d admits the type)"));
     // The account-wide rule's table is not printed; the feed answers whatever it says.
     assert_eq!(refusal(Some(true), For::Page, true), Some("the wash-sale rule"));
     assert_eq!(refusal(Some(true), For::Feed, true), None);
@@ -2772,4 +2773,74 @@ fn serve_logs_no_webhook_token() {
     server.wait().unwrap();
     assert!(log.contains("a signal call failed"), "the failure is logged: {log}");
     assert!(!log.contains("tok-"), "a webhook token reached the log: {log}");
+}
+
+/// Slice 8c-2 (named divergence from Rails, which has no such order): Resolve lifts a marker that stands alone, once,
+/// with its line, and leaves one beside this build's own unsettled order, which the engine's recovery settles.
+#[tokio::test(flavor = "current_thread")]
+async fn a_resolve_lifts_a_lone_marker_and_leaves_one_the_engine_still_settles() {
+    use serde_json::json;
+    let (dir, opened, seeded) = common::install_alpaca();
+    let c = &opened.primary;
+    let hash = deltabadger::crypto::hash_password("Correct-horse-9").unwrap();
+    c.execute("UPDATE users SET encrypted_password = ?1, confirmed_at = '2026-01-01 00:00:00', wash_sale_enabled = 0 WHERE id = ?2", (hash, seeded.user_id)).unwrap();
+    let transient = json!({ "signal_placement_unresolved": { "id": "m-1", "at": "2026-09-10T11:00:00Z", "side": "buy", "error": "timeout" },
+                            "rust_placement": { "cl_ord_id": "m-1" } });
+    c.execute("INSERT INTO bots (type, status, exchange_id, user_id, label, settings, transient_data, created_at, updated_at) \
+               VALUES ('Bots::Signal', 2, ?1, ?2, 'Signals', ?3, ?4, '2026-08-25 09:00:00', '2026-08-25 09:00:00')",
+              (seeded.exchange_id, seeded.user_id, json!({ "base_asset_id": seeded.btc, "quote_asset_id": seeded.quote }).to_string(), transient.to_string())).unwrap();
+    let id = c.last_insert_rowid();
+    c.execute("INSERT INTO bot_signals (bot_id, direction, amount_type, amount, enabled, token, created_at, updated_at) \
+               VALUES (?1, 0, 0, 10, 1, 'tok-resolve', '2026-08-25 09:00:00', '2026-08-25 09:00:00')", [id]).unwrap();
+    let app = web::app(dir.path(), web::SECRET, TestClock::at(NOW)).admit_signal_bots_for_tests().unwrap();
+    let mut browser = Browser::default();
+    browser.get(&app, "/login").await;
+    assert_eq!(browser.post(&app, "/login", &[("user[email]", "o@example.com"), ("user[password]", "Correct-horse-9")]).await.status, 303);
+    let page = browser.get(&app, &format!("/bots/{id}")).await;
+    assert_eq!(page.status, 200, "{:.500}", page.body);
+    let state = || c.query_row("SELECT transient_data, (SELECT count(*) FROM bot_activity_logs WHERE bot_id = ?1) FROM bots WHERE id = ?1", [id],
+                               |r| Ok((serde_json::from_str::<serde_json::Value>(&r.get::<_, String>(0)?).unwrap(), r.get::<_, i64>(1)?))).unwrap();
+    let resolve = format!("/bots/{id}/signal_resolution");
+    let answer = browser.send(&app, "POST", &resolve, Some(&[("marker_id", "m-1")]), web::Csrf::Header, &[]).await;
+    assert_eq!(answer.status, 302);
+    assert_eq!(state(), (transient.clone(), 0), "the engine's order is the recovery's to settle");
+    c.execute("UPDATE bots SET transient_data = json_remove(transient_data, '$.rust_placement') WHERE id = ?1", [id]).unwrap();
+    assert_eq!(browser.send(&app, "POST", &resolve, Some(&[("marker_id", "m-1")]), web::Csrf::Header, &[]).await.status, 302);
+    let (left, lines) = state();
+    assert_eq!((left, lines), (json!({}), 1), "a lone marker is lifted with its line");
+    assert_eq!(browser.send(&app, "POST", &resolve, Some(&[("marker_id", "m-1")]), web::Csrf::Header, &[]).await.status, 302);
+    assert_eq!(state().1, 1, "a repeat is stale and writes nothing");
+}
+
+/// Slice 8c-2: a signal bot's Stop from its page commits even where another of the owner's bots cannot be drawn (a stored
+/// time it cannot parse): the answer is a refresh, as every bot's Stop answers it (action_view::lifecycle_response).
+#[tokio::test(flavor = "current_thread")]
+async fn a_signal_stop_commits_beside_a_bot_that_cannot_be_drawn() {
+    use serde_json::json;
+    let (dir, opened, seeded) = common::install_alpaca();
+    let c = &opened.primary;
+    let hash = deltabadger::crypto::hash_password("Correct-horse-9").unwrap();
+    c.execute("UPDATE users SET encrypted_password = ?1, confirmed_at = '2026-01-01 00:00:00', wash_sale_enabled = 0 WHERE id = ?2", (hash, seeded.user_id)).unwrap();
+    let settings = json!({ "base_asset_id": seeded.btc, "quote_asset_id": seeded.quote }).to_string();
+    c.execute("INSERT INTO bots (type, status, exchange_id, user_id, label, settings, started_at, created_at, updated_at) \
+               VALUES ('Bots::Signal', 1, ?1, ?2, 'Signals', ?3, '2026-08-25 09:00:00', '2026-08-25 09:00:00', '2026-08-25 09:00:00')",
+              (seeded.exchange_id, seeded.user_id, &settings)).unwrap();
+    let id = c.last_insert_rowid();
+    c.execute("INSERT INTO bot_signals (bot_id, direction, amount_type, amount, enabled, token, created_at, updated_at) \
+               VALUES (?1, 0, 0, 10, 1, 'tok-stop', '2026-08-25 09:00:00', '2026-08-25 09:00:00')", [id]).unwrap();
+    let app = web::app(dir.path(), web::SECRET, TestClock::at(NOW)).admit_signal_bots_for_tests().unwrap();
+    let mut browser = Browser::default();
+    browser.get(&app, "/login").await;
+    assert_eq!(browser.post(&app, "/login", &[("user[email]", "o@example.com"), ("user[password]", "Correct-horse-9")]).await.status, 303);
+    let page = browser.get(&app, &format!("/bots/{id}")).await;
+    assert_eq!(page.status, 200, "{:.500}", page.body);
+    // Another bot of the owner's whose row this build cannot read.
+    c.execute("INSERT INTO bots (type, status, exchange_id, user_id, label, settings, settings_changed_at, created_at, updated_at) \
+               VALUES ('Bots::Signal', 2, ?1, ?2, 'Other', ?3, 'garbage', '2026-08-25 09:00:00', '2026-08-25 09:00:00')",
+              (seeded.exchange_id, seeded.user_id, &settings)).unwrap();
+    let answer = browser.send(&app, "PATCH", &format!("/bots/{id}/stop"), Some(&[]), web::Csrf::Header, &[("Accept", "text/vnd.turbo-stream.html, text/html")]).await;
+    assert_eq!(answer.status, 200, "{:.800}", answer.body);
+    assert_eq!(answer.body.trim_end(), deltabadger::web::turbo::refresh(), "the buttons cannot all be drawn: a refresh");
+    let status: i64 = c.query_row("SELECT status FROM bots WHERE id = ?1", [id], |r| r.get(0)).unwrap();
+    assert_eq!(status, 2, "the Stop committed");
 }

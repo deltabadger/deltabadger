@@ -724,6 +724,9 @@ fn routes(app: App) -> Router {
         .route("/bots/{id}/delete.turbo_stream", only(delete(bot::actions::delete)))
         .route("/bots/{id}/archive.turbo_stream", only(post(bot::actions::archive).delete(bot::actions::unarchive)))
         .route("/bots/{id}/chart", only(get(bot::page::chart_frame)))
+        .route("/bots/{id}/bot_signals", only(post(bot::signal_write::create_rule)))
+        .route("/bots/{id}/bot_signals/{rule}", only(patch(bot::signal_write::update_rule).delete(bot::signal_write::destroy_rule)))
+        .route("/bots/{id}/signal_resolution", only(post(bot::signal_write::resolve)))
         .route("/bots/{id}/asset_search/edit", only(get(bot::search::edit)))
         .route("/broadcasts/metrics_update", only(post(broadcasts::metrics_update)))
         .route("/broadcasts/pnl_update", only(post(broadcasts::pnl_update)))
@@ -909,7 +912,8 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
     };
     let bot_json = bot::action_params::action(&route_path, &json_method).is_some()
         || (json_method == Method::PATCH && matches!(route_path.as_str(), "/tracker/save_export_settings" | "/tracker/fund_classifications"))
-        || (json_method == Method::PATCH && route_path.starts_with("/tracker/transactions/"));
+        || (json_method == Method::PATCH && route_path.starts_with("/tracker/transactions/"))
+        || bot::signal_write::reads_json(&route_path, &json_method);
     let form_post = matches!(original_method, Method::POST | Method::PATCH | Method::PUT | Method::DELETE)
         && content_type.split(';').next().is_some_and(|v| v.trim().eq_ignore_ascii_case("application/x-www-form-urlencoded"));
     // What broadcast--on-connect posts (web::broadcasts), under any locale.
