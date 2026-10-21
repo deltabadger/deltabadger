@@ -1,4 +1,4 @@
-# Records how Rails judges an API key on each venue of VENUE_CASES (Kraken, Binance, Binance.US, KuCoin, Bitvavo, Gemini, Bitget), for the Rust key
+# Records how Rails judges an API key on each venue of VENUE_CASES (Kraken, Binance, Binance.US, KuCoin, Bitvavo, Gemini, Bitget, MEXC, Hyperliquid, Bybit), for the Rust key
 # step (P2-T6).
 #   bin/rails runner script/rust/record_key_verdicts.rb rust/tests/fixtures/key_verdicts.json
 # Each case scripts the venue's HTTP answer at the Faraday adapter (nothing leaves the machine; any real connection
@@ -13,7 +13,7 @@ Net::HTTP.prepend(Module.new { def connect = raise(Unscripted, "real connection 
 
 out = {
   'sources' => %w[app/models/exchanges/kraken.rb app/models/exchanges/binance.rb app/models/exchanges/binance_us.rb app/models/exchanges/kucoin.rb app/models/exchanges/bitvavo.rb app/models/exchanges/gemini.rb
-                  app/models/exchanges/bitget.rb app/models/exchanges/bybit.rb
+                  app/models/exchanges/bitget.rb app/models/exchanges/mexc.rb app/models/exchanges/hyperliquid.rb app/models/exchanges/bybit.rb
                   app/models/exchange.rb app/models/exchange/dryable.rb app/models/api_key.rb app/helpers/bot_helper.rb
                   config/locales/api.en.yml config/locales/api.de.yml config/locales/api.pl.yml
                   config/locales/api_read_only.en.yml config/locales/api_withdrawal.en.yml
@@ -36,13 +36,15 @@ module Venue
       # Gemini's params travel in its signed payload (an empty-body POST): recorded as the form, without `request` and `nonce`.
       payload = env.request_headers['X-GEMINI-PAYLOAD']
       form = JSON.parse(Base64.strict_decode64(payload)).except('request', 'nonce') if payload
-      # Bitget's POSTs carry a JSON body: recorded as the form.
+      # Bitget's and Bybit's POSTs carry a JSON body: recorded as the form.
       form = JSON.parse(env.request_body) if %w[api.bitget.com api.bybit.com].include?(env.url.host) && env.request_body.is_a?(String) && !env.request_body.empty?
+      # Hyperliquid's /info reads carry a JSON body: recorded as the form.
+      form = JSON.parse(env.request_body) if env.url.host == 'api.hyperliquid.xyz'
       Venue.seen << { 'method' => env.method.to_s.upcase, 'host' => env.url.host, 'path' => env.url.path,
                      'query' => query.except(*SECRET_PARAMS), 'form' => form.except(*SECRET_PARAMS),
                      'key_header' => env.request_headers['X-MBX-APIKEY'] || env.request_headers['API-Key'] || env.request_headers['KC-API-KEY'] ||
                                      env.request_headers['BITVAVO-ACCESS-KEY'] || env.request_headers['X-GEMINI-APIKEY'] ||
-                                     env.request_headers['ACCESS-KEY'] || env.request_headers['X-BAPI-API-KEY'] }
+                                     env.request_headers['ACCESS-KEY'] || env.request_headers['X-MEXC-APIKEY'] || env.request_headers['X-BAPI-API-KEY'] }
       answer = Venue.answers.shift
       raise Faraday::TimeoutError, 'Net::ReadTimeout' if answer[:timeout]
       raise Faraday::ConnectionFailed, 'Failed to open TCP connection (Connection refused)' if answer[:refused]
@@ -84,9 +86,9 @@ def verdict(result)
 end
 
 # One answer records 'response' and 'request'; a list of answers (one per request, in order) 'responses' and 'requests'.
-record = lambda do |exchange, key_type, method, name, answer|
+record = lambda do |exchange, key_type, method, name, answer, key: 'test-key', secret: Base64.strict_encode64('test-secret')|
   passphrase = exchange.requires_passphrase? ? 'test-passphrase' : nil
-  api_key = ApiKey.new(exchange:, key_type:, key: 'test-key', secret: Base64.strict_encode64('test-secret'), passphrase:)
+  api_key = ApiKey.new(exchange:, key_type:, key:, secret:, passphrase:)
   Venue.answers = Array.wrap(answer).dup
   Venue.seen = []
   row = { 'case' => name, 'key_type' => key_type.to_s, 'method' => method.to_s }
@@ -422,6 +424,88 @@ VENUE_CASES = {
     read_cases.each { |name, answer| rows << record.(bitget, :read_only, :get_read_api_key_validity, name, answer) }
     { 'order_not_found_codes' => Exchanges::Bitget.const_get(:ORDER_NOT_FOUND_CODES), 'no_trade_codes' => Exchanges::Bitget.const_get(:NO_TRADE_PERMISSION_CODES),
       'invalid_key_errors' => Exchanges::Bitget::ERRORS[:invalid_key], 'cases' => rows }
+  end,
+  # MEXC (plan VB slice A5): the account read and its canTrade (#account_check); a reading key (#get_read_api_key_validity)
+  # then reads the deposit history (limit 1), which MEXC grants under its own permission.
+  'mexc' => lambda do
+    mexc = Exchanges::Mexc.new(name: 'MEXC')
+    mx = ->(status, code, msg) { json.(status, { 'code' => code, 'msg' => msg }) }
+    account = ->(can_trade) { json.(200, { 'canTrade' => can_trade, 'canWithdraw' => true, 'canDeposit' => true, 'balances' => [] }.compact) }
+    deposits_ok = json.(200, [{ 'coin' => 'USDT', 'amount' => '10', 'status' => 5 }])
+    refusals = {
+      'api_key_invalid 10072' => mx.(400, 10_072, 'Api key info invalid'), 'no_permission 700007' => mx.(403, 700_007, 'No permission to access the endpoint.'),
+      'no_permission 700007 as_float' => json.(403, '{"code":700007.0,"msg":"No permission to access the endpoint."}'),
+      'no_permission 700007 as_string' => mx.(403, '700007', 'No permission to access the endpoint.'),
+      'key_format 700001' => mx.(400, 700_001, 'API-key format invalid.'), 'signature 700002' => mx.(400, 700_002, 'Signature for this request is not valid.'),
+      'signature 602' => mx.(400, 602, 'Signature verification failed'), 'ip 700006' => mx.(403, 700_006, 'IP non white list'),
+      'timestamp 700003' => mx.(400, 700_003, 'Timestamp for this request is outside of the recvWindow.'),
+      'rate_limited 429' => mx.(429, 429, 'Too Many Requests'), 'server 503' => mx.(503, 503, 'service not available, please try again'),
+      'no_msg 400' => json.(400, { 'code' => 26 }),
+      'code_in_200 10072' => mx.(200, 10_072, 'Api key info invalid'), 'code_in_200 26' => mx.(200, 26, 'operation not allowed'),
+      'code_in_200 26 no_msg' => json.(200, { 'code' => 26 }), 'code_zero_in_200' => json.(200, { 'code' => 0, 'canTrade' => true }),
+      'code_zero_string_in_200' => json.(200, { 'code' => '0', 'canTrade' => true })
+    }.merge(transport)
+    accounts = refusals.merge('can_trade' => account.(true), 'cannot_trade' => account.(false), 'can_trade_missing' => account.(nil),
+                              'can_trade_string' => account.('true'), 'array' => json.(200, []))
+    rows = []
+    [[:trading, :get_api_key_validity], [:withdrawal, :get_api_key_validity], [:read_only, :get_api_key_validity]].each do |key_type, method|
+      accounts.each { |name, answer| rows << record.(mexc, key_type, method, "account #{name}", answer) }
+    end
+    accounts.each do |name, answer|
+      # A readable account goes on to the deposit history: recorded with each of its answers behind it.
+      if %w[can_trade cannot_trade code_zero_in_200 code_zero_string_in_200].include?(name)
+        refusals.merge('deposits_ok' => deposits_ok, 'deposits_empty' => json.(200, [])).each do |dep, dep_answer|
+          rows << record.(mexc, :read_only, :get_read_api_key_validity, "account #{name}, deposits #{dep}", [answer, dep_answer])
+        end
+      else
+        rows << record.(mexc, :read_only, :get_read_api_key_validity, "account #{name}", answer)
+      end
+    end
+    { 'rejected_codes' => Exchanges::Mexc::KEY_CHECK_REJECTED, 'invalid_key_errors' => Exchanges::Mexc::ERRORS[:invalid_key], 'cases' => rows }
+  end,
+  # Hyperliquid (plan VB slice B1): the key is the account's address, the secret an agent's private key. A trading or withdrawal
+  # key reads userRole for the address the secret signs as (none sent for a secret that is no key); a reading key reads its
+  # address's spotClearinghouseState (Exchange#get_read_api_key_validity -> #get_balances). `key` and `signer` are recorded.
+  'hyperliquid' => lambda do
+    require 'eth'
+    hyperliquid = Exchanges::Hyperliquid.new(name: 'Hyperliquid')
+    secret = '0x4c0883a69102937d6231471b5dbb6204fe5129617082792ae468d01a3f362318'
+    signer = Eth::Key.new(priv: secret.delete_prefix('0x')).address.to_s
+    account = '0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123'
+    role = {
+      'agent of the account' => [account, json.(200, { 'role' => 'agent', 'data' => { 'user' => account.upcase.sub('0X', '0x') } })],
+      'agent of another account' => [account, json.(200, { 'role' => 'agent', 'data' => { 'user' => '0x0000000000000000000000000000000000000001' } })],
+      'agent without data' => [account, json.(200, { 'role' => 'agent' })],
+      'agent data string' => [account, json.(200, { 'role' => 'agent', 'data' => 'x' })],
+      'the account key itself' => [signer.downcase, json.(200, { 'role' => 'user' })],
+      'user role of another key' => [account, json.(200, { 'role' => 'user' })],
+      'sub account' => [account, json.(200, { 'role' => 'subAccount', 'data' => { 'master' => account } })],
+      'missing' => [account, json.(200, { 'role' => 'missing' })],
+      'vault' => [account, json.(200, { 'role' => 'vault' })],
+      'no role' => [account, json.(200, {})],
+      'json_array' => [account, json.(200, [])],
+      'json_null' => [account, json.(200, 'null')],
+      'unprocessable 422' => [account, { status: 422, body: 'Failed to deserialize the JSON body into the target type', content_type: 'text/plain' }],
+      'invalid_key 400' => [account, { status: 400, body: 'User or API Wallet 0x1 does not exist.', content_type: 'text/plain' }]
+    }
+    transport.each { |name, answer| role[name] = [account, answer] }
+    rows = []
+    %i[trading withdrawal].each do |key_type|
+      role.each { |name, (key, answer)| rows << record.(hyperliquid, key_type, :get_api_key_validity, name, answer, key:, secret:) }
+      rows << record.(hyperliquid, key_type, :get_api_key_validity, 'secret is no key', [], key: account, secret: 'not-a-private-key')
+    end
+    balances = json.(200, { 'balances' => [{ 'coin' => 'USDC', 'token' => 0, 'hold' => '0.0', 'total' => '12.5', 'entryNtl' => '0.0' }] })
+    read_cases = {
+      'ok' => balances, 'ok_empty' => json.(200, { 'balances' => [] }), 'balances_null' => json.(200, { 'balances' => nil }), 'no_balances' => json.(200, {}),
+      'balances_object' => json.(200, { 'balances' => { 'coin' => 'USDC' } }), 'balance_row_string' => json.(200, { 'balances' => ['USDC'] }),
+      'json_array' => json.(200, []), 'json_null' => json.(200, 'null'),
+      'unprocessable 422' => { status: 422, body: 'Failed to deserialize the JSON body into the target type', content_type: 'text/plain' },
+      'invalid_key 400' => { status: 400, body: 'User or API Wallet 0x1 does not exist.', content_type: 'text/plain' }
+    }
+    read_cases.merge!(transport)
+    read_cases.each { |name, answer| rows << record.(hyperliquid, :read_only, :get_read_api_key_validity, name, answer, key: account, secret:) }
+    rows.each { |row| row['key'] = row['case'] == 'the account key itself' ? signer.downcase : account }
+    { 'secret' => secret, 'signer' => signer, 'invalid_key_errors' => Exchanges::Hyperliquid::ERRORS[:invalid_key], 'cases' => rows }
   end,
   'bybit' => lambda do
     bybit = Exchanges::Bybit.new(name: 'Bybit')

@@ -9,6 +9,8 @@
 #   bin/rails runner script/rust/decisions.rb grid-bitvavo <root> # Bitvavo spot, scripted beneath honeymaker at the Faraday adapter
 #   bin/rails runner script/rust/decisions.rb grid-bitget <root>  # Bitget classic v2 spot, scripted beneath honeymaker at the Faraday adapter
 #   bin/rails runner script/rust/decisions.rb grid-gemini <root>  # Gemini spot, scripted beneath honeymaker at the Faraday adapter (plan VB B3)
+#   bin/rails runner script/rust/decisions.rb grid-mexc <root>    # MEXC spot, scripted beneath honeymaker at the Faraday adapter
+#   bin/rails runner script/rust/decisions.rb grid-hyperliquid <root> # Hyperliquid spot, beneath honeymaker and hyperliquid-rb at the Faraday adapter (plan VB B1)
 #   bin/rails runner script/rust/decisions.rb grid-sell <root>    # a one-asset basket selling on Kraken, Binance and Alpaca (slice 6a)
 #   bin/rails runner script/rust/decisions.rb grid-venue-basket <root> # buying baskets of 2 and 3 members on Kraken (EUR) and Binance (USDT)
 #   bin/rails runner script/rust/decisions.rb grid-venue-index <root>  # crypto index bots on Kraken, Binance, KuCoin and Alpaca, and their resync (plan CI)
@@ -147,10 +149,20 @@ class ScriptedVenue
 
   def reply(env)
     key = "#{env.method.to_s.upcase} #{env.url.path}"
-    sent << sent_fields(env).except(*@strip) if key == order
+    fields = sent_fields(env) if key == order
+    sent << fields.except(*@strip) if fields
     keyed = "#{key}?#{Rack::Utils.parse_query(env.url.query).map { |k, v| "#{k}=#{v}" }.sort.join('&')}" if env.url.query
-    queue = (keyed && http[keyed]) || http[key] or raise Harness::Unscripted, "unscripted #{name} call #{key}"
+    # Hyperliquid names every read by its JSON body's `type` ("POST /info l2Book"), answered before the bare path.
+    typed = "#{key} #{typed_body(env)}" if @body == :hyperliquid
+    queue = (keyed && http[keyed]) || (typed && http[typed]) || http[key] or raise Harness::Unscripted, "unscripted #{name} call #{typed || key}"
     queue.size > 1 ? queue.shift : queue.first
+  end
+
+  def typed_body(env)
+    body = JSON.parse(env.request_body.to_s)
+    body.is_a?(Hash) ? body['type'] || body.dig('action', 'type') : nil
+  rescue JSON::ParserError
+    nil
   end
 
   # The order's fields as the venue reads them: its query, its JSON body, or (Gemini) the base64 JSON payload of its
@@ -159,6 +171,10 @@ class ScriptedVenue
     case @body
     when :query then Rack::Utils.parse_query(env.url.query)
     when :payload then JSON.parse(Base64.strict_decode64(env.request_headers['X-GEMINI-PAYLOAD']))
+    # Hyperliquid's /exchange body is {action, nonce, signature}: an order action's one order wire; a cancel is no order.
+    when :hyperliquid
+      action = JSON.parse(env.request_body)['action']
+      action['type'] == 'order' ? action['orders'].first : nil
     else JSON.parse(env.request_body)
     end
   end
@@ -167,7 +183,7 @@ end
 # The venues scripted beneath honeymaker (plan VB §1.8), one row each: its scripted host, the exchange row and BTC pair a
 # scenario builds (as the venue's #get_tickers_info stores it), the quote asset, the key's passphrase, and the reply that
 # never reached it. A venue slice adds its row here; its grids' bodies stay the grid's own.
-VenueRow = Struct.new(:scripted, :exchange, :name, :ticker, :quote, :passphrase, :pre_send, keyword_init: true) do
+VenueRow = Struct.new(:scripted, :exchange, :name, :ticker, :quote, :passphrase, :pre_send, :key, :secret, keyword_init: true) do
   # The scripted reply to a request that never left: Client.network_failure's text for a refused connection.
   def not_sent = { 'network' => pre_send || "pre_send:#{scripted.host}",
                    'message' => "Faraday::ConnectionFailed: Connection refused - connect(2) for \"#{scripted.host}\" port 443" }
@@ -192,6 +208,16 @@ VENUES = {
   'gemini' => VenueRow.new(scripted: ScriptedVenue.new(host: 'api.gemini.com', name: 'Gemini', order: 'POST /v1/order/new', body: :payload,
                                                        strip: %w[request nonce client_order_id]),
                            exchange: 'Exchanges::Gemini', name: 'Gemini', ticker: 'btcusd', quote: %w[usd USD US\ Dollar Currency], passphrase: nil),
+  # Plan VB slice A5: every field in the query, as Binance's; Rails sends no newClientOrderId (Rust's is left out of its side).
+  'mexc' => VenueRow.new(scripted: ScriptedVenue.new(host: 'api.mexc.com', name: 'MEXC', order: 'POST /api/v3/order', body: :query, strip: %w[timestamp signature]),
+                         exchange: 'Exchanges::Mexc', name: 'MEXC', ticker: 'BTCUSDT', quote: TETHER, passphrase: nil),
+  # Plan VB slice B1: reads are POSTs to /info named by their `type`; orders go through hyperliquid-rb to /exchange, signed with
+  # the key's secret (an agent private key; the key is the account's address, rust/src/parity.rs HYPERLIQUID_HARNESS_ADDRESS),
+  # recorded as the order wire without `c` (Rails sends no cloid; Rust sends the intent's).
+  'hyperliquid' => VenueRow.new(scripted: ScriptedVenue.new(host: 'api.hyperliquid.xyz', name: 'Hyperliquid', order: 'POST /exchange', body: :hyperliquid, strip: %w[c]),
+                                exchange: 'Exchanges::Hyperliquid', name: 'Hyperliquid', ticker: '@142', quote: %w[usd-coin USDC USD\ Coin Cryptocurrency],
+                                passphrase: nil, key: '0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123',
+                                secret: '0x4c0883a69102937d6231471b5dbb6204fe5129617082792ae468d01a3f362318'),
   'bybit' => VenueRow.new(scripted: ScriptedVenue.new(host: 'api.bybit.com', name: 'Bybit', order: 'POST /v5/order/create', body: :json, strip: %w[orderLinkId]),
                           exchange: 'Exchanges::Bybit', name: 'Bybit', ticker: 'BTCUSDT', quote: TETHER, passphrase: nil)
 
@@ -293,7 +319,8 @@ module Decisions
     (sc['members'] || {}).each_key { |sym| assets[sym] ||= basket_member(exchange, quote, sym, sc['venue']) }
     # Plan CB T5: the members' market caps as the asset sync stores them, before the save derives a market-cap basket's weights.
     (sc['market_caps'] || {}).each { |sym, cap| assets.fetch(sym).update_columns(market_cap: cap) }
-    ApiKey.new(user:, exchange:, key: 'k', secret: 's', passphrase:, status: :correct, key_type: :trading).save!(validate: false)
+    row = VENUES[sc['venue']]
+    ApiKey.new(user:, exchange:, key: row&.key || 'k', secret: row&.secret || 's', passphrase:, status: :correct, key_type: :trading).save!(validate: false)
     allocations = sc['members'] ? sc['members'].to_h { |sym, w| [assets.fetch(sym).id.to_s, w] } : { btc.id.to_s => 1.0 }
     # As BotApi::Bots::Create does (create_basket + save_and_start), without starting a job; its after_save writes bot_index_assets.
     bot = user.bots.new(type: 'Bots::DcaMultiAsset', exchange:, settings: {
@@ -3232,6 +3259,273 @@ module Decisions
     end
   end
 
+  # ---- MEXC (plan VB slice A5): bodies as api.mexc.com answers them (AUDIT-mexc), errors as {code, msg} ----
+  def mx_err(status, code, msg) = { 'status' => status, 'body' => { 'code' => code, 'msg' => msg } }
+  def mx_book(ask, bid: '64000.10') = ok('symbol' => 'BTCUSDT', 'bidPrice' => bid, 'bidQty' => '1.5', 'askPrice' => ask, 'askQty' => '0.2')
+  def mx_last(price) = ok('symbol' => 'BTCUSDT', 'price' => price)
+  def mx_account(usdt) = ok('canTrade' => true, 'canWithdraw' => true, 'canDeposit' => true, 'accountType' => 'SPOT',
+                            'balances' => [{ 'asset' => 'BTC', 'free' => '0.5', 'locked' => '0' }, { 'asset' => 'USDT', 'free' => usdt, 'locked' => '0' }])
+  def mx_order(id, status, type: 'MARKET', executed: '0', cumulative: '0', price: nil, qty: nil, quote: '60')
+    limit = type == 'LIMIT'
+    { 'symbol' => 'BTCUSDT', 'orderId' => id, 'orderListId' => -1, 'clientOrderId' => '', 'price' => price || (limit ? '64000' : '0'),
+      'origQty' => qty || (limit ? '0.00093' : '0'), 'executedQty' => executed, 'cummulativeQuoteQty' => cumulative, 'status' => status,
+      'timeInForce' => nil, 'type' => type, 'side' => 'BUY', 'stopPrice' => nil, 'icebergQty' => nil, 'time' => 1_788_000_000_000,
+      'updateTime' => 1_788_000_000_000, 'isWorking' => true, 'origQuoteOrderQty' => limit ? nil : quote }.compact
+  end
+  MX_GONE = { 'status' => 400, 'body' => { 'code' => -2013, 'msg' => 'Order does not exist.' } }.freeze
+
+  def mexc_scenarios
+    started = '2026-09-01T10:00:00.123456Z'
+    ticker = { 'base_decimals' => 6, 'quote_decimals' => 2, 'price_decimals' => 2, 'minimum_base_size' => '0.000001', 'minimum_quote_size' => '1' }
+    http = {
+      'GET /api/v3/ticker/bookTicker' => [mx_book('64000.11')],
+      'GET /api/v3/ticker/price' => [mx_last('64000.05')],
+      'POST /api/v3/order' => [ok('symbol' => 'BTCUSDT', 'orderId' => 'C02__100', 'orderListId' => -1, 'price' => '0', 'origQty' => '0', 'type' => 'MARKET',
+                                  'side' => 'BUY', 'transactTime' => 1_788_000_000_000)],
+      'GET /api/v3/account' => [mx_account('100000')]
+    }
+    modes = { 'market' => {}, 'limit' => { 'limit_ordered' => true, 'limit_order_pcnt_distance' => 0.0025 } }
+    closed = { 'status' => 0, 'external_status' => 2, 'external_id' => 'BTCUSDT-C02__1', 'order_type' => 0, 'quote_amount' => '60',
+               'quote_amount_exec' => '60', 'amount_exec' => '0.00093', 'price' => '64000', 'created_at' => '2026-09-01 10:00:01' }
+    waiting = lambda do |id, limit: false, created: '2026-09-01 10:00:01'|
+      { 'status' => 0, 'external_status' => limit ? 1 : 0, 'external_id' => "BTCUSDT-#{id}", 'order_type' => limit ? 1 : 0,
+        'quote_amount' => limit ? nil : '60', 'amount' => limit ? '0.00093' : nil, 'price' => '64000', 'amount_exec' => '0',
+        'quote_amount_exec' => '0', 'created_at' => created }.compact
+    end
+    # Signed calls carry a timestamp: a poll's answers are queued on the bare key, in the order the orders are asked.
+    polled = ->(*orders) { { 'GET /api/v3/order' => orders.map { |o| o.is_a?(Hash) && o.key?('status') && o.key?('body') ? o : ok(o) } } }
+    %w[day week].flat_map do |interval|
+      step = { 'day' => 1.day, 'week' => 1.week }.fetch(interval)
+      after = ->(n) { (Time.iso8601(started) + (n * step) + 1.second).iso8601(6) }
+      variants = {
+        'first_tick' => { 'at' => (Time.iso8601(started) + 0.5).iso8601(6) },
+        'on_schedule' => { 'at' => after.(1), 'transactions' => [closed] },
+        'carry' => { 'at' => after.(1), 'transient' => { 'missed_quote_amount' => '12.5' } },
+        'below_minimum' => { 'at' => after.(1), 'quote_amount' => 0.4 },
+        'base_sized' => { 'at' => after.(1), 'ticker' => ticker.merge('base_decimals' => 3, 'minimum_base_size' => '0.001', 'minimum_quote_size' => '1') },
+        'quote_min_decides' => { 'at' => after.(1), 'ticker' => ticker.merge('minimum_quote_size' => '100') },
+        'base_min_decides' => { 'at' => after.(1), 'ticker' => ticker.merge('base_decimals' => 2, 'minimum_base_size' => '0.01') },
+        # PEPEUSDT's catalogue row: baseSizePrecision 0, so the quote minimum is the only floor (AUDIT-mexc X3).
+        'zero_base_minimum' => { 'at' => after.(1), 'ticker' => ticker.merge('minimum_base_size' => '0') },
+        'zero_base_minimum_below' => { 'at' => after.(1), 'quote_amount' => 0.3, 'ticker' => ticker.merge('minimum_base_size' => '0') },
+        # 700003, MEXC's -1021: placement-safe, no row, the run rescheduled.
+        'timestamp_700003' => { 'at' => after.(1), 'http' => { 'POST /api/v3/order' => [mx_err(400, 700_003, 'Timestamp for this request is outside of the recvWindow.')] } },
+        'insufficient' => { 'at' => after.(1), 'http' => { 'POST /api/v3/order' => [mx_err(400, 10_101, 'Insufficient balance')] } },
+        'below_venue_minimum' => { 'at' => after.(1), 'http' => { 'POST /api/v3/order' => [mx_err(400, 30_002, 'Minimum transaction volume cannot be less than :1USDT')] } },
+        'invalid_key' => { 'at' => after.(1), 'transient' => { 'last_failure_kind' => 'invalid_key' },
+                           'http' => { 'POST /api/v3/order' => [mx_err(400, 10_072, 'Api key info invalid')] } },
+        'bad_signature' => { 'at' => after.(1), 'http' => { 'POST /api/v3/order' => [mx_err(400, 700_002, 'Signature for this request is not valid.')] } },
+        'no_permission' => { 'at' => after.(1), 'http' => { 'POST /api/v3/order' => [mx_err(403, 700_007, 'No permission to access the endpoint.')] } },
+        'throttled' => { 'at' => after.(1), 'http' => { 'POST /api/v3/order' => [mx_err(429, 429, 'Too Many Requests')] } },
+        # Sanctioned divergences (rust/tests/parity.rs MEXC_DIVERGENCES): Rust keeps the intent, which waits for the operator
+        # (plan VB §1.5), where Rails writes a failed row: a lost reply, a 5xx, an unreadable answer, MEXC's "service not
+        # available" (Exchanges::Mexc::ERRORS[:transient]: it may have placed the order), and an answer without an orderId
+        # (Rails stores "BTCUSDT-").
+        'add_server_error' => { 'at' => after.(1), 'http' => { 'POST /api/v3/order' => [mx_err(503, 503, 'service not available, please try again')] } },
+        'add_service_unavailable' => { 'at' => after.(1), 'http' => { 'POST /api/v3/order' => [mx_err(400, 503, 'service not available, please try again')] } },
+        'add_timeout_after_send' => { 'at' => after.(1), 'http' => { 'POST /api/v3/order' => [POST_SEND] } },
+        'add_no_order_id' => { 'at' => after.(1), 'http' => { 'POST /api/v3/order' => [ok('symbol' => 'BTCUSDT')] } },
+        'add_unreadable' => { 'at' => after.(1), 'http' => { 'POST /api/v3/order' => [{ 'status' => 200, 'body' => '<html>upstream</html>' }] } },
+        'add_network_pre_send' => { 'at' => after.(1), 'http' => { 'POST /api/v3/order' => [VENUES.fetch('mexc').not_sent] } },
+        'low_funds' => { 'at' => after.(1), 'http' => { 'GET /api/v3/account' => [mx_account('1')] } },
+        'balance_refused' => { 'at' => after.(1), 'http' => { 'GET /api/v3/account' => [mx_err(400, 10_072, 'Api key info invalid')] } },
+        'zero_price' => { 'at' => after.(1), 'http' => { 'GET /api/v3/ticker/bookTicker' => [mx_book('0', bid: '0')], 'GET /api/v3/ticker/price' => [mx_last('0')] } },
+        'no_price' => { 'at' => after.(1), 'http' => { 'GET /api/v3/ticker/bookTicker' => [mx_err(400, -1121, 'Invalid symbol.')],
+                                                       'GET /api/v3/ticker/price' => [mx_err(400, -1121, 'Invalid symbol.')] } },
+        # The tick's sweep (Bot::FetchAndUpdateOpenOrdersJob): #get_order per waiting order.
+        'sweep_filled' => { 'at' => after.(1), 'transactions' => [waiting.('C02__201')],
+                            'http' => polled.(mx_order('C02__201', 'FILLED', executed: '0.00093', cumulative: '59.523')) },
+        'sweep_new' => { 'at' => after.(1), 'transactions' => [waiting.('C02__202', limit: true)], 'http' => polled.(mx_order('C02__202', 'NEW', type: 'LIMIT')) },
+        'sweep_partial' => { 'at' => after.(1), 'transactions' => [waiting.('C02__203', limit: true)],
+                             'http' => polled.(mx_order('C02__203', 'PARTIALLY_FILLED', type: 'LIMIT', executed: '0.0004', cumulative: '25.5')) },
+        # X2: a limit that crossed the book is priced at its fills, not its limit.
+        'sweep_filled_limit_at_fills' => { 'at' => after.(1), 'transactions' => [waiting.('C02__204', limit: true)],
+                                           'http' => polled.(mx_order('C02__204', 'FILLED', type: 'LIMIT', executed: '0.00093', cumulative: '59.3')) },
+        # X1: PARTIALLY_CANCELED is terminal, its fill kept.
+        'sweep_partially_canceled' => { 'at' => after.(1), 'transactions' => [waiting.('C02__205', limit: true)],
+                                        'http' => polled.(mx_order('C02__205', 'PARTIALLY_CANCELED', type: 'LIMIT', executed: '0.0004', cumulative: '25.6')) },
+        'sweep_expired' => { 'at' => after.(1), 'transactions' => [waiting.('C02__206')], 'http' => polled.(mx_order('C02__206', 'EXPIRED')) },
+        'sweep_rejected' => { 'at' => after.(1), 'transactions' => [waiting.('C02__207')], 'http' => polled.(mx_order('C02__207', 'REJECTED')) },
+        'sweep_unknown_type' => { 'at' => after.(1), 'transactions' => [waiting.('C02__208')], 'http' => polled.(mx_order('C02__208', 'NEW', type: 'STOP_LOSS')) },
+        'sweep_unknown_status' => { 'at' => after.(1), 'transactions' => [waiting.('C02__209')], 'http' => polled.(mx_order('C02__209', 'PENDING_CANCEL')) },
+        'sweep_negative_quote' => { 'at' => after.(1), 'transactions' => [waiting.('C02__210')], 'http' => polled.(mx_order('C02__210', 'CANCELED', cumulative: '-1')) },
+        # X5: a gone order (-2013/-2011) is missing: a young one fails the sweep, an old one is abandoned.
+        'sweep_gone_young' => { 'at' => after.(1), 'transactions' => [waiting.('C02__211')], 'http' => polled.(MX_GONE) },
+        'sweep_gone_old' => { 'at' => after.(1), 'transactions' => [waiting.('C02__212', created: '2026-08-01 10:00:01')], 'http' => polled.(MX_GONE) },
+        'sweep_gone_2011' => { 'at' => after.(1), 'transactions' => [waiting.('C02__213', created: '2026-08-01 10:00:01')],
+                               'http' => polled.(mx_err(400, -2011, 'Unknown order sent.')) },
+        'sweep_two_one_gone' => { 'at' => after.(1), 'transactions' => [waiting.('C02__214', created: '2026-08-01 10:00:01'), waiting.('C02__215')],
+                                  'http' => polled.(MX_GONE, mx_order('C02__215', 'FILLED', executed: '0.00093', cumulative: '59.52')) },
+        'sweep_not_found_html' => { 'at' => after.(1), 'transactions' => [waiting.('C02__216')], 'http' => polled.({ 'status' => 404, 'body' => '<html>Not Found</html>' }) },
+        # Poll-only: Bot::FetchAndUpdateOrderJob (#get_order) for one waiting order.
+        'poll_filled' => { 'at' => after.(1), 'tick' => false, 'poll' => 'BTCUSDT-C02__401', 'transactions' => [waiting.('C02__401')],
+                           'http' => polled.(mx_order('C02__401', 'FILLED', executed: '0.00093', cumulative: '59.52')) },
+        'poll_open' => { 'at' => after.(1), 'tick' => false, 'poll' => 'BTCUSDT-C02__402', 'transactions' => [waiting.('C02__402', limit: true)],
+                         'http' => polled.(mx_order('C02__402', 'NEW', type: 'LIMIT')) },
+        'poll_gone' => { 'at' => after.(1), 'tick' => false, 'poll' => 'BTCUSDT-C02__403', 'transactions' => [waiting.('C02__403')], 'http' => polled.(MX_GONE) },
+        # A tick that places BTCUSDT-C02__100; its follow-up 5 s later finds it filled.
+        'tick_then_poll' => { 'at' => after.(1), 'poll' => 'BTCUSDT-C02__100', 'transient' => { 'missed_quote_amount' => '12.5' },
+                              'http' => polled.(mx_order('C02__100', 'FILLED', executed: '0.00112', cumulative: '71.68')) }
+      }
+      # Listed divergences (rust/tests/parity.rs UNREADABLE): a number Rust cannot read in a price, and in a sweep's order.
+      { 'nan' => 'NaN', 'garbage' => 'garbage' }.each do |label, bad|
+        variants["unreadable_price_#{label}"] = { 'at' => after.(1), 'http' => { 'GET /api/v3/ticker/bookTicker' => [mx_book(bad)], 'GET /api/v3/ticker/price' => [mx_last(bad)] } }
+        variants["unreadable_poll_#{label}"] = { 'at' => after.(1), 'transactions' => [waiting.('C02__217')],
+                                                 'http' => polled.(mx_order('C02__217', 'FILLED', executed: bad, cumulative: '60')) }
+      end
+      modes.flat_map do |mode, settings|
+        variants.map do |name, v|
+          { 'name' => "#{interval}-#{mode}-#{name}", 'venue' => 'mexc', 'interval' => interval, 'quote_amount' => v.fetch('quote_amount', 60.0),
+            'started_at' => started, 'settings' => settings, 'settings_changed_at' => v['settings_changed_at'],
+            'transient' => v.fetch('transient', {}), 'transactions' => v.fetch('transactions', []), 'ticker' => v.fetch('ticker', ticker),
+            'ticker_after' => v['ticker_after'], 'at' => v.fetch('at'), 'script' => { 'mexc' => http.merge(v.fetch('http', {})) },
+            'tick' => v.fetch('tick', true), 'poll' => v['poll'] }
+        end
+      end
+    end
+  end
+
+  # Hyperliquid spot (plan VB B1), one asset on @142 (BTC/USDC here): Rails' own answers to the bodies below, beneath honeymaker
+  # (/info reads) and hyperliquid-rb (its asset lookup and the signed /exchange order). Every read is a POST to /info named by
+  # its `type`. Prices are on Hyperliquid's tick: at most 5 significant figures.
+  HL_PAIR = '@142'
+  def hl_book(bid, ask) = ok('coin' => HL_PAIR, 'time' => 1_788_000_000_000,
+                             'levels' => [bid ? [{ 'px' => bid, 'sz' => '10', 'n' => 1 }] : [], ask ? [{ 'px' => ask, 'sz' => '10', 'n' => 1 }] : []])
+  def hl_balances(usdc, btc: '0.5', hold: '0') = ok('balances' => [{ 'coin' => 'USDC', 'token' => 0, 'hold' => hold, 'total' => usdc, 'entryNtl' => '0.0' },
+                                                                 { 'coin' => 'BTC', 'token' => 1, 'hold' => '0.0', 'total' => btc, 'entryNtl' => '0.0' }])
+  def hl_placed(oid, filled: true) = ok('status' => 'ok', 'response' => { 'type' => 'order', 'data' => { 'statuses' => [
+    filled ? { 'filled' => { 'totalSz' => '1.48', 'avgPx' => '40.124', 'oid' => oid } } : { 'resting' => { 'oid' => oid } }] } })
+  def hl_status(error) = ok('status' => 'ok', 'response' => { 'type' => 'order', 'data' => { 'statuses' => [{ 'error' => error }] } })
+  def hl_order(oid, status:, side: 'B', limit: '40.525', orig: '1.48', left: '0.0', cloid: nil)
+    ok('status' => 'order', 'order' => { 'order' => { 'coin' => HL_PAIR, 'side' => side, 'limitPx' => limit, 'sz' => left, 'oid' => oid,
+                                                      'timestamp' => 1_788_000_000_000, 'origSz' => orig, 'cloid' => cloid }.compact,
+                                         'status' => status, 'statusTimestamp' => 1_788_000_000_500 })
+  end
+  def hl_fill(oid, sz, px, tid, side: 'B', time: 1_788_000_000_100) = { 'coin' => HL_PAIR, 'px' => px, 'sz' => sz, 'side' => side, 'time' => time,
+                                                                         'startPosition' => '0.0', 'dir' => side == 'B' ? 'Buy' : 'Sell', 'closedPnl' => '0.0',
+                                                                         'hash' => "0xh#{tid}", 'oid' => oid, 'crossed' => true, 'fee' => '0.0005', 'tid' => tid,
+                                                                         'feeToken' => 'BTC' }
+  HL_UNKNOWN = { 'status' => 200, 'body' => { 'status' => 'unknownOid' } }.freeze
+
+  def hyperliquid_scenarios
+    started = '2026-09-01T10:00:00.123456Z'
+    ticker = { 'base_decimals' => 2, 'quote_decimals' => 2, 'price_decimals' => 5, 'minimum_base_size' => '0', 'minimum_quote_size' => '10' }
+    http = {
+      'POST /info l2Book' => [hl_book('40.121', '40.124')],
+      'POST /info allMids' => [ok(HL_PAIR => '40.1225', '@1' => '7.5')],
+      'POST /info spotClearinghouseState' => [hl_balances('100000')],
+      # hyperliquid-rb's Info#load_all_mappings!: perp meta, spot meta (the spot pair's index, sparse), the builder dexes.
+      'POST /info meta' => [ok('universe' => [{ 'name' => 'BTC', 'szDecimals' => 5 }])],
+      'POST /info spotMeta' => [ok('tokens' => [{ 'name' => 'USDC', 'index' => 0, 'szDecimals' => 8 }, { 'name' => 'BTC', 'index' => 1, 'szDecimals' => 2 }],
+                                   'universe' => [{ 'name' => HL_PAIR, 'tokens' => [1, 0], 'index' => 142 }])],
+      'POST /info perpDexs' => [ok([])],
+      'POST /exchange' => [hl_placed(77_738_308)],
+      'POST /info userFillsByTime' => [ok([])]
+    }
+    # Bot::LimitOrderable#limit_orders_locked?: every Hyperliquid bot places limit orders (no market mode); at its own distance or
+    # at the default 0.001.
+    modes = { 'limit' => { 'limit_ordered' => true, 'limit_order_pcnt_distance' => 0.0025 }, 'default' => { 'limit_ordered' => true } }
+    closed = { 'status' => 0, 'external_status' => 2, 'external_id' => 'BTC-100', 'order_type' => 0, 'quote_amount' => '60',
+               'quote_amount_exec' => '60', 'amount_exec' => '1.48', 'price' => '40.5', 'created_at' => '2026-09-01 10:00:01' }
+    waiting = lambda do |oid, limit: false, created: '2026-09-01 10:00:01'|
+      { 'status' => 0, 'external_status' => limit ? 1 : 0, 'external_id' => "BTC-#{oid}", 'order_type' => limit ? 1 : 0,
+        'quote_amount' => limit ? nil : '60', 'amount' => limit ? '1.49' : nil, 'price' => '40.124', 'amount_exec' => '0',
+        'quote_amount_exec' => '0', 'created_at' => created }.compact
+    end
+    polled = ->(order, fills = []) { { 'POST /info orderStatus' => [order], 'POST /info userFillsByTime' => [ok(fills)] } }
+    err = ->(text) { ok('status' => 'err', 'response' => text) }
+    %w[day week].flat_map do |interval|
+      step = { 'day' => 1.day, 'week' => 1.week }.fetch(interval)
+      after = ->(n) { (Time.iso8601(started) + (n * step) + 1.second).iso8601(6) }
+      variants = {
+        'first_tick' => { 'at' => (Time.iso8601(started) + 0.5).iso8601(6) },
+        'on_schedule' => { 'at' => after.(1), 'transactions' => [closed] },
+        'carry' => { 'at' => after.(1), 'transient' => { 'missed_quote_amount' => '12.5' } },
+        # Under the 10-USDC floor (minimum_amount_logic :base_and_quote_in_base): skipped, nothing sent.
+        'below_minimum' => { 'at' => after.(1), 'quote_amount' => 3.0 },
+        # Integers above 10k: no decimals at all (the price rule's clamp); a whole-coin base.
+        'coarse_price' => { 'at' => after.(1), 'quote_amount' => 200_000.0, 'ticker' => ticker.merge('base_decimals' => 0),
+                            'http' => { 'POST /info l2Book' => [hl_book('64000.5', '64012.7')], 'POST /info allMids' => [ok(HL_PAIR => '64006.1')] } },
+        'insufficient' => { 'at' => after.(1), 'http' => { 'POST /exchange' => [hl_status('Insufficient spot balance asset=10142')] } },
+        'min_value' => { 'at' => after.(1), 'http' => { 'POST /exchange' => [hl_status('Order must have minimum value of $10. asset=10142')] } },
+        'invalid_key' => { 'at' => after.(1), 'transient' => { 'last_failure_kind' => 'invalid_key' },
+                           'http' => { 'POST /exchange' => [err.('User or API Wallet 0x0000000000000000000000000000000000000001 does not exist.')] } },
+        'throttled' => { 'at' => after.(1), 'http' => { 'POST /exchange' => [err.('Too many cumulative requests sent (37986 > 10436) for cumulative volume traded $10436.')] } },
+        # A refusal before the matching engine (4xx); the body as a JSON string, which both sides read as the text it holds (the
+        # harness serves every body as application/json).
+        'add_client_error' => { 'at' => after.(1), 'http' => { 'POST /exchange' => [{ 'status' => 422, 'body' => '"Failed to deserialize the JSON body into the target type"' }] } },
+        # Sanctioned divergences (rust/tests/parity.rs HYPERLIQUID_DIVERGENCES): Rust keeps the intent, which a cloid lookup may
+        # find; Rails writes a failed row.
+        'add_server_error' => { 'at' => after.(1), 'http' => { 'POST /exchange' => [{ 'status' => 502, 'body' => 'Bad Gateway' }] } },
+        'add_timeout_after_send' => { 'at' => after.(1), 'http' => { 'POST /exchange' => [POST_SEND] } },
+        'add_unreadable' => { 'at' => after.(1), 'http' => { 'POST /exchange' => [{ 'status' => 200, 'body' => '<html>upstream</html>' }] } },
+        'add_no_statuses' => { 'at' => after.(1), 'http' => { 'POST /exchange' => [ok('status' => 'ok', 'response' => { 'type' => 'order', 'data' => { 'statuses' => [] } })] } },
+        'add_no_oid' => { 'at' => after.(1), 'http' => { 'POST /exchange' => [ok('status' => 'ok', 'response' => { 'type' => 'order', 'data' => { 'statuses' => [{}] } })] } },
+        'add_odd_status' => { 'at' => after.(1), 'http' => { 'POST /exchange' => [ok('status' => 'unknown')] } },
+        # Landed recovery (Rust only, `recover_at`): the cloid lookup finds the order, or finds nothing.
+        'landed_found' => { 'at' => after.(1), 'recover_at' => (Time.iso8601(after.(1)) + 60).iso8601(6),
+                            'http' => { 'POST /exchange' => [POST_SEND], 'POST /info orderStatus' => [hl_order(77_738_309, status: 'filled', cloid: '$cloid')],
+                                        'POST /info userFillsByTime' => [ok([hl_fill(77_738_309, '1.48', '40.2', 9100)])] } },
+        'landed_missing' => { 'at' => after.(1), 'recover_at' => (Time.iso8601(after.(1)) + 60).iso8601(6),
+                              'http' => { 'POST /exchange' => [POST_SEND], 'POST /info orderStatus' => [HL_UNKNOWN] } },
+        'add_network_pre_send' => { 'at' => after.(1), 'http' => { 'POST /exchange' => [VENUES.fetch('hyperliquid').not_sent] } },
+        'low_funds' => { 'at' => after.(1), 'http' => { 'POST /info spotClearinghouseState' => [hl_balances('1')] } },
+        'held_funds' => { 'at' => after.(1), 'http' => { 'POST /info spotClearinghouseState' => [hl_balances('70', hold: '65')] } },
+        'balance_refused' => { 'at' => after.(1), 'http' => { 'POST /info spotClearinghouseState' => [{ 'status' => 422, 'body' => 'Failed to deserialize the JSON body into the target type' }] } },
+        # H3: a side with no orders (most RWA books).
+        'no_asks' => { 'at' => after.(1), 'http' => { 'POST /info l2Book' => [hl_book('40.121', nil)] } },
+        'no_mid' => { 'at' => after.(1), 'http' => { 'POST /info allMids' => [ok('@1' => '7.5')] } },
+        'unknown_coin' => { 'at' => after.(1), 'http' => { 'POST /info spotMeta' => [ok('tokens' => [], 'universe' => [])] } },
+        # The tick's sweep (Bot::FetchAndUpdateOpenOrdersJob): #get_order per waiting order, the cost from the order's fills.
+        'sweep_closed' => { 'at' => after.(1), 'transactions' => [waiting.(201)],
+                            'http' => polled.(hl_order(201, status: 'filled'), [hl_fill(201, '1.0', '40.3', 9201), hl_fill(201, '0.48', '40.5', 9202), hl_fill(999, '1', '1', 9203)]) },
+        'sweep_closed_fills_gone' => { 'at' => after.(1), 'transactions' => [waiting.(202)], 'http' => polled.(hl_order(202, status: 'filled')) },
+        'sweep_open_limit' => { 'at' => after.(1), 'transactions' => [waiting.(203, limit: true)],
+                                'http' => polled.(hl_order(203, status: 'open', limit: '40.022', orig: '1.49', left: '1.49')) },
+        'sweep_limit_partial' => { 'at' => after.(1), 'transactions' => [waiting.(204, limit: true)],
+                                   'http' => polled.(hl_order(204, status: 'open', limit: '40.022', orig: '1.49', left: '0.49'), [hl_fill(204, '1.0', '40.022', 9204)]) },
+        'sweep_cancelled' => { 'at' => after.(1), 'transactions' => [waiting.(205)], 'http' => polled.(hl_order(205, status: 'marginCanceled', left: '1.48')) },
+        'sweep_rejected' => { 'at' => after.(1), 'transactions' => [waiting.(206)], 'http' => polled.(hl_order(206, status: 'perpMarginRejected', left: '1.48')) },
+        'sweep_unmapped' => { 'at' => after.(1), 'transactions' => [waiting.(207)], 'http' => polled.(hl_order(207, status: 'odd', left: '1.48')) },
+        # unknownOid: the fills from the row's time less an hour decide (H8).
+        'sweep_gone_filled' => { 'at' => after.(1), 'transactions' => [waiting.(208)],
+                                 'http' => { 'POST /info orderStatus' => [HL_UNKNOWN], 'POST /info userFillsByTime' => [ok([hl_fill(208, '1.48', '40.4', 9208)])] } },
+        'sweep_gone_young' => { 'at' => after.(1), 'transactions' => [waiting.(209)], 'http' => { 'POST /info orderStatus' => [HL_UNKNOWN] } },
+        'sweep_gone_old' => { 'at' => after.(1), 'transactions' => [waiting.(210, created: '2026-08-01 10:00:01')], 'http' => { 'POST /info orderStatus' => [HL_UNKNOWN] } },
+        'sweep_failed' => { 'at' => after.(1), 'transactions' => [waiting.(211)], 'http' => { 'POST /info orderStatus' => [{ 'status' => 500, 'body' => 'Internal error' }] } },
+        'sweep_fills_failed' => { 'at' => after.(1), 'transactions' => [waiting.(212)],
+                                  'http' => { 'POST /info orderStatus' => [hl_order(212, status: 'filled')], 'POST /info userFillsByTime' => [{ 'status' => 500, 'body' => 'Internal error' }] } },
+        # Poll-only: Bot::FetchAndUpdateOrderJob (#get_order) for one waiting order.
+        'poll_filled' => { 'at' => after.(1), 'tick' => false, 'poll' => 'BTC-401', 'transactions' => [waiting.(401)],
+                           'http' => polled.(hl_order(401, status: 'filled'), [hl_fill(401, '1.48', '40.4', 9401)]) },
+        'poll_open' => { 'at' => after.(1), 'tick' => false, 'poll' => 'BTC-402', 'transactions' => [waiting.(402, limit: true)],
+                         'http' => polled.(hl_order(402, status: 'open', limit: '40.022', orig: '1.49', left: '1.49')) },
+        'poll_gone_filled' => { 'at' => after.(1), 'tick' => false, 'poll' => 'BTC-403', 'transactions' => [waiting.(403)],
+                                'http' => { 'POST /info orderStatus' => [HL_UNKNOWN], 'POST /info userFillsByTime' => [ok([hl_fill(403, '1.48', '40.4', 9403)])] } },
+        'poll_gone' => { 'at' => after.(1), 'tick' => false, 'poll' => 'BTC-404', 'transactions' => [waiting.(404)], 'http' => { 'POST /info orderStatus' => [HL_UNKNOWN] } },
+        # A selling bot: its limit above the last price, its base as wanted or as free.
+        'sell_base' => { 'at' => after.(1), 'settings' => { 'direction' => 'selling', 'sell_interval' => 'day', 'sell_denomination' => 'base', 'sell_amount' => 0.3 },
+                         'http' => { 'POST /exchange' => [hl_placed(77_738_310, filled: false)] } },
+        'sell_quote' => { 'at' => after.(1), 'settings' => { 'direction' => 'selling', 'sell_interval' => 'day', 'sell_denomination' => 'quote', 'sell_quote_amount' => 12.0 },
+                          'http' => { 'POST /exchange' => [hl_placed(77_738_311, filled: false)] } },
+        'sell_free_below' => { 'at' => after.(1), 'settings' => { 'direction' => 'selling', 'sell_interval' => 'day', 'sell_denomination' => 'base', 'sell_amount' => 0.9 },
+                               'http' => { 'POST /exchange' => [hl_placed(77_738_312, filled: false)] } },
+        # A tick that places 77738308; its follow-up 5 s later finds it filled.
+        'tick_then_poll' => { 'at' => after.(1), 'poll' => 'BTC-77738308', 'transient' => { 'missed_quote_amount' => '12.5' },
+                              'http' => polled.(hl_order(77_738_308, status: 'filled', orig: '1.79'), [hl_fill(77_738_308, '1.79', '40.3', 9500)]) }
+      }
+      modes.flat_map do |mode, settings|
+        variants.map do |name, v|
+          { 'name' => "#{interval}-#{mode}-#{name}", 'venue' => 'hyperliquid', 'interval' => interval, 'quote_amount' => v.fetch('quote_amount', 60.0),
+            'started_at' => started, 'settings' => settings.merge(v.fetch('settings', {})), 'settings_changed_at' => v['settings_changed_at'],
+            'transient' => v.fetch('transient', {}), 'transactions' => v.fetch('transactions', []), 'ticker' => v.fetch('ticker', ticker),
+            'ticker_after' => v['ticker_after'], 'at' => v.fetch('at'), 'recover_at' => v['recover_at'],
+            'script' => { 'hyperliquid' => http.merge(v.fetch('http', {})) }, 'tick' => v.fetch('tick', true), 'poll' => v['poll'] }.compact
+        end
+      end
+    end
+  end
+
   # Slice 7a: the price rule of the active side with the `pause` action, on all three venues and both directions. The tick at
   # `at` passes, pauses or fails; a scenario with `check_at` then runs Bot::PriceLimitCheckJob there (and the Bot::ActionJob it
   # enqueues when met). Every check job a phase queues is recorded with its time.
@@ -3637,6 +3931,8 @@ module Decisions
     Exchange.prepend(Module.new { def sleep(*) = nil })
     Honeymaker::Clients::Kraken.prepend(ScriptedKraken::Http)
     Faraday::Adapter.lookup_middleware(:net_http_persistent).prepend(ScriptedAlpaca::Adapter)
+    # hyperliquid-rb's own two Transports (placement and its asset lookup) use Faraday's default adapter.
+    Faraday::Adapter.lookup_middleware(Faraday.default_adapter).prepend(ScriptedAlpaca::Adapter) unless Faraday.default_adapter == :net_http_persistent
     Bot.prepend(Module.new do # broadcasts are UI side effects outside the comparison
       %i[broadcast_status_bar_update broadcast_new_order broadcast_updated_order broadcast_metrics_panel
          broadcast_quote_amount_limit_update broadcast_replace_to].each { |m| define_method(m) { |*, **| nil } }
@@ -3800,7 +4096,7 @@ def web_save(dir)
 end
 
 command, root = ARGV
-USAGE = 'usage: grid <root> | grid-signal <root> | grid-alpaca <root> | grid-basket <root> | grid-limit <root> | grid-binance <root> | grid-binance-us <root> | grid-kucoin <root> | grid-bitvavo <root> | grid-bitget <root> | grid-bybit <root> | grid-gemini <root> | grid-sell <root> | grid-venue-basket <root> | grid-venue-index <root> | grid-conditions <root> | grid-basket-sell <root> | grid-rebalance <root> | record <root> | web-save <dir>'.freeze
+USAGE = 'usage: grid <root> | grid-signal <root> | grid-alpaca <root> | grid-basket <root> | grid-limit <root> | grid-binance <root> | grid-binance-us <root> | grid-kucoin <root> | grid-bitvavo <root> | grid-bitget <root> | grid-gemini <root> | grid-mexc <root> | grid-hyperliquid <root> | grid-bybit <root> | grid-sell <root> | grid-venue-basket <root> | grid-venue-index <root> | grid-conditions <root> | grid-basket-sell <root> | grid-rebalance <root> | record <root> | web-save <dir>'.freeze
 raise ArgumentError, USAGE unless root
 
 case command
@@ -3817,6 +4113,8 @@ when 'grid-kucoin' then Decisions.grid(root, Decisions.kucoin_scenarios)
 when 'grid-bitvavo' then Decisions.grid(root, Decisions.bitvavo_scenarios)
 when 'grid-gemini' then Decisions.grid(root, Decisions.gemini_scenarios)
 when 'grid-bitget' then Decisions.grid(root, Decisions.bitget_scenarios)
+when 'grid-mexc' then Decisions.grid(root, Decisions.mexc_scenarios)
+when 'grid-hyperliquid' then Decisions.grid(root, Decisions.hyperliquid_scenarios)
 when 'grid-bybit' then Decisions.grid(root, Decisions.bybit_scenarios)
 when 'grid-sell' then Decisions.grid(root, Decisions.sell_scenarios)
 when 'grid-venue-basket' then Decisions.grid(root, Decisions.venue_basket_scenarios)

@@ -1431,6 +1431,202 @@ module SyncScenarios
     ]
   end
 
+  # Exchanges::Mexc#get_ledger with AccountTransactionSync (plan VB slice A5, AUDIT-mexc X8-X12): deposits and withdrawals in
+  # 7-day ranges from the start (89 days back at most), a full page halved, 700007 ending a history; then the pairs the
+  # transfers, the account and the stored rows name; then their trades from the start (a month back at most), halved at 100.
+  def mexc_ledger_scenarios
+    night = '2026-09-20T02:00:00.250000Z'
+    t = ->(*args) { Time.utc(*args) }
+    since = ->(watermark) { ->(ctx) { P.mexc(ctx); ctx[:key].update_columns(last_synced_at: watermark) } }
+    week = since.(t.(2026, 9, 15))
+    deposits = [P.mx_deposit('USDT', '1000', t.(2026, 9, 18, 12)), P.mx_deposit('BTC', '0.01', t.(2026, 9, 17), status: 12),
+                P.mx_deposit('ETH', '2', t.(2026, 9, 16), status: 1), P.mx_deposit('USDT', '50', t.(2026, 9, 16, 1), status: 6)]
+    withdrawals = [P.mx_withdrawal('w1', 'BTC', '0.002', t.(2026, 9, 19)), P.mx_withdrawal('w2', 'ETH', '0.1', t.(2026, 9, 18), status: 6)]
+    trades = [P.mx_trade(3, 'BTCUSDT', false, '0.001', '64100', t.(2026, 9, 19, 10)),
+              P.mx_trade(2, 'BTCUSDT', true, '0.002', '64000', t.(2026, 9, 18, 9), commission: '-0.01'),
+              P.mx_trade(2, 'BTCUSDT', true, '0.002', '64000', t.(2026, 9, 18, 9), commission: '-0.01')] # the same trade twice: once
+    info = P.mx_info(%w[BTC USDT], %w[ETH USDT], %w[ETH BTC], %w[ADA USDT], %w[XRP USDT])
+    full = ->(n, coin, from) { Array.new(n) { |i| P.mx_deposit(coin, format('1.%04d', i), from + (i * 60)) } }
+    gone = { 'status' => 400, 'body' => { 'code' => 700_007, 'msg' => 'No permission to access the endpoint.' } }
+    [
+      { name: 'mexc-ledger-week', setup: week,
+        steps: [P.mexc_ledger(night, deposits: [P.ok(deposits)], withdrawals: [P.ok(withdrawals)], account: [P.mx_account(%w[BTC 0.5], %w[ADA 0 0], %w[XRP 0 3])],
+                              info: [info], trades: [P.ok(trades), P.ok([P.mx_trade(9, 'XRPUSDT', true, '10', '0.5', t.(2026, 9, 17), asset: 'XRP', commission: '0.01')])])] },
+      # No watermark: thirteen 7-day ranges of each history back to 89 days, and the trades of a month.
+      { name: 'mexc-ledger-full', setup: ->(ctx) { P.mexc(ctx) },
+        steps: [P.mexc_ledger(night, deposits: [P.ok(deposits.first(2)), P.ok([])], info: [info], trades: [P.ok(trades)])] },
+      # A watermark 100 days old: the start is floored to 80 days ago (#ledger_window).
+      { name: 'mexc-ledger-away_100_days', setup: since.(t.(2026, 6, 12)),
+        steps: [P.mexc_ledger(night, deposits: [P.ok([P.mx_deposit('BTC', '0.3', t.(2026, 7, 2))]), P.ok([])], info: [info], trades: [P.ok([])])] },
+      { name: 'mexc-ledger-two_nights', setup: week,
+        steps: [P.mexc_ledger(night, deposits: [P.ok(deposits)], info: [info], trades: [P.ok(trades)]),
+                P.mexc_ledger('2026-09-21T02:00:00.250000Z', deposits: [P.ok(deposits)], withdrawals: [P.ok(withdrawals)], info: [info],
+                              trades: [P.ok(trades), P.ok([])])] },
+      # A full page of deposits is read again in halves, older first; the halves' rows are kept, the full page's not.
+      { name: 'mexc-ledger-halving', setup: week,
+        steps: [P.mexc_ledger(night, deposits: [P.ok(full.(1000, 'USDT', t.(2026, 9, 15))), P.ok(full.(3, 'ETH', t.(2026, 9, 15))),
+                                                P.ok(full.(2, 'BTC', t.(2026, 9, 18)))], info: [info])] },
+      # 700007 in a half ends the deposits: the range's other half is not kept, the withdrawals are still read.
+      { name: 'mexc-ledger-no_permission_mid', setup: week,
+        steps: [P.mexc_ledger(night, deposits: [P.ok(full.(1000, 'USDT', t.(2026, 9, 15))), P.ok(full.(3, 'ETH', t.(2026, 9, 15))), gone],
+                              withdrawals: [P.ok(withdrawals)], info: [info])] },
+      { name: 'mexc-ledger-no_permission', setup: week,
+        steps: [P.mexc_ledger(night, deposits: [gone], withdrawals: [gone], account: [P.mx_account(%w[BTC 1])], info: [info], trades: [P.ok(trades)])] },
+      # A full page of trades (100) is halved.
+      { name: 'mexc-ledger-trade_halving', setup: week,
+        steps: [P.mexc_ledger(night, account: [P.mx_account(%w[BTC 1])], info: [info],
+                              trades: [P.ok(Array.new(100) { |i| P.mx_trade(100 + i, 'BTCUSDT', true, '0.0001', '64000', t.(2026, 9, 18)) }),
+                                       P.ok(trades), P.ok([P.mx_trade(500, 'BTCUSDT', false, '0.0002', '64500', t.(2026, 9, 19, 12))])])] },
+      # A pair MEXC no longer lists is skipped; a sold-out pair the stored rows name is read (X12).
+      { name: 'mexc-ledger-symbol_gone',
+        setup: lambda do |ctx|
+          week.(ctx)
+          AccountTransaction.create!(user: ctx[:user], api_key: ctx[:key], exchange: ctx[:mexc], entry_type: :sell, base_currency: 'ETH', base_amount: 1,
+                                     quote_currency: 'USDT', quote_amount: 2500, tx_id: 'old-1', transacted_at: t.(2026, 8, 1), raw_data: {})
+        end,
+        steps: [P.mexc_ledger(night, account: [P.mx_account(%w[BTC 1])], info: [info],
+                              trades: [{ 'status' => 400, 'body' => { 'code' => -1121, 'msg' => 'Invalid symbol.' } },
+                                       P.ok([P.mx_trade(7, 'ETHUSDT', false, '0.5', '2600', t.(2026, 9, 17))])])] },
+      { name: 'mexc-ledger-trades_fail', setup: week,
+        steps: [P.mexc_ledger(night, deposits: [P.ok(deposits)], account: [P.mx_account(%w[BTC 1])], info: [info],
+                              trades: [{ 'status' => 500, 'body' => { 'code' => 503, 'msg' => 'service not available' } }])] },
+      { name: 'mexc-ledger-account_fails', setup: week,
+        steps: [P.mexc_ledger(night, deposits: [P.ok(deposits)], account: [{ 'status' => 400, 'body' => { 'code' => 10_072, 'msg' => 'Api key info invalid' } }])] },
+      { name: 'mexc-ledger-not_a_list', setup: week,
+        steps: [P.mexc_ledger(night, withdrawals: [P.ok('code' => 1, 'msg' => 'odd "answer"', 'data' => nil)])] },
+      { name: 'mexc-ledger-network', setup: week,
+        steps: [P.mexc_ledger(night, withdrawals: [{ 'network' => 'pre_send:api.mexc.com', 'message' => 'Connection refused - connect(2) for "api.mexc.com" port 443' }])] },
+      { name: 'mexc-ledger-nothing', setup: week, steps: [P.mexc_ledger(night)] }
+    ]
+  end
+
+  # Exchanges::Mexc#get_balances with AccountBalance::Sync (plan VB slice A5): Binance's account shape, `free` and `locked`.
+  def mexc_balance_scenarios
+    night = '2026-09-20T02:30:00.750000Z'
+    coins = P.prices_body('bitcoin' => 60_000.5, 'ethereum' => 2500.25, 'tether' => 1.0001)
+    install = ->(ctx) { P.mexc(ctx) }
+    seeded = lambda do |ctx|
+      P.mexc(ctx)
+      P.balance(ctx, 'BTC', free: '0.4', usd_price: '59000.5', usd_value: '23600.2', exchange: ctx[:mexc])
+    end
+    err = ->(status, code, msg) { { 'status' => status, 'body' => { 'code' => code, 'msg' => msg } } }
+    [
+      { name: 'mexc-balances-first', setup: install,
+        steps: [P.mexc_balances(night, account: P.mx_account(%w[BTC 0.5 0.1], %w[ETH 2], %w[USDT 100.5], %w[MX 3], %w[DOGE 0]), prices: coins)] },
+      { name: 'mexc-balances-invalid_key', setup: seeded, steps: [P.mexc_balances(night, account: err.(400, 10_072, 'Api key info invalid'))] },
+      { name: 'mexc-balances-bad_signature', setup: seeded, steps: [P.mexc_balances(night, account: err.(400, 700_002, 'Signature for this request is not valid.'))] },
+      { name: 'mexc-balances-no_permission', setup: seeded, steps: [P.mexc_balances(night, account: err.(403, 700_007, 'No permission to access the endpoint.'))] },
+      { name: 'mexc-balances-ip', setup: seeded, steps: [P.mexc_balances(night, account: err.(403, 700_006, 'IP non white list'))] },
+      { name: 'mexc-balances-throttled', setup: seeded, steps: [P.mexc_balances(night, account: err.(429, 429, 'Too Many Requests'))] },
+      { name: 'mexc-balances-not_json', setup: seeded, steps: [P.mexc_balances(night, account: { 'status' => 200, 'body' => 'maintenance' })] },
+      { name: 'mexc-balances-bad_gateway', setup: seeded, steps: [P.mexc_balances(night, account: { 'status' => 502, 'body' => '<html>502 Bad Gateway</html>' })] },
+      { name: 'mexc-balances-network', setup: seeded,
+        steps: [P.mexc_balances(night, account: { 'network' => 'pre_send:api.mexc.com', 'message' => 'Connection refused - connect(2) for "api.mexc.com" port 443' })] },
+      { name: 'mexc-balances-no_locked', setup: seeded, steps: [P.mexc_balances(night, account: P.ok('balances' => [{ 'asset' => 'BTC', 'free' => '1' }]))] },
+      { name: 'mexc-balances-no_balances', setup: seeded, steps: [P.mexc_balances(night, account: P.ok('canTrade' => true))] },
+      { name: 'mexc-balances-nothing', setup: seeded, steps: [P.mexc_balances(night, account: P.mx_account)] }
+    ]
+  end
+
+  # Exchanges::Hyperliquid#get_ledger with AccountTransactionSync (plan VB slice B1, audit H5-H7): every fill from
+  # userFillsByTime, then every update from userNonFundingLedgerUpdates, each from startTime (the watermark less 25 h, or 0),
+  # the next page from the newest `time` of a full page (2000 fills, 500 updates), identical rows counted by the page that holds
+  # them most; a full page with nothing new or any failed read fails the run. Spot fills only ("@N" or a pair name), base and
+  # quote from the tickers (USDC for an unlisted pair), a positive fee in feeToken; spot transfers by their delta's type.
+  def hyperliquid_ledger_scenarios
+    night = '2026-09-20T02:00:00.250000Z'
+    t = ->(*args) { Time.utc(*args) }
+    me = P::HL_KEY['key'].downcase
+    since = ->(watermark) { ->(ctx) { P.hyperliquid(ctx); ctx[:key].update_columns(last_synced_at: watermark) } }
+    week = since.(t.(2026, 9, 15))
+    fills = [P.hl_fill(9001, '@142', 'B', '0.001', '60500', t.(2026, 9, 16, 10)),
+             P.hl_fill(9002, '@151', 'A', '0.5', '2400', t.(2026, 9, 17, 11), fee: '0.6', fee_token: 'USDT'),
+             P.hl_fill(9003, 'ETH/BTC', 'B', '0.2', '0.04', t.(2026, 9, 17, 12), fee: '0.00001', fee_token: 'ETH'),
+             P.hl_fill(9004, '@999', 'B', '100', '0.25', t.(2026, 9, 18), fee: '0', fee_token: nil), # unlisted: its coin, USDC
+             P.hl_fill(9005, '@142', 'A', '0.002', '61000', t.(2026, 9, 18, 1), fee: '-0.01'), # a maker rebate is no fee
+             P.hl_fill(9006, 'BTC', 'B', '0.01', '61000', t.(2026, 9, 18, 2), fee: '0.3', fee_token: 'USDC')] # a perp fill
+    staking = P.hl_update('0x' + '0' * 64, t.(2026, 9, 18, 6), 'type' => 'cStakingTransfer', 'token' => 'HYPE', 'amount' => '5.0', 'isDeposit' => true)
+    updates = [P.hl_update('0xa1', t.(2026, 9, 16), 'type' => 'spotTransfer', 'token' => 'USDT', 'amount' => '100.0', 'usdcValue' => '100.0', 'user' => me.upcase,
+                           'destination' => '0xother', 'fee' => '1.0', 'nativeTokenFee' => '0.0', 'nonce' => nil, 'feeToken' => 'USDT'),
+               P.hl_update('0xa2', t.(2026, 9, 16, 1), 'type' => 'spotTransfer', 'token' => 'BTC', 'amount' => '0.01', 'usdcValue' => '600', 'user' => '0xother',
+                           'destination' => me, 'fee' => '0.0', 'nativeTokenFee' => '0.0', 'nonce' => nil),
+               P.hl_update('0xa3', t.(2026, 9, 16, 2), 'type' => 'send', 'token' => 'ETH', 'amount' => '0.1', 'usdcValue' => '240', 'user' => me,
+                           'destination' => '0xother', 'sourceDex' => 'spot', 'destinationDex' => 'spot', 'fee' => '0.0'),
+               P.hl_update('0xa4', t.(2026, 9, 16, 3), 'type' => 'send', 'token' => 'USDT', 'amount' => '5', 'user' => me, 'destination' => me,
+                           'sourceDex' => '', 'destinationDex' => 'spot', 'fee' => '0.0'),
+               P.hl_update('0xa5', t.(2026, 9, 16, 4), 'type' => 'send', 'token' => 'USDT', 'amount' => '5', 'user' => me, 'destination' => me,
+                           'sourceDex' => 'spot', 'destinationDex' => 'spot', 'fee' => '0.0'), # spot to spot of itself: no row
+               P.hl_update('0xa6', t.(2026, 9, 17), 'type' => 'accountClassTransfer', 'usdc' => '250.0', 'toPerp' => false),
+               P.hl_update('0xa7', t.(2026, 9, 17, 1), 'type' => 'accountClassTransfer', 'usdc' => '20.0', 'toPerp' => true),
+               staking, staking, # two equal zero-hash rows in one page: both kept
+               P.hl_update('0xa8', t.(2026, 9, 18, 7), 'type' => 'cStakingTransfer', 'token' => 'HYPE', 'amount' => '1.0', 'isDeposit' => false),
+               P.hl_update('0xa9', t.(2026, 9, 18, 8), 'type' => 'spotGenesis', 'token' => 'PURR', 'amount' => '1000'),
+               P.hl_update('0xaa', t.(2026, 9, 18, 9), 'type' => 'deposit', 'usdc' => '500.0'), # into perp: no row
+               P.hl_update('0xab', t.(2026, 9, 18, 10), 'type' => 'withdraw', 'usdc' => '50.0', 'nonce' => 1, 'fee' => '1.0')]
+    # A full page of 2000 fills ending at one millisecond, then the next page from it: the boundary fills come back with two new
+    # ones; a short page ends the read.
+    base_ms = P.ms(t.(2026, 9, 16))
+    full = (1..2000).map { |i| P.hl_fill(10_000 + i, '@142', 'B', '0.0001', '60000', base_ms + [i, 1998].min * 1000) }
+    second = full.select { |r| r['time'] == full.last['time'] } + [P.hl_fill(12_001, '@142', 'A', '0.0001', '60100', base_ms + 3_000_000),
+                                                                   P.hl_fill(12_002, '@151', 'B', '0.01', '2500', base_ms + 4_000_000)]
+    # A full page of 500 updates whose last millisecond holds the two equal staking rows; the next page serves them again (not
+    # tripled) and one more.
+    ups = (1..498).map { |i| P.hl_update(format('0xb%03d', i), base_ms + i * 1000, 'type' => 'accountClassTransfer', 'usdc' => '1.0', 'toPerp' => false) }
+    boundary = P.hl_update('0x' + '0' * 64, base_ms + 600_000, 'type' => 'cStakingTransfer', 'token' => 'HYPE', 'amount' => '2.0', 'isDeposit' => false)
+    ups_full = ups + [boundary, boundary]
+    ups_next = [boundary, boundary, P.hl_update('0xc1', base_ms + 700_000, 'type' => 'spotGenesis', 'token' => 'PURR', 'amount' => '5')]
+    err = ->(status, body) { { 'status' => status, 'body' => body } }
+    [
+      { name: 'hyperliquid-ledger-week', setup: week, steps: [P.hyperliquid_ledger(night, fills: [P.ok(fills)], updates: [P.ok(updates)])] },
+      { name: 'hyperliquid-ledger-full', setup: ->(ctx) { P.hyperliquid(ctx) },
+        steps: [P.hyperliquid_ledger(night, fills: [P.ok(fills.first(2))], updates: [P.ok(updates.first(2))])] },
+      { name: 'hyperliquid-ledger-two_nights', setup: week,
+        steps: [P.hyperliquid_ledger(night, fills: [P.ok(fills)], updates: [P.ok(updates)]),
+                P.hyperliquid_ledger('2026-09-21T02:00:00.250000Z', fills: [P.ok(fills)], updates: [P.ok(updates)])] },
+      { name: 'hyperliquid-ledger-pages', setup: week, steps: [P.hyperliquid_ledger(night, fills: [P.ok(full), P.ok(second)], updates: [P.ok(ups_full), P.ok(ups_next)])] },
+      { name: 'hyperliquid-ledger-stuck', setup: week, steps: [P.hyperliquid_ledger(night, fills: [P.ok(full)])] },
+      { name: 'hyperliquid-ledger-null', setup: week, steps: [P.hyperliquid_ledger(night, fills: [P.ok(nil)], updates: [P.ok(updates.first(1))])] },
+      { name: 'hyperliquid-ledger-unprocessable', setup: week,
+        steps: [P.hyperliquid_ledger(night, fills: [err.(422, 'Failed to deserialize the JSON body into the target type')])] },
+      { name: 'hyperliquid-ledger-failed_page', setup: week, steps: [P.hyperliquid_ledger(night, fills: [P.ok(full), err.(500, 'Internal error')])] },
+      { name: 'hyperliquid-ledger-updates_failed', setup: week, steps: [P.hyperliquid_ledger(night, fills: [P.ok(fills)], updates: [err.(429, 'Too Many Requests')])] },
+      { name: 'hyperliquid-ledger-network', setup: week,
+        steps: [P.hyperliquid_ledger(night, updates: [{ 'network' => 'hyperliquid_pre_send', 'message' => 'Connection refused - connect(2) for "api.hyperliquid.xyz" port 443' }])] },
+      { name: 'hyperliquid-ledger-nothing', setup: week, steps: [P.hyperliquid_ledger(night)] }
+    ]
+  end
+
+  # Exchanges::Hyperliquid#get_balances with AccountBalance::Sync (plan VB slice B1): spotClearinghouseState's `balances`, each
+  # row's coin by the venue's tickers, free = total - hold, hold locked.
+  def hyperliquid_balance_scenarios
+    night = '2026-09-20T02:30:00.750000Z'
+    coins = P.prices_body('bitcoin' => 60_000.5, 'ethereum' => 2500.25)
+    install = ->(ctx) { P.hyperliquid(ctx) }
+    seeded = lambda do |ctx|
+      P.hyperliquid(ctx)
+      P.balance(ctx, 'BTC', free: '0.4', usd_price: '59000.5', usd_value: '23600.2', exchange: ctx[:hyperliquid])
+      P.balance(ctx, 'ETH', free: '1', usd_price: '2400', usd_value: '2400', exchange: ctx[:hyperliquid])
+    end
+    err = ->(status, body) { { 'status' => status, 'body' => body } }
+    [
+      # A coin the venue lists no ticker for (PURR) is not a balance.
+      { name: 'hyperliquid-balances-first', setup: install,
+        steps: [P.hyperliquid_balances(night, balances: P.hl_rows(%w[BTC 0.5 0.1], %w[ETH 2.0], %w[USDT 100.5 0.0], %w[PURR 3], %w[DOGE 0.0]), prices: coins)] },
+      { name: 'hyperliquid-balances-stale_and_gone', setup: seeded, steps: [P.hyperliquid_balances(night, balances: P.hl_rows(%w[BTC 0.45]), prices: P::SERVER_ERROR)] },
+      { name: 'hyperliquid-balances-no_balances', setup: seeded, steps: [P.hyperliquid_balances(night, balances: P.ok('balances' => nil))] },
+      { name: 'hyperliquid-balances-no_total', setup: seeded, steps: [P.hyperliquid_balances(night, balances: P.ok('balances' => [{ 'coin' => 'BTC', 'hold' => '0.1' }]))] },
+      { name: 'hyperliquid-balances-unprocessable', setup: seeded,
+        steps: [P.hyperliquid_balances(night, balances: err.(422, 'Failed to deserialize the JSON body into the target type'))] },
+      { name: 'hyperliquid-balances-invalid_key', setup: seeded,
+        steps: [P.hyperliquid_balances(night, balances: err.(400, 'User or API Wallet 0x0000000000000000000000000000000000000001 does not exist.'))] },
+      { name: 'hyperliquid-balances-throttled', setup: seeded, steps: [P.hyperliquid_balances(night, balances: err.(429, 'Too Many Requests'))] },
+      { name: 'hyperliquid-balances-not_json', setup: seeded, steps: [P.hyperliquid_balances(night, balances: { 'status' => 200, 'body' => 'maintenance' })] },
+      { name: 'hyperliquid-balances-network', setup: seeded,
+        steps: [P.hyperliquid_balances(night, balances: { 'network' => 'hyperliquid_pre_send', 'message' => 'Connection refused - connect(2) for "api.hyperliquid.xyz" port 443' })] },
+      { name: 'hyperliquid-balances-nothing', setup: seeded, steps: [P.hyperliquid_balances(night, balances: P.hl_rows)] }
+    ]
+  end
+
   def bybit_ledger_scenarios
     night = '2026-09-20T02:00:00.250000Z'
     week = ->(ctx) { P.bybit(ctx); ctx[:key].update_columns(last_synced_at: Time.iso8601(night) - 3.days) }
@@ -1476,5 +1672,5 @@ module SyncScenarios
 
   def all = ledger_scenarios + balance_scenarios + binance_balance_scenarios + binance_ledger_scenarios + import_scenarios + kucoin_ledger_scenarios +
             kucoin_balance_scenarios + bitvavo_ledger_scenarios + bitvavo_balance_scenarios + gemini_ledger_scenarios + gemini_balance_scenarios +
-            bitget_ledger_scenarios + bitget_balance_scenarios + bybit_ledger_scenarios + bybit_balance_scenarios
+            bitget_ledger_scenarios + bitget_balance_scenarios + mexc_ledger_scenarios + mexc_balance_scenarios + hyperliquid_ledger_scenarios + hyperliquid_balance_scenarios + bybit_ledger_scenarios + bybit_balance_scenarios
 end

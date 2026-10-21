@@ -250,6 +250,13 @@ module Pages
       'venue_bot_page_rules' => venue.([stopped('kraken', 'settings' => rules),
                                         stopped('binance', 'settings' => rules.merge('quote_amount_limited' => true, 'quote_amount_limit' => 100, 'price_limit' => 3000)),
                                         { 'kind' => 'basket' }], signed_in(get('/bots/1'), get('/bots/2'), get('/pl/bots/1'))),
+      # The limit-order switch stays checked and locked, even on a legacy row storing false; the price distance only locks while working.
+      'venue_bot_page_hyperliquid_limit_lock' => venue.(
+        [stopped('hyperliquid', 'stored' => { 'limit_ordered' => false }), stopped('hyperliquid'),
+         running('hyperliquid', '2026-09-09T13:30:00Z', { 'stored' => { 'limit_ordered' => false } }.merge(acted('2026-09-09T13:30:00.800Z'))),
+         running('hyperliquid', '2026-09-09T13:30:00Z', acted('2026-09-09T13:30:00.800Z'))],
+        signed_in(get('/bots/1'), get('/bots/2'), get('/bots/3'), get('/bots/4'), get('/de/bots/1'), get('/pl/bots/3')), 'hyperliquid_bots' => true
+      ),
       'venue_bot_page_hidden' => venue.(venue_bots, signed_in(get('/bots/1'), get('/bots/2'), get('/bots')), 'user' => owner('hide_balances' => true, 'locale' => 'de')),
       'venue_bot_page_key_incorrect' => venue.(venue_bots, signed_in(get('/bots/1'), get('/bots/2')), 'venue_keys' => { 'binance' => 'incorrect' }),
       # Selling, as an Alpaca seller is served: N base a day, for N quote a week with orders, and at work with a base split

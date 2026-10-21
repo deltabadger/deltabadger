@@ -506,6 +506,10 @@ impl Draft {
         }
         self.boolean(locale, "limit_ordered");
         if !matches!(self.read("limit_ordered"), Value::Null | Value::Bool(false)) { self.number(locale, "limit_order_pcnt_distance", Some((0.0, true)), Some(1.0), false); }
+        // Bot::LimitOrderable#limit_ordered_required_for_exchange, including legacy rows on the settings page.
+        if self.candidate.exchange.class == "Exchanges::Hyperliquid" && self.read("limit_ordered") == json!(false) {
+            self.error(locale, "limit_ordered", "inclusion", None);
+        }
         if self.candidate.kind == Kind::Basket {
             self.boolean(locale, "quote_amount_limited");
             if self.read("quote_amount_limited") == json!(true) {

@@ -25,7 +25,7 @@ Net::HTTP.prepend(Module.new { def connect = raise(Harness::Unscripted, "real co
 ENV['COINGECKO_API_KEY'] = ''
 
 module ScriptedSync
-  mattr_accessor :alpaca, :binance, :binance_state, :kucoin, :bitvavo, :gemini, :bitget, :bybit, :market, :requests, :filters_after
+  mattr_accessor :alpaca, :binance, :binance_state, :kucoin, :bitvavo, :gemini, :bitget, :mexc, :hyperliquid, :bybit, :market, :requests, :filters_after
 
   NETWORK = {
     'pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "paper-api.alpaca.markets" port 443')) },
@@ -36,7 +36,9 @@ module ScriptedSync
     'kucoin_pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "api.kucoin.com" port 443')) },
     'bitvavo_pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "api.bitvavo.com" port 443')) },
     'gemini_pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "api.gemini.com" port 443')) },
-    'bitget_pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "api.bitget.com" port 443')) }
+    'bitget_pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "api.bitget.com" port 443')) },
+    'pre_send:api.mexc.com' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "api.mexc.com" port 443')) },
+    'hyperliquid_pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "api.hyperliquid.xyz" port 443')) }
   }.freeze
 
   def self.reply(env)
@@ -51,14 +53,23 @@ module ScriptedSync
              elsif host == 'api.bitvavo.com' then bitvavo
              elsif host == 'api.gemini.com' then gemini
              elsif host == 'api.bitget.com' then bitget
+             elsif host == 'api.mexc.com' then mexc
+             elsif host == 'api.hyperliquid.xyz' then hyperliquid
              elsif host == 'api.bybit.com' then bybit
              elsif host == 'data-api' then market
              end
     key = "#{env.method.to_s.upcase} #{env.url.path}"
     raise Harness::Unscripted, "unscripted HTTP call #{key} to #{host}" if script.nil?
 
-    requests << [key, host == 'api.gemini.com' ? gemini_params(env) : URI.decode_www_form(env.url.query.to_s).sort]
-    queue = script[key] or raise Harness::Unscripted, "unscripted call #{key}"
+    hyperliquid = host == 'api.hyperliquid.xyz'
+    params = if host == 'api.gemini.com' then gemini_params(env)
+             elsif hyperliquid then JSON.parse(env.request_body).map { |k, v| [k, v.to_s] }.sort # its /info body, logged as a query's pairs
+             else URI.decode_www_form(env.url.query.to_s).sort
+             end
+    requests << [key, params]
+    # Hyperliquid names each /info read by its body's `type` ("POST /info userFillsByTime").
+    typed = "#{key} #{JSON.parse(env.request_body)['type']}" if hyperliquid
+    queue = (typed && script[typed]) || script[key] or raise Harness::Unscripted, "unscripted call #{typed || key}"
     queue.size > 1 ? queue.shift : queue.first
   end
 
@@ -87,7 +98,7 @@ module ScriptedSync
       reply = ScriptedSync.reply(env)
       if (kind = reply['network'])
         error = ScriptedSync::NETWORK.fetch(kind).call
-        actual = kind.start_with?('binance_', 'kucoin_', 'bitvavo_', 'gemini_', 'bitget_') ? error.message : "#{error.class}: #{error.message}" # what the venue's client reports
+        actual = kind.start_with?('binance_', 'kucoin_', 'bitvavo_', 'gemini_', 'bitget_', 'pre_send:', 'hyperliquid_') ? error.message : "#{error.class}: #{error.message}" # what the venue's client reports
         raise Harness::Unscripted, "#{kind}: the script says #{reply['message'].inspect}, Ruby says #{actual.inspect}" unless actual == reply['message']
 
         raise error
@@ -454,6 +465,39 @@ module SyncParity
       'market' => { EXCHANGE_RATES => rates && [rates], PRICES => prices && [prices] }.compact }
   end
 
+  # A Hyperliquid key (plan VB slice B1): its address is the key; the pairs its fills name as #get_tickers_info stores them
+  # ("@N" names, the oldest "PURR/USDC").
+  def hyperliquid(ctx)
+    venue(ctx, Exchanges::Hyperliquid, 'Hyperliquid', as: :hyperliquid, assets: %w[BTC ETH USDT], pairs: [%w[BTC USDT], %w[ETH USDT], %w[ETH BTC]],
+          pair: ->(b, q) { { %w[BTC USDT] => '@142', %w[ETH USDT] => '@151', %w[ETH BTC] => 'ETH/BTC' }.fetch([b, q]) },
+          coin: { base_decimals: 5, quote_decimals: 2, price_decimals: 5, minimum_base_size: '0', minimum_quote_size: '10' })
+    # ApiKey validates a Hyperliquid key's shapes on every save: an address and an agent private key.
+    ActiveRecord::Base.connection.exec_update('UPDATE api_keys SET key = ?, secret = ?, passphrase = NULL WHERE id = ?', 'plain credentials',
+                                              [HL_KEY['key'], HL_KEY['secret'], ctx[:key].id])
+    ctx[:credentials] = HL_KEY
+  end
+  HL_KEY = { 'key' => '0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123', 'secret' => '0x4c0883a69102937d6231471b5dbb6204fe5129617082792ae468d01a3f362318',
+             'passphrase' => nil }.freeze
+  HL_FILLS = 'POST /info userFillsByTime'.freeze
+  HL_UPDATES = 'POST /info userNonFundingLedgerUpdates'.freeze
+  HL_BALANCES = 'POST /info spotClearinghouseState'.freeze
+  def hl_fill(tid, coin, side, sz, px, at, fee: '0.0005', fee_token: 'BTC', oid: nil)
+    { 'coin' => coin, 'px' => px, 'sz' => sz, 'side' => side, 'time' => at.is_a?(Integer) ? at : ms(at), 'startPosition' => '0.0',
+      'dir' => side == 'B' ? 'Buy' : 'Sell', 'closedPnl' => '0.0', 'hash' => "0xf#{tid}", 'oid' => oid || (tid * 10), 'crossed' => true, 'fee' => fee,
+      'tid' => tid, 'feeToken' => fee_token }.compact
+  end
+  def hl_update(hash, at, delta) = { 'time' => at.is_a?(Integer) ? at : ms(at), 'hash' => hash, 'delta' => delta }
+  # Hyperliquid's spot balance rows: [coin, total, hold].
+  def hl_rows(*rows) = ok('balances' => rows.map { |coin, total, hold| { 'coin' => coin, 'token' => 0, 'hold' => hold || '0.0', 'total' => total, 'entryNtl' => '0.0' } })
+  def hyperliquid_balances(at, balances:, prices: nil, rates: nil)
+    { 'kind' => 'balances', 'at' => at, 'hyperliquid' => { HL_BALANCES => [balances] },
+      'market' => { EXCHANGE_RATES => rates && [rates], PRICES => prices && [prices] }.compact }
+  end
+  # A ledger run over Hyperliquid's scripted answers: each read's pages in order, the last one repeated.
+  def hyperliquid_ledger(at, fills: [ok([])], updates: [ok([])])
+    { 'kind' => 'ledger', 'at' => at, 'hyperliquid' => { HL_FILLS => fills, HL_UPDATES => updates } }
+  end
+
   def bybit(ctx)
     venue(ctx, Exchanges::Bybit, 'Bybit', as: :bybit, assets: %w[BTC ETH USDT], pairs: [%w[BTC USDT], %w[ETH USDT], %w[ETH BTC]],
           pair: ->(b, q) { "#{b}#{q}" }, coin: { base_decimals: 6, quote_decimals: 8, price_decimals: 2, minimum_base_size: '0.00001', minimum_quote_size: '1' })
@@ -489,6 +533,42 @@ module SyncParity
   def bitvavo(ctx)
     venue(ctx, Exchanges::Bitvavo, 'Bitvavo', as: :bitvavo, assets: %w[BTC ETH EUR], pairs: [%w[BTC EUR], %w[ETH EUR], %w[ETH BTC]],
           pair: ->(b, q) { "#{b}-#{q}" }, coin: { base_decimals: 8, quote_decimals: 2, price_decimals: 0, minimum_base_size: '0.0001', minimum_quote_size: '5' })
+  end
+  # A MEXC key (plan VB slice A5), with the pairs its scenarios trade.
+  def mexc(ctx)
+    venue(ctx, Exchanges::Mexc, 'MEXC', as: :mexc, assets: %w[BTC ETH USDT], pairs: [%w[BTC USDT], %w[ETH USDT], %w[ETH BTC]],
+          pair: ->(b, q) { "#{b}#{q}" }, coin: { base_decimals: 6, quote_decimals: 2, price_decimals: 2, minimum_base_size: '0.000001', minimum_quote_size: '1' })
+  end
+  MX_DEPOSITS = 'GET /api/v3/capital/deposit/hisrec'.freeze
+  MX_WITHDRAWALS = 'GET /api/v3/capital/withdraw/history'.freeze
+  MX_ACCOUNT = 'GET /api/v3/account'.freeze
+  MX_INFO = 'GET /api/v3/exchangeInfo'.freeze
+  MX_TRADES = 'GET /api/v3/myTrades'.freeze
+  def mx_deposit(coin, amount, at, status: 5, tx: nil)
+    { 'amount' => amount, 'coin' => coin, 'network' => coin, 'status' => status, 'address' => '0xaddr', 'txId' => tx || "0x#{coin.downcase}#{ms(at)}:0",
+      'insertTime' => ms(at), 'unlockConfirm' => '12', 'confirmTimes' => '12' }
+  end
+  def mx_withdrawal(id, coin, amount, at, fee: '0.0001', status: 7)
+    { 'id' => id, 'txId' => nil, 'coin' => coin, 'network' => coin, 'address' => '0xto', 'amount' => amount, 'transferType' => 0, 'status' => status,
+      'transactionFee' => fee, 'confirmNo' => nil, 'applyTime' => ms(at), 'remark' => '' }.compact
+  end
+  def mx_trade(id, symbol, buyer, qty, price, at, commission: '0.06', asset: 'USDT', order: "C02__#{id}")
+    { 'symbol' => symbol, 'id' => id, 'orderId' => order, 'orderListId' => -1, 'price' => price, 'qty' => qty,
+      'quoteQty' => (BigDecimal(price) * BigDecimal(qty)).to_s('F'), 'commission' => commission, 'commissionAsset' => asset, 'time' => ms(at),
+      'isBuyer' => buyer, 'isMaker' => false, 'isBestMatch' => true, 'isSelfTrade' => false, 'clientOrderId' => nil }
+  end
+  def mx_info(*pairs) = ok('timezone' => 'CST', 'serverTime' => 1_789_000_000_000,
+                           'symbols' => pairs.map { |b, q| { 'symbol' => "#{b}#{q}", 'status' => '1', 'baseAsset' => b, 'quoteAsset' => q } })
+  def mx_account(*rows) = ok('canTrade' => true, 'accountType' => 'SPOT',
+                             'balances' => rows.map { |asset, free, locked| { 'asset' => asset, 'free' => free, 'locked' => locked || '0' } })
+  # A ledger run over MEXC's scripted answers: each path's replies in order, the last one repeated.
+  def mexc_ledger(at, deposits: [ok([])], withdrawals: [ok([])], account: [mx_account], info: [mx_info(%w[BTC USDT])], trades: [ok([])])
+    { 'kind' => 'ledger', 'at' => at, 'mexc' => { MX_DEPOSITS => deposits, MX_WITHDRAWALS => withdrawals, MX_ACCOUNT => account, MX_INFO => info,
+                                                  MX_TRADES => trades } }
+  end
+  def mexc_balances(at, account:, prices: nil, rates: nil)
+    { 'kind' => 'balances', 'at' => at, 'mexc' => { MX_ACCOUNT => [account] },
+      'market' => { EXCHANGE_RATES => rates && [rates], PRICES => prices && [prices] }.compact }
   end
   BV_DEPOSITS = 'GET /v2/depositHistory'.freeze
   BV_WITHDRAWALS = 'GET /v2/withdrawalHistory'.freeze
@@ -617,7 +697,7 @@ module SyncParity
       ctx = build(dir, sc)
       File.write(File.join(dir, 'scenario.json'),
                  JSON.pretty_generate('parity_scratch' => true, 'user_id' => ctx[:user].id, 'api_key_id' => ctx[:key].id,
-                                      'credentials' => KEY, 'steps' => sc[:steps]))
+                                      'credentials' => ctx[:credentials] || KEY, 'steps' => sc[:steps]))
       ActiveRecord::Base.connection_pool.disconnect!
     end
     puts "built #{list.size} scenarios in #{root}"
@@ -643,7 +723,7 @@ module SyncParity
       ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: File.join(dir, 'production.sqlite3'))
       Rails.cache.clear
       before = snapshot
-      reading = ApiKey.reading(ApiKey.includes(:exchange)).select { |k| [Exchanges::Alpaca, Exchanges::Binance, Exchanges::Kucoin, Exchanges::Bitvavo, Exchanges::Gemini, Exchanges::Bitget, Exchanges::Bybit].any? { |c| k.exchange.is_a?(c) } }.map(&:id).sort
+      reading = ApiKey.reading(ApiKey.includes(:exchange)).select { |k| [Exchanges::Alpaca, Exchanges::Binance, Exchanges::Kucoin, Exchanges::Bitvavo, Exchanges::Gemini, Exchanges::Bitget, Exchanges::Mexc, Exchanges::Hyperliquid, Exchanges::Bybit].any? { |c| k.exchange.is_a?(c) } }.map(&:id).sort
       steps = sc['steps'].map do |step|
         ActiveJob::Base.queue_adapter.enqueued_jobs.clear
         ScriptedSync.alpaca = step.fetch('alpaca', {}).transform_values(&:dup)
@@ -653,6 +733,8 @@ module SyncParity
         ScriptedSync.bitvavo = step.fetch('bitvavo', {}).transform_values(&:dup)
         ScriptedSync.gemini = step.fetch('gemini', {}).transform_values(&:dup)
         ScriptedSync.bitget = step.fetch('bitget', {}).transform_values(&:dup)
+        ScriptedSync.mexc = step.fetch('mexc', {}).transform_values(&:dup)
+        ScriptedSync.hyperliquid = step.fetch('hyperliquid', {}).transform_values(&:dup)
         ScriptedSync.bybit = step.fetch('bybit', {}).transform_values(&:dup)
         ScriptedSync.market = step.fetch('market', {}).transform_values(&:dup)
         ScriptedSync.requests = []

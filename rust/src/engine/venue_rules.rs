@@ -379,31 +379,42 @@ pub static BITGET: VenueRules = VenueRules {
     cross: None,
 };
 
-
-/// Exchanges::Bybit rules; D-BYBIT-AMBIG retains uncertain placements.
-const BYBIT_TRANSIENT: [&str; 13] = ["Net::ReadTimeout", "Net::OpenTimeout", "Faraday::TimeoutError", "Faraday::ConnectionFailed",
+/// Exchange#transient_error? for MEXC: Client::NETWORK_TRANSIENT_PATTERNS plus Exchanges::Mexc::ERRORS[:transient].
+const MEXC_TRANSIENT: [&str; 16] = ["Net::ReadTimeout", "Net::OpenTimeout", "Faraday::TimeoutError", "Faraday::ConnectionFailed",
     "execution expired", "Connection reset", "Errno::ECONNRESET", "connection refused", "Connection refused", "Errno::ECONNREFUSED",
     "end of file reached", "unexpected eof while reading",
-    "Timestamp for this request is outside of the recvWindow"];
+    "Timestamp for this request is outside of the recvWindow", "Timestamp for this request was", "service not available", "Gateway Time-out"];
 
-pub static BYBIT: VenueRules = VenueRules {
-    exchange_type: "Exchanges::Bybit",
-    name: "Bybit",
-    kinds: [("insufficient_funds", &["Insufficient balance"]),
-            ("invalid_key", &["Invalid API-key, IP, or permissions for action.", "API key is invalid"]),
-            ("permission_denied", &["Permission denied, please check your API key permissions"]),
-            ("restricted", &[]), ("throttle", &[]), ("transient", &["Timestamp for this request is outside of the recvWindow"])],
-    transient_text: &BYBIT_TRANSIENT,
-    add_outcome_unknown: &["Server Timeout", "Server error."],
+pub static MEXC: VenueRules = VenueRules {
+    exchange_type: "Exchanges::Mexc",
+    name: "MEXC",
+    // Exchanges::Mexc::ERRORS (mexc.rb:3-20, AUDIT-mexc X4), matched on #parse_error_message's `msg`.
+    kinds: [("insufficient_funds", &["Insufficient balance", "Insufficient position", "Oversold"]),
+            ("invalid_key", &["Api key info invalid", "API-key format invalid", "Invalid Api-Key ID.", "Signature for this request is not valid",
+                              "Signature verification failed"]),
+            ("permission_denied", &["No permission to access the endpoint", "IP non white list"]), ("restricted", &[]),
+            ("throttle", &["Too Many Requests", "Too many requests", "Requests are too frequent"]),
+            ("transient", &["Timestamp for this request is outside of the recvWindow", "Timestamp for this request was", "service not available", "Gateway Time-out"])],
+    transient_text: &MEXC_TRANSIENT,
+    // Exchange#ambiguous_placement_error?: ERRORS[:transient] leaves a placement unknown whatever the HTTP status, but the
+    // -1021 strings, placement-safe (placement::PLACEMENT_SAFE_TRANSIENT_ERRORS).
+    add_outcome_unknown: &["service not available", "Gateway Time-out"],
+    // Exchanges::Mexc#minimum_amount_logic: market :base_and_quote (Rails runs the :base_or_quote branch), limit
+    // :base_and_quote_in_base. A zero base minimum (PEPEUSDT's baseSizePrecision) leaves the quote minimum the only floor.
     minimum_logic: MinimumLogic { market: AmountLogic::BaseOrQuote, limit: AmountLogic::BaseAndQuoteInBase },
-    wire: WireFormat::Bybit,
+    // Honeymaker::Clients::Mexc#new_order sends BigDecimal#to_s('F') strings.
+    wire: WireFormat::Kraken,
     deadline_sent: false,
     reach_within_secs: 55,
     absence_margin_secs: 1200,
     transport_raises: false,
+    // Bot::FetchAndUpdateOrderJob asks Exchanges::Mexc#get_order: one order, strict.
     follow_up_strict: true, market_hours: false,
+    // #get_orders names a gone order under `missing` (X5).
     reports_missing: true,
+    // Plan VB §1.5: the client-id lookup can only FIND an order; an unfound one waits for `deltabadger resolve-placement`.
     absence_provable: false,
+    // #authoritative_missing_orders? is Exchange's false: a young order left out fails the sweep.
     young_missing_fails: true,
     price_rule: PriceRule::Decimals,
     cross: None,
@@ -447,4 +458,64 @@ pub static GEMINI: VenueRules = VenueRules {
     price_rule: PriceRule::Decimals,
     // Exchanges::Gemini::MARKET_CROSS: a market order is an IOC limit across the book.
     cross: Some(MARKET_CROSS),
+};
+
+pub static HYPERLIQUID: VenueRules = VenueRules {
+    exchange_type: "Exchanges::Hyperliquid",
+    name: "Hyperliquid",
+    // Exchanges::Hyperliquid::ERRORS (post-audit H1), matched inside "Hyperliquid order failed: …"; pinned by tests/hyperliquid.rs.
+    kinds: [("insufficient_funds", &["Insufficient spot balance", "Insufficient balance", "Not enough balance"]), ("invalid_key", &["User or API Wallet"]),
+            ("permission_denied", &[]), ("restricted", &[]), ("throttle", &["Too many cumulative requests sent", "HTTP 429", "status 429"]),
+            ("transient", &[])],
+    transient_text: &NETWORK_TRANSIENT_PATTERNS,
+    // A placement's outcome is decided by HTTP status and transport in HyperliquidVenue::add_order, never by text.
+    add_outcome_unknown: &[],
+    // Exchanges::Hyperliquid#minimum_amount_logic: :base_and_quote_in_base (the 10-USDC floor as a base minimum).
+    minimum_logic: MinimumLogic { market: AmountLogic::BaseAndQuoteInBase, limit: AmountLogic::BaseAndQuoteInBase },
+    // The adapter parses the volume and price back and writes them through hyperliquid-rb's float_to_wire.
+    wire: WireFormat::Kraken,
+    deadline_sent: false,
+    reach_within_secs: 55,
+    absence_margin_secs: 1200,
+    transport_raises: false,
+    // Bot::FetchAndUpdateOrderJob asks #get_order, which recovers an unknownOid from the fills and else names it not found
+    // for Bot::StaleOrderResolver: the lenient poll of that one order, fills recovery included (as Bitvavo's).
+    follow_up_strict: false, market_hours: false,
+    reports_missing: true,
+    // Plan VB §1.5: the cloid lookup can only FIND an order.
+    absence_provable: false,
+    // #authoritative_missing_orders? true: the fills walk exhausts the history, so a young order left out just waits.
+    young_missing_fails: false,
+    price_rule: HYPERLIQUID_PRICE_RULE,
+    // Exchanges::Hyperliquid::MARKET_CROSS: a market order is a GTC limit across the book.
+    cross: Some(MARKET_CROSS),
+};
+
+/// Exchanges::Bybit rules; D-BYBIT-AMBIG retains uncertain placements.
+const BYBIT_TRANSIENT: [&str; 13] = ["Net::ReadTimeout", "Net::OpenTimeout", "Faraday::TimeoutError", "Faraday::ConnectionFailed",
+    "execution expired", "Connection reset", "Errno::ECONNRESET", "connection refused", "Connection refused", "Errno::ECONNREFUSED",
+    "end of file reached", "unexpected eof while reading",
+    "Timestamp for this request is outside of the recvWindow"];
+
+pub static BYBIT: VenueRules = VenueRules {
+    exchange_type: "Exchanges::Bybit",
+    name: "Bybit",
+    kinds: [("insufficient_funds", &["Insufficient balance"]),
+            ("invalid_key", &["Invalid API-key, IP, or permissions for action.", "API key is invalid"]),
+            ("permission_denied", &["Permission denied, please check your API key permissions"]),
+            ("restricted", &[]), ("throttle", &[]), ("transient", &["Timestamp for this request is outside of the recvWindow"])],
+    transient_text: &BYBIT_TRANSIENT,
+    add_outcome_unknown: &["Server Timeout", "Server error."],
+    minimum_logic: MinimumLogic { market: AmountLogic::BaseOrQuote, limit: AmountLogic::BaseAndQuoteInBase },
+    wire: WireFormat::Bybit,
+    deadline_sent: false,
+    reach_within_secs: 55,
+    absence_margin_secs: 1200,
+    transport_raises: false,
+    follow_up_strict: true, market_hours: false,
+    reports_missing: true,
+    absence_provable: false,
+    young_missing_fails: true,
+    price_rule: PriceRule::Decimals,
+    cross: None,
 };

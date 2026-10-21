@@ -4,6 +4,7 @@
 #   bin/rails runner script/rust/record_venue_vectors.rb kucoin rust/tests/fixtures/kucoin_vectors.json    # + #parse_order_data (kucoin.rs)
 #   bin/rails runner script/rust/record_venue_vectors.rb bitvavo rust/tests/fixtures/bitvavo_vectors.json  # + #parse_order_data (bitvavo.rs)
 #   bin/rails runner script/rust/record_venue_vectors.rb bitget rust/tests/fixtures/bitget_vectors.json    # + #parse_order_data, both sides' wire (bitget.rs)
+#   bin/rails runner script/rust/record_venue_vectors.rb mexc rust/tests/fixtures/mexc_vectors.json        # + #parse_order_data (mexc.rs)
 #   bin/rails runner script/rust/record_venue_vectors.rb prices rust/tests/fixtures/prices_vectors.json     # plan VB slice P (venue_rules.rs)
 # Nothing is saved and nothing leaves the machine: the honeymaker client is replaced by a recorder, and any real
 # connection raises. Re-run (script/rust/repin) when a file under "sources" changes; the Rust tests fail until then.
@@ -119,9 +120,31 @@ when 'bitget'
     { minimum_base_size: '0', minimum_quote_size: '1', base_decimals: 8, quote_decimals: 0, price_decimals: 0 },
     { minimum_base_size: '0', minimum_quote_size: '10', base_decimals: 1, quote_decimals: 3, price_decimals: 8 }
   ]
+when 'mexc'
+  out = { 'sources' => pin.(%w[app/models/exchanges/mexc.rb app/models/exchange.rb app/models/bot/order_setter.rb app/models/ticker.rb
+                               script/rust/record_venue_vectors.rb]),
+          'gems' => { 'honeymaker' => Honeymaker::VERSION } }
+  exchange = Exchanges::Mexc.new(name: 'MEXC')
+  exchange.instance_variable_set(:@client, Object.new.tap do |c|
+    c.define_singleton_method(:new_order) { |**kw| captured = kw; Result::Success.new(order_id: "#{kw[:symbol]}-C02__1", raw: {}) }
+  end)
+  pair, strip, seed = 'BTCUSDT', [], 20_261_021
+  # Pairs shaped as Exchanges::Mexc#get_tickers_info reads exchangeInfo (X3): baseSizePrecision (0 on PEPEUSDT and other
+  # micro-priced pairs: the quote minimum is then the only floor), the larger quoteAmountPrecision, baseAssetPrecision,
+  # quoteAssetPrecision and quotePrecision.
+  tickers = [
+    { minimum_base_size: '0.000001', minimum_quote_size: '1', base_decimals: 6, quote_decimals: 2, price_decimals: 2 },
+    { minimum_base_size: '0', minimum_quote_size: '1', base_decimals: 2, quote_decimals: 8, price_decimals: 10 },
+    { minimum_base_size: '0', minimum_quote_size: '5', base_decimals: 0, quote_decimals: 6, price_decimals: 8 },
+    { minimum_base_size: '0.0001', minimum_quote_size: '0.0001', base_decimals: 4, quote_decimals: 8, price_decimals: 6 },
+    { minimum_base_size: '1', minimum_quote_size: '5', base_decimals: 0, quote_decimals: 4, price_decimals: 5 },
+    { minimum_base_size: '0.01', minimum_quote_size: '10', base_decimals: 2, quote_decimals: 2, price_decimals: 3 },
+    { minimum_base_size: '0', minimum_quote_size: '0', base_decimals: 8, quote_decimals: 2, price_decimals: 1 },
+    { minimum_base_size: '0.00005', minimum_quote_size: '0.5', base_decimals: 8, quote_decimals: 5, price_decimals: 1 }
+  ]
 when 'prices'
   # Not one venue: every venue's Exchange#adjusted_price and #market_price_for, the default rule and its two overrides.
-  price_venues = %w[Kraken Alpaca Binance Kucoin Gemini Hyperliquid BinanceUs Bitvavo]
+  price_venues = %w[Kraken Alpaca Binance Kucoin Gemini Hyperliquid BinanceUs Bitvavo Mexc]
   out = { 'sources' => pin.(%w[app/models/exchange.rb app/models/ticker.rb script/rust/record_venue_vectors.rb] +
                             price_venues.map { |v| "app/models/exchanges/#{v.underscore}.rb" }) }
   seed, tickers = 20_261_020, []
@@ -337,6 +360,29 @@ when 'bitget'
   out['bitget_orders'] = orders
   out['bitget_parsed'] = parsed
   extra = "#{orders.size} orders, #{parsed.size} parsed"
+when 'mexc'
+  mexc = exchange
+  # #parse_order_data over generated GET /api/v3/order answers (X1 PARTIALLY_CANCELED, X2 the fills' average whenever
+  # something filled, rounded half up to the listed pair's tick or left whole for an unlisted one), every status
+  # ORDER_STATUS_MAP lists, both types and sides, origQuoteOrderQty present or absent and a negative cumulative quote.
+  listed = { 'BTCUSDT' => Ticker.new(exchange: mexc, ticker: 'BTCUSDT', base: 'BTC', quote: 'USDT', price_decimals: 2),
+             'PEPEUSDT' => Ticker.new(exchange: mexc, ticker: 'PEPEUSDT', base: 'PEPE', quote: 'USDT', price_decimals: 10) }
+  mexc.define_singleton_method(:tickers) { Object.new.tap { |t| t.define_singleton_method(:find_by) { |ticker:| listed[ticker] } } }
+  statuses = Exchanges::Mexc::ORDER_STATUS_MAP.keys
+  orders = Array.new(10_000) do |n|
+    filled = rng.rand(3).positive?
+    raw = { 'symbol' => %w[BTCUSDT PEPEUSDT NEWUSDT][n % 3], 'orderId' => "C02__#{n}", 'type' => %w[MARKET LIMIT][n % 2], 'side' => %w[BUY SELL][rng.rand(2)],
+            'status' => statuses[rng.rand(statuses.size)], 'price' => rng.rand(4).zero? ? '0' : decimal.(-9, 5), 'origQty' => rng.rand(5).zero? ? '0' : decimal.(-8, 3),
+            'origQuoteOrderQty' => [nil, '0', decimal.(-4, 4)][rng.rand(3)],
+            'executedQty' => filled ? decimal.(-8, 3) : '0', 'cummulativeQuoteQty' => filled ? decimal.(-6, 5) : (rng.rand(9).zero? ? '-1' : '0') }.compact
+    data = mexc.send(:parse_order_data, "#{raw['symbol']}-#{raw['orderId']}", raw)
+    { 'raw' => raw, 'status' => data[:status].to_s, 'price' => data[:price]&.to_d&.to_s('F'),
+      'amount' => data[:amount]&.to_d&.to_s('F'), 'quote_amount' => data[:quote_amount]&.to_d&.to_s('F'),
+      'amount_exec' => data[:amount_exec].to_d.to_s('F'), 'quote_amount_exec' => data[:quote_amount_exec]&.to_d&.to_s('F'),
+      'side' => data[:side].to_s, 'order_type' => data[:order_type].to_s }
+  end
+  out['mexc_orders'] = orders
+  extra = "#{orders.size} orders"
 when 'bybit'
   bybit = exchange
   listed = { 'BTCUSDT' => Ticker.new(exchange: bybit, ticker: 'BTCUSDT', base: 'BTC', quote: 'USDT', price_decimals: 2) }

@@ -456,6 +456,59 @@ async fn rails_and_rust_decide_identically_across_the_gemini_grid() {
     }
 }
 
+/// Hyperliquid grid variants where Rust deliberately decides otherwise than Rails (plan VB §5, slice B1), each asserted on its
+/// own terms: a placement that may have reached Hyperliquid (a 5xx, a lost reply, an answer that is not JSON, an "ok" without
+/// statuses or without an oid, an answer whose status is neither "ok" nor "err") keeps the intent for recovery by cloid, where
+/// Rails writes a failed row. Only an answer that proves the refusal (`err`, a status error, a 4xx) clears it.
+const HYPERLIQUID_DIVERGENCES: [&str; 6] = ["add_server_error", "add_timeout_after_send", "add_unreadable", "add_no_statuses", "add_no_oid", "add_odd_status"];
+
+/// Landed recovery on Hyperliquid: after a lost reply Rails writes a failed row; Rust keeps the intent, and its next tick's
+/// orderStatus by cloid FINDS the order and records it (filled, its cost from its fills), sending nothing more.
+fn hyperliquid_landed_found(rails_out: &serde_json::Value, rust_out: &serde_json::Value) -> Result<(), String> {
+    if !rails_out["changes"]["transactions"].as_array().unwrap().iter().any(|t| t["after"]["status"] == 1) { return Err(format!("Rails no longer writes a failed row: {rails_out}")); }
+    let rows = rust_out["changes"]["transactions"].as_array().unwrap();
+    let recorded = rows.iter().any(|t| t["after"]["external_id"] == "BTC-77738309" && t["after"]["status"] == 0 && t["after"]["external_status"] == 2);
+    if rust_out["sent"].as_array().unwrap().len() != 1 || rust_out["recover_sent"] != 0 || !recorded {
+        return Err(format!("Rust must record the order its lookup found, filled, and send nothing more: {rust_out}"));
+    }
+    Ok(())
+}
+
+/// Plan VB slice B1. Every Hyperliquid bot places limit orders (Bot::LimitOrderable#limit_orders_locked?), so no DCA order
+/// here is a crossed (market) one: D-679 has no path-1 surface on Hyperliquid, and each sent order is compared whole.
+#[tokio::test(flavor = "current_thread")]
+async fn rails_and_rust_decide_identically_across_the_hyperliquid_grid() {
+    use common::venue_grid::{ending, run_venue_grid, Validator};
+    let outputs = run_venue_grid("grid-hyperliquid", 180, &[
+        Validator { names: &ending(&HYPERLIQUID_DIVERGENCES), check: &|_, d, r, u| intent_kept(d, r, u) },
+        // hyperliquid-rb wraps every transport failure in its own error, which honeymaker labels with its class.
+        Validator { names: &ending(&["add_network_pre_send"]), check: &|_, _, r, u| wrapped_like_rails("Faraday::ConnectionFailed: Connection refused",
+                                                                                                         "Hyperliquid::Error: Network error: Connection refused", r, u) },
+        Validator { names: &ending(&["landed_found"]), check: &|_, _, r, u| hyperliquid_landed_found(r, u) },
+        Validator { names: &ending(&["landed_missing"]), check: &|_, d, r, u| landed_missing(d, r, u) },
+    ]).await;
+    // Pin what Rails does where a silent pair of sides would otherwise pass.
+    for (name, rails_out) in &outputs {
+        let mailed: Vec<&str> = rails_out["mails"].as_array().unwrap().iter().map(|m| m["mail"].as_str().unwrap()).collect();
+        let expected: Option<&[&str]> = [("-insufficient", &["end_of_funds"][..]), ("-invalid_key", &["stopped_by_error"]), ("-low_funds", &["end_of_funds"]),
+                                         ("-on_schedule", &[])].into_iter().find(|(suffix, _)| name.ends_with(suffix)).map(|(_, m)| m);
+        if let Some(expected) = expected { assert_eq!(mailed, expected, "{name}: the mails Rails enqueued"); }
+        let rows = rails_out["changes"]["transactions"].as_array().unwrap();
+        let sent = rails_out["sent"].as_array().unwrap();
+        for order in sent { assert_eq!(order["t"], serde_json::json!({ "limit": { "tif": "Gtc" } }), "{name}: a resting limit order"); }
+        if name.ends_with("-first_tick") {
+            let price = if name.contains("-limit-") { "40.022" } else { "40.082" };
+            assert_eq!((sent[0]["a"].as_i64(), sent[0]["b"].as_bool(), sent[0]["p"].as_str()), (Some(10_142), Some(true), Some(price)),
+                       "{name}: a buy on the spot asset 10000 + 142 at the last price less the distance, on 5 significant figures");
+        }
+        if name.ends_with("-coarse_price") { assert!(sent[0]["p"].as_str().is_some_and(|p| !p.contains('.')), "{name}: a price over 10k has no decimals"); }
+        if name.ends_with("-below_minimum") { assert!(sent.is_empty(), "{name}: under the 10-USDC floor nothing is sent"); }
+        if name.ends_with("-sweep_gone_old") { assert!(rows.iter().any(|t| t["after"]["external_id"] == "BTC-210" && t["after"]["external_status"] == 4), "{name}: abandoned"); }
+        if name.ends_with("-sweep_gone_filled") { assert!(rows.iter().any(|t| t["after"]["external_id"] == "BTC-208" && t["after"]["external_status"] == 2), "{name}: recovered from its fills"); }
+        if name.ends_with("-sweep_gone_young") { assert!(!rows.iter().any(|t| t["after"]["external_id"] == "BTC-209"), "{name}: authoritative: a young missing order just waits"); }
+    }
+}
+
 /// Bitvavo grid variants where Rust deliberately decides otherwise than Rails (plan VB §5, slice A3), each asserted on its own
 /// terms: a placement that may have reached Bitvavo (a 5xx, a lost reply, an unreadable answer, errorCode 109 "timed out,
 /// your order may have been placed") keeps the intent, which waits for the operator (absence is never concluded), where
@@ -579,6 +632,46 @@ async fn rails_and_rust_decide_identically_across_the_bitget_grid() {
             let row = rows.iter().find(|t| t["after"]["external_id"] == "BTCUSDT-206").unwrap_or_else(|| panic!("{name}"));
             assert_eq!(row["after"]["external_status"], 2, "{name}");
         }
+    }
+}
+
+/// MEXC grid variants where Rust deliberately decides otherwise than Rails (plan VB §5, slice A5), each asserted on its own
+/// terms: a placement that may have reached MEXC (a 5xx, a lost reply, an unreadable answer, MEXC's "service not
+/// available") keeps the intent, which waits for the operator (absence is never concluded), where Rails writes a failed row.
+const MEXC_DIVERGENCES: [&str; 4] = ["add_server_error", "add_service_unavailable", "add_timeout_after_send", "add_unreadable"];
+
+#[tokio::test(flavor = "current_thread")]
+async fn rails_and_rust_decide_identically_across_the_mexc_grid() {
+    use common::venue_grid::{ending, run_venue_grid, Validator};
+    let unreadable = |n: &str| n.contains(UNREADABLE);
+    let wrapped = |id: &'static str, sentence: &'static str| move |_: &str, _: &Path, r: &serde_json::Value, u: &serde_json::Value| {
+        wrapped_like_rails(&format!(r#"Failed to fetch orders BTCUSDT-{id}. Result: [\"{sentence}\"]"#), sentence, r, u)
+    };
+    let outputs = run_venue_grid("grid-mexc", 196, &[
+        Validator { names: &unreadable, check: &|n, d, r, u| unreadable_number_refused(n, d, r, u, false) },
+        Validator { names: &ending(&MEXC_DIVERGENCES), check: &|_, d, r, u| intent_kept(d, r, u) },
+        Validator { names: &ending(&["add_no_order_id"]), check: &|_, d, r, u| unacknowledged_kept(d, r, u) },
+        Validator { names: &ending(&["add_network_pre_send"]), check: &|_, _, r, u| refused_like_rails(r, u) },
+        Validator { names: &ending(&["sweep_unknown_type"]), check: &wrapped("C02__208", "Unknown MEXC order type: STOP_LOSS") },
+        Validator { names: &ending(&["sweep_unknown_status"]), check: &wrapped("C02__209", "Unknown MEXC order status: PENDING_CANCEL") },
+    ]).await;
+    // Pin what Rails does where a silent pair of sides would otherwise pass.
+    for (name, rails_out) in &outputs {
+        let mailed: Vec<&str> = rails_out["mails"].as_array().unwrap().iter().map(|m| m["mail"].as_str().unwrap()).collect();
+        let expected: Option<&[&str]> = [("-insufficient", &["end_of_funds"][..]), ("-invalid_key", &["stopped_by_error"]), ("-low_funds", &["end_of_funds"]),
+                                         ("-on_schedule", &[]), ("-timestamp_700003", &[])].into_iter().find(|(suffix, _)| name.ends_with(suffix)).map(|(_, m)| m);
+        if let Some(expected) = expected { assert_eq!(mailed, expected, "{name}: the mails Rails enqueued"); }
+        let rows = rails_out["changes"]["transactions"].as_array().unwrap();
+        let sent = rails_out["sent"].as_array().unwrap();
+        let after = |id: &str| rows.iter().find(|t| t["after"]["external_id"] == id).map(|t| t["after"].clone());
+        if name.ends_with("-timestamp_700003") { assert!(rows.is_empty() && sent.len() == 1, "{name}: 700003 writes no row"); }
+        if name.ends_with("-market-first_tick") { assert!(sent[0]["quoteOrderQty"].is_string() && sent[0]["recvWindow"] == "5000", "{name}: a market buy by quote"); }
+        if name.ends_with("-market-zero_base_minimum") { assert!(sent.len() == 1, "{name}: a zero base minimum leaves the quote minimum the floor"); }
+        if name.ends_with("-zero_base_minimum_below") { assert!(sent.is_empty(), "{name}: under the quote minimum"); }
+        if name.ends_with("-limit-first_tick") { assert!(sent[0]["price"].is_string() && sent[0]["timeInForce"] == "GTC", "{name}: a limit buy"); }
+        if name.ends_with("-sweep_filled_limit_at_fills") { assert_eq!(after("BTCUSDT-C02__204").unwrap()["price"], serde_json::json!({ "f": format!("{:x}", 63763.44f64.to_bits()) }), "{name}: X2, priced at its fills (59.3 / 0.00093), not the limit"); }
+        if name.ends_with("-sweep_partially_canceled") { assert_eq!(after("BTCUSDT-C02__205").unwrap()["external_status"], 3, "{name}: X1, terminal"); }
+        if name.ends_with("-sweep_gone_old") { assert_eq!(after("BTCUSDT-C02__212").unwrap()["external_status"], 4, "{name}: X5, abandoned"); }
     }
 }
 
