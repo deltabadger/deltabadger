@@ -30,8 +30,9 @@
 //! - an applyTime is read as UTC (Rails reads it in the process's zone);
 //! - margin and futures are not read (ruling Q11); the key carries no note of it: `last_sync_error` is the tracker's
 //!   "Sync failed" banner, so a run that completes clears it, as Rails' does;
-//! - a Binance.US key's ledger is not read (Rails reads it from api.binance.com, which refuses the key): the run sends
-//!   nothing, stores nothing, and completes (clearing the key's error), so the tracker states the venue's balances.
+//! - a Binance.US key's ledger is this same walk at api.binance.us, without the sources Exchanges::BinanceUs never asks
+//!   (converts, fiat payments, dust and Simple Earn: its `import_*` overrides are no-ops; margin and futures are read for
+//!   neither): deposits, withdrawals, spot trades and dividends (`others`' `us`).
 use super::activities::{Entry, Raw};
 use super::ledger::{self, Outcome, Progress};
 use super::wire::{self, Budget, Node};
@@ -360,6 +361,7 @@ struct Fetched { entries: Vec<Entry>, pending: Option<DateTime<Utc>>, seen: Opti
 
 /// Every read of the run; no database handle in reach.
 async fn fetch<T: Transport>(venue: &BinanceVenue<T>, clock: &dyn Clock, pacing: Pacing, from: i64, start: &Start, full: bool) -> Result<Fetched, Fail> {
+    let us = start.key.exchange_type == BINANCE_US;
     let now = clock.now();
     let mut t = Transfers::default();
     let parse = |text: String, what: &'static str| async move {
@@ -425,7 +427,7 @@ async fn fetch<T: Transport>(venue: &BinanceVenue<T>, clock: &dyn Clock, pacing:
         let newest = if rails_reads { rails_trades_seen(start.stored.get(name).map_or(&[][..], Vec::as_slice), &read, rails_from) } else { read.iter().map(|r| r.1).max() };
         seen = seen.max(newest);
     }
-    let rest = others(venue, clock, pacing, (!full).then_some(from)).await?;
+    let rest = others(venue, clock, pacing, (!full).then_some(from), us).await?;
     seen = seen.max(rest.iter().filter_map(|e| e.transacted_at).max());
     entries.extend(rest);
     if entries.len() > MAX_ENTRIES { return Err((format!("more than {MAX_ENTRIES} ledger entries in one run"), true)); }
@@ -466,11 +468,14 @@ fn total(page: &Raw) -> i64 {
 
 /// #import_convert_trades, #import_fiat_payments, #import_dust_conversions, #import_dividends, #import_earn_rewards and
 /// #import_earn_subscriptions, in Rails' order, each walked from `since` (a full sync: from the source's opening) to now.
-async fn others<T: Transport>(venue: &BinanceVenue<T>, clock: &dyn Clock, pacing: Pacing, since: Option<i64>) -> Result<Vec<Entry>, Fail> {
+/// `us`: Binance.US's list (Exchanges::BinanceUs makes every one but #import_dividends a no-op).
+async fn others<T: Transport>(venue: &BinanceVenue<T>, clock: &dyn Clock, pacing: Pacing, since: Option<i64>, us: bool) -> Result<Vec<Entry>, Fail> {
     let now = ms(clock.now());
     let recv = || ("recvWindow", READ_RECV_WINDOW.to_string());
     let mut entries = vec![];
-    for (call, (start, end)) in windows(since.unwrap_or(CONVERT_FROM_MS), now, CONVERT_DAYS).into_iter().enumerate() {
+    // The windows of a source Binance.US does not have: none.
+    let binance_only = |from: i64, days: i64| if us { vec![] } else { windows(from, now, days) };
+    for (call, (start, end)) in binance_only(since.unwrap_or(CONVERT_FROM_MS), CONVERT_DAYS).into_iter().enumerate() {
         if call > 0 { tokio::time::sleep(pacing.converts).await; }
         let page = object_at(venue, clock, CONVERT_PATH, vec![("startTime", start.to_string()), ("endTime", end.to_string()), ("limit", CONVERT_LIMIT.to_string()), recv()]).await?;
         let list = listed(&page, "list", "convert")?;
@@ -489,7 +494,7 @@ async fn others<T: Transport>(venue: &BinanceVenue<T>, clock: &dyn Clock, pacing
         }
     }
     for (kind, entry_type, prefix, description) in [(0, BUY, "fiat-buy", "Fiat purchase"), (1, SELL, "fiat-sell", "Fiat sale")] {
-        for (start, end) in windows(since.unwrap_or(HISTORY_FROM_MS), now, WINDOW_DAYS) {
+        for (start, end) in binance_only(since.unwrap_or(HISTORY_FROM_MS), WINDOW_DAYS) {
             let mut number = 1;
             loop {
                 let page = object_at(venue, clock, FIAT_PATH, vec![("transactionType", kind.to_string()), ("beginTime", start.to_string()), ("endTime", end.to_string()),
@@ -512,7 +517,7 @@ async fn others<T: Transport>(venue: &BinanceVenue<T>, clock: &dyn Clock, pacing
             }
         }
     }
-    for (start, end) in windows(since.unwrap_or(DUST_FROM_MS), now, WINDOW_DAYS) {
+    for (start, end) in binance_only(since.unwrap_or(DUST_FROM_MS), WINDOW_DAYS) {
         let page = object_at(venue, clock, DUST_PATH, vec![("startTime", start.to_string()), ("endTime", end.to_string()), recv()]).await?;
         let dribblets = listed(&page, "userAssetDribblets", "dust conversion")?;
         if dribblets.len() >= DUST_LIMIT { return Err(("more dust conversions in one window than Binance answers at once: nothing was stored".into(), true)); }
@@ -549,7 +554,7 @@ async fn others<T: Transport>(venue: &BinanceVenue<T>, clock: &dyn Clock, pacing
             (&["purchaseId", "redeemId", "time"], &["time", "createTime"], format!("Earn {}", prefix.replace('-', " ")))
         };
         let kinds: &[Option<&str>] = if path == EARN[0].0 { &[Some(FLEXIBLE_REWARD_TYPES[0]), Some(FLEXIBLE_REWARD_TYPES[1]), Some(FLEXIBLE_REWARD_TYPES[2])] } else { &[None] };
-        for (start, end) in windows(since.unwrap_or(EARN_FROM_MS), now, EARN_DAYS) { for kind in kinds {
+        for (start, end) in binance_only(since.unwrap_or(EARN_FROM_MS), EARN_DAYS) { for kind in kinds {
             let mut current = 1;
             loop {
                 if calls > 0 { tokio::time::sleep(pacing.earn).await; }
@@ -578,11 +583,14 @@ async fn others<T: Transport>(venue: &BinanceVenue<T>, clock: &dyn Clock, pacing
     Ok(entries)
 }
 
-/// One ledger sync of one Binance key, as AccountTransaction::SyncJob#perform runs it, slice 1. Idempotent.
+/// One ledger sync of one Binance or Binance.US key (at its own host), as AccountTransaction::SyncJob#perform runs it,
+/// slice 1. Idempotent.
 /// `Ok(Err(failure))`: nothing fetched is stored, the watermark is untouched, the key's `last_sync_error` holds why.
 pub async fn sync<T: Transport>(db: &Db, transport: T, key_id: i64, credentials: &Credentials, clock: &dyn Clock, pacing: Pacing) -> Result<Result<Outcome, Failure>, SyncError> {
     let version = capture_bound_version(db, key_id, credentials).await?;
-    sync_captured(db, transport, binance::URL, key_id, credentials, clock, pacing, &version).await
+    let venue = phase(db, move |c| Ok(load_key_of(c, key_id, &[BINANCE, BINANCE_US])?.exchange_type)).await?;
+    let base = binance::host(&venue).map_or(binance::URL, |(base, _)| base);
+    sync_captured(db, transport, base, key_id, credentials, clock, pacing, &version).await
 }
 
 /// `base`: where Binance is reached (`Connect::binance_base`; a test points it at a local server).
@@ -601,19 +609,6 @@ pub(crate) async fn sync_captured<T: Transport>(db: &Db, transport: T, base: &st
             Ok::<_, SyncError>(Err(Failure { error, raised }))
         }
     };
-    if start.key.exchange_type == BINANCE_US {
-        // Nothing is read, nothing stored, the watermark stays; the run completes, so the tracker can state the venue
-        // from its balances (Rails' read of it always fails, storing nothing either). A completed run clears the error.
-        let (producer, stale) = (version.clone(), start.key.last_sync_error.is_some());
-        super::commit_for(db, version, move |c| {
-            super::cache::record_ledger(c, key_id, &producer, now)?;
-            if stale { c.execute("UPDATE api_keys SET last_sync_error = NULL, updated_at = ?1 WHERE id = ?2", params![sql_time(now), key_id])?; }
-            Ok(())
-        }).await?;
-        let mut outcome = Outcome { watermark: start.watermark, complete: true, ..Outcome::default() };
-        outcome.linked = ledger::link_transfers_for(db, user_id, Some(version), clock.now()).await?;
-        return Ok(Ok(outcome));
-    }
     let full = start.watermark.is_none();
     // Transfers from the watermark (never past now) less the overlap, else from Binance's opening; no 80-day floor.
     let from = start.watermark.map_or(HISTORY_FROM_MS, |w| ms(w.min(now) - Duration::hours(OVERLAP_HOURS)));

@@ -62,9 +62,9 @@ when 'kucoin'
   ]
 when 'prices'
   # Not one venue: every venue's Exchange#adjusted_price and #market_price_for, the default rule and its two overrides.
-  price_venues = %w[Kraken Alpaca Binance Kucoin Gemini Hyperliquid]
+  price_venues = %w[Kraken Alpaca Binance Kucoin Gemini Hyperliquid BinanceUs]
   out = { 'sources' => pin.(%w[app/models/exchange.rb app/models/ticker.rb script/rust/record_venue_vectors.rb] +
-                            price_venues.map { |v| "app/models/exchanges/#{v.downcase}.rb" }) }
+                            price_venues.map { |v| "app/models/exchanges/#{v.underscore}.rb" }) }
   seed, tickers = 20_261_020, []
 else raise ArgumentError, "unknown venue #{venue}"
 end

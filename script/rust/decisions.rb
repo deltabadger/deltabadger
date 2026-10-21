@@ -4,6 +4,7 @@
 #   bin/rails runner script/rust/decisions.rb grid-basket <root>  # Alpaca crypto baskets, with the engine's recovery and the next checkpoint
 #   bin/rails runner script/rust/decisions.rb grid-limit <root>   # the amount limit, its stop and its mail, on Alpaca crypto, Kraken, Binance and KuCoin
 #   bin/rails runner script/rust/decisions.rb grid-binance <root> # Binance spot, scripted beneath honeymaker at the Faraday adapter
+#   bin/rails runner script/rust/decisions.rb grid-binance-us <root> # Binance.US spot: the Binance grid at api.binance.us
 #   bin/rails runner script/rust/decisions.rb grid-kucoin <root>  # KuCoin spot, scripted beneath honeymaker at the Faraday adapter
 #   bin/rails runner script/rust/decisions.rb grid-sell <root>    # a one-asset basket selling on Kraken, Binance and Alpaca (slice 6a)
 #   bin/rails runner script/rust/decisions.rb grid-venue-basket <root> # buying baskets of 2 and 3 members on Kraken (EUR) and Binance (USDT)
@@ -162,6 +163,8 @@ TETHER = %w[tether USDT Tether Cryptocurrency].freeze
 VENUES = {
   'binance' => VenueRow.new(scripted: ScriptedVenue.new(host: 'api.binance.com', name: 'Binance', order: 'POST /api/v3/order', body: :query, strip: %w[timestamp signature]),
                             exchange: 'Exchanges::Binance', name: 'Binance', ticker: 'BTCUSDT', quote: TETHER, passphrase: nil, pre_send: 'binance_pre_send'),
+  'binance_us' => VenueRow.new(scripted: ScriptedVenue.new(host: 'api.binance.us', name: 'Binance.US', order: 'POST /api/v3/order', body: :query, strip: %w[timestamp signature]),
+                               exchange: 'Exchanges::BinanceUs', name: 'Binance.US', ticker: 'BTCUSDT', quote: TETHER, passphrase: nil),
   'kucoin' => VenueRow.new(scripted: ScriptedVenue.new(host: 'api.kucoin.com', name: 'KuCoin', order: 'POST /api/v1/orders', body: :json, strip: %w[clientOid]),
                            exchange: 'Exchanges::Kucoin', name: 'KuCoin', ticker: 'BTC-USDT', quote: TETHER, passphrase: 'p', pre_send: 'kucoin_pre_send')
 }.freeze
@@ -2526,7 +2529,8 @@ module Decisions
       'bot_columns' => { 'status' => Bot.statuses[:stopped] }, 'script' => { 'alpaca' => http }, 'tick' => false, 'rebalance_at' => [fire] }
   end
 
-  def binance_scenarios
+  # `venue`: 'binance', or 'binance_us' (Exchanges::BinanceUs, the same code at api.binance.us: plan VB slice A2).
+  def binance_scenarios(venue = 'binance')
     started = '2026-09-01T10:00:00.123456Z'
     ticker = { 'base_decimals' => 5, 'quote_decimals' => 8, 'price_decimals' => 2, 'minimum_base_size' => '0.00001', 'minimum_quote_size' => '5' }
     http = {
@@ -2571,7 +2575,7 @@ module Decisions
         'add_timeout_after_send' => { 'at' => after.(1), 'http' => { 'POST /api/v3/order' => [POST_SEND] } },
         'add_no_order_id' => { 'at' => after.(1), 'http' => { 'POST /api/v3/order' => [ok('symbol' => 'BTCUSDT')] } },
         'add_unreadable' => { 'at' => after.(1), 'http' => { 'POST /api/v3/order' => [{ 'status' => 200, 'body' => '<html>upstream</html>' }] } },
-        'add_network_pre_send' => { 'at' => after.(1), 'http' => { 'POST /api/v3/order' => [VENUES.fetch('binance').not_sent] } },
+        'add_network_pre_send' => { 'at' => after.(1), 'http' => { 'POST /api/v3/order' => [VENUES.fetch(venue).not_sent] } },
         'low_funds' => { 'at' => after.(1), 'http' => { 'GET /api/v3/account' => [bn_account('1.00000000')] } },
         'zero_price' => { 'at' => after.(1), 'http' => { 'GET /api/v3/ticker/bookTicker' => [bn_book('0.00000000')], 'GET /api/v3/ticker/price' => [bn_last('0.00000000')] } },
         'no_price' => { 'at' => after.(1), 'http' => { 'GET /api/v3/ticker/bookTicker' => [bn_fail(400, -1121, 'Invalid symbol.')],
@@ -2635,10 +2639,10 @@ module Decisions
       end
       modes.flat_map do |mode, settings|
         variants.map do |name, v|
-          { 'name' => "#{interval}-#{mode}-#{name}", 'venue' => 'binance', 'interval' => interval, 'quote_amount' => v.fetch('quote_amount', 60.0),
+          { 'name' => "#{interval}-#{mode}-#{name}", 'venue' => venue, 'interval' => interval, 'quote_amount' => v.fetch('quote_amount', 60.0),
             'started_at' => started, 'settings' => settings, 'settings_changed_at' => v['settings_changed_at'],
             'transient' => v.fetch('transient', {}), 'transactions' => v.fetch('transactions', []), 'ticker' => v.fetch('ticker', ticker),
-            'ticker_after' => v['ticker_after'], 'at' => v.fetch('at'), 'script' => { 'binance' => http.merge(v.fetch('http', {})) },
+            'ticker_after' => v['ticker_after'], 'at' => v.fetch('at'), 'script' => { venue => http.merge(v.fetch('http', {})) },
             'tick' => v.fetch('tick', true), 'poll' => v['poll'] }
         end
       end
@@ -3326,7 +3330,7 @@ def web_save(dir)
 end
 
 command, root = ARGV
-USAGE = 'usage: grid <root> | grid-signal <root> | grid-alpaca <root> | grid-basket <root> | grid-limit <root> | grid-binance <root> | grid-kucoin <root> | grid-sell <root> | grid-venue-basket <root> | grid-venue-index <root> | grid-conditions <root> | grid-basket-sell <root> | grid-rebalance <root> | record <root> | web-save <dir>'.freeze
+USAGE = 'usage: grid <root> | grid-signal <root> | grid-alpaca <root> | grid-basket <root> | grid-limit <root> | grid-binance <root> | grid-binance-us <root> | grid-kucoin <root> | grid-sell <root> | grid-venue-basket <root> | grid-venue-index <root> | grid-conditions <root> | grid-basket-sell <root> | grid-rebalance <root> | record <root> | web-save <dir>'.freeze
 raise ArgumentError, USAGE unless root
 
 case command
@@ -3338,6 +3342,7 @@ when 'grid-index' then Decisions.grid(root, Decisions.index_scenarios)
 when 'grid-venue-index' then Decisions.grid(root, Decisions.venue_index_scenarios)
 when 'grid-limit' then Decisions.grid(root, Decisions.limit_scenarios)
 when 'grid-binance' then Decisions.grid(root, Decisions.binance_scenarios)
+when 'grid-binance-us' then Decisions.grid(root, Decisions.binance_scenarios('binance_us'))
 when 'grid-kucoin' then Decisions.grid(root, Decisions.kucoin_scenarios)
 when 'grid-sell' then Decisions.grid(root, Decisions.sell_scenarios)
 when 'grid-venue-basket' then Decisions.grid(root, Decisions.venue_basket_scenarios)

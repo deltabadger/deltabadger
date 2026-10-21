@@ -336,12 +336,19 @@ fn binance_ledger(name: &str, rails: &Value, rust: &Value) -> Option<Result<(), 
             check(rows(rails, "account_transactions").iter().any(|r| r["after"]["tx_id"] == "0xd7" && num(&r["after"]["base_amount"]) == Some(0.0)), "Rails no longer stores a garbage amount as 0: drop the listed divergence")?;
             refused("deposit: unreadable amount: not a plain decimal number")
         })(),
-        // Listed divergence: Rust sends nothing for a Binance.US key and completes with no error on the key; Rails reads it
-        // from Binance.com (here the fake answers it).
-        "binance-ledger-us_refused" => rails_has(&BASIC).and_then(|()| {
-            check(tx_ids(rust).is_empty() && moved_watermark(rust).is_none() && key_error(rust).is_null(), &format!("Rust stored {:?}, key error {}", tx_ids(rust), key_error(rust)))?;
-            check(rust["steps"][0]["requests"].as_array().is_some_and(Vec::is_empty), "Rust sent a request for a Binance.US key")
-        }),
+        // Binance.US: Binance's walk with its own source list. Neither side asks a source Exchanges::BinanceUs makes a no-op,
+        // and the rows (dividends included, converts, fiat, dust and earn not) are Rails'.
+        "binance-ledger-us_every_source" | "binance-ledger-us_two_nights" => (|| {
+            const NOT_ON_US: [&str; 6] = ["/sapi/v1/convert/", "/sapi/v1/fiat/", "/sapi/v1/asset/dribblet", "/sapi/v1/simple-earn/", "/sapi/v1/margin/", "/api/v1/income"];
+            for (side, out) in [("Rails", rails), ("Rust", rust)] {
+                for request in out["steps"].as_array().into_iter().flatten().flat_map(|s| s["requests"].as_array().cloned().unwrap_or_default()) {
+                    let path = request[0].as_str().unwrap_or_default();
+                    check(!NOT_ON_US.iter().any(|p| path.contains(p)), &format!("{side} asked Binance.US {path}"))?;
+                }
+            }
+            check(tx_ids(rust).iter().any(|t| t.starts_with("dividend-")), "no dividend read")?;
+            same_rows_and_watermark(rails, rust)
+        })(),
         _ => Err(format!("{name} is not compared")),
     })
 }
@@ -415,7 +422,7 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
     dirs.sort();
     let named = |prefix: &str| dirs.iter().filter(|d| d.file_name().unwrap().to_string_lossy().starts_with(prefix)).count();
-    assert_eq!((named("ledger-"), named("balances-"), named("binance-balances-"), named("binance-ledger-"), named("import-"), named("kucoin-ledger-"), named("kucoin-balances-"), dirs.len()), (58, 44, 21, 29, 21, 12, 16, 201), "the sync grid");
+    assert_eq!((named("ledger-"), named("balances-"), named("binance-balances-"), named("binance-ledger-"), named("import-"), named("kucoin-ledger-"), named("kucoin-balances-"), dirs.len()), (58, 44, 21, 30, 21, 12, 16, 202), "the sync grid");
     for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
     for scenario in ["ledger-split_future", "ledger-split_nested_duplicate_keys", "binance-ledger-two_nights"] { copy_dir(&rails_root.path().join(scenario), &handback.path().join(scenario)); }
     rails(&["record", rails_root.path().to_str().unwrap()]);
@@ -440,7 +447,7 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     }
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), outputs.len(), failures.join("\n"));
     let mut expected=["binance-ledger-flexible_rewards_type", "binance-ledger-other_sources", "binance-ledger-two_nights", "binance-ledger-earn_documented_amounts", "binance-ledger-earn_fails", "binance-ledger-crypto_pair_later", "binance-ledger-over_500_trades", "binance-ledger-deposit_credited", "binance-ledger-pending_withdrawal",
-                      "binance-ledger-symbol_fails", "binance-ledger-away_100_days", "binance-ledger-garbage_amount", "binance-ledger-us_refused",
+                      "binance-ledger-symbol_fails", "binance-ledger-away_100_days", "binance-ledger-garbage_amount", "binance-ledger-us_every_source", "binance-ledger-us_two_nights",
                       "binance-ledger-full", "binance-ledger-idle", "binance-ledger-deposit_fails", "binance-ledger-file_transfers", "binance-ledger-file_transfer_claimed_once", "binance-ledger-file_second_after", "binance-ledger-deposit_600", "binance-ledger-idless_repeats", "binance-ledger-preexisting_repeats", "binance-ledger-known_id_repeat", "binance-ledger-file_dust", "binance-ledger-file_dust_rounding", "binance-ledger-twin_repeats", "binance-ledger-stored_trade_newer", "binance-ledger-stored_trades_over_500", "binance-ledger-stored_trade_before_floor", "import-file_then_api_transfers", "import-api_then_file_transfers", "import-file_then_api_dust", "import-api_then_file_dust", "import-file_then_api_dust_rounding", "import-api_then_file_dust_rounding", "binance-balances-blank_free", "binance-balances-garbage_free", "binance-balances-whitespace_free", "binance-balances-rate_spelling", "binance-balances-rate_zero_padded", "binance-balances-price_underscore_exponent", "binance-balances-no_rate", "balances-account_null", "balances-no_trade_keeps_last_price", "balances-no_trade_market_price", "balances-no_trade_unpriced", "balances-positions_not_array", "ledger-pages_stalled", "ledger-split_hostile_quantity", "kucoin-ledger-pages"].to_vec();
     expected.extend_from_slice(UNKNOWN_PRICE_ORIGIN);
     expected.extend_from_slice(&["balances-snapshots_network", "ledger-long_error", "ledger-network_pre_send"]);

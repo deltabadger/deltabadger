@@ -236,10 +236,17 @@ fn refused_like_rails(rails_out: &serde_json::Value, rust_out: &serde_json::Valu
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn rails_and_rust_decide_identically_across_the_binance_grid() {
+async fn rails_and_rust_decide_identically_across_the_binance_grid() { binance_grid("grid-binance").await }
+
+/// Plan VB slice A2: Exchanges::BinanceUs is Exchanges::Binance at api.binance.us under its own name and rules; the same
+/// grid, recorded from it, with the same listed divergences.
+#[tokio::test(flavor = "current_thread")]
+async fn rails_and_rust_decide_identically_across_the_binance_us_grid() { binance_grid("grid-binance-us").await }
+
+async fn binance_grid(grid: &str) {
     use common::venue_grid::{ending, run_venue_grid, Validator};
     let unreadable = |n: &str| n.contains(UNREADABLE);
-    let outputs = run_venue_grid("grid-binance", 176, &[
+    let outputs = run_venue_grid(grid, 176, &[
         Validator { names: &unreadable, check: &|n, d, r, u| unreadable_number_refused(n, d, r, u, false) },
         Validator { names: &ending(&["add_no_order_id"]), check: &|_, d, r, u| unacknowledged_kept(d, r, u) },
         Validator { names: &ending(&BINANCE_DIVERGENCES), check: &|_, d, r, u| intent_kept(d, r, u) },

@@ -233,12 +233,8 @@ pub fn reading_keys(c: &Connection) -> Result<Vec<i64>, SyncError> { reading_key
 /// ApiKey.reading over the venues whose balances this build syncs.
 pub fn balance_reading_keys(c: &Connection) -> Result<Vec<i64>, SyncError> { reading_keys_of(c, &balance_venues()) }
 
-/// The venues with a ledger job (`registry::Row::ledger`; Binance.US's run reads nothing and completes, see binance_ledger).
+/// The venues with a ledger job (`registry::Row::ledger`): the ones the tracker's history-gap step judges (tracker::gaps).
 pub fn ledger_venues() -> Vec<&'static str> { crate::venue::registry::types(|r| r.ledger.is_some()) }
-
-/// The venues whose ledger job really reads a history (Binance.US's run reads nothing yet stamps its ledger current, see
-/// binance_ledger): the only ones the tracker's history-gap step judges (tracker::gaps).
-pub fn ledger_read_venues() -> Vec<&'static str> { crate::venue::registry::types(|r| r.ledger.is_some_and(|l| l.reads_history())) }
 
 /// ApiKey.reading over `ledger_venues`.
 pub fn ledger_reading_keys(c: &Connection) -> Result<Vec<i64>, SyncError> { reading_keys_of(c, &ledger_venues()) }

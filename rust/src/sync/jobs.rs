@@ -179,7 +179,7 @@ impl<C: Connect> Job for LedgerSync<C> {
             let done = match venue_of(&cx.db, self.key_id).await {
                 Err(e) => Err(e),
                 Ok((venue, proxy)) => match registry::row(&venue).and_then(|r| r.ledger) {
-                    Some(LedgerSync::Binance | LedgerSync::BinanceUs) =>
+                    Some(LedgerSync::Binance) =>
                         crate::sync::binance_ledger::sync_captured(&cx.db, self.venues.binance_transport(&credentials, proxy.as_deref()),
                                                                    &self.venues.binance_base(&venue).unwrap_or_default(), self.key_id, &credentials, cx.clock,
                                                                    self.venues.binance_pacing(), &version).await,
@@ -256,8 +256,7 @@ impl<C: Connect> Job for BalanceSync<C> {
 }
 
 /// The jobs of an install, for the scheduler's start: per reading Alpaca, Binance, Binance.US or KuCoin key (`ApiKey.reading`,
-/// what Rails' nightly jobs iterate) one ledger job and one balance job (a Binance.US ledger run reads nothing and
-/// completes), every ledger job before every balance job, so jobs due together run in Rails' order. New scopes are registered by the same constructors on their first wake.
+/// what Rails' nightly jobs iterate) one ledger job and one balance job, every ledger job before every balance job, so jobs due together run in Rails' order. New scopes are registered by the same constructors on their first wake.
 pub fn register<C: Connect + Clone + 'static>(c: &Connection, venues: &C, prices: Rc<dyn PriceSource>) -> Result<Vec<Box<dyn Job>>, SyncError> {
     let mut jobs: Vec<Box<dyn Job>> = vec![];
     for key in ledger_reading_keys(c)? { jobs.push(Box::new(LedgerSync::new(venues.clone(), key))); }
