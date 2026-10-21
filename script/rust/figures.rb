@@ -170,12 +170,16 @@ module Figures
               'allocation_flattening' => 0.0, 'index_type' => 'category', 'index_category_id' => 'nasdaq-100',
               'index_name' => 'ND100', 'limit_ordered' => false
             }.merge(spec.fetch('settings', {})))
-          when 'single' # a pair bot: Rails computes its figures, this library does not
+          when 'single' # a pair bot: Bots::DcaSingleAsset
             user.bots.new(type: 'Bots::DcaSingleAsset', exchange: alpaca, label: spec['label'], settings: {
               'base_asset_id' => assets.fetch(members.first).id, 'quote_asset_id' => quote.id, 'quote_amount' => 100.0, 'interval' => 'week'
             })
+          when 'signal' # the other pair bot: Bots::Signal, which has only its two assets
+            user.bots.new(type: 'Bots::Signal', exchange: alpaca, label: spec['label'], settings: {
+              'base_asset_id' => assets.fetch(members.first).id, 'quote_asset_id' => quote.id
+            })
           end
-    bot.set_missed_quote_amount
+    bot.set_missed_quote_amount if bot.respond_to?(:set_missed_quote_amount)
     bot.save!(validate: spec['type'] == 'basket')
     if spec['type'] == 'index' # the composition an index derives from market data, written as refresh_composition writes it
       members.each do |symbol|
@@ -232,6 +236,13 @@ module Figures
       })
     end
     Array(sc['delist']).each { |code| alpaca.tickers.find_by!(ticker: code).update_columns(available: false) }
+    # More listings on the venue: another asset under a name the venue already uses, or a replaced one.
+    Array(sc['listings']).each do |l|
+      Ticker.create!(exchange: alpaca, ticker: l.fetch('code'), base: l.fetch('name'), quote: l.fetch('quote'), base_asset: assets.fetch(l.fetch('asset')),
+                     quote_asset: assets.fetch(l.fetch('quote')), base_decimals: 9, quote_decimals: 2, price_decimals: 2,
+                     minimum_base_size: '0.000000001', minimum_quote_size: '1')
+    end
+    Array(sc['sql']).each { |sql| ActiveRecord::Base.connection.execute(sql) }
     [user, bots]
   end
 
@@ -706,11 +717,121 @@ module Figures
       # The same for a rate: the provider's table has one that is no number, for a currency nobody asked about.
       scenario('account_rate_nan_unused', NOW, [basket(two, WEEKLY)], TWO.merge(hosted(rates: RATES.merge('xau' => 'NaN'))), provider: 'deltabadger', display_currency: 'EUR'),
       scenario('account_no_provider', NOW, [basket(two, WEEKLY)], TWO, display_currency: 'EUR'),
-      scenario('account_pair_bot', NOW, [basket(two, WEEKLY), { 'type' => 'single', 'members' => %w[AAA], 'label' => 'pair', 'orders' => [buy('AAA', T0, '100', '1')] }],
-               TWO.merge("#{ALPACA}/v2/stocks/AAA/trades/latest" => ok('trade' => { 'p' => 104.52 }))),
+      # A pair bot beside a basket, on an asset of its own: two readers of one candle series would ask Rails' candle cache
+      # for a tail this library (no cache) never asks for.
+      scenario('account_pair_bot', NOW, [basket(two, WEEKLY), { 'type' => 'single', 'members' => %w[CCC], 'label' => 'pair', 'orders' => [buy('CCC', T0, '70', '1')] }],
+               THREE),
+      # A bot of a type this library does not know, beside a basket.
+      scenario('account_unknown_type', NOW, [basket(two, WEEKLY), { 'type' => 'single', 'members' => %w[CCC], 'label' => 'other', 'orders' => [buy('CCC', T0, '70', '1')] }],
+               TWO, sql: ["UPDATE bots SET type = 'Bots::Withdrawal' WHERE label = 'other'"]),
       scenario('account_nothing_invested', NOW, [basket(two, [], label: 'a'), basket(%w[CCC], [], label: 'b')], market)
     ]
-    list + kucoin_scenarios + (1..24).map { |seed| random_history(seed) }
+    list + kucoin_scenarios + pair_scenarios + (1..24).map { |seed| random_history(seed) }
+  end
+
+  # ---- pair bots: Bots::DcaSingleAsset::Measurable, for Bots::DcaSingleAsset and Bots::Signal ---------------------
+
+  # Beside a basket of AAA and BBB, a pair of CCC: two readers of one candle series would ask Rails' candle cache for a
+  # tail this library's scripted market never asks for.
+  THREE = market(prices: { 'AAA' => 104.52, 'BBB' => 53.9, 'CCC' => 71.2 }, stock_bars: { 'AAA' => AAA_BARS, 'BBB' => BBB_BARS, 'CCC' => daily(BARS_START, 14, 70.0, 0.1) }).freeze
+
+  def pair(orders, members: %w[AAA], type: 'single', **rest) = { 'type' => type, 'members' => members, 'orders' => orders }.merge(rest.stringify_keys)
+
+  PAIR_ORDERS = [buy('AAA', T0, '101.37', '0.591891092'), buy('AAA', T0 + (7 * D), '103.11', '0.581902822')].freeze
+  PAIR_MARKET = market(prices: { 'AAA' => 104.52 }, stock_bars: { 'AAA' => AAA_BARS }).freeze
+  AAA_BARS_KEY = "#{ALPACA}/v2/stocks/AAA/bars".freeze
+
+  # Every kind of order a pair's walk reads, with splits; no row that a named divergence (D1, D2) reads apart.
+  def random_pair(seed)
+    rng = Random.new(1000 + seed)
+    at = T0
+    price = 100.0
+    orders = []
+    splits = []
+    24.times do
+      at += rng.rand(600..(3 * D)) + (rng.rand < 0.3 ? rng.rand(1..999_999) / 1_000_000r : 0)
+      price = (price * (0.93 + (rng.rand * 0.14))).round(2)
+      px = format('%.2f', price)
+      amount = format('%.9f', rng.rand(5.0..60.0) / price)
+      roll = rng.rand
+      orders <<
+        if roll < 0.45 then buy('AAA', at, px, amount)
+        elsif roll < 0.65 then sell('AAA', at, px, amount)
+        elsif roll < 0.72 then { 'sym' => 'AAA', 'at' => at, 'price' => px, 'amount' => amount } # closed, never backfilled
+        elsif roll < 0.78 then { 'sym' => 'AAA', 'at' => at, 'price' => px, 'amount' => amount, 'amount_exec' => amount, 'side' => 'sell' }
+        elsif roll < 0.84 then { 'sym' => 'AAA', 'at' => at, 'price' => px, 'amount' => amount, 'amount_exec' => format('%.9f', amount.to_f / 3), 'ext' => 'open' }
+        elsif roll < 0.88 then buy('AAA', at, px, amount, ext: 'open')
+        elsif roll < 0.92 then { 'sym' => 'AAA', 'at' => at, 'price' => px, 'amount' => amount, 'ext' => 'open' }
+        elsif roll < 0.96 then { 'sym' => 'AAA', 'at' => at, 'price' => px, 'amount' => amount, 'amount_exec' => '0', 'quote_amount_exec' => '0', 'ext' => 'cancelled' }
+        else buy('AAA', at, px, amount, status: 'failed')
+        end
+      next unless rng.rand < 0.1
+
+      ratio = ['2:1', '3:2', '1:10', '10:1', '4:1'].sample(random: rng)
+      splits << { 'sym' => 'AAA', 'at' => at + rng.rand(60..D), 'ratio' => ratio }
+      new_count, old_count = ratio.split(':').map(&:to_f)
+      price = (price * old_count / new_count).round(2)
+    end
+    now = at + (4 * D) + 0.5
+    bars = daily(T0 - (3 * D), ((now - T0) / D).to_i + 4, price * 0.9, price * 0.002)
+    scenario("random_pair_#{seed}", now, pair(orders, type: seed.even? ? 'signal' : 'single'),
+             market(prices: { 'AAA' => (price * 1.013).round(2) }, stock_bars: { 'AAA' => bars }), 'splits' => splits)
+  end
+
+  def pair_scenarios
+    row = ->(extra) { pair([buy('AAA', T0, '100', '1'), { 'sym' => 'AAA', 'at' => T0 + D }.merge(extra)]) }
+    kc_pair = pair([buy('BTC', KC_FIRST, '50000', '0.001'), buy('BTC', KC_FIRST + (400 * D), '40000', '0.0012'), sell('BTC', KC_FIRST + (900 * D), '45000', '0.0005')],
+                   members: %w[BTC], type: 'signal', venue: 'kucoin')
+    [
+      # Each row the pair walk reads, beside one ordinary buy.
+      scenario('pair_row_requested_fallback', NOW, row.call('price' => '101', 'amount' => '1', 'amount_exec' => '0.4'), PAIR_MARKET), # D1
+      scenario('pair_row_zero_price', NOW, row.call('price' => '0', 'amount' => '0.5', 'amount_exec' => '0.5', 'quote_amount_exec' => '50'), PAIR_MARKET), # D2
+      scenario('pair_row_null_price_reported', NOW, row.call('amount' => '0.5', 'amount_exec' => '0.5', 'quote_amount_exec' => '51'), PAIR_MARKET), # D2
+      scenario('pair_row_zero_proceeds', NOW, row.call('price' => '102', 'amount' => '0.3', 'amount_exec' => '0.3', 'quote_amount_exec' => '0'), PAIR_MARKET),
+      scenario('pair_row_open_partial', NOW, row.call('price' => '101', 'amount' => '1', 'amount_exec' => '0.4', 'ext' => 'open'), PAIR_MARKET),
+      scenario('pair_row_nil_price_nil_quote', NOW, row.call('amount' => '0.5'), PAIR_MARKET),
+      scenario('pair_row_nil_amounts', NOW, row.call('price' => '100', 'amount_exec' => '0.5'), PAIR_MARKET),
+      # Shapes.
+      scenario('pair_buys', NOW, pair(PAIR_ORDERS), PAIR_MARKET),
+      scenario('pair_crypto', NOW, pair(crypto_orders.select { |o| o['sym'] == 'BTC' }, members: %w[BTC]), crypto_market('USD')),
+      scenario('pair_sell_excess', NOW, pair(dca_out), PAIR_MARKET),
+      scenario('signal_sell_only', NOW, pair([sell('AAA', T0, '100', '0.5'), sell('AAA', T0 + D, '105', '0.25')], type: 'signal'), PAIR_MARKET),
+      scenario('signal_first_sell', NOW, pair([sell('AAA', T0, '100', '0.5'), buy('AAA', T0 + D, '101', '1'), buy('AAA', T0 + (2 * D), '99', '0.5')], type: 'signal'), PAIR_MARKET),
+      scenario('pair_tiny_avg', NOW, pair([buy('AAA', T0, '0.0000123', '1000000'), buy('AAA', T0 + D, '0.0000125', '2000000')]),
+               market(prices: { 'AAA' => 0.0000127 }, stock_bars: { 'AAA' => daily(BARS_START, 14, 0.0000120, 0.0000001) })),
+      # Orders and fills.
+      scenario('pair_no_orders', NOW, pair([]), PAIR_MARKET),
+      scenario('pair_submitted_unfilled', NOW, pair([{ 'sym' => 'AAA', 'at' => T0, 'price' => '100', 'amount' => '1', 'ext' => 'open' }]), PAIR_MARKET),
+      # Splits.
+      scenario('pair_split_settled', NOW, pair(SPLIT_ORDERS.select { |o| o['sym'] == 'AAA' }), split_market,
+               splits: [{ 'sym' => 'AAA', 'at' => SPLIT_AT, 'ratio' => '4:1' }, { 'sym' => 'AAA', 'at' => T0 - D, 'ratio' => '2:1' }]),
+      scenario('pair_split_quarantine', T0 + (4 * D), pair(SPLIT_ORDERS.first(1)), split_market, splits: [{ 'sym' => 'AAA', 'at' => SPLIT_AT, 'ratio' => '4:1' }]),
+      scenario('pair_unresolved_split', NOW, pair(SPLIT_ORDERS.select { |o| o['sym'] == 'AAA' }), split_market, splits: [{ 'sym' => 'AAA', 'at' => SPLIT_AT, 'ratio' => nil }]),
+      # The ticker.
+      scenario('pair_no_ticker', NOW, pair(PAIR_ORDERS), {}, sql: ["DELETE FROM tickers WHERE ticker = 'AAA'"]),
+      scenario('pair_tickerless_two_spellings', NOW, pair([buy('AAA', T0, '100', '1', base: 'BBB'), buy('AAA', T0 + D, '101', '1', base: 'BBB.OLD'),
+                                                           sell('AAA', T0 + (2 * D), '103', '0.5', base: 'BBB')]), {}, sql: ["DELETE FROM tickers WHERE ticker = 'AAA'"]),
+      scenario('pair_tickerless_null_base', NOW, pair([buy('AAA', T0, '100', '1', base: nil), buy('AAA', T0 + D, '101', '1', base: 'BBB')]), {},
+               sql: ["DELETE FROM tickers WHERE ticker = 'AAA'"]),
+      scenario('pair_delisted', NOW, pair(PAIR_ORDERS), PAIR_MARKET, delist: %w[AAA]),
+      scenario('pair_replaced_listing', NOW, pair(PAIR_ORDERS), PAIR_MARKET,
+               listings: [{ 'asset' => 'AAA2', 'quote' => 'USDT', 'code' => 'AAA2X', 'name' => 'AAA' },
+                          { 'asset' => 'BBB', 'quote' => 'USDT', 'code' => 'STALEX', 'name' => '__stale_1_AAA' }]),
+      scenario('pair_same_base_two_quotes', NOW, pair(crypto_orders.select { |o| o['sym'] == 'BTC' }, members: %w[BTC], quote: 'USDT'),
+               crypto_market('USDT').merge(hosted(prices: { %w[tether usd] => 1 })), provider: 'deltabadger'),
+      # The market.
+      scenario('pair_price_refused', NOW, pair(PAIR_ORDERS), PAIR_MARKET.merge(STOCK_PRICES => { 'status' => 400, 'body' => { 'message' => 'bad request' } })),
+      scenario('pair_price_raised', NOW, pair(PAIR_ORDERS), PAIR_MARKET.merge(STOCK_PRICES => REFUSED)),
+      scenario('pair_candles_failed', NOW, pair(PAIR_ORDERS), PAIR_MARKET.merge(AAA_BARS_KEY => SERVER_ERROR)),
+      scenario('pair_candles_raised', NOW, pair(PAIR_ORDERS), PAIR_MARKET.merge(AAA_BARS_KEY => REFUSED)),
+      scenario('pair_display_raised', NOW, pair(PAIR_ORDERS), PAIR_MARKET.merge("#{AAA_BARS_KEY}?adjustment=split" => REFUSED)),
+      scenario('pair_restating', NOW, pair(PAIR_ORDERS), market(prices: { 'AAA' => 104.52 }, stock_bars: { 'AAA' => RAW_AAA }, restated_bars: { 'AAA' => AAA_BARS })),
+      scenario('pair_kucoin', KC_NOW, kc_pair, {}, steps: [kucoin_step(KC_NOW, kucoin_walk('BTC-USD', KC_SINCE, KC_NOW, kc_btc))]),
+      # Beside other bots.
+      scenario('mixed_pair_candles_raised', NOW, [basket(%w[BBB], WEEKLY.select { |o| o['sym'] == 'BBB' }), pair(PAIR_ORDERS)], TWO.merge(AAA_BARS_KEY => REFUSED)),
+      scenario('mixed_venues', KC_NOW, [basket(%w[AAA BBB], WEEKLY), kc_pair, pair([buy('CCC', T0, '70', '1')], members: %w[CCC])], {},
+               steps: [kucoin_step(KC_NOW, kucoin_walk('BTC-USD', KC_SINCE, KC_NOW, kc_btc).merge(THREE))])
+    ] + (1..8).map { |seed| random_pair(seed) }
   end
 
   # ---- KuCoin: Exchanges::Kucoin#get_tickers_prices and #get_candles under CandleSeriesCache, one cache across the steps
@@ -802,12 +923,19 @@ module Figures
 
   def figures(user, bot_ids)
     bots = bot_ids.to_h do |id|
+      type = Bot.where(id:).pick(:type)
+      next [id.to_s, { 'type' => type }] unless %w[Bots::DcaMultiAsset Bots::DcaIndex Bots::DcaSingleAsset Bots::Signal].include?(type)
+
       bot = Bot.find(id)
-      next [id.to_s, { 'type' => bot.type }] unless bot.is_a?(Bot::Composition::Measurable)
+      pair = bot.is_a?(Bots::DcaSingleAsset::Measurable)
 
       out = { 'metrics' => answer { bot.metrics }, 'live' => answer { bot.metrics_with_current_prices } }
       marked = nil
       out['marked'] = answer { marked = bot.metrics_with_current_prices_and_candles }
+      if pair # what a cold pass left in the cache: a `return` inside a fetch block writes nothing
+        out['cached'] = !bot.metrics_with_current_prices_from_cache.nil?
+        out['chart_cache'] = !bot.metrics_with_current_prices_and_candles_from_cache.nil?
+      end
       out['chart'] = marked && chart(bot, marked, user)
       out['profit_in_usd'] = answer { bot.profit_in_usd(bot.metrics_with_current_prices, cache_only: false) }
       [id.to_s, out]
@@ -824,6 +952,13 @@ module Figures
   # RULING-B2B-1 MQ6: the counterfactual reads every buy and REGULAR sell normalized (B2-1), but a LIQUIDATION, and a
   # REBALANCE sell that reported proceeds, keep the walk's raw-proceeds gates, as the Rust walk does (an unpriced REBALANCE
   # sell stays normalized, R4). Only the walk's pluck names both columns.
+  # A pair bot's rows are read raw on both readings: its walk is compared with Rails' own, and its named divergences
+  # (rust/tests/figures.rs, D1 and D2) are asserted apart.
+  def self.pair_rows?(relation)
+    bot_id = relation.where_values_hash['bot_id']
+    bot_id.present? && Bot.where(id: bot_id, type: %w[Bots::DcaSingleAsset Bots::Signal]).exists?
+  end
+
   module RawSpecialSells
     def pluck(*columns)
       return super unless Thread.current[:normalized_figure_rows] && klass == Transaction && columns.include?(:side) && columns.include?(:transaction_type)
@@ -845,6 +980,21 @@ module Figures
     end
   end
   ActiveRecord::Relation.prepend(RawSpecialSells)
+
+  # Outermost: a pair bot's rows are read raw on both readings (`pair_rows?`).
+  module RawPairRows
+    def pluck(*columns)
+      return super unless Thread.current[:normalized_figure_rows] && klass == Transaction && Figures.pair_rows?(self)
+
+      begin
+        Thread.current[:normalized_figure_rows] = false
+        super
+      ensure
+        Thread.current[:normalized_figure_rows] = true
+      end
+    end
+  end
+  ActiveRecord::Relation.prepend(RawPairRows)
 
   # One scenario's figures, with every request it made. A scenario in steps keeps one cache across them (the clock moves,
   # the cache is not cleared): its figures are the last step's, and each step's requests are listed apart.

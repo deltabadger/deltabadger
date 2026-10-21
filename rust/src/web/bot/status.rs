@@ -180,7 +180,8 @@ struct Fill {
 #[template(path = "bots/status/_progress_bar.html")]
 struct Progress {
     id: String,
-    fill: Fill,
+    /// None for a signal bot, which has no schedule to fill the bar with.
+    fill: Option<Fill>,
 }
 
 #[derive(Template)]
@@ -192,6 +193,8 @@ struct Bar<'a> {
     executing: bool,
     text: Option<String>,
     dots: bool,
+    /// A working signal bot: "Listening", its dots right after it.
+    listening: bool,
     countdown: Option<Countdown>,
     /// No working key: `new_bot_add_api_key_path`, for the Connect that stands beside "Disconnected".
     connect: Option<String>,
@@ -218,10 +221,12 @@ struct ButtonView<'a> {
     class: String,
     /// The bot page's wrapper drops the secondary button's outline; the tile's has no class.
     tile: bool,
+    /// Bot#start_blocked_by_unavailable_ticker?, said beside a Start that cannot start (a signal bot's ticker).
+    hint: Option<String>,
 }
 
 impl ButtonView<'_> {
-    fn render_for(v: &Ctx, csrf: &str, bot: &Bot, button: &Button, tile: bool) -> Result<String, WebError> {
+    fn render_for(v: &Ctx, csrf: &str, bot: &Bot, button: &Button, tile: bool, hint: Option<String>) -> Result<String, WebError> {
         let size = if tile { "rbutton rbutton--small" } else { "rbutton" };
         let class = match button {
             Button::Reactivate => format!("{size} rbutton--success"),
@@ -232,7 +237,7 @@ impl ButtonView<'_> {
             Button::Restart(true) | Button::Start(true) => format!("{size} rbutton--disabled"),
         };
         let id = bot.dom_id(if tile { "tile_status_button" } else { "status_button" });
-        Ok(ButtonView { v, csrf, id, path: v.path(&format!("/bots/{}", bot.id)), button, class, tile }.render()?)
+        Ok(ButtonView { v, csrf, id, path: v.path(&format!("/bots/{}", bot.id)), button, class, tile, hint }.render()?)
     }
 }
 
@@ -302,7 +307,8 @@ pub fn render_unsaved(c: &Connection, ctx: &Ctx, csrf: &str, bot: &Bot, stored: 
         Ok((start, next_action_at(c, bot, ctx.now)?))
     };
     // _progress_bar.html.erb asks only whether the bot is scheduled, whatever the status bar says.
-    let scheduled_timing = if bot.status == BotStatus::Scheduled { Some(timing()?) } else { None };
+    let signal = bot.kind == Kind::Signal;
+    let scheduled_timing = if bot.status == BotStatus::Scheduled && !signal { Some(timing()?) } else { None };
     let fill = match scheduled_timing.as_ref() {
         Some((start, end)) => Fill {
             scheduled: true,
@@ -311,7 +317,7 @@ pub fn render_unsaved(c: &Connection, ctx: &Ctx, csrf: &str, bot: &Bot, stored: 
         },
         None => Fill { scheduled: false, width: "0".into(), start: None, end: None },
     };
-    let (mut text, mut dots, mut countdown, mut connect) = (None, false, None, None);
+    let (mut text, mut dots, mut countdown, mut connect, mut listening) = (None, false, None, None, false);
     match bot.status {
         BotStatus::Archived => text = Some(t("bot.status.archived")),
         _ if !bot.exchange.retired() && !bot.api_key_correct() => connect = Some(ctx.path(&format!("/bots/{}/add_api_key/new", bot.id))),
@@ -327,6 +333,7 @@ pub fn render_unsaved(c: &Connection, ctx: &Ctx, csrf: &str, bot: &Bot, stored: 
             });
         }
         BotStatus::Waiting => (text, dots) = (Some(t("bot.status.waiting")), true),
+        BotStatus::Scheduled if signal => listening = true,
         BotStatus::Scheduled | BotStatus::Retrying => {
             let scheduled = bot.status == BotStatus::Scheduled;
             let end = match &scheduled_timing { Some((_, end)) => *end, None => timing()?.1 };
@@ -343,11 +350,12 @@ pub fn render_unsaved(c: &Connection, ctx: &Ctx, csrf: &str, bot: &Bot, stored: 
         }
         BotStatus::Created | BotStatus::Deleted => {}
     }
-    let bar = Bar { v: ctx, id: bot.dom_id("status_bar"), active: bot.status == BotStatus::Scheduled, executing: bot.status == BotStatus::Executing, text, dots, countdown, connect }.render()?;
-    let progress = Progress { id: bot.dom_id("progress_bar"), fill }.render()?;
+    let bar = Bar { v: ctx, id: bot.dom_id("status_bar"), active: bot.status == BotStatus::Scheduled, executing: bot.status == BotStatus::Executing, text, dots, listening, countdown, connect }.render()?;
+    let progress = Progress { id: bot.dom_id("progress_bar"), fill: (!signal).then_some(fill) }.render()?;
     // _status_button.html.erb runs `bot.invalid?(:start)` whatever the status, and the errors it leaves are printed
-    // under their fields by the settings rendered after it.
-    let check = start::check_unsaved(c, bot, stored, ctx.now, market_data_configured, ctx.locale)?;
+    // under their fields by the settings rendered after it. A signal bot's are printed nowhere.
+    let check = if signal { start::Check { invalid: super::signal::start_invalid(c, bot)?, ..Default::default() } }
+                else { start::check_unsaved(c, bot, stored, ctx.now, market_data_configured, ctx.locale)? };
     let disabled = check.invalid || !bot.api_key_correct();
     let button = match bot.status {
         BotStatus::Archived => Button::Reactivate,
@@ -355,8 +363,11 @@ pub fn render_unsaved(c: &Connection, ctx: &Ctx, csrf: &str, bot: &Bot, stored: 
         BotStatus::Stopped | BotStatus::Created => Button::Start(disabled),
         _ => Button::Stop,
     };
-    let tile_button = ButtonView::render_for(ctx, csrf, bot, &button, true)?;
-    let button = ButtonView::render_for(ctx, csrf, bot, &button, false)?;
+    // Only a signal bot lists its ticker for the hint (Bots::Signal#tickers_for_start); the other types list none.
+    let hint = (signal && matches!(bot.status, BotStatus::Stopped | BotStatus::Created) && super::signal::start_blocked(bot))
+        .then(|| i18n::text(ctx.locale, "errors.bots.exchange_asset_mismatch", &[("exchange_name", i18n::Arg::Text(&bot.exchange.name))]));
+    let tile_button = ButtonView::render_for(ctx, csrf, bot, &button, true, hint.clone())?;
+    let button = ButtonView::render_for(ctx, csrf, bot, &button, false, hint)?;
     Ok(Status { bar, progress, button, tile_button, check: Some(check) })
 }
 

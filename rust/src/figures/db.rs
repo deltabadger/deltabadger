@@ -221,6 +221,32 @@ pub fn listings(c: &Connection, exchange_id: i64, asset_ids: &[i64]) -> Result<V
     }).collect()
 }
 
+/// Bot::ChartSeries#chart_logo_assets(keys).compact, a pair bot's logos: `exchange.tickers.where(base: keys)` indexed by
+/// base, each base where its first listing comes and its last listing's asset standing; a base whose asset is gone is
+/// left out. The query is Rails' own, so its rows come in the order Rails reads them.
+pub fn logo_listings(c: &Connection, exchange_id: i64, keys: &[Option<String>]) -> Result<Vec<(String, i64)>, FiguresError> {
+    let named: Vec<&String> = keys.iter().flatten().collect();
+    budget::charge(keys.len() as u64, 0)?;
+    let mut terms = vec![];
+    if !named.is_empty() { terms.push(format!("\"tickers\".\"base\" IN ({})", (0..named.len()).map(|i| format!("?{}", i + 2)).collect::<Vec<_>>().join(", "))); }
+    if keys.iter().any(Option::is_none) { terms.push("\"tickers\".\"base\" IS NULL".into()); }
+    if terms.is_empty() { return Ok(vec![]); }
+    let sql = format!("SELECT \"tickers\".* FROM \"tickers\" WHERE \"tickers\".\"exchange_id\" = ?1 AND ({})", terms.join(" OR "));
+    let mut statement = c.prepare(&sql)?;
+    let (base, asset) = (statement.column_index("base")?, statement.column_index("base_asset_id")?);
+    let mut params: Vec<&dyn rusqlite::ToSql> = vec![&exchange_id];
+    params.extend(named.iter().map(|n| *n as &dyn rusqlite::ToSql));
+    let mut rows = statement.query(params.as_slice())?;
+    let mut indexed: Vec<(Option<String>, Option<i64>)> = vec![];
+    while let Some(r) = rows.next()? {
+        budget::charge(1, 0)?;
+        let (b, a): (Option<String>, Option<i64>) = (r.get(base)?, r.get(asset)?);
+        match indexed.iter_mut().find(|(k, _)| *k == b) { Some(entry) => entry.1 = a, None => indexed.push((b, a)) }
+    }
+    let existing: HashSet<i64> = existing_assets(c, &indexed.iter().filter_map(|(_, a)| *a).collect::<Vec<_>>())?.into_iter().collect();
+    Ok(indexed.into_iter().filter_map(|(b, a)| a.filter(|a| existing.contains(a)).map(|a| (b.unwrap_or_default(), a))).collect())
+}
+
 /// The ids among these that are assets (`Asset.where(id: ids)`).
 pub fn existing_assets(c: &Connection, ids: &[i64]) -> Result<Vec<i64>, FiguresError> {
     Ok(asset_names(c, ids)?.into_iter().map(|(id, _, _)| id).collect())
