@@ -346,6 +346,41 @@ fn binance_ledger(name: &str, rails: &Value, rust: &Value) -> Option<Result<(), 
     })
 }
 
+/// D-KUCOIN-TRANSFER-PIN: Rust bounds every deposits or withdrawals page after the first with `endAt` = the first page's
+/// newest `createdAt` + 1 ms (a transfer arriving mid-walk shifts no page); Rails sends none. Everything else, the
+/// stored rows included, is Rails'. Each such `endAt` is checked against the first page's answer in the scenario's
+/// script, then removed; None when Rust sent no pinned page (the scenario is compared whole).
+fn kucoin_transfer_pin(name: &str, dir: &std::path::Path, rails: &Value, rust: &Value) -> Option<Result<(), String>> {
+    const TRANSFERS: [&str; 2] = ["GET /api/v1/deposits", "GET /api/v1/withdrawals"];
+    if !name.starts_with("kucoin-ledger-") { return None; }
+    let scenario = read(&dir.join("scenario.json"));
+    let mut stripped = rust.clone();
+    let mut pinned = 0;
+    for (i, step) in stripped["steps"].as_array_mut().into_iter().flatten().enumerate() {
+        let mut first_page_answer: std::collections::HashMap<&str, usize> = Default::default();
+        let mut served: std::collections::HashMap<String, usize> = Default::default();
+        for request in step["requests"].as_array_mut().into_iter().flatten() {
+            let path = request[0].as_str().unwrap_or_default().to_string();
+            let Some(&transfer) = TRANSFERS.iter().find(|t| **t == path) else { continue };
+            let n = served.entry(path.clone()).or_default();
+            let query = request[1].as_array_mut().unwrap();
+            let param = |k: &str, q: &Vec<Value>| q.iter().find(|p| p[0] == k).map(|p| p[1].as_str().unwrap_or_default().to_string());
+            if param("currentPage", query).as_deref() == Some("1") { first_page_answer.insert(transfer, *n); }
+            else if let Some(end_at) = param("endAt", query) {
+                let Some(&answer) = first_page_answer.get(transfer) else { return Some(Err(format!("{path}: a pinned page before the first"))) };
+                let items = &scenario["steps"][i]["kucoin"][transfer][answer]["body"]["data"]["items"];
+                let newest = items.as_array().into_iter().flatten().filter_map(|t| t["createdAt"].as_i64()).max();
+                if newest.map(|n| (n + 1).to_string()) != Some(end_at.clone()) { return Some(Err(format!("{path}: endAt {end_at}, the first page's newest is {newest:?}"))); }
+                query.retain(|p| p[0] != "endAt");
+                pinned += 1;
+            }
+            *n += 1;
+        }
+    }
+    if pinned == 0 { return None; }
+    Some(check(stripped == *rails, &format!("beyond the transfer pin the outputs differ:\n  rails: {rails}\n  rust:  {stripped}")))
+}
+
 /// R: a seeded legacy price has no producer digest and cannot be reused by a fresh sync.
 const UNKNOWN_PRICE_ORIGIN:&[&str]=&["binance-balances-stale_and_gone", "kucoin-balances-stale_and_gone", "balances-market_fails", "balances-market_partial", "balances-snapshots_fail", "balances-unreadable_price_-Infinity_stale", "balances-unreadable_price_Infinity_stale", "balances-unreadable_price_NaN_stale", "balances-unreadable_price_garbage_stale"];
 fn unknown_price_origin(name:&str,rails:&Value,rust:&Value)->Option<Result<(),String>> {
@@ -396,7 +431,7 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     }
     let (mut failures, mut divergences) = (vec![], vec![]);
     for (name, rails_out, rust_out) in &outputs {
-        match unknown_price_origin(name,rails_out,rust_out).or_else(||binance_ledger(name, rails_out, rust_out)).or_else(||listed(name, rails_out, rust_out)) {
+        match kucoin_transfer_pin(name, &rust_root.path().join(name), rails_out, rust_out).or_else(|| unknown_price_origin(name,rails_out,rust_out)).or_else(||binance_ledger(name, rails_out, rust_out)).or_else(||listed(name, rails_out, rust_out)) {
             Some(Err(e)) => failures.push(format!("{name} (listed divergence): {e}\n  rails: {rails_out}\n  rust:  {rust_out}")),
             Some(Ok(())) => { divergences.push(name.as_str()); assert_ne!(rails_out, rust_out, "{name}: a listed divergence that no longer differs"); }
             None if rails_out != rust_out => failures.push(format!("{name}\n  rails: {rails_out}\n  rust:  {rust_out}")),
@@ -406,7 +441,7 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), outputs.len(), failures.join("\n"));
     let mut expected=["binance-ledger-flexible_rewards_type", "binance-ledger-other_sources", "binance-ledger-two_nights", "binance-ledger-earn_documented_amounts", "binance-ledger-earn_fails", "binance-ledger-crypto_pair_later", "binance-ledger-over_500_trades", "binance-ledger-deposit_credited", "binance-ledger-pending_withdrawal",
                       "binance-ledger-symbol_fails", "binance-ledger-away_100_days", "binance-ledger-garbage_amount", "binance-ledger-us_refused",
-                      "binance-ledger-full", "binance-ledger-idle", "binance-ledger-deposit_fails", "binance-ledger-file_transfers", "binance-ledger-file_transfer_claimed_once", "binance-ledger-file_second_after", "binance-ledger-deposit_600", "binance-ledger-idless_repeats", "binance-ledger-preexisting_repeats", "binance-ledger-known_id_repeat", "binance-ledger-file_dust", "binance-ledger-file_dust_rounding", "binance-ledger-twin_repeats", "binance-ledger-stored_trade_newer", "binance-ledger-stored_trades_over_500", "binance-ledger-stored_trade_before_floor", "import-file_then_api_transfers", "import-api_then_file_transfers", "import-file_then_api_dust", "import-api_then_file_dust", "import-file_then_api_dust_rounding", "import-api_then_file_dust_rounding", "binance-balances-blank_free", "binance-balances-garbage_free", "binance-balances-whitespace_free", "binance-balances-rate_spelling", "binance-balances-rate_zero_padded", "binance-balances-price_underscore_exponent", "binance-balances-no_rate", "balances-account_null", "balances-no_trade_keeps_last_price", "balances-no_trade_market_price", "balances-no_trade_unpriced", "balances-positions_not_array", "ledger-pages_stalled", "ledger-split_hostile_quantity"].to_vec();
+                      "binance-ledger-full", "binance-ledger-idle", "binance-ledger-deposit_fails", "binance-ledger-file_transfers", "binance-ledger-file_transfer_claimed_once", "binance-ledger-file_second_after", "binance-ledger-deposit_600", "binance-ledger-idless_repeats", "binance-ledger-preexisting_repeats", "binance-ledger-known_id_repeat", "binance-ledger-file_dust", "binance-ledger-file_dust_rounding", "binance-ledger-twin_repeats", "binance-ledger-stored_trade_newer", "binance-ledger-stored_trades_over_500", "binance-ledger-stored_trade_before_floor", "import-file_then_api_transfers", "import-api_then_file_transfers", "import-file_then_api_dust", "import-api_then_file_dust", "import-file_then_api_dust_rounding", "import-api_then_file_dust_rounding", "binance-balances-blank_free", "binance-balances-garbage_free", "binance-balances-whitespace_free", "binance-balances-rate_spelling", "binance-balances-rate_zero_padded", "binance-balances-price_underscore_exponent", "binance-balances-no_rate", "balances-account_null", "balances-no_trade_keeps_last_price", "balances-no_trade_market_price", "balances-no_trade_unpriced", "balances-positions_not_array", "ledger-pages_stalled", "ledger-split_hostile_quantity", "kucoin-ledger-pages"].to_vec();
     expected.extend_from_slice(UNKNOWN_PRICE_ORIGIN);
     expected.extend_from_slice(&["balances-snapshots_network", "ledger-long_error", "ledger-network_pre_send"]);
     expected.sort();

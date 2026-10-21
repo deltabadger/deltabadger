@@ -577,12 +577,20 @@ pub(super) struct Progress {
 impl Progress {
     /// What one store starts from (AccountTransactionSync#store!'s locals): nothing counted yet, over `batch`.
     pub(super) fn new(assets: AssetRule, merged: HashSet<String>, batch: Arc<Vec<Entry>>) -> Progress {
-        let mut file_pairs: HashMap<String, Vec<usize>> = HashMap::new();
-        for (i, e) in batch.iter().enumerate() {
-            if let Some(group) = e.group_id.as_deref().filter(|g| g.starts_with("swapcsv_")) { file_pairs.entry(group.to_string()).or_default().push(i); }
-        }
-        Progress { out: Outcome::default(), assets: Arc::new(assets), merged, min_skipped: None, stored: HashSet::new(), repeats: BTreeMap::new(), batch, file_pairs }
+        Progress { out: Outcome::default(), assets: Arc::new(assets), merged, min_skipped: None, stored: HashSet::new(), repeats: BTreeMap::new(), file_pairs: pairs_of(&batch), batch }
     }
+    /// The same store going on over the next `batch` (continuation::sync stores an import a page at a time): what it
+    /// counted so far carried, as one store over every page would carry it.
+    pub(super) fn over(self, batch: Arc<Vec<Entry>>) -> Progress { Progress { file_pairs: pairs_of(&batch), batch, ..self } }
+}
+
+/// `@file_pairs`: the batch's export swap pairs (`swapcsv_` groups), each the indices of its legs in batch order.
+fn pairs_of(batch: &[Entry]) -> HashMap<String, Vec<usize>> {
+    let mut file_pairs: HashMap<String, Vec<usize>> = HashMap::new();
+    for (i, e) in batch.iter().enumerate() {
+        if let Some(group) = e.group_id.as_deref().filter(|g| g.starts_with("swapcsv_")) { file_pairs.entry(group.to_string()).or_default().push(i); }
+    }
+    file_pairs
 }
 
 /// #event_key: type, currency, amount and instant.
