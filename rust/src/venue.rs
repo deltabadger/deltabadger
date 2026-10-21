@@ -8,6 +8,7 @@ pub mod http;
 pub mod binance;
 pub mod bitvavo;
 pub mod bitget;
+pub mod bybit;
 pub mod kraken;
 pub mod kucoin;
 pub mod gemini;

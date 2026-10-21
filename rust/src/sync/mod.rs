@@ -22,6 +22,7 @@ pub mod binance_ledger;
 pub mod bitvavo_ledger;
 pub mod bitget_ledger;
 pub mod mexc_ledger;
+pub mod bybit_ledger;
 pub mod kucoin_ledger;
 pub mod gemini_ledger;
 pub mod hyperliquid_ledger;

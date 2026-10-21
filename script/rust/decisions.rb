@@ -217,7 +217,10 @@ VENUES = {
   'hyperliquid' => VenueRow.new(scripted: ScriptedVenue.new(host: 'api.hyperliquid.xyz', name: 'Hyperliquid', order: 'POST /exchange', body: :hyperliquid, strip: %w[c]),
                                 exchange: 'Exchanges::Hyperliquid', name: 'Hyperliquid', ticker: '@142', quote: %w[usd-coin USDC USD\ Coin Cryptocurrency],
                                 passphrase: nil, key: '0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123',
-                                secret: '0x4c0883a69102937d6231471b5dbb6204fe5129617082792ae468d01a3f362318')
+                                secret: '0x4c0883a69102937d6231471b5dbb6204fe5129617082792ae468d01a3f362318'),
+  'bybit' => VenueRow.new(scripted: ScriptedVenue.new(host: 'api.bybit.com', name: 'Bybit', order: 'POST /v5/order/create', body: :json, strip: %w[orderLinkId]),
+                          exchange: 'Exchanges::Bybit', name: 'Bybit', ticker: 'BTCUSDT', quote: TETHER, passphrase: nil)
+
 }.freeze
 
 module Decisions
@@ -3091,6 +3094,60 @@ module Decisions
     end
   end
 
+  # Bybit V5 spot, including B1-B6 and D-BYBIT-AMBIG.
+  def by_ok(result) = ok('retCode' => 0, 'retMsg' => 'OK', 'result' => result)
+  def by_err(code, msg) = ok('retCode' => code, 'retMsg' => msg, 'result' => {})
+  def by_order(id, status, type: 'Market', base: '0', quote: '0')
+    { 'orderId' => id.to_s, 'symbol' => 'BTCUSDT', 'orderType' => type, 'side' => 'Buy', 'qty' => '0.00093',
+      'price' => '64000', 'avgPrice' => base == '0' ? '0' : '64000', 'cumExecQty' => base, 'cumExecValue' => quote, 'orderStatus' => status, 'rejectReason' => 'EC_NoError' }
+  end
+  def bybit_scenarios
+    started = '2026-09-01T10:00:00.123456Z'
+    ticker = { 'base_decimals' => 6, 'quote_decimals' => 8, 'price_decimals' => 2, 'minimum_base_size' => '0.00001', 'minimum_quote_size' => '1' }
+    rt, hist, create, wallet = 'GET /v5/order/realtime', 'GET /v5/order/history', 'POST /v5/order/create', 'GET /v5/account/wallet-balance'
+    assets = ->(usdt) { by_ok('list' => [{ 'coin' => [{ 'coin' => 'USDT', 'walletBalance' => usdt, 'locked' => '0', 'spotBorrow' => '0' }] }]) }
+    http = { 'GET /v5/market/orderbook' => [by_ok('a' => [['64001.37', '1']], 'b' => [['64000', '1']])],
+             'GET /v5/market/tickers' => [by_ok('list' => [{ 'symbol' => 'BTCUSDT', 'lastPrice' => '64000.12' }])],
+             create => [by_ok('orderId' => '123')], wallet => [assets.('100000')], rt => [by_ok('list' => [])], hist => [by_ok('list' => [])] }
+    waiting = ->(id, at = '2026-09-01 10:00:01') { { 'status' => 0, 'external_status' => 0, 'external_id' => id.to_s, 'order_type' => 0,
+        'quote_amount' => '60', 'price' => '64000', 'amount_exec' => '0', 'quote_amount_exec' => '0', 'created_at' => at } }
+    variants = { 'first_tick' => {}, 'carry' => { 'transient' => { 'missed_quote_amount' => '12.5' } },
+      'below_minimum' => { 'quote_amount' => 0.5 }, 'base_sized' => { 'ticker' => ticker.merge('minimum_quote_size' => '0') },
+      'price_http_error' => { 'http' => { 'GET /v5/market/orderbook' => [{ 'status' => 400, 'body' => { 'retCode' => 10006, 'retMsg' => 'Too many visits' } }], 'GET /v5/market/tickers' => [{ 'status' => 400, 'body' => { 'retCode' => 10006, 'retMsg' => 'Too many visits' } }] } },
+      'low_funds' => { 'http' => { wallet => [assets.('0')] } },
+      'insufficient' => { 'http' => { create => [by_err(170131, 'Insufficient balance')] } },
+      'invalid_key' => { 'http' => { create => [by_err(10003, 'API key is invalid.')] } },
+      'no_trade_permission' => { 'http' => { create => [by_err(10005, 'Permission denied, please check your API key permissions')] } },
+      'timestamp' => { 'http' => { create => [by_err(10002, 'Timestamp for this request is outside of the recvWindow.')] } },
+      'add_timeout_10000' => { 'http' => { create => [by_err(10000, 'Server Timeout')] } },
+      'add_server_10016' => { 'http' => { create => [by_err(10016, 'Server error.')] } },
+      'add_server_error' => { 'http' => { create => [{ 'status' => 503, 'body' => '<html>upstream</html>' }] } },
+      'add_timeout_after_send' => { 'http' => { create => [POST_SEND] } },
+      'add_unreadable' => { 'http' => { create => [{ 'status' => 200, 'body' => '<html>upstream</html>' }] } },
+      'add_bad_order_id' => { 'http' => { create => [by_ok('orderId' => {})] } },
+      'add_no_order_id' => { 'http' => { create => [by_ok({})] } },
+      'add_no_code' => { 'http' => { create => [ok('retMsg' => 'unknown')] } },
+      'sweep_gone_young' => { 'transactions' => [waiting.(201)] },
+      'sweep_gone_old' => { 'transactions' => [waiting.(202, '2026-08-01 10:00:01')] },
+      'history_found' => { 'transactions' => [waiting.(203)], 'http' => { rt => [by_err(110001, 'Order not found')], hist => [by_ok('list' => [by_order(203, 'Filled', base: '0.00093', quote: '59.52')])] } },
+      'landed_found' => { 'http' => { create => [POST_SEND], rt => [by_ok('list' => [by_order('7612345679', 'Filled', base: '0.001875', quote: '120').merge('orderLinkId' => '$client_order_id')])] } },
+      'landed_missing' => { 'http' => { create => [POST_SEND] } },
+      'history_error' => { 'transactions' => [waiting.(204)], 'http' => { hist => [by_err(10006, 'Too many visits')] } } }
+    Exchanges::Bybit::ORDER_STATUS_MAP.each_key.with_index do |status, i|
+      variants["sweep_#{status}"] = { 'transactions' => [waiting.(300 + i)], 'http' => { rt => [by_ok('list' => [by_order(300 + i, status, base: '0.0004', quote: '25.6')])] } }
+    end
+    %w[day week].flat_map do |interval|
+      after = (Time.iso8601(started) + (interval == 'day' ? 1.day : 1.week) + 1.second).iso8601(6)
+      { 'market' => {}, 'limit' => { 'limit_ordered' => true, 'limit_order_pcnt_distance' => 0.0025 } }.flat_map do |mode, settings|
+        variants.map do |name, v|
+          { 'name' => "#{interval}-#{mode}-#{name}", 'venue' => 'bybit', 'interval' => interval, 'quote_amount' => v.fetch('quote_amount', 60.0),
+            'started_at' => started, 'settings' => settings, 'at' => after, 'recover_at' => name.start_with?('landed_') ? (Time.iso8601(after) + 60).iso8601(6) : nil, 'transient' => v.fetch('transient', {}), 'transactions' => v.fetch('transactions', []),
+            'ticker' => v.fetch('ticker', ticker), 'script' => { 'bybit' => http.merge(v.fetch('http', {})) } }
+        end
+      end
+    end
+  end
+
   # Gemini spot (plan VB B3), one asset on btcusd: Rails' own answers to the bodies below, beneath honeymaker. Every private
   # call is a POST (its params in the signed payload), named by its path.
   def gm_ticker(bid, ask, last) = ok('bid' => bid, 'ask' => ask, 'last' => last, 'volume' => { 'BTC' => '10', 'USD' => '640000', 'timestamp' => 1_788_000_000_000 })
@@ -4039,7 +4096,7 @@ def web_save(dir)
 end
 
 command, root = ARGV
-USAGE = 'usage: grid <root> | grid-signal <root> | grid-alpaca <root> | grid-basket <root> | grid-limit <root> | grid-binance <root> | grid-binance-us <root> | grid-kucoin <root> | grid-bitvavo <root> | grid-bitget <root> | grid-gemini <root> | grid-mexc <root> | grid-hyperliquid <root> | grid-sell <root> | grid-venue-basket <root> | grid-venue-index <root> | grid-conditions <root> | grid-basket-sell <root> | grid-rebalance <root> | record <root> | web-save <dir>'.freeze
+USAGE = 'usage: grid <root> | grid-signal <root> | grid-alpaca <root> | grid-basket <root> | grid-limit <root> | grid-binance <root> | grid-binance-us <root> | grid-kucoin <root> | grid-bitvavo <root> | grid-bitget <root> | grid-gemini <root> | grid-mexc <root> | grid-hyperliquid <root> | grid-bybit <root> | grid-sell <root> | grid-venue-basket <root> | grid-venue-index <root> | grid-conditions <root> | grid-basket-sell <root> | grid-rebalance <root> | record <root> | web-save <dir>'.freeze
 raise ArgumentError, USAGE unless root
 
 case command
@@ -4058,6 +4115,7 @@ when 'grid-gemini' then Decisions.grid(root, Decisions.gemini_scenarios)
 when 'grid-bitget' then Decisions.grid(root, Decisions.bitget_scenarios)
 when 'grid-mexc' then Decisions.grid(root, Decisions.mexc_scenarios)
 when 'grid-hyperliquid' then Decisions.grid(root, Decisions.hyperliquid_scenarios)
+when 'grid-bybit' then Decisions.grid(root, Decisions.bybit_scenarios)
 when 'grid-sell' then Decisions.grid(root, Decisions.sell_scenarios)
 when 'grid-venue-basket' then Decisions.grid(root, Decisions.venue_basket_scenarios)
 when 'grid-basket-sell' then Decisions.grid(root, Decisions.basket_sell_scenarios)

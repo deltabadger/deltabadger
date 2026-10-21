@@ -145,6 +145,19 @@ fn oracle_split_verdict(rows: &[Value]) -> &'static str {
 fn listed(name: &str, rails: &Value, rust: &Value) -> Option<Result<(), String>> {
     let tx = |out: &Value| rows(out, "account_transactions");
     Some(match name {
+        // D-BYBIT-STUCK: the third scripted answer terminates Rails' otherwise repeating cursor walk.
+        "bybit-ledger-stuck" => (|| {
+            let rr = rails["steps"][0]["requests"].as_array().ok_or("Rails requests absent")?;
+            let ur = rust["steps"][0]["requests"].as_array().ok_or("Rust requests absent")?;
+            check(rr.len() == 3 && ur.len() == 2 && rr[1] == rr[2] && rr[..2] == ur[..], "Rails must follow the repeated cursor; Rust must refuse before the third read")?;
+            check(key_error(rails) == "Bybit ledger read failed: 10016 Server error." && key_error(rust) == "Bybit fills paging stuck at cursor same", "both sides must record their exact refusal")?;
+            let key = rows(rust, "api_keys")[0].clone();
+            check(tx(rust).is_empty() && key["after"]["last_synced_at"] == key["before"]["last_synced_at"], "a repeated cursor must store nothing and leave the watermark")?;
+            rest_is_identical(rails, rust, &|out| {
+                without_columns(out, "api_keys", &["last_sync_error"]);
+                out["steps"][0]["requests"] = Value::Null;
+            })
+        })(),
         // R2: these three credential-bearing diagnostics replace the entire text.
         "balances-snapshots_network" => only_the_error_text_differs(rails, rust, "Client::TransientNetworkError: Faraday::ConnectionFailed: Connection refused - connect(2) for \"[redacted]-api.alpaca.markets\" port 443", deltabadger::crypto::VENUE_TEXT_REDACTED),
         "ledger-long_error" => only_the_error_text_differs(rails, rust, "forbidden for [redacted] at https://[redacted]-api.alpaca.markets/v2/account/activities?[redacted] eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee token [redacted] account [reda", deltabadger::crypto::VENUE_TEXT_REDACTED),
@@ -424,15 +437,15 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     let named = |prefix: &str| dirs.iter().filter(|d| d.file_name().unwrap().to_string_lossy().starts_with(prefix)).count();
     assert_eq!([named("ledger-"), named("balances-"), named("binance-balances-"), named("binance-ledger-"), named("import-"), named("kucoin-ledger-"), named("kucoin-balances-"),
                 named("bitvavo-ledger-"), named("bitvavo-balances-"), named("gemini-ledger-"), named("gemini-balances-"), named("bitget-ledger-"), named("bitget-balances-"),
-                named("mexc-ledger-"), named("mexc-balances-"), named("hyperliquid-ledger-"), named("hyperliquid-balances-"), dirs.len()],
-               [58, 44, 21, 30, 21, 12, 16, 11, 10, 11, 11, 13, 12, 14, 12, 11, 10, 317], "the sync grid: 270 existing + 26 MEXC + 21 Hyperliquid scenarios");
+                named("mexc-ledger-"), named("mexc-balances-"), named("hyperliquid-ledger-"), named("hyperliquid-balances-"), named("bybit-ledger-"), named("bybit-balances-"), dirs.len()],
+               [58, 44, 21, 30, 21, 12, 16, 11, 10, 11, 11, 13, 12, 14, 12, 11, 10, 12, 8, 270 + 26 + 21 + 20], "the sync grid: 270 existing + 26 MEXC + 21 Hyperliquid + 20 Bybit scenarios");
     for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
     for scenario in ["ledger-split_future", "ledger-split_nested_duplicate_keys", "binance-ledger-two_nights"] { copy_dir(&rails_root.path().join(scenario), &handback.path().join(scenario)); }
     rails(&["record", rails_root.path().to_str().unwrap()]);
 
     let cipher = cipher();
     let ported = ["ledger-", "balances-", "binance-balances-", "binance-ledger-", "import-", "kucoin-ledger-", "kucoin-balances-", "bitvavo-ledger-", "bitvavo-balances-",
-                  "gemini-ledger-", "gemini-balances-", "bitget-ledger-", "bitget-balances-", "mexc-ledger-", "mexc-balances-", "hyperliquid-ledger-", "hyperliquid-balances-"];
+                  "gemini-ledger-", "gemini-balances-", "bitget-ledger-", "bitget-balances-", "mexc-ledger-", "mexc-balances-", "hyperliquid-ledger-", "hyperliquid-balances-", "bybit-ledger-", "bybit-balances-"];
     let mut outputs: Vec<(String, Value, Value)> = vec![];
     for d in &dirs {
         let name = d.file_name().unwrap().to_string_lossy().to_string();
@@ -453,6 +466,7 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     let mut expected=["binance-ledger-flexible_rewards_type", "binance-ledger-other_sources", "binance-ledger-two_nights", "binance-ledger-earn_documented_amounts", "binance-ledger-earn_fails", "binance-ledger-crypto_pair_later", "binance-ledger-over_500_trades", "binance-ledger-deposit_credited", "binance-ledger-pending_withdrawal",
                       "binance-ledger-symbol_fails", "binance-ledger-away_100_days", "binance-ledger-garbage_amount", "binance-ledger-us_every_source", "binance-ledger-us_two_nights",
                       "binance-ledger-full", "binance-ledger-idle", "binance-ledger-deposit_fails", "binance-ledger-file_transfers", "binance-ledger-file_transfer_claimed_once", "binance-ledger-file_second_after", "binance-ledger-deposit_600", "binance-ledger-idless_repeats", "binance-ledger-preexisting_repeats", "binance-ledger-known_id_repeat", "binance-ledger-file_dust", "binance-ledger-file_dust_rounding", "binance-ledger-twin_repeats", "binance-ledger-stored_trade_newer", "binance-ledger-stored_trades_over_500", "binance-ledger-stored_trade_before_floor", "import-file_then_api_transfers", "import-api_then_file_transfers", "import-file_then_api_dust", "import-api_then_file_dust", "import-file_then_api_dust_rounding", "import-api_then_file_dust_rounding", "binance-balances-blank_free", "binance-balances-garbage_free", "binance-balances-whitespace_free", "binance-balances-rate_spelling", "binance-balances-rate_zero_padded", "binance-balances-price_underscore_exponent", "binance-balances-no_rate", "balances-account_null", "balances-no_trade_keeps_last_price", "balances-no_trade_market_price", "balances-no_trade_unpriced", "balances-positions_not_array", "ledger-pages_stalled", "ledger-split_hostile_quantity", "kucoin-ledger-pages"].to_vec();
+    expected.push("bybit-ledger-stuck");
     expected.extend_from_slice(UNKNOWN_PRICE_ORIGIN);
     expected.extend_from_slice(&["balances-snapshots_network", "ledger-long_error", "ledger-network_pre_send"]);
     expected.sort();
@@ -528,6 +542,15 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     assert_eq!(started("hyperliquid-ledger-pages", "userFillsByTime").len(), 2);
     assert_eq!(started("hyperliquid-ledger-full", "userFillsByTime"), [json!("0")], "a first sync reads from 0");
     assert!(key_error(&rails_of("hyperliquid-ledger-stuck")).as_str().is_some_and(|e| e.contains("user_fills_by_time returned a full page with nothing new")));
+    let bybit = |name: &str| rows(&rails_of(name), "account_transactions").iter().filter(|r| r["before"].is_null()).map(|r| r["after"].clone()).collect::<Vec<_>>();
+    assert_eq!(bybit("bybit-ledger-week").len(), 5, "spot fill, two successful deposits, internal deposit, successful withdrawal");
+    assert_eq!(bybit("bybit-ledger-transfer_cursor").len(), 6, "every transfer source follows its cursor");
+    assert_eq!(bybit("bybit-ledger-bare").len(), 1, "equal id-less fills are one row");
+    assert!(bybit("bybit-ledger-failed_page").is_empty(), "a failed page cannot commit a partial fetch");
+    let full = rails_of("bybit-ledger-full");
+    assert_eq!(full["steps"][0]["requests"].as_array().unwrap().len(), 105 + 3 * 26, "729 days of seven-day trades and 29-day transfers");
+    assert_eq!(key_error(&rails_of("bybit-ledger-trades_refused")), json!("Bybit ledger read failed: 10005 Permission denied"));
+    assert_eq!(rows(&rails_of("bybit-balances-wallet"), "account_balances").len(), 1, "wallet balances must actually be read");
     let (taken, stored) = claimed("binance-ledger-file_transfers");
     assert_eq!(taken, ["0xd1", "0xw1", "0xw3"]);
     assert!(stored.contains(&"0xd2".to_string()) && stored.contains(&"0xd8".to_string()) && !stored.contains(&"0xd1".to_string()), "{stored:?}");

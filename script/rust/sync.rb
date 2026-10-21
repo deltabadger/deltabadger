@@ -25,7 +25,7 @@ Net::HTTP.prepend(Module.new { def connect = raise(Harness::Unscripted, "real co
 ENV['COINGECKO_API_KEY'] = ''
 
 module ScriptedSync
-  mattr_accessor :alpaca, :binance, :binance_state, :kucoin, :bitvavo, :gemini, :bitget, :mexc, :hyperliquid, :market, :requests, :filters_after
+  mattr_accessor :alpaca, :binance, :binance_state, :kucoin, :bitvavo, :gemini, :bitget, :mexc, :hyperliquid, :bybit, :market, :requests, :filters_after
 
   NETWORK = {
     'pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "paper-api.alpaca.markets" port 443')) },
@@ -55,6 +55,7 @@ module ScriptedSync
              elsif host == 'api.bitget.com' then bitget
              elsif host == 'api.mexc.com' then mexc
              elsif host == 'api.hyperliquid.xyz' then hyperliquid
+             elsif host == 'api.bybit.com' then bybit
              elsif host == 'data-api' then market
              end
     key = "#{env.method.to_s.upcase} #{env.url.path}"
@@ -497,6 +498,25 @@ module SyncParity
     { 'kind' => 'ledger', 'at' => at, 'hyperliquid' => { HL_FILLS => fills, HL_UPDATES => updates } }
   end
 
+  def bybit(ctx)
+    venue(ctx, Exchanges::Bybit, 'Bybit', as: :bybit, assets: %w[BTC ETH USDT], pairs: [%w[BTC USDT], %w[ETH USDT], %w[ETH BTC]],
+          pair: ->(b, q) { "#{b}#{q}" }, coin: { base_decimals: 6, quote_decimals: 8, price_decimals: 2, minimum_base_size: '0.00001', minimum_quote_size: '1' })
+  end
+  BY_FILLS = 'GET /v5/execution/list'.freeze
+  BY_DEPOSITS = 'GET /v5/asset/deposit/query-record'.freeze
+  BY_INTERNAL = 'GET /v5/asset/deposit/query-internal-record'.freeze
+  BY_WITHDRAWALS = 'GET /v5/asset/withdraw/query-record'.freeze
+  BY_ASSETS = 'GET /v5/account/wallet-balance'.freeze
+  def by_page(rows, key: 'rows', cursor: '') = ok('retCode' => 0, 'retMsg' => 'OK', 'result' => { key => rows, 'nextPageCursor' => cursor })
+  def by_err(code, msg) = ok('retCode' => code, 'retMsg' => msg, 'result' => {})
+  def bybit_ledger(at, fills: [by_page([], key: 'list')], deposits: [by_page([])], internal: [by_page([])], withdrawals: [by_page([])])
+    { 'kind' => 'ledger', 'at' => at, 'bybit' => { BY_FILLS => fills, BY_DEPOSITS => deposits, BY_INTERNAL => internal, BY_WITHDRAWALS => withdrawals } }
+  end
+  def bybit_balances(at, coins:, prices: nil)
+    { 'kind' => 'balances', 'at' => at, 'bybit' => { BY_ASSETS => [coins.is_a?(Array) ? by_page([{ 'coin' => coins }], key: 'list') : coins] },
+      'market' => { PRICES => prices && [prices] }.compact }
+  end
+
   def kc_page(items, page: 1, pages: nil, total: nil)
     ok('code' => '200000', 'data' => { 'currentPage' => page, 'pageSize' => 500, 'totalNum' => total || items.size,
                                        'totalPage' => pages || (items.empty? ? 0 : 1), 'items' => items })
@@ -692,6 +712,7 @@ module SyncParity
       %i[broadcast_remove_to broadcast_update_to broadcast_append_to broadcast_replace_to broadcast_refresh_to].each { |m| define_method(m) { |*, **| nil } }
     end)
     AccountTransaction::SyncJob.prepend(Module.new { def sleep(*) = nil })
+    Exchanges::Bybit.prepend(Module.new { def sleep(*) = nil })
     Exchanges::Kucoin.prepend(Module.new { def sleep(*) = nil }) # each_page's 10 s throttle wait (LEDGER_THROTTLE_WAIT)
     Exchanges::Bitvavo.prepend(Module.new { def sleep(*) = nil }) # the ledger's pacing (LEDGER_READ_PAUSE)
     Exchanges::Gemini.prepend(Module.new { def sleep(*) = nil }) # each_ledger_row's 5 s transfers pacing (TRANSFERS_REQUEST_INTERVAL)
@@ -702,7 +723,7 @@ module SyncParity
       ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: File.join(dir, 'production.sqlite3'))
       Rails.cache.clear
       before = snapshot
-      reading = ApiKey.reading(ApiKey.includes(:exchange)).select { |k| [Exchanges::Alpaca, Exchanges::Binance, Exchanges::Kucoin, Exchanges::Bitvavo, Exchanges::Gemini, Exchanges::Bitget, Exchanges::Mexc, Exchanges::Hyperliquid].any? { |c| k.exchange.is_a?(c) } }.map(&:id).sort
+      reading = ApiKey.reading(ApiKey.includes(:exchange)).select { |k| [Exchanges::Alpaca, Exchanges::Binance, Exchanges::Kucoin, Exchanges::Bitvavo, Exchanges::Gemini, Exchanges::Bitget, Exchanges::Mexc, Exchanges::Hyperliquid, Exchanges::Bybit].any? { |c| k.exchange.is_a?(c) } }.map(&:id).sort
       steps = sc['steps'].map do |step|
         ActiveJob::Base.queue_adapter.enqueued_jobs.clear
         ScriptedSync.alpaca = step.fetch('alpaca', {}).transform_values(&:dup)
@@ -714,6 +735,7 @@ module SyncParity
         ScriptedSync.bitget = step.fetch('bitget', {}).transform_values(&:dup)
         ScriptedSync.mexc = step.fetch('mexc', {}).transform_values(&:dup)
         ScriptedSync.hyperliquid = step.fetch('hyperliquid', {}).transform_values(&:dup)
+        ScriptedSync.bybit = step.fetch('bybit', {}).transform_values(&:dup)
         ScriptedSync.market = step.fetch('market', {}).transform_values(&:dup)
         ScriptedSync.requests = []
         ScriptedSync.filters_after = step['server_filters_after'] == true

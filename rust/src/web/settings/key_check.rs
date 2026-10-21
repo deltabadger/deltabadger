@@ -601,6 +601,36 @@ pub async fn hyperliquid_check<T: Transport>(venue: &crate::venue::hyperliquid::
     (answer, verdict)
 }
 
+/// Exchanges::Bybit#get_api_key_validity: cancel alone for trading; wallet for withdrawals.
+pub fn bybit_verdict(kind: i64, answer: &Result<HttpResponse, TransportError>, method: &str, url: &str) -> Verdict {
+    use crate::venue::bybit::{failure_text, to_s};
+    let result = bitget_result(answer, method, url);
+    let body = match &result { Ok(Some(v)) => Some(v.clone()), Err(text) => serde_json::from_str::<Value>(text).ok(), _ => None };
+    let code = body.as_ref().and_then(|b| b.get("retCode")).filter(|v| !v.is_null()).map(to_s);
+    let message = body.as_ref().and_then(|b| b.get("retMsg")).and_then(Value::as_str).filter(|s| !crate::ruby::blank(s));
+    if kind == 2 {
+        if let Ok(Some(b)) = &result {
+            if b["retCode"].as_i64() == Some(0) {
+                let walkable = b["result"]["list"].as_array().is_some_and(|accounts| accounts.iter().all(|a| a["coin"].as_array().is_some()));
+                return if walkable { Verdict::Valid(true) } else { Verdict::Failure("Bybit sent balances it cannot read".into()) };
+            }
+        }
+        let text = match result { Err(e) => failure_text(&e), _ => message.unwrap_or_default().to_string() };
+        return if crate::engine::venue_rules::BYBIT.is_invalid_key(std::slice::from_ref(&text)) { Verdict::Valid(false) } else { Verdict::Failure(text) };
+    }
+    if code.as_deref() == Some("0") || (kind != 1 && matches!(code.as_deref(), Some("170213" | "110001"))) { return Verdict::Valid(true); }
+    if matches!(code.as_deref(), Some("10003" | "10004" | "10005")) || message.is_some_and(|m| crate::engine::venue_rules::BYBIT.is_invalid_key(&[m.into()])) { return Verdict::Valid(false); }
+    match result { Err(e) => Verdict::Failure(e), _ => Verdict::Failure(message.map(str::to_string).unwrap_or_else(|| format!("Bybit answered retCode {}", inspect(code.as_ref().map(|s| Value::String(s.clone())).as_ref())))) }
+}
+pub async fn bybit_check<T: Transport>(transport: &T, venue: &crate::venue::bybit::BybitVenue<T>, kind: i64) -> (Result<HttpResponse, TransportError>, Verdict) {
+    use crate::venue::bybit::{ASSETS_PATH, CANCEL_PATH};
+    let r = if kind == 0 { venue.request("POST", CANCEL_PATH, vec![], Some(serde_json::json!({"category":"spot","symbol":"BTCUSDT","orderId":"0"}))) }
+            else { venue.request("GET", ASSETS_PATH, vec![("accountType", "UNIFIED".into())], None) };
+    let answer = transport.send(&r).await;
+    let verdict = bybit_verdict(kind, &answer, r.method, r.url().as_str());
+    (answer, verdict)
+}
+
 /// The key check of `venue` (an exchanges.type this module ports) for a key of `kind`, sent through `client` to `base`.
 pub async fn check(venue: &str, base: &str, client: reqwest::Client, credentials: &crate::crypto::Credentials, kind: i64) -> Validity {
     use crate::venue::http::ReqwestTransport;
@@ -648,6 +678,10 @@ pub async fn check(venue: &str, base: &str, client: reqwest::Client, credentials
         let url = request.url();
         let verdict = if kind == 2 { gemini_read_verdict(&answer, url.as_str()) } else { gemini_verdict(kind, &answer, url.as_str()) };
         (answer, verdict)
+    } else if scheme == Some(KeyCheck::Bybit) {
+        let transport = ReqwestTransport::bybit(client, credentials.key.clone(), credentials.secret.clone()).with_sensitive_values(redaction);
+        let venue = crate::venue::bybit::BybitVenue::new(transport.clone(), base);
+        bybit_check(&transport, &venue, kind).await
     } else {
         let transport = ReqwestTransport::binance(client, credentials.key.clone(), credentials.secret.clone()).with_sensitive_values(redaction);
         let venue = crate::venue::binance::BinanceVenue::new(transport.clone(), base, &credentials.secret);

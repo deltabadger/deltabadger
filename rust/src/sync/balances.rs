@@ -1051,3 +1051,43 @@ fn upsert(c: &crate::engine::model::FencedTransaction<'_>, user_id: i64, exchang
     }
     Ok(summary)
 }
+
+/// Exchanges::Bybit#get_balances through the common sync and credential fence.
+pub async fn sync_bybit<T: Transport>(db: &Db, transport: T, prices: &dyn PriceSource, key_id: i64, credentials: &Credentials, clock: &dyn Clock)
+                                       -> Result<Result<Summary, Failure>, SyncError> {
+    let version = super::capture_bound_version(db, key_id, credentials).await?;
+    sync_bybit_captured(db, transport, prices, key_id, credentials, clock, &version).await
+}
+pub(crate) async fn sync_bybit_captured<T: Transport>(db: &Db, transport: T, prices: &dyn PriceSource, key_id: i64, credentials: &Credentials,
+                                                       clock: &dyn Clock, version: &crate::engine::model::CredentialVersion)
+                                                       -> Result<Result<Summary, Failure>, SyncError> {
+    use crate::venue::bybit::{BybitVenue, ASSETS_PATH, BYBIT, URL};
+    let read = move |_: String| async move { Ok(BybitVenue::new(transport, URL).read_text(ASSETS_PATH, vec![("accountType", "UNIFIED".into())], MAX_BINANCE_ACCOUNT_BYTES).await) };
+    let venue = VenueBalances { types: &[BYBIT], failure_text: crate::venue::bybit::failure_text, condemns: |venue, text| condemns(&crate::engine::venue_rules::BYBIT, venue, text), held: bybit_held };
+    sync_venue(db, version, prices, key_id, credentials, clock, venue, read).await
+}
+fn bybit_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> Result<Result<Vec<Held>, (String, bool)>, Unread> {
+    let node = wire::read(text, &mut Budget(MAX_BINANCE_ACCOUNT_NODES), None).map_err(|r| Unread::refused(r, "an account"))?;
+    let Ok(body) = Raw::from_node(&node) else { return Ok(Err(("unreadable account".into(), false))) };
+    if body.value["retCode"].as_i64() != Some(0) { return Ok(Err((crate::venue::bybit::to_s(&body.value["retMsg"]), true))); }
+    let result = match body.object("result") { Ok(Some(r)) => r, _ => return Ok(Err(("KeyError: Key path result.list not found".into(), false))) };
+    let Some(Node::Array(accounts)) = result.member("list") else { return Ok(Err(("KeyError: Key path result.list not found".into(), false))) };
+    let mut found = HashMap::new();
+    for account in accounts {
+        let Ok(account) = Raw::from_node(account) else { return Ok(Err(("unreadable account".into(), false))) };
+        let Some(Node::Array(coins)) = account.member("coin") else { return Ok(Err(("KeyError: Key path coin not found".into(), false))) };
+        for coin in coins {
+            let Ok(row) = Raw::from_node(coin) else { return Ok(Err(("unreadable balance".into(), false))) };
+            let Some(asset) = row.value["coin"].as_str().and_then(|c| names.get(c)).filter(|id| asset_ids.contains(id)) else { continue };
+            let amounts = || -> Result<(BigDec, BigDec), String> {
+                let present = |key: &str| row.value.get(key).is_some_and(|v| !v.is_null() && v.as_str().is_none_or(|s| !crate::ruby::blank(s)));
+                let locked = row.decimal("locked")?;
+                let free = if present("walletBalance") { (&(&row.decimal("walletBalance")? - &locked) - &row.decimal("spotBorrow")?).max(BigDec::zero()) }
+                           else { row.decimal(if present("availableToWithdraw") { "availableToWithdraw" } else { "free" })? };
+                Ok((free, locked))
+            };
+            match amounts() { Ok(amounts) => { found.insert(*asset, amounts); }, Err(e) => return Ok(Err((e, false))) }
+        }
+    }
+    Ok(Ok(asset_ids.iter().filter_map(|id| found.remove(id).map(|(free, locked)| (*id, free, locked))).filter(|(_, free, locked)| (free + locked).is_positive()).collect()))
+}

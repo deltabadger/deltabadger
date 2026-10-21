@@ -1877,3 +1877,29 @@ async fn rails_and_rust_decide_identically_across_the_signal_grid() {
     }
     assert!(pins.is_empty(), "pinned expectations:\n{}", pins.join("\n"));
 }
+
+/// D-BYBIT-AMBIG: the code itself cannot prove rejection; uncertain answers keep the intent.
+#[tokio::test(flavor = "current_thread")]
+async fn rails_and_rust_decide_identically_across_the_bybit_grid() {
+    use common::venue_grid::{ending, run_venue_grid, Validator};
+    run_venue_grid("grid-bybit", 4 * (20 + 10 + 2 + 1 + 1), &[
+        Validator { names: &ending(&["landed_found"]), check: &|_, _, r, u| landed_found(r, u) },
+        Validator { names: &ending(&["landed_missing"]), check: &|_, d, r, u| landed_missing(d, r, u) },
+        Validator { names: &ending(&["add_timeout_10000", "add_server_10016", "add_server_error", "add_timeout_after_send", "add_unreadable", "add_no_code"]), check: &|_, d, r, u| intent_kept(d, r, u) },
+        Validator { names: &ending(&["add_bad_order_id"]), check: &|_, d, r, u| {
+            if !r["changes"]["transactions"].as_array().unwrap().is_empty()
+                || r["changes"]["bots"][0]["after"]["status"] != 5
+                || !r["changes"]["bot_activity_logs"].as_array().unwrap().iter().any(|l| l["after"]["event"] == "execution_failed" && l["after"]["details"]["error"] == "can't cast Hash")
+                || r["mails"] != serde_json::json!([{"mail":"notify_about_error","errors":["can't cast Hash"]}]) {
+                return Err(format!("Rails must fail while casting the unusable order ID: {r}"));
+            }
+            rust_kept_the_intent(d, u)
+        } },
+        Validator { names: &ending(&["add_no_order_id"]), check: &|_, d, r, u| {
+            if !r["changes"]["transactions"].as_array().unwrap().iter().any(|t| t["after"]["status"] == 0 && t["after"]["external_id"].is_null()) {
+                return Err(format!("Rails must store an unacknowledged order: {r}"));
+            }
+            rust_kept_the_intent(d, u)
+        } },
+    ]).await;
+}
