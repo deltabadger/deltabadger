@@ -55,7 +55,7 @@ pub fn render(c: &Connection, app: &App, event: &EngineEvent) -> Result<Vec<(Str
         // Bots::Signal#broadcast_unresolved_placement: on the bot's own page, without the rule widgets (their webhook URL
         // needs a request).
         EngineEvent::SignalMarkerChanged { .. } if bot.kind == super::Kind::Signal =>
-            vec![(super::page::page_stream(&bot), crate::web::turbo::stream("replace", "signal-unresolved-placement", &super::signal::unresolved(&ctx, "", &bot)))],
+            vec![(super::page::page_stream(&bot), super::signal::unresolved_broadcast(&ctx, &bot))],
         _ => vec![],
     })
 }

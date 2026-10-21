@@ -58,8 +58,7 @@ impl ActionParams {
         let (root, allowed) = match kind {
             Kind::Basket => ("bots_dca_multi_asset", BASKET_SCALARS),
             Kind::Index => ("bots_dca_index", INDEX_SCALARS),
-            // A signal bot's settings form is plan 8c-2's: `bot::refusal` turns every such write away before its params.
-            Kind::Signal => return Err(ParamError::Root),
+            Kind::Signal => ("bots_signal", SIGNAL_SCALARS),
         };
         let fields = self.0.get(root).and_then(Value::as_object).filter(|v| !v.is_empty()).ok_or(ParamError::Root)?;
         let mut out = Map::new();
@@ -317,6 +316,9 @@ pub const BASKET_SCALARS: &[&str] = &[
 ];
 
 /// BotsController scalar allowlist, pinned to the generated Rails vector.
+/// BotsController#signal_bot_params: the name, the venue and Bots::Signal's two settings.
+pub const SIGNAL_SCALARS: &[&str] = &["label", "exchange_id", "base_asset_id", "quote_asset_id"];
+
 pub const INDEX_SCALARS: &[&str] = &[
     "quote_asset_id",
     "quote_amount",

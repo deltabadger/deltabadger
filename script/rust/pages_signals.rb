@@ -10,7 +10,9 @@
 #
 # Scenario prefixes (rust/tests/pages.rs): hook_ is compared whole; missing_hook_ is Rails' 404 from the router, which
 # this crate answers with public/404.html; refused_hook_ is a call Rails accepts and this build's engine guard refuses
-# while it does not run signal bots (plan 8d admits them; the scenarios then become hook_).
+# while it does not run signal bots (plan 8d admits them; the scenarios then become hook_). signal_page_ (8c-1) and
+# signal_action_ / api_signal_ (8c-2) are a signal bot's pages and writes, compared whole; refused_signal_ and
+# refused_api_signal_ are writes Rails makes on a bot it leaves running, which the same guard refuses until 8d.
 module Pages
   module SignalGrid
     def scenarios
@@ -117,7 +119,113 @@ module Pages
       # A call Rails accepts (202, Bot::SignalJob enqueued with the claim's time) on a working bot with an enabled rule.
       grid['refused_hook_accepted'] = signal_case([hook(at('buy'))])
       grid['refused_hook_accepted_with_body'] = signal_case([hook(at('buy'), body: '{"action":"buy"}', type: 'application/json')])
-      grid.merge(override_scenarios).merge(signal_page_scenarios)
+      grid.merge(override_scenarios).merge(signal_page_scenarios).merge(signal_action_scenarios).merge(signal_api_scenarios)
+    end
+
+    # A signal bot's writes (plan 8c-2): its rules, its Resolve, its settings and its lifecycle, each step with the rows it
+    # wrote. A rule this build creates gets a token of its own, as Rails' does: rust/tests/pages.rs reads both as [random].
+    # refused_signal_ is a write Rails makes on a bot left working, which this build's engine guard refuses until plan 8d
+    # admits signal bots.
+    SIGNAL_WRITES = %w[bots bot_signals bot_activity_logs].freeze
+
+    def signal_act(method, path, form = {}, extra = {})
+      { 'method' => method, 'path' => path, 'form' => form, 'csrf' => 'header', 'action_snapshot' => true, 'may_mutate' => SIGNAL_WRITES,
+        'headers' => TURBO.merge('Referer' => "http://localhost:3000#{path[%r{\A(/\w\w)?/bots/\d+}]}") }.merge(extra)
+    end
+
+    def signal_modal(path) = get(path, 'Accept' => 'text/html')
+
+    def signal_action_scenarios
+      rules = [page_rule('act-a', 'buy', 'fixed', 25.5, at: '2026-09-10T11:00:00.5Z'), page_rule('act-b', 'sell', 'percentage', 100),
+               page_rule('act-c', 'buy', 'fixed', '0.00000001', enabled: false)]
+      stopped = signal_bot(rules, 'columns' => { 'status' => 2, 'started_at' => '2026-09-01T09:00:00Z' })
+      working = signal_bot([page_rule('act-w1', 'buy', 'fixed', 10), page_rule('act-w2', 'sell', 'percentage', 50)],
+                           'columns' => { 'status' => 1, 'started_at' => '2026-09-09T12:00:00Z' })
+      one = signal_bot([page_rule('act-one', 'buy', 'fixed', 15)], 'columns' => { 'status' => 2 })
+      # Its orders all settled: an order still open is work this build's engine guard refuses every write under.
+      traded = signal_bot([page_rule('act-t', 'buy', 'fixed', 10)], 'columns' => { 'status' => 2 }, 'orders' => 'settled',
+                          'transient' => { 'signal_placement_unresolved' => { 'id' => 'marker-1', 'at' => '2026-09-10T11:30:00Z', 'side' => 'buy',
+                                                                               'error' => 'timeout' } })
+      case_of = ->(bots, steps, attrs = {}) { { 'user' => owner, 'install' => 'alpaca', 'bots' => bots, 'steps' => signed_in(*steps) }.merge(attrs) }
+      rule = ->(method, bot, id, form = {}) { signal_act(method, "/bots/#{bot}/bot_signals#{"/#{id}" if id}", form) }
+      invalid = { 'rails_exception_status' => 422 }
+      page_stream = ->(id) { "#{["gid://deltabadger/Bots::Signal/#{id}"].pack('m0').tr('+/', '-_').delete('=')}:bot_updates" }
+      resolve = ->(marker, csrf = 'header') { signal_act('POST', '/bots/1/signal_resolution', { 'marker_id' => marker }, 'csrf' => csrf, 'broadcasts' => [page_stream.(1)]) }
+      {
+        # Bots::BotSignalsController on a stopped bot: add (a buy for 100), each field, switch off, remove, and the last rule kept.
+        'signal_action_rules' => case_of.([stopped, one],
+                                          [get('/bots/1'), rule.('POST', 1, nil), rule.('PATCH', 1, 1, 'bot_signal[amount]' => '7.5'),
+                                           rule.('PATCH', 1, 1, 'bot_signal[amount_type]' => 'percentage'), rule.('PATCH', 1, 1, 'bot_signal[direction]' => 'sell'),
+                                           rule.('PATCH', 1, 3, 'bot_signal[enabled]' => '1'), rule.('PATCH', 1, 2, 'bot_signal[enabled]' => '0'),
+                                           rule.('PATCH', 1, 1, 'bot_signal[amount]' => '150').merge(invalid), rule.('PATCH', 1, 3, 'bot_signal[amount]' => '0').merge(invalid),
+                                           rule.('DELETE', 1, 2), rule.('DELETE', 2, 4), get('/de/bots/1'), rule.('POST', 1, nil).merge('path' => '/de/bots/1/bot_signals')]),
+        'signal_action_rules_hidden' => case_of.([stopped], [get('/bots/1'), rule.('PATCH', 1, 1, 'bot_signal[enabled]' => '0'), rule.('POST', 1, nil)],
+                                                 'user' => owner('hide_balances' => true, 'locale' => 'pl')),
+        # Rails' R8b: a running bot's rules are refused whole, with its settings drawn again.
+        'signal_action_rules_running' => case_of.([working], [get('/bots/1'), rule.('POST', 1, nil), rule.('PATCH', 1, 1, 'bot_signal[amount]' => '3'),
+                                                              rule.('PATCH', 1, 2, 'bot_signal[enabled]' => '0'), rule.('DELETE', 1, 2)]),
+        # Bots::SignalResolutionsController: the marker named, again (stale), another, none.
+        'signal_action_resolution' => case_of.([traded, one], [get('/bots/1'), resolve.('marker-1', 'form'), get('/bots/1'), resolve.('marker-1'),
+                                                               resolve.('marker-2'), resolve.(''), get('/de/bots/1')]),
+        'signal_action_resolution_other' => case_of.([traded], [get('/bots/1'), resolve.('marker-2'), get('/bots/1')]),
+        # BotsController#update: a name, no name, an asset Rails refuses under orders, an asset that does not exist.
+        'signal_action_settings' => case_of.([one, traded],
+                                             [get('/bots/1'), signal_act('PATCH', '/bots/1', 'bots_signal[label]' => 'Signals <b>&'),
+                                              signal_act('PATCH', '/bots/1', 'bots_signal[label]' => ''),
+                                              signal_act('PATCH', '/bots/2', 'bots_signal[base_asset_id]' => '1'),
+                                              signal_act('PATCH', '/bots/1', 'bots_signal[quote_asset_id]' => '999999'),
+                                              signal_act('PATCH', '/bots/1', 'bots_signal[unknown]' => 'x'), get('/de/bots/2'),
+                                              signal_act('PATCH', '/de/bots/2', 'bots_signal[label]' => 'Zwei')]),
+        # Another venue (Kraken, id 3, does not list BTC/USD): refused for a running bot, saved for a stopped one (on its own:
+        # a running signal bot anywhere is one this build's guard refuses every write beside until 8d), and refused under an
+        # order still open.
+        'signal_action_exchange' => case_of.([one.merge('pair' => %w[BTC USD]), working.merge('pair' => %w[BTC USD])],
+                                             [get('/bots/1'), signal_act('PATCH', '/bots/2', 'bots_signal[exchange_id]' => '3'),
+                                              signal_act('PATCH', '/bots/1', 'bots_signal[exchange_id]' => '1')], 'venues' => true),
+        'signal_action_exchange_moved' => case_of.([one.merge('pair' => %w[BTC USD])],
+                                                   [get('/bots/1'), signal_act('PATCH', '/bots/1', 'bots_signal[exchange_id]' => '3'), get('/bots/1')],
+                                                   'venues' => true),
+        'signal_action_exchange_open_orders' => case_of.([one.merge('pair' => %w[BTC USD], 'orders' => 'traded')],
+                                                         [get('/bots/1'), signal_act('PATCH', '/bots/1', 'bots_signal[exchange_id]' => '3')], 'venues' => true),
+        # Stop, archive, reactivate and delete, each modal, and every refused start.
+        'signal_action_lifecycle' => case_of.([working, stopped, one],
+                                              [get('/bots/1'), signal_act('PATCH', '/bots/1/stop'), signal_act('POST', '/bots/2/archive'),
+                                               signal_act('POST', '/bots/2/archive'), signal_act('DELETE', '/bots/2/archive'), signal_modal('/bots/2/edit'),
+                                               signal_modal('/bots/2/delete/edit'), signal_modal('/bots/2/archive/edit'), signal_modal('/bots/2/start/edit'),
+                                               signal_act('PATCH', '/bots/2/start?start_fresh=junk'), signal_act('DELETE', '/bots/3/delete'), get('/bots')]),
+        'signal_action_lifecycle_de' => case_of.([working, stopped], [get('/de/bots/1'), signal_act('PATCH', '/de/bots/1/stop'),
+                                                                      signal_act('POST', '/de/bots/2/archive'), signal_act('DELETE', '/de/bots/2/delete')]),
+        'signal_action_start_no_key' => case_of.([stopped], [get('/bots/1'), signal_act('PATCH', '/bots/1/start?start_fresh=true')], 'api_keys' => {}),
+        'signal_action_start_delisted' => case_of.([stopped.merge('delist' => 'QQQM')], [get('/bots/1'), signal_act('PATCH', '/bots/1/start?start_fresh=true')]),
+        'signal_action_start_archived' => case_of.([one.merge('columns' => { 'status' => 7 })], [get('/bots/1'), signal_act('PATCH', '/bots/1/start?start_fresh=true')]),
+        'refused_signal_start' => case_of.([stopped], [get('/bots/1'), signal_act('PATCH', '/bots/1/start?start_fresh=true')]),
+        'refused_signal_start_running' => case_of.([working], [get('/bots/1'), signal_act('PATCH', '/bots/1/start?start_fresh=false')]),
+        'refused_signal_settings_running' => case_of.([working], [get('/bots/1'), signal_act('PATCH', '/bots/1', 'bots_signal[label]' => 'Live')]),
+        # The wash-sale question Rails asks once a rule sells (its modal is not served by this build).
+        'not_ported_signal_rule_wash_question' => case_of.([one], [get('/bots/1'), rule.('PATCH', 1, 1, 'bot_signal[direction]' => 'sell')],
+                                                           'user' => owner('wash_sale_enabled' => nil))
+      }
+    end
+
+    # BotApi's lifecycle services on a signal bot (REST; MCP calls the same services).
+    def signal_api_scenarios
+      bots = lambda do |status|
+        columns = { 'status' => status, 'label' => 'Signals <&>' }
+        columns['started_at'] = '2026-09-09T12:00:00Z' unless status.zero?
+        [signal_bot([page_rule('api-a', 'buy', 'fixed', 10), page_rule('api-b', 'sell', 'percentage', 50, enabled: false)], 'columns' => columns)]
+      end
+      at = '/api/v1/bots/1'
+      signal_api = ->(steps, status, attrs = {}) { api_case(steps, {}, attrs).tap { |c| c['bots'] = bots.(status) + c['bots'].drop(1) } }
+      {
+        'api_signal_stop' => signal_api.([write('POST', "#{at}/stop"), write('POST', "#{at}/stop")], 1),
+        'api_signal_archive' => signal_api.([write('POST', "#{at}/archive"), write('POST', "#{at}/archive"), write('DELETE', "#{at}/archive"),
+                                             write('DELETE', "#{at}/archive")], 2),
+        'api_signal_delete' => signal_api.([write('DELETE', at), write('DELETE', at), write('POST', "#{at}/stop")], 2),
+        'api_signal_start_refusals' => signal_api.([write('POST', "#{at}/start?start_fresh=junk"), write('POST', "#{at}/stop")], 2),
+        'api_signal_start_no_key' => signal_api.([write('POST', "#{at}/start")], 2, 'api_keys' => {}),
+        'api_signal_start_running' => signal_api.([write('POST', "#{at}/start")], 1),
+        'refused_api_signal_start' => signal_api.([write('POST', "#{at}/start")], 2)
+      }
     end
 
     # A signal bot's own pages (plan 8c-1): the bot page and its frames, the orders feed and the dashboard tile. Read only;
@@ -185,7 +293,7 @@ module Pages
     end
 
     # A signal bot's orders, as Bots::Signal::OrderSetter records them: the pair as its ticker spells it, no schedule columns.
-    def signal_orders(record)
+    def signal_orders(record, settled: false)
       ticker = record.exchange.tickers.find_by!(base_asset_id: record.base_asset_id, quote_asset_id: record.quote_asset_id)
       row = lambda do |at, attrs|
         { bot_id: record.id, exchange_id: record.exchange_id, base: ticker.base, quote: ticker.quote, base_asset_id: ticker.base_asset_id,
@@ -193,14 +301,15 @@ module Pages
           transaction_type: 'REGULAR', error_messages: [], created_at: Time.iso8601(at), updated_at: Time.iso8601(at),
           external_id: "signal-#{record.id}-#{at}", price: nil, amount: nil, quote_amount: nil, amount_exec: nil, quote_amount_exec: nil }.merge(attrs)
       end
-      Transaction.insert_all!([
+      rows = [
         row.('2026-09-08T13:30:01Z', price: '412.37', amount: '0.024249097', amount_exec: '0.024249097', quote_amount: '10', quote_amount_exec: '9.999999'),
         row.('2026-09-09T13:30:01Z', side: 'sell', price: '420.5', amount: '0.012', amount_exec: '0.012', quote_amount_exec: '5.046'),
         row.('2026-09-09T14:00:00Z', status: 'failed', external_status: nil, external_id: nil, quote_amount: '10',
                                      error_messages: ['insufficient buying power']),
         row.('2026-09-09T15:00:00Z', status: 'skipped', external_status: nil, external_id: nil, quote_amount: '0.5'),
         row.('2026-09-10T11:30:00Z', external_status: 'unknown', quote_amount: '10')
-      ])
+      ]
+      Transaction.insert_all!(settled ? rows[0...-1] : rows)
     end
 
     SIGNAL_LOGS = [['started', { 'start_fresh' => true }, '2026-09-01T09:00:00Z'], ['signal_ignored', { 'signal_id' => 2 }, '2026-09-08T10:00:00Z'],
@@ -238,7 +347,7 @@ module Pages
       columns = spec.fetch('columns', {}).to_h { |name, value| [name, name.end_with?('_at') && value ? Time.iso8601(value) : value] }
       record.update_columns(columns) unless columns.empty?
       record.update_columns(transient_data: record.transient_data.merge(spec['transient'])) if spec['transient']
-      signal_orders(record) if spec['orders'] == 'traded'
+      signal_orders(record, settled: spec['orders'] == 'settled') if %w[traded settled].include?(spec['orders'])
       logs(record, SIGNAL_LOGS) if spec['logs'] == 'signal_history'
       Ticker.where(exchange:, base: spec['delist']).update_all(available: false) if spec['delist']
       record

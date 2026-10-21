@@ -14,6 +14,7 @@ pub mod page;
 pub mod search;
 pub mod settings;
 pub mod signal;
+pub mod signal_write;
 pub mod start;
 pub mod status;
 
