@@ -3300,6 +3300,7 @@ module Decisions
     Dir[File.join(root, '*/scenario.json')].sort.each do |path|
       dir = File.dirname(path)
       next if ENV['RUST_GRID_CACHE'] && File.exist?(File.join(dir, 'rails.json'))
+      $stderr.puts("recording #{File.basename(dir)}") # the watchdog's kill names the scenario that hung
       sc = JSON.parse(File.read(path))
       ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: File.join(dir, 'production.sqlite3'))
       Rails.cache.clear # Exchanges::Kraken caches prices by exchange/ticker id, which every scenario shares
