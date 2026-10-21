@@ -1,6 +1,7 @@
 //! Honeymaker::Clients::Binance (and ::BinanceUs) for the tracker's reads (signed GETs), and Exchanges::Binance for the
 //! engine's spot buys, one leg per basket member (spec E2): prices, balance, placement, polls and the fill rebuild. Rails is the oracle; each
-//! method names the Ruby it ports. Binance.US trades nowhere here: only the tracker reads it.
+//! method names the Ruby it ports. Binance.US is this adapter configured (Exchanges::BinanceUs < Exchanges::Binance): its host
+//! (`US_URL`) and its rules row (`venue_rules::BINANCE_US`, which also names it in messages); nothing else differs.
 use super::http::{self, HttpRequest, Transport, TransportError};
 use super::{NewOrder, OrderKind, OrderState, PriceSide};
 use crate::engine::model::Ticker;
@@ -101,10 +102,12 @@ impl Pairs {
 }
 
 #[derive(Clone)]
-pub struct BinanceVenue<T: Transport> { transport: T, base: String, secret: String, pairs: Pairs, identity: Option<serde_json::Value> }
+pub struct BinanceVenue<T: Transport> { transport: T, base: String, secret: String, pairs: Pairs, identity: Option<serde_json::Value>, rules: &'static VenueRules }
 
 impl<T: Transport> BinanceVenue<T> {
-    pub fn new(transport: T, base: &str, secret: &str) -> Self { Self { transport, base: base.into(), secret: secret.into(), pairs: Pairs::default(), identity: None } }
+    pub fn new(transport: T, base: &str, secret: &str) -> Self { Self { transport, base: base.into(), secret: secret.into(), pairs: Pairs::default(), identity: None, rules: &RULES } }
+    /// Another venue of this API (Binance.US: `venue_rules::BINANCE_US`); Binance's own by default.
+    pub fn with_rules(mut self, rules: &'static VenueRules) -> Self { self.rules = rules; self }
     /// The key this venue sends with (`venue::key_identity`), recorded in each intent and compared before a recovery asks.
     pub fn with_identity(mut self, credentials: &crate::crypto::Credentials) -> Self { self.identity = Some(super::key_identity(&self.base, credentials)); self }
     /// Another host: local test servers and the ignored testnet recorder only.
@@ -147,7 +150,7 @@ impl<T: Transport> BinanceVenue<T> {
         }
     }
 
-    fn parse_order(&self, order_id: &str, o: &serde_json::Value) -> Result<Order, super::VenueError> { parse_order(order_id, o, &self.pairs) }
+    fn parse_order(&self, order_id: &str, o: &serde_json::Value) -> Result<Order, super::VenueError> { parse_order(self.rules.name, order_id, o, &self.pairs) }
 
     /// #get_order / #get_orders after parsing: an order that executed nothing keeps the order's own figures; one that did is
     /// rebuilt from all its trades (#get_aggregated_trades_for_orders): price and net amounts.
@@ -182,10 +185,10 @@ impl<T: Transport> BinanceVenue<T> {
             if page.len() < PAGE { exhausted = false; break; }
             from_id = trades.iter().map(|(id, _)| *id).max().unwrap_or_default() + 1;
         }
-        if exhausted { return Err(super::VenueError::Rejected(vec![format!("Too many pages of Binance {symbol} trades")])); }
+        if exhausted { return Err(super::VenueError::Rejected(vec![format!("Too many pages of {} {symbol} trades", self.rules.name)])); }
         let parsed = trades.iter().map(|(_, raw)| parse_trade(raw, &self.pairs)).collect::<Result<Vec<_>, _>>()?;
         if parsed.is_empty() || parsed.iter().fold(BigDec::zero(), |a, t| &a + &t.amount) != *executed {
-            return Err(super::VenueError::Rejected(vec![format!("Binance trades of order {order_id} do not add up to its executed quantity yet")]));
+            return Err(super::VenueError::Rejected(vec![format!("{} trades of order {order_id} do not add up to its executed quantity yet", self.rules.name)]));
         }
         aggregate(&parsed, self.pairs.by_symbol.get(symbol))
     }
@@ -270,12 +273,12 @@ fn field<'a>(v: &'a serde_json::Value, key: &str) -> Result<&'a serde_json::Valu
 
 /// Exchanges::Binance#parse_order_data. ORDER_STATUS_MAP; a status it does not list is Unknown (Rails raises; the poll
 /// decides, spec E §2.4). An order type other than MARKET or LIMIT is refused, as Rails raises.
-pub fn parse_order(order_id: &str, o: &serde_json::Value, pairs: &Pairs) -> Result<Order, super::VenueError> {
+pub fn parse_order(name: &str, order_id: &str, o: &serde_json::Value, pairs: &Pairs) -> Result<Order, super::VenueError> {
     use super::OrderStatus;
     let symbol = field(o, "symbol")?.as_str().ok_or_else(unreadable)?;
     let limit = match field(o, "type")?.as_str() {
         Some("MARKET") => false, Some("LIMIT") => true,
-        other => return Err(super::VenueError::Rejected(vec![format!("Unknown Binance order type: {}", other.unwrap_or_default())])),
+        other => return Err(super::VenueError::Rejected(vec![format!("Unknown {name} order type: {}", other.unwrap_or_default())])),
     };
     let nonzero = |d: BigDec| (!d.is_zero()).then_some(d);
     let amount = nonzero(required(field(o, "origQty")?)?);
@@ -352,7 +355,7 @@ impl<T: Transport> BinanceVenue<T> {
 }
 
 impl<T: Transport> super::Venue for BinanceVenue<T> {
-    fn rules(&self) -> &'static VenueRules { &RULES }
+    fn rules(&self) -> &'static VenueRules { self.rules }
     fn placement_identity(&self) -> Option<serde_json::Value> { self.identity.clone() }
 
     /// Exchanges::Binance#get_ask_price / #get_bid_price through #get_bid_ask_price (bookTicker: all four of bidPrice, bidQty, askPrice and
@@ -399,7 +402,7 @@ impl<T: Transport> super::Venue for BinanceVenue<T> {
         let id = match &body["orderId"] {
             serde_json::Value::Number(n) if n.is_u64() || n.is_i64() => n.to_string(),
             serde_json::Value::String(s) if !s.is_empty() => s.clone(),
-            _ => return Err(super::VenueError::Ambiguous(format!("Failed to set Binance {kind} order (order_id is {}-)", o.pair))),
+            _ => return Err(super::VenueError::Ambiguous(format!("Failed to set {} {kind} order (order_id is {}-)", self.rules.name, o.pair))),
         };
         Ok(format!("{}-{id}", o.pair))
     }
@@ -434,7 +437,7 @@ impl<T: Transport> super::Venue for BinanceVenue<T> {
                 if wanted.is_empty() || page.len() < PAGE { exhausted = false; break; }
                 from_id = wanted.iter().copied().min().unwrap_or_default().max(last.unwrap_or_default() + 1);
             }
-            if exhausted { return Err(super::VenueError::Rejected(vec![format!("Too many pages of Binance {symbol} orders")])); }
+            if exhausted { return Err(super::VenueError::Rejected(vec![format!("Too many pages of {} {symbol} orders", self.rules.name)])); }
         }
         // Rails rebuilds after every symbol's walk, in the order the orders were found.
         let mut out = vec![];
@@ -467,7 +470,7 @@ impl<T: Transport> super::Venue for BinanceVenue<T> {
         };
         let ext = match &body["orderId"] { serde_json::Value::Number(n) if n.is_i64() || n.is_u64() => n.to_string(), _ => return Err(unreadable()) };
         if body["symbol"].as_str() != Some(symbol) || body["clientOrderId"].as_str() != Some(cl_ord_id) {
-            return Err(super::VenueError::Rejected(vec![format!("Binance answered for client order id {cl_ord_id} on {symbol} with another order")]));
+            return Err(super::VenueError::Rejected(vec![format!("{} answered for client order id {cl_ord_id} on {symbol} with another order", self.rules.name)]));
         }
         let id = format!("{symbol}-{ext}");
         let order = self.parse_order(&id, &body)?;

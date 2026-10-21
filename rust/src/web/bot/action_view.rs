@@ -9,17 +9,17 @@ use rusqlite::{Connection, OptionalExtension};
 pub(super) fn response(body: String, invalid: bool) -> Response {
     (if invalid { StatusCode::UNPROCESSABLE_ENTITY } else { StatusCode::OK }, [(axum::http::header::CONTENT_TYPE, turbo::CONTENT_TYPE)], body).into_response()
 }
-fn alert(errors: &[FieldError]) -> Result<String, WebError> {
+pub(super) fn alert(errors: &[FieldError]) -> Result<String, WebError> {
     let messages = if errors.is_empty() { vec![] } else { vec![flash::Message { style: "danger", text: crate::ruby::to_sentence(&errors.iter().map(|e|e.message.clone()).collect::<Vec<_>>()) }] };
     Ok(turbo::prepend_flash(flash::render(&messages)?.trim_end()))
 }
 /// The status bar and the progress bar, each replaced on its own target.
-fn bar_streams(bot: &Bot, state: &status::Status) -> String {
+pub(super) fn bar_streams(bot: &Bot, state: &status::Status) -> String {
     turbo::stream("replace",&bot.dom_id("status_bar"),&format!("{}\n",state.bar.trim_end()))
         + "\n" + &turbo::stream("replace",&bot.dom_id("progress_bar"),state.progress.trim_end())
 }
 /// BotHelper#status_button_streams: the bot page's Start/Stop and the tile's, back to back (`safe_join`).
-fn button_streams(bot: &Bot, state: &status::Status) -> String {
+pub(super) fn button_streams(bot: &Bot, state: &status::Status) -> String {
     turbo::stream("replace",&bot.dom_id("status_button"),&state.button) + &turbo::stream("replace",&bot.dom_id("tile_status_button"),&state.tile_button)
 }
 fn fragments(c: &Connection, ctx: &Ctx, draft: &Draft) -> Result<(String, String, status::Status), WebError> {
@@ -60,6 +60,10 @@ pub(super) fn lifecycle_response(c: &Connection, ctx: &Ctx, id: i64, action: Act
         return Ok(Prepared { response: response(alert(&view.errors)?,true), broadcasts: vec![], after_scheduling: None });
     }
     let user = ctx.user().ok_or_else(||WebError::Config("action has no authenticated user".into()))?;
+    // Bot#with_user_locale: the owner's open pages hear the change in the owner's language and paths; the answer keeps the request's.
+    let mut heard = super::live::owner_ctx(&ctx.app,user.clone());
+    heard.now = ctx.now;
+    let heard = &heard;
     let csrf = ctx.csrf_token();
     let (_,configured) = bots::market_data(c,&ctx.app)?;
     let stop_notice = if action == Action::Stop && write::orders_may_execute(c, id)? {
@@ -78,16 +82,7 @@ pub(super) fn lifecycle_response(c: &Connection, ctx: &Ctx, id: i64, action: Act
         Action::Delete => turbo::redirect(&ctx.path("/bots")),
         Action::Unarchive => turbo::refresh().into(),
         Action::Archive => {
-            if let Some(bot) = &bot {
-                let state = status::render(c,ctx,&csrf,bot,configured)?;
-                let count:i64 = c.query_row("SELECT COUNT(*) FROM bots WHERE user_id=?1 AND status NOT IN (3,7)",[user.id],|r|r.get(0))?;
-                let size = shell::bot_count_font_size(count);
-                let count = format!("<svg id=\"bot-count\" class=\"icon-24 icon-24--count\" viewBox=\"0 0 24 24\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\">\n  <text class=\"fill--icon\" x=\"12\" y=\"{}\" text-anchor=\"middle\" font-size=\"{size}\">{count}</text>\n</svg>\n",shell::bot_count_baseline(size));
-                bar_streams(bot,&state)
-                    + "\n" + &button_streams(bot,&state)
-                    + "\n" + &turbo::stream("replace",&bot.dom_id("menu"),&page::menu(ctx,&csrf,bot,configured)?)
-                    + "\n" + &turbo::stream("replace","bot-count",&count)
-            } else { turbo::refresh().into() }
+            if let Some(bot) = &bot { archived_streams(c,ctx,&csrf,bot,configured,user.id)? } else { turbo::refresh().into() }
         }
         Action::Start | Action::Stop => {
             // A Stop always commits: any fragment that cannot be rendered becomes a refresh, never an error that rolls the Stop back.
@@ -96,29 +91,50 @@ pub(super) fn lifecycle_response(c: &Connection, ctx: &Ctx, id: i64, action: Act
                 let (forms,exchange,_) = fragments(c,ctx,draft)?;
                 let mut body = turbo::stream("replace","settings",&format!("\n{forms}\n"))+"\n"+&turbo::stream("replace","exchange_select",exchange.trim_end());
                 if action == Action::Stop {
-                    let ids = c.prepare("SELECT id FROM bots WHERE user_id=?1 AND status<>3 ORDER BY id")?.query_map([user.id],|r|r.get::<_,i64>(0))?.collect::<Result<Vec<_>,_>>()?;
-                    for id in ids {
-                        let Some(other) = Bot::find(c,user.id,id,super::For::Page,ctx.locale)? else { return Ok(None) };
-                        if other.unrendered().is_some() { return Ok(None); }
-                        let state = status::render(c,ctx,&csrf,&other,configured)?;
-                        body += "\n"; body += &button_streams(&other,&state);
-                    }
+                    let Some(buttons) = all_buttons(c,ctx,&csrf,user.id,configured)? else { return Ok(None) };
+                    body += &buttons;
                 }
                 Ok(Some(body))
             } else { Ok(Some(turbo::refresh().into())) }
             })();
             match rendered {
                 Ok(Some(body)) => body,
-                Ok(None) => return Ok(Prepared { response: response(format!("{}{stop_notice}",turbo::refresh()),false), broadcasts: broadcasts(c,ctx,view,action).unwrap_or_default(), after_scheduling: None }),
-                Err(_) if action == Action::Stop => return Ok(Prepared { response: response(format!("{}{stop_notice}",turbo::refresh()),false), broadcasts: broadcasts(c,ctx,view,action).unwrap_or_default(), after_scheduling: None }),
+                Ok(None) => return Ok(Prepared { response: response(format!("{}{stop_notice}",turbo::refresh()),false), broadcasts: broadcasts(c,heard,view,action).unwrap_or_default(), after_scheduling: None }),
+                Err(_) if action == Action::Stop => return Ok(Prepared { response: response(format!("{}{stop_notice}",turbo::refresh()),false), broadcasts: broadcasts(c,heard,view,action).unwrap_or_default(), after_scheduling: None }),
                 Err(e) => return Err(e),
             }
         }
     };
     if !stop_notice.is_empty() { body.push('\n'); body.push_str(&stop_notice); }
-    Ok(Prepared { response: response(if matches!(action,Action::Delete|Action::Unarchive) { body } else { body + "\n" },false), broadcasts: if action == Action::Stop { broadcasts(c,ctx,view,action).unwrap_or_default() } else { broadcasts(c,ctx,view,action)? },
+    Ok(Prepared { response: response(if matches!(action,Action::Delete|Action::Unarchive) { body } else { body + "\n" },false), broadcasts: if action == Action::Stop { broadcasts(c,heard,view,action).unwrap_or_default() } else { broadcasts(c,heard,view,action)? },
         after_scheduling: if action == Action::Start { awaits_scheduling(c,ctx,view)? } else { None } })
 }
+/// bots/archives/update: the bot's two status widgets, its menu and the live bots' count.
+pub(super) fn archived_streams(c: &Connection, ctx: &Ctx, csrf: &str, bot: &Bot, configured: bool, owner: i64) -> Result<String, WebError> {
+    let state = status::render(c,ctx,csrf,bot,configured)?;
+    let count:i64 = c.query_row("SELECT COUNT(*) FROM bots WHERE user_id=?1 AND status NOT IN (3,7)",[owner],|r|r.get(0))?;
+    let size = shell::bot_count_font_size(count);
+    let count = format!("<svg id=\"bot-count\" class=\"icon-24 icon-24--count\" viewBox=\"0 0 24 24\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\">\n  <text class=\"fill--icon\" x=\"12\" y=\"{}\" text-anchor=\"middle\" font-size=\"{size}\">{count}</text>\n</svg>\n",shell::bot_count_baseline(size));
+    Ok(bar_streams(bot,&state)
+        + "\n" + &button_streams(bot,&state)
+        + "\n" + &turbo::stream("replace",&bot.dom_id("menu"),&page::menu(ctx,csrf,bot,configured)?)
+        + "\n" + &turbo::stream("replace","bot-count",&count))
+}
+
+/// Every not-deleted bot of the owner's Start/Stop buttons (stops/update's `status_button_streams` loop), or None where one
+/// of them is a bot this build does not draw.
+pub(super) fn all_buttons(c: &Connection, ctx: &Ctx, csrf: &str, owner: i64, configured: bool) -> Result<Option<String>, WebError> {
+    let ids = c.prepare("SELECT id FROM bots WHERE user_id=?1 AND status<>3 ORDER BY id")?.query_map([owner],|r|r.get::<_,i64>(0))?.collect::<Result<Vec<_>,_>>()?;
+    let mut body = String::new();
+    for id in ids {
+        let Some(other) = Bot::find(c,owner,id,super::For::Page,ctx.locale)? else { return Ok(None) };
+        if other.unrendered().is_some() { return Ok(None); }
+        let state = status::render(c,ctx,csrf,&other,configured)?;
+        body += "\n"; body += &button_streams(&other,&state);
+    }
+    Ok(Some(body))
+}
+
 /// The stream messages a service write sends, and the bot whose bars wait for the engine to schedule it.
 pub type ServiceBroadcasts = (Vec<(String,String)>, Option<i64>);
 /// What a lifecycle write through the services (REST, MCP) sends after it commits, as the web's own action does: the

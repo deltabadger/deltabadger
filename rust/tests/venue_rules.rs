@@ -81,11 +81,11 @@ fn every_recorded_adjusted_and_market_price_is_reproduced() {
     use deltabadger::engine::venue_rules::{PriceRule, Rounding, VenueRules, BINANCE, HYPERLIQUID_PRICE_RULE, KUCOIN, MARKET_CROSS};
     use deltabadger::ruby::BigDec;
     use deltabadger::venue::Side;
-    // The four ported venues by their own rows; Gemini's and Hyperliquid's rows come with B3/B1, so their price fields are
+    // The five ported venues by their own rows; Gemini's and Hyperliquid's rows come with B3/B1, so their price fields are
     // set here on a borrowed row.
     let gemini = VenueRules { cross: Some(MARKET_CROSS), ..KRAKEN };
     let hyperliquid = VenueRules { price_rule: HYPERLIQUID_PRICE_RULE, cross: Some(MARKET_CROSS), ..KRAKEN };
-    for existing in [&KRAKEN, &ALPACA, &BINANCE, &KUCOIN] {
+    for existing in [&KRAKEN, &ALPACA, &BINANCE, &deltabadger::engine::venue_rules::BINANCE_US, &KUCOIN, &deltabadger::engine::venue_rules::BITVAVO] {
         assert_eq!((existing.price_rule, existing.cross), (PriceRule::Decimals, None), "{}: the default rule, never crossed", existing.name);
     }
     let rules = |name: &str| -> &VenueRules {
@@ -113,7 +113,7 @@ fn every_recorded_adjusted_and_market_price_is_reproduced() {
         if rules(name).cross.is_some() && got != shown(rules(name).adjusted_price(&touch, t, Rounding::Floor)) { crossed += 1; }
         assert_eq!(got, c[4].as_str().unwrap(), "market_price_for {c}");
     }
-    assert_eq!((f["adjusted_price"].as_array().unwrap().len(), f["market_price_for"].as_array().unwrap().len()), (19_026, 12_684));
+    assert_eq!((f["adjusted_price"].as_array().unwrap().len(), f["market_price_for"].as_array().unwrap().len()), (25_368, 16_912));
     assert!(errors > 0 && crossed > 1_000, "the fixture reaches Hyperliquid's raise ({errors}) and the cross ({crossed})");
 }
 

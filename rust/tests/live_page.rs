@@ -119,3 +119,30 @@ fn every_new_row_removes_the_placeholder() {
         assert_eq!(shape[0], ("remove".to_string(), "orders_list_placeholder".to_string()), "row {id}");
     }
 }
+
+/// Slice 8c-1: a signal bot's marker, set or lifted by the engine, redraws bots/signals/_unresolved_placement on the bot's
+/// own page stream (Bots::Signal#broadcast_unresolved_placement): the Resolve form while it stands, without a token (the
+/// renderer has no session), and the hidden placeholder once it is gone. Any other bot hears nothing of it.
+#[test]
+fn a_signal_bots_marker_redraws_its_unresolved_placement_panel() {
+    let r = Rig::new(&BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    let c = r.c();
+    c.execute("INSERT INTO bots (type, status, exchange_id, user_id, settings, transient_data, started_at, created_at, updated_at) \
+               VALUES ('Bots::Signal', 1, ?1, ?2, ?3, ?4, '2026-08-25 09:00:00', '2026-08-25 09:00:00', '2026-08-25 09:00:00')",
+              rusqlite::params![r.s.exchange_id, r.s.user_id, json!({ "base_asset_id": r.s.btc, "quote_asset_id": r.s.quote }).to_string(),
+                                json!({ "signal_placement_unresolved": { "id": "cl-1", "at": "2026-09-01T10:00:00Z", "side": "buy", "error": "timeout" } }).to_string()]).unwrap();
+    let signal = c.last_insert_rowid();
+    let stream = |id: i64| { use base64::Engine; format!("{}:bot_updates", base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(format!("gid://deltabadger/Bots::Signal/{id}"))) };
+    let raised = r.render(&EngineEvent::SignalMarkerChanged { bot_id: signal });
+    assert_eq!(raised.len(), 1);
+    assert_eq!(raised[0].0, stream(signal));
+    assert_eq!(shape(&raised), [("replace".to_string(), "signal-unresolved-placement".to_string())]);
+    let html = &raised[0].1;
+    assert!(html.contains(&format!("action=\"/bots/{signal}/signal_resolution\"")) && html.contains("name=\"marker_id\" value=\"cl-1\"") && html.contains("Alpaca"), "{html}");
+    assert!(!html.contains("authenticity_token"), "a broadcast carries no token: {html}");
+    c.execute("UPDATE bots SET transient_data = '{}' WHERE id = ?1", [signal]).unwrap();
+    let lifted = r.render(&EngineEvent::SignalMarkerChanged { bot_id: signal });
+    // The partial as Rails renders it on its own (signal_action_resolution records it), not as the settings column indents it.
+    assert_eq!(lifted, vec![(stream(signal), "<turbo-stream action=\"replace\" target=\"signal-unresolved-placement\"><template>  <div id=\"signal-unresolved-placement\" hidden></div>\n</template></turbo-stream>".to_string())]);
+    assert!(r.render(&EngineEvent::SignalMarkerChanged { bot_id: r.id }).is_empty(), "a basket has no such panel");
+}

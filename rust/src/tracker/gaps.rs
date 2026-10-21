@@ -171,7 +171,7 @@ fn judged(c: &Connection, owner: i64, now: DateTime<Utc>) -> Result<Option<(Fing
     let readings = super::import::run::reading(&tx, owner).map_err(|e| FiguresError::Data(e.0))?;
     let origin = crate::sync::cache::capture_read(&tx, owner, None).map_err(|_| data("reading provenance unavailable"))?;
     let mut gaps = vec![];
-    let read = crate::sync::ledger_read_venues();
+    let read = crate::sync::ledger_venues();
     for k in readings.iter().filter(|k| read.contains(&k.exchange_type.as_str())) {
         let summary = venues.iter().find(|(id, _)| *id == k.exchange_id).map(|(_, s)| s);
         if let Some(gap) = venue(&tx, owner, &origin, k, summary)? { gaps.push(gap); }

@@ -3,6 +3,7 @@
 # venues whose signing is their own, Gemini's payload + HMAC-SHA384, Coinbase's per-request JWT (ES256 and EdDSA) and
 # Hyperliquid's EIP-712 L1 action (rust/tests/venue_signing.rs, against venue::signers).
 #   bin/rails runner script/rust/record_venue_signing.rb kucoin rust/tests/fixtures/kucoin_signing.json
+#   bin/rails runner script/rust/record_venue_signing.rb bitvavo rust/tests/fixtures/bitvavo_signing.json
 #   bin/rails runner script/rust/record_venue_signing.rb gemini rust/tests/fixtures/gemini_signing.json
 #   bin/rails runner script/rust/record_venue_signing.rb coinbase rust/tests/fixtures/coinbase_signing.json
 #   bin/rails runner script/rust/record_venue_signing.rb hyperliquid rust/tests/fixtures/hyperliquid_signing.json
@@ -123,6 +124,38 @@ when 'kucoin'
     'signing' => cases,
     'orders' => orders
   }
+when 'bitvavo'
+  # Honeymaker::Clients::Bitvavo's requests for rust/tests/bitvavo.rs (plan VB slice A3): the URL query, the body bytes and
+  # every header it sends under a frozen #timestamp_ms, for signed GETs (with and without a query), POSTs, DELETEs (which sign
+  # their query, where KuCoin's sign the path alone) and a public read.
+  connection = test_connection.(Honeymaker::Clients::Bitvavo::URL, { orderId: '0b6d2f7e-1c4a-4b8e-9f3a-5d2c7e1a9b01', market: 'BTC-EUR' })
+  keys = [%w[4a1f9c2e7b3d5a6f8e0c1b2d3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3 9f8e7d6c5b4a39281706f5e4d3c2b1a0f9e8d7c6b5a493827160f5e4d3c2b1a0f9],
+          ['k', 's3cr3t~/+=']]
+  cases = []
+  ms = 1_789_871_400_750
+  keys.each_with_index do |(key, secret), i|
+    [['get_raw_balance', ->(c) { c.get_raw_balance }],
+     ['get_order', ->(c) { c.get_order(market: 'BTC-EUR', order_id: '0b6d2f7e-1c4a-4b8e-9f3a-5d2c7e1a9b01') }],
+     ['get_trades', ->(c) { c.get_trades(market: 'BTC-EUR', limit: 1000, trade_id_to: '1b2c3d4e-0000-4000-8000-000000000001') }],
+     ['get_deposit_history', ->(c) { c.get_deposit_history(start_time: 0, end_time: 1_789_871_400_751, limit: 1000) }],
+     ['get_raw_balance escaped', ->(c) { c.get_raw_balance(symbol: 'A B/~*é') }],
+     ['place_order market amount', ->(c) { c.place_order(market: 'BTC-EUR', side: 'buy', order_type: 'market', amount: '0.00093748', client_order_id: '5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01') }],
+     ['place_order market quote', ->(c) { c.place_order(market: 'BTC-EUR', side: 'sell', order_type: 'market', amount_quote: '60.5') }],
+     ['place_order limit', ->(c) { c.place_order(market: 'ETH-EUR', side: 'buy', order_type: 'limit', amount: '1.5', price: '2400', client_order_id: '5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01') }],
+     ['cancel_order', ->(c) { c.cancel_order(market: 'BTC-EUR', order_id: '00000000-0000-0000-0000-000000000000') }],
+     ['get_markets public', ->(c) { c.get_markets }]].each_with_index do |(call, blk), j|
+      c = Honeymaker::Clients::Bitvavo.new(api_key: key, api_secret: secret)
+      c.instance_variable_set(:@connection, connection)
+      t = ms + (i * 1000) + j
+      c.define_singleton_method(:timestamp_ms) { t }
+      blk.call(c)
+      cases << one.(call).merge('call' => call, 'api_key' => key, 'api_secret' => secret, 'timestamp' => t)
+    end
+  end
+  out['sources']['app/models/exchanges/bitvavo.rb'] = Digest::SHA256.file(Rails.root.join('app/models/exchanges/bitvavo.rb')).hexdigest
+  # What engine::venue_rules::BITVAVO ports beside the signing.
+  out.merge!('errors' => Exchanges::Bitvavo::ERRORS.transform_keys(&:to_s), 'network_transient' => Client::NETWORK_TRANSIENT_PATTERNS,
+             'placement_safe' => Exchange::PLACEMENT_SAFE_TRANSIENT_ERRORS, 'signing' => cases)
 when 'gemini'
   key = 'account-Zq8XtV2bLm4N7cRk'
   secret = '3xQnTq9hKpZ2vYw8RcLm5Fd7JgBs'

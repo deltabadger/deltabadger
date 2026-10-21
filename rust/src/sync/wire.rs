@@ -129,6 +129,47 @@ fn write_stored_members(members: &[(String, Node)], out: &mut String) {
     out.push('}');
 }
 
+/// An object's members as a key two objects share exactly when Ruby's `eql?` holds for what `JSON.parse` made of them (what
+/// `Hash#tally` and a Hash key compare by): the members in any order, a string by its decoded text, digits alone an
+/// Integer by value (`-0` is 0), any other number a Float by its double (`-0.0` is `0.0`), and an Integer never a Float.
+pub fn eql_key_members(members: &[(String, Node)]) -> String {
+    let mut out = String::new();
+    write_eql_members(members, &mut out);
+    out
+}
+fn write_eql_members(members: &[(String, Node)], out: &mut String) {
+    let mut sorted: Vec<&(String, Node)> = members.iter().collect();
+    sorted.sort_by(|a, b| a.0.cmp(&b.0));
+    out.push('{');
+    for (key, value) in sorted {
+        out.push_str(&serde_json::Value::String(key.clone()).to_string());
+        out.push(':');
+        write_eql(value, out);
+        out.push(',');
+    }
+    out.push('}');
+}
+fn write_eql(node: &Node, out: &mut String) {
+    match node {
+        Node::Scalar(s) if s.starts_with('"') => out.push_str(&serde_json::Value::String(serde_json::from_str::<String>(s).unwrap_or_default()).to_string()),
+        Node::Scalar(s) if matches!(s.as_str(), "true" | "false" | "null") => out.push_str(s),
+        Node::Scalar(s) if s.bytes().all(|b| b == b'-' || b.is_ascii_digit()) => {
+            out.push('i');
+            out.push_str(if s.bytes().all(|b| b == b'-' || b == b'0') { "0" } else { s });
+        }
+        Node::Scalar(s) => {
+            let d = s.parse::<f64>().unwrap_or(f64::NAN);
+            out.push_str(&format!("f{:x}", if d == 0.0 { 0 } else { d.to_bits() }));
+        }
+        Node::Array(items) => {
+            out.push('[');
+            for item in items { write_eql(item, out); out.push(','); }
+            out.push(']');
+        }
+        Node::Object(members) => write_eql_members(members, out),
+    }
+}
+
 /// An object's members as Rails stores them (`Node::stored` for an object held as its members).
 pub fn stored_members(members: &[(String, Node)]) -> String {
     let mut out = String::new();
@@ -371,4 +412,24 @@ pub fn exact(text: &str) -> Result<serde_json::Value, serde_json::Error> {
     }
     out.push_str(&text[copied..]);
     serde_json::from_str(&out)
+}
+
+#[cfg(test)]
+mod eql_tests {
+    use super::*;
+    fn key(text: &str) -> String {
+        let Node::Object(m) = read(text, &mut Budget(usize::MAX), None).unwrap() else { panic!() };
+        eql_key_members(&m)
+    }
+    #[test]
+    fn eql_key_is_rubys_eql_on_what_json_parse_made() {
+        assert_eq!(key(r#"{"a":1,"b":"x"}"#), key(r#"{"b":"x","a":1}"#), "key order is no difference");
+        assert_eq!(key(r#"{"a":"A"}"#), key(r#"{"a":"A"}"#), "a string by its text");
+        assert_eq!(key(r#"{"a":1.50}"#), key(r#"{"a":1.5}"#), "a Float by its double");
+        assert_eq!(key(r#"{"a":-0.0}"#), key(r#"{"a":0.0}"#));
+        assert_eq!(key(r#"{"a":-0}"#), key(r#"{"a":0}"#));
+        assert_ne!(key(r#"{"a":1}"#), key(r#"{"a":1.0}"#), "1.eql?(1.0) is false");
+        assert_ne!(key(r#"{"a":"1"}"#), key(r#"{"a":1}"#));
+        assert_ne!(key(r#"{"a":[1,2]}"#), key(r#"{"a":[2,1]}"#), "a list keeps its order");
+    }
 }

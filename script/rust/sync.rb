@@ -25,7 +25,7 @@ Net::HTTP.prepend(Module.new { def connect = raise(Harness::Unscripted, "real co
 ENV['COINGECKO_API_KEY'] = ''
 
 module ScriptedSync
-  mattr_accessor :alpaca, :binance, :binance_state, :kucoin, :gemini, :market, :requests, :filters_after
+  mattr_accessor :alpaca, :binance, :binance_state, :kucoin, :bitvavo, :gemini, :market, :requests, :filters_after
 
   NETWORK = {
     'pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "paper-api.alpaca.markets" port 443')) },
@@ -34,6 +34,7 @@ module ScriptedSync
     # Honeymaker reports e.message alone (Honeymaker::Client#with_rescue), and returns it: nothing raises.
     'binance_pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "api.binance.com" port 443')) },
     'kucoin_pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "api.kucoin.com" port 443')) },
+    'bitvavo_pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "api.bitvavo.com" port 443')) },
     'gemini_pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "api.gemini.com" port 443')) }
   }.freeze
 
@@ -46,6 +47,7 @@ module ScriptedSync
     script = if host.end_with?('alpaca.markets') then alpaca
              elsif host.start_with?('api.binance.') then binance
              elsif host == 'api.kucoin.com' then kucoin
+             elsif host == 'api.bitvavo.com' then bitvavo
              elsif host == 'api.gemini.com' then gemini
              elsif host == 'data-api' then market
              end
@@ -82,7 +84,7 @@ module ScriptedSync
       reply = ScriptedSync.reply(env)
       if (kind = reply['network'])
         error = ScriptedSync::NETWORK.fetch(kind).call
-        actual = kind.start_with?('binance_', 'kucoin_', 'gemini_') ? error.message : "#{error.class}: #{error.message}" # what the venue's client reports
+        actual = kind.start_with?('binance_', 'kucoin_', 'bitvavo_', 'gemini_') ? error.message : "#{error.class}: #{error.message}" # what the venue's client reports
         raise Harness::Unscripted, "#{kind}: the script says #{reply['message'].inspect}, Ruby says #{actual.inspect}" unless actual == reply['message']
 
         raise error
@@ -426,6 +428,34 @@ module SyncParity
     { 'id' => id, 'currency' => currency, 'amount' => amount, 'fee' => fee, 'walletTxId' => wallet, 'status' => 'SUCCESS',
       'createdAt' => at.is_a?(Integer) ? at : ms(at) }.compact
   end
+  # A Bitvavo key (plan VB slice A3), with the markets its scenarios trade; EUR is cash, priced through the exchange rates.
+  def bitvavo(ctx)
+    venue(ctx, Exchanges::Bitvavo, 'Bitvavo', as: :bitvavo, assets: %w[BTC ETH EUR], pairs: [%w[BTC EUR], %w[ETH EUR], %w[ETH BTC]],
+          pair: ->(b, q) { "#{b}-#{q}" }, coin: { base_decimals: 8, quote_decimals: 2, price_decimals: 0, minimum_base_size: '0.0001', minimum_quote_size: '5' })
+  end
+  BV_DEPOSITS = 'GET /v2/depositHistory'.freeze
+  BV_WITHDRAWALS = 'GET /v2/withdrawalHistory'.freeze
+  BV_BALANCE = 'GET /v2/balance'.freeze
+  BV_MARKETS = 'GET /v2/markets'.freeze
+  BV_TRADES = 'GET /v2/trades'.freeze
+  def bv_transfer(symbol, amount, at, fee: '0', status: 'completed', tx: nil)
+    { 'timestamp' => at.is_a?(Integer) ? at : ms(at), 'symbol' => symbol, 'amount' => amount, 'fee' => fee, 'status' => status, 'txId' => tx }.compact
+  end
+  def bv_trade(id, market, side, amount, price, at, fee: '0.15', fee_currency: 'EUR')
+    { 'id' => id, 'orderId' => "o-#{id}", 'timestamp' => at.is_a?(Integer) ? at : ms(at), 'market' => market, 'side' => side, 'amount' => amount,
+      'price' => price, 'taker' => true, 'fee' => fee, 'feeCurrency' => fee_currency, 'settled' => true }
+  end
+  def bv_markets(*markets) = ok(markets.map { |m| { 'market' => m, 'status' => 'trading', 'base' => m.split('-')[0], 'quote' => m.split('-')[1] } })
+  def bv_balance(*rows) = ok(rows.map { |symbol, available, in_order| { 'symbol' => symbol, 'available' => available, 'inOrder' => in_order || '0' } })
+  # A ledger run over Bitvavo's scripted answers: each path's replies in order, the last one repeated.
+  def bitvavo_ledger(at, deposits: [ok([])], withdrawals: [ok([])], balance: [bv_balance], markets: [bv_markets('BTC-EUR')], trades: [ok([])])
+    { 'kind' => 'ledger', 'at' => at, 'bitvavo' => { BV_DEPOSITS => deposits, BV_WITHDRAWALS => withdrawals, BV_BALANCE => balance, BV_MARKETS => markets,
+                                                     BV_TRADES => trades } }
+  end
+  def bitvavo_balances(at, balance:, prices: nil, rates: nil)
+    { 'kind' => 'balances', 'at' => at, 'bitvavo' => { BV_BALANCE => [balance] },
+      'market' => { EXCHANGE_RATES => rates && [rates], PRICES => prices && [prices] }.compact }
+  end
   KC_FILLS = 'GET /api/v1/fills'.freeze
   KC_DEPOSITS = 'GET /api/v1/deposits'.freeze
   KC_WITHDRAWALS = 'GET /api/v1/withdrawals'.freeze
@@ -546,6 +576,7 @@ module SyncParity
     end)
     AccountTransaction::SyncJob.prepend(Module.new { def sleep(*) = nil })
     Exchanges::Kucoin.prepend(Module.new { def sleep(*) = nil }) # each_page's 10 s throttle wait (LEDGER_THROTTLE_WAIT)
+    Exchanges::Bitvavo.prepend(Module.new { def sleep(*) = nil }) # the ledger's pacing (LEDGER_READ_PAUSE)
     Exchanges::Gemini.prepend(Module.new { def sleep(*) = nil }) # each_ledger_row's 5 s transfers pacing (TRANSFERS_REQUEST_INTERVAL)
     PortfolioSnapshot.singleton_class.prepend(Module.new { def record!(*) = nil })
     Dir[File.join(root, '*/scenario.json')].sort.each do |path|
@@ -554,13 +585,14 @@ module SyncParity
       ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: File.join(dir, 'production.sqlite3'))
       Rails.cache.clear
       before = snapshot
-      reading = ApiKey.reading(ApiKey.includes(:exchange)).select { |k| [Exchanges::Alpaca, Exchanges::Binance, Exchanges::Kucoin, Exchanges::Gemini].any? { |c| k.exchange.is_a?(c) } }.map(&:id).sort
+      reading = ApiKey.reading(ApiKey.includes(:exchange)).select { |k| [Exchanges::Alpaca, Exchanges::Binance, Exchanges::Kucoin, Exchanges::Bitvavo, Exchanges::Gemini].any? { |c| k.exchange.is_a?(c) } }.map(&:id).sort
       steps = sc['steps'].map do |step|
         ActiveJob::Base.queue_adapter.enqueued_jobs.clear
         ScriptedSync.alpaca = step.fetch('alpaca', {}).transform_values(&:dup)
         ScriptedSync.binance = step.fetch('binance', {}).transform_values(&:dup)
         ScriptedSync.binance_state = step['binance_state']
         ScriptedSync.kucoin = step.fetch('kucoin', {}).transform_values(&:dup)
+        ScriptedSync.bitvavo = step.fetch('bitvavo', {}).transform_values(&:dup)
         ScriptedSync.gemini = step.fetch('gemini', {}).transform_values(&:dup)
         ScriptedSync.market = step.fetch('market', {}).transform_values(&:dup)
         ScriptedSync.requests = []

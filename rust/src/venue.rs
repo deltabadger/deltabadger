@@ -6,6 +6,7 @@ pub mod fake;
 pub mod alpaca;
 pub mod http;
 pub mod binance;
+pub mod bitvavo;
 pub mod kraken;
 pub mod kucoin;
 pub mod gemini;
@@ -28,7 +29,7 @@ pub(crate) fn dig_or_raise<'a>(v: &'a serde_json::Value, key: &str) -> Result<&'
     v.get(key).filter(|x| !x.is_null()).ok_or_else(|| VenueError::Ambiguous(format!("Key path {key} not found")))
 }
 
-/// What an intent records of the key a Kraken, Binance or KuCoin order is sent under (Alpaca's is `alpaca::placement_identity`):
+/// What an intent records of the key a Kraken, Binance, KuCoin or Bitvavo order is sent under (Alpaca's is `alpaca::placement_identity`):
 /// the host and a fingerprint of the public key id. Never the secret.
 pub fn key_identity(host: &str, credentials: &Credentials) -> serde_json::Value {
     use sha2::{Digest, Sha256};

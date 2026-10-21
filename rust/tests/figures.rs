@@ -9,9 +9,15 @@ use std::process::Command;
 use std::sync::OnceLock;
 mod common;
 
-/// The scenarios of script/rust/figures.rb: 83 written by hand, one per branch of the code they name, and 24 seeded
-/// histories that mix every kind of order with splits.
-const SCENARIOS: usize = 107;
+/// The scenarios of script/rust/figures.rb: 117 written by hand, one per branch of the code they name, 24 seeded
+/// histories that mix every kind of order with splits, and 8 of a pair bot's.
+const SCENARIOS: usize = 149;
+
+/// The named divergences from Rails, each a defect there, asserted on their own (`the_named_divergences_hold`) and
+/// left out of the comparisons: D1, a closed row with no value reported is valued at the units it executed (Rails: at
+/// the units it asked for); D2, a fill with a zero or NULL price counts, priced at its value over its quantity (Rails
+/// values it at zero, or skips it).
+const DIVERGENT: [&str; 3] = ["pair_row_requested_fallback", "pair_row_zero_price", "pair_row_null_price_reported"];
 
 fn rails(args: &[&str]) {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
@@ -130,7 +136,7 @@ fn compare(what: &str, pick: impl Fn(&Value) -> Value) {
     let grid = grid();
     assert_eq!(grid.scenarios.len(), SCENARIOS, "the grid has {} scenarios", grid.scenarios.len());
     let (mut out, mut differing) = (vec![], 0);
-    for scenario in &grid.scenarios {
+    for scenario in grid.scenarios.iter().filter(|s| !DIVERGENT.contains(&s.name.as_str())) {
         let before = out.len();
         match &scenario.rust {
             Ok(rust) => {
@@ -166,7 +172,7 @@ fn the_walk_over_the_orders_matches_rails_in_every_scenario() {
     // The grid means what it says only if the figures in it are figures: no scenario's walk ends in a raise.
     let walked = grid().scenarios.iter().flat_map(|s| s.rails["bots"].as_object().unwrap().values()).filter_map(|bot| bot["metrics"].as_str())
         .filter(|metrics| !metrics.contains("\"raised\"")).count();
-    assert_eq!(walked, 136, "bots walked on the Rails side");
+    assert_eq!(walked, 180, "bots walked on the Rails side");
 }
 
 #[test]
@@ -208,7 +214,7 @@ fn the_live_figures_match_rails_in_every_scenario() {
     let lives: Vec<&str> = grid().scenarios.iter().flat_map(|s| s.rails["bots"].as_object().unwrap().values()).filter_map(|bot| bot["live"].as_str()).collect();
     let count = |needle: &str| lives.iter().filter(|live| live.contains(needle)).count();
     // Every way the pass can end is met: marked at the market, fallen back to the last fills, or raised to a retry.
-    assert_eq!((count("\"live_prices\""), count("\"prices_stale\":true"), count("\"raised\"")), (118, 7, 1), "of {} bots", lives.len());
+    assert_eq!((count("\"live_prices\""), count("\"prices_stale\":true"), count("\"raised\"")), (152, 11, 4), "of {} bots", lives.len());
 }
 
 /// Rails leaves a held asset it cannot price out of the value without a word. The figures stay Rails'; beside them
@@ -248,7 +254,7 @@ fn the_chart_marked_at_market_matches_rails_in_every_scenario() {
     let charts: Vec<&Value> = grid().scenarios.iter().flat_map(|s| s.rails["bots"].as_object().unwrap().values()).map(|bot| &bot["chart"]).filter(|chart| chart.is_object()).collect();
     let with = |name: &str, needle: &str| charts.iter().filter(|chart| chart[name].as_str().is_some_and(|text| text.contains(needle))).count();
     // Points that kept their fill mark (a null in a holding's series) and prices outside a grid's reach are both met.
-    assert_eq!((charts.len(), with("assets", "null"), with("prices", "null"), with("pnl-only", "true")), (125, 12, 25, 1));
+    assert_eq!((charts.len(), with("assets", "null"), with("prices", "null"), with("pnl-only", "true")), (164, 12, 25, 1));
 }
 
 /// The chart marked at market leaves out of every point a holding the bot has no ticker for today, though the
@@ -302,25 +308,64 @@ fn the_market_is_asked_for_exactly_what_rails_asks_it() {
         assert_eq!(scenario.rails["requests"], scenario.rust.as_ref().unwrap()["requests"], "{}", scenario.name);
     }
     let asked: usize = grid().scenarios.iter().map(|s| s.rails["requests"].as_array().map_or(0, Vec::len)).sum();
-    assert_eq!(asked, 660, "requests on the Rails side");
+    assert_eq!(asked, 772, "requests on the Rails side");
 }
 
-/// The one scenario with a bot this library does not compute (a pair bot beside a basket).
-const NOT_COMPUTED: &str = "account_pair_bot";
+/// The one scenario with a bot this library does not compute: a bot of a type no build knows, beside a basket.
+const NOT_COMPUTED: &str = "account_unknown_type";
 
 #[test]
 fn a_bot_of_another_type_is_not_computed_and_neither_is_a_total_that_needs_it() {
     let scenario = grid().scenarios.iter().find(|s| s.name == NOT_COMPUTED).unwrap();
     let rust = scenario.rust.as_ref().unwrap();
-    assert_eq!(scenario.rails["bots"]["2"], serde_json::json!({ "type": "Bots::DcaSingleAsset" }));
-    let reason = "bot 2 is a Bots::DcaSingleAsset: only baskets and index bots are computed";
+    assert_eq!(scenario.rails["bots"]["2"], serde_json::json!({ "type": "Bots::Withdrawal" }));
+    let reason = "bot 2 is a Bots::Withdrawal: only baskets and index bots are computed";
     assert_eq!(rust["bots"]["2"], serde_json::json!({ "not_computed": reason }));
     for total in ["global_pnl", "global_pnl_snapshot", "pnl_history"] {
         assert_eq!(rust[total], serde_json::json!({ "not_computed": reason }), "{total}");
-        assert!(scenario.rails[total].as_str().is_some_and(|text| text.contains("percent")), "Rails has a {total} here");
+        // Rails cannot load the bot either, and raises.
+        assert!(scenario.rails[total].as_str().is_some_and(|text| text.contains("SubclassNotFound")), "Rails' {total}: {}", scenario.rails[total]);
     }
     // The basket beside it is computed as in any other scenario (the three tests above compare it).
     assert!(rust["bots"]["1"]["metrics"].is_string());
+}
+
+/// A pair bot's three layers are compared above with every other bot's. Beside them, what Rails leaves in its cache
+/// after a cold pass (the headline's snapshot and the page's inline chart read only that): every way each can end.
+#[test]
+fn a_pair_bots_caches_are_written_as_rails_writes_them() {
+    compare("cache flags", of_bots(&["cached", "chart_cache"]));
+    let mut ways = std::collections::BTreeMap::new();
+    for scenario in &grid().scenarios {
+        for bot in scenario.rails["bots"].as_object().unwrap().values().filter(|bot| bot.get("cached").is_some()) {
+            *ways.entry((bot["cached"].as_bool().unwrap(), bot["chart_cache"].as_bool().unwrap())).or_insert(0) += 1;
+        }
+    }
+    assert_eq!(ways.into_iter().collect::<Vec<_>>(), vec![((false, false), 8), ((false, true), 4), ((true, false), 3), ((true, true), 28)]);
+}
+
+/// D1 and D2 (`DIVERGENT`): Rails' recorded number, and this library's.
+#[test]
+fn the_named_divergences_hold() {
+    let of = |name: &str| grid().scenarios.iter().find(|s| s.name == name).unwrap();
+    let metrics = |scenario: &Scenario| -> (Value, Value) {
+        let parse = |v: &Value| serde_json::from_str::<Value>(v["bots"]["1"]["metrics"].as_str().unwrap()).unwrap();
+        (parse(&scenario.rails), parse(scenario.rust.as_ref().unwrap()))
+    };
+    // D1: 0.4 executed of 1 asked at 101, with no value reported. Rails books what was asked (101), this library what
+    // executed (40.4); both hold the 0.4.
+    let (rails, rust) = metrics(of("pair_row_requested_fallback"));
+    assert_eq!((&rails["total_quote_amount_invested"], &rails["total_base_amount"]), (&serde_json::json!("201.0"), &serde_json::json!("1.4")));
+    assert_eq!((&rust["total_quote_amount_invested"], &rust["total_base_amount"]), (&serde_json::json!("140.4"), &serde_json::json!("1.4")));
+    // D2, a zero price: 0.5 bought for 50. Rails values the holding at that price, zero, and averages it in at zero.
+    let (rails, rust) = metrics(of("pair_row_zero_price"));
+    assert_eq!((&rails["chart"]["series"][0][1], &rails["average_buy_price"]), (&serde_json::json!("0.0"), &serde_json::json!("66.666666666666666666666666666667")));
+    assert_eq!((&rust["chart"]["series"][0][1], &rust["average_buy_price"]), (&serde_json::json!("150.0"), &serde_json::json!("100.0")));
+    // D2, a NULL price: 0.5 bought for 51. Rails skips the fill; this library counts it, at 102.
+    let (rails, rust) = metrics(of("pair_row_null_price_reported"));
+    assert_eq!((rails["chart"]["labels"].as_array().unwrap().len(), &rails["total_quote_amount_invested"]), (1, &serde_json::json!("100.0")));
+    assert_eq!((rust["chart"]["labels"].as_array().unwrap().len(), &rust["total_quote_amount_invested"]), (2, &serde_json::json!("151.0")));
+    assert_eq!(rust["average_buy_price"], serde_json::json!("100.66666666666666666666666666667"));
 }
 
 /// Beside the account's totals: the same holdings, by bot. A deleted bot is in no total and in no list.
@@ -351,9 +396,9 @@ fn what_is_not_computed_is_named() {
     let mut found = vec![];
     for scenario in &grid().scenarios { collect(&scenario.name, "", &scenario.rails, scenario.rust.as_ref().unwrap(), &mut found); }
     let listed: Vec<String> = found.iter().map(|(place, reason, _)| format!("{place}: {reason}")).collect();
-    let pair = "bot 2 is a Bots::DcaSingleAsset: only baskets and index bots are computed";
+    let unknown = "bot 2 is a Bots::Withdrawal: only baskets and index bots are computed";
     let number = deltabadger::figures::NOT_A_NUMBER;
-    let mut expected: Vec<String> = [".bots.2", ".global_pnl", ".global_pnl_snapshot", ".pnl_history"].iter().map(|place| format!("account_pair_bot{place}: {pair}")).collect();
+    let mut expected: Vec<String> = [".bots.2", ".global_pnl", ".global_pnl_snapshot", ".pnl_history"].iter().map(|place| format!("account_unknown_type{place}: {unknown}")).collect();
     // A candle that is no number: the walk and the live figures stand, the chart and what is drawn from it do not.
     expected.extend([".bots.1.marked", ".bots.1.chart", ".pnl_history"].iter().map(|place| format!("candle_nan{place}: {number}")));
     // RULING-R2: the existing row_readings fixture has a positive execution without a price.

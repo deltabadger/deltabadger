@@ -213,14 +213,15 @@ async fn no_gap_unless_the_venue_passes_every_rule() {
 fn seeded(s: &common::seed::Seeded) -> common::seed::Seeded { common::seed::Seeded { user_id: s.user_id, exchange_id: s.exchange_id, btc: s.btc, quote: s.quote, ticker_id: s.ticker_id, api_key_id: s.api_key_id } }
 fn kucoin_key(fx: &Fx) -> i64 { fx.c().query_row("SELECT k.id FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE e.type='Exchanges::Kucoin' ORDER BY k.id LIMIT 1", [], |r| r.get(0)).unwrap() }
 
-/// Binance.US stamps a ledger it never read: it is never judged, however much it holds.
+/// Binance.US reads its ledger (plan VB slice A2): its gap is judged as every read venue's is.
 #[tokio::test(flavor = "current_thread")]
-async fn binance_us_with_a_current_stamp_is_never_judged() {
+async fn binance_us_reads_its_ledger_so_its_gap_is_judged() {
     let fx = alpaca_synced("0.01").await;
     let (us, key) = add_venue(&fx, "Exchanges::BinanceUs", "Binance.US", 0);
     kucoin_balances(&fx, us, key, &[("ETH", "7.4", "2000")]);
     assert_eq!(run(&fx).await, Outcome::Done);
-    assert_eq!(gaps_of(&fx.row().unwrap()), &Vec::<Value>::new());
+    let row = fx.row().unwrap();
+    assert_eq!((gaps_of(&row).len(), gaps_of(&row)[0]["key"].as_i64()), (1, Some(key)), "{row}");
 }
 
 // ---- keys ----------------------------------------------------------------------------------------------------------

@@ -1,13 +1,18 @@
 //! Existing-bot HTTP actions. Authentication, CSRF, bounds and format checks stay in pipeline.
 use super::{action_params::ActionParams, action_view, page, write::{self, Action, Outcome}};
 use crate::web::{auth, flash, i18n, layout::{self,Ctx,Page}, shell::{self,Shell}, App, WebError};
-use axum::{extract::{Extension,Path,State}, http::StatusCode, response::{IntoResponse,Response}};
+use axum::{extract::{Extension,Path,State}, http::{HeaderMap,StatusCode}, response::{IntoResponse,Response}};
 
-async fn mutate(app: App, ctx: Ctx, segment: String, action: Option<Action>) -> Result<Response,WebError> {
+async fn mutate(app: App, ctx: Ctx, segment: String, action: Option<Action>, headers: HeaderMap) -> Result<Response,WebError> {
     let Some(user) = ctx.user().cloned() else { return Ok(auth::unauthenticated(&ctx)) };
     let segment = segment.strip_suffix(".turbo_stream").unwrap_or(&segment);
     let Some(id) = super::id_from_path(segment) else { return Ok(page::not_found(&ctx)) };
     let params = match ActionParams::parse(&ctx.params) { Ok(p)=>p,Err(e)=>return Ok(e.status().into_response()) };
+    // A signal bot has its own thin model (bot::signal_write).
+    let owner = user.id;
+    if app.db(move |c| super::signal_write::is_signal(c, owner, id)).await? {
+        return super::signal_write::web_action(app, ctx, owner, id, action, params, &headers).await;
+    }
     let view = ctx.clone();
     let result = app.db(move |c| {
         if let Some(action) = action {
@@ -47,8 +52,8 @@ async fn mutate(app: App, ctx: Ctx, segment: String, action: Option<Action>) -> 
 }
 macro_rules! mutation {
     ($name:ident, $action:expr) => {
-        pub async fn $name(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path(id): Path<String>) -> Result<Response,WebError> {
-            mutate(app,ctx,id,$action).await
+        pub async fn $name(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path(id): Path<String>, headers: HeaderMap) -> Result<Response,WebError> {
+            mutate(app,ctx,id,$action,headers).await
         }
     };
 }

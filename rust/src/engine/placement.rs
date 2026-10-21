@@ -21,9 +21,11 @@ pub const DEADLINE_SECONDS: i64 = 10;
 pub const SEND_WINDOW_SECONDS: i64 = DEADLINE_SECONDS;
 pub const ABSENCE_AFTER_SECONDS: i64 = 60;
 /// Exchange::PLACEMENT_SAFE_TRANSIENT_ERRORS: definitive pre-trade rejections, plus Exchanges::Kucoin::ERRORS[:placement_safe_transient]
-/// (400002) and Exchanges::Gemini::ERRORS[:placement_safe_transient] (InvalidNonce). Rails scopes each venue's string to its
-/// venue; they are listed for every venue here, strings only that venue sends (Kraken's nonce error is "EAPI:Invalid nonce").
-pub const PLACEMENT_SAFE_TRANSIENT_ERRORS: [&str; 4] = ["Timestamp for this request is outside of the recvWindow", "Timestamp for this request was", "Invalid KC-API-TIMESTAMP", "InvalidNonce"];
+/// (400002), Exchanges::Bitvavo's (errorCode 304, outside the access window) and Exchanges::Gemini::ERRORS[:placement_safe_transient]
+/// (InvalidNonce). Rails scopes each venue's string to its venue; they are listed for every venue here, strings only that venue
+/// sends (Kraken's nonce error is "EAPI:Invalid nonce").
+pub const PLACEMENT_SAFE_TRANSIENT_ERRORS: [&str; 5] = ["Timestamp for this request is outside of the recvWindow", "Timestamp for this request was", "Invalid KC-API-TIMESTAMP",
+    "\"errorCode\":304", "InvalidNonce"];
 
 #[derive(Debug, Clone)]
 pub struct Intent { pub cl_ord_id: String, pub deadline: DateTime<Utc>, pub at: DateTime<Utc>, pub plan: OrderPlan,

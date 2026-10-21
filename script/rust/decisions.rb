@@ -4,7 +4,9 @@
 #   bin/rails runner script/rust/decisions.rb grid-basket <root>  # Alpaca crypto baskets, with the engine's recovery and the next checkpoint
 #   bin/rails runner script/rust/decisions.rb grid-limit <root>   # the amount limit, its stop and its mail, on Alpaca crypto, Kraken, Binance and KuCoin
 #   bin/rails runner script/rust/decisions.rb grid-binance <root> # Binance spot, scripted beneath honeymaker at the Faraday adapter
+#   bin/rails runner script/rust/decisions.rb grid-binance-us <root> # Binance.US spot: the Binance grid at api.binance.us
 #   bin/rails runner script/rust/decisions.rb grid-kucoin <root>  # KuCoin spot, scripted beneath honeymaker at the Faraday adapter
+#   bin/rails runner script/rust/decisions.rb grid-bitvavo <root> # Bitvavo spot, scripted beneath honeymaker at the Faraday adapter
 #   bin/rails runner script/rust/decisions.rb grid-gemini <root>  # Gemini spot, scripted beneath honeymaker at the Faraday adapter (plan VB B3)
 #   bin/rails runner script/rust/decisions.rb grid-sell <root>    # a one-asset basket selling on Kraken, Binance and Alpaca (slice 6a)
 #   bin/rails runner script/rust/decisions.rb grid-venue-basket <root> # buying baskets of 2 and 3 members on Kraken (EUR) and Binance (USDT)
@@ -170,11 +172,17 @@ VenueRow = Struct.new(:scripted, :exchange, :name, :ticker, :quote, :passphrase,
                    'message' => "Faraday::ConnectionFailed: Connection refused - connect(2) for \"#{scripted.host}\" port 443" }
 end
 TETHER = %w[tether USDT Tether Cryptocurrency].freeze
+EURO = %w[EUR.FOREX EUR Euro Currency].freeze
 VENUES = {
   'binance' => VenueRow.new(scripted: ScriptedVenue.new(host: 'api.binance.com', name: 'Binance', order: 'POST /api/v3/order', body: :query, strip: %w[timestamp signature]),
                             exchange: 'Exchanges::Binance', name: 'Binance', ticker: 'BTCUSDT', quote: TETHER, passphrase: nil, pre_send: 'binance_pre_send'),
+  'binance_us' => VenueRow.new(scripted: ScriptedVenue.new(host: 'api.binance.us', name: 'Binance.US', order: 'POST /api/v3/order', body: :query, strip: %w[timestamp signature]),
+                               exchange: 'Exchanges::BinanceUs', name: 'Binance.US', ticker: 'BTCUSDT', quote: TETHER, passphrase: nil),
   'kucoin' => VenueRow.new(scripted: ScriptedVenue.new(host: 'api.kucoin.com', name: 'KuCoin', order: 'POST /api/v1/orders', body: :json, strip: %w[clientOid]),
                            exchange: 'Exchanges::Kucoin', name: 'KuCoin', ticker: 'BTC-USDT', quote: TETHER, passphrase: 'p', pre_send: 'kucoin_pre_send'),
+  # Plan VB slice A3: Rails sends no clientOrderId (Rust sends the intent id, stripped from both sides).
+  'bitvavo' => VenueRow.new(scripted: ScriptedVenue.new(host: 'api.bitvavo.com', name: 'Bitvavo', order: 'POST /v2/order', body: :json, strip: %w[clientOrderId]),
+                            exchange: 'Exchanges::Bitvavo', name: 'Bitvavo', ticker: 'BTC-EUR', quote: EURO, passphrase: nil),
   # Gemini's params travel in the signed payload: recorded without `request` (the path), `nonce` (the clock) and
   # `client_order_id` (Rails sends none; Rust sends the intent id).
   'gemini' => VenueRow.new(scripted: ScriptedVenue.new(host: 'api.gemini.com', name: 'Gemini', order: 'POST /v1/order/new', body: :payload,
@@ -2555,7 +2563,8 @@ module Decisions
       'bot_columns' => { 'status' => Bot.statuses[:stopped] }, 'script' => { 'alpaca' => http }, 'tick' => false, 'rebalance_at' => [fire] }
   end
 
-  def binance_scenarios
+  # `venue`: 'binance', or 'binance_us' (Exchanges::BinanceUs, the same code at api.binance.us: plan VB slice A2).
+  def binance_scenarios(venue = 'binance')
     started = '2026-09-01T10:00:00.123456Z'
     ticker = { 'base_decimals' => 5, 'quote_decimals' => 8, 'price_decimals' => 2, 'minimum_base_size' => '0.00001', 'minimum_quote_size' => '5' }
     http = {
@@ -2600,7 +2609,7 @@ module Decisions
         'add_timeout_after_send' => { 'at' => after.(1), 'http' => { 'POST /api/v3/order' => [POST_SEND] } },
         'add_no_order_id' => { 'at' => after.(1), 'http' => { 'POST /api/v3/order' => [ok('symbol' => 'BTCUSDT')] } },
         'add_unreadable' => { 'at' => after.(1), 'http' => { 'POST /api/v3/order' => [{ 'status' => 200, 'body' => '<html>upstream</html>' }] } },
-        'add_network_pre_send' => { 'at' => after.(1), 'http' => { 'POST /api/v3/order' => [VENUES.fetch('binance').not_sent] } },
+        'add_network_pre_send' => { 'at' => after.(1), 'http' => { 'POST /api/v3/order' => [VENUES.fetch(venue).not_sent] } },
         'low_funds' => { 'at' => after.(1), 'http' => { 'GET /api/v3/account' => [bn_account('1.00000000')] } },
         'zero_price' => { 'at' => after.(1), 'http' => { 'GET /api/v3/ticker/bookTicker' => [bn_book('0.00000000')], 'GET /api/v3/ticker/price' => [bn_last('0.00000000')] } },
         'no_price' => { 'at' => after.(1), 'http' => { 'GET /api/v3/ticker/bookTicker' => [bn_fail(400, -1121, 'Invalid symbol.')],
@@ -2664,10 +2673,10 @@ module Decisions
       end
       modes.flat_map do |mode, settings|
         variants.map do |name, v|
-          { 'name' => "#{interval}-#{mode}-#{name}", 'venue' => 'binance', 'interval' => interval, 'quote_amount' => v.fetch('quote_amount', 60.0),
+          { 'name' => "#{interval}-#{mode}-#{name}", 'venue' => venue, 'interval' => interval, 'quote_amount' => v.fetch('quote_amount', 60.0),
             'started_at' => started, 'settings' => settings, 'settings_changed_at' => v['settings_changed_at'],
             'transient' => v.fetch('transient', {}), 'transactions' => v.fetch('transactions', []), 'ticker' => v.fetch('ticker', ticker),
-            'ticker_after' => v['ticker_after'], 'at' => v.fetch('at'), 'script' => { 'binance' => http.merge(v.fetch('http', {})) },
+            'ticker_after' => v['ticker_after'], 'at' => v.fetch('at'), 'script' => { venue => http.merge(v.fetch('http', {})) },
             'tick' => v.fetch('tick', true), 'poll' => v['poll'] }
         end
       end
@@ -2782,6 +2791,124 @@ module Decisions
             'started_at' => started, 'settings' => settings, 'settings_changed_at' => v['settings_changed_at'],
             'transient' => v.fetch('transient', {}), 'transactions' => v.fetch('transactions', []), 'ticker' => v.fetch('ticker', ticker),
             'ticker_after' => v['ticker_after'], 'at' => v.fetch('at'), 'script' => { 'kucoin' => http.merge(v.fetch('http', {})) },
+            'tick' => v.fetch('tick', true), 'poll' => v['poll'] }
+        end
+      end
+    end
+  end
+
+  # ---- Bitvavo (plan VB slice A3): bodies as api.bitvavo.com answers them (AUDIT-bitvavo), errors as {errorCode, error} ----
+  def bv_err(status, code, error) = { 'status' => status, 'body' => { 'errorCode' => code, 'error' => error } }
+  def bv_book(ask, bid: '64000') = ok('market' => 'BTC-EUR', 'bid' => bid, 'bidSize' => '1.5', 'ask' => ask, 'askSize' => '0.2')
+  def bv_last(price) = ok('market' => 'BTC-EUR', 'price' => price)
+  def bv_balance(eur) = ok([{ 'symbol' => 'BTC', 'available' => '0.5', 'inOrder' => '0' }, { 'symbol' => 'EUR', 'available' => eur, 'inOrder' => '0' }])
+  def bv_order(id, status, type: 'market', side: 'buy', price: nil, amount: nil, amount_quote: nil, filled: '0', filled_quote: '0')
+    { 'orderId' => id, 'market' => 'BTC-EUR', 'created' => 1_788_000_000_000, 'updated' => 1_788_000_000_000, 'status' => status, 'side' => side,
+      'orderType' => type, 'amount' => amount, 'amountRemaining' => amount, 'amountQuote' => amount_quote, 'price' => price, 'onHold' => '0',
+      'onHoldCurrency' => 'EUR', 'filledAmount' => filled, 'filledAmountQuote' => filled_quote, 'feePaid' => '0', 'feeCurrency' => 'EUR',
+      'fills' => [], 'selfTradePrevention' => 'decrementAndCancel', 'visible' => true, 'timeInForce' => 'GTC', 'postOnly' => false }.compact
+  end
+  def bv_trade(id, order, amount, price, at, side: 'buy') = { 'id' => id, 'orderId' => order, 'timestamp' => (Time.iso8601(at).to_r * 1000).to_i,
+                                                             'market' => 'BTC-EUR', 'side' => side, 'amount' => amount, 'price' => price, 'taker' => true,
+                                                             'fee' => '0.15', 'feeCurrency' => 'EUR', 'settled' => true }
+  BV_NOT_FOUND = { 'status' => 404, 'body' => { 'errorCode' => 240, 'error' => 'No order found. Please be aware that simultaneously updating the same order may return this error.' } }.freeze
+  BV_ORDER = '0b6d2f7e-1c4a-4b8e-9f3a-5d2c7e1a9b01'.freeze
+
+  def bitvavo_scenarios
+    started = '2026-09-01T10:00:00.123456Z'
+    ticker = { 'base_decimals' => 8, 'quote_decimals' => 2, 'price_decimals' => 0, 'minimum_base_size' => '0.0001', 'minimum_quote_size' => '5' }
+    http = {
+      'GET /v2/ticker/book' => [bv_book('64001')],
+      'GET /v2/ticker/price' => [bv_last('64000')],
+      'POST /v2/order' => [ok(bv_order(BV_ORDER, 'new', amount_quote: '60'))],
+      'GET /v2/balance' => [bv_balance('100000')],
+      'GET /v2/trades' => [ok([])]
+    }
+    modes = { 'market' => {}, 'limit' => { 'limit_ordered' => true, 'limit_order_pcnt_distance' => 0.0025 } }
+    closed = { 'status' => 0, 'external_status' => 2, 'external_id' => 'BTC-EUR-100', 'order_type' => 0, 'quote_amount' => '60',
+               'quote_amount_exec' => '60', 'amount_exec' => '0.00093', 'price' => '64000', 'created_at' => '2026-09-01 10:00:01' }
+    waiting = lambda do |id, limit: false, created: '2026-09-01 10:00:01'|
+      { 'status' => 0, 'external_status' => limit ? 1 : 0, 'external_id' => "BTC-EUR-#{id}", 'order_type' => limit ? 1 : 0,
+        'quote_amount' => limit ? nil : '60', 'amount' => limit ? '0.00093' : nil, 'price' => '64000', 'amount_exec' => '0',
+        'quote_amount_exec' => '0', 'created_at' => created }.compact
+    end
+    polled = ->(id, order) { { "GET /v2/order?market=BTC-EUR&orderId=#{id}" => [ok(order)] } }
+    gone = ->(id) { { "GET /v2/order?market=BTC-EUR&orderId=#{id}" => [BV_NOT_FOUND] } }
+    %w[day week].flat_map do |interval|
+      step = { 'day' => 1.day, 'week' => 1.week }.fetch(interval)
+      after = ->(n) { (Time.iso8601(started) + (n * step) + 1.second).iso8601(6) }
+      variants = {
+        'first_tick' => { 'at' => (Time.iso8601(started) + 0.5).iso8601(6) },
+        'on_schedule' => { 'at' => after.(1), 'transactions' => [closed] },
+        'carry' => { 'at' => after.(1), 'transient' => { 'missed_quote_amount' => '12.5' } },
+        'below_minimum' => { 'at' => after.(1), 'quote_amount' => 2.0 },
+        'base_sized' => { 'at' => after.(1), 'ticker' => ticker.merge('base_decimals' => 3, 'minimum_base_size' => '0.001', 'minimum_quote_size' => '1') },
+        'quote_min_decides' => { 'at' => after.(1), 'ticker' => ticker.merge('minimum_quote_size' => '100') },
+        'base_min_decides' => { 'at' => after.(1), 'ticker' => ticker.merge('base_decimals' => 2, 'minimum_base_size' => '0.01') },
+        # 304 (outside the access window) is placement-safe: no row, the run rescheduled.
+        'access_window_304' => { 'at' => after.(1), 'http' => { 'POST /v2/order' => [bv_err(403, 304, 'The request was not received within the access window.')] } },
+        'insufficient' => { 'at' => after.(1), 'http' => { 'POST /v2/order' => [bv_err(400, 216, 'You do not have sufficient balance to complete this operation.')] } },
+        'below_venue_minimum' => { 'at' => after.(1), 'http' => { 'POST /v2/order' => [bv_err(400, 217, 'Minimum order size in quote currency is 5 EUR.')] } },
+        'invalid_key' => { 'at' => after.(1), 'transient' => { 'last_failure_kind' => 'invalid_key' },
+                           'http' => { 'POST /v2/order' => [bv_err(403, 305, 'No active API key found.')] } },
+        'bad_signature' => { 'at' => after.(1), 'http' => { 'POST /v2/order' => [bv_err(403, 309, 'The signature is invalid.')] } },
+        'no_trade_permission' => { 'at' => after.(1), 'http' => { 'POST /v2/order' => [bv_err(403, 310, 'This key does not allow access to trade endpoints.')] } },
+        'throttled' => { 'at' => after.(1), 'http' => { 'POST /v2/order' => [bv_err(429, 105, 'Your account has been temporarily banned for exceeding the rate limit.')] } },
+        # Sanctioned divergences (rust/tests/parity.rs BITVAVO_DIVERGENCES): Rust keeps the intent, which waits for the operator
+        # (plan VB §1.5), where Rails writes a failed row: a lost reply, a 5xx, an unreadable answer, a transient code (109
+        # timed out: it may have succeeded), and an answer without an orderId (Rails stores "BTC-EUR-").
+        'add_server_error' => { 'at' => after.(1), 'http' => { 'POST /v2/order' => [{ 'status' => 503, 'body' => '<html>upstream</html>' }] } },
+        'add_timeout_after_send' => { 'at' => after.(1), 'http' => { 'POST /v2/order' => [POST_SEND] } },
+        'add_no_order_id' => { 'at' => after.(1), 'http' => { 'POST /v2/order' => [ok('market' => 'BTC-EUR')] } },
+        'add_unreadable' => { 'at' => after.(1), 'http' => { 'POST /v2/order' => [{ 'status' => 200, 'body' => '<html>upstream</html>' }] } },
+        'add_timed_out_109' => { 'at' => after.(1), 'http' => { 'POST /v2/order' => [bv_err(400, 109, 'The request has timed out. Your order may have been placed.')] } },
+        'add_network_pre_send' => { 'at' => after.(1), 'http' => { 'POST /v2/order' => [VENUES.fetch('bitvavo').not_sent] } },
+        'low_funds' => { 'at' => after.(1), 'http' => { 'GET /v2/balance' => [bv_balance('1')] } },
+        'balance_refused' => { 'at' => after.(1), 'http' => { 'GET /v2/balance' => [bv_err(403, 305, 'No active API key found.')] } },
+        'zero_price' => { 'at' => after.(1), 'http' => { 'GET /v2/ticker/book' => [bv_book('0', bid: '0')], 'GET /v2/ticker/price' => [bv_last('0')] } },
+        'no_price' => { 'at' => after.(1), 'http' => { 'GET /v2/ticker/book' => [bv_err(400, 205, 'market parameter is invalid.')],
+                                                       'GET /v2/ticker/price' => [bv_err(400, 205, 'market parameter is invalid.')] } },
+        # The tick's sweep (Bot::FetchAndUpdateOpenOrdersJob): #get_order per waiting order.
+        'sweep_filled' => { 'at' => after.(1), 'transactions' => [waiting.(201)],
+                            'http' => polled.(201, bv_order('201', 'filled', amount_quote: '60', filled: '0.00093', filled_quote: '59.5203')) },
+        'sweep_new' => { 'at' => after.(1), 'transactions' => [waiting.(202, limit: true)],
+                         'http' => polled.(202, bv_order('202', 'new', type: 'limit', price: '64000', amount: '0.00093')) },
+        'sweep_partial' => { 'at' => after.(1), 'transactions' => [waiting.(203, limit: true)],
+                             'http' => polled.(203, bv_order('203', 'partiallyFilled', type: 'limit', price: '64000', amount: '0.00093', filled: '0.0004', filled_quote: '25.5')) },
+        'sweep_filled_limit_at_fills' => { 'at' => after.(1), 'transactions' => [waiting.(204, limit: true)],
+                                           'http' => polled.(204, bv_order('204', 'filled', type: 'limit', price: '64000', amount: '0.00093', filled: '0.00093', filled_quote: '59.3')) },
+        'sweep_cancelled_partial' => { 'at' => after.(1), 'transactions' => [waiting.(205, limit: true)],
+                                       'http' => polled.(205, bv_order('205', 'canceled', type: 'limit', price: '64000', amount: '0.00093', filled: '0.0004', filled_quote: '25.6')) },
+        'sweep_expired' => { 'at' => after.(1), 'transactions' => [waiting.(206)], 'http' => polled.(206, bv_order('206', 'expired', amount_quote: '60')) },
+        'sweep_rejected' => { 'at' => after.(1), 'transactions' => [waiting.(207)], 'http' => polled.(207, bv_order('207', 'rejected', amount_quote: '60')) },
+        'sweep_unknown_type' => { 'at' => after.(1), 'transactions' => [waiting.(208)], 'http' => polled.(208, bv_order('208', 'new', type: 'stopLoss')) },
+        # A gone order (240): settled from its trades, or left to Bot::StaleOrderResolver (young waits, old is abandoned).
+        'sweep_gone_filled' => { 'at' => after.(1), 'transactions' => [waiting.(209)],
+                                 'http' => gone.(209).merge('GET /v2/trades' => [ok([bv_trade('t3', 'other', '1', '1', '2026-09-01T11:00:00Z'),
+                                                                                     bv_trade('t2', '209', '0.0003', '64010', '2026-09-01T10:00:02Z'),
+                                                                                     bv_trade('t1', '209', '0.0006', '64000', '2026-09-01T10:00:01Z')])]) },
+        'sweep_gone_young' => { 'at' => after.(1), 'transactions' => [waiting.(210)], 'http' => gone.(210) },
+        'sweep_gone_old' => { 'at' => after.(1), 'transactions' => [waiting.(211, created: '2026-08-01 10:00:01')], 'http' => gone.(211) },
+        'sweep_not_found_html' => { 'at' => after.(1), 'transactions' => [waiting.(212)],
+                                    'http' => { 'GET /v2/order?market=BTC-EUR&orderId=212' => [{ 'status' => 404, 'body' => '<html>Not Found</html>' }] } },
+        # Poll-only: Bot::FetchAndUpdateOrderJob (#get_order) for one waiting order.
+        'poll_filled' => { 'at' => after.(1), 'tick' => false, 'poll' => 'BTC-EUR-401', 'transactions' => [waiting.(401)],
+                           'http' => polled.(401, bv_order('401', 'filled', amount_quote: '60', filled: '0.00093', filled_quote: '59.52')) },
+        'poll_open' => { 'at' => after.(1), 'tick' => false, 'poll' => 'BTC-EUR-402', 'transactions' => [waiting.(402, limit: true)],
+                         'http' => polled.(402, bv_order('402', 'new', type: 'limit', price: '64000', amount: '0.00093')) },
+        'poll_gone_filled' => { 'at' => after.(1), 'tick' => false, 'poll' => 'BTC-EUR-403', 'transactions' => [waiting.(403)],
+                                'http' => gone.(403).merge('GET /v2/trades' => [ok([bv_trade('t9', '403', '0.00093', '64000', '2026-09-01T10:00:01Z')])]) },
+        'poll_gone_young' => { 'at' => after.(1), 'tick' => false, 'poll' => 'BTC-EUR-404', 'transactions' => [waiting.(404)], 'http' => gone.(404) },
+        # A tick that places BV_ORDER; its follow-up 5 s later finds it filled.
+        'tick_then_poll' => { 'at' => after.(1), 'poll' => "BTC-EUR-#{BV_ORDER}", 'transient' => { 'missed_quote_amount' => '12.5' },
+                              'http' => polled.(BV_ORDER, bv_order(BV_ORDER, 'filled', amount_quote: '72.5', filled: '0.00112', filled_quote: '71.68')) }
+      }
+      modes.flat_map do |mode, settings|
+        variants.map do |name, v|
+          { 'name' => "#{interval}-#{mode}-#{name}", 'venue' => 'bitvavo', 'interval' => interval, 'quote_amount' => v.fetch('quote_amount', 60.0),
+            'started_at' => started, 'settings' => settings, 'settings_changed_at' => v['settings_changed_at'],
+            'transient' => v.fetch('transient', {}), 'transactions' => v.fetch('transactions', []), 'ticker' => v.fetch('ticker', ticker),
+            'ticker_after' => v['ticker_after'], 'at' => v.fetch('at'), 'script' => { 'bitvavo' => http.merge(v.fetch('http', {})) },
             'tick' => v.fetch('tick', true), 'poll' => v['poll'] }
         end
       end
@@ -3466,7 +3593,7 @@ def web_save(dir)
 end
 
 command, root = ARGV
-USAGE = 'usage: grid <root> | grid-signal <root> | grid-alpaca <root> | grid-basket <root> | grid-limit <root> | grid-binance <root> | grid-kucoin <root> | grid-gemini <root> | grid-sell <root> | grid-venue-basket <root> | grid-venue-index <root> | grid-conditions <root> | grid-basket-sell <root> | grid-rebalance <root> | record <root> | web-save <dir>'.freeze
+USAGE = 'usage: grid <root> | grid-signal <root> | grid-alpaca <root> | grid-basket <root> | grid-limit <root> | grid-binance <root> | grid-binance-us <root> | grid-kucoin <root> | grid-bitvavo <root> | grid-gemini <root> | grid-sell <root> | grid-venue-basket <root> | grid-venue-index <root> | grid-conditions <root> | grid-basket-sell <root> | grid-rebalance <root> | record <root> | web-save <dir>'.freeze
 raise ArgumentError, USAGE unless root
 
 case command
@@ -3478,7 +3605,9 @@ when 'grid-index' then Decisions.grid(root, Decisions.index_scenarios)
 when 'grid-venue-index' then Decisions.grid(root, Decisions.venue_index_scenarios)
 when 'grid-limit' then Decisions.grid(root, Decisions.limit_scenarios)
 when 'grid-binance' then Decisions.grid(root, Decisions.binance_scenarios)
+when 'grid-binance-us' then Decisions.grid(root, Decisions.binance_scenarios('binance_us'))
 when 'grid-kucoin' then Decisions.grid(root, Decisions.kucoin_scenarios)
+when 'grid-bitvavo' then Decisions.grid(root, Decisions.bitvavo_scenarios)
 when 'grid-gemini' then Decisions.grid(root, Decisions.gemini_scenarios)
 when 'grid-sell' then Decisions.grid(root, Decisions.sell_scenarios)
 when 'grid-venue-basket' then Decisions.grid(root, Decisions.venue_basket_scenarios)

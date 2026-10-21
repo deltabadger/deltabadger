@@ -68,9 +68,9 @@ pub fn grid_price(marks: &[(At, Dec)], time: At) -> Result<Option<Dec>, NumError
 }
 
 /// One fill as the chart marks it under the plot: when, into which holding, how much, for how much, and how many
-/// fills the mark stands for.
+/// fills the mark stands for. The key is None for a pair bot's tickerless row recorded without a base (Rails' nil key).
 #[derive(Clone, Debug, PartialEq)]
-pub struct BuyMark { pub at: At, pub key: String, pub amount: Dec, pub quote: Dec, pub fills: i64 }
+pub struct BuyMark { pub at: At, pub key: Option<String>, pub amount: Dec, pub quote: Dec, pub fills: i64 }
 
 /// #chart_thinned_marks: one mark per holding per 1/500th of the history, timed at the first fill in it and summed
 /// over all of them. Only when there are more marks than buckets.
@@ -81,7 +81,7 @@ pub fn thinned_marks(marks: Vec<BuyMark>) -> Result<Vec<BuyMark>, NumError> {
     if span == 0.0 { return Ok(marks); }
     // Ruby groups by [bucket, key] in a Hash: the groups keep the order they were first met in.
     let mut sums: Vec<BuyMark> = vec![];
-    let mut place: HashMap<(u64, String), usize> = HashMap::new();
+    let mut place: HashMap<(u64, Option<String>), usize> = HashMap::new();
     for mark in marks {
         budget::charge(1, 0)?;
         let bucket = (mark.at.minus(first) / span * MARK_BUCKETS as f64).floor();
@@ -131,7 +131,26 @@ pub fn buy_marks(s: &Subject, metrics: &Metrics) -> Result<Vec<BuyMark>, Figures
         let Some(fill)=super::fill::parse(order)? else{continue};
         if !order.buy { continue; }
         let (amount,quote)=(fill.quantity,fill.value);
-        marks.push(BuyMark { at: order.at, key: keys.key(order.base.as_deref(), order.asset_id), amount, quote, fills: 1 });
+        marks.push(BuyMark { at: order.at, key: Some(keys.key(order.base.as_deref(), order.asset_id)), amount, quote, fills: 1 });
+    }
+    Ok(thinned_marks(marks)?)
+}
+
+/// A pair bot's #chart_buy_marks: the same rows, each keyed by Bot::ChartSeries#chart_row_key, the ticker's base, else
+/// the row's own base as it is (nil included). A buy whose value cannot be known marks nothing, as Rails skips it.
+pub fn pair_buy_marks(s: &Subject, ticker_base: Option<&str>) -> Result<Vec<BuyMark>, FiguresError> {
+    let mut marks = vec![];
+    for order in &s.orders {
+        budget::charge(1, 0)?;
+        if !order.buy { continue; }
+        let fill = match super::fill::mark(order) {
+            Ok(fill) => fill,
+            Err(FiguresError::NotComputed(why)) if why == super::fill::VALUE_UNAVAILABLE => None,
+            Err(e) => return Err(e),
+        };
+        let Some(fill) = fill else { continue };
+        let key = ticker_base.map(str::to_string).or_else(|| order.base.clone());
+        marks.push(BuyMark { at: order.at, key, amount: fill.quantity, quote: fill.value, fills: 1 });
     }
     Ok(thinned_marks(marks)?)
 }
@@ -216,19 +235,34 @@ fn split_pinned(mut grids: Grids, events: &[Event]) -> Result<Grids, FiguresErro
 
 struct Window<'a> { s: &'a Subject, metrics: &'a Metrics, market: &'a dyn MarketData, since: At, timeframe: i64, now: At }
 
+/// What a candle fetch that raises does to the chart.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Policy {
+    /// That holding gets no grid: a composition's fetch threads rescue what a client raises (#chart_candle_grids), as
+    /// every overlay fetch does (#chart_display_grids).
+    Rescue,
+    /// The chart is raised to the caller's retry: a pair's valuation fetch is not rescued (#chart_price_grids).
+    Propagate,
+}
+
 impl Window<'_> {
     /// #chart_candle_grids over CandleSeriesCache with nothing cached: the closed candles' opens, each time once,
     /// ascending, then the live price as the last mark. A holding whose candles fail or are empty gets no grid.
     fn candle_grids(&self, symbols: &[String], restated: bool) -> Result<Grids, FiguresError> {
+        let mut keyed = vec![];
+        for symbol in symbols { budget::charge(1, 0)?; if let Some(ticker) = ticker_for_key(self.s, self.metrics, symbol) { keyed.push((symbol.clone(), ticker)); } }
+        self.grids(&keyed, restated, Policy::Rescue)
+    }
+
+    fn grids(&self, keyed: &[(String, &db::Ticker)], restated: bool, policy: Policy) -> Result<Grids, FiguresError> {
         let mut grids: Grids = vec![];
         let venue = venue(self.s)?;
-        for symbol in symbols {
-        budget::charge(1, 0)?;
-            let Some(ticker) = ticker_for_key(self.s, self.metrics, symbol) else { continue };
-            // A failure of either kind is this holding's alone: Rails' fetch threads rescue what a client raises.
+        for (symbol, ticker) in keyed {
+            budget::charge(1, 0)?;
             let candles = match self.market.candles(&venue, ticker, self.since, self.timeframe, restated && self.s.restated_candles(ticker)) {
                 Ok(candles) => candles,
                 Err(super::market::Failure::NotComputed(reason)) => return Err(FiguresError::NotComputed(reason)),
+                Err(super::market::Failure::Raised(error)) if policy == Policy::Propagate => return Err(FiguresError::Raised(error)),
                 Err(_) => continue,
             };
             let mut marks: Marks = vec![];
@@ -260,8 +294,9 @@ fn charge_chart(chart: &Chart) -> Result<(), NumError> {
     Ok(())
 }
 
-/// #chart_marked_at_market. `priceable` are the holdings the bot can price at all; only they take part.
-pub fn marked_at_market(chart: &Chart, grids: &Grids, display: &Grids, priceable: &[String]) -> Result<Chart, FiguresError> {
+/// #chart_marked_at_market. `priceable` are the holdings the bot can price at all; only they take part. `basis`: the
+/// chart also carries the per-holding split (`assets`), as a composition's does; a pair's has none.
+pub fn marked_at_market(chart: &Chart, grids: &Grids, display: &Grids, priceable: &[String], basis: bool) -> Result<Chart, FiguresError> {
     let Some(first) = chart.labels.first() else { return Ok(chart.clone()) };
     // The walk's rows run parallel to its labels; a chart from anywhere else is refused here, not indexed past its end.
     if [chart.value.len(), chart.invested.len(), chart.extra.len(), chart.invested_by.len(), chart.cash.len()] != [chart.labels.len(); 5] {
@@ -360,7 +395,7 @@ pub fn marked_at_market(chart: &Chart, grids: &Grids, display: &Grids, priceable
         }
         assets.push((key.clone(), AssetSeries { value, invested }));
     }
-    marked.assets = Some(assets);
+    marked.assets = basis.then_some(assets);
     marked.prices = Some(prices);
     Ok(marked)
 }
@@ -420,8 +455,34 @@ fn at_market(c: &Connection, s: &Subject, live: &Metrics, market: &dyn MarketDat
         let asset_id = key_assets.get(key).copied().flatten();
         data.chart_omitted.push(Unpriced { key: key.clone(), asset_id, reason: unlisted(c, s, asset_id)? });
     }
-    data.chart = marked_at_market(&data.chart, &grids, &display, &priceable)?;
+    data.chart = marked_at_market(&data.chart, &grids, &display, &priceable, true)?;
     Ok((data, true))
+}
+
+/// Bots::DcaSingleAsset::Measurable#metrics_with_current_prices_and_candles: `live`'s chart marked on its ticker's
+/// candles, under `key` (the ticker's base). The valuation fetch raises to the caller (no rescue); the overlay's falls
+/// back to the valuation grid; the grid is pinned at `events` and never backfilled from fills. Whether a grid was had:
+/// Rails caches the result only then, stale live figures or not.
+pub fn pair_marked(s: &Subject, live: &Metrics, key: &str, ticker: &db::Ticker, events: &[Event], market: &dyn MarketData, now: At) -> Result<(Metrics, bool), FiguresError> {
+    budget::within(|| {
+        charge_chart(&live.chart)?;
+        let mut data = live.clone();
+        let Some(first) = data.chart.labels.first().copied() else { return Ok((data, false)) };
+        let timeframe = timeframe(now.minus(first));
+        let since = first.plus_seconds(-timeframe).ok_or_else(|| FiguresError::Data("a first order at the edge of time".into()))?;
+        let window = Window { s, metrics: &data, market, since, timeframe, now };
+        let keyed = [(key.to_string(), ticker)];
+        let grids = window.grids(&keyed, false, Policy::Propagate)?;
+        if grids.is_empty() { return Ok((data, false)); }
+        let grids = split_pinned(grids, events)?;
+        let mut display = grids.clone();
+        if s.restated_candles(ticker) {
+            let restated = window.grids(&keyed, true, Policy::Rescue)?;
+            if !restated.is_empty() { display = restated; }
+        }
+        data.chart = marked_at_market(&data.chart, &grids, &display, &[key.to_string()], false)?;
+        Ok((data, true))
+    })
 }
 
 /// What the chart on the bot's page is drawn from: the data attributes of `bots/_chart`.
@@ -439,7 +500,7 @@ pub struct Page {
     pub assets: Vec<(String, Vec<Option<f64>>, Vec<f64>)>,
     /// Balances are hidden: the chart shows the P/L curve only.
     pub pnl_only: bool,
-    pub buys: Vec<(At, String, f64, f64, i64)>,
+    pub buys: Vec<(At, Option<String>, f64, f64, i64)>,
     pub prices: Vec<(String, Vec<Option<f64>>)>,
     /// The asset behind each charted key, for its logo and colour: every key bought or priced.
     pub logo_assets: Vec<(String, i64)>,
@@ -459,6 +520,62 @@ pub fn page(c: &Connection, s: &Subject, marked: &Metrics, hide_balances: bool) 
 fn drawn(c: &Connection, s: &Subject, marked: &Metrics, hide_balances: bool) -> Result<Option<Page>, FiguresError> {
     if marked.chart.labels.is_empty() { return Ok(None); }
     let decimals = quote_decimals(c, s)?;
+    let marks = buy_marks(s, marked)?;
+    let mut page = plotted(s, marked, hide_balances, decimals, marks)?;
+
+    // Allocatable#holding_assets, for every key bought or priced: by id, or for a holding known only by its
+    // string, the asset the venue spells that way.
+    let mut key_assets = HashMap::new();
+    let mut ids = vec![];
+    for (key, id) in &marked.key_assets {
+        budget::charge(1, 0)?;
+        key_assets.entry(key).or_insert(id);
+        if let Some(id) = id { ids.push(*id); }
+    }
+    let existing: HashSet<_> = db::existing_assets(c, &ids)?.into_iter().collect();
+    for key in charted_keys(&page)?.into_iter().flatten() {
+        budget::charge(1, 0)?;
+        let Some(asset_id) = key_assets.get(&key) else { continue };
+        let id = match asset_id {
+            Some(id) => existing.contains(id).then_some(*id),
+            None => ticker_for_key(s, marked, &key).filter(|ticker| ticker.base_asset_exists).map(|ticker| ticker.base_asset_id),
+        };
+        if let Some(id) = id { page.logo_assets.push((key, id)); }
+    }
+    Ok(Some(page))
+}
+
+/// Every key bought or priced, once each, in the order the page meets them (marks first).
+fn charted_keys(page: &Page) -> Result<Vec<Option<String>>, NumError> {
+    let mut keys = vec![];
+    let mut seen = HashSet::new();
+    for key in page.buys.iter().map(|mark| mark.1.clone()).chain(page.prices.iter().map(|(key, _)| Some(key.clone()))) {
+        budget::charge(1, 0)?;
+        if seen.insert(key.clone()) { keys.push(key); }
+    }
+    Ok(keys)
+}
+
+/// A pair bot's chart (`bots/_chart` for Bots::DcaSingleAsset and Bots::Signal): rounded at its ticker's quote precision
+/// (8 with none), its marks keyed by Bot::ChartSeries#chart_row_key, and the logos by Bot::ChartSeries#chart_logo_assets:
+/// the venue's listings spelled as each key, the last of a spelling standing, an asset that is gone left out.
+pub fn pair_page(c: &Connection, s: &Subject, marked: &Metrics, hide_balances: bool) -> Result<Option<Page>, FiguresError> {
+    budget::within(|| {
+        if marked.chart.labels.is_empty() { return Ok(None); }
+        let ticker = s.tickers.first();
+        let decimals = ticker.and_then(|t| t.quote_decimals).unwrap_or(8);
+        let marks = pair_buy_marks(s, ticker.map(|t| t.base.as_str()))?;
+        let mut page = plotted(s, marked, hide_balances, decimals, marks)?;
+        let keys = charted_keys(&page)?;
+        if let Some(exchange) = s.bot.exchange_id {
+            for (base, id) in db::logo_listings(c, exchange, &keys)? { budget::charge(1, 0)?; page.logo_assets.push((base, id)); }
+        }
+        Ok(Some(page))
+    })
+}
+
+/// What the page's chart shows of `marked`, rounded at `decimals`, with `marks` under it and no logos yet.
+fn plotted(s: &Subject, marked: &Metrics, hide_balances: bool, decimals: i64, marks: Vec<BuyMark>) -> Result<Page, FiguresError> {
     let quote = s.quote.clone().ok_or_else(|| FiguresError::Data(format!("bot {} has no quote asset", s.bot.id)))?;
     let round = |serie: &Vec<Num>| serie.iter().map(|amount| amount.round(decimals)).collect::<Result<Vec<Num>, NumError>>();
     let series = [round(&marked.chart.value)?, round(&marked.chart.invested)?];
@@ -477,40 +594,11 @@ fn drawn(c: &Connection, s: &Subject, marked: &Metrics, hide_balances: bool) -> 
     for (_, serie) in marked.chart.prices.iter().flatten() { budget::charge(1 + serie.len() as u64, 0)?; }
     let prices: Vec<(String, Vec<Option<f64>>)> = marked.chart.prices.iter().flatten()
         .map(|(key, serie)| (key.clone(), serie.iter().map(|price| price.as_ref().map(Num::to_f)).collect())).collect();
-    let marks = buy_marks(s, marked)?;
-
-    // Allocatable#holding_assets, for every key bought or priced: by id, or for a holding known only by its
-    // string, the asset the venue spells that way.
-    let mut keys = vec![];
-    let mut seen = HashSet::new();
-    for key in marks.iter().map(|mark| &mark.key).chain(prices.iter().map(|(key, _)| key)) {
-        budget::charge(1, 0)?;
-        if seen.insert(key) { keys.push(key); }
-    }
-    let mut key_assets = HashMap::new();
-    let mut ids = vec![];
-    for (key, id) in &marked.key_assets {
-        budget::charge(1, 0)?;
-        key_assets.entry(key).or_insert(id);
-        if let Some(id) = id { ids.push(*id); }
-    }
-    let existing: HashSet<_> = db::existing_assets(c, &ids)?.into_iter().collect();
-    let mut logo_assets = vec![];
-    for key in keys {
-        budget::charge(1, 0)?;
-        let Some(asset_id) = key_assets.get(key) else { continue };
-        let id = match asset_id {
-            Some(id) => existing.contains(id).then_some(*id),
-            None => ticker_for_key(s, marked, key).filter(|ticker| ticker.base_asset_exists).map(|ticker| ticker.base_asset_id),
-        };
-        if let Some(id) = id { logo_assets.push((key.clone(), id)); }
-    }
-
-    Ok(Some(Page {
+    Ok(Page {
         bot: s.bot.id, quote, decimals, labels: marked.chart.labels.clone(), series, pnl, assets, pnl_only: hide_balances,
         buys: marks.into_iter().map(|mark| (mark.at, mark.key, mark.amount.to_f(), mark.quote.to_f(), mark.fills)).collect(),
-        prices, logo_assets,
-    }))
+        prices, logo_assets: vec![],
+    })
 }
 
 impl Page {
@@ -531,7 +619,7 @@ impl Page {
                 ("value".to_string(), optional(value)), ("invested".to_string(), floats(invested)),
             ]))).collect()).write()),
             ("pnl-only", self.pnl_only.to_string()),
-            ("buys", J::arr(&self.buys, |(at, key, amount, quote, fills)| J::Arr(vec![time(at), J::Str(key.clone()), J::Float(*amount), J::Float(*quote), J::Int(*fills)])).write()),
+            ("buys", J::arr(&self.buys, |(at, key, amount, quote, fills)| J::Arr(vec![time(at), J::opt(key, |key| J::Str(key.clone())), J::Float(*amount), J::Float(*quote), J::Int(*fills)])).write()),
             ("prices", J::Obj(self.prices.iter().map(|(key, serie)| (key.clone(), optional(serie))).collect()).write()),
             ("logo-assets", J::Obj(self.logo_assets.iter().map(|(key, id)| (key.clone(), J::Int(*id))).collect()).write()),
         ]

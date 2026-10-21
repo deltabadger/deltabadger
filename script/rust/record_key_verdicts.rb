@@ -1,4 +1,4 @@
-# Records how Rails judges an API key on each venue of VENUE_CASES (Kraken, Binance, Binance.US, KuCoin, Gemini), for the Rust key
+# Records how Rails judges an API key on each venue of VENUE_CASES (Kraken, Binance, Binance.US, KuCoin, Bitvavo, Gemini), for the Rust key
 # step (P2-T6).
 #   bin/rails runner script/rust/record_key_verdicts.rb rust/tests/fixtures/key_verdicts.json
 # Each case scripts the venue's HTTP answer at the Faraday adapter (nothing leaves the machine; any real connection
@@ -12,7 +12,7 @@ class Unscripted < Exception; end # rubocop:disable Lint/InheritException
 Net::HTTP.prepend(Module.new { def connect = raise(Unscripted, "real connection to #{address}") })
 
 out = {
-  'sources' => %w[app/models/exchanges/kraken.rb app/models/exchanges/binance.rb app/models/exchanges/binance_us.rb app/models/exchanges/kucoin.rb app/models/exchanges/gemini.rb
+  'sources' => %w[app/models/exchanges/kraken.rb app/models/exchanges/binance.rb app/models/exchanges/binance_us.rb app/models/exchanges/kucoin.rb app/models/exchanges/bitvavo.rb app/models/exchanges/gemini.rb
                   app/models/exchange.rb app/models/exchange/dryable.rb app/models/api_key.rb app/helpers/bot_helper.rb
                   config/locales/api.en.yml config/locales/api.de.yml config/locales/api.pl.yml
                   config/locales/api_read_only.en.yml config/locales/api_withdrawal.en.yml
@@ -38,7 +38,7 @@ module Venue
       Venue.seen << { 'method' => env.method.to_s.upcase, 'host' => env.url.host, 'path' => env.url.path,
                      'query' => query.except(*SECRET_PARAMS), 'form' => form.except(*SECRET_PARAMS),
                      'key_header' => env.request_headers['X-MBX-APIKEY'] || env.request_headers['API-Key'] || env.request_headers['KC-API-KEY'] ||
-                                     env.request_headers['X-GEMINI-APIKEY'] }
+                                     env.request_headers['BITVAVO-ACCESS-KEY'] || env.request_headers['X-GEMINI-APIKEY'] }
       answer = Venue.answers.shift
       raise Faraday::TimeoutError, 'Net::ReadTimeout' if answer[:timeout]
       raise Faraday::ConnectionFailed, 'Failed to open TCP connection (Connection refused)' if answer[:refused]
@@ -284,6 +284,55 @@ VENUE_CASES = {
     read_cases.each { |name, answer| kucoin_rows << record.(kucoin, :read_only, :get_read_api_key_validity, name, answer) }
     { 'rejected_codes' => Exchanges::Kucoin::KEY_CHECK_REJECTED, 'inconclusive_codes' => Exchanges::Kucoin::KEY_CHECK_INCONCLUSIVE,
       'invalid_key_errors' => Exchanges::Kucoin::ERRORS[:invalid_key], 'cases' => kucoin_rows }
+  end,
+  # Bitvavo (plan VB slice A3): every key reads the balance; a key that is not a withdrawal key then cancels an order that
+  # cannot exist (240 = past the permission check). The reading check is the same (#get_read_api_key_validity).
+  'bitvavo' => lambda do
+    bitvavo = Exchanges::Bitvavo.new(name: 'Bitvavo')
+    bv = ->(status, code, error) { json.(status, { 'errorCode' => code, 'error' => error }) }
+    balance_ok = json.(200, [{ 'symbol' => 'EUR', 'available' => '10', 'inOrder' => '0' }])
+    refusals = {
+      'no_active_key 305' => bv.(403, 305, 'No active API key found.'), 'key_length 301' => bv.(403, 301, 'API Key must be of length 64.'),
+      'signature 308' => bv.(403, 308, 'The signature length is invalid (HMAC-SHA256 should return a 64 length hexadecimal string).'),
+      'signature 309' => bv.(403, 309, 'The signature is invalid.'), 'ip 307' => bv.(403, 307, 'This key does not allow access from this IP.'),
+      'no_trade 310' => bv.(403, 310, 'This key does not allow access to trade endpoints.'),
+      'no_view 311' => bv.(403, 311, 'This key does not allow access to view endpoints.'),
+      'no_withdraw 312' => bv.(403, 312, 'This key does not allow access to withdraw endpoints.'),
+      'no_trade 310 as_string' => bv.(403, '310', 'This key does not allow access to trade endpoints.'),
+      'no_trade 310 http_200' => bv.(200, 310, 'This key does not allow access to trade endpoints.'),
+      'signature 309 http_200' => bv.(200, 309, 'The signature is invalid.'),
+      'unknown 999 http_200' => bv.(200, 999, 'Something else.'), 'unknown 999 http_200 no_error' => json.(200, { 'errorCode' => 999 }),
+      'window 304' => bv.(403, 304, 'The request was not received within the access window.'),
+      'rate_limited 105' => bv.(429, 105, 'Your account has been temporarily banned for exceeding the rate limit.'),
+      'server 101' => bv.(500, 101, 'Unknown server error.'), 'timed_out 109' => bv.(500, 109, 'The request has timed out.'),
+      'order_not_found 240' => bv.(404, 240, 'No order found.'), 'order_not_found 240 http_200' => bv.(200, 240, 'No order found.'),
+      'json_array' => json.(200, [])
+    }.merge(transport)
+    probe = refusals.merge('cancel_succeeded' => json.(200, { 'orderId' => '00000000-0000-0000-0000-000000000000' }))
+    rows = []
+    [[:trading, :get_api_key_validity], [:withdrawal, :get_api_key_validity],
+     [:read_only, :get_api_key_validity], [:read_only, :get_read_api_key_validity]].each do |key_type, method|
+      cases = refusals.transform_keys { |k| "balance #{k}" }
+      if key_type == :withdrawal
+        cases['balance_ok'] = balance_ok
+      else
+        probe.each { |name, answer| cases["balance_ok, probe #{name}"] = [balance_ok, answer] }
+      end
+      cases.each do |name, answer|
+        # A balance answer the check gets past goes on to the probe: recorded with a 240 behind it.
+        rows << begin
+          raise ArgumentError if answer.is_a?(Array) || key_type == :withdrawal
+
+          record.(bitvavo, key_type, method, "#{name}, probe order_not_found 240", [answer, refusals['order_not_found 240']])
+        rescue ArgumentError, RuntimeError => e
+          raise if e.is_a?(RuntimeError) && !e.message.end_with?('answer not consumed')
+
+          record.(bitvavo, key_type, method, name, answer)
+        end
+      end
+    end
+    { 'refused_codes' => Exchanges::Bitvavo::KEY_CHECK_REFUSED, 'not_found_code' => Exchanges::Bitvavo::KEY_CHECK_ORDER_NOT_FOUND,
+      'invalid_key_errors' => Exchanges::Bitvavo::ERRORS[:invalid_key], 'cases' => rows }
   end,
   # Gemini: the trading key cancels order 0 alone (OrderNotFound means it got past the role check), a withdrawal key reads its
   # balances; the verdict is the answer's `reason` (MissingRole and the invalid-key reasons condemn it). A reading key reads its

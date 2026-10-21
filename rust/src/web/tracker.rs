@@ -125,7 +125,7 @@ pub async fn sync(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Res
         let venues=crate::sync::ledger_venues();
         let unsupported: bool = c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE k.user_id=?1 AND k.status=1 AND k.key_type<>1 AND e.type NOT IN ({}))",
             vec!["?";venues.len()].join(",")),rusqlite::params_from_iter(std::iter::once(rusqlite::types::Value::Integer(owner)).chain(venues.iter().map(|v|rusqlite::types::Value::Text(v.to_string())))),|r|r.get(0))?;
-        if unsupported { return Ok(Prepared { response:layout::refused(&ctx,"tracker sync for a venue other than Alpaca, Binance, KuCoin and Gemini"),jobs:vec![] }); }
+        if unsupported { return Ok(Prepared { response:layout::refused(&ctx,"tracker sync for a venue other than Alpaca, Binance, Binance.US, KuCoin, Bitvavo and Gemini"),jobs:vec![] }); }
         let keys = crate::sync::ledger_reading_keys(c).map_err(|_| WebError::Config("tracker reading keys unavailable".into()))?;
         let mut names = vec![];
         let mut jobs = vec![];

@@ -1693,11 +1693,12 @@ impl Connect for LocalBinance {
 
 /// A Binance (and a Binance.US) key's ledger job, through the scheduler's own job: the run stamps its producer and
 /// completes, so the tracker reads the venue's ledger as current (`ledger_is_current`) and publishes its cache. Every
-/// source is asked; margin and futures never are. A Binance.US key sends nothing and still completes, saying why.
+/// source is asked; margin and futures never are. A Binance.US key asks only Exchanges::BinanceUs's sources (deposits,
+/// withdrawals, trades and dividends).
 #[tokio::test(flavor = "current_thread")]
 async fn a_binance_ledger_job_leaves_the_tracker_ledger_current() {
     use wiremock::{matchers::{method, path, path_regex}, Mock, MockServer, ResponseTemplate};
-    for (venue, sends) in [("Exchanges::Binance", true), ("Exchanges::BinanceUs", false)] {
+    for (venue, sources) in [("Exchanges::Binance", 15), ("Exchanges::BinanceUs", 6)] {
         let (dir, o, s) = common::install();
         let c = o.primary;
         c.execute("UPDATE exchanges SET type = ?1, name = 'Binance' WHERE id = ?2", rusqlite::params![venue, s.exchange_id]).unwrap();
@@ -1745,15 +1746,11 @@ async fn a_binance_ledger_job_leaves_the_tracker_ledger_current() {
         }).await.unwrap();
         assert!(current, "{venue}: the tracker reads this venue's ledger as current: {:?}", record(dir.path(), jobs::LEDGER_SYNC, s.api_key_id));
         let requests = server.received_requests().await.unwrap();
-        if sends {
-            assert_eq!((rows, error.as_deref()), (1, None), "a completed run leaves no error on the key (the tracker's \"Sync failed\")");
-            let paths: std::collections::BTreeSet<String> = requests.iter().map(|r| r.url.path().to_string()).collect();
-            assert!(paths.iter().all(|p| !p.contains("margin") && !p.contains("income")), "margin and futures are not read: {paths:?}");
-            assert_eq!(paths.len(), 15, "every other source is read: {paths:?}");
-        } else {
-            assert!(requests.is_empty(), "nothing is sent for a Binance.US key");
-            assert_eq!((rows, error.as_deref()), (0, None), "a completed run leaves no error on the key");
-        }
+        assert_eq!((rows, error.as_deref()), (1, None), "{venue}: a completed run leaves no error on the key (the tracker's \"Sync failed\")");
+        let paths: std::collections::BTreeSet<String> = requests.iter().map(|r| r.url.path().to_string()).collect();
+        assert!(paths.iter().all(|p| !p.contains("margin") && !p.contains("income")), "margin and futures are not read: {paths:?}");
+        assert_eq!(paths.len(), sources, "{venue}: every source it has is read: {paths:?}");
+        if sources == 6 { assert!(paths.contains("/sapi/v1/asset/assetDividend") && !paths.iter().any(|p| p.contains("convert") || p.contains("simple-earn")), "{paths:?}"); }
     }
 }
 

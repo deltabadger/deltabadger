@@ -6,11 +6,48 @@ impl Raw {
     pub fn new(price:Option<Dec>,amount:Option<Dec>,amount_exec:Option<Dec>,quote_amount_exec:Option<Dec>)->Self{
         Self{price,amount,amount_exec,quote_amount_exec}
     }
+
 }
 #[derive(Clone,Debug,PartialEq)]
 pub struct Fill {pub quantity:Dec,pub value:Dec}
 impl Fill {
     pub fn unit_price(&self)->Result<Dec,FiguresError>{Ok(self.value.div(&self.quantity)?)}
+}
+/// The price Bots::DcaSingleAsset::Measurable gives a pair bot's fill (its average and its running value): the row's own
+/// `price` column, not value over quantity; a row without a positive one keeps the fill's own reading.
+pub fn pair_price(order:&Order,fill:&Fill)->Result<Dec,FiguresError>{
+    match order.raw.price.as_ref().filter(|p|p.is_positive()) { Some(price)=>Ok(price.clone()), None=>fill.unit_price() }
+}
+/// Why a fill this library cannot value is not computed.
+pub const VALUE_UNAVAILABLE: &str = "executed fill value unavailable";
+/// Rails' raises on a closed pair row with no executed value: `price * amount` with no price, or no amount.
+pub const PAIR_NO_PRICE: &str = "NoMethodError: undefined method '*' for nil";
+pub const PAIR_NO_AMOUNT: &str = "TypeError: nil can't be coerced into BigDecimal";
+
+/// A pair bot's row as Bots::DcaSingleAsset::Measurable#metrics reads it (measurable.rb:41-50), and only there: the
+/// composition reader (`parse`) and its rulings are not this one. A closed row falls back to what was requested; any
+/// other row counts only with both its execution and its value reported; a zero of either moves nothing.
+/// Two named divergences from Rails, each a defect there:
+/// - D1: a closed row's missing value is its price times the units EXECUTED (Rails: times the units requested);
+/// - D2: a fill whose price is zero or NULL counts, priced at value over quantity (`pair_price`; Rails values it at
+///   zero, or skips it).
+pub fn pair_row(order:&Order)->Result<Option<Fill>,FiguresError>{
+    let raw=&order.raw;
+    validate_raw(raw)?;
+    let (mut quantity,mut value)=(raw.amount_exec.clone(),raw.quote_amount_exec.clone());
+    if order.closed {
+        if value.is_none() {
+            // Rails' `quote_amount_exec ||= price * amount` raises here, and so takes the bot's figures with it.
+            let price=raw.price.as_ref().ok_or_else(||FiguresError::Raised(PAIR_NO_PRICE.into()))?;
+            let amount=raw.amount.as_ref().ok_or_else(||FiguresError::Raised(PAIR_NO_AMOUNT.into()))?;
+            value=Some((price*quantity.as_ref().unwrap_or(amount))?); // D1
+        }
+        if quantity.is_none() { quantity=raw.amount.clone(); }
+    }
+    let (Some(quantity),Some(value))=(quantity,value) else { return Ok(None) };
+    if quantity.is_zero()||value.is_zero() { return Ok(None); }
+    bound(&quantity)?; bound(&value)?;
+    Ok(Some(Fill{quantity,value}))
 }
 /// A closed legacy row falls back to requested quantity only when execution quantity is NULL.
 /// Valid zero/absent execution moves nothing. Malformed fields always refuse before skipping.
@@ -89,7 +126,7 @@ fn parse_raw(raw: &Raw, closed: bool) -> Result<Option<Fill>, FiguresError> {
         value.clone()
     }else if let Some(price)=raw.price.as_ref().filter(|p|p.is_positive()){
         (price*quantity)?
-    }else{return Err(FiguresError::NotComputed("executed fill value unavailable".into()))};
+    }else{return Err(FiguresError::NotComputed(VALUE_UNAVAILABLE.into()))};
     bound(quantity)?; bound(&value)?;
     Ok(Some(Fill{quantity:quantity.clone(),value}))
 }

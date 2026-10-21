@@ -215,7 +215,19 @@ fn idle_bots_with_intents(c: &Connection) -> Result<Vec<i64>, EngineError> {
     Ok(ids)
 }
 
+/// A signal bot's marker (engine::signal::MARKER_KEY) as stored, to tell when a pass set or lifted it.
+fn signal_marker(c: &Connection, id: i64) -> Result<Option<String>, EngineError> {
+    Ok(c.query_row(&format!("SELECT json_extract(transient_data, '$.{}') FROM bots WHERE id = ?1", super::signal::MARKER_KEY), [id], |r| r.get(0)).optional()?.flatten())
+}
+
 async fn reconcile_idle<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock, wake: &mut i64) -> Result<(), EngineError> {
+    let marker = signal_marker(&e.primary, id)?;
+    let result = reconcile_intent(e, id, clock, wake).await;
+    if signal_marker(&e.primary, id)? != marker { e.events.send(EngineEvent::SignalMarkerChanged { bot_id: id }); }
+    result
+}
+
+async fn reconcile_intent<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock, wake: &mut i64) -> Result<(), EngineError> {
     let bot = model::load_bot(&e.primary, id)?;
     let (venue, producer) = e.venue_for(&bot)?;
     if e.reconcile_at.get(&id).is_some_and(|state|!state.current_for(&producer).is_fresh()){e.reconcile_at.remove(&id);}
@@ -397,8 +409,10 @@ async fn signal_call<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Cl
     let stopping = move || stop.load(Ordering::SeqCst);
     let cx = TickContext { credential_version: producer.clone(), prices: &e.prices, process_start: e.process_start.ok_or_else(|| EngineError::Data("engine start time missing".into()))?,
                            stopping: &stopping, below_minimum: &|_, _| {}, claimed: &|_| {} };
+    let marker = signal_marker(&e.primary, id)?;
     let step = super::signal::run_next(&e.primary, &venue, id, clock, &cx).await;
     e.events.send(EngineEvent::OrderUpdated { bot_id: id });
+    if signal_marker(&e.primary, id)? != marker { e.events.send(EngineEvent::SignalMarkerChanged { bot_id: id }); }
     after_tick(e, id, &start, last_tx, None, clock, &producer)?;
     step
 }

@@ -236,10 +236,17 @@ fn refused_like_rails(rails_out: &serde_json::Value, rust_out: &serde_json::Valu
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn rails_and_rust_decide_identically_across_the_binance_grid() {
+async fn rails_and_rust_decide_identically_across_the_binance_grid() { binance_grid("grid-binance").await }
+
+/// Plan VB slice A2: Exchanges::BinanceUs is Exchanges::Binance at api.binance.us under its own name and rules; the same
+/// grid, recorded from it, with the same listed divergences.
+#[tokio::test(flavor = "current_thread")]
+async fn rails_and_rust_decide_identically_across_the_binance_us_grid() { binance_grid("grid-binance-us").await }
+
+async fn binance_grid(grid: &str) {
     use common::venue_grid::{ending, run_venue_grid, Validator};
     let unreadable = |n: &str| n.contains(UNREADABLE);
-    let outputs = run_venue_grid("grid-binance", 176, &[
+    let outputs = run_venue_grid(grid, 176, &[
         Validator { names: &unreadable, check: &|n, d, r, u| unreadable_number_refused(n, d, r, u, false) },
         Validator { names: &ending(&["add_no_order_id"]), check: &|_, d, r, u| unacknowledged_kept(d, r, u) },
         Validator { names: &ending(&BINANCE_DIVERGENCES), check: &|_, d, r, u| intent_kept(d, r, u) },
@@ -446,6 +453,66 @@ async fn rails_and_rust_decide_identically_across_the_gemini_grid() {
         if name.ends_with("-limit-first_tick") { assert_eq!(sent[0]["options"], serde_json::json!([]), "{name}: a resting limit buy"); }
         if name.ends_with("-sweep_not_found_old") { assert!(rows.iter().any(|t| t["after"]["external_id"] == "209" && t["after"]["external_status"] == 4), "{name}: abandoned"); }
         if name.ends_with("-sweep_not_found_young") { assert!(mailed.contains(&"notify_about_error"), "{name}: a young missing order fails the run"); }
+    }
+}
+
+/// Bitvavo grid variants where Rust deliberately decides otherwise than Rails (plan VB §5, slice A3), each asserted on its own
+/// terms: a placement that may have reached Bitvavo (a 5xx, a lost reply, an unreadable answer, errorCode 109 "timed out,
+/// your order may have been placed") keeps the intent, which waits for the operator (absence is never concluded), where
+/// Rails writes a failed row.
+const BITVAVO_DIVERGENCES: [&str; 4] = ["add_server_error", "add_timeout_after_send", "add_unreadable", "add_timed_out_109"];
+
+/// Rails' #parse_order_data raises out of #get_orders, so the run's error is that sentence alone; Rust reports it inside
+/// the sweep's "Failed to fetch orders … Result: [...]". Same outcome; only the wrapper differs.
+fn wrapped_like_rails(rust_wrapper: &str, sentence: &str, rails_out: &serde_json::Value, rust_out: &serde_json::Value) -> Result<(), String> {
+    let normalised = rust_out.to_string().replace(rust_wrapper, sentence);
+    if !rails_out.to_string().contains(sentence) { return Err(format!("Rails no longer raises {sentence:?}: drop the listed divergence\n  rails: {rails_out}")); }
+    if serde_json::from_str::<serde_json::Value>(&normalised).unwrap() != *rails_out {
+        return Err(format!("beyond the error's wrapper the sides differ\n  rails: {rails_out}\n  rust:  {rust_out}"));
+    }
+    Ok(())
+}
+
+/// A 200 without an orderId: Rails stores the row as "BTC-EUR-" (honeymaker's "<market>-<orderId>"); Rust keeps the intent.
+fn unacknowledged_bitvavo_kept(dir: &Path, rails_out: &serde_json::Value, rust_out: &serde_json::Value) -> Result<(), String> {
+    if !rails_out["changes"]["transactions"].as_array().unwrap().iter().any(|t| t["after"]["external_id"] == "BTC-EUR-") {
+        return Err(format!("Rails no longer stores \"BTC-EUR-\": drop the listed divergence\n  rails: {rails_out}"));
+    }
+    rust_kept_the_intent(dir, rust_out)
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn rails_and_rust_decide_identically_across_the_bitvavo_grid() {
+    use common::venue_grid::{ending, run_venue_grid, Validator};
+    let outputs = run_venue_grid("grid-bitvavo", 164, &[
+        Validator { names: &ending(&BITVAVO_DIVERGENCES), check: &|_, d, r, u| intent_kept(d, r, u) },
+        Validator { names: &ending(&["add_no_order_id"]), check: &|_, d, r, u| unacknowledged_bitvavo_kept(d, r, u) },
+        Validator { names: &ending(&["add_network_pre_send"]), check: &|_, _, r, u| refused_like_rails(r, u) },
+        Validator { names: &ending(&["sweep_unknown_type"]), check: &|_, _, r, u| wrapped_like_rails(r#"Failed to fetch orders BTC-EUR-208. Result: [\"Unknown Bitvavo order type: stopLoss\"]"#,
+                                                                                                      "Unknown Bitvavo order type: stopLoss", r, u) },
+    ]).await;
+    // Pin what Rails does where a silent pair of sides would otherwise pass.
+    for (name, rails_out) in &outputs {
+        let mailed: Vec<&str> = rails_out["mails"].as_array().unwrap().iter().map(|m| m["mail"].as_str().unwrap()).collect();
+        let expected: Option<&[&str]> = [("-insufficient", &["end_of_funds"][..]), ("-invalid_key", &["stopped_by_error"]), ("-low_funds", &["end_of_funds"]),
+                                         ("-on_schedule", &[]), ("-access_window_304", &[])].into_iter().find(|(suffix, _)| name.ends_with(suffix)).map(|(_, m)| m);
+        if let Some(expected) = expected { assert_eq!(mailed, expected, "{name}: the mails Rails enqueued"); }
+        let rows = rails_out["changes"]["transactions"].as_array().unwrap();
+        let sent = rails_out["sent"].as_array().unwrap();
+        if name.ends_with("-access_window_304") { assert!(rows.is_empty() && sent.len() == 1, "{name}: 304 writes no row"); }
+        if name.ends_with("-market-first_tick") { assert!(sent[0]["amount"].is_string() && sent[0]["operatorId"] == 1 && sent[0].get("amountQuote").is_none(), "{name}: a market buy by base"); }
+        if name.ends_with("-market-base_min_decides") { assert!(sent.is_empty(), "{name}: below the base minimum"); }
+        if name.ends_with("-limit-first_tick") { assert!(sent[0]["price"].is_string() && sent[0]["amount"].is_string(), "{name}: a limit buy"); }
+        if name.ends_with("-sweep_gone_old") { assert!(rows.iter().any(|t| t["after"]["external_id"] == "BTC-EUR-211" && t["after"]["external_status"] == 4), "{name}: abandoned"); }
+        if name.ends_with("-sweep_gone_filled") {
+            let row = rows.iter().find(|t| t["after"]["external_id"] == "BTC-EUR-209").unwrap_or_else(|| panic!("{name}: settled from its trades"));
+            assert_eq!(row["after"]["external_status"], 2, "{name}");
+        }
+        if name.ends_with("-poll_gone_filled") { assert!(rows.iter().any(|t| t["after"]["external_id"] == "BTC-EUR-403" && t["after"]["external_status"] == 2), "{name}"); }
+        if name.ends_with("-sweep_gone_young") || name.ends_with("-poll_gone_young") {
+            assert!(!rows.iter().any(|t| ["BTC-EUR-210", "BTC-EUR-404"].contains(&t["before"]["external_id"].as_str().unwrap_or_default())) && rails_out["poll_error"].is_null(),
+                    "{name}: a young gone order waits, quietly");
+        }
     }
 }
 
