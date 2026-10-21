@@ -529,6 +529,68 @@ fn gemini_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> R
     Ok(Ok(asset_ids.iter().filter_map(|id| found.remove(id).map(|(free, locked)| (*id, free, locked))).filter(|(_, free, locked)| (free + locked).is_positive()).collect()))
 }
 
+/// One balance sync of one Bitget key, as AccountBalance::SyncJob runs it for that key: Exchanges::Bitget#get_balances
+/// (GET /api/v2/spot/account/assets) then AccountBalance::Sync. Read only: one signed GET. A failure records the venue's text;
+/// Bitget's invalid-key words mark the key incorrect unless they name a missing permission (40014/40025).
+pub async fn sync_bitget<T: Transport>(db: &Db, transport: T, prices: &dyn PriceSource, key_id: i64, credentials: &Credentials, clock: &dyn Clock)
+                                       -> Result<Result<Summary, Failure>, SyncError> {
+    let version = super::capture_bound_version(db, key_id, credentials).await?;
+    sync_bitget_captured(db, transport, prices, key_id, credentials, clock, &version).await
+}
+
+pub(crate) async fn sync_bitget_captured<T: Transport>(db: &Db, transport: T, prices: &dyn PriceSource, key_id: i64, credentials: &Credentials,
+                                                       clock: &dyn Clock, version: &crate::engine::model::CredentialVersion)
+                                                       -> Result<Result<Summary, Failure>, SyncError> {
+    use crate::venue::bitget::{BitgetVenue, ASSETS_PATH, BITGET, URL};
+    let read = move |_: String| async move { Ok(BitgetVenue::new(transport, URL).read_text(ASSETS_PATH, vec![], MAX_BINANCE_ACCOUNT_BYTES).await) };
+    let venue = VenueBalances { types: &[BITGET], failure_text: str::to_string, condemns: |venue, text| condemns(&crate::engine::venue_rules::BITGET, venue, text), held: bitget_held };
+    sync_venue(db, version, prices, key_id, credentials, clock, venue, read).await
+}
+
+/// Exchanges::Bitget#get_balances then AccountBalance::Sync's `nonzero`. Only the success code (`code.to_s == "00000"`) with
+/// `data` means balances, else "Failed to get Bitget balances: <code> <msg>" (a Failure the key's failure handling reads:
+/// `true`). Each row's `coin` must be there (as Rails spells it: AUDIT-bitget S4, ported as is); a row naming no listed asset
+/// is skipped; `available` and `frozen` are read for the rest, a later row for the same asset winning (the fiat merchant's
+/// `locked` is not read, S5). A missing field is Rails' KeyError; a quantity that is no number fails the sync (Rails reads it
+/// as 0: the Binance sync's listed divergence).
+fn bitget_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> Result<Result<Vec<Held>, (String, bool)>, Unread> {
+    let node = wire::read(text, &mut Budget(MAX_BINANCE_ACCOUNT_NODES), None).map_err(|r| Unread::refused(r, "an account"))?;
+    let Ok(body) = Raw::from_node(&node) else { return Ok(Err(("unreadable account".into(), false))) };
+    let part = |v: &Value| match v { Value::Null => None, Value::String(s) => Some(s.clone()), other => Some(other.to_string()) };
+    let code = part(&body.value["code"]);
+    let rows = match body.member("data") {
+        Some(Node::Array(rows)) if code.as_deref() == Some("00000") => rows,
+        Some(Node::Scalar(token)) if token == "null" => return Ok(Err((failed_bitget(&body.value), true))),
+        Some(_) if code.as_deref() == Some("00000") => return Ok(Err(("unreadable balances".into(), false))),
+        _ => return Ok(Err((failed_bitget(&body.value), true))),
+    };
+    let mut found: HashMap<i64, (BigDec, BigDec)> = HashMap::new();
+    for row in rows {
+        let Ok(row) = Raw::from_node(row) else { return Ok(Err(("unreadable balance".into(), false))) };
+        let Some(coin) = row.value.get("coin").filter(|v| !v.is_null()) else { return Ok(Err(("KeyError: Key path coin not found".into(), false))) };
+        let Some(asset) = coin.as_str().and_then(|c| names.get(c)).filter(|id| asset_ids.contains(id)) else { continue };
+        let quantity = |key: &str| match row.number(key) {
+            _ if row.value[key].as_str().is_some_and(|s| s.trim().is_empty()) => Err(format!("unreadable {key}: not a plain decimal number")),
+            Ok(Some(n)) => Ok(n),
+            Ok(None) => Err(format!("KeyError: Key path {key} not found")),
+            Err(why) => Err(why),
+        };
+        let (free, locked) = match (quantity("available"), quantity("frozen")) {
+            (Ok(free), Ok(locked)) => (free, locked),
+            (Err(why), _) | (_, Err(why)) => return Ok(Err((why, false))),
+        };
+        found.insert(*asset, (free, locked));
+    }
+    Ok(Ok(asset_ids.iter().filter_map(|id| found.remove(id).map(|(free, locked)| (*id, free, locked))).filter(|(_, free, locked)| (free + locked).is_positive()).collect()))
+}
+
+/// Exchanges::Bitget#get_balances' failure: "Failed to get Bitget balances: " and the envelope's code and msg, as present.
+fn failed_bitget(body: &Value) -> String {
+    let part = |v: &Value| match v { Value::Null => None, Value::String(s) => Some(s.clone()), other => Some(other.to_string()) };
+    let detail: Vec<String> = [part(&body["code"]), part(&body["msg"])].into_iter().flatten().collect();
+    format!("Failed to get Bitget balances: {}", detail.join(" "))
+}
+
 /// Exchange#asset_from_symbol: the venue's available tickers in id order, each naming its base asset and then its quote
 /// asset by the ticker's own spelling; the first ticker to name a symbol wins it.
 fn binance_names(c: &Connection, exchange_id: i64) -> Result<HashMap<String, i64>, SyncError> {

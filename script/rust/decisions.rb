@@ -7,6 +7,7 @@
 #   bin/rails runner script/rust/decisions.rb grid-binance-us <root> # Binance.US spot: the Binance grid at api.binance.us
 #   bin/rails runner script/rust/decisions.rb grid-kucoin <root>  # KuCoin spot, scripted beneath honeymaker at the Faraday adapter
 #   bin/rails runner script/rust/decisions.rb grid-bitvavo <root> # Bitvavo spot, scripted beneath honeymaker at the Faraday adapter
+#   bin/rails runner script/rust/decisions.rb grid-bitget <root>  # Bitget classic v2 spot, scripted beneath honeymaker at the Faraday adapter
 #   bin/rails runner script/rust/decisions.rb grid-gemini <root>  # Gemini spot, scripted beneath honeymaker at the Faraday adapter (plan VB B3)
 #   bin/rails runner script/rust/decisions.rb grid-sell <root>    # a one-asset basket selling on Kraken, Binance and Alpaca (slice 6a)
 #   bin/rails runner script/rust/decisions.rb grid-venue-basket <root> # buying baskets of 2 and 3 members on Kraken (EUR) and Binance (USDT)
@@ -183,6 +184,9 @@ VENUES = {
   # Plan VB slice A3: Rails sends no clientOrderId (Rust sends the intent id, stripped from both sides).
   'bitvavo' => VenueRow.new(scripted: ScriptedVenue.new(host: 'api.bitvavo.com', name: 'Bitvavo', order: 'POST /v2/order', body: :json, strip: %w[clientOrderId]),
                             exchange: 'Exchanges::Bitvavo', name: 'Bitvavo', ticker: 'BTC-EUR', quote: EURO, passphrase: nil),
+  # Plan VB slice A4: Rails sends no clientOid (Rust sends the intent id, stripped from both sides).
+  'bitget' => VenueRow.new(scripted: ScriptedVenue.new(host: 'api.bitget.com', name: 'Bitget', order: 'POST /api/v2/spot/trade/place-order', body: :json, strip: %w[clientOid]),
+                           exchange: 'Exchanges::Bitget', name: 'Bitget', ticker: 'BTCUSDT', quote: TETHER, passphrase: 'p'),
   # Gemini's params travel in the signed payload: recorded without `request` (the path), `nonce` (the clock) and
   # `client_order_id` (Rails sends none; Rust sends the intent id).
   'gemini' => VenueRow.new(scripted: ScriptedVenue.new(host: 'api.gemini.com', name: 'Gemini', order: 'POST /v1/order/new', body: :payload,
@@ -1953,6 +1957,20 @@ module Decisions
         'rejected' => { 'POST /v1/order/new' => [gm_err(400, 'InsufficientFunds', 'Failed to place sell order: insufficient funds')] },
         'no_price' => { 'GET /v1/pubticker/btcusd' => [gm_err(400, 'InvalidSymbol', 'Invalid symbol')] },
         'zero_price' => { 'GET /v1/pubticker/btcusd' => [gm_ticker('0', '0', '0')] }
+      },
+      # Plan VB slice A4: a market sell's `size` is its base (G1), a limit sell's too, at the bid / the last trade.
+      'bitget' => {
+        'ticker' => { 'base_decimals' => 6, 'quote_decimals' => 8, 'price_decimals' => 2, 'minimum_base_size' => '0', 'minimum_quote_size' => '1' },
+        'http' => { 'GET /api/v2/spot/market/orderbook' => [bg_book('64001.37', bid: '64000.11')], 'GET /api/v2/spot/market/tickers' => [bg_last('64000.05')],
+                    'POST /api/v2/spot/trade/place-order' => [bg_ok('orderId' => '1234567890123456789', 'clientOid' => 'x')],
+                    'GET /api/v2/spot/account/assets' => [bg_assets('100000', btc: '0.5')] },
+        'free' => ->(btc) { { 'GET /api/v2/spot/account/assets' => [bg_assets('100000', btc:)] } },
+        'balance_error' => { 'GET /api/v2/spot/account/assets' => [bg_err(400, '40037', 'Apikey does not exist')] },
+        'no_holding' => { 'GET /api/v2/spot/account/assets' => [bg_ok([{ 'coin' => 'USDT', 'available' => '1', 'frozen' => '0', 'locked' => '0' }])] },
+        'rejected' => { 'POST /api/v2/spot/trade/place-order' => [bg_err(400, '43012', 'Insufficient balance')] },
+        'no_price' => { 'GET /api/v2/spot/market/orderbook' => [bg_err(400, '40034', 'Parameter symbol does not exist')],
+                        'GET /api/v2/spot/market/tickers' => [bg_err(400, '40034', 'Parameter symbol does not exist')] },
+        'zero_price' => { 'GET /api/v2/spot/market/orderbook' => [bg_book('0', bid: '0')], 'GET /api/v2/spot/market/tickers' => [bg_last('0')] }
       }
     }
     sold = { 'status' => 0, 'external_status' => 2, 'external_id' => 'SOLD-1', 'order_type' => 0, 'side' => 1, 'amount' => '0.01', 'amount_exec' => '0.01',
@@ -2915,6 +2933,137 @@ module Decisions
     end
   end
 
+  # ---- Bitget (plan VB slice A4): the classic v2 spot API as api.bitget.com answers it (AUDIT-bitget), every answer an envelope
+  # {code, msg, requestTime, data}; a business error is HTTP 400 with its code ----
+  BG_TIME = 1_788_000_000_000
+  def bg_ok(data) = ok('code' => '00000', 'msg' => 'success', 'requestTime' => BG_TIME, 'data' => data)
+  def bg_err(status, code, msg) = { 'status' => status, 'body' => { 'code' => code, 'msg' => msg, 'requestTime' => BG_TIME, 'data' => nil } }
+  def bg_book(ask, bid: '64000') = bg_ok('asks' => [[ask, '0.2']], 'bids' => [[bid, '1.5']], 'ts' => BG_TIME.to_s)
+  def bg_last(price) = bg_ok([{ 'symbol' => 'BTCUSDT', 'high24h' => '65000', 'open' => '63000', 'lastPr' => price, 'low24h' => '62000', 'bidPr' => price, 'askPr' => price,
+                                'ts' => BG_TIME.to_s }])
+  def bg_assets(usdt, btc: '0.5') = bg_ok([{ 'coin' => 'BTC', 'available' => btc, 'frozen' => '0', 'locked' => '0', 'limitAvailable' => '0', 'uTime' => BG_TIME.to_s },
+                                           { 'coin' => 'USDT', 'available' => usdt, 'frozen' => '0', 'locked' => '0', 'limitAvailable' => '0', 'uTime' => BG_TIME.to_s }])
+  def bg_order(id, status, type: 'market', side: 'buy', price: '0', size: '60', price_avg: '0', base: '0', quote: '0', client: 'web-1')
+    { 'userId' => '1001', 'symbol' => 'BTCUSDT', 'orderId' => id.to_s, 'clientOid' => client, 'price' => price, 'size' => size, 'orderType' => type,
+      'side' => side, 'status' => status, 'priceAvg' => price_avg, 'baseVolume' => base, 'quoteVolume' => quote, 'enterPointSource' => 'API',
+      'feeDetail' => '{}', 'orderSource' => 'normal', 'cTime' => BG_TIME.to_s, 'uTime' => BG_TIME.to_s }
+  end
+  BG_GONE = { 'status' => 400, 'body' => { 'code' => '40109', 'msg' => 'The data of the order cannot be found, please confirm the order number',
+                                           'requestTime' => BG_TIME, 'data' => nil } }.freeze
+
+  def bitget_scenarios
+    started = '2026-09-01T10:00:00.123456Z'
+    # BTCUSDT as Bitget lists it: minTradeAmount 0, so minTradeUSDT (1) is the only floor.
+    ticker = { 'base_decimals' => 6, 'quote_decimals' => 8, 'price_decimals' => 2, 'minimum_base_size' => '0', 'minimum_quote_size' => '1' }
+    info = 'GET /api/v2/spot/trade/orderInfo'
+    http = {
+      'GET /api/v2/spot/market/orderbook' => [bg_book('64001.37')],
+      'GET /api/v2/spot/market/tickers' => [bg_last('64000.12')],
+      'POST /api/v2/spot/trade/place-order' => [bg_ok('orderId' => '1234567890123456789', 'clientOid' => 'x')],
+      'GET /api/v2/spot/account/assets' => [bg_assets('100000')]
+    }
+    modes = { 'market' => {}, 'limit' => { 'limit_ordered' => true, 'limit_order_pcnt_distance' => 0.0025 } }
+    closed = { 'status' => 0, 'external_status' => 2, 'external_id' => 'BTCUSDT-100', 'order_type' => 0, 'quote_amount' => '60',
+               'quote_amount_exec' => '60', 'amount_exec' => '0.00093', 'price' => '64000', 'created_at' => '2026-09-01 10:00:01' }
+    waiting = lambda do |id, limit: false, created: '2026-09-01 10:00:01'|
+      { 'status' => 0, 'external_status' => limit ? 1 : 0, 'external_id' => "BTCUSDT-#{id}", 'order_type' => limit ? 1 : 0,
+        'quote_amount' => limit ? nil : '60', 'amount' => limit ? '0.00093' : nil, 'price' => '64000', 'amount_exec' => '0',
+        'quote_amount_exec' => '0', 'created_at' => created }.compact
+    end
+    polled = ->(id, order) { { "#{info}?orderId=#{id}" => [bg_ok([order])] } }
+    gone = ->(id, answer = BG_GONE) { { "#{info}?orderId=#{id}" => [answer] } }
+    place = ->(answer) { { 'POST /api/v2/spot/trade/place-order' => [answer] } }
+    %w[day week].flat_map do |interval|
+      step = { 'day' => 1.day, 'week' => 1.week }.fetch(interval)
+      after = ->(n) { (Time.iso8601(started) + (n * step) + 1.second).iso8601(6) }
+      variants = {
+        'first_tick' => { 'at' => (Time.iso8601(started) + 0.5).iso8601(6) },
+        'on_schedule' => { 'at' => after.(1), 'transactions' => [closed] },
+        'carry' => { 'at' => after.(1), 'transient' => { 'missed_quote_amount' => '12.5' } },
+        'below_minimum' => { 'at' => after.(1), 'quote_amount' => 0.5 },
+        # No quote minimum (an unpriced quote, G3): the base wins, and the market buy's base is turned into quote coins at the
+        # ask, floored to the tick and to quote_decimals (G1).
+        'base_sized' => { 'at' => after.(1), 'ticker' => ticker.merge('minimum_quote_size' => '0') },
+        'base_sized_coarse' => { 'at' => after.(1), 'ticker' => ticker.merge('minimum_quote_size' => '0', 'base_decimals' => 3, 'quote_decimals' => 2, 'price_decimals' => 0) },
+        'quote_min_decides' => { 'at' => after.(1), 'ticker' => ticker.merge('minimum_quote_size' => '100') },
+        'base_min_decides' => { 'at' => after.(1), 'ticker' => ticker.merge('base_decimals' => 2, 'minimum_base_size' => '0.01') },
+        # 40008 (the signed timestamp expired) is placement-safe: no row, the run rescheduled.
+        'timestamp_40008' => { 'at' => after.(1), 'http' => place.(bg_err(400, '40008', 'Request timestamp expired')) },
+        'insufficient' => { 'at' => after.(1), 'http' => place.(bg_err(400, '43012', 'Insufficient balance')) },
+        'insufficient_http_200' => { 'at' => after.(1), 'http' => place.(ok('code' => '43012', 'msg' => 'Insufficient balance', 'requestTime' => BG_TIME, 'data' => nil)) },
+        'below_venue_minimum' => { 'at' => after.(1), 'http' => place.(bg_err(400, '45110', 'less than the minimum order quantity')) },
+        'invalid_key' => { 'at' => after.(1), 'transient' => { 'last_failure_kind' => 'invalid_key' }, 'http' => place.(bg_err(400, '40037', 'Apikey does not exist')) },
+        'bad_signature' => { 'at' => after.(1), 'http' => place.(bg_err(400, '40009', 'sign signature error')) },
+        'no_trade_permission' => { 'at' => after.(1), 'http' => place.(bg_err(400, '40014', 'Incorrect permissions, need spot order write permissions')) },
+        'throttled' => { 'at' => after.(1), 'http' => place.(bg_err(429, '429', 'Too Many Requests')) },
+        # Sanctioned divergences (rust/tests/parity.rs BITGET_DIVERGENCES): Rust keeps the intent, which a clientOid lookup may
+        # find, where Rails writes a failed row: a 5xx, a lost reply, an unreadable answer, a transient code (40010 timed out,
+        # 40015 abnormal: it may have succeeded), and an answer without an orderId (Rails stores "BTCUSDT-").
+        'add_server_error' => { 'at' => after.(1), 'http' => place.({ 'status' => 503, 'body' => '<html>upstream</html>' }) },
+        'add_timeout_after_send' => { 'at' => after.(1), 'http' => place.(POST_SEND) },
+        'add_no_order_id' => { 'at' => after.(1), 'http' => place.(bg_ok({})) },
+        'add_unreadable' => { 'at' => after.(1), 'http' => place.({ 'status' => 200, 'body' => '<html>upstream</html>' }) },
+        'add_timed_out_40010' => { 'at' => after.(1), 'http' => place.(bg_err(400, '40010', 'Request timed out')) },
+        'add_abnormal_40015' => { 'at' => after.(1), 'http' => place.(bg_err(400, '40015', 'System is abnormal, please try again later')) },
+        # Landed recovery (Rust only, `recover_at`): the clientOid lookup finds the order, or finds nothing.
+        'landed_found' => { 'at' => after.(1), 'recover_at' => (Time.iso8601(after.(1)) + 60).iso8601(6),
+                            'http' => place.(POST_SEND).merge(info => [bg_ok([bg_order('1234567890123456790', 'filled', size: '60', price_avg: '64000.5',
+                                                                                                base: '0.00093749', quote: '60', client: '$client_order_id')])]) },
+        'landed_missing' => { 'at' => after.(1), 'recover_at' => (Time.iso8601(after.(1)) + 60).iso8601(6), 'http' => place.(POST_SEND).merge(info => [bg_ok([])]) },
+        'add_network_pre_send' => { 'at' => after.(1), 'http' => place.(VENUES.fetch('bitget').not_sent) },
+        'low_funds' => { 'at' => after.(1), 'http' => { 'GET /api/v2/spot/account/assets' => [bg_assets('1')] } },
+        'balance_refused' => { 'at' => after.(1), 'http' => { 'GET /api/v2/spot/account/assets' => [bg_err(400, '40037', 'Apikey does not exist')] } },
+        'balance_envelope_error' => { 'at' => after.(1), 'http' => { 'GET /api/v2/spot/account/assets' => [ok('code' => '40015', 'msg' => 'System is abnormal', 'data' => [])] } },
+        'zero_price' => { 'at' => after.(1), 'http' => { 'GET /api/v2/spot/market/orderbook' => [bg_book('0', bid: '0')], 'GET /api/v2/spot/market/tickers' => [bg_last('0')] } },
+        'no_price' => { 'at' => after.(1), 'http' => { 'GET /api/v2/spot/market/orderbook' => [bg_err(400, '40034', 'Parameter symbol does not exist')],
+                                                       'GET /api/v2/spot/market/tickers' => [bg_err(400, '40034', 'Parameter symbol does not exist')] } },
+        'no_book' => { 'at' => after.(1), 'http' => { 'GET /api/v2/spot/market/orderbook' => [ok('code' => '00000', 'msg' => 'success', 'data' => nil)],
+                                                      'GET /api/v2/spot/market/tickers' => [bg_ok([])] } },
+        # The tick's sweep (Bot::FetchAndUpdateOpenOrdersJob): #get_order per waiting order.
+        'sweep_filled' => { 'at' => after.(1), 'transactions' => [waiting.(201)],
+                            'http' => polled.(201, bg_order(201, 'filled', size: '60', price_avg: '64000.5', base: '0.00093749', quote: '59.9999')) },
+        'sweep_live_limit' => { 'at' => after.(1), 'transactions' => [waiting.(202, limit: true)],
+                                'http' => polled.(202, bg_order(202, 'live', type: 'limit', price: '63840', size: '0.00093')) },
+        'sweep_partial' => { 'at' => after.(1), 'transactions' => [waiting.(203, limit: true)],
+                             'http' => polled.(203, bg_order(203, 'partially_filled', type: 'limit', price: '63840', size: '0.00093', price_avg: '63840', base: '0.0004', quote: '25.536')) },
+        'sweep_cancelled_partial' => { 'at' => after.(1), 'transactions' => [waiting.(204, limit: true)],
+                                       'http' => polled.(204, bg_order(204, 'cancelled', type: 'limit', price: '63840', size: '0.00093', price_avg: '63840', base: '0.0004', quote: '25.536')) },
+        'sweep_new' => { 'at' => after.(1), 'transactions' => [waiting.(205)], 'http' => polled.(205, bg_order(205, 'new')) },
+        'sweep_market_sell' => { 'at' => after.(1), 'transactions' => [waiting.(206)],
+                                 'http' => polled.(206, bg_order(206, 'filled', side: 'sell', size: '0.00093', price_avg: '64000', base: '0.00093', quote: '59.52')) },
+        'sweep_unknown_type' => { 'at' => after.(1), 'transactions' => [waiting.(207)], 'http' => polled.(207, bg_order(207, 'live', type: 'stop')) },
+        'sweep_unknown_status' => { 'at' => after.(1), 'transactions' => [waiting.(208)], 'http' => polled.(208, bg_order(208, 'expired')) },
+        # A gone order (G5: 40109, 43001 or an empty list): missing, for Bot::StaleOrderResolver (young fails, old is abandoned).
+        'sweep_gone_young' => { 'at' => after.(1), 'transactions' => [waiting.(209)], 'http' => gone.(209) },
+        'sweep_gone_old' => { 'at' => after.(1), 'transactions' => [waiting.(210, created: '2026-08-01 10:00:01')], 'http' => gone.(210) },
+        'sweep_gone_43001_old' => { 'at' => after.(1), 'transactions' => [waiting.(211, created: '2026-08-01 10:00:01')],
+                                    'http' => gone.(211, bg_err(400, '43001', '订单不存在')) },
+        'sweep_gone_empty_old' => { 'at' => after.(1), 'transactions' => [waiting.(212, created: '2026-08-01 10:00:01')], 'http' => gone.(212, bg_ok([])) },
+        'sweep_gone_envelope_old' => { 'at' => after.(1), 'transactions' => [waiting.(213, created: '2026-08-01 10:00:01')],
+                                       'http' => gone.(213, ok('code' => '43001', 'msg' => 'The order does not exist', 'data' => nil)) },
+        'sweep_failed' => { 'at' => after.(1), 'transactions' => [waiting.(214)], 'http' => gone.(214, bg_err(400, '40015', 'System is abnormal')) },
+        # Poll-only: Bot::FetchAndUpdateOrderJob (#get_order) for one waiting order.
+        'poll_filled' => { 'at' => after.(1), 'tick' => false, 'poll' => 'BTCUSDT-401', 'transactions' => [waiting.(401)],
+                           'http' => polled.(401, bg_order(401, 'filled', size: '60', price_avg: '64000.5', base: '0.00093749', quote: '59.9999')) },
+        'poll_open' => { 'at' => after.(1), 'tick' => false, 'poll' => 'BTCUSDT-402', 'transactions' => [waiting.(402, limit: true)],
+                         'http' => polled.(402, bg_order(402, 'live', type: 'limit', price: '63840', size: '0.00093')) },
+        'poll_gone' => { 'at' => after.(1), 'tick' => false, 'poll' => 'BTCUSDT-403', 'transactions' => [waiting.(403)], 'http' => gone.(403) },
+        # A tick that places 1234567890123456789; its follow-up 5 s later finds it filled.
+        'tick_then_poll' => { 'at' => after.(1), 'poll' => 'BTCUSDT-1234567890123456789', 'transient' => { 'missed_quote_amount' => '12.5' },
+                              'http' => polled.('1234567890123456789', bg_order('1234567890123456789', 'filled', size: '72.5', price_avg: '64000.5', base: '0.00113', quote: '72.32')) }
+      }
+      modes.flat_map do |mode, settings|
+        variants.map do |name, v|
+          { 'name' => "#{interval}-#{mode}-#{name}", 'venue' => 'bitget', 'interval' => interval, 'quote_amount' => v.fetch('quote_amount', 60.0),
+            'started_at' => started, 'settings' => settings, 'settings_changed_at' => v['settings_changed_at'],
+            'transient' => v.fetch('transient', {}), 'transactions' => v.fetch('transactions', []), 'ticker' => v.fetch('ticker', ticker),
+            'ticker_after' => v['ticker_after'], 'at' => v.fetch('at'), 'recover_at' => v['recover_at'], 'script' => { 'bitget' => http.merge(v.fetch('http', {})) },
+            'tick' => v.fetch('tick', true), 'poll' => v['poll'] }.compact
+        end
+      end
+    end
+  end
+
   # Gemini spot (plan VB B3), one asset on btcusd: Rails' own answers to the bodies below, beneath honeymaker. Every private
   # call is a POST (its params in the signed payload), named by its path.
   def gm_ticker(bid, ask, last) = ok('bid' => bid, 'ask' => ask, 'last' => last, 'volume' => { 'BTC' => '10', 'USD' => '640000', 'timestamp' => 1_788_000_000_000 })
@@ -3593,7 +3742,7 @@ def web_save(dir)
 end
 
 command, root = ARGV
-USAGE = 'usage: grid <root> | grid-signal <root> | grid-alpaca <root> | grid-basket <root> | grid-limit <root> | grid-binance <root> | grid-binance-us <root> | grid-kucoin <root> | grid-bitvavo <root> | grid-gemini <root> | grid-sell <root> | grid-venue-basket <root> | grid-venue-index <root> | grid-conditions <root> | grid-basket-sell <root> | grid-rebalance <root> | record <root> | web-save <dir>'.freeze
+USAGE = 'usage: grid <root> | grid-signal <root> | grid-alpaca <root> | grid-basket <root> | grid-limit <root> | grid-binance <root> | grid-binance-us <root> | grid-kucoin <root> | grid-bitvavo <root> | grid-bitget <root> | grid-gemini <root> | grid-sell <root> | grid-venue-basket <root> | grid-venue-index <root> | grid-conditions <root> | grid-basket-sell <root> | grid-rebalance <root> | record <root> | web-save <dir>'.freeze
 raise ArgumentError, USAGE unless root
 
 case command
@@ -3609,6 +3758,7 @@ when 'grid-binance-us' then Decisions.grid(root, Decisions.binance_scenarios('bi
 when 'grid-kucoin' then Decisions.grid(root, Decisions.kucoin_scenarios)
 when 'grid-bitvavo' then Decisions.grid(root, Decisions.bitvavo_scenarios)
 when 'grid-gemini' then Decisions.grid(root, Decisions.gemini_scenarios)
+when 'grid-bitget' then Decisions.grid(root, Decisions.bitget_scenarios)
 when 'grid-sell' then Decisions.grid(root, Decisions.sell_scenarios)
 when 'grid-venue-basket' then Decisions.grid(root, Decisions.venue_basket_scenarios)
 when 'grid-basket-sell' then Decisions.grid(root, Decisions.basket_sell_scenarios)

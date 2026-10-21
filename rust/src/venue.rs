@@ -7,6 +7,7 @@ pub mod alpaca;
 pub mod http;
 pub mod binance;
 pub mod bitvavo;
+pub mod bitget;
 pub mod kraken;
 pub mod kucoin;
 pub mod gemini;

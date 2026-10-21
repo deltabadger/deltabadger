@@ -516,8 +516,75 @@ async fn rails_and_rust_decide_identically_across_the_bitvavo_grid() {
     }
 }
 
-/// Slice 6a: a one-asset basket selling on Kraken, Binance, Alpaca and Gemini (script/rust/decisions.rb sell_scenarios), compared
-/// whole. Gemini's market sells go out at the crossed bid Rails re-reads at placement, prepared once (plan VB §1.5): no divergence.
+/// Bitget grid variants where Rust deliberately decides otherwise than Rails (plan VB §5, slice A4), each asserted on its own
+/// terms: a placement that may have reached Bitget (a 5xx, a lost reply, an unreadable answer, 40010 "Request timed out" or
+/// 40015 "System is abnormal") keeps the intent, which a clientOid lookup may find, where Rails writes a failed row.
+const BITGET_DIVERGENCES: [&str; 5] = ["add_server_error", "add_timeout_after_send", "add_unreadable", "add_timed_out_40010", "add_abnormal_40015"];
+
+/// A 00000 answer without an orderId: Rails stores the row as "BTCUSDT-" (honeymaker's "<symbol>-<orderId>"); Rust keeps
+/// the intent.
+fn unacknowledged_bitget_kept(dir: &Path, rails_out: &serde_json::Value, rust_out: &serde_json::Value) -> Result<(), String> {
+    if !rails_out["changes"]["transactions"].as_array().unwrap().iter().any(|t| t["after"]["external_id"] == "BTCUSDT-") {
+        return Err(format!("Rails no longer stores \"BTCUSDT-\": drop the listed divergence\n  rails: {rails_out}"));
+    }
+    rust_kept_the_intent(dir, rust_out)
+}
+
+/// Landed recovery on Bitget: after a lost reply Rails writes a failed row; Rust keeps the intent, and its next tick's
+/// clientOid lookup FINDS the order and records it (filled), sending nothing more.
+fn bitget_landed_found(rails_out: &serde_json::Value, rust_out: &serde_json::Value) -> Result<(), String> {
+    if !rails_out["changes"]["transactions"].as_array().unwrap().iter().any(|t| t["after"]["status"] == 1) { return Err(format!("Rails no longer writes a failed row: {rails_out}")); }
+    let rows = rust_out["changes"]["transactions"].as_array().unwrap();
+    let recorded = rows.iter().any(|t| t["after"]["external_id"] == "BTCUSDT-1234567890123456790" && t["after"]["status"] == 0 && t["after"]["external_status"] == 2);
+    if rust_out["sent"].as_array().unwrap().len() != 1 || rust_out["recover_sent"] != 0 || !recorded {
+        return Err(format!("Rust must record the order its lookup found, filled, and send nothing more: {rust_out}"));
+    }
+    Ok(())
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn rails_and_rust_decide_identically_across_the_bitget_grid() {
+    use common::venue_grid::{ending, run_venue_grid, Validator};
+    let outputs = run_venue_grid("grid-bitget", 196, &[
+        Validator { names: &ending(&BITGET_DIVERGENCES), check: &|_, d, r, u| intent_kept(d, r, u) },
+        Validator { names: &ending(&["add_no_order_id"]), check: &|_, d, r, u| unacknowledged_bitget_kept(d, r, u) },
+        Validator { names: &ending(&["add_network_pre_send"]), check: &|_, _, r, u| refused_like_rails(r, u) },
+        Validator { names: &ending(&["landed_found"]), check: &|_, _, r, u| bitget_landed_found(r, u) },
+        Validator { names: &ending(&["landed_missing"]), check: &|_, d, r, u| landed_missing(d, r, u) },
+        Validator { names: &ending(&["sweep_unknown_type"]), check: &|_, _, r, u| wrapped_like_rails(r#"Failed to fetch orders BTCUSDT-207. Result: [\"Unknown Bitget order type: stop\"]"#,
+                                                                                                      "Unknown Bitget order type: stop", r, u) },
+        Validator { names: &ending(&["sweep_unknown_status"]), check: &|_, _, r, u| wrapped_like_rails(r#"Failed to fetch orders BTCUSDT-208. Result: [\"Unknown Bitget order status: expired\"]"#,
+                                                                                                        "Unknown Bitget order status: expired", r, u) },
+    ]).await;
+    // Pin what Rails does where a silent pair of sides would otherwise pass.
+    for (name, rails_out) in &outputs {
+        let mailed: Vec<&str> = rails_out["mails"].as_array().unwrap().iter().map(|m| m["mail"].as_str().unwrap()).collect();
+        let expected: Option<&[&str]> = [("-insufficient", &["end_of_funds"][..]), ("-insufficient_http_200", &["end_of_funds"]), ("-invalid_key", &["stopped_by_error"]),
+                                         ("-low_funds", &["end_of_funds"]), ("-on_schedule", &[]), ("-timestamp_40008", &[])].into_iter().find(|(suffix, _)| name.ends_with(suffix)).map(|(_, m)| m);
+        if let Some(expected) = expected { assert_eq!(mailed, expected, "{name}: the mails Rails enqueued"); }
+        let rows = rails_out["changes"]["transactions"].as_array().unwrap();
+        let sent = rails_out["sent"].as_array().unwrap();
+        if name.ends_with("-timestamp_40008") { assert!(rows.is_empty() && sent.len() == 1, "{name}: 40008 writes no row"); }
+        if name.ends_with("-market-first_tick") {
+            assert_eq!(sent[0], serde_json::json!({ "symbol": "BTCUSDT", "side": "buy", "orderType": "market", "size": "60.0", "force": "ioc" }), "{name}: a market buy in quote (G1)");
+        }
+        // 120 USDT is no quote minimum's: the base wins, 120 / 64001.37 BTC, turned back into quote coins at the ask (G1); at
+        // a whole-dollar tick and cents that is 119.99.
+        if name.ends_with("-market-base_sized") { assert_eq!((sent[0]["size"].as_str(), sent[0].get("quoteSize")), (Some("120.0"), None), "{name}"); }
+        if name.ends_with("-market-base_sized_coarse") { assert_eq!(sent[0]["size"].as_str(), Some("119.99"), "{name}: the base turned into quote coins at the floored ask"); }
+        if name.ends_with("-limit-first_tick") { assert!(sent[0]["price"].is_string() && sent[0]["force"] == "gtc", "{name}: a limit buy in base (#532)"); }
+        if name.ends_with("-sweep_gone_old") { assert!(rows.iter().any(|t| t["after"]["external_id"] == "BTCUSDT-210" && t["after"]["external_status"] == 4), "{name}: abandoned"); }
+        if name.ends_with("-sweep_gone_young") { assert!(mailed.contains(&"notify_about_error"), "{name}: a young missing order fails the run"); }
+        if name.ends_with("-sweep_market_sell") {
+            let row = rows.iter().find(|t| t["after"]["external_id"] == "BTCUSDT-206").unwrap_or_else(|| panic!("{name}"));
+            assert_eq!(row["after"]["external_status"], 2, "{name}");
+        }
+    }
+}
+
+/// Slice 6a: a one-asset basket selling on Kraken, Binance, Alpaca, Gemini and Bitget (script/rust/decisions.rb sell_scenarios),
+/// compared whole. Gemini's market sells go out at the crossed bid Rails re-reads at placement, prepared once (plan VB §1.5);
+/// Bitget's in base (G1): no divergence.
 #[tokio::test(flavor = "current_thread")]
 async fn rails_and_rust_decide_identically_across_the_sell_grid() {
     let rails_root = tempfile::tempdir().unwrap();
@@ -525,7 +592,7 @@ async fn rails_and_rust_decide_identically_across_the_sell_grid() {
     built_grid("grid-sell", rails_root.path());
     let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
     dirs.sort();
-    assert_eq!(dirs.len(), 255, "the sell grid has {} scenarios", dirs.len());
+    assert_eq!(dirs.len(), 315, "the sell grid has {} scenarios", dirs.len());
     for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
     rails(&["record", rails_root.path().to_str().unwrap()]);
     let mut failures = vec![];

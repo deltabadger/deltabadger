@@ -6,6 +6,7 @@
     "app/models/exchanges/kucoin.rb": "a4dd07679ac5297f73d7713a812122728872629f60c13cf82d5f1b5c205fef45",
     "app/models/exchanges/bitvavo.rb": "eb8c8aac55c32742ff255efeb890e1163892480f85e6e6dcaf611b79ada4d513",
     "app/models/exchanges/gemini.rb": "f020003e7398b901120a20af2354b692218ac537072da685ab176499069c4234",
+    "app/models/exchanges/bitget.rb": "5acc29199e4c5ecda3eeae60ea898ac69438e5b581c6bc15fcbe70241e40716c",
     "app/models/exchange.rb": "ab627a2812bc0c7b4a546459e64f8f5d93617c496308d5f03163f44cef12d8d7",
     "app/models/exchange/dryable.rb": "559b4b1858c832f3bc83b7631d7a74012854aabd88408b8680288609a1254b96",
     "app/models/api_key.rb": "e7f1435042602815925d093baa51160be9236c600b2f8aebdcf0517f5119ef91",
@@ -5129,7 +5130,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=7275f18ddc922a67a75ef3fce1d4403a3e1e2a40697e11a95393b504c4ddacf7&timestamp=1792567619800"
+            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=4388b3ee3680ce13c2c48a56ffe3d35e6590a9ec61a6e2f54325e181d8d1097c&timestamp=1792577256105"
           ]
         },
         "request": {
@@ -7057,7 +7058,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=36090d929428b9188778bc6a904b36e611d8d31db7806d1fe9b0e26c936ece12&timestamp=1792567619823"
+            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=0875b4f439e2f007a004028abf070efcefa62cbf1018f8f6dd39f23209dd5f2b&timestamp=1792577256213"
           ]
         },
         "request": {
@@ -8985,7 +8986,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=f43b55d2aad6755e5cfbbfe80dea4548e87247a9ccdf4501fa3aec6639788bdb&timestamp=1792567619843"
+            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=e6d716831b009fedd90b4667bd2b20835b6a3230443235364af60b68ff3a7601&timestamp=1792577256235"
           ]
         },
         "request": {
@@ -10913,7 +10914,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=a43f78a2c96b6b31cc686dea10801959e2e02058fb65563a3db77d12310a716e&timestamp=1792567619868"
+            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=e28ca2fba5b6d8ff6679b4553eceb34a35785e81c0fa5bcedd69298656b5b413&timestamp=1792577256256"
           ]
         },
         "request": {
@@ -11654,7 +11655,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=51d75c4c5395f5d55062c55ba1e31a6e9a3860b761fcc1fef8d98d1a1287ce5c&timestamp=1792567619882"
+            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=9dcf3da9fec624b02e7ed9a92f17185cc540ae721f5791e5279408ec24645000&timestamp=1792577256268"
           ]
         },
         "request": {
@@ -13013,7 +13014,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for DELETE https://api.binance.us/api/v3/order?orderId=9999999999&recvWindow=5000&signature=9d6ba25f5847f31a96d1c351ae63361a83854d6136a212b7546cc97b7745751c&symbol=ETHBTC&timestamp=1792567619894"
+            "the server responded with status 500 for DELETE https://api.binance.us/api/v3/order?orderId=9999999999&recvWindow=5000&signature=c66f602131dfcf954abb3cb00ee20cc94bbb12d6810de9205c88e8f807e66581&symbol=ETHBTC&timestamp=1792577256282"
           ]
         },
         "requests": [
@@ -13954,7 +13955,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=c853d0157c51d45cabe28eb083cdbc89d0d832c1fb5ccd65675db1bd26026645&timestamp=1792567619902"
+            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=d8b429ce0a5c4a51bb1662fb51454bb01d109e38bccef1c1b2921f6e7a1c9fe2&timestamp=1792577256297"
           ]
         },
         "request": {
@@ -15313,7 +15314,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for DELETE https://api.binance.us/api/v3/order?orderId=9999999999&recvWindow=5000&signature=27715b9acd4275c340a5c12709d65ab9cf9cda0db4be9c982cbaa009ccea81c8&symbol=ETHBTC&timestamp=1792567619913"
+            "the server responded with status 500 for DELETE https://api.binance.us/api/v3/order?orderId=9999999999&recvWindow=5000&signature=793c5533d5d4e748b516ebd91c32af6d5f2ead16d88e6f5380609cdf3f79208f&symbol=ETHBTC&timestamp=1792577256311"
           ]
         },
         "requests": [
@@ -16254,7 +16255,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=76abde84b9e62920097c42c058ca0e3e46f79b3ab43237d27fb875f8d996d7bf&timestamp=1792567619924"
+            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=d05912300a304a6381a00298ea749a987f5fa6f9985ebf3c1993fc1f641b60a1&timestamp=1792577256321"
           ]
         },
         "request": {
@@ -17613,7 +17614,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for DELETE https://api.binance.us/api/v3/order?orderId=9999999999&recvWindow=5000&signature=b2b84e44e2484422c6263e586d5af544b532872ca7a7f26b50f3e878f199108a&symbol=ETHBTC&timestamp=1792567619934"
+            "the server responded with status 500 for DELETE https://api.binance.us/api/v3/order?orderId=9999999999&recvWindow=5000&signature=06f4eaf5fd40635c6fcb92bc81f50826a8300dbd13f453d720ff1a797773ac3a&symbol=ETHBTC&timestamp=1792577256334"
           ]
         },
         "requests": [
@@ -18554,7 +18555,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=868ba227c96cf352e07225428b758a438eff92ce95be0f2a291be7e065dd4029&timestamp=1792567619943"
+            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=dd3c6da84bccdc8019e52d90d67b0fd87680a97a216ca8a51327a06e81482612&timestamp=1792577256344"
           ]
         },
         "request": {
@@ -31252,6 +31253,2958 @@
           "method": "POST",
           "host": "api.gemini.com",
           "path": "/v1/balances",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      }
+    ]
+  },
+  "bitget": {
+    "order_not_found_codes": [
+      "43001",
+      "43025"
+    ],
+    "no_trade_codes": [
+      "40014"
+    ],
+    "invalid_key_errors": [
+      "Invalid Api Key",
+      "Invalid ACCESS_KEY",
+      "Invalid signature",
+      "Apikey does not exist",
+      "sign signature error",
+      "apikey/password is incorrect",
+      "passphrase is error",
+      "User's ApiKey does not exist"
+    ],
+    "cases": [
+      {
+        "case": "order_not_found 43001",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":\"43001\",\"msg\":\"订单不存在\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/trade/cancel-order",
+          "query": {},
+          "form": {
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "order_not_found 43001 http_200",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":\"43001\",\"msg\":\"订单不存在\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/trade/cancel-order",
+          "query": {},
+          "form": {
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "order_not_found 43025",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":\"43025\",\"msg\":\"Order does not exist\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/trade/cancel-order",
+          "query": {},
+          "form": {
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "order_not_found 43001 as_integer",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":43001,\"msg\":\"x\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"code\":43001,\"msg\":\"x\",\"requestTime\":1789871400750,\"data\":null}"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/trade/cancel-order",
+          "query": {},
+          "form": {
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "no_trade 40014",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":\"40014\",\"msg\":\"Incorrect permissions, need spot order write permissions\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/trade/cancel-order",
+          "query": {},
+          "form": {
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "no_trade 40014 http_200",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":\"40014\",\"msg\":\"Incorrect permissions\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/trade/cancel-order",
+          "query": {},
+          "form": {
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "no_permission 40025",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":\"40025\",\"msg\":\"The user does not have this permission\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"code\":\"40025\",\"msg\":\"The user does not have this permission\",\"requestTime\":1789871400750,\"data\":null}"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/trade/cancel-order",
+          "query": {},
+          "form": {
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "timestamp 40008",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":\"40008\",\"msg\":\"Request timestamp expired\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"code\":\"40008\",\"msg\":\"Request timestamp expired\",\"requestTime\":1789871400750,\"data\":null}"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/trade/cancel-order",
+          "query": {},
+          "form": {
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "timed_out 40010",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":\"40010\",\"msg\":\"Request timed out\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"code\":\"40010\",\"msg\":\"Request timed out\",\"requestTime\":1789871400750,\"data\":null}"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/trade/cancel-order",
+          "query": {},
+          "form": {
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "system 40015",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":\"40015\",\"msg\":\"System is abnormal, please try again later\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"code\":\"40015\",\"msg\":\"System is abnormal, please try again later\",\"requestTime\":1789871400750,\"data\":null}"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/trade/cancel-order",
+          "query": {},
+          "form": {
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "ip 40038",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":\"40038\",\"msg\":\"current ip is not in the apikey ip whitelist\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"code\":\"40038\",\"msg\":\"current ip is not in the apikey ip whitelist\",\"requestTime\":1789871400750,\"data\":null}"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/trade/cancel-order",
+          "query": {},
+          "form": {
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "throttled 429",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 429,
+          "body": "{\"code\":\"429\",\"msg\":\"Too Many Requests\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"code\":\"429\",\"msg\":\"Too Many Requests\",\"requestTime\":1789871400750,\"data\":null}"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/trade/cancel-order",
+          "query": {},
+          "form": {
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "ok 00000",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":\"00000\",\"msg\":\"success\",\"data\":{\"orderId\":\"0\"}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/trade/cancel-order",
+          "query": {},
+          "form": {
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "ok 00000 no_data",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":\"00000\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/trade/cancel-order",
+          "query": {},
+          "form": {
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "other_code 200",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":\"12345\",\"msg\":\"something else\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "something else"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/trade/cancel-order",
+          "query": {},
+          "form": {
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "other_code 200 blank_msg",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":\"12345\",\"msg\":\"\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Bitget answered code \"12345\""
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/trade/cancel-order",
+          "query": {},
+          "form": {
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "no_code 200",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"msg\":\"hello\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "hello"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/trade/cancel-order",
+          "query": {},
+          "form": {
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "no_code 400",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"msg\":\"hello\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"msg\":\"hello\"}"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/trade/cancel-order",
+          "query": {},
+          "form": {
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "msg_integer 400",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":\"99\",\"msg\":5}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "raises",
+          "class": "NoMethodError",
+          "message": "undefined method 'include?' for an instance of Integer"
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/trade/cancel-order",
+          "query": {},
+          "form": {
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "json_array",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "[]",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Bitget answered code nil"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/trade/cancel-order",
+          "query": {},
+          "form": {
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_key Invalid Api Key http_400",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":\"40099\",\"msg\":\"Invalid Api Key\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/trade/cancel-order",
+          "query": {},
+          "form": {
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_key Invalid Api Key http_200",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":\"40099\",\"msg\":\"Invalid Api Key\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/trade/cancel-order",
+          "query": {},
+          "form": {
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_key Invalid ACCESS_KEY http_400",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":\"40099\",\"msg\":\"Invalid ACCESS_KEY\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/trade/cancel-order",
+          "query": {},
+          "form": {
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_key Invalid ACCESS_KEY http_200",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":\"40099\",\"msg\":\"Invalid ACCESS_KEY\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/trade/cancel-order",
+          "query": {},
+          "form": {
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_key Invalid signature http_400",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":\"40099\",\"msg\":\"Invalid signature\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/trade/cancel-order",
+          "query": {},
+          "form": {
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_key Invalid signature http_200",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":\"40099\",\"msg\":\"Invalid signature\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/trade/cancel-order",
+          "query": {},
+          "form": {
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_key Apikey does not exist http_400",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":\"40099\",\"msg\":\"Apikey does not exist\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/trade/cancel-order",
+          "query": {},
+          "form": {
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_key Apikey does not exist http_200",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":\"40099\",\"msg\":\"Apikey does not exist\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/trade/cancel-order",
+          "query": {},
+          "form": {
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_key sign signature error http_400",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":\"40099\",\"msg\":\"sign signature error\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/trade/cancel-order",
+          "query": {},
+          "form": {
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_key sign signature error http_200",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":\"40099\",\"msg\":\"sign signature error\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/trade/cancel-order",
+          "query": {},
+          "form": {
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_key apikey/password is incorrect http_400",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":\"40099\",\"msg\":\"apikey/password is incorrect\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/trade/cancel-order",
+          "query": {},
+          "form": {
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_key apikey/password is incorrect http_200",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":\"40099\",\"msg\":\"apikey/password is incorrect\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/trade/cancel-order",
+          "query": {},
+          "form": {
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_key passphrase is error http_400",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":\"40099\",\"msg\":\"passphrase is error\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/trade/cancel-order",
+          "query": {},
+          "form": {
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_key passphrase is error http_200",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":\"40099\",\"msg\":\"passphrase is error\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/trade/cancel-order",
+          "query": {},
+          "form": {
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_key User's ApiKey does not exist http_400",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":\"40099\",\"msg\":\"User's ApiKey does not exist\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/trade/cancel-order",
+          "query": {},
+          "form": {
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_key User's ApiKey does not exist http_200",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":\"40099\",\"msg\":\"User's ApiKey does not exist\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/trade/cancel-order",
+          "query": {},
+          "form": {
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_500",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 500,
+          "body": "",
+          "content_type": "text/plain"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "the server responded with status 500 for POST https://api.bitget.com/api/v2/spot/trade/cancel-order"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/trade/cancel-order",
+          "query": {},
+          "form": {
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_502_html",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 502,
+          "body": "<html><body>502 Bad Gateway</body></html>",
+          "content_type": "text/html"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "<html><body>502 Bad Gateway</body></html>"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/trade/cancel-order",
+          "query": {},
+          "form": {
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_503_json",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 503,
+          "body": "{\"msg\":\"Service unavailable\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"msg\":\"Service unavailable\"}"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/trade/cancel-order",
+          "query": {},
+          "form": {
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_403_waf_html",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 403,
+          "body": "<html>Forbidden</html>",
+          "content_type": "text/html"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "<html>Forbidden</html>"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/trade/cancel-order",
+          "query": {},
+          "form": {
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_429",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 429,
+          "body": "{\"code\":-1003,\"msg\":\"Too many requests.\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"code\":-1003,\"msg\":\"Too many requests.\"}"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/trade/cancel-order",
+          "query": {},
+          "form": {
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "timeout",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "timeout": true
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Net::ReadTimeout"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/trade/cancel-order",
+          "query": {},
+          "form": {
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "connection_refused",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "refused": true
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Failed to open TCP connection (Connection refused)"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/trade/cancel-order",
+          "query": {},
+          "form": {
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "malformed_json",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"error\":[],\"result\":{",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"error\":[],\"result\":{"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/trade/cancel-order",
+          "query": {},
+          "form": {
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "empty_json_body",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Bitget answered code nil"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/trade/cancel-order",
+          "query": {},
+          "form": {
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "plain_text_200",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "OK",
+          "content_type": "text/plain"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Bitget answered code nil"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/trade/cancel-order",
+          "query": {},
+          "form": {
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "order_not_found 43001",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":\"43001\",\"msg\":\"订单不存在\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "order_not_found 43001 http_200",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":\"43001\",\"msg\":\"订单不存在\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "order_not_found 43025",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":\"43025\",\"msg\":\"Order does not exist\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "order_not_found 43001 as_integer",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":43001,\"msg\":\"x\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"code\":43001,\"msg\":\"x\",\"requestTime\":1789871400750,\"data\":null}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "no_trade 40014",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":\"40014\",\"msg\":\"Incorrect permissions, need spot order write permissions\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "no_trade 40014 http_200",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":\"40014\",\"msg\":\"Incorrect permissions\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "no_permission 40025",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":\"40025\",\"msg\":\"The user does not have this permission\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"code\":\"40025\",\"msg\":\"The user does not have this permission\",\"requestTime\":1789871400750,\"data\":null}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "timestamp 40008",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":\"40008\",\"msg\":\"Request timestamp expired\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"code\":\"40008\",\"msg\":\"Request timestamp expired\",\"requestTime\":1789871400750,\"data\":null}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "timed_out 40010",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":\"40010\",\"msg\":\"Request timed out\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"code\":\"40010\",\"msg\":\"Request timed out\",\"requestTime\":1789871400750,\"data\":null}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "system 40015",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":\"40015\",\"msg\":\"System is abnormal, please try again later\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"code\":\"40015\",\"msg\":\"System is abnormal, please try again later\",\"requestTime\":1789871400750,\"data\":null}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "ip 40038",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":\"40038\",\"msg\":\"current ip is not in the apikey ip whitelist\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"code\":\"40038\",\"msg\":\"current ip is not in the apikey ip whitelist\",\"requestTime\":1789871400750,\"data\":null}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "throttled 429",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 429,
+          "body": "{\"code\":\"429\",\"msg\":\"Too Many Requests\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"code\":\"429\",\"msg\":\"Too Many Requests\",\"requestTime\":1789871400750,\"data\":null}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "ok 00000",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":\"00000\",\"msg\":\"success\",\"data\":{\"orderId\":\"0\"}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "ok 00000 no_data",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":\"00000\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "other_code 200",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":\"12345\",\"msg\":\"something else\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "something else"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "other_code 200 blank_msg",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":\"12345\",\"msg\":\"\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Bitget answered code \"12345\""
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "no_code 200",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"msg\":\"hello\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "hello"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "no_code 400",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"msg\":\"hello\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"msg\":\"hello\"}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "msg_integer 400",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":\"99\",\"msg\":5}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "raises",
+          "class": "NoMethodError",
+          "message": "undefined method 'include?' for an instance of Integer"
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "json_array",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "[]",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Bitget answered code nil"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_key Invalid Api Key http_400",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":\"40099\",\"msg\":\"Invalid Api Key\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_key Invalid Api Key http_200",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":\"40099\",\"msg\":\"Invalid Api Key\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_key Invalid ACCESS_KEY http_400",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":\"40099\",\"msg\":\"Invalid ACCESS_KEY\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_key Invalid ACCESS_KEY http_200",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":\"40099\",\"msg\":\"Invalid ACCESS_KEY\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_key Invalid signature http_400",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":\"40099\",\"msg\":\"Invalid signature\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_key Invalid signature http_200",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":\"40099\",\"msg\":\"Invalid signature\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_key Apikey does not exist http_400",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":\"40099\",\"msg\":\"Apikey does not exist\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_key Apikey does not exist http_200",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":\"40099\",\"msg\":\"Apikey does not exist\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_key sign signature error http_400",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":\"40099\",\"msg\":\"sign signature error\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_key sign signature error http_200",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":\"40099\",\"msg\":\"sign signature error\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_key apikey/password is incorrect http_400",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":\"40099\",\"msg\":\"apikey/password is incorrect\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_key apikey/password is incorrect http_200",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":\"40099\",\"msg\":\"apikey/password is incorrect\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_key passphrase is error http_400",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":\"40099\",\"msg\":\"passphrase is error\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_key passphrase is error http_200",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":\"40099\",\"msg\":\"passphrase is error\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_key User's ApiKey does not exist http_400",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":\"40099\",\"msg\":\"User's ApiKey does not exist\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_key User's ApiKey does not exist http_200",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":\"40099\",\"msg\":\"User's ApiKey does not exist\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_500",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 500,
+          "body": "",
+          "content_type": "text/plain"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "the server responded with status 500 for GET https://api.bitget.com/api/v2/spot/account/assets"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_502_html",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 502,
+          "body": "<html><body>502 Bad Gateway</body></html>",
+          "content_type": "text/html"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "<html><body>502 Bad Gateway</body></html>"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_503_json",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 503,
+          "body": "{\"msg\":\"Service unavailable\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"msg\":\"Service unavailable\"}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_403_waf_html",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 403,
+          "body": "<html>Forbidden</html>",
+          "content_type": "text/html"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "<html>Forbidden</html>"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_429",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 429,
+          "body": "{\"code\":-1003,\"msg\":\"Too many requests.\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"code\":-1003,\"msg\":\"Too many requests.\"}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "timeout",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "timeout": true
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Net::ReadTimeout"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "connection_refused",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "refused": true
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Failed to open TCP connection (Connection refused)"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "malformed_json",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"error\":[],\"result\":{",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"error\":[],\"result\":{"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "empty_json_body",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Bitget answered code nil"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "plain_text_200",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "OK",
+          "content_type": "text/plain"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Bitget answered code nil"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "assets ok",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":\"00000\",\"msg\":\"success\",\"data\":[{\"coin\":\"USDT\",\"available\":\"1\",\"frozen\":\"0\",\"locked\":\"0\"}]}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "ok",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":\"00000\",\"msg\":\"success\",\"data\":[{\"coin\":\"USDT\",\"available\":\"1\",\"frozen\":\"0\",\"locked\":\"0\"}]}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "ok_empty",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":\"00000\",\"data\":[]}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "row_without_coin",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":\"00000\",\"data\":[{\"available\":\"1\"}]}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "raises",
+          "class": "KeyError",
+          "message": "Key path coin not found"
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "data_null",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":\"00000\",\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Failed to get Bitget balances: 00000"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "data_object",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":\"00000\",\"data\":{\"coin\":\"USDT\"}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "raises",
+          "class": "TypeError",
+          "message": "no implicit conversion of String into Integer"
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "code_integer",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":0,\"data\":[]}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Failed to get Bitget balances: 0"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "envelope_invalid_key 200",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":\"40037\",\"msg\":\"Apikey does not exist\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "envelope_other 200",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":\"40015\",\"msg\":\"System is abnormal\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Failed to get Bitget balances: 40015 System is abnormal"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "no_permission 40014",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":\"40014\",\"msg\":\"Incorrect permissions\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"code\":\"40014\",\"msg\":\"Incorrect permissions\",\"requestTime\":1789871400750,\"data\":null}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "throttled 429",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 429,
+          "body": "{\"code\":\"429\",\"msg\":\"Too Many Requests\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"code\":\"429\",\"msg\":\"Too Many Requests\",\"requestTime\":1789871400750,\"data\":null}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "json_array",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "[]",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "raises",
+          "class": "TypeError",
+          "message": "no implicit conversion of String into Integer"
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_key Invalid Api Key http_400",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":\"40099\",\"msg\":\"Invalid Api Key\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_key Invalid ACCESS_KEY http_400",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":\"40099\",\"msg\":\"Invalid ACCESS_KEY\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_key Invalid signature http_400",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":\"40099\",\"msg\":\"Invalid signature\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_key Apikey does not exist http_400",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":\"40099\",\"msg\":\"Apikey does not exist\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_key sign signature error http_400",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":\"40099\",\"msg\":\"sign signature error\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_key apikey/password is incorrect http_400",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":\"40099\",\"msg\":\"apikey/password is incorrect\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_key passphrase is error http_400",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":\"40099\",\"msg\":\"passphrase is error\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_key User's ApiKey does not exist http_400",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":\"40099\",\"msg\":\"User's ApiKey does not exist\",\"requestTime\":1789871400750,\"data\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_500",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 500,
+          "body": "",
+          "content_type": "text/plain"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "the server responded with status 500 for GET https://api.bitget.com/api/v2/spot/account/assets"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_502_html",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 502,
+          "body": "<html><body>502 Bad Gateway</body></html>",
+          "content_type": "text/html"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "<html><body>502 Bad Gateway</body></html>"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_503_json",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 503,
+          "body": "{\"msg\":\"Service unavailable\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"msg\":\"Service unavailable\"}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_403_waf_html",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 403,
+          "body": "<html>Forbidden</html>",
+          "content_type": "text/html"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "<html>Forbidden</html>"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_429",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 429,
+          "body": "{\"code\":-1003,\"msg\":\"Too many requests.\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"code\":-1003,\"msg\":\"Too many requests.\"}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "timeout",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "timeout": true
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Net::ReadTimeout"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "connection_refused",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "refused": true
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Failed to open TCP connection (Connection refused)"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "malformed_json",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"error\":[],\"result\":{",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"error\":[],\"result\":{"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "empty_json_body",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "raises",
+          "class": "NoMethodError",
+          "message": "undefined method '[]' for nil"
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "plain_text_200",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "OK",
+          "content_type": "text/plain"
+        },
+        "verdict": {
+          "kind": "raises",
+          "class": "NoMethodError",
+          "message": "undefined method 'values_at' for an instance of String"
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bitget.com",
+          "path": "/api/v2/spot/account/assets",
           "query": {},
           "form": {},
           "key_header": "test-key"
