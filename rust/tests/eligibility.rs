@@ -290,7 +290,7 @@ fn any_other_exchange_is_refused() {
     o.primary.execute("UPDATE exchanges SET type = 'Exchanges::Coinbase', name = 'Coinbase'", []).unwrap();
     let id = seed::insert_bot(&o.primary, &s, &plain());
     let r = eligibility::check_install(&o.primary).unwrap();
-    assert!(r.problems.iter().any(|p| p.contains(&format!("bot {id}")) && p.contains("a bot on an exchange other than Alpaca, Kraken, Binance, Binance.US, KuCoin, Bitvavo, Gemini and Bitget")), "{:?}", r.problems);
+    assert!(r.problems.iter().any(|p| p.contains(&format!("bot {id}")) && p.contains("a bot on an exchange other than Alpaca, Kraken, Binance, Binance.US, KuCoin, Bitvavo, Gemini, Bitget and Hyperliquid")), "{:?}", r.problems);
 }
 
 #[test]
@@ -842,6 +842,6 @@ fn one_admission_rule_for_engine_and_pages() {
         assert_eq!(admission(Some(venue), true, false), None, "{venue} index");
     }
     for venue in [Some("Exchanges::Coinbase"), None] {
-        assert_eq!(admission(venue, false, false), Some("a bot on an exchange other than Alpaca, Kraken, Binance, Binance.US, KuCoin, Bitvavo, Gemini and Bitget"));
+        assert_eq!(admission(venue, false, false), Some("a bot on an exchange other than Alpaca, Kraken, Binance, Binance.US, KuCoin, Bitvavo, Gemini, Bitget and Hyperliquid"));
     }
 }

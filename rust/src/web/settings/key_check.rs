@@ -481,6 +481,71 @@ pub async fn bitget_check<T: Transport>(transport: &T, venue: &crate::venue::bit
     (answer, verdict)
 }
 
+/// What honeymaker's #post_info (#with_rescue) hands Exchanges::Hyperliquid for a key check's answer: the parsed 2xx body
+/// (`Ok(None)` for an empty one, which Faraday's JSON middleware reads as nil), or the failure's text (the body, else
+/// Faraday's message).
+fn hyperliquid_result(answer: &Result<HttpResponse, TransportError>, url: &str) -> Result<Option<Value>, String> {
+    let response = answer.as_ref().map_err(transport)?;
+    if !(200..300).contains(&response.status) { return Err(raised(response, "POST", url)); }
+    if response.body.trim().is_empty() { return Ok(None); }
+    serde_json::from_str::<Value>(&response.body).map(Some).map_err(|_| response.body.clone())
+}
+
+/// Exchanges::Hyperliquid#get_api_key_validity on userRole's answer for `signer` (the address the secret signs as): an agent
+/// of the key's address, or the address's own key (role user), is valid; any other role (a sub-account, missing, vault, an
+/// agent of another account) is not; a failed read is no verdict. Addresses compare case-insensitively (String#casecmp?).
+pub fn hyperliquid_verdict(address: &str, signer: &str, answer: &Result<HttpResponse, TransportError>, url: &str) -> Verdict {
+    let role = match hyperliquid_result(answer, url) { Err(text) => return Verdict::Failure(text), Ok(Some(Value::Object(role))) => role, Ok(_) => return Verdict::Valid(false) };
+    let to_s = |v: Option<&Value>| match v { None | Some(Value::Null) => String::new(), Some(Value::String(s)) => s.clone(), Some(other) => other.to_string() };
+    Verdict::Valid(match role.get("role").and_then(Value::as_str) {
+        Some("agent") => match role.get("data") {
+            // `role.dig('data', 'user')`: dig raises on a `data` that is no Hash (no verdict, as Rails' job is discarded).
+            Some(Value::Object(data)) => to_s(data.get("user")).eq_ignore_ascii_case(address),
+            None | Some(Value::Null) => false,
+            Some(_) => return Verdict::Failure("Hyperliquid sent a role it cannot read".into()),
+        },
+        Some("user") => signer.eq_ignore_ascii_case(address),
+        _ => false,
+    })
+}
+
+/// Exchange#get_read_api_key_validity on Hyperliquid (a reading key): #get_balances(asset_ids: []), the address's
+/// spotClearinghouseState. Valid when Rails can walk the answer (an object whose `balances` is absent, null or a list of
+/// objects); a failure is incorrect where "User or API Wallet" condemns it, else no verdict. An answer Rails cannot walk
+/// raises there (no verdict here).
+pub fn hyperliquid_read_verdict(answer: &Result<HttpResponse, TransportError>, url: &str) -> Verdict {
+    match hyperliquid_result(answer, url) {
+        Ok(Some(Value::Object(body))) => match body.get("balances") {
+            None | Some(Value::Null) => Verdict::Valid(true),
+            // A row that is a String names no coin (String#[] is nil): skipped, as an object is.
+            Some(Value::Array(rows)) if rows.iter().all(|r| r.is_object() || r.is_string()) => Verdict::Valid(true),
+            Some(_) => Verdict::Failure("Hyperliquid sent balances it cannot read".into()),
+        },
+        Ok(_) => Verdict::Failure("Hyperliquid sent an unreadable answer to the key check".into()),
+        Err(failure) if crate::engine::venue_rules::HYPERLIQUID.is_invalid_key(std::slice::from_ref(&failure)) => Verdict::Valid(false),
+        Err(failure) => Verdict::Failure(failure),
+    }
+}
+
+/// Exchanges::Hyperliquid's key check (ApiKey#get_validity), one /info read: a trading or withdrawal key's userRole for the
+/// address its secret signs as (#agent_address: a secret that is no private key is incorrect and nothing is sent), a
+/// reading key's spotClearinghouseState for its address. The answer (none when nothing was sent) and the verdict.
+pub async fn hyperliquid_check<T: Transport>(venue: &crate::venue::hyperliquid::HyperliquidVenue<T>, transport: &T, address: &str, secret: &str, kind: i64)
+                                             -> (Result<HttpResponse, TransportError>, Verdict) {
+    use crate::venue::hyperliquid::HyperliquidVenue;
+    let (kind_name, user) = if kind == 2 { ("spotClearinghouseState", address.to_string()) } else {
+        match crate::venue::signers::hyperliquid::signing_key(secret) {
+            Some(key) => ("userRole", crate::venue::signers::hyperliquid::address(&key)),
+            None => return (Err(TransportError::NotSent("Hyperliquid: the API secret is not a private key".into())), Verdict::Valid(false)),
+        }
+    };
+    let request = venue.info_request(HyperliquidVenue::<T>::info_body(kind_name, vec![("user", Value::from(user.clone()))]));
+    let answer = transport.send(&request).await;
+    let url = request.url();
+    let verdict = if kind == 2 { hyperliquid_read_verdict(&answer, url.as_str()) } else { hyperliquid_verdict(address, &user, &answer, url.as_str()) };
+    (answer, verdict)
+}
+
 /// The key check of `venue` (an exchanges.type this module ports) for a key of `kind`, sent through `client` to `base`.
 pub async fn check(venue: &str, base: &str, client: reqwest::Client, credentials: &crate::crypto::Credentials, kind: i64) -> Validity {
     use crate::venue::http::ReqwestTransport;
@@ -513,6 +578,10 @@ pub async fn check(venue: &str, base: &str, client: reqwest::Client, credentials
         let transport = ReqwestTransport::binance(client, credentials.key.clone(), credentials.secret.clone()).with_sensitive_values(redaction);
         let venue = crate::venue::binance::BinanceVenue::new(transport.clone(), base, &credentials.secret);
         binance_us_check(&transport, &venue, kind, kind == 2).await
+    } else if scheme == Some(KeyCheck::Hyperliquid) {
+        let transport = ReqwestTransport::hyperliquid(client, credentials.key.clone(), credentials.secret.clone()).with_sensitive_values(redaction);
+        let venue = crate::venue::hyperliquid::HyperliquidVenue::new(transport.clone(), base, &credentials.key);
+        hyperliquid_check(&venue, &transport, &credentials.key, &credentials.secret, kind).await
     } else if scheme == Some(KeyCheck::Gemini) {
         let transport = ReqwestTransport::gemini(client, credentials.key.clone(), credentials.secret.clone()).with_sensitive_values(redaction);
         let request = gemini_request(base, kind);

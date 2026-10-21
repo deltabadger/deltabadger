@@ -243,7 +243,44 @@ fn key_verdicts_replay_every_recorded_case() {
     }
     assert_eq!(bitget, 122, "a recorded Bitget case was added or dropped");
     replayed += bitget;
-    assert_eq!(replayed, 578 + 84 + 212 + 214 + 122, "a recorded case was added or dropped");
+    // Hyperliquid (plan VB slice B1): one /info read per key type (userRole for the address a trading or withdrawal key's secret
+    // signs as, none for a secret that is no key; the reading key's spotClearinghouseState), replayed through the check over
+    // Rails' recorded answer. An answer Rails raises on leaves the key pending in Rails: no verdict here. A 200 that Faraday
+    // leaves unparsed (text/plain "OK") reads as no role (trading: invalid) or as no balances (reading: valid) to Rails; Rust
+    // sees no content type and reads a 2xx that is not JSON as no verdict (D-HL-PLAIN-200: never a verdict on a body
+    // Hyperliquid does not send).
+    let hl = &recorded["hyperliquid"];
+    let invalid: Vec<String> = deltabadger::engine::venue_rules::HYPERLIQUID.kinds.iter().find(|(k, _)| *k == "invalid_key").unwrap().1.iter().map(|s| s.to_string()).collect();
+    assert_eq!(serde_json::from_value::<Vec<String>>(hl["invalid_key_errors"].clone()).unwrap(), invalid);
+    let secret = hl["secret"].as_str().unwrap();
+    let signer = deltabadger::venue::signers::hyperliquid::address(&deltabadger::venue::signers::hyperliquid::signing_key(secret).unwrap());
+    assert_eq!(json!(signer), hl["signer"], "the address the agent key signs as (Eth::Key#address)");
+    let mut hyperliquid = 0;
+    for case in hl["cases"].as_array().unwrap() {
+        let (name, kind, key) = (case["case"].as_str().unwrap(), kind(case["key_type"].as_str().unwrap()), case["key"].as_str().unwrap());
+        let sent: Vec<&Value> = case.get("request").into_iter().chain(case["requests"].as_array().into_iter().flatten()).filter(|r| !r.is_null()).collect();
+        let answers: Vec<Value> = case.get("response").into_iter().cloned().chain(case["responses"].as_array().into_iter().flatten().cloned()).map(|a| {
+            if a["timeout"] == true { json!({ "network": "post_send", "message": "Net::ReadTimeout" }) }
+            else if a["refused"] == true { json!({ "network": "pre_send", "message": "Connection refused" }) }
+            else { json!({ "status": a["status"], "body": a["body"] }) }
+        }).collect();
+        let script = if answers.is_empty() { json!({}) } else { json!({ "POST /info": answers }) };
+        let transport = deltabadger::venue::http::ScriptedTransport::from_script(&script);
+        let venue = deltabadger::venue::hyperliquid::HyperliquidVenue::new(transport.clone(), deltabadger::venue::hyperliquid::URL, key);
+        let case_secret = if name == "secret is no key" { "not-a-private-key" } else { secret };
+        let (_, ours) = rt.block_on(key_check::hyperliquid_check(&venue, &transport, key, case_secret, kind));
+        let lenient = name == "plain_text_200";
+        let theirs = if case["verdict"]["kind"] == "raises" || lenient { Verdict::Failure(String::new()) } else { expected(&case["verdict"]) };
+        if lenient { assert_eq!(case["verdict"]["kind"], "success", "hyperliquid {name}: Rails no longer reads it: drop the listed divergence"); }
+        assert!(same(&ours, &theirs), "hyperliquid {} {name}: {ours:?}, Rails {theirs:?}", case["key_type"]);
+        let ours_sent: Vec<Value> = transport.requests().iter().map(|r| json!({ "method": r.method, "host": r.url().host_str().unwrap(), "path": r.path, "form": r.body })).collect();
+        let theirs_sent: Vec<Value> = sent.iter().map(|r| json!({ "method": r["method"], "host": r["host"], "path": r["path"], "form": r["form"] })).collect();
+        assert_eq!(ours_sent, theirs_sent, "hyperliquid {} {name}: the request", case["key_type"]);
+        hyperliquid += 1;
+    }
+    assert_eq!(hyperliquid, 70, "a recorded Hyperliquid case was added or dropped");
+    replayed += hyperliquid;
+    assert_eq!(replayed, 578 + 84 + 212 + 214 + 122 + 70, "a recorded case was added or dropped");
 }
 
 /// A pinned callback list against a port's table: the same callbacks, in Rails' order, each handled.

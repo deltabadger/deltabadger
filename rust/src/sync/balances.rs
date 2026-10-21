@@ -591,6 +591,61 @@ fn failed_bitget(body: &Value) -> String {
     format!("Failed to get Bitget balances: {}", detail.join(" "))
 }
 
+/// One balance sync of one Hyperliquid key, as AccountBalance::SyncJob runs it for that key: Exchanges::Hyperliquid#get_balances
+/// (Clients::Hyperliquid#spot_balances: POST /info spotClearinghouseState for the key's address) then AccountBalance::Sync. A
+/// failure records the venue's text; "User or API Wallet" marks the key incorrect (ApiKeyFailureHandling#failure_reason).
+pub async fn sync_hyperliquid<T: Transport>(db: &Db, transport: T, prices: &dyn PriceSource, key_id: i64, credentials: &Credentials, clock: &dyn Clock)
+                                            -> Result<Result<Summary, Failure>, SyncError> {
+    let version = super::capture_bound_version(db, key_id, credentials).await?;
+    sync_hyperliquid_captured(db, transport, prices, key_id, credentials, clock, &version).await
+}
+
+pub(crate) async fn sync_hyperliquid_captured<T: Transport>(db: &Db, transport: T, prices: &dyn PriceSource, key_id: i64, credentials: &Credentials,
+                                                            clock: &dyn Clock, version: &crate::engine::model::CredentialVersion)
+                                                            -> Result<Result<Summary, Failure>, SyncError> {
+    use crate::venue::hyperliquid::{HyperliquidVenue, HYPERLIQUID, URL};
+    let user = credentials.key.clone();
+    let read = move |_: String| async move {
+        let venue = HyperliquidVenue::new(transport, URL, &user);
+        Ok(venue.read_text("spotClearinghouseState", vec![("user", Value::from(user.clone()))], MAX_BINANCE_ACCOUNT_BYTES).await)
+    };
+    let venue = VenueBalances { types: &[HYPERLIQUID], failure_text: str::to_string, condemns: |venue, text| condemns(&crate::engine::venue_rules::HYPERLIQUID, venue, text),
+                                held: hyperliquid_held };
+    sync_venue(db, version, prices, key_id, credentials, clock, venue, read).await
+}
+
+/// Exchanges::Hyperliquid#get_balances then AccountBalance::Sync's `nonzero`: `data['balances'] || []`, each row's `coin`
+/// naming its asset (#asset_from_symbol: a row naming none is skipped), free = total - hold and hold locked (an absent total
+/// or hold is 0), a later row for the same asset winning. A quantity that is no number fails the sync (Rails reads it as 0:
+/// the Binance sync's listed divergence). An answer Rails cannot walk (not an object, balances that are no list of objects)
+/// raises there; here it fails the sync.
+fn hyperliquid_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> Result<Result<Vec<Held>, (String, bool)>, Unread> {
+    let node = wire::read(text, &mut Budget(MAX_BINANCE_ACCOUNT_NODES), None).map_err(|r| Unread::refused(r, "an account"))?;
+    let Ok(body) = Raw::from_node(&node) else { return Ok(Err(("unreadable balances".into(), false))) };
+    let rows = match body.member("balances") {
+        None => vec![],
+        Some(Node::Scalar(token)) if token == "null" => vec![],
+        Some(Node::Array(rows)) => rows.clone(),
+        Some(_) => return Ok(Err(("unreadable balances".into(), false))),
+    };
+    let mut found: HashMap<i64, (BigDec, BigDec)> = HashMap::new();
+    for row in &rows {
+        let Ok(row) = Raw::from_node(row) else { return Ok(Err(("unreadable balance".into(), false))) };
+        let Some(asset) = row.value["coin"].as_str().and_then(|c| names.get(c)).filter(|id| asset_ids.contains(id)) else { continue };
+        let quantity = |key: &str| match row.number(key) {
+            _ if row.value[key].as_str().is_some_and(|s| s.trim().is_empty()) => Err(format!("unreadable {key}: not a plain decimal number")),
+            Ok(n) => Ok(n.unwrap_or_else(BigDec::zero)),
+            Err(why) => Err(why),
+        };
+        let (total, hold) = match (quantity("total"), quantity("hold")) {
+            (Ok(total), Ok(hold)) => (total, hold),
+            (Err(why), _) | (_, Err(why)) => return Ok(Err((why, false))),
+        };
+        found.insert(*asset, (&total - &hold, hold));
+    }
+    Ok(Ok(asset_ids.iter().filter_map(|id| found.remove(id).map(|(free, locked)| (*id, free, locked))).filter(|(_, free, locked)| (free + locked).is_positive()).collect()))
+}
+
 /// Exchange#asset_from_symbol: the venue's available tickers in id order, each naming its base asset and then its quote
 /// asset by the ticker's own spelling; the first ticker to name a symbol wins it.
 fn binance_names(c: &Connection, exchange_id: i64) -> Result<HashMap<String, i64>, SyncError> {

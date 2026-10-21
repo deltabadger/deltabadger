@@ -389,7 +389,7 @@ fn kucoin_transfer_pin(name: &str, dir: &std::path::Path, rails: &Value, rust: &
 }
 
 /// R: a seeded legacy price has no producer digest and cannot be reused by a fresh sync.
-const UNKNOWN_PRICE_ORIGIN:&[&str]=&["binance-balances-stale_and_gone", "kucoin-balances-stale_and_gone", "gemini-balances-stale_and_gone", "bitget-balances-stale_and_gone", "balances-market_fails", "balances-market_partial", "balances-snapshots_fail", "balances-unreadable_price_-Infinity_stale", "balances-unreadable_price_Infinity_stale", "balances-unreadable_price_NaN_stale", "balances-unreadable_price_garbage_stale"];
+const UNKNOWN_PRICE_ORIGIN:&[&str]=&["binance-balances-stale_and_gone", "kucoin-balances-stale_and_gone", "gemini-balances-stale_and_gone", "bitget-balances-stale_and_gone", "hyperliquid-balances-stale_and_gone", "balances-market_fails", "balances-market_partial", "balances-snapshots_fail", "balances-unreadable_price_-Infinity_stale", "balances-unreadable_price_Infinity_stale", "balances-unreadable_price_NaN_stale", "balances-unreadable_price_garbage_stale"];
 fn unknown_price_origin(name:&str,rails:&Value,rust:&Value)->Option<Result<(),String>> {
     if !UNKNOWN_PRICE_ORIGIN.contains(&name){return None;}
     Some((|| {
@@ -423,15 +423,16 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     dirs.sort();
     let named = |prefix: &str| dirs.iter().filter(|d| d.file_name().unwrap().to_string_lossy().starts_with(prefix)).count();
     assert_eq!([named("ledger-"), named("balances-"), named("binance-balances-"), named("binance-ledger-"), named("import-"), named("kucoin-ledger-"), named("kucoin-balances-"),
-                named("bitvavo-ledger-"), named("bitvavo-balances-"), named("gemini-ledger-"), named("gemini-balances-"), named("bitget-ledger-"), named("bitget-balances-"), dirs.len()],
-               [58, 44, 21, 30, 21, 12, 16, 11, 10, 11, 11, 13, 12, 270], "the sync grid");
+                named("bitvavo-ledger-"), named("bitvavo-balances-"), named("gemini-ledger-"), named("gemini-balances-"), named("bitget-ledger-"), named("bitget-balances-"),
+                named("hyperliquid-ledger-"), named("hyperliquid-balances-"), dirs.len()],
+               [58, 44, 21, 30, 21, 12, 16, 11, 10, 11, 11, 13, 12, 11, 10, 291], "the sync grid");
     for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
     for scenario in ["ledger-split_future", "ledger-split_nested_duplicate_keys", "binance-ledger-two_nights"] { copy_dir(&rails_root.path().join(scenario), &handback.path().join(scenario)); }
     rails(&["record", rails_root.path().to_str().unwrap()]);
 
     let cipher = cipher();
     let ported = ["ledger-", "balances-", "binance-balances-", "binance-ledger-", "import-", "kucoin-ledger-", "kucoin-balances-", "bitvavo-ledger-", "bitvavo-balances-",
-                  "gemini-ledger-", "gemini-balances-", "bitget-ledger-", "bitget-balances-"];
+                  "gemini-ledger-", "gemini-balances-", "bitget-ledger-", "bitget-balances-", "hyperliquid-ledger-", "hyperliquid-balances-"];
     let mut outputs: Vec<(String, Value, Value)> = vec![];
     for d in &dirs {
         let name = d.file_name().unwrap().to_string_lossy().to_string();
@@ -497,6 +498,22 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     assert!(paged("bitget-ledger-full", "GET /api/v2/spot/wallet/deposit-records").len() > 30, "window by window from 2018-04-01");
     assert!(key_error(&rails_of("bitget-ledger-fills_refused")).as_str().is_some_and(|e| e.contains("Incorrect permissions")));
     assert_eq!(key_error(&rails_of("bitget-ledger-envelope_error")), json!("Bitget ledger read failed: 40015 System is abnormal"));
+    // Hyperliquid (plan VB slice B1): spot fills (never a perp one), then spot transfers by type; a full page goes on from its
+    // newest millisecond, the rows of which come back; two equal zero-hash staking rows are kept twice, and not a third time when
+    // a page boundary serves them again; a full page with nothing new fails.
+    let hyperliquid = |name: &str| rows(&rails_of(name), "account_transactions").iter().filter(|r| r["before"].is_null()).map(|r| r["after"].clone()).collect::<Vec<_>>();
+    let week: Vec<(i64, String)> = hyperliquid("hyperliquid-ledger-week").iter().map(|r| (r["entry_type"].as_i64().unwrap(), r["tx_id"].as_str().unwrap_or_default().to_string())).collect();
+    assert_eq!(week, [(0, "9001".into()), (1, "9002".into()), (0, "9003".into()), (0, "9004".into()), (1, "9005".into()),
+                      (5, "0xa1".into()), (4, "0xa2".into()), (5, "0xa3".into()), (4, "0xa4".into()), (4, "0xa6".into()), (5, "0xa7".into()),
+                      (5, String::new()), (5, String::new()), (4, "0xa8".into()), (8, "0xa9".into())]);
+    let pages = hyperliquid("hyperliquid-ledger-pages");
+    assert_eq!((pages.len(), pages.iter().filter(|r| r["tx_id"].is_null()).count()), (2002 + 501, 2), "every fill once, the staking pair twice");
+    let started = |name: &str, kind: &str| rails_of(name)["steps"][0]["requests"].as_array().unwrap().iter()
+        .filter(|r| r[1].as_array().unwrap().iter().any(|p| p[0] == "type" && p[1] == kind))
+        .map(|r| r[1].as_array().unwrap().iter().find(|p| p[0] == "startTime").unwrap()[1].clone()).collect::<Vec<_>>();
+    assert_eq!(started("hyperliquid-ledger-pages", "userFillsByTime").len(), 2);
+    assert_eq!(started("hyperliquid-ledger-full", "userFillsByTime"), [json!("0")], "a first sync reads from 0");
+    assert!(key_error(&rails_of("hyperliquid-ledger-stuck")).as_str().is_some_and(|e| e.contains("user_fills_by_time returned a full page with nothing new")));
     let (taken, stored) = claimed("binance-ledger-file_transfers");
     assert_eq!(taken, ["0xd1", "0xw1", "0xw3"]);
     assert!(stored.contains(&"0xd2".to_string()) && stored.contains(&"0xd8".to_string()) && !stored.contains(&"0xd1".to_string()), "{stored:?}");

@@ -28,7 +28,7 @@ pub struct Venue {
     pub id: i64,
     pub mark: &'static str,
     /// `trading && !exchange.order_placement_available?`. Only Hyperliquid's adapter can lack order placement, and only in a
-    /// Windows bundle without hyperliquid-rb; this build places no Hyperliquid order either way, so none is shown disabled.
+    /// Windows bundle without hyperliquid-rb; this build signs Hyperliquid orders itself, so none is shown disabled.
     pub unavailable: bool,
 }
 

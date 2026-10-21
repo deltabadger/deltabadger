@@ -11,6 +11,7 @@ pub mod bitget;
 pub mod kraken;
 pub mod kucoin;
 pub mod gemini;
+pub mod hyperliquid;
 pub mod live;
 pub mod registry;
 pub mod sign;

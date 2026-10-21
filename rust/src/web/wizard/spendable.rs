@@ -100,6 +100,8 @@ pub async fn create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> R
     let (inner, locale) = (app.clone(), ctx.locale);
     let saved = app.db(move |c| {
         let tx = model::immediate(c)?;
+        let mut config = config;
+        super::create::lock_limit_orders(&tx, &mut config)?;
         let bot = super::create::build(&tx, &config, locale)?;
         let errors = super::create::validate(&tx, &bot, locale)?;
         if !errors.is_empty() { return Ok(Saved::Invalid(crate::web::bot::draft::sentence(&errors.iter().map(String::as_str).collect::<Vec<_>>(), locale))) }

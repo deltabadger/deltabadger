@@ -416,3 +416,34 @@ pub static GEMINI: VenueRules = VenueRules {
     // Exchanges::Gemini::MARKET_CROSS: a market order is an IOC limit across the book.
     cross: Some(MARKET_CROSS),
 };
+
+pub static HYPERLIQUID: VenueRules = VenueRules {
+    exchange_type: "Exchanges::Hyperliquid",
+    name: "Hyperliquid",
+    // Exchanges::Hyperliquid::ERRORS (post-audit H1), matched inside "Hyperliquid order failed: …"; pinned by tests/hyperliquid.rs.
+    kinds: [("insufficient_funds", &["Insufficient spot balance", "Insufficient balance", "Not enough balance"]), ("invalid_key", &["User or API Wallet"]),
+            ("permission_denied", &[]), ("restricted", &[]), ("throttle", &["Too many cumulative requests sent", "HTTP 429", "status 429"]),
+            ("transient", &[])],
+    transient_text: &NETWORK_TRANSIENT_PATTERNS,
+    // A placement's outcome is decided by HTTP status and transport in HyperliquidVenue::add_order, never by text.
+    add_outcome_unknown: &[],
+    // Exchanges::Hyperliquid#minimum_amount_logic: :base_and_quote_in_base (the 10-USDC floor as a base minimum).
+    minimum_logic: MinimumLogic { market: AmountLogic::BaseAndQuoteInBase, limit: AmountLogic::BaseAndQuoteInBase },
+    // The adapter parses the volume and price back and writes them through hyperliquid-rb's float_to_wire.
+    wire: WireFormat::Kraken,
+    deadline_sent: false,
+    reach_within_secs: 55,
+    absence_margin_secs: 1200,
+    transport_raises: false,
+    // Bot::FetchAndUpdateOrderJob asks #get_order, which recovers an unknownOid from the fills and else names it not found
+    // for Bot::StaleOrderResolver: the lenient poll of that one order, fills recovery included (as Bitvavo's).
+    follow_up_strict: false, market_hours: false,
+    reports_missing: true,
+    // Plan VB §1.5: the cloid lookup can only FIND an order.
+    absence_provable: false,
+    // #authoritative_missing_orders? true: the fills walk exhausts the history, so a young order left out just waits.
+    young_missing_fails: false,
+    price_rule: HYPERLIQUID_PRICE_RULE,
+    // Exchanges::Hyperliquid::MARKET_CROSS: a market order is a GTC limit across the book.
+    cross: Some(MARKET_CROSS),
+};

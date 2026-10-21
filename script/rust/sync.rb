@@ -25,7 +25,7 @@ Net::HTTP.prepend(Module.new { def connect = raise(Harness::Unscripted, "real co
 ENV['COINGECKO_API_KEY'] = ''
 
 module ScriptedSync
-  mattr_accessor :alpaca, :binance, :binance_state, :kucoin, :bitvavo, :gemini, :bitget, :market, :requests, :filters_after
+  mattr_accessor :alpaca, :binance, :binance_state, :kucoin, :bitvavo, :gemini, :bitget, :hyperliquid, :market, :requests, :filters_after
 
   NETWORK = {
     'pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "paper-api.alpaca.markets" port 443')) },
@@ -36,7 +36,8 @@ module ScriptedSync
     'kucoin_pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "api.kucoin.com" port 443')) },
     'bitvavo_pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "api.bitvavo.com" port 443')) },
     'gemini_pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "api.gemini.com" port 443')) },
-    'bitget_pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "api.bitget.com" port 443')) }
+    'bitget_pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "api.bitget.com" port 443')) },
+    'hyperliquid_pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "api.hyperliquid.xyz" port 443')) }
   }.freeze
 
   def self.reply(env)
@@ -51,13 +52,21 @@ module ScriptedSync
              elsif host == 'api.bitvavo.com' then bitvavo
              elsif host == 'api.gemini.com' then gemini
              elsif host == 'api.bitget.com' then bitget
+             elsif host == 'api.hyperliquid.xyz' then hyperliquid
              elsif host == 'data-api' then market
              end
     key = "#{env.method.to_s.upcase} #{env.url.path}"
     raise Harness::Unscripted, "unscripted HTTP call #{key} to #{host}" if script.nil?
 
-    requests << [key, host == 'api.gemini.com' ? gemini_params(env) : URI.decode_www_form(env.url.query.to_s).sort]
-    queue = script[key] or raise Harness::Unscripted, "unscripted call #{key}"
+    hyperliquid = host == 'api.hyperliquid.xyz'
+    params = if host == 'api.gemini.com' then gemini_params(env)
+             elsif hyperliquid then JSON.parse(env.request_body).map { |k, v| [k, v.to_s] }.sort # its /info body, logged as a query's pairs
+             else URI.decode_www_form(env.url.query.to_s).sort
+             end
+    requests << [key, params]
+    # Hyperliquid names each /info read by its body's `type` ("POST /info userFillsByTime").
+    typed = "#{key} #{JSON.parse(env.request_body)['type']}" if hyperliquid
+    queue = (typed && script[typed]) || script[key] or raise Harness::Unscripted, "unscripted call #{typed || key}"
     queue.size > 1 ? queue.shift : queue.first
   end
 
@@ -86,7 +95,7 @@ module ScriptedSync
       reply = ScriptedSync.reply(env)
       if (kind = reply['network'])
         error = ScriptedSync::NETWORK.fetch(kind).call
-        actual = kind.start_with?('binance_', 'kucoin_', 'bitvavo_', 'gemini_', 'bitget_') ? error.message : "#{error.class}: #{error.message}" # what the venue's client reports
+        actual = kind.start_with?('binance_', 'kucoin_', 'bitvavo_', 'gemini_', 'bitget_', 'hyperliquid_') ? error.message : "#{error.class}: #{error.message}" # what the venue's client reports
         raise Harness::Unscripted, "#{kind}: the script says #{reply['message'].inspect}, Ruby says #{actual.inspect}" unless actual == reply['message']
 
         raise error
@@ -453,6 +462,39 @@ module SyncParity
       'market' => { EXCHANGE_RATES => rates && [rates], PRICES => prices && [prices] }.compact }
   end
 
+  # A Hyperliquid key (plan VB slice B1): its address is the key; the pairs its fills name as #get_tickers_info stores them
+  # ("@N" names, the oldest "PURR/USDC").
+  def hyperliquid(ctx)
+    venue(ctx, Exchanges::Hyperliquid, 'Hyperliquid', as: :hyperliquid, assets: %w[BTC ETH USDT], pairs: [%w[BTC USDT], %w[ETH USDT], %w[ETH BTC]],
+          pair: ->(b, q) { { %w[BTC USDT] => '@142', %w[ETH USDT] => '@151', %w[ETH BTC] => 'ETH/BTC' }.fetch([b, q]) },
+          coin: { base_decimals: 5, quote_decimals: 2, price_decimals: 5, minimum_base_size: '0', minimum_quote_size: '10' })
+    # ApiKey validates a Hyperliquid key's shapes on every save: an address and an agent private key.
+    ActiveRecord::Base.connection.exec_update('UPDATE api_keys SET key = ?, secret = ?, passphrase = NULL WHERE id = ?', 'plain credentials',
+                                              [HL_KEY['key'], HL_KEY['secret'], ctx[:key].id])
+    ctx[:credentials] = HL_KEY
+  end
+  HL_KEY = { 'key' => '0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123', 'secret' => '0x4c0883a69102937d6231471b5dbb6204fe5129617082792ae468d01a3f362318',
+             'passphrase' => nil }.freeze
+  HL_FILLS = 'POST /info userFillsByTime'.freeze
+  HL_UPDATES = 'POST /info userNonFundingLedgerUpdates'.freeze
+  HL_BALANCES = 'POST /info spotClearinghouseState'.freeze
+  def hl_fill(tid, coin, side, sz, px, at, fee: '0.0005', fee_token: 'BTC', oid: nil)
+    { 'coin' => coin, 'px' => px, 'sz' => sz, 'side' => side, 'time' => at.is_a?(Integer) ? at : ms(at), 'startPosition' => '0.0',
+      'dir' => side == 'B' ? 'Buy' : 'Sell', 'closedPnl' => '0.0', 'hash' => "0xf#{tid}", 'oid' => oid || (tid * 10), 'crossed' => true, 'fee' => fee,
+      'tid' => tid, 'feeToken' => fee_token }.compact
+  end
+  def hl_update(hash, at, delta) = { 'time' => at.is_a?(Integer) ? at : ms(at), 'hash' => hash, 'delta' => delta }
+  # Hyperliquid's spot balance rows: [coin, total, hold].
+  def hl_rows(*rows) = ok('balances' => rows.map { |coin, total, hold| { 'coin' => coin, 'token' => 0, 'hold' => hold || '0.0', 'total' => total, 'entryNtl' => '0.0' } })
+  def hyperliquid_balances(at, balances:, prices: nil, rates: nil)
+    { 'kind' => 'balances', 'at' => at, 'hyperliquid' => { HL_BALANCES => [balances] },
+      'market' => { EXCHANGE_RATES => rates && [rates], PRICES => prices && [prices] }.compact }
+  end
+  # A ledger run over Hyperliquid's scripted answers: each read's pages in order, the last one repeated.
+  def hyperliquid_ledger(at, fills: [ok([])], updates: [ok([])])
+    { 'kind' => 'ledger', 'at' => at, 'hyperliquid' => { HL_FILLS => fills, HL_UPDATES => updates } }
+  end
+
   def kc_page(items, page: 1, pages: nil, total: nil)
     ok('code' => '200000', 'data' => { 'currentPage' => page, 'pageSize' => 500, 'totalNum' => total || items.size,
                                        'totalPage' => pages || (items.empty? ? 0 : 1), 'items' => items })
@@ -597,7 +639,7 @@ module SyncParity
       ctx = build(dir, sc)
       File.write(File.join(dir, 'scenario.json'),
                  JSON.pretty_generate('parity_scratch' => true, 'user_id' => ctx[:user].id, 'api_key_id' => ctx[:key].id,
-                                      'credentials' => KEY, 'steps' => sc[:steps]))
+                                      'credentials' => ctx[:credentials] || KEY, 'steps' => sc[:steps]))
       ActiveRecord::Base.connection_pool.disconnect!
     end
     puts "built #{list.size} scenarios in #{root}"
@@ -622,7 +664,7 @@ module SyncParity
       ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: File.join(dir, 'production.sqlite3'))
       Rails.cache.clear
       before = snapshot
-      reading = ApiKey.reading(ApiKey.includes(:exchange)).select { |k| [Exchanges::Alpaca, Exchanges::Binance, Exchanges::Kucoin, Exchanges::Bitvavo, Exchanges::Gemini, Exchanges::Bitget].any? { |c| k.exchange.is_a?(c) } }.map(&:id).sort
+      reading = ApiKey.reading(ApiKey.includes(:exchange)).select { |k| [Exchanges::Alpaca, Exchanges::Binance, Exchanges::Kucoin, Exchanges::Bitvavo, Exchanges::Gemini, Exchanges::Bitget, Exchanges::Hyperliquid].any? { |c| k.exchange.is_a?(c) } }.map(&:id).sort
       steps = sc['steps'].map do |step|
         ActiveJob::Base.queue_adapter.enqueued_jobs.clear
         ScriptedSync.alpaca = step.fetch('alpaca', {}).transform_values(&:dup)
@@ -632,6 +674,7 @@ module SyncParity
         ScriptedSync.bitvavo = step.fetch('bitvavo', {}).transform_values(&:dup)
         ScriptedSync.gemini = step.fetch('gemini', {}).transform_values(&:dup)
         ScriptedSync.bitget = step.fetch('bitget', {}).transform_values(&:dup)
+        ScriptedSync.hyperliquid = step.fetch('hyperliquid', {}).transform_values(&:dup)
         ScriptedSync.market = step.fetch('market', {}).transform_values(&:dup)
         ScriptedSync.requests = []
         ScriptedSync.filters_after = step['server_filters_after'] == true

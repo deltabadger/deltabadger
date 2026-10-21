@@ -7,6 +7,7 @@
     "app/models/exchanges/bitvavo.rb": "eb8c8aac55c32742ff255efeb890e1163892480f85e6e6dcaf611b79ada4d513",
     "app/models/exchanges/gemini.rb": "f020003e7398b901120a20af2354b692218ac537072da685ab176499069c4234",
     "app/models/exchanges/bitget.rb": "5acc29199e4c5ecda3eeae60ea898ac69438e5b581c6bc15fcbe70241e40716c",
+    "app/models/exchanges/hyperliquid.rb": "5fd3338e69d144f1d19d14a18206610303137da8b81a2e91ed34b6d484b0d1a2",
     "app/models/exchange.rb": "ab627a2812bc0c7b4a546459e64f8f5d93617c496308d5f03163f44cef12d8d7",
     "app/models/exchange/dryable.rb": "559b4b1858c832f3bc83b7631d7a74012854aabd88408b8680288609a1254b96",
     "app/models/api_key.rb": "e7f1435042602815925d093baa51160be9236c600b2f8aebdcf0517f5119ef91",
@@ -5130,7 +5131,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=4388b3ee3680ce13c2c48a56ffe3d35e6590a9ec61a6e2f54325e181d8d1097c&timestamp=1792577256105"
+            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=a742332e36f122fb50e7b144770e7ec6931bdae4e9f84c3a405084e6aa1c12c4&timestamp=1792584899264"
           ]
         },
         "request": {
@@ -7058,7 +7059,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=0875b4f439e2f007a004028abf070efcefa62cbf1018f8f6dd39f23209dd5f2b&timestamp=1792577256213"
+            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=b9d928f453f6e28f5b8760fba97cc3bba1e8c474d8ce0456d1316beb65d096d3&timestamp=1792584899285"
           ]
         },
         "request": {
@@ -8986,7 +8987,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=e6d716831b009fedd90b4667bd2b20835b6a3230443235364af60b68ff3a7601&timestamp=1792577256235"
+            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=9ad6bf6d2ce08f1e3b8a3e1fd98b072bf7fb192b880cff0c06ec67fabe7066ea&timestamp=1792584899304"
           ]
         },
         "request": {
@@ -10914,7 +10915,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=e28ca2fba5b6d8ff6679b4553eceb34a35785e81c0fa5bcedd69298656b5b413&timestamp=1792577256256"
+            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=318f956decfb2a70f7f86bf122e0a8863b02118b0fa3f334d35af883b9437e43&timestamp=1792584899324"
           ]
         },
         "request": {
@@ -11655,7 +11656,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=9dcf3da9fec624b02e7ed9a92f17185cc540ae721f5791e5279408ec24645000&timestamp=1792577256268"
+            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=2f5dd73d4e6178e8b122b2600f6ea0f757a27a8a87284a701c36c55268546853&timestamp=1792584899343"
           ]
         },
         "request": {
@@ -13014,7 +13015,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for DELETE https://api.binance.us/api/v3/order?orderId=9999999999&recvWindow=5000&signature=c66f602131dfcf954abb3cb00ee20cc94bbb12d6810de9205c88e8f807e66581&symbol=ETHBTC&timestamp=1792577256282"
+            "the server responded with status 500 for DELETE https://api.binance.us/api/v3/order?orderId=9999999999&recvWindow=5000&signature=f67435838f1a68bb270c822294ebdd73cfab361c7954c878c62af346905f72b7&symbol=ETHBTC&timestamp=1792584899355"
           ]
         },
         "requests": [
@@ -13955,7 +13956,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=d8b429ce0a5c4a51bb1662fb51454bb01d109e38bccef1c1b2921f6e7a1c9fe2&timestamp=1792577256297"
+            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=5e7622c74f7e678898a32ca2737dc9c8601c87aa485e350506247cb3467c6354&timestamp=1792584899364"
           ]
         },
         "request": {
@@ -15314,7 +15315,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for DELETE https://api.binance.us/api/v3/order?orderId=9999999999&recvWindow=5000&signature=793c5533d5d4e748b516ebd91c32af6d5f2ead16d88e6f5380609cdf3f79208f&symbol=ETHBTC&timestamp=1792577256311"
+            "the server responded with status 500 for DELETE https://api.binance.us/api/v3/order?orderId=9999999999&recvWindow=5000&signature=58a41ea88d8acae4de5fc3a4396436fc9a6e0d0ca8be2a519d0646cc4dc4e8da&symbol=ETHBTC&timestamp=1792584899374"
           ]
         },
         "requests": [
@@ -16255,7 +16256,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=d05912300a304a6381a00298ea749a987f5fa6f9985ebf3c1993fc1f641b60a1&timestamp=1792577256321"
+            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=df2d74a6e02552bd4eb557b98353a9375c2e84c413f663854766590140a33281&timestamp=1792584899383"
           ]
         },
         "request": {
@@ -17614,7 +17615,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for DELETE https://api.binance.us/api/v3/order?orderId=9999999999&recvWindow=5000&signature=06f4eaf5fd40635c6fcb92bc81f50826a8300dbd13f453d720ff1a797773ac3a&symbol=ETHBTC&timestamp=1792577256334"
+            "the server responded with status 500 for DELETE https://api.binance.us/api/v3/order?orderId=9999999999&recvWindow=5000&signature=04084e626551b6f235bf7a82ffe02bbc3701dd43c8fdd3cca6f8bd96f28fb198&symbol=ETHBTC&timestamp=1792584899394"
           ]
         },
         "requests": [
@@ -18555,7 +18556,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=dd3c6da84bccdc8019e52d90d67b0fd87680a97a216ca8a51327a06e81482612&timestamp=1792577256344"
+            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=ec18d11afff596c979fceb27209f30b6a266f23ea574a5e237a727bfc886f9c5&timestamp=1792584899403"
           ]
         },
         "request": {
@@ -34209,6 +34210,1859 @@
           "form": {},
           "key_header": "test-key"
         }
+      }
+    ]
+  },
+  "hyperliquid": {
+    "secret": "0x4c0883a69102937d6231471b5dbb6204fe5129617082792ae468d01a3f362318",
+    "signer": "0x2c7536E3605D9C16a7a3D7b1898e529396a65c23",
+    "invalid_key_errors": [
+      "User or API Wallet"
+    ],
+    "cases": [
+      {
+        "case": "agent of the account",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"role\":\"agent\",\"data\":{\"user\":\"0x7F2E1A6C9B3D4E5F60718293A4B5C6D7E8F90123\"}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "userRole",
+            "user": "0x2c7536E3605D9C16a7a3D7b1898e529396a65c23"
+          },
+          "key_header": null
+        },
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "agent of another account",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"role\":\"agent\",\"data\":{\"user\":\"0x0000000000000000000000000000000000000001\"}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "userRole",
+            "user": "0x2c7536E3605D9C16a7a3D7b1898e529396a65c23"
+          },
+          "key_header": null
+        },
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "agent without data",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"role\":\"agent\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "userRole",
+            "user": "0x2c7536E3605D9C16a7a3D7b1898e529396a65c23"
+          },
+          "key_header": null
+        },
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "agent data string",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"role\":\"agent\",\"data\":\"x\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "raises",
+          "class": "TypeError",
+          "message": "String does not have #dig method"
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "userRole",
+            "user": "0x2c7536E3605D9C16a7a3D7b1898e529396a65c23"
+          },
+          "key_header": null
+        },
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "the account key itself",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"role\":\"user\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "userRole",
+            "user": "0x2c7536E3605D9C16a7a3D7b1898e529396a65c23"
+          },
+          "key_header": null
+        },
+        "key": "0x2c7536e3605d9c16a7a3d7b1898e529396a65c23"
+      },
+      {
+        "case": "user role of another key",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"role\":\"user\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "userRole",
+            "user": "0x2c7536E3605D9C16a7a3D7b1898e529396a65c23"
+          },
+          "key_header": null
+        },
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "sub account",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"role\":\"subAccount\",\"data\":{\"master\":\"0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123\"}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "userRole",
+            "user": "0x2c7536E3605D9C16a7a3D7b1898e529396a65c23"
+          },
+          "key_header": null
+        },
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "missing",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"role\":\"missing\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "userRole",
+            "user": "0x2c7536E3605D9C16a7a3D7b1898e529396a65c23"
+          },
+          "key_header": null
+        },
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "vault",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"role\":\"vault\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "userRole",
+            "user": "0x2c7536E3605D9C16a7a3D7b1898e529396a65c23"
+          },
+          "key_header": null
+        },
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "no role",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "userRole",
+            "user": "0x2c7536E3605D9C16a7a3D7b1898e529396a65c23"
+          },
+          "key_header": null
+        },
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "json_array",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "[]",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "userRole",
+            "user": "0x2c7536E3605D9C16a7a3D7b1898e529396a65c23"
+          },
+          "key_header": null
+        },
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "json_null",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "null",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "userRole",
+            "user": "0x2c7536E3605D9C16a7a3D7b1898e529396a65c23"
+          },
+          "key_header": null
+        },
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "unprocessable 422",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 422,
+          "body": "Failed to deserialize the JSON body into the target type",
+          "content_type": "text/plain"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Failed to deserialize the JSON body into the target type"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "userRole",
+            "user": "0x2c7536E3605D9C16a7a3D7b1898e529396a65c23"
+          },
+          "key_header": null
+        },
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "invalid_key 400",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "User or API Wallet 0x1 does not exist.",
+          "content_type": "text/plain"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "User or API Wallet 0x1 does not exist."
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "userRole",
+            "user": "0x2c7536E3605D9C16a7a3D7b1898e529396a65c23"
+          },
+          "key_header": null
+        },
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "http_500",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 500,
+          "body": "",
+          "content_type": "text/plain"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "the server responded with status 500 for POST https://api.hyperliquid.xyz/info"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "userRole",
+            "user": "0x2c7536E3605D9C16a7a3D7b1898e529396a65c23"
+          },
+          "key_header": null
+        },
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "http_502_html",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 502,
+          "body": "<html><body>502 Bad Gateway</body></html>",
+          "content_type": "text/html"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "<html><body>502 Bad Gateway</body></html>"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "userRole",
+            "user": "0x2c7536E3605D9C16a7a3D7b1898e529396a65c23"
+          },
+          "key_header": null
+        },
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "http_503_json",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 503,
+          "body": "{\"msg\":\"Service unavailable\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"msg\":\"Service unavailable\"}"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "userRole",
+            "user": "0x2c7536E3605D9C16a7a3D7b1898e529396a65c23"
+          },
+          "key_header": null
+        },
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "http_403_waf_html",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 403,
+          "body": "<html>Forbidden</html>",
+          "content_type": "text/html"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "<html>Forbidden</html>"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "userRole",
+            "user": "0x2c7536E3605D9C16a7a3D7b1898e529396a65c23"
+          },
+          "key_header": null
+        },
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "http_429",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 429,
+          "body": "{\"code\":-1003,\"msg\":\"Too many requests.\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"code\":-1003,\"msg\":\"Too many requests.\"}"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "userRole",
+            "user": "0x2c7536E3605D9C16a7a3D7b1898e529396a65c23"
+          },
+          "key_header": null
+        },
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "timeout",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "timeout": true
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Net::ReadTimeout"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "userRole",
+            "user": "0x2c7536E3605D9C16a7a3D7b1898e529396a65c23"
+          },
+          "key_header": null
+        },
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "connection_refused",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "refused": true
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Failed to open TCP connection (Connection refused)"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "userRole",
+            "user": "0x2c7536E3605D9C16a7a3D7b1898e529396a65c23"
+          },
+          "key_header": null
+        },
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "malformed_json",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"error\":[],\"result\":{",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"error\":[],\"result\":{"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "userRole",
+            "user": "0x2c7536E3605D9C16a7a3D7b1898e529396a65c23"
+          },
+          "key_header": null
+        },
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "empty_json_body",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "userRole",
+            "user": "0x2c7536E3605D9C16a7a3D7b1898e529396a65c23"
+          },
+          "key_header": null
+        },
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "plain_text_200",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "OK",
+          "content_type": "text/plain"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "userRole",
+            "user": "0x2c7536E3605D9C16a7a3D7b1898e529396a65c23"
+          },
+          "key_header": null
+        },
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "secret is no key",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "responses": [],
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "requests": [],
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "agent of the account",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"role\":\"agent\",\"data\":{\"user\":\"0x7F2E1A6C9B3D4E5F60718293A4B5C6D7E8F90123\"}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "userRole",
+            "user": "0x2c7536E3605D9C16a7a3D7b1898e529396a65c23"
+          },
+          "key_header": null
+        },
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "agent of another account",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"role\":\"agent\",\"data\":{\"user\":\"0x0000000000000000000000000000000000000001\"}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "userRole",
+            "user": "0x2c7536E3605D9C16a7a3D7b1898e529396a65c23"
+          },
+          "key_header": null
+        },
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "agent without data",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"role\":\"agent\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "userRole",
+            "user": "0x2c7536E3605D9C16a7a3D7b1898e529396a65c23"
+          },
+          "key_header": null
+        },
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "agent data string",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"role\":\"agent\",\"data\":\"x\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "raises",
+          "class": "TypeError",
+          "message": "String does not have #dig method"
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "userRole",
+            "user": "0x2c7536E3605D9C16a7a3D7b1898e529396a65c23"
+          },
+          "key_header": null
+        },
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "the account key itself",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"role\":\"user\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "userRole",
+            "user": "0x2c7536E3605D9C16a7a3D7b1898e529396a65c23"
+          },
+          "key_header": null
+        },
+        "key": "0x2c7536e3605d9c16a7a3d7b1898e529396a65c23"
+      },
+      {
+        "case": "user role of another key",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"role\":\"user\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "userRole",
+            "user": "0x2c7536E3605D9C16a7a3D7b1898e529396a65c23"
+          },
+          "key_header": null
+        },
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "sub account",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"role\":\"subAccount\",\"data\":{\"master\":\"0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123\"}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "userRole",
+            "user": "0x2c7536E3605D9C16a7a3D7b1898e529396a65c23"
+          },
+          "key_header": null
+        },
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "missing",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"role\":\"missing\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "userRole",
+            "user": "0x2c7536E3605D9C16a7a3D7b1898e529396a65c23"
+          },
+          "key_header": null
+        },
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "vault",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"role\":\"vault\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "userRole",
+            "user": "0x2c7536E3605D9C16a7a3D7b1898e529396a65c23"
+          },
+          "key_header": null
+        },
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "no role",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "userRole",
+            "user": "0x2c7536E3605D9C16a7a3D7b1898e529396a65c23"
+          },
+          "key_header": null
+        },
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "json_array",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "[]",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "userRole",
+            "user": "0x2c7536E3605D9C16a7a3D7b1898e529396a65c23"
+          },
+          "key_header": null
+        },
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "json_null",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "null",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "userRole",
+            "user": "0x2c7536E3605D9C16a7a3D7b1898e529396a65c23"
+          },
+          "key_header": null
+        },
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "unprocessable 422",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 422,
+          "body": "Failed to deserialize the JSON body into the target type",
+          "content_type": "text/plain"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Failed to deserialize the JSON body into the target type"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "userRole",
+            "user": "0x2c7536E3605D9C16a7a3D7b1898e529396a65c23"
+          },
+          "key_header": null
+        },
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "invalid_key 400",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "User or API Wallet 0x1 does not exist.",
+          "content_type": "text/plain"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "User or API Wallet 0x1 does not exist."
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "userRole",
+            "user": "0x2c7536E3605D9C16a7a3D7b1898e529396a65c23"
+          },
+          "key_header": null
+        },
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "http_500",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 500,
+          "body": "",
+          "content_type": "text/plain"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "the server responded with status 500 for POST https://api.hyperliquid.xyz/info"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "userRole",
+            "user": "0x2c7536E3605D9C16a7a3D7b1898e529396a65c23"
+          },
+          "key_header": null
+        },
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "http_502_html",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 502,
+          "body": "<html><body>502 Bad Gateway</body></html>",
+          "content_type": "text/html"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "<html><body>502 Bad Gateway</body></html>"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "userRole",
+            "user": "0x2c7536E3605D9C16a7a3D7b1898e529396a65c23"
+          },
+          "key_header": null
+        },
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "http_503_json",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 503,
+          "body": "{\"msg\":\"Service unavailable\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"msg\":\"Service unavailable\"}"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "userRole",
+            "user": "0x2c7536E3605D9C16a7a3D7b1898e529396a65c23"
+          },
+          "key_header": null
+        },
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "http_403_waf_html",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 403,
+          "body": "<html>Forbidden</html>",
+          "content_type": "text/html"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "<html>Forbidden</html>"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "userRole",
+            "user": "0x2c7536E3605D9C16a7a3D7b1898e529396a65c23"
+          },
+          "key_header": null
+        },
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "http_429",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 429,
+          "body": "{\"code\":-1003,\"msg\":\"Too many requests.\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"code\":-1003,\"msg\":\"Too many requests.\"}"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "userRole",
+            "user": "0x2c7536E3605D9C16a7a3D7b1898e529396a65c23"
+          },
+          "key_header": null
+        },
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "timeout",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "timeout": true
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Net::ReadTimeout"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "userRole",
+            "user": "0x2c7536E3605D9C16a7a3D7b1898e529396a65c23"
+          },
+          "key_header": null
+        },
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "connection_refused",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "refused": true
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Failed to open TCP connection (Connection refused)"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "userRole",
+            "user": "0x2c7536E3605D9C16a7a3D7b1898e529396a65c23"
+          },
+          "key_header": null
+        },
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "malformed_json",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"error\":[],\"result\":{",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"error\":[],\"result\":{"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "userRole",
+            "user": "0x2c7536E3605D9C16a7a3D7b1898e529396a65c23"
+          },
+          "key_header": null
+        },
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "empty_json_body",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "userRole",
+            "user": "0x2c7536E3605D9C16a7a3D7b1898e529396a65c23"
+          },
+          "key_header": null
+        },
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "plain_text_200",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "OK",
+          "content_type": "text/plain"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "userRole",
+            "user": "0x2c7536E3605D9C16a7a3D7b1898e529396a65c23"
+          },
+          "key_header": null
+        },
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "secret is no key",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "responses": [],
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "requests": [],
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "ok",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"balances\":[{\"coin\":\"USDC\",\"token\":0,\"hold\":\"0.0\",\"total\":\"12.5\",\"entryNtl\":\"0.0\"}]}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "spotClearinghouseState",
+            "user": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+          },
+          "key_header": null
+        },
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "ok_empty",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"balances\":[]}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "spotClearinghouseState",
+            "user": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+          },
+          "key_header": null
+        },
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "balances_null",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"balances\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "spotClearinghouseState",
+            "user": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+          },
+          "key_header": null
+        },
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "no_balances",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "spotClearinghouseState",
+            "user": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+          },
+          "key_header": null
+        },
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "balances_object",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"balances\":{\"coin\":\"USDC\"}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "raises",
+          "class": "TypeError",
+          "message": "no implicit conversion of String into Integer"
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "spotClearinghouseState",
+            "user": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+          },
+          "key_header": null
+        },
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "balance_row_string",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"balances\":[\"USDC\"]}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "spotClearinghouseState",
+            "user": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+          },
+          "key_header": null
+        },
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "json_array",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "[]",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "raises",
+          "class": "TypeError",
+          "message": "no implicit conversion of String into Integer"
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "spotClearinghouseState",
+            "user": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+          },
+          "key_header": null
+        },
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "json_null",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "null",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "raises",
+          "class": "NoMethodError",
+          "message": "undefined method '[]' for nil"
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "spotClearinghouseState",
+            "user": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+          },
+          "key_header": null
+        },
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "unprocessable 422",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 422,
+          "body": "Failed to deserialize the JSON body into the target type",
+          "content_type": "text/plain"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Failed to deserialize the JSON body into the target type"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "spotClearinghouseState",
+            "user": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+          },
+          "key_header": null
+        },
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "invalid_key 400",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "User or API Wallet 0x1 does not exist.",
+          "content_type": "text/plain"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "spotClearinghouseState",
+            "user": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+          },
+          "key_header": null
+        },
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "http_500",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 500,
+          "body": "",
+          "content_type": "text/plain"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "the server responded with status 500 for POST https://api.hyperliquid.xyz/info"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "spotClearinghouseState",
+            "user": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+          },
+          "key_header": null
+        },
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "http_502_html",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 502,
+          "body": "<html><body>502 Bad Gateway</body></html>",
+          "content_type": "text/html"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "<html><body>502 Bad Gateway</body></html>"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "spotClearinghouseState",
+            "user": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+          },
+          "key_header": null
+        },
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "http_503_json",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 503,
+          "body": "{\"msg\":\"Service unavailable\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"msg\":\"Service unavailable\"}"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "spotClearinghouseState",
+            "user": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+          },
+          "key_header": null
+        },
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "http_403_waf_html",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 403,
+          "body": "<html>Forbidden</html>",
+          "content_type": "text/html"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "<html>Forbidden</html>"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "spotClearinghouseState",
+            "user": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+          },
+          "key_header": null
+        },
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "http_429",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 429,
+          "body": "{\"code\":-1003,\"msg\":\"Too many requests.\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"code\":-1003,\"msg\":\"Too many requests.\"}"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "spotClearinghouseState",
+            "user": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+          },
+          "key_header": null
+        },
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "timeout",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "timeout": true
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Net::ReadTimeout"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "spotClearinghouseState",
+            "user": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+          },
+          "key_header": null
+        },
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "connection_refused",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "refused": true
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Failed to open TCP connection (Connection refused)"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "spotClearinghouseState",
+            "user": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+          },
+          "key_header": null
+        },
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "malformed_json",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"error\":[],\"result\":{",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"error\":[],\"result\":{"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "spotClearinghouseState",
+            "user": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+          },
+          "key_header": null
+        },
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "empty_json_body",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "raises",
+          "class": "NoMethodError",
+          "message": "undefined method '[]' for nil"
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "spotClearinghouseState",
+            "user": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+          },
+          "key_header": null
+        },
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      },
+      {
+        "case": "plain_text_200",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "OK",
+          "content_type": "text/plain"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.hyperliquid.xyz",
+          "path": "/info",
+          "query": {},
+          "form": {
+            "type": "spotClearinghouseState",
+            "user": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+          },
+          "key_header": null
+        },
+        "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
       }
     ]
   }

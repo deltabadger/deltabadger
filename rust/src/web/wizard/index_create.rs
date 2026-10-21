@@ -50,7 +50,7 @@ pub const CALLBACKS: &[(&str, &str, &str, &str, &str)] = &[
     ("validate", "before", "validate_smart_interval_base_minimum", "proc app/models/bot/smart_intervalable.rb:33", "no-op: Smart Intervals start off"),
     ("validate", "before", "ActiveModel::Validations::InclusionValidator(limit_ordered) {\"in\":[true,false]}", "", "passes: the default false"),
     ("validate", "before", "ActiveRecord::Validations::NumericalityValidator(limit_order_pcnt_distance) {\"greater_than_or_equal_to\":0,\"less_than_or_equal_to\":1}", "limit_ordered", "no-op: limit orders start off"),
-    ("validate", "before", "limit_ordered_required_for_exchange", "", "passes: only Hyperliquid locks limit orders, and its key step is refused"),
+    ("validate", "before", "limit_ordered_required_for_exchange", "", "passes: only Hyperliquid locks limit orders, and its quote step sets them on (create::lock_limit_orders)"),
     ("validate", "before", "ActiveRecord::Validations::PresenceValidator(interval)", "", "passes: WizardDefaults gives week"),
     ("validate", "before", "ActiveModel::Validations::InclusionValidator(interval) {\"in\":[\"hour\",\"day\",\"week\",\"month\"]}", "", "passes: WizardDefaults gives week"),
     ("validate", "before", "validate_starting_time_settings", "on start", "no-op: start only"),

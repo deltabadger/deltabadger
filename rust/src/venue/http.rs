@@ -204,6 +204,8 @@ impl ReqwestTransport {
     }
     /// Honeymaker::Clients::Gemini's wire: the secret only signs the payload and is never sent.
     pub fn gemini(client: reqwest::Client, key: String, secret: String) -> Self { Self { wire: Wire::Gemini, ..Self::new(client, key, secret) } }
+    /// Honeymaker::Clients::Hyperliquid's wire: the secret (the agent key) only signs /exchange actions and is never sent.
+    pub fn hyperliquid(client: reqwest::Client, key: String, secret: String) -> Self { Self { wire: Wire::Hyperliquid, ..Self::new(client, key, secret) } }
     pub fn with_sensitive_values(mut self,values:Vec<String>)->Self{self.sensitive.extend(values);self}
     /// Speak Kraken's wire: Honeymaker::Clients::Kraken's headers, form bodies and signature.
     pub fn kraken(mut self)->Self{self.wire=Wire::Kraken;self}
@@ -242,6 +244,10 @@ impl ReqwestTransport {
     /// `send_limited` without `settle`: the answer as it was read.
     pub async fn send_unsettled(&self, r: &HttpRequest, limit: usize) -> Result<HttpResponse, TransportError> {
         if let Some(reason) = &self.refused { return Err(TransportError::NotSent(reason.clone())); }
+        // hyperliquid-rb's Signer cannot be built from a secret that is no private key: nothing is signed or sent.
+        if self.wire == Wire::Hyperliquid && r.path == super::hyperliquid::EXCHANGE && super::signers::hyperliquid::signing_key(&self.secret).is_none() {
+            return Err(TransportError::NotSent("Hyperliquid: the API secret is not an agent private key; not sent".into()));
+        }
         let keys = super::sign::Keys { key: &self.key, secret: &self.secret, passphrase: &self.passphrase };
         let mut b = super::sign::request(self.wire, &self.client, r, keys, &*self.clock);
         if let Some(not_after) = r.not_after {
@@ -375,7 +381,9 @@ impl Transport for ScriptedTransport {
         let mut reply = {
             let mut s = self.s.borrow_mut();
             s.requests.push(r.clone());
-            let key = if s.replies.contains_key(&full) { full.clone() } else { format!("{} {}", r.method, r.path) };
+            // Hyperliquid names every read by its body's `type` (and an action by its own): "POST /info l2Book".
+            let typed = r.body.as_ref().and_then(|b| b["type"].as_str().or_else(|| b["action"]["type"].as_str())).map(|t| format!("{} {} {t}", r.method, r.path));
+            let key = if s.replies.contains_key(&full) { full.clone() } else if let Some(t) = typed.filter(|t| s.replies.contains_key(t)) { t } else { format!("{} {}", r.method, r.path) };
             let q = s.replies.get_mut(&key).filter(|q| !q.is_empty()).unwrap_or_else(|| panic!("unscripted Alpaca call {key}"));
             if q.len() > 1 { q.pop_front().expect("non-empty") } else { q[0].clone() }
         };
@@ -392,9 +400,13 @@ impl Transport for ScriptedTransport {
         if reply["body"]["data"][0]["clientOid"] == "$client_order_id" {
             if let Some((_, cl)) = r.query.iter().find(|(k, _)| *k == "clientOid") { reply["body"]["data"][0]["clientOid"] = Value::String(cl.clone()); }
         }
+        // Hyperliquid's orderStatus by cloid: "$cloid" answers for the one asked (`oid`).
+        if reply["body"]["order"]["order"]["cloid"] == "$cloid" {
+            if let Some(cloid) = r.body.as_ref().and_then(|b| b["oid"].as_str()) { reply["body"]["order"]["order"]["cloid"] = Value::String(cloid.into()); }
+        }
         let message = reply["message"].as_str().unwrap_or_default().to_string();
         match reply["network"].as_str() {
-            Some("pre_send" | "pre_send_data" | "binance_pre_send" | "kucoin_pre_send" | "bitvavo_pre_send" | "gemini_pre_send" | "bitget_pre_send" | "kraken_pre_send") => Err(TransportError::NotSent(message)),
+            Some("pre_send" | "pre_send_data" | "binance_pre_send" | "kucoin_pre_send" | "bitvavo_pre_send" | "gemini_pre_send" | "bitget_pre_send" | "hyperliquid_pre_send" | "kraken_pre_send") => Err(TransportError::NotSent(message)),
             // The parity harness's per-venue kind (decisions.rb `NETWORK`): one spelling for every venue's host.
             Some(kind) if kind.starts_with("pre_send:") => Err(TransportError::NotSent(message)),
             Some("permanent") => Err(TransportError::Permanent(message)),
