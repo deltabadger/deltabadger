@@ -7,6 +7,7 @@
 #   bin/rails runner script/rust/decisions.rb grid-binance-us <root> # Binance.US spot: the Binance grid at api.binance.us
 #   bin/rails runner script/rust/decisions.rb grid-kucoin <root>  # KuCoin spot, scripted beneath honeymaker at the Faraday adapter
 #   bin/rails runner script/rust/decisions.rb grid-bitvavo <root> # Bitvavo spot, scripted beneath honeymaker at the Faraday adapter
+#   bin/rails runner script/rust/decisions.rb grid-mexc <root>    # MEXC spot, scripted beneath honeymaker at the Faraday adapter
 #   bin/rails runner script/rust/decisions.rb grid-sell <root>    # a one-asset basket selling on Kraken, Binance and Alpaca (slice 6a)
 #   bin/rails runner script/rust/decisions.rb grid-venue-basket <root> # buying baskets of 2 and 3 members on Kraken (EUR) and Binance (USDT)
 #   bin/rails runner script/rust/decisions.rb grid-venue-index <root>  # crypto index bots on Kraken, Binance, KuCoin and Alpaca, and their resync (plan CI)
@@ -171,7 +172,10 @@ VENUES = {
                            exchange: 'Exchanges::Kucoin', name: 'KuCoin', ticker: 'BTC-USDT', quote: TETHER, passphrase: 'p', pre_send: 'kucoin_pre_send'),
   # Plan VB slice A3: Rails sends no clientOrderId (Rust sends the intent id, stripped from both sides).
   'bitvavo' => VenueRow.new(scripted: ScriptedVenue.new(host: 'api.bitvavo.com', name: 'Bitvavo', order: 'POST /v2/order', body: :json, strip: %w[clientOrderId]),
-                            exchange: 'Exchanges::Bitvavo', name: 'Bitvavo', ticker: 'BTC-EUR', quote: EURO, passphrase: nil)
+                            exchange: 'Exchanges::Bitvavo', name: 'Bitvavo', ticker: 'BTC-EUR', quote: EURO, passphrase: nil),
+  # Plan VB slice A5: every field in the query, as Binance's; Rails sends no newClientOrderId (Rust's is left out of its side).
+  'mexc' => VenueRow.new(scripted: ScriptedVenue.new(host: 'api.mexc.com', name: 'MEXC', order: 'POST /api/v3/order', body: :query, strip: %w[timestamp signature]),
+                         exchange: 'Exchanges::Mexc', name: 'MEXC', ticker: 'BTCUSDT', quote: TETHER, passphrase: nil)
 }.freeze
 
 module Decisions
@@ -2886,6 +2890,132 @@ module Decisions
     end
   end
 
+  # ---- MEXC (plan VB slice A5): bodies as api.mexc.com answers them (AUDIT-mexc), errors as {code, msg} ----
+  def mx_err(status, code, msg) = { 'status' => status, 'body' => { 'code' => code, 'msg' => msg } }
+  def mx_book(ask, bid: '64000.10') = ok('symbol' => 'BTCUSDT', 'bidPrice' => bid, 'bidQty' => '1.5', 'askPrice' => ask, 'askQty' => '0.2')
+  def mx_last(price) = ok('symbol' => 'BTCUSDT', 'price' => price)
+  def mx_account(usdt) = ok('canTrade' => true, 'canWithdraw' => true, 'canDeposit' => true, 'accountType' => 'SPOT',
+                            'balances' => [{ 'asset' => 'BTC', 'free' => '0.5', 'locked' => '0' }, { 'asset' => 'USDT', 'free' => usdt, 'locked' => '0' }])
+  def mx_order(id, status, type: 'MARKET', executed: '0', cumulative: '0', price: nil, qty: nil, quote: '60')
+    limit = type == 'LIMIT'
+    { 'symbol' => 'BTCUSDT', 'orderId' => id, 'orderListId' => -1, 'clientOrderId' => '', 'price' => price || (limit ? '64000' : '0'),
+      'origQty' => qty || (limit ? '0.00093' : '0'), 'executedQty' => executed, 'cummulativeQuoteQty' => cumulative, 'status' => status,
+      'timeInForce' => nil, 'type' => type, 'side' => 'BUY', 'stopPrice' => nil, 'icebergQty' => nil, 'time' => 1_788_000_000_000,
+      'updateTime' => 1_788_000_000_000, 'isWorking' => true, 'origQuoteOrderQty' => limit ? nil : quote }.compact
+  end
+  MX_GONE = { 'status' => 400, 'body' => { 'code' => -2013, 'msg' => 'Order does not exist.' } }.freeze
+
+  def mexc_scenarios
+    started = '2026-09-01T10:00:00.123456Z'
+    ticker = { 'base_decimals' => 6, 'quote_decimals' => 2, 'price_decimals' => 2, 'minimum_base_size' => '0.000001', 'minimum_quote_size' => '1' }
+    http = {
+      'GET /api/v3/ticker/bookTicker' => [mx_book('64000.11')],
+      'GET /api/v3/ticker/price' => [mx_last('64000.05')],
+      'POST /api/v3/order' => [ok('symbol' => 'BTCUSDT', 'orderId' => 'C02__100', 'orderListId' => -1, 'price' => '0', 'origQty' => '0', 'type' => 'MARKET',
+                                  'side' => 'BUY', 'transactTime' => 1_788_000_000_000)],
+      'GET /api/v3/account' => [mx_account('100000')]
+    }
+    modes = { 'market' => {}, 'limit' => { 'limit_ordered' => true, 'limit_order_pcnt_distance' => 0.0025 } }
+    closed = { 'status' => 0, 'external_status' => 2, 'external_id' => 'BTCUSDT-C02__1', 'order_type' => 0, 'quote_amount' => '60',
+               'quote_amount_exec' => '60', 'amount_exec' => '0.00093', 'price' => '64000', 'created_at' => '2026-09-01 10:00:01' }
+    waiting = lambda do |id, limit: false, created: '2026-09-01 10:00:01'|
+      { 'status' => 0, 'external_status' => limit ? 1 : 0, 'external_id' => "BTCUSDT-#{id}", 'order_type' => limit ? 1 : 0,
+        'quote_amount' => limit ? nil : '60', 'amount' => limit ? '0.00093' : nil, 'price' => '64000', 'amount_exec' => '0',
+        'quote_amount_exec' => '0', 'created_at' => created }.compact
+    end
+    # Signed calls carry a timestamp: a poll's answers are queued on the bare key, in the order the orders are asked.
+    polled = ->(*orders) { { 'GET /api/v3/order' => orders.map { |o| o.is_a?(Hash) && o.key?('status') && o.key?('body') ? o : ok(o) } } }
+    %w[day week].flat_map do |interval|
+      step = { 'day' => 1.day, 'week' => 1.week }.fetch(interval)
+      after = ->(n) { (Time.iso8601(started) + (n * step) + 1.second).iso8601(6) }
+      variants = {
+        'first_tick' => { 'at' => (Time.iso8601(started) + 0.5).iso8601(6) },
+        'on_schedule' => { 'at' => after.(1), 'transactions' => [closed] },
+        'carry' => { 'at' => after.(1), 'transient' => { 'missed_quote_amount' => '12.5' } },
+        'below_minimum' => { 'at' => after.(1), 'quote_amount' => 0.4 },
+        'base_sized' => { 'at' => after.(1), 'ticker' => ticker.merge('base_decimals' => 3, 'minimum_base_size' => '0.001', 'minimum_quote_size' => '1') },
+        'quote_min_decides' => { 'at' => after.(1), 'ticker' => ticker.merge('minimum_quote_size' => '100') },
+        'base_min_decides' => { 'at' => after.(1), 'ticker' => ticker.merge('base_decimals' => 2, 'minimum_base_size' => '0.01') },
+        # PEPEUSDT's catalogue row: baseSizePrecision 0, so the quote minimum is the only floor (AUDIT-mexc X3).
+        'zero_base_minimum' => { 'at' => after.(1), 'ticker' => ticker.merge('minimum_base_size' => '0') },
+        'zero_base_minimum_below' => { 'at' => after.(1), 'quote_amount' => 0.3, 'ticker' => ticker.merge('minimum_base_size' => '0') },
+        # 700003, MEXC's -1021: placement-safe, no row, the run rescheduled.
+        'timestamp_700003' => { 'at' => after.(1), 'http' => { 'POST /api/v3/order' => [mx_err(400, 700_003, 'Timestamp for this request is outside of the recvWindow.')] } },
+        'insufficient' => { 'at' => after.(1), 'http' => { 'POST /api/v3/order' => [mx_err(400, 10_101, 'Insufficient balance')] } },
+        'below_venue_minimum' => { 'at' => after.(1), 'http' => { 'POST /api/v3/order' => [mx_err(400, 30_002, 'Minimum transaction volume cannot be less than :1USDT')] } },
+        'invalid_key' => { 'at' => after.(1), 'transient' => { 'last_failure_kind' => 'invalid_key' },
+                           'http' => { 'POST /api/v3/order' => [mx_err(400, 10_072, 'Api key info invalid')] } },
+        'bad_signature' => { 'at' => after.(1), 'http' => { 'POST /api/v3/order' => [mx_err(400, 700_002, 'Signature for this request is not valid.')] } },
+        'no_permission' => { 'at' => after.(1), 'http' => { 'POST /api/v3/order' => [mx_err(403, 700_007, 'No permission to access the endpoint.')] } },
+        'throttled' => { 'at' => after.(1), 'http' => { 'POST /api/v3/order' => [mx_err(429, 429, 'Too Many Requests')] } },
+        # Sanctioned divergences (rust/tests/parity.rs MEXC_DIVERGENCES): Rust keeps the intent, which waits for the operator
+        # (plan VB §1.5), where Rails writes a failed row: a lost reply, a 5xx, an unreadable answer, MEXC's "service not
+        # available" (Exchanges::Mexc::ERRORS[:transient]: it may have placed the order), and an answer without an orderId
+        # (Rails stores "BTCUSDT-").
+        'add_server_error' => { 'at' => after.(1), 'http' => { 'POST /api/v3/order' => [mx_err(503, 503, 'service not available, please try again')] } },
+        'add_service_unavailable' => { 'at' => after.(1), 'http' => { 'POST /api/v3/order' => [mx_err(400, 503, 'service not available, please try again')] } },
+        'add_timeout_after_send' => { 'at' => after.(1), 'http' => { 'POST /api/v3/order' => [POST_SEND] } },
+        'add_no_order_id' => { 'at' => after.(1), 'http' => { 'POST /api/v3/order' => [ok('symbol' => 'BTCUSDT')] } },
+        'add_unreadable' => { 'at' => after.(1), 'http' => { 'POST /api/v3/order' => [{ 'status' => 200, 'body' => '<html>upstream</html>' }] } },
+        'add_network_pre_send' => { 'at' => after.(1), 'http' => { 'POST /api/v3/order' => [VENUES.fetch('mexc').not_sent] } },
+        'low_funds' => { 'at' => after.(1), 'http' => { 'GET /api/v3/account' => [mx_account('1')] } },
+        'balance_refused' => { 'at' => after.(1), 'http' => { 'GET /api/v3/account' => [mx_err(400, 10_072, 'Api key info invalid')] } },
+        'zero_price' => { 'at' => after.(1), 'http' => { 'GET /api/v3/ticker/bookTicker' => [mx_book('0', bid: '0')], 'GET /api/v3/ticker/price' => [mx_last('0')] } },
+        'no_price' => { 'at' => after.(1), 'http' => { 'GET /api/v3/ticker/bookTicker' => [mx_err(400, -1121, 'Invalid symbol.')],
+                                                       'GET /api/v3/ticker/price' => [mx_err(400, -1121, 'Invalid symbol.')] } },
+        # The tick's sweep (Bot::FetchAndUpdateOpenOrdersJob): #get_order per waiting order.
+        'sweep_filled' => { 'at' => after.(1), 'transactions' => [waiting.('C02__201')],
+                            'http' => polled.(mx_order('C02__201', 'FILLED', executed: '0.00093', cumulative: '59.523')) },
+        'sweep_new' => { 'at' => after.(1), 'transactions' => [waiting.('C02__202', limit: true)], 'http' => polled.(mx_order('C02__202', 'NEW', type: 'LIMIT')) },
+        'sweep_partial' => { 'at' => after.(1), 'transactions' => [waiting.('C02__203', limit: true)],
+                             'http' => polled.(mx_order('C02__203', 'PARTIALLY_FILLED', type: 'LIMIT', executed: '0.0004', cumulative: '25.5')) },
+        # X2: a limit that crossed the book is priced at its fills, not its limit.
+        'sweep_filled_limit_at_fills' => { 'at' => after.(1), 'transactions' => [waiting.('C02__204', limit: true)],
+                                           'http' => polled.(mx_order('C02__204', 'FILLED', type: 'LIMIT', executed: '0.00093', cumulative: '59.3')) },
+        # X1: PARTIALLY_CANCELED is terminal, its fill kept.
+        'sweep_partially_canceled' => { 'at' => after.(1), 'transactions' => [waiting.('C02__205', limit: true)],
+                                        'http' => polled.(mx_order('C02__205', 'PARTIALLY_CANCELED', type: 'LIMIT', executed: '0.0004', cumulative: '25.6')) },
+        'sweep_expired' => { 'at' => after.(1), 'transactions' => [waiting.('C02__206')], 'http' => polled.(mx_order('C02__206', 'EXPIRED')) },
+        'sweep_rejected' => { 'at' => after.(1), 'transactions' => [waiting.('C02__207')], 'http' => polled.(mx_order('C02__207', 'REJECTED')) },
+        'sweep_unknown_type' => { 'at' => after.(1), 'transactions' => [waiting.('C02__208')], 'http' => polled.(mx_order('C02__208', 'NEW', type: 'STOP_LOSS')) },
+        'sweep_unknown_status' => { 'at' => after.(1), 'transactions' => [waiting.('C02__209')], 'http' => polled.(mx_order('C02__209', 'PENDING_CANCEL')) },
+        'sweep_negative_quote' => { 'at' => after.(1), 'transactions' => [waiting.('C02__210')], 'http' => polled.(mx_order('C02__210', 'CANCELED', cumulative: '-1')) },
+        # X5: a gone order (-2013/-2011) is missing: a young one fails the sweep, an old one is abandoned.
+        'sweep_gone_young' => { 'at' => after.(1), 'transactions' => [waiting.('C02__211')], 'http' => polled.(MX_GONE) },
+        'sweep_gone_old' => { 'at' => after.(1), 'transactions' => [waiting.('C02__212', created: '2026-08-01 10:00:01')], 'http' => polled.(MX_GONE) },
+        'sweep_gone_2011' => { 'at' => after.(1), 'transactions' => [waiting.('C02__213', created: '2026-08-01 10:00:01')],
+                               'http' => polled.(mx_err(400, -2011, 'Unknown order sent.')) },
+        'sweep_two_one_gone' => { 'at' => after.(1), 'transactions' => [waiting.('C02__214', created: '2026-08-01 10:00:01'), waiting.('C02__215')],
+                                  'http' => polled.(MX_GONE, mx_order('C02__215', 'FILLED', executed: '0.00093', cumulative: '59.52')) },
+        'sweep_not_found_html' => { 'at' => after.(1), 'transactions' => [waiting.('C02__216')], 'http' => polled.({ 'status' => 404, 'body' => '<html>Not Found</html>' }) },
+        # Poll-only: Bot::FetchAndUpdateOrderJob (#get_order) for one waiting order.
+        'poll_filled' => { 'at' => after.(1), 'tick' => false, 'poll' => 'BTCUSDT-C02__401', 'transactions' => [waiting.('C02__401')],
+                           'http' => polled.(mx_order('C02__401', 'FILLED', executed: '0.00093', cumulative: '59.52')) },
+        'poll_open' => { 'at' => after.(1), 'tick' => false, 'poll' => 'BTCUSDT-C02__402', 'transactions' => [waiting.('C02__402', limit: true)],
+                         'http' => polled.(mx_order('C02__402', 'NEW', type: 'LIMIT')) },
+        'poll_gone' => { 'at' => after.(1), 'tick' => false, 'poll' => 'BTCUSDT-C02__403', 'transactions' => [waiting.('C02__403')], 'http' => polled.(MX_GONE) },
+        # A tick that places BTCUSDT-C02__100; its follow-up 5 s later finds it filled.
+        'tick_then_poll' => { 'at' => after.(1), 'poll' => 'BTCUSDT-C02__100', 'transient' => { 'missed_quote_amount' => '12.5' },
+                              'http' => polled.(mx_order('C02__100', 'FILLED', executed: '0.00112', cumulative: '71.68')) }
+      }
+      # Listed divergences (rust/tests/parity.rs UNREADABLE): a number Rust cannot read in a price, and in a sweep's order.
+      { 'nan' => 'NaN', 'garbage' => 'garbage' }.each do |label, bad|
+        variants["unreadable_price_#{label}"] = { 'at' => after.(1), 'http' => { 'GET /api/v3/ticker/bookTicker' => [mx_book(bad)], 'GET /api/v3/ticker/price' => [mx_last(bad)] } }
+        variants["unreadable_poll_#{label}"] = { 'at' => after.(1), 'transactions' => [waiting.('C02__217')],
+                                                 'http' => polled.(mx_order('C02__217', 'FILLED', executed: bad, cumulative: '60')) }
+      end
+      modes.flat_map do |mode, settings|
+        variants.map do |name, v|
+          { 'name' => "#{interval}-#{mode}-#{name}", 'venue' => 'mexc', 'interval' => interval, 'quote_amount' => v.fetch('quote_amount', 60.0),
+            'started_at' => started, 'settings' => settings, 'settings_changed_at' => v['settings_changed_at'],
+            'transient' => v.fetch('transient', {}), 'transactions' => v.fetch('transactions', []), 'ticker' => v.fetch('ticker', ticker),
+            'ticker_after' => v['ticker_after'], 'at' => v.fetch('at'), 'script' => { 'mexc' => http.merge(v.fetch('http', {})) },
+            'tick' => v.fetch('tick', true), 'poll' => v['poll'] }
+        end
+      end
+    end
+  end
+
   # Slice 7a: the price rule of the active side with the `pause` action, on all three venues and both directions. The tick at
   # `at` passes, pauses or fails; a scenario with `check_at` then runs Bot::PriceLimitCheckJob there (and the Bot::ActionJob it
   # enqueues when met). Every check job a phase queues is recorded with its time.
@@ -3453,7 +3583,7 @@ def web_save(dir)
 end
 
 command, root = ARGV
-USAGE = 'usage: grid <root> | grid-signal <root> | grid-alpaca <root> | grid-basket <root> | grid-limit <root> | grid-binance <root> | grid-binance-us <root> | grid-kucoin <root> | grid-bitvavo <root> | grid-sell <root> | grid-venue-basket <root> | grid-venue-index <root> | grid-conditions <root> | grid-basket-sell <root> | grid-rebalance <root> | record <root> | web-save <dir>'.freeze
+USAGE = 'usage: grid <root> | grid-signal <root> | grid-alpaca <root> | grid-basket <root> | grid-limit <root> | grid-binance <root> | grid-binance-us <root> | grid-kucoin <root> | grid-bitvavo <root> | grid-mexc <root> | grid-sell <root> | grid-venue-basket <root> | grid-venue-index <root> | grid-conditions <root> | grid-basket-sell <root> | grid-rebalance <root> | record <root> | web-save <dir>'.freeze
 raise ArgumentError, USAGE unless root
 
 case command
@@ -3468,6 +3598,7 @@ when 'grid-binance' then Decisions.grid(root, Decisions.binance_scenarios)
 when 'grid-binance-us' then Decisions.grid(root, Decisions.binance_scenarios('binance_us'))
 when 'grid-kucoin' then Decisions.grid(root, Decisions.kucoin_scenarios)
 when 'grid-bitvavo' then Decisions.grid(root, Decisions.bitvavo_scenarios)
+when 'grid-mexc' then Decisions.grid(root, Decisions.mexc_scenarios)
 when 'grid-sell' then Decisions.grid(root, Decisions.sell_scenarios)
 when 'grid-venue-basket' then Decisions.grid(root, Decisions.venue_basket_scenarios)
 when 'grid-basket-sell' then Decisions.grid(root, Decisions.basket_sell_scenarios)

@@ -2563,8 +2563,8 @@ async fn q_absent_recovery_result_cannot_erase_a_after_an_external_credential_re
 #[tokio::test(flavor="current_thread")]
 async fn owner_slice_refuses_other_venue_add_and_replace_routes_without_changes_or_network(){
     let server=MockServer::start().await;let mut h=Harness::new(server.uri()).await;h.link();
-    // Kraken, Binance and KuCoin keys are checked (pages.rs settings_venue_key_*), and Binance.US and Bitvavo keys (wizard_oracles.rs); every other venue refuses.
-    for venue in ["Bingx","Bitget","Bitmart","Bitrue","Bybit","Coinbase","Gemini","Hyperliquid","Ibkr","Mexc"]{
+    // Kraken, Binance and KuCoin keys are checked (pages.rs settings_venue_key_*), and Binance.US, Bitvavo and MEXC keys (wizard_oracles.rs); every other venue refuses.
+    for venue in ["Bingx","Bitget","Bitmart","Bitrue","Bybit","Coinbase","Gemini","Hyperliquid","Ibkr"]{
         h.c.execute("UPDATE exchanges SET type=?1,name=?2 WHERE id=1",(format!("Exchanges::{venue}"),venue)).unwrap();let before=h.snapshot();
         // D5b: a retired venue gets RetiredExchangeGuard's redirect to /tracker, every other one the refusal.
         let refused=if venue=="Bitmart"{302}else{501};

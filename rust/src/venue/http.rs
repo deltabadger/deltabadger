@@ -195,6 +195,8 @@ impl ReqwestTransport {
     }
     /// Honeymaker::Clients::Bitvavo's wire: the secret only signs and is never sent.
     pub fn bitvavo(client: reqwest::Client, key: String, secret: String) -> Self { Self { wire: Wire::Bitvavo, ..Self::new(client, key, secret) } }
+    /// Honeymaker::Clients::Mexc's wire: the key in X-MEXC-APIKEY; the secret only signs (`sign::MEXC_QUERY`).
+    pub fn mexc(client: reqwest::Client, key: String, secret: String) -> Self { Self { wire: Wire::Mexc, ..Self::new(client, key, secret) } }
     pub fn with_sensitive_values(mut self,values:Vec<String>)->Self{self.sensitive.extend(values);self}
     /// Speak Kraken's wire: Honeymaker::Clients::Kraken's headers, form bodies and signature.
     pub fn kraken(mut self)->Self{self.wire=Wire::Kraken;self}

@@ -4,7 +4,7 @@
     "app/models/exchange.rb": "ab627a2812bc0c7b4a546459e64f8f5d93617c496308d5f03163f44cef12d8d7",
     "app/models/client.rb": "f5a9f759c2007fae9a264dca94d315b1092c8cb391381905bc686e374c22683b",
     "app/models/ticker.rb": "1ae4dac68cab58acaa6679c9bca83e700212ad4baf19e2d8c0946b07eaaabbbc",
-    "script/rust/record_venue_signing.rb": "b65a76d5a1c1e8effdc9b7d92f2b35b38126d49ca396583832d86586b5034437"
+    "script/rust/record_venue_signing.rb": "13d8d40c5a9b425e14d19bce1f0c0c143630e1f25f72eb611362affc2d7055f8"
   },
   "gems": {
     "honeymaker": "0.12.5"

@@ -2,7 +2,8 @@
 //! `http::ReqwestTransport` immediately before the send so a timestamp or nonce is read then and the signature covers
 //! the exact bytes sent. The schemes themselves stay with their venue (`kraken::private_headers`, `binance::sign`); a new
 //! scheme lands here with its venue and a known-answer test. `Prehash` is the family KuCoin and Bitvavo share (§1.2,
-//! generalised from `kucoin::headers` in slice A3, KuCoin pinned by tests/kucoin.rs before and after).
+//! generalised from `kucoin::headers` in slice A3, KuCoin pinned by tests/kucoin.rs before and after). `QueryHmacHex` is the
+//! family Binance and MEXC share (generalised from binance.rs `signed` in slice A5, Binance pinned by tests/binance_trade.rs).
 use super::http::HttpRequest;
 use hmac::{Hmac, Mac};
 use sha2::Sha256;
@@ -14,6 +15,27 @@ pub(crate) enum Encode { Base64, Hex }
 /// What a `Prehash` venue sends in its passphrase header: HMAC'd with the secret (KuCoin key version 2), as it is, or none.
 #[derive(Clone, Copy, PartialEq)]
 pub(crate) enum Passphrase { Hmac, None }
+
+/// Honeymaker's Binance-shaped clients (#get_signed, #post_signed, #delete_signed): the call's params (nils compacted) and
+/// `timestamp`, a hex HMAC-SHA256 over `build_query` of exactly those added as `signature`, every pair in the query on every
+/// method (a POST has no body); the key in `key_header`; the timestamp Client#timestamp_ms, `(Time.now.utc.to_f * 1_000).to_i`,
+/// as `stamp` reads the clock.
+pub(crate) struct QueryHmacHex { pub key_header: &'static str, pub stamp: fn(chrono::DateTime<chrono::Utc>) -> i64 }
+/// Honeymaker::Clients::Binance (and ::BinanceUs), its timestamp as binance.rs has always computed it.
+pub(crate) const BINANCE_QUERY: QueryHmacHex = QueryHmacHex { key_header: "X-MBX-APIKEY", stamp: super::binance::timestamp_ms };
+/// Honeymaker::Clients::Mexc, its timestamp as Ruby's Float makes it (`bitvavo::ruby_ms`: 02:00:00.250 is ...249), so a
+/// request is the one Rails sends at the same moment.
+pub(crate) const MEXC_QUERY: QueryHmacHex = QueryHmacHex { key_header: "X-MEXC-APIKEY", stamp: super::bitvavo::ruby_ms };
+
+impl QueryHmacHex {
+    /// `params` signed at `now` (Client#timestamp_ms): the timestamp, then the signature, appended.
+    pub(crate) fn sign(&self, secret: &str, mut params: Vec<(&'static str, String)>, now: chrono::DateTime<chrono::Utc>) -> Vec<(&'static str, String)> {
+        params.push(("timestamp", (self.stamp)(now).to_string()));
+        let signature = hmac(secret, &super::binance::build_query(&params), Encode::Hex);
+        params.push(("signature", signature));
+        params
+    }
+}
 
 /// HMAC-SHA256(secret, timestamp + METHOD + path + tail), the tail `?query` (a GET with params; a DELETE where
 /// `delete_query`), the JSON body (a POST) or nothing; the key, signature and timestamp (and the passphrase) in the
@@ -35,7 +57,7 @@ pub(crate) const KUCOIN: Prehash = Prehash { encode: Encode::Base64, passphrase:
 pub(crate) const BITVAVO: Prehash = Prehash { encode: Encode::Hex, passphrase: Passphrase::None, delete_query: true,
     names: ["BITVAVO-ACCESS-KEY", "BITVAVO-ACCESS-SIGNATURE", "BITVAVO-ACCESS-TIMESTAMP", ""], extra: &[("BITVAVO-ACCESS-WINDOW", "10000")] };
 
-fn hmac(secret: &str, message: &str, encode: Encode) -> String {
+pub(crate) fn hmac(secret: &str, message: &str, encode: Encode) -> String {
     use base64::Engine;
     let mut mac = <Hmac<Sha256> as Mac>::new_from_slice(secret.as_bytes()).expect("HMAC takes a key of any length");
     mac.update(message.as_bytes());
@@ -79,6 +101,8 @@ pub(crate) enum Wire {
     Kucoin,
     /// Honeymaker::Clients::Bitvavo (venue::bitvavo): BITVAVO-ACCESS-* headers, `Prehash` as KuCoin's, hex.
     Bitvavo,
+    /// Honeymaker::Clients::Mexc#headers (venue::mexc): Binance's wire with the key in X-MEXC-APIKEY.
+    Mexc,
 }
 
 impl Wire {
@@ -87,7 +111,7 @@ impl Wire {
     pub(crate) fn label(self) -> &'static str {
         let exchange_type = match self {
             Self::Alpaca => crate::sync::ALPACA, Self::Binance => super::binance::BINANCE, Self::Kraken => "Exchanges::Kraken", Self::Kucoin => super::kucoin::KUCOIN,
-            Self::Bitvavo => super::bitvavo::BITVAVO,
+            Self::Bitvavo => super::bitvavo::BITVAVO, Self::Mexc => super::mexc::MEXC,
         };
         super::registry::row(exchange_type).expect("every wire's venue has a row").name
     }
@@ -102,7 +126,8 @@ pub(crate) fn request(wire: Wire, client: &reqwest::Client, r: &HttpRequest, key
     let mut url = r.url();
     // The query exactly as Faraday::Utils.build_query writes it, which is what a Prehash signature covers.
     let q = super::binance::build_query(&r.query);
-    if matches!(wire, Wire::Kucoin | Wire::Bitvavo) { url.set_query((!q.is_empty()).then_some(q.as_str())); }
+    // MEXC's QueryHmacHex signs that same text, so it is sent as it was signed.
+    if matches!(wire, Wire::Kucoin | Wire::Bitvavo | Wire::Mexc) { url.set_query((!q.is_empty()).then_some(q.as_str())); }
     let mut b = client.request(method, url);
     match wire {
         Wire::Kucoin | Wire::Bitvavo => {
@@ -112,8 +137,12 @@ pub(crate) fn request(wire: Wire, client: &reqwest::Client, r: &HttpRequest, key
             for (k, v) in headers { b = b.header(k, v); }
             if let Some(body) = &r.body { b = b.body(body.to_string()); }
         }
-        Wire::Alpaca | Wire::Binance => {
-            b = if wire == Wire::Binance { b.header("X-MBX-APIKEY", keys.key) } else { b.header("APCA-API-KEY-ID", keys.key).header("APCA-API-SECRET-KEY", keys.secret) };
+        Wire::Alpaca | Wire::Binance | Wire::Mexc => {
+            b = match wire {
+                Wire::Binance => b.header(BINANCE_QUERY.key_header, keys.key),
+                Wire::Mexc => b.header(MEXC_QUERY.key_header, keys.key),
+                _ => b.header("APCA-API-KEY-ID", keys.key).header("APCA-API-SECRET-KEY", keys.secret),
+            };
             b = b.header("Accept", "application/json").header("Content-Type", "application/json");
             if let Some(body) = &r.body { b = b.body(body.to_string()); }
         }

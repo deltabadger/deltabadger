@@ -8,8 +8,6 @@ use crate::engine::model::Ticker;
 use crate::engine::venue_rules::{VenueRules, BINANCE as RULES};
 use crate::ruby::BigDec;
 use chrono::{DateTime, Utc};
-use hmac::{Hmac, Mac};
-use sha2::Sha256;
 
 pub const URL: &str = "https://api.binance.com";
 pub const US_URL: &str = "https://api.binance.us";
@@ -58,11 +56,7 @@ pub fn build_query(params: &[(&'static str, String)]) -> String {
 }
 
 /// Client#hmac_sha256: lower-case hex.
-pub fn sign(secret: &str, query: &str) -> String {
-    let mut mac = <Hmac<Sha256> as Mac>::new_from_slice(secret.as_bytes()).expect("HMAC takes a key of any length");
-    mac.update(query.as_bytes());
-    mac.finalize().into_bytes().iter().map(|b| format!("{b:02x}")).collect()
-}
+pub fn sign(secret: &str, query: &str) -> String { super::sign::hmac(secret, query, super::sign::Encode::Hex) }
 
 /// Client#timestamp_ms: `(Time.now.utc.to_f * 1_000).to_i`, in Ruby's Float arithmetic.
 pub fn timestamp_ms(now: DateTime<Utc>) -> i64 {
@@ -119,11 +113,8 @@ impl<T: Transport> BinanceVenue<T> {
     /// One signed request as honeymaker builds it, on GET, POST and DELETE alike: the call's params (nils compacted) and
     /// `timestamp`, signed over `build_query` of exactly those, and the signature added; Faraday then sends every pair in the
     /// query, sorted by key (a POST has no body).
-    pub fn signed(&self, method: &'static str, path: &str, mut params: Vec<(&'static str, String)>, now: DateTime<Utc>) -> HttpRequest {
-        params.push(("timestamp", timestamp_ms(now).to_string()));
-        let signature = sign(&self.secret, &build_query(&params));
-        params.push(("signature", signature));
-        self.request(method, path, params)
+    pub fn signed(&self, method: &'static str, path: &str, params: Vec<(&'static str, String)>, now: DateTime<Utc>) -> HttpRequest {
+        self.request(method, path, super::sign::BINANCE_QUERY.sign(&self.secret, params, now))
     }
 
     fn request(&self, method: &'static str, path: &str, mut params: Vec<(&'static str, String)>) -> HttpRequest {
@@ -271,10 +262,30 @@ pub struct Fill { pub price: BigDec, pub amount_exec: BigDec, pub quote_amount_e
 
 fn field<'a>(v: &'a serde_json::Value, key: &str) -> Result<&'a serde_json::Value, super::VenueError> { super::json::field(v, key, unreadable) }
 
-/// Exchanges::Binance#parse_order_data. ORDER_STATUS_MAP; a status it does not list is Unknown (Rails raises; the poll
-/// decides, spec E §2.4). An order type other than MARKET or LIMIT is refused, as Rails raises.
+/// How a Binance-shaped venue's #parse_order_data differs (plan VB §1.5, `parse_binance_shaped`): its ORDER_STATUS_MAP and
+/// what an unlisted status is (Binance: Unknown, the poll decides; None: refused, as Rails raises "Unknown <venue> order
+/// status"), whether the fills' average replaces the price whenever something filled (MEXC X2) or only a zero price
+/// (Binance), and whether origQuoteOrderQty may be absent (MEXC's `&.to_d`).
+pub struct Shape { pub statuses: &'static [(&'static str, super::OrderStatus)], pub unlisted: Option<super::OrderStatus>, pub average_whenever_filled: bool,
+                   pub quote_optional: bool }
+
+/// Exchanges::Binance::ORDER_STATUS_MAP; PENDING_CANCEL, and anything else, is Unknown (Rails raises; spec E §2.4).
+pub const BINANCE_SHAPE: Shape = Shape {
+    statuses: &[("NEW", super::OrderStatus::Open), ("PENDING_NEW", super::OrderStatus::Open), ("PARTIALLY_FILLED", super::OrderStatus::Open),
+                ("FILLED", super::OrderStatus::Closed), ("CANCELED", super::OrderStatus::Cancelled), ("EXPIRED", super::OrderStatus::Cancelled),
+                ("EXPIRED_IN_MATCH", super::OrderStatus::Cancelled), ("REJECTED", super::OrderStatus::Failed)],
+    unlisted: Some(super::OrderStatus::Unknown), average_whenever_filled: false, quote_optional: false,
+};
+
+/// Exchanges::Binance#parse_order_data (`parse_binance_shaped` with Binance's shape).
 pub fn parse_order(name: &str, order_id: &str, o: &serde_json::Value, pairs: &Pairs) -> Result<Order, super::VenueError> {
-    use super::OrderStatus;
+    parse_binance_shaped(name, order_id, o, pairs, &BINANCE_SHAPE)
+}
+
+/// A Binance-shaped #parse_order_data (Binance, MEXC). The status by `shape`. An order type other than MARKET or LIMIT is
+/// refused, as Rails raises. The fills' average (cummulativeQuoteQty / executedQty, rounded half up to the listed pair's
+/// price decimals) replaces the price when something filled: always (MEXC) or only when the price is zero (Binance).
+pub fn parse_binance_shaped(name: &str, order_id: &str, o: &serde_json::Value, pairs: &Pairs, shape: &Shape) -> Result<Order, super::VenueError> {
     let symbol = field(o, "symbol")?.as_str().ok_or_else(unreadable)?;
     let limit = match field(o, "type")?.as_str() {
         Some("MARKET") => false, Some("LIMIT") => true,
@@ -282,20 +293,22 @@ pub fn parse_order(name: &str, order_id: &str, o: &serde_json::Value, pairs: &Pa
     };
     let nonzero = |d: BigDec| (!d.is_zero()).then_some(d);
     let amount = nonzero(required(field(o, "origQty")?)?);
-    let quote_amount = nonzero(required(field(o, "origQuoteOrderQty")?)?);
+    let quote_amount = match &o["origQuoteOrderQty"] {
+        serde_json::Value::Null if shape.quote_optional => None,
+        _ => nonzero(required(field(o, "origQuoteOrderQty")?)?),
+    };
     let sell = field(o, "side")?.as_str().ok_or_else(unreadable)?.eq_ignore_ascii_case("sell");
     let executed = required(field(o, "executedQty")?)?;
     // "for some historical orders" the cumulative quote is negative: nil, never written.
     let quote_executed = Some(required(field(o, "cummulativeQuoteQty")?)?).filter(|q| *q >= BigDec::zero());
-    let status = match field(o, "status")?.as_str() {
-        Some("NEW" | "PENDING_NEW" | "PARTIALLY_FILLED") => OrderStatus::Open,
-        Some("FILLED") => OrderStatus::Closed,
-        Some("CANCELED" | "EXPIRED" | "EXPIRED_IN_MATCH") => OrderStatus::Cancelled,
-        Some("REJECTED") => OrderStatus::Failed,
-        _ => OrderStatus::Unknown, // PENDING_CANCEL, and anything else
+    let status = field(o, "status")?.as_str();
+    let status = match (shape.statuses.iter().find(|(s, _)| Some(*s) == status), shape.unlisted) {
+        (Some((_, listed)), _) => *listed,
+        (None, Some(unlisted)) => unlisted,
+        (None, None) => return Err(super::VenueError::Rejected(vec![format!("Unknown {name} order status: {}", status.unwrap_or_default())])),
     };
     let mut price = required(field(o, "price")?)?;
-    if price.is_zero() && executed.is_positive() {
+    if (shape.average_whenever_filled || price.is_zero()) && executed.is_positive() {
         if let Some(q) = quote_executed.as_ref().filter(|q| q.is_positive()) {
             price = q.div(&executed).expect("executed is positive");
             if let Some(pair) = pairs.by_symbol.get(symbol) { price = price.round(pair.price_decimals); }

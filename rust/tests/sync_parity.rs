@@ -422,13 +422,14 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
     dirs.sort();
     let named = |prefix: &str| dirs.iter().filter(|d| d.file_name().unwrap().to_string_lossy().starts_with(prefix)).count();
-    assert_eq!((named("ledger-"), named("balances-"), named("binance-balances-"), named("binance-ledger-"), named("import-"), named("kucoin-ledger-"), named("kucoin-balances-"), named("bitvavo-ledger-"), named("bitvavo-balances-"), dirs.len()), (58, 44, 21, 30, 21, 12, 16, 11, 10, 223), "the sync grid");
+    assert_eq!((named("ledger-"), named("balances-"), named("binance-balances-"), named("binance-ledger-"), named("import-"), named("kucoin-ledger-"), named("kucoin-balances-"), named("bitvavo-ledger-"), named("bitvavo-balances-"), named("mexc-ledger-"), named("mexc-balances-"), dirs.len()),
+               (58, 44, 21, 30, 21, 12, 16, 11, 10, 14, 12, 249), "the sync grid");
     for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
     for scenario in ["ledger-split_future", "ledger-split_nested_duplicate_keys", "binance-ledger-two_nights"] { copy_dir(&rails_root.path().join(scenario), &handback.path().join(scenario)); }
     rails(&["record", rails_root.path().to_str().unwrap()]);
 
     let cipher = cipher();
-    let ported = ["ledger-", "balances-", "binance-balances-", "binance-ledger-", "import-", "kucoin-ledger-", "kucoin-balances-", "bitvavo-ledger-", "bitvavo-balances-"];
+    let ported = ["ledger-", "balances-", "binance-balances-", "binance-ledger-", "import-", "kucoin-ledger-", "kucoin-balances-", "bitvavo-ledger-", "bitvavo-balances-", "mexc-ledger-", "mexc-balances-"];
     let mut outputs: Vec<(String, Value, Value)> = vec![];
     for d in &dirs {
         let name = d.file_name().unwrap().to_string_lossy().to_string();
@@ -479,6 +480,20 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     assert_eq!(bitvavo("bitvavo-ledger-trade_pages").len(), 1002, "a full page, then the next before its oldest id");
     let week: Vec<i64> = bitvavo("bitvavo-ledger-week").iter().map(|r| r["entry_type"].as_i64().unwrap()).collect();
     assert_eq!(week, [4, 4, 4, 5, 1, 0], "kept transfers, then the window's trades");
+    // MEXC (plan VB slice A5): a full page is read again in halves and only the halves' rows are kept; 700007 in a half drops
+    // that range and ends the history; a gone pair is skipped and a sold-out pair the stored rows name is read; the start
+    // is floored to 80 days.
+    let mexc = |name: &str| rows(&rails_of(name), "account_transactions").iter().filter(|r| r["before"].is_null()).map(|r| r["after"].clone()).collect::<Vec<_>>();
+    let mexc_asked = |name: &str, path: &str| rails_of(name)["steps"][0]["requests"].as_array().unwrap().iter().filter(|r| r[0] == path).count();
+    assert_eq!(mexc("mexc-ledger-halving").len(), 5, "3 + 2 from the halves, none of the full page's");
+    assert_eq!(mexc_asked("mexc-ledger-halving", "GET /api/v3/capital/deposit/hisrec"), 3);
+    assert_eq!(mexc("mexc-ledger-no_permission_mid").iter().map(|r| r["entry_type"].as_i64().unwrap()).collect::<Vec<_>>(), [5], "the withdrawal only");
+    assert_eq!(mexc("mexc-ledger-symbol_gone").iter().map(|r| r["tx_id"].clone()).collect::<Vec<_>>(), [json!("ETHUSDT-C02__7-7")]);
+    assert_eq!(mexc_asked("mexc-ledger-full", "GET /api/v3/capital/deposit/hisrec"), 13, "89 days in 7-day ranges");
+    assert_eq!(mexc_asked("mexc-ledger-away_100_days", "GET /api/v3/capital/deposit/hisrec"), 12, "80 days in 7-day ranges");
+    let week: Vec<i64> = mexc("mexc-ledger-week").iter().map(|r| r["entry_type"].as_i64().unwrap()).collect();
+    assert_eq!(week, [4, 4, 5, 1, 0, 0], "credited deposits, the completed withdrawal, then the pairs' trades (a repeated id once)");
+    assert!(key_error(&rails_of("mexc-ledger-not_a_list")).as_str().is_some_and(|e| e.starts_with("MEXC ledger read failed: {")));
     let (taken, stored) = claimed("binance-ledger-file_transfers");
     assert_eq!(taken, ["0xd1", "0xw1", "0xw3"]);
     assert!(stored.contains(&"0xd2".to_string()) && stored.contains(&"0xd8".to_string()) && !stored.contains(&"0xd1".to_string()), "{stored:?}");

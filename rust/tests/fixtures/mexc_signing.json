@@ -1,0 +1,433 @@
+{
+  "sources": {
+    "script/rust/record_venue_signing.rb": "13d8d40c5a9b425e14d19bce1f0c0c143630e1f25f72eb611362affc2d7055f8",
+    "app/models/exchanges/mexc.rb": "08a430af264efc84f88c0233fdd47a9cce4532a0cf829d580f7c9569e0697454"
+  },
+  "gems": {
+    "honeymaker": "0.12.5",
+    "hyperliquid-rb": "0.1.1",
+    "jwt": "2.10.3",
+    "rbnacl": "7.1.2",
+    "eth": "0.5.18",
+    "msgpack": "1.8.5"
+  },
+  "errors": {
+    "insufficient_funds": [
+      "Insufficient balance",
+      "Insufficient position",
+      "Oversold"
+    ],
+    "invalid_key": [
+      "Api key info invalid",
+      "API-key format invalid",
+      "Invalid Api-Key ID.",
+      "Signature for this request is not valid",
+      "Signature verification failed"
+    ],
+    "permission_denied": [
+      "No permission to access the endpoint",
+      "IP non white list"
+    ],
+    "throttle": [
+      "Too Many Requests",
+      "Too many requests",
+      "Requests are too frequent"
+    ],
+    "transient": [
+      "Timestamp for this request is outside of the recvWindow",
+      "Timestamp for this request was",
+      "service not available",
+      "Gateway Time-out"
+    ]
+  },
+  "network_transient": [
+    "Net::ReadTimeout",
+    "Net::OpenTimeout",
+    "Faraday::TimeoutError",
+    "Faraday::ConnectionFailed",
+    "execution expired",
+    "Connection reset",
+    "Errno::ECONNRESET",
+    "connection refused",
+    "Connection refused",
+    "Errno::ECONNREFUSED",
+    "end of file reached",
+    "unexpected eof while reading"
+  ],
+  "placement_safe": [
+    "Timestamp for this request is outside of the recvWindow",
+    "Timestamp for this request was"
+  ],
+  "order_gone_codes": [
+    -2013,
+    -2011
+  ],
+  "signing": [
+    {
+      "method": "GET",
+      "path": "/api/v3/account",
+      "query": "recvWindow=5000&signature=4556220af4635c8fc7e010c83e668629da63b166a9c18b66c91099c9a0058802&timestamp=1789871400750",
+      "body": null,
+      "headers": {
+        "X-mexc-apikey": "mx0vglBqh6abc12345",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "account_information",
+      "api_key": "mx0vglBqh6abc12345",
+      "api_secret": "0123456789abcdef0123456789abcdef",
+      "timestamp": 1789871400750
+    },
+    {
+      "method": "GET",
+      "path": "/api/v3/order",
+      "query": "orderId=C02__443776347957968896&recvWindow=5000&signature=bbbccdd214ef00ea00078b0fd3b8ba42ec7bdb1cca66a3eb8082c2fd77b919ae&symbol=BTCUSDT&timestamp=1789871400751",
+      "body": null,
+      "headers": {
+        "X-mexc-apikey": "mx0vglBqh6abc12345",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "query_order",
+      "api_key": "mx0vglBqh6abc12345",
+      "api_secret": "0123456789abcdef0123456789abcdef",
+      "timestamp": 1789871400751
+    },
+    {
+      "method": "GET",
+      "path": "/api/v3/order",
+      "query": "origClientOrderId=5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01&recvWindow=5000&signature=bbb6f5d06c43a04da58ba4f22315d3f14b98ab1457336d8a850322f21824aa74&symbol=BTCUSDT&timestamp=1789871400752",
+      "body": null,
+      "headers": {
+        "X-mexc-apikey": "mx0vglBqh6abc12345",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "query_order client",
+      "api_key": "mx0vglBqh6abc12345",
+      "api_secret": "0123456789abcdef0123456789abcdef",
+      "timestamp": 1789871400752
+    },
+    {
+      "method": "GET",
+      "path": "/api/v3/myTrades",
+      "query": "endTime=1789871400750&limit=100&recvWindow=5000&signature=d3860898f36a080a7af178675391f1d2c4a0a3d7bc775c42965d4ea8fead4704&startTime=1787000000000&symbol=BTCUSDT&timestamp=1789871400753",
+      "body": null,
+      "headers": {
+        "X-mexc-apikey": "mx0vglBqh6abc12345",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "account_trade_list",
+      "api_key": "mx0vglBqh6abc12345",
+      "api_secret": "0123456789abcdef0123456789abcdef",
+      "timestamp": 1789871400753
+    },
+    {
+      "method": "GET",
+      "path": "/api/v3/capital/deposit/hisrec",
+      "query": "endTime=1789604800000&limit=1000&recvWindow=5000&signature=0fe594b21567904f36ff9ebf47aaff936e486c5778d72232548b9f806766b2b6&startTime=1789000000000&timestamp=1789871400754",
+      "body": null,
+      "headers": {
+        "X-mexc-apikey": "mx0vglBqh6abc12345",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "deposit_history",
+      "api_key": "mx0vglBqh6abc12345",
+      "api_secret": "0123456789abcdef0123456789abcdef",
+      "timestamp": 1789871400754
+    },
+    {
+      "method": "GET",
+      "path": "/api/v3/capital/withdraw/history",
+      "query": "endTime=1789604800000&limit=1000&recvWindow=5000&signature=60e1950e18e1c6e41e43f6b5dd0df9b02c6cd3647a4a63fe475605f2aa0d20ab&startTime=1789000000000&timestamp=1789871400755",
+      "body": null,
+      "headers": {
+        "X-mexc-apikey": "mx0vglBqh6abc12345",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "withdraw_history",
+      "api_key": "mx0vglBqh6abc12345",
+      "api_secret": "0123456789abcdef0123456789abcdef",
+      "timestamp": 1789871400755
+    },
+    {
+      "method": "POST",
+      "path": "/api/v3/order",
+      "query": "newClientOrderId=5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01&quoteOrderQty=60.5&recvWindow=5000&side=BUY&signature=c69ee698c67d364aacc6e698a22cfc1108a5d4a0a84481ef5acefec7160b102b&symbol=BTCUSDT&timestamp=1789871400756&type=MARKET",
+      "body": "",
+      "headers": {
+        "X-mexc-apikey": "mx0vglBqh6abc12345",
+        "Accept": "application/json",
+        "Content-type": "application/json",
+        "Content-Length": "0"
+      },
+      "call": "new_order market quote",
+      "api_key": "mx0vglBqh6abc12345",
+      "api_secret": "0123456789abcdef0123456789abcdef",
+      "timestamp": 1789871400756
+    },
+    {
+      "method": "POST",
+      "path": "/api/v3/order",
+      "query": "quantity=0.000937&recvWindow=5000&side=SELL&signature=b94ad6ae04ffcdbc8a1fcbd19d25dc02cf209a02b84a0eff252db5a0153bbe6b&symbol=BTCUSDT&timestamp=1789871400757&type=MARKET",
+      "body": "",
+      "headers": {
+        "X-mexc-apikey": "mx0vglBqh6abc12345",
+        "Accept": "application/json",
+        "Content-type": "application/json",
+        "Content-Length": "0"
+      },
+      "call": "new_order market base",
+      "api_key": "mx0vglBqh6abc12345",
+      "api_secret": "0123456789abcdef0123456789abcdef",
+      "timestamp": 1789871400757
+    },
+    {
+      "method": "POST",
+      "path": "/api/v3/order",
+      "query": "newClientOrderId=5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01&price=0.03512&quantity=1.2&recvWindow=5000&side=BUY&signature=0c3390882fa2e10bbe790fe8c9bc934476e368a81559e7896894c8713d36113c&symbol=ETHBTC&timeInForce=GTC&timestamp=1789871400758&type=LIMIT",
+      "body": "",
+      "headers": {
+        "X-mexc-apikey": "mx0vglBqh6abc12345",
+        "Accept": "application/json",
+        "Content-type": "application/json",
+        "Content-Length": "0"
+      },
+      "call": "new_order limit",
+      "api_key": "mx0vglBqh6abc12345",
+      "api_secret": "0123456789abcdef0123456789abcdef",
+      "timestamp": 1789871400758
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v3/order",
+      "query": "orderId=C02__443776347957968896&recvWindow=5000&signature=3082c4d7df36091dd26ea9ec0484a359bb3d85479bc66b96e865df6a72687722&symbol=BTCUSDT&timestamp=1789871400759",
+      "body": null,
+      "headers": {
+        "X-mexc-apikey": "mx0vglBqh6abc12345",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "cancel_order",
+      "api_key": "mx0vglBqh6abc12345",
+      "api_secret": "0123456789abcdef0123456789abcdef",
+      "timestamp": 1789871400759
+    },
+    {
+      "method": "GET",
+      "path": "/api/v3/myTrades",
+      "query": "limit=500&recvWindow=5000&signature=7ea6e879197de412e3a0e497bf4754b3857aa6d335156ced6158f7eb566d798b&symbol=A+B%2F~%2A%C3%A9&timestamp=1789871400760",
+      "body": null,
+      "headers": {
+        "X-mexc-apikey": "mx0vglBqh6abc12345",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "account_trade_list escaped",
+      "api_key": "mx0vglBqh6abc12345",
+      "api_secret": "0123456789abcdef0123456789abcdef",
+      "timestamp": 1789871400760
+    },
+    {
+      "method": "GET",
+      "path": "/api/v3/exchangeInfo",
+      "query": null,
+      "body": null,
+      "headers": {
+        "X-mexc-apikey": "mx0vglBqh6abc12345",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "exchange_information public",
+      "api_key": "mx0vglBqh6abc12345",
+      "api_secret": "0123456789abcdef0123456789abcdef",
+      "timestamp": 1789871400761
+    },
+    {
+      "method": "GET",
+      "path": "/api/v3/account",
+      "query": "recvWindow=5000&signature=9a583e9ed4c693ca3edb749b9cd589c50ed89b396498c9fda1e1ed92d0ce7247&timestamp=1789871401750",
+      "body": null,
+      "headers": {
+        "X-mexc-apikey": "k",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "account_information",
+      "api_key": "k",
+      "api_secret": "s3cr3t~/+=",
+      "timestamp": 1789871401750
+    },
+    {
+      "method": "GET",
+      "path": "/api/v3/order",
+      "query": "orderId=C02__443776347957968896&recvWindow=5000&signature=f0aaa5cd6f068420f7fd55fc58926bb97371d9a08ba2e6607271507aaa868d7f&symbol=BTCUSDT&timestamp=1789871401751",
+      "body": null,
+      "headers": {
+        "X-mexc-apikey": "k",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "query_order",
+      "api_key": "k",
+      "api_secret": "s3cr3t~/+=",
+      "timestamp": 1789871401751
+    },
+    {
+      "method": "GET",
+      "path": "/api/v3/order",
+      "query": "origClientOrderId=5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01&recvWindow=5000&signature=8f999e6f1ef5b2e123277973dec3714e5ed02fcef49a294a62206701d3cbd1de&symbol=BTCUSDT&timestamp=1789871401752",
+      "body": null,
+      "headers": {
+        "X-mexc-apikey": "k",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "query_order client",
+      "api_key": "k",
+      "api_secret": "s3cr3t~/+=",
+      "timestamp": 1789871401752
+    },
+    {
+      "method": "GET",
+      "path": "/api/v3/myTrades",
+      "query": "endTime=1789871400750&limit=100&recvWindow=5000&signature=ee1ce0f11e8a4972723d70c072fab825c863d3d66e23f925f7b7e25dc43c3d44&startTime=1787000000000&symbol=BTCUSDT&timestamp=1789871401753",
+      "body": null,
+      "headers": {
+        "X-mexc-apikey": "k",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "account_trade_list",
+      "api_key": "k",
+      "api_secret": "s3cr3t~/+=",
+      "timestamp": 1789871401753
+    },
+    {
+      "method": "GET",
+      "path": "/api/v3/capital/deposit/hisrec",
+      "query": "endTime=1789604800000&limit=1000&recvWindow=5000&signature=61ecdb5fb7ca163cf40a63833ac6ab95144b0a959f8d0e3fd5002790d2173110&startTime=1789000000000&timestamp=1789871401754",
+      "body": null,
+      "headers": {
+        "X-mexc-apikey": "k",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "deposit_history",
+      "api_key": "k",
+      "api_secret": "s3cr3t~/+=",
+      "timestamp": 1789871401754
+    },
+    {
+      "method": "GET",
+      "path": "/api/v3/capital/withdraw/history",
+      "query": "endTime=1789604800000&limit=1000&recvWindow=5000&signature=c8a243f6fbdfe9ea16b1c2a52ec54e12e7cabc84471413232d8604fb15dbc727&startTime=1789000000000&timestamp=1789871401755",
+      "body": null,
+      "headers": {
+        "X-mexc-apikey": "k",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "withdraw_history",
+      "api_key": "k",
+      "api_secret": "s3cr3t~/+=",
+      "timestamp": 1789871401755
+    },
+    {
+      "method": "POST",
+      "path": "/api/v3/order",
+      "query": "newClientOrderId=5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01&quoteOrderQty=60.5&recvWindow=5000&side=BUY&signature=9c4d99ecad87aade2741070ea70565951e09b88bf96d8567ba8f65d7f961c810&symbol=BTCUSDT&timestamp=1789871401756&type=MARKET",
+      "body": "",
+      "headers": {
+        "X-mexc-apikey": "k",
+        "Accept": "application/json",
+        "Content-type": "application/json",
+        "Content-Length": "0"
+      },
+      "call": "new_order market quote",
+      "api_key": "k",
+      "api_secret": "s3cr3t~/+=",
+      "timestamp": 1789871401756
+    },
+    {
+      "method": "POST",
+      "path": "/api/v3/order",
+      "query": "quantity=0.000937&recvWindow=5000&side=SELL&signature=389780931ed7353a91d46a034954767fb4db780d6b970787bb11fb281ddf0283&symbol=BTCUSDT&timestamp=1789871401757&type=MARKET",
+      "body": "",
+      "headers": {
+        "X-mexc-apikey": "k",
+        "Accept": "application/json",
+        "Content-type": "application/json",
+        "Content-Length": "0"
+      },
+      "call": "new_order market base",
+      "api_key": "k",
+      "api_secret": "s3cr3t~/+=",
+      "timestamp": 1789871401757
+    },
+    {
+      "method": "POST",
+      "path": "/api/v3/order",
+      "query": "newClientOrderId=5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01&price=0.03512&quantity=1.2&recvWindow=5000&side=BUY&signature=fc72848f850e29ea5731e4d5b77ec6cf4690631b9b3132aecae098ae22e76d70&symbol=ETHBTC&timeInForce=GTC&timestamp=1789871401758&type=LIMIT",
+      "body": "",
+      "headers": {
+        "X-mexc-apikey": "k",
+        "Accept": "application/json",
+        "Content-type": "application/json",
+        "Content-Length": "0"
+      },
+      "call": "new_order limit",
+      "api_key": "k",
+      "api_secret": "s3cr3t~/+=",
+      "timestamp": 1789871401758
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v3/order",
+      "query": "orderId=C02__443776347957968896&recvWindow=5000&signature=4075a3531b75da900f018f014c4d98a96d1956502097a3ff45785412f48601c9&symbol=BTCUSDT&timestamp=1789871401759",
+      "body": null,
+      "headers": {
+        "X-mexc-apikey": "k",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "cancel_order",
+      "api_key": "k",
+      "api_secret": "s3cr3t~/+=",
+      "timestamp": 1789871401759
+    },
+    {
+      "method": "GET",
+      "path": "/api/v3/myTrades",
+      "query": "limit=500&recvWindow=5000&signature=5104bc89bc46f1e224bbf58103d49546e551d1ffbfddb0b84b71cd24867e251c&symbol=A+B%2F~%2A%C3%A9&timestamp=1789871401760",
+      "body": null,
+      "headers": {
+        "X-mexc-apikey": "k",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "account_trade_list escaped",
+      "api_key": "k",
+      "api_secret": "s3cr3t~/+=",
+      "timestamp": 1789871401760
+    },
+    {
+      "method": "GET",
+      "path": "/api/v3/exchangeInfo",
+      "query": null,
+      "body": null,
+      "headers": {
+        "X-mexc-apikey": "k",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "exchange_information public",
+      "api_key": "k",
+      "api_secret": "s3cr3t~/+=",
+      "timestamp": 1789871401761
+    }
+  ]
+}
