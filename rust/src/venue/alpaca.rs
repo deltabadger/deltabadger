@@ -548,6 +548,7 @@ impl VenueFactory for LiveFactory {
                     super::gemini::GEMINI => ReqwestTransport::gemini(client, key, secret.clone()),
                     super::bitget::BITGET => ReqwestTransport::bitget(client, key, secret.clone(), passphrase),
                     super::mexc::MEXC => ReqwestTransport::mexc(client, key, secret.clone()),
+                    super::bitrue::BITRUE => ReqwestTransport::bitrue(client, key, secret.clone()),
                     _ => ReqwestTransport::binance(client, key, secret.clone()),
                 };
                 (transport.with_sensitive_values(values.into_iter().chain(proxy).collect()).with_clock(self.clock.clone()), pairs)
@@ -583,6 +584,10 @@ impl VenueFactory for LiveFactory {
             super::mexc::MEXC => {
                 let venue = super::mexc::MexcVenue::new(transport, row.base, &secret).with_pairs(pairs);
                 LiveVenue::Mexc(match &identity { Some(c) => venue.with_identity(c), None => venue })
+            }
+            super::bitrue::BITRUE => {
+                let venue = super::bitrue::BitrueVenue::new(transport, row.base, &secret).with_pairs(pairs);
+                LiveVenue::Bitrue(match &identity { Some(c) => venue.with_identity(c), None => venue })
             }
             _ => unconnected(),
         }
@@ -623,7 +628,7 @@ fn bot_problem(c: &Connection, cipher: &Cipher, id: i64) -> Result<Option<String
     let bot = model::load_bot(c, id)?;
     let exchange = model::exchange_type(c, &bot)?;
     let Some(rules) = crate::engine::venue_rules::for_exchange(&exchange) else {
-        return Ok(Some(format!("{exchange} is not connected in this build (only Kraken, Binance, Binance.US, KuCoin, Bitvavo, Gemini, Bitget, MEXC and Alpaca)")));
+        return Ok(Some(format!("{exchange} is not connected in this build (only Kraken, Binance, Binance.US, KuCoin, Bitvavo, Gemini, Bitget, MEXC, Alpaca and Bitrue)")));
     };
     Ok(match model::credentials_for(c, cipher, &bot)? {
         None => Some(format!("no {} API key", rules.name)),

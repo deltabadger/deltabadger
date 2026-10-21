@@ -1,0 +1,152 @@
+//! Bitrue N-run equivalence, overlapping halves, offset paging, durable restart and cancellation replay.
+mod common;
+use deltabadger::crypto::Credentials;
+use deltabadger::engine::FixedClock;
+use deltabadger::jobs::Db;
+use deltabadger::sync::continuation::{Run, Stopwatch};
+use deltabadger::sync::bitrue_ledger;
+use deltabadger::venue::http::{HttpRequest, HttpResponse, Transport, TransportError};
+use serde_json::{json, Value};
+use std::cell::{Cell, RefCell};
+use std::rc::Rc;
+use std::time::Duration;
+
+const NOW: &str = "2026-09-20T02:00:00Z";
+const DAY: i64 = 86_400_000;
+
+fn now_ms() -> i64 { NOW.parse::<chrono::DateTime<chrono::Utc>>().unwrap().timestamp_millis() }
+fn creds() -> Credentials { Credentials { redaction_values: vec![], key: "PKTEST".into(), secret: "paper-secret".into(), passphrase: Some("paper".into()) } }
+
+/// A Bitrue key with no watermark: a whole-history import.
+fn install() -> (tempfile::TempDir, Db, i64) {
+    let (dir, o, s) = common::install_alpaca();
+    o.primary.execute("UPDATE exchanges SET type = 'Exchanges::Bitrue', name = 'Bitrue' WHERE id = ?1", [s.exchange_id]).unwrap();
+    (dir, Db::new(o.primary, common::seed::cipher()), s.api_key_id)
+}
+
+/// More than one page of transfers and trades, two held coins, upper/lower-case currency names.
+struct Account { deposits: Vec<Value>, withdrawals: Vec<Value>, trades: Vec<Value> }
+fn account() -> Account {
+    let n = now_ms();
+    let deposit = |coin: &str, amount: String, at: i64, status: i64| json!({ "amount": amount, "symbol": coin, "status": status, "txid": format!("0x{coin}{at}:0"), "createdAt": at });
+    let mut deposits: Vec<Value> = (0..1200).map(|i| deposit("USDT", format!("1.{i:04}"), n - 40 * DAY + 3_600_000 + i * 60_000, 1)).collect();
+    deposits.push(deposit("BTC", "0.5".into(), n - 20 * DAY, 1));
+
+    let withdrawals = vec![json!({ "id": "w1", "symbol": "usdt_erc20", "amount": "3", "fee": "1", "status": 5, "createdAt": n - 5 * DAY }),
+                           json!({ "id": "w2", "symbol": "usdt_erc20", "amount": "4", "fee": "1", "status": 5, "createdAt": n - 4 * DAY })];
+    let trade = |symbol: &str, i: i64| json!({ "symbol": symbol, "id": i, "orderId": format!("{i}"), "price": format!("{}", 60_000 + i), "qty": "0.001",
+                                                "commission": "-0.01", "commissionAsset": "USDT", "time": n - 25 * DAY + i * 60_000, "isBuyer": i % 2 == 0 });
+    let mut trades: Vec<Value> = (0..1250).map(|i| trade("BTCUSDT", i)).collect();
+    trades.extend((1000..1003).map(|i| trade("ETHUSDT", i)));
+    Account { deposits, withdrawals, trades }
+}
+
+#[derive(Default)]
+struct Watch { at: Cell<Duration>, cut: tokio::sync::Notify }
+impl Stopwatch for Watch { fn elapsed(&self) -> Duration { self.at.get() } }
+
+/// Bitrue as the walk reads it: every request `latency` long on the watch; each history the rows within [startTime, endTime],
+/// at most `limit`, with offsets for transfers. `cut_at`: the runner's deadline cuts the run at that request (counted from 1).
+#[derive(Clone)]
+struct Venue { account: Rc<Account>, watch: Rc<Watch>, latency: Duration, log: Rc<RefCell<Vec<String>>>, cut_at: Rc<Cell<Option<usize>>> }
+impl Transport for Venue {
+    async fn send(&self, r: &HttpRequest) -> Result<HttpResponse, TransportError> {
+        let n = self.log.borrow().len() + 1;
+        self.watch.at.set(self.watch.at.get() + self.latency);
+        if self.cut_at.get() == Some(n) { self.watch.cut.notify_one(); }
+        self.log.borrow_mut().push(deltabadger::venue::http::request_key(r));
+        let q = |k: &str| r.query.iter().find(|(name, _)| *name == k).map(|(_, v)| v.clone());
+        let within = |rows: &[Value], time: &str| -> Value {
+            let (from, to, limit): (i64, i64, usize) = (q("startTime").unwrap().parse().unwrap(), q("endTime").unwrap().parse().unwrap(), q("limit").unwrap().parse().unwrap());
+            json!(rows.iter().filter(|d| (from..=to).contains(&d[time].as_i64().unwrap())).filter(|d| q("symbol").is_none_or(|s| d["symbol"] == s.as_str()))
+                .filter(|d| q("coin").is_none_or(|c| d["symbol"].as_str().unwrap().split('_').next().unwrap().eq_ignore_ascii_case(&c)))
+                .skip(q("offset").map_or(0, |s| s.parse().unwrap())).take(limit).collect::<Vec<_>>())
+        };
+        let body = match r.path.as_str() {
+            "/api/v1/deposit/history" => json!({"code":200,"data":within(&self.account.deposits, "createdAt")}),
+            "/api/v1/withdraw/history" => json!({"code":200,"data":within(&self.account.withdrawals, "createdAt")}),
+            "/api/v1/account" => json!({ "canTrade": true, "balances": [{ "asset": "btc", "free": "1", "locked": "0" }, { "asset": "eth", "free": "1", "locked": "0" }] }),
+            "/api/v1/exchangeInfo" => json!({ "symbols": [{ "symbol": "BTCUSDT", "baseAsset": "btc", "quoteAsset": "usdt" }, { "symbol": "ETHUSDT", "baseAsset": "ETH", "quoteAsset": "usdt" },
+                                                          { "symbol": "XRPUSDT", "baseAsset": "XRP", "quoteAsset": "usdt" }] }),
+            "/api/v2/myTrades" => within(&self.account.trades, "time"),
+            other => panic!("unscripted {other}"),
+        };
+        Ok(HttpResponse { status: 200, body: body.to_string() })
+    }
+}
+
+type Ran = Result<Result<deltabadger::sync::ledger::Outcome, deltabadger::sync::Failure>, deltabadger::sync::SyncError>;
+
+async fn run(db: &Db, key: i64, v: &Venue, deadline: Duration) -> Option<Ran> {
+    v.watch.at.set(Duration::ZERO);
+    let run = Run { deadline, chain_runs: 1000, stopwatch: &*v.watch };
+    let (credentials, clock) = (creds(), FixedClock(NOW.parse().unwrap()));
+    let out = tokio::select! {
+        biased;
+        _ = v.watch.cut.notified() => None,
+        out = bitrue_ledger::sync_within(db, v.clone(), key, &credentials, &clock, Duration::ZERO, &run) => Some(out),
+    };
+    tokio::time::sleep(Duration::from_millis(50)).await;
+    out
+}
+
+/// Runs until the import completes; how many runs it took.
+async fn import(db: &Db, key: i64, v: &Venue, deadline: Duration) -> usize {
+    for runs in 1..=1000 {
+        if let Some(out) = run(db, key, v, deadline).await {
+            if out.unwrap().unwrap().complete { return runs; }
+            let watermark = db.run(move |c, _| c.query_row("SELECT last_synced_at FROM api_keys WHERE id=?1", [key], |r| r.get::<_, Option<String>>(0)).map_err(|e| e.to_string())).await.unwrap();
+            assert!(watermark.is_none(), "a checkpoint never advances the watermark");
+        }
+    }
+    panic!("the import never completed");
+}
+
+async fn stored(db: &Db, key: i64) -> (Vec<Value>, Option<String>) {
+    db.run(move |c, _| {
+        let mut s = c.prepare("SELECT entry_type, base_currency, base_amount, quote_currency, quote_amount, fee_currency, fee_amount, tx_id, transacted_at, raw_data \
+                               FROM account_transactions ORDER BY id").unwrap();
+        let rows = s.query_map([], |r| Ok(json!([r.get::<_, i64>(0)?, r.get::<_, Option<String>>(1)?, r.get::<_, f64>(2)?, r.get::<_, Option<String>>(3)?,
+                                                 r.get::<_, Option<f64>>(4)?, r.get::<_, Option<String>>(5)?, r.get::<_, Option<f64>>(6)?, r.get::<_, Option<String>>(7)?,
+                                                 r.get::<_, String>(8)?, r.get::<_, String>(9)?]))).unwrap().collect::<Result<Vec<_>, _>>().unwrap();
+        let watermark: Option<String> = c.query_row("SELECT last_synced_at FROM api_keys WHERE id = ?1", [key], |r| r.get(0)).unwrap();
+        Ok((rows, watermark))
+    }).await.unwrap()
+}
+
+fn venue(account: &Rc<Account>, latency: Duration) -> Venue {
+    Venue { account: account.clone(), watch: Rc::default(), latency, log: Rc::default(), cut_at: Rc::default() }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn an_import_over_many_runs_stores_what_one_run_stores() {
+    let account = Rc::new(account());
+    let (_d1, one_db, one_key) = install();
+    let one = venue(&account, Duration::from_millis(1));
+    assert_eq!(import(&one_db, one_key, &one, Duration::from_secs(3600)).await, 1, "a short import is one run");
+    let (rows, watermark) = stored(&one_db, one_key).await;
+    // 1201 deposits, two withdrawals, 1250 BTC and three ETH trades.
+    assert_eq!(rows.len(), 1201 + 2 + 1253);
+    assert!(rows.iter().all(|r| r[6] != json!(-0.01)), "a commission is stored as its absolute value");
+    let log = one.log.borrow().clone();
+    assert!(log.iter().filter(|k| k.starts_with("GET /api/v2/myTrades")).count() > 68, "two complete histories with a halved window");
+    assert!(log.iter().any(|k| k.contains("offset=1000")), "transfer paging reached the second page");
+    // Slow requests force checkpoints in the windows, halves and offsets. The ETH pair is read later
+    // from the list frozen at discovery; discovery is never repeated on resumption.
+    let (_d2, many_db, many_key) = install();
+    let many = venue(&account, Duration::from_secs(60));
+    let runs = import(&many_db, many_key, &many, Duration::from_secs(150)).await;
+    assert!(runs >= 20, "slow requests force many runs: {runs} runs");
+    assert_eq!(many.log.borrow().iter().filter(|k| k.starts_with("GET /api/v1/exchangeInfo")).count(), 1, "pair discovery is frozen across runs");
+    assert_eq!(stored(&many_db, many_key).await, (rows.clone(), watermark.clone()), "N runs store one run's rows and watermark");
+
+    // A run cut mid-walk (the first run at its first request, then each run at its second) replays from the last checkpoint
+    // and stores nothing twice.
+    let (_d3, cut_db, cut_key) = install();
+    let cut = venue(&account, Duration::from_secs(60));
+    cut.cut_at.set(Some(1));
+    assert!(run(&cut_db, cut_key, &cut, Duration::from_secs(150)).await.is_none(), "the first run is cut before it stores its first page");
+    cut.cut_at.set(Some(3));
+    import(&cut_db, cut_key, &cut, Duration::from_secs(150)).await;
+    assert_eq!(stored(&cut_db, cut_key).await, (rows, watermark), "a cut run replays and stores every row once");
+}

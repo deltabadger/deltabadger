@@ -481,6 +481,39 @@ pub async fn bitget_check<T: Transport>(transport: &T, venue: &crate::venue::bit
     (answer, verdict)
 }
 
+/// Bitrue's trading/withdrawal account check, or the inherited read-only balance check.
+/// A withdrawal key needs a readable account; Rails does not inspect canWithdraw here.
+pub fn bitrue_verdict(kind: i64, reading: bool, answer: &Result<HttpResponse, TransportError>, url: &str) -> Verdict {
+    let response = match answer { Ok(r) => r, Err(e) => return Verdict::Failure(transport(e)) };
+    if !(200..300).contains(&response.status) {
+        let message = raised(response, "GET", url);
+        let parsed = crate::venue::binance::error_message(&message);
+        return if (!reading && response.status == 401) || crate::engine::venue_rules::BITRUE.is_invalid_key(std::slice::from_ref(&parsed)) {
+            Verdict::Valid(false)
+        } else { Verdict::Failure(if reading { parsed } else { message }) };
+    }
+    let data = match serde_json::from_str::<Value>(&response.body) {
+        Ok(v) => v,
+        Err(_) if !response.body.trim().is_empty() && response.body.trim().starts_with(['{', '[']) => return Verdict::Failure(response.body.clone()),
+        _ => return Verdict::Failure("Bitrue sent an unreadable answer to the key check".into()),
+    };
+    if !data.is_object() { return Verdict::Failure("Bitrue sent an unreadable answer to the key check".into()); }
+    if reading {
+        match data.get("balances") {
+            Some(Value::Array(rows)) if rows.iter().all(Value::is_object) => Verdict::Valid(true),
+            _ => Verdict::Failure("Bitrue sent balances it cannot read".into()),
+        }
+    } else { Verdict::Valid(kind == 1 || data["canTrade"] == Value::Bool(true)) }
+}
+
+pub async fn bitrue_check<T: Transport>(transport: &T, venue: &crate::venue::bitrue::BitrueVenue<T>, kind: i64, reading: bool) -> (Result<HttpResponse, TransportError>, Verdict) {
+    use crate::venue::bitrue::{ACCOUNT_PATH, RECV_WINDOW};
+    let read = venue.signed("GET", ACCOUNT_PATH, vec![("recvWindow", RECV_WINDOW.into())], transport.now());
+    let answer = transport.send(&read).await;
+    let verdict = bitrue_verdict(kind, reading, &answer, read.url().as_str());
+    (answer, verdict)
+}
+
 /// Exchanges::Mexc::KEY_CHECK_REJECTED: 700007 no permission for the endpoint, 10072 an invalid key.
 pub const MEXC_REJECTED: [i64; 2] = [700_007, 10_072];
 pub const MEXC_DEPOSITS_PATH: &str = "/api/v3/capital/deposit/hisrec";
@@ -564,6 +597,10 @@ pub async fn check(venue: &str, base: &str, client: reqwest::Client, credentials
         let transport = ReqwestTransport::bitget(client, credentials.key.clone(), credentials.secret.clone(), passphrase).with_sensitive_values(redaction);
         let venue = crate::venue::bitget::BitgetVenue::new(transport.clone(), base);
         bitget_check(&transport, &venue, kind).await
+    } else if scheme == Some(KeyCheck::Bitrue) {
+        let transport = ReqwestTransport::bitrue(client, credentials.key.clone(), credentials.secret.clone()).with_sensitive_values(redaction);
+        let venue = crate::venue::bitrue::BitrueVenue::new(transport.clone(), base, &credentials.secret);
+        bitrue_check(&transport, &venue, kind, kind == 2).await
     } else if scheme == Some(KeyCheck::Mexc) {
         let transport = ReqwestTransport::mexc(client, credentials.key.clone(), credentials.secret.clone()).with_sensitive_values(redaction);
         let venue = crate::venue::mexc::MexcVenue::new(transport.clone(), base, &credentials.secret);

@@ -1528,7 +1528,65 @@ module SyncScenarios
     ]
   end
 
+  def bitrue_ledger_scenarios
+    night = '2026-09-20T02:00:00.250000Z'
+    at = Time.utc(2026, 9, 18)
+    week = ->(ctx) { P.bitrue(ctx); ctx[:key].update_columns(last_synced_at: Time.utc(2026, 9, 15)) }
+    trades = [P.br_trade(1, at), P.br_trade(2, at).merge('isBuyer' => false, 'commissionAsset' => nil, 'commissionAssert' => 'btc')]
+    dep = P.br_transfer('d1', 'BTC', at)
+    wd = P.br_transfer('w1', 'usdt_erc20', at, fee: '0.1')
+    full = Array.new(1000) { |i| P.br_trade(i + 1000, at) }
+    transfers = Array.new(1000) { |i| P.br_transfer("p#{i}", 'BTC', at) }
+    err = ->(status, code, msg) { { 'status' => status, 'body' => { 'code' => code, 'msg' => msg } } }
+    [
+      { name: 'bitrue-ledger-week', setup: week, steps: [P.bitrue_ledger(night, trades: [P.ok(trades)], deposits: [P.br_page([dep, dep.except('id')])], withdrawals: [P.br_page([wd])])] },
+      { name: 'bitrue-ledger-full', setup: ->(ctx) { P.bitrue(ctx) }, steps: [P.bitrue_ledger(night, trades: [P.ok(trades), P.ok([])])] },
+      { name: 'bitrue-ledger-two_years', setup: ->(ctx) { P.bitrue(ctx); ctx[:key].update_columns(last_synced_at: Time.utc(2024, 9, 20)) },
+        steps: [P.bitrue_ledger(night, trades: [P.ok(trades), P.ok(trades), P.ok([])])] },
+      { name: 'bitrue-ledger-two_nights', setup: week,
+        steps: [P.bitrue_ledger(night, trades: [P.ok(trades)], deposits: [P.br_page([dep])]), P.bitrue_ledger('2026-09-21T02:00:00.250000Z', trades: [P.ok(trades)], deposits: [P.br_page([dep])])] },
+      { name: 'bitrue-ledger-halving', setup: week, steps: [P.bitrue_ledger(night, trades: [P.ok(full), P.ok(trades), P.ok(trades)])] },
+      { name: 'bitrue-ledger-trade_saturated', setup: week, steps: [P.bitrue_ledger(night, trades: [P.ok(full)])] },
+      { name: 'bitrue-ledger-offset', setup: week, steps: [P.bitrue_ledger(night, deposits: [P.br_page(transfers), P.br_page([dep])])] },
+      { name: 'bitrue-ledger-repeated_page', setup: week, steps: [P.bitrue_ledger(night, deposits: [P.br_page(transfers)])] },
+      { name: 'bitrue-ledger-no_permission', setup: week, steps: [P.bitrue_ledger(night, deposits: [err.(401, -2015, "You don't have permission.")], withdrawals: [err.(403, -2015, 'has no operation privilege')])] },
+      { name: 'bitrue-ledger-bare_401', setup: week, steps: [P.bitrue_ledger(night, deposits: [err.(401, -1022, 'No login')])] },
+      { name: 'bitrue-ledger-symbol_gone', setup: week, steps: [P.bitrue_ledger(night, trades: [err.(400, -1121, 'Invalid symbol.')])] },
+      { name: 'bitrue-ledger-symbol_gone_200', setup: week, steps: [P.bitrue_ledger(night, trades: [P.ok('code' => '-1121', 'msg' => 'Invalid symbol.')])] },
+      { name: 'bitrue-ledger-account_fails', setup: week, steps: [P.bitrue_ledger(night, account: [err.(401, -1022, 'No login')])] },
+      { name: 'bitrue-ledger-listing_fails', setup: week, steps: [P.bitrue_ledger(night, info: [err.(503, -1000, 'System abnormality')])] },
+      { name: 'bitrue-ledger-trades_fail', setup: week, steps: [P.bitrue_ledger(night, trades: [err.(503, -1000, 'System abnormality')])] },
+      { name: 'bitrue-ledger-trades_envelope', setup: week, steps: [P.bitrue_ledger(night, trades: [P.ok('code' => 500, 'msg' => 'System abnormality')])] },
+      { name: 'bitrue-ledger-transfers_not_object', setup: week, steps: [P.bitrue_ledger(night, deposits: [P.ok([])])] },
+      { name: 'bitrue-ledger-envelope', setup: week, steps: [P.bitrue_ledger(night, deposits: [P.ok('code' => 500, 'msg' => 'System abnormality')])] },
+      { name: 'bitrue-ledger-sold_out', setup: lambda { |ctx|
+          week.call(ctx)
+          AccountTransaction.create!(user: ctx[:user], api_key: ctx[:key], exchange: ctx[:bitrue], entry_type: :sell, base_currency: 'ETH', base_amount: 1,
+                                     quote_currency: 'USDT', quote_amount: 2000, transacted_at: at - 10.days, tx_id: 'old')
+        }, steps: [P.bitrue_ledger(night, account: [P.mx_account], info: [P.mx_info(%w[BTC USDT], %w[ETH USDT])], trades: [P.ok(trades)])] },
+      { name: 'bitrue-ledger-bot_order_pair', setup: lambda { |ctx|
+          week.call(ctx)
+          bot = P.holder(ctx, 'ETH', at: at - 10.days, venue: ctx[:bitrue])
+          bot.transactions.update_all(quote: 'USDT', quote_asset_id: ctx[:assets]['USDT'].id)
+        }, steps: [P.bitrue_ledger(night, account: [P.mx_account], info: [P.mx_info(%w[BTC USDT], %w[ETH USDT])], trades: [P.ok(trades)])] },
+      { name: 'bitrue-ledger-nothing', setup: week, steps: [P.bitrue_ledger(night)] }
+    ]
+  end
+
+  def bitrue_balance_scenarios
+    night = '2026-09-20T02:30:00.750000Z'
+    install = ->(ctx) { P.bitrue(ctx) }
+    err = ->(status, code, msg) { { 'status' => status, 'body' => { 'code' => code, 'msg' => msg } } }
+    [
+      { name: 'bitrue-balances-lowercase', setup: install, steps: [P.bitrue_balances(night, account: P.mx_account(%w[btc 0.5 0.1], %w[eth 2], %w[usdt 100.5]), prices: P.prices_body('bitcoin' => 60000, 'ethereum' => 2500))] },
+      { name: 'bitrue-balances-invalid_key', setup: install, steps: [P.bitrue_balances(night, account: err.(401, -1022, 'No login'))] },
+      { name: 'bitrue-balances-no_permission', setup: install, steps: [P.bitrue_balances(night, account: err.(403, -2015, "You don't have permission."))] },
+      { name: 'bitrue-balances-throttle', setup: install, steps: [P.bitrue_balances(night, account: err.(429, -1003, 'Too many requests.'))] },
+      { name: 'bitrue-balances-nothing', setup: install, steps: [P.bitrue_balances(night, account: P.mx_account)] }
+    ]
+  end
+
   def all = ledger_scenarios + balance_scenarios + binance_balance_scenarios + binance_ledger_scenarios + import_scenarios + kucoin_ledger_scenarios +
             kucoin_balance_scenarios + bitvavo_ledger_scenarios + bitvavo_balance_scenarios + gemini_ledger_scenarios + gemini_balance_scenarios +
-            bitget_ledger_scenarios + bitget_balance_scenarios + mexc_ledger_scenarios + mexc_balance_scenarios
+            bitget_ledger_scenarios + bitget_balance_scenarios + mexc_ledger_scenarios + mexc_balance_scenarios + bitrue_ledger_scenarios + bitrue_balance_scenarios
 end

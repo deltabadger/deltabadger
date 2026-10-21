@@ -57,6 +57,9 @@ pub trait Connect {
     fn mexc_transport(&self, _credentials: &Credentials, _proxy: Option<&str>) -> ReqwestTransport {
         ReqwestTransport::refused("MEXC is not connected here")
     }
+    fn bitrue_transport(&self, _credentials: &Credentials, _proxy: Option<&str>) -> ReqwestTransport {
+        ReqwestTransport::refused("Bitrue is not connected here")
+    }
     /// How far apart a Bitvavo ledger read's calls go (Exchanges::Bitvavo::LEDGER_READ_PAUSE); a test waits for nothing.
     fn bitvavo_pause(&self) -> Duration { crate::sync::bitvavo_ledger::READ_PAUSE }
     /// How a Gemini key's syncs reach Gemini (Honeymaker.client('gemini', proxy: ExchangeProxy.for('gemini'))). By default
@@ -132,6 +135,13 @@ impl Connect for LiveFactory {
             Some(proxy) => match crate::venue::http::client_via(proxy) { Ok(client) => client, Err(why) => return ReqwestTransport::refused(&why) },
         };
         ReqwestTransport::mexc(client, credentials.key.clone(), credentials.secret.clone()).with_sensitive_values(credentials.redaction_values.clone())
+    }
+    fn bitrue_transport(&self, credentials: &Credentials, proxy: Option<&str>) -> ReqwestTransport {
+        let client = match proxy {
+            None => crate::venue::http::client(),
+            Some(proxy) => match crate::venue::http::client_via(proxy) { Ok(client) => client, Err(why) => return ReqwestTransport::refused(&why) },
+        };
+        ReqwestTransport::bitrue(client, credentials.key.clone(), credentials.secret.clone()).with_sensitive_values(credentials.redaction_values.clone())
     }
 }
 
@@ -247,6 +257,8 @@ impl<C: Connect> Job for LedgerSync<C> {
                         crate::sync::bitget_ledger::sync(&cx.db, self.venues.bitget_transport(&credentials, proxy.as_deref()), self.key_id, &credentials, cx.clock).await,
                     Some(LedgerSync::Mexc) =>
                         crate::sync::mexc_ledger::sync(&cx.db, self.venues.mexc_transport(&credentials, proxy.as_deref()), self.key_id, &credentials, cx.clock).await,
+                    Some(LedgerSync::Bitrue) =>
+                        crate::sync::bitrue_ledger::sync(&cx.db, self.venues.bitrue_transport(&credentials, proxy.as_deref()), self.key_id, &credentials, cx.clock, crate::sync::bitrue_ledger::READ_PAUSE).await,
                     // Alpaca's, and a key on any other venue: ledger::load_key refuses it as it always did.
                     Some(LedgerSync::Alpaca) | None => ledger::sync_captured(&cx.db, &self.venues.connect(&credentials), self.key_id, &credentials, cx.clock, self.limits, &version).await,
                 },
@@ -307,6 +319,8 @@ impl<C: Connect> Job for BalanceSync<C> {
                         balances::sync_bitget_captured(&cx.db, self.venues.bitget_transport(&credentials, proxy.as_deref()), self.prices.as_ref(), self.key_id, &credentials, cx.clock, &version).await,
                     Some(BalanceSync::Mexc) =>
                         balances::sync_mexc_captured(&cx.db, self.venues.mexc_transport(&credentials, proxy.as_deref()), self.prices.as_ref(), self.key_id, &credentials, cx.clock, &version).await,
+                    Some(BalanceSync::Bitrue) =>
+                        balances::sync_bitrue_captured(&cx.db, self.venues.bitrue_transport(&credentials, proxy.as_deref()), self.prices.as_ref(), self.key_id, &credentials, cx.clock, &version).await,
                     // Alpaca's, and a key on any other venue: the Alpaca sync's load_key refuses it as it always did.
                     Some(BalanceSync::Alpaca) | None => balances::sync_captured(&cx.db, &self.venues.connect(&credentials), self.prices.as_ref(), self.key_id, &credentials, cx.clock, &version).await,
                 },

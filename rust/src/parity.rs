@@ -116,8 +116,9 @@ fn gemini_sent(t: &ScriptedTransport) -> Vec<Value> {
 
 /// The orders the MEXC adapter POSTed, as the Rails harness records them: the query without the timestamp, the signature and
 /// Rust's own newClientOrderId.
-fn mexc_sent(t: &ScriptedTransport) -> Vec<Value> {
-    t.requests().into_iter().filter(|r| r.method == "POST" && r.path == crate::venue::mexc::ORDER_PATH)
+fn mexc_sent(t: &ScriptedTransport) -> Vec<Value> { query_sent(t, crate::venue::mexc::ORDER_PATH) }
+fn query_sent(t: &ScriptedTransport, path: &str) -> Vec<Value> {
+    t.requests().into_iter().filter(|r| r.method == "POST" && r.path == path)
         .map(|r| Value::Object(r.query.into_iter().filter(|(k, _)| !matches!(*k, "timestamp" | "signature" | "newClientOrderId"))
                                 .map(|(k, v)| (k.to_string(), Value::String(v))).collect())).collect()
 }
@@ -319,6 +320,23 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
         let mut out = json!({ "sent": mexc_sent(&transport), "changes": diff(&before, &snapshot(&o.primary)?), "mails": mails(&o.primary, &owed)?,
                               "funds_notified": funds_notified, "poll_error": poll_error });
         if let Some(c) = checks { out["checks"] = json!(c); }
+        return Ok(out);
+    }
+    if scenario["venue"] == "bitrue" {
+        // Rust's Bitrue adapter over the bodies Rails' harness serves beneath Honeymaker::Clients::Bitrue, with the scenario's
+        // own tickers.
+        let transport = ScriptedTransport::from_script(&scenario["script"]["bitrue"]);
+        let exchange_id: i64 = o.primary.query_row("SELECT id FROM exchanges WHERE type = ?1", [crate::venue::bitrue::BITRUE], |r| r.get(0))?;
+        let pairs = crate::venue::binance::Pairs::load(&o.primary, exchange_id).map_err(EngineError::Data)?;
+        let venue = crate::venue::bitrue::BitrueVenue::new(transport.clone(), crate::venue::bitrue::URL, "s").with_pairs(pairs);
+        let posted = || query_sent(&transport, crate::venue::bitrue::ORDER_PATH).len();
+        let (poll, recover_sent, checks) = play(&o, &venue, &scenario, bot_id, start, &posted).await?;
+        let poll_error = match poll { Some(polling::PollFailure::General(m)) => json!(m), _ => Value::Null };
+        let funds_notified: bool = o.primary.query_row("SELECT last_end_of_funds_notification IS NOT NULL FROM bots WHERE id = ?1", [bot_id], |r| r.get(0))?;
+        let mut out = json!({ "sent": query_sent(&transport, crate::venue::bitrue::ORDER_PATH), "changes": diff(&before, &snapshot(&o.primary)?), "mails": mails(&o.primary, &owed)?,
+                              "funds_notified": funds_notified, "poll_error": poll_error });
+        if let Some(c) = checks { out["checks"] = json!(c); }
+        if let Some(n) = recover_sent { out["recover_sent"] = json!(n); }
         return Ok(out);
     }
     // Rust's real Kraken adapter over the bodies Rails' harness serves beneath Honeymaker::Clients::Kraken, or at the

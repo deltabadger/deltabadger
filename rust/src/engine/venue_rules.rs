@@ -457,3 +457,33 @@ pub static GEMINI: VenueRules = VenueRules {
     // Exchanges::Gemini::MARKET_CROSS: a market order is an IOC limit across the book.
     cross: Some(MARKET_CROSS),
 };
+
+/// Exchanges::Bitrue::ERRORS and minimum_amount_logic (post-audit T5/T8).
+const BITRUE_TRANSIENT: [&str; 18] = ["Net::ReadTimeout", "Net::OpenTimeout", "Faraday::TimeoutError", "Faraday::ConnectionFailed",
+    "execution expired", "Connection reset", "Errno::ECONNRESET", "connection refused", "Connection refused", "Errno::ECONNREFUSED",
+    "end of file reached", "unexpected eof while reading",
+    "recvWindow IllegalArgumentException", "timestamp IllegalArgumentException", "System abnormality", "Service unavailable", "System is under maintenance", "An unknown error occured"];
+
+pub static BITRUE: VenueRules = VenueRules {
+    exchange_type: "Exchanges::Bitrue",
+    name: "Bitrue",
+    kinds: [("insufficient_funds", &["Insufficient balance", "Insufficient account balance", "Account has insufficient balance"]),
+            ("invalid_key", &["No login", "API key does not exist", "Invalid Api-Key ID.", "Signature for this request is not valid."]),
+            ("permission_denied", &["You don't have permission", "has no operation privilege"]), ("restricted", &[]),
+            ("throttle", &["Too Many Requests", "Too many requests", "Too much request weight", "Too many new orders"]),
+            ("transient", &["recvWindow IllegalArgumentException", "timestamp IllegalArgumentException", "System abnormality", "Service unavailable", "System is under maintenance", "An unknown error occured"])],
+    transient_text: &BITRUE_TRANSIENT,
+    add_outcome_unknown: &["System abnormality", "Service unavailable", "System is under maintenance", "An unknown error occured"],
+    minimum_logic: MinimumLogic { market: AmountLogic::BaseAndQuoteInBase, limit: AmountLogic::BaseAndQuoteInBase },
+    wire: WireFormat::Kraken,
+    deadline_sent: false,
+    reach_within_secs: 55,
+    absence_margin_secs: 1200,
+    transport_raises: false,
+    follow_up_strict: true, market_hours: false,
+    reports_missing: true,
+    absence_provable: false,
+    young_missing_fails: true,
+    price_rule: PriceRule::Decimals,
+    cross: None,
+};
