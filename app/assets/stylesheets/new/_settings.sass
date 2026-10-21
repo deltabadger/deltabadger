@@ -132,6 +132,18 @@
     padding: 3rem 4rem 6rem
     @media (max-width: 767.9px)
         padding: 1rem 2rem 4rem
+    // More below the fold (settings_nav_controller): a chevron pinned to the pane's bottom edge.
+    &--more::after
+        content: ""
+        position: sticky
+        bottom: 1.5rem
+        display: block
+        width: 2rem
+        height: 1rem
+        margin: -1rem auto 0 // takes no room: the pane scrolls as far with it as without
+        background: var(--stone)
+        mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 8' fill='none'%3E%3Cpath d='M1 3L8 6L15 3' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat
+        pointer-events: none
 
 .settings__heading
     margin: 5rem 0 0.5rem
