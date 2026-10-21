@@ -193,6 +193,8 @@ impl ReqwestTransport {
         t.passphrase = passphrase;
         t
     }
+    /// Honeymaker::Clients::Bitvavo's wire: the secret only signs and is never sent.
+    pub fn bitvavo(client: reqwest::Client, key: String, secret: String) -> Self { Self { wire: Wire::Bitvavo, ..Self::new(client, key, secret) } }
     pub fn with_sensitive_values(mut self,values:Vec<String>)->Self{self.sensitive.extend(values);self}
     /// Speak Kraken's wire: Honeymaker::Clients::Kraken's headers, form bodies and signature.
     pub fn kraken(mut self)->Self{self.wire=Wire::Kraken;self}
@@ -376,7 +378,7 @@ impl Transport for ScriptedTransport {
         }
         let message = reply["message"].as_str().unwrap_or_default().to_string();
         match reply["network"].as_str() {
-            Some("pre_send" | "pre_send_data" | "binance_pre_send" | "kucoin_pre_send" | "kraken_pre_send") => Err(TransportError::NotSent(message)),
+            Some("pre_send" | "pre_send_data" | "binance_pre_send" | "kucoin_pre_send" | "bitvavo_pre_send" | "kraken_pre_send") => Err(TransportError::NotSent(message)),
             // The parity harness's per-venue kind (decisions.rb `NETWORK`): one spelling for every venue's host.
             Some(kind) if kind.starts_with("pre_send:") => Err(TransportError::NotSent(message)),
             Some("permanent") => Err(TransportError::Permanent(message)),

@@ -422,13 +422,13 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
     dirs.sort();
     let named = |prefix: &str| dirs.iter().filter(|d| d.file_name().unwrap().to_string_lossy().starts_with(prefix)).count();
-    assert_eq!((named("ledger-"), named("balances-"), named("binance-balances-"), named("binance-ledger-"), named("import-"), named("kucoin-ledger-"), named("kucoin-balances-"), dirs.len()), (58, 44, 21, 30, 21, 12, 16, 202), "the sync grid");
+    assert_eq!((named("ledger-"), named("balances-"), named("binance-balances-"), named("binance-ledger-"), named("import-"), named("kucoin-ledger-"), named("kucoin-balances-"), named("bitvavo-ledger-"), named("bitvavo-balances-"), dirs.len()), (58, 44, 21, 30, 21, 12, 16, 11, 10, 223), "the sync grid");
     for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
     for scenario in ["ledger-split_future", "ledger-split_nested_duplicate_keys", "binance-ledger-two_nights"] { copy_dir(&rails_root.path().join(scenario), &handback.path().join(scenario)); }
     rails(&["record", rails_root.path().to_str().unwrap()]);
 
     let cipher = cipher();
-    let ported = ["ledger-", "balances-", "binance-balances-", "binance-ledger-", "import-", "kucoin-ledger-", "kucoin-balances-"];
+    let ported = ["ledger-", "balances-", "binance-balances-", "binance-ledger-", "import-", "kucoin-ledger-", "kucoin-balances-", "bitvavo-ledger-", "bitvavo-balances-"];
     let mut outputs: Vec<(String, Value, Value)> = vec![];
     for d in &dirs {
         let name = d.file_name().unwrap().to_string_lossy().to_string();
@@ -466,6 +466,19 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
         both.0.sort();
         both
     };
+    // Bitvavo (plan VB slice A3): the boundary row read twice is stored once and the equal pair twice; a full page with
+    // nothing new fails; the markets come from the transfers, the balance (in order too) and the stored sales.
+    let bitvavo = |name: &str| rows(&rails_of(name), "account_transactions").iter().filter(|r| r["before"].is_null()).map(|r| r["after"].clone()).collect::<Vec<_>>();
+    let boundary = bitvavo("bitvavo-ledger-boundary");
+    assert_eq!((boundary.len(), boundary.iter().filter(|r| num(&r["base_amount"]) == Some(5.0)).count()), (1001, 2), "998 + the pair + the older BTC");
+    assert!(key_error(&rails_of("bitvavo-ledger-nothing_new")).as_str().is_some_and(|e| e.contains("returned a full page with nothing new")));
+    let asked = |name: &str| rails_of(name)["steps"][0]["requests"].as_array().unwrap().iter().filter(|r| r[0] == "GET /v2/trades")
+        .map(|r| r[1].as_array().unwrap().iter().find(|p| p[0] == "market").unwrap()[1].clone()).collect::<Vec<_>>();
+    assert_eq!(asked("bitvavo-ledger-discovery"), [json!("ETH-BTC"), json!("ADA-EUR")]);
+    assert_eq!(asked("bitvavo-ledger-week"), [json!("BTC-EUR")], "a pending deposit names no market");
+    assert_eq!(bitvavo("bitvavo-ledger-trade_pages").len(), 1002, "a full page, then the next before its oldest id");
+    let week: Vec<i64> = bitvavo("bitvavo-ledger-week").iter().map(|r| r["entry_type"].as_i64().unwrap()).collect();
+    assert_eq!(week, [4, 4, 4, 5, 1, 0], "kept transfers, then the window's trades");
     let (taken, stored) = claimed("binance-ledger-file_transfers");
     assert_eq!(taken, ["0xd1", "0xw1", "0xw3"]);
     assert!(stored.contains(&"0xd2".to_string()) && stored.contains(&"0xd8".to_string()) && !stored.contains(&"0xd1".to_string()), "{stored:?}");
