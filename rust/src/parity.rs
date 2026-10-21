@@ -107,6 +107,13 @@ fn kucoin_sent(t: &ScriptedTransport) -> Vec<Value> {
         .map(|mut b| { if let Value::Object(m) = &mut b { m.shift_remove("clientOid"); } b }).collect()
 }
 
+/// The orders the Gemini adapter POSTed, as the Rails harness records them: the signed payload's params (the request's body
+/// here; the transport adds `request` and `nonce`) without Rust's own client_order_id.
+fn gemini_sent(t: &ScriptedTransport) -> Vec<Value> {
+    t.requests().into_iter().filter(|r| r.method == "POST" && r.path == crate::venue::gemini::ORDER_NEW).filter_map(|r| r.body)
+        .map(|mut b| { if let Value::Object(m) = &mut b { m.shift_remove("client_order_id"); } b }).collect()
+}
+
 /// The orders the Bitvavo adapter POSTed, as the Rails harness records them: the JSON body without the clientOrderId.
 fn bitvavo_sent(t: &ScriptedTransport) -> Vec<Value> {
     t.requests().into_iter().filter(|r| r.method == "POST" && r.path == crate::venue::bitvavo::ORDER_PATH).filter_map(|r| r.body)
@@ -231,6 +238,23 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
         let funds_notified: bool = o.primary.query_row("SELECT last_end_of_funds_notification IS NOT NULL FROM bots WHERE id = ?1", [bot_id], |r| r.get(0))?;
         let mut out = json!({ "sent": kucoin_sent(&transport), "changes": diff(&before, &snapshot(&o.primary)?), "mails": mails(&o.primary, &owed)?,
                               "funds_notified": funds_notified, "poll_error": poll_error });
+        if let Some(c) = checks { out["checks"] = json!(c); }
+        return Ok(out);
+    }
+    if scenario["venue"] == "gemini" {
+        // Rust's Gemini adapter over the bodies Rails' harness serves beneath Honeymaker::Clients::Gemini, with the
+        // scenario's own tickers.
+        let transport = ScriptedTransport::from_script(&scenario["script"]["gemini"]);
+        let exchange_id: i64 = o.primary.query_row("SELECT id FROM exchanges WHERE type = 'Exchanges::Gemini'", [], |r| r.get(0))?;
+        let pairs = crate::venue::binance::Pairs::load(&o.primary, exchange_id).map_err(EngineError::Data)?;
+        let venue = crate::venue::gemini::GeminiVenue::new(transport.clone(), crate::venue::gemini::URL).with_pairs(pairs);
+        let posted = || gemini_sent(&transport).len();
+        let (poll, recover_sent, checks) = play(&o, &venue, &scenario, bot_id, start, &posted).await?;
+        let poll_error = match poll { Some(polling::PollFailure::General(m)) => json!(m), _ => Value::Null };
+        let funds_notified: bool = o.primary.query_row("SELECT last_end_of_funds_notification IS NOT NULL FROM bots WHERE id = ?1", [bot_id], |r| r.get(0))?;
+        let mut out = json!({ "sent": gemini_sent(&transport), "changes": diff(&before, &snapshot(&o.primary)?), "mails": mails(&o.primary, &owed)?,
+                              "funds_notified": funds_notified, "poll_error": poll_error });
+        if let Some(n) = recover_sent { out["recover_sent"] = json!(n); }
         if let Some(c) = checks { out["checks"] = json!(c); }
         return Ok(out);
     }

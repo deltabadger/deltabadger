@@ -79,6 +79,9 @@ pub(crate) enum Wire {
     Kucoin,
     /// Honeymaker::Clients::Bitvavo (venue::bitvavo): BITVAVO-ACCESS-* headers, `Prehash` as KuCoin's, hex.
     Bitvavo,
+    /// Honeymaker::Clients::Gemini (venue::gemini, signers::gemini): a private call is an empty-body POST whose params (the
+    /// request's JSON body) travel in X-GEMINI-PAYLOAD with a nonce minted at send time; a public read is a plain GET.
+    Gemini,
 }
 
 impl Wire {
@@ -88,6 +91,7 @@ impl Wire {
         let exchange_type = match self {
             Self::Alpaca => crate::sync::ALPACA, Self::Binance => super::binance::BINANCE, Self::Kraken => "Exchanges::Kraken", Self::Kucoin => super::kucoin::KUCOIN,
             Self::Bitvavo => super::bitvavo::BITVAVO,
+            Self::Gemini => super::gemini::GEMINI,
         };
         super::registry::row(exchange_type).expect("every wire's venue has a row").name
     }
@@ -124,6 +128,14 @@ pub(crate) fn request(wire: Wire, client: &reqwest::Client, r: &HttpRequest, key
             b = b.body(form);
         }
         Wire::Kraken => { for (k, v) in super::kraken::public_headers() { b = b.header(k, v); } }
+        Wire::Gemini if r.method == "POST" => {
+            // The nonce is minted here, at send time (SPEC-E §2.9: process-wide, max(now_ms, last + 1)), and the signature
+            // covers the exact payload sent. Nothing goes in the body.
+            let params: Vec<(&str, serde_json::Value)> = r.body.as_ref().and_then(serde_json::Value::as_object).into_iter().flatten().map(|(k, v)| (k.as_str(), v.clone())).collect();
+            let nonce = super::signers::gemini::NONCE.next_at(super::binance::timestamp_ms(clock.now()).max(0) as u64);
+            for (k, v) in super::signers::gemini::headers(keys.key, keys.secret, &r.path, &params, nonce) { b = b.header(k, v); }
+        }
+        Wire::Gemini => {}
     }
     b
 }

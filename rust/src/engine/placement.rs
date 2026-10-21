@@ -4,7 +4,7 @@
 //! complete lookup that STARTED after the deadline + 60 s (Kraken), or 20 minutes after both the intent and the
 //! process start on a venue without a server-side deadline (Alpaca, VenueRules::absence_margin_secs).
 use crate::venue::Attributed;
-use super::amount::{write_accepted_order, write_order_row, OrderPlan, RowKind, TxKind};
+use super::amount::{write_accepted_order, write_order_row, OrderPlan, Origin, RowKind, TxKind};
 use super::model::{self, Bot, Level};
 use super::schedule::checkpoints;
 use super::{polling, Clock, EngineError};
@@ -21,10 +21,11 @@ pub const DEADLINE_SECONDS: i64 = 10;
 pub const SEND_WINDOW_SECONDS: i64 = DEADLINE_SECONDS;
 pub const ABSENCE_AFTER_SECONDS: i64 = 60;
 /// Exchange::PLACEMENT_SAFE_TRANSIENT_ERRORS: definitive pre-trade rejections, plus Exchanges::Kucoin::ERRORS[:placement_safe_transient]
-/// (400002) and Exchanges::Bitvavo's (errorCode 304, outside the access window). Rails scopes each venue's string to it; they
-/// are listed for every venue here, strings only that venue sends.
-pub const PLACEMENT_SAFE_TRANSIENT_ERRORS: [&str; 4] = ["Timestamp for this request is outside of the recvWindow", "Timestamp for this request was", "Invalid KC-API-TIMESTAMP",
-    "\"errorCode\":304"];
+/// (400002), Exchanges::Bitvavo's (errorCode 304, outside the access window) and Exchanges::Gemini::ERRORS[:placement_safe_transient]
+/// (InvalidNonce). Rails scopes each venue's string to its venue; they are listed for every venue here, strings only that venue
+/// sends (Kraken's nonce error is "EAPI:Invalid nonce").
+pub const PLACEMENT_SAFE_TRANSIENT_ERRORS: [&str; 5] = ["Timestamp for this request is outside of the recvWindow", "Timestamp for this request was", "Invalid KC-API-TIMESTAMP",
+    "\"errorCode\":304", "InvalidNonce"];
 
 #[derive(Debug, Clone)]
 pub struct Intent { pub cl_ord_id: String, pub deadline: DateTime<Utc>, pub at: DateTime<Utc>, pub plan: OrderPlan,
@@ -50,7 +51,7 @@ impl Intent {
                    "base_asset_id": p.ticker.base_asset_id,
                    "limit": p.limit, "price": d("price", &p.price)?, "amount": d("amount", &p.amount)?, "quote_amount": d("quote_amount", &p.quote_amount)?,
                    "quote_type": p.quote_type, "volume": d("volume", &p.volume)?, "side": p.side.as_str(), "transaction_type": p.kind.as_str(), "run_identity": self.run.as_ref().map(model::RunIdentity::to_json),
-                   "source": self.source }))
+                   "source": self.source, "origin": p.origin.as_str(), "wire_price": p.wire_price.as_ref().map(|w| d("wire_price", w)).transpose()? }))
     }
     fn from_json(c: &Connection, bot: &Bot, v: &Value, producer:Option<model::CredentialVersion>) -> Result<Self, EngineError> {
         let bad = || EngineError::Data(format!("rust_placement {v}"));
@@ -67,9 +68,13 @@ impl Intent {
         // An intent written before rebalancing existed names no kind: it was a REGULAR order.
         let kind = match v.get("transaction_type") { None | Some(Value::Null) => TxKind::Regular, Some(x) => x.as_str().and_then(TxKind::parse).ok_or_else(bad)? };
         let source = match v.get("source") { None | Some(Value::Null) => None, Some(Value::String(s)) => Some(s.clone()), Some(_) => return Err(bad()) };
+        // D-679: an intent written before origins existed was sized as Rails sizes it, and is read as a base quantity: its
+        // volume is never re-derived. One with no wire price was never crossed (every venue before Gemini).
+        let origin = match v.get("origin") { None | Some(Value::Null) => Origin::Base, Some(x) => x.as_str().and_then(Origin::parse).ok_or_else(bad)? };
+        let wire_price = match v.get("wire_price") { None | Some(Value::Null) => None, Some(_) => Some(d("wire_price")?) };
         Ok(Self { source, symbol, bot_id: bot.id, run: v.get("run_identity").filter(|v| !v.is_null()).map(|v| model::RunIdentity::from_json(v).ok_or_else(bad)).transpose()?, credential_version: producer, cl_ord_id: v["cl_ord_id"].as_str().ok_or_else(bad)?.to_string(), deadline: t("deadline")?, at: t("at")?,
                   plan: OrderPlan { ticker, side, limit: b("limit")?, price: d("price")?, amount: d("amount")?, quote_amount: d("quote_amount")?,
-                                    quote_type: b("quote_type")?, volume: d("volume")?, kind } })
+                                    quote_type: b("quote_type")?, volume: d("volume")?, kind, origin, wire_price } })
     }
 }
 
@@ -447,6 +452,10 @@ async fn send_to_venue<V: Venue>(venue: &V, intent: &Intent, clock: &dyn Clock) 
         Ok(Some(refusal)) => return Sent::Rejected(vec![refusal]),
         Ok(None) => {}
         Err(e) => return Sent::NotSent(format!("{e}; not sent")),
+    }
+    // D-679: a crossing venue's market order goes out at its persisted crossed price, or not at all (never uncrossed).
+    if rules.cross.is_some() && !intent.plan.limit && intent.plan.wire_price.is_none() {
+        return Sent::NotSent("no crossed price prepared; not sent".into());
     }
     let order = match intent.plan.to_order(intent.cl_ord_id.clone(), intent.deadline, rules.wire) {
         Ok(o) => o,

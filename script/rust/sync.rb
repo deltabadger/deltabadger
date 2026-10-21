@@ -25,7 +25,7 @@ Net::HTTP.prepend(Module.new { def connect = raise(Harness::Unscripted, "real co
 ENV['COINGECKO_API_KEY'] = ''
 
 module ScriptedSync
-  mattr_accessor :alpaca, :binance, :binance_state, :kucoin, :bitvavo, :market, :requests, :filters_after
+  mattr_accessor :alpaca, :binance, :binance_state, :kucoin, :bitvavo, :gemini, :market, :requests, :filters_after
 
   NETWORK = {
     'pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "paper-api.alpaca.markets" port 443')) },
@@ -34,7 +34,8 @@ module ScriptedSync
     # Honeymaker reports e.message alone (Honeymaker::Client#with_rescue), and returns it: nothing raises.
     'binance_pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "api.binance.com" port 443')) },
     'kucoin_pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "api.kucoin.com" port 443')) },
-    'bitvavo_pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "api.bitvavo.com" port 443')) }
+    'bitvavo_pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "api.bitvavo.com" port 443')) },
+    'gemini_pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "api.gemini.com" port 443')) }
   }.freeze
 
   def self.reply(env)
@@ -47,14 +48,22 @@ module ScriptedSync
              elsif host.start_with?('api.binance.') then binance
              elsif host == 'api.kucoin.com' then kucoin
              elsif host == 'api.bitvavo.com' then bitvavo
+             elsif host == 'api.gemini.com' then gemini
              elsif host == 'data-api' then market
              end
     key = "#{env.method.to_s.upcase} #{env.url.path}"
     raise Harness::Unscripted, "unscripted HTTP call #{key} to #{host}" if script.nil?
 
-    requests << [key, URI.decode_www_form(env.url.query.to_s).sort]
+    requests << [key, host == 'api.gemini.com' ? gemini_params(env) : URI.decode_www_form(env.url.query.to_s).sort]
     queue = script[key] or raise Harness::Unscripted, "unscripted call #{key}"
     queue.size > 1 ? queue.shift : queue.first
+  end
+
+  # Gemini's params travel in its signed payload (X-GEMINI-PAYLOAD; a public read has none): logged as a query's pairs,
+  # without `request` (the path) and `nonce` (the clock).
+  def self.gemini_params(env)
+    payload = env.request_headers['X-GEMINI-PAYLOAD']
+    payload ? JSON.parse(Base64.strict_decode64(payload)).except('request', 'nonce').map { |k, v| [k, v.to_s] }.sort : []
   end
 
   # Where a step says so (`server_filters_after`), an activities page is served as Alpaca serves it: only what is later
@@ -75,7 +84,7 @@ module ScriptedSync
       reply = ScriptedSync.reply(env)
       if (kind = reply['network'])
         error = ScriptedSync::NETWORK.fetch(kind).call
-        actual = kind.start_with?('binance_', 'kucoin_', 'bitvavo_') ? error.message : "#{error.class}: #{error.message}" # what the venue's client reports
+        actual = kind.start_with?('binance_', 'kucoin_', 'bitvavo_', 'gemini_') ? error.message : "#{error.class}: #{error.message}" # what the venue's client reports
         raise Harness::Unscripted, "#{kind}: the script says #{reply['message'].inspect}, Ruby says #{actual.inspect}" unless actual == reply['message']
 
         raise error
@@ -379,6 +388,34 @@ module SyncParity
           pair: ->(b, q) { "#{b}-#{q}" }, coin: { base_decimals: 8, quote_decimals: 6, price_decimals: 1, minimum_base_size: '0.00001', minimum_quote_size: '0.1' })
   end
 
+  # A Gemini key, with the pairs its trades name (lowercase, as Exchanges::Gemini#get_tickers_info stores them).
+  def gemini(ctx)
+    venue(ctx, Exchanges::Gemini, 'Gemini', as: :gemini, assets: %w[BTC ETH USD], pairs: [%w[BTC USD], %w[ETH USD], %w[ETH BTC]],
+          pair: ->(b, q) { "#{b}#{q}".downcase }, coin: { base_decimals: 8, quote_decimals: 2, price_decimals: 2, minimum_base_size: '0.00001', minimum_quote_size: '0' })
+  end
+  def gm_trade(tid, symbol, type, amount, price, at, fee: '0.06', fee_currency: 'USD')
+    { 'price' => price, 'amount' => amount, 'timestamp' => (at.is_a?(Integer) ? at : ms(at)) / 1000, 'timestampms' => at.is_a?(Integer) ? at : ms(at),
+      'type' => type, 'aggressor' => true, 'fee_currency' => fee_currency, 'fee_amount' => fee, 'tid' => tid, 'order_id' => "o#{tid}",
+      'exchange' => 'gemini', 'is_auction_fill' => false, 'is_clearing_fill' => false, 'symbol' => symbol }.compact
+  end
+  def gm_transfer(eid, type, currency, amount, at, fee: nil, fee_currency: nil)
+    { 'type' => type, 'status' => 'Complete', 'timestampms' => at.is_a?(Integer) ? at : ms(at), 'eid' => eid, 'currency' => currency, 'amount' => amount,
+      'method' => 'CryptoTransfer', 'txHash' => "0xg#{eid}", 'feeAmount' => fee, 'feeCurrency' => fee_currency }.compact
+  end
+  GM_TRADES = 'POST /v1/mytrades'.freeze
+  GM_TRANSFERS = 'POST /v2/transfers'.freeze
+  GM_BALANCES = 'POST /v1/balances'.freeze
+  # Gemini's balance rows: [currency, available, amount] (amount = available when left out).
+  def gemini_rows(*rows) = ok(rows.map { |c, available, amount| { 'type' => 'exchange', 'currency' => c, 'amount' => amount || available, 'available' => available, 'availableForWithdrawal' => available } })
+  def gemini_balances(at, balances:, prices: nil, rates: nil)
+    { 'kind' => 'balances', 'at' => at, 'gemini' => { GM_BALANCES => [balances] },
+      'market' => { EXCHANGE_RATES => rates && [rates], PRICES => prices && [prices] }.compact }
+  end
+  # A ledger run over Gemini's scripted answers: each path's pages in order, the last one repeated.
+  def gemini_ledger(at, trades: [ok([])], transfers: [ok([])])
+    { 'kind' => 'ledger', 'at' => at, 'gemini' => { GM_TRADES => trades, GM_TRANSFERS => transfers } }
+  end
+
   def kc_page(items, page: 1, pages: nil, total: nil)
     ok('code' => '200000', 'data' => { 'currentPage' => page, 'pageSize' => 500, 'totalNum' => total || items.size,
                                        'totalPage' => pages || (items.empty? ? 0 : 1), 'items' => items })
@@ -540,6 +577,7 @@ module SyncParity
     AccountTransaction::SyncJob.prepend(Module.new { def sleep(*) = nil })
     Exchanges::Kucoin.prepend(Module.new { def sleep(*) = nil }) # each_page's 10 s throttle wait (LEDGER_THROTTLE_WAIT)
     Exchanges::Bitvavo.prepend(Module.new { def sleep(*) = nil }) # the ledger's pacing (LEDGER_READ_PAUSE)
+    Exchanges::Gemini.prepend(Module.new { def sleep(*) = nil }) # each_ledger_row's 5 s transfers pacing (TRANSFERS_REQUEST_INTERVAL)
     PortfolioSnapshot.singleton_class.prepend(Module.new { def record!(*) = nil })
     Dir[File.join(root, '*/scenario.json')].sort.each do |path|
       dir = File.dirname(path)
@@ -547,7 +585,7 @@ module SyncParity
       ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: File.join(dir, 'production.sqlite3'))
       Rails.cache.clear
       before = snapshot
-      reading = ApiKey.reading(ApiKey.includes(:exchange)).select { |k| [Exchanges::Alpaca, Exchanges::Binance, Exchanges::Kucoin, Exchanges::Bitvavo].any? { |c| k.exchange.is_a?(c) } }.map(&:id).sort
+      reading = ApiKey.reading(ApiKey.includes(:exchange)).select { |k| [Exchanges::Alpaca, Exchanges::Binance, Exchanges::Kucoin, Exchanges::Bitvavo, Exchanges::Gemini].any? { |c| k.exchange.is_a?(c) } }.map(&:id).sort
       steps = sc['steps'].map do |step|
         ActiveJob::Base.queue_adapter.enqueued_jobs.clear
         ScriptedSync.alpaca = step.fetch('alpaca', {}).transform_values(&:dup)
@@ -555,6 +593,7 @@ module SyncParity
         ScriptedSync.binance_state = step['binance_state']
         ScriptedSync.kucoin = step.fetch('kucoin', {}).transform_values(&:dup)
         ScriptedSync.bitvavo = step.fetch('bitvavo', {}).transform_values(&:dup)
+        ScriptedSync.gemini = step.fetch('gemini', {}).transform_values(&:dup)
         ScriptedSync.market = step.fetch('market', {}).transform_values(&:dup)
         ScriptedSync.requests = []
         ScriptedSync.filters_after = step['server_filters_after'] == true

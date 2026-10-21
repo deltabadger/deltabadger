@@ -293,6 +293,7 @@ impl<T: Transport> super::Venue for BitvavoVenue<T> {
                 body.insert("amount".into(), o.volume.clone().into());
                 body.insert("price".into(), price.clone().into());
             }
+            OrderKind::Crossed { .. } => return Err(super::not_crossing("Bitvavo")),
         }
         body.insert("clientOrderId".into(), o.cl_ord_id.clone().into());
         body.insert("operatorId".into(), OPERATOR_ID.into());

@@ -389,7 +389,7 @@ fn kucoin_transfer_pin(name: &str, dir: &std::path::Path, rails: &Value, rust: &
 }
 
 /// R: a seeded legacy price has no producer digest and cannot be reused by a fresh sync.
-const UNKNOWN_PRICE_ORIGIN:&[&str]=&["binance-balances-stale_and_gone", "kucoin-balances-stale_and_gone", "balances-market_fails", "balances-market_partial", "balances-snapshots_fail", "balances-unreadable_price_-Infinity_stale", "balances-unreadable_price_Infinity_stale", "balances-unreadable_price_NaN_stale", "balances-unreadable_price_garbage_stale"];
+const UNKNOWN_PRICE_ORIGIN:&[&str]=&["binance-balances-stale_and_gone", "kucoin-balances-stale_and_gone", "gemini-balances-stale_and_gone", "balances-market_fails", "balances-market_partial", "balances-snapshots_fail", "balances-unreadable_price_-Infinity_stale", "balances-unreadable_price_Infinity_stale", "balances-unreadable_price_NaN_stale", "balances-unreadable_price_garbage_stale"];
 fn unknown_price_origin(name:&str,rails:&Value,rust:&Value)->Option<Result<(),String>> {
     if !UNKNOWN_PRICE_ORIGIN.contains(&name){return None;}
     Some((|| {
@@ -422,13 +422,15 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
     dirs.sort();
     let named = |prefix: &str| dirs.iter().filter(|d| d.file_name().unwrap().to_string_lossy().starts_with(prefix)).count();
-    assert_eq!((named("ledger-"), named("balances-"), named("binance-balances-"), named("binance-ledger-"), named("import-"), named("kucoin-ledger-"), named("kucoin-balances-"), named("bitvavo-ledger-"), named("bitvavo-balances-"), dirs.len()), (58, 44, 21, 30, 21, 12, 16, 11, 10, 223), "the sync grid");
+    assert_eq!((named("ledger-"), named("balances-"), named("binance-balances-"), named("binance-ledger-"), named("import-"), named("kucoin-ledger-"), named("kucoin-balances-"),
+                named("bitvavo-ledger-"), named("bitvavo-balances-"), named("gemini-ledger-"), named("gemini-balances-"), dirs.len()), (58, 44, 21, 30, 21, 12, 16, 11, 10, 11, 11, 245), "the sync grid");
     for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
     for scenario in ["ledger-split_future", "ledger-split_nested_duplicate_keys", "binance-ledger-two_nights"] { copy_dir(&rails_root.path().join(scenario), &handback.path().join(scenario)); }
     rails(&["record", rails_root.path().to_str().unwrap()]);
 
     let cipher = cipher();
-    let ported = ["ledger-", "balances-", "binance-balances-", "binance-ledger-", "import-", "kucoin-ledger-", "kucoin-balances-", "bitvavo-ledger-", "bitvavo-balances-"];
+    let ported = ["ledger-", "balances-", "binance-balances-", "binance-ledger-", "import-", "kucoin-ledger-", "kucoin-balances-", "bitvavo-ledger-", "bitvavo-balances-",
+                  "gemini-ledger-", "gemini-balances-"];
     let mut outputs: Vec<(String, Value, Value)> = vec![];
     for d in &dirs {
         let name = d.file_name().unwrap().to_string_lossy().to_string();

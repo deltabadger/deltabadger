@@ -260,8 +260,10 @@ pub async fn run(dir: &Path, cipher: Arc<Cipher>) -> Result<Value, SyncError> {
         let binance = step.get("binance").is_some();
         let kucoin = step.get("kucoin").is_some();
         let bitvavo = step.get("bitvavo").is_some();
+        let gemini = step.get("gemini").is_some();
         let fake = step.get("binance_state").map(|state| FakeBinance { state: Arc::new(state.clone()), requests: Default::default() });
-        let transport = ScriptedTransport::from_script(if binance { &step["binance"] } else if kucoin { &step["kucoin"] } else if bitvavo { &step["bitvavo"] } else { &step["alpaca"] });
+        let transport = ScriptedTransport::from_script(if binance { &step["binance"] } else if kucoin { &step["kucoin"] } else if bitvavo { &step["bitvavo"] }
+                                                       else if gemini { &step["gemini"] } else { &step["alpaca"] });
         let served = Served { script: transport.clone(), filters_after: step["server_filters_after"] == true };
         let venue = AlpacaVenue::new(served, Urls::for_passphrase(credentials.passphrase.as_deref()));
         let prices = ScriptedPrices::from_script(&step["market"]).with_rate_cache(rate_cache.clone());
@@ -274,11 +276,13 @@ pub async fn run(dir: &Path, cipher: Arc<Cipher>) -> Result<Value, SyncError> {
             }
             (Some("ledger"), None) if kucoin => super::kucoin_ledger::sync(&db, transport.clone(), key_id, &credentials, &FixedClock(at), std::time::Duration::ZERO).await?.is_err_and(|f| f.raised),
             (Some("ledger"), None) if bitvavo => super::bitvavo_ledger::sync(&db, transport.clone(), key_id, &credentials, &FixedClock(at), std::time::Duration::ZERO).await?.is_err_and(|f| f.raised),
+            (Some("ledger"), None) if gemini => super::gemini_ledger::sync(&db, transport.clone(), key_id, &credentials, &FixedClock(at), std::time::Duration::ZERO).await?.is_err_and(|f| f.raised),
             (Some("ledger"), Some(fake)) => super::binance_ledger::sync(&db, fake.clone(), key_id, &credentials, &FixedClock(at), super::binance_ledger::Pacing::NONE).await?.is_err_and(|f| f.raised),
             (kind, _) => match kind {
             Some("ledger") => ledger::sync(&db, &venue, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
             Some("balances") if kucoin => balances::sync_kucoin(&db, transport.clone(), &prices, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
             Some("balances") if bitvavo => balances::sync_bitvavo(&db, transport.clone(), &prices, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
+            Some("balances") if gemini => balances::sync_gemini(&db, transport.clone(), &prices, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
             Some("balances") if binance => balances::sync_binance(&db, transport.clone(), &prices, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
             Some("balances") => balances::sync(&db, &venue, &prices, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
             other => return Err(SyncError(format!("unknown step kind {other:?}"))),
@@ -287,6 +291,8 @@ pub async fn run(dir: &Path, cipher: Arc<Cipher>) -> Result<Value, SyncError> {
         let sent = match &fake { Some(fake) => fake.requests.borrow().clone(), None => transport.requests() };
         let mut requests: Vec<Value> = sent.iter().map(|r| {
             let mut query: Vec<(String, String)> = r.query.iter().map(|(k, v)| (k.to_string(), v.clone())).collect();
+            // Gemini's params travel in its signed payload (the harness logs them as Rails' does: each value's `to_s`).
+            if gemini { query.extend(r.body.iter().filter_map(serde_json::Value::as_object).flatten().map(|(k, v)| (k.clone(), v.as_str().map_or_else(|| v.to_string(), str::to_string)))); }
             query.sort();
             json!([format!("{} {}", r.method, r.path), query])
         }).collect();

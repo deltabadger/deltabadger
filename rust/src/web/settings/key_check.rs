@@ -168,6 +168,68 @@ pub fn kucoin_read_verdict(answer: &Result<HttpResponse, TransportError>, method
     if crate::engine::venue_rules::KUCOIN.is_invalid_key(std::slice::from_ref(&failure)) { Verdict::Valid(false) } else { Verdict::Failure(failure) }
 }
 
+/// What honeymaker's #with_rescue hands Exchanges::Gemini for a key check's answer: the parsed 2xx body (`Ok(None)` for an empty
+/// one, which Faraday's JSON middleware reads as nil), or the failure's text (the body, else Faraday's message).
+fn gemini_result(answer: &Result<HttpResponse, TransportError>, url: &str) -> Result<Option<Value>, String> {
+    let response = answer.as_ref().map_err(transport)?;
+    if !(200..300).contains(&response.status) { return Err(raised(response, "POST", url)); }
+    if response.body.trim().is_empty() { return Ok(None); }
+    serde_json::from_str::<Value>(&response.body).map(Some).map_err(|_| response.body.clone())
+}
+
+/// Exchange#response_field(result, field): a success's data, or the failure's first error parsed as JSON, read as a hash.
+fn gemini_field(result: &Result<Option<Value>, String>, field: &str) -> Option<Value> {
+    let body = match result { Ok(data) => data.clone(), Err(text) => serde_json::from_str::<Value>(text).ok() };
+    body.filter(Value::is_object).and_then(|b| b.get(field).cloned()).filter(|v| !v.is_null())
+}
+
+/// `x.to_s` of a decoded JSON value (nil is "").
+fn ruby_to_s(v: Option<&Value>) -> String { match v { None => String::new(), Some(Value::String(s)) => s.clone(), Some(other) => other.to_string() } }
+
+/// Exchanges::Gemini#get_api_key_validity on its probe's answer (`kind` 1, a withdrawal key, read its balances): a success
+/// that is no error envelope is valid; for a trading key Gemini's OrderNotFound to the probe is too (the key got past the
+/// role check); MissingRole or an invalid-key reason is incorrect; anything else no verdict.
+pub fn gemini_verdict(kind: i64, answer: &Result<HttpResponse, TransportError>, url: &str) -> Verdict {
+    let result = gemini_result(answer, url);
+    let reason = ruby_to_s(gemini_field(&result, "reason").as_ref());
+    if result.is_ok() && gemini_field(&result, "result").is_none_or(|r| r != "error") { return Verdict::Valid(true); }
+    if kind != 1 && reason == crate::venue::gemini::ORDER_NOT_FOUND { return Verdict::Valid(true); }
+    let invalid = crate::engine::venue_rules::GEMINI.kinds.iter().find(|(k, _)| *k == "invalid_key").map_or(&[][..], |(_, p)| *p);
+    if reason == "MissingRole" || invalid.contains(&reason.as_str()) { return Verdict::Valid(false); }
+    match result {
+        Err(text) => Verdict::Failure(text),
+        Ok(_) => Verdict::Failure(match gemini_field(&result, "message") {
+            Some(Value::String(m)) if !crate::ruby::blank(&m) => m,
+            _ => format!("Gemini answered {}", if reason.trim().is_empty() { "an error" } else { reason.as_str() }),
+        }),
+    }
+}
+
+/// Exchange#get_read_api_key_validity on Gemini (a reading key): #get_balances(asset_ids: []), its balances read. Balances
+/// are valid when Rails can walk them (a list of rows each naming its currency); null is "Failed to get Gemini balances";
+/// a failure is incorrect where Gemini's invalid-key reasons condemn it, else no verdict. Rows Rails cannot walk raise in
+/// Rails (no verdict either).
+pub fn gemini_read_verdict(answer: &Result<HttpResponse, TransportError>, url: &str) -> Verdict {
+    let failure = match gemini_result(answer, url) {
+        Ok(Some(Value::Array(rows))) => {
+            let walkable = rows.iter().all(|row| row.get("currency").is_some_and(Value::is_string));
+            return if walkable { Verdict::Valid(true) } else { Verdict::Failure("Gemini sent balances it cannot read".into()) };
+        }
+        Ok(None | Some(Value::Null)) => "Failed to get Gemini balances".to_string(),
+        Ok(Some(_)) => return Verdict::Failure("Gemini sent balances it cannot read".into()),
+        Err(text) => text,
+    };
+    if crate::engine::venue_rules::GEMINI.is_invalid_key(std::slice::from_ref(&failure)) { Verdict::Valid(false) } else { Verdict::Failure(failure) }
+}
+
+/// Exchanges::Gemini#get_api_key_validity's probe: honeymaker's #cancel_order(order_id: 0), or #get_raw_balances for a
+/// withdrawal key and for a reading key's balance read. The params are the signed payload's (`sign::Wire::Gemini`).
+pub fn gemini_request(base: &str, kind: i64) -> HttpRequest {
+    let (path, params) = if kind != 0 { (crate::venue::gemini::BALANCES, serde_json::Map::new()) }
+                         else { (crate::venue::gemini::ORDER_CANCEL, serde_json::Map::from_iter([("order_id".to_string(), Value::from(0))])) };
+    HttpRequest { method: "POST", base: base.into(), path: path.into(), query: vec![], body: Some(Value::Object(params)), not_after: None }
+}
+
 /// #get_api_key_validity's probe: honeymaker's #cancel_order of the zero id, or #get_accounts(type: 'trade') for a withdrawal key
 /// and for a reading key's balance read.
 pub fn kucoin_request(base: &str, kind: i64) -> HttpRequest {
@@ -364,6 +426,13 @@ pub async fn check(venue: &str, base: &str, client: reqwest::Client, credentials
         let transport = ReqwestTransport::binance(client, credentials.key.clone(), credentials.secret.clone()).with_sensitive_values(redaction);
         let venue = crate::venue::binance::BinanceVenue::new(transport.clone(), base, &credentials.secret);
         binance_us_check(&transport, &venue, kind, kind == 2).await
+    } else if scheme == Some(KeyCheck::Gemini) {
+        let transport = ReqwestTransport::gemini(client, credentials.key.clone(), credentials.secret.clone()).with_sensitive_values(redaction);
+        let request = gemini_request(base, kind);
+        let answer = transport.send(&request).await;
+        let url = request.url();
+        let verdict = if kind == 2 { gemini_read_verdict(&answer, url.as_str()) } else { gemini_verdict(kind, &answer, url.as_str()) };
+        (answer, verdict)
     } else {
         let transport = ReqwestTransport::binance(client, credentials.key.clone(), credentials.secret.clone()).with_sensitive_values(redaction);
         let venue = crate::venue::binance::BinanceVenue::new(transport.clone(), base, &credentials.secret);

@@ -195,6 +195,8 @@ impl ReqwestTransport {
     }
     /// Honeymaker::Clients::Bitvavo's wire: the secret only signs and is never sent.
     pub fn bitvavo(client: reqwest::Client, key: String, secret: String) -> Self { Self { wire: Wire::Bitvavo, ..Self::new(client, key, secret) } }
+    /// Honeymaker::Clients::Gemini's wire: the secret only signs the payload and is never sent.
+    pub fn gemini(client: reqwest::Client, key: String, secret: String) -> Self { Self { wire: Wire::Gemini, ..Self::new(client, key, secret) } }
     pub fn with_sensitive_values(mut self,values:Vec<String>)->Self{self.sensitive.extend(values);self}
     /// Speak Kraken's wire: Honeymaker::Clients::Kraken's headers, form bodies and signature.
     pub fn kraken(mut self)->Self{self.wire=Wire::Kraken;self}
@@ -374,11 +376,14 @@ impl Transport for ScriptedTransport {
         // A body naming its client order id "$client_order_id" answers for the one the request asked for: a recorded answer
         // cannot know the UUID the engine generated (the grids' landed-recovery scenarios).
         if reply["body"]["client_order_id"] == "$client_order_id" {
-            if let Some((_, cl)) = r.query.iter().find(|(k, _)| *k == "client_order_id") { reply["body"]["client_order_id"] = Value::String(cl.clone()); }
+            // In the query (Alpaca), or in the signed params a body carries (Gemini's payload).
+            let asked = r.query.iter().find(|(k, _)| *k == "client_order_id").map(|(_, cl)| cl.clone())
+                .or_else(|| r.body.as_ref().and_then(|b| b["client_order_id"].as_str()).map(str::to_string));
+            if let Some(cl) = asked { reply["body"]["client_order_id"] = Value::String(cl); }
         }
         let message = reply["message"].as_str().unwrap_or_default().to_string();
         match reply["network"].as_str() {
-            Some("pre_send" | "pre_send_data" | "binance_pre_send" | "kucoin_pre_send" | "bitvavo_pre_send" | "kraken_pre_send") => Err(TransportError::NotSent(message)),
+            Some("pre_send" | "pre_send_data" | "binance_pre_send" | "kucoin_pre_send" | "bitvavo_pre_send" | "gemini_pre_send" | "kraken_pre_send") => Err(TransportError::NotSent(message)),
             // The parity harness's per-venue kind (decisions.rb `NETWORK`): one spelling for every venue's host.
             Some(kind) if kind.starts_with("pre_send:") => Err(TransportError::NotSent(message)),
             Some("permanent") => Err(TransportError::Permanent(message)),

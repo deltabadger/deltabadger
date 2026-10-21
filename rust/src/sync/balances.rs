@@ -480,6 +480,55 @@ fn kucoin_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> R
     Ok(Ok(asset_ids.iter().filter_map(|id| found.remove(id).map(|(free, locked)| (*id, free, locked))).filter(|(_, free, locked)| (free + locked).is_positive()).collect()))
 }
 
+/// One balance sync of one Gemini key, as AccountBalance::SyncJob runs it for that key: Exchanges::Gemini#get_balances
+/// (Clients::Gemini#get_raw_balances, one signed POST) then AccountBalance::Sync. A failure records the venue's text;
+/// Gemini's invalid-key reasons mark the key incorrect unless they name a missing role (ApiKeyFailureHandling#failure_reason).
+pub async fn sync_gemini<T: Transport>(db: &Db, transport: T, prices: &dyn PriceSource, key_id: i64, credentials: &Credentials, clock: &dyn Clock)
+                                       -> Result<Result<Summary, Failure>, SyncError> {
+    let version = super::capture_bound_version(db, key_id, credentials).await?;
+    sync_gemini_captured(db, transport, prices, key_id, credentials, clock, &version).await
+}
+
+pub(crate) async fn sync_gemini_captured<T: Transport>(db: &Db, transport: T, prices: &dyn PriceSource, key_id: i64, credentials: &Credentials,
+                                                       clock: &dyn Clock, version: &crate::engine::model::CredentialVersion)
+                                                       -> Result<Result<Summary, Failure>, SyncError> {
+    use crate::venue::gemini::{GeminiVenue, BALANCES, GEMINI, URL};
+    let read = move |_: String| async move { Ok(GeminiVenue::new(transport, URL).read_text(BALANCES, vec![], MAX_BINANCE_ACCOUNT_BYTES).await) };
+    let venue = VenueBalances { types: &[GEMINI], failure_text: str::to_string, condemns: |venue, text| condemns(&crate::engine::venue_rules::GEMINI, venue, text), held: gemini_held };
+    sync_venue(db, version, prices, key_id, credentials, clock, venue, read).await
+}
+
+/// Exchanges::Gemini#get_balances then AccountBalance::Sync's `nonzero`. A null answer is "Failed to get Gemini balances" (a
+/// Failure the key's failure handling reads: `true`); anything but a list Rails cannot walk. Each row's `currency` must be
+/// there, upcased to name its asset; a row naming no listed asset is skipped; `available` is free and `amount - available`
+/// locked, a later row for the same asset winning. A missing field is Rails' KeyError; a quantity that is no number fails
+/// the sync (Rails reads it as 0: the Binance sync's listed divergence).
+fn gemini_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> Result<Result<Vec<Held>, (String, bool)>, Unread> {
+    let node = wire::read(text, &mut Budget(MAX_BINANCE_ACCOUNT_NODES), None).map_err(|r| Unread::refused(r, "an account"))?;
+    let rows = match &node {
+        Node::Array(rows) => rows,
+        Node::Scalar(token) if token == "null" => return Ok(Err(("Failed to get Gemini balances".into(), true))),
+        _ => return Ok(Err(("unreadable balances".into(), false))),
+    };
+    let mut found: HashMap<i64, (BigDec, BigDec)> = HashMap::new();
+    for row in rows {
+        let Ok(row) = Raw::from_node(row) else { return Ok(Err(("unreadable balance".into(), false))) };
+        let Some(currency) = row.value.get("currency").filter(|v| !v.is_null()) else { return Ok(Err(("KeyError: Key path currency not found".into(), false))) };
+        let Some(currency) = currency.as_str() else { return Ok(Err(("unreadable balance currency".into(), false))) };
+        let Some(asset) = names.get(&currency.to_uppercase()).filter(|id| asset_ids.contains(id)) else { continue };
+        let quantity = |key: &str| match row.number(key) {
+            _ if row.value[key].as_str().is_some_and(|s| s.trim().is_empty()) => Err(format!("unreadable {key}: not a plain decimal number")),
+            Ok(Some(n)) => Ok(n),
+            Ok(None) => Err(format!("KeyError: Key path {key} not found")),
+            Err(why) => Err(why),
+        };
+        let free = match quantity("available") { Ok(n) => n, Err(why) => return Ok(Err((why, false))) };
+        let amount = match quantity("amount") { Ok(n) => n, Err(why) => return Ok(Err((why, false))) };
+        found.insert(*asset, (free.clone(), &amount - &free));
+    }
+    Ok(Ok(asset_ids.iter().filter_map(|id| found.remove(id).map(|(free, locked)| (*id, free, locked))).filter(|(_, free, locked)| (free + locked).is_positive()).collect()))
+}
+
 /// Exchange#asset_from_symbol: the venue's available tickers in id order, each naming its base asset and then its quote
 /// asset by the ticker's own spelling; the first ticker to name a symbol wins it.
 fn binance_names(c: &Connection, exchange_id: i64) -> Result<HashMap<String, i64>, SyncError> {

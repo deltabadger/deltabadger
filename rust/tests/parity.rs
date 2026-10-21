@@ -310,6 +310,152 @@ async fn rails_and_rust_decide_identically_across_the_kucoin_grid() {
     }
 }
 
+/// Gemini grid variants where Rust deliberately decides otherwise than Rails (plan VB §5), each asserted on its own terms: a
+/// placement that may have reached Gemini (a 5xx System or Maintenance answer, a lost reply, an unreadable answer, an answer
+/// without an order_id) keeps the intent for recovery by client order id, where Rails writes a failed row.
+const GEMINI_DIVERGENCES: [&str; 4] = ["add_server_error", "add_maintenance", "add_timeout_after_send", "add_unreadable"];
+
+/// An answer without an order_id: Rails stores `raw["order_id"].to_s`, a submitted row with an empty external id that
+/// no poll can ever find; Rust keeps the intent for recovery by client order id (NO_ORDER_ID).
+fn gemini_unacknowledged(dir: &Path, rails_out: &serde_json::Value, rust_out: &serde_json::Value) -> Result<(), String> {
+    if !rails_out["changes"]["transactions"].as_array().unwrap().iter().any(|t| t["after"]["external_id"] == "" && t["after"]["status"] == 0) {
+        return Err(format!("Rails no longer stores an empty order id: drop the listed divergence\n  rails: {rails_out}"));
+    }
+    rust_kept_the_intent(dir, rust_out)
+}
+
+/// A recorded number (a decimal column read back as an integer, a float as Decisions.raw's {"f": bits}, or a string).
+fn num(v: &serde_json::Value) -> Option<f64> {
+    match v {
+        serde_json::Value::Number(n) => n.as_f64(),
+        serde_json::Value::String(s) => s.parse().ok(),
+        serde_json::Value::Object(m) => m.get("f").and_then(|h| h.as_str()).and_then(|h| u64::from_str_radix(h, 16).ok()).map(f64::from_bits),
+        _ => None,
+    }
+}
+
+/// D-679 (plan VB §1.5, GitHub #679): a Gemini market BUY is sized at the crossed ask it is sent at, where Rails sizes it
+/// at the raw ask and sends that base at the cross (a fill at the cross can spend up to 1% over the budget). Asserted on
+/// Rails' recording: every order Rust sends is Rails' to the field (the crossed price included, read once) but its
+/// `amount`, which is floor(budget / crossed, base_decimals), spends at most the budget at a fill at the cross, and is no
+/// larger than Rails'; each new market-buy row carries the crossed price and budget / crossed where Rails has the ask and
+/// budget / ask; everything else is equal. A scenario that sizes no market buy is simply equal.
+fn crossed_buy(name: &str, dir: &Path, rails_out: &serde_json::Value, rust_out: &serde_json::Value) -> Result<(), String> {
+    use deltabadger::ruby::BigDec;
+    let scenario: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(dir.join("scenario.json")).unwrap()).unwrap();
+    let decimals: u8 = rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap().query_row("SELECT base_decimals FROM tickers", [], |r| r.get(0)).unwrap();
+    let ask = scenario["script"]["gemini"]["GET /v1/pubticker/btcusd"][0]["body"]["ask"].as_str().and_then(|a| BigDec::parse(a).ok());
+    let mut expected = rails_out.clone();
+    let (rails_sent, rust_sent) = (rails_out["sent"].as_array().unwrap(), rust_out["sent"].as_array().unwrap());
+    if rails_sent.len() != rust_sent.len() { return Err(format!("Rails sent {} order(s), Rust {}", rails_sent.len(), rust_sent.len())); }
+    let mut crossed = None;
+    for (i, (theirs, ours)) in rails_sent.iter().zip(rust_sent).enumerate() {
+        if theirs["side"] != "buy" || theirs["options"] != serde_json::json!(["immediate-or-cancel"]) { continue; }
+        let d = |v: &serde_json::Value| BigDec::parse(v.as_str().unwrap()).unwrap();
+        let (price, base, rails_base) = (d(&ours["price"]), d(&ours["amount"]), d(&theirs["amount"]));
+        if price != d(&theirs["price"]) { return Err(format!("{name}: Rust sent at {}, Rails at {} (the crossed ask, one read)", price.to_s_f(), d(&theirs["price"]).to_s_f())); }
+        let row = rust_out["changes"]["transactions"].as_array().unwrap().iter().find(|t| t["before"].is_null());
+        match row.and_then(|r| num(&r["after"]["quote_amount"])) {
+            Some(q) => {
+                let budget = BigDec::parse(&format!("{q}")).unwrap();
+                if base != budget.div(&price).unwrap().floor(decimals) { return Err(format!("{name}: base {} is not floor({} / {})", base.to_s_f(), budget.to_s_f(), price.to_s_f())); }
+                if &base * &price > budget { return Err(format!("{name}: {} at the cross {} spends over the budget {}", base.to_s_f(), price.to_s_f(), budget.to_s_f())); }
+                crossed = Some((num(&ours["price"]).unwrap(), q));
+            }
+            // No row (a placement-safe refusal): the budget is bounded by Rails' own base at the raw ask.
+            None => {
+                let step = BigDec::parse(&format!("1e-{decimals}")).unwrap();
+                let ask = ask.clone().ok_or("no scripted ask to bound the budget")?;
+                let (lo, hi) = (&rails_base * &ask, &(&rails_base + &step) * &ask);
+                if base < lo.div(&price).unwrap().floor(decimals) || base > hi.div(&price).unwrap().floor(decimals) || &base * &price > hi {
+                    return Err(format!("{name}: base {} is not the budget Rails sized ({}..{}) at the cross {}", base.to_s_f(), lo.to_s_f(), hi.to_s_f(), price.to_s_f()));
+                }
+            }
+        }
+        if base > rails_base { return Err(format!("{name}: Rust's base {} is larger than Rails' {}", base.to_s_f(), rails_base.to_s_f())); }
+        expected["sent"][i]["amount"] = ours["amount"].clone();
+    }
+    if let Some((price, budget)) = crossed {
+        for (theirs, ours) in expected["changes"]["transactions"].as_array_mut().unwrap().iter_mut().zip(rust_out["changes"]["transactions"].as_array().unwrap()) {
+            if !theirs["before"].is_null() || theirs["after"]["side"] != 0 || theirs["after"]["order_type"] != 0 { continue; }
+            let (p, a) = (num(&ours["after"]["price"]).unwrap_or(f64::NAN), num(&ours["after"]["amount"]).unwrap_or(f64::NAN));
+            if (p - price).abs() > 1e-9 || ((a - budget / price) / a).abs() > 1e-9 { return Err(format!("{name}: the row's price/amount {p}/{a} are not the crossed {price} and {budget} / it")); }
+            theirs["after"]["price"] = ours["after"]["price"].clone();
+            theirs["after"]["amount"] = ours["after"]["amount"].clone();
+        }
+    }
+    if expected != *rust_out { return Err(format!("beyond the crossed sizing the sides differ\n  rails: {expected}\n  rust:  {rust_out}")); }
+    Ok(())
+}
+
+/// D-679 at the minimum: 60 at the raw ask clears Gemini's minimum and Rails places it; at the crossed ask it does not, and
+/// Rust writes the skipped row with its order_skipped line instead (the DCA leg's existing below-minimum outcome).
+fn crossed_below_minimum(rails_out: &serde_json::Value, rust_out: &serde_json::Value) -> Result<(), String> {
+    if rails_out["sent"].as_array().unwrap().len() != 1 { return Err(format!("Rails no longer places at the raw ask: {rails_out}")); }
+    let rows = rust_out["changes"]["transactions"].as_array().unwrap();
+    let logged = rust_out["changes"]["bot_activity_logs"].as_array().unwrap().iter().any(|l| l["after"]["event"] == "order_skipped");
+    if !rust_out["sent"].as_array().unwrap().is_empty() || rows.len() != 1 || rows[0]["after"]["status"] != 2 || !logged {
+        return Err(format!("Rust must send nothing and write one skipped row with order_skipped: {rust_out}"));
+    }
+    Ok(())
+}
+
+/// Landed recovery (plan VB §1.5): after a lost reply Rails writes a failed row; Rust keeps the intent, and its next tick's
+/// client-order-id lookup FINDS the order and records it (filled), sending nothing more.
+fn landed_found(rails_out: &serde_json::Value, rust_out: &serde_json::Value) -> Result<(), String> {
+    if !rails_out["changes"]["transactions"].as_array().unwrap().iter().any(|t| t["after"]["status"] == 1) { return Err(format!("Rails no longer writes a failed row: {rails_out}")); }
+    let rows = rust_out["changes"]["transactions"].as_array().unwrap();
+    let recorded = rows.iter().any(|t| t["after"]["external_id"] == "7612345679" && t["after"]["status"] == 0 && t["after"]["external_status"] == 2);
+    if rust_out["sent"].as_array().unwrap().len() != 1 || rust_out["recover_sent"] != 0 || !recorded {
+        return Err(format!("Rust must record the order its lookup found, filled, and send nothing more: {rust_out}"));
+    }
+    Ok(())
+}
+
+/// Landed recovery that finds nothing: on Gemini absence is never concluded (`absence_provable` false), so the intent waits.
+fn landed_missing(dir: &Path, rails_out: &serde_json::Value, rust_out: &serde_json::Value) -> Result<(), String> {
+    if rust_out["recover_sent"] != 0 { return Err(format!("Rust sent again before the order was settled: {rust_out}")); }
+    intent_kept(dir, rails_out, rust_out)
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn rails_and_rust_decide_identically_across_the_gemini_grid() {
+    use common::venue_grid::{ending, run_venue_grid, Validator};
+    let market = |n: &str| n.contains("-market-") && !GEMINI_DIVERGENCES.iter().chain(&["add_network_pre_send", "add_no_order_id", "cross_below_minimum", "landed_found", "landed_missing"]).any(|d| n.ends_with(&format!("-{d}")));
+    let outputs = run_venue_grid("grid-gemini", 156, &[
+        Validator { names: &ending(&GEMINI_DIVERGENCES), check: &|_, d, r, u| intent_kept(d, r, u) },
+        // The market pre-send refusal also carries D-679's crossed base in its failed row.
+        Validator { names: &|n| n.ends_with("-market-add_network_pre_send"), check: &|n, d, r, u| {
+            let normalised: serde_json::Value = serde_json::from_str(&u.to_string().replace("Faraday::ConnectionFailed: ", "")).unwrap();
+            crossed_buy(n, d, r, &normalised)
+        } },
+        Validator { names: &ending(&["add_network_pre_send"]), check: &|_, _, r, u| refused_like_rails(r, u) },
+        Validator { names: &ending(&["add_no_order_id"]), check: &|_, d, r, u| gemini_unacknowledged(d, r, u) },
+        Validator { names: &|n| n.ends_with("-market-cross_below_minimum"), check: &|_, _, r, u| crossed_below_minimum(r, u) },
+        Validator { names: &ending(&["landed_found"]), check: &|_, _, r, u| landed_found(r, u) },
+        Validator { names: &ending(&["landed_missing"]), check: &|_, d, r, u| landed_missing(d, r, u) },
+        Validator { names: &market, check: &|n, d, r, u| crossed_buy(n, d, r, u) },
+    ]).await;
+    // Pin what Rails does where a silent pair of sides would otherwise pass.
+    for (name, rails_out) in &outputs {
+        let mailed: Vec<&str> = rails_out["mails"].as_array().unwrap().iter().map(|m| m["mail"].as_str().unwrap()).collect();
+        let expected: Option<&[&str]> = [("-insufficient", &["end_of_funds"][..]), ("-invalid_key", &["stopped_by_error"]), ("-low_funds", &["end_of_funds"]),
+                                         ("-on_schedule", &[]), ("-invalid_nonce", &[])].into_iter().find(|(suffix, _)| name.ends_with(suffix)).map(|(_, m)| m);
+        if let Some(expected) = expected { assert_eq!(mailed, expected, "{name}: the mails Rails enqueued"); }
+        let rows = rails_out["changes"]["transactions"].as_array().unwrap();
+        let sent = rails_out["sent"].as_array().unwrap();
+        if name.contains("-invalid_nonce") { assert!(rows.is_empty() && sent.len() == 1, "{name}: InvalidNonce writes no row"); }
+        if name.ends_with("-market-first_tick") {
+            assert_eq!((sent[0]["type"].as_str(), sent[0]["price"].as_str(), sent[0]["amount"].as_str()), (Some("exchange limit"), Some("64640.11"), Some("0.00093749")),
+                       "{name}: Rails' IOC buy at adjust(adjust(ask) × 1.01), sized at the raw ask (#679)");
+            assert_eq!(sent[0]["options"], serde_json::json!(["immediate-or-cancel"]), "{name}");
+        }
+        if name.ends_with("-limit-first_tick") { assert_eq!(sent[0]["options"], serde_json::json!([]), "{name}: a resting limit buy"); }
+        if name.ends_with("-sweep_not_found_old") { assert!(rows.iter().any(|t| t["after"]["external_id"] == "209" && t["after"]["external_status"] == 4), "{name}: abandoned"); }
+        if name.ends_with("-sweep_not_found_young") { assert!(mailed.contains(&"notify_about_error"), "{name}: a young missing order fails the run"); }
+    }
+}
+
 /// Bitvavo grid variants where Rust deliberately decides otherwise than Rails (plan VB §5, slice A3), each asserted on its own
 /// terms: a placement that may have reached Bitvavo (a 5xx, a lost reply, an unreadable answer, errorCode 109 "timed out,
 /// your order may have been placed") keeps the intent, which waits for the operator (absence is never concluded), where
@@ -370,7 +516,8 @@ async fn rails_and_rust_decide_identically_across_the_bitvavo_grid() {
     }
 }
 
-/// Slice 6a: a one-asset basket selling on Kraken, Binance and Alpaca (script/rust/decisions.rb sell_scenarios), compared whole.
+/// Slice 6a: a one-asset basket selling on Kraken, Binance, Alpaca and Gemini (script/rust/decisions.rb sell_scenarios), compared
+/// whole. Gemini's market sells go out at the crossed bid Rails re-reads at placement, prepared once (plan VB §1.5): no divergence.
 #[tokio::test(flavor = "current_thread")]
 async fn rails_and_rust_decide_identically_across_the_sell_grid() {
     let rails_root = tempfile::tempdir().unwrap();
@@ -378,7 +525,7 @@ async fn rails_and_rust_decide_identically_across_the_sell_grid() {
     built_grid("grid-sell", rails_root.path());
     let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
     dirs.sort();
-    assert_eq!(dirs.len(), 195, "the sell grid has {} scenarios", dirs.len());
+    assert_eq!(dirs.len(), 255, "the sell grid has {} scenarios", dirs.len());
     for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
     rails(&["record", rails_root.path().to_str().unwrap()]);
     let mut failures = vec![];

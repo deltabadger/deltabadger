@@ -5,6 +5,7 @@
     "app/models/exchanges/binance_us.rb": "0a7814fb073bf00733986d2fb4a9c2d69d9a3be5e78c068aca153bc5966a16f7",
     "app/models/exchanges/kucoin.rb": "a4dd07679ac5297f73d7713a812122728872629f60c13cf82d5f1b5c205fef45",
     "app/models/exchanges/bitvavo.rb": "eb8c8aac55c32742ff255efeb890e1163892480f85e6e6dcaf611b79ada4d513",
+    "app/models/exchanges/gemini.rb": "f020003e7398b901120a20af2354b692218ac537072da685ab176499069c4234",
     "app/models/exchange.rb": "ab627a2812bc0c7b4a546459e64f8f5d93617c496308d5f03163f44cef12d8d7",
     "app/models/exchange/dryable.rb": "559b4b1858c832f3bc83b7631d7a74012854aabd88408b8680288609a1254b96",
     "app/models/api_key.rb": "e7f1435042602815925d093baa51160be9236c600b2f8aebdcf0517f5119ef91",
@@ -5128,7 +5129,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=4a9672e29c0ebe56c5157bdeac91c3743362b439c853f13348420deb5ecbd9c6&timestamp=1792544158018"
+            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=7275f18ddc922a67a75ef3fce1d4403a3e1e2a40697e11a95393b504c4ddacf7&timestamp=1792567619800"
           ]
         },
         "request": {
@@ -7056,7 +7057,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=ec4172ff3a087ef05aca385f7dab96d7615ad5161736ed3ac0b78875f675f0d4&timestamp=1792544158071"
+            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=36090d929428b9188778bc6a904b36e611d8d31db7806d1fe9b0e26c936ece12&timestamp=1792567619823"
           ]
         },
         "request": {
@@ -8984,7 +8985,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=d51bd8de5b421086a22a1e79b1c7aaaded556015117e8af7de953310a2210ef3&timestamp=1792544158118"
+            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=f43b55d2aad6755e5cfbbfe80dea4548e87247a9ccdf4501fa3aec6639788bdb&timestamp=1792567619843"
           ]
         },
         "request": {
@@ -10912,7 +10913,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=345ba6b5ea4522e300592533ff7eb6388e48b04dcefab159eea26c74380de723&timestamp=1792544158159"
+            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=a43f78a2c96b6b31cc686dea10801959e2e02058fb65563a3db77d12310a716e&timestamp=1792567619868"
           ]
         },
         "request": {
@@ -11653,7 +11654,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=eb52239e023177786db5bf03f9aa15a000c07dc2e8e211e617230e0741231aba&timestamp=1792544158184"
+            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=51d75c4c5395f5d55062c55ba1e31a6e9a3860b761fcc1fef8d98d1a1287ce5c&timestamp=1792567619882"
           ]
         },
         "request": {
@@ -13012,7 +13013,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for DELETE https://api.binance.us/api/v3/order?orderId=9999999999&recvWindow=5000&signature=e5815bac09b9e53aec0166e28a935839f78c2a1fb35b31c06ca6e9840c30f16d&symbol=ETHBTC&timestamp=1792544158217"
+            "the server responded with status 500 for DELETE https://api.binance.us/api/v3/order?orderId=9999999999&recvWindow=5000&signature=9d6ba25f5847f31a96d1c351ae63361a83854d6136a212b7546cc97b7745751c&symbol=ETHBTC&timestamp=1792567619894"
           ]
         },
         "requests": [
@@ -13953,7 +13954,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=27aef373fe2ad60fd5b151db5578b5742d8830bc3826f74028e06f612093c799&timestamp=1792544158236"
+            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=c853d0157c51d45cabe28eb083cdbc89d0d832c1fb5ccd65675db1bd26026645&timestamp=1792567619902"
           ]
         },
         "request": {
@@ -15312,7 +15313,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for DELETE https://api.binance.us/api/v3/order?orderId=9999999999&recvWindow=5000&signature=c452bbf55e86309574297f8a1e67e3841e40e6d2a1fef0c5737b98ce96a36d9c&symbol=ETHBTC&timestamp=1792544158259"
+            "the server responded with status 500 for DELETE https://api.binance.us/api/v3/order?orderId=9999999999&recvWindow=5000&signature=27715b9acd4275c340a5c12709d65ab9cf9cda0db4be9c982cbaa009ccea81c8&symbol=ETHBTC&timestamp=1792567619913"
           ]
         },
         "requests": [
@@ -16253,7 +16254,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=2761b0b12182f0fa679d50e2a5ff1358ba17fb414313dfcf089fe3397560871f&timestamp=1792544158280"
+            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=76abde84b9e62920097c42c058ca0e3e46f79b3ab43237d27fb875f8d996d7bf&timestamp=1792567619924"
           ]
         },
         "request": {
@@ -17612,7 +17613,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for DELETE https://api.binance.us/api/v3/order?orderId=9999999999&recvWindow=5000&signature=ee46d72b99c5f39ad3bdca5030acaad067861f82b752b83a97c0cc15ccf5c869&symbol=ETHBTC&timestamp=1792544158303"
+            "the server responded with status 500 for DELETE https://api.binance.us/api/v3/order?orderId=9999999999&recvWindow=5000&signature=b2b84e44e2484422c6263e586d5af544b532872ca7a7f26b50f3e878f199108a&symbol=ETHBTC&timestamp=1792567619934"
           ]
         },
         "requests": [
@@ -18553,7 +18554,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=6fea3591b976ec9a2f83723d6772e0881d65a8f21aad332bb2e78ea4ee729927&timestamp=1792544158320"
+            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=868ba227c96cf352e07225428b758a438eff92ce95be0f2a291be7e065dd4029&timestamp=1792567619943"
           ]
         },
         "request": {
@@ -29245,6 +29246,2016 @@
             "key_header": "test-key"
           }
         ]
+      }
+    ]
+  },
+  "gemini": {
+    "invalid_key_errors": [
+      "InvalidSignature",
+      "InvalidApiKey"
+    ],
+    "cases": [
+      {
+        "case": "ok",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"order_id\":\"0\",\"symbol\":\"btcusd\",\"is_live\":false,\"is_cancelled\":true}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/order/cancel",
+          "query": {},
+          "form": {
+            "order_id": 0
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "ok_empty_list",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "[]",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/order/cancel",
+          "query": {},
+          "form": {
+            "order_id": 0
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "ok_object",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/order/cancel",
+          "query": {},
+          "form": {
+            "order_id": 0
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "order_not_found 404",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 404,
+          "body": "{\"result\":\"error\",\"reason\":\"OrderNotFound\",\"message\":\"Order 0 not found\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/order/cancel",
+          "query": {},
+          "form": {
+            "order_id": 0
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "order_not_found 200",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"result\":\"error\",\"reason\":\"OrderNotFound\",\"message\":\"OrderNotFound\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/order/cancel",
+          "query": {},
+          "form": {
+            "order_id": 0
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "missing_role 403",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 403,
+          "body": "{\"result\":\"error\",\"reason\":\"MissingRole\",\"message\":\"API key lacks the required role\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/order/cancel",
+          "query": {},
+          "form": {
+            "order_id": 0
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "missing_role 200",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"result\":\"error\",\"reason\":\"MissingRole\",\"message\":\"MissingRole\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/order/cancel",
+          "query": {},
+          "form": {
+            "order_id": 0
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_nonce",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"result\":\"error\",\"reason\":\"InvalidNonce\",\"message\":\"Nonce has not increased\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"result\":\"error\",\"reason\":\"InvalidNonce\",\"message\":\"Nonce has not increased\"}"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/order/cancel",
+          "query": {},
+          "form": {
+            "order_id": 0
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "rate_limit",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 429,
+          "body": "{\"result\":\"error\",\"reason\":\"RateLimit\",\"message\":\"Requests were made too frequently\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"result\":\"error\",\"reason\":\"RateLimit\",\"message\":\"Requests were made too frequently\"}"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/order/cancel",
+          "query": {},
+          "form": {
+            "order_id": 0
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "system",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 500,
+          "body": "{\"result\":\"error\",\"reason\":\"System\",\"message\":\"Internal error\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"result\":\"error\",\"reason\":\"System\",\"message\":\"Internal error\"}"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/order/cancel",
+          "query": {},
+          "form": {
+            "order_id": 0
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "maintenance",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 503,
+          "body": "{\"result\":\"error\",\"reason\":\"Maintenance\",\"message\":\"Down for maintenance\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"result\":\"error\",\"reason\":\"Maintenance\",\"message\":\"Down for maintenance\"}"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/order/cancel",
+          "query": {},
+          "form": {
+            "order_id": 0
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "other_reason",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"result\":\"error\",\"reason\":\"InvalidOrder\",\"message\":\"nope\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"result\":\"error\",\"reason\":\"InvalidOrder\",\"message\":\"nope\"}"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/order/cancel",
+          "query": {},
+          "form": {
+            "order_id": 0
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "other_reason 200",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"result\":\"error\",\"reason\":\"InvalidOrder\",\"message\":\"nope\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "nope"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/order/cancel",
+          "query": {},
+          "form": {
+            "order_id": 0
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "error_without_message 200",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"result\":\"error\",\"reason\":\"Odd\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Gemini answered Odd"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/order/cancel",
+          "query": {},
+          "form": {
+            "order_id": 0
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "error_without_reason 200",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"result\":\"error\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Gemini answered an error"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/order/cancel",
+          "query": {},
+          "form": {
+            "order_id": 0
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "reason_in_message_only",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"result\":\"error\",\"message\":\"InvalidSignature\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"result\":\"error\",\"message\":\"InvalidSignature\"}"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/order/cancel",
+          "query": {},
+          "form": {
+            "order_id": 0
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_key InvalidSignature 400",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"result\":\"error\",\"reason\":\"InvalidSignature\",\"message\":\"InvalidSignature\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/order/cancel",
+          "query": {},
+          "form": {
+            "order_id": 0
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_key InvalidSignature 200",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"result\":\"error\",\"reason\":\"InvalidSignature\",\"message\":\"InvalidSignature\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/order/cancel",
+          "query": {},
+          "form": {
+            "order_id": 0
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_key InvalidApiKey 400",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"result\":\"error\",\"reason\":\"InvalidApiKey\",\"message\":\"InvalidApiKey\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/order/cancel",
+          "query": {},
+          "form": {
+            "order_id": 0
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_key InvalidApiKey 200",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"result\":\"error\",\"reason\":\"InvalidApiKey\",\"message\":\"InvalidApiKey\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/order/cancel",
+          "query": {},
+          "form": {
+            "order_id": 0
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_500",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 500,
+          "body": "",
+          "content_type": "text/plain"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "the server responded with status 500 for POST https://api.gemini.com/v1/order/cancel"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/order/cancel",
+          "query": {},
+          "form": {
+            "order_id": 0
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_502_html",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 502,
+          "body": "<html><body>502 Bad Gateway</body></html>",
+          "content_type": "text/html"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "<html><body>502 Bad Gateway</body></html>"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/order/cancel",
+          "query": {},
+          "form": {
+            "order_id": 0
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_503_json",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 503,
+          "body": "{\"msg\":\"Service unavailable\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"msg\":\"Service unavailable\"}"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/order/cancel",
+          "query": {},
+          "form": {
+            "order_id": 0
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_403_waf_html",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 403,
+          "body": "<html>Forbidden</html>",
+          "content_type": "text/html"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "<html>Forbidden</html>"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/order/cancel",
+          "query": {},
+          "form": {
+            "order_id": 0
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_429",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 429,
+          "body": "{\"code\":-1003,\"msg\":\"Too many requests.\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"code\":-1003,\"msg\":\"Too many requests.\"}"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/order/cancel",
+          "query": {},
+          "form": {
+            "order_id": 0
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "timeout",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "timeout": true
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Net::ReadTimeout"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/order/cancel",
+          "query": {},
+          "form": {
+            "order_id": 0
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "connection_refused",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "refused": true
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Failed to open TCP connection (Connection refused)"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/order/cancel",
+          "query": {},
+          "form": {
+            "order_id": 0
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "malformed_json",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"error\":[],\"result\":{",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"error\":[],\"result\":{"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/order/cancel",
+          "query": {},
+          "form": {
+            "order_id": 0
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "empty_json_body",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/order/cancel",
+          "query": {},
+          "form": {
+            "order_id": 0
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "plain_text_200",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "OK",
+          "content_type": "text/plain"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/order/cancel",
+          "query": {},
+          "form": {
+            "order_id": 0
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "ok",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "[{\"currency\":\"BTC\",\"amount\":\"1\",\"available\":\"1\"}]",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/balances",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "ok_empty_list",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "[]",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/balances",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "ok_object",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/balances",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "order_not_found 404",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 404,
+          "body": "{\"result\":\"error\",\"reason\":\"OrderNotFound\",\"message\":\"Order 0 not found\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"result\":\"error\",\"reason\":\"OrderNotFound\",\"message\":\"Order 0 not found\"}"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/balances",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "order_not_found 200",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"result\":\"error\",\"reason\":\"OrderNotFound\",\"message\":\"OrderNotFound\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "OrderNotFound"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/balances",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "missing_role 403",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 403,
+          "body": "{\"result\":\"error\",\"reason\":\"MissingRole\",\"message\":\"API key lacks the required role\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/balances",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "missing_role 200",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"result\":\"error\",\"reason\":\"MissingRole\",\"message\":\"MissingRole\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/balances",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_nonce",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"result\":\"error\",\"reason\":\"InvalidNonce\",\"message\":\"Nonce has not increased\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"result\":\"error\",\"reason\":\"InvalidNonce\",\"message\":\"Nonce has not increased\"}"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/balances",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "rate_limit",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 429,
+          "body": "{\"result\":\"error\",\"reason\":\"RateLimit\",\"message\":\"Requests were made too frequently\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"result\":\"error\",\"reason\":\"RateLimit\",\"message\":\"Requests were made too frequently\"}"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/balances",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "system",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 500,
+          "body": "{\"result\":\"error\",\"reason\":\"System\",\"message\":\"Internal error\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"result\":\"error\",\"reason\":\"System\",\"message\":\"Internal error\"}"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/balances",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "maintenance",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 503,
+          "body": "{\"result\":\"error\",\"reason\":\"Maintenance\",\"message\":\"Down for maintenance\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"result\":\"error\",\"reason\":\"Maintenance\",\"message\":\"Down for maintenance\"}"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/balances",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "other_reason",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"result\":\"error\",\"reason\":\"InvalidOrder\",\"message\":\"nope\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"result\":\"error\",\"reason\":\"InvalidOrder\",\"message\":\"nope\"}"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/balances",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "other_reason 200",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"result\":\"error\",\"reason\":\"InvalidOrder\",\"message\":\"nope\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "nope"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/balances",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "error_without_message 200",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"result\":\"error\",\"reason\":\"Odd\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Gemini answered Odd"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/balances",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "error_without_reason 200",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"result\":\"error\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Gemini answered an error"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/balances",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "reason_in_message_only",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"result\":\"error\",\"message\":\"InvalidSignature\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"result\":\"error\",\"message\":\"InvalidSignature\"}"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/balances",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_key InvalidSignature 400",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"result\":\"error\",\"reason\":\"InvalidSignature\",\"message\":\"InvalidSignature\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/balances",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_key InvalidSignature 200",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"result\":\"error\",\"reason\":\"InvalidSignature\",\"message\":\"InvalidSignature\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/balances",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_key InvalidApiKey 400",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"result\":\"error\",\"reason\":\"InvalidApiKey\",\"message\":\"InvalidApiKey\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/balances",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_key InvalidApiKey 200",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"result\":\"error\",\"reason\":\"InvalidApiKey\",\"message\":\"InvalidApiKey\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/balances",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_500",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 500,
+          "body": "",
+          "content_type": "text/plain"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "the server responded with status 500 for POST https://api.gemini.com/v1/balances"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/balances",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_502_html",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 502,
+          "body": "<html><body>502 Bad Gateway</body></html>",
+          "content_type": "text/html"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "<html><body>502 Bad Gateway</body></html>"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/balances",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_503_json",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 503,
+          "body": "{\"msg\":\"Service unavailable\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"msg\":\"Service unavailable\"}"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/balances",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_403_waf_html",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 403,
+          "body": "<html>Forbidden</html>",
+          "content_type": "text/html"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "<html>Forbidden</html>"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/balances",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_429",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 429,
+          "body": "{\"code\":-1003,\"msg\":\"Too many requests.\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"code\":-1003,\"msg\":\"Too many requests.\"}"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/balances",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "timeout",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "timeout": true
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Net::ReadTimeout"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/balances",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "connection_refused",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "refused": true
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Failed to open TCP connection (Connection refused)"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/balances",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "malformed_json",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"error\":[],\"result\":{",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"error\":[],\"result\":{"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/balances",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "empty_json_body",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/balances",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "plain_text_200",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "OK",
+          "content_type": "text/plain"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/balances",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "ok",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "[{\"currency\":\"BTC\",\"amount\":\"1\",\"available\":\"1\"}]",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/balances",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "ok_empty_list",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "[]",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/balances",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "ok_lowercase",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "[{\"currency\":\"btc\",\"amount\":\"1\",\"available\":\"1\"}]",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/balances",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "null",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "null",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Failed to get Gemini balances"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/balances",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "empty_json_body",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Failed to get Gemini balances"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/balances",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "missing_role 403",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 403,
+          "body": "{\"result\":\"error\",\"reason\":\"MissingRole\",\"message\":\"API key lacks the required role\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"result\":\"error\",\"reason\":\"MissingRole\",\"message\":\"API key lacks the required role\"}"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/balances",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "rate_limit",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 429,
+          "body": "{\"result\":\"error\",\"reason\":\"RateLimit\",\"message\":\"RateLimit\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"result\":\"error\",\"reason\":\"RateLimit\",\"message\":\"RateLimit\"}"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/balances",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "system",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 500,
+          "body": "{\"result\":\"error\",\"reason\":\"System\",\"message\":\"Internal error\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"result\":\"error\",\"reason\":\"System\",\"message\":\"Internal error\"}"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/balances",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "other_reason",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"result\":\"error\",\"reason\":\"InvalidOrder\",\"message\":\"nope\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"result\":\"error\",\"reason\":\"InvalidOrder\",\"message\":\"nope\"}"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/balances",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "row_without_currency",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "[{\"amount\":\"1\"}]",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "raises",
+          "class": "KeyError",
+          "message": "Key path currency not found"
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/balances",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "currency_not_a_string",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "[{\"currency\":1}]",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "raises",
+          "class": "NoMethodError",
+          "message": "undefined method 'upcase' for an instance of Integer"
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/balances",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "object",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"currency\":\"BTC\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "raises",
+          "class": "TypeError",
+          "message": "no implicit conversion of String into Integer"
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/balances",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "string",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "balances",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "balances"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/balances",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_key InvalidSignature 400",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"result\":\"error\",\"reason\":\"InvalidSignature\",\"message\":\"InvalidSignature\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/balances",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "invalid_key InvalidApiKey 400",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"result\":\"error\",\"reason\":\"InvalidApiKey\",\"message\":\"InvalidApiKey\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/balances",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_500",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 500,
+          "body": "",
+          "content_type": "text/plain"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "the server responded with status 500 for POST https://api.gemini.com/v1/balances"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/balances",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_502_html",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 502,
+          "body": "<html><body>502 Bad Gateway</body></html>",
+          "content_type": "text/html"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "<html><body>502 Bad Gateway</body></html>"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/balances",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_503_json",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 503,
+          "body": "{\"msg\":\"Service unavailable\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"msg\":\"Service unavailable\"}"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/balances",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_403_waf_html",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 403,
+          "body": "<html>Forbidden</html>",
+          "content_type": "text/html"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "<html>Forbidden</html>"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/balances",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_429",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 429,
+          "body": "{\"code\":-1003,\"msg\":\"Too many requests.\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"code\":-1003,\"msg\":\"Too many requests.\"}"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/balances",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "timeout",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "timeout": true
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Net::ReadTimeout"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/balances",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "connection_refused",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "refused": true
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Failed to open TCP connection (Connection refused)"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/balances",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "malformed_json",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"error\":[],\"result\":{",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"error\":[],\"result\":{"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/balances",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "plain_text_200",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "OK",
+          "content_type": "text/plain"
+        },
+        "verdict": {
+          "kind": "raises",
+          "class": "NoMethodError",
+          "message": "undefined method 'each' for an instance of String"
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.gemini.com",
+          "path": "/v1/balances",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
       }
     ]
   }

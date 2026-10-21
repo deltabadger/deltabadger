@@ -159,6 +159,8 @@ async fn execute<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, ru
     let Some((amount, quote)) = sized else { return fail_unsized(c, bot, ticker, side, call, vec!["divided by 0".into()], version, clock.now()) };
     // #checked_amount_info: under the venue's minimum, a skipped row and its line.
     let (plan, below) = amount::size_order(ticker, side, &price, &amount, &quote, venue.rules().minimum_logic, TxKind::Regular)?;
+    // Path 2 (plan VB §1.5): Exchange#market_price_for's price, crossed already where the venue crosses; sent as it is.
+    let plan = plan.with_wire_price(venue.rules(), &price, true)?;
     if below {
         super::log(&format!("execute_signal bot={} event=order_skipped base={} quote={}", bot.id, ticker.base_symbol, ticker.quote_symbol));
         let now = clock.now();

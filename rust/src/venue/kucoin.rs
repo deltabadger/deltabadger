@@ -327,6 +327,7 @@ impl<T: Transport> super::Venue for KucoinVenue<T> {
                 body.insert("size".into(), o.volume.clone().into());
                 body.insert("price".into(), price.clone().into());
             }
+            OrderKind::Crossed { .. } => return Err(super::not_crossing("KuCoin")),
         }
         // The absolute bound on the send, as for every venue: the intent's send window, plus the request budget.
         let r = HttpRequest { not_after: Some(o.deadline + chrono::Duration::from_std(http::TOTAL_TIMEOUT).expect("45 s")),
