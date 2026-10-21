@@ -252,6 +252,10 @@ async fn placement_answers_map_as_rails_maps_them() {
     let place = |reply: Value| async move { venue(json!({ "POST /api/v2/spot/trade/place-order": reply })).1.add_order(&order(OrderKind::Market, true, "60", Side::Buy)).await };
     assert_eq!(place(ok(envelope(json!({ "orderId": "1001", "clientOid": CL })))).await, Ok("BTCUSDT-1001".into()));
     assert_eq!(place(ok(envelope(json!({})))).await, Err(VenueError::Ambiguous(bitget::NO_ORDER_ID.into())));
+    // An answer without a code proves nothing about the order: the intent stays.
+    for silent in [json!({}), json!(null), json!({ "code": null }), json!({ "data": { "orderId": "1001" } })] {
+        assert_eq!(place(ok(silent)).await, Err(VenueError::Ambiguous(bitget::NO_CODE.into())));
+    }
     let Err(VenueError::Rejected(e)) = place(fail(400, err("43012", "Insufficient balance"))).await else { panic!() };
     assert_eq!(BITGET.failure_kind(&e), Some("insufficient_funds"));
     // An error envelope inside HTTP 200 is honeymaker's api_error text.

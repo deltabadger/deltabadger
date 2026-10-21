@@ -41,6 +41,7 @@ pub const OK: &str = "00000";
 pub const ORDER_GONE_CODES: [&str; 2] = ["40109", "43001"];
 /// A 00000 answer to the order without an orderId: Rails stores "<symbol>-"; Bitget took the order, or may have.
 pub const NO_ORDER_ID: &str = "Bitget answered the order with no order id";
+pub const NO_CODE: &str = "Bitget answered the order with no result code";
 /// The whole market's tickers in one body: its read stops at this many bytes, never a price from a cut body.
 pub const TICKERS_LIMIT: usize = 4 * 1024 * 1024;
 
@@ -284,8 +285,8 @@ impl<T: Transport> super::Venue for BitgetVenue<T> {
     /// #set_market_order / #set_limit_order through Clients::Bitget#place_order: POST place-order with symbol, side, orderType,
     /// size, (a limit's) price, force (`ioc` market, `gtc` limit), then clientOid (the intent id; Rails sends none). A market
     /// order's size is in the unit its side takes (G1) and a limit order's in base (#532), as `WireFormat::Bitget` converted
-    /// it. Sent at most once. The stored id is "<symbol>-<orderId>". An error envelope is honeymaker's api_error text; a 00000 answer without an orderId may have
-    /// placed the order: Ambiguous.
+    /// it. Sent at most once. The stored id is "<symbol>-<orderId>". An error envelope is honeymaker's api_error text; a 00000 answer without an orderId, or an answer
+    /// without a code, may have placed the order: Ambiguous.
     async fn add_order(&self, o: &NewOrder) -> Result<String, VenueError> {
         // `WireFormat::Bitget` sizes the order in its unit (a market buy in quote, everything else in base) before the intent.
         let in_unit = o.quote_volume == (o.side == Side::Buy && o.kind == OrderKind::Market);
@@ -308,6 +309,9 @@ impl<T: Transport> super::Venue for BitgetVenue<T> {
         let r = HttpRequest { not_after: Some(o.deadline + chrono::Duration::from_std(http::TOTAL_TIMEOUT).expect("45 s")),
                               ..self.request("POST", PLACE_PATH, vec![], Some(Value::Object(body))) };
         let answer = self.call(&r, true).await?;
+        // Only an answer that names an error code rejects the order; one without a code ({}, null) says nothing about
+        // whether it landed, so the intent stays for recovery by clientOid.
+        if answer.get("code").is_none_or(|c| to_s(c).is_empty()) { return Err(VenueError::Ambiguous(NO_CODE.into())); }
         if !ok(&answer) { return Err(VenueError::Rejected(vec![api_error(&answer)])); }
         let id = to_s(&answer["data"]["orderId"]);
         if id.is_empty() { return Err(VenueError::Ambiguous(NO_ORDER_ID.into())); }
