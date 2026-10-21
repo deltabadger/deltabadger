@@ -1349,6 +1349,88 @@ module SyncScenarios
     ]
   end
 
+  # Exchanges::Bitget#get_ledger with AccountTransactionSync (plan VB slice A4, AUDIT-bitget G6/G7): fills in 89-day windows from
+  # the later of the start and 89 days ago, paged by idLessThan = tradeId; then, window by window from the start (2018-04-01
+  # on a first sync), the deposit and the withdrawal records paged by orderId; 40014/40025 on a transfer read is an empty
+  # read; any other error envelope or failure fails the run.
+  def bitget_ledger_scenarios
+    night = '2026-09-20T02:00:00.250000Z'
+    t = ->(*args) { Time.utc(*args) }
+    since = ->(watermark) { ->(ctx) { P.bitget(ctx); ctx[:key].update_columns(last_synced_at: watermark) } }
+    week = since.(t.(2026, 9, 15))
+    fills = [P.bg_fill('9003', 'BTCUSDT', 'sell', '0.001', '64100', t.(2026, 9, 19, 10)),
+             P.bg_fill('9002', 'ETHBTC', 'buy', '0.5', '0.031', t.(2026, 9, 18, 9), fee: '-0.0005', fee_coin: 'ETH'),
+             P.bg_fill('9001', 'NEWUSDT', 'Buy', '10', '1.5', t.(2026, 9, 17), detail: false).merge('fee' => '-0.015')]
+    deposits = [P.bg_transfer('d3', 'USDT', '1000', t.(2026, 9, 18, 12)), P.bg_transfer('d2', 'BTC', '0.01', t.(2026, 9, 17), status: 'pending'),
+                P.bg_transfer('d1', 'ETH', '2', t.(2026, 9, 16), trade: '1234567')]
+    withdrawals = [P.bg_transfer('w2', 'USDT', '50', t.(2026, 9, 19), fee: '-1.00000000', type: 'withdraw'),
+                   P.bg_transfer('w1', 'BTC', '0.002', t.(2026, 9, 18), status: 'fail', fee: '-0.0001', type: 'withdraw')]
+    # A full page (Bitget's 100), then the page before its last id; a page of 100 transfers likewise.
+    full = Array.new(100) { |i| P.bg_fill((5000 - i).to_s, 'BTCUSDT', 'buy', '0.0001', '64000', t.(2026, 9, 19).to_i * 1000 - (i * 1000)) }
+    transfers = Array.new(100) { |i| P.bg_transfer("p#{500 - i}", 'USDT', format('1.%03d', i), t.(2026, 9, 19).to_i * 1000 - (i * 60_000)) }
+    bare = P.bg_fill('x', 'BTCUSDT', 'buy', '0.002', '64000', t.(2026, 9, 18, 8)).except('tradeId')
+    scope = P.bg_err(400, '40014', 'Incorrect permissions')
+    [
+      { name: 'bitget-ledger-week', setup: week,
+        steps: [P.bitget_ledger(night, fills: [P.bg_page(fills)], deposits: [P.bg_page(deposits)], withdrawals: [P.bg_page(withdrawals)])] },
+      # A first sync: fills from 89 days ago, transfers window by window from 2018-04-01; the first window holds them.
+      { name: 'bitget-ledger-full', setup: ->(ctx) { P.bitget(ctx) },
+        steps: [P.bitget_ledger(night, fills: [P.bg_page(fills)], deposits: [P.bg_page(deposits), P.bg_page([])], withdrawals: [P.bg_page(withdrawals), P.bg_page([])])] },
+      # Neighbouring windows share their edge: a record read in both is one row.
+      { name: 'bitget-ledger-window_edge', setup: ->(ctx) { P.bitget(ctx) },
+        steps: [P.bitget_ledger(night, deposits: [P.bg_page(deposits.first(1)), P.bg_page(deposits.first(1)), P.bg_page([])])] },
+      { name: 'bitget-ledger-two_nights', setup: week,
+        steps: [P.bitget_ledger(night, fills: [P.bg_page(fills)], deposits: [P.bg_page(deposits)]),
+                P.bitget_ledger('2026-09-21T02:00:00.250000Z', fills: [P.bg_page(fills)], deposits: [P.bg_page(deposits)], withdrawals: [P.bg_page(withdrawals)])] },
+      { name: 'bitget-ledger-fill_pages', setup: week, steps: [P.bitget_ledger(night, fills: [P.bg_page(full), P.bg_page(fills)])] },
+      { name: 'bitget-ledger-transfer_pages', setup: week, steps: [P.bitget_ledger(night, deposits: [P.bg_page(transfers), P.bg_page(deposits)])] },
+      # Two identical fills without a tradeId are one row (#get_ledger's uniq); another one is kept.
+      { name: 'bitget-ledger-bare_fills', setup: week,
+        steps: [P.bitget_ledger(night, fills: [P.bg_page([bare, bare, bare.merge('size' => '0.003')])])] },
+      # A key without the wallet scope: its transfer reads are empty, its fills stored.
+      { name: 'bitget-ledger-no_wallet_scope', setup: week,
+        steps: [P.bitget_ledger(night, fills: [P.bg_page(fills)], deposits: [scope], withdrawals: [P.bg_err(400, '40025', 'The user does not have this permission')])] },
+      { name: 'bitget-ledger-fills_refused', setup: week, steps: [P.bitget_ledger(night, fills: [scope], deposits: [P.bg_page(deposits)])] },
+      { name: 'bitget-ledger-envelope_error', setup: week,
+        steps: [P.bitget_ledger(night, fills: [P.bg_page(fills)], deposits: [P.ok('code' => '40015', 'msg' => 'System is abnormal', 'data' => [])])] },
+      { name: 'bitget-ledger-invalid_key', setup: week, steps: [P.bitget_ledger(night, fills: [P.bg_err(400, '40037', 'Apikey does not exist')])] },
+      { name: 'bitget-ledger-network', setup: week,
+        steps: [P.bitget_ledger(night, fills: [P.bg_page(fills)], withdrawals: [{ 'network' => 'bitget_pre_send', 'message' => 'Connection refused - connect(2) for "api.bitget.com" port 443' }])] },
+      { name: 'bitget-ledger-nothing', setup: week, steps: [P.bitget_ledger(night)] }
+    ]
+  end
+
+  # Exchanges::Bitget#get_balances with AccountBalance::Sync (plan VB slice A4): the success code with `data`, one row per coin,
+  # `available` and `frozen`.
+  def bitget_balance_scenarios
+    night = '2026-09-20T02:30:00.750000Z'
+    coins = P.prices_body('bitcoin' => 60_000.5, 'ethereum' => 2500.25)
+    install = ->(ctx) { P.bitget(ctx) }
+    seeded = lambda do |ctx|
+      P.bitget(ctx)
+      P.balance(ctx, 'BTC', free: '0.4', usd_price: '59000.5', usd_value: '23600.2', exchange: ctx[:bitget])
+      P.balance(ctx, 'ETH', free: '1', usd_price: '2400', usd_value: '2400', exchange: ctx[:bitget])
+    end
+    [
+      # A coin the venue lists no ticker for (BGB) is not a balance; neither is a lowercase spelling (AUDIT-bitget S4).
+      { name: 'bitget-balances-first', setup: install,
+        steps: [P.bitget_balances(night, assets: P.bg_assets(%w[BTC 0.5 0.1], %w[ETH 2], %w[USDT 100.5], %w[BGB 3], %w[eth 7], %w[DOGE 0]), prices: coins)] },
+      { name: 'bitget-balances-stale_and_gone', setup: seeded, steps: [P.bitget_balances(night, assets: P.bg_assets(%w[BTC 0.45]), prices: P::SERVER_ERROR)] },
+      { name: 'bitget-balances-invalid_key', setup: seeded, steps: [P.bitget_balances(night, assets: P.bg_err(400, '40037', 'Apikey does not exist'))] },
+      { name: 'bitget-balances-passphrase', setup: seeded, steps: [P.bitget_balances(night, assets: P.bg_err(400, '40036', 'passphrase is error'))] },
+      { name: 'bitget-balances-no_permission', setup: seeded, steps: [P.bitget_balances(night, assets: P.bg_err(400, '40014', 'Incorrect permissions'))] },
+      { name: 'bitget-balances-envelope_error', setup: seeded,
+        steps: [P.bitget_balances(night, assets: P.ok('code' => '40037', 'msg' => 'Apikey does not exist', 'data' => []))] },
+      { name: 'bitget-balances-throttled', setup: seeded, steps: [P.bitget_balances(night, assets: P.bg_err(429, '429', 'Too Many Requests'))] },
+      { name: 'bitget-balances-not_json', setup: seeded, steps: [P.bitget_balances(night, assets: { 'status' => 200, 'body' => 'maintenance' })] },
+      { name: 'bitget-balances-network', setup: seeded,
+        steps: [P.bitget_balances(night, assets: { 'network' => 'bitget_pre_send', 'message' => 'Connection refused - connect(2) for "api.bitget.com" port 443' })] },
+      { name: 'bitget-balances-no_coin', setup: seeded, steps: [P.bitget_balances(night, assets: P.bg_page([{ 'available' => '1', 'frozen' => '0' }]))] },
+      { name: 'bitget-balances-no_frozen', setup: seeded, steps: [P.bitget_balances(night, assets: P.bg_page([{ 'coin' => 'BTC', 'available' => '1' }]))] },
+      { name: 'bitget-balances-nothing', setup: seeded, steps: [P.bitget_balances(night, assets: P.bg_assets)] }
+    ]
+  end
+
   # Exchanges::Mexc#get_ledger with AccountTransactionSync (plan VB slice A5, AUDIT-mexc X8-X12): deposits and withdrawals in
   # 7-day ranges from the start (89 days back at most), a full page halved, 700007 ending a history; then the pairs the
   # transfers, the account and the stored rows name; then their trades from the start (a month back at most), halved at 100.
@@ -1448,5 +1530,5 @@ module SyncScenarios
 
   def all = ledger_scenarios + balance_scenarios + binance_balance_scenarios + binance_ledger_scenarios + import_scenarios + kucoin_ledger_scenarios +
             kucoin_balance_scenarios + bitvavo_ledger_scenarios + bitvavo_balance_scenarios + gemini_ledger_scenarios + gemini_balance_scenarios +
-            mexc_ledger_scenarios + mexc_balance_scenarios
+            bitget_ledger_scenarios + bitget_balance_scenarios + mexc_ledger_scenarios + mexc_balance_scenarios
 end

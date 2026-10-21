@@ -31,6 +31,11 @@ pub enum WireFormat {
     /// Exchanges::Alpaca#set_market_order / #set_limit_order: #wire_decimal, the floored decimal at N places;
     /// a market buy is `notional`, a limit buy `qty` + `limit_price`.
     Alpaca,
+    /// Exchanges::Bitget#set_market_order / #set_limit_order (G1, #532): BigDecimal#to_s('F') strings and one `size` in the
+    /// unit the order takes: quote coins for a market buy, base coins for a market sell and a limit order. An amount in the
+    /// other unit is converted at #market_price_for (the touch the order was sized at, floored to the tick) and floored to
+    /// that unit's decimals, as Rails converts it.
+    Bitget,
 }
 
 /// Exchange#adjusted_price: how a price is put on the venue's tick before it is used or sent.
@@ -328,6 +333,46 @@ pub static BITVAVO: VenueRules = VenueRules {
     absence_provable: false,
     // #authoritative_missing_orders? true: the trades walk exhausts the fills, so a young order left out just waits.
     young_missing_fails: false,
+    price_rule: PriceRule::Decimals,
+    cross: None,
+};
+
+/// Exchange#transient_error? for Bitget: Client::NETWORK_TRANSIENT_PATTERNS plus Exchanges::Bitget::ERRORS[:transient].
+const BITGET_TRANSIENT: [&str; 15] = ["Net::ReadTimeout", "Net::OpenTimeout", "Faraday::TimeoutError", "Faraday::ConnectionFailed",
+    "execution expired", "Connection reset", "Errno::ECONNRESET", "connection refused", "Connection refused", "Errno::ECONNREFUSED",
+    "end of file reached", "unexpected eof while reading",
+    "Request timestamp expired", "Request timed out", "System is abnormal"];
+
+pub static BITGET: VenueRules = VenueRules {
+    exchange_type: "Exchanges::Bitget",
+    name: "Bitget",
+    // Exchanges::Bitget::ERRORS (bitget.rb:3-23, post-audit G4), matched inside the body or honeymaker's api_error text;
+    // pinned by tests/bitget.rs against the recorded list.
+    kinds: [("insufficient_funds", &["Insufficient balance", "Insufficient account balance"]),
+            ("invalid_key", &["Invalid Api Key", "Invalid ACCESS_KEY", "Invalid signature", "Apikey does not exist", "sign signature error",
+                              "apikey/password is incorrect", "passphrase is error", "User's ApiKey does not exist"]),
+            ("permission_denied", &["Incorrect permissions", "The user does not have this permission"]), ("restricted", &[]),
+            ("throttle", &["Too many requests", "Too Many Requests"]),
+            ("transient", &["Request timestamp expired", "Request timed out", "System is abnormal"])],
+    transient_text: &BITGET_TRANSIENT,
+    // Exchange#ambiguous_placement_error?: ERRORS[:transient] leaves a placement unknown, but 40008 (placement-safe: the
+    // signature check refused it before the book) is checked first. The network patterns are left to the transport.
+    add_outcome_unknown: &["Request timed out", "System is abnormal"],
+    // Exchanges::Bitget#minimum_amount_logic: market :base_or_quote, limit :base_and_quote_in_base (#532).
+    minimum_logic: MinimumLogic { market: AmountLogic::BaseOrQuote, limit: AmountLogic::BaseAndQuoteInBase },
+    // Honeymaker::Clients::Bitget#place_order sends BigDecimal#to_s('F') strings, one `size` in the order's unit.
+    wire: WireFormat::Bitget,
+    deadline_sent: false,
+    reach_within_secs: 55,
+    absence_margin_secs: 1200,
+    transport_raises: false,
+    // Bot::FetchAndUpdateOrderJob asks Exchanges::Bitget#get_order: one order, strict.
+    follow_up_strict: true, market_hours: false,
+    // #get_orders names a gone order (40109, 43001, an empty list) under `missing` (G5).
+    reports_missing: true,
+    // Its client-order lookup can only FIND an order (plan VB §1.5).
+    absence_provable: false,
+    young_missing_fails: true,
     price_rule: PriceRule::Decimals,
     cross: None,
 };

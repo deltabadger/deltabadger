@@ -1,7 +1,7 @@
 //! Signing at send time (plan VB §1.2): which headers and body a request carries, per venue wire, built by
 //! `http::ReqwestTransport` immediately before the send so a timestamp or nonce is read then and the signature covers
 //! the exact bytes sent. The schemes themselves stay with their venue (`kraken::private_headers`, `binance::sign`); a new
-//! scheme lands here with its venue and a known-answer test. `Prehash` is the family KuCoin and Bitvavo share (§1.2,
+//! scheme lands here with its venue and a known-answer test. `Prehash` is the family KuCoin, Bitvavo and Bitget share (§1.2,
 //! generalised from `kucoin::headers` in slice A3, KuCoin pinned by tests/kucoin.rs before and after). `QueryHmacHex` is the
 //! family Binance and MEXC share (generalised from binance.rs `signed` in slice A5, Binance pinned by tests/binance_trade.rs).
 use super::http::HttpRequest;
@@ -12,9 +12,10 @@ use sha2::Sha256;
 #[derive(Clone, Copy, PartialEq)]
 pub(crate) enum Encode { Base64, Hex }
 
-/// What a `Prehash` venue sends in its passphrase header: HMAC'd with the secret (KuCoin key version 2), as it is, or none.
+/// What a `Prehash` venue sends in its passphrase header: HMAC'd with the secret (KuCoin key version 2), as it is (Bitget),
+/// or none.
 #[derive(Clone, Copy, PartialEq)]
-pub(crate) enum Passphrase { Hmac, None }
+pub(crate) enum Passphrase { Hmac, Plain, None }
 
 /// Honeymaker's Binance-shaped clients (#get_signed, #post_signed, #delete_signed): the call's params (nils compacted) and
 /// `timestamp`, a hex HMAC-SHA256 over `build_query` of exactly those added as `signature`, every pair in the query on every
@@ -56,6 +57,9 @@ pub(crate) const KUCOIN: Prehash = Prehash { encode: Encode::Base64, passphrase:
 /// Honeymaker::Clients::Bitvavo#signed_headers: hex, no passphrase, BITVAVO-ACCESS-WINDOW 10000; a DELETE signs `?query`.
 pub(crate) const BITVAVO: Prehash = Prehash { encode: Encode::Hex, passphrase: Passphrase::None, delete_query: true,
     names: ["BITVAVO-ACCESS-KEY", "BITVAVO-ACCESS-SIGNATURE", "BITVAVO-ACCESS-TIMESTAMP", ""], extra: &[("BITVAVO-ACCESS-WINDOW", "10000")] };
+/// Honeymaker::Clients::Bitget#signed_headers: base64, the passphrase as it is, `locale: en-US`; it signs no DELETE.
+pub(crate) const BITGET: Prehash = Prehash { encode: Encode::Base64, passphrase: Passphrase::Plain, delete_query: false,
+    names: ["ACCESS-KEY", "ACCESS-SIGN", "ACCESS-TIMESTAMP", "ACCESS-PASSPHRASE"], extra: &[("locale", "en-US")] };
 
 pub(crate) fn hmac(secret: &str, message: &str, encode: Encode) -> String {
     use base64::Engine;
@@ -82,7 +86,11 @@ pub(crate) fn prehash(scheme: &Prehash, r: &HttpRequest, query: &str, key: &str,
     let [key_name, sign_name, ts_name, passphrase_name] = scheme.names;
     let mut out = vec![(key_name.to_string(), key.to_string()), (sign_name.to_string(), hmac(secret, &format!("{ts}{}{}{tail}", r.method, r.path), scheme.encode)),
                        (ts_name.to_string(), ts)];
-    if scheme.passphrase == Passphrase::Hmac { out.push((passphrase_name.to_string(), hmac(secret, passphrase, scheme.encode))); }
+    match scheme.passphrase {
+        Passphrase::Hmac => out.push((passphrase_name.to_string(), hmac(secret, passphrase, scheme.encode))),
+        Passphrase::Plain => out.push((passphrase_name.to_string(), passphrase.to_string())),
+        Passphrase::None => {}
+    }
     out.extend(scheme.extra.iter().map(|(k, v)| (k.to_string(), v.to_string())));
     out.extend(json_headers());
     out
@@ -101,6 +109,8 @@ pub(crate) enum Wire {
     Kucoin,
     /// Honeymaker::Clients::Bitvavo (venue::bitvavo): BITVAVO-ACCESS-* headers, `Prehash` as KuCoin's, hex.
     Bitvavo,
+    /// Honeymaker::Clients::Bitget (venue::bitget): ACCESS-* headers, `Prehash` base64 with the passphrase as it is.
+    Bitget,
     /// Honeymaker::Clients::Gemini (venue::gemini, signers::gemini): a private call is an empty-body POST whose params (the
     /// request's JSON body) travel in X-GEMINI-PAYLOAD with a nonce minted at send time; a public read is a plain GET.
     Gemini,
@@ -115,6 +125,7 @@ impl Wire {
         let exchange_type = match self {
             Self::Alpaca => crate::sync::ALPACA, Self::Binance => super::binance::BINANCE, Self::Kraken => "Exchanges::Kraken", Self::Kucoin => super::kucoin::KUCOIN,
             Self::Bitvavo => super::bitvavo::BITVAVO,
+            Self::Bitget => super::bitget::BITGET,
             Self::Gemini => super::gemini::GEMINI, Self::Mexc => super::mexc::MEXC,
         };
         super::registry::row(exchange_type).expect("every wire's venue has a row").name
@@ -131,13 +142,17 @@ pub(crate) fn request(wire: Wire, client: &reqwest::Client, r: &HttpRequest, key
     // The query exactly as Faraday::Utils.build_query writes it, which is what a Prehash signature covers.
     let q = super::binance::build_query(&r.query);
     // MEXC's QueryHmacHex signs that same text, so it is sent as it was signed.
-    if matches!(wire, Wire::Kucoin | Wire::Bitvavo | Wire::Mexc) { url.set_query((!q.is_empty()).then_some(q.as_str())); }
+    if matches!(wire, Wire::Kucoin | Wire::Bitvavo | Wire::Bitget | Wire::Mexc) { url.set_query((!q.is_empty()).then_some(q.as_str())); }
     let mut b = client.request(method, url);
     match wire {
-        Wire::Kucoin | Wire::Bitvavo => {
+        Wire::Kucoin | Wire::Bitvavo | Wire::Bitget => {
             // The timestamp is read here, at send time, and the signature covers the exact bytes sent.
             let ts = super::binance::timestamp_ms(clock.now());
-            let headers = if wire == Wire::Kucoin { super::kucoin::headers(r, keys.key, keys.secret, keys.passphrase, ts) } else { super::bitvavo::headers(r, keys.key, keys.secret, ts) };
+            let headers = match wire {
+                Wire::Kucoin => super::kucoin::headers(r, keys.key, keys.secret, keys.passphrase, ts),
+                Wire::Bitvavo => super::bitvavo::headers(r, keys.key, keys.secret, ts),
+                _ => super::bitget::headers(r, keys.key, keys.secret, keys.passphrase, ts),
+            };
             for (k, v) in headers { b = b.header(k, v); }
             if let Some(body) = &r.body { b = b.body(body.to_string()); }
         }

@@ -213,6 +213,36 @@ fn key_verdicts_replay_every_recorded_case() {
     }
     assert_eq!((bitvavo, text_passes), (214, 7), "a recorded Bitvavo case was added or dropped");
     replayed += bitvavo;
+    // Bitget (plan VB slice A4): one request per key type (the cancel probe of order 0, the assets read, the balances read),
+    // replayed through the check over Rails' recorded answer. An answer Rails raises on (a `msg` that is no String, balances
+    // it cannot walk) leaves the key pending in Rails (the job is discarded): no verdict here.
+    let bg = &recorded["bitget"];
+    assert_eq!((bg["order_not_found_codes"].clone(), bg["no_trade_codes"].clone()), (json!(key_check::BITGET_ORDER_NOT_FOUND), json!(key_check::BITGET_NO_TRADE)));
+    let invalid: Vec<String> = deltabadger::engine::venue_rules::BITGET.kinds.iter().find(|(k, _)| *k == "invalid_key").unwrap().1.iter().map(|s| s.to_string()).collect();
+    assert_eq!(serde_json::from_value::<Vec<String>>(bg["invalid_key_errors"].clone()).unwrap(), invalid);
+    let mut bitget = 0;
+    for case in bg["cases"].as_array().unwrap() {
+        let (name, kind) = (case["case"].as_str().unwrap(), kind(case["key_type"].as_str().unwrap()));
+        let a = &case["response"];
+        let reply = if a["timeout"] == true { json!({ "network": "post_send", "message": "Net::ReadTimeout" }) }
+                    else if a["refused"] == true { json!({ "network": "pre_send", "message": "Connection refused" }) }
+                    else { json!({ "status": a["status"], "body": a["body"] }) };
+        let sent = &case["request"];
+        let script = json!({ format!("{} {}", sent["method"].as_str().unwrap(), sent["path"].as_str().unwrap()): [reply] });
+        let transport = deltabadger::venue::http::ScriptedTransport::from_script(&script);
+        let venue = deltabadger::venue::bitget::BitgetVenue::new(transport.clone(), deltabadger::venue::bitget::URL);
+        let (_, ours) = rt.block_on(key_check::bitget_check(&transport, &venue, kind));
+        let theirs = if case["verdict"]["kind"] == "raises" { Verdict::Failure(String::new()) } else { expected(&case["verdict"]) };
+        assert!(same(&ours, &theirs), "bitget {} {} {name}: {ours:?}, Rails {theirs:?}", case["key_type"], case["method"]);
+        let r = &transport.requests()[0];
+        let query: serde_json::Map<String, Value> = r.query.iter().map(|(k, v)| (k.to_string(), json!(v))).collect();
+        assert_eq!((json!(r.method), json!(r.url().host_str().unwrap()), json!(r.path), Value::Object(query), r.body.clone().unwrap_or(json!({}))),
+                   (sent["method"].clone(), sent["host"].clone(), sent["path"].clone(), sent["query"].clone(), sent["form"].clone()), "bitget {name}: the request");
+        assert_eq!((transport.requests().len(), sent["key_header"].as_str()), (1, Some("test-key")), "{name}");
+        bitget += 1;
+    }
+    assert_eq!(bitget, 122, "a recorded Bitget case was added or dropped");
+    replayed += bitget;
     // MEXC (plan VB slice A5): the account read and its canTrade, then (a reading key's #get_read_api_key_validity) the deposit
     // history, each case's whole request sequence replayed through the check over Rails' recorded answers.
     let mx = &recorded["mexc"];
@@ -256,7 +286,7 @@ fn key_verdicts_replay_every_recorded_case() {
     }
     assert_eq!((mexc, text_passes - 7), (240, 4), "a recorded MEXC case was added or dropped");
     replayed += mexc;
-    assert_eq!(replayed, 578 + 84 + 212 + 214 + 240, "a recorded case was added or dropped");
+    assert_eq!(replayed, 578 + 84 + 212 + 214 + 122 + 240, "a recorded case was added or dropped");
 }
 
 /// A pinned callback list against a port's table: the same callbacks, in Rails' order, each handled.
@@ -333,6 +363,31 @@ async fn a_bitvavo_key_is_checked_by_a_balance_read_and_a_probe() {
     let sent: Vec<(String, String)> = server.received_requests().await.unwrap().iter().map(|r| (r.method.to_string(), r.url.path().to_string())).collect();
     let (read, probe) = (("GET".to_string(), "/v2/balance".to_string()), ("DELETE".to_string(), "/v2/order".to_string()));
     assert_eq!(sent, [read.clone(), probe.clone(), read.clone(), read, probe]);
+}
+
+/// The live key check of a Bitget key, as the wizard and settings send it: a trading key's signed cancel probe of order 0
+/// (43001, order not found, past the permission gate), a withdrawal key's and a reading key's assets read, each signed with
+/// the key in ACCESS-KEY and the passphrase as it is.
+#[tokio::test(flavor = "current_thread")]
+async fn a_bitget_key_is_checked_by_a_cancel_probe_or_an_assets_read() {
+    use wiremock::{matchers::{body_json, header, header_exists, method, path}, Mock, MockServer, ResponseTemplate};
+    use deltabadger::web::settings::validator::Validity;
+    let server = MockServer::start().await;
+    Mock::given(method("POST")).and(path("/api/v2/spot/trade/cancel-order")).and(header("ACCESS-KEY", "bg-key")).and(header("ACCESS-PASSPHRASE", "bg-pass"))
+        .and(header_exists("ACCESS-SIGN")).and(header("locale", "en-US")).and(body_json(json!({ "symbol": "BTCUSDT", "orderId": "0" })))
+        .respond_with(ResponseTemplate::new(400).set_body_json(json!({ "code": "43001", "msg": "订单不存在", "data": null }))).mount(&server).await;
+    Mock::given(method("GET")).and(path("/api/v2/spot/account/assets")).and(header("ACCESS-KEY", "bg-key"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "code": "00000", "msg": "success", "data": [{ "coin": "USDT", "available": "1", "frozen": "0" }] })))
+        .mount(&server).await;
+    let credentials = deltabadger::crypto::Credentials { key: "bg-key".into(), secret: "bg-secret".into(), passphrase: Some("bg-pass".into()), redaction_values: vec![] };
+    let base = server.uri();
+    let check = |kind| key_check::check("Exchanges::Bitget", &base, deltabadger::venue::http::client(), &credentials, kind);
+    assert!(matches!(check(0).await, Validity::Correct), "a trading key past the permission gate");
+    assert!(matches!(check(1).await, Validity::Correct), "a withdrawal key that reads its assets");
+    assert!(matches!(check(2).await, Validity::Correct), "a reading key that reads its balances");
+    let sent: Vec<(String, String)> = server.received_requests().await.unwrap().iter().map(|r| (r.method.to_string(), r.url.path().to_string())).collect();
+    let (probe, read) = (("POST".to_string(), "/api/v2/spot/trade/cancel-order".to_string()), ("GET".to_string(), "/api/v2/spot/account/assets".to_string()));
+    assert_eq!(sent, [probe, read.clone(), read]);
 }
 
 /// The live key check of a MEXC key, as the wizard and settings send it: the signed account read (the key in X-MEXC-APIKEY)

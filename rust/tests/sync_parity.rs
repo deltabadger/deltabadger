@@ -389,7 +389,7 @@ fn kucoin_transfer_pin(name: &str, dir: &std::path::Path, rails: &Value, rust: &
 }
 
 /// R: a seeded legacy price has no producer digest and cannot be reused by a fresh sync.
-const UNKNOWN_PRICE_ORIGIN:&[&str]=&["binance-balances-stale_and_gone", "kucoin-balances-stale_and_gone", "gemini-balances-stale_and_gone", "balances-market_fails", "balances-market_partial", "balances-snapshots_fail", "balances-unreadable_price_-Infinity_stale", "balances-unreadable_price_Infinity_stale", "balances-unreadable_price_NaN_stale", "balances-unreadable_price_garbage_stale"];
+const UNKNOWN_PRICE_ORIGIN:&[&str]=&["binance-balances-stale_and_gone", "kucoin-balances-stale_and_gone", "gemini-balances-stale_and_gone", "bitget-balances-stale_and_gone", "balances-market_fails", "balances-market_partial", "balances-snapshots_fail", "balances-unreadable_price_-Infinity_stale", "balances-unreadable_price_Infinity_stale", "balances-unreadable_price_NaN_stale", "balances-unreadable_price_garbage_stale"];
 fn unknown_price_origin(name:&str,rails:&Value,rust:&Value)->Option<Result<(),String>> {
     if !UNKNOWN_PRICE_ORIGIN.contains(&name){return None;}
     Some((|| {
@@ -422,17 +422,17 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
     dirs.sort();
     let named = |prefix: &str| dirs.iter().filter(|d| d.file_name().unwrap().to_string_lossy().starts_with(prefix)).count();
-    assert_eq!((named("ledger-"), named("balances-"), named("binance-balances-"), named("binance-ledger-"), named("import-"), named("kucoin-ledger-"), named("kucoin-balances-")),
-               (58, 44, 21, 30, 21, 12, 16), "the sync grid");
-    assert_eq!((named("bitvavo-ledger-"), named("bitvavo-balances-"), named("gemini-ledger-"), named("gemini-balances-"), named("mexc-ledger-"), named("mexc-balances-"), dirs.len()),
-               (11, 10, 11, 11, 14, 12, 271), "the sync grid");
+    assert_eq!([named("ledger-"), named("balances-"), named("binance-balances-"), named("binance-ledger-"), named("import-"), named("kucoin-ledger-"), named("kucoin-balances-"),
+                named("bitvavo-ledger-"), named("bitvavo-balances-"), named("gemini-ledger-"), named("gemini-balances-"), named("bitget-ledger-"), named("bitget-balances-"),
+                named("mexc-ledger-"), named("mexc-balances-"), dirs.len()],
+               [58, 44, 21, 30, 21, 12, 16, 11, 10, 11, 11, 13, 12, 14, 12, 296], "the sync grid");
     for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
     for scenario in ["ledger-split_future", "ledger-split_nested_duplicate_keys", "binance-ledger-two_nights"] { copy_dir(&rails_root.path().join(scenario), &handback.path().join(scenario)); }
     rails(&["record", rails_root.path().to_str().unwrap()]);
 
     let cipher = cipher();
     let ported = ["ledger-", "balances-", "binance-balances-", "binance-ledger-", "import-", "kucoin-ledger-", "kucoin-balances-", "bitvavo-ledger-", "bitvavo-balances-",
-                  "gemini-ledger-", "gemini-balances-", "mexc-ledger-", "mexc-balances-"];
+                  "gemini-ledger-", "gemini-balances-", "bitget-ledger-", "bitget-balances-", "mexc-ledger-", "mexc-balances-"];
     let mut outputs: Vec<(String, Value, Value)> = vec![];
     for d in &dirs {
         let name = d.file_name().unwrap().to_string_lossy().to_string();
@@ -483,6 +483,21 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     assert_eq!(bitvavo("bitvavo-ledger-trade_pages").len(), 1002, "a full page, then the next before its oldest id");
     let week: Vec<i64> = bitvavo("bitvavo-ledger-week").iter().map(|r| r["entry_type"].as_i64().unwrap()).collect();
     assert_eq!(week, [4, 4, 4, 5, 1, 0], "kept transfers, then the window's trades");
+    // Bitget (plan VB slice A4): fills, then deposits, then withdrawals, a record at status `success` only; a window edge read
+    // twice and two equal id-less fills are one row each; a full page goes on by idLessThan; a refused wallet scope is empty.
+    let bitget = |name: &str| rows(&rails_of(name), "account_transactions").iter().filter(|r| r["before"].is_null()).map(|r| r["after"].clone()).collect::<Vec<_>>();
+    let week: Vec<(i64, String)> = bitget("bitget-ledger-week").iter().map(|r| (r["entry_type"].as_i64().unwrap(), r["tx_id"].as_str().unwrap_or_default().to_string())).collect();
+    assert_eq!(week, [(1, "9003".into()), (0, "9002".into()), (0, "9001".into()), (4, "deposit-d3".into()), (4, "deposit-d1".into()), (5, "withdrawal-w2".into())]);
+    assert_eq!(bitget("bitget-ledger-week").iter().find(|r| r["entry_type"] == 5).map(|r| num(&r["fee_amount"])), Some(Some(1.0)), "fee.abs (G7)");
+    assert_eq!((bitget("bitget-ledger-window_edge").len(), bitget("bitget-ledger-bare_fills").len()), (1, 2));
+    assert_eq!((bitget("bitget-ledger-fill_pages").len(), bitget("bitget-ledger-transfer_pages").len(), bitget("bitget-ledger-no_wallet_scope").len()), (103, 102, 3));
+    let paged = |name: &str, path: &str| rails_of(name)["steps"][0]["requests"].as_array().unwrap().iter().filter(|r| r[0] == path)
+        .map(|r| r[1].as_array().unwrap().iter().find(|p| p[0] == "idLessThan").map(|p| p[1].clone()).unwrap_or(Value::Null)).collect::<Vec<_>>();
+    assert_eq!(paged("bitget-ledger-fill_pages", "GET /api/v2/spot/trade/fills"), [Value::Null, json!("4901")]);
+    assert_eq!(paged("bitget-ledger-transfer_pages", "GET /api/v2/spot/wallet/deposit-records"), [Value::Null, json!("p401")]);
+    assert!(paged("bitget-ledger-full", "GET /api/v2/spot/wallet/deposit-records").len() > 30, "window by window from 2018-04-01");
+    assert!(key_error(&rails_of("bitget-ledger-fills_refused")).as_str().is_some_and(|e| e.contains("Incorrect permissions")));
+    assert_eq!(key_error(&rails_of("bitget-ledger-envelope_error")), json!("Bitget ledger read failed: 40015 System is abnormal"));
     // MEXC (plan VB slice A5): a full page is read again in halves and only the halves' rows are kept; 700007 in a half drops
     // that range and ends the history; a gone pair is skipped and a sold-out pair the stored rows name is read; the start
     // is floored to 80 days.

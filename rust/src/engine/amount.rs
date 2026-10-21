@@ -224,6 +224,25 @@ impl OrderPlan {
             // #set_market_order: a :quote amount is `notional` at quote_decimals; a :base one would be `qty`.
             WireFormat::Alpaca => (OrderKind::Market,
                 wire_decimal(&self.volume, if self.quote_type { quote_decimals } else { base_decimals }), self.quote_type),
+            WireFormat::Bitget => {
+                // Exchange#market_price_for: the touch the order was sized at (Rails re-reads it through its 5-second
+                // cache), floored to the tick. Persisted with the plan, so a recovery sends exactly this.
+                let touch = self.price.floor(price_decimals);
+                let zero = || "a zero Bitget price to convert at".to_string();
+                if self.limit {
+                    // #set_limit_order: a quote amount (unfloored, as OrderSetter hands it) divided by the limit price, floored to
+                    // base_decimals. A zero price is the adapter's "Invalid limit price" refusal.
+                    let size = match self.quote_amount.div(&touch) { Some(q) if self.quote_type => q.floor(base_decimals), _ if self.quote_type => BigDec::zero(), _ => self.volume.clone() };
+                    (OrderKind::Limit { price: touch.to_s_f() }, size.to_s_f(), false)
+                } else if self.side == Side::Buy && !self.quote_type {
+                    // A base market buy: OrderSetter's unfloored amount × the touch, floored to quote_decimals.
+                    (OrderKind::Market, (&self.amount * &touch).floor(quote_decimals).to_s_f(), true)
+                } else if self.side == Side::Sell && self.quote_type {
+                    (OrderKind::Market, self.quote_amount.div(&touch).ok_or_else(zero)?.floor(base_decimals).to_s_f(), false)
+                } else {
+                    (OrderKind::Market, self.volume.to_s_f(), self.quote_type)
+                }
+            }
         };
         Ok(NewOrder { pair: t.ticker.clone(), side: self.side, kind, volume, quote_volume, cl_ord_id, deadline, day: !t.crypto })
     }

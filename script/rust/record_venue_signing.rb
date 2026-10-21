@@ -4,6 +4,7 @@
 # Hyperliquid's EIP-712 L1 action (rust/tests/venue_signing.rs, against venue::signers).
 #   bin/rails runner script/rust/record_venue_signing.rb kucoin rust/tests/fixtures/kucoin_signing.json
 #   bin/rails runner script/rust/record_venue_signing.rb bitvavo rust/tests/fixtures/bitvavo_signing.json
+#   bin/rails runner script/rust/record_venue_signing.rb bitget rust/tests/fixtures/bitget_signing.json
 #   bin/rails runner script/rust/record_venue_signing.rb mexc rust/tests/fixtures/mexc_signing.json
 #   bin/rails runner script/rust/record_venue_signing.rb gemini rust/tests/fixtures/gemini_signing.json
 #   bin/rails runner script/rust/record_venue_signing.rb coinbase rust/tests/fixtures/coinbase_signing.json
@@ -156,6 +157,40 @@ when 'bitvavo'
   out['sources']['app/models/exchanges/bitvavo.rb'] = Digest::SHA256.file(Rails.root.join('app/models/exchanges/bitvavo.rb')).hexdigest
   # What engine::venue_rules::BITVAVO ports beside the signing.
   out.merge!('errors' => Exchanges::Bitvavo::ERRORS.transform_keys(&:to_s), 'network_transient' => Client::NETWORK_TRANSIENT_PATTERNS,
+             'placement_safe' => Exchange::PLACEMENT_SAFE_TRANSIENT_ERRORS, 'signing' => cases)
+when 'bitget'
+  # Honeymaker::Clients::Bitget's requests for rust/tests/bitget.rs (plan VB slice A4): the URL query, the body bytes and every
+  # header it sends under a frozen #timestamp_ms, for signed GETs (with and without a query, an escaped one), POSTs (the JSON
+  # body as built, nils compacted) and the public reads.
+  connection = test_connection.(Honeymaker::Clients::Bitget::URL, { code: '00000', msg: 'success', data: { orderId: '1234567890123456789' } })
+  keys = [%w[bg_4a1f9c2e7b3d5a6f8e0c1b2d3f4a5b6c 9f8e7d6c5b4a39281706f5e4d3c2b1a0f9e8d7c6b5a493827160f5e4d3c2b1a0 my-passphrase],
+          ['k', 's3cr3t~/+=', 'pass phrase/é']]
+  cases = []
+  ms = 1_789_871_400_750
+  keys.each_with_index do |(key, secret, passphrase), i|
+    [['get_account_assets', ->(c) { c.get_account_assets }],
+     ['get_order', ->(c) { c.get_order(order_id: '1234567890123456789') }],
+     ['get_order client_oid', ->(c) { c.get_order(client_oid: '5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01') }],
+     ['get_fills', ->(c) { c.get_fills(start_time: '1789000000000', end_time: '1796689600000', limit: '100', id_less_than: '1234') }],
+     ['deposit_list', ->(c) { c.deposit_list(start_time: '1522540800000', end_time: '1530230400000', limit: '100') }],
+     ['get_account_assets escaped', ->(c) { c.get_account_assets(coin: 'A B/~*é') }],
+     ['place_order market buy', ->(c) { c.place_order(symbol: 'BTCUSDT', side: 'buy', order_type: 'market', force: 'ioc', size: '60.5', client_oid: '5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01') }],
+     ['place_order limit', ->(c) { c.place_order(symbol: 'ETHBTC', side: 'sell', order_type: 'limit', force: 'gtc', price: '0.03512', size: '1.2') }],
+     ['cancel_order', ->(c) { c.cancel_order(symbol: 'BTCUSDT', order_id: '0') }],
+     ['get_tickers public', ->(c) { c.get_tickers(symbol: 'BTCUSDT') }],
+     ['get_orderbook public', ->(c) { c.get_orderbook(symbol: 'BTCUSDT', limit: 1) }]].each_with_index do |(call, blk), j|
+      c = Honeymaker::Clients::Bitget.new(api_key: key, api_secret: secret, passphrase: passphrase)
+      c.instance_variable_set(:@connection, connection)
+      t = ms + (i * 1000) + j
+      c.define_singleton_method(:timestamp_ms) { t }
+      blk.call(c)
+      cases << one.(call).merge('call' => call, 'api_key' => key, 'api_secret' => secret, 'passphrase' => passphrase, 'timestamp' => t)
+    end
+  end
+  out['sources']['app/models/exchanges/bitget.rb'] = Digest::SHA256.file(Rails.root.join('app/models/exchanges/bitget.rb')).hexdigest
+  out['sources']['app/models/exchange.rb'] = Digest::SHA256.file(Rails.root.join('app/models/exchange.rb')).hexdigest
+  # What engine::venue_rules::BITGET ports beside the signing.
+  out.merge!('errors' => Exchanges::Bitget::ERRORS.transform_keys(&:to_s), 'network_transient' => Client::NETWORK_TRANSIENT_PATTERNS,
              'placement_safe' => Exchange::PLACEMENT_SAFE_TRANSIENT_ERRORS, 'signing' => cases)
 when 'mexc'
   # Honeymaker::Clients::Mexc's requests for rust/tests/mexc.rs (plan VB slice A5): the URL query (timestamp and signature

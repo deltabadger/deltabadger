@@ -1,6 +1,6 @@
 {
   "sources": {
-    "script/rust/record_venue_signing.rb": "13d8d40c5a9b425e14d19bce1f0c0c143630e1f25f72eb611362affc2d7055f8",
+    "script/rust/record_venue_signing.rb": "9f6090a1b2ef7f7fd0a1f7571aff15e9894568c170ae724905cb887ad0c4b98a",
     "app/models/exchanges/bitvavo.rb": "eb8c8aac55c32742ff255efeb890e1163892480f85e6e6dcaf611b79ada4d513"
   },
   "gems": {

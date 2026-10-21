@@ -1,4 +1,4 @@
-# Records how Rails judges an API key on each venue of VENUE_CASES (Kraken, Binance, Binance.US, KuCoin, Bitvavo, Gemini, MEXC), for the Rust key
+# Records how Rails judges an API key on each venue of VENUE_CASES (Kraken, Binance, Binance.US, KuCoin, Bitvavo, Gemini, Bitget, MEXC), for the Rust key
 # step (P2-T6).
 #   bin/rails runner script/rust/record_key_verdicts.rb rust/tests/fixtures/key_verdicts.json
 # Each case scripts the venue's HTTP answer at the Faraday adapter (nothing leaves the machine; any real connection
@@ -12,7 +12,8 @@ class Unscripted < Exception; end # rubocop:disable Lint/InheritException
 Net::HTTP.prepend(Module.new { def connect = raise(Unscripted, "real connection to #{address}") })
 
 out = {
-  'sources' => %w[app/models/exchanges/kraken.rb app/models/exchanges/binance.rb app/models/exchanges/binance_us.rb app/models/exchanges/kucoin.rb app/models/exchanges/bitvavo.rb app/models/exchanges/gemini.rb app/models/exchanges/mexc.rb
+  'sources' => %w[app/models/exchanges/kraken.rb app/models/exchanges/binance.rb app/models/exchanges/binance_us.rb app/models/exchanges/kucoin.rb app/models/exchanges/bitvavo.rb app/models/exchanges/gemini.rb
+                  app/models/exchanges/bitget.rb app/models/exchanges/mexc.rb
                   app/models/exchange.rb app/models/exchange/dryable.rb app/models/api_key.rb app/helpers/bot_helper.rb
                   config/locales/api.en.yml config/locales/api.de.yml config/locales/api.pl.yml
                   config/locales/api_read_only.en.yml config/locales/api_withdrawal.en.yml
@@ -35,11 +36,13 @@ module Venue
       # Gemini's params travel in its signed payload (an empty-body POST): recorded as the form, without `request` and `nonce`.
       payload = env.request_headers['X-GEMINI-PAYLOAD']
       form = JSON.parse(Base64.strict_decode64(payload)).except('request', 'nonce') if payload
+      # Bitget's POSTs carry a JSON body: recorded as the form.
+      form = JSON.parse(env.request_body) if env.url.host == 'api.bitget.com' && env.request_body.is_a?(String) && !env.request_body.empty?
       Venue.seen << { 'method' => env.method.to_s.upcase, 'host' => env.url.host, 'path' => env.url.path,
                      'query' => query.except(*SECRET_PARAMS), 'form' => form.except(*SECRET_PARAMS),
                      'key_header' => env.request_headers['X-MBX-APIKEY'] || env.request_headers['API-Key'] || env.request_headers['KC-API-KEY'] ||
                                      env.request_headers['BITVAVO-ACCESS-KEY'] || env.request_headers['X-GEMINI-APIKEY'] ||
-                                     env.request_headers['X-MEXC-APIKEY'] }
+                                     env.request_headers['ACCESS-KEY'] || env.request_headers['X-MEXC-APIKEY'] }
       answer = Venue.answers.shift
       raise Faraday::TimeoutError, 'Net::ReadTimeout' if answer[:timeout]
       raise Faraday::ConnectionFailed, 'Failed to open TCP connection (Connection refused)' if answer[:refused]
@@ -375,6 +378,50 @@ VENUE_CASES = {
     read_cases['plain_text_200'] = transport['plain_text_200']
     read_cases.each { |name, answer| rows << record.(gemini, :read_only, :get_read_api_key_validity, name, answer) }
     { 'invalid_key_errors' => Exchanges::Gemini::ERRORS[:invalid_key], 'cases' => rows }
+  end,
+  # Bitget (plan VB slice A4): a trading key cancels order 0 on BTCUSDT (43001/43025, order not found, = past the permission
+  # gate), a withdrawal key reads its assets; both classified by the code of a success envelope or of an HTTP-400 body. A
+  # reading key reads its balances (Exchange#get_read_api_key_validity -> Exchanges::Bitget#get_balances).
+  'bitget' => lambda do
+    bitget = Exchanges::Bitget.new(name: 'Bitget')
+    bg = ->(status, code, msg) { json.(status, { 'code' => code, 'msg' => msg, 'requestTime' => 1_789_871_400_750, 'data' => nil }) }
+    probe = {
+      'order_not_found 43001' => bg.(400, '43001', '订单不存在'), 'order_not_found 43001 http_200' => bg.(200, '43001', '订单不存在'),
+      'order_not_found 43025' => bg.(400, '43025', 'Order does not exist'), 'order_not_found 43001 as_integer' => bg.(400, 43_001, 'x'),
+      'no_trade 40014' => bg.(400, '40014', 'Incorrect permissions, need spot order write permissions'),
+      'no_trade 40014 http_200' => bg.(200, '40014', 'Incorrect permissions'),
+      'no_permission 40025' => bg.(400, '40025', 'The user does not have this permission'),
+      'timestamp 40008' => bg.(400, '40008', 'Request timestamp expired'), 'timed_out 40010' => bg.(400, '40010', 'Request timed out'),
+      'system 40015' => bg.(400, '40015', 'System is abnormal, please try again later'), 'ip 40038' => bg.(400, '40038', 'current ip is not in the apikey ip whitelist'),
+      'throttled 429' => bg.(429, '429', 'Too Many Requests'), 'ok 00000' => json.(200, { 'code' => '00000', 'msg' => 'success', 'data' => { 'orderId' => '0' } }),
+      'ok 00000 no_data' => json.(200, { 'code' => '00000' }),
+      'other_code 200' => bg.(200, '12345', 'something else'), 'other_code 200 blank_msg' => bg.(200, '12345', ''),
+      'no_code 200' => json.(200, { 'msg' => 'hello' }), 'no_code 400' => json.(400, { 'msg' => 'hello' }),
+      'msg_integer 400' => json.(400, { 'code' => '99', 'msg' => 5 }), 'json_array' => json.(200, [])
+    }
+    Exchanges::Bitget::ERRORS[:invalid_key].each do |m|
+      probe["invalid_key #{m} http_400"] = bg.(400, '40099', m)
+      probe["invalid_key #{m} http_200"] = bg.(200, '40099', m)
+    end
+    probe.merge!(transport)
+    assets = json.(200, { 'code' => '00000', 'msg' => 'success', 'data' => [{ 'coin' => 'USDT', 'available' => '1', 'frozen' => '0', 'locked' => '0' }] })
+    rows = []
+    probe.each { |name, answer| rows << record.(bitget, :trading, :get_api_key_validity, name, answer) }
+    probe.merge('assets ok' => assets).each { |name, answer| rows << record.(bitget, :withdrawal, :get_api_key_validity, name, answer) }
+    read_cases = {
+      'ok' => assets, 'ok_empty' => json.(200, { 'code' => '00000', 'data' => [] }),
+      'row_without_coin' => json.(200, { 'code' => '00000', 'data' => [{ 'available' => '1' }] }),
+      'data_null' => json.(200, { 'code' => '00000', 'data' => nil }), 'data_object' => json.(200, { 'code' => '00000', 'data' => { 'coin' => 'USDT' } }),
+      'code_integer' => json.(200, { 'code' => 0, 'data' => [] }),
+      'envelope_invalid_key 200' => bg.(200, '40037', 'Apikey does not exist'), 'envelope_other 200' => bg.(200, '40015', 'System is abnormal'),
+      'no_permission 40014' => bg.(400, '40014', 'Incorrect permissions'), 'throttled 429' => bg.(429, '429', 'Too Many Requests'),
+      'json_array' => json.(200, [])
+    }
+    Exchanges::Bitget::ERRORS[:invalid_key].each { |m| read_cases["invalid_key #{m} http_400"] = bg.(400, '40099', m) }
+    read_cases.merge!(transport)
+    read_cases.each { |name, answer| rows << record.(bitget, :read_only, :get_read_api_key_validity, name, answer) }
+    { 'order_not_found_codes' => Exchanges::Bitget.const_get(:ORDER_NOT_FOUND_CODES), 'no_trade_codes' => Exchanges::Bitget.const_get(:NO_TRADE_PERMISSION_CODES),
+      'invalid_key_errors' => Exchanges::Bitget::ERRORS[:invalid_key], 'cases' => rows }
   end,
   # MEXC (plan VB slice A5): the account read and its canTrade (#account_check); a reading key (#get_read_api_key_validity)
   # then reads the deposit history (limit 1), which MEXC grants under its own permission.

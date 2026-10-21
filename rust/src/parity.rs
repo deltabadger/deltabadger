@@ -123,6 +123,12 @@ fn mexc_sent(t: &ScriptedTransport) -> Vec<Value> {
 }
 
 /// The orders the Bitvavo adapter POSTed, as the Rails harness records them: the JSON body without the clientOrderId.
+/// The orders the Bitget adapter POSTed, as the Rails harness records them: the JSON body without the clientOid.
+fn bitget_sent(t: &ScriptedTransport) -> Vec<Value> {
+    t.requests().into_iter().filter(|r| r.method == "POST" && r.path == crate::venue::bitget::PLACE_PATH).filter_map(|r| r.body)
+        .map(|mut b| { if let Value::Object(m) = &mut b { m.shift_remove("clientOid"); } b }).collect()
+}
+
 fn bitvavo_sent(t: &ScriptedTransport) -> Vec<Value> {
     t.requests().into_iter().filter(|r| r.method == "POST" && r.path == crate::venue::bitvavo::ORDER_PATH).filter_map(|r| r.body)
         .map(|mut b| { if let Value::Object(m) = &mut b { m.shift_remove("clientOrderId"); } b }).collect()
@@ -246,6 +252,23 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
         let funds_notified: bool = o.primary.query_row("SELECT last_end_of_funds_notification IS NOT NULL FROM bots WHERE id = ?1", [bot_id], |r| r.get(0))?;
         let mut out = json!({ "sent": kucoin_sent(&transport), "changes": diff(&before, &snapshot(&o.primary)?), "mails": mails(&o.primary, &owed)?,
                               "funds_notified": funds_notified, "poll_error": poll_error });
+        if let Some(c) = checks { out["checks"] = json!(c); }
+        return Ok(out);
+    }
+    if scenario["venue"] == "bitget" {
+        // Rust's Bitget adapter over the bodies Rails' harness serves beneath Honeymaker::Clients::Bitget, with the
+        // scenario's own tickers.
+        let transport = ScriptedTransport::from_script(&scenario["script"]["bitget"]);
+        let exchange_id: i64 = o.primary.query_row("SELECT id FROM exchanges WHERE type = ?1", [crate::venue::bitget::BITGET], |r| r.get(0))?;
+        let pairs = crate::venue::binance::Pairs::load(&o.primary, exchange_id).map_err(EngineError::Data)?;
+        let venue = crate::venue::bitget::BitgetVenue::new(transport.clone(), crate::venue::bitget::URL).with_pairs(pairs);
+        let posted = || bitget_sent(&transport).len();
+        let (poll, recover_sent, checks) = play(&o, &venue, &scenario, bot_id, start, &posted).await?;
+        let poll_error = match poll { Some(polling::PollFailure::General(m)) => json!(m), _ => Value::Null };
+        let funds_notified: bool = o.primary.query_row("SELECT last_end_of_funds_notification IS NOT NULL FROM bots WHERE id = ?1", [bot_id], |r| r.get(0))?;
+        let mut out = json!({ "sent": bitget_sent(&transport), "changes": diff(&before, &snapshot(&o.primary)?), "mails": mails(&o.primary, &owed)?,
+                              "funds_notified": funds_notified, "poll_error": poll_error });
+        if let Some(n) = recover_sent { out["recover_sent"] = json!(n); }
         if let Some(c) = checks { out["checks"] = json!(c); }
         return Ok(out);
     }

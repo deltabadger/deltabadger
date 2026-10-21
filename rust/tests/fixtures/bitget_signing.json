@@ -1,0 +1,487 @@
+{
+  "sources": {
+    "script/rust/record_venue_signing.rb": "9f6090a1b2ef7f7fd0a1f7571aff15e9894568c170ae724905cb887ad0c4b98a",
+    "app/models/exchanges/bitget.rb": "5acc29199e4c5ecda3eeae60ea898ac69438e5b581c6bc15fcbe70241e40716c",
+    "app/models/exchange.rb": "ab627a2812bc0c7b4a546459e64f8f5d93617c496308d5f03163f44cef12d8d7"
+  },
+  "gems": {
+    "honeymaker": "0.12.5",
+    "hyperliquid-rb": "0.1.1",
+    "jwt": "2.10.3",
+    "rbnacl": "7.1.2",
+    "eth": "0.5.18",
+    "msgpack": "1.8.5"
+  },
+  "errors": {
+    "insufficient_funds": [
+      "Insufficient balance",
+      "Insufficient account balance"
+    ],
+    "invalid_key": [
+      "Invalid Api Key",
+      "Invalid ACCESS_KEY",
+      "Invalid signature",
+      "Apikey does not exist",
+      "sign signature error",
+      "apikey/password is incorrect",
+      "passphrase is error",
+      "User's ApiKey does not exist"
+    ],
+    "permission_denied": [
+      "Incorrect permissions",
+      "The user does not have this permission"
+    ],
+    "throttle": [
+      "Too many requests",
+      "Too Many Requests"
+    ],
+    "transient": [
+      "Request timestamp expired",
+      "Request timed out",
+      "System is abnormal"
+    ],
+    "placement_safe_transient": [
+      "Request timestamp expired"
+    ]
+  },
+  "network_transient": [
+    "Net::ReadTimeout",
+    "Net::OpenTimeout",
+    "Faraday::TimeoutError",
+    "Faraday::ConnectionFailed",
+    "execution expired",
+    "Connection reset",
+    "Errno::ECONNRESET",
+    "connection refused",
+    "Connection refused",
+    "Errno::ECONNREFUSED",
+    "end of file reached",
+    "unexpected eof while reading"
+  ],
+  "placement_safe": [
+    "Timestamp for this request is outside of the recvWindow",
+    "Timestamp for this request was"
+  ],
+  "signing": [
+    {
+      "method": "GET",
+      "path": "/api/v2/spot/account/assets",
+      "query": null,
+      "body": null,
+      "headers": {
+        "Access-key": "bg_4a1f9c2e7b3d5a6f8e0c1b2d3f4a5b6c",
+        "Access-sign": "xcPIQuh2A2V2i4X9s8SQPvRzwmnLXuwYZeJZ4OQ8KNo=",
+        "Access-timestamp": "1789871400750",
+        "Access-passphrase": "my-passphrase",
+        "Accept": "application/json",
+        "Content-type": "application/json",
+        "Locale": "en-US"
+      },
+      "call": "get_account_assets",
+      "api_key": "bg_4a1f9c2e7b3d5a6f8e0c1b2d3f4a5b6c",
+      "api_secret": "9f8e7d6c5b4a39281706f5e4d3c2b1a0f9e8d7c6b5a493827160f5e4d3c2b1a0",
+      "passphrase": "my-passphrase",
+      "timestamp": 1789871400750
+    },
+    {
+      "method": "GET",
+      "path": "/api/v2/spot/trade/orderInfo",
+      "query": "orderId=1234567890123456789",
+      "body": null,
+      "headers": {
+        "Access-key": "bg_4a1f9c2e7b3d5a6f8e0c1b2d3f4a5b6c",
+        "Access-sign": "tO7XBLGHeg2KNrTVRh7TsQrJMgNcezd9xSC3VrM2fkA=",
+        "Access-timestamp": "1789871400751",
+        "Access-passphrase": "my-passphrase",
+        "Accept": "application/json",
+        "Content-type": "application/json",
+        "Locale": "en-US"
+      },
+      "call": "get_order",
+      "api_key": "bg_4a1f9c2e7b3d5a6f8e0c1b2d3f4a5b6c",
+      "api_secret": "9f8e7d6c5b4a39281706f5e4d3c2b1a0f9e8d7c6b5a493827160f5e4d3c2b1a0",
+      "passphrase": "my-passphrase",
+      "timestamp": 1789871400751
+    },
+    {
+      "method": "GET",
+      "path": "/api/v2/spot/trade/orderInfo",
+      "query": "clientOid=5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01",
+      "body": null,
+      "headers": {
+        "Access-key": "bg_4a1f9c2e7b3d5a6f8e0c1b2d3f4a5b6c",
+        "Access-sign": "4cAYWNa9pUD2026CULpOxuIfWYYH5+nGOKyJRBrwMec=",
+        "Access-timestamp": "1789871400752",
+        "Access-passphrase": "my-passphrase",
+        "Accept": "application/json",
+        "Content-type": "application/json",
+        "Locale": "en-US"
+      },
+      "call": "get_order client_oid",
+      "api_key": "bg_4a1f9c2e7b3d5a6f8e0c1b2d3f4a5b6c",
+      "api_secret": "9f8e7d6c5b4a39281706f5e4d3c2b1a0f9e8d7c6b5a493827160f5e4d3c2b1a0",
+      "passphrase": "my-passphrase",
+      "timestamp": 1789871400752
+    },
+    {
+      "method": "GET",
+      "path": "/api/v2/spot/trade/fills",
+      "query": "endTime=1796689600000&idLessThan=1234&limit=100&startTime=1789000000000",
+      "body": null,
+      "headers": {
+        "Access-key": "bg_4a1f9c2e7b3d5a6f8e0c1b2d3f4a5b6c",
+        "Access-sign": "JxKZQgalZ/POeLgpEripyOFpdEGAUgcOc4VctEFJrTg=",
+        "Access-timestamp": "1789871400753",
+        "Access-passphrase": "my-passphrase",
+        "Accept": "application/json",
+        "Content-type": "application/json",
+        "Locale": "en-US"
+      },
+      "call": "get_fills",
+      "api_key": "bg_4a1f9c2e7b3d5a6f8e0c1b2d3f4a5b6c",
+      "api_secret": "9f8e7d6c5b4a39281706f5e4d3c2b1a0f9e8d7c6b5a493827160f5e4d3c2b1a0",
+      "passphrase": "my-passphrase",
+      "timestamp": 1789871400753
+    },
+    {
+      "method": "GET",
+      "path": "/api/v2/spot/wallet/deposit-records",
+      "query": "endTime=1530230400000&limit=100&startTime=1522540800000",
+      "body": null,
+      "headers": {
+        "Access-key": "bg_4a1f9c2e7b3d5a6f8e0c1b2d3f4a5b6c",
+        "Access-sign": "Jediv0x6qtKkfJKo3fytzZHcPxNR0YMf3S/ZufhFJ9Y=",
+        "Access-timestamp": "1789871400754",
+        "Access-passphrase": "my-passphrase",
+        "Accept": "application/json",
+        "Content-type": "application/json",
+        "Locale": "en-US"
+      },
+      "call": "deposit_list",
+      "api_key": "bg_4a1f9c2e7b3d5a6f8e0c1b2d3f4a5b6c",
+      "api_secret": "9f8e7d6c5b4a39281706f5e4d3c2b1a0f9e8d7c6b5a493827160f5e4d3c2b1a0",
+      "passphrase": "my-passphrase",
+      "timestamp": 1789871400754
+    },
+    {
+      "method": "GET",
+      "path": "/api/v2/spot/account/assets",
+      "query": "coin=A+B%2F~%2A%C3%A9",
+      "body": null,
+      "headers": {
+        "Access-key": "bg_4a1f9c2e7b3d5a6f8e0c1b2d3f4a5b6c",
+        "Access-sign": "/QtJ7/60wMTEenHKy7lKE+mzZD6x7Ddpampe3zG1xtE=",
+        "Access-timestamp": "1789871400755",
+        "Access-passphrase": "my-passphrase",
+        "Accept": "application/json",
+        "Content-type": "application/json",
+        "Locale": "en-US"
+      },
+      "call": "get_account_assets escaped",
+      "api_key": "bg_4a1f9c2e7b3d5a6f8e0c1b2d3f4a5b6c",
+      "api_secret": "9f8e7d6c5b4a39281706f5e4d3c2b1a0f9e8d7c6b5a493827160f5e4d3c2b1a0",
+      "passphrase": "my-passphrase",
+      "timestamp": 1789871400755
+    },
+    {
+      "method": "POST",
+      "path": "/api/v2/spot/trade/place-order",
+      "query": null,
+      "body": "{\"symbol\":\"BTCUSDT\",\"side\":\"buy\",\"orderType\":\"market\",\"size\":\"60.5\",\"force\":\"ioc\",\"clientOid\":\"5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01\"}",
+      "headers": {
+        "Access-key": "bg_4a1f9c2e7b3d5a6f8e0c1b2d3f4a5b6c",
+        "Access-sign": "awgDDKDhRsWwJupUZQOEj4Vjy9IjbUL5blxp/W8nsSg=",
+        "Access-timestamp": "1789871400756",
+        "Access-passphrase": "my-passphrase",
+        "Accept": "application/json",
+        "Content-type": "application/json",
+        "Locale": "en-US"
+      },
+      "call": "place_order market buy",
+      "api_key": "bg_4a1f9c2e7b3d5a6f8e0c1b2d3f4a5b6c",
+      "api_secret": "9f8e7d6c5b4a39281706f5e4d3c2b1a0f9e8d7c6b5a493827160f5e4d3c2b1a0",
+      "passphrase": "my-passphrase",
+      "timestamp": 1789871400756
+    },
+    {
+      "method": "POST",
+      "path": "/api/v2/spot/trade/place-order",
+      "query": null,
+      "body": "{\"symbol\":\"ETHBTC\",\"side\":\"sell\",\"orderType\":\"limit\",\"size\":\"1.2\",\"price\":\"0.03512\",\"force\":\"gtc\"}",
+      "headers": {
+        "Access-key": "bg_4a1f9c2e7b3d5a6f8e0c1b2d3f4a5b6c",
+        "Access-sign": "w6Rz1/44XbBI6wt5Nvexr+CQoQ/BDtrU1HnemUSGizA=",
+        "Access-timestamp": "1789871400757",
+        "Access-passphrase": "my-passphrase",
+        "Accept": "application/json",
+        "Content-type": "application/json",
+        "Locale": "en-US"
+      },
+      "call": "place_order limit",
+      "api_key": "bg_4a1f9c2e7b3d5a6f8e0c1b2d3f4a5b6c",
+      "api_secret": "9f8e7d6c5b4a39281706f5e4d3c2b1a0f9e8d7c6b5a493827160f5e4d3c2b1a0",
+      "passphrase": "my-passphrase",
+      "timestamp": 1789871400757
+    },
+    {
+      "method": "POST",
+      "path": "/api/v2/spot/trade/cancel-order",
+      "query": null,
+      "body": "{\"symbol\":\"BTCUSDT\",\"orderId\":\"0\"}",
+      "headers": {
+        "Access-key": "bg_4a1f9c2e7b3d5a6f8e0c1b2d3f4a5b6c",
+        "Access-sign": "YHPJr3Xezr0GYqofU7/l77AiiFT1KhA1lPO1uRYG5Dg=",
+        "Access-timestamp": "1789871400758",
+        "Access-passphrase": "my-passphrase",
+        "Accept": "application/json",
+        "Content-type": "application/json",
+        "Locale": "en-US"
+      },
+      "call": "cancel_order",
+      "api_key": "bg_4a1f9c2e7b3d5a6f8e0c1b2d3f4a5b6c",
+      "api_secret": "9f8e7d6c5b4a39281706f5e4d3c2b1a0f9e8d7c6b5a493827160f5e4d3c2b1a0",
+      "passphrase": "my-passphrase",
+      "timestamp": 1789871400758
+    },
+    {
+      "method": "GET",
+      "path": "/api/v2/spot/market/tickers",
+      "query": "symbol=BTCUSDT",
+      "body": null,
+      "headers": {
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "get_tickers public",
+      "api_key": "bg_4a1f9c2e7b3d5a6f8e0c1b2d3f4a5b6c",
+      "api_secret": "9f8e7d6c5b4a39281706f5e4d3c2b1a0f9e8d7c6b5a493827160f5e4d3c2b1a0",
+      "passphrase": "my-passphrase",
+      "timestamp": 1789871400759
+    },
+    {
+      "method": "GET",
+      "path": "/api/v2/spot/market/orderbook",
+      "query": "limit=1&symbol=BTCUSDT",
+      "body": null,
+      "headers": {
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "get_orderbook public",
+      "api_key": "bg_4a1f9c2e7b3d5a6f8e0c1b2d3f4a5b6c",
+      "api_secret": "9f8e7d6c5b4a39281706f5e4d3c2b1a0f9e8d7c6b5a493827160f5e4d3c2b1a0",
+      "passphrase": "my-passphrase",
+      "timestamp": 1789871400760
+    },
+    {
+      "method": "GET",
+      "path": "/api/v2/spot/account/assets",
+      "query": null,
+      "body": null,
+      "headers": {
+        "Access-key": "k",
+        "Access-sign": "OzKRg34zSDqd64UAMGNTxkQumWXO4ap5Di5OsAXzPcs=",
+        "Access-timestamp": "1789871401750",
+        "Access-passphrase": "pass phrase/é",
+        "Accept": "application/json",
+        "Content-type": "application/json",
+        "Locale": "en-US"
+      },
+      "call": "get_account_assets",
+      "api_key": "k",
+      "api_secret": "s3cr3t~/+=",
+      "passphrase": "pass phrase/é",
+      "timestamp": 1789871401750
+    },
+    {
+      "method": "GET",
+      "path": "/api/v2/spot/trade/orderInfo",
+      "query": "orderId=1234567890123456789",
+      "body": null,
+      "headers": {
+        "Access-key": "k",
+        "Access-sign": "mpH8QtuX3368Q2OaVv5TBZvzGSZbGWP8Y/fKdD+zbXc=",
+        "Access-timestamp": "1789871401751",
+        "Access-passphrase": "pass phrase/é",
+        "Accept": "application/json",
+        "Content-type": "application/json",
+        "Locale": "en-US"
+      },
+      "call": "get_order",
+      "api_key": "k",
+      "api_secret": "s3cr3t~/+=",
+      "passphrase": "pass phrase/é",
+      "timestamp": 1789871401751
+    },
+    {
+      "method": "GET",
+      "path": "/api/v2/spot/trade/orderInfo",
+      "query": "clientOid=5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01",
+      "body": null,
+      "headers": {
+        "Access-key": "k",
+        "Access-sign": "jeEzp16bmzbZWGwNBtWGdDe5W/LjpW6wXWMk7aGcYTc=",
+        "Access-timestamp": "1789871401752",
+        "Access-passphrase": "pass phrase/é",
+        "Accept": "application/json",
+        "Content-type": "application/json",
+        "Locale": "en-US"
+      },
+      "call": "get_order client_oid",
+      "api_key": "k",
+      "api_secret": "s3cr3t~/+=",
+      "passphrase": "pass phrase/é",
+      "timestamp": 1789871401752
+    },
+    {
+      "method": "GET",
+      "path": "/api/v2/spot/trade/fills",
+      "query": "endTime=1796689600000&idLessThan=1234&limit=100&startTime=1789000000000",
+      "body": null,
+      "headers": {
+        "Access-key": "k",
+        "Access-sign": "E/6S3Giu02wxrd7GIRGltyg/en5h4IpQQJuwlgaobSA=",
+        "Access-timestamp": "1789871401753",
+        "Access-passphrase": "pass phrase/é",
+        "Accept": "application/json",
+        "Content-type": "application/json",
+        "Locale": "en-US"
+      },
+      "call": "get_fills",
+      "api_key": "k",
+      "api_secret": "s3cr3t~/+=",
+      "passphrase": "pass phrase/é",
+      "timestamp": 1789871401753
+    },
+    {
+      "method": "GET",
+      "path": "/api/v2/spot/wallet/deposit-records",
+      "query": "endTime=1530230400000&limit=100&startTime=1522540800000",
+      "body": null,
+      "headers": {
+        "Access-key": "k",
+        "Access-sign": "4fdcJFv2lfM2ishGlk5B98IZsAGVEtjuzf17TVmgQEo=",
+        "Access-timestamp": "1789871401754",
+        "Access-passphrase": "pass phrase/é",
+        "Accept": "application/json",
+        "Content-type": "application/json",
+        "Locale": "en-US"
+      },
+      "call": "deposit_list",
+      "api_key": "k",
+      "api_secret": "s3cr3t~/+=",
+      "passphrase": "pass phrase/é",
+      "timestamp": 1789871401754
+    },
+    {
+      "method": "GET",
+      "path": "/api/v2/spot/account/assets",
+      "query": "coin=A+B%2F~%2A%C3%A9",
+      "body": null,
+      "headers": {
+        "Access-key": "k",
+        "Access-sign": "MiGCPyI85vT79tIIPSEgo/+8PK3LRkQQGuGE+FoCCnM=",
+        "Access-timestamp": "1789871401755",
+        "Access-passphrase": "pass phrase/é",
+        "Accept": "application/json",
+        "Content-type": "application/json",
+        "Locale": "en-US"
+      },
+      "call": "get_account_assets escaped",
+      "api_key": "k",
+      "api_secret": "s3cr3t~/+=",
+      "passphrase": "pass phrase/é",
+      "timestamp": 1789871401755
+    },
+    {
+      "method": "POST",
+      "path": "/api/v2/spot/trade/place-order",
+      "query": null,
+      "body": "{\"symbol\":\"BTCUSDT\",\"side\":\"buy\",\"orderType\":\"market\",\"size\":\"60.5\",\"force\":\"ioc\",\"clientOid\":\"5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01\"}",
+      "headers": {
+        "Access-key": "k",
+        "Access-sign": "EM1C3EjZO/gnOaNPdAqgjyZa/4k+R2whx2Q9FBLFaIA=",
+        "Access-timestamp": "1789871401756",
+        "Access-passphrase": "pass phrase/é",
+        "Accept": "application/json",
+        "Content-type": "application/json",
+        "Locale": "en-US"
+      },
+      "call": "place_order market buy",
+      "api_key": "k",
+      "api_secret": "s3cr3t~/+=",
+      "passphrase": "pass phrase/é",
+      "timestamp": 1789871401756
+    },
+    {
+      "method": "POST",
+      "path": "/api/v2/spot/trade/place-order",
+      "query": null,
+      "body": "{\"symbol\":\"ETHBTC\",\"side\":\"sell\",\"orderType\":\"limit\",\"size\":\"1.2\",\"price\":\"0.03512\",\"force\":\"gtc\"}",
+      "headers": {
+        "Access-key": "k",
+        "Access-sign": "Aa7vQxSFwEoyrwhMnjg9soWy3uLUcw6kchdNDJKT2VM=",
+        "Access-timestamp": "1789871401757",
+        "Access-passphrase": "pass phrase/é",
+        "Accept": "application/json",
+        "Content-type": "application/json",
+        "Locale": "en-US"
+      },
+      "call": "place_order limit",
+      "api_key": "k",
+      "api_secret": "s3cr3t~/+=",
+      "passphrase": "pass phrase/é",
+      "timestamp": 1789871401757
+    },
+    {
+      "method": "POST",
+      "path": "/api/v2/spot/trade/cancel-order",
+      "query": null,
+      "body": "{\"symbol\":\"BTCUSDT\",\"orderId\":\"0\"}",
+      "headers": {
+        "Access-key": "k",
+        "Access-sign": "1qCTrmp/FX2IXIgwtgZDB2ACeik7XLmE0bp4Sn7kl6A=",
+        "Access-timestamp": "1789871401758",
+        "Access-passphrase": "pass phrase/é",
+        "Accept": "application/json",
+        "Content-type": "application/json",
+        "Locale": "en-US"
+      },
+      "call": "cancel_order",
+      "api_key": "k",
+      "api_secret": "s3cr3t~/+=",
+      "passphrase": "pass phrase/é",
+      "timestamp": 1789871401758
+    },
+    {
+      "method": "GET",
+      "path": "/api/v2/spot/market/tickers",
+      "query": "symbol=BTCUSDT",
+      "body": null,
+      "headers": {
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "get_tickers public",
+      "api_key": "k",
+      "api_secret": "s3cr3t~/+=",
+      "passphrase": "pass phrase/é",
+      "timestamp": 1789871401759
+    },
+    {
+      "method": "GET",
+      "path": "/api/v2/spot/market/orderbook",
+      "query": "limit=1&symbol=BTCUSDT",
+      "body": null,
+      "headers": {
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "get_orderbook public",
+      "api_key": "k",
+      "api_secret": "s3cr3t~/+=",
+      "passphrase": "pass phrase/é",
+      "timestamp": 1789871401760
+    }
+  ]
+}

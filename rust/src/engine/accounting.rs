@@ -301,22 +301,34 @@ pub fn guard_exact_cap(c: &Connection, bot: &Bot, plan: &OrderPlan) -> Result<Ca
     if plan.kind != super::amount::TxKind::Regular { return Ok(CapGuard::Place(plan.clone())); }
     let Some(exact) = exact_cap_available(c, bot)? else { return Ok(CapGuard::Place(plan.clone())); };
     let (base, quote, price_scale) = plan.ticker.scales().map_err(EngineError::Data)?;
+    let rules = || -> Result<&'static super::venue_rules::VenueRules, EngineError> {
+        super::venue_rules::for_exchange(&super::model::exchange_type(c, bot)?).ok_or_else(|| EngineError::Data("no venue rules for the bot's exchange".into()))
+    };
     let price = if plan.limit { plan.price.floor(price_scale) } else { plan.price.clone() };
-    let quantity_wire = plan.limit || !plan.quote_type;
+    // A base market buy on Bitget goes out in quote coins, its unfloored amount at the floored touch (WireFormat::Bitget):
+    // that quote is what it spends.
+    let quote_sent = !plan.limit && !plan.quote_type && rules()?.wire == super::venue_rules::WireFormat::Bitget;
+    let quantity_wire = (plan.limit || !plan.quote_type) && !quote_sent;
     let scale = if quantity_wire { base } else { quote };
     let mut units = if plan.limit && plan.quote_type {
         plan.volume.div(&price).ok_or_else(||EngineError::Data("zero limit price".into()))?.floor(base)
-    } else { plan.volume.floor(scale) };
+    } else if quote_sent { (&plan.amount * &price.floor(price_scale)).floor(quote) } else { plan.volume.floor(scale) };
     let exact_cost = |units: &BigDec| -> Result<BigDec, EngineError> {
         if quantity_wire { units.checked_mul(&price).map_err(data) } else { Ok(units.clone()) }
     };
     let mut cost = exact_cost(&units)?;
     if cost <= exact { return Ok(CapGuard::Place(plan.clone())); }
+    if quote_sent {
+        // Reduced, it is a quote order of what the cap leaves (its base unfloored by up to a base increment: more than four
+        // quote increments).
+        units = exact.floor(quote);
+        cost = units.clone();
+    }
     let step = BigDec::parse(&format!("1e-{scale}")).map_err(data)?;
     for _ in 0..4 {
+        if cost <= exact { break; }
         units = units.checked_add(&(&BigDec::zero() - &step)).map_err(data)?.max(BigDec::zero());
         cost = exact_cost(&units)?;
-        if cost <= exact { break; }
     }
     if cost > exact { return Err(EngineError::Data("exact cap guard did not converge within 4 venue increments; order not placed".into())); }
     let mut guarded = plan.clone();
@@ -331,8 +343,7 @@ pub fn guard_exact_cap(c: &Connection, bot: &Bot, plan: &OrderPlan) -> Result<Ca
     // The venue's whole minimum (Bot::OrderSetter#calculate_best_amount_info, Exchange#minimum_amount_logic), on the reduced
     // order as it is sent: its own denomination, at its own price, with no second limit adjustment. Kraken's base floor
     // (ordermin) and Binance's and KuCoin's notional floor bind here, not only minimum_quote_size.
-    let rules = super::venue_rules::for_exchange(&super::model::exchange_type(c, bot)?)
-        .ok_or_else(|| EngineError::Data("no venue rules for the bot's exchange".into()))?;
+    let rules = rules()?;
     let rule = if plan.limit { rules.minimum_logic.limit } else { rules.minimum_logic.market };
     let base_units = if quantity_wire { guarded.volume.clone() } else { guarded.amount.floor(base) };
     let (_, below) = super::amount::buy_minimum(&plan.ticker, &price, rule, &cost, &base_units)?;

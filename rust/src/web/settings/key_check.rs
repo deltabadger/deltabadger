@@ -399,6 +399,88 @@ pub async fn bitvavo_check<T: Transport>(transport: &T, venue: &crate::venue::bi
     (last, Verdict::Valid(true))
 }
 
+/// Exchanges::Bitget::ORDER_NOT_FOUND_CODES (the probe got past the permission gate) and NO_TRADE_PERMISSION_CODES.
+pub const BITGET_ORDER_NOT_FOUND: [&str; 2] = ["43001", "43025"];
+pub const BITGET_NO_TRADE: [&str; 1] = ["40014"];
+/// Exchanges::Bitget#get_api_key_validity's probe: a cancel of order 0 on BTCUSDT.
+pub const BITGET_PROBE: [(&str, &str); 2] = [("symbol", "BTCUSDT"), ("orderId", "0")];
+
+/// What honeymaker's #with_rescue hands Exchanges::Bitget for a key check's answer: the parsed 2xx body (`Ok(None)` for an
+/// empty one, which Faraday's JSON middleware reads as nil), or the failure's text (the body, else Faraday's message).
+fn bitget_result(answer: &Result<HttpResponse, TransportError>, method: &str, url: &str) -> Result<Option<Value>, String> {
+    let response = answer.as_ref().map_err(transport)?;
+    if !(200..300).contains(&response.status) { return Err(raised(response, method, url)); }
+    if response.body.trim().is_empty() { return Ok(None); }
+    serde_json::from_str::<Value>(&response.body).map(Some).map_err(|_| response.body.clone())
+}
+
+/// Ruby's `#inspect` of a decoded code, as "Bitget answered code …" names it.
+fn inspect(v: Option<&Value>) -> String { match v { None => "nil".into(), Some(Value::String(s)) => format!("{s:?}"), Some(other) => other.to_string() } }
+
+/// Exchanges::Bitget#classify_api_key_validity on the probe's answer (`kind` 1, a withdrawal key, read its assets), the code
+/// read by #bitget_envelope from a success's Hash or a failure's JSON body: 00000 is valid; 43001/43025 (order not found)
+/// prove the key can trade, valid unless it is a withdrawal key; 40014, or the venue's invalid-key words in `msg`, are an
+/// incorrect key; anything else no verdict.
+pub fn bitget_verdict(kind: i64, answer: &Result<HttpResponse, TransportError>, method: &str, url: &str) -> Verdict {
+    let result = bitget_result(answer, method, url);
+    let (code, msg) = match &result {
+        Ok(Some(Value::Object(o))) => (o.get("code").cloned().filter(|v| !v.is_null()), o.get("msg").cloned().filter(|v| !v.is_null())),
+        Ok(_) => (None, None),
+        Err(text) => crate::venue::bitget::envelope(text),
+    };
+    let code_is = |list: &[&str]| code.as_ref().and_then(Value::as_str).is_some_and(|c| list.contains(&c));
+    if code_is(&[crate::venue::bitget::OK]) { return Verdict::Valid(true); }
+    if code_is(&BITGET_ORDER_NOT_FOUND) { return Verdict::Valid(kind != 1); }
+    let message = msg.as_ref().and_then(Value::as_str).filter(|m| !crate::ruby::blank(m));
+    if code_is(&BITGET_NO_TRADE) || message.is_some_and(|m| crate::engine::venue_rules::BITGET.is_invalid_key(&[m.to_string()])) { return Verdict::Valid(false); }
+    match result {
+        Ok(_) => Verdict::Failure(message.map_or_else(|| format!("Bitget answered code {}", inspect(code.as_ref())), str::to_string)),
+        Err(text) => Verdict::Failure(text),
+    }
+}
+
+/// Exchange#get_read_api_key_validity on Bitget (a reading key): #get_balances(asset_ids: []), its assets read. Balances only
+/// under the success code with `data`, each row naming its coin; else "Failed to get Bitget balances: <code> <msg>"; a failure
+/// the venue's invalid-key words condemn (#condemning_invalid_key_error?) is incorrect. An answer Rails cannot walk raises
+/// there (no verdict here).
+pub fn bitget_read_verdict(answer: &Result<HttpResponse, TransportError>, url: &str) -> Verdict {
+    let text = |v: &Value| v.as_str().map_or_else(|| v.to_string(), str::to_string);
+    let failure = match bitget_result(answer, "GET", url) {
+        Err(failure) => failure,
+        Ok(Some(Value::Object(body))) => {
+            let code = body.get("code").filter(|v| !v.is_null()).map(text).unwrap_or_default();
+            match body.get("data").filter(|v| !v.is_null()) {
+                Some(Value::Array(rows)) if code == crate::venue::bitget::OK => {
+                    let walkable = rows.iter().all(|row| row.get("coin").is_some_and(|c| !c.is_null()));
+                    return if walkable { Verdict::Valid(true) } else { Verdict::Failure("Bitget sent balances it cannot read".into()) };
+                }
+                Some(_) if code == crate::venue::bitget::OK => return Verdict::Failure("Bitget sent balances it cannot read".into()),
+                _ => {
+                    let parts: Vec<String> = ["code", "msg"].iter().filter_map(|name| body.get(*name).filter(|v| !v.is_null()).map(text)).collect();
+                    format!("Failed to get Bitget balances: {}", parts.join(" "))
+                }
+            }
+        }
+        // ponytail: Ruby raises on an answer that is not a Hash (a 500); here it is no verdict.
+        Ok(_) => return Verdict::Failure("Bitget sent an unreadable answer to the key check".into()),
+    };
+    if crate::engine::venue_rules::BITGET.is_invalid_key(std::slice::from_ref(&failure)) { Verdict::Valid(false) } else { Verdict::Failure(failure) }
+}
+
+/// Exchanges::Bitget's key check (ApiKey#get_validity): a trading key's cancel probe, a withdrawal key's assets read
+/// (#get_api_key_validity), a reading key's balances read (#get_read_api_key_validity). One request; its answer and the verdict.
+pub async fn bitget_check<T: Transport>(transport: &T, venue: &crate::venue::bitget::BitgetVenue<T>, kind: i64) -> (Result<HttpResponse, TransportError>, Verdict) {
+    use crate::venue::bitget::{ASSETS_PATH, CANCEL_PATH};
+    let request = if kind == 0 {
+        let body: serde_json::Map<String, Value> = BITGET_PROBE.iter().map(|(k, v)| (k.to_string(), Value::from(*v))).collect();
+        venue.request("POST", CANCEL_PATH, vec![], Some(Value::Object(body)))
+    } else { venue.request("GET", ASSETS_PATH, vec![], None) };
+    let answer = transport.send(&request).await;
+    let url = request.url();
+    let verdict = if kind == 2 { bitget_read_verdict(&answer, url.as_str()) } else { bitget_verdict(kind, &answer, request.method, url.as_str()) };
+    (answer, verdict)
+}
+
 /// Exchanges::Mexc::KEY_CHECK_REJECTED: 700007 no permission for the endpoint, 10072 an invalid key.
 pub const MEXC_REJECTED: [i64; 2] = [700_007, 10_072];
 pub const MEXC_DEPOSITS_PATH: &str = "/api/v3/capital/deposit/hisrec";
@@ -477,6 +559,11 @@ pub async fn check(venue: &str, base: &str, client: reqwest::Client, credentials
         let transport = ReqwestTransport::bitvavo(client, credentials.key.clone(), credentials.secret.clone()).with_sensitive_values(redaction);
         let venue = crate::venue::bitvavo::BitvavoVenue::new(transport.clone(), base);
         bitvavo_check(&transport, &venue, kind).await
+    } else if scheme == Some(KeyCheck::Bitget) {
+        let passphrase = credentials.passphrase.clone().unwrap_or_default();
+        let transport = ReqwestTransport::bitget(client, credentials.key.clone(), credentials.secret.clone(), passphrase).with_sensitive_values(redaction);
+        let venue = crate::venue::bitget::BitgetVenue::new(transport.clone(), base);
+        bitget_check(&transport, &venue, kind).await
     } else if scheme == Some(KeyCheck::Mexc) {
         let transport = ReqwestTransport::mexc(client, credentials.key.clone(), credentials.secret.clone()).with_sensitive_values(redaction);
         let venue = crate::venue::mexc::MexcVenue::new(transport.clone(), base, &credentials.secret);

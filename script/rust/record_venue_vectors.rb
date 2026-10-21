@@ -3,6 +3,7 @@
 #   bin/rails runner script/rust/record_venue_vectors.rb binance rust/tests/fixtures/binance_vectors.json  # + the fill rebuild (binance_trade.rs)
 #   bin/rails runner script/rust/record_venue_vectors.rb kucoin rust/tests/fixtures/kucoin_vectors.json    # + #parse_order_data (kucoin.rs)
 #   bin/rails runner script/rust/record_venue_vectors.rb bitvavo rust/tests/fixtures/bitvavo_vectors.json  # + #parse_order_data (bitvavo.rs)
+#   bin/rails runner script/rust/record_venue_vectors.rb bitget rust/tests/fixtures/bitget_vectors.json    # + #parse_order_data, both sides' wire (bitget.rs)
 #   bin/rails runner script/rust/record_venue_vectors.rb mexc rust/tests/fixtures/mexc_vectors.json        # + #parse_order_data (mexc.rs)
 #   bin/rails runner script/rust/record_venue_vectors.rb prices rust/tests/fixtures/prices_vectors.json     # plan VB slice P (venue_rules.rs)
 # Nothing is saved and nothing leaves the machine: the honeymaker client is replaced by a recorder, and any real
@@ -83,6 +84,28 @@ when 'bitvavo'
     { minimum_base_size: '0.00001', minimum_quote_size: '0.1', base_decimals: 8, quote_decimals: 0, price_decimals: 3 },
     { minimum_base_size: '0.5', minimum_quote_size: '50', base_decimals: 1, quote_decimals: 4, price_decimals: 4 }
   ]
+when 'bitget'
+  out = { 'sources' => pin.(%w[app/models/exchanges/bitget.rb app/models/exchange.rb app/models/bot/order_setter.rb app/models/ticker.rb
+                               script/rust/record_venue_vectors.rb]),
+          'gems' => { 'honeymaker' => Honeymaker::VERSION } }
+  exchange = Exchanges::Bitget.new(name: 'Bitget')
+  exchange.instance_variable_set(:@client, Object.new.tap do |c|
+    c.define_singleton_method(:place_order) { |**kw| captured = kw; Result::Success.new(order_id: "#{kw[:symbol]}-1234567890", raw: {}) }
+  end)
+  pair, strip, seed = 'BTCUSDT', [], 20_261_022
+  # Pairs shaped as Exchanges::Bitget#get_tickers_info reads /api/v2/spot/public/symbols: minTradeAmount (0 on every live
+  # pair: the quote minimum is then the only floor), minTradeUSDT converted to the quote, quantityPrecision,
+  # quotePrecision, pricePrecision.
+  tickers = [
+    { minimum_base_size: '0', minimum_quote_size: '1', base_decimals: 6, quote_decimals: 8, price_decimals: 2 },
+    { minimum_base_size: '0', minimum_quote_size: '5', base_decimals: 4, quote_decimals: 6, price_decimals: 2 },
+    { minimum_base_size: '0', minimum_quote_size: '0.00001', base_decimals: 4, quote_decimals: 8, price_decimals: 6 },
+    { minimum_base_size: '0', minimum_quote_size: '0', base_decimals: 2, quote_decimals: 4, price_decimals: 4 },
+    { minimum_base_size: '0.001', minimum_quote_size: '1', base_decimals: 3, quote_decimals: 2, price_decimals: 1 },
+    { minimum_base_size: '1', minimum_quote_size: '1', base_decimals: 0, quote_decimals: 6, price_decimals: 5 },
+    { minimum_base_size: '0', minimum_quote_size: '1', base_decimals: 8, quote_decimals: 0, price_decimals: 0 },
+    { minimum_base_size: '0', minimum_quote_size: '10', base_decimals: 1, quote_decimals: 3, price_decimals: 8 }
+  ]
 when 'mexc'
   out = { 'sources' => pin.(%w[app/models/exchanges/mexc.rb app/models/exchange.rb app/models/bot/order_setter.rb app/models/ticker.rb
                                script/rust/record_venue_vectors.rb]),
@@ -123,6 +146,8 @@ tickers.each do |t|
   pairs.each do |price_s, x_s|
     %i[market_order limit_order].each do |order_type|
       ticker = Ticker.new(exchange:, ticker: pair, base: 'BTC', quote: 'USDT', **t.transform_values { |v| v.is_a?(String) ? BigDecimal(v) : v })
+      # Bitget converts a market amount at #market_price_for, which reads the touch through the ticker: the same ask.
+      ticker.define_singleton_method(:get_ask_price) { |**| Result::Success.new(BigDecimal(price_s)) } if venue == 'bitget'
       bot = Bots::DcaMultiAsset.new(exchange:)
       price = order_type == :limit_order ? ticker.adjusted_price(price: BigDecimal(price_s) * (1.to_d - 0.0025.to_d)) : BigDecimal(price_s)
       next if price.zero? # refused before sizing ("limit price rounds to zero"), on both sides
@@ -276,6 +301,51 @@ when 'bitvavo'
   end
   out['bitvavo_orders'] = orders
   extra = "#{orders.size} orders"
+when 'bitget'
+  bitget = exchange
+  listed = { 'BTCUSDT' => Ticker.new(exchange: bitget, ticker: 'BTCUSDT', base: 'BTC', quote: 'USDT', price_decimals: 2) }
+  bitget.define_singleton_method(:tickers) { Object.new.tap { |t| t.define_singleton_method(:find_by) { |ticker:| listed[ticker] } } }
+  # Both sides of #set_market_order (G1: one `size` in the side's unit, an amount in the other converted at the touch, floored
+  # to the tick, and floored to the side's decimals) and #set_limit_order (#532: a quote amount divided by the limit price).
+  orders = Array.new(4000) do |n|
+    t = tickers[n % tickers.size]
+    ticker = Ticker.new(exchange: bitget, ticker: 'BTCUSDT', base: 'BTC', quote: 'USDT', **t.transform_values { |v| v.is_a?(String) ? BigDecimal(v) : v })
+    bid, ask = decimal.(-6, 5), decimal.(-6, 5)
+    ticker.define_singleton_method(:get_ask_price) { |**| Result::Success.new(BigDecimal(ask)) }
+    ticker.define_singleton_method(:get_bid_price) { |**| Result::Success.new(BigDecimal(bid)) }
+    side = %i[buy sell][n % 2]
+    amount_type = %i[base quote][(n / 2) % 2]
+    order_type = (n / 4).even? ? :market : :limit
+    amount = (amount_type == :base ? decimal.(-8, 3) : decimal.(-4, 5))
+    price = decimal.(-6, 5)
+    captured = nil
+    result = if order_type == :market
+               bitget.send(:set_market_order, ticker:, amount: BigDecimal(amount), amount_type:, side:)
+             else
+               bitget.send(:set_limit_order, ticker:, amount: BigDecimal(amount), amount_type:, side:, price: BigDecimal(price))
+             end
+    { 'ticker' => tickers.index(t), 'order_type' => order_type.to_s, 'side' => side.to_s, 'amount_type' => amount_type.to_s, 'amount' => amount,
+      'price' => price, 'bid' => bid, 'ask' => ask, 'wire' => captured&.compact&.transform_keys(&:to_s)&.transform_values(&:to_s),
+      'refused' => captured.nil? ? result.errors.join : nil }.compact
+  end
+  # #parse_order_data over generated orderInfo answers (G2: a market buy's `size` is its quote amount), every status
+  # ORDER_STATUS_MAP lists, both order types in any case, both sides.
+  statuses = %w[init new partially_filled live filled cancelled]
+  parsed = Array.new(10_000) do |n|
+    dec = ->(lo, hi) { rng.rand(4).zero? ? nil : decimal.(lo, hi) }
+    raw = { 'orderId' => (1_000_000 + n).to_s, 'symbol' => %w[BTCUSDT ETHBTC NEWUSDT][n % 3], 'orderType' => %w[market limit MARKET Limit][n % 4],
+            'side' => %w[buy sell BUY Sell][rng.rand(4)], 'status' => statuses[rng.rand(statuses.size)],
+            'priceAvg' => rng.rand(5).zero? ? '0' : dec.(-6, 5), 'price' => dec.(-6, 5), 'size' => rng.rand(6).zero? ? '0' : dec.(-8, 4),
+            'baseVolume' => dec.(-8, 3), 'quoteVolume' => dec.(-6, 5) }.compact
+    data = bitget.send(:parse_order_data, "#{raw['symbol']}-#{raw['orderId']}", raw)
+    { 'raw' => raw, 'status' => data[:status].to_s, 'price' => data[:price]&.to_d&.to_s('F'),
+      'amount' => data[:amount]&.to_d&.to_s('F'), 'quote_amount' => data[:quote_amount]&.to_d&.to_s('F'),
+      'amount_exec' => data[:amount_exec].to_d.to_s('F'), 'quote_amount_exec' => data[:quote_amount_exec].to_d.to_s('F'),
+      'side' => data[:side].to_s, 'order_type' => data[:order_type].to_s }
+  end
+  out['bitget_orders'] = orders
+  out['bitget_parsed'] = parsed
+  extra = "#{orders.size} orders, #{parsed.size} parsed"
 when 'mexc'
   mexc = exchange
   # #parse_order_data over generated GET /api/v3/order answers (X1 PARTIALLY_CANCELED, X2 the fills' average whenever

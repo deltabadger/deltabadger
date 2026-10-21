@@ -4,6 +4,7 @@
 use super::alpaca::AlpacaVenue;
 use super::binance::BinanceVenue;
 use super::bitvavo::BitvavoVenue;
+use super::bitget::BitgetVenue;
 use super::http::{self, ReqwestTransport};
 use super::kraken::KrakenVenue;
 use super::kucoin::KucoinVenue;
@@ -28,7 +29,7 @@ macro_rules! live_venues {
 
 live_venues!($ Alpaca(AlpacaVenue<ReqwestTransport>), Kraken(KrakenVenue<ReqwestTransport>), Binance(BinanceVenue<ReqwestTransport>),
              Kucoin(KucoinVenue<ReqwestTransport>), Bitvavo(BitvavoVenue<ReqwestTransport>), Gemini(GeminiVenue<ReqwestTransport>),
-             Mexc(MexcVenue<ReqwestTransport>));
+             Bitget(BitgetVenue<ReqwestTransport>), Mexc(MexcVenue<ReqwestTransport>));
 
 impl Venue for LiveVenue {
     fn rules(&self) -> &'static VenueRules { each!(self, v => v.rules()) }
