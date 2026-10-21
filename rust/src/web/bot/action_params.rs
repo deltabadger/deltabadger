@@ -58,6 +58,8 @@ impl ActionParams {
         let (root, allowed) = match kind {
             Kind::Basket => ("bots_dca_multi_asset", BASKET_SCALARS),
             Kind::Index => ("bots_dca_index", INDEX_SCALARS),
+            // A signal bot's settings form is plan 8c-2's: `bot::refusal` turns every such write away before its params.
+            Kind::Signal => return Err(ParamError::Root),
         };
         let fields = self.0.get(root).and_then(Value::as_object).filter(|v| !v.is_empty()).ok_or(ParamError::Root)?;
         let mut out = Map::new();

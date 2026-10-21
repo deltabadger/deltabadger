@@ -5,6 +5,7 @@
 PARTIALS = {
   'svg/40x30_logo' => 'svg/_40x30_logo.html',
   'svg/24x24_close' => 'svg/_24x24_close.html',
+  'svg/24x24_close_small' => 'svg/_24x24_close_small.html',
   'svg/24x24_plus' => 'svg/_24x24_plus.html',
   'svg/24x24_back' => 'svg/_24x24_back.html',
   'svg/24x24_sliders' => 'svg/_24x24_sliders.html',

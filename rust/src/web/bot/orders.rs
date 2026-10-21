@@ -176,6 +176,17 @@ fn round_amount(value: &BigDec, decimals: Option<u8>, currency: Option<&str>) ->
 impl<'a> Rows<'a> {
     fn new(ctx: &'a Ctx, bot: &'a Bot, user: &'a User) -> Self {
         let mut decimals = HashMap::new();
+        // BotsController#pair_decimals: a signal bot's two assets, by id and by symbol, at its ticker's precisions.
+        if bot.kind == super::Kind::Signal {
+            if let Some(ticker) = bot.tickers.first() {
+                for (asset, precision) in [(bot.base_asset(), ticker.base_decimals), (bot.quote_asset.as_ref(), ticker.quote_decimals)] {
+                    let Some(asset) = asset else { continue };
+                    decimals.insert(asset.id.to_string(), precision);
+                    decimals.insert(asset.symbol().to_string(), precision);
+                }
+            }
+            return Rows { ctx, bot, zone: &user.time_zone, hidden: user.hide_balances, decimals, broadcast: false };
+        }
         if let (Some(quote), Some(precision)) = (bot.quote_asset.as_ref(), bot.quote_decimals()) {
             decimals.insert(quote.id.to_string(), precision);
             decimals.insert(quote.symbol().to_string(), precision);

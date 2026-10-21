@@ -45,7 +45,7 @@ pub fn metrics(c:&Connection,id:i64,now:At)->Result<Pair,FiguresError>{
             while events.peek().is_some_and(|e|e.at<=o.at){if let Some(e)=events.next(){p.split(e,&mut buys,&mut last)?;}}
             budget::charge(1,0)?;
             let Some(fill)=fill else{continue};
-            let price=Num::Dec(fill.unit_price()?);
+            let price=Num::Dec(super::fill::pair_price(o,&fill)?);
             let amount=Num::Dec(fill.quantity);
             let cost=Num::Dec(fill.value);
             if o.sell{

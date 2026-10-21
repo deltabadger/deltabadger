@@ -1,0 +1,15 @@
+{
+  "app/controllers/bots_controller.rb": "194066b5eb8097066cc928d8fd18e4ecca44f201953a062bb65f189b41228d68",
+  "app/models/bots/dca_single_asset/measurable.rb": "5d97bfbd2da99b342112da2315779e3d9c42e3e437e76f0ddbd62990a71167d8",
+  "app/models/bots/signal.rb": "fe9a5db0f304e0f233a843601fa3d6932b2d028fa1f0bacc70e4cffec5b50eb9",
+  "app/views/bots/bot_tile/_bot_tile.html.erb": "261a2f6b80c06c00015297cbdb8ccbeb6a3b899700ba5d3970c3b8d44d73f140",
+  "app/views/bots/dca_single_assets/_metrics.html.erb": "5dfbc4279044f57ad0c830017bd2f9d7eaadda729d12126f353fb3c6f7cd94ff",
+  "app/views/bots/signals/_settings.html.erb": "1340cfb23329d0b909b346fb4c02e86dd35a335c094375609e92ded95c6d3ef8",
+  "app/views/bots/signals/_signal_widget.html.erb": "8ed50187e9945c8da94ec77cf51f45e6bacb8ffae43199d553d01a950b16bc2e",
+  "app/views/bots/signals/_unresolved_placement.html.erb": "27cc953dea3f23c983690321cee50f864f28b3a498c28b290fb483a20e49dcb8",
+  "app/views/bots/signals/settings/_main.html.erb": "26b8dbf33883a5b664dd7d6afc59f84d5512e097b82fb17eaa8588658e4df91c",
+  "app/views/bots/status/_progress_bar.html.erb": "b53bd27eb8b0d18b9d21c7116e9c037e26ff580e1d9160e309215b993780764d",
+  "app/views/bots/status/_status_bar.html.erb": "7e7c72ea8a91312f6f5c6751a5980fb4fb1b90d3bd48f78f851be805977c8da6",
+  "app/views/bots/status/_status_button.html.erb": "114c144547300228980e8ec678f730e60845c554a4c5f1a3ab66128a6e1ac37d",
+  "script/rust/pages_signals.rb": "c659391b0aa03b8d799318d63fd194df6f92cb596b82b39640da3838f3d64fd9"
+}

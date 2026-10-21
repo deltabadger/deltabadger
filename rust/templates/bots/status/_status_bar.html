@@ -12,6 +12,11 @@
       <span class="bot-control__status__text__three-dots" data-three-dots-target="dots" data-controller="three-dots"></span>{% endif %}
     </div>
 {% endif %}
+{% if listening %}
+    <div class="bot-control__status__text" data-marquee-target="text">
+      {{ v.t("bot.status.listening")|safe }}<span class="bot-control__status__text__three-dots" data-three-dots-target="dots" data-controller="three-dots"></span>
+    </div>
+{% endif %}
 {% if let Some(countdown) = countdown %}
     <div class="bot-control__status__text {% if countdown.scheduled %}text-success{% endif %}" data-controller="countdown"{% if let Some(end) = countdown.end %} data-countdown-end-time-value="{{ end }}"{% endif %} data-countdown-hide-if-zero-value="true" data-countdown-days-label-value="{{ v.t("utils.days_short")|safe }}" data-countdown-hours-label-value="{{ v.t("utils.hours_short")|safe }}" data-countdown-minutes-label-value="{{ v.t("utils.minutes_short")|safe }}" data-countdown-seconds-label-value="{{ v.t("utils.seconds_short")|safe }}" data-marquee-target="text">
 {% if let Some(prefix) = countdown.prefix %}

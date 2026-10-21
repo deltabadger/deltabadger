@@ -1,0 +1,66 @@
+{#- bots/signals/_settings.html.erb of a saved bot: settings/_main, _unresolved_placement, one _signal_widget per rule,
+    the API hint, and "add rule" while the bot does not work. -#}
+<div id="settings" class="column gap-1">
+  
+<div class="widget main-rule">
+  <div class="conversational flex-justify-center">
+    {{ v.t("bot.signal.trade")|safe }}
+    <div class="{{ base.class }}" style="background: {{ base.color }}"{% if let Some(symbol) = base.symbol %} data-ticker-symbol="{{ symbol }}"{% endif %}{% if let Some(id) = base.asset_id %} data-ticker-asset-id="{{ id }}"{% endif %}>{% if let Some(symbol) = base.symbol %}{{ symbol }}{% endif %}</div>
+    {{ v.t("bot.signal.spending")|safe }}
+    <div class="ticker"{% if let Some(symbol) = quote.symbol %} data-ticker-symbol="{{ symbol }}"{% endif %}{% if let Some(id) = quote.asset_id %} data-ticker-asset-id="{{ id }}"{% endif %}>{% if let Some(symbol) = quote.symbol %}{{ symbol }}{% endif %}</div>
+  </div>
+</div>
+
+{{ unresolved|safe }}
+{% for rule in rules %}
+      <form id="bot_signal_{{ rule.id }}" class="widget rule {% if rule.enabled %}rule--active{% else %}rule--inactive{% endif %}" data-controller="class-toggle form--submit" data-class-toggle-target="togglable" data-class-toggle-toggle-classes-value="[&quot;rule--active&quot;,&quot;rule--inactive&quot;]" data-turbo-stream="true" action="{{ rule.path }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+    <div class="toggle-group">
+{% if several %}
+        <div class="toggle-group__controls">
+          <div class="toggle">
+            <input name="bot_signal[enabled]"{% if working %} disabled="disabled"{% endif %} type="hidden" value="0" /><input data-action="change-&gt;form--submit#submit change-&gt;class-toggle#toggle"{% if working %} disabled="disabled"{% endif %} type="checkbox" value="1"{% if rule.enabled %} checked="checked"{% endif %} name="bot_signal[enabled]" id="bot_signal_enabled" />
+            <div class="toggle__style"></div>
+          </div>
+{% if !working %}
+            <a data-turbo-method="delete" data-turbo-stream="true" class="sbutton sbutton--danger sbutton--small" href="{{ rule.path }}">
+              {% include "svg/_24x24_close_small.html" %}
+</a>{% endif %}        </div>
+{% endif %}
+      <div class="toggle-group__info">
+        <div class="toggle-group__info__label">
+          <div class="conversational conversational--small" data-controller="form--select-toggle">
+            <div class="sinput sinput--select {% if working %}sinput--disabled{% endif %}">
+              {% if rule.sell %}{{ v.t("bot.sell")|safe }}{% else %}{{ v.t("bot.buy")|safe }}{% endif %}
+              <select data-action="change-&gt;form--submit#submit"{% if working %} disabled="disabled"{% endif %} name="bot_signal[direction]" id="bot_signal_direction"><option{% if !rule.sell %} selected="selected"{% endif %} value="buy">{{ v.t("bot.buy")|safe }}</option>
+<option{% if rule.sell %} selected="selected"{% endif %} value="sell">{{ v.t("bot.sell")|safe }}</option></select>
+            </div>
+            <span>{{ v.t("bot.signal.for")|safe }}</span>
+            <div class="ticker-input ticker-input--autoscale" data-controller="form--select-display">
+{% if hide_money && !rule.percentage %}
+                <input value="{{ rule.amount }}" type="hidden" name="bot_signal[amount]" id="bot_signal_amount" />
+{% else %}
+                <input value="{{ rule.amount }}" class="numeric-input" step="any" size="2" data-controller="autowidth-input" data-action="input-&gt;form--submit#submit input-&gt;autowidth-input#resize"{% if working %} disabled="disabled"{% endif %} placeholder="100" type="number" name="bot_signal[amount]" id="bot_signal_amount" />
+{% endif %}
+              <div class="sinput sinput--select {% if working %}sinput--disabled{% endif %}">
+                <span data-form--select-display-target="label">{% if rule.percentage %}%{% else %}{{ quote_symbol }}{% endif %}</span>
+                <select data-action="change-&gt;form--select-toggle#toggle change-&gt;form--submit#submit change-&gt;form--select-display#update"{% if working %} disabled="disabled"{% endif %} name="bot_signal[amount_type]" id="bot_signal_amount_type"><option{% if !rule.percentage %} selected="selected"{% endif %} value="fixed">{{ quote_symbol }}</option>
+<option{% if rule.percentage %} selected="selected"{% endif %} value="percentage">%</option></select>
+              </div>
+            </div>
+            <span data-form--select-toggle-target="section" data-select-toggle-value="percentage" style="{% if !rule.percentage %}display:none{% endif %}">{{ v.t("bot.signal.of_the_balance")|safe }}</span>
+            <span>{{ v.t("bot.signal.when_triggered")|safe }}</span>
+            <span class="tag tag--wrap">{{ base_url }}/hook/{{ rule.token }}</span>
+            <span class="text-inactive">{{ rule.triggered }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+</form>
+{% endfor %}
+    <p class="text-inactive">{{ api_hint }}</p>
+{% if !working %}
+    <div id="add-signal-button">
+      <form class="button_to" method="post" action="{{ path }}/bot_signals"><button class="sbutton sbutton--sky" type="submit">{{ v.t("bot.signal.add_signal")|safe }}</button><input type="hidden" name="authenticity_token" value="{{ csrf }}" /></form>
+    </div>
+{% endif %}
+</div>
