@@ -1062,3 +1062,38 @@ async fn a_sell_control_a_live_minimum_removes_is_not_shown_stale() {
     let metrics = shown.as_ref().and_then(|v| v["bots"]["1"]["metrics"].as_str().map(str::to_string));
     assert!(metrics.is_none_or(|m| !m.contains("/liquidation/new?")), "sellable_holdings drops a holding under the minimum: no Sell link");
 }
+
+/// A pair bot's chart logos are the venue's listings spelled as its keys, whatever asset each is of (chart::pair_page).
+/// Kept figures go stale with any of them: a new listing of another asset under the pair's spelling (a replacement, or a
+/// second quote), a write to that asset's logo or colour, and a write to the pair ticker's precisions. A listing under
+/// another spelling is no part of them.
+#[test]
+fn a_pair_bots_listings_by_spelling_are_in_the_fingerprint() {
+    let dir = tempfile::tempdir().unwrap();
+    let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    c.execute_batch(include_str!("fixtures/settings_primary_schema.sql")).unwrap();
+    let t = "'2026-01-01'";
+    c.execute_batch(&format!("
+        INSERT INTO exchanges(id,type,name,created_at,updated_at) VALUES (1,'Exchanges::Alpaca','Alpaca',{t},{t});
+        INSERT INTO assets(id,category,external_id,symbol,name,created_at,updated_at) VALUES (1,'Fiat','usd','USD','US Dollar',{t},{t}),
+            (2,'Stock','aaa','AAA','AAA Inc',{t},{t}),(3,'Stock','aaa-other','AAA','Another AAA',{t},{t}),(4,'Fiat','usdt','USDT','Tether',{t},{t});
+        INSERT INTO tickers(id,base,base_asset_id,base_decimals,exchange_id,minimum_base_size,minimum_quote_size,price_decimals,quote,quote_asset_id,quote_decimals,ticker,created_at,updated_at)
+            VALUES (1,'AAA',2,9,1,0,1,2,'USD',1,2,'AAA',{t},{t});
+        INSERT INTO users(id,email,encrypted_password,setup_completed,admin,confirmed_at,created_at,updated_at) VALUES (1,'u1@example.com','x',1,1,{t},{t},{t});
+        INSERT INTO bots(id,user_id,exchange_id,type,status,settings,transient_data,created_at,updated_at)
+            VALUES (1,1,1,'Bots::Signal',1,'{{\"base_asset_id\":2,\"quote_asset_id\":1}}','{{}}',{t},{t});
+        INSERT INTO transactions(bot_id,exchange_id,base,base_asset_id,quote,quote_asset_id,amount,amount_exec,price,quote_amount_exec,side,status,external_status,external_id,transaction_type,created_at,updated_at)
+            VALUES (1,1,'AAA',2,'USD',1,1,1,100,100,0,0,2,'o1','REGULAR','2026-03-02 14:30:00',{t});
+    ")).unwrap();
+    let revision = || loading::revision(&c, 1).unwrap().0;
+    let changes = |sql: &str| { let before = revision(); c.execute_batch(sql).unwrap(); before != revision() };
+    assert!(!changes(&format!("INSERT INTO tickers(id,base,base_asset_id,base_decimals,exchange_id,minimum_base_size,minimum_quote_size,price_decimals,quote,quote_asset_id,quote_decimals,ticker,created_at,updated_at) \
+        VALUES (2,'ZZZ',3,9,1,0,1,2,'USDT',4,2,'ZZZ/USDT',{t},{t})")), "a listing under another spelling");
+    assert!(changes("UPDATE tickers SET base='AAA',ticker='AAA/USDT' WHERE id=2"), "another asset's listing under the pair's spelling");
+    assert!(changes("UPDATE assets SET image_url='https://example.com/a.png' WHERE id=3"), "that asset's logo");
+    assert!(changes("UPDATE assets SET color='#123456' WHERE id=3"), "that asset's colour");
+    assert!(changes("UPDATE tickers SET base='__stale_2_AAA' WHERE id=2"), "the listing replaced");
+    assert!(changes("UPDATE tickers SET price_decimals=4 WHERE id=1"), "the pair ticker's price precision");
+    assert!(changes("UPDATE tickers SET base_decimals=6 WHERE id=1"), "the pair ticker's base precision");
+    assert!(changes("UPDATE tickers SET quote_decimals=3 WHERE id=1"), "the pair ticker's quote precision");
+}
