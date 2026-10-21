@@ -65,6 +65,17 @@ pub fn is_signal(c: &Connection, owner: i64, id: i64) -> Result<bool, WebError> 
     Ok(class.flatten().as_deref() == Some(SIGNAL_TYPE))
 }
 
+/// The signal writes whose parameters a JSON body carries, as Rails parses one for any route: a rule's update and a Resolve.
+pub fn reads_json(path: &str, method: &axum::http::Method) -> bool {
+    let Some((bot, rest)) = path.strip_prefix("/bots/").and_then(|rest| rest.split_once('/')) else { return false };
+    if super::id_from_path(bot).is_none() { return false; }
+    match (method.as_str(), rest.split_once('/')) {
+        ("PATCH", Some(("bot_signals", rule))) => super::id_from_path(rule).is_some(),
+        ("POST", None) => rest == "signal_resolution",
+        _ => false,
+    }
+}
+
 /// Bots::Botable#set_bot for a signal bot, and `bot::refusal` for what this build serves.
 fn owned(c: &Connection, app: &App, owner: i64, id: i64, locale: &str) -> Result<Result<Bot, Answer>, WebError> {
     let status: Option<i64> = c.query_row("SELECT status FROM bots WHERE id = ?1 AND user_id = ?2 AND type = ?3", (id, owner, SIGNAL_TYPE), |r| r.get(0)).optional()?;
@@ -136,19 +147,19 @@ fn boolean(value: &Value) -> Option<bool> {
     }
 }
 
-/// What `@signal.update!(signal_params)` assigns: each permitted scalar cast as BotSignal's attributes cast it.
-enum Cast<T> { Absent, Value(T), Invalid, Raises }
+/// What `@signal.update!(signal_params)` assigns to an enum (ActiveRecord::Enum::EnumType#cast and #assert_valid_value): a
+/// name, or a value its mapping holds (`has_value?` is `==`, so a JSON 1 or 1.0, never the text "1"); a blank (nil, false,
+/// a blank text) is nil; anything else raises ArgumentError on assignment.
+enum Cast { Absent, Value(i64), Blank, Raises }
 
-fn enum_value(fields: &Map<String, Value>, key: &str, names: [&str; 2]) -> Cast<i64> {
+fn enum_value(fields: &Map<String, Value>, key: &str, names: [&str; 2]) -> Cast {
     match fields.get(key) {
         None | Some(Value::Array(_) | Value::Object(_)) => Cast::Absent,
-        // A blank is nil: the presence validation (direction) or the NOT NULL column (amount_type) refuses it.
-        Some(Value::Null) => Cast::Invalid,
-        Some(Value::String(s)) if s.is_empty() => if key == "direction" { Cast::Invalid } else { Cast::Raises },
-        Some(value) => {
-            let text = match value { Value::String(s) => s.clone(), other => other.to_string() };
-            match names.iter().position(|name| *name == text) { Some(i) => Cast::Value(i as i64), None => Cast::Raises }
-        }
+        Some(Value::Null | Value::Bool(false)) => Cast::Blank,
+        Some(Value::String(s)) if s.trim().is_empty() => Cast::Blank,
+        Some(Value::String(s)) => names.iter().position(|name| *name == s.as_str()).map_or(Cast::Raises, |i| Cast::Value(i as i64)),
+        Some(Value::Number(n)) => match n.as_f64() { Some(v) if v == 0.0 || v == 1.0 => Cast::Value(v as i64), _ => Cast::Raises },
+        Some(Value::Bool(true)) => Cast::Raises,
     }
 }
 
@@ -181,11 +192,19 @@ fn rule_inner(c: &Connection, ctx: &Ctx, owner: i64, id: i64, op: RuleOp, params
             let mut percentage = current.percentage;
             let mut amount = Some(current.amount.clone());
             let mut amount_text = None;
-            for (key, names) in [("direction", ["buy", "sell"]), ("amount_type", ["fixed", "percentage"])] {
-                match enum_value(&fields, key, names) {
-                    Cast::Absent => {}
-                    Cast::Invalid => return Ok(Answer::RecordInvalid),
-                    Cast::Raises => return Err(WebError::Config(format!("bot_signals {}: {key} is not one Rails knows", current.id))),
+            let casts = [("direction", ["buy", "sell"]), ("amount_type", ["fixed", "percentage"])].map(|(key, names)| (key, enum_value(&fields, key, names)));
+            // Every attribute is assigned before any is validated: an unknown value raises first.
+            if let Some((key, _)) = casts.iter().find(|(_, cast)| matches!(cast, Cast::Raises)) {
+                return Err(WebError::Config(format!("bot_signals {}: {key} is not one Rails knows", current.id)));
+            }
+            let mut null_amount_type = false;
+            for (key, cast) in casts {
+                match cast {
+                    Cast::Absent | Cast::Raises => {}
+                    // validates :direction, presence.
+                    Cast::Blank if key == "direction" => return Ok(Answer::RecordInvalid),
+                    // No validation reads a nil amount_type (`percentage?` is false); its NOT NULL column refuses the save.
+                    Cast::Blank => { percentage = false; null_amount_type = true; }
                     Cast::Value(v) => {
                         let old = if key == "direction" { &mut sell } else { &mut percentage };
                         if (v == 1) != *old { *old = v == 1; sets.push((key, v.into())); }
@@ -199,6 +218,7 @@ fn rule_inner(c: &Connection, ctx: &Ctx, owner: i64, id: i64, op: RuleOp, params
             }
             // validates :amount, presence, numericality > 0, and <= 100 for a percentage.
             let Some(new_amount) = amount.filter(|a| a.is_positive() && (!percentage || *a <= BigDec::from_i64(100))) else { return Ok(Answer::RecordInvalid) };
+            if null_amount_type { return Err(WebError::Config(format!("bot_signals {}: amount_type may not be null", current.id))); }
             if amount_text.is_some() && new_amount != current.amount { sets.push(("amount", new_amount.to_s_f().into())); }
             if let Some(value) = fields.get("enabled").filter(|v| !v.is_array() && !v.is_object()) {
                 let Some(enabled) = boolean(value) else { return Err(WebError::Config(format!("bot_signals {}: enabled may not be null", current.id))) };
@@ -488,13 +508,15 @@ fn stop(c: &Connection, heard: &Ctx, owner: i64, bot: &Bot, out: &mut Vec<(Strin
     Ok(true)
 }
 
-/// `service`: BotApi's (Bots::Signal#delete stamps stopped_at; the page's destroy does not).
-fn lifecycle_write(c: &Connection, heard: &Ctx, owner: i64, bot: &Bot, action: Action, fresh: bool, service: bool) -> Result<Life, WebError> {
+/// `service`: BotApi's (Bots::Signal#delete stamps stopped_at; the page's destroy does not). `locale`: the answer's, in which
+/// the model's errors are worded; `heard`: the owner's, in which the broadcasts are (Bot#with_user_locale).
+fn lifecycle_write(c: &Connection, locale: &str, heard: &Ctx, bot: &Bot, action: Action, fresh: bool, service: bool) -> Result<Life, WebError> {
+    let owner = heard.user().ok_or(WebError::Config("a lifecycle write has no owner".into()))?.id;
     let mut out = vec![];
     let now = heard.now;
     let changed = match action {
         Action::Start => {
-            let errors = start_errors(c, heard.locale, bot)?;
+            let errors = start_errors(c, locale, bot)?;
             if !errors.is_empty() { return Ok(Life::Invalid(errors)); }
             let stamp = crate::codec::format_time(now);
             let (started, key): (Option<String>, Option<String>) = c.query_row("SELECT started_at, stop_message_key FROM bots WHERE id = ?1", [bot.id], |r| Ok((r.get(0)?, r.get(1)?)))?;
@@ -512,7 +534,7 @@ fn lifecycle_write(c: &Connection, heard: &Ctx, owner: i64, bot: &Bot, action: A
                 let mut errors = vec![];
                 for key in ["base_asset_id", "quote_asset_id"] {
                     let exists: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM assets WHERE id IS ?1)", [bot.settings.get(key).and_then(Value::as_i64)], |r| r.get(0))?;
-                    if !exists { errors.push(error(key, model_message(heard.locale, key, "invalid"))); }
+                    if !exists { errors.push(error(key, model_message(locale, key, "invalid"))); }
                 }
                 if !errors.is_empty() { return Ok(Life::Invalid(errors)); }
                 stop(c, heard, owner, bot, &mut out)? | save(c, heard, owner, bot.id, BotStatus::Archived, false, &mut out)?
@@ -542,7 +564,10 @@ fn web_lifecycle(c: &Connection, ctx: &Ctx, owner: i64, id: i64, action: Action,
     let fresh = if action == Action::Start {
         match params.start_fresh() { Ok(fresh) => fresh, Err(_) => return refuse(i18n::text(ctx.locale, "engine.invalid_start_fresh", &[])) }
     } else { true };
-    let (written, changed) = match lifecycle_write(&tx, &ctx, owner, &bot, action, fresh, false)? {
+    // Bot#with_user_locale: the owner's open pages hear the change in the owner's language; the answer keeps the request's.
+    let mut heard = super::live::owner_ctx(&ctx.app, ctx.user().cloned().ok_or(WebError::Config("a lifecycle write has no user".into()))?);
+    heard.now = ctx.now;
+    let (written, changed) = match lifecycle_write(&tx, ctx.locale, &heard, &bot, action, fresh, false)? {
         Life::Invalid(errors) => return refuse(sentence(&errors)),
         Life::Refused(reason) => return refuse(i18n::text(ctx.locale, "engine.write_refused", &[("reason", Arg::Text(&reason))])),
         Life::Written { broadcasts, changed } => (broadcasts, changed),
@@ -559,11 +584,20 @@ fn web_lifecycle(c: &Connection, ctx: &Ctx, owner: i64, id: i64, action: Action,
         Action::Unarchive => turbo::refresh().into(),
         Action::Archive => action_view::archived_streams(&tx, &ctx, &csrf, &after, configured, owner)? + "\n",
         Action::Start | Action::Stop => {
-            let mut body = settings_stream(&ctx, &csrf, &after, base_url)? + "\n"
-                + &turbo::stream("replace", "exchange_select", page::exchange_select(&tx, &ctx, &csrf, &after, owner)?.trim_end());
-            if action == Action::Stop {
-                match action_view::all_buttons(&tx, &ctx, &csrf, owner, configured)? { Some(buttons) => body += &buttons, None => body = turbo::refresh().into() }
-            }
+            // A Stop always commits (as action_view::lifecycle_response): a fragment that cannot be drawn, this bot's or another
+            // bot's button, becomes a refresh, never an error that rolls the Stop back.
+            let drawn = (|| -> Result<Option<String>, WebError> {
+                let body = settings_stream(&ctx, &csrf, &after, base_url)? + "\n"
+                    + &turbo::stream("replace", "exchange_select", page::exchange_select(&tx, &ctx, &csrf, &after, owner)?.trim_end());
+                if action == Action::Stop { return Ok(action_view::all_buttons(&tx, &ctx, &csrf, owner, configured)?.map(|buttons| body + &buttons)); }
+                Ok(Some(body))
+            })();
+            let body: String = match drawn {
+                Ok(Some(body)) => body,
+                Ok(None) => turbo::refresh().into(),
+                Err(_) if action == Action::Stop => turbo::refresh().into(),
+                Err(e) => return Err(e),
+            };
             body + "\n"
         }
     };
@@ -616,7 +650,7 @@ pub fn service(c: &Connection, ctx: &Ctx, heard: &Ctx, owner: i64, id: i64, acti
     let Some(bot) = Bot::find(&tx, owner, id, For::Page, ctx.locale)? else { return Ok(Outcome::Missing) };
     let mut heard = heard.clone();
     heard.now = ctx.now;
-    let broadcasts = match lifecycle_write(&tx, &heard, owner, &bot, action, fresh, true)? {
+    let broadcasts = match lifecycle_write(&tx, ctx.locale, &heard, &bot, action, fresh, true)? {
         Life::Invalid(errors) => return failed(write::model_failure(action, &label, &errors)),
         Life::Refused(reason) => return Ok(Outcome::GuardRefused(Shown { data: Value::Null, text: crate::web::bot_api::refused(&reason) })),
         Life::Written { broadcasts, .. } => broadcasts,
@@ -652,5 +686,22 @@ mod tests {
         assert_eq!(token, super::URL_SAFE_NO_PAD.encode([9u8; 32]));
         assert!(draws.is_empty(), "the taken token was drawn first");
         assert_eq!(token.len(), 43);
+    }
+
+    /// EnumType#cast and #assert_valid_value: a name or a mapped value (Ruby's `==`: 1 and 1.0) assigns, a blank (nil,
+    /// false, "  ") is nil, and anything else raises, the text "1" and `true` among them.
+    #[test]
+    fn a_rule_enum_takes_a_name_or_a_mapped_number() {
+        use super::Cast;
+        let cast = |value: serde_json::Value| match super::enum_value(&serde_json::json!({ "direction": value }).as_object().unwrap().clone(), "direction", ["buy", "sell"]) {
+            Cast::Absent => "absent".to_string(), Cast::Value(v) => v.to_string(), Cast::Blank => "blank".into(), Cast::Raises => "raises".into(),
+        };
+        use serde_json::json;
+        for (value, expected) in [(json!("buy"), "0"), (json!("sell"), "1"), (json!(0), "0"), (json!(1), "1"), (json!(1.0), "1"), (json!(-0.0), "0"),
+                                  (json!(null), "blank"), (json!(false), "blank"), (json!(""), "blank"), (json!("  "), "blank"),
+                                  (json!("1"), "raises"), (json!("0"), "raises"), (json!("Buy"), "raises"), (json!(2), "raises"), (json!(0.5), "raises"),
+                                  (json!(true), "raises"), (json!([1]), "absent"), (json!({}), "absent")] {
+            assert_eq!(cast(value.clone()), expected, "{value}");
+        }
     }
 }

@@ -149,6 +149,8 @@ module Pages
       case_of = ->(bots, steps, attrs = {}) { { 'user' => owner, 'install' => 'alpaca', 'bots' => bots, 'steps' => signed_in(*steps) }.merge(attrs) }
       rule = ->(method, bot, id, form = {}) { signal_act(method, "/bots/#{bot}/bot_signals#{"/#{id}" if id}", form) }
       invalid = { 'rails_exception_status' => 422 }
+      # A rule's write as JSON: an enum takes a value its mapping holds (1, 1.0) as well as a name.
+      json_rule = ->(bot, id, body) { rule.('PATCH', bot, id).then { |step| step.merge('json' => body, 'headers' => step['headers'].merge('Content-Type' => 'application/json')) } }
       page_stream = ->(id) { "#{["gid://deltabadger/Bots::Signal/#{id}"].pack('m0').tr('+/', '-_').delete('=')}:bot_updates" }
       resolve = ->(marker, csrf = 'header') { signal_act('POST', '/bots/1/signal_resolution', { 'marker_id' => marker }, 'csrf' => csrf, 'broadcasts' => [page_stream.(1)]) }
       {
@@ -159,6 +161,10 @@ module Pages
                                            rule.('PATCH', 1, 3, 'bot_signal[enabled]' => '1'), rule.('PATCH', 1, 2, 'bot_signal[enabled]' => '0'),
                                            rule.('PATCH', 1, 1, 'bot_signal[amount]' => '150').merge(invalid), rule.('PATCH', 1, 3, 'bot_signal[amount]' => '0').merge(invalid),
                                            rule.('DELETE', 1, 2), rule.('DELETE', 2, 4), get('/de/bots/1'), rule.('POST', 1, nil).merge('path' => '/de/bots/1/bot_signals')]),
+        'signal_action_rules_json' => case_of.([stopped], [get('/bots/1'), json_rule.(1, 1, '{"bot_signal":{"direction":1}}'),
+                                                           json_rule.(1, 1, '{"bot_signal":{"amount_type":1,"direction":0}}'),
+                                                           json_rule.(1, 2, '{"bot_signal":{"amount_type":0}}'), json_rule.(1, 1, '{"bot_signal":{"direction":1.0}}'),
+                                                           json_rule.(1, 3, '{"bot_signal":{"enabled":true,"amount_type":0.0}}')]),
         'signal_action_rules_hidden' => case_of.([stopped], [get('/bots/1'), rule.('PATCH', 1, 1, 'bot_signal[enabled]' => '0'), rule.('POST', 1, nil)],
                                                  'user' => owner('hide_balances' => true, 'locale' => 'pl')),
         # Rails' R8b: a running bot's rules are refused whole, with its settings drawn again.
@@ -195,6 +201,12 @@ module Pages
                                                signal_act('PATCH', '/bots/2/start?start_fresh=junk'), signal_act('DELETE', '/bots/3/delete'), get('/bots')]),
         'signal_action_lifecycle_de' => case_of.([working, stopped], [get('/de/bots/1'), signal_act('PATCH', '/de/bots/1/stop'),
                                                                       signal_act('POST', '/de/bots/2/archive'), signal_act('DELETE', '/de/bots/2/delete')]),
+        # Bot#with_user_locale: what the owner's open pages hear is in the owner's language (Polish), the answer in the request's.
+        'signal_action_lifecycle_owner_locale' => case_of.([working, stopped],
+                                                           [get('/de/bots/1'), signal_act('PATCH', '/de/bots/1/stop', {}, 'broadcasts' => ['user_1:bot_updates']),
+                                                            signal_act('POST', '/de/bots/2/archive', {}, 'broadcasts' => ['user_1:bot_updates']),
+                                                            signal_act('DELETE', '/de/bots/2/archive', {}, 'broadcasts' => ['user_1:bot_updates'])],
+                                                           'user' => owner('locale' => 'pl')),
         'signal_action_start_no_key' => case_of.([stopped], [get('/bots/1'), signal_act('PATCH', '/bots/1/start?start_fresh=true')], 'api_keys' => {}),
         'signal_action_start_delisted' => case_of.([stopped.merge('delist' => 'QQQM')], [get('/bots/1'), signal_act('PATCH', '/bots/1/start?start_fresh=true')]),
         'signal_action_start_archived' => case_of.([one.merge('columns' => { 'status' => 7 })], [get('/bots/1'), signal_act('PATCH', '/bots/1/start?start_fresh=true')]),

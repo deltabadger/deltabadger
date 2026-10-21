@@ -2811,3 +2811,36 @@ async fn a_resolve_lifts_a_lone_marker_and_leaves_one_the_engine_still_settles()
     assert_eq!(browser.send(&app, "POST", &resolve, Some(&[("marker_id", "m-1")]), web::Csrf::Header, &[]).await.status, 302);
     assert_eq!(state().1, 1, "a repeat is stale and writes nothing");
 }
+
+/// Slice 8c-2: a signal bot's Stop from its page commits even where another of the owner's bots cannot be drawn (a stored
+/// time it cannot parse): the answer is a refresh, as every bot's Stop answers it (action_view::lifecycle_response).
+#[tokio::test(flavor = "current_thread")]
+async fn a_signal_stop_commits_beside_a_bot_that_cannot_be_drawn() {
+    use serde_json::json;
+    let (dir, opened, seeded) = common::install_alpaca();
+    let c = &opened.primary;
+    let hash = deltabadger::crypto::hash_password("Correct-horse-9").unwrap();
+    c.execute("UPDATE users SET encrypted_password = ?1, confirmed_at = '2026-01-01 00:00:00', wash_sale_enabled = 0 WHERE id = ?2", (hash, seeded.user_id)).unwrap();
+    let settings = json!({ "base_asset_id": seeded.btc, "quote_asset_id": seeded.quote }).to_string();
+    c.execute("INSERT INTO bots (type, status, exchange_id, user_id, label, settings, started_at, created_at, updated_at) \
+               VALUES ('Bots::Signal', 1, ?1, ?2, 'Signals', ?3, '2026-08-25 09:00:00', '2026-08-25 09:00:00', '2026-08-25 09:00:00')",
+              (seeded.exchange_id, seeded.user_id, &settings)).unwrap();
+    let id = c.last_insert_rowid();
+    c.execute("INSERT INTO bot_signals (bot_id, direction, amount_type, amount, enabled, token, created_at, updated_at) \
+               VALUES (?1, 0, 0, 10, 1, 'tok-stop', '2026-08-25 09:00:00', '2026-08-25 09:00:00')", [id]).unwrap();
+    let app = web::app(dir.path(), web::SECRET, TestClock::at(NOW)).admit_signal_bots_for_tests().unwrap();
+    let mut browser = Browser::default();
+    browser.get(&app, "/login").await;
+    assert_eq!(browser.post(&app, "/login", &[("user[email]", "o@example.com"), ("user[password]", "Correct-horse-9")]).await.status, 303);
+    let page = browser.get(&app, &format!("/bots/{id}")).await;
+    assert_eq!(page.status, 200, "{:.500}", page.body);
+    // Another bot of the owner's whose row this build cannot read.
+    c.execute("INSERT INTO bots (type, status, exchange_id, user_id, label, settings, settings_changed_at, created_at, updated_at) \
+               VALUES ('Bots::Signal', 2, ?1, ?2, 'Other', ?3, 'garbage', '2026-08-25 09:00:00', '2026-08-25 09:00:00')",
+              (seeded.exchange_id, seeded.user_id, &settings)).unwrap();
+    let answer = browser.send(&app, "PATCH", &format!("/bots/{id}/stop"), Some(&[]), web::Csrf::Header, &[("Accept", "text/vnd.turbo-stream.html, text/html")]).await;
+    assert_eq!(answer.status, 200, "{:.800}", answer.body);
+    assert_eq!(answer.body.trim_end(), deltabadger::web::turbo::refresh(), "the buttons cannot all be drawn: a refresh");
+    let status: i64 = c.query_row("SELECT status FROM bots WHERE id = ?1", [id], |r| r.get(0)).unwrap();
+    assert_eq!(status, 2, "the Stop committed");
+}

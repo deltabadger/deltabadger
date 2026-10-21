@@ -912,7 +912,8 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
     };
     let bot_json = bot::action_params::action(&route_path, &json_method).is_some()
         || (json_method == Method::PATCH && matches!(route_path.as_str(), "/tracker/save_export_settings" | "/tracker/fund_classifications"))
-        || (json_method == Method::PATCH && route_path.starts_with("/tracker/transactions/"));
+        || (json_method == Method::PATCH && route_path.starts_with("/tracker/transactions/"))
+        || bot::signal_write::reads_json(&route_path, &json_method);
     let form_post = matches!(original_method, Method::POST | Method::PATCH | Method::PUT | Method::DELETE)
         && content_type.split(';').next().is_some_and(|v| v.trim().eq_ignore_ascii_case("application/x-www-form-urlencoded"));
     // What broadcast--on-connect posts (web::broadcasts), under any locale.
