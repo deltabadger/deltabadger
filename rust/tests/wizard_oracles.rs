@@ -243,6 +243,49 @@ fn key_verdicts_replay_every_recorded_case() {
     }
     assert_eq!(bitget, 122, "a recorded Bitget case was added or dropped");
     replayed += bitget;
+    // MEXC (plan VB slice A5): the account read and its canTrade, then (a reading key's #get_read_api_key_validity) the deposit
+    // history, each case's whole request sequence replayed through the check over Rails' recorded answers.
+    let mx = &recorded["mexc"];
+    assert_eq!(mx["rejected_codes"], json!(key_check::MEXC_REJECTED));
+    let invalid: Vec<String> = deltabadger::engine::venue_rules::MEXC.kinds.iter().find(|(k, _)| *k == "invalid_key").unwrap().1.iter().map(|s| s.to_string()).collect();
+    assert_eq!(serde_json::from_value::<Vec<String>>(mx["invalid_key_errors"].clone()).unwrap(), invalid);
+    let mut mexc = 0;
+    for case in mx["cases"].as_array().unwrap() {
+        let (name, kind) = (case["case"].as_str().unwrap(), kind(case["key_type"].as_str().unwrap()));
+        let reading = case["method"] == "get_read_api_key_validity";
+        let answers: Vec<Value> = case["responses"].as_array().cloned().unwrap_or_else(|| vec![case["response"].clone()]);
+        let sent: Vec<Value> = case["requests"].as_array().cloned().unwrap_or_else(|| vec![case["request"].clone()]);
+        let reply = |a: &Value| if a["timeout"] == true { json!({ "network": "post_send", "message": "Net::ReadTimeout" }) }
+                                else if a["refused"] == true { json!({ "network": "pre_send", "message": "Connection refused" }) }
+                                else { json!({ "status": a["status"], "body": a["body"] }) };
+        let mut script = serde_json::Map::new();
+        for (request, answer) in sent.iter().zip(&answers) {
+            script.insert(format!("{} {}", request["method"].as_str().unwrap(), request["path"].as_str().unwrap()), json!([reply(answer)]));
+        }
+        let transport = deltabadger::venue::http::ScriptedTransport::from_script(&Value::Object(script));
+        let venue = deltabadger::venue::mexc::MexcVenue::new(transport.clone(), deltabadger::venue::mexc::URL, "test-secret");
+        let (_, ours) = rt.block_on(key_check::mexc_check(&transport, &venue, kind, reading));
+        let theirs = expected(&case["verdict"]);
+        // Listed divergence D-MEXC-KEY-TEXT (as Bitvavo's): a deposit history answered 2xx with a body that is no JSON passes
+        // Rails' reading check when its content type is not JSON (Faraday leaves it a String, with no code); Rust's transport
+        // does not carry the content type and MEXC answers JSON, so Rust gives no verdict on it.
+        if name.ends_with("deposits plain_text_200") {
+            assert!(theirs == Verdict::Valid(true) && matches!(&ours, Verdict::Failure(t) if t == "OK"), "D-MEXC-KEY-TEXT {name}: {ours:?}, Rails {theirs:?}");
+            text_passes += 1;
+        } else {
+            assert!(same(&ours, &theirs), "mexc {} {} {name}: {ours:?}, Rails {theirs:?}", case["key_type"], case["method"]);
+        }
+        let ours_sent: Vec<Value> = transport.requests().iter().map(|r| {
+            let query: serde_json::Map<String, Value> = r.query.iter().filter(|(k, _)| !["signature", "timestamp"].contains(k)).map(|(k, v)| (k.to_string(), json!(v))).collect();
+            json!([r.method, r.url().host_str().unwrap(), r.path, query])
+        }).collect();
+        let theirs_sent: Vec<Value> = sent.iter().map(|r| json!([r["method"], r["host"], r["path"], r["query"]])).collect();
+        assert_eq!(ours_sent, theirs_sent, "mexc {} {} {name}: the request sequence", case["key_type"], case["method"]);
+        assert!(sent.iter().all(|r| r["key_header"] == "test-key" && r["form"] == json!({})), "{name}");
+        mexc += 1;
+    }
+    assert_eq!((mexc, text_passes - 7), (240, 4), "a recorded MEXC case was added or dropped");
+    replayed += mexc;
     // Hyperliquid (plan VB slice B1): one /info read per key type (userRole for the address a trading or withdrawal key's secret
     // signs as, none for a secret that is no key; the reading key's spotClearinghouseState), replayed through the check over
     // Rails' recorded answer. An answer Rails raises on leaves the key pending in Rails: no verdict here. A 200 that Faraday
@@ -280,7 +323,7 @@ fn key_verdicts_replay_every_recorded_case() {
     }
     assert_eq!(hyperliquid, 70, "a recorded Hyperliquid case was added or dropped");
     replayed += hyperliquid;
-    assert_eq!(replayed, 578 + 84 + 212 + 214 + 122 + 70, "a recorded case was added or dropped");
+    assert_eq!(replayed, 578 + 84 + 212 + 214 + 122 + 240 + 70, "the combined venue key grid: 1,210 existing + 240 MEXC + 70 Hyperliquid cases");
 }
 
 /// A pinned callback list against a port's table: the same callbacks, in Rails' order, each handled.
@@ -382,4 +425,25 @@ async fn a_bitget_key_is_checked_by_a_cancel_probe_or_an_assets_read() {
     let sent: Vec<(String, String)> = server.received_requests().await.unwrap().iter().map(|r| (r.method.to_string(), r.url.path().to_string())).collect();
     let (probe, read) = (("POST".to_string(), "/api/v2/spot/trade/cancel-order".to_string()), ("GET".to_string(), "/api/v2/spot/account/assets".to_string()));
     assert_eq!(sent, [probe, read.clone(), read]);
+}
+
+/// The live key check of a MEXC key, as the wizard and settings send it: the signed account read (the key in X-MEXC-APIKEY)
+/// whose canTrade decides a trading key; a withdrawal key passes on the read; a reading key then reads the deposit history.
+#[tokio::test(flavor = "current_thread")]
+async fn a_mexc_key_is_checked_by_its_account_and_a_reading_key_by_its_deposits_too() {
+    use wiremock::{matchers::{header, method, path, query_param}, Mock, MockServer, ResponseTemplate};
+    use deltabadger::web::settings::validator::Validity;
+    let server = MockServer::start().await;
+    Mock::given(method("GET")).and(path("/api/v3/account")).and(header("X-MEXC-APIKEY", "mx-key")).and(query_param("recvWindow", "5000"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "canTrade": false, "balances": [] }))).mount(&server).await;
+    Mock::given(method("GET")).and(path("/api/v3/capital/deposit/hisrec")).and(query_param("limit", "1")).and(header("X-MEXC-APIKEY", "mx-key"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([]))).mount(&server).await;
+    let credentials = deltabadger::crypto::Credentials { key: "mx-key".into(), secret: "mx-secret".into(), passphrase: None, redaction_values: vec![] };
+    let base = server.uri();
+    let check = |kind| key_check::check("Exchanges::Mexc", &base, deltabadger::venue::http::client(), &credentials, kind);
+    assert!(matches!(check(0).await, Validity::Incorrect), "a trading key whose account cannot trade");
+    assert!(matches!(check(1).await, Validity::Correct), "a withdrawal key that reads");
+    assert!(matches!(check(2).await, Validity::Correct), "a reading key that reads the account and the deposits");
+    let sent: Vec<String> = server.received_requests().await.unwrap().iter().map(|r| r.url.path().to_string()).collect();
+    assert_eq!(sent, ["/api/v3/account", "/api/v3/account", "/api/v3/account", "/api/v3/capital/deposit/hisrec"]);
 }

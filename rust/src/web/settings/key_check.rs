@@ -481,6 +481,61 @@ pub async fn bitget_check<T: Transport>(transport: &T, venue: &crate::venue::bit
     (answer, verdict)
 }
 
+/// Exchanges::Mexc::KEY_CHECK_REJECTED: 700007 no permission for the endpoint, 10072 an invalid key.
+pub const MEXC_REJECTED: [i64; 2] = [700_007, 10_072];
+pub const MEXC_DEPOSITS_PATH: &str = "/api/v3/capital/deposit/hisrec";
+
+/// Exchanges::Mexc#key_check_verdict on one answer: `Ok(data)` when the call succeeded without a code (or with 0), its
+/// payload (None: Faraday's nil for an empty body); else the verdict. KEY_CHECK_REJECTED, or MEXC's invalid-key words in
+/// the failure's `msg`, are an incorrect key; any other code in a success is no verdict with its `msg`; any other failure
+/// no verdict with its text.
+pub fn mexc_answer_verdict(answer: &Result<HttpResponse, TransportError>, method: &str, url: &str) -> Result<Option<Value>, Verdict> {
+    let (data, failure): (Option<Value>, Option<String>) = match answer {
+        Err(error) => (None, Some(transport(error))),
+        Ok(response) if !(200..300).contains(&response.status) => (None, Some(raised(response, method, url))),
+        Ok(response) => match serde_json::from_str::<Value>(&response.body) {
+            Ok(value) => (Some(value), None),
+            Err(_) if response.body.trim().is_empty() => (None, None),
+            Err(_) => (None, Some(response.body.clone())),
+        },
+    };
+    // #response_field: the success's Hash, or the failure's text parsed as one.
+    let body = match &failure { Some(text) => serde_json::from_str::<Value>(text).ok(), None => data.clone() };
+    let field = |name: &str| body.as_ref().filter(|b| b.is_object()).and_then(|b| b.get(name)).filter(|v| !v.is_null()).cloned();
+    let code = field("code");
+    if MEXC_REJECTED.iter().any(|n| number_is(code.as_ref(), *n)) { return Err(Verdict::Valid(false)); }
+    let text = |v: &Value| v.as_str().map_or_else(|| v.to_string(), str::to_string);
+    let Some(failure) = failure else {
+        // `code.nil? || code.to_i.zero?`
+        let zero = match &code { None => true, Some(Value::Number(n)) => n.as_f64().is_some_and(|f| f.trunc() == 0.0), Some(Value::String(s)) => crate::ruby::to_i(s) == 0, Some(_) => false };
+        if zero { return Ok(data); }
+        return Err(Verdict::Failure(field("msg").map(|m| text(&m)).filter(|m| !crate::ruby::blank(m))
+            .unwrap_or_else(|| format!("MEXC answered code {}", code.as_ref().map(text).unwrap_or_default()))));
+    };
+    // #parse_error_message: the failure's JSON `msg`.
+    let error = serde_json::from_str::<Value>(&failure).ok().and_then(|b| b.get("msg").and_then(Value::as_str).map(str::to_string));
+    if error.is_some_and(|e| crate::engine::venue_rules::MEXC.is_invalid_key(&[e])) { return Err(Verdict::Valid(false)); }
+    Err(Verdict::Failure(failure))
+}
+
+/// Exchanges::Mexc's key check: the account read (#account_check), its boolean `canTrade` deciding a trading key (a
+/// withdrawal key passes on the read); for a reading key (#get_read_api_key_validity, `reading`) the deposit history then
+/// (`limit: 1`), MEXC granting it under its own permission. The last answer (for the diagnostics) and the verdict.
+pub async fn mexc_check<T: Transport>(transport: &T, venue: &crate::venue::mexc::MexcVenue<T>, kind: i64, reading: bool) -> (Result<HttpResponse, TransportError>, Verdict) {
+    use crate::venue::mexc::{ACCOUNT_PATH, RECV_WINDOW};
+    let read = venue.signed("GET", ACCOUNT_PATH, vec![("recvWindow", RECV_WINDOW.into())], transport.now());
+    let answer = transport.send(&read).await;
+    let data = match mexc_answer_verdict(&answer, read.method, read.url().as_str()) { Ok(data) => data, Err(verdict) => return (answer, verdict) };
+    let Some(can_trade) = data.as_ref().filter(|d| d.is_object()).and_then(|d| d.get("canTrade")).and_then(Value::as_bool) else {
+        return (answer, Verdict::Failure("MEXC answered without an account payload".into()));
+    };
+    if !reading { return (answer, Verdict::Valid(kind == 1 || can_trade)); }
+    let deposits = venue.signed("GET", MEXC_DEPOSITS_PATH, vec![("limit", "1".into()), ("recvWindow", RECV_WINDOW.into())], transport.now());
+    let answer = transport.send(&deposits).await;
+    let verdict = mexc_answer_verdict(&answer, deposits.method, deposits.url().as_str()).err().unwrap_or(Verdict::Valid(true));
+    (answer, verdict)
+}
+
 /// What honeymaker's #post_info (#with_rescue) hands Exchanges::Hyperliquid for a key check's answer: the parsed 2xx body
 /// (`Ok(None)` for an empty one, which Faraday's JSON middleware reads as nil), or the failure's text (the body, else
 /// Faraday's message).
@@ -574,6 +629,10 @@ pub async fn check(venue: &str, base: &str, client: reqwest::Client, credentials
         let transport = ReqwestTransport::bitget(client, credentials.key.clone(), credentials.secret.clone(), passphrase).with_sensitive_values(redaction);
         let venue = crate::venue::bitget::BitgetVenue::new(transport.clone(), base);
         bitget_check(&transport, &venue, kind).await
+    } else if scheme == Some(KeyCheck::Mexc) {
+        let transport = ReqwestTransport::mexc(client, credentials.key.clone(), credentials.secret.clone()).with_sensitive_values(redaction);
+        let venue = crate::venue::mexc::MexcVenue::new(transport.clone(), base, &credentials.secret);
+        mexc_check(&transport, &venue, kind, kind == 2).await
     } else if scheme == Some(KeyCheck::BinanceUs) {
         let transport = ReqwestTransport::binance(client, credentials.key.clone(), credentials.secret.clone()).with_sensitive_values(redaction);
         let venue = crate::venue::binance::BinanceVenue::new(transport.clone(), base, &credentials.secret);

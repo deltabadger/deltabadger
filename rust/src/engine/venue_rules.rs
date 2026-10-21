@@ -377,6 +377,47 @@ pub static BITGET: VenueRules = VenueRules {
     cross: None,
 };
 
+/// Exchange#transient_error? for MEXC: Client::NETWORK_TRANSIENT_PATTERNS plus Exchanges::Mexc::ERRORS[:transient].
+const MEXC_TRANSIENT: [&str; 16] = ["Net::ReadTimeout", "Net::OpenTimeout", "Faraday::TimeoutError", "Faraday::ConnectionFailed",
+    "execution expired", "Connection reset", "Errno::ECONNRESET", "connection refused", "Connection refused", "Errno::ECONNREFUSED",
+    "end of file reached", "unexpected eof while reading",
+    "Timestamp for this request is outside of the recvWindow", "Timestamp for this request was", "service not available", "Gateway Time-out"];
+
+pub static MEXC: VenueRules = VenueRules {
+    exchange_type: "Exchanges::Mexc",
+    name: "MEXC",
+    // Exchanges::Mexc::ERRORS (mexc.rb:3-20, AUDIT-mexc X4), matched on #parse_error_message's `msg`.
+    kinds: [("insufficient_funds", &["Insufficient balance", "Insufficient position", "Oversold"]),
+            ("invalid_key", &["Api key info invalid", "API-key format invalid", "Invalid Api-Key ID.", "Signature for this request is not valid",
+                              "Signature verification failed"]),
+            ("permission_denied", &["No permission to access the endpoint", "IP non white list"]), ("restricted", &[]),
+            ("throttle", &["Too Many Requests", "Too many requests", "Requests are too frequent"]),
+            ("transient", &["Timestamp for this request is outside of the recvWindow", "Timestamp for this request was", "service not available", "Gateway Time-out"])],
+    transient_text: &MEXC_TRANSIENT,
+    // Exchange#ambiguous_placement_error?: ERRORS[:transient] leaves a placement unknown whatever the HTTP status, but the
+    // -1021 strings, placement-safe (placement::PLACEMENT_SAFE_TRANSIENT_ERRORS).
+    add_outcome_unknown: &["service not available", "Gateway Time-out"],
+    // Exchanges::Mexc#minimum_amount_logic: market :base_and_quote (Rails runs the :base_or_quote branch), limit
+    // :base_and_quote_in_base. A zero base minimum (PEPEUSDT's baseSizePrecision) leaves the quote minimum the only floor.
+    minimum_logic: MinimumLogic { market: AmountLogic::BaseOrQuote, limit: AmountLogic::BaseAndQuoteInBase },
+    // Honeymaker::Clients::Mexc#new_order sends BigDecimal#to_s('F') strings.
+    wire: WireFormat::Kraken,
+    deadline_sent: false,
+    reach_within_secs: 55,
+    absence_margin_secs: 1200,
+    transport_raises: false,
+    // Bot::FetchAndUpdateOrderJob asks Exchanges::Mexc#get_order: one order, strict.
+    follow_up_strict: true, market_hours: false,
+    // #get_orders names a gone order under `missing` (X5).
+    reports_missing: true,
+    // Plan VB §1.5: the client-id lookup can only FIND an order; an unfound one waits for `deltabadger resolve-placement`.
+    absence_provable: false,
+    // #authoritative_missing_orders? is Exchange's false: a young order left out fails the sweep.
+    young_missing_fails: true,
+    price_rule: PriceRule::Decimals,
+    cross: None,
+};
+
 /// The rules of a venue the engine trades on (`venue::registry`).
 pub fn for_exchange(exchange_type: &str) -> Option<&'static VenueRules> { crate::venue::registry::trading_rules(exchange_type) }
 

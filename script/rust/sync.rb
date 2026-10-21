@@ -25,7 +25,7 @@ Net::HTTP.prepend(Module.new { def connect = raise(Harness::Unscripted, "real co
 ENV['COINGECKO_API_KEY'] = ''
 
 module ScriptedSync
-  mattr_accessor :alpaca, :binance, :binance_state, :kucoin, :bitvavo, :gemini, :bitget, :hyperliquid, :market, :requests, :filters_after
+  mattr_accessor :alpaca, :binance, :binance_state, :kucoin, :bitvavo, :gemini, :bitget, :mexc, :hyperliquid, :market, :requests, :filters_after
 
   NETWORK = {
     'pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "paper-api.alpaca.markets" port 443')) },
@@ -37,6 +37,7 @@ module ScriptedSync
     'bitvavo_pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "api.bitvavo.com" port 443')) },
     'gemini_pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "api.gemini.com" port 443')) },
     'bitget_pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "api.bitget.com" port 443')) },
+    'pre_send:api.mexc.com' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "api.mexc.com" port 443')) },
     'hyperliquid_pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "api.hyperliquid.xyz" port 443')) }
   }.freeze
 
@@ -52,6 +53,7 @@ module ScriptedSync
              elsif host == 'api.bitvavo.com' then bitvavo
              elsif host == 'api.gemini.com' then gemini
              elsif host == 'api.bitget.com' then bitget
+             elsif host == 'api.mexc.com' then mexc
              elsif host == 'api.hyperliquid.xyz' then hyperliquid
              elsif host == 'data-api' then market
              end
@@ -95,7 +97,7 @@ module ScriptedSync
       reply = ScriptedSync.reply(env)
       if (kind = reply['network'])
         error = ScriptedSync::NETWORK.fetch(kind).call
-        actual = kind.start_with?('binance_', 'kucoin_', 'bitvavo_', 'gemini_', 'bitget_', 'hyperliquid_') ? error.message : "#{error.class}: #{error.message}" # what the venue's client reports
+        actual = kind.start_with?('binance_', 'kucoin_', 'bitvavo_', 'gemini_', 'bitget_', 'pre_send:', 'hyperliquid_') ? error.message : "#{error.class}: #{error.message}" # what the venue's client reports
         raise Harness::Unscripted, "#{kind}: the script says #{reply['message'].inspect}, Ruby says #{actual.inspect}" unless actual == reply['message']
 
         raise error
@@ -512,6 +514,42 @@ module SyncParity
     venue(ctx, Exchanges::Bitvavo, 'Bitvavo', as: :bitvavo, assets: %w[BTC ETH EUR], pairs: [%w[BTC EUR], %w[ETH EUR], %w[ETH BTC]],
           pair: ->(b, q) { "#{b}-#{q}" }, coin: { base_decimals: 8, quote_decimals: 2, price_decimals: 0, minimum_base_size: '0.0001', minimum_quote_size: '5' })
   end
+  # A MEXC key (plan VB slice A5), with the pairs its scenarios trade.
+  def mexc(ctx)
+    venue(ctx, Exchanges::Mexc, 'MEXC', as: :mexc, assets: %w[BTC ETH USDT], pairs: [%w[BTC USDT], %w[ETH USDT], %w[ETH BTC]],
+          pair: ->(b, q) { "#{b}#{q}" }, coin: { base_decimals: 6, quote_decimals: 2, price_decimals: 2, minimum_base_size: '0.000001', minimum_quote_size: '1' })
+  end
+  MX_DEPOSITS = 'GET /api/v3/capital/deposit/hisrec'.freeze
+  MX_WITHDRAWALS = 'GET /api/v3/capital/withdraw/history'.freeze
+  MX_ACCOUNT = 'GET /api/v3/account'.freeze
+  MX_INFO = 'GET /api/v3/exchangeInfo'.freeze
+  MX_TRADES = 'GET /api/v3/myTrades'.freeze
+  def mx_deposit(coin, amount, at, status: 5, tx: nil)
+    { 'amount' => amount, 'coin' => coin, 'network' => coin, 'status' => status, 'address' => '0xaddr', 'txId' => tx || "0x#{coin.downcase}#{ms(at)}:0",
+      'insertTime' => ms(at), 'unlockConfirm' => '12', 'confirmTimes' => '12' }
+  end
+  def mx_withdrawal(id, coin, amount, at, fee: '0.0001', status: 7)
+    { 'id' => id, 'txId' => nil, 'coin' => coin, 'network' => coin, 'address' => '0xto', 'amount' => amount, 'transferType' => 0, 'status' => status,
+      'transactionFee' => fee, 'confirmNo' => nil, 'applyTime' => ms(at), 'remark' => '' }.compact
+  end
+  def mx_trade(id, symbol, buyer, qty, price, at, commission: '0.06', asset: 'USDT', order: "C02__#{id}")
+    { 'symbol' => symbol, 'id' => id, 'orderId' => order, 'orderListId' => -1, 'price' => price, 'qty' => qty,
+      'quoteQty' => (BigDecimal(price) * BigDecimal(qty)).to_s('F'), 'commission' => commission, 'commissionAsset' => asset, 'time' => ms(at),
+      'isBuyer' => buyer, 'isMaker' => false, 'isBestMatch' => true, 'isSelfTrade' => false, 'clientOrderId' => nil }
+  end
+  def mx_info(*pairs) = ok('timezone' => 'CST', 'serverTime' => 1_789_000_000_000,
+                           'symbols' => pairs.map { |b, q| { 'symbol' => "#{b}#{q}", 'status' => '1', 'baseAsset' => b, 'quoteAsset' => q } })
+  def mx_account(*rows) = ok('canTrade' => true, 'accountType' => 'SPOT',
+                             'balances' => rows.map { |asset, free, locked| { 'asset' => asset, 'free' => free, 'locked' => locked || '0' } })
+  # A ledger run over MEXC's scripted answers: each path's replies in order, the last one repeated.
+  def mexc_ledger(at, deposits: [ok([])], withdrawals: [ok([])], account: [mx_account], info: [mx_info(%w[BTC USDT])], trades: [ok([])])
+    { 'kind' => 'ledger', 'at' => at, 'mexc' => { MX_DEPOSITS => deposits, MX_WITHDRAWALS => withdrawals, MX_ACCOUNT => account, MX_INFO => info,
+                                                  MX_TRADES => trades } }
+  end
+  def mexc_balances(at, account:, prices: nil, rates: nil)
+    { 'kind' => 'balances', 'at' => at, 'mexc' => { MX_ACCOUNT => [account] },
+      'market' => { EXCHANGE_RATES => rates && [rates], PRICES => prices && [prices] }.compact }
+  end
   BV_DEPOSITS = 'GET /v2/depositHistory'.freeze
   BV_WITHDRAWALS = 'GET /v2/withdrawalHistory'.freeze
   BV_BALANCE = 'GET /v2/balance'.freeze
@@ -664,7 +702,7 @@ module SyncParity
       ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: File.join(dir, 'production.sqlite3'))
       Rails.cache.clear
       before = snapshot
-      reading = ApiKey.reading(ApiKey.includes(:exchange)).select { |k| [Exchanges::Alpaca, Exchanges::Binance, Exchanges::Kucoin, Exchanges::Bitvavo, Exchanges::Gemini, Exchanges::Bitget, Exchanges::Hyperliquid].any? { |c| k.exchange.is_a?(c) } }.map(&:id).sort
+      reading = ApiKey.reading(ApiKey.includes(:exchange)).select { |k| [Exchanges::Alpaca, Exchanges::Binance, Exchanges::Kucoin, Exchanges::Bitvavo, Exchanges::Gemini, Exchanges::Bitget, Exchanges::Mexc, Exchanges::Hyperliquid].any? { |c| k.exchange.is_a?(c) } }.map(&:id).sort
       steps = sc['steps'].map do |step|
         ActiveJob::Base.queue_adapter.enqueued_jobs.clear
         ScriptedSync.alpaca = step.fetch('alpaca', {}).transform_values(&:dup)
@@ -674,6 +712,7 @@ module SyncParity
         ScriptedSync.bitvavo = step.fetch('bitvavo', {}).transform_values(&:dup)
         ScriptedSync.gemini = step.fetch('gemini', {}).transform_values(&:dup)
         ScriptedSync.bitget = step.fetch('bitget', {}).transform_values(&:dup)
+        ScriptedSync.mexc = step.fetch('mexc', {}).transform_values(&:dup)
         ScriptedSync.hyperliquid = step.fetch('hyperliquid', {}).transform_values(&:dup)
         ScriptedSync.market = step.fetch('market', {}).transform_values(&:dup)
         ScriptedSync.requests = []

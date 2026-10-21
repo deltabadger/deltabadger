@@ -204,6 +204,8 @@ impl ReqwestTransport {
     }
     /// Honeymaker::Clients::Gemini's wire: the secret only signs the payload and is never sent.
     pub fn gemini(client: reqwest::Client, key: String, secret: String) -> Self { Self { wire: Wire::Gemini, ..Self::new(client, key, secret) } }
+    /// Honeymaker::Clients::Mexc's wire: the key in X-MEXC-APIKEY; the secret only signs (`sign::MEXC_QUERY`).
+    pub fn mexc(client: reqwest::Client, key: String, secret: String) -> Self { Self { wire: Wire::Mexc, ..Self::new(client, key, secret) } }
     /// Honeymaker::Clients::Hyperliquid's wire: the secret (the agent key) only signs /exchange actions and is never sent.
     /// The key is a public wallet address that also appears in valid role and ledger answers.
     pub fn hyperliquid(client: reqwest::Client, key: String, secret: String) -> Self { Self { wire: Wire::Hyperliquid, sensitive: vec![secret.clone()], ..Self::new(client, key, secret) } }

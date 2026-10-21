@@ -1,4 +1,4 @@
-# Records how Rails judges an API key on each venue of VENUE_CASES (Kraken, Binance, Binance.US, KuCoin, Bitvavo, Gemini, Bitget, Hyperliquid), for the Rust key
+# Records how Rails judges an API key on each venue of VENUE_CASES (Kraken, Binance, Binance.US, KuCoin, Bitvavo, Gemini, Bitget, MEXC, Hyperliquid), for the Rust key
 # step (P2-T6).
 #   bin/rails runner script/rust/record_key_verdicts.rb rust/tests/fixtures/key_verdicts.json
 # Each case scripts the venue's HTTP answer at the Faraday adapter (nothing leaves the machine; any real connection
@@ -13,7 +13,7 @@ Net::HTTP.prepend(Module.new { def connect = raise(Unscripted, "real connection 
 
 out = {
   'sources' => %w[app/models/exchanges/kraken.rb app/models/exchanges/binance.rb app/models/exchanges/binance_us.rb app/models/exchanges/kucoin.rb app/models/exchanges/bitvavo.rb app/models/exchanges/gemini.rb
-                  app/models/exchanges/bitget.rb app/models/exchanges/hyperliquid.rb
+                  app/models/exchanges/bitget.rb app/models/exchanges/mexc.rb app/models/exchanges/hyperliquid.rb
                   app/models/exchange.rb app/models/exchange/dryable.rb app/models/api_key.rb app/helpers/bot_helper.rb
                   config/locales/api.en.yml config/locales/api.de.yml config/locales/api.pl.yml
                   config/locales/api_read_only.en.yml config/locales/api_withdrawal.en.yml
@@ -44,7 +44,7 @@ module Venue
                      'query' => query.except(*SECRET_PARAMS), 'form' => form.except(*SECRET_PARAMS),
                      'key_header' => env.request_headers['X-MBX-APIKEY'] || env.request_headers['API-Key'] || env.request_headers['KC-API-KEY'] ||
                                      env.request_headers['BITVAVO-ACCESS-KEY'] || env.request_headers['X-GEMINI-APIKEY'] ||
-                                     env.request_headers['ACCESS-KEY'] }
+                                     env.request_headers['ACCESS-KEY'] || env.request_headers['X-MEXC-APIKEY'] }
       answer = Venue.answers.shift
       raise Faraday::TimeoutError, 'Net::ReadTimeout' if answer[:timeout]
       raise Faraday::ConnectionFailed, 'Failed to open TCP connection (Connection refused)' if answer[:refused]
@@ -424,6 +424,44 @@ VENUE_CASES = {
     read_cases.each { |name, answer| rows << record.(bitget, :read_only, :get_read_api_key_validity, name, answer) }
     { 'order_not_found_codes' => Exchanges::Bitget.const_get(:ORDER_NOT_FOUND_CODES), 'no_trade_codes' => Exchanges::Bitget.const_get(:NO_TRADE_PERMISSION_CODES),
       'invalid_key_errors' => Exchanges::Bitget::ERRORS[:invalid_key], 'cases' => rows }
+  end,
+  # MEXC (plan VB slice A5): the account read and its canTrade (#account_check); a reading key (#get_read_api_key_validity)
+  # then reads the deposit history (limit 1), which MEXC grants under its own permission.
+  'mexc' => lambda do
+    mexc = Exchanges::Mexc.new(name: 'MEXC')
+    mx = ->(status, code, msg) { json.(status, { 'code' => code, 'msg' => msg }) }
+    account = ->(can_trade) { json.(200, { 'canTrade' => can_trade, 'canWithdraw' => true, 'canDeposit' => true, 'balances' => [] }.compact) }
+    deposits_ok = json.(200, [{ 'coin' => 'USDT', 'amount' => '10', 'status' => 5 }])
+    refusals = {
+      'api_key_invalid 10072' => mx.(400, 10_072, 'Api key info invalid'), 'no_permission 700007' => mx.(403, 700_007, 'No permission to access the endpoint.'),
+      'no_permission 700007 as_float' => json.(403, '{"code":700007.0,"msg":"No permission to access the endpoint."}'),
+      'no_permission 700007 as_string' => mx.(403, '700007', 'No permission to access the endpoint.'),
+      'key_format 700001' => mx.(400, 700_001, 'API-key format invalid.'), 'signature 700002' => mx.(400, 700_002, 'Signature for this request is not valid.'),
+      'signature 602' => mx.(400, 602, 'Signature verification failed'), 'ip 700006' => mx.(403, 700_006, 'IP non white list'),
+      'timestamp 700003' => mx.(400, 700_003, 'Timestamp for this request is outside of the recvWindow.'),
+      'rate_limited 429' => mx.(429, 429, 'Too Many Requests'), 'server 503' => mx.(503, 503, 'service not available, please try again'),
+      'no_msg 400' => json.(400, { 'code' => 26 }),
+      'code_in_200 10072' => mx.(200, 10_072, 'Api key info invalid'), 'code_in_200 26' => mx.(200, 26, 'operation not allowed'),
+      'code_in_200 26 no_msg' => json.(200, { 'code' => 26 }), 'code_zero_in_200' => json.(200, { 'code' => 0, 'canTrade' => true }),
+      'code_zero_string_in_200' => json.(200, { 'code' => '0', 'canTrade' => true })
+    }.merge(transport)
+    accounts = refusals.merge('can_trade' => account.(true), 'cannot_trade' => account.(false), 'can_trade_missing' => account.(nil),
+                              'can_trade_string' => account.('true'), 'array' => json.(200, []))
+    rows = []
+    [[:trading, :get_api_key_validity], [:withdrawal, :get_api_key_validity], [:read_only, :get_api_key_validity]].each do |key_type, method|
+      accounts.each { |name, answer| rows << record.(mexc, key_type, method, "account #{name}", answer) }
+    end
+    accounts.each do |name, answer|
+      # A readable account goes on to the deposit history: recorded with each of its answers behind it.
+      if %w[can_trade cannot_trade code_zero_in_200 code_zero_string_in_200].include?(name)
+        refusals.merge('deposits_ok' => deposits_ok, 'deposits_empty' => json.(200, [])).each do |dep, dep_answer|
+          rows << record.(mexc, :read_only, :get_read_api_key_validity, "account #{name}, deposits #{dep}", [answer, dep_answer])
+        end
+      else
+        rows << record.(mexc, :read_only, :get_read_api_key_validity, "account #{name}", answer)
+      end
+    end
+    { 'rejected_codes' => Exchanges::Mexc::KEY_CHECK_REJECTED, 'invalid_key_errors' => Exchanges::Mexc::ERRORS[:invalid_key], 'cases' => rows }
   end,
   # Hyperliquid (plan VB slice B1): the key is the account's address, the secret an agent's private key. A trading or withdrawal
   # key reads userRole for the address the secret signs as (none sent for a secret that is no key); a reading key reads its

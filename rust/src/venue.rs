@@ -13,6 +13,7 @@ pub mod kucoin;
 pub mod gemini;
 pub mod hyperliquid;
 pub mod live;
+pub mod mexc;
 pub mod registry;
 pub mod sign;
 pub mod signers;
@@ -31,7 +32,18 @@ pub(crate) fn dig_or_raise<'a>(v: &'a serde_json::Value, key: &str) -> Result<&'
     v.get(key).filter(|x| !x.is_null()).ok_or_else(|| VenueError::Ambiguous(format!("Key path {key} not found")))
 }
 
-/// What an intent records of the key a Kraken, Binance, KuCoin or Bitvavo order is sent under (Alpaca's is `alpaca::placement_identity`):
+/// Exchange#get_orders' loop over #get_order (plan VB §1.5; MEXC's, and its family's): each id asked in turn, an order the
+/// venue no longer knows (`Ok(None)`) listed under `missing`, any other failure failing the whole batch.
+pub(crate) async fn poll_each<F, Fut>(ids: &[String], mut get_one: F) -> Result<(Vec<OrderState>, Vec<String>), VenueError>
+where F: FnMut(String) -> Fut, Fut: std::future::Future<Output = Result<Option<OrderState>, VenueError>> {
+    let (mut orders, mut missing) = (vec![], vec![]);
+    for id in ids {
+        match get_one(id.clone()).await? { Some(o) => orders.push(o), None => missing.push(id.clone()) }
+    }
+    Ok((orders, missing))
+}
+
+/// What an intent records of the key a Kraken, Binance, KuCoin, Bitvavo or MEXC order is sent under (Alpaca's is `alpaca::placement_identity`):
 /// the host and a fingerprint of the public key id. Never the secret.
 pub fn key_identity(host: &str, credentials: &Credentials) -> serde_json::Value {
     use sha2::{Digest, Sha256};
