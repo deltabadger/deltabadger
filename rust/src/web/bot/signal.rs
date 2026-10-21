@@ -57,12 +57,11 @@ fn marker(transient: &Value) -> Option<&serde_json::Map<String, Value>> {
     transient.get(crate::engine::signal::MARKER_KEY).and_then(Value::as_object)
 }
 
-/// `bot::refusal` for a signal bot. Its pages are read before slice 8d admits the type only where the app says so
-/// (App::admit_signal_bots_for_tests); its forms and actions come with slice 8c-2.
+/// `bot::refusal` for a signal bot: its pages, forms and actions are served before slice 8d admits the type only where
+/// the app says so (App::admit_signal_bots_for_tests).
 #[allow(clippy::too_many_arguments)]
 pub(super) fn refusal(c: &Connection, bot_id: i64, exchange: Option<&str>, settings: &Value, transient: &Value, wash_sale_enabled: Option<bool>,
                       asked: For, admitted: bool) -> Result<Option<&'static str>, WebError> {
-    if asked == For::Settings { return Ok(Some("a signal bot's settings, rules and actions (plan 8c-2)")); }
     if !admitted { return Ok(Some("a signal bot (plan 8d admits the type)")); }
     if let Some(why) = crate::engine::eligibility::admission(exchange, false, false) { return Ok(Some(why)); }
     // The two ids the wizard always stores, of assets that exist: every panel prints both.
@@ -169,6 +168,13 @@ pub fn unresolved(ctx: &Ctx, csrf: &str, bot: &Bot) -> String {
              <form class=\"button_to\" method=\"post\" action=\"{}/signal_resolution\"><button class=\"rbutton rbutton--danger\" type=\"submit\">{}</button>{token}\
              <input type=\"hidden\" name=\"marker_id\" value=\"{}\" /></form>\n  </div>\n",
             i18n::t(ctx.locale, "bot.signal.unresolved", &exchange), escape(&ctx.path(&format!("/bots/{}", bot.id))), i18n::t(ctx.locale, "bot.signal.resolve", &exchange), escape(id))
+}
+
+/// Bots::Signal#broadcast_unresolved_placement: the partial on its own (no column around it), without a form token.
+pub fn unresolved_broadcast(ctx: &Ctx, bot: &Bot) -> String {
+    let partial = unresolved(ctx, "", bot);
+    let alone = partial.strip_prefix("  ").filter(|_| partial.starts_with("    <div id=\"signal-unresolved-placement\" hidden>")).map_or(partial.clone(), str::to_string);
+    crate::web::turbo::stream("replace", "signal-unresolved-placement", &alone)
 }
 
 /// The settings column of a saved signal bot. `base_url`: the request's (`request.base_url`), which the webhook URL

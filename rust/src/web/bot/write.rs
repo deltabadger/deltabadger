@@ -27,7 +27,7 @@ impl Failure {
 }
 
 /// The BotApi::Bots service's failure when the model refuses the save, in its own words.
-fn model_failure(action: Action, label: &str, errors: &[FieldError]) -> Failure {
+pub(super) fn model_failure(action: Action, label: &str, errors: &[FieldError]) -> Failure {
     let errors = super::mcp_input::full_messages(errors);
     match action {
         Action::Start => Failure::invalid("bot_start_failed", format!("Failed to start bot '{label}': {errors}")),
