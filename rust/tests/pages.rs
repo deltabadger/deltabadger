@@ -1005,6 +1005,41 @@ fn refusal_headers(signed_in: bool) -> Value {
 }
 
 #[tokio::test(flavor = "current_thread")]
+async fn hyperliquid_limit_control_matches_recorded_rails_bytes() {
+    let (_recording, rust_root, dirs) = recorded_grid();
+    let name = "venue_bot_page_hyperliquid_limit_lock";
+    // PAGES may select another part of the grid; the unfiltered gate always includes this scenario.
+    let Some(dir) = dirs.iter().find(|dir| dir.file_name().is_some_and(|file| file == name)) else { return };
+    let scenario = scenario(dir);
+    let recorded: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("rails.json")).unwrap()).unwrap();
+    assert_eq!(recorded["network"], json!([]), "the page oracle must not reach the network");
+    let app = web::app(&rust_root.path().join(name), scenario["secret_key_base"].as_str().unwrap(), TestClock::at(scenario["at"].as_str().unwrap()));
+    app.attach_engine(std::sync::Arc::new(tokio::sync::Notify::new()));
+    app.attach_jobs(Default::default()).unwrap();
+    let mut browser = Browser::default();
+    let mut controls = 0;
+    for (step, rails) in scenario["steps"].as_array().unwrap().iter().zip(recorded["responses"].as_array().unwrap()) {
+        let form: Option<Vec<(&str, &str)>> = step["form"].as_object().map(|form| form.iter().map(|(key, value)| (key.as_str(), value.as_str().unwrap())).collect());
+        let headers: Vec<(&str, &str)> = step["headers"].as_object().map(|headers| headers.iter().map(|(key, value)| (key.as_str(), value.as_str().unwrap())).collect()).unwrap_or_default();
+        let csrf = match step["csrf"].as_str() { Some("form") => Csrf::Form, Some("header") => Csrf::Header, Some("both") => Csrf::Both, _ => Csrf::None };
+        let answer = browser.send(&app, step["method"].as_str().unwrap(), step["path"].as_str().unwrap(), form.as_deref(), csrf, &headers).await;
+        if let Some(diff) = difference(name, &json!({ "responses": [rails_answer(rails, step)] }), &json!({ "responses": [rust_answer(&answer, step)] })) {
+            panic!("{}: {diff}", step["path"]);
+        }
+        if step["path"].as_str().unwrap().contains("/bots/") {
+            // Keep every byte of the control and its explanation, excluding only the form's random CSRF token.
+            let control = |body: &str| body.split("<form").find(|form| form.contains("[limit_ordered]"))
+                .and_then(|form| form.split_once("\n  <div class=\"toggle-group\">"))
+                .and_then(|(_, control)| control.split_once("</form>"))
+                .map(|(control, _)| control.to_string()).expect("the page contains its limit-order control");
+            assert_eq!(control(&answer.body), control(rails["body"].as_str().unwrap()), "limit-order control: {}", step["path"]);
+            controls += 1;
+        }
+    }
+    assert_eq!(controls, 4 + 2, "four stored-flag/status combinations and two translated controls");
+}
+
+#[tokio::test(flavor = "current_thread")]
 async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
     let (_rails_root, rust_root, dirs) = recorded_grid();
     assert!(!dirs.is_empty(), "the grid is empty: no scenario name starts with a prefix in PAGES");
@@ -1103,10 +1138,10 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
     if std::env::var("PAGES").is_err() {
         let hook = |dir: &&PathBuf| dir.file_name().is_some_and(|n| ["hook_", "missing_hook_", "refused_hook_", "override_"].iter().any(|p| n.to_string_lossy().starts_with(p)));
         assert_eq!(dirs.iter().filter(hook).count(), 27 + 23 + 2 + 1, "the signal webhook (pages_signals.rb): twenty-seven compared whole, twenty-three the router's 404 (methods, overrides, paths), two calls the engine guard refuses until 8d; and a settings update under the override header");
-        assert_eq!(dirs.iter().filter(|dir| !hook(dir) && !dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_") || n.to_string_lossy().starts_with("settings_"))).count(), 160 + 3 + 9 + 2 + 6 + 3 + 49 + 68 + 61 + 38 + 1 + 2 + 1 + 2 + 1 + 10 + 27 + 1, "completed read-only baseline (with the market-closed weekend page and the expired start on bots that are not stopped), with D5b's two missing_ connect scenarios and the one not_ported_ (a venue no tracker key step serves), the venue pages (eight served, one refused), the selling pages (three served, one cap refused, in place of two refusals), the venue basket pages (seven served, in place of the one refusal), the asset search on each venue, the wizard's chooser and order switch (twelve served, one unrouted GET), its asset and exchange steps (ten served), its broker, key and quote steps to a created bot (nine served), the signal tile and the IBKR key step (two not_ported_), the first empty bots page that opens it (two), the index wizard (twelve served, its Kraken, Alpaca Top Coins and Binance Layer 1 bots among them; its legacy settings step one not_ported_), the crypto index bot pages on Kraken and Binance (two), the IBKR key step reached from the nested venue frame (one not_ported_, as a stream), the KuCoin wizard (plan K O6: a basket to its bot, its key step from the nested frame, and a Top coins index bot), and the REST API's (sixty-three on the nine served reads' tokens and grants, ten on the four venue reads' lookups and venue answers, twelve on the routes it gates but does not serve, three on typed creates, nine unrouted paths, seven on parameters, one on conditional GETs and one on an install without an admin; sixty-one on the six bot writes: six per route on its tokens, grants, ids and malformed bodies, five on settings values, fourteen on lifecycle states one start the engine guard refuses, the broadcasts an open page hears (in English and in its owner's German), encoded path ids and two oversized parameters), and plan CB T6's market-cap baskets (an Alpaca page and a venue page served, in place of the one refusal), and plan 8c-1's signal bot pages (ten, pages_signals.rb signal_page_), and plan 8c-2's signal bot writes (twenty-seven: sixteen signal_action_ compared whole, three refused_signal_ and one refused_api_signal_ the engine guard refuses until 8d, six api_signal_ on BotApi's lifecycle, one not_ported_signal_ wash-sale question), and the web's own lifecycle writes from a /de/ page heard in the owner's Polish");
+        assert_eq!(dirs.iter().filter(|dir| !hook(dir) && !dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_") || n.to_string_lossy().starts_with("settings_"))).count(), 160 + 3 + 9 + 2 + 6 + 3 + 49 + 68 + 61 + 38 + 1 + 2 + 1 + 2 + 1 + 10 + 27 + 1 + 1, "completed read-only baseline (with the market-closed weekend page and the expired start on bots that are not stopped), with D5b's two missing_ connect scenarios and the one not_ported_ (a venue no tracker key step serves), the venue pages (eight served, one refused), the selling pages (three served, one cap refused, in place of two refusals), the venue basket pages (seven served, in place of the one refusal), the asset search on each venue, the wizard's chooser and order switch (twelve served, one unrouted GET), its asset and exchange steps (ten served), its broker, key and quote steps to a created bot (nine served), the signal tile and the IBKR key step (two not_ported_), the first empty bots page that opens it (two), the index wizard (twelve served, its Kraken, Alpaca Top Coins and Binance Layer 1 bots among them; its legacy settings step one not_ported_), the crypto index bot pages on Kraken and Binance (two), the IBKR key step reached from the nested venue frame (one not_ported_, as a stream), the KuCoin wizard (plan K O6: a basket to its bot, its key step from the nested frame, and a Top coins index bot), and the REST API's (sixty-three on the nine served reads' tokens and grants, ten on the four venue reads' lookups and venue answers, twelve on the routes it gates but does not serve, three on typed creates, nine unrouted paths, seven on parameters, one on conditional GETs and one on an install without an admin; sixty-one on the six bot writes: six per route on its tokens, grants, ids and malformed bodies, five on settings values, fourteen on lifecycle states one start the engine guard refuses, the broadcasts an open page hears (in English and in its owner's German), encoded path ids and two oversized parameters), and plan CB T6's market-cap baskets (an Alpaca page and a venue page served, in place of the one refusal), and plan 8c-1's signal bot pages (ten, pages_signals.rb signal_page_), and plan 8c-2's signal bot writes (twenty-seven: sixteen signal_action_ compared whole, three refused_signal_ and one refused_api_signal_ the engine guard refuses until 8d, six api_signal_ on BotApi's lifecycle, one not_ported_signal_ wash-sale question), and the web's own lifecycle writes from a /de/ page heard in the owner's Polish, and Hyperliquid's limit-order lock on stopped and working bots with either stored flag");
         assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("settings_"))).count(), 413 + 3 + 45 + 52 + 5 + 1 + 71 + 55, "complete S1 inventory, D5b's connect flow (its Kraken key form served now), the preference writes, the following client's card, the switch back to the default locale, the settings dialog (two more sections, in-place confirms, the page behind a language change) and the key routes on Kraken, Binance and KuCoin (fifty-four)");
         assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_"))).count(), 197 + 53 + 4 + 2, "action inventory (with the five ⇄ rotations and nine sell-settings writes, twenty-two Kraken/Binance venue actions, fifty on their baskets, plan CB T4's three saves of a crypto basket with settled rebalance history, plan CB T5's four market-cap saves, and two amounts typed key by key)");
-        assert_eq!(dirs.len(), 27 + 23 + 2 + 1 + 160 + 3 + 9 + 2 + 6 + 3 + 49 + 68 + 61 + 38 + 1 + 2 + 1 + 2 + 1 + 10 + 27 + 1 + 197 + 53 + 4 + 2 + 413 + 3 + 45 + 52 + 5 + 1 + 71 + 55, "a scenario was dropped or added without this count");
+        assert_eq!(dirs.len(), 27 + 23 + 2 + 1 + 160 + 3 + 9 + 2 + 6 + 3 + 49 + 68 + 61 + 38 + 1 + 2 + 1 + 2 + 1 + 10 + 27 + 1 + 197 + 53 + 4 + 2 + 413 + 3 + 45 + 52 + 5 + 1 + 71 + 55 + 1, "a scenario was dropped or added without this count (including the Hyperliquid limit-order lock)");
         assert_eq!(countdown_pages, 4, "the pages where Rails knows a time this build does not: the listed divergence grew or shrank");
     }
 }

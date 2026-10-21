@@ -205,8 +205,13 @@ impl ReqwestTransport {
     /// Honeymaker::Clients::Gemini's wire: the secret only signs the payload and is never sent.
     pub fn gemini(client: reqwest::Client, key: String, secret: String) -> Self { Self { wire: Wire::Gemini, ..Self::new(client, key, secret) } }
     /// Honeymaker::Clients::Hyperliquid's wire: the secret (the agent key) only signs /exchange actions and is never sent.
-    pub fn hyperliquid(client: reqwest::Client, key: String, secret: String) -> Self { Self { wire: Wire::Hyperliquid, ..Self::new(client, key, secret) } }
-    pub fn with_sensitive_values(mut self,values:Vec<String>)->Self{self.sensitive.extend(values);self}
+    /// The key is a public wallet address that also appears in valid role and ledger answers.
+    pub fn hyperliquid(client: reqwest::Client, key: String, secret: String) -> Self { Self { wire: Wire::Hyperliquid, sensitive: vec![secret.clone()], ..Self::new(client, key, secret) } }
+    pub fn with_sensitive_values(mut self,values:Vec<String>)->Self{
+        // Credential edits include the previous key here, which may be this same public wallet address.
+        self.sensitive.extend(values.into_iter().filter(|value| self.wire != Wire::Hyperliquid || value != &self.key));
+        self
+    }
     /// Speak Kraken's wire: Honeymaker::Clients::Kraken's headers, form bodies and signature.
     pub fn kraken(mut self)->Self{self.wire=Wire::Kraken;self}
     /// The stderr line for a failed or unreadable answer (the "http-log" sink of script/rust/settings_r2_sinks.json).
