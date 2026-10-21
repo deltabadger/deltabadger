@@ -133,6 +133,27 @@
     @media (max-width: 767.9px)
         padding: 1rem 2rem 4rem
 
+// More below the fold (settings_nav_controller adds it last in the pane): an arrow on a circle,
+// pinned to the pane's bottom edge over the content. It takes no room: the pane scrolls as far with it.
+.settings__more
+    display: none
+    position: sticky
+    bottom: 2rem
+    width: 4rem
+    height: 4rem
+    margin: -4rem auto 0
+    border-radius: 50%
+    background: var(--silver)
+    pointer-events: none
+    .settings__pane--more > &
+        display: block
+    &::after
+        content: ""
+        position: absolute
+        inset: 1rem
+        background: var(--stone)
+        mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 7L8 13L2 7'/%3E%3Cpath d='M8 12L8 1'/%3E%3C/svg%3E") center / contain no-repeat
+
 .settings__heading
     margin: 5rem 0 0.5rem
     font-size: 2rem

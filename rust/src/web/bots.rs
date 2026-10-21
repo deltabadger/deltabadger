@@ -278,7 +278,7 @@ pub async fn index(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Re
         }
         let literal = |key: &str, name: &str| i18n::text(ctx.locale, key, &[(name, i18n::Arg::Text(&format!("%{{{name}}}")))]);
         let figures = crate::web::figure::loading::render_page(&inner,c,user.id,&snapshot,ctx.locale,csrf,&ctx.path(""))?;
-        let history_loading=figures.as_ref().is_some_and(|v|v["account_page"].is_string());
+        let history_loading=figures.as_ref().is_some_and(|v|v["history_loading"]==true);
         let pnl_loading=figures.as_ref().is_none_or(|v|!v["account"].is_string()) && bots.iter().any(|bot| bot.has_submitted_orders);
         let headline=figures.as_ref().and_then(|v|v["account_page"].as_str().or_else(||v["account"].as_str())).map(str::to_string);
         let mut tiles = vec![];

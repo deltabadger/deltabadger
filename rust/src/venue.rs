@@ -9,6 +9,7 @@ pub mod binance;
 pub mod bitvavo;
 pub mod kraken;
 pub mod kucoin;
+pub mod gemini;
 pub mod live;
 pub mod mexc;
 pub mod registry;
@@ -62,8 +63,17 @@ impl Side {
     pub fn code(self) -> i64 { match self { Self::Buy => 0, Self::Sell => 1 } }
 }
 
+/// What a venue without a cross answers to `OrderKind::Crossed`, which only a crossing venue's plan carries: nothing is sent.
+pub(crate) fn not_crossing(name: &str) -> VenueError { VenueError::Transient(format!("{name} takes no crossed order; not sent")) }
+
 #[derive(Clone, Debug, PartialEq)]
-pub enum OrderKind { Market, Limit { price: String } }
+pub enum OrderKind {
+    Market,
+    Limit { price: String },
+    /// A market order a crossing venue has no market type for (Gemini's IOC `exchange limit`, Hyperliquid's GTC limit),
+    /// sent at its persisted crossed price (OrderPlan::wire_price, D-679). Only a venue whose rules cross receives one.
+    Crossed { price: String },
+}
 
 /// An order, formatted as the venue's wire expects (VenueRules::wire).
 #[derive(Clone, Debug, PartialEq)]

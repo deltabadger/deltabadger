@@ -1274,6 +1274,81 @@ module SyncScenarios
     ]
   end
 
+  # Exchanges::Gemini#get_ledger with AccountTransactionSync (plan VB B3, audit M4-M6): every trade from /v1/mytrades, then
+  # every Deposit and Withdrawal from /v2/transfers, each walked forward from the newest timestampms of a full page (its
+  # millisecond read again, its ids dropping the repeats) until a short page; a full page with nothing new, an answer that
+  # is not a list or any failed read fails the run. A trade's pair is the listed ticker's, else the symbol split at the
+  # longest known quote.
+  def gemini_ledger_scenarios
+    night = '2026-09-20T02:00:00.250000Z'
+    t = ->(*args) { Time.utc(*args) }
+    since = ->(watermark) { ->(ctx) { P.gemini(ctx); ctx[:key].update_columns(last_synced_at: watermark) } }
+    week = since.(t.(2026, 9, 15))
+    trades = [P.gm_trade(9001, 'btcusd', 'Buy', '0.001', '60500', t.(2026, 9, 16, 10)),
+              P.gm_trade(9002, 'ethbtc', 'Sell', '0.5', '0.04', t.(2026, 9, 17, 11), fee: '0.00002', fee_currency: 'BTC'),
+              P.gm_trade(9003, 'dogeusd', 'Buy', '100', '0.25', 1_789_700_000_123, fee: nil, fee_currency: nil)] # unlisted: split at USD
+    transfers = [P.gm_transfer(5001, 'Deposit', 'USD', '1000', t.(2026, 9, 15, 12)),
+                 P.gm_transfer(5002, 'Withdrawal', 'btc', '0.002', t.(2026, 9, 18), fee: '0.0001', fee_currency: 'btc'),
+                 P.gm_transfer(5003, 'Reward', 'ETH', '0.01', t.(2026, 9, 18, 1)),
+                 P.gm_transfer(5004, 'Withdrawal', 'ETH', '0.1', t.(2026, 9, 18, 2), fee: '0')]
+    # A full page of 500 trades ending at one millisecond, then the next page from it: the boundary trades come back with two
+    # new ones, and a short page ends the source.
+    base_ms = P.ms(t.(2026, 9, 16))
+    full = (1..500).map { |i| P.gm_trade(10_000 + i, 'btcusd', 'Buy', '0.0001', '60000', base_ms + [i, 498].min * 1000) }
+    second = full.select { |r| r['timestampms'] == full.last['timestampms'] } + [P.gm_trade(10_501, 'btcusd', 'Sell', '0.0001', '60100', base_ms + 600_000),
+                                                                                P.gm_trade(10_502, 'ethusd', 'Buy', '0.01', '2500', base_ms + 700_000)]
+    stuck = (1..500).map { |i| P.gm_trade(20_000 + i, 'btcusd', 'Buy', '0.0001', '60000', base_ms) }
+    transfers_full = (1..50).map { |i| P.gm_transfer(6000 + i, 'Deposit', 'USD', '10', base_ms + i * 1000) }
+    [
+      { name: 'gemini-ledger-week', setup: week, steps: [P.gemini_ledger(night, trades: [P.ok(trades)], transfers: [P.ok(transfers)])] },
+      { name: 'gemini-ledger-full', setup: ->(ctx) { P.gemini(ctx) }, steps: [P.gemini_ledger(night, trades: [P.ok(trades.first(1))], transfers: [P.ok(transfers.first(1))])] },
+      { name: 'gemini-ledger-two_nights', setup: week,
+        steps: [P.gemini_ledger(night, trades: [P.ok(trades)]), P.gemini_ledger('2026-09-21T02:00:00.250000Z', trades: [P.ok(trades)], transfers: [P.ok(transfers)])] },
+      { name: 'gemini-ledger-pages', setup: week, steps: [P.gemini_ledger(night, trades: [P.ok(full), P.ok(second)], transfers: [P.ok(transfers_full), P.ok(transfers.first(2))])] },
+      { name: 'gemini-ledger-stuck', setup: week, steps: [P.gemini_ledger(night, trades: [P.ok(stuck)])] },
+      { name: 'gemini-ledger-not_a_list', setup: week, steps: [P.gemini_ledger(night, trades: [P.ok('result' => 'ok')])] },
+      { name: 'gemini-ledger-invalid_key', setup: week,
+        steps: [P.gemini_ledger(night, trades: [{ 'status' => 400, 'body' => { 'result' => 'error', 'reason' => 'InvalidSignature', 'message' => 'InvalidSignature' } }])] },
+      { name: 'gemini-ledger-missing_role', setup: week,
+        steps: [P.gemini_ledger(night, trades: [P.ok(trades)], transfers: [{ 'status' => 403, 'body' => { 'result' => 'error', 'reason' => 'MissingRole', 'message' => 'API key lacks the required role' } }])] },
+      { name: 'gemini-ledger-failed_page', setup: week,
+        steps: [P.gemini_ledger(night, trades: [P.ok(full), { 'status' => 500, 'body' => { 'result' => 'error', 'reason' => 'System', 'message' => 'Internal error' } }])] },
+      { name: 'gemini-ledger-network', setup: week,
+        steps: [P.gemini_ledger(night, transfers: [{ 'network' => 'gemini_pre_send', 'message' => 'Connection refused - connect(2) for "api.gemini.com" port 443' }])] },
+      { name: 'gemini-ledger-nothing', setup: week, steps: [P.gemini_ledger(night)] }
+    ]
+  end
+
+  # Exchanges::Gemini#get_balances with AccountBalance::Sync: each row's upcased currency by the venue's tickers, `available`
+  # free and `amount - available` locked; a null answer is "Failed to get Gemini balances".
+  def gemini_balance_scenarios
+    night = '2026-09-20T02:30:00.750000Z'
+    coins = P.prices_body('bitcoin' => 60_000.5, 'ethereum' => 2500.25)
+    install = ->(ctx) { P.gemini(ctx) }
+    seeded = lambda do |ctx|
+      P.gemini(ctx)
+      P.balance(ctx, 'BTC', free: '0.4', usd_price: '59000.5', usd_value: '23600.2', exchange: ctx[:gemini])
+      P.balance(ctx, 'ETH', free: '1', usd_price: '2400', usd_value: '2400', exchange: ctx[:gemini])
+    end
+    err = ->(status, reason, message) { { 'status' => status, 'body' => { 'result' => 'error', 'reason' => reason, 'message' => message } } }
+    [
+      # A currency the venue lists no ticker for (GUSD) is not a balance; lowercase currencies are upcased.
+      { name: 'gemini-balances-first', setup: install,
+        steps: [P.gemini_balances(night, balances: P.gemini_rows(%w[BTC 0.5 0.6], %w[eth 2], %w[USD 100.5], %w[GUSD 3], %w[DOGE 0]), prices: coins)] },
+      { name: 'gemini-balances-stale_and_gone', setup: seeded, steps: [P.gemini_balances(night, balances: P.gemini_rows(%w[BTC 0.45]), prices: P::SERVER_ERROR)] },
+      { name: 'gemini-balances-invalid_key', setup: seeded, steps: [P.gemini_balances(night, balances: err.(400, 'InvalidApiKey', 'Invalid API key'))] },
+      { name: 'gemini-balances-missing_role', setup: seeded, steps: [P.gemini_balances(night, balances: err.(403, 'MissingRole', 'API key lacks the required role'))] },
+      { name: 'gemini-balances-throttled', setup: seeded, steps: [P.gemini_balances(night, balances: err.(429, 'RateLimit', 'Requests were made too frequently'))] },
+      { name: 'gemini-balances-null', setup: seeded, steps: [P.gemini_balances(night, balances: P.ok(nil))] },
+      { name: 'gemini-balances-not_json', setup: seeded, steps: [P.gemini_balances(night, balances: { 'status' => 200, 'body' => 'maintenance' })] },
+      { name: 'gemini-balances-network', setup: seeded,
+        steps: [P.gemini_balances(night, balances: { 'network' => 'gemini_pre_send', 'message' => 'Connection refused - connect(2) for "api.gemini.com" port 443' })] },
+      { name: 'gemini-balances-no_currency', setup: seeded, steps: [P.gemini_balances(night, balances: P.ok([{ 'available' => '1', 'amount' => '1' }]))] },
+      { name: 'gemini-balances-no_amount', setup: seeded, steps: [P.gemini_balances(night, balances: P.ok([{ 'currency' => 'BTC', 'available' => '1' }]))] },
+      { name: 'gemini-balances-nothing', setup: seeded, steps: [P.gemini_balances(night, balances: P.gemini_rows)] }
+    ]
+  end
+
   # Exchanges::Mexc#get_ledger with AccountTransactionSync (plan VB slice A5, AUDIT-mexc X8-X12): deposits and withdrawals in
   # 7-day ranges from the start (89 days back at most), a full page halved, 700007 ending a history; then the pairs the
   # transfers, the account and the stored rows name; then their trades from the start (a month back at most), halved at 100.
@@ -1372,6 +1447,6 @@ module SyncScenarios
   end
 
   def all = ledger_scenarios + balance_scenarios + binance_balance_scenarios + binance_ledger_scenarios + import_scenarios + kucoin_ledger_scenarios +
-            kucoin_balance_scenarios + bitvavo_ledger_scenarios + bitvavo_balance_scenarios +
+            kucoin_balance_scenarios + bitvavo_ledger_scenarios + bitvavo_balance_scenarios + gemini_ledger_scenarios + gemini_balance_scenarios +
             mexc_ledger_scenarios + mexc_balance_scenarios
 end

@@ -90,12 +90,13 @@ pub(crate) enum Token<'a> { Value(&'a str), Slots(&'a mut Vec<usize>) }
 /// amount and symbol), and the proceeds. None for any bot that bought.
 /// (amount and symbol when one asset, proceeds)
 type SellOnly = (Option<(crate::figures::dec::Dec, String)>, crate::figures::dec::Dec);
-fn sell_only(s: &Subject) -> Result<Option<SellOnly>, FiguresError> {
+/// `pair`: read as the pair's walk reads its rows (`fill::pair_row`).
+fn sell_only(s: &Subject, pair: bool) -> Result<Option<SellOnly>, FiguresError> {
     use crate::figures::{dec::Dec, fill};
     if s.orders.is_empty() || s.orders.iter().any(|order| !order.sell) { return Ok(None); }
     let (mut amount, mut received, mut bases) = (Dec::zero(), Dec::zero(), HashSet::new());
     for order in &s.orders {
-        let Some(filled) = fill::parse(order)? else { continue };
+        let Some(filled) = (if pair { fill::pair_row(order)? } else { fill::parse(order)? }) else { continue };
         amount = (&amount + &filled.quantity)?;
         received = (&received + &filled.value)?;
         if let Some(base) = &order.base { bases.insert(base.clone()); }
@@ -113,6 +114,133 @@ pub(crate) fn with_token(metrics: &str, offsets: &[usize], csrf: &str) -> String
     let field = token_field(csrf);
     for &at in offsets.iter().rev() { out.insert_str(at, &field); }
     out
+}
+
+/// One live wash-sale lock: (asset, its symbol, locked until, source).
+type Lock = (i64, Option<String>, At, String);
+/// Bot#locked_members: the user's live locks on the assets the bot `known`s, while the rule has days (User#wash_sale_days).
+fn live_locks(c: &Connection, user: i64, known: &HashSet<i64>, now: At) -> Result<Vec<Lock>, FiguresError> {
+    let (enabled, jurisdiction): (Option<bool>,Option<String>) = c.query_row("SELECT wash_sale_enabled,wash_sale_jurisdiction FROM users WHERE id=?1",[user],|r| Ok((r.get(0)?,r.get(1)?)))?;
+    // User#wash_sale_jurisdiction uses presence, then the first wash-sale option (US).
+    let jurisdiction = jurisdiction.as_deref().filter(|j| !j.trim().is_empty()).unwrap_or("US");
+    if enabled != Some(true) || !["US","GB","IE"].contains(&jurisdiction) { return Ok(vec![]); }
+    let locks = c.prepare("SELECT l.asset_id,a.symbol,l.buy_locked_until,l.source FROM wash_sale_locks l JOIN assets a ON a.id=l.asset_id WHERE l.user_id=?1 ORDER BY l.id")?
+        .query_map([user],|r| Ok((r.get::<_,i64>(0)?,r.get::<_,Option<String>>(1)?,r.get::<_,Option<String>>(2)?,r.get::<_,Option<String>>(3)?)))?.collect::<Result<Vec<_>,_>>()?;
+    let mut live = vec![];
+    for (id,symbol,until,source) in locks {
+        if !known.contains(&id) { continue; }
+        let Some(until)=until.as_deref().map(At::from_sql).transpose().map_err(|e|FiguresError::Data(format!("{e:?}")))? else {continue};
+        if until > now {live.push((id,symbol,until,source.unwrap_or_default()));} // allow-swallow: optional source label
+    }
+    Ok(live)
+}
+/// BotHelper#locked_member_keys: each lock under its holding's key (`key_assets`), or under a key of its own no holding has.
+fn locked(key_assets: &[(String, Option<i64>)], live: Vec<Lock>) -> Result<Vec<(String, i64, At, String)>, FiguresError> {
+    let candidates = live.iter().filter(|(id,_,_,_)| !key_assets.iter().any(|(_,asset)| *asset == Some(*id)))
+        .map(|(id,symbol,_,_)| (crate::figures::keys::Identity::Asset(*id),symbol.as_deref().filter(|s| !s.is_empty()).map(str::to_string).unwrap_or_else(|| format!("#{id}")))).collect::<Vec<_>>();
+    let mut keys = crate::figures::keys::call(&candidates)?;
+    let mut taken: HashSet<_> = key_assets.iter().map(|(k,_)| k.clone()).chain(keys.iter().filter(|(_,key)| !key_assets.iter().any(|(k,_)| k == key)).map(|(_,k)| k.clone())).collect();
+    for (identity,key) in &mut keys {
+        if key_assets.iter().any(|(k,_)| k == key) {
+            let crate::figures::keys::Identity::Asset(id) = identity else { continue };
+            while taken.contains(key) { budget::charge(1,0)?; *key = format!("{key}#{id}"); }
+            taken.insert(key.clone());
+        }
+    }
+    let mut out = vec![];
+    for (id,_,until,source) in live {
+        let key = key_assets.iter().find(|(_,asset)| *asset == Some(id)).map(|(key,_)| key.clone())
+            .or_else(|| keys.iter().find(|(asset,_)| *asset == crate::figures::keys::Identity::Asset(id)).map(|(_,key)| key.clone()));
+        if let Some(key) = key { out.push((key, id, until, source)); }
+    }
+    Ok(out)
+}
+/// A lock as its row shows it: days left, the day it ends, its source.
+fn lock_shown(until: At, source: String, now: At) -> (i64, String, String) {
+    ((until.utc().date_naive() - now.utc().date_naive()).num_days(), until.utc().format("%Y-%m-%d").to_string(), source)
+}
+/// bots/composition/_locked_table: what the account-wide rule is doing to this bot, nothing when it locks nothing.
+fn wash_sale_table(c: &Connection, s: &Subject, locked: &[&Holding], hidden: bool, locale: &str, prefix: &str) -> Result<String, FiguresError> {
+    if locked.is_empty() { return Ok(String::new()); }
+    Ok(format!("<div id=\"wash_sale_table\" class=\"widget widget--table\" data-controller=\"table-fit\">\n<div class=\"exited-header\">\n<span class=\"label\">{}</span>\n<a class=\"rbutton rbutton--small rbutton--secondary\" data-turbo-frame=\"_top\" href=\"{}/settings/account\">{}</a>\n</div>\n{}\n</div>\n",t(locale,"bot.wash_sale.table_title"),escape(prefix),t(locale,"bot.wash_sale.settings_link"),table(c,s,locked,"wash_sale_list",true,hidden,locale,prefix)?))
+}
+
+/// bots/dca_single_assets/_metrics, from a pair bot's live figures (`pair::live`). Rust only (3.0): stale figures state
+/// nothing priced (D3, as a basket's), the note only for a venue the figures read; a pair that only sells states what it
+/// sold and what that brought in (D4).
+pub(super) fn render_pair(c: &Connection, p: &crate::figures::pair::Pair, hidden: bool, locale: &str, prefix: &str, now: At) -> Result<String, FiguresError> {
+    let (s, m) = (&p.subject, &p.metrics);
+    let quote = s.quote.as_deref().unwrap_or("");
+    let quoted = |figure: &str| if figure.trim().is_empty() || quote.trim().is_empty() { escape(figure) } else { format!("{} <small>{}</small>", escape(figure), escape(quote)) };
+    let ticker = s.tickers.first();
+    // Bot#decimals: the ticker's three precisions, none without a ticker.
+    let (base_decimals, quote_decimals, price_decimals): (Option<i64>, Option<i64>, Option<i64>) = match ticker {
+        Some(t) => c.query_row("SELECT base_decimals, quote_decimals, price_decimals FROM tickers WHERE id=?1", [t.id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?,
+        None => (None, None, None),
+    };
+    let max = |d: Option<i64>| d.and_then(|d| u8::try_from(d).ok()).unwrap_or(8);
+    let stale = m.prices_stale;
+    let mut out = "<div id=\"metrics\" style=\"display: flex; flex-direction: column; gap: 1rem;\">\n".to_string();
+    if stale && crate::figures::page_market::reads(&live::venue(s)?) {
+        out.push_str(&format!("  <p class=\"status-button__hint\" role=\"status\">\n    {}\n  </p>\n", t(locale, "bot.details.stats.exchange_unavailable_html")));
+    }
+    if !hidden {
+        let item = |label: &str, value: String| format!("      <div class=\"data-grid__item\" data-controller=\"tooltip\">\n  <div class=\"label\">\n    {}\n  </div>\n  \
+            <div class=\"data-grid__item__value \">\n      {value}\n  </div>\n</div>\n\n", t(locale, label));
+        out.push_str("    <div class=\"widget data-grid data-grid--two-columns\">\n");
+        if let Some((sold, received)) = sell_only(s, true)? {
+            // D4 (3.0, Rust only): a bot that only sells has no investment to state: what it sold, and what that brought in.
+            if let Some((amount, base)) = sold {
+                let amount = precision(&Num::Dec(amount), 6, false)?;
+                out.push_str(&item("bot.details.stats.sold", format!("{} <small>{}</small>", amount.trim_end_matches('0').trim_end_matches('.'), escape(&base))));
+            }
+            // money() returns trusted markup (the is-zero span); only the currency is escaped.
+            out.push_str(&item("bot.details.stats.received", self::quoted(money(&Num::Dec(received))?, quote.trim())));
+        } else {
+            out.push_str(&item("data_labels.invested", quoted(&format_value(&m.total_quote_amount_invested, max(quote_decimals))?)));
+            let value = if stale { NO_VALUE.to_string() } else { quoted(&format_value(&m.total_amount_value_in_quote, max(quote_decimals))?) };
+            out.push_str(&item("data_labels.portfolio_value", value));
+        }
+        out.push_str("    </div>\n");
+    }
+    let columns = if hidden { 4 } else { 6 };
+    out.push_str("\n  <div id=\"assets_metrics_table\" class=\"widget widget--table\" data-controller=\"table-fit\">\n    <table class=\"table\">\n  <thead>\n    <tr>\n      \
+                  <th scope=\"col\" class=\"table__logo\"></th>\n      <th scope=\"col\"></th>\n");
+    if !hidden { out.push_str(&format!("      <th scope=\"col\">{}</th>\n", t(locale, "data_labels.amount"))); }
+    out.push_str(&format!("      <th scope=\"col\">{}</th>\n", t(locale, "data_labels.avg_price")));
+    if !hidden { out.push_str(&format!("      <th scope=\"col\">{}</th>\n", t(locale, "data_labels.value"))); }
+    out.push_str(&format!("      <th scope=\"col\">{}</th>\n      \n    </tr>\n  </thead>\n  <tbody id=\"assets_metrics_list\">\n", t(locale, "data_labels.pnl")));
+    // bot.base_asset: the settings' base, when that asset exists.
+    let base = s.bot.base_asset_ids.first().map(|id| c.query_row("SELECT image_url, color, symbol, category FROM assets WHERE id=?1", [id],
+        |r| Ok((r.get::<_, Option<String>>(0)?, r.get::<_, Option<String>>(1)?, r.get::<_, Option<String>>(2)?, r.get::<_, Option<String>>(3)?))).optional()).transpose()?.flatten();
+    match base.filter(|_| m.total_quote_amount_invested.is_positive()) {
+        Some((image, tint, symbol, category)) => {
+            let symbol = symbol.unwrap_or_default();
+            let logo = crate::web::tracker::row::asset_logo(image, tint, symbol.clone(), category).map_err(|e| FiguresError::Data(format!("{e:?}")))?;
+            let symbol = escape(&symbol);
+            out.push_str(&format!("      <tr data-symbol=\"{symbol}\">\n        <td class=\"table__logo\">{logo}</td>\n        <td scope=\"row\">{symbol}</td>\n"));
+            if !hidden { out.push_str(&format!("        <td>{}</td>\n", escape(&printed(&p.amount.round(i64::from(max(base_decimals)))?)))); }
+            let average = p.average.as_ref().map(|a| a.round(i64::from(max(price_decimals)))).transpose()?;
+            out.push_str(&format!("        <td>{}</td>\n", average.map_or_else(|| NO_VALUE.to_string(), |a| quoted(&printed(&a)))));
+            let pnl = m.pnl.as_ref().filter(|_| !stale);
+            if !hidden {
+                let value = if stale { NO_VALUE.to_string() } else { quoted(&format_value(&m.total_amount_value_in_quote, max(quote_decimals))?) };
+                out.push_str(&format!("          <td>\n              {value}\n          </td>\n"));
+            }
+            let shown = pnl.map(|n| percent(n, 1).map(|v| format!("<b>{}{v}</b>", if n.is_negative() { "" } else { "+" }))).transpose()?.unwrap_or(NO_VALUE.into());
+            out.push_str(&format!("        <td class=\"{}\">\n            {shown}\n        </td>\n        \n      </tr>\n", pnl.map_or("", colour)));
+        }
+        None => out.push_str(&format!("      <tr>\n        <td colspan=\"{columns}\" class=\"text-center text-inactive\" style=\"padding-bottom: 2rem;\">. . .</td>\n      </tr>\n")),
+    }
+    out.push_str("  </tbody>\n</table>\n\n  </div>\n\n  ");
+    // Bot#locked_members: the locks on the ticker's base asset, each unheld (`values: {}`): amount 0, no Sell.
+    let known: HashSet<i64> = ticker.map(|t| t.base_asset_id).into_iter().collect();
+    let rows = locked(&[], live_locks(c, s.bot.user_id, &known, now)?)?.into_iter().map(|(key, id, until, source)|
+        Holding { key, asset: Some(id), amount: Num::Int(0), avg: None, value: None, pnl: None, harvest: false, sellable: false, can_sell: false, lock: Some(lock_shown(until, source, now)) }).collect::<Vec<_>>();
+    out.push_str(&wash_sale_table(c, s, &rows.iter().collect::<Vec<_>>(), hidden, locale, prefix)?);
+    out.push_str("\n</div>\n");
+    budget::check().map_err(FiguresError::from)?;
+    Ok(out)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -140,39 +268,13 @@ pub(super) fn render(c: &Connection, s: &Subject, m: &Metrics, missing: &[String
                 avg: Some(data.quote_invested.div(&data.amount)?), value: None, pnl: None, harvest: false, sellable: false, can_sell: false, lock: None });
         }
     }
-    let (enabled, jurisdiction): (Option<bool>,Option<String>) = c.query_row("SELECT wash_sale_enabled,wash_sale_jurisdiction FROM users WHERE id=?1",[s.bot.user_id],|r| Ok((r.get(0)?,r.get(1)?)))?;
     let mut locked_keys = HashSet::new();
-    // User#wash_sale_jurisdiction uses presence, then the first wash-sale option (US).
-    let jurisdiction = jurisdiction.as_deref().filter(|j| !j.trim().is_empty()).unwrap_or("US");
-    if enabled == Some(true) && ["US","GB","IE"].contains(&jurisdiction) {
-        let locks = c.prepare("SELECT l.asset_id,a.symbol,l.buy_locked_until,l.source FROM wash_sale_locks l JOIN assets a ON a.id=l.asset_id WHERE l.user_id=?1 AND l.asset_id IN (SELECT asset_id FROM bot_index_assets WHERE bot_id=?2) ORDER BY l.id")?
-            .query_map([s.bot.user_id,s.bot.id],|r| Ok((r.get::<_,i64>(0)?,r.get::<_,Option<String>>(1)?,r.get::<_,Option<String>>(2)?,r.get::<_,Option<String>>(3)?)))?.collect::<Result<Vec<_>,_>>()?;
-        let mut live = vec![];
-        for (id,symbol,until,source) in locks {
-            let Some(until)=until.as_deref().map(At::from_sql).transpose().map_err(|e|FiguresError::Data(format!("{e:?}")))? else {continue};
-            if until > now {live.push((id,symbol,until,source.unwrap_or_default()));} // allow-swallow: optional source label
-        }
-        let candidates = live.iter().filter(|(id,_,_,_)| !m.key_assets.iter().any(|(_,asset)| *asset == Some(*id)))
-            .map(|(id,symbol,_,_)| (crate::figures::keys::Identity::Asset(*id),symbol.as_deref().filter(|s| !s.is_empty()).map(str::to_string).unwrap_or_else(|| format!("#{id}")))).collect::<Vec<_>>();
-        let mut keys = crate::figures::keys::call(&candidates)?;
-        let mut taken: HashSet<_> = m.key_assets.iter().map(|(k,_)| k.clone()).chain(keys.iter().filter(|(_,key)| !m.key_assets.iter().any(|(k,_)| k == key)).map(|(_,k)| k.clone())).collect();
-        for (identity,key) in &mut keys {
-            if m.key_assets.iter().any(|(k,_)| k == key) {
-                let crate::figures::keys::Identity::Asset(id) = identity else { continue };
-                while taken.contains(key) { budget::charge(1,0)?; *key = format!("{key}#{id}"); }
-                taken.insert(key.clone());
-            }
-        }
-        for (id,_,until,source) in live {
-            let key = m.key_assets.iter().find(|(_,asset)| *asset == Some(id)).map(|(key,_)| key.clone())
-                .or_else(|| keys.iter().find(|(asset,_)| *asset == crate::figures::keys::Identity::Asset(id)).map(|(_,key)| key.clone()));
-            let Some(key) = key else { continue };
-            let days = (until.utc().date_naive() - now.utc().date_naive()).num_days();
-            let date = until.utc().format("%Y-%m-%d").to_string();
-            if let Some(row) = rows.iter_mut().find(|r| r.key == key) { row.lock = Some((days,date,source)); }
-            else { rows.push(Holding { key: key.clone(), asset: Some(id), amount: Num::Int(0),avg:None,value:None,pnl:None,harvest:false,sellable:false,can_sell:false,lock:Some((days,date,source)) }); }
-            locked_keys.insert(key);
-        }
+    let known: HashSet<i64> = c.prepare("SELECT asset_id FROM bot_index_assets WHERE bot_id=?1")?.query_map([s.bot.id], |r| r.get(0))?.collect::<Result<_,_>>()?;
+    for (key, id, until, source) in locked(&m.key_assets, live_locks(c, s.bot.user_id, &known, now)?)? {
+        let lock = lock_shown(until, source, now);
+        if let Some(row) = rows.iter_mut().find(|r| r.key == key) { row.lock = Some(lock); }
+        else { rows.push(Holding { key: key.clone(), asset: Some(id), amount: Num::Int(0),avg:None,value:None,pnl:None,harvest:false,sellable:false,can_sell:false,lock:Some(lock) }); }
+        locked_keys.insert(key);
     }
     let mut out = "<div id=\"metrics\" style=\"display: flex; flex-direction: column; gap: 1rem;\">\n".to_string();
     // 3.0 (Rust only): a venue the figures do not read yet did not fail to answer.
@@ -180,7 +282,7 @@ pub(super) fn render(c: &Connection, s: &Subject, m: &Metrics, missing: &[String
     if !hidden {
         out.push_str(&format!("<div class=\"widget data-grid {}\">\n", if m.realised_pnl.is_zero() { "data-grid--two-columns" } else { "" }));
         let item = |label: &str, value: String| format!("<div class=\"data-grid__item\" data-controller=\"tooltip\">\n<div class=\"label\">{}</div>\n<div class=\"data-grid__item__value\">\n{value}\n</div>\n</div>\n", t(locale, &format!("bot.details.stats.{label}")));
-        if let Some((sold, received)) = sell_only(s)? {
+        if let Some((sold, received)) = sell_only(s, false)? {
             // 3.0 (Rust only): a bot that only sells has no investment to state: what it sold, and what that brought in.
             if let Some((amount, base)) = sold {
                 let amount = precision(&Num::Dec(amount), 6, false)?;
@@ -213,9 +315,7 @@ pub(super) fn render(c: &Connection, s: &Subject, m: &Metrics, missing: &[String
         out.push_str(&format!("</div>\n{}\n</div>\n",table(c,s,&exited,"exited_metrics_list",actions,hidden,locale,prefix)?));
     }
     let locked: Vec<_> = rows.iter().filter(|r| locked_keys.contains(&r.key)).collect();
-    if !locked.is_empty() {
-        out.push_str(&format!("<div id=\"wash_sale_table\" class=\"widget widget--table\" data-controller=\"table-fit\">\n<div class=\"exited-header\">\n<span class=\"label\">{}</span>\n<a class=\"rbutton rbutton--small rbutton--secondary\" data-turbo-frame=\"_top\" href=\"{}/settings/account\">{}</a>\n</div>\n{}\n</div>\n",t(locale,"bot.wash_sale.table_title"),escape(prefix),t(locale,"bot.wash_sale.settings_link"),table(c,s,&locked,"wash_sale_list",true,hidden,locale,prefix)?));
-    }
+    out.push_str(&wash_sale_table(c,s,&locked,hidden,locale,prefix)?);
     if !hidden && !matches!(status,3|7) && settings["direction"] != "selling" && !in_flight {
         // Never rewrite the user's persisted decline from a GET. No redeploy offer for that invalid state.
         match redeploy_offer(c,s,m,&members)? {

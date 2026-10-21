@@ -1097,3 +1097,51 @@ fn a_pair_bots_listings_by_spelling_are_in_the_fingerprint() {
     assert!(changes("UPDATE tickers SET base_decimals=6 WHERE id=1"), "the pair ticker's base precision");
     assert!(changes("UPDATE tickers SET quote_decimals=3 WHERE id=1"), "the pair ticker's quote precision");
 }
+
+/// One account whose bot is a signal bot on AAA (Bots::Signal reads its pair from its settings), bought once at 100.
+fn signal_install(script: Value) -> Install {
+    let install = Install::with_script(1, script);
+    install.connection().execute_batch("UPDATE bots SET type='Bots::Signal', settings='{\"base_asset_id\":2,\"quote_asset_id\":1}' WHERE id=1").unwrap();
+    install
+}
+
+#[tokio::test]
+async fn a_write_to_a_pair_tickers_precision_refills_its_figures() {
+    let install = signal_install(script(0));
+    let _stop = install.consume();
+    until(10, "warm", async || matches!(loading::prepare(&install.app, 1).await.unwrap(), loading::Snapshot::Ready(..))).await;
+    let (shown, _) = page_figures(&install.app, 1, "en", "").await;
+    let shown = shown.expect("kept figures");
+    assert!(shown["bots"]["1"]["tile"].as_str().unwrap().contains("10.00%"), "{}", shown["bots"]["1"]["tile"]);
+    assert_eq!((shown["bots"]["1"]["cached"].as_bool(), shown["bots"]["1"]["chart_cached"].as_bool()), (Some(true), Some(true)));
+    let before = fills(&install.app, 1);
+    install.connection().execute("UPDATE tickers SET quote_decimals=3 WHERE id=1", []).unwrap();
+    assert!(!matches!(loading::prepare(&install.app, 1).await.unwrap(), loading::Snapshot::Ready(..)), "figures rounded at the old precision served as current");
+    until(10, "refilled", async || matches!(loading::prepare(&install.app, 1).await.unwrap(), loading::Snapshot::Ready(..))).await;
+    assert!(fills(&install.app, 1) > before, "no refill after the precision changed");
+}
+
+#[tokio::test]
+async fn raised_pair_candles_keep_every_live_figure_and_retry_on_the_next_fill() {
+    // Rails' metrics job caches and broadcasts the live figures before the candles layer raises, and is retried.
+    let mut sc = script(0);
+    for key in ["GET data.alpaca.markets/v2/stocks/AAA/bars", "GET data.alpaca.markets/v2/stocks/AAA/bars?adjustment=split"] {
+        sc[key] = json!({"network": "transient", "message": "Faraday::ConnectionFailed: connection refused"});
+    }
+    let install = signal_install(sc);
+    let _stop = install.consume();
+    until(10, "warm", async || matches!(loading::prepare(&install.app, 1).await.unwrap(), loading::Snapshot::Ready(..))).await;
+    let (shown, _) = page_figures(&install.app, 1, "en", "").await;
+    let shown = shown.expect("kept figures");
+    let bot = &shown["bots"]["1"];
+    assert!(bot["tile"].as_str().unwrap().contains("10.00%"), "{}", bot["tile"]);
+    assert!(bot["metrics"].as_str().unwrap().contains("110.00 <small>USD</small>"), "{}", bot["metrics"]);
+    assert_eq!(bot["chart"], deltabadger::web::figure::NOT_CHARTED, "the chart waits for the retry");
+    assert_eq!((bot["cached"].as_bool(), bot["chart_cached"].as_bool()), (Some(true), Some(false)));
+    let headline = shown["account"].as_str().unwrap();
+    assert!(headline.contains("pnl-percent") && !headline.contains("data-controller=\"pnl-spark\""), "the headline stands, without its history: {headline}");
+    assert!(shown.get("raised").is_none(), "the bot's live figures are not withheld");
+    // The raised answer is held for the price's minute only: the next fill asks again.
+    let loading::Snapshot::Ready(.., until) = loading::prepare(&install.app, 1).await.unwrap() else { panic!("not ready") };
+    assert!(until <= common::web::at(AT).timestamp() + 60, "figures with raised candles outlived the price's minute: {until}");
+}

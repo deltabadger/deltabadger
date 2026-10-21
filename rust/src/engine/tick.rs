@@ -683,8 +683,15 @@ async fn buy<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot,
         }
     };
     let tickers: Vec<_> = priced.iter().map(|p| &p.member.ticker).collect();
+    let rules = venue.rules();
+    // D-679 (plan VB §1.5): on a venue that crosses the book (Gemini, Hyperliquid), a market buy leg's quote budget is sized
+    // at the price it is sent at, Exchange#market_price_for's crossed ask (the same read, crossed: no second price read),
+    // never at the raw ask Rails sizes it at (so a fill at the cross could spend over the budget). The split above stays
+    // at the raw ask, as Rails values the basket.
+    let crossed = rules.cross.is_some() && bot.limit_distance().is_none();
     for leg in split {
-        match amount::size(bot, &leg.ticker, &leg.quote, &leg.reference, venue.rules())? {
+        let sizing = if crossed { rules.market_price(&leg.reference, &leg.ticker, crate::venue::Side::Buy).map_err(EngineError::Data)? } else { leg.reference.clone() };
+        match amount::size(bot, &leg.ticker, &leg.quote, &sizing, rules)? {
             Sizing::Nothing => {}
             Sizing::Ignored(plan) => { let now = clock.now(); model::run_write(c, bot, |tx| model::log_activity(tx, bot.id, "order_ignored", Level::Info, plan.log_details(), now))?; }
             Sizing::BelowMinimum(plan) => legs.skipped.push(plan), // reported once, at the end (record_skipped)
@@ -692,11 +699,14 @@ async fn buy<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot,
                 let m = format!("limit price rounds to zero at {decimals} decimals");
                 return Ok(Err(Fail::General { errors: vec![m.clone()], message: m, failed_row: false }));
             }
-            Sizing::Place(plan) => match place(c, venue, bot, &plan, &tickers, &composition, reconciled, clock, cx, legs).await? {
-                Placed::Next => {}
-                Placed::Stop => break,
-                Placed::Failed(f) => return Ok(Err(f)),
-            },
+            Sizing::Place(plan) => {
+                let price = plan.price.clone();
+                match place(c, venue, bot, &plan.with_wire_price(rules, &price, true)?, &tickers, &composition, reconciled, clock, cx, legs).await? {
+                    Placed::Next => {}
+                    Placed::Stop => break,
+                    Placed::Failed(f) => return Ok(Err(f)),
+                }
+            }
         }
     }
     Ok(Ok(()))
@@ -884,7 +894,11 @@ async fn sell<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot
             let m = format!("limit price rounds to zero at {decimals} decimals");
             return Ok(Err(Fail::General { errors: vec![m.clone()], message: m, failed_row: false }));
         }
-        Sizing::Place(plan) => if let Placed::Failed(f) = place(c, venue, bot, &plan, &[&ticker], &composition, reconciled, clock, cx, legs).await? { return Ok(Err(f)); },
+        // A crossing venue sends the base Rails sizes at the crossed bid it would re-read at placement (plan VB §1.5).
+        Sizing::Place(plan) => {
+            let plan = plan.with_wire_price(venue.rules(), &reference, false)?;
+            if let Placed::Failed(f) = place(c, venue, bot, &plan, &[&ticker], &composition, reconciled, clock, cx, legs).await? { return Ok(Err(f)); }
+        }
     }
     Ok(Ok(()))
 }
@@ -952,7 +966,7 @@ async fn basket_sell<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &mod
             Sizing::Ignored(plan) => { let now = clock.now(); model::run_write(c, bot, |tx| model::log_activity(tx, bot.id, "order_ignored", Level::Info, plan.log_details(), now))?; }
             Sizing::BelowMinimum(plan) => legs.skipped.push(plan),
             Sizing::ZeroPrice { decimals } => return Ok(Err(general(format!("limit price rounds to zero at {decimals} decimals")))),
-            Sizing::Place(plan) => match place(c, venue, bot, &plan, &tickers, composition, reconciled, clock, cx, legs).await? {
+            Sizing::Place(plan) => match place(c, venue, bot, &plan.with_wire_price(venue.rules(), &price, false)?, &tickers, composition, reconciled, clock, cx, legs).await? {
                 Placed::Next => {}
                 Placed::Stop => break,
                 Placed::Failed(f) => return Ok(Err(f)),

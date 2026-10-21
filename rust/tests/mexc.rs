@@ -232,6 +232,10 @@ async fn placement_answers_map_as_rails_maps_them() {
     assert!(t.requests()[0].body.is_none());
     assert_eq!(sent(&t.requests()[0]), pairs_of(&[("newClientOrderId", CL), ("price", "63840"), ("quantity", "0.000939"), ("recvWindow", "5000"), ("side", "BUY"),
                                                   ("symbol", "BTCUSDT"), ("timeInForce", "GTC"), ("type", "LIMIT")]));
+    // MEXC has no cross (D-679 is Gemini's and Hyperliquid's): a crossed plan is never sent.
+    let (t, v) = venue(json!({ "POST /api/v3/order": ok(json!({ "orderId": "o1" })) }));
+    assert!(matches!(v.add_order(&order(OrderKind::Crossed { price: "64000".into() }, false, "0.000939")).await, Err(VenueError::Transient(_))));
+    assert!(t.requests().is_empty());
 }
 
 // ---- polls, cancel, recovery

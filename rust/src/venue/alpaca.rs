@@ -286,6 +286,7 @@ impl<T: Transport> AlpacaVenue<T> {
             OrderKind::Market if o.quote_volume => { body["notional"] = json!(o.volume); }
             OrderKind::Market => { body["qty"] = json!(o.volume); }
             OrderKind::Limit { price } => { body["type"] = json!("limit"); body["qty"] = json!(o.volume); body["limit_price"] = json!(price); }
+            OrderKind::Crossed { .. } => return Err(super::not_crossing("Alpaca")),
         }
         body["client_order_id"] = json!(o.cl_ord_id);
         // The absolute bound: `deadline` is `at` + the send window (SEND_WINDOW_SECONDS == DEADLINE_SECONDS), plus the budget.
@@ -544,6 +545,7 @@ impl VenueFactory for LiveFactory {
                     "Exchanges::Kraken" => ReqwestTransport::new(client, key, secret.clone()).kraken(),
                     super::kucoin::KUCOIN => ReqwestTransport::kucoin(client, key, secret.clone(), passphrase),
                     super::bitvavo::BITVAVO => ReqwestTransport::bitvavo(client, key, secret.clone()),
+                    super::gemini::GEMINI => ReqwestTransport::gemini(client, key, secret.clone()),
                     super::mexc::MEXC => ReqwestTransport::mexc(client, key, secret.clone()),
                     _ => ReqwestTransport::binance(client, key, secret.clone()),
                 };
@@ -568,6 +570,10 @@ impl VenueFactory for LiveFactory {
             super::bitvavo::BITVAVO => {
                 let venue = super::bitvavo::BitvavoVenue::new(transport, row.base).with_pairs(pairs);
                 LiveVenue::Bitvavo(match &identity { Some(c) => venue.with_identity(c), None => venue })
+            }
+            super::gemini::GEMINI => {
+                let venue = super::gemini::GeminiVenue::new(transport, row.base).with_pairs(pairs);
+                LiveVenue::Gemini(match &identity { Some(c) => venue.with_identity(c), None => venue })
             }
             super::mexc::MEXC => {
                 let venue = super::mexc::MexcVenue::new(transport, row.base, &secret).with_pairs(pairs);
@@ -612,7 +618,7 @@ fn bot_problem(c: &Connection, cipher: &Cipher, id: i64) -> Result<Option<String
     let bot = model::load_bot(c, id)?;
     let exchange = model::exchange_type(c, &bot)?;
     let Some(rules) = crate::engine::venue_rules::for_exchange(&exchange) else {
-        return Ok(Some(format!("{exchange} is not connected in this build (only Kraken, Binance, Binance.US, KuCoin, Bitvavo, MEXC and Alpaca)")));
+        return Ok(Some(format!("{exchange} is not connected in this build (only Kraken, Binance, Binance.US, KuCoin, Bitvavo, Gemini, MEXC and Alpaca)")));
     };
     Ok(match model::credentials_for(c, cipher, &bot)? {
         None => Some(format!("no {} API key", rules.name)),

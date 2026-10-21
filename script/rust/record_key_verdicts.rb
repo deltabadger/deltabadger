@@ -1,4 +1,4 @@
-# Records how Rails judges an API key on each venue of VENUE_CASES (Kraken, Binance, Binance.US, KuCoin, Bitvavo, MEXC), for the Rust key
+# Records how Rails judges an API key on each venue of VENUE_CASES (Kraken, Binance, Binance.US, KuCoin, Bitvavo, Gemini, MEXC), for the Rust key
 # step (P2-T6).
 #   bin/rails runner script/rust/record_key_verdicts.rb rust/tests/fixtures/key_verdicts.json
 # Each case scripts the venue's HTTP answer at the Faraday adapter (nothing leaves the machine; any real connection
@@ -12,7 +12,7 @@ class Unscripted < Exception; end # rubocop:disable Lint/InheritException
 Net::HTTP.prepend(Module.new { def connect = raise(Unscripted, "real connection to #{address}") })
 
 out = {
-  'sources' => %w[app/models/exchanges/kraken.rb app/models/exchanges/binance.rb app/models/exchanges/binance_us.rb app/models/exchanges/kucoin.rb app/models/exchanges/bitvavo.rb app/models/exchanges/mexc.rb
+  'sources' => %w[app/models/exchanges/kraken.rb app/models/exchanges/binance.rb app/models/exchanges/binance_us.rb app/models/exchanges/kucoin.rb app/models/exchanges/bitvavo.rb app/models/exchanges/gemini.rb app/models/exchanges/mexc.rb
                   app/models/exchange.rb app/models/exchange/dryable.rb app/models/api_key.rb app/helpers/bot_helper.rb
                   config/locales/api.en.yml config/locales/api.de.yml config/locales/api.pl.yml
                   config/locales/api_read_only.en.yml config/locales/api_withdrawal.en.yml
@@ -32,9 +32,13 @@ module Venue
 
       query = URI.decode_www_form(env.url.query.to_s).to_h
       form = env.request_body.is_a?(String) && !env.request_body.empty? ? URI.decode_www_form(env.request_body).to_h : {}
+      # Gemini's params travel in its signed payload (an empty-body POST): recorded as the form, without `request` and `nonce`.
+      payload = env.request_headers['X-GEMINI-PAYLOAD']
+      form = JSON.parse(Base64.strict_decode64(payload)).except('request', 'nonce') if payload
       Venue.seen << { 'method' => env.method.to_s.upcase, 'host' => env.url.host, 'path' => env.url.path,
                      'query' => query.except(*SECRET_PARAMS), 'form' => form.except(*SECRET_PARAMS),
-                     'key_header' => env.request_headers['X-MBX-APIKEY'] || env.request_headers['API-Key'] || env.request_headers['KC-API-KEY'] || env.request_headers['BITVAVO-ACCESS-KEY'] ||
+                     'key_header' => env.request_headers['X-MBX-APIKEY'] || env.request_headers['API-Key'] || env.request_headers['KC-API-KEY'] ||
+                                     env.request_headers['BITVAVO-ACCESS-KEY'] || env.request_headers['X-GEMINI-APIKEY'] ||
                                      env.request_headers['X-MEXC-APIKEY'] }
       answer = Venue.answers.shift
       raise Faraday::TimeoutError, 'Net::ReadTimeout' if answer[:timeout]
@@ -330,6 +334,47 @@ VENUE_CASES = {
     end
     { 'refused_codes' => Exchanges::Bitvavo::KEY_CHECK_REFUSED, 'not_found_code' => Exchanges::Bitvavo::KEY_CHECK_ORDER_NOT_FOUND,
       'invalid_key_errors' => Exchanges::Bitvavo::ERRORS[:invalid_key], 'cases' => rows }
+  end,
+  # Gemini: the trading key cancels order 0 alone (OrderNotFound means it got past the role check), a withdrawal key reads its
+  # balances; the verdict is the answer's `reason` (MissingRole and the invalid-key reasons condemn it). A reading key reads its
+  # balances (Exchange#get_read_api_key_validity -> Exchanges::Gemini#get_balances).
+  'gemini' => lambda do
+    gemini = Exchanges::Gemini.new(name: 'Gemini')
+    gm = ->(status, reason, message = reason) { json.(status, { 'result' => 'error', 'reason' => reason, 'message' => message }) }
+    order = { 'order_id' => '0', 'symbol' => 'btcusd', 'is_live' => false, 'is_cancelled' => true }
+    rows = []
+    [[:trading, :get_api_key_validity], [:withdrawal, :get_api_key_validity]].each do |key_type, method|
+      cases = { 'ok' => json.(200, key_type == :trading ? order : [{ 'currency' => 'BTC', 'amount' => '1', 'available' => '1' }]),
+                'ok_empty_list' => json.(200, []), 'ok_object' => json.(200, {}),
+                'order_not_found 404' => gm.(404, 'OrderNotFound', 'Order 0 not found'), 'order_not_found 200' => gm.(200, 'OrderNotFound'),
+                'missing_role 403' => gm.(403, 'MissingRole', 'API key lacks the required role'), 'missing_role 200' => gm.(200, 'MissingRole'),
+                'invalid_nonce' => gm.(400, 'InvalidNonce', 'Nonce has not increased'), 'rate_limit' => gm.(429, 'RateLimit', 'Requests were made too frequently'),
+                'system' => gm.(500, 'System', 'Internal error'), 'maintenance' => gm.(503, 'Maintenance', 'Down for maintenance'),
+                'other_reason' => gm.(400, 'InvalidOrder', 'nope'), 'other_reason 200' => gm.(200, 'InvalidOrder', 'nope'),
+                'error_without_message 200' => json.(200, { 'result' => 'error', 'reason' => 'Odd' }),
+                'error_without_reason 200' => json.(200, { 'result' => 'error' }),
+                'reason_in_message_only' => json.(400, { 'result' => 'error', 'message' => 'InvalidSignature' }) }
+      Exchanges::Gemini::ERRORS[:invalid_key].each do |r|
+        cases["invalid_key #{r} 400"] = gm.(400, r)
+        cases["invalid_key #{r} 200"] = gm.(200, r)
+      end
+      cases.merge!(transport)
+      cases.each { |name, answer| rows << record.(gemini, key_type, method, name, answer) }
+    end
+    read_cases = { 'ok' => json.(200, [{ 'currency' => 'BTC', 'amount' => '1', 'available' => '1' }]), 'ok_empty_list' => json.(200, []),
+                   'ok_lowercase' => json.(200, [{ 'currency' => 'btc', 'amount' => '1', 'available' => '1' }]),
+                   'null' => json.(200, 'null'), 'empty_json_body' => { status: 200, body: '', content_type: 'application/json' },
+                   'missing_role 403' => gm.(403, 'MissingRole', 'API key lacks the required role'), 'rate_limit' => gm.(429, 'RateLimit'),
+                   'system' => gm.(500, 'System', 'Internal error'), 'other_reason' => gm.(400, 'InvalidOrder', 'nope') }
+    # Balances #get_balances cannot walk (it digs each row's currency, then upcases it): Rails raises.
+    { 'row_without_currency' => [{ 'amount' => '1' }], 'currency_not_a_string' => [{ 'currency' => 1 }], 'object' => { 'currency' => 'BTC' },
+      'string' => 'balances' }.each { |name, data| read_cases[name] = json.(200, data) }
+    Exchanges::Gemini::ERRORS[:invalid_key].each { |r| read_cases["invalid_key #{r} 400"] = gm.(400, r) }
+    read_cases.merge!(transport.except('empty_json_body', 'malformed_json', 'plain_text_200'))
+    read_cases['malformed_json'] = transport['malformed_json']
+    read_cases['plain_text_200'] = transport['plain_text_200']
+    read_cases.each { |name, answer| rows << record.(gemini, :read_only, :get_read_api_key_validity, name, answer) }
+    { 'invalid_key_errors' => Exchanges::Gemini::ERRORS[:invalid_key], 'cases' => rows }
   end,
   # MEXC (plan VB slice A5): the account read and its canTrade (#account_check); a reading key (#get_read_api_key_validity)
   # then reads the deposit history (limit 1), which MEXC grants under its own permission.

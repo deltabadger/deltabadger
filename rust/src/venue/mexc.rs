@@ -197,6 +197,7 @@ impl<T: Transport> super::Venue for MexcVenue<T> {
                 params.extend([("type", "LIMIT".into()), ("timeInForce", "GTC".into()), ("price", price.clone()), ("quantity", o.volume.clone())]);
                 "limit"
             }
+            OrderKind::Crossed { .. } => return Err(super::not_crossing("MEXC")),
         };
         params.push(("newClientOrderId", o.cl_ord_id.clone()));
         // The absolute bound on the send, as for every venue: the intent's send window, plus the request budget.

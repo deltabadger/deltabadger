@@ -542,6 +542,8 @@ async fn start<V: Venue + Attributed>(c: &Connection, venue: &V, claim: &Claim, 
     if waiting_buy_blocks_sell(c, venue, bot, &ticker, clock.now()).await? { return Ok(Outcome::Skipped("open_buy")); }
     let quote = &amount * &price;
     let (plan, below) = super::amount::size_order(&ticker, Side::Sell, &price, &amount, &quote, venue.rules().minimum_logic, TxKind::Rebalance)?;
+    // Path 2 (plan VB §1.5): the price is Exchange#market_price_for's, crossed already where the venue crosses; sent as it is.
+    let plan = plan.with_wire_price(venue.rules(), &price, true)?;
     if below {
         // #abandon_below_minimum!(selling): silent, but the widget's flag says why a breached band does not trade.
         flag_below_minimum(c, bot.id, &bot.transient, clock.now())?;
@@ -676,6 +678,7 @@ async fn place_pending_buy<V: Venue + Attributed>(c: &Connection, venue: &V, cla
     if !spend.is_positive() { return unavailable; }
     let amount = spend.div(&price).expect("the price is positive");
     let (plan, below) = super::amount::size_order(&ticker, Side::Buy, &price, &amount, &spend, venue.rules().minimum_logic, TxKind::Rebalance)?;
+    let plan = plan.with_wire_price(venue.rules(), &price, true)?;
     if below {
         // #abandon_below_minimum!(buying): the user's own cash left unconvertible, said once.
         let now = clock.now();
