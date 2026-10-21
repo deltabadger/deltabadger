@@ -39,6 +39,39 @@ fn rows(node: &Node, member: Option<&str>) -> Result<Vec<String>, Fail> {
 }
 fn raw(s: &str) -> Result<Raw, Fail> { Raw::parse(s).and_then(Result::ok).ok_or_else(|| ("unreadable Bitrue ledger row".into(), true)) }
 
+/// Ruby's `value['key']` on the exchange listing. In particular, a top-level nil or Array raises;
+/// it is not an object with an absent member. Keep the exception text for the sync's existing failure path.
+fn listing_field(value: &Value, key: &str) -> Result<Value, Fail> {
+    let error = match value {
+        Value::Object(m) => return Ok(m.get(key).cloned().unwrap_or(Value::Null)),
+        Value::String(s) => return Ok(if s.contains(key) { json!(key) } else { Value::Null }),
+        Value::Array(_) => "TypeError: no implicit conversion of String into Integer".into(),
+        Value::Number(n) if n.is_i64() || n.is_u64() => "TypeError: no implicit conversion of String into Integer".into(),
+        Value::Number(_) => "NoMethodError: undefined method '[]' for an instance of Float".into(),
+        other => format!("NoMethodError: undefined method '[]' for {}", super::mexc_ledger::inspect(other)),
+    };
+    Err((error, true))
+}
+
+/// Rails uses `Array(info['symbols'])`: absent/null and an empty Hash are empty, while a nonempty
+/// Hash becomes key/value arrays (which raise on the string subscript below). Scalars become one row.
+fn listing_pairs(node: &Node) -> Result<Vec<(String, String, String)>, Fail> {
+    let value: Value = serde_json::from_str(&node.text()).map_err(|_| ("unreadable Bitrue listing".into(), true))?;
+    let symbols = match listing_field(&value, "symbols")? {
+        Value::Null => vec![],
+        Value::Array(a) => a,
+        Value::Object(m) => m.into_iter().map(|(k, v)| json!([k, v])).collect(),
+        scalar => vec![scalar],
+    };
+    let mut listed: Vec<(String, String, String)> = vec![];
+    for symbol in symbols {
+        let p = (shown(&listing_field(&symbol, "symbol")?), shown(&listing_field(&symbol, "baseAsset")?).to_uppercase(),
+                 shown(&listing_field(&symbol, "quoteAsset")?).to_uppercase());
+        if let Some(old) = listed.iter_mut().find(|v| v.0 == p.0) { *old = p; } else { listed.push(p); }
+    }
+    Ok(listed)
+}
+
 fn trade(symbol: &str, base: &str, quote: &str, r: Raw) -> Result<Entry, Fail> {
     let at = ruby_time_at_ms(to_i(&r.value["time"])).ok_or_else(|| ("unreadable trade time".into(), true))?;
     let buy = !matches!(r.value.get("isBuyer"), None | Some(Value::Null | Value::Bool(false)));
@@ -124,18 +157,13 @@ impl<'a, T: Transport> Walk<'a, T> {
     }
     async fn listing(&mut self) -> Result<Vec<Entry>, Fail> {
         let node = self.get(EXCHANGE_INFO_PATH, vec![], false).await?;
+        let listed = listing_pairs(&node)?;
         let (user, exchange) = (self.key.user_id, self.key.exchange_id);
         let before: HashSet<String> = phase(self.db, move |db| {
             let mut s = db.prepare("SELECT base_currency, quote_currency FROM account_transactions WHERE user_id=?1 AND exchange_id=?2 AND entry_type IN (0,1) UNION SELECT t.base, t.quote FROM transactions t JOIN bots b ON b.id=t.bot_id WHERE b.user_id=?1 AND t.exchange_id=?2")?;
             let rows = s.query_map([user, exchange], |r| Ok(format!("{}{}", r.get::<_, Option<String>>(0)?.unwrap_or_default(), r.get::<_, Option<String>>(1)?.unwrap_or_default()).to_uppercase()))?;
             Ok(rows.collect::<Result<HashSet<_>, _>>()?)
         }).await.map_err(|e| (e.0, true))?;
-        let mut listed: Vec<(String, String, String)> = vec![];
-        for s in rows(&node, Some("symbols"))? {
-            let r = raw(&s)?;
-            let p = (field(&r.value, "symbol"), field(&r.value, "baseAsset").to_uppercase(), field(&r.value, "quoteAsset").to_uppercase());
-            if let Some(old) = listed.iter_mut().find(|v| v.0 == p.0) { *old = p; } else { listed.push(p); }
-        }
         self.c.pairs = listed.into_iter().filter(|(s,b,_)| self.c.coins.contains(b) || before.contains(s)).collect();
         self.c.source = if self.c.pairs.is_empty() { Source::Coins } else { Source::Trades };
         Ok(vec![])

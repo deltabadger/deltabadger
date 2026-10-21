@@ -425,7 +425,7 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     assert_eq!([named("ledger-"), named("balances-"), named("binance-balances-"), named("binance-ledger-"), named("import-"), named("kucoin-ledger-"), named("kucoin-balances-"),
                 named("bitvavo-ledger-"), named("bitvavo-balances-"), named("gemini-ledger-"), named("gemini-balances-"), named("bitget-ledger-"), named("bitget-balances-"),
                 named("mexc-ledger-"), named("mexc-balances-"), named("bitrue-ledger-"), named("bitrue-balances-"), dirs.len()],
-               [58, 44, 21, 30, 21, 12, 16, 11, 10, 11, 11, 13, 12, 14, 12, 18 + 3, 5, 296 + 18 + 3 + 5], "the sync grid");
+               [58, 44, 21, 30, 21, 12, 16, 11, 10, 11, 11, 13, 12, 14, 12, 18 + 3 + 10, 5, 296 + 18 + 3 + 10 + 5], "the sync grid, including ten Bitrue listing shapes");
     for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
     for scenario in ["ledger-split_future", "ledger-split_nested_duplicate_keys", "binance-ledger-two_nights"] { copy_dir(&rails_root.path().join(scenario), &handback.path().join(scenario)); }
     rails(&["record", rails_root.path().to_str().unwrap()]);
@@ -462,6 +462,21 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     // What the grid must have exercised, read from Rails' own output: a scenario that silently stopped doing its thing
     // (a renamed column, a changed default) would otherwise still pass by agreeing on nothing.
     let rails_of = |name: &str| read(&rails_root.path().join(name).join("rails.json"));
+    for shape in ["null", "array", "object_symbols", "number_symbols", "false_symbols"] {
+        let out = rails_of(&format!("bitrue-ledger-listing_{shape}"));
+        assert_eq!(out["steps"][0]["raised"], true, "{shape}: Rails raises on the listing");
+        assert!(rows(&out, "account_transactions").is_empty(), "{shape}: no history is stored");
+        assert_eq!(out["steps"][0]["requests"].as_array().unwrap().len(), 2, "{shape}: only account and listing are read");
+        for key in rows(&out, "api_keys") {
+            assert_eq!(key["before"]["last_synced_at"], key["after"]["last_synced_at"], "{shape}: the watermark stays put");
+        }
+    }
+    for shape in ["missing_symbols", "null_symbols", "empty_symbols", "empty_object_symbols", "string_symbols"] {
+        let out = rails_of(&format!("bitrue-ledger-listing_{shape}"));
+        assert_eq!(out["steps"][0]["raised"], false, "{shape}: Rails accepts empty discovery");
+        assert_eq!(rows(&out, "account_transactions").len(), 1, "{shape}: the deposit is still imported");
+        assert!(!out["steps"][0]["requests"].as_array().unwrap().iter().any(|r| r[0] == "GET /api/v2/myTrades"), "{shape}: no trades are requested");
+    }
     // A file transfer an API row pairs with takes its id in place; one with two candidates, or out of reach, does not.
     let claimed = |name: &str| -> (Vec<String>, Vec<String>) {
         let ids = |before_null: bool| rows(&rails_of(name), "account_transactions").iter()

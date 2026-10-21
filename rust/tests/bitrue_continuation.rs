@@ -48,7 +48,7 @@ impl Stopwatch for Watch { fn elapsed(&self) -> Duration { self.at.get() } }
 /// Bitrue as the walk reads it: every request `latency` long on the watch; each history the rows within [startTime, endTime],
 /// at most `limit`, with offsets for transfers. `cut_at`: the runner's deadline cuts the run at that request (counted from 1).
 #[derive(Clone)]
-struct Venue { account: Rc<Account>, watch: Rc<Watch>, latency: Duration, log: Rc<RefCell<Vec<String>>>, cut_at: Rc<Cell<Option<usize>>> }
+struct Venue { account: Rc<Account>, watch: Rc<Watch>, latency: Duration, log: Rc<RefCell<Vec<String>>>, cut_at: Rc<Cell<Option<usize>>>, listing: Option<Value> }
 impl Transport for Venue {
     async fn send(&self, r: &HttpRequest) -> Result<HttpResponse, TransportError> {
         let n = self.log.borrow().len() + 1;
@@ -66,8 +66,8 @@ impl Transport for Venue {
             "/api/v1/deposit/history" => json!({"code":200,"data":within(&self.account.deposits, "createdAt")}),
             "/api/v1/withdraw/history" => json!({"code":200,"data":within(&self.account.withdrawals, "createdAt")}),
             "/api/v1/account" => json!({ "canTrade": true, "balances": [{ "asset": "btc", "free": "1", "locked": "0" }, { "asset": "eth", "free": "1", "locked": "0" }] }),
-            "/api/v1/exchangeInfo" => json!({ "symbols": [{ "symbol": "BTCUSDT", "baseAsset": "btc", "quoteAsset": "usdt" }, { "symbol": "ETHUSDT", "baseAsset": "ETH", "quoteAsset": "usdt" },
-                                                          { "symbol": "XRPUSDT", "baseAsset": "XRP", "quoteAsset": "usdt" }] }),
+            "/api/v1/exchangeInfo" => self.listing.clone().unwrap_or_else(|| json!({ "symbols": [{ "symbol": "BTCUSDT", "baseAsset": "btc", "quoteAsset": "usdt" }, { "symbol": "ETHUSDT", "baseAsset": "ETH", "quoteAsset": "usdt" },
+                                                          { "symbol": "XRPUSDT", "baseAsset": "XRP", "quoteAsset": "usdt" }] })),
             "/api/v2/myTrades" => within(&self.account.trades, "time"),
             other => panic!("unscripted {other}"),
         };
@@ -115,7 +115,30 @@ async fn stored(db: &Db, key: i64) -> (Vec<Value>, Option<String>) {
 }
 
 fn venue(account: &Rc<Account>, latency: Duration) -> Venue {
-    Venue { account: account.clone(), watch: Rc::default(), latency, log: Rc::default(), cut_at: Rc::default() }
+    Venue { account: account.clone(), watch: Rc::default(), latency, log: Rc::default(), cut_at: Rc::default(), listing: None }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn unreadable_listing_stores_nothing_and_preserves_the_watermark() {
+    let account = Rc::new(account());
+    for body in [Value::Null, json!([]), json!({"symbols": {"bad": 1}}), json!({"symbols": 1}), json!({"symbols": false})] {
+        for watermark in [None, Some("2026-08-01 00:00:00")] {
+            let (_dir, db, key) = install();
+            db.run(move |c, _| {
+                c.execute("UPDATE api_keys SET last_synced_at=?1 WHERE id=?2", rusqlite::params![watermark, key]).map_err(|e| e.to_string())?;
+                Ok(())
+            }).await.unwrap();
+            let before = stored(&db, key).await;
+            let mut v = venue(&account, Duration::from_millis(1));
+            v.listing = Some(body.clone());
+            let failure = run(&db, key, &v, Duration::from_secs(3600)).await.unwrap().unwrap().expect_err("Rails rejects this listing");
+            assert!(failure.raised, "{body}: the sync job re-raises the listing error");
+            assert_eq!(stored(&db, key).await, before, "{body}: no transactions or watermark changes");
+            assert_eq!(v.log.borrow().len(), 2, "{body}: stop after account and listing, before any history read");
+            let error: Option<String> = db.run(move |c, _| c.query_row("SELECT last_sync_error FROM api_keys WHERE id=?1", [key], |r| r.get(0)).map_err(|e| e.to_string())).await.unwrap();
+            assert_eq!(error.as_deref(), Some(failure.error.as_str()));
+        }
+    }
 }
 
 #[tokio::test(flavor = "current_thread")]

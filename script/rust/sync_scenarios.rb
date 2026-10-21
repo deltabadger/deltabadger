@@ -1570,7 +1570,16 @@ module SyncScenarios
           bot.transactions.update_all(quote: 'USDT', quote_asset_id: ctx[:assets]['USDT'].id)
         }, steps: [P.bitrue_ledger(night, account: [P.mx_account], info: [P.mx_info(%w[BTC USDT], %w[ETH USDT])], trades: [P.ok(trades)])] },
       { name: 'bitrue-ledger-nothing', setup: week, steps: [P.bitrue_ledger(night)] }
-    ]
+    ] + {
+      'null' => nil, 'array' => [], 'missing_symbols' => {},
+      'null_symbols' => { 'symbols' => nil }, 'empty_symbols' => { 'symbols' => [] },
+      'empty_object_symbols' => { 'symbols' => {} }, 'object_symbols' => { 'symbols' => { 'bad' => 1 } },
+      'string_symbols' => { 'symbols' => 'bad' }, 'number_symbols' => { 'symbols' => 1 },
+      'false_symbols' => { 'symbols' => false }
+    }.map do |name, body|
+      { name: "bitrue-ledger-listing_#{name}", setup: week,
+        steps: [P.bitrue_ledger(night, info: [P.ok(body)], trades: [P.ok(trades)], deposits: [P.br_page([dep])])] }
+    end
   end
 
   def bitrue_balance_scenarios
