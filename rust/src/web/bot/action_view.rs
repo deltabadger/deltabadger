@@ -48,6 +48,17 @@ pub(super) fn settings_response(c: &Connection, ctx: &Ctx, draft: &Draft) -> Res
     Ok(Prepared { response: response(body,!draft.errors.is_empty()), broadcasts: vec![], after_scheduling: None })
 }
 
+/// DcaMultiAsset#broadcast_metrics_panel, called only after the settings transaction commits.
+pub(super) fn broadcast_settings_metrics(c: &Connection, ctx: &Ctx, bot: &Bot) {
+    let Some(owner) = ctx.user() else { return };
+    let mut heard = super::live::owner_ctx(&ctx.app, owner.clone());
+    heard.now = ctx.now;
+    if let Err(error) = crate::web::figure::loading::broadcast_metrics_panel(c, &heard, bot.id, page::page_stream(bot)) {
+        // An after-commit rendering failure must not turn a saved setting into a failed write.
+        crate::engine::log(&format!("[web] settings metrics panel could not be rendered: {error:?}"));
+    }
+}
+
 pub(super) fn lifecycle_response(c: &Connection, ctx: &Ctx, id: i64, action: Action, view: &LifecycleView) -> Result<Prepared<Response>, WebError> {
     if !view.errors.is_empty() {
         if action == Action::Start && view.draft.as_ref().is_some_and(|d|d.original.working()) {

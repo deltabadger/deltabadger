@@ -280,8 +280,8 @@ pub(super) fn render(c: &Connection, s: &Subject, m: &Metrics, missing: &[String
     // 3.0 (Rust only): a venue the figures do not read yet did not fail to answer.
     if m.prices_stale && crate::figures::page_market::reads(&crate::figures::live::venue(s)?) { out.push_str(&format!("<p class=\"status-button__hint\" role=\"status\">\n{}\n</p>\n", t(locale, "bot.details.stats.exchange_unavailable_html"))); }
     if !hidden {
-        out.push_str(&format!("<div class=\"widget data-grid {}\">\n", if m.realised_pnl.is_zero() { "data-grid--two-columns" } else { "" }));
-        let item = |label: &str, value: String| format!("<div class=\"data-grid__item\" data-controller=\"tooltip\">\n<div class=\"label\">{}</div>\n<div class=\"data-grid__item__value\">\n{value}\n</div>\n</div>\n", t(locale, &format!("bot.details.stats.{label}")));
+        out.push_str(&format!("    <div class=\"widget data-grid {}\">\n", if m.realised_pnl.is_zero() { "data-grid--two-columns" } else { "" }));
+        let item = |label: &str, value: String| format!("      <div class=\"data-grid__item\" data-controller=\"tooltip\">\n        <div class=\"label\">{}</div>\n        <div class=\"data-grid__item__value\">\n            {value}\n        </div>\n      </div>\n", t(locale, &format!("bot.details.stats.{label}")));
         if let Some((sold, received)) = sell_only(s, false)? {
             // 3.0 (Rust only): a bot that only sells has no investment to state: what it sold, and what that brought in.
             if let Some((amount, base)) = sold {
@@ -297,12 +297,14 @@ pub(super) fn render(c: &Connection, s: &Subject, m: &Metrics, missing: &[String
         if !m.realised_pnl.is_zero() {
             out.push_str(&format!("<div class=\"data-grid__item\" data-controller=\"tooltip\">\n<div class=\"label label--info\">\n{}\n<span class=\"tooltip-info-icon\" data-action=\"mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip click->tooltip#toggle\">\n{}\n</span>\n</div>\n<div class=\"data-grid__item__value {}\">\n{}{}\n</div>\n<div class=\"tooltip tooltip--note\">{}</div>\n</div>\n", t(locale,"bot.dca_index.realised_pnl"), include_str!("../../../templates/svg/_24x24_info.html"), if m.realised_pnl.is_negative() { "text-danger" } else { "text-success" }, if m.realised_pnl.is_negative() { "" } else { "+" }, quoted(precision(&m.realised_pnl,2,true)?,quote), t(locale,"bot.dca_index.realised_pnl_note")));
         }
-        out.push_str("</div>\n");
+        out.push_str("    </div>\n");
     }
+    out.push('\n');
     let exited: Vec<_> = rows.iter().filter(|r| !locked_keys.contains(&r.key) && r.sellable && r.asset.is_some_and(|id| !members.is_empty() && !members.contains(&id))).collect();
     let composed: Vec<_> = rows.iter().filter(|r| !locked_keys.contains(&r.key) && (missing.contains(&r.key) || r.asset.is_none_or(|id| members.is_empty() || members.contains(&id)))).collect();
     let actions = rows.iter().any(|r| r.can_sell);
     if !composed.is_empty() { out.push_str(&format!("<div id=\"assets_metrics_table\" class=\"widget widget--table\" data-controller=\"table-fit\">\n{}\n</div>\n", table(c,s,&composed,"assets_metrics_list",actions,hidden,locale,prefix)?)); }
+    out.push('\n');
     if !exited.is_empty() {
         let title = if s.bot.kind == db::Kind::Index { "bot.dca_index.out_of_the_index" } else { "bot.dca_multi_asset.removed_from_portfolio" };
         out.push_str(&format!("<div id=\"exited_metrics_table\" class=\"widget widget--table\" data-controller=\"table-fit\">\n<div class=\"exited-header\">\n<span class=\"label\">{}</span>\n", t(locale,title)));
@@ -315,7 +317,9 @@ pub(super) fn render(c: &Connection, s: &Subject, m: &Metrics, missing: &[String
         out.push_str(&format!("</div>\n{}\n</div>\n",table(c,s,&exited,"exited_metrics_list",actions,hidden,locale,prefix)?));
     }
     let locked: Vec<_> = rows.iter().filter(|r| locked_keys.contains(&r.key)).collect();
+    out.push_str("\n  ");
     out.push_str(&wash_sale_table(c,s,&locked,hidden,locale,prefix)?);
+    out.push_str("\n\n");
     if !hidden && !matches!(status,3|7) && settings["direction"] != "selling" && !in_flight {
         // Never rewrite the user's persisted decline from a GET. No redeploy offer for that invalid state.
         match redeploy_offer(c,s,m,&members)? {

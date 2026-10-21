@@ -144,6 +144,19 @@ pub(crate) fn missing(s: &Subject, m: &Metrics, market: &dyn MarketData) -> Resu
 /// `read` false none in a page's read of it.
 struct Done { subject: Subject, live: Metrics, marked: Option<Metrics>, missing: Vec<String>, read: bool }
 
+/// The composition metrics partial with current prices and no loading placeholders or session token.
+/// A settings callback needs only this panel, so it never asks for candles or account totals.
+pub fn metrics_panel(c: &Connection, id: i64, market: &dyn MarketData, now: At, locale: &str, prefix: &str) -> Result<String, FiguresError> {
+    budget::within(|| {
+        let subject = Subject::load(c, id)?;
+        let user = db::user(c, subject.bot.user_id)?;
+        let walked = walk::metrics(c, &subject, now)?;
+        let metrics = live::live(c, &subject, &walked, market, now)?;
+        let missing = missing(&subject, &metrics, market)?;
+        holdings::render(c, &subject, &metrics, &missing, user.hide_balances, locale, &mut holdings::Token::Value(""), prefix, now)
+    })
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn account(c: &Connection, user_id: i64, market: &dyn MarketData, now: At, locale: &str, csrf: &str, prefix: &str) -> Result<Value, FiguresError> {
     Ok(computed(c, user_id, market, now, locale, Some(csrf), prefix)?.0)
