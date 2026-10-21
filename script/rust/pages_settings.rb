@@ -643,8 +643,8 @@ module Pages
     grid['settings_pick_csrf'] = settings_case(pick, choose.call('1', 'csrf' => 'none', 'expect' => 302), fixture: 'venues')
     grid['missing_tracker_pick_unknown'] = settings_case(pick, choose.call('999'), fixture: 'venues')
     grid['missing_tracker_pick_without_id'] = settings_case(pick, choose.call(nil), fixture: 'venues')
-    # Hyperliquid (8): a venue this build does not sync yet.
-    grid['not_ported_tracker_key_form'] = settings_case(pick, choose.call('8'), get('/tracker/add_api_key/new'), fixture: 'venues')
+    # Coinbase (4): a venue this build does not sync yet.
+    grid['not_ported_tracker_key_form'] = settings_case(pick, choose.call('4'), get('/tracker/add_api_key/new'), fixture: 'venues')
     grid['settings_key_form_kraken'] = settings_case(get('/tracker/add_api_key/new?exchange_id=5'), fixture: 'venues')
     grid['settings_key_no_exchange'] = settings_case(get('/tracker/add_api_key/new'), fixture: 'venues')
     grid['settings_key_retired_form'] = settings_case(get('/tracker/add_api_key/new?exchange_id=6&key_type=read_only').merge('expect' => 302),

@@ -185,13 +185,13 @@ fn price_rule_reason(bot: &Bot, key: &str, value: &Value) -> Option<String> {
 }
 
 /// Which bots this build runs, by venue, class and member count: the one rule the engine's guard and the bot pages
-/// (web::bot::refusal) both apply, so a page is never served for a bot the engine refuses. Kraken, Binance, Binance.US, KuCoin, Bitvavo, Gemini, Bitget and MEXC take
+/// (web::bot::refusal) both apply, so a page is never served for a bot the engine refuses. Kraken, Binance, Binance.US, KuCoin, Bitvavo, Gemini, Bitget, MEXC and Hyperliquid take
 /// buying baskets and index bots of any size (P1-T0, plan CI, plan K O6); an index bot never sells (Bots::DcaIndex is not
 /// Bot::Reversible); a basket of any size sells on every venue (6a, 6b, plan CB T3: the ranked DCA-out is venue-neutral).
 /// What else a bot needs (its amount limit on Kraken/Binance, market-cap weights) is each side's own named reason.
 pub fn admission(exchange: Option<&str>, index: bool, selling: bool) -> Option<&'static str> {
     // The text names the venues whose registry rows trade; a venue's slice extends it with its row.
-    if exchange.is_none_or(|e| crate::venue::registry::trading_rules(e).is_none()) { return Some("a bot on an exchange other than Alpaca, Kraken, Binance, Binance.US, KuCoin, Bitvavo, Gemini, Bitget and MEXC") }
+    if exchange.is_none_or(|e| crate::venue::registry::trading_rules(e).is_none()) { return Some("a bot on an exchange other than Alpaca, Kraken, Binance, Binance.US, KuCoin, Bitvavo, Gemini, Bitget, MEXC and Hyperliquid") }
     if selling && index { Some("an index bot that sells") } else { None }
 }
 

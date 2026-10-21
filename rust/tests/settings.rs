@@ -2563,8 +2563,8 @@ async fn q_absent_recovery_result_cannot_erase_a_after_an_external_credential_re
 #[tokio::test(flavor="current_thread")]
 async fn owner_slice_refuses_other_venue_add_and_replace_routes_without_changes_or_network(){
     let server=MockServer::start().await;let mut h=Harness::new(server.uri()).await;h.link();
-    // Kraken, Binance, KuCoin and Gemini keys are checked (pages.rs settings_venue_key_*), and Binance.US, Bitvavo, Bitget and MEXC keys (wizard_oracles.rs); every other venue refuses.
-    for venue in ["Bingx","Bitmart","Bitrue","Bybit","Coinbase","Hyperliquid","Ibkr"]{
+    // Kraken, Binance, KuCoin and Gemini keys are checked (pages.rs settings_venue_key_*), and Binance.US, Bitvavo, Bitget, MEXC and Hyperliquid keys (wizard_oracles.rs, hyperliquid.rs); every other venue refuses.
+    for venue in ["Bingx","Bitmart","Bitrue","Bybit","Coinbase","Ibkr"]{
         h.c.execute("UPDATE exchanges SET type=?1,name=?2 WHERE id=1",(format!("Exchanges::{venue}"),venue)).unwrap();let before=h.snapshot();
         // D5b: a retired venue gets RetiredExchangeGuard's redirect to /tracker, every other one the refusal.
         let refused=if venue=="Bitmart"{302}else{501};
@@ -3629,7 +3629,7 @@ async fn sign_in_email_nul_is_stripped_as_rails_records() { sign_in_email_matche
 
 // D5b: the tracker's "connect an exchange" flow (Tracker::PickExchangesController, Tracker::AddApiKeysController).
 fn d5b_venues(c:&rusqlite::Connection){
-    for (class,name,available) in [("Kraken","Kraken",1),("Bitmart","BitMart",1),("Gemini","Gemini",0),("Binance","Binance",1),("Hyperliquid","Hyperliquid",0)]{
+    for (class,name,available) in [("Kraken","Kraken",1),("Bitmart","BitMart",1),("Gemini","Gemini",0),("Binance","Binance",1),("Coinbase","Coinbase",0)]{
         c.execute("INSERT INTO exchanges(type,name,maker_fee,taker_fee,available,created_at,updated_at)VALUES(?1,?2,'0','0',?3,'2026-01-01','2026-01-01')",(format!("Exchanges::{class}"),name,available)).unwrap();
     }
 }
@@ -3678,7 +3678,7 @@ async fn d5b_pick_exchange_lists_available_venues_and_stores_only_the_exchange_i
 #[tokio::test(flavor="current_thread")]
 async fn d5b_retired_and_unported_venues_reach_no_venue_call_and_no_write(){
     let server=MockServer::start().await;let mut h=Harness::new(server.uri()).await;d5b_venues(&h.c);
-    let (unported,bitmart)=(d5b_exchange(&h.c,"Hyperliquid"),d5b_exchange(&h.c,"Bitmart"));
+    let (unported,bitmart)=(d5b_exchange(&h.c,"Coinbase"),d5b_exchange(&h.c,"Bitmart"));
     let before=h.snapshot();
     let form=h.browser.send(&h.app,"GET",&format!("/tracker/add_api_key/new?exchange_id={bitmart}&key_type=read_only"),None,Csrf::None,&[]).await;
     assert_eq!((form.status,form.header("location")),(302,Some("/tracker")),"RetiredExchangeGuard");

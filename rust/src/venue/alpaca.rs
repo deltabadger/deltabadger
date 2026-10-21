@@ -537,6 +537,7 @@ impl VenueFactory for LiveFactory {
                 .map_err(|_| format!("the {} exchange row is unreadable", row.name))?;
             super::binance::Pairs::load(c, id).map_err(|_| format!("the {} tickers are unreadable", row.name))
         };
+        let user = credentials.as_ref().map(|c| c.key.clone()).unwrap_or_default();
         let (key, secret, passphrase, values) = credentials.map(|c| (c.key, c.secret, c.passphrase.unwrap_or_default(), c.redaction_values)).unwrap_or_default();
         let (transport, pairs) = match self.egress_and(row.name_id, pairs) {
             Err(why) => (refused(format!(": {why}")), super::binance::Pairs::default()),
@@ -548,6 +549,7 @@ impl VenueFactory for LiveFactory {
                     super::gemini::GEMINI => ReqwestTransport::gemini(client, key, secret.clone()),
                     super::bitget::BITGET => ReqwestTransport::bitget(client, key, secret.clone(), passphrase),
                     super::mexc::MEXC => ReqwestTransport::mexc(client, key, secret.clone()),
+                    super::hyperliquid::HYPERLIQUID => ReqwestTransport::hyperliquid(client, key, secret.clone()),
                     _ => ReqwestTransport::binance(client, key, secret.clone()),
                 };
                 (transport.with_sensitive_values(values.into_iter().chain(proxy).collect()).with_clock(self.clock.clone()), pairs)
@@ -583,6 +585,10 @@ impl VenueFactory for LiveFactory {
             super::mexc::MEXC => {
                 let venue = super::mexc::MexcVenue::new(transport, row.base, &secret).with_pairs(pairs);
                 LiveVenue::Mexc(match &identity { Some(c) => venue.with_identity(c), None => venue })
+            }
+            super::hyperliquid::HYPERLIQUID => {
+                let venue = super::hyperliquid::HyperliquidVenue::new(transport, row.base, &user).with_pairs(pairs);
+                LiveVenue::Hyperliquid(match &identity { Some(c) => venue.with_identity(c), None => venue })
             }
             _ => unconnected(),
         }
@@ -623,7 +629,7 @@ fn bot_problem(c: &Connection, cipher: &Cipher, id: i64) -> Result<Option<String
     let bot = model::load_bot(c, id)?;
     let exchange = model::exchange_type(c, &bot)?;
     let Some(rules) = crate::engine::venue_rules::for_exchange(&exchange) else {
-        return Ok(Some(format!("{exchange} is not connected in this build (only Kraken, Binance, Binance.US, KuCoin, Bitvavo, Gemini, Bitget, MEXC and Alpaca)")));
+        return Ok(Some(format!("{exchange} is not connected in this build (only Kraken, Binance, Binance.US, KuCoin, Bitvavo, Gemini, Bitget, MEXC, Hyperliquid and Alpaca)")));
     };
     Ok(match model::credentials_for(c, cipher, &bot)? {
         None => Some(format!("no {} API key", rules.name)),

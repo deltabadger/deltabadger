@@ -116,6 +116,9 @@ pub(crate) enum Wire {
     Gemini,
     /// Honeymaker::Clients::Mexc#headers (venue::mexc): Binance's wire with the key in X-MEXC-APIKEY.
     Mexc,
+    /// Honeymaker::Clients::Hyperliquid (venue::hyperliquid, signers::hyperliquid): JSON POSTs; an /exchange body's `action`
+    /// is signed at send time with a nonce from the process-wide source and posted as `{action, nonce, signature}`.
+    Hyperliquid,
 }
 
 impl Wire {
@@ -127,6 +130,7 @@ impl Wire {
             Self::Bitvavo => super::bitvavo::BITVAVO,
             Self::Bitget => super::bitget::BITGET,
             Self::Gemini => super::gemini::GEMINI, Self::Mexc => super::mexc::MEXC,
+            Self::Hyperliquid => super::hyperliquid::HYPERLIQUID,
         };
         super::registry::row(exchange_type).expect("every wire's venue has a row").name
     }
@@ -180,6 +184,20 @@ pub(crate) fn request(wire: Wire, client: &reqwest::Client, r: &HttpRequest, key
             for (k, v) in super::signers::gemini::headers(keys.key, keys.secret, &r.path, &params, nonce) { b = b.header(k, v); }
         }
         Wire::Gemini => {}
+        Wire::Hyperliquid => {
+            b = b.header("Accept", "application/json").header("Content-Type", "application/json");
+            let signer = super::signers::hyperliquid::signing_key(keys.secret);
+            let body = match (&r.body, signer) {
+                // The nonce is minted here, at send time (Honeymaker::Clients::Hyperliquid.next_nonce), and signed with the action.
+                (Some(body), Some(key)) if r.path == super::hyperliquid::EXCHANGE => {
+                    let nonce = super::signers::hyperliquid::NONCE.next_at(super::binance::timestamp_ms(clock.now()).max(0) as u64);
+                    super::signers::hyperliquid::signed_body(&key, &body["action"], nonce)
+                }
+                (Some(body), _) => body.to_string(),
+                (None, _) => String::new(),
+            };
+            b = b.body(body);
+        }
     }
     b
 }

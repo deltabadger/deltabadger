@@ -110,6 +110,15 @@ module Pages
     end
     more_coins([[kraken, eur], [binance, usdt]]) if scenario['more_coins']
     kucoin(btc, eth, usdt) if scenario['kucoin_bots']
+    if scenario['hyperliquid_bots']
+      hyperliquid = Exchanges::Hyperliquid.create!(name: 'Hyperliquid', maker_fee: '0.04', taker_fee: '0.07')
+      usdc = Asset.create!(external_id: 'usd-coin', symbol: 'USDC', name: 'USDC', category: 'Cryptocurrency')
+      [btc, usdc].each { |asset| ExchangeAsset.create!(exchange: hyperliquid, asset:) }
+      Ticker.create!(exchange: hyperliquid, base_asset: btc, quote_asset: usdc, base: 'BTC', quote: 'USDC', ticker: '@1',
+                     base_decimals: 5, quote_decimals: 8, price_decimals: 5, minimum_base_size: '0', minimum_quote_size: '10')
+      ApiKey.create!(user: User.first, exchange: hyperliquid, key: '0x0123456789abcdef0123456789abcdef01234567',
+                     secret: 'a' * 64, status: :correct, key_type: :trading)
+    end
     keys = scenario.fetch('venue_keys', { 'kraken' => 'correct', 'binance' => 'correct' })
     { 'kraken' => kraken, 'binance' => binance }.each do |name, exchange|
       # The status comes from ApiKey's own list, never straight from scenario data.
@@ -153,6 +162,9 @@ module Pages
       { 'quote_asset_id' => asset_id('EUR'), 'quote_amount' => 25, 'interval' => 'day', 'allocations' => { asset_id('BTC').to_s => 1.0 } }
     when 'binance'
       { 'quote_asset_id' => asset_id('USDT'), 'quote_amount' => 15.5, 'interval' => 'week', 'allocations' => { asset_id('ETH').to_s => 1.0 } }
+    when 'hyperliquid'
+      { 'quote_asset_id' => asset_id('USDC'), 'quote_amount' => 25, 'interval' => 'day', 'allocations' => { asset_id('BTC').to_s => 1.0 },
+        'limit_ordered' => true, 'limit_order_pcnt_distance' => 0.001 }
     # Baskets on each venue: bitcoin (XBT on Kraken) and ether in EUR, which Alpaca lists too; ether and solana in USDT, which it does not.
     when 'kraken_basket'
       { 'quote_asset_id' => asset_id('EUR'), 'quote_amount' => 40, 'interval' => 'day', 'allocations' => { asset_id('BTC').to_s => 0.6, asset_id('ETH').to_s => 0.4 } }
@@ -180,7 +192,7 @@ module Pages
   }.freeze
 
   VENUE_KINDS = { 'kraken' => 'Kraken', 'binance' => 'Binance', 'kraken_basket' => 'Kraken', 'binance_basket' => 'Binance',
-                  'kucoin_basket' => 'KuCoin', 'kraken_index' => 'Kraken', 'binance_index' => 'Binance' }.freeze
+                  'kucoin_basket' => 'KuCoin', 'kraken_index' => 'Kraken', 'binance_index' => 'Binance', 'hyperliquid' => 'Hyperliquid' }.freeze
   # The crypto indices a venue index bot follows, as the syncs store them (Top coins from the image's seed, Layer 1 from
   # CoinGecko), over the venues' own coins.
   CRYPTO_INDICES = { 'top-coins' => ['internal', 'Top Coins', %w[btc eth solana]], 'layer-1' => ['coingecko', 'Layer 1 <L1>', %w[eth solana btc]] }.freeze

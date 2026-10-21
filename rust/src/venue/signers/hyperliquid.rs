@@ -109,8 +109,29 @@ pub fn signing_key(secret: &str) -> Option<SigningKey> {
 }
 
 /// `Signer#sign_l1_action(action, nonce:)`.
-pub fn sign_l1_action(key: &SigningKey, action: &Action, nonce: u64) -> Signature {
-    let (sig, recovery) = key.sign_prehash_recoverable(&agent_digest(&action_hash(action, nonce))).expect("a 32-byte digest signs");
+pub fn sign_l1_action(key: &SigningKey, action: &Action, nonce: u64) -> Signature { sign_hash(key, &action_hash(action, nonce)) }
+
+/// `post_action`'s `/exchange` body for an action already in its posted JSON shape (`Action::to_json`), signed with `nonce`:
+/// what the transport sends at send time (`sign::Wire::Hyperliquid`). The action is packed exactly as posted.
+pub fn signed_body(key: &SigningKey, action: &Value, nonce: u64) -> String {
+    let mut packed = Vec::new();
+    pack(action, &mut packed);
+    let s = sign_hash(key, &keccak(&[&packed, &nonce.to_be_bytes(), &[0]]));
+    json!({ "action": action, "nonce": nonce, "signature": { "r": s.r, "s": s.s, "v": s.v } }).to_string()
+}
+
+/// `Eth::Key#address.to_s`: the EIP-55 checksummed address the key signs as (keccak of the uncompressed public point, its
+/// last 20 bytes; a hex digit upcased where the keccak of the lowercase hex has a nibble of 8 or more).
+pub fn address(key: &SigningKey) -> String {
+    let point = key.verifying_key().to_encoded_point(false);
+    let lower = hex::encode(&keccak(&[&point.as_bytes()[1..]])[12..]);
+    let hash = keccak(&[lower.as_bytes()]);
+    let checked: String = lower.chars().enumerate().map(|(i, c)| if ((hash[i / 2] >> (if i % 2 == 0 { 4 } else { 0 })) & 0xf) >= 8 { c.to_ascii_uppercase() } else { c }).collect();
+    format!("0x{checked}")
+}
+
+fn sign_hash(key: &SigningKey, hash: &[u8; 32]) -> Signature {
+    let (sig, recovery) = key.sign_prehash_recoverable(&agent_digest(hash)).expect("a 32-byte digest signs");
     let (r, s) = sig.split_bytes();
     let hex = |b: &[u8]| { let h = hex::encode(b); format!("0x{}", match h.trim_start_matches('0') { "" => "0", t => t }) };
     Signature { r: hex(&r), s: hex(&s), v: 27 + recovery.to_byte() }

@@ -1528,7 +1528,106 @@ module SyncScenarios
     ]
   end
 
+  # Exchanges::Hyperliquid#get_ledger with AccountTransactionSync (plan VB slice B1, audit H5-H7): every fill from
+  # userFillsByTime, then every update from userNonFundingLedgerUpdates, each from startTime (the watermark less 25 h, or 0),
+  # the next page from the newest `time` of a full page (2000 fills, 500 updates), identical rows counted by the page that holds
+  # them most; a full page with nothing new or any failed read fails the run. Spot fills only ("@N" or a pair name), base and
+  # quote from the tickers (USDC for an unlisted pair), a positive fee in feeToken; spot transfers by their delta's type.
+  def hyperliquid_ledger_scenarios
+    night = '2026-09-20T02:00:00.250000Z'
+    t = ->(*args) { Time.utc(*args) }
+    me = P::HL_KEY['key'].downcase
+    since = ->(watermark) { ->(ctx) { P.hyperliquid(ctx); ctx[:key].update_columns(last_synced_at: watermark) } }
+    week = since.(t.(2026, 9, 15))
+    fills = [P.hl_fill(9001, '@142', 'B', '0.001', '60500', t.(2026, 9, 16, 10)),
+             P.hl_fill(9002, '@151', 'A', '0.5', '2400', t.(2026, 9, 17, 11), fee: '0.6', fee_token: 'USDT'),
+             P.hl_fill(9003, 'ETH/BTC', 'B', '0.2', '0.04', t.(2026, 9, 17, 12), fee: '0.00001', fee_token: 'ETH'),
+             P.hl_fill(9004, '@999', 'B', '100', '0.25', t.(2026, 9, 18), fee: '0', fee_token: nil), # unlisted: its coin, USDC
+             P.hl_fill(9005, '@142', 'A', '0.002', '61000', t.(2026, 9, 18, 1), fee: '-0.01'), # a maker rebate is no fee
+             P.hl_fill(9006, 'BTC', 'B', '0.01', '61000', t.(2026, 9, 18, 2), fee: '0.3', fee_token: 'USDC')] # a perp fill
+    staking = P.hl_update('0x' + '0' * 64, t.(2026, 9, 18, 6), 'type' => 'cStakingTransfer', 'token' => 'HYPE', 'amount' => '5.0', 'isDeposit' => true)
+    updates = [P.hl_update('0xa1', t.(2026, 9, 16), 'type' => 'spotTransfer', 'token' => 'USDT', 'amount' => '100.0', 'usdcValue' => '100.0', 'user' => me.upcase,
+                           'destination' => '0xother', 'fee' => '1.0', 'nativeTokenFee' => '0.0', 'nonce' => nil, 'feeToken' => 'USDT'),
+               P.hl_update('0xa2', t.(2026, 9, 16, 1), 'type' => 'spotTransfer', 'token' => 'BTC', 'amount' => '0.01', 'usdcValue' => '600', 'user' => '0xother',
+                           'destination' => me, 'fee' => '0.0', 'nativeTokenFee' => '0.0', 'nonce' => nil),
+               P.hl_update('0xa3', t.(2026, 9, 16, 2), 'type' => 'send', 'token' => 'ETH', 'amount' => '0.1', 'usdcValue' => '240', 'user' => me,
+                           'destination' => '0xother', 'sourceDex' => 'spot', 'destinationDex' => 'spot', 'fee' => '0.0'),
+               P.hl_update('0xa4', t.(2026, 9, 16, 3), 'type' => 'send', 'token' => 'USDT', 'amount' => '5', 'user' => me, 'destination' => me,
+                           'sourceDex' => '', 'destinationDex' => 'spot', 'fee' => '0.0'),
+               P.hl_update('0xa5', t.(2026, 9, 16, 4), 'type' => 'send', 'token' => 'USDT', 'amount' => '5', 'user' => me, 'destination' => me,
+                           'sourceDex' => 'spot', 'destinationDex' => 'spot', 'fee' => '0.0'), # spot to spot of itself: no row
+               P.hl_update('0xa6', t.(2026, 9, 17), 'type' => 'accountClassTransfer', 'usdc' => '250.0', 'toPerp' => false),
+               P.hl_update('0xa7', t.(2026, 9, 17, 1), 'type' => 'accountClassTransfer', 'usdc' => '20.0', 'toPerp' => true),
+               staking, staking, # two equal zero-hash rows in one page: both kept
+               P.hl_update('0xa8', t.(2026, 9, 18, 7), 'type' => 'cStakingTransfer', 'token' => 'HYPE', 'amount' => '1.0', 'isDeposit' => false),
+               P.hl_update('0xa9', t.(2026, 9, 18, 8), 'type' => 'spotGenesis', 'token' => 'PURR', 'amount' => '1000'),
+               P.hl_update('0xaa', t.(2026, 9, 18, 9), 'type' => 'deposit', 'usdc' => '500.0'), # into perp: no row
+               P.hl_update('0xab', t.(2026, 9, 18, 10), 'type' => 'withdraw', 'usdc' => '50.0', 'nonce' => 1, 'fee' => '1.0')]
+    # A full page of 2000 fills ending at one millisecond, then the next page from it: the boundary fills come back with two new
+    # ones; a short page ends the read.
+    base_ms = P.ms(t.(2026, 9, 16))
+    full = (1..2000).map { |i| P.hl_fill(10_000 + i, '@142', 'B', '0.0001', '60000', base_ms + [i, 1998].min * 1000) }
+    second = full.select { |r| r['time'] == full.last['time'] } + [P.hl_fill(12_001, '@142', 'A', '0.0001', '60100', base_ms + 3_000_000),
+                                                                   P.hl_fill(12_002, '@151', 'B', '0.01', '2500', base_ms + 4_000_000)]
+    # A full page of 500 updates whose last millisecond holds the two equal staking rows; the next page serves them again (not
+    # tripled) and one more.
+    ups = (1..498).map { |i| P.hl_update(format('0xb%03d', i), base_ms + i * 1000, 'type' => 'accountClassTransfer', 'usdc' => '1.0', 'toPerp' => false) }
+    boundary = P.hl_update('0x' + '0' * 64, base_ms + 600_000, 'type' => 'cStakingTransfer', 'token' => 'HYPE', 'amount' => '2.0', 'isDeposit' => false)
+    ups_full = ups + [boundary, boundary]
+    ups_next = [boundary, boundary, P.hl_update('0xc1', base_ms + 700_000, 'type' => 'spotGenesis', 'token' => 'PURR', 'amount' => '5')]
+    err = ->(status, body) { { 'status' => status, 'body' => body } }
+    [
+      { name: 'hyperliquid-ledger-week', setup: week, steps: [P.hyperliquid_ledger(night, fills: [P.ok(fills)], updates: [P.ok(updates)])] },
+      { name: 'hyperliquid-ledger-full', setup: ->(ctx) { P.hyperliquid(ctx) },
+        steps: [P.hyperliquid_ledger(night, fills: [P.ok(fills.first(2))], updates: [P.ok(updates.first(2))])] },
+      { name: 'hyperliquid-ledger-two_nights', setup: week,
+        steps: [P.hyperliquid_ledger(night, fills: [P.ok(fills)], updates: [P.ok(updates)]),
+                P.hyperliquid_ledger('2026-09-21T02:00:00.250000Z', fills: [P.ok(fills)], updates: [P.ok(updates)])] },
+      { name: 'hyperliquid-ledger-pages', setup: week, steps: [P.hyperliquid_ledger(night, fills: [P.ok(full), P.ok(second)], updates: [P.ok(ups_full), P.ok(ups_next)])] },
+      { name: 'hyperliquid-ledger-stuck', setup: week, steps: [P.hyperliquid_ledger(night, fills: [P.ok(full)])] },
+      { name: 'hyperliquid-ledger-null', setup: week, steps: [P.hyperliquid_ledger(night, fills: [P.ok(nil)], updates: [P.ok(updates.first(1))])] },
+      { name: 'hyperliquid-ledger-unprocessable', setup: week,
+        steps: [P.hyperliquid_ledger(night, fills: [err.(422, 'Failed to deserialize the JSON body into the target type')])] },
+      { name: 'hyperliquid-ledger-failed_page', setup: week, steps: [P.hyperliquid_ledger(night, fills: [P.ok(full), err.(500, 'Internal error')])] },
+      { name: 'hyperliquid-ledger-updates_failed', setup: week, steps: [P.hyperliquid_ledger(night, fills: [P.ok(fills)], updates: [err.(429, 'Too Many Requests')])] },
+      { name: 'hyperliquid-ledger-network', setup: week,
+        steps: [P.hyperliquid_ledger(night, updates: [{ 'network' => 'hyperliquid_pre_send', 'message' => 'Connection refused - connect(2) for "api.hyperliquid.xyz" port 443' }])] },
+      { name: 'hyperliquid-ledger-nothing', setup: week, steps: [P.hyperliquid_ledger(night)] }
+    ]
+  end
+
+  # Exchanges::Hyperliquid#get_balances with AccountBalance::Sync (plan VB slice B1): spotClearinghouseState's `balances`, each
+  # row's coin by the venue's tickers, free = total - hold, hold locked.
+  def hyperliquid_balance_scenarios
+    night = '2026-09-20T02:30:00.750000Z'
+    coins = P.prices_body('bitcoin' => 60_000.5, 'ethereum' => 2500.25)
+    install = ->(ctx) { P.hyperliquid(ctx) }
+    seeded = lambda do |ctx|
+      P.hyperliquid(ctx)
+      P.balance(ctx, 'BTC', free: '0.4', usd_price: '59000.5', usd_value: '23600.2', exchange: ctx[:hyperliquid])
+      P.balance(ctx, 'ETH', free: '1', usd_price: '2400', usd_value: '2400', exchange: ctx[:hyperliquid])
+    end
+    err = ->(status, body) { { 'status' => status, 'body' => body } }
+    [
+      # A coin the venue lists no ticker for (PURR) is not a balance.
+      { name: 'hyperliquid-balances-first', setup: install,
+        steps: [P.hyperliquid_balances(night, balances: P.hl_rows(%w[BTC 0.5 0.1], %w[ETH 2.0], %w[USDT 100.5 0.0], %w[PURR 3], %w[DOGE 0.0]), prices: coins)] },
+      { name: 'hyperliquid-balances-stale_and_gone', setup: seeded, steps: [P.hyperliquid_balances(night, balances: P.hl_rows(%w[BTC 0.45]), prices: P::SERVER_ERROR)] },
+      { name: 'hyperliquid-balances-no_balances', setup: seeded, steps: [P.hyperliquid_balances(night, balances: P.ok('balances' => nil))] },
+      { name: 'hyperliquid-balances-no_total', setup: seeded, steps: [P.hyperliquid_balances(night, balances: P.ok('balances' => [{ 'coin' => 'BTC', 'hold' => '0.1' }]))] },
+      { name: 'hyperliquid-balances-unprocessable', setup: seeded,
+        steps: [P.hyperliquid_balances(night, balances: err.(422, 'Failed to deserialize the JSON body into the target type'))] },
+      { name: 'hyperliquid-balances-invalid_key', setup: seeded,
+        steps: [P.hyperliquid_balances(night, balances: err.(400, 'User or API Wallet 0x0000000000000000000000000000000000000001 does not exist.'))] },
+      { name: 'hyperliquid-balances-throttled', setup: seeded, steps: [P.hyperliquid_balances(night, balances: err.(429, 'Too Many Requests'))] },
+      { name: 'hyperliquid-balances-not_json', setup: seeded, steps: [P.hyperliquid_balances(night, balances: { 'status' => 200, 'body' => 'maintenance' })] },
+      { name: 'hyperliquid-balances-network', setup: seeded,
+        steps: [P.hyperliquid_balances(night, balances: { 'network' => 'hyperliquid_pre_send', 'message' => 'Connection refused - connect(2) for "api.hyperliquid.xyz" port 443' })] },
+      { name: 'hyperliquid-balances-nothing', setup: seeded, steps: [P.hyperliquid_balances(night, balances: P.hl_rows)] }
+    ]
+  end
+
   def all = ledger_scenarios + balance_scenarios + binance_balance_scenarios + binance_ledger_scenarios + import_scenarios + kucoin_ledger_scenarios +
             kucoin_balance_scenarios + bitvavo_ledger_scenarios + bitvavo_balance_scenarios + gemini_ledger_scenarios + gemini_balance_scenarios +
-            bitget_ledger_scenarios + bitget_balance_scenarios + mexc_ledger_scenarios + mexc_balance_scenarios
+            bitget_ledger_scenarios + bitget_balance_scenarios + mexc_ledger_scenarios + mexc_balance_scenarios + hyperliquid_ledger_scenarios + hyperliquid_balance_scenarios
 end

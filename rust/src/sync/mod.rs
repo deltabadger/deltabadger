@@ -24,6 +24,7 @@ pub mod bitget_ledger;
 pub mod mexc_ledger;
 pub mod kucoin_ledger;
 pub mod gemini_ledger;
+pub mod hyperliquid_ledger;
 pub mod cache;
 pub mod continuation;
 pub mod jobs;

@@ -263,9 +263,10 @@ pub async fn run(dir: &Path, cipher: Arc<Cipher>) -> Result<Value, SyncError> {
         let gemini = step.get("gemini").is_some();
         let bitget = step.get("bitget").is_some();
         let mexc = step.get("mexc").is_some();
+        let hyperliquid = step.get("hyperliquid").is_some();
         let fake = step.get("binance_state").map(|state| FakeBinance { state: Arc::new(state.clone()), requests: Default::default() });
         let transport = ScriptedTransport::from_script(if binance { &step["binance"] } else if kucoin { &step["kucoin"] } else if bitvavo { &step["bitvavo"] }
-                                                       else if gemini { &step["gemini"] } else if bitget { &step["bitget"] } else if mexc { &step["mexc"] } else { &step["alpaca"] });
+                                                       else if gemini { &step["gemini"] } else if bitget { &step["bitget"] } else if mexc { &step["mexc"] } else if hyperliquid { &step["hyperliquid"] } else { &step["alpaca"] });
         let served = Served { script: transport.clone(), filters_after: step["server_filters_after"] == true };
         let venue = AlpacaVenue::new(served, Urls::for_passphrase(credentials.passphrase.as_deref()));
         let prices = ScriptedPrices::from_script(&step["market"]).with_rate_cache(rate_cache.clone());
@@ -278,6 +279,7 @@ pub async fn run(dir: &Path, cipher: Arc<Cipher>) -> Result<Value, SyncError> {
             }
             (Some("ledger"), None) if kucoin => super::kucoin_ledger::sync(&db, transport.clone(), key_id, &credentials, &FixedClock(at), std::time::Duration::ZERO).await?.is_err_and(|f| f.raised),
             (Some("ledger"), None) if bitvavo => super::bitvavo_ledger::sync(&db, transport.clone(), key_id, &credentials, &FixedClock(at), std::time::Duration::ZERO).await?.is_err_and(|f| f.raised),
+            (Some("ledger"), None) if hyperliquid => super::hyperliquid_ledger::sync(&db, transport.clone(), key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
             (Some("ledger"), None) if gemini => super::gemini_ledger::sync(&db, transport.clone(), key_id, &credentials, &FixedClock(at), std::time::Duration::ZERO).await?.is_err_and(|f| f.raised),
             (Some("ledger"), None) if bitget => super::bitget_ledger::sync(&db, transport.clone(), key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
             (Some("ledger"), None) if mexc => super::mexc_ledger::sync(&db, transport.clone(), key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
@@ -286,6 +288,7 @@ pub async fn run(dir: &Path, cipher: Arc<Cipher>) -> Result<Value, SyncError> {
             Some("ledger") => ledger::sync(&db, &venue, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
             Some("balances") if kucoin => balances::sync_kucoin(&db, transport.clone(), &prices, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
             Some("balances") if bitvavo => balances::sync_bitvavo(&db, transport.clone(), &prices, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
+            Some("balances") if hyperliquid => balances::sync_hyperliquid(&db, transport.clone(), &prices, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
             Some("balances") if gemini => balances::sync_gemini(&db, transport.clone(), &prices, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
             Some("balances") if bitget => balances::sync_bitget(&db, transport.clone(), &prices, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
             Some("balances") if mexc => balances::sync_mexc(&db, transport.clone(), &prices, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
@@ -298,7 +301,7 @@ pub async fn run(dir: &Path, cipher: Arc<Cipher>) -> Result<Value, SyncError> {
         let mut requests: Vec<Value> = sent.iter().map(|r| {
             let mut query: Vec<(String, String)> = r.query.iter().map(|(k, v)| (k.to_string(), v.clone())).collect();
             // Gemini's params travel in its signed payload (the harness logs them as Rails' does: each value's `to_s`).
-            if gemini { query.extend(r.body.iter().filter_map(serde_json::Value::as_object).flatten().map(|(k, v)| (k.clone(), v.as_str().map_or_else(|| v.to_string(), str::to_string)))); }
+            if gemini || hyperliquid { query.extend(r.body.iter().filter_map(serde_json::Value::as_object).flatten().map(|(k, v)| (k.clone(), v.as_str().map_or_else(|| v.to_string(), str::to_string)))); }
             query.sort();
             json!([format!("{} {}", r.method, r.path), query])
         }).collect();

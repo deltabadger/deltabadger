@@ -122,6 +122,17 @@ fn mexc_sent(t: &ScriptedTransport) -> Vec<Value> {
                                 .map(|(k, v)| (k.to_string(), Value::String(v))).collect())).collect()
 }
 
+/// The orders the Hyperliquid adapter POSTed, as the Rails harness records them: each order action's wire (`{a, b, p, s, r,
+/// t}`) without Rust's own cloid `c`; a cancel is no order.
+/// The account address decisions.rb's Hyperliquid key holds (script/rust/decisions.rb HL_ADDRESS).
+pub const HYPERLIQUID_HARNESS_ADDRESS: &str = "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123";
+
+fn hyperliquid_sent(t: &ScriptedTransport) -> Vec<Value> {
+    t.requests().into_iter().filter(|r| r.method == "POST" && r.path == crate::venue::hyperliquid::EXCHANGE).filter_map(|r| r.body)
+        .filter(|b| b["action"]["type"] == "order").filter_map(|b| b["action"]["orders"].get(0).cloned())
+        .map(|mut o| { if let Value::Object(m) = &mut o { m.shift_remove("c"); } o }).collect()
+}
+
 /// The orders the Bitvavo adapter POSTed, as the Rails harness records them: the JSON body without the clientOrderId.
 /// The orders the Bitget adapter POSTed, as the Rails harness records them: the JSON body without the clientOid.
 fn bitget_sent(t: &ScriptedTransport) -> Vec<Value> {
@@ -284,6 +295,23 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
         let poll_error = match poll { Some(polling::PollFailure::General(m)) => json!(m), _ => Value::Null };
         let funds_notified: bool = o.primary.query_row("SELECT last_end_of_funds_notification IS NOT NULL FROM bots WHERE id = ?1", [bot_id], |r| r.get(0))?;
         let mut out = json!({ "sent": gemini_sent(&transport), "changes": diff(&before, &snapshot(&o.primary)?), "mails": mails(&o.primary, &owed)?,
+                              "funds_notified": funds_notified, "poll_error": poll_error });
+        if let Some(n) = recover_sent { out["recover_sent"] = json!(n); }
+        if let Some(c) = checks { out["checks"] = json!(c); }
+        return Ok(out);
+    }
+    if scenario["venue"] == "hyperliquid" {
+        // Rust's Hyperliquid adapter over the bodies Rails' harness serves beneath Honeymaker::Clients::Hyperliquid and
+        // hyperliquid-rb, with the scenario's own tickers. Every read names its `type`; the address is the harness key's.
+        let transport = ScriptedTransport::from_script(&scenario["script"]["hyperliquid"]);
+        let exchange_id: i64 = o.primary.query_row("SELECT id FROM exchanges WHERE type = ?1", [crate::venue::hyperliquid::HYPERLIQUID], |r| r.get(0))?;
+        let pairs = crate::venue::binance::Pairs::load(&o.primary, exchange_id).map_err(EngineError::Data)?;
+        let venue = crate::venue::hyperliquid::HyperliquidVenue::new(transport.clone(), crate::venue::hyperliquid::URL, HYPERLIQUID_HARNESS_ADDRESS).with_pairs(pairs);
+        let posted = || hyperliquid_sent(&transport).len();
+        let (poll, recover_sent, checks) = play(&o, &venue, &scenario, bot_id, start, &posted).await?;
+        let poll_error = match poll { Some(polling::PollFailure::General(m)) => json!(m), _ => Value::Null };
+        let funds_notified: bool = o.primary.query_row("SELECT last_end_of_funds_notification IS NOT NULL FROM bots WHERE id = ?1", [bot_id], |r| r.get(0))?;
+        let mut out = json!({ "sent": hyperliquid_sent(&transport), "changes": diff(&before, &snapshot(&o.primary)?), "mails": mails(&o.primary, &owed)?,
                               "funds_notified": funds_notified, "poll_error": poll_error });
         if let Some(n) = recover_sent { out["recover_sent"] = json!(n); }
         if let Some(c) = checks { out["checks"] = json!(c); }
