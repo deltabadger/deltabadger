@@ -552,3 +552,92 @@ async fn a_failed_kucoin_window_leaves_that_holding_without_a_grid_and_the_rest_
     assert!(tile(&shown, 3).contains("30.00%"), "the bot is still priced: {}", tile(&shown, 3));
     assert!(tile(&shown, 1).contains("10.00%"), "{}", tile(&shown, 1));
 }
+
+// ---- Pair bots (Bots::DcaSingleAsset, Bots::Signal)
+
+/// A KuCoin signal bot on BTC-USDT, bought once for 100 tether and priced at 130 by the venue's tickers, beside the dollar
+/// basket of AAA on Alpaca (the tether basket removed), the account shown in `currency`.
+fn kucoin_pair(currency: &str, tweak: impl FnOnce(&mut Value)) -> Install {
+    let mut sc = script(true, json!(0.9993));
+    sc["GET api.kucoin.com/api/v1/market/allTickers"] = json!({"body": {"code": "200000", "data": {"time": 1, "ticker": [{"symbol": "BTC-USDT", "last": "130"}]}}});
+    tweak(&mut sc);
+    let install = install(currency, sc);
+    let c = rusqlite::Connection::open(&install.file).unwrap();
+    let t = "'2026-01-01'";
+    c.execute_batch(&format!("
+        DELETE FROM transactions WHERE bot_id=2; DELETE FROM bots WHERE id=2;
+        INSERT INTO exchanges(id,type,name,created_at,updated_at) VALUES (2,'Exchanges::Kucoin','KuCoin',{t},{t});
+        INSERT INTO tickers(id,base,base_asset_id,base_decimals,exchange_id,minimum_base_size,minimum_quote_size,price_decimals,quote,quote_asset_id,quote_decimals,ticker,available,trading_enabled,created_at,updated_at)
+            VALUES (3,'BTC',4,8,2,0,1,2,'USDT',3,2,'BTC-USDT',1,1,{t},{t});
+        INSERT INTO bots(id,user_id,exchange_id,type,status,settings,transient_data,created_at,updated_at) VALUES
+            (3,1,2,'Bots::Signal',1,'{{\"base_asset_id\":4,\"quote_asset_id\":3}}','{{}}',{t},{t});
+        INSERT INTO transactions(bot_id,exchange_id,base,base_asset_id,quote,quote_asset_id,amount,amount_exec,price,quote_amount_exec,side,status,external_status,external_id,transaction_type,created_at,updated_at) VALUES
+            (3,2,'BTC',4,'USDT',3,1,1,100,100,0,0,2,'o3','REGULAR','2026-03-02 14:30:00',{t});
+    ")).unwrap();
+    install
+}
+
+#[tokio::test]
+async fn a_kucoin_pair_beside_an_alpaca_basket_is_converted_through_the_held_tether_rate() {
+    let install = kucoin_pair("EUR", |_| {});
+    // The pair is priced from KuCoin's tickers: no Alpaca symbol is asked for it.
+    assert_eq!(loading::symbols(&rusqlite::Connection::open(&install.file).unwrap(), 1).unwrap(), vec!["AAA".to_string()]);
+    let _stop = install.consume();
+    let shown = install.shown("ready").await;
+    // 30 tether of profit, in dollars at 0.9993, then in euros at 55000/64000.
+    assert!(tile(&shown, 3).contains("<small>€</small>25.76") && tile(&shown, 3).contains("30.00%"), "{}", tile(&shown, 3));
+    assert!(tile(&shown, 3).starts_with("<div id=\"pnl_bots_signal_3\">"), "{}", tile(&shown, 3));
+    assert!(tile(&shown, 1).contains("<small>€</small>8.59"), "{}", tile(&shown, 1));
+    assert!(headline(&shown).contains("pnl-percent"), "{}", headline(&shown));
+    let metrics = shown["bots"]["3"]["metrics"].as_str().unwrap();
+    assert!(metrics.contains("100.00 <small>USDT</small>") && metrics.contains("130.00 <small>USDT</small>"), "{metrics}");
+}
+
+#[tokio::test]
+async fn a_dropped_tether_rate_empties_only_the_pairs_amount() {
+    let install = kucoin_pair("EUR", |sc| { sc["GET data-api:3000/api/v1/prices?coin_ids=tether&vs_currencies=usd"] = json!({"status": 503, "body": {}}); });
+    let _stop = install.consume();
+    let shown = install.shown("ready").await;
+    assert!(tile(&shown, 3).contains("30.00%") && !tile(&shown, 3).contains("pnl-amount"), "{}", tile(&shown, 3));
+    assert!(tile(&shown, 1).contains("<small>€</small>8.59"), "{}", tile(&shown, 1));
+}
+
+#[tokio::test]
+async fn a_raised_pair_price_keeps_the_basket_and_withholds_the_headline() {
+    // A signal bot on BTC/USDT at Alpaca: its crypto quote raises, the dollar basket's stock quote answers.
+    let mut sc = script(true, json!(0.9993));
+    sc["GET data.alpaca.markets/v1beta3/crypto/us/latest/trades"] = json!({"network": "transient", "message": "Faraday::ConnectionFailed: connection refused"});
+    let install = install("EUR", sc);
+    rusqlite::Connection::open(&install.file).unwrap().execute_batch("UPDATE bots SET type='Bots::Signal', settings='{\"base_asset_id\":4,\"quote_asset_id\":3}' WHERE id=2").unwrap();
+    let _stop = install.consume();
+    let shown = install.shown("ready").await;
+    assert!(tile(&shown, 1).contains("<small>€</small>8.59"), "{}", tile(&shown, 1));
+    assert_eq!(shown["bots"]["2"]["tile"], "<div id=\"pnl_bots_signal_2\"></div>");
+    assert_eq!(shown["bots"]["2"]["metrics"], "<div id=\"metrics\"></div>");
+    assert_eq!(shown["account"], "<div id=\"global-pnl\"></div>", "no total while a traded bot has no figures");
+}
+
+#[tokio::test]
+async fn a_keyless_account_with_a_kucoin_signal_bot_stays_ready() {
+    let (install, log) = keyless(|sc| { sc["GET api.kucoin.com/api/v1/market/allTickers"] = json!({"body": {"code": "200000", "data": {"time": 1, "ticker": [{"symbol": "BTC-USDC", "last": "130"}]}}}); });
+    rusqlite::Connection::open(&install.file).unwrap().execute_batch("UPDATE bots SET type='Bots::Signal', settings='{\"base_asset_id\":4,\"quote_asset_id\":5}' WHERE id=3").unwrap();
+    let _stop = install.consume();
+    let shown = install.shown("ready").await;
+    assert!(tile(&shown, 3).contains("30.00%"), "{}", tile(&shown, 3));
+    for _ in 0..5 { assert!(matches!(loading::prepare(&install.app, 1).await.unwrap(), Snapshot::Ready(..)), "a warm read of a keyless account is not ready"); }
+    assert_eq!(tickers_asked(&log), 1, "{:?}", log.lock().unwrap());
+    assert!(log.lock().unwrap().iter().all(|k| !k.contains("data.alpaca.markets")), "{:?}", log.lock().unwrap());
+}
+
+#[tokio::test]
+async fn a_sell_only_pair_that_received_nothing_shows_a_zero_not_markup() {
+    // money() marks a zero with its is-zero span: the Received field keeps that markup, only the currency is escaped.
+    let install = kucoin_pair("USD", |_| {});
+    let c = rusqlite::Connection::open(&install.file).unwrap();
+    c.execute_batch("UPDATE transactions SET side=1, amount_exec=0, quote_amount_exec=0 WHERE bot_id=3").unwrap();
+    let _stop = install.consume();
+    let shown = install.shown("ready").await;
+    let metrics = shown["bots"]["3"]["metrics"].as_str().unwrap();
+    assert!(metrics.contains("Received") && metrics.contains("<span class=\"is-zero\">0.00</span> <small>USDT</small>"), "{metrics}");
+    assert!(!metrics.contains("&lt;span"), "{metrics}");
+}

@@ -204,22 +204,8 @@ pub fn column(ctx: &Ctx, csrf: &str, bot: &Bot, hide_money: bool, base_url: &str
     }.render()?)
 }
 
-/// NumbersHelper#format_value: below one, rounded to `max_decimals` and its trailing zeros dropped (a bare zero stays);
-/// from one on, two decimals.
 fn format_value(value: &Num, max_decimals: u8) -> Result<String, WebError> {
-    let figure = |e: crate::figures::num::NumError| WebError::Config(format!("a figure out of range: {e:?}"));
-    let abs = if value.is_negative() { Num::Int(0).sub(value).map_err(figure)? } else { value.clone() };
-    if abs.lt(&Num::Int(1)).map_err(figure)? {
-        let text = match value {
-            Num::Int(i) => i.to_string(),
-            Num::Dec(d) => d.round(i64::from(max_decimals)).map_err(figure)?.to_s_f(),
-            Num::Float(f) => crate::figures::num::float_to_s(format::float_round(*f, i64::from(max_decimals))),
-        };
-        let trimmed = text.strip_suffix('0').map(|_| text.trim_end_matches('0').trim_end_matches('.')).unwrap_or(&text);
-        Ok(if trimmed.is_empty() { "0".into() } else { trimmed.to_string() })
-    } else {
-        Ok(format!("{:.2}", value.to_f()))
-    }
+    crate::web::figure::format_value(value, max_decimals).map_err(|e| WebError::Config(format!("a figure out of range: {e:?}")))
 }
 
 /// BotHelper#quoted_figure: the figure, then its quote in <small>.
@@ -227,10 +213,7 @@ fn quoted(figure: &str, quote: &str) -> String {
     if figure.trim().is_empty() || quote.trim().is_empty() { escape(figure) } else { format!("{} <small>{}</small>", escape(figure), escape(quote)) }
 }
 
-/// A figure as `<%= %>` prints it: an Integer, a BigDecimal (`to_s('F')`) or a Float.
-fn shown(value: &Num) -> String {
-    match value { Num::Int(i) => i.to_string(), Num::Dec(d) => d.to_s_f(), Num::Float(f) => crate::figures::num::float_to_s(*f) }
-}
+use crate::web::figure::printed as shown;
 
 /// bots/dca_single_assets/_metrics.html.erb while the figures load (BotsController#show's `@bot.metrics`, the walk without
 /// prices, and `loading: true`): what was invested is stated, everything priced waits. The wash-sale table is not

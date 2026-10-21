@@ -10,8 +10,17 @@ module PageFigures
 
   NAMES = %w[no_orders basket_buys row_readings smart_slices index_rotation liquidations tax_lots old_rows sold_out crypto_basket split
              split_fresh split_unsized price_untraded].freeze
-  # The scenarios whose bot pages Rust serves from its own routes (page_figures_grid.rs).
-  FRAMED = %w[no_orders basket_buys hidden owner_account owner_candles_failed].freeze
+  # Pair bots (Bots::DcaSingleAsset, Bots::Signal) from figures.rb. Not here: a pair whose figures raise in Rails (no
+  # fragment to render), the D1/D2 row vectors (library divergences, tests/figures.rs), KuCoin's stepped markets and a
+  # tether quote (this grid holds no conversion: tests/figures.rs and figure_fx.rs cover them).
+  PAIRS = %w[account_pair_bot pair_buys pair_crypto pair_sell_excess signal_sell_only signal_first_sell pair_tiny_avg pair_no_orders
+             pair_submitted_unfilled pair_split_settled pair_split_quarantine pair_unresolved_split pair_no_ticker pair_tickerless_two_spellings
+             pair_tickerless_null_base pair_delisted pair_replaced_listing pair_price_refused pair_candles_failed
+             pair_display_raised pair_restating pair_row_zero_proceeds pair_row_open_partial].freeze
+  # The scenarios whose bot pages Rust serves from its own routes (page_figures_grid.rs). Of the pairs, only a signal bot's page
+  # is served: each pair scenario framed is recorded again as a signal bot (`signal_framed`).
+  FRAMED = %w[no_orders basket_buys hidden owner_account owner_candles_failed signal_sell_only framed_signal_buys framed_signal_candles_failed
+              framed_signal_price_refused].freeze
 
   # The dashboard, then each bot page and its chart frame, through Rails' own controllers, as a browser loads them: the
   # frame at the src its page gave it. Recorded cold, before any figure is cached, and warm, once they are.
@@ -95,10 +104,15 @@ module PageFigures
       marked = bot.metrics_with_current_prices_and_candles
       render = ->(partial, locals) { ApplicationController.render(partial:, locals:) }
       profit = bot.profit_in_usd(data, cache_only: false) unless user.hide_balances?
+      pair = bot.dca_single_asset? || bot.signal?
       [bot.id, {
         'tile' => render.call('bots/bot_tile/bot_tile_pnl',
                               { bot:, pnl: data[:pnl], profit_usd: profit, denomination: user.denomination, loading: false }),
-        'metrics' => render.call('bots/composition/metrics', { bot:, metrics: data, loading: false, exited_title_key: bot.exited_title_key }),
+        'metrics' => if pair
+                       render.call('bots/dca_single_assets/metrics', { bot:, metrics: data, loading: false })
+                     else
+                       render.call('bots/composition/metrics', { bot:, metrics: data, loading: false, exited_title_key: bot.exited_title_key })
+                     end,
         'chart' => render.call('bots/chart', { bot:, metrics: marked, loading: false, current_user: user })
       }]
     end
@@ -130,17 +144,41 @@ module PageFigures
     list
   end
 
+  def pair_list
+    list = Figures.scenarios.select { |s| PAIRS.include?(s['name']) }
+    raise 'missing pair scenario' unless list.size == PAIRS.size
+
+    pair = list.find { |s| s['name'] == 'pair_buys' }
+    list << pair.merge('name' => 'pair_hidden', 'hide_balances' => true)
+    hosted = Figures.scenarios.find { |s| s['name'] == 'account_deltabadger' }['script'].select { |key, _| key.include?(Figures::HOSTED) }
+    list << pair.merge('name' => 'fx_pair_eur', 'provider' => 'deltabadger', 'display_currency' => 'EUR', 'script' => pair['script'].merge(hosted))
+    list << pair.merge('name' => 'pair_locked')
+    { 'framed_signal_buys' => 'pair_buys', 'framed_signal_candles_failed' => 'pair_candles_failed', 'framed_signal_price_refused' => 'pair_price_refused' }.each do |name, source|
+      sc = list.find { |s| s['name'] == source }.deep_dup
+      sc['bots'].each { |bot| bot['type'] = 'signal' }
+      list << sc.merge('name' => name)
+    end
+    list
+  end
+
   # What the owner's figures look like over time, a step at a time: what a page reads from Rails' caches as they stand
   # (`actual`), and a fresh computation (`fresh`): every cache layer cleared (the three metrics keys, the candle series,
   # the rates), rendered at `t_c`, the moment the figures being compared were computed. `t_r` is when the page reads.
   #   warm; a reread with no write; another bot started; an order filled (Bot::UpdateMetricsJob and its broadcast); a reread; the cut; the
   #   provider failing at the next cut.
   # `writes`: the rows a step committed, as stored. The provider failure's `script` replaces the market's from its step on.
+  #   Recorded for the owner's account (a basket's buy fills) and for a signal bot that only sells (a signal call fills).
   def chronology(root)
     harness
     template = Dir.mktmpdir('page-figures')
     assets = Figures.world(template)
-    sc = owner_account(scenario_list)
+    chronicle(root, template, assets, owner_account(scenario_list), 'buy')
+    chronicle(root, template, assets, pair_list.find { |s| s['name'] == 'signal_sell_only' }, 'sell')
+  ensure
+    FileUtils.rm_rf(template) if template
+  end
+
+  def chronicle(root, template, assets, sc, side)
     dir = File.join(root, sc['name'])
     FileUtils.mkdir_p(dir)
     user, bots = Figures.build(sc.merge('dir' => dir), template, assets)
@@ -182,7 +220,7 @@ module PageFigures
     started_row = ActiveRecord::Base.connection.select_one("SELECT * FROM bots WHERE id = #{started_id.to_i}")
     step.call('started', started_at, t0, writes: [['bots', started_row]])
     row = { 'bot_id' => basket.id, 'exchange_id' => basket.exchange_id, 'base_asset_id' => assets['AAA'], 'quote_asset_id' => basket.settings['quote_asset_id'],
-            'base' => 'AAA', 'quote' => 'USD', 'side' => 'buy', 'transaction_type' => 'REGULAR', 'status' => 'submitted', 'external_status' => 'closed',
+            'base' => 'AAA', 'quote' => 'USD', 'side' => side, 'transaction_type' => 'REGULAR', 'status' => 'submitted', 'external_status' => 'closed',
             'external_id' => 'chronology-fill', 'order_type' => 'market_order', 'price' => '104.5', 'amount' => '0.2', 'amount_exec' => '0.2',
             'quote_amount_exec' => '20.9', 'bot_interval' => 'week', 'bot_quote_amount' => 100.0, 'error_messages' => [], 'created_at' => t3, 'updated_at' => t3 }
     id = Transaction.insert!(row).rows.first&.first || Transaction.find_by!(external_id: 'chronology-fill').id
@@ -207,8 +245,6 @@ module PageFigures
                                                                         'bot_ids' => bots.map(&:id), 'script' => sc['script'] }))
     File.write(File.join(dir, 'chronology.json'), JSON.pretty_generate({ 'w1' => %w[filled reread_filled], 'steps' => steps }))
     ActiveRecord::Base.connection_pool.disconnect!
-  ensure
-    FileUtils.rm_rf(template) if template
   end
 
   # Denomination#format at the edges of its sign: number_to_currency writes a loss in the negative layout only when it is at
@@ -253,12 +289,15 @@ module PageFigures
                                          Figures.buy('DDD', rebalanced + 1, '90.1', '0.058823529', type: 'REBALANCE')]
     list << specials
     list.concat(display_currency(list))
+    list.concat(pair_list)
     list.each do |sc|
       dir = File.join(root, sc['name'])
       FileUtils.mkdir_p(dir)
       user, bots = Figures.build(sc.merge('dir' => dir), template, assets)
+      # A pair bot memoizes its ticker: read afresh, as a request does, after the scenario's own writes.
+      bots = bots.map { |bot| Bot.find(bot.id) } if bots.any? { |bot| bot.dca_single_asset? || bot.signal? }
       user.update_columns(wash_sale_enabled: false)
-      if sc['name'].start_with?('locked')
+      if sc['name'].start_with?('locked') || sc['name'] == 'pair_locked'
         jurisdiction = sc['name'].end_with?('_gb') ? 'GB' : 'US'
         jurisdiction = { 'locked_blank' => '', 'locked_whitespace' => " \t\n", 'locked_unicode' => "\u00a0\u3000" }.fetch(sc['name'], jurisdiction)
         user.update_columns(wash_sale_enabled: true, wash_sale_jurisdiction: jurisdiction)
@@ -283,8 +322,12 @@ module PageFigures
         out['bots'] = bot_fragments(user, bots)
         bots.each do |bot|
           bot.broadcast_pnl_update
-          bot.broadcast_metrics_panel
-          bot.broadcast_chart
+          if bot.respond_to?(:broadcast_metrics_panel)
+            bot.broadcast_metrics_panel
+            bot.broadcast_chart
+          else
+            bot.broadcast_metrics_update # a pair bot: its panel, then its chart
+          end
         end
         user.broadcast_global_pnl_update
         out['account'] = account_fragment(user)

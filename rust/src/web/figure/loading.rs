@@ -124,7 +124,7 @@ fn stale_shown(mut shown:Value,then:&Value,now:&Value)->Option<Value> {
     // would not cache them) holds the headline back, as Rails' snapshot is loading.
     if after.iter().any(|(id,v)|v[1]==true && v[2]!=true && shown["bots"][id.as_str()]["cached"]!=true) { headline=false; }
     if let Some(bots)=shown.get_mut("bots").and_then(Value::as_object_mut) { bots.retain(|id,_|!moved(id)); }
-    if !headline { if let Some(figures)=shown.as_object_mut() { figures.remove("account"); figures.remove("account_page"); } }
+    if !headline { if let Some(figures)=shown.as_object_mut() { figures.remove("account"); figures.remove("account_page"); figures.remove("history_loading"); } }
     Some(shown)
 }
 
@@ -327,7 +327,9 @@ pub fn symbols(c:&Connection,user:i64)->Result<Vec<String>,crate::figures::Figur
         let (kind,venue):(String,Option<String>)=c.query_row("SELECT b.type,e.type FROM bots b LEFT JOIN exchanges e ON e.id=b.exchange_id WHERE b.id=?1",[id],|r|Ok((r.get(0)?,r.get(1)?)))?;
         if venue.as_deref()!=Some("Exchanges::Alpaca") { continue; }
         if matches!(kind.as_str(),"Bots::DcaSingleAsset"|"Bots::Signal"){
-            for ticker in crate::figures::pair::load(c,id)?.tickers{names.insert(ticker.ticker);}
+            // A pair that cannot be read adds no name: its own figures fail where they are computed, and the other bots'
+            // names stand (S0).
+            if let Ok(pair)=crate::figures::pair::load(c,id) { for ticker in pair.tickers{names.insert(ticker.ticker);} }
             continue;
         }
         let bot=db::bot(c,id)?;
@@ -529,7 +531,7 @@ fn spawn_fill(app:&App,user:i64,info:Info,now:At,ticket:super::service::Ticket,m
         cache.set_stamp(now);
         // A bot left without figures after a transient price read (`figure::computed`'s `raised`): these figures last only
         // the price's minute, so the next read fills again and asks the quote afresh, as Rails retries its metrics job.
-        let retry=matches!(&result,Ok(rendered) if rendered.iter().any(|(_,(figures,_),_)|figures["raised"].is_array()));
+        let retry=matches!(&result,Ok(rendered) if rendered.iter().any(|(_,(figures,_),_)|figures["raised"].is_array() || figures["retry"]==true));
         let retry_at=now.utc().timestamp().saturating_add(crate::figures::page_market::PRICE_TTL);
         let (ready,reason,deadline)=match result {
             // What the last pass rendered is kept with the cache: no page computes it. Kept too when a write overtook the
@@ -627,7 +629,7 @@ pub fn render(c:&Connection,user:i64,snapshot:&Snapshot,locale:&str,csrf:&str,pr
     let mut statement=c.prepare("SELECT id, type FROM bots WHERE user_id = ?1 AND status != ?2")?;
     for row in statement.query_map(rusqlite::params![user,crate::enums::BotStatus::Deleted as i64],|r|Ok((r.get::<_,i64>(0)?,r.get::<_,Option<String>>(1)?)))? {
         let (id,kind)=row?;
-        let kind=if kind.as_deref()==Some("Bots::DcaIndex"){"dca_index"}else{"dca_multi_asset"};
+        let (_,kind)=super::kind_of(kind.as_deref());
         bots.insert(id.to_string(),serde_json::json!({"tile":absent(&format!("pnl_bots_{kind}_{id}")),"metrics":absent("metrics"),"chart":absent("chart")}));
     }
     Ok(Some(serde_json::json!({"bots":bots,"account":absent("global-pnl")})))

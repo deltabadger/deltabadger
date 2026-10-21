@@ -1,11 +1,11 @@
 //! Read-only page figures. All decimals, including formatting, stay inside one budget and thread.
-use crate::figures::{at::At, budget, chart, db::{self, Subject}, live, market::MarketData, num::Num, walk::{self, Metrics}, FiguresError};
+use crate::figures::{at::At, budget, chart, db::{self, Subject}, live, market::MarketData, num::Num, pair, walk::{self, Metrics}, FiguresError};
 use rusqlite::Connection;
 use serde_json::{json, Map, Value};
 
 mod holdings;
 pub(crate) use holdings::redeploy_offer;
-pub(crate) use plot::NOT_CHARTED;
+pub use plot::NOT_CHARTED;
 mod plot;
 mod headline;
 pub mod service;
@@ -73,8 +73,42 @@ fn shown(d: &totals::Denomination, usd: &Num, digits: usize) -> Result<String, F
 pub fn denominated(currency: &str, rate: &str, usd: &str, digits: usize) -> Result<String, FiguresError> {
     budget::within(|| shown(&totals::Denomination { currency: currency.into(), rate: crate::figures::dec::Dec::strict(rate)? }, &Num::Dec(crate::figures::dec::Dec::strict(usd)?), digits))
 }
-fn tile(s: &Subject, m: &Metrics, unavailable: bool, profit: Option<&Num>, d: &totals::Denomination) -> Result<String, FiguresError> {
-    let kind = if s.bot.kind == db::Kind::Basket { "dca_multi_asset" } else { "dca_index" };
+/// A bot type's class and its tile's kind (`dom_id`): `Bots::Signal` is `("Signal", "signal")`.
+pub(crate) fn kind_of(class: Option<&str>) -> (&'static str, &'static str) {
+    match class {
+        Some("Bots::DcaIndex") => ("DcaIndex", "dca_index"),
+        Some("Bots::DcaSingleAsset") => ("DcaSingleAsset", "dca_single_asset"),
+        Some("Bots::Signal") => ("Signal", "signal"),
+        _ => ("DcaMultiAsset", "dca_multi_asset"),
+    }
+}
+/// A bot whose figures raised (a transient read): empty targets, as a failed fill's (`loading::render`): no widget and no
+/// loader left waiting, and the next fill's publication replaces them.
+fn raised_targets(id: i64, kind: &str) -> Value {
+    json!({ "tile": format!("<div id=\"pnl_bots_{kind}_{id}\"></div>"), "metrics": "<div id=\"metrics\"></div>",
+        "chart": plot::NOT_CHARTED, "missing": [], "cached": false, "chart_cached": false })
+}
+/// NumbersHelper#format_value: below one, rounded to `max_decimals`, its trailing zeros dropped (a bare zero stays), printed
+/// as Ruby prints it (a Float's exponent form included); from one on, two decimals.
+pub(crate) fn format_value(value: &Num, max_decimals: u8) -> Result<String, crate::figures::num::NumError> {
+    let abs = if value.is_negative() { Num::Int(0).sub(value)? } else { value.clone() };
+    if abs.lt(&Num::Int(1))? {
+        let text = match value {
+            Num::Int(i) => i.to_string(),
+            Num::Dec(d) => d.round(i64::from(max_decimals))?.to_s_f(),
+            Num::Float(f) => crate::figures::num::float_to_s(crate::web::format::float_round(*f, i64::from(max_decimals))),
+        };
+        let trimmed = text.strip_suffix('0').map(|_| text.trim_end_matches('0').trim_end_matches('.')).unwrap_or(&text);
+        Ok(if trimmed.is_empty() { "0".into() } else { trimmed.to_string() })
+    } else {
+        Ok(format!("{:.2}", value.to_f()))
+    }
+}
+/// A figure as `<%= %>` prints it: an Integer, a BigDecimal (`to_s('F')`) or a Float.
+pub(crate) fn printed(value: &Num) -> String {
+    match value { Num::Int(i) => i.to_string(), Num::Dec(d) => d.to_s_f(), Num::Float(f) => crate::figures::num::float_to_s(*f) }
+}
+fn tile(id: i64, kind: &str, m: &Metrics, unavailable: bool, profit: Option<&Num>, d: &totals::Denomination) -> Result<String, FiguresError> {
     let mut body = String::new();
     // Figures that cannot be stated leave the tile without them: no widget, no dash.
     if let Some(pnl) = m.pnl.as_ref().filter(|_| !unavailable) {
@@ -85,7 +119,7 @@ fn tile(s: &Subject, m: &Metrics, unavailable: bool, profit: Option<&Num>, d: &t
         }
         body.push_str("</div>\n");
     }
-    Ok(format!("<div id=\"pnl_bots_{kind}_{}\">\n{body}</div>\n", s.bot.id))
+    Ok(format!("<div id=\"pnl_bots_{kind}_{id}\">\n{body}</div>\n"))
 }
 pub(crate) fn missing(s: &Subject, m: &Metrics, market: &dyn MarketData) -> Result<Vec<String>, FiguresError> {
     if m.asset_breakdown.is_empty() { return Ok(vec![]); }
@@ -105,6 +139,10 @@ pub(crate) fn missing(s: &Subject, m: &Metrics, market: &dyn MarketData) -> Resu
     }
     Ok(keys)
 }
+
+/// One bot's figures as the account's totals read them: `marked` None is no track in the history (its chart raised), and
+/// `read` false none in a page's read of it.
+struct Done { subject: Subject, live: Metrics, marked: Option<Metrics>, missing: Vec<String>, read: bool }
 
 #[allow(clippy::too_many_arguments)]
 pub fn account(c: &Connection, user_id: i64, market: &dyn MarketData, now: At, locale: &str, csrf: &str, prefix: &str) -> Result<Value, FiguresError> {
@@ -132,16 +170,49 @@ fn computed(c: &Connection, user_id: i64, market: &dyn MarketData, now: At, loca
         let mut withheld = false;
         let mut raised = vec![];
         let mut history_cold = false;
-        for (id, _) in db::account_bots(c, user_id)? {
+        // A pair bot's marked chart that raised (Rails: its live figures cached and broadcast, the chart retried): the
+        // headline is shown without history.
+        let mut marked_raised = false;
+        for (id, class) in db::account_bots(c, user_id)? {
+            let (_, kind) = kind_of(class.as_deref());
+            if class.as_deref().is_some_and(pair::is_pair) {
+                // Bots::DcaSingleAsset::Measurable, which Bots::Signal includes: the walk, the live pass and the marked chart,
+                // each saying whether Rails caches it.
+                let live = match pair::metrics(c, id, now).and_then(|walked| pair::live(c, &walked, market, now)) {
+                    Err(FiguresError::Raised(_)) => {
+                        bots.insert(id.to_string(), raised_targets(id, kind));
+                        withheld |= !db::orders(c, id)?.is_empty(); raised.push(id); continue;
+                    }
+                    other => other?,
+                };
+                let (live, cached) = live;
+                let marked = match pair::marked_at(&live, market, now) { Err(FiguresError::Raised(_)) => None, other => Some(other?) };
+                marked_raised |= marked.is_none();
+                let chart_cache = marked.as_ref().is_some_and(|(_, gridded)| *gridded);
+                let metrics = holdings::render_pair(c, &live, user.hide_balances, locale, prefix, now)?;
+                let profit = if user.hide_balances { None } else {
+                    match totals::profit_in_usd(c, market, &mut rates, live.subject.quote.as_deref(), &live.metrics) {
+                        Err(FiguresError::NotComputed(reason)) if reason == "quote currency unavailable" => None,
+                        other => without_fx(other)?,
+                    }
+                };
+                // D3 (3.0, Rust only): a stale pair's chart is not drawn, as a basket's is not: Rails' broadcast draws it.
+                let chart = match &marked { Some((m, _)) => plot::render(c, &live.subject, &m.metrics, &[], user.hide_balances, locale, &user.time_zone, true)?, None => plot::NOT_CHARTED.into() };
+                bots.insert(id.to_string(), json!({ "tile": tile(id, kind, &live.metrics, live.metrics.prices_stale, profit.as_ref(), &shown_in)?, "metrics": metrics, "chart": chart, "missing": [],
+                    "cached": cached,
+                    // The page draws a chart only beside cached figures (@chart_metrics is read only unless @metrics_loading).
+                    "chart_cached": cached && chart_cache }));
+                history_cold |= cached && !chart_cache;
+                // User::PnlHistory#marked_metrics (a page's read) takes the candles cache first, and nothing when the prices
+                // cache has no labels either: a bot with neither cached is no track there. The live pass reads its chart.
+                computed.push(Done { subject: live.subject, live: live.metrics, marked: marked.map(|(m, _)| m.metrics), missing: vec![], read: cached || chart_cache });
+                continue;
+            }
             let subject = Subject::load(c, id)?;
             let walked = walk::metrics(c, &subject, now)?;
             let marked_live = match live::live(c, &subject, &walked, market, now) {
                 Err(FiguresError::Raised(_)) => {
-                    // Empty targets, as a failed fill's (`loading::render`): no widget and no loader left waiting, and the
-                    // next fill's publication replaces them.
-                    let kind = if subject.bot.kind == db::Kind::Index { "dca_index" } else { "dca_multi_asset" };
-                    bots.insert(id.to_string(), json!({ "tile": format!("<div id=\"pnl_bots_{kind}_{id}\"></div>"), "metrics": "<div id=\"metrics\"></div>",
-                        "chart": plot::NOT_CHARTED, "missing": [], "cached": false, "chart_cached": false }));
+                    bots.insert(id.to_string(), raised_targets(id, kind));
                     withheld |= !subject.orders.is_empty(); raised.push(id); continue;
                 }
                 other => other?,
@@ -159,7 +230,7 @@ fn computed(c: &Connection, user_id: i64, market: &dyn MarketData, now: At, loca
                     other => without_fx(other)?,
                 }
             };
-            bots.insert(id.to_string(), json!({ "tile": tile(&subject, &marked_live, marked_live.prices_stale || !missing.is_empty(), profit.as_ref(), &shown_in)?, "metrics": metrics, "chart": plot::render(c, &subject, &marked, &missing, user.hide_balances, locale, &user.time_zone)?, "missing": missing,
+            bots.insert(id.to_string(), json!({ "tile": tile(id, kind, &marked_live, marked_live.prices_stale || !missing.is_empty(), profit.as_ref(), &shown_in)?, "metrics": metrics, "chart": plot::render(c, &subject, &marked, &missing, user.hide_balances, locale, &user.time_zone, false)?, "missing": missing,
                 // What Rails would find in its cache (Measurable#metrics_with_current_prices): stale figures, or ones with no
                 // chart point yet, are never written, so its bot page reads them as still loading.
                 "cached": !marked_live.prices_stale && !marked_live.chart.labels.is_empty(),
@@ -169,14 +240,22 @@ fn computed(c: &Connection, user_id: i64, market: &dyn MarketData, now: At, loca
             // User::PnlHistory#marked_metrics: figures cached without a marked chart are a cold track, and one cold track
             // is the whole account's history waiting.
             history_cold |= !marked_live.prices_stale && !marked_live.chart.labels.is_empty() && !gridded;
-            computed.push((subject, marked_live, marked, missing));
+            computed.push(Done { subject, live: marked_live, marked: Some(marked), missing, read: true });
         }
-        let unavailable = computed.iter().any(|(_,live,m,missing)| live.prices_stale || !missing.is_empty() || !m.chart_omitted.is_empty());
-        let parts = |marked: bool| computed.iter().map(|(s,live,chart,_)| totals::Part { bot_id:s.bot.id, quote:s.quote.as_deref(),traded:!s.orders.is_empty(),figures:Ok(Some(if marked { chart } else { live })) }).collect::<Vec<_>>();
-        let pnl = without_fx(totals::global_pnl(c,market,&mut totals::Rates::default(),&parts(false)))?;
-        let history = without_fx(totals::pnl_history(c,market,&mut totals::Rates::default(),&parts(true)).map(|h|h.result))?;
+        let unavailable = computed.iter().any(|d| d.live.prices_stale || !d.missing.is_empty() || d.marked.as_ref().is_some_and(|m| !m.chart_omitted.is_empty()));
+        // (marked, as a page reads them)
+        let parts = |marked: bool, page: bool| computed.iter().map(|d| {
+            let figures = if !marked { Some(&d.live) } else if page && !d.read { None } else { d.marked.as_ref() };
+            // No marked track: no part of the history, as Rails skips it.
+            totals::Part { bot_id: d.subject.bot.id, quote: d.subject.quote.as_deref(), traded: figures.is_some() && !d.subject.orders.is_empty(), figures: Ok(figures) }
+        }).collect::<Vec<_>>();
+        let pnl = without_fx(totals::global_pnl(c,market,&mut totals::Rates::default(),&parts(false,false)))?;
+        let history = |page: bool| -> Result<_, FiguresError> { if marked_raised { Ok(None) } else { without_fx(totals::pnl_history(c,market,&mut totals::Rates::default(),&parts(true,page)).map(|h|h.result)) } };
+        let (history, page_history) = (history(false)?, if computed.iter().all(|d| d.read) { None } else { Some(history(true)?) });
         let mut out = json!({"bots": bots});
         if !raised.is_empty() { out["raised"] = json!(raised); }
+        // A pair's chart that raised is retried, as Rails retries its metrics job: these figures last the price's minute.
+        if marked_raised { out["retry"] = Value::Bool(true); }
         // A traded bot without figures: no total without it (User#global_pnl_snapshot), and its target stays empty for the
         // next fill's publication.
         if withheld { out["account"] = Value::String("<div id=\"global-pnl\"></div>".into()); }
@@ -185,7 +264,12 @@ fn computed(c: &Connection, user_id: i64, market: &dyn MarketData, now: At, loca
             // computed, marked or not. A page reads Rails' caches: while a bot's marked chart is cold, its headline has no
             // history yet, and the page asks for the live pass (@global_pnl_history_loading).
             out["account"] = Value::String(headline::render(pnl.as_ref(),history.as_ref(),unavailable,user.hide_balances,&shown_in)?);
-            if history_cold { out["account_page"] = Value::String(headline::render(pnl.as_ref(),None,unavailable,user.hide_balances,&shown_in)?); }
+            if history_cold && !marked_raised {
+                out["account_page"] = Value::String(headline::render(pnl.as_ref(),None,unavailable,user.hide_balances,&shown_in)?);
+                out["history_loading"] = Value::Bool(true);
+            }
+            // A track the page's read does not have (a pair with nothing cached): its history is the others'.
+            else if let Some(page) = page_history.filter(|page| *page != history) { out["account_page"] = Value::String(headline::render(pnl.as_ref(),page.as_ref(),unavailable,user.hide_balances,&shown_in)?); }
         }
         let bytes = out.to_string().len();
         if bytes > 8 * 1024 * 1024 { return Err(FiguresError::NotComputed(crate::figures::OVER_BUDGET.into())); }
@@ -200,9 +284,8 @@ fn computed(c: &Connection, user_id: i64, market: &dyn MarketData, now: At, loca
 pub fn streams(c:&Connection,user:i64,rendered:&Value)->Result<Vec<(String,String)>,FiguresError>{
     use base64::{engine::general_purpose::URL_SAFE_NO_PAD,Engine};
     let mut out=vec![];
-    for (id,_) in db::account_bots(c,user)? {
-        let bot=db::bot(c,id)?;
-        let (class,kind)=if bot.kind==db::Kind::Index{("DcaIndex","dca_index")}else{("DcaMultiAsset","dca_multi_asset")};
+    for (id,class) in db::account_bots(c,user)? {
+        let (class,kind)=kind_of(class.as_deref());
         let page=format!("{}:bot_updates",URL_SAFE_NO_PAD.encode(format!("gid://deltabadger/Bots::{class}/{id}")));
         for (part,target,stream) in [("tile",format!("pnl_bots_{kind}_{id}"),format!("user_{user}:bot_updates")),("metrics","metrics".into(),page.clone()),("chart","chart".into(),page)]{
             if let Some(html)=rendered["bots"][id.to_string()][part].as_str(){out.push((stream,crate::web::turbo::stream("replace",&target,html)));}
