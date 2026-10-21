@@ -194,7 +194,8 @@ pub(super) fn render_pair(c: &Connection, p: &crate::figures::pair::Pair, hidden
                 let amount = precision(&Num::Dec(amount), 6, false)?;
                 out.push_str(&item("bot.details.stats.sold", format!("{} <small>{}</small>", amount.trim_end_matches('0').trim_end_matches('.'), escape(&base))));
             }
-            out.push_str(&item("bot.details.stats.received", quoted(&money(&Num::Dec(received))?)));
+            // money() returns trusted markup (the is-zero span); only the currency is escaped.
+            out.push_str(&item("bot.details.stats.received", self::quoted(money(&Num::Dec(received))?, quote.trim())));
         } else {
             out.push_str(&item("data_labels.invested", quoted(&format_value(&m.total_quote_amount_invested, max(quote_decimals))?)));
             let value = if stale { NO_VALUE.to_string() } else { quoted(&format_value(&m.total_amount_value_in_quote, max(quote_decimals))?) };

@@ -628,3 +628,16 @@ async fn a_keyless_account_with_a_kucoin_signal_bot_stays_ready() {
     assert_eq!(tickers_asked(&log), 1, "{:?}", log.lock().unwrap());
     assert!(log.lock().unwrap().iter().all(|k| !k.contains("data.alpaca.markets")), "{:?}", log.lock().unwrap());
 }
+
+#[tokio::test]
+async fn a_sell_only_pair_that_received_nothing_shows_a_zero_not_markup() {
+    // money() marks a zero with its is-zero span: the Received field keeps that markup, only the currency is escaped.
+    let install = kucoin_pair("USD", |_| {});
+    let c = rusqlite::Connection::open(&install.file).unwrap();
+    c.execute_batch("UPDATE transactions SET side=1, amount_exec=0, quote_amount_exec=0 WHERE bot_id=3").unwrap();
+    let _stop = install.consume();
+    let shown = install.shown("ready").await;
+    let metrics = shown["bots"]["3"]["metrics"].as_str().unwrap();
+    assert!(metrics.contains("Received") && metrics.contains("<span class=\"is-zero\">0.00</span> <small>USDT</small>"), "{metrics}");
+    assert!(!metrics.contains("&lt;span"), "{metrics}");
+}
