@@ -200,6 +200,77 @@ async fn both_sides_of_every_recorded_rails_order_are_reproduced() {
 fn raw_order(id: &str) -> Value { json!({"orderId":id,"orderLinkId":CL,"symbol":"BTCUSDT","orderType":"Market","side":"Buy","qty":"0.001","avgPrice":"60000","price":"0","cumExecQty":"0.001","cumExecValue":"60","orderStatus":"Filled"}) }
 fn reply(rows: Value) -> Value { json!({"status":200,"body":{"retCode":0,"result":{"list":rows}}}) }
 #[tokio::test]
+async fn the_factory_builds_bybit_without_reading_transactions() {
+    use deltabadger::venue::{alpaca::LiveFactory, VenueFactory};
+    let dir = tempfile::tempdir().unwrap();
+    let c = rusqlite::Connection::open(dir.path().join("primary.sqlite3")).unwrap();
+    c.execute_batch("CREATE TABLE app_configs (key TEXT, value TEXT);
+        CREATE TABLE exchanges (id INTEGER PRIMARY KEY, type TEXT);
+        CREATE TABLE assets (id INTEGER PRIMARY KEY, symbol TEXT);
+        CREATE TABLE tickers (id INTEGER PRIMARY KEY, exchange_id INTEGER, ticker TEXT, base TEXT, quote TEXT, price_decimals INTEGER, available BOOLEAN, base_asset_id INTEGER, quote_asset_id INTEGER);
+        INSERT INTO exchanges VALUES (9, 'Exchanges::Bybit');").unwrap();
+    // There is deliberately no transactions table. An expired send bound proves the real transport was built,
+    // without opening a socket; a factory that tried to read transactions would instead refuse the transport.
+    let factory = LiveFactory::for_install(&c, &common::seed::cipher())
+        .with_clock(std::sync::Arc::new(deltabadger::engine::FixedClock("2026-09-02T00:00:00Z".parse().unwrap())));
+    let v = factory.for_bot_with_redaction(bybit::BYBIT, None, vec![]);
+    match v.add_order(&order()).await {
+        Err(VenueError::Rejected(m)) => assert!(m[0].starts_with("past the send bound"), "{m:?}"),
+        other => panic!("expected an expired send bound, got {other:?}"),
+    }
+}
+
+#[tokio::test]
+async fn history_fallback_reads_only_the_missing_orders_current_placement_time() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("primary.sqlite3");
+    let c = rusqlite::Connection::open(&path).unwrap();
+    c.execute_batch("CREATE TABLE exchanges (id INTEGER PRIMARY KEY, type TEXT UNIQUE);
+        CREATE TABLE transactions (id INTEGER PRIMARY KEY, exchange_id INTEGER, external_id TEXT, created_at TEXT);
+        CREATE UNIQUE INDEX index_transactions_on_exchange_id_and_external_id ON transactions(exchange_id, external_id);
+        INSERT INTO exchanges VALUES (9, 'Exchanges::Bybit'), (10, 'Exchanges::Other');").unwrap();
+    let at: DateTime<Utc> = "2026-08-01T00:00:00Z".parse().unwrap();
+    let (t, v) = venue(json!({"GET /v5/order/realtime":[reply(json!([]))],
+        "GET /v5/order/history":[reply(json!([])), reply(json!([raw_order("old-id")]))]}));
+    let v = v.with_history_db(path, at + chrono::Duration::days(40));
+    // The placement is recorded after the handle is built. Neither another exchange's same id nor an unrelated
+    // historical order's malformed timestamp may affect this order's fallback.
+    c.execute_batch("INSERT INTO transactions VALUES (1, 10, 'old-id', 'unreadable'),
+        (2, 9, 'unrelated-id', 'unreadable'), (3, 9, 'old-id', '2026-08-01 00:00:00');").unwrap();
+    assert_eq!(v.orders(&["old-id".into()]).await.unwrap(), vec![bybit::parse_order("old-id", &raw_order("old-id")).unwrap()]);
+    let requests = t.requests();
+    assert_eq!(requests.len(), 3);
+    for (n, r) in requests.iter().skip(1).enumerate() {
+        assert_eq!(r.path, bybit::HISTORY_PATH);
+        let start = at - chrono::Duration::hours(1) + chrono::Duration::days(7 * n as i64);
+        let q = |key| r.query.iter().find(|(k,_)| *k == key).unwrap().1.as_str();
+        assert_eq!(q("orderId"), "old-id");
+        assert_eq!(q("startTime"), start.timestamp_millis().to_string());
+        assert_eq!(q("endTime"), (start + chrono::Duration::days(7)).timestamp_millis().to_string());
+    }
+    assert_eq!(v.orders(&["unknown-id".into()]).await,
+        Err(VenueError::Rejected(vec!["Bybit order unknown-id is not in realtime and its placement time is unknown".into()])));
+    assert_eq!(t.requests().len(), 4, "an unknown placement cannot start a history walk");
+}
+
+#[tokio::test]
+async fn realtime_and_client_recovery_do_not_read_placement_times() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("missing.sqlite3");
+    let at: DateTime<Utc> = "2026-08-01T00:00:00Z".parse().unwrap();
+    let (t, v) = venue(json!({"GET /v5/order/realtime":[reply(json!([raw_order("old-id")])), reply(json!([]))],
+        "GET /v5/order/history":[reply(json!([raw_order("old-id")]))]}));
+    let v = v.with_history_db(path.clone(), at + chrono::Duration::days(40));
+    assert_eq!(v.orders(&["old-id".into()]).await.unwrap()[0].txid, "old-id");
+    assert_eq!(t.requests().len(), 1);
+    assert_eq!(v.order_by_client_id(CL, "BTCUSDT", at).await.unwrap().unwrap().txid, "old-id");
+    assert_eq!(t.requests().len(), 3, "client recovery already has the placement time");
+    assert!(matches!(v.orders(&["old-id".into()]).await, Err(VenueError::Transient(_))));
+    assert_eq!(t.requests().len(), 4, "an unreadable placement prevents the history request");
+    assert!(!path.exists(), "the read must not create a missing instance database");
+}
+
+#[tokio::test]
 async fn history_walk_and_client_recovery_find_raw_ids_and_cancel_uses_the_symbol() {
     let at: DateTime<Utc> = "2026-08-01T00:00:00Z".parse().unwrap();
     let end = at + chrono::Duration::days(40);

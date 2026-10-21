@@ -581,11 +581,8 @@ impl VenueFactory for LiveFactory {
                 LiveVenue::Bitget(match &identity { Some(c) => venue.with_identity(c), None => venue })
             }
             super::bybit::BYBIT => {
-                let history = self.egress_and(row.name_id, super::bybit::placement_times);
-                let venue = match history {
-                    Ok((_, placed)) => super::bybit::BybitVenue::new(transport, row.base).with_pairs(pairs).with_history(placed, self.clock.now()),
-                    Err(why) => super::bybit::BybitVenue::new(refused(format!(": {why}")), row.base),
-                };
+                let mut venue = super::bybit::BybitVenue::new(transport, row.base).with_pairs(pairs);
+                if let Some((path, _)) = &self.settings { venue = venue.with_history_db(path.clone(), self.clock.now()); }
                 LiveVenue::Bybit(match &identity { Some(c) => venue.with_identity(c), None => venue })
             }
             _ => unconnected(),

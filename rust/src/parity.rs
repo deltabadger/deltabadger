@@ -274,7 +274,8 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
         let transport = ScriptedTransport::from_script(&scenario["script"]["bybit"]);
         let exchange_id: i64 = o.primary.query_row("SELECT id FROM exchanges WHERE type = ?1", [crate::venue::bybit::BYBIT], |r| r.get(0))?;
         let pairs = crate::venue::binance::Pairs::load(&o.primary, exchange_id).map_err(EngineError::Data)?;
-        let venue = crate::venue::bybit::BybitVenue::new(transport.clone(), crate::venue::bybit::URL).with_pairs(pairs).with_history(crate::venue::bybit::placement_times(&o.primary).map_err(EngineError::Data)?, start);
+        let venue = crate::venue::bybit::BybitVenue::new(transport.clone(), crate::venue::bybit::URL).with_pairs(pairs)
+            .with_history_db(o.primary.path().expect("the scenario's install database").into(), start);
         let posted = || bybit_sent(&transport).len();
         let (poll, recover_sent, checks) = play(&o, &venue, &scenario, bot_id, start, &posted).await?;
         let poll_error = match poll { Some(polling::PollFailure::General(m)) => json!(m), _ => Value::Null };
