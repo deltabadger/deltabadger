@@ -9,7 +9,7 @@ import { Controller } from "@hotwired/stimulus";
 // user has since closed.
 //
 // The pane beside it marks itself settings__pane--more while there is content below its fold, which
-// draws the chevron at its bottom edge. It is checked on scroll, on a resize, and whenever a widget
+// shows an arrow at its bottom edge. It is checked on scroll, on a resize, and whenever a widget
 // inside it is replaced or opens.
 //
 // Connects to data-controller="settings-nav"
@@ -17,8 +17,15 @@ export default class extends Controller {
   connect() {
     this.pane = this.element.closest(".settings__frame")?.querySelector(".settings__pane");
     if (this.pane) {
-      this.check = () => this.pane.classList.toggle("settings__pane--more",
-        this.pane.scrollTop + this.pane.clientHeight < this.pane.scrollHeight - 1);
+      this.check = () => {
+        // The arrow is the pane's last child, so it can stick to the pane's bottom edge.
+        if (this.pane.lastElementChild?.className !== "settings__more") {
+          this.pane.querySelector(":scope > .settings__more")?.remove();
+          this.pane.insertAdjacentHTML("beforeend", '<span class="settings__more" aria-hidden="true"></span>');
+        }
+        this.pane.classList.toggle("settings__pane--more",
+          this.pane.scrollTop + this.pane.clientHeight < this.pane.scrollHeight - 1);
+      };
       this.pane.addEventListener("scroll", this.check, { passive: true });
       this.resized = new ResizeObserver(this.check);
       this.resized.observe(this.pane);
