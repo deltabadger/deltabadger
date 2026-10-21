@@ -474,18 +474,103 @@ fn hyperliquid_landed_found(rails_out: &serde_json::Value, rust_out: &serde_json
     Ok(())
 }
 
-/// Plan VB slice B1. Every Hyperliquid bot places limit orders (Bot::LimitOrderable#limit_orders_locked?), so no DCA order
+/// D-HL-INVALID-PRIVATE-KEY: Rails cannot classify the raised signer error inside signal placement;
+/// Rust's real transport proves no exchange request was sent, records one failure and clears the intent.
+fn hyperliquid_invalid_private_key(dir: &Path, rails: &serde_json::Value, rust: &serde_json::Value) -> Result<(), String> {
+    let err = "Hyperliquid: the API secret is not an agent private key; not sent";
+    let empty = serde_json::json!([]);
+    if rails["sent"] != empty || rust["sent"] != empty { return Err("an invalid private key sent an order".into()); }
+    let rb = &rails["changes"]["bots"][0];
+    let marker = &rb["after"]["transient_data"]["signal_placement_unresolved"];
+    if rails["changes"]["transactions"] != empty || rails["mails"] != empty || marker["side"] != "buy"
+        || marker["error"] != "Secp256k1::Error: private key data must be 32 bytes in length" {
+        return Err(format!("Rails must leave only the ambiguous marker and log: {rails}"));
+    }
+    let logs = rails["changes"]["bot_activity_logs"].as_array().unwrap();
+    if logs.len() != 1 || logs[0]["after"]["event"] != "placement_ambiguous" || logs[0]["after"]["details"]["error"] != marker["error"] {
+        return Err(format!("Rails must log the signer exception once: {rails}"));
+    }
+    let rows = rust["changes"]["transactions"].as_array().unwrap();
+    if rows.len() != 1 || !rows[0]["before"].is_null() { return Err(format!("Rust must write one failed row: {rust}")); }
+    let row = &rows[0]["after"];
+    if row["status"] != 1 || row["order_type"] != 0 || row["side"] != 0 || row["price"] != 64652 || row["quote_amount"] != 100
+        || !row["external_id"].is_null() || !row["external_status"].is_null() || row["amount_exec"] != 0 || row["quote_amount_exec"] != 0
+        || row["error_messages"] != serde_json::json!([err]) || !num(&row["amount"]).is_some_and(|a| (a - 100.0 / 64652.0).abs() <= 1e-12)
+        || rust["mails"] != serde_json::json!([{ "mail": "notify_about_error", "errors": [err] }]) {
+        return Err(format!("Rust must record the sized failure and notify once: {rust}"));
+    }
+    for table in ["bots", "bot_activity_logs", "bot_index_assets"] {
+        if rust["changes"][table] != empty { return Err(format!("Rust unexpectedly changed {table}: {rust}")); }
+    }
+    let c = rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap();
+    let kept: bool = c.query_row("SELECT json_extract(transient_data, '$.rust_placement') IS NOT NULL OR json_extract(transient_data, '$.signal_placement_unresolved') IS NOT NULL FROM bots", [], |r| r.get(0)).unwrap();
+    if kept { return Err("a proved pre-send failure kept an intent or ambiguous marker".into()); }
+    Ok(())
+}
+
+/// D-679, path 2: Rails and Rust both size at the crossed price. Pin the entire wire order,
+/// including GTC (a crossed Hyperliquid order can rest), and the base quantity the row records.
+fn hyperliquid_path_two(name: &str, out: &serde_json::Value) {
+    use deltabadger::ruby::BigDec;
+    for order in out["sent"].as_array().unwrap() {
+        let buy = order["b"].as_bool().unwrap();
+        let asset = order["a"].as_i64().unwrap();
+        let price = match (asset, buy) {
+            (10_142, true) => "64652", (10_142, false) => "63360",
+            (10_143, true) => "2525.6", (10_143, false) => "2475.4",
+            _ => panic!("{name}: unexpected spot asset {asset}"),
+        };
+        let size = BigDec::parse(order["s"].as_str().unwrap()).unwrap();
+        assert!(size > BigDec::zero(), "{name}: positive base size");
+        assert_eq!(size, size.floor(5), "{name}: base precision");
+        assert_eq!(*order, serde_json::json!({"a": asset, "b": buy, "p": price, "s": order["s"],
+            "r": false, "t": {"limit": {"tif": "Gtc"}}}), "{name}: D-679 crosses once, then sends a GTC limit");
+    }
+    let sent = out["sent"].as_array().unwrap();
+    let rows: Vec<_> = out["changes"]["transactions"].as_array().unwrap().iter()
+        .filter(|r| r["before"].is_null() && num(&r["after"]["price"]).is_some()).collect();
+    if rows.len() == sent.len() {
+        for (order, row) in sent.iter().zip(rows) {
+            // A subsequent poll replaces amount/price with the venue's order and fill data.
+            if !row["after"]["external_status"].is_null() && row["after"]["external_status"] != 0 { continue; }
+            let (amount, budget, price, size) = (num(&row["after"]["amount"]).unwrap(), num(&row["after"]["quote_amount"]).unwrap(),
+                num(&order["p"]).unwrap(), num(&order["s"]).unwrap());
+            assert!((amount - budget / price).abs() < 1e-10, "{name}: D-679 records base sized at the wire price");
+            assert!((size - (amount * 100_000.0).floor() / 100_000.0).abs() < 1e-10, "{name}: wire size is the recorded base floored to five decimals");
+            assert!(size * price <= budget + 1e-9, "{name}: a fill at the cross stays within the sized quote amount");
+        }
+    }
+    if name.starts_with("rebalance-hyperliquid-") {
+        for order in sent.iter().filter(|o| o["b"] == false) {
+            // (0.01 * 64006.1 - 0.04 * 2500.5) / 2 = 270.0205 USDC excess; size at the crossed bid.
+            assert_eq!(order["s"], "0.00426", "{name}: D-679 sells the excess at 63360, rather than the raw bid");
+        }
+    }
+    if name.starts_with("signal-hyperliquid-") {
+        let size = if name.contains("-buy-fixed-") { "0.00154" }
+            else if name.contains("-buy-percentage-") { "0.01546" }
+            else if name.contains("-sell-fixed-") { if name.ends_with("-free_below_fixed") { "0.001" } else { "0.00157" } }
+            else if name.ends_with("-free_below_fixed") { "0.0005" } else { "0.25" };
+        for order in sent {
+            assert_eq!(order["s"], size, "{name}: D-679 sizes at the cross, within the quote budget or free base");
+        }
+    }
+}
+
+/// Plan VB slice B1. Every Hyperliquid DCA bot places limit orders (Bot::LimitOrderable#limit_orders_locked?), so no DCA order
 /// here is a crossed (market) one: D-679 has no path-1 surface on Hyperliquid, and each sent order is compared whole.
+/// One signal scenario also pins D-HL-INVALID-PRIVATE-KEY before anything is sent.
 #[tokio::test(flavor = "current_thread")]
 async fn rails_and_rust_decide_identically_across_the_hyperliquid_grid() {
     use common::venue_grid::{ending, run_venue_grid, Validator};
-    let outputs = run_venue_grid("grid-hyperliquid", 180, &[
-        Validator { names: &ending(&HYPERLIQUID_DIVERGENCES), check: &|_, d, r, u| intent_kept(d, r, u) },
+    let outputs = run_venue_grid("grid-hyperliquid", 180 + 1, &[
+        Validator { names: &ending(&["invalid_private_key"]), check: &|_, d, r, u| hyperliquid_invalid_private_key(d, r, u) },
+        Validator { names: &ending(&HYPERLIQUID_DIVERGENCES), check: &|_, d, r, u| { assert_eq!(r["sent"], u["sent"]); intent_kept(d, r, u) } },
         // hyperliquid-rb wraps every transport failure in its own error, which honeymaker labels with its class.
         Validator { names: &ending(&["add_network_pre_send"]), check: &|_, _, r, u| wrapped_like_rails("Faraday::ConnectionFailed: Connection refused",
                                                                                                          "Hyperliquid::Error: Network error: Connection refused", r, u) },
-        Validator { names: &ending(&["landed_found"]), check: &|_, _, r, u| hyperliquid_landed_found(r, u) },
-        Validator { names: &ending(&["landed_missing"]), check: &|_, d, r, u| landed_missing(d, r, u) },
+        Validator { names: &ending(&["landed_found"]), check: &|_, _, r, u| { assert_eq!(r["sent"], u["sent"]); hyperliquid_landed_found(r, u) } },
+        Validator { names: &ending(&["landed_missing"]), check: &|_, d, r, u| { assert_eq!(r["sent"], u["sent"]); landed_missing(d, r, u) } },
     ]).await;
     // Pin what Rails does where a silent pair of sides would otherwise pass.
     for (name, rails_out) in &outputs {
@@ -495,7 +580,16 @@ async fn rails_and_rust_decide_identically_across_the_hyperliquid_grid() {
         if let Some(expected) = expected { assert_eq!(mailed, expected, "{name}: the mails Rails enqueued"); }
         let rows = rails_out["changes"]["transactions"].as_array().unwrap();
         let sent = rails_out["sent"].as_array().unwrap();
-        for order in sent { assert_eq!(order["t"], serde_json::json!({ "limit": { "tif": "Gtc" } }), "{name}: a resting limit order"); }
+        for order in sent {
+            let sell = name.contains("-sell_");
+            let price = match (name.ends_with("-coarse_price"), name.contains("-limit-"), sell) {
+                (true, true, _) => "63846", (true, false, _) => "63942",
+                (false, true, true) => "40.222", (false, false, true) => "40.162",
+                (false, true, false) => "40.022", (false, false, false) => "40.082",
+            };
+            assert_eq!(*order, serde_json::json!({ "a": 10_142, "b": !sell, "p": price, "s": order["s"], "r": false,
+                "t": { "limit": { "tif": "Gtc" } } }), "{name}: path 1 sends a resting limit at its configured distance");
+        }
         if name.ends_with("-first_tick") {
             let price = if name.contains("-limit-") { "40.022" } else { "40.082" };
             assert_eq!((sent[0]["a"].as_i64(), sent[0]["b"].as_bool(), sent[0]["p"].as_str()), (Some(10_142), Some(true), Some(price)),
@@ -785,20 +879,31 @@ async fn rails_and_rust_decide_identically_across_the_basket_sell_grid() {
 /// member unpriced, so nothing is due, where Rails' String#to_d values it at 0 or 12 and sells on the drift that makes.
 #[tokio::test(flavor = "current_thread")]
 async fn rails_and_rust_rebalance_identically() {
-    let (_copies, outputs) = grid_outputs("grid-rebalance", 238).await;
+    let (_copies, outputs) = grid_outputs("grid-rebalance", 238 + 20).await;
     let unknown = ["-post_send", "-server_error", "-no_order_id", "-unknown_text"];
     let diverges = |name: &str| name.ends_with("-unreadable_price") && (name.contains("-binance-") || name.contains("-kucoin-"));
     let mut failures = vec![];
     let phase = |out: &serde_json::Value| -> serde_json::Value {
         out["changes"]["bots"].as_array().unwrap().last().map(|b| b["after"]["transient_data"]["rebalance_pending"]["phase"].clone()).unwrap_or_default()
     };
-    for (name, _, rails_out, rust_out) in &outputs {
+    for (name, dir, rails_out, rust_out) in &outputs {
+        if name.starts_with("rebalance-hyperliquid-") {
+            hyperliquid_path_two(name, rails_out);
+            hyperliquid_path_two(name, rust_out);
+        }
         if unknown.iter().any(|u| name.ends_with(u)) {
             // Both sent the one sell; Rails halted (or, on Binance's id-less answer, stored "BTCUSDT-" and waits on it), the
             // engine waits on its intent with the selling phase, no row on its side.
             assert_eq!(rails_out["sent"], rust_out["sent"], "{name}");
             assert_eq!(phase(rust_out), serde_json::json!("selling"), "{name}: {rust_out}");
             assert!(rust_out["changes"]["transactions"].as_array().unwrap().is_empty(), "{name}: {rust_out}");
+            if name.starts_with("rebalance-hyperliquid-") {
+                let db = rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap();
+                let kept: bool = db.query_row("SELECT json_extract(transient_data, '$.rust_placement') IS NOT NULL FROM bots", [], |r| r.get(0)).unwrap();
+                assert!(kept, "{name}: an unproven outcome keeps the order intent");
+                assert_eq!(rust_out["sent"].as_array().unwrap().len(), 1, "{name}: no second placement");
+                assert!(rust_out["mails"].as_array().unwrap().is_empty(), "{name}: no failed-order mail");
+            }
             continue;
         }
         if diverges(name) {
@@ -806,16 +911,23 @@ async fn rails_and_rust_rebalance_identically() {
             if rails_out["sent"].as_array().unwrap().is_empty() { failures.push(format!("{name}: Rails no longer trades on its String#to_d price: drop the divergence")); }
             continue;
         }
+        if name == "rebalance-hyperliquid-w50-pre_send" {
+            if let Err(e) = wrapped_like_rails("Faraday::ConnectionFailed: Connection refused",
+                "Hyperliquid::Error: Network error: Connection refused", rails_out, rust_out) { failures.push(format!("{name}: {e}")); }
+            continue;
+        }
         if rails_out != rust_out { failures.push(format!("{name}\n  rails: {rails_out}\n  rust:  {rust_out}")); }
     }
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), outputs.len(), failures.join("\n"));
     // Pin what Rails does, so that two silent sides cannot pass: what each cell sent (by base asset), and the phase it left.
     let base = |o: &serde_json::Value| -> String {
+        if let Some(asset) = o["a"].as_i64() { return match asset { 10_142 => "BTC", 10_143 => "ETH", _ => panic!("unexpected asset {asset}") }.into(); }
         let code = o["symbol"].as_str().or(o["pair"].as_str()).unwrap();
         if code == "XBTEUR" { return "BTC".into(); }
         code.split(['/', '-']).next().unwrap().trim_end_matches("USDT").trim_end_matches("EUR").to_string()
     };
     let side = |o: &serde_json::Value| -> String {
+        if let Some(buy) = o["b"].as_bool() { return if buy { "buy" } else { "sell" }.into(); }
         o["side"].as_str().or(o["type"].as_str().filter(|t| *t == "buy" || *t == "sell")).unwrap_or("").to_lowercase()
     };
     let mut pins = vec![];
@@ -845,6 +957,7 @@ async fn rails_and_rust_rebalance_identically() {
         if !same { pins.push(format!("{name}: sent {sent:?}, pinned {expect:?}")); }
         let left = phase(rails_out);
         let want = match state.as_str() {
+            "pre_send" if name.starts_with("rebalance-hyperliquid-") => serde_json::json!("ambiguous"),
             "swap" | "nothing_sold" | "buy_below_minimum" | "under_threshold" | "rule_off" | "selling" | "open_buy" | "sell_below_minimum" | "pre_send"
             | "at_threshold" | "unbalanced" | "safe_rejection" | "raised_price" | "unpriced_member" | "unreadable_price" | "takeover_proceeds_unknown" => serde_json::Value::Null,
             "rejected" | "rejected_400" | "buy_rejected" | "post_send" | "server_error" | "unknown_text" | "takeover_sell_no_id" | "takeover_buy_attempted_no_id" => serde_json::json!("ambiguous"),
@@ -1790,12 +1903,12 @@ async fn rails_and_rust_decide_identically_across_the_venue_index_grid() -> Resu
 ///   message. Same rows, lines and mails otherwise (as `refused_like_rails`).
 /// - ambiguous wording (`unreadable`, `no_order_id`): both sides send once, write no row, raise the marker and log one
 ///   placement_ambiguous; only the error text in the two differs (the adapters name what they could not read).
-/// - Alpaca `pre_send`: a refused connection provably sent nothing. Rails' Clients::Alpaca raises it and
+/// - Alpaca `pre_send` and D-HL-PRE-SEND on Hyperliquid: a refused connection provably sent nothing. Rails' Clients::Alpaca raises it and
 ///   #place_signal_order reads any raise as ambiguous (the marker, no row); the engine writes the failed row and mails, as
 ///   for any other definitive refusal, and the next call places.
 #[tokio::test(flavor = "current_thread", start_paused = true)] // Exchange#with_transient_retry's backoff, never slept
 async fn rails_and_rust_decide_identically_across_the_signal_grid() {
-    let (_copies, outputs) = grid_outputs("grid-signal", 420).await;
+    let (_copies, outputs) = grid_outputs("grid-signal", 420 + 79).await;
     let marker = |out: &serde_json::Value| -> Option<serde_json::Value> {
         out["changes"]["bots"].as_array().unwrap().iter().find_map(|b| b["after"]["transient_data"].get("signal_placement_unresolved").cloned())
     };
@@ -1816,18 +1929,23 @@ async fn rails_and_rust_decide_identically_across_the_signal_grid() {
     };
     let mut failures = vec![];
     for (name, _, rails_out, rust_out) in &outputs {
+        if name.starts_with("signal-hyperliquid-") {
+            hyperliquid_path_two(name, rails_out);
+            hyperliquid_path_two(name, rust_out);
+        }
         let honeymaker = ["signal-kraken-", "signal-binance-", "signal-kucoin-"].iter().any(|p| name.starts_with(p));
         let alpaca = name.starts_with("signal-alpaca");
+        let hyperliquid = name.starts_with("signal-hyperliquid-");
         let variant = |v: &str| name.ends_with(&format!("-{v}"));
-        let differs = if alpaca && variant("pre_send") {
+        let differs = if (alpaca || hyperliquid) && variant("pre_send") {
             let rows = |out: &serde_json::Value| out["changes"]["transactions"].as_array().unwrap().iter().map(|t| t["after"]["status"].clone()).collect::<Vec<_>>();
             let one_sent = rails_out["sent"].as_array().unwrap().len() == 1 && rust_out["sent"] == rails_out["sent"];
             let rails_ambiguous = marker(rails_out).is_some() && rows(rails_out).is_empty() && rails_out["mails"].as_array().unwrap().is_empty();
             let rust_failed = marker(rust_out).is_none() && rows(rust_out) == [serde_json::json!(1)] && rust_out["mails"].as_array().unwrap().len() == 1;
             !(one_sent && rails_ambiguous && rust_failed)
-        } else if variant("unreadable") || variant("no_order_id") {
+        } else if variant("unreadable") || variant("no_order_id") || (hyperliquid && (variant("server_error") || variant("timeout"))) {
             marker(rails_out).is_none() || normalised(rails_out, true) != normalised(rust_out, true)
-        } else if honeymaker && (variant("pre_send") || variant("price_failed") || variant("timeout")) {
+        } else if (honeymaker || hyperliquid) && (variant("pre_send") || variant("price_failed") || variant("timeout")) {
             let rust = rust_out.to_string().replace("Faraday::ConnectionFailed: ", "").replace("Faraday::TimeoutError: ", "");
             normalised(rails_out, false) != normalised(&serde_json::from_str(&rust).unwrap(), false)
         } else {
@@ -1863,7 +1981,7 @@ async fn rails_and_rust_decide_identically_across_the_signal_grid() {
             "rejected" | "rejected_after_success" => (1, vec![1], vec![], 1, false),
             "rejected_after_failure" | "rejected_after_skip" => (1, vec![1], vec![], 0, false),
             "server_error" | "timeout" | "unreadable" | "no_order_id" => (1, vec![], vec!["placement_ambiguous"], 0, true),
-            "pre_send" if name.starts_with("signal-alpaca") => (1, vec![], vec!["placement_ambiguous"], 0, true),
+            "pre_send" if name.starts_with("signal-alpaca") || name.starts_with("signal-hyperliquid-") => (1, vec![], vec!["placement_ambiguous"], 0, true),
             "pre_send" => (1, vec![1], vec![], 1, false),
             "safe_then_accepted" => (2, vec![0], vec![], 0, false),
             "safe_then_rejected" | "safe_twice" => (2, vec![1], vec![], 1, false),

@@ -127,6 +127,18 @@ fn mexc_sent(t: &ScriptedTransport) -> Vec<Value> {
 /// The account address decisions.rb's Hyperliquid key holds (script/rust/decisions.rb HL_ADDRESS).
 pub const HYPERLIQUID_HARNESS_ADDRESS: &str = "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123";
 
+/// Script the reads, but exercise the real transport's signer refusal for an invalid private key.
+/// That guard runs before networking, so this scenario cannot send an exchange request.
+struct HyperliquidScript { scripted: ScriptedTransport, invalid_key: Option<crate::venue::http::ReqwestTransport> }
+impl crate::venue::http::Transport for HyperliquidScript {
+    async fn send(&self, r: &crate::venue::http::HttpRequest) -> Result<crate::venue::http::HttpResponse, crate::venue::http::TransportError> {
+        if r.path == crate::venue::hyperliquid::EXCHANGE {
+            if let Some(t) = &self.invalid_key { return t.send(r).await; }
+        }
+        self.scripted.send(r).await
+    }
+}
+
 fn hyperliquid_sent(t: &ScriptedTransport) -> Vec<Value> {
     t.requests().into_iter().filter(|r| r.method == "POST" && r.path == crate::venue::hyperliquid::EXCHANGE).filter_map(|r| r.body)
         .filter(|b| b["action"]["type"] == "order").filter_map(|b| b["action"]["orders"].get(0).cloned())
@@ -306,7 +318,13 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
         let transport = ScriptedTransport::from_script(&scenario["script"]["hyperliquid"]);
         let exchange_id: i64 = o.primary.query_row("SELECT id FROM exchanges WHERE type = ?1", [crate::venue::hyperliquid::HYPERLIQUID], |r| r.get(0))?;
         let pairs = crate::venue::binance::Pairs::load(&o.primary, exchange_id).map_err(EngineError::Data)?;
-        let venue = crate::venue::hyperliquid::HyperliquidVenue::new(transport.clone(), crate::venue::hyperliquid::URL, HYPERLIQUID_HARNESS_ADDRESS).with_pairs(pairs);
+        let invalid_key = scenario["secret"].as_str().map(|secret| {
+            assert!(crate::venue::signers::hyperliquid::signing_key(secret).is_none(), "only invalid test keys use the real refusal path");
+            crate::venue::http::ReqwestTransport::hyperliquid(crate::venue::http::client(), HYPERLIQUID_HARNESS_ADDRESS.into(), secret.into())
+        });
+        let base = if invalid_key.is_some() { "http://127.0.0.1:9" } else { crate::venue::hyperliquid::URL };
+        let wire = HyperliquidScript { scripted: transport.clone(), invalid_key };
+        let venue = crate::venue::hyperliquid::HyperliquidVenue::new(wire, base, HYPERLIQUID_HARNESS_ADDRESS).with_pairs(pairs);
         let posted = || hyperliquid_sent(&transport).len();
         let (poll, recover_sent, checks) = play(&o, &venue, &scenario, bot_id, start, &posted).await?;
         let poll_error = match poll { Some(polling::PollFailure::General(m)) => json!(m), _ => Value::Null };

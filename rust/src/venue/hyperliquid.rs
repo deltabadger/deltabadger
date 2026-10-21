@@ -21,6 +21,10 @@
 //! - a cancel addresses the pair orderStatus names for the order (Rails reads it from the order's row, H4), and is a
 //!   success only when Hyperliquid says so (Rails takes any HTTP 200 as cancelled, an `err` answer included:
 //!   D-HL-CANCEL-REFUSED);
+//! - D-HL-INVALID-PRIVATE-KEY: an invalid agent secret fails before sending and writes a failed row; Rails treats
+//!   the signer exception as ambiguous during signal placement. The decision grid exercises the real transport refusal;
+//! - D-HL-PRE-SEND: a refused connection also proves nothing was sent; signal placement records failure where Rails
+//!   treats hyperliquid-rb's wrapped network exception as ambiguous;
 //! - a placement that may have reached Hyperliquid (a 5xx, a lost reply, an answer that is not JSON, or whose status is
 //!   neither "ok" nor "err", or an "ok" without statuses or an oid) keeps the intent: only an answer that proves the refusal
 //!   (`err`, a status error, a 4xx) clears it; a number that is no decimal is refused where Rails reads it as 0.

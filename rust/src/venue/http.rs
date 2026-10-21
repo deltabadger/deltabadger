@@ -388,9 +388,11 @@ impl Transport for ScriptedTransport {
         let mut reply = {
             let mut s = self.s.borrow_mut();
             s.requests.push(r.clone());
-            // Hyperliquid names every read by its body's `type` (and an action by its own): "POST /info l2Book".
+            // Hyperliquid names reads by type and optionally coin: "POST /info l2Book @142" before "POST /info l2Book".
             let typed = r.body.as_ref().and_then(|b| b["type"].as_str().or_else(|| b["action"]["type"].as_str())).map(|t| format!("{} {} {t}", r.method, r.path));
-            let key = if s.replies.contains_key(&full) { full.clone() } else if let Some(t) = typed.filter(|t| s.replies.contains_key(t)) { t } else { format!("{} {}", r.method, r.path) };
+            let coin = typed.as_ref().and_then(|t| r.body.as_ref()?.get("coin")?.as_str().map(|c| format!("{t} {c}")));
+            let key = if let Some(c) = coin.filter(|c| s.replies.contains_key(c)) { c }
+                else if s.replies.contains_key(&full) { full.clone() } else if let Some(t) = typed.filter(|t| s.replies.contains_key(t)) { t } else { format!("{} {}", r.method, r.path) };
             let q = s.replies.get_mut(&key).filter(|q| !q.is_empty()).unwrap_or_else(|| panic!("unscripted Alpaca call {key}"));
             if q.len() > 1 { q.pop_front().expect("non-empty") } else { q[0].clone() }
         };
