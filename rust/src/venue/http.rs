@@ -195,6 +195,13 @@ impl ReqwestTransport {
     }
     /// Honeymaker::Clients::Bitvavo's wire: the secret only signs and is never sent.
     pub fn bitvavo(client: reqwest::Client, key: String, secret: String) -> Self { Self { wire: Wire::Bitvavo, ..Self::new(client, key, secret) } }
+    /// Honeymaker::Clients::Bitget's wire: the secret only signs; the passphrase is sent as it is (and redacted like a secret).
+    pub fn bitget(client: reqwest::Client, key: String, secret: String, passphrase: String) -> Self {
+        let mut t = Self { wire: Wire::Bitget, ..Self::new(client, key, secret) };
+        if !passphrase.is_empty() { t.sensitive.push(passphrase.clone()); }
+        t.passphrase = passphrase;
+        t
+    }
     /// Honeymaker::Clients::Gemini's wire: the secret only signs the payload and is never sent.
     pub fn gemini(client: reqwest::Client, key: String, secret: String) -> Self { Self { wire: Wire::Gemini, ..Self::new(client, key, secret) } }
     pub fn with_sensitive_values(mut self,values:Vec<String>)->Self{self.sensitive.extend(values);self}
@@ -381,9 +388,13 @@ impl Transport for ScriptedTransport {
                 .or_else(|| r.body.as_ref().and_then(|b| b["client_order_id"].as_str()).map(str::to_string));
             if let Some(cl) = asked { reply["body"]["client_order_id"] = Value::String(cl); }
         }
+        // Bitget's orderInfo: the first order of `data`, asked for by `clientOid` in the query.
+        if reply["body"]["data"][0]["clientOid"] == "$client_order_id" {
+            if let Some((_, cl)) = r.query.iter().find(|(k, _)| *k == "clientOid") { reply["body"]["data"][0]["clientOid"] = Value::String(cl.clone()); }
+        }
         let message = reply["message"].as_str().unwrap_or_default().to_string();
         match reply["network"].as_str() {
-            Some("pre_send" | "pre_send_data" | "binance_pre_send" | "kucoin_pre_send" | "bitvavo_pre_send" | "gemini_pre_send" | "kraken_pre_send") => Err(TransportError::NotSent(message)),
+            Some("pre_send" | "pre_send_data" | "binance_pre_send" | "kucoin_pre_send" | "bitvavo_pre_send" | "gemini_pre_send" | "bitget_pre_send" | "kraken_pre_send") => Err(TransportError::NotSent(message)),
             // The parity harness's per-venue kind (decisions.rb `NETWORK`): one spelling for every venue's host.
             Some(kind) if kind.starts_with("pre_send:") => Err(TransportError::NotSent(message)),
             Some("permanent") => Err(TransportError::Permanent(message)),

@@ -191,7 +191,7 @@ fn price_rule_reason(bot: &Bot, key: &str, value: &Value) -> Option<String> {
 /// What else a bot needs (its amount limit on Kraken/Binance, market-cap weights) is each side's own named reason.
 pub fn admission(exchange: Option<&str>, index: bool, selling: bool) -> Option<&'static str> {
     // The text names the venues whose registry rows trade; a venue's slice extends it with its row.
-    if exchange.is_none_or(|e| crate::venue::registry::trading_rules(e).is_none()) { return Some("a bot on an exchange other than Alpaca, Kraken, Binance, Binance.US, KuCoin, Bitvavo and Gemini") }
+    if exchange.is_none_or(|e| crate::venue::registry::trading_rules(e).is_none()) { return Some("a bot on an exchange other than Alpaca, Kraken, Binance, Binance.US, KuCoin, Bitvavo, Gemini and Bitget") }
     if selling && index { Some("an index bot that sells") } else { None }
 }
 

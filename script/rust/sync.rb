@@ -25,7 +25,7 @@ Net::HTTP.prepend(Module.new { def connect = raise(Harness::Unscripted, "real co
 ENV['COINGECKO_API_KEY'] = ''
 
 module ScriptedSync
-  mattr_accessor :alpaca, :binance, :binance_state, :kucoin, :bitvavo, :gemini, :market, :requests, :filters_after
+  mattr_accessor :alpaca, :binance, :binance_state, :kucoin, :bitvavo, :gemini, :bitget, :market, :requests, :filters_after
 
   NETWORK = {
     'pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "paper-api.alpaca.markets" port 443')) },
@@ -35,7 +35,8 @@ module ScriptedSync
     'binance_pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "api.binance.com" port 443')) },
     'kucoin_pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "api.kucoin.com" port 443')) },
     'bitvavo_pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "api.bitvavo.com" port 443')) },
-    'gemini_pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "api.gemini.com" port 443')) }
+    'gemini_pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "api.gemini.com" port 443')) },
+    'bitget_pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "api.bitget.com" port 443')) }
   }.freeze
 
   def self.reply(env)
@@ -49,6 +50,7 @@ module ScriptedSync
              elsif host == 'api.kucoin.com' then kucoin
              elsif host == 'api.bitvavo.com' then bitvavo
              elsif host == 'api.gemini.com' then gemini
+             elsif host == 'api.bitget.com' then bitget
              elsif host == 'data-api' then market
              end
     key = "#{env.method.to_s.upcase} #{env.url.path}"
@@ -84,7 +86,7 @@ module ScriptedSync
       reply = ScriptedSync.reply(env)
       if (kind = reply['network'])
         error = ScriptedSync::NETWORK.fetch(kind).call
-        actual = kind.start_with?('binance_', 'kucoin_', 'bitvavo_', 'gemini_') ? error.message : "#{error.class}: #{error.message}" # what the venue's client reports
+        actual = kind.start_with?('binance_', 'kucoin_', 'bitvavo_', 'gemini_', 'bitget_') ? error.message : "#{error.class}: #{error.message}" # what the venue's client reports
         raise Harness::Unscripted, "#{kind}: the script says #{reply['message'].inspect}, Ruby says #{actual.inspect}" unless actual == reply['message']
 
         raise error
@@ -416,6 +418,41 @@ module SyncParity
     { 'kind' => 'ledger', 'at' => at, 'gemini' => { GM_TRADES => trades, GM_TRANSFERS => transfers } }
   end
 
+  # A Bitget key (plan VB slice A4), with the pairs its fills name (BTCUSDT, as #get_tickers_info stores them).
+  def bitget(ctx)
+    venue(ctx, Exchanges::Bitget, 'Bitget', as: :bitget, assets: %w[BTC ETH USDT], pairs: [%w[BTC USDT], %w[ETH USDT], %w[ETH BTC]],
+          pair: ->(b, q) { "#{b}#{q}" }, coin: { base_decimals: 6, quote_decimals: 8, price_decimals: 2, minimum_base_size: '0', minimum_quote_size: '1' })
+  end
+  BG_FILLS = 'GET /api/v2/spot/trade/fills'.freeze
+  BG_DEPOSITS = 'GET /api/v2/spot/wallet/deposit-records'.freeze
+  BG_WITHDRAWALS = 'GET /api/v2/spot/wallet/withdrawal-records'.freeze
+  BG_ASSETS = 'GET /api/v2/spot/account/assets'.freeze
+  def bg_page(rows) = ok('code' => '00000', 'msg' => 'success', 'requestTime' => 1_789_871_400_750, 'data' => rows)
+  def bg_err(status, code, msg) = { 'status' => status, 'body' => { 'code' => code, 'msg' => msg, 'requestTime' => 1_789_871_400_750, 'data' => nil } }
+  def bg_fill(trade, symbol, side, size, price, at, fee: '-0.06', fee_coin: 'USDT', order: nil, detail: true)
+    at = at.is_a?(Integer) ? at : ms(at)
+    { 'userId' => '1001', 'symbol' => symbol, 'orderId' => order || "o#{trade}", 'tradeId' => trade, 'orderType' => 'market', 'side' => side, 'priceAvg' => price,
+      'size' => size, 'amount' => (BigDecimal(size) * BigDecimal(price)).to_s('F'), 'tradeScope' => 'taker',
+      'feeDetail' => detail ? { 'deduction' => 'no', 'feeCoin' => fee_coin, 'totalDeductionFee' => '0', 'totalFee' => fee } : nil,
+      'cTime' => at.to_s, 'uTime' => at.to_s }.compact
+  end
+  def bg_transfer(order, coin, size, at, status: 'success', fee: nil, trade: nil, type: 'deposit')
+    at = at.is_a?(Integer) ? at : ms(at)
+    { 'orderId' => order, 'tradeId' => trade || "0x#{order}", 'coin' => coin, 'type' => type, 'size' => size, 'status' => status, 'toAddress' => 'TXabc',
+      'dest' => 'on_chain', 'chain' => 'TRC20', 'fee' => fee, 'cTime' => at.to_s, 'uTime' => at.to_s }.compact
+  end
+  # Bitget's asset rows: [coin, available, frozen].
+  def bg_assets(*rows) = bg_page(rows.map { |coin, available, frozen| { 'coin' => coin, 'available' => available, 'frozen' => frozen || '0', 'locked' => '0', 'uTime' => '1789871400750' } })
+  # A ledger run over Bitget's scripted answers: each path's pages in order (every window's read takes the next), the last one
+  # repeated.
+  def bitget_ledger(at, fills: [bg_page([])], deposits: [bg_page([])], withdrawals: [bg_page([])])
+    { 'kind' => 'ledger', 'at' => at, 'bitget' => { BG_FILLS => fills, BG_DEPOSITS => deposits, BG_WITHDRAWALS => withdrawals } }
+  end
+  def bitget_balances(at, assets:, prices: nil, rates: nil)
+    { 'kind' => 'balances', 'at' => at, 'bitget' => { BG_ASSETS => [assets] },
+      'market' => { EXCHANGE_RATES => rates && [rates], PRICES => prices && [prices] }.compact }
+  end
+
   def kc_page(items, page: 1, pages: nil, total: nil)
     ok('code' => '200000', 'data' => { 'currentPage' => page, 'pageSize' => 500, 'totalNum' => total || items.size,
                                        'totalPage' => pages || (items.empty? ? 0 : 1), 'items' => items })
@@ -585,7 +622,7 @@ module SyncParity
       ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: File.join(dir, 'production.sqlite3'))
       Rails.cache.clear
       before = snapshot
-      reading = ApiKey.reading(ApiKey.includes(:exchange)).select { |k| [Exchanges::Alpaca, Exchanges::Binance, Exchanges::Kucoin, Exchanges::Bitvavo, Exchanges::Gemini].any? { |c| k.exchange.is_a?(c) } }.map(&:id).sort
+      reading = ApiKey.reading(ApiKey.includes(:exchange)).select { |k| [Exchanges::Alpaca, Exchanges::Binance, Exchanges::Kucoin, Exchanges::Bitvavo, Exchanges::Gemini, Exchanges::Bitget].any? { |c| k.exchange.is_a?(c) } }.map(&:id).sort
       steps = sc['steps'].map do |step|
         ActiveJob::Base.queue_adapter.enqueued_jobs.clear
         ScriptedSync.alpaca = step.fetch('alpaca', {}).transform_values(&:dup)
@@ -594,6 +631,7 @@ module SyncParity
         ScriptedSync.kucoin = step.fetch('kucoin', {}).transform_values(&:dup)
         ScriptedSync.bitvavo = step.fetch('bitvavo', {}).transform_values(&:dup)
         ScriptedSync.gemini = step.fetch('gemini', {}).transform_values(&:dup)
+        ScriptedSync.bitget = step.fetch('bitget', {}).transform_values(&:dup)
         ScriptedSync.market = step.fetch('market', {}).transform_values(&:dup)
         ScriptedSync.requests = []
         ScriptedSync.filters_after = step['server_filters_after'] == true

@@ -20,6 +20,7 @@ pub mod activities;
 pub mod balances;
 pub mod binance_ledger;
 pub mod bitvavo_ledger;
+pub mod bitget_ledger;
 pub mod kucoin_ledger;
 pub mod gemini_ledger;
 pub mod cache;
