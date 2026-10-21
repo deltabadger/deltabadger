@@ -60,6 +60,10 @@ pub(super) fn lifecycle_response(c: &Connection, ctx: &Ctx, id: i64, action: Act
         return Ok(Prepared { response: response(alert(&view.errors)?,true), broadcasts: vec![], after_scheduling: None });
     }
     let user = ctx.user().ok_or_else(||WebError::Config("action has no authenticated user".into()))?;
+    // Bot#with_user_locale: the owner's open pages hear the change in the owner's language and paths; the answer keeps the request's.
+    let mut heard = super::live::owner_ctx(&ctx.app,user.clone());
+    heard.now = ctx.now;
+    let heard = &heard;
     let csrf = ctx.csrf_token();
     let (_,configured) = bots::market_data(c,&ctx.app)?;
     let stop_notice = if action == Action::Stop && write::orders_may_execute(c, id)? {
@@ -95,14 +99,14 @@ pub(super) fn lifecycle_response(c: &Connection, ctx: &Ctx, id: i64, action: Act
             })();
             match rendered {
                 Ok(Some(body)) => body,
-                Ok(None) => return Ok(Prepared { response: response(format!("{}{stop_notice}",turbo::refresh()),false), broadcasts: broadcasts(c,ctx,view,action).unwrap_or_default(), after_scheduling: None }),
-                Err(_) if action == Action::Stop => return Ok(Prepared { response: response(format!("{}{stop_notice}",turbo::refresh()),false), broadcasts: broadcasts(c,ctx,view,action).unwrap_or_default(), after_scheduling: None }),
+                Ok(None) => return Ok(Prepared { response: response(format!("{}{stop_notice}",turbo::refresh()),false), broadcasts: broadcasts(c,heard,view,action).unwrap_or_default(), after_scheduling: None }),
+                Err(_) if action == Action::Stop => return Ok(Prepared { response: response(format!("{}{stop_notice}",turbo::refresh()),false), broadcasts: broadcasts(c,heard,view,action).unwrap_or_default(), after_scheduling: None }),
                 Err(e) => return Err(e),
             }
         }
     };
     if !stop_notice.is_empty() { body.push('\n'); body.push_str(&stop_notice); }
-    Ok(Prepared { response: response(if matches!(action,Action::Delete|Action::Unarchive) { body } else { body + "\n" },false), broadcasts: if action == Action::Stop { broadcasts(c,ctx,view,action).unwrap_or_default() } else { broadcasts(c,ctx,view,action)? },
+    Ok(Prepared { response: response(if matches!(action,Action::Delete|Action::Unarchive) { body } else { body + "\n" },false), broadcasts: if action == Action::Stop { broadcasts(c,heard,view,action).unwrap_or_default() } else { broadcasts(c,heard,view,action)? },
         after_scheduling: if action == Action::Start { awaits_scheduling(c,ctx,view)? } else { None } })
 }
 /// bots/archives/update: the bot's two status widgets, its menu and the live bots' count.

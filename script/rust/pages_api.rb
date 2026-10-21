@@ -157,6 +157,15 @@ module Pages
         'api_broadcasts_de' => write_case(signed_in(get('/bots')) + [write('POST', '/api/v1/bots/1/start').merge(streams), write('POST', '/api/v1/bots/1/stop').merge(streams),
                                                                     write('POST', '/api/v1/bots/1/archive').merge(streams), write('DELETE', '/api/v1/bots/1/archive').merge(streams)],
                                           2, {}, 'user' => owner('locale' => 'de')),
+        # The same from the owner's own bot page under /de/: what the open pages hear is in the owner's language (Polish) and
+        # under /pl/ (Bot#with_user_locale); the page's answers stay German.
+        'api_broadcasts_web_owner_locale' => write_case(signed_in(get('/de/bots/1')) + [
+          ['PATCH', '/de/bots/1/start?start_fresh=true'], ['PATCH', '/de/bots/1/stop'], ['POST', '/de/bots/1/archive'],
+          ['DELETE', '/de/bots/1/archive'], ['DELETE', '/de/bots/1/delete']
+        ].map { |method, path|
+          { 'method' => method, 'path' => path, 'form' => {}, 'csrf' => 'header', 'headers' => TURBO.merge('Referer' => 'http://localhost:3000/de/bots/1'),
+            'may_mutate' => WRITE_TABLES, 'raw_rows' => WRITE_ROWS }.merge(streams)
+        }, 2, {}, 'user' => owner('locale' => 'pl')),
         'api_stop_encoded_ids' => write_case([write('POST', '/api/v1/bots/1%30/stop'), write('POST', '/api/v1/bots/%35/stop'),
                                               write('POST', '/api/v1/bots/%E2%82/stop'),
                                               write('POST', '/api/v1/bots/%35/stop', 'second-token'), write('POST', '/api/v1/bots/1+/stop'),
