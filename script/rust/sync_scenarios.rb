@@ -1186,6 +1186,94 @@ module SyncScenarios
     ]
   end
 
+  # Exchanges::Bitvavo#get_ledger with AccountTransactionSync (plan VB slice A3, AUDIT-bitvavo V5/V6): deposits and withdrawals
+  # walked back from now by `end` with the boundary millisecond read again and identical rows counted, then the markets the
+  # transfers, the balance and the stored rows name, then their trades by `tradeIdTo`; any failed read failing the run.
+  def bitvavo_ledger_scenarios
+    night = '2026-09-20T02:00:00.250000Z'
+    t = ->(*args) { Time.utc(*args) }
+    since = ->(watermark) { ->(ctx) { P.bitvavo(ctx); ctx[:key].update_columns(last_synced_at: watermark) } }
+    week = since.(t.(2026, 9, 15))
+    deposits = [P.bv_transfer('EUR', '1000', t.(2026, 9, 18, 12), tx: nil), P.bv_transfer('BTC', '0.01', t.(2026, 9, 17), fee: '0', tx: '0xd2').except('status'),
+                P.bv_transfer('ETH', '2', t.(2026, 9, 16), status: 'pending', tx: '0xd3'), P.bv_transfer('EUR', '50', t.(2026, 9, 16, 1), fee: '0.5')]
+    withdrawals = [P.bv_transfer('BTC', '0.002', t.(2026, 9, 19), fee: '0.0001', tx: '0xw1'),
+                   P.bv_transfer('ETH', '0.1', t.(2026, 9, 18), fee: '0.001', status: 'awaiting_processing', tx: '0xw2')]
+    trades = [P.bv_trade('tr-3', 'BTC-EUR', 'sell', '0.001', '64100', t.(2026, 9, 19, 10)),
+              P.bv_trade('tr-2', 'BTC-EUR', 'buy', '0.002', '64000', t.(2026, 9, 18, 9), fee: '-0.01'),
+              P.bv_trade('tr-1', 'BTC-EUR', 'buy', '0.003', '63000', t.(2026, 9, 10, 9))] # before the window: read, never stored
+    markets = P.bv_markets('BTC-EUR', 'ETH-EUR', 'ETH-BTC', 'ADA-EUR')
+    # Pages of 1000: Bitvavo's limit. `boundary`: the oldest millisecond of a full page read again on the next one, with an
+    # equal pair in it (two identical 5 EUR deposits) that must stay two.
+    base = t.(2026, 9, 1).to_i * 1000
+    full = Array.new(998) { |i| P.bv_transfer('EUR', format('1.%03d', i), base + ((1000 - i) * 60_000)) }
+    pair = P.bv_transfer('EUR', '5', base + (2 * 60_000))
+    page1 = full + [pair, pair]
+    page2 = [pair, pair, P.bv_transfer('BTC', '0.5', base + 60_000)]
+    trade_page = Array.new(1000) { |i| P.bv_trade("tp-#{1000 - i}", 'BTC-EUR', 'buy', '0.0001', '64000', t.(2026, 9, 19).to_i * 1000 - (i * 1000)) }
+    [
+      { name: 'bitvavo-ledger-week', setup: week,
+        steps: [P.bitvavo_ledger(night, deposits: [P.ok(deposits)], withdrawals: [P.ok(withdrawals)], balance: [P.bv_balance(%w[BTC 0.5], %w[ADA 0 0], %w[EUR 10])],
+                                 markets: [markets], trades: [P.ok(trades)])] },
+      { name: 'bitvavo-ledger-full', setup: ->(ctx) { P.bitvavo(ctx) },
+        steps: [P.bitvavo_ledger(night, deposits: [P.ok(deposits.first(2))], markets: [markets], trades: [P.ok(trades)])] },
+      { name: 'bitvavo-ledger-two_nights', setup: week,
+        steps: [P.bitvavo_ledger(night, deposits: [P.ok(deposits)], markets: [markets], trades: [P.ok(trades)]),
+                P.bitvavo_ledger('2026-09-21T02:00:00.250000Z', deposits: [P.ok(deposits)], withdrawals: [P.ok(withdrawals)], markets: [markets],
+                                 trades: [P.ok(trades), P.ok([])])] },
+      # A coin held only in an order, and one traded before (a stored sale), name their markets too.
+      { name: 'bitvavo-ledger-discovery',
+        setup: lambda do |ctx|
+          week.(ctx)
+          AccountTransaction.create!(user: ctx[:user], api_key: ctx[:key], exchange: ctx[:bitvavo], entry_type: :sell, base_currency: 'ETH', base_amount: 1,
+                                     quote_currency: 'BTC', quote_amount: 0.03, tx_id: 'old-1', transacted_at: t.(2026, 8, 1), raw_data: {})
+        end,
+        steps: [P.bitvavo_ledger(night, balance: [P.bv_balance(%w[ADA 0 7])], markets: [markets],
+                                 trades: [P.ok([P.bv_trade('e-1', 'ETH-BTC', 'buy', '1', '0.031', t.(2026, 9, 17), fee_currency: 'BTC', fee: '0.00001')]), P.ok([])])] },
+      { name: 'bitvavo-ledger-boundary', setup: ->(ctx) { P.bitvavo(ctx) },
+        steps: [P.bitvavo_ledger(night, deposits: [P.ok(page1), P.ok(page2)], markets: [P.bv_markets('ETH-EUR')])] },
+      { name: 'bitvavo-ledger-nothing_new', setup: ->(ctx) { P.bitvavo(ctx) },
+        steps: [P.bitvavo_ledger(night, deposits: [P.ok(page1), P.ok(page1)])] },
+      { name: 'bitvavo-ledger-trade_pages', setup: week,
+        steps: [P.bitvavo_ledger(night, balance: [P.bv_balance(%w[BTC 1])], trades: [P.ok(trade_page), P.ok(trades)])] },
+      { name: 'bitvavo-ledger-balance_fails', setup: week,
+        steps: [P.bitvavo_ledger(night, deposits: [P.ok(deposits)], balance: [{ 'status' => 403, 'body' => { 'errorCode' => 311, 'error' => 'This key does not allow access to view endpoints.' } }])] },
+      { name: 'bitvavo-ledger-trades_fail', setup: week,
+        steps: [P.bitvavo_ledger(night, deposits: [P.ok(deposits)], balance: [P.bv_balance(%w[BTC 1])],
+                                 trades: [{ 'status' => 500, 'body' => { 'errorCode' => 101, 'error' => 'Unknown server error.' } }])] },
+      { name: 'bitvavo-ledger-network', setup: week,
+        steps: [P.bitvavo_ledger(night, withdrawals: [{ 'network' => 'bitvavo_pre_send', 'message' => 'Connection refused - connect(2) for "api.bitvavo.com" port 443' }])] },
+      { name: 'bitvavo-ledger-nothing', setup: week, steps: [P.bitvavo_ledger(night)] }
+    ]
+  end
+
+  # Exchanges::Bitvavo#get_balances with AccountBalance::Sync (plan VB slice A3): one row per symbol, `available` and `inOrder`.
+  def bitvavo_balance_scenarios
+    night = '2026-09-20T02:30:00.750000Z'
+    coins = P.prices_body('bitcoin' => 60_000.5, 'ethereum' => 2500.25)
+    rates = P.ok('data' => { 'btc' => { 'value' => 1 }, 'usd' => { 'value' => 60_000.5 }, 'eur' => { 'value' => 55_000.25 } })
+    install = ->(ctx) { P.bitvavo(ctx) }
+    seeded = lambda do |ctx|
+      P.bitvavo(ctx)
+      P.balance(ctx, 'BTC', free: '0.4', usd_price: '59000.5', usd_value: '23600.2', exchange: ctx[:bitvavo])
+    end
+    err = ->(status, code, error) { { 'status' => status, 'body' => { 'errorCode' => code, 'error' => error } } }
+    [
+      { name: 'bitvavo-balances-first', setup: install,
+        steps: [P.bitvavo_balances(night, balance: P.bv_balance(%w[BTC 0.5 0.1], %w[ETH 2], %w[EUR 100.5], %w[ADA 3], %w[DOGE 0]), rates:, prices: coins)] },
+      { name: 'bitvavo-balances-invalid_key', setup: seeded, steps: [P.bitvavo_balances(night, balance: err.(403, 305, 'No active API key found.'))] },
+      { name: 'bitvavo-balances-bad_signature', setup: seeded, steps: [P.bitvavo_balances(night, balance: err.(403, 309, 'The signature is invalid.'))] },
+      { name: 'bitvavo-balances-no_view', setup: seeded, steps: [P.bitvavo_balances(night, balance: err.(403, 311, 'This key does not allow access to view endpoints.'))] },
+      { name: 'bitvavo-balances-throttled', setup: seeded, steps: [P.bitvavo_balances(night, balance: err.(429, 105, 'Your account has been temporarily banned.'))] },
+      { name: 'bitvavo-balances-not_json', setup: seeded, steps: [P.bitvavo_balances(night, balance: { 'status' => 200, 'body' => 'maintenance' })] },
+      { name: 'bitvavo-balances-network', setup: seeded,
+        steps: [P.bitvavo_balances(night, balance: { 'network' => 'bitvavo_pre_send', 'message' => 'Connection refused - connect(2) for "api.bitvavo.com" port 443' })] },
+      { name: 'bitvavo-balances-no_symbol', setup: seeded,
+        steps: [P.bitvavo_balances(night, balance: P.ok([{ 'available' => '1', 'inOrder' => '0' }, { 'symbol' => 'BTC', 'available' => '0.3', 'inOrder' => '0' }]), prices: coins)] },
+      { name: 'bitvavo-balances-no_in_order', setup: seeded, steps: [P.bitvavo_balances(night, balance: P.ok([{ 'symbol' => 'BTC', 'available' => '1' }]))] },
+      { name: 'bitvavo-balances-nothing', setup: seeded, steps: [P.bitvavo_balances(night, balance: P.bv_balance)] }
+    ]
+  end
+
   def all = ledger_scenarios + balance_scenarios + binance_balance_scenarios + binance_ledger_scenarios + import_scenarios + kucoin_ledger_scenarios +
-            kucoin_balance_scenarios
+            kucoin_balance_scenarios + bitvavo_ledger_scenarios + bitvavo_balance_scenarios
 end

@@ -291,5 +291,46 @@ pub static KUCOIN: VenueRules = VenueRules {
     cross: None,
 };
 
+/// Exchange#transient_error? for Bitvavo: Client::NETWORK_TRANSIENT_PATTERNS plus Exchanges::Bitvavo::ERRORS[:transient].
+const BITVAVO_TRANSIENT: [&str; 20] = ["Net::ReadTimeout", "Net::OpenTimeout", "Faraday::TimeoutError", "Faraday::ConnectionFailed",
+    "execution expired", "Connection reset", "Errno::ECONNRESET", "connection refused", "Connection refused", "Errno::ECONNREFUSED",
+    "end of file reached", "unexpected eof while reading",
+    "\"errorCode\":101", "\"errorCode\":107", "\"errorCode\":108", "\"errorCode\":109", "\"errorCode\":111", "\"errorCode\":400", "\"errorCode\":419", "\"errorCode\":304"];
+
+pub static BITVAVO: VenueRules = VenueRules {
+    exchange_type: "Exchanges::Bitvavo",
+    name: "Bitvavo",
+    // Exchanges::Bitvavo::ERRORS (bitvavo.rb:3-25), matched on the body as Bitvavo spells it.
+    kinds: [("insufficient_funds", &["sufficient balance to complete"]),
+            ("invalid_key", &["No active API key found", "API Key must be of length", "\"errorCode\":308", "\"errorCode\":309"]),
+            ("permission_denied", &["\"errorCode\":307", "\"errorCode\":310", "\"errorCode\":311", "\"errorCode\":312"]),
+            ("restricted", &[]), ("throttle", &["\"errorCode\":105", "Too Many Requests"]),
+            ("transient", &["\"errorCode\":101", "\"errorCode\":107", "\"errorCode\":108", "\"errorCode\":109", "\"errorCode\":111", "\"errorCode\":400",
+                            "\"errorCode\":419", "\"errorCode\":304"])],
+    transient_text: &BITVAVO_TRANSIENT,
+    // Exchange#ambiguous_placement_error?: ERRORS[:transient] leaves a placement unknown whatever the HTTP status, but 304,
+    // placement-safe (an authentication failure before the matching engine: placement::PLACEMENT_SAFE_TRANSIENT_ERRORS).
+    add_outcome_unknown: &["\"errorCode\":101", "\"errorCode\":107", "\"errorCode\":108", "\"errorCode\":109", "\"errorCode\":111", "\"errorCode\":400",
+                           "\"errorCode\":419"],
+    // Exchanges::Bitvavo#minimum_amount_logic: market :base_or_quote, limit :base_and_quote_in_base.
+    minimum_logic: MinimumLogic { market: AmountLogic::BaseOrQuote, limit: AmountLogic::BaseAndQuoteInBase },
+    // Honeymaker::Clients::Bitvavo#place_order sends BigDecimal#to_s('F') strings.
+    wire: WireFormat::Kraken,
+    deadline_sent: false,
+    reach_within_secs: 55,
+    absence_margin_secs: 1200,
+    transport_raises: false,
+    // Bot::FetchAndUpdateOrderJob asks #get_order, which recovers a gone order (240) from the trades and else names it not
+    // found for Bot::StaleOrderResolver: the lenient poll (polling::poll_rows) of that one order, trades recovery included.
+    follow_up_strict: false, market_hours: false,
+    reports_missing: true,
+    // Plan VB §1.5: the client-id lookup can only FIND an order; an unfound one waits for `deltabadger resolve-placement`.
+    absence_provable: false,
+    // #authoritative_missing_orders? true: the trades walk exhausts the fills, so a young order left out just waits.
+    young_missing_fails: false,
+    price_rule: PriceRule::Decimals,
+    cross: None,
+};
+
 /// The rules of a venue the engine trades on (`venue::registry`).
 pub fn for_exchange(exchange_type: &str) -> Option<&'static VenueRules> { crate::venue::registry::trading_rules(exchange_type) }

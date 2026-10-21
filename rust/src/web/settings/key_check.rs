@@ -280,6 +280,63 @@ pub async fn binance_us_check<T: Transport>(transport: &T, venue: &crate::venue:
     (answer, verdict)
 }
 
+/// Exchanges::Bitvavo's probe: a cancel of an order that cannot exist on a listed market.
+pub const BITVAVO_PROBE: [(&str, &str); 2] = [("market", "BTC-EUR"), ("orderId", "00000000-0000-0000-0000-000000000000")];
+/// Exchanges::Bitvavo::KEY_CHECK_REFUSED: 310 no Trade, 311 no View.
+pub const BITVAVO_REFUSED: [i64; 2] = [310, 311];
+
+/// `code == n` as Ruby compares a decoded number with an Integer (a String never equals one).
+fn number_is(code: Option<&Value>, n: i64) -> bool { code.and_then(Value::as_f64).is_some_and(|c| c == n as f64) }
+
+/// Exchanges::Bitvavo#get_api_key_validity on one probe's answer: None when the key got past it (a success without an
+/// errorCode, or 240: no order found), else the verdict. 310/311, or the venue's invalid-key words in the answer, are an
+/// incorrect key; any other failure is no verdict, with its text; any other errorCode in a 2xx its `error` (or the code).
+pub fn bitvavo_probe_verdict(answer: &Result<HttpResponse, TransportError>, method: &str, url: &str) -> Option<Verdict> {
+    let (data, failure): (Option<Value>, Option<String>) = match answer {
+        Err(error) => (None, Some(transport(error))),
+        Ok(response) if !(200..300).contains(&response.status) => (None, Some(raised(response, method, url))),
+        Ok(response) => match serde_json::from_str::<Value>(&response.body) {
+            Ok(value) => (Some(value), None),
+            // Faraday's JSON middleware leaves an empty body nil, and raises on one it cannot parse (#with_rescue: its body).
+            Err(_) if response.body.trim().is_empty() => (None, None),
+            Err(_) => (None, Some(response.body.clone())),
+        },
+    };
+    // #response_field: the success's Hash, or the failure's text parsed as one.
+    let body = match &failure { Some(text) => serde_json::from_str::<Value>(text).ok(), None => data.clone() };
+    let field = |name: &str| body.as_ref().filter(|b| b.is_object()).and_then(|b| b.get(name)).filter(|v| !v.is_null()).cloned();
+    let code = field("errorCode");
+    if (failure.is_none() && code.is_none()) || number_is(code.as_ref(), crate::venue::bitvavo::ORDER_NOT_FOUND) { return None; }
+    let text = |v: &Value| v.as_str().map_or_else(|| v.to_string(), str::to_string);
+    let answer_text = failure.clone().unwrap_or_else(|| data.as_ref().map_or_else(|| "null".into(), Value::to_string));
+    if BITVAVO_REFUSED.iter().any(|n| number_is(code.as_ref(), *n)) || crate::engine::venue_rules::BITVAVO.is_invalid_key(&[answer_text]) {
+        return Some(Verdict::Valid(false));
+    }
+    Some(Verdict::Failure(match failure {
+        Some(text) => text,
+        None => field("error").map(|e| text(&e)).filter(|e| !crate::ruby::blank(e))
+            .unwrap_or_else(|| format!("Bitvavo answered errorCode {}", code.as_ref().map(text).unwrap_or_default())),
+    }))
+}
+
+/// Exchanges::Bitvavo's key check (#get_api_key_validity; #get_read_api_key_validity is the same): the balance read, then
+/// for a key that is not a withdrawal key the cancel probe. The last answer (for the diagnostics) and the verdict.
+pub async fn bitvavo_check<T: Transport>(transport: &T, venue: &crate::venue::bitvavo::BitvavoVenue<T>, kind: i64) -> (Result<HttpResponse, TransportError>, Verdict) {
+    use crate::venue::bitvavo::{BALANCE_PATH, OPERATOR_ID, ORDER_PATH};
+    let mut probes = vec![venue.request("GET", BALANCE_PATH, vec![], None)];
+    if kind != 1 {
+        let mut query: Vec<(&'static str, String)> = BITVAVO_PROBE.iter().map(|(k, v)| (*k, v.to_string())).collect();
+        query.push(("operatorId", OPERATOR_ID.to_string()));
+        probes.push(venue.request("DELETE", ORDER_PATH, query, None));
+    }
+    let mut last = Err(TransportError::NotSent("no probe sent".into()));
+    for probe in probes {
+        last = transport.send(&probe).await;
+        if let Some(verdict) = bitvavo_probe_verdict(&last, probe.method, probe.url().as_str()) { return (last, verdict); }
+    }
+    (last, Verdict::Valid(true))
+}
+
 /// The key check of `venue` (an exchanges.type this module ports) for a key of `kind`, sent through `client` to `base`.
 pub async fn check(venue: &str, base: &str, client: reqwest::Client, credentials: &crate::crypto::Credentials, kind: i64) -> Validity {
     use crate::venue::http::ReqwestTransport;
@@ -299,6 +356,10 @@ pub async fn check(venue: &str, base: &str, client: reqwest::Client, credentials
         let verdict = if kind == 2 { kucoin_read_verdict(&answer, request.method, request.url().as_str()) }
                       else { kucoin_verdict(kind, &answer, request.method, request.url().as_str()) };
         (answer, verdict)
+    } else if scheme == Some(KeyCheck::Bitvavo) {
+        let transport = ReqwestTransport::bitvavo(client, credentials.key.clone(), credentials.secret.clone()).with_sensitive_values(redaction);
+        let venue = crate::venue::bitvavo::BitvavoVenue::new(transport.clone(), base);
+        bitvavo_check(&transport, &venue, kind).await
     } else if scheme == Some(KeyCheck::BinanceUs) {
         let transport = ReqwestTransport::binance(client, credentials.key.clone(), credentials.secret.clone()).with_sensitive_values(redaction);
         let venue = crate::venue::binance::BinanceVenue::new(transport.clone(), base, &credentials.secret);

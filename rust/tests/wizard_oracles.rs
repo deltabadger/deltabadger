@@ -147,7 +147,47 @@ fn key_verdicts_replay_every_recorded_case() {
         assert!(sent.iter().all(|r| r["key_header"] == "test-key" && r["form"] == json!({})), "{name}");
         replayed += 1;
     }
-    assert_eq!(replayed, 578 + 212, "a recorded case was added or dropped");
+    // Bitvavo (plan VB slice A3): the balance read, then (a key that is not a withdrawal key) the cancel probe, each case's
+    // whole request sequence replayed through the check over Rails' recorded answers. Listed divergence D-BITVAVO-KEY-TEXT:
+    // a 2xx body that is no JSON passes Rails' check when its content type is not JSON (Faraday leaves it a String, with no
+    // errorCode); Rust's transport does not carry the content type and Bitvavo answers JSON, so Rust gives no verdict on it.
+    let bv = &recorded["bitvavo"];
+    assert_eq!((bv["refused_codes"].clone(), bv["not_found_code"].clone()), (json!(key_check::BITVAVO_REFUSED), json!(deltabadger::venue::bitvavo::ORDER_NOT_FOUND)));
+    let (mut bitvavo, mut text_passes) = (0, 0);
+    for case in bv["cases"].as_array().unwrap() {
+        let (name, kind) = (case["case"].as_str().unwrap(), kind(case["key_type"].as_str().unwrap()));
+        let answers: Vec<Value> = case["responses"].as_array().cloned().unwrap_or_else(|| vec![case["response"].clone()]);
+        let sent: Vec<Value> = case["requests"].as_array().cloned().unwrap_or_else(|| vec![case["request"].clone()]);
+        let reply = |a: &Value| if a["timeout"] == true { json!({ "network": "post_send", "message": "Net::ReadTimeout" }) }
+                                else if a["refused"] == true { json!({ "network": "pre_send", "message": "Connection refused" }) }
+                                else { json!({ "status": a["status"], "body": a["body"] }) };
+        let mut script = serde_json::Map::new();
+        for (request, answer) in sent.iter().zip(&answers) {
+            script.insert(format!("{} {}", request["method"].as_str().unwrap(), request["path"].as_str().unwrap()), json!([reply(answer)]));
+        }
+        let transport = deltabadger::venue::http::ScriptedTransport::from_script(&Value::Object(script));
+        let venue = deltabadger::venue::bitvavo::BitvavoVenue::new(transport.clone(), deltabadger::venue::bitvavo::URL);
+        let (_, ours) = rt.block_on(key_check::bitvavo_check(&transport, &venue, kind));
+        let theirs = expected(&case["verdict"]);
+        let ours_sent: Vec<Value> = transport.requests().iter().map(|r| {
+            let query: serde_json::Map<String, Value> = r.query.iter().map(|(k, v)| (k.to_string(), json!(v))).collect();
+            json!([r.method, r.url().host_str().unwrap(), r.path, query])
+        }).collect();
+        let theirs_sent: Vec<Value> = sent.iter().map(|r| json!([r["method"], r["host"], r["path"], r["query"]])).collect();
+        if name.contains("plain_text_200") {
+            assert!(theirs == Verdict::Valid(true) && matches!(&ours, Verdict::Failure(t) if t == "OK"), "D-BITVAVO-KEY-TEXT {name}: {ours:?}, Rails {theirs:?}");
+            assert_eq!(ours_sent[..], theirs_sent[..ours_sent.len()], "{name}");
+            text_passes += 1;
+        } else {
+            assert!(same(&ours, &theirs), "bitvavo {} {} {name}: {ours:?}, Rails {theirs:?}", case["key_type"], case["method"]);
+            assert_eq!(ours_sent, theirs_sent, "bitvavo {} {} {name}: the request sequence", case["key_type"], case["method"]);
+        }
+        assert!(sent.iter().all(|r| r["key_header"] == "test-key" && r["form"] == json!({})), "{name}");
+        bitvavo += 1;
+    }
+    assert_eq!((bitvavo, text_passes), (214, 7), "a recorded Bitvavo case was added or dropped");
+    replayed += bitvavo;
+    assert_eq!(replayed, 578 + 212 + 214, "a recorded case was added or dropped");
 }
 
 /// A pinned callback list against a port's table: the same callbacks, in Rails' order, each handled.
@@ -200,4 +240,28 @@ async fn a_binance_us_key_is_checked_by_a_read_and_a_probe() {
     let sent: Vec<(String, String)> = server.received_requests().await.unwrap().iter().map(|r| (r.method.to_string(), r.url.path().to_string())).collect();
     let (read, probe) = (("GET".to_string(), "/api/v3/account".to_string()), ("DELETE".to_string(), "/api/v3/order".to_string()));
     assert_eq!(sent, [read.clone(), probe.clone(), read.clone(), probe, read]);
+}
+
+/// The live key check of a Bitvavo key, as the wizard and settings send it: the signed balance read, then the cancel probe
+/// (240: past the permission check) for a trading key and a reading key alike, both signed with the key in
+/// BITVAVO-ACCESS-KEY; a withdrawal key is judged by the read alone.
+#[tokio::test(flavor = "current_thread")]
+async fn a_bitvavo_key_is_checked_by_a_balance_read_and_a_probe() {
+    use wiremock::{matchers::{header, header_exists, method, path, query_param}, Mock, MockServer, ResponseTemplate};
+    use deltabadger::web::settings::validator::Validity;
+    let server = MockServer::start().await;
+    Mock::given(method("GET")).and(path("/v2/balance")).and(header("BITVAVO-ACCESS-KEY", "bv-key")).and(header_exists("BITVAVO-ACCESS-SIGNATURE"))
+        .and(header("BITVAVO-ACCESS-WINDOW", "10000"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([{ "symbol": "EUR", "available": "1", "inOrder": "0" }]))).mount(&server).await;
+    Mock::given(method("DELETE")).and(path("/v2/order")).and(query_param("market", "BTC-EUR")).and(query_param("operatorId", "1")).and(header("BITVAVO-ACCESS-KEY", "bv-key"))
+        .respond_with(ResponseTemplate::new(404).set_body_json(json!({ "errorCode": 240, "error": "No order found." }))).mount(&server).await;
+    let credentials = deltabadger::crypto::Credentials { key: "bv-key".into(), secret: "bv-secret".into(), passphrase: None, redaction_values: vec![] };
+    let base = server.uri();
+    let check = |kind| key_check::check("Exchanges::Bitvavo", &base, deltabadger::venue::http::client(), &credentials, kind);
+    assert!(matches!(check(0).await, Validity::Correct), "a trading key that reads and may trade");
+    assert!(matches!(check(1).await, Validity::Correct), "a withdrawal key that reads");
+    assert!(matches!(check(2).await, Validity::Correct), "a reading key that reads and may trade (the ledger reads trades)");
+    let sent: Vec<(String, String)> = server.received_requests().await.unwrap().iter().map(|r| (r.method.to_string(), r.url.path().to_string())).collect();
+    let (read, probe) = (("GET".to_string(), "/v2/balance".to_string()), ("DELETE".to_string(), "/v2/order".to_string()));
+    assert_eq!(sent, [read.clone(), probe.clone(), read.clone(), read, probe]);
 }

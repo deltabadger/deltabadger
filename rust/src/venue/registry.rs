@@ -7,18 +7,18 @@ use crate::engine::venue_rules::{self, VenueRules};
 
 /// How a key's balances are synced (`sync::balances`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum BalanceSync { Alpaca, Binance, Kucoin }
+pub enum BalanceSync { Alpaca, Binance, Kucoin, Bitvavo }
 
 /// How a key's ledger is synced (`sync::ledger`, `sync::binance_ledger` (Binance and Binance.US, each its own sources),
-/// `sync::kucoin_ledger`).
+/// `sync::kucoin_ledger`, `sync::bitvavo_ledger`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum LedgerSync { Alpaca, Binance, Kucoin }
+pub enum LedgerSync { Alpaca, Binance, Kucoin, Bitvavo }
 
 /// How a key is checked (ApiKey#get_validity): Alpaca's account read (`settings::validator::check`), or the venue's own
 /// request sequence (`settings::key_check`) through its proxy. Binance.US's is its own (binance_us.rb: an account read,
-/// then a cancel probe), on Binance's wire.
+/// then a cancel probe), on Binance's wire. Bitvavo's reads the balance, then probes a cancel, for a reading key too.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum KeyCheck { Alpaca, Kraken, Binance, BinanceUs, Kucoin }
+pub enum KeyCheck { Alpaca, Kraken, Binance, BinanceUs, Kucoin, Bitvavo }
 
 /// Which market data the figures read for the venue's bots (figures::page_market).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -57,7 +57,7 @@ pub struct Row {
     pub figures: Option<Figures>,
 }
 
-pub static ROWS: [Row; 5] = [
+pub static ROWS: [Row; 6] = [
     Row { exchange_type: crate::sync::ALPACA, name: "Alpaca", name_id: "alpaca", base: "", rules: Some(&venue_rules::ALPACA), passphrase: true,
           needs_pairs: false, trades: true, balances: Some(BalanceSync::Alpaca), ledger: Some(LedgerSync::Alpaca), key_check: Some(KeyCheck::Alpaca),
           wizard: true, figures: Some(Figures::Alpaca) },
@@ -74,6 +74,10 @@ pub static ROWS: [Row; 5] = [
     Row { exchange_type: super::kucoin::KUCOIN, name: "KuCoin", name_id: "kucoin", base: super::kucoin::URL, rules: Some(&venue_rules::KUCOIN),
           passphrase: true, needs_pairs: true, trades: true, balances: Some(BalanceSync::Kucoin), ledger: Some(LedgerSync::Kucoin),
           key_check: Some(KeyCheck::Kucoin), wizard: true, figures: Some(Figures::Kucoin) },
+    // Plan VB slice A3. Its figures land with family F2 (AF): until then its bots show no exchange note.
+    Row { exchange_type: super::bitvavo::BITVAVO, name: "Bitvavo", name_id: "bitvavo", base: super::bitvavo::URL, rules: Some(&venue_rules::BITVAVO),
+          passphrase: false, needs_pairs: true, trades: true, balances: Some(BalanceSync::Bitvavo), ledger: Some(LedgerSync::Bitvavo),
+          key_check: Some(KeyCheck::Bitvavo), wizard: true, figures: None },
 ];
 
 pub fn row(exchange_type: &str) -> Option<&'static Row> { ROWS.iter().find(|r| r.exchange_type == exchange_type) }
@@ -106,22 +110,22 @@ mod tests {
     /// What each list the registry replaced named before it (plan VB §1.1): the derivations name the same venues.
     #[test]
     fn the_derived_lists_are_the_lists_they_replaced() {
-        let (alpaca, kraken, binance, us, kucoin) = ("Exchanges::Alpaca", "Exchanges::Kraken", "Exchanges::Binance", "Exchanges::BinanceUs", "Exchanges::Kucoin");
-        assert_eq!(crate::sync::balance_venues(), [alpaca, binance, us, kucoin], "BALANCE_VENUES");
-        assert_eq!(crate::sync::ledger_venues(), [alpaca, binance, us, kucoin], "LEDGER_VENUES");
-        assert_eq!(types(|r| r.wizard), [alpaca, kraken, binance, us, kucoin], "wizard::keys::PORTED");
-        assert_eq!(types(|r| r.trades), [alpaca, kraken, binance, us, kucoin], "venue_rules::for_exchange, eligibility::admission, LiveFactory");
+        let (alpaca, kraken, binance, us, kucoin, bitvavo) = ("Exchanges::Alpaca", "Exchanges::Kraken", "Exchanges::Binance", "Exchanges::BinanceUs", "Exchanges::Kucoin", "Exchanges::Bitvavo");
+        assert_eq!(crate::sync::balance_venues(), [alpaca, binance, us, kucoin, bitvavo], "BALANCE_VENUES");
+        assert_eq!(crate::sync::ledger_venues(), [alpaca, binance, us, kucoin, bitvavo], "LEDGER_VENUES");
+        assert_eq!(types(|r| r.wizard), [alpaca, kraken, binance, us, kucoin, bitvavo], "wizard::keys::PORTED");
+        assert_eq!(types(|r| r.trades), [alpaca, kraken, binance, us, kucoin, bitvavo], "venue_rules::for_exchange, eligibility::admission, LiveFactory");
         assert_eq!(types(|r| r.passphrase), [alpaca, kucoin], "model::credentials_with_redaction's passphrase");
         assert_eq!(types(|r| r.figures.is_some()), [alpaca, kucoin], "page_market::reads");
         assert_eq!(types(|r| r.figures.is_some_and(Figures::candles)), [alpaca, kucoin], "page_market::reads_candles");
-        assert_eq!(types(|r| r.needs_pairs && r.trades), [binance, us, kucoin], "LiveFactory's Pairs::load");
+        assert_eq!(types(|r| r.needs_pairs && r.trades), [binance, us, kucoin, bitvavo], "LiveFactory's Pairs::load");
         let proxies: Vec<_> = ROWS.iter().filter_map(|r| key_check_proxy(r.exchange_type).map(|p| (r.exchange_type, p, r.base))).collect();
         assert_eq!(proxies, [(kraken, "kraken", crate::venue::kraken::URL), (binance, "binance", crate::venue::binance::URL), (us, "binance_us", crate::venue::binance::US_URL),
-                             (kucoin, "kucoin", crate::venue::kucoin::URL)],
+                             (kucoin, "kucoin", crate::venue::kucoin::URL), (bitvavo, "bitvavo", crate::venue::bitvavo::URL)],
                    "validator::key_check_venue, venue_key_urls, Connect::key_check_egress");
         assert_eq!(crate::venue::binance::host(binance), Some((crate::venue::binance::URL, "binance")));
         assert_eq!(crate::venue::binance::host(us), Some((crate::venue::binance::US_URL, "binance_us")));
         assert_eq!(crate::venue::binance::host(kucoin), None);
-        for (ty, tag) in [(alpaca, "Alpaca"), (binance, "Binance"), (us, "Binance.US"), (kucoin, "KuCoin")] { assert_eq!(row(ty).unwrap().name, tag); }
+        for (ty, tag) in [(alpaca, "Alpaca"), (binance, "Binance"), (us, "Binance.US"), (kucoin, "KuCoin"), (bitvavo, "Bitvavo")] { assert_eq!(row(ty).unwrap().name, tag); }
     }
 }

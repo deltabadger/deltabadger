@@ -2,6 +2,7 @@
 # recorder, a section per venue):
 #   bin/rails runner script/rust/record_venue_vectors.rb binance rust/tests/fixtures/binance_vectors.json  # + the fill rebuild (binance_trade.rs)
 #   bin/rails runner script/rust/record_venue_vectors.rb kucoin rust/tests/fixtures/kucoin_vectors.json    # + #parse_order_data (kucoin.rs)
+#   bin/rails runner script/rust/record_venue_vectors.rb bitvavo rust/tests/fixtures/bitvavo_vectors.json  # + #parse_order_data (bitvavo.rs)
 #   bin/rails runner script/rust/record_venue_vectors.rb prices rust/tests/fixtures/prices_vectors.json     # plan VB slice P (venue_rules.rs)
 # Nothing is saved and nothing leaves the machine: the honeymaker client is replaced by a recorder, and any real
 # connection raises. Re-run (script/rust/repin) when a file under "sources" changes; the Rust tests fail until then.
@@ -60,9 +61,30 @@ when 'kucoin'
     { minimum_base_size: '0.1', minimum_quote_size: '5', base_decimals: 1, quote_decimals: 0, price_decimals: 0 },
     { minimum_base_size: '0.00005', minimum_quote_size: '0.5', base_decimals: 8, quote_decimals: 5, price_decimals: 3 }
   ]
+when 'bitvavo'
+  out = { 'sources' => pin.(%w[app/models/exchanges/bitvavo.rb app/models/exchange.rb app/models/bot/order_setter.rb app/models/ticker.rb
+                               script/rust/record_venue_vectors.rb]),
+          'gems' => { 'honeymaker' => Honeymaker::VERSION } }
+  exchange = Exchanges::Bitvavo.new(name: 'Bitvavo')
+  exchange.instance_variable_set(:@client, Object.new.tap do |c|
+    c.define_singleton_method(:place_order) { |**kw| captured = kw; Result::Success.new(order_id: 'BTC-EUR-0b6d2f7e', raw: {}) }
+  end)
+  pair, strip, seed = 'BTC-EUR', [], 20_261_021
+  # Pairs shaped as Exchanges::Bitvavo#get_tickers_info reads /v2/markets: minOrderInBaseAsset, minOrderInQuoteAsset,
+  # quantityDecimals, notionalDecimals and the decimals of tickSize (all powers of ten, AUDIT-bitvavo).
+  tickers = [
+    { minimum_base_size: '0.0001', minimum_quote_size: '5', base_decimals: 8, quote_decimals: 2, price_decimals: 0 },
+    { minimum_base_size: '0.001', minimum_quote_size: '5', base_decimals: 8, quote_decimals: 2, price_decimals: 2 },
+    { minimum_base_size: '1', minimum_quote_size: '5', base_decimals: 6, quote_decimals: 2, price_decimals: 5 },
+    { minimum_base_size: '10', minimum_quote_size: '1', base_decimals: 2, quote_decimals: 2, price_decimals: 8 },
+    { minimum_base_size: '0.01', minimum_quote_size: '10', base_decimals: 4, quote_decimals: 8, price_decimals: 1 },
+    { minimum_base_size: '100', minimum_quote_size: '5', base_decimals: 0, quote_decimals: 2, price_decimals: 6 },
+    { minimum_base_size: '0.00001', minimum_quote_size: '0.1', base_decimals: 8, quote_decimals: 0, price_decimals: 3 },
+    { minimum_base_size: '0.5', minimum_quote_size: '50', base_decimals: 1, quote_decimals: 4, price_decimals: 4 }
+  ]
 when 'prices'
   # Not one venue: every venue's Exchange#adjusted_price and #market_price_for, the default rule and its two overrides.
-  price_venues = %w[Kraken Alpaca Binance Kucoin Gemini Hyperliquid BinanceUs]
+  price_venues = %w[Kraken Alpaca Binance Kucoin Gemini Hyperliquid BinanceUs Bitvavo]
   out = { 'sources' => pin.(%w[app/models/exchange.rb app/models/ticker.rb script/rust/record_venue_vectors.rb] +
                             price_venues.map { |v| "app/models/exchanges/#{v.underscore}.rb" }) }
   seed, tickers = 20_261_020, []
@@ -210,6 +232,26 @@ when 'kucoin'
       'side' => data[:side].to_s, 'order_type' => data[:order_type].to_s }
   end
   out['kucoin_orders'] = orders
+  extra = "#{orders.size} orders"
+when 'bitvavo'
+  bitvavo = exchange
+  bitvavo.define_singleton_method(:tickers) { Object.new.tap { |t| t.define_singleton_method(:find_by) { |ticker:| nil } } }
+  # #parse_order_data over generated GET /v2/order answers (V3: the fills' average whenever something filled, unrounded),
+  # every status ORDER_STATUS_MAP lists and the two order types, both sides.
+  statuses = %w[new partiallyFilled filled canceled cancelled expired rejected]
+  orders = Array.new(10_000) do |n|
+    filled = rng.rand(3).positive?
+    raw = { 'orderId' => "o#{n}", 'market' => %w[BTC-EUR ETH-BTC NEW-EUR][n % 3], 'orderType' => %w[market limit][n % 2], 'side' => %w[buy sell][n % 2 == 0 ? rng.rand(2) : 1],
+            'status' => statuses[rng.rand(statuses.size)], 'price' => rng.rand(4).zero? ? nil : decimal.(-6, 5), 'amount' => rng.rand(5).zero? ? '0' : decimal.(-8, 3),
+            'amountQuote' => rng.rand(3).zero? ? decimal.(-4, 4) : nil,
+            'filledAmount' => filled ? decimal.(-8, 3) : '0', 'filledAmountQuote' => filled ? decimal.(-6, 5) : (rng.rand(4).zero? ? decimal.(-6, 5) : '0') }.compact
+    data = bitvavo.send(:parse_order_data, "#{raw['market']}-#{raw['orderId']}", raw)
+    { 'raw' => raw, 'status' => data[:status].to_s, 'price' => data[:price]&.to_d&.to_s('F'),
+      'amount' => data[:amount]&.to_d&.to_s('F'), 'quote_amount' => data[:quote_amount]&.to_d&.to_s('F'),
+      'amount_exec' => data[:amount_exec].to_d.to_s('F'), 'quote_amount_exec' => data[:quote_amount_exec].to_d.to_s('F'),
+      'side' => data[:side].to_s, 'order_type' => data[:order_type].to_s }
+  end
+  out['bitvavo_orders'] = orders
   extra = "#{orders.size} orders"
 when 'prices'
   # Ticker#adjusted_price (Exchange#adjusted_price: price_decimals; Hyperliquid's 5 significant figures within
