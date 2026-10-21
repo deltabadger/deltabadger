@@ -1,0 +1,420 @@
+{
+  "sources": {
+    "script/rust/record_venue_signing.rb": "b65a76d5a1c1e8effdc9b7d92f2b35b38126d49ca396583832d86586b5034437",
+    "app/models/exchanges/bitvavo.rb": "eb8c8aac55c32742ff255efeb890e1163892480f85e6e6dcaf611b79ada4d513"
+  },
+  "gems": {
+    "honeymaker": "0.12.5",
+    "hyperliquid-rb": "0.1.1",
+    "jwt": "2.10.3",
+    "rbnacl": "7.1.2",
+    "eth": "0.5.18",
+    "msgpack": "1.8.5"
+  },
+  "errors": {
+    "insufficient_funds": [
+      "sufficient balance to complete"
+    ],
+    "invalid_key": [
+      "No active API key found",
+      "API Key must be of length",
+      "\"errorCode\":308",
+      "\"errorCode\":309"
+    ],
+    "permission_denied": [
+      "\"errorCode\":307",
+      "\"errorCode\":310",
+      "\"errorCode\":311",
+      "\"errorCode\":312"
+    ],
+    "throttle": [
+      "\"errorCode\":105",
+      "Too Many Requests"
+    ],
+    "transient": [
+      "\"errorCode\":101",
+      "\"errorCode\":107",
+      "\"errorCode\":108",
+      "\"errorCode\":109",
+      "\"errorCode\":111",
+      "\"errorCode\":400",
+      "\"errorCode\":419",
+      "\"errorCode\":304"
+    ],
+    "placement_safe_transient": [
+      "\"errorCode\":304"
+    ]
+  },
+  "network_transient": [
+    "Net::ReadTimeout",
+    "Net::OpenTimeout",
+    "Faraday::TimeoutError",
+    "Faraday::ConnectionFailed",
+    "execution expired",
+    "Connection reset",
+    "Errno::ECONNRESET",
+    "connection refused",
+    "Connection refused",
+    "Errno::ECONNREFUSED",
+    "end of file reached",
+    "unexpected eof while reading"
+  ],
+  "placement_safe": [
+    "Timestamp for this request is outside of the recvWindow",
+    "Timestamp for this request was"
+  ],
+  "signing": [
+    {
+      "method": "GET",
+      "path": "/v2/balance",
+      "query": null,
+      "body": null,
+      "headers": {
+        "Bitvavo-access-key": "4a1f9c2e7b3d5a6f8e0c1b2d3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3",
+        "Bitvavo-access-signature": "ebe9a29811fbd6394431fc1d9fa88637fb67e81a37c75dbc85b9cbe90700f36a",
+        "Bitvavo-access-timestamp": "1789871400750",
+        "Bitvavo-access-window": "10000",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "get_raw_balance",
+      "api_key": "4a1f9c2e7b3d5a6f8e0c1b2d3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3",
+      "api_secret": "9f8e7d6c5b4a39281706f5e4d3c2b1a0f9e8d7c6b5a493827160f5e4d3c2b1a0f9",
+      "timestamp": 1789871400750
+    },
+    {
+      "method": "GET",
+      "path": "/v2/order",
+      "query": "market=BTC-EUR&orderId=0b6d2f7e-1c4a-4b8e-9f3a-5d2c7e1a9b01",
+      "body": null,
+      "headers": {
+        "Bitvavo-access-key": "4a1f9c2e7b3d5a6f8e0c1b2d3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3",
+        "Bitvavo-access-signature": "54caa725116190170073e92ec01b7b09a0c663e7987e516343b9763b986bb249",
+        "Bitvavo-access-timestamp": "1789871400751",
+        "Bitvavo-access-window": "10000",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "get_order",
+      "api_key": "4a1f9c2e7b3d5a6f8e0c1b2d3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3",
+      "api_secret": "9f8e7d6c5b4a39281706f5e4d3c2b1a0f9e8d7c6b5a493827160f5e4d3c2b1a0f9",
+      "timestamp": 1789871400751
+    },
+    {
+      "method": "GET",
+      "path": "/v2/trades",
+      "query": "limit=1000&market=BTC-EUR&tradeIdTo=1b2c3d4e-0000-4000-8000-000000000001",
+      "body": null,
+      "headers": {
+        "Bitvavo-access-key": "4a1f9c2e7b3d5a6f8e0c1b2d3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3",
+        "Bitvavo-access-signature": "d8f77b34b0a469dce5d625aa55b857d50b07301c284dd95e658e2a7bc7ddf071",
+        "Bitvavo-access-timestamp": "1789871400752",
+        "Bitvavo-access-window": "10000",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "get_trades",
+      "api_key": "4a1f9c2e7b3d5a6f8e0c1b2d3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3",
+      "api_secret": "9f8e7d6c5b4a39281706f5e4d3c2b1a0f9e8d7c6b5a493827160f5e4d3c2b1a0f9",
+      "timestamp": 1789871400752
+    },
+    {
+      "method": "GET",
+      "path": "/v2/depositHistory",
+      "query": "end=1789871400751&limit=1000&start=0",
+      "body": null,
+      "headers": {
+        "Bitvavo-access-key": "4a1f9c2e7b3d5a6f8e0c1b2d3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3",
+        "Bitvavo-access-signature": "ebad80794de0f4face78fa0811bbfce1ca8b871bc97b4b03dcfbe7cb64d96304",
+        "Bitvavo-access-timestamp": "1789871400753",
+        "Bitvavo-access-window": "10000",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "get_deposit_history",
+      "api_key": "4a1f9c2e7b3d5a6f8e0c1b2d3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3",
+      "api_secret": "9f8e7d6c5b4a39281706f5e4d3c2b1a0f9e8d7c6b5a493827160f5e4d3c2b1a0f9",
+      "timestamp": 1789871400753
+    },
+    {
+      "method": "GET",
+      "path": "/v2/balance",
+      "query": "symbol=A+B%2F~%2A%C3%A9",
+      "body": null,
+      "headers": {
+        "Bitvavo-access-key": "4a1f9c2e7b3d5a6f8e0c1b2d3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3",
+        "Bitvavo-access-signature": "2c0f8cb0dd8254b7e7c2721e734b284d82b7dd8f1d7e65649399a1fe95d5716e",
+        "Bitvavo-access-timestamp": "1789871400754",
+        "Bitvavo-access-window": "10000",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "get_raw_balance escaped",
+      "api_key": "4a1f9c2e7b3d5a6f8e0c1b2d3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3",
+      "api_secret": "9f8e7d6c5b4a39281706f5e4d3c2b1a0f9e8d7c6b5a493827160f5e4d3c2b1a0f9",
+      "timestamp": 1789871400754
+    },
+    {
+      "method": "POST",
+      "path": "/v2/order",
+      "query": null,
+      "body": "{\"market\":\"BTC-EUR\",\"side\":\"buy\",\"orderType\":\"market\",\"amount\":\"0.00093748\",\"clientOrderId\":\"5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01\",\"operatorId\":1}",
+      "headers": {
+        "Bitvavo-access-key": "4a1f9c2e7b3d5a6f8e0c1b2d3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3",
+        "Bitvavo-access-signature": "ed85055f5fb41546f957a48f666db1dadfd402a11f4c95b247de3467d7a8d962",
+        "Bitvavo-access-timestamp": "1789871400755",
+        "Bitvavo-access-window": "10000",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "place_order market amount",
+      "api_key": "4a1f9c2e7b3d5a6f8e0c1b2d3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3",
+      "api_secret": "9f8e7d6c5b4a39281706f5e4d3c2b1a0f9e8d7c6b5a493827160f5e4d3c2b1a0f9",
+      "timestamp": 1789871400755
+    },
+    {
+      "method": "POST",
+      "path": "/v2/order",
+      "query": null,
+      "body": "{\"market\":\"BTC-EUR\",\"side\":\"sell\",\"orderType\":\"market\",\"amountQuote\":\"60.5\",\"operatorId\":1}",
+      "headers": {
+        "Bitvavo-access-key": "4a1f9c2e7b3d5a6f8e0c1b2d3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3",
+        "Bitvavo-access-signature": "16b50b7f10e241373942f6c916cd761f08a7a1d172c8dab2e8f58163120bce16",
+        "Bitvavo-access-timestamp": "1789871400756",
+        "Bitvavo-access-window": "10000",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "place_order market quote",
+      "api_key": "4a1f9c2e7b3d5a6f8e0c1b2d3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3",
+      "api_secret": "9f8e7d6c5b4a39281706f5e4d3c2b1a0f9e8d7c6b5a493827160f5e4d3c2b1a0f9",
+      "timestamp": 1789871400756
+    },
+    {
+      "method": "POST",
+      "path": "/v2/order",
+      "query": null,
+      "body": "{\"market\":\"ETH-EUR\",\"side\":\"buy\",\"orderType\":\"limit\",\"amount\":\"1.5\",\"price\":\"2400\",\"clientOrderId\":\"5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01\",\"operatorId\":1}",
+      "headers": {
+        "Bitvavo-access-key": "4a1f9c2e7b3d5a6f8e0c1b2d3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3",
+        "Bitvavo-access-signature": "3cbaf0a0eccdef896ff9eafb2b2fbbd0ea9334438a125c9b26eba0714156bdb4",
+        "Bitvavo-access-timestamp": "1789871400757",
+        "Bitvavo-access-window": "10000",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "place_order limit",
+      "api_key": "4a1f9c2e7b3d5a6f8e0c1b2d3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3",
+      "api_secret": "9f8e7d6c5b4a39281706f5e4d3c2b1a0f9e8d7c6b5a493827160f5e4d3c2b1a0f9",
+      "timestamp": 1789871400757
+    },
+    {
+      "method": "DELETE",
+      "path": "/v2/order",
+      "query": "market=BTC-EUR&operatorId=1&orderId=00000000-0000-0000-0000-000000000000",
+      "body": null,
+      "headers": {
+        "Bitvavo-access-key": "4a1f9c2e7b3d5a6f8e0c1b2d3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3",
+        "Bitvavo-access-signature": "c686c8f95f4f00ba8150dccc7cc43580523f039e690387b7d5eb31a9bea5860b",
+        "Bitvavo-access-timestamp": "1789871400758",
+        "Bitvavo-access-window": "10000",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "cancel_order",
+      "api_key": "4a1f9c2e7b3d5a6f8e0c1b2d3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3",
+      "api_secret": "9f8e7d6c5b4a39281706f5e4d3c2b1a0f9e8d7c6b5a493827160f5e4d3c2b1a0f9",
+      "timestamp": 1789871400758
+    },
+    {
+      "method": "GET",
+      "path": "/v2/markets",
+      "query": null,
+      "body": null,
+      "headers": {
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "get_markets public",
+      "api_key": "4a1f9c2e7b3d5a6f8e0c1b2d3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3",
+      "api_secret": "9f8e7d6c5b4a39281706f5e4d3c2b1a0f9e8d7c6b5a493827160f5e4d3c2b1a0f9",
+      "timestamp": 1789871400759
+    },
+    {
+      "method": "GET",
+      "path": "/v2/balance",
+      "query": null,
+      "body": null,
+      "headers": {
+        "Bitvavo-access-key": "k",
+        "Bitvavo-access-signature": "1dbf543ac4e2d52eda3918951dce72bf13630f5ea74e47565076bf7189cd764e",
+        "Bitvavo-access-timestamp": "1789871401750",
+        "Bitvavo-access-window": "10000",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "get_raw_balance",
+      "api_key": "k",
+      "api_secret": "s3cr3t~/+=",
+      "timestamp": 1789871401750
+    },
+    {
+      "method": "GET",
+      "path": "/v2/order",
+      "query": "market=BTC-EUR&orderId=0b6d2f7e-1c4a-4b8e-9f3a-5d2c7e1a9b01",
+      "body": null,
+      "headers": {
+        "Bitvavo-access-key": "k",
+        "Bitvavo-access-signature": "ddae422ebb5a21c76e0eb893652f5768fd0907f8b2fb93c53c6afcafcfb1d825",
+        "Bitvavo-access-timestamp": "1789871401751",
+        "Bitvavo-access-window": "10000",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "get_order",
+      "api_key": "k",
+      "api_secret": "s3cr3t~/+=",
+      "timestamp": 1789871401751
+    },
+    {
+      "method": "GET",
+      "path": "/v2/trades",
+      "query": "limit=1000&market=BTC-EUR&tradeIdTo=1b2c3d4e-0000-4000-8000-000000000001",
+      "body": null,
+      "headers": {
+        "Bitvavo-access-key": "k",
+        "Bitvavo-access-signature": "7a864a0b8dca534dc178cd6a7608566c4fdb7090ef955e41bd1d3c3ab79d4332",
+        "Bitvavo-access-timestamp": "1789871401752",
+        "Bitvavo-access-window": "10000",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "get_trades",
+      "api_key": "k",
+      "api_secret": "s3cr3t~/+=",
+      "timestamp": 1789871401752
+    },
+    {
+      "method": "GET",
+      "path": "/v2/depositHistory",
+      "query": "end=1789871400751&limit=1000&start=0",
+      "body": null,
+      "headers": {
+        "Bitvavo-access-key": "k",
+        "Bitvavo-access-signature": "b94dda21d3dd46b0363fb2eb7656435a1a52715ab40e7bf53949d4ceeb019a9d",
+        "Bitvavo-access-timestamp": "1789871401753",
+        "Bitvavo-access-window": "10000",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "get_deposit_history",
+      "api_key": "k",
+      "api_secret": "s3cr3t~/+=",
+      "timestamp": 1789871401753
+    },
+    {
+      "method": "GET",
+      "path": "/v2/balance",
+      "query": "symbol=A+B%2F~%2A%C3%A9",
+      "body": null,
+      "headers": {
+        "Bitvavo-access-key": "k",
+        "Bitvavo-access-signature": "0b91bbc0ccf8109c190bdd218da5e8f6339c0be9d4c1dbceba07e042c659fb8a",
+        "Bitvavo-access-timestamp": "1789871401754",
+        "Bitvavo-access-window": "10000",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "get_raw_balance escaped",
+      "api_key": "k",
+      "api_secret": "s3cr3t~/+=",
+      "timestamp": 1789871401754
+    },
+    {
+      "method": "POST",
+      "path": "/v2/order",
+      "query": null,
+      "body": "{\"market\":\"BTC-EUR\",\"side\":\"buy\",\"orderType\":\"market\",\"amount\":\"0.00093748\",\"clientOrderId\":\"5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01\",\"operatorId\":1}",
+      "headers": {
+        "Bitvavo-access-key": "k",
+        "Bitvavo-access-signature": "981c1f29bfd11ec57b8ab80a1f0f3d60508a3896b919c8fa4ffdaa5a963d63dc",
+        "Bitvavo-access-timestamp": "1789871401755",
+        "Bitvavo-access-window": "10000",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "place_order market amount",
+      "api_key": "k",
+      "api_secret": "s3cr3t~/+=",
+      "timestamp": 1789871401755
+    },
+    {
+      "method": "POST",
+      "path": "/v2/order",
+      "query": null,
+      "body": "{\"market\":\"BTC-EUR\",\"side\":\"sell\",\"orderType\":\"market\",\"amountQuote\":\"60.5\",\"operatorId\":1}",
+      "headers": {
+        "Bitvavo-access-key": "k",
+        "Bitvavo-access-signature": "2da9c1b3bb68d0bcec51e22554cea17a468643228d570c2b4312cf0d468d4c8b",
+        "Bitvavo-access-timestamp": "1789871401756",
+        "Bitvavo-access-window": "10000",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "place_order market quote",
+      "api_key": "k",
+      "api_secret": "s3cr3t~/+=",
+      "timestamp": 1789871401756
+    },
+    {
+      "method": "POST",
+      "path": "/v2/order",
+      "query": null,
+      "body": "{\"market\":\"ETH-EUR\",\"side\":\"buy\",\"orderType\":\"limit\",\"amount\":\"1.5\",\"price\":\"2400\",\"clientOrderId\":\"5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01\",\"operatorId\":1}",
+      "headers": {
+        "Bitvavo-access-key": "k",
+        "Bitvavo-access-signature": "90252efa011c5710dc9ab9d9e2e009b17f6d88d74cd33bced30b2a3d53050558",
+        "Bitvavo-access-timestamp": "1789871401757",
+        "Bitvavo-access-window": "10000",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "place_order limit",
+      "api_key": "k",
+      "api_secret": "s3cr3t~/+=",
+      "timestamp": 1789871401757
+    },
+    {
+      "method": "DELETE",
+      "path": "/v2/order",
+      "query": "market=BTC-EUR&operatorId=1&orderId=00000000-0000-0000-0000-000000000000",
+      "body": null,
+      "headers": {
+        "Bitvavo-access-key": "k",
+        "Bitvavo-access-signature": "dcf8e7dd1c2fd55a0366990993c9993b1f72cddfe40877541959ed69b92e0b86",
+        "Bitvavo-access-timestamp": "1789871401758",
+        "Bitvavo-access-window": "10000",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "cancel_order",
+      "api_key": "k",
+      "api_secret": "s3cr3t~/+=",
+      "timestamp": 1789871401758
+    },
+    {
+      "method": "GET",
+      "path": "/v2/markets",
+      "query": null,
+      "body": null,
+      "headers": {
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "get_markets public",
+      "api_key": "k",
+      "api_secret": "s3cr3t~/+=",
+      "timestamp": 1789871401759
+    }
+  ]
+}

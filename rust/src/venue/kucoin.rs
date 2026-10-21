@@ -11,11 +11,8 @@ use super::{NewOrder, OrderKind, OrderState, OrderStatus, PriceSide, VenueError}
 use crate::engine::model::Ticker;
 use crate::engine::venue_rules::{VenueRules, KUCOIN as RULES};
 use crate::ruby::BigDec;
-use base64::Engine;
 use chrono::{DateTime, Utc};
-use hmac::{Hmac, Mac};
 use serde_json::Value;
-use sha2::Sha256;
 
 pub const URL: &str = "https://api.kucoin.com";
 pub const KUCOIN: &str = "Exchanges::Kucoin";
@@ -48,28 +45,11 @@ pub fn query_text(r: &HttpRequest) -> String { build_query(&r.query) }
 /// the order the client built them in (serde_json's preserve_order).
 pub fn body_text(r: &HttpRequest) -> Option<String> { r.body.as_ref().map(Value::to_string) }
 
-fn b64_hmac(secret: &str, message: &str) -> String {
-    let mut mac = <Hmac<Sha256> as Mac>::new_from_slice(secret.as_bytes()).expect("HMAC takes a key of any length");
-    mac.update(message.as_bytes());
-    base64::engine::general_purpose::STANDARD.encode(mac.finalize().into_bytes())
-}
-
-/// The headers honeymaker sends with `r` at `timestamp_ms`: #signed_headers, or #unauthenticated_headers on a public read.
+/// The headers honeymaker sends with `r` at `timestamp_ms`: #signed_headers (`sign::KUCOIN`), or #unauthenticated_headers on
+/// a public read.
 pub fn headers(r: &HttpRequest, key: &str, secret: &str, passphrase: &str, timestamp_ms: i64) -> Vec<(String, String)> {
-    let mut out = vec![("Accept".to_string(), "application/json".to_string()), ("Content-Type".to_string(), "application/json".to_string())];
-    if is_public(&r.path) { return out; }
-    let ts = timestamp_ms.to_string();
-    let query = query_text(r);
-    let tail = match r.method {
-        "GET" if !query.is_empty() => format!("?{query}"),
-        "POST" => body_text(r).unwrap_or_default(),
-        _ => String::new(), // #delete_signed signs the path alone
-    };
-    let sign = b64_hmac(secret, &format!("{ts}{}{}{tail}", r.method, r.path));
-    let mut signed = vec![("KC-API-KEY".to_string(), key.to_string()), ("KC-API-SIGN".to_string(), sign), ("KC-API-TIMESTAMP".to_string(), ts),
-                          ("KC-API-PASSPHRASE".to_string(), b64_hmac(secret, passphrase)), ("KC-API-KEY-VERSION".to_string(), "2".to_string())];
-    signed.append(&mut out);
-    signed
+    if is_public(&r.path) { return super::sign::json_headers(); }
+    super::sign::prehash(&super::sign::KUCOIN, r, &query_text(r), key, secret, passphrase, timestamp_ms)
 }
 
 #[derive(Clone)]

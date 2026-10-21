@@ -259,8 +259,9 @@ pub async fn run(dir: &Path, cipher: Arc<Cipher>) -> Result<Value, SyncError> {
         let at: DateTime<Utc> = step["at"].as_str().and_then(|s| s.parse().ok()).ok_or_else(|| data("step.at"))?;
         let binance = step.get("binance").is_some();
         let kucoin = step.get("kucoin").is_some();
+        let bitvavo = step.get("bitvavo").is_some();
         let fake = step.get("binance_state").map(|state| FakeBinance { state: Arc::new(state.clone()), requests: Default::default() });
-        let transport = ScriptedTransport::from_script(if binance { &step["binance"] } else if kucoin { &step["kucoin"] } else { &step["alpaca"] });
+        let transport = ScriptedTransport::from_script(if binance { &step["binance"] } else if kucoin { &step["kucoin"] } else if bitvavo { &step["bitvavo"] } else { &step["alpaca"] });
         let served = Served { script: transport.clone(), filters_after: step["server_filters_after"] == true };
         let venue = AlpacaVenue::new(served, Urls::for_passphrase(credentials.passphrase.as_deref()));
         let prices = ScriptedPrices::from_script(&step["market"]).with_rate_cache(rate_cache.clone());
@@ -272,10 +273,12 @@ pub async fn run(dir: &Path, cipher: Arc<Cipher>) -> Result<Value, SyncError> {
                 false
             }
             (Some("ledger"), None) if kucoin => super::kucoin_ledger::sync(&db, transport.clone(), key_id, &credentials, &FixedClock(at), std::time::Duration::ZERO).await?.is_err_and(|f| f.raised),
+            (Some("ledger"), None) if bitvavo => super::bitvavo_ledger::sync(&db, transport.clone(), key_id, &credentials, &FixedClock(at), std::time::Duration::ZERO).await?.is_err_and(|f| f.raised),
             (Some("ledger"), Some(fake)) => super::binance_ledger::sync(&db, fake.clone(), key_id, &credentials, &FixedClock(at), super::binance_ledger::Pacing::NONE).await?.is_err_and(|f| f.raised),
             (kind, _) => match kind {
             Some("ledger") => ledger::sync(&db, &venue, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
             Some("balances") if kucoin => balances::sync_kucoin(&db, transport.clone(), &prices, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
+            Some("balances") if bitvavo => balances::sync_bitvavo(&db, transport.clone(), &prices, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
             Some("balances") if binance => balances::sync_binance(&db, transport.clone(), &prices, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
             Some("balances") => balances::sync(&db, &venue, &prices, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
             other => return Err(SyncError(format!("unknown step kind {other:?}"))),

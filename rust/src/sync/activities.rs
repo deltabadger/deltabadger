@@ -108,6 +108,8 @@ impl Raw {
     pub fn set(&mut self, key: &str, v: Value) { self.set_node(key, Node::from_value(&v)); }
     /// The object as Rails stores it in `raw_data`, byte for byte (`wire::Node::stored`).
     pub fn text(&self) -> String { wire::stored_members(&self.members) }
+    /// The object's identity as Ruby's `eql?` compares what `JSON.parse` made of it (wire::eql_key_members).
+    pub fn eql_key(&self) -> String { wire::eql_key_members(&self.members) }
 }
 
 /// The venue's available crypto pairs by their compact name ("ETHUSD"): #crypto_position_index.

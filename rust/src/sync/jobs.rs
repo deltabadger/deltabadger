@@ -47,6 +47,13 @@ pub trait Connect {
     fn kucoin_transport(&self, _credentials: &Credentials, _proxy: Option<&str>) -> ReqwestTransport {
         ReqwestTransport::refused("KuCoin is not connected here")
     }
+    /// How a Bitvavo key's syncs reach Bitvavo (Honeymaker.client('bitvavo', proxy: ExchangeProxy.for('bitvavo'))). By default
+    /// nothing is sent.
+    fn bitvavo_transport(&self, _credentials: &Credentials, _proxy: Option<&str>) -> ReqwestTransport {
+        ReqwestTransport::refused("Bitvavo is not connected here")
+    }
+    /// How far apart a Bitvavo ledger read's calls go (Exchanges::Bitvavo::LEDGER_READ_PAUSE); a test waits for nothing.
+    fn bitvavo_pause(&self) -> Duration { crate::sync::bitvavo_ledger::READ_PAUSE }
     /// Where and how the validator sends a Kraken, Binance or KuCoin key's check (`key_check`): the venue's host and a client
     /// through its proxy, given the stored AppConfig `proxy_<name>` (decrypted). By default nowhere.
     fn key_check_egress(&self, exchange_type: &str, _stored_proxy: Option<String>) -> Result<(String, reqwest::Client), String> {
@@ -82,6 +89,13 @@ impl Connect for LiveFactory {
         ReqwestTransport::kucoin(client, credentials.key.clone(), credentials.secret.clone(), credentials.passphrase.clone().unwrap_or_default())
             .with_sensitive_values(credentials.redaction_values.clone())
     }
+    fn bitvavo_transport(&self, credentials: &Credentials, proxy: Option<&str>) -> ReqwestTransport {
+        let client = match proxy {
+            None => crate::venue::http::client(),
+            Some(proxy) => match crate::venue::http::client_via(proxy) { Ok(client) => client, Err(why) => return ReqwestTransport::refused(&why) },
+        };
+        ReqwestTransport::bitvavo(client, credentials.key.clone(), credentials.secret.clone()).with_sensitive_values(credentials.redaction_values.clone())
+    }
 }
 
 /// The ExchangeProxy name of a venue whose syncs go through its proxy: every synced venue but Alpaca (Rails has no
@@ -91,7 +105,7 @@ fn proxied(venue: &str) -> Option<&'static str> {
     registry::row(venue).filter(|r| r.balances.is_some_and(|b| b != BalanceSync::Alpaca) || r.ledger.is_some_and(|l| l != LedgerSync::Alpaca)).map(|r| r.name_id)
 }
 
-/// The venue type of a key and, for Binance, Binance.US and KuCoin, the proxy its reads go through: AppConfig
+/// The venue type of a key and, for Binance, Binance.US, KuCoin and Bitvavo, the proxy its reads go through: AppConfig
 /// `proxy_<name>` (decrypted) or ENV `PROXY_<NAME>`, as ExchangeProxy.for resolves it.
 async fn venue_of(db: &Db, key: i64) -> Result<(String, Option<String>), SyncError> {
     let (venue, stored) = db.run(move |c, cipher| {
@@ -186,6 +200,9 @@ impl<C: Connect> Job for LedgerSync<C> {
                     Some(LedgerSync::Kucoin) =>
                         crate::sync::kucoin_ledger::sync(&cx.db, self.venues.kucoin_transport(&credentials, proxy.as_deref()), self.key_id, &credentials, cx.clock,
                                                          crate::sync::kucoin_ledger::THROTTLE_WAIT).await,
+                    Some(LedgerSync::Bitvavo) =>
+                        crate::sync::bitvavo_ledger::sync(&cx.db, self.venues.bitvavo_transport(&credentials, proxy.as_deref()), self.key_id, &credentials, cx.clock,
+                                                          self.venues.bitvavo_pause()).await,
                     // Alpaca's, and a key on any other venue: ledger::load_key refuses it as it always did.
                     Some(LedgerSync::Alpaca) | None => ledger::sync_captured(&cx.db, &self.venues.connect(&credentials), self.key_id, &credentials, cx.clock, self.limits, &version).await,
                 },
@@ -238,6 +255,8 @@ impl<C: Connect> Job for BalanceSync<C> {
                         balances::sync_binance_captured(&cx.db, self.venues.binance_transport(&credentials, proxy.as_deref()), &|t| self.venues.binance_base(t), self.prices.as_ref(), self.key_id, &credentials, cx.clock, &version).await,
                     Some(BalanceSync::Kucoin) =>
                         balances::sync_kucoin_captured(&cx.db, self.venues.kucoin_transport(&credentials, proxy.as_deref()), self.prices.as_ref(), self.key_id, &credentials, cx.clock, &version).await,
+                    Some(BalanceSync::Bitvavo) =>
+                        balances::sync_bitvavo_captured(&cx.db, self.venues.bitvavo_transport(&credentials, proxy.as_deref()), self.prices.as_ref(), self.key_id, &credentials, cx.clock, &version).await,
                     // Alpaca's, and a key on any other venue: the Alpaca sync's load_key refuses it as it always did.
                     Some(BalanceSync::Alpaca) | None => balances::sync_captured(&cx.db, &self.venues.connect(&credentials), self.prices.as_ref(), self.key_id, &credentials, cx.clock, &version).await,
                 },
@@ -255,7 +274,7 @@ impl<C: Connect> Job for BalanceSync<C> {
     }
 }
 
-/// The jobs of an install, for the scheduler's start: per reading Alpaca, Binance, Binance.US or KuCoin key (`ApiKey.reading`,
+/// The jobs of an install, for the scheduler's start: per reading Alpaca, Binance, Binance.US, KuCoin or Bitvavo key (`ApiKey.reading`,
 /// what Rails' nightly jobs iterate) one ledger job and one balance job, every ledger job before every balance job, so jobs due together run in Rails' order. New scopes are registered by the same constructors on their first wake.
 pub fn register<C: Connect + Clone + 'static>(c: &Connection, venues: &C, prices: Rc<dyn PriceSource>) -> Result<Vec<Box<dyn Job>>, SyncError> {
     let mut jobs: Vec<Box<dyn Job>> = vec![];

@@ -107,6 +107,12 @@ fn kucoin_sent(t: &ScriptedTransport) -> Vec<Value> {
         .map(|mut b| { if let Value::Object(m) = &mut b { m.shift_remove("clientOid"); } b }).collect()
 }
 
+/// The orders the Bitvavo adapter POSTed, as the Rails harness records them: the JSON body without the clientOrderId.
+fn bitvavo_sent(t: &ScriptedTransport) -> Vec<Value> {
+    t.requests().into_iter().filter(|r| r.method == "POST" && r.path == crate::venue::bitvavo::ORDER_PATH).filter_map(|r| r.body)
+        .map(|mut b| { if let Value::Object(m) = &mut b { m.shift_remove("clientOrderId"); } b }).collect()
+}
+
 /// The mails this engine owes since `before`, in the shape Rails' harness reports the mails it enqueued: the mailer action,
 /// the error sentence Bot::ActionJob.humanized_errors hands it (in the user's language), the quote asset's symbol.
 fn mails(c: &Connection, before: &[Pending]) -> Result<Value, EngineError> {
@@ -224,6 +230,22 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
         let poll_error = match poll { Some(polling::PollFailure::General(m)) => json!(m), _ => Value::Null };
         let funds_notified: bool = o.primary.query_row("SELECT last_end_of_funds_notification IS NOT NULL FROM bots WHERE id = ?1", [bot_id], |r| r.get(0))?;
         let mut out = json!({ "sent": kucoin_sent(&transport), "changes": diff(&before, &snapshot(&o.primary)?), "mails": mails(&o.primary, &owed)?,
+                              "funds_notified": funds_notified, "poll_error": poll_error });
+        if let Some(c) = checks { out["checks"] = json!(c); }
+        return Ok(out);
+    }
+    if scenario["venue"] == "bitvavo" {
+        // Rust's Bitvavo adapter over the bodies Rails' harness serves beneath Honeymaker::Clients::Bitvavo, with the
+        // scenario's own tickers.
+        let transport = ScriptedTransport::from_script(&scenario["script"]["bitvavo"]);
+        let exchange_id: i64 = o.primary.query_row("SELECT id FROM exchanges WHERE type = ?1", [crate::venue::bitvavo::BITVAVO], |r| r.get(0))?;
+        let pairs = crate::venue::binance::Pairs::load(&o.primary, exchange_id).map_err(EngineError::Data)?;
+        let venue = crate::venue::bitvavo::BitvavoVenue::new(transport.clone(), crate::venue::bitvavo::URL).with_pairs(pairs);
+        let posted = || bitvavo_sent(&transport).len();
+        let (poll, _, checks) = play(&o, &venue, &scenario, bot_id, start, &posted).await?;
+        let poll_error = match poll { Some(polling::PollFailure::General(m)) => json!(m), _ => Value::Null };
+        let funds_notified: bool = o.primary.query_row("SELECT last_end_of_funds_notification IS NOT NULL FROM bots WHERE id = ?1", [bot_id], |r| r.get(0))?;
+        let mut out = json!({ "sent": bitvavo_sent(&transport), "changes": diff(&before, &snapshot(&o.primary)?), "mails": mails(&o.primary, &owed)?,
                               "funds_notified": funds_notified, "poll_error": poll_error });
         if let Some(c) = checks { out["checks"] = json!(c); }
         return Ok(out);
