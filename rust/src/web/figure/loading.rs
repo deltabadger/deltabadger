@@ -82,10 +82,13 @@ fn shape(c:&Connection,user:i64)->Result<Value,rusqlite::Error> {
     let mut statement=c.prepare(&format!("SELECT b.*,CASE WHEN json_valid(b.transient_data) THEN json_array(json_extract(b.transient_data,'$.rebalance_pending'),\
         json_extract(b.transient_data,'$.liquidation_pending'),json_extract(b.transient_data,'$.liquidation_selling_since'),json_extract(b.transient_data,'$.redeploy_pending')) END AS operations__, \
         (SELECT json_group_array(json_array(asset_id,ticker_id,in_index)) FROM (SELECT * FROM bot_index_assets WHERE bot_id=b.id ORDER BY id)) AS members__, \
-        (SELECT json_group_array(json_array(id,base,base_asset_id,quote_asset_id,minimum_base_size,minimum_quote_size,available,trading_enabled)) FROM (SELECT * FROM tickers t \
+        (SELECT json_group_array(json_array(id,base,base_asset_id,quote_asset_id,minimum_base_size,minimum_quote_size,available,trading_enabled,base_decimals,quote_decimals,price_decimals)) FROM (SELECT * FROM tickers t \
           WHERE t.exchange_id=b.exchange_id AND t.id IN (\
             SELECT x.id FROM (SELECT DISTINCT base_asset_id a FROM transactions WHERE bot_id=b.id) o JOIN tickers x ON x.exchange_id=b.exchange_id AND x.base_asset_id=o.a \
             UNION SELECT x.id FROM (SELECT DISTINCT base n FROM transactions WHERE bot_id=b.id) o JOIN tickers x ON x.exchange_id=b.exchange_id AND x.base=o.n \
+            UNION SELECT x.id FROM tickers p JOIN tickers x ON x.exchange_id=b.exchange_id AND x.base=p.base WHERE p.exchange_id=b.exchange_id \
+              AND b.type IN ('Bots::DcaSingleAsset','Bots::Signal') AND p.base_asset_id=CAST(json_extract(CASE WHEN json_valid(b.settings) THEN b.settings ELSE '{{}}' END,'$.base_asset_id') AS INTEGER) \
+              AND p.quote_asset_id=CAST(json_extract(CASE WHEN json_valid(b.settings) THEN b.settings ELSE '{{}}' END,'$.quote_asset_id') AS INTEGER) \
             UNION SELECT ticker_id FROM bot_index_assets WHERE bot_id=b.id) ORDER BY t.id)) AS listings__, \
         EXISTS(SELECT 1 FROM transactions t WHERE t.bot_id=b.id AND t.status={}) AS submitted__ FROM bots b WHERE b.user_id=?1 ORDER BY b.id",crate::enums::TxStatus::Submitted as i64))?;
     let names:Vec<String>=statement.column_names().iter().map(|n|n.to_string()).collect();
@@ -164,6 +167,14 @@ pub fn revision(c:&Connection,user:i64)->Result<(u64,usize),rusqlite::Error> {
     let spelled=format!("SELECT base FROM transactions WHERE bot_id IN ({bots}) AND base_asset_id IS NULL");
     let mut tickers=format!("SELECT ticker_id FROM bot_index_assets WHERE bot_id IN ({bots}) UNION SELECT id FROM tickers WHERE exchange_id IN ({venues}) AND base_asset_id IN ({traded})");
     if c.query_row(&format!("SELECT EXISTS({spelled})"),[user],|r|r.get(0))? { tickers+=&format!(" UNION SELECT id FROM tickers WHERE exchange_id IN ({venues}) AND base IN ({spelled})"); }
+    // A pair's chart logos are every listing of its venue spelled as one of its keys, whatever asset that listing is of
+    // (chart::pair_page): its ticker's base, and the base of each buy it charts by its own spelling.
+    let pair_keys=format!("SELECT t.base FROM bots b JOIN tickers t ON t.exchange_id=b.exchange_id \
+        AND t.base_asset_id=CAST(json_extract({settings},'$.base_asset_id') AS INTEGER) AND t.quote_asset_id=CAST(json_extract({settings},'$.quote_asset_id') AS INTEGER) \
+        WHERE b.user_id=?1 AND b.type IN ('Bots::DcaSingleAsset','Bots::Signal') \
+        UNION SELECT base FROM transactions WHERE bot_id IN (SELECT id FROM bots WHERE user_id=?1 AND type IN ('Bots::DcaSingleAsset','Bots::Signal')) AND status={} AND side={}",
+        crate::enums::TxStatus::Submitted as i64,crate::enums::TxSide::Buy as i64);
+    if c.query_row(&format!("SELECT EXISTS({pair_keys})"),[user],|r|r.get(0))? { tickers+=&format!(" UNION SELECT id FROM tickers WHERE exchange_id IN ({venues}) AND base IN ({pair_keys})"); }
     // Ids read once, as literals: each query below that names them would otherwise read them again (the account's
     // ledger, three times over for the assets).
     let literal=|sql:&str|->Result<String,rusqlite::Error> {

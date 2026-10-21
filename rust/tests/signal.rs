@@ -422,3 +422,26 @@ fn a_webhook_call_waiting_for_the_write_lock_is_judged_when_it_gets_it() {
     let waiting_calls = model::load_bot(&s.e.primary, s.bot).unwrap().signal_calls().unwrap();
     assert_eq!(waiting_calls.last().unwrap().triggered_at, first + chrono::Duration::seconds(31));
 }
+
+/// Slice 8c-1: the bot page hears the marker go up with the ambiguous send and come down with the recovery that settles
+/// it (Bots::Signal#broadcast_unresolved_placement), and nothing about it from a pass that changed neither.
+#[tokio::test(flavor = "current_thread", start_paused = true)]
+async fn the_page_hears_the_marker_raised_and_lifted() {
+    use deltabadger::engine::events::EngineEvent;
+    let v = priced().next_add(AddOutcome::AmbiguousPlaced("OLOST-2".into()));
+    let mut s = setup(0, false, "100", v);
+    let mut rx = s.e.subscribe_to(EngineEvent::is_live);
+    let marker = |rx: &mut tokio::sync::mpsc::UnboundedReceiver<EngineEvent>| {
+        let mut heard = 0;
+        while let Ok(event) = rx.try_recv() { if event == (EngineEvent::SignalMarkerChanged { bot_id: s.bot }) { heard += 1; } }
+        heard
+    };
+    call(&s.e.primary, s.bot, s.rule, 1, T0);
+    run::step(&mut s.e, &at(T0)).await.unwrap();
+    assert_eq!(marker(&mut rx), 1, "raised with the ambiguous send");
+    run::step(&mut s.e, &plus(T0, 31.0)).await.unwrap();
+    assert!(transient(&s.e.primary, s.bot).get("signal_placement_unresolved").is_none());
+    assert_eq!(marker(&mut rx), 1, "lifted by the recovery that recorded the order");
+    run::step(&mut s.e, &plus(T0, 62.0)).await.unwrap();
+    assert_eq!(marker(&mut rx), 0, "a pass that changes neither says nothing");
+}

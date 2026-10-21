@@ -296,7 +296,10 @@ fn num(n:&Num)->Result<String,WebError>{
     Ok(match n{Num::Int(i)=>i.to_string(),Num::Float(f)=>float_to_s(sync::balances::float_round(*f,2)),Num::Dec(d)=>d.round(2).map_err(|_|error())?.to_s_f()})
 }
 fn pct(n:&Num)->Result<String,WebError>{Ok(format!("{}{}%",if n.is_negative(){""}else{"+"},num(&n.mul(&Num::Int(100)).map_err(|_|error())?)?))}
-fn fail_fig(e:figures::FiguresError)->WebError{match e{figures::FiguresError::Data(ref why)|figures::FiguresError::NotComputed(ref why) if why=="executed fill value unavailable"||why=="quote currency unavailable"=>WebError::Config(why.clone()),_=>error()}}
+/// What Rails raised computing a figure (`"<class>: <message>"`), carried to the reads that show its message.
+const RAISED:&str="figure raised: ";
+fn fail_fig(e:figures::FiguresError)->WebError{match e{figures::FiguresError::Data(ref why)|figures::FiguresError::NotComputed(ref why) if why=="executed fill value unavailable"||why=="quote currency unavailable"=>WebError::Config(why.clone()),
+    figures::FiguresError::Raised(error)=>WebError::Config(format!("{RAISED}{error}")),_=>error()}}
 struct Bot {id:i64,label:String,kind:String,status:i64,settings:Value,transient:Value,exchange:Option<String>,quote_asset:Option<String>,quote:String,base:Option<String>,pair:Option<String>,started:Option<String>}
 fn bot(c:&Connection,user:i64,id:i64)->Result<Option<Bot>,WebError>{
     read_limits::charge_bot()?;
@@ -375,7 +378,11 @@ fn effective_started(b:&Bot)->Result<Option<chrono::DateTime<chrono::Utc>>,WebEr
 /// A figure as Rails renders it: an Integer, a Float, a BigDecimal as its text.
 fn number(n:&Num)->Value{match n{Num::Int(i)=>json!(i),Num::Float(f)=>json!(f),Num::Dec(d)=>json!(d.to_s_f())}}
 /// A metrics failure's message as the service carries it.
-fn metrics_error(e:&WebError)->&'static str{match e{WebError::Config(why) if why=="executed fill value unavailable"=>"executed fill value unavailable",_=>"metrics unavailable"}}
+/// `safe_metrics`' `e.message`: what Rails raised, without its class; this build's own refusals by name.
+fn metrics_error(e:&WebError)->String{match e{
+    WebError::Config(why) if why=="executed fill value unavailable"=>why.clone(),
+    WebError::Config(why) if why.starts_with(RAISED)=>why[RAISED.len()..].split_once(": ").map_or(&why[RAISED.len()..],|(_,message)|message).to_string(),
+    _=>"metrics unavailable".into()}}
 /// BotApi::Bots::Get, and GetBotDetailsTool's text for it.
 fn details(c:&Connection,user:i64,id:i64,now:At)->Result<Read,WebError>{
     let Some(b)=bot(c,user,id)?else{return Ok(failed(Domain::NotFound,"bot_not_found","Bot not found."))};
@@ -509,7 +516,8 @@ fn global(c:&Connection,user:i64,reader:&Reader<'_>,now:At)->Result<Option<total
         read_limits::charge_bot()?;
         let kind:String=c.query_row("SELECT type FROM bots WHERE id=?1",[id],|r|r.get(0))?;
         if pair_kind(&kind){
-            let p=figures::pair::marked(c,id,now,reader).map_err(fail_fig)?;
+            // The live pass the pages read (User#global_pnl: metrics_with_current_prices), with this read's own gate.
+            let (p,_)=figures::pair::live(c,&figures::pair::metrics(c,id,now).map_err(fail_fig)?,reader,now).map_err(fail_fig)?;
             if p.metrics.prices_stale{return Ok(None)}
             computed.push((p.subject,p.metrics));continue;
         }

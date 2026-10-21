@@ -3,5 +3,5 @@
   "app/models/bot_signal.rb": "3e5eb6f184f4124d91eaed1250d25fd2c86a1c68e38592ecffc6ce94f00728c2",
   "config/initializers/filter_parameter_logging.rb": "f514b83af492c132ac4cd48c2884e6b7f73607d9cb0d1353f8216b676b0f8716",
   "config/routes.rb": "88a02435a20f94a8e1cec694d89ce72047a3009e10a82b9d8d0772d050903269",
-  "script/rust/pages_signals.rb": "11cf368e3588502e5a66673a29695f5e3bc6441d4089aa1d9445ddd386d0becd"
+  "script/rust/pages_signals.rb": "3bb85cfae6e369b00a3678948842fa90cd7232bf1ea9506ff9d1f49fd4c44a54"
 }

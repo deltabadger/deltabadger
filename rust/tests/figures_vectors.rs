@@ -314,7 +314,7 @@ fn buy_marks_are_thinned_and_summed_as_rails_thins_them() {
     let cases = v["thinned_marks"].as_array().unwrap();
     assert_eq!(cases.len(), 11);
     let list = |v: &Value| -> Vec<BuyMark> {
-        v.as_array().unwrap().iter().map(|m| BuyMark { at: At(m[0].as_i64().unwrap()), key: m[1].as_str().unwrap().into(), amount: dec(&m[2]), quote: dec(&m[3]), fills: m[4].as_i64().unwrap() }).collect()
+        v.as_array().unwrap().iter().map(|m| BuyMark { at: At(m[0].as_i64().unwrap()), key: Some(m[1].as_str().unwrap().into()), amount: dec(&m[2]), quote: dec(&m[3]), fills: m[4].as_i64().unwrap() }).collect()
     };
     let mut thinned = 0;
     for c in cases {
@@ -342,7 +342,7 @@ fn a_chart_is_marked_at_market_point_for_point_as_rails_marks_it() {
             extra: rows(&c["extra"]), invested_by: rows(&c["cost"]), cash: nums(&c["cash"]), prices: None, assets: None,
         };
         let priceable: Vec<String> = c["priceable"].as_array().unwrap().iter().map(|k| k.as_str().unwrap().to_string()).collect();
-        let got = chart::marked_at_market(&given, &grids(&c["grids"]), &grids(&c["display"]), &priceable).unwrap();
+        let got = chart::marked_at_market(&given, &grids(&c["grids"]), &grids(&c["display"]), &priceable, true).unwrap();
         let out = serde_json::json!({
             "labels": got.labels.iter().map(|at| at.0).collect::<Vec<_>>(),
             "values": got.value.iter().map(tagged).collect::<Vec<_>>(),

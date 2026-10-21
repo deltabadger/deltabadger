@@ -84,7 +84,9 @@ pub fn bot_write(c: &Connection, app: &App, user: i64, id: i64, write: Write, su
     let deferred = std::cell::Cell::new(None);
     let class: Option<String> = c.query_row("SELECT type FROM bots WHERE id=?1 AND user_id=?2 AND status<>3", (id, user), |r| r.get(0)).optional()?;
     let Some(class) = class else { return Ok(Outcome::Missing) };
-    if !["Bots::DcaMultiAsset", "Bots::DcaIndex"].contains(&class.as_str()) {
+    // A signal bot's lifecycle (bot::signal_write), where this app serves signal bots (until slice 8d, the tests' seam).
+    let signal = class == crate::engine::model::SIGNAL_TYPE && app.signal_pages();
+    if !(["Bots::DcaMultiAsset", "Bots::DcaIndex"].contains(&class.as_str()) || signal && matches!(write, Write::Lifecycle(_))) {
         let tx = crate::engine::model::immediate(c)?;
         let reason = match crate::engine::eligibility::guard(&tx, &app.cipher, Some(id)) {
             Err(refusal) => refusal.reason(),
@@ -95,6 +97,7 @@ pub fn bot_write(c: &Connection, app: &App, user: i64, id: i64, write: Write, su
         return Ok(Outcome::GuardRefused(Shown { data: Value::Null, text }));
     }
     let out = match write {
+        Write::Lifecycle(action) if signal => super::bot::signal_write::service(c, &ctx, &heard, user, id, action, submitted),
         Write::Settings => write::settings(c, &ctx, user, id, submitted, |_, _, draft| {
             let updated: Vec<&String> = draft.submitted.keys().collect();
             let text = if draft.errors.is_empty() {
