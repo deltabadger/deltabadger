@@ -114,7 +114,7 @@ pub(super) fn filters_broadcast(c: &Connection, ctx: &Ctx, bot: &Bot, hide_money
 }
 
 pub fn page_stream(bot: &Bot) -> String {
-    let class = match bot.kind { Kind::Basket => "Bots::DcaMultiAsset", Kind::Index => "Bots::DcaIndex" };
+    let class = match bot.kind { Kind::Basket => "Bots::DcaMultiAsset", Kind::Index => "Bots::DcaIndex", Kind::Signal => crate::engine::model::SIGNAL_TYPE };
     format!("{}:bot_updates", URL_SAFE_NO_PAD.encode(format!("gid://deltabadger/{class}/{}", bot.id)))
 }
 
@@ -129,6 +129,7 @@ fn other_exchanges(c: &Connection, bot: &Bot, user_id: i64) -> Result<Vec<OtherE
     let quote = bot.setting("quote_asset_id").and_then(serde_json::Value::as_i64);
     let listed = "FROM tickers t JOIN exchanges e ON e.id = t.exchange_id WHERE t.available = 1 AND t.trading_enabled = 1 AND e.available = 1 AND (?1 IS NULL OR t.quote_asset_id = ?1)";
     let ids: Vec<i64> = match bot.kind {
+        Kind::Signal => super::signal::other_exchange_ids(c, bot)?,
         // Any venue that lists something in this quote.
         Kind::Index => c.prepare(&format!("SELECT DISTINCT t.exchange_id {listed} ORDER BY t.exchange_id"))?.query_map([quote], |r| r.get(0))?.collect::<Result<_, _>>()?,
         // A venue a user can still pick, listing every member in the same quote. Counted by the
@@ -186,7 +187,7 @@ pub(super) fn find(c: &Connection, app: &App, user: &User, segment: &str, delete
         Some(_) => {}
     }
     let wash_sale: Option<bool> = c.query_row("SELECT wash_sale_enabled FROM users WHERE id = ?1", [user.id], |r| r.get(0))?;
-    if let Some(reason) = refusal(c, id, wash_sale, deltabadger, asked)? { return Ok((Found::NotPorted(reason), configured)); }
+    if let Some(reason) = refusal(c, id, wash_sale, deltabadger, asked, app.signal_pages())? { return Ok((Found::NotPorted(reason), configured)); }
     let found = match Bot::find(c, user.id, id, asked, locale)? {
         None => Found::Missing,
         Some(bot) => bot.unrendered().map_or_else(|| Found::Bot(Box::new(bot)), Found::NotPorted),
@@ -237,6 +238,8 @@ pub async fn show(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path(s
     }
     let snapshot = crate::web::figure::loading::prepare(&app,user.id).await?;
     let csrf = ctx.csrf_token();
+    // `request.base_url`: a signal rule's webhook URL starts with it.
+    let base_url = app.config.request_origin(&headers).unwrap_or_default();
     let (inner, view, token, owner) = (app.clone(), ctx.clone(), csrf.clone(), user.clone());
     let page = app.db(move |c| {
         let (ctx, csrf, user) = (&view, token.as_str(), &owner);
@@ -256,7 +259,7 @@ pub async fn show(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path(s
         }
         let hide_money = user.hide_balances;
         let figures = crate::web::figure::loading::render_page(&inner,c,user.id,&snapshot,ctx.locale,csrf,ctx.path("").as_str())?;
-        let metrics = figures.as_ref().and_then(|v|v["bots"][bot.id.to_string()]["metrics"].as_str()).map(str::to_string);
+        let mut metrics = figures.as_ref().and_then(|v|v["bots"][bot.id.to_string()]["metrics"].as_str()).map(str::to_string);
         // BotsController#show: @metrics_loading is "Rails cached no figures"; a ready chart is drawn only beside cached ones,
         // exactly when its frame would ask for no refresh.
         let cached = metrics.is_some() && figures.as_ref().is_some_and(|v|v["bots"][bot.id.to_string()]["cached"].as_bool() == Some(true));
@@ -264,7 +267,13 @@ pub async fn show(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path(s
         let chart_cached = cached && figures.as_ref().is_some_and(|v|v["bots"][bot.id.to_string()]["chart_cached"].as_bool() == Some(true));
         let inline_chart = figures.as_ref().filter(|_|chart_cached).and_then(|v|v["bots"][bot.id.to_string()]["chart"].as_str()).map(str::to_string);
         let status = status::render(c, ctx, csrf, &bot, configured)?;
-        let forms = settings::Forms { ctx, csrf, bot: &bot, path: path.clone(), hide_balances: hide_money, time_zone: &user.time_zone, check: status.check.as_ref() };
+        // A signal bot has its own settings column, and its own panel while its figures load (dca_single_assets/_metrics).
+        let settings = if bot.kind == Kind::Signal {
+            if metrics.is_none() { metrics = Some(super::signal::loading_metrics(c, ctx, &bot, hide_money)?); }
+            super::signal::column(ctx, csrf, &bot, hide_money, &base_url)?
+        } else {
+            settings::column(c, &settings::Forms { ctx, csrf, bot: &bot, path: path.clone(), hide_balances: hide_money, time_zone: &user.time_zone, check: status.check.as_ref() })?
+        };
         let activities = c.query_row("SELECT EXISTS(SELECT 1 FROM bot_activity_logs WHERE bot_id = ?1 AND event NOT IN ('order_skipped', 'order_ignored'))", [bot.id], |r| r.get::<_, bool>(0))?;
         let Filters { default_filter, order_filter, order_filters } = filters(c, ctx, &bot, hide_money)?;
         let (preferences, bot_updates, page_stream) = (format!("user_{}:preferences", user.id), format!("user_{}:bot_updates", user.id), page_stream(&bot));
@@ -273,7 +282,7 @@ pub async fn show(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path(s
             label_id: bot.dom_id("label"), label: &bot.label, other_bots,
             menu: menu(ctx, csrf, &bot, configured)?, exchange_select: exchange_select(c, ctx, csrf, &bot, user.id)?,
             progress_bar: status.progress, status_bar: status.bar, status_button: status.button, chart: chart(ctx, &bot, hide_money)?, inline_chart, cached, columns_id: bot.dom_id("columns"), working: bot.working(),
-            settings: settings::column(c, &forms)?, hide_money, metrics, order_filter, order_filters_id: bot.dom_id("order_filters"), default_filter, order_filters,
+            settings, hide_money, metrics, order_filter, order_filters_id: bot.dom_id("order_filters"), default_filter, order_filters,
             export_id: bot.dom_id("export"), import_id: bot.dom_id("import"), import_form_id: bot.dom_id("import_form"), has_waiting: bot.has_waiting_orders,
             bot_args: json(&serde_json::json!({ "bot_id": bot.id })), feed_empty: !bot.has_orders && !activities,
         }.render()?;
@@ -335,8 +344,11 @@ pub(super) fn exchange_select(c: &Connection, ctx: &Ctx, csrf: &str, bot: &Bot, 
             Some(i18n::text(ctx.locale, "bot.exchange_menu.locked_while_running", &[]))
         } else if other_exchanges.is_empty() {
             // `bot.assets.pluck(:symbol).to_sentence`: the quote, and for a basket its members.
-            let mut symbols: Vec<String> = bot.quote_asset.iter().map(|asset| asset.symbol().to_string()).collect();
-            symbols.extend(bot.base_assets.iter().map(|asset| asset.symbol().to_string()));
+            let symbols: Vec<String> = if bot.kind == Kind::Signal { super::signal::asset_symbols(c, bot)? } else {
+                let mut symbols: Vec<String> = bot.quote_asset.iter().map(|asset| asset.symbol().to_string()).collect();
+                symbols.extend(bot.base_assets.iter().map(|asset| asset.symbol().to_string()));
+                symbols
+            };
             Some(i18n::text(ctx.locale, "bot.exchange_menu.no_alternative", &[("assets", i18n::Arg::Text(&crate::ruby::to_sentence(&symbols)))]))
         } else {
             None

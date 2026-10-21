@@ -117,8 +117,97 @@ module Pages
       # A call Rails accepts (202, Bot::SignalJob enqueued with the claim's time) on a working bot with an enabled rule.
       grid['refused_hook_accepted'] = signal_case([hook(at('buy'))])
       grid['refused_hook_accepted_with_body'] = signal_case([hook(at('buy'), body: '{"action":"buy"}', type: 'application/json')])
-      grid.merge(override_scenarios)
+      grid.merge(override_scenarios).merge(signal_page_scenarios)
     end
+
+    # A signal bot's own pages (plan 8c-1): the bot page and its frames, the orders feed and the dashboard tile. Read only;
+    # this build serves them to the tests alone until plan 8d admits the type (App::admit_signal_bots_for_tests).
+    def page_rule(token, direction, amount_type, amount, enabled: true, at: nil)
+      { 'token' => token, 'direction' => direction, 'amount_type' => amount_type, 'amount' => amount, 'enabled' => enabled, 'last_triggered_at' => at }
+    end
+
+    def signal_bot(rules, spec = {}) = { 'kind' => 'signal', 'signals' => rules }.merge(spec)
+
+    def signal_page_scenarios
+      chart = { 'Turbo-Frame' => 'bot_chart' }
+      working = signal_bot([page_rule('page-working-buy', 'buy', 'fixed', 10),
+                            page_rule('page-working-sell', 'sell', 'percentage', 50, enabled: false, at: '2026-09-10T12:00:01Z')],
+                           'columns' => { 'status' => 1, 'started_at' => '2026-09-09T12:00:00Z' })
+      # Every kind of amount and every age of a last call the widgets say in words.
+      stopped = signal_bot([page_rule('page-stopped-a', 'buy', 'fixed', 25.5, at: '2026-09-10T11:00:00.5Z'),
+                            page_rule('page-stopped-b', 'sell', 'percentage', 100),
+                            page_rule('page-stopped-c', 'buy', 'fixed', '0.00000001', enabled: false, at: '2026-09-08T09:59:59Z'),
+                            page_rule('page-stopped-d', 'sell', 'fixed', '1234567.891', at: '2026-07-01T00:00:00Z'),
+                            page_rule('page-stopped-e', 'buy', 'percentage', '12.5', at: '2026-09-10T12:00:30.123456Z')],
+                           'columns' => { 'status' => 2, 'label' => 'Signals <b>' })
+      created = signal_bot([page_rule('page-created', 'buy', 'fixed', 5)], 'columns' => { 'status' => 0 })
+      traded = signal_bot([page_rule('page-traded-buy', 'buy', 'fixed', 10, at: '2026-09-10T11:30:00Z'),
+                           page_rule('page-traded-sell', 'sell', 'percentage', 50, at: '2026-09-09T15:00:00Z')],
+                          'columns' => { 'status' => 2 }, 'orders' => 'traded', 'logs' => 'signal_history',
+                          'transient' => { 'signal_placement_unresolved' => { 'id' => 'marker-1', 'at' => '2026-09-10T11:30:00Z', 'side' => 'buy',
+                                                                               'error' => 'timeout' } })
+      one = signal_bot([page_rule('page-one', 'buy', 'fixed', 15)], 'columns' => { 'status' => 2 })
+      deleted = signal_bot([page_rule('page-deleted', 'buy', 'fixed', 5)], 'columns' => { 'status' => 3 })
+      case_of = ->(bots, steps, attrs = {}) { { 'user' => owner, 'install' => 'alpaca', 'bots' => bots, 'steps' => signed_in(*steps) }.merge(attrs) }
+      {
+        'signal_page_states' => case_of.([working, stopped, created, deleted],
+                                         [get('/bots/1'), get('/bots/2'), get('/bots/3'), get('/de/bots/2'), get('/bots/2', 'Turbo-Frame' => 'bot'),
+                                          get('/bots/2/chart', chart), get('/bots/2/chart?metrics_missing=1', chart), get('/bots/1.turbo_stream', FEED),
+                                          get('/bots/4').merge('expect' => 302), get('/bots'), get('/de/bots')]),
+        'signal_page_one_rule' => case_of.([one], [get('/bots'), get('/bots/1'), get('/ru/bots/1')]),
+        'signal_page_traded' => case_of.([traded, working],
+                                         [get('/bots/1'), get('/bots/1.turbo_stream', FEED),
+                                          get('/bots/1.turbo_stream?before=2026-09-09T13%3A30%3A01.000000Z%7Ctransaction%7C1', FEED),
+                                          get('/bots/1/chart', chart), get('/pl/bots/1'), get('/bots')]),
+        'signal_page_hidden' => case_of.([traded, stopped], [get('/bots/1'), get('/bots/2'), get('/de/bots/1.turbo_stream', FEED), get('/bots')],
+                                         'user' => owner('hide_balances' => true, 'locale' => 'de')),
+        'signal_page_no_key' => case_of.([stopped, working], [get('/bots/1'), get('/bots/2'), get('/bots')], 'api_keys' => {}),
+        'signal_page_key_incorrect' => case_of.([stopped, working], [get('/bots/1'), get('/bots')], 'api_keys' => { 'alpaca' => 'incorrect' }),
+        # The venue stopped listing the pair: Start is refused, and a stopped bot says why.
+        'signal_page_delisted' => case_of.([one.merge('delist' => 'QQQM'), working.merge('delist' => 'QQQM'), created.merge('delist' => 'QQQM')],
+                                           [get('/bots/1'), get('/bots/2'), get('/bots/3'), get('/bots')]),
+        'signal_page_archived' => case_of.([one.merge('columns' => { 'status' => 7 }), working], [get('/bots/1'), get('/bots?filter=archived'), get('/bots')]),
+        # A second broker lists QQQM too, and the user has a key there; each crypto venue's own pair.
+        'signal_page_venues' => case_of.([one, working,
+                                          signal_bot([page_rule('page-kraken', 'buy', 'fixed', 20)], 'exchange' => 'Kraken', 'pair' => %w[BTC EUR],
+                                                                                                    'columns' => { 'status' => 2 }),
+                                          signal_bot([page_rule('page-binance', 'sell', 'percentage', 25)], 'exchange' => 'Binance', 'pair' => %w[ETH USDT],
+                                                                                                         'columns' => { 'status' => 1, 'started_at' => '2026-09-09T12:00:00Z' }),
+                                          signal_bot([page_rule('page-kucoin', 'buy', 'fixed', 12.75)], 'exchange' => 'KuCoin', 'pair' => %w[BTC USDT],
+                                                                                                       'columns' => { 'status' => 2 }, 'orders' => 'traded')],
+                                         [get('/bots/1'), get('/bots/2'), get('/bots/3'), get('/bots/4'), get('/bots/5'), get('/bots/5.turbo_stream', FEED),
+                                          get('/de/bots/3'), get('/bots')],
+                                         'api_keys' => { 'alpaca' => 'correct', 'ibkr' => 'correct' }, 'venues' => true, 'kucoin_bots' => true),
+        # Beside the other kinds: the dashboard lists them together, and each bot's switcher names the others.
+        'signal_page_mixed' => case_of.([{ 'kind' => 'basket', 'columns' => { 'label' => 'Basket' } }, stopped, { 'kind' => 'index' }, traded],
+                                        [get('/bots'), get('/bots/1'), get('/bots/2'), get('/bots/4')])
+      }
+    end
+
+    # A signal bot's orders, as Bots::Signal::OrderSetter records them: the pair as its ticker spells it, no schedule columns.
+    def signal_orders(record)
+      ticker = record.exchange.tickers.find_by!(base_asset_id: record.base_asset_id, quote_asset_id: record.quote_asset_id)
+      row = lambda do |at, attrs|
+        { bot_id: record.id, exchange_id: record.exchange_id, base: ticker.base, quote: ticker.quote, base_asset_id: ticker.base_asset_id,
+          quote_asset_id: ticker.quote_asset_id, side: 'buy', status: 'submitted', external_status: 'closed', order_type: 'market_order',
+          transaction_type: 'REGULAR', error_messages: [], created_at: Time.iso8601(at), updated_at: Time.iso8601(at),
+          external_id: "signal-#{record.id}-#{at}", price: nil, amount: nil, quote_amount: nil, amount_exec: nil, quote_amount_exec: nil }.merge(attrs)
+      end
+      Transaction.insert_all!([
+        row.('2026-09-08T13:30:01Z', price: '412.37', amount: '0.024249097', amount_exec: '0.024249097', quote_amount: '10', quote_amount_exec: '9.999999'),
+        row.('2026-09-09T13:30:01Z', side: 'sell', price: '420.5', amount: '0.012', amount_exec: '0.012', quote_amount_exec: '5.046'),
+        row.('2026-09-09T14:00:00Z', status: 'failed', external_status: nil, external_id: nil, quote_amount: '10',
+                                     error_messages: ['insufficient buying power']),
+        row.('2026-09-09T15:00:00Z', status: 'skipped', external_status: nil, external_id: nil, quote_amount: '0.5'),
+        row.('2026-09-10T11:30:00Z', external_status: 'unknown', quote_amount: '10')
+      ])
+    end
+
+    SIGNAL_LOGS = [['started', { 'start_fresh' => true }, '2026-09-01T09:00:00Z'], ['signal_ignored', { 'signal_id' => 2 }, '2026-09-08T10:00:00Z'],
+                   ['signal_expired', { 'signal_id' => 1 }, '2026-09-08T11:00:00Z'], ['signal_market_closed', { 'signal_id' => 1 }, '2026-09-08T12:00:00Z'],
+                   ['placement_ambiguous', { 'error' => 'timeout' }, '2026-09-09T12:00:00Z'],
+                   ['signal_placement_resolved', { 'user_id' => 1, 'marker_id' => 'marker-0' }, '2026-09-09T12:30:00Z'],
+                   ['order_skipped', {}, '2026-09-09T15:00:00Z'], ['stopped', {}, '2026-09-10T11:45:00Z']].freeze
 
     # Rack::MethodOverride's header on a bot action that reads a JSON body: the route (and its body parser) is the
     # overridden method's: a settings update keeps its value.
@@ -138,7 +227,8 @@ module Pages
 
       owner = User.find_by!(email: spec.fetch('owner', 'owner@example.com'))
       exchange = Exchange.find_by!(name: spec.fetch('exchange', 'Alpaca'))
-      record = Bots::Signal.new(user: owner, exchange:, settings: { 'base_asset_id' => asset_id('QQQM'), 'quote_asset_id' => asset_id('USD') })
+      base, quote = spec.fetch('pair', %w[QQQM USD])
+      record = Bots::Signal.new(user: owner, exchange:, settings: { 'base_asset_id' => asset_id(base), 'quote_asset_id' => asset_id(quote) })
       record.save!
       spec.fetch('signals', []).each do |rule|
         BotSignal.create!(bot: record, token: rule['token'], direction: rule['direction'], amount_type: rule['amount_type'],
@@ -147,6 +237,10 @@ module Pages
       end
       columns = spec.fetch('columns', {}).to_h { |name, value| [name, name.end_with?('_at') && value ? Time.iso8601(value) : value] }
       record.update_columns(columns) unless columns.empty?
+      record.update_columns(transient_data: record.transient_data.merge(spec['transient'])) if spec['transient']
+      signal_orders(record) if spec['orders'] == 'traded'
+      logs(record, SIGNAL_LOGS) if spec['logs'] == 'signal_history'
+      Ticker.where(exchange:, base: spec['delist']).update_all(available: false) if spec['delist']
       record
     end
   end

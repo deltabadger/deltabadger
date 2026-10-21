@@ -6,11 +6,17 @@ impl Raw {
     pub fn new(price:Option<Dec>,amount:Option<Dec>,amount_exec:Option<Dec>,quote_amount_exec:Option<Dec>)->Self{
         Self{price,amount,amount_exec,quote_amount_exec}
     }
+
 }
 #[derive(Clone,Debug,PartialEq)]
 pub struct Fill {pub quantity:Dec,pub value:Dec}
 impl Fill {
     pub fn unit_price(&self)->Result<Dec,FiguresError>{Ok(self.value.div(&self.quantity)?)}
+}
+/// The price Bots::DcaSingleAsset::Measurable gives a pair bot's fill (its average and its running value): the row's own
+/// `price` column, not value over quantity; a row without a positive one keeps the fill's own reading.
+pub fn pair_price(order:&Order,fill:&Fill)->Result<Dec,FiguresError>{
+    match order.raw.price.as_ref().filter(|p|p.is_positive()) { Some(price)=>Ok(price.clone()), None=>fill.unit_price() }
 }
 /// A closed legacy row falls back to requested quantity only when execution quantity is NULL.
 /// Valid zero/absent execution moves nothing. Malformed fields always refuse before skipping.
