@@ -114,6 +114,14 @@ fn gemini_sent(t: &ScriptedTransport) -> Vec<Value> {
         .map(|mut b| { if let Value::Object(m) = &mut b { m.shift_remove("client_order_id"); } b }).collect()
 }
 
+/// The orders the MEXC adapter POSTed, as the Rails harness records them: the query without the timestamp, the signature and
+/// Rust's own newClientOrderId.
+fn mexc_sent(t: &ScriptedTransport) -> Vec<Value> {
+    t.requests().into_iter().filter(|r| r.method == "POST" && r.path == crate::venue::mexc::ORDER_PATH)
+        .map(|r| Value::Object(r.query.into_iter().filter(|(k, _)| !matches!(*k, "timestamp" | "signature" | "newClientOrderId"))
+                                .map(|(k, v)| (k.to_string(), Value::String(v))).collect())).collect()
+}
+
 /// The orders the Bitvavo adapter POSTed, as the Rails harness records them: the JSON body without the clientOrderId.
 /// The orders the Bitget adapter POSTed, as the Rails harness records them: the JSON body without the clientOid.
 fn bitget_sent(t: &ScriptedTransport) -> Vec<Value> {
@@ -293,6 +301,22 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
         let poll_error = match poll { Some(polling::PollFailure::General(m)) => json!(m), _ => Value::Null };
         let funds_notified: bool = o.primary.query_row("SELECT last_end_of_funds_notification IS NOT NULL FROM bots WHERE id = ?1", [bot_id], |r| r.get(0))?;
         let mut out = json!({ "sent": bitvavo_sent(&transport), "changes": diff(&before, &snapshot(&o.primary)?), "mails": mails(&o.primary, &owed)?,
+                              "funds_notified": funds_notified, "poll_error": poll_error });
+        if let Some(c) = checks { out["checks"] = json!(c); }
+        return Ok(out);
+    }
+    if scenario["venue"] == "mexc" {
+        // Rust's MEXC adapter over the bodies Rails' harness serves beneath Honeymaker::Clients::Mexc, with the scenario's
+        // own tickers.
+        let transport = ScriptedTransport::from_script(&scenario["script"]["mexc"]);
+        let exchange_id: i64 = o.primary.query_row("SELECT id FROM exchanges WHERE type = ?1", [crate::venue::mexc::MEXC], |r| r.get(0))?;
+        let pairs = crate::venue::binance::Pairs::load(&o.primary, exchange_id).map_err(EngineError::Data)?;
+        let venue = crate::venue::mexc::MexcVenue::new(transport.clone(), crate::venue::mexc::URL, "s").with_pairs(pairs);
+        let posted = || mexc_sent(&transport).len();
+        let (poll, _, checks) = play(&o, &venue, &scenario, bot_id, start, &posted).await?;
+        let poll_error = match poll { Some(polling::PollFailure::General(m)) => json!(m), _ => Value::Null };
+        let funds_notified: bool = o.primary.query_row("SELECT last_end_of_funds_notification IS NOT NULL FROM bots WHERE id = ?1", [bot_id], |r| r.get(0))?;
+        let mut out = json!({ "sent": mexc_sent(&transport), "changes": diff(&before, &snapshot(&o.primary)?), "mails": mails(&o.primary, &owed)?,
                               "funds_notified": funds_notified, "poll_error": poll_error });
         if let Some(c) = checks { out["checks"] = json!(c); }
         return Ok(out);

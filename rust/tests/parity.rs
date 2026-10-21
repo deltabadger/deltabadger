@@ -582,6 +582,46 @@ async fn rails_and_rust_decide_identically_across_the_bitget_grid() {
     }
 }
 
+/// MEXC grid variants where Rust deliberately decides otherwise than Rails (plan VB §5, slice A5), each asserted on its own
+/// terms: a placement that may have reached MEXC (a 5xx, a lost reply, an unreadable answer, MEXC's "service not
+/// available") keeps the intent, which waits for the operator (absence is never concluded), where Rails writes a failed row.
+const MEXC_DIVERGENCES: [&str; 4] = ["add_server_error", "add_service_unavailable", "add_timeout_after_send", "add_unreadable"];
+
+#[tokio::test(flavor = "current_thread")]
+async fn rails_and_rust_decide_identically_across_the_mexc_grid() {
+    use common::venue_grid::{ending, run_venue_grid, Validator};
+    let unreadable = |n: &str| n.contains(UNREADABLE);
+    let wrapped = |id: &'static str, sentence: &'static str| move |_: &str, _: &Path, r: &serde_json::Value, u: &serde_json::Value| {
+        wrapped_like_rails(&format!(r#"Failed to fetch orders BTCUSDT-{id}. Result: [\"{sentence}\"]"#), sentence, r, u)
+    };
+    let outputs = run_venue_grid("grid-mexc", 196, &[
+        Validator { names: &unreadable, check: &|n, d, r, u| unreadable_number_refused(n, d, r, u, false) },
+        Validator { names: &ending(&MEXC_DIVERGENCES), check: &|_, d, r, u| intent_kept(d, r, u) },
+        Validator { names: &ending(&["add_no_order_id"]), check: &|_, d, r, u| unacknowledged_kept(d, r, u) },
+        Validator { names: &ending(&["add_network_pre_send"]), check: &|_, _, r, u| refused_like_rails(r, u) },
+        Validator { names: &ending(&["sweep_unknown_type"]), check: &wrapped("C02__208", "Unknown MEXC order type: STOP_LOSS") },
+        Validator { names: &ending(&["sweep_unknown_status"]), check: &wrapped("C02__209", "Unknown MEXC order status: PENDING_CANCEL") },
+    ]).await;
+    // Pin what Rails does where a silent pair of sides would otherwise pass.
+    for (name, rails_out) in &outputs {
+        let mailed: Vec<&str> = rails_out["mails"].as_array().unwrap().iter().map(|m| m["mail"].as_str().unwrap()).collect();
+        let expected: Option<&[&str]> = [("-insufficient", &["end_of_funds"][..]), ("-invalid_key", &["stopped_by_error"]), ("-low_funds", &["end_of_funds"]),
+                                         ("-on_schedule", &[]), ("-timestamp_700003", &[])].into_iter().find(|(suffix, _)| name.ends_with(suffix)).map(|(_, m)| m);
+        if let Some(expected) = expected { assert_eq!(mailed, expected, "{name}: the mails Rails enqueued"); }
+        let rows = rails_out["changes"]["transactions"].as_array().unwrap();
+        let sent = rails_out["sent"].as_array().unwrap();
+        let after = |id: &str| rows.iter().find(|t| t["after"]["external_id"] == id).map(|t| t["after"].clone());
+        if name.ends_with("-timestamp_700003") { assert!(rows.is_empty() && sent.len() == 1, "{name}: 700003 writes no row"); }
+        if name.ends_with("-market-first_tick") { assert!(sent[0]["quoteOrderQty"].is_string() && sent[0]["recvWindow"] == "5000", "{name}: a market buy by quote"); }
+        if name.ends_with("-market-zero_base_minimum") { assert!(sent.len() == 1, "{name}: a zero base minimum leaves the quote minimum the floor"); }
+        if name.ends_with("-zero_base_minimum_below") { assert!(sent.is_empty(), "{name}: under the quote minimum"); }
+        if name.ends_with("-limit-first_tick") { assert!(sent[0]["price"].is_string() && sent[0]["timeInForce"] == "GTC", "{name}: a limit buy"); }
+        if name.ends_with("-sweep_filled_limit_at_fills") { assert_eq!(after("BTCUSDT-C02__204").unwrap()["price"], serde_json::json!({ "f": format!("{:x}", 63763.44f64.to_bits()) }), "{name}: X2, priced at its fills (59.3 / 0.00093), not the limit"); }
+        if name.ends_with("-sweep_partially_canceled") { assert_eq!(after("BTCUSDT-C02__205").unwrap()["external_status"], 3, "{name}: X1, terminal"); }
+        if name.ends_with("-sweep_gone_old") { assert_eq!(after("BTCUSDT-C02__212").unwrap()["external_status"], 4, "{name}: X5, abandoned"); }
+    }
+}
+
 /// Slice 6a: a one-asset basket selling on Kraken, Binance, Alpaca, Gemini and Bitget (script/rust/decisions.rb sell_scenarios),
 /// compared whole. Gemini's market sells go out at the crossed bid Rails re-reads at placement, prepared once (plan VB §1.5);
 /// Bitget's in base (G1): no divergence.

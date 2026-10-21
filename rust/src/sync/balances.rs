@@ -352,6 +352,30 @@ pub(crate) async fn sync_bitvavo_captured<T: Transport>(db: &Db, transport: T, p
     sync_venue(db, version, prices, key_id, credentials, clock, venue, read).await
 }
 
+/// One balance sync of one MEXC key, as AccountBalance::SyncJob runs it for that key: Exchanges::Mexc#get_balances (GET
+/// /api/v3/account, the gem's recvWindow) then AccountBalance::Sync. Read only: one signed GET. A failure records
+/// #parse_error_message's text; MEXC's invalid-key words mark the key incorrect unless they name a missing permission.
+pub async fn sync_mexc<T: Transport>(db: &Db, transport: T, prices: &dyn PriceSource, key_id: i64, credentials: &Credentials, clock: &dyn Clock)
+                                     -> Result<Result<Summary, Failure>, SyncError> {
+    let version = super::capture_bound_version(db, key_id, credentials).await?;
+    sync_mexc_captured(db, transport, prices, key_id, credentials, clock, &version).await
+}
+
+pub(crate) async fn sync_mexc_captured<T: Transport>(db: &Db, transport: T, prices: &dyn PriceSource, key_id: i64, credentials: &Credentials,
+                                                     clock: &dyn Clock, version: &crate::engine::model::CredentialVersion)
+                                                     -> Result<Result<Summary, Failure>, SyncError> {
+    use crate::venue::mexc::{MexcVenue, ACCOUNT_PATH, MEXC, RECV_WINDOW, URL};
+    let (secret, now) = (credentials.secret.clone(), clock.now());
+    let read = move |_: String| async move {
+        let venue = MexcVenue::new(transport, URL, &secret);
+        Ok(venue.read_text(&venue.signed("GET", ACCOUNT_PATH, vec![("recvWindow", RECV_WINDOW.to_string())], now), MAX_BINANCE_ACCOUNT_BYTES).await)
+    };
+    // The account answer is Binance's shape (`binance_held`).
+    let venue = VenueBalances { types: &[MEXC], failure_text: binance::error_message, condemns: |venue, text| condemns(&crate::engine::venue_rules::MEXC, venue, text),
+                                held: |text, names, ids| binance_held(text, names, ids).map(|held| held.map_err(|why| (why, false))) };
+    sync_venue(db, version, prices, key_id, credentials, clock, venue, read).await
+}
+
 /// ApiKeyFailureHandling#failure_reason's :invalid: the venue's invalid-key words, unless the text names a missing permission.
 fn condemns(rules: &crate::engine::venue_rules::VenueRules, venue: &str, text: &str) -> bool {
     !crate::tracker::import::run::missing_permission(venue, Some(text)) && rules.is_invalid_key(&[text.to_string()])
