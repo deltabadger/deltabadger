@@ -27,6 +27,8 @@ pub fn try_rails(args: &[&str]) -> Result<(), String> {
         let watchdog = std::thread::spawn(move || {
             let timed_out = finished.recv_timeout(Duration::from_secs(20 * 60)).is_err();
             if timed_out {
+                // An empty USR1 dump (#687) means the main thread is stuck in native code, where Ruby's trap never runs.
+                eprintln!("{}", native_state(pid));
                 let _ = Command::new("kill").args(["-USR1", &pid.to_string()]).status();
                 std::thread::sleep(Duration::from_secs(10));
                 let _ = Command::new("kill").args(["-9", &pid.to_string()]).status();
@@ -46,6 +48,33 @@ pub fn try_rails(args: &[&str]) -> Result<(), String> {
     let mut full = vec!["runner", "script/rust/decisions.rb"];
     full.extend_from_slice(args);
     run(&full)
+}
+
+/// A stuck process's native side: gdb's backtraces when it can attach (CI's passwordless sudo, else plain), and from
+/// /proc every thread's kernel wait channel and the files it holds open (which SQLite databases, which locks).
+fn native_state(pid: u32) -> String {
+    let mut out = format!("native state of {pid}:\n");
+    let gdb = ["thread apply all bt", "info sharedlibrary"].iter().flat_map(|c| ["-ex", c]).collect::<Vec<_>>();
+    for (cmd, pre) in [("sudo", vec!["-n", "timeout", "60", "gdb"]), ("timeout", vec!["60", "gdb"])] {
+        let pid = pid.to_string();
+        let args = pre.into_iter().chain(["-p", pid.as_str(), "-batch"]).chain(gdb.iter().copied()).collect::<Vec<_>>();
+        if let Ok(o) = Command::new(cmd).args(&args).output() {
+            let text = String::from_utf8_lossy(&o.stdout);
+            if text.contains("Thread") { out.push_str(&text); break; }
+            out.push_str(&format!("{cmd} gdb: {}\n", String::from_utf8_lossy(&o.stderr).lines().last().unwrap_or("")));
+        }
+    }
+    let proc = format!("/proc/{pid}");
+    for task in std::fs::read_dir(format!("{proc}/task")).into_iter().flatten().flatten() {
+        let read = |f: &str| std::fs::read_to_string(task.path().join(f)).unwrap_or_default().trim().to_string();
+        out.push_str(&format!("task {:?} {} wchan={} state={}\n", task.file_name(), read("comm"), read("wchan"),
+            read("stat").split(' ').nth(2).unwrap_or("")));
+    }
+    for fd in std::fs::read_dir(format!("{proc}/fd")).into_iter().flatten().flatten() {
+        if let Ok(target) = std::fs::read_link(fd.path()) { out.push_str(&format!("fd {:?} -> {}\n", fd.file_name(), target.display())); }
+    }
+    out.push_str(&std::fs::read_to_string(format!("{proc}/locks")).unwrap_or_else(|_| std::fs::read_to_string("/proc/locks").unwrap_or_default()));
+    out
 }
 
 /// `command`'s grid, as `rails(&[command, into])` builds it: built once per test run (super::run_template), and
