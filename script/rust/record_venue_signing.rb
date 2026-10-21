@@ -201,7 +201,8 @@ when 'mexc'
   keys = [%w[mx0vglBqh6abc12345 0123456789abcdef0123456789abcdef], ['k', 's3cr3t~/+=']]
   cases = []
   ms = 1_789_871_400_750
-  uuid = '5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01'
+  # MEXC's 32-character limit: the intent UUID's reversible hex form.
+  uuid = '5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01'.delete('-')
   keys.each_with_index do |(key, secret), i|
     [['account_information', ->(c) { c.account_information }],
      ['query_order', ->(c) { c.query_order(symbol: 'BTCUSDT', order_id: 'C02__443776347957968896') }],

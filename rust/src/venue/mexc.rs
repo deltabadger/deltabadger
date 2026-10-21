@@ -7,7 +7,7 @@
 //! the stored id "SYMBOL-<orderId>". It differs in what it reads: one GET per order (`venue::poll_each`), an order MEXC
 //! no longer knows (-2013/-2011) listed missing; no fill rebuild from trades; the gem's default recvWindow everywhere.
 //!
-//! Where it differs on purpose (plan VB §5, named in tests/parity.rs): the order carries `newClientOrderId` = the intent id
+//! Where it differs on purpose (plan VB §5, named in tests/parity.rs): the order carries `newClientOrderId` = the intent UUID's 32-hex form
 //! (D9; Rails sends none) and recovery asks for it (`order_by_client_id`), which can only FIND an order (absence is never
 //! concluded, ABSENCE_UNPROVEN); a placement that may have reached MEXC (a lost reply, a 5xx, an unreadable answer, one
 //! without an orderId, "service not available") keeps the intent where Rails writes a failed (or a "BTCUSDT-") row; a
@@ -45,6 +45,15 @@ pub const SHAPE: Shape = Shape {
 
 pub(crate) fn unreadable() -> VenueError { VenueError::Ambiguous(UNREADABLE.into()) }
 fn required(v: &Value) -> Result<BigDec, VenueError> { super::json::required(v, unreadable) }
+
+/// The intent UUID without hyphens fits MEXC's 32-character limit and is reversible. Reject longer non-UUIDs before sending.
+fn client_order_id(id: &str) -> Result<String, VenueError> {
+    match uuid::Uuid::parse_str(id) {
+        Ok(uuid) => Ok(uuid.simple().to_string()),
+        Err(_) if id.chars().count() <= 32 => Ok(id.to_string()),
+        Err(_) => Err(VenueError::Rejected(vec!["MEXC: non-UUID client order id exceeds 32 characters; not sent".into()])),
+    }
+}
 
 /// Exchange#response_field(result, 'code') of a failure's text, as a number (Ruby's `include?` compares 2013.0 with 2013 as
 /// equal; a String never equals an Integer).
@@ -184,7 +193,7 @@ impl<T: Transport> super::Venue for MexcVenue<T> {
 
     /// #set_market_order / #set_limit_order through Clients::Mexc#new_order: POST /api/v3/order, every field in the query. A
     /// market order is `quoteOrderQty` or `quantity`; a limit order GTC `price` and `quantity`. Plus Rust's
-    /// `newClientOrderId` (the intent id; Rails sends none) and the gem's recvWindow. Sent at most once. The stored id is
+    /// `newClientOrderId` (the intent UUID's 32-hex form; Rails sends none) and the gem's recvWindow. Sent at most once. The stored id is
     /// "SYMBOL-<orderId>"; an answer without an orderId (Rails would store "SYMBOL-") may have placed the order: Ambiguous.
     async fn add_order(&self, o: &NewOrder) -> Result<String, VenueError> {
         let mut params = vec![("symbol", o.pair.clone()), ("side", o.side.as_str().to_ascii_uppercase())];
@@ -199,7 +208,7 @@ impl<T: Transport> super::Venue for MexcVenue<T> {
             }
             OrderKind::Crossed { .. } => return Err(super::not_crossing("MEXC")),
         };
-        params.push(("newClientOrderId", o.cl_ord_id.clone()));
+        params.push(("newClientOrderId", client_order_id(&o.cl_ord_id)?));
         // The absolute bound on the send, as for every venue: the intent's send window, plus the request budget.
         let r = HttpRequest { not_after: Some(o.deadline + chrono::Duration::from_std(http::TOTAL_TIMEOUT).expect("45 s")), ..self.signed_now("POST", ORDER_PATH, params) };
         let body = self.call(&r, true).await?;
@@ -229,6 +238,7 @@ impl<T: Transport> super::Venue for MexcVenue<T> {
     /// Recovery (plan VB §1.5) may only FIND the order: GET /api/v3/order by the intent's symbol and origClientOrderId; a hit
     /// naming them is the order. -2013/-2011 is never absence (ABSENCE_UNPROVEN).
     async fn order_by_client_id(&self, cl_ord_id: &str, symbol: &str, _since: DateTime<Utc>) -> Result<Option<OrderState>, VenueError> {
+        let cl_ord_id = client_order_id(cl_ord_id)?;
         let r = self.signed_now("GET", ORDER_PATH, vec![("symbol", symbol.to_string()), ("origClientOrderId", cl_ord_id.to_string())]);
         let Some(body) = self.lookup(&r).await? else { return Err(VenueError::Ambiguous(ABSENCE_UNPROVEN.into())) };
         let ext = match &body["orderId"] {
@@ -236,7 +246,7 @@ impl<T: Transport> super::Venue for MexcVenue<T> {
             Value::String(s) if !s.is_empty() => s.clone(),
             _ => return Err(unreadable()),
         };
-        if body["symbol"].as_str() != Some(symbol) || body["clientOrderId"].as_str() != Some(cl_ord_id) {
+        if body["symbol"].as_str() != Some(symbol) || body["clientOrderId"].as_str() != Some(cl_ord_id.as_str()) {
             return Err(VenueError::Rejected(vec![format!("{} answered for client order id {cl_ord_id} on {symbol} with another order", RULES.name)]));
         }
         parse_order(&format!("{symbol}-{ext}"), &body, &self.pairs).map(Some)

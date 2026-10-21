@@ -1,6 +1,6 @@
 {
   "sources": {
-    "script/rust/record_venue_signing.rb": "9f6090a1b2ef7f7fd0a1f7571aff15e9894568c170ae724905cb887ad0c4b98a",
+    "script/rust/record_venue_signing.rb": "7e2f7dd8daec44d4bc4d34f5b7ecd41db49a049af9d2b00d67881f670cde6ac8",
     "app/models/exchanges/mexc.rb": "08a430af264efc84f88c0233fdd47a9cce4532a0cf829d580f7c9569e0697454"
   },
   "gems": {
@@ -96,7 +96,7 @@
     {
       "method": "GET",
       "path": "/api/v3/order",
-      "query": "origClientOrderId=5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01&recvWindow=5000&signature=bbb6f5d06c43a04da58ba4f22315d3f14b98ab1457336d8a850322f21824aa74&symbol=BTCUSDT&timestamp=1789871400752",
+      "query": "origClientOrderId=5f1c1f3e2b8f4c4e9a590d9c3f1b6a01&recvWindow=5000&signature=d2d3f556f7de5709cbf040a2279d23918a5136cb668029a9507fc451ab91cb4a&symbol=BTCUSDT&timestamp=1789871400752",
       "body": null,
       "headers": {
         "X-mexc-apikey": "mx0vglBqh6abc12345",
@@ -156,7 +156,7 @@
     {
       "method": "POST",
       "path": "/api/v3/order",
-      "query": "newClientOrderId=5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01&quoteOrderQty=60.5&recvWindow=5000&side=BUY&signature=c69ee698c67d364aacc6e698a22cfc1108a5d4a0a84481ef5acefec7160b102b&symbol=BTCUSDT&timestamp=1789871400756&type=MARKET",
+      "query": "newClientOrderId=5f1c1f3e2b8f4c4e9a590d9c3f1b6a01&quoteOrderQty=60.5&recvWindow=5000&side=BUY&signature=1c51dfd042e7f6e73d6f8eb3e3c9ceaf07effe991302555f5fa1ef8a61358597&symbol=BTCUSDT&timestamp=1789871400756&type=MARKET",
       "body": "",
       "headers": {
         "X-mexc-apikey": "mx0vglBqh6abc12345",
@@ -188,7 +188,7 @@
     {
       "method": "POST",
       "path": "/api/v3/order",
-      "query": "newClientOrderId=5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01&price=0.03512&quantity=1.2&recvWindow=5000&side=BUY&signature=0c3390882fa2e10bbe790fe8c9bc934476e368a81559e7896894c8713d36113c&symbol=ETHBTC&timeInForce=GTC&timestamp=1789871400758&type=LIMIT",
+      "query": "newClientOrderId=5f1c1f3e2b8f4c4e9a590d9c3f1b6a01&price=0.03512&quantity=1.2&recvWindow=5000&side=BUY&signature=f8e5e14b2e533a8cadead844e31e199e3c9c8d9bc7bf06e4103017ca140e0537&symbol=ETHBTC&timeInForce=GTC&timestamp=1789871400758&type=LIMIT",
       "body": "",
       "headers": {
         "X-mexc-apikey": "mx0vglBqh6abc12345",
@@ -279,7 +279,7 @@
     {
       "method": "GET",
       "path": "/api/v3/order",
-      "query": "origClientOrderId=5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01&recvWindow=5000&signature=8f999e6f1ef5b2e123277973dec3714e5ed02fcef49a294a62206701d3cbd1de&symbol=BTCUSDT&timestamp=1789871401752",
+      "query": "origClientOrderId=5f1c1f3e2b8f4c4e9a590d9c3f1b6a01&recvWindow=5000&signature=7b2338d156109d168ea754df031967106354c6cac9cadb142782de2635dfbb5e&symbol=BTCUSDT&timestamp=1789871401752",
       "body": null,
       "headers": {
         "X-mexc-apikey": "k",
@@ -339,7 +339,7 @@
     {
       "method": "POST",
       "path": "/api/v3/order",
-      "query": "newClientOrderId=5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01&quoteOrderQty=60.5&recvWindow=5000&side=BUY&signature=9c4d99ecad87aade2741070ea70565951e09b88bf96d8567ba8f65d7f961c810&symbol=BTCUSDT&timestamp=1789871401756&type=MARKET",
+      "query": "newClientOrderId=5f1c1f3e2b8f4c4e9a590d9c3f1b6a01&quoteOrderQty=60.5&recvWindow=5000&side=BUY&signature=446ac1b2993aab829d8cd396ee3b5f4aa276a84365d4049b4ceb81b256a501ca&symbol=BTCUSDT&timestamp=1789871401756&type=MARKET",
       "body": "",
       "headers": {
         "X-mexc-apikey": "k",
@@ -371,7 +371,7 @@
     {
       "method": "POST",
       "path": "/api/v3/order",
-      "query": "newClientOrderId=5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01&price=0.03512&quantity=1.2&recvWindow=5000&side=BUY&signature=fc72848f850e29ea5731e4d5b77ec6cf4690631b9b3132aecae098ae22e76d70&symbol=ETHBTC&timeInForce=GTC&timestamp=1789871401758&type=LIMIT",
+      "query": "newClientOrderId=5f1c1f3e2b8f4c4e9a590d9c3f1b6a01&price=0.03512&quantity=1.2&recvWindow=5000&side=BUY&signature=92ec807f8ae0bda9ddcd2e62d667c7cc00912b7e7e940a05f8087bf7a510a593&symbol=ETHBTC&timeInForce=GTC&timestamp=1789871401758&type=LIMIT",
       "body": "",
       "headers": {
         "X-mexc-apikey": "k",

@@ -43,12 +43,13 @@ fn sent(r: &HttpRequest) -> Vec<(String, String)> {
 }
 fn pairs_of(v: &[(&str, &str)]) -> Vec<(String, String)> { v.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect() }
 const CL: &str = "5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01";
+const WIRE_CL: &str = "5f1c1f3e2b8f4c4e9a590d9c3f1b6a01";
 fn order(kind: OrderKind, quote: bool, volume: &str) -> NewOrder {
     NewOrder { pair: "BTCUSDT".into(), side: Side::Buy, kind, volume: volume.into(), quote_volume: quote, cl_ord_id: CL.into(),
                deadline: "2026-09-01T10:00:10Z".parse().unwrap(), day: false }
 }
 fn raw_order(id: &str, status: &str, kind: &str, executed: &str, cumulative: &str) -> Value {
-    json!({ "symbol": "BTCUSDT", "orderId": id, "orderListId": -1, "clientOrderId": CL, "price": if kind == "LIMIT" { "64150" } else { "0" },
+    json!({ "symbol": "BTCUSDT", "orderId": id, "orderListId": -1, "clientOrderId": WIRE_CL, "price": if kind == "LIMIT" { "64150" } else { "0" },
             "origQty": if kind == "LIMIT" { "0.00093" } else { "0" }, "executedQty": executed, "cummulativeQuoteQty": cumulative, "status": status,
             "type": kind, "side": "BUY", "origQuoteOrderQty": if kind == "LIMIT" { Value::Null } else { json!("60") } })
 }
@@ -173,7 +174,7 @@ async fn every_recorded_rails_sizing_and_wire_is_reproduced() {
         let (t, venue) = venue(json!({ "POST /api/v3/order": ok(json!({ "symbol": "BTCUSDT", "orderId": "C02__1" })) }));
         assert_eq!(venue.add_order(&order).await, Ok("BTCUSDT-C02__1".into()));
         let mut ours: serde_json::Map<String, Value> = sent(&t.requests()[0]).into_iter().map(|(k, v)| (k, json!(v))).collect();
-        assert_eq!((ours.remove("newClientOrderId"), ours.remove("recvWindow")), (Some(json!(CL)), Some(json!("5000"))), "{c}");
+        assert_eq!((ours.remove("newClientOrderId"), ours.remove("recvWindow")), (Some(json!(WIRE_CL)), Some(json!("5000"))), "{c}");
         let mut want = serde_json::Map::new();
         for (rails, field) in c["wire"].as_object().unwrap() {
             let camel = match rails.as_str() { "quote_order_qty" => "quoteOrderQty", "time_in_force" => "timeInForce", other => other };
@@ -213,6 +214,35 @@ async fn prices_and_balances_read_as_rails_reads_them() {
 // ---- placement
 
 #[tokio::test(flavor = "current_thread")]
+async fn client_order_ids_fit_the_limit_and_recovery_uses_the_same_id() {
+    for (intent, wire) in [(CL, WIRE_CL), (WIRE_CL, WIRE_CL), ("legacy-id", "legacy-id"),
+                           ("12345678901234567890123456789-32", "12345678901234567890123456789-32")] {
+        let mut raw = raw_order("C02__9", "FILLED", "MARKET", "0.00093", "59.52");
+        raw["clientOrderId"] = json!(wire);
+        let (t, v) = venue(json!({ "POST /api/v3/order": ok(json!({ "orderId": "C02__9" })), "GET /api/v3/order": ok(raw) }));
+        let mut o = order(OrderKind::Market, true, "60");
+        o.cl_ord_id = intent.into();
+        assert_eq!(v.add_order(&o).await, Ok("BTCUSDT-C02__9".into()));
+        assert_eq!(t.requests()[0].query.iter().find(|(k, _)| *k == "newClientOrderId").unwrap().1, wire);
+        let recovered = v.order_by_client_id(intent, "BTCUSDT", o.deadline).await.unwrap().unwrap();
+        assert_eq!((recovered.txid.as_str(), recovered.status), ("BTCUSDT-C02__9", OrderStatus::Closed));
+        assert_eq!(sent(&t.requests()[1]), pairs_of(&[("origClientOrderId", wire), ("recvWindow", "5000"), ("symbol", "BTCUSDT")]));
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn oversized_non_uuid_client_order_ids_are_rejected_without_sending() {
+    for id in ["x".repeat(33), "not-a-uuid-2b8f-4c4e-9a59-0d9c3f1b6a01".into()] {
+        let (t, v) = venue(json!({}));
+        let mut o = order(OrderKind::Market, true, "60");
+        o.cl_ord_id = id;
+        assert!(matches!(v.add_order(&o).await, Err(VenueError::Rejected(_))));
+        assert!(matches!(v.order_by_client_id(&o.cl_ord_id, "BTCUSDT", o.deadline).await, Err(VenueError::Rejected(_))));
+        assert!(t.requests().is_empty(), "an invalid id must be refused before sending");
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
 async fn placement_answers_map_as_rails_maps_them() {
     let place = |reply: Value| async move { venue(json!({ "POST /api/v3/order": reply })).1.add_order(&order(OrderKind::Market, true, "60")).await };
     assert_eq!(place(ok(json!({ "symbol": "BTCUSDT", "orderId": "C02__443776347957968896" }))).await, Ok("BTCUSDT-C02__443776347957968896".into()));
@@ -230,7 +260,7 @@ async fn placement_answers_map_as_rails_maps_them() {
     let (t, v) = venue(json!({ "POST /api/v3/order": ok(json!({ "orderId": "o1" })) }));
     v.add_order(&order(OrderKind::Limit { price: "63840".into() }, false, "0.000939")).await.unwrap();
     assert!(t.requests()[0].body.is_none());
-    assert_eq!(sent(&t.requests()[0]), pairs_of(&[("newClientOrderId", CL), ("price", "63840"), ("quantity", "0.000939"), ("recvWindow", "5000"), ("side", "BUY"),
+    assert_eq!(sent(&t.requests()[0]), pairs_of(&[("newClientOrderId", WIRE_CL), ("price", "63840"), ("quantity", "0.000939"), ("recvWindow", "5000"), ("side", "BUY"),
                                                   ("symbol", "BTCUSDT"), ("timeInForce", "GTC"), ("type", "LIMIT")]));
     // MEXC has no cross (D-679 is Gemini's and Hyperliquid's): a crossed plan is never sent.
     let (t, v) = venue(json!({ "POST /api/v3/order": ok(json!({ "orderId": "o1" })) }));
@@ -275,7 +305,7 @@ async fn the_client_order_lookup_finds_an_order_and_never_proves_one_absent() {
     let (t, v) = venue(json!({ "GET /api/v3/order": ok(raw_order("C02__9", "FILLED", "MARKET", "0.00093", "59.52")) }));
     let o = v.order_by_client_id(CL, "BTCUSDT", since).await.unwrap().unwrap();
     assert_eq!((o.txid.as_str(), o.status), ("BTCUSDT-C02__9", OrderStatus::Closed));
-    assert_eq!(sent(&t.requests()[0]), pairs_of(&[("origClientOrderId", CL), ("recvWindow", "5000"), ("symbol", "BTCUSDT")]));
+    assert_eq!(sent(&t.requests()[0]), pairs_of(&[("origClientOrderId", WIRE_CL), ("recvWindow", "5000"), ("symbol", "BTCUSDT")]));
     let (_, v) = venue(json!({ "GET /api/v3/order": gone() }));
     assert_eq!(v.order_by_client_id(CL, "BTCUSDT", since).await, Err(VenueError::Ambiguous(ABSENCE_UNPROVEN.into())));
     let (_, v) = venue(json!({ "GET /api/v3/order": ok(json!({ "symbol": "BTCUSDT", "orderId": "C02__1", "clientOrderId": "another" })) }));
