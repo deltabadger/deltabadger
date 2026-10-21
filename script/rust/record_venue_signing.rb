@@ -228,6 +228,33 @@ when 'mexc'
   # What engine::venue_rules::MEXC ports beside the signing.
   out.merge!('errors' => Exchanges::Mexc::ERRORS.transform_keys(&:to_s), 'network_transient' => Client::NETWORK_TRANSIENT_PATTERNS,
              'placement_safe' => Exchange::PLACEMENT_SAFE_TRANSIENT_ERRORS, 'order_gone_codes' => Exchanges::Mexc::ORDER_GONE_CODES, 'signing' => cases)
+when 'bybit'
+  connection = test_connection.(Honeymaker::Clients::Bybit::URL, { retCode: 0, result: { orderId: '123', list: [] } })
+  cases = []
+  [%w[k secret], ['api-key', 's3cr3t~/+=']].each do |key, secret|
+    [[:wallet_balance, { account_type: 'UNIFIED' }],
+     [:wallet_balance, { account_type: 'UNIFIED', coin: 'A B/~*é' }],
+     [:get_order, { category: 'spot', order_id: '123' }],
+     [:get_order, { category: 'spot', order_link_id: '5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01' }],
+     [:order_history, { category: 'spot', order_id: '123', start_time: 1789000000000, end_time: 1789604800000 }],
+     [:execution_list, { category: 'spot', cursor: 'a+/=' }],
+     [:deposit_records, { start_time: 1789000000000 }],
+     [:internal_deposit_records, { cursor: 'b+/=' }],
+     [:withdraw_records, { withdraw_type: 2 }],
+     [:create_order, { category: 'spot', symbol: 'BTCUSDT', side: 'Buy', order_type: 'Market', qty: '60.0', market_unit: 'quoteCoin', order_link_id: '5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01' }],
+     [:create_order, { category: 'spot', symbol: 'BTCUSDT', side: 'Sell', order_type: 'Limit', qty: '0.1', price: '60000.0', time_in_force: 'GTC' }],
+     [:cancel_order, { category: 'spot', symbol: 'BTCUSDT', order_id: '0' }],
+     [:tickers, { category: 'spot' }], [:orderbook, { category: 'spot', symbol: 'BTCUSDT', limit: 1 }]].each do |call, args|
+      c = Honeymaker::Clients::Bybit.new(api_key: key, api_secret: secret)
+      c.instance_variable_set(:@connection, connection)
+      c.define_singleton_method(:timestamp_ms) { 1789871400750 }
+      c.public_send(call, **args)
+      cases << one.(call).merge('call' => call, 'api_key' => key, 'api_secret' => secret, 'timestamp' => 1789871400750)
+    end
+  end
+  %w[app/models/exchanges/bybit.rb app/models/exchange.rb].each { |file| out['sources'][file] = Digest::SHA256.file(Rails.root.join(file)).hexdigest }
+  out.merge!('errors' => Exchanges::Bybit::ERRORS.transform_keys(&:to_s), 'network_transient' => Client::NETWORK_TRANSIENT_PATTERNS,
+             'placement_safe' => Exchange::PLACEMENT_SAFE_TRANSIENT_ERRORS, 'signing' => cases)
 when 'gemini'
   key = 'account-Zq8XtV2bLm4N7cRk'
   secret = '3xQnTq9hKpZ2vYw8RcLm5Fd7JgBs'

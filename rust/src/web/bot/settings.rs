@@ -225,13 +225,20 @@ impl Forms<'_> {
         self.rule(active, "smart_intervaled", active, self.locked(), &format!("            {sentence}\n            {info}\n"))
     }
 
-    /// bots/settings/_limit_orders.html.erb. Alpaca never locks limit orders on (Hyperliquid does).
+    /// bots/settings/_limit_orders.html.erb: Hyperliquid locks the switch on; working locks the distance too.
     pub fn limit_orders(&self) -> String {
         let bot = self.bot;
-        let active = bot.on("limit_ordered");
+        let limit_locked = bot.exchange.class == "Exchanges::Hyperliquid";
+        let active = limit_locked || bot.on("limit_ordered");
+        let error = self.field_error("limit_ordered").filter(|_| limit_locked);
         let distance = bot.number("limit_order_pcnt_distance");
         let value = distance.as_ref().and_then(Num::to_d).and_then(|share| input_value(&Num::Dec(&share * &BigDec::from_i64(100))));
-        let field = self.number("limit_order_pcnt_distance", value.as_deref(), "any", "", self.locked());
+        let mut field = self.number("limit_order_pcnt_distance", value.as_deref(), "any", "", self.locked());
+        // field_error_proc also processes the limit_ordered label, marking its first nested input invalid.
+        if error.is_some() {
+            field = field.replace("class=\"sinput numeric-input\"", "class=\"sinput numeric-input is-invalid\"")
+                .replace(" disabled=\"disabled\"", " disabled").replace(" />", ">");
+        }
         // A sell limit order sits above the price, so the sentence turns round.
         let sentence = self.t(if bot.selling() { "bot.settings.limit_orders.sentence_sell_html" } else { "bot.settings.limit_orders.sentence_html" }, &[("amount_html", Arg::Html(&format!("<div>            {field}\n</div>")))]);
         let mut info = String::new();
@@ -240,7 +247,21 @@ impl Forms<'_> {
                 ("exchange", Arg::Text(&bot.exchange.name)), ("maker_fee", Arg::Text(bot.exchange.maker_fee.as_deref().unwrap_or(""))),
             ]));
         }
-        self.rule(active, "limit_ordered", active, self.locked(), &format!("          {sentence}\n            {info}\n"))
+        if !limit_locked { return self.rule(active, "limit_ordered", active, self.locked(), &format!("          {sentence}\n            {info}\n")); }
+        let key = self.key();
+        let (checkbox, label_indent, label_error) = if let Some(error) = error {
+            // Nokogiri serializes the invalid checkbox and label; their boolean attributes become bare.
+            info = info.replace("&#39;", "'").replace("&quot;", "\"");
+            let checkbox = format!("<input name=\"{key}[limit_ordered]\" disabled=\"disabled\" type=\"hidden\" value=\"0\" />             \
+                <input data-action=\"change-&gt;form--submit#submit change-&gt;class-toggle#toggle\" disabled type=\"checkbox\" value=\"1\" checked \
+                name=\"{key}[limit_ordered]\" id=\"{key}_limit_ordered\" class=\" is-invalid\">{}", error_line(&error));
+            (checkbox, "             ", error_line(&error))
+        } else { (self.check_box("limit_ordered", true, true), "", String::new()) };
+        let tooltip = self.t("bot.settings.limit_orders.locked_tooltip", &[]);
+        format!("{}\n  <div class=\"toggle-group\">\n    <div class=\"toggle\" data-controller=\"tooltip\" data-action=\"mouseenter-&gt;tooltip#showTooltip mouseleave-&gt;tooltip#hideTooltip\" data-tooltip-fixed-value=\"true\">\n      \
+                 {checkbox}\n      <div class=\"toggle__style\"></div>\n        <div class=\"tooltip tooltip--smart-allocation\">{tooltip}</div>\n</div>    <div class=\"toggle-group__info\">\n      \
+                 <div class=\"toggle-group__info__label\">\n        {label_indent}<label class=\"conversational conversational--small conversational--disabled\" for=\"{key}_limit_ordered\">\n          \
+                 {sentence}\n            {info}\n</label>{label_error}      </div>\n    </div>\n  </div>\n</form>", self.open_rule(active))
     }
 
     /// bots/settings/_starting_time.html.erb: a weekday or "every day" with a clock time, or a date and time, in the user's zone.

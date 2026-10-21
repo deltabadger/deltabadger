@@ -286,6 +286,66 @@ fn key_verdicts_replay_every_recorded_case() {
     }
     assert_eq!((mexc, text_passes - 7), (240, 4), "a recorded MEXC case was added or dropped");
     replayed += mexc;
+    // Hyperliquid (plan VB slice B1): one /info read per key type (userRole for the address a trading or withdrawal key's secret
+    // signs as, none for a secret that is no key; the reading key's spotClearinghouseState), replayed through the check over
+    // Rails' recorded answer. An answer Rails raises on leaves the key pending in Rails: no verdict here. A 200 that Faraday
+    // leaves unparsed (text/plain "OK") reads as no role (trading: invalid) or as no balances (reading: valid) to Rails; Rust
+    // sees no content type and reads a 2xx that is not JSON as no verdict (D-HL-PLAIN-200: never a verdict on a body
+    // Hyperliquid does not send).
+    let hl = &recorded["hyperliquid"];
+    let invalid: Vec<String> = deltabadger::engine::venue_rules::HYPERLIQUID.kinds.iter().find(|(k, _)| *k == "invalid_key").unwrap().1.iter().map(|s| s.to_string()).collect();
+    assert_eq!(serde_json::from_value::<Vec<String>>(hl["invalid_key_errors"].clone()).unwrap(), invalid);
+    let secret = hl["secret"].as_str().unwrap();
+    let signer = deltabadger::venue::signers::hyperliquid::address(&deltabadger::venue::signers::hyperliquid::signing_key(secret).unwrap());
+    assert_eq!(json!(signer), hl["signer"], "the address the agent key signs as (Eth::Key#address)");
+    let mut hyperliquid = 0;
+    for case in hl["cases"].as_array().unwrap() {
+        let (name, kind, key) = (case["case"].as_str().unwrap(), kind(case["key_type"].as_str().unwrap()), case["key"].as_str().unwrap());
+        let sent: Vec<&Value> = case.get("request").into_iter().chain(case["requests"].as_array().into_iter().flatten()).filter(|r| !r.is_null()).collect();
+        let answers: Vec<Value> = case.get("response").into_iter().cloned().chain(case["responses"].as_array().into_iter().flatten().cloned()).map(|a| {
+            if a["timeout"] == true { json!({ "network": "post_send", "message": "Net::ReadTimeout" }) }
+            else if a["refused"] == true { json!({ "network": "pre_send", "message": "Connection refused" }) }
+            else { json!({ "status": a["status"], "body": a["body"] }) }
+        }).collect();
+        let script = if answers.is_empty() { json!({}) } else { json!({ "POST /info": answers }) };
+        let transport = deltabadger::venue::http::ScriptedTransport::from_script(&script);
+        let venue = deltabadger::venue::hyperliquid::HyperliquidVenue::new(transport.clone(), deltabadger::venue::hyperliquid::URL, key);
+        let case_secret = if name == "secret is no key" { "not-a-private-key" } else { secret };
+        let (_, ours) = rt.block_on(key_check::hyperliquid_check(&venue, &transport, key, case_secret, kind));
+        let lenient = name == "plain_text_200";
+        let theirs = if case["verdict"]["kind"] == "raises" || lenient { Verdict::Failure(String::new()) } else { expected(&case["verdict"]) };
+        if lenient { assert_eq!(case["verdict"]["kind"], "success", "hyperliquid {name}: Rails no longer reads it: drop the listed divergence"); }
+        assert!(same(&ours, &theirs), "hyperliquid {} {name}: {ours:?}, Rails {theirs:?}", case["key_type"]);
+        let ours_sent: Vec<Value> = transport.requests().iter().map(|r| json!({ "method": r.method, "host": r.url().host_str().unwrap(), "path": r.path, "form": r.body })).collect();
+        let theirs_sent: Vec<Value> = sent.iter().map(|r| json!({ "method": r["method"], "host": r["host"], "path": r["path"], "form": r["form"] })).collect();
+        assert_eq!(ours_sent, theirs_sent, "hyperliquid {} {name}: the request", case["key_type"]);
+        hyperliquid += 1;
+    }
+    assert_eq!(hyperliquid, 70, "a recorded Hyperliquid case was added or dropped");
+    replayed += hyperliquid;
+    let mut bybit = 0;
+    for case in recorded["bybit"][ "cases"].as_array().unwrap() {
+        let (name, kind) = (case["case"].as_str().unwrap(), kind(case["key_type"].as_str().unwrap()));
+        let a = &case["response"];
+        let reply = if a["timeout"] == true { json!({ "network": "post_send", "message": "Net::ReadTimeout" }) }
+                    else if a["refused"] == true { json!({ "network": "pre_send", "message": "Connection refused" }) }
+                    else { json!({ "status": a["status"], "body": a["body"] }) };
+        let sent = &case["request"];
+        let script = json!({ format!("{} {}", sent["method"].as_str().unwrap(), sent["path"].as_str().unwrap()): [reply] });
+        let transport = deltabadger::venue::http::ScriptedTransport::from_script(&script);
+        let venue = deltabadger::venue::bybit::BybitVenue::new(transport.clone(), deltabadger::venue::bybit::URL);
+        let (_, ours) = rt.block_on(key_check::bybit_check(&transport, &venue, kind));
+        let theirs = if case["verdict"]["kind"] == "raises" { Verdict::Failure(String::new()) } else { expected(&case["verdict"]) };
+        assert!(same(&ours, &theirs), "bybit {} {} {name}: {ours:?}, Rails {theirs:?}", case["key_type"], case["method"]);
+        let r = &transport.requests()[0];
+        let query: serde_json::Map<String, Value> = r.query.iter().map(|(k, v)| (k.to_string(), json!(v))).collect();
+        assert_eq!((json!(r.method), json!(r.url().host_str().unwrap()), json!(r.path), Value::Object(query), r.body.clone().unwrap_or(json!({}))),
+                   (sent["method"].clone(), sent["host"].clone(), sent["path"].clone(), sent["query"].clone(), sent["form"].clone()), "bybit {name}: the request");
+        assert_eq!((transport.requests().len(), sent["key_header"].as_str()), (1, Some("test-key")), "{name}");
+        bybit += 1;
+    }
+    assert_eq!(bybit, 108, "a recorded Bybit case was added or dropped");
+    replayed += bybit;
     assert_pinned("bitrue_key_verdicts.json");
     let bitrue_recorded = fixture("bitrue_key_verdicts.json");
     let mut bitrue = 0;
@@ -310,7 +370,7 @@ fn key_verdicts_replay_every_recorded_case() {
     }
     assert_eq!(bitrue, 81, "Bitrue recorded key verdicts");
     replayed += bitrue;
-    assert_eq!(replayed, 578 + 84 + 212 + 214 + 122 + 240 + 81, "a recorded case was added or dropped");
+    assert_eq!(replayed, 578 + 84 + 212 + 214 + 122 + 240 + 70 + 108 + 81, "the combined venue key grid: 1,210 existing + 240 MEXC + 70 Hyperliquid + 108 Bybit + 81 Bitrue cases");
 }
 
 /// A pinned callback list against a port's table: the same callbacks, in Rails' order, each handled.
@@ -433,6 +493,28 @@ async fn a_mexc_key_is_checked_by_its_account_and_a_reading_key_by_its_deposits_
     assert!(matches!(check(2).await, Validity::Correct), "a reading key that reads the account and the deposits");
     let sent: Vec<String> = server.received_requests().await.unwrap().iter().map(|r| r.url.path().to_string()).collect();
     assert_eq!(sent, ["/api/v3/account", "/api/v3/account", "/api/v3/account", "/api/v3/capital/deposit/hisrec"]);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_bybit_key_is_checked_by_a_cancel_probe_or_an_assets_read() {
+    use wiremock::{matchers::{body_json, header, header_exists, method, path}, Mock, MockServer, ResponseTemplate};
+    use deltabadger::web::settings::validator::Validity;
+    let server = MockServer::start().await;
+    Mock::given(method("POST")).and(path("/v5/order/cancel")).and(header("X-BAPI-API-KEY", "bg-key"))
+        .and(header_exists("X-BAPI-SIGN")).and(header("X-BAPI-RECV-WINDOW", "5000")).and(body_json(json!({ "category":"spot", "symbol": "BTCUSDT", "orderId": "0" })))
+        .respond_with(ResponseTemplate::new(400).set_body_json(json!({ "retCode":170213,"retMsg":"Order does not exist" }))).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v5/account/wallet-balance")).and(header("X-BAPI-API-KEY", "bg-key"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "retCode":0,"result":{"list":[{"coin":[{"coin":"USDT","walletBalance":"1"}]}]} })))
+        .mount(&server).await;
+    let credentials = deltabadger::crypto::Credentials { key: "bg-key".into(), secret: "bg-secret".into(), passphrase: Some("bg-pass".into()), redaction_values: vec![] };
+    let base = server.uri();
+    let check = |kind| key_check::check("Exchanges::Bybit", &base, deltabadger::venue::http::client(), &credentials, kind);
+    assert!(matches!(check(0).await, Validity::Correct), "a trading key past the permission gate");
+    assert!(matches!(check(1).await, Validity::Correct), "a withdrawal key that reads its assets");
+    assert!(matches!(check(2).await, Validity::Correct), "a reading key that reads its balances");
+    let sent: Vec<(String, String)> = server.received_requests().await.unwrap().iter().map(|r| (r.method.to_string(), r.url.path().to_string())).collect();
+    let (probe, read) = (("POST".to_string(), "/v5/order/cancel".to_string()), ("GET".to_string(), "/v5/account/wallet-balance".to_string()));
+    assert_eq!(sent, [probe, read.clone(), read]);
 }
 
 #[tokio::test]

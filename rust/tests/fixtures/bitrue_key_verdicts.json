@@ -8,6 +8,8 @@
     "app/models/exchanges/gemini.rb": "f020003e7398b901120a20af2354b692218ac537072da685ab176499069c4234",
     "app/models/exchanges/bitget.rb": "5acc29199e4c5ecda3eeae60ea898ac69438e5b581c6bc15fcbe70241e40716c",
     "app/models/exchanges/mexc.rb": "08a430af264efc84f88c0233fdd47a9cce4532a0cf829d580f7c9569e0697454",
+    "app/models/exchanges/hyperliquid.rb": "5fd3338e69d144f1d19d14a18206610303137da8b81a2e91ed34b6d484b0d1a2",
+    "app/models/exchanges/bybit.rb": "cf67b86cbd55174a5c729db27a82312cb121d15bd3a5ef40ce356dc0a801290d",
     "app/models/exchanges/bitrue.rb": "0d02c8ab14a77f1c5d931dbc4e834de79afa78fe0c940d47ded5da2037ba5664",
     "app/models/exchange.rb": "ab627a2812bc0c7b4a546459e64f8f5d93617c496308d5f03163f44cef12d8d7",
     "app/models/exchange/dryable.rb": "559b4b1858c832f3bc83b7631d7a74012854aabd88408b8680288609a1254b96",
@@ -37,7 +39,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://openapi.bitrue.com/api/v1/account?recvWindow=5000&signature=e9229479cee0bb50bcec19bd18201ce73cfca1b353ca45720df344fc4ffa207c&timestamp=1792602155844"
+            "the server responded with status 500 for GET https://openapi.bitrue.com/api/v1/account?recvWindow=5000&signature=7a1cfcdf56bc56d0cfff3763d5398e7fbd54cb11cd761de2e133049534a20deb&timestamp=1792614636528"
           ]
         },
         "request": {
@@ -709,7 +711,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://openapi.bitrue.com/api/v1/account?recvWindow=5000&signature=41aefb32e7cc911e2c3a07d2c76734d97f03ecc35dd5c8571f80c349b9d5f1a3&timestamp=1792602155866"
+            "the server responded with status 500 for GET https://openapi.bitrue.com/api/v1/account?recvWindow=5000&signature=dab468a862681f4dbd203507ec0fc4ad1c561a2c143b78985b24e07ede0dc7ee&timestamp=1792614636539"
           ]
         },
         "request": {
@@ -1381,7 +1383,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://openapi.bitrue.com/api/v1/account?recvWindow=5000&signature=9edba7c2027f9104f2105ba63ab9114b84ad0b1ef1a310d03d2c6456f6e0938b&timestamp=1792602155880"
+            "the server responded with status 500 for GET https://openapi.bitrue.com/api/v1/account?recvWindow=5000&signature=ad7f73a70d61d1804ea21fed47981a422a4e8b05402c0584cfffb2ed36c3ac69&timestamp=1792614636550"
           ]
         },
         "request": {

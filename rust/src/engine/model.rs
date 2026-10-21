@@ -14,6 +14,8 @@ pub struct Bot {
     pub id: i64, pub user_id: i64, pub exchange_id: i64, pub status: BotStatus, pub bot_type: String,
     pub settings: Value, pub transient: Value,
     started_at: Option<String>, settings_changed_at: Option<String>, pub restatement_generation: i64,
+    /// Bot::LimitOrderable#limit_orders_locked?: a bot on Hyperliquid (spot has no market order) places limits only.
+    limit_locked: bool,
 }
 
 /// Captured before any intervening tick work, never from the row at claim time. The counters also
@@ -88,18 +90,19 @@ pub fn working_list() -> String { BOT_WORKING.iter().map(|s| (*s as i64).to_stri
 
 pub fn load_bot(c: &Connection, id: i64) -> Result<Bot, EngineError> {
     let row = c.query_row(
-        "SELECT id, user_id, exchange_id, status, type, settings, transient_data, started_at, settings_changed_at, restatement_generation FROM bots WHERE id = ?1",
+        "SELECT id, user_id, exchange_id, status, type, settings, transient_data, started_at, settings_changed_at, restatement_generation,
+                EXISTS(SELECT 1 FROM exchanges e WHERE e.id = bots.exchange_id AND e.type = 'Exchanges::Hyperliquid') FROM bots WHERE id = ?1",
         [id],
-        |r| Ok((r.get::<_, i64>(0)?, r.get::<_, Option<i64>>(1)?, r.get::<_, Option<i64>>(2)?, r.get::<_, i64>(3)?, r.get::<_, Option<String>>(4)?,
-                r.get::<_, String>(5)?, r.get::<_, String>(6)?, r.get::<_, Option<String>>(7)?, r.get::<_, Option<String>>(8)?, r.get::<_, i64>(9)?)),
+        |r| Ok(((r.get::<_, i64>(0)?, r.get::<_, Option<i64>>(1)?, r.get::<_, Option<i64>>(2)?, r.get::<_, i64>(3)?, r.get::<_, Option<String>>(4)?,
+                r.get::<_, String>(5)?, r.get::<_, String>(6)?, r.get::<_, Option<String>>(7)?, r.get::<_, Option<String>>(8)?, r.get::<_, i64>(9)?), r.get::<_, bool>(10)?)),
     )?;
-    let (id, user, exchange, status, ty, settings, transient, started, changed, restated) = row;
+    let ((id, user, exchange, status, ty, settings, transient, started, changed, restated), limit_locked) = row;
     let settings=json_col(settings)?; let transient=json_col(transient)?;
     Ok(Bot {
         id, user_id: user.unwrap_or(0), exchange_id: exchange.unwrap_or(0),
         status: BotStatus::from_i64(status).ok_or_else(|| EngineError::Data(format!("bot {id}: status {status}")))?,
         bot_type: ty.unwrap_or_default(), settings, transient,
-        started_at: started, settings_changed_at: changed, restatement_generation: restated,
+        started_at: started, settings_changed_at: changed, restatement_generation: restated, limit_locked,
     })
 }
 
@@ -166,8 +169,9 @@ impl Bot {
         if self.settings.get("smart_intervaled") != Some(&Value::Bool(true)) || self.quote_amount().is_none() { return None; }
         self.settings.get("smart_interval_quote_amount")?.as_f64()
     }
-    pub fn limit_ordered(&self) -> bool { self.settings.get("limit_ordered") == Some(&Value::Bool(true)) }
-    /// Bot::LimitOrderable: `limit_ordered?` is `== true`; #limit_order_pcnt_distance_decimal is 0.001 for a blank
+    /// Bot::LimitOrderable#limit_ordered?: `limit_orders_locked? || limit_ordered == true`.
+    pub fn limit_ordered(&self) -> bool { self.limit_locked || self.settings.get("limit_ordered") == Some(&Value::Bool(true)) }
+    /// Bot::LimitOrderable: `limit_ordered?` as above; #limit_order_pcnt_distance_decimal is 0.001 for a blank
     /// value, else `.to_d`. None on a limit bot = a shape this build does not read as a number: eligibility refuses it.
     pub fn limit_distance(&self) -> Option<BigDec> {
         if !self.limit_ordered() { return None; }

@@ -36,6 +36,8 @@ pub enum WireFormat {
     /// other unit is converted at #market_price_for (the touch the order was sized at, floored to the tick) and floored to
     /// that unit's decimals, as Rails converts it.
     Bitget,
+    /// Bybit takes either market unit; limit quantities are converted to base before the intent.
+    Bybit,
 }
 
 /// Exchange#adjusted_price: how a price is put on the venue's tick before it is used or sent.
@@ -456,6 +458,66 @@ pub static GEMINI: VenueRules = VenueRules {
     price_rule: PriceRule::Decimals,
     // Exchanges::Gemini::MARKET_CROSS: a market order is an IOC limit across the book.
     cross: Some(MARKET_CROSS),
+};
+
+pub static HYPERLIQUID: VenueRules = VenueRules {
+    exchange_type: "Exchanges::Hyperliquid",
+    name: "Hyperliquid",
+    // Exchanges::Hyperliquid::ERRORS (post-audit H1), matched inside "Hyperliquid order failed: …"; pinned by tests/hyperliquid.rs.
+    kinds: [("insufficient_funds", &["Insufficient spot balance", "Insufficient balance", "Not enough balance"]), ("invalid_key", &["User or API Wallet"]),
+            ("permission_denied", &[]), ("restricted", &[]), ("throttle", &["Too many cumulative requests sent", "HTTP 429", "status 429"]),
+            ("transient", &[])],
+    transient_text: &NETWORK_TRANSIENT_PATTERNS,
+    // A placement's outcome is decided by HTTP status and transport in HyperliquidVenue::add_order, never by text.
+    add_outcome_unknown: &[],
+    // Exchanges::Hyperliquid#minimum_amount_logic: :base_and_quote_in_base (the 10-USDC floor as a base minimum).
+    minimum_logic: MinimumLogic { market: AmountLogic::BaseAndQuoteInBase, limit: AmountLogic::BaseAndQuoteInBase },
+    // The adapter parses the volume and price back and writes them through hyperliquid-rb's float_to_wire.
+    wire: WireFormat::Kraken,
+    deadline_sent: false,
+    reach_within_secs: 55,
+    absence_margin_secs: 1200,
+    transport_raises: false,
+    // Bot::FetchAndUpdateOrderJob asks #get_order, which recovers an unknownOid from the fills and else names it not found
+    // for Bot::StaleOrderResolver: the lenient poll of that one order, fills recovery included (as Bitvavo's).
+    follow_up_strict: false, market_hours: false,
+    reports_missing: true,
+    // Plan VB §1.5: the cloid lookup can only FIND an order.
+    absence_provable: false,
+    // #authoritative_missing_orders? true: the fills walk exhausts the history, so a young order left out just waits.
+    young_missing_fails: false,
+    price_rule: HYPERLIQUID_PRICE_RULE,
+    // Exchanges::Hyperliquid::MARKET_CROSS: a market order is a GTC limit across the book.
+    cross: Some(MARKET_CROSS),
+};
+
+/// Exchanges::Bybit rules; D-BYBIT-AMBIG retains uncertain placements.
+const BYBIT_TRANSIENT: [&str; 13] = ["Net::ReadTimeout", "Net::OpenTimeout", "Faraday::TimeoutError", "Faraday::ConnectionFailed",
+    "execution expired", "Connection reset", "Errno::ECONNRESET", "connection refused", "Connection refused", "Errno::ECONNREFUSED",
+    "end of file reached", "unexpected eof while reading",
+    "Timestamp for this request is outside of the recvWindow"];
+
+pub static BYBIT: VenueRules = VenueRules {
+    exchange_type: "Exchanges::Bybit",
+    name: "Bybit",
+    kinds: [("insufficient_funds", &["Insufficient balance"]),
+            ("invalid_key", &["Invalid API-key, IP, or permissions for action.", "API key is invalid"]),
+            ("permission_denied", &["Permission denied, please check your API key permissions"]),
+            ("restricted", &[]), ("throttle", &[]), ("transient", &["Timestamp for this request is outside of the recvWindow"])],
+    transient_text: &BYBIT_TRANSIENT,
+    add_outcome_unknown: &["Server Timeout", "Server error."],
+    minimum_logic: MinimumLogic { market: AmountLogic::BaseOrQuote, limit: AmountLogic::BaseAndQuoteInBase },
+    wire: WireFormat::Bybit,
+    deadline_sent: false,
+    reach_within_secs: 55,
+    absence_margin_secs: 1200,
+    transport_raises: false,
+    follow_up_strict: true, market_hours: false,
+    reports_missing: true,
+    absence_provable: false,
+    young_missing_fails: true,
+    price_rule: PriceRule::Decimals,
+    cross: None,
 };
 
 /// Exchanges::Bitrue::ERRORS and minimum_amount_logic (post-audit T5/T8).

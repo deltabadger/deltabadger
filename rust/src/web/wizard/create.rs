@@ -50,7 +50,7 @@ pub const CALLBACKS: &[(&str, &str, &str, &str, &str)] = &[
     ("validate", "before", "validate_smart_interval_base_minimum", "proc app/models/bot/smart_intervalable.rb:33", "no-op: Smart Intervals start off"),
     ("validate", "before", "ActiveModel::Validations::InclusionValidator(limit_ordered) {\"in\":[true,false]}", "", "passes: the default false"),
     ("validate", "before", "ActiveRecord::Validations::NumericalityValidator(limit_order_pcnt_distance) {\"greater_than_or_equal_to\":0,\"less_than_or_equal_to\":1}", "limit_ordered", "no-op: limit orders start off"),
-    ("validate", "before", "limit_ordered_required_for_exchange", "", "passes: only Hyperliquid locks limit orders, and its key step is refused"),
+    ("validate", "before", "limit_ordered_required_for_exchange", "", "passes: only Hyperliquid locks limit orders, and its quote step sets them on (lock_limit_orders)"),
     ("validate", "before", "ActiveModel::Validations::InclusionValidator(quote_amount_limited) {\"in\":[true,false]}", "", "passes: the default false"),
     ("validate", "before", "ActiveRecord::Validations::NumericalityValidator(quote_amount_limit) {\"greater_than_or_equal_to\":\"proc\"}", "quote_amount_limited?", "no-op: the spend cap starts off"),
     ("validate", "before", "validate_quote_amount_limit_not_reached", "on start & proc app/models/bot/quote_amount_limitable.rb:21", "no-op: start only"),
@@ -217,6 +217,15 @@ fn equal_allocations(ids: &[i64]) -> Map<String, Value> {
     let mut weights: Map<String, Value> = unique.iter().map(|id| (id.to_string(), json!(1.0))).collect();
     if crate::web::bot::draft::normalize(&mut weights).is_err() { return Map::new(); }
     weights
+}
+
+/// Bot::LimitOrderable#parse_params, as the wizard's quote step runs it: `limit_ordered: limit_orders_locked? || …`, so a
+/// Hyperliquid bot's settings carry `limit_ordered: true` (every other venue's the form's false, which `build` defaults).
+pub fn lock_limit_orders(c: &Connection, config: &mut Value) -> Result<(), WebError> {
+    let Some(exchange) = super::exchange_id(Some(config)) else { return Ok(()) };
+    let venue: Option<String> = c.query_row("SELECT type FROM exchanges WHERE id = ?1", [exchange], |r| r.get(0)).optional()?;
+    if venue.as_deref() == Some("Exchanges::Hyperliquid") && config["settings"].is_object() { config["settings"]["limit_ordered"] = json!(true); }
+    Ok(())
 }
 
 /// The bot `bot_relation.new(config)` builds and `save` writes, after its callbacks.

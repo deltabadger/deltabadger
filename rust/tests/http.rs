@@ -10,6 +10,47 @@ fn req(base: &str, method: &'static str, path: &str, query: Vec<(&'static str, S
 }
 fn transport() -> ReqwestTransport { ReqwestTransport::new(client(), "PKTEST".into(), "s3cret".into()) }
 
+#[test]
+fn hyperliquid_preserves_public_addresses_in_role_and_ledger_answers() {
+    let address = "0x0123456789aBCdEf0123456789aBCdEf01234567";
+    let transport = ReqwestTransport::hyperliquid(client(), address.into(), "a".repeat(64));
+    for body in [
+        json!({"role": "agent", "data": {"user": address}}),
+        json!([{"time": 1789000000000_i64, "delta": {"type": "internalTransfer", "user": address, "usdc": "20"}}]),
+    ] {
+        let response = HttpResponse { status: 200, body: body.to_string() };
+        // The real transport's post-read path: no scripted transport or replacement redactor.
+        assert_eq!(transport.settle(response.clone()), response, "the public address is valid response data");
+    }
+}
+
+#[test]
+fn hyperliquid_still_redacts_private_keys_in_answers() {
+    let secret = "a".repeat(64);
+    let transport = ReqwestTransport::hyperliquid(client(), "0x0123456789aBCdEf0123456789aBCdEf01234567".into(), secret.clone());
+    for status in [200, 500] {
+        let out = transport.settle(HttpResponse { status, body: json!({"echo": secret}).to_string() });
+        assert_eq!(out, HttpResponse { status, body: deltabadger::crypto::VENUE_TEXT_REDACTED.into() });
+    }
+}
+
+#[test]
+fn hyperliquid_revalidation_keeps_the_public_address_exempt_from_supplemental_redaction() {
+    let address = "0x0123456789aBCdEf0123456789aBCdEf01234567";
+    let transport = ReqwestTransport::hyperliquid(client(), address.into(), "a".repeat(64))
+        .with_sensitive_values(vec![address.into(), "previous-private-key".into()]);
+    let response = HttpResponse { status: 200, body: json!({"role": "agent", "data": {"user": address}}).to_string() };
+    assert_eq!(transport.settle(response.clone()), response);
+    let out = transport.settle(HttpResponse { status: 500, body: "previous-private-key".into() });
+    assert_eq!(out.body, deltabadger::crypto::VENUE_TEXT_REDACTED);
+}
+
+#[test]
+fn other_venues_still_redact_the_stored_key_in_answers() {
+    let out = transport().settle(HttpResponse { status: 200, body: json!({"echo": "PKTEST"}).to_string() });
+    assert_eq!(out.body, deltabadger::crypto::VENUE_TEXT_REDACTED);
+}
+
 #[tokio::test(flavor = "current_thread")]
 async fn a_post_sends_its_json_body_and_any_status_comes_back_with_its_body() {
     let server = MockServer::start().await;

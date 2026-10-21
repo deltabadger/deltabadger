@@ -42,6 +42,20 @@ when 'binance'
     { minimum_base_size: '1', minimum_quote_size: '500', base_decimals: 0, quote_decimals: 0, price_decimals: 0 },
     { minimum_base_size: '0.00005', minimum_quote_size: '0.5', base_decimals: 8, quote_decimals: 5, price_decimals: 1 }
   ]
+when 'bybit'
+  out = { 'sources' => pin.(%w[app/models/exchanges/bybit.rb app/models/exchange.rb app/models/bot/order_setter.rb app/models/ticker.rb script/rust/record_venue_vectors.rb]),
+          'gems' => { 'honeymaker' => Honeymaker::VERSION } }
+  exchange = Exchanges::Bybit.new(name: 'Bybit')
+  exchange.instance_variable_set(:@client, Object.new.tap do |c|
+    c.define_singleton_method(:create_order) { |**kw| captured = kw; Result::Success.new(order_id: '123', raw: {}) }
+  end)
+  pair, strip, seed = 'BTCUSDT', [], 20261021
+  tickers = [
+    { minimum_base_size: '0.00001', minimum_quote_size: '1', base_decimals: 6, quote_decimals: 8, price_decimals: 2 },
+    { minimum_base_size: '0.001', minimum_quote_size: '5', base_decimals: 3, quote_decimals: 2, price_decimals: 1 },
+    { minimum_base_size: '1', minimum_quote_size: '1', base_decimals: 0, quote_decimals: 6, price_decimals: 5 },
+    { minimum_base_size: '0', minimum_quote_size: '0.01', base_decimals: 8, quote_decimals: 0, price_decimals: 0 }
+  ]
 when 'kucoin'
   out = { 'sources' => pin.(%w[app/models/exchanges/kucoin.rb app/models/exchange.rb app/models/bot/order_setter.rb app/models/ticker.rb
                                script/rust/record_venue_vectors.rb]),
@@ -369,6 +383,49 @@ when 'mexc'
   end
   out['mexc_orders'] = orders
   extra = "#{orders.size} orders"
+when 'bybit'
+  bybit = exchange
+  listed = { 'BTCUSDT' => Ticker.new(exchange: bybit, ticker: 'BTCUSDT', base: 'BTC', quote: 'USDT', price_decimals: 2) }
+  bybit.define_singleton_method(:tickers) { Object.new.tap { |t| t.define_singleton_method(:find_by) { |ticker:| listed[ticker] } } }
+  # Market orders retain the requested base/quote unit; limits convert quote amounts at the floored limit price.
+  orders = Array.new(4000) do |n|
+    t = tickers[n % tickers.size]
+    ticker = Ticker.new(exchange: bybit, ticker: 'BTCUSDT', base: 'BTC', quote: 'USDT', **t.transform_values { |v| v.is_a?(String) ? BigDecimal(v) : v })
+    bid, ask = decimal.(-6, 5), decimal.(-6, 5)
+    ticker.define_singleton_method(:get_ask_price) { |**| Result::Success.new(BigDecimal(ask)) }
+    ticker.define_singleton_method(:get_bid_price) { |**| Result::Success.new(BigDecimal(bid)) }
+    side = %i[buy sell][n % 2]
+    amount_type = %i[base quote][(n / 2) % 2]
+    order_type = (n / 4).even? ? :market : :limit
+    amount = (amount_type == :base ? decimal.(-8, 3) : decimal.(-4, 5))
+    price = decimal.(-6, 5)
+    captured = nil
+    result = if order_type == :market
+               bybit.send(:set_market_order, ticker:, amount: BigDecimal(amount), amount_type:, side:)
+             else
+               bybit.send(:set_limit_order, ticker:, amount: BigDecimal(amount), amount_type:, side:, price: BigDecimal(price))
+             end
+    { 'ticker' => tickers.index(t), 'order_type' => order_type.to_s, 'side' => side.to_s, 'amount_type' => amount_type.to_s, 'amount' => amount,
+      'price' => price, 'bid' => bid, 'ask' => ask, 'wire' => captured&.compact&.transform_keys(&:to_s)&.transform_values(&:to_s),
+      'refused' => captured.nil? ? result.errors.join : nil }.compact
+  end
+  # #parse_order_data over generated V5 answers: every mapped status, both order types, and both sides.
+  statuses = Exchanges::Bybit::ORDER_STATUS_MAP.keys
+  parsed = Array.new(10_000) do |n|
+    dec = ->(lo, hi) { rng.rand(4).zero? ? '0' : decimal.(lo, hi) }
+    raw = { 'orderId' => (1_000_000 + n).to_s, 'symbol' => %w[BTCUSDT ETHBTC NEWUSDT][n % 3], 'orderType' => %w[Market Limit][n % 2],
+            'side' => %w[Buy Sell][rng.rand(2)], 'orderStatus' => statuses[rng.rand(statuses.size)],
+            'avgPrice' => dec.(-6, 5), 'price' => dec.(-6, 5), 'qty' => dec.(-8, 4),
+            'cumExecQty' => dec.(-8, 3), 'cumExecValue' => dec.(-6, 5) }
+    data = bybit.send(:parse_order_data, raw['orderId'], raw)
+    { 'raw' => raw, 'status' => data[:status].to_s, 'price' => data[:price]&.to_d&.to_s('F'),
+      'amount' => data[:amount]&.to_d&.to_s('F'), 'quote_amount' => data[:quote_amount]&.to_d&.to_s('F'),
+      'amount_exec' => data[:amount_exec].to_d.to_s('F'), 'quote_amount_exec' => data[:quote_amount_exec].to_d.to_s('F'),
+      'side' => data[:side].to_s, 'order_type' => data[:order_type].to_s }
+  end
+  out['bybit_orders'] = orders
+  out['bybit_parsed'] = parsed
+  extra = "#{orders.size} orders, #{parsed.size} parsed"
 when 'prices'
   # Ticker#adjusted_price (Exchange#adjusted_price: price_decimals; Hyperliquid's 5 significant figures within
   # 8 - base_decimals places) for floor, ceil and round, 1e-9..1e7, and Exchange#market_price_for over the same touch

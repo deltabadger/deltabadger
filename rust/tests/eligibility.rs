@@ -290,7 +290,7 @@ fn any_other_exchange_is_refused() {
     o.primary.execute("UPDATE exchanges SET type = 'Exchanges::Coinbase', name = 'Coinbase'", []).unwrap();
     let id = seed::insert_bot(&o.primary, &s, &plain());
     let r = eligibility::check_install(&o.primary).unwrap();
-    assert!(r.problems.iter().any(|p| p.contains(&format!("bot {id}")) && p.contains("a bot on an exchange other than Alpaca, Kraken, Binance, Binance.US, KuCoin, Bitvavo, Gemini, Bitget, MEXC and Bitrue")), "{:?}", r.problems);
+    assert!(r.problems.iter().any(|p| p.contains(&format!("bot {id}")) && p.contains("a bot on an exchange other than Alpaca, Kraken, Binance, Binance.US, KuCoin, Bitvavo, Gemini, Bitget, MEXC, Hyperliquid, Bybit and Bitrue")), "{:?}", r.problems);
 }
 
 #[test]
@@ -835,13 +835,13 @@ fn a_price_rule_with_the_pause_action_is_eligible() {
 #[test]
 fn one_admission_rule_for_engine_and_pages() {
     use eligibility::admission;
-    for venue in ["Exchanges::Kraken", "Exchanges::Binance", "Exchanges::BinanceUs", "Exchanges::Kucoin", "Exchanges::Alpaca", "Exchanges::Bitrue"] {
+    for venue in ["Exchanges::Alpaca", "Exchanges::Kraken", "Exchanges::Binance", "Exchanges::BinanceUs", "Exchanges::Kucoin", "Exchanges::Bitvavo", "Exchanges::Gemini", "Exchanges::Bitget", "Exchanges::Mexc", "Exchanges::Hyperliquid", "Exchanges::Bybit", "Exchanges::Bitrue"] {
         assert_eq!(admission(Some(venue), false, false), None, "{venue} buyer");
         assert_eq!(admission(Some(venue), false, true), None, "{venue} seller of any size");
         assert_eq!(admission(Some(venue), true, true), Some("an index bot that sells"), "{venue} index seller");
         assert_eq!(admission(Some(venue), true, false), None, "{venue} index");
     }
     for venue in [Some("Exchanges::Coinbase"), None] {
-        assert_eq!(admission(venue, false, false), Some("a bot on an exchange other than Alpaca, Kraken, Binance, Binance.US, KuCoin, Bitvavo, Gemini, Bitget, MEXC and Bitrue"));
+        assert_eq!(admission(venue, false, false), Some("a bot on an exchange other than Alpaca, Kraken, Binance, Binance.US, KuCoin, Bitvavo, Gemini, Bitget, MEXC, Hyperliquid, Bybit and Bitrue"));
     }
 }
