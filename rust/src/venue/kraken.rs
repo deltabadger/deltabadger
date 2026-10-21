@@ -336,7 +336,8 @@ impl<T: Transport> Venue for KrakenVenue<T> {
     /// #set_market_order / #set_limit_order through Clients::Kraken#add_order: the gem's fields in its order, plus Rust's
     /// `cl_ord_id` and `deadline` (RFC 3339, UTC, milliseconds; Kraken drops the order after it). Sent at most once.
     async fn add_order(&self, o: &NewOrder) -> Result<String, VenueError> {
-        let (ordertype, price) = match &o.kind { OrderKind::Market => ("market", None), OrderKind::Limit { price } => ("limit", Some(price.clone())) };
+        let (ordertype, price) = match &o.kind { OrderKind::Market => ("market", None), OrderKind::Limit { price } => ("limit", Some(price.clone())),
+                                                 OrderKind::Crossed { .. } => return Err(super::not_crossing("Kraken")) };
         let mut fields = vec![("ordertype", ordertype.to_string()), ("type", o.side.as_str().into()), ("volume", o.volume.clone()), ("pair", o.pair.clone()),
                               ("cl_ord_id", o.cl_ord_id.clone())];
         if let Some(p) = price { fields.push(("price", p)); }

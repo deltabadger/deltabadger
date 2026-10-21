@@ -389,6 +389,7 @@ impl<T: Transport> super::Venue for BinanceVenue<T> {
                 params.extend([("type", "LIMIT".into()), ("timeInForce", "GTC".into()), ("price", price.clone()), ("quantity", o.volume.clone())]);
                 "limit"
             }
+            OrderKind::Crossed { .. } => return Err(super::not_crossing("Binance")),
         };
         params.extend([("newClientOrderId", o.cl_ord_id.clone()), ("recvWindow", PLACE_RECV_WINDOW.into())]);
         // The absolute bound on the send, as for every venue: the intent's send window, plus the request budget.

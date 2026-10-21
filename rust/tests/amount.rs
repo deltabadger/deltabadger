@@ -154,6 +154,7 @@ fn every_recorded_rails_alpaca_sizing_and_wire_is_reproduced() {
                 assert!(bd(&price) <= plan.price && bd(&order.volume).checked_mul(&bd(&price)).unwrap() <= plan.volume, "R1c: price and qty never round up {c}");
                 assert!(!order.quote_volume);
             }
+            OrderKind::Crossed { .. } => panic!("no venue in these vectors crosses the book"),
         }
     }
     assert_eq!(refused, 34, "limit quantities under minimum_base_size Rails refuses");
@@ -268,6 +269,7 @@ fn every_recorded_rails_alpaca_stock_wire_is_reproduced() {
                 assert_eq!(order.volume, w["qty"].as_str().unwrap(), "qty {c}");
                 assert_eq!(price, w["limit_price"].as_str().unwrap(), "limit_price floored to 2 decimals {c}");
             }
+            OrderKind::Crossed { .. } => panic!("no venue in these vectors crosses the book"),
         }
     }
 }
@@ -282,7 +284,8 @@ fn an_alpaca_limit_quantity_under_the_base_minimum_is_refused_before_sending() {
         let t = Ticker { ticker: "BTC/USD".into(), base_code: "BTC".into(), quote_code: "USD".into(), quote_symbol: "USD".into(), exchange_name: "Alpaca".into(),
             ..sizing_ticker(&json!({"base_decimals": decimals, "quote_decimals": "2", "price_decimals": "2", "minimum_base_size": min, "minimum_quote_size": "1"})) };
         let plan = amount::OrderPlan { ticker: t, side: deltabadger::venue::Side::Buy, limit: true, price: bd(price), amount: bd("1").div(&bd(price)).unwrap(), quote_amount: bd("1"),
-            quote_type: true, volume: bd("1"), kind: amount::TxKind::Regular };
+            quote_type: true, volume: bd("1"), kind: amount::TxKind::Regular,
+            origin: amount::Origin::QuoteBudget, wire_price: None };
         assert_eq!(plan.limit_refusal().unwrap().as_deref(), Some(message));
     }
 }
@@ -328,6 +331,7 @@ fn every_recorded_rails_binance_sizing_and_wire_is_reproduced() {
                 assert!(w.get("self_trade_prevention_mode").is_none() && !order.quote_volume, "{c}");
                 assert_eq!((Some(price.as_str()), Some(order.volume.as_str())), (w["price"].as_str(), w["quantity"].as_str()), "price and quantity {c}");
             }
+            OrderKind::Crossed { .. } => panic!("no venue in these vectors crosses the book"),
         }
     }
     assert_eq!((quote, refused), (2_317, 1_785), "both market wires and the limit refusal are exercised");
@@ -380,6 +384,7 @@ fn every_recorded_rails_kucoin_sizing_and_wire_is_reproduced() {
                 assert!(!order.quote_volume && w.get("funds").is_none(), "{c}");
                 assert_eq!((Some(price.as_str()), Some(order.volume.as_str())), (w["price"].as_str(), w["size"].as_str()), "price and size {c}");
             }
+            OrderKind::Crossed { .. } => panic!("no venue in these vectors crosses the book"),
         }
     }
     assert_eq!((quote, refused), (2_177, 1_824), "both market wires and the limit refusal are exercised");
@@ -479,6 +484,7 @@ fn every_recorded_rails_sell_sizing_and_wire_is_reproduced() {
                 match &order.kind {
                     OrderKind::Market => assert_eq!((w["ordertype"].as_str(), w.get("price")), (Some("market"), None), "{c}"),
                     OrderKind::Limit { price } => assert_eq!((w["ordertype"].as_str(), w["price"].as_str()), (Some("limit"), Some(price.as_str())), "{c}"),
+                    OrderKind::Crossed { .. } => panic!("no venue in these vectors crosses the book"),
                 }
             } else if venue == "alpaca" {
                 assert_eq!((w["symbol"].as_str(), w["side"].as_str(), w["time_in_force"].as_str()), (Some(pair), Some("sell"), Some("gtc")), "{c}");
@@ -487,6 +493,7 @@ fn every_recorded_rails_sell_sizing_and_wire_is_reproduced() {
                 match &order.kind {
                     OrderKind::Market => assert_eq!((w["type"].as_str(), w.get("limit_price")), (Some("market"), None), "{c}"),
                     OrderKind::Limit { price } => assert_eq!((w["type"].as_str(), w["limit_price"].as_str()), (Some("limit"), Some(price.as_str())), "{c}"),
+                    OrderKind::Crossed { .. } => panic!("no venue in these vectors crosses the book"),
                 }
             } else {
                 assert_eq!((w["symbol"].as_str(), w["side"].as_str()), (Some(pair), Some("SELL")), "{c}");
@@ -495,6 +502,7 @@ fn every_recorded_rails_sell_sizing_and_wire_is_reproduced() {
                 match &order.kind {
                     OrderKind::Market => assert_eq!((w["type"].as_str(), w["self_trade_prevention_mode"].as_str()), (Some("MARKET"), Some("EXPIRE_MAKER")), "{c}"),
                     OrderKind::Limit { price } => assert_eq!((w["type"].as_str(), w["time_in_force"].as_str(), w["price"].as_str()), (Some("LIMIT"), Some("GTC"), Some(price.as_str())), "{c}"),
+                    OrderKind::Crossed { .. } => panic!("no venue in these vectors crosses the book"),
                 }
             }
         }

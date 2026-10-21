@@ -115,10 +115,36 @@ fn key_verdicts_replay_every_recorded_case() {
         assert!(headers.iter().any(|(h, v)| h == "KC-API-KEY" && json!(v) == case["request"]["key_header"]), "kucoin {name}: the key header");
         replayed += 1;
     }
+    // Gemini (plan VB B3): the cancel probe alone for a trading key, a balances read otherwise; the request's params are
+    // the signed payload's (recorded as its form).
+    let gemini = &recorded["gemini"];
+    let invalid: Vec<String> = deltabadger::engine::venue_rules::GEMINI.kinds.iter().find(|(k, _)| *k == "invalid_key").unwrap().1.iter().map(|s| s.to_string()).collect();
+    assert_eq!(serde_json::from_value::<Vec<String>>(gemini["invalid_key_errors"].clone()).unwrap(), invalid);
+    for case in gemini["cases"].as_array().unwrap() {
+        let (name, kind) = (case["case"].as_str().unwrap(), kind(case["key_type"].as_str().unwrap()));
+        let request = key_check::gemini_request(deltabadger::venue::gemini::URL, kind);
+        let url = request.url();
+        let ours = if kind == 2 { key_check::gemini_read_verdict(&answer(&case["response"]), url.as_str()) }
+                   else { key_check::gemini_verdict(kind, &answer(&case["response"]), url.as_str()) };
+        // Rails raises on balances #get_balances cannot walk (the key stays pending): no verdict, as an inconclusive answer. A
+        // 200 that Faraday leaves unparsed (text/plain "OK") is a valid key to Rails, which reads no `result: error` in it;
+        // Rust sees no content type and reads a 2xx that is not JSON as no verdict (D-GEMINI-PLAIN-200: never valid on a
+        // body Gemini does not send).
+        let lenient = name == "plain_text_200" && kind != 2;
+        let theirs = if case["verdict"]["kind"] == "raises" || lenient { Verdict::Failure(String::new()) } else { expected(&case["verdict"]) };
+        if lenient { assert_eq!(case["verdict"]["data"], true, "gemini {name}: Rails no longer accepts it: drop the listed divergence"); }
+        assert!(same(&ours, &theirs), "gemini {} {name}: {ours:?}, Rails {theirs:?}", case["key_type"]);
+        assert_eq!((request.method, url.host_str().unwrap(), request.path.as_str(), json!({}), request.body.clone().unwrap()),
+                   (case["request"]["method"].as_str().unwrap(), case["request"]["host"].as_str().unwrap(), case["request"]["path"].as_str().unwrap(),
+                    case["request"]["query"].clone(), case["request"]["form"].clone()), "gemini {name}");
+        let headers = deltabadger::venue::signers::gemini::headers("test-key", "test-secret", &request.path, &[], 1);
+        assert!(headers.iter().any(|(h, v)| *h == "X-GEMINI-APIKEY" && json!(v) == case["request"]["key_header"]), "gemini {name}: the key header");
+        replayed += 1;
+    }
     // Binance.US checks a key with an account read and a cancel probe; its key step is a named refusal, so its cases are
     // recorded and not replayed.
     let us = recorded["binance_us"]["cases"].as_array().unwrap().len();
-    assert_eq!((replayed, us), (578, 212), "a recorded case was added or dropped");
+    assert_eq!((replayed, us), (662, 212), "a recorded case was added or dropped");
 }
 
 /// A pinned callback list against a port's table: the same callbacks, in Rails' order, each handled.

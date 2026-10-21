@@ -288,3 +288,40 @@ pub static KUCOIN: VenueRules = VenueRules {
 
 /// The rules of a venue the engine trades on (`venue::registry`).
 pub fn for_exchange(exchange_type: &str) -> Option<&'static VenueRules> { crate::venue::registry::trading_rules(exchange_type) }
+
+/// Exchange#transient_error? for Gemini: Client::NETWORK_TRANSIENT_PATTERNS plus Exchanges::Gemini::ERRORS[:transient].
+const GEMINI_TRANSIENT: [&str; 15] = ["Net::ReadTimeout", "Net::OpenTimeout", "Faraday::TimeoutError", "Faraday::ConnectionFailed",
+    "execution expired", "Connection reset", "Errno::ECONNRESET", "connection refused", "Connection refused", "Errno::ECONNREFUSED",
+    "end of file reached", "unexpected eof while reading",
+    "InvalidNonce", "\"reason\":\"System\"", "\"reason\":\"Maintenance\""];
+
+pub static GEMINI: VenueRules = VenueRules {
+    exchange_type: "Exchanges::Gemini",
+    name: "Gemini",
+    // Exchanges::Gemini::ERRORS (gemini.rb:16-37), matched inside the error body; pinned by tests/gemini.rs.
+    kinds: [("insufficient_funds", &["InsufficientFunds", "Insufficient Funds"]), ("invalid_key", &["InvalidSignature", "InvalidApiKey"]),
+            ("permission_denied", &["MissingRole"]), ("restricted", &[]), ("throttle", &["RateLimit"]),
+            ("transient", &["InvalidNonce", "\"reason\":\"System\"", "\"reason\":\"Maintenance\""])],
+    transient_text: &GEMINI_TRANSIENT,
+    // Exchange#ambiguous_placement_error?: transient_error? leaves a placement unknown, except the placement-safe InvalidNonce
+    // (placement::PLACEMENT_SAFE_TRANSIENT_ERRORS) it checks first. The network patterns are left to the transport.
+    add_outcome_unknown: &["\"reason\":\"System\"", "\"reason\":\"Maintenance\""],
+    // Exchanges::Gemini#minimum_amount_logic: :base for every order.
+    minimum_logic: MinimumLogic { market: AmountLogic::Base, limit: AmountLogic::Base },
+    // Honeymaker::Clients::Gemini#new_order sends BigDecimal#to_s('F') strings.
+    wire: WireFormat::Kraken,
+    deadline_sent: false,
+    reach_within_secs: 55,
+    absence_margin_secs: 1200,
+    transport_raises: false,
+    // Bot::FetchAndUpdateOrderJob asks Exchanges::Gemini#get_order: one order, strict.
+    follow_up_strict: true, market_hours: false,
+    // #get_orders names an OrderNotFound order under `missing` (M3).
+    reports_missing: true,
+    // Its client-order lookup can only FIND an order (plan VB §1.5).
+    absence_provable: false,
+    young_missing_fails: true,
+    price_rule: PriceRule::Decimals,
+    // Exchanges::Gemini::MARKET_CROSS: a market order is an IOC limit across the book.
+    cross: Some(MARKET_CROSS),
+};

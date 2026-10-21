@@ -47,6 +47,11 @@ pub trait Connect {
     fn kucoin_transport(&self, _credentials: &Credentials, _proxy: Option<&str>) -> ReqwestTransport {
         ReqwestTransport::refused("KuCoin is not connected here")
     }
+    /// How a Gemini key's syncs reach Gemini (Honeymaker.client('gemini', proxy: ExchangeProxy.for('gemini'))). By default
+    /// nothing is sent.
+    fn gemini_transport(&self, _credentials: &Credentials, _proxy: Option<&str>) -> ReqwestTransport {
+        ReqwestTransport::refused("Gemini is not connected here")
+    }
     /// Where and how the validator sends a Kraken, Binance or KuCoin key's check (`key_check`): the venue's host and a client
     /// through its proxy, given the stored AppConfig `proxy_<name>` (decrypted). By default nowhere.
     fn key_check_egress(&self, exchange_type: &str, _stored_proxy: Option<String>) -> Result<(String, reqwest::Client), String> {
@@ -81,6 +86,13 @@ impl Connect for LiveFactory {
         };
         ReqwestTransport::kucoin(client, credentials.key.clone(), credentials.secret.clone(), credentials.passphrase.clone().unwrap_or_default())
             .with_sensitive_values(credentials.redaction_values.clone())
+    }
+    fn gemini_transport(&self, credentials: &Credentials, proxy: Option<&str>) -> ReqwestTransport {
+        let client = match proxy {
+            None => crate::venue::http::client(),
+            Some(proxy) => match crate::venue::http::client_via(proxy) { Ok(client) => client, Err(why) => return ReqwestTransport::refused(&why) },
+        };
+        ReqwestTransport::gemini(client, credentials.key.clone(), credentials.secret.clone()).with_sensitive_values(credentials.redaction_values.clone())
     }
 }
 
@@ -186,6 +198,9 @@ impl<C: Connect> Job for LedgerSync<C> {
                     Some(LedgerSync::Kucoin) =>
                         crate::sync::kucoin_ledger::sync(&cx.db, self.venues.kucoin_transport(&credentials, proxy.as_deref()), self.key_id, &credentials, cx.clock,
                                                          crate::sync::kucoin_ledger::THROTTLE_WAIT).await,
+                    Some(LedgerSync::Gemini) =>
+                        crate::sync::gemini_ledger::sync(&cx.db, self.venues.gemini_transport(&credentials, proxy.as_deref()), self.key_id, &credentials, cx.clock,
+                                                         crate::sync::gemini_ledger::TRANSFERS_PAUSE).await,
                     // Alpaca's, and a key on any other venue: ledger::load_key refuses it as it always did.
                     Some(LedgerSync::Alpaca) | None => ledger::sync_captured(&cx.db, &self.venues.connect(&credentials), self.key_id, &credentials, cx.clock, self.limits, &version).await,
                 },
@@ -238,6 +253,8 @@ impl<C: Connect> Job for BalanceSync<C> {
                         balances::sync_binance_captured(&cx.db, self.venues.binance_transport(&credentials, proxy.as_deref()), &|t| self.venues.binance_base(t), self.prices.as_ref(), self.key_id, &credentials, cx.clock, &version).await,
                     Some(BalanceSync::Kucoin) =>
                         balances::sync_kucoin_captured(&cx.db, self.venues.kucoin_transport(&credentials, proxy.as_deref()), self.prices.as_ref(), self.key_id, &credentials, cx.clock, &version).await,
+                    Some(BalanceSync::Gemini) =>
+                        balances::sync_gemini_captured(&cx.db, self.venues.gemini_transport(&credentials, proxy.as_deref()), self.prices.as_ref(), self.key_id, &credentials, cx.clock, &version).await,
                     // Alpaca's, and a key on any other venue: the Alpaca sync's load_key refuses it as it always did.
                     Some(BalanceSync::Alpaca) | None => balances::sync_captured(&cx.db, &self.venues.connect(&credentials), self.prices.as_ref(), self.key_id, &credentials, cx.clock, &version).await,
                 },

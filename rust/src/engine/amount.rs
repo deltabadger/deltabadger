@@ -28,6 +28,24 @@ pub struct OrderPlan {
     pub volume: BigDec,
     /// transactions.transaction_type the row is written with (Bot::OrderCreator#order_identity_values).
     pub kind: TxKind,
+    /// What the order's size was authorised in (plan VB §1.5, D-679): a quote budget (a DCA, basket or index buy leg, a
+    /// rebalance or signal buy) or a base quantity (every sell). Only a `QuoteBudget` plan is ever sized at a crossed price;
+    /// a `Base` plan's volume is never re-derived.
+    pub origin: Origin,
+    /// The price a MARKET order on a crossing venue (VenueRules::cross: Gemini, Hyperliquid) is sent at,
+    /// adjust(adjust(touch) × (1 ± cross)), prepared once before the intent and persisted with it (`OrderKind::Crossed`).
+    /// None everywhere else: a venue without a cross sends `Market`, and a crossing venue's market plan without one is
+    /// never sent (placement::send_to_venue).
+    pub wire_price: Option<BigDec>,
+}
+
+/// OrderPlan::origin.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Origin { QuoteBudget, Base }
+
+impl Origin {
+    pub fn as_str(self) -> &'static str { match self { Self::QuoteBudget => "quote_budget", Self::Base => "base" } }
+    pub fn parse(s: &str) -> Option<Self> { match s { "quote_budget" => Some(Self::QuoteBudget), "base" => Some(Self::Base), _ => None } }
 }
 
 /// The transaction kinds the engine writes. A REBALANCE order is not a contribution: its rows stay out of the DCA carry, the
@@ -71,7 +89,8 @@ pub fn size_sell(bot: &Bot, ticker: &Ticker, amount: &BigDec, price: &BigDec) ->
     let volume = amount.floor(base_decimals);
     let below = volume < minimum;
     let plan = OrderPlan { ticker: ticker.clone(), side: Side::Sell, limit: bot.limit_distance().is_some(), price: price.clone(),
-                           amount: amount.clone(), quote_amount: amount * price, quote_type: false, volume, kind: TxKind::Regular };
+                           amount: amount.clone(), quote_amount: amount * price, quote_type: false, volume, kind: TxKind::Regular,
+                           origin: Origin::Base, wire_price: None };
     if amount.is_zero() { return Ok(Sizing::Ignored(plan)); }
     Ok(if below { Sizing::BelowMinimum(plan) } else { Sizing::Place(plan) })
 }
@@ -86,7 +105,8 @@ pub fn size(bot: &Bot, ticker: &Ticker, x: &BigDec, reference: &BigDec, rules: &
     let rule = if distance.is_some() { logic.limit } else { logic.market };
     let (quote_type, below) = buy_minimum(ticker, &price, rule, &x.floor(quote_decimals), &amount.floor(base_decimals))?;
     let volume = if quote_type { x.floor(quote_decimals) } else { amount.floor(base_decimals) };
-    let plan = OrderPlan { ticker: ticker.clone(), side: Side::Buy, limit: distance.is_some(), price, amount: amount.clone(), quote_amount: x.clone(), quote_type, volume, kind: TxKind::Regular };
+    let plan = OrderPlan { ticker: ticker.clone(), side: Side::Buy, limit: distance.is_some(), price, amount: amount.clone(), quote_amount: x.clone(), quote_type, volume, kind: TxKind::Regular,
+                           origin: Origin::QuoteBudget, wire_price: None };
     if amount.is_zero() { return Ok(Sizing::Ignored(plan)); } // set_orders checks this before the minimums
     Ok(if below { Sizing::BelowMinimum(plan) } else { Sizing::Place(plan) })
 }
@@ -143,7 +163,7 @@ pub fn size_order(ticker: &Ticker, side: Side, price: &BigDec, amount: &BigDec, 
     let volume = if quote_type { quote_amount.floor(quote_decimals) } else { amount.floor(base_decimals) };
     let below = volume < minimum;
     Ok((OrderPlan { ticker: ticker.clone(), side, limit: false, price: price.clone(), amount: amount.clone(), quote_amount: quote_amount.clone(),
-                    quote_type, volume, kind }, below))
+                    quote_type, volume, kind, origin: if side == Side::Buy { Origin::QuoteBudget } else { Origin::Base }, wire_price: None }, below))
 }
 
 /// Exchanges::Alpaca#wire_decimal: the value floored to `places` and spelled with exactly `places` fractional digits,
@@ -156,6 +176,16 @@ pub fn wire_decimal(d: &BigDec, places: u8) -> String {
 }
 
 impl OrderPlan {
+    /// D-679 (plan VB §1.5): a MARKET plan on a crossing venue gets the price it is sent at, before its intent is written:
+    /// `touch` crossed as Exchange#market_price_for crosses it (`VenueRules::market_price`: the raw bid of a path-1 sell), or
+    /// `touch` itself where it is that crossed price already (`crossed`: a path-1 quote-budget buy, a path-2 order). A
+    /// limit plan, or a venue without a cross, is left as it is. The quantity is never touched.
+    pub fn with_wire_price(mut self, rules: &VenueRules, touch: &BigDec, crossed: bool) -> Result<Self, EngineError> {
+        if self.limit || rules.cross.is_none() { return Ok(self); }
+        self.wire_price = Some(if crossed { touch.clone() } else { rules.market_price(touch, &self.ticker, self.side).map_err(EngineError::Data)? });
+        Ok(self)
+    }
+
     /// Exchange#limit_buy: a limit quantity (a quote volume floored, divided by the floored price, floored to base_decimals)
     /// that is zero or under minimum_base_size is refused before anything is sent, with Rails' message.
     pub fn limit_refusal(&self) -> Result<Option<String>, String> {
@@ -178,7 +208,10 @@ impl OrderPlan {
         let (kind, volume, quote_volume) = match wire {
             // Exchanges::Kraken#set_limit_order floors the price again; floor is idempotent.
             WireFormat::Kraken => (
-                if self.limit { OrderKind::Limit { price: self.price.floor(price_decimals).to_s_f() } } else { OrderKind::Market },
+                if self.limit { OrderKind::Limit { price: self.price.floor(price_decimals).to_s_f() } }
+                // D-679: the persisted crossed price, sent as it is (no second read, no resizing).
+                else if let Some(price) = &self.wire_price { OrderKind::Crossed { price: price.to_s_f() } }
+                else { OrderKind::Market },
                 self.volume.to_s_f(), self.quote_type),
             // Exchanges::Alpaca#set_limit_order: qty = floor(quote, quote_decimals) / price, floored to base_decimals.
             WireFormat::Alpaca if self.limit => {
