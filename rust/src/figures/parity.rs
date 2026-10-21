@@ -40,7 +40,8 @@ fn after<T, U>(earlier: &Answer<T>, next: impl FnOnce(&T) -> Result<U, FiguresEr
     match earlier { Ok(value) => answer(next(value)), Err(error) => Ok(Err(error.clone())) }
 }
 
-struct Computed { subject: Subject, live: Answer<Metrics>, marked: Answer<Metrics> }
+/// `cached`: whether Rails holds the live figures cached, for a pair bot, which says so itself (`pair::live`).
+struct Computed { subject: Subject, live: Answer<Metrics>, marked: Answer<Metrics>, cached: Option<bool> }
 
 fn snapshot<T>(s: &totals::Snapshot<T>, write: impl Fn(&T) -> J) -> String {
     J::Obj(vec![("result".to_string(), J::opt(&s.result, write)), ("loading".to_string(), J::Bool(s.loading))]).write()
@@ -92,7 +93,7 @@ fn stepped(c: &Connection, scenario: &Value, steps: &[Value]) -> Result<Value, F
         }
         let out = out.ok_or_else(|| FiguresError::Data("the figures kept asking for market data".into()))?;
         let mut asked = wire.asked.into_inner();
-        if let Some(gap) = asked.iter().find(|line| step["script"].get(line.as_str()).is_none()) { return Err(FiguresError::Data(format!("unscripted market-data call {gap}"))); }
+        if let Some(gap) = asked.iter().find(|line| scripted(&step["script"], line).is_none()) { return Err(FiguresError::Data(format!("unscripted market-data call {gap}"))); }
         asked.sort();
         asked.dedup();
         every.extend(asked.iter().cloned());
@@ -107,8 +108,23 @@ fn stepped(c: &Connection, scenario: &Value, steps: &[Value]) -> Result<Value, F
     Ok(Value::Object(out))
 }
 
-/// A step's market at the wire: every request answered from the step's script under the line the Rails harness logs
-/// (method, host, path and the whole sorted query; script/rust/figures.rb `ScriptedMarket.lines`), and logged.
+/// The reply `script` holds for a request `line`: under the whole line, else under the line of only the parameters that
+/// pick a series, as the Rails harness keys them (script/rust/figures.rb `ScriptedMarket.lines`).
+fn scripted<'a>(script: &'a Value, line: &str) -> Option<&'a Value> {
+    script.get(line).or_else(|| {
+        let (head, query) = line.split_once('?').unwrap_or((line, ""));
+        let path = head.split_once('/').map_or("", |(_, path)| path);
+        let path = format!("/{path}");
+        let picks: &[&str] = if path == "/v2/orders" { &["limit", "status"] } else if path == "/v1beta3/crypto/us/bars" { &["page_token", "symbols"] }
+            else if path.ends_with("/bars") { &["adjustment", "page_token"] } else if path.ends_with("/prices") { &["coin_ids", "vs_currencies"] }
+            else if path.ends_with("/simple/price") { &["ids", "vs_currencies"] } else if path == "/api/v1/market/candles" { &["endAt", "startAt", "symbol", "type"] } else { &[] };
+        let picked: Vec<&str> = query.split('&').filter(|pair| picks.contains(&pair.split('=').next().unwrap_or_default())).collect();
+        script.get(if picked.is_empty() { head.to_string() } else { format!("{head}?{}", picked.join("&")) })
+    })
+}
+
+/// A step's market at the wire: every request answered from the step's script (`scripted`), and logged as the Rails
+/// harness logs it (method, host, path and the whole sorted query).
 struct StepWire<'a> { script: &'a Value, producer: crate::engine::model::CredentialVersion, asked: std::cell::RefCell<Vec<String>> }
 impl crate::venue::http::Transport for StepWire<'_> {
     fn producer(&self) -> Option<crate::engine::model::CredentialVersion> { Some(self.producer.clone()) }
@@ -118,11 +134,43 @@ impl crate::venue::http::Transport for StepWire<'_> {
         query.sort();
         let line = if query.is_empty() { format!("{} {host}{}", r.method, r.path) } else { format!("{} {host}{}?{}", r.method, r.path, query.join("&")) };
         self.asked.borrow_mut().push(line.clone());
-        let reply = self.script.get(&line).ok_or_else(|| crate::venue::http::TransportError::Permanent("Unscripted market request".into()))?;
+        let reply = scripted(self.script, &line).ok_or_else(|| crate::venue::http::TransportError::Permanent("Unscripted market request".into()))?;
         if reply["network"].is_string() { return Err(crate::venue::http::TransportError::NotSent("Market data unavailable".into())); }
         Ok(crate::venue::http::HttpResponse { status: reply["status"].as_u64().unwrap_or(200) as u16,
             body: reply["body"].as_str().map(str::to_string).unwrap_or_else(|| reply["body"].to_string()) })
     }
+}
+
+/// A pair bot's figures, its three layers in Rails' own hash, and whether Rails caches the live and the marked ones.
+fn pair(c: &Connection, id: i64, now: At, market: &dyn super::market::MarketData, user: &db::User, zone: &chrono_tz::Tz) -> Result<(Map<String, Value>, Computed), FiguresError> {
+    use super::pair;
+    let written = |p: &pair::Pair| p.to_json(9).write();
+    let walked = answer(pair::metrics(c, id, now))?;
+    let live = after(&walked, |walked| pair::live(c, walked, market, now))?;
+    let marked = after(&live, |(live, _)| pair::marked_at(live, market, now))?;
+    let page = match &marked {
+        Ok((marked, _)) => answer(chart::pair_page(c, &marked.subject, &marked.metrics, user.hide_balances))?,
+        Err(Absent::NotComputed(reason)) => Err(Absent::NotComputed(reason.clone())),
+        Err(Absent::Raised(_)) => Ok(None),
+    };
+    let profit = after(&live, |(live, _)| totals::profit_in_usd(c, market, &mut Rates::default(), live.subject.quote.as_deref(), &live.metrics))?;
+    let mut out = Map::new();
+    out.insert("metrics".into(), text(&walked, written));
+    out.insert("live".into(), text(&live, |(live, _)| written(live)));
+    out.insert("marked".into(), text(&marked, |(marked, _)| written(marked)));
+    out.insert("cached".into(), json!(matches!(live, Ok((_, true)))));
+    out.insert("chart_cache".into(), json!(matches!(marked, Ok((_, true)))));
+    out.insert("chart".into(), match &page {
+        Ok(Some(page)) => Value::Object(page.attributes(zone, 9).into_iter().map(|(name, value)| (name.to_string(), json!(value))).collect()),
+        Ok(None) | Err(Absent::Raised(_)) => Value::Null,
+        Err(Absent::NotComputed(reason)) => json!({ "not_computed": reason }),
+    });
+    out.insert("profit_in_usd".into(), text(&profit, |profit| J::opt(profit, J::num).write()));
+    out.insert("unpriced".into(), json!([]));
+    out.insert("chart_omitted".into(), json!([]));
+    let cached = matches!(live, Ok((_, true)));
+    let done = Computed { subject: pair::load(c, id)?, live: live.map(|(live, _)| live.metrics), marked: marked.map(|(marked, _)| marked.metrics), cached: Some(cached) };
+    Ok((out, done))
 }
 
 /// Every figure of the scenario's bots and account, read from `market`.
@@ -135,6 +183,13 @@ fn compute(c: &Connection, scenario: &Value, now: At, market: &dyn super::market
     let mut computed: Vec<(i64, Computed)> = vec![];
     let mut refused: Vec<(i64, String)> = vec![];
     for id in scenario["bot_ids"].as_array().into_iter().flatten().filter_map(Value::as_i64) {
+        let kind: Option<String> = c.query_row("SELECT type FROM bots WHERE id = ?1", [id], |r| r.get(0))?;
+        if kind.as_deref().is_some_and(super::pair::is_pair) {
+            let (out, done) = pair(c, id, now, market, &user, &zone)?;
+            bots.insert(id.to_string(), Value::Object(out));
+            computed.push((id, done));
+            continue;
+        }
         let subject = match Subject::load(c, id) {
             Ok(subject) => subject,
             Err(FiguresError::NotComputed(reason)) => { bots.insert(id.to_string(), json!({ "not_computed": reason })); refused.push((id, reason)); continue; }
@@ -166,7 +221,7 @@ fn compute(c: &Connection, scenario: &Value, now: At, market: &dyn super::market
         // And the holdings the marked chart leaves out of its points.
         out.insert("chart_omitted".into(), json!(marked.iter().flat_map(|marked| &marked.chart_omitted).map(|u| json!([u.key, u.reason.as_str()])).collect::<Vec<_>>()));
         bots.insert(id.to_string(), Value::Object(out));
-        computed.push((id, Computed { subject, live, marked }));
+        computed.push((id, Computed { subject, live, marked, cached: None }));
     }
 
     // The account's totals are over its bots that are not deleted, every one of them a part: the totals themselves
@@ -183,7 +238,7 @@ fn compute(c: &Connection, scenario: &Value, now: At, market: &dyn super::market
             let figures = match which {
                 Which::Live => bot.live.as_ref().map(Some),
                 // What Rails would hold cached: figures that are stale, or have no chart point yet, are never written.
-                Which::Cached => bot.live.as_ref().map(|m| Some(m).filter(|m| !m.prices_stale && !m.chart.labels.is_empty())),
+                Which::Cached => bot.live.as_ref().map(|m| Some(m).filter(|m| bot.cached.unwrap_or(!m.prices_stale && !m.chart.labels.is_empty()))),
                 Which::Marked => bot.marked.as_ref().map(Some),
             };
             Some(Part { bot_id: *id, quote: bot.subject.quote.as_deref(), traded: !bot.subject.orders.is_empty(), figures })

@@ -208,6 +208,18 @@ module McpReads
       McpParity.tool('get_bot_details', bot_id: 1).merge('sql' => ["UPDATE bots SET settings=json_set(settings,'$.indicator_limited',json('false')) WHERE id=1"]),
       McpParity.tool('get_bot_details', bot_id: 1).merge('sql' => ['UPDATE bots SET started_at=NULL WHERE id=1'])]]
     result['m3_signal_ignores_triggers'] = [pair, McpParity.ready + [McpParity.tool('get_bot_details', bot_id: 1).merge('sql' => [trigger_sql, "UPDATE bots SET type='Bots::Signal' WHERE id=1"])]]
+    # PF1: a pair reads its rows as its walk does (fill::pair_row), and the global line its live pass as the pages do.
+    { 'open_partial' => ['UPDATE transactions SET external_status=1,quote_amount_exec=NULL WHERE bot_id=1 AND side=1'],
+      'zero_quote' => ['UPDATE transactions SET quote_amount_exec=0 WHERE bot_id=1 AND side=1'],
+      'nil_price_nil_quote' => ['UPDATE transactions SET price=NULL,quote_amount_exec=NULL WHERE bot_id=1 AND side=1'],
+      'nil_amounts' => ['UPDATE transactions SET amount=NULL,quote_amount_exec=NULL WHERE bot_id=1 AND side=1'],
+      'tickerless' => ["DELETE FROM tickers WHERE ticker='AAA'"] }.each do |name, sql|
+      result["m3_pf1_#{name}"] = [null_fill, McpParity.ready + [McpParity.tool('get_bot_details', bot_id: 1).merge('sql' => sql), calls.last]]
+    end
+    quarantined = null_fill.deep_dup
+    quarantined['splits'] = [{ 'sym' => 'AAA', 'at' => Time.iso8601(McpParity::AT) - 86_400, 'ratio' => '2:1' }]
+    quarantined['script'][Figures::STOCK_PRICES] = Figures::REFUSED
+    result['m3_pf1_quarantine_raised'] = [quarantined, McpParity.ready + [McpParity.tool('get_bot_details', bot_id: 1), calls.last]]
     result['m3_bad_arguments'] = [index, McpParity.ready + [McpParity.tool('get_bot_details'), McpParity.tool('get_bot_details', bot_id: '1'), McpParity.tool('get_exchange_balances'), McpParity.tool('list_open_orders', exchange_name: 1), McpParity.tool('get_portfolio_summary', extra: 1)]]
     result
   end
