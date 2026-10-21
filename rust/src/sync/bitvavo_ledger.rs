@@ -16,7 +16,9 @@
 //!
 //! Across runs (plan VB §1.6): the walk's cursor holds where it is, the transfer counts of the source it is reading (so a
 //! boundary row read again in the next run is not stored twice), the currencies the kept transfers named (`discovered`),
-//! and, once the walk enters its trade phase, the frozen market list; a resumed trade phase reads exactly that list.
+//! and, once the walk enters its trade phase, the frozen market list; a resumed trade phase reads exactly that list. Within
+//! a market, the ids of its last page are kept too, so a full page repeated in the next run still fails as #read_trades
+//! fails it. Transfer rows are counted by what Ruby's Hash#eql? compares (their key order is no difference).
 //!
 //! Where it reads more strictly than Rails (as kucoin_ledger does): an unreadable answer or amount fails the sync (Rails
 //! stores a garbage amount as 0).
@@ -115,6 +117,11 @@ struct Walk<'a, T: Transport> {
     trade_to: Option<String>, pages: usize,
     /// The trade ids the walk read on the current market in this run (#read_trades' repeat rule).
     seen: HashSet<String>,
+    /// The ids of the current market's last page, kept in the cursor: a resumed run starts `seen` from them, so a venue
+    /// repeating a full page, a page a run, still fails as #read_trades does.
+    /// ponytail: one page (at most TRADES_PAGE ids) across runs, not every id; a venue cycling through two or more pages
+    /// a page a run is not caught. Keep more pages if that is ever met.
+    last_page: Vec<String>,
 }
 
 impl<'a, T: Transport> Walk<'a, T> {
@@ -123,7 +130,7 @@ impl<'a, T: Transport> Walk<'a, T> {
         // Both as Ruby's `(time.to_f * 1000).to_i`.
         let begun_ms = crate::venue::bitvavo::ruby_ms(begin.end) + 1;
         let mut walk = Self { venue, db, key, pause, start_ms: begin.start.map(crate::venue::bitvavo::ruby_ms), begun_ms, source: Source::Deposits, end_ms: begun_ms,
-                              counts: vec![], discovered: BTreeSet::new(), markets: vec![], market: 0, trade_to: None, pages: 0, seen: HashSet::new() };
+                              counts: vec![], discovered: BTreeSet::new(), markets: vec![], market: 0, trade_to: None, pages: 0, seen: HashSet::new(), last_page: vec![] };
         if let Some(c) = begin.cursor {
             if let Some(source) = c["source"].as_str().and_then(Source::named) {
                 walk.source = source;
@@ -133,6 +140,8 @@ impl<'a, T: Transport> Walk<'a, T> {
                 walk.markets = c["markets"].as_array().into_iter().flatten().filter_map(|s| s.as_str().map(str::to_string)).collect();
                 walk.market = c["market"].as_u64().unwrap_or(0) as usize;
                 walk.trade_to = c["trade_to"].as_str().map(str::to_string);
+                walk.last_page = c["last_page"].as_array().into_iter().flatten().filter_map(|s| s.as_str().map(str::to_string)).collect();
+                walk.seen = walk.last_page.iter().cloned().collect();
             }
         }
         walk
@@ -159,10 +168,10 @@ impl<'a, T: Transport> Walk<'a, T> {
         let (path, history) = if self.source == Source::Deposits { (DEPOSITS_PATH, "get_deposit_history") } else { (WITHDRAWALS_PATH, "get_withdrawal_history") };
         let query = vec![("start", self.start_ms.unwrap_or(0).to_string()), ("end", self.end_ms.to_string()), ("limit", TRANSFERS_PAGE.to_string())];
         let page = objects(&self.read(path, query, "Bitvavo transfers").await?, "Bitvavo transfer")?;
-        // page.tally, in the page's order.
+        // page.tally, in the page's order: rows compared as Ruby's Hash#eql? compares them (key order is no difference).
         let mut tally: Vec<(String, usize, Raw)> = vec![];
         for raw in &page {
-            let key = raw.text();
+            let key = raw.eql_key();
             match tally.iter_mut().find(|(k, _, _)| *k == key) { Some(t) => t.1 += 1, None => tally.push((key, 1, raw.clone())) }
         }
         let mut fresh = 0;
@@ -232,12 +241,13 @@ impl<'a, T: Transport> Walk<'a, T> {
         let oldest = page.iter().map(|r| to_i(&r.value["timestamp"])).min();
         if page.len() < TRADES_PAGE || self.start_ms.is_some_and(|s| oldest.is_some_and(|o| o < s)) {
             self.market += 1;
-            (self.trade_to, self.seen) = (None, HashSet::new());
+            (self.trade_to, self.seen, self.last_page) = (None, HashSet::new(), vec![]);
             if self.market >= self.markets.len() { self.source = Source::Done; }
         } else if fresh == 0 {
             return Err((format!("Bitvavo trades on {market} returned a full page with nothing new"), false));
         } else {
             self.trade_to = Some(to_s(&page[page.len() - 1].value["id"]));
+            self.last_page = page.iter().map(|r| to_s(&r.value["id"])).collect();
         }
         Ok(rows)
     }
@@ -247,7 +257,8 @@ impl<T: Transport> continuation::Walk for Walk<'_, T> {
     fn done(&self) -> bool { self.source == Source::Done }
     fn cursor(&self) -> Value {
         json!({ "source": self.source.name(), "end_ms": self.end_ms, "counts": self.counts.iter().map(|(k, n)| json!([k, n])).collect::<Vec<_>>(),
-                "discovered": self.discovered, "markets": self.markets, "market": self.market, "trade_to": self.trade_to })
+                "discovered": self.discovered, "markets": self.markets, "market": self.market, "trade_to": self.trade_to,
+                "last_page": self.last_page })
     }
     fn page_rows(&self) -> usize { TRANSFERS_PAGE.max(TRADES_PAGE) }
     /// One try at the transport's whole budget (two on the markets step), and the pause after each.

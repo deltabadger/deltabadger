@@ -47,8 +47,11 @@ impl Stopwatch for Watch { fn elapsed(&self) -> Duration { self.at.get() } }
 
 /// Bitvavo as the walk reads it: every request `latency` long on the watch; the histories newest first before `end`, 1000 a
 /// page; trades before `tradeIdTo`. `cut_at`: the runner's deadline cuts the run at that request (counted from 1, in all).
+/// `reorder`: every deposit page after the first lists each row's fields in reverse. `repeat_trades`: every trades page is
+/// the first, whatever `tradeIdTo` asks.
 #[derive(Clone)]
-struct Venue { account: Rc<Account>, watch: Rc<Watch>, latency: Duration, log: Rc<RefCell<Vec<String>>>, cut_at: Rc<Cell<Option<usize>>> }
+struct Venue { account: Rc<Account>, watch: Rc<Watch>, latency: Duration, log: Rc<RefCell<Vec<String>>>, cut_at: Rc<Cell<Option<usize>>>,
+               reorder: Rc<Cell<bool>>, repeat_trades: Rc<Cell<bool>> }
 impl Transport for Venue {
     async fn send(&self, r: &HttpRequest) -> Result<HttpResponse, TransportError> {
         let n = self.log.borrow().len() + 1;
@@ -60,7 +63,9 @@ impl Transport for Venue {
             let end: i64 = q("end").unwrap().parse().unwrap();
             let mut rows: Vec<&Value> = rows.iter().filter(|d| d["timestamp"].as_i64().unwrap() < end).collect();
             rows.sort_by_key(|d| std::cmp::Reverse(d["timestamp"].as_i64().unwrap()));
-            json!(rows.into_iter().take(1000).collect::<Vec<_>>())
+            let first = end == NOW.parse::<chrono::DateTime<chrono::Utc>>().unwrap().timestamp_millis() + 1;
+            let reversed = |row: &Value| Value::Object(row.as_object().unwrap().iter().rev().map(|(k, v)| (k.clone(), v.clone())).collect());
+            json!(rows.into_iter().take(1000).map(|row| if self.reorder.get() && !first { reversed(row) } else { row.clone() }).collect::<Vec<_>>())
         };
         let body = match r.path.as_str() {
             "/v2/depositHistory" => page(&self.account.deposits),
@@ -69,7 +74,7 @@ impl Transport for Venue {
             "/v2/markets" => json!([{ "market": "BTC-EUR" }, { "market": "ETH-EUR" }, { "market": "ADA-EUR" }]),
             "/v2/trades" => {
                 let all = &self.account.trades.iter().find(|(m, _)| Some(m.clone()) == q("market")).unwrap().1;
-                let from = q("tradeIdTo").map_or(0, |id| all.iter().position(|t| t["id"] == id.as_str()).unwrap() + 1);
+                let from = q("tradeIdTo").filter(|_| !self.repeat_trades.get()).map_or(0, |id| all.iter().position(|t| t["id"] == id.as_str()).unwrap() + 1);
                 json!(all.iter().skip(from).take(1000).collect::<Vec<_>>())
             }
             other => panic!("unscripted {other}"),
@@ -116,7 +121,7 @@ async fn stored(db: &Db, key: i64) -> (Vec<Value>, Option<String>) {
 }
 
 fn venue(account: &Rc<Account>, latency: Duration) -> Venue {
-    Venue { account: account.clone(), watch: Rc::default(), latency, log: Rc::default(), cut_at: Rc::default() }
+    Venue { account: account.clone(), watch: Rc::default(), latency, log: Rc::default(), cut_at: Rc::default(), reorder: Rc::default(), repeat_trades: Rc::default() }
 }
 
 #[tokio::test(flavor = "current_thread")]
@@ -152,4 +157,41 @@ async fn an_import_over_many_runs_stores_what_one_run_stores() {
     cut.cut_at.set(Some(3));
     import(&cut_db, cut_key, &cut, Duration::from_secs(200)).await;
     assert_eq!(stored(&cut_db, cut_key).await, (rows, watermark), "a cut run replays and stores every row once");
+}
+
+/// Rails' `page.tally` counts rows by Hash#eql?, which no key order changes: the boundary pair re-read on the next page with
+/// its fields reversed is the same pair, stored twice, never four times.
+#[tokio::test(flavor = "current_thread")]
+async fn a_boundary_row_read_again_with_its_fields_reordered_is_not_stored_again() {
+    let account = Rc::new(account());
+    for latency in [Duration::from_millis(1), Duration::from_secs(60)] {
+        let (_d, db, key) = install();
+        let v = venue(&account, latency);
+        v.reorder.set(true);
+        import(&db, key, &v, Duration::from_secs(200)).await;
+        let (rows, _) = stored(&db, key).await;
+        assert_eq!(rows.iter().filter(|r| r[2] == json!(5.0)).count(), 2, "the pair, at {latency:?} a request");
+        assert_eq!(rows.len(), 1001 + 1 + 1007);
+    }
+}
+
+/// A venue that answers every trades page with the first fails as #read_trades fails ("a full page with nothing new"),
+/// in one run and when it is read a page a run, never an import that checkpoints the same cursor forever.
+#[tokio::test(flavor = "current_thread")]
+async fn a_full_trades_page_repeated_fails_as_rails_does_across_runs() {
+    let account = Rc::new(account());
+    for latency in [Duration::from_millis(1), Duration::from_secs(60)] {
+        let (_d, db, key) = install();
+        let v = venue(&account, latency);
+        v.repeat_trades.set(true);
+        let mut failed = None;
+        for _ in 0..12 {
+            match run(&db, key, &v, Duration::from_secs(200)).await.unwrap().unwrap() {
+                Ok(out) => assert!(!out.complete, "the import never completes"),
+                Err(f) => { failed = Some(f.error); break; }
+            }
+        }
+        let error = failed.unwrap_or_else(|| panic!("no failure at {latency:?} a request"));
+        assert!(error.contains("Bitvavo trades on BTC-EUR returned a full page with nothing new"), "{error}");
+    }
 }
