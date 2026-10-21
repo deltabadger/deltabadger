@@ -1,5 +1,5 @@
 {
-"sources": {"app/models/exchanges/bitget.rb":"5acc29199e4c5ecda3eeae60ea898ac69438e5b581c6bc15fcbe70241e40716c","app/models/exchange.rb":"ab627a2812bc0c7b4a546459e64f8f5d93617c496308d5f03163f44cef12d8d7","app/models/bot/order_setter.rb":"8ab21b724aa9195484cfdde5ae476ea006c3da1e5ab65cffc086d304c0f24dff","app/models/ticker.rb":"1ae4dac68cab58acaa6679c9bca83e700212ad4baf19e2d8c0946b07eaaabbbc","script/rust/record_venue_vectors.rb":"82aca342e68036d6ce0bfea49b469ac07f1ed6dc1b34535b28be6a1bd4d01635"},
+"sources": {"app/models/exchanges/bitget.rb":"5acc29199e4c5ecda3eeae60ea898ac69438e5b581c6bc15fcbe70241e40716c","app/models/exchange.rb":"ab627a2812bc0c7b4a546459e64f8f5d93617c496308d5f03163f44cef12d8d7","app/models/bot/order_setter.rb":"8ab21b724aa9195484cfdde5ae476ea006c3da1e5ab65cffc086d304c0f24dff","app/models/ticker.rb":"1ae4dac68cab58acaa6679c9bca83e700212ad4baf19e2d8c0946b07eaaabbbc","script/rust/record_venue_vectors.rb":"ed42298ff1c4958a719c7da88251405d463cc6dd8503a8991b25aa38d71cc4ac"},
 "gems": {"honeymaker":"0.12.5"},
 "bitget_tickers": [
   {"minimum_base_size":"0","minimum_quote_size":"1","base_decimals":"6","quote_decimals":"8","price_decimals":"2"},

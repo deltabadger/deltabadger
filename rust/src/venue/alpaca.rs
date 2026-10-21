@@ -547,6 +547,7 @@ impl VenueFactory for LiveFactory {
                     super::bitvavo::BITVAVO => ReqwestTransport::bitvavo(client, key, secret.clone()),
                     super::gemini::GEMINI => ReqwestTransport::gemini(client, key, secret.clone()),
                     super::bitget::BITGET => ReqwestTransport::bitget(client, key, secret.clone(), passphrase),
+                    super::bybit::BYBIT => ReqwestTransport::bybit(client, key, secret.clone()),
                     _ => ReqwestTransport::binance(client, key, secret.clone()),
                 };
                 (transport.with_sensitive_values(values.into_iter().chain(proxy).collect()).with_clock(self.clock.clone()), pairs)
@@ -578,6 +579,14 @@ impl VenueFactory for LiveFactory {
             super::bitget::BITGET => {
                 let venue = super::bitget::BitgetVenue::new(transport, row.base).with_pairs(pairs);
                 LiveVenue::Bitget(match &identity { Some(c) => venue.with_identity(c), None => venue })
+            }
+            super::bybit::BYBIT => {
+                let history = self.egress_and(row.name_id, super::bybit::placement_times);
+                let venue = match history {
+                    Ok((_, placed)) => super::bybit::BybitVenue::new(transport, row.base).with_pairs(pairs).with_history(placed, self.clock.now()),
+                    Err(why) => super::bybit::BybitVenue::new(refused(format!(": {why}")), row.base),
+                };
+                LiveVenue::Bybit(match &identity { Some(c) => venue.with_identity(c), None => venue })
             }
             _ => unconnected(),
         }
@@ -618,7 +627,7 @@ fn bot_problem(c: &Connection, cipher: &Cipher, id: i64) -> Result<Option<String
     let bot = model::load_bot(c, id)?;
     let exchange = model::exchange_type(c, &bot)?;
     let Some(rules) = crate::engine::venue_rules::for_exchange(&exchange) else {
-        return Ok(Some(format!("{exchange} is not connected in this build (only Kraken, Binance, Binance.US, KuCoin, Bitvavo, Gemini, Bitget and Alpaca)")));
+        return Ok(Some(format!("{exchange} is not connected in this build (only Kraken, Binance, Binance.US, KuCoin, Bitvavo, Gemini, Bitget, Alpaca and Bybit)")));
     };
     Ok(match model::credentials_for(c, cipher, &bot)? {
         None => Some(format!("no {} API key", rules.name)),

@@ -1,0 +1,538 @@
+{
+  "sources": {
+    "script/rust/record_venue_signing.rb": "2f7aacf5400ada74ba33ec57b56816f6c5eb139de53d8a18da5af8ab7a2328f8",
+    "app/models/exchanges/bybit.rb": "cf67b86cbd55174a5c729db27a82312cb121d15bd3a5ef40ce356dc0a801290d",
+    "app/models/exchange.rb": "ab627a2812bc0c7b4a546459e64f8f5d93617c496308d5f03163f44cef12d8d7"
+  },
+  "gems": {
+    "honeymaker": "0.12.5",
+    "hyperliquid-rb": "0.1.1",
+    "jwt": "2.10.3",
+    "rbnacl": "7.1.2",
+    "eth": "0.5.18",
+    "msgpack": "1.8.5"
+  },
+  "errors": {
+    "insufficient_funds": [
+      "Insufficient balance"
+    ],
+    "invalid_key": [
+      "Invalid API-key, IP, or permissions for action.",
+      "API key is invalid"
+    ],
+    "permission_denied": [
+      "Permission denied, please check your API key permissions"
+    ],
+    "transient": [
+      "Timestamp for this request is outside of the recvWindow"
+    ]
+  },
+  "network_transient": [
+    "Net::ReadTimeout",
+    "Net::OpenTimeout",
+    "Faraday::TimeoutError",
+    "Faraday::ConnectionFailed",
+    "execution expired",
+    "Connection reset",
+    "Errno::ECONNRESET",
+    "connection refused",
+    "Connection refused",
+    "Errno::ECONNREFUSED",
+    "end of file reached",
+    "unexpected eof while reading"
+  ],
+  "placement_safe": [
+    "Timestamp for this request is outside of the recvWindow",
+    "Timestamp for this request was"
+  ],
+  "signing": [
+    {
+      "method": "GET",
+      "path": "/v5/account/wallet-balance",
+      "query": "accountType=UNIFIED",
+      "body": null,
+      "headers": {
+        "X-bapi-api-key": "k",
+        "X-bapi-sign": "6c87bd01c8f8a118244f3b67ac88e07a29c954eaed0a90eb1b8ce97876040d0a",
+        "X-bapi-timestamp": "1789871400750",
+        "X-bapi-recv-window": "5000",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "wallet_balance",
+      "api_key": "k",
+      "api_secret": "secret",
+      "timestamp": 1789871400750
+    },
+    {
+      "method": "GET",
+      "path": "/v5/account/wallet-balance",
+      "query": "accountType=UNIFIED&coin=A+B%2F~%2A%C3%A9",
+      "body": null,
+      "headers": {
+        "X-bapi-api-key": "k",
+        "X-bapi-sign": "866af72116c889fe37ea53481b8299871a68501a83377ca608e784bc97fd6fde",
+        "X-bapi-timestamp": "1789871400750",
+        "X-bapi-recv-window": "5000",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "wallet_balance",
+      "api_key": "k",
+      "api_secret": "secret",
+      "timestamp": 1789871400750
+    },
+    {
+      "method": "GET",
+      "path": "/v5/order/realtime",
+      "query": "category=spot&orderId=123",
+      "body": null,
+      "headers": {
+        "X-bapi-api-key": "k",
+        "X-bapi-sign": "1e8280529ef2d1ce86147c21b25f5870c09a05c4658a88aa936f64a1aef694a0",
+        "X-bapi-timestamp": "1789871400750",
+        "X-bapi-recv-window": "5000",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "get_order",
+      "api_key": "k",
+      "api_secret": "secret",
+      "timestamp": 1789871400750
+    },
+    {
+      "method": "GET",
+      "path": "/v5/order/realtime",
+      "query": "category=spot&orderLinkId=5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01",
+      "body": null,
+      "headers": {
+        "X-bapi-api-key": "k",
+        "X-bapi-sign": "d7ef2f90ad797bfd6398b042fa3cf9d88439c10e7ca6319cd72c969d4fe5642e",
+        "X-bapi-timestamp": "1789871400750",
+        "X-bapi-recv-window": "5000",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "get_order",
+      "api_key": "k",
+      "api_secret": "secret",
+      "timestamp": 1789871400750
+    },
+    {
+      "method": "GET",
+      "path": "/v5/order/history",
+      "query": "category=spot&endTime=1789604800000&orderId=123&startTime=1789000000000",
+      "body": null,
+      "headers": {
+        "X-bapi-api-key": "k",
+        "X-bapi-sign": "12724325c933a580d1a640d8fa499346453e2e5e0b1596e57b7769b54d36f839",
+        "X-bapi-timestamp": "1789871400750",
+        "X-bapi-recv-window": "5000",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "order_history",
+      "api_key": "k",
+      "api_secret": "secret",
+      "timestamp": 1789871400750
+    },
+    {
+      "method": "GET",
+      "path": "/v5/execution/list",
+      "query": "category=spot&cursor=a%2B%2F%3D",
+      "body": null,
+      "headers": {
+        "X-bapi-api-key": "k",
+        "X-bapi-sign": "3048d4072d17b93cd98169f39f34cb0ccc94d7d733e9e77c0b6d6da125eea912",
+        "X-bapi-timestamp": "1789871400750",
+        "X-bapi-recv-window": "5000",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "execution_list",
+      "api_key": "k",
+      "api_secret": "secret",
+      "timestamp": 1789871400750
+    },
+    {
+      "method": "GET",
+      "path": "/v5/asset/deposit/query-record",
+      "query": "startTime=1789000000000",
+      "body": null,
+      "headers": {
+        "X-bapi-api-key": "k",
+        "X-bapi-sign": "4dc455388107bddcf90cf778049554c63dfc2db24799677c5c59923a202d044b",
+        "X-bapi-timestamp": "1789871400750",
+        "X-bapi-recv-window": "5000",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "deposit_records",
+      "api_key": "k",
+      "api_secret": "secret",
+      "timestamp": 1789871400750
+    },
+    {
+      "method": "GET",
+      "path": "/v5/asset/deposit/query-internal-record",
+      "query": "cursor=b%2B%2F%3D",
+      "body": null,
+      "headers": {
+        "X-bapi-api-key": "k",
+        "X-bapi-sign": "fbcad547f42b5b9c77ca63c2e33d56502b0813731465820118c943f88422f972",
+        "X-bapi-timestamp": "1789871400750",
+        "X-bapi-recv-window": "5000",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "internal_deposit_records",
+      "api_key": "k",
+      "api_secret": "secret",
+      "timestamp": 1789871400750
+    },
+    {
+      "method": "GET",
+      "path": "/v5/asset/withdraw/query-record",
+      "query": "withdrawType=2",
+      "body": null,
+      "headers": {
+        "X-bapi-api-key": "k",
+        "X-bapi-sign": "e310c88c4e0ed7a010f69d607bf6aa2b63765ef6c72b29b97865bb8e50d799c5",
+        "X-bapi-timestamp": "1789871400750",
+        "X-bapi-recv-window": "5000",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "withdraw_records",
+      "api_key": "k",
+      "api_secret": "secret",
+      "timestamp": 1789871400750
+    },
+    {
+      "method": "POST",
+      "path": "/v5/order/create",
+      "query": null,
+      "body": "{\"category\":\"spot\",\"symbol\":\"BTCUSDT\",\"side\":\"Buy\",\"orderType\":\"Market\",\"qty\":\"60.0\",\"marketUnit\":\"quoteCoin\",\"orderLinkId\":\"5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01\"}",
+      "headers": {
+        "X-bapi-api-key": "k",
+        "X-bapi-sign": "2cf98c147d9246c663e2dce4ec639c3fc6a6ec143bad8cf452e75dc5cae3992f",
+        "X-bapi-timestamp": "1789871400750",
+        "X-bapi-recv-window": "5000",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "create_order",
+      "api_key": "k",
+      "api_secret": "secret",
+      "timestamp": 1789871400750
+    },
+    {
+      "method": "POST",
+      "path": "/v5/order/create",
+      "query": null,
+      "body": "{\"category\":\"spot\",\"symbol\":\"BTCUSDT\",\"side\":\"Sell\",\"orderType\":\"Limit\",\"qty\":\"0.1\",\"price\":\"60000.0\",\"timeInForce\":\"GTC\"}",
+      "headers": {
+        "X-bapi-api-key": "k",
+        "X-bapi-sign": "577b9e0f119c3d7b5e65df5034688fc49d3bf11a3f63343f169a21069a40e7c0",
+        "X-bapi-timestamp": "1789871400750",
+        "X-bapi-recv-window": "5000",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "create_order",
+      "api_key": "k",
+      "api_secret": "secret",
+      "timestamp": 1789871400750
+    },
+    {
+      "method": "POST",
+      "path": "/v5/order/cancel",
+      "query": null,
+      "body": "{\"category\":\"spot\",\"symbol\":\"BTCUSDT\",\"orderId\":\"0\"}",
+      "headers": {
+        "X-bapi-api-key": "k",
+        "X-bapi-sign": "deb6930c359ccbd17bd2641655522a50f577f0c9bde20251c98c6d7d2068dfea",
+        "X-bapi-timestamp": "1789871400750",
+        "X-bapi-recv-window": "5000",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "cancel_order",
+      "api_key": "k",
+      "api_secret": "secret",
+      "timestamp": 1789871400750
+    },
+    {
+      "method": "GET",
+      "path": "/v5/market/tickers",
+      "query": "category=spot",
+      "body": null,
+      "headers": {
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "tickers",
+      "api_key": "k",
+      "api_secret": "secret",
+      "timestamp": 1789871400750
+    },
+    {
+      "method": "GET",
+      "path": "/v5/market/orderbook",
+      "query": "category=spot&limit=1&symbol=BTCUSDT",
+      "body": null,
+      "headers": {
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "orderbook",
+      "api_key": "k",
+      "api_secret": "secret",
+      "timestamp": 1789871400750
+    },
+    {
+      "method": "GET",
+      "path": "/v5/account/wallet-balance",
+      "query": "accountType=UNIFIED",
+      "body": null,
+      "headers": {
+        "X-bapi-api-key": "api-key",
+        "X-bapi-sign": "359a830ab6d15ae892596acb14251933f3ddef3bacf2a4fbe01ff8a7331928ba",
+        "X-bapi-timestamp": "1789871400750",
+        "X-bapi-recv-window": "5000",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "wallet_balance",
+      "api_key": "api-key",
+      "api_secret": "s3cr3t~/+=",
+      "timestamp": 1789871400750
+    },
+    {
+      "method": "GET",
+      "path": "/v5/account/wallet-balance",
+      "query": "accountType=UNIFIED&coin=A+B%2F~%2A%C3%A9",
+      "body": null,
+      "headers": {
+        "X-bapi-api-key": "api-key",
+        "X-bapi-sign": "c8e5837350966878e5e168ce40e3f09e57262d9ee58dae2c1e89c060bc08c131",
+        "X-bapi-timestamp": "1789871400750",
+        "X-bapi-recv-window": "5000",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "wallet_balance",
+      "api_key": "api-key",
+      "api_secret": "s3cr3t~/+=",
+      "timestamp": 1789871400750
+    },
+    {
+      "method": "GET",
+      "path": "/v5/order/realtime",
+      "query": "category=spot&orderId=123",
+      "body": null,
+      "headers": {
+        "X-bapi-api-key": "api-key",
+        "X-bapi-sign": "763f78f234f6a3a2a3e907becf08b32d89c3fcb19cf7dba1a8a51d61ff844f24",
+        "X-bapi-timestamp": "1789871400750",
+        "X-bapi-recv-window": "5000",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "get_order",
+      "api_key": "api-key",
+      "api_secret": "s3cr3t~/+=",
+      "timestamp": 1789871400750
+    },
+    {
+      "method": "GET",
+      "path": "/v5/order/realtime",
+      "query": "category=spot&orderLinkId=5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01",
+      "body": null,
+      "headers": {
+        "X-bapi-api-key": "api-key",
+        "X-bapi-sign": "7a3711fd60d638a2f1cee38bab007a25b0a33cc84f210e555c446426614f3dc4",
+        "X-bapi-timestamp": "1789871400750",
+        "X-bapi-recv-window": "5000",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "get_order",
+      "api_key": "api-key",
+      "api_secret": "s3cr3t~/+=",
+      "timestamp": 1789871400750
+    },
+    {
+      "method": "GET",
+      "path": "/v5/order/history",
+      "query": "category=spot&endTime=1789604800000&orderId=123&startTime=1789000000000",
+      "body": null,
+      "headers": {
+        "X-bapi-api-key": "api-key",
+        "X-bapi-sign": "d85629b4e13bb87b2497599d9e866f14e55cf88ea0861a23b63dbde007c24926",
+        "X-bapi-timestamp": "1789871400750",
+        "X-bapi-recv-window": "5000",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "order_history",
+      "api_key": "api-key",
+      "api_secret": "s3cr3t~/+=",
+      "timestamp": 1789871400750
+    },
+    {
+      "method": "GET",
+      "path": "/v5/execution/list",
+      "query": "category=spot&cursor=a%2B%2F%3D",
+      "body": null,
+      "headers": {
+        "X-bapi-api-key": "api-key",
+        "X-bapi-sign": "32f95b782fb96624b251f5b39df1ff80bde83fec742ae60412c9e15631ca5abc",
+        "X-bapi-timestamp": "1789871400750",
+        "X-bapi-recv-window": "5000",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "execution_list",
+      "api_key": "api-key",
+      "api_secret": "s3cr3t~/+=",
+      "timestamp": 1789871400750
+    },
+    {
+      "method": "GET",
+      "path": "/v5/asset/deposit/query-record",
+      "query": "startTime=1789000000000",
+      "body": null,
+      "headers": {
+        "X-bapi-api-key": "api-key",
+        "X-bapi-sign": "ac1985b088ccfb3a85e897b57f85cc75627c6587a7a7f1cd758f9158ed082af2",
+        "X-bapi-timestamp": "1789871400750",
+        "X-bapi-recv-window": "5000",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "deposit_records",
+      "api_key": "api-key",
+      "api_secret": "s3cr3t~/+=",
+      "timestamp": 1789871400750
+    },
+    {
+      "method": "GET",
+      "path": "/v5/asset/deposit/query-internal-record",
+      "query": "cursor=b%2B%2F%3D",
+      "body": null,
+      "headers": {
+        "X-bapi-api-key": "api-key",
+        "X-bapi-sign": "ec9765e61059a869ebdeaab162d1aaa1f7a41d1ce74c4d467b93671e1af833b9",
+        "X-bapi-timestamp": "1789871400750",
+        "X-bapi-recv-window": "5000",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "internal_deposit_records",
+      "api_key": "api-key",
+      "api_secret": "s3cr3t~/+=",
+      "timestamp": 1789871400750
+    },
+    {
+      "method": "GET",
+      "path": "/v5/asset/withdraw/query-record",
+      "query": "withdrawType=2",
+      "body": null,
+      "headers": {
+        "X-bapi-api-key": "api-key",
+        "X-bapi-sign": "4e9578cc29f20df11a88ef6c51b488c893ee17cfed1147cceb01c3040542811b",
+        "X-bapi-timestamp": "1789871400750",
+        "X-bapi-recv-window": "5000",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "withdraw_records",
+      "api_key": "api-key",
+      "api_secret": "s3cr3t~/+=",
+      "timestamp": 1789871400750
+    },
+    {
+      "method": "POST",
+      "path": "/v5/order/create",
+      "query": null,
+      "body": "{\"category\":\"spot\",\"symbol\":\"BTCUSDT\",\"side\":\"Buy\",\"orderType\":\"Market\",\"qty\":\"60.0\",\"marketUnit\":\"quoteCoin\",\"orderLinkId\":\"5f1c1f3e-2b8f-4c4e-9a59-0d9c3f1b6a01\"}",
+      "headers": {
+        "X-bapi-api-key": "api-key",
+        "X-bapi-sign": "8fdfcf1adc7d6216ef788ce6335ef9047b3b25f2ea9361a3d5d1e293996c94eb",
+        "X-bapi-timestamp": "1789871400750",
+        "X-bapi-recv-window": "5000",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "create_order",
+      "api_key": "api-key",
+      "api_secret": "s3cr3t~/+=",
+      "timestamp": 1789871400750
+    },
+    {
+      "method": "POST",
+      "path": "/v5/order/create",
+      "query": null,
+      "body": "{\"category\":\"spot\",\"symbol\":\"BTCUSDT\",\"side\":\"Sell\",\"orderType\":\"Limit\",\"qty\":\"0.1\",\"price\":\"60000.0\",\"timeInForce\":\"GTC\"}",
+      "headers": {
+        "X-bapi-api-key": "api-key",
+        "X-bapi-sign": "b60e223dac9f9d95b6faf043d8843a560c2603b8b5f9880fcd1f5fcfcbaf387e",
+        "X-bapi-timestamp": "1789871400750",
+        "X-bapi-recv-window": "5000",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "create_order",
+      "api_key": "api-key",
+      "api_secret": "s3cr3t~/+=",
+      "timestamp": 1789871400750
+    },
+    {
+      "method": "POST",
+      "path": "/v5/order/cancel",
+      "query": null,
+      "body": "{\"category\":\"spot\",\"symbol\":\"BTCUSDT\",\"orderId\":\"0\"}",
+      "headers": {
+        "X-bapi-api-key": "api-key",
+        "X-bapi-sign": "b4730d992611540c64daebbb904ae6507d508cf554bc2fe955127161a332db6f",
+        "X-bapi-timestamp": "1789871400750",
+        "X-bapi-recv-window": "5000",
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "cancel_order",
+      "api_key": "api-key",
+      "api_secret": "s3cr3t~/+=",
+      "timestamp": 1789871400750
+    },
+    {
+      "method": "GET",
+      "path": "/v5/market/tickers",
+      "query": "category=spot",
+      "body": null,
+      "headers": {
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "tickers",
+      "api_key": "api-key",
+      "api_secret": "s3cr3t~/+=",
+      "timestamp": 1789871400750
+    },
+    {
+      "method": "GET",
+      "path": "/v5/market/orderbook",
+      "query": "category=spot&limit=1&symbol=BTCUSDT",
+      "body": null,
+      "headers": {
+        "Accept": "application/json",
+        "Content-type": "application/json"
+      },
+      "call": "orderbook",
+      "api_key": "api-key",
+      "api_secret": "s3cr3t~/+=",
+      "timestamp": 1789871400750
+    }
+  ]
+}

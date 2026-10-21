@@ -1,6 +1,6 @@
 {
   "sources": {
-    "script/rust/record_venue_signing.rb": "31e73b9516a04c24b35cb05b78b274a44ffba6aea3a1135057de1b1ded5a6aab"
+    "script/rust/record_venue_signing.rb": "2f7aacf5400ada74ba33ec57b56816f6c5eb139de53d8a18da5af8ab7a2328f8"
   },
   "gems": {
     "honeymaker": "0.12.5",

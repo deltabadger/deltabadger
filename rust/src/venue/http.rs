@@ -195,7 +195,10 @@ impl ReqwestTransport {
     }
     /// Honeymaker::Clients::Bitvavo's wire: the secret only signs and is never sent.
     pub fn bitvavo(client: reqwest::Client, key: String, secret: String) -> Self { Self { wire: Wire::Bitvavo, ..Self::new(client, key, secret) } }
-    /// Honeymaker::Clients::Bitget's wire: the secret only signs; the passphrase is sent as it is (and redacted like a secret).
+    /// Bybit V5 signs the exact outgoing query or JSON bytes at send time.
+    pub fn bybit(client: reqwest::Client, key: String, secret: String) -> Self { Self { wire: Wire::Bybit, ..Self::new(client, key, secret) } }
+
+    /// Bitget signs with the secret and sends the passphrase as it is.
     pub fn bitget(client: reqwest::Client, key: String, secret: String, passphrase: String) -> Self {
         let mut t = Self { wire: Wire::Bitget, ..Self::new(client, key, secret) };
         if !passphrase.is_empty() { t.sensitive.push(passphrase.clone()); }
@@ -391,6 +394,10 @@ impl Transport for ScriptedTransport {
         // Bitget's orderInfo: the first order of `data`, asked for by `clientOid` in the query.
         if reply["body"]["data"][0]["clientOid"] == "$client_order_id" {
             if let Some((_, cl)) = r.query.iter().find(|(k, _)| *k == "clientOid") { reply["body"]["data"][0]["clientOid"] = Value::String(cl.clone()); }
+        }
+        // Bybit's realtime/history lookup returns the requested orderLinkId in result.list.
+        if reply["body"]["result"]["list"][0]["orderLinkId"] == "$client_order_id" {
+            if let Some((_, cl)) = r.query.iter().find(|(k, _)| *k == "orderLinkId") { reply["body"]["result"]["list"][0]["orderLinkId"] = Value::String(cl.clone()); }
         }
         let message = reply["message"].as_str().unwrap_or_default().to_string();
         match reply["network"].as_str() {

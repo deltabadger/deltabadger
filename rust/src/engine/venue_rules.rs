@@ -36,6 +36,8 @@ pub enum WireFormat {
     /// other unit is converted at #market_price_for (the touch the order was sized at, floored to the tick) and floored to
     /// that unit's decimals, as Rails converts it.
     Bitget,
+    /// Bybit takes either market unit; limit quantities are converted to base before the intent.
+    Bybit,
 }
 
 /// Exchange#adjusted_price: how a price is put on the venue's tick before it is used or sent.
@@ -371,6 +373,36 @@ pub static BITGET: VenueRules = VenueRules {
     // #get_orders names a gone order (40109, 43001, an empty list) under `missing` (G5).
     reports_missing: true,
     // Its client-order lookup can only FIND an order (plan VB §1.5).
+    absence_provable: false,
+    young_missing_fails: true,
+    price_rule: PriceRule::Decimals,
+    cross: None,
+};
+
+
+/// Exchanges::Bybit rules; D-BYBIT-AMBIG retains uncertain placements.
+const BYBIT_TRANSIENT: [&str; 13] = ["Net::ReadTimeout", "Net::OpenTimeout", "Faraday::TimeoutError", "Faraday::ConnectionFailed",
+    "execution expired", "Connection reset", "Errno::ECONNRESET", "connection refused", "Connection refused", "Errno::ECONNREFUSED",
+    "end of file reached", "unexpected eof while reading",
+    "Timestamp for this request is outside of the recvWindow"];
+
+pub static BYBIT: VenueRules = VenueRules {
+    exchange_type: "Exchanges::Bybit",
+    name: "Bybit",
+    kinds: [("insufficient_funds", &["Insufficient balance"]),
+            ("invalid_key", &["Invalid API-key, IP, or permissions for action.", "API key is invalid"]),
+            ("permission_denied", &["Permission denied, please check your API key permissions"]),
+            ("restricted", &[]), ("throttle", &[]), ("transient", &["Timestamp for this request is outside of the recvWindow"])],
+    transient_text: &BYBIT_TRANSIENT,
+    add_outcome_unknown: &["Server Timeout", "Server error."],
+    minimum_logic: MinimumLogic { market: AmountLogic::BaseOrQuote, limit: AmountLogic::BaseAndQuoteInBase },
+    wire: WireFormat::Bybit,
+    deadline_sent: false,
+    reach_within_secs: 55,
+    absence_margin_secs: 1200,
+    transport_raises: false,
+    follow_up_strict: true, market_hours: false,
+    reports_missing: true,
     absence_provable: false,
     young_missing_fails: true,
     price_rule: PriceRule::Decimals,

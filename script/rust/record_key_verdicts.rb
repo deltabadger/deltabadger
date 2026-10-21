@@ -13,7 +13,7 @@ Net::HTTP.prepend(Module.new { def connect = raise(Unscripted, "real connection 
 
 out = {
   'sources' => %w[app/models/exchanges/kraken.rb app/models/exchanges/binance.rb app/models/exchanges/binance_us.rb app/models/exchanges/kucoin.rb app/models/exchanges/bitvavo.rb app/models/exchanges/gemini.rb
-                  app/models/exchanges/bitget.rb
+                  app/models/exchanges/bitget.rb app/models/exchanges/bybit.rb
                   app/models/exchange.rb app/models/exchange/dryable.rb app/models/api_key.rb app/helpers/bot_helper.rb
                   config/locales/api.en.yml config/locales/api.de.yml config/locales/api.pl.yml
                   config/locales/api_read_only.en.yml config/locales/api_withdrawal.en.yml
@@ -37,12 +37,12 @@ module Venue
       payload = env.request_headers['X-GEMINI-PAYLOAD']
       form = JSON.parse(Base64.strict_decode64(payload)).except('request', 'nonce') if payload
       # Bitget's POSTs carry a JSON body: recorded as the form.
-      form = JSON.parse(env.request_body) if env.url.host == 'api.bitget.com' && env.request_body.is_a?(String) && !env.request_body.empty?
+      form = JSON.parse(env.request_body) if %w[api.bitget.com api.bybit.com].include?(env.url.host) && env.request_body.is_a?(String) && !env.request_body.empty?
       Venue.seen << { 'method' => env.method.to_s.upcase, 'host' => env.url.host, 'path' => env.url.path,
                      'query' => query.except(*SECRET_PARAMS), 'form' => form.except(*SECRET_PARAMS),
                      'key_header' => env.request_headers['X-MBX-APIKEY'] || env.request_headers['API-Key'] || env.request_headers['KC-API-KEY'] ||
                                      env.request_headers['BITVAVO-ACCESS-KEY'] || env.request_headers['X-GEMINI-APIKEY'] ||
-                                     env.request_headers['ACCESS-KEY'] }
+                                     env.request_headers['ACCESS-KEY'] || env.request_headers['X-BAPI-API-KEY'] }
       answer = Venue.answers.shift
       raise Faraday::TimeoutError, 'Net::ReadTimeout' if answer[:timeout]
       raise Faraday::ConnectionFailed, 'Failed to open TCP connection (Connection refused)' if answer[:refused]
@@ -422,7 +422,29 @@ VENUE_CASES = {
     read_cases.each { |name, answer| rows << record.(bitget, :read_only, :get_read_api_key_validity, name, answer) }
     { 'order_not_found_codes' => Exchanges::Bitget.const_get(:ORDER_NOT_FOUND_CODES), 'no_trade_codes' => Exchanges::Bitget.const_get(:NO_TRADE_PERMISSION_CODES),
       'invalid_key_errors' => Exchanges::Bitget::ERRORS[:invalid_key], 'cases' => rows }
+  end,
+  'bybit' => lambda do
+    bybit = Exchanges::Bybit.new(name: 'Bybit')
+    rows = []
+    cases = {}
+    { 0 => 'OK', 170213 => 'Order does not exist', 110001 => 'Order does not exist', 10003 => 'API key is invalid.',
+      10004 => 'Error sign', 10005 => 'Permission denied, please check your API key permissions',
+      10000 => 'Server Timeout', 10016 => 'Server error.', 10006 => 'Too many visits', 10002 => 'Timestamp for this request is outside of the recvWindow.', 12345 => '' }.each do |code, msg|
+      [200, 400].each { |status| cases["#{code} http_#{status}"] = json.(status, { 'retCode' => code, 'retMsg' => msg, 'result' => { 'list' => [] } }) }
+    end
+    cases['missing_code'] = json.(200, { 'retMsg' => 'unknown' })
+    cases['no_message'] = json.(200, { 'retCode' => 98765 })
+    cases['no_fields'] = json.(200, {})
+    cases['wallet'] = json.(200, { 'retCode' => 0, 'result' => { 'list' => [{ 'coin' => [{ 'coin' => 'USDT', 'walletBalance' => '2', 'locked' => '0' }] }] } })
+    cases.merge!(transport)
+    cases.each do |name, answer|
+      rows << record.(bybit, :trading, :get_api_key_validity, name, answer)
+      rows << record.(bybit, :withdrawal, :get_api_key_validity, name, answer)
+      rows << record.(bybit, :read_only, :get_read_api_key_validity, name, answer)
+    end
+    { 'cases' => rows }
   end
+
 }.freeze
 VENUE_CASES.each { |id, cases| out[id] = cases.call }
 

@@ -1431,7 +1431,50 @@ module SyncScenarios
     ]
   end
 
+  def bybit_ledger_scenarios
+    night = '2026-09-20T02:00:00.250000Z'
+    week = ->(ctx) { P.bybit(ctx); ctx[:key].update_columns(last_synced_at: Time.iso8601(night) - 3.days) }
+    fill = { 'symbol' => 'BTCUSDT', 'side' => 'Buy', 'execQty' => '0.001', 'execValue' => '60', 'execFee' => '-0.06', 'feeCurrency' => 'USDT',
+             'execId' => 'f1', 'execTime' => P.ms('2026-09-19T10:00:00Z').to_s }
+    dep = { 'coin' => 'USDT', 'amount' => '100', 'status' => 3, 'txID' => 'd1', 'successAt' => fill['execTime'] }
+    internal = dep.merge('status' => 2, 'txID' => 'i1', 'createdTime' => '1789812000')
+    withdrawal = dep.merge('status' => 'success', 'txID' => 'w1', 'withdrawFee' => '1', 'updateTime' => fill['execTime'])
+    rows = [
+      { name: 'bybit-ledger-week', setup: week, steps: [P.bybit_ledger(night, fills: [P.by_page([fill], key: 'list')],
+        deposits: [P.by_page([dep, dep.merge('status' => 70012, 'txID' => 'rollback'), dep.merge('status' => 10012, 'txID' => 'ignored')])],
+        internal: [P.by_page([internal])], withdrawals: [P.by_page([withdrawal, withdrawal.merge('status' => 'BlockchainConfirmed', 'txID' => 'ignored')])])] },
+      { name: 'bybit-ledger-full', setup: ->(ctx) { P.bybit(ctx) }, steps: [P.bybit_ledger(night, fills: [P.by_page([fill], key: 'list'), P.by_page([], key: 'list')])] },
+      { name: 'bybit-ledger-cursor', setup: week, steps: [P.bybit_ledger(night, fills: [P.by_page([fill], key: 'list', cursor: 'next+/='), P.by_page([fill.merge('execId' => 'f2')], key: 'list')])] },
+      { name: 'bybit-ledger-transfer_cursor', setup: week, steps: [P.bybit_ledger(night, deposits: [P.by_page([dep], cursor: 'd2'), P.by_page([dep.merge('txID' => 'd2')])],
+          internal: [P.by_page([internal], cursor: 'i2'), P.by_page([internal.merge('txID' => 'i2', 'createdTime' => fill['execTime'])])],
+          withdrawals: [P.by_page([withdrawal], cursor: 'w2'), P.by_page([withdrawal.merge('txID' => 'w2')])])] },
+      { name: 'bybit-ledger-no_wallet_scope', setup: week, steps: [P.bybit_ledger(night, fills: [P.by_page([fill], key: 'list')], deposits: [P.by_err(10005, 'Permission denied')], internal: [P.by_err(10005, 'Permission denied')], withdrawals: [P.by_err(10005, 'Permission denied')])] },
+      { name: 'bybit-ledger-trades_refused', setup: week, steps: [P.bybit_ledger(night, fills: [P.by_err(10005, 'Permission denied')])] },
+      { name: 'bybit-ledger-failed_page', setup: week, steps: [P.bybit_ledger(night, fills: [P.by_page([fill], key: 'list', cursor: 'next'), P.by_err(10016, 'Server error.')])] },
+      # The final failure bounds Rails' repeated-cursor walk; Rust refuses at the repetition (D-BYBIT-STUCK).
+      { name: 'bybit-ledger-stuck', setup: week, steps: [P.bybit_ledger(night, fills: [P.by_page([fill], key: 'list', cursor: 'same'), P.by_page([fill], key: 'list', cursor: 'same'), P.by_err(10016, 'Server error.')])] },
+      { name: 'bybit-ledger-throttled', setup: week, steps: [P.bybit_ledger(night, fills: [P.by_err(10006, 'Too many visits'), P.by_page([fill], key: 'list')])] },
+      { name: 'bybit-ledger-bare', setup: week, steps: [P.bybit_ledger(night, fills: [P.by_page([fill.except('execId'), fill.except('execId')], key: 'list')])] },
+      { name: 'bybit-ledger-nothing', setup: week, steps: [P.bybit_ledger(night)] }
+    ]
+    rows << { name: 'bybit-ledger-two_nights', setup: week, steps: [P.bybit_ledger(night, deposits: [P.by_page([dep])]), P.bybit_ledger('2026-09-21T02:00:00.250000Z', deposits: [P.by_page([dep])])] }
+    rows
+  end
+  def bybit_balance_scenarios
+    night = '2026-09-20T02:00:00.250000Z'
+    setup = ->(ctx) { P.bybit(ctx) }
+    cases = {
+      'wallet' => [{ 'coin' => 'BTC', 'walletBalance' => '0.5', 'locked' => '0.1', 'spotBorrow' => '0.05', 'availableToWithdraw' => '99' }],
+      'floor' => [{ 'coin' => 'BTC', 'walletBalance' => '0.1', 'locked' => '0.2', 'spotBorrow' => '0.05' }],
+      'legacy' => [{ 'coin' => 'BTC', 'walletBalance' => '', 'availableToWithdraw' => '0.2', 'locked' => '0.1' }, { 'coin' => 'USDT', 'free' => '10' }],
+      'unknown' => [{ 'coin' => 'UNLISTED', 'walletBalance' => '10' }, { 'walletBalance' => '99' }],
+      'invalid_key' => P.by_err(10003, 'API key is invalid.'), 'permission' => P.by_err(10005, 'Permission denied, please check your API key permissions'),
+      'empty' => [], 'duplicate' => [{ 'coin' => 'USDT', 'walletBalance' => '10' }, { 'coin' => 'USDT', 'walletBalance' => '20' }]
+    }
+    cases.map { |name, coins| { name: "bybit-balances-#{name}", setup: setup, steps: [P.bybit_balances(night, coins: coins, prices: P.prices_body('bitcoin' => 60000.5, 'ethereum' => 2500.25, 'tether' => 1.0))] } }
+  end
+
   def all = ledger_scenarios + balance_scenarios + binance_balance_scenarios + binance_ledger_scenarios + import_scenarios + kucoin_ledger_scenarios +
             kucoin_balance_scenarios + bitvavo_ledger_scenarios + bitvavo_balance_scenarios + gemini_ledger_scenarios + gemini_balance_scenarios +
-            bitget_ledger_scenarios + bitget_balance_scenarios
+            bitget_ledger_scenarios + bitget_balance_scenarios + bybit_ledger_scenarios + bybit_balance_scenarios
 end
