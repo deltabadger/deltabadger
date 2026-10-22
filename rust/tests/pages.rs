@@ -269,8 +269,14 @@ fn action_snapshot_difference(context: &str, rails: &Value, rust: &Value) -> Opt
             if let Some(message) = row_difference(&format!("{context} {side} forbidden write"), &unchanged(before), &unchanged(after)) { return Some(message); }
         }
     }
+    // Rails' installs never hold Rust's own tables (db/schema.rb has none), so those are left out of Rails against
+    // Rust; the forbidden-write checks above still cover every table on each side.
+    let rust_owned = deltabadger::store::REGISTRY.owned_tables();
+    let rails_tables = |rows: &Value| -> Value {
+        Value::Object(rows.as_object().into_iter().flatten().filter(|(table, _)| !rust_owned.contains(&table.as_str())).map(|(k, v)| (k.clone(), v.clone())).collect())
+    };
     for key in ["rows_before", "rows_after", "other_rows_before", "other_rows_after"] {
-        if let Some(message) = row_difference(&format!("{context} {key}"), &rails[key], &rust[key]) { return Some(message); }
+        if let Some(message) = row_difference(&format!("{context} {key}"), &rails_tables(&rails[key]), &rails_tables(&rust[key])) { return Some(message); }
     }
     None
 }
@@ -708,6 +714,11 @@ fn recorded_grid() -> (common::Recording, tempfile::TempDir, Vec<PathBuf>) {
     });
     let rust_root = tempfile::tempdir().unwrap();
     common::copy_tree(&recording.path.join("rust"), rust_root.path());
+    // Rust's side starts as `serve` does: with this build's Rust migrations applied.
+    for scenario in std::fs::read_dir(rust_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()) {
+        let c = rusqlite::Connection::open(scenario.join("production.sqlite3")).unwrap();
+        deltabadger::store::test_support::migrate(&c).expect("this build's Rust migrations apply");
+    }
     let mut dirs: Vec<PathBuf> = std::fs::read_dir(recording.path.join("rails")).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
     dirs.sort();
     (recording, rust_root, dirs)
@@ -1334,6 +1345,24 @@ fn action_snapshot_scopes_writes_to_the_declared_tables() {
     response.as_object_mut().unwrap().remove("may_mutate");
     let message = action_snapshot_difference("scoped", &response, &response).unwrap_or_else(|| panic!("a key write passed a bot action"));
     assert!(message.contains("forbidden write") && message.contains("api_keys"), "{message}");
+}
+
+/// Rust's own tables (rust_schema_migrations and the registry's) exist only on Rust's side: they are left out of
+/// Rails against Rust, but a write to one during an action is still a forbidden write.
+#[test]
+fn action_snapshot_leaves_rust_tables_out_of_rails_against_rust_but_not_out_of_forbidden_writes() {
+    let rows: serde_json::Map<String, Value> = ACTION_TABLES.into_iter().map(|table| (table.to_string(), json!([]))).collect();
+    let rails = json!({"rows_before": rows, "rows_after": rows, "other_rows_before": {}, "other_rows_after": {}});
+    let mut rust = rails.clone();
+    for key in ["other_rows_before", "other_rows_after"] { rust[key]["rust_schema_migrations"] = json!([{"version": "20990101000001"}]); }
+    assert_eq!(action_snapshot_difference("rust_tables", &rails, &rust), None, "a Rust-only table is not a Rails difference");
+    rust["other_rows_after"]["rust_schema_migrations"] = json!([]);
+    let message = action_snapshot_difference("rust_tables", &rails, &rust).unwrap_or_else(|| panic!("a write to a Rust table passed"));
+    assert!(message.contains("forbidden write") && message.contains("rust_schema_migrations"), "{message}");
+    let mut rust = rails.clone();
+    rust["other_rows_before"]["schema_migrations"] = json!([{"version": "1"}]);
+    rust["other_rows_after"]["schema_migrations"] = json!([{"version": "1"}]);
+    assert!(action_snapshot_difference("rust_tables", &rails, &rust).is_some(), "a Rails table still compares");
 }
 
 #[test]

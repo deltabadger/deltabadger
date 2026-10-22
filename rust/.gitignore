@@ -1,1 +1,3 @@
 /target/
+# Rust migrations and their test fixtures (the repo ignores *.sql)
+!*.sql
