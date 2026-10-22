@@ -25,7 +25,7 @@ Net::HTTP.prepend(Module.new { def connect = raise(Harness::Unscripted, "real co
 ENV['COINGECKO_API_KEY'] = ''
 
 module ScriptedSync
-  mattr_accessor :alpaca, :binance, :binance_state, :kucoin, :bitvavo, :gemini, :bitget, :mexc, :hyperliquid, :bybit, :bitrue, :coinbase, :market, :requests, :filters_after
+  mattr_accessor :alpaca, :binance, :binance_state, :kucoin, :bitvavo, :gemini, :bitget, :mexc, :hyperliquid, :bybit, :bitrue, :coinbase, :bingx, :market, :requests, :filters_after
 
   NETWORK = {
     'pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "paper-api.alpaca.markets" port 443')) },
@@ -59,6 +59,7 @@ module ScriptedSync
              elsif host == 'api.bybit.com' then bybit
              elsif host == 'openapi.bitrue.com' then bitrue
              elsif host == 'api.coinbase.com' then coinbase
+             elsif host == 'open-api.bingx.com' then bingx
              elsif host == 'data-api' then market
              end
     key = "#{env.method.to_s.upcase} #{env.url.path}"
@@ -538,6 +539,20 @@ module SyncParity
           pair: ->(b, q) { "#{b}-#{q}" }, coin: { base_decimals: 8, quote_decimals: 2, price_decimals: 0, minimum_base_size: '0.0001', minimum_quote_size: '5' })
   end
   # A MEXC key (plan VB slice A5), with the pairs its scenarios trade.
+  def bingx(ctx)
+    venue(ctx, Exchanges::Bingx, 'BingX', as: :bingx, assets: %w[BTC ETH USDT], pairs: [%w[BTC USDT], %w[ETH USDT], %w[ETH BTC]],
+      pair: ->(b,q) { "#{b}-#{q}" }, coin: {base_decimals:6,quote_decimals:2,price_decimals:2,minimum_base_size:'0.0001826',minimum_quote_size:'0.5'})
+  end
+  def bx_page(data) = ok('code'=>0,'data'=>data)
+  def bx_account(*rows) = bx_page('balances'=>rows.map { |a,f,l| {'asset'=>a,'free'=>f,'locked'=>l || '0'} })
+  def bx_info(*pairs) = bx_page('symbols'=>pairs.map { |b,q| {'symbol'=>"#{b}-#{q}"} })
+  def bingx_ledger(at, deposits:[ok([])],withdrawals:[ok([])],account:[bx_account(%w[BTC 1])],info:[bx_info(%w[BTC USDT])],trades:[bx_page('fills'=>[])])
+    {'kind'=>'ledger','at'=>at,'bingx'=>{'GET /openApi/api/v3/capital/deposit/hisrec'=>deposits,'GET /openApi/api/v3/capital/withdraw/history'=>withdrawals,
+      'GET /openApi/spot/v1/account/balance'=>account,'GET /openApi/spot/v1/common/symbols'=>info,'GET /openApi/spot/v1/trade/myTrades'=>trades}}
+  end
+  def bingx_balances(at,account:,prices:nil)
+    {'kind'=>'balances','at'=>at,'bingx'=>{'GET /openApi/spot/v1/account/balance'=>[account]},'market'=>{PRICES=>prices && [prices]}.compact}
+  end
   def bitrue(ctx)
     venue(ctx, Exchanges::Bitrue, 'Bitrue', as: :bitrue, assets: %w[BTC ETH USDT], pairs: [%w[BTC USDT], %w[ETH USDT], %w[ETH BTC]],
           pair: ->(b, q) { "#{b}#{q}" }, coin: { base_decimals: 6, quote_decimals: 2, price_decimals: 2, minimum_base_size: '0.000001', minimum_quote_size: '1' })
@@ -764,7 +779,7 @@ module SyncParity
       ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: File.join(dir, 'production.sqlite3'))
       Rails.cache.clear
       before = snapshot
-      reading = ApiKey.reading(ApiKey.includes(:exchange)).select { |k| [Exchanges::Alpaca, Exchanges::Binance, Exchanges::Kucoin, Exchanges::Bitvavo, Exchanges::Gemini, Exchanges::Bitget, Exchanges::Mexc, Exchanges::Hyperliquid, Exchanges::Bybit, Exchanges::Bitrue, Exchanges::Coinbase].any? { |c| k.exchange.is_a?(c) } }.map(&:id).sort
+      reading = ApiKey.reading(ApiKey.includes(:exchange)).select { |k| [Exchanges::Alpaca, Exchanges::Binance, Exchanges::Kucoin, Exchanges::Bitvavo, Exchanges::Gemini, Exchanges::Bitget, Exchanges::Mexc, Exchanges::Hyperliquid, Exchanges::Bybit, Exchanges::Bitrue, Exchanges::Coinbase, Exchanges::Bingx].any? { |c| k.exchange.is_a?(c) } }.map(&:id).sort
       steps = sc['steps'].map do |step|
         ActiveJob::Base.queue_adapter.enqueued_jobs.clear
         ScriptedSync.alpaca = step.fetch('alpaca', {}).transform_values(&:dup)
@@ -779,6 +794,7 @@ module SyncParity
         ScriptedSync.bybit = step.fetch('bybit', {}).transform_values(&:dup)
         ScriptedSync.bitrue = step.fetch('bitrue', {}).transform_values(&:dup)
         ScriptedSync.coinbase = step.fetch('coinbase', {}).transform_values(&:dup)
+        ScriptedSync.bingx = step.fetch('bingx', {}).transform_values(&:dup)
         ScriptedSync.market = step.fetch('market', {}).transform_values(&:dup)
         ScriptedSync.requests = []
         ScriptedSync.filters_after = step['server_filters_after'] == true

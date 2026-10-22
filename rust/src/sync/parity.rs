@@ -266,10 +266,11 @@ pub async fn run(dir: &Path, cipher: Arc<Cipher>) -> Result<Value, SyncError> {
         let coinbase = step.get("coinbase").is_some();
         let hyperliquid = step.get("hyperliquid").is_some();
         let bybit = step.get("bybit").is_some();
+        let bingx = step.get("bingx").is_some();
         let bitrue = step.get("bitrue").is_some();
         let fake = step.get("binance_state").map(|state| FakeBinance { state: Arc::new(state.clone()), requests: Default::default() });
         let transport = ScriptedTransport::from_script(if binance { &step["binance"] } else if kucoin { &step["kucoin"] } else if bitvavo { &step["bitvavo"] }
-                                                       else if gemini { &step["gemini"] } else if bitget { &step["bitget"] } else if mexc { &step["mexc"] } else if hyperliquid { &step["hyperliquid"] } else if bybit { &step["bybit"] } else if bitrue { &step["bitrue"] } else if coinbase { &step["coinbase"] } else { &step["alpaca"] });
+                                                       else if gemini { &step["gemini"] } else if bitget { &step["bitget"] } else if mexc { &step["mexc"] } else if hyperliquid { &step["hyperliquid"] } else if bybit { &step["bybit"] } else if bitrue { &step["bitrue"] } else if coinbase { &step["coinbase"] } else if bingx { &step["bingx"] } else { &step["alpaca"] });
         let served = Served { script: transport.clone(), filters_after: step["server_filters_after"] == true };
         let venue = AlpacaVenue::new(served, Urls::for_passphrase(credentials.passphrase.as_deref()));
         let prices = ScriptedPrices::from_script(&step["market"]).with_rate_cache(rate_cache.clone());
@@ -289,6 +290,7 @@ pub async fn run(dir: &Path, cipher: Arc<Cipher>) -> Result<Value, SyncError> {
             (Some("ledger"), None) if mexc => super::mexc_ledger::sync(&db, transport.clone(), key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
             (Some("ledger"), None) if bybit => super::bybit_ledger::sync(&db, transport.clone(), key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
             (Some("ledger"), None) if bitrue => super::bitrue_ledger::sync(&db, transport.clone(), key_id, &credentials, &FixedClock(at), std::time::Duration::ZERO).await?.is_err_and(|f| f.raised),
+            (Some("ledger"), None) if bingx => super::bingx_ledger::sync(&db, transport.clone(), key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
             (Some("ledger"), Some(fake)) => super::binance_ledger::sync(&db, fake.clone(), key_id, &credentials, &FixedClock(at), super::binance_ledger::Pacing::NONE).await?.is_err_and(|f| f.raised),
             (kind, _) => match kind {
             Some("ledger") => ledger::sync(&db, &venue, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
@@ -301,6 +303,7 @@ pub async fn run(dir: &Path, cipher: Arc<Cipher>) -> Result<Value, SyncError> {
             Some("balances") if mexc => balances::sync_mexc(&db, transport.clone(), &prices, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
             Some("balances") if bybit => balances::sync_bybit(&db, transport.clone(), &prices, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
             Some("balances") if bitrue => balances::sync_bitrue(&db, transport.clone(), &prices, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
+            Some("balances") if bingx => balances::sync_bingx(&db, transport.clone(), &prices, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
             Some("balances") if binance => balances::sync_binance(&db, transport.clone(), &prices, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
             Some("balances") => balances::sync(&db, &venue, &prices, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
             other => return Err(SyncError(format!("unknown step kind {other:?}"))),
