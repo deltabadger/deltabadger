@@ -754,33 +754,61 @@ fn unmet_expectation(name: &str, scenario: &Value, rails: &Value) -> Option<Stri
     None
 }
 
-/// Builds the grid with Rails, records Rails' answers (common::recording: once per state of Rails' inputs and
-/// PAGES), and returns (the recording, rust_root, scenario dirs). The recording keeps `rails/` (each scenario's
-/// scenario.json and rails.json) and `rust/` (the installs as the grid built them, before Rails' requests);
-/// this run's Rust side works on its own copy of `rust/`.
-fn recorded_grid() -> (common::Recording, tempfile::TempDir, Vec<PathBuf>) {
-    let recording = common::recording("pages", |dir| dir.join("rails").is_dir() && dir.join("rust").is_dir(), |out| {
+/// The page grid is compared by SHARDS test processes (`…_shard_k`), each recording and comparing its own slice.
+const SHARDS: usize = 6;
+
+/// Shard k: the scenarios at index % SHARDS == k of the sorted grid.
+fn in_shard(k: usize) -> impl Fn(usize, &str) -> bool { move |index, _| index % SHARDS == k }
+
+/// The grid as Rails builds it (common::recording: once per state of Rails' inputs and PAGES): `rails/` holds each
+/// scenario's install for Rails to record on, `rust/` the same installs, copied before any request.
+fn built_grid() -> common::Recording {
+    common::recording("pages-grid", |dir| dir.join("rails").is_dir() && dir.join("rust").is_dir(), |out| {
         let (scratch, rails_root, rust_root) = (tempfile::tempdir().unwrap(), out.join("rails"), out.join("rust"));
         std::fs::create_dir_all(&rails_root).unwrap();
+        std::fs::create_dir_all(&rust_root).unwrap();
         common::rails(scratch.path(), "test", &["db:schema:load"]);
         common::rails(scratch.path(), "test", &["runner", "script/rust/pages.rb", "grid", rails_root.to_str().unwrap()]);
-        for dir in std::fs::read_dir(&rails_root).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()) {
-            copy_scenario(&dir, &rust_root.join(dir.file_name().unwrap())); // before Rails writes to its copies
-        }
-        std::fs::create_dir_all(&rust_root).unwrap();
-        common::rails(scratch.path(), "test", &["runner", "script/rust/pages.rb", "record", rails_root.to_str().unwrap()]);
-        only_json(&rails_root); // the comparison reads Rails' answers, never the databases Rails left
-    });
-    let rust_root = tempfile::tempdir().unwrap();
-    common::copy_tree(&recording.path.join("rust"), rust_root.path());
-    // Rust's side starts as `serve` does: with this build's Rust migrations applied.
-    for scenario in std::fs::read_dir(rust_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()) {
-        let c = rusqlite::Connection::open(scenario.join("production.sqlite3")).unwrap();
+        for name in names(out) { copy_scenario(&rails_root.join(&name), &rust_root.join(&name)); }
+    })
+}
+
+/// The grid's scenario names, sorted.
+fn names(grid: &Path) -> Vec<String> {
+    let mut names: Vec<String> = std::fs::read_dir(grid.join("rails")).unwrap().map(|e| e.unwrap())
+        .filter(|e| e.file_type().unwrap().is_dir()).map(|e| e.file_name().into_string().unwrap()).collect();
+    names.sort();
+    names
+}
+
+/// Rails' answers for shard k (common::recording, so two tests never record the same slice): its scenarios copied
+/// from the grid and recorded by one Rails process. Only the JSON is kept (scenario.json and rails.json); the
+/// comparison never reads the databases Rails left.
+fn recorded_shard(grid: &Path, names: &[String], k: usize) -> common::Recording {
+    common::recording(&format!("pages-shard-{k}-of-{SHARDS}"), common::has_subdirs, |out| {
+        for name in names.iter().skip(k).step_by(SHARDS) { copy_scenario(&grid.join("rails").join(name), &out.join(name)); }
+        let scratch = tempfile::tempdir().unwrap();
+        common::rails(scratch.path(), "test", &["db:schema:load"]);
+        common::rails(scratch.path(), "test", &["runner", "script/rust/pages.rb", "record", out.to_str().unwrap()]);
+        only_json(out);
+    })
+}
+
+/// The scenarios `select(index, name)` picks from the sorted grid: Rails' recorded answers (recording only the shards
+/// they fall in) and this run's own copy of their installs for the Rust side, with this build's Rust migrations applied
+/// as `serve` applies them. Returns (the recordings, rust_root, the picked scenario dirs, in grid order).
+fn recorded(select: impl Fn(usize, &str) -> bool) -> (Vec<common::Recording>, tempfile::TempDir, Vec<PathBuf>) {
+    let grid = built_grid();
+    let names = names(&grid.path);
+    let (mut shards, rust_root, mut dirs) = ((0..SHARDS).map(|_| None).collect::<Vec<Option<common::Recording>>>(), tempfile::tempdir().unwrap(), vec![]);
+    for (index, name) in names.iter().enumerate().filter(|(index, name)| select(*index, name)) {
+        let shard = shards[index % SHARDS].get_or_insert_with(|| recorded_shard(&grid.path, &names, index % SHARDS));
+        dirs.push(shard.path.join(name));
+        common::copy_tree(&grid.path.join("rust").join(name), &rust_root.path().join(name));
+        let c = rusqlite::Connection::open(rust_root.path().join(name).join("production.sqlite3")).unwrap();
         deltabadger::store::test_support::migrate(&c).expect("this build's Rust migrations apply");
     }
-    let mut dirs: Vec<PathBuf> = std::fs::read_dir(recording.path.join("rails")).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
-    dirs.sort();
-    (recording, rust_root, dirs)
+    (shards.into_iter().flatten().collect(), rust_root, dirs)
 }
 
 fn only_json(dir: &Path) {
@@ -1082,8 +1110,8 @@ fn refusal_headers(signed_in: bool) -> Value {
 
 #[tokio::test(flavor = "current_thread")]
 async fn settings_metrics_panel_matches_recorded_rails_bytes() {
-    let (_recording, rust_root, dirs) = recorded_grid();
-    for dir in dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_settings_metrics_"))) {
+    let (_recording, rust_root, dirs) = recorded(|_, name| name.starts_with("actions_settings_metrics_"));
+    for dir in &dirs {
         for scope in ["", "de"] {
             let source = dir.join(scope);
             let name = dir.file_name().unwrap().to_str().unwrap();
@@ -1137,8 +1165,8 @@ async fn panels_published(app: &App) {
 /// panel of its own, and the owner hiding balances) are not lost: the page ends on the panel of the latest rows.
 #[tokio::test(flavor = "current_thread")]
 async fn settings_metrics_panel_is_computed_off_the_request_and_ends_on_the_latest_rows() {
-    let (_recording, rust_root, dirs) = recorded_grid();
     let name = "actions_settings_metrics_composition";
+    let (_recording, rust_root, dirs) = recorded(|_, n| n == name);
     let dir = dirs.iter().find(|dir| dir.file_name().is_some_and(|n| n == name)).expect(name);
     let scenario = scenario(dir);
     let app = web::app(&rust_root.path().join(name), scenario["secret_key_base"].as_str().unwrap(), TestClock::at(scenario["at"].as_str().unwrap()));
@@ -1178,8 +1206,8 @@ async fn settings_metrics_panel_is_computed_off_the_request_and_ends_on_the_late
 
 #[tokio::test(flavor = "current_thread")]
 async fn hyperliquid_limit_control_matches_recorded_rails_bytes() {
-    let (_recording, rust_root, dirs) = recorded_grid();
     let name = "venue_bot_page_hyperliquid_limit_lock";
+    let (_recording, rust_root, dirs) = recorded(|_, n| n == name);
     // PAGES may select another part of the grid; the unfiltered gate always includes this scenario.
     let Some(dir) = dirs.iter().find(|dir| dir.file_name().is_some_and(|file| file == name)) else { return };
     let scenario = scenario(dir);
@@ -1211,14 +1239,23 @@ async fn hyperliquid_limit_control_matches_recorded_rails_bytes() {
     assert_eq!(controls, 4 + 2, "four stored-flag/status combinations and two translated controls");
 }
 
-#[tokio::test(flavor = "current_thread")]
-async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
-    let (_rails_root, rust_root, dirs) = recorded_grid();
-    assert!(!dirs.is_empty(), "the grid is empty: no scenario name starts with a prefix in PAGES");
-    if std::env::var("PAGES").ok().as_deref() == Some("actions") {
-        assert_eq!(dirs.len(), 254 + 2 + 6, "all action scenarios must remain selected, with two amounts typed key by key and six settings metrics cases");
-    }
-    let (mut failures, mut countdown_pages) = (vec![], 0);
+/// The shards of the grid comparison (`compare_shard`), one test process each so they run in parallel. Each scenario
+/// is in exactly one (the_page_grid_holds_every_scenario_and_its_shards_cover_it_once).
+macro_rules! shards {
+    ($($test:ident = $k:literal),*) => {
+        const SHARD_TESTS: &[usize] = &[$($k),*];
+        $(#[tokio::test(flavor = "current_thread")] async fn $test() { compare_shard($k).await })*
+    };
+}
+shards!(rails_and_rust_serve_the_same_pages_across_the_scenario_grid_shard_0 = 0, rails_and_rust_serve_the_same_pages_across_the_scenario_grid_shard_1 = 1,
+        rails_and_rust_serve_the_same_pages_across_the_scenario_grid_shard_2 = 2, rails_and_rust_serve_the_same_pages_across_the_scenario_grid_shard_3 = 3,
+        rails_and_rust_serve_the_same_pages_across_the_scenario_grid_shard_4 = 4, rails_and_rust_serve_the_same_pages_across_the_scenario_grid_shard_5 = 5);
+
+/// Rails and this crate serve the same pages on shard k of the scenario grid. The grid-wide counts are
+/// the_page_grid_holds_every_scenario_and_its_shards_cover_it_once's.
+async fn compare_shard(k: usize) {
+    let (_recording, rust_root, dirs) = recorded(in_shard(k));
+    let mut failures = vec![];
     for dir in &dirs {
         let name = dir.file_name().unwrap().to_string_lossy().to_string();
         if name.starts_with("actions_") { assert!(dir.join("de/scenario.json").is_file(), "missing German variant: {name}"); }
@@ -1248,7 +1285,6 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
             for (index, (theirs, ours)) in rails_countdowns.iter().zip(&ours).enumerate().skip(2) {
                 let end = |values: &Vec<String>| values.iter().find(|value| value.starts_with("data-countdown-end-time-value")).cloned();
                 if end(theirs).is_none() || end(theirs) == end(ours) { failures.push(format!("{name} step {index}: expected Rails to know the time and this build not to: {theirs:?} / {ours:?}")); }
-                countdown_pages += 1;
             }
         }
         let mut rails = rails;
@@ -1306,7 +1342,29 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
     }
     }
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
-    println!("{} scenarios; {countdown_pages} pages where only Rails knows when the bot acts next", dirs.len());
+    println!("shard {k}: {} scenarios", dirs.len());
+}
+
+/// What the whole grid must hold, read from the grid itself without comparing: every shard together covers it, each
+/// scenario once; the counts per kind; and the pages where only Rails knows when the bot acts next.
+#[test]
+fn the_page_grid_holds_every_scenario_and_its_shards_cover_it_once() {
+    let grid = built_grid();
+    let names = names(&grid.path);
+    assert!(!names.is_empty(), "the grid is empty: no scenario name starts with a prefix in PAGES");
+    assert_eq!(SHARD_TESTS, (0..SHARDS).collect::<Vec<_>>(), "one test per shard");
+    let mut union: Vec<&String> = SHARD_TESTS.iter().flat_map(|&k| names.iter().enumerate().filter(move |(index, name)| in_shard(k)(*index, name)).map(|(_, name)| name)).collect();
+    union.sort();
+    assert_eq!(union, names.iter().collect::<Vec<_>>(), "the shards together are the grid, no scenario dropped or doubled");
+    if std::env::var("PAGES").ok().as_deref() == Some("actions") {
+        assert_eq!(names.len(), 254 + 2 + 6, "all action scenarios must remain selected, with two amounts typed key by key and six settings metrics cases");
+    }
+    // Every step after the first two of a countdown_ scenario is a page where Rails knows a time this build does not
+    // (each is checked in its shard's comparison).
+    let countdown_pages: usize = names.iter().filter(|name| name.starts_with("countdown_"))
+        .map(|name| scenario(&grid.path.join("rails").join(name))["steps"].as_array().unwrap().len().saturating_sub(2)).sum();
+    println!("{} scenarios; {countdown_pages} pages where only Rails knows when the bot acts next", names.len());
+    let dirs: Vec<PathBuf> = names.iter().map(PathBuf::from).collect();
     if std::env::var("PAGES").is_err() {
         let hook = |dir: &&PathBuf| dir.file_name().is_some_and(|n| ["hook_", "missing_hook_", "refused_hook_", "override_"].iter().any(|p| n.to_string_lossy().starts_with(p)));
         assert_eq!(dirs.iter().filter(hook).count(), 27 + 23 + 2 + 1, "the signal webhook (pages_signals.rb): twenty-seven compared whole, twenty-three the router's 404 (methods, overrides, paths), two calls the engine guard refuses until 8d; and a settings update under the override header");

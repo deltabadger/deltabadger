@@ -174,18 +174,17 @@ fn sweep_old_templates(base: &Path) {
     }
 }
 
-/// A Rails recording (`recording`): the shared cached directory, or a fresh one recorded live.
-pub struct Recording { pub path: PathBuf, _live: Option<tempfile::TempDir> }
+/// A Rails recording (`recording`): a shared directory, never written to by its readers.
+pub struct Recording { pub path: PathBuf }
 
 /// Rails' side of a grid: `build(out)` boots Rails and records into `out`. Away from CI it is recorded once per
 /// state of everything that can change Rails' answer (`rails_inputs`) and `name`, and reused from
 /// `<target>/tmp/rails-recordings` by every later run and worktree; the Rust side is always run live. The cached
-/// directory is shared, so a caller copies what it writes to. CI, or PAGES_RERECORD=1, records live every time.
+/// directory is shared, so a caller copies what it writes to. CI, or PAGES_RERECORD=1, records live: once per test
+/// run (`run_template`), shared by that run's test processes.
 pub fn recording(name: &str, is_whole: fn(&Path) -> bool, build: impl FnOnce(&Path)) -> Recording {
     if std::env::var_os("CI").is_some() || std::env::var_os("PAGES_RERECORD").is_some_and(|v| v != "0") {
-        let dir = tempfile::tempdir().unwrap();
-        build(dir.path());
-        return Recording { path: dir.path().into(), _live: Some(dir) };
+        return Recording { path: run_template(&format!("recording-{}", name.replace('/', "_")), is_whole, build) };
     }
     use sha2::{Digest, Sha256};
     let key = |inputs: &[u8]| format!("{:x}", Sha256::new().chain_update(name).chain_update([0]).chain_update(inputs).finalize());
@@ -198,7 +197,7 @@ pub fn recording(name: &str, is_whole: fn(&Path) -> bool, build: impl FnOnce(&Pa
     });
     // Keeps the sweep (a day unused) off a recording still in use.
     let _ = std::fs::File::open(&path).and_then(|dir| dir.set_modified(std::time::SystemTime::now()));
-    Recording { path, _live: None }
+    Recording { path }
 }
 
 /// `<script> grid` then `<script> record` into `out`, against scratch databases with the schemas loaded.
