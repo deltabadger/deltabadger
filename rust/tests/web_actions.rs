@@ -626,6 +626,37 @@ mod action_write {
         Ok(())
     }
     #[test]
+    fn smart_interval_hint_preserves_submitted_float_without_dirtying_equal_settings() -> Result {
+        use deltabadger::web::bot::{Bot, For, settings::Forms};
+        for (submitted, expected, changed) in [("50", "50.0", false), ("50.0", "50.0", false),
+                                               ("80", "80.0", true), ("37.25", "37.25", true), ("50.004", "50.0", true)] {
+            let f = Fixture::new()?;
+            f.stabilize()?;
+            f.c.execute("UPDATE bots SET settings=json_set(settings,'$.quote_amount',50,'$.smart_intervaled',json('true'),'$.smart_interval_quote_amount',5) WHERE id=?1", [f.id])?;
+            let before = f.snapshot()?;
+            let render = |bot: &Bot| Forms { ctx: &f.ctx, csrf: "token", bot, path: format!("/bots/{}", f.id),
+                hide_balances: false, time_zone: "UTC", check: None }.smart_intervals();
+            let bot = Bot::find(&f.c, f.seed.user_id, f.id, For::Page, "en").map_err(|e| format!("{e:?}"))?.unwrap();
+            let quote = bot.quote_symbol().unwrap();
+            assert!(render(&bot).contains(&format!("50 {quote}")), "an untouched Integer stays an Integer");
+            let outcome = write::settings(&f.c, &f.ctx, f.seed.user_id, f.id, &Fixture::params(json!({"quote_amount":submitted}))?,
+                |_, _, draft| Ok(Prepared { response: render(&draft.candidate), broadcasts: vec![], after_scheduling: None }))
+                .map_err(|e| format!("{e:?}"))?;
+            let response = match outcome {
+                Outcome::NoChange(body) if !changed => body,
+                Outcome::Committed(body) if changed => body,
+                _ => return Err(format!("unexpected save outcome for {submitted}").into()),
+            };
+            assert!(response.contains(&format!("{expected} {quote}")), "submitted {submitted}: {response}");
+            if !changed { assert_eq!(f.snapshot()?, before, "equal amounts preserve every stored column"); }
+            let reloaded = Bot::find(&f.c, f.seed.user_id, f.id, For::Page, "en").map_err(|e| format!("{e:?}"))?.unwrap();
+            let persisted = if changed { expected } else { "50" };
+            assert!(render(&reloaded).contains(&format!("{persisted} {quote}")), "a later request reads the persisted numeric type");
+        }
+        Ok(())
+    }
+
+    #[test]
     fn action_write_rename_blank_identical_preserve_window() -> Result {
         let f = Fixture::new()?; f.stabilize()?;
         let before = f.stored()?;

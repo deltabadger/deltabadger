@@ -229,6 +229,9 @@ fn settings_inner<T>(
     let shown = std::mem::take(&mut draft.candidate.label);
     draft.candidate = Bot::find(&tx, owner, id, For::Page, ctx.locale)?.ok_or_else(|| error("saved bot disappeared"))?;
     if draft.candidate.label_unsaved { draft.candidate.label = shown; }
+    // Ruby considers 50 == 50.0 for dirty tracking, but the saved instance retains the assigned Float.
+    // Keep that type for the response (Num::round/to_s in the smart-interval hint), without writing an unchanged JSON column.
+    if effects.settings.set.is_empty() { draft.candidate.settings = final_settings; }
     if !submitted.mcp() { if let Some(reason) = draft.candidate.unrendered() { return Ok(Outcome::Unported(reason)); } }
     let prepared = response_builder(&tx, &ctx, &draft)?;
     tx.commit()?;
