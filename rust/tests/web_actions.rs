@@ -1,6 +1,42 @@
 //! Web action and authentication tests that require a Rails-prepared install.
 mod common;
 
+#[test]
+fn settings_metrics_panel_prices_holdings_and_uses_current_members_without_candles() {
+    use common::seed;
+    use deltabadger::figures::{at::At, scripted::Scripted};
+    use serde_json::json;
+    let (_dir, opened, seeded) = common::install_alpaca();
+    let c = &opened.primary;
+    let (stock, ticker) = seed::add_alpaca_stock(c, &seeded, "QQQM");
+    let id = seed::insert_bot(c, &seeded, &seed::BotSpec::weekly(50.0, "2026-09-09T12:00:00Z").weights(&[(stock, 1.0)]));
+    seed::insert_member(c, id, stock, ticker, 1.0, true, "2026-09-09T12:00:00Z", None);
+    seed::insert_stock_tx(c, &seeded, id, stock, "QQQM", &seed::TxSpec {
+        status: 0, external_status: Some(3), external_id: Some("metrics-fill".into()), order_type: 0,
+        amount: Some("2"), quote_amount: Some("200"), price: Some("100"), amount_exec: Some("2"), quote_amount_exec: Some("200"),
+        created_at: "2026-09-09T12:00:01Z".into(),
+    });
+    let market = Scripted::new(&json!({"GET data.alpaca.markets/v2/stocks/snapshots": {"status":200,"body":{"QQQM":{"latestTrade":{"p":125}}}}}), None);
+    let now = At::from_sql("2026-09-10T12:00:30Z").unwrap();
+    let render = || deltabadger::web::figure::metrics_panel(c, id, &market, now, "pl", "/pl").unwrap();
+    let member = render();
+    assert!(member.contains("250.00 <small>USD</small>"), "the holding is valued at the current 125 price, not its 100 fill");
+    assert!(member.contains("+25.0%"));
+    assert!(member.contains("id=\"assets_metrics_table\""));
+    assert!(member.contains(&format!("href=\"/pl/bots/{id}/liquidation/new?")));
+    assert!(!member.contains("loading-placeholder") && !member.contains("authenticity_token"));
+    // A committed composition change moves this holding to the exited table without changing its value.
+    let (other, other_ticker) = seed::add_alpaca_stock(c, &seeded, "NVDA");
+    seed::insert_member(c, id, other, other_ticker, 1.0, true, "2026-09-10T12:00:30Z", None);
+    c.execute("UPDATE bot_index_assets SET in_index=0 WHERE bot_id=?1 AND asset_id=?2", (id, stock)).unwrap();
+    let exited = render();
+    assert!(exited.contains("id=\"exited_metrics_table\""));
+    assert!(!exited.contains("id=\"assets_metrics_table\""));
+    assert!(exited.contains("250.00 <small>USD</small>"));
+    assert!(market.gaps.borrow().is_empty());
+    assert!(market.requests.borrow().iter().all(|request| request.contains("/v2/stocks/snapshots")), "the panel never requests candles");
+}
+
 /// The transport can be observed without installing any bot mutation handler.
 mod action_transport {
     use super::common;
@@ -589,6 +625,37 @@ mod action_write {
         assert_eq!(f.c.query_row("SELECT position FROM bots WHERE id=?1", [f.id], |r| r.get::<_,i64>(0))?, 17);
         Ok(())
     }
+    #[test]
+    fn smart_interval_hint_preserves_submitted_float_without_dirtying_equal_settings() -> Result {
+        use deltabadger::web::bot::{Bot, For, settings::Forms};
+        for (submitted, expected, changed) in [("50", "50.0", false), ("50.0", "50.0", false),
+                                               ("80", "80.0", true), ("37.25", "37.25", true), ("50.004", "50.0", true)] {
+            let f = Fixture::new()?;
+            f.stabilize()?;
+            f.c.execute("UPDATE bots SET settings=json_set(settings,'$.quote_amount',50,'$.smart_intervaled',json('true'),'$.smart_interval_quote_amount',5) WHERE id=?1", [f.id])?;
+            let before = f.snapshot()?;
+            let render = |bot: &Bot| Forms { ctx: &f.ctx, csrf: "token", bot, path: format!("/bots/{}", f.id),
+                hide_balances: false, time_zone: "UTC", check: None }.smart_intervals();
+            let bot = Bot::find(&f.c, f.seed.user_id, f.id, For::Page, "en").map_err(|e| format!("{e:?}"))?.unwrap();
+            let quote = bot.quote_symbol().unwrap();
+            assert!(render(&bot).contains(&format!("50 {quote}")), "an untouched Integer stays an Integer");
+            let outcome = write::settings(&f.c, &f.ctx, f.seed.user_id, f.id, &Fixture::params(json!({"quote_amount":submitted}))?,
+                |_, _, draft| Ok(Prepared { response: render(&draft.candidate), broadcasts: vec![], after_scheduling: None }))
+                .map_err(|e| format!("{e:?}"))?;
+            let response = match outcome {
+                Outcome::NoChange(body) if !changed => body,
+                Outcome::Committed(body) if changed => body,
+                _ => return Err(format!("unexpected save outcome for {submitted}").into()),
+            };
+            assert!(response.contains(&format!("{expected} {quote}")), "submitted {submitted}: {response}");
+            if !changed { assert_eq!(f.snapshot()?, before, "equal amounts preserve every stored column"); }
+            let reloaded = Bot::find(&f.c, f.seed.user_id, f.id, For::Page, "en").map_err(|e| format!("{e:?}"))?.unwrap();
+            let persisted = if changed { expected } else { "50" };
+            assert!(render(&reloaded).contains(&format!("{persisted} {quote}")), "a later request reads the persisted numeric type");
+        }
+        Ok(())
+    }
+
     #[test]
     fn action_write_rename_blank_identical_preserve_window() -> Result {
         let f = Fixture::new()?; f.stabilize()?;

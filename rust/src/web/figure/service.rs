@@ -15,14 +15,15 @@ pub struct Service(Arc<Mutex<State>>,Arc<Notify>,Arc<Workers>);
 /// What the figures' CPU work runs on: one permit for all of it (a fill's decoding and merging, its computations, the
 /// queue's render-only passes), held by the worker until its closure returns; the builder's own connection, never the
 /// one pages use; how long a fill may run.
-struct Workers { compute:Arc<tokio::sync::Semaphore>, builder:Mutex<Builder>, timeout:Mutex<std::time::Duration> }
+/// `panels`: settings metrics panels still being computed off their save (`loading::broadcast_metrics_panel`).
+struct Workers { compute:Arc<tokio::sync::Semaphore>, builder:Mutex<Builder>, timeout:Mutex<std::time::Duration>, panels:std::sync::atomic::AtomicUsize }
 type BuilderHook=Box<dyn FnOnce(&rusqlite::Connection)+Send>;
 #[derive(Default)]
 struct Builder { connection:Option<rusqlite::Connection>, path:Option<String>, hooks:Vec<BuilderHook>, logged:Vec<String> }
 /// Readers never block a writer or each other only in WAL, which Rails sets and this build leaves alone (`store::configure`).
 const NOT_WAL:&str="figures: database not in WAL; page latency during background work is not guaranteed";
 impl Default for Workers {
-    fn default()->Self { Workers{ compute:Arc::new(tokio::sync::Semaphore::new(1)), builder:Mutex::default(), timeout:Mutex::new(std::time::Duration::from_secs(90)) } }
+    fn default()->Self { Workers{ compute:Arc::new(tokio::sync::Semaphore::new(1)), builder:Mutex::default(), timeout:Mutex::new(std::time::Duration::from_secs(90)), panels:Default::default() } }
 }
 #[derive(Default)]
 struct State { active:usize, active_users:BTreeSet<i64>, serial:u64, entries:BTreeMap<i64,Entry>, wanted:BTreeMap<i64,u8>, marked:BTreeSet<i64>, owners:BTreeSet<i64>, latest:BTreeMap<i64,Latest>,
@@ -50,6 +51,8 @@ pub type Saved=(Cache,i64,u64);
 /// allowance left.
 /// `Ready`: the cache, when its fill began, and until when its figures may be shown (`Entry::until`).
 pub enum Load { Cold, Failed(Option<&'static str>), Busy, Ready(Cache,i64,i64), Start(Ticket,Cache) }
+pub(crate) struct PanelPending(Service);
+impl Drop for PanelPending { fn drop(&mut self) { self.0.2.panels.fetch_sub(1,std::sync::atomic::Ordering::SeqCst); } }
 pub struct Ticket { service:Service,user:i64,serial:u64,finished:bool }
 /// Figures work for one account: publish them, and the (locale, path prefix) keys to render. Due from `not_before`.
 #[derive(Clone,Debug,Default,PartialEq,Eq)]
@@ -88,6 +91,10 @@ impl Service {
     /// How long a fill may run before its waiter stops (a started worker still finishes, holding its permit).
     pub fn fill_timeout(&self)->std::time::Duration { *self.2.timeout.lock().unwrap_or_else(std::sync::PoisonError::into_inner) }
     pub fn set_fill_timeout(&self,timeout:std::time::Duration) { *self.2.timeout.lock().unwrap_or_else(std::sync::PoisonError::into_inner)=timeout; }
+    /// A settings metrics panel begins: counted until the guard drops (its publication, or giving up).
+    pub(crate) fn panel_started(&self)->PanelPending { self.2.panels.fetch_add(1,std::sync::atomic::Ordering::SeqCst); PanelPending(self.clone()) }
+    /// For tests: settings metrics panels not yet published or given up.
+    pub fn panels_pending(&self)->usize { self.2.panels.load(std::sync::atomic::Ordering::SeqCst) }
     /// For tests: run on the builder's connection when it opens (at once if it is open).
     pub fn on_builder(&self,hook:impl FnOnce(&rusqlite::Connection)+Send+'static) {
         let mut builder=self.2.builder.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
