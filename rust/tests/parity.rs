@@ -2139,3 +2139,35 @@ async fn rails_and_rust_decide_identically_across_the_coinbase_grid(){
         }},
     ]).await;
 }
+
+// D-BINGX-AMBIG / D-BINGX-NUM / D9, validated against the Rails grid.
+const BINGX_DIVERGENCES: [&str; 6] = ["add_server_error", "add_service_unavailable", "add_timeout_after_send", "add_unreadable", "throttled", "timestamp_700003"];
+#[tokio::test(flavor = "current_thread")]
+async fn rails_and_rust_decide_identically_across_the_bingx_grid() {
+    use common::venue_grid::{ending, run_venue_grid, Validator};
+    let unreadable = |n: &str| n.contains(UNREADABLE);
+    let wrapped = |id: &'static str, sentence: &'static str| move |_: &str, _: &Path, r: &serde_json::Value, u: &serde_json::Value| {
+        wrapped_like_rails(&format!(r#"Failed to fetch orders BTC-USDT-{id}. Result: [\"{sentence}\"]"#), sentence, r, u)
+    };
+    run_venue_grid("grid-bingx", 196 + 4 * 2, &[
+        Validator { names: &ending(&["read_throttle"]), check: &|_, _, r, u| throttle_waits(r, u) },
+        Validator { names: &unreadable, check: &|n, d, r, u| unreadable_number_refused(n, d, r, u, false) },
+        Validator { names: &ending(&["landed_found"]), check: &|_, _, r, u| {
+            let rewritten: serde_json::Value = serde_json::from_str(&u.to_string().replace("BTC-USDT-601", "7612345679")).unwrap();
+            landed_found(r, &rewritten)
+        } },
+        Validator { names: &ending(&["landed_missing"]), check: &|_, d, r, u| landed_missing(d, r, u) },
+        Validator { names: &ending(&BINGX_DIVERGENCES), check: &bingx_ambiguous },
+        Validator { names: &ending(&["add_no_order_id"]), check: &bingx_ambiguous },
+        Validator { names: &ending(&["add_network_pre_send"]), check: &|_, _, r, u| refused_like_rails(r, u) },
+        Validator { names: &ending(&["sweep_unknown_type"]), check: &wrapped("208", "Unknown BingX order type: STOP_LOSS") },
+        Validator { names: &ending(&["sweep_unknown_status"]), check: &wrapped("209", "Unknown BingX order status: UNLISTED") },
+    ]).await;
+}
+
+fn bingx_ambiguous(name: &str, dir: &Path, rails: &serde_json::Value, rust: &serde_json::Value) -> Result<(), String> {
+    // Reuse the query-family bookkeeping validator; normalize only the pair spelling it pins.
+    let normalize = |v: &serde_json::Value| serde_json::from_str(&v.to_string().replace("BTC-USDT", "BTCUSDT")).unwrap();
+    let name = name.replace("timestamp_700003", "add_service_unavailable");
+    bitrue_ambiguous(&name,dir,&normalize(rails),&normalize(rust))
+}

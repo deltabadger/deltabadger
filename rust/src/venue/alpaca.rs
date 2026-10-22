@@ -551,6 +551,7 @@ impl VenueFactory for LiveFactory {
                     super::mexc::MEXC => ReqwestTransport::mexc(client, key, secret.clone()),
                     super::hyperliquid::HYPERLIQUID => ReqwestTransport::hyperliquid(client, key, secret.clone()),
                     super::bybit::BYBIT => ReqwestTransport::bybit(client, key, secret.clone()),
+                    super::bingx::BINGX => ReqwestTransport::bingx(client, key, secret.clone()),
                     super::bitrue::BITRUE => ReqwestTransport::bitrue(client, key, secret.clone()),
                     super::coinbase::COINBASE => ReqwestTransport::coinbase(client, key, secret.clone()),
                     _ => ReqwestTransport::binance(client, key, secret.clone()),
@@ -606,6 +607,10 @@ impl VenueFactory for LiveFactory {
                 let venue = super::coinbase::CoinbaseVenue::new(transport, row.base).with_pairs(pairs);
                 LiveVenue::Coinbase(match &identity { Some(c) => venue.with_identity(c), None => venue })
             }
+            super::bingx::BINGX => {
+                let venue = super::bingx::BingxVenue::new(transport, row.base, &secret).with_pairs(pairs);
+                LiveVenue::Bingx(match &identity { Some(c) => venue.with_identity(c), None => venue })
+            }
             _ => unconnected(),
         }
     }
@@ -645,7 +650,7 @@ fn bot_problem(c: &Connection, cipher: &Cipher, id: i64) -> Result<Option<String
     let bot = model::load_bot(c, id)?;
     let exchange = model::exchange_type(c, &bot)?;
     let Some(rules) = crate::engine::venue_rules::for_exchange(&exchange) else {
-        return Ok(Some(format!("{exchange} is not connected in this build (only Kraken, Binance, Binance.US, KuCoin, Bitvavo, Gemini, Bitget, MEXC, Hyperliquid, Alpaca, Bybit, Bitrue and Coinbase)")));
+        return Ok(Some(format!("{exchange} is not connected in this build (only Kraken, Binance, Binance.US, KuCoin, Bitvavo, Gemini, Bitget, MEXC, Hyperliquid, Alpaca, Bybit, Bitrue, Coinbase and BingX)")));
     };
     Ok(match model::credentials_for(c, cipher, &bot)? {
         None => Some(format!("no {} API key", rules.name)),

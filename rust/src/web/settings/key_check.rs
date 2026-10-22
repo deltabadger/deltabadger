@@ -722,6 +722,10 @@ pub async fn check(venue: &str, base: &str, client: reqwest::Client, credentials
         let transport = ReqwestTransport::bitrue(client, credentials.key.clone(), credentials.secret.clone()).with_sensitive_values(redaction);
         let venue = crate::venue::bitrue::BitrueVenue::new(transport.clone(), base, &credentials.secret);
         bitrue_check(&transport, &venue, kind, kind == 2).await
+    } else if scheme == Some(KeyCheck::Bingx) {
+        let transport = ReqwestTransport::bingx(client, credentials.key.clone(), credentials.secret.clone()).with_sensitive_values(redaction);
+        let venue = crate::venue::bingx::BingxVenue::new(transport.clone(), base, &credentials.secret);
+        bingx_check(&transport, &venue, kind, kind == 2).await
     } else {
         let transport = ReqwestTransport::binance(client, credentials.key.clone(), credentials.secret.clone()).with_sensitive_values(redaction);
         let venue = crate::venue::binance::BinanceVenue::new(transport.clone(), base, &credentials.secret);
@@ -839,4 +843,36 @@ pub async fn coinbase_check<T:Transport>(transport:&T,base:&str,kind:i64,pause:s
         let parsed=answer.as_ref().ok().and_then(|r|serde_json::from_str::<Value>(&r.body).ok());
         if parsed.as_ref().is_some_and(|p|p["breakdown"]["spot_positions"].is_array()){Verdict::Valid(true)}else{Verdict::Failure("Coinbase sent an unreadable answer to the key check".into())}
     });(answer,verdict)
+}
+/// BingX probes order 0 for trading and reads balances for withdrawal/read-only keys.
+pub async fn bingx_check<T: Transport>(transport: &T, venue: &crate::venue::bingx::BingxVenue<T>, kind: i64, reading: bool) -> (Result<HttpResponse, TransportError>, Verdict) {
+    use crate::venue::bingx::{ACCOUNT_PATH, CANCEL_PATH};
+    let (method,path,q) = if reading || kind == 1 { ("GET",ACCOUNT_PATH,vec![]) }
+        else { ("POST",CANCEL_PATH,vec![("symbol","BTC-USDT".into()),("orderId","0".into())]) };
+    let request = venue.signed(method,path,q,transport.now());
+    let answer = transport.send(&request).await;
+    let result = bitget_result(&answer,method,request.url().as_str());
+    let value = match &result { Ok(v) => v.clone(), Err(e) => serde_json::from_str::<Value>(e).ok() };
+    let code = value.as_ref().and_then(crate::venue::bingx::code);
+    let msg = value.as_ref().and_then(|v| v["msg"].as_str()).unwrap_or_default();
+    let invalid = |m: &str| crate::engine::venue_rules::BINGX.is_invalid_key(&[m.into()]);
+    let verdict = if reading {
+        let failure = match &result {
+            Err(e) => crate::venue::binance::error_message(e),
+            Ok(Some(v)) if code.unwrap_or(0) == 0 => {
+                if v["data"]["balances"].is_array() { return (answer,Verdict::Valid(true)); }
+                return (answer,Verdict::Failure("BingX sent balances it cannot read".into()));
+            }
+            Ok(Some(_)) => msg.into(),
+            _ => return (answer,Verdict::Failure("BingX sent an unreadable answer".into())),
+        };
+        if invalid(&failure) { Verdict::Valid(false) } else { Verdict::Failure(failure) }
+    } else if code == Some(0) || (kind != 1 && code == Some(100404) && msg.to_lowercase().contains("order")) {
+        Verdict::Valid(true)
+    } else if matches!(code,Some(100413 | 100004)) || invalid(msg) { Verdict::Valid(false) }
+    else { match result {
+        Err(e) => Verdict::Failure(e),
+        Ok(_) => Verdict::Failure(if msg.is_empty() { format!("BingX answered code {}",inspect(value.as_ref().and_then(|v| v.get("code")))) } else { msg.into() }),
+    }};
+    (answer, verdict)
 }
