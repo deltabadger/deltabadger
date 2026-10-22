@@ -214,6 +214,12 @@ impl<T: Transport> continuation::Walk for Walk<'_, T> {
                             "ranges": self.ranges.iter().map(|(a, b)| serde_json::json!([a, b])).collect::<Vec<_>>(), "page": self.page, "pin": self.pin })
     }
     fn page_rows(&self) -> usize { PAGE_ROWS }
+    /// The file's takeover for every source the walk has finished (plan KI §5): those before the one its cursor reads.
+    const CHECKPOINT: continuation::Checkpoint = |c, key, cursor, now| {
+        let at = cursor["source"].as_str().and_then(Source::named).unwrap_or(Source::Fills);
+        let finished: Vec<&str> = [Source::Fills, Source::Deposits, Source::Withdrawals].into_iter().take_while(|s| *s != at).map(Source::name).collect();
+        crate::tracker::import::kucoin::take_over(c, key, &finished, now)
+    };
     /// Every try at the transport's whole budget, and the throttle waits between them.
     fn request_reserve(&self) -> std::time::Duration { crate::venue::http::TOTAL_TIMEOUT * (1 + THROTTLE_RETRIES as u32) + self.wait * THROTTLE_RETRIES as u32 }
     async fn step(&mut self) -> Result<Vec<Entry>, Fail> {

@@ -761,9 +761,21 @@ fn same_events(c: &Connection, key: &Key, e: &Entry, entry_type: i64, scope: &st
     let second = Duration::seconds(1);
     let (Some(from), Some(to)) = (at.checked_sub_signed(second), at.checked_add_signed(second)) else { return Err(SyncError("a time at the end of the calendar".into())) };
     let other = if present(&e.tx_id).is_some() { "tx_id IS NULL" } else { "tx_id IS NOT NULL" };
+    let scope = format!("{scope} {}", kucoin_source_scope(key, e));
     stored_rows(c, &format!("{BY_TIME} WHERE user_id = ?1 AND exchange_id = ?2 {scope} AND entry_type = ?3 AND base_currency IS ?4 AND base_amount = ?5 \
                              AND transacted_at >= ?6 AND transacted_at <= ?7 AND ({other} OR (transacted_at > ?6 AND transacted_at < ?7)) ORDER BY id"),
                 params![key.user_id, key.exchange_id, entry_type, e.base_currency, amount_sql(&key.exchange_type, &e.base_amount), sql_time(from), sql_time(to)])
+}
+
+/// KuCoin's file and its API never meet in the duplicate rules (plan KI §5): a `kucoin_csv` entry is compared with no
+/// API row, nor an API row with any `kucoin_csv` entry. Where they overlap, the API's completed source takes the file's
+/// entries over instead (tracker::import::kucoin::take_over). Every other pairing is unchanged.
+fn kucoin_source_scope(key: &Key, e: &Entry) -> String {
+    use crate::tracker::import::kucoin::{API_ROW, FILE_ROW};
+    if key.exchange_type != crate::venue::kucoin::KUCOIN { return String::new(); }
+    if e.raw.value["source"] == "kucoin_csv" { return format!("AND NOT ({API_ROW})"); }
+    if e.raw.value.get("createdAt").is_some() { return format!("AND NOT ({FILE_ROW})"); }
+    String::new()
 }
 
 /// #same_event?: more rows of #same_events than identical entries before this one in the run, less the rows this run

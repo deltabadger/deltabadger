@@ -329,9 +329,12 @@ pub(crate) fn store(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, 
     }
     if touched.is_empty() { return Ok(out); }
     let catalogue = Catalogue::load(c, key.exchange_id)?;
+    let cutoffs = cutoffs(c, key)?;
     for at in touched {
         let held = held_rows(c, key, at)?;
-        let derived = derive(&held, &catalogue);
+        // What the API took over (at or after its class's cutoff) is the API's: its rows stay stored, nothing is derived.
+        let derived: Vec<Derived> = derive(&held, &catalogue).into_iter()
+            .filter(|d| d.entry.raw.value["class"].as_str().and_then(|class| cutoffs.get(class)).is_none_or(|cut| at < *cut)).collect();
         let mut s = c.prepare_cached("SELECT id, tx_id, entry_type, group_id FROM account_transactions
                                       WHERE user_id = ?1 AND exchange_id = ?2 AND transacted_at = ?3 AND tx_id LIKE 'kucoin-csv-%'")?;
         type Held = (i64, Option<String>, i64, Option<String>);
@@ -353,6 +356,56 @@ pub(crate) fn store(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, 
         }
     }
     Ok(out)
+}
+
+/// The classes the API's three sources prove (plan KI §5); `other` never is.
+pub const API_CLASSES: [&str; 3] = ["fills", "deposits", "withdrawals"];
+/// A row the KuCoin API sync wrote: every fill and transfer it reads carries KuCoin's `createdAt` (sync::kucoin_ledger
+/// refuses one without it); a file's rows, ours or the generic import's, never do.
+pub(crate) const API_ROW: &str = "json_extract(raw_data, '$.createdAt') IS NOT NULL";
+/// A row this importer derived.
+pub(crate) const FILE_ROW: &str = "COALESCE(json_extract(raw_data, '$.source'), '') = 'kucoin_csv'";
+
+fn cutoff_key(key: &Key) -> String { format!("rust_kucoin_csv.cutoff:{}:{}", key.user_id, key.exchange_id) }
+
+/// The current cutoff of each class the API has taken over for (user, exchange): the UTC second of its earliest stored
+/// API row at the last completion of its source. Plain JSON in `app_configs`; Rails never reads it.
+pub(crate) fn cutoffs(c: &rusqlite::Connection, key: &Key) -> Result<HashMap<String, DateTime<Utc>>, SyncError> {
+    let raw = crate::app_config::get_plain(c, &cutoff_key(key)).map_err(SyncError)?;
+    let v: serde_json::Value = raw.and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_default();
+    Ok(API_CLASSES.iter().filter_map(|class| Some((class.to_string(), crate::codec::parse_time(v[*class].as_str()?).ok()?))).collect())
+}
+
+/// The API's takeover (plan KI §5), in the transaction that commits the completion of `classes`' sources, after their
+/// rows' duplicate checks: each class's cutoff is the UTC second of its earliest API row stored for (user, exchange),
+/// and every `kucoin_csv` entry of that class at or after it is deleted, its incoming links cleared as Rails'
+/// `dependent: :nullify` clears them. The source rows stay stored; later imports derive nothing of that class from the
+/// cutoff on (`store`). A class with no API row has no cutoff: nothing proves its coverage.
+pub(crate) fn take_over(c: &rusqlite::Connection, key: &Key, classes: &[&str], now: DateTime<Utc>) -> Result<(), SyncError> {
+    if classes.is_empty() { return Ok(()); }
+    let mut cut = cutoffs(c, key)?;
+    let before = cut.clone();
+    for class in classes {
+        let types = match *class { "fills" => format!("{BUY}, {SELL}"), "deposits" => DEPOSIT.to_string(), "withdrawals" => WITHDRAWAL.to_string(), _ => continue };
+        let earliest: Option<String> = c.query_row(&format!("SELECT MIN(transacted_at) FROM account_transactions WHERE user_id = ?1 AND exchange_id = ?2 \
+                                                             AND entry_type IN ({types}) AND {API_ROW}"), params![key.user_id, key.exchange_id], |r| r.get(0))?;
+        let Some(earliest) = earliest else { continue };
+        let at = crate::codec::parse_time(&earliest).map_err(|e| SyncError(format!("account_transactions.transacted_at {earliest}: {e:?}")))?;
+        let at = at.with_nanosecond(0).unwrap_or(at);
+        let mut s = c.prepare_cached(&format!("SELECT id FROM account_transactions WHERE user_id = ?1 AND exchange_id = ?2 AND tx_id LIKE 'kucoin-csv-%' \
+                                               AND {FILE_ROW} AND json_extract(raw_data, '$.class') = ?3 AND transacted_at >= ?4"))?;
+        let gone: Vec<i64> = s.query_map(params![key.user_id, key.exchange_id, class, sql_time(at)], |r| r.get(0))?.collect::<Result<_, _>>()?;
+        for id in gone {
+            c.execute("UPDATE account_transactions SET linked_transaction_id = NULL WHERE linked_transaction_id = ?1", [id])?;
+            c.execute("DELETE FROM account_transactions WHERE id = ?1", [id])?;
+        }
+        cut.insert(class.to_string(), at);
+    }
+    if cut != before {
+        let v: serde_json::Map<String, serde_json::Value> = cut.iter().map(|(k, t)| (k.clone(), json!(sql_time(*t)))).collect();
+        crate::app_config::set_plain(c, &cutoff_key(key), &serde_json::Value::Object(v).to_string(), now).map_err(SyncError)?;
+    }
+    Ok(())
 }
 
 /// Every stored row of (user, exchange) at one UTC second.

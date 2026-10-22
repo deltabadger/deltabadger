@@ -1,4 +1,4 @@
-//! KuCoin's account-history import (plan KI, slice KI1): rows stored by their own id, ledger entries derived one UTC
+//! KuCoin's account-history import (plan KI, slices KI1 and KI2): rows stored by their own id, ledger entries derived one UTC
 //! second at a time, identity recorded only. Fixtures are KuCoin's own exports, numbers as exported, the UID a constant.
 mod common;
 use chrono::{DateTime, Utc};
@@ -69,7 +69,7 @@ impl Fx {
     }
     /// The user's ledger as (type, currency, amount, quote, quote amount, fee currency, fee, time, tx_id), by tx_id.
     fn ledger_of(&self, user: i64) -> Vec<LedgerRow> {
-        let mut s = self.c.prepare("SELECT entry_type, base_currency, base_amount, quote_currency, quote_amount, fee_currency, fee_amount, transacted_at, tx_id
+        let mut s = self.c.prepare("SELECT entry_type, base_currency, base_amount, quote_currency, quote_amount, fee_currency, fee_amount, transacted_at, COALESCE(tx_id, '')
                                     FROM account_transactions WHERE user_id = ?1 ORDER BY tx_id").unwrap();
         s.query_map([user], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?, r.get(7)?, r.get(8)?))).unwrap().collect::<Result<_, _>>().unwrap()
     }
@@ -325,4 +325,193 @@ fn the_backfill_holds_the_files_balances_with_no_spike() {
             assert!(q.to_f() >= -1e-12 && q.to_f() <= ceiling, "{coin} after {n} rows: {}", q.to_f());
         }
     }
+}
+
+// ---- Takeover (KI2) ------------------------------------------------------------------------------------------------
+
+use deltabadger::sync::continuation::{Run, Stopwatch};
+use deltabadger::venue::http::{HttpRequest, HttpResponse, Transport, TransportError};
+use serde_json::{json, Value};
+use std::rc::Rc;
+
+/// The sync's clock, and the key's watermark: the sync reads from 25 hours before it.
+const SYNC_NOW: &str = "2026-09-20T02:00:00Z";
+const WATERMARK: &str = "2026-09-15T00:00:00Z";
+fn ms(utc: &str) -> i64 { utc.parse::<DateTime<Utc>>().unwrap().timestamp_millis() }
+
+/// KuCoin's three sources as the walk reads them, `per_page` rows a page (transfers newest first, within the bounds asked).
+#[derive(Clone)]
+struct Api { fills: Rc<Vec<Value>>, deposits: Rc<Vec<Value>>, withdrawals: Rc<Vec<Value>>, per_page: usize }
+impl Transport for Api {
+    async fn send(&self, r: &HttpRequest) -> Result<HttpResponse, TransportError> {
+        use deltabadger::sync::kucoin_ledger::{DEPOSITS_PATH, FILLS_PATH, WITHDRAWALS_PATH};
+        let q = |k: &str| r.query.iter().find(|(name, _)| *name == k).map(|(_, v)| v.parse::<i64>().unwrap());
+        let at = |v: &Value| v["createdAt"].as_i64().unwrap();
+        let mut rows: Vec<&Value> = match r.path.as_str() { FILLS_PATH => self.fills.iter().collect(), DEPOSITS_PATH => self.deposits.iter().collect(),
+                                                            WITHDRAWALS_PATH => self.withdrawals.iter().collect(), other => panic!("unscripted {other}") };
+        rows.retain(|v| q("startAt").is_none_or(|s| at(v) >= s) && q("endAt").is_none_or(|e| at(v) < e));
+        rows.sort_by_key(|v| std::cmp::Reverse(at(v)));
+        let page = q("currentPage").unwrap() as usize;
+        let items: Vec<&Value> = rows.iter().skip((page - 1) * self.per_page).take(self.per_page).copied().collect();
+        let body = json!({ "code": "200000", "data": { "currentPage": page, "pageSize": 500, "totalNum": rows.len(), "totalPage": rows.len().div_ceil(self.per_page), "items": items } });
+        Ok(HttpResponse { status: 200, body: body.to_string() })
+    }
+}
+
+/// A run with room for every page (`paused` false), or for its first page only (a run the deadline stops after one).
+struct Pace { paused: bool }
+impl Stopwatch for Pace { fn elapsed(&self) -> std::time::Duration { std::time::Duration::from_secs(if self.paused { 1_000_000 } else { 0 }) } }
+
+fn fill(id: &str, size: &str, funds: &str, fee: &str, utc: &str) -> Value {
+    json!({ "symbol": "BTC-USDT", "tradeId": id, "orderId": id, "side": "buy", "price": "1", "size": size, "funds": funds, "fee": fee, "feeCurrency": "USDT", "createdAt": ms(utc) })
+}
+/// A transfer; a blank `id` is one KuCoin names by neither id nor hash (stored without a tx_id).
+fn transfer(id: &str, amount: &str, fee: &str, utc: &str) -> Value {
+    let mut v = json!({ "currency": "USDT", "amount": amount, "fee": fee, "status": "SUCCESS", "isInner": false, "createdAt": ms(utc) });
+    if !id.is_empty() { v["id"] = json!(id); }
+    v
+}
+
+impl Fx {
+    /// The user's KuCoin key with a watermark it produced (an incremental sync from WATERMARK less the overlap).
+    fn watermark(&self, utc: &str) {
+        let key = key_id(self);
+        self.c.execute("UPDATE api_keys SET last_synced_at = ?1 WHERE id = ?2", rusqlite::params![deltabadger::sync::sql_time(utc.parse().unwrap()), key]).unwrap();
+        let producer = deltabadger::engine::model::credential_version_by_id(&self.c, key).unwrap().unwrap();
+        let tx = self.c.unchecked_transaction().unwrap();
+        deltabadger::sync::cache::record_ledger(&deltabadger::engine::model::check_credential_result(&tx, &Some(producer.clone())).unwrap(), key, &producer,
+                                                SYNC_NOW.parse().unwrap()).unwrap();
+        tx.commit().unwrap();
+    }
+    /// One run of the key's ledger sync; whether it completed.
+    async fn sync(&self, api: &Api, paused: bool) -> bool {
+        let c = Connection::open(self._dir.path().join("production.sqlite3")).unwrap();
+        deltabadger::store::configure(&c).unwrap();
+        let db = deltabadger::jobs::Db::new(c, common::seed::cipher());
+        let key = key_id(self);
+        let credentials = deltabadger::sync::validation_material(&self.c, &self.cipher, key).unwrap().0;
+        let pace = Pace { paused };
+        let run = Run { deadline: std::time::Duration::from_secs(3600), chain_runs: usize::MAX, stopwatch: &pace };
+        let clock = deltabadger::engine::FixedClock(SYNC_NOW.parse().unwrap());
+        let out = deltabadger::sync::kucoin_ledger::sync_within(&db, api.clone(), key, &credentials, &clock, std::time::Duration::ZERO, &run).await.unwrap().unwrap();
+        db.settled().await;
+        out.complete
+    }
+    /// The file's entries still held, as (class, time).
+    fn file_entries(&self) -> Vec<(String, String)> {
+        let mut s = self.c.prepare("SELECT json_extract(raw_data, '$.class'), transacted_at FROM account_transactions WHERE user_id = ?1 AND tx_id LIKE 'kucoin-csv-%' \
+                                    ORDER BY 2, 1").unwrap();
+        s.query_map([self.user], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().collect::<Result<_, _>>().unwrap()
+    }
+    fn file_classes_at(&self, utc_second: &str) -> Vec<String> {
+        self.file_entries().into_iter().filter(|(_, at)| at == utc_second).map(|(class, _)| class).collect()
+    }
+}
+
+/// Day A (2026-09-10, before any API row) and day B (2026-09-16, which the API also returns): a deposit, a buy with a
+/// KCS fee leg and an unpaired leg, a withdrawal, and (day B) staking income. Times are UTC+03:00.
+fn overlapping_export() -> String {
+    export(UID, &["USDT,Deposit,100,0,2026-09-10 13:00:00,Deposit", "BTC,Deposit,0.001,0,2026-09-10 13:00:01,Spot", "USDT,Withdrawal,60.06,0.06,2026-09-10 13:00:01,Spot",
+                  "USDT,Withdrawal,5,1,2026-09-10 13:00:02,Withdrawal",
+                  "USDT,Deposit,50,0,2026-09-16 13:00:00,Deposit", "BTC,Deposit,0.001,0,2026-09-16 13:00:01,Spot", "USDT,Withdrawal,70.07,0.07,2026-09-16 13:00:01,Spot",
+                  "KCS,Withdrawal,0.1,0,2026-09-16 13:00:01,Spot", "XYZ,Deposit,3,0,2026-09-16 13:00:01,Spot",
+                  "USDT,Withdrawal,5,1,2026-09-16 13:00:02,Withdrawal", "USDT,Deposit,2,0,2026-09-16 13:00:03,Staking Profits"])
+}
+
+/// The API from 2026-09-14: one row of each source before day B, and day B's buy, deposit (named by neither id nor
+/// hash, so stored without a tx_id) and withdrawal.
+fn overlapping_api(per_page: usize) -> Api {
+    Api { fills: Rc::new(vec![fill("f1", "0.002", "130", "0.1", "2026-09-14T12:00:00Z"), fill("f2", "0.001", "70", "0.07", "2026-09-16T10:00:01Z")]),
+          deposits: Rc::new(vec![transfer("d1", "10", "0", "2026-09-14T12:00:00Z"), transfer("", "50", "0", "2026-09-16T10:00:00Z")]),
+          withdrawals: Rc::new(vec![transfer("w1", "3", "0", "2026-09-14T12:00:00Z"), transfer("w2", "5", "1", "2026-09-16T10:00:02Z")]), per_page }
+}
+
+const DAY_A: [(&str, &str); 3] = [("deposits", "2026-09-10 10:00:00"), ("fills", "2026-09-10 10:00:01"), ("withdrawals", "2026-09-10 10:00:02")];
+
+/// What both orders must hold: day A's file entries, day B's staking income only from the file, every API row, and
+/// every source row still stored.
+fn assert_taken_over(fx: &Fx) {
+    let kept: Vec<(String, String)> = DAY_A.iter().map(|(c, t)| (c.to_string(), t.to_string())).chain([("other".to_string(), "2026-09-16 10:00:03".to_string())]).collect();
+    assert_eq!(fx.file_entries(), kept);
+    assert_eq!(fx.count("SELECT count(*) FROM account_transactions WHERE json_extract(raw_data, '$.createdAt') IS NOT NULL"), 6, "every API row");
+    assert_eq!(fx.count("SELECT count(*) FROM account_transactions"), 10);
+    assert_eq!(fx.count("SELECT count(*) FROM account_transactions WHERE entry_type = 4 AND transacted_at LIKE '2026-09-16%'"), 1, "day B's deposit once, the API's");
+    assert_eq!(fx.count("SELECT count(*) FROM import_rows"), 11, "source rows stay stored");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn import_then_completed_sync_and_completed_sync_then_import_give_one_ledger() {
+    let first = Fx::new();
+    first.watermark(WATERMARK);
+    first.import(&overlapping_export());
+    assert_eq!(first.file_entries().len(), 9, "day A's three, day B's deposit, buy, fee, adjustment, withdrawal and income");
+    // A link into day B's file deposit, cleared when it is taken over.
+    first.c.execute("UPDATE account_transactions SET linked_transaction_id = (SELECT id FROM account_transactions WHERE tx_id LIKE 'kucoin-csv-%' AND entry_type = 4 \
+                     AND transacted_at = '2026-09-16 10:00:00') WHERE tx_id LIKE 'kucoin-csv-%' AND entry_type = 5 AND transacted_at = '2026-09-10 10:00:02'", []).unwrap();
+    assert!(first.sync(&overlapping_api(500), false).await);
+    assert_taken_over(&first);
+    assert_eq!(first.count("SELECT count(*) FROM account_transactions WHERE linked_transaction_id IS NOT NULL AND linked_transaction_id NOT IN (SELECT id FROM account_transactions)"), 0);
+    assert_eq!(first.count("SELECT count(*) FROM account_transactions WHERE entry_type = 5 AND transacted_at = '2026-09-10 10:00:02' AND linked_transaction_id IS NULL"), 1);
+
+    let second = Fx::new();
+    second.watermark(WATERMARK);
+    assert!(second.sync(&overlapping_api(500), false).await);
+    let (imported, _) = second.imported(&overlapping_export());
+    assert_eq!(imported, 4, "day A's three and the income: what the API covers is not derived");
+    assert_taken_over(&second);
+    assert_eq!(first.ledger(), second.ledger());
+    // The same file again, and a second at the cutoff, add nothing.
+    assert_eq!(second.imported(&overlapping_export()).0, 0);
+    assert_eq!(second.imported(&export(UID, &["USDT,Deposit,9,0,2026-09-14 15:00:00,Deposit"])).0, 0, "at the deposits' cutoff second");
+    assert_eq!(second.imported(&export(UID, &["USDT,Deposit,9,0,2026-09-14 14:59:59,Deposit"])).0, 1, "a second before it");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_paused_sync_takes_over_only_the_sources_it_has_finished() {
+    let fx = Fx::new();
+    fx.watermark(WATERMARK);
+    fx.import(&overlapping_export());
+    let day_b = |s: &str| fx.file_classes_at(&format!("2026-09-16 {s}"));
+    let api = overlapping_api(1);
+    // Fills, page 1 of 2: nothing finished.
+    assert!(!fx.sync(&api, true).await);
+    assert_eq!((day_b("10:00:00"), day_b("10:00:01").len(), day_b("10:00:02")), (vec!["deposits".to_string()], 3, vec!["withdrawals".to_string()]));
+    // Fills, page 2: the fills finished, their buy, fee and adjustment taken over.
+    assert!(!fx.sync(&api, true).await);
+    assert!(day_b("10:00:01").is_empty());
+    assert_eq!(day_b("10:00:00"), ["deposits"]);
+    // Deposits, page 1 of 2: not finished.
+    assert!(!fx.sync(&api, true).await);
+    assert_eq!(day_b("10:00:00"), ["deposits"]);
+    // Deposits, page 2: finished; paused between deposits and withdrawals, the withdrawal stays the file's.
+    assert!(!fx.sync(&api, true).await);
+    assert!(day_b("10:00:00").is_empty());
+    assert_eq!(day_b("10:00:02"), ["withdrawals"]);
+    assert!(!fx.sync(&api, true).await);
+    assert_eq!(day_b("10:00:02"), ["withdrawals"]);
+    // The last withdrawals page completes the import.
+    assert!(fx.sync(&api, true).await);
+    assert_taken_over(&fx);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_rescan_moves_the_cutoff_earlier_and_a_rejected_api_row_moves_none() {
+    let fx = Fx::new();
+    fx.import(&export(UID, &["USDT,Deposit,50,0,2026-09-16 13:00:00,Deposit"]));
+    // An id-less deposit already held (another file) within a second of d1: the API's d1 is its duplicate, never stored.
+    fx.c.execute("INSERT INTO account_transactions (user_id, exchange_id, entry_type, base_currency, base_amount, transacted_at, raw_data, manual_values, \
+                  transfer_link_rejected, created_at, updated_at) VALUES (?1, ?2, 4, 'USDT', 10, '2026-09-14 12:00:00.5', '{}', '{}', 0, '2026-01-01', '2026-01-01')",
+                 [fx.user, fx.exchange]).unwrap();
+    let api = Api { fills: Rc::new(vec![]), deposits: Rc::new(vec![transfer("d1", "10", "0", "2026-09-14T12:00:00Z"), transfer("d3", "1", "0", "2026-09-17T12:00:00Z")]),
+                    withdrawals: Rc::new(vec![]), per_page: 500 };
+    fx.watermark(WATERMARK);
+    assert!(fx.sync(&api, false).await);
+    assert_eq!(fx.count("SELECT count(*) FROM account_transactions WHERE tx_id = 'd1'"), 0, "rejected as the held row's duplicate");
+    assert_eq!(fx.file_classes_at("2026-09-16 10:00:00"), ["deposits"], "the cutoff is d3's, the earliest API row stored");
+    // A rescan from further back stores an earlier deposit (no duplicate this time): the cutoff moves before day B.
+    fx.c.execute("DELETE FROM account_transactions WHERE tx_id IS NULL AND raw_data = '{}'", []).unwrap();
+    fx.watermark("2026-09-14T00:00:00Z");
+    assert!(fx.sync(&api, false).await);
+    assert!(fx.file_classes_at("2026-09-16 10:00:00").is_empty());
+    assert_eq!(fx.count("SELECT count(*) FROM import_rows"), 1);
 }
