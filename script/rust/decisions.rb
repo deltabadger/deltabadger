@@ -222,7 +222,9 @@ VENUES = {
   'bybit' => VenueRow.new(scripted: ScriptedVenue.new(host: 'api.bybit.com', name: 'Bybit', order: 'POST /v5/order/create', body: :json, strip: %w[orderLinkId]),
                           exchange: 'Exchanges::Bybit', name: 'Bybit', ticker: 'BTCUSDT', quote: TETHER, passphrase: nil),
   'bitrue' => VenueRow.new(scripted: ScriptedVenue.new(host: 'openapi.bitrue.com', name: 'Bitrue', order: 'POST /api/v1/order', body: :query, strip: %w[timestamp signature]),
-                         exchange: 'Exchanges::Bitrue', name: 'Bitrue', ticker: 'BTCUSDT', quote: TETHER, passphrase: nil)
+                         exchange: 'Exchanges::Bitrue', name: 'Bitrue', ticker: 'BTCUSDT', quote: TETHER, passphrase: nil),
+  'bingx' => VenueRow.new(scripted: ScriptedVenue.new(host: 'open-api.bingx.com', name: 'BingX', order: 'POST /openApi/spot/v1/trade/order', body: :query, strip: %w[timestamp signature]),
+                        exchange: 'Exchanges::Bingx', name: 'BingX', ticker: 'BTC-USDT', quote: TETHER, passphrase: nil)
 }.freeze
 
 module Decisions
@@ -3667,6 +3669,56 @@ module Decisions
     cases
   end
 
+  # BingX shares sizing scenarios, with its own envelope, paths, order ids and failures.
+  def bingx_scenarios
+    paths = {'GET /api/v3/ticker/bookTicker'=>'GET /openApi/spot/v1/market/depth',
+      'GET /api/v3/ticker/price'=>'GET /openApi/spot/v2/market/ticker', 'GET /api/v3/account'=>'GET /openApi/spot/v1/account/balance',
+      'POST /api/v3/order'=>'POST /openApi/spot/v1/trade/order', 'GET /api/v3/order'=>'GET /openApi/spot/v1/trade/query',
+      'DELETE /api/v3/order'=>'POST /openApi/spot/v1/trade/cancel'}
+    cases = mexc_scenarios.map do |original|
+      sc=JSON.parse(JSON.generate(original).gsub('mexc','bingx').gsub('MEXC','BingX').gsub('api.bingx.com','open-api.bingx.com')
+        .gsub('BTCUSDT','BTC-USDT').gsub('C02__','').gsub('PARTIALLY_CANCELED','CANCELED').gsub('PENDING_CANCEL','UNLISTED'))
+      sc['script']['bingx']=sc['script']['bingx'].to_h do |path,replies|
+        [paths.fetch(path), replies.map do |reply|
+          body=reply['body']
+          next reply unless body.is_a?(Hash)
+          if body.key?('code')
+            code,msg=case body['code']
+              when 700003 then [100421,'timestamp mismatch']
+              when 10101 then [100202,'Insufficient assets']
+              when 30002 then [100202,'Insufficient balance']
+              when 10072,700002 then [100413,'Incorrect apiKey']
+              when 700007 then [100004,'API key was created without the permission']
+              when -2013,-2011 then [100404,'Order does not exist']
+              when 503 then [100500,'Internal system error']
+              else [body['code'],body['msg']]
+            end
+            reply.merge('body'=>{'code'=>code,'msg'=>msg})
+          else
+            data=if path.include?('bookTicker')
+              {'bids'=>[[body['bidPrice'],body['bidQty']]],'asks'=>[[body['askPrice'],body['askQty']]]}
+            elsif path.include?('ticker/price')
+              [body.merge('lastPrice'=>body['price']).except('price')]
+            else body
+            end
+            reply.merge('body'=>{'code'=>0,'data'=>data})
+          end
+        end]
+      end
+      sc
+    end
+    cases.select { |sc| sc['name'].end_with?('-first_tick') }.each do |base|
+      %w[found missing].each do |result|
+        sc=Marshal.load(Marshal.dump(base));sc['name']=sc['name'].sub('first_tick',"landed_#{result}")
+        sc['recover_at']=(Time.iso8601(sc['at'])+60).iso8601(6)
+        sc['script']['bingx']['POST /openApi/spot/v1/trade/order']=[POST_SEND]
+        sc['script']['bingx']['GET /openApi/spot/v1/trade/query']=[result=='found' ? ok('code'=>0,'data'=>mx_order('601','FILLED',executed:'0.000937',cumulative:'59.968').merge('symbol'=>'BTC-USDT','clientOrderID'=>'$client_order_id')) : mx_err(200,100404,'Order does not exist')]
+        cases << sc
+      end
+    end
+    cases
+  end
+
   # Slice 7a: the price rule of the active side with the `pause` action, on all three venues and both directions. The tick at
   # `at` passes, pauses or fails; a scenario with `check_at` then runs Bot::PriceLimitCheckJob there (and the Bot::ActionJob it
   # enqueues when met). Every check job a phase queues is recorded with its time.
@@ -4252,7 +4304,7 @@ def web_save(dir)
 end
 
 command, root = ARGV
-USAGE = 'usage: grid <root> | grid-signal <root> | grid-alpaca <root> | grid-basket <root> | grid-limit <root> | grid-binance <root> | grid-binance-us <root> | grid-kucoin <root> | grid-bitvavo <root> | grid-bitget <root> | grid-gemini <root> | grid-mexc <root> | grid-hyperliquid <root> | grid-bybit <root> | grid-bitrue <root> | grid-sell <root> | grid-venue-basket <root> | grid-venue-index <root> | grid-conditions <root> | grid-basket-sell <root> | grid-rebalance <root> | record <root> | web-save <dir>'.freeze
+USAGE = 'usage: grid <root> | grid-signal <root> | grid-alpaca <root> | grid-basket <root> | grid-limit <root> | grid-binance <root> | grid-binance-us <root> | grid-kucoin <root> | grid-bitvavo <root> | grid-bitget <root> | grid-gemini <root> | grid-mexc <root> | grid-hyperliquid <root> | grid-bybit <root> | grid-bitrue <root> | grid-bingx <root> | grid-sell <root> | grid-venue-basket <root> | grid-venue-index <root> | grid-conditions <root> | grid-basket-sell <root> | grid-rebalance <root> | record <root> | web-save <dir>'.freeze
 raise ArgumentError, USAGE unless root
 
 case command
@@ -4273,6 +4325,7 @@ when 'grid-mexc' then Decisions.grid(root, Decisions.mexc_scenarios)
 when 'grid-hyperliquid' then Decisions.grid(root, Decisions.hyperliquid_scenarios)
 when 'grid-bybit' then Decisions.grid(root, Decisions.bybit_scenarios)
 when 'grid-bitrue' then Decisions.grid(root, Decisions.bitrue_scenarios)
+when 'grid-bingx' then Decisions.grid(root, Decisions.bingx_scenarios)
 when 'grid-sell' then Decisions.grid(root, Decisions.sell_scenarios)
 when 'grid-venue-basket' then Decisions.grid(root, Decisions.venue_basket_scenarios)
 when 'grid-basket-sell' then Decisions.grid(root, Decisions.basket_sell_scenarios)

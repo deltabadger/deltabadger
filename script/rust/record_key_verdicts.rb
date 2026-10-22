@@ -44,7 +44,7 @@ module Venue
                      'query' => query.except(*SECRET_PARAMS), 'form' => form.except(*SECRET_PARAMS),
                      'key_header' => env.request_headers['X-MBX-APIKEY'] || env.request_headers['API-Key'] || env.request_headers['KC-API-KEY'] ||
                                      env.request_headers['BITVAVO-ACCESS-KEY'] || env.request_headers['X-GEMINI-APIKEY'] ||
-                                     env.request_headers['ACCESS-KEY'] || env.request_headers['X-MEXC-APIKEY'] || env.request_headers['X-BAPI-API-KEY'] }
+                                     env.request_headers['ACCESS-KEY'] || env.request_headers['X-MEXC-APIKEY'] || env.request_headers['X-BAPI-API-KEY'] || env.request_headers['X-BX-APIKEY'] }
       answer = Venue.answers.shift
       raise Faraday::TimeoutError, 'Net::ReadTimeout' if answer[:timeout]
       raise Faraday::ConnectionFailed, 'Failed to open TCP connection (Connection refused)' if answer[:refused]
@@ -549,12 +549,31 @@ VENUE_CASES = {
       cases.each { |name, answer| rows << record.(exchange, kind, method, name, answer) }
     end
     { 'cases' => rows }
+  end,
+  'bingx' => lambda do
+    exchange = Exchanges::Bingx.new(name: 'BingX')
+    cases = transport.dup
+    {0=>'OK', 100404=>'Order does not exist', 100400=>'Order does not exist', 100413=>'Incorrect apiKey',
+     100004=>'API key was created without the permission', 100419=>'IP does not match IP whitelist',
+     100500=>'Internal system error', 100421=>'timestamp mismatch', 12345=>''}.each do |code,msg|
+      [200,400].each { |status| cases["#{code} http_#{status}"] = json.(status, {'code'=>code,'msg'=>msg,'data'=>{'balances'=>[]}}) }
+    end
+    cases['gateway'] = json.(200, {'code'=>100404,'msg'=>'path not found'})
+    cases['missing_code'] = json.(200, {'msg'=>'unknown','data'=>{'balances'=>[]}})
+    cases['string_code'] = json.(200, {'code'=>'0','data'=>{'balances'=>[]}})
+    cases['missing_balances'] = json.(200, {'code'=>0,'data'=>{}})
+    rows=[]
+    [[:trading,:get_api_key_validity],[:withdrawal,:get_api_key_validity],[:read_only,:get_read_api_key_validity]].each do |kind,method|
+      cases.each { |name,answer| rows << record.(exchange,kind,method,name,answer) }
+    end
+    {'cases'=>rows}
   end
 
 }.freeze
 # A separate venue fixture can be recorded without refreshing other venues' timestamped diagnostics.
-selected = ARGV[1] ? VENUE_CASES.slice(ARGV[1]) : VENUE_CASES
+selected = ARGV[1] ? VENUE_CASES.slice(ARGV[1]) : VENUE_CASES.except('bingx')
 raise "unknown venue #{ARGV[1]}" if selected.empty?
+out['sources']['app/models/exchanges/bingx.rb'] = Digest::SHA256.file(Rails.root.join('app/models/exchanges/bingx.rb')).hexdigest if ARGV[1] == 'bingx'
 selected.each { |id, cases| out[id] = cases.call }
 
 File.write(ARGV.fetch(0), "#{JSON.pretty_generate(out)}\n")

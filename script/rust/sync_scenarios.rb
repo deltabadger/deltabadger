@@ -1670,6 +1670,51 @@ module SyncScenarios
     cases.map { |name, coins| { name: "bybit-balances-#{name}", setup: setup, steps: [P.bybit_balances(night, coins: coins, prices: P.prices_body('bitcoin' => 60000.5, 'ethereum' => 2500.25, 'tether' => 1.0))] } }
   end
 
+  def bingx_ledger_scenarios
+    night='2026-09-20T02:00:00.250000Z'; at=Time.utc(2026,9,18)
+    week=->(ctx) {P.bingx(ctx);ctx[:key].update_columns(last_synced_at:Time.utc(2026,9,15))}
+    dep={'coin'=>'USDTTRC20','network'=>'TRC20','amount'=>'12.5','txId'=>'dep1','status'=>1,'insertTime'=>P.ms(at)}
+    wd={'id'=>'w1','txId'=>'batched','coin'=>'USDTTRC20','network'=>'TRC20','amount'=>'3','transactionFee'=>'1','status'=>6,'applyTime'=>'2026-09-18T04:00:00+02:00'}
+    trade=P.mx_trade('t1','BTC-USDT',true,'0.001','64000',at,commission:'-0.01')
+    fills=->(a) {P.bx_page('fills'=>a)};err=->(c,m) {P.ok('code'=>c,'msg'=>m)}
+    full=Array.new(500) { |i| trade.merge('id'=>"t#{i}") }; transfers=Array.new(1000) { |i| dep.merge('txId'=>"d#{i}") }
+    cases=[
+      {name:'bingx-ledger-week',setup:week,steps:[P.bingx_ledger(night,deposits:[P.ok([dep])],withdrawals:[P.ok([wd,wd.merge('id'=>'w2')])],trades:[fills.([trade])])]},
+      {name:'bingx-ledger-full',setup:->(ctx) {P.bingx(ctx)},steps:[P.bingx_ledger(night,trades:[fills.([trade])])]},
+      {name:'bingx-ledger-two_nights',setup:week,steps:[P.bingx_ledger(night,deposits:[P.ok([dep])],trades:[fills.([trade])]),P.bingx_ledger('2026-09-21T02:00:00.250000Z',deposits:[P.ok([dep])],trades:[fills.([trade])])]},
+      {name:'bingx-ledger-halving',setup:week,steps:[P.bingx_ledger(night,trades:[fills.(full),fills.([trade]),fills.([trade])])]},
+      {name:'bingx-ledger-saturated',setup:week,steps:[P.bingx_ledger(night,trades:[fills.(full)])]},
+      {name:'bingx-ledger-offset',setup:week,steps:[P.bingx_ledger(night,deposits:[P.ok(transfers),P.ok([dep])])]},
+      {name:'bingx-ledger-repeated_page',setup:week,steps:[P.bingx_ledger(night,deposits:[P.ok(transfers)])]},
+      {name:'bingx-ledger-no_permission',setup:week,steps:[P.bingx_ledger(night,deposits:[err.(100004,'API key was created without the permission')],withdrawals:[err.(100004,'API key was created without the permission')])]},
+      {name:'bingx-ledger-moved_pair',setup:week,steps:[P.bingx_ledger(night,deposits:[P.ok([dep.merge('coin'=>'ETH','network'=>'')])],account:[P.bx_account],info:[P.bx_info(%w[ETH USDT])],trades:[fills.([trade])])]},
+      {name:'bingx-ledger-pending',setup:week,steps:[P.bingx_ledger(night,deposits:[P.ok([dep.merge('status'=>0)])],withdrawals:[P.ok([wd.merge('status'=>0)])])]},
+      {name:'bingx-ledger-nothing',setup:week,steps:[P.bingx_ledger(night)]}
+    ]
+    [100204,100490].each { |c|cases << {name:"bingx-ledger-no_trades_#{c}",setup:week,steps:[P.bingx_ledger(night,trades:[err.(c,'Requested data not found')])]} }
+    %i[deposits withdrawals account info trades].each { |source|cases << {name:"bingx-ledger-failure_#{source}",setup:week,steps:[P.bingx_ledger(night,**{source=>[err.(100500,'Internal system error')]})]} }
+    cases << {name:'bingx-ledger-sold_out',setup:lambda { |ctx|
+      week.call(ctx)
+      AccountTransaction.create!(user:ctx[:user],api_key:ctx[:key],exchange:ctx[:bingx],entry_type: :sell,base_currency:'ETH',base_amount:1,
+        quote_currency:'USDT',quote_amount:2500,transacted_at:at-10.days,tx_id:'old-sale')
+    },steps:[P.bingx_ledger(night,account:[P.bx_account],info:[P.bx_info(%w[ETH USDT])],trades:[fills.([trade])])]}
+    cases << {name:'bingx-ledger-bot_order_pair',setup:lambda { |ctx|
+      week.call(ctx)
+      bot=P.holder(ctx,'ETH',at:at-10.days,venue:ctx[:bingx])
+      bot.transactions.update_all(base:'ETH',quote:'USDT',quote_asset_id:ctx[:assets]['USDT'].id)
+    },steps:[P.bingx_ledger(night,account:[P.bx_account],info:[P.bx_info(%w[ETH USDT])],trades:[fills.([trade])])]}
+    cases
+  end
+  def bingx_balance_scenarios
+    night='2026-09-20T02:00:00.250000Z';install=->(ctx) {P.bingx(ctx)}
+    cases=[{name:'bingx-balances-held',setup:install,steps:[P.bingx_balances(night,account:P.bx_account(%w[BTC 0.5 0.1],%w[USDT 100]),prices:P.prices_body('bitcoin'=>60000))]},
+      {name:'bingx-balances-empty',setup:install,steps:[P.bingx_balances(night,account:P.bx_account)]}]
+    {100413=>'Incorrect apiKey',100004=>'API key was created without the permission',100410=>'rate limitation'}.each do |c,msg|
+      cases << {name:"bingx-balances-error_#{c}",setup:install,steps:[P.bingx_balances(night,account:P.ok('code'=>c,'msg'=>msg))]}
+    end
+    cases
+  end
+
   def bitrue_ledger_scenarios
     night = '2026-09-20T02:00:00.250000Z'
     at = Time.utc(2026, 9, 18)
@@ -1739,5 +1784,5 @@ module SyncScenarios
 
   def all = ledger_scenarios + balance_scenarios + binance_balance_scenarios + binance_ledger_scenarios + import_scenarios + kucoin_ledger_scenarios +
             kucoin_balance_scenarios + bitvavo_ledger_scenarios + bitvavo_balance_scenarios + gemini_ledger_scenarios + gemini_balance_scenarios +
-            bitget_ledger_scenarios + bitget_balance_scenarios + mexc_ledger_scenarios + mexc_balance_scenarios + hyperliquid_ledger_scenarios + hyperliquid_balance_scenarios + bybit_ledger_scenarios + bybit_balance_scenarios + bitrue_ledger_scenarios + bitrue_balance_scenarios
+            bitget_ledger_scenarios + bitget_balance_scenarios + mexc_ledger_scenarios + mexc_balance_scenarios + hyperliquid_ledger_scenarios + hyperliquid_balance_scenarios + bybit_ledger_scenarios + bybit_balance_scenarios + bitrue_ledger_scenarios + bitrue_balance_scenarios + bingx_ledger_scenarios + bingx_balance_scenarios
 end

@@ -1,0 +1,380 @@
+{
+  "sources": {
+    "script/rust/record_bingx_signing.rb": "e40d11ecf7eb3f2a1c6ff6964b77d20475e3ad45f7b5c49ee4d07ccb64e4481c",
+    "app/models/exchanges/bingx.rb": "212f3e76c535c547e4fe1411b5fe4c98112ca4c92e91de1836c81090a3855ff4"
+  },
+  "gems": {
+    "honeymaker": "0.12.5",
+    "hyperliquid-rb": "0.1.1",
+    "jwt": "2.10.3",
+    "rbnacl": "7.1.2",
+    "eth": "0.5.18",
+    "msgpack": "1.8.5"
+  },
+  "errors": {
+    "insufficient_funds": [
+      "Insufficient assets",
+      "Insufficient balance",
+      "insufficient balance"
+    ],
+    "invalid_key": [
+      "Incorrect apiKey",
+      "Invalid Api-Key ID",
+      "Signature verification failed",
+      "Null signature"
+    ],
+    "permission_denied": [
+      "API key was created without the permission",
+      "IP does not match IP whitelist"
+    ],
+    "throttle": [
+      "Too Many Requests",
+      "rate limitation"
+    ],
+    "transient": [
+      "The current system is busy",
+      "Internal system error",
+      "timestamp mismatch"
+    ]
+  },
+  "network_transient": [
+    "Net::ReadTimeout",
+    "Net::OpenTimeout",
+    "Faraday::TimeoutError",
+    "Faraday::ConnectionFailed",
+    "execution expired",
+    "Connection reset",
+    "Errno::ECONNRESET",
+    "connection refused",
+    "Connection refused",
+    "Errno::ECONNREFUSED",
+    "end of file reached",
+    "unexpected eof while reading"
+  ],
+  "signing": [
+    {
+      "method": "GET",
+      "path": "/openApi/spot/v1/account/balance",
+      "query": "signature=4aa7b61d9f833f94e6999aa2b36ca0dfad832ad7a3224c99326643aaaeeaf249&timestamp=1789871400750",
+      "body": null,
+      "headers": {
+        "X-bx-apikey": "key"
+      },
+      "call": "balances",
+      "api_key": "key",
+      "api_secret": "secret",
+      "timestamp": 1789871400750
+    },
+    {
+      "method": "GET",
+      "path": "/openApi/spot/v1/trade/query",
+      "query": "orderId=1&signature=a71ce2c5ed1e81f039983b6cf50520a3607b12f460d3e780481f22c5751fc7f5&symbol=BTC-USDT&timestamp=1789871400751",
+      "body": null,
+      "headers": {
+        "X-bx-apikey": "key"
+      },
+      "call": "query",
+      "api_key": "key",
+      "api_secret": "secret",
+      "timestamp": 1789871400751
+    },
+    {
+      "method": "GET",
+      "path": "/openApi/spot/v1/trade/query",
+      "query": "clientOrderID=5f1c1f3e2b8f4c4e9a590d9c3f1b6a01&signature=d18ea05e6443a0c2cebe1f6e4a0d963c7ee137fb40620fa3073229804060398a&symbol=BTC-USDT&timestamp=1789871400752",
+      "body": null,
+      "headers": {
+        "X-bx-apikey": "key"
+      },
+      "call": "query client",
+      "api_key": "key",
+      "api_secret": "secret",
+      "timestamp": 1789871400752
+    },
+    {
+      "method": "GET",
+      "path": "/openApi/spot/v1/trade/myTrades",
+      "query": "endTime=1789871400750&limit=500&signature=2101cf158e134f2a01e80e12d9f23862b863f45afa3b6a66c02d6c5343f95381&startTime=1787000000000&symbol=BTC-USDT&timestamp=1789871400753",
+      "body": null,
+      "headers": {
+        "X-bx-apikey": "key"
+      },
+      "call": "trades",
+      "api_key": "key",
+      "api_secret": "secret",
+      "timestamp": 1789871400753
+    },
+    {
+      "method": "GET",
+      "path": "/openApi/api/v3/capital/deposit/hisrec",
+      "query": "endTime=1789871400750&limit=1000&offset=0&signature=0ba9d07a94fd085bba66e3af18f064ae1bbe04840499831fdbf7b1743551a2a0&startTime=1787000000000&timestamp=1789871400754",
+      "body": null,
+      "headers": {
+        "X-bx-apikey": "key"
+      },
+      "call": "deposits",
+      "api_key": "key",
+      "api_secret": "secret",
+      "timestamp": 1789871400754
+    },
+    {
+      "method": "GET",
+      "path": "/openApi/api/v3/capital/withdraw/history",
+      "query": "endTime=1789871400750&limit=1000&offset=0&signature=d7be8948973a10df7458ce9839cfc09ed852d0d807c3b2fff59166f8321ead71&startTime=1787000000000&timestamp=1789871400755",
+      "body": null,
+      "headers": {
+        "X-bx-apikey": "key"
+      },
+      "call": "withdrawals",
+      "api_key": "key",
+      "api_secret": "secret",
+      "timestamp": 1789871400755
+    },
+    {
+      "method": "POST",
+      "path": "/openApi/spot/v1/trade/order",
+      "query": "newClientOrderId=5f1c1f3e2b8f4c4e9a590d9c3f1b6a01&quoteOrderQty=60&side=BUY&signature=03450af92ccee235f815a2cff3e72bab3da46ccc4ec3ca146a089a697e6a3eb7&symbol=BTC-USDT&timestamp=1789871400756&type=MARKET",
+      "body": "",
+      "headers": {
+        "X-bx-apikey": "key",
+        "Content-type": "application/json",
+        "Content-Length": "0"
+      },
+      "call": "market quote",
+      "api_key": "key",
+      "api_secret": "secret",
+      "timestamp": 1789871400756
+    },
+    {
+      "method": "POST",
+      "path": "/openApi/spot/v1/trade/order",
+      "query": "quantity=0.001&side=SELL&signature=4917c6d23a7025063bc32fd81c27d96028efa1b4717c66c68383bd18a1470c60&symbol=BTC-USDT&timestamp=1789871400757&type=MARKET",
+      "body": "",
+      "headers": {
+        "X-bx-apikey": "key",
+        "Content-type": "application/json",
+        "Content-Length": "0"
+      },
+      "call": "market base",
+      "api_key": "key",
+      "api_secret": "secret",
+      "timestamp": 1789871400757
+    },
+    {
+      "method": "POST",
+      "path": "/openApi/spot/v1/trade/order",
+      "query": "newClientOrderId=5f1c1f3e2b8f4c4e9a590d9c3f1b6a01&price=0.03512&quantity=1.2&side=BUY&signature=e3020972919bf03200a9b716b87dac98351c43eb937c467fdccec04b630bc937&symbol=ETH-BTC&timeInForce=GTC&timestamp=1789871400758&type=LIMIT",
+      "body": "",
+      "headers": {
+        "X-bx-apikey": "key",
+        "Content-type": "application/json",
+        "Content-Length": "0"
+      },
+      "call": "limit",
+      "api_key": "key",
+      "api_secret": "secret",
+      "timestamp": 1789871400758
+    },
+    {
+      "method": "POST",
+      "path": "/openApi/spot/v1/trade/cancel",
+      "query": "orderId=1&signature=03761a072b3888f8627ae016323d5c7b7cc42d516b3d721040b3faba0a92da3a&symbol=BTC-USDT&timestamp=1789871400759",
+      "body": "",
+      "headers": {
+        "X-bx-apikey": "key",
+        "Content-type": "application/json",
+        "Content-Length": "0"
+      },
+      "call": "cancel",
+      "api_key": "key",
+      "api_secret": "secret",
+      "timestamp": 1789871400759
+    },
+    {
+      "method": "GET",
+      "path": "/openApi/spot/v1/trade/myTrades",
+      "query": "signature=98fe234c1020aaa226c90d2ab11e26b446700a43320793ed0fb306180d05c91a&symbol=A+B%2F~%2A%C3%A9&timestamp=1789871400760",
+      "body": null,
+      "headers": {
+        "X-bx-apikey": "key"
+      },
+      "call": "escaped",
+      "api_key": "key",
+      "api_secret": "secret",
+      "timestamp": 1789871400760
+    },
+    {
+      "method": "GET",
+      "path": "/openApi/spot/v1/common/symbols",
+      "query": null,
+      "body": null,
+      "headers": {},
+      "call": "symbols public",
+      "api_key": "key",
+      "api_secret": "secret",
+      "timestamp": 1789871400761
+    },
+    {
+      "method": "GET",
+      "path": "/openApi/spot/v1/account/balance",
+      "query": "signature=d4311439ebdd319288aa6f31b403bd2e49d05c2064a5e18894c58c57892b9720&timestamp=1789871401750",
+      "body": null,
+      "headers": {
+        "X-bx-apikey": "k"
+      },
+      "call": "balances",
+      "api_key": "k",
+      "api_secret": "s3cr3t~/+=",
+      "timestamp": 1789871401750
+    },
+    {
+      "method": "GET",
+      "path": "/openApi/spot/v1/trade/query",
+      "query": "orderId=1&signature=4ba3b6806d9a321a5b747e0f2d6408494df6b337582a2a9d3e0dd1a97f937603&symbol=BTC-USDT&timestamp=1789871401751",
+      "body": null,
+      "headers": {
+        "X-bx-apikey": "k"
+      },
+      "call": "query",
+      "api_key": "k",
+      "api_secret": "s3cr3t~/+=",
+      "timestamp": 1789871401751
+    },
+    {
+      "method": "GET",
+      "path": "/openApi/spot/v1/trade/query",
+      "query": "clientOrderID=5f1c1f3e2b8f4c4e9a590d9c3f1b6a01&signature=41b8d4b1ec339225e35a7d0621fd6520c64e526fd96039831d99ed0c3a5237f7&symbol=BTC-USDT&timestamp=1789871401752",
+      "body": null,
+      "headers": {
+        "X-bx-apikey": "k"
+      },
+      "call": "query client",
+      "api_key": "k",
+      "api_secret": "s3cr3t~/+=",
+      "timestamp": 1789871401752
+    },
+    {
+      "method": "GET",
+      "path": "/openApi/spot/v1/trade/myTrades",
+      "query": "endTime=1789871400750&limit=500&signature=b5a7613235300f3a501974fce3aebd4e2892e63c162b74f8627a922408b26f4f&startTime=1787000000000&symbol=BTC-USDT&timestamp=1789871401753",
+      "body": null,
+      "headers": {
+        "X-bx-apikey": "k"
+      },
+      "call": "trades",
+      "api_key": "k",
+      "api_secret": "s3cr3t~/+=",
+      "timestamp": 1789871401753
+    },
+    {
+      "method": "GET",
+      "path": "/openApi/api/v3/capital/deposit/hisrec",
+      "query": "endTime=1789871400750&limit=1000&offset=0&signature=89e524db5690a9c0b51b78edd6f272126cf6352a3a175a16ca17ed771823a4a7&startTime=1787000000000&timestamp=1789871401754",
+      "body": null,
+      "headers": {
+        "X-bx-apikey": "k"
+      },
+      "call": "deposits",
+      "api_key": "k",
+      "api_secret": "s3cr3t~/+=",
+      "timestamp": 1789871401754
+    },
+    {
+      "method": "GET",
+      "path": "/openApi/api/v3/capital/withdraw/history",
+      "query": "endTime=1789871400750&limit=1000&offset=0&signature=257b86a849b0b2578f156a231ff36c6f11e0abc242261e817222f896de6906a0&startTime=1787000000000&timestamp=1789871401755",
+      "body": null,
+      "headers": {
+        "X-bx-apikey": "k"
+      },
+      "call": "withdrawals",
+      "api_key": "k",
+      "api_secret": "s3cr3t~/+=",
+      "timestamp": 1789871401755
+    },
+    {
+      "method": "POST",
+      "path": "/openApi/spot/v1/trade/order",
+      "query": "newClientOrderId=5f1c1f3e2b8f4c4e9a590d9c3f1b6a01&quoteOrderQty=60&side=BUY&signature=8bec7b342a5ee0aca3d6c75b7806d711a0ef4a721a91f7bda8d29a640fab4157&symbol=BTC-USDT&timestamp=1789871401756&type=MARKET",
+      "body": "",
+      "headers": {
+        "X-bx-apikey": "k",
+        "Content-type": "application/json",
+        "Content-Length": "0"
+      },
+      "call": "market quote",
+      "api_key": "k",
+      "api_secret": "s3cr3t~/+=",
+      "timestamp": 1789871401756
+    },
+    {
+      "method": "POST",
+      "path": "/openApi/spot/v1/trade/order",
+      "query": "quantity=0.001&side=SELL&signature=d557dec371eaea9b78e5fe6edbf7cef6414451c4d721000829018a6fd77439d1&symbol=BTC-USDT&timestamp=1789871401757&type=MARKET",
+      "body": "",
+      "headers": {
+        "X-bx-apikey": "k",
+        "Content-type": "application/json",
+        "Content-Length": "0"
+      },
+      "call": "market base",
+      "api_key": "k",
+      "api_secret": "s3cr3t~/+=",
+      "timestamp": 1789871401757
+    },
+    {
+      "method": "POST",
+      "path": "/openApi/spot/v1/trade/order",
+      "query": "newClientOrderId=5f1c1f3e2b8f4c4e9a590d9c3f1b6a01&price=0.03512&quantity=1.2&side=BUY&signature=4bd32f8bd1f306b43ff28eaa63900f292c729fe26f56bb22a7f898e66261ee49&symbol=ETH-BTC&timeInForce=GTC&timestamp=1789871401758&type=LIMIT",
+      "body": "",
+      "headers": {
+        "X-bx-apikey": "k",
+        "Content-type": "application/json",
+        "Content-Length": "0"
+      },
+      "call": "limit",
+      "api_key": "k",
+      "api_secret": "s3cr3t~/+=",
+      "timestamp": 1789871401758
+    },
+    {
+      "method": "POST",
+      "path": "/openApi/spot/v1/trade/cancel",
+      "query": "orderId=1&signature=2d594139461ffdd38b514f5483941e5050496b8dff30d2810293b05ee52636ea&symbol=BTC-USDT&timestamp=1789871401759",
+      "body": "",
+      "headers": {
+        "X-bx-apikey": "k",
+        "Content-type": "application/json",
+        "Content-Length": "0"
+      },
+      "call": "cancel",
+      "api_key": "k",
+      "api_secret": "s3cr3t~/+=",
+      "timestamp": 1789871401759
+    },
+    {
+      "method": "GET",
+      "path": "/openApi/spot/v1/trade/myTrades",
+      "query": "signature=0dfd0fa7f5d483cc05cdef7a4e6bec89c4a496d362a3a6b2e3adf32a995a7f60&symbol=A+B%2F~%2A%C3%A9&timestamp=1789871401760",
+      "body": null,
+      "headers": {
+        "X-bx-apikey": "k"
+      },
+      "call": "escaped",
+      "api_key": "k",
+      "api_secret": "s3cr3t~/+=",
+      "timestamp": 1789871401760
+    },
+    {
+      "method": "GET",
+      "path": "/openApi/spot/v1/common/symbols",
+      "query": null,
+      "body": null,
+      "headers": {},
+      "call": "symbols public",
+      "api_key": "k",
+      "api_secret": "s3cr3t~/+=",
+      "timestamp": 1789871401761
+    }
+  ]
+}

@@ -29,6 +29,7 @@ pub(crate) const BINANCE_QUERY: QueryHmacHex = QueryHmacHex { key_header: "X-MBX
 pub(crate) const MEXC_QUERY: QueryHmacHex = QueryHmacHex { key_header: "X-MEXC-APIKEY", stamp: super::bitvavo::ruby_ms };
 
 pub(crate) const BITRUE_QUERY: QueryHmacHex = QueryHmacHex { key_header: "X-MBX-APIKEY", stamp: super::bitvavo::ruby_ms };
+pub(crate) const BINGX_QUERY: QueryHmacHex = QueryHmacHex { key_header: "X-BX-APIKEY", stamp: super::bitvavo::ruby_ms };
 
 impl QueryHmacHex {
     /// `params` signed at `now` (Client#timestamp_ms): the timestamp, then the signature, appended.
@@ -138,6 +139,7 @@ pub(crate) enum Wire {
     /// Bybit V5: hex HMAC over timestamp + key + receive window + query/body.
     Bybit,
     Bitrue,
+    Bingx,
 }
 
 impl Wire {
@@ -152,6 +154,7 @@ impl Wire {
             Self::Hyperliquid => super::hyperliquid::HYPERLIQUID,
             Self::Bybit => super::bybit::BYBIT,
             Self::Bitrue => super::bitrue::BITRUE,
+            Self::Bingx => super::bingx::BINGX,
         };
         super::registry::row(exchange_type).expect("every wire's venue has a row").name
     }
@@ -167,7 +170,7 @@ pub(crate) fn request(wire: Wire, client: &reqwest::Client, r: &HttpRequest, key
     // The query exactly as Faraday::Utils.build_query writes it, which is what a Prehash signature covers.
     let q = super::binance::build_query(&r.query);
     // MEXC's QueryHmacHex signs that same text, so it is sent as it was signed.
-    if matches!(wire, Wire::Kucoin | Wire::Bitvavo | Wire::Bitget | Wire::Mexc | Wire::Bybit | Wire::Bitrue) { url.set_query((!q.is_empty()).then_some(q.as_str())); }
+    if matches!(wire, Wire::Kucoin | Wire::Bitvavo | Wire::Bitget | Wire::Mexc | Wire::Bybit | Wire::Bitrue | Wire::Bingx) { url.set_query((!q.is_empty()).then_some(q.as_str())); }
     let mut b = client.request(method, url);
     match wire {
         Wire::Kucoin | Wire::Bitvavo | Wire::Bitget | Wire::Bybit => {
@@ -184,6 +187,12 @@ pub(crate) fn request(wire: Wire, client: &reqwest::Client, r: &HttpRequest, key
         }
         // Honeymaker::Clients::Bitrue#exchange_information uses get_public, whose headers are empty.
         Wire::Bitrue if !r.query.iter().any(|(k, _)| *k == "signature") => {}
+        Wire::Bingx => {
+            if r.query.iter().any(|(k, _)| *k == "signature") {
+                b = b.header(BINGX_QUERY.key_header, keys.key);
+                if r.method == "POST" { b = b.header("Content-Type", "application/json"); }
+            }
+        }
         Wire::Alpaca | Wire::Binance | Wire::Mexc | Wire::Bitrue => {
             b = match wire {
                 Wire::Binance => b.header(BINANCE_QUERY.key_header, keys.key),
@@ -230,6 +239,23 @@ pub(crate) fn request(wire: Wire, client: &reqwest::Client, r: &HttpRequest, key
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn bingx_signing_headers_and_post_query_match_the_recorded_wire() {
+        let clock = crate::engine::FixedClock("2026-09-20T02:00:00Z".parse().unwrap());
+        let client = reqwest::Client::new();
+        let mut r = HttpRequest {method:"GET",base:super::super::bingx::URL.into(),path:"/openApi/spot/v1/common/symbols".into(),query:vec![],body:None,not_after:None};
+        let build = |r:&HttpRequest| request(Wire::Bingx,&client,r,Keys {key:"key",secret:"secret",passphrase:""},&clock).build().unwrap();
+        assert!(build(&r).headers().is_empty());
+        r.query=BINGX_QUERY.sign("secret",vec![("symbol","BTC-USDT".into())],crate::engine::Clock::now(&clock));
+        assert_eq!(build(&r).headers().len(),1);
+        assert_eq!(build(&r).headers()["X-BX-APIKEY"],"key");
+        r.method="POST";r.path=super::super::bingx::ORDER_PATH.into();
+        let sent=build(&r);
+        assert_eq!(sent.headers()["Content-Type"],"application/json");
+        assert_eq!(sent.url().query().unwrap(),super::super::binance::build_query(&r.query));
+        assert!(sent.body().is_none());
+    }
 
     #[test]
     fn bitrue_public_requests_are_unkeyed_and_private_requests_have_the_recorded_headers() {

@@ -407,6 +407,23 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
         if let Some(n) = recover_sent { out["recover_sent"] = json!(n); }
         return Ok(out);
     }
+    if scenario["venue"] == "bingx" {
+        // Rust's Bingx adapter over the bodies Rails' harness serves beneath Honeymaker::Clients::Bingx, with the scenario's
+        // own tickers.
+        let transport = ScriptedTransport::from_script(&scenario["script"]["bingx"]);
+        let exchange_id: i64 = o.primary.query_row("SELECT id FROM exchanges WHERE type = ?1", [crate::venue::bingx::BINGX], |r| r.get(0))?;
+        let pairs = crate::venue::binance::Pairs::load(&o.primary, exchange_id).map_err(EngineError::Data)?;
+        let venue = crate::venue::bingx::BingxVenue::new(transport.clone(), crate::venue::bingx::URL, "s").with_pairs(pairs);
+        let posted = || query_sent(&transport, crate::venue::bingx::ORDER_PATH).len();
+        let (poll, recover_sent, checks) = play(&o, &venue, &scenario, bot_id, start, &posted).await?;
+        let poll_error = match poll { Some(polling::PollFailure::General(m)) => json!(m), _ => Value::Null };
+        let funds_notified: bool = o.primary.query_row("SELECT last_end_of_funds_notification IS NOT NULL FROM bots WHERE id = ?1", [bot_id], |r| r.get(0))?;
+        let mut out = json!({ "sent": query_sent(&transport, crate::venue::bingx::ORDER_PATH), "changes": diff(&before, &snapshot(&o.primary)?), "mails": mails(&o.primary, &owed)?,
+                              "funds_notified": funds_notified, "poll_error": poll_error });
+        if let Some(c) = checks { out["checks"] = json!(c); }
+        if let Some(n) = recover_sent { out["recover_sent"] = json!(n); }
+        return Ok(out);
+    }
     // Rust's real Kraken adapter over the bodies Rails' harness serves beneath Honeymaker::Clients::Kraken, or at the
     // Faraday adapter beneath it (`kraken_http`: the HTTP status and the transport failures too).
     let script = if scenario["script"]["kraken_http"].is_object() { scenario["script"]["kraken_http"].clone() } else { kraken_script(&scenario["script"]) };

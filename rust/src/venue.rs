@@ -16,6 +16,7 @@ pub mod hyperliquid;
 pub mod live;
 pub mod mexc;
 pub mod bitrue;
+pub mod bingx;
 pub mod registry;
 pub mod sign;
 pub mod signers;

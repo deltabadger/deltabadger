@@ -26,6 +26,9 @@ def runner(script, *args):
 # unchanged sources writes the same bytes, apart from the fields the pattern names (fresh salts and IVs).
 RECORDED = {
     FIX + 'bitrue_key_verdicts.json': ('test', [runner('record_key_verdicts.rb', '{out}', 'bitrue')], None),
+    FIX + 'bingx_key_verdicts.json': ('test', [runner('record_key_verdicts.rb', '{out}', 'bingx')], None),
+    FIX + 'bingx_vectors.json': ('test', [runner('record_bingx_vectors.rb', '{out}')], None),
+    FIX + 'bingx_signing.json': ('test', [runner('record_bingx_signing.rb', '{out}')], None),
     FIX + 'bitrue_vectors.json': ('test', [runner('record_bitrue_vectors.rb', '{out}')], None),
     FIX + 'bitrue_signing.json': ('test', [runner('record_bitrue_signing.rb', '{out}')], None),
     FIX + 'figures_vectors.json': ('test', [runner('record_figures_vectors.rb', '{out}')], None),

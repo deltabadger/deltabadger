@@ -397,6 +397,33 @@ pub(crate) async fn sync_bitrue_captured<T: Transport>(db: &Db, transport: T, pr
     sync_venue(db, version, prices, key_id, credentials, clock, venue, read).await
 }
 
+pub async fn sync_bingx<T: Transport>(db: &Db, transport: T, prices: &dyn PriceSource, key_id: i64, credentials: &Credentials, clock: &dyn Clock)
+                                     -> Result<Result<Summary, Failure>, SyncError> {
+    let version = super::capture_bound_version(db, key_id, credentials).await?;
+    sync_bingx_captured(db, transport, prices, key_id, credentials, clock, &version).await
+}
+
+pub(crate) async fn sync_bingx_captured<T: Transport>(db: &Db, transport: T, prices: &dyn PriceSource, key_id: i64, credentials: &Credentials,
+                                                     clock: &dyn Clock, version: &crate::engine::model::CredentialVersion)
+                                                     -> Result<Result<Summary, Failure>, SyncError> {
+    use crate::venue::bingx::{BingxVenue, ACCOUNT_PATH, BINGX, URL};
+    let (secret, now) = (credentials.secret.clone(), clock.now());
+    let read = move |_: String| async move {
+        let venue = BingxVenue::new(transport, URL, &secret);
+        Ok(venue.read_text(&venue.signed("GET", ACCOUNT_PATH, vec![], now), MAX_BINANCE_ACCOUNT_BYTES).await)
+    };
+    // The account answer is Binance's shape (`binance_held`).
+    let venue = VenueBalances { types: &[BINGX], failure_text: binance::error_message, condemns: |venue, text| condemns(&crate::engine::venue_rules::BINGX, venue, text),
+                                held: |text, names, ids| {
+        let node = wire::read(text, &mut Budget(MAX_BINANCE_ACCOUNT_NODES), None).map_err(|r| Unread::refused(r, "an account"))?;
+        let Ok(raw) = Raw::from_node(&node) else { return Ok(Err(("unreadable account".into(),false))) };
+        if crate::venue::bingx::code(&raw.value) != Some(0) { return Ok(Err((raw.value["msg"].as_str().unwrap_or("unreadable BingX account").into(),true))); }
+        let Some(data) = raw.member("data") else { return Ok(Err(("KeyError: Key path data not found".into(),false))) };
+        binance_held(&data.text(), names, ids).map(|held| held.map_err(|why| (why,false)))
+    } };
+    sync_venue(db, version, prices, key_id, credentials, clock, venue, read).await
+}
+
 /// ApiKeyFailureHandling#failure_reason's :invalid: the venue's invalid-key words, unless the text names a missing permission.
 fn condemns(rules: &crate::engine::venue_rules::VenueRules, venue: &str, text: &str) -> bool {
     !crate::tracker::import::run::missing_permission(venue, Some(text)) && rules.is_invalid_key(&[text.to_string()])

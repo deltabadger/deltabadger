@@ -217,6 +217,7 @@ impl ReqwestTransport {
         self.sensitive.extend(values.into_iter().filter(|value| self.wire != Wire::Hyperliquid || value != &self.key));
         self
     }
+    pub fn bingx(client: reqwest::Client, key: String, secret: String) -> Self { Self { wire: Wire::Bingx, ..Self::new(client, key, secret) } }
     pub fn bitrue(client: reqwest::Client, key: String, secret: String) -> Self { Self { wire: Wire::Bitrue, ..Self::new(client, key, secret) } }
     /// Speak Kraken's wire: Honeymaker::Clients::Kraken's headers, form bodies and signature.
     pub fn kraken(mut self)->Self{self.wire=Wire::Kraken;self}
@@ -408,6 +409,9 @@ impl Transport for ScriptedTransport {
             let asked = r.query.iter().find(|(k, _)| *k == "client_order_id").map(|(_, cl)| cl.clone())
                 .or_else(|| r.body.as_ref().and_then(|b| b["client_order_id"].as_str()).map(str::to_string));
             if let Some(cl) = asked { reply["body"]["client_order_id"] = Value::String(cl); }
+        }
+        if reply["body"]["data"]["clientOrderID"] == "$client_order_id" {
+            if let Some((_, cl)) = r.query.iter().find(|(k, _)| *k == "clientOrderID") { reply["body"]["data"]["clientOrderID"] = Value::String(cl.clone()); }
         }
         if reply["body"]["clientOrderId"] == "$client_order_id" {
             if let Some((_, cl)) = r.query.iter().find(|(k, _)| *k == "origClientOrderId") { reply["body"]["clientOrderId"] = Value::String(cl.clone()); }

@@ -437,15 +437,15 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     let named = |prefix: &str| dirs.iter().filter(|d| d.file_name().unwrap().to_string_lossy().starts_with(prefix)).count();
     assert_eq!([named("ledger-"), named("balances-"), named("binance-balances-"), named("binance-ledger-"), named("import-"), named("kucoin-ledger-"), named("kucoin-balances-"),
                 named("bitvavo-ledger-"), named("bitvavo-balances-"), named("gemini-ledger-"), named("gemini-balances-"), named("bitget-ledger-"), named("bitget-balances-"),
-                named("mexc-ledger-"), named("mexc-balances-"), named("hyperliquid-ledger-"), named("hyperliquid-balances-"), named("bybit-ledger-"), named("bybit-balances-"), named("bitrue-ledger-"), named("bitrue-balances-"), dirs.len()],
-               [58, 44, 21, 30, 21, 12, 16, 11, 10, 11, 11, 13, 12, 14, 12, 11, 10, 12, 8, 18 + 3 + 10, 5, 270 + 26 + 21 + 20 + 18 + 3 + 10 + 5], "the sync grid: 270 existing + 26 MEXC + 21 Hyperliquid + 20 Bybit + 36 Bitrue scenarios (including ten listing shapes)");
+                named("mexc-ledger-"), named("mexc-balances-"), named("hyperliquid-ledger-"), named("hyperliquid-balances-"), named("bybit-ledger-"), named("bybit-balances-"), named("bitrue-ledger-"), named("bitrue-balances-"), named("bingx-ledger-"), named("bingx-balances-"), dirs.len()],
+               [58, 44, 21, 30, 21, 12, 16, 11, 10, 11, 11, 13, 12, 14, 12, 11, 10, 12, 8, 18 + 3 + 10, 5, 18 + 2, 5, 270 + 26 + 21 + 20 + 18 + 3 + 10 + 5 + 18 + 2 + 5], "the sync grid: 270 existing + 26 MEXC + 21 Hyperliquid + 20 Bybit + 36 Bitrue scenarios (including ten listing shapes) + 25 BingX scenarios");
     for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
     for scenario in ["ledger-split_future", "ledger-split_nested_duplicate_keys", "binance-ledger-two_nights"] { copy_dir(&rails_root.path().join(scenario), &handback.path().join(scenario)); }
     rails(&["record", rails_root.path().to_str().unwrap()]);
 
     let cipher = cipher();
     let ported = ["ledger-", "balances-", "binance-balances-", "binance-ledger-", "import-", "kucoin-ledger-", "kucoin-balances-", "bitvavo-ledger-", "bitvavo-balances-",
-                  "gemini-ledger-", "gemini-balances-", "bitget-ledger-", "bitget-balances-", "mexc-ledger-", "mexc-balances-", "hyperliquid-ledger-", "hyperliquid-balances-", "bybit-ledger-", "bybit-balances-", "bitrue-ledger-", "bitrue-balances-"];
+                  "gemini-ledger-", "gemini-balances-", "bitget-ledger-", "bitget-balances-", "mexc-ledger-", "mexc-balances-", "hyperliquid-ledger-", "hyperliquid-balances-", "bybit-ledger-", "bybit-balances-", "bitrue-ledger-", "bitrue-balances-", "bingx-ledger-", "bingx-balances-"];
     let mut outputs: Vec<(String, Value, Value)> = vec![];
     for d in &dirs {
         let name = d.file_name().unwrap().to_string_lossy().to_string();
@@ -455,7 +455,7 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     }
     let (mut failures, mut divergences) = (vec![], vec![]);
     for (name, rails_out, rust_out) in &outputs {
-        match bitrue_page(name, rails_out, rust_out).or_else(|| kucoin_transfer_pin(name, &rust_root.path().join(name), rails_out, rust_out)).or_else(|| unknown_price_origin(name,rails_out,rust_out)).or_else(||binance_ledger(name, rails_out, rust_out)).or_else(||listed(name, rails_out, rust_out)) {
+        match bingx_page(name, rails_out, rust_out).or_else(|| bitrue_page(name, rails_out, rust_out)).or_else(|| kucoin_transfer_pin(name, &rust_root.path().join(name), rails_out, rust_out)).or_else(|| unknown_price_origin(name,rails_out,rust_out)).or_else(||binance_ledger(name, rails_out, rust_out)).or_else(||listed(name, rails_out, rust_out)) {
             Some(Err(e)) => failures.push(format!("{name} (listed divergence): {e}\n  rails: {rails_out}\n  rust:  {rust_out}")),
             Some(Ok(())) => { divergences.push(name.as_str()); assert_ne!(rails_out, rust_out, "{name}: a listed divergence that no longer differs"); }
             None if rails_out != rust_out => failures.push(format!("{name}\n  rails: {rails_out}\n  rust:  {rust_out}")),
@@ -469,6 +469,7 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     expected.push("bybit-ledger-stuck");
     expected.extend_from_slice(UNKNOWN_PRICE_ORIGIN);
     expected.push("bitrue-ledger-repeated_page");
+    expected.push("bingx-ledger-repeated_page");
     expected.extend_from_slice(&["balances-snapshots_network", "ledger-long_error", "ledger-network_pre_send"]);
     expected.sort();
     assert_eq!(divergences,expected,"the remaining divergences and all reviewed R legacy prices");
@@ -941,6 +942,22 @@ fn bitrue_page(name: &str, rails: &Value, rust: &Value) -> Option<Result<(), Str
     Some((|| {
         check(key_error(rails).as_str().is_some_and(|s| s.contains("path") && s.contains("NameError")), "Rails no longer raises on undefined path")?;
         check(key_error(rust) == "Bitrue ledger read failed: a full page of /api/v1/deposit/history brought nothing new", "Rust must name the stalled endpoint")?;
+        check(rows(rails, "account_transactions").is_empty(), "Rails must store none on a failed fetch")?;
+        check(rows(rust, "account_transactions").is_empty(), "a fresh failed import stores no partial page")?;
+        check(rails["steps"][0]["raised"] == true && rust["steps"][0]["raised"] == false, "a controlled sync failure replaces the exception")?;
+        rest_is_identical(rails, rust, &|out| {
+            without_columns(out, "api_keys", &["last_sync_error"]);
+            out["steps"][0]["raised"] = json!(false);
+        })
+    })())
+}
+
+// D-BINGX-PAGE: a repeated full page is a controlled failure.
+fn bingx_page(name: &str, rails: &Value, rust: &Value) -> Option<Result<(), String>> {
+    if name != "bingx-ledger-repeated_page" { return None; }
+    Some((|| {
+        check(key_error(rails).as_str().is_some_and(|s| s.contains("path") && s.contains("NameError")), "Rails no longer raises on undefined path")?;
+        check(key_error(rust) == "BingX ledger read failed: a full page of /openApi/api/v3/capital/deposit/hisrec brought nothing new", "Rust must name the stalled endpoint")?;
         check(rows(rails, "account_transactions").is_empty(), "Rails must store none on a failed fetch")?;
         check(rows(rust, "account_transactions").is_empty(), "a fresh failed import stores no partial page")?;
         check(rails["steps"][0]["raised"] == true && rust["steps"][0]["raised"] == false, "a controlled sync failure replaces the exception")?;

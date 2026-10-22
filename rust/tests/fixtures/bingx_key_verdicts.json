@@ -1,0 +1,2373 @@
+{
+  "sources": {
+    "app/models/exchanges/kraken.rb": "232820af94e9247375162d361eaff6437ae3f2c95b236bf3114b748026d2d902",
+    "app/models/exchanges/binance.rb": "72139d578fcf6df45576eb7e648185e71d7fad7b8be456bf4438af7dada57649",
+    "app/models/exchanges/binance_us.rb": "0a7814fb073bf00733986d2fb4a9c2d69d9a3be5e78c068aca153bc5966a16f7",
+    "app/models/exchanges/kucoin.rb": "a4dd07679ac5297f73d7713a812122728872629f60c13cf82d5f1b5c205fef45",
+    "app/models/exchanges/bitvavo.rb": "eb8c8aac55c32742ff255efeb890e1163892480f85e6e6dcaf611b79ada4d513",
+    "app/models/exchanges/gemini.rb": "f020003e7398b901120a20af2354b692218ac537072da685ab176499069c4234",
+    "app/models/exchanges/bitget.rb": "5acc29199e4c5ecda3eeae60ea898ac69438e5b581c6bc15fcbe70241e40716c",
+    "app/models/exchanges/mexc.rb": "08a430af264efc84f88c0233fdd47a9cce4532a0cf829d580f7c9569e0697454",
+    "app/models/exchanges/hyperliquid.rb": "5fd3338e69d144f1d19d14a18206610303137da8b81a2e91ed34b6d484b0d1a2",
+    "app/models/exchanges/bybit.rb": "cf67b86cbd55174a5c729db27a82312cb121d15bd3a5ef40ce356dc0a801290d",
+    "app/models/exchanges/bitrue.rb": "0d02c8ab14a77f1c5d931dbc4e834de79afa78fe0c940d47ded5da2037ba5664",
+    "app/models/exchange.rb": "ab627a2812bc0c7b4a546459e64f8f5d93617c496308d5f03163f44cef12d8d7",
+    "app/models/exchange/dryable.rb": "559b4b1858c832f3bc83b7631d7a74012854aabd88408b8680288609a1254b96",
+    "app/models/api_key.rb": "e7f1435042602815925d093baa51160be9236c600b2f8aebdcf0517f5119ef91",
+    "app/helpers/bot_helper.rb": "49d305ee88d506460c4d95dff8f23ed1823916118a09e305629549715eb6a01b",
+    "config/locales/api.en.yml": "7de5f5adb9979be9ecda7b3e176a5d8302bb27bf0bdb59c22741b89e2618c850",
+    "config/locales/api.de.yml": "b02fe90d9884828792e54f12ed5b100a64de30532dd963914a7cff5f407dfe44",
+    "config/locales/api.pl.yml": "fda850e430e8d64f14a5b6f078061c674c1a371d7e2883cdf970ee2495f6591b",
+    "config/locales/api_read_only.en.yml": "349b0cb8dbf472fa989661b0ca648c8df5cc216d68b5e9b375a246268a00d735",
+    "config/locales/api_withdrawal.en.yml": "8ac2fa18ec06a6599e431b80ecf40da79f853193e78ce495e00902dae66bb41a",
+    "config/locales/errors.en.yml": "5c8b9455a0ddd3777d79899edcafe081f3218e786ee5a1ddf5c5688db31e66f2",
+    "config/locales/errors.de.yml": "9ed87da4b5c2773ae37783ff00b4ad7fa54732178ffe8171489962b602cd53f3",
+    "config/locales/errors.pl.yml": "4ede2653ca0512683565a373739b7b32836c92ad354d894dded7ab893bf59c01",
+    "app/models/exchanges/bingx.rb": "212f3e76c535c547e4fe1411b5fe4c98112ca4c92e91de1836c81090a3855ff4"
+  },
+  "honeymaker": "0.12.5",
+  "bingx": {
+    "cases": [
+      {
+        "case": "http_500",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 500,
+          "body": "",
+          "content_type": "text/plain"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "the server responded with status 500 for POST https://open-api.bingx.com/openApi/spot/v1/trade/cancel?orderId=0&signature=526954487ecce45b4009db2000ed2a66358080ae132800c5f50a624e431ae24d&symbol=BTC-USDT&timestamp=1792653274079"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/trade/cancel",
+          "query": {
+            "orderId": "0",
+            "symbol": "BTC-USDT"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_502_html",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 502,
+          "body": "<html><body>502 Bad Gateway</body></html>",
+          "content_type": "text/html"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "<html><body>502 Bad Gateway</body></html>"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/trade/cancel",
+          "query": {
+            "orderId": "0",
+            "symbol": "BTC-USDT"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_503_json",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 503,
+          "body": "{\"msg\":\"Service unavailable\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"msg\":\"Service unavailable\"}"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/trade/cancel",
+          "query": {
+            "orderId": "0",
+            "symbol": "BTC-USDT"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_403_waf_html",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 403,
+          "body": "<html>Forbidden</html>",
+          "content_type": "text/html"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "<html>Forbidden</html>"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/trade/cancel",
+          "query": {
+            "orderId": "0",
+            "symbol": "BTC-USDT"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_429",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 429,
+          "body": "{\"code\":-1003,\"msg\":\"Too many requests.\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"code\":-1003,\"msg\":\"Too many requests.\"}"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/trade/cancel",
+          "query": {
+            "orderId": "0",
+            "symbol": "BTC-USDT"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "timeout",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "timeout": true
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Net::ReadTimeout"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/trade/cancel",
+          "query": {
+            "orderId": "0",
+            "symbol": "BTC-USDT"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "connection_refused",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "refused": true
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Failed to open TCP connection (Connection refused)"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/trade/cancel",
+          "query": {
+            "orderId": "0",
+            "symbol": "BTC-USDT"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "malformed_json",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"error\":[],\"result\":{",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"error\":[],\"result\":{"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/trade/cancel",
+          "query": {
+            "orderId": "0",
+            "symbol": "BTC-USDT"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "empty_json_body",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "BingX answered code nil"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/trade/cancel",
+          "query": {
+            "orderId": "0",
+            "symbol": "BTC-USDT"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "plain_text_200",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "OK",
+          "content_type": "text/plain"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "OK"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/trade/cancel",
+          "query": {
+            "orderId": "0",
+            "symbol": "BTC-USDT"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "0 http_200",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":0,\"msg\":\"OK\",\"data\":{\"balances\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "POST",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/trade/cancel",
+          "query": {
+            "orderId": "0",
+            "symbol": "BTC-USDT"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "0 http_400",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":0,\"msg\":\"OK\",\"data\":{\"balances\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "POST",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/trade/cancel",
+          "query": {
+            "orderId": "0",
+            "symbol": "BTC-USDT"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "100404 http_200",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":100404,\"msg\":\"Order does not exist\",\"data\":{\"balances\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "POST",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/trade/cancel",
+          "query": {
+            "orderId": "0",
+            "symbol": "BTC-USDT"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "100404 http_400",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":100404,\"msg\":\"Order does not exist\",\"data\":{\"balances\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "POST",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/trade/cancel",
+          "query": {
+            "orderId": "0",
+            "symbol": "BTC-USDT"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "100400 http_200",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":100400,\"msg\":\"Order does not exist\",\"data\":{\"balances\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Order does not exist"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/trade/cancel",
+          "query": {
+            "orderId": "0",
+            "symbol": "BTC-USDT"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "100400 http_400",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":100400,\"msg\":\"Order does not exist\",\"data\":{\"balances\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"code\":100400,\"msg\":\"Order does not exist\",\"data\":{\"balances\":[]}}"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/trade/cancel",
+          "query": {
+            "orderId": "0",
+            "symbol": "BTC-USDT"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "100413 http_200",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":100413,\"msg\":\"Incorrect apiKey\",\"data\":{\"balances\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "POST",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/trade/cancel",
+          "query": {
+            "orderId": "0",
+            "symbol": "BTC-USDT"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "100413 http_400",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":100413,\"msg\":\"Incorrect apiKey\",\"data\":{\"balances\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "POST",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/trade/cancel",
+          "query": {
+            "orderId": "0",
+            "symbol": "BTC-USDT"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "100004 http_200",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":100004,\"msg\":\"API key was created without the permission\",\"data\":{\"balances\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "POST",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/trade/cancel",
+          "query": {
+            "orderId": "0",
+            "symbol": "BTC-USDT"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "100004 http_400",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":100004,\"msg\":\"API key was created without the permission\",\"data\":{\"balances\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "POST",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/trade/cancel",
+          "query": {
+            "orderId": "0",
+            "symbol": "BTC-USDT"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "100419 http_200",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":100419,\"msg\":\"IP does not match IP whitelist\",\"data\":{\"balances\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "IP does not match IP whitelist"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/trade/cancel",
+          "query": {
+            "orderId": "0",
+            "symbol": "BTC-USDT"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "100419 http_400",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":100419,\"msg\":\"IP does not match IP whitelist\",\"data\":{\"balances\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"code\":100419,\"msg\":\"IP does not match IP whitelist\",\"data\":{\"balances\":[]}}"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/trade/cancel",
+          "query": {
+            "orderId": "0",
+            "symbol": "BTC-USDT"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "100500 http_200",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":100500,\"msg\":\"Internal system error\",\"data\":{\"balances\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Internal system error"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/trade/cancel",
+          "query": {
+            "orderId": "0",
+            "symbol": "BTC-USDT"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "100500 http_400",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":100500,\"msg\":\"Internal system error\",\"data\":{\"balances\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"code\":100500,\"msg\":\"Internal system error\",\"data\":{\"balances\":[]}}"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/trade/cancel",
+          "query": {
+            "orderId": "0",
+            "symbol": "BTC-USDT"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "100421 http_200",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":100421,\"msg\":\"timestamp mismatch\",\"data\":{\"balances\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "timestamp mismatch"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/trade/cancel",
+          "query": {
+            "orderId": "0",
+            "symbol": "BTC-USDT"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "100421 http_400",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":100421,\"msg\":\"timestamp mismatch\",\"data\":{\"balances\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"code\":100421,\"msg\":\"timestamp mismatch\",\"data\":{\"balances\":[]}}"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/trade/cancel",
+          "query": {
+            "orderId": "0",
+            "symbol": "BTC-USDT"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "12345 http_200",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":12345,\"msg\":\"\",\"data\":{\"balances\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "BingX answered code 12345"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/trade/cancel",
+          "query": {
+            "orderId": "0",
+            "symbol": "BTC-USDT"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "12345 http_400",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":12345,\"msg\":\"\",\"data\":{\"balances\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"code\":12345,\"msg\":\"\",\"data\":{\"balances\":[]}}"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/trade/cancel",
+          "query": {
+            "orderId": "0",
+            "symbol": "BTC-USDT"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "gateway",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":100404,\"msg\":\"path not found\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "path not found"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/trade/cancel",
+          "query": {
+            "orderId": "0",
+            "symbol": "BTC-USDT"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "missing_code",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"msg\":\"unknown\",\"data\":{\"balances\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "unknown"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/trade/cancel",
+          "query": {
+            "orderId": "0",
+            "symbol": "BTC-USDT"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "string_code",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":\"0\",\"data\":{\"balances\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "POST",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/trade/cancel",
+          "query": {
+            "orderId": "0",
+            "symbol": "BTC-USDT"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "missing_balances",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":0,\"data\":{}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "POST",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/trade/cancel",
+          "query": {
+            "orderId": "0",
+            "symbol": "BTC-USDT"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_500",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 500,
+          "body": "",
+          "content_type": "text/plain"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "the server responded with status 500 for GET https://open-api.bingx.com/openApi/spot/v1/account/balance?signature=c839cf57065cc13b484b79f9eae5c6aa645c44709bfba8283560dd402e21c6b3&timestamp=1792653274107"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/account/balance",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_502_html",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 502,
+          "body": "<html><body>502 Bad Gateway</body></html>",
+          "content_type": "text/html"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "<html><body>502 Bad Gateway</body></html>"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/account/balance",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_503_json",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 503,
+          "body": "{\"msg\":\"Service unavailable\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"msg\":\"Service unavailable\"}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/account/balance",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_403_waf_html",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 403,
+          "body": "<html>Forbidden</html>",
+          "content_type": "text/html"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "<html>Forbidden</html>"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/account/balance",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_429",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 429,
+          "body": "{\"code\":-1003,\"msg\":\"Too many requests.\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"code\":-1003,\"msg\":\"Too many requests.\"}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/account/balance",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "timeout",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "timeout": true
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Net::ReadTimeout"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/account/balance",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "connection_refused",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "refused": true
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Failed to open TCP connection (Connection refused)"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/account/balance",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "malformed_json",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"error\":[],\"result\":{",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"error\":[],\"result\":{"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/account/balance",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "empty_json_body",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "BingX answered code nil"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/account/balance",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "plain_text_200",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "OK",
+          "content_type": "text/plain"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "OK"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/account/balance",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "0 http_200",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":0,\"msg\":\"OK\",\"data\":{\"balances\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "GET",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/account/balance",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "0 http_400",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":0,\"msg\":\"OK\",\"data\":{\"balances\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "GET",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/account/balance",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "100404 http_200",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":100404,\"msg\":\"Order does not exist\",\"data\":{\"balances\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Order does not exist"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/account/balance",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "100404 http_400",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":100404,\"msg\":\"Order does not exist\",\"data\":{\"balances\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"code\":100404,\"msg\":\"Order does not exist\",\"data\":{\"balances\":[]}}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/account/balance",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "100400 http_200",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":100400,\"msg\":\"Order does not exist\",\"data\":{\"balances\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Order does not exist"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/account/balance",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "100400 http_400",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":100400,\"msg\":\"Order does not exist\",\"data\":{\"balances\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"code\":100400,\"msg\":\"Order does not exist\",\"data\":{\"balances\":[]}}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/account/balance",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "100413 http_200",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":100413,\"msg\":\"Incorrect apiKey\",\"data\":{\"balances\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/account/balance",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "100413 http_400",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":100413,\"msg\":\"Incorrect apiKey\",\"data\":{\"balances\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/account/balance",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "100004 http_200",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":100004,\"msg\":\"API key was created without the permission\",\"data\":{\"balances\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/account/balance",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "100004 http_400",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":100004,\"msg\":\"API key was created without the permission\",\"data\":{\"balances\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/account/balance",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "100419 http_200",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":100419,\"msg\":\"IP does not match IP whitelist\",\"data\":{\"balances\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "IP does not match IP whitelist"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/account/balance",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "100419 http_400",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":100419,\"msg\":\"IP does not match IP whitelist\",\"data\":{\"balances\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"code\":100419,\"msg\":\"IP does not match IP whitelist\",\"data\":{\"balances\":[]}}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/account/balance",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "100500 http_200",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":100500,\"msg\":\"Internal system error\",\"data\":{\"balances\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Internal system error"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/account/balance",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "100500 http_400",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":100500,\"msg\":\"Internal system error\",\"data\":{\"balances\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"code\":100500,\"msg\":\"Internal system error\",\"data\":{\"balances\":[]}}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/account/balance",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "100421 http_200",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":100421,\"msg\":\"timestamp mismatch\",\"data\":{\"balances\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "timestamp mismatch"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/account/balance",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "100421 http_400",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":100421,\"msg\":\"timestamp mismatch\",\"data\":{\"balances\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"code\":100421,\"msg\":\"timestamp mismatch\",\"data\":{\"balances\":[]}}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/account/balance",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "12345 http_200",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":12345,\"msg\":\"\",\"data\":{\"balances\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "BingX answered code 12345"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/account/balance",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "12345 http_400",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":12345,\"msg\":\"\",\"data\":{\"balances\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"code\":12345,\"msg\":\"\",\"data\":{\"balances\":[]}}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/account/balance",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "gateway",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":100404,\"msg\":\"path not found\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "path not found"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/account/balance",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "missing_code",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"msg\":\"unknown\",\"data\":{\"balances\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "unknown"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/account/balance",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "string_code",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":\"0\",\"data\":{\"balances\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "GET",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/account/balance",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "missing_balances",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":0,\"data\":{}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "GET",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/account/balance",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_500",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 500,
+          "body": "",
+          "content_type": "text/plain"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "the server responded with status 500 for GET https://open-api.bingx.com/openApi/spot/v1/account/balance?signature=36d7c6cb0a93bf2eaffa139c38c134704deb805e017fa6c96f82590cd766d90d&timestamp=1792653274125"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/account/balance",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_502_html",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 502,
+          "body": "<html><body>502 Bad Gateway</body></html>",
+          "content_type": "text/html"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "<html><body>502 Bad Gateway</body></html>"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/account/balance",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_503_json",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 503,
+          "body": "{\"msg\":\"Service unavailable\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Service unavailable"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/account/balance",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_403_waf_html",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 403,
+          "body": "<html>Forbidden</html>",
+          "content_type": "text/html"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "<html>Forbidden</html>"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/account/balance",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_429",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 429,
+          "body": "{\"code\":-1003,\"msg\":\"Too many requests.\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Too many requests."
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/account/balance",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "timeout",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "timeout": true
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Net::ReadTimeout"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/account/balance",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "connection_refused",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "refused": true
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Failed to open TCP connection (Connection refused)"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/account/balance",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "malformed_json",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"error\":[],\"result\":{",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"error\":[],\"result\":{"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/account/balance",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "empty_json_body",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "raises",
+          "class": "NoMethodError",
+          "message": "undefined method '[]' for nil"
+        },
+        "request": {
+          "method": "GET",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/account/balance",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "plain_text_200",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "OK",
+          "content_type": "text/plain"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "OK"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/account/balance",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "0 http_200",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":0,\"msg\":\"OK\",\"data\":{\"balances\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "GET",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/account/balance",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "0 http_400",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":0,\"msg\":\"OK\",\"data\":{\"balances\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "OK"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/account/balance",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "100404 http_200",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":100404,\"msg\":\"Order does not exist\",\"data\":{\"balances\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Order does not exist"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/account/balance",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "100404 http_400",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":100404,\"msg\":\"Order does not exist\",\"data\":{\"balances\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Order does not exist"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/account/balance",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "100400 http_200",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":100400,\"msg\":\"Order does not exist\",\"data\":{\"balances\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Order does not exist"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/account/balance",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "100400 http_400",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":100400,\"msg\":\"Order does not exist\",\"data\":{\"balances\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Order does not exist"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/account/balance",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "100413 http_200",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":100413,\"msg\":\"Incorrect apiKey\",\"data\":{\"balances\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/account/balance",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "100413 http_400",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":100413,\"msg\":\"Incorrect apiKey\",\"data\":{\"balances\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/account/balance",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "100004 http_200",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":100004,\"msg\":\"API key was created without the permission\",\"data\":{\"balances\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "API key was created without the permission"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/account/balance",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "100004 http_400",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":100004,\"msg\":\"API key was created without the permission\",\"data\":{\"balances\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "API key was created without the permission"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/account/balance",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "100419 http_200",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":100419,\"msg\":\"IP does not match IP whitelist\",\"data\":{\"balances\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "IP does not match IP whitelist"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/account/balance",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "100419 http_400",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":100419,\"msg\":\"IP does not match IP whitelist\",\"data\":{\"balances\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "IP does not match IP whitelist"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/account/balance",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "100500 http_200",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":100500,\"msg\":\"Internal system error\",\"data\":{\"balances\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Internal system error"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/account/balance",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "100500 http_400",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":100500,\"msg\":\"Internal system error\",\"data\":{\"balances\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Internal system error"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/account/balance",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "100421 http_200",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":100421,\"msg\":\"timestamp mismatch\",\"data\":{\"balances\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "timestamp mismatch"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/account/balance",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "100421 http_400",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":100421,\"msg\":\"timestamp mismatch\",\"data\":{\"balances\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "timestamp mismatch"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/account/balance",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "12345 http_200",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":12345,\"msg\":\"\",\"data\":{\"balances\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            ""
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/account/balance",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "12345 http_400",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":12345,\"msg\":\"\",\"data\":{\"balances\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"code\":12345,\"msg\":\"\",\"data\":{\"balances\":[]}}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/account/balance",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "gateway",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":100404,\"msg\":\"path not found\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "path not found"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/account/balance",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "missing_code",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"msg\":\"unknown\",\"data\":{\"balances\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "GET",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/account/balance",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "string_code",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":\"0\",\"data\":{\"balances\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "GET",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/account/balance",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "missing_balances",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":0,\"data\":{}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "raises",
+          "class": "KeyError",
+          "message": "Key path data -> balances not found"
+        },
+        "request": {
+          "method": "GET",
+          "host": "open-api.bingx.com",
+          "path": "/openApi/spot/v1/account/balance",
+          "query": {},
+          "form": {},
+          "key_header": "test-key"
+        }
+      }
+    ]
+  }
+}

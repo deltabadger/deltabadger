@@ -549,3 +549,22 @@ pub static BITRUE: VenueRules = VenueRules {
     price_rule: PriceRule::Decimals,
     cross: None,
 };
+
+/// Exchanges::Bingx::ERRORS, minimum_amount_logic and missing-order policy.
+const BINGX_TRANSIENT: [&str; 15] = ["Net::ReadTimeout", "Net::OpenTimeout", "Faraday::TimeoutError", "Faraday::ConnectionFailed",
+    "execution expired", "Connection reset", "Errno::ECONNRESET", "connection refused", "Connection refused", "Errno::ECONNREFUSED",
+    "end of file reached", "unexpected eof while reading", "The current system is busy", "Internal system error", "timestamp mismatch"];
+pub static BINGX: VenueRules = VenueRules {
+    exchange_type: "Exchanges::Bingx", name: "BingX",
+    kinds: [("insufficient_funds", &["Insufficient assets", "Insufficient balance", "insufficient balance"]),
+        ("invalid_key", &["Incorrect apiKey", "Invalid Api-Key ID", "Signature verification failed", "Null signature"]),
+        ("permission_denied", &["API key was created without the permission", "IP does not match IP whitelist"]),
+        ("restricted", &[]), ("throttle", &["Too Many Requests", "rate limitation"]),
+        ("transient", &["The current system is busy", "Internal system error", "timestamp mismatch"])],
+    transient_text: &BINGX_TRANSIENT,
+    add_outcome_unknown: &["The current system is busy", "Internal system error", "timestamp mismatch"],
+    minimum_logic: MinimumLogic { market: AmountLogic::BaseOrQuote, limit: AmountLogic::BaseAndQuoteInBase },
+    wire: WireFormat::Kraken, deadline_sent: false, reach_within_secs: 55, absence_margin_secs: 1200,
+    transport_raises: false, follow_up_strict: true, market_hours: false, reports_missing: true,
+    absence_provable: false, young_missing_fails: true, price_rule: PriceRule::Decimals, cross: None,
+};

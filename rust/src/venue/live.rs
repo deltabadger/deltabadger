@@ -13,6 +13,7 @@ use super::gemini::GeminiVenue;
 use super::mexc::MexcVenue;
 use super::hyperliquid::HyperliquidVenue;
 use super::bitrue::BitrueVenue;
+use super::bingx::BingxVenue;
 use super::{ClockAnswer, NewOrder, OrderState, PriceSide, Venue, VenueError};
 use crate::crypto::Cipher;
 use crate::engine::model::Ticker;
@@ -32,7 +33,7 @@ macro_rules! live_venues {
 
 live_venues!($ Alpaca(AlpacaVenue<ReqwestTransport>), Kraken(KrakenVenue<ReqwestTransport>), Binance(BinanceVenue<ReqwestTransport>),
              Kucoin(KucoinVenue<ReqwestTransport>), Bitvavo(BitvavoVenue<ReqwestTransport>), Gemini(GeminiVenue<ReqwestTransport>),
-             Bitget(BitgetVenue<ReqwestTransport>), Mexc(MexcVenue<ReqwestTransport>), Hyperliquid(HyperliquidVenue<ReqwestTransport>), Bybit(BybitVenue<ReqwestTransport>), Bitrue(BitrueVenue<ReqwestTransport>));
+             Bitget(BitgetVenue<ReqwestTransport>), Mexc(MexcVenue<ReqwestTransport>), Hyperliquid(HyperliquidVenue<ReqwestTransport>), Bybit(BybitVenue<ReqwestTransport>), Bitrue(BitrueVenue<ReqwestTransport>), Bingx(BingxVenue<ReqwestTransport>));
 
 impl Venue for LiveVenue {
     fn rules(&self) -> &'static VenueRules { each!(self, v => v.rules()) }

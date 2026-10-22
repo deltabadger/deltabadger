@@ -368,9 +368,33 @@ fn key_verdicts_replay_every_recorded_case() {
         assert_eq!(json!([r.method, r.url().host_str().unwrap(), r.path, query]), json!([case["request"]["method"],case["request"]["host"],case["request"]["path"],case["request"]["query"]]));
         bitrue += 1;
     }
+    assert_pinned("bingx_key_verdicts.json");
+    let bingx_recorded = fixture("bingx_key_verdicts.json");
+    let mut bingx = 0;
+    for case in bingx_recorded["bingx"]["cases"].as_array().unwrap() {
+        let (name, kind) = (case["case"].as_str().unwrap(), kind(case["key_type"].as_str().unwrap()));
+        let reading = case["method"] == "get_read_api_key_validity";
+        let a = &case["response"];
+        let reply = if a["timeout"] == true { json!({"network":"post_send", "message":"Net::ReadTimeout"}) }
+                    else if a["refused"] == true { json!({"network":"pre_send", "message":"Connection refused"}) }
+                    else { json!({"status":a["status"],"body":a["body"]}) };
+        let transport = deltabadger::venue::http::ScriptedTransport::from_script(&json!({format!("{} {}",case["request"]["method"].as_str().unwrap(),case["request"]["path"].as_str().unwrap()):[reply]}));
+        let venue = deltabadger::venue::bingx::BingxVenue::new(transport.clone(), deltabadger::venue::bingx::URL, "test-secret");
+        let (_, ours) = rt.block_on(key_check::bingx_check(&transport, &venue, kind, reading));
+        let theirs = if case["verdict"]["kind"] == "raises" { Verdict::Failure(String::new()) } else { expected(&case["verdict"]) };
+        assert!(same(&ours, &theirs), "bingx {} {name}: {ours:?}, Rails {theirs:?}", case["key_type"]);
+        let requests = transport.requests();
+        assert_eq!(requests.len(), 1);
+        let r = &requests[0];
+        let query: serde_json::Map<String, Value> = r.query.iter().filter(|(k,_)| !["signature","timestamp"].contains(k)).map(|(k,v)| (k.to_string(),json!(v))).collect();
+        assert_eq!(json!([r.method, r.url().host_str().unwrap(), r.path, query]), json!([case["request"]["method"],case["request"]["host"],case["request"]["path"],case["request"]["query"]]));
+        bingx += 1;
+    }
+    assert_eq!(bingx, 96, "BingX recorded key verdicts");
+    replayed += bingx;
     assert_eq!(bitrue, 81, "Bitrue recorded key verdicts");
     replayed += bitrue;
-    assert_eq!(replayed, 578 + 84 + 212 + 214 + 122 + 240 + 70 + 108 + 81, "the combined venue key grid: 1,210 existing + 240 MEXC + 70 Hyperliquid + 108 Bybit + 81 Bitrue cases");
+    assert_eq!(replayed, 578 + 84 + 212 + 214 + 122 + 240 + 70 + 108 + 81 + 96, "the combined venue key grid: 1,210 existing + 240 MEXC + 70 Hyperliquid + 108 Bybit + 81 Bitrue + 96 BingX cases");
 }
 
 /// A pinned callback list against a port's table: the same callbacks, in Rails' order, each handled.
