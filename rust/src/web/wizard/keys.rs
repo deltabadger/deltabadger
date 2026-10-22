@@ -1,7 +1,7 @@
 //! The DCA wizard's API-key step (Bots::Wizard::AddApiKeysController), in the single namespace (exchange-first, before any
 //! asset) and the multi one (a basket's venue). `new` moves on when the user's trading key for the chosen venue is correct,
 //! and asks the venue again, on the GET, when a stored key is not known to be (the one wizard GET that calls a venue and
-//! writes); `create` checks the submitted key and saves it when it is correct. Alpaca, Kraken, Binance, Binance.US, KuCoin, Bitvavo, Gemini, Bitget, MEXC, Hyperliquid, Bybit and Bitrue are checked here;
+//! writes); `create` checks the submitted key and saves it when it is correct. Alpaca, Kraken, Binance, Binance.US, KuCoin, Bitvavo, Gemini, Bitget, MEXC, Hyperliquid, Bybit, Bitrue and Coinbase are checked here;
 //! any other venue's key step is a named refusal, so the wizard never makes a bot this build does not trade. The index wizard's
 //! key step (Bots::DcaIndexes::AddApiKeysController) is the third namespace, for an index this engine runs (index::refusal).
 use super::{basket_ids, chips, current_variant, exchange_id, exchange_name, first_incomplete, prerequisite, progress, sentence, step_complete, BotType,

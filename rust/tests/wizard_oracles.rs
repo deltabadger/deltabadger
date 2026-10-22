@@ -370,7 +370,26 @@ fn key_verdicts_replay_every_recorded_case() {
     }
     assert_eq!(bitrue, 81, "Bitrue recorded key verdicts");
     replayed += bitrue;
-    assert_eq!(replayed, 578 + 84 + 212 + 214 + 122 + 240 + 70 + 108 + 81, "the combined venue key grid: 1,210 existing + 240 MEXC + 70 Hyperliquid + 108 Bybit + 81 Bitrue cases");
+    let mut coinbase = 0;
+    for case in recorded["coinbase"]["cases"].as_array().unwrap() {
+        let answers: Vec<Value> = case["responses"].as_array().cloned().unwrap_or_else(||vec![case["response"].clone()]);
+        let sent: Vec<Value> = case["requests"].as_array().cloned().unwrap_or_else(||vec![case["request"].clone()]);
+        let mut script=serde_json::Map::new();
+        for (r,a) in sent.iter().zip(&answers) {
+            let key=format!("{} {}",r["method"].as_str().unwrap(),r["path"].as_str().unwrap());
+            script.entry(key).or_insert_with(||json!([])).as_array_mut().unwrap().push(json!({"status":a["status"],"body":a["body"]}));
+        }
+        let t=deltabadger::venue::http::ScriptedTransport::from_script(&Value::Object(script));
+        let (_,ours)=rt.block_on(key_check::coinbase_check(&t,deltabadger::venue::coinbase::URL,kind(case["key_type"].as_str().unwrap()),std::time::Duration::ZERO));
+        assert!(same(&ours,&expected(&case["verdict"])),"Coinbase {}: {ours:?}, Rails {}",case["case"],case["verdict"]);
+        let ours:Vec<Value>=t.requests().iter().map(|r|json!([r.method,r.url().host_str().unwrap(),r.path])).collect();
+        let theirs:Vec<Value>=sent.iter().map(|r|json!([r["method"],r["host"],r["path"]])).collect();
+        assert_eq!(ours,theirs,"Coinbase request sequence {}",case["case"]);
+        coinbase+=1;
+    }
+    assert_eq!(coinbase,54+16+12,"Coinbase flags, retries and read-only sequences");
+    replayed+=coinbase;
+    assert_eq!(replayed, 578 + 84 + 212 + 214 + 122 + 240 + 70 + 108 + 81 + 82, "the combined venue key grid: 1,210 existing + 240 MEXC + 70 Hyperliquid + 108 Bybit + 81 Bitrue + 82 Coinbase cases");
 }
 
 /// A pinned callback list against a port's table: the same callbacks, in Rails' order, each handled.

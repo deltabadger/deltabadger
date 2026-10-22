@@ -2108,3 +2108,34 @@ async fn rails_and_rust_decide_identically_across_the_bitrue_grid() {
         if name.ends_with("-sweep_gone_old") { assert_eq!(after("BTCUSDT-212").unwrap()["external_status"], 4, "{name}: T8, abandoned"); }
     }
 }
+
+/// Coinbase's normal decisions match Rails; D-CB-PAGING and D-CB-PLACEMENT are asserted separately.
+/// D-CB-PLACEMENT retains uncertain intents and recovers landed orders without placing again.
+#[tokio::test(flavor="current_thread")]
+async fn rails_and_rust_decide_identically_across_the_coinbase_grid(){
+    use common::venue_grid::{ending,run_venue_grid,Validator};
+    run_venue_grid("grid-coinbase",4*(11+10),&[
+        Validator{names:&ending(&["add_server_error","add_unknown_failure"]),check:&|_,d,r,u|intent_kept(d,r,u)},
+        Validator{names:&ending(&["landed_missing"]),check:&|_,d,r,u|{
+            if u["recover_sent"]!=0{return Err("missing lookup sent another order".into());}intent_kept(d,r,u)
+        }},
+        Validator{names:&ending(&["landed_found"]),check:&|_,d,r,u|{
+            if !r["changes"]["transactions"].as_array().unwrap().iter().any(|t|t["after"]["status"]==1){return Err("Rails no longer fails the lost reply".into());}
+            let rows=u["changes"]["transactions"].as_array().unwrap();
+            if rows.len()!=1 || rows[0]["after"]["external_id"]!="found" || rows[0]["after"]["external_status"]!=2 || u["recover_sent"]!=0 || u["sent"].as_array().unwrap().len()!=1{return Err("recovery must find and account the order without placing again".into());}
+            let c=rusqlite::Connection::open(d.join("production.sqlite3")).unwrap();
+            let pending:bool=c.query_row("SELECT json_extract(transient_data,'$.rust_placement') IS NOT NULL FROM bots",[],|r|r.get(0)).unwrap();
+            if pending{return Err("found order left its intent unresolved".into());}Ok(())
+        }},
+        Validator{names:&ending(&["add_no_id"]),check:&|_,d,r,u|{if r==u{return Err("Rails no longer differs".into());}rust_kept_the_intent(d,u)}},
+        Validator{names:&ending(&["batch_second_page"]),check:&|_,d,r,u|{
+            let changes=|out:&serde_json::Value|out["changes"]["transactions"].as_array().unwrap().iter().find(|t|t["after"]["external_id"]=="b").map(|t|t["after"].clone());
+            let ours=changes(u).ok_or("second-page order not updated")?;
+            if ours["external_status"]!=2 || changes(r).is_some_and(|t|t["external_status"]==2){return Err("D-CB-PAGING must find the filled second-page order only in Rust".into());}
+            let c=rusqlite::Connection::open(d.join("production.sqlite3")).unwrap();
+            let count:i64=c.query_row("SELECT count(*) FROM transactions WHERE external_id IN ('a','b') AND external_status=2",[],|r|r.get(0)).unwrap();
+            if count!=2 || !u["sent"].as_array().unwrap().is_empty(){return Err("both requested orders must close without placement".into());}
+            Ok(())
+        }},
+    ]).await;
+}

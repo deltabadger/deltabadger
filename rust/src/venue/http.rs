@@ -209,7 +209,10 @@ impl ReqwestTransport {
     pub fn gemini(client: reqwest::Client, key: String, secret: String) -> Self { Self { wire: Wire::Gemini, ..Self::new(client, key, secret) } }
     /// Honeymaker::Clients::Mexc's wire: the key in X-MEXC-APIKEY; the secret only signs (`sign::MEXC_QUERY`).
     pub fn mexc(client: reqwest::Client, key: String, secret: String) -> Self { Self { wire: Wire::Mexc, ..Self::new(client, key, secret) } }
-    /// Honeymaker::Clients::Hyperliquid's wire: the secret (the agent key) only signs /exchange actions and is never sent.
+    /// Honeymaker::Clients::Coinbase: normalize a pasted PEM before signing each request.
+    pub fn coinbase(client: reqwest::Client, key: String, secret: String) -> Self { Self { wire: Wire::Coinbase, ..Self::new(client, key, secret.replace("\\n", "\n")) } }
+
+    /// Honeymaker::Clients::Hyperliquid's wire: the agent secret only signs /exchange actions.
     /// The key is a public wallet address that also appears in valid role and ledger answers.
     pub fn hyperliquid(client: reqwest::Client, key: String, secret: String) -> Self { Self { wire: Wire::Hyperliquid, sensitive: vec![secret.clone()], ..Self::new(client, key, secret) } }
     pub fn with_sensitive_values(mut self,values:Vec<String>)->Self{
@@ -411,6 +414,16 @@ impl Transport for ScriptedTransport {
         }
         if reply["body"]["clientOrderId"] == "$client_order_id" {
             if let Some((_, cl)) = r.query.iter().find(|(k, _)| *k == "origClientOrderId") { reply["body"]["clientOrderId"] = Value::String(cl.clone()); }
+        }
+        // Coinbase lists orders; the client id of a landed order is the one the preceding placement sent.
+        if r.path == super::coinbase::ORDERS {
+            let client = self.s.borrow().requests.iter().rev().find(|r| r.method == "POST" && r.path == super::coinbase::PLACE)
+                .and_then(|r| r.body.as_ref()).and_then(|b| b["client_order_id"].as_str()).map(str::to_string);
+            if let Some(client) = client {
+                for order in reply["body"]["orders"].as_array_mut().into_iter().flatten() {
+                    if order["client_order_id"] == "$client_order_id" { order["client_order_id"] = Value::String(client.clone()); }
+                }
+            }
         }
         // Bitget's orderInfo: the first order of `data`, asked for by `clientOid` in the query.
         if reply["body"]["data"][0]["clientOid"] == "$client_order_id" {

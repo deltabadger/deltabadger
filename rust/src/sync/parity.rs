@@ -263,12 +263,13 @@ pub async fn run(dir: &Path, cipher: Arc<Cipher>) -> Result<Value, SyncError> {
         let gemini = step.get("gemini").is_some();
         let bitget = step.get("bitget").is_some();
         let mexc = step.get("mexc").is_some();
+        let coinbase = step.get("coinbase").is_some();
         let hyperliquid = step.get("hyperliquid").is_some();
         let bybit = step.get("bybit").is_some();
         let bitrue = step.get("bitrue").is_some();
         let fake = step.get("binance_state").map(|state| FakeBinance { state: Arc::new(state.clone()), requests: Default::default() });
         let transport = ScriptedTransport::from_script(if binance { &step["binance"] } else if kucoin { &step["kucoin"] } else if bitvavo { &step["bitvavo"] }
-                                                       else if gemini { &step["gemini"] } else if bitget { &step["bitget"] } else if mexc { &step["mexc"] } else if hyperliquid { &step["hyperliquid"] } else if bybit { &step["bybit"] } else if bitrue { &step["bitrue"] } else { &step["alpaca"] });
+                                                       else if gemini { &step["gemini"] } else if bitget { &step["bitget"] } else if mexc { &step["mexc"] } else if hyperliquid { &step["hyperliquid"] } else if bybit { &step["bybit"] } else if bitrue { &step["bitrue"] } else if coinbase { &step["coinbase"] } else { &step["alpaca"] });
         let served = Served { script: transport.clone(), filters_after: step["server_filters_after"] == true };
         let venue = AlpacaVenue::new(served, Urls::for_passphrase(credentials.passphrase.as_deref()));
         let prices = ScriptedPrices::from_script(&step["market"]).with_rate_cache(rate_cache.clone());
@@ -281,6 +282,7 @@ pub async fn run(dir: &Path, cipher: Arc<Cipher>) -> Result<Value, SyncError> {
             }
             (Some("ledger"), None) if kucoin => super::kucoin_ledger::sync(&db, transport.clone(), key_id, &credentials, &FixedClock(at), std::time::Duration::ZERO).await?.is_err_and(|f| f.raised),
             (Some("ledger"), None) if bitvavo => super::bitvavo_ledger::sync(&db, transport.clone(), key_id, &credentials, &FixedClock(at), std::time::Duration::ZERO).await?.is_err_and(|f| f.raised),
+            (Some("ledger"), None) if coinbase => super::coinbase_ledger::sync(&db, transport.clone(), key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
             (Some("ledger"), None) if hyperliquid => super::hyperliquid_ledger::sync(&db, transport.clone(), key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
             (Some("ledger"), None) if gemini => super::gemini_ledger::sync(&db, transport.clone(), key_id, &credentials, &FixedClock(at), std::time::Duration::ZERO).await?.is_err_and(|f| f.raised),
             (Some("ledger"), None) if bitget => super::bitget_ledger::sync(&db, transport.clone(), key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
@@ -292,6 +294,7 @@ pub async fn run(dir: &Path, cipher: Arc<Cipher>) -> Result<Value, SyncError> {
             Some("ledger") => ledger::sync(&db, &venue, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
             Some("balances") if kucoin => balances::sync_kucoin(&db, transport.clone(), &prices, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
             Some("balances") if bitvavo => balances::sync_bitvavo(&db, transport.clone(), &prices, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
+            Some("balances") if coinbase => balances::sync_coinbase(&db, transport.clone(), &prices, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
             Some("balances") if hyperliquid => balances::sync_hyperliquid(&db, transport.clone(), &prices, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
             Some("balances") if gemini => balances::sync_gemini(&db, transport.clone(), &prices, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
             Some("balances") if bitget => balances::sync_bitget(&db, transport.clone(), &prices, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),

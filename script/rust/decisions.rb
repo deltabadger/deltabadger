@@ -10,6 +10,7 @@
 #   bin/rails runner script/rust/decisions.rb grid-bitget <root>  # Bitget classic v2 spot, scripted beneath honeymaker at the Faraday adapter
 #   bin/rails runner script/rust/decisions.rb grid-gemini <root>  # Gemini spot, scripted beneath honeymaker at the Faraday adapter (plan VB B3)
 #   bin/rails runner script/rust/decisions.rb grid-mexc <root>    # MEXC spot, scripted beneath honeymaker at the Faraday adapter
+#   bin/rails runner script/rust/decisions.rb grid-coinbase <root> # Coinbase decisions and paged order polling (plan VB B2)
 #   bin/rails runner script/rust/decisions.rb grid-hyperliquid <root> # Hyperliquid spot, beneath honeymaker and hyperliquid-rb at the Faraday adapter (plan VB B1)
 #   bin/rails runner script/rust/decisions.rb grid-sell <root>    # a one-asset basket selling on Kraken, Binance and Alpaca (slice 6a)
 #   bin/rails runner script/rust/decisions.rb grid-venue-basket <root> # buying baskets of 2 and 3 members on Kraken (EUR) and Binance (USDT)
@@ -215,6 +216,8 @@ VENUES = {
   # Plan VB slice B1: reads are POSTs to /info named by their `type`; orders go through hyperliquid-rb to /exchange, signed with
   # the key's secret (an agent private key; the key is the account's address, rust/src/parity.rs HYPERLIQUID_HARNESS_ADDRESS),
   # recorded as the order wire without `c` (Rails sends no cloid; Rust sends the intent's).
+  'coinbase' => VenueRow.new(scripted: ScriptedVenue.new(host: 'api.coinbase.com', name: 'Coinbase', order: 'POST /api/v3/brokerage/orders', body: :json, strip: %w[client_order_id]),
+                             exchange: 'Exchanges::Coinbase', name: 'Coinbase', ticker: 'BTC-EUR', quote: EURO, passphrase: nil),
   'hyperliquid' => VenueRow.new(scripted: ScriptedVenue.new(host: 'api.hyperliquid.xyz', name: 'Hyperliquid', order: 'POST /exchange', body: :hyperliquid, strip: %w[c]),
                                 exchange: 'Exchanges::Hyperliquid', name: 'Hyperliquid', ticker: '@142', quote: %w[usd-coin USDC USD\ Coin Cryptocurrency],
                                 passphrase: nil, key: '0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123',
@@ -3278,6 +3281,51 @@ module Decisions
   end
   MX_GONE = { 'status' => 400, 'body' => { 'code' => -2013, 'msg' => 'Order does not exist.' } }.freeze
 
+  def coinbase_order(id, status = 'FILLED', limit: false)
+    { 'order_id' => id, 'product_id' => 'BTC-EUR', 'order_type' => limit ? 'LIMIT' : 'MARKET', 'side' => 'BUY', 'status' => status,
+      'average_filled_price' => '64000', 'filled_size' => '0.00093', 'total_value_after_fees' => '59.818', 'outstanding_hold_amount' => '0',
+      'order_configuration' => { (limit ? 'limit_limit_gtc' : 'market_market_ioc') => limit ? { 'base_size' => '0.00093', 'limit_price' => '64000' } : { 'quote_size' => '60' } } }
+  end
+  def coinbase_scenarios
+    started = '2026-09-01T10:00:00.123456Z'
+    ticker = { 'base_decimals' => 8, 'quote_decimals' => 2, 'price_decimals' => 2, 'minimum_base_size' => '0.00000001', 'minimum_quote_size' => '1' }
+    http = {
+      'GET /api/v3/brokerage/market/product_book' => [ok('pricebook' => { 'bids' => [{ 'price' => '63999.99', 'size' => '2' }], 'asks' => [{ 'price' => '64000.11', 'size' => '2' }] })],
+      'GET /api/v3/brokerage/market/products/BTC-EUR' => [ok('price' => '64000.05')],
+      'GET /api/v3/brokerage/key_permissions' => [ok('portfolio_uuid' => 'p')],
+      'GET /api/v3/brokerage/portfolios/p' => [ok('breakdown' => { 'spot_positions' => [{ 'asset' => 'EUR', 'available_to_trade_crypto' => '100000', 'total_balance_crypto' => '100000' }] })],
+      'POST /api/v3/brokerage/orders' => [ok('success' => true, 'success_response' => { 'order_id' => 'new' })]
+    }
+    waiting = ->(id) { { 'status' => 0, 'external_status' => 0, 'external_id' => id, 'order_type' => 0, 'quote_amount' => '60', 'price' => '64000', 'amount_exec' => '0', 'quote_amount_exec' => '0', 'created_at' => '2026-09-01 10:00:01' } }
+    %w[day week].flat_map do |interval|
+      at = (Time.iso8601(started) + (interval == 'day' ? 1.day : 1.week) + 1.second).iso8601(6)
+      variants = {
+        'first_tick' => {}, 'below_minimum' => { 'quote_amount' => 0.4 }, 'carry' => { 'transient' => { 'missed_quote_amount' => '12.5' } },
+        'base_sized' => { 'ticker' => ticker.merge('base_decimals' => 3, 'minimum_base_size' => '0.001') },
+        'insufficient' => { 'http' => { 'POST /api/v3/brokerage/orders' => [ok('success' => false, 'error_response' => { 'error' => 'INSUFFICIENT_FUND', 'message' => 'Insufficient balance in source account' })] } },
+        'add_server_error' => { 'http' => { 'POST /api/v3/brokerage/orders' => [{ 'status' => 500, 'body' => 'Internal server error' }] } },
+        'add_no_id' => { 'http' => { 'POST /api/v3/brokerage/orders' => [ok('success' => true, 'success_response' => {})] } },
+        'add_unknown_failure' => { 'http' => { 'POST /api/v3/brokerage/orders' => [ok('success' => false, 'error_response' => { 'error' => 'UNKNOWN_FAILURE_REASON', 'message' => 'Unknown failure' })] } },
+        'landed_found' => { 'recover_at' => (Time.iso8601(at) + 60).iso8601(6), 'http' => { 'POST /api/v3/brokerage/orders' => [POST_SEND],
+          'GET /api/v3/brokerage/orders/historical/batch' => [ok('orders' => [coinbase_order('found').merge('client_order_id' => '$client_order_id')], 'has_next' => false)] } },
+        'landed_missing' => { 'recover_at' => (Time.iso8601(at) + 60).iso8601(6), 'http' => { 'POST /api/v3/brokerage/orders' => [POST_SEND],
+          'GET /api/v3/brokerage/orders/historical/batch' => [ok('orders' => [], 'has_next' => false)] } },
+        'batch_second_page' => { 'transactions' => [waiting.('a'), waiting.('b')],
+          'http' => { 'GET /api/v3/brokerage/orders/historical/batch' => [ok('orders' => [coinbase_order('a')], 'has_next' => true, 'cursor' => 'next'), ok('orders' => [coinbase_order('b')], 'has_next' => false)] } }
+      }
+      Exchanges::Coinbase::ORDER_STATUS_MAP.each_key do |status|
+        variants["poll_#{status}"] = { 'transactions' => [waiting.('a')], 'http' => { 'GET /api/v3/brokerage/orders/historical/batch' => [ok('orders' => [coinbase_order('a', status)], 'has_next' => false)] } }
+      end
+      { 'market' => {}, 'limit' => { 'limit_ordered' => true, 'limit_order_pcnt_distance' => 0.0025 } }.flat_map do |mode, settings|
+        variants.map do |name, v|
+          { 'name' => "#{interval}-#{mode}-#{name}", 'venue' => 'coinbase', 'interval' => interval, 'quote_amount' => v.fetch('quote_amount',60.0), 'started_at' => started,
+            'recover_at' => v['recover_at'], 'settings' => settings, 'transient' => v.fetch('transient',{}), 'transactions' => v.fetch('transactions',[]), 'ticker' => v.fetch('ticker',ticker), 'at' => at,
+            'script' => { 'coinbase' => http.merge(v.fetch('http',{})) }, 'tick' => v.fetch('tick',true), 'poll' => v['poll'] }
+        end
+      end
+    end
+  end
+
   def mexc_scenarios
     started = '2026-09-01T10:00:00.123456Z'
     ticker = { 'base_decimals' => 6, 'quote_decimals' => 2, 'price_decimals' => 2, 'minimum_base_size' => '0.000001', 'minimum_quote_size' => '1' }
@@ -4252,7 +4300,7 @@ def web_save(dir)
 end
 
 command, root = ARGV
-USAGE = 'usage: grid <root> | grid-signal <root> | grid-alpaca <root> | grid-basket <root> | grid-limit <root> | grid-binance <root> | grid-binance-us <root> | grid-kucoin <root> | grid-bitvavo <root> | grid-bitget <root> | grid-gemini <root> | grid-mexc <root> | grid-hyperliquid <root> | grid-bybit <root> | grid-bitrue <root> | grid-sell <root> | grid-venue-basket <root> | grid-venue-index <root> | grid-conditions <root> | grid-basket-sell <root> | grid-rebalance <root> | record <root> | web-save <dir>'.freeze
+USAGE = 'usage: grid <root> | grid-signal <root> | grid-alpaca <root> | grid-basket <root> | grid-limit <root> | grid-binance <root> | grid-binance-us <root> | grid-kucoin <root> | grid-bitvavo <root> | grid-bitget <root> | grid-gemini <root> | grid-mexc <root> | grid-hyperliquid <root> | grid-bybit <root> | grid-bitrue <root> | grid-coinbase <root> | grid-sell <root> | grid-venue-basket <root> | grid-venue-index <root> | grid-conditions <root> | grid-basket-sell <root> | grid-rebalance <root> | record <root> | web-save <dir>'.freeze
 raise ArgumentError, USAGE unless root
 
 case command
@@ -4269,6 +4317,7 @@ when 'grid-kucoin' then Decisions.grid(root, Decisions.kucoin_scenarios)
 when 'grid-bitvavo' then Decisions.grid(root, Decisions.bitvavo_scenarios)
 when 'grid-gemini' then Decisions.grid(root, Decisions.gemini_scenarios)
 when 'grid-bitget' then Decisions.grid(root, Decisions.bitget_scenarios)
+when 'grid-coinbase' then Decisions.grid(root, Decisions.coinbase_scenarios)
 when 'grid-mexc' then Decisions.grid(root, Decisions.mexc_scenarios)
 when 'grid-hyperliquid' then Decisions.grid(root, Decisions.hyperliquid_scenarios)
 when 'grid-bybit' then Decisions.grid(root, Decisions.bybit_scenarios)

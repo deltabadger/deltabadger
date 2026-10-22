@@ -456,6 +456,17 @@ fn present(s: &Option<String>) -> Option<&str> { s.as_deref().filter(|s| !blank(
 /// How ActiveRecord's SQLite adapter binds a BigDecimal: its nearest double.
 fn real(d: &BigDec) -> f64 { d.to_f() }
 
+/// Coinbase imports and stored-row repair bind decimal text; SQLite applies the column's NUMERIC affinity.
+pub(super) fn amount_sql(exchange_type: &str, d: &BigDec) -> rusqlite::types::Value {
+    if exchange_type == crate::venue::coinbase::COINBASE {
+        let text = d.to_s_f();
+        // An integer with a decimal point takes SQLite's REAL parser and can lose digits above 2^53.
+        text.strip_suffix(".0").unwrap_or(&text).to_owned().into()
+    } else {
+        real(d).into()
+    }
+}
+
 /// [coins, securities], each { SPELLING => [asset ids] }: #ledger_listings over every listing of the venue (Rails
 /// narrows the query to the names in hand; the lookups below only ever ask for those).
 pub(super) struct Listings { coins: HashMap<String, Vec<i64>>, securities: HashMap<String, Vec<i64>> }
@@ -639,6 +650,9 @@ pub(super) fn store(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, 
     let no_effects = || SyncError("a split row outside a unit of its own".into());
     let batch = p.batch.clone();
     let unit = range.len();
+    if key.exchange_type == crate::venue::coinbase::COINBASE {
+        for e in batch.iter() { coinbase_rekey(c, key, e, &p.merged)?; }
+    }
     for (n, index) in range.enumerate() {
         let e = &batch[index];
         let tx_id = present(&e.tx_id);
@@ -664,8 +678,8 @@ pub(super) fn store(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, 
             "INSERT INTO account_transactions (user_id, api_key_id, exchange_id, entry_type, base_currency, base_amount, quote_currency, quote_amount, \
              fee_currency, fee_amount, tx_id, group_id, description, transacted_at, raw_data, manual_values, base_asset_id, transaction_id, \
              transfer_link_rejected, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, '{}', ?16, ?17, 0, ?18, ?18)",
-            params![key.user_id, key.id, key.exchange_id, e.entry_type, e.base_currency, real(&e.base_amount), e.quote_currency, e.quote_amount.as_ref().map(real),
-                    if no_fee { None } else { e.fee_currency.as_deref() }, if no_fee { None } else { e.fee_amount.as_ref().map(real) }, tx_id, e.group_id,
+            params![key.user_id, key.id, key.exchange_id, e.entry_type, e.base_currency, amount_sql(&key.exchange_type, &e.base_amount), e.quote_currency, e.quote_amount.as_ref().map(|d| amount_sql(&key.exchange_type, d)),
+                    if no_fee { None } else { e.fee_currency.as_deref() }, if no_fee { None } else { e.fee_amount.as_ref().map(|d| amount_sql(&key.exchange_type, d)) }, tx_id, e.group_id,
                     e.description, sql_time(at), e.raw.text(), p.assets.asset_id(c, Some(base_currency), &e.raw.value, Some(at))?, bot_order, sql_time(now)])?;
         p.stored.insert(c.last_insert_rowid());
         p.merged.extend(merged_ids(&e.raw.value));
@@ -719,7 +733,12 @@ fn duplicate(c: &Connection, key: &Key, p: &Progress, index: usize, tx_id: Optio
     if known_id(c, key, Some(tx_id), &p.merged)? { return Ok(true); }
     if api_dust(e, tx_id) { return api_dust_twin(c, key, e, tx_id, &p.stored, repeat); }
     if api_transfer(e.entry_type, &e.raw.value) { return api_transfer_twin(c, key, e, tx_id, &p.stored, repeat); }
-    same_event(c, key, e, e.entry_type, "AND tx_id IS NULL", &p.stored, repeat, &|_| false)
+    same_event(c, key, e, e.entry_type, "AND tx_id IS NULL", &p.stored, repeat, &|r| {
+        // A displaced adjusted fill is not an id-less copy of the original FILL, even at identical amounts/times.
+        key.exchange_type == crate::venue::coinbase::COINBASE && e.raw.value["trade_type"] == "FILL"
+            && r.raw["trade_id"] == e.raw.value["trade_id"]
+            && r.raw["trade_type"].as_str().is_some_and(|t| !t.is_empty() && t != "FILL")
+    })
 }
 
 /// A stored row as the duplicate rules read it.
@@ -744,7 +763,7 @@ fn same_events(c: &Connection, key: &Key, e: &Entry, entry_type: i64, scope: &st
     let other = if present(&e.tx_id).is_some() { "tx_id IS NULL" } else { "tx_id IS NOT NULL" };
     stored_rows(c, &format!("{BY_TIME} WHERE user_id = ?1 AND exchange_id = ?2 {scope} AND entry_type = ?3 AND base_currency IS ?4 AND base_amount = ?5 \
                              AND transacted_at >= ?6 AND transacted_at <= ?7 AND ({other} OR (transacted_at > ?6 AND transacted_at < ?7)) ORDER BY id"),
-                params![key.user_id, key.exchange_id, entry_type, e.base_currency, real(&e.base_amount), sql_time(from), sql_time(to)])
+                params![key.user_id, key.exchange_id, entry_type, e.base_currency, amount_sql(&key.exchange_type, &e.base_amount), sql_time(from), sql_time(to)])
 }
 
 /// #same_event?: more rows of #same_events than identical entries before this one in the run, less the rows this run
@@ -1277,6 +1296,37 @@ pub(super) async fn link_transfers_for(db: &Db, user_id: i64, version: Option<&c
         }; }
         match page.next { Some(id) => after_id = id, None => return Ok(linked) }
     }
+}
+
+/// AccountTransactionSync#rekey_legacy_ids!: adjusted Coinbase fills used to share trade_id.
+fn coinbase_rekey(c:&Connection,key:&Key,e:&Entry,merged:&HashSet<String>)->Result<(),SyncError>{
+    let raw=&e.raw.value;
+    if raw["trade_type"] == "FILL" {
+        if let (Some(id), Some(trade)) = (present(&e.tx_id), raw["trade_id"].as_str().filter(|s| !s.is_empty())) {
+            let rows = stored_rows(c,"WHERE user_id=?1 AND exchange_id=?2 AND tx_id=?3",params![key.user_id,key.exchange_id,id])?;
+            for row in rows.iter().filter(|r| r.raw["trade_id"] == trade && r.raw["trade_type"].as_str().is_some_and(|t| !t.is_empty() && t != "FILL")) {
+                // Free the original FILL's unique id before its page is stored. A later page can rekey an old
+                // adjusted row without entry_id by its event; NULL keeps that row without inventing a venue id.
+                let replacement = row.raw["entry_id"].as_str().filter(|s| !s.is_empty()).map(|entry| id.replacen(trade, entry, 1));
+                if replacement.as_deref().is_some_and(|new| new == id) { continue; }
+                if replacement.is_some() && known_id(c,key,replacement.as_deref(),merged)? { continue; }
+                c.execute("UPDATE account_transactions SET tx_id=?1 WHERE id=?2",params![replacement,row.id])?;
+            }
+        }
+        return Ok(());
+    }
+    if !raw["trade_type"].as_str().is_some_and(|s|!s.is_empty() && s!="FILL"){return Ok(());}
+    let (Some(entry),Some(trade),Some(id))=(raw["entry_id"].as_str().filter(|s|!s.is_empty()),raw["trade_id"].as_str().filter(|s|!s.is_empty()),present(&e.tx_id))else{return Ok(())};
+    if known_id(c,key,Some(id),merged)?{return Ok(());}
+    let legacy=id.replacen(entry,trade,1);
+    let rows=stored_rows(c,"WHERE user_id=?1 AND exchange_id=?2 AND (tx_id=?3 OR (tx_id IS NULL AND json_extract(raw_data,'$.trade_id')=?4 AND json_extract(raw_data,'$.trade_type') NOT IN ('','FILL'))) AND base_currency IS ?5 AND entry_type=?6 ORDER BY id",params![key.user_id,key.exchange_id,legacy,trade,e.base_currency,e.entry_type])?;
+    let exact=rows.iter().find(|r|r.raw["entry_id"]==entry);
+    let selected=if let Some(row)=exact{Some(row.id)}else{
+        let events=same_events(c,key,e,e.entry_type,"AND json_extract(raw_data, '$.entry_id') IS NULL")?;
+        rows.iter().find(|r|events.iter().any(|event|event.id==r.id)).map(|r|r.id)
+    };
+    if let Some(row)=selected{c.execute("UPDATE account_transactions SET tx_id=?1 WHERE id=?2",params![id,row])?;}
+    Ok(())
 }
 
 #[cfg(test)]

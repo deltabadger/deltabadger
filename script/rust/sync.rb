@@ -25,7 +25,7 @@ Net::HTTP.prepend(Module.new { def connect = raise(Harness::Unscripted, "real co
 ENV['COINGECKO_API_KEY'] = ''
 
 module ScriptedSync
-  mattr_accessor :alpaca, :binance, :binance_state, :kucoin, :bitvavo, :gemini, :bitget, :mexc, :hyperliquid, :bybit, :bitrue, :market, :requests, :filters_after
+  mattr_accessor :alpaca, :binance, :binance_state, :kucoin, :bitvavo, :gemini, :bitget, :mexc, :hyperliquid, :bybit, :bitrue, :coinbase, :market, :requests, :filters_after
 
   NETWORK = {
     'pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "paper-api.alpaca.markets" port 443')) },
@@ -58,6 +58,7 @@ module ScriptedSync
              elsif host == 'api.hyperliquid.xyz' then hyperliquid
              elsif host == 'api.bybit.com' then bybit
              elsif host == 'openapi.bitrue.com' then bitrue
+             elsif host == 'api.coinbase.com' then coinbase
              elsif host == 'data-api' then market
              end
     key = "#{env.method.to_s.upcase} #{env.url.path}"
@@ -556,6 +557,25 @@ module SyncParity
     { 'kind' => 'balances', 'at' => at, 'bitrue' => { 'GET /api/v1/account' => [account] },
       'market' => { EXCHANGE_RATES => rates && [rates], PRICES => prices && [prices] }.compact }
   end
+  def coinbase(ctx)
+    venue(ctx, Exchanges::Coinbase, 'Coinbase', as: :coinbase, assets: %w[BTC ETH EUR], pairs: [%w[BTC EUR], %w[ETH EUR], %w[ETH BTC]],
+          pair: ->(b,q) { "#{b}-#{q}" }, coin: { base_decimals: 8, quote_decimals: 2, price_decimals: 2, minimum_base_size: '0.00000001', minimum_quote_size: '1' })
+  end
+  CB_FILLS = 'GET /api/v3/brokerage/orders/historical/fills'
+  CB_ACCOUNTS = 'GET /api/v3/brokerage/accounts'
+  CB_PERMISSIONS = 'GET /api/v3/brokerage/key_permissions'
+  CB_BALANCES = 'GET /api/v3/brokerage/portfolios/p'
+  def cb_fill(id, product: 'ETH-EUR', size: '0.1', price: '2385.55', fee: '0.05', quote: false, side: 'BUY', type: 'FILL')
+    { 'trade_id' => id, 'entry_id' => "#{type == 'FILL' ? 'entry' : 'adjusted'}-#{id}", 'product_id' => product, 'size' => size, 'price' => price, 'commission' => fee, 'size_in_quote' => quote,
+      'side' => side, 'trade_type' => type, 'trade_time' => '2026-09-19T01:00:00Z' }
+  end
+  def coinbase_ledger(at, fills: [ok('fills' => [])], accounts: [ok('accounts' => [], 'has_next' => false)], transfers: {})
+    { 'kind' => 'ledger', 'at' => at, 'coinbase' => { CB_FILLS => fills, CB_ACCOUNTS => accounts }.merge(transfers) }
+  end
+  def coinbase_balances(at, permissions: ok('portfolio_uuid' => 'p'), balances: ok('breakdown' => { 'spot_positions' => [] }), prices: nil, rates: nil)
+    { 'kind' => 'balances', 'at' => at, 'coinbase' => { CB_PERMISSIONS => [permissions], CB_BALANCES => [balances] },
+      'market' => { EXCHANGE_RATES => rates && [rates], PRICES => prices && [prices] }.compact }
+  end
   def mexc(ctx)
     venue(ctx, Exchanges::Mexc, 'MEXC', as: :mexc, assets: %w[BTC ETH USDT], pairs: [%w[BTC USDT], %w[ETH USDT], %w[ETH BTC]],
           pair: ->(b, q) { "#{b}#{q}" }, coin: { base_decimals: 6, quote_decimals: 2, price_decimals: 2, minimum_base_size: '0.000001', minimum_quote_size: '1' })
@@ -744,7 +764,7 @@ module SyncParity
       ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: File.join(dir, 'production.sqlite3'))
       Rails.cache.clear
       before = snapshot
-      reading = ApiKey.reading(ApiKey.includes(:exchange)).select { |k| [Exchanges::Alpaca, Exchanges::Binance, Exchanges::Kucoin, Exchanges::Bitvavo, Exchanges::Gemini, Exchanges::Bitget, Exchanges::Mexc, Exchanges::Hyperliquid, Exchanges::Bybit, Exchanges::Bitrue].any? { |c| k.exchange.is_a?(c) } }.map(&:id).sort
+      reading = ApiKey.reading(ApiKey.includes(:exchange)).select { |k| [Exchanges::Alpaca, Exchanges::Binance, Exchanges::Kucoin, Exchanges::Bitvavo, Exchanges::Gemini, Exchanges::Bitget, Exchanges::Mexc, Exchanges::Hyperliquid, Exchanges::Bybit, Exchanges::Bitrue, Exchanges::Coinbase].any? { |c| k.exchange.is_a?(c) } }.map(&:id).sort
       steps = sc['steps'].map do |step|
         ActiveJob::Base.queue_adapter.enqueued_jobs.clear
         ScriptedSync.alpaca = step.fetch('alpaca', {}).transform_values(&:dup)
@@ -758,6 +778,7 @@ module SyncParity
         ScriptedSync.hyperliquid = step.fetch('hyperliquid', {}).transform_values(&:dup)
         ScriptedSync.bybit = step.fetch('bybit', {}).transform_values(&:dup)
         ScriptedSync.bitrue = step.fetch('bitrue', {}).transform_values(&:dup)
+        ScriptedSync.coinbase = step.fetch('coinbase', {}).transform_values(&:dup)
         ScriptedSync.market = step.fetch('market', {}).transform_values(&:dup)
         ScriptedSync.requests = []
         ScriptedSync.filters_after = step['server_filters_after'] == true
