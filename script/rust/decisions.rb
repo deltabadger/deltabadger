@@ -4336,3 +4336,10 @@ when 'record-normalized'
 when 'web-save' then web_save(root)
 else raise ArgumentError, USAGE
 end
+
+# The recording is on disk now. Leave without Ruby's exit hooks and thread joins: on CI a background thread Rails
+# starts (Action Cable's event loop / the Solid Cable listener) deadlocked the exit after the last scenario, the
+# main thread parked in futex_wait until the 20-minute watchdog killed the run. Nothing after this line is needed.
+$stdout.flush
+$stderr.flush
+exit!(0)
