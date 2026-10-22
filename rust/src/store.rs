@@ -37,9 +37,20 @@ impl Registry<'_> {
 }
 
 // Each Rust table's contract, with the version of the migration that creates it. Extend with every Rust migration.
-const RUST_TABLES: &[(&str, TableContract)] = &[];
+const RUST_TABLES: &[(&str, TableContract)] = &[
+    ("20261022000001", TableContract { name: "exchange_accounts", columns: &[
+        ("id", "INTEGER", false), ("user_id", "INTEGER", true), ("exchange_id", "INTEGER", true), ("fingerprint", "TEXT", false),
+        ("account_id_enc", "BLOB", false), ("created_at", "TEXT", true), ("updated_at", "TEXT", true)], unique_indexes: &[&["user_id", "exchange_id"]] }),
+    ("20261022000001", TableContract { name: "exchange_account_credentials", columns: &[
+        ("api_key_id", "INTEGER", false), ("exchange_id", "INTEGER", true), ("material_digest", "TEXT", false), ("observed_credential_version", "TEXT", false),
+        ("fingerprint", "TEXT", false), ("account_id_enc", "BLOB", false), ("observed_at", "TEXT", false), ("last_failure_at", "TEXT", false),
+        ("last_failure_code", "TEXT", false)], unique_indexes: &[] }),
+    ("20261022000001", TableContract { name: "exchange_account_imports", columns: &[
+        ("id", "INTEGER", false), ("user_id", "INTEGER", true), ("exchange_id", "INTEGER", true), ("fingerprint", "TEXT", true),
+        ("account_id_enc", "BLOB", true), ("observed_at", "TEXT", true)], unique_indexes: &[] }),
+];
 
-/// What this build migrates. Ships empty until the first Rust table.
+/// What this build migrates.
 pub const REGISTRY: Registry<'static> = Registry { migrations: RUST_MIGRATIONS, tables: RUST_TABLES };
 
 /// The table the migrator records Rust migrations in, created in the transaction of the first one it applies.

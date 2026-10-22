@@ -4,6 +4,7 @@ pub mod app_config;
 pub mod codec;
 pub mod crypto;
 pub mod engine;
+pub mod identity;
 pub mod jobs;
 pub mod enums;
 pub mod figures;

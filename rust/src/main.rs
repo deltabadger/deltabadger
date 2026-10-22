@@ -140,6 +140,8 @@ fn open_install(env: &dyn Fn(&str) -> Option<String>, migrate: bool) -> (EngineL
     }
     let opened = store::open(&paths).unwrap_or_else(|e| fail(&explain(e)));
     let cipher = Cipher::new(&keys);
+    // An encryption reset Rails made while Rust was stopped: known account identities are cleared before any is recorded.
+    if migrate { deltabadger::identity::initialize(&opened.primary, &cipher, chrono::Utc::now()).unwrap_or_else(|e| fail(&e)); }
     deltabadger::engine::provider::bind(&opened.primary,&cipher,env).unwrap_or_else(|_| fail("index configuration reader unavailable"));
     (lock, opened, cipher)
 }
@@ -175,6 +177,7 @@ fn scheduler_service<'a>(env: &dyn Fn(&str) -> Option<String>, paths: &Paths, en
     registered.push(Box::new(jobs::setup_sync::SeedAndSync::new(env, jobs::data_api::DataApi::live)));
     registered.extend(deltabadger::sync::jobs::register(&own.primary, &LiveFactory::new(), api.clone()).map_err(|e| e.0)?);
     registered.extend(deltabadger::tracker::jobs::register(&own.primary, &LiveFactory::new(), api.clone(), deltabadger::tracker::jobs::system_wall())?);
+    registered.push(Box::new(deltabadger::identity::Discovery { venues: LiveFactory::new() }));
     let resume_setup = jobs::setup_sync::unfinished(&own.primary, &cipher)?;
     let registered = registered.into_iter().map(|job| jobs::resolve::configured(job, env, rates.clone())).collect();
     let resolve = jobs::resolve::configured_resolver(jobs::resolve::all(LiveFactory::new(), api, deltabadger::tracker::jobs::system_wall()), env, rates);

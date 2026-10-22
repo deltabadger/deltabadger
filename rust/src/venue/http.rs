@@ -78,6 +78,14 @@ pub trait Transport {
         let resp = self.send(req).await?;
         if resp.body.len() > limit { Err(over_limit(limit)) } else { Ok(resp) }
     }
+    /// `send`, with `observe` run over the answer as it arrived: the account-identity read (crate::identity) takes its one
+    /// field here, before the production transport scrubs a body that echoes a credential. The answer is then returned
+    /// as `send` returns it.
+    async fn send_observed<O>(&self, req: &HttpRequest, observe: &(dyn Fn(u16, &str) -> O + Sync)) -> Result<(HttpResponse, O), TransportError> {
+        let resp = self.send(req).await?;
+        let observed = observe(resp.status, &resp.body);
+        Ok((resp, observed))
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -242,6 +250,11 @@ impl Transport for ReqwestTransport {
 
     async fn send_limited(&self, r: &HttpRequest, limit: usize) -> Result<HttpResponse, TransportError> {
         Ok(self.settle(self.send_unsettled(r, limit).await?))
+    }
+    async fn send_observed<O>(&self, r: &HttpRequest, observe: &(dyn Fn(u16, &str) -> O + Sync)) -> Result<(HttpResponse, O), TransportError> {
+        let raw = self.send_unsettled(r, MAX_BODY).await?;
+        let observed = observe(raw.status, &raw.body);
+        Ok((self.settle(raw), observed))
     }
 }
 

@@ -394,7 +394,7 @@ async fn run(dir: &Path) -> Value {
         let mut response = rust_answer(&answer, step);
         if step["jobs"] == true { response["job_classes"] = job_classes(&app.job_wakers().map(|jobs| jobs.pending()).unwrap_or_default()[woken..]); }
         if step["settings_snapshot"] == true { response["settings_rows"] = settings_snapshot::rows(dir,&app.cipher); }
-        let requests = venue_transcript(&key_server.received_requests().await.unwrap_or_default()[seen..]);
+        let requests = without_identity_reads(venue_transcript(&key_server.received_requests().await.unwrap_or_default()[seen..]));
         if !requests.is_empty() { response["venue_requests"] = json!(requests); }
         if let Some(tables) = step.get("may_mutate") { response["may_mutate"] = tables.clone(); }
         if let Some(spec) = step["raw_rows"].as_object() { response["raw_rows"] = raw_rows(dir, spec, &step["raw_clock"]); }
@@ -446,8 +446,8 @@ async fn run(dir: &Path) -> Value {
             response["action_snapshot"] = json!(true);
             response["rows_before"] = rows_before;
             response["rows_after"] = rows_after;
-            response["other_rows_before"] = other_before;
-            response["other_rows_after"] = other_after;
+            response["other_rows_before"] = without_identity_record(other_before);
+            response["other_rows_after"] = without_identity_record(other_after);
         }
         responses.push(response);
     }
@@ -458,6 +458,45 @@ async fn run(dir: &Path) -> Value {
         if data.as_object_mut().and_then(|d| d.shift_remove("rust_signal_calls")).is_some() { bot["transient_data"] = json!(data.to_string()); }
     }
     json!({ "responses": responses, "users": users(dir), "bots": bots })
+}
+
+/// Named divergence D-ACCOUNT-ID-READ (plan AF §3): a KuCoin or Binance key the check judged correct is read once more, for
+/// the account it belongs to. Only that read is left out of this crate's transcript, and only right after that venue's
+/// own key check; every other request is compared.
+fn without_identity_reads(requests: Vec<Value>) -> Vec<Value> {
+    let identity = |r: &Value| r["method"] == "GET" && ((r["host"] == "api.kucoin.com" && r["path"] == deltabadger::identity::KUCOIN_PATH)
+                                                     || (r["host"] == "api.binance.com" && r["path"] == deltabadger::identity::BINANCE_PATH));
+    let check = |r: &Value| (r["host"] == "api.kucoin.com" && ["/api/v1/orders/000000000000000000000000", "/api/v1/accounts"].contains(&r["path"].as_str().unwrap_or_default()))
+                            || (r["host"] == "api.binance.com" && r["path"] == "/sapi/v1/account/apiRestrictions");
+    let mut kept: Vec<Value> = vec![];
+    for r in requests {
+        if identity(&r) && kept.last().is_some_and(|last| check(last) && last["host"] == r["host"]) { continue; }
+        kept.push(r);
+    }
+    kept
+}
+
+/// What the account identity records (plan AF §2) is Rust's own state, as its tables are: its key's app_configs row is
+/// left out of this crate's rows too, so an import or key check that records an identity is no forbidden write.
+fn without_identity_record(mut rows: Value) -> Value {
+    if let Some(tables) = rows.as_object_mut() {
+        for table in deltabadger::identity::TABLES { tables.remove(table); }
+        if let Some(Value::Array(configs)) = tables.get_mut("app_configs") { configs.retain(|row| row["key"] != deltabadger::identity::KEY_CONFIG); }
+    }
+    rows
+}
+
+#[test]
+fn only_the_identity_read_after_a_correct_check_and_the_identity_record_are_left_out() {
+    let r = |host: &str, method: &str, path: &str| json!({"method": method, "host": host, "path": path, "params": []});
+    let kucoin = [r("api.kucoin.com", "DELETE", "/api/v1/orders/000000000000000000000000"), r("api.kucoin.com", "GET", "/api/v1/user/api-key")];
+    assert_eq!(without_identity_reads(kucoin.to_vec()), kucoin[..1]);
+    let binance = [r("api.binance.com", "GET", "/sapi/v1/account/apiRestrictions"), r("api.binance.com", "GET", "/api/v3/account")];
+    assert_eq!(without_identity_reads(binance.to_vec()), binance[..1]);
+    let alone = vec![r("api.kucoin.com", "GET", "/api/v1/user/api-key"), r("api.binance.com", "GET", "/api/v3/account"), kucoin[0].clone(), binance[1].clone()];
+    assert_eq!(without_identity_reads(alone.clone()), alone, "an identity read anywhere else is still compared");
+    let rows = json!({"app_configs": [{"id": 1, "key": deltabadger::identity::KEY_CONFIG}, {"id": 2, "key": "other"}], "exchange_accounts": [], "users": []});
+    assert_eq!(without_identity_record(rows), json!({"app_configs": [{"id": 2, "key": "other"}], "users": []}));
 }
 
 /// The scenario prefixes of a signal bot's pages and writes (pages_signals.rb), which this app serves through its test seam.
@@ -638,6 +677,17 @@ fn copy_scenario(from: &Path, to: &Path) {
     }
 }
 
+/// An answer's row snapshots without Rust's own tables: Rails' installs never hold them (db/schema.rb has none), so they
+/// are left out of Rails against Rust. What Rust writes to them is checked on Rust's side alone (forbidden writes).
+fn without_rust_tables(answer: &Value) -> Value {
+    let rust_owned = deltabadger::store::REGISTRY.owned_tables();
+    let mut answer = answer.clone();
+    for key in ["rows_before", "rows_after", "other_rows_before", "other_rows_after"] {
+        if let Some(rows) = answer.get_mut(key).and_then(Value::as_object_mut) { rows.retain(|table, _| !rust_owned.contains(&table.as_str())); }
+    }
+    answer
+}
+
 fn difference(name: &str, rails: &Value, rust: &Value) -> Option<String> {
     let theirs = rails["responses"].as_array()?;
     let ours = rust["responses"].as_array()?;
@@ -656,7 +706,9 @@ fn difference(name: &str, rails: &Value, rust: &Value) -> Option<String> {
     if ours.len() != theirs.len() {
         return Some(format!("{name}: Rails recorded {} responses, this crate gave {}", theirs.len(), ours.len()));
     }
+    // The action snapshots were compared above (action_snapshot_difference); the rest of each answer is compared whole.
     for (index, (a, b)) in theirs.iter().zip(ours).enumerate() {
+        let (a, b) = (&without_rust_tables(a), &without_rust_tables(b));
         if a == b { continue; }
         if a.get("settings_rows") != b.get("settings_rows") { return Some(format!("{name} step {index}: settings rows differ\n  rails: {}\n  rust: {}",a["settings_rows"],b["settings_rows"])); }
         for key in ["venue_requests", "raw_rows", "session", "job_classes"] {
@@ -673,7 +725,14 @@ fn difference(name: &str, rails: &Value, rust: &Value) -> Option<String> {
             Value::Array(lines) => lines.iter().map(|l| l.as_str().unwrap_or_default().to_string()).collect::<Vec<_>>(),
             text => vec![text.as_str().unwrap_or_default().to_string()],
         };
-        return Some(format!("{name} step {index}: {}", html::first_difference(&lines(&a["body"]), &lines(&b["body"])).unwrap_or_default()));
+        // Never an empty message: when the bodies agree, name what else differs.
+        let differing = || {
+            let keys: std::collections::BTreeSet<&String> = a.as_object().into_iter().chain(b.as_object()).flat_map(|o| o.keys()).collect();
+            let keys: Vec<String> = keys.into_iter().filter(|k| a.get(k.as_str()) != b.get(k.as_str()))
+                .map(|k| format!("{k}\n  rails: {}\n  rust:  {}", a.get(k.as_str()).unwrap_or(&Value::Null), b.get(k.as_str()).unwrap_or(&Value::Null))).collect();
+            format!("the answers differ outside the body: {}", keys.join("\n"))
+        };
+        return Some(format!("{name} step {index}: {}", html::first_difference(&lines(&a["body"]), &lines(&b["body"])).unwrap_or_else(differing)));
     }
     None
 }
@@ -961,8 +1020,12 @@ fn listed_divergence(name: &str, scenario: &Value, rails: &Value, rust: &Value) 
         "missing_" => {
             // A step with a snapshot (the webhook's): what it wrote and enqueued is Rails', key by key; then the answer alone.
             let snapshot = ["action_snapshot", "rows_before", "rows_after", "other_rows_before", "other_rows_after", "may_mutate", "raw_rows", "job_classes"];
-            if let Some(key) = snapshot.iter().find(|key| rails_last.get(**key) != rust_last.get(**key)) {
-                return Some(Err(format!("the refusal's {key} differs:\n  rails: {}\n  rust:  {}", rails_last[*key], rust_last[*key])));
+            let rust_owned = deltabadger::store::REGISTRY.owned_tables();
+            let own = |key: &str| -> Value { Value::Object(rust_last[key].as_object().into_iter().flatten().filter(|(t, _)| rust_owned.contains(&t.as_str())).map(|(k, v)| (k.clone(), v.clone())).collect()) };
+            if own("rows_before") != own("rows_after") || own("other_rows_before") != own("other_rows_after") { return Some(Err("the refusal wrote to Rust's own tables".into())); }
+            let (rails_rows, rust_rows) = (without_rust_tables(&rails_last), without_rust_tables(&rust_last));
+            if let Some(key) = snapshot.iter().find(|key| rails_rows.get(**key) != rust_rows.get(**key)) {
+                return Some(Err(format!("the refusal's {key} differs:\n  rails: {}\n  rust:  {}", rails_rows[*key], rust_rows[*key])));
             }
             let mut rust_last = rust_last.clone();
             for key in snapshot { rust_last.as_object_mut().unwrap().remove(key); }

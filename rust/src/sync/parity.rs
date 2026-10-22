@@ -208,7 +208,7 @@ fn generations(c: &Connection) -> Result<Vec<(i64, i64)>, SyncError> {
 
 /// A step of kind `import`, as script/rust/sync.rb's `run_import` reports it: the controller's zone step, the key the
 /// step's `answer` names (the user's first key on that exchange type), then the run.
-fn import_step(c: &Connection, user_id: i64, step: &Value, at: DateTime<Utc>) -> Result<Value, SyncError> {
+fn import_step(c: &Connection, cipher: &Cipher, user_id: i64, step: &Value, at: DateTime<Utc>) -> Result<Value, SyncError> {
     use crate::tracker::import::run::{self, Answer};
     let (format, bytes) = (step["format"].as_str().unwrap_or_default(), step["text"].as_str().unwrap_or_default().as_bytes());
     let none = json!({ "imported": 0, "duplicates": 0, "skipped": 0, "unrecognised": [], "unrouted": [], "error": null, "ambiguous": null });
@@ -223,7 +223,7 @@ fn import_step(c: &Connection, user_id: i64, step: &Value, at: DateTime<Utc>) ->
         None => None,
     };
     let mut out = none;
-    match run::import(c, user_id, format, bytes, offset.as_deref(), answered.map(|id| id.to_string()).as_deref(), at)? {
+    match run::import(c, cipher, user_id, format, bytes, offset.as_deref(), answered.map(|id| id.to_string()).as_deref(), at)? {
         Answer::Error(error) => out["error"] = json!(error),
         Answer::Ambiguous(keys) => out["ambiguous"] = json!(keys.iter().map(|k| k.id).collect::<Vec<_>>()),
         Answer::Written { imported, duplicates, skipped, unrecognised, unrouted } =>
@@ -278,7 +278,7 @@ pub async fn run(dir: &Path, cipher: Arc<Cipher>) -> Result<Value, SyncError> {
         let raised = match (step["kind"].as_str(), &fake) {
             (Some("import"), _) => {
                 let (user_id, step) = (scenario["user_id"].as_i64().ok_or_else(|| data("user_id"))?, step.clone());
-                imported = Some(db.run(move |c, _| import_step(c, user_id, &step, at).map_err(|e| e.0)).await.map_err(SyncError)?);
+                imported = Some(db.run(move |c, cipher| import_step(c, cipher, user_id, &step, at).map_err(|e| e.0)).await.map_err(SyncError)?);
                 false
             }
             (Some("ledger"), None) if kucoin => super::kucoin_ledger::sync(&db, transport.clone(), key_id, &credentials, &FixedClock(at), std::time::Duration::ZERO).await?.is_err_and(|f| f.raised),
