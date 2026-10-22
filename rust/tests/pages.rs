@@ -394,7 +394,7 @@ async fn run(dir: &Path) -> Value {
         let mut response = rust_answer(&answer, step);
         if step["jobs"] == true { response["job_classes"] = job_classes(&app.job_wakers().map(|jobs| jobs.pending()).unwrap_or_default()[woken..]); }
         if step["settings_snapshot"] == true { response["settings_rows"] = settings_snapshot::rows(dir,&app.cipher); }
-        let requests = venue_transcript(&key_server.received_requests().await.unwrap_or_default()[seen..]);
+        let requests = without_identity_reads(venue_transcript(&key_server.received_requests().await.unwrap_or_default()[seen..]));
         if !requests.is_empty() { response["venue_requests"] = json!(requests); }
         if let Some(tables) = step.get("may_mutate") { response["may_mutate"] = tables.clone(); }
         if let Some(spec) = step["raw_rows"].as_object() { response["raw_rows"] = raw_rows(dir, spec, &step["raw_clock"]); }
@@ -446,8 +446,8 @@ async fn run(dir: &Path) -> Value {
             response["action_snapshot"] = json!(true);
             response["rows_before"] = rows_before;
             response["rows_after"] = rows_after;
-            response["other_rows_before"] = other_before;
-            response["other_rows_after"] = other_after;
+            response["other_rows_before"] = without_identity_record(other_before);
+            response["other_rows_after"] = without_identity_record(other_after);
         }
         responses.push(response);
     }
@@ -458,6 +458,45 @@ async fn run(dir: &Path) -> Value {
         if data.as_object_mut().and_then(|d| d.shift_remove("rust_signal_calls")).is_some() { bot["transient_data"] = json!(data.to_string()); }
     }
     json!({ "responses": responses, "users": users(dir), "bots": bots })
+}
+
+/// Named divergence D-ACCOUNT-ID-READ (plan AF §3): a KuCoin or Binance key the check judged correct is read once more, for
+/// the account it belongs to. Only that read is left out of this crate's transcript, and only right after that venue's
+/// own key check; every other request is compared.
+fn without_identity_reads(requests: Vec<Value>) -> Vec<Value> {
+    let identity = |r: &Value| r["method"] == "GET" && ((r["host"] == "api.kucoin.com" && r["path"] == deltabadger::identity::KUCOIN_PATH)
+                                                     || (r["host"] == "api.binance.com" && r["path"] == deltabadger::identity::BINANCE_PATH));
+    let check = |r: &Value| (r["host"] == "api.kucoin.com" && ["/api/v1/orders/000000000000000000000000", "/api/v1/accounts"].contains(&r["path"].as_str().unwrap_or_default()))
+                            || (r["host"] == "api.binance.com" && r["path"] == "/sapi/v1/account/apiRestrictions");
+    let mut kept: Vec<Value> = vec![];
+    for r in requests {
+        if identity(&r) && kept.last().is_some_and(|last| check(last) && last["host"] == r["host"]) { continue; }
+        kept.push(r);
+    }
+    kept
+}
+
+/// What the account identity records (plan AF §2) is Rust's own state, as its tables are: its key's app_configs row is
+/// left out of this crate's rows too, so an import or key check that records an identity is no forbidden write.
+fn without_identity_record(mut rows: Value) -> Value {
+    if let Some(tables) = rows.as_object_mut() {
+        for table in deltabadger::identity::TABLES { tables.remove(table); }
+        if let Some(Value::Array(configs)) = tables.get_mut("app_configs") { configs.retain(|row| row["key"] != deltabadger::identity::KEY_CONFIG); }
+    }
+    rows
+}
+
+#[test]
+fn only_the_identity_read_after_a_correct_check_and_the_identity_record_are_left_out() {
+    let r = |host: &str, method: &str, path: &str| json!({"method": method, "host": host, "path": path, "params": []});
+    let kucoin = [r("api.kucoin.com", "DELETE", "/api/v1/orders/000000000000000000000000"), r("api.kucoin.com", "GET", "/api/v1/user/api-key")];
+    assert_eq!(without_identity_reads(kucoin.to_vec()), kucoin[..1]);
+    let binance = [r("api.binance.com", "GET", "/sapi/v1/account/apiRestrictions"), r("api.binance.com", "GET", "/api/v3/account")];
+    assert_eq!(without_identity_reads(binance.to_vec()), binance[..1]);
+    let alone = vec![r("api.kucoin.com", "GET", "/api/v1/user/api-key"), r("api.binance.com", "GET", "/api/v3/account"), kucoin[0].clone(), binance[1].clone()];
+    assert_eq!(without_identity_reads(alone.clone()), alone, "an identity read anywhere else is still compared");
+    let rows = json!({"app_configs": [{"id": 1, "key": deltabadger::identity::KEY_CONFIG}, {"id": 2, "key": "other"}], "exchange_accounts": [], "users": []});
+    assert_eq!(without_identity_record(rows), json!({"app_configs": [{"id": 2, "key": "other"}], "users": []}));
 }
 
 /// The scenario prefixes of a signal bot's pages and writes (pages_signals.rb), which this app serves through its test seam.

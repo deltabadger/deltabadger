@@ -92,7 +92,7 @@ pub async fn create(Extension(ctx): Extension<Ctx>) -> Result<Response, WebError
     // Read on a blocking thread of its own; the shared connection is taken only for the write.
     let file = tokio::task::spawn_blocking(move || run::read(format, &bytes, written_offset.as_deref())).await.map_err(|e| WebError::Config(format!("reading an import: {e}")))?;
     let answer = match file {
-        Ok(file) => ctx.app.db(move |c| run::write(c, user, format, file, chosen.as_deref(), at).map_err(|e| WebError::Config(e.0))).await?,
+        Ok(file) => { let cipher = ctx.app.cipher.clone(); ctx.app.db(move |c| run::write(c, &cipher, user, format, file, chosen.as_deref(), at).map_err(|e| WebError::Config(e.0))).await? }
         Err(answer) => answer,
     };
     if matches!(answer, Answer::Ambiguous(_)) {

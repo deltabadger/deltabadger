@@ -271,7 +271,7 @@ async fn the_examples_import_onto_the_venue_and_close_its_gap() {
         let file = format!("{}\n{}\n", deltabadger::web::tracker::gap::CSV_HEADER, deltabadger::web::tracker::gap::examples(name_id).join("\n"));
         let c = fx.c();
         let reading = tracker::import::run::reading(&c, fx.owner()).unwrap().into_iter().find(|k| k.exchange_id == venue).unwrap();
-        let answer = tracker::import::run::import(&c, fx.owner(), "deltabadger", file.as_bytes(), None, None, at()).unwrap();
+        let answer = tracker::import::run::import(&c, &common::seed::cipher(), fx.owner(), "deltabadger", file.as_bytes(), None, None, at()).unwrap();
         assert!(matches!(answer, tracker::import::run::Answer::Written { imported: 5, .. }), "{name_id}: {answer:?}");
         let landed: Vec<(i64, i64)> = c.prepare("SELECT exchange_id, api_key_id FROM account_transactions WHERE transacted_at IN ('2022-05-10 12:00:00','2026-09-20 08:00:00','2023-01-05 10:00:00') AND exchange_id=?1").unwrap()
             .query_map([venue], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().collect::<Result<_, _>>().unwrap();

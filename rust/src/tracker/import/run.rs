@@ -72,8 +72,8 @@ pub fn reading(c: &Connection, user_id: i64) -> Result<Vec<Reading>, SyncError> 
 }
 
 /// A file as read, before any database is touched: each entry with the venue it names (None: the format's own venue),
-/// and the operations the reader did not recognise.
-pub struct Read { entries: Vec<(Option<String>, Entry)>, unrecognised: Vec<String> }
+/// the operations the reader did not recognise, and a venue-native export's account id (crate::identity).
+pub struct Read { entries: Vec<(Option<String>, Entry)>, unrecognised: Vec<String>, account_id: Option<crate::identity::AccountId> }
 
 /// What a column holds of an amount: its nearest double, which must be finite (Rails stores 1e309 as Infinity, which
 /// no later read takes; this refuses the file instead).
@@ -85,8 +85,12 @@ fn storable(e: &Entry) -> bool {
 /// before taking a connection.
 pub fn read(format: &str, bytes: &[u8], offset: Option<&str>) -> Result<Read, Answer> {
     let text = csv::as_text(bytes);
+    let mut account_id = None;
     let (entries, unrecognised): (Vec<(Option<String>, Entry)>, Vec<String>) = match format {
-        "binance" => match binance::read(&text, offset) {
+        // D-IMPORT-UID: Binance's own export names its account (`User ID`, or `User_ID`) on every record. It is read
+        // over every record before the reader skips any; a missing, blank, masked or mixed id is a malformed export.
+        "binance" => match csv::Table::parse(&text).and_then(|table| crate::identity::export_account_id(&table, &crate::identity::BINANCE_EXPORT_COLUMNS))
+            .and_then(|id| { account_id = id; binance::read(&text, offset) }) {
             Ok(read) => (read.entries.into_iter().map(|e| (None, e)).collect(), read.unrecognised),
             Err(_) => return Err(Answer::Error("malformed")),
         },
@@ -98,19 +102,20 @@ pub fn read(format: &str, bytes: &[u8], offset: Option<&str>) -> Result<Read, An
     };
     if !entries.iter().all(|(_, e)| storable(e)) { return Err(Answer::Error("malformed")); }
     if entries.is_empty() && unrecognised.is_empty() { return Err(Answer::Error("unreadable")); }
-    Ok(Read { entries, unrecognised })
+    Ok(Read { entries, unrecognised, account_id })
 }
 
 /// Import::Run#import!: `bytes` read in `format` at `offset` and written for `user_id` (`read`, then `write`).
-pub fn import(c: &Connection, user_id: i64, format: &str, bytes: &[u8], offset: Option<&str>, chosen: Option<&str>, now: DateTime<Utc>) -> Result<Answer, SyncError> {
-    match read(format, bytes, offset) { Ok(file) => write(c, user_id, format, file, chosen, now), Err(answer) => Ok(answer) }
+#[allow(clippy::too_many_arguments)]
+pub fn import(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i64, format: &str, bytes: &[u8], offset: Option<&str>, chosen: Option<&str>, now: DateTime<Utc>) -> Result<Answer, SyncError> {
+    match read(format, bytes, offset) { Ok(file) => write(c, cipher, user_id, format, file, chosen, now), Err(answer) => Ok(answer) }
 }
 
 /// Import::Run#route and #write for a file `read` accepted. `chosen` is the `api_key_id` the Binance/Binance.US
 /// question was answered with: taken only when it is one of the accounts offered. Routing and writing run under one
 /// write lock (`BEGIN IMMEDIATE`).
-pub fn write(c: &Connection, user_id: i64, format: &str, file: Read, chosen: Option<&str>, now: DateTime<Utc>) -> Result<Answer, SyncError> {
-    let Read { entries, unrecognised } = file;
+pub fn write(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i64, format: &str, file: Read, chosen: Option<&str>, now: DateTime<Utc>) -> Result<Answer, SyncError> {
+    let Read { entries, unrecognised, account_id } = file;
     let tx = model::immediate(c)?;
     let keys = reading(&tx, user_id)?;
     // #route: [account, its entries] in the order the rows first name them, and the venues nothing here takes.
@@ -145,6 +150,8 @@ pub fn write(c: &Connection, user_id: i64, format: &str, file: Read, chosen: Opt
                         last_sync_error: None, exchange_type: reading.exchange_type };
         let out = ledger::store_file(&fenced, &key, rows, now)?;
         (imported, duplicates, skipped) = (imported + out.imported, duplicates + out.duplicates, skipped + out.skipped);
+        // Recorded only: the rows went where they always go, whatever account the file names.
+        crate::identity::record_import(&fenced, cipher, user_id, reading.exchange_id, account_id.as_ref(), now).map_err(SyncError)?;
     }
     drop(fenced);
     tx.commit()?;
@@ -159,7 +166,7 @@ mod tests {
     fn an_amount_no_double_holds_is_malformed() {
         let c = rusqlite::Connection::open_in_memory().unwrap();
         let file = "User ID,Time,Account,Operation,Coin,Change,Remark\n1,2026-08-01 10:00:00,Spot,Deposit,USDT,1e309,";
-        assert_eq!(super::import(&c, 1, "binance", file.as_bytes(), Some("+00:00"), None, chrono::Utc::now()).unwrap(), super::Answer::Error("malformed"));
+        assert_eq!(super::import(&c, &crate::crypto::Cipher::new(&crate::crypto::EncryptionKeys::resolve(&|_| None, "test").unwrap()), 1, "binance", file.as_bytes(), Some("+00:00"), None, chrono::Utc::now()).unwrap(), super::Answer::Error("malformed"));
     }
 
     #[test]

@@ -132,6 +132,8 @@ struct ValidatedKey {
     columns:[Option<String>;7],
     handle:super::validator::ValidationHandle,
     result:crate::engine::model::Produced<Validity>,
+    /// The key's account-identity read (crate::identity), recorded with the save under the same fence.
+    identity:Option<crate::identity::Observed>,
 }
 async fn validate(app:&App,key:&Key,original:&Key,kind:i64,venue:&str)->Result<ValidatedKey,WebError>{
     let mut values=key.extras.iter().flatten().cloned().collect::<Vec<_>>();
@@ -140,8 +142,9 @@ async fn validate(app:&App,key:&Key,original:&Key,kind:i64,venue:&str)->Result<V
     let producer=crate::engine::model::prepared_credential_version(key.id.unwrap_or(0),&columns);
     let handle=super::validator::ValidationHandle::stored(crate::crypto::Credentials{redaction_values:values,key:key.key.clone().unwrap_or_default(),secret:key.secret.clone().unwrap_or_default(),passphrase:key.passphrase.clone()},producer);
     let result=handle.check_on(app,venue,kind).await?;
+    let (result,identity)=result;
     app.observe_validation(result.origin().clone())?;
-    Ok(ValidatedKey{key:key.clone(),columns,handle,result})
+    Ok(ValidatedKey{key:key.clone(),columns,handle,result,identity})
 }
 async fn tracker_exchange(app:&App,ctx:&Ctx)->Result<Option<i64>,WebError>{
     let requested=ctx.params.form("exchange_id").or_else(||ctx.params.query("exchange_id")).and_then(|s|s.parse::<i64>().ok());
@@ -318,6 +321,7 @@ pub(crate) async fn submit(app: &App, ctx: &Ctx, user: i64, exchange: i64, venue
   tx.execute("UPDATE api_keys SET access_token=?1,rsa_signature_key=?2,rsa_encryption_key=?3,dh_param=?4,ibkr_realm=?5 WHERE user_id=?6 AND exchange_id=?7 AND key_type=?8",rusqlite::params![validated.columns[3],validated.columns[4],validated.columns[5],validated.columns[6],candidate.realm,user_id,exchange,kind])?;
   if let Err(refusal)=eligibility::guard(&tx,&inner.cipher,None){return Ok(Some(refusal.reason()));}
   let id:i64=tx.query_row("SELECT id FROM api_keys WHERE user_id=?1 AND exchange_id=?2 AND key_type=?3",(user_id,exchange,kind),|r|r.get(0))?;
+  if let Some(observed)=&validated.identity{crate::identity::record(&tx,&inner.cipher,id,validated.handle.credentials(),validated.handle.producer(),observed,inner.now()).map_err(WebError::Config)?;}
   // The slots a restart would register (sync::jobs::register, tracker::jobs::register): a key that reads for its
   // venue gets its syncs, and its owner the tracker's jobs. Woken after the commit only.
   let ledger=crate::sync::ledger_reading_keys(&tx).map_err(|e|WebError::Config(e.0))?.contains(&id);
@@ -524,6 +528,7 @@ pub async fn delete(app: App, ctx: Ctx) -> Result<Response, WebError> {
   }
   tx.execute("UPDATE account_transactions SET api_key_id=NULL WHERE api_key_id=?1",[id])?;
   tx.execute("DELETE FROM api_keys WHERE id=?1 AND user_id=?2",(id,user.id))?;
+  crate::identity::forget(&tx,id,user.id,exchange)?;
   if let Err(refusal)=eligibility::guard(&tx,&inner.cipher,None){return Ok(Some(Err(refusal.reason())));}
   let body=list(&tx,&v,&csrf,user.id)?;tx.commit()?;inner.wake_engine();Ok(Some(Ok(body)))
  }).await?;
@@ -656,7 +661,7 @@ pub(crate) async fn revalidate(app:&App,id:i64)->Result<Option<String>,WebError>
     }).await?;
     let (kind,venue,name)=kind;
     let handle=super::validator::ValidationHandle::stored(credentials,version);
-    let result=handle.check_on(app,&venue,kind).await?;
+    let (result,identity)=handle.check_on(app,&venue,kind).await?;
     let status=result.map(|result|match result {Validity::Correct=>1,Validity::Incorrect=>2,Validity::Permissions{..}=>{
         app.settings_key_logger.warn(&format!("[{name}] API key validation: permissions do not match the steps"));2
     },Validity::Pending(ref e)=>{
@@ -668,6 +673,7 @@ pub(crate) async fn revalidate(app:&App,id:i64)->Result<Option<String>,WebError>
         let fenced=crate::engine::model::check_credential_result(&tx,status.origin())?;
         let before:i64=fenced.query_row("SELECT status FROM api_keys WHERE id=?1",[id],|r|r.get(0))?;
         store_status(&fenced,&status,id,inner.now()).map_err(|_|WebError::Config("cannot store credential status".into()))?;
+        if let Some(observed)=&identity{crate::identity::record(&fenced,&inner.cipher,id,handle.credentials(),handle.producer(),observed,inner.now()).map_err(WebError::Config)?;}
         if let Err(refusal)=eligibility::guard(&tx,&inner.cipher,None){return Ok(Some(refusal.reason()))}
         // The engine is woken by a status that moved; the same answer again changes nothing it reads.
         tx.commit()?;if before!=status.value{inner.wake_engine();}Ok(None)

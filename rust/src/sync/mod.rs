@@ -119,10 +119,14 @@ pub async fn commit_for<T: Send + 'static>(db: &Db, version: &crate::engine::mod
     commit_bots_for(db, version, move |c| work(c).map(|out| (out, false))).await
 }
 pub async fn commit_bots_for<T: Send + 'static>(db: &Db, version: &crate::engine::model::CredentialVersion, work: impl FnOnce(&crate::engine::model::FencedTransaction<'_>) -> Result<(T, bool), SyncError> + Send + 'static) -> Result<T, SyncError> {
+    commit_bots_for_ciphered(db, version, move |fenced, _| work(fenced)).await
+}
+/// `commit_bots_for`, the work also given the instance's cipher.
+pub async fn commit_bots_for_ciphered<T: Send + 'static>(db: &Db, version: &crate::engine::model::CredentialVersion, work: impl FnOnce(&crate::engine::model::FencedTransaction<'_>, &Cipher) -> Result<(T, bool), SyncError> + Send + 'static) -> Result<T, SyncError> {
     let version = Some(version.clone());
     let (out,held)=db.run(move |c,cipher| write_timed(c,cipher,|tx| {
         let fenced=crate::engine::model::check_credential_result(tx,&version)?;
-        work(&fenced)
+        work(&fenced,cipher)
     }).map_err(|e|e.0)).await.map_err(SyncError)?;
     db.note_write_hold(held);tokio::time::sleep(WRITE_GAP).await;Ok(out)
 }

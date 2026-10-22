@@ -329,17 +329,29 @@ pub fn binance_us_probe_verdict(kind: i64, answer: &Result<HttpResponse, Transpo
 /// answer (for the diagnostics) and the verdict.
 pub async fn binance_us_check<T: Transport>(transport: &T, venue: &crate::venue::binance::BinanceVenue<T>, kind: i64, reading: bool)
                                            -> (Result<HttpResponse, TransportError>, Verdict) {
+    let (answer, verdict, _) = binance_us_check_identified(transport, venue, kind, reading).await;
+    (answer, verdict)
+}
+
+/// `binance_us_check`, with the account id its account read states (`uid`, crate::identity), taken from the answer
+/// before the transport scrubs it. No extra request: the read is the check's own.
+pub async fn binance_us_check_identified<T: Transport>(transport: &T, venue: &crate::venue::binance::BinanceVenue<T>, kind: i64, reading: bool)
+                                           -> (Result<HttpResponse, TransportError>, Verdict, crate::identity::Observed) {
     use crate::venue::binance::{PLACE_RECV_WINDOW, READ_RECV_WINDOW};
+    use crate::identity::Observed;
     let read = venue.signed("GET", BINANCE_US_ACCOUNT_PATH, vec![("omitZeroBalances", "true".into()), ("recvWindow", READ_RECV_WINDOW.into())], transport.now());
-    let answer = transport.send(&read).await;
+    let (answer, observed) = match transport.send_observed(&read, &crate::identity::binance_answer).await {
+        Ok((response, observed)) => (Ok(response), observed),
+        Err(e) => (Err(e), Observed::Failed("transport".into())),
+    };
     let verdict = binance_us_read_verdict(&answer, read.url().as_str());
-    if reading || verdict != Verdict::Valid(true) { return (answer, verdict); }
+    if reading || verdict != Verdict::Valid(true) { return (answer, verdict, observed); }
     let mut query: Vec<(&'static str, String)> = BINANCE_US_PROBE.iter().map(|(k, v)| (*k, v.to_string())).collect();
     query.push(("recvWindow", PLACE_RECV_WINDOW.into()));
     let probe = venue.signed("DELETE", BINANCE_US_PROBE_PATH, query, transport.now());
     let answer = transport.send(&probe).await;
     let verdict = binance_us_probe_verdict(kind, &answer, probe.url().as_str());
-    (answer, verdict)
+    (answer, verdict, observed)
 }
 
 /// Exchanges::Bitvavo's probe: a cancel of an order that cannot exist on a listed market.
@@ -666,7 +678,16 @@ pub async fn bybit_check<T: Transport>(transport: &T, venue: &crate::venue::bybi
 
 /// The key check of `venue` (an exchanges.type this module ports) for a key of `kind`, sent through `client` to `base`.
 pub async fn check(venue: &str, base: &str, client: reqwest::Client, credentials: &crate::crypto::Credentials, kind: i64) -> Validity {
+    check_identified(venue, base, client, credentials, kind).await.0
+}
+
+/// `check`, and for a correct key of a venue with a confirmed account id (crate::identity::VENUES) what its identity read
+/// came to (D-ACCOUNT-ID-READ: one more signed read on KuCoin and Binance; Binance.US's is its check's own account read).
+/// None: no read was made.
+pub async fn check_identified(venue: &str, base: &str, client: reqwest::Client, credentials: &crate::crypto::Credentials, kind: i64)
+                              -> (Validity, Option<crate::identity::Observed>) {
     use crate::venue::http::ReqwestTransport;
+    let (venue_type, mut observed) = (venue, None);
     let redaction = credentials.redaction_values.clone();
     use crate::venue::registry::KeyCheck;
     let scheme = crate::venue::registry::row(venue).and_then(|r| r.key_check);
@@ -682,6 +703,7 @@ pub async fn check(venue: &str, base: &str, client: reqwest::Client, credentials
         let answer = transport.send(&request).await;
         let verdict = if kind == 2 { kucoin_read_verdict(&answer, request.method, request.url().as_str()) }
                       else { kucoin_verdict(kind, &answer, request.method, request.url().as_str()) };
+        if verdict == Verdict::Valid(true) { observed = crate::identity::read(venue, &transport, base, &credentials.secret).await; }
         (answer, verdict)
     } else if scheme == Some(KeyCheck::Bitvavo) {
         let transport = ReqwestTransport::bitvavo(client, credentials.key.clone(), credentials.secret.clone()).with_sensitive_values(redaction);
@@ -699,7 +721,9 @@ pub async fn check(venue: &str, base: &str, client: reqwest::Client, credentials
     } else if scheme == Some(KeyCheck::BinanceUs) {
         let transport = ReqwestTransport::binance(client, credentials.key.clone(), credentials.secret.clone()).with_sensitive_values(redaction);
         let venue = crate::venue::binance::BinanceVenue::new(transport.clone(), base, &credentials.secret);
-        binance_us_check(&transport, &venue, kind, kind == 2).await
+        let (answer, verdict, identity) = binance_us_check_identified(&transport, &venue, kind, kind == 2).await;
+        if verdict == Verdict::Valid(true) { observed = Some(identity); }
+        (answer, verdict)
     } else if scheme == Some(KeyCheck::Hyperliquid) {
         let transport = ReqwestTransport::hyperliquid(client, credentials.key.clone(), credentials.secret.clone()).with_sensitive_values(redaction);
         let venue = crate::venue::hyperliquid::HyperliquidVenue::new(transport.clone(), base, &credentials.key);
@@ -725,14 +749,16 @@ pub async fn check(venue: &str, base: &str, client: reqwest::Client, credentials
         let request = binance_request(&venue, transport.now());
         let answer = transport.send(&request).await;
         let verdict = binance_verdict(kind, kind == 2, &answer, request.url().as_str());
+        if verdict == Verdict::Valid(true) { observed = crate::identity::read(venue_type, &transport, base, &credentials.secret).await; }
         (answer, verdict)
     };
     let (status, body) = answer.as_ref().map_or((None, String::new()), |response| (Some(response.status), response.body.clone()));
     let body = credentials.venue_text(&body);
-    match verdict {
+    let validity = match verdict {
         Verdict::Failure(text) => Verdict::Failure(credentials.venue_text(&text)),
         other => other,
-    }.validity(status, &body)
+    }.validity(status, &body);
+    (validity, observed)
 }
 
 /// Whether the locale has `key` itself or a list under it, no fallback (`I18n.exists?(key, locale:, fallback: false)`).

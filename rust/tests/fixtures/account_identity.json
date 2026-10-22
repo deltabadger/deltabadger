@@ -1,0 +1,15 @@
+{
+  "_comment": "SYNTHETIC answers and exports shaped as each venue documents them (plan AF, slice AF1). No real account id is in here.",
+  "kucoin_api_key": {
+    "code": "200000",
+    "data": { "remark": "deltabadger", "apiKey": "kc-identity-key", "apiVersion": 3, "permission": "General,Spot", "ipWhitelist": "",
+              "createdAt": 1729000000000, "uid": 165111215, "isMaster": true }
+  },
+  "kucoin_export": "UID,Account Type,Order ID,Order Time(UTC),Symbol,Side,Order Type,Order Price,Order Amount,Avg. Filled Price,Filled Amount,Filled Volume,Filled Volume (USDT),Filled Time(UTC),Fee,Fee Currency,Tax,Status\n165111215,mainAccount,6700000000000000000a0001,2026-08-01 10:00:00,BTC-USDT,BUY,MARKET,,0.001,60000,0.001,60,60,2026-08-01 10:00:00,0.06,USDT,,deal\n165111215,mainAccount,6700000000000000000a0002,2026-08-02 10:00:00,ETH-USDT,SELL,LIMIT,3000,0.1,3000,0.1,300,300,2026-08-02 10:00:01,0.3,USDT,,deal\n",
+  "binance_account": {
+    "makerCommission": 10, "takerCommission": 10, "buyerCommission": 0, "sellerCommission": 0, "canTrade": true, "canWithdraw": false,
+    "canDeposit": true, "brokered": false, "requireSelfTradePrevention": false, "preventSor": false, "updateTime": 1785578400000,
+    "accountType": "SPOT", "balances": [], "permissions": ["SPOT"], "uid": 354937868
+  },
+  "binance_export": "User_ID,UTC_Time,Account,Operation,Coin,Change,Remark\n354937868,2026-08-01 10:00:46,Spot,Deposit,USDT,1000,\n354937868,2026-08-02 09:03:00,Spot,transfer_out,USDT,-10,\n"
+}
