@@ -486,6 +486,66 @@ async fn fill_result<T:Send+'static>(app:&App,user:i64,cache:&mut Cache,wire:&Wi
 pub async fn prepare(app:&App,user:i64)->Result<Snapshot,WebError>{
     begin(app,user).await
 }
+
+/// Attempts at a settings metrics panel; the last is published whatever was written while it was computed.
+const PANEL_ATTEMPTS:usize=3;
+/// DcaMultiAsset#broadcast_metrics_panel after a settings commit, through the page figures' fill (`fill_result`): computed
+/// on the builder's connection under the compute permit, never on the writer's, with the account's kept prices (warm
+/// prices read no market). A write committed while it computes (the revision moved) recomputes it against the latest
+/// rows, and the last attempt publishes whatever it read: as Rails' after_update_commit always broadcasts, the page never
+/// keeps the panel of rows that are gone. No chart or other bot is published.
+pub(crate) fn broadcast_metrics_panel(ctx:&crate::web::layout::Ctx,id:i64,stream:String)->Result<(),WebError> {
+    let user=ctx.user().ok_or_else(||WebError::Config("metrics broadcast has no owner".into()))?.id;
+    let now=At::from_utc(ctx.now).ok_or_else(||WebError::Config("metrics time out of range".into()))?;
+    let handle=tokio::runtime::Handle::try_current().map_err(|e|WebError::Task(e.to_string()))?;
+    let (app,locale,prefix)=(ctx.app.clone(),ctx.locale,ctx.path(""));
+    let pending=app.figure_service.panel_started();
+    handle.spawn(async move {
+        let _pending=pending;
+        let mut kept:Option<(String,Cache)>=None;
+        for attempt in 1..=PANEL_ATTEMPTS {
+            let inner=app.clone();
+            let info=match app.db(move|c|read_info(c,&inner,user)).await {
+                Ok(info)=>info,
+                Err(error)=>return crate::engine::log(&format!("[web] settings metrics panel could not be read: {error:?}")),
+            };
+            // The prices already fetched stay with the panel while the account's key is the same.
+            if kept.as_ref().is_none_or(|(identity,_)|*identity!=info.identity) {
+                let stale=app.figure_service.stale(user,&info.identity,now.utc().timestamp()).map(|(cache,_,_)|cache).unwrap_or_default();
+                kept=Some((info.identity.clone(),stale));
+            }
+            let Some((_,cache))=kept.as_mut() else { return };
+            cache.produced_by(info.producer.clone());
+            let cipher=app.cipher.clone();
+            let egress=app.db(move|c|Ok(crate::venue::live::egress(c,&cipher,&|k|std::env::var(k).ok(),"kucoin",&http::client()))).await
+                .unwrap_or_else(|e|Err(format!("{e:?}")));
+            let mut wire=Wire::of(info.credentials.as_ref(),app.figure_source.clone()).with_kucoin(egress).settled_under(app.figure_service.compute());
+            if let Producer::Alpaca(version)=&info.producer { wire=wire.with_origin(version.clone()); }
+            let prefix=prefix.clone();
+            let filled=tokio::time::timeout(app.figure_service.fill_timeout(),fill_result(&app,user,cache,&wire,now,|_,_|Ok(true),move|c,reader|
+                super::metrics_panel(c,id,reader,now,locale,&prefix))).await;
+            let html=match filled {
+                Ok(Ok(html))=>html,
+                Ok(Err(_))=>return crate::engine::log("[web] settings metrics panel could not be priced"),
+                Err(_)=>return crate::engine::log("[web] settings metrics panel price read timed out"),
+            };
+            let (inner,stream,last)=(app.clone(),stream.clone(),attempt==PANEL_ATTEMPTS);
+            let published=app.db(move|c| {
+                let current=read_info(c,&inner,user)?;
+                let held=current.revision==info.revision && info.producer.same(&current.producer);
+                if held || last { inner.hub.broadcast(&stream,&crate::web::turbo::stream("replace","metrics",&html)); }
+                Ok(held || last)
+            }).await;
+            match published {
+                Ok(true)=>return,
+                Ok(false)=>{},
+                Err(error)=>return crate::engine::log(&format!("[web] settings metrics panel delivery failed: {error:?}")),
+            }
+        }
+    });
+    Ok(())
+}
+
 /// Boxed, so that its type is known: the end of a fill publishes, and publishing begins a fill.
 type Begun<'a>=std::pin::Pin<Box<dyn std::future::Future<Output=Result<Snapshot,WebError>>+Send+'a>>;
 fn begin(app:&App,user:i64)->Begun<'_>{ Box::pin(async move {

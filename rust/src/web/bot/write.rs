@@ -209,7 +209,8 @@ fn settings_inner<T>(
     let at = codec::format_time(ctx.now);
     if effects.settings_changed { one(tx.execute("UPDATE bots SET settings_changed_at = ?1 WHERE id = ?2 AND user_id = ?3 AND type = ?4 AND status <> 3", (&at, id, owner, class))?)?; }
     if changed { one(tx.execute("UPDATE bots SET updated_at = ?1 WHERE id = ?2 AND user_id = ?3 AND type = ?4 AND status <> 3", (&at, id, owner, class))?)?; }
-    if draft.candidate.kind == Kind::Basket && (effects.composition_changed || exchange_changed) {
+    let metrics_changed = draft.candidate.kind == Kind::Basket && (effects.composition_changed || exchange_changed);
+    if metrics_changed {
         composition::reconcile(&tx, &draft.candidate, ctx.now)?;
     }
     // Bots::DcaIndex#resync_index_composition: an index-definition key or the exchange changed (dca_index.rb:53-54, :393-396).
@@ -228,6 +229,9 @@ fn settings_inner<T>(
     let shown = std::mem::take(&mut draft.candidate.label);
     draft.candidate = Bot::find(&tx, owner, id, For::Page, ctx.locale)?.ok_or_else(|| error("saved bot disappeared"))?;
     if draft.candidate.label_unsaved { draft.candidate.label = shown; }
+    // Ruby considers 50 == 50.0 for dirty tracking, but the saved instance retains the assigned Float.
+    // Keep that type for the response (Num::round/to_s in the smart-interval hint), without writing an unchanged JSON column.
+    if effects.settings.set.is_empty() { draft.candidate.settings = final_settings; }
     if !submitted.mcp() { if let Some(reason) = draft.candidate.unrendered() { return Ok(Outcome::Unported(reason)); } }
     let prepared = response_builder(&tx, &ctx, &draft)?;
     tx.commit()?;
@@ -236,6 +240,9 @@ fn settings_inner<T>(
     // follow commit; the HTTP awaiter may already have gone away.
     ctx.app.wake_engine();
     for (stream, html) in prepared.broadcasts { ctx.app.hub.broadcast(&stream, &html); }
+    // The inherited status callbacks precede DcaMultiAsset's metrics callback. Settings do not
+    // change status; the index's separate resync job remains responsible for its panel.
+    if metrics_changed { super::action_view::broadcast_settings_metrics(&ctx, &draft.candidate); }
     if let Some(id) = prepared.after_scheduling { super::action_view::broadcast_after_scheduling(ctx.clone(), id); }
     Ok(Outcome::Committed(prepared.response))
 }

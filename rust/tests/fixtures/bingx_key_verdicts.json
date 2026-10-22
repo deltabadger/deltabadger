@@ -11,6 +11,7 @@
     "app/models/exchanges/hyperliquid.rb": "5fd3338e69d144f1d19d14a18206610303137da8b81a2e91ed34b6d484b0d1a2",
     "app/models/exchanges/bybit.rb": "cf67b86cbd55174a5c729db27a82312cb121d15bd3a5ef40ce356dc0a801290d",
     "app/models/exchanges/bitrue.rb": "0d02c8ab14a77f1c5d931dbc4e834de79afa78fe0c940d47ded5da2037ba5664",
+    "app/models/exchanges/coinbase.rb": "c662aa764ae09e866024e0e68d6802ada96b59f7da1c197b3075c54b51d0ac26",
     "app/models/exchange.rb": "ab627a2812bc0c7b4a546459e64f8f5d93617c496308d5f03163f44cef12d8d7",
     "app/models/exchange/dryable.rb": "559b4b1858c832f3bc83b7631d7a74012854aabd88408b8680288609a1254b96",
     "app/models/api_key.rb": "e7f1435042602815925d093baa51160be9236c600b2f8aebdcf0517f5119ef91",
@@ -40,7 +41,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for POST https://open-api.bingx.com/openApi/spot/v1/trade/cancel?orderId=0&signature=526954487ecce45b4009db2000ed2a66358080ae132800c5f50a624e431ae24d&symbol=BTC-USDT&timestamp=1792653274079"
+            "the server responded with status 500 for POST https://open-api.bingx.com/openApi/spot/v1/trade/cancel?orderId=0&signature=a8c3c64486cb346c807ca57588aa739c10a368c3219e079ecd233cf671a6284d&symbol=BTC-USDT&timestamp=1792669368161"
           ]
         },
         "request": {
@@ -880,7 +881,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://open-api.bingx.com/openApi/spot/v1/account/balance?signature=c839cf57065cc13b484b79f9eae5c6aa645c44709bfba8283560dd402e21c6b3&timestamp=1792653274107"
+            "the server responded with status 500 for GET https://open-api.bingx.com/openApi/spot/v1/account/balance?signature=60674eb15d7e7c3baf9b0fe75591f86f3dbaaea77e274000281602c0179f712b&timestamp=1792669368177"
           ]
         },
         "request": {
@@ -1628,7 +1629,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://open-api.bingx.com/openApi/spot/v1/account/balance?signature=36d7c6cb0a93bf2eaffa139c38c134704deb805e017fa6c96f82590cd766d90d&timestamp=1792653274125"
+            "the server responded with status 500 for GET https://open-api.bingx.com/openApi/spot/v1/account/balance?signature=4c61bf20f5502074296d7065fddb21d8c96bf57bdeaa2c146e51c569e26a865e&timestamp=1792669368190"
           ]
         },
         "request": {

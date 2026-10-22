@@ -700,6 +700,9 @@ pub async fn check(venue: &str, base: &str, client: reqwest::Client, credentials
         let transport = ReqwestTransport::binance(client, credentials.key.clone(), credentials.secret.clone()).with_sensitive_values(redaction);
         let venue = crate::venue::binance::BinanceVenue::new(transport.clone(), base, &credentials.secret);
         binance_us_check(&transport, &venue, kind, kind == 2).await
+    } else if scheme == Some(KeyCheck::Coinbase) {
+        let transport = ReqwestTransport::coinbase(client, credentials.key.clone(), credentials.secret.clone()).with_sensitive_values(redaction);
+        coinbase_check(&transport, base, kind, std::time::Duration::from_secs(1)).await
     } else if scheme == Some(KeyCheck::Hyperliquid) {
         let transport = ReqwestTransport::hyperliquid(client, credentials.key.clone(), credentials.secret.clone()).with_sensitive_values(redaction);
         let venue = crate::venue::hyperliquid::HyperliquidVenue::new(transport.clone(), base, &credentials.key);
@@ -808,6 +811,39 @@ pub fn instructions_html(locale: &str, prefix: &str, name_id: &str, exchange_nam
     Some(format!("<ol class=\"set-api__list\">{}</ol>", steps(&key, 1, &leaf, &text)))
 }
 
+/// Coinbase's flag verdict. Only 401 is an invalid key; other failures remain inconclusive.
+pub fn coinbase_verdict(kind:i64, answer:&Result<HttpResponse,TransportError>, url:&str)->Verdict {
+    let response=match answer {Err(e)=>return Verdict::Failure(transport(e)),Ok(r)=>r};
+    if response.status==401{return Verdict::Valid(false);}
+    if !(200..300).contains(&response.status){return Verdict::Failure(raised(response,"GET",url));}
+    let Ok(Value::Object(p))=serde_json::from_str::<Value>(&response.body)else{return Verdict::Failure("Coinbase sent an unreadable answer to the key check".into())};
+    let flag=|k:&str|p.get(k).and_then(Value::as_bool);
+    Verdict::Valid(flag("can_view")==Some(true) && if kind==1 {flag("can_transfer")==Some(true)&&flag("can_trade")==Some(false)}else{flag("can_trade")==Some(true)&&flag("can_transfer")==Some(false)})
+}
+/// Trading and withdrawal: at most three total permission reads, retrying only HTTP 500.
+/// Read-only: fresh permission read for portfolio_uuid, then breakdown, without retry or a flag verdict.
+pub async fn coinbase_check<T:Transport>(transport:&T,base:&str,kind:i64,pause:std::time::Duration)->(Result<HttpResponse,TransportError>,Verdict){
+    let request=|path:&str|HttpRequest{method:"GET",base:base.into(),path:path.into(),query:vec![],body:None,not_after:None};
+    let r=request(crate::venue::coinbase::PERMISSIONS);
+    let mut answer=transport.send(&r).await;
+    if kind!=2{
+        for _ in 1..3{if !matches!(&answer,Ok(r)if r.status==500){break;}
+            if !pause.is_zero(){tokio::time::sleep(pause).await;}answer=transport.send(&r).await;}
+        let verdict=coinbase_verdict(kind,&answer,r.url().as_str());return(answer,verdict);
+    }
+    let failure=|answer:&Result<HttpResponse,TransportError>,url:&str|match answer{
+        Err(e)=>Some(Verdict::Failure(self::transport(e))),
+        Ok(r)if !(200..300).contains(&r.status)=>Some(Verdict::Failure(raised(r,"GET",url))),_=>None};
+    if let Some(v)=failure(&answer,r.url().as_str()){return(answer,v);}
+    let parsed=answer.as_ref().ok().and_then(|r|serde_json::from_str::<Value>(&r.body).ok());
+    let Some(Value::Object(p))=parsed else{return(answer,Verdict::Failure("Coinbase sent an unreadable answer to the key check".into()))};
+    let uuid=p.get("portfolio_uuid").and_then(Value::as_str).unwrap_or("");
+    let r=request(&format!("/api/v3/brokerage/portfolios/{uuid}"));answer=transport.send(&r).await;
+    let verdict=failure(&answer,r.url().as_str()).unwrap_or_else(||{
+        let parsed=answer.as_ref().ok().and_then(|r|serde_json::from_str::<Value>(&r.body).ok());
+        if parsed.as_ref().is_some_and(|p|p["breakdown"]["spot_positions"].is_array()){Verdict::Valid(true)}else{Verdict::Failure("Coinbase sent an unreadable answer to the key check".into())}
+    });(answer,verdict)
+}
 /// BingX probes order 0 for trading and reads balances for withdrawal/read-only keys.
 pub async fn bingx_check<T: Transport>(transport: &T, venue: &crate::venue::bingx::BingxVenue<T>, kind: i64, reading: bool) -> (Result<HttpResponse, TransportError>, Verdict) {
     use crate::venue::bingx::{ACCOUNT_PATH, CANCEL_PATH};

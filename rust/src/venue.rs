@@ -290,6 +290,7 @@ pub trait VenueFactory {
 #[derive(Clone, Debug, PartialEq)]
 pub enum ClockAnswer { Body(String), Failed { status: Option<u16>, message: String } }
 
+pub mod coinbase;
 /// A reversible UUID representation bounded to 32 characters, shared by query-HMAC venues.
 pub(crate) fn client_order_id_32(id: &str, venue: &str) -> Result<String, VenueError> {
     match uuid::Uuid::parse_str(id) {

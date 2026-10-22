@@ -45,7 +45,7 @@ RECORDED = {
     FIX + 'rebalance_math.json': ('test', [runner('record_rebalance_math.rb', '{out}')], None),
     FIX + 'import_vectors.json': ('test', [runner('record_import_vectors.rb', '{out}')], None),
     # One recorder per kind, a section per venue (plan VB §1.8).
-    **{FIX + f'{v}_vectors.json': ('test', [runner('record_venue_vectors.rb', v, '{out}')], None) for v in ('binance', 'kucoin', 'prices', 'bitvavo', 'bitget', 'mexc', 'bybit')},
+    **{FIX + f'{v}_vectors.json': ('test', [runner('record_venue_vectors.rb', v, '{out}')], None) for v in ('binance', 'kucoin', 'prices', 'bitvavo', 'bitget', 'mexc', 'bybit', 'coinbase')},
     **{FIX + f'{v}_signing.json': ('test', [runner('record_venue_signing.rb', v, '{out}')], None) for v in ('kucoin', 'gemini', 'hyperliquid', 'bitvavo', 'bitget', 'mexc', 'bybit')},
     # ES256 signatures are randomized (OpenSSL's k), so a re-record redraws them.
     FIX + 'coinbase_signing.json': ('test', [runner('record_venue_signing.rb', 'coinbase', '{out}')],

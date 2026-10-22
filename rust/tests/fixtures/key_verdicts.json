@@ -11,6 +11,7 @@
     "app/models/exchanges/hyperliquid.rb": "5fd3338e69d144f1d19d14a18206610303137da8b81a2e91ed34b6d484b0d1a2",
     "app/models/exchanges/bybit.rb": "cf67b86cbd55174a5c729db27a82312cb121d15bd3a5ef40ce356dc0a801290d",
     "app/models/exchanges/bitrue.rb": "0d02c8ab14a77f1c5d931dbc4e834de79afa78fe0c940d47ded5da2037ba5664",
+    "app/models/exchanges/coinbase.rb": "c662aa764ae09e866024e0e68d6802ada96b59f7da1c197b3075c54b51d0ac26",
     "app/models/exchange.rb": "ab627a2812bc0c7b4a546459e64f8f5d93617c496308d5f03163f44cef12d8d7",
     "app/models/exchange/dryable.rb": "559b4b1858c832f3bc83b7631d7a74012854aabd88408b8680288609a1254b96",
     "app/models/api_key.rb": "e7f1435042602815925d093baa51160be9236c600b2f8aebdcf0517f5119ef91",
@@ -5134,7 +5135,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=59afb2283395d85b27e0498a2e689c0c5659b4db23a9c51e401781bc3b41575c&timestamp=1792614622254"
+            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=fc4374a79d4b4aaf68460c696df9cfaf89ca58635d837499b905fbcbfa718dd1&timestamp=1792669351942"
           ]
         },
         "request": {
@@ -7062,7 +7063,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=af9829cafb71280909c42bf98b1cd8b0f3d730dd66f6f43f6461125ac0cf9934&timestamp=1792614622280"
+            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=75cec731d4125c5291cbea6cf2a18fcdbe21916a40f2b8a559fafe1e2f003177&timestamp=1792669351966"
           ]
         },
         "request": {
@@ -8990,7 +8991,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=027774a9b6592e374f54226cd7c9d12316c759847030e09bfc1902166415ff95&timestamp=1792614622324"
+            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=3cc2b064003517aba3afd1816c5349cad4433ef49d4cd204f69055bba21978cb&timestamp=1792669352097"
           ]
         },
         "request": {
@@ -10918,7 +10919,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=4d0c9c0e031eb34d6c92a1d4ecc7550767223a17319899e51a523c15d20aab07&timestamp=1792614622355"
+            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=deba65a918f9ba66b5e353d0f045c6d86d9ff3d66c2deb93fc249676fa359249&timestamp=1792669352118"
           ]
         },
         "request": {
@@ -11659,7 +11660,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=dc5a99c679472aba1fcc5ce47be4c40eb133e1f51c6fa7695c7711421ea02029&timestamp=1792614622371"
+            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=303432c9415ea7fb2c7be548b373e48a83247cbc077feae2ebcfb2ffbd4c2a12&timestamp=1792669352137"
           ]
         },
         "request": {
@@ -13018,7 +13019,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for DELETE https://api.binance.us/api/v3/order?orderId=9999999999&recvWindow=5000&signature=60d5d59fd593eaa52a31ec63404c7d57e2cc9d960b347a41248a79527c4f4c12&symbol=ETHBTC&timestamp=1792614622402"
+            "the server responded with status 500 for DELETE https://api.binance.us/api/v3/order?orderId=9999999999&recvWindow=5000&signature=0ba6984d4f8bdbafd05ff11c21dfbc4bed9d52c810cf72f9baeb8d212eb797b6&symbol=ETHBTC&timestamp=1792669352156"
           ]
         },
         "requests": [
@@ -13959,7 +13960,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=22665e87dd32a6dc92c319333b8c3883eab57e568e8ecff65713f0e165ffa4ae&timestamp=1792614622412"
+            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=4d27cb335f2257f99a9cc959e96f5d9813f0b3675a7eb1469bbfd7d3b1354149&timestamp=1792669352172"
           ]
         },
         "request": {
@@ -15318,7 +15319,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for DELETE https://api.binance.us/api/v3/order?orderId=9999999999&recvWindow=5000&signature=056a0c32e4ba1b7ad355ca483d89fdfab95bf449bc45bc3aebfc4a220889265f&symbol=ETHBTC&timestamp=1792614622433"
+            "the server responded with status 500 for DELETE https://api.binance.us/api/v3/order?orderId=9999999999&recvWindow=5000&signature=b8d69fdb84ff76a0bd4a2b0c85b288402d6b64c4a446ca9c5ab4d5b9e603d1f3&symbol=ETHBTC&timestamp=1792669352193"
           ]
         },
         "requests": [
@@ -16259,7 +16260,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=f14fdb07c1e3885b9ab7a4ef6b83efc2047627b005089fde8e5b3c500be5745c&timestamp=1792614622445"
+            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=86463261facfe3fc78436b59a1713e137bb0c39936581eae5e9260f96edb0dc8&timestamp=1792669352213"
           ]
         },
         "request": {
@@ -17618,7 +17619,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for DELETE https://api.binance.us/api/v3/order?orderId=9999999999&recvWindow=5000&signature=08878e14821bcbb2ebcf6b922b020aae918256032663f20973b278a20292ef99&symbol=ETHBTC&timestamp=1792614622461"
+            "the server responded with status 500 for DELETE https://api.binance.us/api/v3/order?orderId=9999999999&recvWindow=5000&signature=0272bc447d3ecc054cb86ae6fd2d2aabe949cf7efb2d90b439cb0964903ab9b3&symbol=ETHBTC&timestamp=1792669352230"
           ]
         },
         "requests": [
@@ -18559,7 +18560,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=8fc228487ddcffc0e1bfabae8ef224b16df9d7a09af2ce5acde89bc89b86b272&timestamp=1792614622568"
+            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=36070e039c90b43adc24c3bc2c2c1df6be640b23aa0c5e30b3fc9f3c7435a545&timestamp=1792669352240"
           ]
         },
         "request": {
@@ -34665,7 +34666,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.mexc.com/api/v3/account?recvWindow=5000&signature=53fbfa00ec65de600fb5b5bcb91c331eb6b8fbe7da3cf1e14408db6623059e37&timestamp=1792614622898"
+            "the server responded with status 500 for GET https://api.mexc.com/api/v3/account?recvWindow=5000&signature=fdf4bfddb23fa14710578cff3645b2382372a67ee04c902ccdc1c5d93fe3cf31&timestamp=1792669352625"
           ]
         },
         "request": {
@@ -35471,7 +35472,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.mexc.com/api/v3/account?recvWindow=5000&signature=19440145d68737d72fec102905aed4895ad8c41dd42b1c15f017fa1a4db853d7&timestamp=1792614622908"
+            "the server responded with status 500 for GET https://api.mexc.com/api/v3/account?recvWindow=5000&signature=907190f45dbbcacf26d40ae855a11d3ae136cba148ec7a6cc4a20f88638d03b7&timestamp=1792669352641"
           ]
         },
         "request": {
@@ -36277,7 +36278,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.mexc.com/api/v3/account?recvWindow=5000&signature=f14a31364aef6dee2518482ad804c6754ab0cdcaa863606976d641f6ba4e2710&timestamp=1792614622918"
+            "the server responded with status 500 for GET https://api.mexc.com/api/v3/account?recvWindow=5000&signature=b51cbd86f023a09f0a0ea8f4226bfe6112c622b704876a7e95df0772790dbe1d&timestamp=1792669352650"
           ]
         },
         "request": {
@@ -37806,7 +37807,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.mexc.com/api/v3/capital/deposit/hisrec?limit=1&recvWindow=5000&signature=d03c12cd9aa1e6b095d91f55ed145b5b9871a3e25877ea307368bca6d286b037&timestamp=1792614622935"
+            "the server responded with status 500 for GET https://api.mexc.com/api/v3/capital/deposit/hisrec?limit=1&recvWindow=5000&signature=d4394581d9e4efa4eb788c00235778d809f137d193b507cfb26afb76c8a47a2b&timestamp=1792669352664"
           ]
         },
         "requests": [
@@ -39110,7 +39111,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.mexc.com/api/v3/capital/deposit/hisrec?limit=1&recvWindow=5000&signature=c96020551bfd07d44d8642e6503d811c17768bed650b83b70577451db1097311&timestamp=1792614622950"
+            "the server responded with status 500 for GET https://api.mexc.com/api/v3/capital/deposit/hisrec?limit=1&recvWindow=5000&signature=2d525ef0651f382f999e9332dd2925d8e4db13f7040b70dfc2dd8e59c19a2f37&timestamp=1792669352674"
           ]
         },
         "requests": [
@@ -39643,7 +39644,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.mexc.com/api/v3/account?recvWindow=5000&signature=7374ecd4153fe375d0903c7cfcf7ee6f7af4046839341a9bf754c6cf0c1dc9c5&timestamp=1792614622954"
+            "the server responded with status 500 for GET https://api.mexc.com/api/v3/account?recvWindow=5000&signature=2625935f544bfd9c155b4b491ce43fac99ad86253873a6e5299206dd6a0bfc32&timestamp=1792669352679"
           ]
         },
         "request": {
@@ -40670,7 +40671,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.mexc.com/api/v3/capital/deposit/hisrec?limit=1&recvWindow=5000&signature=5511af8100cc50492b1649a687f56f0bdf32f6cc694c0853aa5fb4ffc4e9608f&timestamp=1792614622967"
+            "the server responded with status 500 for GET https://api.mexc.com/api/v3/capital/deposit/hisrec?limit=1&recvWindow=5000&signature=698df8581d480f45100edc7340784881e78b600db23460adef45d1ae8a436ef9&timestamp=1792669352688"
           ]
         },
         "requests": [
@@ -41974,7 +41975,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.mexc.com/api/v3/capital/deposit/hisrec?limit=1&recvWindow=5000&signature=ce6ec759522695015110c0b6ea3fa3f926fa5bc4dba8949b55038d33178328d7&timestamp=1792614623004"
+            "the server responded with status 500 for GET https://api.mexc.com/api/v3/capital/deposit/hisrec?limit=1&recvWindow=5000&signature=afd38154237d11c9ccc8365c97438720334d1f3a2ef791b01608101973e32ab7&timestamp=1792669352698"
           ]
         },
         "requests": [
@@ -42572,6 +42573,2127 @@
           "form": {},
           "key_header": "test-key"
         }
+      }
+    ]
+  },
+  "coinbase": {
+    "cases": [
+      {
+        "case": "flags true/true/true",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"can_view\":true,\"can_trade\":true,\"can_transfer\":true}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "flags true/true/true",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"can_view\":true,\"can_trade\":true,\"can_transfer\":true}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "flags true/true/false",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"can_view\":true,\"can_trade\":true,\"can_transfer\":false}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "flags true/true/false",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"can_view\":true,\"can_trade\":true,\"can_transfer\":false}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "flags true/true/nil",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"can_view\":true,\"can_trade\":true,\"can_transfer\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "flags true/true/nil",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"can_view\":true,\"can_trade\":true,\"can_transfer\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "flags true/false/true",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"can_view\":true,\"can_trade\":false,\"can_transfer\":true}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "flags true/false/true",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"can_view\":true,\"can_trade\":false,\"can_transfer\":true}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "flags true/false/false",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"can_view\":true,\"can_trade\":false,\"can_transfer\":false}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "flags true/false/false",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"can_view\":true,\"can_trade\":false,\"can_transfer\":false}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "flags true/false/nil",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"can_view\":true,\"can_trade\":false,\"can_transfer\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "flags true/false/nil",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"can_view\":true,\"can_trade\":false,\"can_transfer\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "flags true/nil/true",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"can_view\":true,\"can_trade\":null,\"can_transfer\":true}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "flags true/nil/true",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"can_view\":true,\"can_trade\":null,\"can_transfer\":true}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "flags true/nil/false",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"can_view\":true,\"can_trade\":null,\"can_transfer\":false}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "flags true/nil/false",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"can_view\":true,\"can_trade\":null,\"can_transfer\":false}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "flags true/nil/nil",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"can_view\":true,\"can_trade\":null,\"can_transfer\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "flags true/nil/nil",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"can_view\":true,\"can_trade\":null,\"can_transfer\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "flags false/true/true",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"can_view\":false,\"can_trade\":true,\"can_transfer\":true}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "flags false/true/true",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"can_view\":false,\"can_trade\":true,\"can_transfer\":true}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "flags false/true/false",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"can_view\":false,\"can_trade\":true,\"can_transfer\":false}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "flags false/true/false",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"can_view\":false,\"can_trade\":true,\"can_transfer\":false}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "flags false/true/nil",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"can_view\":false,\"can_trade\":true,\"can_transfer\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "flags false/true/nil",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"can_view\":false,\"can_trade\":true,\"can_transfer\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "flags false/false/true",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"can_view\":false,\"can_trade\":false,\"can_transfer\":true}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "flags false/false/true",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"can_view\":false,\"can_trade\":false,\"can_transfer\":true}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "flags false/false/false",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"can_view\":false,\"can_trade\":false,\"can_transfer\":false}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "flags false/false/false",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"can_view\":false,\"can_trade\":false,\"can_transfer\":false}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "flags false/false/nil",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"can_view\":false,\"can_trade\":false,\"can_transfer\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "flags false/false/nil",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"can_view\":false,\"can_trade\":false,\"can_transfer\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "flags false/nil/true",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"can_view\":false,\"can_trade\":null,\"can_transfer\":true}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "flags false/nil/true",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"can_view\":false,\"can_trade\":null,\"can_transfer\":true}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "flags false/nil/false",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"can_view\":false,\"can_trade\":null,\"can_transfer\":false}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "flags false/nil/false",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"can_view\":false,\"can_trade\":null,\"can_transfer\":false}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "flags false/nil/nil",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"can_view\":false,\"can_trade\":null,\"can_transfer\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "flags false/nil/nil",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"can_view\":false,\"can_trade\":null,\"can_transfer\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "flags nil/true/true",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"can_view\":null,\"can_trade\":true,\"can_transfer\":true}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "flags nil/true/true",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"can_view\":null,\"can_trade\":true,\"can_transfer\":true}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "flags nil/true/false",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"can_view\":null,\"can_trade\":true,\"can_transfer\":false}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "flags nil/true/false",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"can_view\":null,\"can_trade\":true,\"can_transfer\":false}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "flags nil/true/nil",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"can_view\":null,\"can_trade\":true,\"can_transfer\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "flags nil/true/nil",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"can_view\":null,\"can_trade\":true,\"can_transfer\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "flags nil/false/true",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"can_view\":null,\"can_trade\":false,\"can_transfer\":true}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "flags nil/false/true",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"can_view\":null,\"can_trade\":false,\"can_transfer\":true}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "flags nil/false/false",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"can_view\":null,\"can_trade\":false,\"can_transfer\":false}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "flags nil/false/false",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"can_view\":null,\"can_trade\":false,\"can_transfer\":false}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "flags nil/false/nil",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"can_view\":null,\"can_trade\":false,\"can_transfer\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "flags nil/false/nil",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"can_view\":null,\"can_trade\":false,\"can_transfer\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "flags nil/nil/true",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"can_view\":null,\"can_trade\":null,\"can_transfer\":true}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "flags nil/nil/true",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"can_view\":null,\"can_trade\":null,\"can_transfer\":true}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "flags nil/nil/false",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"can_view\":null,\"can_trade\":null,\"can_transfer\":false}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "flags nil/nil/false",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"can_view\":null,\"can_trade\":null,\"can_transfer\":false}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "flags nil/nil/nil",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"can_view\":null,\"can_trade\":null,\"can_transfer\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "flags nil/nil/nil",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"can_view\":null,\"can_trade\":null,\"can_transfer\":null}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "500 then success",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "responses": [
+          {
+            "status": 500,
+            "body": "{\"error\":\"INTERNAL_SERVER_ERROR\"}",
+            "content_type": "application/json"
+          },
+          {
+            "status": 200,
+            "body": "{\"can_view\":true,\"can_trade\":true,\"can_transfer\":false}",
+            "content_type": "application/json"
+          }
+        ],
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "requests": [
+          {
+            "method": "GET",
+            "host": "api.coinbase.com",
+            "path": "/api/v3/brokerage/key_permissions",
+            "query": {},
+            "form": {},
+            "key_header": null
+          },
+          {
+            "method": "GET",
+            "host": "api.coinbase.com",
+            "path": "/api/v3/brokerage/key_permissions",
+            "query": {},
+            "form": {},
+            "key_header": null
+          }
+        ]
+      },
+      {
+        "case": "500 twice then success",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "responses": [
+          {
+            "status": 500,
+            "body": "{\"error\":\"INTERNAL_SERVER_ERROR\"}",
+            "content_type": "application/json"
+          },
+          {
+            "status": 500,
+            "body": "{\"error\":\"INTERNAL_SERVER_ERROR\"}",
+            "content_type": "application/json"
+          },
+          {
+            "status": 200,
+            "body": "{\"can_view\":true,\"can_trade\":true,\"can_transfer\":false}",
+            "content_type": "application/json"
+          }
+        ],
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "requests": [
+          {
+            "method": "GET",
+            "host": "api.coinbase.com",
+            "path": "/api/v3/brokerage/key_permissions",
+            "query": {},
+            "form": {},
+            "key_header": null
+          },
+          {
+            "method": "GET",
+            "host": "api.coinbase.com",
+            "path": "/api/v3/brokerage/key_permissions",
+            "query": {},
+            "form": {},
+            "key_header": null
+          },
+          {
+            "method": "GET",
+            "host": "api.coinbase.com",
+            "path": "/api/v3/brokerage/key_permissions",
+            "query": {},
+            "form": {},
+            "key_header": null
+          }
+        ]
+      },
+      {
+        "case": "500 exhausted",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "responses": [
+          {
+            "status": 500,
+            "body": "{\"error\":\"INTERNAL_SERVER_ERROR\"}",
+            "content_type": "application/json"
+          },
+          {
+            "status": 500,
+            "body": "{\"error\":\"INTERNAL_SERVER_ERROR\"}",
+            "content_type": "application/json"
+          },
+          {
+            "status": 500,
+            "body": "{\"error\":\"INTERNAL_SERVER_ERROR\"}",
+            "content_type": "application/json"
+          }
+        ],
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"error\":\"INTERNAL_SERVER_ERROR\"}"
+          ]
+        },
+        "requests": [
+          {
+            "method": "GET",
+            "host": "api.coinbase.com",
+            "path": "/api/v3/brokerage/key_permissions",
+            "query": {},
+            "form": {},
+            "key_header": null
+          },
+          {
+            "method": "GET",
+            "host": "api.coinbase.com",
+            "path": "/api/v3/brokerage/key_permissions",
+            "query": {},
+            "form": {},
+            "key_header": null
+          },
+          {
+            "method": "GET",
+            "host": "api.coinbase.com",
+            "path": "/api/v3/brokerage/key_permissions",
+            "query": {},
+            "form": {},
+            "key_header": null
+          }
+        ]
+      },
+      {
+        "case": "http 401",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 401,
+          "body": "{\"error\":\"failure\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "http 403",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 403,
+          "body": "{\"error\":\"failure\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"error\":\"failure\"}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "http 429",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 429,
+          "body": "{\"error\":\"failure\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"error\":\"failure\"}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "http 502",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 502,
+          "body": "{\"error\":\"failure\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"error\":\"failure\"}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "null",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "null",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Coinbase sent an unreadable answer to the key check"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "500 then success",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "responses": [
+          {
+            "status": 500,
+            "body": "{\"error\":\"INTERNAL_SERVER_ERROR\"}",
+            "content_type": "application/json"
+          },
+          {
+            "status": 200,
+            "body": "{\"can_view\":true,\"can_trade\":false,\"can_transfer\":true}",
+            "content_type": "application/json"
+          }
+        ],
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "requests": [
+          {
+            "method": "GET",
+            "host": "api.coinbase.com",
+            "path": "/api/v3/brokerage/key_permissions",
+            "query": {},
+            "form": {},
+            "key_header": null
+          },
+          {
+            "method": "GET",
+            "host": "api.coinbase.com",
+            "path": "/api/v3/brokerage/key_permissions",
+            "query": {},
+            "form": {},
+            "key_header": null
+          }
+        ]
+      },
+      {
+        "case": "500 twice then success",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "responses": [
+          {
+            "status": 500,
+            "body": "{\"error\":\"INTERNAL_SERVER_ERROR\"}",
+            "content_type": "application/json"
+          },
+          {
+            "status": 500,
+            "body": "{\"error\":\"INTERNAL_SERVER_ERROR\"}",
+            "content_type": "application/json"
+          },
+          {
+            "status": 200,
+            "body": "{\"can_view\":true,\"can_trade\":false,\"can_transfer\":true}",
+            "content_type": "application/json"
+          }
+        ],
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "requests": [
+          {
+            "method": "GET",
+            "host": "api.coinbase.com",
+            "path": "/api/v3/brokerage/key_permissions",
+            "query": {},
+            "form": {},
+            "key_header": null
+          },
+          {
+            "method": "GET",
+            "host": "api.coinbase.com",
+            "path": "/api/v3/brokerage/key_permissions",
+            "query": {},
+            "form": {},
+            "key_header": null
+          },
+          {
+            "method": "GET",
+            "host": "api.coinbase.com",
+            "path": "/api/v3/brokerage/key_permissions",
+            "query": {},
+            "form": {},
+            "key_header": null
+          }
+        ]
+      },
+      {
+        "case": "500 exhausted",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "responses": [
+          {
+            "status": 500,
+            "body": "{\"error\":\"INTERNAL_SERVER_ERROR\"}",
+            "content_type": "application/json"
+          },
+          {
+            "status": 500,
+            "body": "{\"error\":\"INTERNAL_SERVER_ERROR\"}",
+            "content_type": "application/json"
+          },
+          {
+            "status": 500,
+            "body": "{\"error\":\"INTERNAL_SERVER_ERROR\"}",
+            "content_type": "application/json"
+          }
+        ],
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"error\":\"INTERNAL_SERVER_ERROR\"}"
+          ]
+        },
+        "requests": [
+          {
+            "method": "GET",
+            "host": "api.coinbase.com",
+            "path": "/api/v3/brokerage/key_permissions",
+            "query": {},
+            "form": {},
+            "key_header": null
+          },
+          {
+            "method": "GET",
+            "host": "api.coinbase.com",
+            "path": "/api/v3/brokerage/key_permissions",
+            "query": {},
+            "form": {},
+            "key_header": null
+          },
+          {
+            "method": "GET",
+            "host": "api.coinbase.com",
+            "path": "/api/v3/brokerage/key_permissions",
+            "query": {},
+            "form": {},
+            "key_header": null
+          }
+        ]
+      },
+      {
+        "case": "http 401",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 401,
+          "body": "{\"error\":\"failure\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "http 403",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 403,
+          "body": "{\"error\":\"failure\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"error\":\"failure\"}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "http 429",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 429,
+          "body": "{\"error\":\"failure\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"error\":\"failure\"}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "http 502",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 502,
+          "body": "{\"error\":\"failure\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"error\":\"failure\"}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "null",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "null",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Coinbase sent an unreadable answer to the key check"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "read positions 0",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "responses": [
+          {
+            "status": 200,
+            "body": "{\"portfolio_uuid\":\"portfolio\",\"can_view\":false,\"can_trade\":false,\"can_transfer\":true}",
+            "content_type": "application/json"
+          },
+          {
+            "status": 200,
+            "body": "{\"breakdown\":{\"spot_positions\":[]}}",
+            "content_type": "application/json"
+          }
+        ],
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "requests": [
+          {
+            "method": "GET",
+            "host": "api.coinbase.com",
+            "path": "/api/v3/brokerage/key_permissions",
+            "query": {},
+            "form": {},
+            "key_header": null
+          },
+          {
+            "method": "GET",
+            "host": "api.coinbase.com",
+            "path": "/api/v3/brokerage/portfolios/portfolio",
+            "query": {},
+            "form": {},
+            "key_header": null
+          }
+        ]
+      },
+      {
+        "case": "read positions 1",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "responses": [
+          {
+            "status": 200,
+            "body": "{\"portfolio_uuid\":\"portfolio\",\"can_view\":false,\"can_trade\":false,\"can_transfer\":true}",
+            "content_type": "application/json"
+          },
+          {
+            "status": 200,
+            "body": "{\"breakdown\":{\"spot_positions\":[{\"asset\":\"BTC\",\"available_to_trade_crypto\":\"1\",\"total_balance_crypto\":\"2\"}]}}",
+            "content_type": "application/json"
+          }
+        ],
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "requests": [
+          {
+            "method": "GET",
+            "host": "api.coinbase.com",
+            "path": "/api/v3/brokerage/key_permissions",
+            "query": {},
+            "form": {},
+            "key_header": null
+          },
+          {
+            "method": "GET",
+            "host": "api.coinbase.com",
+            "path": "/api/v3/brokerage/portfolios/portfolio",
+            "query": {},
+            "form": {},
+            "key_header": null
+          }
+        ]
+      },
+      {
+        "case": "read permissions 401",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 401,
+          "body": "{\"error\":\"failure\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"error\":\"failure\"}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "read breakdown 401",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "responses": [
+          {
+            "status": 200,
+            "body": "{\"portfolio_uuid\":\"portfolio\",\"can_view\":false,\"can_trade\":false,\"can_transfer\":true}",
+            "content_type": "application/json"
+          },
+          {
+            "status": 401,
+            "body": "{\"error\":\"failure\"}",
+            "content_type": "application/json"
+          }
+        ],
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"error\":\"failure\"}"
+          ]
+        },
+        "requests": [
+          {
+            "method": "GET",
+            "host": "api.coinbase.com",
+            "path": "/api/v3/brokerage/key_permissions",
+            "query": {},
+            "form": {},
+            "key_header": null
+          },
+          {
+            "method": "GET",
+            "host": "api.coinbase.com",
+            "path": "/api/v3/brokerage/portfolios/portfolio",
+            "query": {},
+            "form": {},
+            "key_header": null
+          }
+        ]
+      },
+      {
+        "case": "read permissions 403",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 403,
+          "body": "{\"error\":\"failure\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"error\":\"failure\"}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "read breakdown 403",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "responses": [
+          {
+            "status": 200,
+            "body": "{\"portfolio_uuid\":\"portfolio\",\"can_view\":false,\"can_trade\":false,\"can_transfer\":true}",
+            "content_type": "application/json"
+          },
+          {
+            "status": 403,
+            "body": "{\"error\":\"failure\"}",
+            "content_type": "application/json"
+          }
+        ],
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"error\":\"failure\"}"
+          ]
+        },
+        "requests": [
+          {
+            "method": "GET",
+            "host": "api.coinbase.com",
+            "path": "/api/v3/brokerage/key_permissions",
+            "query": {},
+            "form": {},
+            "key_header": null
+          },
+          {
+            "method": "GET",
+            "host": "api.coinbase.com",
+            "path": "/api/v3/brokerage/portfolios/portfolio",
+            "query": {},
+            "form": {},
+            "key_header": null
+          }
+        ]
+      },
+      {
+        "case": "read permissions 429",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 429,
+          "body": "{\"error\":\"failure\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"error\":\"failure\"}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "read breakdown 429",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "responses": [
+          {
+            "status": 200,
+            "body": "{\"portfolio_uuid\":\"portfolio\",\"can_view\":false,\"can_trade\":false,\"can_transfer\":true}",
+            "content_type": "application/json"
+          },
+          {
+            "status": 429,
+            "body": "{\"error\":\"failure\"}",
+            "content_type": "application/json"
+          }
+        ],
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"error\":\"failure\"}"
+          ]
+        },
+        "requests": [
+          {
+            "method": "GET",
+            "host": "api.coinbase.com",
+            "path": "/api/v3/brokerage/key_permissions",
+            "query": {},
+            "form": {},
+            "key_header": null
+          },
+          {
+            "method": "GET",
+            "host": "api.coinbase.com",
+            "path": "/api/v3/brokerage/portfolios/portfolio",
+            "query": {},
+            "form": {},
+            "key_header": null
+          }
+        ]
+      },
+      {
+        "case": "read permissions 500",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 500,
+          "body": "{\"error\":\"failure\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"error\":\"failure\"}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "read breakdown 500",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "responses": [
+          {
+            "status": 200,
+            "body": "{\"portfolio_uuid\":\"portfolio\",\"can_view\":false,\"can_trade\":false,\"can_transfer\":true}",
+            "content_type": "application/json"
+          },
+          {
+            "status": 500,
+            "body": "{\"error\":\"failure\"}",
+            "content_type": "application/json"
+          }
+        ],
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"error\":\"failure\"}"
+          ]
+        },
+        "requests": [
+          {
+            "method": "GET",
+            "host": "api.coinbase.com",
+            "path": "/api/v3/brokerage/key_permissions",
+            "query": {},
+            "form": {},
+            "key_header": null
+          },
+          {
+            "method": "GET",
+            "host": "api.coinbase.com",
+            "path": "/api/v3/brokerage/portfolios/portfolio",
+            "query": {},
+            "form": {},
+            "key_header": null
+          }
+        ]
+      },
+      {
+        "case": "read permissions 502",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 502,
+          "body": "{\"error\":\"failure\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"error\":\"failure\"}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.coinbase.com",
+          "path": "/api/v3/brokerage/key_permissions",
+          "query": {},
+          "form": {},
+          "key_header": null
+        }
+      },
+      {
+        "case": "read breakdown 502",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "responses": [
+          {
+            "status": 200,
+            "body": "{\"portfolio_uuid\":\"portfolio\",\"can_view\":false,\"can_trade\":false,\"can_transfer\":true}",
+            "content_type": "application/json"
+          },
+          {
+            "status": 502,
+            "body": "{\"error\":\"failure\"}",
+            "content_type": "application/json"
+          }
+        ],
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"error\":\"failure\"}"
+          ]
+        },
+        "requests": [
+          {
+            "method": "GET",
+            "host": "api.coinbase.com",
+            "path": "/api/v3/brokerage/key_permissions",
+            "query": {},
+            "form": {},
+            "key_header": null
+          },
+          {
+            "method": "GET",
+            "host": "api.coinbase.com",
+            "path": "/api/v3/brokerage/portfolios/portfolio",
+            "query": {},
+            "form": {},
+            "key_header": null
+          }
+        ]
       }
     ]
   },
@@ -47261,7 +49383,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://openapi.bitrue.com/api/v1/account?recvWindow=5000&signature=362633bb60c93d285076494b78bfe0f71c183f363f446f106f768f2dabd9e4f6&timestamp=1792614623687"
+            "the server responded with status 500 for GET https://openapi.bitrue.com/api/v1/account?recvWindow=5000&signature=2526f41633d7847b40abc89a3929f48b7873cce35be638a010b8271b0791809e&timestamp=1792669353721"
           ]
         },
         "request": {
@@ -47933,7 +50055,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://openapi.bitrue.com/api/v1/account?recvWindow=5000&signature=c857fd7d4b56ee8db72565e0505bfab3d238313c1013c43fb51d92ae762f4a55&timestamp=1792614623697"
+            "the server responded with status 500 for GET https://openapi.bitrue.com/api/v1/account?recvWindow=5000&signature=6d4a3ee7d6729f440e14b3182e7251215a9af824b69ce0b70e213a31ef8bd887&timestamp=1792669353735"
           ]
         },
         "request": {
@@ -48605,7 +50727,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://openapi.bitrue.com/api/v1/account?recvWindow=5000&signature=d8c08fe1fa7ba73382a2b1b0b8a6fa94cc5694c4fe9109be1bf68bb4e43ae58e&timestamp=1792614623711"
+            "the server responded with status 500 for GET https://openapi.bitrue.com/api/v1/account?recvWindow=5000&signature=57cdf385f5ee751e03a8d33e4d5a96c7f605d57e5e515b589052d1b1d710be5f&timestamp=1792669353748"
           ]
         },
         "request": {

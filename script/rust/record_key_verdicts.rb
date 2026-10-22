@@ -1,4 +1,4 @@
-# Records how Rails judges an API key on each venue of VENUE_CASES (Kraken, Binance, Binance.US, KuCoin, Bitvavo, Gemini, Bitget, MEXC, Hyperliquid, Bybit, Bitrue), for the Rust key
+# Records how Rails judges an API key on each venue of VENUE_CASES (Kraken, Binance, Binance.US, KuCoin, Bitvavo, Gemini, Bitget, MEXC, Hyperliquid, Bybit, Bitrue, Coinbase), for the Rust key
 # step (P2-T6).
 #   bin/rails runner script/rust/record_key_verdicts.rb rust/tests/fixtures/key_verdicts.json
 # Each case scripts the venue's HTTP answer at the Faraday adapter (nothing leaves the machine; any real connection
@@ -13,7 +13,7 @@ Net::HTTP.prepend(Module.new { def connect = raise(Unscripted, "real connection 
 
 out = {
   'sources' => %w[app/models/exchanges/kraken.rb app/models/exchanges/binance.rb app/models/exchanges/binance_us.rb app/models/exchanges/kucoin.rb app/models/exchanges/bitvavo.rb app/models/exchanges/gemini.rb
-                  app/models/exchanges/bitget.rb app/models/exchanges/mexc.rb app/models/exchanges/hyperliquid.rb app/models/exchanges/bybit.rb app/models/exchanges/bitrue.rb
+                  app/models/exchanges/bitget.rb app/models/exchanges/mexc.rb app/models/exchanges/hyperliquid.rb app/models/exchanges/bybit.rb app/models/exchanges/bitrue.rb app/models/exchanges/coinbase.rb
                   app/models/exchange.rb app/models/exchange/dryable.rb app/models/api_key.rb app/helpers/bot_helper.rb
                   config/locales/api.en.yml config/locales/api.de.yml config/locales/api.pl.yml
                   config/locales/api_read_only.en.yml config/locales/api_withdrawal.en.yml
@@ -466,6 +466,33 @@ VENUE_CASES = {
   # Hyperliquid (plan VB slice B1): the key is the account's address, the secret an agent's private key. A trading or withdrawal
   # key reads userRole for the address the secret signs as (none sent for a secret that is no key); a reading key reads its
   # address's spotClearinghouseState (Exchange#get_read_api_key_validity -> #get_balances). `key` and `signer` are recorded.
+  'coinbase' => lambda do
+    fresh = -> { Exchanges::Coinbase.new(name: 'Coinbase').tap { |cb| cb.define_singleton_method(:sleep) { |_| }; cb.define_singleton_method(:asset_from_symbol) { |_| nil } } }
+    rows = []
+    [true, false, nil].repeated_permutation(3).each do |view, trade, transfer|
+      flags = json.(200, { 'can_view' => view, 'can_trade' => trade, 'can_transfer' => transfer })
+      %i[trading withdrawal].each { |kind| rows << record.(fresh.call, kind, :get_api_key_validity, "flags #{view.inspect}/#{trade.inspect}/#{transfer.inspect}", flags) }
+    end
+    %i[trading withdrawal].each do |kind|
+      good = json.(200, { 'can_view' => true, 'can_trade' => kind == :trading, 'can_transfer' => kind == :withdrawal })
+      bad = json.(500, { 'error' => 'INTERNAL_SERVER_ERROR' })
+      rows << record.(fresh.call, kind, :get_api_key_validity, '500 then success', [bad, good])
+      rows << record.(fresh.call, kind, :get_api_key_validity, '500 twice then success', [bad, bad, good])
+      rows << record.(fresh.call, kind, :get_api_key_validity, '500 exhausted', [bad, bad, bad])
+      [401,403,429,502].each { |status| rows << record.(fresh.call, kind, :get_api_key_validity, "http #{status}", json.(status, { 'error' => 'failure' })) }
+      rows << record.(fresh.call, kind, :get_api_key_validity, 'null', json.(200, 'null'))
+    end
+    # A new client per read-only check, permissions supply only the portfolio id; flags do not rule on it.
+    permissions = json.(200, { 'portfolio_uuid' => 'portfolio', 'can_view' => false, 'can_trade' => false, 'can_transfer' => true })
+    [[], [{ 'asset' => 'BTC', 'available_to_trade_crypto' => '1', 'total_balance_crypto' => '2' }]].each_with_index do |positions, i|
+      rows << record.(fresh.call, :read_only, :get_read_api_key_validity, "read positions #{i}", [permissions, json.(200, { 'breakdown' => { 'spot_positions' => positions } })])
+    end
+    [401,403,429,500,502].each do |status|
+      rows << record.(fresh.call, :read_only, :get_read_api_key_validity, "read permissions #{status}", json.(status, { 'error' => 'failure' }))
+      rows << record.(fresh.call, :read_only, :get_read_api_key_validity, "read breakdown #{status}", [permissions, json.(status, { 'error' => 'failure' })])
+    end
+    { 'cases' => rows }
+  end,
   'hyperliquid' => lambda do
     require 'eth'
     hyperliquid = Exchanges::Hyperliquid.new(name: 'Hyperliquid')

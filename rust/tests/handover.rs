@@ -117,20 +117,58 @@ fn rails_boot(dir: &std::path::Path) -> (bool, String) { rails_boot_running(dir,
 
 /// `rails_boot`, running `script` (Ruby) in the booted app.
 fn rails_boot_running(dir: &std::path::Path, script: &str) -> (bool, String) {
-    let keys = deltabadger::crypto::EncryptionKeys::resolve(&|_| None, "engine-test-secret").unwrap();
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
     let scratch = tempfile::tempdir().unwrap();
     let file = scratch.path().join("script.rb"); // a file, so a raise shows its backtrace
     std::fs::write(&file, format!("{script}\nputs :booted\n")).unwrap();
-    let out = Command::new(root.join("bin/rails")).current_dir(root).args(["runner", file.to_str().unwrap()])
+    let out = rails_on(dir, scratch.path(), &["runner", file.to_str().unwrap()]).output().expect("bin/rails runs");
+    (out.status.success() && String::from_utf8_lossy(&out.stdout).contains("booted"), String::from_utf8_lossy(&out.stderr).into_owned())
+}
+
+/// `bin/rails <args>` in the development env against this install's files (cache and cable in `scratch`), with the
+/// test cipher's keys. A schema dump goes to `scratch`, never to db/.
+fn rails_on(dir: &std::path::Path, scratch: &std::path::Path, args: &[&str]) -> Command {
+    let keys = deltabadger::crypto::EncryptionKeys::resolve(&|_| None, "engine-test-secret").unwrap();
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+    let mut command = Command::new(root.join("bin/rails"));
+    command.current_dir(root).args(args).env("SCHEMA", scratch.join("schema.rb"))
         .env("RAILS_ENV", "development").env_remove("DATABASE_URL").env("APP_ROOT_URL", "http://localhost:3000")
         .env("PRIMARY_DATABASE_URL", format!("sqlite3:{}", dir.join("production.sqlite3").display()))
         .env("QUEUE_DATABASE_URL", format!("sqlite3:{}", dir.join("production_queue.sqlite3").display()))
-        .env("CACHE_DATABASE_URL", format!("sqlite3:{}/cache.sqlite3", scratch.path().display()))
-        .env("CABLE_DATABASE_URL", format!("sqlite3:{}/cable.sqlite3", scratch.path().display()))
-        .env("ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY", keys.primary_key).env("ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT", keys.key_derivation_salt)
-        .output().expect("bin/rails runs");
-    (out.status.success() && String::from_utf8_lossy(&out.stdout).contains("booted"), String::from_utf8_lossy(&out.stderr).into_owned())
+        .env("CACHE_DATABASE_URL", format!("sqlite3:{}/cache.sqlite3", scratch.display()))
+        .env("CABLE_DATABASE_URL", format!("sqlite3:{}/cable.sqlite3", scratch.display()))
+        .env("ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY", keys.primary_key).env("ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT", keys.key_derivation_salt);
+    command
+}
+
+/// Rails runs on an install Rust migrated: it ignores rust_schema_migrations and Rust's tables in db:migrate,
+/// db:migrate:status and a boot after a handback, and leaves them as they were.
+#[tokio::test(flavor = "current_thread")]
+async fn rails_migrates_and_adopts_a_handback_on_an_install_rust_migrated() {
+    let dir = common::rails_install();
+    let p = Paths::from_env(&|_| None, dir.path());
+    let l = lease::lock(&p, now()).unwrap();
+    let list = common::probe_migrations();
+    let registry = store::Registry { migrations: &common::as_migrations(&list), tables: common::PROBE_TABLES };
+    // Opened before the probe migrates: this build's own registry does not know it, so `open` would refuse after.
+    let o = store::open(&p).unwrap();
+    assert_eq!(store::migrate_with(&p, &l, &registry).unwrap(), vec![common::PROBE.to_string()]);
+    let s = seed::seed_kraken(&o.primary, &seed::cipher());
+    seed::insert_bot(&o.primary, &s, &BotSpec { status: 5, ..BotSpec::weekly(60.0, "2026-09-01 10:00:00") });
+    handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
+    handover::hand_back(&l, &o, &FakeFactory::default(), &seed::cipher(), &deltabadger::engine::FixedClock(now())).await.unwrap();
+    drop((l, o));
+    let scratch = tempfile::tempdir().unwrap();
+    for task in ["db:migrate", "db:migrate:status:primary"] {
+        let out = rails_on(dir.path(), scratch.path(), &[task]).output().expect("bin/rails runs");
+        assert!(out.status.success(), "{task}: {}", String::from_utf8_lossy(&out.stderr));
+        let stdout = String::from_utf8_lossy(&out.stdout);
+        assert!(!stdout.contains(" down ") && !stdout.contains("NO FILE"), "{task}: {stdout}");
+    }
+    assert!(rails_boot(dir.path()).0, "Rails starts after a completed handback");
+    let c = rusqlite::Connection::open(&p.primary).unwrap();
+    assert_eq!(count(&c, "SELECT count(*) FROM rust_schema_migrations"), 1, "Rust's record untouched");
+    assert_eq!(count(&c, "SELECT count(*) FROM sqlite_master WHERE name = 'rust_migration_probe'"), 1);
+    assert_eq!(store::check_with(&p, &registry).unwrap().pending_rust, Vec::<String>::new());
 }
 
 #[tokio::test(flavor = "current_thread")]

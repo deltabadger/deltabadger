@@ -7,18 +7,20 @@ use yaml_rust2::parser::{Event, EventReceiver, Parser};
 use yaml_rust2::scanner::TScalarStyle;
 
 mod provenance_build_gate;
+mod migration_registry;
 
 fn main() {
     let root = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap()).join("..");
     let out = PathBuf::from(env::var("OUT_DIR").unwrap());
     if let Err(error)=provenance_build_gate::check(&root){eprintln!("R4 provenance gate: {error}");std::process::exit(1);}
     accounting_gate(&root);
-    migrations(&root, &out);
+    let rails_versions = migrations(&root, &out);
+    rust_migrations(&root, &out, &rails_versions);
     locales(&root, &out);
     assets(&root, &out);
 }
 
-fn migrations(root: &Path, out: &Path) {
+fn migrations(root: &Path, out: &Path) -> Vec<String> {
     let dir = root.join("db/migrate");
     println!("cargo:rerun-if-changed={}", dir.display());
     let mut versions = Vec::new();
@@ -36,6 +38,20 @@ fn migrations(root: &Path, out: &Path) {
     versions.sort();
     let body: String = versions.iter().map(|v| format!("    {v:?},\n")).collect();
     fs::write(out.join("migrations.rs"), format!("pub const MIGRATIONS: &[&str] = &[\n{body}];\n")).unwrap();
+    versions
+}
+
+/// rust/migrations as `RUST_MIGRATIONS: &[Migration]` (store.rs), sorted by version. A misnamed file, a repeated
+/// version, a Rails version or a transaction statement stops the build (migration_registry.rs).
+fn rust_migrations(root: &Path, out: &Path, rails_versions: &[String]) {
+    let dir = root.join("rust/migrations");
+    println!("cargo:rerun-if-changed={}", dir.display());
+    println!("cargo:rerun-if-changed={}", root.join("rust/migration_registry.rs").display());
+    let found = migration_registry::load(&dir, rails_versions).unwrap_or_else(|e| { eprintln!("Rust migrations: {e}"); std::process::exit(1) });
+    let body: String = found.iter().map(|(version, name, path)| {
+        format!("    Migration {{ version: {version:?}, name: {name:?}, sql: include_str!({:?}) }},\n", path.canonicalize().unwrap().to_str().expect("migration path is UTF-8"))
+    }).collect();
+    fs::write(out.join("rust_migrations.rs"), format!("pub const RUST_MIGRATIONS: &[Migration<'static>] = &[\n{body}];\n")).unwrap();
 }
 
 /// Every file under `dir`, as (path relative to `dir` with `/` separators, full path), sorted.

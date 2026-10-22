@@ -139,6 +139,7 @@ pub(crate) enum Wire {
     /// Bybit V5: hex HMAC over timestamp + key + receive window + query/body.
     Bybit,
     Bitrue,
+    Coinbase,
     Bingx,
 }
 
@@ -154,6 +155,7 @@ impl Wire {
             Self::Hyperliquid => super::hyperliquid::HYPERLIQUID,
             Self::Bybit => super::bybit::BYBIT,
             Self::Bitrue => super::bitrue::BITRUE,
+            Self::Coinbase => super::coinbase::COINBASE,
             Self::Bingx => super::bingx::BINGX,
         };
         super::registry::row(exchange_type).expect("every wire's venue has a row").name
@@ -218,6 +220,11 @@ pub(crate) fn request(wire: Wire, client: &reqwest::Client, r: &HttpRequest, key
             for (k, v) in super::signers::gemini::headers(keys.key, keys.secret, &r.path, &params, nonce) { b = b.header(k, v); }
         }
         Wire::Gemini => {}
+        Wire::Coinbase => {
+            for (k, v) in json_headers() { b = b.header(k, v); }
+            if let Some(jwt) = super::signers::coinbase::jwt(keys.key, keys.secret, r.method, &r.path) { b = b.header("Authorization", format!("Bearer {jwt}")); }
+            if let Some(body) = &r.body { b = b.body(body.to_string()); }
+        }
         Wire::Hyperliquid => {
             b = b.header("Accept", "application/json").header("Content-Type", "application/json");
             let signer = super::signers::hyperliquid::signing_key(keys.secret);

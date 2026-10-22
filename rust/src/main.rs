@@ -1,5 +1,6 @@
 //! `deltabadger check | run | handback | serve | sync | resolve-placement | decide`.
-//! - check: take the engine lock, check the Rails-prepared install read-only, and exit.
+//! - check: take the engine lock, check the Rails-prepared install read-only, list the Rust migrations `run`/`serve`
+//!   would apply, and exit.
 //! - run: take the install over from Rails and trade its eligible bots until SIGTERM/SIGINT.
 //! - handback: settle every unresolved order, then return the install to Rails. It refuses while `run` or `serve` runs.
 //! - serve: `run` with the web UI in the same process: it takes the install over and trades its eligible bots while
@@ -10,7 +11,7 @@
 //! SECRET_KEY_BASE (and ACTIVE_RECORD_ENCRYPTION_* where the instance sets them). serve also reads PORT (default 3000),
 //! APP_ROOT_URL, FORCE_SSL, BEHIND_PROXY and MARKET_DATA_URL. run and serve send the bots' mail and read what Rails
 //! reads for it: SMTP_ADDRESS, SMTP_PORT, SMTP_DOMAIN, SMTP_USER_NAME, SMTP_PASSWORD, NOTIFICATIONS_SENDER, APP_ROOT_URL
-//! and FORCE_SSL. Rails creates and migrates the databases.
+//! and FORCE_SSL. Rails creates the databases and runs its migrations; `run` and `serve` apply Rust's own (store::migrate).
 use deltabadger::crypto::{Cipher, EncryptionKeys};
 use deltabadger::engine::eligibility::{check_install_at, Refusal};
 use deltabadger::engine::run::Engine;
@@ -31,7 +32,8 @@ fn main() {
             refuse_url_overrides(&env);
             let paths = paths(&env);
             let _lock = take_lock(&paths);
-            if let Err(e) = store::check(&paths) { fail(&explain(e)); }
+            let report = store::check(&paths).unwrap_or_else(|e| fail(&explain(e)));
+            for version in &report.pending_rust { println!("pending Rust migration {version}: run or serve applies it"); }
             let c = rusqlite::Connection::open_with_flags(&paths.primary, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
                 .unwrap_or_else(|e| fail(&format!("{e}")));
             if let Some(secret) = env("SECRET_KEY_BASE") {
@@ -119,18 +121,23 @@ fn explain(e: StoreError) -> String {
         StoreError::Unsupported { unknown } => format!("this data has migrations this build does not know ({}); use a newer build", unknown.join(", ")),
         StoreError::Diverged { .. } => "this data's migration history differs from this build's; refusing".into(),
         StoreError::Incompatible { problems } => format!("this data's structure differs from what this build expects:\n{}", problems.join("\n")),
+        StoreError::Migration { version, name, error } => format!("Rust migration {version}_{name} failed and was rolled back: {error}\nthe migrations before it stay applied; start again once it is fixed"),
         e => format!("{e:?}"),
     }
 }
 
 /// The shared start of `run`, `serve` and `handback`: no URL overrides, the instance's SECRET_KEY_BASE, the exclusive
-/// lock, and an install this build accepts. Refusals here exit 1 before any file is created or changed.
-fn open_install(env: &dyn Fn(&str) -> Option<String>) -> (EngineLock, store::Opened, Cipher) {
+/// lock, and an install this build accepts. Refusals here exit 1 before any file is created or changed. `run` and `serve`
+/// (`migrate`) then apply this build's pending Rust migrations, before any writable connection is opened.
+fn open_install(env: &dyn Fn(&str) -> Option<String>, migrate: bool) -> (EngineLock, store::Opened, Cipher) {
     refuse_url_overrides(env);
     let secret = env("SECRET_KEY_BASE").filter(|s| !s.trim().is_empty()).unwrap_or_else(|| fail("SECRET_KEY_BASE is not set: use the instance's own"));
     let keys = EncryptionKeys::resolve(env, &secret).unwrap_or_else(|e| fail(&format!("encryption keys: {e:?}")));
     let paths = paths(env);
     let lock = take_lock(&paths);
+    if migrate {
+        for version in store::migrate(&paths, &lock).unwrap_or_else(|e| fail(&explain(e))) { log(&format!("applied Rust migration {version}")); }
+    }
     let opened = store::open(&paths).unwrap_or_else(|e| fail(&explain(e)));
     let cipher = Cipher::new(&keys);
     deltabadger::engine::provider::bind(&opened.primary,&cipher,env).unwrap_or_else(|_| fail("index configuration reader unavailable"));
@@ -199,7 +206,7 @@ fn claim_install(lock: &EngineLock, o: &store::Opened, cipher: &Cipher) -> Resul
 }
 
 fn run_engine(env: &dyn Fn(&str) -> Option<String>) -> i32 {
-    let (lock, o, cipher) = open_install(env);
+    let (lock, o, cipher) = open_install(env, true);
     // Held until this function returns, after the runtime's shutdown: the engine drops its own handle when it returns,
     // and a service may still be draining then.
     let _held = lock.clone();
@@ -235,7 +242,7 @@ fn serve(env: &dyn Fn(&str) -> Option<String>) -> i32 {
     if !deltabadger::web::assets::BUILT {
         fail(deltabadger::web::assets::MISSING);
     }
-    let (lock, o, cipher) = open_install(env);
+    let (lock, o, cipher) = open_install(env, true);
     // Held until this function returns, after the runtime's shutdown: the engine drops its own handle when it returns.
     let _held = lock.clone();
     // In `check`'s words, and before anything else prints: each line names the bot and the reason. Venue and key
@@ -287,7 +294,7 @@ fn serve(env: &dyn Fn(&str) -> Option<String>) -> i32 {
 }
 
 fn hand_back(env: &dyn Fn(&str) -> Option<String>) -> i32 {
-    let (lock, o, cipher) = open_install(env);
+    let (lock, o, cipher) = open_install(env, false);
     let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().expect("a tokio runtime");
     // The factory and the wait live inside the runtime; the process start and the wait are hand_back_cli's.
     let result = rt.block_on(async { handover::hand_back_cli(&lock, &o, &LiveFactory::for_install(&o.primary, &cipher), &cipher, &SystemClock).await });
@@ -320,7 +327,7 @@ fn sync_by_hand(env: &dyn Fn(&str) -> Option<String>) -> i32 {
     let args: Vec<String> = std::env::args().skip(2).collect();
     let kind = match args.first().map(String::as_str) { Some(kind @ ("ledger" | "balances")) if args.len() <= 2 => kind, _ => fail(USAGE) };
     let key = args.get(1).map(|k| k.parse::<i64>().unwrap_or_else(|_| fail(USAGE)));
-    let (_lock, o, cipher) = open_install(env);
+    let (_lock, o, cipher) = open_install(env, false);
     let keys = match key {
         Some(key) => vec![key],
         None => deltabadger::sync::reading_keys(&o.primary).unwrap_or_else(|e| fail(&e.0)),
