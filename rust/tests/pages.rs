@@ -396,6 +396,8 @@ async fn run(dir: &Path) -> Value {
             let data = browser.cookie.as_deref().and_then(|cookie| session::open(&app.keys.session, cookie, now)).unwrap_or_default();
             response["session"] = keys.iter().filter_map(Value::as_str).map(|key| (key.to_string(), session_value(&data, key))).collect::<serde_json::Map<_, _>>().into();
         }
+        // A settings save's metrics panel is computed off the request: the page hears it once it is published.
+        panels_published(&app).await;
         if let Some(listener) = listener.as_mut() { response["broadcasts"] = json!(listener.drain(&app).await.unwrap_or_else(|e| panic!("broadcasts: {e}"))); }
         if let Some((rows_before, other_before)) = before {
             let (rows_after, other_after) = action_rows(dir, &app.cipher).unwrap_or_else(|error| panic!("action rows after: {error}"));
@@ -1039,6 +1041,65 @@ async fn settings_metrics_panel_matches_recorded_rails_bytes() {
             }
         }
     }
+}
+
+/// A scenario step sent as the grid sends it (`run`), without the grid's token fallbacks.
+async fn send_step(browser: &mut Browser, app: &App, step: &Value) -> Answer {
+    let form: Option<Vec<(&str, &str)>> = step["form"].as_object().map(|form| form.iter().map(|(key, value)| (key.as_str(), value.as_str().unwrap())).collect());
+    let headers: Vec<(&str, &str)> = step["headers"].as_object().map(|headers| headers.iter().map(|(key, value)| (key.as_str(), value.as_str().unwrap())).collect()).unwrap_or_default();
+    let csrf = match step["csrf"].as_str() { Some("form") => Csrf::Form, Some("header") => Csrf::Header, _ => Csrf::None };
+    browser.send(app, step["method"].as_str().unwrap(), step["path"].as_str().unwrap(), form.as_deref(), csrf, &headers).await
+}
+
+/// Waits until no settings metrics panel is still being computed off its save.
+async fn panels_published(app: &App) {
+    tokio::time::timeout(std::time::Duration::from_secs(30), async {
+        while app.figure_service.panels_pending() > 0 { tokio::time::sleep(std::time::Duration::from_millis(5)).await; }
+    }).await.expect("a settings metrics panel was never published");
+}
+
+/// The panel a composition save owes its page is computed off the request: the save answers while the figures' compute
+/// permit is held, and no panel is published until it is free. Writes committed meanwhile (an amount, which owes no
+/// panel of its own, and the owner hiding balances) are not lost: the page ends on the panel of the latest rows.
+#[tokio::test(flavor = "current_thread")]
+async fn settings_metrics_panel_is_computed_off_the_request_and_ends_on_the_latest_rows() {
+    let (_recording, rust_root, dirs) = recorded_grid();
+    let name = "actions_settings_metrics_composition";
+    let dir = dirs.iter().find(|dir| dir.file_name().is_some_and(|n| n == name)).expect(name);
+    let scenario = scenario(dir);
+    let app = web::app(&rust_root.path().join(name), scenario["secret_key_base"].as_str().unwrap(), TestClock::at(scenario["at"].as_str().unwrap()));
+    app.attach_engine(Default::default());
+    app.attach_jobs(Default::default()).unwrap();
+    let (save, before) = scenario["steps"].as_array().unwrap().split_last().unwrap();
+    let mut browser = Browser::default();
+    for step in before { send_step(&mut browser, &app, step).await; }
+    let streams: Vec<&str> = save["broadcasts"].as_array().unwrap().iter().map(|s| s.as_str().unwrap()).collect();
+    let mut observer = ActionObserver::open(&app, browser.cookie.as_deref(), &streams).await.unwrap();
+    let panels = |sent: Vec<String>| -> Vec<String> { sent.into_iter().filter(|p| p.contains("target=\"metrics\"")).collect() };
+
+    let permit = app.figure_service.compute().acquire_owned().await.unwrap();
+    let answer = tokio::time::timeout(std::time::Duration::from_secs(10), send_step(&mut browser, &app, save)).await
+        .expect("the save waited for its metrics panel's computation");
+    assert_eq!(answer.status, 200);
+    assert!(panels(observer.drain(&app).await.unwrap()).is_empty(), "the panel was computed on the request, under the writer's connection");
+    let mut amount = save.clone();
+    amount["form"] = json!({"bots_dca_multi_asset[quote_amount]": "37.25"});
+    assert_eq!(send_step(&mut browser, &app, &amount).await.status, 200);
+    app.db(|c| Ok(c.execute("UPDATE users SET hide_balances = 1 WHERE id = 1", [])?)).await.unwrap();
+    drop(permit);
+    panels_published(&app).await;
+    let sent = panels(observer.drain(&app).await.unwrap());
+
+    let render = |hidden: bool| app.db(move |c| {
+        c.execute("UPDATE users SET hide_balances = ?1 WHERE id = 1", [hidden])?;
+        let market = deltabadger::figures::scripted::Scripted::new(&json!({}), None);
+        let now = deltabadger::figures::at::At::from_sql("2026-09-10T12:00:30Z").unwrap();
+        deltabadger::web::figure::metrics_panel(c, 1, &market, now, "pl", "/pl").map_err(|e| deltabadger::web::WebError::Task(format!("{e:?}")))
+    });
+    let shown = render(false).await.unwrap();
+    let latest = render(true).await.unwrap();
+    assert_ne!(shown, latest, "hiding balances changes the panel");
+    assert_eq!(sent.last().map(String::as_str), Some(deltabadger::web::turbo::stream("replace", "metrics", &latest).as_str()), "the page ends on the latest rows' panel");
 }
 
 #[tokio::test(flavor = "current_thread")]

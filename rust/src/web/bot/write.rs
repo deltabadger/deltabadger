@@ -242,7 +242,7 @@ fn settings_inner<T>(
     for (stream, html) in prepared.broadcasts { ctx.app.hub.broadcast(&stream, &html); }
     // The inherited status callbacks precede DcaMultiAsset's metrics callback. Settings do not
     // change status; the index's separate resync job remains responsible for its panel.
-    if metrics_changed { super::action_view::broadcast_settings_metrics(c, &ctx, &draft.candidate); }
+    if metrics_changed { super::action_view::broadcast_settings_metrics(&ctx, &draft.candidate); }
     if let Some(id) = prepared.after_scheduling { super::action_view::broadcast_after_scheduling(ctx.clone(), id); }
     Ok(Outcome::Committed(prepared.response))
 }

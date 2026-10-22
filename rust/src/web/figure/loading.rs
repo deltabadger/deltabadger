@@ -487,51 +487,60 @@ pub async fn prepare(app:&App,user:i64)->Result<Snapshot,WebError>{
     begin(app,user).await
 }
 
-/// The settings callback uses the same price reader, fill loop, renderer and hub as page figures.
-/// Warm prices (and empty portfolios) render immediately; a cold price read finishes off the writer's
-/// connection. No chart or unrelated bot is published by this callback.
-pub(crate) fn broadcast_metrics_panel(c:&Connection,ctx:&crate::web::layout::Ctx,id:i64,stream:String)->Result<(),WebError> {
+/// Attempts at a settings metrics panel; the last is published whatever was written while it was computed.
+const PANEL_ATTEMPTS:usize=3;
+/// DcaMultiAsset#broadcast_metrics_panel after a settings commit, through the page figures' fill (`fill_result`): computed
+/// on the builder's connection under the compute permit, never on the writer's, with the account's kept prices (warm
+/// prices read no market). A write committed while it computes (the revision moved) recomputes it against the latest
+/// rows, and the last attempt publishes whatever it read: as Rails' after_update_commit always broadcasts, the page never
+/// keeps the panel of rows that are gone. No chart or other bot is published.
+pub(crate) fn broadcast_metrics_panel(ctx:&crate::web::layout::Ctx,id:i64,stream:String)->Result<(),WebError> {
     let user=ctx.user().ok_or_else(||WebError::Config("metrics broadcast has no owner".into()))?.id;
-    let info=read_info(c,&ctx.app,user)?;
     let now=At::from_utc(ctx.now).ok_or_else(||WebError::Config("metrics time out of range".into()))?;
-    let mut cache=ctx.app.figure_service.stale(user,&info.identity,ctx.now.timestamp()).map(|(cache,_,_)|cache).unwrap_or_default();
-    cache.produced_by(info.producer.clone());
-    let prefix=ctx.path("");
-    let reader=Reader::new(&cache,ctx.now.timestamp()).with_current(c).with_symbols(symbols(c,user).map_err(|e|WebError::Task(format!("{e:?}")))?);
-    let rendered=super::metrics_panel(c,id,&reader,now,ctx.locale,&prefix);
-    if !reader.pending() {
-        let html=rendered.map_err(|e|WebError::Task(format!("{e:?}")))?;
-        ctx.app.hub.broadcast(&stream,&crate::web::turbo::stream("replace","metrics",&html));
-        return Ok(());
-    }
     let handle=tokio::runtime::Handle::try_current().map_err(|e|WebError::Task(e.to_string()))?;
-    let app=ctx.app.clone();let locale=ctx.locale;
+    let (app,locale,prefix)=(ctx.app.clone(),ctx.locale,ctx.path(""));
+    let pending=app.figure_service.panel_started();
     handle.spawn(async move {
-        let work=async {
+        let _pending=pending;
+        let mut kept:Option<(String,Cache)>=None;
+        for attempt in 1..=PANEL_ATTEMPTS {
+            let inner=app.clone();
+            let info=match app.db(move|c|read_info(c,&inner,user)).await {
+                Ok(info)=>info,
+                Err(error)=>return crate::engine::log(&format!("[web] settings metrics panel could not be read: {error:?}")),
+            };
+            // The prices already fetched stay with the panel while the account's key is the same.
+            if kept.as_ref().is_none_or(|(identity,_)|*identity!=info.identity) {
+                let stale=app.figure_service.stale(user,&info.identity,now.utc().timestamp()).map(|(cache,_,_)|cache).unwrap_or_default();
+                kept=Some((info.identity.clone(),stale));
+            }
+            let Some((_,cache))=kept.as_mut() else { return };
+            cache.produced_by(info.producer.clone());
             let cipher=app.cipher.clone();
             let egress=app.db(move|c|Ok(crate::venue::live::egress(c,&cipher,&|k|std::env::var(k).ok(),"kucoin",&http::client()))).await
                 .unwrap_or_else(|e|Err(format!("{e:?}")));
             let mut wire=Wire::of(info.credentials.as_ref(),app.figure_source.clone()).with_kucoin(egress).settled_under(app.figure_service.compute());
             if let Producer::Alpaca(version)=&info.producer { wire=wire.with_origin(version.clone()); }
-            let result=fill_result(&app,user,&mut cache,&wire,now,|_,_|Ok(true),move|c,reader|
-                super::metrics_panel(c,id,reader,now,locale,&prefix)).await;
-            if let Ok(html)=result {
-                let inner=app.clone();
-                if let Err(error)=app.db(move|c| {
-                    let current=read_info(c,&inner,user)?;
-                    // Hold the result to the rows the callback started from, not a revision read
-                    // after computation: a write during the fill must never publish mixed state.
-                    if current.revision==info.revision && info.producer.same(&current.producer) {
-                        inner.hub.broadcast(&stream,&crate::web::turbo::stream("replace","metrics",&html));
-                    }
-                    Ok(())
-                }).await { crate::engine::log(&format!("[web] settings metrics panel delivery failed: {error:?}")); }
-            } else {
-                crate::engine::log("[web] settings metrics panel could not be priced");
+            let prefix=prefix.clone();
+            let filled=tokio::time::timeout(app.figure_service.fill_timeout(),fill_result(&app,user,cache,&wire,now,|_,_|Ok(true),move|c,reader|
+                super::metrics_panel(c,id,reader,now,locale,&prefix))).await;
+            let html=match filled {
+                Ok(Ok(html))=>html,
+                Ok(Err(_))=>return crate::engine::log("[web] settings metrics panel could not be priced"),
+                Err(_)=>return crate::engine::log("[web] settings metrics panel price read timed out"),
+            };
+            let (inner,stream,last)=(app.clone(),stream.clone(),attempt==PANEL_ATTEMPTS);
+            let published=app.db(move|c| {
+                let current=read_info(c,&inner,user)?;
+                let held=current.revision==info.revision && info.producer.same(&current.producer);
+                if held || last { inner.hub.broadcast(&stream,&crate::web::turbo::stream("replace","metrics",&html)); }
+                Ok(held || last)
+            }).await;
+            match published {
+                Ok(true)=>return,
+                Ok(false)=>{},
+                Err(error)=>return crate::engine::log(&format!("[web] settings metrics panel delivery failed: {error:?}")),
             }
-        };
-        if tokio::time::timeout(app.figure_service.fill_timeout(),work).await.is_err() {
-            crate::engine::log("[web] settings metrics panel price read timed out");
         }
     });
     Ok(())

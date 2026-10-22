@@ -48,13 +48,13 @@ pub(super) fn settings_response(c: &Connection, ctx: &Ctx, draft: &Draft) -> Res
     Ok(Prepared { response: response(body,!draft.errors.is_empty()), broadcasts: vec![], after_scheduling: None })
 }
 
-/// DcaMultiAsset#broadcast_metrics_panel, called only after the settings transaction commits.
-pub(super) fn broadcast_settings_metrics(c: &Connection, ctx: &Ctx, bot: &Bot) {
+/// DcaMultiAsset#broadcast_metrics_panel, called only after the settings transaction commits; computed off the request.
+pub(super) fn broadcast_settings_metrics(ctx: &Ctx, bot: &Bot) {
     let Some(owner) = ctx.user() else { return };
     let mut heard = super::live::owner_ctx(&ctx.app, owner.clone());
     heard.now = ctx.now;
-    if let Err(error) = crate::web::figure::loading::broadcast_metrics_panel(c, &heard, bot.id, page::page_stream(bot)) {
-        // An after-commit rendering failure must not turn a saved setting into a failed write.
+    if let Err(error) = crate::web::figure::loading::broadcast_metrics_panel(&heard, bot.id, page::page_stream(bot)) {
+        // An after-commit failure must not turn a saved setting into a failed write.
         crate::engine::log(&format!("[web] settings metrics panel could not be rendered: {error:?}"));
     }
 }
