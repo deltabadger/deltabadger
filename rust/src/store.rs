@@ -1,11 +1,62 @@
-//! Rails creates and migrates these databases until Rust owns the schema. Rust checks them
-//! read-only and refuses anything that is not exactly what this build knows, before any write.
-//! Rust never creates a database file.
+//! Rails creates these databases and runs its migrations. Rust checks them read-only and refuses anything that is
+//! not exactly what this build knows, before any write. Rust never creates a database file.
+//!
+//! Rust's own tables come from its own migrations (rust/migrations, embedded by build.rs), recorded in
+//! `rust_schema_migrations`; Rails' `schema_migrations` is never touched. `check` reports the ones not yet applied,
+//! `migrate` applies them (only `run`/`serve`, under the engine lock), and `open` works with them pending.
+use crate::lease::EngineLock;
 use rusqlite::{Connection, OpenFlags};
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
 include!(concat!(env!("OUT_DIR"), "/migrations.rs"));
+include!(concat!(env!("OUT_DIR"), "/rust_migrations.rs"));
+
+#[path = "../migration_registry.rs"]
+mod migration_registry;
+
+/// One Rust migration: rust/migrations/<version>_<name>.sql.
+#[derive(Debug, Clone, Copy)]
+pub struct Migration<'a> {
+    pub version: &'a str,
+    pub name: &'a str,
+    pub sql: &'a str,
+}
+
+/// Rust's migrations, and the structure of each table one creates, keyed by that migration's version.
+pub struct Registry<'a> {
+    pub migrations: &'a [Migration<'a>],
+    pub tables: &'a [(&'a str, TableContract)],
+}
+
+impl Registry<'_> {
+    /// Every table Rust owns: its migrations table and each table a migration creates.
+    pub fn owned_tables(&self) -> Vec<&str> {
+        std::iter::once(RUST_MIGRATIONS_TABLE).chain(self.tables.iter().map(|(_, t)| t.name)).collect()
+    }
+}
+
+// Each Rust table's contract, with the version of the migration that creates it. Extend with every Rust migration.
+const RUST_TABLES: &[(&str, TableContract)] = &[];
+
+/// What this build migrates. Ships empty until the first Rust table.
+pub const REGISTRY: Registry<'static> = Registry { migrations: RUST_MIGRATIONS, tables: RUST_TABLES };
+
+/// The table the migrator records Rust migrations in, created in the transaction of the first one it applies.
+pub const RUST_MIGRATIONS_TABLE: &str = "rust_schema_migrations";
+const CREATE_RUST_MIGRATIONS_TABLE: &str =
+    "CREATE TABLE IF NOT EXISTS rust_schema_migrations (version TEXT NOT NULL PRIMARY KEY, applied_at TEXT NOT NULL)";
+const RUST_MIGRATIONS_CONTRACT: &[TableContract] = &[TableContract {
+    name: RUST_MIGRATIONS_TABLE,
+    columns: &[("version", "TEXT", true), ("applied_at", "TEXT", true)],
+    unique_indexes: &[&["version"]],
+}];
+
+/// What a passing check found: the Rust migrations this build has that the install has not applied yet, in order.
+#[derive(Debug, Default, PartialEq, Eq)]
+pub struct Report {
+    pub pending_rust: Vec<String>,
+}
 
 #[derive(Debug, Clone)]
 pub struct Paths {
@@ -54,6 +105,8 @@ pub enum StoreError {
     },
     /// Tables used by Rust do not satisfy its structural contract.
     Incompatible { problems: Vec<String> },
+    /// A Rust migration failed and was rolled back; the ones before it stay applied.
+    Migration { version: String, name: String, error: String },
     /// SQLite could not open or inspect a database or configure a connection.
     Sqlite(rusqlite::Error),
     /// A filesystem operation failed.
@@ -71,10 +124,11 @@ impl From<std::io::Error> for StoreError {
     }
 }
 
-struct TableContract {
-    name: &'static str,
-    columns: &'static [(&'static str, &'static str, bool)],
-    unique_indexes: &'static [&'static [&'static str]],
+/// A table's expected columns as (name, declared type, NOT NULL), and the column lists that need a unique index.
+pub struct TableContract {
+    pub name: &'static str,
+    pub columns: &'static [(&'static str, &'static str, bool)],
+    pub unique_indexes: &'static [&'static [&'static str]],
 }
 
 // Extend these contracts whenever Rust starts reading or writing another table or column.
@@ -351,7 +405,14 @@ fn read_only(path: &Path) -> Result<Connection, StoreError> {
 }
 
 /// Checks both databases read-only, without creating files or applying migrations.
-pub fn check(paths: &Paths) -> Result<(), StoreError> {
+pub fn check(paths: &Paths) -> Result<Report, StoreError> {
+    check_with(paths, &REGISTRY)
+}
+
+/// `check` against `registry` (the tests' fixture migrations; everything else uses `REGISTRY`), in stages:
+/// Rails' history, then the structure of the Rails tables Rust uses, then Rust's history, then each Rust table whose
+/// migration is recorded.
+pub fn check_with(paths: &Paths, registry: &Registry) -> Result<Report, StoreError> {
     let primary = read_only(&paths.primary)?;
     let queue = read_only(&paths.queue)?;
     let mut problems = Vec::new();
@@ -378,7 +439,108 @@ pub fn check(paths: &Paths) -> Result<(), StoreError> {
     if !problems.is_empty() {
         return Err(StoreError::Incompatible { problems });
     }
-    Ok(())
+
+    let recorded = recorded(&primary)?;
+    let known: BTreeSet<&str> = registry.migrations.iter().map(|m| m.version).collect();
+    let unknown: Vec<String> = recorded.iter().filter(|v| !known.contains(v.as_str())).cloned().collect();
+    if !unknown.is_empty() {
+        return Err(StoreError::Unsupported { unknown }); // a newer binary migrated this install
+    }
+    for (version, table) in registry.tables {
+        if recorded.contains(*version) {
+            check_structure(&primary, std::slice::from_ref(table), &mut problems)?;
+        }
+    }
+    if !problems.is_empty() {
+        return Err(StoreError::Incompatible { problems });
+    }
+    let pending_rust = registry.migrations.iter().filter(|m| !recorded.contains(m.version)).map(|m| m.version.to_string()).collect();
+    Ok(Report { pending_rust })
+}
+
+/// The Rust migrations recorded in `c`: none while rust_schema_migrations does not exist.
+fn recorded(c: &Connection) -> Result<BTreeSet<String>, StoreError> {
+    let exists: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?1)", [RUST_MIGRATIONS_TABLE], |r| r.get(0))?;
+    if !exists {
+        return Ok(BTreeSet::new());
+    }
+    let mut problems = Vec::new();
+    check_structure(c, RUST_MIGRATIONS_CONTRACT, &mut problems)?;
+    if !problems.is_empty() {
+        return Err(StoreError::Incompatible { problems });
+    }
+    let mut statement = c.prepare("SELECT version FROM rust_schema_migrations")?;
+    let versions = statement.query_map([], |r| r.get::<_, String>(0))?.collect::<Result<BTreeSet<_>, _>>()?;
+    Ok(versions)
+}
+
+/// Applies this build's pending Rust migrations, in version order, and returns the versions applied. Only `run` and
+/// `serve` call it, once, holding the engine lock and before they open any writable connection.
+pub fn migrate(paths: &Paths, lock: &EngineLock) -> Result<Vec<String>, StoreError> {
+    migrate_with(paths, lock, &REGISTRY)
+}
+
+/// `migrate` with `registry`'s migrations (see `check_with`). Each migration commits on its own; a failure stops here
+/// with nothing of it left, and the next start resumes at it.
+pub fn migrate_with(paths: &Paths, _lock: &EngineLock, registry: &Registry) -> Result<Vec<String>, StoreError> {
+    if check_with(paths, registry)?.pending_rust.is_empty() {
+        return Ok(Vec::new());
+    }
+    let c = Connection::open_with_flags(&paths.primary, OpenFlags::SQLITE_OPEN_READ_WRITE)?;
+    configure(&c)?;
+    let applied = apply(&c, registry)?;
+    drop(c);
+    let left = check_with(paths, registry)?.pending_rust;
+    if !left.is_empty() {
+        return Err(StoreError::Incompatible { problems: vec![format!("Rust migrations still pending after migrating: {}", left.join(", "))] });
+    }
+    Ok(applied)
+}
+
+/// Applies every migration of `registry` that `c` has not recorded, each in its own BEGIN IMMEDIATE transaction with
+/// its record. A file that ends its transaction itself (COMMIT/END) is rolled back and refused.
+fn apply(c: &Connection, registry: &Registry) -> Result<Vec<String>, StoreError> {
+    let done = recorded(c)?;
+    let mut applied = Vec::new();
+    for m in registry.migrations.iter().filter(|m| !done.contains(m.version)) {
+        let run = || -> Result<(), String> {
+            let tx = rusqlite::Transaction::new_unchecked(c, rusqlite::TransactionBehavior::Immediate).map_err(|e| e.to_string())?;
+            tx.execute_batch(CREATE_RUST_MIGRATIONS_TABLE).map_err(|e| e.to_string())?;
+            tx.commit_hook(Some(|| true)); // a COMMIT inside the file becomes a ROLLBACK
+            let ran = tx.execute_batch(m.sql);
+            tx.commit_hook(None::<fn() -> bool>);
+            ran.map_err(|e| e.to_string())?;
+            if tx.is_autocommit() {
+                return Err("the file ended its transaction (COMMIT or END); it was rolled back".into());
+            }
+            tx.execute("INSERT INTO rust_schema_migrations (version, applied_at) VALUES (?1, ?2)",
+                       [m.version, &crate::codec::format_time(chrono::Utc::now())]).map_err(|e| e.to_string())?;
+            tx.commit().map_err(|e| e.to_string())
+        };
+        run().map_err(|error| StoreError::Migration { version: m.version.into(), name: m.name.into(), error })?;
+        applied.push(m.version.to_string());
+    }
+    Ok(applied)
+}
+
+/// For the tests: Rust-side fixtures brought up to date the way startup migrates (the same code, without the lock),
+/// and fixture migration directories loaded as build.rs loads rust/migrations.
+#[doc(hidden)]
+pub mod test_support {
+    use super::*;
+
+    /// Applies `REGISTRY`'s pending migrations to a fixture's primary database.
+    pub fn migrate(c: &Connection) -> Result<Vec<String>, StoreError> {
+        apply(c, &REGISTRY)
+    }
+
+    /// (version, name, sql) of each migration in `dir`, or the build's own refusal of it.
+    pub fn load(dir: &Path) -> Result<Vec<(String, String, String)>, String> {
+        let rails: Vec<String> = MIGRATIONS.iter().map(|v| v.to_string()).collect();
+        migration_registry::load(dir, &rails)?.into_iter()
+            .map(|(version, name, path)| std::fs::read_to_string(&path).map(|sql| (version, name, sql)).map_err(|e| e.to_string()))
+            .collect()
+    }
 }
 
 pub struct Opened {

@@ -57,15 +57,37 @@ pub fn rails(scratch: &Path, rails_env: &str, args: &[&str]) {
 
 pub const INSTALL_FILES: [&str; 2] = ["production.sqlite3", "production_queue.sqlite3"];
 
-/// A fresh copy of an install exactly as Rails prepares one: db/schema.rb and db/queue_schema.rb loaded
-/// by Rails itself (script/rust/prepare_install.rb), from the template of this test run.
+/// A fresh copy of an install as Rails prepares one (`rails_install_unmigrated`), with this build's Rust migrations
+/// applied as `run` and `serve` apply them at startup.
 pub fn rails_install() -> tempfile::TempDir {
+    let dir = rails_install_unmigrated();
+    let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    deltabadger::store::test_support::migrate(&c).expect("this build's Rust migrations apply");
+    dir
+}
+
+/// A fresh copy of an install exactly as Rails prepares one: db/schema.rb and db/queue_schema.rb loaded
+/// by Rails itself (script/rust/prepare_install.rb), from the template of this test run. No Rust migration applied.
+pub fn rails_install_unmigrated() -> tempfile::TempDir {
     let template = rails_install_template();
     let dir = tempfile::tempdir().unwrap();
     for file in INSTALL_FILES {
         std::fs::copy(template.join(file), dir.path().join(file)).unwrap();
     }
     dir
+}
+
+/// The test-only probe migration (tests/fixtures/rust_migrations), loaded as build.rs loads rust/migrations.
+pub fn probe_migrations() -> Vec<(String, String, String)> {
+    deltabadger::store::test_support::load(&Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/rust_migrations")).unwrap()
+}
+pub const PROBE: &str = "20990101000001";
+pub const PROBE_TABLES: &[(&str, deltabadger::store::TableContract)] =
+    &[(PROBE, deltabadger::store::TableContract { name: "rust_migration_probe", columns: &[("id", "INTEGER", false)], unique_indexes: &[] })];
+
+/// `list` as a registry's migrations.
+pub fn as_migrations(list: &[(String, String, String)]) -> Vec<deltabadger::store::Migration<'_>> {
+    list.iter().map(|(version, name, sql)| deltabadger::store::Migration { version, name, sql }).collect()
 }
 
 /// The template rails_install copies, built once per test run (see `run_template`).
