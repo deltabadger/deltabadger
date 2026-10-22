@@ -78,3 +78,4 @@ spring/*.pid
 
 # graphify knowledge graph (generated locally; run `graphify update .`)
 /graphify-out/
+__pycache__/
