@@ -205,6 +205,40 @@ pub(crate) fn last_price(data: &Value) -> Result<Option<BigDec>, VenueError> {
     Ok(match &first { Value::String(_) | Value::Number(_) => crate::ruby::json_to_d(&first).ok().flatten(), _ => None })
 }
 
+/// Clients::Kraken#get_ticker_information's path: the whole market with no pair, one pair with one.
+pub const TICKER: &str = "/0/public/Ticker";
+/// Clients::Kraken#get_ohlc_data's path.
+pub const OHLC: &str = "/0/public/OHLC";
+/// Prices by code, in the venue's order.
+pub type Prices = Vec<(String, BigDec)>;
+/// Exchanges::Kraken#get_tickers_prices over the bulk Ticker answer: the wanted codes it returned, each priced by
+/// `last_price` (an unreadable price left out), and the wanted codes it did not return as a key, which are asked for one
+/// by one (`pair_price`). A non-empty `error` is the venue's failure. Shared by the engine (`tickers_prices`) and the
+/// figures.
+pub fn ticker_prices(body: &Value, symbols: &[String]) -> Result<(Prices, Vec<String>), VenueError> {
+    let errors = super::dig_or_raise(body, "error")?.as_array().ok_or_else(unreadable)?;
+    if !errors.is_empty() { return Err(VenueError::Rejected(errors.iter().map(ruby_to_s).collect())); }
+    let returned = body["result"].as_object().ok_or_else(unreadable)?;
+    let mut out = vec![];
+    for (code, data) in returned {
+        if !symbols.contains(code) { continue; }
+        if let Some(p) = last_price(data)? { out.push((code.clone(), p)); }
+    }
+    Ok((out, symbols.iter().filter(|s| !returned.contains_key(*s)).cloned().collect()))
+}
+/// The per-pair fallback's answer for `code`: an `Unknown asset pair` skips it (None), any other error or an empty
+/// `result` fails the whole read, and the first entry's price is the code's, whatever key Kraken names it by.
+pub fn pair_price(body: &Value, code: &str) -> Result<Option<BigDec>, VenueError> {
+    let errors = super::dig_or_raise(body, "error")?.as_array().ok_or_else(unreadable)?;
+    if errors.iter().any(|e| ruby_to_s(e).contains("Unknown asset pair")) { return Ok(None); }
+    if !errors.is_empty() { return Err(VenueError::Rejected(errors.iter().map(ruby_to_s).collect())); }
+    let entries = super::dig_or_raise(body, "result")?.as_object().ok_or_else(unreadable)?;
+    let Some(data) = entries.values().next() else {
+        return Err(VenueError::Rejected(vec![format!("Failed to get Kraken tickers prices (ticker: {code})")]));
+    };
+    last_price(data)
+}
+
 /// Exchanges::Kraken#get_balances for one asset: balance − hold_trade under the gem's ASSET_MAP. Rails assigns per row, so
 /// with several rows for one asset (ZEUR, EUR.HOLD) the last in body order wins; absent is 0. `asset_symbol` is the code
 /// after ASSET_MAP: for a base, the ticker's own base code (XXBT → "XBT", which #asset_from_symbol resolves through the
@@ -329,7 +363,7 @@ impl<T: Transport> Venue for KrakenVenue<T> {
 
     /// Exchanges::Kraken#get_ticker_information: public Ticker by the ticker's own pair.
     async fn price(&self, ticker: &Ticker, side: PriceSide) -> Result<BigDec, VenueError> {
-        let body = self.call(&self.public("/0/public/Ticker", vec![("pair", ticker.ticker.clone())]), false).await?;
+        let body = self.call(&self.public(TICKER, vec![("pair", ticker.ticker.clone())]), false).await?;
         ticker_price(&body, ticker, side)
     }
 
@@ -422,27 +456,13 @@ impl<T: Transport> Venue for KrakenVenue<T> {
     /// Rails caches the answer for a minute; this reads fresh (the 6b cache divergence). Each price is its decimal's
     /// `to_s('F')`.
     async fn tickers_prices(&self, symbols: &[String]) -> Result<Vec<(String, Value)>, VenueError> {
-        let body = self.fetch_prices(&self.public("/0/public/Ticker", vec![])).await?;
-        let errors = super::dig_or_raise(&body, "error")?.as_array().ok_or_else(unreadable)?;
-        if !errors.is_empty() { return Err(VenueError::Rejected(errors.iter().map(ruby_to_s).collect())); }
-        let returned = body["result"].as_object().ok_or_else(unreadable)?;
-        let mut out = vec![];
-        for (code, data) in returned {
-            if !symbols.contains(code) { continue; }
-            if let Some(p) = last_price(data)? { out.push((code.clone(), Value::String(p.to_s_f()))); }
+        let body = self.fetch_prices(&self.public(TICKER, vec![])).await?;
+        let (mut prices, missing) = ticker_prices(&body, symbols)?;
+        for code in missing {
+            let body = self.fetch_prices(&self.public(TICKER, vec![("pair", code.clone())])).await?;
+            if let Some(p) = pair_price(&body, &code)? { prices.push((code, p)); }
         }
-        for code in symbols.iter().filter(|s| !returned.contains_key(*s)) {
-            let body = self.fetch_prices(&self.public("/0/public/Ticker", vec![("pair", code.clone())])).await?;
-            let errors = super::dig_or_raise(&body, "error")?.as_array().ok_or_else(unreadable)?;
-            if errors.iter().any(|e| ruby_to_s(e).contains("Unknown asset pair")) { continue; }
-            if !errors.is_empty() { return Err(VenueError::Rejected(errors.iter().map(ruby_to_s).collect())); }
-            let entries = super::dig_or_raise(&body, "result")?.as_object().ok_or_else(unreadable)?;
-            let Some(data) = entries.values().next() else {
-                return Err(VenueError::Rejected(vec![format!("Failed to get Kraken tickers prices (ticker: {code})")]));
-            };
-            if let Some(p) = last_price(data)? { out.push((code.clone(), Value::String(p.to_s_f()))); }
-        }
-        Ok(out)
+        Ok(prices.into_iter().map(|(code, p)| (code, Value::String(p.to_s_f()))).collect())
     }
 
     /// #cancel_order through Clients::Kraken#cancel_order: CancelOrder by txid; the body's `error` is the failure.
