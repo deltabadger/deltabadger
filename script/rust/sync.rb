@@ -25,7 +25,7 @@ Net::HTTP.prepend(Module.new { def connect = raise(Harness::Unscripted, "real co
 ENV['COINGECKO_API_KEY'] = ''
 
 module ScriptedSync
-  mattr_accessor :alpaca, :binance, :binance_state, :kucoin, :bitvavo, :gemini, :bitget, :mexc, :hyperliquid, :bybit, :market, :requests, :filters_after
+  mattr_accessor :alpaca, :binance, :binance_state, :kucoin, :bitvavo, :gemini, :bitget, :mexc, :hyperliquid, :bybit, :bitrue, :market, :requests, :filters_after
 
   NETWORK = {
     'pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "paper-api.alpaca.markets" port 443')) },
@@ -38,7 +38,8 @@ module ScriptedSync
     'gemini_pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "api.gemini.com" port 443')) },
     'bitget_pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "api.bitget.com" port 443')) },
     'pre_send:api.mexc.com' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "api.mexc.com" port 443')) },
-    'hyperliquid_pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "api.hyperliquid.xyz" port 443')) }
+    'hyperliquid_pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "api.hyperliquid.xyz" port 443')) },
+    'pre_send:openapi.bitrue.com' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "openapi.bitrue.com" port 443')) }
   }.freeze
 
   def self.reply(env)
@@ -56,6 +57,7 @@ module ScriptedSync
              elsif host == 'api.mexc.com' then mexc
              elsif host == 'api.hyperliquid.xyz' then hyperliquid
              elsif host == 'api.bybit.com' then bybit
+             elsif host == 'openapi.bitrue.com' then bitrue
              elsif host == 'data-api' then market
              end
     key = "#{env.method.to_s.upcase} #{env.url.path}"
@@ -535,6 +537,25 @@ module SyncParity
           pair: ->(b, q) { "#{b}-#{q}" }, coin: { base_decimals: 8, quote_decimals: 2, price_decimals: 0, minimum_base_size: '0.0001', minimum_quote_size: '5' })
   end
   # A MEXC key (plan VB slice A5), with the pairs its scenarios trade.
+  def bitrue(ctx)
+    venue(ctx, Exchanges::Bitrue, 'Bitrue', as: :bitrue, assets: %w[BTC ETH USDT], pairs: [%w[BTC USDT], %w[ETH USDT], %w[ETH BTC]],
+          pair: ->(b, q) { "#{b}#{q}" }, coin: { base_decimals: 6, quote_decimals: 2, price_decimals: 2, minimum_base_size: '0.000001', minimum_quote_size: '1' })
+  end
+  def br_page(rows) = ok('code' => 200, 'msg' => 'succ', 'data' => rows)
+  def br_trade(id, at)
+    mx_trade(id, 'BTCUSDT', true, '0.001', '64000', at, asset: 'usdt', order: id.to_s).except('quoteQty')
+  end
+  def br_transfer(id, coin, at, fee: nil)
+    { 'id' => id, 'symbol' => coin, 'amount' => '1.25', 'createdAt' => ms(at), 'fee' => fee, 'txid' => "tx#{id}" }.compact
+  end
+  def bitrue_ledger(at, account: [mx_account(%w[btc 1])], info: [mx_info(%w[BTC USDT])], trades: [ok([])], deposits: [br_page([])], withdrawals: [br_page([])])
+    { 'kind' => 'ledger', 'at' => at, 'bitrue' => { 'GET /api/v1/account' => account, 'GET /api/v1/exchangeInfo' => info,
+      'GET /api/v2/myTrades' => trades, 'GET /api/v1/deposit/history' => deposits, 'GET /api/v1/withdraw/history' => withdrawals } }
+  end
+  def bitrue_balances(at, account:, prices: nil, rates: nil)
+    { 'kind' => 'balances', 'at' => at, 'bitrue' => { 'GET /api/v1/account' => [account] },
+      'market' => { EXCHANGE_RATES => rates && [rates], PRICES => prices && [prices] }.compact }
+  end
   def mexc(ctx)
     venue(ctx, Exchanges::Mexc, 'MEXC', as: :mexc, assets: %w[BTC ETH USDT], pairs: [%w[BTC USDT], %w[ETH USDT], %w[ETH BTC]],
           pair: ->(b, q) { "#{b}#{q}" }, coin: { base_decimals: 6, quote_decimals: 2, price_decimals: 2, minimum_base_size: '0.000001', minimum_quote_size: '1' })
@@ -723,7 +744,7 @@ module SyncParity
       ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: File.join(dir, 'production.sqlite3'))
       Rails.cache.clear
       before = snapshot
-      reading = ApiKey.reading(ApiKey.includes(:exchange)).select { |k| [Exchanges::Alpaca, Exchanges::Binance, Exchanges::Kucoin, Exchanges::Bitvavo, Exchanges::Gemini, Exchanges::Bitget, Exchanges::Mexc, Exchanges::Hyperliquid, Exchanges::Bybit].any? { |c| k.exchange.is_a?(c) } }.map(&:id).sort
+      reading = ApiKey.reading(ApiKey.includes(:exchange)).select { |k| [Exchanges::Alpaca, Exchanges::Binance, Exchanges::Kucoin, Exchanges::Bitvavo, Exchanges::Gemini, Exchanges::Bitget, Exchanges::Mexc, Exchanges::Hyperliquid, Exchanges::Bybit, Exchanges::Bitrue].any? { |c| k.exchange.is_a?(c) } }.map(&:id).sort
       steps = sc['steps'].map do |step|
         ActiveJob::Base.queue_adapter.enqueued_jobs.clear
         ScriptedSync.alpaca = step.fetch('alpaca', {}).transform_values(&:dup)
@@ -736,6 +757,7 @@ module SyncParity
         ScriptedSync.mexc = step.fetch('mexc', {}).transform_values(&:dup)
         ScriptedSync.hyperliquid = step.fetch('hyperliquid', {}).transform_values(&:dup)
         ScriptedSync.bybit = step.fetch('bybit', {}).transform_values(&:dup)
+        ScriptedSync.bitrue = step.fetch('bitrue', {}).transform_values(&:dup)
         ScriptedSync.market = step.fetch('market', {}).transform_values(&:dup)
         ScriptedSync.requests = []
         ScriptedSync.filters_after = step['server_filters_after'] == true

@@ -28,6 +28,8 @@ pub(crate) const BINANCE_QUERY: QueryHmacHex = QueryHmacHex { key_header: "X-MBX
 /// request is the one Rails sends at the same moment.
 pub(crate) const MEXC_QUERY: QueryHmacHex = QueryHmacHex { key_header: "X-MEXC-APIKEY", stamp: super::bitvavo::ruby_ms };
 
+pub(crate) const BITRUE_QUERY: QueryHmacHex = QueryHmacHex { key_header: "X-MBX-APIKEY", stamp: super::bitvavo::ruby_ms };
+
 impl QueryHmacHex {
     /// `params` signed at `now` (Client#timestamp_ms): the timestamp, then the signature, appended.
     pub(crate) fn sign(&self, secret: &str, mut params: Vec<(&'static str, String)>, now: chrono::DateTime<chrono::Utc>) -> Vec<(&'static str, String)> {
@@ -135,6 +137,7 @@ pub(crate) enum Wire {
     Hyperliquid,
     /// Bybit V5: hex HMAC over timestamp + key + receive window + query/body.
     Bybit,
+    Bitrue,
 }
 
 impl Wire {
@@ -148,6 +151,7 @@ impl Wire {
             Self::Gemini => super::gemini::GEMINI, Self::Mexc => super::mexc::MEXC,
             Self::Hyperliquid => super::hyperliquid::HYPERLIQUID,
             Self::Bybit => super::bybit::BYBIT,
+            Self::Bitrue => super::bitrue::BITRUE,
         };
         super::registry::row(exchange_type).expect("every wire's venue has a row").name
     }
@@ -163,7 +167,7 @@ pub(crate) fn request(wire: Wire, client: &reqwest::Client, r: &HttpRequest, key
     // The query exactly as Faraday::Utils.build_query writes it, which is what a Prehash signature covers.
     let q = super::binance::build_query(&r.query);
     // MEXC's QueryHmacHex signs that same text, so it is sent as it was signed.
-    if matches!(wire, Wire::Kucoin | Wire::Bitvavo | Wire::Bitget | Wire::Mexc | Wire::Bybit) { url.set_query((!q.is_empty()).then_some(q.as_str())); }
+    if matches!(wire, Wire::Kucoin | Wire::Bitvavo | Wire::Bitget | Wire::Mexc | Wire::Bybit | Wire::Bitrue) { url.set_query((!q.is_empty()).then_some(q.as_str())); }
     let mut b = client.request(method, url);
     match wire {
         Wire::Kucoin | Wire::Bitvavo | Wire::Bitget | Wire::Bybit => {
@@ -178,10 +182,13 @@ pub(crate) fn request(wire: Wire, client: &reqwest::Client, r: &HttpRequest, key
             for (k, v) in headers { b = b.header(k, v); }
             if let Some(body) = &r.body { b = b.body(body.to_string()); }
         }
-        Wire::Alpaca | Wire::Binance | Wire::Mexc => {
+        // Honeymaker::Clients::Bitrue#exchange_information uses get_public, whose headers are empty.
+        Wire::Bitrue if !r.query.iter().any(|(k, _)| *k == "signature") => {}
+        Wire::Alpaca | Wire::Binance | Wire::Mexc | Wire::Bitrue => {
             b = match wire {
                 Wire::Binance => b.header(BINANCE_QUERY.key_header, keys.key),
                 Wire::Mexc => b.header(MEXC_QUERY.key_header, keys.key),
+                Wire::Bitrue => b.header(BITRUE_QUERY.key_header, keys.key),
                 _ => b.header("APCA-API-KEY-ID", keys.key).header("APCA-API-SECRET-KEY", keys.secret),
             };
             b = b.header("Accept", "application/json").header("Content-Type", "application/json");
@@ -218,4 +225,24 @@ pub(crate) fn request(wire: Wire, client: &reqwest::Client, r: &HttpRequest, key
         }
     }
     b
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn bitrue_public_requests_are_unkeyed_and_private_requests_have_the_recorded_headers() {
+        let clock = crate::engine::FixedClock("2026-09-20T02:00:00Z".parse().unwrap());
+        let client = reqwest::Client::new();
+        let mut r = HttpRequest { method: "GET", base: super::super::bitrue::URL.into(), path: "/api/v1/exchangeInfo".into(), query: vec![], body: None, not_after: None };
+        let build = |r: &HttpRequest| request(Wire::Bitrue, &client, r, Keys { key: "key", secret: "secret", passphrase: "" }, &clock).build().unwrap();
+        assert!(build(&r).headers().is_empty(), "honeymaker's public get sends no headers");
+        r.path = "/api/v1/account".into();
+        r.query = BITRUE_QUERY.sign("secret", vec![], crate::engine::Clock::now(&clock));
+        let signed = build(&r);
+        assert_eq!(signed.headers()["X-MBX-APIKEY"], "key");
+        assert_eq!(signed.headers()["Accept"], "application/json");
+        assert_eq!(signed.headers()["Content-Type"], "application/json");
+    }
 }

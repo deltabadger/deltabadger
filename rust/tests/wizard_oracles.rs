@@ -346,7 +346,31 @@ fn key_verdicts_replay_every_recorded_case() {
     }
     assert_eq!(bybit, 108, "a recorded Bybit case was added or dropped");
     replayed += bybit;
-    assert_eq!(replayed, 578 + 84 + 212 + 214 + 122 + 240 + 70 + 108, "the combined venue key grid: 1,210 existing + 240 MEXC + 70 Hyperliquid + 108 Bybit cases");
+    assert_pinned("bitrue_key_verdicts.json");
+    let bitrue_recorded = fixture("bitrue_key_verdicts.json");
+    let mut bitrue = 0;
+    for case in bitrue_recorded["bitrue"]["cases"].as_array().unwrap() {
+        let (name, kind) = (case["case"].as_str().unwrap(), kind(case["key_type"].as_str().unwrap()));
+        let reading = case["method"] == "get_read_api_key_validity";
+        let a = &case["response"];
+        let reply = if a["timeout"] == true { json!({"network":"post_send", "message":"Net::ReadTimeout"}) }
+                    else if a["refused"] == true { json!({"network":"pre_send", "message":"Connection refused"}) }
+                    else { json!({"status":a["status"],"body":a["body"]}) };
+        let transport = deltabadger::venue::http::ScriptedTransport::from_script(&json!({"GET /api/v1/account":[reply]}));
+        let venue = deltabadger::venue::bitrue::BitrueVenue::new(transport.clone(), deltabadger::venue::bitrue::URL, "test-secret");
+        let (_, ours) = rt.block_on(key_check::bitrue_check(&transport, &venue, kind, reading));
+        let theirs = if case["verdict"]["kind"] == "raises" { Verdict::Failure(String::new()) } else { expected(&case["verdict"]) };
+        assert!(same(&ours, &theirs), "bitrue {} {name}: {ours:?}, Rails {theirs:?}", case["key_type"]);
+        let requests = transport.requests();
+        assert_eq!(requests.len(), 1);
+        let r = &requests[0];
+        let query: serde_json::Map<String, Value> = r.query.iter().filter(|(k,_)| !["signature","timestamp"].contains(k)).map(|(k,v)| (k.to_string(),json!(v))).collect();
+        assert_eq!(json!([r.method, r.url().host_str().unwrap(), r.path, query]), json!([case["request"]["method"],case["request"]["host"],case["request"]["path"],case["request"]["query"]]));
+        bitrue += 1;
+    }
+    assert_eq!(bitrue, 81, "Bitrue recorded key verdicts");
+    replayed += bitrue;
+    assert_eq!(replayed, 578 + 84 + 212 + 214 + 122 + 240 + 70 + 108 + 81, "the combined venue key grid: 1,210 existing + 240 MEXC + 70 Hyperliquid + 108 Bybit + 81 Bitrue cases");
 }
 
 /// A pinned callback list against a port's table: the same callbacks, in Rails' order, each handled.
@@ -491,4 +515,20 @@ async fn a_bybit_key_is_checked_by_a_cancel_probe_or_an_assets_read() {
     let sent: Vec<(String, String)> = server.received_requests().await.unwrap().iter().map(|r| (r.method.to_string(), r.url.path().to_string())).collect();
     let (probe, read) = (("POST".to_string(), "/v5/order/cancel".to_string()), ("GET".to_string(), "/v5/account/wallet-balance".to_string()));
     assert_eq!(sent, [probe, read.clone(), read]);
+}
+
+#[tokio::test]
+async fn a_bitrue_key_uses_one_account_read_for_each_key_type() {
+    use wiremock::{matchers::{header, method, path, query_param}, Mock, MockServer, ResponseTemplate};
+    use deltabadger::web::settings::validator::Validity;
+    let server = MockServer::start().await;
+    Mock::given(method("GET")).and(path("/api/v1/account")).and(header("X-MBX-APIKEY", "br-key")).and(query_param("recvWindow", "5000"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "canTrade": false, "balances": [] }))).mount(&server).await;
+    let credentials = deltabadger::crypto::Credentials { key: "br-key".into(), secret: "br-secret".into(), passphrase: None, redaction_values: vec![] };
+    let base = server.uri();
+    let check = |kind| key_check::check("Exchanges::Bitrue", &base, deltabadger::venue::http::client(), &credentials, kind);
+    assert!(matches!(check(0).await, Validity::Incorrect));
+    assert!(matches!(check(1).await, Validity::Correct));
+    assert!(matches!(check(2).await, Validity::Correct));
+    assert_eq!(server.received_requests().await.unwrap().len(), 3);
 }

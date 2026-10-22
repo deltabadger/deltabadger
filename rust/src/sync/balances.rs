@@ -376,6 +376,27 @@ pub(crate) async fn sync_mexc_captured<T: Transport>(db: &Db, transport: T, pric
     sync_venue(db, version, prices, key_id, credentials, clock, venue, read).await
 }
 
+pub async fn sync_bitrue<T: Transport>(db: &Db, transport: T, prices: &dyn PriceSource, key_id: i64, credentials: &Credentials, clock: &dyn Clock)
+                                     -> Result<Result<Summary, Failure>, SyncError> {
+    let version = super::capture_bound_version(db, key_id, credentials).await?;
+    sync_bitrue_captured(db, transport, prices, key_id, credentials, clock, &version).await
+}
+
+pub(crate) async fn sync_bitrue_captured<T: Transport>(db: &Db, transport: T, prices: &dyn PriceSource, key_id: i64, credentials: &Credentials,
+                                                     clock: &dyn Clock, version: &crate::engine::model::CredentialVersion)
+                                                     -> Result<Result<Summary, Failure>, SyncError> {
+    use crate::venue::bitrue::{BitrueVenue, ACCOUNT_PATH, BITRUE, RECV_WINDOW, URL};
+    let (secret, now) = (credentials.secret.clone(), clock.now());
+    let read = move |_: String| async move {
+        let venue = BitrueVenue::new(transport, URL, &secret);
+        Ok(venue.read_text(&venue.signed("GET", ACCOUNT_PATH, vec![("recvWindow", RECV_WINDOW.to_string())], now), MAX_BINANCE_ACCOUNT_BYTES).await)
+    };
+    // The account answer is Binance's shape (`binance_held`).
+    let venue = VenueBalances { types: &[BITRUE], failure_text: binance::error_message, condemns: |venue, text| condemns(&crate::engine::venue_rules::BITRUE, venue, text),
+                                held: |text, names, ids| account_held(text, names, ids, str::to_uppercase).map(|held| held.map_err(|why| (why, false))) };
+    sync_venue(db, version, prices, key_id, credentials, clock, venue, read).await
+}
+
 /// ApiKeyFailureHandling#failure_reason's :invalid: the venue's invalid-key words, unless the text names a missing permission.
 fn condemns(rules: &crate::engine::venue_rules::VenueRules, venue: &str, text: &str) -> bool {
     !crate::tracker::import::run::missing_permission(venue, Some(text)) && rules.is_invalid_key(&[text.to_string()])
@@ -692,6 +713,10 @@ type Held = (i64, BigDec, BigDec);
 /// KeyError; a quantity that is no number, blank and whitespace included, fails the sync (Rails reads it as 0 and
 /// deletes the stored balance: a listed divergence, D2b ruling Q10).
 fn binance_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> Result<Result<Vec<Held>, String>, Unread> {
+    account_held(text, names, asset_ids, str::to_string)
+}
+
+fn account_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64], code: impl Fn(&str) -> String) -> Result<Result<Vec<Held>, String>, Unread> {
     let node = wire::read(text, &mut Budget(MAX_BINANCE_ACCOUNT_NODES), None).map_err(|r| Unread::refused(r, "an account"))?;
     let Ok(account) = Raw::from_node(&node) else { return Ok(Err("unreadable account".into())) };
     let entries = match account.member("balances") {
@@ -703,7 +728,7 @@ fn binance_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> 
     let mut found: HashMap<i64, (BigDec, BigDec)> = HashMap::new();
     for entry in entries {
         let Ok(entry) = Raw::from_node(entry) else { return Ok(Err("unreadable balance".into())) };
-        let Some(asset) = entry.value["asset"].as_str().and_then(|a| names.get(a)).filter(|id| asset_ids.contains(id)) else { continue };
+        let Some(asset) = entry.value["asset"].as_str().and_then(|a| names.get(&code(a))).filter(|id| asset_ids.contains(id)) else { continue };
         // number::json reads a blank string as 0 (String#to_d, which the Alpaca sync matches); here it is no number.
         let quantity = |key: &str| match entry.number(key) {
             _ if entry.value[key].as_str().is_some_and(|s| s.trim().is_empty()) => Err(format!("unreadable {key}: not a plain decimal number")),

@@ -25,6 +25,9 @@ def runner(script, *args):
 # export and {scratch} an empty directory. The environment is the one each fixture was recorded in: a re-run on
 # unchanged sources writes the same bytes, apart from the fields the pattern names (fresh salts and IVs).
 RECORDED = {
+    FIX + 'bitrue_key_verdicts.json': ('test', [runner('record_key_verdicts.rb', '{out}', 'bitrue')], None),
+    FIX + 'bitrue_vectors.json': ('test', [runner('record_bitrue_vectors.rb', '{out}')], None),
+    FIX + 'bitrue_signing.json': ('test', [runner('record_bitrue_signing.rb', '{out}')], None),
     FIX + 'figures_vectors.json': ('test', [runner('record_figures_vectors.rb', '{out}')], None),
     FIX + 'float_digits.json': ('test', [runner('record_float_digits.rb', '{out}')], None),
     FIX + 'histories.json': ('test', [runner('record_histories.rb', '{out}')], None),

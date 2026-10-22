@@ -78,7 +78,7 @@ fn code_is(text: &str, codes: &[i64]) -> bool {
 }
 
 /// Ruby's `inspect` of what `JSON.parse` made of a value (Hash#inspect as Ruby 3.4 writes it).
-fn inspect(v: &Value) -> String {
+pub(crate) fn inspect(v: &Value) -> String {
     match v {
         Value::Null => "nil".into(),
         Value::Bool(b) => b.to_string(),

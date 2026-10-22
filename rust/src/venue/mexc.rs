@@ -47,13 +47,7 @@ pub(crate) fn unreadable() -> VenueError { VenueError::Ambiguous(UNREADABLE.into
 fn required(v: &Value) -> Result<BigDec, VenueError> { super::json::required(v, unreadable) }
 
 /// The intent UUID without hyphens fits MEXC's 32-character limit and is reversible. Reject longer non-UUIDs before sending.
-fn client_order_id(id: &str) -> Result<String, VenueError> {
-    match uuid::Uuid::parse_str(id) {
-        Ok(uuid) => Ok(uuid.simple().to_string()),
-        Err(_) if id.chars().count() <= 32 => Ok(id.to_string()),
-        Err(_) => Err(VenueError::Rejected(vec!["MEXC: non-UUID client order id exceeds 32 characters; not sent".into()])),
-    }
-}
+fn client_order_id(id: &str) -> Result<String, VenueError> { super::client_order_id_32(id, "MEXC") }
 
 /// Exchange#response_field(result, 'code') of a failure's text, as a number (Ruby's `include?` compares 2013.0 with 2013 as
 /// equal; a String never equals an Integer).

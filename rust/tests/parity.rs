@@ -2021,3 +2021,90 @@ async fn rails_and_rust_decide_identically_across_the_bybit_grid() {
         } },
     ]).await;
 }
+
+/// D-BITRUE-AMBIG changes only placement bookkeeping. Compare every other row and column.
+fn bitrue_ambiguous(name: &str, dir: &Path, rails: &serde_json::Value, rust: &serde_json::Value) -> Result<(), String> {
+    if name.ends_with("-add_no_order_id") { unacknowledged_kept(dir, rails, rust)?; }
+    else { intent_kept(dir, rails, rust)?; }
+    let rows = rails["changes"]["transactions"].as_array().unwrap();
+    if rows.len() != 1 || !rows[0]["before"].is_null() || !rails["changes"]["bot_activity_logs"].as_array().unwrap().is_empty() {
+        return Err("Rails must write exactly one new order row and no activity log".into());
+    }
+    let logs = rust["changes"]["bot_activity_logs"].as_array().unwrap();
+    if logs.len() != 1 || !logs[0]["before"].is_null() || logs[0]["after"]["event"] != "placement_ambiguous" || rust["mails"] != serde_json::json!([]) {
+        return Err("Rust must replace the failed order with one ambiguity log and send no mail".into());
+    }
+    if rails["mails"].as_array().unwrap().iter().any(|m| m["mail"] != "notify_about_error") {
+        return Err("Rails no longer sends only the placement error notification".into());
+    }
+    let (r_bots, u_bots) = (rails["changes"]["bots"].as_array().unwrap(), rust["changes"]["bots"].as_array().unwrap());
+    if r_bots.len() != 1 || u_bots.len() != 1 || r_bots[0]["after"]["status"] != if name.ends_with("-add_no_order_id") { 1 } else { 5 } {
+        return Err("the ambiguity case must change only its one bot, with Rails' recorded status".into());
+    }
+    let (r_data, u_data) = (&r_bots[0]["after"]["transient_data"], &u_bots[0]["after"]["transient_data"]);
+    let kind = if name.ends_with("-throttled") { Some("throttle") }
+        else if name.ends_with("-add_server_error") || name.ends_with("-add_service_unavailable") { Some("transient") } else { None };
+    if r_data["last_failure_kind"].as_str() != kind || !u_data["last_failure_kind"].is_null() || !u_data["failure_notifications"].is_null() {
+        return Err("only Rails classifies and notifies the failed placement; Rust must keep it unresolved".into());
+    }
+    let clean = |out: &serde_json::Value| {
+        let mut out = out.clone();
+        out["changes"]["transactions"] = serde_json::json!([]);
+        out["changes"]["bot_activity_logs"] = serde_json::json!([]);
+        out["mails"] = serde_json::json!([]);
+        for bot in out["changes"]["bots"].as_array_mut().unwrap() {
+            // An id-less acknowledgement leaves Rails running; the intent remains retrying in Rust.
+            if name.ends_with("-add_no_order_id") { bot["after"]["status"] = serde_json::json!(5); }
+            if let Some(data) = bot["after"]["transient_data"].as_object_mut() {
+                data.shift_remove("last_failure_kind");
+                data.shift_remove("failure_notifications");
+            }
+        }
+        out
+    };
+    let (r, u) = (clean(rails), clean(rust));
+    if r == u { Ok(()) } else { Err(format!("beyond placement bookkeeping the sides differ\n  rails: {r}\n  rust: {u}")) }
+}
+
+/// D-BITRUE-AMBIG: ambiguous placement replies retain the intent. D-BITRUE-NUM: unreadable decimals are refused.
+const BITRUE_DIVERGENCES: [&str; 6] = ["add_server_error", "add_service_unavailable", "add_timeout_after_send", "add_unreadable", "throttled", "add_unknown_code"];
+#[tokio::test(flavor = "current_thread")]
+async fn rails_and_rust_decide_identically_across_the_bitrue_grid() {
+    use common::venue_grid::{ending, run_venue_grid, Validator};
+    let unreadable = |n: &str| n.contains(UNREADABLE);
+    let wrapped = |id: &'static str, sentence: &'static str| move |_: &str, _: &Path, r: &serde_json::Value, u: &serde_json::Value| {
+        wrapped_like_rails(&format!(r#"Failed to fetch orders BTCUSDT-{id}. Result: [\"{sentence}\"]"#), sentence, r, u)
+    };
+    let outputs = run_venue_grid("grid-bitrue", 196 + 4 * 6, &[
+        Validator { names: &ending(&["read_throttle"]), check: &|_, _, r, u| throttle_waits(r, u) },
+        Validator { names: &unreadable, check: &|n, d, r, u| unreadable_number_refused(n, d, r, u, false) },
+        Validator { names: &ending(&["landed_found"]), check: &|_, _, r, u| {
+            let rewritten: serde_json::Value = serde_json::from_str(&u.to_string().replace("BTCUSDT-601", "7612345679")).unwrap();
+            landed_found(r, &rewritten)
+        } },
+        Validator { names: &ending(&["landed_missing"]), check: &|_, d, r, u| landed_missing(d, r, u) },
+        Validator { names: &ending(&BITRUE_DIVERGENCES), check: &bitrue_ambiguous },
+        Validator { names: &ending(&["add_no_order_id"]), check: &bitrue_ambiguous },
+        Validator { names: &ending(&["add_network_pre_send"]), check: &|_, _, r, u| refused_like_rails(r, u) },
+        Validator { names: &ending(&["sweep_unknown_type"]), check: &wrapped("208", "Unknown Bitrue order type: STOP_LOSS") },
+        Validator { names: &ending(&["sweep_unknown_status"]), check: &wrapped("209", "Unknown Bitrue order status: UNLISTED") },
+    ]).await;
+    // Pin what Rails does where a silent pair of sides would otherwise pass.
+    for (name, rails_out) in &outputs {
+        let mailed: Vec<&str> = rails_out["mails"].as_array().unwrap().iter().map(|m| m["mail"].as_str().unwrap()).collect();
+        let expected: Option<&[&str]> = [("-insufficient", &["end_of_funds"][..]), ("-invalid_key", &["stopped_by_error"]), ("-low_funds", &["end_of_funds"]),
+                                         ("-on_schedule", &[]), ("-timestamp_700003", &[])].into_iter().find(|(suffix, _)| name.ends_with(suffix)).map(|(_, m)| m);
+        if let Some(expected) = expected { assert_eq!(mailed, expected, "{name}: the mails Rails enqueued"); }
+        let rows = rails_out["changes"]["transactions"].as_array().unwrap();
+        let sent = rails_out["sent"].as_array().unwrap();
+        let after = |id: &str| rows.iter().find(|t| t["after"]["external_id"] == id).map(|t| t["after"].clone());
+        if name.ends_with("-timestamp_700003") { assert!(rows.is_empty() && sent.len() == 1, "{name}: a timestamp rejection writes no row"); }
+        if name.ends_with("-market-first_tick") { assert!(sent[0]["quantity"].is_string() && sent[0]["recvWindow"] == "5000", "{name}: a quote budget converted to base quantity"); }
+        if name.ends_with("-market-zero_base_minimum") { assert!(sent.len() == 1, "{name}: a zero base minimum leaves the quote minimum the floor"); }
+        if name.ends_with("-zero_base_minimum_below") { assert!(sent.is_empty(), "{name}: under the quote minimum"); }
+        if name.ends_with("-limit-first_tick") { assert!(sent[0]["price"].is_string() && sent[0]["timeInForce"] == "GTC", "{name}: a limit buy"); }
+        if name.ends_with("-sweep_filled_limit_at_fills") { assert_eq!(after("BTCUSDT-204").unwrap()["price"], serde_json::json!({ "f": format!("{:x}", 63763.44f64.to_bits()) }), "{name}: T2, priced at its fills (59.3 / 0.00093), not the limit"); }
+        if name.ends_with("-sweep_partially_canceled") { assert_eq!(after("BTCUSDT-205").unwrap()["external_status"], 3, "{name}: T1, terminal"); }
+        if name.ends_with("-sweep_gone_old") { assert_eq!(after("BTCUSDT-212").unwrap()["external_status"], 4, "{name}: T8, abandoned"); }
+    }
+}

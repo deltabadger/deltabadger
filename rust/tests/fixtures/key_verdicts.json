@@ -10,6 +10,7 @@
     "app/models/exchanges/mexc.rb": "08a430af264efc84f88c0233fdd47a9cce4532a0cf829d580f7c9569e0697454",
     "app/models/exchanges/hyperliquid.rb": "5fd3338e69d144f1d19d14a18206610303137da8b81a2e91ed34b6d484b0d1a2",
     "app/models/exchanges/bybit.rb": "cf67b86cbd55174a5c729db27a82312cb121d15bd3a5ef40ce356dc0a801290d",
+    "app/models/exchanges/bitrue.rb": "0d02c8ab14a77f1c5d931dbc4e834de79afa78fe0c940d47ded5da2037ba5664",
     "app/models/exchange.rb": "ab627a2812bc0c7b4a546459e64f8f5d93617c496308d5f03163f44cef12d8d7",
     "app/models/exchange/dryable.rb": "559b4b1858c832f3bc83b7631d7a74012854aabd88408b8680288609a1254b96",
     "app/models/api_key.rb": "e7f1435042602815925d093baa51160be9236c600b2f8aebdcf0517f5119ef91",
@@ -5133,7 +5134,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=b9f8b48916b379955aaed4c7896715f6ac22c4f529bd76c326be5873f25f88eb&timestamp=1792609243831"
+            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=59afb2283395d85b27e0498a2e689c0c5659b4db23a9c51e401781bc3b41575c&timestamp=1792614622254"
           ]
         },
         "request": {
@@ -7061,7 +7062,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=f6be7952ac0f72249442a4aba68ccd827aed997a6de2aaa503ef0f01ef19e1db&timestamp=1792609243850"
+            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=af9829cafb71280909c42bf98b1cd8b0f3d730dd66f6f43f6461125ac0cf9934&timestamp=1792614622280"
           ]
         },
         "request": {
@@ -8989,7 +8990,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=4a9ffe34e90de1d1f40649e500a92d40bfd7c3dab81a553581f3d254e410cab9&timestamp=1792609243871"
+            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=027774a9b6592e374f54226cd7c9d12316c759847030e09bfc1902166415ff95&timestamp=1792614622324"
           ]
         },
         "request": {
@@ -10917,7 +10918,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=46548945d064227c01e633c8013b1c6338d1f6a38a06db15152f21a9a7923263&timestamp=1792609243898"
+            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=4d0c9c0e031eb34d6c92a1d4ecc7550767223a17319899e51a523c15d20aab07&timestamp=1792614622355"
           ]
         },
         "request": {
@@ -11658,7 +11659,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=b5315d9761545dea3978b19f8b119e88cc24b78c81837ea05096d1a4b0142ac6&timestamp=1792609243911"
+            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=dc5a99c679472aba1fcc5ce47be4c40eb133e1f51c6fa7695c7711421ea02029&timestamp=1792614622371"
           ]
         },
         "request": {
@@ -13017,7 +13018,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for DELETE https://api.binance.us/api/v3/order?orderId=9999999999&recvWindow=5000&signature=b84ee90f67ef4bd9a281a3ced24c10184804d75d62d16754de44956b61358791&symbol=ETHBTC&timestamp=1792609243923"
+            "the server responded with status 500 for DELETE https://api.binance.us/api/v3/order?orderId=9999999999&recvWindow=5000&signature=60d5d59fd593eaa52a31ec63404c7d57e2cc9d960b347a41248a79527c4f4c12&symbol=ETHBTC&timestamp=1792614622402"
           ]
         },
         "requests": [
@@ -13958,7 +13959,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=429aeaea717f19c0c8a601cc5e71912013a055f5d472db198cb406e65b6ad392&timestamp=1792609243932"
+            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=22665e87dd32a6dc92c319333b8c3883eab57e568e8ecff65713f0e165ffa4ae&timestamp=1792614622412"
           ]
         },
         "request": {
@@ -15317,7 +15318,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for DELETE https://api.binance.us/api/v3/order?orderId=9999999999&recvWindow=5000&signature=a567e8576db35d38b8733dfb9af549974b9806088a107a0a1ed78da0c8d4c280&symbol=ETHBTC&timestamp=1792609243943"
+            "the server responded with status 500 for DELETE https://api.binance.us/api/v3/order?orderId=9999999999&recvWindow=5000&signature=056a0c32e4ba1b7ad355ca483d89fdfab95bf449bc45bc3aebfc4a220889265f&symbol=ETHBTC&timestamp=1792614622433"
           ]
         },
         "requests": [
@@ -16258,7 +16259,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=2eaed8c3aefac20df71a28e2576405781d2c3085ebe30aab05795333badcc52e&timestamp=1792609243952"
+            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=f14fdb07c1e3885b9ab7a4ef6b83efc2047627b005089fde8e5b3c500be5745c&timestamp=1792614622445"
           ]
         },
         "request": {
@@ -17617,7 +17618,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for DELETE https://api.binance.us/api/v3/order?orderId=9999999999&recvWindow=5000&signature=35be3581593950b301353b60d108e59ff0cd15c9fc53d7d6e0af19091cac7e3a&symbol=ETHBTC&timestamp=1792609243964"
+            "the server responded with status 500 for DELETE https://api.binance.us/api/v3/order?orderId=9999999999&recvWindow=5000&signature=08878e14821bcbb2ebcf6b922b020aae918256032663f20973b278a20292ef99&symbol=ETHBTC&timestamp=1792614622461"
           ]
         },
         "requests": [
@@ -18558,7 +18559,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=08a5e6038bd6cf8a87568212e097662418a79e31f423e576ea3387319baf03b2&timestamp=1792609243972"
+            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=8fc228487ddcffc0e1bfabae8ef224b16df9d7a09af2ce5acde89bc89b86b272&timestamp=1792614622568"
           ]
         },
         "request": {
@@ -34664,7 +34665,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.mexc.com/api/v3/account?recvWindow=5000&signature=6c2a801c66f6576286b29ff9a52ef6d763922abc477cbc25ca1149778dcba9f5&timestamp=1792609244240"
+            "the server responded with status 500 for GET https://api.mexc.com/api/v3/account?recvWindow=5000&signature=53fbfa00ec65de600fb5b5bcb91c331eb6b8fbe7da3cf1e14408db6623059e37&timestamp=1792614622898"
           ]
         },
         "request": {
@@ -35470,7 +35471,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.mexc.com/api/v3/account?recvWindow=5000&signature=926bf4c32d927809c2685c9ff970850aae403de8dc44a413cbb2d3cc29aeb184&timestamp=1792609244250"
+            "the server responded with status 500 for GET https://api.mexc.com/api/v3/account?recvWindow=5000&signature=19440145d68737d72fec102905aed4895ad8c41dd42b1c15f017fa1a4db853d7&timestamp=1792614622908"
           ]
         },
         "request": {
@@ -36276,7 +36277,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.mexc.com/api/v3/account?recvWindow=5000&signature=98237db8d92efabc3f4eba1d12ff6d09bd21f5e7060b930ee0d692b5168f9232&timestamp=1792609244267"
+            "the server responded with status 500 for GET https://api.mexc.com/api/v3/account?recvWindow=5000&signature=f14a31364aef6dee2518482ad804c6754ab0cdcaa863606976d641f6ba4e2710&timestamp=1792614622918"
           ]
         },
         "request": {
@@ -37805,7 +37806,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.mexc.com/api/v3/capital/deposit/hisrec?limit=1&recvWindow=5000&signature=d4ed5ccbc009400609d4a567ff2701592a1012628593f9da2dc7303502680442&timestamp=1792609244284"
+            "the server responded with status 500 for GET https://api.mexc.com/api/v3/capital/deposit/hisrec?limit=1&recvWindow=5000&signature=d03c12cd9aa1e6b095d91f55ed145b5b9871a3e25877ea307368bca6d286b037&timestamp=1792614622935"
           ]
         },
         "requests": [
@@ -39109,7 +39110,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.mexc.com/api/v3/capital/deposit/hisrec?limit=1&recvWindow=5000&signature=27ff8449d1b9fb281cf6e6053675ce8af0ec6c4e765115ad3682ded571ed686b&timestamp=1792609244295"
+            "the server responded with status 500 for GET https://api.mexc.com/api/v3/capital/deposit/hisrec?limit=1&recvWindow=5000&signature=c96020551bfd07d44d8642e6503d811c17768bed650b83b70577451db1097311&timestamp=1792614622950"
           ]
         },
         "requests": [
@@ -39642,7 +39643,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.mexc.com/api/v3/account?recvWindow=5000&signature=71800aab980dec757eb32be8f05032c0c8ef2712cad469a781cbe3cdc58efcfa&timestamp=1792609244299"
+            "the server responded with status 500 for GET https://api.mexc.com/api/v3/account?recvWindow=5000&signature=7374ecd4153fe375d0903c7cfcf7ee6f7af4046839341a9bf754c6cf0c1dc9c5&timestamp=1792614622954"
           ]
         },
         "request": {
@@ -40669,7 +40670,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.mexc.com/api/v3/capital/deposit/hisrec?limit=1&recvWindow=5000&signature=52b854b5f8c76edca27c040db213858b72f974eb7e777b7dc940015803a69c2f&timestamp=1792609244308"
+            "the server responded with status 500 for GET https://api.mexc.com/api/v3/capital/deposit/hisrec?limit=1&recvWindow=5000&signature=5511af8100cc50492b1649a687f56f0bdf32f6cc694c0853aa5fb4ffc4e9608f&timestamp=1792614622967"
           ]
         },
         "requests": [
@@ -41973,7 +41974,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.mexc.com/api/v3/capital/deposit/hisrec?limit=1&recvWindow=5000&signature=312fd3e76ea32209bc05c839a686d8a8ae7d0bd4ae3cc93a376e52f44f42ccfb&timestamp=1792609244318"
+            "the server responded with status 500 for GET https://api.mexc.com/api/v3/capital/deposit/hisrec?limit=1&recvWindow=5000&signature=ce6ec759522695015110c0b6ea3fa3f926fa5bc4dba8949b55038d33178328d7&timestamp=1792614623004"
           ]
         },
         "requests": [
@@ -47239,6 +47240,2027 @@
           "path": "/v5/account/wallet-balance",
           "query": {
             "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      }
+    ]
+  },
+  "bitrue": {
+    "cases": [
+      {
+        "case": "http_500",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 500,
+          "body": "",
+          "content_type": "text/plain"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "the server responded with status 500 for GET https://openapi.bitrue.com/api/v1/account?recvWindow=5000&signature=362633bb60c93d285076494b78bfe0f71c183f363f446f106f768f2dabd9e4f6&timestamp=1792614623687"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_502_html",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 502,
+          "body": "<html><body>502 Bad Gateway</body></html>",
+          "content_type": "text/html"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "<html><body>502 Bad Gateway</body></html>"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_503_json",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 503,
+          "body": "{\"msg\":\"Service unavailable\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"msg\":\"Service unavailable\"}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_403_waf_html",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 403,
+          "body": "<html>Forbidden</html>",
+          "content_type": "text/html"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "<html>Forbidden</html>"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_429",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 429,
+          "body": "{\"code\":-1003,\"msg\":\"Too many requests.\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"code\":-1003,\"msg\":\"Too many requests.\"}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "timeout",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "timeout": true
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Net::ReadTimeout"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "connection_refused",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "refused": true
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Failed to open TCP connection (Connection refused)"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "malformed_json",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"error\":[],\"result\":{",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"error\":[],\"result\":{"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "empty_json_body",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Bitrue sent an unreadable answer to the key check"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "plain_text_200",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "OK",
+          "content_type": "text/plain"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Bitrue sent an unreadable answer to the key check"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "can_trade",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"canTrade\":true,\"balances\":[]}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "cannot_trade",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"canTrade\":false,\"balances\":[]}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "can_trade_string",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"canTrade\":\"true\",\"balances\":[]}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "no_flags",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"balances\":[]}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "no_balances",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"canTrade\":true}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "lower_case_balance",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"canTrade\":true,\"balances\":[{\"asset\":\"btc\",\"free\":\"1\",\"locked\":\"0\"}]}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "array",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "[]",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Bitrue sent an unreadable answer to the key check"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "null",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "null",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Bitrue sent an unreadable answer to the key check"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "number",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "1",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Bitrue sent an unreadable answer to the key check"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "bare_401",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 401,
+          "body": "{}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "permission_401",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 401,
+          "body": "{\"code\":-2015,\"msg\":\"You don't have permission.\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "timestamp",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 412,
+          "body": "{\"code\":-1102,\"msg\":\"recvWindow IllegalArgumentException.\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"code\":-1102,\"msg\":\"recvWindow IllegalArgumentException.\"}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "code_in_200",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":-1022,\"msg\":\"No login\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "No login",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":-1022,\"msg\":\"No login\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "API key does not exist",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":-1022,\"msg\":\"API key does not exist\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "Invalid Api-Key ID.",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":-1022,\"msg\":\"Invalid Api-Key ID.\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "Signature for this request is not valid.",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":-1022,\"msg\":\"Signature for this request is not valid.\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_500",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 500,
+          "body": "",
+          "content_type": "text/plain"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "the server responded with status 500 for GET https://openapi.bitrue.com/api/v1/account?recvWindow=5000&signature=c857fd7d4b56ee8db72565e0505bfab3d238313c1013c43fb51d92ae762f4a55&timestamp=1792614623697"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_502_html",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 502,
+          "body": "<html><body>502 Bad Gateway</body></html>",
+          "content_type": "text/html"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "<html><body>502 Bad Gateway</body></html>"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_503_json",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 503,
+          "body": "{\"msg\":\"Service unavailable\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"msg\":\"Service unavailable\"}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_403_waf_html",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 403,
+          "body": "<html>Forbidden</html>",
+          "content_type": "text/html"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "<html>Forbidden</html>"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_429",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 429,
+          "body": "{\"code\":-1003,\"msg\":\"Too many requests.\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"code\":-1003,\"msg\":\"Too many requests.\"}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "timeout",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "timeout": true
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Net::ReadTimeout"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "connection_refused",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "refused": true
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Failed to open TCP connection (Connection refused)"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "malformed_json",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"error\":[],\"result\":{",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"error\":[],\"result\":{"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "empty_json_body",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Bitrue sent an unreadable answer to the key check"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "plain_text_200",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "OK",
+          "content_type": "text/plain"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Bitrue sent an unreadable answer to the key check"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "can_trade",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"canTrade\":true,\"balances\":[]}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "cannot_trade",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"canTrade\":false,\"balances\":[]}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "can_trade_string",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"canTrade\":\"true\",\"balances\":[]}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "no_flags",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"balances\":[]}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "no_balances",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"canTrade\":true}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "lower_case_balance",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"canTrade\":true,\"balances\":[{\"asset\":\"btc\",\"free\":\"1\",\"locked\":\"0\"}]}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "array",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "[]",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Bitrue sent an unreadable answer to the key check"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "null",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "null",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Bitrue sent an unreadable answer to the key check"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "number",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "1",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Bitrue sent an unreadable answer to the key check"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "bare_401",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 401,
+          "body": "{}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "permission_401",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 401,
+          "body": "{\"code\":-2015,\"msg\":\"You don't have permission.\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "timestamp",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 412,
+          "body": "{\"code\":-1102,\"msg\":\"recvWindow IllegalArgumentException.\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"code\":-1102,\"msg\":\"recvWindow IllegalArgumentException.\"}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "code_in_200",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":-1022,\"msg\":\"No login\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "No login",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":-1022,\"msg\":\"No login\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "API key does not exist",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":-1022,\"msg\":\"API key does not exist\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "Invalid Api-Key ID.",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":-1022,\"msg\":\"Invalid Api-Key ID.\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "Signature for this request is not valid.",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":-1022,\"msg\":\"Signature for this request is not valid.\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_500",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 500,
+          "body": "",
+          "content_type": "text/plain"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "the server responded with status 500 for GET https://openapi.bitrue.com/api/v1/account?recvWindow=5000&signature=d8c08fe1fa7ba73382a2b1b0b8a6fa94cc5694c4fe9109be1bf68bb4e43ae58e&timestamp=1792614623711"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_502_html",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 502,
+          "body": "<html><body>502 Bad Gateway</body></html>",
+          "content_type": "text/html"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "<html><body>502 Bad Gateway</body></html>"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_503_json",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 503,
+          "body": "{\"msg\":\"Service unavailable\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Service unavailable"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_403_waf_html",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 403,
+          "body": "<html>Forbidden</html>",
+          "content_type": "text/html"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "<html>Forbidden</html>"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_429",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 429,
+          "body": "{\"code\":-1003,\"msg\":\"Too many requests.\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Too many requests."
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "timeout",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "timeout": true
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Net::ReadTimeout"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "connection_refused",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "refused": true
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Failed to open TCP connection (Connection refused)"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "malformed_json",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"error\":[],\"result\":{",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"error\":[],\"result\":{"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "empty_json_body",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "raises",
+          "class": "NoMethodError",
+          "message": "undefined method 'dig' for nil"
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "plain_text_200",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "OK",
+          "content_type": "text/plain"
+        },
+        "verdict": {
+          "kind": "raises",
+          "class": "NoMethodError",
+          "message": "undefined method 'dig' for an instance of String"
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "can_trade",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"canTrade\":true,\"balances\":[]}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "cannot_trade",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"canTrade\":false,\"balances\":[]}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "can_trade_string",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"canTrade\":\"true\",\"balances\":[]}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "no_flags",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"balances\":[]}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "no_balances",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"canTrade\":true}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "raises",
+          "class": "KeyError",
+          "message": "Key path balances not found"
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "lower_case_balance",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"canTrade\":true,\"balances\":[{\"asset\":\"btc\",\"free\":\"1\",\"locked\":\"0\"}]}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "array",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "[]",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "raises",
+          "class": "TypeError",
+          "message": "no implicit conversion of String into Integer"
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "null",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "null",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "raises",
+          "class": "NoMethodError",
+          "message": "undefined method 'dig' for nil"
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "number",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "1",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "raises",
+          "class": "NoMethodError",
+          "message": "undefined method 'dig' for an instance of Integer"
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "bare_401",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 401,
+          "body": "{}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "permission_401",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 401,
+          "body": "{\"code\":-2015,\"msg\":\"You don't have permission.\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "You don't have permission."
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "timestamp",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 412,
+          "body": "{\"code\":-1102,\"msg\":\"recvWindow IllegalArgumentException.\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "recvWindow IllegalArgumentException."
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "code_in_200",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":-1022,\"msg\":\"No login\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "raises",
+          "class": "KeyError",
+          "message": "Key path balances not found"
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "No login",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":-1022,\"msg\":\"No login\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "API key does not exist",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":-1022,\"msg\":\"API key does not exist\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "Invalid Api-Key ID.",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":-1022,\"msg\":\"Invalid Api-Key ID.\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "Signature for this request is not valid.",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":-1022,\"msg\":\"Signature for this request is not valid.\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
           },
           "form": {},
           "key_header": "test-key"

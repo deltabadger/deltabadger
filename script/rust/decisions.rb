@@ -220,8 +220,9 @@ VENUES = {
                                 passphrase: nil, key: '0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123',
                                 secret: '0x4c0883a69102937d6231471b5dbb6204fe5129617082792ae468d01a3f362318'),
   'bybit' => VenueRow.new(scripted: ScriptedVenue.new(host: 'api.bybit.com', name: 'Bybit', order: 'POST /v5/order/create', body: :json, strip: %w[orderLinkId]),
-                          exchange: 'Exchanges::Bybit', name: 'Bybit', ticker: 'BTCUSDT', quote: TETHER, passphrase: nil)
-
+                          exchange: 'Exchanges::Bybit', name: 'Bybit', ticker: 'BTCUSDT', quote: TETHER, passphrase: nil),
+  'bitrue' => VenueRow.new(scripted: ScriptedVenue.new(host: 'openapi.bitrue.com', name: 'Bitrue', order: 'POST /api/v1/order', body: :query, strip: %w[timestamp signature]),
+                         exchange: 'Exchanges::Bitrue', name: 'Bitrue', ticker: 'BTCUSDT', quote: TETHER, passphrase: nil)
 }.freeze
 
 module Decisions
@@ -3608,6 +3609,64 @@ module Decisions
     list.tap { |l| raise "the Hyperliquid grid has #{l.size} scenarios, not #{180 + 1}" unless l.size == 180 + 1 }
   end
 
+  # Bitrue shares the query-shaped grid inputs, with its own codes, statuses and base sizing.
+  def bitrue_scenarios
+    cases = mexc_scenarios.map do |scenario|
+      sc = JSON.parse(JSON.generate(scenario).gsub('mexc', 'bitrue').gsub('MEXC', 'Bitrue').gsub('api.bitrue.com', 'openapi.bitrue.com')
+                          .gsub('/api/v3/', '/api/v1/').gsub('C02__', '').gsub('PARTIALLY_CANCELED', 'CANCELED').gsub('PENDING_CANCEL', 'UNLISTED'))
+      sc['script']['bitrue'].each_value do |replies|
+        replies.each do |reply|
+          body = reply['body']
+          next unless body.is_a?(Hash)
+
+          Array(body['balances']).each { |row| row['asset'] = row['asset'].downcase }
+          if body['code']
+            code, msg = case body['code']
+                        when 700_003 then [-1102, 'recvWindow IllegalArgumentException.']
+                        when 10_101 then [-2010, 'Insufficient account balance.']
+                        when 30_002 then [-1013, 'Filter failure: LOT_SIZE']
+                        when 10_072 then [-1022, 'No login']
+                        when 700_002 then [-1022, 'Signature for this request is not valid.']
+                        when 700_007 then [-2015, "You don't have permission."]
+                        when 503 then [-1000, 'System abnormality']
+                        else [body['code'], body['msg']]
+                        end
+            body['code'], body['msg'] = code, msg
+          end
+        end
+      end
+      sc
+    end
+    cases.select { |sc| sc['name'].end_with?('-first_tick') }.each do |base|
+      %w[PENDING_CREATE PENDING_CANCEL].each do |status|
+        sc = Marshal.load(Marshal.dump(base))
+        sc['name'] = sc['name'].sub('first_tick', status.downcase)
+        sc['transactions'] = [{ 'status' => 0, 'external_status' => 1, 'external_id' => 'BTCUSDT-501', 'order_type' => 1,
+                                'amount' => '0.001', 'price' => '64000', 'created_at' => '2026-09-01 10:00:00' }]
+        sc['script']['bitrue']['GET /api/v1/order'] = [ok(mx_order('501', status, type: 'LIMIT'))]
+        cases << sc
+      end
+      sc = Marshal.load(Marshal.dump(base))
+      sc['name'] = sc['name'].sub('first_tick', 'add_unknown_code')
+      sc['script']['bitrue']['POST /api/v1/order'] = [mx_err(400, -9999, 'InvalidNonce')]
+      cases << sc
+      sweep = cases.find { |scenario| scenario['name'] == base['name'].sub('first_tick', 'sweep_new') }
+      sc = Marshal.load(Marshal.dump(sweep))
+      sc['name'] = sc['name'].sub('sweep_new', 'read_throttle')
+      sc['script']['bitrue']['GET /api/v1/order'] = [{ 'status' => 429, 'body' => 'slow down' }]
+      cases << sc
+      %w[found missing].each do |result|
+        sc = Marshal.load(Marshal.dump(base))
+        sc['name'] = sc['name'].sub('first_tick', "landed_#{result}")
+        sc['recover_at'] = (Time.iso8601(sc['at']) + 60).iso8601(6)
+        sc['script']['bitrue']['POST /api/v1/order'] = [POST_SEND]
+        sc['script']['bitrue']['GET /api/v1/order'] = [result == 'found' ? ok(mx_order('601', 'FILLED', executed: '0.000937', cumulative: '59.968').merge('clientOrderId' => '$client_order_id')) : mx_err(200, -2013, 'Could not find order information')]
+        cases << sc
+      end
+    end
+    cases
+  end
+
   # Slice 7a: the price rule of the active side with the `pause` action, on all three venues and both directions. The tick at
   # `at` passes, pauses or fails; a scenario with `check_at` then runs Bot::PriceLimitCheckJob there (and the Bot::ActionJob it
   # enqueues when met). Every check job a phase queues is recorded with its time.
@@ -4193,7 +4252,7 @@ def web_save(dir)
 end
 
 command, root = ARGV
-USAGE = 'usage: grid <root> | grid-signal <root> | grid-alpaca <root> | grid-basket <root> | grid-limit <root> | grid-binance <root> | grid-binance-us <root> | grid-kucoin <root> | grid-bitvavo <root> | grid-bitget <root> | grid-gemini <root> | grid-mexc <root> | grid-hyperliquid <root> | grid-bybit <root> | grid-sell <root> | grid-venue-basket <root> | grid-venue-index <root> | grid-conditions <root> | grid-basket-sell <root> | grid-rebalance <root> | record <root> | web-save <dir>'.freeze
+USAGE = 'usage: grid <root> | grid-signal <root> | grid-alpaca <root> | grid-basket <root> | grid-limit <root> | grid-binance <root> | grid-binance-us <root> | grid-kucoin <root> | grid-bitvavo <root> | grid-bitget <root> | grid-gemini <root> | grid-mexc <root> | grid-hyperliquid <root> | grid-bybit <root> | grid-bitrue <root> | grid-sell <root> | grid-venue-basket <root> | grid-venue-index <root> | grid-conditions <root> | grid-basket-sell <root> | grid-rebalance <root> | record <root> | web-save <dir>'.freeze
 raise ArgumentError, USAGE unless root
 
 case command
@@ -4213,6 +4272,7 @@ when 'grid-bitget' then Decisions.grid(root, Decisions.bitget_scenarios)
 when 'grid-mexc' then Decisions.grid(root, Decisions.mexc_scenarios)
 when 'grid-hyperliquid' then Decisions.grid(root, Decisions.hyperliquid_scenarios)
 when 'grid-bybit' then Decisions.grid(root, Decisions.bybit_scenarios)
+when 'grid-bitrue' then Decisions.grid(root, Decisions.bitrue_scenarios)
 when 'grid-sell' then Decisions.grid(root, Decisions.sell_scenarios)
 when 'grid-venue-basket' then Decisions.grid(root, Decisions.venue_basket_scenarios)
 when 'grid-basket-sell' then Decisions.grid(root, Decisions.basket_sell_scenarios)
