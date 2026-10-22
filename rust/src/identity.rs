@@ -85,7 +85,8 @@ fn failure(status: u16, body: &str) -> Observed {
 pub fn kucoin_answer(status: u16, body: &str) -> Observed {
     let Ok(v) = serde_json::from_str::<Value>(body) else { return failure(status, body) };
     if !(200..300).contains(&status) || v["code"] != "200000" { return failure(status, body); }
-    AccountId::from_json(&v["data"]["uid"]).map_or_else(|| failure(status, body), Observed::Read)
+    // A success answer without a readable uid (KuCoin masks it for some keys): its success code is no error code.
+    AccountId::from_json(&v["data"]["uid"]).map_or_else(|| Observed::Failed(format!("http {status}")), Observed::Read)
 }
 
 /// Binance's (and Binance.US's) GET /api/v3/account: its `uid`; an error envelope is a failure.
@@ -222,7 +223,8 @@ fn key_row(c: &Connection, api_key_id: i64) -> rusqlite::Result<Option<(i64, i64
 /// - A read id replaces the credential's observation; when the key is the one the sync reads with, it also fills the
 ///   account's unknown fingerprint.
 /// - A failure only notes itself, and keeps the last observation unless the material changed (a real replacement).
-///   Before any identity key exists a failure records nothing (the job retries it).
+///   Before any identity key exists it is noted without a material digest, so its backoff still holds and the job
+///   reaches the credentials after it.
 ///
 /// `version` is the ciphertext version the read was made under (the check's producer); it is stored only when it names
 /// this key (a key saved for the first time was checked under a pending id, so the job re-reads it once).
@@ -248,11 +250,16 @@ pub fn record(c: &Connection, cipher: &Cipher, api_key_id: i64, credentials: &Cr
             if reading_key(c, user_id, exchange_id)? == Some(api_key_id) { establish(c, account, &fingerprint, &encrypted, now).map_err(db)?; }
         }
         Observed::Failed(code) => {
-            let Some(key) = existing_key(c, cipher) else { return Ok(()) };
+            let Some(key) = existing_key(c, cipher) else {
+                c.execute("INSERT INTO exchange_account_credentials (api_key_id, exchange_id, last_failure_at, last_failure_code) VALUES (?1, ?2, ?3, ?4)
+                           ON CONFLICT (api_key_id) DO UPDATE SET exchange_id = excluded.exchange_id, last_failure_at = excluded.last_failure_at, last_failure_code = excluded.last_failure_code",
+                          params![api_key_id, exchange_id, at, code]).map_err(db)?;
+                return Ok(());
+            };
             let digest = key.material_digest(credentials);
-            let stored: Option<String> = c.query_row("SELECT material_digest FROM exchange_account_credentials WHERE api_key_id = ?1", [api_key_id], |r| r.get(0)).optional().map_err(db)?;
+            let stored: Option<Option<String>> = c.query_row("SELECT material_digest FROM exchange_account_credentials WHERE api_key_id = ?1", [api_key_id], |r| r.get(0)).optional().map_err(db)?;
             match stored {
-                Some(stored) if stored == digest => c.execute("UPDATE exchange_account_credentials SET last_failure_at = ?2, last_failure_code = ?3 WHERE api_key_id = ?1",
+                Some(Some(stored)) if stored == digest => c.execute("UPDATE exchange_account_credentials SET last_failure_at = ?2, last_failure_code = ?3 WHERE api_key_id = ?1",
                                                               params![api_key_id, at, code]),
                 Some(_) => c.execute("UPDATE exchange_account_credentials SET exchange_id = ?2, material_digest = ?3, observed_credential_version = NULL, fingerprint = NULL,
                                       account_id_enc = NULL, observed_at = NULL, last_failure_at = ?4, last_failure_code = ?5 WHERE api_key_id = ?1",
@@ -424,10 +431,12 @@ impl<C: crate::sync::jobs::Connect> crate::jobs::Job for Discovery<C> {
             if due.is_empty() { return Outcome::NothingNew; }
             for credential in due {
                 let Some(proxy) = crate::venue::registry::key_check_proxy(&credential.exchange_type) else { continue };
-                let stored = cx.db.run(move |c, cipher| crate::app_config::get(c, cipher, &format!("proxy_{proxy}"))).await.ok().flatten();
-                let observed = match self.venues.key_check_egress(&credential.exchange_type, stored) {
-                    Ok((base, client)) => read_live(&credential.exchange_type, &base, client, &credential.credentials).await,
-                    Err(_) => Some(Observed::Failed("no egress".into())),
+                // As the key check (sync::jobs::Validator): a proxy setting that cannot be read sends nothing, never goes around it.
+                let stored = cx.db.run(move |c, cipher| crate::app_config::get(c, cipher, &format!("proxy_{proxy}"))).await;
+                let observed = match stored.map(|stored| self.venues.key_check_egress(&credential.exchange_type, stored)) {
+                    Err(_) => Some(Observed::Failed("proxy unreadable".into())),
+                    Ok(Ok((base, client))) => read_live(&credential.exchange_type, &base, client, &credential.credentials).await,
+                    Ok(Err(_)) => Some(Observed::Failed("no egress".into())),
                 };
                 let Some(observed) = observed else { continue };
                 let at = cx.clock.now();

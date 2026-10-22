@@ -42,7 +42,7 @@ const RUST_TABLES: &[(&str, TableContract)] = &[
         ("id", "INTEGER", false), ("user_id", "INTEGER", true), ("exchange_id", "INTEGER", true), ("fingerprint", "TEXT", false),
         ("account_id_enc", "BLOB", false), ("created_at", "TEXT", true), ("updated_at", "TEXT", true)], unique_indexes: &[&["user_id", "exchange_id"]] }),
     ("20261022000001", TableContract { name: "exchange_account_credentials", columns: &[
-        ("api_key_id", "INTEGER", false), ("exchange_id", "INTEGER", true), ("material_digest", "TEXT", true), ("observed_credential_version", "TEXT", false),
+        ("api_key_id", "INTEGER", false), ("exchange_id", "INTEGER", true), ("material_digest", "TEXT", false), ("observed_credential_version", "TEXT", false),
         ("fingerprint", "TEXT", false), ("account_id_enc", "BLOB", false), ("observed_at", "TEXT", false), ("last_failure_at", "TEXT", false),
         ("last_failure_code", "TEXT", false)], unique_indexes: &[] }),
     ("20261022000001", TableContract { name: "exchange_account_imports", columns: &[

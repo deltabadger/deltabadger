@@ -11,11 +11,12 @@ CREATE TABLE exchange_accounts (
   updated_at TEXT NOT NULL,
   UNIQUE (user_id, exchange_id)
 );
--- The last identity observation of each credential, and its last failed read.
+-- The last identity observation of each credential, and its last failed read. material_digest is NULL only for a
+-- failure noted before the install had an identity key.
 CREATE TABLE exchange_account_credentials (
   api_key_id INTEGER PRIMARY KEY,
   exchange_id INTEGER NOT NULL,
-  material_digest TEXT NOT NULL,
+  material_digest TEXT,
   observed_credential_version TEXT,
   fingerprint TEXT,
   account_id_enc BLOB,

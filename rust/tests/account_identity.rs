@@ -566,3 +566,59 @@ async fn discovery_observes_idle_keys_of_every_type_and_survives_a_restart() {
                (Standing::Conflicted, CredentialStanding::Conflict, CredentialStanding::Bound));
     assert_eq!(identity::due(&fx.c, &fx.cipher, now() + Duration::days(8)).unwrap().len(), 2, "weekly");
 }
+
+/// On an upgraded install (no identity key yet), credentials whose reads fail back off like any other failure, so the
+/// next run reaches the credentials behind them and the first healthy one bootstraps the key.
+#[tokio::test(flavor = "current_thread")]
+async fn failing_reads_before_the_identity_key_exists_back_off_so_discovery_reaches_later_credentials() {
+    use wiremock::{matchers::{header, method, path}, Mock, MockServer, ResponseTemplate};
+    let server = MockServer::start().await;
+    let mut ok = fixture()["kucoin_api_key"].clone();
+    ok["data"]["uid"] = json!(A.parse::<u64>().unwrap());
+    Mock::given(method("GET")).and(path(identity::KUCOIN_PATH)).and(header("KC-API-KEY", "kc-ok")).respond_with(ResponseTemplate::new(200).set_body_json(ok)).with_priority(1).mount(&server).await;
+    Mock::given(method("GET")).and(path(identity::KUCOIN_PATH)).respond_with(ResponseTemplate::new(401).set_body_json(json!({"code": "400003", "msg": "KC-API-KEY not exists"}))).mount(&server).await;
+    let fx = Fx::new();
+    for n in 0..10 { fx.key(KUCOIN, 1, &format!("kc-fail-{n}")); }
+    let healthy = fx.key(KUCOIN, 0, "kc-ok");
+    for run in 0..2 {
+        for d in identity::due(&fx.c, &fx.cipher, now() + Duration::minutes(run)).unwrap() {
+            let observed = identity::read_live(&d.exchange_type, &server.uri(), deltabadger::venue::http::client(), &d.credentials).await.unwrap();
+            assert!(identity::publish(&fx.c, &fx.cipher, &d, &observed, now() + Duration::minutes(run)).unwrap());
+        }
+    }
+    assert_ne!(identity::credential_standing(&fx.c, healthy).unwrap(), CredentialStanding::Unobserved, "the healthy credential is observed within two runs");
+    assert!(identity::existing_key(&fx.c, &fx.cipher).is_some(), "and bootstraps the identity key");
+}
+
+struct Egress(String);
+impl deltabadger::sync::jobs::Connect for Egress {
+    type T = deltabadger::venue::http::ReqwestTransport;
+    fn connect(&self, c: &Credentials) -> deltabadger::venue::alpaca::AlpacaVenue<Self::T> {
+        deltabadger::venue::alpaca::AlpacaVenue::new(deltabadger::venue::http::ReqwestTransport::new(deltabadger::venue::http::client(), c.key.clone(), c.secret.clone()),
+                                                     deltabadger::venue::alpaca::Urls { trading: self.0.clone(), data: self.0.clone() })
+    }
+    fn key_check_egress(&self, _: &str, _: Option<String>) -> Result<(String, reqwest::Client), String> { Ok((self.0.clone(), deltabadger::venue::http::client())) }
+}
+
+/// A stored proxy setting that cannot be read is never taken for "no proxy": the credential's read is not sent this run,
+/// and the failure is recorded with its backoff.
+#[tokio::test(flavor = "current_thread")]
+async fn an_unreadable_proxy_setting_sends_no_identity_read_and_records_a_failure() {
+    use deltabadger::jobs::{Cx, Db, Job};
+    use wiremock::{matchers::method, Mock, MockServer, ResponseTemplate};
+    let server = MockServer::start().await;
+    Mock::given(method("GET")).respond_with(ResponseTemplate::new(200)).expect(0).mount(&server).await;
+    let fx = Fx::new();
+    let key = fx.key(KUCOIN, 0, "kc-a");
+    // Encrypted under another instance's keys: stored, and unreadable here.
+    let other = Cipher::new(&deltabadger::crypto::EncryptionKeys::resolve(&|_| None, "another-instance").unwrap());
+    fx.c.execute("INSERT INTO app_configs (key, value, created_at, updated_at) VALUES ('proxy_kucoin', ?1, '2026-01-01', '2026-01-01')", [other.encrypt("http://proxy.invalid:3128")]).unwrap();
+    assert!(deltabadger::app_config::get(&fx.c, &fx.cipher, "proxy_kucoin").is_err());
+    let clock = deltabadger::engine::FixedClock(now());
+    let cx = Cx { db: Db::new(Connection::open(fx.dir.path().join("production.sqlite3")).unwrap(), fx.cipher.clone()), clock: &clock, wakers: Default::default() };
+    identity::Discovery { venues: Egress(server.uri()) }.run(cx, vec![]).await;
+    server.verify().await;
+    let failed: Option<String> = fx.c.query_row("SELECT last_failure_code FROM exchange_account_credentials WHERE api_key_id = ?1", [key], |r| r.get(0)).unwrap();
+    assert_eq!(failed.as_deref(), Some("proxy unreadable"));
+    assert!(identity::due(&fx.c, &fx.cipher, now()).unwrap().is_empty(), "the failure backs off");
+}

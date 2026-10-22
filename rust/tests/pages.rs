@@ -677,6 +677,17 @@ fn copy_scenario(from: &Path, to: &Path) {
     }
 }
 
+/// An answer's row snapshots without Rust's own tables: Rails' installs never hold them (db/schema.rb has none), so they
+/// are left out of Rails against Rust. What Rust writes to them is checked on Rust's side alone (forbidden writes).
+fn without_rust_tables(answer: &Value) -> Value {
+    let rust_owned = deltabadger::store::REGISTRY.owned_tables();
+    let mut answer = answer.clone();
+    for key in ["rows_before", "rows_after", "other_rows_before", "other_rows_after"] {
+        if let Some(rows) = answer.get_mut(key).and_then(Value::as_object_mut) { rows.retain(|table, _| !rust_owned.contains(&table.as_str())); }
+    }
+    answer
+}
+
 fn difference(name: &str, rails: &Value, rust: &Value) -> Option<String> {
     let theirs = rails["responses"].as_array()?;
     let ours = rust["responses"].as_array()?;
@@ -695,7 +706,9 @@ fn difference(name: &str, rails: &Value, rust: &Value) -> Option<String> {
     if ours.len() != theirs.len() {
         return Some(format!("{name}: Rails recorded {} responses, this crate gave {}", theirs.len(), ours.len()));
     }
+    // The action snapshots were compared above (action_snapshot_difference); the rest of each answer is compared whole.
     for (index, (a, b)) in theirs.iter().zip(ours).enumerate() {
+        let (a, b) = (&without_rust_tables(a), &without_rust_tables(b));
         if a == b { continue; }
         if a.get("settings_rows") != b.get("settings_rows") { return Some(format!("{name} step {index}: settings rows differ\n  rails: {}\n  rust: {}",a["settings_rows"],b["settings_rows"])); }
         for key in ["venue_requests", "raw_rows", "session", "job_classes"] {
@@ -712,7 +725,14 @@ fn difference(name: &str, rails: &Value, rust: &Value) -> Option<String> {
             Value::Array(lines) => lines.iter().map(|l| l.as_str().unwrap_or_default().to_string()).collect::<Vec<_>>(),
             text => vec![text.as_str().unwrap_or_default().to_string()],
         };
-        return Some(format!("{name} step {index}: {}", html::first_difference(&lines(&a["body"]), &lines(&b["body"])).unwrap_or_default()));
+        // Never an empty message: when the bodies agree, name what else differs.
+        let differing = || {
+            let keys: std::collections::BTreeSet<&String> = a.as_object().into_iter().chain(b.as_object()).flat_map(|o| o.keys()).collect();
+            let keys: Vec<String> = keys.into_iter().filter(|k| a.get(k.as_str()) != b.get(k.as_str()))
+                .map(|k| format!("{k}\n  rails: {}\n  rust:  {}", a.get(k.as_str()).unwrap_or(&Value::Null), b.get(k.as_str()).unwrap_or(&Value::Null))).collect();
+            format!("the answers differ outside the body: {}", keys.join("\n"))
+        };
+        return Some(format!("{name} step {index}: {}", html::first_difference(&lines(&a["body"]), &lines(&b["body"])).unwrap_or_else(differing)));
     }
     None
 }
@@ -1000,8 +1020,12 @@ fn listed_divergence(name: &str, scenario: &Value, rails: &Value, rust: &Value) 
         "missing_" => {
             // A step with a snapshot (the webhook's): what it wrote and enqueued is Rails', key by key; then the answer alone.
             let snapshot = ["action_snapshot", "rows_before", "rows_after", "other_rows_before", "other_rows_after", "may_mutate", "raw_rows", "job_classes"];
-            if let Some(key) = snapshot.iter().find(|key| rails_last.get(**key) != rust_last.get(**key)) {
-                return Some(Err(format!("the refusal's {key} differs:\n  rails: {}\n  rust:  {}", rails_last[*key], rust_last[*key])));
+            let rust_owned = deltabadger::store::REGISTRY.owned_tables();
+            let own = |key: &str| -> Value { Value::Object(rust_last[key].as_object().into_iter().flatten().filter(|(t, _)| rust_owned.contains(&t.as_str())).map(|(k, v)| (k.clone(), v.clone())).collect()) };
+            if own("rows_before") != own("rows_after") || own("other_rows_before") != own("other_rows_after") { return Some(Err("the refusal wrote to Rust's own tables".into())); }
+            let (rails_rows, rust_rows) = (without_rust_tables(&rails_last), without_rust_tables(&rust_last));
+            if let Some(key) = snapshot.iter().find(|key| rails_rows.get(**key) != rust_rows.get(**key)) {
+                return Some(Err(format!("the refusal's {key} differs:\n  rails: {}\n  rust:  {}", rails_rows[*key], rust_rows[*key])));
             }
             let mut rust_last = rust_last.clone();
             for key in snapshot { rust_last.as_object_mut().unwrap().remove(key); }
