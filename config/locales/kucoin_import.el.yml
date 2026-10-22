@@ -1,0 +1,5 @@
+el:
+    tracker:
+        import:
+            format_kucoin: "KuCoin CSV"
+            generic: "Καταγράφηκαν με γενική ετικέτα: %{count}."

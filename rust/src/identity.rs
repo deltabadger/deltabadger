@@ -321,18 +321,21 @@ pub fn export_account_id(table: &crate::tracker::import::csv::Table, columns: &[
 pub enum Standing {
     /// No fingerprint known, and at most one seen.
     Unknown,
-    /// A known fingerprint, and every current credential seen agrees with it.
+    /// A known fingerprint, and every current credential seen and every imported export agrees with it.
     Bound,
-    /// A current credential belongs to another account than the known one, or, the account unknown, two credentials
-    /// belong to different accounts.
+    /// A current credential or an imported export belongs to another account than the known one, or, the account
+    /// unknown, two of them belong to different accounts. Whichever came first established the account, so a file
+    /// after a key and a key after a file both read here.
     Conflicted,
 }
 
-/// The fingerprints of (user, exchange)'s current credentials (keys still stored), and the account's own.
+/// The distinct fingerprints of (user, exchange)'s current credentials (keys still stored) and of its imported exports,
+/// and the account's own.
 fn seen(c: &Connection, user_id: i64, exchange_id: i64) -> rusqlite::Result<(Option<String>, Vec<String>)> {
     let account = c.query_row("SELECT fingerprint FROM exchange_accounts WHERE user_id = ?1 AND exchange_id = ?2", [user_id, exchange_id], |r| r.get(0)).optional()?.flatten();
-    let mut s = c.prepare("SELECT DISTINCT o.fingerprint FROM exchange_account_credentials o JOIN api_keys k ON k.id = o.api_key_id
-                           WHERE k.user_id = ?1 AND k.exchange_id = ?2 AND o.fingerprint IS NOT NULL ORDER BY 1")?;
+    let mut s = c.prepare("SELECT o.fingerprint FROM exchange_account_credentials o JOIN api_keys k ON k.id = o.api_key_id
+                           WHERE k.user_id = ?1 AND k.exchange_id = ?2 AND o.fingerprint IS NOT NULL
+                           UNION SELECT fingerprint FROM exchange_account_imports WHERE user_id = ?1 AND exchange_id = ?2 ORDER BY 1")?;
     let observed = s.query_map([user_id, exchange_id], |r| r.get(0))?.collect::<Result<Vec<String>, _>>()?;
     Ok((account, observed))
 }

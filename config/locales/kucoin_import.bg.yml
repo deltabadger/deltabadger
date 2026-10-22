@@ -1,0 +1,5 @@
+bg:
+    tracker:
+        import:
+            format_kucoin: "KuCoin CSV"
+            generic: "Записани с общ етикет: %{count}."

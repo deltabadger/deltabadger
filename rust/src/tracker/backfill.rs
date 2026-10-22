@@ -259,6 +259,15 @@ pub struct Swept { pub whole: Vec<(NaiveDate, Day)>, pub venue: Vec<(i64, NaiveD
 /// Quantities per venue, by symbol.
 type Held = BTreeMap<String, BTreeMap<String, Dec>>;
 
+/// The quantities `sweep` holds per venue and symbol once every one of `rows` is applied (rows in walk order).
+pub fn held(rows: &[Stored]) -> Result<BTreeMap<String, BTreeMap<String, Dec>>, FiguresError> {
+    let by_id: HashMap<i64, &Stored> = rows.iter().map(|r| (r.id, r)).collect();
+    let inverse: std::collections::HashSet<i64> = rows.iter().filter_map(|r| r.linked_to).collect();
+    let mut held: Held = BTreeMap::new();
+    for t in rows { apply(&mut held, t, &|r: &Stored| r.linked_to.is_some() || inverse.contains(&r.id), &by_id)?; }
+    Ok(held)
+}
+
 fn add(held: &mut Held, venue: &str, symbol: &str, amount: &Dec) -> Result<(), FiguresError> {
     crate::figures::budget::charge(1, 0)?;
     let q = held.entry(venue.to_string()).or_default().entry(symbol.to_string()).or_insert_with(Dec::zero);

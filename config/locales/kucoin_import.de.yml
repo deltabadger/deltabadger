@@ -1,0 +1,5 @@
+de:
+    tracker:
+        import:
+            format_kucoin: "KuCoin CSV"
+            generic: "Mit allgemeiner Bezeichnung erfasst: %{count}."

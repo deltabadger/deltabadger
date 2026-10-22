@@ -106,7 +106,7 @@ async fn read_page<T: Transport>(venue: &KucoinVenue<T>, wait: std::time::Durati
 }
 
 /// One fill as #get_ledger maps it: a buy or a sell of the symbol's base for its quote, the fee's absolute value.
-fn fill(raw: Raw) -> Result<Entry, Fail> {
+pub(crate) fn fill(raw: Raw) -> Result<Entry, Fail> {
     let symbol = raw.value["symbol"].as_str().ok_or_else(|| ("unreadable fill symbol".to_string(), true))?.to_string();
     let mut parts = symbol.split('-');
     let (base, quote) = (parts.next().unwrap_or_default().to_string(), parts.next().map(str::to_string));

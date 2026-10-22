@@ -2,16 +2,17 @@
 //! format, each row routed to the account it belongs to, and everything written by the sync's own writer
 //! (`sync::ledger::store_file`) in ONE transaction, as Rails writes it: a file lands whole or not at all, and an API
 //! sync of the same venue, which takes the same write lock, waits for it and then reads the whole file as stored.
-use super::{binance, csv, deltabadger};
+use super::{binance, csv, deltabadger, kucoin};
 use crate::engine::model;
 use crate::sync::activities::Entry;
 use crate::sync::{ledger, Key, SyncError};
 use crate::venue::binance::{BINANCE, BINANCE_US};
+use crate::venue::kucoin::KUCOIN;
 use chrono::{DateTime, Utc};
 use rusqlite::Connection;
 
-/// Import::Run::FORMATS, in their order, and Import::Run::DEFAULT_FORMAT.
-pub const FORMATS: [&str; 2] = ["deltabadger", "binance"];
+/// Import::Run::FORMATS, in their order, and Import::Run::DEFAULT_FORMAT. `kucoin` is Rust's own (D-IMPORT-FORMATS).
+pub const FORMATS: [&str; 3] = ["deltabadger", "binance", "kucoin"];
 pub const DEFAULT_FORMAT: &str = "deltabadger";
 
 /// A key ApiKey.reading answers: the one a venue of the user's is read with.
@@ -26,7 +27,8 @@ pub enum Answer {
     /// `ambiguous: true` and the accounts the file could be from; nothing written.
     Ambiguous(Vec<Reading>),
     /// The counts of the one write, with the readers' unrecognised operations and the venues no account takes.
-    Written { imported: usize, duplicates: usize, skipped: usize, unrecognised: Vec<String>, unrouted: Vec<String> },
+    /// `generic`: of the imported entries, those a KuCoin file could only label generically (D-IMPORT-WARNINGS).
+    Written { imported: usize, duplicates: usize, skipped: usize, unrecognised: Vec<String>, unrouted: Vec<String>, generic: usize },
 }
 
 /// Tracker::ImportsController#resolve_offset for a fresh upload: `None` for a format that needs no zone, else the
@@ -72,8 +74,9 @@ pub fn reading(c: &Connection, user_id: i64) -> Result<Vec<Reading>, SyncError> 
 }
 
 /// A file as read, before any database is touched: each entry with the venue it names (None: the format's own venue),
-/// the operations the reader did not recognise, and a venue-native export's account id (crate::identity).
-pub struct Read { entries: Vec<(Option<String>, Entry)>, unrecognised: Vec<String>, account_id: Option<crate::identity::AccountId> }
+/// the operations the reader did not recognise, a KuCoin export's rows (stored as rows, `kucoin::store`), and a
+/// venue-native export's account id (crate::identity).
+pub struct Read { entries: Vec<(Option<String>, Entry)>, unrecognised: Vec<String>, rows: Vec<kucoin::SourceRow>, account_id: Option<crate::identity::AccountId> }
 
 /// What a column holds of an amount: its nearest double, which must be finite (Rails stores 1e309 as Infinity, which
 /// no later read takes; this refuses the file instead).
@@ -86,12 +89,21 @@ fn storable(e: &Entry) -> bool {
 pub fn read(format: &str, bytes: &[u8], offset: Option<&str>) -> Result<Read, Answer> {
     let text = csv::as_text(bytes);
     let mut account_id = None;
+    let mut rows = vec![];
     let (entries, unrecognised): (Vec<(Option<String>, Entry)>, Vec<String>) = match format {
         // D-IMPORT-UID: Binance's own export names its account (`User ID`, or `User_ID`) on every record. It is read
         // over every record before the reader skips any; a missing, blank, masked or mixed id is a malformed export.
         "binance" => match csv::Table::parse(&text).and_then(|table| crate::identity::export_account_id(&table, &crate::identity::BINANCE_EXPORT_COLUMNS))
             .and_then(|id| { account_id = id; binance::read(&text, offset) }) {
             Ok(read) => (read.entries.into_iter().map(|e| (None, e)).collect(), read.unrecognised),
+            Err(_) => return Err(Answer::Error("malformed")),
+        },
+        // KuCoin's export names its account (`UID`) on every record, read as Binance's is.
+        "kucoin" => match csv::Table::parse(&text).and_then(|table| {
+            account_id = crate::identity::export_account_id(&table, &crate::identity::KUCOIN_EXPORT_COLUMNS)?;
+            kucoin::read(&table)
+        }) {
+            Ok(read) => { rows = read; (vec![], vec![]) }
             Err(_) => return Err(Answer::Error("malformed")),
         },
         "deltabadger" => match deltabadger::read(&text) {
@@ -101,8 +113,8 @@ pub fn read(format: &str, bytes: &[u8], offset: Option<&str>) -> Result<Read, An
         _ => return Err(Answer::Error("unreadable")),
     };
     if !entries.iter().all(|(_, e)| storable(e)) { return Err(Answer::Error("malformed")); }
-    if entries.is_empty() && unrecognised.is_empty() { return Err(Answer::Error("unreadable")); }
-    Ok(Read { entries, unrecognised, account_id })
+    if entries.is_empty() && unrecognised.is_empty() && rows.is_empty() { return Err(Answer::Error("unreadable")); }
+    Ok(Read { entries, unrecognised, rows, account_id })
 }
 
 /// Import::Run#import!: `bytes` read in `format` at `offset` and written for `user_id` (`read`, then `write`).
@@ -115,14 +127,16 @@ pub fn import(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i64, form
 /// question was answered with: taken only when it is one of the accounts offered. Routing and writing run under one
 /// write lock (`BEGIN IMMEDIATE`).
 pub fn write(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i64, format: &str, file: Read, chosen: Option<&str>, now: DateTime<Utc>) -> Result<Answer, SyncError> {
-    let Read { entries, unrecognised, account_id } = file;
+    let Read { entries, unrecognised, rows: kucoin_rows, account_id } = file;
     let tx = model::immediate(c)?;
     let keys = reading(&tx, user_id)?;
     // #route: [account, its entries] in the order the rows first name them, and the venues nothing here takes.
     let mut routed: Vec<(Reading, Vec<Entry>)> = vec![];
     let mut unrouted: Vec<String> = vec![];
-    if format == "binance" {
-        let options: Vec<Reading> = keys.into_iter().filter(|k| [BINANCE, BINANCE_US].contains(&k.exchange_type.as_str())).collect();
+    // A venue's own export goes to that venue's account.
+    let venues: &[&str] = match format { "binance" => &[BINANCE, BINANCE_US], "kucoin" => &[KUCOIN], _ => &[] };
+    if !venues.is_empty() {
+        let options: Vec<Reading> = keys.into_iter().filter(|k| venues.contains(&k.exchange_type.as_str())).collect();
         let picked = match chosen.and_then(|id| options.iter().find(|k| k.id.to_string() == id)) {
             Some(key) => key.clone(),
             None if options.is_empty() => return Ok(Answer::Error("no_account_for_format")),
@@ -144,18 +158,23 @@ pub fn write(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i64, forma
     // #write: one transaction across every account the file touches. Fenced on no credential: an import reads none
     // (the venue's API is never called), so no credential change can make what it writes stale.
     let fenced = model::fence_versions(&tx, &[])?;
-    let (mut imported, mut duplicates, mut skipped) = (0, 0, 0);
+    let (mut imported, mut duplicates, mut skipped, mut generic) = (0, 0, 0, 0);
     for (reading, rows) in routed {
         let key = Key { id: reading.id, user_id, exchange_id: reading.exchange_id, status: 1, key_type: reading.key_type, last_synced_at: None,
                         last_sync_error: None, exchange_type: reading.exchange_type };
-        let out = ledger::store_file(&fenced, &key, rows, now)?;
-        (imported, duplicates, skipped) = (imported + out.imported, duplicates + out.duplicates, skipped + out.skipped);
+        if format == "kucoin" {
+            let out = kucoin::store(&fenced, &key, &kucoin_rows, now)?;
+            (imported, duplicates, skipped, generic) = (imported + out.imported, duplicates + out.duplicates, skipped + out.skipped, generic + out.generic);
+        } else {
+            let out = ledger::store_file(&fenced, &key, rows, now)?;
+            (imported, duplicates, skipped) = (imported + out.imported, duplicates + out.duplicates, skipped + out.skipped);
+        }
         // Recorded only: the rows went where they always go, whatever account the file names.
         crate::identity::record_import(&fenced, cipher, user_id, reading.exchange_id, account_id.as_ref(), now).map_err(SyncError)?;
     }
     drop(fenced);
     tx.commit()?;
-    Ok(Answer::Written { imported, duplicates, skipped, unrecognised, unrouted })
+    Ok(Answer::Written { imported, duplicates, skipped, unrecognised, unrouted, generic })
 }
 
 #[cfg(test)]
