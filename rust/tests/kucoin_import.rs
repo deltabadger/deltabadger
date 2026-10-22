@@ -150,6 +150,23 @@ fn identical_rows_in_one_second_are_occurrences_and_both_count() {
     assert_eq!(derived(&text, &catalogue()).iter().filter(|e| e.0 == 0).count(), 2, "two trades of the same size, not one");
 }
 
+#[test]
+fn many_legs_on_one_side_aggregate_fast_and_identical_legs_pair() {
+    let at = "2026-01-01 12:00:00";
+    let mut legs: Vec<String> = (1..=8).map(|i| format!("BTC,Deposit,0.{i},0,{at},Spot")).collect();
+    legs.extend((1..=100).map(|i| format!("USDT,Withdrawal,{},0,{at},Spot", 2000 + i)));
+    let started = std::time::Instant::now();
+    let out = derived(&export(UID, &legs.iter().map(String::as_str).collect::<Vec<_>>()), &catalogue());
+    assert!(started.elapsed().as_secs() < 2, "bounded search");
+    assert_eq!(out.iter().map(|e| e.5.as_deref()).collect::<Vec<_>>(), [Some("aggregated")]);
+    let same: Vec<String> = (0..8).flat_map(|_| [format!("BTC,Deposit,0.1,0,{at},Spot"), format!("USDT,Withdrawal,2000,0,{at},Spot")]).collect();
+    let started = std::time::Instant::now();
+    let out = derived(&export(UID, &same.iter().map(String::as_str).collect::<Vec<_>>()), &catalogue());
+    assert!(started.elapsed().as_secs() < 2, "identical legs are one choice");
+    assert_eq!(out.len(), 8);
+    assert!(out.iter().all(|e| e.0 == 0 && e.5.is_none()), "{out:?}");
+}
+
 // ---- The write path ------------------------------------------------------------------------------------------------
 
 #[test]
@@ -192,16 +209,22 @@ fn complementary_exports_give_their_union_and_a_completed_second_is_rebuilt() {
 }
 
 #[test]
-fn rebuilding_a_second_clears_links_to_the_entries_it_replaces() {
+fn rebuilding_a_second_keeps_the_users_edits_on_entries_derived_as_before() {
     let fx = Fx::new();
     let at = "2026-01-01 12:00:00";
-    fx.import(&export(UID, &[&format!("BTC,Deposit,0.1,0,{at},Deposit")]));
-    let deposit: i64 = fx.count("SELECT id FROM account_transactions WHERE entry_type = 4");
+    fx.import(&export(UID, &[&format!("BTC,Deposit,0.1,0,{at},Deposit"), &format!("USDT,Withdrawal,100,0,{at},Convert")]));
+    let id = |t: i64| -> i64 { fx.count(&format!("SELECT id FROM account_transactions WHERE entry_type = {t}")) };
+    let (deposit, half) = (id(4), id(15));
+    fx.c.execute("UPDATE account_transactions SET manual_values = '{\"base_amount\":\"0.2\"}', transfer_link_rejected = 1 WHERE id = ?1", [deposit]).unwrap();
     fx.c.execute("INSERT INTO account_transactions (user_id, exchange_id, entry_type, base_currency, base_amount, transacted_at, linked_transaction_id, created_at, updated_at)
-                  VALUES (?1, ?2, 5, 'BTC', 0.1, '2025-12-31 12:00:00', ?3, '2026-01-01', '2026-01-01')", rusqlite::params![fx.user, fx.exchange, deposit]).unwrap();
-    fx.import(&export(UID, &[&format!("BTC,Deposit,0.1,0,{at},Deposit"), &format!("ETH,Deposit,1,0,{at},Deposit")]));
-    assert_eq!(fx.count("SELECT count(*) FROM account_transactions WHERE linked_transaction_id IS NOT NULL"), 0, "nullified, as dependent: :nullify does");
-    assert_eq!(fx.count("SELECT count(*) FROM account_transactions WHERE entry_type = 4"), 2);
+                  VALUES (?1, ?2, 5, 'USDT', 100, '2025-12-31 12:00:00', ?3, '2026-01-01', '2026-01-01')", rusqlite::params![fx.user, fx.exchange, half]).unwrap();
+    // The other half of the Convert: the lone half (same source row) becomes a swap leg, the deposit is derived as before.
+    fx.import(&export(UID, &[&format!("ETH,Deposit,0.05,0,{at},Convert")]));
+    let kept: (i64, String, i64) = fx.c.query_row("SELECT id, manual_values, transfer_link_rejected FROM account_transactions WHERE entry_type = 4", [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap();
+    assert_eq!(kept, (deposit, "{\"base_amount\":\"0.2\"}".into(), 1));
+    assert_eq!(fx.count("SELECT count(*) FROM account_transactions WHERE entry_type = 15"), 0, "the lone half is replaced");
+    assert_eq!(fx.count("SELECT count(*) FROM account_transactions WHERE entry_type IN (2, 3)"), 2);
+    assert_eq!(fx.count("SELECT count(*) FROM account_transactions WHERE linked_transaction_id IS NOT NULL"), 0, "the link to the replaced half is cleared");
 }
 
 #[test]

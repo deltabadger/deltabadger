@@ -18,8 +18,10 @@ use std::sync::LazyLock;
 const COLUMNS: [&str; 7] = ["Account Type", "Currency", "Side", "Amount", "Fee", "Remark", "Type"];
 /// The time column names its zone: `Time(UTC+03:00)`, `Time(UTC-5)`, `Time(UTC)`.
 static TIME_HEADER: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^Time\(UTC(?:([+-])([0-9]{1,2})(?::?([0-5][0-9]))?)?\)$").unwrap());
-/// The exhaustive pairing search runs up to this many legs on the smaller side; past it, legs are paired in size order.
+/// The exhaustive pairing search runs up to this many legs on each side; past it, legs are paired in size order.
 const EXHAUSTIVE: usize = 8;
+/// The search gives up (the legs aggregate) past this many visited nodes; 8 against 8 distinct legs is ~110k at most.
+const WORK: usize = 200_000;
 
 /// What each export `Type` is. A Type absent here is a signed adjustment of its currency (`unmapped_type`).
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -196,7 +198,7 @@ fn close(prices: &[BigDec]) -> bool {
 /// Assignments that differ only between legs of equal amounts make the same trades and are one.
 fn assign(few: &[BigDec], many: &[BigDec], few_is_base: bool, decimals: u8) -> Option<Vec<(usize, usize)>> {
     let valid = |f: usize, m: usize| if few_is_base { price(&few[f], &many[m], decimals) } else { price(&many[m], &few[f], decimals) };
-    if few.len() > EXHAUSTIVE {
+    if many.len() > EXHAUSTIVE {
         // ponytail: past EXHAUSTIVE legs, size order only (validated); an exact search there is factorial.
         if few.len() != many.len() { return None; }
         let order = |legs: &[BigDec]| { let mut i: Vec<usize> = (0..legs.len()).collect(); i.sort_by(|a, b| legs[*a].cmp(&legs[*b])); i };
@@ -207,9 +209,11 @@ fn assign(few: &[BigDec], many: &[BigDec], few_is_base: bool, decimals: u8) -> O
     /// An assignment, and the trades it makes (size and funds, sorted).
     type Found = (Vec<(usize, usize)>, Vec<(BigDec, BigDec)>);
     struct Search<'a> { valid: &'a dyn Fn(usize, usize) -> Option<BigDec>, few: &'a [BigDec], many: &'a [BigDec], path: Vec<(usize, usize, BigDec)>,
-                        found: Option<Found>, ambiguous: bool }
+                        found: Option<Found>, ambiguous: bool, work: usize }
     impl Search<'_> {
         fn walk(&mut self, f: usize) {
+            self.work += 1;
+            if self.work > WORK { self.ambiguous = true; }
             if self.ambiguous { return; }
             if f == self.few.len() {
                 if !close(&self.path.iter().map(|p| p.2.clone()).collect::<Vec<_>>()) { return; }
@@ -224,11 +228,13 @@ fn assign(few: &[BigDec], many: &[BigDec], few_is_base: bool, decimals: u8) -> O
             }
             for m in 0..self.many.len() {
                 if self.path.iter().any(|p| p.1 == m) { continue; }
+                // Equal free legs make the same trades: only the first of them is tried.
+                if (0..m).any(|e| self.many[e] == self.many[m] && !self.path.iter().any(|p| p.1 == e)) { continue; }
                 if let Some(p) = (self.valid)(f, m) { self.path.push((f, m, p)); self.walk(f + 1); self.path.pop(); }
             }
         }
     }
-    let mut search = Search { valid: &valid, few, many, path: vec![], found: None, ambiguous: false };
+    let mut search = Search { valid: &valid, few, many, path: vec![], found: None, ambiguous: false, work: 0 };
     search.walk(0);
     if search.ambiguous { None } else { search.found.map(|(pairs, _)| pairs) }
 }
@@ -306,8 +312,9 @@ fn fills(at: DateTime<Utc>, legs: &[&SourceRow], catalogue: &Catalogue) -> Vec<D
 pub struct Stored { pub imported: usize, pub duplicates: usize, pub skipped: usize, pub generic: usize }
 
 /// The file's rows for `key`'s user and exchange, inside the import's transaction: rows not yet held are stored, and
-/// every UTC second that gained one has its `kucoin_csv` entries rebuilt from all its stored rows (incoming links to
-/// the entries it replaces are cleared, as Rails' `dependent: :nullify` clears them).
+/// every UTC second that gained one has its `kucoin_csv` entries derived again from all its stored rows: an entry derived
+/// as before is left as it is (with the user's edits), the others are replaced (incoming links to the ones removed are
+/// cleared, as Rails' `dependent: :nullify` clears them).
 pub(crate) fn store(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, rows: &[SourceRow], now: DateTime<Utc>) -> Result<Stored, SyncError> {
     let mut out = Stored::default();
     let mut touched: BTreeSet<DateTime<Utc>> = BTreeSet::new();
@@ -325,15 +332,17 @@ pub(crate) fn store(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, 
     for at in touched {
         let held = held_rows(c, key, at)?;
         let derived = derive(&held, &catalogue);
-        let mut s = c.prepare_cached("SELECT id, tx_id FROM account_transactions WHERE user_id = ?1 AND exchange_id = ?2 AND transacted_at = ?3 AND tx_id LIKE 'kucoin-csv-%'")?;
-        let old: Vec<(i64, String)> = s.query_map(params![key.user_id, key.exchange_id, sql_time(at)], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<_, _>>()?;
-        for (id, _) in &old {
-            c.execute("UPDATE account_transactions SET linked_transaction_id = NULL WHERE linked_transaction_id = ?1", [id])?;
-            c.execute("DELETE FROM account_transactions WHERE id = ?1", [id])?;
+        let mut s = c.prepare_cached("SELECT id, tx_id, entry_type, group_id FROM account_transactions
+                                      WHERE user_id = ?1 AND exchange_id = ?2 AND transacted_at = ?3 AND tx_id LIKE 'kucoin-csv-%'")?;
+        type Held = (i64, Option<String>, i64, Option<String>);
+        let old: Vec<Held> = s.query_map(params![key.user_id, key.exchange_id, sql_time(at)], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?.collect::<Result<_, _>>()?;
+        // Same source rows, type and swap group: derived as before, so kept (a lone Convert half that became a swap is not).
+        let same = |o: &Held, d: &Derived| o.1 == d.entry.tx_id && o.2 == d.entry.entry_type && o.3 == d.entry.group_id;
+        for o in old.iter().filter(|o| !derived.iter().any(|d| same(o, d))) {
+            c.execute("UPDATE account_transactions SET linked_transaction_id = NULL WHERE linked_transaction_id = ?1", [o.0])?;
+            c.execute("DELETE FROM account_transactions WHERE id = ?1", [o.0])?;
         }
-        // Entries the second held before go back as they were; only the others are new.
-        let (again, fresh): (Vec<Derived>, Vec<Derived>) = derived.into_iter().partition(|d| old.iter().any(|(_, t)| Some(t) == d.entry.tx_id.as_ref()));
-        ledger::store_file(c, key, again.into_iter().map(|d| d.entry).collect(), now)?;
+        let fresh: Vec<Derived> = derived.into_iter().filter(|d| !old.iter().any(|o| same(o, d))).collect();
         let generic: Vec<String> = fresh.iter().filter(|d| d.generic).filter_map(|d| d.entry.tx_id.clone()).collect();
         let stored = ledger::store_file(c, key, fresh.into_iter().map(|d| d.entry).collect(), now)?;
         (out.imported, out.duplicates, out.skipped) = (out.imported + stored.imported, out.duplicates + stored.duplicates, out.skipped + stored.skipped);
