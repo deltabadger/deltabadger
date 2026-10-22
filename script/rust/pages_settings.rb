@@ -78,7 +78,7 @@ module Pages
         end
       when 'venues'
         # D5b: every venue the tracker's picker may list. Gemini is not available; BitMart is retired but still available.
-        [['Alpaca', 'Alpaca'], ['Binance', 'Binance'], ['BinanceUs', 'Binance.US'], ['Coinbase', 'Coinbase'], ['Kraken', 'Kraken'],
+        [['Alpaca', 'Alpaca'], ['Binance', 'Binance'], ['BinanceUs', 'Binance.US'], ['Bybit', 'Bybit'], ['Kraken', 'Kraken'],
          ['Bitmart', 'BitMart'], ['Gemini', 'Gemini', false], ['Hyperliquid', 'Hyperliquid'], ['Bitget', 'Bitget']].each do |klass, name, available|
           "Exchanges::#{klass}".constantize.create!(name:, maker_fee: 0, taker_fee: 0, available: available != false)
         end
@@ -643,7 +643,7 @@ module Pages
     grid['settings_pick_csrf'] = settings_case(pick, choose.call('1', 'csrf' => 'none', 'expect' => 302), fixture: 'venues')
     grid['missing_tracker_pick_unknown'] = settings_case(pick, choose.call('999'), fixture: 'venues')
     grid['missing_tracker_pick_without_id'] = settings_case(pick, choose.call(nil), fixture: 'venues')
-    # Coinbase (4): a venue this build does not sync yet.
+    # Bybit (4): a venue this build does not sync yet.
     grid['not_ported_tracker_key_form'] = settings_case(pick, choose.call('4'), get('/tracker/add_api_key/new'), fixture: 'venues')
     grid['settings_key_form_kraken'] = settings_case(get('/tracker/add_api_key/new?exchange_id=5'), fixture: 'venues')
     grid['settings_key_no_exchange'] = settings_case(get('/tracker/add_api_key/new'), fixture: 'venues')

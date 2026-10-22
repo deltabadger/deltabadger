@@ -488,3 +488,15 @@ pub static HYPERLIQUID: VenueRules = VenueRules {
     // Exchanges::Hyperliquid::MARKET_CROSS: a market order is a GTC limit across the book.
     cross: Some(MARKET_CROSS),
 };
+
+/// Exchanges::Coinbase: market size in either unit; limits in base; batch missing is non-authoritative.
+pub static COINBASE: VenueRules = VenueRules {
+    exchange_type: "Exchanges::Coinbase", name: "Coinbase",
+    kinds: [("insufficient_funds", &["Insufficient balance in source account"]), ("invalid_key", &[]),
+            ("permission_denied", &[]), ("restricted", &[]), ("throttle", &[]), ("transient", &[])],
+    transient_text: &NETWORK_TRANSIENT_PATTERNS, add_outcome_unknown: &[],
+    minimum_logic: MinimumLogic { market: AmountLogic::BaseOrQuote, limit: AmountLogic::BaseAndQuoteInBase },
+    wire: WireFormat::Kraken, deadline_sent: false, reach_within_secs: 55, absence_margin_secs: 1200,
+    transport_raises: false, follow_up_strict: true, market_hours: false,
+    reports_missing: true, absence_provable: false, young_missing_fails: true, price_rule: PriceRule::Decimals, cross: None,
+};

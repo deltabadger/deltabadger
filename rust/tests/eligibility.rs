@@ -287,10 +287,10 @@ fn malformed_asset_categories_incomplete_indices_and_other_quotes_are_refused() 
 #[test]
 fn any_other_exchange_is_refused() {
     let (_d, o, s) = common::install_alpaca();
-    o.primary.execute("UPDATE exchanges SET type = 'Exchanges::Coinbase', name = 'Coinbase'", []).unwrap();
+    o.primary.execute("UPDATE exchanges SET type = 'Exchanges::Bybit', name = 'Bybit'", []).unwrap();
     let id = seed::insert_bot(&o.primary, &s, &plain());
     let r = eligibility::check_install(&o.primary).unwrap();
-    assert!(r.problems.iter().any(|p| p.contains(&format!("bot {id}")) && p.contains("a bot on an exchange other than Alpaca, Kraken, Binance, Binance.US, KuCoin, Bitvavo, Gemini, Bitget, MEXC and Hyperliquid")), "{:?}", r.problems);
+    assert!(r.problems.iter().any(|p| p.contains(&format!("bot {id}")) && p.contains("a bot on an exchange other than Alpaca, Kraken, Binance, Binance.US, KuCoin, Bitvavo, Gemini, Bitget, MEXC, Hyperliquid and Coinbase")), "{:?}", r.problems);
 }
 
 #[test]
@@ -841,7 +841,7 @@ fn one_admission_rule_for_engine_and_pages() {
         assert_eq!(admission(Some(venue), true, true), Some("an index bot that sells"), "{venue} index seller");
         assert_eq!(admission(Some(venue), true, false), None, "{venue} index");
     }
-    for venue in [Some("Exchanges::Coinbase"), None] {
-        assert_eq!(admission(venue, false, false), Some("a bot on an exchange other than Alpaca, Kraken, Binance, Binance.US, KuCoin, Bitvavo, Gemini, Bitget, MEXC and Hyperliquid"));
+    for venue in [Some("Exchanges::Bybit"), None] {
+        assert_eq!(admission(venue, false, false), Some("a bot on an exchange other than Alpaca, Kraken, Binance, Binance.US, KuCoin, Bitvavo, Gemini, Bitget, MEXC, Hyperliquid and Coinbase"));
     }
 }

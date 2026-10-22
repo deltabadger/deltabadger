@@ -286,3 +286,5 @@ pub trait VenueFactory {
 /// a TLS failure, which Client.network_failure returns as a Failure) and with_rescue's message.
 #[derive(Clone, Debug, PartialEq)]
 pub enum ClockAnswer { Body(String), Failed { status: Option<u16>, message: String } }
+
+pub mod coinbase;

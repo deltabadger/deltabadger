@@ -1529,6 +1529,49 @@ module SyncScenarios
   end
 
   # Exchanges::Hyperliquid#get_ledger with AccountTransactionSync (plan VB slice B1, audit H5-H7): every fill from
+  def coinbase_scenarios
+    night = '2026-09-20T02:00:00.250000Z'
+    setup = ->(ctx) { P.coinbase(ctx) }
+    f = P.cb_fill('f1')
+    eth = P.cb_fill('q1', size: '9.947791211', price: '2385.55', fee: '0.049738956055', quote: true)
+    btc = P.cb_fill('q2', product: 'BTC-EUR', size: '14.9262115275', price: '75480.21', fee: '0.0746310576375', quote: true)
+    txn = ->(id, type, n) { { 'id' => id, 'type' => type, 'amount' => { 'amount' => n, 'currency' => 'ETH' }, 'created_at' => '2026-09-19T02:00:00Z', 'description' => 'transfer', 'network' => { 'transaction_fee' => { 'amount' => '0.001', 'currency' => 'ETH' } } } }
+    transfer_pages = { 'GET /v2/accounts/a/transactions' => [P.ok('data' => [txn.('d','receive','1')], 'pagination' => { 'next_starting_after' => 'next' }), P.ok('data' => [txn.('w','send','-0.5')])], 'GET /v2/accounts/b/transactions' => [P.ok('data' => [txn.('positive','send','0.2')])] }
+    accounts = [P.ok('accounts' => [{ 'uuid' => 'a' }], 'has_next' => true, 'cursor' => 'next'), P.ok('accounts' => [{ 'uuid' => 'b' }], 'has_next' => false)]
+    error = { 'status' => 500, 'body' => 'Internal server error' }
+    ledgers = {
+      'plain' => [P.coinbase_ledger(night, fills: [P.ok('fills' => [f, P.cb_fill('f2', side: 'SELL'), P.cb_fill('adjusted', type: 'ADJUSTMENT')])])],
+      'size_in_quote' => [P.coinbase_ledger(night, fills: [P.ok('fills' => [eth,btc])])],
+      'quote_swap' => [P.coinbase_ledger(night, fills: [P.ok('fills' => [P.cb_fill('swap', product: 'ETH-BTC', size: '0.01', price: '0.03', quote: true)])])],
+      'base_swap' => [P.coinbase_ledger(night, fills: [P.ok('fills' => [P.cb_fill('swap', product: 'ETH-BTC')])])],
+      'pages' => [P.coinbase_ledger(night, fills: [P.ok('fills' => [f], 'cursor' => 'next'), P.ok('fills' => [P.cb_fill('f2')])], accounts: accounts, transfers: transfer_pages)],
+      'failed_fill_page' => [P.coinbase_ledger(night, fills: [P.ok('fills' => [f], 'cursor' => 'next'), error])],
+      'failed_accounts' => [P.coinbase_ledger(night, fills: [P.ok('fills' => [f])], accounts: [error])],
+      'failed_transfers' => [P.coinbase_ledger(night, accounts: [P.ok('accounts' => [{ 'uuid' => 'a' }])], transfers: { 'GET /v2/accounts/a/transactions' => [error] })],
+      'two_nights' => [P.coinbase_ledger(night, fills: [P.ok('fills' => [f])]), P.coinbase_ledger('2026-09-21T02:00:00Z', fills: [P.ok('fills' => [f])])],
+      'empty' => [P.coinbase_ledger(night)]
+    }
+    rows = ledgers.map { |name, steps| { name: "coinbase-ledger-#{name}", setup: setup, steps: steps } }
+    balances = {
+      'empty' => P.coinbase_balances(night),
+      'held' => P.coinbase_balances(night, balances: P.ok('breakdown' => { 'spot_positions' => [{ 'asset' => 'ETH', 'available_to_trade_crypto' => '1.25', 'total_balance_crypto' => '1.5' }, { 'asset' => 'UNKNOWN', 'available_to_trade_crypto' => '9', 'total_balance_crypto' => '10' }] }), prices: P.ok('data' => { 'ethereum' => { 'usd' => 2500 } })),
+      'permissions_fail' => P.coinbase_balances(night, permissions: error),
+      'breakdown_fail' => P.coinbase_balances(night, balances: error)
+    }
+    [true, false].each do |has_entry|
+      legacy = P.cb_fill('shared', type: 'ADJUSTMENT')
+      legacy.delete('entry_id') unless has_entry
+      seed = ->(ctx) {
+        P.coinbase(ctx)
+        P.stored(ctx, exchange: ctx[:coinbase], entry_type: 0, base_currency: 'ETH', base_amount: '0.1', quote_currency: 'EUR', quote_amount: '238.555',
+                 fee_currency: 'EUR', fee_amount: '0.05', tx_id: 'shared', transacted_at: '2026-09-19T01:00:00Z', raw_data: legacy)
+      }
+      rows << { name: "coinbase-ledger-rekey_#{has_entry ? 'entry' : 'event'}", setup: seed,
+                steps: [P.coinbase_ledger(night, fills: [P.ok('fills' => [P.cb_fill('shared')], 'cursor' => 'next'), P.ok('fills' => [P.cb_fill('shared', type: 'ADJUSTMENT')])])] }
+    end
+    rows + balances.map { |name, step| { name: "coinbase-balances-#{name}", setup: setup, steps: [step] } }
+  end
+
   # userFillsByTime, then every update from userNonFundingLedgerUpdates, each from startTime (the watermark less 25 h, or 0),
   # the next page from the newest `time` of a full page (2000 fills, 500 updates), identical rows counted by the page that holds
   # them most; a full page with nothing new or any failed read fails the run. Spot fills only ("@N" or a pair name), base and
@@ -1629,5 +1672,5 @@ module SyncScenarios
 
   def all = ledger_scenarios + balance_scenarios + binance_balance_scenarios + binance_ledger_scenarios + import_scenarios + kucoin_ledger_scenarios +
             kucoin_balance_scenarios + bitvavo_ledger_scenarios + bitvavo_balance_scenarios + gemini_ledger_scenarios + gemini_balance_scenarios +
-            bitget_ledger_scenarios + bitget_balance_scenarios + mexc_ledger_scenarios + mexc_balance_scenarios + hyperliquid_ledger_scenarios + hyperliquid_balance_scenarios
+            bitget_ledger_scenarios + bitget_balance_scenarios + mexc_ledger_scenarios + mexc_balance_scenarios + hyperliquid_ledger_scenarios + hyperliquid_balance_scenarios + coinbase_scenarios
 end

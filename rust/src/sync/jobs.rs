@@ -57,6 +57,9 @@ pub trait Connect {
     fn mexc_transport(&self, _credentials: &Credentials, _proxy: Option<&str>) -> ReqwestTransport {
         ReqwestTransport::refused("MEXC is not connected here")
     }
+    fn coinbase_transport(&self, _credentials: &Credentials, _proxy: Option<&str>) -> ReqwestTransport {
+        ReqwestTransport::refused("Coinbase is not connected here")
+    }
     /// How far apart a Bitvavo ledger read's calls go (Exchanges::Bitvavo::LEDGER_READ_PAUSE); a test waits for nothing.
     fn bitvavo_pause(&self) -> Duration { crate::sync::bitvavo_ledger::READ_PAUSE }
     /// How a Gemini key's syncs reach Gemini (Honeymaker.client('gemini', proxy: ExchangeProxy.for('gemini'))). By default
@@ -138,6 +141,13 @@ impl Connect for LiveFactory {
         };
         ReqwestTransport::mexc(client, credentials.key.clone(), credentials.secret.clone()).with_sensitive_values(credentials.redaction_values.clone())
     }
+    fn coinbase_transport(&self, credentials: &Credentials, proxy: Option<&str>) -> ReqwestTransport {
+        let client = match proxy {
+            None => crate::venue::http::client(),
+            Some(proxy) => match crate::venue::http::client_via(proxy) { Ok(client) => client, Err(why) => return ReqwestTransport::refused(&why) },
+        };
+        ReqwestTransport::coinbase(client, credentials.key.clone(), credentials.secret.clone()).with_sensitive_values(credentials.redaction_values.clone())
+    }
     fn hyperliquid_transport(&self, credentials: &Credentials, proxy: Option<&str>) -> ReqwestTransport {
         let client = match proxy {
             None => crate::venue::http::client(),
@@ -154,7 +164,7 @@ fn proxied(venue: &str) -> Option<&'static str> {
     registry::row(venue).filter(|r| r.balances.is_some_and(|b| b != BalanceSync::Alpaca) || r.ledger.is_some_and(|l| l != LedgerSync::Alpaca)).map(|r| r.name_id)
 }
 
-/// The venue type of a key and, for Binance, Binance.US, KuCoin, Bitvavo, Gemini, Bitget, MEXC and Hyperliquid, the proxy its reads go through: AppConfig
+/// The venue type of a key and, for Binance, Binance.US, KuCoin, Bitvavo, Gemini, Bitget, MEXC, Hyperliquid and Coinbase, the proxy its reads go through: AppConfig
 /// `proxy_<name>` (decrypted) or ENV `PROXY_<NAME>`, as ExchangeProxy.for resolves it.
 async fn venue_of(db: &Db, key: i64) -> Result<(String, Option<String>), SyncError> {
     let (venue, stored) = db.run(move |c, cipher| {
@@ -259,6 +269,8 @@ impl<C: Connect> Job for LedgerSync<C> {
                         crate::sync::bitget_ledger::sync(&cx.db, self.venues.bitget_transport(&credentials, proxy.as_deref()), self.key_id, &credentials, cx.clock).await,
                     Some(LedgerSync::Mexc) =>
                         crate::sync::mexc_ledger::sync(&cx.db, self.venues.mexc_transport(&credentials, proxy.as_deref()), self.key_id, &credentials, cx.clock).await,
+                    Some(LedgerSync::Coinbase) =>
+                        crate::sync::coinbase_ledger::sync(&cx.db, self.venues.coinbase_transport(&credentials, proxy.as_deref()), self.key_id, &credentials, cx.clock).await,
                     Some(LedgerSync::Hyperliquid) =>
                         crate::sync::hyperliquid_ledger::sync(&cx.db, self.venues.hyperliquid_transport(&credentials, proxy.as_deref()), self.key_id, &credentials, cx.clock).await,
                     // Alpaca's, and a key on any other venue: ledger::load_key refuses it as it always did.
@@ -321,6 +333,8 @@ impl<C: Connect> Job for BalanceSync<C> {
                         balances::sync_bitget_captured(&cx.db, self.venues.bitget_transport(&credentials, proxy.as_deref()), self.prices.as_ref(), self.key_id, &credentials, cx.clock, &version).await,
                     Some(BalanceSync::Mexc) =>
                         balances::sync_mexc_captured(&cx.db, self.venues.mexc_transport(&credentials, proxy.as_deref()), self.prices.as_ref(), self.key_id, &credentials, cx.clock, &version).await,
+                    Some(BalanceSync::Coinbase) =>
+                        balances::sync_coinbase_captured(&cx.db, self.venues.coinbase_transport(&credentials, proxy.as_deref()), self.prices.as_ref(), self.key_id, &credentials, cx.clock, &version).await,
                     Some(BalanceSync::Hyperliquid) =>
                         balances::sync_hyperliquid_captured(&cx.db, self.venues.hyperliquid_transport(&credentials, proxy.as_deref()), self.prices.as_ref(), self.key_id, &credentials, cx.clock, &version).await,
                     // Alpaca's, and a key on any other venue: the Alpaca sync's load_key refuses it as it always did.

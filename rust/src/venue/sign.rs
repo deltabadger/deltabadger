@@ -119,6 +119,7 @@ pub(crate) enum Wire {
     /// Honeymaker::Clients::Hyperliquid (venue::hyperliquid, signers::hyperliquid): JSON POSTs; an /exchange body's `action`
     /// is signed at send time with a nonce from the process-wide source and posted as `{action, nonce, signature}`.
     Hyperliquid,
+    Coinbase,
 }
 
 impl Wire {
@@ -131,6 +132,7 @@ impl Wire {
             Self::Bitget => super::bitget::BITGET,
             Self::Gemini => super::gemini::GEMINI, Self::Mexc => super::mexc::MEXC,
             Self::Hyperliquid => super::hyperliquid::HYPERLIQUID,
+            Self::Coinbase => super::coinbase::COINBASE,
         };
         super::registry::row(exchange_type).expect("every wire's venue has a row").name
     }
@@ -184,6 +186,11 @@ pub(crate) fn request(wire: Wire, client: &reqwest::Client, r: &HttpRequest, key
             for (k, v) in super::signers::gemini::headers(keys.key, keys.secret, &r.path, &params, nonce) { b = b.header(k, v); }
         }
         Wire::Gemini => {}
+        Wire::Coinbase => {
+            for (k, v) in json_headers() { b = b.header(k, v); }
+            if let Some(jwt) = super::signers::coinbase::jwt(keys.key, keys.secret, r.method, &r.path) { b = b.header("Authorization", format!("Bearer {jwt}")); }
+            if let Some(body) = &r.body { b = b.body(body.to_string()); }
+        }
         Wire::Hyperliquid => {
             b = b.header("Accept", "application/json").header("Content-Type", "application/json");
             let signer = super::signers::hyperliquid::signing_key(keys.secret);

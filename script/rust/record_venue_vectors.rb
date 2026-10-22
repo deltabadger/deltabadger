@@ -128,6 +128,17 @@ when 'mexc'
     { minimum_base_size: '0', minimum_quote_size: '0', base_decimals: 8, quote_decimals: 2, price_decimals: 1 },
     { minimum_base_size: '0.00005', minimum_quote_size: '0.5', base_decimals: 8, quote_decimals: 5, price_decimals: 1 }
   ]
+when 'coinbase'
+  out = { 'sources' => pin.(%w[app/models/exchanges/coinbase.rb app/models/exchange.rb app/models/bot/order_setter.rb app/models/ticker.rb script/rust/record_venue_vectors.rb]), 'gems' => { 'honeymaker' => Honeymaker::VERSION } }
+  exchange = Exchanges::Coinbase.new(name: 'Coinbase')
+  exchange.instance_variable_set(:@client, Object.new.tap do |c|
+    c.define_singleton_method(:create_order) { |**kw| captured = kw; Result::Success.new(order_id: 'order-1') }
+  end)
+  pair, strip, seed = 'BTC-EUR', %i[client_order_id], 20_261_021
+  tickers = [
+    { minimum_base_size: '0.00000001', minimum_quote_size: '1', base_decimals: 8, quote_decimals: 2, price_decimals: 2 },
+    { minimum_base_size: '0.0001', minimum_quote_size: '0.00001', base_decimals: 4, quote_decimals: 8, price_decimals: 8 }
+  ]
 when 'prices'
   # Not one venue: every venue's Exchange#adjusted_price and #market_price_for, the default rule and its two overrides.
   price_venues = %w[Kraken Alpaca Binance Kucoin Gemini Hyperliquid BinanceUs Bitvavo Mexc]
@@ -368,6 +379,23 @@ when 'mexc'
       'side' => data[:side].to_s, 'order_type' => data[:order_type].to_s }
   end
   out['mexc_orders'] = orders
+  extra = "#{orders.size} orders"
+when 'coinbase'
+  exchange.define_singleton_method(:tickers) { Object.new.tap { |t| t.define_singleton_method(:find_by) { |ticker:| nil } } }
+  statuses = Exchanges::Coinbase::ORDER_STATUS_MAP.keys
+  orders = Array.new(2_000) do |n|
+    limit = n.odd?
+    raw = { 'order_id' => "o#{n}", 'product_id' => %w[BTC-EUR ETH-BTC NEW-USDC][n % 3], 'order_type' => limit ? 'LIMIT' : 'MARKET', 'side' => %w[BUY SELL][rng.rand(2)],
+            'status' => statuses[n % statuses.size], 'average_filled_price' => n % 3 == 0 ? '0' : decimal.(-8,5), 'filled_size' => decimal.(-8,3),
+            'total_value_after_fees' => decimal.(-4,4), 'outstanding_hold_amount' => n % 4 == 0 ? decimal.(-4,4) : '0',
+            'order_configuration' => { (limit ? 'limit_limit_gtc' : 'market_market_ioc') => { 'base_size' => n % 3 == 0 ? nil : decimal.(-8,3), 'quote_size' => n % 3 == 0 ? decimal.(-4,4) : nil, 'limit_price' => decimal.(-8,5) }.compact },
+            'reject_reason' => n % 5 == 0 ? 'REJECT_REASON' : nil, 'reject_message' => n % 7 == 0 ? 'rejected' : nil, 'cancel_message' => n % 11 == 0 ? 'cancelled' : nil }
+    data = exchange.send(:parse_order_data, raw['order_id'], raw)
+    { 'raw' => raw, 'status' => data[:status].to_s, 'price' => data[:price]&.to_s('F'), 'amount' => data[:amount]&.to_s('F'), 'quote_amount' => data[:quote_amount]&.to_s('F'),
+      'amount_exec' => data[:amount_exec].to_s('F'), 'quote_amount_exec' => data[:quote_amount_exec].to_s('F'), 'side' => data[:side].to_s, 'order_type' => data[:order_type].to_s, 'errors' => data[:error_messages] }
+  end
+  out['coinbase_orders'] = orders
+  out['errors'] = exchange.known_errors
   extra = "#{orders.size} orders"
 when 'prices'
   # Ticker#adjusted_price (Exchange#adjusted_price: price_decimals; Hyperliquid's 5 significant figures within
