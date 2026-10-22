@@ -23,6 +23,24 @@ import { Controller } from "@hotwired/stimulus";
 // through the same select path a click takes, so every consumer hears about it the only way it
 // knows how. Naming the key is what opts a control in — see the partial for why a control gets
 // one or does not.
+
+// Where every chip on the page stood the instant Turbo swapped the page out, by group label. A
+// link group's new page brings a new control, and its first placement is the un-animated one —
+// so a page that arrives fast (a cached preview lands within milliseconds of the click) would cut
+// the slide off and drop the chip at the end of it. Picking up from here, the new control
+// finishes the slide the old one started. Cleared on every swap: only the page just left counts.
+const handoffs = new Map();
+document.addEventListener("turbo:before-render", () => {
+  handoffs.clear();
+  document.querySelectorAll(".segmented:not(.segmented--collapsed)").forEach((control) => {
+    const thumb = control.querySelector(".segmented__thumb");
+    if (!thumb?.style.width) return;
+    const track = control.getBoundingClientRect();
+    const rect = thumb.getBoundingClientRect();
+    handoffs.set(control.getAttribute("aria-label"), { left: rect.left - track.left, width: rect.width });
+  });
+});
+
 export default class extends Controller {
   static targets = ["thumb", "option", "dropdown"];
 
@@ -40,6 +58,13 @@ export default class extends Controller {
     // all. A menu the reader left open on the page they navigated away from is not a state to
     // come back into, and #layout only resets it when the fold itself changes.
     this.#close();
+    // A link group's pressed option is only the click's, and Turbo snapshots the page AFTER the
+    // click — so the cached copy of a page has the chip on the option that was clicked away TO,
+    // and previewing it puts the chip on the wrong venue before the real page moves it back.
+    // aria-current is the server's answer for this page, and it is the one that stands.
+    if (this.optionTargets.some((option) => option.href)) {
+      this.optionTargets.forEach((option) => option.classList.toggle("is-on", option.getAttribute("aria-current") === "page"));
+    }
 
     // The chip is measured in pixels, so anything that reflows a label has to re-measure it.
     // A ResizeObserver on the options catches every cause at once — the container resizing, a
@@ -276,8 +301,18 @@ export default class extends Controller {
     // opens. Nothing is on screen to place, so there is nothing to do until there is.
     if (!rect.width) return;
 
-    // First placement must not slide in from the left edge.
-    if (!this.placed) this.thumbTarget.style.transition = "none";
+    // First placement must not slide in from the left edge — unless the page before left a chip
+    // here mid-slide, which it starts from instead, so the slide carries on across the swap.
+    if (!this.placed) {
+      const from = handoffs.get(this.element.getAttribute("aria-label"));
+      this.thumbTarget.style.transition = "none";
+      if (from) {
+        this.thumbTarget.style.left = `${from.left}px`;
+        this.thumbTarget.style.width = `${from.width}px`;
+        this.thumbTarget.offsetHeight; // flush, so the move below animates
+        this.thumbTarget.style.transition = "";
+      }
+    }
     this.thumbTarget.style.left = `${rect.left - track.left}px`;
     this.thumbTarget.style.width = `${rect.width}px`;
     if (!this.placed) {
