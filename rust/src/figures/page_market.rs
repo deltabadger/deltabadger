@@ -27,6 +27,7 @@ const UNAVAILABLE: &str = "Market data unavailable";
 const KUCOIN_CANDLES: &str = "/api/v1/market/candles";
 /// Clients::Binance#candlestick_data, for Binance and Binance.US alike.
 const BINANCE_KLINES: &str = "/api/v3/klines";
+use crate::venue::kraken::{OHLC as KRAKEN_OHLC, TICKER as KRAKEN_TICKER};
 
 /// A closed candle as the figures read it: its time (`bar_time`), the venue's own text of it (the next tail's `start`), and
 /// its open exactly as the venue sent it, a number or a string, read by `Dec::to_d` as the answer itself is.
@@ -104,17 +105,18 @@ fn request(path: &str, query: Vec<(&'static str, String)>) -> HttpRequest {
 }
 
 pub const CANDLE_TTL: i64 = 30 * 86_400;
-/// A series' timeframe in seconds, from Alpaca's `timeframe`, KuCoin's `type` or Binance's `interval`.
+/// A series' timeframe in seconds, from Alpaca's `timeframe`, KuCoin's `type` or Binance's or Kraken's `interval`.
 fn seconds(request: &HttpRequest) -> i64 {
     match request.query.iter().find(|(k,_)| *k == "timeframe" || *k == "type" || *k == "interval").map(|(_,v)| v.as_str()) {
-        Some("1Min" | "1min" | "1m") => 60, Some("5Min" | "5min" | "5m") => 300, Some("15Min" | "15min" | "15m") => 900, Some("30Min" | "30min" | "30m") => 1800,
-        Some("1Hour" | "1hour" | "1h") => 3600, Some("4Hour" | "4hour" | "4h") => 14400, Some("1Week" | "1week" | "1w") => 604800, Some("1Month") => 2592000, _ => 86400,
+        Some("1Min" | "1min" | "1m" | "1") => 60, Some("5Min" | "5min" | "5m" | "5") => 300, Some("15Min" | "15min" | "15m" | "15") => 900, Some("30Min" | "30min" | "30m" | "30") => 1800,
+        Some("1Hour" | "1hour" | "1h" | "60") => 3600, Some("4Hour" | "4hour" | "4h" | "240") => 14400, Some("1Week" | "1week" | "1w") => 604800, Some("1Month") => 2592000, _ => 86400,
     }
 }
-/// Whether a demand is a candle series (kept as a head) rather than one answer: Alpaca's bars, or a KuCoin or Binance
-/// series. A venue series is never sent as it is: its key names the series (symbol, since, timeframe), and its pages are
-/// derived from it (`kucoin_pages`, `binance_pages`), so the head is found again by the next fill whatever `now` is.
-fn is_series(request: &HttpRequest) -> bool { request.path.ends_with("/bars") || request.path == KUCOIN_CANDLES || request.path == BINANCE_KLINES }
+/// Whether a demand is a candle series (kept as a head) rather than one answer: Alpaca's bars, or a KuCoin, Binance or
+/// Kraken series. A venue series is never sent as it is: its key names the series (symbol, since, timeframe), and its pages
+/// are derived from it (`kucoin_pages`, `binance_pages`, `kraken_page`), so the head is found again by the next fill
+/// whatever `now` is.
+fn is_series(request: &HttpRequest) -> bool { request.path.ends_with("/bars") || [KUCOIN_CANDLES, BINANCE_KLINES, KRAKEN_OHLC].contains(&request.path.as_str()) }
 fn param<'r>(request: &'r HttpRequest, name: &str) -> &'r str { request.query.iter().find(|(k,_)| *k == name).map_or("", |(_,v)| v.as_str()) }
 fn bar_time(bar: &Value) -> Option<i64> {
     bar["t"].as_str().and_then(|t| chrono::DateTime::parse_from_rfc3339(t).ok()).map(|t| t.timestamp())
@@ -144,6 +146,15 @@ fn size(value: &Value) -> usize { value.to_string().len() }
 /// names, in its order. An answer whose symbols are not an object is kept whole, so that it fails there as it did. The
 /// snapshot of an index's whole venue listing is thousands of symbols of five quotes each; a price is all a figure reads.
 fn prices_only(path: &str, mut body: Value) -> Value {
+    // Kraken's Ticker: every pair's `c` (last trade), the rest of each pair dropped (`kraken::ticker_prices` reads them).
+    if path == KRAKEN_TICKER {
+        if let Some(Value::Object(pairs)) = body.get_mut("result") {
+            for data in pairs.values_mut() {
+                if let Value::Object(fields) = data { fields.retain(|name, _| name == "c"); }
+            }
+        }
+        return body;
+    }
     // KuCoin's allTickers: every row's symbol and last price, the rest of each row dropped (`kucoin::all_tickers` reads them).
     if path == ALL_TICKERS {
         let Some(Value::Array(rows)) = body.get_mut("data").and_then(|data| data.get_mut("ticker")) else { return body };
@@ -234,6 +245,7 @@ impl Drop for SeriesBytes<'_> { fn drop(&mut self) { self.in_flight.fetch_sub(se
 async fn pages(wire: &impl Transport, request: &HttpRequest, tail: Option<&Bar>, now: i64, compute: &Arc<tokio::sync::Semaphore>, held: &mut SeriesBytes<'_>) -> Fetch<Vec<Bar>> {
     if request.path == KUCOIN_CANDLES { return kucoin_pages(wire, request, tail.map(|bar| bar.at), now, compute, held).await; }
     if request.path == BINANCE_KLINES { return binance_pages(wire, request, tail.map(|bar| bar.at), now, compute, held).await; }
+    if request.path == KRAKEN_OHLC { return kraken_page(wire, request, tail.map(|bar| bar.at), now, compute, held).await; }
     // Alpaca answers a long range oldest first, a page at a time, each naming the next (`next_page_token`), as
     // Clients::Alpaca reads them; the token joins the query in its sorted place. A tail starts at the last bar's own text.
     let mut request = request.clone();
@@ -334,6 +346,38 @@ async fn binance_pages(wire: &impl Transport, series: &HttpRequest, tail: Option
         }
     }
     Err(Failure::Failed(UNAVAILABLE.into()))
+}
+/// Exchanges::Kraken#get_candles: one OHLC read from a second before the start (`since`, in seconds), which Kraken answers
+/// with at most its 720 most recent candles whatever `since` says; the candles from that second on are kept. No paging.
+async fn kraken_page(wire: &impl Transport, series: &HttpRequest, tail: Option<i64>, now: i64, compute: &Arc<tokio::sync::Semaphore>, held: &mut SeriesBytes<'_>) -> Fetch<Vec<Bar>> {
+    let timeframe = seconds(series);
+    let start: i64 = match tail { Some(at) => at, None => param(series, "since").parse().map_err(|_| Failure::Failed(UNAVAILABLE.into()))? }.saturating_sub(1);
+    let page = HttpRequest { method: "GET", base: series.base.clone(), path: KRAKEN_OHLC.into(), body: None, not_after: None,
+        query: vec![("interval", param(series, "interval").to_string()), ("pair", param(series, "symbol").to_string()), ("since", start.to_string())] };
+    let body = send(wire, &page).await?;
+    let bars = cpu(compute, move || kraken_rows(decode(&body)?, start, timeframe, now)).await?;
+    held.take(bars.iter().map(Bar::size).sum())?;
+    Ok(bars)
+}
+/// One OHLC answer: a non-empty `error` is the venue's failure; otherwise the rows under `result`'s first key but `last`,
+/// `[time, open, high, low, close, vwap, volume, count]`, the time in seconds and the open a string. The closed ones from
+/// `start` on.
+fn kraken_rows(mut body: Value, start: i64, timeframe: i64, now: i64) -> Fetch<Vec<Bar>> {
+    let unreadable = || Failure::Failed(UNAVAILABLE.into());
+    if !body.get("error").and_then(Value::as_array).is_some_and(Vec::is_empty) { return Err(unreadable()); }
+    let Some(Value::Object(result)) = body.get_mut("result") else { return Err(unreadable()) };
+    let Some(Value::Array(rows)) = result.iter_mut().find(|(name, _)| *name != "last").map(|(_, rows)| rows.take()) else { return Err(unreadable()) };
+    let mut out = vec![];
+    for row in rows {
+        let Value::Array(mut row) = row else { return Err(unreadable()) };
+        let at = row.first().and_then(Value::as_i64).ok_or_else(unreadable)?;
+        if at >= start && at.saturating_add(timeframe) <= now {
+            let open = row.get_mut(1).map_or(Value::Null, Value::take);
+            Dec::to_d(&open)?;
+            out.push(Bar { at, t: at.to_string().into(), o: open });
+        }
+    }
+    Ok(out)
 }
 /// One Binance page: rows of `[open time in ms, open, high, low, close, volume, ...]`, the open a string. The closed ones,
 /// at `Time.at(ms / 1000)`, and the last row's open time in ms as sent (closed or not), which decides where the walk goes.
@@ -543,6 +587,11 @@ fn kucoin_type(timeframe: i64) -> Option<&'static str> {
 fn binance_interval(timeframe: i64) -> Option<&'static str> {
     Some(match timeframe { 60 => "1m", 300 => "5m", 900 => "15m", 1800 => "30m", 3600 => "1h", 14400 => "4h", 86_400 => "1d", 604_800 => "1w", _ => return None })
 }
+/// Exchanges::Kraken#get_candles' OHLC intervals in minutes, for the same timeframes (Rails reads 3 days, 1 week and 1
+/// month as daily candles rebuilt; the chart never asks for them).
+fn kraken_interval(timeframe: i64) -> Option<&'static str> {
+    Some(match timeframe { 60 => "1", 300 => "5", 900 => "15", 1800 => "30", 3600 => "60", 14400 => "240", 86_400 => "1440", _ => return None })
+}
 const ALL_TICKERS: &str = "/api/v1/market/allTickers";
 
 impl MarketData for Reader<'_> {
@@ -563,6 +612,30 @@ impl MarketData for Reader<'_> {
                 Answer::Json(body) => crate::venue::binance::ticker_prices(&body).map(|rows| rows.into_iter().map(|(symbol, price)| (symbol, Dec::venue_number(&Value::String(price.to_s_f())))).collect()).map_err(|_| Failure::Failed(UNAVAILABLE.into())),
                 Answer::Bars(_) => Err(Failure::Failed(UNAVAILABLE.into())),
             };
+        }
+        if let Some(row) = crate::venue::registry::row(&venue.exchange_type).filter(|row| row.figures == Some(Figures::Kraken)) {
+            // Exchanges::Kraken#get_tickers_prices(symbols:): the bulk Ticker, kept to the bot's codes, then one Ticker per
+            // code it did not return. Each read is held for every bot of the fill; a failed one fails this bot's prices.
+            let ticker = |query: Vec<(&'static str, String)>| HttpRequest { method: "GET", base: row.base.into(), path: KRAKEN_TICKER.into(), query, body: None, not_after: None };
+            let price = |p: crate::ruby::BigDec| Dec::venue_number(&Value::String(p.to_s_f()));
+            let Answer::Json(body) = self.get(ticker(vec![]))? else { return Err(Failure::Failed(UNAVAILABLE.into())) };
+            let (prices, missing) = crate::venue::kraken::ticker_prices(&body, symbols).map_err(|_| Failure::Failed(UNAVAILABLE.into()))?;
+            let mut out: Vec<(String, Member<Dec>)> = prices.into_iter().map(|(code, p)| (code, price(p))).collect();
+            // Every missing code is asked for in the same pass, so a bot's fallbacks take one round of the fill, not one each.
+            // Rails asks them one by one and stops at the first failure; the first failure in its order is the one returned.
+            let mut failed = None;
+            for code in missing {
+                match self.get(ticker(vec![("pair", code.clone())])) {
+                    Ok(Answer::Json(body)) => match crate::venue::kraken::pair_price(&body, &code) {
+                        Ok(Some(p)) => out.push((code, price(p))),
+                        Ok(None) => {}
+                        Err(_) => { failed.get_or_insert(Failure::Failed(UNAVAILABLE.into())); }
+                    },
+                    Ok(Answer::Bars(_)) => { failed.get_or_insert(Failure::Failed(UNAVAILABLE.into())); }
+                    Err(error) => { failed.get_or_insert(error); }
+                }
+            }
+            return match failed { Some(error) => Err(error), None => Ok(out) };
         }
         // The account's names make one shared request per kind (`with_symbols`). A failed one fails only a caller that
         // asks for a symbol of its kind, as Rails asks per bot (Exchanges::Alpaca#get_tickers_prices with the bot's own
@@ -610,6 +683,7 @@ impl MarketData for Reader<'_> {
         let series = match crate::venue::registry::row(&venue.exchange_type).and_then(|row| Some((row, row.figures?))) {
             Some((row, Figures::Kucoin)) => Some(venue_series(row.base, KUCOIN_CANDLES, kucoin_type(timeframe).map(|name| ("type", name)))?),
             Some((row, Figures::Binance)) => Some(venue_series(row.base, BINANCE_KLINES, binance_interval(timeframe).map(|name| ("interval", name)))?),
+            Some((row, Figures::Kraken)) => Some(venue_series(row.base, KRAKEN_OHLC, kraken_interval(timeframe).map(|name| ("interval", name)))?),
             _ => None,
         };
         if let Some(series) = series {

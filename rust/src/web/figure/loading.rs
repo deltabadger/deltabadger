@@ -263,7 +263,7 @@ fn venue_host(base:&str)->bool { crate::venue::registry::ROWS.iter().any(|row|ro
 pub(crate) fn venue_egresses(c:&rusqlite::Connection,cipher:&crate::crypto::Cipher)->Vec<(&'static str,Result<ReqwestTransport,String>)> {
     use crate::venue::registry::Figures;
     crate::venue::registry::ROWS.iter().filter_map(|row|{
-        let wire=match row.figures? { Figures::Kucoin=>|client|ReqwestTransport::kucoin(client,String::new(),String::new(),String::new()), Figures::Binance=>|client|ReqwestTransport::binance(client,String::new(),String::new()), Figures::Alpaca=>return None };
+        let wire=match row.figures? { Figures::Kucoin=>|client|ReqwestTransport::kucoin(client,String::new(),String::new(),String::new()), Figures::Binance=>|client|ReqwestTransport::binance(client,String::new(),String::new()), Figures::Kraken=>|client|ReqwestTransport::new(client,String::new(),String::new()).kraken(), Figures::Alpaca=>return None };
         let egress=crate::venue::live::egress(c,cipher,&|k|std::env::var(k).ok(),row.name_id,&http::client());
         Some((row.base,egress.map(|(client,proxy)|wire(client).with_sensitive_values(proxy.into_iter().collect()))))
     }).collect()
@@ -1001,9 +1001,10 @@ mod tests {
         let now=chrono::Utc::now();
         crate::app_config::set(&c,&cipher,"proxy_binance","http://[unusable",now).unwrap();
         crate::app_config::set(&c,&cipher,"proxy_binance_us","http://127.0.0.1:9",now).unwrap();
+        crate::app_config::set(&c,&cipher,"proxy_kraken","http://[unusable",now).unwrap();
         let venues=super::venue_egresses(&c,&cipher);
         let of=|base:&str|venues.iter().find(|(b,_)|*b==base).map(|(_,t)|t.is_ok());
-        assert_eq!((of(crate::venue::binance::URL),of(crate::venue::binance::US_URL),of(crate::venue::kucoin::URL)),(Some(false),Some(true),Some(true)));
+        assert_eq!((of(crate::venue::binance::URL),of(crate::venue::binance::US_URL),of(crate::venue::kucoin::URL),of(crate::venue::kraken::URL)),(Some(false),Some(true),Some(true),Some(false)));
         let wire=super::Wire::of(None,super::Source::Live).with_venues(venues);
         let read=|base:&str|HttpRequest{method:"GET",base:base.into(),path:crate::venue::binance::TICKER_PRICE.into(),query:vec![],body:None,not_after:None};
         assert!(matches!(wire.send_limited(&read(crate::venue::binance::URL),1024).await,Err(TransportError::Permanent(_))),"settled, and nothing sent");

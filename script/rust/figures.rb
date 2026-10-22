@@ -40,6 +40,8 @@ module ScriptedMarket
             elsif path.end_with?('/simple/price') then %w[ids vs_currencies]
             elsif path == '/api/v1/market/candles' then %w[endAt startAt symbol type] # a KuCoin window is its whole query
             elsif path == '/api/v3/klines' then %w[interval limit startTime symbol timeZone] # and a Binance page
+            elsif path == '/0/public/OHLC' then %w[interval pair since] # and a Kraken read
+            elsif path == '/0/public/Ticker' then %w[pair] # Kraken's bulk Ticker, or one pair's
             else []
             end
     host = [80, 443].include?(env.url.port) ? env.url.host : "#{env.url.host}:#{env.url.port}"
@@ -212,18 +214,20 @@ module Figures
     bot
   end
 
-  # The crypto venues a scenario's bots may trade on beside Alpaca: [class, name, how a listing joins base and quote].
+  # The crypto venues a scenario's bots may trade on beside Alpaca: [class, name, how a listing joins base and quote, the
+  # venue's own name for a base where it has one].
   CRYPTO_VENUES = { 'kucoin' => ['Exchanges::Kucoin', 'KuCoin', '-'], 'binance' => ['Exchanges::Binance', 'Binance', ''],
-                    'binance_us' => ['Exchanges::BinanceUs', 'Binance.US', ''] }.freeze
+                    'binance_us' => ['Exchanges::BinanceUs', 'Binance.US', ''],
+                    'kraken' => ['Exchanges::Kraken', 'Kraken', '', { 'BTC' => 'XBT' }] }.freeze
 
   # A crypto venue beside Alpaca, for the scenarios whose bots trade there: its listings quoted in USD, so no conversion
   # stands between its figures and the account's.
   def crypto_venue(venue, assets)
-    type, name, joint = CRYPTO_VENUES.fetch(venue)
+    type, name, joint, names = CRYPTO_VENUES.fetch(venue)
     exchange = type.constantize.create!(name:, maker_fee: '0.1', taker_fee: '0.1')
     %w[USD BTC ETH].each { |symbol| ExchangeAsset.create!(exchange:, asset: assets[symbol], available: true) }
     %w[BTC ETH].each do |base|
-      Ticker.create!(exchange:, ticker: "#{base}#{joint}USD", base:, quote: 'USD', base_asset: assets[base], quote_asset: assets['USD'],
+      Ticker.create!(exchange:, ticker: "#{names&.dig(base) || base}#{joint}USD", base:, quote: 'USD', base_asset: assets[base], quote_asset: assets['USD'],
                      base_decimals: 8, quote_decimals: 2, price_decimals: 2, minimum_base_size: '0.00000001', minimum_quote_size: '1')
     end
     exchange
@@ -347,6 +351,28 @@ module Figures
       start = times.last + 1
     end
     script
+  end
+
+  # Kraken's Ticker: the bulk read (`pairs`: Kraken's key for each, its last price), and one pair's (`fallbacks`: the
+  # code asked for => [the key Kraken answers under, the price], or a whole reply).
+  def kraken_prices(pairs, fallbacks = {})
+    ticker = ->(prices) { ok({ 'error' => [], 'result' => prices.to_h { |key, price| [key, { 'a' => [price, '1', '1.000'], 'c' => [price, '0.1'] }] } }) }
+    script = { "GET #{KRAKEN}/0/public/Ticker" => pairs.is_a?(Hash) && !pairs.key?('status') ? ticker.call(pairs) : pairs }
+    fallbacks.each do |code, (key, price)|
+      script["GET #{KRAKEN}/0/public/Ticker?pair=#{code}"] = key.is_a?(Hash) ? key : ticker.call(key => price)
+    end
+    script
+  end
+
+  # The one OHLC read Exchanges::Kraken#get_candles makes for a daily series from `start` at `now`: since a second before
+  # it, answered with Kraken's 720 most recent candles at most (`open` gives a time's open, nil: none), the candle still
+  # open included, under Kraken's own key for the pair and `last`. `answer` may replace the reply.
+  def kraken_ohlc(code, key, start, now, open, answer: ->(reply) { reply })
+    since = time(start).to_i - 1
+    first = since + ((D - (since % D)) % D)
+    times = (first..time(now).to_i).step(D).select { |t| open.call(t) }.last(720)
+    rows = times.map { |t| [t, open.call(t).to_s, '1', '1', '1', '1', '1', 1] }
+    { "GET #{KRAKEN}/0/public/OHLC?interval=1440&pair=#{code}&since=#{since}" => answer.call(ok({ 'error' => [], 'result' => { key => rows, 'last' => times.last.to_i } })) }
   end
 
   # The hosted market-data API's answers: BTC-based rates for fiat pairs, a coin's price for the rest.
@@ -755,7 +781,7 @@ module Figures
                TWO, sql: ["UPDATE bots SET type = 'Bots::Withdrawal' WHERE label = 'other'"]),
       scenario('account_nothing_invested', NOW, [basket(two, [], label: 'a'), basket(%w[CCC], [], label: 'b')], market)
     ]
-    list + kucoin_scenarios + binance_scenarios + pair_scenarios + (1..24).map { |seed| random_history(seed) }
+    list + kucoin_scenarios + binance_scenarios + kraken_scenarios + pair_scenarios + (1..24).map { |seed| random_history(seed) }
   end
 
   # ---- pair bots: Bots::DcaSingleAsset::Measurable, for Bots::DcaSingleAsset and Bots::Signal ---------------------
@@ -943,6 +969,48 @@ module Figures
       # Binance.US: the same code at its own host.
       scenario('binance_us_pair', KC_NOW, us_pair, {}, steps: [
         binance_step(KC_NOW, binance_walk('api.binance.us', 'BTCUSD', KC_SINCE, KC_NOW, kc_btc), host: 'api.binance.us')
+      ])
+    ]
+  end
+
+  # ---- Kraken: Exchanges::Kraken#get_tickers_prices (the bulk Ticker, then one per code it did not return) and
+  # #get_candles (one OHLC read, at most 720 candles) under CandleSeriesCache, one cache across the steps. The KuCoin orders
+  # and clock. BTC is XBTUSD, which the bulk read answers as XXBTZUSD, so it is asked for on its own; ETHUSD is in the bulk.
+
+  KRAKEN = 'api.kraken.com'.freeze
+  KRAKEN_ERROR = ->(error) { ok({ 'error' => [error], 'result' => {} }) }
+
+  def kraken_step(at, extra = {}, pairs: { 'XXBTZUSD' => '91000.50000', 'ETHUSD' => '2750.25000', 'XXRPZUSD' => '0.50000' },
+                  fallbacks: { 'XBTUSD' => ['XXBTZUSD', '91000.50000'] })
+    kraken_prices(pairs, fallbacks).merge(extra).then { |script| { 'at' => at, 'script' => script } }
+  end
+
+  def kraken_scenarios
+    bot = basket(%w[BTC ETH], kucoin_orders, venue: 'kraken')
+    last_a = Time.utc(2026, 3, 11) # the last closed candle at KC_NOW: where the next read starts, a second before it
+    b = KC_NOW + (3 * D)
+    last_b = Time.utc(2026, 3, 14)
+    c = b + (3 * D)
+    [
+      # A cold read (Kraken's 720 most recent candles, whatever since says), a tail from the last stored candle, then a
+      # tail whose overlapping candle moved (BTC) and the whole series read again.
+      scenario('kraken_series', c, bot, {}, steps: [
+        kraken_step(KC_NOW, kraken_ohlc('XBTUSD', 'XXBTZUSD', KC_SINCE, KC_NOW, kc_btc).merge(kraken_ohlc('ETHUSD', 'XETHZUSD', KC_SINCE, KC_NOW, kc_eth))),
+        kraken_step(b, kraken_ohlc('XBTUSD', 'XXBTZUSD', last_a, b, kc_btc).merge(kraken_ohlc('ETHUSD', 'XETHZUSD', last_a, b, kc_eth))),
+        kraken_step(c, kraken_ohlc('XBTUSD', 'XXBTZUSD', last_b, c, kc_btc(2)).merge(kraken_ohlc('XBTUSD', 'XXBTZUSD', KC_SINCE, c, kc_btc(2)))
+                         .merge(kraken_ohlc('ETHUSD', 'XETHZUSD', last_b, c, kc_eth)))
+      ]),
+      # The `error` array: OHLC refusing BTC leaves that holding without a grid; the bulk Ticker refusing leaves the bot's
+      # prices stale.
+      scenario('kraken_errors', KC_NOW, bot, {}, steps: [
+        kraken_step(KC_NOW, kraken_ohlc('XBTUSD', 'XXBTZUSD', KC_SINCE, KC_NOW, kc_btc, answer: ->(_) { KRAKEN_ERROR.call('EGeneral:Internal error') })
+                              .merge(kraken_ohlc('ETHUSD', 'XETHZUSD', KC_SINCE, KC_NOW, kc_eth)),
+                    pairs: KRAKEN_ERROR.call('EService:Unavailable'), fallbacks: {})
+      ]),
+      # A code the venue no longer knows is skipped, not everyone's failure: BTC unpriced, ETH priced.
+      scenario('kraken_unknown_pair', KC_NOW, bot, {}, steps: [
+        kraken_step(KC_NOW, kraken_ohlc('XBTUSD', 'XXBTZUSD', KC_SINCE, KC_NOW, kc_btc).merge(kraken_ohlc('ETHUSD', 'XETHZUSD', KC_SINCE, KC_NOW, kc_eth)),
+                    fallbacks: { 'XBTUSD' => [KRAKEN_ERROR.call('EQuery:Unknown asset pair'), nil] })
       ])
     ]
   end
