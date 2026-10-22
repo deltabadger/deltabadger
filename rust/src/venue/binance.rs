@@ -227,6 +227,24 @@ impl<T: Transport> BinanceVenue<T> {
     }
 }
 
+/// Exchanges::Binance#get_tickers_prices' path (Clients::Binance#symbol_price_ticker, no symbol: the whole market).
+pub const TICKER_PRICE: &str = "/api/v3/ticker/price";
+/// The prices of a ticker/price answer, as Exchanges::Binance#get_tickers_prices reads them (`tickers_prices` says how).
+/// Shared by the engine (`tickers_prices`) and the figures.
+pub fn ticker_prices(body: &serde_json::Value) -> Result<Vec<(String, BigDec)>, super::VenueError> {
+    let mut out: Vec<(String, BigDec)> = vec![];
+    for row in body.as_array().ok_or_else(unreadable)? {
+        let symbol = super::dig_or_raise(row, "symbol")?.as_str().ok_or_else(unreadable)?.to_string();
+        let price = match super::dig_or_raise(row, "price")? {
+            v @ (serde_json::Value::String(_) | serde_json::Value::Number(_)) => crate::ruby::json_to_d(v).ok().flatten(),
+            _ => return Err(unreadable()),
+        };
+        // `prices_hash[ticker] = price`: a symbol listed twice keeps its last price.
+        out.retain(|(s, _)| *s != symbol);
+        if let Some(p) = price { out.push((symbol, p)); }
+    }
+    Ok(out)
+}
 pub(crate) fn unreadable() -> super::VenueError { super::VenueError::Ambiguous(UNREADABLE.into()) }
 
 /// Exchanges::Binance#parse_error_message, as #get_balances applies it to a failure: the JSON body's `msg` when present,
@@ -521,19 +539,8 @@ impl<T: Transport> super::Venue for BinanceVenue<T> {
     /// decimal ("abc", "12x") is left out, so the member reads unpriced, where String#to_d makes it 0 or 12. Rails caches
     /// the answer for a minute; this reads fresh. Each price is its decimal's `to_s('F')`.
     async fn tickers_prices(&self, _symbols: &[String]) -> Result<Vec<(String, serde_json::Value)>, super::VenueError> {
-        let body = self.call_prices(&self.request("GET", "/api/v3/ticker/price", vec![])).await?;
-        let mut out: Vec<(String, serde_json::Value)> = vec![];
-        for row in body.as_array().ok_or_else(unreadable)? {
-            let symbol = super::dig_or_raise(row, "symbol")?.as_str().ok_or_else(unreadable)?.to_string();
-            let price = match super::dig_or_raise(row, "price")? {
-                v @ (serde_json::Value::String(_) | serde_json::Value::Number(_)) => crate::ruby::json_to_d(v).ok().flatten(),
-                _ => return Err(unreadable()),
-            };
-            // `prices_hash[ticker] = price`: a symbol listed twice keeps its last price.
-            out.retain(|(s, _)| *s != symbol);
-            if let Some(p) = price { out.push((symbol, serde_json::Value::String(p.to_s_f()))); }
-        }
-        Ok(out)
+        let body = self.call_prices(&self.request("GET", TICKER_PRICE, vec![])).await?;
+        Ok(ticker_prices(&body)?.into_iter().map(|(symbol, price)| (symbol, serde_json::Value::String(price.to_s_f()))).collect())
     }
 
     /// #cancel_order through Clients::Binance#cancel_order: DELETE /api/v3/order by the stored "SYMBOL-<orderId>", with the

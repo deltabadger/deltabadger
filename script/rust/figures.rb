@@ -39,6 +39,7 @@ module ScriptedMarket
             elsif path.end_with?('/prices') then %w[coin_ids vs_currencies]
             elsif path.end_with?('/simple/price') then %w[ids vs_currencies]
             elsif path == '/api/v1/market/candles' then %w[endAt startAt symbol type] # a KuCoin window is its whole query
+            elsif path == '/api/v3/klines' then %w[interval limit startTime symbol timeZone] # and a Binance page
             else []
             end
     host = [80, 443].include?(env.url.port) ? env.url.host : "#{env.url.host}:#{env.url.port}"
@@ -211,22 +212,27 @@ module Figures
     bot
   end
 
-  # A KuCoin venue beside Alpaca, for the scenarios whose bots trade there: its listings quoted in USD, so no conversion
+  # The crypto venues a scenario's bots may trade on beside Alpaca: [class, name, how a listing joins base and quote].
+  CRYPTO_VENUES = { 'kucoin' => ['Exchanges::Kucoin', 'KuCoin', '-'], 'binance' => ['Exchanges::Binance', 'Binance', ''],
+                    'binance_us' => ['Exchanges::BinanceUs', 'Binance.US', ''] }.freeze
+
+  # A crypto venue beside Alpaca, for the scenarios whose bots trade there: its listings quoted in USD, so no conversion
   # stands between its figures and the account's.
-  def kucoin_venue(assets)
-    kucoin = Exchanges::Kucoin.create!(name: 'KuCoin', maker_fee: '0.1', taker_fee: '0.1')
-    %w[USD BTC ETH].each { |symbol| ExchangeAsset.create!(exchange: kucoin, asset: assets[symbol], available: true) }
+  def crypto_venue(venue, assets)
+    type, name, joint = CRYPTO_VENUES.fetch(venue)
+    exchange = type.constantize.create!(name:, maker_fee: '0.1', taker_fee: '0.1')
+    %w[USD BTC ETH].each { |symbol| ExchangeAsset.create!(exchange:, asset: assets[symbol], available: true) }
     %w[BTC ETH].each do |base|
-      Ticker.create!(exchange: kucoin, ticker: "#{base}-USD", base:, quote: 'USD', base_asset: assets[base], quote_asset: assets['USD'],
+      Ticker.create!(exchange:, ticker: "#{base}#{joint}USD", base:, quote: 'USD', base_asset: assets[base], quote_asset: assets['USD'],
                      base_decimals: 8, quote_decimals: 2, price_decimals: 2, minimum_base_size: '0.00000001', minimum_quote_size: '1')
     end
-    kucoin
+    exchange
   end
 
   def build(sc, template, asset_ids)
     user, alpaca, assets = install(sc, template, asset_ids)
-    kucoin = kucoin_venue(assets) if sc['bots'].any? { |spec| spec['venue'] == 'kucoin' }
-    bots = sc.fetch('bots').map { |spec| bot_for(user, spec['venue'] == 'kucoin' ? kucoin : alpaca, assets, spec) }
+    venues = sc['bots'].filter_map { |spec| spec['venue'] }.uniq.to_h { |venue| [venue, crypto_venue(venue, assets)] }
+    bots = sc.fetch('bots').map { |spec| bot_for(user, venues.fetch(spec['venue'], alpaca), assets, spec) }
     sc.fetch('splits', []).each_with_index do |split, i|
       AccountTransaction.insert!({
         'user_id' => user.id, 'exchange_id' => alpaca.id, 'entry_type' => 'adjustment', 'base_currency' => split.fetch('sym'),
@@ -316,6 +322,29 @@ module Figures
       break if end_at >= now
 
       start = times.any? ? times.max + 1 : end_at + 1
+    end
+    script
+  end
+
+  # Binance's ticker/price (Binance.US's at its own host): the whole market, every row's price as a string.
+  def binance_prices(host, prices) = { "GET #{host}/api/v3/ticker/price" => ok(prices.map { |symbol, price| { 'symbol' => symbol, 'price' => price } }) }
+
+  # The pages Exchanges::Binance#get_candles asks for a daily series from `start` at `now` (up to 1000 klines from
+  # startTime, in ms; past the last candle of a page, until a page is empty or its last candle opened after now less a
+  # day), each answered with the candles `open` gives a time (nil: none at that time), oldest first as Binance sends them,
+  # the candle still open included. `answer` may replace a page's reply.
+  def binance_walk(host, symbol, start, now, open, answer: ->(_start, reply) { reply })
+    script = {}
+    start = time(start).to_i
+    now = time(now)
+    1000.times do
+      first = start + ((D - (start % D)) % D)
+      times = (first..now.to_i).step(D).select { |t| open.call(t) }.first(1000)
+      rows = times.map { |t| [t * 1000, open.call(t).to_s, '1', '1', '1', '1', ((t + D) * 1000) - 1, '1', 1, '1', '1', '0'] }
+      script["GET #{host}/api/v3/klines?interval=1d&limit=1000&startTime=#{start * 1000}&symbol=#{symbol}&timeZone=0"] = answer.call(start, ok(rows))
+      break if times.empty? || times.last > (now - D).to_i
+
+      start = times.last + 1
     end
     script
   end
@@ -726,7 +755,7 @@ module Figures
                TWO, sql: ["UPDATE bots SET type = 'Bots::Withdrawal' WHERE label = 'other'"]),
       scenario('account_nothing_invested', NOW, [basket(two, [], label: 'a'), basket(%w[CCC], [], label: 'b')], market)
     ]
-    list + kucoin_scenarios + pair_scenarios + (1..24).map { |seed| random_history(seed) }
+    list + kucoin_scenarios + binance_scenarios + pair_scenarios + (1..24).map { |seed| random_history(seed) }
   end
 
   # ---- pair bots: Bots::DcaSingleAsset::Measurable, for Bots::DcaSingleAsset and Bots::Signal ---------------------
@@ -872,6 +901,48 @@ module Figures
       scenario('kucoin_failed_window', KC_NOW, bot, {}, steps: [
         kucoin_step(KC_NOW, kucoin_walk('BTC-USD', KC_SINCE, KC_NOW, kc_btc, answer: ->(window, reply) { window[0] > KC_SINCE.to_i ? SERVER_ERROR : reply })
                               .merge(kucoin_walk('ETH-USD', KC_SINCE, KC_NOW, kc_eth)))
+      ])
+    ]
+  end
+
+  # ---- Binance (and Binance.US, its code at another host): Exchanges::Binance#get_tickers_prices and #get_candles under
+  # CandleSeriesCache, one cache across the steps. The KuCoin orders and clock; ETH's candles stop before the clock (a
+  # halted pair), so its walk ends at an empty page.
+
+  BINANCE = 'api.binance.com'.freeze
+  ETH_HALTED = Time.utc(2025, 6, 1).to_i
+
+  def bn_eth = ->(t) { t < ETH_HALTED ? format('%.2f', 1500 + ((t - KC_SINCE.to_i) / D * 0.75)) : nil }
+
+  def binance_step(at, extra = {}, host: BINANCE)
+    binance_prices(host, 'BTCUSD' => '91000.50000000', 'ETHUSD' => '2750.25000000', 'XRPUSD' => '0.00000000').merge(extra).then { |script| { 'at' => at, 'script' => script } }
+  end
+
+  def binance_scenarios
+    bot = basket(%w[BTC ETH], kucoin_orders, venue: 'binance')
+    last_a = Time.utc(2026, 3, 11) # the last closed candle at KC_NOW: where the next tail starts, at it
+    b = KC_NOW + (3 * D)
+    last_b = Time.utc(2026, 3, 14)
+    c = b + (3 * D)
+    eth_last = ETH_HALTED - D # ETH's last candle: every later read asks from it, and finds nothing after it
+    us_pair = pair([buy('BTC', KC_FIRST, '50000', '0.001'), buy('BTC', KC_FIRST + (400 * D), '40000', '0.0012')], members: %w[BTC], type: 'signal', venue: 'binance_us')
+    [
+      # A cold walk (two BTC pages, the second holding the open candle; ETH's two, then an empty one), a tail from the last
+      # stored candle, then a tail whose overlapping candle moved (BTC) and the whole series read again.
+      scenario('binance_series', c, bot, {}, steps: [
+        binance_step(KC_NOW, binance_walk(BINANCE, 'BTCUSD', KC_SINCE, KC_NOW, kc_btc).merge(binance_walk(BINANCE, 'ETHUSD', KC_SINCE, KC_NOW, bn_eth))),
+        binance_step(b, binance_walk(BINANCE, 'BTCUSD', last_a, b, kc_btc).merge(binance_walk(BINANCE, 'ETHUSD', eth_last, b, bn_eth))),
+        binance_step(c, binance_walk(BINANCE, 'BTCUSD', last_b, c, kc_btc(2)).merge(binance_walk(BINANCE, 'BTCUSD', KC_SINCE, c, kc_btc(2)))
+                         .merge(binance_walk(BINANCE, 'ETHUSD', eth_last, c, bn_eth)))
+      ]),
+      # A later page that fails: that holding has no grid, the other is charted.
+      scenario('binance_failed_page', KC_NOW, bot, {}, steps: [
+        binance_step(KC_NOW, binance_walk(BINANCE, 'BTCUSD', KC_SINCE, KC_NOW, kc_btc, answer: ->(start, reply) { start > KC_SINCE.to_i ? SERVER_ERROR : reply })
+                              .merge(binance_walk(BINANCE, 'ETHUSD', KC_SINCE, KC_NOW, bn_eth)))
+      ]),
+      # Binance.US: the same code at its own host.
+      scenario('binance_us_pair', KC_NOW, us_pair, {}, steps: [
+        binance_step(KC_NOW, binance_walk('api.binance.us', 'BTCUSD', KC_SINCE, KC_NOW, kc_btc), host: 'api.binance.us')
       ])
     ]
   end
