@@ -5,6 +5,7 @@ use super::dec::Dec;
 use super::market::{Failure, Fetch, MarketData, Member, Quoted, Venue};
 use super::num::Num;
 use crate::venue::http::{HttpRequest, Transport, TransportError};
+use crate::venue::registry::Figures;
 use serde_json::Value;
 use std::cell::{Cell, RefCell};
 use std::collections::BTreeMap;
@@ -24,6 +25,8 @@ pub const FILL_BYTES: usize = CACHE_BYTES;
 pub const MAX_CANDLE_PAGES: usize = 1000;
 const UNAVAILABLE: &str = "Market data unavailable";
 const KUCOIN_CANDLES: &str = "/api/v1/market/candles";
+/// Clients::Binance#candlestick_data, for Binance and Binance.US alike.
+const BINANCE_KLINES: &str = "/api/v3/klines";
 
 /// A closed candle as the figures read it: its time (`bar_time`), the venue's own text of it (the next tail's `start`), and
 /// its open exactly as the venue sent it, a number or a string, read by `Dec::to_d` as the answer itself is.
@@ -101,17 +104,17 @@ fn request(path: &str, query: Vec<(&'static str, String)>) -> HttpRequest {
 }
 
 pub const CANDLE_TTL: i64 = 30 * 86_400;
-/// A series' timeframe in seconds, from Alpaca's `timeframe` or KuCoin's `type`.
+/// A series' timeframe in seconds, from Alpaca's `timeframe`, KuCoin's `type` or Binance's `interval`.
 fn seconds(request: &HttpRequest) -> i64 {
-    match request.query.iter().find(|(k,_)| *k == "timeframe" || *k == "type").map(|(_,v)| v.as_str()) {
-        Some("1Min" | "1min") => 60, Some("5Min" | "5min") => 300, Some("15Min" | "15min") => 900, Some("30Min" | "30min") => 1800,
-        Some("1Hour" | "1hour") => 3600, Some("4Hour" | "4hour") => 14400, Some("1Week" | "1week") => 604800, Some("1Month") => 2592000, _ => 86400,
+    match request.query.iter().find(|(k,_)| *k == "timeframe" || *k == "type" || *k == "interval").map(|(_,v)| v.as_str()) {
+        Some("1Min" | "1min" | "1m") => 60, Some("5Min" | "5min" | "5m") => 300, Some("15Min" | "15min" | "15m") => 900, Some("30Min" | "30min" | "30m") => 1800,
+        Some("1Hour" | "1hour" | "1h") => 3600, Some("4Hour" | "4hour" | "4h") => 14400, Some("1Week" | "1week" | "1w") => 604800, Some("1Month") => 2592000, _ => 86400,
     }
 }
-/// Whether a demand is a candle series (kept as a head) rather than one answer: Alpaca's bars, or a KuCoin series. A KuCoin
-/// series is never sent as it is: its key names the series (symbol, since, type), and its pages are derived from it
-/// (`kucoin_pages`), so the head is found again by the next fill whatever `now` is.
-fn is_series(request: &HttpRequest) -> bool { request.path.ends_with("/bars") || request.path == KUCOIN_CANDLES }
+/// Whether a demand is a candle series (kept as a head) rather than one answer: Alpaca's bars, or a KuCoin or Binance
+/// series. A venue series is never sent as it is: its key names the series (symbol, since, timeframe), and its pages are
+/// derived from it (`kucoin_pages`, `binance_pages`), so the head is found again by the next fill whatever `now` is.
+fn is_series(request: &HttpRequest) -> bool { request.path.ends_with("/bars") || request.path == KUCOIN_CANDLES || request.path == BINANCE_KLINES }
 fn param<'r>(request: &'r HttpRequest, name: &str) -> &'r str { request.query.iter().find(|(k,_)| *k == name).map_or("", |(_,v)| v.as_str()) }
 fn bar_time(bar: &Value) -> Option<i64> {
     bar["t"].as_str().and_then(|t| chrono::DateTime::parse_from_rfc3339(t).ok()).map(|t| t.timestamp())
@@ -230,6 +233,7 @@ impl Drop for SeriesBytes<'_> { fn drop(&mut self) { self.in_flight.fetch_sub(se
 /// (`SeriesBytes`): a series that crosses one is a settled failure, and nothing of it is kept.
 async fn pages(wire: &impl Transport, request: &HttpRequest, tail: Option<&Bar>, now: i64, compute: &Arc<tokio::sync::Semaphore>, held: &mut SeriesBytes<'_>) -> Fetch<Vec<Bar>> {
     if request.path == KUCOIN_CANDLES { return kucoin_pages(wire, request, tail.map(|bar| bar.at), now, compute, held).await; }
+    if request.path == BINANCE_KLINES { return binance_pages(wire, request, tail.map(|bar| bar.at), now, compute, held).await; }
     // Alpaca answers a long range oldest first, a page at a time, each naming the next (`next_page_token`), as
     // Clients::Alpaca reads them; the token joins the query in its sorted place. A tail starts at the last bar's own text.
     let mut request = request.clone();
@@ -302,6 +306,49 @@ fn kucoin_rows(mut body: Value, timeframe: i64, now: i64) -> Fetch<(Vec<Bar>, Op
     let mut out = vec![];
     for (at, open) in read {
         if at.saturating_add(timeframe) <= now {
+            Dec::to_d(&open)?;
+            out.push(Bar { at, t: at.to_string().into(), o: open });
+        }
+    }
+    Ok((out, last))
+}
+/// Exchanges::Binance#get_candles: pages of up to 1000 klines from `startTime`, in milliseconds. A page moves the start to
+/// its last candle + 1 s; the walk ends at an empty page, or at a page whose last candle opened after now less one
+/// timeframe (`timeframe.ago`). Any failed page fails the series. Rails walks without a cap; here a walk past
+/// MAX_CANDLE_PAGES pages (a million candles, far past SERIES_BYTES) is a settled failure.
+async fn binance_pages(wire: &impl Transport, series: &HttpRequest, tail: Option<i64>, now: i64, compute: &Arc<tokio::sync::Semaphore>, held: &mut SeriesBytes<'_>) -> Fetch<Vec<Bar>> {
+    let timeframe = seconds(series);
+    let mut start: i64 = match tail { Some(at) => at, None => param(series, "since").parse().map_err(|_| Failure::Failed(UNAVAILABLE.into()))? };
+    let mut out = vec![];
+    for _ in 0..MAX_CANDLE_PAGES {
+        let page = HttpRequest { method: "GET", base: series.base.clone(), path: BINANCE_KLINES.into(), body: None, not_after: None,
+            query: vec![("interval", param(series, "interval").to_string()), ("limit", "1000".into()), ("startTime", start.saturating_mul(1000).to_string()),
+                        ("symbol", param(series, "symbol").to_string()), ("timeZone", "0".into())] };
+        let body = send(wire, &page).await?;
+        let (bars, last) = cpu(compute, move || binance_rows(decode(&body)?, timeframe, now)).await?;
+        held.take(bars.iter().map(Bar::size).sum())?;
+        out.extend(bars);
+        match last {
+            Some(last) if last <= now.saturating_sub(timeframe).saturating_mul(1000) => start = last.div_euclid(1000).saturating_add(1),
+            _ => return Ok(out),
+        }
+    }
+    Err(Failure::Failed(UNAVAILABLE.into()))
+}
+/// One Binance page: rows of `[open time in ms, open, high, low, close, volume, ...]`, the open a string. The closed ones,
+/// at `Time.at(ms / 1000)`, and the last row's open time in ms as sent (closed or not), which decides where the walk goes.
+fn binance_rows(body: Value, timeframe: i64, now: i64) -> Fetch<(Vec<Bar>, Option<i64>)> {
+    let unreadable = || Failure::Failed(UNAVAILABLE.into());
+    let Value::Array(rows) = body else { return Err(unreadable()) };
+    let mut out = vec![];
+    let mut last = None;
+    for row in rows {
+        let Value::Array(mut row) = row else { return Err(unreadable()) };
+        let ms = row.first().and_then(Value::as_i64).ok_or_else(unreadable)?;
+        let at = ms.div_euclid(1000);
+        last = Some(ms);
+        if at.saturating_add(timeframe) <= now {
+            let open = row.get_mut(1).map_or(Value::Null, Value::take);
             Dec::to_d(&open)?;
             out.push(Bar { at, t: at.to_string().into(), o: open });
         }
@@ -492,6 +539,10 @@ fn reads_candles(venue: &Venue) -> bool { crate::venue::registry::row(&venue.exc
 fn kucoin_type(timeframe: i64) -> Option<&'static str> {
     Some(match timeframe { 60 => "1min", 300 => "5min", 900 => "15min", 1800 => "30min", 3600 => "1hour", 14400 => "4hour", 86_400 => "1day", 604_800 => "1week", _ => return None })
 }
+/// Exchanges::Binance#get_candles' interval names, for the same timeframes (3 days and 1 month are never asked for).
+fn binance_interval(timeframe: i64) -> Option<&'static str> {
+    Some(match timeframe { 60 => "1m", 300 => "5m", 900 => "15m", 1800 => "30m", 3600 => "1h", 14400 => "4h", 86_400 => "1d", 604_800 => "1w", _ => return None })
+}
 const ALL_TICKERS: &str = "/api/v1/market/allTickers";
 
 impl MarketData for Reader<'_> {
@@ -502,6 +553,14 @@ impl MarketData for Reader<'_> {
             let request = HttpRequest { method: "GET", base: crate::venue::kucoin::URL.into(), path: ALL_TICKERS.into(), query: vec![], body: None, not_after: None };
             return match self.get(request)? {
                 Answer::Json(body) => crate::venue::kucoin::all_tickers(&body).map(|rows| rows.into_iter().map(|(symbol, price)| (symbol, Dec::venue_number(&Value::String(price.to_s_f())))).collect()).map_err(|_| Failure::Failed(UNAVAILABLE.into())),
+                Answer::Bars(_) => Err(Failure::Failed(UNAVAILABLE.into())),
+            };
+        }
+        if let Some(row) = crate::venue::registry::row(&venue.exchange_type).filter(|row| row.figures == Some(Figures::Binance)) {
+            // Exchanges::Binance#get_tickers_prices (Binance.US's too, at its host): the whole market, its symbols ignored.
+            let request = HttpRequest { method: "GET", base: row.base.into(), path: crate::venue::binance::TICKER_PRICE.into(), query: vec![], body: None, not_after: None };
+            return match self.get(request)? {
+                Answer::Json(body) => crate::venue::binance::ticker_prices(&body).map(|rows| rows.into_iter().map(|(symbol, price)| (symbol, Dec::venue_number(&Value::String(price.to_s_f())))).collect()).map_err(|_| Failure::Failed(UNAVAILABLE.into())),
                 Answer::Bars(_) => Err(Failure::Failed(UNAVAILABLE.into())),
             };
         }
@@ -538,13 +597,22 @@ impl MarketData for Reader<'_> {
         // A venue this reader cannot read has no candles, as it has no prices (`prices`): that holding goes without a
         // grid, and the pass is not marked failed, which would fail every bot's figures.
         if !reads_candles(venue) { return Err(Failure::Failed(UNAVAILABLE.into())); }
-        if venue.exchange_type == crate::venue::kucoin::KUCOIN {
-            // CandleSeriesCache's series for (ticker, since, timeframe): KuCoin has one history, so `restated` names the same
-            // series. The key is the series, not a page: its pages move with now (`kucoin_pages`), the key does not.
-            let Some(name) = kucoin_type(timeframe) else { return Err(Failure::Failed(UNAVAILABLE.into())) };
+        // CandleSeriesCache's series for (ticker, since, timeframe): KuCoin and Binance have one history, so `restated` names
+        // the same series. The key is the series, not a page: its pages move with now (`kucoin_pages`, `binance_pages`), the
+        // key does not.
+        let venue_series = |base: &str, path: &str, name: Option<(&'static str, &'static str)>| -> Fetch<HttpRequest> {
+            let Some((param, name)) = name else { return Err(Failure::Failed(UNAVAILABLE.into())) };
             let since = since.0.div_euclid(1_000_000_000);
-            let series = HttpRequest { method: "GET", base: crate::venue::kucoin::URL.into(), path: KUCOIN_CANDLES.into(), body: None, not_after: None,
-                query: vec![("since", since.to_string()), ("symbol", ticker.ticker.clone()), ("type", name.into())] };
+            let mut query = vec![(param, name.to_string()), ("since", since.to_string()), ("symbol", ticker.ticker.clone())];
+            query.sort();
+            Ok(HttpRequest { method: "GET", base: base.into(), path: path.into(), body: None, not_after: None, query })
+        };
+        let series = match crate::venue::registry::row(&venue.exchange_type).and_then(|row| Some((row, row.figures?))) {
+            Some((row, Figures::Kucoin)) => Some(venue_series(row.base, KUCOIN_CANDLES, kucoin_type(timeframe).map(|name| ("type", name)))?),
+            Some((row, Figures::Binance)) => Some(venue_series(row.base, BINANCE_KLINES, binance_interval(timeframe).map(|name| ("interval", name)))?),
+            _ => None,
+        };
+        if let Some(series) = series {
             let Answer::Bars(bars) = self.get(series)? else { return Err(Failure::Failed(UNAVAILABLE.into())) };
             return bars.iter().map(|bar| {
                 let at = chrono::DateTime::from_timestamp(bar.at, 0).and_then(At::from_utc).ok_or_else(|| Failure::Failed(UNAVAILABLE.into()))?;
@@ -916,6 +984,57 @@ mod r4_cache_tests {
             let value = &cache.entries.borrow()[&key(&series(SINCE, "1hour"))].value;
             assert_eq!(value.is_ok(), ok, "{body}");
             assert!(cache.heads.borrow().is_empty());
+        }
+    }
+
+    // ---- Binance series (Exchanges::Binance#get_candles)
+
+    /// Answers Binance pages from a function of startTime (ms), and logs every startTime asked for.
+    struct Binance<F: Fn(i64) -> HttpResponse> { answer: F, asked: RefCell<Vec<i64>>, producer: CredentialVersion }
+    impl<F: Fn(i64) -> HttpResponse> Transport for Binance<F> {
+        fn producer(&self)->Option<CredentialVersion>{Some(self.producer.clone())}
+        async fn send(&self,r:&HttpRequest)->Result<HttpResponse,TransportError>{
+            assert_eq!((r.base.as_str(), r.path.as_str()), (crate::venue::binance::US_URL, BINANCE_KLINES));
+            assert_eq!(r.query.iter().map(|(k,v)| format!("{k}={v}")).filter(|q| !q.starts_with("startTime")).collect::<Vec<_>>(),
+                       ["interval=1h", "limit=1000", "symbol=BTCUSD", "timeZone=0"], "Clients::Binance#candlestick_data's parameters");
+            let start = param(r,"startTime").parse().unwrap();
+            self.asked.borrow_mut().push(start);
+            Ok((self.answer)(start))
+        }
+    }
+    /// Up to 1000 hourly klines from `start_ms` that have opened by `now`, before `until`.
+    fn klines(start_ms: i64, now: i64, until: i64) -> HttpResponse {
+        let first = (start_ms.div_euclid(1000) + H - 1).div_euclid(H) * H;
+        let data: Vec<Value> = (0..1000).map(|i| first + i * H).take_while(|t| *t <= now && *t < until)
+            .map(|t| serde_json::json!([t * 1000, format!("{}", (t - SINCE) / H), "1", "1", "1", "1", (t + H) * 1000 - 1])).collect();
+        HttpResponse { status: 200, body: Value::Array(data).to_string() }
+    }
+
+    #[tokio::test]
+    async fn a_binance_series_walks_its_pages_as_rails_does(){
+        let producer = model::credential_version_by_id(&db(),1).unwrap().unwrap();
+        let req = HttpRequest { method: "GET", base: crate::venue::binance::US_URL.into(), path: BINANCE_KLINES.into(), body: None, not_after: None,
+                                query: vec![("interval", "1h".into()), ("since", SINCE.to_string()), ("symbol", "BTCUSD".into())] };
+        // Two full pages, then one that holds the candle still open: past now - 1 hour, the walk ends.
+        let now = SINCE + 2500 * H + 1800;
+        let wire = Binance { answer: |start| klines(start, now, i64::MAX), asked: RefCell::default(), producer: producer.clone() };
+        let mut cache = Cache::default();
+        cache.fill(&wire, vec![req.clone()], now).await;
+        assert_eq!(*wire.asked.borrow(), [SINCE * 1000, (SINCE + 999 * H + 1) * 1000, (SINCE + 1999 * H + 1) * 1000], "each page from its last candle + 1 s");
+        let bars = opens(&cache, &key(&req));
+        assert_eq!((bars.len(), bars.last().unwrap().0), (2500, SINCE + 2499 * H), "the open candle is left out");
+        // A pair whose candles stop: the walk ends at the empty page after them.
+        let wire = Binance { answer: |start| klines(start, now, SINCE + 1000 * H), asked: RefCell::default(), producer: producer.clone() };
+        let mut cache = Cache::default();
+        cache.fill(&wire, vec![req.clone()], now).await;
+        assert_eq!(*wire.asked.borrow(), [SINCE * 1000, (SINCE + 999 * H + 1) * 1000]);
+        assert_eq!(opens(&cache, &key(&req)).len(), 1000);
+        // A failed later page, or one that is no list of klines, fails the series.
+        for answer in [HttpResponse { status: 500, body: "{}".into() }, HttpResponse { status: 200, body: r#"{"code":-1121}"#.into() }] {
+            let wire = Binance { answer: |start| if start > SINCE * 1000 { answer.clone() } else { klines(start, now, i64::MAX) }, asked: RefCell::default(), producer: producer.clone() };
+            let mut cache = Cache::default();
+            cache.fill(&wire, vec![req.clone()], now).await;
+            assert!(matches!(cache.entries.borrow()[&key(&req)].value, Err(Failure::Failed(_))) && cache.heads.borrow().is_empty());
         }
     }
 

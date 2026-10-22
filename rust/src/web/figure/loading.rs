@@ -255,24 +255,35 @@ pub(crate) fn read_info(c:&Connection,app:&App,user:i64)->Result<Info,WebError> 
     Ok(Info{identity:identity.to_string(),revision,mark:mark(c)?,credentials,producer})
 }
 /// `alpaca`: whether `real` carries an Alpaca key. Without one, Alpaca's market data is a settled failure: never sent.
-pub(crate) struct Wire { real:ReqwestTransport,alpaca:bool,kucoin:Result<ReqwestTransport,String>,source:Source,origin:Option<crate::engine::model::CredentialVersion>,compute:Option<std::sync::Arc<tokio::sync::Semaphore>> }
+/// Whether `base` is the host of a venue whose market data the figures read (any but Alpaca's).
+fn venue_host(base:&str)->bool { crate::venue::registry::ROWS.iter().any(|row|row.figures.is_some()&&!row.base.is_empty()&&row.base==base) }
+/// Each venue's public market data, as its Exchange reads it: through the install's egress for that venue (ExchangeProxy.for
+/// by its name_id, `venue::live::egress`), unsigned (public endpoints carry no key), on its own wire. An egress that cannot be
+/// had (an unusable proxy) is that venue's settled failure, never a direct connection.
+pub(crate) fn venue_egresses(c:&rusqlite::Connection,cipher:&crate::crypto::Cipher)->Vec<(&'static str,Result<ReqwestTransport,String>)> {
+    use crate::venue::registry::Figures;
+    crate::venue::registry::ROWS.iter().filter_map(|row|{
+        let wire=match row.figures? { Figures::Kucoin=>|client|ReqwestTransport::kucoin(client,String::new(),String::new(),String::new()), Figures::Binance=>|client|ReqwestTransport::binance(client,String::new(),String::new()), Figures::Alpaca=>return None };
+        let egress=crate::venue::live::egress(c,cipher,&|k|std::env::var(k).ok(),row.name_id,&http::client());
+        Some((row.base,egress.map(|(client,proxy)|wire(client).with_sensitive_values(proxy.into_iter().collect()))))
+    }).collect()
+}
+/// `venues`: each venue's public market data by its host (`with_venues`).
+pub(crate) struct Wire { real:ReqwestTransport,alpaca:bool,venues:Vec<(&'static str,Result<ReqwestTransport,String>)>,source:Source,origin:Option<crate::engine::model::CredentialVersion>,compute:Option<std::sync::Arc<tokio::sync::Semaphore>> }
 impl Wire {
     pub(crate) fn with_origin(mut self,origin:crate::engine::model::CredentialVersion)->Self { self.origin=Some(origin);self }
-    pub(crate) fn new(credentials:&Credentials,source:Source)->Self { Wire{real:ReqwestTransport::new(http::client(),credentials.key.clone(),credentials.secret.clone()).with_sensitive_values(credentials.redaction_values.clone()),alpaca:true,kucoin:Err("KuCoin is not connected here".into()),source,origin:None,compute:None} }
+    pub(crate) fn new(credentials:&Credentials,source:Source)->Self { Wire{real:ReqwestTransport::new(http::client(),credentials.key.clone(),credentials.secret.clone()).with_sensitive_values(credentials.redaction_values.clone()),alpaca:true,venues:vec![],source,origin:None,compute:None} }
     /// The wire of an account's figures: its Alpaca key if it has a usable one (`Info`), and none otherwise.
     pub(crate) fn of(credentials:Option<&Credentials>,source:Source)->Self {
-        match credentials { Some(credentials)=>Self::new(credentials,source), None=>Wire{real:ReqwestTransport::new(http::client(),String::new(),String::new()),alpaca:false,kucoin:Err("KuCoin is not connected here".into()),source,origin:None,compute:None} }
+        match credentials { Some(credentials)=>Self::new(credentials,source), None=>Wire{real:ReqwestTransport::new(http::client(),String::new(),String::new()),alpaca:false,venues:vec![],source,origin:None,compute:None} }
     }
-    /// KuCoin's public market data, as Exchanges::Kucoin reads it: through the install's KuCoin egress (ExchangeProxy.for,
-    /// `venue::live::egress`), unsigned (public endpoints carry no key). An egress that cannot be had (an unusable proxy)
-    /// is that venue's settled failure, never a direct connection.
-    pub(crate) fn with_kucoin(mut self,egress:crate::venue::live::Egress)->Self {
-        self.kucoin=egress.map(|(client,proxy)|ReqwestTransport::kucoin(client,String::new(),String::new(),String::new()).with_sensitive_values(proxy.into_iter().collect()));
-        self
-    }
-    /// The transport for a request's host: KuCoin's for KuCoin, Alpaca's (with its key) for Alpaca's market data.
+    /// The venues' public market data (`venue_egresses`).
+    pub(crate) fn with_venues(mut self,venues:Vec<(&'static str,Result<ReqwestTransport,String>)>)->Self { self.venues=venues;self }
+    /// The transport for a request's host: the venue's for a venue the figures read, Alpaca's (with its key) for Alpaca's
+    /// market data.
     fn transport(&self,r:&HttpRequest)->Result<&ReqwestTransport,TransportError> {
-        if r.base==crate::venue::kucoin::URL { self.kucoin.as_ref().map_err(|_|TransportError::Permanent("Market data unavailable".into())) }
+        if let Some((_,venue))=self.venues.iter().find(|(base,_)|*base==r.base) { venue.as_ref().map_err(|_|TransportError::Permanent("Market data unavailable".into())) }
+        else if venue_host(&r.base) { Err(TransportError::Permanent("Market data unavailable".into())) }
         else if self.alpaca { Ok(&self.real) } else { Err(TransportError::Permanent("Market data unavailable".into())) }
     }
     /// Each answer is settled (a pass over the whole body) off the runtime's thread, under the figures' compute permit.
@@ -296,7 +307,7 @@ impl Transport for Wire {
             Source::Disabled=>Err(TransportError::Permanent("Market data unavailable".into())),
             Source::Script(script)|Source::Counted(script,_)=>{
                 // No Alpaca key: Alpaca's market data is refused before it is asked for, as on the live wire.
-                if r.base!=crate::venue::kucoin::URL && !self.alpaca { return Err(TransportError::Permanent("Market data unavailable".into())); }
+                if !venue_host(&r.base) && !self.alpaca { return Err(TransportError::Permanent("Market data unavailable".into())); }
                 // Market data is scripted by the parameters that pick a series; any other host by its whole sorted query.
                 let host=r.base.split_once("://").map_or(r.base.as_str(),|(_,h)|h);
                 let data=host=="data.alpaca.markets";
@@ -517,9 +528,8 @@ pub(crate) fn broadcast_metrics_panel(ctx:&crate::web::layout::Ctx,id:i64,stream
             let Some((_,cache))=kept.as_mut() else { return };
             cache.produced_by(info.producer.clone());
             let cipher=app.cipher.clone();
-            let egress=app.db(move|c|Ok(crate::venue::live::egress(c,&cipher,&|k|std::env::var(k).ok(),"kucoin",&http::client()))).await
-                .unwrap_or_else(|e|Err(format!("{e:?}")));
-            let mut wire=Wire::of(info.credentials.as_ref(),app.figure_source.clone()).with_kucoin(egress).settled_under(app.figure_service.compute());
+            let venues=app.db(move|c|Ok(venue_egresses(c,&cipher))).await.unwrap_or_default();
+            let mut wire=Wire::of(info.credentials.as_ref(),app.figure_source.clone()).with_venues(venues).settled_under(app.figure_service.compute());
             if let Producer::Alpaca(version)=&info.producer { wire=wire.with_origin(version.clone()); }
             let prefix=prefix.clone();
             let filled=tokio::time::timeout(app.figure_service.fill_timeout(),fill_result(&app,user,cache,&wire,now,|_,_|Ok(true),move|c,reader|
@@ -571,9 +581,9 @@ fn spawn_fill(app:&App,user:i64,info:Info,now:At,ticket:super::service::Ticket,m
         let keys=work.as_ref().map(|work|work.locales.clone()).unwrap_or_default();
         // Past its deadline the fill stops waiting; a worker it started finishes on its own, holding the compute permit.
         let timed=tokio::time::timeout(inner.figure_service.fill_timeout(),async {
-            // The KuCoin egress is a settings read, inside the deadline and outside the compute permit.
-            let egress={ let cipher=inner.cipher.clone(); inner.db(move|c|Ok(crate::venue::live::egress(c,&cipher,&|k|std::env::var(k).ok(),"kucoin",&http::client()))).await.unwrap_or_else(|e|Err(format!("{e:?}"))) };
-            let mut wire=Wire::of(info.credentials.as_ref(),source).with_kucoin(egress).settled_under(inner.figure_service.compute());
+            // The venues' egresses are a settings read, inside the deadline and outside the compute permit.
+            let venues={ let cipher=inner.cipher.clone(); inner.db(move|c|Ok(venue_egresses(c,&cipher))).await.unwrap_or_default() };
+            let mut wire=Wire::of(info.credentials.as_ref(),source).with_venues(venues).settled_under(inner.figure_service.compute());
             if let Producer::Alpaca(version)=&info.producer { wire=wire.with_origin(version.clone()); }
             cache.produced_by(info.producer.clone());
             // What the figures show besides their numbers, read before them: stale figures are held to it (`stale_shown`).
@@ -980,6 +990,28 @@ mod credential_cache_tests {
 
 #[cfg(test)]
 mod tests {
+    /// Each venue's public reads go through its own egress (ExchangeProxy.for by its name_id). One whose proxy is unusable
+    /// is a settled failure for that venue, sent nowhere, never a direct connection; the other venues keep theirs.
+    #[tokio::test]
+    async fn a_venues_unusable_proxy_is_a_settled_failure_and_never_a_direct_read() {
+        use crate::venue::http::{HttpRequest,Transport,TransportError};
+        let c=rusqlite::Connection::open_in_memory().unwrap();
+        c.execute_batch(include_str!("../../../tests/fixtures/settings_primary_schema.sql")).unwrap();
+        let cipher=crate::crypto::Cipher::new(&crate::crypto::EncryptionKeys::resolve(&|_|None,"figures-egress-test-secret").unwrap());
+        let now=chrono::Utc::now();
+        crate::app_config::set(&c,&cipher,"proxy_binance","http://[unusable",now).unwrap();
+        crate::app_config::set(&c,&cipher,"proxy_binance_us","http://127.0.0.1:9",now).unwrap();
+        let venues=super::venue_egresses(&c,&cipher);
+        let of=|base:&str|venues.iter().find(|(b,_)|*b==base).map(|(_,t)|t.is_ok());
+        assert_eq!((of(crate::venue::binance::URL),of(crate::venue::binance::US_URL),of(crate::venue::kucoin::URL)),(Some(false),Some(true),Some(true)));
+        let wire=super::Wire::of(None,super::Source::Live).with_venues(venues);
+        let read=|base:&str|HttpRequest{method:"GET",base:base.into(),path:crate::venue::binance::TICKER_PRICE.into(),query:vec![],body:None,not_after:None};
+        assert!(matches!(wire.send_limited(&read(crate::venue::binance::URL),1024).await,Err(TransportError::Permanent(_))),"settled, and nothing sent");
+        // A venue with no egress at all (its settings unreadable) is refused the same way, not read on the Alpaca wire.
+        let bare=super::Wire::of(None,super::Source::Live);
+        assert!(matches!(bare.send_limited(&read(crate::venue::binance::US_URL),1024).await,Err(TransportError::Permanent(_))));
+    }
+
     /// The fingerprint runs on every page that shows figures. At the sizes of a real install (40,000 assets, four venues'
     /// listings, two years of orders, a ledger with splits), the assets and the listings of venues the account never
     /// traded on add no work to it: no scan of either table, by a category or anything else. Counted in SQLite VM
