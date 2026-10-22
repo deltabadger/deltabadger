@@ -195,7 +195,10 @@ impl ReqwestTransport {
     }
     /// Honeymaker::Clients::Bitvavo's wire: the secret only signs and is never sent.
     pub fn bitvavo(client: reqwest::Client, key: String, secret: String) -> Self { Self { wire: Wire::Bitvavo, ..Self::new(client, key, secret) } }
-    /// Honeymaker::Clients::Bitget's wire: the secret only signs; the passphrase is sent as it is (and redacted like a secret).
+    /// Bybit V5 signs the exact outgoing query or JSON bytes at send time.
+    pub fn bybit(client: reqwest::Client, key: String, secret: String) -> Self { Self { wire: Wire::Bybit, ..Self::new(client, key, secret) } }
+
+    /// Bitget signs with the secret and sends the passphrase as it is.
     pub fn bitget(client: reqwest::Client, key: String, secret: String, passphrase: String) -> Self {
         let mut t = Self { wire: Wire::Bitget, ..Self::new(client, key, secret) };
         if !passphrase.is_empty() { t.sensitive.push(passphrase.clone()); }
@@ -217,6 +220,7 @@ impl ReqwestTransport {
         self.sensitive.extend(values.into_iter().filter(|value| self.wire != Wire::Hyperliquid || value != &self.key));
         self
     }
+    pub fn bitrue(client: reqwest::Client, key: String, secret: String) -> Self { Self { wire: Wire::Bitrue, ..Self::new(client, key, secret) } }
     /// Speak Kraken's wire: Honeymaker::Clients::Kraken's headers, form bodies and signature.
     pub fn kraken(mut self)->Self{self.wire=Wire::Kraken;self}
     /// The stderr line for a failed or unreadable answer (the "http-log" sink of script/rust/settings_r2_sinks.json).
@@ -391,9 +395,11 @@ impl Transport for ScriptedTransport {
         let mut reply = {
             let mut s = self.s.borrow_mut();
             s.requests.push(r.clone());
-            // Hyperliquid names every read by its body's `type` (and an action by its own): "POST /info l2Book".
+            // Hyperliquid names reads by type and optionally coin: "POST /info l2Book @142" before "POST /info l2Book".
             let typed = r.body.as_ref().and_then(|b| b["type"].as_str().or_else(|| b["action"]["type"].as_str())).map(|t| format!("{} {} {t}", r.method, r.path));
-            let key = if s.replies.contains_key(&full) { full.clone() } else if let Some(t) = typed.filter(|t| s.replies.contains_key(t)) { t } else { format!("{} {}", r.method, r.path) };
+            let coin = typed.as_ref().and_then(|t| r.body.as_ref()?.get("coin")?.as_str().map(|c| format!("{t} {c}")));
+            let key = if let Some(c) = coin.filter(|c| s.replies.contains_key(c)) { c }
+                else if s.replies.contains_key(&full) { full.clone() } else if let Some(t) = typed.filter(|t| s.replies.contains_key(t)) { t } else { format!("{} {}", r.method, r.path) };
             let q = s.replies.get_mut(&key).filter(|q| !q.is_empty()).unwrap_or_else(|| panic!("unscripted Alpaca call {key}"));
             if q.len() > 1 { q.pop_front().expect("non-empty") } else { q[0].clone() }
         };
@@ -405,6 +411,9 @@ impl Transport for ScriptedTransport {
             let asked = r.query.iter().find(|(k, _)| *k == "client_order_id").map(|(_, cl)| cl.clone())
                 .or_else(|| r.body.as_ref().and_then(|b| b["client_order_id"].as_str()).map(str::to_string));
             if let Some(cl) = asked { reply["body"]["client_order_id"] = Value::String(cl); }
+        }
+        if reply["body"]["clientOrderId"] == "$client_order_id" {
+            if let Some((_, cl)) = r.query.iter().find(|(k, _)| *k == "origClientOrderId") { reply["body"]["clientOrderId"] = Value::String(cl.clone()); }
         }
         // Coinbase lists orders; the client id of a landed order is the one the preceding placement sent.
         if r.path == super::coinbase::ORDERS {
@@ -423,6 +432,10 @@ impl Transport for ScriptedTransport {
         // Hyperliquid's orderStatus by cloid: "$cloid" answers for the one asked (`oid`).
         if reply["body"]["order"]["order"]["cloid"] == "$cloid" {
             if let Some(cloid) = r.body.as_ref().and_then(|b| b["oid"].as_str()) { reply["body"]["order"]["order"]["cloid"] = Value::String(cloid.into()); }
+        }
+        // Bybit's realtime/history lookup returns the requested orderLinkId in result.list.
+        if reply["body"]["result"]["list"][0]["orderLinkId"] == "$client_order_id" {
+            if let Some((_, cl)) = r.query.iter().find(|(k, _)| *k == "orderLinkId") { reply["body"]["result"]["list"][0]["orderLinkId"] = Value::String(cl.clone()); }
         }
         let message = reply["message"].as_str().unwrap_or_default().to_string();
         match reply["network"].as_str() {

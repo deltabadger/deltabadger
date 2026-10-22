@@ -8,12 +8,14 @@ pub mod http;
 pub mod binance;
 pub mod bitvavo;
 pub mod bitget;
+pub mod bybit;
 pub mod kraken;
 pub mod kucoin;
 pub mod gemini;
 pub mod hyperliquid;
 pub mod live;
 pub mod mexc;
+pub mod bitrue;
 pub mod registry;
 pub mod sign;
 pub mod signers;
@@ -288,3 +290,11 @@ pub trait VenueFactory {
 pub enum ClockAnswer { Body(String), Failed { status: Option<u16>, message: String } }
 
 pub mod coinbase;
+/// A reversible UUID representation bounded to 32 characters, shared by query-HMAC venues.
+pub(crate) fn client_order_id_32(id: &str, venue: &str) -> Result<String, VenueError> {
+    match uuid::Uuid::parse_str(id) {
+        Ok(uuid) => Ok(uuid.simple().to_string()),
+        Err(_) if id.chars().count() <= 32 => Ok(id.to_string()),
+        Err(_) => Err(VenueError::Rejected(vec![format!("{venue}: non-UUID client order id exceeds 32 characters; not sent")])),
+    }
+}

@@ -77,6 +77,12 @@ pub trait Connect {
     fn hyperliquid_transport(&self, _credentials: &Credentials, _proxy: Option<&str>) -> ReqwestTransport {
         ReqwestTransport::refused("Hyperliquid is not connected here")
     }
+    fn bybit_transport(&self, _credentials: &Credentials, _proxy: Option<&str>) -> ReqwestTransport {
+        ReqwestTransport::refused("Bybit is not connected here")
+    }
+    fn bitrue_transport(&self, _credentials: &Credentials, _proxy: Option<&str>) -> ReqwestTransport {
+        ReqwestTransport::refused("Bitrue is not connected here")
+    }
     /// Where and how the validator sends a Kraken, Binance or KuCoin key's check (`key_check`): the venue's host and a client
     /// through its proxy, given the stored AppConfig `proxy_<name>` (decrypted). By default nowhere.
     fn key_check_egress(&self, exchange_type: &str, _stored_proxy: Option<String>) -> Result<(String, reqwest::Client), String> {
@@ -155,6 +161,21 @@ impl Connect for LiveFactory {
         };
         ReqwestTransport::hyperliquid(client, credentials.key.clone(), credentials.secret.clone()).with_sensitive_values(credentials.redaction_values.clone())
     }
+    fn bybit_transport(&self, credentials: &Credentials, proxy: Option<&str>) -> ReqwestTransport {
+        let client = match proxy {
+            None => crate::venue::http::client(),
+            Some(proxy) => match crate::venue::http::client_via(proxy) { Ok(client) => client, Err(why) => return ReqwestTransport::refused(&why) },
+        };
+        ReqwestTransport::bybit(client, credentials.key.clone(), credentials.secret.clone())
+            .with_sensitive_values(credentials.redaction_values.clone())
+    }
+    fn bitrue_transport(&self, credentials: &Credentials, proxy: Option<&str>) -> ReqwestTransport {
+        let client = match proxy {
+            None => crate::venue::http::client(),
+            Some(proxy) => match crate::venue::http::client_via(proxy) { Ok(client) => client, Err(why) => return ReqwestTransport::refused(&why) },
+        };
+        ReqwestTransport::bitrue(client, credentials.key.clone(), credentials.secret.clone()).with_sensitive_values(credentials.redaction_values.clone())
+    }
 }
 
 /// The ExchangeProxy name of a venue whose syncs go through its proxy: every synced venue but Alpaca (Rails has no
@@ -164,7 +185,7 @@ fn proxied(venue: &str) -> Option<&'static str> {
     registry::row(venue).filter(|r| r.balances.is_some_and(|b| b != BalanceSync::Alpaca) || r.ledger.is_some_and(|l| l != LedgerSync::Alpaca)).map(|r| r.name_id)
 }
 
-/// The venue type of a key and, for Binance, Binance.US, KuCoin, Bitvavo, Gemini, Bitget, MEXC, Hyperliquid and Coinbase, the proxy its reads go through: AppConfig
+/// The venue type of a key and, for Binance, Binance.US, KuCoin, Bitvavo, Gemini, Bitget, MEXC, Hyperliquid, Bybit, Bitrue and Coinbase, the proxy its reads go through: AppConfig
 /// `proxy_<name>` (decrypted) or ENV `PROXY_<NAME>`, as ExchangeProxy.for resolves it.
 async fn venue_of(db: &Db, key: i64) -> Result<(String, Option<String>), SyncError> {
     let (venue, stored) = db.run(move |c, cipher| {
@@ -273,6 +294,10 @@ impl<C: Connect> Job for LedgerSync<C> {
                         crate::sync::coinbase_ledger::sync(&cx.db, self.venues.coinbase_transport(&credentials, proxy.as_deref()), self.key_id, &credentials, cx.clock).await,
                     Some(LedgerSync::Hyperliquid) =>
                         crate::sync::hyperliquid_ledger::sync(&cx.db, self.venues.hyperliquid_transport(&credentials, proxy.as_deref()), self.key_id, &credentials, cx.clock).await,
+                    Some(LedgerSync::Bybit) =>
+                        crate::sync::bybit_ledger::sync(&cx.db, self.venues.bybit_transport(&credentials, proxy.as_deref()), self.key_id, &credentials, cx.clock).await,
+                    Some(LedgerSync::Bitrue) =>
+                        crate::sync::bitrue_ledger::sync(&cx.db, self.venues.bitrue_transport(&credentials, proxy.as_deref()), self.key_id, &credentials, cx.clock, crate::sync::bitrue_ledger::READ_PAUSE).await,
                     // Alpaca's, and a key on any other venue: ledger::load_key refuses it as it always did.
                     Some(LedgerSync::Alpaca) | None => ledger::sync_captured(&cx.db, &self.venues.connect(&credentials), self.key_id, &credentials, cx.clock, self.limits, &version).await,
                 },
@@ -337,6 +362,10 @@ impl<C: Connect> Job for BalanceSync<C> {
                         balances::sync_coinbase_captured(&cx.db, self.venues.coinbase_transport(&credentials, proxy.as_deref()), self.prices.as_ref(), self.key_id, &credentials, cx.clock, &version).await,
                     Some(BalanceSync::Hyperliquid) =>
                         balances::sync_hyperliquid_captured(&cx.db, self.venues.hyperliquid_transport(&credentials, proxy.as_deref()), self.prices.as_ref(), self.key_id, &credentials, cx.clock, &version).await,
+                    Some(BalanceSync::Bybit) =>
+                        balances::sync_bybit_captured(&cx.db, self.venues.bybit_transport(&credentials, proxy.as_deref()), self.prices.as_ref(), self.key_id, &credentials, cx.clock, &version).await,
+                    Some(BalanceSync::Bitrue) =>
+                        balances::sync_bitrue_captured(&cx.db, self.venues.bitrue_transport(&credentials, proxy.as_deref()), self.prices.as_ref(), self.key_id, &credentials, cx.clock, &version).await,
                     // Alpaca's, and a key on any other venue: the Alpaca sync's load_key refuses it as it always did.
                     Some(BalanceSync::Alpaca) | None => balances::sync_captured(&cx.db, &self.venues.connect(&credentials), self.prices.as_ref(), self.key_id, &credentials, cx.clock, &version).await,
                 },

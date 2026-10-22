@@ -207,7 +207,12 @@ impl OrderPlan {
         let (base_decimals, quote_decimals, price_decimals) = t.scales()?;
         let (kind, volume, quote_volume) = match wire {
             // Exchanges::Kraken#set_limit_order floors the price again; floor is idempotent.
-            WireFormat::Kraken => (
+            WireFormat::Bybit if self.limit => {
+                let price = self.price.floor(price_decimals);
+                let qty = if self.quote_type { self.quote_amount.div(&price).map(|v| v.floor(base_decimals)).unwrap_or_else(BigDec::zero) } else { self.volume.clone() };
+                (OrderKind::Limit { price: price.to_s_f() }, qty.to_s_f(), false)
+            }
+            WireFormat::Kraken | WireFormat::Bybit => (
                 if self.limit { OrderKind::Limit { price: self.price.floor(price_decimals).to_s_f() } }
                 // D-679: the persisted crossed price, sent as it is (no second read, no resizing).
                 else if let Some(price) = &self.wire_price { OrderKind::Crossed { price: price.to_s_f() } }

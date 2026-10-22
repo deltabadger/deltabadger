@@ -1,7 +1,7 @@
 //! Signing at send time (plan VB §1.2): which headers and body a request carries, per venue wire, built by
 //! `http::ReqwestTransport` immediately before the send so a timestamp or nonce is read then and the signature covers
 //! the exact bytes sent. The schemes themselves stay with their venue (`kraken::private_headers`, `binance::sign`); a new
-//! scheme lands here with its venue and a known-answer test. `Prehash` is the family KuCoin, Bitvavo and Bitget share (§1.2,
+//! scheme lands here with its venue and a known-answer test. `Prehash` is the family KuCoin, Bitvavo, Bitget and Bybit share (§1.2,
 //! generalised from `kucoin::headers` in slice A3, KuCoin pinned by tests/kucoin.rs before and after). `QueryHmacHex` is the
 //! family Binance and MEXC share (generalised from binance.rs `signed` in slice A5, Binance pinned by tests/binance_trade.rs).
 use super::http::HttpRequest;
@@ -28,6 +28,8 @@ pub(crate) const BINANCE_QUERY: QueryHmacHex = QueryHmacHex { key_header: "X-MBX
 /// request is the one Rails sends at the same moment.
 pub(crate) const MEXC_QUERY: QueryHmacHex = QueryHmacHex { key_header: "X-MEXC-APIKEY", stamp: super::bitvavo::ruby_ms };
 
+pub(crate) const BITRUE_QUERY: QueryHmacHex = QueryHmacHex { key_header: "X-MBX-APIKEY", stamp: super::bitvavo::ruby_ms };
+
 impl QueryHmacHex {
     /// `params` signed at `now` (Client#timestamp_ms): the timestamp, then the signature, appended.
     pub(crate) fn sign(&self, secret: &str, mut params: Vec<(&'static str, String)>, now: chrono::DateTime<chrono::Utc>) -> Vec<(&'static str, String)> {
@@ -38,10 +40,13 @@ impl QueryHmacHex {
     }
 }
 
-/// HMAC-SHA256(secret, timestamp + METHOD + path + tail), the tail `?query` (a GET with params; a DELETE where
-/// `delete_query`), the JSON body (a POST) or nothing; the key, signature and timestamp (and the passphrase) in the
-/// venue's headers, then its constant ones, then Accept and Content-Type as JSON.
+/// The bytes covered by a venue's HMAC: method/path or Bybit's key/receive-window prefix.
+#[derive(Clone, Copy, PartialEq)]
+pub(crate) enum PrehashInput { MethodPath, BybitV5 }
+
+/// HMAC-SHA256 with per-venue encoding, headers and exact query/body bytes.
 pub(crate) struct Prehash {
+    pub input: PrehashInput,
     pub encode: Encode,
     pub passphrase: Passphrase,
     /// Whether a DELETE signs its `?query` (Honeymaker::Clients::Bitvavo#delete_signed) or the path alone (::Kucoin's).
@@ -52,14 +57,18 @@ pub(crate) struct Prehash {
 }
 
 /// Honeymaker::Clients::Kucoin#signed_headers: base64, the passphrase HMAC'd, KC-API-KEY-VERSION 2; a DELETE signs the path.
-pub(crate) const KUCOIN: Prehash = Prehash { encode: Encode::Base64, passphrase: Passphrase::Hmac, delete_query: false,
+pub(crate) const KUCOIN: Prehash = Prehash { input: PrehashInput::MethodPath, encode: Encode::Base64, passphrase: Passphrase::Hmac, delete_query: false,
     names: ["KC-API-KEY", "KC-API-SIGN", "KC-API-TIMESTAMP", "KC-API-PASSPHRASE"], extra: &[("KC-API-KEY-VERSION", "2")] };
 /// Honeymaker::Clients::Bitvavo#signed_headers: hex, no passphrase, BITVAVO-ACCESS-WINDOW 10000; a DELETE signs `?query`.
-pub(crate) const BITVAVO: Prehash = Prehash { encode: Encode::Hex, passphrase: Passphrase::None, delete_query: true,
+pub(crate) const BITVAVO: Prehash = Prehash { input: PrehashInput::MethodPath, encode: Encode::Hex, passphrase: Passphrase::None, delete_query: true,
     names: ["BITVAVO-ACCESS-KEY", "BITVAVO-ACCESS-SIGNATURE", "BITVAVO-ACCESS-TIMESTAMP", ""], extra: &[("BITVAVO-ACCESS-WINDOW", "10000")] };
 /// Honeymaker::Clients::Bitget#signed_headers: base64, the passphrase as it is, `locale: en-US`; it signs no DELETE.
-pub(crate) const BITGET: Prehash = Prehash { encode: Encode::Base64, passphrase: Passphrase::Plain, delete_query: false,
+pub(crate) const BITGET: Prehash = Prehash { input: PrehashInput::MethodPath, encode: Encode::Base64, passphrase: Passphrase::Plain, delete_query: false,
     names: ["ACCESS-KEY", "ACCESS-SIGN", "ACCESS-TIMESTAMP", "ACCESS-PASSPHRASE"], extra: &[("locale", "en-US")] };
+
+/// Honeymaker Bybit V5: timestamp + key + receive window + exact query or JSON body.
+pub(crate) const BYBIT: Prehash = Prehash { input: PrehashInput::BybitV5, encode: Encode::Hex, passphrase: Passphrase::None, delete_query: false,
+    names: ["X-BAPI-API-KEY", "X-BAPI-SIGN", "X-BAPI-TIMESTAMP", ""], extra: &[("X-BAPI-RECV-WINDOW", "5000")] };
 
 pub(crate) fn hmac(secret: &str, message: &str, encode: Encode) -> String {
     use base64::Engine;
@@ -83,8 +92,15 @@ pub(crate) fn prehash(scheme: &Prehash, r: &HttpRequest, query: &str, key: &str,
         "POST" => r.body.as_ref().map(serde_json::Value::to_string).unwrap_or_default(),
         _ => String::new(),
     };
+    let message = match scheme.input {
+        PrehashInput::MethodPath => format!("{ts}{}{}{tail}", r.method, r.path),
+        PrehashInput::BybitV5 => {
+            let tail = if r.method == "GET" { query.to_string() } else { tail };
+            format!("{ts}{key}5000{tail}")
+        }
+    };
     let [key_name, sign_name, ts_name, passphrase_name] = scheme.names;
-    let mut out = vec![(key_name.to_string(), key.to_string()), (sign_name.to_string(), hmac(secret, &format!("{ts}{}{}{tail}", r.method, r.path), scheme.encode)),
+    let mut out = vec![(key_name.to_string(), key.to_string()), (sign_name.to_string(), hmac(secret, &message, scheme.encode)),
                        (ts_name.to_string(), ts)];
     match scheme.passphrase {
         Passphrase::Hmac => out.push((passphrase_name.to_string(), hmac(secret, passphrase, scheme.encode))),
@@ -119,6 +135,9 @@ pub(crate) enum Wire {
     /// Honeymaker::Clients::Hyperliquid (venue::hyperliquid, signers::hyperliquid): JSON POSTs; an /exchange body's `action`
     /// is signed at send time with a nonce from the process-wide source and posted as `{action, nonce, signature}`.
     Hyperliquid,
+    /// Bybit V5: hex HMAC over timestamp + key + receive window + query/body.
+    Bybit,
+    Bitrue,
     Coinbase,
 }
 
@@ -132,6 +151,8 @@ impl Wire {
             Self::Bitget => super::bitget::BITGET,
             Self::Gemini => super::gemini::GEMINI, Self::Mexc => super::mexc::MEXC,
             Self::Hyperliquid => super::hyperliquid::HYPERLIQUID,
+            Self::Bybit => super::bybit::BYBIT,
+            Self::Bitrue => super::bitrue::BITRUE,
             Self::Coinbase => super::coinbase::COINBASE,
         };
         super::registry::row(exchange_type).expect("every wire's venue has a row").name
@@ -148,24 +169,28 @@ pub(crate) fn request(wire: Wire, client: &reqwest::Client, r: &HttpRequest, key
     // The query exactly as Faraday::Utils.build_query writes it, which is what a Prehash signature covers.
     let q = super::binance::build_query(&r.query);
     // MEXC's QueryHmacHex signs that same text, so it is sent as it was signed.
-    if matches!(wire, Wire::Kucoin | Wire::Bitvavo | Wire::Bitget | Wire::Mexc) { url.set_query((!q.is_empty()).then_some(q.as_str())); }
+    if matches!(wire, Wire::Kucoin | Wire::Bitvavo | Wire::Bitget | Wire::Mexc | Wire::Bybit | Wire::Bitrue) { url.set_query((!q.is_empty()).then_some(q.as_str())); }
     let mut b = client.request(method, url);
     match wire {
-        Wire::Kucoin | Wire::Bitvavo | Wire::Bitget => {
+        Wire::Kucoin | Wire::Bitvavo | Wire::Bitget | Wire::Bybit => {
             // The timestamp is read here, at send time, and the signature covers the exact bytes sent.
             let ts = super::binance::timestamp_ms(clock.now());
             let headers = match wire {
                 Wire::Kucoin => super::kucoin::headers(r, keys.key, keys.secret, keys.passphrase, ts),
                 Wire::Bitvavo => super::bitvavo::headers(r, keys.key, keys.secret, ts),
+                Wire::Bybit => super::bybit::headers(r, keys.key, keys.secret, ts),
                 _ => super::bitget::headers(r, keys.key, keys.secret, keys.passphrase, ts),
             };
             for (k, v) in headers { b = b.header(k, v); }
             if let Some(body) = &r.body { b = b.body(body.to_string()); }
         }
-        Wire::Alpaca | Wire::Binance | Wire::Mexc => {
+        // Honeymaker::Clients::Bitrue#exchange_information uses get_public, whose headers are empty.
+        Wire::Bitrue if !r.query.iter().any(|(k, _)| *k == "signature") => {}
+        Wire::Alpaca | Wire::Binance | Wire::Mexc | Wire::Bitrue => {
             b = match wire {
                 Wire::Binance => b.header(BINANCE_QUERY.key_header, keys.key),
                 Wire::Mexc => b.header(MEXC_QUERY.key_header, keys.key),
+                Wire::Bitrue => b.header(BITRUE_QUERY.key_header, keys.key),
                 _ => b.header("APCA-API-KEY-ID", keys.key).header("APCA-API-SECRET-KEY", keys.secret),
             };
             b = b.header("Accept", "application/json").header("Content-Type", "application/json");
@@ -207,4 +232,24 @@ pub(crate) fn request(wire: Wire, client: &reqwest::Client, r: &HttpRequest, key
         }
     }
     b
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn bitrue_public_requests_are_unkeyed_and_private_requests_have_the_recorded_headers() {
+        let clock = crate::engine::FixedClock("2026-09-20T02:00:00Z".parse().unwrap());
+        let client = reqwest::Client::new();
+        let mut r = HttpRequest { method: "GET", base: super::super::bitrue::URL.into(), path: "/api/v1/exchangeInfo".into(), query: vec![], body: None, not_after: None };
+        let build = |r: &HttpRequest| request(Wire::Bitrue, &client, r, Keys { key: "key", secret: "secret", passphrase: "" }, &clock).build().unwrap();
+        assert!(build(&r).headers().is_empty(), "honeymaker's public get sends no headers");
+        r.path = "/api/v1/account".into();
+        r.query = BITRUE_QUERY.sign("secret", vec![], crate::engine::Clock::now(&clock));
+        let signed = build(&r);
+        assert_eq!(signed.headers()["X-MBX-APIKEY"], "key");
+        assert_eq!(signed.headers()["Accept"], "application/json");
+        assert_eq!(signed.headers()["Content-Type"], "application/json");
+    }
 }

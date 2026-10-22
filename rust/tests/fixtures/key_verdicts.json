@@ -9,6 +9,8 @@
     "app/models/exchanges/bitget.rb": "5acc29199e4c5ecda3eeae60ea898ac69438e5b581c6bc15fcbe70241e40716c",
     "app/models/exchanges/mexc.rb": "08a430af264efc84f88c0233fdd47a9cce4532a0cf829d580f7c9569e0697454",
     "app/models/exchanges/hyperliquid.rb": "5fd3338e69d144f1d19d14a18206610303137da8b81a2e91ed34b6d484b0d1a2",
+    "app/models/exchanges/bybit.rb": "cf67b86cbd55174a5c729db27a82312cb121d15bd3a5ef40ce356dc0a801290d",
+    "app/models/exchanges/bitrue.rb": "0d02c8ab14a77f1c5d931dbc4e834de79afa78fe0c940d47ded5da2037ba5664",
     "app/models/exchanges/coinbase.rb": "c662aa764ae09e866024e0e68d6802ada96b59f7da1c197b3075c54b51d0ac26",
     "app/models/exchange.rb": "ab627a2812bc0c7b4a546459e64f8f5d93617c496308d5f03163f44cef12d8d7",
     "app/models/exchange/dryable.rb": "559b4b1858c832f3bc83b7631d7a74012854aabd88408b8680288609a1254b96",
@@ -5133,7 +5135,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=29915a754dff84a0c33d349df9fff176ef00cf7a4189f1d79c274617df04f469&timestamp=1792610824130"
+            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=49362b965db72906f9233a3b190909247ac69ea02b1d50b65d2f0d3bff9865f8&timestamp=1792659930881"
           ]
         },
         "request": {
@@ -7061,7 +7063,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=57dfc8a3e52a2ace10e9b4bb61d284adb48484c1f58148ce3dbbe5e7f2ae7adf&timestamp=1792610824150"
+            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=dab26537eb91e38a492ae9622d06cfef376fd5b1c0df563fbfe3dd53a11cee7c&timestamp=1792659930912"
           ]
         },
         "request": {
@@ -8989,7 +8991,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=1e3d1df683ccc8d89fd2e12dc4ea4b97a951e2c71005f6e00b7b7a1fa7bc54a8&timestamp=1792610824172"
+            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=5441a41dd9f4958f59aa126d6b7e0973b632e9d350d67f8f01185f00f03e7fe0&timestamp=1792659930955"
           ]
         },
         "request": {
@@ -10917,7 +10919,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=dccfef81fa283307fe77d8bb38f4070b624b3a0f8280a42a2bd01a81a76d5811&timestamp=1792610824192"
+            "the server responded with status 500 for GET https://api.binance.com/sapi/v1/account/apiRestrictions?recvWindow=5000&signature=93ca3c695106224533efefe91bab12ae425a72988ab0065507a3df162d301558&timestamp=1792659930989"
           ]
         },
         "request": {
@@ -11658,7 +11660,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=03e882bdfc2ad8e84945bb106a43f9cb41e96fcf86e507ce8deba6e412fdfe7f&timestamp=1792610824205"
+            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=42088145dd1d025770680624097e77a1ed7af10d20ae76cb0296768bcb9f501e&timestamp=1792659931010"
           ]
         },
         "request": {
@@ -13017,7 +13019,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for DELETE https://api.binance.us/api/v3/order?orderId=9999999999&recvWindow=5000&signature=a63b53b8467fe2e9714d4b35d5f9fd4240083ba1c263e2eef0756c526d9a5d7f&symbol=ETHBTC&timestamp=1792610824216"
+            "the server responded with status 500 for DELETE https://api.binance.us/api/v3/order?orderId=9999999999&recvWindow=5000&signature=bc96d1d06b870eaf7bfdc1384588d125d7cd82bcf0f1c00863a13cbce5c8c6fe&symbol=ETHBTC&timestamp=1792659931023"
           ]
         },
         "requests": [
@@ -13958,7 +13960,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=efce59fef91f8ce95cac077982f59f8763402d2236fc3e7adb73d9b69888a576&timestamp=1792610824224"
+            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=74410b4b64ff829ce7c819eada962fbd110cce3b359e26f3f96734e43fc33aa4&timestamp=1792659931034"
           ]
         },
         "request": {
@@ -15317,7 +15319,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for DELETE https://api.binance.us/api/v3/order?orderId=9999999999&recvWindow=5000&signature=9b00431fe0e704e0f46732c40393eccbc09c7dc5cc4afbe30680d0ede00efed8&symbol=ETHBTC&timestamp=1792610824236"
+            "the server responded with status 500 for DELETE https://api.binance.us/api/v3/order?orderId=9999999999&recvWindow=5000&signature=5cb5f8bce7a39e0363c9fb16846c3a97c4bdc00f0b984e4f0e61bc35ce0feda9&symbol=ETHBTC&timestamp=1792659931051"
           ]
         },
         "requests": [
@@ -16258,7 +16260,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=58c57c9cb01e7438a424de991c27e2456dfa83686104482014f4c46bd8e67557&timestamp=1792610824244"
+            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=8233fb5bac88ff7f9e62b8d6af6df0a9c054823473a716cc02580035b7bd7bee&timestamp=1792659931072"
           ]
         },
         "request": {
@@ -17617,7 +17619,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for DELETE https://api.binance.us/api/v3/order?orderId=9999999999&recvWindow=5000&signature=5ef25144658dc8d84ceab2cbdf85e79bd1b0443605fb6f2d0e6506cac4f9edf1&symbol=ETHBTC&timestamp=1792610824255"
+            "the server responded with status 500 for DELETE https://api.binance.us/api/v3/order?orderId=9999999999&recvWindow=5000&signature=33b495d0129e8cc1b66d2fcab5b63f8fd2d11ea1d8259f23d847bc9e5de20114&symbol=ETHBTC&timestamp=1792659931088"
           ]
         },
         "requests": [
@@ -18558,7 +18560,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=c617681c675101a6c55967649e3eca2d7d556f38d976c3dd0741d21e2314b620&timestamp=1792610824263"
+            "the server responded with status 500 for GET https://api.binance.us/api/v3/account?omitZeroBalances=true&recvWindow=60000&signature=04f14e91543a76f762609af255ad7c248f21502f5d7c0979ec35a8a078654473&timestamp=1792659931099"
           ]
         },
         "request": {
@@ -34664,7 +34666,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.mexc.com/api/v3/account?recvWindow=5000&signature=48e6c606f7b252f8f6e9ebcaafd5d1f9b8fcf308070e60ea6cc485e61923f689&timestamp=1792610824495"
+            "the server responded with status 500 for GET https://api.mexc.com/api/v3/account?recvWindow=5000&signature=e04392150db3b8a821cb4469528402e3d0f516890addb5b886255a09f9a3306e&timestamp=1792659931473"
           ]
         },
         "request": {
@@ -35470,7 +35472,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.mexc.com/api/v3/account?recvWindow=5000&signature=0a13cbe7695addfecc1d7fc17f7cdab70a8b98ad265eda00cba45c512f52cf23&timestamp=1792610824503"
+            "the server responded with status 500 for GET https://api.mexc.com/api/v3/account?recvWindow=5000&signature=7cfd50889721b33518df8427fb3bd66650bb5298ac34a842fa6b70a9e8667707&timestamp=1792659931486"
           ]
         },
         "request": {
@@ -36276,7 +36278,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.mexc.com/api/v3/account?recvWindow=5000&signature=766d99f216cc5240f087ad8ba9a2437f633841bfaf9b2ef97d173a1eb49bb22e&timestamp=1792610824512"
+            "the server responded with status 500 for GET https://api.mexc.com/api/v3/account?recvWindow=5000&signature=3717fe241371e5960ad702b8e1603ada643718ffdd799f77757fd8ed25909321&timestamp=1792659931507"
           ]
         },
         "request": {
@@ -37805,7 +37807,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.mexc.com/api/v3/capital/deposit/hisrec?limit=1&recvWindow=5000&signature=20146281ada8ed9e8d288168c43b628d3b103c771c4460697ea825b5ae36caea&timestamp=1792610824525"
+            "the server responded with status 500 for GET https://api.mexc.com/api/v3/capital/deposit/hisrec?limit=1&recvWindow=5000&signature=95f3a03556e5666b6bae51517cbbe355ea647da1a6cc7c735133218ab41a61fc&timestamp=1792659931534"
           ]
         },
         "requests": [
@@ -39109,7 +39111,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.mexc.com/api/v3/capital/deposit/hisrec?limit=1&recvWindow=5000&signature=b49e6ea5bacd2c89787ca403e93462d74751834b04880639ee5c021caa6b9db8&timestamp=1792610824536"
+            "the server responded with status 500 for GET https://api.mexc.com/api/v3/capital/deposit/hisrec?limit=1&recvWindow=5000&signature=d5aaaf05faa2ff925b47017c236b49205d0b2f53dfca06fca7ff62f13f420d32&timestamp=1792659931557"
           ]
         },
         "requests": [
@@ -39642,7 +39644,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.mexc.com/api/v3/account?recvWindow=5000&signature=2cc0e1367e83291375d266ef39e30aa052c3206a8099d4929bfc1a370344a428&timestamp=1792610824540"
+            "the server responded with status 500 for GET https://api.mexc.com/api/v3/account?recvWindow=5000&signature=150cc104b3035267ad46654cfa3ab72172834598497fd4afeabeb6e3d36c054b&timestamp=1792659931569"
           ]
         },
         "request": {
@@ -40669,7 +40671,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.mexc.com/api/v3/capital/deposit/hisrec?limit=1&recvWindow=5000&signature=516afe95d52e73d0fbb84f45da51b3f6dead093329a080c39ffb9ac0f358103e&timestamp=1792610824550"
+            "the server responded with status 500 for GET https://api.mexc.com/api/v3/capital/deposit/hisrec?limit=1&recvWindow=5000&signature=1e80aa3e6531b26b659d401a49c036554e476fbdd5810be450b17c260b181689&timestamp=1792659931581"
           ]
         },
         "requests": [
@@ -41973,7 +41975,7 @@
         "verdict": {
           "kind": "failure",
           "errors": [
-            "the server responded with status 500 for GET https://api.mexc.com/api/v3/capital/deposit/hisrec?limit=1&recvWindow=5000&signature=e693228f13d7cbb633429de719d60df5e0c505c838214657c900fbf9ff47778b&timestamp=1792610824560"
+            "the server responded with status 500 for GET https://api.mexc.com/api/v3/capital/deposit/hisrec?limit=1&recvWindow=5000&signature=ef74e1e6c58db843949c7c193782cc8237c403b63c34b3be6ff55c11d36a3f5f&timestamp=1792659931597"
           ]
         },
         "requests": [
@@ -46545,6 +46547,4846 @@
           "key_header": null
         },
         "key": "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123"
+      }
+    ]
+  },
+  "bybit": {
+    "cases": [
+      {
+        "case": "0 http_200",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"retCode\":0,\"retMsg\":\"OK\",\"result\":{\"list\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bybit.com",
+          "path": "/v5/order/cancel",
+          "query": {},
+          "form": {
+            "category": "spot",
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "0 http_200",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"retCode\":0,\"retMsg\":\"OK\",\"result\":{\"list\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "0 http_200",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"retCode\":0,\"retMsg\":\"OK\",\"result\":{\"list\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "0 http_400",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"retCode\":0,\"retMsg\":\"OK\",\"result\":{\"list\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bybit.com",
+          "path": "/v5/order/cancel",
+          "query": {},
+          "form": {
+            "category": "spot",
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "0 http_400",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"retCode\":0,\"retMsg\":\"OK\",\"result\":{\"list\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "0 http_400",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"retCode\":0,\"retMsg\":\"OK\",\"result\":{\"list\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "OK"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "170213 http_200",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"retCode\":170213,\"retMsg\":\"Order does not exist\",\"result\":{\"list\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bybit.com",
+          "path": "/v5/order/cancel",
+          "query": {},
+          "form": {
+            "category": "spot",
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "170213 http_200",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"retCode\":170213,\"retMsg\":\"Order does not exist\",\"result\":{\"list\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Order does not exist"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "170213 http_200",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"retCode\":170213,\"retMsg\":\"Order does not exist\",\"result\":{\"list\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Order does not exist"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "170213 http_400",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"retCode\":170213,\"retMsg\":\"Order does not exist\",\"result\":{\"list\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bybit.com",
+          "path": "/v5/order/cancel",
+          "query": {},
+          "form": {
+            "category": "spot",
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "170213 http_400",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"retCode\":170213,\"retMsg\":\"Order does not exist\",\"result\":{\"list\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"retCode\":170213,\"retMsg\":\"Order does not exist\",\"result\":{\"list\":[]}}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "170213 http_400",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"retCode\":170213,\"retMsg\":\"Order does not exist\",\"result\":{\"list\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Order does not exist"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "110001 http_200",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"retCode\":110001,\"retMsg\":\"Order does not exist\",\"result\":{\"list\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bybit.com",
+          "path": "/v5/order/cancel",
+          "query": {},
+          "form": {
+            "category": "spot",
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "110001 http_200",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"retCode\":110001,\"retMsg\":\"Order does not exist\",\"result\":{\"list\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Order does not exist"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "110001 http_200",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"retCode\":110001,\"retMsg\":\"Order does not exist\",\"result\":{\"list\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Order does not exist"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "110001 http_400",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"retCode\":110001,\"retMsg\":\"Order does not exist\",\"result\":{\"list\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bybit.com",
+          "path": "/v5/order/cancel",
+          "query": {},
+          "form": {
+            "category": "spot",
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "110001 http_400",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"retCode\":110001,\"retMsg\":\"Order does not exist\",\"result\":{\"list\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"retCode\":110001,\"retMsg\":\"Order does not exist\",\"result\":{\"list\":[]}}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "110001 http_400",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"retCode\":110001,\"retMsg\":\"Order does not exist\",\"result\":{\"list\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Order does not exist"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "10003 http_200",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"retCode\":10003,\"retMsg\":\"API key is invalid.\",\"result\":{\"list\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bybit.com",
+          "path": "/v5/order/cancel",
+          "query": {},
+          "form": {
+            "category": "spot",
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "10003 http_200",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"retCode\":10003,\"retMsg\":\"API key is invalid.\",\"result\":{\"list\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "10003 http_200",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"retCode\":10003,\"retMsg\":\"API key is invalid.\",\"result\":{\"list\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "10003 http_400",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"retCode\":10003,\"retMsg\":\"API key is invalid.\",\"result\":{\"list\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bybit.com",
+          "path": "/v5/order/cancel",
+          "query": {},
+          "form": {
+            "category": "spot",
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "10003 http_400",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"retCode\":10003,\"retMsg\":\"API key is invalid.\",\"result\":{\"list\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "10003 http_400",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"retCode\":10003,\"retMsg\":\"API key is invalid.\",\"result\":{\"list\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "10004 http_200",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"retCode\":10004,\"retMsg\":\"Error sign\",\"result\":{\"list\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bybit.com",
+          "path": "/v5/order/cancel",
+          "query": {},
+          "form": {
+            "category": "spot",
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "10004 http_200",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"retCode\":10004,\"retMsg\":\"Error sign\",\"result\":{\"list\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "10004 http_200",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"retCode\":10004,\"retMsg\":\"Error sign\",\"result\":{\"list\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Error sign"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "10004 http_400",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"retCode\":10004,\"retMsg\":\"Error sign\",\"result\":{\"list\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bybit.com",
+          "path": "/v5/order/cancel",
+          "query": {},
+          "form": {
+            "category": "spot",
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "10004 http_400",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"retCode\":10004,\"retMsg\":\"Error sign\",\"result\":{\"list\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "10004 http_400",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"retCode\":10004,\"retMsg\":\"Error sign\",\"result\":{\"list\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Error sign"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "10005 http_200",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"retCode\":10005,\"retMsg\":\"Permission denied, please check your API key permissions\",\"result\":{\"list\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bybit.com",
+          "path": "/v5/order/cancel",
+          "query": {},
+          "form": {
+            "category": "spot",
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "10005 http_200",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"retCode\":10005,\"retMsg\":\"Permission denied, please check your API key permissions\",\"result\":{\"list\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "10005 http_200",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"retCode\":10005,\"retMsg\":\"Permission denied, please check your API key permissions\",\"result\":{\"list\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Permission denied, please check your API key permissions"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "10005 http_400",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"retCode\":10005,\"retMsg\":\"Permission denied, please check your API key permissions\",\"result\":{\"list\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bybit.com",
+          "path": "/v5/order/cancel",
+          "query": {},
+          "form": {
+            "category": "spot",
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "10005 http_400",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"retCode\":10005,\"retMsg\":\"Permission denied, please check your API key permissions\",\"result\":{\"list\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "10005 http_400",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"retCode\":10005,\"retMsg\":\"Permission denied, please check your API key permissions\",\"result\":{\"list\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Permission denied, please check your API key permissions"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "10000 http_200",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"retCode\":10000,\"retMsg\":\"Server Timeout\",\"result\":{\"list\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Server Timeout"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bybit.com",
+          "path": "/v5/order/cancel",
+          "query": {},
+          "form": {
+            "category": "spot",
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "10000 http_200",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"retCode\":10000,\"retMsg\":\"Server Timeout\",\"result\":{\"list\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Server Timeout"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "10000 http_200",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"retCode\":10000,\"retMsg\":\"Server Timeout\",\"result\":{\"list\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Server Timeout"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "10000 http_400",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"retCode\":10000,\"retMsg\":\"Server Timeout\",\"result\":{\"list\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"retCode\":10000,\"retMsg\":\"Server Timeout\",\"result\":{\"list\":[]}}"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bybit.com",
+          "path": "/v5/order/cancel",
+          "query": {},
+          "form": {
+            "category": "spot",
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "10000 http_400",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"retCode\":10000,\"retMsg\":\"Server Timeout\",\"result\":{\"list\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"retCode\":10000,\"retMsg\":\"Server Timeout\",\"result\":{\"list\":[]}}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "10000 http_400",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"retCode\":10000,\"retMsg\":\"Server Timeout\",\"result\":{\"list\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Server Timeout"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "10016 http_200",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"retCode\":10016,\"retMsg\":\"Server error.\",\"result\":{\"list\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Server error."
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bybit.com",
+          "path": "/v5/order/cancel",
+          "query": {},
+          "form": {
+            "category": "spot",
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "10016 http_200",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"retCode\":10016,\"retMsg\":\"Server error.\",\"result\":{\"list\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Server error."
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "10016 http_200",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"retCode\":10016,\"retMsg\":\"Server error.\",\"result\":{\"list\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Server error."
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "10016 http_400",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"retCode\":10016,\"retMsg\":\"Server error.\",\"result\":{\"list\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"retCode\":10016,\"retMsg\":\"Server error.\",\"result\":{\"list\":[]}}"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bybit.com",
+          "path": "/v5/order/cancel",
+          "query": {},
+          "form": {
+            "category": "spot",
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "10016 http_400",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"retCode\":10016,\"retMsg\":\"Server error.\",\"result\":{\"list\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"retCode\":10016,\"retMsg\":\"Server error.\",\"result\":{\"list\":[]}}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "10016 http_400",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"retCode\":10016,\"retMsg\":\"Server error.\",\"result\":{\"list\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Server error."
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "10006 http_200",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"retCode\":10006,\"retMsg\":\"Too many visits\",\"result\":{\"list\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Too many visits"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bybit.com",
+          "path": "/v5/order/cancel",
+          "query": {},
+          "form": {
+            "category": "spot",
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "10006 http_200",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"retCode\":10006,\"retMsg\":\"Too many visits\",\"result\":{\"list\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Too many visits"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "10006 http_200",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"retCode\":10006,\"retMsg\":\"Too many visits\",\"result\":{\"list\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Too many visits"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "10006 http_400",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"retCode\":10006,\"retMsg\":\"Too many visits\",\"result\":{\"list\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"retCode\":10006,\"retMsg\":\"Too many visits\",\"result\":{\"list\":[]}}"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bybit.com",
+          "path": "/v5/order/cancel",
+          "query": {},
+          "form": {
+            "category": "spot",
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "10006 http_400",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"retCode\":10006,\"retMsg\":\"Too many visits\",\"result\":{\"list\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"retCode\":10006,\"retMsg\":\"Too many visits\",\"result\":{\"list\":[]}}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "10006 http_400",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"retCode\":10006,\"retMsg\":\"Too many visits\",\"result\":{\"list\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Too many visits"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "10002 http_200",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"retCode\":10002,\"retMsg\":\"Timestamp for this request is outside of the recvWindow.\",\"result\":{\"list\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Timestamp for this request is outside of the recvWindow."
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bybit.com",
+          "path": "/v5/order/cancel",
+          "query": {},
+          "form": {
+            "category": "spot",
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "10002 http_200",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"retCode\":10002,\"retMsg\":\"Timestamp for this request is outside of the recvWindow.\",\"result\":{\"list\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Timestamp for this request is outside of the recvWindow."
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "10002 http_200",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"retCode\":10002,\"retMsg\":\"Timestamp for this request is outside of the recvWindow.\",\"result\":{\"list\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Timestamp for this request is outside of the recvWindow."
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "10002 http_400",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"retCode\":10002,\"retMsg\":\"Timestamp for this request is outside of the recvWindow.\",\"result\":{\"list\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"retCode\":10002,\"retMsg\":\"Timestamp for this request is outside of the recvWindow.\",\"result\":{\"list\":[]}}"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bybit.com",
+          "path": "/v5/order/cancel",
+          "query": {},
+          "form": {
+            "category": "spot",
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "10002 http_400",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"retCode\":10002,\"retMsg\":\"Timestamp for this request is outside of the recvWindow.\",\"result\":{\"list\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"retCode\":10002,\"retMsg\":\"Timestamp for this request is outside of the recvWindow.\",\"result\":{\"list\":[]}}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "10002 http_400",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"retCode\":10002,\"retMsg\":\"Timestamp for this request is outside of the recvWindow.\",\"result\":{\"list\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Timestamp for this request is outside of the recvWindow."
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "12345 http_200",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"retCode\":12345,\"retMsg\":\"\",\"result\":{\"list\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Bybit answered retCode \"12345\""
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bybit.com",
+          "path": "/v5/order/cancel",
+          "query": {},
+          "form": {
+            "category": "spot",
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "12345 http_200",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"retCode\":12345,\"retMsg\":\"\",\"result\":{\"list\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Bybit answered retCode \"12345\""
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "12345 http_200",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"retCode\":12345,\"retMsg\":\"\",\"result\":{\"list\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            ""
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "12345 http_400",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"retCode\":12345,\"retMsg\":\"\",\"result\":{\"list\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"retCode\":12345,\"retMsg\":\"\",\"result\":{\"list\":[]}}"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bybit.com",
+          "path": "/v5/order/cancel",
+          "query": {},
+          "form": {
+            "category": "spot",
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "12345 http_400",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"retCode\":12345,\"retMsg\":\"\",\"result\":{\"list\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"retCode\":12345,\"retMsg\":\"\",\"result\":{\"list\":[]}}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "12345 http_400",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"retCode\":12345,\"retMsg\":\"\",\"result\":{\"list\":[]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"retCode\":12345,\"retMsg\":\"\",\"result\":{\"list\":[]}}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "missing_code",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"retMsg\":\"unknown\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "unknown"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bybit.com",
+          "path": "/v5/order/cancel",
+          "query": {},
+          "form": {
+            "category": "spot",
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "missing_code",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"retMsg\":\"unknown\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "unknown"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "missing_code",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"retMsg\":\"unknown\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "unknown"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "no_message",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"retCode\":98765}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Bybit answered retCode \"98765\""
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bybit.com",
+          "path": "/v5/order/cancel",
+          "query": {},
+          "form": {
+            "category": "spot",
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "no_message",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"retCode\":98765}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Bybit answered retCode \"98765\""
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "no_message",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"retCode\":98765}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            ""
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "no_fields",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Bybit answered retCode nil"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bybit.com",
+          "path": "/v5/order/cancel",
+          "query": {},
+          "form": {
+            "category": "spot",
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "no_fields",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Bybit answered retCode nil"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "no_fields",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            ""
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "wallet",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"retCode\":0,\"result\":{\"list\":[{\"coin\":[{\"coin\":\"USDT\",\"walletBalance\":\"2\",\"locked\":\"0\"}]}]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bybit.com",
+          "path": "/v5/order/cancel",
+          "query": {},
+          "form": {
+            "category": "spot",
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "wallet",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"retCode\":0,\"result\":{\"list\":[{\"coin\":[{\"coin\":\"USDT\",\"walletBalance\":\"2\",\"locked\":\"0\"}]}]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "wallet",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"retCode\":0,\"result\":{\"list\":[{\"coin\":[{\"coin\":\"USDT\",\"walletBalance\":\"2\",\"locked\":\"0\"}]}]}}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_500",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 500,
+          "body": "",
+          "content_type": "text/plain"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "the server responded with status 500 for POST https://api.bybit.com/v5/order/cancel"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bybit.com",
+          "path": "/v5/order/cancel",
+          "query": {},
+          "form": {
+            "category": "spot",
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_500",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 500,
+          "body": "",
+          "content_type": "text/plain"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "the server responded with status 500 for GET https://api.bybit.com/v5/account/wallet-balance?accountType=UNIFIED"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_500",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 500,
+          "body": "",
+          "content_type": "text/plain"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "the server responded with status 500 for GET https://api.bybit.com/v5/account/wallet-balance?accountType=UNIFIED"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_502_html",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 502,
+          "body": "<html><body>502 Bad Gateway</body></html>",
+          "content_type": "text/html"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "<html><body>502 Bad Gateway</body></html>"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bybit.com",
+          "path": "/v5/order/cancel",
+          "query": {},
+          "form": {
+            "category": "spot",
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_502_html",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 502,
+          "body": "<html><body>502 Bad Gateway</body></html>",
+          "content_type": "text/html"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "<html><body>502 Bad Gateway</body></html>"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_502_html",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 502,
+          "body": "<html><body>502 Bad Gateway</body></html>",
+          "content_type": "text/html"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "<html><body>502 Bad Gateway</body></html>"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_503_json",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 503,
+          "body": "{\"msg\":\"Service unavailable\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"msg\":\"Service unavailable\"}"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bybit.com",
+          "path": "/v5/order/cancel",
+          "query": {},
+          "form": {
+            "category": "spot",
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_503_json",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 503,
+          "body": "{\"msg\":\"Service unavailable\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"msg\":\"Service unavailable\"}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_503_json",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 503,
+          "body": "{\"msg\":\"Service unavailable\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Service unavailable"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_403_waf_html",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 403,
+          "body": "<html>Forbidden</html>",
+          "content_type": "text/html"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "<html>Forbidden</html>"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bybit.com",
+          "path": "/v5/order/cancel",
+          "query": {},
+          "form": {
+            "category": "spot",
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_403_waf_html",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 403,
+          "body": "<html>Forbidden</html>",
+          "content_type": "text/html"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "<html>Forbidden</html>"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_403_waf_html",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 403,
+          "body": "<html>Forbidden</html>",
+          "content_type": "text/html"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "<html>Forbidden</html>"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_429",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 429,
+          "body": "{\"code\":-1003,\"msg\":\"Too many requests.\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"code\":-1003,\"msg\":\"Too many requests.\"}"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bybit.com",
+          "path": "/v5/order/cancel",
+          "query": {},
+          "form": {
+            "category": "spot",
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_429",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 429,
+          "body": "{\"code\":-1003,\"msg\":\"Too many requests.\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"code\":-1003,\"msg\":\"Too many requests.\"}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_429",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 429,
+          "body": "{\"code\":-1003,\"msg\":\"Too many requests.\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Too many requests."
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "timeout",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "timeout": true
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Net::ReadTimeout"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bybit.com",
+          "path": "/v5/order/cancel",
+          "query": {},
+          "form": {
+            "category": "spot",
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "timeout",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "timeout": true
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Net::ReadTimeout"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "timeout",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "timeout": true
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Net::ReadTimeout"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "connection_refused",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "refused": true
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Failed to open TCP connection (Connection refused)"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bybit.com",
+          "path": "/v5/order/cancel",
+          "query": {},
+          "form": {
+            "category": "spot",
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "connection_refused",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "refused": true
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Failed to open TCP connection (Connection refused)"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "connection_refused",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "refused": true
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Failed to open TCP connection (Connection refused)"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "malformed_json",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"error\":[],\"result\":{",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"error\":[],\"result\":{"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bybit.com",
+          "path": "/v5/order/cancel",
+          "query": {},
+          "form": {
+            "category": "spot",
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "malformed_json",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"error\":[],\"result\":{",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"error\":[],\"result\":{"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "malformed_json",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"error\":[],\"result\":{",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"error\":[],\"result\":{"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "empty_json_body",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Bybit answered retCode nil"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bybit.com",
+          "path": "/v5/order/cancel",
+          "query": {},
+          "form": {
+            "category": "spot",
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "empty_json_body",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Bybit answered retCode nil"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "empty_json_body",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "raises",
+          "class": "NoMethodError",
+          "message": "undefined method '[]' for nil"
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "plain_text_200",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "OK",
+          "content_type": "text/plain"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Bybit answered retCode nil"
+          ]
+        },
+        "request": {
+          "method": "POST",
+          "host": "api.bybit.com",
+          "path": "/v5/order/cancel",
+          "query": {},
+          "form": {
+            "category": "spot",
+            "symbol": "BTCUSDT",
+            "orderId": "0"
+          },
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "plain_text_200",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "OK",
+          "content_type": "text/plain"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Bybit answered retCode nil"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "plain_text_200",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "OK",
+          "content_type": "text/plain"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            ""
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "api.bybit.com",
+          "path": "/v5/account/wallet-balance",
+          "query": {
+            "accountType": "UNIFIED"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      }
+    ]
+  },
+  "bitrue": {
+    "cases": [
+      {
+        "case": "http_500",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 500,
+          "body": "",
+          "content_type": "text/plain"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "the server responded with status 500 for GET https://openapi.bitrue.com/api/v1/account?recvWindow=5000&signature=2b25f794b0f05026615c82b5fa6800b09aceac5bbf3242b7f3aa667b79515b84&timestamp=1792659932699"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_502_html",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 502,
+          "body": "<html><body>502 Bad Gateway</body></html>",
+          "content_type": "text/html"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "<html><body>502 Bad Gateway</body></html>"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_503_json",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 503,
+          "body": "{\"msg\":\"Service unavailable\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"msg\":\"Service unavailable\"}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_403_waf_html",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 403,
+          "body": "<html>Forbidden</html>",
+          "content_type": "text/html"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "<html>Forbidden</html>"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_429",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 429,
+          "body": "{\"code\":-1003,\"msg\":\"Too many requests.\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"code\":-1003,\"msg\":\"Too many requests.\"}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "timeout",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "timeout": true
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Net::ReadTimeout"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "connection_refused",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "refused": true
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Failed to open TCP connection (Connection refused)"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "malformed_json",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"error\":[],\"result\":{",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"error\":[],\"result\":{"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "empty_json_body",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Bitrue sent an unreadable answer to the key check"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "plain_text_200",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "OK",
+          "content_type": "text/plain"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Bitrue sent an unreadable answer to the key check"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "can_trade",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"canTrade\":true,\"balances\":[]}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "cannot_trade",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"canTrade\":false,\"balances\":[]}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "can_trade_string",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"canTrade\":\"true\",\"balances\":[]}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "no_flags",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"balances\":[]}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "no_balances",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"canTrade\":true}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "lower_case_balance",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"canTrade\":true,\"balances\":[{\"asset\":\"btc\",\"free\":\"1\",\"locked\":\"0\"}]}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "array",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "[]",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Bitrue sent an unreadable answer to the key check"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "null",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "null",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Bitrue sent an unreadable answer to the key check"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "number",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "1",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Bitrue sent an unreadable answer to the key check"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "bare_401",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 401,
+          "body": "{}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "permission_401",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 401,
+          "body": "{\"code\":-2015,\"msg\":\"You don't have permission.\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "timestamp",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 412,
+          "body": "{\"code\":-1102,\"msg\":\"recvWindow IllegalArgumentException.\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"code\":-1102,\"msg\":\"recvWindow IllegalArgumentException.\"}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "code_in_200",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":-1022,\"msg\":\"No login\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "No login",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":-1022,\"msg\":\"No login\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "API key does not exist",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":-1022,\"msg\":\"API key does not exist\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "Invalid Api-Key ID.",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":-1022,\"msg\":\"Invalid Api-Key ID.\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "Signature for this request is not valid.",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":-1022,\"msg\":\"Signature for this request is not valid.\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_500",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 500,
+          "body": "",
+          "content_type": "text/plain"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "the server responded with status 500 for GET https://openapi.bitrue.com/api/v1/account?recvWindow=5000&signature=95a9ae455dcddc77ce10ec75f6406e8a5ff113a5a53c095db3f6a6813c6f6cdb&timestamp=1792659932726"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_502_html",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 502,
+          "body": "<html><body>502 Bad Gateway</body></html>",
+          "content_type": "text/html"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "<html><body>502 Bad Gateway</body></html>"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_503_json",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 503,
+          "body": "{\"msg\":\"Service unavailable\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"msg\":\"Service unavailable\"}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_403_waf_html",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 403,
+          "body": "<html>Forbidden</html>",
+          "content_type": "text/html"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "<html>Forbidden</html>"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_429",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 429,
+          "body": "{\"code\":-1003,\"msg\":\"Too many requests.\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"code\":-1003,\"msg\":\"Too many requests.\"}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "timeout",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "timeout": true
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Net::ReadTimeout"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "connection_refused",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "refused": true
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Failed to open TCP connection (Connection refused)"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "malformed_json",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"error\":[],\"result\":{",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"error\":[],\"result\":{"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "empty_json_body",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Bitrue sent an unreadable answer to the key check"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "plain_text_200",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "OK",
+          "content_type": "text/plain"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Bitrue sent an unreadable answer to the key check"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "can_trade",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"canTrade\":true,\"balances\":[]}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "cannot_trade",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"canTrade\":false,\"balances\":[]}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "can_trade_string",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"canTrade\":\"true\",\"balances\":[]}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "no_flags",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"balances\":[]}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "no_balances",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"canTrade\":true}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "lower_case_balance",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"canTrade\":true,\"balances\":[{\"asset\":\"btc\",\"free\":\"1\",\"locked\":\"0\"}]}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "array",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "[]",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Bitrue sent an unreadable answer to the key check"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "null",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "null",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Bitrue sent an unreadable answer to the key check"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "number",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "1",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Bitrue sent an unreadable answer to the key check"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "bare_401",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 401,
+          "body": "{}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "permission_401",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 401,
+          "body": "{\"code\":-2015,\"msg\":\"You don't have permission.\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "timestamp",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 412,
+          "body": "{\"code\":-1102,\"msg\":\"recvWindow IllegalArgumentException.\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"code\":-1102,\"msg\":\"recvWindow IllegalArgumentException.\"}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "code_in_200",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":-1022,\"msg\":\"No login\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "No login",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":-1022,\"msg\":\"No login\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "API key does not exist",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":-1022,\"msg\":\"API key does not exist\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "Invalid Api-Key ID.",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":-1022,\"msg\":\"Invalid Api-Key ID.\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "Signature for this request is not valid.",
+        "key_type": "withdrawal",
+        "method": "get_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":-1022,\"msg\":\"Signature for this request is not valid.\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_500",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 500,
+          "body": "",
+          "content_type": "text/plain"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "the server responded with status 500 for GET https://openapi.bitrue.com/api/v1/account?recvWindow=5000&signature=035b7c9d9f1041b6feeb9aae3de3d31a8e3ce2ec5066d53c7858778f56f2d463&timestamp=1792659932888"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_502_html",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 502,
+          "body": "<html><body>502 Bad Gateway</body></html>",
+          "content_type": "text/html"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "<html><body>502 Bad Gateway</body></html>"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_503_json",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 503,
+          "body": "{\"msg\":\"Service unavailable\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Service unavailable"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_403_waf_html",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 403,
+          "body": "<html>Forbidden</html>",
+          "content_type": "text/html"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "<html>Forbidden</html>"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "http_429",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 429,
+          "body": "{\"code\":-1003,\"msg\":\"Too many requests.\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Too many requests."
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "timeout",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "timeout": true
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Net::ReadTimeout"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "connection_refused",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "refused": true
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Failed to open TCP connection (Connection refused)"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "malformed_json",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"error\":[],\"result\":{",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{\"error\":[],\"result\":{"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "empty_json_body",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "raises",
+          "class": "NoMethodError",
+          "message": "undefined method 'dig' for nil"
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "plain_text_200",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "OK",
+          "content_type": "text/plain"
+        },
+        "verdict": {
+          "kind": "raises",
+          "class": "NoMethodError",
+          "message": "undefined method 'dig' for an instance of String"
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "can_trade",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"canTrade\":true,\"balances\":[]}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "cannot_trade",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"canTrade\":false,\"balances\":[]}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "can_trade_string",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"canTrade\":\"true\",\"balances\":[]}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "no_flags",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"balances\":[]}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "no_balances",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"canTrade\":true}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "raises",
+          "class": "KeyError",
+          "message": "Key path balances not found"
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "lower_case_balance",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"canTrade\":true,\"balances\":[{\"asset\":\"btc\",\"free\":\"1\",\"locked\":\"0\"}]}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "array",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "[]",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "raises",
+          "class": "TypeError",
+          "message": "no implicit conversion of String into Integer"
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "null",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "null",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "raises",
+          "class": "NoMethodError",
+          "message": "undefined method 'dig' for nil"
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "number",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "1",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "raises",
+          "class": "NoMethodError",
+          "message": "undefined method 'dig' for an instance of Integer"
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "bare_401",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 401,
+          "body": "{}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "{}"
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "permission_401",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 401,
+          "body": "{\"code\":-2015,\"msg\":\"You don't have permission.\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "You don't have permission."
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "timestamp",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 412,
+          "body": "{\"code\":-1102,\"msg\":\"recvWindow IllegalArgumentException.\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "recvWindow IllegalArgumentException."
+          ]
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "code_in_200",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 200,
+          "body": "{\"code\":-1022,\"msg\":\"No login\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "raises",
+          "class": "KeyError",
+          "message": "Key path balances not found"
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "No login",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":-1022,\"msg\":\"No login\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "API key does not exist",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":-1022,\"msg\":\"API key does not exist\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "Invalid Api-Key ID.",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":-1022,\"msg\":\"Invalid Api-Key ID.\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
+      },
+      {
+        "case": "Signature for this request is not valid.",
+        "key_type": "read_only",
+        "method": "get_read_api_key_validity",
+        "response": {
+          "status": 400,
+          "body": "{\"code\":-1022,\"msg\":\"Signature for this request is not valid.\"}",
+          "content_type": "application/json"
+        },
+        "verdict": {
+          "kind": "success",
+          "data": false
+        },
+        "request": {
+          "method": "GET",
+          "host": "openapi.bitrue.com",
+          "path": "/api/v1/account",
+          "query": {
+            "recvWindow": "5000"
+          },
+          "form": {},
+          "key_header": "test-key"
+        }
       }
     ]
   }

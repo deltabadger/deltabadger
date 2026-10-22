@@ -1670,7 +1670,117 @@ module SyncScenarios
     ]
   end
 
+  def bybit_ledger_scenarios
+    night = '2026-09-20T02:00:00.250000Z'
+    week = ->(ctx) { P.bybit(ctx); ctx[:key].update_columns(last_synced_at: Time.iso8601(night) - 3.days) }
+    fill = { 'symbol' => 'BTCUSDT', 'side' => 'Buy', 'execQty' => '0.001', 'execValue' => '60', 'execFee' => '-0.06', 'feeCurrency' => 'USDT',
+             'execId' => 'f1', 'execTime' => P.ms('2026-09-19T10:00:00Z').to_s }
+    dep = { 'coin' => 'USDT', 'amount' => '100', 'status' => 3, 'txID' => 'd1', 'successAt' => fill['execTime'] }
+    internal = dep.merge('status' => 2, 'txID' => 'i1', 'createdTime' => '1789812000')
+    withdrawal = dep.merge('status' => 'success', 'txID' => 'w1', 'withdrawFee' => '1', 'updateTime' => fill['execTime'])
+    rows = [
+      { name: 'bybit-ledger-week', setup: week, steps: [P.bybit_ledger(night, fills: [P.by_page([fill], key: 'list')],
+        deposits: [P.by_page([dep, dep.merge('status' => 70012, 'txID' => 'rollback'), dep.merge('status' => 10012, 'txID' => 'ignored')])],
+        internal: [P.by_page([internal])], withdrawals: [P.by_page([withdrawal, withdrawal.merge('status' => 'BlockchainConfirmed', 'txID' => 'ignored')])])] },
+      { name: 'bybit-ledger-full', setup: ->(ctx) { P.bybit(ctx) }, steps: [P.bybit_ledger(night, fills: [P.by_page([fill], key: 'list'), P.by_page([], key: 'list')])] },
+      { name: 'bybit-ledger-cursor', setup: week, steps: [P.bybit_ledger(night, fills: [P.by_page([fill], key: 'list', cursor: 'next+/='), P.by_page([fill.merge('execId' => 'f2')], key: 'list')])] },
+      { name: 'bybit-ledger-transfer_cursor', setup: week, steps: [P.bybit_ledger(night, deposits: [P.by_page([dep], cursor: 'd2'), P.by_page([dep.merge('txID' => 'd2')])],
+          internal: [P.by_page([internal], cursor: 'i2'), P.by_page([internal.merge('txID' => 'i2', 'createdTime' => fill['execTime'])])],
+          withdrawals: [P.by_page([withdrawal], cursor: 'w2'), P.by_page([withdrawal.merge('txID' => 'w2')])])] },
+      { name: 'bybit-ledger-no_wallet_scope', setup: week, steps: [P.bybit_ledger(night, fills: [P.by_page([fill], key: 'list')], deposits: [P.by_err(10005, 'Permission denied')], internal: [P.by_err(10005, 'Permission denied')], withdrawals: [P.by_err(10005, 'Permission denied')])] },
+      { name: 'bybit-ledger-trades_refused', setup: week, steps: [P.bybit_ledger(night, fills: [P.by_err(10005, 'Permission denied')])] },
+      { name: 'bybit-ledger-failed_page', setup: week, steps: [P.bybit_ledger(night, fills: [P.by_page([fill], key: 'list', cursor: 'next'), P.by_err(10016, 'Server error.')])] },
+      # The final failure bounds Rails' repeated-cursor walk; Rust refuses at the repetition (D-BYBIT-STUCK).
+      { name: 'bybit-ledger-stuck', setup: week, steps: [P.bybit_ledger(night, fills: [P.by_page([fill], key: 'list', cursor: 'same'), P.by_page([fill], key: 'list', cursor: 'same'), P.by_err(10016, 'Server error.')])] },
+      { name: 'bybit-ledger-throttled', setup: week, steps: [P.bybit_ledger(night, fills: [P.by_err(10006, 'Too many visits'), P.by_page([fill], key: 'list')])] },
+      { name: 'bybit-ledger-bare', setup: week, steps: [P.bybit_ledger(night, fills: [P.by_page([fill.except('execId'), fill.except('execId')], key: 'list')])] },
+      { name: 'bybit-ledger-nothing', setup: week, steps: [P.bybit_ledger(night)] }
+    ]
+    rows << { name: 'bybit-ledger-two_nights', setup: week, steps: [P.bybit_ledger(night, deposits: [P.by_page([dep])]), P.bybit_ledger('2026-09-21T02:00:00.250000Z', deposits: [P.by_page([dep])])] }
+    rows
+  end
+  def bybit_balance_scenarios
+    night = '2026-09-20T02:00:00.250000Z'
+    setup = ->(ctx) { P.bybit(ctx) }
+    cases = {
+      'wallet' => [{ 'coin' => 'BTC', 'walletBalance' => '0.5', 'locked' => '0.1', 'spotBorrow' => '0.05', 'availableToWithdraw' => '99' }],
+      'floor' => [{ 'coin' => 'BTC', 'walletBalance' => '0.1', 'locked' => '0.2', 'spotBorrow' => '0.05' }],
+      'legacy' => [{ 'coin' => 'BTC', 'walletBalance' => '', 'availableToWithdraw' => '0.2', 'locked' => '0.1' }, { 'coin' => 'USDT', 'free' => '10' }],
+      'unknown' => [{ 'coin' => 'UNLISTED', 'walletBalance' => '10' }, { 'walletBalance' => '99' }],
+      'invalid_key' => P.by_err(10003, 'API key is invalid.'), 'permission' => P.by_err(10005, 'Permission denied, please check your API key permissions'),
+      'empty' => [], 'duplicate' => [{ 'coin' => 'USDT', 'walletBalance' => '10' }, { 'coin' => 'USDT', 'walletBalance' => '20' }]
+    }
+    cases.map { |name, coins| { name: "bybit-balances-#{name}", setup: setup, steps: [P.bybit_balances(night, coins: coins, prices: P.prices_body('bitcoin' => 60000.5, 'ethereum' => 2500.25, 'tether' => 1.0))] } }
+  end
+
+  def bitrue_ledger_scenarios
+    night = '2026-09-20T02:00:00.250000Z'
+    at = Time.utc(2026, 9, 18)
+    week = ->(ctx) { P.bitrue(ctx); ctx[:key].update_columns(last_synced_at: Time.utc(2026, 9, 15)) }
+    trades = [P.br_trade(1, at), P.br_trade(2, at).merge('isBuyer' => false, 'commissionAsset' => nil, 'commissionAssert' => 'btc')]
+    dep = P.br_transfer('d1', 'BTC', at)
+    wd = P.br_transfer('w1', 'usdt_erc20', at, fee: '0.1')
+    full = Array.new(1000) { |i| P.br_trade(i + 1000, at) }
+    transfers = Array.new(1000) { |i| P.br_transfer("p#{i}", 'BTC', at) }
+    err = ->(status, code, msg) { { 'status' => status, 'body' => { 'code' => code, 'msg' => msg } } }
+    [
+      { name: 'bitrue-ledger-week', setup: week, steps: [P.bitrue_ledger(night, trades: [P.ok(trades)], deposits: [P.br_page([dep, dep.except('id')])], withdrawals: [P.br_page([wd])])] },
+      { name: 'bitrue-ledger-full', setup: ->(ctx) { P.bitrue(ctx) }, steps: [P.bitrue_ledger(night, trades: [P.ok(trades), P.ok([])])] },
+      { name: 'bitrue-ledger-two_years', setup: ->(ctx) { P.bitrue(ctx); ctx[:key].update_columns(last_synced_at: Time.utc(2024, 9, 20)) },
+        steps: [P.bitrue_ledger(night, trades: [P.ok(trades), P.ok(trades), P.ok([])])] },
+      { name: 'bitrue-ledger-two_nights', setup: week,
+        steps: [P.bitrue_ledger(night, trades: [P.ok(trades)], deposits: [P.br_page([dep])]), P.bitrue_ledger('2026-09-21T02:00:00.250000Z', trades: [P.ok(trades)], deposits: [P.br_page([dep])])] },
+      { name: 'bitrue-ledger-halving', setup: week, steps: [P.bitrue_ledger(night, trades: [P.ok(full), P.ok(trades), P.ok(trades)])] },
+      { name: 'bitrue-ledger-trade_saturated', setup: week, steps: [P.bitrue_ledger(night, trades: [P.ok(full)])] },
+      { name: 'bitrue-ledger-offset', setup: week, steps: [P.bitrue_ledger(night, deposits: [P.br_page(transfers), P.br_page([dep])])] },
+      { name: 'bitrue-ledger-repeated_page', setup: week, steps: [P.bitrue_ledger(night, deposits: [P.br_page(transfers)])] },
+      { name: 'bitrue-ledger-no_permission', setup: week, steps: [P.bitrue_ledger(night, deposits: [err.(401, -2015, "You don't have permission.")], withdrawals: [err.(403, -2015, 'has no operation privilege')])] },
+      { name: 'bitrue-ledger-bare_401', setup: week, steps: [P.bitrue_ledger(night, deposits: [err.(401, -1022, 'No login')])] },
+      { name: 'bitrue-ledger-symbol_gone', setup: week, steps: [P.bitrue_ledger(night, trades: [err.(400, -1121, 'Invalid symbol.')])] },
+      { name: 'bitrue-ledger-symbol_gone_200', setup: week, steps: [P.bitrue_ledger(night, trades: [P.ok('code' => '-1121', 'msg' => 'Invalid symbol.')])] },
+      { name: 'bitrue-ledger-account_fails', setup: week, steps: [P.bitrue_ledger(night, account: [err.(401, -1022, 'No login')])] },
+      { name: 'bitrue-ledger-listing_fails', setup: week, steps: [P.bitrue_ledger(night, info: [err.(503, -1000, 'System abnormality')])] },
+      { name: 'bitrue-ledger-trades_fail', setup: week, steps: [P.bitrue_ledger(night, trades: [err.(503, -1000, 'System abnormality')])] },
+      { name: 'bitrue-ledger-trades_envelope', setup: week, steps: [P.bitrue_ledger(night, trades: [P.ok('code' => 500, 'msg' => 'System abnormality')])] },
+      { name: 'bitrue-ledger-transfers_not_object', setup: week, steps: [P.bitrue_ledger(night, deposits: [P.ok([])])] },
+      { name: 'bitrue-ledger-envelope', setup: week, steps: [P.bitrue_ledger(night, deposits: [P.ok('code' => 500, 'msg' => 'System abnormality')])] },
+      { name: 'bitrue-ledger-sold_out', setup: lambda { |ctx|
+          week.call(ctx)
+          AccountTransaction.create!(user: ctx[:user], api_key: ctx[:key], exchange: ctx[:bitrue], entry_type: :sell, base_currency: 'ETH', base_amount: 1,
+                                     quote_currency: 'USDT', quote_amount: 2000, transacted_at: at - 10.days, tx_id: 'old')
+        }, steps: [P.bitrue_ledger(night, account: [P.mx_account], info: [P.mx_info(%w[BTC USDT], %w[ETH USDT])], trades: [P.ok(trades)])] },
+      { name: 'bitrue-ledger-bot_order_pair', setup: lambda { |ctx|
+          week.call(ctx)
+          bot = P.holder(ctx, 'ETH', at: at - 10.days, venue: ctx[:bitrue])
+          bot.transactions.update_all(quote: 'USDT', quote_asset_id: ctx[:assets]['USDT'].id)
+        }, steps: [P.bitrue_ledger(night, account: [P.mx_account], info: [P.mx_info(%w[BTC USDT], %w[ETH USDT])], trades: [P.ok(trades)])] },
+      { name: 'bitrue-ledger-nothing', setup: week, steps: [P.bitrue_ledger(night)] }
+    ] + {
+      'null' => nil, 'array' => [], 'missing_symbols' => {},
+      'null_symbols' => { 'symbols' => nil }, 'empty_symbols' => { 'symbols' => [] },
+      'empty_object_symbols' => { 'symbols' => {} }, 'object_symbols' => { 'symbols' => { 'bad' => 1 } },
+      'string_symbols' => { 'symbols' => 'bad' }, 'number_symbols' => { 'symbols' => 1 },
+      'false_symbols' => { 'symbols' => false }
+    }.map do |name, body|
+      { name: "bitrue-ledger-listing_#{name}", setup: week,
+        steps: [P.bitrue_ledger(night, info: [P.ok(body)], trades: [P.ok(trades)], deposits: [P.br_page([dep])])] }
+    end
+  end
+
+  def bitrue_balance_scenarios
+    night = '2026-09-20T02:30:00.750000Z'
+    install = ->(ctx) { P.bitrue(ctx) }
+    err = ->(status, code, msg) { { 'status' => status, 'body' => { 'code' => code, 'msg' => msg } } }
+    [
+      { name: 'bitrue-balances-lowercase', setup: install, steps: [P.bitrue_balances(night, account: P.mx_account(%w[btc 0.5 0.1], %w[eth 2], %w[usdt 100.5]), prices: P.prices_body('bitcoin' => 60000, 'ethereum' => 2500))] },
+      { name: 'bitrue-balances-invalid_key', setup: install, steps: [P.bitrue_balances(night, account: err.(401, -1022, 'No login'))] },
+      { name: 'bitrue-balances-no_permission', setup: install, steps: [P.bitrue_balances(night, account: err.(403, -2015, "You don't have permission."))] },
+      { name: 'bitrue-balances-throttle', setup: install, steps: [P.bitrue_balances(night, account: err.(429, -1003, 'Too many requests.'))] },
+      { name: 'bitrue-balances-nothing', setup: install, steps: [P.bitrue_balances(night, account: P.mx_account)] }
+    ]
+  end
+
   def all = ledger_scenarios + balance_scenarios + binance_balance_scenarios + binance_ledger_scenarios + import_scenarios + kucoin_ledger_scenarios +
             kucoin_balance_scenarios + bitvavo_ledger_scenarios + bitvavo_balance_scenarios + gemini_ledger_scenarios + gemini_balance_scenarios +
-            bitget_ledger_scenarios + bitget_balance_scenarios + mexc_ledger_scenarios + mexc_balance_scenarios + hyperliquid_ledger_scenarios + hyperliquid_balance_scenarios + coinbase_scenarios
+            bitget_ledger_scenarios + bitget_balance_scenarios + mexc_ledger_scenarios + mexc_balance_scenarios + hyperliquid_ledger_scenarios + hyperliquid_balance_scenarios + bybit_ledger_scenarios + bybit_balance_scenarios + bitrue_ledger_scenarios + bitrue_balance_scenarios + coinbase_scenarios
 end

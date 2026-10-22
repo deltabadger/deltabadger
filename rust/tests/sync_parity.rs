@@ -145,6 +145,19 @@ fn oracle_split_verdict(rows: &[Value]) -> &'static str {
 fn listed(name: &str, rails: &Value, rust: &Value) -> Option<Result<(), String>> {
     let tx = |out: &Value| rows(out, "account_transactions");
     Some(match name {
+        // D-BYBIT-STUCK: the third scripted answer terminates Rails' otherwise repeating cursor walk.
+        "bybit-ledger-stuck" => (|| {
+            let rr = rails["steps"][0]["requests"].as_array().ok_or("Rails requests absent")?;
+            let ur = rust["steps"][0]["requests"].as_array().ok_or("Rust requests absent")?;
+            check(rr.len() == 3 && ur.len() == 2 && rr[1] == rr[2] && rr[..2] == ur[..], "Rails must follow the repeated cursor; Rust must refuse before the third read")?;
+            check(key_error(rails) == "Bybit ledger read failed: 10016 Server error." && key_error(rust) == "Bybit fills paging stuck at cursor same", "both sides must record their exact refusal")?;
+            let key = rows(rust, "api_keys")[0].clone();
+            check(tx(rust).is_empty() && key["after"]["last_synced_at"] == key["before"]["last_synced_at"], "a repeated cursor must store nothing and leave the watermark")?;
+            rest_is_identical(rails, rust, &|out| {
+                without_columns(out, "api_keys", &["last_sync_error"]);
+                out["steps"][0]["requests"] = Value::Null;
+            })
+        })(),
         // R2: these three credential-bearing diagnostics replace the entire text.
         "balances-snapshots_network" => only_the_error_text_differs(rails, rust, "Client::TransientNetworkError: Faraday::ConnectionFailed: Connection refused - connect(2) for \"[redacted]-api.alpaca.markets\" port 443", deltabadger::crypto::VENUE_TEXT_REDACTED),
         "ledger-long_error" => only_the_error_text_differs(rails, rust, "forbidden for [redacted] at https://[redacted]-api.alpaca.markets/v2/account/activities?[redacted] eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee token [redacted] account [reda", deltabadger::crypto::VENUE_TEXT_REDACTED),
@@ -424,15 +437,15 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     let named = |prefix: &str| dirs.iter().filter(|d| d.file_name().unwrap().to_string_lossy().starts_with(prefix)).count();
     assert_eq!([named("ledger-"), named("balances-"), named("binance-balances-"), named("binance-ledger-"), named("import-"), named("kucoin-ledger-"), named("kucoin-balances-"),
                 named("bitvavo-ledger-"), named("bitvavo-balances-"), named("gemini-ledger-"), named("gemini-balances-"), named("bitget-ledger-"), named("bitget-balances-"),
-                named("mexc-ledger-"), named("mexc-balances-"), named("hyperliquid-ledger-"), named("hyperliquid-balances-"), named("coinbase-ledger-"), named("coinbase-balances-"), dirs.len()],
-               [58, 44, 21, 30, 21, 12, 16, 11, 10, 11, 11, 13, 12, 14, 12, 11, 10, 12, 4, 317+12+4], "the sync grid: 317 existing + 12 Coinbase ledger + 4 Coinbase balances scenarios");
+                named("mexc-ledger-"), named("mexc-balances-"), named("hyperliquid-ledger-"), named("hyperliquid-balances-"), named("bybit-ledger-"), named("bybit-balances-"), named("bitrue-ledger-"), named("bitrue-balances-"), named("coinbase-ledger-"), named("coinbase-balances-"), dirs.len()],
+               [58, 44, 21, 30, 21, 12, 16, 11, 10, 11, 11, 13, 12, 14, 12, 11, 10, 12, 8, 18 + 3 + 10, 5, 12, 4, 270 + 26 + 21 + 20 + 18 + 3 + 10 + 5 + 12 + 4], "the sync grid: 270 existing + 26 MEXC + 21 Hyperliquid + 20 Bybit + 36 Bitrue scenarios (including ten listing shapes) + 12 Coinbase ledger + 4 Coinbase balances");
     for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
     for scenario in ["ledger-split_future", "ledger-split_nested_duplicate_keys", "binance-ledger-two_nights"] { copy_dir(&rails_root.path().join(scenario), &handback.path().join(scenario)); }
     rails(&["record", rails_root.path().to_str().unwrap()]);
 
     let cipher = cipher();
     let ported = ["ledger-", "balances-", "binance-balances-", "binance-ledger-", "import-", "kucoin-ledger-", "kucoin-balances-", "bitvavo-ledger-", "bitvavo-balances-",
-                  "gemini-ledger-", "gemini-balances-", "bitget-ledger-", "bitget-balances-", "mexc-ledger-", "mexc-balances-", "hyperliquid-ledger-", "hyperliquid-balances-", "coinbase-ledger-", "coinbase-balances-"];
+                  "gemini-ledger-", "gemini-balances-", "bitget-ledger-", "bitget-balances-", "mexc-ledger-", "mexc-balances-", "hyperliquid-ledger-", "hyperliquid-balances-", "bybit-ledger-", "bybit-balances-", "bitrue-ledger-", "bitrue-balances-", "coinbase-ledger-", "coinbase-balances-"];
     let mut outputs: Vec<(String, Value, Value)> = vec![];
     for d in &dirs {
         let name = d.file_name().unwrap().to_string_lossy().to_string();
@@ -442,7 +455,7 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     }
     let (mut failures, mut divergences) = (vec![], vec![]);
     for (name, rails_out, rust_out) in &outputs {
-        match coinbase_size(name,rails_out,rust_out).or_else(||kucoin_transfer_pin(name, &rust_root.path().join(name), rails_out, rust_out)).or_else(|| unknown_price_origin(name,rails_out,rust_out)).or_else(||binance_ledger(name, rails_out, rust_out)).or_else(||listed(name, rails_out, rust_out)) {
+        match bitrue_page(name, rails_out, rust_out).or_else(|| coinbase_size(name,rails_out,rust_out)).or_else(|| kucoin_transfer_pin(name, &rust_root.path().join(name), rails_out, rust_out)).or_else(|| unknown_price_origin(name,rails_out,rust_out)).or_else(||binance_ledger(name, rails_out, rust_out)).or_else(||listed(name, rails_out, rust_out)) {
             Some(Err(e)) => failures.push(format!("{name} (listed divergence): {e}\n  rails: {rails_out}\n  rust:  {rust_out}")),
             Some(Ok(())) => { divergences.push(name.as_str()); assert_ne!(rails_out, rust_out, "{name}: a listed divergence that no longer differs"); }
             None if rails_out != rust_out => failures.push(format!("{name}\n  rails: {rails_out}\n  rust:  {rust_out}")),
@@ -453,8 +466,10 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     let mut expected=["binance-ledger-flexible_rewards_type", "binance-ledger-other_sources", "binance-ledger-two_nights", "binance-ledger-earn_documented_amounts", "binance-ledger-earn_fails", "binance-ledger-crypto_pair_later", "binance-ledger-over_500_trades", "binance-ledger-deposit_credited", "binance-ledger-pending_withdrawal",
                       "binance-ledger-symbol_fails", "binance-ledger-away_100_days", "binance-ledger-garbage_amount", "binance-ledger-us_every_source", "binance-ledger-us_two_nights",
                       "binance-ledger-full", "binance-ledger-idle", "binance-ledger-deposit_fails", "binance-ledger-file_transfers", "binance-ledger-file_transfer_claimed_once", "binance-ledger-file_second_after", "binance-ledger-deposit_600", "binance-ledger-idless_repeats", "binance-ledger-preexisting_repeats", "binance-ledger-known_id_repeat", "binance-ledger-file_dust", "binance-ledger-file_dust_rounding", "binance-ledger-twin_repeats", "binance-ledger-stored_trade_newer", "binance-ledger-stored_trades_over_500", "binance-ledger-stored_trade_before_floor", "import-file_then_api_transfers", "import-api_then_file_transfers", "import-file_then_api_dust", "import-api_then_file_dust", "import-file_then_api_dust_rounding", "import-api_then_file_dust_rounding", "binance-balances-blank_free", "binance-balances-garbage_free", "binance-balances-whitespace_free", "binance-balances-rate_spelling", "binance-balances-rate_zero_padded", "binance-balances-price_underscore_exponent", "binance-balances-no_rate", "balances-account_null", "balances-no_trade_keeps_last_price", "balances-no_trade_market_price", "balances-no_trade_unpriced", "balances-positions_not_array", "ledger-pages_stalled", "ledger-split_hostile_quantity", "kucoin-ledger-pages"].to_vec();
+    expected.push("bybit-ledger-stuck");
     expected.extend_from_slice(&["coinbase-ledger-size_in_quote","coinbase-ledger-quote_swap"]);
     expected.extend_from_slice(UNKNOWN_PRICE_ORIGIN);
+    expected.push("bitrue-ledger-repeated_page");
     expected.extend_from_slice(&["balances-snapshots_network", "ledger-long_error", "ledger-network_pre_send"]);
     expected.sort();
     assert_eq!(divergences,expected,"the remaining divergences and all reviewed R legacy prices");
@@ -462,6 +477,21 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     // What the grid must have exercised, read from Rails' own output: a scenario that silently stopped doing its thing
     // (a renamed column, a changed default) would otherwise still pass by agreeing on nothing.
     let rails_of = |name: &str| read(&rails_root.path().join(name).join("rails.json"));
+    for shape in ["null", "array", "object_symbols", "number_symbols", "false_symbols"] {
+        let out = rails_of(&format!("bitrue-ledger-listing_{shape}"));
+        assert_eq!(out["steps"][0]["raised"], true, "{shape}: Rails raises on the listing");
+        assert!(rows(&out, "account_transactions").is_empty(), "{shape}: no history is stored");
+        assert_eq!(out["steps"][0]["requests"].as_array().unwrap().len(), 2, "{shape}: only account and listing are read");
+        for key in rows(&out, "api_keys") {
+            assert_eq!(key["before"]["last_synced_at"], key["after"]["last_synced_at"], "{shape}: the watermark stays put");
+        }
+    }
+    for shape in ["missing_symbols", "null_symbols", "empty_symbols", "empty_object_symbols", "string_symbols"] {
+        let out = rails_of(&format!("bitrue-ledger-listing_{shape}"));
+        assert_eq!(out["steps"][0]["raised"], false, "{shape}: Rails accepts empty discovery");
+        assert_eq!(rows(&out, "account_transactions").len(), 1, "{shape}: the deposit is still imported");
+        assert!(!out["steps"][0]["requests"].as_array().unwrap().iter().any(|r| r[0] == "GET /api/v2/myTrades"), "{shape}: no trades are requested");
+    }
     // A file transfer an API row pairs with takes its id in place; one with two candidates, or out of reach, does not.
     let claimed = |name: &str| -> (Vec<String>, Vec<String>) {
         let ids = |before_null: bool| rows(&rails_of(name), "account_transactions").iter()
@@ -529,6 +559,15 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     assert_eq!(started("hyperliquid-ledger-pages", "userFillsByTime").len(), 2);
     assert_eq!(started("hyperliquid-ledger-full", "userFillsByTime"), [json!("0")], "a first sync reads from 0");
     assert!(key_error(&rails_of("hyperliquid-ledger-stuck")).as_str().is_some_and(|e| e.contains("user_fills_by_time returned a full page with nothing new")));
+    let bybit = |name: &str| rows(&rails_of(name), "account_transactions").iter().filter(|r| r["before"].is_null()).map(|r| r["after"].clone()).collect::<Vec<_>>();
+    assert_eq!(bybit("bybit-ledger-week").len(), 5, "spot fill, two successful deposits, internal deposit, successful withdrawal");
+    assert_eq!(bybit("bybit-ledger-transfer_cursor").len(), 6, "every transfer source follows its cursor");
+    assert_eq!(bybit("bybit-ledger-bare").len(), 1, "equal id-less fills are one row");
+    assert!(bybit("bybit-ledger-failed_page").is_empty(), "a failed page cannot commit a partial fetch");
+    let full = rails_of("bybit-ledger-full");
+    assert_eq!(full["steps"][0]["requests"].as_array().unwrap().len(), 105 + 3 * 26, "729 days of seven-day trades and 29-day transfers");
+    assert_eq!(key_error(&rails_of("bybit-ledger-trades_refused")), json!("Bybit ledger read failed: 10005 Permission denied"));
+    assert_eq!(rows(&rails_of("bybit-balances-wallet"), "account_balances").len(), 1, "wallet balances must actually be read");
     let (taken, stored) = claimed("binance-ledger-file_transfers");
     assert_eq!(taken, ["0xd1", "0xw1", "0xw3"]);
     assert!(stored.contains(&"0xd2".to_string()) && stored.contains(&"0xd8".to_string()) && !stored.contains(&"0xd1".to_string()), "{stored:?}");
@@ -895,6 +934,22 @@ async fn an_api_sync_during_an_import_waits_for_it_and_dedupes_against_the_whole
     let claimed: Vec<_> = changed.iter().filter(|r| !r["before"].is_null() && r["before"]["tx_id"].is_null()).map(|r| r["after"]["tx_id"].clone()).collect();
     assert_eq!(claimed, [json!("0xd1"), json!("0xd2"), json!("0xw1")], "the API's deposits and withdrawal take the file's rows");
     assert!(!changed.iter().any(|r| r["before"].is_null() && ["0xd1", "0xd2", "0xw1"].contains(&r["after"]["tx_id"].as_str().unwrap_or_default())), "and land no second time");
+}
+
+/// D-BITRUE-PAGE: Rails raises on its undefined `path`; Rust names the stalled endpoint and keeps its committed page.
+fn bitrue_page(name: &str, rails: &Value, rust: &Value) -> Option<Result<(), String>> {
+    if name != "bitrue-ledger-repeated_page" { return None; }
+    Some((|| {
+        check(key_error(rails).as_str().is_some_and(|s| s.contains("path") && s.contains("NameError")), "Rails no longer raises on undefined path")?;
+        check(key_error(rust) == "Bitrue ledger read failed: a full page of /api/v1/deposit/history brought nothing new", "Rust must name the stalled endpoint")?;
+        check(rows(rails, "account_transactions").is_empty(), "Rails must store none on a failed fetch")?;
+        check(rows(rust, "account_transactions").is_empty(), "a fresh failed import stores no partial page")?;
+        check(rails["steps"][0]["raised"] == true && rust["steps"][0]["raised"] == false, "a controlled sync failure replaces the exception")?;
+        rest_is_identical(rails, rust, &|out| {
+            without_columns(out, "api_keys", &["last_sync_error"]);
+            out["steps"][0]["raised"] = json!(false);
+        })
+    })())
 }
 
 /// D-CB-SIZE-IN-QUOTE: validate the oracle's wrong amounts and the corrected amounts, compare every other field whole.

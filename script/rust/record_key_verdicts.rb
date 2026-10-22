@@ -1,4 +1,4 @@
-# Records how Rails judges an API key on each venue of VENUE_CASES (Kraken, Binance, Binance.US, KuCoin, Bitvavo, Gemini, Bitget, MEXC, Hyperliquid), for the Rust key
+# Records how Rails judges an API key on each venue of VENUE_CASES (Kraken, Binance, Binance.US, KuCoin, Bitvavo, Gemini, Bitget, MEXC, Hyperliquid, Bybit, Bitrue, Coinbase), for the Rust key
 # step (P2-T6).
 #   bin/rails runner script/rust/record_key_verdicts.rb rust/tests/fixtures/key_verdicts.json
 # Each case scripts the venue's HTTP answer at the Faraday adapter (nothing leaves the machine; any real connection
@@ -13,7 +13,7 @@ Net::HTTP.prepend(Module.new { def connect = raise(Unscripted, "real connection 
 
 out = {
   'sources' => %w[app/models/exchanges/kraken.rb app/models/exchanges/binance.rb app/models/exchanges/binance_us.rb app/models/exchanges/kucoin.rb app/models/exchanges/bitvavo.rb app/models/exchanges/gemini.rb
-                  app/models/exchanges/bitget.rb app/models/exchanges/mexc.rb app/models/exchanges/hyperliquid.rb app/models/exchanges/coinbase.rb
+                  app/models/exchanges/bitget.rb app/models/exchanges/mexc.rb app/models/exchanges/hyperliquid.rb app/models/exchanges/bybit.rb app/models/exchanges/bitrue.rb app/models/exchanges/coinbase.rb
                   app/models/exchange.rb app/models/exchange/dryable.rb app/models/api_key.rb app/helpers/bot_helper.rb
                   config/locales/api.en.yml config/locales/api.de.yml config/locales/api.pl.yml
                   config/locales/api_read_only.en.yml config/locales/api_withdrawal.en.yml
@@ -36,15 +36,15 @@ module Venue
       # Gemini's params travel in its signed payload (an empty-body POST): recorded as the form, without `request` and `nonce`.
       payload = env.request_headers['X-GEMINI-PAYLOAD']
       form = JSON.parse(Base64.strict_decode64(payload)).except('request', 'nonce') if payload
-      # Bitget's POSTs carry a JSON body: recorded as the form.
-      form = JSON.parse(env.request_body) if env.url.host == 'api.bitget.com' && env.request_body.is_a?(String) && !env.request_body.empty?
+      # Bitget's and Bybit's POSTs carry a JSON body: recorded as the form.
+      form = JSON.parse(env.request_body) if %w[api.bitget.com api.bybit.com].include?(env.url.host) && env.request_body.is_a?(String) && !env.request_body.empty?
       # Hyperliquid's /info reads carry a JSON body: recorded as the form.
       form = JSON.parse(env.request_body) if env.url.host == 'api.hyperliquid.xyz'
       Venue.seen << { 'method' => env.method.to_s.upcase, 'host' => env.url.host, 'path' => env.url.path,
                      'query' => query.except(*SECRET_PARAMS), 'form' => form.except(*SECRET_PARAMS),
                      'key_header' => env.request_headers['X-MBX-APIKEY'] || env.request_headers['API-Key'] || env.request_headers['KC-API-KEY'] ||
                                      env.request_headers['BITVAVO-ACCESS-KEY'] || env.request_headers['X-GEMINI-APIKEY'] ||
-                                     env.request_headers['ACCESS-KEY'] || env.request_headers['X-MEXC-APIKEY'] }
+                                     env.request_headers['ACCESS-KEY'] || env.request_headers['X-MEXC-APIKEY'] || env.request_headers['X-BAPI-API-KEY'] }
       answer = Venue.answers.shift
       raise Faraday::TimeoutError, 'Net::ReadTimeout' if answer[:timeout]
       raise Faraday::ConnectionFailed, 'Failed to open TCP connection (Connection refused)' if answer[:refused]
@@ -533,9 +533,56 @@ VENUE_CASES = {
     read_cases.each { |name, answer| rows << record.(hyperliquid, :read_only, :get_read_api_key_validity, name, answer, key: account, secret:) }
     rows.each { |row| row['key'] = row['case'] == 'the account key itself' ? signer.downcase : account }
     { 'secret' => secret, 'signer' => signer, 'invalid_key_errors' => Exchanges::Hyperliquid::ERRORS[:invalid_key], 'cases' => rows }
+  end,
+  'bybit' => lambda do
+    bybit = Exchanges::Bybit.new(name: 'Bybit')
+    rows = []
+    cases = {}
+    { 0 => 'OK', 170213 => 'Order does not exist', 110001 => 'Order does not exist', 10003 => 'API key is invalid.',
+      10004 => 'Error sign', 10005 => 'Permission denied, please check your API key permissions',
+      10000 => 'Server Timeout', 10016 => 'Server error.', 10006 => 'Too many visits', 10002 => 'Timestamp for this request is outside of the recvWindow.', 12345 => '' }.each do |code, msg|
+      [200, 400].each { |status| cases["#{code} http_#{status}"] = json.(status, { 'retCode' => code, 'retMsg' => msg, 'result' => { 'list' => [] } }) }
+    end
+    cases['missing_code'] = json.(200, { 'retMsg' => 'unknown' })
+    cases['no_message'] = json.(200, { 'retCode' => 98765 })
+    cases['no_fields'] = json.(200, {})
+    cases['wallet'] = json.(200, { 'retCode' => 0, 'result' => { 'list' => [{ 'coin' => [{ 'coin' => 'USDT', 'walletBalance' => '2', 'locked' => '0' }] }] } })
+    cases.merge!(transport)
+    cases.each do |name, answer|
+      rows << record.(bybit, :trading, :get_api_key_validity, name, answer)
+      rows << record.(bybit, :withdrawal, :get_api_key_validity, name, answer)
+      rows << record.(bybit, :read_only, :get_read_api_key_validity, name, answer)
+    end
+    { 'cases' => rows }
+  end,
+  'bitrue' => lambda do
+    exchange = Exchanges::Bitrue.new(name: 'Bitrue')
+    cases = transport.merge(
+      'can_trade' => json.(200, { 'canTrade' => true, 'balances' => [] }),
+      'cannot_trade' => json.(200, { 'canTrade' => false, 'balances' => [] }),
+      'can_trade_string' => json.(200, { 'canTrade' => 'true', 'balances' => [] }),
+      'no_flags' => json.(200, { 'balances' => [] }),
+      'no_balances' => json.(200, { 'canTrade' => true }),
+      'lower_case_balance' => json.(200, { 'canTrade' => true, 'balances' => [{ 'asset' => 'btc', 'free' => '1', 'locked' => '0' }] }),
+      'array' => json.(200, []), 'null' => json.(200, nil), 'number' => json.(200, 1),
+      'bare_401' => json.(401, {}), 'permission_401' => json.(401, { 'code' => -2015, 'msg' => "You don't have permission." }),
+      'timestamp' => json.(412, { 'code' => -1102, 'msg' => 'recvWindow IllegalArgumentException.' }),
+      'code_in_200' => json.(200, { 'code' => -1022, 'msg' => 'No login' }))
+    Exchanges::Bitrue::ERRORS[:invalid_key].each do |message|
+      cases[message] = json.(400, { 'code' => -1022, 'msg' => message })
+    end
+    rows = []
+    [[:trading, :get_api_key_validity], [:withdrawal, :get_api_key_validity], [:read_only, :get_read_api_key_validity]].each do |kind, method|
+      cases.each { |name, answer| rows << record.(exchange, kind, method, name, answer) }
+    end
+    { 'cases' => rows }
   end
+
 }.freeze
-VENUE_CASES.each { |id, cases| out[id] = cases.call }
+# A separate venue fixture can be recorded without refreshing other venues' timestamped diagnostics.
+selected = ARGV[1] ? VENUE_CASES.slice(ARGV[1]) : VENUE_CASES
+raise "unknown venue #{ARGV[1]}" if selected.empty?
+selected.each { |id, cases| out[id] = cases.call }
 
 File.write(ARGV.fetch(0), "#{JSON.pretty_generate(out)}\n")
-puts "#{ARGV[0]}: #{VENUE_CASES.keys.sum { |k| out[k]['cases'].size }} cases"
+puts "#{ARGV[0]}: #{selected.keys.sum { |k| out[k]['cases'].size }} cases"

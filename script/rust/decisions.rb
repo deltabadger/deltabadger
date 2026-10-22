@@ -16,9 +16,9 @@
 #   bin/rails runner script/rust/decisions.rb grid-venue-basket <root> # buying baskets of 2 and 3 members on Kraken (EUR) and Binance (USDT)
 #   bin/rails runner script/rust/decisions.rb grid-venue-index <root>  # crypto index bots on Kraken, Binance, KuCoin and Alpaca, and their resync (plan CI)
 #   bin/rails runner script/rust/decisions.rb grid-basket-sell <root> # a wider Alpaca basket's ranked DCA-out (slice 6b)
-#   bin/rails runner script/rust/decisions.rb grid-rebalance <root>   # threshold rebalancing on a stopped Alpaca basket (slice 6b)
+#   bin/rails runner script/rust/decisions.rb grid-rebalance <root>   # threshold rebalancing on stopped baskets across venues (slice 6b)
 #   bin/rails runner script/rust/decisions.rb grid-conditions <root> # price_limit / sell_price_limit with `pause`, and the minute check (slice 7a)
-#   bin/rails runner script/rust/decisions.rb grid-signal <root>  # Bot::SignalJob, one webhook call of a signal bot, on all four venues (slice 8a)
+#   bin/rails runner script/rust/decisions.rb grid-signal <root>  # Bot::SignalJob, one webhook call of a signal bot, on every configured venue (slice 8a)
 #   bin/rails runner script/rust/decisions.rb record <root>  # Rails' ticks (and retries) per <root>/<scenario>/ -> rails.json
 # Always run with every *_DATABASE_URL pointing at scratch files and PROXY_KRAKEN at a dead address. Kraken is
 # scripted beneath the real client (Honeymaker::Clients::Kraken#get_public/#post_private), so every line of
@@ -155,7 +155,8 @@ class ScriptedVenue
     keyed = "#{key}?#{Rack::Utils.parse_query(env.url.query).map { |k, v| "#{k}=#{v}" }.sort.join('&')}" if env.url.query
     # Hyperliquid names every read by its JSON body's `type` ("POST /info l2Book"), answered before the bare path.
     typed = "#{key} #{typed_body(env)}" if @body == :hyperliquid
-    queue = (keyed && http[keyed]) || (typed && http[typed]) || http[key] or raise Harness::Unscripted, "unscripted #{name} call #{typed || key}"
+    coin = "#{typed} #{JSON.parse(env.request_body)['coin']}" if typed && typed.end_with?(' l2Book')
+    queue = (keyed && http[keyed]) || (coin && http[coin]) || (typed && http[typed]) || http[key] or raise Harness::Unscripted, "unscripted #{name} call #{typed || key}"
     queue.size > 1 ? queue.shift : queue.first
   end
 
@@ -220,7 +221,11 @@ VENUES = {
   'hyperliquid' => VenueRow.new(scripted: ScriptedVenue.new(host: 'api.hyperliquid.xyz', name: 'Hyperliquid', order: 'POST /exchange', body: :hyperliquid, strip: %w[c]),
                                 exchange: 'Exchanges::Hyperliquid', name: 'Hyperliquid', ticker: '@142', quote: %w[usd-coin USDC USD\ Coin Cryptocurrency],
                                 passphrase: nil, key: '0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123',
-                                secret: '0x4c0883a69102937d6231471b5dbb6204fe5129617082792ae468d01a3f362318')
+                                secret: '0x4c0883a69102937d6231471b5dbb6204fe5129617082792ae468d01a3f362318'),
+  'bybit' => VenueRow.new(scripted: ScriptedVenue.new(host: 'api.bybit.com', name: 'Bybit', order: 'POST /v5/order/create', body: :json, strip: %w[orderLinkId]),
+                          exchange: 'Exchanges::Bybit', name: 'Bybit', ticker: 'BTCUSDT', quote: TETHER, passphrase: nil),
+  'bitrue' => VenueRow.new(scripted: ScriptedVenue.new(host: 'openapi.bitrue.com', name: 'Bitrue', order: 'POST /api/v1/order', body: :query, strip: %w[timestamp signature]),
+                         exchange: 'Exchanges::Bitrue', name: 'Bitrue', ticker: 'BTCUSDT', quote: TETHER, passphrase: nil)
 }.freeze
 
 module Decisions
@@ -667,6 +672,7 @@ module Decisions
     ticker, pair = case venue
                    when 'kraken', 'binance' then ["#{sym}#{quote.symbol}", VENUE_PAIRS.fetch(venue).fetch(sym)]
                    when 'kucoin' then ["#{sym}-#{quote.symbol}", VENUE_PAIRS.fetch(venue).fetch(sym)]
+                   when 'hyperliquid' then [{ 'ETH' => '@143' }.fetch(sym), HL_PATH_TWO_TICKER]
                    else ["#{sym}/USD", BASKET_PAIRS.fetch(sym)]
                    end
     Ticker.create!(exchange:, ticker:, base: sym, quote: quote.symbol, base_asset: asset, quote_asset: quote, **pair.symbolize_keys)
@@ -2390,7 +2396,8 @@ module Decisions
       end
     end
     list << index_rebalance_scenario
-    list.concat(cb_rebalance_scenarios, cb_index_rebalance_scenarios)
+    list.concat(cb_rebalance_scenarios, cb_index_rebalance_scenarios, hl_rebalance_scenarios)
+    list.tap { |l| raise "the rebalance grid has #{l.size} scenarios, not #{238 + 20}" unless l.size == 238 + 20 }
   end
 
   # Plan CB T4: a stopped Layer 1 index bot on each crypto venue whose third member left the index (in_index false, still
@@ -3094,6 +3101,60 @@ module Decisions
     end
   end
 
+  # Bybit V5 spot, including B1-B6 and D-BYBIT-AMBIG.
+  def by_ok(result) = ok('retCode' => 0, 'retMsg' => 'OK', 'result' => result)
+  def by_err(code, msg) = ok('retCode' => code, 'retMsg' => msg, 'result' => {})
+  def by_order(id, status, type: 'Market', base: '0', quote: '0')
+    { 'orderId' => id.to_s, 'symbol' => 'BTCUSDT', 'orderType' => type, 'side' => 'Buy', 'qty' => '0.00093',
+      'price' => '64000', 'avgPrice' => base == '0' ? '0' : '64000', 'cumExecQty' => base, 'cumExecValue' => quote, 'orderStatus' => status, 'rejectReason' => 'EC_NoError' }
+  end
+  def bybit_scenarios
+    started = '2026-09-01T10:00:00.123456Z'
+    ticker = { 'base_decimals' => 6, 'quote_decimals' => 8, 'price_decimals' => 2, 'minimum_base_size' => '0.00001', 'minimum_quote_size' => '1' }
+    rt, hist, create, wallet = 'GET /v5/order/realtime', 'GET /v5/order/history', 'POST /v5/order/create', 'GET /v5/account/wallet-balance'
+    assets = ->(usdt) { by_ok('list' => [{ 'coin' => [{ 'coin' => 'USDT', 'walletBalance' => usdt, 'locked' => '0', 'spotBorrow' => '0' }] }]) }
+    http = { 'GET /v5/market/orderbook' => [by_ok('a' => [['64001.37', '1']], 'b' => [['64000', '1']])],
+             'GET /v5/market/tickers' => [by_ok('list' => [{ 'symbol' => 'BTCUSDT', 'lastPrice' => '64000.12' }])],
+             create => [by_ok('orderId' => '123')], wallet => [assets.('100000')], rt => [by_ok('list' => [])], hist => [by_ok('list' => [])] }
+    waiting = ->(id, at = '2026-09-01 10:00:01') { { 'status' => 0, 'external_status' => 0, 'external_id' => id.to_s, 'order_type' => 0,
+        'quote_amount' => '60', 'price' => '64000', 'amount_exec' => '0', 'quote_amount_exec' => '0', 'created_at' => at } }
+    variants = { 'first_tick' => {}, 'carry' => { 'transient' => { 'missed_quote_amount' => '12.5' } },
+      'below_minimum' => { 'quote_amount' => 0.5 }, 'base_sized' => { 'ticker' => ticker.merge('minimum_quote_size' => '0') },
+      'price_http_error' => { 'http' => { 'GET /v5/market/orderbook' => [{ 'status' => 400, 'body' => { 'retCode' => 10006, 'retMsg' => 'Too many visits' } }], 'GET /v5/market/tickers' => [{ 'status' => 400, 'body' => { 'retCode' => 10006, 'retMsg' => 'Too many visits' } }] } },
+      'low_funds' => { 'http' => { wallet => [assets.('0')] } },
+      'insufficient' => { 'http' => { create => [by_err(170131, 'Insufficient balance')] } },
+      'invalid_key' => { 'http' => { create => [by_err(10003, 'API key is invalid.')] } },
+      'no_trade_permission' => { 'http' => { create => [by_err(10005, 'Permission denied, please check your API key permissions')] } },
+      'timestamp' => { 'http' => { create => [by_err(10002, 'Timestamp for this request is outside of the recvWindow.')] } },
+      'add_timeout_10000' => { 'http' => { create => [by_err(10000, 'Server Timeout')] } },
+      'add_server_10016' => { 'http' => { create => [by_err(10016, 'Server error.')] } },
+      'add_server_error' => { 'http' => { create => [{ 'status' => 503, 'body' => '<html>upstream</html>' }] } },
+      'add_timeout_after_send' => { 'http' => { create => [POST_SEND] } },
+      'add_unreadable' => { 'http' => { create => [{ 'status' => 200, 'body' => '<html>upstream</html>' }] } },
+      'add_bad_order_id' => { 'http' => { create => [by_ok('orderId' => {})] } },
+      'add_no_order_id' => { 'http' => { create => [by_ok({})] } },
+      'add_no_code' => { 'http' => { create => [ok('retMsg' => 'unknown')] } },
+      'sweep_gone_young' => { 'transactions' => [waiting.(201)] },
+      'sweep_gone_old' => { 'transactions' => [waiting.(202, '2026-08-01 10:00:01')] },
+      'history_found' => { 'transactions' => [waiting.(203)], 'http' => { rt => [by_err(110001, 'Order not found')], hist => [by_ok('list' => [by_order(203, 'Filled', base: '0.00093', quote: '59.52')])] } },
+      'landed_found' => { 'http' => { create => [POST_SEND], rt => [by_ok('list' => [by_order('7612345679', 'Filled', base: '0.001875', quote: '120').merge('orderLinkId' => '$client_order_id')])] } },
+      'landed_missing' => { 'http' => { create => [POST_SEND] } },
+      'history_error' => { 'transactions' => [waiting.(204)], 'http' => { hist => [by_err(10006, 'Too many visits')] } } }
+    Exchanges::Bybit::ORDER_STATUS_MAP.each_key.with_index do |status, i|
+      variants["sweep_#{status}"] = { 'transactions' => [waiting.(300 + i)], 'http' => { rt => [by_ok('list' => [by_order(300 + i, status, base: '0.0004', quote: '25.6')])] } }
+    end
+    %w[day week].flat_map do |interval|
+      after = (Time.iso8601(started) + (interval == 'day' ? 1.day : 1.week) + 1.second).iso8601(6)
+      { 'market' => {}, 'limit' => { 'limit_ordered' => true, 'limit_order_pcnt_distance' => 0.0025 } }.flat_map do |mode, settings|
+        variants.map do |name, v|
+          { 'name' => "#{interval}-#{mode}-#{name}", 'venue' => 'bybit', 'interval' => interval, 'quote_amount' => v.fetch('quote_amount', 60.0),
+            'started_at' => started, 'settings' => settings, 'at' => after, 'recover_at' => name.start_with?('landed_') ? (Time.iso8601(after) + 60).iso8601(6) : nil, 'transient' => v.fetch('transient', {}), 'transactions' => v.fetch('transactions', []),
+            'ticker' => v.fetch('ticker', ticker), 'script' => { 'bybit' => http.merge(v.fetch('http', {})) } }
+        end
+      end
+    end
+  end
+
   # Gemini spot (plan VB B3), one asset on btcusd: Rails' own answers to the bodies below, beneath honeymaker. Every private
   # call is a POST (its params in the signed payload), named by its path.
   def gm_ticker(bid, ask, last) = ok('bid' => bid, 'ask' => ask, 'last' => last, 'volume' => { 'BTC' => '10', 'USD' => '640000', 'timestamp' => 1_788_000_000_000 })
@@ -3380,7 +3441,7 @@ module Decisions
   # (/info reads) and hyperliquid-rb (its asset lookup and the signed /exchange order). Every read is a POST to /info named by
   # its `type`. Prices are on Hyperliquid's tick: at most 5 significant figures.
   HL_PAIR = '@142'
-  def hl_book(bid, ask) = ok('coin' => HL_PAIR, 'time' => 1_788_000_000_000,
+  def hl_book(bid, ask, coin: HL_PAIR) = ok('coin' => coin, 'time' => 1_788_000_000_000,
                              'levels' => [bid ? [{ 'px' => bid, 'sz' => '10', 'n' => 1 }] : [], ask ? [{ 'px' => ask, 'sz' => '10', 'n' => 1 }] : []])
   def hl_balances(usdc, btc: '0.5', hold: '0') = ok('balances' => [{ 'coin' => 'USDC', 'token' => 0, 'hold' => hold, 'total' => usdc, 'entryNtl' => '0.0' },
                                                                  { 'coin' => 'BTC', 'token' => 1, 'hold' => '0.0', 'total' => btc, 'entryNtl' => '0.0' }])
@@ -3397,6 +3458,81 @@ module Decisions
                                                                          'hash' => "0xh#{tid}", 'oid' => oid, 'crossed' => true, 'fee' => '0.0005', 'tid' => tid,
                                                                          'feeToken' => 'BTC' }
   HL_UNKNOWN = { 'status' => 200, 'body' => { 'status' => 'unknownOid' } }.freeze
+
+  # Path 2 uses market_price_for before sizing: both engines must cross once and send that size at that price.
+  HL_PATH_TWO_TICKER = { 'base_decimals' => 5, 'quote_decimals' => 2, 'price_decimals' => 3,
+                         'minimum_base_size' => '0', 'minimum_quote_size' => '10' }.freeze
+  def hl_path_two_http
+    {
+      'POST /info l2Book' => [hl_book('64000.5', '64012.7')],
+      'POST /info allMids' => [ok(HL_PAIR => '64006.1', '@143' => '2500.5')],
+      'POST /info spotClearinghouseState' => [hl_balances('10000')],
+      'POST /info meta' => [ok('universe' => [])],
+      'POST /info spotMeta' => [ok('tokens' => [{ 'name' => 'USDC', 'index' => 0, 'szDecimals' => 8 },
+                                             { 'name' => 'BTC', 'index' => 1, 'szDecimals' => 5 }, { 'name' => 'ETH', 'index' => 2, 'szDecimals' => 5 }],
+                                   'universe' => [{ 'name' => HL_PAIR, 'tokens' => [1, 0], 'index' => 142 },
+                                                  { 'name' => '@143', 'tokens' => [2, 0], 'index' => 143 }])],
+      'POST /info perpDexs' => [ok([])], 'POST /exchange' => [hl_placed(77_738_308)], 'POST /info userFillsByTime' => [ok([])]
+    }
+  end
+
+  # The same threshold, pending-swap and placement outcomes as cb_rebalance_scenarios, on two spot pairs.
+  def hl_rebalance_scenarios
+    fires = (1..3).map { |k| (Time.iso8601(BASKET_STARTED).beginning_of_day + 12.hours + 30.minutes + (4 * (k - 1)).hours).iso8601(6) }
+    rows = { 'BTC' => ['0.01', '64006.1'], 'ETH' => ['0.04', '2500.5'] }.map do |sym, (qty, price)|
+      { 'asset' => sym, 'status' => 0, 'external_status' => 2, 'external_id' => "#{sym}-100", 'order_type' => 0,
+        'amount' => qty, 'amount_exec' => qty, 'quote_amount' => (qty.to_d * price.to_d).to_s('F'),
+        'quote_amount_exec' => (qty.to_d * price.to_d).to_s('F'), 'price' => price, 'created_at' => '2026-09-01 10:00:01' }
+    end
+    sell = ->(status, left = '0') { hl_order(77_738_308, status:, side: 'A', limit: '63360', orig: '0.00426', left:) }
+    buy = ->(status, left = '0') { hl_order(77_738_309, status:, limit: '2525.6', orig: '0.1069', left:).tap { |r| r['body']['order']['order']['coin'] = '@143' } }
+    fills = [hl_fill(77_738_308, '0.00426', '64000.5', 9501, side: 'A'),
+             hl_fill(77_738_309, '0.1069', '2500', 9502).merge('coin' => '@143')]
+    owed = { 'rebalance_pending' => { 'phase' => 'buying', 'sell_transaction_id' => nil, 'buy_transaction_id' => nil,
+                                      'remaining_quote_amount' => '120.0', 'buy_attempted' => false } }
+    add = 'POST /exchange'
+    status = 'POST /info orderStatus'
+    states = {
+      'swap' => { 'fires' => 3, 'http' => { status => [sell.('filled'), buy.('filled')] } },
+      'under_threshold' => { 'fires' => 1, 'settings' => { 'rebalance_threshold' => 0.5 } },
+      'rule_off' => { 'fires' => 1, 'settings' => { 'rebalance_enabled' => false } },
+      'selling' => { 'fires' => 1, 'settings' => { 'direction' => 'selling', 'sell_denomination' => 'quote', 'sell_quote_amount' => 10.0 } },
+      'resting_sell' => { 'fires' => 2, 'http' => { status => [sell.('open', '0.00426')], 'POST /info userFillsByTime' => [ok([])] } },
+      'cancelled_partial_sell' => { 'fires' => 2, 'http' => { status => [sell.('canceled', '0.00226')],
+                                                          'POST /info userFillsByTime' => [ok([hl_fill(77_738_308, '0.002', '64000.5', 9501, side: 'A')])] } },
+      'nothing_sold' => { 'fires' => 2, 'http' => { status => [sell.('canceled', '0.00426')], 'POST /info userFillsByTime' => [ok([])] } },
+      'partial_buy' => { 'fires' => 3, 'http' => { status => [sell.('filled'), buy.('canceled', '0.0569')],
+                                                 'POST /info userFillsByTime' => [ok([fills.first, fills.last.merge('sz' => '0.05')])] } },
+      'sell_below_minimum' => { 'fires' => 1, 'tickers_after' => { 'BTC' => { 'minimum_quote_size' => '5000' } } },
+      'buy_below_minimum' => { 'fires' => 2, 'quote' => '0.01' },
+      'buy_capped' => { 'fires' => 2, 'quote' => '150' },
+      'rejected' => { 'fires' => 1, 'http' => { add => [hl_status('Insufficient spot balance')] } },
+      'server_error' => { 'fires' => 1, 'http' => { add => [{ 'status' => 503, 'body' => 'unavailable' }] } },
+      'post_send' => { 'fires' => 1, 'http' => { add => [POST_SEND] } },
+      'no_order_id' => { 'fires' => 1, 'http' => { add => [ok('status' => 'ok', 'response' => { 'data' => { 'statuses' => [{ 'resting' => {} }] } })] } },
+      'owed_buy' => { 'fires' => 1, 'settings' => { 'rebalance_enabled' => false }, 'transient' => owed },
+      'buy_rejected' => { 'fires' => 2, 'http' => { add => [hl_placed(77_738_308), hl_status('Insufficient spot balance')] } },
+      'pre_send' => { 'fires' => 1, 'http' => { add => [VENUES.fetch('hyperliquid').not_sent] } },
+      'unpriced_member' => { 'fires' => 1, 'http' => { 'POST /info allMids' => [ok(HL_PAIR => '64006.1')] } },
+      'open_buy' => { 'fires' => 1, 'rows' => rows + [rows.first.merge('external_id' => 'BTC-77738308', 'external_status' => 1, 'order_type' => 1,
+                                                                  'amount_exec' => '0', 'quote_amount_exec' => '0')],
+                      'http' => { status => [hl_order(77_738_308, status: 'open', orig: '0.01', left: '0.01')], 'POST /info userFillsByTime' => [ok([])] } }
+    }
+    states.map do |state, st|
+      balance = hl_balances(st.fetch('quote', '100000'), btc: '0.01')
+      balance['body']['balances'] << { 'coin' => 'ETH', 'token' => 2, 'hold' => '0', 'total' => '0.04', 'entryNtl' => '0' }
+      http = hl_path_two_http.merge('POST /info spotClearinghouseState' => [balance],
+                                    'POST /info l2Book @142' => [hl_book('64000.5', '64012.7')],
+                                    'POST /info l2Book @143' => [hl_book('2500.5', '2500.6', coin: '@143')],
+                                    add => [hl_placed(77_738_308), hl_placed(77_738_309), hl_placed(77_738_310)],
+                                    status => [sell.('filled')], 'POST /info userFillsByTime' => [ok(fills)]).merge(st.fetch('http', {}))
+      { 'name' => "rebalance-hyperliquid-w50-#{state}", 'venue' => 'hyperliquid', 'interval' => 'day', 'quote_amount' => 60.0,
+        'started_at' => BASKET_STARTED, 'settings' => { 'rebalance_enabled' => true, 'limit_ordered' => true }.merge(st.fetch('settings', {})),
+        'transient' => st.fetch('transient', {}), 'transactions' => st.fetch('rows', rows), 'ticker' => HL_PATH_TWO_TICKER,
+        'members' => WEIGHTS.fetch('w50'), 'at' => fires.first, 'script' => { 'hyperliquid' => http }, 'tick' => false,
+        'rebalance_at' => fires.first(st.fetch('fires')), 'tickers_after' => st['tickers_after'], 'bot_columns' => { 'status' => Bot.statuses[:stopped] } }
+    end
+  end
 
   def hyperliquid_scenarios
     started = '2026-09-01T10:00:00.123456Z'
@@ -3425,7 +3561,7 @@ module Decisions
     end
     polled = ->(order, fills = []) { { 'POST /info orderStatus' => [order], 'POST /info userFillsByTime' => [ok(fills)] } }
     err = ->(text) { ok('status' => 'err', 'response' => text) }
-    %w[day week].flat_map do |interval|
+    list = %w[day week].flat_map do |interval|
       step = { 'day' => 1.day, 'week' => 1.week }.fetch(interval)
       after = ->(n) { (Time.iso8601(started) + (n * step) + 1.second).iso8601(6) }
       variants = {
@@ -3515,6 +3651,68 @@ module Decisions
         end
       end
     end
+    # The signer exception is ambiguous in signal placement (DCA records it as a failure already).
+    list << signal_scenarios.find { |sc| sc['name'] == 'signal-hyperliquid-buy-fixed-accepted' }
+                            .except('poll').merge('name' => 'signal-invalid_private_key', 'secret' => 'not-a-key')
+    list.tap { |l| raise "the Hyperliquid grid has #{l.size} scenarios, not #{180 + 1}" unless l.size == 180 + 1 }
+  end
+
+  # Bitrue shares the query-shaped grid inputs, with its own codes, statuses and base sizing.
+  def bitrue_scenarios
+    cases = mexc_scenarios.map do |scenario|
+      sc = JSON.parse(JSON.generate(scenario).gsub('mexc', 'bitrue').gsub('MEXC', 'Bitrue').gsub('api.bitrue.com', 'openapi.bitrue.com')
+                          .gsub('/api/v3/', '/api/v1/').gsub('C02__', '').gsub('PARTIALLY_CANCELED', 'CANCELED').gsub('PENDING_CANCEL', 'UNLISTED'))
+      sc['script']['bitrue'].each_value do |replies|
+        replies.each do |reply|
+          body = reply['body']
+          next unless body.is_a?(Hash)
+
+          Array(body['balances']).each { |row| row['asset'] = row['asset'].downcase }
+          if body['code']
+            code, msg = case body['code']
+                        when 700_003 then [-1102, 'recvWindow IllegalArgumentException.']
+                        when 10_101 then [-2010, 'Insufficient account balance.']
+                        when 30_002 then [-1013, 'Filter failure: LOT_SIZE']
+                        when 10_072 then [-1022, 'No login']
+                        when 700_002 then [-1022, 'Signature for this request is not valid.']
+                        when 700_007 then [-2015, "You don't have permission."]
+                        when 503 then [-1000, 'System abnormality']
+                        else [body['code'], body['msg']]
+                        end
+            body['code'], body['msg'] = code, msg
+          end
+        end
+      end
+      sc
+    end
+    cases.select { |sc| sc['name'].end_with?('-first_tick') }.each do |base|
+      %w[PENDING_CREATE PENDING_CANCEL].each do |status|
+        sc = Marshal.load(Marshal.dump(base))
+        sc['name'] = sc['name'].sub('first_tick', status.downcase)
+        sc['transactions'] = [{ 'status' => 0, 'external_status' => 1, 'external_id' => 'BTCUSDT-501', 'order_type' => 1,
+                                'amount' => '0.001', 'price' => '64000', 'created_at' => '2026-09-01 10:00:00' }]
+        sc['script']['bitrue']['GET /api/v1/order'] = [ok(mx_order('501', status, type: 'LIMIT'))]
+        cases << sc
+      end
+      sc = Marshal.load(Marshal.dump(base))
+      sc['name'] = sc['name'].sub('first_tick', 'add_unknown_code')
+      sc['script']['bitrue']['POST /api/v1/order'] = [mx_err(400, -9999, 'InvalidNonce')]
+      cases << sc
+      sweep = cases.find { |scenario| scenario['name'] == base['name'].sub('first_tick', 'sweep_new') }
+      sc = Marshal.load(Marshal.dump(sweep))
+      sc['name'] = sc['name'].sub('sweep_new', 'read_throttle')
+      sc['script']['bitrue']['GET /api/v1/order'] = [{ 'status' => 429, 'body' => 'slow down' }]
+      cases << sc
+      %w[found missing].each do |result|
+        sc = Marshal.load(Marshal.dump(base))
+        sc['name'] = sc['name'].sub('first_tick', "landed_#{result}")
+        sc['recover_at'] = (Time.iso8601(sc['at']) + 60).iso8601(6)
+        sc['script']['bitrue']['POST /api/v1/order'] = [POST_SEND]
+        sc['script']['bitrue']['GET /api/v1/order'] = [result == 'found' ? ok(mx_order('601', 'FILLED', executed: '0.000937', cumulative: '59.968').merge('clientOrderId' => '$client_order_id')) : mx_err(200, -2013, 'Could not find order information')]
+        cases << sc
+      end
+    end
+    cases
   end
 
   # Slice 7a: the price rule of the active side with the `pause` action, on all three venues and both directions. The tick at
@@ -3624,7 +3822,7 @@ module Decisions
   SIGNAL_AT = '2026-09-01T14:00:01.250000Z'
   SIGNAL_STARTED = '2026-08-25T09:00:00.123456Z'
 
-  # A Bots::Signal as BotApi::Bots::CreateSignal leaves it (created, started), with its rules, on one of the four venues.
+  # A Bots::Signal as BotApi::Bots::CreateSignal leaves it (created, started), with its rules, on its configured venue.
   def build_signal(dir, sc)
     SchemaTemplate.install(dir)
     ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: File.join(dir, 'production.sqlite3'))
@@ -3637,7 +3835,8 @@ module Decisions
                                                  else kraken_venue(sc)
                                                  end
     unless sc['no_key']
-      ApiKey.new(user:, exchange:, key: 'k', secret: 's', passphrase:, status: sc.fetch('key_status', 'correct'), key_type: :trading).save!(validate: false)
+      row = VENUES[sc['venue']]
+      ApiKey.new(user:, exchange:, key: row&.key || 'k', secret: sc.fetch('secret', row&.secret || 's'), passphrase:, status: sc.fetch('key_status', 'correct'), key_type: :trading).save!(validate: false)
     end
     bot = user.bots.new(type: 'Bots::Signal', exchange:, settings: { 'base_asset_id' => base.id, 'quote_asset_id' => quote.id })
     bot.save!
@@ -3723,6 +3922,20 @@ module Decisions
         'safe' => ok('code' => '400002', 'msg' => 'Invalid KC-API-TIMESTAMP'),
         'server_error' => { 'status' => 503, 'body' => '<html>upstream</html>' }, 'no_order_id' => kc_ok({}),
         'pre_send' => kc_net
+      },
+      'hyperliquid' => {
+        'ticker' => HL_PATH_TWO_TICKER, 'key' => 'hyperliquid', 'order' => 'BTC-77738308', 'second' => hl_placed(77_738_309),
+        'http' => hl_path_two_http,
+        'filled' => ->(side) { { 'POST /info orderStatus' => [hl_order(77_738_308, status: 'filled', side: side == 'buy' ? 'B' : 'A', limit: side == 'buy' ? '64652' : '63360', orig: '0.00154')],
+                                'POST /info userFillsByTime' => [ok([hl_fill(77_738_308, '0.00154', '64012', 9500, side: side == 'buy' ? 'B' : 'A')])] } },
+        'free' => ->(btc) { { 'POST /info spotClearinghouseState' => [hl_balances('10000', btc:)] } },
+        'price_transient' => [VENUES.fetch('hyperliquid').not_sent],
+        'price_refused' => [{ 'status' => 422, 'body' => 'Invalid coin' }], 'price_key' => 'POST /info l2Book',
+        'balance_failed' => { 'POST /info spotClearinghouseState' => [{ 'status' => 422, 'body' => 'Invalid user' }] },
+        'add' => 'POST /exchange', 'rejected' => hl_status('Insufficient spot balance'), 'safe' => nil,
+        'server_error' => { 'status' => 503, 'body' => 'unavailable' },
+        'no_order_id' => ok('status' => 'ok', 'response' => { 'type' => 'order', 'data' => { 'statuses' => [{ 'resting' => {} }] } }),
+        'pre_send' => VENUES.fetch('hyperliquid').not_sent
       },
       'alpaca' => {
         'ticker' => { 'base_decimals' => 9, 'quote_decimals' => 2, 'price_decimals' => 2, 'minimum_base_size' => '0.000027', 'minimum_quote_size' => '1' },
@@ -3817,7 +4030,7 @@ module Decisions
                   'poll' => (vn['order'] if v['filled']) }.compact
       end
     end
-    list.tap { |l| raise "the signal grid has #{l.size} scenarios, not 420" unless l.size == 420 }
+    list.tap { |l| raise "the signal grid has #{l.size} scenarios, not #{420 + 79}" unless l.size == 420 + 79 }
   end
 
   def grid(root, list)
@@ -3844,7 +4057,7 @@ module Decisions
                                         'conditions' => sc['conditions'], 'resync_at' => sc['resync_at'], 'trigger' => sc['trigger'],
                                         # Bot::SignalJob's arguments: the rule (by its id) and when the call arrived.
                                         'signals' => sc['calls']&.map { |c| { 'signal_id' => bot.bot_signals.order(:id)[c['rule']].id, 'triggered_at' => c['triggered_at'] } },
-                                        'before_signal' => sc['before_signal'],
+                                        'before_signal' => sc['before_signal'], 'secret' => sc['secret'],
                                         # Bot::SmartIntervalable#smart_interval_minimum(:quote) as Rails computes it for the built bot.
                                         'rails_floor' => (sc['record_floor'] && bot.reload.smart_interval_minimum(:quote).then { |m| { 'value' => m[:value].to_f, 'reason' => m[:reason].to_s } }) }.compact))
       ActiveRecord::Base.connection_pool.disconnect!
@@ -4087,7 +4300,7 @@ def web_save(dir)
 end
 
 command, root = ARGV
-USAGE = 'usage: grid <root> | grid-signal <root> | grid-alpaca <root> | grid-basket <root> | grid-limit <root> | grid-binance <root> | grid-binance-us <root> | grid-kucoin <root> | grid-bitvavo <root> | grid-bitget <root> | grid-gemini <root> | grid-mexc <root> | grid-hyperliquid <root> | grid-coinbase <root> | grid-sell <root> | grid-venue-basket <root> | grid-venue-index <root> | grid-conditions <root> | grid-basket-sell <root> | grid-rebalance <root> | record <root> | web-save <dir>'.freeze
+USAGE = 'usage: grid <root> | grid-signal <root> | grid-alpaca <root> | grid-basket <root> | grid-limit <root> | grid-binance <root> | grid-binance-us <root> | grid-kucoin <root> | grid-bitvavo <root> | grid-bitget <root> | grid-gemini <root> | grid-mexc <root> | grid-hyperliquid <root> | grid-bybit <root> | grid-bitrue <root> | grid-coinbase <root> | grid-sell <root> | grid-venue-basket <root> | grid-venue-index <root> | grid-conditions <root> | grid-basket-sell <root> | grid-rebalance <root> | record <root> | web-save <dir>'.freeze
 raise ArgumentError, USAGE unless root
 
 case command
@@ -4107,6 +4320,8 @@ when 'grid-bitget' then Decisions.grid(root, Decisions.bitget_scenarios)
 when 'grid-coinbase' then Decisions.grid(root, Decisions.coinbase_scenarios)
 when 'grid-mexc' then Decisions.grid(root, Decisions.mexc_scenarios)
 when 'grid-hyperliquid' then Decisions.grid(root, Decisions.hyperliquid_scenarios)
+when 'grid-bybit' then Decisions.grid(root, Decisions.bybit_scenarios)
+when 'grid-bitrue' then Decisions.grid(root, Decisions.bitrue_scenarios)
 when 'grid-sell' then Decisions.grid(root, Decisions.sell_scenarios)
 when 'grid-venue-basket' then Decisions.grid(root, Decisions.venue_basket_scenarios)
 when 'grid-basket-sell' then Decisions.grid(root, Decisions.basket_sell_scenarios)

@@ -116,8 +116,9 @@ fn gemini_sent(t: &ScriptedTransport) -> Vec<Value> {
 
 /// The orders the MEXC adapter POSTed, as the Rails harness records them: the query without the timestamp, the signature and
 /// Rust's own newClientOrderId.
-fn mexc_sent(t: &ScriptedTransport) -> Vec<Value> {
-    t.requests().into_iter().filter(|r| r.method == "POST" && r.path == crate::venue::mexc::ORDER_PATH)
+fn mexc_sent(t: &ScriptedTransport) -> Vec<Value> { query_sent(t, crate::venue::mexc::ORDER_PATH) }
+fn query_sent(t: &ScriptedTransport, path: &str) -> Vec<Value> {
+    t.requests().into_iter().filter(|r| r.method == "POST" && r.path == path)
         .map(|r| Value::Object(r.query.into_iter().filter(|(k, _)| !matches!(*k, "timestamp" | "signature" | "newClientOrderId"))
                                 .map(|(k, v)| (k.to_string(), Value::String(v))).collect())).collect()
 }
@@ -126,6 +127,18 @@ fn mexc_sent(t: &ScriptedTransport) -> Vec<Value> {
 /// t}`) without Rust's own cloid `c`; a cancel is no order.
 /// The account address decisions.rb's Hyperliquid key holds (script/rust/decisions.rb HL_ADDRESS).
 pub const HYPERLIQUID_HARNESS_ADDRESS: &str = "0x7f2e1a6c9b3d4e5f60718293a4b5c6d7e8f90123";
+
+/// Script the reads, but exercise the real transport's signer refusal for an invalid private key.
+/// That guard runs before networking, so this scenario cannot send an exchange request.
+struct HyperliquidScript { scripted: ScriptedTransport, invalid_key: Option<crate::venue::http::ReqwestTransport> }
+impl crate::venue::http::Transport for HyperliquidScript {
+    async fn send(&self, r: &crate::venue::http::HttpRequest) -> Result<crate::venue::http::HttpResponse, crate::venue::http::TransportError> {
+        if r.path == crate::venue::hyperliquid::EXCHANGE {
+            if let Some(t) = &self.invalid_key { return t.send(r).await; }
+        }
+        self.scripted.send(r).await
+    }
+}
 
 fn hyperliquid_sent(t: &ScriptedTransport) -> Vec<Value> {
     t.requests().into_iter().filter(|r| r.method == "POST" && r.path == crate::venue::hyperliquid::EXCHANGE).filter_map(|r| r.body)
@@ -138,6 +151,10 @@ fn hyperliquid_sent(t: &ScriptedTransport) -> Vec<Value> {
 fn bitget_sent(t: &ScriptedTransport) -> Vec<Value> {
     t.requests().into_iter().filter(|r| r.method == "POST" && r.path == crate::venue::bitget::PLACE_PATH).filter_map(|r| r.body)
         .map(|mut b| { if let Value::Object(m) = &mut b { m.shift_remove("clientOid"); } b }).collect()
+}
+fn bybit_sent(t: &ScriptedTransport) -> Vec<Value> {
+    t.requests().into_iter().filter(|r| r.method == "POST" && r.path == crate::venue::bybit::PLACE_PATH).filter_map(|r| r.body)
+        .map(|mut b| { if let Value::Object(m) = &mut b { m.shift_remove("orderLinkId"); } b }).collect()
 }
 
 fn coinbase_sent(t: &ScriptedTransport) -> Vec<Value> {
@@ -288,6 +305,24 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
         if let Some(c) = checks { out["checks"] = json!(c); }
         return Ok(out);
     }
+    if scenario["venue"] == "bybit" {
+        // Rust's Bybit adapter over the bodies Rails' harness serves beneath Honeymaker::Clients::Bybit, with the
+        // scenario's own tickers.
+        let transport = ScriptedTransport::from_script(&scenario["script"]["bybit"]);
+        let exchange_id: i64 = o.primary.query_row("SELECT id FROM exchanges WHERE type = ?1", [crate::venue::bybit::BYBIT], |r| r.get(0))?;
+        let pairs = crate::venue::binance::Pairs::load(&o.primary, exchange_id).map_err(EngineError::Data)?;
+        let venue = crate::venue::bybit::BybitVenue::new(transport.clone(), crate::venue::bybit::URL).with_pairs(pairs)
+            .with_history_db(o.primary.path().expect("the scenario's install database").into(), start);
+        let posted = || bybit_sent(&transport).len();
+        let (poll, recover_sent, checks) = play(&o, &venue, &scenario, bot_id, start, &posted).await?;
+        let poll_error = match poll { Some(polling::PollFailure::General(m)) => json!(m), _ => Value::Null };
+        let funds_notified: bool = o.primary.query_row("SELECT last_end_of_funds_notification IS NOT NULL FROM bots WHERE id = ?1", [bot_id], |r| r.get(0))?;
+        let mut out = json!({ "sent": bybit_sent(&transport), "changes": diff(&before, &snapshot(&o.primary)?), "mails": mails(&o.primary, &owed)?,
+                              "funds_notified": funds_notified, "poll_error": poll_error });
+        if let Some(n) = recover_sent { out["recover_sent"] = json!(n); }
+        if let Some(c) = checks { out["checks"] = json!(c); }
+        return Ok(out);
+    }
     if scenario["venue"] == "coinbase" {
         // Rust's Coinbase adapter over the bodies Rails' harness serves beneath Honeymaker::Clients::Coinbase, with the
         // scenario's own tickers.
@@ -328,7 +363,13 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
         let transport = ScriptedTransport::from_script(&scenario["script"]["hyperliquid"]);
         let exchange_id: i64 = o.primary.query_row("SELECT id FROM exchanges WHERE type = ?1", [crate::venue::hyperliquid::HYPERLIQUID], |r| r.get(0))?;
         let pairs = crate::venue::binance::Pairs::load(&o.primary, exchange_id).map_err(EngineError::Data)?;
-        let venue = crate::venue::hyperliquid::HyperliquidVenue::new(transport.clone(), crate::venue::hyperliquid::URL, HYPERLIQUID_HARNESS_ADDRESS).with_pairs(pairs);
+        let invalid_key = scenario["secret"].as_str().map(|secret| {
+            assert!(crate::venue::signers::hyperliquid::signing_key(secret).is_none(), "only invalid test keys use the real refusal path");
+            crate::venue::http::ReqwestTransport::hyperliquid(crate::venue::http::client(), HYPERLIQUID_HARNESS_ADDRESS.into(), secret.into())
+        });
+        let base = if invalid_key.is_some() { "http://127.0.0.1:9" } else { crate::venue::hyperliquid::URL };
+        let wire = HyperliquidScript { scripted: transport.clone(), invalid_key };
+        let venue = crate::venue::hyperliquid::HyperliquidVenue::new(wire, base, HYPERLIQUID_HARNESS_ADDRESS).with_pairs(pairs);
         let posted = || hyperliquid_sent(&transport).len();
         let (poll, recover_sent, checks) = play(&o, &venue, &scenario, bot_id, start, &posted).await?;
         let poll_error = match poll { Some(polling::PollFailure::General(m)) => json!(m), _ => Value::Null };
@@ -369,6 +410,23 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
         let mut out = json!({ "sent": mexc_sent(&transport), "changes": diff(&before, &snapshot(&o.primary)?), "mails": mails(&o.primary, &owed)?,
                               "funds_notified": funds_notified, "poll_error": poll_error });
         if let Some(c) = checks { out["checks"] = json!(c); }
+        return Ok(out);
+    }
+    if scenario["venue"] == "bitrue" {
+        // Rust's Bitrue adapter over the bodies Rails' harness serves beneath Honeymaker::Clients::Bitrue, with the scenario's
+        // own tickers.
+        let transport = ScriptedTransport::from_script(&scenario["script"]["bitrue"]);
+        let exchange_id: i64 = o.primary.query_row("SELECT id FROM exchanges WHERE type = ?1", [crate::venue::bitrue::BITRUE], |r| r.get(0))?;
+        let pairs = crate::venue::binance::Pairs::load(&o.primary, exchange_id).map_err(EngineError::Data)?;
+        let venue = crate::venue::bitrue::BitrueVenue::new(transport.clone(), crate::venue::bitrue::URL, "s").with_pairs(pairs);
+        let posted = || query_sent(&transport, crate::venue::bitrue::ORDER_PATH).len();
+        let (poll, recover_sent, checks) = play(&o, &venue, &scenario, bot_id, start, &posted).await?;
+        let poll_error = match poll { Some(polling::PollFailure::General(m)) => json!(m), _ => Value::Null };
+        let funds_notified: bool = o.primary.query_row("SELECT last_end_of_funds_notification IS NOT NULL FROM bots WHERE id = ?1", [bot_id], |r| r.get(0))?;
+        let mut out = json!({ "sent": query_sent(&transport, crate::venue::bitrue::ORDER_PATH), "changes": diff(&before, &snapshot(&o.primary)?), "mails": mails(&o.primary, &owed)?,
+                              "funds_notified": funds_notified, "poll_error": poll_error });
+        if let Some(c) = checks { out["checks"] = json!(c); }
+        if let Some(n) = recover_sent { out["recover_sent"] = json!(n); }
         return Ok(out);
     }
     // Rust's real Kraken adapter over the bodies Rails' harness serves beneath Honeymaker::Clients::Kraken, or at the

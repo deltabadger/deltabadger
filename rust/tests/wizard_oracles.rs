@@ -323,6 +323,53 @@ fn key_verdicts_replay_every_recorded_case() {
     }
     assert_eq!(hyperliquid, 70, "a recorded Hyperliquid case was added or dropped");
     replayed += hyperliquid;
+    let mut bybit = 0;
+    for case in recorded["bybit"][ "cases"].as_array().unwrap() {
+        let (name, kind) = (case["case"].as_str().unwrap(), kind(case["key_type"].as_str().unwrap()));
+        let a = &case["response"];
+        let reply = if a["timeout"] == true { json!({ "network": "post_send", "message": "Net::ReadTimeout" }) }
+                    else if a["refused"] == true { json!({ "network": "pre_send", "message": "Connection refused" }) }
+                    else { json!({ "status": a["status"], "body": a["body"] }) };
+        let sent = &case["request"];
+        let script = json!({ format!("{} {}", sent["method"].as_str().unwrap(), sent["path"].as_str().unwrap()): [reply] });
+        let transport = deltabadger::venue::http::ScriptedTransport::from_script(&script);
+        let venue = deltabadger::venue::bybit::BybitVenue::new(transport.clone(), deltabadger::venue::bybit::URL);
+        let (_, ours) = rt.block_on(key_check::bybit_check(&transport, &venue, kind));
+        let theirs = if case["verdict"]["kind"] == "raises" { Verdict::Failure(String::new()) } else { expected(&case["verdict"]) };
+        assert!(same(&ours, &theirs), "bybit {} {} {name}: {ours:?}, Rails {theirs:?}", case["key_type"], case["method"]);
+        let r = &transport.requests()[0];
+        let query: serde_json::Map<String, Value> = r.query.iter().map(|(k, v)| (k.to_string(), json!(v))).collect();
+        assert_eq!((json!(r.method), json!(r.url().host_str().unwrap()), json!(r.path), Value::Object(query), r.body.clone().unwrap_or(json!({}))),
+                   (sent["method"].clone(), sent["host"].clone(), sent["path"].clone(), sent["query"].clone(), sent["form"].clone()), "bybit {name}: the request");
+        assert_eq!((transport.requests().len(), sent["key_header"].as_str()), (1, Some("test-key")), "{name}");
+        bybit += 1;
+    }
+    assert_eq!(bybit, 108, "a recorded Bybit case was added or dropped");
+    replayed += bybit;
+    assert_pinned("bitrue_key_verdicts.json");
+    let bitrue_recorded = fixture("bitrue_key_verdicts.json");
+    let mut bitrue = 0;
+    for case in bitrue_recorded["bitrue"]["cases"].as_array().unwrap() {
+        let (name, kind) = (case["case"].as_str().unwrap(), kind(case["key_type"].as_str().unwrap()));
+        let reading = case["method"] == "get_read_api_key_validity";
+        let a = &case["response"];
+        let reply = if a["timeout"] == true { json!({"network":"post_send", "message":"Net::ReadTimeout"}) }
+                    else if a["refused"] == true { json!({"network":"pre_send", "message":"Connection refused"}) }
+                    else { json!({"status":a["status"],"body":a["body"]}) };
+        let transport = deltabadger::venue::http::ScriptedTransport::from_script(&json!({"GET /api/v1/account":[reply]}));
+        let venue = deltabadger::venue::bitrue::BitrueVenue::new(transport.clone(), deltabadger::venue::bitrue::URL, "test-secret");
+        let (_, ours) = rt.block_on(key_check::bitrue_check(&transport, &venue, kind, reading));
+        let theirs = if case["verdict"]["kind"] == "raises" { Verdict::Failure(String::new()) } else { expected(&case["verdict"]) };
+        assert!(same(&ours, &theirs), "bitrue {} {name}: {ours:?}, Rails {theirs:?}", case["key_type"]);
+        let requests = transport.requests();
+        assert_eq!(requests.len(), 1);
+        let r = &requests[0];
+        let query: serde_json::Map<String, Value> = r.query.iter().filter(|(k,_)| !["signature","timestamp"].contains(k)).map(|(k,v)| (k.to_string(),json!(v))).collect();
+        assert_eq!(json!([r.method, r.url().host_str().unwrap(), r.path, query]), json!([case["request"]["method"],case["request"]["host"],case["request"]["path"],case["request"]["query"]]));
+        bitrue += 1;
+    }
+    assert_eq!(bitrue, 81, "Bitrue recorded key verdicts");
+    replayed += bitrue;
     let mut coinbase = 0;
     for case in recorded["coinbase"]["cases"].as_array().unwrap() {
         let answers: Vec<Value> = case["responses"].as_array().cloned().unwrap_or_else(||vec![case["response"].clone()]);
@@ -342,7 +389,7 @@ fn key_verdicts_replay_every_recorded_case() {
     }
     assert_eq!(coinbase,54+16+12,"Coinbase flags, retries and read-only sequences");
     replayed+=coinbase;
-    assert_eq!(replayed, 578 + 84 + 212 + 214 + 122 + 240 + 70 + 82, "the combined venue key grid: 1,210 existing + 240 MEXC + 70 Hyperliquid + 82 Coinbase cases");
+    assert_eq!(replayed, 578 + 84 + 212 + 214 + 122 + 240 + 70 + 108 + 81 + 82, "the combined venue key grid: 1,210 existing + 240 MEXC + 70 Hyperliquid + 108 Bybit + 81 Bitrue + 82 Coinbase cases");
 }
 
 /// A pinned callback list against a port's table: the same callbacks, in Rails' order, each handled.
@@ -465,4 +512,42 @@ async fn a_mexc_key_is_checked_by_its_account_and_a_reading_key_by_its_deposits_
     assert!(matches!(check(2).await, Validity::Correct), "a reading key that reads the account and the deposits");
     let sent: Vec<String> = server.received_requests().await.unwrap().iter().map(|r| r.url.path().to_string()).collect();
     assert_eq!(sent, ["/api/v3/account", "/api/v3/account", "/api/v3/account", "/api/v3/capital/deposit/hisrec"]);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_bybit_key_is_checked_by_a_cancel_probe_or_an_assets_read() {
+    use wiremock::{matchers::{body_json, header, header_exists, method, path}, Mock, MockServer, ResponseTemplate};
+    use deltabadger::web::settings::validator::Validity;
+    let server = MockServer::start().await;
+    Mock::given(method("POST")).and(path("/v5/order/cancel")).and(header("X-BAPI-API-KEY", "bg-key"))
+        .and(header_exists("X-BAPI-SIGN")).and(header("X-BAPI-RECV-WINDOW", "5000")).and(body_json(json!({ "category":"spot", "symbol": "BTCUSDT", "orderId": "0" })))
+        .respond_with(ResponseTemplate::new(400).set_body_json(json!({ "retCode":170213,"retMsg":"Order does not exist" }))).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v5/account/wallet-balance")).and(header("X-BAPI-API-KEY", "bg-key"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "retCode":0,"result":{"list":[{"coin":[{"coin":"USDT","walletBalance":"1"}]}]} })))
+        .mount(&server).await;
+    let credentials = deltabadger::crypto::Credentials { key: "bg-key".into(), secret: "bg-secret".into(), passphrase: Some("bg-pass".into()), redaction_values: vec![] };
+    let base = server.uri();
+    let check = |kind| key_check::check("Exchanges::Bybit", &base, deltabadger::venue::http::client(), &credentials, kind);
+    assert!(matches!(check(0).await, Validity::Correct), "a trading key past the permission gate");
+    assert!(matches!(check(1).await, Validity::Correct), "a withdrawal key that reads its assets");
+    assert!(matches!(check(2).await, Validity::Correct), "a reading key that reads its balances");
+    let sent: Vec<(String, String)> = server.received_requests().await.unwrap().iter().map(|r| (r.method.to_string(), r.url.path().to_string())).collect();
+    let (probe, read) = (("POST".to_string(), "/v5/order/cancel".to_string()), ("GET".to_string(), "/v5/account/wallet-balance".to_string()));
+    assert_eq!(sent, [probe, read.clone(), read]);
+}
+
+#[tokio::test]
+async fn a_bitrue_key_uses_one_account_read_for_each_key_type() {
+    use wiremock::{matchers::{header, method, path, query_param}, Mock, MockServer, ResponseTemplate};
+    use deltabadger::web::settings::validator::Validity;
+    let server = MockServer::start().await;
+    Mock::given(method("GET")).and(path("/api/v1/account")).and(header("X-MBX-APIKEY", "br-key")).and(query_param("recvWindow", "5000"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "canTrade": false, "balances": [] }))).mount(&server).await;
+    let credentials = deltabadger::crypto::Credentials { key: "br-key".into(), secret: "br-secret".into(), passphrase: None, redaction_values: vec![] };
+    let base = server.uri();
+    let check = |kind| key_check::check("Exchanges::Bitrue", &base, deltabadger::venue::http::client(), &credentials, kind);
+    assert!(matches!(check(0).await, Validity::Incorrect));
+    assert!(matches!(check(1).await, Validity::Correct));
+    assert!(matches!(check(2).await, Validity::Correct));
+    assert_eq!(server.received_requests().await.unwrap().len(), 3);
 }
