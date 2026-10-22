@@ -50,7 +50,7 @@ module Pages
     headers['Accept'] = 'text/html' if extra['html']
     headers['Accept'] = 'text/html' if action == 'modal' || action.end_with?('_modal')
     { 'method' => method, 'path' => path, 'form' => fields, 'csrf' => 'header',
-      'headers' => headers, 'action_snapshot' => true }.merge(extra.slice('raw_rows', 'raw_clock'))
+      'headers' => headers, 'action_snapshot' => true }.merge(extra.slice('raw_rows', 'raw_clock', 'broadcasts'))
   end
 end
 
@@ -60,6 +60,18 @@ module Pages
   def action_cases
     cases=[]
     add = ->(name, action, form={}, spec={}, extra={}) { cases << [name,action,form,spec,extra] }
+    # The immediate after_update_commit metrics panel, including its absence on unrelated/refused saves.
+    metrics = { 'broadcasts' => ['user_1:bot_updates', "#{Base64.urlsafe_encode64('gid://deltabadger/Bots::DcaMultiAsset/1', padding: false)}:bot_updates"],
+                'owner_locale' => 'pl' }
+    add.call('settings_metrics_composition', 'update', { 'remove_asset_id' => '3' }, {}, metrics)
+    add.call('settings_metrics_exchange', 'update', { 'exchange_id' => '4' },
+             { 'kind' => 'kraken_basket', 'settings' => { 'quote_asset_id' => 19, 'allocations' => { '16' => 0.6, '17' => 0.4 } } },
+             metrics.merge('kraken_usdt' => true))
+    add.call('settings_metrics_amount', 'update', { 'quote_amount' => '37.25' }, {}, metrics)
+    add.call('settings_metrics_unchanged', 'update', { 'quote_amount' => '50' }, {}, metrics)
+    add.call('settings_metrics_invalid', 'update', { 'remove_asset_id' => '3', 'quote_amount' => '0' }, {}, metrics)
+    add.call('settings_metrics_index', 'update', { 'allocation_flattening' => '0.5' }, { 'kind' => 'index' },
+             metrics.merge('broadcasts' => ['user_1:bot_updates', "#{Base64.urlsafe_encode64('gid://deltabadger/Bots::DcaIndex/1', padding: false)}:bot_updates"]))
     %w[single basket index].each do |kind|
       add.call("#{kind}_amount", 'update', {'quote_amount'=>'37.25'}, {'kind'=>kind})
       add.call("#{kind}_invalid", 'update', {'quote_amount'=>'0'}, {'kind'=>kind})
@@ -245,7 +257,7 @@ module Pages
                { 'wash_off' => true }.merge(venue == 'kucoin' ? { 'kucoin_bots' => true } : {}))
     end
 
-    raise "expected 254 bot action cases" unless cases.size == 254
+    raise "expected 254 + 6 bot action cases, including settings metrics broadcasts" unless cases.size == 254 + 6
     names = cases.map { |entry| "actions_#{entry.first}".gsub(/[^a-zA-Z0-9_-]/, "_") }
     raise "action case names collide after filesystem conversion" unless names.uniq.size == names.size
     cases
@@ -294,11 +306,12 @@ module Pages
         end
       end
       scenario['extra_users'] = [user('email' => 'other@example.com', 'admin' => false)] if extra['foreign']
+      scenario['user']['locale'] = extra['owner_locale'] if extra['owner_locale']
       scenario['venues'] = true if VENUE_KINDS.key?(spec['kind'])
       scenario['kraken_usdt'] = true if extra['kraken_usdt']
       scenario['kucoin_bots'] = true if extra['kucoin_bots']
       [name, scenario]
-    end.tap { |grid| raise 'action case names collide' unless grid.size == 254 }.merge(typing_scenarios)
+    end.tap { |grid| raise 'action case names collide (including six settings metrics cases)' unless grid.size == 254 + 6 }.merge(typing_scenarios)
   end
 
   # An amount below one typed key by key, as the form posts it (form--submit-after-delay): "0" is invalid, the decimal

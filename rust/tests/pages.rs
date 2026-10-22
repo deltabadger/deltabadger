@@ -396,6 +396,8 @@ async fn run(dir: &Path) -> Value {
             let data = browser.cookie.as_deref().and_then(|cookie| session::open(&app.keys.session, cookie, now)).unwrap_or_default();
             response["session"] = keys.iter().filter_map(Value::as_str).map(|key| (key.to_string(), session_value(&data, key))).collect::<serde_json::Map<_, _>>().into();
         }
+        // A settings save's metrics panel is computed off the request: the page hears it once it is published.
+        panels_published(&app).await;
         if let Some(listener) = listener.as_mut() { response["broadcasts"] = json!(listener.drain(&app).await.unwrap_or_else(|e| panic!("broadcasts: {e}"))); }
         if let Some((rows_before, other_before)) = before {
             let (rows_after, other_after) = action_rows(dir, &app.cipher).unwrap_or_else(|error| panic!("action rows after: {error}"));
@@ -1005,6 +1007,102 @@ fn refusal_headers(signed_in: bool) -> Value {
 }
 
 #[tokio::test(flavor = "current_thread")]
+async fn settings_metrics_panel_matches_recorded_rails_bytes() {
+    let (_recording, rust_root, dirs) = recorded_grid();
+    for dir in dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_settings_metrics_"))) {
+        for scope in ["", "de"] {
+            let source = dir.join(scope);
+            let name = dir.file_name().unwrap().to_str().unwrap();
+            let scenario = scenario(&source);
+            let recorded: Value = serde_json::from_str(&std::fs::read_to_string(source.join("rails.json")).unwrap()).unwrap();
+            assert_eq!(recorded["network"], json!([]));
+            let app = web::app(&rust_root.path().join(name).join(scope), scenario["secret_key_base"].as_str().unwrap(), TestClock::at(scenario["at"].as_str().unwrap()));
+            app.attach_engine(Default::default());
+            app.attach_jobs(Default::default()).unwrap();
+            let mut browser = Browser::default();
+            for (step, rails) in scenario["steps"].as_array().unwrap().iter().zip(recorded["responses"].as_array().unwrap()) {
+                let form: Option<Vec<(&str, &str)>> = step["form"].as_object().map(|form| form.iter().map(|(key, value)| (key.as_str(), value.as_str().unwrap())).collect());
+                let headers: Vec<(&str, &str)> = step["headers"].as_object().map(|headers| headers.iter().map(|(key, value)| (key.as_str(), value.as_str().unwrap())).collect()).unwrap_or_default();
+                let csrf = match step["csrf"].as_str() { Some("form") => Csrf::Form, Some("header") => Csrf::Header, _ => Csrf::None };
+                let answer = browser.send(&app, step["method"].as_str().unwrap(), step["path"].as_str().unwrap(), form.as_deref(), csrf, &headers).await;
+                assert_eq!(answer.status as u64, rails["status"].as_u64().unwrap(), "{name}/{scope}");
+                let Some(sent) = rails["broadcasts"].as_array() else { continue };
+                let changed = name.ends_with("_composition") || name.ends_with("_exchange");
+                assert_eq!(sent.len(), usize::from(changed), "Rails callback inventory: {name}/{scope}");
+                if changed {
+                    let html = app.db(|c| {
+                        let market = deltabadger::figures::scripted::Scripted::new(&json!({}), None);
+                        let now = deltabadger::figures::at::At::from_sql("2026-09-10T12:00:30Z").unwrap();
+                        deltabadger::web::figure::metrics_panel(c, 1, &market, now, "pl", "/pl")
+                            .map_err(|e| deltabadger::web::WebError::Task(format!("{e:?}")))
+                    }).await.unwrap();
+                    assert_eq!(deltabadger::web::turbo::stream("replace", "metrics", &html), sent[0].as_str().unwrap(), "metrics bytes: {name}/{scope}");
+                }
+            }
+        }
+    }
+}
+
+/// A scenario step sent as the grid sends it (`run`), without the grid's token fallbacks.
+async fn send_step(browser: &mut Browser, app: &App, step: &Value) -> Answer {
+    let form: Option<Vec<(&str, &str)>> = step["form"].as_object().map(|form| form.iter().map(|(key, value)| (key.as_str(), value.as_str().unwrap())).collect());
+    let headers: Vec<(&str, &str)> = step["headers"].as_object().map(|headers| headers.iter().map(|(key, value)| (key.as_str(), value.as_str().unwrap())).collect()).unwrap_or_default();
+    let csrf = match step["csrf"].as_str() { Some("form") => Csrf::Form, Some("header") => Csrf::Header, _ => Csrf::None };
+    browser.send(app, step["method"].as_str().unwrap(), step["path"].as_str().unwrap(), form.as_deref(), csrf, &headers).await
+}
+
+/// Waits until no settings metrics panel is still being computed off its save.
+async fn panels_published(app: &App) {
+    tokio::time::timeout(std::time::Duration::from_secs(30), async {
+        while app.figure_service.panels_pending() > 0 { tokio::time::sleep(std::time::Duration::from_millis(5)).await; }
+    }).await.expect("a settings metrics panel was never published");
+}
+
+/// The panel a composition save owes its page is computed off the request: the save answers while the figures' compute
+/// permit is held, and no panel is published until it is free. Writes committed meanwhile (an amount, which owes no
+/// panel of its own, and the owner hiding balances) are not lost: the page ends on the panel of the latest rows.
+#[tokio::test(flavor = "current_thread")]
+async fn settings_metrics_panel_is_computed_off_the_request_and_ends_on_the_latest_rows() {
+    let (_recording, rust_root, dirs) = recorded_grid();
+    let name = "actions_settings_metrics_composition";
+    let dir = dirs.iter().find(|dir| dir.file_name().is_some_and(|n| n == name)).expect(name);
+    let scenario = scenario(dir);
+    let app = web::app(&rust_root.path().join(name), scenario["secret_key_base"].as_str().unwrap(), TestClock::at(scenario["at"].as_str().unwrap()));
+    app.attach_engine(Default::default());
+    app.attach_jobs(Default::default()).unwrap();
+    let (save, before) = scenario["steps"].as_array().unwrap().split_last().unwrap();
+    let mut browser = Browser::default();
+    for step in before { send_step(&mut browser, &app, step).await; }
+    let streams: Vec<&str> = save["broadcasts"].as_array().unwrap().iter().map(|s| s.as_str().unwrap()).collect();
+    let mut observer = ActionObserver::open(&app, browser.cookie.as_deref(), &streams).await.unwrap();
+    let panels = |sent: Vec<String>| -> Vec<String> { sent.into_iter().filter(|p| p.contains("target=\"metrics\"")).collect() };
+
+    let permit = app.figure_service.compute().acquire_owned().await.unwrap();
+    let answer = tokio::time::timeout(std::time::Duration::from_secs(10), send_step(&mut browser, &app, save)).await
+        .expect("the save waited for its metrics panel's computation");
+    assert_eq!(answer.status, 200);
+    assert!(panels(observer.drain(&app).await.unwrap()).is_empty(), "the panel was computed on the request, under the writer's connection");
+    let mut amount = save.clone();
+    amount["form"] = json!({"bots_dca_multi_asset[quote_amount]": "37.25"});
+    assert_eq!(send_step(&mut browser, &app, &amount).await.status, 200);
+    app.db(|c| Ok(c.execute("UPDATE users SET hide_balances = 1 WHERE id = 1", [])?)).await.unwrap();
+    drop(permit);
+    panels_published(&app).await;
+    let sent = panels(observer.drain(&app).await.unwrap());
+
+    let render = |hidden: bool| app.db(move |c| {
+        c.execute("UPDATE users SET hide_balances = ?1 WHERE id = 1", [hidden])?;
+        let market = deltabadger::figures::scripted::Scripted::new(&json!({}), None);
+        let now = deltabadger::figures::at::At::from_sql("2026-09-10T12:00:30Z").unwrap();
+        deltabadger::web::figure::metrics_panel(c, 1, &market, now, "pl", "/pl").map_err(|e| deltabadger::web::WebError::Task(format!("{e:?}")))
+    });
+    let shown = render(false).await.unwrap();
+    let latest = render(true).await.unwrap();
+    assert_ne!(shown, latest, "hiding balances changes the panel");
+    assert_eq!(sent.last().map(String::as_str), Some(deltabadger::web::turbo::stream("replace", "metrics", &latest).as_str()), "the page ends on the latest rows' panel");
+}
+
+#[tokio::test(flavor = "current_thread")]
 async fn hyperliquid_limit_control_matches_recorded_rails_bytes() {
     let (_recording, rust_root, dirs) = recorded_grid();
     let name = "venue_bot_page_hyperliquid_limit_lock";
@@ -1044,7 +1142,7 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
     let (_rails_root, rust_root, dirs) = recorded_grid();
     assert!(!dirs.is_empty(), "the grid is empty: no scenario name starts with a prefix in PAGES");
     if std::env::var("PAGES").ok().as_deref() == Some("actions") {
-        assert_eq!(dirs.len(), 254 + 2, "all action scenarios must remain selected, with the two amounts typed key by key");
+        assert_eq!(dirs.len(), 254 + 2 + 6, "all action scenarios must remain selected, with two amounts typed key by key and six settings metrics cases");
     }
     let (mut failures, mut countdown_pages) = (vec![], 0);
     for dir in &dirs {
@@ -1140,8 +1238,8 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
         assert_eq!(dirs.iter().filter(hook).count(), 27 + 23 + 2 + 1, "the signal webhook (pages_signals.rb): twenty-seven compared whole, twenty-three the router's 404 (methods, overrides, paths), two calls the engine guard refuses until 8d; and a settings update under the override header");
         assert_eq!(dirs.iter().filter(|dir| !hook(dir) && !dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_") || n.to_string_lossy().starts_with("settings_"))).count(), 160 + 3 + 9 + 2 + 6 + 3 + 49 + 68 + 61 + 38 + 1 + 2 + 1 + 2 + 1 + 10 + 27 + 1 + 1, "completed read-only baseline (with the market-closed weekend page and the expired start on bots that are not stopped), with D5b's two missing_ connect scenarios and the one not_ported_ (a venue no tracker key step serves), the venue pages (eight served, one refused), the selling pages (three served, one cap refused, in place of two refusals), the venue basket pages (seven served, in place of the one refusal), the asset search on each venue, the wizard's chooser and order switch (twelve served, one unrouted GET), its asset and exchange steps (ten served), its broker, key and quote steps to a created bot (nine served), the signal tile and the IBKR key step (two not_ported_), the first empty bots page that opens it (two), the index wizard (twelve served, its Kraken, Alpaca Top Coins and Binance Layer 1 bots among them; its legacy settings step one not_ported_), the crypto index bot pages on Kraken and Binance (two), the IBKR key step reached from the nested venue frame (one not_ported_, as a stream), the KuCoin wizard (plan K O6: a basket to its bot, its key step from the nested frame, and a Top coins index bot), and the REST API's (sixty-three on the nine served reads' tokens and grants, ten on the four venue reads' lookups and venue answers, twelve on the routes it gates but does not serve, three on typed creates, nine unrouted paths, seven on parameters, one on conditional GETs and one on an install without an admin; sixty-one on the six bot writes: six per route on its tokens, grants, ids and malformed bodies, five on settings values, fourteen on lifecycle states one start the engine guard refuses, the broadcasts an open page hears (in English and in its owner's German), encoded path ids and two oversized parameters), and plan CB T6's market-cap baskets (an Alpaca page and a venue page served, in place of the one refusal), and plan 8c-1's signal bot pages (ten, pages_signals.rb signal_page_), and plan 8c-2's signal bot writes (twenty-seven: sixteen signal_action_ compared whole, three refused_signal_ and one refused_api_signal_ the engine guard refuses until 8d, six api_signal_ on BotApi's lifecycle, one not_ported_signal_ wash-sale question), and the web's own lifecycle writes from a /de/ page heard in the owner's Polish, and Hyperliquid's limit-order lock on stopped and working bots with either stored flag");
         assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("settings_"))).count(), 413 + 3 + 45 + 52 + 5 + 1 + 71 + 55, "complete S1 inventory, D5b's connect flow (its Kraken key form served now), the preference writes, the following client's card, the switch back to the default locale, the settings dialog (two more sections, in-place confirms, the page behind a language change) and the key routes on Kraken, Binance and KuCoin (fifty-four)");
-        assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_"))).count(), 197 + 53 + 4 + 2, "action inventory (with the five ⇄ rotations and nine sell-settings writes, twenty-two Kraken/Binance venue actions, fifty on their baskets, plan CB T4's three saves of a crypto basket with settled rebalance history, plan CB T5's four market-cap saves, and two amounts typed key by key)");
-        assert_eq!(dirs.len(), 27 + 23 + 2 + 1 + 160 + 3 + 9 + 2 + 6 + 3 + 49 + 68 + 61 + 38 + 1 + 2 + 1 + 2 + 1 + 10 + 27 + 1 + 197 + 53 + 4 + 2 + 413 + 3 + 45 + 52 + 5 + 1 + 71 + 55 + 1, "a scenario was dropped or added without this count (including the Hyperliquid limit-order lock)");
+        assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_"))).count(), 197 + 53 + 4 + 2 + 6, "action inventory with six settings metrics cases (with the five ⇄ rotations and nine sell-settings writes, twenty-two Kraken/Binance venue actions, fifty on their baskets, plan CB T4's three saves of a crypto basket with settled rebalance history, plan CB T5's four market-cap saves, and two amounts typed key by key)");
+        assert_eq!(dirs.len(), 27 + 23 + 2 + 1 + 160 + 3 + 9 + 2 + 6 + 3 + 49 + 68 + 61 + 38 + 1 + 2 + 1 + 2 + 1 + 10 + 27 + 1 + 197 + 53 + 4 + 2 + 413 + 3 + 45 + 52 + 5 + 1 + 71 + 55 + 1 + 6, "a scenario was dropped or added without this count (including the Hyperliquid limit-order lock and six settings metrics cases)");
         assert_eq!(countdown_pages, 4, "the pages where Rails knows a time this build does not: the listed divergence grew or shrank");
     }
 }
