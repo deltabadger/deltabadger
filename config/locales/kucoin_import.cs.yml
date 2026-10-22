@@ -1,0 +1,5 @@
+cs:
+    tracker:
+        import:
+            format_kucoin: "KuCoin CSV"
+            generic: "Zaznamenáno s obecným označením: %{count}."

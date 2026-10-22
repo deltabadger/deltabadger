@@ -1,0 +1,5 @@
+da:
+    tracker:
+        import:
+            format_kucoin: "KuCoin CSV"
+            generic: "Registreret med en generel betegnelse: %{count}."

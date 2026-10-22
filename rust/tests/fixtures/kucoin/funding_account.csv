@@ -1,0 +1,3 @@
+UID,Account Type,Currency,Side,Amount,Fee,Time(UTC+03:00),Remark,Type
+123456789,mainAccount,BTC,Deposit,0.0014,0,2022-09-28 07:18:44,Deposit,Deposit
+123456789,mainAccount,BTC,Withdrawal,0.0014,0,2022-09-28 08:20:30,Trading Account,Transfer

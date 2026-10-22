@@ -1,0 +1,5 @@
+fr:
+    tracker:
+        import:
+            format_kucoin: "KuCoin CSV"
+            generic: "Enregistrées avec un libellé générique : %{count}."
