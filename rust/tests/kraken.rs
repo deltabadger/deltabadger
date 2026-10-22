@@ -292,8 +292,12 @@ async fn the_factory_routes_each_bot_to_its_venue_and_an_unported_venue_sends_no
         Err(VenueError::Transient(m)) => assert!(m.contains("proxy"), "{m}"),
         other => panic!("{other:?}"),
     }
-    match f.for_bot("Exchanges::Coinbase", creds).price(&xbt_eur(), PriceSide::Ask).await {
-        Err(VenueError::Transient(m)) => assert!(m.contains("Exchanges::Coinbase is not connected"), "{m}"),
+    let coinbase = f.for_bot("Exchanges::Coinbase", creds.clone());
+    assert!(matches!(coinbase, LiveVenue::Coinbase(_)));
+    assert!(std::ptr::eq(coinbase.rules(), &deltabadger::engine::venue_rules::COINBASE));
+    assert_eq!(coinbase.placement_identity().unwrap()["host"], deltabadger::venue::coinbase::URL);
+    match f.for_bot("Exchanges::Bybit", creds).price(&xbt_eur(), PriceSide::Ask).await {
+        Err(VenueError::Transient(m)) => assert!(m.contains("Exchanges::Bybit is not connected"), "{m}"),
         other => panic!("{other:?}"),
     }
 }

@@ -437,15 +437,15 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     let named = |prefix: &str| dirs.iter().filter(|d| d.file_name().unwrap().to_string_lossy().starts_with(prefix)).count();
     assert_eq!([named("ledger-"), named("balances-"), named("binance-balances-"), named("binance-ledger-"), named("import-"), named("kucoin-ledger-"), named("kucoin-balances-"),
                 named("bitvavo-ledger-"), named("bitvavo-balances-"), named("gemini-ledger-"), named("gemini-balances-"), named("bitget-ledger-"), named("bitget-balances-"),
-                named("mexc-ledger-"), named("mexc-balances-"), named("hyperliquid-ledger-"), named("hyperliquid-balances-"), named("bybit-ledger-"), named("bybit-balances-"), named("bitrue-ledger-"), named("bitrue-balances-"), dirs.len()],
-               [58, 44, 21, 30, 21, 12, 16, 11, 10, 11, 11, 13, 12, 14, 12, 11, 10, 12, 8, 18 + 3 + 10, 5, 270 + 26 + 21 + 20 + 18 + 3 + 10 + 5], "the sync grid: 270 existing + 26 MEXC + 21 Hyperliquid + 20 Bybit + 36 Bitrue scenarios (including ten listing shapes)");
+                named("mexc-ledger-"), named("mexc-balances-"), named("hyperliquid-ledger-"), named("hyperliquid-balances-"), named("bybit-ledger-"), named("bybit-balances-"), named("bitrue-ledger-"), named("bitrue-balances-"), named("coinbase-ledger-"), named("coinbase-balances-"), dirs.len()],
+               [58, 44, 21, 30, 21, 12, 16, 11, 10, 11, 11, 13, 12, 14, 12, 11, 10, 12, 8, 18 + 3 + 10, 5, 12, 4, 270 + 26 + 21 + 20 + 18 + 3 + 10 + 5 + 12 + 4], "the sync grid: 270 existing + 26 MEXC + 21 Hyperliquid + 20 Bybit + 36 Bitrue scenarios (including ten listing shapes) + 12 Coinbase ledger + 4 Coinbase balances");
     for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
     for scenario in ["ledger-split_future", "ledger-split_nested_duplicate_keys", "binance-ledger-two_nights"] { copy_dir(&rails_root.path().join(scenario), &handback.path().join(scenario)); }
     rails(&["record", rails_root.path().to_str().unwrap()]);
 
     let cipher = cipher();
     let ported = ["ledger-", "balances-", "binance-balances-", "binance-ledger-", "import-", "kucoin-ledger-", "kucoin-balances-", "bitvavo-ledger-", "bitvavo-balances-",
-                  "gemini-ledger-", "gemini-balances-", "bitget-ledger-", "bitget-balances-", "mexc-ledger-", "mexc-balances-", "hyperliquid-ledger-", "hyperliquid-balances-", "bybit-ledger-", "bybit-balances-", "bitrue-ledger-", "bitrue-balances-"];
+                  "gemini-ledger-", "gemini-balances-", "bitget-ledger-", "bitget-balances-", "mexc-ledger-", "mexc-balances-", "hyperliquid-ledger-", "hyperliquid-balances-", "bybit-ledger-", "bybit-balances-", "bitrue-ledger-", "bitrue-balances-", "coinbase-ledger-", "coinbase-balances-"];
     let mut outputs: Vec<(String, Value, Value)> = vec![];
     for d in &dirs {
         let name = d.file_name().unwrap().to_string_lossy().to_string();
@@ -455,7 +455,7 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     }
     let (mut failures, mut divergences) = (vec![], vec![]);
     for (name, rails_out, rust_out) in &outputs {
-        match bitrue_page(name, rails_out, rust_out).or_else(|| kucoin_transfer_pin(name, &rust_root.path().join(name), rails_out, rust_out)).or_else(|| unknown_price_origin(name,rails_out,rust_out)).or_else(||binance_ledger(name, rails_out, rust_out)).or_else(||listed(name, rails_out, rust_out)) {
+        match bitrue_page(name, rails_out, rust_out).or_else(|| coinbase_size(name,rails_out,rust_out)).or_else(|| kucoin_transfer_pin(name, &rust_root.path().join(name), rails_out, rust_out)).or_else(|| unknown_price_origin(name,rails_out,rust_out)).or_else(||binance_ledger(name, rails_out, rust_out)).or_else(||listed(name, rails_out, rust_out)) {
             Some(Err(e)) => failures.push(format!("{name} (listed divergence): {e}\n  rails: {rails_out}\n  rust:  {rust_out}")),
             Some(Ok(())) => { divergences.push(name.as_str()); assert_ne!(rails_out, rust_out, "{name}: a listed divergence that no longer differs"); }
             None if rails_out != rust_out => failures.push(format!("{name}\n  rails: {rails_out}\n  rust:  {rust_out}")),
@@ -467,6 +467,7 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
                       "binance-ledger-symbol_fails", "binance-ledger-away_100_days", "binance-ledger-garbage_amount", "binance-ledger-us_every_source", "binance-ledger-us_two_nights",
                       "binance-ledger-full", "binance-ledger-idle", "binance-ledger-deposit_fails", "binance-ledger-file_transfers", "binance-ledger-file_transfer_claimed_once", "binance-ledger-file_second_after", "binance-ledger-deposit_600", "binance-ledger-idless_repeats", "binance-ledger-preexisting_repeats", "binance-ledger-known_id_repeat", "binance-ledger-file_dust", "binance-ledger-file_dust_rounding", "binance-ledger-twin_repeats", "binance-ledger-stored_trade_newer", "binance-ledger-stored_trades_over_500", "binance-ledger-stored_trade_before_floor", "import-file_then_api_transfers", "import-api_then_file_transfers", "import-file_then_api_dust", "import-api_then_file_dust", "import-file_then_api_dust_rounding", "import-api_then_file_dust_rounding", "binance-balances-blank_free", "binance-balances-garbage_free", "binance-balances-whitespace_free", "binance-balances-rate_spelling", "binance-balances-rate_zero_padded", "binance-balances-price_underscore_exponent", "binance-balances-no_rate", "balances-account_null", "balances-no_trade_keeps_last_price", "balances-no_trade_market_price", "balances-no_trade_unpriced", "balances-positions_not_array", "ledger-pages_stalled", "ledger-split_hostile_quantity", "kucoin-ledger-pages"].to_vec();
     expected.push("bybit-ledger-stuck");
+    expected.extend_from_slice(&["coinbase-ledger-size_in_quote","coinbase-ledger-quote_swap"]);
     expected.extend_from_slice(UNKNOWN_PRICE_ORIGIN);
     expected.push("bitrue-ledger-repeated_page");
     expected.extend_from_slice(&["balances-snapshots_network", "ledger-long_error", "ledger-network_pre_send"]);
@@ -948,5 +949,31 @@ fn bitrue_page(name: &str, rails: &Value, rust: &Value) -> Option<Result<(), Str
             without_columns(out, "api_keys", &["last_sync_error"]);
             out["steps"][0]["raised"] = json!(false);
         })
+    })())
+}
+
+/// D-CB-SIZE-IN-QUOTE: validate the oracle's wrong amounts and the corrected amounts, compare every other field whole.
+fn coinbase_size(name:&str,rails:&Value,rust:&Value)->Option<Result<(),String>>{
+    if !["coinbase-ledger-size_in_quote","coinbase-ledger-quote_swap"].contains(&name){return None;}
+    Some((||{
+        let mut expected=rails.clone();let mut corrected=0;
+        for row in expected["changes"]["account_transactions"].as_array_mut().ok_or("no rows")?{
+            let raw=&row["after"]["raw_data"];
+            if raw["size_in_quote"]!=true{continue;}
+            let size=deltabadger::ruby::BigDec::parse(raw["size"].as_str().ok_or("no size")?).map_err(|e|format!("{e:?}"))?;
+            let price=deltabadger::ruby::BigDec::parse(raw["price"].as_str().ok_or("no price")?).map_err(|e|format!("{e:?}"))?;
+            let base_leg=raw["product_id"].as_str().unwrap().split('-').next()==row["after"]["base_currency"].as_str();
+            let number=|f:f64|if f.fract()==0.0{json!(f as i64)}else{json!({"f":format!("{:016x}",f.to_bits())})};
+            let old=if base_leg{size.clone()}else{&size*&price};
+            if row["after"]["base_amount"]!=number(old.to_f()){return Err("Rails no longer books size as base".into());}
+            row["after"]["base_amount"]=number(if base_leg{size.div(&price).ok_or("zero price")?.to_f()}else{size.to_f()});
+            if !row["after"]["quote_currency"].is_null(){
+                if row["after"]["quote_amount"]!=number((&size*&price).to_f()){return Err("Rails no longer multiplies quote size by price".into());}
+                row["after"]["quote_amount"]=number(size.to_f());
+            }
+            corrected+=1;
+        }
+        if corrected!=2{return Err(format!("expected two corrected rows, got {corrected}"));}
+        if expected!=*rust{return Err(format!("difference outside corrected Coinbase amounts: {expected}"));}Ok(())
     })())
 }

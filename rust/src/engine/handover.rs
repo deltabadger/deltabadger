@@ -37,13 +37,14 @@ pub fn take_over(lock: &EngineLock, o: &Opened, cipher: &Cipher, version: &str, 
     let mut problems = report.problems.clone();
     problems.extend(report.unreadable.iter().map(|(id, e)| format!("bot {id}: unreadable ({e})")));
     if !problems.is_empty() { return Err(EngineError::Ineligible(problems)); }
-    // Claim first, with the snapshot backfill and nothing else: once committed, Rails refuses, and a failure below is
+    // Claim first, with the startup data steps: once committed, Rails refuses, and a failure below is
     // repaired by the next start, which repeats the deletes and the normalisation idempotently.
     let tx = model::immediate(&o.primary)?;
     let claim = lease::claim(lock, &tx, cipher, version, now)?;
     // In the claim's own transaction, before the engine ticks or the web serves a request: every unresolved intent
     // carries what it was sent under (placement::backfill_snapshots).
     placement::backfill_snapshots(&tx)?;
+    crate::sync::coinbase_repair::run(&tx, now)?;
     // From here on a reference source is as fresh as its job's completed runs; a job this engine has not run yet starts
     // from Rails' baseline, read once, here, in the commit that closes Rails' ownership window. A restart reseeds nothing.
     super::staleness::seed(&tx, now)?;

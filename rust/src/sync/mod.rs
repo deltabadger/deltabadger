@@ -396,3 +396,6 @@ pub fn record_sync_error(c: &crate::engine::model::FencedTransaction<'_>, key_id
 
 /// Rails' quoted time for a bound parameter or a stored column.
 pub fn sql_time(t: DateTime<Utc>) -> String { format_time(t) }
+
+pub mod coinbase_ledger;
+pub mod coinbase_repair;

@@ -1116,3 +1116,36 @@ fn bybit_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> Re
     }
     Ok(Ok(asset_ids.iter().filter_map(|id| found.remove(id).map(|(free, locked)| (*id, free, locked))).filter(|(_, free, locked)| (free + locked).is_positive()).collect()))
 }
+
+/// Coinbase reads key_permissions for portfolio_uuid, then that portfolio's spot positions.
+pub async fn sync_coinbase<T: Transport>(db: &Db, transport: T, prices: &dyn PriceSource, key_id: i64, credentials: &Credentials, clock: &dyn Clock)
+    -> Result<Result<Summary, Failure>, SyncError> {
+    let version = super::capture_bound_version(db, key_id, credentials).await?;
+    sync_coinbase_captured(db, transport, prices, key_id, credentials, clock, &version).await
+}
+pub(crate) async fn sync_coinbase_captured<T: Transport>(db: &Db, transport: T, prices: &dyn PriceSource, key_id: i64, credentials: &Credentials,
+    clock: &dyn Clock, version: &crate::engine::model::CredentialVersion) -> Result<Result<Summary, Failure>, SyncError> {
+    let read = move |_: String| async move { Ok(crate::venue::coinbase::CoinbaseVenue::new(transport, crate::venue::coinbase::URL).balances_text().await) };
+    let venue = VenueBalances { types: &[crate::venue::coinbase::COINBASE], failure_text: str::to_string,
+        condemns: |_, _| false, held: coinbase_held };
+    sync_venue(db, version, prices, key_id, credentials, clock, venue, read).await
+}
+fn coinbase_held(text: &str, names: &HashMap<String,i64>, asset_ids: &[i64]) -> Result<Result<Vec<Held>, (String,bool)>,Unread> {
+    let node = wire::read(text, &mut Budget(MAX_BINANCE_ACCOUNT_NODES), None).map_err(|r| Unread::refused(r, "an account"))?;
+    let parse = || -> Result<Vec<Held>, String> {
+        let raw = Raw::from_node(&node)?;
+        let breakdown = raw.object("breakdown")?.ok_or("KeyError: Key path breakdown not found")?;
+        let rows = breakdown.member("spot_positions").ok_or("KeyError: Key path breakdown.spot_positions not found")?;
+        let Node::Array(rows) = rows else { return Err("unreadable spot_positions".into()) };
+        let mut found = HashMap::new();
+        for row in rows {
+            let raw = Raw::from_node(row)?;
+            let Some(id) = raw.value["asset"].as_str().and_then(|s| names.get(s)).filter(|id|asset_ids.contains(id)) else {continue};
+            let free = raw.number("available_to_trade_crypto")?.ok_or("KeyError: Key path available_to_trade_crypto not found")?;
+            let total = raw.number("total_balance_crypto")?.ok_or("KeyError: Key path total_balance_crypto not found")?;
+            found.insert(*id,(free.clone(), &total - &free));
+        }
+        Ok(asset_ids.iter().filter_map(|id|found.remove(id).map(|(f,l)|(*id,f,l))).filter(|(_,f,l)|(f+l).is_positive()).collect())
+    };
+    Ok(parse().map_err(|e|(e,false)))
+}
