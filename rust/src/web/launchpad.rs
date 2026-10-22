@@ -58,7 +58,7 @@ fn text(value: &Value) -> Option<String> {
 }
 
 /// How Ruby names the receiver of a NoMethodError (`undefined method 'x' for …`).
-fn receiver(value: &Value) -> &'static str {
+pub(crate) fn receiver(value: &Value) -> &'static str {
     match value {
         Value::Null => "nil",
         Value::Bool(true) => "true",

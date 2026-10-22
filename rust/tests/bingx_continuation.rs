@@ -1,7 +1,6 @@
 //! Bingx N-run equivalence, overlapping halves, offset paging, durable restart and cancellation replay.
 mod common;
 use deltabadger::crypto::Credentials;
-use deltabadger::engine::FixedClock;
 use deltabadger::jobs::Db;
 use deltabadger::sync::bingx_ledger;
 use deltabadger::sync::continuation::{Run, Stopwatch};
@@ -103,11 +102,22 @@ struct Venue {
     log: Rc<RefCell<Vec<String>>>,
     cut_at: Rc<Cell<Option<usize>>>,
     listing: Option<Value>,
+    /// The venue's and the sync's clock (epoch ms), moved on by `tick` at every request.
+    now: Rc<Cell<i64>>,
+    tick: i64,
+}
+struct Moving(Rc<Cell<i64>>);
+impl deltabadger::engine::Clock for Moving {
+    fn now(&self) -> chrono::DateTime<chrono::Utc> {
+        chrono::DateTime::from_timestamp_millis(self.0.get()).unwrap()
+    }
 }
 impl Transport for Venue {
     async fn send(&self, r: &HttpRequest) -> Result<HttpResponse, TransportError> {
         let n = self.log.borrow().len() + 1;
         self.watch.at.set(self.watch.at.get() + self.latency);
+        let sent = self.now.get(); // the request's own latency passes after BingX reads its range
+        self.now.set(sent + self.tick);
         if self.cut_at.get() == Some(n) {
             self.watch.cut.notify_one();
         }
@@ -147,6 +157,10 @@ impl Transport for Venue {
             "/openApi/spot/v1/account/balance" => json!({ "code":0,"data":{"balances": [{ "asset": "ETH", "free": "1", "locked": "0" }] }}),
             "/openApi/spot/v1/common/symbols" => self.listing.clone().unwrap_or_else(|| json!({"code":0,"data": { "symbols": [{ "symbol": "BTC-USDT", "baseAsset": "btc", "quoteAsset": "usdt" }, { "symbol": "ETH-USDT", "baseAsset": "ETH", "quoteAsset": "usdt" },
                                                           { "symbol": "XRP-USDT", "baseAsset": "XRP", "quoteAsset": "usdt" }] }})),
+            // BingX answers a startTime past its seven days with the last 24 hours instead: a sync must never ask for one.
+            "/openApi/spot/v1/trade/myTrades" if q("startTime").unwrap().parse::<i64>().unwrap() < sent - 7 * DAY => {
+                panic!("myTrades asked from {} at {sent}, beyond its seven days", q("startTime").unwrap())
+            }
             "/openApi/spot/v1/trade/myTrades" => json!({"code":0,"data":{"fills":within(&self.account.trades, "time")}}),
             other => panic!("unscripted {other}"),
         };
@@ -169,7 +183,7 @@ async fn run(db: &Db, key: i64, v: &Venue, deadline: Duration) -> Option<Ran> {
         chain_runs: 1000,
         stopwatch: &*v.watch,
     };
-    let (credentials, clock) = (creds(), FixedClock(NOW.parse().unwrap()));
+    let (credentials, clock) = (creds(), Moving(v.now.clone()));
     let out = tokio::select! {
         biased;
         _ = v.watch.cut.notified() => None,
@@ -226,6 +240,8 @@ fn venue(account: &Rc<Account>, latency: Duration) -> Venue {
         log: Rc::default(),
         cut_at: Rc::default(),
         listing: None,
+        now: Rc::new(Cell::new(now_ms())),
+        tick: 0,
     }
 }
 
@@ -334,4 +350,30 @@ async fn transfer_discovery_survives_a_restart_before_the_trade_phase() {
         .any(|r| r.starts_with("GET /openApi/spot/v1/trade/myTrades")
             && r.contains("symbol=BTC-USDT")));
     assert_eq!(stored(&db, key).await.0.len(), 1201 + 2 + 1253);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn the_trade_reach_is_taken_when_the_trades_are_read() {
+    let account = Rc::new(account());
+    // A whole-history import whose transfer walk takes days of clock time: the trades are read from seven days before
+    // the moment they are read, not before the import began.
+    let (_d1, db, key) = install();
+    let mut slow = venue(&account, Duration::from_millis(1));
+    slow.tick = 2 * 3_600_000;
+    import(&db, key, &slow, Duration::from_secs(3600)).await;
+    assert!(slow.now.get() - now_ms() > 5 * DAY, "the transfer walk took days");
+    assert!(slow.log.borrow().iter().any(|r| r.starts_with("GET /openApi/spot/v1/trade/myTrades")));
+
+    // A continuation cut after the first trade page split its range, resumed two days later: the halves it kept are
+    // clamped to the venue's seven days before they are sent.
+    let (_d2, db, key) = install();
+    let resumed = venue(&account, Duration::from_secs(60));
+    for _ in 0..1000 {
+        run(&db, key, &resumed, Duration::from_secs(150)).await.unwrap().unwrap().unwrap();
+        if resumed.log.borrow().iter().any(|r| r.starts_with("GET /openApi/spot/v1/trade/myTrades")) { break; }
+    }
+    let before = resumed.log.borrow().len();
+    resumed.now.set(resumed.now.get() + 2 * DAY);
+    import(&db, key, &resumed, Duration::from_secs(150)).await;
+    assert!(resumed.log.borrow()[before..].iter().any(|r| r.starts_with("GET /openApi/spot/v1/trade/myTrades")), "the kept halves are read");
 }

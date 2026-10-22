@@ -41,7 +41,7 @@ fn raw(s: &str) -> Result<Raw, Fail> { Raw::parse(s).and_then(Result::ok).ok_or_
 
 /// Ruby's `value['key']` on the exchange listing. In particular, a top-level nil or Array raises;
 /// it is not an object with an absent member. Keep the exception text for the sync's existing failure path.
-fn listing_field(value: &Value, key: &str) -> Result<Value, Fail> {
+pub(super) fn listing_field(value: &Value, key: &str) -> Result<Value, Fail> {
     let error = match value {
         Value::Object(m) => return Ok(m.get(key).cloned().unwrap_or(Value::Null)),
         Value::String(s) => return Ok(if s.contains(key) { json!(key) } else { Value::Null }),

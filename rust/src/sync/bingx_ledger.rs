@@ -2,6 +2,7 @@
 //! trade reach is preserved. D-BINGX-PAGE names the failed endpoint instead of Rails' undefined `path`.
 use super::activities::{Entry, Raw, BUY, DEPOSIT, SELL, WITHDRAWAL};
 use super::binance_ledger::{amount, entry, page_of, ruby_time_at_ms, text, Fail};
+use super::bitrue_ledger::listing_field as index; // Ruby's `value['key']`
 use super::ledger::Outcome;
 use super::wire::Node;
 use super::{capture_bound_version, continuation, load_key_of, phase, Failure, Key, SyncError};
@@ -53,6 +54,40 @@ fn rows(n: Option<&Node>) -> Result<Vec<String>, Fail> {
         None => Ok(vec![]),
         Some(Node::Scalar(s)) if s == "null" => Ok(vec![]),
         _ => Err(("BingX ledger read failed: unreadable rows".into(), false)),
+    }
+}
+/// Ruby's `hash.dig('data', key)` on an answer whose `['code']` already read: a nested non-Hash raises as Ruby does.
+fn dig(v: &Value, key: &str) -> Result<Value, Fail> {
+    let data = match v {
+        Value::Object(m) => m.get("data").cloned().unwrap_or(Value::Null),
+        other => return Err((format!("NoMethodError: undefined method 'dig' for {}", crate::web::launchpad::receiver(other)), true)),
+    };
+    let class = match &data {
+        Value::Null => return Ok(Value::Null),
+        Value::Object(m) => return Ok(m.get(key).cloned().unwrap_or(Value::Null)),
+        Value::Array(_) => return Err(("TypeError: no implicit conversion of String into Integer".into(), true)),
+        Value::String(_) => "String",
+        Value::Number(n) if n.is_f64() => "Float",
+        Value::Number(_) => "Integer",
+        Value::Bool(true) => "TrueClass",
+        Value::Bool(false) => "FalseClass",
+    };
+    Err((format!("TypeError: {class} does not have #dig method"), true))
+}
+/// Ruby's `Array(v)`.
+fn array(v: Value) -> Vec<Value> {
+    match v {
+        Value::Null => vec![],
+        Value::Array(a) => a,
+        Value::Object(m) => m.into_iter().map(|(k, v)| json!([k, v])).collect(),
+        scalar => vec![scalar],
+    }
+}
+/// Ruby's `v.to_d.positive?`.
+fn positive(v: &Value) -> Result<bool, Fail> {
+    match v {
+        Value::Bool(_) | Value::Array(_) | Value::Object(_) => Err((format!("NoMethodError: undefined method 'to_d' for {}", crate::web::launchpad::receiver(v)), true)),
+        v => Ok(crate::ruby::json_to_d(v).ok().flatten().is_some_and(|n| n.is_positive())),
     }
 }
 fn value(n: &Node) -> Result<Value, Fail> {
@@ -338,46 +373,43 @@ impl<'a, T: Transport> Walk<'a, T> {
         Ok(entries)
     }
     async fn account(&mut self) -> Result<Vec<Entry>, Fail> {
-        let n = self.get(ACCOUNT_PATH, vec![]).await?;
-        let v = value(&n)?;
-        if to_i(&v["code"]) != 0 {
+        let v = value(&self.get(ACCOUNT_PATH, vec![]).await?)?;
+        if to_i(&index(&v, "code")?) != 0 {
             return Err((
                 format!("BingX ledger read failed: {}", field(&v, "msg")),
                 false,
             ));
         }
-        for s in rows(member(&n, "data").and_then(|n| member(n, "balances")))? {
-            let r = raw(&s)?;
-            if ["free", "locked"].iter().any(|k| {
-                crate::ruby::json_to_d(&r.value[*k])
-                    .ok()
-                    .flatten()
-                    .is_some_and(|n| n.is_positive())
-            }) {
-                self.c.discovered.insert(field(&r.value, "asset"));
+        // As Rails reads it: an answer of another shape raises before any pair is skipped.
+        for bal in array(dig(&v, "balances")?) {
+            if positive(&index(&bal, "free")?)? || positive(&index(&bal, "locked")?)? {
+                if let Value::String(asset) = index(&bal, "asset")? {
+                    self.c.discovered.insert(asset);
+                }
             }
         }
         self.c.source = Source::Listing;
         Ok(vec![])
     }
     async fn listing(&mut self) -> Result<Vec<Entry>, Fail> {
-        let n = self.get(SYMBOLS_PATH, vec![]).await?;
-        let v = value(&n)?;
-        if to_i(&v["code"]) != 0 {
+        let v = value(&self.get(SYMBOLS_PATH, vec![]).await?)?;
+        if to_i(&index(&v, "code")?) != 0 {
             return Err((
                 format!("BingX ledger read failed: {}", field(&v, "msg")),
                 false,
             ));
         }
+        let symbols = array(dig(&v, "symbols")?).iter().map(|s| index(s, "symbol")).collect::<Result<Vec<_>, _>>()?;
         let (user, exchange) = (self.key.user_id, self.key.exchange_id);
         let before:HashSet<String>=phase(self.db,move |db| {
             let mut s=db.prepare("SELECT base_currency, quote_currency FROM account_transactions WHERE user_id=?1 AND exchange_id=?2 AND entry_type IN (0,1) UNION SELECT t.base,t.quote FROM transactions t JOIN bots b ON b.id=t.bot_id WHERE b.user_id=?1 AND t.exchange_id=?2")?;
             let rows=s.query_map([user,exchange],|r|Ok(format!("{}-{}",r.get::<_,Option<String>>(0)?.unwrap_or_default(),r.get::<_,Option<String>>(1)?.unwrap_or_default())))?;
             Ok(rows.collect::<Result<HashSet<_>,_>>()?)
         }).await.map_err(|e|(e.0,true))?;
-        for s in rows(member(&n, "data").and_then(|n| member(n, "symbols")))? {
-            let r = raw(&s)?;
-            let symbol = field(&r.value, "symbol");
+        for symbol in symbols {
+            let Value::String(symbol) = symbol else {
+                return Err((format!("NoMethodError: undefined method 'split' for {}", crate::web::launchpad::receiver(&symbol)), true));
+            };
             if self
                 .c
                 .discovered
@@ -396,29 +428,36 @@ impl<'a, T: Transport> Walk<'a, T> {
     }
     async fn trades(&mut self) -> Result<Vec<Entry>, Fail> {
         let symbol = self.c.pairs[self.c.pair].clone();
+        // myTrades serves seven days back from the moment it is asked: the reach is taken now, not when the
+        // import began, and a range kept by an earlier run is clamped to it before it is sent.
+        let reach = self.start.max(ruby_ms(self.clock.now()) - REACH);
         if self.c.ranges.is_empty() {
-            self.c
-                .ranges
-                .push((self.start.max(self.end - REACH), self.end));
+            self.c.ranges.push((reach, self.end));
         }
         let (from, to) = self.c.ranges.pop().expect("range");
-        let n = self
-            .get(
-                TRADES_PATH,
-                vec![
-                    ("symbol", symbol.clone()),
-                    ("startTime", from.to_string()),
-                    ("endTime", to.to_string()),
-                    ("limit", TRADE_PAGE.to_string()),
-                ],
-            )
-            .await?;
-        let v = value(&n)?;
-        let page = if [100204, 100490].contains(&to_i(&v["code"])) {
+        let from = from.max(reach);
+        // A range wholly past the seven days has nothing left to read.
+        let page = if from >= to {
             vec![]
         } else {
-            envelope(&v)?;
-            rows(member(&n, "data").and_then(|n| member(n, "fills")))?
+            let n = self
+                .get(
+                    TRADES_PATH,
+                    vec![
+                        ("symbol", symbol.clone()),
+                        ("startTime", from.to_string()),
+                        ("endTime", to.to_string()),
+                        ("limit", TRADE_PAGE.to_string()),
+                    ],
+                )
+                .await?;
+            let v = value(&n)?;
+            if [100204, 100490].contains(&to_i(&v["code"])) {
+                vec![]
+            } else {
+                envelope(&v)?;
+                rows(member(&n, "data").and_then(|n| member(n, "fills")))?
+            }
         };
         if page.len() >= TRADE_PAGE {
             if to - from < 2 {

@@ -438,7 +438,7 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     assert_eq!([named("ledger-"), named("balances-"), named("binance-balances-"), named("binance-ledger-"), named("import-"), named("kucoin-ledger-"), named("kucoin-balances-"),
                 named("bitvavo-ledger-"), named("bitvavo-balances-"), named("gemini-ledger-"), named("gemini-balances-"), named("bitget-ledger-"), named("bitget-balances-"),
                 named("mexc-ledger-"), named("mexc-balances-"), named("hyperliquid-ledger-"), named("hyperliquid-balances-"), named("bybit-ledger-"), named("bybit-balances-"), named("bitrue-ledger-"), named("bitrue-balances-"), named("bingx-ledger-"), named("bingx-balances-"), dirs.len()],
-               [58, 44, 21, 30, 21, 12, 16, 11, 10, 11, 11, 13, 12, 14, 12, 11, 10, 12, 8, 18 + 3 + 10, 5, 18 + 2, 5, 270 + 26 + 21 + 20 + 18 + 3 + 10 + 5 + 18 + 2 + 5], "the sync grid: 270 existing + 26 MEXC + 21 Hyperliquid + 20 Bybit + 36 Bitrue scenarios (including ten listing shapes) + 25 BingX scenarios");
+               [58, 44, 21, 30, 21, 12, 16, 11, 10, 11, 11, 13, 12, 14, 12, 11, 10, 12, 8, 18 + 3 + 10, 5, 18 + 2 + 26, 5, 270 + 26 + 21 + 20 + 18 + 3 + 10 + 5 + 18 + 2 + 26 + 5], "the sync grid: 270 existing + 26 MEXC + 21 Hyperliquid + 20 Bybit + 36 Bitrue scenarios (including ten listing shapes) + 51 BingX scenarios (including 26 account and listing shapes)");
     for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
     for scenario in ["ledger-split_future", "ledger-split_nested_duplicate_keys", "binance-ledger-two_nights"] { copy_dir(&rails_root.path().join(scenario), &handback.path().join(scenario)); }
     rails(&["record", rails_root.path().to_str().unwrap()]);
@@ -491,6 +491,22 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
         assert_eq!(out["steps"][0]["raised"], false, "{shape}: Rails accepts empty discovery");
         assert_eq!(rows(&out, "account_transactions").len(), 1, "{shape}: the deposit is still imported");
         assert!(!out["steps"][0]["requests"].as_array().unwrap().iter().any(|r| r[0] == "GET /api/v2/myTrades"), "{shape}: no trades are requested");
+    }
+    // BingX: the account and listing shapes Rails raises on leave no history and keep the watermark; the empty ones still import.
+    for (source, shapes) in [("account", &["null", "array", "data_array", "data_string", "object_rows", "number_rows", "false_rows"][..]),
+                             ("info", &["null", "array", "data_array", "data_string", "object_rows", "number_rows", "false_rows", "string_rows", "empty_row"][..])] {
+        for shape in shapes {
+            let out = rails_of(&format!("bingx-ledger-{source}_{shape}"));
+            assert_eq!(out["steps"][0]["raised"], true, "{source} {shape}: Rails raises");
+            assert!(rows(&out, "account_transactions").is_empty(), "{source} {shape}: no history is stored");
+            assert!(!out["steps"][0]["requests"].as_array().unwrap().iter().any(|r| r[0] == "GET /openApi/spot/v1/trade/myTrades"), "{source} {shape}: no trades are requested");
+            for key in rows(&out, "api_keys") { assert_eq!(key["before"]["last_synced_at"], key["after"]["last_synced_at"], "{source} {shape}: the watermark stays put"); }
+        }
+    }
+    for shape in ["account_missing_data", "account_null_rows", "account_empty_rows", "account_string_rows", "account_empty_row", "info_missing_data", "info_null_rows", "info_empty_rows"] {
+        let out = rails_of(&format!("bingx-ledger-{shape}"));
+        assert_eq!(out["steps"][0]["raised"], false, "{shape}: Rails accepts empty discovery");
+        assert_eq!(rows(&out, "account_transactions").len(), 1, "{shape}: the deposit is still imported");
     }
     // A file transfer an API row pairs with takes its id in place; one with two candidates, or out of reach, does not.
     let claimed = |name: &str| -> (Vec<String>, Vec<String>) {

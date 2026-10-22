@@ -1703,6 +1703,15 @@ module SyncScenarios
       bot=P.holder(ctx,'ETH',at:at-10.days,venue:ctx[:bingx])
       bot.transactions.update_all(base:'ETH',quote:'USDT',quote_asset_id:ctx[:assets]['USDT'].id)
     },steps:[P.bingx_ledger(night,account:[P.bx_account],info:[P.bx_info(%w[ETH USDT])],trades:[fills.([trade])])]}
+    # The account and listing answers Rails reads with dig and Array(): some raise, some read as nothing held or listed.
+    {account:'balances',info:'symbols'}.each do |source,rows|
+      {'null'=>nil,'array'=>[],'string'=>'bad','data_array'=>{'code'=>0,'data'=>[]},'data_string'=>{'code'=>0,'data'=>'bad'},
+       'missing_data'=>{'code'=>0},'null_rows'=>{'code'=>0,'data'=>{rows=>nil}},'empty_rows'=>{'code'=>0,'data'=>{rows=>[]}},
+       'object_rows'=>{'code'=>0,'data'=>{rows=>{'bad'=>1}}},'string_rows'=>{'code'=>0,'data'=>{rows=>'bad'}},
+       'number_rows'=>{'code'=>0,'data'=>{rows=>1}},'false_rows'=>{'code'=>0,'data'=>{rows=>false}},'empty_row'=>{'code'=>0,'data'=>{rows=>[{}]}}}.each do |shape,body|
+        cases << {name:"bingx-ledger-#{source}_#{shape}",setup:week,steps:[P.bingx_ledger(night,deposits:[P.ok([dep])],**{source=>[P.ok(body)]},trades:[fills.([trade])])]}
+      end
+    end
     cases
   end
   def bingx_balance_scenarios
