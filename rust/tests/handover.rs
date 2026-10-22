@@ -148,7 +148,11 @@ async fn rails_migrates_and_adopts_a_handback_on_an_install_rust_migrated() {
     let p = Paths::from_env(&|_| None, dir.path());
     let l = lease::lock(&p, now()).unwrap();
     let list = common::probe_migrations();
-    let registry = store::Registry { migrations: &common::as_migrations(&list), tables: common::PROBE_TABLES };
+    // This build's migrations (rails_install applied them) and the probe after them.
+    let migrations: Vec<store::Migration> = store::REGISTRY.migrations.iter().copied().chain(common::as_migrations(&list)).collect();
+    let tables: Vec<(&str, store::TableContract)> = store::REGISTRY.tables.iter().chain(common::PROBE_TABLES)
+        .map(|(v, t)| (*v, store::TableContract { name: t.name, columns: t.columns, unique_indexes: t.unique_indexes })).collect();
+    let registry = store::Registry { migrations: &migrations, tables: &tables };
     // Opened before the probe migrates: this build's own registry does not know it, so `open` would refuse after.
     let o = store::open(&p).unwrap();
     assert_eq!(store::migrate_with(&p, &l, &registry).unwrap(), vec![common::PROBE.to_string()]);
@@ -166,7 +170,7 @@ async fn rails_migrates_and_adopts_a_handback_on_an_install_rust_migrated() {
     }
     assert!(rails_boot(dir.path()).0, "Rails starts after a completed handback");
     let c = rusqlite::Connection::open(&p.primary).unwrap();
-    assert_eq!(count(&c, "SELECT count(*) FROM rust_schema_migrations"), 1, "Rust's record untouched");
+    assert_eq!(count(&c, "SELECT count(*) FROM rust_schema_migrations"), store::REGISTRY.migrations.len() as i64 + 1, "Rust's record untouched");
     assert_eq!(count(&c, "SELECT count(*) FROM sqlite_master WHERE name = 'rust_migration_probe'"), 1);
     assert_eq!(store::check_with(&p, &registry).unwrap().pending_rust, Vec::<String>::new());
 }

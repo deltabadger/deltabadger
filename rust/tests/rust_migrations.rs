@@ -1,5 +1,5 @@
 //! Rust's own schema migrations (store::check / migrate), proved with the test-only probe migration in
-//! tests/fixtures/rust_migrations: the production registry (rust/migrations) ships empty.
+//! tests/fixtures/rust_migrations; the production registry (rust/migrations) is checked against its contracts too.
 mod common;
 use common::{as_migrations, probe_migrations, PROBE, PROBE_TABLES};
 use deltabadger::lease::{self, LeaseError};
@@ -218,9 +218,11 @@ fn open_based_commands_work_on_an_unmigrated_install_and_never_migrate_it() {
             .env("SECRET_KEY_BASE", "engine-test-secret").env_remove("DATABASE_URL")
             .env_remove("ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY").env_remove("ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT").output().unwrap();
         assert_eq!(out.status.code(), Some(0), "{args:?}: {}", String::from_utf8_lossy(&out.stderr));
-        assert!(!String::from_utf8_lossy(&out.stdout).contains("pending Rust migration"), "{args:?}: this build's registry is empty");
+        if args == ["check"] {
+            assert!(String::from_utf8_lossy(&out.stdout).contains("pending Rust migration 20261022000001"), "check names the identity migration");
+        }
     }
-    assert!(!has_table(&p, "rust_schema_migrations"), "an empty registry writes nothing, not even its table");
+    assert!(!has_table(&p, "rust_schema_migrations") && !has_table(&p, "exchange_accounts"), "none of them migrates, not even the migrations table");
 }
 
 /// (name, migration files, what the refusal says)

@@ -438,7 +438,7 @@ impl<C:Connect> Job for Validator<C>{
         if exchange!=ALPACA&&checked.is_none(){return before_result(Outcome::Failed("credential validation unavailable for this exchange".into()))}
         let kind=match cx.db.run(move|c,_|c.query_row("SELECT key_type FROM api_keys WHERE id=?1",[id],|r|r.get::<_,i64>(0)).map_err(|_|"cannot read credential capability".into())).await{Ok(k)=>k,Err(e)=>return before_result(Outcome::Failed(e))};
         // ApiKey#get_validity: Alpaca's account read, or the venue's own key check through its proxy (ExchangeProxy.for).
-        let result=if let Some(proxy)=checked {
+        let (result,identity)=if let Some(proxy)=checked {
             let stored=match cx.db.run(move|c,cipher|crate::app_config::get(c,cipher,&format!("proxy_{proxy}")).map_err(|_|format!("the {proxy} proxy setting is unreadable"))).await{Ok(s)=>s,Err(e)=>return before_result(Outcome::Failed(e))};
             let egress=self.venues.key_check_egress(&exchange,stored);
             match egress {
@@ -447,7 +447,7 @@ impl<C:Connect> Job for Validator<C>{
             }
         } else {
             let venue=self.venues.connect(handle.credentials());
-            match handle.check(&venue.urls().trading,kind).await{Ok(v)=>v,Err(_)=>return before_result(Outcome::Failed("credential validation unavailable".into()))}
+            match handle.check(&venue.urls().trading,kind).await{Ok(v)=>(v,None),Err(_)=>return before_result(Outcome::Failed("credential validation unavailable".into()))}
         };
         use crate::web::settings::validator::Validity;
         // ApiKey#update_status!: a permission problem is incorrect; a failure leaves the key pending, its reason logged.
@@ -461,8 +461,10 @@ impl<C:Connect> Job for Validator<C>{
         let status=status.map(|(status,_)|status);
         let outcome=async {
         let at=cx.clock.now();
-        if let Err(SyncError(e))=super::commit_bots_for(&cx.db,&version,move|c|{
+        let (credentials,version_read)=(handle.credentials().clone(),handle.producer().clone());
+        if let Err(SyncError(e))=super::commit_bots_for_ciphered(&cx.db,&version,move|c,cipher|{
             crate::web::settings::keys::store_status(c,&status,id,at)?;
+            if let Some(observed)=&identity{crate::identity::record(c,cipher,id,&credentials,&version_read,observed,at).map_err(SyncError)?;}
             Ok(((),true))
         }).await{
             if e==crate::engine::model::CREDENTIALS_CHANGED{cx.wakers.wake(API_KEY_VALIDATOR,Some(&id.to_string()),None);return Outcome::NothingNew;}

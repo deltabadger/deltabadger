@@ -24,22 +24,25 @@ impl ValidationHandle {
     }
     /// `check` on the venue the key belongs to: Alpaca's account read, or Kraken's, Binance's and KuCoin's own key checks
     /// (`key_check`), through the venue's proxy when one is configured (ExchangeProxy.for).
-    pub(crate) async fn check_on(&self,app:&crate::web::App,venue:&str,kind:i64)->Result<crate::engine::model::Produced<Validity>,WebError> {
-        let Some(name)=crate::venue::registry::key_check_proxy(venue) else {return self.check(&app.alpaca_trading_url(&self.credentials),kind).await};
+    /// With what the key's account-identity read came to, where one was made (`key_check::check_identified`).
+    pub(crate) async fn check_on(&self,app:&crate::web::App,venue:&str,kind:i64)->Result<Checked,WebError> {
+        let Some(name)=crate::venue::registry::key_check_proxy(venue) else {return Ok((self.check(&app.alpaca_trading_url(&self.credentials),kind).await?,None))};
         let base=app.venue_key_url(venue);
         let cipher=app.cipher.clone();
         let egress=app.db(move|c|Ok(crate::venue::live::egress(c,&cipher,&|k|std::env::var(k).ok(),name,&crate::venue::http::client()))).await?;
         Ok(self.check_via(venue,&base,egress.map(|(client,_)|client),kind).await)
     }
     /// The key check of `venue` (a `registry::key_check_proxy` venue) sent to `base` through `egress` (the venue's proxy client, or why there is none).
-    pub(crate) async fn check_via(&self,venue:&str,base:&str,egress:Result<reqwest::Client,String>,kind:i64)->crate::engine::model::Produced<Validity> {
-        let value=match egress {
-            Ok(client)=>super::key_check::check(venue,base,client,&self.credentials,kind).await,
-            Err(why)=>Validity::Pending(Diagnostic{text:why,status:None,body:String::new()}),
+    pub(crate) async fn check_via(&self,venue:&str,base:&str,egress:Result<reqwest::Client,String>,kind:i64)->Checked {
+        let (value,observed)=match egress {
+            Ok(client)=>super::key_check::check_identified(venue,base,client,&self.credentials,kind).await,
+            Err(why)=>(Validity::Pending(Diagnostic{text:why,status:None,body:String::new()}),None),
         };
-        crate::engine::model::Produced::new(value,Some(self.producer.clone()))
+        (crate::engine::model::Produced::new(value,Some(self.producer.clone())),observed)
     }
 }
+/// A key check's verdict, and its account-identity read when one was made. Both are published under the verdict's fence.
+pub(crate) type Checked=(crate::engine::model::Produced<Validity>,Option<crate::identity::Observed>);
 pub struct Diagnostic { pub text: String, pub status: Option<u16>, pub body: String }
 impl Diagnostic {
     pub fn log_text(&self)->String { crate::venue::http::diagnostic(self.status,&self.body) }

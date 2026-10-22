@@ -894,12 +894,12 @@ fn an_import_that_fails_part_way_writes_nothing_and_its_retry_imports_once() {
     let before = count(&c);
     // The third row of the file fails as it is written.
     c.execute_batch("CREATE TEMP TRIGGER crash BEFORE INSERT ON account_transactions WHEN NEW.entry_type = 5 BEGIN SELECT RAISE(ABORT, 'crash'); END;").unwrap();
-    assert!(import(&c, user, "binance", text.as_bytes(), Some("+00:00"), None, now).is_err());
+    assert!(import(&c, &common::seed::cipher(), user, "binance", text.as_bytes(), Some("+00:00"), None, now).is_err());
     assert_eq!(count(&c), before, "nothing of the file is written");
     c.execute_batch("DROP TRIGGER crash").unwrap();
     let written = |answer| match answer { Answer::Written { imported, .. } => imported, other => panic!("{other:?}") };
-    assert_eq!(written(import(&c, user, "binance", text.as_bytes(), Some("+00:00"), None, now).unwrap()), 3);
-    assert_eq!(written(import(&c, user, "binance", text.as_bytes(), Some("+00:00"), None, now).unwrap()), 0, "the retry's retry adds nothing");
+    assert_eq!(written(import(&c, &common::seed::cipher(), user, "binance", text.as_bytes(), Some("+00:00"), None, now).unwrap()), 3);
+    assert_eq!(written(import(&c, &common::seed::cipher(), user, "binance", text.as_bytes(), Some("+00:00"), None, now).unwrap()), 0, "the retry's retry adds nothing");
     assert_eq!(count(&c), before + 3);
 }
 
@@ -928,7 +928,7 @@ async fn an_api_sync_during_an_import_waits_for_it_and_dedupes_against_the_whole
             Ok(0)
         }).unwrap();
         c.execute_batch("CREATE TEMP TRIGGER pause AFTER INSERT ON account_transactions BEGIN SELECT import_pause(); END;").unwrap();
-        deltabadger::tracker::import::run::import(&c, user, "binance", text.as_bytes(), Some("+00:00"), None, "2026-09-19T12:00:00Z".parse().unwrap()).unwrap()
+        deltabadger::tracker::import::run::import(&c, &common::seed::cipher(), user, "binance", text.as_bytes(), Some("+00:00"), None, "2026-09-19T12:00:00Z".parse().unwrap()).unwrap()
     });
     inside_rx.recv().unwrap(); // the import holds the write lock, one row written
     let (path, keys) = (db.clone(), cipher());
