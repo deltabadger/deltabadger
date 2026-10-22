@@ -1,5 +1,5 @@
 //! D-CB-SIZE-IN-QUOTE stored-row repair. Called inside takeover's ownership-claim transaction,
-//! like placement::backfill_snapshots and staleness::seed; completion is an app_configs marker.
+//! like placement::backfill_snapshots and staleness::seed. It runs on every takeover (see `run`).
 use super::activities::Raw;
 use crate::{app_config, engine::EngineError};
 use chrono::{DateTime, Utc};
@@ -10,13 +10,10 @@ fn decimal(value: &Value) -> Result<Option<crate::ruby::BigDec>, EngineError> {
         .map_err(|e| EngineError::Data(format!("Coinbase repair: unreadable stored amount: {e:?}")))
 }
 pub const FLAG: &str = "rust_coinbase_size_in_quote_repaired_at";
+/// Runs on every takeover, not once: after a handback Rails imports quote-sized fills with its old amounts again,
+/// and the next takeover must repair those too. Rows already correct are compared exactly and left untouched, so a
+/// rerun writes nothing; FLAG records when it last repaired a row.
 pub fn run(tx: &Transaction<'_>, now: DateTime<Utc>) -> Result<usize, EngineError> {
-    if app_config::get_plain(tx, FLAG)
-        .map_err(EngineError::Data)?
-        .is_some()
-    {
-        return Ok(0);
-    }
     let mut s=tx.prepare("SELECT t.id,t.user_id,t.base_currency,t.quote_currency,t.base_amount,t.quote_amount,t.raw_data FROM account_transactions t JOIN exchanges e ON e.id=t.exchange_id WHERE e.type='Exchanges::Coinbase' AND json_valid(t.raw_data) AND json_type(t.raw_data,'$.size_in_quote')='true' ORDER BY t.id")?;
     let rows = s
         .query_map([], |r| {
@@ -94,6 +91,6 @@ pub fn run(tx: &Transaction<'_>, now: DateTime<Utc>) -> Result<usize, EngineErro
             [owner],
         )?;
     }
-    app_config::set_plain(tx, FLAG, &now.to_rfc3339(), now).map_err(EngineError::Data)?;
+    if count > 0 { app_config::set_plain(tx, FLAG, &now.to_rfc3339(), now).map_err(EngineError::Data)?; }
     Ok(count)
 }
