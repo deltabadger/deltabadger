@@ -210,14 +210,14 @@ async fn an_unresolved_placement_defers_the_resync_until_it_settles() {
     assert_eq!((r.members(), r.marker()), (vec!["AAA".to_string(), "BBB".into(), "CCC".into()], None));
 }
 
-/// A marked bot outside this engine's slice (a stopped Bybit index bot), and one with no exchange: the first waits for
+/// A marked bot outside this engine's slice (a stopped BingX index bot), and one with no exchange: the first waits for
 /// Rails without a venue ever being built for it (its marker kept for adopt_handback!), the second is never enqueued by
 /// Rails and its marker goes. Other marked bots resync meanwhile.
 #[tokio::test(flavor = "current_thread")]
 async fn a_bot_outside_the_slice_keeps_its_marker_and_no_venue_is_built_for_it() {
     let r = Rig::new(true, [100.0, 200.0, 300.0, 400.0, 500.0]);
     let c = r.c();
-    c.execute("INSERT INTO exchanges (type, name, maker_fee, taker_fee, created_at, updated_at) VALUES ('Exchanges::Bybit', 'Bybit', '0.1', '0.1', '2026-01-01', '2026-01-01')", []).unwrap();
+    c.execute("INSERT INTO exchanges (type, name, maker_fee, taker_fee, created_at, updated_at) VALUES ('Exchanges::Bingx', 'BingX', '0.1', '0.1', '2026-01-01', '2026-01-01')", []).unwrap();
     let bybit = c.last_insert_rowid();
     let foreign = seed::index_bot(&c, &r.s, "nasdaq-100", 3, 0.0, false);
     let homeless = seed::index_bot(&c, &r.s, "nasdaq-100", 3, 0.0, false);

@@ -3629,7 +3629,7 @@ async fn sign_in_email_nul_is_stripped_as_rails_records() { sign_in_email_matche
 
 // D5b: the tracker's "connect an exchange" flow (Tracker::PickExchangesController, Tracker::AddApiKeysController).
 fn d5b_venues(c:&rusqlite::Connection){
-    for (class,name,available) in [("Kraken","Kraken",1),("Bitmart","BitMart",1),("Gemini","Gemini",0),("Binance","Binance",1),("Bybit","Bybit",0)]{
+    for (class,name,available) in [("Kraken","Kraken",1),("Bitmart","BitMart",1),("Gemini","Gemini",0),("Binance","Binance",1),("Bingx","BingX",0)]{
         c.execute("INSERT INTO exchanges(type,name,maker_fee,taker_fee,available,created_at,updated_at)VALUES(?1,?2,'0','0',?3,'2026-01-01','2026-01-01')",(format!("Exchanges::{class}"),name,available)).unwrap();
     }
 }
@@ -3678,7 +3678,7 @@ async fn d5b_pick_exchange_lists_available_venues_and_stores_only_the_exchange_i
 #[tokio::test(flavor="current_thread")]
 async fn d5b_retired_and_unported_venues_reach_no_venue_call_and_no_write(){
     let server=MockServer::start().await;let mut h=Harness::new(server.uri()).await;d5b_venues(&h.c);
-    let (unported,bitmart)=(d5b_exchange(&h.c,"Bybit"),d5b_exchange(&h.c,"Bitmart"));
+    let (unported,bitmart)=(d5b_exchange(&h.c,"Bingx"),d5b_exchange(&h.c,"Bitmart"));
     let before=h.snapshot();
     let form=h.browser.send(&h.app,"GET",&format!("/tracker/add_api_key/new?exchange_id={bitmart}&key_type=read_only"),None,Csrf::None,&[]).await;
     assert_eq!((form.status,form.header("location")),(302,Some("/tracker")),"RetiredExchangeGuard");

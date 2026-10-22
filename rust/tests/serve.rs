@@ -280,8 +280,8 @@ async fn the_bot_pages_refuse_what_this_build_does_not_render_and_change_nothing
     let with_holdings = browser.get(&app, "/bots").await;
     assert!(with_holdings.status == 200 && with_holdings.body.contains("class=\"stroke--icon\"") && !with_holdings.body.contains("stroke-dasharray=\"52.55 4.0\""), "unknown credential provenance must not draw a current holding");
 
-    // One bot: the list is its page. Bybit is not served by this build's pages (Kraken is served).
-    opened.primary.execute("UPDATE exchanges SET type = 'Exchanges::Bybit' WHERE id = ?1", [seeded.exchange_id]).unwrap();
+    // One bot: the list is its page. BingX is not served by this build's pages (Kraken is served).
+    opened.primary.execute("UPDATE exchanges SET type = 'Exchanges::Bingx' WHERE id = ?1", [seeded.exchange_id]).unwrap();
     let first = common::seed::insert_bot(&opened.primary, &seeded, &common::seed::BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
     opened.primary.execute("UPDATE bots SET label = 'Bitcoin'", []).unwrap();
     let list = browser.get(&app, "/bots").await;
@@ -1356,8 +1356,8 @@ async fn a_real_browser_signs_in_and_sees_the_app_with_live_streams() -> Result<
     // Hold the engine: this browser proof exercises the real HTTP/CSRF/guard/cable path
     // on a scripted paper install; the executable smoke test separately proves placement.
     // A venue this build does not trade, for the index wizard's refusal inside its nested frame (plan CI T7).
-    c.execute("INSERT INTO exchanges (type, name, maker_fee, taker_fee, available, created_at, updated_at) VALUES ('Exchanges::Bybit', 'Bybit', '0.1', '0.1', 1, '2026-01-01', '2026-01-01')", [])?;
-    let bybit = c.last_insert_rowid();
+    c.execute("INSERT INTO exchanges (type, name, maker_fee, taker_fee, available, created_at, updated_at) VALUES ('Exchanges::Bingx', 'BingX', '0.1', '0.1', 1, '2026-01-01', '2026-01-01')", [])?;
+    let bingx = c.last_insert_rowid();
     // The real time: a browser drops a session cookie whose expiry (the clock's now plus its lifetime) has passed.
     let app = web::app(dir.path(), "engine-test-secret", TestClock::starting(chrono::Utc::now()));
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
@@ -1368,7 +1368,7 @@ async fn a_real_browser_signs_in_and_sees_the_app_with_live_streams() -> Result<
     let log = tempfile::tempfile()?;
     let mut check = Child(Command::new("bun").arg(concat!(env!("CARGO_MANIFEST_DIR"), "/../script/rust/browser_check.mjs"))
         .env("BASE_URL",format!("http://{address}")).env("EMAIL","o@example.com").env("PASSWORD","Correct-horse-9")
-        .env("BOT_ID",bot.to_string()).env("UNPORTED_VENUE",bybit.to_string()).env("TYPING",typing.to_string()).stdout(log.try_clone()?).stderr(log.try_clone()?).spawn()?);
+        .env("BOT_ID",bot.to_string()).env("UNPORTED_VENUE",bingx.to_string()).env("TYPING",typing.to_string()).stdout(log.try_clone()?).stderr(log.try_clone()?).spawn()?);
     let deadline = Instant::now() + Duration::from_secs(150);
     let status = loop {
         if let Some(status) = check.0.try_wait()? { break status; }

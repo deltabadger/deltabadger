@@ -287,7 +287,7 @@ fn malformed_asset_categories_incomplete_indices_and_other_quotes_are_refused() 
 #[test]
 fn any_other_exchange_is_refused() {
     let (_d, o, s) = common::install_alpaca();
-    o.primary.execute("UPDATE exchanges SET type = 'Exchanges::Bybit', name = 'Bybit'", []).unwrap();
+    o.primary.execute("UPDATE exchanges SET type = 'Exchanges::Bingx', name = 'BingX'", []).unwrap();
     let id = seed::insert_bot(&o.primary, &s, &plain());
     let r = eligibility::check_install(&o.primary).unwrap();
     assert!(r.problems.iter().any(|p| p.contains(&format!("bot {id}")) && p.contains("a bot on an exchange other than Alpaca, Kraken, Binance, Binance.US, KuCoin, Bitvavo, Gemini, Bitget, MEXC, Hyperliquid, Bybit, Bitrue and Coinbase")), "{:?}", r.problems);

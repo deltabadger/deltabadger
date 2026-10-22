@@ -3281,7 +3281,7 @@ module Decisions
   end
   MX_GONE = { 'status' => 400, 'body' => { 'code' => -2013, 'msg' => 'Order does not exist.' } }.freeze
 
-  def cb_order(id, status = 'FILLED', limit: false)
+  def coinbase_order(id, status = 'FILLED', limit: false)
     { 'order_id' => id, 'product_id' => 'BTC-EUR', 'order_type' => limit ? 'LIMIT' : 'MARKET', 'side' => 'BUY', 'status' => status,
       'average_filled_price' => '64000', 'filled_size' => '0.00093', 'total_value_after_fees' => '59.818', 'outstanding_hold_amount' => '0',
       'order_configuration' => { (limit ? 'limit_limit_gtc' : 'market_market_ioc') => limit ? { 'base_size' => '0.00093', 'limit_price' => '64000' } : { 'quote_size' => '60' } } }
@@ -3307,14 +3307,14 @@ module Decisions
         'add_no_id' => { 'http' => { 'POST /api/v3/brokerage/orders' => [ok('success' => true, 'success_response' => {})] } },
         'add_unknown_failure' => { 'http' => { 'POST /api/v3/brokerage/orders' => [ok('success' => false, 'error_response' => { 'error' => 'UNKNOWN_FAILURE_REASON', 'message' => 'Unknown failure' })] } },
         'landed_found' => { 'recover_at' => (Time.iso8601(at) + 60).iso8601(6), 'http' => { 'POST /api/v3/brokerage/orders' => [POST_SEND],
-          'GET /api/v3/brokerage/orders/historical/batch' => [ok('orders' => [cb_order('found').merge('client_order_id' => '$client_order_id')], 'has_next' => false)] } },
+          'GET /api/v3/brokerage/orders/historical/batch' => [ok('orders' => [coinbase_order('found').merge('client_order_id' => '$client_order_id')], 'has_next' => false)] } },
         'landed_missing' => { 'recover_at' => (Time.iso8601(at) + 60).iso8601(6), 'http' => { 'POST /api/v3/brokerage/orders' => [POST_SEND],
           'GET /api/v3/brokerage/orders/historical/batch' => [ok('orders' => [], 'has_next' => false)] } },
         'batch_second_page' => { 'transactions' => [waiting.('a'), waiting.('b')],
-          'http' => { 'GET /api/v3/brokerage/orders/historical/batch' => [ok('orders' => [cb_order('a')], 'has_next' => true, 'cursor' => 'next'), ok('orders' => [cb_order('b')], 'has_next' => false)] } }
+          'http' => { 'GET /api/v3/brokerage/orders/historical/batch' => [ok('orders' => [coinbase_order('a')], 'has_next' => true, 'cursor' => 'next'), ok('orders' => [coinbase_order('b')], 'has_next' => false)] } }
       }
       Exchanges::Coinbase::ORDER_STATUS_MAP.each_key do |status|
-        variants["poll_#{status}"] = { 'transactions' => [waiting.('a')], 'http' => { 'GET /api/v3/brokerage/orders/historical/batch' => [ok('orders' => [cb_order('a', status)], 'has_next' => false)] } }
+        variants["poll_#{status}"] = { 'transactions' => [waiting.('a')], 'http' => { 'GET /api/v3/brokerage/orders/historical/batch' => [ok('orders' => [coinbase_order('a', status)], 'has_next' => false)] } }
       end
       { 'market' => {}, 'limit' => { 'limit_ordered' => true, 'limit_order_pcnt_distance' => 0.0025 } }.flat_map do |mode, settings|
         variants.map do |name, v|
