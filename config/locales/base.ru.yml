@@ -672,6 +672,11 @@ ru:
             loss: 'Убыток'
             closed: 'Закрыта'
             cash: 'Наличные'
+        holdings_filter:
+            label: 'Класс активов'
+            crypto: 'Крипто'
+            stocks: 'Акции'
+            cash: 'Наличные'
         range:
             label: 'Период'
             '30d': '30Д'

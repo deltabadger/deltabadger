@@ -669,6 +669,11 @@ de:
             loss: 'Verlust'
             closed: 'Geschlossen'
             cash: 'Barmittel'
+        holdings_filter:
+            label: 'Anlageklasse'
+            crypto: 'Krypto'
+            stocks: 'Aktien'
+            cash: 'Barmittel'
         range:
             label: 'Zeitraum'
             '30d': '30T'

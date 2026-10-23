@@ -678,6 +678,11 @@ da:
             loss: 'Tab'
             closed: 'Lukket'
             cash: 'Kontanter'
+        holdings_filter:
+            label: 'Aktivklasse'
+            crypto: 'Krypto'
+            stocks: 'Aktier'
+            cash: 'Kontanter'
         range:
             label: 'Periode'
             '30d': '30D'
