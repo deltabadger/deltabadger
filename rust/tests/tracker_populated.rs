@@ -5,9 +5,7 @@ mod common;
 #[allow(dead_code)]
 #[path = "support/tracker_index_grid.rs"]
 mod grid;
-#[allow(dead_code)]
-#[path = "support/tabs_3_0.rs"]
-mod tabs;
+use grid::tabs;
 use common::web::TestClock;
 use deltabadger::web::{auth, session, tracker::{fx, populated}, Params};
 use rusqlite::Connection;
