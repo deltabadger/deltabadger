@@ -384,3 +384,7 @@
 .buttons-no-outline
     .rbutton--secondary
         box-shadow: var(--shadow-basic) !important
+// The frame a link group's options load into (3.0, Rust only). It holds what the switch scopes and nothing of its
+// own, so it lays out as its children would: the flex column it sits in keeps its gaps between them.
+.scope-frame
+    display: contents

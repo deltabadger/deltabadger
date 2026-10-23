@@ -678,6 +678,11 @@ bg:
             loss: 'Загуба'
             closed: 'Затворена'
             cash: 'Пари в брой'
+        holdings_filter:
+            label: 'Клас активи'
+            crypto: 'Крипто'
+            stocks: 'Акции'
+            cash: 'Пари в брой'
         range:
             label: 'Период'
             '30d': '30Д'

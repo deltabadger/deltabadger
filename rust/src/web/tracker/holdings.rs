@@ -13,7 +13,7 @@ pub fn supported(c:&Connection,owner:i64)->Result<bool,WebError>{
     AND EXISTS(SELECT 1 FROM account_balances WHERE user_id=?1)
     AND NOT EXISTS(SELECT 1 FROM account_balances WHERE user_id=?1 AND exchange_id NOT IN(SELECT exchange_id FROM api_keys WHERE user_id=?1))",rusqlite::params![owner,crate::tracker::cache::key(owner)],|r|r.get(0))?)
 }
-pub struct Presentation {pub value:String,pub card:String,pub sync:String}
+pub struct Presentation {pub value:String,pub card:String,pub sync:String,pub classes:Vec<&'static str>}
 pub struct Arc {pub color:String,pub dash:String,pub offset:String,pub label:String}
 fn invalid()->WebError{super::row::invalid()}
 fn dec(raw:&str)->Result<Dec,WebError>{Dec::parse(raw).map_err(|_|invalid())}
@@ -37,7 +37,7 @@ pub fn ring_of(slices:&[(Dec,Option<String>,String)],other:&str)->Result<Vec<Arc
         arcs.push(Arc{color,dash:format!("{} {}",float_to_s(float_round(length,2)),float_to_s(float_round(circumference-length,2))),offset:float_to_s(-float_round(walked+5.75,2)),label:i18n::escape(&label)});walked+=span;
     }Ok(arcs)
 }
-fn card(ctx:&Ctx,data:&Cold,d:&Denomination)->Result<String,WebError>{
+fn card(ctx:&Ctx,data:&Cold,d:&Denomination)->Result<(String,Vec<&'static str>),WebError>{
     let rows=data.holdings.iter().map(super::populated::CardRow::cold).collect::<Vec<_>>();
     let empty=if rows.is_empty(){Some(ctx.t(if data.only_cash{"tracker.portfolio.only_cash"}else{"tracker.portfolio.no_balances"}))}else{None};
     super::populated::card(ctx,rows,None,empty,vec![],d)
@@ -62,10 +62,10 @@ pub fn prepare(c:&Connection,ctx:&Ctx,owner:i64,fx:&super::fx::Prepared)->Result
     let data=crate::figures::budget::within(||crate::tracker::figures::page::cold(c,owner,scope,crate::web::bots::show_cash(settings.as_deref()))).map_err(|e|match e{crate::figures::FiguresError::Sqlite(e)=>WebError::from(e),_=>invalid()})?;
     let d=fx.denomination(c,owner,ctx.app.now().timestamp())?;
     let reason=data.reason.or(if d.is_none(){Some("Currency conversion unavailable")}else{None});
-    let (value,card)=if let Some(reason)=reason{
+    let (value,(card,classes))=if let Some(reason)=reason{
         let value=format!("<span class=\"no-value\" title=\"{reason}\">—</span>");
-        let card=format!("<div class=\"widget tracker-holdings\"><p class=\"tracker-holdings__empty\">{reason}</p></div>");(value,card)
+        let card=format!("<div class=\"widget tracker-holdings\"><p class=\"tracker-holdings__empty\">{reason}</p></div>");(value,(card,vec![]))
     }else{let d=d.ok_or_else(invalid)?;(money(data.value.as_ref().ok_or_else(invalid)?,&d)?,card(ctx,&data,&d)?)};
     let sync=synced_label(ctx,data.synced,data.stale);
-    Ok(Presentation{value,card,sync})
+    Ok(Presentation{value,card,sync,classes})
 }
