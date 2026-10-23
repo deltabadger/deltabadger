@@ -545,14 +545,57 @@ fn only_the_low_funds_prefix_and_its_colour_are_left_out() {
 /// Named divergences D-PENDING-MARKET-HIDDEN and D-PENDING-MARKET-SETTING: a market order the venue has not finished
 /// (unknown or open) is no row of this crate's log until it is final, and a scheduled or retrying bot holding one says
 /// "Setting orders…" where Rails shows its schedule. The grid seeds such rows (pages_bots.rb `history`, `engine_legs`,
-/// `beyond_buys`; pages_signals.rb). Returns the pending market orders' ids and their bots', read from the seeded database.
-fn pending_market(dir: &Path) -> (Vec<i64>, Vec<i64>) {
+/// `beyond_buys`; pages_signals.rb). Returns the pending market orders' ids, their bots', and the bots whose waiting rows
+/// (Transaction.waiting) are all pending market orders, read from the seeded database.
+fn pending_market(dir: &Path) -> (Vec<i64>, Vec<i64>, Vec<i64>) {
     let c = rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap();
     let sql = format!("SELECT id, bot_id FROM transactions WHERE {} ORDER BY id", deltabadger::web::bot::orders::PENDING_MARKET);
     let rows: Vec<(i64, i64)> = c.prepare(&sql).and_then(|mut s| s.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?.collect()).unwrap_or_default();
     let mut bots: Vec<i64> = rows.iter().map(|(_, bot)| *bot).collect();
     bots.dedup();
-    (rows.into_iter().map(|(id, _)| id).collect(), bots)
+    let sql = format!("SELECT bot_id FROM transactions WHERE status = 0 AND external_status IN (0, 1) GROUP BY bot_id HAVING MIN({}) = 1 ORDER BY bot_id", deltabadger::web::bot::orders::PENDING_MARKET);
+    let waiting: Vec<i64> = c.prepare(&sql).and_then(|mut s| s.query_map([], |r| r.get(0))?.collect()).unwrap_or_default();
+    (rows.into_iter().map(|(id, _)| id).collect(), bots, waiting)
+}
+
+/// The value of attribute `name` on a normalized element line.
+fn attr(line: &str, name: &str) -> Option<String> {
+    line.split_once(&format!(" {name}=\"")).and_then(|(_, rest)| rest.split_once('"')).map(|(value, _)| value.to_string())
+}
+
+fn is_space(line: &Value) -> bool { line.as_str().is_some_and(|l| l.trim() == "\" \"") }
+
+/// D-PENDING-MARKET-HIDDEN on Rails' order filters (orders/_order_filters.html.erb, one normalized subtree): the same
+/// filters as BotHelper#order_filter_tabs and #default_order_filter draw them without the "waiting" tab — the option goes,
+/// a default of "waiting" moves to the first tab still offered ("successful" when none is), and the control goes when
+/// fewer than two named tabs remain. (A default of "waiting" means neither "all" nor "successful" was offered, so at most
+/// "other" remains and the control always goes: no chip is left to move.) None when Rails offered no "waiting" tab.
+fn without_waiting_tab(rails: &[Value]) -> Option<Vec<Value>> {
+    let mut lines = rails.to_vec();
+    let default = attr(lines.first()?.as_str()?, "data-order-filter-default")?;
+    let option = |l: &Value| l.as_str().filter(|l| l.trim_start().starts_with("<button ") && l.contains(" data-segmented-target=\"option\"")).and_then(|l| attr(l, "data-value"));
+    let waiting = lines.iter().position(|l| option(l).as_deref() == Some("waiting"));
+    if waiting.is_none() && default != "waiting" { return None; }
+    if let Some(at) = waiting {
+        let end = subtree_end(&lines, at);
+        let start = if at > 0 && is_space(&lines[at - 1]) { at - 1 } else { at };
+        lines.drain(start..end);
+    }
+    let offered: Vec<String> = lines.iter().filter_map(option).collect();
+    if default == "waiting" {
+        let moved = offered.first().map_or("successful", String::as_str);
+        let head = lines[0].as_str()?.replace(" data-order-filter-default=\"waiting\"", &format!(" data-order-filter-default=\"{moved}\""));
+        lines[0] = json!(head);
+    }
+    if offered.iter().filter(|value| *value != "all").count() < 2 {
+        if let Some(at) = lines.iter().position(|l| l.as_str().is_some_and(|l| l.trim_start().starts_with("<div ") && attr(l, "class").is_some_and(|c| c.split(' ').any(|c| c == "segmented")))) {
+            let end = subtree_end(&lines, at);
+            // The whitespace on either side of the control is one text node once it has gone.
+            let start = if at > 0 && is_space(&lines[at - 1]) && lines.get(end).is_some_and(is_space) { at - 1 } else { at };
+            lines.drain(start..end);
+        }
+    }
+    Some(lines)
 }
 
 /// The line after the subtree that opens at `lines[at]` (html::normalize closes an element at its own indent).
@@ -591,11 +634,12 @@ fn remove_rows(lines: &mut Vec<Value>, remove: &mut dyn FnMut(&str) -> bool) -> 
 
 /// D-PENDING-MARKET-HIDDEN and D-PENDING-MARKET-SETTING, on one pair of normalized bodies: Rails' rows of the pending
 /// market orders `txs` go; where that left a feed page short, the rows this crate read on into in their place go too (as
-/// many items as Rails lost, only rows Rails' page lacks), and both pages' next-page cursors are masked; the order filter tabs
-/// are compared as Rails drew them (a "Scheduled" tab of pending market orders only is not offered); a status bar of
+/// many items as Rails lost, only rows Rails' page lacks), and both pages' next-page cursors are masked; the order filters
+/// of a bot in `waiting_bots` (its waiting rows all pending market orders) are compared with Rails' drawn without the
+/// "waiting" tab (without_waiting_tab), byte for byte; a status bar of
 /// a bot in `bots` that says "Setting orders…" here and not in Rails is compared as Rails drew it. Everything else is
 /// compared. Returns how many rows and bars were taken.
-fn without_pending_market(rails: &mut Value, rust: &mut Value, txs: &[i64], bots: &[i64]) -> usize {
+fn without_pending_market(rails: &mut Value, rust: &mut Value, txs: &[i64], bots: &[i64], waiting_bots: &[i64]) -> usize {
     const LOCALES: [&str; 15] = ["en", "de", "fr", "it", "es", "pt", "nl", "pl", "ru", "bg", "el", "sv", "da", "cs", "sk"];
     let (Value::Array(theirs), Value::Array(ours)) = (rails, rust) else { return 0 };
     let ids: Vec<String> = txs.iter().flat_map(|id| [format!("transaction_{id}"), format!("timeline_transaction_{id}")]).collect();
@@ -622,15 +666,18 @@ fn without_pending_market(rails: &mut Value, rust: &mut Value, txs: &[i64], bots
         }
     }
     // The filter tabs: a "Scheduled" tab whose only rows are pending market orders is not offered here.
-    if !txs.is_empty() {
-        let starts = |lines: &[Value]| lines.iter().position(|l| l.as_str().is_some_and(|l| l.trim_start().starts_with("<div ") && l.contains(" id=\"order_filters_")));
-        if let (Some(r), Some(o)) = (starts(theirs), starts(ours)) {
-            let (r_end, o_end) = (subtree_end(theirs, r), subtree_end(ours, o));
-            if theirs[r..r_end] != ours[o..o_end] {
-                let drawn: Vec<Value> = theirs[r..r_end].to_vec();
-                ours.splice(o..o_end, drawn);
-                taken += 1;
-            }
+    let filters = |lines: &[Value]| lines.iter().enumerate().filter_map(|(i, l)| {
+        let l = l.as_str()?;
+        let bot = attr(l, "id")?.strip_prefix("order_filters_")?.rsplit('_').next()?.parse::<i64>().ok()?;
+        (l.trim_start().starts_with("<div ") && waiting_bots.contains(&bot)).then_some(i)
+    }).collect::<Vec<_>>();
+    // From the last, so earlier positions stay put.
+    for (r, o) in filters(theirs).into_iter().zip(filters(ours)).rev() {
+        let (r_end, o_end) = (subtree_end(theirs, r), subtree_end(ours, o));
+        if theirs[r..r_end] == ours[o..o_end] { continue; }
+        if let Some(drawn) = without_waiting_tab(&theirs[r..r_end]).filter(|drawn| drawn[..] == ours[o..o_end]) {
+            theirs.splice(r..r_end, drawn);
+            taken += 1;
         }
     }
     let setting: Vec<String> = LOCALES.iter().map(|l| deltabadger::web::i18n::text(l, "bot.status.setting_orders", &[])).collect();
@@ -668,26 +715,63 @@ fn only_pending_market_rows_their_spill_and_the_setting_bar_are_left_out() {
     // Rails: the pending order 9 (both rows) on top, then 8 and 7, then the frame after 7; this crate: 8, 7 and 6.
     let mut rails = page(vec![tr("timeline_transaction_9", "Open order to buy"), tr("transaction_9", "50"), tr("timeline_transaction_8", "Bought"), tr("bot_activity_log_7", "x")], "a");
     let mut rust = page(vec![tr("timeline_transaction_8", "Bought"), tr("bot_activity_log_7", "x"), tr("timeline_transaction_6", "Bought"), tr("transaction_6", "1")], "b");
-    assert_eq!(without_pending_market(&mut rails, &mut rust, &[9], &[]), 1 + 2);
+    assert_eq!(without_pending_market(&mut rails, &mut rust, &[9], &[], &[]), 1 + 2);
     assert_eq!(rails, rust);
     // A row this crate shows that Rails' page lacks is still compared when Rails lost nothing; so is a limit order's row.
     let (mut rails, mut rust) = (page(vec![tr("transaction_5", "Open order to buy")], "a"), page(vec![], "a"));
-    assert_eq!(without_pending_market(&mut rails, &mut rust, &[9], &[]), 0);
+    assert_eq!(without_pending_market(&mut rails, &mut rust, &[9], &[], &[]), 0);
     assert_ne!(rails, rust);
-    // The filter tabs: compared as Rails drew them only where Rails listed a pending market order.
-    let tabs = |tabs: &str| json!(["  <div class=\"filters\" id=\"order_filters_bots_dca_multi_asset_1\">", format!("    \"{tabs}\""), "  </div>"]);
-    let (mut rails, mut rust) = (tabs("All Transactions Scheduled"), tabs("All Transactions"));
-    assert_eq!(without_pending_market(&mut rails, &mut rust, &[], &[1]), 0, "no pending market order: compared");
-    assert_eq!(without_pending_market(&mut rails, &mut rust, &[9], &[1]), 1);
-    assert_eq!(rails, rust);
     // The bar: taken only for a listed bot that says "Setting orders…" here and not in Rails.
     let bar = |text: &str| json!(["  <div class=\"bot-control__status\" id=\"status_bar_bots_dca_multi_asset_1\">", format!("    \" {text} \""), "  </div>"]);
     let (mut rails, mut rust) = (bar("Next order in"), bar("Setting orders…"));
-    assert_eq!(without_pending_market(&mut rails, &mut rust, &[], &[2]), 0, "not a listed bot");
-    assert_eq!(without_pending_market(&mut rails, &mut rust, &[], &[1]), 1);
+    assert_eq!(without_pending_market(&mut rails, &mut rust, &[], &[2], &[]), 0, "not a listed bot");
+    assert_eq!(without_pending_market(&mut rails, &mut rust, &[], &[1], &[]), 1);
     assert_eq!(rails, rust);
     let (mut rails, mut rust) = (bar("Next order in"), bar("Paused"));
-    assert_eq!(without_pending_market(&mut rails, &mut rust, &[], &[1]), 0, "any other difference is compared");
+    assert_eq!(without_pending_market(&mut rails, &mut rust, &[], &[1], &[]), 0, "any other difference is compared");
+}
+
+#[test]
+fn only_the_waiting_tab_of_pending_market_orders_and_its_knock_on_are_left_out() {
+    // orders/_order_filters.html.erb as normalized: the default, then shared/segmented with the offered tabs, the first on.
+    let filters = |default: &str, offered: &[&str]| {
+        let mut lines = vec![json!(format!("  <div class=\"filters\" data-order-filter-default=\"{default}\" id=\"order_filters_bots_dca_multi_asset_1\">")), json!("    \" \"")];
+        if !offered.is_empty() {
+            lines.push(json!("    <div aria-label=\"All\" class=\"segmented segmented--fluid\" role=\"radiogroup\">"));
+            for value in offered {
+                let on = *value == default;
+                lines.push(json!("      \" \""));
+                lines.push(json!(format!("      <button aria-checked=\"{on}\" class=\"segmented__option{}\" data-segmented-target=\"option\" data-value=\"{value}\" role=\"radio\" tabindex=\"{}\" type=\"button\">", if on { " is-on" } else { "" }, if on { 0 } else { -1 })));
+                lines.push(json!(format!("        \"{value}\"")));
+                lines.push(json!("      </button>"));
+            }
+            lines.push(json!("      \" \""));
+            lines.push(json!("    </div>"));
+            lines.push(json!("    \" \""));
+        }
+        lines.push(json!("  </div>"));
+        json!(lines)
+    };
+    let compare = |rails: Value, rust: Value, waiting_bots: &[i64]| {
+        let (mut rails, mut rust) = (rails, rust);
+        let taken = without_pending_market(&mut rails, &mut rust, &[9], &[1], waiting_bots);
+        (taken, rails == rust)
+    };
+    // Its waiting rows all pending market orders: the tab goes, the rest stays.
+    assert_eq!(compare(filters("all", &["all", "successful", "waiting", "other"]), filters("all", &["all", "successful", "other"]), &[1]), (1, true));
+    // A resting limit order waits too (the bot is not in waiting_bots): the tab is compared.
+    assert_eq!(compare(filters("all", &["all", "successful", "waiting", "other"]), filters("all", &["all", "successful", "other"]), &[]), (0, false));
+    // Two tabs: one named tab remains, so the control goes.
+    assert_eq!(compare(filters("all", &["all", "successful", "waiting"]), filters("all", &[]), &[1]), (1, true));
+    assert_eq!(compare(filters("all", &["all", "successful", "waiting"]), filters("all", &["all", "successful"]), &[1]), (0, false), "a control kept is a difference");
+    // A default of "waiting" (balances hidden) moves to the next tab offered, or to "successful" when there is none.
+    assert_eq!(compare(filters("waiting", &["waiting", "other"]), filters("other", &[]), &[1]), (1, true));
+    assert_eq!(compare(filters("waiting", &["waiting", "other"]), filters("waiting", &[]), &[1]), (0, false), "the default must move");
+    assert_eq!(compare(filters("waiting", &[]), filters("successful", &[]), &[1]), (1, true));
+    // Any other tab, default or chip difference is still reported.
+    assert_eq!(compare(filters("all", &["all", "successful", "waiting", "other"]), filters("all", &["all", "successful"]), &[1]), (0, false));
+    assert_eq!(compare(filters("all", &["all", "successful", "waiting", "other"]), filters("successful", &["all", "successful", "other"]), &[1]), (0, false));
+    assert_eq!(compare(filters("all", &["all", "successful", "other"]), filters("all", &["all", "other"]), &[1]), (0, false), "no waiting tab: compared");
 }
 
 /// The scenario prefixes of a signal bot's pages and writes (pages_signals.rb), which this app serves through its test seam.
@@ -1432,7 +1516,7 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
         // A wizard's last step creates a bot (it declares `may_mutate`), and the rows it writes are compared step by step.
         let creates = scenario["steps"].as_array().unwrap().iter().any(|step| step["may_mutate"].as_array().is_some_and(|tables| tables.iter().any(|t| t == "bots")));
         if !name.starts_with("actions_") && !creates && recorded["bots"] != built { failures.push(format!("{name}: Rails changed a bot while it rendered:\n  before: {built}\n  after:  {}", recorded["bots"])); }
-        let (pending_txs, pending_bots) = pending_market(&rust_root.path().join(&name).join(scope));
+        let (pending_txs, pending_bots, waiting_bots) = pending_market(&rust_root.path().join(&name).join(scope));
         let mut rust = run(&rust_root.path().join(&name).join(scope)).await;
         for answer in rust["responses"].as_array_mut().unwrap() { without_low_funds(&mut answer["body"]); }
         if name.starts_with("countdown_") {
@@ -1494,9 +1578,9 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
         if !pending_bots.is_empty() {
             let ours = rust["responses"].as_array_mut().unwrap();
             for (theirs, ours) in rails["responses"].as_array_mut().unwrap().iter_mut().zip(ours.iter_mut()) {
-                without_pending_market(&mut theirs["body"], &mut ours["body"], &pending_txs, &pending_bots);
+                without_pending_market(&mut theirs["body"], &mut ours["body"], &pending_txs, &pending_bots, &waiting_bots);
                 if let (Some(a), Some(b)) = (theirs.get_mut("broadcasts").and_then(Value::as_array_mut), ours.get_mut("broadcasts").and_then(Value::as_array_mut)) {
-                    for (a, b) in a.iter_mut().zip(b.iter_mut()) { without_pending_market(a, b, &pending_txs, &pending_bots); }
+                    for (a, b) in a.iter_mut().zip(b.iter_mut()) { without_pending_market(a, b, &pending_txs, &pending_bots, &waiting_bots); }
                 }
             }
         }
