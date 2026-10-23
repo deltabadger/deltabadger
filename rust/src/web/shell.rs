@@ -93,7 +93,8 @@ pub fn bot_count_baseline(size: i64) -> String {
 fn on_bot_page(ctx: &Ctx) -> bool {
     let id = ctx.params.route_path.strip_prefix("/bots/").map(|rest| rest.split_once('.').map_or(rest, |(id, _)| id));
     matches!(ctx.method, axum::http::Method::GET | axum::http::Method::HEAD)
-        && id.is_some_and(|id| !id.is_empty() && id.bytes().all(|b| b.is_ascii_digit()))
+        // Any id Rails routes to #show (`1abc` is bot 1 there, as `to_i` reads it); only `new` is another action.
+        && id.is_some_and(|id| !id.is_empty() && !id.contains('/') && id != "new")
 }
 
 /// User::DISPLAY_CURRENCIES with Denomination::UNITS.

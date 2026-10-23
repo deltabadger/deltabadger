@@ -444,12 +444,12 @@ pub async fn update_signal(State(app): State<App>, Extension(ctx): Extension<Ctx
 // The save: Bots::SignalsController#create (Bots::Wizard::CreatesController).
 
 /// What the save came to.
-enum Saved { Started(i64, Vec<(String, String)>), Refused(String, bool), Unported }
+enum Saved { Started(i64, Vec<(String, String)>), Refused(String, bool), Unported, Unservable(&'static str) }
 
 /// POST /bots/signals: the bot built from the session with its rules (the default one when the session has none) is saved, each
 /// rule with a token of its own, and started. A rule Rails would not save refuses the whole save (422, nothing written); a start
 /// the model refuses leaves the saved bot as it is (422, the reasons), as Rails does; a write the engine's guard refuses leaves
-/// nothing. A session without a venue or a pair makes a bot this engine would not run: refused by name.
+/// nothing. A session without a venue or a pair, or one whose bot no page here could serve, is refused by name, nothing written.
 pub async fn create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> {
     let Some(user) = ctx.user().cloned() else { return Ok(auth::unauthenticated(&ctx)) };
     let config = ctx.session.lock().bot_config.clone();
@@ -484,7 +484,14 @@ pub async fn create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> R
                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, NULL, ?7, ?7)",
                        rusqlite::params![id, rule.sell as i64, rule.percentage as i64, amount, rule.enabled, signal_write::new_token(&tx)?, now])?;
         }
-        match signal_write::start_created(&tx, &view, user.id, id)? {
+        let started = signal_write::start_created(&tx, &view, user.id, id)?;
+        // A bot whose pages this build cannot serve (`bot::refusal`, as a rule write checks it: an enabled sell rule while the
+        // wash-sale question is unanswered, say) is not made at all. Rails saves it and asks the question on its page; here it
+        // would be a bot no page, list or action could reach, so nothing is written and the reason is named.
+        if !matches!(started, Started::Refused(_)) {
+            if let Some(reason) = signal_write::refused_after(&tx, &view.app, user.id, id)? { return Ok(Saved::Unservable(reason)) }
+        }
+        match started {
             Started::Yes(broadcasts) => {
                 tx.commit()?;
                 Ok(Saved::Started(id, broadcasts))
@@ -513,6 +520,7 @@ pub async fn create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> R
             Ok(super::stream(StatusCode::UNPROCESSABLE_ENTITY, signal_write::alert(message)?))
         }
         Saved::Unported => Ok(layout::not_ported_for(&ctx)),
+        Saved::Unservable(reason) => Ok(layout::refused(&ctx, reason)),
     }
 }
 

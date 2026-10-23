@@ -91,7 +91,7 @@ fn owned(c: &Connection, app: &App, owner: i64, id: i64, locale: &str) -> Result
 
 /// What a write left for the pages to refuse: the wash-sale question its rules now owe (a modal this build does not
 /// serve), or any other refusal of the bot as it now is.
-fn refused_after(c: &Connection, app: &App, owner: i64, id: i64) -> Result<Option<&'static str>, WebError> {
+pub(crate) fn refused_after(c: &Connection, app: &App, owner: i64, id: i64) -> Result<Option<&'static str>, WebError> {
     let (provider, _) = bots::market_data(c, app)?;
     super::refusal(c, id, wash_sale(c, owner)?, provider, For::Page)
 }

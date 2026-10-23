@@ -477,6 +477,12 @@ module Pages
           get('/bots'), wz_bare.(SIG_EXCHANGE, { 'bots_signal[exchange_id]' => '3' }), wz_bare.(SIG_QUOTE, { 'bots_signal[quote_asset_id]' => '18' }),
           wz_bare.("/de#{SIG_ASSETS}", { 'bots_signal[base_asset_id]' => '16' }), wz_step.(SIG_EXCHANGE_NEW)
         ), 'user' => advanced),
+        # An enabled sell rule while the wash-sale question is unanswered: Rails saves and starts the bot and asks the question on
+        # its page; this build serves no page for such a bot, so the save is refused by name and nothing is written.
+        'not_ported_signal_wizard_wash_sale' => venue_wizard(signed_in(
+          chooser.('/bots/new', MODAL), wz_step.(SIG_ASSETS_NEW), sg_pick.(16), wz_step.(SIG_EXCHANGE_NEW), sg_exchange.(3), wz_step.(SIG_QUOTE_NEW), sg_quote.(18),
+          wz_step.(SIG_CONFIRM_NEW), sg_update.(0, sg_rule_form('sell', '50', 'percentage')), wz_step.(SIG_CONFIRM_NEW), sg_create.()
+        ), 'user' => owner('advanced_bots_enabled' => true, 'wash_sale_enabled' => nil)),
         # A venue that lists the stock and on which this build runs no signal bot: its key step is refused by name.
         'not_ported_wizard_signal_ibkr_key' => { 'user' => advanced, 'install' => 'alpaca', 'steps' => signed_in(
           chooser.('/bots/new', MODAL), wz_step.(SIG_ASSETS_NEW), sg_pick.(2), wz_bare.(SIG_EXCHANGE, { 'bots_signal[exchange_id]' => '2' }), wz_step.(SIG_KEY_NEW)
