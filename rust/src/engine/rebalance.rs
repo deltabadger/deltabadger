@@ -296,7 +296,7 @@ pub async fn value<V: crate::venue::Venue>(c: &rusqlite::Connection, venue: &V, 
             // leaves the figures stale (index::priced and the tick's price reads apply the same rule).
             Err(VenueError::Transient(m)) if venue.rules().transport_raises => return Ok(Err(ValueFail::Transient(m))),
             Err(VenueError::Transient(m)) => Err(Failure::Failed(m)),
-            Err(VenueError::Rejected(e) | VenueError::Unauthorized(e)) => Err(Failure::Failed(crate::ruby::to_sentence(&e))),
+            Err(VenueError::Rejected(e) | VenueError::Unauthorized(e) | VenueError::Coded { errors: e, .. }) => Err(Failure::Failed(crate::ruby::to_sentence(&e))),
             // An answer the venue's reader cannot read: Rails' dig_or_raise KeyError, which nothing on the way rescues.
             Err(VenueError::Ambiguous(m)) => return Ok(Err(ValueFail::Raised(m))),
         }
@@ -707,7 +707,8 @@ async fn place<V: Venue + Attributed>(c: &Connection, venue: &V, claim: &Claim, 
     Ok(match super::placement::send_recorded(c, venue, bot, &intent, clock).await? {
         Sent::Accepted(txid) => Outcome::Placed(c.query_row("SELECT id FROM transactions WHERE exchange_id = ?1 AND external_id = ?2", params![bot.exchange_id, txid], |r| r.get(0))?),
         Sent::Rejected(errors) if super::placement::safe_rejection(&errors) => Outcome::Failed(crate::ruby::to_sentence(&errors)),
-        Sent::Rejected(_) => Outcome::Skipped("ambiguous"),
+        // A REBALANCE leg is outside D-BELOW-MIN-REJECTION (placement::skips_below_minimum): never BelowMinimum.
+        Sent::Rejected(_) | Sent::BelowMinimum(_) => Outcome::Skipped("ambiguous"),
         Sent::NotSent(m) => Outcome::Failed(m),
         Sent::Ambiguous(_) => Outcome::Skipped("awaiting_reconciliation"),
         Sent::Fenced => Outcome::Skipped("changed"),

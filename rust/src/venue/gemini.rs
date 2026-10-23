@@ -164,7 +164,7 @@ impl<T: Transport> GeminiVenue<T> {
     /// Clients::Gemini#order_status as Exchanges::Gemini#get_order reads it: None for an order Gemini answers OrderNotFound.
     async fn get_order(&self, order_id: &str) -> Result<Option<Value>, VenueError> {
         match self.post(ORDER_STATUS, vec![("order_id", Value::String(order_id.into()))]).await {
-            Err(VenueError::Rejected(m) | VenueError::Unauthorized(m)) if reason(&m).as_deref() == Some(ORDER_NOT_FOUND) => Ok(None),
+            Err(VenueError::Rejected(m) | VenueError::Unauthorized(m) | VenueError::Coded { errors: m, .. }) if reason(&m).as_deref() == Some(ORDER_NOT_FOUND) => Ok(None),
             other => other.map(Some),
         }
     }
@@ -239,7 +239,7 @@ impl<T: Transport> super::Venue for GeminiVenue<T> {
     /// for a later lookup or `deltabadger resolve-placement`. Rails has no lookup (it sends no client order id).
     async fn order_by_client_id(&self, cl_ord_id: &str, symbol: &str, _since: DateTime<Utc>) -> Result<Option<OrderState>, VenueError> {
         let body = match self.post(ORDER_STATUS, vec![("client_order_id", Value::String(cl_ord_id.into()))]).await {
-            Err(VenueError::Rejected(m) | VenueError::Unauthorized(m)) if reason(&m).as_deref() == Some(ORDER_NOT_FOUND) => return Ok(None),
+            Err(VenueError::Rejected(m) | VenueError::Unauthorized(m) | VenueError::Coded { errors: m, .. }) if reason(&m).as_deref() == Some(ORDER_NOT_FOUND) => return Ok(None),
             other => other?,
         };
         let orders = match &body { Value::Array(list) => list.iter().collect::<Vec<_>>(), one => vec![one] };

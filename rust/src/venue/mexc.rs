@@ -124,7 +124,7 @@ impl<T: Transport> MexcVenue<T> {
         let message = if resp.body.is_empty() { format!("the server responded with status {} for {} {}", resp.status, r.method, r.url()) } else { error_message(&resp.body) };
         if !placement && resp.status == 401 { return Err(VenueError::Unauthorized(vec![message])); }
         let definitive = (400..500).contains(&resp.status) || crate::engine::placement::safe_rejection(std::slice::from_ref(&message));
-        Err(if placement && !definitive { VenueError::Ambiguous(message) } else { VenueError::Rejected(vec![message]) })
+        Err(if placement && !definitive { VenueError::Ambiguous(message) } else { super::binance::refusal(placement, &resp.body, message) })
     }
 
     /// `classify`d and decoded: a 2xx that is not JSON is unreadable.
