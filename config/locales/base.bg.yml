@@ -217,6 +217,7 @@ bg:
             missing_credentials: 'Попълнете и двете полета: API ключ и секрет.'
             not_refreshing: 'Каталогът с акции е синхронизиран. Свържете Alpaca, за да се поддържа актуален.'
             disconnect: 'Прекъсни'
+            mode: 'Режим'
             mode_paper: 'Хартиени'
             mode_live: 'Реални'
         rest:
@@ -438,6 +439,7 @@ bg:
         minutes_short: 'м'
         seconds_short: 'с'
     bot_filters:
+        label: 'Статус на бота'
         all: 'Всички'
         active: 'Активни'
         inactive: 'Неактивни'
@@ -677,6 +679,7 @@ bg:
             closed: 'Затворена'
             cash: 'Пари в брой'
         range:
+            label: 'Период'
             '30d': '30Д'
             '1y': '1Г'
             all: 'Всичко'
@@ -718,6 +721,7 @@ bg:
             adjustment: 'Корекция'
             unsupported_activity: 'Друга операция'
     order_filters:
+        label: 'Поръчки'
         all: 'Всички'
         successful: 'Успешни'
         transactions: 'Transactions' # TODO: translate (English placeholder)

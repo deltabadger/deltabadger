@@ -53,7 +53,7 @@
       <%# Fluid: "All" and "Inactive" are nowhere near the same width, so equal columns would
           pad the short label out of proportion. %>
       <% if @show_filters %>
-        <%= render 'shared/segmented', fluid: true, label: t('bot_filters.all'),
+        <%= render 'shared/segmented', fluid: true, label: t('bot_filters.label'),
                    options: (%w[all active inactive] + (@has_archived ? %w[archived] : [])).map { |filter|
                      { value: filter, label: t("bot_filters.#{filter}"),
                        href: bots_path(filter: filter), active: @filter == filter }

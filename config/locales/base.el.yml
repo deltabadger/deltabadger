@@ -217,6 +217,7 @@ el:
             missing_credentials: 'Συμπλήρωσε και το κλειδί API και το secret.'
             not_refreshing: 'Ο κατάλογος μετοχών είναι συγχρονισμένος. Σύνδεσε το Alpaca για να μένει ενημερωμένος.'
             disconnect: 'Αποσύνδεση'
+            mode: 'Λειτουργία'
             mode_paper: 'Εικονικό'
             mode_live: 'Πραγματικό'
         rest:
@@ -438,6 +439,7 @@ el:
         minutes_short: 'λ'
         seconds_short: 'δ'
     bot_filters:
+        label: 'Κατάσταση bot'
         all: 'Όλα'
         active: 'Ενεργά'
         inactive: 'Ανενεργά'
@@ -677,6 +679,7 @@ el:
             closed: 'Κλειστή'
             cash: 'Μετρητά'
         range:
+            label: 'Περίοδος'
             '30d': '30Η'
             '1y': '1Ε'
             all: 'Όλα'
@@ -718,6 +721,7 @@ el:
             adjustment: 'Προσαρμογή'
             unsupported_activity: 'Άλλη δραστηριότητα'
     order_filters:
+        label: 'Εντολές'
         all: 'Όλες'
         successful: 'Επιτυχημένες'
         transactions: 'Transactions' # TODO: translate (English placeholder)

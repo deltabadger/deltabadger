@@ -27,8 +27,8 @@
                   data: { turbo_frame: 'stocks_settings', controller: 'form--segmented-field',
                           action: 'segmented:change->form--segmented-field#set' } do |f| %>
       <%# A row of its own: segmented measures its room as its parent's width less its siblings. %>
-      <%= settings_row 'Mode', class: 'srow--flush' do %>
-        <%= render 'shared/segmented', label: 'Mode', options: [
+      <%= settings_row t('settings.stocks.mode'), class: 'srow--flush' do %>
+        <%= render 'shared/segmented', label: t('settings.stocks.mode'), options: [
               { value: 'paper', label: t('settings.stocks.mode_paper'), active: mode == 'paper' },
               { value: 'live', label: t('settings.stocks.mode_live'), active: mode == 'live' }
             ] %>

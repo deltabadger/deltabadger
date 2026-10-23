@@ -98,7 +98,7 @@ pub(super) fn filters(c: &Connection, ctx: &Ctx, bot: &Bot, hide_money: bool) ->
     let order_filter = ctx.params.query("order_filter").unwrap_or(default_filter).to_string();
     let order_filters = if tabs.iter().filter(|(value, _, available)| *available && *value != "all").count() > 1 {
         let options = tabs.iter().filter(|(_, _, available)| *available).map(|(value, label, _)| SegmentedOption { value: (*value).into(), label: i18n::text(ctx.locale, label, &[]), active: order_filter == *value, href: None }).collect();
-        Some(Segmented { fluid: true, label: i18n::text(ctx.locale, "order_filters.all", &[]), key: None, options, links: false }.render()?)
+        Some(Segmented { fluid: true, label: i18n::text(ctx.locale, "order_filters.label", &[]), key: None, options, links: false }.render()?)
     } else {
         None
     };
