@@ -1,4 +1,4 @@
-<div class="tracker-holdings__row">
+<div class="tracker-holdings__row" data-order-filter-target="row" data-order-type="all{% if !class.is_empty() %} {{ class }}{% endif %}">
   <span class="tracker-holdings__name">
     {{ logo|safe }}
     <b>{{ symbol|safe }}</b>

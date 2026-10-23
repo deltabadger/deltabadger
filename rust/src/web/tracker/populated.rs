@@ -13,7 +13,7 @@ fn dec(raw: &str) -> Result<Dec, WebError> { Dec::parse(raw).map_err(|_| invalid
 fn num<T>(r: Result<T, crate::figures::num::NumError>) -> Result<T, WebError> { r.map_err(|_| invalid()) }
 
 /// What the page places, region by region, in Rails' order.
-pub struct Regions { pub pending: String, pub filters: String, pub chart: String, pub tiles: String, pub holdings: String, pub record: String, pub warnings: String }
+pub struct Regions { pub pending: String, pub filters: String, pub chart: String, pub tiles: String, pub holdings: String, pub record: String, pub warnings: String, pub bar_end: String }
 
 /// `rescue_from Tracker::Figures::AmbiguousAssetClass`: the page is a 422 with the message.
 pub enum Built { Regions(Regions), Refused(String) }
@@ -225,25 +225,34 @@ impl CardRow {
 }
 #[derive(Template)]
 #[template(path = "tracker/holding.html")]
-struct RowView<'a> { v: &'a Ctx, hidden: bool, symbol: String, name: String, logo: String, kind: String, color: String, share: String, percent: String, value: String, pnl: Option<(String, &'static str)>, note: Option<String> }
+struct RowView<'a> { v: &'a Ctx, hidden: bool, class: &'static str, symbol: String, name: String, logo: String, kind: String, color: String, share: String, percent: String, value: String, pnl: Option<(String, &'static str)>, note: Option<String> }
 #[derive(Template)]
 #[template(path = "tracker/holdings.html")]
-struct Card<'a> { v: &'a Ctx, hidden: bool, count: usize, shares: String, arcs: Vec<super::holdings::Arc>, shown: Vec<String>, folded: Vec<String>, empty: Option<String>, centre: Option<(String, &'static str)>, unpriced: Option<String>, asides: Vec<String> }
+struct Card<'a> { v: &'a Ctx, hidden: bool, count: usize, shares: String, arcs: Vec<super::holdings::Arc>, shown: Vec<String>, empty: Option<String>, centre: Option<(String, &'static str)>, unpriced: Option<String>, asides: Vec<String> }
 
-pub(super) fn card(ctx: &Ctx, rows: Vec<CardRow>, centre: Option<Dec>, empty: Option<String>, asides: Vec<String>, den: &Denomination) -> Result<String, WebError> {
+/// The holdings filter's class of a row's type (3.0, Rust only): none for a type the filter has no tab for.
+pub(super) fn class_of(kind: &str) -> &'static str {
+    match kind { "Crypto" => "crypto", "Stock" | "ETF" | "Fund" => "stocks", "Cash" | "Stable" => "cash", _ => "" }
+}
+
+/// The holdings card, and the filter classes its rows hold.
+pub(super) fn card(ctx: &Ctx, rows: Vec<CardRow>, centre: Option<Dec>, empty: Option<String>, asides: Vec<String>, den: &Denomination) -> Result<(String, Vec<&'static str>), WebError> {
     let hidden = ctx.user().ok_or_else(invalid)?.hide_balances;
     let total = rows.iter().try_fold(Dec::zero(), |sum, r| &sum + &r.value).map_err(|_| invalid())?;
     let other = i18n::text(ctx.locale, "tracker.other", &[]);
     let mut shares: Vec<(String, Dec)> = vec![];
     let mut views = vec![];
+    let mut classes = vec![];
     for r in &rows {
         let kind = type_label(&r.asset.symbol, r.asset.category.as_deref());
+        let class = class_of(kind);
+        if !class.is_empty() && !classes.contains(&class) { classes.push(class); }
         let group = if kind.is_empty() { other.clone() } else { kind.into() };
         match shares.iter_mut().find(|(k, _)| *k == group) { Some((_, v)) => *v = num(&*v + &r.value)?, None => shares.push((group, r.value.clone())) }
         let share = if total.is_positive() { num(&num(r.value.div(&total))? * &dec("100")?)? } else { Dec::zero() };
         let color = crate::web::colors::ensure_contrast(r.asset.color.as_deref().filter(|s| !s.trim().is_empty()).unwrap_or(crate::web::colors::NEUTRAL)).ok_or_else(invalid)?;
         views.push(RowView {
-            v: ctx, hidden, symbol: escape(&r.asset.symbol), name: escape(&r.asset.name),
+            v: ctx, hidden, class, symbol: escape(&r.asset.symbol), name: escape(&r.asset.name),
             logo: super::row::asset_logo(r.asset.image.clone(), r.asset.color.clone(), r.asset.symbol.clone(), r.asset.category.clone())?,
             kind: kind.into(), color, share: num(share.round(2))?.to_s_f(), percent: fixed(&share, 1)?, value: money(&r.value, den)?,
             pnl: r.percent.as_ref().map(|p| Ok::<_, WebError>((percent_text(p)?, tone(p)))).transpose()?, note: r.note.as_ref().map(|n| escape(n)),
@@ -259,22 +268,43 @@ pub(super) fn card(ctx: &Ctx, rows: Vec<CardRow>, centre: Option<Dec>, empty: Op
     rounded.sort_by(|a, b| b.1.cmp(&a.1));
     let shares = rounded.into_iter().map(|(label, value)| format!("{label} {}%", value.to_s_f().trim_end_matches(".0"))).collect::<Vec<_>>().join(" · ");
     let slices: Vec<(Dec, Option<String>, String)> = rows.iter().map(|r| (r.value.clone(), r.asset.color.clone(), r.asset.symbol.clone())).collect();
-    let folded = if views.len() > 6 { views.split_off(6) } else { vec![] };
-    Ok(Card {
-        v: ctx, hidden, count: rows.len(), shares: escape(&shares), arcs: super::holdings::ring_of(&slices, &other)?, shown: views, folded, empty,
+    let html = Card {
+        v: ctx, hidden, count: rows.len(), shares: escape(&shares), arcs: super::holdings::ring_of(&slices, &other)?, shown: views, empty,
         centre: centre.map(|c| Ok::<_, WebError>((percent_text(&c)?, tone(&c)))).transpose()?, unpriced: None, asides,
-    }.render()?)
+    }.render()?;
+    Ok((html, classes))
 }
 
-fn holdings(c: &Connection, ctx: &Ctx, p: &Portfolio, den: Option<&Denomination>, withheld: Option<&str>) -> Result<String, WebError> {
-    let hidden = ctx.user().ok_or_else(invalid)?.hide_balances;
-    if p.never_synced {
-        return Ok(format!("<div class=\"widget tracker-holdings {}\">\n  <div class=\"tracker-holdings__head\">\n    <span class=\"label\">{} · 0</span>\n    <span class=\"label\"></span>\n  </div>\n\n    <p class=\"tracker-holdings__empty\">{}</p>\n\n</div>\n\n",
-            if hidden { "tracker-holdings--anon" } else { "" }, ctx.t("tracker.holdings"), ctx.t("tracker.portfolio.never_synced")));
+/// The record's Holdings pane (3.0, Rust only): the class filter, offered with two classes or more, and the card.
+pub(super) fn pane(ctx: &Ctx, card: &str, classes: &[&'static str]) -> Result<String, WebError> {
+    let label = |key: &str| i18n::text(ctx.locale, key, &[]);
+    let mut options = vec![super::record::option("all", label("tracker.record.all"), true)];
+    for class in ["crypto", "stocks", "cash"] {
+        if classes.contains(&class) { options.push(super::record::option(class, label(&format!("tracker.holdings_filter.{class}")), false)); }
     }
+    let filter = if options.len() > 2 { format!("        {}
+", super::record::segmented(label("tracker.holdings_filter.label"), None, true, options)?) } else { String::new() };
+    Ok(format!("  <div class=\"tracker-record__pane\" data-pane=\"hold\"\n       data-controller=\"order-filter\" data-tracker--record-target=\"pane\">\n    <div class=\"tracker-record__filters filters\" data-action=\"{}\">\n{filter}    </div>\n    <div class=\"tracker-record__table\">\n{card}    </div>\n  </div>\n\n", super::record::FILTERS_ACTION))
+}
+
+/// The card of an account whose first balance sync has not completed.
+pub(super) fn never_synced(ctx: &Ctx, hidden: bool) -> String {
+    format!("<div class=\"widget tracker-holdings {}\">\n  <div class=\"tracker-holdings__head\">\n    <span class=\"label\">{} · 0</span>\n    <span class=\"label\"></span>\n  </div>\n\n    <p class=\"tracker-holdings__empty\">{}</p>\n\n</div>\n\n",
+        if hidden { "tracker-holdings--anon" } else { "" }, ctx.t("tracker.holdings"), ctx.t("tracker.portfolio.never_synced"))
+}
+
+/// The record's Holdings pane: the card and, over its rows, the class filter.
+fn holdings(c: &Connection, ctx: &Ctx, p: &Portfolio, den: Option<&Denomination>, withheld: Option<&str>) -> Result<String, WebError> {
+    let (card, classes) = holdings_card(c, ctx, p, den, withheld)?;
+    pane(ctx, &card, &classes)
+}
+
+fn holdings_card(c: &Connection, ctx: &Ctx, p: &Portfolio, den: Option<&Denomination>, withheld: Option<&str>) -> Result<(String, Vec<&'static str>), WebError> {
+    let hidden = ctx.user().ok_or_else(invalid)?.hide_balances;
+    if p.never_synced { return Ok((never_synced(ctx, hidden), vec![])); }
     let reason = withheld;
     let (Some(den), None) = (den, reason) else {
-        return Ok(format!("<div class=\"widget tracker-holdings\"><p class=\"tracker-holdings__empty\">{}</p></div>\n\n", escape(reason.unwrap_or("Currency conversion unavailable"))));
+        return Ok((format!("<div class=\"widget tracker-holdings\"><p class=\"tracker-holdings__empty\">{}</p></div>\n\n", escape(reason.unwrap_or("Currency conversion unavailable"))), vec![]));
     };
     let empty = |all_cash: bool| if all_cash { Some(ctx.t("tracker.portfolio.only_cash")) } else if p.has_keys { Some(ctx.t("tracker.portfolio.no_balances")) } else { None };
     match &p.warm {
@@ -297,12 +327,14 @@ fn holdings(c: &Connection, ctx: &Ctx, p: &Portfolio, den: Option<&Denomination>
             let centre = if cost.is_positive() { Some(num(&num(&num(covered.div(&cost))? - &Dec::one())? * &dec("100")?)?) } else { None };
             let asides = f.notes.iter().filter(|n| n.kind == "figures_disagree").map(|n| note_text(ctx, n, den, hidden).map(|t| escape(&t))).collect::<Result<Vec<_>, _>>()?;
             let empty = if rows.is_empty() { empty(warm.all_cash) } else { None };
-            Ok(card(ctx, rows, centre, empty, asides, den)? + "\n\n")
+            let (html, classes) = card(ctx, rows, centre, empty, asides, den)?;
+            Ok((html + "\n\n", classes))
         }
         None => {
             let rows = p.cold.holdings.iter().map(CardRow::cold).collect::<Vec<_>>();
             let empty = if rows.is_empty() { empty(p.cold.only_cash) } else { None };
-            Ok(card(ctx, rows, None, empty, vec![], den)? + "\n\n")
+            let (html, classes) = card(ctx, rows, None, empty, vec![], den)?;
+            Ok((html + "\n\n", classes))
         }
     }
 }
@@ -313,9 +345,18 @@ struct Chip { value: String, label: String, active: bool, href: String, broken: 
 struct MenuItem { label: String, icon: &'static str, href: String }
 #[derive(Template)]
 #[template(path = "tracker/filters.html")]
-struct Filters<'a> { v: &'a Ctx, csrf: String, chips: Vec<Chip>, all_label: String, connect_href: String, menu: Vec<MenuItem>, sync: String, syncable: bool, report: bool, show_cash: bool, export_path: String }
+struct Filters<'a> { v: &'a Ctx, chips: Vec<Chip>, all_label: String, connect_href: String, menu: Vec<MenuItem>, end: String }
+/// The bar's far end: the scope's sync state and the menu whose export carries the scope. It stands beside the venue
+/// switch, outside the scope frame, so a frame load sends it again as a stream (`SCOPE_FRAME`).
+#[derive(Template)]
+#[template(path = "tracker/bar_end.html")]
+struct BarEnd<'a> { v: &'a Ctx, csrf: String, sync: String, syncable: bool, report: bool, show_cash: bool, export_path: String }
 
-fn filters(c: &Connection, ctx: &Ctx, owner: i64, scope: Option<i64>, show_cash: bool, sync: String) -> Result<String, WebError> {
+/// The tracker's frame: the chart, the tiles and the record the venue switch scopes (3.0, Rust only).
+pub const SCOPE_FRAME: &str = "tracker_scope";
+
+/// The bar (venue switch and far end) and its far end alone.
+fn filters(c: &Connection, ctx: &Ctx, owner: i64, scope: Option<i64>, show_cash: bool, sync: String) -> Result<(String, String), WebError> {
     let exchanges = venues(c, "SELECT id,name,type FROM exchanges WHERE id IN (SELECT exchange_id FROM api_keys WHERE user_id=?1 UNION SELECT exchange_id FROM account_transactions WHERE user_id=?1) ORDER BY name", owner)?;
     let connectable = venues(c, "SELECT id,name,type FROM exchanges WHERE available=1 AND type!='Exchanges::Bitmart' AND id NOT IN (SELECT exchange_id FROM api_keys WHERE user_id=?1 UNION SELECT exchange_id FROM account_transactions WHERE user_id=?1) ORDER BY name", owner)?;
     let (brokers, rest): (Vec<Venue>, Vec<Venue>) = connectable.into_iter().partition(|v| stock_venue(&v.kind));
@@ -338,10 +379,9 @@ fn filters(c: &Connection, ctx: &Ctx, owner: i64, scope: Option<i64>, show_cash:
     let pairs = ctx.params.query.iter().filter(|(key, _)| matches!(key.as_str(), "exchange_id" | "from" | "to")).cloned().collect::<Vec<_>>();
     let query = crate::web::locale::switch_query(&pairs);
     let export_path = escape(&ctx.path(&format!("/tracker/export{}", if query.is_empty() { String::new() } else { format!("?{query}") })));
-    Ok(Filters {
-        v: ctx, csrf: ctx.csrf_token(), all_label: escape(&i18n::text(ctx.locale, "tracker.columns.exchange", &[])), chips, connect_href: ctx.path("/tracker/pick_exchange/new"),
-        menu, sync, syncable: !valid.is_empty(), report: !exchanges.is_empty(), show_cash, export_path,
-    }.render()?)
+    let end = BarEnd { v: ctx, csrf: ctx.csrf_token(), sync, syncable: !valid.is_empty(), report: !exchanges.is_empty(), show_cash, export_path }.render()? + "\n";
+    let bar = Filters { v: ctx, all_label: escape(&i18n::text(ctx.locale, "tracker.columns.exchange", &[])), chips, connect_href: ctx.path("/tracker/pick_exchange/new"), menu, end: end.clone() }.render()?;
+    Ok((bar, end))
 }
 
 // ---- the page -------------------------------------------------------------------------------------------------------
@@ -367,13 +407,15 @@ pub fn regions(c: &Connection, ctx: &Ctx, owner: i64, fx: &Prepared) -> Result<B
     let gaps = crate::tracker::gaps::read(c, owner, scope, p.published.as_ref(), None).unwrap_or_else(|e| {
         crate::engine::log(&format!("[tracker] history gap for user {owner} not read: {}", crate::tracker::jobs::message(e))); vec![]
     });
+    let (filters, bar_end) = filters(c, ctx, owner, scope, show_cash, sync)?;
+    let holdings_pane = holdings(c, ctx, &p, den.as_ref(), withheld)?;
     Ok(Built::Regions(Regions {
         pending: pending_report(ctx, owner, &settings)?,
-        filters: filters(c, ctx, owner, scope, show_cash, sync)?,
+        filters, bar_end,
         tiles: tiles(ctx, &p, den.as_ref(), withheld)?,
-        holdings: holdings(c, ctx, &p, den.as_ref(), withheld)?,
+        holdings: holdings_pane.clone(),
         chart: super::record::chart(c, ctx, owner, scope, show_cash, shown)?,
-        record: super::record::record(c, ctx, owner, scope, p.warm.as_ref().zip(p.ledger.as_deref()), den.as_ref(), shown, &gaps)?,
+        record: super::record::record(c, ctx, owner, scope, p.warm.as_ref().zip(p.ledger.as_deref()), den.as_ref(), shown, &gaps, &holdings_pane)?,
         warnings: crate::web::settings::keys::warnings(c, ctx, owner)?,
     }))
 }
@@ -391,7 +433,10 @@ pub fn page(c: &Connection, ctx: &Ctx, owner: i64, fx: &Prepared) -> Result<axum
         Built::Refused(message) => return Ok((axum::http::StatusCode::UNPROCESSABLE_ENTITY, [(axum::http::header::CONTENT_TYPE, "text/plain; charset=utf-8")], message).into_response()),
     };
     let tiles = if r.tiles.is_empty() { "\n    ".to_string() } else { format!("  {}", r.tiles) };
-    let body = format!("{}  <div class=\"tracker\">\n    {}\n    {}\n    {tiles}{}    {}\n  </div>\n", r.pending, r.filters, r.chart, r.holdings, r.record);
+    // The scope frame (3.0, Rust only): what the venue switch scopes, under the bar that holds the switch. A load of
+    // the frame alone also sends the bar's far end, which states the scope from outside it.
+    let stream = if ctx.turbo_frame.as_deref() == Some(SCOPE_FRAME) { crate::web::turbo::stream("replace", "tracker_bar_end", &r.bar_end) } else { String::new() };
+    let body = format!("{}  <div class=\"tracker\">\n    {}\n    <turbo-frame id=\"{SCOPE_FRAME}\" class=\"scope-frame\" target=\"_top\" data-turbo-action=\"advance\">\n    {}\n    {tiles}    {}{stream}</turbo-frame>\n  </div>\n", r.pending, r.filters, r.chart, r.record);
     let body = Page { v: ctx, preferences: format!("user_{owner}:preferences"), tax_report: format!("user_{owner}:tax_report"), sync: format!("user_{owner}:sync"), body }.render()?;
     let page = super::layout::Page { status: axum::http::StatusCode::OK, body, flash_now: vec![] };
     if ctx.turbo_frame.is_some() { return super::layout::frame(&ctx.csrf_token(), &page); }
@@ -402,6 +447,14 @@ pub fn page(c: &Connection, ctx: &Ctx, owner: i64, fx: &Prepared) -> Result<axum
 
 #[cfg(test)]
 mod tests {
+    /// The holdings filter's classes (3.0): crypto, the stock-like, and cash with the stablecoins; nothing else.
+    #[test]
+    fn each_type_files_under_one_class() {
+        for (kind, class) in [("Crypto", "crypto"), ("Stock", "stocks"), ("ETF", "stocks"), ("Fund", "stocks"), ("Cash", "cash"), ("Stable", "cash"), ("", "")] {
+            assert_eq!(super::class_of(kind), class, "{kind}");
+        }
+    }
+
     /// number_with_precision: a percentage that rounds to zero is written without its minus (Rails' 0.0%).
     #[test]
     fn a_percentage_rounding_to_zero_has_no_minus() {

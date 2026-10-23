@@ -1,0 +1,18 @@
+    <div class="page-head__actions" id="bots_actions">
+{% if select_mode %}
+        <div data-controller="dropdown" data-action="click->dropdown#toggle" data-dropdown-target="wrapper" class="sbutton sbutton--link dropdown-wrapper dropdown-wrapper--right">
+          {% include "svg/_24x24_dot_menu.html" %}
+          <div class="dropdown">
+{% if can_merge %}
+              <button name="button" type="button" class="dropdown__item" data-action="bots-merge#enter">{{ v.t("button.merge")|safe }}</button>
+{% endif %}
+{% if can_split %}
+              <button name="button" type="button" class="dropdown__item" data-action="bots-merge#enter" data-bots-merge-mode-param="split">{{ v.t("button.split")|safe }}</button>
+{% endif %}
+          </div>
+        </div>
+{% endif %}
+      <form class="button_to" method="get" action="{{ v.path("/bots/new") }}"><button class="sbutton sbutton--sky" data-turbo-frame="modal" aria-label="{{ v.t("bot.new")|safe }}" type="submit">
+        <span class="d-none d-sm-inline">{{ v.t("bot.new")|safe }}</span>
+        {% include "svg/_24x24_plus.html" %}
+</button></form>    </div>

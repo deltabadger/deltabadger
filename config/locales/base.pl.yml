@@ -672,6 +672,11 @@ pl:
             loss: 'Strata'
             closed: 'Zamknięta'
             cash: 'Gotówka'
+        holdings_filter:
+            label: 'Klasa aktywów'
+            crypto: 'Krypto'
+            stocks: 'Akcje'
+            cash: 'Gotówka'
         range:
             label: 'Okres'
             '30d': '30D'
