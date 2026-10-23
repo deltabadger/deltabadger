@@ -31,6 +31,8 @@ pub const BITGET: &str = "Exchanges::Bitget";
 pub const UNREADABLE: &str = "Bitget: unreadable response";
 pub const ORDERBOOK_PATH: &str = "/api/v2/spot/market/orderbook";
 pub const TICKERS_PATH: &str = "/api/v2/spot/market/tickers";
+/// Clients::Bitget#get_candles' path.
+pub const CANDLES_PATH: &str = "/api/v2/spot/market/candles";
 pub const ASSETS_PATH: &str = "/api/v2/spot/account/assets";
 pub const PLACE_PATH: &str = "/api/v2/spot/trade/place-order";
 pub const ORDER_INFO_PATH: &str = "/api/v2/spot/trade/orderInfo";
