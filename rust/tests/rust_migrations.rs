@@ -266,6 +266,31 @@ fn the_build_embeds_exactly_rust_migrations_and_each_contract_names_one() {
     }
 }
 
+/// The KuCoin cutoffs earlier builds kept in app_configs move to import_cutoffs, and only they leave app_configs.
+#[test]
+fn the_kucoin_cutoffs_move_from_app_configs_to_their_own_table() {
+    const CUTOFFS: &str = "20261023000001";
+    let dir = common::rails_install_unmigrated();
+    let p = paths(dir.path());
+    let before = &RUST_MIGRATIONS[..RUST_MIGRATIONS.iter().position(|m| m.version == CUTOFFS).unwrap()];
+    let tables = &REGISTRY.tables[..REGISTRY.tables.iter().position(|(v, _)| *v == CUTOFFS).unwrap()];
+    store::migrate_with(&p, &lock(&p), &Registry { migrations: before, tables }).unwrap();
+    exec(&p.primary, r#"INSERT INTO app_configs (key, value, created_at, updated_at) VALUES
+        ('rust_kucoin_csv.cutoff:7:3', '{"fills":"2026-09-14 12:00:00","deposits":"2026-09-16 10:00:00"}', '2026-09-20', '2026-09-20 02:00:00'),
+        ('rust_kucoin_csv.cutoff:12:40', '{"withdrawals":"2026-09-01 00:00:00"}', '2026-09-20', '2026-09-21 00:00:00'),
+        ('rust_kucoin_csv.cutoff:8:3', 'not json', '2026-09-20', '2026-09-20'),
+        ('rust_sync.ledger:1', '{}', '2026-09-20', '2026-09-20')"#);
+    assert_eq!(store::migrate_with(&p, &lock(&p), &REGISTRY).unwrap(), vec![CUTOFFS.to_string()]);
+    let c = Connection::open(&p.primary).unwrap();
+    let mut s = c.prepare("SELECT user_id, exchange_id, class, cutoff_at, updated_at FROM import_cutoffs ORDER BY user_id, class").unwrap();
+    let rows: Vec<(i64, i64, String, String, String)> = s.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?))).unwrap().collect::<Result<_, _>>().unwrap();
+    let row = |u, e, class: &str, at: &str, upd: &str| (u, e, class.to_string(), at.to_string(), upd.to_string());
+    assert_eq!(rows, vec![row(7, 3, "deposits", "2026-09-16 10:00:00", "2026-09-20 02:00:00"), row(7, 3, "fills", "2026-09-14 12:00:00", "2026-09-20 02:00:00"),
+                          row(12, 40, "withdrawals", "2026-09-01 00:00:00", "2026-09-21 00:00:00")]);
+    let keys: Vec<String> = c.prepare("SELECT key FROM app_configs ORDER BY key").unwrap().query_map([], |r| r.get(0)).unwrap().collect::<Result<_, _>>().unwrap();
+    assert_eq!(keys, ["rust_sync.ledger:1"]);
+}
+
 /// `create_table "<name>"` lines in a schema dump for any of `tables`.
 fn leaked(schema: &str, tables: &[&str]) -> Vec<String> {
     tables.iter().filter(|t| schema.contains(&format!("create_table \"{t}\""))).map(|t| t.to_string()).collect()

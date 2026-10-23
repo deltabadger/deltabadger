@@ -51,11 +51,12 @@
 
 </a></div>
 <div class="menu__section menu__section--top menu__section--main-menu" data-controller="menu">
-<a class="menu__item menu__item--bots {% if v.current_page(shell.bots_path()) %}menu__item--active{% endif %}" aria-label="{{ v.t(shell.bots_label())|safe }}" data-action="click-&gt;menu#select" data-menu-target="tile" data-tile="bots" href="{{ v.path(shell.bots_path()) }}"><svg id="bot-count" class="icon-24 icon-24--count" viewbox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<a class="menu__item menu__item--bots {% if (shell.single_bot.is_none() && on_bot_page) || v.current_page(shell.bots_path()) %}menu__item--active{% endif %}{% if shell.single_bot.is_none() && on_bot_page %} menu__item--back{% endif %}" aria-label="{{ v.t(shell.bots_label())|safe }}" data-action="click-&gt;menu#select" data-menu-target="tile" data-tile="bots" href="{{ v.path(shell.bots_path()) }}"><svg id="bot-count" class="icon-24 icon-24--count" viewbox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
   <text class="fill--icon" x="12" y="{{ bot_count_baseline }}" text-anchor="middle"
         font-size="{{ bot_count_font_size }}">{{ shell.bot_count }}</text>
 </svg>
-
+{% if shell.single_bot.is_none() %}{% include "svg/_24x24_arrow_previous.html" %}
+{% endif %}
 </a><a class="menu__item menu__item--tracker {% if v.current_page("/tracker") %}menu__item--active{% endif %}" aria-label="{{ v.t("links.tracker")|safe }}" data-action="click-&gt;menu#select" data-menu-target="tile" data-tile="tracker" href="{{ v.path("/tracker") }}"><svg class="icon-24 icon-24--allocation" viewbox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
 {% if shell.arcs.is_empty() %}    <circle class="stroke--icon" cx="12" cy="12" r="9"
             fill="none" stroke-width="2"/>
