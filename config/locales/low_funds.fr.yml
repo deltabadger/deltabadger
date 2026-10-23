@@ -2,6 +2,3 @@ fr:
     bot:
         status:
             low_funds: "Fonds bas"
-    bot_activity:
-        events:
-            order_closed_empty: "Ordre %{order_id} clôturé sur %{exchange} sans exécution."

@@ -113,18 +113,22 @@ pub struct OrderState {
     /// asset fields from this pair's ticker (`order_data[:ticker]`), never from the bot. None where the venue gives none.
     pub pair: Option<String>,
     pub asset_class: Option<String>,
-    /// D-KUCOIN-ZERO-FILL-DONE: the `createdAt` of a market order KuCoin ended with nothing dealt (`isActive` and
+    /// D-KUCOIN-ZERO-FILL-FUNDS: the `createdAt` of a market order KuCoin ended with nothing dealt (`isActive` and
     /// `cancelExist` false, `dealSize` and `dealFunds` 0). Rails reads it `:unknown` forever; the status stays Unknown here
-    /// too until `settled` finds it older than ZERO_FILL_SETTLE, then it is Closed with nothing filled.
+    /// too until `settled` finds it older than ZERO_FILL_SETTLE, then it is Closed with nothing filled: a buy is then KuCoin's
+    /// out-of-funds answer and fails as its insufficient-funds rejection does (polling::apply_in); a sell stays Closed.
     pub zero_fill_at: Option<DateTime<Utc>>,
 }
 
 /// How old a zero-fill answer must be before it is final: an order polled before the venue processed it may read
 /// inactive with nothing dealt; a market order settles within milliseconds of placement.
 pub const ZERO_FILL_SETTLE: chrono::Duration = chrono::Duration::minutes(5);
+/// What a settled zero-fill buy is failed with: KuCoin's insufficient-funds rejection of a placement, word for word as the
+/// venue reports it (kucoin::api_error), so the row reads as that rejection's row (D-KUCOIN-ZERO-FILL-FUNDS).
+pub const ZERO_FILL_REFUSAL: &str = "KuCoin API error 200004: Balance insufficient!";
 
 impl OrderState {
-    /// When a zero-fill answer still too young to settle becomes final (D-KUCOIN-ZERO-FILL-DONE).
+    /// When a zero-fill answer still too young to settle becomes final (D-KUCOIN-ZERO-FILL-FUNDS).
     pub fn settles_at(&self) -> Option<DateTime<Utc>> {
         self.zero_fill_at.filter(|_| self.status == OrderStatus::Unknown).and_then(|at| at.checked_add_signed(ZERO_FILL_SETTLE))
     }

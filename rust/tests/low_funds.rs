@@ -1,8 +1,8 @@
 //! A bot out of funds on KuCoin (plan LF, Rust-only): KuCoin ends a market buy it could not fund `isActive: false,
-//! cancelExist: false` with nothing dealt, which Rails reads `:unknown` forever. Three named divergences:
-//! D-KUCOIN-ZERO-FILL-DONE (such an order, once older than ZERO_FILL_SETTLE, is Closed with nothing filled),
-//! D-ZERO-FILL-NOTE (one activity line says so, and claims no cause) and D-LOW-FUNDS-STATUS ("Low funds" before the
-//! countdown, from the synced balances). Rails-free.
+//! cancelExist: false` with nothing dealt, which Rails reads `:unknown` forever. Two named divergences:
+//! D-KUCOIN-ZERO-FILL-FUNDS (such a buy, once older than ZERO_FILL_SETTLE, is KuCoin's insufficient-funds answer: the row and
+//! the bot fail exactly as a placement KuCoin rejected with "Balance insufficient!"; a sell is Closed with nothing filled)
+//! and D-LOW-FUNDS-STATUS ("Low funds" before the countdown, from the synced balances). Rails-free.
 mod common;
 use chrono::{DateTime, Duration, Utc};
 use common::seed::{self, BotSpec, TxSpec};
@@ -15,6 +15,7 @@ use deltabadger::venue::binance::Pairs;
 use deltabadger::venue::http::ScriptedTransport;
 use deltabadger::venue::kucoin::{self, KucoinVenue, URL};
 use deltabadger::venue::{OrderStatus, Venue, ZERO_FILL_SETTLE};
+use deltabadger::engine::tick::FUNDS_MAIL_PENDING;
 use serde_json::{json, Value};
 
 fn at(s: &str) -> DateTime<Utc> { s.parse().unwrap() }
@@ -57,9 +58,24 @@ impl Kc {
         self.o.primary.query_row("SELECT external_status, coalesce(amount_exec, 0), quote_amount_exec FROM transactions WHERE external_id = ?1", [ext],
                                  |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap()
     }
-    fn notes(&self) -> Vec<Value> {
-        let mut s = self.o.primary.prepare("SELECT details FROM bot_activity_logs WHERE event = ?1 ORDER BY id").unwrap();
-        s.query_map([polling::ZERO_FILL_EVENT], |r| r.get::<_, String>(0)).unwrap().map(|d| serde_json::from_str(&d.unwrap()).unwrap()).collect()
+    /// (status, error_messages) of the row.
+    fn failed(&self, ext: &str) -> (i64, String) {
+        self.o.primary.query_row("SELECT status, error_messages FROM transactions WHERE external_id = ?1", [ext], |r| Ok((r.get(0)?, r.get(1)?))).unwrap()
+    }
+    /// The bot's activity events, in order.
+    fn logs(&self) -> Vec<String> {
+        let mut s = self.o.primary.prepare("SELECT event FROM bot_activity_logs WHERE bot_id = ?1 ORDER BY id").unwrap();
+        s.query_map([self.bot], |r| r.get(0)).unwrap().map(Result::unwrap).collect()
+    }
+    /// (status, last_failure_kind, last_end_of_funds_notification, the funds mail marker) of the bot.
+    fn failure(&self) -> (i64, Option<String>, Option<String>, Option<String>) {
+        self.o.primary.query_row(&format!("SELECT status, json_extract(transient_data, '$.last_failure_kind'), last_end_of_funds_notification, \
+                                           json_extract(transient_data, '$.{FUNDS_MAIL_PENDING}') FROM bots WHERE id = ?1"), [self.bot],
+                                 |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))).unwrap()
+    }
+    /// The mail service sent the funds mail it owed.
+    fn mail_sent(&self) {
+        self.o.primary.execute(&format!("UPDATE bots SET transient_data = json_remove(transient_data, '$.{FUNDS_MAIL_PENDING}') WHERE id = ?1"), [self.bot]).unwrap();
     }
 }
 fn pairs() -> Pairs {
@@ -114,31 +130,112 @@ fn only_explicit_terminal_evidence_on_a_market_order_is_kept_and_it_settles_stri
     for field in ["dealSize", "dealFunds"] { assert!(parse(&edit(&|r| r[field] = json!("garbage"))).is_err(), "{field}: an unreadable amount is never a zero"); }
 }
 
+const FAILED: (i64, &str) = (1, r#"["KuCoin API error 200004: Balance insufficient!"]"#);
+const RETRYING: i64 = 5;
+
+/// Bot 27's case: one market buy a day, each answered done with nothing dealt. Inside the window the answer is Unknown as
+/// before; past it each row fails with KuCoin's insufficient-funds error, the bot retries with it, and the day's funds mail
+/// is owed once. Nothing that re-reads the row writes again.
 #[tokio::test(flavor = "current_thread")]
-async fn the_recorded_answers_settle_past_the_window_with_one_line_and_stay_unknown_inside_it() {
+async fn the_recorded_answers_fail_past_the_window_as_kucoins_funds_rejection_and_stay_unknown_inside_it() {
+    let k = install(1);
+    let (mut stamp, mut mails): (Option<(DateTime<Utc>, String)>, usize) = (None, 0);
     for (id, created, size) in CASE {
-        let k = install(1);
-        k.waiting(id, created);
+        let tx = k.waiting(id, created);
         let t = ScriptedTransport::from_script(&json!({ format!("GET /api/v1/orders/{id}"): env(answer(id, created, size)) }));
         let unknown = Err(PollFailure::General(format!("Order {id} status is unknown.")));
+        let logs = k.logs();
         for young in [Duration::minutes(4), ZERO_FILL_SETTLE] {
             assert_eq!(polling::sweep(&k.o.primary, &kv(&t), &k.bot(), at(created) + young).await, unknown, "{id}: inside the window the sweep raises, as Rails");
         }
-        assert_eq!((k.row(id).0, k.notes().len()), (0, 0), "{id}: nothing written while young");
+        assert_eq!((k.row(id).0, k.failed(id).0, k.failure().0, k.logs()), (0, 0, 1, logs.clone()), "{id}: nothing written while young");
         let later = at(created) + ZERO_FILL_SETTLE + Duration::seconds(1);
-        assert_eq!(polling::sweep(&k.o.primary, &kv(&t), &k.bot(), later).await, Ok(()));
-        assert_eq!(k.row(id), (2, 0.0, Some(0.0)), "{id}: closed with nothing filled");
-        assert_eq!(k.notes(), [json!({ "order_id": id, "exchange": "KuCoin" })]);
-        // A later sweep has nothing to ask or raise; a refresh of the closed row, a follow-up, a restart's poll write no second line.
+        assert_eq!(polling::follow_up(&k.o.primary, &kv(&t), k.bot, tx, later).await, Ok(FollowUp::Done));
+        assert_eq!((k.failed(id).0, k.failed(id).1.as_str()), FAILED, "{id}: failed with KuCoin's own error");
+        assert_eq!(k.row(id), (2, 0.0, Some(0.0)), "{id}: nothing filled");
+        // The shared budget: one funds mail a day. The third run settles a little under a day after the second.
+        let free = stamp.as_ref().is_none_or(|(at, _)| *at < later - Duration::days(1));
+        if free { stamp = Some((later, deltabadger::codec::format_time(later))); }
+        let (_, stamped) = stamp.clone().unwrap();
+        let marker = free.then(|| json!({ "quote_asset": k.s.quote, "stamped_at": deltabadger::ruby::iso8601_ms(later) }).to_string());
+        assert_eq!(k.failure(), (RETRYING, Some("insufficient_funds".into()), Some(stamped.clone()), marker), "{id}: retrying, the funds mail owed if the day's budget is free");
+        mails += usize::from(free);
+        assert_eq!(k.logs(), logs, "{id}: a rejected placement writes no line of its own: the failed row is the activity");
+        k.mail_sent();
+        // A later sweep has nothing to ask; a refresh, a follow-up and a restart's poll write nothing more.
         let asked = gets(&t, id);
-        assert_eq!(polling::sweep(&k.o.primary, &kv(&t), &k.bot(), later + Duration::days(1)).await, Ok(()));
-        assert_eq!(gets(&t, id), asked, "no longer waiting");
-        let tx: i64 = k.o.primary.query_row("SELECT id FROM transactions WHERE external_id = ?1", [id], |r| r.get(0)).unwrap();
-        polling::refresh(&k.o.primary, &kv(&t), k.bot, tx, later + Duration::days(1)).await.unwrap();
-        assert_eq!(gets(&t, id), asked + 1, "the refresh asked again");
-        assert_eq!(polling::follow_up(&k.o.primary, &kv(&t), k.bot, tx, later + Duration::days(2)).await, Ok(FollowUp::Done));
-        assert_eq!((k.row(id).0, k.notes().len()), (2, 1), "{id}: one line, whatever re-reads the row");
+        assert_eq!(polling::sweep(&k.o.primary, &kv(&t), &k.bot(), later + Duration::hours(1)).await, Ok(()));
+        polling::refresh(&k.o.primary, &kv(&t), k.bot, tx, later + Duration::hours(1)).await.unwrap();
+        assert_eq!(polling::follow_up(&k.o.primary, &kv(&t), k.bot, tx, later + Duration::hours(2)).await, Ok(FollowUp::Done));
+        assert_eq!(gets(&t, id), asked, "{id}: a failed row is never asked again");
+        assert_eq!((k.failed(id).0, k.failure().3, k.failure().2, k.logs()), (1, None, Some(stamped), logs), "{id}: written once");
+        // The next day's run places again, and its success puts the bot back on schedule.
+        k.o.primary.execute("UPDATE bots SET status = 1 WHERE id = ?1", [k.bot]).unwrap();
     }
+    assert_eq!(mails, 2, "21 and 22 October: the 23rd's run came under 24 hours after the 22nd's");
+}
+
+/// Two such answers within a day owe one funds mail: the shared once-a-day budget of a rejected placement.
+#[tokio::test(flavor = "current_thread")]
+async fn two_zero_fills_within_a_day_owe_one_funds_mail() {
+    let k = install(1);
+    let (first, created, size) = CASE[0];
+    let second = "000000000000000000000c0a";
+    let script = json!({ format!("GET /api/v1/orders/{first}"): env(answer(first, created, size)), format!("GET /api/v1/orders/{second}"): env(answer(second, created, size)) });
+    let t = ScriptedTransport::from_script(&script);
+    let a = k.waiting(first, created);
+    let b = k.waiting(second, created);
+    let later = at(created) + Duration::minutes(6);
+    assert_eq!(polling::follow_up(&k.o.primary, &kv(&t), k.bot, a, later).await, Ok(FollowUp::Done));
+    assert!(k.failure().3.is_some());
+    k.mail_sent();
+    assert_eq!(polling::follow_up(&k.o.primary, &kv(&t), k.bot, b, later + Duration::hours(3)).await, Ok(FollowUp::Done));
+    assert_eq!((k.failed(first).0, k.failed(second).0), (1, 1));
+    assert_eq!(k.failure(), (RETRYING, Some("insufficient_funds".into()), Some(deltabadger::codec::format_time(later)), None), "the budget was spent: no second mail");
+}
+
+/// A sell KuCoin ends that way (not expected: KuCoin checks base) stays Closed with nothing filled, and the bot is untouched.
+#[tokio::test(flavor = "current_thread")]
+async fn a_zero_fill_sell_stays_closed_with_nothing_filled() {
+    let (id, created, size) = CASE[0];
+    let k = install(1);
+    let tx = k.waiting(id, created);
+    let mut sell = answer(id, created, size);
+    sell["side"] = json!("sell");
+    let t = ScriptedTransport::from_script(&json!({ format!("GET /api/v1/orders/{id}"): env(sell) }));
+    assert_eq!(polling::follow_up(&k.o.primary, &kv(&t), k.bot, tx, at(created) + Duration::minutes(6)).await, Ok(FollowUp::Done));
+    assert_eq!((k.row(id), k.failed(id)), ((2, 0.0, Some(0.0)), (0, "[]".to_string())));
+    assert_eq!((k.failure(), k.logs()), ((1, None, None, None), vec![]));
+}
+
+/// What a zero fill leaves is what a placement KuCoin rejects for funds leaves: the row, the bot, the mail, the activity and
+/// the status bar.
+#[tokio::test(flavor = "current_thread")]
+async fn a_zero_fill_reads_exactly_as_a_placement_rejected_for_funds() {
+    let now = at(NOW);
+    let book = env(json!({ "time": 1792598698412u64, "sequence": "1", "bids": [["63999.9", "1.5"]], "asks": [["64000.1", "0.3"]] }));
+    let rejected = install(1);
+    let t = ScriptedTransport::from_script(&json!({ "GET /api/v1/market/orderbook/level2_20": book,
+        "GET /api/v1/market/allTickers": env(json!({ "time": 1, "ticker": [{ "symbol": "BTC-EUR", "last": "64000" }] })),
+        "POST /api/v1/orders": [{ "status": 200, "body": { "code": "200004", "msg": "Balance insufficient!" } }] }));
+    deltabadger::engine::tick::tick(&rejected.o.primary, &kv(&t), rejected.bot, &FixedClock(now), &mut Default::default()).await.unwrap();
+    let rejected_row: (i64, String) = rejected.o.primary.query_row("SELECT status, error_messages FROM transactions WHERE bot_id = ?1", [rejected.bot], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+
+    let (id, created, size) = CASE[2];
+    let zero = install(1);
+    let tx = zero.waiting(id, created);
+    let t = ScriptedTransport::from_script(&json!({ format!("GET /api/v1/orders/{id}"): env(answer(id, created, size)) }));
+    assert_eq!(polling::follow_up(&zero.o.primary, &kv(&t), zero.bot, tx, now).await, Ok(FollowUp::Done));
+
+    assert_eq!(zero.failed(id), rejected_row, "the row");
+    assert_eq!(rejected_row.0, 1);
+    assert_eq!(zero.failure(), rejected.failure(), "the bot: retrying, its failure kind, the funds budget and the mail owed");
+    let defer = |k: &Kc| k.bot().transient.get("rust_defer_until").cloned();
+    assert_eq!(defer(&zero).is_some(), defer(&rejected).is_some(), "next try at the next checkpoint");
+    assert_eq!(zero.logs(), rejected.logs(), "the activity lines");
+    let explanation = prefix(&zero.bar());
+    assert_eq!(explanation, prefix(&rejected.bar()), "the status bar");
+    assert!(explanation.0.contains("Not enough funds on your KuCoin account."), "{explanation:?}");
 }
 
 #[tokio::test(flavor = "current_thread")]
@@ -149,9 +246,9 @@ async fn a_follow_up_asks_again_while_young_and_an_old_limit_order_stays_unknown
     let t = ScriptedTransport::from_script(&json!({ format!("GET /api/v1/orders/{id}"): env(answer(id, created, size)) }));
     let settles = at(created) + ZERO_FILL_SETTLE;
     assert_eq!(polling::follow_up(&k.o.primary, &kv(&t), k.bot, tx, at(created) + Duration::seconds(5)).await, Ok(FollowUp::SettlesAt(settles)), "young: asked again, never Done");
-    assert_eq!((k.row(id).0, k.notes().len()), (0, 0));
+    assert_eq!((k.row(id).0, k.failed(id).0), (0, 0));
     assert_eq!(polling::follow_up(&k.o.primary, &kv(&t), k.bot, tx, settles + Duration::seconds(1)).await, Ok(FollowUp::Done));
-    assert_eq!((k.row(id), k.notes().len()), ((2, 0.0, Some(0.0)), 1));
+    assert_eq!((k.row(id), k.failed(id).0), ((2, 0.0, Some(0.0)), 1));
     // The window measures order age, which only a market order settles within: a limit order answering the same stays Unknown.
     let k = install(1);
     let tx = k.waiting(id, created);
@@ -162,7 +259,7 @@ async fn a_follow_up_asks_again_while_young_and_an_old_limit_order_stays_unknown
     let unknown = || PollFailure::General(format!("Order {id} status is unknown."));
     assert_eq!(polling::follow_up(&k.o.primary, &kv(&t), k.bot, tx, at(created) + Duration::days(3)).await, Err(unknown()));
     assert_eq!(polling::sweep(&k.o.primary, &kv(&t), &k.bot(), at(created) + Duration::days(3)).await, Err(unknown()));
-    assert_eq!((k.row(id).0, k.notes().len()), (0, 0));
+    assert_eq!((k.row(id).0, k.failed(id).0, k.failure().0), (0, 0, 1));
 }
 
 struct Factory(ScriptedTransport);
@@ -190,18 +287,17 @@ async fn a_stopped_bots_follow_up_chain_settles_the_row_past_the_window() {
             if k.row(id).0 == 2 { break; }
             now = DateTime::from_timestamp_micros(wake).unwrap().max(now + Duration::milliseconds(1));
         }
-        assert_eq!((k.row(id), k.notes().len()), ((2, 0.0, Some(0.0)), 1), "skew {skew}: settled by its follow-ups");
+        assert_eq!((k.row(id), k.failed(id).0), ((2, 0.0, Some(0.0)), 1), "skew {skew}: failed by its follow-ups");
+        assert_eq!(k.failure(), (2, None, None, None), "skew {skew}: a stopped bot stays stopped, as a rejection never reaches one");
         assert!(now > created + ZERO_FILL_SETTLE, "skew {skew}: only past the window");
         assert_eq!(gets(&t, id), asks, "skew {skew}: the asks it took");
     }
 }
 
-// ---- B. D-ZERO-FILL-NOTE
-
-/// A lost placement reply whose order the recovery finds done with nothing dealt: one line when it is old enough; a young one
-/// is recorded waiting, and its own settlement writes the line later. A second recovery writes nothing.
+/// A lost placement reply whose order the recovery finds done with nothing dealt: failed when it is old enough; a young one
+/// is recorded waiting, and its own settlement fails it later. A second recovery writes nothing.
 #[tokio::test(flavor = "current_thread")]
-async fn a_recovered_zero_fill_writes_one_line_when_it_settles() {
+async fn a_recovered_zero_fill_fails_once_when_it_settles() {
     for young in [false, true] {
         let k = install(1);
         let bot = k.bot();
@@ -221,33 +317,36 @@ async fn a_recovered_zero_fill_writes_one_line_when_it_settles() {
                                                         format!("GET /api/v1/orders/{}", CASE[0].0): env(found) }));
         let now = placed + if young { Duration::minutes(2) } else { Duration::minutes(10) };
         assert!(matches!(placement::recover(&k.o.primary, &kv(&t), &k.bot(), &FixedClock(now)).await.unwrap(), Recovery::Recorded(_)), "young {young}");
-        assert_eq!((k.row(CASE[0].0).0, k.notes().len()), if young { (0, 0) } else { (2, 1) }, "young {young}");
+        assert_eq!((k.row(CASE[0].0).0, k.failed(CASE[0].0).0), if young { (0, 0) } else { (2, 1) }, "young {young}");
+        assert_eq!(k.failure().0, if young { 1 } else { RETRYING }, "young {young}");
+        k.mail_sent();
         assert!(matches!(placement::recover(&k.o.primary, &kv(&t), &k.bot(), &FixedClock(now)).await.unwrap(), Recovery::NoIntent));
         polling::sweep(&k.o.primary, &kv(&t), &k.bot(), placed + Duration::minutes(10)).await.unwrap();
-        assert_eq!((k.row(CASE[0].0).0, k.notes().len()), (2, 1), "young {young}: one line in all");
+        assert_eq!((k.failed(CASE[0].0), k.failure().0, k.failure().1.as_deref()), ((1, FAILED.1.to_string()), RETRYING, Some("insufficient_funds")), "young {young}");
+        assert_eq!(k.failure().3.is_some(), young, "young {young}: the mail owed once, by whichever settlement failed it");
     }
 }
 
-/// The line is written in the settlement's own transaction: a settlement that rolls back leaves no line and the row waiting,
-/// and the retry that commits leaves exactly one.
+/// The row and the bot fail in the settlement's own transaction: a settlement that rolls back leaves the row waiting and the
+/// bot untouched, and the retry that commits fails both.
 #[tokio::test(flavor = "current_thread")]
-async fn a_rolled_back_settlement_leaves_no_line_and_its_retry_exactly_one() {
+async fn a_rolled_back_settlement_leaves_the_row_waiting_and_its_retry_fails_it() {
     let (id, created, size) = CASE[0];
     let k = install(1);
     k.waiting(id, created);
-    k.o.primary.execute_batch("CREATE TABLE fail_notes (on_ INTEGER); INSERT INTO fail_notes VALUES (1);
-        CREATE TRIGGER fail_note BEFORE INSERT ON bot_activity_logs WHEN (SELECT on_ FROM fail_notes) = 1 BEGIN SELECT RAISE(ABORT, 'disk full'); END;").unwrap();
+    k.o.primary.execute_batch("CREATE TABLE fail_stamp (on_ INTEGER); INSERT INTO fail_stamp VALUES (1);
+        CREATE TRIGGER fail_stamp BEFORE UPDATE OF last_end_of_funds_notification ON bots WHEN (SELECT on_ FROM fail_stamp) = 1 BEGIN SELECT RAISE(ABORT, 'disk full'); END;").unwrap();
     let t = ScriptedTransport::from_script(&json!({ format!("GET /api/v1/orders/{id}"): env(answer(id, created, size)) }));
     let later = at(created) + Duration::minutes(6);
     assert!(polling::sweep(&k.o.primary, &kv(&t), &k.bot(), later).await.is_err());
-    assert_eq!((k.row(id).0, k.notes().len()), (0, 0), "rolled back whole");
-    k.o.primary.execute("UPDATE fail_notes SET on_ = 0", []).unwrap();
+    assert_eq!((k.row(id).0, k.failed(id).0, k.failure()), (0, 0, (1, None, None, None)), "rolled back whole");
+    k.o.primary.execute("UPDATE fail_stamp SET on_ = 0", []).unwrap();
     polling::sweep(&k.o.primary, &kv(&t), &k.bot(), later).await.unwrap();
-    assert_eq!((k.row(id).0, k.notes().len()), (2, 1));
+    assert_eq!((k.row(id).0, k.failed(id).0, k.failure().0), (2, 1, RETRYING));
 }
 
-/// With the zero fill settled the run succeeds again, so Bot::Fundable's check after it runs as Rails' does after any
-/// successful run: a low balance stamps the funds marker (its unchanged once-a-day budget).
+/// The sweep before a run fails the zero fill (spending the day's funds budget), and the run goes on: its own placement
+/// succeeds, so the bot is back on schedule, as after any successful run, and the funds mail stays owed once.
 #[tokio::test(flavor = "current_thread")]
 async fn after_the_settlement_a_successful_run_with_a_low_balance_stamps_the_funds_marker() {
     let (id, created, size) = CASE[0];
@@ -262,12 +361,13 @@ async fn after_the_settlement_a_successful_run_with_a_low_balance_stamps_the_fun
         "GET /api/v1/fills": [{ "status": 200, "body": { "code": "200000", "data": { "currentPage": 1, "pageSize": 500, "totalNum": 0, "totalPage": 0, "items": [] } } }] }));
     let now = at(created) + Duration::days(1);
     deltabadger::engine::tick::tick(&k.o.primary, &kv(&t), k.bot, &FixedClock(now), &mut Default::default()).await.unwrap();
-    assert_eq!(k.row(id).0, 2, "the sweep settled the zero fill");
+    assert_eq!(k.failed(id).0, 1, "the sweep failed the zero fill");
+    assert_eq!(k.failure().0, 1, "the run succeeded: scheduled");
     assert!(t.requests().iter().any(|r| r.method == "POST"), "the run placed its order");
     let (stamped, marker): (Option<String>, Option<String>) = k.o.primary.query_row(
         &format!("SELECT last_end_of_funds_notification, json_extract(transient_data, '$.{}') FROM bots WHERE id = ?1", deltabadger::engine::tick::FUNDS_MAIL_PENDING),
         [k.bot], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
-    assert!(stamped.is_some() && marker.is_some(), "Fundable stamped the low balance: {stamped:?} {marker:?}");
+    assert!(stamped.is_some() && marker.is_some(), "the funds budget spent, its mail owed: {stamped:?} {marker:?}");
 }
 
 // ---- C. D-LOW-FUNDS-STATUS
@@ -367,7 +467,6 @@ async fn the_bot_page_and_its_tile_say_it_too() {
     }
     k.o.primary.execute("UPDATE users SET confirmed_at = '2026-01-01 00:00:00'", []).unwrap();
     seed::insert_bot(&k.o.primary, &k.s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00")); // a dashboard of one bot opens the bot
-    model::log_activity(&k.o.primary, k.bot, polling::ZERO_FILL_EVENT, model::Level::Info, json!({ "order_id": CASE[0].0, "exchange": "KuCoin" }), at(NOW)).unwrap();
     let hash: String = k.o.primary.query_row("SELECT encrypted_password FROM users WHERE id = ?1", [k.s.user_id], |r| r.get(0)).unwrap();
     use deltabadger::web::session;
     let data = session::SessionData { user: Some((k.s.user_id, hash.chars().take(29).collect())), csrf: Some(deltabadger::web::csrf::new_token()), ..Default::default() };
@@ -378,10 +477,14 @@ async fn the_bot_page_and_its_tile_say_it_too() {
         let bar = page.body.split(&format!("id=\"status_bar_bots_dca_multi_asset_{}\"", k.bot)).nth(1).unwrap_or_else(|| panic!("{path}: no status bar"));
         assert_eq!(prefix(bar.split("</div>\n</div>").next().unwrap()), ("Low funds".to_string(), false), "{path}");
     }
-    // D-ZERO-FILL-NOTE in the bot's activity, as its orders frame reads it.
+    // D-KUCOIN-ZERO-FILL-FUNDS in the bot's activity, as its orders frame reads a rejected placement's row.
+    let (id, created, size) = CASE[2];
+    let tx = k.waiting(id, created);
+    let t = ScriptedTransport::from_script(&json!({ format!("GET /api/v1/orders/{id}"): env(answer(id, created, size)) }));
+    assert_eq!(polling::follow_up(&k.o.primary, &kv(&t), k.bot, tx, at(NOW)).await, Ok(FollowUp::Done));
     let mut browser = common::web::Browser { cookie: Some(session::seal(&app.keys.session, &data, app.now())), page: None };
     let feed = browser.send(&app, "GET", &format!("/bots/{}.turbo_stream", k.bot), None, common::web::Csrf::None, &[("Turbo-Frame", "orders_pagination")]).await;
-    assert!(feed.body.contains(&format!("Order {} closed on KuCoin with nothing filled.", CASE[0].0)), "{}", feed.body);
+    assert!(feed.body.contains("Not enough funds on your KuCoin account."), "{}", feed.body);
 }
 
 /// The nightly balance job as the scheduler runs it, with the venue's read substituted: BalanceSync itself marks the job
