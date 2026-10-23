@@ -52,6 +52,9 @@ const RUST_TABLES: &[(&str, TableContract)] = &[
         ("id", "INTEGER", false), ("user_id", "INTEGER", true), ("exchange_id", "INTEGER", true), ("row_id", "TEXT", true), ("account_type", "TEXT", true),
         ("currency", "TEXT", true), ("side", "TEXT", true), ("amount", "TEXT", true), ("fee", "TEXT", true), ("transacted_at", "TEXT", true),
         ("remark", "TEXT", true), ("row_type", "TEXT", true), ("created_at", "TEXT", true)], unique_indexes: &[&["user_id", "exchange_id", "row_id"]] }),
+    ("20261023000001", TableContract { name: "import_cutoffs", columns: &[
+        ("id", "INTEGER", false), ("user_id", "INTEGER", true), ("exchange_id", "INTEGER", true), ("class", "TEXT", true), ("cutoff_at", "TEXT", true),
+        ("updated_at", "TEXT", true)], unique_indexes: &[&["user_id", "exchange_id", "class"]] }),
 ];
 
 /// What this build migrates.
