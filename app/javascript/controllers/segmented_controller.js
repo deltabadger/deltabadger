@@ -24,12 +24,17 @@ import { Controller } from "@hotwired/stimulus";
 // knows how. Naming the key is what opts a control in — see the partial for why a control gets
 // one or does not.
 
-// Where every chip on the page stood the instant Turbo swapped the page out, by group label. A
+// Where every chip on the page stood the instant Turbo swapped the page out, by its options. A
 // link group's new page brings a new control, and its first placement is the un-animated one —
 // so a page that arrives fast (a cached preview lands within milliseconds of the click) would cut
 // the slide off and drop the chip at the end of it. Picking up from here, the new control
 // finishes the slide the old one started. Cleared on every swap: only the page just left counts.
+//
+// Keyed by the option values, not the label: labels repeat ("All" names the venue switch and the
+// date range on the same page), and a chip handed the other group's position slides in from it.
 const handoffs = new Map();
+const identity = (control) =>
+  [...control.querySelectorAll("[data-segmented-target='option']")].map((option) => option.dataset.value).join();
 document.addEventListener("turbo:before-render", () => {
   handoffs.clear();
   document.querySelectorAll(".segmented:not(.segmented--collapsed)").forEach((control) => {
@@ -37,7 +42,7 @@ document.addEventListener("turbo:before-render", () => {
     if (!thumb?.style.width) return;
     const track = control.getBoundingClientRect();
     const rect = thumb.getBoundingClientRect();
-    handoffs.set(control.getAttribute("aria-label"), { left: rect.left - track.left, width: rect.width });
+    handoffs.set(identity(control), { left: rect.left - track.left, width: rect.width });
   });
 });
 
@@ -304,7 +309,7 @@ export default class extends Controller {
     // First placement must not slide in from the left edge — unless the page before left a chip
     // here mid-slide, which it starts from instead, so the slide carries on across the swap.
     if (!this.placed) {
-      const from = handoffs.get(this.element.getAttribute("aria-label"));
+      const from = handoffs.get(identity(this.element));
       this.thumbTarget.style.transition = "none";
       if (from) {
         this.thumbTarget.style.left = `${from.left}px`;
