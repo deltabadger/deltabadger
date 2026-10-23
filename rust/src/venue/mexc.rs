@@ -44,6 +44,13 @@ pub const SHAPE: Shape = Shape {
 };
 
 pub(crate) fn unreadable() -> VenueError { VenueError::Ambiguous(UNREADABLE.into()) }
+/// Exchanges::Mexc#get_tickers_prices' path (Clients::Mexc#symbol_price_ticker, no symbol: the whole market).
+pub const TICKER_PRICE: &str = "/api/v3/ticker/price";
+/// Clients::Mexc#candlestick_data's path (Binance's, at MEXC's host).
+pub const KLINES: &str = "/api/v3/klines";
+/// The prices of a ticker/price answer, read as Binance's are (`binance::ticker_prices`). Shared by the engine
+/// (`tickers_prices`) and the figures.
+pub fn ticker_prices(body: &Value) -> Result<Vec<(String, BigDec)>, VenueError> { super::binance::ticker_prices_or(body, unreadable) }
 fn required(v: &Value) -> Result<BigDec, VenueError> { super::json::required(v, unreadable) }
 
 /// The intent UUID without hyphens fits MEXC's 32-character limit and is reversible. Reject longer non-UUIDs before sending.
@@ -264,24 +271,14 @@ impl<T: Transport> super::Venue for MexcVenue<T> {
     /// (its text). DIVERGES on purpose as Binance's does: a price that is no decimal is left out. Rails caches the answer for
     /// a minute; this reads fresh.
     async fn tickers_prices(&self, _symbols: &[String]) -> Result<Vec<(String, Value)>, VenueError> {
-        let r = self.request("GET", "/api/v3/ticker/price", vec![]);
+        let r = self.request("GET", TICKER_PRICE, vec![]);
         let resp = self.send(&r, false).await?;
         let text = self.classify(&r, resp, false)?;
         let body = match http::decode_json(&text) {
             Err(http::DecodeError::NotJson) => return Err(VenueError::Rejected(vec![self.transport.redact_diagnostic(&text)])),
             other => other.map_err(|_| unreadable())?,
         };
-        let mut out: Vec<(String, Value)> = vec![];
-        for row in body.as_array().ok_or_else(unreadable)? {
-            let symbol = super::dig_or_raise(row, "symbol")?.as_str().ok_or_else(unreadable)?.to_string();
-            let price = match super::dig_or_raise(row, "price")? {
-                v @ (Value::String(_) | Value::Number(_)) => crate::ruby::json_to_d(v).ok().flatten(),
-                _ => return Err(unreadable()),
-            };
-            out.retain(|(s, _)| *s != symbol);
-            if let Some(p) = price { out.push((symbol, Value::String(p.to_s_f()))); }
-        }
-        Ok(out)
+        Ok(ticker_prices(&body)?.into_iter().map(|(symbol, price)| (symbol, Value::String(price.to_s_f()))).collect())
     }
 
     /// #cancel_order through Clients::Mexc#cancel_order: DELETE /api/v3/order by the stored "SYMBOL-<orderId>"; a JSON 2xx is

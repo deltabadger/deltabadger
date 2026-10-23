@@ -33,10 +33,16 @@ pub enum Figures {
     Binance,
     /// Ticker prices (bulk, then per pair) and OHLC candles.
     Kraken,
+    /// ticker/price prices and klines candles walked in 500-kline windows.
+    Mexc,
+    /// ticker/24hr prices and market/kline candles read back from now (fromIdx).
+    Bitrue,
+    /// market/ticker prices and the most recent 1000 klines.
+    Bingx,
 }
 
 impl Figures {
-    pub fn candles(self) -> bool { matches!(self, Self::Alpaca | Self::Kucoin | Self::Binance | Self::Kraken) }
+    pub fn candles(self) -> bool { matches!(self, Self::Alpaca | Self::Kucoin | Self::Binance | Self::Kraken | Self::Mexc | Self::Bitrue | Self::Bingx) }
 }
 
 pub struct Row {
@@ -93,10 +99,9 @@ pub static ROWS: [Row; 14] = [
     Row { exchange_type: super::bitget::BITGET, name: "Bitget", name_id: "bitget", base: super::bitget::URL, rules: Some(&venue_rules::BITGET),
           passphrase: true, needs_pairs: true, trades: true, balances: Some(BalanceSync::Bitget), ledger: Some(LedgerSync::Bitget),
           key_check: Some(KeyCheck::Bitget), wizard: true, figures: None },
-    // Plan VB slice A5. Its figures land with family F1 (AF): until then its bots show no exchange note.
     Row { exchange_type: super::mexc::MEXC, name: "MEXC", name_id: "mexc", base: super::mexc::URL, rules: Some(&venue_rules::MEXC),
           passphrase: false, needs_pairs: true, trades: true, balances: Some(BalanceSync::Mexc), ledger: Some(LedgerSync::Mexc),
-          key_check: Some(KeyCheck::Mexc), wizard: true, figures: None },
+          key_check: Some(KeyCheck::Mexc), wizard: true, figures: Some(Figures::Mexc) },
     // Plan VB slice B1. Its figures land with the F3 family (BF): until then its bots show no exchange note.
     Row { exchange_type: super::hyperliquid::HYPERLIQUID, name: "Hyperliquid", name_id: "hyperliquid", base: super::hyperliquid::URL, rules: Some(&venue_rules::HYPERLIQUID),
           passphrase: false, needs_pairs: true, trades: true, balances: Some(BalanceSync::Hyperliquid), ledger: Some(LedgerSync::Hyperliquid),
@@ -106,13 +111,13 @@ pub static ROWS: [Row; 14] = [
           key_check: Some(KeyCheck::Bybit), wizard: true, figures: None },
     Row { exchange_type: super::bitrue::BITRUE, name: "Bitrue", name_id: "bitrue", base: super::bitrue::URL, rules: Some(&venue_rules::BITRUE),
           passphrase: false, needs_pairs: true, trades: true, balances: Some(BalanceSync::Bitrue), ledger: Some(LedgerSync::Bitrue),
-          key_check: Some(KeyCheck::Bitrue), wizard: true, figures: None },
+          key_check: Some(KeyCheck::Bitrue), wizard: true, figures: Some(Figures::Bitrue) },
     Row { exchange_type: super::coinbase::COINBASE, name: "Coinbase", name_id: "coinbase", base: super::coinbase::URL, rules: Some(&venue_rules::COINBASE),
           passphrase: false, needs_pairs: true, trades: true, balances: Some(BalanceSync::Coinbase), ledger: Some(LedgerSync::Coinbase),
           key_check: Some(KeyCheck::Coinbase), wizard: true, figures: None },
     Row { exchange_type: super::bingx::BINGX, name: "BingX", name_id: "bingx", base: super::bingx::URL, rules: Some(&venue_rules::BINGX),
           passphrase: false, needs_pairs: true, trades: true, balances: Some(BalanceSync::Bingx), ledger: Some(LedgerSync::Bingx),
-          key_check: Some(KeyCheck::Bingx), wizard: true, figures: None },
+          key_check: Some(KeyCheck::Bingx), wizard: true, figures: Some(Figures::Bingx) },
 ];
 
 pub fn row(exchange_type: &str) -> Option<&'static Row> { ROWS.iter().find(|r| r.exchange_type == exchange_type) }
@@ -157,8 +162,8 @@ mod tests {
         assert_eq!(types(|r| r.wizard), [alpaca, kraken, binance, us, kucoin, bitvavo, gemini, bitget, mexc, hyperliquid, bybit, bitrue, coinbase, bingx], "wizard::keys::PORTED");
         assert_eq!(types(|r| r.trades), [alpaca, kraken, binance, us, kucoin, bitvavo, gemini, bitget, mexc, hyperliquid, bybit, bitrue, coinbase, bingx], "venue_rules::for_exchange, eligibility::admission, LiveFactory");
         assert_eq!(types(|r| r.passphrase), [alpaca, kucoin, bitget], "model::credentials_with_redaction's passphrase");
-        assert_eq!(types(|r| r.figures.is_some()), [alpaca, kraken, binance, us, kucoin], "page_market::reads");
-        assert_eq!(types(|r| r.figures.is_some_and(Figures::candles)), [alpaca, kraken, binance, us, kucoin], "page_market::reads_candles");
+        assert_eq!(types(|r| r.figures.is_some()), [alpaca, kraken, binance, us, kucoin, mexc, bitrue, bingx], "page_market::reads");
+        assert_eq!(types(|r| r.figures.is_some_and(Figures::candles)), [alpaca, kraken, binance, us, kucoin, mexc, bitrue, bingx], "page_market::reads_candles");
         assert_eq!(types(|r| r.needs_pairs && r.trades), [binance, us, kucoin, bitvavo, gemini, bitget, mexc, hyperliquid, bybit, bitrue, coinbase, bingx], "LiveFactory's Pairs::load");
         let proxies: Vec<_> = ROWS.iter().filter_map(|r| key_check_proxy(r.exchange_type).map(|p| (r.exchange_type, p, r.base))).collect();
         assert_eq!(proxies, [(kraken, "kraken", crate::venue::kraken::URL), (binance, "binance", crate::venue::binance::URL), (us, "binance_us", crate::venue::binance::US_URL),

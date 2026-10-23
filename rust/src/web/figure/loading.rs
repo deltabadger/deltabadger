@@ -263,7 +263,9 @@ fn venue_host(base:&str)->bool { crate::venue::registry::ROWS.iter().any(|row|ro
 pub(crate) fn venue_egresses(c:&rusqlite::Connection,cipher:&crate::crypto::Cipher)->Vec<(&'static str,Result<ReqwestTransport,String>)> {
     use crate::venue::registry::Figures;
     crate::venue::registry::ROWS.iter().filter_map(|row|{
-        let wire=match row.figures? { Figures::Kucoin=>|client|ReqwestTransport::kucoin(client,String::new(),String::new(),String::new()), Figures::Binance=>|client|ReqwestTransport::binance(client,String::new(),String::new()), Figures::Kraken=>|client|ReqwestTransport::new(client,String::new(),String::new()).kraken(), Figures::Alpaca=>return None };
+        let wire=match row.figures? { Figures::Kucoin=>|client|ReqwestTransport::kucoin(client,String::new(),String::new(),String::new()), Figures::Binance=>|client|ReqwestTransport::binance(client,String::new(),String::new()), Figures::Kraken=>|client|ReqwestTransport::new(client,String::new(),String::new()).kraken(),
+            Figures::Mexc=>|client|ReqwestTransport::mexc(client,String::new(),String::new()), Figures::Bitrue=>|client|ReqwestTransport::bitrue(client,String::new(),String::new()),
+            Figures::Bingx=>|client|ReqwestTransport::bingx(client,String::new(),String::new()), Figures::Alpaca=>return None };
         let egress=crate::venue::live::egress(c,cipher,&|k|std::env::var(k).ok(),row.name_id,&http::client());
         Some((row.base,egress.map(|(client,proxy)|wire(client).with_sensitive_values(proxy.into_iter().collect()))))
     }).collect()
@@ -1002,12 +1004,15 @@ mod tests {
         crate::app_config::set(&c,&cipher,"proxy_binance","http://[unusable",now).unwrap();
         crate::app_config::set(&c,&cipher,"proxy_binance_us","http://127.0.0.1:9",now).unwrap();
         crate::app_config::set(&c,&cipher,"proxy_kraken","http://[unusable",now).unwrap();
+        crate::app_config::set(&c,&cipher,"proxy_mexc","http://[unusable",now).unwrap();
+        crate::app_config::set(&c,&cipher,"proxy_bingx","http://127.0.0.1:9",now).unwrap();
         let venues=super::venue_egresses(&c,&cipher);
         let of=|base:&str|venues.iter().find(|(b,_)|*b==base).map(|(_,t)|t.is_ok());
         assert_eq!((of(crate::venue::binance::URL),of(crate::venue::binance::US_URL),of(crate::venue::kucoin::URL),of(crate::venue::kraken::URL)),(Some(false),Some(true),Some(true),Some(false)));
+        assert_eq!((of(crate::venue::mexc::URL),of(crate::venue::bitrue::URL),of(crate::venue::bingx::URL)),(Some(false),Some(true),Some(true)));
         let wire=super::Wire::of(None,super::Source::Live).with_venues(venues);
         let read=|base:&str|HttpRequest{method:"GET",base:base.into(),path:crate::venue::binance::TICKER_PRICE.into(),query:vec![],body:None,not_after:None};
-        assert!(matches!(wire.send_limited(&read(crate::venue::binance::URL),1024).await,Err(TransportError::Permanent(_))),"settled, and nothing sent");
+        for base in [crate::venue::binance::URL,crate::venue::mexc::URL] { assert!(matches!(wire.send_limited(&read(base),1024).await,Err(TransportError::Permanent(_))),"settled, and nothing sent"); }
         // A venue with no egress at all (its settings unreadable) is refused the same way, not read on the Alpaca wire.
         let bare=super::Wire::of(None,super::Source::Live);
         assert!(matches!(bare.send_limited(&read(crate::venue::binance::US_URL),1024).await,Err(TransportError::Permanent(_))));

@@ -231,7 +231,9 @@ impl<T: Transport> BinanceVenue<T> {
 pub const TICKER_PRICE: &str = "/api/v3/ticker/price";
 /// The prices of a ticker/price answer, as Exchanges::Binance#get_tickers_prices reads them (`tickers_prices` says how).
 /// Shared by the engine (`tickers_prices`) and the figures.
-pub fn ticker_prices(body: &serde_json::Value) -> Result<Vec<(String, BigDec)>, super::VenueError> {
+pub fn ticker_prices(body: &serde_json::Value) -> Result<Vec<(String, BigDec)>, super::VenueError> { ticker_prices_or(body, unreadable) }
+/// `ticker_prices` with the venue's own unreadable answer: MEXC's ticker/price is Binance's shape (`mexc::ticker_prices`).
+pub(crate) fn ticker_prices_or(body: &serde_json::Value, unreadable: fn() -> super::VenueError) -> Result<Vec<(String, BigDec)>, super::VenueError> {
     let mut out: Vec<(String, BigDec)> = vec![];
     for row in body.as_array().ok_or_else(unreadable)? {
         let symbol = super::dig_or_raise(row, "symbol")?.as_str().ok_or_else(unreadable)?.to_string();
