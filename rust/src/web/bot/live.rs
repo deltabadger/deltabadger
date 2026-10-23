@@ -10,7 +10,7 @@ use crate::engine::events::EngineEvent;
 use crate::web::auth::{Current, User};
 use crate::web::layout::Ctx;
 use crate::web::{bots, App, WebError};
-use rusqlite::Connection;
+use rusqlite::{Connection, OptionalExtension};
 use std::sync::Arc;
 
 /// A request-less Ctx for `owner`: their locale and its paths, no session.
@@ -29,7 +29,7 @@ pub fn render(c: &Connection, app: &App, event: &EngineEvent) -> Result<Vec<(Str
         | EngineEvent::SignalMarkerChanged { bot_id } => *bot_id,
         _ => return Ok(vec![]),
     };
-    let owner: Option<i64> = rusqlite::OptionalExtension::optional(c.query_row("SELECT user_id FROM bots WHERE id = ?1", [bot_id], |r| r.get(0)))?;
+    let owner: Option<i64> = OptionalExtension::optional(c.query_row("SELECT user_id FROM bots WHERE id = ?1", [bot_id], |r| r.get(0)))?;
     let Some(owner) = owner.and_then(|id| User::find(c, id).transpose()).transpose()? else { return Ok(vec![]) };
     let ctx = owner_ctx(app, owner.clone());
     // A bot this build does not render, or deleted meanwhile: Rails' job finds nothing to draw either.
@@ -51,7 +51,14 @@ pub fn render(c: &Connection, app: &App, event: &EngineEvent) -> Result<Vec<(Str
             out
         }
         EngineEvent::OrderRecorded { transaction_id, .. } => orders::new_order(c, &ctx, &bot, &owner, *transaction_id)?,
-        EngineEvent::OrderWritten { transaction_id, .. } => orders::updated_order(c, &ctx, &bot, &owner, *transaction_id)?,
+        EngineEvent::OrderWritten { transaction_id, .. } => {
+            let mut out = orders::updated_order(c, &ctx, &bot, &owner, *transaction_id)?;
+            // D-PENDING-MARKET-SETTING: a market order written after its run (a follow-up poll, a settled zero fill) may end the
+            // "Setting orders…" the bar held while it was pending; the bar is redrawn as after a run.
+            let market: bool = c.query_row("SELECT IFNULL(order_type = 0, 0) FROM transactions WHERE id = ?1", [transaction_id], |r| r.get(0)).optional()?.unwrap_or(false);
+            if market { out.extend(action_view::bar_broadcasts(&stream, &bot, &state()?)); }
+            out
+        }
         // Bots::Signal#broadcast_unresolved_placement: on the bot's own page, without the rule widgets (their webhook URL
         // needs a request).
         EngineEvent::SignalMarkerChanged { .. } if bot.kind == super::Kind::Signal =>

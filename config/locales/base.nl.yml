@@ -235,6 +235,7 @@ nl:
             missing_credentials: 'Vul zowel de API-sleutel als het API-secret in.'
             not_refreshing: 'Aandelencatalogus gesynchroniseerd. Koppel Alpaca om deze actueel te houden.'
             disconnect: 'Verbreken'
+            mode: 'Modus'
             mode_paper: 'Papier'
             mode_live: 'Live'
         rest:
@@ -438,6 +439,7 @@ nl:
         minutes_short: 'm'
         seconds_short: 's'
     bot_filters:
+        label: 'Botstatus'
         all: 'Alle'
         active: 'Actief'
         inactive: 'Inactief'
@@ -667,6 +669,7 @@ nl:
             closed: 'Gesloten'
             cash: 'Contanten'
         range:
+            label: 'Periode'
             '30d': '30D'
             '1y': '1J'
             all: 'Alles'
@@ -708,6 +711,7 @@ nl:
             adjustment: 'Aanpassing'
             unsupported_activity: 'Overige activiteit'
     order_filters:
+        label: 'Orders'
         all: 'Alle'
         successful: 'Geslaagd'
         transactions: 'Transacties'
@@ -737,7 +741,9 @@ nl:
             liquidation_batch_cut_short: "Vroeg gestopt — %{bases} nog niet verkocht"
             liquidation_not_started: "Er is niets verkocht — de bot was bezig of de index kon niet worden ververst"
             liquidation_failed: "Verkoop mislukt: %{error}"
-            orders_below_minimum: "%{count} activa bleven deze keer onder het minimum van de exchange en schuiven door: %{bases}"
+            orders_below_minimum:
+                one: "De order voor %{bases} bleef deze keer onder het minimum van de exchange en schuift door."
+                other: "De orders voor %{bases} bleven deze keer onder het minimum van de exchange en schuiven door."
             redeploy_requested: "Het geld gaat terug in de mand"
             redeploy_placed: "Terugkopen in de mand met de opbrengst"
             redeploy_skipped: "Een deel van de opbrengst kon niet opnieuw worden ingelegd — blijft als contant staan"

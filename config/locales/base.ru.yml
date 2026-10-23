@@ -238,6 +238,7 @@ ru:
             missing_credentials: 'Заполните оба поля: API-ключ и секретный ключ.'
             not_refreshing: 'Каталог акций синхронизирован. Подключите Alpaca, чтобы он оставался актуальным.'
             disconnect: 'Отключить'
+            mode: 'Режим'
             mode_paper: 'Демо'
             mode_live: 'Реальный'
         rest:
@@ -441,6 +442,7 @@ ru:
         minutes_short: 'm'
         seconds_short: 's'
     bot_filters:
+        label: 'Статус бота'
         all: 'Все'
         active: 'Активные'
         inactive: 'Неактивные'
@@ -671,6 +673,7 @@ ru:
             closed: 'Закрыта'
             cash: 'Наличные'
         range:
+            label: 'Период'
             '30d': '30Д'
             '1y': '1Г'
             all: 'Всё'
@@ -712,6 +715,7 @@ ru:
             adjustment: 'Корректировка'
             unsupported_activity: 'Прочая операция'
     order_filters:
+        label: 'Ордера'
         all: 'Все'
         successful: 'Выполненные'
         transactions: 'Транзакции'
@@ -741,7 +745,10 @@ ru:
             liquidation_batch_cut_short: "Остановлено раньше — %{bases} ещё не проданы"
             liquidation_not_started: "Ничего не продано — бот был занят или индекс не удалось обновить"
             liquidation_failed: "Продажа не удалась: %{error}"
-            orders_below_minimum: "%{count} активов оказались ниже минимума биржи в этот раз и переносятся: %{bases}"
+            orders_below_minimum:
+                one: "Ордер %{bases} в этот раз оказался ниже минимума биржи и переносится."
+                few: "Ордера %{bases} в этот раз оказались ниже минимума биржи и переносятся."
+                other: "Ордера %{bases} в этот раз оказались ниже минимума биржи и переносятся."
             redeploy_requested: "Возвращаю деньги в корзину"
             redeploy_placed: "Покупаю обратно в корзину на вырученные средства"
             redeploy_skipped: "Часть средств не удалось вложить обратно — осталась в виде наличных"

@@ -32,8 +32,9 @@ impl Rig {
         Rig { dir, s, id }
     }
     fn c(&self) -> rusqlite::Connection { store::open(&store::Paths::from_env(&|_| None, self.dir.path())).unwrap().primary }
-    fn order(&self, external_id: &str, external_status: i64) -> i64 {
-        seed::insert_tx(&self.c(), &self.s, self.id, &TxSpec { status: 0, external_status: Some(external_status), external_id: Some(external_id.into()), order_type: 0,
+    fn order(&self, external_id: &str, external_status: i64) -> i64 { self.order_of(external_id, external_status, 0) }
+    fn order_of(&self, external_id: &str, external_status: i64, order_type: i64) -> i64 {
+        seed::insert_tx(&self.c(), &self.s, self.id, &TxSpec { status: 0, external_status: Some(external_status), external_id: Some(external_id.into()), order_type,
             amount: None, quote_amount: Some("60"), price: Some("64000"), quote_amount_exec: None, amount_exec: None, created_at: IN.into() })
     }
     fn engine(&self, t: &ScriptedTransport, now: &str) -> Engine<Factory> {
@@ -113,7 +114,8 @@ async fn a_tick_whose_sweep_fills_a_resting_order_announces_it() {
 #[test]
 fn every_new_row_removes_the_placeholder() {
     let r = Rig::new(&BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
-    let ids = [r.order("OTX-1", 0), r.order("OTX-2", 0)];
+    // Limit orders: a pending market order has no row yet (D-PENDING-MARKET-HIDDEN).
+    let ids = [r.order_of("OTX-1", 0, 1), r.order_of("OTX-2", 0, 1)];
     for id in ids {
         let shape = shape(&r.render(&EngineEvent::OrderRecorded { bot_id: r.id, transaction_id: id }));
         assert_eq!(shape[0], ("remove".to_string(), "orders_list_placeholder".to_string()), "row {id}");
@@ -145,4 +147,29 @@ fn a_signal_bots_marker_redraws_its_unresolved_placement_panel() {
     // The partial as Rails renders it on its own (signal_action_resolution records it), not as the settings column indents it.
     assert_eq!(lifted, vec![(stream(signal), "<turbo-stream action=\"replace\" target=\"signal-unresolved-placement\"><template>  <div id=\"signal-unresolved-placement\" hidden></div>\n</template></turbo-stream>".to_string())]);
     assert!(r.render(&EngineEvent::SignalMarkerChanged { bot_id: r.id }).is_empty(), "a basket has no such panel");
+}
+
+/// D-PENDING-MARKET-HIDDEN and D-PENDING-MARKET-SETTING: a market order the venue has not finished gets no row and holds the
+/// bar at "Setting orders…"; once a follow-up writes it final, its rows are prepended and the bar is redrawn as the schedule's.
+/// A pending limit order keeps its "Open order" rows and the schedule's bar.
+#[test]
+fn a_pending_market_order_shows_setting_orders_until_it_is_final() {
+    let r = Rig::new(&BotSpec::weekly(60.0, "2026-09-01 10:00:00").transient("last_action_job_at", json!(STAMPED)));
+    let order = r.order("OTX-M", 0);
+    let bar = |r: &Rig| r.render(&EngineEvent::StatusChanged { bot_id: r.id }).into_iter().find(|(_, h)| h.contains("status_bar_")).unwrap().1;
+    let filters = format!("order_filters_bots_dca_multi_asset_{}", r.id);
+    assert_eq!(shape(&r.render(&EngineEvent::OrderRecorded { bot_id: r.id, transaction_id: order })), [("replace".to_string(), filters.clone())], "no row while pending");
+    assert!(bar(&r).contains("Setting orders"), "{}", bar(&r));
+    let written = r.render(&EngineEvent::OrderWritten { bot_id: r.id, transaction_id: order });
+    assert!(shape(&written).iter().all(|(a, _)| a == "replace") && written.iter().all(|(_, h)| !h.contains("timeline_transaction_")), "still pending: no row");
+    r.c().execute("UPDATE transactions SET external_status = 2, amount_exec = '0.0009375', quote_amount_exec = '60' WHERE id = ?1", [order]).unwrap();
+    let written = r.render(&EngineEvent::OrderWritten { bot_id: r.id, transaction_id: order });
+    let shapes = shape(&written);
+    assert!(shapes.contains(&("prepend".to_string(), "orders_list".to_string())), "final: its row is prepended: {shapes:?}");
+    let bar_now = written.iter().find(|(_, h)| h.contains("status_bar_")).map(|(_, h)| h.clone()).unwrap_or_else(|| panic!("the bar is redrawn: {shapes:?}"));
+    assert!(!bar_now.contains("Setting orders"), "{bar_now}");
+    let limit = r.order_of("OTX-L", 1, 1);
+    let recorded = r.render(&EngineEvent::OrderRecorded { bot_id: r.id, transaction_id: limit });
+    assert!(recorded.iter().any(|(_, h)| h.contains(&format!("timeline_transaction_{limit}"))), "a limit order keeps its row");
+    assert!(!bar(&r).contains("Setting orders"), "a resting limit order is no setting");
 }

@@ -288,6 +288,8 @@ pub struct Bot {
     pub has_orders: bool,
     pub has_waiting_orders: bool,
     pub has_regular_waiting_orders: bool,
+    /// D-PENDING-MARKET-SETTING: a market order the venue has not finished (orders::PENDING_MARKET).
+    pub has_pending_market_orders: bool,
     pub has_submitted_orders: bool,
     /// Stored without a name: `label` is the generated one, in memory only (Automation::Labelable#ensure_label_exists).
     /// A save writes it only when it is submitted on purpose.
@@ -614,6 +616,7 @@ impl Bot {
             tickers, api_key, index, last_order, has_orders: exists("")?, has_waiting_orders: exists(" AND status = 0 AND external_status IN (0, 1)")?,
             sell_reads: Map::new(), signals: if kind == Kind::Signal { signal::rules(c, id)? } else { vec![] }, has_regular_waiting_orders: exists(" AND status = 0 AND external_status IN (0, 1) AND transaction_type = 'REGULAR'")?,
             has_submitted_orders: exists(" AND status = 0")?,
+            has_pending_market_orders: exists(&format!(" AND {}", orders::PENDING_MARKET))?,
         };
         // Bots::Signal includes none of the concerns that fill settings in on load.
         if kind != Kind::Signal { bot.fill_defaults(); }

@@ -40,7 +40,7 @@
       <% end %>
       <%# Fluid: the option count is the user's exchange list and the labels are venue names, so
           equal columns would give every one of them the width of the longest. %>
-      <%= render 'shared/segmented', fluid: true, label: t('tracker.filters.all'),
+      <%= render 'shared/segmented', fluid: true, label: t('tracker.columns.exchange'),
                  options: options, action: connect %>
     <% else %>
       <%# No switch to ride in — one venue is not a scope to choose between — so it stands alone. %>

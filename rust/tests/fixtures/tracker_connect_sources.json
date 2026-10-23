@@ -9,7 +9,7 @@
   "app/views/layouts/modal/_full_page.html.erb": "5f119e9bd89031cc4d86d125704ea8e5a48db8aaaae58b72a2c1d423ad72b567",
   "app/views/tracker/add_api_keys/new.html.erb": "2ad433464dfbbab1ededa60986169790d2262fb7358e3e98c26f467926f26428",
   "app/views/tracker/add_api_keys/reconnect.html.erb": "5572d88c22373ff2ba5e24b8598d9d41538f5a413cbbb7c538b1939702e6ba4c",
-  "app/views/shared/_api_key_form.html.erb": "a6bbb304199fea255a5535c02eb5855ff00093856318f4decfae98d654060b51",
+  "app/views/shared/_api_key_form.html.erb": "087c65a363e7f72838c8c5c3fac746ac34f8232521b0049a95e66718d5cecdf1",
   "app/models/exchange.rb": "ab627a2812bc0c7b4a546459e64f8f5d93617c496308d5f03163f44cef12d8d7",
   "app/models/api_key.rb": "e7f1435042602815925d093baa51160be9236c600b2f8aebdcf0517f5119ef91",
   "config/routes.rb": "88a02435a20f94a8e1cec694d89ce72047a3009e10a82b9d8d0772d050903269",

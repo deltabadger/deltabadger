@@ -236,6 +236,7 @@ fr:
             missing_credentials: 'Renseigne la clé API et le secret.'
             not_refreshing: "Catalogue d'actions synchronisé. Connecte Alpaca pour le maintenir à jour."
             disconnect: 'Déconnecter'
+            mode: 'Mode'
             mode_paper: 'Papier'
             mode_live: 'Réel'
         rest:
@@ -438,6 +439,7 @@ fr:
         minutes_short: 'm'
         seconds_short: 's'
     bot_filters:
+        label: 'Statut du bot'
         all: 'Tous'
         active: 'Actifs'
         inactive: 'Inactifs'
@@ -668,6 +670,7 @@ fr:
             closed: 'Clôturée'
             cash: 'Liquidités'
         range:
+            label: 'Période'
             '30d': '30J'
             '1y': '1A'
             all: 'Tout'
@@ -709,6 +712,7 @@ fr:
             adjustment: 'Ajustement'
             unsupported_activity: 'Autre activité'
     order_filters:
+        label: 'Ordres'
         all: 'Tous'
         successful: 'Réussis'
         transactions: 'Transactions'
@@ -738,7 +742,9 @@ fr:
             liquidation_batch_cut_short: "Arrêté plus tôt — %{bases} pas encore vendus"
             liquidation_not_started: "Rien n’a été vendu — le bot était occupé ou l’indice n’a pas pu être actualisé"
             liquidation_failed: "Échec de la vente : %{error}"
-            orders_below_minimum: "%{count} actifs sont passés sous le minimum de la plateforme cette fois et sont reportés : %{bases}"
+            orders_below_minimum:
+                one: "L'ordre %{bases} était sous le minimum de la plateforme cette fois et est reporté."
+                other: "Les ordres %{bases} étaient sous le minimum de la plateforme cette fois et sont reportés."
             redeploy_requested: "L’argent retourne dans le panier"
             redeploy_placed: "Rachat dans le panier avec le produit de la vente"
             redeploy_skipped: "Une partie du produit n’a pas pu être réinvestie — laissée en liquidités"

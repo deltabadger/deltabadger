@@ -235,6 +235,7 @@ es:
             missing_credentials: 'Rellena tanto la clave API como el secreto.'
             not_refreshing: 'Catálogo de acciones sincronizado. Conecta Alpaca para mantenerlo actualizado.'
             disconnect: 'Desconectar'
+            mode: 'Modo'
             mode_paper: 'Simulado'
             mode_live: 'Real'
         rest:
@@ -438,6 +439,7 @@ es:
         minutes_short: 'm'
         seconds_short: 's'
     bot_filters:
+        label: 'Estado del bot'
         all: 'Todos'
         active: 'Activos'
         inactive: 'Inactivos'
@@ -668,6 +670,7 @@ es:
             closed: 'Cerrada'
             cash: 'Efectivo'
         range:
+            label: 'Periodo'
             '30d': '30D'
             '1y': '1A'
             all: 'Todo'
@@ -709,6 +712,7 @@ es:
             adjustment: 'Ajuste'
             unsupported_activity: 'Otra actividad'
     order_filters:
+        label: 'Órdenes'
         all: 'Todos'
         successful: 'Exitosos'
         transactions: 'Transacciones'
@@ -738,7 +742,9 @@ es:
             liquidation_batch_cut_short: "Detenido antes de tiempo — %{bases} aún sin vender"
             liquidation_not_started: "No se vendió nada — el bot estaba ocupado o no se pudo actualizar el índice"
             liquidation_failed: "Venta fallida: %{error}"
-            orders_below_minimum: "%{count} activos quedaron por debajo del mínimo del exchange esta vez y se acumulan: %{bases}"
+            orders_below_minimum:
+                one: "La orden de %{bases} quedó por debajo del mínimo del exchange esta vez y se acumula."
+                other: "Las órdenes de %{bases} quedaron por debajo del mínimo del exchange esta vez y se acumulan."
             redeploy_requested: "Devolviendo el dinero a la cesta"
             redeploy_placed: "Comprando de nuevo en la cesta con los fondos"
             redeploy_skipped: "Parte de los fondos no se pudo reinvertir — se dejó como efectivo"
