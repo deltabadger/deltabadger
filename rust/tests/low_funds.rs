@@ -451,3 +451,23 @@ async fn the_status_bar_follows_the_balance_jobs_from_the_scheduler_to_the_strea
     assert_eq!(*told.lock().unwrap(), [(key, true, String::new()), (key, false, "Low funds".to_string())], "hidden during the fetch, shown after the recorded success");
     assert_eq!(prefix(&k.bar()), ("Low funds".to_string(), false));
 }
+
+/// The balance check reads the key the sync scheduler reads (sync::reading_keys_of): a trading key whose last sync lacked
+/// a permission gives way to the read-only key, so that key's synced balances are the current ones.
+#[test]
+fn the_reading_key_is_the_schedulers_pick() {
+    let (_dir, opened, seed) = common::install();
+    let c = opened.primary;
+    c.execute("INSERT INTO exchanges(type,name,created_at,updated_at) VALUES('Exchanges::Bitget','Bitget','2026-01-01','2026-01-01')", []).unwrap();
+    let exchange = c.last_insert_rowid();
+    let key = |kind: i64, error: Option<&str>| {
+        c.execute("INSERT INTO api_keys(user_id,exchange_id,key,secret,key_type,status,last_sync_error,created_at,updated_at) VALUES(?1,?2,'k','s',?3,1,?4,'2026-01-01','2026-01-01')",
+                  rusqlite::params![seed.user_id, exchange, kind, error]).unwrap();
+        c.last_insert_rowid()
+    };
+    let trading = key(0, None);
+    let read_only = key(2, None);
+    assert_eq!(deltabadger::sync::cache::reading_key(&c, seed.user_id, exchange).unwrap(), Some(trading));
+    c.execute("UPDATE api_keys SET last_sync_error='Incorrect permissions' WHERE id=?1", [trading]).unwrap();
+    assert_eq!(deltabadger::sync::cache::reading_key(&c, seed.user_id, exchange).unwrap(), Some(read_only));
+}

@@ -25,7 +25,13 @@ pub fn produced_by(c: &Connection, user: i64, exchange: i64, version: &Credentia
 }
 /// The key a user's venue balances are synced with: trading before read-only, never withdrawal.
 pub fn reading_key(c: &Connection, user: i64, exchange: i64) -> Result<Option<i64>, EngineError> {
-    Ok(c.query_row("SELECT id FROM api_keys WHERE user_id=?1 AND exchange_id=?2 AND status=1 AND key_type!=1 ORDER BY CASE WHEN key_type=0 THEN 0 ELSE 1 END,id LIMIT 1", [user, exchange], |r| r.get(0)).optional()?)
+    // The scheduler's pick (sync::reading_keys_of): a trading key unless its last sync lacked a permission, then read-only.
+    let mut s = c.prepare("SELECT k.id, k.key_type, e.type, k.last_sync_error FROM api_keys k JOIN exchanges e ON e.id = k.exchange_id \
+                           WHERE k.user_id=?1 AND k.exchange_id=?2 AND k.status=1 AND k.key_type!=1 ORDER BY k.id")?;
+    let rows = s.query_map([user, exchange], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?, r.get::<_, Option<String>>(2)?.unwrap_or_default(), r.get::<_, Option<String>>(3)?)))?
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(rows.iter().find(|r| r.1 == 0 && !crate::tracker::import::run::missing_permission(&r.2, r.3.as_deref()))
+        .or_else(|| rows.iter().find(|r| r.1 == 2)).or_else(|| rows.first()).map(|r| r.0))
 }
 /// Missing, malformed, partial or differently credentialed cache origins are sync-pending.
 /// Select the same reading slot as the sync scheduler: trading before read-only, never withdrawal.
