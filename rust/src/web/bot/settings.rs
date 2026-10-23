@@ -699,7 +699,8 @@ pub fn column(c: &Connection, forms: &Forms) -> Result<String, WebError> {
             let mut pairs: Vec<(String, String)> = bot.tickers.iter().map(|ticker| (format!("{}{}", ticker.base_symbol.as_deref().unwrap_or(""), ticker.quote_symbol.as_deref().unwrap_or("")), ticker.id.to_string())).collect();
             pairs.sort_by(|a, b| a.0.cmp(&b.0));
             out.push_str(&forms.conditions(&members, &pairs));
-            out.push_str(&format!("    {}\n", forms.amount_limit(c)?));
+            // While selling the cap counts base, which only a one-asset basket has a single one of.
+            if !bot.selling() || bot.one_asset() { out.push_str(&format!("    {}\n", forms.amount_limit(c)?)); }
             if !bot.one_asset() && !bot.selling() { out.push_str(&format!("    {}\n", forms.rebalance())); }
         }
         Kind::Index => {
