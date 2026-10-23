@@ -16,7 +16,7 @@
     <div class="set-api__mode" data-controller="form--segmented-field"
          data-action="segmented:change->form--segmented-field#set">
       
-<div class="segmented" role="radiogroup" aria-label="Mode" data-controller="segmented" data-action="click-&gt;segmented#toggle">
+<div class="segmented" role="radiogroup" aria-label="{{ v.t("settings.stocks.mode")|safe }}" data-controller="segmented" data-action="click-&gt;segmented#toggle">
   <span class="segmented__thumb" data-segmented-target="thumb"></span>
   <div class="segmented__dropdown dropdown" data-segmented-target="dropdown">
     <div class="segmented__panes">

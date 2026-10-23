@@ -104,7 +104,7 @@ pub fn chart(c: &Connection, ctx: &Ctx, owner: i64, scope: Option<i64>, show_cas
         if !windows.is_empty() {
             let mut options = windows;
             options.push(option("all", i18n::text(ctx.locale, "tracker.range.all", &[]), true));
-            modes.push_str(&format!("              <div class=\"filters\" data-action=\"segmented:change->bot--chart#range\">\n                {}\n              </div>\n", segmented(i18n::text(ctx.locale, "tracker.range.all", &[]), None, false, options)?));
+            modes.push_str(&format!("              <div class=\"filters\" data-action=\"segmented:change->bot--chart#range\">\n                {}\n              </div>\n", segmented(i18n::text(ctx.locale, "tracker.range.label", &[]), None, false, options)?));
         }
     }
     let money = if hidden { "" } else { "            <div class=\"widget--chart__pnl\" data-bot--chart-target=\"pnl\">&nbsp;</div>\n" };

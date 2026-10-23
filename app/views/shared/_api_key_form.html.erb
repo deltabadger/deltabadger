@@ -22,7 +22,7 @@
     <% mode = api_key.passphrase == 'live' ? 'live' : 'paper' %>
     <div class="set-api__mode" data-controller="form--segmented-field"
          data-action="segmented:change->form--segmented-field#set">
-      <%= render 'shared/segmented', label: 'Mode', options: [
+      <%= render 'shared/segmented', label: t('settings.stocks.mode'), options: [
             { value: 'paper', label: t('settings.stocks.mode_paper'), active: mode == 'paper' },
             { value: 'live', label: t('settings.stocks.mode_live'), active: mode == 'live' }
           ] %>

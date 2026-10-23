@@ -258,7 +258,7 @@ pub async fn index(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Re
                 value: (*name).into(), label: i18n::text(ctx.locale, &format!("bot_filters.{name}"), &[]), active: filter == *name,
                 href: Some(format!("{}?filter={name}", ctx.path("/bots"))),
             }).collect();
-            Some(Segmented { fluid: true, label: i18n::text(ctx.locale, "bot_filters.all", &[]), key: None, options, links: true }.render()?)
+            Some(Segmented { fluid: true, label: i18n::text(ctx.locale, "bot_filters.label", &[]), key: None, options, links: true }.render()?)
         } else {
             None
         };
