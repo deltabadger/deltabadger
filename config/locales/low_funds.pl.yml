@@ -2,6 +2,3 @@ pl:
     bot:
         status:
             low_funds: "Mało środków"
-    bot_activity:
-        events:
-            order_closed_empty: "Zlecenie %{order_id} zamknięte na %{exchange} bez realizacji."

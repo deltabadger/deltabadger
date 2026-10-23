@@ -2,6 +2,3 @@ ru:
     bot:
         status:
             low_funds: "Мало средств"
-    bot_activity:
-        events:
-            order_closed_empty: "Ордер %{order_id} закрыт на %{exchange} без исполнения."

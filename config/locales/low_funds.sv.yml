@@ -2,6 +2,3 @@ sv:
     bot:
         status:
             low_funds: "Låga medel"
-    bot_activity:
-        events:
-            order_closed_empty: "Order %{order_id} stängd på %{exchange} utan att fyllas."

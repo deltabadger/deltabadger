@@ -1010,14 +1010,23 @@ fn retry_credentials(c: &Connection, bot: &model::Bot, now: DateTime<Utc>, attem
 }
 fn handle_failure(c: &Connection, bot: &model::Bot, fail: Fail, clock: &dyn Clock, attempts: &mut Attempts, rules: &VenueRules, version: &Option<model::CredentialVersion>) -> Result<TickOutcome, EngineError> {
     if matches!(fail, Fail::CredentialsChanged) { return retry_credentials(c, bot, clock.now(), attempts); }
-    model::run_credential_write(c, bot, version, |tx| {
-        let bot_id = bot.id;
-        let outcome = handle_failure_inner(tx, bot_id, fail, clock, attempts, rules)?;
-        if matches!(outcome, TickOutcome::Rescheduled) {
-            placement::defer_failure(tx, &model::load_bot(tx, bot_id)?, clock.now())?;
-        }
-        Ok(outcome)
-    })
+    model::run_credential_write(c, bot, version, |tx| fail_in(tx, bot.id, fail, clock, attempts, rules))
+}
+
+fn fail_in(tx: &model::FencedTransaction<'_>, bot_id: i64, fail: Fail, clock: &dyn Clock, attempts: &mut Attempts, rules: &VenueRules) -> Result<TickOutcome, EngineError> {
+    let outcome = handle_failure_inner(tx, bot_id, fail, clock, attempts, rules)?;
+    if matches!(outcome, TickOutcome::Rescheduled) {
+        placement::defer_failure(tx, &model::load_bot(tx, bot_id)?, clock.now())?;
+    }
+    Ok(outcome)
+}
+
+/// D-KUCOIN-ZERO-FILL-FUNDS: a settled order the venue refused with `errors` fails the bot exactly as a placement it rejected
+/// with them does (place's Sent::Rejected, whose failed row is already written): retrying with the row's explanation, the
+/// kind's mail budget (insufficient_funds shares Bot::Fundable's once-a-day end_of_funds budget), in the caller's transaction.
+pub(crate) fn order_refused(tx: &model::FencedTransaction<'_>, bot_id: i64, errors: Vec<String>, rules: &VenueRules, now: DateTime<Utc>) -> Result<(), EngineError> {
+    let fail = Fail::General { message: to_sentence(&errors), errors, failed_row: true };
+    fail_in(tx, bot_id, fail, &super::FixedClock(now), &mut Attempts::default(), rules).map(|_| ())
 }
 
 fn handle_failure_inner(c: &model::FencedTransaction<'_>, bot_id: i64, fail: Fail, clock: &dyn Clock, attempts: &mut Attempts, rules: &VenueRules) -> Result<TickOutcome, EngineError> {

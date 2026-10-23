@@ -2,6 +2,3 @@ da:
     bot:
         status:
             low_funds: "Lave midler"
-    bot_activity:
-        events:
-            order_closed_empty: "Ordre %{order_id} lukket på %{exchange} uden at blive udfyldt."

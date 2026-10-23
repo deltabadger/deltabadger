@@ -2,6 +2,3 @@ bg:
     bot:
         status:
             low_funds: "Ниски средства"
-    bot_activity:
-        events:
-            order_closed_empty: "Поръчка %{order_id} е затворена в %{exchange} без изпълнение."

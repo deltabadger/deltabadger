@@ -2,6 +2,3 @@ nl:
     bot:
         status:
             low_funds: "Weinig saldo"
-    bot_activity:
-        events:
-            order_closed_empty: "Order %{order_id} gesloten op %{exchange} zonder uitvoering."

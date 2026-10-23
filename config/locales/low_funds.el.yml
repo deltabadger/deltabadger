@@ -2,6 +2,3 @@ el:
     bot:
         status:
             low_funds: "Χαμηλά κεφάλαια"
-    bot_activity:
-        events:
-            order_closed_empty: "Η εντολή %{order_id} έκλεισε στο %{exchange} χωρίς εκτέλεση."

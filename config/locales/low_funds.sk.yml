@@ -2,6 +2,3 @@ sk:
     bot:
         status:
             low_funds: "Nízke prostriedky"
-    bot_activity:
-        events:
-            order_closed_empty: "Pokyn %{order_id} bol na %{exchange} uzavretý bez vyplnenia."

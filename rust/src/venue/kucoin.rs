@@ -96,7 +96,7 @@ fn limit_type(v: &Value) -> Result<bool, VenueError> {
 }
 
 /// Exchanges::Kucoin#parse_order_data and #parse_order_status. A cancelled order keeps what it dealt; "done" with nothing
-/// dealt is Unknown, never Closed (a market order's terminal zero fill carries `zero_fill_at`, D-KUCOIN-ZERO-FILL-DONE). The price is dealFunds / dealSize (rounded half up to the pair's tick) when both are
+/// dealt is Unknown, never Closed (a market order's terminal zero fill carries `zero_fill_at`, D-KUCOIN-ZERO-FILL-FUNDS). The price is dealFunds / dealSize (rounded half up to the pair's tick) when both are
 /// positive, else the order's own price; a zero price is none.
 pub fn parse_order(order_id: &str, o: &Value, pairs: &Pairs) -> Result<OrderState, VenueError> {
     let symbol = field(o, "symbol")?.as_str().ok_or_else(unreadable)?;
@@ -111,7 +111,7 @@ pub fn parse_order(order_id: &str, o: &Value, pairs: &Pairs) -> Result<OrderStat
     let amount_exec = deal_size.clone().unwrap_or_else(BigDec::zero);
     let status = if truthy(&o["cancelExist"]) { OrderStatus::Cancelled } else if truthy(&o["isActive"]) { OrderStatus::Open }
                  else if amount_exec.is_positive() { OrderStatus::Closed } else { OrderStatus::Unknown };
-    // D-KUCOIN-ZERO-FILL-DONE: only explicit terminal evidence on a market order (both flags JSON false, both dealt amounts
+    // D-KUCOIN-ZERO-FILL-FUNDS: only explicit terminal evidence on a market order (both flags JSON false, both dealt amounts
     // present and exactly 0, a readable createdAt) is kept for the poll to settle (OrderState::settled); all else as Rails.
     let zero = |v: &Option<BigDec>| v.as_ref().is_some_and(BigDec::is_zero);
     let zero_fill_at = (status == OrderStatus::Unknown && !limit && o["isActive"] == Value::Bool(false) && o["cancelExist"] == Value::Bool(false)

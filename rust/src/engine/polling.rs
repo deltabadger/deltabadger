@@ -25,13 +25,10 @@ fn poll_error(e: EngineError) -> PollFailure {
 /// A follow-up poll that did not fail: the order is settled, or the venue still holds it open (Rails' retry_on
 /// OrderStillOpen: asked again, whatever bot placed it).
 ///
-/// `SettlesAt` (D-KUCOIN-ZERO-FILL-DONE): the venue answered a zero fill too young to be final (OrderState::settles_at); asked
+/// `SettlesAt` (D-KUCOIN-ZERO-FILL-FUNDS): the venue answered a zero fill too young to be final (OrderState::settles_at); asked
 /// again, and once more just past that time if the retries end before it.
 #[derive(Debug, PartialEq)]
 pub enum FollowUp { Done, StillOpen, SettlesAt(DateTime<Utc>) }
-
-/// The activity event of a zero-fill settlement (D-ZERO-FILL-NOTE): what happened, no cause claimed.
-pub const ZERO_FILL_EVENT: &str = "order_closed_empty";
 
 /// An unreadable created_at fails the row (and so the bot's tick); it must never read as the epoch.
 fn created_us(s: &str) -> Result<i64, EngineError> {
@@ -89,14 +86,19 @@ pub fn apply_in(c: &model::FencedTransaction<'_>, bot_id: i64, tx_id: i64, s: &O
         if row.quote_asset_id.is_none() { sets.push(("quote_asset_id", Sql::Integer(t.quote_asset_id))); }
     }
     let exec_changed = sets.iter().any(|(col, _)| *col == "quote_amount_exec");
-    // D-ZERO-FILL-NOTE: one line, in this transaction, only when it moves the row from a non-terminal status to a zero fill.
-    if s.closed_empty() && matches!(row.external_status, None | Some(0) | Some(1)) {
-        let exchange: String = c.query_row("SELECT coalesce(name, '') FROM exchanges WHERE id = ?1", [bot.exchange_id], |r| r.get(0))?;
-        model::log_activity(c, bot_id, ZERO_FILL_EVENT, Level::Info, json!({ "order_id": s.txid, "exchange": exchange }), now)?;
-    }
+    // D-KUCOIN-ZERO-FILL-FUNDS: a buy the venue ended with nothing dealt is its out-of-funds answer. The settlement that moves
+    // the row from a non-terminal status (once per row: a failed row is never polled again) fails it with the venue's own
+    // insufficient-funds error, and the bot with it as a placement rejected with that error fails it. A sell stays Closed.
+    let refused = if s.closed_empty() && !s.sell && matches!(row.external_status, None | Some(0) | Some(1)) {
+        let rules = super::venue_rules::for_exchange(&model::exchange_type(c, &bot)?).ok_or_else(|| EngineError::Data("no venue rules for the bot's exchange".into()))?;
+        let errors = vec![crate::venue::ZERO_FILL_REFUSAL.to_string()];
+        sets.push(("error_messages", Sql::Text(json!(errors).to_string())));
+        Some((rules, errors))
+    } else { None };
     if !sets.is_empty() {
         let assignments: Vec<String> = sets.iter().enumerate().map(|(i, (col, _))| format!("{col} = ?{}", i + 1)).collect();
-        let sql = format!("UPDATE transactions SET {}, status = 0, updated_at = ?{} WHERE id = ?{}", assignments.join(", "), sets.len() + 1, sets.len() + 2);
+        let row_status = if refused.is_some() { crate::enums::TxStatus::Failed as i64 } else { 0 };
+        let sql = format!("UPDATE transactions SET {}, status = {row_status}, updated_at = ?{} WHERE id = ?{}", assignments.join(", "), sets.len() + 1, sets.len() + 2);
         let mut values: Vec<Sql> = sets.into_iter().map(|(_, v)| v).collect();
         values.push(Sql::Text(format_time(now)));
         values.push(Sql::Integer(row.id));
@@ -105,6 +107,7 @@ pub fn apply_in(c: &model::FencedTransaction<'_>, bot_id: i64, tx_id: i64, s: &O
 
     // Transaction's after_save → Bot::Reversible#settle_flip_reserve!: a buy a reversal cancelled returns its reserve once final.
     super::reversal::settle(c, bot_id, tx_id)?;
+    if let Some((rules, errors)) = refused { tick::order_refused(c, bot_id, errors, rules, now)?; }
     // Transaction's after_commit (transaction.rb:31-33) → Bot::QuoteAmountLimitable#handle_quote_amount_limit_update: a buy
     // whose executed quote changed to a positive value re-checks the cap; reached, Rails enqueues Bot::StopJob, which runs after
     // the job that committed the fill.
@@ -278,7 +281,7 @@ pub async fn follow_up<V: Venue>(c: &Connection, venue: &V, bot_id: i64, tx_id: 
 /// Bot::FetchAndUpdateOrderJob through Exchange#get_order, as Rails runs it for Alpaca and Binance: one order (Venue::order_identified); a throttle or transient
 /// failure is retried by the caller (retry_on); any other failure raises "Failed to fetch order <transaction id>"; an
 /// unknown status raises. A raise changes no row, as in Rails. With `defer_young` (the follow-up chain) a zero-fill answer
-/// too young to be final is no raise: its time is returned for the caller to ask again (D-KUCOIN-ZERO-FILL-DONE).
+/// too young to be final is no raise: its time is returned for the caller to ask again (D-KUCOIN-ZERO-FILL-FUNDS).
 async fn follow_up_strict<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot, rows: Vec<(i64, String, i64)>, tx_id: i64, now: DateTime<Utc>, defer_young: bool) -> Result<Option<DateTime<Utc>>, PollFailure> {
     let Some((id, ext, _)) = rows.into_iter().next() else { return Ok(None) };
     let rules = venue.rules();
