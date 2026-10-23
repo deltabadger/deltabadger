@@ -31,7 +31,7 @@ fn flash_stream(style: &'static str, text: String) -> Result<String, WebError> {
     Ok(turbo::prepend_flash(flash::render(&[flash::Message { style, text }])?.trim_end()))
 }
 
-fn alert(text: String) -> Result<String, WebError> { flash_stream("danger", text) }
+pub(crate) fn alert(text: String) -> Result<String, WebError> { flash_stream("danger", text) }
 
 /// `head :ok` of a Turbo stream request: no body, and the format's type without a charset.
 fn head_ok() -> Response { (StatusCode::OK, [(header::CONTENT_TYPE, "text/vnd.turbo-stream.html")]).into_response() }
@@ -45,7 +45,7 @@ fn sentence(errors: &[FieldError]) -> String {
 
 /// An ActiveModel error's message, looked up as `errors.add(field, code)` looks it up for a Bots::Signal (a missing
 /// translation is Rails' own text for it).
-fn model_message(locale: &str, field: &str, code: &str) -> String {
+pub(crate) fn model_message(locale: &str, field: &str, code: &str) -> String {
     let keys = [format!("activerecord.errors.models.bots/signal.attributes.{field}.{code}"), format!("activerecord.errors.models.bots/signal.{code}"),
                 format!("activerecord.errors.models.bot.attributes.{field}.{code}"), format!("activerecord.errors.models.bot.{code}"),
                 format!("activerecord.errors.messages.{code}"), format!("errors.attributes.{field}.{code}"), format!("errors.messages.{code}")];
@@ -125,7 +125,7 @@ fn finish(ctx: &Ctx, answer: Result<Answer, WebError>) -> Result<Response, WebEr
 enum RuleOp { Create, Update(i64), Destroy(i64) }
 
 /// SecureRandom.urlsafe_base64(32), drawn again while another rule holds it (BotSignal#generate_token).
-fn new_token(c: &Connection) -> Result<String, WebError> { draw_token(c, rand::random) }
+pub(crate) fn new_token(c: &Connection) -> Result<String, WebError> { draw_token(c, rand::random) }
 
 fn draw_token(c: &Connection, mut draw: impl FnMut() -> [u8; 32]) -> Result<String, WebError> {
     loop {
@@ -136,7 +136,7 @@ fn draw_token(c: &Connection, mut draw: impl FnMut() -> [u8; 32]) -> Result<Stri
 }
 
 /// ActiveModel::Type::Boolean#cast of a submitted value: nil for a blank text.
-fn boolean(value: &Value) -> Option<bool> {
+pub(crate) fn boolean(value: &Value) -> Option<bool> {
     match value {
         Value::Bool(b) => Some(*b),
         Value::Null => None,
@@ -552,6 +552,29 @@ fn lifecycle_write(c: &Connection, locale: &str, heard: &Ctx, bot: &Bot, action:
         if let Err(refusal) = eligibility::guard(c, &heard.app.cipher, Some(bot.id)) { return Ok(Life::Refused(refusal.reason())); }
     }
     Ok(Life::Written { broadcasts: out, changed })
+}
+
+/// What starting a bot the wizard has just saved came to (Bots::Wizard::CreatesController#create: `save && start(start_fresh: true)`).
+pub enum Started {
+    /// Started: what the owner's open pages hear once the caller commits.
+    Yes(Vec<(String, String)>),
+    /// The model refused the start (its errors, as a sentence): the saved bot stays, not started.
+    Invalid(String),
+    /// The engine's guard refused the start: nothing of the save may stay.
+    Refused(String),
+}
+
+/// Bots::Signal#start(start_fresh: true) on the bot `id` the caller saved in its own transaction `c`, in `ctx`'s language;
+/// the broadcasts are in the owner's (Bot#with_user_locale).
+pub fn start_created(c: &Connection, ctx: &Ctx, owner: i64, id: i64) -> Result<Started, WebError> {
+    let bot = Bot::find(c, owner, id, For::Page, ctx.locale)?.ok_or(WebError::Config("the saved bot disappeared".into()))?;
+    let mut heard = super::live::owner_ctx(&ctx.app, ctx.user().cloned().ok_or(WebError::Config("a wizard save has no user".into()))?);
+    heard.now = ctx.now;
+    Ok(match lifecycle_write(c, ctx.locale, &heard, &bot, Action::Start, true, false)? {
+        Life::Invalid(errors) => Started::Invalid(sentence(&errors)),
+        Life::Refused(reason) => Started::Refused(i18n::text(ctx.locale, "engine.write_refused", &[("reason", Arg::Text(&reason))])),
+        Life::Written { broadcasts, .. } => Started::Yes(broadcasts),
+    })
 }
 
 fn web_lifecycle(c: &Connection, ctx: &Ctx, owner: i64, id: i64, action: Action, params: &ActionParams, base_url: &str) -> Result<Answer, WebError> {

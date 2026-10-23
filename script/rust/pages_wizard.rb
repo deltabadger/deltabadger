@@ -36,10 +36,8 @@ module Pages
                                                                                                           'csrf' => 'none', 'headers' => TURBO.merge('Referer' => 'http://localhost:3000/bots/new')), chooser.()) },
         'wizard_order_signed_out' => { 'steps' => [get('/login'), order.('asset_first', ORDER, 'csrf' => 'header').merge('expect' => 302)] },
         'unrouted_wizard_order_get' => { 'user' => owner, 'steps' => signed_in(chooser.(), get(ORDER)) },
-        # The tile past the DCA and index wizards: the signal wizard.
-        'not_ported_wizard_signal_tile' => { 'user' => advanced, 'steps' => signed_in(chooser.('/bots/new', MODAL),
-                                                                                    get('/bots/signals/pick_buyable_asset/new', STEP)) }
       }.merge(asset_step_scenarios(watch, chooser, order)).merge(create_scenarios(chooser, order)).merge(index_scenarios(chooser))
+        .merge(signal_wizard_scenarios(chooser))
     end
 
     SINGLE = '/bots/dca_single_assets'.freeze
@@ -397,6 +395,92 @@ module Pages
         'wizard_index_unconfigured_member' => { 'user' => owner, 'install' => 'alpaca', 'market_data' => 'none', 'extra_users' => [member], 'steps' => [
           get('/login'), login(email: 'second@example.com'), chooser.('/bots/new', MODAL), wz_step.(IDX_SETUP_NEW), wz_step.("/de#{IDX_SETUP_NEW}")
         ] }
+      }
+    end
+
+    SIG = '/bots/signals'.freeze
+    SIG_ASSETS = "#{SIG}/pick_buyable_asset".freeze
+    SIG_ASSETS_NEW = "#{SIG_ASSETS}/new".freeze
+    SIG_EXCHANGE = "#{SIG}/pick_exchange".freeze
+    SIG_EXCHANGE_NEW = "#{SIG_EXCHANGE}/new".freeze
+    SIG_KEY = "#{SIG}/add_api_key".freeze
+    SIG_KEY_NEW = "#{SIG_KEY}/new".freeze
+    SIG_QUOTE = "#{SIG}/pick_spendable_asset".freeze
+    SIG_QUOTE_NEW = "#{SIG_QUOTE}/new".freeze
+    SIG_CONFIRM = "#{SIG}/confirm_settings".freeze
+    SIG_CONFIRM_NEW = "#{SIG_CONFIRM}/new".freeze
+
+    # The signal wizard's steps: the base, the venue and the quote post a `bots_signal` field; the rules are edited in the session by
+    # Turbo fetches (the token in the header); the last POST saves and starts the bot, its rows and its rules' rows as stored.
+    def sg_pick = ->(id, path = SIG_ASSETS) { wz_submit.(path, { 'bots_signal[base_asset_id]' => id.to_s }) }
+    def sg_exchange = ->(id, path = SIG_EXCHANGE) { wz_exchange.(id, path, 'bots_signal') }
+    def sg_quote = ->(id, path = SIG_QUOTE) { wz_submit.(path, { 'bots_signal[quote_asset_id]' => id.to_s }) }
+    def sg_rule = lambda { |method, action, index, form = {}, prefix = ''|
+      { 'method' => method, 'path' => "#{prefix}#{SIG_CONFIRM}/#{action}#{"?signal_index=#{index}" if index}", 'form' => form, 'csrf' => 'header',
+        'headers' => TURBO, 'session' => %w[bot_config] }
+    }
+    def sg_add = ->(prefix = '') { wz_submit.("#{prefix}#{SIG_CONFIRM}/add_signal", {}) }
+    def sg_update = ->(index, form, prefix = '') { sg_rule.('PATCH', 'update_signal', index, form, prefix) }
+    def sg_remove = ->(index, prefix = '') { sg_rule.('DELETE', 'remove_signal', index, {}, prefix) }
+    def sg_create = lambda { |path = SIG, opts = {}|
+      wz_submit.(path, {}).merge('action_snapshot' => true, 'may_mutate' => %w[bots bot_signals bot_activity_logs],
+                                 'raw_rows' => { 'bots' => '*', 'bot_signals' => '*' }).merge(opts)
+    }
+    # A rule's form as Turbo sends it: the toggle's hidden 0 and its box, the direction, the amount and its type.
+    def sg_rule_form(direction, amount, type, enabled = nil)
+      form = { 'direction' => direction, 'amount' => amount, 'amount_type' => type }
+      enabled.nil? ? form : { 'enabled' => enabled }.merge(form)
+    end
+
+    def signal_wizard_scenarios(chooser)
+      advanced = owner('advanced_bots_enabled' => true)
+      {
+        # Kraken, no key yet: the tile, the base (searched, paged, blank), the venue (searched, blank), the key refused then accepted,
+        # the quote (searched, blank), the rules (added, edited, a missing one, removed) and the bot saved, started and shown.
+        'wizard_signal_kraken' => venue_wizard(signed_in(
+          chooser.('/bots/new', MODAL), wz_step.(SIG_ASSETS_NEW), wz_step.("#{SIG_ASSETS_NEW}?query=coin", PICKER), wz_step.("#{SIG_ASSETS_NEW}?offset=20", PAGE20),
+          sg_pick.(''), sg_pick.(16), wz_step.(SIG_EXCHANGE_NEW), wz_step.("#{SIG_EXCHANGE_NEW}?query=krak", EXCHANGE_PICKER), sg_exchange.(''), sg_exchange.(3),
+          wz_step.(SIG_KEY_NEW), wz_key.('kraken-incorrect', SIG_KEY), wz_key.('kraken-correct', SIG_KEY), wz_step.(SIG_QUOTE_NEW),
+          wz_step.("#{SIG_QUOTE_NEW}?query=eu", PICKER), sg_quote.(''), sg_quote.(18), wz_step.(SIG_CONFIRM_NEW), sg_add.(),
+          sg_update.(0, sg_rule_form('sell', '50', 'percentage', '1')), sg_update.(1, sg_rule_form('buy', '12.5', 'fixed', '0')),
+          sg_update.(0, sg_rule_form('sell', '40', 'percentage')), sg_update.(9, sg_rule_form('buy', '1', 'fixed', '1')), sg_add.(), sg_remove.(2),
+          wz_step.(SIG_CONFIRM_NEW), sg_create.(), get('/bots/1')
+        ), 'user' => advanced, 'venue_keys' => {}),
+        # Binance with its stored key (the key step moves on), in German and Polish; one rule, which cannot be removed. The Start form posts
+        # to the unprefixed path (`bots_signals_path(bot)` takes the bot as the locale).
+        'wizard_signal_binance_de' => venue_wizard(signed_in(
+          chooser.('/de/bots/new', MODAL), wz_step.("/de#{SIG_ASSETS_NEW}"), sg_pick.(20, "/de#{SIG_ASSETS}"), wz_step.("/de#{SIG_EXCHANGE_NEW}"),
+          sg_exchange.(4, "/de#{SIG_EXCHANGE}"), wz_step.("/de#{SIG_KEY_NEW}"), wz_step.("/pl#{SIG_QUOTE_NEW}"), sg_quote.(19, "/pl#{SIG_QUOTE}"),
+          wz_step.("/de#{SIG_CONFIRM_NEW}"), sg_remove.(0, '/de'), sg_update.(0, sg_rule_form('buy', '25.5', 'fixed'), '/de'), wz_step.("/pl#{SIG_CONFIRM_NEW}"),
+          sg_create.(), get('/de/bots/1')
+        ), 'user' => advanced),
+        # A stock on Alpaca (its key correct): the settings step's own POST, then a rule over 100 % refuses the save (422, nothing written),
+        # and a valid one saves.
+        'wizard_signal_alpaca' => { 'user' => advanced, 'install' => 'alpaca', 'steps' => signed_in(
+          chooser.('/bots/new', MODAL), wz_step.(SIG_ASSETS_NEW), wz_step.("#{SIG_ASSETS_NEW}?query=nv", PICKER), sg_pick.(4), wz_step.(SIG_EXCHANGE_NEW),
+          sg_exchange.(1), wz_step.(SIG_KEY_NEW), wz_step.(SIG_QUOTE_NEW), sg_quote.(1), wz_step.(SIG_CONFIRM_NEW), wz_bare.(SIG_CONFIRM, {}),
+          sg_update.(0, sg_rule_form('buy', '150', 'percentage')), wz_step.(SIG_CONFIRM_NEW), sg_create.(), sg_update.(0, sg_rule_form('buy', '0', 'fixed')),
+          sg_create.(), sg_update.(0, sg_rule_form('sell', '100', 'percentage')), wz_step.(SIG_CONFIRM_NEW), sg_create.(), get('/bots/1')
+        ) },
+        # The venue stops trading the pair before the last POST: the bot is saved, its start refused (422, the reasons).
+        'wizard_signal_pair_disabled' => venue_wizard(signed_in(
+          chooser.('/bots/new', MODAL), wz_step.(SIG_ASSETS_NEW), sg_pick.(16), wz_step.(SIG_EXCHANGE_NEW), sg_exchange.(3), wz_step.(SIG_QUOTE_NEW), sg_quote.(18),
+          wz_step.(SIG_CONFIRM_NEW), sg_create.(SIG, 'before' => 'disable_kraken_xbt'), wz_step.(SIG_CONFIRM_NEW)
+        ), 'user' => advanced),
+        # Each step goes back to the one missing: no base, no venue, no correct key.
+        'wizard_signal_stale_step' => venue_wizard(signed_in(
+          chooser.('/bots/new', MODAL), wz_step.(SIG_EXCHANGE_NEW), wz_step.(SIG_KEY_NEW), wz_step.(SIG_QUOTE_NEW), wz_step.(SIG_ASSETS_NEW), sg_pick.(16),
+          wz_step.(SIG_KEY_NEW), wz_step.(SIG_QUOTE_NEW), wz_step.(SIG_EXCHANGE_NEW), sg_exchange.(3), wz_step.(SIG_QUOTE_NEW)
+        ), 'user' => advanced, 'venue_keys' => { 'kraken' => 'incorrect' }),
+        # No wizard begun: the guarded POSTs send the browser to the root; the base's POST begins one.
+        'wizard_signal_expired_session' => venue_wizard(signed_in(
+          get('/bots'), wz_bare.(SIG_EXCHANGE, { 'bots_signal[exchange_id]' => '3' }), wz_bare.(SIG_QUOTE, { 'bots_signal[quote_asset_id]' => '18' }),
+          wz_bare.("/de#{SIG_ASSETS}", { 'bots_signal[base_asset_id]' => '16' }), wz_step.(SIG_EXCHANGE_NEW)
+        ), 'user' => advanced),
+        # A venue that lists the stock and on which this build runs no signal bot: its key step is refused by name.
+        'not_ported_wizard_signal_ibkr_key' => { 'user' => advanced, 'install' => 'alpaca', 'steps' => signed_in(
+          chooser.('/bots/new', MODAL), wz_step.(SIG_ASSETS_NEW), sg_pick.(2), wz_bare.(SIG_EXCHANGE, { 'bots_signal[exchange_id]' => '2' }), wz_step.(SIG_KEY_NEW)
+        ) }
       }
     end
 

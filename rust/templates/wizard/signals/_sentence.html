@@ -1,0 +1,23 @@
+{#- bots/signals/*: "Invest in {asset} at {exchange} spending {quote}", as far as the step has come. -#}
+    <div class="conversational conversational--bot-setup">
+      {{ v.t("bot.setup.sentence.invest_in")|safe }}
+{%- if let Some(base) = base %}
+      <a data-turbo-frame="modal_content" data-ticker-symbol="{{ base.symbol }}" data-ticker-asset-id="{{ base.id }}" class="{{ base.class }}" style="background: {{ base.pill }}" href="{{ assets_url }}">{{ base.symbol }}</a>
+      {{ v.t("bot.setup.sentence.at")|safe }}
+{%- endif %}
+{%- if let Some(venue) = venue %}
+      <a data-turbo-frame="modal_content" class="sbutton sbutton--exchange sbutton--exchange--{{ venue.name_id }}" href="{{ exchange_url }}">
+        {{ venue.mark|safe }}
+
+        <span class="hide-on-mobile">{{ venue.name }}</span>
+</a>
+{%- if search.is_some() %}
+      {{ v.t("bot.setup.sentence.spending")|safe }}
+{%- endif %}
+{%- endif %}
+{%- if let Some((frame, url)) = search %}
+      <form data-controller="form--submit-after-delay" data-turbo-frame="{{ frame }}" action="{{ url }}" accept-charset="UTF-8" method="get">
+        <input autofocus="autofocus" autocomplete="off" placeholder="…" data-action="input-&gt;form--submit-after-delay#submit" class="conversational__input sinput" type="text" name="query" id="query" />
+</form>
+{%- endif %}
+    </div>
