@@ -1,0 +1,4 @@
+es:
+    bot:
+        status:
+            low_funds: "Fondos bajos"

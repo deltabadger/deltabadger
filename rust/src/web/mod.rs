@@ -401,7 +401,9 @@ impl std::ops::Deref for App {
 impl App {
     pub fn job_notifications(&self) -> crate::jobs::notifications::Notifications {
         let app = self.clone();
+        let balances = self.clone();
         crate::jobs::notifications::Notifications::new(move |stream, payload| { app.hub.broadcast(stream, payload); Ok(()) })
+            .with_balances(move |key| bot::live::balances_changed(&balances, key))
     }
 
     /// `primary` is a connection `store::open` returned, so the install has passed `store::check`.

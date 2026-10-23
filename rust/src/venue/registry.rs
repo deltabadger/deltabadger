@@ -29,10 +29,14 @@ pub enum Figures {
     Alpaca,
     /// allTickers prices and market candles.
     Kucoin,
+    /// ticker/price prices and klines candles (Binance and Binance.US alike, each at its own host and proxy).
+    Binance,
+    /// Ticker prices (bulk, then per pair) and OHLC candles.
+    Kraken,
 }
 
 impl Figures {
-    pub fn candles(self) -> bool { matches!(self, Self::Alpaca | Self::Kucoin) }
+    pub fn candles(self) -> bool { matches!(self, Self::Alpaca | Self::Kucoin | Self::Binance | Self::Kraken) }
 }
 
 pub struct Row {
@@ -64,15 +68,15 @@ pub static ROWS: [Row; 14] = [
           needs_pairs: false, trades: true, balances: Some(BalanceSync::Alpaca), ledger: Some(LedgerSync::Alpaca), key_check: Some(KeyCheck::Alpaca),
           wizard: true, figures: Some(Figures::Alpaca) },
     Row { exchange_type: "Exchanges::Kraken", name: "Kraken", name_id: "kraken", base: super::kraken::URL, rules: Some(&venue_rules::KRAKEN), passphrase: false,
-          needs_pairs: false, trades: true, balances: None, ledger: None, key_check: Some(KeyCheck::Kraken), wizard: true, figures: None },
+          needs_pairs: false, trades: true, balances: None, ledger: None, key_check: Some(KeyCheck::Kraken), wizard: true, figures: Some(Figures::Kraken) },
     Row { exchange_type: super::binance::BINANCE, name: "Binance", name_id: "binance", base: super::binance::URL, rules: Some(&venue_rules::BINANCE),
           passphrase: false, needs_pairs: true, trades: true, balances: Some(BalanceSync::Binance), ledger: Some(LedgerSync::Binance),
-          key_check: Some(KeyCheck::Binance), wizard: true, figures: None },
+          key_check: Some(KeyCheck::Binance), wizard: true, figures: Some(Figures::Binance) },
     // Binance configured (Exchanges::BinanceUs < Exchanges::Binance): BinanceVenue at US_URL with its own rules row, its own
     // key check, and its ledger's own source list (binance_ledger).
     Row { exchange_type: super::binance::BINANCE_US, name: "Binance.US", name_id: "binance_us", base: super::binance::US_URL, rules: Some(&venue_rules::BINANCE_US),
           passphrase: false, needs_pairs: true, trades: true, balances: Some(BalanceSync::Binance), ledger: Some(LedgerSync::Binance),
-          key_check: Some(KeyCheck::BinanceUs), wizard: true, figures: None },
+          key_check: Some(KeyCheck::BinanceUs), wizard: true, figures: Some(Figures::Binance) },
     Row { exchange_type: super::kucoin::KUCOIN, name: "KuCoin", name_id: "kucoin", base: super::kucoin::URL, rules: Some(&venue_rules::KUCOIN),
           passphrase: true, needs_pairs: true, trades: true, balances: Some(BalanceSync::Kucoin), ledger: Some(LedgerSync::Kucoin),
           key_check: Some(KeyCheck::Kucoin), wizard: true, figures: Some(Figures::Kucoin) },
@@ -153,8 +157,8 @@ mod tests {
         assert_eq!(types(|r| r.wizard), [alpaca, kraken, binance, us, kucoin, bitvavo, gemini, bitget, mexc, hyperliquid, bybit, bitrue, coinbase, bingx], "wizard::keys::PORTED");
         assert_eq!(types(|r| r.trades), [alpaca, kraken, binance, us, kucoin, bitvavo, gemini, bitget, mexc, hyperliquid, bybit, bitrue, coinbase, bingx], "venue_rules::for_exchange, eligibility::admission, LiveFactory");
         assert_eq!(types(|r| r.passphrase), [alpaca, kucoin, bitget], "model::credentials_with_redaction's passphrase");
-        assert_eq!(types(|r| r.figures.is_some()), [alpaca, kucoin], "page_market::reads");
-        assert_eq!(types(|r| r.figures.is_some_and(Figures::candles)), [alpaca, kucoin], "page_market::reads_candles");
+        assert_eq!(types(|r| r.figures.is_some()), [alpaca, kraken, binance, us, kucoin], "page_market::reads");
+        assert_eq!(types(|r| r.figures.is_some_and(Figures::candles)), [alpaca, kraken, binance, us, kucoin], "page_market::reads_candles");
         assert_eq!(types(|r| r.needs_pairs && r.trades), [binance, us, kucoin, bitvavo, gemini, bitget, mexc, hyperliquid, bybit, bitrue, coinbase, bingx], "LiveFactory's Pairs::load");
         let proxies: Vec<_> = ROWS.iter().filter_map(|r| key_check_proxy(r.exchange_type).map(|p| (r.exchange_type, p, r.base))).collect();
         assert_eq!(proxies, [(kraken, "kraken", crate::venue::kraken::URL), (binance, "binance", crate::venue::binance::URL), (us, "binance_us", crate::venue::binance::US_URL),

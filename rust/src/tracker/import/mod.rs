@@ -1,8 +1,9 @@
 //! The tracker's CSV import (Import::Run and its readers): `csv` the text, rows, zones, times and amounts; `binance`
-//! Binance's own export; `deltabadger` the app's own export read back.
+//! Binance's own export; `kucoin` KuCoin's account history (Rust-only); `deltabadger` the app's own export read back.
 pub mod binance;
 pub mod csv;
 pub mod deltabadger;
+pub mod kucoin;
 pub mod run;
 
 /// AccountTransaction.entry_types: a type's stored id.

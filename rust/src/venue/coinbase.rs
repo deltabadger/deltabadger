@@ -51,7 +51,7 @@ pub fn parse_order(id: &str, o: &Value) -> Result<OrderState, VenueError> {
         Some("FAILED") => OrderStatus::Failed,
         _ => return Err(unreadable()),
     };
-    Ok(OrderState {
+    Ok(OrderState { zero_fill_at: None,
         txid: id.into(),
         status,
         price: (!price.is_zero()).then_some(price),

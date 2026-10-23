@@ -1,0 +1,5 @@
+ru:
+    tracker:
+        import:
+            format_kucoin: "KuCoin CSV"
+            generic: "Записано с общей меткой: %{count}."

@@ -185,7 +185,8 @@ async fn fetch_inner(app:&App,fetch:Fetch)->Fetched{
             let mut cache=Cache::default();
             cache.produced_by(producer);
             // Without a usable Alpaca key the other venues are read, and Alpaca's market data is a settled failure.
-            let wire=match &credentials { Some(credentials)=>Wire::new(credentials,app.figure_source.clone()).with_origin(credentials.origin.clone()), None=>Wire::of(None,app.figure_source.clone()) };
+            let venues={ let cipher=app.cipher.clone(); app.db(move|c|Ok(figure::loading::venue_egresses(c,&cipher))).await.unwrap_or_default() };
+            let wire=match &credentials { Some(credentials)=>Wire::new(credentials,app.figure_source.clone()).with_origin(credentials.origin.clone()), None=>Wire::of(None,app.figure_source.clone()) }.with_venues(venues);
             let ready=figure::loading::fill_with(app,user,&mut cache,&wire,now,read_limits::check,move|c,r|global(c,user,r,now).is_ok()).await;
             Fetched::Summary(user,cache,now,ready)
         }

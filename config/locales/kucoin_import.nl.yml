@@ -1,0 +1,5 @@
+nl:
+    tracker:
+        import:
+            format_kucoin: "KuCoin CSV"
+            generic: "Vastgelegd met een algemeen label: %{count}."

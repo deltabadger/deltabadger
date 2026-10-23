@@ -7,12 +7,16 @@ use rusqlite::{Connection, types::{Value as Sql, ValueRef}};
 use serde_json::{json, Map, Value};
 use std::path::Path;
 
+/// Every Rails table's rows. Rust's own tables (`REGISTRY.owned_tables()`) and the one app_configs row Rust writes on
+/// an import (the identity key, `identity::KEY_CONFIG`) are left out: Rails has neither; `rust_effects` asserts them.
 fn snapshot(c: &Connection) -> Value {
+    let owned = deltabadger::store::REGISTRY.owned_tables();
     let names: Vec<String> = c.prepare("SELECT name FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name").unwrap()
-        .query_map([],|r|r.get(0)).unwrap().collect::<Result<_,_>>().unwrap();
+        .query_map([],|r|r.get(0)).unwrap().collect::<Result<Vec<String>,_>>().unwrap().into_iter().filter(|n| !owned.contains(&n.as_str())).collect();
     let mut tables = Map::new();
     for name in names {
-        let mut statement = c.prepare(&format!("SELECT * FROM {name} ORDER BY 1")).unwrap();
+        let skip = if name == "app_configs" { format!(" WHERE key IS NOT '{}'", deltabadger::identity::KEY_CONFIG) } else { String::new() };
+        let mut statement = c.prepare(&format!("SELECT * FROM {name}{skip} ORDER BY 1")).unwrap();
         let columns: Vec<String> = statement.column_names().iter().map(|s|s.to_string()).collect();
         let rows = statement.query_map([],|r| {
             let mut values = Map::new();
@@ -115,6 +119,30 @@ async fn export_modal_is_read_only_and_matches_rails_bytes() {
     compare(&locales.iter().map(String::as_str).collect::<Vec<_>>()).await;
 }
 
+/// The imports that write a venue export's account (`identity::record_import`): compared with the identity key absent
+/// and with it already present.
+const IDENTITY_CASES: [&str; 2] = ["import_binance_ok", "import_answer"];
+
+/// What a migrated import writes beside Rails' rows: the identity key, created once and reused; one import observation
+/// per identity-bearing file; no KuCoin source rows.
+fn rust_effects(c: &Connection, name: &str, key_before: Option<String>) {
+    let count = |sql: &str| c.query_row(sql, [], |r| r.get::<_, i64>(0)).unwrap();
+    let key_after = deltabadger::app_config::get_plain(c, deltabadger::identity::KEY_CONFIG).unwrap();
+    if key_before.is_some() { assert_eq!(key_after, key_before, "{name}: the identity key is reused"); }
+    if IDENTITY_CASES.contains(&name) {
+        assert!(key_after.is_some(), "{name}: the identity key exists");
+        assert_eq!(count("SELECT count(*) FROM exchange_account_imports"), 1, "{name}: the export's account is recorded");
+    }
+    assert_eq!(count("SELECT count(*) FROM import_rows"), 0, "{name}");
+}
+
+/// D-IMPORT-FORMATS: the dialog offers Rust's KuCoin format beside Rails' two; the rest of it is Rails' bytes.
+fn without_kucoin_format(body: &str) -> String {
+    let option = regex::Regex::new(r#"\n *<button type="button" class="segmented__option" role="radio" aria-checked="false" tabindex="-1" data-value="kucoin"[^\n]*</button>"#).unwrap();
+    assert!(option.is_match(body), "the KuCoin format is offered");
+    option.replace(body, "").into_owned()
+}
+
 async fn compare(cases: &[&str]) {
     let generated;
     let root = match std::env::var("D5_GRID") {
@@ -125,6 +153,14 @@ async fn compare(cases: &[&str]) {
         }
     };
     for &name in cases {
+        compare_one(&root, name, false).await;
+        if IDENTITY_CASES.contains(&name) { compare_one(&root, name, true).await; }
+    }
+}
+
+async fn compare_one(root: &str, name: &str, identity_key: bool) {
+    let (root, cases) = (root.to_string(), [name]);
+    for name in cases {
         let directory = if name.starts_with("sync_") { std::env::var("D5_SYNC_GRID").unwrap_or_else(|_|root.clone()) } else { root.clone() };
         let source = Path::new(&directory).join(format!("d5_{name}"));
         let scenario: Value = serde_json::from_slice(&std::fs::read(source.join("scenario.json")).unwrap()).unwrap();
@@ -135,6 +171,8 @@ async fn compare(cases: &[&str]) {
         let dir = tempfile::tempdir().unwrap();
         for name in ["production.sqlite3","production_queue.sqlite3"] { std::fs::copy(source.join(name),dir.path().join(name)).unwrap(); }
         let c = Connection::open(dir.path().join("production.sqlite3")).unwrap();
+        // A migrated install, as `serve` runs on.
+        deltabadger::store::test_support::migrate(&c).unwrap();
         // The record directory contains the post-request database. Rebuild the pre-request
         // row state from the recorder before opening App, retaining the real Rails schema.
         c.execute_batch("PRAGMA foreign_keys=OFF; BEGIN IMMEDIATE").unwrap();
@@ -153,6 +191,8 @@ async fn compare(cases: &[&str]) {
         c.execute_batch("COMMIT; PRAGMA foreign_keys=ON").unwrap();
         let secret = scenario["secret_key_base"].as_str().unwrap();
         let app = web::app(dir.path(),secret,TestClock::at(scenario["at"].as_str().unwrap()));
+        if identity_key { deltabadger::identity::key(&c,&app.cipher,app.now()).unwrap(); }
+        let key_before = deltabadger::app_config::get_plain(&c,deltabadger::identity::KEY_CONFIG).unwrap();
         same_rows(snapshot(&c),before,&format!("{name} before"));
         let (owner,hash): (i64,String) = c.query_row("SELECT id,encrypted_password FROM users ORDER BY id LIMIT 1",[],|r|Ok((r.get(0)?,r.get(1)?))).unwrap();
         let token = csrf::new_token();
@@ -194,7 +234,8 @@ async fn compare(cases: &[&str]) {
             for rendered in common::html::masked_values(&answer.body).tokens {
                 assert!(csrf::valid(&token,&rendered),"invalid rendered CSRF");
             }
-            assert_eq!(mask_csrf(&answer.body),mask_csrf(expected["body"].as_str().unwrap()),"{name}: body bytes");
+            let body = if name == "import_new" { without_kucoin_format(&answer.body) } else { answer.body.clone() };
+            assert_eq!(mask_csrf(&body),mask_csrf(expected["body"].as_str().unwrap()),"{name}: body bytes");
         } }
         else {
             // Existing web-foundation exception contract: public error file and below-controller
@@ -210,5 +251,6 @@ async fn compare(cases: &[&str]) {
         }
         if name.starts_with("export_") { assert_eq!(answer.header("content-disposition"),expected["headers"]["content-disposition"].as_str(),"{name}: disposition"); }
         same_rows(snapshot(&c),combined(expected,"after"),&format!("{name} after"));
+        rust_effects(&c,name,key_before);
     }
 }

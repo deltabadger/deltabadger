@@ -374,7 +374,7 @@ pub fn stocks(ctx: &Ctx, csrf: &str, s: &Stocks) -> String {
     };
     let mode = format!(
         "\n        {}",
-        segmented("Mode", false, &[("paper", ctx.t("settings.stocks.mode_paper"), s.paper), ("live", ctx.t("settings.stocks.mode_live"), !s.paper)])
+        segmented(&ctx.t("settings.stocks.mode"), false, &[("paper", ctx.t("settings.stocks.mode_paper"), s.paper), ("live", ctx.t("settings.stocks.mode_live"), !s.paper)])
     );
     let connect = ctx.t("button.connect");
     format!(
@@ -386,7 +386,7 @@ pub fn stocks(ctx: &Ctx, csrf: &str, s: &Stocks) -> String {
             "patch",
             csrf
         ),
-        row("Mode", None, "srow--flush", "", None, Some(&mode)),
+        row(&ctx.t("settings.stocks.mode"), None, "srow--flush", "", None, Some(&mode)),
         if s.paper { "paper" } else { "live" },
         submit(&connect, &format!(" data-turbo-stream=\"true\" data-turbo-submits-with=\"{}\"", ctx.t("bot.setup.validating"))),
         crate::web::i18n::t(ctx.locale, "bot.setup.how_to_get_keys", &[("exchange", crate::web::i18n::Arg::Text("Alpaca"))]),

@@ -238,6 +238,7 @@ ru:
             missing_credentials: 'Заполните оба поля: API-ключ и секретный ключ.'
             not_refreshing: 'Каталог акций синхронизирован. Подключите Alpaca, чтобы он оставался актуальным.'
             disconnect: 'Отключить'
+            mode: 'Режим'
             mode_paper: 'Демо'
             mode_live: 'Реальный'
         rest:
@@ -441,6 +442,7 @@ ru:
         minutes_short: 'm'
         seconds_short: 's'
     bot_filters:
+        label: 'Статус бота'
         all: 'Все'
         active: 'Активные'
         inactive: 'Неактивные'
@@ -671,6 +673,7 @@ ru:
             closed: 'Закрыта'
             cash: 'Наличные'
         range:
+            label: 'Период'
             '30d': '30Д'
             '1y': '1Г'
             all: 'Всё'
@@ -712,6 +715,7 @@ ru:
             adjustment: 'Корректировка'
             unsupported_activity: 'Прочая операция'
     order_filters:
+        label: 'Ордера'
         all: 'Все'
         successful: 'Выполненные'
         transactions: 'Транзакции'

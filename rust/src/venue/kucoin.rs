@@ -96,7 +96,7 @@ fn limit_type(v: &Value) -> Result<bool, VenueError> {
 }
 
 /// Exchanges::Kucoin#parse_order_data and #parse_order_status. A cancelled order keeps what it dealt; "done" with nothing
-/// dealt is Unknown, never Closed. The price is dealFunds / dealSize (rounded half up to the pair's tick) when both are
+/// dealt is Unknown, never Closed (a market order's terminal zero fill carries `zero_fill_at`, D-KUCOIN-ZERO-FILL-FUNDS). The price is dealFunds / dealSize (rounded half up to the pair's tick) when both are
 /// positive, else the order's own price; a zero price is none.
 pub fn parse_order(order_id: &str, o: &Value, pairs: &Pairs) -> Result<OrderState, VenueError> {
     let symbol = field(o, "symbol")?.as_str().ok_or_else(unreadable)?;
@@ -108,10 +108,16 @@ pub fn parse_order(order_id: &str, o: &Value, pairs: &Pairs) -> Result<OrderStat
     };
     if price.is_positive() { if let Some(p) = pairs.by_symbol.get(symbol) { price = price.round(p.price_decimals); } }
     let sell = field(o, "side")?.as_str().ok_or_else(unreadable)?.eq_ignore_ascii_case("sell");
-    let amount_exec = deal_size.unwrap_or_else(BigDec::zero);
+    let amount_exec = deal_size.clone().unwrap_or_else(BigDec::zero);
     let status = if truthy(&o["cancelExist"]) { OrderStatus::Cancelled } else if truthy(&o["isActive"]) { OrderStatus::Open }
                  else if amount_exec.is_positive() { OrderStatus::Closed } else { OrderStatus::Unknown };
-    Ok(OrderState { txid: order_id.into(), status, price: (!price.is_zero()).then_some(price), amount: optional(&o["size"])?, quote_amount: optional(&o["funds"])?,
+    // D-KUCOIN-ZERO-FILL-FUNDS: only explicit terminal evidence on a market order (both flags JSON false, both dealt amounts
+    // present and exactly 0, a readable createdAt) is kept for the poll to settle (OrderState::settled); all else as Rails.
+    let zero = |v: &Option<BigDec>| v.as_ref().is_some_and(BigDec::is_zero);
+    let zero_fill_at = (status == OrderStatus::Unknown && !limit && o["isActive"] == Value::Bool(false) && o["cancelExist"] == Value::Bool(false)
+                        && zero(&deal_size) && zero(&deal_funds))
+        .then(|| o["createdAt"].as_i64().and_then(DateTime::from_timestamp_millis)).flatten();
+    Ok(OrderState { zero_fill_at, txid: order_id.into(), status, price: (!price.is_zero()).then_some(price), amount: optional(&o["size"])?, quote_amount: optional(&o["funds"])?,
                     amount_exec, quote_amount_exec: Some(deal_funds.unwrap_or_else(BigDec::zero)), limit, sell, pair: Some(symbol.into()), asset_class: None })
 }
 
@@ -272,7 +278,7 @@ impl<T: Transport> KucoinVenue<T> {
         let symbol = first["symbol"].as_str().ok_or_else(unreadable)?;
         let mut price = if amount.is_positive() { quote.div(&amount) } else { None };
         if let (Some(p), Some(pair)) = (&mut price, self.pairs.by_symbol.get(symbol)) { *p = p.round(pair.price_decimals); }
-        Ok(OrderState { txid: order_id.into(), status: OrderStatus::Closed, price, amount: None, quote_amount: None, amount_exec: amount,
+        Ok(OrderState { zero_fill_at: None, txid: order_id.into(), status: OrderStatus::Closed, price, amount: None, quote_amount: None, amount_exec: amount,
                         quote_amount_exec: Some(quote), limit: limit_type(&Value::String(to_s(&first["type"])))?,
                         sell: to_s(&first["side"]).eq_ignore_ascii_case("sell"), pair: Some(symbol.into()), asset_class: None })
     }

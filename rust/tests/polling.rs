@@ -187,7 +187,7 @@ fn a_blank_row_is_filled_from_the_orders_own_pair_never_the_bots_first_member() 
                        VALUES (?1, ?2, 'OLEGACY', 0, 0, 0, 0, 18, 'week', 60, 'REGULAR', '[]', '2026-09-01 10:00:01', '2026-09-01 10:00:01')",
                       rusqlite::params![id, s.exchange_id]).unwrap();
     let tx = o.primary.last_insert_rowid();
-    let state = |pair: &str| OrderState { asset_class: Some("crypto".into()), txid: "OLEGACY".into(), status: OrderStatus::Open, price: Some(BigDec::from_i64(2500)), amount: None,
+    let state = |pair: &str| OrderState { zero_fill_at: None, asset_class: Some("crypto".into()), txid: "OLEGACY".into(), status: OrderStatus::Open, price: Some(BigDec::from_i64(2500)), amount: None,
         quote_amount: Some(BigDec::from_i64(18)), amount_exec: BigDec::zero(), quote_amount_exec: Some(BigDec::zero()), limit: false, sell: false, pair: Some(pair.into()) };
     let row = || -> (Option<String>, Option<String>, Option<i64>, Option<i64>) { o.primary.query_row(
         "SELECT base, quote, base_asset_id, quote_asset_id FROM transactions WHERE id = ?1", [tx], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))).unwrap() };
@@ -259,7 +259,7 @@ fn a_fill_with_no_stated_quote_amount_leaves_the_column_as_it_is() {
     let (_d, o, s, b) = setup(json!({}));
     let tx = seed::insert_tx(&o.primary, &s, b, &TxSpec { quote_amount_exec: Some("12.5"), amount_exec: Some("0"), ..open_market("2026-09-29 10:00:00", "OHIST-1") });
     // Exchanges::Binance#parse_order_data on a historical order: executedQty 0, cummulativeQuoteQty negative → nil.
-    let state = OrderState { asset_class: None, txid: "OHIST-1".into(), status: OrderStatus::Cancelled, price: None, amount: None,
+    let state = OrderState { zero_fill_at: None, asset_class: None, txid: "OHIST-1".into(), status: OrderStatus::Cancelled, price: None, amount: None,
         quote_amount: Some(BigDec::from_i64(60)), amount_exec: BigDec::zero(), quote_amount_exec: None, limit: false, sell: false, pair: None };
     { let unit=o.primary.unchecked_transaction().unwrap(); let fenced=model::check_credential_result(&unit,&None).unwrap();
       polling::apply_in(&fenced, b, tx, &state, true, now()).unwrap(); unit.commit().unwrap(); }

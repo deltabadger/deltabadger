@@ -499,6 +499,49 @@ fn only_the_identity_read_after_a_correct_check_and_the_identity_record_are_left
     assert_eq!(without_identity_record(rows), json!({"app_configs": [{"id": 2, "key": "other"}], "users": []}));
 }
 
+/// Named divergence D-LOW-FUNDS-STATUS: a buying bot whose synced balances are low says "Low funds" before its countdown
+/// (after "Market closed", joined by " · "), and that countdown loses `text-success`. Only those two are taken out of this
+/// crate's page, and only together; every other line is compared. Returns how many were taken.
+fn without_low_funds(body: &mut Value) -> usize {
+    const LOCALES: [&str; 15] = ["en", "de", "fr", "it", "es", "pt", "nl", "pl", "ru", "bg", "el", "sv", "da", "cs", "sk"];
+    let lows: Vec<String> = LOCALES.iter().map(|l| deltabadger::web::i18n::text(l, "bot.status.low_funds", &[])).collect();
+    let Value::Array(lines) = body else { return 0 };
+    let (mut taken, mut i) = (0, 1);
+    while i < lines.len() {
+        let line = lines[i].as_str().unwrap_or_default().to_string();
+        let (indent, text) = line.split_at(line.len() - line.trim_start().len());
+        let kept = lows.iter().find_map(|low| if text == format!("{low:?}") { Some(None) } else { text.strip_suffix(&format!(" · {low}\"")).map(|rest| Some(format!("{indent}{rest}\""))) });
+        let div = lines[i - 1].as_str().unwrap_or_default();
+        match kept {
+            Some(kept) if div.contains("data-controller=\"countdown\"") && div.contains("class=\"bot-control__status__text \"") => {
+                lines[i - 1] = json!(div.replace("class=\"bot-control__status__text \"", "class=\"bot-control__status__text text-success\""));
+                match kept { Some(rest) => lines[i] = json!(rest), None => { lines.remove(i); } }
+                taken += 1;
+            }
+            _ => {}
+        }
+        i += 1;
+    }
+    taken
+}
+
+#[test]
+fn only_the_low_funds_prefix_and_its_colour_are_left_out() {
+    let div = |class: &str| format!("    <div class=\"{class}\" data-controller=\"countdown\">");
+    let rails = json!([div("bot-control__status__text text-success"), "      <div style=\"display: inline-block; min-width: 9em;\">"]);
+    let mut ours = json!([div("bot-control__status__text "), "      \"Low funds\"", "      <div style=\"display: inline-block; min-width: 9em;\">"]);
+    assert_eq!((without_low_funds(&mut ours), &ours), (1, &rails));
+    let closed = |text: &str| json!([div("bot-control__status__text text-success"), format!("      \"{text}\""), "      <div>"]);
+    let mut ours = closed("Market closed · Wenig Guthaben");
+    ours[0] = json!(div("bot-control__status__text "));
+    assert_eq!((without_low_funds(&mut ours), &ours), (1, &closed("Market closed")));
+    // The text alone (a retrying bar keeps no colour) or the colour alone is still compared.
+    for mut alone in [json!([div("bot-control__status__text "), "      \"Next try\""]), json!([div("bot-control__status__text text-success"), "      \"Low funds\""])] {
+        let before = alone.clone();
+        assert_eq!((without_low_funds(&mut alone), &alone), (0, &before));
+    }
+}
+
 /// The scenario prefixes of a signal bot's pages and writes (pages_signals.rb), which this app serves through its test seam.
 const SIGNAL_SCENARIOS: [&str; 6] = ["signal_page_", "signal_action_", "refused_signal_", "api_signal_", "refused_api_signal_", "not_ported_signal_"];
 
@@ -1279,6 +1322,7 @@ async fn compare_shard(k: usize) {
         let creates = scenario["steps"].as_array().unwrap().iter().any(|step| step["may_mutate"].as_array().is_some_and(|tables| tables.iter().any(|t| t == "bots")));
         if !name.starts_with("actions_") && !creates && recorded["bots"] != built { failures.push(format!("{name}: Rails changed a bot while it rendered:\n  before: {built}\n  after:  {}", recorded["bots"])); }
         let mut rust = run(&rust_root.path().join(&name).join(scope)).await;
+        for answer in rust["responses"].as_array_mut().unwrap() { without_low_funds(&mut answer["body"]); }
         if name.starts_with("countdown_") {
             let ours: Vec<Vec<String>> = rust["responses"].as_array_mut().unwrap().iter_mut().map(|answer| without_countdown(&mut answer["body"])).collect();
             // Rails knows a time on every page of these scenarios, and this build must not claim the same one.

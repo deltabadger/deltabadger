@@ -87,7 +87,13 @@ pub(super) trait Walk {
     /// The longest the next page's requests can take: every try at the transport's whole budget, and every wait.
     fn request_reserve(&self) -> Duration;
     async fn step(&mut self) -> Result<Vec<Entry>, (String, bool)>;
+    /// What a checkpoint whose cursor is `cursor` (the walk's own) does once its page is stored, in the same transaction:
+    /// KuCoin's takeover of the file's entries a finished source proves (plan KI §5). The finishing unit passes the done
+    /// walk's cursor. A fn pointer, so the 'static store closure need not name the walk's type.
+    const CHECKPOINT: Checkpoint = |_, _, _, _| Ok(());
 }
+
+pub(super) type Checkpoint = fn(&Connection, &Key, &Value, DateTime<Utc>) -> Result<(), SyncError>;
 
 /// Where a walk begins: a fresh import from `start` (None: the venue's whole history) to `end`, or a recorded cursor.
 pub(super) struct Begin<'a> { pub start: Option<DateTime<Utc>>, pub end: DateTime<Utc>, pub cursor: Option<&'a Value> }
@@ -246,6 +252,7 @@ pub(super) async fn sync<W: Walk>(db: &Db, version: &CredentialVersion, key: Key
         }
     }
     let complete = walk.done();
+    let (checkpoint, done_cursor) = (W::CHECKPOINT, walk.cursor());
 
     // Store, a page (with the empty pages after it) at a time, each in one transaction with its checkpoint: a cut leaves a
     // page wholly stored and checkpointed, or not at all, so a replay never meets half a page.
@@ -274,6 +281,7 @@ pub(super) async fn sync<W: Walk>(db: &Db, version: &CredentialVersion, key: Key
             let mut r = r;
             let to = p.batch.len();
             let p = ledger::store(c, &k, 0..to, None, p, now)?;
+            checkpoint(c, &k, &r.cursor, now)?;
             // The store's dedup state after this page, verbatim.
             r.ours = id_runs(&p.stored);
             r.repeats = p.repeats.iter().filter(|(_, n)| **n > 0).map(|(k, n)| (k.clone(), *n)).collect();
@@ -306,7 +314,9 @@ pub(super) async fn sync<W: Walk>(db: &Db, version: &CredentialVersion, key: Key
     let watermark = [max_seen, min_skipped].into_iter().flatten().min().or(key.last_synced_at).map(|w| w.min(record.started));
     let changed = micros(watermark) != raw_watermark || key.last_sync_error.is_some();
     let producer = version.clone();
+    let finished_key = key.clone();
     super::commit_for(db, version, move |c| {
+        checkpoint(c, &finished_key, &done_cursor, now)?;
         super::cache::record_ledger(c, key_id, &producer, now)?;
         if changed { c.execute("UPDATE api_keys SET last_synced_at = ?1, last_sync_error = NULL, updated_at = ?2 WHERE id = ?3", params![watermark.map(sql_time), sql_time(now), key_id])?; }
         c.execute("DELETE FROM app_configs WHERE key = ?1", [record_key(key_id)])?;

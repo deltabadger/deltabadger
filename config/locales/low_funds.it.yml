@@ -1,0 +1,4 @@
+it:
+    bot:
+        status:
+            low_funds: "Fondi scarsi"

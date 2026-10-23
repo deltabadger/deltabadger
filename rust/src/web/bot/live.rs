@@ -79,3 +79,23 @@ pub async fn follow(app: App, mut events: tokio::sync::mpsc::UnboundedReceiver<E
         }
     }
 }
+
+/// D-LOW-FUNDS-STATUS: a key's synced balances became current or stopped being so (jobs::notifications): its owner's bots on
+/// that venue redraw their bars as after a run (EngineEvent::TickEnded), so "Low funds" comes and goes without a reload.
+pub fn balances_changed(app: &App, key_id: i64) {
+    let app = app.clone();
+    tokio::spawn(async move {
+        let inner = app.clone();
+        let rendered = app.db(move |c| {
+            let mut s = c.prepare("SELECT b.id FROM bots b JOIN api_keys k ON k.user_id = b.user_id AND k.exchange_id = b.exchange_id WHERE k.id = ?1 ORDER BY b.id")?;
+            let ids = s.query_map([key_id], |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?;
+            let mut out = vec![];
+            for bot_id in ids { out.extend(render(c, &inner, &EngineEvent::TickEnded { bot_id })?); }
+            Ok(out)
+        }).await;
+        match rendered {
+            Ok(messages) => for (stream, html) in messages { app.hub.broadcast(&stream, &html); },
+            Err(err) => crate::engine::log(&format!("[web] key {key_id}: the status bars could not be redrawn after its balances changed: {err:?}")),
+        }
+    });
+}

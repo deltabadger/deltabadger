@@ -1,0 +1,4 @@
+cs:
+    bot:
+        status:
+            low_funds: "Nízké prostředky"

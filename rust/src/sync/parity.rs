@@ -226,7 +226,7 @@ fn import_step(c: &Connection, cipher: &Cipher, user_id: i64, step: &Value, at: 
     match run::import(c, cipher, user_id, format, bytes, offset.as_deref(), answered.map(|id| id.to_string()).as_deref(), at)? {
         Answer::Error(error) => out["error"] = json!(error),
         Answer::Ambiguous(keys) => out["ambiguous"] = json!(keys.iter().map(|k| k.id).collect::<Vec<_>>()),
-        Answer::Written { imported, duplicates, skipped, unrecognised, unrouted } =>
+        Answer::Written { imported, duplicates, skipped, unrecognised, unrouted, .. } =>
             out = json!({ "imported": imported, "duplicates": duplicates, "skipped": skipped, "unrecognised": unrecognised, "unrouted": unrouted, "error": null, "ambiguous": null }),
     }
     Ok(out)
