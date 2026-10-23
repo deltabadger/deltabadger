@@ -92,15 +92,15 @@ fn gets(t: &ScriptedTransport, id: &str) -> usize { t.requests().iter().filter(|
 // ---- A. D-KUCOIN-ZERO-FILL-DONE
 
 #[test]
-fn only_explicit_terminal_evidence_on_a_market_order_is_kept_and_it_settles_strictly_past_five_minutes() {
+fn only_explicit_terminal_evidence_on_a_market_order_is_kept_and_it_settles_strictly_past_one_minute() {
     let (id, created, size) = CASE[0];
     let base = answer(id, created, size);
     let parse = |raw: &Value| kucoin::parse_order(id, raw, &Pairs::default());
     let s = parse(&base).unwrap();
     let created = at(created);
     assert_eq!((s.status, s.zero_fill_at, s.settles_at()), (OrderStatus::Unknown, Some(created), Some(created + ZERO_FILL_SETTLE)), "parsed as Rails parses it");
-    assert_eq!(s.clone().settled(created + Duration::minutes(4)).status, OrderStatus::Unknown, "young");
-    assert_eq!(s.clone().settled(created + ZERO_FILL_SETTLE).status, OrderStatus::Unknown, "exactly five minutes is not older");
+    assert_eq!(s.clone().settled(created + Duration::seconds(30)).status, OrderStatus::Unknown, "young");
+    assert_eq!(s.clone().settled(created + ZERO_FILL_SETTLE).status, OrderStatus::Unknown, "exactly one minute is not older");
     let done = s.clone().settled(created + ZERO_FILL_SETTLE + Duration::milliseconds(1));
     assert_eq!((done.status, done.amount_exec.is_zero(), done.closed_empty()), (OrderStatus::Closed, true, true));
     assert_eq!(s.settled(created - Duration::hours(1)).status, OrderStatus::Unknown, "a createdAt in the future of the poll");
@@ -145,7 +145,7 @@ async fn the_recorded_answers_fail_past_the_window_as_kucoins_funds_rejection_an
         let t = ScriptedTransport::from_script(&json!({ format!("GET /api/v1/orders/{id}"): env(answer(id, created, size)) }));
         let unknown = Err(PollFailure::General(format!("Order {id} status is unknown.")));
         let logs = k.logs();
-        for young in [Duration::minutes(4), ZERO_FILL_SETTLE] {
+        for young in [Duration::seconds(30), ZERO_FILL_SETTLE] {
             assert_eq!(polling::sweep(&k.o.primary, &kv(&t), &k.bot(), at(created) + young).await, unknown, "{id}: inside the window the sweep raises, as Rails");
         }
         assert_eq!((k.row(id).0, k.failed(id).0, k.failure().0, k.logs()), (0, 0, 1, logs.clone()), "{id}: nothing written while young");
@@ -272,7 +272,7 @@ impl deltabadger::venue::VenueFactory for Factory {
 /// venue's clock two hours ahead the eight asks run out first, and one more just past the window settles it.
 #[tokio::test(flavor = "current_thread")]
 async fn a_stopped_bots_follow_up_chain_settles_the_row_past_the_window() {
-    for (skew, asks) in [(Duration::zero(), 5), (Duration::hours(2), 9)] {
+    for (skew, asks) in [(Duration::zero(), 4), (Duration::hours(2), 9)] {
         let (id, placed, size) = CASE[2];
         let k = install(2);
         k.waiting(id, placed);
@@ -290,6 +290,8 @@ async fn a_stopped_bots_follow_up_chain_settles_the_row_past_the_window() {
         assert_eq!((k.row(id), k.failed(id).0), ((2, 0.0, Some(0.0)), 1), "skew {skew}: failed by its follow-ups");
         assert_eq!(k.failure(), (2, None, None, None), "skew {skew}: a stopped bot stays stopped, as a rejection never reaches one");
         assert!(now > created + ZERO_FILL_SETTLE, "skew {skew}: only past the window");
+        // Asked at +5 s, then 3 s, 18 s and 83 s apart (tick::retry_wait): the fourth ask, at +109 s, is the first past the minute.
+        if skew.is_zero() { assert_eq!(now, at(placed) + Duration::seconds(109), "settled by the poll 83 s after the third"); }
         assert_eq!(gets(&t, id), asks, "skew {skew}: the asks it took");
     }
 }
@@ -315,7 +317,7 @@ async fn a_recovered_zero_fill_fails_once_when_it_settles() {
         found["clientOid"] = json!(intent.cl_ord_id);
         let t = ScriptedTransport::from_script(&json!({ format!("GET /api/v1/order/client-order/{}", intent.cl_ord_id): env(found.clone()),
                                                         format!("GET /api/v1/orders/{}", CASE[0].0): env(found) }));
-        let now = placed + if young { Duration::minutes(2) } else { Duration::minutes(10) };
+        let now = placed + if young { Duration::seconds(30) } else { Duration::minutes(10) };
         assert!(matches!(placement::recover(&k.o.primary, &kv(&t), &k.bot(), &FixedClock(now)).await.unwrap(), Recovery::Recorded(_)), "young {young}");
         assert_eq!((k.row(CASE[0].0).0, k.failed(CASE[0].0).0), if young { (0, 0) } else { (2, 1) }, "young {young}");
         assert_eq!(k.failure().0, if young { 1 } else { RETRYING }, "young {young}");

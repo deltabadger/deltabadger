@@ -217,6 +217,7 @@ da:
             missing_credentials: 'Udfyld både API-nøglen og hemmeligheden.'
             not_refreshing: 'Aktiekataloget er synkroniseret. Forbind Alpaca for at holde det opdateret.'
             disconnect: 'Afbryd'
+            mode: 'Tilstand'
             mode_paper: 'Papir'
             mode_live: 'Live'
         rest:
@@ -438,6 +439,7 @@ da:
         minutes_short: 'm'
         seconds_short: 's'
     bot_filters:
+        label: 'Botstatus'
         all: 'Alle'
         active: 'Aktive'
         inactive: 'Inaktive'
@@ -677,6 +679,7 @@ da:
             closed: 'Lukket'
             cash: 'Kontanter'
         range:
+            label: 'Periode'
             '30d': '30D'
             '1y': '1Å'
             all: 'Alt'
@@ -718,6 +721,7 @@ da:
             adjustment: 'Justering'
             unsupported_activity: 'Anden aktivitet'
     order_filters:
+        label: 'Ordrer'
         all: 'Alle'
         successful: 'Gennemført'
         transactions: 'Transactions' # TODO: translate (English placeholder)
@@ -748,7 +752,9 @@ da:
             liquidation_batch_cut_short: "Stoppet tidligt — %{bases} er ikke solgt endnu"
             liquidation_not_started: "Intet blev solgt — botten var optaget, eller indekset kunne ikke opdateres"
             liquidation_failed: "Selling failed: %{error}"
-            orders_below_minimum: "%{count} constituents were under the exchange minimum this time and carry forward: %{bases}"
+            orders_below_minimum:
+                one: "Ordren for %{bases} var under børsens minimum denne gang og overføres."
+                other: "Ordrerne for %{bases} var under børsens minimum denne gang og overføres."
             redeploy_requested: "Pengene ryger tilbage i kurven"
             redeploy_placed: "Køber tilbage i kurven for provenuet"
             redeploy_skipped: "En del af provenuet kunne ikke geninvesteres — blev stående som kontanter"

@@ -337,7 +337,7 @@ pub fn render_unsaved(c: &Connection, ctx: &Ctx, csrf: &str, bot: &Bot, stored: 
         },
         None => Fill { scheduled: false, width: "0".into(), start: None, end: None },
     };
-    let (mut text, mut dots, mut countdown, mut connect, mut listening, mut low) = (None, false, None, None, false, false);
+    let (mut text, mut dots, mut countdown, mut connect, mut listening, mut low, mut setting) = (None, false, None, None, false, false, false);
     match bot.status {
         BotStatus::Archived => text = Some(t("bot.status.archived")),
         _ if !bot.exchange.retired() && !bot.api_key_correct() => connect = Some(ctx.path(&format!("/bots/{}/add_api_key/new", bot.id))),
@@ -353,6 +353,9 @@ pub fn render_unsaved(c: &Connection, ctx: &Ctx, csrf: &str, bot: &Bot, stored: 
             });
         }
         BotStatus::Waiting => (text, dots) = (Some(t("bot.status.waiting")), true),
+        // D-PENDING-MARKET-SETTING: Rails' market order is final within its run, under "Setting orders…"; one still settling
+        // after the run (ZERO_FILL_SETTLE) keeps that text until it is final (orders::PENDING_MARKET), not the schedule's.
+        BotStatus::Scheduled | BotStatus::Retrying if bot.has_pending_market_orders => (text, setting) = (Some(t("bot.status.setting_orders")), true),
         BotStatus::Scheduled if signal => listening = true,
         BotStatus::Scheduled | BotStatus::Retrying => {
             let scheduled = bot.status == BotStatus::Scheduled;
@@ -376,7 +379,7 @@ pub fn render_unsaved(c: &Connection, ctx: &Ctx, csrf: &str, bot: &Bot, stored: 
         }
         BotStatus::Created | BotStatus::Deleted => {}
     }
-    let bar = Bar { v: ctx, id: bot.dom_id("status_bar"), active: bot.status == BotStatus::Scheduled, executing: bot.status == BotStatus::Executing, text, dots, listening, countdown, connect }.render()?;
+    let bar = Bar { v: ctx, id: bot.dom_id("status_bar"), active: bot.status == BotStatus::Scheduled && !setting, executing: bot.status == BotStatus::Executing || setting, text, dots, listening, countdown, connect }.render()?;
     let progress = Progress { id: bot.dom_id("progress_bar"), fill: (!signal).then_some(fill) }.render()?;
     // _status_button.html.erb runs `bot.invalid?(:start)` whatever the status, and the errors it leaves are printed
     // under their fields by the settings rendered after it. A signal bot's are printed nowhere.

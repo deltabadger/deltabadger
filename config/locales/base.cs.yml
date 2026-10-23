@@ -218,6 +218,7 @@ cs:
             missing_credentials: 'Vyplň obě pole: API klíč i tajný klíč.'
             not_refreshing: 'Katalog akcií je synchronizován. Připoj Alpacu, aby zůstal aktuální.'
             disconnect: 'Odpojit'
+            mode: 'Režim'
             mode_paper: 'Papírové'
             mode_live: 'Živé'
         rest:
@@ -445,6 +446,7 @@ cs:
         minutes_short: 'm'
         seconds_short: 's'
     bot_filters:
+        label: 'Stav bota'
         all: 'Vše'
         active: 'Aktivní'
         inactive: 'Neaktivní'
@@ -685,6 +687,7 @@ cs:
             closed: 'Uzavřená'
             cash: 'Hotovost'
         range:
+            label: 'Období'
             '30d': '30D'
             '1y': '1R'
             all: 'Vše'
@@ -726,6 +729,7 @@ cs:
             adjustment: 'Úprava'
             unsupported_activity: 'Jiná operace'
     order_filters:
+        label: 'Příkazy'
         all: 'Vše'
         successful: 'Úspěšné'
         transactions: 'Transactions' # TODO: translate (English placeholder)
@@ -756,7 +760,9 @@ cs:
             liquidation_batch_cut_short: "Zastaveno dříve — %{bases} zatím neprodáno"
             liquidation_not_started: "Nic se neprodalo — bot byl zaneprázdněný nebo se index nepodařilo obnovit"
             liquidation_failed: "Selling failed: %{error}"
-            orders_below_minimum: "%{count} constituents were under the exchange minimum this time and carry forward: %{bases}"
+            orders_below_minimum:
+                one: "Pokyn %{bases} byl tentokrát pod minimem burzy a přesouvá se dál."
+                other: "Pokyny %{bases} byly tentokrát pod minimem burzy a přesouvají se dál."
             redeploy_requested: "Vracím peníze zpět do koše"
             redeploy_placed: "Nakupuji zpět do koše za získané prostředky"
             redeploy_skipped: "Část prostředků se nepodařilo vložit zpět — zůstala v hotovosti"

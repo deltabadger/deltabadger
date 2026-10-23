@@ -235,6 +235,7 @@ it:
             missing_credentials: 'Compila sia la chiave API sia il secret.'
             not_refreshing: 'Catalogo azioni sincronizzato. Collega Alpaca per tenerlo aggiornato.'
             disconnect: 'Disconnetti'
+            mode: 'Modalità'
             mode_paper: 'Simulato'
             mode_live: 'Reale'
         rest:
@@ -438,6 +439,7 @@ it:
         minutes_short: 'm'
         seconds_short: 's'
     bot_filters:
+        label: 'Stato del bot'
         all: 'Tutti'
         active: 'Attivi'
         inactive: 'Inattivi'
@@ -667,6 +669,7 @@ it:
             closed: 'Chiusa'
             cash: 'Liquidità'
         range:
+            label: 'Periodo'
             '30d': '30G'
             '1y': '1A'
             all: 'Tutto'
@@ -708,6 +711,7 @@ it:
             adjustment: 'Rettifica'
             unsupported_activity: 'Altra attività'
     order_filters:
+        label: 'Ordini'
         all: 'Tutti'
         successful: 'Riusciti'
         transactions: 'Transazioni'
@@ -737,7 +741,9 @@ it:
             liquidation_batch_cut_short: "Interrotto prima — %{bases} non ancora venduti"
             liquidation_not_started: "Non è stato venduto nulla — il bot era occupato o l’indice non si è aggiornato"
             liquidation_failed: "Vendita fallita: %{error}"
-            orders_below_minimum: "%{count} asset sono rimasti sotto il minimo dell'exchange questa volta e vengono riportati: %{bases}"
+            orders_below_minimum:
+                one: "L'ordine %{bases} era sotto il minimo dell'exchange questa volta e viene riportato."
+                other: "Gli ordini %{bases} erano sotto il minimo dell'exchange questa volta e vengono riportati."
             redeploy_requested: "Rimetto i soldi nel paniere"
             redeploy_placed: "Riacquisto nel paniere con i ricavi"
             redeploy_skipped: "Parte dei ricavi non è stata reinvestita — lasciata come liquidità"

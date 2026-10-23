@@ -18,6 +18,12 @@ use std::collections::HashMap;
 /// BotActivityFeed: rows per page.
 pub const PAGE: usize = 10;
 
+/// D-PENDING-MARKET-HIDDEN: an accepted market order the venue has not finished (unknown or open). Rails finishes a market
+/// order within its run, so its log only ever shows the outcome; a zero fill still settling (ZERO_FILL_SETTLE) outlives the
+/// run here. The log leaves such a row out until it is final, and the status bar says "Setting orders…" meanwhile
+/// (D-PENDING-MARKET-SETTING). A limit order keeps its "Open order" row: resting is real. NULL-safe, so `NOT` keeps old rows.
+pub const PENDING_MARKET: &str = "IFNULL(status = 0 AND external_status IN (0, 1) AND order_type = 0, 0)";
+
 struct Order {
     id: i64,
     created_at: DateTime<Utc>,
@@ -36,7 +42,8 @@ struct Order {
     base_asset_id: Option<i64>,
     quote_asset_id: Option<i64>,
     error_messages: Vec<String>,
-
+    /// order_type market_order (0).
+    market: bool,
 }
 
 impl Order {
@@ -56,6 +63,8 @@ impl Order {
     fn stopped(&self) -> bool { matches!(self.external_status, Some(3 | 4)) }
     /// Transaction#other?: no column of its own in the table; shown as its sentence under "Other".
     fn other(&self) -> bool { !self.submitted() || self.stopped() }
+    /// PENDING_MARKET, of the row as read.
+    fn pending_market(&self) -> bool { self.market && self.submitted() && self.pending() }
     /// `failed? ? 'text-danger' : (inactive_order_row? ? 'text-inactive' : '')`.
     fn row_class(&self) -> &'static str {
         if self.failed() { "text-danger" } else if self.skipped() || (self.submitted() && self.stopped()) { "text-inactive" } else { "" }
@@ -114,7 +123,7 @@ fn before(cursor: Option<&Cursor>, activity: bool) -> (String, Vec<rusqlite::typ
     }
 }
 
-const ORDER_COLUMNS: &str = "id, created_at, status, external_status, side, base, quote, base_asset_id, quote_asset_id, error_messages";
+const ORDER_COLUMNS: &str = "id, created_at, status, external_status, side, base, quote, base_asset_id, quote_asset_id, error_messages, order_type";
 
 fn time(text: String) -> Result<DateTime<Utc>, rusqlite::Error> { parse_time(&text).map_err(|e| rusqlite::Error::InvalidColumnName(format!("{e:?}"))) }
 
@@ -127,6 +136,7 @@ fn order_row(r: &rusqlite::Row) -> Result<Order, rusqlite::Error> {
         base: r.get(5)?, quote: r.get(6)?, base_asset_id: r.get(7)?, quote_asset_id: r.get(8)?,
         error_messages: messages.and_then(|text| serde_json::from_str::<Vec<Value>>(&text).ok()).unwrap_or_default().iter()
             .map(|m| m.as_str().map_or_else(|| m.to_string(), str::to_string)).collect(),
+        market: r.get::<_, Option<i64>>(10)? == Some(0),
     })
 }
 
@@ -134,7 +144,7 @@ fn load(c: &Connection, bot: &Bot, cursor: Option<&Cursor>) -> Result<Vec<Item>,
     let mut items = vec![];
     let (condition, mut values) = before(cursor, false);
     values.insert(0, rusqlite::types::Value::Integer(bot.id));
-    let mut orders = c.prepare(&format!("SELECT {ORDER_COLUMNS} FROM transactions WHERE bot_id = ?1{condition} ORDER BY created_at DESC, id DESC LIMIT {}", PAGE + 1))?;
+    let mut orders = c.prepare(&format!("SELECT {ORDER_COLUMNS} FROM transactions WHERE bot_id = ?1 AND NOT {PENDING_MARKET}{condition} ORDER BY created_at DESC, id DESC LIMIT {}", PAGE + 1))?;
     let rows = orders.query_map(rusqlite::params_from_iter(values), order_row)?.collect::<Result<Vec<_>, _>>()?;
     items.extend(rows.into_iter().map(|order| Item::Order(Box::new(order))));
     let (condition, mut values) = before(cursor, true);
@@ -407,6 +417,8 @@ fn load_one(c: &Connection, bot: &Bot, id: i64) -> Result<Option<Order>, WebErro
 /// row and, for an accepted order, its columnar row are prepended on the bot's page stream, then the filters are replaced.
 pub fn new_order(c: &Connection, ctx: &Ctx, bot: &Bot, user: &User, id: i64) -> Result<Vec<(String, String)>, WebError> {
     let Some(order) = load_one(c, bot, id)? else { return Ok(vec![]) };
+    // D-PENDING-MARKET-HIDDEN: shown once final, by updated_order.
+    if order.pending_market() { return Ok(vec![(format!("user_{}:bot_updates", user.id), super::page::filters_broadcast(c, ctx, bot, user.hide_balances)?)]); }
     let rows = Rows { broadcast: true, ..Rows::new(ctx, bot, user) };
     let page = super::page::page_stream(bot);
     // Rails removes it with the bot's first transaction. Here every new row removes it: rows a tick inserted together are
@@ -422,6 +434,10 @@ pub fn new_order(c: &Connection, ctx: &Ctx, bot: &Bot, user: &User, id: i64) -> 
 /// Bot#broadcast_updated_order (app/models/bot.rb:359-379): both rows of the order replaced, then the filters.
 pub fn updated_order(c: &Connection, ctx: &Ctx, bot: &Bot, user: &User, id: i64) -> Result<Vec<(String, String)>, WebError> {
     let Some(order) = load_one(c, bot, id)? else { return Ok(vec![]) };
+    // D-PENDING-MARKET-HIDDEN: a market order still pending is not on the page; one now final may not be either, so it is
+    // prepended as a new order is (Turbo's prepend drops a child of the same id first). The bar it held at "Setting orders…"
+    // (D-PENDING-MARKET-SETTING) is redrawn by the caller.
+    if order.market { return if order.pending_market() { Ok(vec![]) } else { new_order(c, ctx, bot, user, id) }; }
     let rows = Rows { broadcast: true, ..Rows::new(ctx, bot, user) };
     let stream = format!("user_{}:bot_updates", user.id);
     Ok(vec![

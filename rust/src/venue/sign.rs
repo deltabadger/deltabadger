@@ -199,7 +199,8 @@ pub(crate) fn request(wire: Wire, client: &reqwest::Client, r: &HttpRequest, key
             b = match wire {
                 // Honeymaker::Clients::Binance#headers: the key only when the client has a key and a secret (`authenticated?`);
                 // the figures' public reads have neither.
-                Wire::Binance if keys.key.is_empty() || keys.secret.is_empty() => b,
+                // Honeymaker::Clients::Mexc#headers likewise.
+                Wire::Binance | Wire::Mexc if keys.key.is_empty() || keys.secret.is_empty() => b,
                 Wire::Binance => b.header(BINANCE_QUERY.key_header, keys.key),
                 Wire::Mexc => b.header(MEXC_QUERY.key_header, keys.key),
                 Wire::Bitrue => b.header(BITRUE_QUERY.key_header, keys.key),
@@ -283,16 +284,18 @@ mod tests {
     }
 
     #[test]
-    fn binance_sends_its_key_only_with_a_key_and_a_secret() {
+    fn binance_and_mexc_send_their_key_only_with_a_key_and_a_secret() {
         let clock = crate::engine::FixedClock("2026-09-20T02:00:00Z".parse().unwrap());
         let client = reqwest::Client::new();
-        let r = HttpRequest { method: "GET", base: super::super::binance::URL.into(), path: super::super::binance::TICKER_PRICE.into(), query: vec![], body: None, not_after: None };
-        let build = |key: &str, secret: &str| request(Wire::Binance, &client, &r, Keys { key, secret, passphrase: "" }, &clock).build().unwrap();
-        assert_eq!(build("key", "secret").headers()["X-MBX-APIKEY"], "key");
-        for (key, secret) in [("", ""), ("key", "")] {
-            let sent = build(key, secret);
-            assert!(!sent.headers().contains_key("X-MBX-APIKEY") && !sent.headers().keys().any(|h| h.as_str().starts_with("apca")), "an unauthenticated client's headers");
-            assert_eq!(sent.headers()["Accept"], "application/json");
+        for (wire, base, header) in [(Wire::Binance, super::super::binance::URL, "X-MBX-APIKEY"), (Wire::Mexc, super::super::mexc::URL, "X-MEXC-APIKEY")] {
+            let r = HttpRequest { method: "GET", base: base.into(), path: super::super::binance::TICKER_PRICE.into(), query: vec![], body: None, not_after: None };
+            let build = |key: &str, secret: &str| request(wire, &client, &r, Keys { key, secret, passphrase: "" }, &clock).build().unwrap();
+            assert_eq!(build("key", "secret").headers()[header], "key");
+            for (key, secret) in [("", ""), ("key", "")] {
+                let sent = build(key, secret);
+                assert!(!sent.headers().contains_key(header) && !sent.headers().keys().any(|h| h.as_str().starts_with("apca")), "an unauthenticated client's headers");
+                assert_eq!(sent.headers()["Accept"], "application/json");
+            }
         }
     }
 }

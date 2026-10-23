@@ -122,7 +122,7 @@ pub struct OrderState {
 
 /// How old a zero-fill answer must be before it is final: an order polled before the venue processed it may read
 /// inactive with nothing dealt; a market order settles within milliseconds of placement.
-pub const ZERO_FILL_SETTLE: chrono::Duration = chrono::Duration::minutes(5);
+pub const ZERO_FILL_SETTLE: chrono::Duration = chrono::Duration::minutes(1);
 /// What a settled zero-fill buy is failed with: KuCoin's insufficient-funds rejection of a placement, word for word as the
 /// venue reports it (kucoin::api_error), so the row reads as that rejection's row (D-KUCOIN-ZERO-FILL-FUNDS).
 pub const ZERO_FILL_REFUSAL: &str = "KuCoin API error 200004: Balance insufficient!";

@@ -217,6 +217,7 @@ en:
             missing_credentials: 'Fill in both the API key and secret.'
             not_refreshing: 'Stock catalog synced. Connect Alpaca to keep it up to date.'
             disconnect: 'Disconnect'
+            mode: 'Mode'
             mode_paper: 'Paper'
             mode_live: 'Live'
         rest:
@@ -438,6 +439,7 @@ en:
         minutes_short: 'm'
         seconds_short: 's'
     bot_filters:
+        label: 'Bot status'
         all: 'All'
         active: 'Active'
         inactive: 'Inactive'
@@ -677,6 +679,7 @@ en:
             closed: 'Closed'
             cash: 'Cash'
         range:
+            label: 'Period'
             '30d': '30D'
             '1y': '1Y'
             all: 'All'
@@ -718,6 +721,7 @@ en:
             adjustment: 'Adjustment'
             unsupported_activity: 'Other activity'
     order_filters:
+        label: 'Orders'
         all: 'All'
         successful: 'Successful'
         transactions: 'Transactions'
@@ -747,7 +751,9 @@ en:
             liquidation_batch_cut_short: "Stopped early — %{bases} not sold yet"
             liquidation_not_started: "Nothing was sold — the bot was busy, or the index could not be refreshed"
             liquidation_failed: "Selling failed: %{error}"
-            orders_below_minimum: "%{count} constituents were under the exchange minimum this time and carry forward: %{bases}"
+            orders_below_minimum:
+                one: "%{bases} order was under the exchange minimum this time and carries forward."
+                other: "%{bases} orders were under the exchange minimum this time and carry forward."
             dca_skipped_liquidation_pending: "Contribution skipped — a sale is still in progress"
             redeploy_requested: "Putting the proceeds back into the basket"
             redeploy_placed: "Buying back into the basket with the proceeds"
