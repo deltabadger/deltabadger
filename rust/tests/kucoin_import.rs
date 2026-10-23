@@ -531,14 +531,29 @@ fn a_restored_trade_is_never_replaced_by_a_partial_export() {
             fx.c.query_row("SELECT id, entry_type, quote_amount, manual_values FROM account_transactions WHERE entry_type = 0", [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))).unwrap()
         };
         let before = restored();
-        // A later export holding only the BTC leg: its unpaired adjustment lands beside the trade, which stays whole.
-        assert_eq!(fx.imported(&export(UID, &[btc])).0, 1, "{name}");
+        // A later export holding only the BTC leg: stored, but the restored second derives nothing.
+        assert_eq!(fx.imported(&export(UID, &[btc])).0, 0, "{name}");
         assert_eq!(restored(), before, "{name}");
-        // The whole second again: it derives the restored trade's own id, so the adjustment goes and nothing is added.
+        // The whole second again: still nothing, the restored trade covers it.
         assert_eq!(fx.imported(&export(UID, &[btc, usdt])).0, 0, "{name}");
         assert_eq!(restored(), before, "{name}");
         assert_eq!(fx.count("SELECT count(*) FROM account_transactions"), 1, "{name}");
+        assert_eq!(fx.count("SELECT count(*) FROM import_rows"), 2, "{name}: the rows are stored");
     }
+}
+
+#[test]
+fn a_second_without_a_restored_entry_still_derives() {
+    let fx = Fx::new();
+    assert_eq!(fx.imported(&export(UID, &["BTC,Deposit,0.001,0,2026-01-01 12:00:01,Spot", "USDT,Withdrawal,60.06,0.06,2026-01-01 12:00:01,Spot"])).0, 1);
+    fx.c.execute("DELETE FROM import_rows", []).unwrap();
+    fx.c.execute("UPDATE account_transactions SET raw_data = '{}'", []).unwrap();
+    // The restored second derives nothing; the next second, and an earlier one, derive as always.
+    let (imported, generic) = fx.imported(&export(UID, &["BTC,Deposit,0.001,0,2026-01-01 12:00:01,Spot", "BTC,Deposit,0.002,0,2026-01-01 12:00:02,Spot",
+                                                         "USDT,Deposit,5,0,2026-01-01 12:00:00,Deposit"]));
+    assert_eq!((imported, generic), (2, 1), "the next second's unpaired leg and the earlier deposit");
+    assert_eq!(fx.count("SELECT count(*) FROM account_transactions WHERE transacted_at = '2026-01-01 09:00:01'"), 1, "only the restored trade");
+    assert_eq!(fx.count("SELECT count(*) FROM account_transactions WHERE transacted_at = '2026-01-01 09:00:02' AND entry_type = 15"), 1);
 }
 
 /// `n` Spot legs, one per second from 2026-01-01 00:00:00 (UTC+03:00), each an unpaired adjustment.

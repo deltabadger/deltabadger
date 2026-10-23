@@ -332,6 +332,12 @@ pub(crate) fn store(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, 
     let cutoffs = cutoffs(c, key)?;
     let mut writer = ledger::FileWriter::new(c, key)?;
     for at in touched {
+        // A second holding a restored entry (a `kucoin-csv-*` id without this importer's provenance) is the restored
+        // ledger's: its rows stay stored and nothing is derived there, so nothing is counted twice.
+        let restored: bool = c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM account_transactions {} WHERE user_id = ?1 AND exchange_id = ?2 \
+                                                    AND transacted_at = ?3 AND tx_id LIKE 'kucoin-csv-%' AND NOT ({DERIVED}))", ledger::BY_TIME),
+                                         params![key.user_id, key.exchange_id, sql_time(at)], |r| r.get(0))?;
+        if restored { continue; }
         let held = held_rows(c, key, at)?;
         // What the API took over (at or after its class's cutoff) is the API's: its rows stay stored, nothing is derived.
         let derived: Vec<Derived> = derive(&held, &catalogue).into_iter()
@@ -370,8 +376,7 @@ pub(crate) const FILE_ROW: &str = "COALESCE(json_extract(raw_data, '$.source'), 
 
 /// A row this importer derived whose source rows (`raw_data.source_rows`) are all stored for its user and exchange: the
 /// only rows a rebuild or a takeover touches. An entry restored from a Deltabadger CSV keeps its `kucoin-csv-*` id but
-/// neither its raw data nor its rows: it is the user's (a complete trade, their edits), never replaced by what a later
-/// partial export derives.
+/// neither its raw data nor its rows: it is the user's (a complete trade, their edits), and its second derives nothing.
 pub(crate) const DERIVED: &str = "COALESCE(json_extract(raw_data, '$.source'), '') = 'kucoin_csv' AND json_array_length(raw_data, '$.source_rows') > 0 \
     AND NOT EXISTS (SELECT 1 FROM json_each(raw_data, '$.source_rows') s WHERE NOT EXISTS (SELECT 1 FROM import_rows i \
     WHERE i.user_id = account_transactions.user_id AND i.exchange_id = account_transactions.exchange_id AND i.row_id = s.value))";
