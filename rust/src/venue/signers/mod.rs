@@ -1,10 +1,11 @@
-//! The request signers of the venues whose signing is their own (PLAN-VB §1.2, slice S): Gemini's payload, Coinbase's JWT
-//! and Hyperliquid's EIP-712 L1 action. Pure functions of their inputs (key, clock, nonce), each pinned by known answers
+//! The request signers of the venues whose signing is their own (PLAN-VB §1.2, slice S): Gemini's payload, Coinbase's JWT,
+//! Hyperliquid's EIP-712 L1 action and IBKR's OAuth 1.0a with its live session token (slice I0). Pure functions of their inputs (key, clock, nonce), each pinned by known answers
 //! recorded from honeymaker 0.12.5 / hyperliquid-rb 0.1.1 (`script/rust/record_venue_signing.rb`). Wiring them into the
 //! transport's send-time signing is the venue slices' work (B1–B3).
 pub mod coinbase;
 pub mod gemini;
 pub mod hyperliquid;
+pub mod ibkr;
 
 use std::sync::Mutex;
 
