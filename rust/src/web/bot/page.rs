@@ -92,7 +92,8 @@ pub(super) fn filters(c: &Connection, ctx: &Ctx, bot: &Bot, hide_money: bool) ->
     let mut tabs: Vec<(&'static str, &'static str, bool)> = vec![];
     if !hide_money { tabs.push(("all", "order_filters.all", true)); }
     tabs.push(("successful", "order_filters.transactions", exists("transactions WHERE bot_id = ?1 AND status = 0 AND external_status = 2")?));
-    tabs.push(("waiting", "order_filters.waiting", bot.has_waiting_orders));
+    // D-PENDING-MARKET-HIDDEN: a pending market order is no row, so no tab of its own.
+    tabs.push(("waiting", "order_filters.waiting", bot.has_waiting_orders && exists(&format!("transactions WHERE bot_id = ?1 AND status = 0 AND external_status IN (0, 1) AND NOT {}", super::orders::PENDING_MARKET))?));
     tabs.push(("other", "order_filters.other", exists("transactions WHERE bot_id = ?1 AND (external_status IN (3, 4) OR status IN (1, 2))")? || (hide_money && activities)));
     let default_filter = tabs.iter().find(|(_, _, available)| *available).map_or("successful", |(value, _, _)| *value);
     let order_filter = ctx.params.query("order_filter").unwrap_or(default_filter).to_string();
@@ -275,6 +276,8 @@ pub async fn show(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path(s
             settings::column(c, &settings::Forms { ctx, csrf, bot: &bot, path: path.clone(), hide_balances: hide_money, time_zone: &user.time_zone, check: status.check.as_ref() })?
         };
         let activities = c.query_row("SELECT EXISTS(SELECT 1 FROM bot_activity_logs WHERE bot_id = ?1 AND event NOT IN ('order_skipped', 'order_ignored'))", [bot.id], |r| r.get::<_, bool>(0))?;
+        // D-PENDING-MARKET-HIDDEN: a market order still pending is no row of the log (orders::PENDING_MARKET).
+        let shown_orders = bot.has_orders && c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM transactions WHERE bot_id = ?1 AND NOT {})", orders::PENDING_MARKET), [bot.id], |r| r.get::<_, bool>(0))?;
         let Filters { default_filter, order_filter, order_filters } = filters(c, ctx, &bot, hide_money)?;
         let (preferences, bot_updates, page_stream) = (format!("user_{}:preferences", user.id), format!("user_{}:bot_updates", user.id), page_stream(&bot));
         let body = Show {
@@ -284,7 +287,7 @@ pub async fn show(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path(s
             progress_bar: status.progress, status_bar: status.bar, status_button: status.button, chart: chart(ctx, &bot, hide_money)?, inline_chart, cached, columns_id: bot.dom_id("columns"), working: bot.working(),
             settings, hide_money, metrics, order_filter, order_filters_id: bot.dom_id("order_filters"), default_filter, order_filters,
             export_id: bot.dom_id("export"), import_id: bot.dom_id("import"), import_form_id: bot.dom_id("import_form"), has_waiting: bot.has_waiting_orders,
-            bot_args: json(&serde_json::json!({ "bot_id": bot.id })), feed_empty: !bot.has_orders && !activities,
+            bot_args: json(&serde_json::json!({ "bot_id": bot.id })), feed_empty: !shown_orders && !activities,
         }.render()?;
         Ok((shell, body))
     }).await;

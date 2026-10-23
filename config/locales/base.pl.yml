@@ -745,7 +745,9 @@ pl:
             liquidation_batch_cut_short: "Przerwane wcześniej — %{bases} jeszcze nie sprzedane"
             liquidation_not_started: "Nic nie sprzedano — bot był zajęty albo nie udało się odświeżyć indeksu"
             liquidation_failed: "Sprzedaż nie powiodła się: %{error}"
-            orders_below_minimum: "%{count} aktywów było tym razem poniżej minimum giełdy i przechodzi na kolejny raz: %{bases}"
+            orders_below_minimum:
+                one: "Zlecenie %{bases} było tym razem poniżej minimum giełdy i przechodzi na kolejny raz."
+                other: "Zlecenia %{bases} były tym razem poniżej minimum giełdy i przechodzą na kolejny raz."
             redeploy_requested: "Wkładam środki z powrotem do koszyka"
             redeploy_placed: "Kupuję z powrotem do koszyka za uzyskane środki"
             redeploy_skipped: "Części środków nie udało się ponownie zainwestować — zostały jako gotówka"
