@@ -23,6 +23,10 @@ pub fn produced_by(c: &Connection, user: i64, exchange: i64, version: &Credentia
     let stamp = app_config::get_plain(c, &key(user, exchange)).map_err(EngineError::Data)?.and_then(|s| serde_json::from_str::<Value>(&s).ok());
     Ok(stamp.is_some_and(|stamp| stamp["complete"] == Value::Bool(true) && model::stamp_current_for(&stamp,&version.cache_stamp()).is_fresh()))
 }
+/// The key a user's venue balances are synced with: trading before read-only, never withdrawal.
+pub fn reading_key(c: &Connection, user: i64, exchange: i64) -> Result<Option<i64>, EngineError> {
+    Ok(c.query_row("SELECT id FROM api_keys WHERE user_id=?1 AND exchange_id=?2 AND status=1 AND key_type!=1 ORDER BY CASE WHEN key_type=0 THEN 0 ELSE 1 END,id LIMIT 1", [user, exchange], |r| r.get(0)).optional()?)
+}
 /// Missing, malformed, partial or differently credentialed cache origins are sync-pending.
 /// Select the same reading slot as the sync scheduler: trading before read-only, never withdrawal.
 pub fn stale(c: &Connection, user: i64, exchange: Option<i64>) -> Result<bool, EngineError> {
@@ -30,7 +34,7 @@ pub fn stale(c: &Connection, user: i64, exchange: Option<i64>) -> Result<bool, E
     let mut stmt = c.prepare("SELECT DISTINCT exchange_id FROM account_balances WHERE user_id=?1 AND (?2 IS NULL OR exchange_id=?2) UNION SELECT DISTINCT exchange_id FROM api_keys WHERE user_id=?1 AND key_type!=1 AND (?2 IS NULL OR exchange_id=?2)")?;
     let scopes = stmt.query_map(rusqlite::params![user, exchange], |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?;
     for exchange in scopes {
-        let id: Option<i64> = c.query_row("SELECT id FROM api_keys WHERE user_id=?1 AND exchange_id=?2 AND status=1 AND key_type!=1 ORDER BY CASE WHEN key_type=0 THEN 0 ELSE 1 END,id LIMIT 1", [user, exchange], |r| r.get(0)).optional()?;
+        let id = reading_key(c, user, exchange)?;
         // A venue whose key cannot read yet (an IBKR key pending activation) and that holds no balances has nothing stale.
         if id.is_none() && !c.query_row("SELECT EXISTS(SELECT 1 FROM account_balances WHERE user_id=?1 AND exchange_id=?2)", [user, exchange], |r| r.get::<_, bool>(0))? { continue; }
         let stamp = app_config::get_plain(c, &key(user, exchange)).map_err(EngineError::Data)?

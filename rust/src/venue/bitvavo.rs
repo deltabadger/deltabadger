@@ -106,7 +106,7 @@ pub fn parse_order(order_id: &str, o: &Value) -> Result<OrderState, VenueError> 
         Some("rejected") => OrderStatus::Failed,
         other => return Err(VenueError::Rejected(vec![format!("Unknown Bitvavo order status: {}", other.unwrap_or_default())])),
     };
-    Ok(OrderState { txid: order_id.into(), status, price: nonzero(price), amount: nonzero(decimal(&o["amount"])?), quote_amount: nonzero(decimal(&o["amountQuote"])?),
+    Ok(OrderState { zero_fill_at: None, txid: order_id.into(), status, price: nonzero(price), amount: nonzero(decimal(&o["amount"])?), quote_amount: nonzero(decimal(&o["amountQuote"])?),
                     amount_exec, quote_amount_exec: Some(quote_exec), limit, sell, pair: Some(market.into()), asset_class: None })
 }
 
@@ -140,7 +140,7 @@ pub fn order_from_trades(order_id: &str, market: &str, trades: &[Value]) -> Resu
         amount = &amount + &a;
     }
     let price = if amount.is_positive() { quote.div(&amount) } else { None };
-    Ok(OrderState { txid: order_id.into(), status: OrderStatus::Closed, price, amount: None, quote_amount: None, amount_exec: amount,
+    Ok(OrderState { zero_fill_at: None, txid: order_id.into(), status: OrderStatus::Closed, price, amount: None, quote_amount: None, amount_exec: amount,
                     quote_amount_exec: Some(quote), limit: true, sell: to_s(&trades[0]["side"]).eq_ignore_ascii_case("sell"),
                     pair: Some(market.into()), asset_class: None })
 }

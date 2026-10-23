@@ -583,6 +583,14 @@ async fn run_polls<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock, wake: 
         let retry = match polling::follow_up(&e.primary, &venue, id, tx, clock.now()).await {
             Ok(polling::FollowUp::Done) => None,
             Ok(polling::FollowUp::StillOpen) => { attempts.open += 1; (attempts.open < 8).then(|| (tick::retry_wait(attempts.open, false), "the order is still open".to_string())) }
+            // D-KUCOIN-ZERO-FILL-DONE: a zero fill too young to be final is asked again as a still-open order is; when those
+            // retries end before it is final, once more just past that time, so a bot stopped meanwhile still settles.
+            Ok(polling::FollowUp::SettlesAt(at)) => {
+                attempts.open += 1;
+                let past = (at + chrono::Duration::seconds(1) - clock.now()).to_std().ok();
+                if attempts.open < 8 { Some((tick::retry_wait(attempts.open, false), "the order may not be final yet".to_string())) }
+                else { past.map(|wait| (wait, "the order is final soon".to_string())) }
+            }
             Err(polling::PollFailure::CredentialsChanged) => {announce_retry=false;Some((std::time::Duration::ZERO, "credentials changed; retry with fresh credentials".into()))},
             Err(polling::PollFailure::Transient(m)) => { attempts.transient += 1; (attempts.transient < 3).then(|| (tick::retry_wait(attempts.transient, false), m)) }
             Err(polling::PollFailure::RateLimited(m)) => { attempts.rate += 1; (attempts.rate < 4).then(|| (tick::retry_wait(attempts.rate, true), m)) }

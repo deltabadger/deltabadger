@@ -1,0 +1,7 @@
+de:
+    bot:
+        status:
+            low_funds: "Wenig Guthaben"
+    bot_activity:
+        events:
+            order_closed_empty: "Order %{order_id} auf %{exchange} ohne Ausführung geschlossen."

@@ -121,7 +121,7 @@ pub fn parse_order(order_id: &str, o: &Value) -> Result<OrderState, VenueError> 
         Some("cancelled") => OrderStatus::Cancelled,
         other => return Err(VenueError::Rejected(vec![format!("Unknown Bitget order status: {}", other.unwrap_or_default())])),
     };
-    Ok(OrderState { txid: order_id.into(), status, price: (!price.is_zero()).then_some(price), amount, quote_amount, amount_exec,
+    Ok(OrderState { zero_fill_at: None, txid: order_id.into(), status, price: (!price.is_zero()).then_some(price), amount, quote_amount, amount_exec,
                     quote_amount_exec: Some(quote_amount_exec), limit, sell: side == "sell", pair: Some(symbol.into()), asset_class: None })
 }
 

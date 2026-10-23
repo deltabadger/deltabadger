@@ -3,11 +3,13 @@ use std::sync::Arc;
 
 type Publish = Arc<dyn Fn(&str, &str) -> Result<(), ()> + std::marker::Send + Sync>;
 type Log = Arc<dyn Fn(&str) + std::marker::Send + Sync>;
+type Balances = Arc<dyn Fn(i64) + std::marker::Send + Sync>;
 
 #[derive(Clone)]
 pub struct Notifications {
     send: Publish,
     log: Log,
+    balances: Balances,
 }
 impl Default for Notifications {
     fn default() -> Self {
@@ -21,7 +23,18 @@ impl Notifications {
         Self {
             send: Arc::new(send),
             log: Arc::new(crate::engine::log),
+            balances: Arc::new(|_| {}),
         }
+    }
+    /// What a key's balances changing tells (D-LOW-FUNDS-STATUS: its owner's bots on that venue redraw their status bars).
+    pub fn with_balances(mut self, changed: impl Fn(i64) + std::marker::Send + Sync + 'static) -> Self {
+        self.balances = Arc::new(changed);
+        self
+    }
+    /// A key's synced balances became current (a balance sync's success committed) or stopped being so (its job was
+    /// marked incomplete).
+    pub fn balances_changed(&self, key_id: i64) {
+        (self.balances)(key_id);
     }
     pub fn sync_done(&self, owner: i64) {
         self.publish(
@@ -54,6 +67,7 @@ mod tests {
         let notifications = Notifications {
             send: Arc::new(|_, _| Err(())),
             log: Arc::new(move |s| captured.lock().unwrap().push(s.to_owned())),
+            balances: Arc::new(|_| {}),
         };
         notifications.sync_done(42);
         notifications.ledger_done(42);

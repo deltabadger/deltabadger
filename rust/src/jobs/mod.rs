@@ -479,6 +479,7 @@ impl Scheduler {
         // A bot whose tick waited for this key's ledger (engine::tick::unclaim) is due again: the engine re-sizes it now,
         // not at its next stale recheck. Only after the success is committed, so the tick finds the ledger fresh.
         let wakes_engine = name == crate::sync::jobs::LEDGER_SYNC && matches!(what, Record::Success);
+        let balances_current = name == crate::sync::jobs::BALANCE_SYNC && matches!(what, Record::Success);
         let write = move |c: &Connection| {
             let tx=rusqlite::Transaction::new_unchecked(c,rusqlite::TransactionBehavior::Immediate).map_err(|_|"cannot begin scheduler state write".to_string())?;
             if version.is_none() && matches!(name,crate::sync::jobs::LEDGER_SYNC|crate::sync::jobs::BALANCE_SYNC|crate::sync::jobs::API_KEY_VALIDATOR) && matches!(what,Record::Success|Record::Run) {
@@ -511,7 +512,13 @@ impl Scheduler {
                 if let Err(e) = written {
                     if e==crate::engine::model::CREDENTIALS_CHANGED{self.wakers.wake(name,retry_scope.as_deref(),None);}
                     else{return Err(format!("[jobs] {name}: the state write failed: {e}"));}
-                } else if wakes_engine { self.wakers.wake_engine(); }
+                } else {
+                    if wakes_engine { self.wakers.wake_engine(); }
+                    // D-LOW-FUNDS-STATUS: the key's balances are current now; the status bars that read them redraw.
+                    if balances_current {
+                        if let Some(key) = retry_scope.as_deref().and_then(|s| s.parse().ok()) { self.db.notifications.balances_changed(key); }
+                    }
+                }
                 Ok(true)
             }
             _ = stop.wait_for(|stopped| *stopped) => {

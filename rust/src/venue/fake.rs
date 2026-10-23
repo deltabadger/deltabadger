@@ -170,7 +170,7 @@ impl Venue for FakeVenue {
         let raw = self.s.borrow().orders.get(&txid).cloned();
         Ok(Some(match raw {
             Some(raw) => parse_order(&txid, &raw)?,
-            None => OrderState {
+            None => OrderState { zero_fill_at: None,
                 asset_class: None,
                 txid, status: OrderStatus::Open, price: None, amount: None, quote_amount: None,
                 amount_exec: BigDec::zero(), quote_amount_exec: Some(BigDec::zero()), limit: matches!(order.kind, OrderKind::Limit { .. }), sell: order.side == crate::venue::Side::Sell,
@@ -199,7 +199,7 @@ impl Venue for FakeVenue {
         let Some(body) = self.body("/0/private/TradesHistory") else { return Ok(found) };
         check(&body)?;
         if trades_count(&body) > 1000 {
-            found.extend(unseen.into_iter().map(|txid| OrderState { asset_class: None, txid, status: OrderStatus::Unknown, price: None, amount: None,
+            found.extend(unseen.into_iter().map(|txid| OrderState { zero_fill_at: None, asset_class: None, txid, status: OrderStatus::Unknown, price: None, amount: None,
                 quote_amount: None, amount_exec: BigDec::zero(), quote_amount_exec: None, limit: false, sell: false, pair: None }));
         }
         Ok(found)

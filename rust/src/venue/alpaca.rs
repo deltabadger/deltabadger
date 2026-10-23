@@ -117,7 +117,7 @@ pub fn parse_order(id: &str, o: &Value) -> Result<OrderState, String> {
         Some(p) if p.is_positive() => p.clone(),
         _ => limit_price.unwrap_or_else(BigDec::zero),
     };
-    Ok(OrderState {
+    Ok(OrderState { zero_fill_at: None,
         asset_class: o["asset_class"].as_str().map(str::to_string),
         txid: id.to_string(), status: status(o["status"].as_str()), price: Some(price),
         amount: qty, quote_amount: notional,

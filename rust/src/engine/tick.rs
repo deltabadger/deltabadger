@@ -21,7 +21,6 @@ use std::time::Duration;
 
 pub const MAX_ATTEMPTS: u32 = 4;
 const BLOCKING_KINDS: [&str; 3] = ["invalid_key", "permission_denied", "restricted"];
-const THREE_DAYS: f64 = 259_200.0;
 /// The marker that makes the out-of-funds mail durable: transient_data.rust_funds_mail_pending, written with the stamp.
 pub const FUNDS_MAIL_PENDING: &str = "rust_funds_mail_pending";
 
@@ -591,8 +590,7 @@ async fn fundable<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model:
     let funds_origin=funds.origin().clone();
     match funds.value {
         Ok(free) => {
-            let interval_seconds = match bot.interval().map(|i| i.as_str()) { Some("hour") => 3_600.0, Some("day") => 86_400.0, Some("week") => 604_800.0, _ => 2_629_746.0 };
-            let buffer = super::accounting::balance_buffer(bot, interval_seconds, THREE_DAYS)?;
+            let buffer = super::accounting::funds_buffer(bot.quote_amount().unwrap_or_default(), bot.interval().map(|i| i.as_str()))?;
             if free < buffer && !notified_in_last_day(c, bot, clock)? {
                 // `update!(last_end_of_funds_notification:)` then notify_end_of_funds.
                 model::run_credential_write(c, bot, &funds_origin, |tx| stamp_funds_low(tx, bot, clock.now(), true))?;

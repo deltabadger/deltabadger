@@ -332,7 +332,7 @@ pub fn parse_binance_shaped(name: &str, order_id: &str, o: &serde_json::Value, p
             if let Some(pair) = pairs.by_symbol.get(symbol) { price = price.round(pair.price_decimals); }
         }
     }
-    let state = OrderState { txid: order_id.into(), status, price: nonzero(price), amount, quote_amount, amount_exec: executed.clone(),
+    let state = OrderState { zero_fill_at: None, txid: order_id.into(), status, price: nonzero(price), amount, quote_amount, amount_exec: executed.clone(),
                              quote_amount_exec: quote_executed, limit, sell, pair: Some(symbol.into()), asset_class: None };
     Ok(Order { state, executed })
 }

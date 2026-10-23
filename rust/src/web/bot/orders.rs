@@ -340,6 +340,8 @@ impl<'a> Rows<'a> {
             "orders_below_minimum" => event(&log.event, &[("count", Arg::Count(log.details.get("count").and_then(Value::as_i64).unwrap_or(0))), ("bases", Arg::Text(&detail("bases")))]),
             "wash_sale_locked" => event(&log.event, &[("base", Arg::Text(&detail("base"))), ("until", Arg::Text(&detail("until")))]),
             "order_abandoned" => event(&log.event, &[("order_id", Arg::Text(&detail("order_id")))]),
+            // D-ZERO-FILL-NOTE: a Rust-only line (polling::ZERO_FILL_EVENT).
+            "order_closed_empty" => event(&log.event, &[("order_id", Arg::Text(&detail("order_id"))), ("exchange", Arg::Text(&detail("exchange")))]),
             "asset_split" => match detail("ratio") {
                 ratio if ratio.trim().is_empty() => event("asset_split_unknown_ratio", &[("base", Arg::Text(&detail("base")))]),
                 ratio => event("asset_split", &[("base", Arg::Text(&detail("base"))), ("ratio", Arg::Text(&ratio))]),

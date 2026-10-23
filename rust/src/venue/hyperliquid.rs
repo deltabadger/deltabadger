@@ -128,7 +128,7 @@ fn fills_sums(fills: &[Value]) -> Result<(BigDec, BigDec), VenueError> {
 pub fn order_from_fills(order_id: &str, fills: &[Value]) -> Result<OrderState, VenueError> {
     let (amount, quote) = fills_sums(fills)?;
     let price = if amount.is_positive() { quote.div(&amount) } else { None };
-    Ok(OrderState { txid: order_id.into(), status: OrderStatus::Closed, price, amount: None, quote_amount: None, amount_exec: amount, quote_amount_exec: Some(quote),
+    Ok(OrderState { zero_fill_at: None, txid: order_id.into(), status: OrderStatus::Closed, price, amount: None, quote_amount: None, amount_exec: amount, quote_amount_exec: Some(quote),
                     limit: true, sell: fills[0]["side"] != "B", pair: fills[0]["coin"].as_str().map(str::to_string), asset_class: None })
 }
 
@@ -298,7 +298,7 @@ impl<T: Transport> HyperliquidVenue<T> {
             quote = if cost.is_positive() { cost } else { &limit_price * &executed };
             price = quote.div(&executed).ok_or_else(unreadable)?;
         }
-        Ok(Some(OrderState { txid: order_id.into(), status: order_status(raw["order"]["status"].as_str().unwrap_or_default()), price: (!price.is_zero()).then_some(price),
+        Ok(Some(OrderState { zero_fill_at: None, txid: order_id.into(), status: order_status(raw["order"]["status"].as_str().unwrap_or_default()), price: (!price.is_zero()).then_some(price),
                              amount: Some(ordered), quote_amount: None, amount_exec: executed, quote_amount_exec: Some(quote), limit: true, sell: order["side"] != "B",
                              pair: order["coin"].as_str().map(str::to_string), asset_class: None }))
     }
