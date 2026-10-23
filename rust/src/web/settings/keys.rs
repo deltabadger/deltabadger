@@ -140,7 +140,7 @@ async fn validate(app:&App,key:&Key,original:&Key,kind:i64,venue:&str)->Result<V
     values.extend([original.key.as_ref(),original.secret.as_ref(),original.passphrase.as_ref()].into_iter().flatten().chain(original.extras.iter().flatten()).cloned());
     let columns=[key.key.as_ref(),key.secret.as_ref(),key.passphrase.as_ref(),key.extras[0].as_ref(),key.extras[1].as_ref(),key.extras[2].as_ref(),key.extras[3].as_ref()].map(|value|value.map(|value|app.cipher.encrypt(value)));
     let producer=crate::engine::model::prepared_credential_version(key.id.unwrap_or(0),&columns);
-    let handle=super::validator::ValidationHandle::stored(crate::crypto::Credentials{redaction_values:values,key:key.key.clone().unwrap_or_default(),secret:key.secret.clone().unwrap_or_default(),passphrase:key.passphrase.clone()},producer);
+    let handle=super::validator::ValidationHandle::stored(crate::crypto::Credentials{redaction_values:values,key:key.key.clone().unwrap_or_default(),secret:key.secret.clone().unwrap_or_default(),passphrase:key.passphrase.clone(),ibkr:None},producer);
     let result=handle.check_on(app,venue,kind).await?;
     let (result,identity)=result;
     app.observe_validation(result.origin().clone())?;
@@ -530,7 +530,7 @@ pub async fn delete(app: App, ctx: Ctx) -> Result<Response, WebError> {
   tx.execute("DELETE FROM api_keys WHERE id=?1 AND user_id=?2",(id,user.id))?;
   crate::identity::forget(&tx,id,user.id,exchange)?;
   if let Err(refusal)=eligibility::guard(&tx,&inner.cipher,None){return Ok(Some(Err(refusal.reason())));}
-  let body=list(&tx,&v,&csrf,user.id)?;tx.commit()?;inner.wake_engine();Ok(Some(Ok(body)))
+  let body=list(&tx,&v,&csrf,user.id)?;tx.commit()?;crate::venue::ibkr::forget(id);inner.wake_engine();Ok(Some(Ok(body)))
  }).await?;
     match outcome {
         None => Ok(crate::web::layout::missing()),

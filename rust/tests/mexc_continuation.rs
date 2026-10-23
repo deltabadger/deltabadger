@@ -19,7 +19,7 @@ const NOW: &str = "2026-09-20T02:00:00Z";
 const DAY: i64 = 86_400_000;
 
 fn now_ms() -> i64 { NOW.parse::<chrono::DateTime<chrono::Utc>>().unwrap().timestamp_millis() }
-fn creds() -> Credentials { Credentials { redaction_values: vec![], key: "PKTEST".into(), secret: "paper-secret".into(), passphrase: Some("paper".into()) } }
+fn creds() -> Credentials { Credentials { ibkr: None, redaction_values: vec![], key: "PKTEST".into(), secret: "paper-secret".into(), passphrase: Some("paper".into()) } }
 
 /// A MEXC key with no watermark: a whole-history import.
 fn install() -> (tempfile::TempDir, Db, i64) {

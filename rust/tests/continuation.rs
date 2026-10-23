@@ -22,7 +22,7 @@ const WATERMARK: &str = "2026-08-20T00:00:00Z";
 const DAY_MS: i64 = 86_400_000;
 
 fn clock() -> FixedClock { FixedClock(NOW.parse().unwrap()) }
-fn creds() -> Credentials { Credentials { redaction_values: vec![], key: "PKTEST".into(), secret: "paper-secret".into(), passphrase: Some("paper".into()) } }
+fn creds() -> Credentials { Credentials { ibkr: None, redaction_values: vec![], key: "PKTEST".into(), secret: "paper-secret".into(), passphrase: Some("paper".into()) } }
 fn start_ms() -> i64 { WATERMARK.parse::<chrono::DateTime<chrono::Utc>>().unwrap().timestamp_millis() - 25 * 3_600_000 }
 
 /// A KuCoin key with a watermark this credential produced.

@@ -18,7 +18,7 @@ use std::sync::{atomic::Ordering::SeqCst, Arc, Mutex};
 const AT: &str = "2026-10-01T02:00:00Z";
 fn at() -> DateTime<Utc> { AT.parse().unwrap() }
 fn ok(body: Value) -> Value { json!({ "status": 200, "body": body }) }
-fn paper() -> Credentials { Credentials { redaction_values: vec![], key: "PKTEST".into(), secret: "paper-secret".into(), passphrase: Some("paper".into()) } }
+fn paper() -> Credentials { Credentials { ibkr: None, redaction_values: vec![], key: "PKTEST".into(), secret: "paper-secret".into(), passphrase: Some("paper".into()) } }
 #[derive(Clone)]
 struct Venues;
 impl Connect for Venues { type T = ScriptedTransport; fn connect(&self, _: &Credentials) -> AlpacaVenue<Self::T> { AlpacaVenue::new(ScriptedTransport::from_script(&json!({})), Urls::for_passphrase(Some("paper"))) } }

@@ -18,7 +18,7 @@ use std::time::Duration;
 const NOW: &str = "2026-09-20T02:00:00Z";
 const BASE: i64 = 1_788_000_000_000;
 
-fn creds() -> Credentials { Credentials { redaction_values: vec![], key: "PKTEST".into(), secret: "paper-secret".into(), passphrase: Some("paper".into()) } }
+fn creds() -> Credentials { Credentials { ibkr: None, redaction_values: vec![], key: "PKTEST".into(), secret: "paper-secret".into(), passphrase: Some("paper".into()) } }
 
 /// A Hyperliquid key with no watermark: a whole-history import.
 fn install() -> (tempfile::TempDir, Db, i64) {

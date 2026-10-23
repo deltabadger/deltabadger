@@ -293,6 +293,7 @@ pub fn decrypted(cipher: &Cipher, key_id: i64, (key, secret, passphrase): (Optio
         key: open(key)?.unwrap_or_default(), // allow-swallow: an Option; a value never saved is Rails' empty string
         secret: open(secret)?.unwrap_or_default(), // allow-swallow: an Option; a value never saved is Rails' empty string
         passphrase: open(passphrase)?,
+        ibkr: None,
     })
 }
 

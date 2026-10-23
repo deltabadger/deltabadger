@@ -183,7 +183,7 @@ fn builder(connect: Duration, read: Duration, total: Duration) -> reqwest::Clien
 }
 
 #[derive(Clone)]
-pub struct ReqwestTransport { client: reqwest::Client, key: String, secret: String, passphrase: String, refused: Option<String>, sensitive: Vec<String>, clock: std::sync::Arc<dyn crate::engine::Clock + Send + Sync>, wire: Wire }
+pub struct ReqwestTransport { client: reqwest::Client, key: String, secret: String, passphrase: String, refused: Option<String>, sensitive: Vec<String>, clock: std::sync::Arc<dyn crate::engine::Clock + Send + Sync>, wire: Wire, ibkr: Option<std::sync::Arc<super::ibkr::Login>> }
 
 use super::sign::Wire;
 
@@ -191,7 +191,7 @@ impl ReqwestTransport {
     /// Use the same clock that creates the order deadline; production defaults to SystemClock.
     pub fn with_clock(mut self, clock: std::sync::Arc<dyn crate::engine::Clock + Send + Sync>) -> Self { self.clock = clock; self }
     /// `key`/`secret` as Clients::Alpaca sends them (`@api_key.to_s`: a missing key is an empty header).
-    pub fn new(client: reqwest::Client, key: String, secret: String) -> Self { Self { client, sensitive:vec![key.clone(),secret.clone()],key, secret, passphrase: String::new(), refused: None, clock: std::sync::Arc::new(crate::engine::SystemClock), wire: Wire::Alpaca } }
+    pub fn new(client: reqwest::Client, key: String, secret: String) -> Self { Self { client, sensitive:vec![key.clone(),secret.clone()],key, secret, passphrase: String::new(), refused: None, clock: std::sync::Arc::new(crate::engine::SystemClock), wire: Wire::Alpaca, ibkr: None } }
     /// Honeymaker::Clients::Binance's wire.
     pub fn binance(client: reqwest::Client, key: String, secret: String) -> Self { Self { wire: Wire::Binance, ..Self::new(client, key, secret) } }
     /// Honeymaker::Clients::Kucoin's wire: the passphrase is HMAC'd with the secret, and neither is ever sent as it is.
@@ -229,6 +229,11 @@ impl ReqwestTransport {
         self
     }
     pub fn bingx(client: reqwest::Client, key: String, secret: String) -> Self { Self { wire: Wire::Bingx, ..Self::new(client, key, secret) } }
+    /// Clients::Ibkr::Session's wire: every request signed at send time from `login`'s session (venue::ibkr).
+    pub fn ibkr(client: reqwest::Client, login: std::sync::Arc<super::ibkr::Login>) -> Self {
+        let t = Self::new(client, login.consumer_key().into(), login.access_token_secret().into());
+        Self { wire: Wire::Ibkr, sensitive: login.sensitive(), ibkr: Some(login), ..t }
+    }
     pub fn bitrue(client: reqwest::Client, key: String, secret: String) -> Self { Self { wire: Wire::Bitrue, ..Self::new(client, key, secret) } }
     /// Speak Kraken's wire: Honeymaker::Clients::Kraken's headers, form bodies and signature.
     pub fn kraken(mut self)->Self{self.wire=Wire::Kraken;self}
@@ -240,7 +245,7 @@ impl ReqwestTransport {
         self.redact_diagnostic(&diagnostic(Some(response.status),&response.body))
     }
     /// Answers every request with NotSent and sends nothing (a venue this build must not reach).
-    pub fn refused(reason: &str) -> Self { Self { client: client(), key: String::new(), secret: String::new(), passphrase: String::new(), refused: Some(reason.into()),sensitive:Vec::new(), clock: std::sync::Arc::new(crate::engine::SystemClock), wire: Wire::Alpaca } }
+    pub fn refused(reason: &str) -> Self { Self { client: client(), key: String::new(), secret: String::new(), passphrase: String::new(), refused: Some(reason.into()),sensitive:Vec::new(), clock: std::sync::Arc::new(crate::engine::SystemClock), wire: Wire::Alpaca, ibkr: None } }
 }
 
 impl Transport for ReqwestTransport {
@@ -276,7 +281,11 @@ impl ReqwestTransport {
         if self.wire == Wire::Hyperliquid && r.path == super::hyperliquid::EXCHANGE && super::signers::hyperliquid::signing_key(&self.secret).is_none() {
             return Err(TransportError::NotSent("Hyperliquid: the API secret is not an agent private key; not sent".into()));
         }
-        let keys = super::sign::Keys { key: &self.key, secret: &self.secret, passphrase: &self.passphrase };
+        // An IBKR request with nothing to sign it (no mint in flight, no LST) is not sent.
+        if self.ibkr.as_ref().is_some_and(|login| !login.can_sign(r)) {
+            return Err(TransportError::NotSent("IBKR: no live session token to sign with; not sent".into()));
+        }
+        let keys = super::sign::Keys { key: &self.key, secret: &self.secret, passphrase: &self.passphrase, ibkr: self.ibkr.as_deref() };
         let mut b = super::sign::request(self.wire, &self.client, r, keys, &*self.clock);
         if let Some(not_after) = r.not_after {
             // Use the deadline producer's clock immediately before the send: what is left of the absolute bound becomes this request's whole timeout.

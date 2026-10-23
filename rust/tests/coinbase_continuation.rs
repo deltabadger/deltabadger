@@ -104,7 +104,7 @@ async fn once(db: &Db, key: i64, v: &Server, deadline: Duration) -> Option<bool>
         chain_runs: 2,
         stopwatch: &*v.watch,
     };
-    let c = Credentials {
+    let c = Credentials { ibkr: None,
         key: "PKTEST".into(),
         secret: "paper-secret".into(),
         passphrase: Some("paper".into()),
