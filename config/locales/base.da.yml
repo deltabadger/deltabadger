@@ -748,7 +748,9 @@ da:
             liquidation_batch_cut_short: "Stoppet tidligt — %{bases} er ikke solgt endnu"
             liquidation_not_started: "Intet blev solgt — botten var optaget, eller indekset kunne ikke opdateres"
             liquidation_failed: "Selling failed: %{error}"
-            orders_below_minimum: "%{count} constituents were under the exchange minimum this time and carry forward: %{bases}"
+            orders_below_minimum:
+                one: "Ordren for %{bases} var under børsens minimum denne gang og overføres."
+                other: "Ordrerne for %{bases} var under børsens minimum denne gang og overføres."
             redeploy_requested: "Pengene ryger tilbage i kurven"
             redeploy_placed: "Køber tilbage i kurven for provenuet"
             redeploy_skipped: "En del af provenuet kunne ikke geninvesteres — blev stående som kontanter"

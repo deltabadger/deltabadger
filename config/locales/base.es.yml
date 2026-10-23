@@ -738,7 +738,9 @@ es:
             liquidation_batch_cut_short: "Detenido antes de tiempo — %{bases} aún sin vender"
             liquidation_not_started: "No se vendió nada — el bot estaba ocupado o no se pudo actualizar el índice"
             liquidation_failed: "Venta fallida: %{error}"
-            orders_below_minimum: "%{count} activos quedaron por debajo del mínimo del exchange esta vez y se acumulan: %{bases}"
+            orders_below_minimum:
+                one: "La orden de %{bases} quedó por debajo del mínimo del exchange esta vez y se acumula."
+                other: "Las órdenes de %{bases} quedaron por debajo del mínimo del exchange esta vez y se acumulan."
             redeploy_requested: "Devolviendo el dinero a la cesta"
             redeploy_placed: "Comprando de nuevo en la cesta con los fondos"
             redeploy_skipped: "Parte de los fondos no se pudo reinvertir — se dejó como efectivo"

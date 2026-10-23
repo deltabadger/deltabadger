@@ -748,7 +748,9 @@ sv:
             liquidation_batch_cut_short: "Stoppades tidigt — %{bases} är inte sålda än"
             liquidation_not_started: "Inget såldes — botten var upptagen eller så gick indexet inte att uppdatera"
             liquidation_failed: "Selling failed: %{error}"
-            orders_below_minimum: "%{count} constituents were under the exchange minimum this time and carry forward: %{bases}"
+            orders_below_minimum:
+                one: "Ordern för %{bases} låg under börsens minimum den här gången och förs vidare."
+                other: "Ordrarna för %{bases} låg under börsens minimum den här gången och förs vidare."
             redeploy_requested: "Pengarna går tillbaka in i korgen"
             redeploy_placed: "Köper tillbaka in i korgen för intäkterna"
             redeploy_skipped: "En del av intäkterna kunde inte återinvesteras — lämnades som kontanter"

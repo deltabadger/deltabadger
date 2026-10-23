@@ -542,6 +542,154 @@ fn only_the_low_funds_prefix_and_its_colour_are_left_out() {
     }
 }
 
+/// Named divergences D-PENDING-MARKET-HIDDEN and D-PENDING-MARKET-SETTING: a market order the venue has not finished
+/// (unknown or open) is no row of this crate's log until it is final, and a scheduled or retrying bot holding one says
+/// "Setting orders…" where Rails shows its schedule. The grid seeds such rows (pages_bots.rb `history`, `engine_legs`,
+/// `beyond_buys`; pages_signals.rb). Returns the pending market orders' ids and their bots', read from the seeded database.
+fn pending_market(dir: &Path) -> (Vec<i64>, Vec<i64>) {
+    let c = rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap();
+    let sql = format!("SELECT id, bot_id FROM transactions WHERE {} ORDER BY id", deltabadger::web::bot::orders::PENDING_MARKET);
+    let rows: Vec<(i64, i64)> = c.prepare(&sql).and_then(|mut s| s.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?.collect()).unwrap_or_default();
+    let mut bots: Vec<i64> = rows.iter().map(|(_, bot)| *bot).collect();
+    bots.dedup();
+    (rows.into_iter().map(|(id, _)| id).collect(), bots)
+}
+
+/// The line after the subtree that opens at `lines[at]` (html::normalize closes an element at its own indent).
+fn subtree_end(lines: &[Value], at: usize) -> usize {
+    let open = lines[at].as_str().unwrap_or_default();
+    let indent = &open[..open.len() - open.trim_start().len()];
+    let name = open.trim_start().trim_start_matches('<').split([' ', '>']).next().unwrap_or_default();
+    let close = format!("{indent}</{name}>");
+    lines[at..].iter().position(|l| l.as_str() == Some(close.as_str())).map_or(lines.len(), |end| at + end + 1)
+}
+
+/// The `id` of a `<tr>` line.
+fn row_id(line: &Value) -> Option<String> {
+    let line = line.as_str()?.trim_start();
+    if !line.starts_with("<tr ") { return None; }
+    line.split_once(" id=\"").and_then(|(_, rest)| rest.split_once('"')).map(|(id, _)| id.to_string())
+}
+
+/// Removes the row subtrees `remove` accepts, each with the whitespace text before it; returns the ids removed.
+fn remove_rows(lines: &mut Vec<Value>, remove: &mut dyn FnMut(&str) -> bool) -> Vec<String> {
+    let (mut removed, mut i) = (vec![], 0);
+    while i < lines.len() {
+        match row_id(&lines[i]) {
+            Some(id) if remove(&id) => {
+                let end = subtree_end(lines, i);
+                let start = if i > 0 && lines[i - 1].as_str().is_some_and(|l| l.trim() == "\" \"") { i - 1 } else { i };
+                lines.drain(start..end);
+                removed.push(id);
+                i = start;
+            }
+            _ => i += 1,
+        }
+    }
+    removed
+}
+
+/// D-PENDING-MARKET-HIDDEN and D-PENDING-MARKET-SETTING, on one pair of normalized bodies: Rails' rows of the pending
+/// market orders `txs` go; where that left a feed page short, the rows this crate read on into in their place go too (as
+/// many items as Rails lost, only rows Rails' page lacks), and both pages' next-page cursors are masked; the order filter tabs
+/// are compared as Rails drew them (a "Scheduled" tab of pending market orders only is not offered); a status bar of
+/// a bot in `bots` that says "Setting orders…" here and not in Rails is compared as Rails drew it. Everything else is
+/// compared. Returns how many rows and bars were taken.
+fn without_pending_market(rails: &mut Value, rust: &mut Value, txs: &[i64], bots: &[i64]) -> usize {
+    const LOCALES: [&str; 15] = ["en", "de", "fr", "it", "es", "pt", "nl", "pl", "ru", "bg", "el", "sv", "da", "cs", "sk"];
+    let (Value::Array(theirs), Value::Array(ours)) = (rails, rust) else { return 0 };
+    let ids: Vec<String> = txs.iter().flat_map(|id| [format!("transaction_{id}"), format!("timeline_transaction_{id}")]).collect();
+    let removed = remove_rows(theirs, &mut |id| ids.iter().any(|t| t == id));
+    let mut lost: Vec<String> = removed.iter().map(|id| id.trim_start_matches("timeline_").to_string()).collect();
+    lost.dedup();
+    let mut taken = lost.len();
+    if !lost.is_empty() {
+        let present: Vec<String> = theirs.iter().filter_map(row_id).collect();
+        let item = |id: &str| id.trim_start_matches("timeline_").to_string();
+        let (mut extra, budget) = (Vec::<String>::new(), lost.len());
+        let spilled = remove_rows(ours, &mut |id| {
+            let key = item(id);
+            if present.iter().any(|p| p == id) || !(key.starts_with("transaction_") || key.starts_with("bot_activity_log_")) { return false; }
+            if !extra.contains(&key) { if extra.len() == budget { return false; } extra.push(key); }
+            true
+        });
+        taken += spilled.len();
+        for lines in [&mut *theirs, &mut *ours] {
+            for line in lines.iter_mut() {
+                let Some(text) = line.as_str().filter(|l| l.trim_start().starts_with("<turbo-frame id=\"orders_pagination\" src=")) else { continue };
+                if let Some((head, _)) = text.split_once(" src=\"") { *line = json!(format!("{head} src=\"[cursor]\">")); }
+            }
+        }
+    }
+    // The filter tabs: a "Scheduled" tab whose only rows are pending market orders is not offered here.
+    if !txs.is_empty() {
+        let starts = |lines: &[Value]| lines.iter().position(|l| l.as_str().is_some_and(|l| l.trim_start().starts_with("<div ") && l.contains(" id=\"order_filters_")));
+        if let (Some(r), Some(o)) = (starts(theirs), starts(ours)) {
+            let (r_end, o_end) = (subtree_end(theirs, r), subtree_end(ours, o));
+            if theirs[r..r_end] != ours[o..o_end] {
+                let drawn: Vec<Value> = theirs[r..r_end].to_vec();
+                ours.splice(o..o_end, drawn);
+                taken += 1;
+            }
+        }
+    }
+    let setting: Vec<String> = LOCALES.iter().map(|l| deltabadger::web::i18n::text(l, "bot.status.setting_orders", &[])).collect();
+    for bot in bots {
+        for kind in ["bots_dca_multi_asset", "bots_dca_index", "bots_signal"] {
+            let open = format!(" id=\"status_bar_{kind}_{bot}\"");
+            let starts = |lines: &[Value]| lines.iter().enumerate().filter(|(_, l)| l.as_str().is_some_and(|l| l.trim_start().starts_with("<div ") && l.contains(&open))).map(|(i, _)| i).collect::<Vec<_>>();
+            let says = |lines: &[Value]| lines.iter().any(|l| l.as_str().is_some_and(|l| setting.iter().any(|s| l.contains(s.as_str()))));
+            // From the last, so earlier positions stay put.
+            for (r, o) in starts(theirs).into_iter().zip(starts(ours)).rev() {
+                let (r_end, o_end) = (subtree_end(theirs, r), subtree_end(ours, o));
+                if says(&ours[o..o_end]) && !says(&theirs[r..r_end]) {
+                    let drawn: Vec<Value> = theirs[r..r_end].to_vec();
+                    ours.splice(o..o_end, drawn);
+                    taken += 1;
+                }
+            }
+        }
+    }
+    taken
+}
+
+#[test]
+fn only_pending_market_rows_their_spill_and_the_setting_bar_are_left_out() {
+    let tr = |id: &str, text: &str| vec![json!(format!("    <tr id=\"{id}\">")), json!(format!("      \"{text}\"")), json!("    </tr>")];
+    let page = |rows: Vec<Vec<Value>>, cursor: &str| {
+        let mut lines = vec![json!("  <tbody id=\"orders_list\">")];
+        for row in rows { lines.push(json!("    \" \"")); lines.extend(row); }
+        lines.push(json!("    \" \""));
+        lines.push(json!("  </tbody>"));
+        lines.push(json!(format!("  <turbo-frame id=\"orders_pagination\" src=\"/bots/1.turbo_stream?before={cursor}\">")));
+        lines.push(json!("  </turbo-frame>"));
+        json!(lines)
+    };
+    // Rails: the pending order 9 (both rows) on top, then 8 and 7, then the frame after 7; this crate: 8, 7 and 6.
+    let mut rails = page(vec![tr("timeline_transaction_9", "Open order to buy"), tr("transaction_9", "50"), tr("timeline_transaction_8", "Bought"), tr("bot_activity_log_7", "x")], "a");
+    let mut rust = page(vec![tr("timeline_transaction_8", "Bought"), tr("bot_activity_log_7", "x"), tr("timeline_transaction_6", "Bought"), tr("transaction_6", "1")], "b");
+    assert_eq!(without_pending_market(&mut rails, &mut rust, &[9], &[]), 1 + 2);
+    assert_eq!(rails, rust);
+    // A row this crate shows that Rails' page lacks is still compared when Rails lost nothing; so is a limit order's row.
+    let (mut rails, mut rust) = (page(vec![tr("transaction_5", "Open order to buy")], "a"), page(vec![], "a"));
+    assert_eq!(without_pending_market(&mut rails, &mut rust, &[9], &[]), 0);
+    assert_ne!(rails, rust);
+    // The filter tabs: compared as Rails drew them only where Rails listed a pending market order.
+    let tabs = |tabs: &str| json!(["  <div class=\"filters\" id=\"order_filters_bots_dca_multi_asset_1\">", format!("    \"{tabs}\""), "  </div>"]);
+    let (mut rails, mut rust) = (tabs("All Transactions Scheduled"), tabs("All Transactions"));
+    assert_eq!(without_pending_market(&mut rails, &mut rust, &[], &[1]), 0, "no pending market order: compared");
+    assert_eq!(without_pending_market(&mut rails, &mut rust, &[9], &[1]), 1);
+    assert_eq!(rails, rust);
+    // The bar: taken only for a listed bot that says "Setting orders…" here and not in Rails.
+    let bar = |text: &str| json!(["  <div class=\"bot-control__status\" id=\"status_bar_bots_dca_multi_asset_1\">", format!("    \" {text} \""), "  </div>"]);
+    let (mut rails, mut rust) = (bar("Next order in"), bar("Setting orders…"));
+    assert_eq!(without_pending_market(&mut rails, &mut rust, &[], &[2]), 0, "not a listed bot");
+    assert_eq!(without_pending_market(&mut rails, &mut rust, &[], &[1]), 1);
+    assert_eq!(rails, rust);
+    let (mut rails, mut rust) = (bar("Next order in"), bar("Paused"));
+    assert_eq!(without_pending_market(&mut rails, &mut rust, &[], &[1]), 0, "any other difference is compared");
+}
+
 /// The scenario prefixes of a signal bot's pages and writes (pages_signals.rb), which this app serves through its test seam.
 const SIGNAL_SCENARIOS: [&str; 6] = ["signal_page_", "signal_action_", "refused_signal_", "api_signal_", "refused_api_signal_", "not_ported_signal_"];
 
@@ -1284,6 +1432,7 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
         // A wizard's last step creates a bot (it declares `may_mutate`), and the rows it writes are compared step by step.
         let creates = scenario["steps"].as_array().unwrap().iter().any(|step| step["may_mutate"].as_array().is_some_and(|tables| tables.iter().any(|t| t == "bots")));
         if !name.starts_with("actions_") && !creates && recorded["bots"] != built { failures.push(format!("{name}: Rails changed a bot while it rendered:\n  before: {built}\n  after:  {}", recorded["bots"])); }
+        let (pending_txs, pending_bots) = pending_market(&rust_root.path().join(&name).join(scope));
         let mut rust = run(&rust_root.path().join(&name).join(scope)).await;
         for answer in rust["responses"].as_array_mut().unwrap() { without_low_funds(&mut answer["body"]); }
         if name.starts_with("countdown_") {
@@ -1340,6 +1489,15 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
             if let Err(message) = without_random_tokens(&mut rails).and_then(|()| without_random_tokens(&mut rust)) {
                 failures.push(format!("{name} (listed divergence): {message}"));
                 continue;
+            }
+        }
+        if !pending_bots.is_empty() {
+            let ours = rust["responses"].as_array_mut().unwrap();
+            for (theirs, ours) in rails["responses"].as_array_mut().unwrap().iter_mut().zip(ours.iter_mut()) {
+                without_pending_market(&mut theirs["body"], &mut ours["body"], &pending_txs, &pending_bots);
+                if let (Some(a), Some(b)) = (theirs.get_mut("broadcasts").and_then(Value::as_array_mut), ours.get_mut("broadcasts").and_then(Value::as_array_mut)) {
+                    for (a, b) in a.iter_mut().zip(b.iter_mut()) { without_pending_market(a, b, &pending_txs, &pending_bots); }
+                }
             }
         }
         match unknown_origin_ring(&name, &rails, &rust).or_else(||action_divergence(&name, &scenario, &rails, &rust)).or_else(||listed_divergence(&name, &scenario, &rails, &rust)) {

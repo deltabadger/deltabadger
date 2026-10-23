@@ -737,7 +737,9 @@ nl:
             liquidation_batch_cut_short: "Vroeg gestopt — %{bases} nog niet verkocht"
             liquidation_not_started: "Er is niets verkocht — de bot was bezig of de index kon niet worden ververst"
             liquidation_failed: "Verkoop mislukt: %{error}"
-            orders_below_minimum: "%{count} activa bleven deze keer onder het minimum van de exchange en schuiven door: %{bases}"
+            orders_below_minimum:
+                one: "De order voor %{bases} bleef deze keer onder het minimum van de exchange en schuift door."
+                other: "De orders voor %{bases} bleven deze keer onder het minimum van de exchange en schuiven door."
             redeploy_requested: "Het geld gaat terug in de mand"
             redeploy_placed: "Terugkopen in de mand met de opbrengst"
             redeploy_skipped: "Een deel van de opbrengst kon niet opnieuw worden ingelegd — blijft als contant staan"
