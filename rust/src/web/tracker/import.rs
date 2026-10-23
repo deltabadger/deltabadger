@@ -38,7 +38,7 @@ pub async fn new(Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> {
     let options = FORMATS.iter().map(|&value| SegmentedOption {
         value: value.into(), label: ctx.t(&format!("tracker.import.format_{value}")), active: value == DEFAULT_FORMAT, href: None,
     }).collect();
-    let formats = Segmented { fluid: true, label: ctx.t("tracker.import.format"), key: None, options, links: false }.render()?;
+    let formats = Segmented { fluid: true, label: ctx.t("tracker.import.format"), key: None, options, links: false, frame: None }.render()?;
     Ok(html(StatusCode::OK, New { ctx: &ctx, csrf: ctx.csrf_token(), formats, default_format: DEFAULT_FORMAT }.render()?))
 }
 
@@ -131,7 +131,7 @@ pub async fn create(Extension(ctx): Extension<Ctx>) -> Result<Response, WebError
         Answer::Error(error) => render(&ctx, StatusCode::UNPROCESSABLE_ENTITY, Body::Error(format!("tracker.import.error_{error}"))),
         Answer::Ambiguous(keys) => {
             let options = keys.iter().enumerate().map(|(i, k)| SegmentedOption { value: k.id.to_string().into(), label: k.exchange_name.clone(), active: i == 0, href: None }).collect();
-            let accounts = Segmented { fluid: true, label: ctx.t("tracker.import.account"), key: None, options, links: false }.render()?;
+            let accounts = Segmented { fluid: true, label: ctx.t("tracker.import.account"), key: None, options, links: false, frame: None }.render()?;
             render(&ctx, StatusCode::OK, Body::Ambiguous { csrf: ctx.csrf_token(), token: parked.unwrap_or_default(), format, accounts,
                                                            first: keys.first().map(|k| k.id.to_string()).unwrap_or_default() })
         }

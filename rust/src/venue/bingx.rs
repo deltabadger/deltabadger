@@ -39,6 +39,28 @@ pub(crate) fn unreadable() -> VenueError {
 fn required(v: &Value) -> Result<BigDec, VenueError> {
     super::json::required(v, unreadable)
 }
+/// Exchanges::Bingx#get_tickers_prices' path (Clients::Bingx#get_ticker, no symbol: every pair).
+pub const TICKER: &str = "/openApi/spot/v2/market/ticker";
+/// Clients::Bingx#get_klines' path.
+pub const KLINE: &str = "/openApi/spot/v1/market/kline";
+/// The prices of a market/ticker answer's `data`, as Exchanges::Bingx#get_tickers_prices reads them: each row's `symbol`
+/// and `lastPrice` (`dig_or_raise`d), a later row for a symbol replacing an earlier one in its place. Shared by the engine
+/// (`tickers_prices`, after its envelope) and the figures.
+pub fn ticker_prices(data: &Value) -> Result<Vec<(String, BigDec)>, VenueError> {
+    let mut out: Vec<(String, BigDec)> = vec![];
+    for row in data.as_array().ok_or_else(unreadable)? {
+        let symbol = super::dig_or_raise(row, "symbol")?
+            .as_str()
+            .ok_or_else(unreadable)?
+            .to_string();
+        let p = required(super::dig_or_raise(row, "lastPrice")?)?;
+        match out.iter_mut().find(|(s, _)| *s == symbol) {
+            Some((_, old)) => *old = p,
+            None => out.push((symbol, p)),
+        }
+    }
+    Ok(out)
+}
 
 // BingX permits 1–40 ASCII letters/digits/underscores. UUIDs use the shared reversible encoding.
 fn client_order_id(id: &str) -> Result<String, VenueError> {
@@ -498,24 +520,12 @@ impl<T: Transport> super::Venue for BingxVenue<T> {
         _symbols: &[String],
     ) -> Result<Vec<(String, Value)>, VenueError> {
         let body = self
-            .call(
-                &self.request("GET", "/openApi/spot/v2/market/ticker", vec![]),
-                false,
-            )
+            .call(&self.request("GET", TICKER, vec![]), false)
             .await?;
-        let mut out: Vec<(String, Value)> = vec![];
-        for row in body.as_array().ok_or_else(unreadable)? {
-            let symbol = super::dig_or_raise(row, "symbol")?
-                .as_str()
-                .ok_or_else(unreadable)?
-                .to_string();
-            let p = required(super::dig_or_raise(row, "lastPrice")?)?;
-            match out.iter_mut().find(|(s, _)| *s == symbol) {
-                Some((_, old)) => *old = Value::String(p.to_s_f()),
-                None => out.push((symbol, Value::String(p.to_s_f()))),
-            }
-        }
-        Ok(out)
+        Ok(ticker_prices(&body)?
+            .into_iter()
+            .map(|(symbol, price)| (symbol, Value::String(price.to_s_f())))
+            .collect())
     }
 
     async fn cancel(&self, txid: &str) -> Result<(), VenueError> {

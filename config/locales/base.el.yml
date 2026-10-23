@@ -678,6 +678,11 @@ el:
             loss: 'Ζημία'
             closed: 'Κλειστή'
             cash: 'Μετρητά'
+        holdings_filter:
+            label: 'Κατηγορία'
+            crypto: 'Κρυπτο'
+            stocks: 'Μετοχές'
+            cash: 'Μετρητά'
         range:
             label: 'Περίοδος'
             '30d': '30Η'

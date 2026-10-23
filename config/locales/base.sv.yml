@@ -678,6 +678,11 @@ sv:
             loss: 'Förlust'
             closed: 'Stängd'
             cash: 'Kontanter'
+        holdings_filter:
+            label: 'Tillgångsslag'
+            crypto: 'Krypto'
+            stocks: 'Aktier'
+            cash: 'Kontanter'
         range:
             label: 'Period'
             '30d': '30D'

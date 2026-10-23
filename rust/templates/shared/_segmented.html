@@ -1,13 +1,13 @@
 {#- shared/_segmented.html.erb without its trailing action, which neither page uses: options with a
     link are navigation, options without are a radio group. -#}
-<div class="segmented{% if fluid %} segmented--fluid{% endif %}"{% if !links %} role="radiogroup"{% endif %} aria-label="{{ label }}" data-controller="segmented" data-action="click-&gt;segmented#toggle"{% if let Some(key) = key %} data-segmented-key="{{ key }}"{% endif %}>
+<div class="segmented{% if fluid %} segmented--fluid{% endif %}"{% if !links %} role="radiogroup"{% endif %} aria-label="{{ label }}" data-controller="segmented" data-action="click-&gt;segmented#toggle"{% if let Some(key) = key %} data-segmented-key="{{ key }}"{% endif %}{% if let Some(frame) = frame %} data-segmented-frame="{{ frame }}"{% endif %}>
   <span class="segmented__thumb" data-segmented-target="thumb"></span>
   <div class="segmented__dropdown dropdown" data-segmented-target="dropdown">
     <div class="segmented__panes">
       <div class="segmented__pane segmented__menu">
 {%- for option in options %}
 {%- if let Some(href) = option.href %}
-            <a class="segmented__option{% if option.active %} is-on{% endif %}"{% if option.active %} aria-current="page"{% endif %} data-value="{{ option.value }}" data-segmented-target="option" data-action="segmented#select" href="{{ href }}">{{ option.label }}</a>
+            <a class="segmented__option{% if option.active %} is-on{% endif %}"{% if option.active %} aria-current="page"{% endif %} data-value="{{ option.value }}" data-segmented-target="option" data-action="segmented#select"{% if let Some(frame) = frame %} data-turbo-frame="{{ frame }}"{% endif %} href="{{ href }}">{{ option.label }}</a>
 {%- else %}
             <button type="button" class="segmented__option{% if option.active %} is-on{% endif %}" role="radio" aria-checked="{{ option.active }}" tabindex="{% if option.active %}0{% else %}-1{% endif %}" data-value="{{ option.value }}" data-segmented-target="option" data-action="segmented#select keydown-&gt;segmented#keys">{{ option.label }}</button>
 {%- endif %}

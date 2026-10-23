@@ -9,6 +9,7 @@
 #   bin/rails runner script/rust/record_venue_signing.rb gemini rust/tests/fixtures/gemini_signing.json
 #   bin/rails runner script/rust/record_venue_signing.rb coinbase rust/tests/fixtures/coinbase_signing.json
 #   bin/rails runner script/rust/record_venue_signing.rb hyperliquid rust/tests/fixtures/hyperliquid_signing.json
+#   bin/rails runner script/rust/record_venue_signing.rb ibkr rust/tests/fixtures/ibkr_signing.json (Clients::Ibkr's OAuth 1.0a + LST)
 # Every key below is a throwaway test key made for this file; clocks, nonces and SecureRandom are frozen. Nothing leaves
 # the machine: the clients' connections are Faraday test adapters and any real connection raises.
 require 'json'
@@ -415,6 +416,131 @@ when 'hyperliquid'
     { 'x' => x, 'error' => e.message }
   end
   out.merge!('agent_key' => agent, 'assets' => assets, 'signing' => cases, 'float_to_wire' => wire)
+
+when 'ibkr'
+  # Clients::Ibkr::Oauth and ::Session (slice I0 of the IBKR port, rust/src/venue/signers/ibkr.rs): the pure helpers on
+  # edge inputs, and the headers Session really sends for a LST mint, the brokerage init and signed GET/POST/DELETE calls,
+  # under frozen nonces, timestamp and DH random, with the throwaway keys of rust/tests/fixtures/ibkr_test_keys.json and a
+  # scripted IBKR server whose DH secret is fixed (session_test.rb's server math).
+  inputs_path = 'rust/tests/fixtures/ibkr_test_keys.json'
+  keys = JSON.parse(File.read(Rails.root.join(inputs_path)))
+  oauth = Clients::Ibkr::Oauth
+  # RFC 7919 ffdhe2048, as `openssl genpkey -genparam -algorithm DH -pkeyopt group:ffdhe2048` writes it (D-IBKR-DHGROUP).
+  ffdhe2048 = <<~PEM
+    -----BEGIN DH PARAMETERS-----
+    MIIBCAKCAQEA//////////+t+FRYortKmq/cViAnPTzx2LnFg84tNpWp4TZBFGQz
+    +8yTnc4kmz75fS/jY2MMddj2gbICrsRhetPfHtXV/WVhJDP1H18GbtCFY2VVPe0a
+    87VXE15/V8k1mE8McODmi3fipona8+/och3xWKE2rec1MKzKT0g6eXq8CrGCsyT7
+    YdEIqUuyyOP7uWrat2DX9GgdT0Kj3jlN9K5W7edjcrsZCwenyO4KbXCeAvzhzffi
+    7MA0BM0oNC9hkXL+nOmFg/+OTxIy7vKBg8P+OxtMb61zO7X8vC7CIAXFjvGDfRaD
+    ssbzSibBsu/6iGtCOGEoXJf//////////wIBAg==
+    -----END DH PARAMETERS-----
+  PEM
+
+  nonces = []
+  timestamp = '1789871400'
+  dh_random = '5f1c1f3e2b8f4c4e9a590d9c3f1b6a017ee1a7025c514d5d7eda7a80f501c77f'
+  oauth.singleton_class.prepend(Module.new do
+    define_method(:nonce) { nonces.shift || raise('nonces ran out') }
+    define_method(:timestamp) { timestamp }
+    define_method(:dh_random) { dh_random }
+  end)
+
+  escapes = ['a b~c/d', 'AAPL=100&x_y.z~', 'https://api.ibkr.com/v1/api', '*+!\'()', 'é€😀', "\x00\n\t%", '-._~', '',
+             'conids=265598,8314&fields=31,84,86'].to_h { |s| [s, oauth.escape(s)] }
+  byte_arrays = [0, 1, 16, 127, 128, 255, 256, 65_535, 65_536, 2**64 - 1, 2**64, 2**2047].to_h { |i| [i.to_s(16), oauth.to_byte_array(i)] }
+  base_strings = [['GET', 'https://api.ibkr.com/v1/api/portfolio/accounts', { 'oauth_nonce' => 'abc', 'oauth_consumer_key' => 'TESTCONS' }, nil],
+                  ['POST', 'https://api.ibkr.com/x', { 'b' => '2 3', 'a' => '1/~*', 'B' => 'é' }, 'PREPEND'],
+                  ['DELETE', 'https://api.ibkr.com/v1/api/iserver/account/U1/order/7', {}, nil]].map do |m, url, params, pre|
+    { 'method' => m, 'url' => url, 'params' => params, 'prepend' => pre, 'base_string' => oauth.base_string(method: m, url:, params:, prepend: pre) }
+  end
+  hmacs = [['GET&x&y', 'bGl2ZXNlc3Npb250b2tlbg=='], ['', 'AAAA'], ['é', '9stTxQv6fGt6TDQLWyVnlKn2M7o=']].map do |b, lst|
+    { 'base_string' => b, 'lst' => lst, 'signature' => oauth.hmac_sha256_signature(b, lst) }
+  end
+  lst_cases = [
+    { 'dh_prime' => '00cc8f1bbe20a6993bb1e2d89f0f1b2b6f8b9b5d3a7c1e4f6079123456789abcd', 'dh_random' => '3a7f9c2d1e',
+      'dh_response' => '6dcbd0d9d2a0a2860b9df30955d152a0776c9ac29bfa62c5900e46abd98717c', 'prepend' => 'deadbeef0011' }
+  ]
+
+  # The server half: g^b, and the LST it derives from the client's challenge (session_test.rb:47-60).
+  server_b = 0x1f2e3d4c5b6a79881f2e3d4c5b6a7988
+  server = lambda do |dh_pem, challenge_hex, prepend_hex, consumer|
+    dh = OpenSSL::PKey::DH.new(dh_pem)
+    p, g = dh.p.to_i, dh.g.to_i
+    shared = challenge_hex.to_i(16).pow(server_b, p)
+    lst = Base64.strict_encode64(OpenSSL::HMAC.digest('SHA1', oauth.to_byte_array(shared).pack('C*'), [prepend_hex].pack('H*')))
+    { 'diffie_hellman_response' => g.pow(server_b, p).to_s(16), 'live_session_token_signature' => OpenSSL::HMAC.hexdigest('SHA1', Base64.decode64(lst), consumer),
+      'live_session_token_expiration' => 86_400_000, 'lst' => lst }
+  end
+
+  api_key = Struct.new(:id, :key, :access_token, :secret, :rsa_signature_key, :rsa_encryption_key, :dh_param, :ibkr_realm, keyword_init: true)
+  sessions = { 'session_test dh' => keys['dh_param'], 'ffdhe2048' => ffdhe2048 }.map do |label, dh_pem|
+    nonces.replace(%w[N0nceLstRequest0 N0nceSsodhInit00 N0nceGetAccounts N0ncePostOrder00 N0nceDeleteOrder].map { |n| n[0, 16] })
+    used = nonces.dup
+    Rails.cache = ActiveSupport::Cache::MemoryStore.new # production's sequence: one mint, one init, then the calls
+    key = api_key.new(id: 1, key: keys['consumer_key'], access_token: keys['access_token'], secret: keys['access_token_secret'],
+                      rsa_signature_key: keys['signature_key'], rsa_encryption_key: keys['encryption_key'], dh_param: dh_pem,
+                      ibkr_realm: keys['realm'])
+    session = Clients::Ibkr::Session.new(api_key: key)
+    plain_oauth = session.instance_variable_get(:@oauth)
+    challenge = plain_oauth.dh_challenge(dh_random)
+    answer = server.(dh_pem, challenge, plain_oauth.prepend, keys['consumer_key'])
+    stubs = Faraday::Adapter::Test::Stubs.new do |s|
+      reply = ->(body) { ->(env) { captured << { 'method' => env.method.to_s.upcase, 'path' => env.url.path, 'query' => env.url.query, 'body' => env.request_body,
+                                                  'authorization' => env.request_headers['Authorization'] }
+                                   [200, { 'Content-Type' => 'application/json' }, body.to_json] } }
+      s.post(Clients::Ibkr::Session::LST_PATH, &reply.(answer.except('lst')))
+      s.post(Clients::Ibkr::Session::SSODH_INIT_PATH, &reply.({ authenticated: true, connected: true, competing: false }))
+      s.get('/v1/api/iserver/marketdata/snapshot', &reply.([{ conid: 265_598, '31' => '231.5' }]))
+      s.post('/v1/api/iserver/account/U1234567/orders', &reply.([{ order_id: '1234' }]))
+      s.delete('/v1/api/iserver/account/U1234567/order/1234', &reply.({ msg: 'Request was submitted' }))
+    end
+    session.instance_variable_set(:@connection, Faraday.new(url: Clients::Ibkr::Session::BASE_URL) do |f|
+      f.request :json
+      f.response :json
+      f.adapter :test, stubs
+    end)
+    session.signed_request(:get, '/v1/api/iserver/marketdata/snapshot', query: { conids: '265598,8314', fields: '31,84,86' })
+    session.signed_request(:post, '/v1/api/iserver/account/U1234567/orders',
+                           body: { orders: [{ conid: 265_598, orderType: 'MKT', side: 'BUY', quantity: 3, tif: 'DAY' }] })
+    session.signed_request(:delete, '/v1/api/iserver/account/U1234567/order/1234')
+    raise "#{label}: #{captured.size} requests" unless captured.size == 5
+    raise "#{label}: the session's LST is not the server's" unless session.live_session_token == answer['lst']
+
+    dh = OpenSSL::PKey::DH.new(dh_pem)
+    lst_cases << { 'dh_prime' => dh.p.to_s(16).downcase, 'dh_random' => dh_random, 'dh_response' => answer['diffie_hellman_response'], 'prepend' => plain_oauth.prepend }
+    { 'label' => label, 'dh_param' => dh_pem, 'dh_prime' => dh.p.to_s(16).downcase, 'dh_generator' => dh.g.to_i, 'dh_random' => dh_random,
+      'dh_challenge' => challenge, 'prepend' => plain_oauth.prepend, 'nonces' => used, 'timestamp' => timestamp,
+      'server' => answer, 'requests' => captured.shift(5) }
+  end
+  lst_cases.each do |c|
+    c['lst'] = oauth.calculate_live_session_token(dh_prime: c['dh_prime'], dh_random: c['dh_random'], dh_response: c['dh_response'], prepend: c['prepend'])
+    c['validation'] = OpenSSL::HMAC.hexdigest('SHA1', Base64.decode64(c['lst']), keys['consumer_key'])
+    raise 'validate_live_session_token disagrees' unless oauth.validate_live_session_token(c['lst'], signature: c['validation'], consumer_key: keys['consumer_key'])
+  end
+
+  # The Oauth builders on their own, as Session calls them (the header for the LST request carries its own prepend).
+  nonces.replace(%w[DirectLstHeader0 DirectGetQuery00 DirectPost000000 DirectDelete0000])
+  direct = Clients::Ibkr::Oauth.new(consumer_key: keys['consumer_key'], access_token: keys['access_token'], access_token_secret: keys['access_token_secret'],
+                                    signature_key: keys['signature_key'], encryption_key: keys['encryption_key'], dh_prime: 'cc8f', realm: keys['realm'])
+  lst = 'bGl2ZXNlc3Npb250b2tlbg=='
+  headers = [
+    { 'call' => 'live_session_token_header', 'nonce' => 'DirectLstHeader0', 'url' => 'https://api.ibkr.com/v1/api/oauth/live_session_token',
+      'dh_challenge' => 'abc123', 'prepend' => 'deadbeef',
+      'header' => direct.live_session_token_header(url: 'https://api.ibkr.com/v1/api/oauth/live_session_token', dh_challenge: 'abc123', prepend: 'deadbeef') },
+    *[['GET', 'DirectGetQuery00', { 'fields' => 'secret_value', 'a b' => '~*' }], ['POST', 'DirectPost000000', {}], ['DELETE', 'DirectDelete0000', {}]].map do |m, n, q|
+      url = 'https://api.ibkr.com/v1/api/iserver/accounts'
+      { 'call' => 'signed_header', 'nonce' => n, 'method' => m, 'url' => url, 'lst' => lst, 'query' => q,
+        'header' => direct.signed_header(method: m, url:, live_session_token: lst, query_params: q) }
+    end
+  ]
+  raise 'nonces left over' unless nonces.empty?
+
+  out['sources'].merge!(%w[app/models/clients/ibkr/oauth.rb app/models/clients/ibkr/session.rb app/models/client.rb]
+                          .to_h { |f| [f, Digest::SHA256.file(Rails.root.join(f)).hexdigest] })
+  out['sources'][inputs_path] = Digest::SHA256.file(Rails.root.join(inputs_path)).hexdigest
+  out.merge!('keys' => keys, 'ffdhe2048' => ffdhe2048, 'prepend' => direct.prepend, 'escape' => escapes, 'to_byte_array' => byte_arrays,
+             'base_string' => base_strings, 'hmac_sha256' => hmacs, 'lst' => lst_cases, 'headers' => headers, 'signing' => sessions)
 else
   raise "unknown venue #{venue}"
 end

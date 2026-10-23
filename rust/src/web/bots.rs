@@ -62,7 +62,13 @@ pub struct Segmented<'a> {
     pub key: Option<&'a str>,
     pub options: Vec<SegmentedOption>,
     pub links: bool,
+    /// The `<turbo-frame>` a link group's options load into instead of a whole page (3.0, Rust only): the control is
+    /// outside it and stays, so its chip slides instead of being rebuilt with the page.
+    pub frame: Option<&'a str>,
 }
+
+/// The bot list's frame: the tiles the status filter scopes.
+pub const SCOPE_FRAME: &str = "bots_scope";
 
 enum Title {
     None,
@@ -124,7 +130,14 @@ struct IndexView<'a> {
     tiles: Vec<Tile>,
     /// `{"bot_ids":[…]}`: the tiles whose figures the page asks for once it is connected.
     refresh: Option<String>,
+    /// A load of the scope frame alone: the head's actions again, as a stream (they stand outside the frame).
+    stream: String,
 }
+
+/// The page head's actions: New, and Merge/Split when the listed bots allow them (`bots_actions`).
+#[derive(Template)]
+#[template(path = "bots/_actions.html")]
+struct Actions<'a> { v: &'a Ctx, select_mode: bool, can_merge: bool, can_split: bool }
 
 /// `to_json` as ActiveSupport writes it into a page: `<`, `>` and `&` as \u escapes.
 pub fn json(value: &Value) -> String {
@@ -258,7 +271,7 @@ pub async fn index(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Re
                 value: (*name).into(), label: i18n::text(ctx.locale, &format!("bot_filters.{name}"), &[]), active: filter == *name,
                 href: Some(format!("{}?filter={name}", ctx.path("/bots"))),
             }).collect();
-            Some(Segmented { fluid: true, label: i18n::text(ctx.locale, "bot_filters.label", &[]), key: None, options, links: true }.render()?)
+            Some(Segmented { fluid: true, label: i18n::text(ctx.locale, "bot_filters.label", &[]), key: None, options, links: true, frame: Some(SCOPE_FRAME) }.render()?)
         } else {
             None
         };
@@ -290,12 +303,16 @@ pub async fn index(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Re
         // BotsController#index: only the tiles still without figures are asked for (@tile_refresh_ids).
         let cold: Vec<i64> = listed.iter().zip(&tiles).filter(|(_, tile)| tile.pnl.is_none()).map(|(bot, _)| bot.id).collect();
         let (preferences, bot_updates) = (format!("user_{}:preferences", user.id), format!("user_{}:bot_updates", user.id));
+        let select_mode = can_merge || can_split;
+        let stream = if ctx.turbo_frame.as_deref() == Some(SCOPE_FRAME) {
+            crate::web::turbo::stream("replace", "bots_actions", &Actions { v: ctx, select_mode, can_merge, can_split }.render()?)
+        } else { String::new() };
         let body = IndexView {
             v: ctx, preferences: &preferences, bot_updates: &bot_updates,
             // User#global_pnl_snapshot with nothing computed: waiting as soon as any bot has an accepted order.
             // And while the account's history waits on a bot's marked chart (@global_pnl_history_loading).
             pnl_pass: pnl_loading || history_loading, pnl_loading,
-            filters, select_mode: can_merge || can_split, can_merge, can_split, connected: json(&serde_json::json!(connected)), names: json(&Value::Object(names)),
+            filters, select_mode, can_merge, can_split, stream, connected: json(&serde_json::json!(connected)), names: json(&Value::Object(names)),
             no_partner: literal("bot.merge.no_partner", "quote"), no_shared_exchange: literal("bot.merge.no_shared_exchange", "quote"),
             other_exchange: literal("bot.merge.other_exchange", "exchange"),
             refresh: (!cold.is_empty()).then(|| json(&serde_json::json!({ "bot_ids": cold }))),

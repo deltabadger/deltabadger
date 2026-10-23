@@ -20,12 +20,12 @@ pub fn supported(c:&Connection,owner:i64)->Result<bool,WebError>{
 
 
 use super::{Ctx,layout};
-use crate::web::{auth,shell::{self,Shell},i18n::{self,Arg},bots::{Segmented,SegmentedOption}};
+use crate::web::{auth,shell::{self,Shell},i18n::{self,Arg}};
 use askama::Template;
 use axum::{http::StatusCode,response::Response};
 #[derive(Template)]
 #[template(path="tracker/first_sync.html")]
-struct Page<'a>{v:&'a Ctx,preferences:String,tax_report:String,sync:String,csrf:String,hidden:bool,show_cash:bool,scope:Option<String>,export_path:String,from:String,to:String,record_switch:String,hint:String,unavailable:String,cold:Option<super::holdings::Presentation>}
+struct Page<'a>{v:&'a Ctx,preferences:String,tax_report:String,sync:String,csrf:String,hidden:bool,show_cash:bool,scope:Option<String>,export_path:String,from:String,to:String,record_switch:String,hint:String,unavailable:String,cold:Option<super::holdings::Presentation>,holdings:String}
 
 /// `Date.parse` of what an HTML date control submits, an ISO day: `None` for any other grammar, which stays refused, and an
 /// error for an impossible day, which Rails raises on.
@@ -59,8 +59,9 @@ pub(super) fn render_with(c:&Connection,ctx:&Ctx,owner:i64,cold:Option<super::ho
     if !shape.is_null() && !shape.is_object(){return Err(super::row::invalid());}
     // Rails' show_cash? expects a JSON object; syntax and shape are checked before this helper.
     let show_cash=crate::web::bots::show_cash(settings.as_deref());
-    let options=vec![SegmentedOption{value:"pos".into(),label:i18n::text(ctx.locale,"tracker.positions",&[]),active:true,href:None},SegmentedOption{value:"tx".into(),label:i18n::text(ctx.locale,"tracker.transactions",&[]),active:false,href:None}];
-    let record_switch=format!("\n{}",Segmented{fluid:true,label:i18n::text(ctx.locale,"tracker.positions",&[]),key:Some("tracker-record"),options,links:false}.render()?.lines().filter(|line|!line.is_empty()).collect::<Vec<_>>().join("\n").replace("->","-&gt;").replace("</svg>\n","</svg>\n\n"));
+    // The record opens on the Holdings pane (3.0, Rust only): the card, or the never-synced one, under its class filter.
+    let record_switch=super::record::switch(ctx)?;
+    let holdings=match &cold{Some(p)=>super::populated::pane(ctx,&format!("{}\n\n",p.card),&p.classes)?,None=>super::populated::pane(ctx,&super::populated::never_synced(ctx,user.hide_balances),&[])?};
     let value=i18n::text(ctx.locale,"bot.details.stats.portfolio_value",&[]);
     let invested=i18n::text(ctx.locale,"bot.details.stats.total_invested",&[]);
     let hint=i18n::t(ctx.locale,"tracker.tiles.total_pnl_hint",&[("value",Arg::Text(&value)),("invested",Arg::Text(&invested))]);
@@ -70,7 +71,7 @@ pub(super) fn render_with(c:&Connection,ctx:&Ctx,owner:i64,cold:Option<super::ho
     let pairs=ctx.params.query.iter().filter(|(key,_)|matches!(key.as_str(),"exchange_id"|"from"|"to")).cloned().collect::<Vec<_>>();
     let query=crate::web::locale::switch_query(&pairs);
     let export_path=i18n::escape(&ctx.path(&format!("/tracker/export{}",if query.is_empty(){String::new()}else{format!("?{query}")})));
-    let body=Page{v:ctx,preferences:format!("user_{owner}:preferences"),tax_report:format!("user_{owner}:tax_report"),sync:format!("user_{owner}:sync"),csrf:ctx.csrf_token(),hidden:user.hide_balances,show_cash,scope:ctx.params.query("exchange_id").filter(|s|!s.trim().is_empty()).map(i18n::escape),export_path,from,to,record_switch,hint,unavailable,cold}.render()?;
+    let body=Page{v:ctx,preferences:format!("user_{owner}:preferences"),tax_report:format!("user_{owner}:tax_report"),sync:format!("user_{owner}:sync"),csrf:ctx.csrf_token(),hidden:user.hide_balances,show_cash,scope:ctx.params.query("exchange_id").filter(|s|!s.trim().is_empty()).map(i18n::escape),export_path,from,to,record_switch,hint,unavailable,cold,holdings}.render()?;
     let page=layout::Page{status:StatusCode::OK,body,flash_now:vec![]};
     if ctx.turbo_frame.is_some(){return layout::frame(&ctx.csrf_token(),&page);}
     let shell=Shell::load(c,&ctx.app,user)?;

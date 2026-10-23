@@ -669,6 +669,11 @@ fr:
             loss: 'Perte'
             closed: 'Clôturée'
             cash: 'Liquidités'
+        holdings_filter:
+            label: 'Classe d''actifs'
+            crypto: 'Crypto'
+            stocks: 'Actions'
+            cash: 'Liquidités'
         range:
             label: 'Période'
             '30d': '30J'

@@ -28,6 +28,28 @@ pub const SHAPE: Shape = Shape {
 };
 
 pub(crate) fn unreadable() -> VenueError { VenueError::Ambiguous(UNREADABLE.into()) }
+/// Exchanges::Bitrue#get_tickers_prices' path (Clients::Bitrue#ticker_24hr, no symbol: every pair).
+pub const TICKER_24HR: &str = "/api/v1/ticker/24hr";
+/// Clients::Bitrue#candlestick_data's path.
+pub const KLINE: &str = "/api/v1/market/kline";
+/// The prices of a ticker/24hr answer, as Exchanges::Bitrue#get_tickers_prices reads them: each row's `symbol`
+/// (`dig_or_raise`d) and `lastPrice`, a price that is not positive (or absent) left out, a later row for a symbol
+/// replacing an earlier one in its place. Shared by the engine (`tickers_prices`) and the figures.
+pub fn ticker_prices(body: &Value) -> Result<Vec<(String, BigDec)>, VenueError> {
+    let mut out: Vec<(String, BigDec)> = vec![];
+    for row in body.as_array().ok_or_else(unreadable)? {
+        let symbol = super::dig_or_raise(row, "symbol")?.as_str().ok_or_else(unreadable)?.to_string();
+        let price = match &row["lastPrice"] {
+            v @ (Value::String(_) | Value::Number(_)) => crate::ruby::json_to_d(v).ok().flatten(),
+            Value::Null => None,
+            _ => return Err(unreadable()),
+        };
+        if let Some(p) = price.filter(|p| p.is_positive()) {
+            match out.iter_mut().find(|(s, _)| *s == symbol) { Some((_, old)) => *old = p, None => out.push((symbol, p)) }
+        }
+    }
+    Ok(out)
+}
 fn required(v: &Value) -> Result<BigDec, VenueError> { super::json::required(v, unreadable) }
 
 fn client_order_id(id: &str) -> Result<String, VenueError> { super::client_order_id_32(id, "Bitrue") }
@@ -223,26 +245,14 @@ impl<T: Transport> super::Venue for BitrueVenue<T> {
     where F: FnOnce() -> Result<crate::sync::balances::Catalog, VenueError> { self.free(|code| code == ticker.quote_code).await }
 
     async fn tickers_prices(&self, _symbols: &[String]) -> Result<Vec<(String, Value)>, VenueError> {
-        let r = self.request("GET", "/api/v1/ticker/24hr", vec![]);
+        let r = self.request("GET", TICKER_24HR, vec![]);
         let resp = self.send(&r, false).await?;
         let text = self.classify(&r, resp, false)?;
         let body = match http::decode_json(&text) {
             Err(http::DecodeError::NotJson) => return Err(VenueError::Rejected(vec![self.transport.redact_diagnostic(&text)])),
             other => other.map_err(|_| unreadable())?,
         };
-        let mut out: Vec<(String, Value)> = vec![];
-        for row in body.as_array().ok_or_else(unreadable)? {
-            let symbol = super::dig_or_raise(row, "symbol")?.as_str().ok_or_else(unreadable)?.to_string();
-            let price = match &row["lastPrice"] {
-                v @ (Value::String(_) | Value::Number(_)) => crate::ruby::json_to_d(v).ok().flatten(),
-                Value::Null => None,
-                _ => return Err(unreadable()),
-            };
-            if let Some(p) = price.filter(|p| p.is_positive()) {
-                match out.iter_mut().find(|(s, _)| *s == symbol) { Some((_, old)) => *old = Value::String(p.to_s_f()), None => out.push((symbol, Value::String(p.to_s_f()))) }
-            }
-        }
-        Ok(out)
+        Ok(ticker_prices(&body)?.into_iter().map(|(symbol, price)| (symbol, Value::String(price.to_s_f()))).collect())
     }
 
     async fn cancel(&self, txid: &str) -> Result<(), VenueError> {

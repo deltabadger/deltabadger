@@ -2,6 +2,9 @@
 //! same frozen clock, and every response must be the same page (script/rust/pages.rb is the Rails half).
 //! `PAGES=login,two_factor cargo test --test pages` runs only the scenarios with those name prefixes.
 mod common;
+#[allow(dead_code)]
+#[path = "support/tabs_3_0.rs"]
+mod tabs;
 #[path="support/settings_snapshot.rs"] mod settings_snapshot;
 use common::html;
 use common::web::{self, Answer, Browser, Csrf, TestClock};
@@ -104,9 +107,14 @@ fn rails_answer(recorded: &Value, step: &Value) -> Value {
     }).collect();
     let status = recorded["status"].as_u64().unwrap_or_else(|| panic!("recorded response has no status"));
     let body = recorded["body"].as_str().unwrap_or_else(|| panic!("recorded response has no body"));
-    let safe_body=body.to_string();
+    // The listed 3.0 bot-list frame (tabs_3_0), applied before the page is normalised.
+    let safe_body=tabs::bots_page(body).unwrap_or_else(|e| panic!("{e}"));
     // #498 and locale filtering are now the oracle: compare the rendered bytes directly.
     let mut answer = comparable(status, &headers, &safe_body, &extra_headers(step));
+    // A tracker index (the listed 3.0 tabs): which shape it takes is the page this crate served, read once both exist.
+    if safe_body.contains("<div class=\"widget tracker-holdings") && safe_body.contains("<div class=\"tracker-record\" data-controller=\"tracker--record\">") {
+        answer["tracker_raw"] = json!(safe_body);
+    }
     for key in ["action_snapshot", "rows_before", "rows_after", "other_rows_before", "other_rows_after", "exception", "settings_rows", "broadcasts",
                 "venue_requests", "may_mutate", "raw_rows", "session", "job_classes"] {
         if let Some(value) = recorded.get(key) { answer[key] = value.clone(); }
@@ -1497,6 +1505,15 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
         if !name.starts_with("actions_") && !creates && recorded["bots"] != built { failures.push(format!("{name}: Rails changed a bot while it rendered:\n  before: {built}\n  after:  {}", recorded["bots"])); }
         let (pending_txs, pending_bots, waiting_bots) = pending_market(&rust_root.path().join(&name).join(scope));
         let mut rust = run(&rust_root.path().join(&name).join(scope)).await;
+        // The listed 3.0 tracker tabs (tabs_3_0): the populated index in its scope frame, or the first-sync page.
+        let mut rails = rails;
+        let framed: Vec<bool> = rust["responses"].as_array().unwrap().iter().map(|a| a["body"].as_array().is_some_and(|lines| lines.iter().any(|l| l.as_str().is_some_and(|l| l.contains("id=\"tracker_scope\""))))).collect();
+        for (answer, framed) in rails["responses"].as_array_mut().unwrap().iter_mut().zip(framed.into_iter().chain(std::iter::repeat(false))) {
+            let Some(raw) = answer.as_object_mut().unwrap().remove("tracker_raw") else { continue };
+            let raw = raw.as_str().unwrap();
+            let page = if framed { tabs::tracker_page(raw) } else { tabs::first_sync_page(raw) }.unwrap_or_else(|e| panic!("{name}: {e}"));
+            answer["body"] = json!(html::normalize(&page));
+        }
         for answer in rust["responses"].as_array_mut().unwrap() { without_low_funds(&mut answer["body"]); }
         if name.starts_with("countdown_") {
             let ours: Vec<Vec<String>> = rust["responses"].as_array_mut().unwrap().iter_mut().map(|answer| without_countdown(&mut answer["body"])).collect();

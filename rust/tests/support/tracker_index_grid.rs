@@ -1,3 +1,6 @@
+#[allow(dead_code)]
+#[path = "tabs_3_0.rs"]
+pub mod tabs;
 use crate::common;
 use common::web::{self, Browser, Csrf, TestClock};
 use deltabadger::web::{csrf, session, cable};
@@ -195,6 +198,10 @@ pub async fn check_grid(script:&str,variable:&str,count:usize,selected:&[&str],m
         if matches!(mode(&name),Mode::FirstSync) {
             std::fs::write(source.join("rust.html"),&actual).unwrap();
             std::fs::write(source.join("rails-masked.html"),masked(expected["body"].as_str().unwrap(),None,None)).unwrap();
+        }
+        // The listed 3.0 tabs (tabs_3_0): a first-sync page's card is the record's Holdings pane.
+        if oracle.contains("<div class=\"widget tracker-holdings") && oracle.contains("    <div class=\"tracker-record\" data-controller=\"tracker--record\">") {
+            oracle=tabs::first_sync_page(&oracle).unwrap_or_else(|e|panic!("{name}: {e}"));
         }
         if actual!=oracle {std::fs::write(Path::new(&root).join("actual.html"),&actual).unwrap();std::fs::write(Path::new(&root).join("expected.html"),&oracle).unwrap();}
         assert!(actual==oracle,"{name}: byte equality; inspect actual.html and expected.html");

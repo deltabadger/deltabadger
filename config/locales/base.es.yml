@@ -669,6 +669,11 @@ es:
             loss: 'Pérdida'
             closed: 'Cerrada'
             cash: 'Efectivo'
+        holdings_filter:
+            label: 'Clase de activo'
+            crypto: 'Cripto'
+            stocks: 'Acciones'
+            cash: 'Efectivo'
         range:
             label: 'Periodo'
             '30d': '30D'

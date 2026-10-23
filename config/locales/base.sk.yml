@@ -686,6 +686,11 @@ sk:
             loss: 'Strata'
             closed: 'Uzavretá'
             cash: 'Hotovosť'
+        holdings_filter:
+            label: 'Trieda aktív'
+            crypto: 'Krypto'
+            stocks: 'Akcie'
+            cash: 'Hotovosť'
         range:
             label: 'Obdobie'
             '30d': '30D'

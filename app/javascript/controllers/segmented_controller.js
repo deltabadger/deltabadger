@@ -70,6 +70,7 @@ export default class extends Controller {
     if (this.optionTargets.some((option) => option.href)) {
       this.optionTargets.forEach((option) => option.classList.toggle("is-on", option.getAttribute("aria-current") === "page"));
     }
+    if (this.#frameId) this.#frameConnect();
 
     // The chip is measured in pixels, so anything that reflows a label has to re-measure it.
     // A ResizeObserver on the options catches every cause at once — the container resizing, a
@@ -91,6 +92,8 @@ export default class extends Controller {
   disconnect() {
     this.observer?.disconnect();
     this.#listen(false);
+    clearTimeout(this.timer);
+    Object.entries(this.frameEvents || {}).forEach(([name, handler]) => document.removeEventListener(name, handler));
   }
 
   // Opening is the collapsed control's only job. A click on anything inside is that control's
@@ -139,6 +142,16 @@ export default class extends Controller {
   select(event) {
     const chosen = event.currentTarget;
     if (chosen.href && (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button > 0)) return;
+    if (this.#frameId && chosen.href) {
+      // A link that opens something else (a broken venue's key form, in the modal) selects nothing.
+      if (chosen.closest("[data-turbo-frame]")?.dataset.turboFrame !== this.#frameId) return;
+      if (this.pending) {
+        event.preventDefault();
+        this.queued = chosen;
+      } else {
+        this.#begin();
+      }
+    }
     this.optionTargets.forEach((option) => {
       const on = option === chosen;
       option.classList.toggle("is-on", on);
@@ -150,6 +163,121 @@ export default class extends Controller {
     this.#layout();
     this.#remember(chosen.dataset.value);
     this.dispatch("change", { detail: { value: chosen.dataset.value } });
+  }
+
+  // --- frame mode ---------------------------------------------------------------------
+  //
+  // A link group given `data-segmented-frame` (3.0, Rust only) loads its options into that frame,
+  // and the control itself stays: nothing rebuilds it, so the chip just slides. What that costs is
+  // that the page's own answer no longer arrives with it, so this keeps three things true itself.
+  //
+  // ONE NAVIGATION AT A TIME. Two frame visits in flight share Turbo's per-frame state — the
+  // history entry, the snapshot of the page left, the completion callback — and an older response
+  // already read still renders after a newer click. So a click while one is pending only moves the
+  // chip and is remembered; when the pending one completes, the last remembered is sent. Rapid
+  // clicks become the one in flight, then the last.
+  //
+  // aria-current IS THE PAGE'S ANSWER. Turbo snapshots the page left for Back after this click,
+  // and connect() restores the selection from aria-current, so it moves only once the frame has
+  // rendered the scope it names — never on the click.
+  //
+  // COMPLETION is the first turbo:load after the frame's render: Turbo ends an advancing frame
+  // visit with a page visit that records the history entry and the snapshot, and that fires it.
+  // A frame visit that never gets there within five seconds is abandoned for a whole-page visit
+  // rather than declared done — and abandoned for good: its response, should it still arrive, is
+  // refused before Turbo handles it, so it can neither render nor take the history from that visit.
+
+  get #frameId() {
+    return this.element.dataset.segmentedFrame;
+  }
+
+  get #frame() {
+    return document.getElementById(this.#frameId);
+  }
+
+  #frameConnect() {
+    // Turbo files a page's snapshot under the last WHOLE page it rendered, and a frame visit is not
+    // one: after two venue switches the first venue's entry holds a later venue's page, and Back
+    // restores the wrong scope under the right URL. Uncached, Back fetches the page its URL names.
+    Turbo.cache.exemptPageFromCache();
+    // A page restored from a snapshot taken mid-navigation carries the marker with nothing running.
+    this.#frame?.removeAttribute("data-segmented-pending");
+    this.pending = false;
+    this.queued = null;
+    this.abandoned = false;
+    const ours = (event) => event.target === this.#frame;
+    this.frameEvents = {
+      "turbo:before-fetch-response": (event) => {
+        if (ours(event) && this.abandoned) event.preventDefault();
+      },
+      "turbo:frame-render": (event) => {
+        if (!ours(event)) return;
+        this.rendered = true;
+        this.#commit(event.detail.fetchResponse.location);
+      },
+      "turbo:load": () => {
+        if (this.pending && this.rendered) this.#complete();
+      },
+      // A network failure: the chip goes back to the scope still shown, unless another was chosen
+      // meanwhile, which is sent next.
+      "turbo:fetch-request-error": (event) => {
+        if (!ours(event) || !this.pending) return;
+        if (!this.queued) this.#pressCurrent();
+        this.#complete();
+      },
+      // A response without the frame (a redirect, an error page) is a page of its own: shown whole,
+      // as Turbo documents, and nothing more is sent from a page that is leaving.
+      "turbo:frame-missing": (event) => {
+        if (!ours(event)) return;
+        event.preventDefault();
+        clearTimeout(this.timer);
+        this.queued = null;
+        event.detail.visit(event.detail.response);
+      },
+    };
+    Object.entries(this.frameEvents).forEach(([name, handler]) => document.addEventListener(name, handler));
+  }
+
+  #begin() {
+    this.pending = true;
+    this.rendered = false;
+    this.#frame?.setAttribute("data-segmented-pending", "");
+    clearTimeout(this.timer);
+    this.timer = setTimeout(() => {
+      const last = this.queued || this.optionTargets.find((option) => option.classList.contains("is-on"));
+      this.queued = null;
+      this.abandoned = true;
+      if (last) Turbo.visit(last.href);
+    }, 5000);
+  }
+
+  #commit(location) {
+    const shown = this.optionTargets.find((option) => new URL(option.href, document.baseURI).href === location?.href);
+    if (!shown) return;
+    this.optionTargets.forEach((option) => {
+      if (option === shown) option.setAttribute("aria-current", "page");
+      else option.removeAttribute("aria-current");
+    });
+    if (!this.queued) this.#pressCurrent();
+  }
+
+  #complete() {
+    clearTimeout(this.timer);
+    this.pending = false;
+    this.rendered = false;
+    const next = this.queued;
+    this.queued = null;
+    if (next && next.getAttribute("aria-current") !== "page") {
+      this.#begin();
+      Turbo.visit(next.href, { frame: this.#frameId });
+    } else {
+      this.#frame?.removeAttribute("data-segmented-pending");
+    }
+  }
+
+  #pressCurrent() {
+    this.optionTargets.forEach((option) => option.classList.toggle("is-on", option.getAttribute("aria-current") === "page"));
+    this.#layout();
   }
 
   // --- memory -----------------------------------------------------------------------

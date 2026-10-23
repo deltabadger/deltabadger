@@ -99,7 +99,7 @@ pub(super) fn filters(c: &Connection, ctx: &Ctx, bot: &Bot, hide_money: bool) ->
     let order_filter = ctx.params.query("order_filter").unwrap_or(default_filter).to_string();
     let order_filters = if tabs.iter().filter(|(value, _, available)| *available && *value != "all").count() > 1 {
         let options = tabs.iter().filter(|(_, _, available)| *available).map(|(value, label, _)| SegmentedOption { value: (*value).into(), label: i18n::text(ctx.locale, label, &[]), active: order_filter == *value, href: None }).collect();
-        Some(Segmented { fluid: true, label: i18n::text(ctx.locale, "order_filters.label", &[]), key: None, options, links: false }.render()?)
+        Some(Segmented { fluid: true, label: i18n::text(ctx.locale, "order_filters.label", &[]), key: None, options, links: false, frame: None }.render()?)
     } else {
         None
     };
@@ -162,7 +162,7 @@ fn other_exchanges(c: &Connection, bot: &Bot, user_id: i64) -> Result<Vec<OtherE
 fn chart(ctx: &Ctx, bot: &Bot, hide_money: bool) -> Result<String, WebError> {
     let t = |key: &str| i18n::text(ctx.locale, key, &[]);
     let modes = Segmented {
-        fluid: true, label: t("bot.details.stats.chart.modes"), key: None, links: false,
+        fluid: true, label: t("bot.details.stats.chart.modes"), key: None, links: false, frame: None,
         options: vec![SegmentedOption { value: "pnl".into(), label: t("bot.details.stats.chart.pnl"), active: true, href: None },
                       SegmentedOption { value: "value".into(), label: t("bot.details.stats.chart.value"), active: false, href: None }],
     }.render()?;
