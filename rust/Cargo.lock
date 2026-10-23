@@ -576,6 +576,7 @@ dependencies = [
  "hyper",
  "hyper-util",
  "k256",
+ "num-bigint",
  "pbkdf2",
  "qrcode",
  "rand 0.8.8",

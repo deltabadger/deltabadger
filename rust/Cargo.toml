@@ -32,6 +32,8 @@ hmac = "0.12"
 # web::server runs hyper's connection itself (axum::serve has no header-read timeout and no connection cap).
 hyper = { version = "1", features = ["server", "http1"] }
 hyper-util = { version = "0.1", features = ["tokio"] }
+# IBKR's Diffie-Hellman live session token (venue::signers::ibkr): modpow on 2048-bit integers. Locked already, under bigdecimal.
+num-bigint = "0.4"
 pbkdf2 = { version = "0.12", features = ["hmac"] }
 rand = "0.8"
 regex = "1"

@@ -1,6 +1,6 @@
 {
   "sources": {
-    "script/rust/record_venue_signing.rb": "b1f15ec2f81c8edcfbbc0e5698d35ef4132e42a1f5b6501780b9390a80dfaf3f",
+    "script/rust/record_venue_signing.rb": "0a16e616d09b1ae4254f0849fd5495e7582b45b44231c05294d90138ad6118c2",
     "app/models/exchanges/bitget.rb": "5acc29199e4c5ecda3eeae60ea898ac69438e5b581c6bc15fcbe70241e40716c",
     "app/models/exchange.rb": "ab627a2812bc0c7b4a546459e64f8f5d93617c496308d5f03163f44cef12d8d7"
   },
