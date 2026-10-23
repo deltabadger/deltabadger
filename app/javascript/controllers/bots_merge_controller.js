@@ -58,6 +58,9 @@ export default class extends Controller {
 
   enter(event) {
     if (this.active || !this.hasBarTarget) return
+    // A filter still loading into the tiles' frame would replace them under the picks (3.0, Rust only):
+    // the segmented control marks the frame from the click until that load has completed.
+    if (this.element.querySelector("turbo-frame[data-segmented-pending]")) return
 
     this.split = event?.params?.mode === "split"
     if (!this.mergeUrl) {

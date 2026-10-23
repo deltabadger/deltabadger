@@ -5,6 +5,7 @@ mod common;
 #[allow(dead_code)]
 #[path = "support/tracker_index_grid.rs"]
 mod grid;
+use grid::tabs;
 use common::web::TestClock;
 use deltabadger::web::{auth, session, tracker::{fx, populated}, Params};
 use rusqlite::Connection;
@@ -166,7 +167,7 @@ async fn populated_regions_match_rails() {
         let answer = browser.send(&app, "GET", step["path"].as_str().unwrap(), None, common::web::Csrf::None, &headers).await;
         assert_eq!(answer.status, 200, "{name}: {}", &answer.body[..answer.body.len().min(300)]);
         let ours = grid::masked(&answer.body, Some(&app), Some(&token));
-        let theirs = grid::masked(&withheld_page(&name, expected["body"].as_str().unwrap()), None, None);
+        let theirs = grid::masked(&tabs::tracker_page(&withheld_page(&name, expected["body"].as_str().unwrap())).unwrap_or_else(|e| panic!("{name}: {e}")), None, None);
         if ours != theirs {
             std::fs::write(Path::new(&root).join(format!("{name}.rust.html")), &ours).unwrap();
             std::fs::write(Path::new(&root).join(format!("{name}.rails.html")), &theirs).unwrap();

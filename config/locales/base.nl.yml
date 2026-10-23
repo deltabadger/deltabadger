@@ -668,6 +668,11 @@ nl:
             loss: 'Verlies'
             closed: 'Gesloten'
             cash: 'Contanten'
+        holdings_filter:
+            label: 'Beleggingscategorie'
+            crypto: 'Crypto'
+            stocks: 'Aandelen'
+            cash: 'Contanten'
         range:
             label: 'Periode'
             '30d': '30D'

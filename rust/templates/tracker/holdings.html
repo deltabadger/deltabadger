@@ -26,15 +26,7 @@
 {% for row in shown %}            {{ row|safe }}
 
 {% endfor %}        </div>
-{% if !folded.is_empty() %}          <details class="tracker-holdings__more">
-            <summary class="label">
-              <span class="tracker-holdings__more__open">{{ v.t("tracker.show_more")|safe }}</span>
-              <span class="tracker-holdings__more__close">{{ v.t("tracker.show_less")|safe }}</span>
-            </summary>
-{% for row in folded %}              {{ row|safe }}
-
-{% endfor %}          </details>
-{% endif %}      </div>
+      </div>
     </div>
 {% endif %}
 {% if let Some(unpriced) = unpriced %}    <p class="tracker-holdings__empty">
