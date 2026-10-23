@@ -701,9 +701,26 @@ pub(super) fn store(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, 
 /// transaction (the one the whole file is written in). The watermark, the recent assets and the transfer matcher are
 /// the sync's alone: an import moves none of them.
 pub(crate) fn store_file(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, entries: Vec<Entry>, now: DateTime<Utc>) -> Result<Outcome, SyncError> {
-    let batch = Arc::new(entries);
-    let p = Progress::new(asset_rule(c, key.exchange_id, &key.exchange_type)?, stored_merged(c, key)?, batch.clone());
-    Ok(store(c, key, 0..batch.len(), None, p, now)?.out)
+    FileWriter::new(c, key)?.store(c, key, entries, now)
+}
+
+/// `store_file`'s writer state (the venue's asset rule, the merged legs stored), read once for a writer that stores
+/// many batches in one transaction (a KuCoin file, one UTC second at a time). Each batch is its own store, exactly as
+/// `store_file` over it: only the state read before the store is carried, with the legs each batch merged.
+pub(crate) struct FileWriter { assets: Arc<AssetRule>, merged: HashSet<String> }
+
+impl FileWriter {
+    pub(crate) fn new(c: &Connection, key: &Key) -> Result<Self, SyncError> {
+        Ok(Self { assets: Arc::new(asset_rule(c, key.exchange_id, &key.exchange_type)?), merged: stored_merged(c, key)? })
+    }
+    pub(crate) fn store(&mut self, c: &crate::engine::model::FencedTransaction<'_>, key: &Key, entries: Vec<Entry>, now: DateTime<Utc>) -> Result<Outcome, SyncError> {
+        let batch = Arc::new(entries);
+        let p = Progress { out: Outcome::default(), assets: self.assets.clone(), merged: std::mem::take(&mut self.merged), min_skipped: None, stored: HashSet::new(),
+                           repeats: BTreeMap::new(), file_pairs: pairs_of(&batch), batch: batch.clone() };
+        let p = store(c, key, 0..batch.len(), None, p, now)?;
+        self.merged = p.merged;
+        Ok(p.out)
+    }
 }
 
 fn merged_ids(raw: &Value) -> Vec<String> {

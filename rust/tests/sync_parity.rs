@@ -440,6 +440,12 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
                 named("mexc-ledger-"), named("mexc-balances-"), named("hyperliquid-ledger-"), named("hyperliquid-balances-"), named("bybit-ledger-"), named("bybit-balances-"), named("bitrue-ledger-"), named("bitrue-balances-"), named("coinbase-ledger-"), named("coinbase-balances-"), named("bingx-ledger-"), named("bingx-balances-"), dirs.len()],
                [58, 44, 21, 30, 21, 12, 16, 11, 10, 11, 11, 13, 12, 14, 12, 11, 10, 12, 8, 18 + 3 + 10, 5, 12, 4, 18 + 2 + 26, 5, 270 + 26 + 21 + 20 + 18 + 3 + 10 + 5 + 12 + 4 + 18 + 2 + 26 + 5], "the sync grid: 270 existing + 26 MEXC + 21 Hyperliquid + 20 Bybit + 36 Bitrue scenarios (including ten listing shapes) + 12 Coinbase ledger + 4 Coinbase balances + 51 BingX scenarios (including 26 account and listing shapes)");
     for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
+    // Rust's side starts as `serve` does: with this build's Rust migrations applied. parity::snapshot compares Rails'
+    // tables only (parity::TABLES), so Rust's own tables stay out of the comparison.
+    for d in &dirs {
+        let c = rusqlite::Connection::open(rust_root.path().join(d.file_name().unwrap()).join("production.sqlite3")).unwrap();
+        deltabadger::store::test_support::migrate(&c).expect("this build's Rust migrations apply");
+    }
     for scenario in ["ledger-split_future", "ledger-split_nested_duplicate_keys", "binance-ledger-two_nights"] { copy_dir(&rails_root.path().join(scenario), &handback.path().join(scenario)); }
     rails(&["record", rails_root.path().to_str().unwrap()]);
 
