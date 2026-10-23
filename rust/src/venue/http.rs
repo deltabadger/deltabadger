@@ -86,6 +86,11 @@ pub trait Transport {
         let observed = observe(resp.status, &resp.body);
         Ok((resp, observed))
     }
+    /// `send`, with the answer's Content-Type ("" when it had none), for a client that parses by it as Faraday's json
+    /// middleware does (venue::ibkr). `None`: this transport cannot tell, and the answer is read as JSON.
+    async fn send_typed(&self, req: &HttpRequest) -> Result<(HttpResponse, Option<String>), TransportError> {
+        Ok((self.send(req).await?, None))
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -256,6 +261,10 @@ impl Transport for ReqwestTransport {
     async fn send_limited(&self, r: &HttpRequest, limit: usize) -> Result<HttpResponse, TransportError> {
         Ok(self.settle(self.send_unsettled(r, limit).await?))
     }
+    async fn send_typed(&self, r: &HttpRequest) -> Result<(HttpResponse, Option<String>), TransportError> {
+        let (raw, content_type) = self.send_unsettled_typed(r, MAX_BODY).await?;
+        Ok((self.settle(raw), Some(content_type)))
+    }
     async fn send_observed<O>(&self, r: &HttpRequest, observe: &(dyn Fn(u16, &str) -> O + Sync)) -> Result<(HttpResponse, O), TransportError> {
         let raw = self.send_unsettled(r, MAX_BODY).await?;
         let observed = observe(raw.status, &raw.body);
@@ -276,6 +285,11 @@ impl ReqwestTransport {
 
     /// `send_limited` without `settle`: the answer as it was read.
     pub async fn send_unsettled(&self, r: &HttpRequest, limit: usize) -> Result<HttpResponse, TransportError> {
+        Ok(self.send_unsettled_typed(r, limit).await?.0)
+    }
+
+    /// `send_unsettled` with the answer's Content-Type ("" when it had none).
+    async fn send_unsettled_typed(&self, r: &HttpRequest, limit: usize) -> Result<(HttpResponse, String), TransportError> {
         if let Some(reason) = &self.refused { return Err(TransportError::NotSent(reason.clone())); }
         // hyperliquid-rb's Signer cannot be built from a secret that is no private key: nothing is signed or sent.
         if self.wire == Wire::Hyperliquid && r.path == super::hyperliquid::EXCHANGE && super::signers::hyperliquid::signing_key(&self.secret).is_none() {
@@ -302,7 +316,9 @@ impl ReqwestTransport {
                 _ => return Err(TransportError::NotSent(format!("past the send bound {}; not sent", not_after.to_rfc3339()))),
             }
         }
-        read_limited(b.send().await.map_err(classify)?, limit).await
+        let resp = b.send().await.map_err(classify)?;
+        let content_type = resp.headers().get(reqwest::header::CONTENT_TYPE).and_then(|v| v.to_str().ok()).unwrap_or_default().to_string();
+        Ok((read_limited(resp, limit).await?, content_type))
     }
 }
 
@@ -390,7 +406,7 @@ fn describe(e: &reqwest::Error) -> String {
 pub struct ScriptedTransport { s: Rc<RefCell<Scripted>> }
 
 #[derive(Default)]
-struct Scripted { replies: HashMap<String, VecDeque<Value>>, requests: Vec<HttpRequest> }
+struct Scripted { replies: HashMap<String, VecDeque<Value>>, requests: Vec<HttpRequest>, last_reply: Option<Value> }
 
 impl ScriptedTransport {
     pub fn from_script(script: &Value) -> Self {
@@ -401,6 +417,8 @@ impl ScriptedTransport {
         t
     }
     pub fn reply(&self, key: &str, status: u16, body: Value) -> &Self { self.push(key, serde_json::json!({ "status": status, "body": body })) }
+    /// A raw body answered with `content_type`.
+    pub fn reply_typed(&self, key: &str, status: u16, content_type: &str, body: &str) -> &Self { self.push(key, serde_json::json!({ "status": status, "body": body, "content_type": content_type })) }
     pub fn network(&self, key: &str, kind: &str, message: &str) -> &Self { self.push(key, serde_json::json!({ "network": kind, "message": message })) }
     fn push(&self, key: &str, reply: Value) -> &Self { self.s.borrow_mut().replies.entry(key.into()).or_default().push_back(reply); self }
     pub fn requests(&self) -> Vec<HttpRequest> { self.s.borrow().requests.clone() }
@@ -412,6 +430,18 @@ impl ScriptedTransport {
 }
 
 impl Transport for ScriptedTransport {
+    /// A reply's "content_type" when scripted; else a JSON body answers as application/json and a string body with none.
+    async fn send_typed(&self, r: &HttpRequest) -> Result<(HttpResponse, Option<String>), TransportError> {
+        let resp = self.send(r).await?;
+        let s = self.s.borrow();
+        let last = s.last_reply.as_ref();
+        let content_type = match last.and_then(|reply| reply["content_type"].as_str()) {
+            Some(ct) => ct.to_string(),
+            None if last.is_some_and(|reply| reply["body"].is_string()) => String::new(),
+            None => "application/json".to_string(),
+        };
+        Ok((resp, Some(content_type)))
+    }
     async fn send(&self, r: &HttpRequest) -> Result<HttpResponse, TransportError> {
         // A key with its query is answered first, then the bare path: two data-api GETs of one path differ by query.
         let full = request_key(r);
@@ -424,7 +454,9 @@ impl Transport for ScriptedTransport {
             let key = if let Some(c) = coin.filter(|c| s.replies.contains_key(c)) { c }
                 else if s.replies.contains_key(&full) { full.clone() } else if let Some(t) = typed.filter(|t| s.replies.contains_key(t)) { t } else { format!("{} {}", r.method, r.path) };
             let q = s.replies.get_mut(&key).filter(|q| !q.is_empty()).unwrap_or_else(|| panic!("unscripted Alpaca call {key}"));
-            if q.len() > 1 { q.pop_front().expect("non-empty") } else { q[0].clone() }
+            let reply = if q.len() > 1 { q.pop_front().expect("non-empty") } else { q[0].clone() };
+            s.last_reply = Some(reply.clone());
+            reply
         };
         let key = full;
         // A body naming its client order id "$client_order_id" answers for the one the request asked for: a recorded answer

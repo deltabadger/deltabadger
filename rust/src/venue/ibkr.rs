@@ -38,19 +38,35 @@ struct State {
     minting: Option<(String, String)>,
 }
 
-/// One IBKR login: its signer, its session state and the lock every operation on it holds.
+/// One IBKR login (an api key row): its signer, its session state, and the lock every operation on its consumer key holds.
 pub struct Login {
     version: CredentialVersion,
     material: Material,
     signer: Signer,
-    op: tokio::sync::Mutex<()>,
+    op: Arc<tokio::sync::Mutex<()>>,
     state: Mutex<State>,
 }
 
+type Op = Arc<tokio::sync::Mutex<()>>;
+/// IbkrLock's rows: one lock per consumer-key fingerprint (Clients::Ibkr#lock_key, sha256 of the consumer key), shared by
+/// every row and every credential version of that key. ponytail: never pruned (one entry per consumer key ever seen).
+static OPS: LazyLock<Mutex<HashMap<[u8; 32], Op>>> = LazyLock::new(Mutex::default);
+
+fn op_for(consumer_key: &str) -> Op {
+    use sha2::{Digest, Sha256};
+    let fingerprint: [u8; 32] = Sha256::digest(consumer_key.as_bytes()).into();
+    OPS.lock().unwrap_or_else(|p| p.into_inner()).entry(fingerprint).or_default().clone()
+}
+
 impl Login {
-    /// Session#initialize: the key material parsed once.
+    /// Session#initialize: the key material parsed once; the lock its consumer key's.
     pub fn new(material: Material, version: CredentialVersion) -> Result<Self, oauth::Error> {
-        Ok(Self { signer: Signer::new(&material)?, material, version, op: tokio::sync::Mutex::new(()), state: Mutex::default() })
+        let op = op_for(&material.consumer_key);
+        Self::with_op(material, version, op)
+    }
+
+    fn with_op(material: Material, version: CredentialVersion, op: Op) -> Result<Self, oauth::Error> {
+        Ok(Self { signer: Signer::new(&material)?, material, version, op, state: Mutex::default() })
     }
 
     fn state(&self) -> MutexGuard<'_, State> { self.state.lock().unwrap_or_else(|p| p.into_inner()) }
@@ -96,11 +112,11 @@ static LOGINS: LazyLock<Mutex<HashMap<i64, Arc<Login>>>> = LazyLock::new(Mutex::
 
 fn logins() -> MutexGuard<'static, HashMap<i64, Arc<Login>>> { LOGINS.lock().unwrap_or_else(|p| p.into_inner()) }
 
-/// The process-wide login of api key `version.id`: the one in hand while its credentials are unchanged, else a fresh one
-/// (no LST, no brokerage session) replacing it.
+/// The process-wide login of api key `version.id`: the one in hand while its credentials and realm are unchanged, else a
+/// fresh one (no LST, no brokerage session) replacing it. Rails builds a Session, so reads ibkr_realm, on every call.
 pub fn login(version: &CredentialVersion, material: &Material) -> Result<Arc<Login>, oauth::Error> {
     let mut logins = logins();
-    if let Some(l) = logins.get(&version.id).filter(|l| l.version == *version) { return Ok(l.clone()) }
+    if let Some(l) = logins.get(&version.id).filter(|l| l.version == *version && l.material.realm == material.realm) { return Ok(l.clone()) }
     let l = Arc::new(Login::new(material.clone(), version.clone())?);
     logins.insert(version.id, l.clone());
     Ok(l)
@@ -120,6 +136,8 @@ pub enum Error {
     Auth(&'static str),
     /// The access token secret does not decrypt with the encryption key (Rails raises OpenSSL's error, never retried).
     Key(&'static str),
+    /// Faraday::ParsingError: a JSON answer that does not parse (never retried).
+    Unreadable,
 }
 
 impl Error {
@@ -152,7 +170,8 @@ impl<'a, T: Transport> Session<'a, T> {
     }
 
     /// Session#signed_request: the brokerage session established, the call signed, one self-heal on a 401 or AuthError.
-    /// Returns the answer's JSON (a body that is not JSON as a string, as Faraday's json middleware leaves it).
+    /// Returns the answer's JSON; an answer whose Content-Type is not JSON is its body as a string (Faraday's json middleware,
+    /// `content_type: /\bjson$/`).
     pub async fn signed_request(&self, _held: &Held<'_>, method: &'static str, path: &str, query: Vec<(&'static str, String)>, body: Option<Value>) -> Result<Value, Error> {
         match self.attempt(method, path, &query, &body).await {
             Err(e) if e.heals() => {
@@ -215,10 +234,19 @@ impl<'a, T: Transport> Session<'a, T> {
     }
 
     async fn request(&self, r: HttpRequest) -> Result<Value, Error> {
-        let resp = self.transport.send(&r).await.map_err(Error::Transport)?;
+        let (resp, content_type) = self.transport.send_typed(&r).await.map_err(Error::Transport)?;
         if resp.status >= 400 { return Err(Error::Http { status: resp.status, body: resp.body }) }
-        Ok(decode_json(&resp.body).unwrap_or(Value::String(resp.body)))
+        if !content_type.as_deref().is_none_or(is_json) { return Ok(Value::String(resp.body)) }
+        // Faraday::Response::Json#parse: a blank body is nil.
+        if resp.body.trim().is_empty() { return Ok(Value::Null) }
+        decode_json(&resp.body).map_err(|_| Error::Unreadable)
     }
+}
+
+/// Faraday's `content_type: /\bjson$/` over the MIME type without its parameters.
+fn is_json(content_type: &str) -> bool {
+    let mime = content_type.split(';').next().unwrap_or_default().trim();
+    mime.strip_suffix("json").is_some_and(|head| !head.ends_with(|c: char| c.is_alphanumeric() || c == '_'))
 }
 
 #[cfg(test)]
@@ -244,7 +272,7 @@ mod tests {
 
     fn new_login() -> (Arc<Login>, Value) {
         let (m, session) = fixture();
-        (Arc::new(Login::new(m, version(1, "a")).unwrap()), session)
+        (Arc::new(Login::with_op(m, version(1, "a"), Arc::default()).unwrap()), session)
     }
 
     const ACCOUNTS: &str = "GET /v1/api/iserver/accounts";
@@ -365,6 +393,10 @@ mod tests {
             tokio::task::yield_now().await;
             self.0.send(r).await
         }
+        async fn send_typed(&self, r: &HttpRequest) -> Result<(HttpResponse, Option<String>), TransportError> {
+            tokio::task::yield_now().await;
+            self.0.send_typed(r).await
+        }
     }
 
     #[tokio::test]
@@ -391,6 +423,88 @@ mod tests {
         assert!(matches!(s.lock().await, Err(Error::LockTimeout)));
         assert_eq!(started.elapsed(), LOCK_WAIT);
         assert!(t.requests().is_empty());
+    }
+
+    #[tokio::test]
+    async fn a_json_answer_that_does_not_parse_fails_and_other_types_stay_text() {
+        let (login, session) = new_login();
+        let t = scripted(&session);
+        t.reply_typed(ACCOUNTS, 200, "application/json; charset=utf-8", "{not json").reply_typed(ACCOUNTS, 200, "text/html", "<p>ok</p>");
+        let dh_random = session["dh_random"].as_str().unwrap().to_string();
+        let clock = at("2026-10-23T10:00:00Z");
+        let s = Session::new(&t, login, &clock).with_dh_random(|| dh_random.clone());
+        assert_eq!(call(&s).await, Err(Error::Unreadable));
+        assert_eq!(paths(&t), [MINT, INIT, ACCOUNTS], "a parse failure is not healed");
+        assert_eq!(call(&s).await, Ok(Value::String("<p>ok</p>".into())));
+        assert!(is_json("application/vnd.api+json") && !is_json("application/geojson") && !is_json("") && !is_json("text/json-ish"));
+    }
+
+    #[tokio::test]
+    async fn an_unreadable_ssodh_init_answer_leaves_the_brokerage_session_closed() {
+        let (login, session) = new_login();
+        let t = ScriptedTransport::default();
+        t.reply(MINT, 200, json!({ "diffie_hellman_response": session["server"]["diffie_hellman_response"],
+                                   "live_session_token_signature": session["server"]["live_session_token_signature"] }));
+        t.reply_typed(INIT, 200, "application/json", "{").reply(INIT, 200, json!({ "authenticated": true }));
+        t.reply(ACCOUNTS, 200, json!([]));
+        let dh_random = session["dh_random"].as_str().unwrap().to_string();
+        let clock = at("2026-10-23T10:00:00Z");
+        let s = Session::new(&t, login.clone(), &clock).with_dh_random(|| dh_random.clone());
+        assert_eq!(call(&s).await, Err(Error::Unreadable));
+        assert!(login.state().brokerage_until.is_none());
+        call(&s).await.unwrap();
+        assert_eq!(paths(&t), [MINT, INIT, INIT, ACCOUNTS], "init again, the LST kept");
+    }
+
+    #[tokio::test]
+    async fn two_rows_of_one_consumer_key_serialise_their_operations() {
+        let (m, session) = fixture();
+        let op: Op = Arc::default();
+        let a = Arc::new(Login::with_op(m.clone(), version(1, "a"), op.clone()).unwrap());
+        let b = Arc::new(Login::with_op(m, version(2, "b"), op).unwrap());
+        let t = Yielding(scripted(&session));
+        t.0.reply(ACCOUNTS, 200, json!([]));
+        let dh_random = session["dh_random"].as_str().unwrap().to_string();
+        let clock = at("2026-10-23T10:00:00Z");
+        let sa = Session::new(&t, a, &clock).with_dh_random(|| dh_random.clone());
+        let sb = Session::new(&t, b, &clock).with_dh_random(|| dh_random.clone());
+        let (x, y) = tokio::join!(call(&sa), call(&sb));
+        assert!(x.is_ok() && y.is_ok());
+        // Each row keeps its own LST (Rails' `ibkr:lst:<id>`), and the two operations never interleave.
+        assert_eq!(paths(&t.0), [MINT, INIT, ACCOUNTS, MINT, INIT, ACCOUNTS]);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn the_lock_is_the_consumer_keys_across_rows_and_credential_changes() {
+        let (m, session) = fixture();
+        let t = scripted(&session);
+        let clock = at("2026-10-23T10:00:00Z");
+        let old = login(&version(9101, "a"), &m).unwrap();
+        let s_old = Session::new(&t, old, &clock);
+        let held = s_old.lock().await.unwrap();
+        // The key replaced mid-operation, and a second row of the same consumer key: both wait for the old operation.
+        for id_tag in [(9101, "b"), (9102, "a")] {
+            let fresh = login(&version(id_tag.0, id_tag.1), &m).unwrap();
+            assert!(matches!(Session::new(&t, fresh, &clock).lock().await, Err(Error::LockTimeout)), "{id_tag:?}");
+        }
+        drop(held);
+        assert!(Session::new(&t, login(&version(9101, "b"), &m).unwrap(), &clock).lock().await.is_ok());
+        forget(9101);
+        forget(9102);
+    }
+
+    #[test]
+    fn a_realm_change_rebuilds_the_login() {
+        let (mut m, _) = fixture();
+        let a = login(&version(9201, "a"), &m).unwrap();
+        m.realm = "test_realm".into();
+        let b = login(&version(9201, "a"), &m).unwrap();
+        assert!(!Arc::ptr_eq(&a, &b));
+        let call = HttpRequest { method: "GET", base: URL.into(), path: "/x".into(), query: vec![], body: None, not_after: None };
+        b.state().lst = Some(("AAAA".into(), Utc::now()));
+        assert!(b.authorization(&call).unwrap().starts_with("OAuth realm=\"test_realm\", "));
+        assert!(Arc::ptr_eq(&b, &login(&version(9201, "a"), &m).unwrap()));
+        forget(9201);
     }
 
     #[test]
