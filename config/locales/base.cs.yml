@@ -686,6 +686,11 @@ cs:
             loss: 'Ztráta'
             closed: 'Uzavřená'
             cash: 'Hotovost'
+        holdings_filter:
+            label: 'Třída aktiv'
+            crypto: 'Krypto'
+            stocks: 'Akcie'
+            cash: 'Hotovost'
         range:
             label: 'Období'
             '30d': '30D'

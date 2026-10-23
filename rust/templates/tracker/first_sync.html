@@ -105,24 +105,12 @@
   </div>
 
 {% else %}    
-{% endif %}    {% if let Some(cold) = cold %}{{ cold.card|safe }}
-
-{% else %}<div class="widget tracker-holdings {% if hidden %}tracker-holdings--anon{% endif %}">
-  <div class="tracker-holdings__head">
-    <span class="label">{{ v.t("tracker.holdings")|safe }} · 0</span>
-    <span class="label"></span>
-  </div>
-
-    <p class="tracker-holdings__empty">{{ v.t("tracker.portfolio.never_synced")|safe }}</p>
-
-</div>
-
 {% endif %}    <div class="tracker-record" data-controller="tracker--record">
   <div class="tracker-record__switch filters" data-action="segmented:change->tracker--record#mark segmented:change->tracker--record#show segmented:change->tracker--record#hold">
     {{ record_switch|safe }}
   </div>
 
-  <div class="tracker-record__pane tracker-record__pane--off" data-pane="tx"
+{{ holdings|safe }}  <div class="tracker-record__pane tracker-record__pane--off" data-pane="tx"
        data-controller="order-filter" data-tracker--record-target="pane">
     <div class="tracker-record__filters filters" data-action="segmented:change->tracker--record#mark segmented:change->order-filter#filter segmented:change->tracker--record#hold">
     </div>
@@ -131,7 +119,7 @@
     </div>
   </div>
 
-  <div class="tracker-record__pane" data-pane="pos"
+  <div class="tracker-record__pane tracker-record__pane--off" data-pane="pos"
        data-controller="order-filter" data-tracker--record-target="pane">
     <div class="tracker-record__filters filters" data-action="segmented:change->tracker--record#mark segmented:change->order-filter#filter segmented:change->tracker--record#hold">
     </div>

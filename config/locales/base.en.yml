@@ -678,6 +678,11 @@ en:
             loss: 'Loss'
             closed: 'Closed'
             cash: 'Cash'
+        holdings_filter:
+            label: 'Asset class'
+            crypto: 'Crypto'
+            stocks: 'Stocks'
+            cash: 'Cash'
         range:
             label: 'Period'
             '30d': '30D'

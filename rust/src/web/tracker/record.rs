@@ -15,11 +15,11 @@ fn invalid() -> WebError { super::row::invalid() }
 fn num<T>(r: Result<T, crate::figures::num::NumError>) -> Result<T, WebError> { r.map_err(|_| invalid()) }
 
 /// shared/_segmented as a radio group, as the page's ERB call sites place it (a leading newline, no trailing one).
-fn segmented(label: String, key: Option<&str>, fluid: bool, options: Vec<SegmentedOption>) -> Result<String, WebError> {
-    let html = Segmented { fluid, label, key, options, links: false }.render()?;
+pub fn segmented(label: String, key: Option<&str>, fluid: bool, options: Vec<SegmentedOption>) -> Result<String, WebError> {
+    let html = Segmented { fluid, label, key, options, links: false, frame: None }.render()?;
     Ok(format!("\n{}", html.lines().filter(|line| !line.is_empty()).collect::<Vec<_>>().join("\n").replace("->", "-&gt;").replace("</svg>\n", "</svg>\n\n")))
 }
-fn option(value: &'static str, label: String, active: bool) -> SegmentedOption { SegmentedOption { value: value.into(), label, active, href: None } }
+pub fn option(value: &'static str, label: String, active: bool) -> SegmentedOption { SegmentedOption { value: value.into(), label, active, href: None } }
 
 // ---- the chart ------------------------------------------------------------------------------------------------------
 
@@ -232,9 +232,20 @@ fn position_row(c: &Connection, ctx: &Ctx, r: &Position, den: &Denomination, hid
 /// `offered`: a filter with fewer than two real choices is no filter.
 fn offered(options: Vec<SegmentedOption>) -> Vec<SegmentedOption> { if options.iter().filter(|o| o.value != "all").count() > 1 { options } else { vec![] } }
 
-/// tracker/_record. `warm` is the scoped ledger and its figures (none while it warms: the positions pane spins).
-#[allow(clippy::too_many_arguments)] // tracker/_record's locals, and the history-gap lines above its newest row
-pub fn record(c: &Connection, ctx: &Ctx, owner: i64, scope: Option<i64>, warm: Option<(&page::Warm, &Summary)>, den: Option<&Denomination>, shown: &Denomination, gaps: &[crate::tracker::gaps::StoredGap]) -> Result<String, WebError> {
+/// What every filter row of the record does with its control's change.
+pub const FILTERS_ACTION: &str = "segmented:change->tracker--record#mark segmented:change->order-filter#filter segmented:change->tracker--record#hold";
+
+/// The record's switch (3.0, Rust only): Holdings first and on, then Rails' Positions and Transactions.
+pub(super) fn switch(ctx: &Ctx) -> Result<String, WebError> {
+    let label = |key: &str| i18n::text(ctx.locale, key, &[]);
+    segmented(label("tracker.positions"), Some("tracker-record"), true,
+              vec![option("hold", label("tracker.holdings"), true), option("pos", label("tracker.positions"), false), option("tx", label("tracker.transactions"), false)])
+}
+
+/// tracker/_record. `warm` is the scoped ledger and its figures (none while it warms: the positions pane spins);
+/// `holdings` is the Holdings pane the record opens on (3.0, Rust only).
+#[allow(clippy::too_many_arguments)] // tracker/_record's locals, the history-gap lines above its newest row, and the holdings pane
+pub fn record(c: &Connection, ctx: &Ctx, owner: i64, scope: Option<i64>, warm: Option<(&page::Warm, &Summary)>, den: Option<&Denomination>, shown: &Denomination, gaps: &[crate::tracker::gaps::StoredGap], holdings: &str) -> Result<String, WebError> {
     let hidden = ctx.user().ok_or_else(invalid)?.hide_balances;
     let all = ctx.params.query("all").is_some_and(|v| !v.trim().is_empty());
     let sql = format!("SELECT id FROM account_transactions WHERE user_id=?1 AND (?2 IS NULL OR exchange_id=?2) ORDER BY transacted_at DESC{}", if all { String::new() } else { format!(" LIMIT {ROW_LIMIT}") });
@@ -254,8 +265,7 @@ pub fn record(c: &Connection, ctx: &Ctx, owner: i64, scope: Option<i64>, warm: O
     for status in ["open", "win", "loss", "closed", "cash"] { if position_rows.iter().any(|r| r.status == status) { statuses.push(option(status, record(status), false)); } }
     let statuses = offered(statuses);
     let column = |key: &str| ctx.t(&format!("tracker.columns.{key}"));
-    let switch = segmented(i18n::text(ctx.locale, "tracker.positions", &[]), Some("tracker-record"), true,
-                           vec![option("pos", i18n::text(ctx.locale, "tracker.positions", &[]), true), option("tx", i18n::text(ctx.locale, "tracker.transactions", &[]), false)])?;
+    let switch = switch(ctx)?;
     let filter = |label: String, options: Vec<SegmentedOption>| -> Result<String, WebError> { if options.is_empty() { Ok(String::new()) } else { Ok(format!("        {}\n", segmented(label, None, true, options)?)) } };
     let tx_table = if rows.is_empty() && gaps.is_empty() { format!("        <p class=\"tracker-empty\">{}</p>\n", ctx.t("tracker.no_results")) } else {
         let mut body = String::new();
@@ -278,7 +288,7 @@ pub fn record(c: &Connection, ctx: &Ctx, owner: i64, scope: Option<i64>, warm: O
     let from = match ctx.params.query("from").filter(|v| !v.trim().is_empty()) { Some(v) => v.to_string(), None => first.map(|t| crate::codec::parse_time(&t).map(|t| t.date_naive().to_string()).map_err(|_| invalid())).transpose()?.unwrap_or_default() };
     let to = match ctx.params.query("to").filter(|v| !v.trim().is_empty()) { Some(v) => v.to_string(), None => ctx.app.now().date_naive().to_string() };
     let hidden_scope = ctx.params.query("exchange_id").filter(|s| !s.trim().is_empty()).map(|s| format!("        <input type=\"hidden\" name=\"exchange_id\" id=\"exchange_id\" value=\"{}\" />\n", escape(s))).unwrap_or_default();
-    let filters_action = "segmented:change->tracker--record#mark segmented:change->order-filter#filter segmented:change->tracker--record#hold";
-    Ok(format!("<div class=\"tracker-record\" data-controller=\"tracker--record\">\n  <div class=\"tracker-record__switch filters\" data-action=\"segmented:change->tracker--record#mark segmented:change->tracker--record#show segmented:change->tracker--record#hold\">\n    {switch}\n  </div>\n\n  <div class=\"tracker-record__pane tracker-record__pane--off\" data-pane=\"tx\"\n       data-controller=\"order-filter\" data-tracker--record-target=\"pane\">\n    <div class=\"tracker-record__filters filters\" data-action=\"{filters_action}\">\n{}    </div>\n    <div class=\"tracker-record__table widget widget--table\" data-controller=\"table-fit\">\n{tx_table}    </div>\n  </div>\n\n  <div class=\"tracker-record__pane\" data-pane=\"pos\"\n       data-controller=\"order-filter\" data-tracker--record-target=\"pane\">\n    <div class=\"tracker-record__filters filters\" data-action=\"{filters_action}\">\n{}    </div>\n    <div class=\"tracker-record__table widget widget--table tracker-positions\" data-controller=\"table-fit\">\n{positions_table}    </div>\n  </div>\n\n  <div class=\"tracker-record__actions\">\n    <form class=\"tracker-date-range\" data-controller=\"form--submit\" action=\"{}\" accept-charset=\"UTF-8\" method=\"get\">\n{hidden_scope}      <input type=\"date\" name=\"from\" value=\"{}\" class=\"rinput\" data-action=\"change->form--submit#submit\">\n      <input type=\"date\" name=\"to\" value=\"{}\" class=\"rinput\" data-action=\"change->form--submit#submit\">\n</form>  </div>\n</div>\n",
+    let filters_action = FILTERS_ACTION;
+    Ok(format!("<div class=\"tracker-record\" data-controller=\"tracker--record\">\n  <div class=\"tracker-record__switch filters\" data-action=\"segmented:change->tracker--record#mark segmented:change->tracker--record#show segmented:change->tracker--record#hold\">\n    {switch}\n  </div>\n\n{holdings}  <div class=\"tracker-record__pane tracker-record__pane--off\" data-pane=\"tx\"\n       data-controller=\"order-filter\" data-tracker--record-target=\"pane\">\n    <div class=\"tracker-record__filters filters\" data-action=\"{filters_action}\">\n{}    </div>\n    <div class=\"tracker-record__table widget widget--table\" data-controller=\"table-fit\">\n{tx_table}    </div>\n  </div>\n\n  <div class=\"tracker-record__pane tracker-record__pane--off\" data-pane=\"pos\"\n       data-controller=\"order-filter\" data-tracker--record-target=\"pane\">\n    <div class=\"tracker-record__filters filters\" data-action=\"{filters_action}\">\n{}    </div>\n    <div class=\"tracker-record__table widget widget--table tracker-positions\" data-controller=\"table-fit\">\n{positions_table}    </div>\n  </div>\n\n  <div class=\"tracker-record__actions\">\n    <form class=\"tracker-date-range\" data-controller=\"form--submit\" action=\"{}\" accept-charset=\"UTF-8\" method=\"get\">\n{hidden_scope}      <input type=\"date\" name=\"from\" value=\"{}\" class=\"rinput\" data-action=\"change->form--submit#submit\">\n      <input type=\"date\" name=\"to\" value=\"{}\" class=\"rinput\" data-action=\"change->form--submit#submit\">\n</form>  </div>\n</div>\n",
         filter(ctx.t("tracker.columns.type"), types)?, filter(ctx.t("tracker.columns.status"), statuses)?, escape(&ctx.path("/tracker")), escape(&from), escape(&to)))
 }

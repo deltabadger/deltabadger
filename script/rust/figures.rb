@@ -39,7 +39,9 @@ module ScriptedMarket
             elsif path.end_with?('/prices') then %w[coin_ids vs_currencies]
             elsif path.end_with?('/simple/price') then %w[ids vs_currencies]
             elsif path == '/api/v1/market/candles' then %w[endAt startAt symbol type] # a KuCoin window is its whole query
-            elsif path == '/api/v3/klines' then %w[interval limit startTime symbol timeZone] # and a Binance page
+            elsif path == '/api/v3/klines' then %w[endTime interval limit startTime symbol timeZone] # and a Binance or MEXC page
+            elsif path == '/api/v1/market/kline' then %w[fromIdx limit scale symbol] # and a Bitrue page
+            elsif path == '/openApi/spot/v1/market/kline' then %w[interval limit symbol timeZone] # and BingX's one read
             elsif path == '/0/public/OHLC' then %w[interval pair since] # and a Kraken read
             elsif path == '/0/public/Ticker' then %w[pair] # Kraken's bulk Ticker, or one pair's
             else []
@@ -218,7 +220,8 @@ module Figures
   # venue's own name for a base where it has one].
   CRYPTO_VENUES = { 'kucoin' => ['Exchanges::Kucoin', 'KuCoin', '-'], 'binance' => ['Exchanges::Binance', 'Binance', ''],
                     'binance_us' => ['Exchanges::BinanceUs', 'Binance.US', ''],
-                    'kraken' => ['Exchanges::Kraken', 'Kraken', '', { 'BTC' => 'XBT' }] }.freeze
+                    'kraken' => ['Exchanges::Kraken', 'Kraken', '', { 'BTC' => 'XBT' }], 'mexc' => ['Exchanges::Mexc', 'MEXC', ''],
+                    'bitrue' => ['Exchanges::Bitrue', 'Bitrue', ''], 'bingx' => ['Exchanges::Bingx', 'BingX', '-'] }.freeze
 
   # A crypto venue beside Alpaca, for the scenarios whose bots trade there: its listings quoted in USD, so no conversion
   # stands between its figures and the account's.
@@ -781,7 +784,7 @@ module Figures
                TWO, sql: ["UPDATE bots SET type = 'Bots::Withdrawal' WHERE label = 'other'"]),
       scenario('account_nothing_invested', NOW, [basket(two, [], label: 'a'), basket(%w[CCC], [], label: 'b')], market)
     ]
-    list + kucoin_scenarios + binance_scenarios + kraken_scenarios + pair_scenarios + (1..24).map { |seed| random_history(seed) }
+    list + kucoin_scenarios + binance_scenarios + kraken_scenarios + mexc_scenarios + bitrue_scenarios + bingx_scenarios + pair_scenarios + (1..24).map { |seed| random_history(seed) }
   end
 
   # ---- pair bots: Bots::DcaSingleAsset::Measurable, for Bots::DcaSingleAsset and Bots::Signal ---------------------
@@ -1011,6 +1014,151 @@ module Figures
       scenario('kraken_unknown_pair', KC_NOW, bot, {}, steps: [
         kraken_step(KC_NOW, kraken_ohlc('XBTUSD', 'XXBTZUSD', KC_SINCE, KC_NOW, kc_btc).merge(kraken_ohlc('ETHUSD', 'XETHZUSD', KC_SINCE, KC_NOW, kc_eth)),
                     fallbacks: { 'XBTUSD' => [KRAKEN_ERROR.call('EQuery:Unknown asset pair'), nil] })
+      ])
+    ]
+  end
+
+  # ---- MEXC: Exchanges::Mexc#get_tickers_prices (ticker/price, Binance's shape) and #get_candles (500-kline windows from
+  # the start to now, every one asked for) under CandleSeriesCache, one cache across the steps. The KuCoin orders and clock.
+
+  MEXC = 'api.mexc.com'.freeze
+
+  # The windows Exchanges::Mexc#get_candles asks for a daily series from `start` at `now` (startTime .. startTime + 500
+  # days - 1 ms, while the window starts at or before now), each answered with the candles `open` gives a time in it
+  # (nil: none), oldest first, the candle still open included. `answer` may replace a window's reply.
+  def mexc_walk(symbol, start, now, open, answer: ->(_start, reply) { reply })
+    script = {}
+    span = 500 * D * 1000
+    window = time(start).to_i * 1000
+    while window <= time(now).to_i * 1000
+      from = window / 1000
+      first = from + ((D - (from % D)) % D)
+      times = (first..[(window + span - 1) / 1000, time(now).to_i].min).step(D).select { |t| open.call(t) }
+      rows = times.map { |t| [t * 1000, open.call(t).to_s, '1', '1', '1', '1', ((t + D) * 1000) - 1, '1'] }
+      script["GET #{MEXC}/api/v3/klines?endTime=#{window + span - 1}&interval=1d&limit=500&startTime=#{window}&symbol=#{symbol}"] = answer.call(from, ok(rows))
+      window += span
+    end
+    script
+  end
+
+  def mexc_step(at, extra = {})
+    binance_prices(MEXC, 'BTCUSD' => '91000.5', 'ETHUSD' => '2750.25', 'XRPUSD' => '0').merge(extra).then { |script| { 'at' => at, 'script' => script } }
+  end
+
+  def mexc_scenarios
+    bot = basket(%w[BTC ETH], kucoin_orders, venue: 'mexc')
+    last_a = Time.utc(2026, 3, 11) # the last closed candle at KC_NOW: where the next tail starts, at it
+    b = KC_NOW + (3 * D)
+    last_b = Time.utc(2026, 3, 14)
+    c = b + (3 * D)
+    [
+      # A cold walk (four windows each; ETH's empty before its listing), a tail from the last stored candle, then a tail
+      # whose overlapping candle moved (BTC) and the whole series read again.
+      scenario('mexc_series', c, bot, {}, steps: [
+        mexc_step(KC_NOW, mexc_walk('BTCUSD', KC_SINCE, KC_NOW, kc_btc).merge(mexc_walk('ETHUSD', KC_SINCE, KC_NOW, kc_eth))),
+        mexc_step(b, mexc_walk('BTCUSD', last_a, b, kc_btc).merge(mexc_walk('ETHUSD', last_a, b, kc_eth))),
+        mexc_step(c, mexc_walk('BTCUSD', last_b, c, kc_btc(2)).merge(mexc_walk('BTCUSD', KC_SINCE, c, kc_btc(2)))
+                      .merge(mexc_walk('ETHUSD', last_b, c, kc_eth)))
+      ]),
+      # A later window that fails: that holding has no grid, the other is charted.
+      scenario('mexc_failed_page', KC_NOW, bot, {}, steps: [
+        mexc_step(KC_NOW, mexc_walk('BTCUSD', KC_SINCE, KC_NOW, kc_btc, answer: ->(start, reply) { start > KC_SINCE.to_i ? SERVER_ERROR : reply })
+                            .merge(mexc_walk('ETHUSD', KC_SINCE, KC_NOW, kc_eth)))
+      ])
+    ]
+  end
+
+  # ---- Bitrue: Exchanges::Bitrue#get_tickers_prices (ticker/24hr) and #get_candles (pages of 1440 read back from now
+  # by fromIdx) under CandleSeriesCache, one cache across the steps. The KuCoin orders and clock; Bitrue's daily history
+  # starts after the first order, so the series comes back shorter, as on the venue.
+
+  BITRUE = 'openapi.bitrue.com'.freeze
+  BITRUE_HISTORY = Time.utc(2021, 4, 1).to_i
+
+  def bitrue_prices(prices) = { "GET #{BITRUE}/api/v1/ticker/24hr" => ok(prices.map { |symbol, last| { 'symbol' => symbol, 'lastPrice' => last, 'volume' => '1' } }) }
+
+  # The pages Exchanges::Bitrue#get_candles reads for a daily series from `start` at `now`: the newest 1440 candles `open`
+  # gives a time (nil: none), newest first, the open one included; then the 1440 before the oldest (fromIdx = it - 1 ms),
+  # until a page is short or reaches the start. `answer` may replace a page's reply (by its fromIdx, nil for the first).
+  def bitrue_walk(symbol, start, now, open, answer: ->(_from_idx, reply) { reply })
+    script = {}
+    all = (BITRUE_HISTORY..time(now).to_i).step(D).select { |t| open.call(t) }
+    from_idx = nil
+    1000.times do
+      page = all.select { |t| from_idx.nil? || t * 1000 <= from_idx }.last(1440).reverse
+      rows = page.map { |t| { 'is' => t * 1000, 'o' => open.call(t).to_s, 'h' => '1', 'l' => '1', 'c' => '1', 'v' => '1' } }
+      key = "GET #{BITRUE}/api/v1/market/kline?#{"fromIdx=#{from_idx}&" if from_idx}limit=1440&scale=1d&symbol=#{symbol}"
+      script[key] = answer.call(from_idx, ok('symbol' => symbol, 'scale' => 'D1', 'data' => rows))
+      break if page.size < 1440 || page.last * 1000 <= time(start).to_i * 1000
+
+      from_idx = (page.last * 1000) - 1
+    end
+    script
+  end
+
+  def bitrue_step(at, extra = {})
+    bitrue_prices('BTCUSD' => '91000.5', 'ETHUSD' => '2750.25', 'XRPUSD' => '0').merge(extra).then { |script| { 'at' => at, 'script' => script } }
+  end
+
+  def bitrue_scenarios
+    bot = basket(%w[BTC ETH], kucoin_orders, venue: 'bitrue')
+    last_a = Time.utc(2026, 3, 11)
+    b = KC_NOW + (3 * D)
+    last_b = Time.utc(2026, 3, 14)
+    c = b + (3 * D)
+    [
+      # A cold walk (BTC's two pages back to Bitrue's history; ETH's one short page), a tail from the last stored candle
+      # (one page, which reaches it), then a tail whose overlapping candle moved (BTC) and the whole series read again.
+      scenario('bitrue_series', c, bot, {}, steps: [
+        bitrue_step(KC_NOW, bitrue_walk('BTCUSD', KC_SINCE, KC_NOW, kc_btc).merge(bitrue_walk('ETHUSD', KC_SINCE, KC_NOW, kc_eth))),
+        bitrue_step(b, bitrue_walk('BTCUSD', last_a, b, kc_btc).merge(bitrue_walk('ETHUSD', last_a, b, kc_eth))),
+        bitrue_step(c, bitrue_walk('BTCUSD', last_b, c, kc_btc(2)).merge(bitrue_walk('BTCUSD', KC_SINCE, c, kc_btc(2)))
+                        .merge(bitrue_walk('ETHUSD', last_b, c, kc_eth)))
+      ]),
+      # A later page that fails: that holding has no grid, the other is charted.
+      scenario('bitrue_failed_page', KC_NOW, bot, {}, steps: [
+        bitrue_step(KC_NOW, bitrue_walk('BTCUSD', KC_SINCE, KC_NOW, kc_btc, answer: ->(from_idx, reply) { from_idx ? SERVER_ERROR : reply })
+                              .merge(bitrue_walk('ETHUSD', KC_SINCE, KC_NOW, kc_eth)))
+      ])
+    ]
+  end
+
+  # ---- BingX: Exchanges::Bingx#get_tickers_prices (market/ticker, its code/msg/data envelope) and #get_candles (one read
+  # of the most recent 1000 klines) under CandleSeriesCache, one cache across the steps. The KuCoin orders and clock.
+
+  BINGX = 'open-api.bingx.com'.freeze
+  BINGX_REFUSED = { 'status' => 200, 'body' => { 'code' => 100_410, 'msg' => 'frequency limit', 'data' => {} } }.freeze
+
+  def bingx_prices(prices) = { "GET #{BINGX}/openApi/spot/v2/market/ticker" => prices.is_a?(Hash) && !prices.key?('status') ? ok('code' => 0, 'timestamp' => 1, 'data' => prices.map { |symbol, last| { 'symbol' => symbol, 'lastPrice' => last } }) : prices }
+
+  # The one read Exchanges::Bingx#get_candles makes for a daily series at `now`: BingX's most recent 1000 candles `open`
+  # gives a time (nil: none), newest first, the open one included. `answer` may replace the reply.
+  def bingx_klines(symbol, now, open, answer: ->(reply) { reply })
+    times = (KC_SINCE.to_i - (KC_SINCE.to_i % D)..time(now).to_i).step(D).select { |t| open.call(t) }.last(1000)
+    rows = times.reverse.map { |t| [t * 1000, open.call(t).to_s, '1', '1', '1', '1', ((t + D) * 1000) - 1, '1'] }
+    { "GET #{BINGX}/openApi/spot/v1/market/kline?interval=1d&limit=1000&symbol=#{symbol}&timeZone=0" => answer.call(ok('code' => 0, 'timestamp' => 1, 'data' => rows)) }
+  end
+
+  def bingx_step(at, extra = {}, prices: { 'BTC-USD' => '91000.5', 'ETH-USD' => '2750.25', 'XRP-USD' => '0' })
+    bingx_prices(prices).merge(extra).then { |script| { 'at' => at, 'script' => script } }
+  end
+
+  def bingx_scenarios
+    bot = basket(%w[BTC ETH], kucoin_orders, venue: 'bingx')
+    b = KC_NOW + (3 * D)
+    c = b + (3 * D)
+    [
+      # A cold read (the most recent 1000 candles, whatever the start), a tail (the same read, kept from the last stored
+      # candle on), then a tail whose overlapping candle moved (BTC) and the whole series read again.
+      scenario('bingx_series', c, bot, {}, steps: [
+        bingx_step(KC_NOW, bingx_klines('BTC-USD', KC_NOW, kc_btc).merge(bingx_klines('ETH-USD', KC_NOW, kc_eth))),
+        bingx_step(b, bingx_klines('BTC-USD', b, kc_btc).merge(bingx_klines('ETH-USD', b, kc_eth))),
+        bingx_step(c, bingx_klines('BTC-USD', c, kc_btc(2)).merge(bingx_klines('ETH-USD', c, kc_eth)))
+      ]),
+      # A failed read leaves BTC without a grid; the ticker's code refusing leaves the bot's prices stale.
+      scenario('bingx_failed_page', KC_NOW, bot, {}, steps: [
+        bingx_step(KC_NOW, bingx_klines('BTC-USD', KC_NOW, kc_btc, answer: ->(_) { SERVER_ERROR }).merge(bingx_klines('ETH-USD', KC_NOW, kc_eth)),
+                   prices: BINGX_REFUSED)
       ])
     ]
   end
