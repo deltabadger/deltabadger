@@ -16,12 +16,14 @@ async fn two_venues() -> (Fx, i64) {
     (fx, kucoin)
 }
 
-/// A working bot and a stopped one, so the bot list offers its status filter.
+/// A working bot and a stopped one, each holding bitcoin: the bot list offers its status filter, and Merge.
 fn two_bots(fx: &Fx) {
-    use common::seed::{insert_bot, BotSpec};
+    use common::seed::{insert_bot, insert_member, BotSpec};
     let c = fx.c();
-    insert_bot(&c, &fx.s, &BotSpec::weekly(10.0, "2026-09-01 00:00:00"));
-    insert_bot(&c, &fx.s, &BotSpec { status: 2, ..BotSpec::weekly(20.0, "2026-09-01 00:00:00") });
+    for spec in [BotSpec::weekly(10.0, "2026-09-01 00:00:00"), BotSpec { status: 2, ..BotSpec::weekly(20.0, "2026-09-01 00:00:00") }] {
+        let bot = insert_bot(&c, &fx.s, &spec);
+        insert_member(&c, bot, fx.s.btc, fx.s.ticker_id, 1.0, true, "2026-09-01 00:00:00", None);
+    }
 }
 
 async fn framed(fx: &Fx, app: &deltabadger::web::App, path: &str, frame: &str) -> String {
@@ -158,10 +160,14 @@ async function until(what, check, ms = 15000) { const end = Date.now() + ms; let
 const errors = [];
 const failures = [];
 const expect = (what, ok, detail) => { if (!ok) failures.push(`${what}: ${JSON.stringify(detail)}`); else console.log(`ok ${what}`); };
-// What the Fetch domain does with an intercepted scope request: let it through, hold it, fail it, or answer 500.
-let mode = "continue";
-const held = [];
-const requested = [];
+// The page's own fetch, wrapped on every new document: a scope's request (a venue or a filter) can be let through,
+// held until released, failed as a network error, or answered 500 without the frame. Turbo calls the global fetch.
+const GATE = `(() => { if (window.__gate) return; const g = window.__gate = { mode: "continue", held: [], requested: [] }; const real = window.fetch.bind(window);
+  window.fetch = (input, init = {}) => { const url = String((input && input.url) || input); if (!/[?&](exchange_id|filter)=/.test(url)) return real(input, init); g.requested.push(url);
+    if (g.mode === "fail") return Promise.reject(new TypeError("Failed to fetch"));
+    if (g.mode === "500") return Promise.resolve(new Response('<!DOCTYPE html><html><body><p id="boom">boom</p></body></html>', { status: 500, headers: { "Content-Type": "text/html; charset=utf-8" } }));
+    if (g.mode === "hold") return new Promise((resolve, reject) => { init.signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError"))); g.held.push(() => real(input, init).then(resolve, reject)); });
+    return real(input, init); }; })()`;
 try {
   const portFile = join(profile, "DevToolsActivePort");
   const port = await until("Chrome", () => existsSync(portFile) && readFileSync(portFile, "utf8").split("\n")[0]);
@@ -170,26 +176,20 @@ try {
   await new Promise((resolve, reject) => { socket.onopen = resolve; socket.onerror = reject; });
   let id = 0; const waiting = new Map();
   const send = (method, params = {}) => new Promise((resolve) => { const n = ++id; waiting.set(n, resolve); socket.send(JSON.stringify({ id: n, method, params })); });
-  const boom = Buffer.from("<!DOCTYPE html><html><body><p id=\"boom\">boom</p></body></html>").toString("base64");
   socket.onmessage = (e) => {
     const m = JSON.parse(e.data);
     if (m.method === "Log.entryAdded" && m.params.entry.level === "error" && !m.params.entry.text.includes("500")) errors.push(m.params.entry.text);
-    if (m.method === "Runtime.exceptionThrown") errors.push(m.params.exceptionDetails.exception?.description || m.params.exceptionDetails.text);
-    if (m.method === "Fetch.requestPaused") {
-      const { requestId, request } = m.params;
-      // Only a scope's page is acted on; everything else passes.
-      if (!/[?&](exchange_id|filter)=/.test(request.url)) { send("Fetch.continueRequest", { requestId }); return; }
-      requested.push(request.url);
-      if (mode === "hold") held.push(requestId);
-      else if (mode === "fail") send("Fetch.failRequest", { requestId, errorReason: "Failed" });
-      else if (mode === "500") send("Fetch.fulfillRequest", { requestId, responseCode: 500, responseHeaders: [{ name: "Content-Type", value: "text/html; charset=utf-8" }], body: boom });
-      else send("Fetch.continueRequest", { requestId });
-    }
+    if (m.method === "Runtime.exceptionThrown" && !(m.params.exceptionDetails.exception?.description || "").startsWith("TypeError: Failed to fetch")) errors.push(m.params.exceptionDetails.exception?.description || m.params.exceptionDetails.text);
     if (waiting.has(m.id)) { waiting.get(m.id)(m); waiting.delete(m.id); }
   };
   const evaluate = async (expression) => (await send("Runtime.evaluate", { expression, returnByValue: true, awaitPromise: true })).result?.result?.value;
-  const release = async () => { mode = "continue"; while (held.length) await send("Fetch.continueRequest", { requestId: held.shift() }); };
-  await send("Log.enable"); await send("Runtime.enable");
+  const mode = (m) => evaluate(`window.__gate.mode = ${JSON.stringify(m)}`);
+  const held = () => evaluate(`window.__gate.held.length`);
+  const releaseOne = () => evaluate(`window.__gate.held.shift()(); true`);
+  const release = () => evaluate(`(() => { const g = window.__gate; g.mode = "continue"; while (g.held.length) g.held.shift()(); return true; })()`);
+  const requested = () => evaluate(`window.__gate.requested`);
+  await send("Log.enable"); await send("Runtime.enable"); await send("Page.enable");
+  await send("Page.addScriptToEvaluateOnNewDocument", { source: GATE });
   await send("Page.navigate", { url: `${BASE_URL}/login` });
   await until("the login form", () => evaluate(`!!document.querySelector("#user_password")`));
   await evaluate(`(() => { document.querySelector("#user_email").value = ${JSON.stringify(EMAIL)}; document.querySelector("#user_password").value = ${JSON.stringify(PASSWORD)}; document.querySelector("#user_password").form.requestSubmit(); })()`);
@@ -245,29 +245,29 @@ try {
 
   // One at a time: B held, C and D clicked meanwhile — the chip follows at once, C is never asked for, D follows B.
   await open("/tracker", "tracker_scope");
-  console.log(`Fetch.enable: ${JSON.stringify(await send("Fetch.enable", { patterns: [{ urlPattern: "*", requestStage: "Request" }] }))}`);
   const start = (await state("tracker_scope")).length;
-  mode = "hold"; requested.length = 0;
+  await mode("hold"); await evaluate(`window.__gate.requested = []; true`);
   await click("tracker_scope", KUCOIN);
-  await until("B held", async () => held.length === 1 || { ok: false, requested, held: held.length, state: await state("tracker_scope") });
+  await until("B held", async () => (await held()) === 1);
   await click("tracker_scope", ALPACA);
   await click("tracker_scope", "all");
   s = await state("tracker_scope");
   expect("the chip follows the last click at once", s.on === "all" && s.pending, s);
   await release();
   s = await settled("tracker_scope", "all", "/tracker");
-  expect("C was never requested", !requested.some((u) => u.includes(`exchange_id=${ALPACA}`)), requested);
+  const asked = await requested();
+  expect("C was never requested", !asked.some((u) => u.includes(`exchange_id=${ALPACA}`)), asked);
   expect("history holds B and D", s.length === start + 2, { start, s });
   expect("the switch stays through the race", s.same, s);
 
   // B outlasts the five seconds while C is queued: C opens as a whole page. B's answer arriving before C's page is
   // refused, so it neither renders nor takes the history; C's page then lands as chosen.
-  mode = "hold";
+  await mode("hold");
   await click("tracker_scope", KUCOIN);
-  await until("B held again", () => held.length === 1);
+  await until("B held again", async () => (await held()) === 1);
   await click("tracker_scope", ALPACA);
-  await until("C's whole-page request held", () => held.length === 2, 12000);
-  await send("Fetch.continueRequest", { requestId: held.shift() });
+  await until("C's whole-page request held", async () => (await held()) === 2, 12000);
+  await releaseOne();
   await sleep(1000);
   s = await state("tracker_scope");
   expect("B's late answer is refused", s && !s.url.includes(`exchange_id=${KUCOIN}`) && s.current !== KUCOIN, s);
@@ -276,14 +276,13 @@ try {
   await open("/tracker", "tracker_scope");
 
   // A network failure: the chip goes back to the scope shown. An error page without the frame: shown whole.
-  mode = "fail";
+  await mode("fail");
   await click("tracker_scope", KUCOIN);
   s = await settled("tracker_scope", "all", "/tracker");
   expect("a network failure puts the chip back", s.same, s);
-  mode = "500";
+  await mode("500");
   await click("tracker_scope", KUCOIN);
   await until("the error page, whole", () => evaluate(`!!document.getElementById("boom")`));
-  mode = "continue";
 
   // A broken venue's chip opens its key form in the modal and selects nothing.
   await open("/tracker", "tracker_scope");
@@ -309,9 +308,9 @@ try {
     await evaluate(`document.querySelector('[data-action="bots-merge#cancel"]').click()`);
     await until("the bar hidden", () => evaluate(`${bar}.hidden`));
     // A filter in flight: Merge waits for it.
-    mode = "hold";
+    await mode("hold");
     await click("bots_scope", "active");
-    await until("the filter held", () => held.length === 1);
+    await until("the filter held", async () => (await held()) === 1);
     await evaluate(`${merge}.click()`);
     expect("Merge is refused while a filter loads", await evaluate(`${bar}.hidden`), true);
     await release();
