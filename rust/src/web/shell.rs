@@ -89,11 +89,12 @@ pub fn bot_count_baseline(size: i64) -> String {
     if rounded.fract() == 0.0 { format!("{rounded:.1}") } else { rounded.to_string() }
 }
 
-/// BotsController#show: GET /bots/:id, with any format (`/bots/1.json` routes there too).
+/// BotsController#show: the route `/bots/{id}` (bot::page::show) takes any one segment but `new`, with any format,
+/// and Rails casts it as `find` does (`1abc` and `+1` are bot 1). An id that finds nothing redirects, so a page rendered
+/// here is the bot's.
 fn on_bot_page(ctx: &Ctx) -> bool {
-    let id = ctx.params.route_path.strip_prefix("/bots/").map(|rest| rest.split_once('.').map_or(rest, |(id, _)| id));
     matches!(ctx.method, axum::http::Method::GET | axum::http::Method::HEAD)
-        && id.is_some_and(|id| !id.is_empty() && id.bytes().all(|b| b.is_ascii_digit()))
+        && ctx.params.route_path.strip_prefix("/bots/").is_some_and(|id| !id.is_empty() && id != "new" && !id.contains('/'))
 }
 
 /// User::DISPLAY_CURRENCIES with Denomination::UNITS.
