@@ -55,7 +55,8 @@
   <text class="fill--icon" x="12" y="{{ bot_count_baseline }}" text-anchor="middle"
         font-size="{{ bot_count_font_size }}">{{ shell.bot_count }}</text>
 </svg>
-{% if shell.single_bot.is_none() %}{% include "svg/_24x24_arrow_previous.html" %}
+{% if shell.single_bot.is_none() %}
+{% include "svg/_24x24_arrow_previous.html" %}
 {% endif %}
 </a><a class="menu__item menu__item--tracker {% if v.current_page("/tracker") %}menu__item--active{% endif %}" aria-label="{{ v.t("links.tracker")|safe }}" data-action="click-&gt;menu#select" data-menu-target="tile" data-tile="tracker" href="{{ v.path("/tracker") }}"><svg class="icon-24 icon-24--allocation" viewbox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
 {% if shell.arcs.is_empty() %}    <circle class="stroke--icon" cx="12" cy="12" r="9"
