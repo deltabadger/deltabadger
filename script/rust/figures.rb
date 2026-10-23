@@ -42,6 +42,9 @@ module ScriptedMarket
             elsif path == '/api/v3/klines' then %w[endTime interval limit startTime symbol timeZone] # and a Binance or MEXC page
             elsif path == '/api/v1/market/kline' then %w[fromIdx limit scale symbol] # and a Bitrue page
             elsif path == '/openApi/spot/v1/market/kline' then %w[interval limit symbol timeZone] # and BingX's one read
+            elsif path.match?(%r{\A/v2/[^/]+/candles\z}) then %w[end interval limit start] # and a Bitvavo page
+            elsif path == '/api/v2/spot/market/candles' then %w[endTime granularity limit startTime symbol] # and a Bitget page
+            elsif path == '/v5/market/kline' then %w[category interval limit start symbol] # and a Bybit page
             elsif path == '/0/public/OHLC' then %w[interval pair since] # and a Kraken read
             elsif path == '/0/public/Ticker' then %w[pair] # Kraken's bulk Ticker, or one pair's
             else []
@@ -221,7 +224,9 @@ module Figures
   CRYPTO_VENUES = { 'kucoin' => ['Exchanges::Kucoin', 'KuCoin', '-'], 'binance' => ['Exchanges::Binance', 'Binance', ''],
                     'binance_us' => ['Exchanges::BinanceUs', 'Binance.US', ''],
                     'kraken' => ['Exchanges::Kraken', 'Kraken', '', { 'BTC' => 'XBT' }], 'mexc' => ['Exchanges::Mexc', 'MEXC', ''],
-                    'bitrue' => ['Exchanges::Bitrue', 'Bitrue', ''], 'bingx' => ['Exchanges::Bingx', 'BingX', '-'] }.freeze
+                    'bitrue' => ['Exchanges::Bitrue', 'Bitrue', ''], 'bingx' => ['Exchanges::Bingx', 'BingX', '-'],
+                    'bitvavo' => ['Exchanges::Bitvavo', 'Bitvavo', '-'], 'bitget' => ['Exchanges::Bitget', 'Bitget', ''],
+                    'bybit' => ['Exchanges::Bybit', 'Bybit', ''] }.freeze
 
   # A crypto venue beside Alpaca, for the scenarios whose bots trade there: its listings quoted in USD, so no conversion
   # stands between its figures and the account's.
@@ -784,7 +789,8 @@ module Figures
                TWO, sql: ["UPDATE bots SET type = 'Bots::Withdrawal' WHERE label = 'other'"]),
       scenario('account_nothing_invested', NOW, [basket(two, [], label: 'a'), basket(%w[CCC], [], label: 'b')], market)
     ]
-    list + kucoin_scenarios + binance_scenarios + kraken_scenarios + mexc_scenarios + bitrue_scenarios + bingx_scenarios + pair_scenarios + (1..24).map { |seed| random_history(seed) }
+    list + kucoin_scenarios + binance_scenarios + kraken_scenarios + mexc_scenarios + bitrue_scenarios + bingx_scenarios +
+      bitvavo_scenarios + bitget_scenarios + bybit_scenarios + pair_scenarios + (1..24).map { |seed| random_history(seed) }
   end
 
   # ---- pair bots: Bots::DcaSingleAsset::Measurable, for Bots::DcaSingleAsset and Bots::Signal ---------------------
@@ -1159,6 +1165,167 @@ module Figures
       scenario('bingx_failed_page', KC_NOW, bot, {}, steps: [
         bingx_step(KC_NOW, bingx_klines('BTC-USD', KC_NOW, kc_btc, answer: ->(_) { SERVER_ERROR }).merge(bingx_klines('ETH-USD', KC_NOW, kc_eth)),
                    prices: BINGX_REFUSED)
+      ])
+    ]
+  end
+
+  # ---- Bitvavo: Exchanges::Bitvavo#get_tickers_prices (ticker/price) and #get_candles (pages of 1440 read back from now
+  # by `end`, V4) under CandleSeriesCache, one cache across the steps. The KuCoin orders and clock.
+
+  BITVAVO = 'api.bitvavo.com'.freeze
+
+  def bitvavo_prices(prices) = { "GET #{BITVAVO}/v2/ticker/price" => ok(prices.map { |market, price| { 'market' => market, 'price' => price } }) }
+
+  # The pages Exchanges::Bitvavo#get_candles reads for a daily series from `start` at `now`: Bitvavo's latest 1440 candles
+  # of the range that `open` gives a time (nil: none), newest first, the open one included; then the 1440 before the oldest
+  # (`end` = it, exclusive), until a page is short. `answer` may replace a page's reply (by its end, nil for the first).
+  def bitvavo_walk(market, start, now, open, answer: ->(_end_ms, reply) { reply })
+    script = {}
+    from = time(start).to_i
+    all = ((from + ((D - (from % D)) % D))..time(now).to_i).step(D).select { |t| open.call(t) }
+    end_ms = nil
+    1000.times do
+      page = all.select { |t| end_ms.nil? || t * 1000 < end_ms }.last(1440).reverse
+      rows = page.map { |t| [t * 1000, open.call(t).to_s, '1', '1', '1', '1'] }
+      script["GET #{BITVAVO}/v2/#{market}/candles?#{"end=#{end_ms}&" if end_ms}interval=1d&limit=1440&start=#{from * 1000}"] = answer.call(end_ms, ok(rows))
+      break if page.size < 1440
+
+      end_ms = page.last * 1000
+    end
+    script
+  end
+
+  def bitvavo_step(at, extra = {})
+    bitvavo_prices('BTC-USD' => '91000.5', 'ETH-USD' => '2750.25', 'XRP-USD' => '0').merge(extra).then { |script| { 'at' => at, 'script' => script } }
+  end
+
+  def bitvavo_scenarios
+    bot = basket(%w[BTC ETH], kucoin_orders, venue: 'bitvavo')
+    last_a = Time.utc(2026, 3, 11)
+    b = KC_NOW + (3 * D)
+    last_b = Time.utc(2026, 3, 14)
+    c = b + (3 * D)
+    [
+      # A cold walk (BTC's two pages back from now; ETH's one short page), a tail from the last stored candle, then a tail
+      # whose overlapping candle moved (BTC) and the whole series read again.
+      scenario('bitvavo_series', c, bot, {}, steps: [
+        bitvavo_step(KC_NOW, bitvavo_walk('BTC-USD', KC_SINCE, KC_NOW, kc_btc).merge(bitvavo_walk('ETH-USD', KC_SINCE, KC_NOW, kc_eth))),
+        bitvavo_step(b, bitvavo_walk('BTC-USD', last_a, b, kc_btc).merge(bitvavo_walk('ETH-USD', last_a, b, kc_eth))),
+        bitvavo_step(c, bitvavo_walk('BTC-USD', last_b, c, kc_btc(2)).merge(bitvavo_walk('BTC-USD', KC_SINCE, c, kc_btc(2)))
+                         .merge(bitvavo_walk('ETH-USD', last_b, c, kc_eth)))
+      ]),
+      # A later page that fails: that holding has no grid, the other is charted.
+      scenario('bitvavo_failed_page', KC_NOW, bot, {}, steps: [
+        bitvavo_step(KC_NOW, bitvavo_walk('BTC-USD', KC_SINCE, KC_NOW, kc_btc, answer: ->(end_ms, reply) { end_ms ? SERVER_ERROR : reply })
+                               .merge(bitvavo_walk('ETH-USD', KC_SINCE, KC_NOW, kc_eth)))
+      ])
+    ]
+  end
+
+  # ---- Bitget: Exchanges::Bitget#get_tickers_prices (market/tickers) and #get_candles (pages of 1000 from the start to
+  # endTime = now) under CandleSeriesCache, one cache across the steps. The KuCoin orders and clock.
+
+  BITGET = 'api.bitget.com'.freeze
+
+  def bitget_prices(prices) = { "GET #{BITGET}/api/v2/spot/market/tickers" => ok('code' => '00000', 'msg' => 'success', 'requestTime' => 1, 'data' => prices.map { |symbol, last| { 'symbol' => symbol, 'lastPr' => last } }) }
+
+  # The pages Exchanges::Bitget#get_candles reads for a daily series from `start` at `now`: up to 1000 candles `open` gives
+  # a time (nil: none) from startTime, oldest first, the open one included; the next page from the last + 1 s, until a page
+  # is short. `answer` may replace a page's reply (by its start).
+  def bitget_walk(symbol, start, now, open, answer: ->(_start, reply) { reply })
+    script = {}
+    from = time(start).to_i
+    1000.times do
+      times = ((from + ((D - (from % D)) % D))..time(now).to_i).step(D).select { |t| open.call(t) }.first(1000)
+      rows = times.map { |t| [(t * 1000).to_s, open.call(t).to_s, '1', '1', '1', '1', '1', '1'] }
+      script["GET #{BITGET}/api/v2/spot/market/candles?endTime=#{time(now).to_i * 1000}&granularity=1day&limit=1000&startTime=#{from * 1000}&symbol=#{symbol}"] =
+        answer.call(from, ok('code' => '00000', 'msg' => 'success', 'requestTime' => 1, 'data' => rows))
+      break if times.size < 1000
+
+      from = times.last + 1
+    end
+    script
+  end
+
+  def bitget_step(at, extra = {})
+    bitget_prices('BTCUSD' => '91000.5', 'ETHUSD' => '2750.25', 'XRPUSD' => '0').merge(extra).then { |script| { 'at' => at, 'script' => script } }
+  end
+
+  def bitget_scenarios
+    bot = basket(%w[BTC ETH], kucoin_orders, venue: 'bitget')
+    last_a = Time.utc(2026, 3, 11)
+    b = KC_NOW + (3 * D)
+    last_b = Time.utc(2026, 3, 14)
+    c = b + (3 * D)
+    [
+      # A cold walk (BTC's two pages; ETH's one short page), a tail from the last stored candle, then a tail whose
+      # overlapping candle moved (BTC) and the whole series read again.
+      scenario('bitget_series', c, bot, {}, steps: [
+        bitget_step(KC_NOW, bitget_walk('BTCUSD', KC_SINCE, KC_NOW, kc_btc).merge(bitget_walk('ETHUSD', KC_SINCE, KC_NOW, kc_eth))),
+        bitget_step(b, bitget_walk('BTCUSD', last_a, b, kc_btc).merge(bitget_walk('ETHUSD', last_a, b, kc_eth))),
+        bitget_step(c, bitget_walk('BTCUSD', last_b, c, kc_btc(2)).merge(bitget_walk('BTCUSD', KC_SINCE, c, kc_btc(2)))
+                        .merge(bitget_walk('ETHUSD', last_b, c, kc_eth)))
+      ]),
+      # A later page that fails: that holding has no grid, the other is charted.
+      scenario('bitget_failed_page', KC_NOW, bot, {}, steps: [
+        bitget_step(KC_NOW, bitget_walk('BTCUSD', KC_SINCE, KC_NOW, kc_btc, answer: ->(start, reply) { start > KC_SINCE.to_i ? SERVER_ERROR : reply })
+                              .merge(bitget_walk('ETHUSD', KC_SINCE, KC_NOW, kc_eth)))
+      ])
+    ]
+  end
+
+  # ---- Bybit: Exchanges::Bybit#get_tickers_prices (spot market/tickers, its retCode envelope) and #get_candles (pages of
+  # 1000 from the start, start-first, newest first within a page) under CandleSeriesCache, one cache across the steps.
+
+  BYBIT = 'api.bybit.com'.freeze
+  BYBIT_REFUSED = ok('retCode' => 10_006, 'retMsg' => 'Too many visits!', 'result' => {}, 'retExtInfo' => {}, 'time' => 1).freeze
+
+  def bybit_envelope(result) = ok('retCode' => 0, 'retMsg' => 'OK', 'result' => result, 'retExtInfo' => {}, 'time' => 1)
+
+  def bybit_prices(prices) = { "GET #{BYBIT}/v5/market/tickers" => prices.is_a?(Hash) && !prices.key?('status') ? bybit_envelope('category' => 'spot', 'list' => prices.map { |symbol, last| { 'symbol' => symbol, 'lastPrice' => last } }) : prices }
+
+  # The pages Exchanges::Bybit#get_candles reads for a daily series from `start` at `now`: the oldest 1000 candles `open`
+  # gives a time (nil: none) from `start`, newest first, the open one included; the next page from the newest + 1 s, until
+  # a page is short. `answer` may replace a page's reply (by its start).
+  def bybit_walk(symbol, start, now, open, answer: ->(_start, reply) { reply })
+    script = {}
+    from = time(start).to_i
+    1000.times do
+      times = ((from + ((D - (from % D)) % D))..time(now).to_i).step(D).select { |t| open.call(t) }.first(1000)
+      rows = times.reverse.map { |t| [(t * 1000).to_s, open.call(t).to_s, '1', '1', '1', '1', '1'] }
+      script["GET #{BYBIT}/v5/market/kline?category=spot&interval=D&limit=1000&start=#{from * 1000}&symbol=#{symbol}"] =
+        answer.call(from, bybit_envelope('category' => 'spot', 'symbol' => symbol, 'list' => rows))
+      break if times.size < 1000
+
+      from = times.last + 1
+    end
+    script
+  end
+
+  def bybit_step(at, extra = {}, prices: { 'BTCUSD' => '91000.5', 'ETHUSD' => '2750.25', 'XRPUSD' => '0' })
+    bybit_prices(prices).merge(extra).then { |script| { 'at' => at, 'script' => script } }
+  end
+
+  def bybit_scenarios
+    bot = basket(%w[BTC ETH], kucoin_orders, venue: 'bybit')
+    last_a = Time.utc(2026, 3, 11)
+    b = KC_NOW + (3 * D)
+    last_b = Time.utc(2026, 3, 14)
+    c = b + (3 * D)
+    [
+      # A cold walk (BTC's two pages; ETH's one short page), a tail from the last stored candle, then a tail whose
+      # overlapping candle moved (BTC) and the whole series read again.
+      scenario('bybit_series', c, bot, {}, steps: [
+        bybit_step(KC_NOW, bybit_walk('BTCUSD', KC_SINCE, KC_NOW, kc_btc).merge(bybit_walk('ETHUSD', KC_SINCE, KC_NOW, kc_eth))),
+        bybit_step(b, bybit_walk('BTCUSD', last_a, b, kc_btc).merge(bybit_walk('ETHUSD', last_a, b, kc_eth))),
+        bybit_step(c, bybit_walk('BTCUSD', last_b, c, kc_btc(2)).merge(bybit_walk('BTCUSD', KC_SINCE, c, kc_btc(2)))
+                       .merge(bybit_walk('ETHUSD', last_b, c, kc_eth)))
+      ]),
+      # A later page that fails leaves BTC without a grid; the ticker's retCode refusing leaves the bot's prices stale.
+      scenario('bybit_failed_page', KC_NOW, bot, {}, steps: [
+        bybit_step(KC_NOW, bybit_walk('BTCUSD', KC_SINCE, KC_NOW, kc_btc, answer: ->(start, reply) { start > KC_SINCE.to_i ? SERVER_ERROR : reply })
+                             .merge(bybit_walk('ETHUSD', KC_SINCE, KC_NOW, kc_eth)),
+                   prices: BYBIT_REFUSED)
       ])
     ]
   end
