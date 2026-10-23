@@ -57,13 +57,11 @@ fn marker(transient: &Value) -> Option<&serde_json::Map<String, Value>> {
     transient.get(crate::engine::signal::MARKER_KEY).and_then(Value::as_object)
 }
 
-/// `bot::refusal` for a signal bot: its pages, forms and actions are served before slice 8d admits the type only where
-/// the app says so (App::admit_signal_bots_for_tests).
-#[allow(clippy::too_many_arguments)]
+/// `bot::refusal` for a signal bot: the venues the engine runs signal bots on (eligibility::signal_admission, one rule for
+/// both), then what its pages cannot print.
 pub(super) fn refusal(c: &Connection, bot_id: i64, exchange: Option<&str>, settings: &Value, transient: &Value, wash_sale_enabled: Option<bool>,
-                      asked: For, admitted: bool) -> Result<Option<&'static str>, WebError> {
-    if !admitted { return Ok(Some("a signal bot (plan 8d admits the type)")); }
-    if let Some(why) = crate::engine::eligibility::admission(exchange, false, false) { return Ok(Some(why)); }
+                      asked: For) -> Result<Option<&'static str>, WebError> {
+    if let Some(why) = crate::engine::eligibility::signal_admission(exchange) { return Ok(Some(why)); }
     // The two ids the wizard always stores, of assets that exist: every panel prints both.
     let id = |key: &str| settings.get(key).and_then(Value::as_i64);
     let (Some(base), Some(quote)) = (id("base_asset_id"), id("quote_asset_id")) else { return Ok(Some("settings the wizard always stores are missing")) };

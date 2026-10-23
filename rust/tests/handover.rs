@@ -518,3 +518,228 @@ async fn rails_pending_resyncs_become_markers_at_takeover_and_rails_adopts_them_
     let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
     assert_eq!(count(&c, "SELECT count(*) FROM bots WHERE json_type(transient_data, '$.rust_index_resync') IS NOT NULL"), 0, "adopted: the key goes");
 }
+
+// ---- Plan 8d: a signal bot's webhook calls across the handover (T2 takeover import, T3 handback) ----------------------
+
+fn signal_jobs_fixture() -> serde_json::Value {
+    use sha2::{Digest, Sha256};
+    let fixture: serde_json::Value = serde_json::from_str(include_str!("fixtures/signal_jobs.json")).unwrap();
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+    for (path, hash) in fixture["sources"].as_object().unwrap() {
+        assert_eq!(format!("{:x}", Sha256::digest(std::fs::read(root.join(path)).unwrap())), hash.as_str().unwrap(), "{path}: script/rust/repin");
+    }
+    fixture
+}
+
+/// `row` as an INSERT into `table`, its keys the columns.
+fn insert_row(c: &rusqlite::Connection, table: &str, row: &serde_json::Map<String, serde_json::Value>) {
+    let cols: Vec<&String> = row.keys().collect();
+    let sql = format!("INSERT INTO {table} ({}) VALUES ({})", cols.iter().map(|c| c.as_str()).collect::<Vec<_>>().join(", "),
+                      (1..=cols.len()).map(|i| format!("?{i}")).collect::<Vec<_>>().join(", "));
+    let values: Vec<rusqlite::types::Value> = row.values().map(|v| match v {
+        serde_json::Value::Null => rusqlite::types::Value::Null,
+        serde_json::Value::Number(n) => rusqlite::types::Value::Integer(n.as_i64().unwrap()),
+        serde_json::Value::String(s) => rusqlite::types::Value::Text(s.clone()),
+        other => rusqlite::types::Value::Text(other.to_string()),
+    }).collect();
+    c.execute(&sql, rusqlite::params_from_iter(values)).unwrap();
+}
+
+/// Rails' recorded Bot::SignalJob `name` in the queue, with its execution row, as script/rust/record_signal_jobs.rb left it.
+fn queue_signal_job(q: &rusqlite::Connection, fixture: &serde_json::Value, name: &str) {
+    let job = &fixture["jobs"][name];
+    insert_row(q, "solid_queue_jobs", job["row"].as_object().unwrap());
+    let id = q.last_insert_rowid();
+    if let Some(execution) = job["execution"].as_object() {
+        let mut row = execution.clone();
+        row.insert("job_id".into(), json!(id));
+        insert_row(q, &format!("solid_queue_{}_executions", job["state"].as_str().unwrap()), &row);
+    }
+}
+
+/// An install holding the recording's signal bot 1 (Kraken BTC/EUR, working) with its rules 1 to 5; rule 6 and bot 2 are
+/// gone, as the recording left them. The jobs `names` are queued.
+fn signal_install(names: &[&str]) -> (tempfile::TempDir, deltabadger::lease::EngineLock, store::Opened, serde_json::Value, seed::Seeded) {
+    let fixture = signal_jobs_fixture();
+    let dir = common::rails_install();
+    let p = Paths::from_env(&|_| None, dir.path());
+    let l = lease::lock(&p, now()).unwrap();
+    let o = store::open(&p).unwrap();
+    let s = seed::seed_kraken(&o.primary, &seed::cipher());
+    o.primary.execute("INSERT INTO bots (id, type, status, exchange_id, user_id, settings, transient_data, started_at, created_at, updated_at) \
+                       VALUES (1, 'Bots::Signal', 1, ?1, ?2, ?3, '{}', '2026-08-25 09:00:00', '2026-08-25 09:00:00', '2026-08-25 09:00:00')",
+                      rusqlite::params![s.exchange_id, s.user_id, json!({ "base_asset_id": s.btc, "quote_asset_id": s.quote }).to_string()]).unwrap();
+    for rule in 1..=5 {
+        o.primary.execute("INSERT INTO bot_signals (id, bot_id, direction, amount_type, amount, enabled, token, created_at, updated_at) \
+                           VALUES (?1, 1, 0, 0, '100', 1, ?2, '2026-08-25 09:00:00', '2026-08-25 09:00:00')", rusqlite::params![rule, format!("tok-{rule}")]).unwrap();
+    }
+    for name in names { queue_signal_job(&o.queue, &fixture, name); }
+    (dir, l, o, fixture, s)
+}
+
+fn signal_calls_of(o: &store::Opened) -> Vec<model::SignalCall> { model::load_bot(&o.primary, 1).unwrap().signal_calls().unwrap() }
+fn import_set(o: &store::Opened) -> Option<String> { deltabadger::app_config::get_plain(&o.primary, handover::SIGNAL_IMPORT_KEY).unwrap() }
+fn job_ids(q: &rusqlite::Connection) -> Vec<String> {
+    let mut s = q.prepare("SELECT active_job_id FROM solid_queue_jobs ORDER BY id").unwrap();
+    s.query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect()
+}
+fn job_id(fixture: &serde_json::Value, name: &str) -> String { fixture["jobs"][name]["job_id"].as_str().unwrap().to_string() }
+fn imported(fixture: &serde_json::Value, name: &str) -> model::SignalCall {
+    let job = &fixture["jobs"][name];
+    model::SignalCall { source: format!("rails:{}", job["job_id"].as_str().unwrap()), signal_id: job["signal_id"].as_i64().unwrap(),
+                        triggered_at: job["triggered_at"].as_str().unwrap().parse().unwrap() }
+}
+
+/// §R1: every unfinished, unclaimed job becomes its bot's call, in queue order, with the triggered_at Rails deserializes; a
+/// job whose rule or bot is gone becomes none (discard_on); a finished or failed one stays Rails' record. The calls commit
+/// with the claim, then the rows go, then the import set empties.
+#[test]
+fn rails_signal_jobs_become_the_engines_calls_and_leave_the_queue() {
+    let all = ["ready", "blocked", "scheduled", "finished", "failed", "rule_removed", "bot_removed"];
+    let (_dir, l, o, fixture, _) = signal_install(&all);
+    let t = handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
+    assert_eq!((t.imported_calls, t.deleted_jobs, t.eligible.clone()), (3, 5, vec![1]));
+    assert_eq!(signal_calls_of(&o), ["ready", "blocked", "scheduled"].map(|n| imported(&fixture, n)).to_vec());
+    assert_eq!(signal_calls_of(&o)[0].triggered_at, "2026-09-30T11:58:01.123456Z".parse::<DateTime<Utc>>().unwrap(), "the TimeWithZone, to the microsecond");
+    assert_eq!(job_ids(&o.queue), [job_id(&fixture, "finished"), job_id(&fixture, "failed")], "Rails' record of the finished and the failed job stays");
+    assert_eq!(count(&o.queue, "SELECT count(*) FROM solid_queue_ready_executions") + count(&o.queue, "SELECT count(*) FROM solid_queue_blocked_executions")
+               + count(&o.queue, "SELECT count(*) FROM solid_queue_scheduled_executions"), 0, "executions cascade");
+    assert_eq!(import_set(&o), None, "the set empties once the rows are gone");
+    // Repeated starts import nothing again.
+    for _ in 0..3 {
+        let again = handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
+        assert_eq!((again.imported_calls, again.deleted_jobs), (0, 0));
+    }
+    assert_eq!(signal_calls_of(&o).len(), 3);
+}
+
+/// §R1: a crash after the import committed and before the rows went (or before the set emptied) is finished by the next
+/// start, importing nothing twice; meanwhile the engine runs no call.
+#[tokio::test(flavor = "current_thread")]
+async fn a_crash_between_the_import_and_the_delete_imports_nothing_twice_and_runs_nothing_meanwhile() {
+    let (_dir, l, o, fixture, _) = signal_install(&["ready", "blocked", "rule_removed"]);
+    handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
+    // The state step 1 leaves: the calls and the set committed, Rails' rows still queued.
+    for name in ["ready", "blocked", "rule_removed"] { queue_signal_job(&o.queue, &fixture, name); }
+    let ids: Vec<String> = ["ready", "blocked", "rule_removed"].iter().map(|n| job_id(&fixture, n)).collect();
+    deltabadger::app_config::set_plain(&o.primary, handover::SIGNAL_IMPORT_KEY, &json!(ids).to_string(), now()).unwrap();
+    // No call runs while the set holds an id.
+    let venue = FakeVenue::new().ticker("XXBTZEUR", "49990.1", "50000.2", "49995.3").balance_body("ZEUR", "10000", "0");
+    let at = deltabadger::engine::FixedClock("2026-09-30T11:59:00Z".parse().unwrap());
+    {
+        let primary = rusqlite::Connection::open(_dir.path().join("production.sqlite3")).unwrap();
+        let mut e = deltabadger::engine::run::Engine::new(primary, FakeFactory(venue.clone()), seed::cipher(), l.clone());
+        deltabadger::engine::run::step(&mut e, &at).await.unwrap();
+    }
+    assert!(venue.sent().is_empty(), "nothing placed while the import is unfinished");
+    assert_eq!(signal_calls_of(&o).len(), 2);
+    // The next start finishes steps 2 and 3, and imports nothing again.
+    let t = handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
+    assert_eq!((t.imported_calls, t.deleted_jobs), (0, 3));
+    assert_eq!((signal_calls_of(&o), job_ids(&o.queue), import_set(&o)), (vec![imported(&fixture, "ready"), imported(&fixture, "blocked")], vec![], None));
+}
+
+/// §R1: a call that ran (consumed) before its queue row was deleted is not imported again: its id is still in the set.
+#[test]
+fn a_call_that_ran_before_its_row_went_is_not_imported_again() {
+    let (_dir, l, o, fixture, _) = signal_install(&["ready"]);
+    handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
+    model::remove_signal_call(&o.primary, 1, &imported(&fixture, "ready").source).unwrap();
+    queue_signal_job(&o.queue, &fixture, "ready");
+    deltabadger::app_config::set_plain(&o.primary, handover::SIGNAL_IMPORT_KEY, &json!([job_id(&fixture, "ready")]).to_string(), now()).unwrap();
+    let t = handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
+    assert_eq!((t.imported_calls, t.deleted_jobs), (0, 1));
+    assert!(signal_calls_of(&o).is_empty() && job_ids(&o.queue).is_empty() && import_set(&o).is_none());
+}
+
+/// §R1 step 0: a job a Rails process claimed and never finished refuses the takeover, naming the job and its bot, before
+/// the lease is claimed: nothing changes owner and nothing is written.
+#[test]
+fn a_claimed_signal_job_refuses_the_takeover_naming_the_job_and_the_bot() {
+    let (_dir, l, o, fixture, _) = signal_install(&["ready", "blocked"]);
+    let ready: i64 = o.queue.query_row("SELECT job_id FROM solid_queue_ready_executions", [], |r| r.get(0)).unwrap();
+    o.queue.execute("DELETE FROM solid_queue_ready_executions", []).unwrap();
+    o.queue.execute("INSERT INTO solid_queue_claimed_executions (job_id, process_id, created_at) VALUES (?1, 7, '2026-09-30 11:58:02')", [ready]).unwrap();
+    let Err(EngineError::Ineligible(lines)) = handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()) else { panic!("refused") };
+    assert_eq!(lines.len(), 1, "{lines:?}");
+    assert!(lines[0].contains(&format!("Bot::SignalJob {}", job_id(&fixture, "ready"))) && lines[0].contains("gid://deltabadger/Bots::Signal/1"), "{lines:?}");
+    assert!(lease::read(&o.primary, &seed::cipher()).unwrap().is_none(), "no claim");
+    assert!(signal_calls_of(&o).is_empty() && import_set(&o).is_none());
+    assert_eq!(job_ids(&o.queue).len(), 2, "Rails' jobs untouched");
+}
+
+/// §R10's takeover case: Rails' marker of an ambiguous send and one queued job. The imported call places nothing and
+/// expires at 300 s + 1 µs with its line.
+#[tokio::test(flavor = "current_thread")]
+async fn an_imported_call_behind_rails_marker_places_nothing_and_expires() {
+    let (dir, l, o, fixture, _) = signal_install(&["ready"]);
+    o.primary.execute("UPDATE bots SET transient_data = ?1", [json!({ "signal_placement_unresolved": { "id": "marker-1", "at": "2026-09-30T11:57:00Z", "side": "buy", "error": "timeout" } }).to_string()]).unwrap();
+    handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
+    let venue = FakeVenue::new().ticker("XXBTZEUR", "49990.1", "50000.2", "49995.3").balance_body("ZEUR", "10000", "0");
+    let triggered = imported(&fixture, "ready").triggered_at;
+    let mut e = deltabadger::engine::run::Engine::new(rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap(), FakeFactory(venue.clone()), seed::cipher(), l.clone());
+    let wake = deltabadger::engine::run::step(&mut e, &deltabadger::engine::FixedClock(triggered + chrono::Duration::seconds(300))).await.unwrap();
+    assert!(venue.sent().is_empty() && signal_calls_of(&o).len() == 1, "held by the marker");
+    assert_eq!(wake, (triggered + chrono::Duration::seconds(300) + chrono::Duration::microseconds(1)).timestamp_micros(), "the loop wakes at the expiry");
+    deltabadger::engine::run::step(&mut e, &deltabadger::engine::FixedClock(triggered + chrono::Duration::seconds(300) + chrono::Duration::microseconds(1))).await.unwrap();
+    assert!(venue.sent().is_empty() && signal_calls_of(&o).is_empty());
+    let event: String = o.primary.query_row("SELECT event FROM bot_activity_logs ORDER BY id DESC LIMIT 1", [], |r| r.get(0)).unwrap();
+    assert_eq!(event, "signal_expired");
+}
+
+/// A signal install the engine owns, with one call triggered at `triggered`.
+fn signal_install_with_call(triggered: DateTime<Utc>) -> (tempfile::TempDir, deltabadger::lease::EngineLock, store::Opened, seed::Seeded) {
+    let (dir, l, o, _, s) = signal_install(&[]);
+    handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
+    model::append_signal_call(&o.primary, 1, &model::SignalCall { source: "hook:1".into(), signal_id: 1, triggered_at: triggered }).unwrap();
+    (dir, l, o, s)
+}
+fn events(o: &store::Opened) -> Vec<String> {
+    let mut s = o.primary.prepare("SELECT event FROM bot_activity_logs ORDER BY id").unwrap();
+    s.query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect()
+}
+
+/// §R8': a call is still valid at exactly 300 s and expires 1 µs later. A valid one refuses the handback with when it
+/// expires, writing nothing; an expired one is logged `signal_expired` and removed, and the handback completes.
+#[tokio::test(flavor = "current_thread")]
+async fn the_handback_refuses_while_a_call_is_valid_and_expires_it_after() {
+    for (age_us, valid) in [(0, true), (299_999_000, true), (300_000_000, true), (300_000_001, false), (301_000_000, false)] {
+        let triggered = now() - chrono::Duration::microseconds(age_us);
+        let (_dir, l, o, _) = signal_install_with_call(triggered);
+        let r = handover::hand_back(&l, &o, &FakeFactory::default(), &seed::cipher(), &deltabadger::engine::FixedClock(now())).await;
+        if valid {
+            let Err(EngineError::SignalCallsWaiting(until)) = r else { panic!("{age_us}: {r:?}") };
+            assert_eq!(until, triggered + chrono::Duration::seconds(300) + chrono::Duration::microseconds(1), "{age_us}");
+            assert_eq!((signal_calls_of(&o).len(), events(&o).len()), (1, 0), "{age_us}: nothing written");
+            assert_eq!(lease::read(&o.primary, &seed::cipher()).unwrap().unwrap()["engine"], "rust", "{age_us}: still Rust's");
+        } else {
+            assert!(r.is_ok(), "{age_us}: {r:?}");
+            assert_eq!((signal_calls_of(&o).len(), events(&o)), (0, vec!["signal_expired".to_string()]), "{age_us}");
+        }
+    }
+}
+
+/// §R8: `hand_back_retrying` waits until the last call's expiry + 1 s, then expires it; a restart during the wait finds
+/// the call still there and waits for it again; an intent left by a call then gets the existing (longer) wait.
+#[tokio::test(flavor = "current_thread", start_paused = true)]
+async fn the_cli_handback_waits_out_a_valid_call_then_the_intent_wait_follows() {
+    let (_dir, l, o, s) = signal_install_with_call(now());
+    let clock = TokioClock { base: now(), start: tokio::time::Instant::now() };
+    // A restart during the wait: the first process is gone after 100 s, the call is still there.
+    assert!(tokio::time::timeout(std::time::Duration::from_secs(100),
+        handover::hand_back_retrying(&l, &o, &FakeFactory::default(), &seed::cipher(), &clock, now(), std::time::Duration::from_secs(10))).await.is_err());
+    assert_eq!((signal_calls_of(&o).len(), events(&o).len()), (1, 0));
+    // An order unaccounted for at the first lookup: its intent's own wait follows the call's.
+    let b = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    let bot = model::load_bot(&o.primary, b).unwrap();
+    let ticker = model::ticker_for(&o.primary, &bot).unwrap().unwrap();
+    let deltabadger::engine::amount::Sizing::Place(plan) = deltabadger::engine::amount::size(&bot, &ticker, &deltabadger::ruby::BigDec::from_i64(60),
+        &deltabadger::ruby::BigDec::from_i64(50_000), &deltabadger::engine::venue_rules::KRAKEN).unwrap() else { panic!() };
+    placement::begin(&o.primary, &bot, &plan, &deltabadger::engine::FixedClock(now())).unwrap();
+    let factory = FakeFactory(FakeVenue::new().lookup_fails(1));
+    let r = handover::hand_back_retrying(&l, &o, &factory, &seed::cipher(), &clock, now(), std::time::Duration::from_secs(10)).await;
+    let waited = clock.start.elapsed();
+    assert!(waited >= std::time::Duration::from_micros(301_000_001 + 10_000_000), "the call's wait (to 301 s), then the intent's 10 s: {waited:?} {r:?}");
+    assert_eq!(events(&o)[0], "signal_expired");
+    assert!(signal_calls_of(&o).is_empty());
+}

@@ -9,10 +9,8 @@
 # that reaches the hook spends their claim (ignored, bot_not_running), one that does not leaves the row as it was.
 #
 # Scenario prefixes (rust/tests/pages.rs): hook_ is compared whole; missing_hook_ is Rails' 404 from the router, which
-# this crate answers with public/404.html; refused_hook_ is a call Rails accepts and this build's engine guard refuses
-# while it does not run signal bots (plan 8d admits them; the scenarios then become hook_). signal_page_ (8c-1) and
-# signal_action_ / api_signal_ (8c-2) are a signal bot's pages and writes, compared whole; refused_signal_ and
-# refused_api_signal_ are writes Rails makes on a bot it leaves running, which the same guard refuses until 8d.
+# this crate answers with public/404.html. signal_page_ (8c-1) and signal_action_ / api_signal_ (8c-2, 8d) are a signal
+# bot's pages and writes, compared whole.
 module Pages
   module SignalGrid
     def scenarios
@@ -117,15 +115,13 @@ module Pages
         grid["missing_hook_path_#{name}"] = signal_case([hook(path)])
       end
       # A call Rails accepts (202, Bot::SignalJob enqueued with the claim's time) on a working bot with an enabled rule.
-      grid['refused_hook_accepted'] = signal_case([hook(at('buy'))])
-      grid['refused_hook_accepted_with_body'] = signal_case([hook(at('buy'), body: '{"action":"buy"}', type: 'application/json')])
+      grid['hook_accepted'] = signal_case([hook(at('buy'))])
+      grid['hook_accepted_with_body'] = signal_case([hook(at('buy'), body: '{"action":"buy"}', type: 'application/json')])
       grid.merge(override_scenarios).merge(signal_page_scenarios).merge(signal_action_scenarios).merge(signal_api_scenarios)
     end
 
     # A signal bot's writes (plan 8c-2): its rules, its Resolve, its settings and its lifecycle, each step with the rows it
     # wrote. A rule this build creates gets a token of its own, as Rails' does: rust/tests/pages.rs reads both as [random].
-    # refused_signal_ is a write Rails makes on a bot left working, which this build's engine guard refuses until plan 8d
-    # admits signal bots.
     SIGNAL_WRITES = %w[bots bot_signals bot_activity_logs].freeze
 
     def signal_act(method, path, form = {}, extra = {})
@@ -210,9 +206,9 @@ module Pages
         'signal_action_start_no_key' => case_of.([stopped], [get('/bots/1'), signal_act('PATCH', '/bots/1/start?start_fresh=true')], 'api_keys' => {}),
         'signal_action_start_delisted' => case_of.([stopped.merge('delist' => 'QQQM')], [get('/bots/1'), signal_act('PATCH', '/bots/1/start?start_fresh=true')]),
         'signal_action_start_archived' => case_of.([one.merge('columns' => { 'status' => 7 })], [get('/bots/1'), signal_act('PATCH', '/bots/1/start?start_fresh=true')]),
-        'refused_signal_start' => case_of.([stopped], [get('/bots/1'), signal_act('PATCH', '/bots/1/start?start_fresh=true')]),
-        'refused_signal_start_running' => case_of.([working], [get('/bots/1'), signal_act('PATCH', '/bots/1/start?start_fresh=false')]),
-        'refused_signal_settings_running' => case_of.([working], [get('/bots/1'), signal_act('PATCH', '/bots/1', 'bots_signal[label]' => 'Live')]),
+        'signal_action_start' => case_of.([stopped], [get('/bots/1'), signal_act('PATCH', '/bots/1/start?start_fresh=true')]),
+        'signal_action_start_running' => case_of.([working], [get('/bots/1'), signal_act('PATCH', '/bots/1/start?start_fresh=false')]),
+        'signal_action_settings_running' => case_of.([working], [get('/bots/1'), signal_act('PATCH', '/bots/1', 'bots_signal[label]' => 'Live')]),
         # The wash-sale question Rails asks once a rule sells (its modal is not served by this build).
         'not_ported_signal_rule_wash_question' => case_of.([one], [get('/bots/1'), rule.('PATCH', 1, 1, 'bot_signal[direction]' => 'sell')],
                                                            'user' => owner('wash_sale_enabled' => nil))
@@ -236,12 +232,11 @@ module Pages
         'api_signal_start_refusals' => signal_api.([write('POST', "#{at}/start?start_fresh=junk"), write('POST', "#{at}/stop")], 2),
         'api_signal_start_no_key' => signal_api.([write('POST', "#{at}/start")], 2, 'api_keys' => {}),
         'api_signal_start_running' => signal_api.([write('POST', "#{at}/start")], 1),
-        'refused_api_signal_start' => signal_api.([write('POST', "#{at}/start")], 2)
+        'api_signal_start' => signal_api.([write('POST', "#{at}/start")], 2)
       }
     end
 
-    # A signal bot's own pages (plan 8c-1): the bot page and its frames, the orders feed and the dashboard tile. Read only;
-    # this build serves them to the tests alone until plan 8d admits the type (App::admit_signal_bots_for_tests).
+    # A signal bot's own pages (plan 8c-1): the bot page and its frames, the orders feed and the dashboard tile. Read only.
     def page_rule(token, direction, amount_type, amount, enabled: true, at: nil)
       { 'token' => token, 'direction' => direction, 'amount_type' => amount_type, 'amount' => amount, 'enabled' => enabled, 'last_triggered_at' => at }
     end

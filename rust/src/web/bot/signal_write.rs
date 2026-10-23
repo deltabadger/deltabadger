@@ -85,7 +85,7 @@ fn owned(c: &Connection, app: &App, owner: i64, id: i64, locale: &str) -> Result
         Some(_) => {}
     }
     let (provider, _) = bots::market_data(c, app)?;
-    if let Some(reason) = super::refusal(c, id, wash_sale(c, owner)?, provider, For::Settings, app.signal_pages())? { return Ok(Err(Answer::Unported(reason))); }
+    if let Some(reason) = super::refusal(c, id, wash_sale(c, owner)?, provider, For::Settings)? { return Ok(Err(Answer::Unported(reason))); }
     Ok(Bot::find(c, owner, id, For::Page, locale)?.ok_or(Answer::Missing))
 }
 
@@ -93,7 +93,7 @@ fn owned(c: &Connection, app: &App, owner: i64, id: i64, locale: &str) -> Result
 /// serve), or any other refusal of the bot as it now is.
 fn refused_after(c: &Connection, app: &App, owner: i64, id: i64) -> Result<Option<&'static str>, WebError> {
     let (provider, _) = bots::market_data(c, app)?;
-    super::refusal(c, id, wash_sale(c, owner)?, provider, For::Page, app.signal_pages())
+    super::refusal(c, id, wash_sale(c, owner)?, provider, For::Page)
 }
 
 /// bots/signals/_settings, as a stream replacing the column.
@@ -306,7 +306,7 @@ pub async fn resolve(State(app): State<App>, Extension(ctx): Extension<Ctx>, Pat
         let transient: Option<String> = tx.query_row("SELECT transient_data FROM bots WHERE id = ?1 AND user_id = ?2 AND type = ?3", (id, owner.id, SIGNAL_TYPE), |r| r.get(0)).optional()?;
         let Some(transient) = transient else { return Ok(Resolved::Other(Answer::NotFound)) };
         let (provider, _) = bots::market_data(&tx, &inner)?;
-        if let Some(reason) = super::refusal(&tx, id, wash_sale(&tx, owner.id)?, provider, For::Settings, inner.signal_pages())? { return Ok(Resolved::Other(Answer::Unported(reason))); }
+        if let Some(reason) = super::refusal(&tx, id, wash_sale(&tx, owner.id)?, provider, For::Settings)? { return Ok(Resolved::Other(Answer::Unported(reason))); }
         let transient: Value = serde_json::from_str(&transient).unwrap_or(Value::Null);
         let marker = transient.get(crate::engine::signal::MARKER_KEY).and_then(Value::as_object);
         let engine_owns = transient.get("rust_placement").is_some_and(|v| !v.is_null());
@@ -646,7 +646,7 @@ pub fn service(c: &Connection, ctx: &Ctx, heard: &Ctx, owner: i64, id: i64, acti
     };
     if let Some((code, message)) = conflict { return failed(Failure::conflict(code, message)); }
     let (provider, _) = bots::market_data(&tx, &ctx.app)?;
-    if let Some(reason) = super::refusal(&tx, id, wash_sale(&tx, owner)?, provider, For::Settings, ctx.app.signal_pages())? { return Ok(Outcome::Unported(reason)); }
+    if let Some(reason) = super::refusal(&tx, id, wash_sale(&tx, owner)?, provider, For::Settings)? { return Ok(Outcome::Unported(reason)); }
     let Some(bot) = Bot::find(&tx, owner, id, For::Page, ctx.locale)? else { return Ok(Outcome::Missing) };
     let mut heard = heard.clone();
     heard.now = ctx.now;

@@ -237,7 +237,7 @@ pub async fn index(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Re
         let wash_sale: Option<bool> = c.query_row("SELECT wash_sale_enabled FROM users WHERE id = ?1", [user.id], |r| r.get(0))?;
         let mut bots = vec![];
         for id in &ids {
-            if let Some(reason) = bot::refusal(c, *id, wash_sale, deltabadger, if matches!(inner.figure_source,crate::web::figure::loading::Source::Disabled) { bot::For::Page } else { bot::For::FiguresPage }, inner.signal_pages())? { return Ok((shell, Listing::NotPorted(reason))); }
+            if let Some(reason) = bot::refusal(c, *id, wash_sale, deltabadger, if matches!(inner.figure_source,crate::web::figure::loading::Source::Disabled) { bot::For::Page } else { bot::For::FiguresPage })? { return Ok((shell, Listing::NotPorted(reason))); }
             if let Some(bot) = Bot::find(c, user.id, *id, bot::For::Page, ctx.locale)? {
                 if let Some(reason) = bot.unrendered() { return Ok((shell, Listing::NotPorted(reason))); }
                 bots.push(bot);

@@ -84,13 +84,17 @@ pub fn bot_write(c: &Connection, app: &App, user: i64, id: i64, write: Write, su
     let deferred = std::cell::Cell::new(None);
     let class: Option<String> = c.query_row("SELECT type FROM bots WHERE id=?1 AND user_id=?2 AND status<>3", (id, user), |r| r.get(0)).optional()?;
     let Some(class) = class else { return Ok(Outcome::Missing) };
-    // A signal bot's lifecycle (bot::signal_write), where this app serves signal bots (until slice 8d, the tests' seam).
-    let signal = class == crate::engine::model::SIGNAL_TYPE && app.signal_pages();
+    // A signal bot's lifecycle (bot::signal_write).
+    let signal = class == crate::engine::model::SIGNAL_TYPE;
     if !(["Bots::DcaMultiAsset", "Bots::DcaIndex"].contains(&class.as_str()) || signal && matches!(write, Write::Lifecycle(_))) {
         let tx = crate::engine::model::immediate(c)?;
         let reason = match crate::engine::eligibility::guard(&tx, &app.cipher, Some(id)) {
             Err(refusal) => refusal.reason(),
-            Ok(()) => crate::engine::eligibility::bot_reasons(&tx, &crate::engine::model::load_bot(&tx, id)?)?.join("; "),
+            Ok(()) => match crate::engine::eligibility::bot_reasons(&tx, &crate::engine::model::load_bot(&tx, id)?)?.join("; ") {
+                // An admitted signal bot: only its settings through the API are not served yet.
+                reasons if reasons.is_empty() => "a signal bot's settings through the API".to_string(),
+                reasons => reasons,
+            },
         };
         tx.rollback()?;
         let text = refused(&reason);

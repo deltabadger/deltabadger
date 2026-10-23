@@ -40,6 +40,8 @@ pub enum EngineError {
     Ineligible(Vec<String>),
     /// Bots whose order the venue could not yet account for (handback refuses while any exist).
     Unresolved(Vec<i64>),
+    /// A webhook call still valid until the time given (engine::signal::expires_at): the handback waits for it to expire.
+    SignalCallsWaiting(DateTime<Utc>),
     /// A requested stop (SIGTERM/SIGINT): the tick in hand finished and nothing new started.
     Stopped,
     Lease(crate::lease::LeaseError),

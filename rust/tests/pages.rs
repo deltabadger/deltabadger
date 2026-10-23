@@ -324,8 +324,6 @@ async fn run(dir: &Path) -> Value {
     mount_account_reads(&key_server).await;
     let app = web::app(dir, scenario["secret_key_base"].as_str().unwrap(), clock.clone()).with_settings_mailer(std::sync::Arc::new(TestMail)).unwrap().with_settings_key_boundary(venue_hosts(&key_server.uri()),deltabadger::web::settings::keys::logger()).unwrap()
         .with_venue_key_urls(&format!("{}/api.kraken.com", key_server.uri()), &format!("{}/api.binance.com", key_server.uri()), &format!("{}/api.kucoin.com", key_server.uri())).unwrap();
-    // pages_signals.rb's signal bot scenarios: its pages (8c-1) and writes (8c-2), served to these tests until plan 8d admits the type.
-    let app = if dir.file_name().is_some_and(|n| SIGNAL_SCENARIOS.iter().any(|p| n.to_string_lossy().starts_with(p))) { app.admit_signal_bots_for_tests().unwrap() } else { app };
     let wake = std::sync::Arc::new(tokio::sync::Notify::new());
     app.attach_engine(wake.clone());
     app.attach_jobs(Default::default()).unwrap();
@@ -421,7 +419,10 @@ async fn run(dir: &Path) -> Value {
             if step["jobs"] == true {
                 let was_scheduled = |id: &Value| rows_before["bots"].as_array().into_iter().flatten().any(|bot| bot["id"] == *id && bot["status"] == 1);
                 let mut classes: Vec<Value> = response["job_classes"].as_array().cloned().unwrap_or_default();
-                classes.extend(rows_after["bots"].as_array().into_iter().flatten().filter(|bot| bot["status"] == 1 && !was_scheduled(&bot["id"])).map(|_| json!("Bot::ActionJob")));
+                // A signal bot is never scheduled: its calls are its only work (Bots::Signal#start enqueues nothing).
+                let signal = |id: &Value| rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap()
+                    .query_row("SELECT type = 'Bots::Signal' FROM bots WHERE id = ?1", [id.as_i64().unwrap()], |r| r.get::<_, bool>(0)).unwrap();
+                classes.extend(rows_after["bots"].as_array().into_iter().flatten().filter(|bot| bot["status"] == 1 && !was_scheduled(&bot["id"]) && !signal(&bot["id"])).map(|_| json!("Bot::ActionJob")));
                 // Rails enqueues Bot::ResyncIndexCompositionJob where this crate leaves the engine its resync marker (new, or bumped).
                 let marker = |rows: &Value, id: &Value| rows["bots"].as_array().into_iter().flatten().find(|bot| bot["id"] == *id).map(|bot| bot["transient_data"]["rust_index_resync"].clone());
                 classes.extend(rows_after["bots"].as_array().into_iter().flatten()
@@ -774,8 +775,6 @@ fn only_the_waiting_tab_of_pending_market_orders_and_its_knock_on_are_left_out()
     assert_eq!(compare(filters("all", &["all", "successful", "other"]), filters("all", &["all", "other"]), &[1]), (0, false), "no waiting tab: compared");
 }
 
-/// The scenario prefixes of a signal bot's pages and writes (pages_signals.rb), which this app serves through its test seam.
-const SIGNAL_SCENARIOS: [&str; 6] = ["signal_page_", "signal_action_", "refused_signal_", "api_signal_", "refused_api_signal_", "not_ported_signal_"];
 
 /// Named divergence (as actions_*_label): Rails writes a bot's label into its label stream as HTML; this crate writes it
 /// as text. Where Rails' label stream holds markup, this crate's must be one escaped text node; the rest is compared.
@@ -1229,12 +1228,12 @@ fn without_random_tokens(answer: &mut Value) -> Result<(), String> {
 }
 
 fn listed_divergence(name: &str, scenario: &Value, rails: &Value, rust: &Value) -> Option<Result<(), String>> {
-    let kind = ["unrouted_", "refused_api_", "refused_hook_", "refused_signal_", "not_ported_api_", "not_ported_", "stricter_", "missing_"].into_iter().find(|prefix| name.starts_with(prefix))?;
+    let kind = ["unrouted_", "refused_api_", "not_ported_api_", "not_ported_", "stricter_", "missing_"].into_iter().find(|prefix| name.starts_with(prefix))?;
     let responses = |v: &Value| v["responses"].as_array().unwrap().clone();
     let (mut theirs, mut ours) = (responses(rails), responses(rust));
     let (Some(rails_last), Some(rust_last)) = (theirs.pop(), ours.pop()) else { return Some(Err("no responses".into())) };
     // A refused write leaves the bots Rails changed as they were: its last step's rows hold that (below).
-    let rails_bots = if matches!(kind, "refused_api_" | "refused_signal_") { &rust["bots"] } else { &rails["bots"] };
+    let rails_bots = if kind == "refused_api_" { &rust["bots"] } else { &rails["bots"] };
     if let Some(message) = difference(name, &json!({ "responses": theirs, "users": rails["users"], "bots": rails_bots }), &json!({ "responses": ours, "users": rust["users"], "bots": rust["bots"] })) {
         return Some(Err(format!("before its last response: {message}")));
     }
@@ -1270,26 +1269,6 @@ fn listed_divergence(name: &str, scenario: &Value, rails: &Value, rust: &Value) 
                 Err(format!("expected the write_refused envelope: {rust_last}"))
             }
             else if !unchanged || rust_last["job_classes"] != json!([]) { Err("the refused write changed rows or enqueued work".into()) }
-            else { Ok(()) }
-        }
-        "refused_hook_" => {
-            // Plan 8b: a webhook call Rails accepts (202, Bot::SignalJob) on a working signal bot, which this build's engine
-            // guard refuses until plan 8d admits signal bots: the 503 Rails gives when its enqueue fails, the claim rolled
-            // back with the call (nothing written, nothing enqueued, no wake).
-            let unchanged = rust_last["rows_before"] == rust_last["rows_after"] && rust_last["other_rows_before"] == rust_last["other_rows_after"];
-            if rails_last["status"] != 202 || rails_last["job_classes"] != json!(["Bot::SignalJob"]) { Err(format!("Rails no longer accepts the call ({}): drop or rename this scenario", rails_last["status"])) }
-            else if rust_last["status"] != 503 || rust_last["body"] != json!(html::normalize("")) { Err(format!("expected an empty 503: {rust_last}")) }
-            else if !unchanged || rust_last["job_classes"] != json!([]) { Err("the refused call changed rows or enqueued work".into()) }
-            else { Ok(()) }
-        }
-        "refused_signal_" => {
-            // Plan 8c-2: a write Rails makes on a signal bot it leaves working (a start, a settings save), which this build's
-            // engine guard refuses until plan 8d admits signal bots: 422 with the guard's reason in the flash, nothing written.
-            let unchanged = rust_last["rows_before"] == rust_last["rows_after"] && rust_last["other_rows_before"] == rust_last["other_rows_after"];
-            let body = rust_last["body"].to_string();
-            if !rails_last["status"].as_u64().is_some_and(|s| (200..300).contains(&s)) { Err(format!("Rails now refuses ({}): drop or rename this scenario", rails_last["status"])) }
-            else if rust_last["status"] != 422 || !body.contains("run that yet") || !body.contains("type Bots::Signal") { Err(format!("expected the guard's refusal: {rust_last}")) }
-            else if !unchanged { Err("the refused write changed rows".into()) }
             else { Ok(()) }
         }
         "missing_" => {
@@ -1594,9 +1573,9 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
     println!("{} scenarios; {countdown_pages} pages where only Rails knows when the bot acts next", dirs.len());
     if std::env::var("PAGES").is_err() {
-        let hook = |dir: &&PathBuf| dir.file_name().is_some_and(|n| ["hook_", "missing_hook_", "refused_hook_", "override_"].iter().any(|p| n.to_string_lossy().starts_with(p)));
-        assert_eq!(dirs.iter().filter(hook).count(), 27 + 23 + 2 + 1, "the signal webhook (pages_signals.rb): twenty-seven compared whole, twenty-three the router's 404 (methods, overrides, paths), two calls the engine guard refuses until 8d; and a settings update under the override header");
-        assert_eq!(dirs.iter().filter(|dir| !hook(dir) && !dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_") || n.to_string_lossy().starts_with("settings_"))).count(), 160 + 3 + 9 + 2 + 6 + 3 + 49 + 68 + 61 + 38 + 1 + 2 + 1 + 2 + 1 + 10 + 27 + 1 + 1, "completed read-only baseline (with the market-closed weekend page and the expired start on bots that are not stopped), with D5b's two missing_ connect scenarios and the one not_ported_ (a venue no tracker key step serves), the venue pages (eight served, one refused), the selling pages (three served, one cap refused, in place of two refusals), the venue basket pages (seven served, in place of the one refusal), the asset search on each venue, the wizard's chooser and order switch (twelve served, one unrouted GET), its asset and exchange steps (ten served), its broker, key and quote steps to a created bot (nine served), the signal tile and the IBKR key step (two not_ported_), the first empty bots page that opens it (two), the index wizard (twelve served, its Kraken, Alpaca Top Coins and Binance Layer 1 bots among them; its legacy settings step one not_ported_), the crypto index bot pages on Kraken and Binance (two), the IBKR key step reached from the nested venue frame (one not_ported_, as a stream), the KuCoin wizard (plan K O6: a basket to its bot, its key step from the nested frame, and a Top coins index bot), and the REST API's (sixty-three on the nine served reads' tokens and grants, ten on the four venue reads' lookups and venue answers, twelve on the routes it gates but does not serve, three on typed creates, nine unrouted paths, seven on parameters, one on conditional GETs and one on an install without an admin; sixty-one on the six bot writes: six per route on its tokens, grants, ids and malformed bodies, five on settings values, fourteen on lifecycle states one start the engine guard refuses, the broadcasts an open page hears (in English and in its owner's German), encoded path ids and two oversized parameters), and plan CB T6's market-cap baskets (an Alpaca page and a venue page served, in place of the one refusal), and plan 8c-1's signal bot pages (ten, pages_signals.rb signal_page_), and plan 8c-2's signal bot writes (twenty-seven: sixteen signal_action_ compared whole, three refused_signal_ and one refused_api_signal_ the engine guard refuses until 8d, six api_signal_ on BotApi's lifecycle, one not_ported_signal_ wash-sale question), and the web's own lifecycle writes from a /de/ page heard in the owner's Polish, and Hyperliquid's limit-order lock on stopped and working bots with either stored flag");
+        let hook = |dir: &&PathBuf| dir.file_name().is_some_and(|n| ["hook_", "missing_hook_", "override_"].iter().any(|p| n.to_string_lossy().starts_with(p)));
+        assert_eq!(dirs.iter().filter(hook).count(), 29 + 23 + 1, "the signal webhook (pages_signals.rb): twenty-nine compared whole, two of them calls accepted (plan 8d), twenty-three the router's 404 (methods, overrides, paths); and a settings update under the override header");
+        assert_eq!(dirs.iter().filter(|dir| !hook(dir) && !dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_") || n.to_string_lossy().starts_with("settings_"))).count(), 160 + 3 + 9 + 2 + 6 + 3 + 49 + 68 + 61 + 38 + 1 + 2 + 1 + 2 + 1 + 10 + 27 + 1 + 1, "completed read-only baseline (with the market-closed weekend page and the expired start on bots that are not stopped), with D5b's two missing_ connect scenarios and the one not_ported_ (a venue no tracker key step serves), the venue pages (eight served, one refused), the selling pages (three served, one cap refused, in place of two refusals), the venue basket pages (seven served, in place of the one refusal), the asset search on each venue, the wizard's chooser and order switch (twelve served, one unrouted GET), its asset and exchange steps (ten served), its broker, key and quote steps to a created bot (nine served), the signal tile and the IBKR key step (two not_ported_), the first empty bots page that opens it (two), the index wizard (twelve served, its Kraken, Alpaca Top Coins and Binance Layer 1 bots among them; its legacy settings step one not_ported_), the crypto index bot pages on Kraken and Binance (two), the IBKR key step reached from the nested venue frame (one not_ported_, as a stream), the KuCoin wizard (plan K O6: a basket to its bot, its key step from the nested frame, and a Top coins index bot), and the REST API's (sixty-three on the nine served reads' tokens and grants, ten on the four venue reads' lookups and venue answers, twelve on the routes it gates but does not serve, three on typed creates, nine unrouted paths, seven on parameters, one on conditional GETs and one on an install without an admin; sixty-one on the six bot writes: six per route on its tokens, grants, ids and malformed bodies, five on settings values, fourteen on lifecycle states one start the engine guard refuses, the broadcasts an open page hears (in English and in its owner's German), encoded path ids and two oversized parameters), and plan CB T6's market-cap baskets (an Alpaca page and a venue page served, in place of the one refusal), and plan 8c-1's signal bot pages (ten, pages_signals.rb signal_page_), and plan 8c-2's signal bot writes (twenty-seven: nineteen signal_action_ compared whole, three of them the starts and the settings save plan 8d admits, seven api_signal_ on BotApi's lifecycle, one of them the start 8d admits, one not_ported_signal_ wash-sale question), and the web's own lifecycle writes from a /de/ page heard in the owner's Polish, and Hyperliquid's limit-order lock on stopped and working bots with either stored flag");
         assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("settings_"))).count(), 413 + 3 + 45 + 52 + 5 + 1 + 71 + 55, "complete S1 inventory, D5b's connect flow (its Kraken key form served now), the preference writes, the following client's card, the switch back to the default locale, the settings dialog (two more sections, in-place confirms, the page behind a language change) and the key routes on Kraken, Binance and KuCoin (fifty-four)");
         assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_"))).count(), 197 + 53 + 4 + 2 + 6, "action inventory with six settings metrics cases (with the five ⇄ rotations and nine sell-settings writes, twenty-two Kraken/Binance venue actions, fifty on their baskets, plan CB T4's three saves of a crypto basket with settled rebalance history, plan CB T5's four market-cap saves, and two amounts typed key by key)");
         assert_eq!(dirs.len(), 27 + 23 + 2 + 1 + 160 + 3 + 9 + 2 + 6 + 3 + 49 + 68 + 61 + 38 + 1 + 2 + 1 + 2 + 1 + 10 + 27 + 1 + 197 + 53 + 4 + 2 + 413 + 3 + 45 + 52 + 5 + 1 + 71 + 55 + 1 + 6, "a scenario was dropped or added without this count (including the Hyperliquid limit-order lock and six settings metrics cases)");

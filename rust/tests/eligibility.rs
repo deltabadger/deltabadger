@@ -845,3 +845,81 @@ fn one_admission_rule_for_engine_and_pages() {
         assert_eq!(admission(venue, false, false), Some("a bot on an exchange other than Alpaca, Kraken, Binance, Binance.US, KuCoin, Bitvavo, Gemini, Bitget, MEXC, Hyperliquid, Bybit, Bitrue, Coinbase and BingX"));
     }
 }
+
+/// A working Bots::Signal on the install's venue with one rule, as BotApi::Bots::CreateSignal leaves it.
+fn signal_bot(c: &rusqlite::Connection, s: &seed::Seeded) -> i64 {
+    c.execute("INSERT INTO bots (type, status, exchange_id, user_id, settings, transient_data, started_at, created_at, updated_at) \
+               VALUES ('Bots::Signal', 1, ?1, ?2, ?3, '{}', '2026-08-25 09:00:00', '2026-08-25 09:00:00', '2026-08-25 09:00:00')",
+              rusqlite::params![s.exchange_id, s.user_id, json!({ "base_asset_id": s.btc, "quote_asset_id": s.quote }).to_string()]).unwrap();
+    let id = c.last_insert_rowid();
+    c.execute("INSERT INTO bot_signals (bot_id, direction, amount_type, amount, enabled, token, created_at, updated_at) \
+               VALUES (?1, 0, 0, '100', 1, 'tok-1', '2026-08-25 09:00:00', '2026-08-25 09:00:00')", [id]).unwrap();
+    id
+}
+
+/// Plan 8d T1: a signal bot runs on the venues its signal path is recorded on, and `check` on a Rails-prepared copy holding a
+/// working one reports it ready, with no basket's interval or amount asked of it.
+#[test]
+fn a_working_signal_bot_is_admitted_on_its_venues() {
+    for venue in eligibility::SIGNAL_VENUES {
+        let (_d, o, s) = if venue == "Exchanges::Alpaca" { common::install_alpaca() } else { install() };
+        o.primary.execute("UPDATE exchanges SET type = ?1", [venue]).unwrap();
+        let id = signal_bot(&o.primary, &s);
+        // `check` (check_install_at) on Kraken, which has no staleness bound; the venue rule alone elsewhere.
+        let r = if venue == "Exchanges::Kraken" { eligibility::check_install_at(&o.primary, "2026-09-01T10:00:00Z".parse().unwrap()) } else { eligibility::check_install(&o.primary) }.unwrap();
+        assert!(r.problems.is_empty() && r.unreadable.is_empty(), "{venue}: {:?} {:?}", r.problems, r.unreadable);
+        assert_eq!(r.eligible, vec![id], "{venue}");
+        // Its key, as `serve` checks it before the takeover (alpaca::preflight).
+        assert!(deltabadger::venue::alpaca::preflight(&o.primary, &seed::cipher()).is_ok(), "{venue}");
+    }
+}
+
+/// Plan 8d T1: what refuses a signal bot, each by name.
+#[test]
+fn a_signal_bot_outside_what_the_engine_ports_is_refused_with_its_reason() {
+    let cases: Vec<(&str, Make)> = vec![
+        ("a signal bot on Bybit (its signal orders are not recorded against Rails yet)", Box::new(|c, s| { c.execute("UPDATE exchanges SET type = 'Exchanges::Bybit'", []).unwrap(); signal_bot(c, s) })),
+        ("a signal bot on BingX", Box::new(|c, s| { c.execute("UPDATE exchanges SET type = 'Exchanges::Bingx'", []).unwrap(); signal_bot(c, s) })),
+        ("a signal bot on an exchange other than Kraken, Binance, KuCoin, Hyperliquid and Alpaca", Box::new(|c, s| { c.execute("UPDATE exchanges SET type = 'Exchanges::Ibkr'", []).unwrap(); signal_bot(c, s) })),
+        ("base_asset_id or quote_asset_id", Box::new(|c, s| { let id = signal_bot(c, s); c.execute("UPDATE bots SET settings = '{}' WHERE id = ?1", [id]).unwrap(); id })),
+        ("a signal rule this build does not read", Box::new(|c, s| { let id = signal_bot(c, s); c.execute("UPDATE bot_signals SET direction = 7", []).unwrap(); id })),
+        ("unreadable rust_signal_calls", Box::new(|c, s| { let id = signal_bot(c, s); c.execute("UPDATE bots SET transient_data = '{\"rust_signal_calls\":{}}' WHERE id = ?1", [id]).unwrap(); id })),
+        ("no ticker for the asset", Box::new(|c, s| { let id = signal_bot(c, s); c.execute("DELETE FROM tickers", []).unwrap(); id })),
+        ("a ticker with more than 14 decimals", Box::new(|c, s| { c.execute("UPDATE tickers SET base_decimals = 15", []).unwrap(); signal_bot(c, s) })),
+        ("REBALANCE/LIQUIDATION/REDEPLOY row(s)", Box::new(|c, s| { let id = signal_bot(c, s);
+            c.execute("INSERT INTO transactions (bot_id, exchange_id, base_asset_id, quote_asset_id, external_id, status, external_status, side, order_type, transaction_type, error_messages, bot_interval, bot_quote_amount, created_at, updated_at) \
+                       VALUES (?1, ?2, ?3, ?4, 'OREB', 0, 2, 0, 0, 'REBALANCE', '[]', '', 0, '2026-09-01 00:00:00', '2026-09-01 00:00:00')", rusqlite::params![id, s.exchange_id, s.btc, s.quote]).unwrap(); id })),
+        ("row(s) with a status Rails never writes", Box::new(|c, s| { let id = signal_bot(c, s);
+            c.execute("INSERT INTO transactions (bot_id, exchange_id, base_asset_id, quote_asset_id, external_id, status, side, order_type, transaction_type, error_messages, bot_interval, bot_quote_amount, created_at, updated_at) \
+                       VALUES (?1, ?2, ?3, ?4, 'OX', 9, 0, 0, 'REGULAR', '[]', '', 0, '2026-09-01 00:00:00', '2026-09-01 00:00:00')", rusqlite::params![id, s.exchange_id, s.btc, s.quote]).unwrap(); id })),
+        ("wash_sale", Box::new(|c, s| { c.execute("UPDATE users SET wash_sale_enabled = 1", []).unwrap(); signal_bot(c, s) })),
+    ];
+    for (reason, make) in cases {
+        let (_d, o, s) = install();
+        let id = make(&o.primary, &s);
+        let r = eligibility::check_install(&o.primary).unwrap();
+        // A row no reader can load is named among the unreadable ones, which refuse the takeover too.
+        let named = r.problems.iter().any(|p| p.contains(&format!("bot {id}")) && p.contains(reason)) || r.unreadable.iter().any(|(b, e)| *b == id && e.contains(reason));
+        assert!(named, "{reason}: {:?} {:?}", r.problems, r.unreadable);
+        assert!(r.eligible.is_empty(), "{reason}");
+    }
+}
+
+/// Plan 8d T1: the engine and the signal bot's pages share one venue rule (web::bot::signal::refusal calls it), and it
+/// admits exactly the venues the signal grid records; every other venue the engine trades on is named.
+#[test]
+fn one_signal_admission_rule_for_engine_and_pages() {
+    use eligibility::signal_admission;
+    for venue in eligibility::SIGNAL_VENUES { assert_eq!(signal_admission(Some(venue)), None, "{venue}"); }
+    for (venue, name) in [("Exchanges::BinanceUs", "Binance.US"), ("Exchanges::Bitvavo", "Bitvavo"), ("Exchanges::Gemini", "Gemini"), ("Exchanges::Bitget", "Bitget"),
+                          ("Exchanges::Mexc", "MEXC"), ("Exchanges::Bybit", "Bybit"), ("Exchanges::Bitrue", "Bitrue"), ("Exchanges::Coinbase", "Coinbase"), ("Exchanges::Bingx", "BingX")] {
+        assert_eq!(signal_admission(Some(venue)), Some(format!("a signal bot on {name} (its signal orders are not recorded against Rails yet)").as_str()), "{venue}");
+    }
+    for venue in [Some("Exchanges::Ibkr"), None] {
+        assert_eq!(signal_admission(venue), Some("a signal bot on an exchange other than Kraken, Binance, KuCoin, Hyperliquid and Alpaca"));
+    }
+    let grid = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../script/rust/decisions.rb")).unwrap();
+    let start = grid.find("def signal_venues").unwrap();
+    let venues = &grid[start..grid[start..].find("def signal_scenarios").unwrap() + start];
+    for key in ["'kraken' =>", "'binance' =>", "'kucoin' =>", "'hyperliquid' =>", "'alpaca' =>"] { assert!(venues.contains(key), "the signal grid records {key}"); }
+}

@@ -1,0 +1,180 @@
+{
+  "sources": {
+    "script/rust/record_signal_jobs.rb": "ec0b0583f61caaccd832bcd4c4000ef3ff1ef12f7701347afcf2c0955e04bf1f",
+    "app/jobs/bot/signal_job.rb": "135beb0698a2e3fd1a18e0d4c8ab0a64e090ea05d8ffde7439309b42805bfa72",
+    "app/jobs/bot_job.rb": "7c47afc3400ee3891a6d59c5ebfd6283fd952afb9e2954d9601aaac911892cec",
+    "app/controllers/hooks_controller.rb": "aaae75dd632d578458d27d4f7c5a65cbd67d5d2d2db1f5b69bf587bd6b8eb1ab",
+    "app/models/bot_signal.rb": "3e5eb6f184f4124d91eaed1250d25fd2c86a1c68e38592ecffc6ce94f00728c2",
+    "db/queue_schema.rb": "5753a89cc9815e82bc5e820b947c88bd87ff4c69b60af05413fd147afd574b62"
+  },
+  "jobs": {
+    "ready": {
+      "job_id": "00000000-0000-4000-8000-000000000001",
+      "bot_id": 1,
+      "signal_id": 1,
+      "state": "ready",
+      "row": {
+        "active_job_id": "00000000-0000-4000-8000-000000000001",
+        "arguments": "{\"job_class\":\"Bot::SignalJob\",\"job_id\":\"00000000-0000-4000-8000-000000000001\",\"provider_job_id\":null,\"queue_name\":\"kraken\",\"priority\":null,\"arguments\":[{\"_aj_globalid\":\"gid://deltabadger/Bots::Signal/1\"},{\"_aj_globalid\":\"gid://deltabadger/BotSignal/1\"},{\"_aj_serialized\":\"ActiveJob::Serializers::TimeWithZoneSerializer\",\"value\":\"2026-09-30T11:58:01.123456000Z\",\"time_zone\":\"Etc/UTC\"}],\"executions\":0,\"exception_executions\":{},\"locale\":\"en\",\"timezone\":\"UTC\",\"enqueued_at\":\"2026-09-30T11:58:01.123456000Z\",\"scheduled_at\":\"2026-09-30T11:58:01.123456000Z\"}",
+        "class_name": "Bot::SignalJob",
+        "concurrency_key": "Bot::ActionJob/exchange_kraken",
+        "created_at": "2026-09-30 11:58:01.123456",
+        "finished_at": null,
+        "priority": 0,
+        "queue_name": "kraken",
+        "scheduled_at": "2026-09-30 11:58:01.123456",
+        "updated_at": "2026-09-30 11:58:01.123456"
+      },
+      "execution": {
+        "created_at": "2026-09-30 11:58:01.123456",
+        "priority": 0,
+        "queue_name": "kraken"
+      },
+      "triggered_at": "2026-09-30T11:58:01.123456000Z"
+    },
+    "blocked": {
+      "job_id": "00000000-0000-4000-8000-000000000002",
+      "bot_id": 1,
+      "signal_id": 2,
+      "state": "blocked",
+      "row": {
+        "active_job_id": "00000000-0000-4000-8000-000000000002",
+        "arguments": "{\"job_class\":\"Bot::SignalJob\",\"job_id\":\"00000000-0000-4000-8000-000000000002\",\"provider_job_id\":null,\"queue_name\":\"kraken\",\"priority\":null,\"arguments\":[{\"_aj_globalid\":\"gid://deltabadger/Bots::Signal/1\"},{\"_aj_globalid\":\"gid://deltabadger/BotSignal/2\"},{\"_aj_serialized\":\"ActiveJob::Serializers::TimeWithZoneSerializer\",\"value\":\"2026-09-30T11:58:02.123456000Z\",\"time_zone\":\"Etc/UTC\"}],\"executions\":0,\"exception_executions\":{},\"locale\":\"en\",\"timezone\":\"UTC\",\"enqueued_at\":\"2026-09-30T11:58:02.123456000Z\",\"scheduled_at\":\"2026-09-30T11:58:02.123456000Z\"}",
+        "class_name": "Bot::SignalJob",
+        "concurrency_key": "Bot::ActionJob/exchange_kraken",
+        "created_at": "2026-09-30 11:58:02.123456",
+        "finished_at": null,
+        "priority": 0,
+        "queue_name": "kraken",
+        "scheduled_at": "2026-09-30 11:58:02.123456",
+        "updated_at": "2026-09-30 11:58:02.123456"
+      },
+      "execution": {
+        "concurrency_key": "Bot::ActionJob/exchange_kraken",
+        "created_at": "2026-09-30 11:58:02.123456",
+        "expires_at": "2026-09-30 12:01:02.123456",
+        "priority": 0,
+        "queue_name": "kraken"
+      },
+      "triggered_at": "2026-09-30T11:58:02.123456000Z"
+    },
+    "scheduled": {
+      "job_id": "00000000-0000-4000-8000-000000000003",
+      "bot_id": 1,
+      "signal_id": 3,
+      "state": "scheduled",
+      "row": {
+        "active_job_id": "00000000-0000-4000-8000-000000000003",
+        "arguments": "{\"job_class\":\"Bot::SignalJob\",\"job_id\":\"00000000-0000-4000-8000-000000000003\",\"provider_job_id\":null,\"queue_name\":\"kraken\",\"priority\":null,\"arguments\":[{\"_aj_globalid\":\"gid://deltabadger/Bots::Signal/1\"},{\"_aj_globalid\":\"gid://deltabadger/BotSignal/3\"},{\"_aj_serialized\":\"ActiveJob::Serializers::TimeWithZoneSerializer\",\"value\":\"2026-09-30T11:58:03.123456000Z\",\"time_zone\":\"Etc/UTC\"}],\"executions\":0,\"exception_executions\":{},\"locale\":\"en\",\"timezone\":\"UTC\",\"enqueued_at\":\"2026-09-30T11:58:03.123456000Z\",\"scheduled_at\":\"2026-09-30T11:58:33.123456001Z\"}",
+        "class_name": "Bot::SignalJob",
+        "concurrency_key": "Bot::ActionJob/exchange_kraken",
+        "created_at": "2026-09-30 11:58:03.123456",
+        "finished_at": null,
+        "priority": 0,
+        "queue_name": "kraken",
+        "scheduled_at": "2026-09-30 11:58:33.123456",
+        "updated_at": "2026-09-30 11:58:03.123456"
+      },
+      "execution": {
+        "created_at": "2026-09-30 11:58:03.123456",
+        "priority": 0,
+        "queue_name": "kraken",
+        "scheduled_at": "2026-09-30 11:58:33.123456"
+      },
+      "triggered_at": "2026-09-30T11:58:03.123456000Z"
+    },
+    "finished": {
+      "job_id": "00000000-0000-4000-8000-000000000004",
+      "bot_id": 1,
+      "signal_id": 4,
+      "state": "finished",
+      "row": {
+        "active_job_id": "00000000-0000-4000-8000-000000000004",
+        "arguments": "{\"job_class\":\"Bot::SignalJob\",\"job_id\":\"00000000-0000-4000-8000-000000000004\",\"provider_job_id\":null,\"queue_name\":\"kraken\",\"priority\":null,\"arguments\":[{\"_aj_globalid\":\"gid://deltabadger/Bots::Signal/1\"},{\"_aj_globalid\":\"gid://deltabadger/BotSignal/4\"},{\"_aj_serialized\":\"ActiveJob::Serializers::TimeWithZoneSerializer\",\"value\":\"2026-09-30T11:58:04.123456000Z\",\"time_zone\":\"Etc/UTC\"}],\"executions\":0,\"exception_executions\":{},\"locale\":\"en\",\"timezone\":\"UTC\",\"enqueued_at\":\"2026-09-30T11:58:04.123456000Z\",\"scheduled_at\":\"2026-09-30T12:58:04.123456001Z\"}",
+        "class_name": "Bot::SignalJob",
+        "concurrency_key": "Bot::ActionJob/exchange_kraken",
+        "created_at": "2026-09-30 11:58:04.123456",
+        "finished_at": "2026-09-30 11:58:07.123456",
+        "priority": 0,
+        "queue_name": "kraken",
+        "scheduled_at": "2026-09-30 12:58:04.123456",
+        "updated_at": "2026-09-30 11:58:04.123456"
+      },
+      "execution": null,
+      "triggered_at": "2026-09-30T11:58:04.123456000Z"
+    },
+    "failed": {
+      "job_id": "00000000-0000-4000-8000-000000000005",
+      "bot_id": 1,
+      "signal_id": 5,
+      "state": "failed",
+      "row": {
+        "active_job_id": "00000000-0000-4000-8000-000000000005",
+        "arguments": "{\"job_class\":\"Bot::SignalJob\",\"job_id\":\"00000000-0000-4000-8000-000000000005\",\"provider_job_id\":null,\"queue_name\":\"kraken\",\"priority\":null,\"arguments\":[{\"_aj_globalid\":\"gid://deltabadger/Bots::Signal/1\"},{\"_aj_globalid\":\"gid://deltabadger/BotSignal/5\"},{\"_aj_serialized\":\"ActiveJob::Serializers::TimeWithZoneSerializer\",\"value\":\"2026-09-30T11:58:05.123456000Z\",\"time_zone\":\"Etc/UTC\"}],\"executions\":0,\"exception_executions\":{},\"locale\":\"en\",\"timezone\":\"UTC\",\"enqueued_at\":\"2026-09-30T11:58:05.123456000Z\",\"scheduled_at\":\"2026-09-30T12:58:05.123456001Z\"}",
+        "class_name": "Bot::SignalJob",
+        "concurrency_key": "Bot::ActionJob/exchange_kraken",
+        "created_at": "2026-09-30 11:58:05.123456",
+        "finished_at": null,
+        "priority": 0,
+        "queue_name": "kraken",
+        "scheduled_at": "2026-09-30 12:58:05.123456",
+        "updated_at": "2026-09-30 11:58:05.123456"
+      },
+      "execution": {
+        "created_at": "2026-09-30 11:58:07.123456",
+        "error": "\"{\\\"exception_class\\\":\\\"RuntimeError\\\",\\\"message\\\":\\\"boom\\\",\\\"backtrace\\\":[]}\""
+      },
+      "triggered_at": "2026-09-30T11:58:05.123456000Z"
+    },
+    "rule_removed": {
+      "job_id": "00000000-0000-4000-8000-000000000006",
+      "bot_id": 1,
+      "signal_id": 6,
+      "state": "scheduled",
+      "row": {
+        "active_job_id": "00000000-0000-4000-8000-000000000006",
+        "arguments": "{\"job_class\":\"Bot::SignalJob\",\"job_id\":\"00000000-0000-4000-8000-000000000006\",\"provider_job_id\":null,\"queue_name\":\"kraken\",\"priority\":null,\"arguments\":[{\"_aj_globalid\":\"gid://deltabadger/Bots::Signal/1\"},{\"_aj_globalid\":\"gid://deltabadger/BotSignal/6\"},{\"_aj_serialized\":\"ActiveJob::Serializers::TimeWithZoneSerializer\",\"value\":\"2026-09-30T11:58:06.123456000Z\",\"time_zone\":\"Etc/UTC\"}],\"executions\":0,\"exception_executions\":{},\"locale\":\"en\",\"timezone\":\"UTC\",\"enqueued_at\":\"2026-09-30T11:58:06.123456000Z\",\"scheduled_at\":\"2026-09-30T12:58:06.123456001Z\"}",
+        "class_name": "Bot::SignalJob",
+        "concurrency_key": "Bot::ActionJob/exchange_kraken",
+        "created_at": "2026-09-30 11:58:06.123456",
+        "finished_at": null,
+        "priority": 0,
+        "queue_name": "kraken",
+        "scheduled_at": "2026-09-30 12:58:06.123456",
+        "updated_at": "2026-09-30 11:58:06.123456"
+      },
+      "execution": {
+        "created_at": "2026-09-30 11:58:06.123456",
+        "priority": 0,
+        "queue_name": "kraken",
+        "scheduled_at": "2026-09-30 12:58:06.123456"
+      },
+      "triggered_at": null
+    },
+    "bot_removed": {
+      "job_id": "00000000-0000-4000-8000-000000000007",
+      "bot_id": 2,
+      "signal_id": 7,
+      "state": "scheduled",
+      "row": {
+        "active_job_id": "00000000-0000-4000-8000-000000000007",
+        "arguments": "{\"job_class\":\"Bot::SignalJob\",\"job_id\":\"00000000-0000-4000-8000-000000000007\",\"provider_job_id\":null,\"queue_name\":\"kraken\",\"priority\":null,\"arguments\":[{\"_aj_globalid\":\"gid://deltabadger/Bots::Signal/2\"},{\"_aj_globalid\":\"gid://deltabadger/BotSignal/7\"},{\"_aj_serialized\":\"ActiveJob::Serializers::TimeWithZoneSerializer\",\"value\":\"2026-09-30T11:58:07.123456000Z\",\"time_zone\":\"Etc/UTC\"}],\"executions\":0,\"exception_executions\":{},\"locale\":\"en\",\"timezone\":\"UTC\",\"enqueued_at\":\"2026-09-30T11:58:07.123456000Z\",\"scheduled_at\":\"2026-09-30T12:58:07.123456001Z\"}",
+        "class_name": "Bot::SignalJob",
+        "concurrency_key": "Bot::ActionJob/exchange_kraken",
+        "created_at": "2026-09-30 11:58:07.123456",
+        "finished_at": null,
+        "priority": 0,
+        "queue_name": "kraken",
+        "scheduled_at": "2026-09-30 12:58:07.123456",
+        "updated_at": "2026-09-30 11:58:07.123456"
+      },
+      "execution": {
+        "created_at": "2026-09-30 11:58:07.123456",
+        "priority": 0,
+        "queue_name": "kraken",
+        "scheduled_at": "2026-09-30 12:58:07.123456"
+      },
+      "triggered_at": null
+    }
+  }
+}
