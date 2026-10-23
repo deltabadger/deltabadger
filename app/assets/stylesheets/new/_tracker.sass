@@ -250,6 +250,11 @@
     // line evenly and fold this one while the row still had room.
     &__switch.filters
         flex: none
+    // Three tabs (3.0, Rust only: Holdings first) leave a phone no room for a filter beside them, so there the switch
+    // takes the line and the pane's filter the next. A record with two tabs keeps its filter beside them.
+    @media (max-width: 767px)
+        &:has([data-pane="hold"]) .tracker-record__switch.filters
+            flex: 1 0 100%
     // Two date fields are most of a phone's width, and the bar has a switch and a filter to seat
     // first. The BOX goes, not the form inside it: an emptied box still takes a gap on the row.
     &__actions

@@ -1,5 +1,5 @@
-//! Plan 8a: a signal bot's webhook calls through the production path (run::step with the fake Kraken and a fake clock),
-//! with the test seam that admits signal bots until slice 8d does: one order per call, the call consumed with its intent,
+//! Plan 8a: a signal bot's webhook calls through the production path (run::step with the fake Kraken and a fake clock):
+//! one order per call, the call consumed with its intent,
 //! the barrier, the marker this engine raises and only its own recovery lifts, the crash windows, the expiry.
 mod common;
 use chrono::{DateTime, Utc};
@@ -20,8 +20,7 @@ fn plus(s: &str, secs: f64) -> FixedClock { FixedClock(t(s) + chrono::Duration::
 
 struct Setup { _dir: tempfile::TempDir, e: Engine<FakeFactory>, bot: i64, rule: i64, venue: FakeVenue }
 
-/// A started Bots::Signal on Kraken (BTC/EUR) with one rule, as BotApi::Bots::CreateSignal leaves it, under an engine that
-/// admits it.
+/// A started Bots::Signal on Kraken (BTC/EUR) with one rule, as BotApi::Bots::CreateSignal leaves it.
 fn setup(direction: i64, percentage: bool, amount: &str, venue: FakeVenue) -> Setup {
     let dir = common::rails_install();
     let p = Paths::from_env(&|_| None, dir.path());
@@ -36,8 +35,7 @@ fn setup(direction: i64, percentage: bool, amount: &str, venue: FakeVenue) -> Se
                        VALUES (?1, ?2, ?3, ?4, 1, 'tok-1', '2026-08-25 09:00:00', '2026-08-25 09:00:00')",
                       params![bot, direction, i64::from(percentage), amount]).unwrap();
     let rule = o.primary.last_insert_rowid();
-    let mut e = Engine::new(o.primary, FakeFactory(venue.clone()), seed::cipher(), lock);
-    e.admit_signal_bots_for_tests();
+    let e = Engine::new(o.primary, FakeFactory(venue.clone()), seed::cipher(), lock);
     Setup { _dir: dir, e, bot, rule, venue }
 }
 
@@ -260,7 +258,6 @@ async fn a_crash_after_the_intent_commit_never_reruns_the_call_and_recovery_sett
     let Setup { _dir, e, venue, bot: id, .. } = s;
     let (primary, factory, cipher, lock) = (e.primary, e.factory, e.cipher, e.lock);
     let mut e = Engine::new(primary, factory, cipher, lock);
-    e.admit_signal_bots_for_tests();
     run::step(&mut e, &at(T0)).await.unwrap();
     run::step(&mut e, &plus(T0, 71.0)).await.unwrap();
     assert!(venue.sent().is_empty());
@@ -282,7 +279,6 @@ async fn a_crash_after_the_send_leaves_recovery_in_charge_and_sends_nothing_more
     let Setup { _dir, e, venue, bot: id, .. } = s;
     let (primary, cipher, lock) = (e.primary, e.cipher, e.lock);
     let mut e = Engine::new(primary, FakeFactory(FakeVenue::new().ticker("XXBTZEUR", "49990.1", "50000.2", "49995.3")), cipher, lock);
-    e.admit_signal_bots_for_tests();
     run::step(&mut e, &plus(T0, 71.0)).await.unwrap();
     assert!(transient(&e.primary, id).get("rust_placement").is_none(), "settled by its recovery");
     assert_eq!(venue.sent().len(), 1, "nothing sent again");
@@ -297,7 +293,6 @@ async fn a_restart_with_an_open_intent_reconciles_it() {
     let Setup { _dir, e, venue, bot, .. } = s;
     let (primary, factory, cipher, lock) = (e.primary, e.factory, e.cipher, e.lock);
     let mut e = Engine::new(primary, factory, cipher, lock);
-    e.admit_signal_bots_for_tests();
     run::step(&mut e, &plus(T0, 5.0)).await.unwrap();
     assert_eq!(rows(&e.primary), vec![(0, Some("OLOST-9".into()), String::new(), 0.0)]);
     assert!(transient(&e.primary, bot).get("signal_placement_unresolved").is_none());
@@ -325,7 +320,7 @@ async fn the_refusals_consume_the_call_with_their_line_and_a_removed_rule_with_n
 }
 
 #[tokio::test(flavor = "current_thread", start_paused = true)]
-async fn without_the_seam_the_install_still_refuses_a_working_signal_bot() {
+async fn a_working_signal_bot_off_its_venues_refuses_the_install_by_name() {
     let dir = common::rails_install();
     let p = Paths::from_env(&|_| None, dir.path());
     let lock = lease::lock(&p, t("2026-09-01T00:00:00Z")).unwrap();
@@ -334,8 +329,10 @@ async fn without_the_seam_the_install_still_refuses_a_working_signal_bot() {
     o.primary.execute("INSERT INTO bots (type, status, exchange_id, user_id, settings, transient_data, started_at, created_at, updated_at) \
                        VALUES ('Bots::Signal', 1, ?1, ?2, ?3, '{}', '2026-08-25 09:00:00', '2026-08-25 09:00:00', '2026-08-25 09:00:00')",
                       params![s.exchange_id, s.user_id, json!({ "base_asset_id": s.btc, "quote_asset_id": s.quote }).to_string()]).unwrap();
+    o.primary.execute("UPDATE exchanges SET type = 'Exchanges::Bybit'", []).unwrap();
     let mut e = Engine::new(o.primary, FakeFactory(priced()), seed::cipher(), lock);
-    assert!(matches!(run::step(&mut e, &at(T0)).await, Err(deltabadger::engine::EngineError::Ineligible(_))), "admission is slice 8d's");
+    let r = run::step(&mut e, &at(T0)).await;
+    assert!(matches!(&r, Err(deltabadger::engine::EngineError::Ineligible(p)) if p.iter().any(|l| l.contains("a signal bot on Bybit"))), "{r:?}");
 }
 
 #[tokio::test(flavor = "current_thread", start_paused = true)]

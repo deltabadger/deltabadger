@@ -1482,10 +1482,10 @@ async fn a_request_for_a_host_that_is_not_allowed_is_refused_before_anything_rea
     assert_eq!(ask(&open, "GET", "/up", "evil.example", Some("other.example")).await.0, 200, "no ALLOWED_HOSTS: no list");
 }
 
-/// Slices 8c-1 and 8c-2: a signal bot's pages, forms and actions are served only where the app admits them (tests, until
-/// plan 8d), and each shape its pages cannot print is named.
+/// Slices 8c-1, 8c-2 and 8d: a signal bot's pages, forms and actions are served on the venues the engine runs signal bots
+/// on (eligibility::signal_admission), and each shape its pages cannot print is named.
 #[test]
-fn a_signal_bot_is_refused_until_admitted_and_then_for_what_its_pages_cannot_print() {
+fn a_signal_bot_is_refused_off_its_venues_and_for_what_its_pages_cannot_print() {
     use deltabadger::web::bot::{self, For};
     use serde_json::json;
     let (_dir, opened, seeded) = common::install_alpaca();
@@ -1497,12 +1497,18 @@ fn a_signal_bot_is_refused_until_admitted_and_then_for_what_its_pages_cannot_pri
     let rule = |direction: i64, amount: &str| c.execute("INSERT INTO bot_signals (bot_id, direction, amount_type, amount, enabled, token, created_at, updated_at) \
         VALUES (?1, ?2, 0, ?3, 1, ?4, '2026-08-25 09:00:00', '2026-08-25 09:00:00')", (id, direction, amount, format!("tok-{direction}-{amount}"))).unwrap();
     rule(0, "10");
-    let refusal = |wash: Option<bool>, asked: For, admitted: bool| bot::refusal(c, id, wash, true, asked, admitted).unwrap();
-    assert_eq!(refusal(Some(false), For::Page, false), Some("a signal bot (plan 8d admits the type)"), "production: refused until 8d");
+    let refusal = |wash: Option<bool>, asked: For, _: bool| bot::refusal(c, id, wash, true, asked).unwrap();
     assert_eq!(refusal(Some(false), For::Page, true), None);
     assert_eq!(refusal(Some(false), For::Feed, true), None);
     assert_eq!(refusal(Some(false), For::Settings, true), None);
-    assert_eq!(refusal(Some(false), For::Settings, false), Some("a signal bot (plan 8d admits the type)"));
+    // The engine's rule: a venue it trades on whose signal path is not recorded is named; one it does not trade on too.
+    for (venue, why) in [("Exchanges::Bybit", "a signal bot on Bybit (its signal orders are not recorded against Rails yet)"),
+                         ("Exchanges::Ibkr", "a signal bot on an exchange other than Kraken, Binance, KuCoin, Hyperliquid and Alpaca")] {
+        c.execute_batch("SAVEPOINT venue;").unwrap();
+        c.execute("UPDATE exchanges SET type = ?1", [venue]).unwrap();
+        assert_eq!(refusal(Some(false), For::Page, true), Some(why), "{venue}");
+        c.execute_batch("ROLLBACK TO venue; RELEASE venue;").unwrap();
+    }
     // The account-wide rule's table is not printed; the feed answers whatever it says.
     assert_eq!(refusal(Some(true), For::Page, true), Some("the wash-sale rule"));
     assert_eq!(refusal(Some(true), For::Feed, true), None);
@@ -1538,7 +1544,7 @@ fn a_bot_row_is_read_as_the_pages_need_it_and_refused_when_this_build_cannot_ren
     let now: chrono::DateTime<chrono::Utc> = NOW.parse().unwrap();
     let id = common::seed::insert_bot(c, &seeded, &common::seed::BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
     c.execute("UPDATE bots SET label = 'Bitcoin' WHERE id = ?1", [id]).unwrap();
-    let refusal = || bot::refusal(c, id, Some(false), true, bot::For::Page, false).unwrap();
+    let refusal = || bot::refusal(c, id, Some(false), true, bot::For::Page).unwrap();
     assert_eq!(refusal(), None, "the engine's fixture stores only what the engine reads: a row from before the rules existed");
 
     // What each concern's after_initialize supplies on load, and the wizard then stores, for a one-asset basket.
@@ -1623,7 +1629,7 @@ fn a_bot_row_is_read_as_the_pages_need_it_and_refused_when_this_build_cannot_ren
         let mut slow = settings.clone();
         (slow["smart_intervaled"], slow["smart_interval_quote_amount"]) = (json!(true), slice);
         store(&slow);
-        assert_eq!(bot::refusal(c, id, Some(false), true, bot::For::Page, false).unwrap(), None, "the row alone does not say it");
+        assert_eq!(bot::refusal(c, id, Some(false), true, bot::For::Page).unwrap(), None, "the row alone does not say it");
         Bot::find(c, seeded.user_id, id, bot::For::Page, "en").unwrap().unwrap().unrendered()
     };
     let too_far = Some("Smart Intervals that leave more than a thousand years between two orders");
@@ -1631,7 +1637,7 @@ fn a_bot_row_is_read_as_the_pages_need_it_and_refused_when_this_build_cannot_ren
     let mut oversized = settings.clone();
     (oversized["smart_intervaled"], oversized["smart_interval_quote_amount"]) = (json!(true), json!(1.7e308));
     store(&oversized);
-    assert!(format!("{:?}", bot::refusal(c, id, Some(false), true, bot::For::Page, false).unwrap_err()).contains("accounting magnitude exceeds 2^53"), "R8 refuses before lossy interval arithmetic");
+    assert!(format!("{:?}", bot::refusal(c, id, Some(false), true, bot::For::Page).unwrap_err()).contains("accounting magnitude exceeds 2^53"), "R8 refuses before lossy interval arithmetic");
     // And at the other end: this bot is scheduled, and a slice of nothing, of less than nothing, or small enough to
     // underflow leaves no span to compute a checkpoint from. 60 a week is an order a second at a slice of 60/604800.
     let no_time = Some("a working bot whose Smart Intervals leave no time between two orders");
@@ -1652,7 +1658,7 @@ fn a_bot_row_is_read_as_the_pages_need_it_and_refused_when_this_build_cannot_ren
         let mut changed = settings.clone();
         change(&mut changed);
         store(&changed);
-        bot::refusal(c, id, wash_sale, deltabadger, bot::For::Page, false).unwrap()
+        bot::refusal(c, id, wash_sale, deltabadger, bot::For::Page).unwrap()
     };
     // A one-asset basket that sells is served; a wider one, or a cap on what is sold, is not yet (6b, 6d).
     let one = |s: &mut serde_json::Value| { let id = s["allocations"].as_object().unwrap().keys().next().unwrap().clone(); s["allocations"] = json!({ id: 1.0 }); s["direction"] = json!("selling"); };
@@ -1743,13 +1749,13 @@ fn a_bot_row_is_read_as_the_pages_need_it_and_refused_when_this_build_cannot_ren
     assert_eq!(refused(&|_| {}, Some(false), true), shape, "R9: a present empty timestamp refuses; only absent/NULL is no time");
     // The carry Rails writes after a budget of 1e31 and a fill of 100 is readable as BigDecimal, but R8 refuses its magnitude.
     c.execute("UPDATE bots SET transient_data = ?1 WHERE id = ?2", (json!({ "missed_quote_amount": "9999999999999999999999999999900.0" }).to_string(), id)).unwrap();
-    assert!(format!("{:?}", bot::refusal(c, id, Some(false), true, bot::For::Page, false).unwrap_err()).contains("accounting magnitude exceeds 2^53"), "oversized persisted carry");
+    assert!(format!("{:?}", bot::refusal(c, id, Some(false), true, bot::For::Page).unwrap_err()).contains("accounting magnitude exceeds 2^53"), "oversized persisted carry");
     c.execute("UPDATE bots SET transient_data = '{}' WHERE id = ?1", [id]).unwrap();
     assert_eq!(refused(&|_| {}, Some(true), true), Some("the wash-sale rule"));
     assert_eq!(refused(&|_| {}, None, true), None, "not answered, and nothing traded: Rails asks nothing yet");
     store(&settings);
     for (sql, reason) in [
-        ("UPDATE bots SET type = 'Bots::Signal'", "a signal bot (plan 8d admits the type)"),
+        ("UPDATE bots SET type = 'Bots::Signal'", "settings the wizard always stores are missing"),
         ("UPDATE bots SET transient_data = '{\"rebalance_pending\":{\"phase\":\"selling\"}}'", "a rebalance, liquidation or redeploy in progress"),
         ("UPDATE exchanges SET type = 'Exchanges::Ibkr'", "a bot on an exchange other than Alpaca, Kraken, Binance, Binance.US, KuCoin, Bitvavo, Gemini, Bitget, MEXC, Hyperliquid, Bybit, Bitrue, Coinbase and BingX"),
         ("UPDATE exchanges SET type = 'Exchanges::Kraken'; UPDATE bots SET type = 'Bots::DcaIndex', settings = json_set(settings, '$.direction', 'selling')", "an index bot that sells"),
@@ -1805,8 +1811,8 @@ fn a_bot_row_is_read_as_the_pages_need_it_and_refused_when_this_build_cannot_ren
     assert!(!bot::unreadable(&deltabadger::web::WebError::Config("anything else".into())));
     c.execute("UPDATE bots SET type = 'Bots::DcaIndex', settings = ?1 WHERE id = ?2", (json!({ "quote_asset_id": seeded.quote, "quote_amount": 100, "interval": "week", "num_coins": 10,
         "allocation_flattening": 0.0, "index_type": "top", "smart_intervaled": false, "limit_ordered": false, "limit_order_pcnt_distance": 0.001 }).to_string(), id)).unwrap();
-    assert_eq!(bot::refusal(c, id, Some(false), false, bot::For::Page, false).unwrap(), Some("an index bot whose market data comes from CoinGecko"));
-    assert_eq!(bot::refusal(c, id, Some(false), true, bot::For::Page, false).unwrap(), None);
+    assert_eq!(bot::refusal(c, id, Some(false), false, bot::For::Page).unwrap(), Some("an index bot whose market data comes from CoinGecko"));
+    assert_eq!(bot::refusal(c, id, Some(false), true, bot::For::Page).unwrap(), None);
     store(&settings);
     c.execute("UPDATE bots SET type = 'Bots::DcaMultiAsset' WHERE id = ?1", [id]).unwrap();
 
@@ -1816,31 +1822,31 @@ fn a_bot_row_is_read_as_the_pages_need_it_and_refused_when_this_build_cannot_ren
                                                    VALUES (?1, ?2, ?3, 0, 2, ?4, ?5, 'week', 60, '[]', '2026-09-08 10:00:00', '2026-09-08 10:00:00')", (id, seeded.exchange_id, seeded.btc, side, kind)).unwrap();
     order(0, "REGULAR");
     assert_eq!(refusal(), None);
-    assert_eq!(bot::refusal(c, id, None, true, bot::For::Page, false).unwrap(), Some("the wash-sale question not answered yet"));
+    assert_eq!(bot::refusal(c, id, None, true, bot::For::Page).unwrap(), Some("the wash-sale question not answered yet"));
     // A sale on Alpaca is read by the engine's walk: the forms and the figures page serve it. A page without figures cannot
     // show the profit or loss it realised.
     order(1, "REGULAR");
-    assert_eq!(bot::refusal(c, id, Some(false), true, bot::For::Settings, false).unwrap(), None);
-    assert_eq!(bot::refusal(c, id, Some(false), true, bot::For::FiguresPage, false).unwrap(), None);
+    assert_eq!(bot::refusal(c, id, Some(false), true, bot::For::Settings).unwrap(), None);
+    assert_eq!(bot::refusal(c, id, Some(false), true, bot::For::FiguresPage).unwrap(), None);
     assert_eq!(refusal(), Some(bot::REALISED_WITHOUT_FIGURES));
     // A settled REBALANCE sell on an Alpaca basket is read by the engine's walk since 6b T8: the settings serve it, and the page
     // refuses it as it refuses any sale.
     order(1, "REBALANCE");
-    assert_eq!(bot::refusal(c, id, Some(false), true, bot::For::Settings, false).unwrap(), None);
-    assert_eq!(bot::refusal(c, id, Some(false), true, bot::For::Page, false).unwrap(), Some(bot::REALISED_WITHOUT_FIGURES));
+    assert_eq!(bot::refusal(c, id, Some(false), true, bot::For::Settings).unwrap(), None);
+    assert_eq!(bot::refusal(c, id, Some(false), true, bot::For::Page).unwrap(), Some(bot::REALISED_WITHOUT_FIGURES));
     c.execute("DELETE FROM transactions WHERE transaction_type = 'REBALANCE'", []).unwrap();
     // A basket's LIQUIDATION and REDEPLOY rows are still refused, by the page and the settings; the feed does not ask.
     for (side, kind) in [(1, "LIQUIDATION"), (0, "REDEPLOY")] {
         order(side, kind);
         for asked in [bot::For::Page, bot::For::Settings] {
-            assert_eq!(bot::refusal(c, id, Some(false), true, asked, false).unwrap(), Some(bot::UNREAD_ORDERS), "{kind}");
+            assert_eq!(bot::refusal(c, id, Some(false), true, asked).unwrap(), Some(bot::UNREAD_ORDERS), "{kind}");
         }
-        assert_eq!(bot::refusal(c, id, Some(false), true, bot::For::Feed, false).unwrap(), None, "{kind}");
+        assert_eq!(bot::refusal(c, id, Some(false), true, bot::For::Feed).unwrap(), None, "{kind}");
         c.execute("DELETE FROM transactions WHERE transaction_type = ?1", [kind]).unwrap();
     }
     // An order whose asset is not recorded is not a special row: the settings serve it, and the engine's guard refuses its start.
     c.execute("UPDATE transactions SET base_asset_id = NULL WHERE side = 1", []).unwrap();
-    assert_eq!(bot::refusal(c, id, Some(false), true, bot::For::Settings, false).unwrap(), None);
+    assert_eq!(bot::refusal(c, id, Some(false), true, bot::For::Settings).unwrap(), None);
     c.execute("DELETE FROM transactions WHERE side = 1", []).unwrap();
     // The feed is not given the four facts about the bot's orders either: each may walk the history.
     assert!(Bot::find(c, seeded.user_id, id, bot::For::Page, "en").unwrap().unwrap().has_orders);
@@ -2792,7 +2798,7 @@ async fn a_resolve_lifts_a_lone_marker_and_leaves_one_the_engine_still_settles()
     let id = c.last_insert_rowid();
     c.execute("INSERT INTO bot_signals (bot_id, direction, amount_type, amount, enabled, token, created_at, updated_at) \
                VALUES (?1, 0, 0, 10, 1, 'tok-resolve', '2026-08-25 09:00:00', '2026-08-25 09:00:00')", [id]).unwrap();
-    let app = web::app(dir.path(), web::SECRET, TestClock::at(NOW)).admit_signal_bots_for_tests().unwrap();
+    let app = web::app(dir.path(), web::SECRET, TestClock::at(NOW));
     let mut browser = Browser::default();
     browser.get(&app, "/login").await;
     assert_eq!(browser.post(&app, "/login", &[("user[email]", "o@example.com"), ("user[password]", "Correct-horse-9")]).await.status, 303);
@@ -2828,7 +2834,7 @@ async fn a_signal_stop_commits_beside_a_bot_that_cannot_be_drawn() {
     let id = c.last_insert_rowid();
     c.execute("INSERT INTO bot_signals (bot_id, direction, amount_type, amount, enabled, token, created_at, updated_at) \
                VALUES (?1, 0, 0, 10, 1, 'tok-stop', '2026-08-25 09:00:00', '2026-08-25 09:00:00')", [id]).unwrap();
-    let app = web::app(dir.path(), web::SECRET, TestClock::at(NOW)).admit_signal_bots_for_tests().unwrap();
+    let app = web::app(dir.path(), web::SECRET, TestClock::at(NOW));
     let mut browser = Browser::default();
     browser.get(&app, "/login").await;
     assert_eq!(browser.post(&app, "/login", &[("user[email]", "o@example.com"), ("user[password]", "Correct-horse-9")]).await.status, 303);

@@ -444,8 +444,7 @@ pub enum For { Page, Feed, FiguresPage, Settings }
 
 /// Why a bot's pages are not served by this build. Rails serves each of these; porting what
 /// a line names removes it.
-/// `signals`: whether this app reads a signal bot's pages (App::signal_pages, tests only until slice 8d admits the type).
-pub fn refusal(c: &Connection, bot_id: i64, wash_sale_enabled: Option<bool>, provider_is_deltabadger: bool, asked: For, signals: bool) -> Result<Option<&'static str>, WebError> {
+pub fn refusal(c: &Connection, bot_id: i64, wash_sale_enabled: Option<bool>, provider_is_deltabadger: bool, asked: For) -> Result<Option<&'static str>, WebError> {
     let row = c.query_row("SELECT b.type, e.type, b.settings, b.transient_data FROM bots b LEFT JOIN exchanges e ON e.id = b.exchange_id WHERE b.id = ?1",
                           [bot_id], |r| Ok((r.get::<_, Option<String>>(0)?, r.get::<_, Option<String>>(1)?, r.get::<_, String>(2)?, r.get::<_, String>(3)?)))?;
     let (class, exchange, settings, transient) = row;
@@ -453,7 +452,7 @@ pub fn refusal(c: &Connection, bot_id: i64, wash_sale_enabled: Option<bool>, pro
     let transient: Value = serde_json::from_str(&transient).unwrap_or(Value::Null);
     let truthy = |value: Option<&Value>| value.is_some_and(|v| !matches!(v, Value::Null | Value::Bool(false)) && v.as_str() != Some("") && v.as_str() != Some("0") && v.as_str() != Some("false"));
     let class = class.unwrap_or_default();
-    if class == crate::engine::model::SIGNAL_TYPE { return signal::refusal(c, bot_id, exchange.as_deref(), &settings, &transient, wash_sale_enabled, asked, signals); }
+    if class == crate::engine::model::SIGNAL_TYPE { return signal::refusal(c, bot_id, exchange.as_deref(), &settings, &transient, wash_sale_enabled, asked); }
     if class != "Bots::DcaMultiAsset" && class != "Bots::DcaIndex" { return Ok(Some("a bot of a type this build does not render")); }
     // The venues and classes the engine runs: one rule for both.
     let member_count = settings.get("allocations").and_then(Value::as_object).map_or(0, |weights| weights.len());

@@ -119,6 +119,7 @@ fn bot_reasons_with(c: &Connection, bot: &Bot, splits: &mut SplitRows) -> Result
     let mut r = rails_work(c, bot)?;
     // Nothing else in such a history can be read (the shared row reader refuses it): name it and stop.
     if r.iter().any(|reason| reason.ends_with(UNKNOWN_STATUS)) { return Ok(r); }
+    if bot.bot_type == model::SIGNAL_TYPE { signal_reasons(c, bot, splits, &mut r)?; return Ok(r); }
     let index = bot.bot_type == "Bots::DcaIndex";
     if !index && bot.bot_type != "Bots::DcaMultiAsset" { r.push(format!("type {} (only DCA baskets and index bots)", bot.bot_type)); }
     let exchange: Option<String> = c.query_row("SELECT type FROM exchanges WHERE id = ?1", [bot.exchange_id], |r| r.get(0)).optional()?;
@@ -195,6 +196,59 @@ pub fn admission(exchange: Option<&str>, index: bool, selling: bool) -> Option<&
     if selling && index { Some("an index bot that sells") } else { None }
 }
 
+/// The venues whose signal path (engine::signal, Bot::SignalJob and Bots::Signal::OrderSetter) is recorded against Rails:
+/// script/rust/decisions.rb grid-signal. A venue joins with its cases there.
+pub const SIGNAL_VENUES: [&str; 5] = ["Exchanges::Kraken", "Exchanges::Binance", "Exchanges::Kucoin", "Exchanges::Hyperliquid", "Exchanges::Alpaca"];
+
+/// Which signal bots this build runs, by venue: the one rule the engine's guard and the signal bot's pages
+/// (web::bot::signal::refusal) both apply. A venue this engine trades on whose signal path is not recorded is named.
+pub fn signal_admission(exchange: Option<&str>) -> Option<&'static str> {
+    if exchange.is_some_and(|e| SIGNAL_VENUES.contains(&e)) { return None; }
+    Some(match exchange.and_then(crate::venue::registry::trading_rules).map(|r| r.name) {
+        Some("Binance.US") => "a signal bot on Binance.US (its signal orders are not recorded against Rails yet)",
+        Some("Bitvavo") => "a signal bot on Bitvavo (its signal orders are not recorded against Rails yet)",
+        Some("Gemini") => "a signal bot on Gemini (its signal orders are not recorded against Rails yet)",
+        Some("Bitget") => "a signal bot on Bitget (its signal orders are not recorded against Rails yet)",
+        Some("MEXC") => "a signal bot on MEXC (its signal orders are not recorded against Rails yet)",
+        Some("Bybit") => "a signal bot on Bybit (its signal orders are not recorded against Rails yet)",
+        Some("Bitrue") => "a signal bot on Bitrue (its signal orders are not recorded against Rails yet)",
+        Some("Coinbase") => "a signal bot on Coinbase (its signal orders are not recorded against Rails yet)",
+        Some("BingX") => "a signal bot on BingX (its signal orders are not recorded against Rails yet)",
+        _ => "a signal bot on an exchange other than Kraken, Binance, KuCoin, Hyperliquid and Alpaca",
+    })
+}
+
+/// Bots::Signal (plan 8d T1): one pair, traded by its webhook rules (engine::signal), never ticked. Refused, by name: a
+/// venue `signal_admission` refuses; a setting, a rule or a waiting call this build does not read; no ticker for the pair,
+/// or one with more decimals than the pages round to; history rows other than its own REGULAR orders (history_reasons);
+/// the wash-sale rule. A basket's interval, amount and allocations are not asked of it.
+fn signal_reasons(c: &Connection, bot: &Bot, splits: &mut SplitRows, r: &mut Vec<String>) -> Result<(), EngineError> {
+    let exchange: Option<String> = c.query_row("SELECT type FROM exchanges WHERE id = ?1", [bot.exchange_id], |r| r.get(0)).optional()?;
+    if let Some(why) = signal_admission(exchange.as_deref()) { r.push(why.into()); }
+    let alpaca = exchange.as_deref() == Some("Exchanges::Alpaca");
+    let id = |key: &str| bot.settings.get(key).and_then(Value::as_i64);
+    let (Some(base), Some(_)) = (id("base_asset_id"), id("quote_asset_id")) else {
+        r.push("settings: base_asset_id or quote_asset_id missing or not an id".into());
+        return Ok(());
+    };
+    if let Err(e) = model::signals(c, bot.id) { r.push(format!("a signal rule this build does not read ({e:?})")); }
+    if let Err(e) = bot.signal_calls() { r.push(format!("{e:?}")); }
+    let wash: Option<Option<bool>> = c.query_row("SELECT wash_sale_enabled FROM users WHERE id = ?1", [bot.user_id], |r| r.get(0)).optional()?;
+    match wash { None => r.push("user not found".into()), Some(Some(true)) => r.push("wash_sale enabled for the user".into()), _ => {} }
+    history_reasons(c, bot, alpaca, &[base], splits, r)?;
+    // The pair's ticker on this venue, within the decimals the pages round to. Its asset: a plain cryptocurrency, or a stock (Alpaca's catalog,
+    // whatever its instrument type: the pair's sizing and its market clock are the venue's, never a basket's split walk).
+    let Some(t) = model::ticker_for(c, bot)? else { r.push(format!("no ticker for the asset {base} on this venue")); return Ok(()) };
+    let max = crate::web::bot::MAX_DECIMALS;
+    if [t.base_decimals, t.quote_decimals, t.price_decimals].iter().any(|d| !(0..=max).contains(d)) { r.push(format!("a ticker with more than {max} decimals")); }
+    let (category, instrument): (Option<String>, Option<String>) = c.query_row("SELECT category, instrument_type FROM assets WHERE id = ?1", [base], |r| Ok((r.get(0)?, r.get(1)?)))?;
+    let crypto = category.as_deref() == Some("Cryptocurrency") && instrument.is_none();
+    let stock = alpaca && category.as_deref() == Some("Stock");
+    if !crypto && !stock {
+        r.push(format!("asset category {} / instrument {} (only plain cryptocurrencies, and stocks on Alpaca)", category.unwrap_or_default(), instrument.unwrap_or_default()));
+    }
+    Ok(())
+}
 
 /// Selling: a one-asset basket on Kraken, Binance or Alpaca (slice 6a, one_asset_sell_orders_data), or a wider Alpaca basket
 /// (6b, the ranked DCA-out of get_sell_orders_data), sized from the sell sentence and scheduled on the sell cadence. Refused

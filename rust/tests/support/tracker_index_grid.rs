@@ -1,6 +1,6 @@
 #[allow(dead_code)]
 #[path = "tabs_3_0.rs"]
-mod tabs;
+pub mod tabs;
 use crate::common;
 use common::web::{self, Browser, Csrf, TestClock};
 use deltabadger::web::{csrf, session, cable};

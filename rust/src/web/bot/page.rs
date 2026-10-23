@@ -188,7 +188,7 @@ pub(super) fn find(c: &Connection, app: &App, user: &User, segment: &str, delete
         Some(_) => {}
     }
     let wash_sale: Option<bool> = c.query_row("SELECT wash_sale_enabled FROM users WHERE id = ?1", [user.id], |r| r.get(0))?;
-    if let Some(reason) = refusal(c, id, wash_sale, deltabadger, asked, app.signal_pages())? { return Ok((Found::NotPorted(reason), configured)); }
+    if let Some(reason) = refusal(c, id, wash_sale, deltabadger, asked)? { return Ok((Found::NotPorted(reason), configured)); }
     let found = match Bot::find(c, user.id, id, asked, locale)? {
         None => Found::Missing,
         Some(bot) => bot.unrendered().map_or_else(|| Found::Bot(Box::new(bot)), Found::NotPorted),

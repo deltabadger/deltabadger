@@ -203,8 +203,8 @@ fn claim_install(lock: &EngineLock, o: &store::Opened, cipher: &Cipher) -> Resul
         Err(EngineError::Ineligible(p)) => { eprintln!("deltabadger: this install uses things only the full app runs:\n{}", p.join("\n")); return Err(EXIT_REFUSED); }
         Err(e) => { eprintln!("deltabadger: takeover failed: {e:?}"); return Err(EXIT_ENGINE_ERROR); }
     };
-    log(&format!("took over ({:?}): {} bot(s), {} Rails job(s) removed, {} bot(s) back to scheduled",
-                 t.claim, t.eligible.len(), t.deleted_jobs, t.normalised));
+    log(&format!("took over ({:?}): {} bot(s), {} Rails job(s) removed, {} webhook call(s) taken over, {} bot(s) back to scheduled",
+                 t.claim, t.eligible.len(), t.deleted_jobs, t.imported_calls, t.normalised));
     Ok(())
 }
 
