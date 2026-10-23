@@ -34,6 +34,8 @@ pub const ORDER_PATH: &str = "/v2/order";
 pub const TRADES_PATH: &str = "/v2/trades";
 pub const BALANCE_PATH: &str = "/v2/balance";
 pub const MARKETS_PATH: &str = "/v2/markets";
+/// Exchanges::Bitvavo#get_tickers_prices' path (Clients::Bitvavo#get_ticker_price, no market: every market).
+pub const TICKER_PRICE: &str = "/v2/ticker/price";
 /// A 200 to the order without an orderId: Rails stores the order as "<market>-"; Bitvavo took the order, or may have.
 pub const NO_ORDER_ID: &str = "Bitvavo answered the order with no order id";
 /// Plan VB §1.5: on Bitvavo absence is never concluded. The client-order lookup answers 240 for an order it does not hold,
@@ -357,7 +359,7 @@ impl<T: Transport> super::Venue for BitvavoVenue<T> {
     /// Exchanges::Bitvavo#get_tickers_prices: GET /v2/ticker/price for every market (`ticker_prices`). A 2xx body that is not
     /// JSON is honeymaker's Failure (its text). Rails caches the answer for a minute; this reads fresh.
     async fn tickers_prices(&self, _symbols: &[String]) -> Result<Vec<(String, Value)>, VenueError> {
-        let text = self.answer(&self.request("GET", "/v2/ticker/price", vec![], None), false).await?;
+        let text = self.answer(&self.request("GET", TICKER_PRICE, vec![], None), false).await?;
         let body = match http::decode_json(&text) {
             Err(http::DecodeError::NotJson) => return Err(VenueError::Rejected(vec![self.transport.redact_diagnostic(&text)])),
             other => other.map_err(|_| unreadable())?,

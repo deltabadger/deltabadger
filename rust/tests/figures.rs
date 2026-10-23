@@ -9,9 +9,9 @@ use std::process::Command;
 use std::sync::OnceLock;
 mod common;
 
-/// The scenarios of script/rust/figures.rb: 129 written by hand, one per branch of the code they name, 24 seeded
+/// The scenarios of script/rust/figures.rb: 135 written by hand, one per branch of the code they name, 24 seeded
 /// histories that mix every kind of order with splits, and 8 of a pair bot's.
-const SCENARIOS: usize = 161;
+const SCENARIOS: usize = 167;
 
 /// The named divergences from Rails, each a defect there, asserted on their own (`the_named_divergences_hold`) and
 /// left out of the comparisons: D1, a closed row with no value reported is valued at the units it executed (Rails: at
@@ -172,7 +172,7 @@ fn the_walk_over_the_orders_matches_rails_in_every_scenario() {
     // The grid means what it says only if the figures in it are figures: no scenario's walk ends in a raise.
     let walked = grid().scenarios.iter().flat_map(|s| s.rails["bots"].as_object().unwrap().values()).filter_map(|bot| bot["metrics"].as_str())
         .filter(|metrics| !metrics.contains("\"raised\"")).count();
-    assert_eq!(walked, 192, "bots walked on the Rails side");
+    assert_eq!(walked, 198, "bots walked on the Rails side");
 }
 
 #[test]
@@ -214,7 +214,7 @@ fn the_live_figures_match_rails_in_every_scenario() {
     let lives: Vec<&str> = grid().scenarios.iter().flat_map(|s| s.rails["bots"].as_object().unwrap().values()).filter_map(|bot| bot["live"].as_str()).collect();
     let count = |needle: &str| lives.iter().filter(|live| live.contains(needle)).count();
     // Every way the pass can end is met: marked at the market, fallen back to the last fills, or raised to a retry.
-    assert_eq!((count("\"live_prices\""), count("\"prices_stale\":true"), count("\"raised\"")), (162, 13, 4), "of {} bots", lives.len());
+    assert_eq!((count("\"live_prices\""), count("\"prices_stale\":true"), count("\"raised\"")), (167, 14, 4), "of {} bots", lives.len());
 }
 
 /// Rails leaves a held asset it cannot price out of the value without a word. The figures stay Rails'; beside them
@@ -256,7 +256,7 @@ fn the_chart_marked_at_market_matches_rails_in_every_scenario() {
     let charts: Vec<&Value> = grid().scenarios.iter().flat_map(|s| s.rails["bots"].as_object().unwrap().values()).map(|bot| &bot["chart"]).filter(|chart| chart.is_object()).collect();
     let with = |name: &str, needle: &str| charts.iter().filter(|chart| chart[name].as_str().is_some_and(|text| text.contains(needle))).count();
     // Points that kept their fill mark (a null in a holding's series) and prices outside a grid's reach are both met.
-    assert_eq!((charts.len(), with("assets", "null"), with("prices", "null"), with("pnl-only", "true")), (176, 18, 35, 1));
+    assert_eq!((charts.len(), with("assets", "null"), with("prices", "null"), with("pnl-only", "true")), (182, 21, 41, 1));
 }
 
 /// The chart marked at market leaves out of every point a holding the bot has no ticker for today, though the
@@ -310,7 +310,7 @@ fn the_market_is_asked_for_exactly_what_rails_asks_it() {
         assert_eq!(scenario.rails["requests"], scenario.rust.as_ref().unwrap()["requests"], "{}", scenario.name);
     }
     let asked: usize = grid().scenarios.iter().map(|s| s.rails["requests"].as_array().map_or(0, Vec::len)).sum();
-    assert_eq!(asked, 840, "requests on the Rails side");
+    assert_eq!(asked, 879, "requests on the Rails side");
 }
 
 /// The one scenario with a bot this library does not compute: a bot of a type no build knows, beside a basket.
@@ -523,4 +523,30 @@ fn mexc_bitrue_and_bingx_series_are_kept_across_steps_and_asked_for_as_rails_ask
     assert_eq!(asked("bingx_series", "/market/kline?"), [2, 2, 2], "one read a series, the rebuild the tail's own");
     let bingx = of("bingx_failed_page").rails["bots"].as_object().unwrap().values().next().unwrap().clone();
     assert!(bingx["live"].as_str().unwrap().contains("\"prices_stale\":true"));
+}
+
+/// Bitvavo, Bitget and Bybit (each Exchange's #get_tickers_prices and #get_candles under CandleSeriesCache): Bitvavo's pages
+/// of 1440 read back from now by `end`; Bitget's pages of 1000 from the start to endTime = now; Bybit's pages of 1000 from
+/// the start, newest first within a page, under its retCode envelope. Each a cold read, a tail from the last stored candle,
+/// a moved overlap and the whole series read again; a failed later page leaves that holding without a grid, and Bybit's
+/// refusing ticker leaves the bot's prices stale.
+#[test]
+fn bitvavo_bitget_and_bybit_series_are_kept_across_steps_and_asked_for_as_rails_asks() {
+    let of = |name: &str| grid().scenarios.iter().find(|s| s.name == name).unwrap();
+    for venue in ["bitvavo", "bitget", "bybit"] {
+        for name in [format!("{venue}_series"), format!("{venue}_failed_page")] {
+            let scenario = of(&name);
+            assert_eq!(scenario.rails["steps"], scenario.rust.as_ref().unwrap()["steps"], "{name}");
+        }
+        let chart = &of(&format!("{venue}_failed_page")).rails["bots"].as_object().unwrap().values().next().unwrap()["chart"]["prices"];
+        assert!(chart.as_str().unwrap().contains("\"BTC\":[50000.0"), "{venue}: {chart}");
+    }
+    let asked = |name: &str, needle: &str| -> Vec<usize> {
+        of(name).rails["steps"].as_array().unwrap().iter().map(|step| step["requests"].as_array().unwrap().iter().filter(|r| r.as_str().unwrap().contains(needle)).count()).collect()
+    };
+    for (name, needle) in [("bitvavo_series", "/candles?"), ("bitget_series", "/market/candles?"), ("bybit_series", "/market/kline?")] {
+        assert_eq!(asked(name, needle), [3, 2, 4], "{name}: BTC's two pages and ETH's one, one each a tail, then BTC's tail and its two-page rebuild beside ETH's tail");
+    }
+    let bybit = of("bybit_failed_page").rails["bots"].as_object().unwrap().values().next().unwrap().clone();
+    assert!(bybit["live"].as_str().unwrap().contains("\"prices_stale\":true"));
 }

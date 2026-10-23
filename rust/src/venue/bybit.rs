@@ -18,6 +18,8 @@ pub const REALTIME_PATH: &str = "/v5/order/realtime";
 pub const HISTORY_PATH: &str = "/v5/order/history";
 pub const TICKERS_PATH: &str = "/v5/market/tickers";
 pub const ORDERBOOK_PATH: &str = "/v5/market/orderbook";
+/// Clients::Bybit#kline's path.
+pub const KLINE_PATH: &str = "/v5/market/kline";
 pub const NO_CODE: &str = "Bybit answered the order with no result code";
 pub const NO_ORDER_ID: &str = "Bybit answered the order with no order id";
 pub fn headers(r: &HttpRequest, key: &str, secret: &str, timestamp_ms: i64) -> Vec<(String, String)> {
@@ -37,6 +39,18 @@ fn required(v: &Value) -> Result<BigDec, VenueError> { super::json::required(v, 
 fn decimal(v: &Value) -> Result<BigDec, VenueError> { if v.is_null() || v.as_str() == Some("") { Ok(BigDec::zero()) } else { required(v) } }
 pub(crate) fn failure_text(text: &str) -> String {
     serde_json::from_str::<Value>(text).ok().and_then(|v| v.get("retMsg").or_else(|| v.get("msg")).and_then(Value::as_str).filter(|s| !s.is_empty()).map(str::to_string)).unwrap_or_else(|| text.into())
+}
+/// The prices of a market/tickers answer whose retCode was 0, as Exchanges::Bybit#get_tickers_prices reads them: every row of
+/// `result.list` (`dig_or_raise`d) by its `symbol` and `lastPrice`, a later row for a symbol replacing an earlier one. Shared
+/// by the engine (`tickers_prices`, after `call`'s retCode) and the figures.
+pub fn ticker_prices(body: &Value) -> Result<Vec<(String, BigDec)>, VenueError> {
+    let mut out = vec![];
+    for row in body["result"]["list"].as_array().ok_or_else(unreadable)? {
+        let symbol = to_s(super::dig_or_raise(row, "symbol")?);
+        let p = decimal(super::dig_or_raise(row, "lastPrice")?)?;
+        out.retain(|(s, _)| s != &symbol); out.push((symbol, p));
+    }
+    Ok(out)
 }
 pub fn free_balance(coin: &Value) -> Result<BigDec, VenueError> {
     if coin.get("walletBalance").is_some_and(|v| !v.is_null() && v.as_str().is_none_or(|s| !crate::ruby::blank(s))) {
@@ -220,13 +234,7 @@ impl<T: Transport> super::Venue for BybitVenue<T> {
     where F: FnOnce() -> Result<crate::sync::balances::Catalog, VenueError> { self.available(|code| code == t.quote_code).await }
     async fn tickers_prices(&self, _symbols: &[String]) -> Result<Vec<(String, Value)>, VenueError> {
         let b = self.get(TICKERS_PATH, vec![("category", "spot".into())]).await?;
-        let mut out = vec![];
-        for row in b["result"]["list"].as_array().ok_or_else(unreadable)? {
-            let symbol = to_s(super::dig_or_raise(row, "symbol")?);
-            let p = decimal(super::dig_or_raise(row, "lastPrice")?)?;
-            out.retain(|(s,_)| s != &symbol); out.push((symbol, Value::String(p.to_s_f())));
-        }
-        Ok(out)
+        Ok(ticker_prices(&b)?.into_iter().map(|(symbol, p)| (symbol, Value::String(p.to_s_f()))).collect())
     }
     async fn cancel(&self, id: &str) -> Result<(), VenueError> {
         let raw = self.find(id).await?.ok_or_else(|| VenueError::Rejected(vec![format!("Bybit no longer knows order {id}")]))?;
