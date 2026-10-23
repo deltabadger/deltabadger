@@ -237,6 +237,7 @@ pl:
             missing_credentials: 'Wypełnij oba pola: klucz API i sekret.'
             not_refreshing: 'Katalog akcji zsynchronizowany. Podłącz Alpaca, aby był aktualizowany na bieżąco.'
             disconnect: 'Rozłącz'
+            mode: 'Tryb'
             mode_paper: 'Papierowy'
             mode_live: 'Rzeczywisty'
         rest:
@@ -440,6 +441,7 @@ pl:
         minutes_short: 'm'
         seconds_short: 's'
     bot_filters:
+        label: 'Status bota'
         all: 'Wszystkie'
         active: 'Aktywne'
         inactive: 'Nieaktywne'
@@ -671,6 +673,7 @@ pl:
             closed: 'Zamknięta'
             cash: 'Gotówka'
         range:
+            label: 'Okres'
             '30d': '30D'
             '1y': '1R'
             all: 'Wszystko'
@@ -712,6 +715,7 @@ pl:
             adjustment: 'Korekta'
             unsupported_activity: 'Inna operacja'
     order_filters:
+        label: 'Zlecenia'
         all: 'Wszystkie'
         successful: 'Zrealizowane'
         transactions: 'Transakcje'

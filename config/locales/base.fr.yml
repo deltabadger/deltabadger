@@ -236,6 +236,7 @@ fr:
             missing_credentials: 'Renseigne la clé API et le secret.'
             not_refreshing: "Catalogue d'actions synchronisé. Connecte Alpaca pour le maintenir à jour."
             disconnect: 'Déconnecter'
+            mode: 'Mode'
             mode_paper: 'Papier'
             mode_live: 'Réel'
         rest:
@@ -438,6 +439,7 @@ fr:
         minutes_short: 'm'
         seconds_short: 's'
     bot_filters:
+        label: 'Statut du bot'
         all: 'Tous'
         active: 'Actifs'
         inactive: 'Inactifs'
@@ -668,6 +670,7 @@ fr:
             closed: 'Clôturée'
             cash: 'Liquidités'
         range:
+            label: 'Période'
             '30d': '30J'
             '1y': '1A'
             all: 'Tout'
@@ -709,6 +712,7 @@ fr:
             adjustment: 'Ajustement'
             unsupported_activity: 'Autre activité'
     order_filters:
+        label: 'Ordres'
         all: 'Tous'
         successful: 'Réussis'
         transactions: 'Transactions'

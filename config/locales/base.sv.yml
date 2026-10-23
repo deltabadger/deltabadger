@@ -217,6 +217,7 @@ sv:
             missing_credentials: 'Fyll i både API-nyckeln och hemligheten.'
             not_refreshing: 'Aktiekatalogen är synkroniserad. Anslut Alpaca för att hålla den uppdaterad.'
             disconnect: 'Koppla från'
+            mode: 'Läge'
             mode_paper: 'Papper'
             mode_live: 'Live'
         rest:
@@ -438,6 +439,7 @@ sv:
         minutes_short: 'm'
         seconds_short: 's'
     bot_filters:
+        label: 'Botstatus'
         all: 'Alla'
         active: 'Aktiva'
         inactive: 'Inaktiva'
@@ -677,6 +679,7 @@ sv:
             closed: 'Stängd'
             cash: 'Kontanter'
         range:
+            label: 'Period'
             '30d': '30D'
             '1y': '1Å'
             all: 'Allt'
@@ -718,6 +721,7 @@ sv:
             adjustment: 'Justering'
             unsupported_activity: 'Övrig aktivitet'
     order_filters:
+        label: 'Order'
         all: 'Alla'
         successful: 'Lyckade'
         transactions: 'Transactions' # TODO: translate (English placeholder)

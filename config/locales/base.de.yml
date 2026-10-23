@@ -235,6 +235,7 @@ de:
             missing_credentials: 'Fülle beide Felder aus: API-Schlüssel und API-Secret.'
             not_refreshing: 'Aktienkatalog synchronisiert. Verbinde Alpaca, um ihn aktuell zu halten.'
             disconnect: 'Trennen'
+            mode: 'Modus'
             mode_paper: 'Paper'
             mode_live: 'Live'
         rest:
@@ -438,6 +439,7 @@ de:
         minutes_short: 'm'
         seconds_short: 's'
     bot_filters:
+        label: 'Bot-Status'
         all: 'Alle'
         active: 'Aktiv'
         inactive: 'Inaktiv'
@@ -668,6 +670,7 @@ de:
             closed: 'Geschlossen'
             cash: 'Barmittel'
         range:
+            label: 'Zeitraum'
             '30d': '30T'
             '1y': '1J'
             all: 'Alles'
@@ -709,6 +712,7 @@ de:
             adjustment: 'Anpassung'
             unsupported_activity: 'Andere Aktivität'
     order_filters:
+        label: 'Orders'
         all: 'Alle'
         successful: 'Erfolgreich'
         transactions: 'Transaktionen'

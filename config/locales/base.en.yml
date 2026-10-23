@@ -217,6 +217,7 @@ en:
             missing_credentials: 'Fill in both the API key and secret.'
             not_refreshing: 'Stock catalog synced. Connect Alpaca to keep it up to date.'
             disconnect: 'Disconnect'
+            mode: 'Mode'
             mode_paper: 'Paper'
             mode_live: 'Live'
         rest:
@@ -438,6 +439,7 @@ en:
         minutes_short: 'm'
         seconds_short: 's'
     bot_filters:
+        label: 'Bot status'
         all: 'All'
         active: 'Active'
         inactive: 'Inactive'
@@ -677,6 +679,7 @@ en:
             closed: 'Closed'
             cash: 'Cash'
         range:
+            label: 'Period'
             '30d': '30D'
             '1y': '1Y'
             all: 'All'
@@ -718,6 +721,7 @@ en:
             adjustment: 'Adjustment'
             unsupported_activity: 'Other activity'
     order_filters:
+        label: 'Orders'
         all: 'All'
         successful: 'Successful'
         transactions: 'Transactions'
