@@ -71,7 +71,7 @@ pub fn parse_order(order_id: &str, o: &Value) -> Result<OrderState, VenueError> 
     let (live, remaining) = (truthy(&o["is_live"]), or_zero(&o["remaining_amount"])?);
     let status = if truthy(&o["is_cancelled"]) { OrderStatus::Cancelled } else if live && remaining.is_positive() { OrderStatus::Open }
                  else if !live && amount_exec.is_positive() { OrderStatus::Closed } else { OrderStatus::Unknown };
-    Ok(OrderState { txid: order_id.into(), status, price, amount: Some(amount), quote_amount: None, amount_exec, quote_amount_exec: Some(quote_amount_exec),
+    Ok(OrderState { zero_fill_at: None, txid: order_id.into(), status, price, amount: Some(amount), quote_amount: None, amount_exec, quote_amount_exec: Some(quote_amount_exec),
                     limit, sell, pair: Some(symbol.into()), asset_class: None })
 }
 

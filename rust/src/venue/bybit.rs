@@ -59,7 +59,7 @@ pub fn parse_order(id: &str, raw: &Value) -> Result<OrderState, VenueError> {
         Some("Rejected") => OrderStatus::Failed,
         _ => return Err(VenueError::Rejected(vec![format!("Unknown Bybit order status: {}", to_s(&raw["orderStatus"]))])),
     };
-    Ok(OrderState { txid: id.into(), status, price: (!price.is_zero()).then_some(price), amount: (!amount.is_zero()).then_some(amount), quote_amount: None,
+    Ok(OrderState { zero_fill_at: None, txid: id.into(), status, price: (!price.is_zero()).then_some(price), amount: (!amount.is_zero()).then_some(amount), quote_amount: None,
         amount_exec: decimal(dig("cumExecQty")?)?, quote_amount_exec: Some(decimal(dig("cumExecValue")?)?), limit,
         sell: dig("side")?.as_str().ok_or_else(unreadable)?.eq_ignore_ascii_case("sell"), pair: Some(to_s(dig("symbol")?)), asset_class: None })
 }

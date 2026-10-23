@@ -285,6 +285,23 @@ fn unknown_type_wrapped(rails_out: &serde_json::Value, rust_out: &serde_json::Va
     Ok(())
 }
 
+/// D-KUCOIN-ZERO-FILL-DONE: a market order KuCoin ended with nothing dealt (`isActive` and `cancelExist` false, nothing
+/// dealt) long before the run. Rails reads it `:unknown`, so its sweep and its follow-up raise "status is unknown" at every
+/// run; Rust books it Closed with nothing filled, writes one order_closed_empty line (D-ZERO-FILL-NOTE), and the run goes on.
+fn zero_fill_settled(name: &str, dir: &Path, rails_out: &serde_json::Value, rust_out: &serde_json::Value) -> Result<(), String> {
+    let raised = |out: &serde_json::Value| out.to_string().contains("status is unknown");
+    if !raised(rails_out) { return Err(format!("Rails no longer raises on a done order with nothing dealt: drop the listed divergence\n  rails: {rails_out}")); }
+    if raised(rust_out) { return Err(format!("Rust must settle the order, not raise: {rust_out}")); }
+    let ext = if name.ends_with("-poll_done_no_deal") { "KC-403" } else { "KC-206" };
+    let rows = rust_out["changes"]["transactions"].as_array().unwrap();
+    if !rows.iter().any(|t| t["after"]["external_id"] == ext && t["after"]["external_status"] == 2) { return Err(format!("Rust must close {ext}: {rust_out}")); }
+    let c = rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap();
+    let (lines, exec): (i64, f64) = c.query_row("SELECT (SELECT count(*) FROM bot_activity_logs WHERE event = 'order_closed_empty'), \
+                                                 (SELECT coalesce(amount_exec, 0) + coalesce(quote_amount_exec, 0) FROM transactions WHERE external_id = ?1)", [ext], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+    if (lines, exec) != (1, 0.0) { return Err(format!("expected one order_closed_empty line and nothing filled, got {lines} line(s), {exec} filled")); }
+    Ok(())
+}
+
 #[tokio::test(flavor = "current_thread")]
 async fn rails_and_rust_decide_identically_across_the_kucoin_grid() {
     use common::venue_grid::{ending, run_venue_grid, Validator};
@@ -292,6 +309,7 @@ async fn rails_and_rust_decide_identically_across_the_kucoin_grid() {
         Validator { names: &ending(&KUCOIN_DIVERGENCES), check: &|_, d, r, u| intent_kept(d, r, u) },
         Validator { names: &ending(&["add_network_pre_send"]), check: &|_, _, r, u| refused_like_rails(r, u) },
         Validator { names: &ending(&["sweep_unknown_type"]), check: &|_, _, r, u| unknown_type_wrapped(r, u) },
+        Validator { names: &ending(&["sweep_done_no_deal", "poll_done_no_deal"]), check: &zero_fill_settled },
     ]).await;
     // Pin what Rails does where a silent pair of sides would otherwise pass.
     for (name, rails_out) in &outputs {

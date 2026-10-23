@@ -164,7 +164,7 @@ pub(crate) fn parse_order(txid: &str, o: &Value) -> Result<OrderState, VenueErro
     let vol = Some(required(&o["vol"])?);
     let mut price = required(&o["price"])?;
     if price.is_zero() && limit { price = required(&o["descr"]["price"])?; }
-    Ok(OrderState {
+    Ok(OrderState { zero_fill_at: None,
         asset_class: None,
         txid: txid.into(),
         status,
@@ -275,7 +275,7 @@ pub(crate) fn aggregate_trades(trades: &[Value], txids: &[String]) -> Result<Vec
             None => by.push((o.to_string(), vol, cost, trade["ordertype"] == "limit", trade["type"] == "sell", trade["pair"].as_str().map(str::to_string))),
         }
     }
-    Ok(by.into_iter().map(|(txid, vol, cost, limit, sell, pair)| OrderState {
+    Ok(by.into_iter().map(|(txid, vol, cost, limit, sell, pair)| OrderState { zero_fill_at: None,
         asset_class: None,
         txid, status: OrderStatus::Closed, price: cost.div(&vol), amount: None, quote_amount: None, amount_exec: vol, quote_amount_exec: Some(cost), limit, sell, pair,
     }).collect())
@@ -426,7 +426,7 @@ impl<T: Transport> Venue for KrakenVenue<T> {
         let mut found = aggregate_trades(&trades, txids)?;
         let unseen: Vec<&String> = txids.iter().filter(|t| !found.iter().any(|o| &&o.txid == t)).collect();
         if unseen.is_empty() || trades_count(&self.call(&page_at(0), false).await?) <= TRADES_RECOVERY_REACH { return Ok(found); }
-        found.extend(unseen.into_iter().map(|txid| OrderState { asset_class: None, txid: txid.clone(), status: OrderStatus::Unknown, price: None, amount: None,
+        found.extend(unseen.into_iter().map(|txid| OrderState { zero_fill_at: None, asset_class: None, txid: txid.clone(), status: OrderStatus::Unknown, price: None, amount: None,
             quote_amount: None, amount_exec: BigDec::zero(), quote_amount_exec: None, limit: false, sell: false, pair: None }));
         Ok(found)
     }

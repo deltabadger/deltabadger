@@ -161,7 +161,7 @@ pub fn progress_width(now: DateTime<Utc>, start: Option<&Instant>, end: Option<D
 }
 
 struct Countdown {
-    /// A scheduled bot, not a retrying one: its countdown reads in green.
+    /// A scheduled bot, not a retrying one, with funds enough (D-LOW-FUNDS-STATUS): its countdown reads in green.
     scheduled: bool,
     end: Option<String>,
     prefix: Option<String>,
@@ -283,6 +283,26 @@ pub fn next_action_at(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<O
     Ok(DateTime::from_timestamp_micros(Instant::of(&next).held_micros()))
 }
 
+/// D-LOW-FUNDS-STATUS: Bot::Fundable#funds_are_low? read from the synced balances, never a live call: the quote asset's
+/// free balance under `quote_amount / interval × 3 days` (accounting::funds_buffer). Only from a complete balance sync by
+/// the user's current reading key on this venue (sync::cache::stale) whose job left nothing incomplete (it marks the job
+/// before fetching, while the stamp turns incomplete only before writes); there a missing row is 0, as a sync deletes
+/// zero balances. Never synced, interrupted or by a replaced key: not said. Alpaca spends buying power, which no sync
+/// stores, so it is never said there; nor for a selling bot, which spends base.
+pub fn low_funds(c: &Connection, bot: &Bot) -> Result<bool, WebError> {
+    if bot.selling() || bot.kind == Kind::Signal || bot.exchange.class == "Exchanges::Alpaca" { return Ok(false); }
+    let Some(quote) = bot.quote_asset.as_ref() else { return Ok(false) };
+    let user: i64 = c.query_row("SELECT user_id FROM bots WHERE id = ?1", [bot.id], |r| r.get(0))?;
+    let Some(key) = crate::sync::cache::reading_key(c, user, bot.exchange.id)? else { return Ok(false) };
+    if crate::sync::cache::stale(c, user, Some(bot.exchange.id))? { return Ok(false); }
+    if crate::jobs::state::read(c, crate::sync::jobs::BALANCE_SYNC, Some(&key.to_string())).map_err(super::data)?.incomplete_since.is_some() { return Ok(false); }
+    let free = c.query_row("SELECT free FROM account_balances WHERE user_id = ?1 AND exchange_id = ?2 AND asset_id = ?3", [user, bot.exchange.id, quote.id],
+                           |r| Ok(crate::ruby::from_sql(r.get_ref(0)?))).optional()?
+        .map(|free| free.map_err(|e| super::data(format!("{e:?}")))).transpose()?.flatten().unwrap_or_else(crate::ruby::BigDec::zero);
+    let buffer = crate::engine::accounting::funds_buffer(bot.number("quote_amount").map_or(0.0, |n| n.to_f()), bot.text("interval"))?;
+    Ok(free < buffer)
+}
+
 pub struct Status {
     pub bar: String,
     pub progress: String,
@@ -317,7 +337,7 @@ pub fn render_unsaved(c: &Connection, ctx: &Ctx, csrf: &str, bot: &Bot, stored: 
         },
         None => Fill { scheduled: false, width: "0".into(), start: None, end: None },
     };
-    let (mut text, mut dots, mut countdown, mut connect, mut listening) = (None, false, None, None, false);
+    let (mut text, mut dots, mut countdown, mut connect, mut listening, mut low) = (None, false, None, None, false, false);
     match bot.status {
         BotStatus::Archived => text = Some(t("bot.status.archived")),
         _ if !bot.exchange.retired() && !bot.api_key_correct() => connect = Some(ctx.path(&format!("/bots/{}/add_api_key/new", bot.id))),
@@ -344,9 +364,15 @@ pub fn render_unsaved(c: &Connection, ctx: &Ctx, csrf: &str, bot: &Bot, stored: 
                     None => t("bot.status.next_try"),
                 })
             } else {
-                bot.transient.get("waiting_for_market_open").filter(|flag| !flag.is_null() && **flag != serde_json::Value::Bool(false)).map(|_| t("bot.status.market_closed"))
+                let closed = bot.transient.get("waiting_for_market_open").filter(|flag| !flag.is_null() && **flag != serde_json::Value::Bool(false)).map(|_| t("bot.status.market_closed"));
+                low = low_funds(c, bot)?;
+                match (closed, low) {
+                    (Some(closed), true) => Some(format!("{closed} · {}", t("bot.status.low_funds"))),
+                    (None, true) => Some(t("bot.status.low_funds")),
+                    (closed, false) => closed,
+                }
             };
-            countdown = Some(Countdown { scheduled, end: end.map(iso8601), prefix });
+            countdown = Some(Countdown { scheduled: scheduled && !low, end: end.map(iso8601), prefix });
         }
         BotStatus::Created | BotStatus::Deleted => {}
     }

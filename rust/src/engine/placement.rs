@@ -587,6 +587,8 @@ pub async fn recover_since<V: Venue>(c: &Connection, venue: &V, bot: &Bot, clock
         }
         Ok(Some(state)) => {
             let now = clock.now();
+            // D-KUCOIN-ZERO-FILL-DONE: an old zero-fill answer is Closed; a young one leaves the row waiting for its polls.
+            let state = state.settled(now);
             let tx = model::immediate(c)?;
             let fenced=model::check_credential_result(&tx, &intent.credential_version)?;
             if !still_pending(&tx, bot.id, &intent.cl_ord_id)? { return Ok(Recovery::NoIntent); }

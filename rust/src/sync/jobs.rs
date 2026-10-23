@@ -354,6 +354,8 @@ impl<C: Connect> Job for BalanceSync<C> {
             // written (a run dropped, or a hand run stopped, between two units); a start finding the mark runs the job at once.
             let (key, at) = (self.key_id.to_string(), cx.clock.now());
             if let Err(e) = cx.db.run(move |c, _| crate::jobs::state::mark_incomplete(c, BALANCE_SYNC, Some(&key), at)).await { return Outcome::Failed(e); }
+            // D-LOW-FUNDS-STATUS: the balances stop being evidence from here; the status bars that read them redraw.
+            cx.db.notifications.balances_changed(self.key_id);
             use crate::venue::registry::{self, BalanceSync};
             let done = match venue_of(&cx.db, self.key_id).await {
                 Err(e) => Err(e),

@@ -1,0 +1,7 @@
+en:
+    bot:
+        status:
+            low_funds: "Low funds"
+    bot_activity:
+        events:
+            order_closed_empty: "Order %{order_id} closed on %{exchange} with nothing filled."

@@ -506,8 +506,11 @@ pub fn base_cap_reached(c: &Connection, id: i64, limit: &BigDec, since: Option<&
     Ok((limit - &total).max(BigDec::zero()) < floor)
 }
 
-pub fn balance_buffer(bot: &Bot, interval_seconds: f64, days: f64) -> Result<BigDec, EngineError> {
-    BigDec::from_f64(bot.quote_amount().unwrap_or_default() / interval_seconds * days).map_err(data)
+/// Bot::Fundable#required_balance_buffer: `quote_amount / interval_duration.to_f * 3.days.to_f`, the interval as Rails'
+/// ActiveSupport durations count it (a month is 2,629,746 s). Shared by the engine's check and the status bar's.
+pub fn funds_buffer(quote_amount: f64, interval: Option<&str>) -> Result<BigDec, EngineError> {
+    let interval_seconds = match interval { Some("hour") => 3_600.0, Some("day") => 86_400.0, Some("week") => 604_800.0, _ => 2_629_746.0 };
+    BigDec::from_f64(quote_amount / interval_seconds * 259_200.0).map_err(data)
 }
 pub fn sell_minimum(amount: f64, seconds: f64, decimals: u8) -> start::Minimum {
     let frequency = if amount > 0.0 && seconds > 0.0 { amount / seconds * 300.0 } else { 0.0 };
