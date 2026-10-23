@@ -1,14 +1,12 @@
 //! The "import history" line (Rust only, 3.0): the step after a ledger publish, the row it writes, and what the page
 //! and the modal read from it. The page with no gap stays the page it was (tracker_populated proves the grid).
 mod common;
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use common::web::{Browser, Csrf, TestClock};
-use deltabadger::crypto::Credentials;
 use deltabadger::engine::FixedClock;
-use deltabadger::jobs::{self, data_api::{Config, DataApi}, notifications::Notifications, Cx, Db, Job, Outcome};
-use deltabadger::sync::{balances::{self, ScriptedPrices}, jobs::Connect};
+use deltabadger::jobs::{self, data_api::DataApi, notifications::Notifications, Cx, Db, Job, Outcome};
 use deltabadger::tracker::{self, cache, gaps};
-use deltabadger::venue::{alpaca::{AlpacaVenue, Urls}, http::ScriptedTransport};
+use deltabadger::venue::http::ScriptedTransport;
 use rusqlite::{Connection, OptionalExtension};
 use serde_json::{json, Value};
 use std::path::PathBuf;
