@@ -11,7 +11,7 @@ use chrono::{DateTime, Utc};
 use rusqlite::params;
 use serde_json::Value;
 
-pub struct Takeover { pub claim: Claim, pub eligible: Vec<i64>, pub deleted_jobs: usize, pub normalised: usize }
+pub struct Takeover { pub claim: Claim, pub eligible: Vec<i64>, pub deleted_jobs: usize, pub normalised: usize, pub imported_calls: usize }
 
 const RAILS_BOT_JOBS: [&str; 5] = ["Bot::ActionJob", "Bot::BroadcastAfterScheduledActionJob", "Bot::FetchAndUpdateOrderJob", "Bot::FetchAndUpdateOpenOrdersJob", "Bot::PriceLimitCheckJob"];
 
@@ -37,6 +37,8 @@ pub fn take_over(lock: &EngineLock, o: &Opened, cipher: &Cipher, version: &str, 
     let mut problems = report.problems.clone();
     problems.extend(report.unreadable.iter().map(|(id, e)| format!("bot {id}: unreadable ({e})")));
     if !problems.is_empty() { return Err(EngineError::Ineligible(problems)); }
+    // Rails' webhook calls, read and judged before anything changes owner: a claimed or unreadable one refuses here.
+    let signal_jobs = signal_jobs(o)?;
     // Claim first, with the startup data steps: once committed, Rails refuses, and a failure below is
     // repaired by the next start, which repeats the deletes and the normalisation idempotently.
     let tx = model::immediate(&o.primary)?;
@@ -48,7 +50,9 @@ pub fn take_over(lock: &EngineLock, o: &Opened, cipher: &Cipher, version: &str, 
     // From here on a reference source is as fresh as its job's completed runs; a job this engine has not run yet starts
     // from Rails' baseline, read once, here, in the commit that closes Rails' ownership window. A restart reseeds nothing.
     super::staleness::seed(&tx, now)?;
+    let imported_calls = import_signal_jobs(&tx, &signal_jobs, now)?;
     tx.commit()?;
+    let deleted_signal_jobs = finish_signal_import(o, now)?;
 
     // GlobalID names the STI class: Bots::DcaMultiAsset or Bots::DcaIndex.
     let mut gids: Vec<String> = vec![];
@@ -95,7 +99,7 @@ pub fn take_over(lock: &EngineLock, o: &Opened, cipher: &Cipher, version: &str, 
         normalised += model::unstick(&tx, *id, now)? as usize; // the last run (Rails' or ours) was cut short
     }
     tx.commit()?;
-    Ok(Takeover { claim, eligible: report.eligible, deleted_jobs: doomed.len() + resyncs.len(), normalised })
+    Ok(Takeover { claim, eligible: report.eligible, deleted_jobs: doomed.len() + resyncs.len() + deleted_signal_jobs, normalised, imported_calls })
 }
 
 pub async fn hand_back<F: VenueFactory>(lock: &EngineLock, o: &Opened, factory: &F, cipher: &Cipher, clock: &dyn Clock) -> Result<usize, EngineError> {
@@ -108,6 +112,7 @@ pub async fn hand_back_since<F: VenueFactory>(lock: &EngineLock, o: &Opened, fac
     // handback would otherwise overwrite it with a row Rails cannot decrypt and report success. An absent row (never taken
     // over by Rust) holds nothing to protect.
     lease::read(&o.primary, cipher)?;
+    hand_back_calls(o, clock.now())?;
     let mut unresolved = vec![];
     let mut s = o.primary.prepare("SELECT id FROM bots WHERE json_extract(transient_data, '$.rust_placement') IS NOT NULL ORDER BY id")?;
     let pending: Vec<i64> = s.query_map([], |r| r.get(0))?.collect::<Result<_, _>>()?;
@@ -167,13 +172,21 @@ pub async fn hand_back_since<F: VenueFactory>(lock: &EngineLock, o: &Opened, fac
 /// trust Alpaca's "not found") and pass once more.
 pub async fn hand_back_retrying<F: VenueFactory>(lock: &EngineLock, o: &Opened, factory: &F, cipher: &Cipher, clock: &dyn Clock,
                                                  process_start: DateTime<Utc>, wait: std::time::Duration) -> Result<usize, EngineError> {
-    match hand_back_since(lock, o, factory, cipher, clock, process_start).await {
-        Err(EngineError::Unresolved(_)) => {
-            super::log(&format!("an order is not accounted for yet; waiting {} s before looking again", wait.as_secs()));
-            tokio::time::sleep(wait).await;
-            hand_back_since(lock, o, factory, cipher, clock, process_start).await
+    loop {
+        match hand_back_since(lock, o, factory, cipher, clock, process_start).await {
+            // Each pass reads the calls again, so a restart during the wait waits for the same calls (§R8').
+            Err(EngineError::SignalCallsWaiting(until)) => {
+                let left = (until - clock.now()).to_std().unwrap_or_default() + std::time::Duration::from_secs(1);
+                super::log(&format!("a webhook call is still valid; waiting {} s for it to expire", left.as_secs()));
+                tokio::time::sleep(left).await;
+            }
+            Err(EngineError::Unresolved(_)) => {
+                super::log(&format!("an order is not accounted for yet; waiting {} s before looking again", wait.as_secs()));
+                tokio::time::sleep(wait).await;
+                return hand_back_since(lock, o, factory, cipher, clock, process_start).await;
+            }
+            other => return other,
         }
-        other => other,
     }
 }
 
@@ -187,4 +200,129 @@ pub async fn hand_back_cli<F: VenueFactory>(lock: &EngineLock, o: &Opened, facto
 /// 0 handed back, 3 an order still unaccounted for (use resolve-placement), 1 anything else.
 pub fn handback_exit_code(r: &Result<usize, EngineError>) -> i32 {
     match r { Ok(_) => 0, Err(EngineError::Unresolved(_)) => 3, Err(_) => 1 }
+}
+
+/// app_configs key (plan 8d T2, r2 §R1): the active_job_ids of the Bot::SignalJob rows a takeover imported whose queue rows
+/// may still be there (the queue is its own database, so the import and the delete cannot share a transaction). While it
+/// holds any, the engine runs no signal call (run::run_signals), so a crash between the two never runs a call twice.
+pub const SIGNAL_IMPORT_KEY: &str = "rust_signal_import";
+
+fn import_set(c: &rusqlite::Connection) -> Result<Vec<String>, EngineError> {
+    let Some(text) = crate::app_config::get_plain(c, SIGNAL_IMPORT_KEY).map_err(EngineError::Data)? else { return Ok(vec![]) };
+    serde_json::from_str(&text).map_err(|e| EngineError::Data(format!("{SIGNAL_IMPORT_KEY}: {e}")))
+}
+
+fn write_import_set(c: &rusqlite::Connection, ids: &[String], now: DateTime<Utc>) -> Result<(), EngineError> {
+    if ids.is_empty() { return crate::app_config::delete(c, SIGNAL_IMPORT_KEY).map_err(EngineError::Data); }
+    crate::app_config::set_plain(c, SIGNAL_IMPORT_KEY, &serde_json::to_string(ids).expect("ids serialise"), now).map_err(EngineError::Data)
+}
+
+/// Whether a takeover's import of Rails' webhook calls is unfinished (its queue rows may still be there).
+pub fn signal_import_pending(c: &rusqlite::Connection) -> Result<bool, EngineError> { Ok(!import_set(c)?.is_empty()) }
+
+/// A Bot::SignalJob Rails had not run: its active_job_id, and its bot and the call it becomes, or None for a job Rails
+/// would discard (`discard_on ActiveJob::DeserializationError`: its bot or its rule is gone).
+type SignalJob = (String, Option<(i64, model::SignalCall)>);
+
+/// Every Bot::SignalJob row Rails has not finished (ready, scheduled or blocked; a failed one is over), in queue order. A
+/// claimed one (a Rails process died mid-run, so its order's fate is unknown) or one this build cannot read refuses the
+/// takeover, naming the job and its bot.
+fn signal_jobs(o: &Opened) -> Result<Vec<SignalJob>, EngineError> {
+    let mut s = o.queue.prepare("SELECT j.active_job_id, j.arguments, EXISTS (SELECT 1 FROM solid_queue_claimed_executions c WHERE c.job_id = j.id) \
+                                 FROM solid_queue_jobs j WHERE j.class_name = 'Bot::SignalJob' AND j.finished_at IS NULL \
+                                 AND NOT EXISTS (SELECT 1 FROM solid_queue_failed_executions f WHERE f.job_id = j.id) ORDER BY j.id")?;
+    let rows: Vec<(Option<String>, Option<String>, bool)> = s.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?.collect::<Result<_, _>>()?;
+    let (mut jobs, mut problems) = (vec![], vec![]);
+    for (job, arguments, claimed) in rows {
+        let name = format!("Bot::SignalJob {}", job.as_deref().unwrap_or("(no job id)"));
+        let bot = arguments.as_deref().and_then(first_gid).unwrap_or_default();
+        if claimed {
+            problems.push(format!("{name} for {bot} was claimed by a Rails process that stopped while running it: whether it placed an order is unknown; \
+                                   check the venue, then delete the job from the queue"));
+            continue;
+        }
+        match (job, arguments.as_deref().ok_or_else(|| "no arguments".to_string()).and_then(signal_call)) {
+            (Some(job), Ok((bot_id, signal_id, triggered_at))) => {
+                let bot: bool = o.primary.query_row("SELECT EXISTS (SELECT 1 FROM bots WHERE id = ?1 AND type = ?2)", params![bot_id, model::SIGNAL_TYPE], |r| r.get(0))?;
+                let rule: bool = o.primary.query_row("SELECT EXISTS (SELECT 1 FROM bot_signals WHERE id = ?1)", [signal_id], |r| r.get(0))?;
+                let call = (bot && rule).then(|| (bot_id, model::SignalCall { source: format!("rails:{job}"), signal_id, triggered_at }));
+                jobs.push((job, call));
+            }
+            (None, _) => problems.push(format!("{name} for {bot}: no job id")),
+            (_, Err(e)) => problems.push(format!("{name} for {bot}: {e}")),
+        }
+    }
+    if !problems.is_empty() { return Err(EngineError::Ineligible(problems)); }
+    Ok(jobs)
+}
+
+/// Bot::SignalJob's arguments as ActiveJob serialized them (`perform_later(bot, signal, triggered_at)`): the bot's and the
+/// rule's GlobalIDs and the TimeWithZone (tests/fixtures/signal_jobs.json).
+fn signal_call(arguments: &str) -> Result<(i64, i64, DateTime<Utc>), String> {
+    let unread = || "arguments this build does not read".to_string();
+    let v: Value = serde_json::from_str(arguments).map_err(|e| e.to_string())?;
+    let a = v.get("arguments").and_then(Value::as_array).filter(|a| a.len() == 3).ok_or_else(unread)?;
+    let id = |i: usize, prefix: &str| a[i].get("_aj_globalid").and_then(Value::as_str).and_then(|g| g.strip_prefix(prefix)).and_then(|n| n.parse::<i64>().ok()).ok_or_else(unread);
+    let time = a[2].as_object().filter(|t| t.get("_aj_serialized").and_then(Value::as_str) == Some("ActiveJob::Serializers::TimeWithZoneSerializer")).ok_or_else(unread)?;
+    let at = crate::codec::parse_time(time.get("value").and_then(Value::as_str).ok_or_else(unread)?).map_err(|e| format!("triggered_at: {e:?}"))?;
+    Ok((id(0, "gid://deltabadger/Bots::Signal/")?, id(1, "gid://deltabadger/BotSignal/")?, at))
+}
+
+/// Step 1 of §R1, in the claim's transaction: each job neither in the import set nor already a call becomes its bot's call
+/// (a discarded one becomes none), and its id joins the set. Returns the calls added.
+fn import_signal_jobs(tx: &rusqlite::Connection, jobs: &[SignalJob], now: DateTime<Utc>) -> Result<usize, EngineError> {
+    let mut set = import_set(tx)?;
+    let mut added = 0;
+    for (job, call) in jobs {
+        if set.contains(job) { continue; }
+        if let Some((bot_id, call)) = call {
+            if !model::load_bot(tx, *bot_id)?.signal_calls()?.iter().any(|c| c.source == call.source) {
+                model::append_signal_call(tx, *bot_id, call)?;
+                added += 1;
+            }
+        }
+        set.push(job.clone());
+    }
+    write_import_set(tx, &set, now)?;
+    Ok(added)
+}
+
+/// Steps 2 and 3 of §R1, after the import committed: the imported jobs leave the queue (their executions cascade), then the
+/// ids whose rows are gone leave the set. Repeated by every start and by the handback, so a crash between any two steps is
+/// finished later. Returns the rows deleted.
+fn finish_signal_import(o: &Opened, now: DateTime<Utc>) -> Result<usize, EngineError> {
+    let set = import_set(&o.primary)?;
+    if set.is_empty() { return Ok(0); }
+    let mut deleted = 0;
+    let mut left = vec![];
+    for job in set {
+        deleted += o.queue.execute("DELETE FROM solid_queue_jobs WHERE active_job_id = ?1 AND class_name = 'Bot::SignalJob'", [&job])?;
+        let there: bool = o.queue.query_row("SELECT EXISTS (SELECT 1 FROM solid_queue_jobs WHERE active_job_id = ?1 AND class_name = 'Bot::SignalJob')", [&job], |r| r.get(0))?;
+        if there { left.push(job); }
+    }
+    let tx = model::immediate(&o.primary)?;
+    write_import_set(&tx, &left, now)?;
+    tx.commit()?;
+    Ok(deleted)
+}
+
+/// Plan 8d T3 (§R8, §R8'): the webhook calls still waiting. Rails cannot be handed a valid call (that would be a Solid Queue
+/// row, which is not ported), so while any is still valid the handback refuses with the instant the last one expires
+/// (`hand_back_retrying` waits it out; no engine runs during a handback, so none is placed). Then each is removed with
+/// the line the engine would write for it, in one transaction: `signal_expired`, or none for a rule that is gone.
+fn hand_back_calls(o: &Opened, now: DateTime<Utc>) -> Result<(), EngineError> {
+    finish_signal_import(o, now)?;
+    let mut calls = vec![];
+    for id in super::signal::bots_with_calls(&o.primary)? {
+        calls.extend(model::load_bot(&o.primary, id)?.signal_calls()?.into_iter().map(|call| (id, call)));
+    }
+    let valid = calls.iter().filter(|(_, c)| !super::signal::expired(c.triggered_at, now)).map(|(_, c)| super::signal::expires_at(c)).max();
+    if let Some(until) = valid { return Err(EngineError::SignalCallsWaiting(until)); }
+    let tx = model::immediate(&o.primary)?;
+    for (id, call) in &calls {
+        let kept = model::signal(&tx, call.signal_id)?.is_some_and(|r| r.bot_id == *id);
+        super::signal::consume(&tx, *id, call, kept.then_some("signal_expired"), now)?;
+    }
+    tx.commit()?;
+    Ok(())
 }

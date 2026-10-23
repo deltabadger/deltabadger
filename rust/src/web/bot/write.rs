@@ -128,7 +128,7 @@ fn settings_inner<T>(
     let (provider, configured) = bots::market_data(&tx, &ctx.app)?;
     // Stored scope refusals survive. Only the pending lock's validation must precede its
     // page refusal, since a rejected composition still has a renderable narrow settings form.
-    let original_refusal = if submitted.mcp() { None } else { super::refusal(&tx, id, wash_sale, provider, For::Settings, false)? };
+    let original_refusal = if submitted.mcp() { None } else { super::refusal(&tx, id, wash_sale, provider, For::Settings)? };
     if let Some(reason) = original_refusal.filter(|reason| *reason != "a rebalance, liquidation or redeploy in progress") { return Ok(Outcome::Unported(reason)); }
     let mut mcp_carry = None;
     let mut mcp_refused = false;
@@ -224,7 +224,7 @@ fn settings_inner<T>(
         tx.rollback()?;
         return Ok(Outcome::GuardRefused(response.response));
     }
-    if !submitted.mcp() { if let Some(reason) = super::refusal(&tx, id, wash_sale, provider, For::Settings, false)? { return Ok(Outcome::Unported(reason)); } }
+    if !submitted.mcp() { if let Some(reason) = super::refusal(&tx, id, wash_sale, provider, For::Settings)? { return Ok(Outcome::Unported(reason)); } }
     // Rails keeps the name it showed in memory: a label the save did not write is not regenerated from the new settings.
     let shown = std::mem::take(&mut draft.candidate.label);
     draft.candidate = Bot::find(&tx, owner, id, For::Page, ctx.locale)?.ok_or_else(|| error("saved bot disappeared"))?;
@@ -453,7 +453,7 @@ fn lifecycle_inner<T>(
     if view.errors.is_empty() && (!safety || submitted.mcp() && action != Action::Stop) {
         let (provider,configured)=bots::market_data(&tx,&ctx.app)?;
         let wash:Option<bool>=tx.query_row("SELECT wash_sale_enabled FROM users WHERE id=?1",[owner],|r|r.get(0))?;
-        let refusal=if submitted.mcp() {None} else {super::refusal(&tx,id,wash,provider,For::Settings,false)?};
+        let refusal=if submitted.mcp() {None} else {super::refusal(&tx,id,wash,provider,For::Settings)?};
         let draft=view.draft.as_mut().ok_or_else(||error("owned lifecycle draft disappeared"))?;
         let refusal=if submitted.mcp() {None} else {refusal.or_else(||draft.original.unrendered())};
         if action==Action::Start {
@@ -615,7 +615,7 @@ fn lifecycle_inner<T>(
             if !safety { return Ok(true); }
             let wash:Option<bool>=tx.query_row("SELECT wash_sale_enabled FROM users WHERE id=?1",[owner],|r|r.get(0))?;
             let (provider,_)=bots::market_data(&tx,&ctx.app)?;
-            Ok(draft.candidate.unrendered().is_none() && super::refusal(&tx,id,wash,provider,For::Page,false)?.is_none())
+            Ok(draft.candidate.unrendered().is_none() && super::refusal(&tx,id,wash,provider,For::Page)?.is_none())
         })();
         match redrawn {
             Ok(true) => {}

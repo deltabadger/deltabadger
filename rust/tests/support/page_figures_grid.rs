@@ -1052,7 +1052,7 @@ async fn signal_pages(name: &str, dir: &Path, sc: &Value, expected: &Value, actu
     use deltabadger::web::{App,Config,session::{self,SessionData},figure::loading::{self,Source}};
     let env=common::web::env(common::web::SECRET);
     let app=App::new(Config::from_env(&env).unwrap(),&env,rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap(),common::web::TestClock::at(sc["at"].as_str().unwrap()))
-        .unwrap().with_figure_source(Source::Script(sc["script"].clone())).unwrap().admit_signal_bots_for_tests().unwrap();
+        .unwrap().with_figure_source(Source::Script(sc["script"].clone())).unwrap();
     let user=sc["user_id"].as_i64().unwrap();
     let password:String=rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap().query_row("SELECT encrypted_password FROM users WHERE id=?1",[user],|r|r.get(0)).unwrap();
     let signed=SessionData { user:Some((user,password.chars().take(29).collect())),..SessionData::default() };
