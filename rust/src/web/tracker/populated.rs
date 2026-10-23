@@ -339,7 +339,7 @@ fn filters(c: &Connection, ctx: &Ctx, owner: i64, scope: Option<i64>, show_cash:
     let query = crate::web::locale::switch_query(&pairs);
     let export_path = escape(&ctx.path(&format!("/tracker/export{}", if query.is_empty() { String::new() } else { format!("?{query}") })));
     Ok(Filters {
-        v: ctx, csrf: ctx.csrf_token(), all_label: escape(&i18n::text(ctx.locale, "tracker.filters.all", &[])), chips, connect_href: ctx.path("/tracker/pick_exchange/new"),
+        v: ctx, csrf: ctx.csrf_token(), all_label: escape(&i18n::text(ctx.locale, "tracker.columns.exchange", &[])), chips, connect_href: ctx.path("/tracker/pick_exchange/new"),
         menu, sync, syncable: !valid.is_empty(), report: !exchanges.is_empty(), show_cash, export_path,
     }.render()?)
 }
