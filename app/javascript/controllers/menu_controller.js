@@ -17,12 +17,14 @@ import { Controller } from "@hotwired/stimulus";
 // slower hand would have seen. Non-destructive; not worth a render-skipping hack, which would
 // leave the live page with clones of its turbo-permanent elements.
 const ACTIVE = "menu__item--active";
+const BACK = "menu__item--back";
 const TIMING = { duration: 180, easing: "cubic-bezier(0.22, 0.61, 0.36, 1)", fill: "forwards" };
 
 export default class extends Controller {
   static targets = ["chip", "tile"];
 
   connect() {
+    this.back = this.#botsTile?.classList.contains(BACK) ?? false;
     document.addEventListener("turbo:before-render", this.beforeRender);
     document.addEventListener("turbo:visit", this.visit);
   }
@@ -41,6 +43,8 @@ export default class extends Controller {
     this.clicked = true;
     queueMicrotask(() => (this.clicked = false));
     this.#slide(event.currentTarget);
+    // Every tile leads off a bot's page, the bots tile included: it is the way back.
+    this.#swap(false);
   }
 
   // Turbo's progress bar is the sign of a visit still in flight. On a menu-tile visit the chip
@@ -58,14 +62,41 @@ export default class extends Controller {
     const key = event.detail.newBody.querySelector(".menu__section--main-menu .menu__item--active")?.dataset.tile;
     const tile = this.tileTargets.find((candidate) => candidate.dataset.tile === key);
     if (tile) this.#slide(tile);
+    this.#swap(event.detail.newBody.querySelector(`.menu__section--main-menu .${BACK}`) !== null);
     // A hidden document gets no rendering opportunities, so a running animation never reports
     // finished there — a visit a broadcast started in a background tab would be held until the tab
     // was looked at. Nobody sees the slide either way: swap, and let CSS place the chip.
-    if (document.hidden || this.animation?.playState !== "running") return;
+    const running = [this.animation, ...(this.swaps ?? [])].filter((a) => a?.playState === "running");
+    if (document.hidden || running.length === 0) return;
 
     event.preventDefault();
-    this.animation.finished.then(event.detail.resume, event.detail.resume);
+    Promise.all(running.map((a) => a.finished)).then(event.detail.resume, event.detail.resume);
   };
+
+  get #botsTile() {
+    return this.tileTargets.find((tile) => tile.dataset.tile === "bots");
+  }
+
+  // The bots tile's count and arrow trade places: on a bot's page the count is a tile's width to
+  // the left and the arrow in the middle. Same trick as #ink: the class is flipped to read where
+  // CSS puts each icon and flipped straight back, so nothing reaches Turbo's snapshot.
+  #swap(back) {
+    if (back === this.back) return;
+    this.back = back;
+    const tile = this.#botsTile;
+    if (!tile?.offsetParent || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    const icons = [...tile.querySelectorAll(":scope > svg")];
+    const read = () => icons.map((icon) => getComputedStyle(icon).transform);
+    const from = read(); // mid-swap, if one is in flight
+    this.swaps?.forEach((animation) => animation.cancel());
+    const had = tile.classList.contains(BACK);
+    tile.classList.toggle(BACK, back);
+    const to = read();
+    tile.classList.toggle(BACK, had);
+
+    this.swaps = icons.map((icon, i) => icon.animate([{ transform: from[i] }, { transform: to[i] }], TIMING));
+  }
 
   #slide(tile) {
     // The swap places it; nothing to slide. The reset zeroes CSS transitions under reduced

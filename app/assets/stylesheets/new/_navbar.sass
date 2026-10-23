@@ -117,6 +117,22 @@
     .menu__item svg
       position: relative
       z-index: 1
+    // The bots tile holds the count and, on a bot's page, the arrow back. Both sit in the middle;
+    // the one not shown waits a tile's width to its side, clipped by the tile. The trip between the
+    // two states is a Web Animation in menu_controller.js, since the body is swapped under it.
+    .menu__item--bots
+      overflow: hidden
+      svg
+        position: absolute
+      svg + svg
+        display: block
+        transform: translateX(7rem)
+    .menu__item--back
+      cursor: pointer
+      svg:first-child
+        transform: translateX(-7rem)
+      svg + svg
+        transform: none
     // The chip draws the pill here. Scoped: the settings trigger below reuses --active as its open
     // state and keeps the pill of its own. Without this the tile the chip is LEAVING would still
     // show one until the new page lands.

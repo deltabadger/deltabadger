@@ -7,7 +7,7 @@
   "app/views/tracker/index.html.erb": "9d658aec7fa0c09980f3c31a2832fe761f3fad2d6c4eac34e1ff7a43bdb6392f",
   "app/views/tracker/_sync_warnings.html.erb": "4adc392f2c544a32942fe30e2d7fe459c0cfebd9eea66be955609a1961c64cbb",
   "app/views/layouts/application.html.erb": "7fc3d49fdc000849bce981b93b8ac8eae87f8eb2d41b04f9778a7472046faca1",
-  "app/views/layouts/navbar/_signed_in.html.haml": "0618ea5d162cdce964174df79e7fe3ac1fdce5b7e496ece222cd6bd554125b49",
+  "app/views/layouts/navbar/_signed_in.html.haml": "20a12b8bf96cec900c409616b670c6381c13624649d68511fc5a3dcb3e42764d",
   "app/views/layouts/navbar/_display_currency_picker.html.haml": "42298a723a04fde3abfc2a19c71ba89b9a041eb99feffdbc19d3035b8aecadd3",
   "app/views/layouts/navbar/_hide_balances_toggle.html.haml": "09f78c76bd26982edc6d4db7603ee407cf2427d89cf08bf69f70bc073d54b084"
 }

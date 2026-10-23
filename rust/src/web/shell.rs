@@ -89,6 +89,12 @@ pub fn bot_count_baseline(size: i64) -> String {
     if rounded.fract() == 0.0 { format!("{rounded:.1}") } else { rounded.to_string() }
 }
 
+/// BotsController#show: GET /bots/:id.
+fn on_bot_page(ctx: &Ctx) -> bool {
+    matches!(ctx.method, axum::http::Method::GET | axum::http::Method::HEAD)
+        && ctx.params.route_path.strip_prefix("/bots/").is_some_and(|id| !id.is_empty() && id.bytes().all(|b| b.is_ascii_digit()))
+}
+
 /// User::DISPLAY_CURRENCIES with Denomination::UNITS.
 const CURRENCIES: [(&str, &str); 5] = [("USD", "$"), ("EUR", "€"), ("GBP", "£"), ("CHF", "Fr."), ("PLN", "zł")];
 
@@ -102,6 +108,8 @@ struct Navbar<'a> {
     currencies: &'a [(&'static str, &'static str)],
     bot_count_font_size: i64,
     bot_count_baseline: String,
+    /// `controller_path == 'bots' && action_name == 'show'`: the bots tile stays lit as the way back.
+    on_bot_page: bool,
 }
 
 #[derive(Template)]
@@ -141,7 +149,7 @@ fn layout(ctx: &Ctx, csrf: &str, user: &User, shell: &Shell, page: Page, flash_e
     }
     let flash = flash::render(&flash::take(&ctx.session, &page.flash_now))?;
     let size = bot_count_font_size(shell.bot_count);
-    let navbar = Navbar { v: ctx, csrf, user, shell, currencies: &CURRENCIES, bot_count_font_size: size, bot_count_baseline: bot_count_baseline(size) }.render()?;
+    let navbar = Navbar { v: ctx, csrf, user, shell, currencies: &CURRENCIES, bot_count_font_size: size, bot_count_baseline: bot_count_baseline(size), on_bot_page: on_bot_page(ctx) }.render()?;
     let body_class = [opening.is_some().then_some("hide-chrome"), user.hide_balances.then_some("hide-balances")].into_iter().flatten().collect::<Vec<_>>().join(" ");
     let modal_src = opening.or_else(|| ctx.settings_reopen_src());
     let layout = ApplicationLayout { v: ctx, csrf, body_class: &body_class, flash: &flash, shell, navbar: &navbar, body: &page.body, flash_extra, modal_src };
