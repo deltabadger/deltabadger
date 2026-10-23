@@ -50,7 +50,7 @@
   "app/views/shared/_connect_brand.html.erb": "0e7a2491a84180e9e545d1aa1d3c2abbee7df76050af9cb6ca208adee0130acc",
   "app/views/bots/dca_multi_assets/pick_stock_brokers/new.html.erb": "d5f83ec31492f40d0399bfd9ee7cf36cfd5e1f30a1641224076a7155d58eac19",
   "app/views/bots/dca_multi_assets/pick_spendable_assets/new.html.erb": "b67bcd5bce368f3eeba3ec251256182532f2173830ae3cc038c3893055b8f833",
-  "app/views/bots/index.html.erb": "6482572bbe3057e93c2153e32afc7621120fe7f3938025dc88b47b7cb9c56ec6",
+  "app/views/bots/index.html.erb": "ee770ae1694c0e396cf922dbcf051744dd4da4b3caddf8f3cc7d52fc5c68fdae",
   "app/views/layouts/application.html.erb": "7fc3d49fdc000849bce981b93b8ac8eae87f8eb2d41b04f9778a7472046faca1",
   "app/helpers/bot_helper.rb": "49d305ee88d506460c4d95dff8f23ed1823916118a09e305629549715eb6a01b",
   "app/controllers/bots/dca_indexes_controller.rb": "9fdf9d97be105867d88f614c260b96b67cffc17f0874147768a32574e6d31b1e",
