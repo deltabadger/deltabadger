@@ -2413,6 +2413,70 @@ mod custom_allocation {
         f.refused_unchanged("Wait for the pending swap or sale to finish.")
     }
 
+    /// The bot menu's Follow index over the fixture's members as a portfolio.
+    fn as_basket(f: &Fixture) -> Result {
+        let allocations = json!({f.assets[0].to_string(): 0.5, f.assets[1].to_string(): 0.3, f.assets[2].to_string(): 0.2});
+        let quote: i64 = f.c.query_row("SELECT json_extract(settings,'$.quote_asset_id') FROM bots WHERE id=?1", [f.id], |r| r.get(0))?;
+        f.c.execute("UPDATE bots SET type='Bots::DcaMultiAsset', settings=?1 WHERE id=?2",
+            (json!({"quote_asset_id": quote, "quote_amount": 60.0, "interval": "week", "allocations": allocations}).to_string(), f.id))?;
+        Ok(())
+    }
+    fn follow(f: &Fixture, category: &str) -> Result<Switched> { Ok(deltabadger::web::bot::index_switch::follow(&f.c, &f.ctx, f.user, f.id, Some(category)).map_err(|e| format!("{e:?}"))?) }
+    fn follow_refused_unchanged(f: &Fixture, category: &str, expected: &str) -> Result {
+        let before = f.snapshot()?;
+        let Switched::Refused(text) = follow(f, category)? else { return Err("expected a refusal".into()) };
+        assert_eq!(text, expected);
+        assert_eq!(f.snapshot()?, before, "a refused switch writes nothing");
+        Ok(())
+    }
+
+    /// D-IDX-FOLLOW-LATE: the switch leaves the members as they were and the engine a resync marker; the bounded index is held
+    /// whole, and the run generation moves, fencing an engine write.
+    #[test]
+    fn follows_an_index_and_leaves_the_engine_its_resync() -> Result {
+        let f = Fixture::new()?;
+        as_basket(&f)?;
+        let members = f.snapshot()?.into_iter().filter(|row| row.starts_with("bot_index_assets")).collect::<Vec<_>>();
+        assert!(matches!(follow(&f, "nasdaq-100")?, Switched::Done));
+        let (class, settings, transient) = f.row()?;
+        assert_eq!(class, "Bots::DcaIndex");
+        assert_eq!((&settings["index_type"], &settings["index_category_id"], &settings["num_coins"], &settings["hold_all"]), (&json!("category"), &json!("nasdaq-100"), &json!(3), &json!(true)));
+        assert!(settings.get("allocations").is_none(), "only the index bot's own settings stay");
+        assert_eq!(transient["run_generation"], json!(1));
+        assert!(transient[deltabadger::engine::index::RESYNC_KEY].is_object(), "the engine owes the bot its derivation");
+        assert_eq!(f.snapshot()?.into_iter().filter(|row| row.starts_with("bot_index_assets")).collect::<Vec<_>>(), members);
+        Ok(())
+    }
+
+    /// D-FENCE-PER-BOT: a portfolio whose placement intent is still recorded is the engine's; nothing is written.
+    #[test]
+    fn a_placement_intent_refuses_a_follow() -> Result {
+        let f = Fixture::new()?;
+        as_basket(&f)?;
+        f.c.execute("UPDATE bots SET transient_data=json_set(transient_data,'$.rust_placement',json('{\"asset\":1}')) WHERE id=?1", [f.id])?;
+        follow_refused_unchanged(&f, "nasdaq-100", "Wait for the pending swap or sale to finish.")
+    }
+
+    /// D-IDX-COINGECKO: on a CoinGecko install this engine derives no index, so the switch Rails would make is refused.
+    #[test]
+    fn a_coingecko_install_refuses_a_follow() -> Result {
+        let f = Fixture::new()?;
+        as_basket(&f)?;
+        f.c.execute("UPDATE indices SET source='coingecko'", [])?;
+        deltabadger::app_config::set_plain(&f.c, "market_data_provider", "coingecko", harness::at(NOW)).map_err(|e| format!("{e:?}"))?;
+        follow_refused_unchanged(&f, "nasdaq-100", "This app can't run that yet: an index bot whose market data comes from CoinGecko")
+    }
+
+    /// An index bot is not offered the index it follows; a selling portfolio may not follow one.
+    #[test]
+    fn the_followed_index_is_not_offered_and_a_seller_refuses() -> Result {
+        let f = Fixture::new()?;
+        follow_refused_unchanged(&f, "nasdaq-100", "This index isn't available for this bot.")?;
+        as_basket(&f)?;
+        f.c.execute("UPDATE bots SET settings=json_set(settings,'$.direction','selling') WHERE id=?1", [f.id])?;
+        follow_refused_unchanged(&f, "nasdaq-100", "A bot that is selling can't follow an index. Switch it back to buying first.")
+    }
+
     #[test]
     fn a_working_bot_refuses_and_a_basket_is_not_found() -> Result {
         let f = Fixture::new()?;

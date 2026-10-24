@@ -372,16 +372,7 @@ pub(super) fn exchange_select(c: &Connection, ctx: &Ctx, csrf: &str, bot: &Bot, 
 {% if index %}
           <a class="dropdown__item" data-turbo-frame="modal" href="{{ path }}/index/new">{{ v.t("bot.index_switch.change_index")|safe }}</a>
           <div data-controller="converting" data-action="turbo:submit-start->converting#show turbo:submit-end->converting#hide">
-            <template data-converting-target="template">
-  <dialog class="dialog dialog--open">
-    <div class="dialog__vertical-center">
-      <div class="modal modal--busy">
-        <div class="loader"></div>
-        <p>{{ v.t("bot.index_switch.converting")|safe }}</p>
-      </div>
-    </div>
-  </dialog>
-</template>
+            {% include "bots/_converting.html" %}
 
             <form class="button_to" method="post" action="{{ path }}/custom_allocation"><button class="dropdown__item" type="submit">{{ v.t("bot.index_switch.custom_allocation")|safe }}</button><input type="hidden" name="authenticity_token" value="{{ csrf }}" /></form>
 </div>{% else if follow_index %}

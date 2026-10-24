@@ -804,3 +804,19 @@ fn add_stock_bodies(c: &Connection, bot: &crate::engine::model::Bot, script: &mu
         "next_open": text(next_open), "next_close": text(next_close) }));
     Ok(())
 }
+
+/// D-IDX-FOLLOW-LATE in the page grid (tests/pages.rs): what the woken engine does for every index bot left a resync marker
+/// (engine::run::resync_bot at `now`), over a venue that must not be asked: the grid's switches seat only incumbents, which
+/// no price probe decides.
+pub async fn resync_marked(c: &Connection, cipher: &Cipher, now: DateTime<Utc>) -> Result<(), EngineError> {
+    // As `serve` opens the engine's connection: the install's market-data provider readable.
+    crate::engine::provider::bind(c, cipher, &|_| None)?;
+    let (prices, mut state) = (PriceCache::default(), crate::engine::run::Resyncs::default());
+    for (id, marker) in crate::engine::index::resync_marked(c)? {
+        let venue = crate::venue::fake::FakeVenue::new().on_price(|| panic!("a page-grid resync probed a newcomer's price"));
+        let handle = |bot: &model::Bot| { let h = crate::venue::Handle::for_bot(&venue, c, bot)?; let version = h.producer(); Ok((h, version)) };
+        let mut wake = i64::MAX;
+        crate::engine::run::resync_bot(c, id, &marker, &FixedClock(now), &prices, &mut state, handle, &mut wake).await?;
+    }
+    Ok(())
+}
