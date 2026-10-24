@@ -114,6 +114,7 @@ fn customize_inner(c: &Connection, ctx: &Ctx, owner: i64, id: i64) -> Result<Swi
         settings.insert("allocations".into(), Value::Object(weights));
         Ok(())
     })?;
+    let basket = match basket { Ok(bot) => bot, Err(messages) => return Ok(Switched::Refused(messages)) };
     // The portfolio's after-save composition: members it left out become exited.
     composition::reconcile(&tx, &basket, now)?;
     commit(tx, ctx, id)
@@ -135,10 +136,11 @@ fn write_refused(locale: &str, reason: &str) -> String { i18n::text(locale, "eng
 /// computes (set_missed_quote_amount), `becomes!` (the target class's after_initialize defaults over the same settings, a
 /// default the source computed kept), only the target's own settings, `assign` (the switch's yield), the label nulled unless
 /// the user gave one, and the save with its settings clock, carry capture and generated name. The run generation moves, so
-/// an engine write already in flight is fenced. Returns the switched bot as it now loads.
+/// an engine write already in flight is fenced. Returns the switched bot as it now loads, or the validation errors that
+/// refuse it.
 #[allow(clippy::too_many_arguments)]
 fn switch(tx: &Connection, ctx: &Ctx, owner: i64, id: i64, draft: &draft::Draft, mut source: Bot, (from, to, kind, stored): (&str, &str, super::Kind, &[&str]),
-          assign: impl FnOnce(&Connection, &mut Map<String, Value>) -> Result<(), WebError>) -> Result<Bot, WebError> {
+          assign: impl FnOnce(&Connection, &mut Map<String, Value>) -> Result<(), WebError>) -> Result<Result<Bot, String>, WebError> {
     let now = ctx.app.now();
     // A name the user never changed follows what the bot now holds.
     let generated = source.clone().default_label(ctx.locale);
@@ -167,9 +169,18 @@ fn switch(tx: &Connection, ctx: &Ctx, owner: i64, id: i64, draft: &draft::Draft,
         }
     }
     let switched = Bot::find(tx, owner, id, For::Page, ctx.locale)?.ok_or_else(|| super::data("switched bot disappeared".into()))?;
+    // `target.save!`: the target class's validations over the switched row, as its settings save runs them; RecordInvalid
+    // is Refused with the full messages, and the caller's transaction is dropped unwritten.
+    let mut saved = draft::Draft::from_bot(switched.clone());
+    saved.as_unsaved_of(&draft.original);
+    saved.validate(tx, draft::ValidationContext::Update, now, bots::market_data(tx, &ctx.app)?.1, ctx.locale)?;
+    if !saved.errors.is_empty() {
+        let messages: Vec<String> = saved.errors.iter().map(|e| super::mcp_input::full_messages(std::slice::from_ref(e))).collect();
+        return Ok(Err(draft::sentence(&messages.iter().map(String::as_str).collect::<Vec<_>>(), ctx.locale)));
+    }
     // Automation::Labelable#set_default_label: the generated name is stored.
     if !renamed { one(tx.execute("UPDATE bots SET label=?1 WHERE id=?2", (&switched.label, id))?)?; }
-    Ok(switched)
+    Ok(Ok(switched))
 }
 
 /// What the bot menu's index picker offers bot `id` (Bots::IndicesController#set_indices): Index.followable_on its venue and
@@ -225,7 +236,7 @@ fn follow_inner(c: &Connection, ctx: &Ctx, owner: i64, id: i64, category: Option
     let source = draft.original.clone();
     if let Some(reason) = source.unrendered() { return Ok(Switched::Unported(reason)); }
     if let Some(reason) = wizard::index::refusal(&tx, &ctx.app, None, &source.exchange.class)? { return Ok(Switched::Refused(write_refused(ctx.locale, reason))); }
-    switch(&tx, ctx, owner, id, &draft, source, (&from, TO, super::Kind::Index, STORED_DCA_INDEX), |c, settings| {
+    let switched = switch(&tx, ctx, owner, id, &draft, source, (&from, TO, super::Kind::Index, STORED_DCA_INDEX), |c, settings| {
         // Index#bot_settings, then the size: `num_coins = bounded_universe_size || 10`, `hold_all = size.present?`.
         let top = index.external_id == "top-coins";
         let prefix = wizard::index_create::count_named(Some(&index.external_id)).map(|(prefix, _)| prefix);
@@ -239,6 +250,7 @@ fn follow_inner(c: &Connection, ctx: &Ctx, owner: i64, id: i64, category: Option
         if matches!(settings.get("allocation_flattening"), None | Some(Value::Null | Value::Bool(false))) { settings.insert("allocation_flattening".into(), json!(0.0)); }
         Ok(())
     })?;
+    if let Err(messages) = switched { return Ok(Switched::Refused(messages)); }
     // after_update_commit :resync_index_composition (the index definition changed), and the request's own derivation.
     index::mark_resync(&tx, id, now).map_err(|e| super::data(format!("{e:?}")))?;
     commit(tx, ctx, id)

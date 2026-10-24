@@ -497,6 +497,10 @@ module Pages
       # A swap in flight: this build serves neither the bot's page nor its picker, so the archived bot's page gives the token.
       'follow_index_create_in_flight' => with_bots([stopped('basket', nd.merge('transient' => { 'rebalance_pending' => { 'phase' => 'selling' } })), archived],
                                                    signed_in(get('/bots/2'), index_follow('nasdaq-100').merge('csrf' => 'header', 'expect' => 422))),
+      # A one-asset portfolio's Smart Intervals split sits above its asset's minimum and below the index's (the venue's
+      # largest, a non-member's here): the index bot fails validation and nothing is saved.
+      'follow_index_create_smart_below_minimum' => with_bots([stopped('basket', 'allocations' => { 'NVDA' => 1.0 }, 'minimum_quote' => { 'QQQM' => '20' }), archived],
+                                                             signed_in(get('/bots/1'), index_pick, index_follow('nasdaq-100').merge('expect' => 422), get('/bots/1'))),
       'follow_index_create_de' => with_bots([stopped('basket', nd), archived],
                                             signed_in(get('/de/bots/1'), index_pick('/de/bots/1/index/new'), index_follow('nasdaq-100', '/de/bots/1/index').merge('expect' => 200),
                                                       get('/de/bots/1'))),
