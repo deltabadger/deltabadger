@@ -1875,6 +1875,64 @@ async fn rails_and_rust_show_the_price_status_line_identically() {
     assert!(failures.is_empty(), "{} of {} status-line scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
 }
 
+/// Slice 7b-0, Rails only: Rust admits no RSI, moving-average or price-drop rule until 7b-3, which turns this into a
+/// Rails/Rust comparison. Until then it pins what Rails does on a degenerate daily close series (the plan's "7b-0
+/// findings"): a flat series gives RSI NaN, which meets neither `below` nor `above`; an all-gain series gives 100.0; 14
+/// closes (RSI) or 8 (SMA 9) fail, which reads as not met; an unmet or failed buy-side flip rule places nothing (its
+/// decorated started_at is nil), a sell-side one sells. And the Alpaca crypto ATH seed reads every page at limit=10000.
+#[tokio::test(flavor = "current_thread")]
+async fn rails_reads_degenerate_indicator_series_as_recorded() {
+    use serde_json::Value;
+    let root = tempfile::tempdir().unwrap();
+    built_grid("grid-conditions-degenerate", root.path());
+    rails(&["record", root.path().to_str().unwrap()]);
+    let mut dirs: Vec<PathBuf> = std::fs::read_dir(root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
+    dirs.sort();
+    assert_eq!(dirs.len(), 68, "the degenerate grid has {} scenarios", dirs.len());
+    let (close, retry, minute) = ("2026-09-02T23:59:59.999999Z", "2026-09-02T10:04:01.123456Z", "2026-09-02T10:00:59.999999Z");
+    let mut failures = vec![];
+    for d in &dirs {
+        let name = d.file_name().unwrap().to_string_lossy().to_string();
+        let out: Value = serde_json::from_str(&std::fs::read_to_string(d.join("rails.json")).unwrap()).unwrap();
+        let mut parts = name.splitn(4, '-').skip(2);
+        let (side, case) = (parts.next().unwrap(), parts.next().unwrap());
+        let sell = side == "sell";
+        let failed = ["rsi_fourteen", "rsi_no_candles", "ma_eight"].contains(&case);
+        let flip = case.ends_with("_flip");
+        let met = match case { "rsi_all_gain" | "rsi_fifteen" => sell, "ma_nine" => !sell, "ath_two_pages" => true, _ => false };
+        let sent = usize::from(met || (flip && sell));
+        let checks: Vec<&str> = if met || flip { vec![] } else if case == "ath_one_page" { vec![minute] } else if failed { vec![close, retry] } else { vec![close, close] };
+        let shown = match case {
+            "rsi_flat" | "rsi_flat_stored" | "rsi_flat_flip" => Some("is NaN"),
+            "rsi_all_gain" | "rsi_fifteen" => Some("is 100.0"),
+            "ma_nine" => Some("The SMA 9 on the last daily  candle close is"),
+            _ => None,
+        };
+        let infos: Vec<String> = out["infos"].as_array().map(|p| p.iter().flat_map(|i| i.as_array().unwrap().iter().map(|h| h["html"].as_str().unwrap().to_string())).collect()).unwrap_or_default();
+        let info_ok = match shown {
+            Some(text) => infos.len() == 1 && infos[0].contains(text) && infos[0].contains("text-success") == met,
+            None => infos.is_empty(),
+        };
+        let got_checks: Vec<&str> = out["checks"].as_array().unwrap().iter().map(|c| c.as_str().unwrap()).collect();
+        if out["sent"].as_array().unwrap().len() != sent || got_checks != checks || !info_ok {
+            failures.push(format!("{name}: expected {sent} order(s), checks {checks:?}, info {shown:?}\n  rails: {out}"));
+        }
+        if case == "rsi_flat_stored" {
+            let bot = &out["changes"]["bots"][0]["after"]["transient_data"];
+            let key = if sell { "sell_indicator_limit_condition_met_at" } else { "indicator_limit_condition_met_at" };
+            if !bot[key].is_null() || bot["missed_quote_amount_was_set"] != true { failures.push(format!("{name}: NaN must clear the stored met_at\n  rails: {out}")); }
+        }
+        if case.starts_with("ath_") {
+            let pages = if case == "ath_two_pages" { 2 } else { 1 };
+            let reads = out["reads"].as_array().unwrap();
+            let all_limited = reads.iter().all(|r| r.as_str().unwrap().contains("limit=10000&"));
+            let ath = if pages == 2 { "126000.0" } else { "73000.0" };
+            if reads.len() != pages || !all_limited || out["ath"]["ath"] != ath { failures.push(format!("{name}: the ATH seed reads {pages} page(s) at limit=10000\n  rails: {out}")); }
+        }
+    }
+    assert!(failures.is_empty(), "{} of {} degenerate scenarios differ from the recorded findings:\n{}", failures.len(), dirs.len(), failures.join("\n"));
+}
+
 struct GridDir { path: PathBuf, _temp: Option<tempfile::TempDir> }
 impl GridDir { fn path(&self) -> &Path { &self.path } }
 fn grid_dir(name: &str) -> GridDir {

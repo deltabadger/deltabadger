@@ -19,6 +19,7 @@
 #   bin/rails runner script/rust/decisions.rb grid-rebalance <root>   # threshold rebalancing on stopped baskets across venues (slice 6b)
 #   bin/rails runner script/rust/decisions.rb grid-conditions <root> # price_limit / sell_price_limit with `pause`, and the minute check (slice 7a)
 #   bin/rails runner script/rust/decisions.rb grid-condition-info <root> # the price rule's status line, every venue (slice 7s)
+#   bin/rails runner script/rust/decisions.rb grid-conditions-degenerate <root> # RSI/SMA on degenerate closes, Alpaca's ATH pages (7b-0, Rails only)
 #   bin/rails runner script/rust/decisions.rb grid-signal <root>  # Bot::SignalJob, one webhook call of a signal bot, on every configured venue (slice 8a)
 #   bin/rails runner script/rust/decisions.rb record <root>  # Rails' ticks (and retries) per <root>/<scenario>/ -> rails.json
 # Always run with every *_DATABASE_URL pointing at scratch files and PROXY_KRAKEN at a dead address. Kraken is
@@ -82,7 +83,7 @@ end
 # Rails' own middleware (json, raise_error), Clients::Alpaca#with_rescue, Client.network_failure and Exchanges::Alpaca's
 # parsing all run. Only while an Alpaca scenario runs (http set); a Kraken scenario never reaches this adapter.
 module ScriptedAlpaca
-  mattr_accessor :http, :sent
+  mattr_accessor :http, :sent, :reads
 
   NETWORK = {
     'pre_send_data' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "data.alpaca.markets" port 443')) },
@@ -109,6 +110,7 @@ module ScriptedAlpaca
 
     key = "#{env.method.to_s.upcase} #{env.url.path}"
     sent << JSON.parse(env.request_body).except('client_order_id') if key == 'POST /v2/orders'
+    reads << "#{key}?#{env.url.query}" if reads && key.end_with?('/bars')
     queue = http[key] or raise Harness::Unscripted, "unscripted Alpaca call #{key}"
     queue.size > 1 ? queue.shift : queue.first
   end
@@ -4008,6 +4010,92 @@ module Decisions
     end
   end
 
+  # Slice 7b-0 (Rails only; Rust admits none of these rules before 7b-3): what Rails does end to end when an indicator rule
+  # reads a degenerate daily close series, on the three reference venues, both sides. Each scenario ticks at `at`, runs the
+  # rule's own check job at `check_at` (and the Bot::ActionJob it enqueues when met), then its status-line job 30 s later.
+  # Closes: flat (RSI 0/0), all-gain (RSI x/0), 14 and 15 closes (RSI period 14), 8 and 9 closes (SMA period 9), none at
+  # all; a flat series with a stored met_at (the clear); and the flip actions on a flat, a too-short and an empty series.
+  # Every series has one more, still-forming candle, far off the rest, which Rails drops (technically_analyzable.rb:165).
+  def degenerate_condition_scenarios
+    base = condition_scenarios.to_h { |sc| [sc['name'], sc] }
+    at = Time.iso8601(base.fetch('cond-kraken-buy-below_met')['at'])
+    day0 = at.utc.beginning_of_day
+    candles = {
+      'kraken' => lambda do |rows|
+        { '/0/public/OHLC' => [{ 'error' => [], 'result' => { 'XXBTZEUR' => rows.map { |t, c| [t.to_i, c, c, c, c, c, '1.5', 10] }, 'last' => day0.to_i } }] }
+      end,
+      'alpaca' => lambda do |rows|
+        bars = rows.map { |t, c| { 't' => t.iso8601, 'o' => c.to_f, 'h' => c.to_f, 'l' => c.to_f, 'c' => c.to_f, 'v' => 1.5 } }
+        { 'GET /v1beta3/crypto/us/bars' => [ok('bars' => { 'BTC/USD' => bars }, 'next_page_token' => nil)] }
+      end,
+      'binance' => lambda do |rows|
+        { 'GET /api/v3/klines' => [ok(rows.map { |t, c| [t.to_i * 1000, c, c, c, c, '1.5', ((t + 1.day).to_i * 1000) - 1, '1', 10, '1', '1', '0'] })] }
+      end
+    }
+    rules = {
+      'rsi' => { 'buy' => { 'indicator_limited' => true, 'indicator_limit' => 30, 'indicator_limit_value_condition' => 'below' },
+                 'sell' => { 'sell_indicator_limited' => true, 'sell_indicator_limit' => 70, 'sell_indicator_limit_value_condition' => 'above' } },
+      'ma' => { 'buy' => { 'moving_average_limited' => true, 'moving_average_limit_value_condition' => 'below', 'moving_average_limit_in_period' => 9 },
+                'sell' => { 'sell_moving_average_limited' => true, 'sell_moving_average_limit_value_condition' => 'above', 'sell_moving_average_limit_in_period' => 9 } }
+    }
+    jobs = { 'rsi' => %w[Bot::IndicatorLimitCheckJob Bot::BroadcastIndicatorLimitInfoUpdateJob indicator_limit],
+             'ma' => %w[Bot::MovingAverageLimitCheckJob Bot::BroadcastMovingAverageLimitInfoUpdateJob moving_average_limit] }
+    %w[kraken alpaca binance].flat_map do |venue|
+      %w[buy sell].flat_map do |side|
+        sc0 = base.fetch("cond-#{venue}-#{side}-below_met")
+        p = condition_scenarios_price(venue)
+        flat = ->(n) { Array.new(n, p) }
+        gain = ->(n) { Array.new(n) { |i| p - n + i + 1 } }
+        cases = {
+          'rsi_flat' => ['rsi', flat.(30)], 'rsi_all_gain' => ['rsi', gain.(30)], 'rsi_fourteen' => ['rsi', gain.(14)],
+          'rsi_fifteen' => ['rsi', gain.(15)], 'rsi_no_candles' => ['rsi', []], 'rsi_flat_stored' => ['rsi', flat.(30), { 'met_at' => true }],
+          'rsi_flat_flip' => ['rsi', flat.(30), { 'flip' => true }], 'rsi_fourteen_flip' => ['rsi', gain.(14), { 'flip' => true }],
+          'ma_eight' => ['ma', flat.(8).map { |c| c + 50 }], 'ma_nine' => ['ma', flat.(9).map { |c| c + 50 }],
+          'ma_eight_flip' => ['ma', flat.(8).map { |c| c + 50 }, { 'flip' => true }]
+        }
+        cases.map do |name, (rule, closes, opts)|
+          opts ||= {}
+          check_job, info_job, key = jobs.fetch(rule)
+          prefix = side == 'sell' ? "sell_#{key}" : key
+          rows = closes.each_with_index.map { |c, i| [day0 - (closes.size - i).days, c.to_s('F')] }
+          rows << [day0, (p + 1000).to_s('F')] unless closes.empty? # still forming: dropped
+          sc = Marshal.load(Marshal.dump(sc0))
+          settings = sc['settings'].reject { |k, _| k.include?('price_limit') }
+          settings.merge!(rules.fetch(rule).fetch(side), "#{prefix}_timing_condition" => 'while',
+                          "#{prefix}_action" => opts['flip'] ? (side == 'buy' ? 'start_selling' : 'start_buying') : 'pause')
+          transient = sc['transient'].reject { |k, _| k.include?('price_limit') }
+          transient["#{prefix}_condition_met_at"] = '2026-08-31T10:00:00.000Z' if opts['met_at']
+          script_key = venue == 'kraken' ? 'http' : venue
+          sc.merge('name' => "degen-#{venue}-#{side}-#{name}", 'settings' => settings, 'transient' => transient,
+                   'check_at' => (at + 180).iso8601(6), 'check_job' => check_job, 'info_job' => info_job,
+                   'info' => [{ 'at' => (at + 210).iso8601(6) }],
+                   'script' => { script_key => sc['script'][script_key].merge(candles.fetch(venue).(rows)) })
+        end
+      end
+    end + alpaca_ath_page_scenarios(base)
+  end
+
+  # The last price each reference venue's condition rows are scripted with (condition_scenarios' `price`).
+  def condition_scenarios_price(venue) = { 'kraken' => BigDecimal('49995.3'), 'alpaca' => BigDecimal('64310.75'), 'binance' => BigDecimal('64000.05') }.fetch(venue)
+
+  # Slice 7b-0: the Alpaca crypto ATH seed (a price-drop rule on 'ath', never seeded) over two pages of daily bars, the higher
+  # high on the second. `reads` records every bars request (its query: limit, start, page_token), and `ath` the tickers row after.
+  def alpaca_ath_page_scenarios(base)
+    sc0 = base.fetch('cond-alpaca-buy-below_met')
+    bar = ->(t, h) { { 't' => t, 'o' => 60_000.0, 'h' => h, 'l' => 59_000.0, 'c' => 60_000.0, 'v' => 1.5 } }
+    page1 = ok('bars' => { 'BTC/USD' => [bar.('2024-03-14T00:00:00Z', 73_000.0)] }, 'next_page_token' => 'QlRDL1VTRHwyMDI0')
+    page2 = ok('bars' => { 'BTC/USD' => [bar.('2025-10-06T00:00:00Z', 126_000.0)] }, 'next_page_token' => nil)
+    %w[two_pages one_page].map do |name|
+      sc = Marshal.load(Marshal.dump(sc0))
+      settings = sc['settings'].reject { |k, _| k.include?('price_limit') }
+                               .merge('price_drop_limited' => true, 'price_drop_limit' => 0.2, 'price_drop_limit_time_window_condition' => 'ath',
+                                      'price_drop_limit_timing_condition' => 'while', 'price_drop_limit_action' => 'pause')
+      sc.merge('name' => "degen-alpaca-buy-ath_#{name}", 'settings' => settings, 'transient' => sc['transient'].reject { |k, _| k.include?('price_limit') },
+               'check_at' => nil, 'check_job' => 'Bot::PriceDropLimitCheckJob', 'record_reads' => true,
+               'script' => { 'alpaca' => sc['script']['alpaca'].merge('GET /v1beta3/crypto/us/bars' => name == 'two_pages' ? [page1, page2] : [page1.merge('body' => page1['body'].merge('next_page_token' => nil))]) })
+    end
+  end
+
   # ---- Plan 8a: Bot::SignalJob, one webhook call of a signal bot (grid-signal) --------------------------------------------
   # A weekday session (10:00 EDT), so the stock clock is open.
   SIGNAL_AT = '2026-09-01T14:00:01.250000Z'
@@ -4245,7 +4333,8 @@ module Decisions
                  JSON.pretty_generate({ 'encryption' => (%w[index venue_index].include?(sc['kind']) ? { 'primary_key' => Array(enc.primary_key).first, 'key_derivation_salt' => enc.key_derivation_salt } : nil), 'parity_scratch' => true, 'bot_id' => bot.id, 'at' => sc['at'], 'venue' => sc['venue'], 'script' => sc['script'],
                                         'tick' => sc['tick'], 'poll' => sc['poll'], 'recover_at' => sc['recover_at'], 'next_at' => sc['next_at'], 'rebalance_at' => sc['rebalance_at'],
                                         'between' => sc['between'], 'rails_cache' => sc['rails_cache'], 'check_at' => sc['check_at'],
-                                        'conditions' => sc['conditions'], 'info' => sc['info'], 'resync_at' => sc['resync_at'], 'trigger' => sc['trigger'],
+                                        'conditions' => sc['conditions'], 'info' => sc['info'], 'check_job' => sc['check_job'], 'info_job' => sc['info_job'],
+                                        'record_reads' => sc['record_reads'], 'resync_at' => sc['resync_at'], 'trigger' => sc['trigger'],
                                         # Bot::SignalJob's arguments: the rule (by its id) and when the call arrived.
                                         'signals' => sc['calls']&.map { |c| { 'signal_id' => bot.bot_signals.order(:id)[c['rule']].id, 'triggered_at' => c['triggered_at'] } },
                                         'before_signal' => sc['before_signal'], 'secret' => sc['secret'],
@@ -4359,6 +4448,7 @@ module Decisions
       ScriptedKrakenHttp.sent = []
       ScriptedAlpaca.http = alpaca ? sc['script']['alpaca'].transform_values(&:dup) : {} # {}: any Alpaca call in a Kraken scenario is unscripted
       ScriptedAlpaca.sent = []
+      ScriptedAlpaca.reads = sc['record_reads'] ? [] : nil
       VENUES.each do |key, row|
         row.scripted.http = key == sc['venue'] ? sc['script'][key].transform_values(&:dup) : {}
         row.scripted.sent = []
@@ -4381,10 +4471,11 @@ module Decisions
         travel_to(Time.iso8601(cached['at']), with_usec: true) { Rails.cache.write("exchange_#{exchange_id}_clock", cached['clock'], expires_in: 1.minute) }
         travel_back
       end
-      # Every Bot::PriceLimitCheckJob the phase queued, at the time it was queued for.
+      # Every check job of the rule's type (Bot::PriceLimitCheckJob unless `check_job`) the phase queued, at its time.
+      check_job = sc.fetch('check_job', 'Bot::PriceLimitCheckJob')
       checks = []
       limit_checks = lambda do
-        ActiveJob::Base.queue_adapter.enqueued_jobs.select { |j| j['job_class'] == 'Bot::PriceLimitCheckJob' }.map do |j|
+        ActiveJob::Base.queue_adapter.enqueued_jobs.select { |j| j['job_class'] == check_job }.map do |j|
           (j['scheduled_at'] ? Time.iso8601(j['scheduled_at']) : Time.at(j[:at] || j['at'])).utc.iso8601(6)
         end
       end
@@ -4406,7 +4497,7 @@ module Decisions
         ActiveJob::Base.queue_adapter.enqueued_jobs.clear
         check_time = Time.iso8601(sc['check_at'])
         begin
-          travel_to(check_time, with_usec: true) { Bot::PriceLimitCheckJob.perform_now(Bot.find(sc['bot_id'])) }
+          travel_to(check_time, with_usec: true) { check_job.constantize.perform_now(Bot.find(sc['bot_id'])) }
         rescue StandardError
           nil # the job raised: its chain dies until Bot::RepairOrphanedBotsJob
         end
@@ -4422,7 +4513,7 @@ module Decisions
         (phase['sql'] || []).each { |sql| ActiveRecord::Base.connection.execute(sql) }
         $info_broadcasts = []
         begin
-          travel_to(Time.iso8601(phase['at']), with_usec: true) { I18n.with_locale(:en) { Bot::BroadcastPriceLimitInfoUpdateJob.perform_now(Bot.find(sc['bot_id'])) } }
+          travel_to(Time.iso8601(phase['at']), with_usec: true) { I18n.with_locale(:en) { sc.fetch('info_job', 'Bot::BroadcastPriceLimitInfoUpdateJob').constantize.perform_now(Bot.find(sc['bot_id'])) } }
         rescue StandardError
           nil # the job raised (a zero price): nothing broadcast
         end
@@ -4471,6 +4562,7 @@ module Decisions
       out = { 'sent' => sent, 'changes' => diff(before, snapshot), 'mails' => mails.sort_by { |m| m['mail'] } }
       out['checks'] = checks if sc['conditions']
       out['infos'] = infos if sc['info']
+      out.merge!('reads' => ScriptedAlpaca.reads, 'ath' => Bot.find(sc['bot_id']).tickers.first.slice('ath', 'ath_updated_at').transform_values { |v| v&.to_s }) if sc['record_reads']
       # Only where the scenario seeded the Rust engine's markers: what Rails left of them.
       out['markers'] = Bot.find(sc['bot_id']).transient_data.slice(*MAIL_MARKERS) if markers.any?
       # Alpaca only: the funds notification (its column is excluded from the snapshot) and the follow-up's raise.
@@ -4512,7 +4604,7 @@ def web_save(dir)
 end
 
 command, root = ARGV
-USAGE = 'usage: grid <root> | grid-signal <root> | grid-alpaca <root> | grid-basket <root> | grid-limit <root> | grid-binance <root> | grid-binance-us <root> | grid-kucoin <root> | grid-bitvavo <root> | grid-bitget <root> | grid-gemini <root> | grid-mexc <root> | grid-hyperliquid <root> | grid-bybit <root> | grid-bitrue <root> | grid-coinbase <root> | grid-bingx <root> | grid-sell <root> | grid-venue-basket <root> | grid-venue-index <root> | grid-conditions <root> | grid-condition-info <root> | grid-basket-sell <root> | grid-rebalance <root> | record <root> | web-save <dir>'.freeze
+USAGE = 'usage: grid <root> | grid-signal <root> | grid-alpaca <root> | grid-basket <root> | grid-limit <root> | grid-binance <root> | grid-binance-us <root> | grid-kucoin <root> | grid-bitvavo <root> | grid-bitget <root> | grid-gemini <root> | grid-mexc <root> | grid-hyperliquid <root> | grid-bybit <root> | grid-bitrue <root> | grid-coinbase <root> | grid-bingx <root> | grid-sell <root> | grid-venue-basket <root> | grid-venue-index <root> | grid-conditions <root> | grid-condition-info <root> | grid-conditions-degenerate <root> | grid-basket-sell <root> | grid-rebalance <root> | record <root> | web-save <dir>'.freeze
 raise ArgumentError, USAGE unless root
 
 case command
@@ -4540,6 +4632,7 @@ when 'grid-venue-basket' then Decisions.grid(root, Decisions.venue_basket_scenar
 when 'grid-basket-sell' then Decisions.grid(root, Decisions.basket_sell_scenarios)
 when 'grid-rebalance' then Decisions.grid(root, Decisions.rebalance_scenarios)
 when 'grid-conditions' then Decisions.grid(root, Decisions.condition_scenarios)
+when 'grid-conditions-degenerate' then Decisions.grid(root, Decisions.degenerate_condition_scenarios)
 when 'grid-condition-info' then Decisions.grid(root, Decisions.condition_info_scenarios)
 when 'grid-signal' then Decisions.grid(root, Decisions.signal_scenarios)
 when 'record' then Decisions.record(root)
