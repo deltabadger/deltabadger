@@ -466,6 +466,9 @@ fn each_reading_key_gets_a_ledger_job_and_a_balance_job_scoped_by_its_id() {
     let funds = EngineEvent::FundsLow { bot_id: 1, user_id: 1, quote_asset_id: None };
     assert!(LedgerSync::new(venues.clone(), 7).wants(&order) && !LedgerSync::new(venues.clone(), 7).wants(&funds));
     assert!(!BalanceSync::new(venues.clone(), Rc::new(NoPrices), 7).wants(&order));
+    // And on every terminal sell fill (transaction.rb:50-56), which arms the ledger's wash-sale locks before the nightly run.
+    let sale = EngineEvent::SaleSettled { bot_id: 1 };
+    assert!(LedgerSync::new(venues.clone(), 7).wants(&sale) && !BalanceSync::new(venues.clone(), Rc::new(NoPrices), 7).wants(&sale));
 
     // What the scheduler registers at start (on the connection it is about to hand its `Db`): per reading key, the ledger jobs first.
     let c = Connection::open(dir.path().join("production.sqlite3")).unwrap();

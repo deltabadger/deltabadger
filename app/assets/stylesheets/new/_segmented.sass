@@ -230,14 +230,14 @@
             right: auto
             width: max(100%, 32rem)
             padding: 0
-            transition: height 0.22s cubic-bezier(0.22, 0.61, 0.36, 1)
+            transition: height 0.1s linear
         // flex-start, not the default stretch: the box takes the height of the pane on screen, and
         // a stretched short pane would measure as the tall one.
         .segmented__panes
             display: flex
             align-items: flex-start
             width: 200%
-            transition: transform 0.22s cubic-bezier(0.22, 0.61, 0.36, 1)
+            transition: transform 0.1s linear
         // Both panes take the dropdown's own padding; the action's list is a .dropdown of its own,
         // which here gives up the box it wears when it hangs off the expanded track.
         .segmented__menu, .segmented__submenu
@@ -313,7 +313,7 @@
     background: var(--washed)
     box-shadow: var(--shadow-paper)
     // The reset already stops every transition under prefers-reduced-motion.
-    transition: left 0.18s cubic-bezier(0.22, 0.61, 0.36, 1), width 0.18s cubic-bezier(0.22, 0.61, 0.36, 1)
+    transition: left 0.1s linear, width 0.1s linear
 
 // Weight is CONSTANT across states: a heavier selected label would change the option's width and
 // make the chip lurch on every switch. Colour carries the selection.

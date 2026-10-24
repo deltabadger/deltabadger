@@ -44,14 +44,13 @@ document.addEventListener("turbo:click", (event) => {
   event.detail.originalEvent.preventDefault();
 });
 
-// The menu controller stamps data-menu-visit on <html> for a menu-tile visit, which hides Turbo's
-// progress bar for that visit alone. turbo:visit fires only when a visit STARTS, and a form
-// submission emits none while its request runs — and starting one cancels the visit in flight
-// without a load or an error of its own — so the stamp has to come off when the visit ends or is
-// cut short. Here, rather than in the controller, because the page the visit lands on may not
-// carry the menu at all (a session that expired mid-visit lands on the sign-in layout).
-["turbo:load", "turbo:fetch-request-error", "turbo:submit-start"].forEach((name) =>
-  document.addEventListener(name, () => document.documentElement.removeAttribute("data-menu-visit"))
+// Turbo stamps aria-busy on <html> while a visit runs, and the menu pulses on it (_base.sass).
+// Turbo clears it only when a visit COMPLETES: a form submission emits no visit while its request
+// runs, and starting one cancels the visit in flight without a load or an error of its own, so a
+// submission answered by a stream (no visit after it) or a failed fetch would leave the menu
+// pulsing. Take it off there; a visit that does follow stamps it again.
+["turbo:fetch-request-error", "turbo:submit-start"].forEach((name) =>
+  document.addEventListener(name, () => document.documentElement.removeAttribute("aria-busy"))
 );
 
 // Turbo keeps a snapshot of every page visited and restores it, without a request, when the user
