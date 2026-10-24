@@ -19,6 +19,7 @@
 #   bin/rails runner script/rust/decisions.rb grid-rebalance <root>   # threshold rebalancing on stopped baskets across venues (slice 6b)
 #   bin/rails runner script/rust/decisions.rb grid-conditions <root> # price_limit / sell_price_limit with `pause`, and the minute check (slice 7a)
 #   bin/rails runner script/rust/decisions.rb grid-signal <root>  # Bot::SignalJob, one webhook call of a signal bot, on every configured venue (slice 8a)
+#   bin/rails runner script/rust/decisions.rb grid-wash-sale <root> # the wash-sale rule on: buy locks, sale claims, fills, rebalance, signal (PLAN-wash-sale WS-3)
 #   bin/rails runner script/rust/decisions.rb record <root>  # Rails' ticks (and retries) per <root>/<scenario>/ -> rails.json
 # Always run with every *_DATABASE_URL pointing at scratch files and PROXY_KRAKEN at a dead address. Kraken is
 # scripted beneath the real client (Honeymaker::Clients::Kraken#get_public/#post_private), so every line of
@@ -256,12 +257,16 @@ module Decisions
       r.delete('run_identity') if table == 'transactions'
       JSON_COLUMNS.each { |c| r[c] = JSON.parse(r[c]) if r[c].is_a?(String) }
       r['transient_data'] = r['transient_data'].except(*RUST_KEYS) if r['transient_data'].is_a?(Hash)
+      # A claim token is random on either side: compared as present or null (rust/src/parity.rs snapshot does the same).
+      r['transient_data']['rebalance_claim_token'] &&= 'present' if r['transient_data'].is_a?(Hash)
+      r['claim_token'] &&= 'present' if table == 'wash_sale_locks'
       [r['id'], r]
     end
   end
 
-  # The tick rewrites a basket's members (Bot::Composition::Allocatable#update_bot_index_assets), so they are compared too.
-  def snapshot = %w[bots transactions bot_activity_logs bot_index_assets].to_h { |t| [t, rows(t)] }
+  # The tick rewrites a basket's members (Bot::Composition::Allocatable#update_bot_index_assets), so they are compared too; and
+  # the account's wash-sale locks (grid-wash-sale).
+  def snapshot = %w[bots transactions bot_activity_logs bot_index_assets wash_sale_locks].to_h { |t| [t, rows(t)] }
 
   # The mails Rails has enqueued (Bot::Notifyable's deliver_later): the mailer action, and what it was handed.
   def enqueued_mails
@@ -4088,6 +4093,138 @@ module Decisions
     list.tap { |l| raise "the signal grid has #{l.size} scenarios, not #{420 + 79}" unless l.size == 420 + 79 }
   end
 
+  # ---- PLAN-wash-sale WS-3: the account's wash-sale rule over every leg the engine trades (grid-wash-sale) ----------------
+  # Scenarios of the other grids, each with the account's rule on (US unless named) and the lock rows `wash` seeds
+  # (#apply_wash), so the same tick decides with the guard live: the buy legs (B), the one-asset and ranked sell claims (S),
+  # the fill confirmation (F), the rebalance legs (R) and the signal bot (G). The tokens compare as present or null (#rows).
+  WASH_FAR = '2027-01-01T00:00:00Z'
+  WASH_TOKEN = 'aaaaaaaaaaaaaaaa' # an older claim still standing on a row: the new claim must replace it (rust/tests/parity.rs)
+
+  # The account's rule and its seeded locks: each on an asset by symbol, or (`member`) by the bot's n-th member row. With
+  # `other_buy`, a second bot on the account holds a waiting buy of that asset (Bot::Rebalancer#account_waiting_buys).
+  def apply_wash(bot, wash)
+    user = bot.user
+    user.update_columns(wash_sale_enabled: wash.fetch('enabled', true), wash_sale_jurisdiction: wash['jurisdiction'])
+    (wash['locks'] || []).each do |l|
+      asset = l['asset'] ? Asset.find_by!(symbol: l['asset']) : bot.bot_index_assets.order(:id)[l.fetch('member')].asset
+      WashSaleLock.create!(user:, asset:, buy_locked_until: l['until'] && Time.iso8601(l['until']), claim_token: l['token'],
+                           confirmed_locked_until: l['confirmed'] && Time.iso8601(l['confirmed']), source: l.fetch('source', 'bot'))
+    end
+    return unless (sym = wash['other_buy'])
+
+    other = user.bots.new(type: bot.type, exchange: bot.exchange, settings: bot.settings)
+    other.set_missed_quote_amount
+    other.save!(validate: false)
+    other.update_columns(status: bot.status, started_at: bot.started_at)
+    asset = Asset.find_by!(symbol: sym)
+    quote = Asset.find(bot.settings['quote_asset_id'])
+    Transaction.insert!({ 'bot_id' => other.id, 'exchange_id' => bot.exchange_id, 'base_asset_id' => asset.id, 'quote_asset_id' => quote.id, 'base' => sym,
+                        'quote' => quote.symbol, 'side' => 0, 'status' => 0, 'external_status' => 0, 'external_id' => 'OOTHER-1', 'order_type' => 0,
+                        'quote_amount' => '60', 'price' => '50000', 'transaction_type' => 'REGULAR', 'bot_interval' => 'day', 'bot_quote_amount' => 60,
+                          'error_messages' => [], 'created_at' => '2026-09-01 10:00:02', 'updated_at' => '2026-09-01 10:00:02' })
+  end
+
+  def wash_sale_scenarios
+    sources = {}
+    pick = lambda do |grid, name|
+      sources[grid] ||= send(grid)
+      sources[grid].find { |sc| sc['name'] == name }&.deep_dup or raise "grid-wash-sale: no scenario #{name} in #{grid}"
+    end
+    list = []
+    add = lambda do |name, sc, wash, **over|
+      list << sc.merge('name' => "wash-#{name}", 'wash' => wash).merge(over.transform_keys(&:to_s)) { |key, a, b| key == 'script' ? a.deep_merge(b) : b }
+    end
+    lock = ->(asset, till = WASH_FAR, **rest) { { 'asset' => asset, 'until' => till }.merge(rest.transform_keys(&:to_s)) }
+    on = ->(*locks, **rest) { { 'locks' => locks }.merge(rest.transform_keys(&:to_s)) }
+
+    # B: the buy legs. B1 one of three locked (the others re-weighted); B2 all locked, then the next checkpoint after the
+    # locks ended (nothing carried: the next contribution is larger); B3 a lock ending exactly at the tick; B4 the rule
+    # off with live rows; B5 an index bot's member.
+    { 'kraken' => 'vb-kraken', 'binance' => 'vb-binance' }.each do |venue, prefix|
+      drifted = pick.(:venue_basket_scenarios, "#{prefix}-tiers-drifted")
+      add.("B1-#{venue}", drifted, on.(lock.('ETH')))
+      add.("B3-#{venue}", drifted, on.(lock.('ETH', drifted['at'])))
+      add.("B4-#{venue}", drifted, on.(lock.('ETH'), enabled: false))
+      add.("B1-#{venue}-gb", drifted, on.(lock.('SOL'), jurisdiction: 'GB'))
+      first = pick.(:venue_basket_scenarios, "#{prefix}-w70-first_tick-market")
+      add.("B2-#{venue}", first, on.(lock.('BTC', basket_at(0)), lock.('ETH', basket_at(0))), next_at: basket_at(1))
+    end
+    late = pick.(:basket_scenarios, 'basket-late_3-tiers')
+    add.('B1-alpaca', late, on.(lock.('ETH')))
+    add.('B3-alpaca', late, on.(lock.('ETH', late['at'])))
+    add.('B4-alpaca', late, on.(lock.('ETH'), enabled: false))
+    add.('B2-alpaca', basket('wash-b2', WEIGHTS['w70'], at: basket_first, next_at: basket_at(1)), on.(lock.('BTC', basket_at(0)), lock.('ETH', basket_at(0))))
+    %w[kraken binance].each do |venue|
+      add.("B5-#{venue}", pick.(:venue_index_scenarios, "vi-#{venue}-top-steady-market"), on.({ 'member' => 1, 'until' => WASH_FAR }))
+    end
+
+    # S: a one-asset sale of 0.01 BTC, after one buy of 0.02 at a dear cost (a loss) or a cheap one (a gain). An unknown
+    # verdict at placement (a lot of unknown cost, a holding recorded by name only) is not here: the engine's split walk
+    # refuses such a history before any leg runs, rule or no rule; F2 covers an unknown verdict at the fill.
+    sell_at = (Time.iso8601('2026-09-01T10:00:00.123456Z') + 1.day + 1.second).iso8601(6)
+    lot = lambda do |cost|
+      { 'status' => 0, 'external_status' => 2, 'external_id' => 'BOUGHT-1', 'order_type' => 0, 'side' => 0, 'amount' => '0.02', 'amount_exec' => '0.02',
+        'quote_amount' => cost, 'quote_amount_exec' => cost, 'price' => (cost.to_d / 0.02.to_d).to_s('F'), 'created_at' => '2026-08-30 10:00:01' }
+    end
+    lots = { 'loss' => [lot.('2000')], 'gain' => [lot.('200')] }
+    sells = {}
+    %w[kraken binance alpaca].each do |venue|
+      base = pick.(:sell_scenarios, "sell-#{venue}-base_market-on_schedule").merge('at' => sell_at)
+      key = venue == 'kraken' ? 'http' : venue
+      sells[venue] = [base, key]
+      lots.each { |verdict, rows| add.("S-#{verdict}-#{venue}", base, on.(), transactions: rows) }
+      add.("S4-#{venue}", base, on.(other_buy: 'BTC'), transactions: lots['loss'])
+      add.("S5-#{venue}", pick.(:sell_scenarios, "sell-#{venue}-base_market-rejected_insufficient"), on.(), transactions: lots['loss'])
+      add.("S8-#{venue}", base, on.(lock.('BTC', token: WASH_TOKEN)), transactions: lots['loss'])
+    end
+    kraken, = sells['kraken']
+    add.('S5-kraken-invalid', kraken, on.(), transactions: lots['loss'], script: { 'http' => { '/0/private/AddOrder' => [{ 'error' => ['EGeneral:Invalid arguments'] }] } })
+    add.('S6-binance', sells['binance'][0], on.(), transactions: lots['loss'], script: { 'binance' => { 'POST /api/v3/order' => [VENUES.fetch('binance').not_sent] } })
+    add.('S6-alpaca', sells['alpaca'][0], on.(), transactions: lots['loss'], script: { 'alpaca' => { 'POST /v2/orders' => [PRE_SEND] } })
+    add.('S7-alpaca', sells['alpaca'][0], on.(), transactions: lots['loss'], script: { 'alpaca' => { 'POST /v2/orders' => [FIVE_XX] } })
+    add.('S7-kraken', kraken, on.(), transactions: lots['loss'], script: { 'http' => { '/0/private/AddOrder' => [{ 'error' => ['EService:Unavailable'] }] } })
+    # The ranked DCA-out: BTC (sold first) is skipped for another bot's waiting buy of it, ETH sells and claims.
+    add.('S4-ranked-alpaca', pick.(:basket_sell_scenarios, 'basket-sell-w50-over_top-quote-market'), on.(other_buy: 'BTC'))
+    add.('S1-ranked-alpaca', pick.(:basket_sell_scenarios, 'basket-sell-w50-over_top-quote-market'), on.())
+
+    # F: the sale's fill, polled 5 s after the tick. F1 a limit sale judged a gain at its price fills at a loss (confirmed);
+    # F2 a cancelled partial whose proceeds are unknown (Alpaca's zero average price: locks); F3 a sale with no lot of the bot's own (no lock).
+    alpaca_sale = ->(status, filled, avg) { ok(alpaca_order('OTX-1', status, notional: nil, qty: '0.01', filled_qty: filled, filled_avg_price: avg).merge('side' => 'sell')) }
+    limit = pick.(:sell_scenarios, 'sell-alpaca-base_limit-on_schedule').merge('at' => sell_at)
+    add.('F1-alpaca', limit, on.(), transactions: [lot.('1280')], poll: 'OTX-1', script: { 'alpaca' => { 'GET /v2/orders/OTX-1' => [alpaca_sale.('filled', '0.01', '60000')] } })
+    add.('F2-alpaca', sells['alpaca'][0], on.(), transactions: lots['gain'], poll: 'OTX-1',
+         script: { 'alpaca' => { 'GET /v2/orders/OTX-1' => [alpaca_sale.('canceled', '0.004', '0')] } })
+    add.('F3-alpaca', pick.(:sell_scenarios, 'sell-alpaca-base_market-first_tick'), on.(), poll: 'OTX-1',
+         script: { 'alpaca' => { 'GET /v2/orders/OTX-1' => [alpaca_sale.('filled', '0.01', '60000')] } })
+    kr_sale = raw_order(status: 'closed', vol: '0.01', vol_exec: '0.01', cost: '450', price: '45000', viqc: false, limit_price: '50115.1').tap { |o| o['descr']['type'] = 'sell' }
+    add.('F1-kraken', pick.(:sell_scenarios, 'sell-kraken-base_limit-on_schedule').merge('at' => sell_at), on.(), transactions: [lot.('1001')], poll: 'OTX-1',
+         script: { 'http' => { '/0/private/QueryOrders' => [query_body('OTX-1' => kr_sale)] } })
+
+    # R: rebalancing. R1 the overweight member locked: it sits out the targets and the drift; R2 a loss sale's claim and its
+    # keys through acceptance, a proven non-placement, a halt, a sell under the minimum and a resting sell; R3 the owed buy's
+    # member locked.
+    { 'rebalance' => 'rebalance', 'kraken' => 'rebalance-kraken', 'binance' => 'rebalance-binance' }.each do |venue, prefix|
+      add.("R1-#{venue}", pick.(:rebalance_scenarios, "#{prefix}-tiers-swap"), on.(lock.('BTC')))
+      %w[swap rejected resting_sell sell_below_minimum].each { |state| add.("R2-#{venue}-#{state}", pick.(:rebalance_scenarios, "#{prefix}-w50-#{state}"), on.()) }
+      add.("R3-#{venue}", pick.(:rebalance_scenarios, "#{prefix}-w50-owed_buy"), on.(lock.('ETH')))
+    end
+    add.('R2-rebalance-pre_send', pick.(:rebalance_scenarios, 'rebalance-w50-pre_send'), on.())
+    add.('R2-binance-safe_rejection', pick.(:rebalance_scenarios, 'rebalance-binance-w50-safe_rejection'), on.())
+    # An earlier claim's expired row with its token standing: the sell claims over it (a new token), and under the minimum
+    # claims then restores it (the token replaced, then cleared).
+    expired = lock.('BTC', '2026-08-01T00:00:00Z', token: WASH_TOKEN)
+    add.('R2-rebalance-resting_sell-ie', pick.(:rebalance_scenarios, 'rebalance-w50-resting_sell'), on.(expired, jurisdiction: 'IE'))
+    add.('R2-rebalance-sell_below_minimum-expired', pick.(:rebalance_scenarios, 'rebalance-w50-sell_below_minimum'), on.(expired))
+
+    # G: a signal bot. A buy of a locked asset consumes its call with nothing written; a sale is never claimed.
+    %w[kraken binance alpaca].each do |venue|
+      add.("G1-#{venue}-buy", pick.(:signal_scenarios, "signal-#{venue}-buy-fixed-accepted"), on.(lock.('BTC')), poll: nil) # nothing to poll
+      add.("G1-#{venue}-sell", pick.(:signal_scenarios, "signal-#{venue}-sell-fixed-accepted"), on.(lock.('BTC')))
+    end
+    list.tap { |l| raise "the wash-sale grid has #{l.size} scenarios, not #{WASH_GRID_SIZE}" unless l.size == WASH_GRID_SIZE }
+  end
+  WASH_GRID_SIZE = 70
+
   def grid(root, list)
     ActiveJob::Base.queue_adapter = :test
     list.each do |sc|
@@ -4104,6 +4241,7 @@ module Decisions
             when 'signal' then build_signal(dir, sc)
             else sc['asset'] == 'stock' ? build_stock(dir, sc) : build(dir, sc)
             end
+      apply_wash(bot, sc['wash']) if sc['wash']
       enc = ActiveRecord::Encryption.config
       File.write(File.join(dir, 'scenario.json'),
                  JSON.pretty_generate({ 'encryption' => (%w[index venue_index].include?(sc['kind']) ? { 'primary_key' => Array(enc.primary_key).first, 'key_derivation_salt' => enc.key_derivation_salt } : nil), 'parity_scratch' => true, 'bot_id' => bot.id, 'at' => sc['at'], 'venue' => sc['venue'], 'script' => sc['script'],
@@ -4355,7 +4493,7 @@ def web_save(dir)
 end
 
 command, root = ARGV
-USAGE = 'usage: grid <root> | grid-signal <root> | grid-alpaca <root> | grid-basket <root> | grid-limit <root> | grid-binance <root> | grid-binance-us <root> | grid-kucoin <root> | grid-bitvavo <root> | grid-bitget <root> | grid-gemini <root> | grid-mexc <root> | grid-hyperliquid <root> | grid-bybit <root> | grid-bitrue <root> | grid-coinbase <root> | grid-bingx <root> | grid-sell <root> | grid-venue-basket <root> | grid-venue-index <root> | grid-conditions <root> | grid-basket-sell <root> | grid-rebalance <root> | record <root> | web-save <dir>'.freeze
+USAGE = 'usage: grid <root> | grid-signal <root> | grid-alpaca <root> | grid-basket <root> | grid-limit <root> | grid-binance <root> | grid-binance-us <root> | grid-kucoin <root> | grid-bitvavo <root> | grid-bitget <root> | grid-gemini <root> | grid-mexc <root> | grid-hyperliquid <root> | grid-bybit <root> | grid-bitrue <root> | grid-coinbase <root> | grid-bingx <root> | grid-sell <root> | grid-venue-basket <root> | grid-venue-index <root> | grid-conditions <root> | grid-basket-sell <root> | grid-rebalance <root> | grid-wash-sale <root> | record <root> | web-save <dir>'.freeze
 raise ArgumentError, USAGE unless root
 
 case command
@@ -4384,6 +4522,7 @@ when 'grid-basket-sell' then Decisions.grid(root, Decisions.basket_sell_scenario
 when 'grid-rebalance' then Decisions.grid(root, Decisions.rebalance_scenarios)
 when 'grid-conditions' then Decisions.grid(root, Decisions.condition_scenarios)
 when 'grid-signal' then Decisions.grid(root, Decisions.signal_scenarios)
+when 'grid-wash-sale' then Decisions.grid(root, Decisions.wash_sale_scenarios)
 when 'record' then Decisions.record(root)
 when 'record-normalized'
   require_relative 'histories_normalized'

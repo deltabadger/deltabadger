@@ -19,8 +19,8 @@ use rusqlite::Connection;
 use serde_json::{json, Map, Value};
 use std::path::Path;
 
-// The tick rewrites a basket's members, so they are compared too.
-const TABLES: [&str; 4] = ["bots", "transactions", "bot_activity_logs", "bot_index_assets"];
+// The tick rewrites a basket's members, so they are compared too; and the account's wash-sale locks (PLAN-wash-sale WS-3).
+const TABLES: [&str; 5] = ["bots", "transactions", "bot_activity_logs", "bot_index_assets", "wash_sale_locks"];
 const JSON_COLUMNS: [&str; 4] = ["settings", "transient_data", "details", "error_messages"];
 const MAX_ATTEMPTS: usize = 6;
 /// transient_data keys only this engine writes, besides the mail markers (notice::KEYS): Rails has none of them.
@@ -52,6 +52,9 @@ pub fn snapshot(c: &Connection) -> Result<Value, EngineError> {
                 if JSON_COLUMNS.contains(&name.as_str()) { if let Value::String(s) = &v { v = serde_json::from_str(s).unwrap_or(v); } }
                 // What only this engine writes: its placement intent, its waits and counted stops, and the mails it owes.
                 if name == "transient_data" { if let Value::Object(m) = &mut v { for key in RUST_KEYS.iter().chain(&notice::KEYS) { m.remove(*key); } } }
+                // A claim token is random on either side: compared as present or null (decisions.rb #rows does the same).
+                if name == "transient_data" { if let Some(t) = v.get_mut(crate::engine::wash::REBALANCE_CLAIM_TOKEN).filter(|t| !t.is_null()) { *t = json!("present"); } }
+                if table == "wash_sale_locks" && name == "claim_token" && !v.is_null() { v = json!("present"); }
                 row.insert(name.clone(), v);
             }
             rows.insert(row["id"].to_string(), Value::Object(row));

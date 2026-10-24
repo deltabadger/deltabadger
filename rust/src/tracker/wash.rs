@@ -1,8 +1,7 @@
 //! Tracker::LedgerJob#arm_wash_sale_locks and WashSaleLock.confirm!: every sale the walk judged a loss inside the
 //! horizon locks the symbol's assets out of every buy leg for the user's wash-sale window. Re-derived on every walk,
-//! idempotent, and never shortening a lock. The engine refuses an install with wash-sale protection on
-//! (`eligibility::check_install`), so these rows are what Rails' bots read after a handback; eligibility reads none of
-//! them, so no write here passes the guard.
+//! idempotent, and never shortening a lock. The engine's legs read these rows (engine::wash) as Rails' bots do;
+//! eligibility reads none of them, so no write here passes the guard.
 use crate::codec::format_time;
 use crate::figures::FiguresError;
 use chrono::{DateTime, Days, NaiveDate, Utc};

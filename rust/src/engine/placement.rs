@@ -188,8 +188,7 @@ pub fn begin(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock) -> 
 }
 
 /// Tests only: `begin` for a REBALANCE intent (`rebalance`: the phase it writes) and with a sale's `loss` verdict, so a claim
-/// and its settlement can be driven while eligibility still refuses an account with the wash-sale rule on (PLAN-wash-sale
-/// WS-2; the fence's eligibility check is what refuses it).
+/// and its settlement can be driven without the fence (PLAN-wash-sale WS-2).
 pub fn begin_unfenced(c: &Connection, bot: &Bot, plan: &OrderPlan, rebalance: Option<&super::rebalance::Pending>, loss: bool, clock: &dyn Clock) -> Result<Intent, EngineError> {
     match begin_checked(c, bot, plan, clock, None, None, None, rebalance, loss)? {
         Begun::Intent(intent) => Ok(*intent),
