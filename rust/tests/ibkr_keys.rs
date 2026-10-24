@@ -164,6 +164,7 @@ async fn ibkr_server(accounts: Value) -> MockServer {
     server
 }
 
+#[derive(Clone)]
 struct Local(String);
 impl deltabadger::sync::jobs::Connect for Local {
     type T = deltabadger::venue::http::ReqwestTransport;
@@ -426,4 +427,96 @@ async fn mcp_get_exchange_balances_reads_the_bound_ibkr_account() {
     let answer = reads::finish(&fx.c, reads::fetch(&app, fetch).await).unwrap().to_string();
     assert!(answer.contains("Interactive Brokers Balances") && answer.contains("AAPL: 10") && answer.contains("USD: 100.5"), "{answer}");
     assert!(!answer.contains("999"), "BASE is the account's total, not a balance: {answer}");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_correct_key_without_a_binding_is_checked_and_bound_by_its_first_sync() {
+    freeze_dh();
+    let fx = Fx::new(1);
+    let (aapl, ..) = ibkr_catalogue(&fx);
+    // A key Rails left correct: no binding. The sync checks it once (the binding check), then reads.
+    assert!(fx.bindings().is_empty());
+    let t = scripted(json!({ "accounts": ["U1234567"] }), &[json!([{ "conid": 265598, "position": 4.0, "source": "provisional" }]), json!([])]);
+    sync_balances(&fx, t).await.unwrap();
+    assert_eq!(fx.bound_account(fx.s.api_key_id).as_deref(), Some("U1234567"));
+    assert_eq!(fx.key().0, 1);
+    assert_eq!(fx.c.query_row("SELECT free FROM account_balances WHERE asset_id = ?1", [aapl], |r| r.get::<_, f64>(0)).unwrap(), 4.0);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn an_unbound_correct_key_that_cannot_bind_is_marked_as_the_check_marks_it_and_nothing_else_is_written() {
+    freeze_dh();
+    let fx = Fx::new(1);
+    ibkr_catalogue(&fx);
+    let t = scripted(json!({ "accounts": ["U1234567", "U7654321"] }), &[json!([])]);
+    let failed = sync_balances(&fx, t.clone()).await.unwrap_err();
+    assert!(failed.error.contains("more than one account"), "{}", failed.error);
+    assert_eq!(fx.key().0, 2, "several accounts: incorrect, as the key check marks it");
+    assert!(fx.bindings().is_empty());
+    assert_eq!(fx.c.query_row("SELECT count(*) FROM account_balances", [], |r| r.get::<_, i64>(0)).unwrap(), 0);
+    assert_eq!(fx.c.query_row("SELECT last_sync_error FROM api_keys WHERE id = ?1", [fx.s.api_key_id], |r| r.get::<_, Option<String>>(0)).unwrap(), None);
+    assert!(!t.requests().iter().any(|r| r.path.contains("/portfolio/")), "no account is read");
+}
+
+#[test]
+fn unbound_correct_ibkr_keys_are_validated_at_start() {
+    let fx = Fx::new(1);
+    assert_eq!(deltabadger::sync::jobs::unbound_ibkr_keys(&fx.c).unwrap(), [fx.s.api_key_id]);
+    ibkr_account::bind(&fx.c, &fx.cipher, fx.s.api_key_id, "U1234567", at(NOW)).unwrap().unwrap();
+    assert!(deltabadger::sync::jobs::unbound_ibkr_keys(&fx.c).unwrap().is_empty());
+    // The validation a wake asks for is the key check that binds.
+    let factory = deltabadger::sync::jobs::register(&fx.c, &Local(String::new()), std::rc::Rc::new(deltabadger::sync::balances::NoPrices)).unwrap();
+    let spawned = factory.iter().find_map(|j| j.spawn(deltabadger::sync::jobs::API_KEY_VALIDATOR, Some("1"))).expect("the scope factory spawns the validator");
+    assert_eq!(spawned.spec().name, deltabadger::sync::jobs::API_KEY_VALIDATOR);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn an_activated_key_wakes_its_balance_sync() {
+    use deltabadger::sync::jobs::{IbkrActivation, BALANCE_SYNC};
+    freeze_dh();
+    let fx = Fx::new(3);
+    let clock = FixedClock(at(NOW));
+    let active = ibkr_server(json!({ "accounts": ["U1234567"], "source": "provisional" })).await;
+    let cx = fx.cx(&clock);
+    let wakers = cx.wakers.clone();
+    assert_eq!(IbkrActivation { venues: Local(active.uri()) }.run(cx, vec![]).await, Outcome::Done);
+    assert!(wakers.pending().iter().any(|(job, scope)| job == BALANCE_SYNC && scope.as_deref() == Some(&fx.s.api_key_id.to_string())),
+            "the scope factory registers the key's balance sync without a restart");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn negative_balances_are_live_answers_but_never_stored() {
+    use deltabadger::web::mcp::{reads, tools::Called};
+    freeze_dh();
+    let fx = Fx::new(1);
+    let (aapl, ..) = ibkr_catalogue(&fx);
+    // A short position and a margin loan (provisional shapes).
+    let ledger = json!({ "USD": { "cashbalance": -50.25 }, "EUR": { "cashbalance": 0 }, "source": "provisional" });
+    let positions = json!([{ "conid": 265598, "position": -3.0, "source": "provisional" }, { "conid": 8314, "position": 2.0 }]);
+    let server = ibkr_server(json!({ "accounts": ["U1234567"] })).await;
+    Mock::given(method("GET")).and(path("/v1/api/portfolio/U1234567/ledger")).respond_with(ResponseTemplate::new(200).set_body_json(ledger.clone())).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v1/api/portfolio/U1234567/positions/0")).respond_with(ResponseTemplate::new(200).set_body_json(positions.clone())).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v1/api/portfolio/U1234567/positions/1")).respond_with(ResponseTemplate::new(200).set_body_json(json!([]))).mount(&server).await;
+    let app = common::web::app(fx._dir.path(), common::web::SECRET, common::web::TestClock::at(NOW)).with_venue_key_url(ibkr::IBKR, &server.uri()).unwrap();
+    fx.set_key_with(&app.cipher, fx.s.api_key_id, 1);
+    ibkr_account::bind(&fx.c, &app.cipher, fx.s.api_key_id, "U1234567", at(NOW)).unwrap().unwrap();
+    let Called::Fetch(fetch) = reads::plan(&fx.c, &app, fx.s.user_id, "get_exchange_balances", &json!({ "exchange_name": "Interactive Brokers" })).unwrap() else { panic!() };
+    let answer = reads::finish(&fx.c, reads::fetch(&app, fetch).await).unwrap().to_string();
+    // BotApi::Exchanges::Balances#build_balances drops only zero balances.
+    assert!(answer.contains("AAPL: -3") && answer.contains("USD: -50.25") && answer.contains("IBM: 2") && !answer.contains("EUR"), "{answer}");
+    // The persisted sync keeps holdings only.
+    fx.set_key(fx.s.api_key_id, 1);
+    let t = ScriptedTransport::default();
+    let (mint, init) = mint_and_init();
+    t.reply_typed(&format!("POST {LST}"), 200, "application/json", mint["body"].as_str().unwrap());
+    t.reply_typed(&format!("POST {INIT}"), 200, "application/json", init["body"].as_str().unwrap());
+    t.reply(&format!("GET {ACCOUNTS}"), 200, json!({ "accounts": ["U1234567"] }));
+    t.reply("GET /v1/api/portfolio/U1234567/ledger", 200, ledger);
+    t.reply("GET /v1/api/portfolio/U1234567/positions/0", 200, positions);
+    t.reply("GET /v1/api/portfolio/U1234567/positions/1", 200, json!([]));
+    fx.c.execute("DELETE FROM ibkr_bindings", []).unwrap();
+    ibkr_account::bind(&fx.c, &fx.cipher, fx.s.api_key_id, "U1234567", at(NOW)).unwrap().unwrap();
+    sync_balances(&fx, t).await.unwrap();
+    let stored: Vec<i64> = fx.c.prepare("SELECT asset_id FROM account_balances").unwrap().query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect();
+    assert!(!stored.contains(&aapl) && stored.len() == 1, "{stored:?}");
 }

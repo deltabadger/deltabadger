@@ -502,6 +502,15 @@ impl<C:Connect> Job for Validator<C>{
 
 }
 
+/// The correct IBKR keys with no binding (keys Rails left): each is validated at start (API_KEY_VALIDATOR, the key check
+/// that binds), so its account is known before anything reads it.
+pub fn unbound_ibkr_keys(c: &Connection) -> rusqlite::Result<Vec<i64>> {
+    let mut s = c.prepare("SELECT k.id FROM api_keys k JOIN exchanges e ON e.id = k.exchange_id WHERE k.status = 1 AND k.key_type = 0 AND e.type = ?1
+                           AND NOT EXISTS (SELECT 1 FROM ibkr_bindings b WHERE b.api_key_id = k.id) ORDER BY k.id")?;
+    let ids = s.query_map([crate::venue::ibkr::IBKR], |r| r.get(0))?.collect();
+    ids
+}
+
 /// Ibkr::CheckActivationJob's name (config/recurring.yml `ibkr_check_activation_job`).
 pub const IBKR_ACTIVATION: &str = "ibkr_check_activation";
 
@@ -556,7 +565,12 @@ impl<C: Connect> Job for IbkrActivation<C> {
                     Ok((status.value, true))
                 }).await;
                 match stored {
-                    Ok(1) => { log("activated; parked bots will resume"); activated = true; }
+                    Ok(1) => {
+                        log("activated; parked bots will resume");
+                        activated = true;
+                        // Its balance sync is registered now (the scope factory), not at the next start.
+                        cx.wakers.wake(BALANCE_SYNC, Some(&id.to_string()), None);
+                    }
                     Ok(_) => { log("is incorrect: IBKR names no single account this connection can use"); activated = true; }
                     Err(SyncError(e)) if e == crate::engine::model::CREDENTIALS_CHANGED => {}
                     Err(SyncError(e)) => return Outcome::Failed(e),

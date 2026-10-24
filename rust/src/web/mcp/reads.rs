@@ -256,7 +256,7 @@ fn finish_in(c:&Connection,fetch:Fetched)->Result<Read,WebError>{
         Fetched::IbkrBalances(user,exchange,name,text)=>{
             let catalog=sync::balances::catalog_for(c,user,exchange).map_err(|_|error())?;
             let names=sync::balances::ibkr_names(c,exchange).map_err(|_|error())?;
-            let held=match sync::balances::ibkr_held(&text,&names,catalog.asset_ids()) {Ok(held)=>held,Err(_)=>Err("unreadable IBKR balances".into())};
+            let held=match sync::balances::ibkr_balances(&text,&names,catalog.asset_ids()) {Ok(held)=>held,Err(_)=>Err("unreadable IBKR balances".into())};
             balance_rows(c,&name,held)
         },
         Fetched::Orders(_user,mut local,mut rows,ids,venues)=>{

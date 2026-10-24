@@ -1204,6 +1204,27 @@ pub async fn sync_ibkr<T: Transport>(db: &Db, transport: T, login: Arc<crate::ve
 pub(crate) async fn sync_ibkr_captured<T: Transport>(db: &Db, transport: T, login: Arc<crate::venue::ibkr::Login>, prices: &dyn PriceSource, key_id: i64,
                                                      credentials: &Credentials, clock: &dyn Clock, version: &crate::engine::model::CredentialVersion)
                                                      -> Result<Result<Summary, Failure>, SyncError> {
+    // A correct key with no binding (one Rails left, D-IBKR-RECONNECT's working kind): the key check that binds runs first,
+    // fenced like the validator's. A key it cannot bind is marked as that check marks it, and nothing else is written.
+    let unbound = phase(db, move |c| Ok(crate::venue::ibkr_account::binding(c, key_id)?.is_none())).await?;
+    if unbound {
+        use crate::web::settings::key_check::{ibkr_check, IbkrVerdict};
+        let verdict = ibkr_check(&crate::venue::ibkr::Session::new(&transport, login.clone(), clock)).await;
+        let (status, account, why) = match verdict {
+            IbkrVerdict::Account(a) => (1, Some(a), None),
+            IbkrVerdict::PendingActivation => (3, None, Some("the IBKR key awaits activation".to_string())),
+            IbkrVerdict::Incorrect(why) => (2, None, Some(why.to_string())),
+            // No verdict: nothing is written; the next sync checks again.
+            IbkrVerdict::Failure(why) => return Ok(Err(Failure { error: transport.redact_diagnostic(&why), raised: false })),
+        };
+        let (at, produced) = (clock.now(), crate::engine::model::Produced::new(status, Some(version.clone())));
+        let stored = super::commit_bots_for_ciphered(db, version, move |c, cipher| {
+            let status = crate::web::settings::keys::bound_status(c, cipher, key_id, produced, account.as_deref(), at)?;
+            crate::web::settings::keys::store_status(c, &status, key_id, at)?;
+            Ok((status.value, true))
+        }).await?;
+        if stored != 1 { return Ok(Err(Failure { error: why.unwrap_or_else(|| "the IBKR login names another account than this connection's".into()), raised: false })); }
+    }
     let read = move |_: String| async move {
         let bound = phase(db, move |c| {
             let enc: Option<String> = c.query_row("SELECT account_id_enc FROM ibkr_bindings WHERE api_key_id = ?1", [key_id], |r| r.get(0)).optional()?;
@@ -1263,8 +1284,15 @@ pub(crate) fn ibkr_names(c: &Connection, _exchange_id: i64) -> Result<HashMap<St
 /// Exchanges::Ibkr#apply_cash_balances then #apply_position_balances over `ibkr_read`'s text: each currency's `cashbalance`
 /// (BASE, the account's total in its base currency, skipped) and each position's `position`, all free, a later row for the
 /// same asset winning, only assets the venue lists, in their order, only those holding something. A position whose conid
-/// `ibkr_conids` does not map is skipped and counted. A quantity that is no number fails the sync.
+/// `ibkr_conids` does not map is skipped and counted. A quantity that is no number fails the sync. Stored balances are
+/// holdings only (positive); `ibkr_balances` is the live answer.
 pub(crate) fn ibkr_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> Result<Result<Vec<Held>, String>, Unread> {
+    Ok(ibkr_balances(text, names, asset_ids)?.map(|all| all.into_iter().filter(|(_, free, _)| free.is_positive()).collect()))
+}
+
+/// `ibkr_held` before the holdings filter: every balance the account states, a short position and a cash loan (negative)
+/// included, as Exchanges::Ibkr#get_balances returns them (BotApi::Exchanges::Balances#build_balances drops only zeros).
+pub(crate) fn ibkr_balances(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> Result<Result<Vec<Held>, String>, Unread> {
     let node = wire::read(text, &mut Budget(MAX_BINANCE_ACCOUNT_NODES), None).map_err(|r| Unread::refused(r, "an account"))?;
     let Ok(read) = Raw::from_node(&node) else { return Ok(Err("unreadable IBKR balances".into())) };
     let mut found: HashMap<i64, BigDec> = HashMap::new();
@@ -1287,5 +1315,5 @@ pub(crate) fn ibkr_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i
         }
     }
     if unknown > 0 { crate::engine::log(&format!("[IBKR] {unknown} position(s) skipped: their conids name no asset of the catalogue")); }
-    Ok(Ok(asset_ids.iter().filter_map(|id| found.remove(id).map(|free| (*id, free, BigDec::zero()))).filter(|(_, free, _)| free.is_positive()).collect()))
+    Ok(Ok(asset_ids.iter().filter_map(|id| found.remove(id).map(|free| (*id, free, BigDec::zero()))).collect()))
 }
