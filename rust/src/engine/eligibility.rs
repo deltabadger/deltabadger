@@ -136,6 +136,8 @@ fn bot_reasons_with(c: &Connection, bot: &Bot, splits: &mut SplitRows) -> Result
         for (k, v) in obj {
             let flag = k.ends_with("_limited") || k.ends_with("_ordered") || k.ends_with("_intervaled");
             if !flag || !set(v) || SUPPORTED_FLAGS.contains(&k.as_str()) { continue; }
+            // A class without the rule concerns never reads a rule's switch (model::conditions_apply).
+            if !bot.conditions_apply() && model::CONDITION_FLAGS.contains(&k.as_str()) { continue; }
             match k.as_str() {
                 "price_limited" | "sell_price_limited" => r.extend(price_rule_reason(bot, k, v)),
                 _ => r.push(k.clone()),

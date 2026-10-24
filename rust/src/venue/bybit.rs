@@ -37,6 +37,10 @@ fn order_id(v: &Value) -> Option<String> {
 }
 fn required(v: &Value) -> Result<BigDec, VenueError> { super::json::required(v, unreadable) }
 fn decimal(v: &Value) -> Result<BigDec, VenueError> { if v.is_null() || v.as_str() == Some("") { Ok(BigDec::zero()) } else { required(v) } }
+/// A refusal: a placement's carries its `retCode` beside the text (`VenueError::Coded`), a read's is the text alone.
+fn refusal(placement: bool, code: String, message: String) -> VenueError {
+    if placement && !code.is_empty() { VenueError::Coded { code, errors: vec![message] } } else { VenueError::Rejected(vec![message]) }
+}
 pub(crate) fn failure_text(text: &str) -> String {
     serde_json::from_str::<Value>(text).ok().and_then(|v| v.get("retMsg").or_else(|| v.get("msg")).and_then(Value::as_str).filter(|s| !s.is_empty()).map(str::to_string)).unwrap_or_else(|| text.into())
 }
@@ -127,7 +131,7 @@ impl<T: Transport> BybitVenue<T> {
             if !placement && resp.status == 401 { return Err(VenueError::Unauthorized(vec![message])); }
             // A code-less response, an intermediary failure, or a server error cannot prove rejection.
             let rejected = (400..500).contains(&resp.status) && !code.is_empty() && code != "0";
-            return Err(if placement && !rejected { VenueError::Ambiguous(message) } else { VenueError::Rejected(vec![message]) });
+            return Err(if placement && !rejected { VenueError::Ambiguous(message) } else { refusal(placement, code, message) });
         }
         let body = body.ok_or_else(unreadable)?;
         if code.is_empty() { return Err(if placement { VenueError::Ambiguous(NO_CODE.into()) } else { unreadable() }); }
@@ -136,7 +140,7 @@ impl<T: Transport> BybitVenue<T> {
             // Rails find_order retries history for Honeymaker's exact missing-order error, too.
             // HTTP failures returned above remain failed reads, even when their JSON contains this text.
             if r.path == REALTIME_PATH && message == "Order not found" { return Ok(Value::Null); }
-            return Err(VenueError::Rejected(vec![message]));
+            return Err(refusal(placement, code, message));
         }
         Ok(body)
     }

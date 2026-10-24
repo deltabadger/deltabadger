@@ -60,7 +60,7 @@ fn history_decisions_match_the_recorded_oracle() {
         let pending=available.as_ref().map_or(pending.clone(),|cap|pending.min(cap.clone()));
         assert_eq!(pending.to_s_f(),case["normalized"]["pending"],"{} pending",case["name"]);
         basket::refresh_composition(c,&bot,at).unwrap().unwrap();
-        let priced:Vec<_>=basket::members(c,&bot).unwrap().into_iter().map(|member|basket::Priced{member,reference:BigDec::from_i64(10),price:BigDec::from_i64(10)}).collect();
+        let priced:Vec<_>=basket::members(c,&bot,&[]).unwrap().into_iter().map(|member|basket::Priced{member,reference:BigDec::from_i64(10),price:BigDec::from_i64(10)}).collect();
         let orders:Vec<_>=basket::split(&priced,&w.amounts,&basket::reserved(c,&bot).unwrap(),&pending).unwrap().into_iter().map(|leg|json!({"side":"buy","asset":leg.ticker.base_symbol,"amount":leg.quote.div(&BigDec::from_i64(10)).unwrap().to_s_f(),"quote":leg.quote.to_s_f()})).collect();
         assert_eq!(json!(orders),case["normalized"]["orders"],"{} orders",case["name"]);
         let decision=if pending.is_zero(){"skip_zero_pending"}else{"buy"};

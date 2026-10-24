@@ -418,6 +418,9 @@ module Decisions
         'settings_changed' => { 'at' => after.(1), 'settings_changed_at' => '2026-09-01T18:00:00Z' },
         'below_minimum' => { 'at' => after.(1), 'quote_amount' => 0.4 },
         'rejected' => { 'at' => after.(1), 'http' => { '/0/private/AddOrder' => [{ 'error' => ['EOrder:Insufficient funds'] }] } },
+        # D-BELOW-MIN-REJECTION (rust/tests/parity.rs): Rails writes a failed row; Rust reports the leg as the pre-check
+        # reports one it skips (a skipped row and order_skipped).
+        'rejected_below_minimum' => { 'at' => after.(1), 'http' => { '/0/private/AddOrder' => [{ 'error' => ['EOrder:Order minimum not met'] }] } },
         # A sanctioned divergence (rust/tests/parity.rs DIVERGENCES): Rails writes a failed row, Rust keeps the intent
         # and settles it by cl_ord_id, since Kraken may have placed the order while it failed.
         'add_service_unavailable' => { 'at' => after.(1), 'http' => { '/0/private/AddOrder' => [{ 'error' => ['EService:Unavailable'] }] } },

@@ -103,7 +103,9 @@ pub fn size(bot: &Bot, ticker: &Ticker, x: &BigDec, reference: &BigDec, rules: &
     let price = order_price(bot, ticker, reference, rules)?;
     let Some(amount) = x.div(&price) else { return Ok(Sizing::ZeroPrice { decimals: ticker.price_decimals }) };
     let rule = if distance.is_some() { logic.limit } else { logic.market };
-    let (quote_type, below) = buy_minimum(ticker, &price, rule, &x.floor(quote_decimals), &amount.floor(base_decimals))?;
+    let (quote, base) = if rule == AmountLogic::Quote { quote_sized_wire(ticker, &price, distance.is_some(), &x.floor(quote_decimals))? }
+                        else { (x.floor(quote_decimals), amount.floor(base_decimals)) };
+    let (quote_type, below) = buy_minimum(ticker, &price, rule, &quote, &base)?;
     let volume = if quote_type { x.floor(quote_decimals) } else { amount.floor(base_decimals) };
     let plan = OrderPlan { ticker: ticker.clone(), side: Side::Buy, limit: distance.is_some(), price, amount: amount.clone(), quote_amount: x.clone(), quote_type, volume, kind: TxKind::Regular,
                            origin: Origin::QuoteBudget, wire_price: None };
@@ -117,9 +119,10 @@ pub fn size(bot: &Bot, ticker: &Ticker, x: &BigDec, reference: &BigDec, rules: &
 pub(crate) fn buy_minimum(ticker: &Ticker, price: &BigDec, rule: AmountLogic, quote: &BigDec, base: &BigDec) -> Result<(bool, bool), EngineError> {
     let (base_decimals, quote_decimals, _) = ticker.scales().map_err(EngineError::Data)?;
     Ok(match rule {
-        // :quote. Only the quote amount floored to quote_decimals is compared, with minimum_quote_size; minimum_base_size is not
-        // checked here; a limit qty under it is refused at placement (OrderPlan::limit_refusal).
-        AmountLogic::Quote => (true, *quote < ticker.minimum_quote_size),
+        // :quote (Alpaca), both floors against the order as it is sent (`quote_sized_wire`). D-ALPACA-BASE-FLOOR: Rails
+        // compares only the floored quote with minimum_quote_size, sends a market notional under minimum_base_size, and fails
+        // a limit qty under it at placement (Exchange#limit_buy); Rust skips both as below the minimum.
+        AmountLogic::Quote => (true, *quote < ticker.minimum_quote_size || *base < ticker.minimum_base_size),
         AmountLogic::Base => (false, *base < ticker.minimum_base_size),
         // :base_and_quote_in_base: the quote minimum in base, rounded UP to base_decimals, against the base floored DOWN.
         AmountLogic::BaseAndQuoteInBase => {
@@ -137,6 +140,17 @@ pub(crate) fn buy_minimum(ticker: &Ticker, price: &BigDec, rule: AmountLogic, qu
             (in_quote, if in_quote { *quote < minimum_quote_amount } else { *base < minimum_base_amount })
         }
     })
+}
+
+/// What a :quote-sized (Alpaca) buy of `quote` (floored to quote_decimals) sends, as (quote, base): a limit sends
+/// qty = floor(quote / floor(price, price_decimals), base_decimals), worth qty × that price (`to_order`); a market buy
+/// sends the notional, worth notional / price in base.
+fn quote_sized_wire(ticker: &Ticker, price: &BigDec, limit: bool, quote: &BigDec) -> Result<(BigDec, BigDec), EngineError> {
+    let (base_decimals, _, price_decimals) = ticker.scales().map_err(EngineError::Data)?;
+    if !limit { return Ok((quote.clone(), quote.div(price).expect("price is non-zero"))); }
+    let price = price.floor(price_decimals);
+    let qty = quote.div(&price).map_or_else(BigDec::zero, |q| q.floor(base_decimals));
+    Ok(((&qty * &price), qty))
 }
 
 /// Bot::OrderSetter#calculate_best_amount_info for a market order sized outside a DCA tick: a REBALANCE order
@@ -187,7 +201,8 @@ impl OrderPlan {
     }
 
     /// Exchange#limit_buy: a limit quantity (a quote volume floored, divided by the floored price, floored to base_decimals)
-    /// that is zero or under minimum_base_size is refused before anything is sent, with Rails' message.
+    /// that is zero or under minimum_base_size is refused before anything is sent, with Rails' message. A backstop: a sized
+    /// buy under minimum_base_size is skipped before it gets here (D-ALPACA-BASE-FLOOR, `buy_minimum`).
     pub fn limit_refusal(&self) -> Result<Option<String>, String> {
         if !self.limit { return Ok(None); }
         let t = &self.ticker;

@@ -279,7 +279,7 @@ async fn a_proxy_changed_in_app_config_is_used_by_the_next_client_without_a_rest
 
 #[tokio::test(flavor = "current_thread")]
 async fn the_factory_routes_each_bot_to_its_venue_and_an_unported_venue_sends_nothing() {
-    let creds = Some(Credentials { redaction_values: vec![], key: "K".into(), secret: "S".into(), passphrase: None });
+    let creds = Some(Credentials { ibkr: None, redaction_values: vec![], key: "K".into(), secret: "S".into(), passphrase: None });
     let f = alpaca::LiveFactory::new();
     assert!(matches!(f.for_bot("Exchanges::Alpaca", creds.clone()), LiveVenue::Alpaca(_)));
     let kraken = f.for_bot("Exchanges::Kraken", creds.clone());

@@ -926,3 +926,74 @@ async fn kraken_binance_and_kucoin_baskets_decide_as_rails() {
     }
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
 }
+
+// ---- wash-sale locks on the buy leg (PLAN-wash-sale WS-1; the engine still refuses such accounts, so these reach the legs
+// directly) ----
+
+/// The account's rule on (US), with a lock until 1 October on each of `locked`.
+fn wash_on(o: &store::Opened, locked: &[i64]) {
+    o.primary.execute("UPDATE users SET wash_sale_enabled = 1", []).unwrap();
+    for asset in locked {
+        o.primary.execute("INSERT INTO wash_sale_locks (asset_id, user_id, buy_locked_until, created_at, updated_at) \
+                           SELECT ?1, id, '2026-10-01 00:00:00', '2026-09-01 00:00:00', '2026-09-01 00:00:00' FROM users", [asset]).unwrap();
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_locked_member_sits_out_of_the_buy_weights_while_the_rule_is_on_and_the_lock_live() {
+    use deltabadger::engine::wash;
+    let (_d, o, id, _, assets) = basket_bot(60.0, &[0.5, 0.3, 0.2]);
+    basket::refresh_composition(&o.primary, &model::load_bot(&o.primary, id).unwrap(), at("2026-09-01T09:00:00Z")).unwrap().unwrap();
+    wash_on(&o, &[assets[0]]);
+    let bot = model::load_bot(&o.primary, id).unwrap();
+    let weights = |now: &str| -> Vec<(i64, f64)> {
+        let locked = wash::locked(&o.primary, bot.user_id, &FixedClock(at(now))).unwrap();
+        basket::members(&o.primary, &bot, &locked).unwrap().into_iter().map(|m| (m.asset_id, m.weight)).collect()
+    };
+    assert_eq!(weights(T0), vec![(assets[1], 0.6), (assets[2], 0.4)], "re-weighted over the buyable members");
+    assert_eq!(weights("2026-10-01T00:00:00Z").len(), 3, "expired at its deadline");
+    o.primary.execute("UPDATE users SET wash_sale_enabled = 0", []).unwrap();
+    assert_eq!(weights(T0).len(), 3, "rule off: the row stands, nothing is locked");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn every_member_locked_buys_nothing_and_is_no_failure() {
+    let (_d, o, id, _, assets) = basket_bot(60.0, &[0.7, 0.3]);
+    basket::refresh_composition(&o.primary, &model::load_bot(&o.primary, id).unwrap(), at("2026-09-01T09:00:00Z")).unwrap().unwrap();
+    wash_on(&o, &assets[..2]);
+    let t = script(json!({}));
+    assert!(matches!(run(&o, &venue(&t), id, at(T0)).await, TickOutcome::Done { placed: false }));
+    assert!(t.posted_orders().is_empty());
+    assert_eq!(one::<i64>(&o, "SELECT count(*) FROM transactions"), 0);
+    assert_eq!(one::<i64>(&o, "SELECT count(*) FROM bot_activity_logs"), 0, "logger only");
+    assert_eq!(model::load_bot(&o.primary, id).unwrap().status, BotStatus::Scheduled);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_buy_whose_asset_was_locked_after_it_was_sized_is_not_placed() {
+    use deltabadger::engine::{amount::{self, TxKind}, placement, rebalance, splits, venue_rules::ALPACA};
+    use deltabadger::ruby::BigDec;
+    use deltabadger::venue::Side;
+    let (_d, o, id, _, assets) = basket_bot(60.0, &[0.7, 0.3]);
+    basket::refresh_composition(&o.primary, &model::load_bot(&o.primary, id).unwrap(), at("2026-09-01T09:00:00Z")).unwrap().unwrap();
+    wash_on(&o, &[assets[1]]);
+    let c = &o.primary;
+    let bot = model::load_bot(c, id).unwrap();
+    let ticker = model::ticker_for_asset(c, &bot, assets[1]).unwrap().unwrap();
+    let price = BigDec::from_i64(2500);
+    let plan = |side, kind| amount::size_order(&ticker, side, &price, &BigDec::parse("0.01").unwrap(), &BigDec::from_i64(25), ALPACA.minimum_logic, kind).unwrap().0;
+    let composition = placement::composition_snapshot(c, &bot).unwrap();
+    let reconciled = splits::snapshot(c, &bot).unwrap();
+    let version = model::credential_version(c, &bot).unwrap();
+    let begin = |plan: &amount::OrderPlan| placement::begin_with_credentials(c, &bot, plan, &[&ticker], &composition, &reconciled, &version, None, &FixedClock(at(T0))).unwrap();
+    assert!(matches!(begin(&plan(Side::Buy, TxKind::Regular)), placement::Begun::WashSaleLocked));
+    assert!(model::load_bot(c, id).unwrap().rust_placement().is_none(), "no intent");
+    assert!(!matches!(begin(&plan(Side::Sell, TxKind::Regular)), placement::Begun::WashSaleLocked), "a lock never forbids selling");
+    // The rebalance buy: re-read before #mark_buy_attempted!, so the pending state stands as it was.
+    let owed = rebalance::Pending { phase: rebalance::PHASE_BUYING.into(), sell_transaction_id: None, buy_transaction_id: None, remaining_quote_amount: Some(BigDec::from_i64(25)), buy_attempted: true };
+    assert!(matches!(placement::begin_rebalance(c, &bot, &plan(Side::Buy, TxKind::Rebalance), &[&ticker], &composition, &reconciled, &version, None, &owed, &FixedClock(at(T0))).unwrap(),
+                     placement::Begun::WashSaleLocked));
+    assert!(model::load_bot(c, id).unwrap().transient.get("rebalance_pending").is_none());
+    o.primary.execute("UPDATE users SET wash_sale_enabled = 0", []).unwrap();
+    assert!(!matches!(begin(&plan(Side::Buy, TxKind::Regular)), placement::Begun::WashSaleLocked), "rule off: inert");
+}

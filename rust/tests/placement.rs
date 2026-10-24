@@ -410,7 +410,7 @@ fn binance_setup() -> (tempfile::TempDir, store::Opened, model::Bot, amount::Ord
     (d, o, bot, plan)
 }
 fn binance(t: &deltabadger::venue::http::ScriptedTransport, key: &str) -> deltabadger::venue::binance::BinanceVenue<deltabadger::venue::http::ScriptedTransport> {
-    let creds = deltabadger::crypto::Credentials { key: key.into(), secret: "s".into(), passphrase: None, redaction_values: vec![] };
+    let creds = deltabadger::crypto::Credentials { ibkr: None, key: key.into(), secret: "s".into(), passphrase: None, redaction_values: vec![] };
     deltabadger::venue::binance::BinanceVenue::new(t.clone(), "https://api.binance.com", "s").with_identity(&creds)
 }
 
@@ -436,7 +436,7 @@ async fn recovery_asks_only_under_the_key_and_host_the_order_was_sent_with_and_f
     assert!(replaced.requests().is_empty(), "another key's account is never asked");
     let elsewhere = ScriptedTransport::default();
     let other_host = deltabadger::venue::binance::BinanceVenue::new(elsewhere.clone(), "https://api.binance.us", "s")
-        .with_identity(&deltabadger::crypto::Credentials { key: "KEY-A".into(), secret: "s".into(), passphrase: None, redaction_values: vec![] });
+        .with_identity(&deltabadger::crypto::Credentials { key: "KEY-A".into(), secret: "s".into(), passphrase: None, redaction_values: vec![], ibkr: None });
     assert!(matches!(placement::recover(&o.primary, &other_host, &reload(&o, &bot), &later).await.unwrap(), Recovery::Pending));
     assert!(elsewhere.requests().is_empty(), "another host is never asked");
     let same = ScriptedTransport::default();

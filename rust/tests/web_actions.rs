@@ -829,6 +829,30 @@ mod action_write {
         Ok(())
     }
 
+    #[test]
+    fn action_write_carry_ignores_an_index_bots_stray_conditions() -> Result {
+        // Bots::DcaIndex has no trigger rule concerns: its carry reads the same with or without a stray switch and met_at.
+        let pending=|settings:Value,transient:Value| -> std::result::Result<String,String> {
+            let f=Fixture::new().map_err(|e| e.to_string())?;
+            let mut stored=f.stored().map_err(|e| e.to_string())?;
+            stored["settings"].as_object_mut().ok_or("settings")?.extend(settings.as_object().ok_or("settings")?.clone());
+            stored["transient"]["missed_quote_amount"]=json!("2.5");
+            stored["transient"].as_object_mut().ok_or("transient")?.extend(transient.as_object().ok_or("transient")?.clone());
+            f.c.execute("UPDATE bots SET type='Bots::DcaIndex',settings=json_set(?1,'$.index_type','top','$.num_coins',2),transient_data=?2,started_at='2026-09-10 10:00:00' WHERE id=?3",
+                        (stored["settings"].to_string(),stored["transient"].to_string(),f.id)).map_err(|e| e.to_string())?;
+            let draft=Draft::load(&f.c,f.seed.user_id,f.id,"en").map_err(|e| format!("{e:?}"))?.ok_or("draft")?;
+            Ok(write::pending(&f.c,&draft.original,harness::at(NOW)).map_err(|e| format!("{e:?}"))?.to_s())
+        };
+        let plain=pending(json!({}),json!({}))?;
+        assert_ne!(plain,"0","the unflagged index bot owes something");
+        for (name,settings,transient) in [
+            ("paused",json!({"price_limited":true}),json!({})),
+            ("resumed",json!({"price_limited":true}),json!({"price_limit_condition_met_at":"2026-09-10T11:30:00Z"})),
+            ("every rule",json!({"price_limited":true,"price_drop_limited":true,"moving_average_limited":true,"indicator_limited":true}),json!({"indicator_limit_condition_met_at":"2026-09-10T11:59:00Z"})),
+        ] { assert_eq!(pending(settings,transient)?,plain,"{name}"); }
+        Ok(())
+    }
+
     #[tokio::test]
     async fn action_write_cancelled_awaiter_still_wakes_once() -> Result {
         let f=Fixture::new()?;

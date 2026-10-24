@@ -211,7 +211,7 @@ impl<T: Transport> HyperliquidVenue<T> {
     /// failed read sends nothing, and a pair Hyperliquid does not list is hyperliquid-rb's "Unknown coin name".
     async fn asset(&self, coin: &str) -> Result<u64, VenueError> {
         let meta = self.info("spotMeta", vec![]).await.map_err(|e| VenueError::Transient(match e {
-            VenueError::Rejected(m) | VenueError::Unauthorized(m) => m.join(", "), VenueError::Ambiguous(m) | VenueError::Transient(m) => m }))?;
+            VenueError::Rejected(m) | VenueError::Unauthorized(m) | VenueError::Coded { errors: m, .. } => m.join(", "), VenueError::Ambiguous(m) | VenueError::Transient(m) => m }))?;
         let tokens = meta["tokens"].as_array().cloned().unwrap_or_default();
         let name = |i: &Value| i.as_u64().and_then(|i| tokens.get(i as usize)).and_then(|t| t["name"].as_str()).map(str::to_string);
         for entry in meta["universe"].as_array().ok_or_else(|| VenueError::Transient(UNREADABLE.into()))? {
