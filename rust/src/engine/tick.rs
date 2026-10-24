@@ -457,6 +457,8 @@ async fn execute<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::
             PollFailure::RateLimited(m) => Fail::RateLimited(m),
             PollFailure::Transient(m) => Fail::Transient(m),
             PollFailure::General(m) => Fail::General { errors: vec![m.clone()], message: m, failed_row: false },
+            // A Merge or Split rewrote this bot's rows mid-sweep: its run is over, with no failure written.
+            PollFailure::OwnerChanged(_) => return Err(EngineError::RunFenced),
         }));
     }
     model::require_run(c, bot)?;

@@ -562,3 +562,28 @@ async fn a_key_replaced_during_the_price_check_checks_again_at_once() {
     run::step(&mut e, &at("2026-09-01T10:01:00.001Z")).await.unwrap();
     assert_eq!(v.sent().len(), 1, "met under the new key: re-armed and ticked");
 }
+
+/// PLAN-dashboard-bot-actions slice F: a Merge or Split moves the order while its follow-up poll's answer is in flight. The
+/// engine writes nothing against the deleted source and keeps polling the row under its new owner, without a restart.
+#[tokio::test(flavor = "current_thread")]
+async fn a_follow_up_poll_follows_a_row_moved_while_the_venue_answered() {
+    let v = priced().next_add(AddOutcome::Accept("OTX-MV".into()));
+    let (_d, mut e, from, s) = engine(BotSpec::weekly(60.0, "2026-09-01 10:00:00"), v.clone());
+    run::step(&mut e, &at("2026-09-01T10:00:01Z")).await.unwrap();
+    let to = seed::insert_bot(&e.primary, &s, &BotSpec { status: 2, ..BotSpec::weekly(60.0, "2026-09-01 10:00:00") });
+    let tx: i64 = e.primary.query_row("SELECT id FROM transactions WHERE external_id = 'OTX-MV'", [], |r| r.get(0)).unwrap();
+    let db = e.primary.path().unwrap().to_string();
+    let _ = v.clone().order("OTX-MV", json!({ "status": "closed", "price": "50000", "vol": "0.0012", "vol_exec": "0.0012", "cost": "60", "oflags": "", "descr": { "type": "buy", "ordertype": "market", "price": "0" } }))
+        .on_query(move || {
+            let c = rusqlite::Connection::open(&db).unwrap();
+            c.execute("UPDATE transactions SET bot_id = ?1 WHERE id = ?2", [to, tx]).unwrap();
+            c.execute("UPDATE bots SET status = 3 WHERE id = ?1", [from]).unwrap();
+        });
+    let row = |e: &Engine<FakeFactory>| e.primary.query_row("SELECT bot_id, external_status FROM transactions WHERE id = ?1", [tx], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?))).unwrap();
+    let before = row(&e).1;
+    let wake = run::step(&mut e, &at("2026-09-01T10:00:06Z")).await.unwrap();
+    assert_eq!(row(&e), (to, before), "the answer is not applied for the deleted source");
+    assert!(wake <= us("2026-09-01T10:00:06Z") + 1, "the obligation is re-queued at once under the new owner");
+    run::step(&mut e, &at("2026-09-01T10:00:07Z")).await.unwrap();
+    assert_eq!(row(&e), (to, 2), "settled under the new owner");
+}
