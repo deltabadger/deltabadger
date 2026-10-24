@@ -927,8 +927,7 @@ async fn kraken_binance_and_kucoin_baskets_decide_as_rails() {
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
 }
 
-// ---- wash-sale locks on the buy leg (PLAN-wash-sale WS-1; the engine still refuses such accounts, so these reach the legs
-// directly) ----
+// ---- wash-sale locks on the buy leg (PLAN-wash-sale WS-1) ----
 
 /// The account's rule on (US), with a lock until 1 October on each of `locked`.
 fn wash_on(o: &store::Opened, locked: &[i64]) {
@@ -998,8 +997,7 @@ async fn a_buy_whose_asset_was_locked_after_it_was_sized_is_not_placed() {
     assert!(!matches!(begin(&plan(Side::Buy, TxKind::Regular)), placement::Begun::WashSaleLocked), "rule off: inert");
 }
 
-// ---- wash-sale claims on the sell legs (PLAN-wash-sale WS-2; the engine still refuses such accounts, so these reach the legs
-// directly) ----
+// ---- wash-sale claims on the sell legs (PLAN-wash-sale WS-2) ----
 
 /// A one-asset BTC seller of 100 USD a week holding 0.01 BTC bought for 700 USD, the rule on: at the 64000 bid every sale
 /// loses on its lot.
@@ -1045,7 +1043,7 @@ async fn a_ranked_loss_member_is_skipped_while_a_buy_of_it_rests_and_the_next_me
     let other = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
     seed::insert_row(&o.primary, &s, other, s.btc, &json!({ "status": 0, "external_status": 1, "external_id": "OBUY", "order_type": 1, "amount": "0.001",
         "amount_exec": "0", "price": "60000", "created_at": "2026-09-01 09:30:00" }));
-    // BTC is judged and skipped before any balance is read; when ETH's is, the rule goes off (eligibility still refuses it on),
+    // BTC is judged and skipped before any balance is read; when ETH's is, the rule goes off,
     // so ETH's order is placed: only BTC sat out.
     let t = selling(both_free(), json!({}));
     let v = AlpacaVenue::new(During { script: t.clone(), db: rusqlite::Connection::open(o.primary.path().unwrap()).unwrap(), path: "/v2/positions",
@@ -1055,8 +1053,8 @@ async fn a_ranked_loss_member_is_skipped_while_a_buy_of_it_rests_and_the_next_me
     assert_eq!((lock_of(&o, s.btc), lock_of(&o, eth)), (None, None));
 }
 
-/// The one-asset sale of 0.0015625 BTC for 100 USD judged a loss, begun as begin_with_credentials writes it but past the fence,
-/// whose eligibility check still refuses an account with the rule on (WS-3 admits it). The bot is `executing` on its run.
+/// The one-asset sale of 0.0015625 BTC for 100 USD judged a loss, begun as begin_with_credentials writes it but past the fence.
+/// The bot is `executing` on its run.
 fn begin_loss_sale(o: &store::Opened, id: i64, s: &seed::Seeded) -> deltabadger::engine::placement::Intent {
     use deltabadger::engine::{amount, placement, venue_rules::ALPACA};
     use deltabadger::ruby::BigDec;

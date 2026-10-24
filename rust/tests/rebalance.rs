@@ -904,8 +904,7 @@ fn claim_keys(o: &store::Opened, id: i64) -> (Value, Value, Value) {
 }
 const SWAP_DEADLINE: &str = "2026-10-02 00:00:00";
 
-/// The rebalance sell of 0.00421875 BTC judged a loss, begun as begin_rebalance writes it but past the fence, whose
-/// eligibility check still refuses an account with the rule on (WS-3 admits it).
+/// The rebalance sell of 0.00421875 BTC judged a loss, begun as begin_rebalance writes it but past the fence.
 fn begin_loss_sell(o: &store::Opened, id: i64, s: &seed::Seeded) -> placement::Intent {
     use deltabadger::engine::{amount, venue_rules::ALPACA};
     let c = &o.primary;

@@ -88,6 +88,8 @@ module Pages
     add.call('start_junk_working', 'start?start_fresh=junk', {}, {'columns'=>{'status'=>'scheduled'}})
     add.call('start_no_key', 'start?start_fresh=true', {}, {}, {'no_key'=>true})
     add.call('start_invalid', 'start?start_fresh=true', {}, {'stored'=>{'quote_amount'=>0}})
+    # PLAN-wash-sale WS-3: the Stop of a working basket on an account with the rule on (Bots::StopsController never asks it).
+    add.call('stop_wash_rule_on', 'stop', {}, {'columns'=>{'status'=>'scheduled'}}, {'wash_on'=>true})
     add.call('stop_invalid', 'stop', {}, {'stored'=>{'quote_amount'=>0},'columns'=>{'status'=>'scheduled'}})
     add.call('archive_invalid', 'archive', {}, {'stored'=>{'quote_amount'=>0}})
     add.call('start_future','start?start_fresh=true',{}, {'settings'=>{'start_time_enabled'=>true,'start_time_mode'=>'date','start_at'=>'2026-09-12T10:00:00Z'}})
@@ -257,7 +259,7 @@ module Pages
                { 'wash_off' => true }.merge(venue == 'kucoin' ? { 'kucoin_bots' => true } : {}))
     end
 
-    raise "expected 254 + 6 bot action cases, including settings metrics broadcasts" unless cases.size == 254 + 6
+    raise "expected 255 + 6 bot action cases, including settings metrics broadcasts" unless cases.size == 255 + 6
     names = cases.map { |entry| "actions_#{entry.first}".gsub(/[^a-zA-Z0-9_-]/, "_") }
     raise "action case names collide after filesystem conversion" unless names.uniq.size == names.size
     cases
@@ -294,7 +296,8 @@ module Pages
         'install' => 'alpaca', 'user' => owner('wash_sale_enabled' => nil),
         'bots' => [{ 'kind' => 'basket' }.merge(spec), { 'kind' => 'basket', 'columns' => { 'status' => 7 } }],
         'action_extra' => extra,
-        'steps' => signed_in(get('/bots/2').merge('expect' => 200), request)
+        # With the wash-sale rule on, this build serves no bot page without figures (WS-4a): the CSRF token comes from settings.
+        'steps' => signed_in(get(extra['wash_on'] ? '/settings/account' : '/bots/2').merge('expect' => 200), request)
       }
       if action.end_with?('_modal')
         scenario['steps'] += [request.deep_dup.tap { |r| r['headers']['Turbo-Frame'] = 'modal' }]
@@ -311,7 +314,7 @@ module Pages
       scenario['kraken_usdt'] = true if extra['kraken_usdt']
       scenario['kucoin_bots'] = true if extra['kucoin_bots']
       [name, scenario]
-    end.tap { |grid| raise 'action case names collide (including six settings metrics cases)' unless grid.size == 254 + 6 }.merge(typing_scenarios)
+    end.tap { |grid| raise 'action case names collide (including six settings metrics cases)' unless grid.size == 255 + 6 }.merge(typing_scenarios)
   end
 
   # An amount below one typed key by key, as the form posts it (form--submit-after-delay): "0" is invalid, the decimal

@@ -153,8 +153,8 @@ fn bot_reasons_with(c: &Connection, bot: &Bot, splits: &mut SplitRows) -> Result
     if bot.interval().is_none() { r.push("interval".into()); }
     if !bot.quote_amount().is_some_and(|q| q > 0.0) { r.push("quote_amount".into()); }
     if bot.restatement_generation > 0 && model::all_crypto(c, bot)? { r.push("restated prices".into()); }
-    let wash: Option<Option<bool>> = c.query_row("SELECT wash_sale_enabled FROM users WHERE id = ?1", [bot.user_id], |r| r.get(0)).optional()?;
-    match wash { None => r.push("user not found".into()), Some(Some(true)) => r.push("wash_sale enabled for the user".into()), _ => {} }
+    // The wash-sale rule is enforced by the legs themselves (engine::wash), so it is no reason.
+    if c.query_row("SELECT 1 FROM users WHERE id = ?1", [bot.user_id], |_| Ok(())).optional()?.is_none() { r.push("user not found".into()); }
     if bot.quote_amount_limited() {
         if let Err(e) = bot.quote_amount_limit() { r.push(e); }
         if let Err(e) = bot.quote_amount_limit_enabled_at_us() { r.push(e); }
@@ -222,8 +222,9 @@ pub fn signal_admission(exchange: Option<&str>) -> Option<&'static str> {
 
 /// Bots::Signal (plan 8d T1): one pair, traded by its webhook rules (engine::signal), never ticked. Refused, by name: a
 /// venue `signal_admission` refuses; a setting, a rule or a waiting call this build does not read; no ticker for the pair,
-/// or one with more decimals than the pages round to; history rows other than its own REGULAR orders (history_reasons);
-/// the wash-sale rule. A basket's interval, amount and allocations are not asked of it.
+/// or one with more decimals than the pages round to; history rows other than its own REGULAR orders (history_reasons).
+/// The wash-sale rule is no reason: a locked buy consumes its call (engine::signal). A basket's interval, amount and
+/// allocations are not asked of it.
 fn signal_reasons(c: &Connection, bot: &Bot, splits: &mut SplitRows, r: &mut Vec<String>) -> Result<(), EngineError> {
     let exchange: Option<String> = c.query_row("SELECT type FROM exchanges WHERE id = ?1", [bot.exchange_id], |r| r.get(0)).optional()?;
     if let Some(why) = signal_admission(exchange.as_deref()) { r.push(why.into()); }
@@ -235,8 +236,8 @@ fn signal_reasons(c: &Connection, bot: &Bot, splits: &mut SplitRows, r: &mut Vec
     };
     if let Err(e) = model::signals(c, bot.id) { r.push(format!("a signal rule this build does not read ({e:?})")); }
     if let Err(e) = bot.signal_calls() { r.push(format!("{e:?}")); }
-    let wash: Option<Option<bool>> = c.query_row("SELECT wash_sale_enabled FROM users WHERE id = ?1", [bot.user_id], |r| r.get(0)).optional()?;
-    match wash { None => r.push("user not found".into()), Some(Some(true)) => r.push("wash_sale enabled for the user".into()), _ => {} }
+    // The wash-sale rule is enforced by the legs themselves (engine::wash), so it is no reason.
+    if c.query_row("SELECT 1 FROM users WHERE id = ?1", [bot.user_id], |_| Ok(())).optional()?.is_none() { r.push("user not found".into()); }
     history_reasons(c, bot, alpaca, &[base], splits, r)?;
     // The pair's ticker on this venue, within the decimals the pages round to. Its asset: a plain cryptocurrency, or a stock (Alpaca's catalog,
     // whatever its instrument type: the pair's sizing and its market clock are the venue's, never a basket's split walk).

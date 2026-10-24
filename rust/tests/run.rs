@@ -156,7 +156,7 @@ async fn a_key_that_does_not_decrypt_fails_the_tick_and_never_stops_the_bot() {
 async fn a_working_bot_eligibility_cannot_read_is_not_ticked() {
     let v = priced();
     let (_d, mut e, id, _) = engine(BotSpec::weekly(60.0, "2026-09-01 10:00:00"), v.clone());
-    e.primary.execute("UPDATE users SET wash_sale_enabled = 'garbage'", []).unwrap(); // bot_reasons cannot read it
+    e.primary.execute("UPDATE bots SET started_at = 'garbage' WHERE id = ?1", [id]).unwrap(); // bot_reasons cannot read it
     let report = deltabadger::engine::eligibility::check_install(&e.primary).unwrap();
     assert!(report.unreadable.iter().any(|(i, _)| *i == id), "{:?}", report.unreadable);
     run::step(&mut e, &at("2026-09-01T10:00:01Z")).await.unwrap();

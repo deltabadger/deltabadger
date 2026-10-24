@@ -445,7 +445,7 @@ async fn the_page_hears_the_marker_raised_and_lifted() {
 
 /// PLAN-wash-sale WS-1: a buy of a locked asset consumes the call before anything reads the venue, with no line and no row
 /// (#buy_locked?, Outcome :locked); the placement-time re-read in the intent's transaction does the same. A sell is never
-/// locked. With the rule off the same row is inert. (The engine still refuses such accounts: run_next is reached directly.)
+/// locked. With the rule off the same row is inert.
 #[tokio::test(flavor = "current_thread", start_paused = true)]
 async fn a_signal_buy_of_a_locked_asset_consumes_the_call_and_places_nothing() {
     use deltabadger::engine::tick::{PriceCache, TickContext};
