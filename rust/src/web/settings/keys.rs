@@ -140,7 +140,14 @@ async fn validate(app:&App,key:&Key,original:&Key,kind:i64,venue:&str)->Result<V
     values.extend([original.key.as_ref(),original.secret.as_ref(),original.passphrase.as_ref()].into_iter().flatten().chain(original.extras.iter().flatten()).cloned());
     let columns=[key.key.as_ref(),key.secret.as_ref(),key.passphrase.as_ref(),key.extras[0].as_ref(),key.extras[1].as_ref(),key.extras[2].as_ref(),key.extras[3].as_ref()].map(|value|value.map(|value|app.cipher.encrypt(value)));
     let producer=crate::engine::model::prepared_credential_version(key.id.unwrap_or(0),&columns);
-    let handle=super::validator::ValidationHandle::stored(crate::crypto::Credentials{redaction_values:values,key:key.key.clone().unwrap_or_default(),secret:key.secret.clone().unwrap_or_default(),passphrase:key.passphrase.clone(),ibkr:None},producer);
+    // Session#initialize's reads, from the submitted fields over the stored ones.
+    let ibkr=match (venue==crate::venue::ibkr::IBKR,&key.extras) {
+        (true,[Some(access_token),Some(signature_key),Some(encryption_key),Some(dh_param)])=>Some(Box::new(crate::venue::signers::ibkr::Material{
+            consumer_key:key.key.clone().unwrap_or_default(),access_token:access_token.clone(),access_token_secret:key.secret.clone().unwrap_or_default(),
+            signature_key:signature_key.clone(),encryption_key:encryption_key.clone(),dh_param:dh_param.clone(),realm:key.realm.clone().unwrap_or_default()})),
+        _=>None,
+    };
+    let handle=super::validator::ValidationHandle::stored(crate::crypto::Credentials{redaction_values:values,key:key.key.clone().unwrap_or_default(),secret:key.secret.clone().unwrap_or_default(),passphrase:key.passphrase.clone(),ibkr},producer);
     let result=handle.check_on(app,venue,kind).await?;
     let (result,identity)=result;
     app.observe_validation(result.origin().clone())?;
@@ -291,8 +298,11 @@ pub(crate) async fn submit(app: &App, ctx: &Ctx, user: i64, exchange: i64, venue
             ));
             return Ok(Submitted::Failed);
         }
-        Validity::Correct => {}
+        Validity::Correct | Validity::Account(_) | Validity::PendingActivation => {}
     }
+    // ApiKey#validate_credentials!: IBKR's activation wait is saved too (status pending_activation, its clock restarted).
+    let pending=matches!(validated.result.value,Validity::PendingActivation);
+    let account=match &validated.result.value {Validity::Account(account)=>Some(account.clone()),_=>None};
     let jobs=app.job_wakers()?;
     let inner = app.clone();
     let user_id=user;
@@ -303,14 +313,16 @@ pub(crate) async fn submit(app: &App, ctx: &Ctx, user: i64, exchange: i64, venue
   if !validated.result.current_for(&Some(validated.handle.producer().clone())).is_fresh(){return Ok(Some("credential changed during validation".into()));}
   let candidate=&validated.key;
   let now=format_time(inner.now());
-  let changed=!(same(&candidate.key,&current.key)&&same(&candidate.secret,&current.secret)&&same(&candidate.passphrase,&current.passphrase)&&candidate.extras.iter().zip(&current.extras).all(|(a,b)|same(a,b))&&candidate.realm==current.realm&&current.status==1&&current.last_error.is_none());
+  let status=if pending {3} else {1};
+  // A submission awaiting activation always moves updated_at (activation_stalled? reads it as the last submission).
+  let changed=pending||!(same(&candidate.key,&current.key)&&same(&candidate.secret,&current.secret)&&same(&candidate.passphrase,&current.passphrase)&&candidate.extras.iter().zip(&current.extras).all(|(a,b)|same(a,b))&&candidate.realm==current.realm&&current.status==1&&current.last_error.is_none());
   if current.id.is_some() && settling(&tx,user_id,exchange)? { return Ok(Some(SETTLING.into())); }
   {
    let now=if changed {now} else {current.updated_at.clone().unwrap_or(now)};
    let key=validated.columns[0].clone();let secret=validated.columns[1].clone();let passphrase=validated.columns[2].clone();
    match current.id{
-    Some(id)=>{tx.execute("UPDATE api_keys SET key=?1,secret=?2,passphrase=?3,status=1,last_sync_error=NULL,updated_at=?4 WHERE id=?5 AND user_id=?6",(key,secret,passphrase,&now,id,user_id))?;},
-    None=>{tx.execute("INSERT INTO api_keys(user_id,exchange_id,key_type,key,secret,passphrase,status,created_at,updated_at)VALUES(?1,?2,?3,?4,?5,?6,1,?7,?7)",(user_id,exchange,kind,key,secret,passphrase,&now))?;}
+    Some(id)=>{tx.execute("UPDATE api_keys SET key=?1,secret=?2,passphrase=?3,status=?7,last_sync_error=NULL,updated_at=?4 WHERE id=?5 AND user_id=?6",rusqlite::params![key,secret,passphrase,&now,id,user_id,status])?;},
+    None=>{tx.execute("INSERT INTO api_keys(user_id,exchange_id,key_type,key,secret,passphrase,status,created_at,updated_at)VALUES(?1,?2,?3,?4,?5,?6,?8,?7,?7)",rusqlite::params![user_id,exchange,kind,key,secret,passphrase,&now,status])?;}
    }
   }
   // #497: another credential may be another account, which syncs its own full history; its rows stay linked.
@@ -321,6 +333,10 @@ pub(crate) async fn submit(app: &App, ctx: &Ctx, user: i64, exchange: i64, venue
   tx.execute("UPDATE api_keys SET access_token=?1,rsa_signature_key=?2,rsa_encryption_key=?3,dh_param=?4,ibkr_realm=?5 WHERE user_id=?6 AND exchange_id=?7 AND key_type=?8",rusqlite::params![validated.columns[3],validated.columns[4],validated.columns[5],validated.columns[6],candidate.realm,user_id,exchange,kind])?;
   if let Err(refusal)=eligibility::guard(&tx,&inner.cipher,None){return Ok(Some(refusal.reason()));}
   let id:i64=tx.query_row("SELECT id FROM api_keys WHERE user_id=?1 AND exchange_id=?2 AND key_type=?3",(user_id,exchange,kind),|r|r.get(0))?;
+  // D-IBKR-ACCOUNT: the key binds to the account it names, or is refused (nothing saved) when bound to another.
+  if let Some(account)=&account {
+   if let Err(refusal)=crate::venue::ibkr_account::bind(&tx,&inner.cipher,id,account,inner.now()).map_err(WebError::Config)? {return Ok(Some(refusal));}
+  }
   if let Some(observed)=&validated.identity{crate::identity::record(&tx,&inner.cipher,id,validated.handle.credentials(),validated.handle.producer(),observed,inner.now()).map_err(WebError::Config)?;}
   // The slots a restart would register (sync::jobs::register, tracker::jobs::register): a key that reads for its
   // venue gets its syncs, and its owner the tracker's jobs. Woken after the commit only.
@@ -529,6 +545,7 @@ pub async fn delete(app: App, ctx: Ctx) -> Result<Response, WebError> {
   tx.execute("UPDATE account_transactions SET api_key_id=NULL WHERE api_key_id=?1",[id])?;
   tx.execute("DELETE FROM api_keys WHERE id=?1 AND user_id=?2",(id,user.id))?;
   crate::identity::forget(&tx,id,user.id,exchange)?;
+  crate::venue::ibkr_account::forget(&tx,id)?;
   if let Err(refusal)=eligibility::guard(&tx,&inner.cipher,None){return Ok(Some(Err(refusal.reason())));}
   let body=list(&tx,&v,&csrf,user.id)?;tx.commit()?;crate::venue::ibkr::forget(id);inner.wake_engine();Ok(Some(Ok(body)))
  }).await?;
@@ -662,16 +679,20 @@ pub(crate) async fn revalidate(app:&App,id:i64)->Result<Option<String>,WebError>
     let (kind,venue,name)=kind;
     let handle=super::validator::ValidationHandle::stored(credentials,version);
     let (result,identity)=handle.check_on(app,&venue,kind).await?;
-    let status=result.map(|result|match result {Validity::Correct=>1,Validity::Incorrect=>2,Validity::Permissions{..}=>{
+    let account=match &result.value {Validity::Account(account)=>Some(account.clone()),_=>None};
+    let status=result.map(|result|match result {Validity::Correct|Validity::Account(_)=>1,Validity::PendingActivation=>3,Validity::Incorrect=>2,Validity::Permissions{..}=>{
         app.settings_key_logger.warn(&format!("[{name}] API key validation: permissions do not match the steps"));2
     },Validity::Pending(ref e)=>{
         app.settings_key_logger.warn(&format!("[{name}] API key validation failed: {}",scrub(&e.log_text(),&values)));0
     }});
+    // D-IBKR-INCONCLUSIVE (as the validator job): an IBKR check with no verdict leaves the key as it is.
+    if venue==crate::venue::ibkr::IBKR && status.value==0 {return Ok(None)}
     let jobs=app.job_wakers()?;let inner=app.clone();
     let result=app.db(move|c|{
         let tx=Transaction::new_unchecked(c,TransactionBehavior::Immediate)?;
         let fenced=crate::engine::model::check_credential_result(&tx,status.origin())?;
         let before:i64=fenced.query_row("SELECT status FROM api_keys WHERE id=?1",[id],|r|r.get(0))?;
+        let status=bound_status(&fenced,&inner.cipher,id,status.clone(),account.as_deref(),inner.now()).map_err(|e|WebError::Config(e.0))?;
         store_status(&fenced,&status,id,inner.now()).map_err(|_|WebError::Config("cannot store credential status".into()))?;
         if let Some(observed)=&identity{crate::identity::record(&fenced,&inner.cipher,id,handle.credentials(),handle.producer(),observed,inner.now()).map_err(WebError::Config)?;}
         if let Err(refusal)=eligibility::guard(&tx,&inner.cipher,None){return Ok(Some(refusal.reason()))}
@@ -810,6 +831,15 @@ pub async fn bot_form(axum::extract::State(app):axum::extract::State<App>,axum::
     crate::web::shell::application(&ctx,&csrf,&user,&shell,crate::web::layout::Page{status:StatusCode::OK,body,flash_now:vec![]})
 }
 
+/// A correct IBKR check's status as stored: the key is bound to the account the check named, or it is incorrect when it is
+/// bound to another (D-IBKR-ACCOUNT; nothing else is written). Any other venue's status as it is.
+pub fn bound_status(c:&Connection,cipher:&crate::crypto::Cipher,id:i64,status:crate::engine::model::Produced<i64>,account:Option<&str>,at:chrono::DateTime<chrono::Utc>)->Result<crate::engine::model::Produced<i64>,crate::sync::SyncError>{
+    let Some(account)=account else {return Ok(status)};
+    match crate::venue::ibkr_account::bind(c,cipher,id,account,at).map_err(crate::sync::SyncError)? {
+        Ok(())=>Ok(status),
+        Err(refusal)=>{crate::engine::log(&format!("[Interactive Brokers] API key validation: {refusal}"));Ok(status.map(|_|2))}
+    }
+}
 pub fn store_status(c:&crate::engine::model::FencedTransaction<'_>,status:&crate::engine::model::Produced<i64>,id:i64,at:chrono::DateTime<chrono::Utc>)->Result<(),crate::sync::SyncError>{
     if !status.current_for(&c.producer_version()).is_fresh() || status.origin().as_ref().is_none_or(|producer|producer.id!=id){return Err(crate::sync::SyncError(crate::engine::model::CREDENTIALS_CHANGED.into()));}
     c.execute("UPDATE api_keys SET status=?1,updated_at=CASE WHEN status<>?1 THEN ?2 ELSE updated_at END WHERE id=?3",rusqlite::params![status.value,format_time(at),id])?;Ok(())

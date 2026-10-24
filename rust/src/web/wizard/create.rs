@@ -352,6 +352,8 @@ pub fn insert(c: &Connection, user: i64, mut bot: Built, now: DateTime<Utc>) -> 
                VALUES (?1, ?2, 'Bots::DcaMultiAsset', 0, ?3, ?4, ?5, ?6, ?7, ?7, ?7)",
               rusqlite::params![user, bot.exchange_id, bot.label, position, Value::Object(bot.settings).to_string(), transient.to_string(), at])?;
     let id = c.last_insert_rowid();
+    // D-IBKR-ACCOUNT: a bot created on a bound IBKR key belongs to its account from the start.
+    crate::venue::ibkr_account::assign_bot_account(c, id, now)?;
     let loaded = crate::engine::model::load_bot(c, id)?;
     // A derivation that finds nothing tradeable is Rails' Failure, which the after_save callback does not act on.
     let _ = crate::engine::basket::refresh_composition(c, &loaded, now)?;

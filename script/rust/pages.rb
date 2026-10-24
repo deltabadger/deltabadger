@@ -227,7 +227,7 @@ module Pages
 
   # Bot ids follow the order of 'bots'.
   def bot_scenarios = list_scenarios.merge(page_scenarios).merge(feed_scenarios).merge(refused_scenarios).merge(broadcast_scenarios).merge(venue_scenarios)
-                      .merge(search_scenarios).merge(reorder_scenarios).merge(custom_allocation_scenarios)
+                      .merge(search_scenarios).merge(reorder_scenarios).merge(custom_allocation_scenarios).merge(follow_index_scenarios)
 
   # A Kraken bot that waits, a Binance bot at work with a fill, a failed order and one resting, and a stock basket beside them.
   def venue_bots
@@ -432,6 +432,88 @@ module Pages
       'custom_allocation_no_csrf' => with_bots([stopped('index', index), archived],
                                                signed_in(get('/bots/1'), custom_allocation.merge('csrf' => 'none'), get('/bots/1')))
     }
+  end
+
+  # The bot menu's "Follow index" and "Change the index" (Bots::IndicesController, Bot::IndexSwitch.follow!): the picker as the
+  # menu's link opens it in the modal frame, then a tile as Turbo submits it (the button's index_type, the hidden fields the
+  # index-filter controller fills). Rails derives the new composition in the request; every bot here already holds each
+  # member its new index takes, so no newcomer is priced at the venue. This crate leaves the derivation to the engine
+  # (D-IDX-FOLLOW-LATE): a step's `resync` runs that resync before its rows are compared. The stocks are typed, as the
+  # listings sync types them, so the engine runs these index bots.
+  def index_pick(path = '/bots/1/index/new') = get(path, TURBO.merge('Accept' => 'text/html, application/xhtml+xml', 'Turbo-Frame' => 'modal'))
+
+  def index_follow(category, path = '/bots/1/index')
+    post(path, { 'index_type' => category == 'top-coins' ? 'top' : 'category', 'index_category_id' => category, 'index_name' => '' },
+         'csrf' => 'both', 'headers' => TURBO.merge('Referer' => 'http://localhost:3000/bots/1'), 'action_snapshot' => true,
+         'may_mutate' => %w[bots bot_index_assets], 'resync' => true)
+  end
+
+  ND = %w[NVDA MSFT AAPL AMZN META AVGO GOOGL TSLA COST NFLX AMD PEP].freeze
+  TECH = %w[NVDA MSFT AAPL AMZN].freeze
+
+  def follow_index_scenarios
+    # A portfolio of the whole ND100 universe, weights to 0.1% as the sliders store them.
+    nd = { 'allocations' => ND.each_with_index.to_h { |symbol, i| [symbol, i.zero? ? 0.087 : 0.083] } }
+    tech = { 'allocations' => TECH.to_h { |symbol| [symbol, 0.25] } }
+    # A second data-api index of four of the ND100's members, and a category index of the same four (no published universe).
+    tech_index = { 'tech-4' => ['deltabadger', 'Tech 4', TECH] }
+    tech_category = { 'big-tech' => ['coingecko', 'Big Tech', TECH] }
+    archived = { 'kind' => 'basket', 'columns' => { 'status' => 7 } }
+    index = { 'settings' => { 'allocation_flattening' => 0.25 } }
+    {
+      'follow_index_new_portfolio' => with_bots([stopped('basket'), archived], signed_in(get('/bots/1'), index_pick)),
+      'follow_index_new_index_bot' => with_bots([stopped('index', index), archived], signed_in(get('/bots/1'), index_pick), 'indices' => tech_index.merge(tech_category)),
+      'follow_index_new_none' => with_bots([stopped('index', index), archived], signed_in(get('/bots/1'), index_pick)),
+      'follow_index_new_de' => with_bots([stopped('basket'), archived], signed_in(get('/de/bots/1'), index_pick('/de/bots/1/index/new')), 'indices' => tech_category),
+      'follow_index_new_running' => with_bots([running('basket', '2026-09-07T13:30:00.5Z', acted('2026-09-07T13:30:01.100Z')), archived],
+                                              signed_in(get('/bots/2'), index_pick)),
+      'follow_index_new_unconfigured_404' => with_bots([stopped('basket'), archived], signed_in(get('/bots'), index_pick.merge('expect' => 404)), 'market_data' => 'none'),
+      'follow_index_new_missing' => with_bots([stopped('basket'), archived], signed_in(get('/bots'), index_pick('/bots/9/index/new'), get('/bots'))),
+      'follow_index_new_signed_out' => with_bots([stopped('basket'), archived], [index_pick, get('/login')]),
+      # The whole ND100 universe: a bounded index, held whole.
+      'follow_index_create' => with_bots([stopped('basket', nd), archived], signed_in(get('/bots/1'), index_pick, index_follow('nasdaq-100').merge('expect' => 200),
+                                                                                     get('/bots/1'), get('/bots'))),
+      # A category index publishes no universe: ten coins, not all of it.
+      'follow_index_create_unbounded' => with_bots([stopped('basket', tech), archived], signed_in(get('/bots/1'), index_pick, index_follow('big-tech').merge('expect' => 200),
+                                                                                                 get('/bots/1')), 'indices' => tech_category),
+      # An index bot's other index: members the new one leaves out become exited, its flattening stays.
+      'follow_index_create_change' => with_bots([stopped('index', index), archived], signed_in(get('/bots/1'), index_pick, index_follow('tech-4').merge('expect' => 200),
+                                                                                              get('/bots/1')), 'indices' => tech_index),
+      'follow_index_create_renamed' => with_bots([stopped('basket', nd.merge('columns' => { 'status' => 2, 'label' => 'My ND' })), archived],
+                                                 signed_in(get('/bots/1'), index_pick, index_follow('nasdaq-100').merge('expect' => 200), get('/bots/1'))),
+      # Started and stopped with nothing bought: the carry is captured under the portfolio and capped as a settings save caps it.
+      'follow_index_create_carry' => with_bots([stopped('basket', nd.merge('columns' => { 'status' => 2, 'started_at' => '2026-08-27T12:00:00Z' },
+                                                                          'transient' => { 'last_action_job_at' => '2026-09-03T12:00:01Z' })), archived],
+                                               signed_in(get('/bots/1/start/edit', TURBO.merge('Accept' => 'text/html', 'Turbo-Frame' => 'modal')), index_pick,
+                                                         index_follow('nasdaq-100').merge('expect' => 200), get('/bots/1'),
+                                                         get('/bots/1/start/edit', TURBO.merge('Accept' => 'text/html', 'Turbo-Frame' => 'modal')))),
+      # The index the bot already follows is not offered.
+      'follow_index_create_not_offered' => with_bots([stopped('index', index), archived], signed_in(get('/bots/1'), index_pick, index_follow('nasdaq-100').merge('expect' => 422),
+                                                                                                   get('/bots/1')), 'indices' => tech_index),
+      'follow_index_create_running' => with_bots([running('basket', '2026-09-07T13:30:00.5Z', nd.merge(acted('2026-09-07T13:30:01.100Z'))), archived],
+                                                 signed_in(get('/bots/2'), index_pick, index_follow('nasdaq-100').merge('expect' => 422))),
+      'follow_index_create_selling' => with_bots([stopped('basket', nd.merge('settings' => selling_base)), archived],
+                                                 signed_in(get('/bots/1'), index_pick, index_follow('nasdaq-100').merge('expect' => 422))),
+      # A swap in flight: this build serves neither the bot's page nor its picker, so the archived bot's page gives the token.
+      'follow_index_create_in_flight' => with_bots([stopped('basket', nd.merge('transient' => { 'rebalance_pending' => { 'phase' => 'selling' } })), archived],
+                                                   signed_in(get('/bots/2'), index_follow('nasdaq-100').merge('csrf' => 'header', 'expect' => 422))),
+      # A one-asset portfolio's Smart Intervals split sits above its asset's minimum and below the index's (the venue's
+      # largest, a non-member's here): the index bot fails validation and nothing is saved.
+      'follow_index_create_smart_below_minimum' => with_bots([stopped('basket', 'allocations' => { 'NVDA' => 1.0 }, 'minimum_quote' => { 'QQQM' => '20' }), archived],
+                                                             signed_in(get('/bots/1'), index_pick, index_follow('nasdaq-100').merge('expect' => 422), get('/bots/1'))),
+      'follow_index_create_de' => with_bots([stopped('basket', nd), archived],
+                                            signed_in(get('/de/bots/1'), index_pick('/de/bots/1/index/new'), index_follow('nasdaq-100', '/de/bots/1/index').merge('expect' => 200),
+                                                      get('/de/bots/1'))),
+      'follow_index_create_no_csrf' => with_bots([stopped('basket', nd), archived], signed_in(get('/bots/1'), index_pick, index_follow('nasdaq-100').merge('csrf' => 'none'),
+                                                                                             get('/bots/1'))),
+      'follow_index_create_signed_out' => with_bots([stopped('basket', nd), archived],
+                                                    signed_in(get('/bots/1'), index_pick, get('/login').merge('client' => 'signed_out'),
+                                                              index_follow('nasdaq-100').merge('client' => 'signed_out', 'csrf' => 'none'), get('/bots/1'))),
+      # D-IDX-COINGECKO: on a CoinGecko install Rails switches and fails to derive (no key here, so it asks nobody); this build
+      # cannot derive an index there at all, and refuses the switch, writing nothing.
+      'refused_web_follow_index_coingecko' => with_bots([stopped('basket', tech), archived], signed_in(get('/bots'), index_pick, index_follow('big-tech')),
+                                                        'indices' => tech_category, 'market_data' => 'coingecko')
+    }.transform_values { |scenario| scenario.merge('typed_stocks' => true) }
   end
 
   # What broadcast--on-connect posts: JSON to the locale's path, the page's token in X-CSRF-Token.

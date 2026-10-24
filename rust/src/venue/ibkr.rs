@@ -149,7 +149,7 @@ impl Error {
     /// Session#signed_request's rescue: Faraday::UnauthorizedError or AuthError.
     fn heals(&self) -> bool { matches!(self, Self::Http { status: 401, .. } | Self::Auth(_)) }
 
-    fn message(self) -> String {
+    pub(crate) fn message(self) -> String {
         match self {
             Self::LockTimeout => "the IBKR login stayed busy".into(),
             Self::Transport(TransportError::NotSent(m) | TransportError::MaybeSent(m) | TransportError::Permanent(m)) => m,
@@ -169,20 +169,26 @@ fn is_mutation(method: &str, path: &str) -> bool { method == "POST" && (path.end
 pub struct Held<'a>(#[allow(dead_code)] tokio::sync::MutexGuard<'a, ()>);
 
 /// Clients::Ibkr::Session for one login over `transport`, its clock `clock`.
-pub struct Session<'a, T: Transport> {
+pub struct Session<'a, T: Transport, C: Clock + ?Sized = dyn Clock> {
     transport: &'a T,
+    base: String,
     login: Arc<Login>,
-    clock: &'a dyn Clock,
-    dh_random: Box<dyn Fn() -> String + 'a>,
+    clock: &'a C,
+    dh_random: Box<dyn Fn() -> String + Send + Sync + 'a>,
 }
 
-impl<'a, T: Transport> Session<'a, T> {
-    pub fn new(transport: &'a T, login: Arc<Login>, clock: &'a dyn Clock) -> Self {
-        Self { transport, login, clock, dh_random: Box::new(oauth::dh_random) }
+impl<'a, T: Transport, C: Clock + ?Sized> Session<'a, T, C> {
+    pub fn new(transport: &'a T, login: Arc<Login>, clock: &'a C) -> Self {
+        let fixed = FIXED_DH_RANDOM.lock().unwrap_or_else(|p| p.into_inner()).clone();
+        let dh_random: Box<dyn Fn() -> String + Send + Sync + 'a> = match fixed { Some(r) => Box::new(move || r.clone()), None => Box::new(oauth::dh_random) };
+        Self { transport, base: URL.into(), login, clock, dh_random }
     }
 
+    /// Sent to `base` instead of Session::BASE_URL (a test's server).
+    pub fn with_base(mut self, base: &str) -> Self { if !base.is_empty() { self.base = base.into(); } self }
+
     /// Oauth.dh_random fixed (the recorders stub it the same way).
-    pub fn with_dh_random(mut self, f: impl Fn() -> String + 'a) -> Self { self.dh_random = Box::new(f); self }
+    pub fn with_dh_random(mut self, f: impl Fn() -> String + Send + Sync + 'a) -> Self { self.dh_random = Box::new(f); self }
 
     /// IbkrLock.with_lock: waits up to LOCK_WAIT for the login, then fails.
     pub async fn lock(&self) -> Result<Held<'_>, Error> {
@@ -270,7 +276,7 @@ impl<'a, T: Transport> Session<'a, T> {
     }
 
     fn http(&self, method: &'static str, path: &str, query: Vec<(&'static str, String)>, body: Option<Value>) -> HttpRequest {
-        HttpRequest { method, base: URL.into(), path: path.into(), query, body, not_after: None }
+        HttpRequest { method, base: self.base.clone(), path: path.into(), query, body, not_after: None }
     }
 
     async fn request(&self, r: HttpRequest) -> Result<Value, Error> {
@@ -282,6 +288,12 @@ impl<'a, T: Transport> Session<'a, T> {
         decode_json(&resp.body).map_err(|_| Error::Unreadable)
     }
 }
+
+/// For tests that reach a scripted IBKR over HTTP: every new Session mints with this DH random (Oauth.dh_random stubbed,
+/// as the recorders do), so a recorded server answer validates. None restores the random one.
+static FIXED_DH_RANDOM: Mutex<Option<String>> = Mutex::new(None);
+#[doc(hidden)]
+pub fn fix_dh_random(dh_random: Option<String>) { *FIXED_DH_RANDOM.lock().unwrap_or_else(|p| p.into_inner()) = dh_random; }
 
 /// Faraday's `content_type: /\bjson$/` over the MIME type without its parameters.
 fn is_json(content_type: &str) -> bool {
@@ -330,7 +342,7 @@ mod tests {
 
     fn paths(t: &ScriptedTransport) -> Vec<String> { t.requests().iter().map(|r| format!("{} {}", r.method, r.path)).collect() }
 
-    async fn call<T: Transport>(s: &Session<'_, T>) -> Result<Value, Error> {
+    async fn call<T: Transport, C: Clock + ?Sized>(s: &Session<'_, T, C>) -> Result<Value, Error> {
         let held = s.lock().await?;
         s.signed_request(&held, "GET", "/v1/api/iserver/accounts", vec![], None).await
     }
@@ -429,7 +441,7 @@ mod tests {
     const ORDERS: &str = "POST /v1/api/iserver/account/U1/orders";
     const ORDER_PATH: &str = "/v1/api/iserver/account/U1/orders";
 
-    async fn submit<T: Transport>(s: &Session<'_, T>) -> Result<Value, VenueError> {
+    async fn submit<T: Transport, C: Clock + ?Sized>(s: &Session<'_, T, C>) -> Result<Value, VenueError> {
         let held = s.lock().await.unwrap();
         s.submit(&held, ORDER_PATH, json!({ "orders": [{ "conid": 265598, "side": "BUY", "quantity": 1 }] })).await
     }

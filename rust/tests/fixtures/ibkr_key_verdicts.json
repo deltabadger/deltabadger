@@ -1,0 +1,1312 @@
+{
+  "sources": {
+    "app/models/exchanges/ibkr.rb": "6b4eb7306d114c3a8aaa61dfb967150d23e7f29f95e09b9745f1e6c5c40f4f8b",
+    "app/models/clients/ibkr.rb": "40c4e3d460cb089015138d1e6141786f96af463786e49bf827a536ecea24fb9e",
+    "app/models/clients/ibkr/session.rb": "87a4f0938a0c705df5c043e2277c3501339a2a116699201126b2153547c5a73b",
+    "app/models/clients/ibkr/oauth.rb": "bb98efb064853fac98a668a18d45a7c196ec06e4214f8d42368b605029693ad0",
+    "app/models/client.rb": "f5a9f759c2007fae9a264dca94d315b1092c8cb391381905bc686e374c22683b",
+    "app/models/exchange.rb": "ab627a2812bc0c7b4a546459e64f8f5d93617c496308d5f03163f44cef12d8d7",
+    "app/models/ibkr_lock.rb": "a5ccda1013e1621c2bf2a26dba3da5196b93c3a64d7bbdaf2604d010c3c5bfa0",
+    "app/models/api_key.rb": "e7f1435042602815925d093baa51160be9236c600b2f8aebdcf0517f5119ef91",
+    "rust/tests/fixtures/ibkr_test_keys.json": "07e593c73af60ee4dab6a01959838c311e624248bb60fbc652feeabdae3d911b",
+    "rust/tests/fixtures/ibkr_signing.json": "8c98c27671d4f3a8cc43dcb6587b75cd8f53a5bd855ef7e4c77a877e64f433b9"
+  },
+  "honeymaker": "0.12.5",
+  "ibkr": {
+    "cases": [
+      {
+        "case": "http_500",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "responses": [
+          {
+            "status": 200,
+            "body": "{\"diffie_hellman_response\":\"6ec64fcf800980e388b25f653982b7ec391d0c9d5bce347a3e0c916d91ed79e7133d2177dc3be36690c4995e85ace5ce66d0e714fa7c23cb1e47c51de9943da001373b9837b1f286ef27a97fa164be824dd565a59b5b39d7ff99e250162c6df075f0b316789d98403e0fede2cfd6d88362173f13a5c460faedd8ddd422ae0ed593dc250035925fd48fd46e4e8182f6f81182a73eccb40e3fd191565c158631f562b74e54ad35df3d04a95d3538afa69bedad9dbfd07173dcc43502f0bf151074cb89385ca04d5e22d2328809c4f73b00ae00c72bd8fe69401486c7b7f01287f995688c93593ad1a2ab0c0ac967109ff81cd5922874c198c3e4ab15839aaa7b2f\",\"live_session_token_expiration\":86400000,\"live_session_token_signature\":\"39972c164bfd3ffa32b40a5c0749deda88b19e3d\"}",
+            "content_type": "application/json"
+          },
+          {
+            "status": 200,
+            "body": "{\"authenticated\":true,\"connected\":true,\"competing\":false}",
+            "content_type": "application/json"
+          },
+          {
+            "status": 500,
+            "body": "",
+            "content_type": "text/plain"
+          }
+        ],
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "HTTP 500"
+          ]
+        },
+        "requests": [
+          {
+            "method": "POST",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/oauth/live_session_token",
+            "query": {},
+            "form": {},
+            "key_header": null
+          },
+          {
+            "method": "POST",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/iserver/auth/ssodh/init",
+            "query": {},
+            "form": {
+              "{\"publish\":true,\"compete\":true}": ""
+            },
+            "key_header": null
+          },
+          {
+            "method": "GET",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/iserver/accounts",
+            "query": {},
+            "form": {},
+            "key_header": null
+          }
+        ]
+      },
+      {
+        "case": "http_502_html",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "responses": [
+          {
+            "status": 200,
+            "body": "{\"diffie_hellman_response\":\"6ec64fcf800980e388b25f653982b7ec391d0c9d5bce347a3e0c916d91ed79e7133d2177dc3be36690c4995e85ace5ce66d0e714fa7c23cb1e47c51de9943da001373b9837b1f286ef27a97fa164be824dd565a59b5b39d7ff99e250162c6df075f0b316789d98403e0fede2cfd6d88362173f13a5c460faedd8ddd422ae0ed593dc250035925fd48fd46e4e8182f6f81182a73eccb40e3fd191565c158631f562b74e54ad35df3d04a95d3538afa69bedad9dbfd07173dcc43502f0bf151074cb89385ca04d5e22d2328809c4f73b00ae00c72bd8fe69401486c7b7f01287f995688c93593ad1a2ab0c0ac967109ff81cd5922874c198c3e4ab15839aaa7b2f\",\"live_session_token_expiration\":86400000,\"live_session_token_signature\":\"39972c164bfd3ffa32b40a5c0749deda88b19e3d\"}",
+            "content_type": "application/json"
+          },
+          {
+            "status": 200,
+            "body": "{\"authenticated\":true,\"connected\":true,\"competing\":false}",
+            "content_type": "application/json"
+          },
+          {
+            "status": 502,
+            "body": "<html><body>502 Bad Gateway</body></html>",
+            "content_type": "text/html"
+          }
+        ],
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "HTTP 502"
+          ]
+        },
+        "requests": [
+          {
+            "method": "POST",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/oauth/live_session_token",
+            "query": {},
+            "form": {},
+            "key_header": null
+          },
+          {
+            "method": "POST",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/iserver/auth/ssodh/init",
+            "query": {},
+            "form": {
+              "{\"publish\":true,\"compete\":true}": ""
+            },
+            "key_header": null
+          },
+          {
+            "method": "GET",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/iserver/accounts",
+            "query": {},
+            "form": {},
+            "key_header": null
+          }
+        ]
+      },
+      {
+        "case": "http_503_json",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "responses": [
+          {
+            "status": 200,
+            "body": "{\"diffie_hellman_response\":\"6ec64fcf800980e388b25f653982b7ec391d0c9d5bce347a3e0c916d91ed79e7133d2177dc3be36690c4995e85ace5ce66d0e714fa7c23cb1e47c51de9943da001373b9837b1f286ef27a97fa164be824dd565a59b5b39d7ff99e250162c6df075f0b316789d98403e0fede2cfd6d88362173f13a5c460faedd8ddd422ae0ed593dc250035925fd48fd46e4e8182f6f81182a73eccb40e3fd191565c158631f562b74e54ad35df3d04a95d3538afa69bedad9dbfd07173dcc43502f0bf151074cb89385ca04d5e22d2328809c4f73b00ae00c72bd8fe69401486c7b7f01287f995688c93593ad1a2ab0c0ac967109ff81cd5922874c198c3e4ab15839aaa7b2f\",\"live_session_token_expiration\":86400000,\"live_session_token_signature\":\"39972c164bfd3ffa32b40a5c0749deda88b19e3d\"}",
+            "content_type": "application/json"
+          },
+          {
+            "status": 200,
+            "body": "{\"authenticated\":true,\"connected\":true,\"competing\":false}",
+            "content_type": "application/json"
+          },
+          {
+            "status": 503,
+            "body": "{\"msg\":\"Service unavailable\"}",
+            "content_type": "application/json"
+          }
+        ],
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "HTTP 503"
+          ]
+        },
+        "requests": [
+          {
+            "method": "POST",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/oauth/live_session_token",
+            "query": {},
+            "form": {},
+            "key_header": null
+          },
+          {
+            "method": "POST",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/iserver/auth/ssodh/init",
+            "query": {},
+            "form": {
+              "{\"publish\":true,\"compete\":true}": ""
+            },
+            "key_header": null
+          },
+          {
+            "method": "GET",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/iserver/accounts",
+            "query": {},
+            "form": {},
+            "key_header": null
+          }
+        ]
+      },
+      {
+        "case": "http_403_waf_html",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "responses": [
+          {
+            "status": 200,
+            "body": "{\"diffie_hellman_response\":\"6ec64fcf800980e388b25f653982b7ec391d0c9d5bce347a3e0c916d91ed79e7133d2177dc3be36690c4995e85ace5ce66d0e714fa7c23cb1e47c51de9943da001373b9837b1f286ef27a97fa164be824dd565a59b5b39d7ff99e250162c6df075f0b316789d98403e0fede2cfd6d88362173f13a5c460faedd8ddd422ae0ed593dc250035925fd48fd46e4e8182f6f81182a73eccb40e3fd191565c158631f562b74e54ad35df3d04a95d3538afa69bedad9dbfd07173dcc43502f0bf151074cb89385ca04d5e22d2328809c4f73b00ae00c72bd8fe69401486c7b7f01287f995688c93593ad1a2ab0c0ac967109ff81cd5922874c198c3e4ab15839aaa7b2f\",\"live_session_token_expiration\":86400000,\"live_session_token_signature\":\"39972c164bfd3ffa32b40a5c0749deda88b19e3d\"}",
+            "content_type": "application/json"
+          },
+          {
+            "status": 200,
+            "body": "{\"authenticated\":true,\"connected\":true,\"competing\":false}",
+            "content_type": "application/json"
+          },
+          {
+            "status": 403,
+            "body": "<html>Forbidden</html>",
+            "content_type": "text/html"
+          }
+        ],
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "HTTP 403"
+          ]
+        },
+        "requests": [
+          {
+            "method": "POST",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/oauth/live_session_token",
+            "query": {},
+            "form": {},
+            "key_header": null
+          },
+          {
+            "method": "POST",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/iserver/auth/ssodh/init",
+            "query": {},
+            "form": {
+              "{\"publish\":true,\"compete\":true}": ""
+            },
+            "key_header": null
+          },
+          {
+            "method": "GET",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/iserver/accounts",
+            "query": {},
+            "form": {},
+            "key_header": null
+          }
+        ]
+      },
+      {
+        "case": "http_429",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "responses": [
+          {
+            "status": 200,
+            "body": "{\"diffie_hellman_response\":\"6ec64fcf800980e388b25f653982b7ec391d0c9d5bce347a3e0c916d91ed79e7133d2177dc3be36690c4995e85ace5ce66d0e714fa7c23cb1e47c51de9943da001373b9837b1f286ef27a97fa164be824dd565a59b5b39d7ff99e250162c6df075f0b316789d98403e0fede2cfd6d88362173f13a5c460faedd8ddd422ae0ed593dc250035925fd48fd46e4e8182f6f81182a73eccb40e3fd191565c158631f562b74e54ad35df3d04a95d3538afa69bedad9dbfd07173dcc43502f0bf151074cb89385ca04d5e22d2328809c4f73b00ae00c72bd8fe69401486c7b7f01287f995688c93593ad1a2ab0c0ac967109ff81cd5922874c198c3e4ab15839aaa7b2f\",\"live_session_token_expiration\":86400000,\"live_session_token_signature\":\"39972c164bfd3ffa32b40a5c0749deda88b19e3d\"}",
+            "content_type": "application/json"
+          },
+          {
+            "status": 200,
+            "body": "{\"authenticated\":true,\"connected\":true,\"competing\":false}",
+            "content_type": "application/json"
+          },
+          {
+            "status": 429,
+            "body": "{\"code\":-1003,\"msg\":\"Too many requests.\"}",
+            "content_type": "application/json"
+          }
+        ],
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "HTTP 429"
+          ]
+        },
+        "requests": [
+          {
+            "method": "POST",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/oauth/live_session_token",
+            "query": {},
+            "form": {},
+            "key_header": null
+          },
+          {
+            "method": "POST",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/iserver/auth/ssodh/init",
+            "query": {},
+            "form": {
+              "{\"publish\":true,\"compete\":true}": ""
+            },
+            "key_header": null
+          },
+          {
+            "method": "GET",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/iserver/accounts",
+            "query": {},
+            "form": {},
+            "key_header": null
+          }
+        ]
+      },
+      {
+        "case": "timeout",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "responses": [
+          {
+            "status": 200,
+            "body": "{\"diffie_hellman_response\":\"6ec64fcf800980e388b25f653982b7ec391d0c9d5bce347a3e0c916d91ed79e7133d2177dc3be36690c4995e85ace5ce66d0e714fa7c23cb1e47c51de9943da001373b9837b1f286ef27a97fa164be824dd565a59b5b39d7ff99e250162c6df075f0b316789d98403e0fede2cfd6d88362173f13a5c460faedd8ddd422ae0ed593dc250035925fd48fd46e4e8182f6f81182a73eccb40e3fd191565c158631f562b74e54ad35df3d04a95d3538afa69bedad9dbfd07173dcc43502f0bf151074cb89385ca04d5e22d2328809c4f73b00ae00c72bd8fe69401486c7b7f01287f995688c93593ad1a2ab0c0ac967109ff81cd5922874c198c3e4ab15839aaa7b2f\",\"live_session_token_expiration\":86400000,\"live_session_token_signature\":\"39972c164bfd3ffa32b40a5c0749deda88b19e3d\"}",
+            "content_type": "application/json"
+          },
+          {
+            "status": 200,
+            "body": "{\"authenticated\":true,\"connected\":true,\"competing\":false}",
+            "content_type": "application/json"
+          },
+          {
+            "timeout": true
+          }
+        ],
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Faraday::TimeoutError: Net::ReadTimeout"
+          ]
+        },
+        "requests": [
+          {
+            "method": "POST",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/oauth/live_session_token",
+            "query": {},
+            "form": {},
+            "key_header": null
+          },
+          {
+            "method": "POST",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/iserver/auth/ssodh/init",
+            "query": {},
+            "form": {
+              "{\"publish\":true,\"compete\":true}": ""
+            },
+            "key_header": null
+          },
+          {
+            "method": "GET",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/iserver/accounts",
+            "query": {},
+            "form": {},
+            "key_header": null
+          }
+        ]
+      },
+      {
+        "case": "connection_refused",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "responses": [
+          {
+            "status": 200,
+            "body": "{\"diffie_hellman_response\":\"6ec64fcf800980e388b25f653982b7ec391d0c9d5bce347a3e0c916d91ed79e7133d2177dc3be36690c4995e85ace5ce66d0e714fa7c23cb1e47c51de9943da001373b9837b1f286ef27a97fa164be824dd565a59b5b39d7ff99e250162c6df075f0b316789d98403e0fede2cfd6d88362173f13a5c460faedd8ddd422ae0ed593dc250035925fd48fd46e4e8182f6f81182a73eccb40e3fd191565c158631f562b74e54ad35df3d04a95d3538afa69bedad9dbfd07173dcc43502f0bf151074cb89385ca04d5e22d2328809c4f73b00ae00c72bd8fe69401486c7b7f01287f995688c93593ad1a2ab0c0ac967109ff81cd5922874c198c3e4ab15839aaa7b2f\",\"live_session_token_expiration\":86400000,\"live_session_token_signature\":\"39972c164bfd3ffa32b40a5c0749deda88b19e3d\"}",
+            "content_type": "application/json"
+          },
+          {
+            "status": 200,
+            "body": "{\"authenticated\":true,\"connected\":true,\"competing\":false}",
+            "content_type": "application/json"
+          },
+          {
+            "refused": true
+          }
+        ],
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "Faraday::ConnectionFailed: Failed to open TCP connection (Connection refused)"
+          ]
+        },
+        "requests": [
+          {
+            "method": "POST",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/oauth/live_session_token",
+            "query": {},
+            "form": {},
+            "key_header": null
+          },
+          {
+            "method": "POST",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/iserver/auth/ssodh/init",
+            "query": {},
+            "form": {
+              "{\"publish\":true,\"compete\":true}": ""
+            },
+            "key_header": null
+          },
+          {
+            "method": "GET",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/iserver/accounts",
+            "query": {},
+            "form": {},
+            "key_header": null
+          }
+        ]
+      },
+      {
+        "case": "malformed_json",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "responses": [
+          {
+            "status": 200,
+            "body": "{\"diffie_hellman_response\":\"6ec64fcf800980e388b25f653982b7ec391d0c9d5bce347a3e0c916d91ed79e7133d2177dc3be36690c4995e85ace5ce66d0e714fa7c23cb1e47c51de9943da001373b9837b1f286ef27a97fa164be824dd565a59b5b39d7ff99e250162c6df075f0b316789d98403e0fede2cfd6d88362173f13a5c460faedd8ddd422ae0ed593dc250035925fd48fd46e4e8182f6f81182a73eccb40e3fd191565c158631f562b74e54ad35df3d04a95d3538afa69bedad9dbfd07173dcc43502f0bf151074cb89385ca04d5e22d2328809c4f73b00ae00c72bd8fe69401486c7b7f01287f995688c93593ad1a2ab0c0ac967109ff81cd5922874c198c3e4ab15839aaa7b2f\",\"live_session_token_expiration\":86400000,\"live_session_token_signature\":\"39972c164bfd3ffa32b40a5c0749deda88b19e3d\"}",
+            "content_type": "application/json"
+          },
+          {
+            "status": 200,
+            "body": "{\"authenticated\":true,\"connected\":true,\"competing\":false}",
+            "content_type": "application/json"
+          },
+          {
+            "status": 200,
+            "body": "{\"error\":[],\"result\":{",
+            "content_type": "application/json"
+          }
+        ],
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "HTTP 200"
+          ]
+        },
+        "requests": [
+          {
+            "method": "POST",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/oauth/live_session_token",
+            "query": {},
+            "form": {},
+            "key_header": null
+          },
+          {
+            "method": "POST",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/iserver/auth/ssodh/init",
+            "query": {},
+            "form": {
+              "{\"publish\":true,\"compete\":true}": ""
+            },
+            "key_header": null
+          },
+          {
+            "method": "GET",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/iserver/accounts",
+            "query": {},
+            "form": {},
+            "key_header": null
+          }
+        ]
+      },
+      {
+        "case": "empty_json_body",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "responses": [
+          {
+            "status": 200,
+            "body": "{\"diffie_hellman_response\":\"6ec64fcf800980e388b25f653982b7ec391d0c9d5bce347a3e0c916d91ed79e7133d2177dc3be36690c4995e85ace5ce66d0e714fa7c23cb1e47c51de9943da001373b9837b1f286ef27a97fa164be824dd565a59b5b39d7ff99e250162c6df075f0b316789d98403e0fede2cfd6d88362173f13a5c460faedd8ddd422ae0ed593dc250035925fd48fd46e4e8182f6f81182a73eccb40e3fd191565c158631f562b74e54ad35df3d04a95d3538afa69bedad9dbfd07173dcc43502f0bf151074cb89385ca04d5e22d2328809c4f73b00ae00c72bd8fe69401486c7b7f01287f995688c93593ad1a2ab0c0ac967109ff81cd5922874c198c3e4ab15839aaa7b2f\",\"live_session_token_expiration\":86400000,\"live_session_token_signature\":\"39972c164bfd3ffa32b40a5c0749deda88b19e3d\"}",
+            "content_type": "application/json"
+          },
+          {
+            "status": 200,
+            "body": "{\"authenticated\":true,\"connected\":true,\"competing\":false}",
+            "content_type": "application/json"
+          },
+          {
+            "status": 200,
+            "body": "",
+            "content_type": "application/json"
+          }
+        ],
+        "verdict": {
+          "kind": "success",
+          "data": "pending_activation"
+        },
+        "requests": [
+          {
+            "method": "POST",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/oauth/live_session_token",
+            "query": {},
+            "form": {},
+            "key_header": null
+          },
+          {
+            "method": "POST",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/iserver/auth/ssodh/init",
+            "query": {},
+            "form": {
+              "{\"publish\":true,\"compete\":true}": ""
+            },
+            "key_header": null
+          },
+          {
+            "method": "GET",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/iserver/accounts",
+            "query": {},
+            "form": {},
+            "key_header": null
+          }
+        ]
+      },
+      {
+        "case": "plain_text_200",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "responses": [
+          {
+            "status": 200,
+            "body": "{\"diffie_hellman_response\":\"6ec64fcf800980e388b25f653982b7ec391d0c9d5bce347a3e0c916d91ed79e7133d2177dc3be36690c4995e85ace5ce66d0e714fa7c23cb1e47c51de9943da001373b9837b1f286ef27a97fa164be824dd565a59b5b39d7ff99e250162c6df075f0b316789d98403e0fede2cfd6d88362173f13a5c460faedd8ddd422ae0ed593dc250035925fd48fd46e4e8182f6f81182a73eccb40e3fd191565c158631f562b74e54ad35df3d04a95d3538afa69bedad9dbfd07173dcc43502f0bf151074cb89385ca04d5e22d2328809c4f73b00ae00c72bd8fe69401486c7b7f01287f995688c93593ad1a2ab0c0ac967109ff81cd5922874c198c3e4ab15839aaa7b2f\",\"live_session_token_expiration\":86400000,\"live_session_token_signature\":\"39972c164bfd3ffa32b40a5c0749deda88b19e3d\"}",
+            "content_type": "application/json"
+          },
+          {
+            "status": 200,
+            "body": "{\"authenticated\":true,\"connected\":true,\"competing\":false}",
+            "content_type": "application/json"
+          },
+          {
+            "status": 200,
+            "body": "OK",
+            "content_type": "text/plain"
+          }
+        ],
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "requests": [
+          {
+            "method": "POST",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/oauth/live_session_token",
+            "query": {},
+            "form": {},
+            "key_header": null
+          },
+          {
+            "method": "POST",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/iserver/auth/ssodh/init",
+            "query": {},
+            "form": {
+              "{\"publish\":true,\"compete\":true}": ""
+            },
+            "key_header": null
+          },
+          {
+            "method": "GET",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/iserver/accounts",
+            "query": {},
+            "form": {},
+            "key_header": null
+          }
+        ]
+      },
+      {
+        "case": "one_account",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "responses": [
+          {
+            "status": 200,
+            "body": "{\"diffie_hellman_response\":\"6ec64fcf800980e388b25f653982b7ec391d0c9d5bce347a3e0c916d91ed79e7133d2177dc3be36690c4995e85ace5ce66d0e714fa7c23cb1e47c51de9943da001373b9837b1f286ef27a97fa164be824dd565a59b5b39d7ff99e250162c6df075f0b316789d98403e0fede2cfd6d88362173f13a5c460faedd8ddd422ae0ed593dc250035925fd48fd46e4e8182f6f81182a73eccb40e3fd191565c158631f562b74e54ad35df3d04a95d3538afa69bedad9dbfd07173dcc43502f0bf151074cb89385ca04d5e22d2328809c4f73b00ae00c72bd8fe69401486c7b7f01287f995688c93593ad1a2ab0c0ac967109ff81cd5922874c198c3e4ab15839aaa7b2f\",\"live_session_token_expiration\":86400000,\"live_session_token_signature\":\"39972c164bfd3ffa32b40a5c0749deda88b19e3d\"}",
+            "content_type": "application/json"
+          },
+          {
+            "status": 200,
+            "body": "{\"authenticated\":true,\"connected\":true,\"competing\":false}",
+            "content_type": "application/json"
+          },
+          {
+            "status": 200,
+            "body": "{\"accounts\":[\"U1234567\"],\"selectedAccount\":\"U1234567\"}",
+            "content_type": "application/json"
+          }
+        ],
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "requests": [
+          {
+            "method": "POST",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/oauth/live_session_token",
+            "query": {},
+            "form": {},
+            "key_header": null
+          },
+          {
+            "method": "POST",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/iserver/auth/ssodh/init",
+            "query": {},
+            "form": {
+              "{\"publish\":true,\"compete\":true}": ""
+            },
+            "key_header": null
+          },
+          {
+            "method": "GET",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/iserver/accounts",
+            "query": {},
+            "form": {},
+            "key_header": null
+          }
+        ]
+      },
+      {
+        "case": "paper_account",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "responses": [
+          {
+            "status": 200,
+            "body": "{\"diffie_hellman_response\":\"6ec64fcf800980e388b25f653982b7ec391d0c9d5bce347a3e0c916d91ed79e7133d2177dc3be36690c4995e85ace5ce66d0e714fa7c23cb1e47c51de9943da001373b9837b1f286ef27a97fa164be824dd565a59b5b39d7ff99e250162c6df075f0b316789d98403e0fede2cfd6d88362173f13a5c460faedd8ddd422ae0ed593dc250035925fd48fd46e4e8182f6f81182a73eccb40e3fd191565c158631f562b74e54ad35df3d04a95d3538afa69bedad9dbfd07173dcc43502f0bf151074cb89385ca04d5e22d2328809c4f73b00ae00c72bd8fe69401486c7b7f01287f995688c93593ad1a2ab0c0ac967109ff81cd5922874c198c3e4ab15839aaa7b2f\",\"live_session_token_expiration\":86400000,\"live_session_token_signature\":\"39972c164bfd3ffa32b40a5c0749deda88b19e3d\"}",
+            "content_type": "application/json"
+          },
+          {
+            "status": 200,
+            "body": "{\"authenticated\":true,\"connected\":true,\"competing\":false}",
+            "content_type": "application/json"
+          },
+          {
+            "status": 200,
+            "body": "{\"accounts\":[\"DU1234567\"]}",
+            "content_type": "application/json"
+          }
+        ],
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "requests": [
+          {
+            "method": "POST",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/oauth/live_session_token",
+            "query": {},
+            "form": {},
+            "key_header": null
+          },
+          {
+            "method": "POST",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/iserver/auth/ssodh/init",
+            "query": {},
+            "form": {
+              "{\"publish\":true,\"compete\":true}": ""
+            },
+            "key_header": null
+          },
+          {
+            "method": "GET",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/iserver/accounts",
+            "query": {},
+            "form": {},
+            "key_header": null
+          }
+        ]
+      },
+      {
+        "case": "list_answer",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "responses": [
+          {
+            "status": 200,
+            "body": "{\"diffie_hellman_response\":\"6ec64fcf800980e388b25f653982b7ec391d0c9d5bce347a3e0c916d91ed79e7133d2177dc3be36690c4995e85ace5ce66d0e714fa7c23cb1e47c51de9943da001373b9837b1f286ef27a97fa164be824dd565a59b5b39d7ff99e250162c6df075f0b316789d98403e0fede2cfd6d88362173f13a5c460faedd8ddd422ae0ed593dc250035925fd48fd46e4e8182f6f81182a73eccb40e3fd191565c158631f562b74e54ad35df3d04a95d3538afa69bedad9dbfd07173dcc43502f0bf151074cb89385ca04d5e22d2328809c4f73b00ae00c72bd8fe69401486c7b7f01287f995688c93593ad1a2ab0c0ac967109ff81cd5922874c198c3e4ab15839aaa7b2f\",\"live_session_token_expiration\":86400000,\"live_session_token_signature\":\"39972c164bfd3ffa32b40a5c0749deda88b19e3d\"}",
+            "content_type": "application/json"
+          },
+          {
+            "status": 200,
+            "body": "{\"authenticated\":true,\"connected\":true,\"competing\":false}",
+            "content_type": "application/json"
+          },
+          {
+            "status": 200,
+            "body": "[\"U1234567\"]",
+            "content_type": "application/json"
+          }
+        ],
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "requests": [
+          {
+            "method": "POST",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/oauth/live_session_token",
+            "query": {},
+            "form": {},
+            "key_header": null
+          },
+          {
+            "method": "POST",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/iserver/auth/ssodh/init",
+            "query": {},
+            "form": {
+              "{\"publish\":true,\"compete\":true}": ""
+            },
+            "key_header": null
+          },
+          {
+            "method": "GET",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/iserver/accounts",
+            "query": {},
+            "form": {},
+            "key_header": null
+          }
+        ]
+      },
+      {
+        "case": "two_accounts",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "responses": [
+          {
+            "status": 200,
+            "body": "{\"diffie_hellman_response\":\"6ec64fcf800980e388b25f653982b7ec391d0c9d5bce347a3e0c916d91ed79e7133d2177dc3be36690c4995e85ace5ce66d0e714fa7c23cb1e47c51de9943da001373b9837b1f286ef27a97fa164be824dd565a59b5b39d7ff99e250162c6df075f0b316789d98403e0fede2cfd6d88362173f13a5c460faedd8ddd422ae0ed593dc250035925fd48fd46e4e8182f6f81182a73eccb40e3fd191565c158631f562b74e54ad35df3d04a95d3538afa69bedad9dbfd07173dcc43502f0bf151074cb89385ca04d5e22d2328809c4f73b00ae00c72bd8fe69401486c7b7f01287f995688c93593ad1a2ab0c0ac967109ff81cd5922874c198c3e4ab15839aaa7b2f\",\"live_session_token_expiration\":86400000,\"live_session_token_signature\":\"39972c164bfd3ffa32b40a5c0749deda88b19e3d\"}",
+            "content_type": "application/json"
+          },
+          {
+            "status": 200,
+            "body": "{\"authenticated\":true,\"connected\":true,\"competing\":false}",
+            "content_type": "application/json"
+          },
+          {
+            "status": 200,
+            "body": "{\"accounts\":[\"U1234567\",\"U7654321\"],\"selectedAccount\":\"U1234567\"}",
+            "content_type": "application/json"
+          }
+        ],
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "requests": [
+          {
+            "method": "POST",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/oauth/live_session_token",
+            "query": {},
+            "form": {},
+            "key_header": null
+          },
+          {
+            "method": "POST",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/iserver/auth/ssodh/init",
+            "query": {},
+            "form": {
+              "{\"publish\":true,\"compete\":true}": ""
+            },
+            "key_header": null
+          },
+          {
+            "method": "GET",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/iserver/accounts",
+            "query": {},
+            "form": {},
+            "key_header": null
+          }
+        ]
+      },
+      {
+        "case": "pseudo_account",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "responses": [
+          {
+            "status": 200,
+            "body": "{\"diffie_hellman_response\":\"6ec64fcf800980e388b25f653982b7ec391d0c9d5bce347a3e0c916d91ed79e7133d2177dc3be36690c4995e85ace5ce66d0e714fa7c23cb1e47c51de9943da001373b9837b1f286ef27a97fa164be824dd565a59b5b39d7ff99e250162c6df075f0b316789d98403e0fede2cfd6d88362173f13a5c460faedd8ddd422ae0ed593dc250035925fd48fd46e4e8182f6f81182a73eccb40e3fd191565c158631f562b74e54ad35df3d04a95d3538afa69bedad9dbfd07173dcc43502f0bf151074cb89385ca04d5e22d2328809c4f73b00ae00c72bd8fe69401486c7b7f01287f995688c93593ad1a2ab0c0ac967109ff81cd5922874c198c3e4ab15839aaa7b2f\",\"live_session_token_expiration\":86400000,\"live_session_token_signature\":\"39972c164bfd3ffa32b40a5c0749deda88b19e3d\"}",
+            "content_type": "application/json"
+          },
+          {
+            "status": 200,
+            "body": "{\"authenticated\":true,\"connected\":true,\"competing\":false}",
+            "content_type": "application/json"
+          },
+          {
+            "status": 200,
+            "body": "{\"accounts\":[\"All\"]}",
+            "content_type": "application/json"
+          }
+        ],
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "requests": [
+          {
+            "method": "POST",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/oauth/live_session_token",
+            "query": {},
+            "form": {},
+            "key_header": null
+          },
+          {
+            "method": "POST",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/iserver/auth/ssodh/init",
+            "query": {},
+            "form": {
+              "{\"publish\":true,\"compete\":true}": ""
+            },
+            "key_header": null
+          },
+          {
+            "method": "GET",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/iserver/accounts",
+            "query": {},
+            "form": {},
+            "key_header": null
+          }
+        ]
+      },
+      {
+        "case": "no_accounts",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "responses": [
+          {
+            "status": 200,
+            "body": "{\"diffie_hellman_response\":\"6ec64fcf800980e388b25f653982b7ec391d0c9d5bce347a3e0c916d91ed79e7133d2177dc3be36690c4995e85ace5ce66d0e714fa7c23cb1e47c51de9943da001373b9837b1f286ef27a97fa164be824dd565a59b5b39d7ff99e250162c6df075f0b316789d98403e0fede2cfd6d88362173f13a5c460faedd8ddd422ae0ed593dc250035925fd48fd46e4e8182f6f81182a73eccb40e3fd191565c158631f562b74e54ad35df3d04a95d3538afa69bedad9dbfd07173dcc43502f0bf151074cb89385ca04d5e22d2328809c4f73b00ae00c72bd8fe69401486c7b7f01287f995688c93593ad1a2ab0c0ac967109ff81cd5922874c198c3e4ab15839aaa7b2f\",\"live_session_token_expiration\":86400000,\"live_session_token_signature\":\"39972c164bfd3ffa32b40a5c0749deda88b19e3d\"}",
+            "content_type": "application/json"
+          },
+          {
+            "status": 200,
+            "body": "{\"authenticated\":true,\"connected\":true,\"competing\":false}",
+            "content_type": "application/json"
+          },
+          {
+            "status": 200,
+            "body": "{\"accounts\":[]}",
+            "content_type": "application/json"
+          }
+        ],
+        "verdict": {
+          "kind": "success",
+          "data": "pending_activation"
+        },
+        "requests": [
+          {
+            "method": "POST",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/oauth/live_session_token",
+            "query": {},
+            "form": {},
+            "key_header": null
+          },
+          {
+            "method": "POST",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/iserver/auth/ssodh/init",
+            "query": {},
+            "form": {
+              "{\"publish\":true,\"compete\":true}": ""
+            },
+            "key_header": null
+          },
+          {
+            "method": "GET",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/iserver/accounts",
+            "query": {},
+            "form": {},
+            "key_header": null
+          }
+        ]
+      },
+      {
+        "case": "null",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "responses": [
+          {
+            "status": 200,
+            "body": "{\"diffie_hellman_response\":\"6ec64fcf800980e388b25f653982b7ec391d0c9d5bce347a3e0c916d91ed79e7133d2177dc3be36690c4995e85ace5ce66d0e714fa7c23cb1e47c51de9943da001373b9837b1f286ef27a97fa164be824dd565a59b5b39d7ff99e250162c6df075f0b316789d98403e0fede2cfd6d88362173f13a5c460faedd8ddd422ae0ed593dc250035925fd48fd46e4e8182f6f81182a73eccb40e3fd191565c158631f562b74e54ad35df3d04a95d3538afa69bedad9dbfd07173dcc43502f0bf151074cb89385ca04d5e22d2328809c4f73b00ae00c72bd8fe69401486c7b7f01287f995688c93593ad1a2ab0c0ac967109ff81cd5922874c198c3e4ab15839aaa7b2f\",\"live_session_token_expiration\":86400000,\"live_session_token_signature\":\"39972c164bfd3ffa32b40a5c0749deda88b19e3d\"}",
+            "content_type": "application/json"
+          },
+          {
+            "status": 200,
+            "body": "{\"authenticated\":true,\"connected\":true,\"competing\":false}",
+            "content_type": "application/json"
+          },
+          {
+            "status": 200,
+            "body": "null",
+            "content_type": "application/json"
+          }
+        ],
+        "verdict": {
+          "kind": "success",
+          "data": "pending_activation"
+        },
+        "requests": [
+          {
+            "method": "POST",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/oauth/live_session_token",
+            "query": {},
+            "form": {},
+            "key_header": null
+          },
+          {
+            "method": "POST",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/iserver/auth/ssodh/init",
+            "query": {},
+            "form": {
+              "{\"publish\":true,\"compete\":true}": ""
+            },
+            "key_header": null
+          },
+          {
+            "method": "GET",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/iserver/accounts",
+            "query": {},
+            "form": {},
+            "key_header": null
+          }
+        ]
+      },
+      {
+        "case": "unauthorized",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "responses": [
+          {
+            "status": 200,
+            "body": "{\"diffie_hellman_response\":\"6ec64fcf800980e388b25f653982b7ec391d0c9d5bce347a3e0c916d91ed79e7133d2177dc3be36690c4995e85ace5ce66d0e714fa7c23cb1e47c51de9943da001373b9837b1f286ef27a97fa164be824dd565a59b5b39d7ff99e250162c6df075f0b316789d98403e0fede2cfd6d88362173f13a5c460faedd8ddd422ae0ed593dc250035925fd48fd46e4e8182f6f81182a73eccb40e3fd191565c158631f562b74e54ad35df3d04a95d3538afa69bedad9dbfd07173dcc43502f0bf151074cb89385ca04d5e22d2328809c4f73b00ae00c72bd8fe69401486c7b7f01287f995688c93593ad1a2ab0c0ac967109ff81cd5922874c198c3e4ab15839aaa7b2f\",\"live_session_token_expiration\":86400000,\"live_session_token_signature\":\"39972c164bfd3ffa32b40a5c0749deda88b19e3d\"}",
+            "content_type": "application/json"
+          },
+          {
+            "status": 200,
+            "body": "{\"authenticated\":true,\"connected\":true,\"competing\":false}",
+            "content_type": "application/json"
+          },
+          {
+            "status": 401,
+            "body": "{\"error\":\"not authenticated\"}",
+            "content_type": "application/json"
+          },
+          {
+            "status": 200,
+            "body": "{\"diffie_hellman_response\":\"6ec64fcf800980e388b25f653982b7ec391d0c9d5bce347a3e0c916d91ed79e7133d2177dc3be36690c4995e85ace5ce66d0e714fa7c23cb1e47c51de9943da001373b9837b1f286ef27a97fa164be824dd565a59b5b39d7ff99e250162c6df075f0b316789d98403e0fede2cfd6d88362173f13a5c460faedd8ddd422ae0ed593dc250035925fd48fd46e4e8182f6f81182a73eccb40e3fd191565c158631f562b74e54ad35df3d04a95d3538afa69bedad9dbfd07173dcc43502f0bf151074cb89385ca04d5e22d2328809c4f73b00ae00c72bd8fe69401486c7b7f01287f995688c93593ad1a2ab0c0ac967109ff81cd5922874c198c3e4ab15839aaa7b2f\",\"live_session_token_expiration\":86400000,\"live_session_token_signature\":\"39972c164bfd3ffa32b40a5c0749deda88b19e3d\"}",
+            "content_type": "application/json"
+          },
+          {
+            "status": 200,
+            "body": "{\"authenticated\":true,\"connected\":true,\"competing\":false}",
+            "content_type": "application/json"
+          },
+          {
+            "status": 401,
+            "body": "{\"error\":\"not authenticated\"}",
+            "content_type": "application/json"
+          }
+        ],
+        "verdict": {
+          "kind": "success",
+          "data": "pending_activation"
+        },
+        "requests": [
+          {
+            "method": "POST",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/oauth/live_session_token",
+            "query": {},
+            "form": {},
+            "key_header": null
+          },
+          {
+            "method": "POST",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/iserver/auth/ssodh/init",
+            "query": {},
+            "form": {
+              "{\"publish\":true,\"compete\":true}": ""
+            },
+            "key_header": null
+          },
+          {
+            "method": "GET",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/iserver/accounts",
+            "query": {},
+            "form": {},
+            "key_header": null
+          },
+          {
+            "method": "POST",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/oauth/live_session_token",
+            "query": {},
+            "form": {},
+            "key_header": null
+          },
+          {
+            "method": "POST",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/iserver/auth/ssodh/init",
+            "query": {},
+            "form": {
+              "{\"publish\":true,\"compete\":true}": ""
+            },
+            "key_header": null
+          },
+          {
+            "method": "GET",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/iserver/accounts",
+            "query": {},
+            "form": {},
+            "key_header": null
+          }
+        ]
+      },
+      {
+        "case": "unauthorized_then_ok",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "responses": [
+          {
+            "status": 200,
+            "body": "{\"diffie_hellman_response\":\"6ec64fcf800980e388b25f653982b7ec391d0c9d5bce347a3e0c916d91ed79e7133d2177dc3be36690c4995e85ace5ce66d0e714fa7c23cb1e47c51de9943da001373b9837b1f286ef27a97fa164be824dd565a59b5b39d7ff99e250162c6df075f0b316789d98403e0fede2cfd6d88362173f13a5c460faedd8ddd422ae0ed593dc250035925fd48fd46e4e8182f6f81182a73eccb40e3fd191565c158631f562b74e54ad35df3d04a95d3538afa69bedad9dbfd07173dcc43502f0bf151074cb89385ca04d5e22d2328809c4f73b00ae00c72bd8fe69401486c7b7f01287f995688c93593ad1a2ab0c0ac967109ff81cd5922874c198c3e4ab15839aaa7b2f\",\"live_session_token_expiration\":86400000,\"live_session_token_signature\":\"39972c164bfd3ffa32b40a5c0749deda88b19e3d\"}",
+            "content_type": "application/json"
+          },
+          {
+            "status": 200,
+            "body": "{\"authenticated\":true,\"connected\":true,\"competing\":false}",
+            "content_type": "application/json"
+          },
+          {
+            "status": 401,
+            "body": "{}",
+            "content_type": "application/json"
+          },
+          {
+            "status": 200,
+            "body": "{\"diffie_hellman_response\":\"6ec64fcf800980e388b25f653982b7ec391d0c9d5bce347a3e0c916d91ed79e7133d2177dc3be36690c4995e85ace5ce66d0e714fa7c23cb1e47c51de9943da001373b9837b1f286ef27a97fa164be824dd565a59b5b39d7ff99e250162c6df075f0b316789d98403e0fede2cfd6d88362173f13a5c460faedd8ddd422ae0ed593dc250035925fd48fd46e4e8182f6f81182a73eccb40e3fd191565c158631f562b74e54ad35df3d04a95d3538afa69bedad9dbfd07173dcc43502f0bf151074cb89385ca04d5e22d2328809c4f73b00ae00c72bd8fe69401486c7b7f01287f995688c93593ad1a2ab0c0ac967109ff81cd5922874c198c3e4ab15839aaa7b2f\",\"live_session_token_expiration\":86400000,\"live_session_token_signature\":\"39972c164bfd3ffa32b40a5c0749deda88b19e3d\"}",
+            "content_type": "application/json"
+          },
+          {
+            "status": 200,
+            "body": "{\"authenticated\":true,\"connected\":true,\"competing\":false}",
+            "content_type": "application/json"
+          },
+          {
+            "status": 200,
+            "body": "{\"accounts\":[\"U1234567\"],\"selectedAccount\":\"U1234567\"}",
+            "content_type": "application/json"
+          }
+        ],
+        "verdict": {
+          "kind": "success",
+          "data": true
+        },
+        "requests": [
+          {
+            "method": "POST",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/oauth/live_session_token",
+            "query": {},
+            "form": {},
+            "key_header": null
+          },
+          {
+            "method": "POST",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/iserver/auth/ssodh/init",
+            "query": {},
+            "form": {
+              "{\"publish\":true,\"compete\":true}": ""
+            },
+            "key_header": null
+          },
+          {
+            "method": "GET",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/iserver/accounts",
+            "query": {},
+            "form": {},
+            "key_header": null
+          },
+          {
+            "method": "POST",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/oauth/live_session_token",
+            "query": {},
+            "form": {},
+            "key_header": null
+          },
+          {
+            "method": "POST",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/iserver/auth/ssodh/init",
+            "query": {},
+            "form": {
+              "{\"publish\":true,\"compete\":true}": ""
+            },
+            "key_header": null
+          },
+          {
+            "method": "GET",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/iserver/accounts",
+            "query": {},
+            "form": {},
+            "key_header": null
+          }
+        ]
+      },
+      {
+        "case": "lst_unauthorized",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "responses": [
+          {
+            "status": 401,
+            "body": "{\"error\":\"invalid consumer\"}",
+            "content_type": "application/json"
+          },
+          {
+            "status": 401,
+            "body": "{\"error\":\"invalid consumer\"}",
+            "content_type": "application/json"
+          }
+        ],
+        "verdict": {
+          "kind": "success",
+          "data": "pending_activation"
+        },
+        "requests": [
+          {
+            "method": "POST",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/oauth/live_session_token",
+            "query": {},
+            "form": {},
+            "key_header": null
+          },
+          {
+            "method": "POST",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/oauth/live_session_token",
+            "query": {},
+            "form": {},
+            "key_header": null
+          }
+        ]
+      },
+      {
+        "case": "lst_invalid",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "responses": [
+          {
+            "status": 200,
+            "body": "{\"diffie_hellman_response\":\"6ec64fcf800980e388b25f653982b7ec391d0c9d5bce347a3e0c916d91ed79e7133d2177dc3be36690c4995e85ace5ce66d0e714fa7c23cb1e47c51de9943da001373b9837b1f286ef27a97fa164be824dd565a59b5b39d7ff99e250162c6df075f0b316789d98403e0fede2cfd6d88362173f13a5c460faedd8ddd422ae0ed593dc250035925fd48fd46e4e8182f6f81182a73eccb40e3fd191565c158631f562b74e54ad35df3d04a95d3538afa69bedad9dbfd07173dcc43502f0bf151074cb89385ca04d5e22d2328809c4f73b00ae00c72bd8fe69401486c7b7f01287f995688c93593ad1a2ab0c0ac967109ff81cd5922874c198c3e4ab15839aaa7b2f\",\"live_session_token_signature\":\"00\"}",
+            "content_type": "application/json"
+          },
+          {
+            "status": 200,
+            "body": "{\"diffie_hellman_response\":\"6ec64fcf800980e388b25f653982b7ec391d0c9d5bce347a3e0c916d91ed79e7133d2177dc3be36690c4995e85ace5ce66d0e714fa7c23cb1e47c51de9943da001373b9837b1f286ef27a97fa164be824dd565a59b5b39d7ff99e250162c6df075f0b316789d98403e0fede2cfd6d88362173f13a5c460faedd8ddd422ae0ed593dc250035925fd48fd46e4e8182f6f81182a73eccb40e3fd191565c158631f562b74e54ad35df3d04a95d3538afa69bedad9dbfd07173dcc43502f0bf151074cb89385ca04d5e22d2328809c4f73b00ae00c72bd8fe69401486c7b7f01287f995688c93593ad1a2ab0c0ac967109ff81cd5922874c198c3e4ab15839aaa7b2f\",\"live_session_token_signature\":\"00\"}",
+            "content_type": "application/json"
+          }
+        ],
+        "verdict": {
+          "kind": "success",
+          "data": "pending_activation"
+        },
+        "requests": [
+          {
+            "method": "POST",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/oauth/live_session_token",
+            "query": {},
+            "form": {},
+            "key_header": null
+          },
+          {
+            "method": "POST",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/oauth/live_session_token",
+            "query": {},
+            "form": {},
+            "key_header": null
+          }
+        ]
+      },
+      {
+        "case": "lst_no_dh_response",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "responses": [
+          {
+            "status": 200,
+            "body": "{}",
+            "content_type": "application/json"
+          },
+          {
+            "status": 200,
+            "body": "{}",
+            "content_type": "application/json"
+          }
+        ],
+        "verdict": {
+          "kind": "success",
+          "data": "pending_activation"
+        },
+        "requests": [
+          {
+            "method": "POST",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/oauth/live_session_token",
+            "query": {},
+            "form": {},
+            "key_header": null
+          },
+          {
+            "method": "POST",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/oauth/live_session_token",
+            "query": {},
+            "form": {},
+            "key_header": null
+          }
+        ]
+      },
+      {
+        "case": "init_500",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "responses": [
+          {
+            "status": 200,
+            "body": "{\"diffie_hellman_response\":\"6ec64fcf800980e388b25f653982b7ec391d0c9d5bce347a3e0c916d91ed79e7133d2177dc3be36690c4995e85ace5ce66d0e714fa7c23cb1e47c51de9943da001373b9837b1f286ef27a97fa164be824dd565a59b5b39d7ff99e250162c6df075f0b316789d98403e0fede2cfd6d88362173f13a5c460faedd8ddd422ae0ed593dc250035925fd48fd46e4e8182f6f81182a73eccb40e3fd191565c158631f562b74e54ad35df3d04a95d3538afa69bedad9dbfd07173dcc43502f0bf151074cb89385ca04d5e22d2328809c4f73b00ae00c72bd8fe69401486c7b7f01287f995688c93593ad1a2ab0c0ac967109ff81cd5922874c198c3e4ab15839aaa7b2f\",\"live_session_token_expiration\":86400000,\"live_session_token_signature\":\"39972c164bfd3ffa32b40a5c0749deda88b19e3d\"}",
+            "content_type": "application/json"
+          },
+          {
+            "status": 500,
+            "body": "",
+            "content_type": "text/plain"
+          }
+        ],
+        "verdict": {
+          "kind": "failure",
+          "errors": [
+            "HTTP 500"
+          ]
+        },
+        "requests": [
+          {
+            "method": "POST",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/oauth/live_session_token",
+            "query": {},
+            "form": {},
+            "key_header": null
+          },
+          {
+            "method": "POST",
+            "host": "api.ibkr.com",
+            "path": "/v1/api/iserver/auth/ssodh/init",
+            "query": {},
+            "form": {
+              "{\"publish\":true,\"compete\":true}": ""
+            },
+            "key_header": null
+          }
+        ]
+      },
+      {
+        "case": "lock_busy",
+        "key_type": "trading",
+        "method": "get_api_key_validity",
+        "responses": [],
+        "verdict": {
+          "kind": "success",
+          "data": "pending_activation"
+        },
+        "requests": []
+      }
+    ],
+    "dh_random": "5f1c1f3e2b8f4c4e9a590d9c3f1b6a017ee1a7025c514d5d7eda7a80f501c77f",
+    "dh_param": "-----BEGIN DH PARAMETERS-----\nMIIBCAKCAQEA//////////+t+FRYortKmq/cViAnPTzx2LnFg84tNpWp4TZBFGQz\n+8yTnc4kmz75fS/jY2MMddj2gbICrsRhetPfHtXV/WVhJDP1H18GbtCFY2VVPe0a\n87VXE15/V8k1mE8McODmi3fipona8+/och3xWKE2rec1MKzKT0g6eXq8CrGCsyT7\nYdEIqUuyyOP7uWrat2DX9GgdT0Kj3jlN9K5W7edjcrsZCwenyO4KbXCeAvzhzffi\n7MA0BM0oNC9hkXL+nOmFg/+OTxIy7vKBg8P+OxtMb61zO7X8vC7CIAXFjvGDfRaD\nssbzSibBsu/6iGtCOGEoXJf//////////wIBAg==\n-----END DH PARAMETERS-----\n"
+  }
+}

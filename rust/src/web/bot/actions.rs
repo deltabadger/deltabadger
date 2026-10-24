@@ -137,12 +137,74 @@ pub async fn custom_allocation(State(app): State<App>, Extension(ctx): Extension
         Ok(switched)
     }).await;
     match result {
-        Ok(Switched::Missing) => Ok(page::not_found(&ctx)),
-        // `head :not_found`, in the request's format.
-        Ok(Switched::NotIndex) => Ok((StatusCode::NOT_FOUND, [(axum::http::header::CONTENT_TYPE, if crate::web::turbo::accepts_stream(&headers) { "text/vnd.turbo-stream.html" } else { "text/html" })]).into_response()),
-        Ok(Switched::Unported(reason)) => Ok(layout::refused(&ctx,reason)),
-        Ok(Switched::Refused(text)) => Ok(action_view::response(crate::web::turbo::prepend_flash(flash::render(&[flash::Message { style: "danger", text }])?.trim_end()),true)),
-        Ok(Switched::Done) => Ok(action_view::response(crate::web::turbo::redirect(&ctx.path(&format!("/bots/{id}"))),false)),
+        Ok(switched) => switched_response(&ctx, &headers, id, switched),
+        Err(e) => layout::or_refused(&ctx,e),
+    }
+}
+
+/// `head :not_found`, in the request's format.
+fn head_not_found(headers: &HeaderMap) -> Response {
+    (StatusCode::NOT_FOUND, [(axum::http::header::CONTENT_TYPE, if crate::web::turbo::accepts_stream(headers) { "text/vnd.turbo-stream.html" } else { "text/html" })]).into_response()
+}
+
+/// Bot::IndexSwitch's answers: Turbo visits the switched bot; a refusal is the flash Rails prepends, with 422.
+fn switched_response(ctx: &Ctx, headers: &HeaderMap, id: i64, switched: super::index_switch::Switched) -> Result<Response,WebError> {
+    use super::index_switch::Switched;
+    match switched {
+        Switched::Missing => Ok(page::not_found(ctx)),
+        Switched::NotIndex => Ok(head_not_found(headers)),
+        Switched::Unported(reason) => Ok(layout::refused(ctx,reason)),
+        Switched::Refused(text) => Ok(action_view::response(crate::web::turbo::prepend_flash(flash::render(&[flash::Message { style: "danger", text }])?.trim_end()),true)),
+        Switched::Done => Ok(action_view::response(crate::web::turbo::redirect(&ctx.path(&format!("/bots/{id}"))),false)),
+    }
+}
+
+/// GET /bots/:id/index/new (Bots::IndicesController#new): the bot menu's index picker, in the modal frame.
+pub async fn index_new(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path(segment): Path<String>, headers: HeaderMap) -> Result<Response,WebError> {
+    let Some(user) = ctx.user().cloned() else { return Ok(auth::unauthenticated(&ctx)) };
+    let Some(id) = super::id_from_path(&segment) else { return Ok(page::not_found(&ctx)) };
+    let (inner,mut view,owner) = (app.clone(),ctx.clone(),user.clone());
+    let result: Result<Result<_,bool>,WebError> = app.db(move |c| {
+        let tx = c.unchecked_transaction()?;
+        view.now = inner.now();
+        match super::index_switch::composition_bot(&tx,&view,owner.id,id)? {
+            None => return Ok(Err(false)),
+            Some(false) => return Ok(Err(true)),
+            Some(true) => {}
+        }
+        // The picker reads the bot's class, venue and quote only: it is served whatever the bot's history or state.
+        let Some(bot) = super::Bot::find(&tx,owner.id,id,super::For::Feed,view.locale)? else { return Ok(Err(false)) };
+        let csrf = view.csrf_token();
+        let content = super::index_switch::picker(&tx,&view,&bot,&csrf)?;
+        let body = askama::Template::render(&crate::web::wizard::keys::FullPage { close_url: view.path(&format!("/bots/{id}")), content: &content })?;
+        let shell = Shell::load(&tx,&inner,&owner)?;
+        tx.commit()?;
+        Ok(Ok((body,csrf,shell)))
+    }).await;
+    match result {
+        Ok(Ok((body,csrf,shell))) => shell::application(&ctx,&csrf,&user,&shell,Page { status:StatusCode::OK,body,flash_now:vec![] }),
+        // Bots::Botable#set_bot's redirect; require_composition_bot's `head :not_found`.
+        Ok(Err(false)) => Ok(page::not_found(&ctx)),
+        Ok(Err(true)) => Ok(head_not_found(&headers)),
+        Err(e) => layout::or_refused(&ctx,e),
+    }
+}
+
+/// POST /bots/:id/index (Bots::IndicesController#create): the picked tile's index, followed in one write transaction
+/// (index_switch::follow); the engine then derives the members.
+pub async fn index_create(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path(segment): Path<String>, headers: HeaderMap) -> Result<Response,WebError> {
+    let Some(user) = ctx.user().cloned() else { return Ok(auth::unauthenticated(&ctx)) };
+    let Some(id) = super::id_from_path(&segment) else { return Ok(page::not_found(&ctx)) };
+    let category = ctx.params.form("index_category_id").or_else(|| ctx.params.query("index_category_id")).map(str::to_string);
+    let (inner, view) = (app.clone(), ctx.clone());
+    let result = app.db(move |c| {
+        let switched = super::index_switch::follow(c, &view, user.id, id, category.as_deref())?;
+        // In the App::db job, after the commit, as every writer wakes the engine (which owes the bot its resync).
+        if matches!(switched, super::index_switch::Switched::Done) { inner.wake_engine(); inner.figure_service.mark(id); }
+        Ok(switched)
+    }).await;
+    match result {
+        Ok(switched) => switched_response(&ctx, &headers, id, switched),
         Err(e) => layout::or_refused(&ctx,e),
     }
 }

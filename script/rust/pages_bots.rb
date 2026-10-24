@@ -40,6 +40,16 @@ module Pages
     { 'market_data_provider' => 'deltabadger', 'market_data_url' => 'http://data-api:3000', 'market_data_token' => 'token' }
       .each { |key, value| AppConfig.set(key, value) }
     more_stocks(alpaca, usd) if scenario['more_stocks']
+    # 'typed_stocks' => true: the stock listings typed as MarketData's listings sync types them (CATEGORY_BY_TYPE).
+    Asset.where(category: 'Stock').update_all(instrument_type: 'stock') if scenario['typed_stocks']
+    # 'indices' => { external_id => [source, name, symbols] }: more indices of these stocks, weighted as the ND100.
+    scenario.fetch('indices', {}).each do |external_id, (source, name, symbols)|
+      ids = symbols.map { |symbol| "#{symbol.downcase}.us" }
+      Index.create!(external_id:, source:, name:, top_coins: ids, weights: ids.each_with_index.to_h { |id, position| [id, 20 - position] })
+    end
+    # 'market_data' => 'none': no provider; 'coingecko': CoinGecko named, with no key yet.
+    AppConfig.where(key: %w[market_data_provider market_data_url market_data_token]).delete_all if scenario['market_data']
+    AppConfig.set('market_data_provider', 'coingecko') if scenario['market_data'] == 'coingecko'
     keys = scenario.fetch('api_keys', { 'alpaca' => 'correct' })
     { 'alpaca' => alpaca, 'ibkr' => ibkr }.each do |name, exchange|
       # The status comes from ApiKey's own list, never straight from scenario data.
@@ -207,7 +217,10 @@ module Pages
     crypto_indices if spec['kind'].end_with?('_index')
     owner = User.find_by!(email: spec.fetch('owner', 'owner@example.com'))
     exchange = Exchange.find_by!(name: spec.fetch('exchange', VENUE_KINDS.fetch(spec['kind'], 'Alpaca')))
-    record = klass.new(user: owner, exchange:, settings: bot_settings(spec['kind']).merge(spec.fetch('settings', {})))
+    settings = bot_settings(spec['kind']).merge(spec.fetch('settings', {}))
+    # 'allocations' => { symbol => weight }: a portfolio of these assets.
+    settings['allocations'] = spec['allocations'].to_h { |symbol, weight| [asset_id(symbol).to_s, weight] } if spec['allocations']
+    record = klass.new(user: owner, exchange:, settings:)
     record.set_missed_quote_amount
     record.save!
     index_members(record) if spec['kind'] == 'index'
