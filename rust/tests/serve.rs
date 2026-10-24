@@ -9,7 +9,8 @@ const NOW: &str = "2026-09-10T12:00:30Z";
 
 fn serve_command(dir: &std::path::Path, port: u16) -> Command {
     let mut command = Command::new(env!("CARGO_BIN_EXE_deltabadger"));
-    command.arg("serve").env("STORAGE_DIR", dir).env("SECRET_KEY_BASE", web::SECRET).env("PORT", port.to_string()).stdin(Stdio::null());
+    command.arg("serve").env("STORAGE_DIR", dir).env("SECRET_KEY_BASE", web::SECRET).env("PORT", port.to_string()).stdin(Stdio::null())
+        .env("IBKR_CATALOGUE_URL", "off"); // no public snapshot fetch from a process test
     for var in ["DATABASE_URL", "PRIMARY_DATABASE_URL", "QUEUE_DATABASE_URL", "CACHE_DATABASE_URL", "CABLE_DATABASE_URL", "DATABASE_PATH", "QUEUE_DATABASE_PATH"] {
         command.env_remove(var);
     }

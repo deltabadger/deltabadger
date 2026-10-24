@@ -40,6 +40,9 @@ pub struct JobState {
     /// `revision` was imported without some of its rows (their assets were not on this install yet), and without the
     /// sweep: the same revision imports again until every row resolves.
     pub partial: bool,
+    /// `source_at` came from the catalogue snapshot (the bundle or the public snapshot, D-BROKER-SEED), not data-api:
+    /// the source is judged on it with the catalogue bound (D-BROKER-BUNDLE-BOUND).
+    pub catalogue: bool,
 }
 
 impl JobState {
@@ -75,7 +78,7 @@ pub fn find(c: &Connection, job: &str, scope: Option<&str>) -> Result<Option<Job
                        last_error: v["last_error"].as_str().map(String::from), rails_at: time(&v["rails_at"]),
                        incomplete_since: time(&v["incomplete_since"]), revision: v["revision"].as_i64(),
                        importing_revision: v["importing_revision"].as_i64(), source_at: time(&v["source_at"]),
-                       partial: v["partial"] == Value::Bool(true) }))
+                       partial: v["partial"] == Value::Bool(true), catalogue: v["catalogue"] == Value::Bool(true) }))
 }
 
 /// A missing row is a job that never ran here.
@@ -91,6 +94,7 @@ pub fn write(c: &Connection, job: &str, scope: Option<&str>, s: &JobState, now: 
         if let Some(x) = x { v[k] = x; }
     }
     if s.partial { v["partial"] = Value::Bool(true); }
+    if s.catalogue { v["catalogue"] = Value::Bool(true); }
     app_config::set_plain(c, &key(job, scope), &v.to_string(), now)
 }
 

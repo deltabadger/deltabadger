@@ -307,3 +307,24 @@ async fn a_complete_feed_with_one_malformed_row_is_refused_and_sweeps_nothing() 
         assert_eq!(dump(&primary(&d), "tickers"), tickers, "{field}");
     }
 }
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_feed_without_evidence_yet_imports_nothing_and_is_not_an_error_but_rows_without_evidence_are_refused() {
+    // data-api's IBKR feed before any conid resolved, exactly as production serves it.
+    let empty = json!({ "metadata": { "revision": 1, "generated_at": null, "complete": false, "count": 0 }, "data": [] });
+    let d = install();
+    let st = sync(&d, &empty, RUN).await;
+    assert_eq!((st.last_error.clone(), st.last_success_at, st.last_run_at), (None, None, Some(at(RUN))), "nothing new: a run, no error, no retry");
+    assert_eq!(fence(&st), (None, None, None), "no source_at");
+    assert!(flags(&primary(&d)).is_empty() && conids(&primary(&d)).is_empty());
+    let mut rows = fixture("feed");
+    rows["metadata"]["generated_at"] = Value::Null;
+    let st = sync(&d, &rows, &later(RUN, 1)).await;
+    assert!(st.last_error.as_deref().is_some_and(|m| m.contains("rows without evidence")), "{st:?}");
+    assert_eq!(fence(&st), (None, None, None));
+    assert!(flags(&primary(&d)).is_empty());
+    let mut bad = fixture("feed");
+    bad["metadata"]["generated_at"] = json!("yesterday");
+    let st = sync(&d, &bad, &later(RUN, 2)).await;
+    assert!(st.last_error.as_deref().is_some_and(|m| m.contains("not a time")), "{st:?}");
+}

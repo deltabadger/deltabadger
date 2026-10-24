@@ -79,3 +79,6 @@ spring/*.pid
 # graphify knowledge graph (generated locally; run `graphify update .`)
 /graphify-out/
 __pycache__/
+
+# The catalogue bundle: a release asset, downloaded at release time (db/seed_data/AGENTS.md)
+/db/seed_data/catalogue.json.gz

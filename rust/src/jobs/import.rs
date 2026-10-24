@@ -360,10 +360,10 @@ pub fn plan_stock_assets(rows: &[Value], public_url: &str) -> Vec<Vec<Sql>> {
         text(string(&r["type"])), text(string(&r["color"])), text(image_url(r, public_url))])).collect()
 }
 
-/// Publishes the stock assets in units of CHUNK; nothing to write is no write.
-pub async fn import_stock_assets(db: &Db, rows: Vec<Vec<Sql>>, now: DateTime<Utc>) -> R<()> {
+/// Publishes the stock assets in units of CHUNK, each first checking `fence` when given; nothing to write is no write.
+pub async fn import_stock_assets(db: &Db, rows: Vec<Vec<Sql>>, now: DateTime<Utc>, fence: Option<Fence>) -> R<()> {
     let t = format_time(now);
-    publish(db, "stock assets", chunks(&rows), move |c, rows: Vec<Vec<Sql>>| {
+    publish_fenced(db, "stock assets", chunks(&rows), fence, move |c, rows: Vec<Vec<Sql>>| {
         let mut ids = vec![];
         for r in rows {
             ids.push(c.prepare_cached("INSERT INTO assets (external_id, symbol, name, category, instrument_type, color, image_url, created_at, updated_at) \

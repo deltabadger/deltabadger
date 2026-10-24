@@ -100,6 +100,16 @@ jobs:
         shell: bash
         run: bun install --frozen-lockfile
 
+      # The desktop app ships the repository's db/ (scripts/copy_desktop_app.rb), so the catalogue bundle too
+      # (db/seed_data/AGENTS.md). Read-only: the image's release-catalogue job attaches its copy to the release.
+      - name: Bundle the catalogue
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL --retry 5 --retry-all-errors --max-filesize 33554432 -o db/seed_data/catalogue.json.gz \
+            https://data.deltabadger.com/public/v1/catalogue.json.gz
+          gzip -t db/seed_data/catalogue.json.gz
+
       - name: Install Rust target
         uses: dtolnay/rust-toolchain@stable
         with:

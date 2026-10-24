@@ -10,7 +10,49 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
+  # The catalogue bundle (db/seed_data/AGENTS.md): the public catalogue snapshot as of this release, attached to the
+  # release and handed to the image build. Only this job may write to the repository; the build keeps contents: read.
+  release-catalogue:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download the catalogue snapshot
+        run: |
+          set -euo pipefail
+          curl -fsSL --retry 5 --retry-all-errors --max-filesize 33554432 -o catalogue.json.gz \
+            https://data.deltabadger.com/public/v1/catalogue.json.gz
+          gzip -t catalogue.json.gz
+          gzip -dc catalogue.json.gz | jq -e '(.metadata.sources | type == "object") and (.data | type == "object")' > /dev/null
+
+      # rake release creates the release right after pushing the tag; this job attaches to it rather than racing it.
+      - name: Attach it to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          for _ in $(seq 1 60); do
+            if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+              gh release upload "$TAG" catalogue.json.gz --repo "$GITHUB_REPOSITORY" --clobber
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "::error::release $TAG did not appear within 15 minutes"
+          exit 1
+
+      - name: Hand it to the build
+        uses: actions/upload-artifact@v4
+        with:
+          name: catalogue
+          path: catalogue.json.gz
+          if-no-files-found: error
+          retention-days: 1
+
   build:
+    needs: release-catalogue
     strategy:
       fail-fast: false
       matrix:
@@ -27,6 +69,12 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Bundle the catalogue
+        uses: actions/download-artifact@v4
+        with:
+          name: catalogue
+          path: db/seed_data
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3

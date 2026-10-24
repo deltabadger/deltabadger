@@ -1,7 +1,7 @@
 //! The reference-data jobs of config/recurring.yml, each a port of its Rails job on the deltabadger market-data provider.
 //! HTTP is awaited on the runtime thread. Everything after it (the walk of the payload, the casts, the writes) runs in a
 //! `Db::run` closure on the blocking pool, and the writes in units of CHUNK rows (import::publish).
-use super::data_api::{ApiError, DataApi};
+use super::data_api::{self, ApiError, DataApi, MAX_REFERENCE_BODY};
 use super::import::{self, present, truthy};
 use super::schedule::{Jitter, Schedule};
 use super::{Cx, Job, JobFuture, Outcome, Retry, Spec, Wake, DEADLINE};
@@ -11,6 +11,10 @@ use crate::venue::http::Transport;
 use chrono::{DateTime, Duration, SecondsFormat, Utc};
 use rusqlite::{Connection, OptionalExtension};
 use serde_json::{json, Value};
+use std::future::Future;
+use std::io::Read;
+use std::path::{Path, PathBuf};
+use std::pin::Pin;
 use std::rc::Rc;
 
 pub const STOCKS: &str = "sync_stocks_from_deltabadger_job";
@@ -86,13 +90,14 @@ pub async fn run_once<T: Transport>(name: &str, api: Option<DataApi<T>>, cx: Cx<
 async fn run<T: Transport>(kind: Kind, api: Option<&DataApi<T>>, cx: Cx<'_>) -> Outcome {
     if kind == Kind::Prune { return prune(&cx).await; }
     let Some(api) = api else { return Outcome::Failed(NOT_PORTED.into()) };
+    let feeds = Feeds::Api(api);
     match kind {
-        Kind::Stocks => stocks(api, &cx).await,
-        Kind::AlpacaCrypto => alpaca_crypto(api, &cx).await,
+        Kind::Stocks => stocks(&feeds, &cx).await,
+        Kind::AlpacaCrypto => alpaca_crypto(&feeds, &cx).await,
         Kind::Indices => indices(api, &cx).await,
         Kind::Tickers => tickers(api, &cx).await,
         Kind::Assets => assets(api, &cx).await,
-        Kind::Ibkr => ibkr(api, &cx).await,
+        Kind::Ibkr => ibkr(&feeds, &cx).await,
         Kind::Prune => unreachable!("handled above"),
     }
 }
@@ -286,8 +291,9 @@ fn crypto_listing(row: &Value) -> Option<Value> {
 }
 
 /// Asset::SyncAlpacaCryptoFromDeltabadgerJob → sync_alpaca_crypto_listings_from_deltabadger!.
-async fn alpaca_crypto<T: Transport>(api: &DataApi<T>, cx: &Cx<'_>) -> Outcome {
-    let body = match api.alpaca_crypto_listings().await { Ok(b) => b, Err(e) => return api_failure(e) };
+async fn alpaca_crypto<T: Transport>(feeds: &Feeds<'_, T>, cx: &Cx<'_>) -> Outcome {
+    let body = match feeds.get(ALPACA_CRYPTO_LISTINGS).await { Ok(b) => b, Err(e) => return api_failure(e) };
+    let rev = match admit(feeds, cx, ALPACA_CRYPTO, &body).await { Ok(r) => r, Err(out) => return out };
     let now = cx.clock.now();
     // Computed first (reads, and the one-row `usd` write Rails also makes before its guard), published after.
     let step = cx.db.run(move |c, cipher| {
@@ -300,7 +306,8 @@ async fn alpaca_crypto<T: Transport>(api: &DataApi<T>, cx: &Cx<'_>) -> Outcome {
         let resolved = import::count_assets(c, &bases)?;
         let last_good = app_config::get(c, cipher, ALPACA_CRYPTO_LAST_GOOD)?;
         if crypto_degraded(resolved, last_good.as_deref()) { return Ok(Err(degraded(resolved, rows.len(), last_good.as_deref()))); }
-        let plan = import::plan_tickers(c, alpaca, &tickers, Some("Cryptocurrency"))?;
+        let mut plan = import::plan_tickers(c, alpaca, &tickers, Some("Cryptocurrency"))?;
+        if rev.is_some_and(|r| !r.complete) { plan.sweep.clear(); } // an incomplete revision is no delisting
         let written = plan.written.len() as i64;
         let insufficient = crypto_degraded(written, last_good.as_deref())
             .then(|| format!("degraded ticker import: {written} written from {resolved} resolved assets (last good {}); ticker freshness kept", last_good.as_deref().unwrap_or("none")));
@@ -308,11 +315,12 @@ async fn alpaca_crypto<T: Transport>(api: &DataApi<T>, cx: &Cx<'_>) -> Outcome {
     }).await;
     let (alpaca, resolved, plan, insufficient) = match step { Ok(Ok(x)) => x, Ok(Err(out)) => return out, Err(m) => return Outcome::Failed(m) };
     if let Err(m) = incomplete(cx, ALPACA_CRYPTO, now).await { return Outcome::Failed(m); }
-    if let Err(m) = import::publish_tickers(&cx.db, alpaca, plan, now).await { return Outcome::Failed(m); }
+    if let Err(m) = import::publish_tickers_fenced(&cx.db, alpaca, plan, now, rev.map(Rev::fence)).await { return fenced(m); }
     // Exchange assets may have refreshed, but only enough actually written tickers can renew ticker freshness.
     if let Some(m) = insufficient { return Outcome::Failed(m); }
     // Ratcheted only after the sweep.
-    done(cx.db.run(move |c, cipher| app_config::set(c, cipher, ALPACA_CRYPTO_LAST_GOOD, &resolved.to_string(), now)).await)
+    if let Err(m) = cx.db.run(move |c, cipher| app_config::set(c, cipher, ALPACA_CRYPTO_LAST_GOOD, &resolved.to_string(), now)).await { return Outcome::Failed(m); }
+    finished(cx, rev, false).await
 }
 
 /// One IBKR feed body (data-api C2): its metadata and rows, checked before anything is written. A row must be an
@@ -386,85 +394,326 @@ fn conid_rows(c: &Connection, rows: Vec<Value>) -> Result<ConidRows, String> {
 #[derive(Clone, Copy, PartialEq)]
 enum Gate { Takeover, Evidence, Unchanged }
 
-/// Ibkr plan R1's import protocol for one payload P (D-JOBS-REVISION, D-JOBS-SOURCE-AT):
-/// 0. P.generated_at more than 5 minutes ahead is refused;
+/// One revisioned payload (data-api C2) as Ibkr plan R1's protocol reads it, and the job record that holds its source.
+#[derive(Clone, Copy, Debug)]
+struct Rev { job: &'static str, revision: i64, generated_at: DateTime<Utc>, complete: bool, catalogue: bool }
+
+impl Rev {
+    fn fence(self) -> import::Fence { import::Fence { job: self.job, revision: self.revision } }
+}
+
+/// `generated_at: null` is no evidence yet (a source with no upstream success, e.g. the IBKR feed before any conid
+/// resolved): nothing to import, not an error. Rows without evidence are refused.
+fn no_evidence(body: &Value) -> Result<(), String> {
+    match &body["data"] {
+        Value::Null => Ok(()),
+        Value::Array(a) if a.is_empty() => Ok(()),
+        _ => Err("rows without evidence (metadata.generated_at is null); nothing imported".into()),
+    }
+}
+
+/// A payload's revision metadata. Ok(None): no evidence yet (`generated_at` null, as data-api publishes a source that never
+/// synced upstream). A payload more than 5 minutes ahead (step 0), or one whose `count` is not its rows, is refused.
+fn revision(job: &'static str, body: &Value, catalogue: bool, now: DateTime<Utc>) -> Result<Option<Rev>, String> {
+    let bad = |what: &str| format!("{job}: {what}; nothing imported");
+    let meta = &body["metadata"];
+    if meta["generated_at"].is_null() { return no_evidence(body).map(|()| None).map_err(|m| format!("{job}: {m}")); }
+    let revision = meta["revision"].as_i64().filter(|r| *r > 0).ok_or_else(|| bad("metadata.revision is not a positive integer"))?;
+    let generated_at: DateTime<Utc> = meta["generated_at"].as_str().and_then(|t| t.parse().ok()).ok_or_else(|| bad("metadata.generated_at is not a time"))?;
+    let complete = meta["complete"].as_bool().ok_or_else(|| bad("metadata.complete is not a boolean"))?;
+    if meta["count"].as_u64() != body["data"].as_array().map(|a| a.len() as u64) { return Err(bad("metadata.count does not match the rows")); }
+    if generated_at > now + Duration::minutes(5) {
+        return Err(bad(&format!("generated_at {} is in the future", generated_at.to_rfc3339_opts(SecondsFormat::Secs, true))));
+    }
+    Ok(Some(Rev { job, revision, generated_at, complete, catalogue }))
+}
+
+/// Ibkr plan R1's import protocol for one payload P (D-JOBS-REVISION, D-JOBS-SOURCE-AT), steps 1-2 in one transaction:
 /// 1. evidence-only: P.revision == revision with no import in flight moves source_at forward, nothing else (unless the
 ///    revision is partial: then it is taken over again);
-/// 2. takeover: P.revision > revision and >= any importing_revision sets importing_revision in its own transaction,
-///    else nothing is written;
-/// 3. the plan is computed only after the takeover committed (pair-level sweep when P is complete), with the conid appends;
-/// 4. every unit first checks importing_revision == P.revision, else the run ends and its plan is discarded;
-/// 5. the last unit sets revision, clears importing_revision, moves source_at forward and marks the revision partial when
-///    rows were skipped for missing assets (no sweep then).
+/// 2. takeover: P.revision > revision and >= any importing_revision sets importing_revision, else nothing is written.
 ///
+/// Then (the caller): 3. the plan, only after the takeover committed; 4. every unit first checks the fence; 5. `finish`.
 /// The runner's records leave these fields as they are; a crash leaves importing_revision, which the next payload at
 /// that revision or newer takes over.
-async fn ibkr<T: Transport>(api: &DataApi<T>, cx: &Cx<'_>) -> Outcome {
+fn take_over(c: &Connection, cipher: &crate::crypto::Cipher, r: Rev, now: DateTime<Utc>) -> Result<Gate, String> {
     use super::state;
-    let body = match api.ibkr_listings().await { Ok(b) => b, Err(e) => return api_failure(e) };
+    import::in_transaction(c, cipher, "takeover", |c| {
+        let mut s = state::read(c, r.job, None)?;
+        // A partial revision imports again: listings whose assets were missing may resolve now.
+        let reimport = s.partial && s.revision == Some(r.revision);
+        let gate = if s.importing_revision.is_none() && s.revision == Some(r.revision) && !reimport {
+            if s.source_at.is_some_and(|at| at >= r.generated_at) { return Ok((Gate::Unchanged, import::Touched::None)); }
+            (s.source_at, s.catalogue) = (Some(r.generated_at), r.catalogue);
+            Gate::Evidence
+        } else if (Some(r.revision) > s.revision || reimport) && s.importing_revision.is_none_or(|x| r.revision >= x) {
+            s.importing_revision = Some(r.revision);
+            s.incomplete_since.get_or_insert(now);
+            Gate::Takeover
+        } else { return Ok((Gate::Unchanged, import::Touched::None)) };
+        state::write(c, r.job, None, &s, now).map(|()| (gate, import::Touched::None))
+    })
+}
+
+/// Step 5, fenced: sets revision, clears importing_revision, moves source_at forward and marks the revision partial when
+/// rows were skipped for missing assets (no sweep then).
+fn finish(c: &Connection, cipher: &crate::crypto::Cipher, r: Rev, partial: bool, now: DateTime<Utc>) -> Result<(), String> {
+    use super::state;
+    import::in_transaction(c, cipher, "revision", |c| {
+        r.fence().check(c)?;
+        let mut s = state::read(c, r.job, None)?;
+        (s.revision, s.importing_revision, s.incomplete_since, s.partial) = (Some(r.revision), None, None, partial);
+        if s.source_at.is_none_or(|at| r.generated_at >= at) { (s.source_at, s.catalogue) = (Some(r.generated_at), r.catalogue); }
+        state::write(c, r.job, None, &s, now).map(|()| ((), import::Touched::None))
+    })
+}
+
+/// Steps 1-2 for `r`: Ok(r) imports behind its fence; Err is the run's outcome when there is nothing to import (moved
+/// evidence is a refresh: Done).
+async fn gate(cx: &Cx<'_>, r: Rev) -> Result<Rev, Outcome> {
+    let now = cx.clock.now();
+    match cx.db.run(move |c, cipher| take_over(c, cipher, r, now)).await {
+        Ok(Gate::Takeover) => Ok(r),
+        Ok(Gate::Evidence) => Err(Outcome::Done),
+        Ok(Gate::Unchanged) => Err(Outcome::NothingNew),
+        Err(m) => Err(Outcome::Failed(m)),
+    }
+}
+
+/// D-BROKER-SEED: a catalogue source imports through R1's protocol under `job`'s record. Ok(None): data-api's payload,
+/// imported as Rails imports it; Ok(Some(rev)): import behind rev's fence, then `finished`; Err: nothing to import.
+async fn admit<T: Transport>(feeds: &Feeds<'_, T>, cx: &Cx<'_>, job: &'static str, body: &Value) -> Result<Option<Rev>, Outcome> {
+    if !feeds.catalogue() { return Ok(None); }
+    match revision(job, body, true, cx.clock.now()) {
+        Ok(Some(r)) => gate(cx, r).await.map(Some),
+        Ok(None) => Err(Outcome::NothingNew),
+        Err(m) => Err(Outcome::Failed(m)),
+    }
+}
+
+/// A unit's error: a superseded import's plan is discarded (not an error), anything else fails the run.
+fn fenced(m: String) -> Outcome {
+    if m.starts_with(import::SUPERSEDED) { crate::engine::log(&format!("[jobs] {m}; this run's plan is discarded")); return Outcome::NothingNew; }
+    Outcome::Failed(m)
+}
+
+/// After an import's last unit: step 5 for a revisioned one.
+async fn finished(cx: &Cx<'_>, rev: Option<Rev>, partial: bool) -> Outcome {
+    let Some(r) = rev else { return Outcome::Done };
+    let now = cx.clock.now();
+    cx.db.run(move |c, cipher| finish(c, cipher, r, partial, now)).await.map_or_else(fenced, |()| Outcome::Done)
+}
+
+/// The IBKR catalogue sync: R1's protocol (`take_over`, `finish`) on the IBKR feed, the plan computed after the takeover
+/// with a pair-level sweep when P is complete, plus the conid appends.
+async fn ibkr<T: Transport>(feeds: &Feeds<'_, T>, cx: &Cx<'_>) -> Outcome {
+    let body = match feeds.get(IBKR_LISTINGS).await { Ok(b) => b, Err(e) => return api_failure(e) };
+    // No evidence yet, from data-api or the snapshot: nothing new (rows without evidence are refused).
+    if body["metadata"]["generated_at"].is_null() {
+        return no_evidence(&body).map_or_else(|m| Outcome::Failed(format!("IBKR feed: {m}")), |()| Outcome::NothingNew);
+    }
     let now = cx.clock.now();
     let feed = match cx.db.run(move |_, _| ibkr_feed(body)).await { Ok(f) => f, Err(m) => return Outcome::Failed(m) };
-    let (revision, generated_at, complete) = (feed.revision, feed.generated_at, feed.complete);
-    if generated_at > now + Duration::minutes(5) {
-        return Outcome::Failed(format!("IBKR feed: generated_at {} is in the future; nothing imported", generated_at.to_rfc3339_opts(SecondsFormat::Secs, true)));
+    let r = Rev { job: IBKR, revision: feed.revision, generated_at: feed.generated_at, complete: feed.complete, catalogue: feeds.catalogue() };
+    if r.generated_at > now + Duration::minutes(5) {
+        return Outcome::Failed(format!("IBKR feed: generated_at {} is in the future; nothing imported", r.generated_at.to_rfc3339_opts(SecondsFormat::Secs, true)));
     }
+    let venue = cx.db.run(|c, _| c.query_row("SELECT id FROM exchanges WHERE type = 'Exchanges::Ibkr' ORDER BY id LIMIT 1", [], |r| r.get::<_, i64>(0))
+        .optional().map_err(|e| e.to_string())).await;
+    let ibkr = match venue { Ok(Some(id)) => id, Ok(None) => return Outcome::NothingNew, Err(m) => return Outcome::Failed(m) };
+    let r = match gate(cx, r).await { Ok(r) => r, Err(out) => return out };
     let step = cx.db.run(move |c, cipher| {
-        let Some(ibkr) = c.query_row("SELECT id FROM exchanges WHERE type = 'Exchanges::Ibkr' ORDER BY id LIMIT 1", [], |r| r.get::<_, i64>(0))
-            .optional().map_err(|e| e.to_string())? else { return Ok(Err(Gate::Unchanged)) };
-        let gate = import::in_transaction(c, cipher, "ibkr takeover", |c| {
-            let mut s = state::read(c, IBKR, None)?;
-            // A partial revision imports again: listings whose assets were missing may resolve now.
-            let reimport = s.partial && s.revision == Some(revision);
-            let gate = if s.importing_revision.is_none() && s.revision == Some(revision) && !reimport {
-                if s.source_at.is_some_and(|at| at >= generated_at) { return Ok((Gate::Unchanged, import::Touched::None)); }
-                s.source_at = Some(generated_at);
-                Gate::Evidence
-            } else if (Some(revision) > s.revision || reimport) && s.importing_revision.is_none_or(|r| revision >= r) {
-                s.importing_revision = Some(revision);
-                s.incomplete_since.get_or_insert(now);
-                Gate::Takeover
-            } else { return Ok((Gate::Unchanged, import::Touched::None)) };
-            state::write(c, IBKR, None, &s, now).map(|()| (gate, import::Touched::None))
-        })?;
-        if gate != Gate::Takeover { return Ok(Err(gate)); }
         import::in_transaction(c, cipher, "usd", |c| import::ensure_usd(c, false, now))?;
         let (rows, conids, moved, unresolved) = conid_rows(c, feed.rows)?;
         // No sweep from a partial import: a listing it could not import is not a delisting.
-        let plan = import::plan_tickers_with(c, ibkr, &rows, None, complete && unresolved == 0)?;
-        Ok(Ok((ibkr, plan, conids, moved, unresolved)))
+        let plan = import::plan_tickers_with(c, ibkr, &rows, None, r.complete && unresolved == 0)?;
+        Ok((plan, conids, moved, unresolved))
     }).await;
-    let (ibkr, plan, conids, moved, unresolved) = match step {
-        Ok(Ok(x)) => x,
-        Ok(Err(Gate::Evidence)) => return Outcome::Done,
-        Ok(Err(_)) => return Outcome::NothingNew,
-        Err(m) => return Outcome::Failed(m),
-    };
+    let (plan, conids, moved, unresolved) = match step { Ok(x) => x, Err(m) => return Outcome::Failed(m) };
+    let revision = r.revision;
     if unresolved > 0 { crate::engine::log(&format!("[jobs] {IBKR}: revision {revision}: {unresolved} listing(s) skipped, their assets are not on this install yet; partial, no sweep")); }
     if moved > 0 { crate::engine::log(&format!("[jobs] {IBKR}: revision {revision}: {moved} listing(s) skipped, their conid belongs to another asset (ibkr_conids)")); }
-    let fence = import::Fence { job: IBKR, revision };
     let t = format_time(now);
     let published = async {
-        import::publish_fenced(&cx.db, "ibkr conids", import::chunks(&conids), Some(fence), move |c, rows: Vec<(i64, i64)>| {
+        import::publish_fenced(&cx.db, "ibkr conids", import::chunks(&conids), Some(r.fence()), move |c, rows: Vec<(i64, i64)>| {
             for (conid, asset) in rows {
                 c.prepare_cached("INSERT INTO ibkr_conids (conid, asset_id, created_at) VALUES (?1, ?2, ?3) ON CONFLICT (conid) DO NOTHING")
                     .and_then(|mut s| s.execute(rusqlite::params![conid, asset, t])).map_err(|e| e.to_string())?;
             }
             Ok(import::Touched::None)
         }).await?;
-        import::publish_tickers_fenced(&cx.db, ibkr, plan, now, Some(fence)).await?;
-        cx.db.run(move |c, cipher| import::in_transaction(c, cipher, "ibkr revision", |c| {
-            fence.check(c)?;
-            let mut s = state::read(c, IBKR, None)?;
-            (s.revision, s.importing_revision, s.incomplete_since, s.partial) = (Some(revision), None, None, unresolved > 0);
-            s.source_at = s.source_at.max(Some(generated_at));
-            state::write(c, IBKR, None, &s, now).map(|()| ((), import::Touched::None))
-        })).await
+        import::publish_tickers_fenced(&cx.db, ibkr, plan, now, Some(r.fence())).await.map(|_| ())
     };
     match published.await {
-        Ok(()) => Outcome::Done,
-        Err(m) if m.starts_with(import::SUPERSEDED) => { crate::engine::log(&format!("[jobs] {IBKR}: {m}; this run's plan is discarded")); Outcome::NothingNew }
-        Err(m) => Outcome::Failed(m),
+        Ok(()) => finished(cx, Some(r), unresolved > 0).await,
+        Err(m) => fenced(m),
     }
+}
+
+/// The catalogue snapshot's sources (data-api's StockCatalogCache::SOURCES), as `metadata.sources` and `data` key them.
+const STOCK_ASSETS: &str = "stock_assets";
+const ALPACA_LISTINGS: &str = "alpaca_listings";
+const ALPACA_CRYPTO_LISTINGS: &str = "alpaca_crypto";
+const IBKR_LISTINGS: &str = "ibkr_listings";
+/// The stock assets source's revision record (D-BROKER-SEED): the other sources keep theirs on their sync job's record
+/// (the Alpaca listings on the stock job's, which the stock tickers' freshness reads); the stock assets, the stock job's
+/// first half, need one of their own.
+pub const STOCK_ASSETS_FEED: &str = "catalogue_stock_assets";
+
+/// Where a sync reads its payloads: data-api, or one install's copy of the catalogue snapshot (the bundle or the public
+/// snapshot), whose sources import through R1's protocol.
+enum Feeds<'a, T: Transport> { Api(&'a DataApi<T>), Catalogue(&'a Snapshot) }
+
+impl<T: Transport> Feeds<'_, T> {
+    async fn get(&self, source: &str) -> Result<Value, ApiError> {
+        match self {
+            Self::Api(api) => match source {
+                STOCK_ASSETS => api.stocks().await,
+                ALPACA_LISTINGS => api.alpaca_listings().await,
+                ALPACA_CRYPTO_LISTINGS => api.alpaca_crypto_listings().await,
+                _ => api.ibkr_listings().await,
+            },
+            Self::Catalogue(s) => Ok(s.body(source)),
+        }
+    }
+    fn catalogue(&self) -> bool { matches!(self, Self::Catalogue(_)) }
+    /// Logo paths are served from data-api's public host.
+    fn public_url(&self) -> String { match self { Self::Api(api) => api.public_url(), Self::Catalogue(_) => "https://data.deltabadger.com".into() } }
+}
+
+/// The decompressed snapshot's bound: the gzip itself is held to MAX_REFERENCE_BODY. ponytail: 4x, far above today's
+/// 14 MB of JSON; widen it when the catalogue grows past it.
+const MAX_CATALOGUE_JSON: usize = 4 * MAX_REFERENCE_BODY;
+
+/// data-api's PublishCatalogueSnapshotJob: `{metadata: {built_at, sources: {<source>: {revision, generated_at, complete,
+/// count}}}, data: {<source>: [rows]}}`, gzipped.
+pub struct Snapshot { sources: serde_json::Map<String, Value>, data: serde_json::Map<String, Value> }
+
+impl Snapshot {
+    /// Read whole before anything is written: a corrupt or oversized snapshot is refused.
+    pub fn parse(gz: &[u8]) -> Result<Self, String> {
+        let bad = |what: String| format!("catalogue snapshot: {what}; nothing imported");
+        let mut json = Vec::new();
+        flate2::read::GzDecoder::new(gz).take(MAX_CATALOGUE_JSON as u64 + 1).read_to_end(&mut json).map_err(|e| bad(format!("unreadable gzip ({e})")))?;
+        if json.len() > MAX_CATALOGUE_JSON { return Err(bad(format!("over {MAX_CATALOGUE_JSON} bytes decompressed"))); }
+        let Value::Object(mut top) = serde_json::from_slice(&json).map_err(|e| bad(format!("unreadable JSON ({e})")))? else { return Err(bad("not an object".into())) };
+        let sources = top.get_mut("metadata").and_then(|m| m.get_mut("sources")).map(Value::take);
+        match (sources, top.remove("data")) {
+            (Some(Value::Object(sources)), Some(Value::Object(data))) => Ok(Self { sources, data }),
+            _ => Err(bad("no metadata.sources or data object".into())),
+        }
+    }
+    /// One source as its feed carries it; an absent source has no evidence (skipped).
+    fn body(&self, source: &str) -> Value {
+        json!({ "metadata": self.sources.get(source).cloned().unwrap_or(Value::Null), "data": self.data.get(source).cloned().unwrap_or(Value::Null) })
+    }
+}
+
+/// The self-hosted catalogue (Ibkr plan R2, D-BROKER-SEED): the bundled snapshot, once per start, and the public one,
+/// daily. Both only where data-api is not configured (there the syncs above keep the catalogue).
+pub const BOOTSTRAP: &str = "catalogue_bootstrap";
+pub const REFRESH: &str = "catalogue_refresh";
+/// The bundle a release ships (the release-catalogue job), relative to the app's directory.
+pub const BUNDLE: &str = "db/seed_data/catalogue.json.gz";
+/// The refresh's default source; `IBKR_CATALOGUE_URL` names another, or `off`.
+pub const SNAPSHOT_URL: &str = "https://data.deltabadger.com/public/v1/catalogue.json.gz";
+
+pub type FetchFuture<'a> = Pin<Box<dyn Future<Output = Result<Vec<u8>, ApiError>> + 'a>>;
+
+/// The refresh's one GET: the snapshot's bytes (a gzip, so not a Transport's text body), at most MAX_REFERENCE_BODY.
+pub trait Fetch { fn fetch<'a>(&'a self, url: &'a str) -> FetchFuture<'a>; }
+
+#[derive(Clone)]
+pub struct LiveFetch(reqwest::Client);
+
+impl Default for LiveFetch {
+    /// The bulk pulls' timeouts.
+    fn default() -> Self { Self(crate::venue::http::client_with(crate::venue::http::CONNECT_TIMEOUT, data_api::BULK_READ_TIMEOUT, std::time::Duration::from_secs(600))) }
+}
+
+impl Fetch for LiveFetch {
+    fn fetch<'a>(&'a self, url: &'a str) -> FetchFuture<'a> {
+        use crate::venue::http::TransportError;
+        let failed = |status, message: String| ApiError::Failed { status, message };
+        Box::pin(async move {
+            let url = reqwest::Url::parse(url).ok().filter(|u| matches!(u.scheme(), "http" | "https") && u.host_str().is_some())
+                .ok_or_else(|| failed(None, "IBKR_CATALOGUE_URL is not an HTTP(S) URL".into()))?;
+            let mut resp = self.0.get(url).send().await.map_err(|e| match crate::venue::http::classify(e) {
+                TransportError::Permanent(m) => failed(None, m),
+                TransportError::NotSent(m) | TransportError::MaybeSent(m) => ApiError::Transient(m),
+            })?;
+            let status = resp.status().as_u16();
+            if status >= 400 { return Err(failed(Some(status), format!("catalogue snapshot: HTTP {status}"))); }
+            let mut body = Vec::new();
+            while let Some(chunk) = resp.chunk().await.map_err(|e| ApiError::Transient(e.to_string()))? {
+                if body.len() + chunk.len() > MAX_REFERENCE_BODY { return Err(failed(Some(status), format!("catalogue snapshot: over {MAX_REFERENCE_BODY} bytes; nothing imported"))); }
+                body.extend_from_slice(&chunk);
+            }
+            Ok(body)
+        })
+    }
+}
+
+struct Catalogue<F: Fetch> { refresh: bool, env: Vec<(&'static str, String)>, bundle: PathBuf, fetch: F }
+
+/// The two catalogue jobs, reading `bundle` and fetching with `fetch`, with the environment as the process started.
+pub fn catalogue_jobs<F: Fetch + Clone + 'static>(env: &dyn Fn(&str) -> Option<String>, bundle: PathBuf, fetch: F) -> Vec<Box<dyn Job>> {
+    let env: Vec<_> = ["MARKET_DATA_URL", "MARKET_DATA_TOKEN", "IBKR_CATALOGUE_URL"].into_iter().filter_map(|n| env(n).map(|v| (n, v))).collect();
+    [false, true].into_iter().map(|refresh| Box::new(Catalogue { refresh, env: env.clone(), bundle: bundle.clone(), fetch: fetch.clone() }) as Box<dyn Job>).collect()
+}
+
+impl<F: Fetch + 'static> Job for Catalogue<F> {
+    fn spec(&self) -> Spec {
+        // One run imports what the stock, Alpaca crypto and IBKR syncs import.
+        let deadline = DEADLINE * 3;
+        if !self.refresh { return Spec { name: BOOTSTRAP, schedule: None, jitter: Jitter::NONE, retry: Retry::None, deadline, scope: None }; }
+        // Daily after the snapshot's morning sources, spread over 30 minutes across installs; retried as the syncs are.
+        Spec { name: REFRESH, schedule: Some(Schedule::Daily { hour: 11, minute: 0 }), jitter: Jitter { min_secs: 1, max_secs: 1800 },
+               retry: Retry::Polynomial { attempts: 5 }, deadline, scope: None }
+    }
+    fn run<'a>(&'a self, cx: Cx<'a>, _wakes: Vec<Wake>) -> JobFuture<'a> { Box::pin(catalogue(self, cx)) }
+}
+
+/// The bundle's bytes; None when this build ships none.
+fn read_bundle(path: &Path) -> Result<Option<Vec<u8>>, String> {
+    let file = match std::fs::File::open(path) {
+        Ok(f) => f,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(e) => return Err(format!("catalogue bundle {}: {e}", path.display())),
+    };
+    let mut bytes = Vec::new();
+    file.take(MAX_REFERENCE_BODY as u64 + 1).read_to_end(&mut bytes).map_err(|e| format!("catalogue bundle {}: {e}; nothing imported", path.display()))?;
+    if bytes.len() > MAX_REFERENCE_BODY { return Err(format!("catalogue bundle {}: over {MAX_REFERENCE_BODY} bytes; nothing imported", path.display())); }
+    Ok(Some(bytes))
+}
+
+async fn catalogue<F: Fetch>(job: &Catalogue<F>, cx: Cx<'_>) -> Outcome {
+    let env = job.env.clone();
+    let hosted = cx.db.run(move |c, cipher| data_api::config(&|k| env.iter().find(|(n, _)| *n == k).map(|(_, v)| v.clone()), c, cipher)).await;
+    match hosted { Ok(Some(_)) => return Outcome::NothingNew, Ok(None) => {} Err(m) => return Outcome::Failed(m) }
+    let fetched = if job.refresh {
+        let url = job.env.iter().find(|(n, _)| *n == "IBKR_CATALOGUE_URL").map(|(_, v)| v.trim()).filter(|v| !v.is_empty()).unwrap_or(SNAPSHOT_URL);
+        if url.eq_ignore_ascii_case("off") { return Outcome::NothingNew; }
+        match job.fetch.fetch(url).await { Ok(b) => Some(b), Err(e) => return api_failure(e) }
+    } else { None };
+    let bundle = job.bundle.clone();
+    let parsed = tokio::task::spawn_blocking(move || match fetched {
+        Some(bytes) => Snapshot::parse(&bytes).map(Some),
+        None => read_bundle(&bundle)?.map(|b| Snapshot::parse(&b)).transpose(),
+    }).await.unwrap_or_else(|e| Err(format!("the blocking pool lost the snapshot: {e}")));
+    let snapshot = match parsed {
+        Ok(Some(s)) => s,
+        Ok(None) => { crate::engine::log(&format!("[jobs] {BOOTSTRAP}: no catalogue bundle at {}", job.bundle.display())); return Outcome::NothingNew; }
+        Err(m) => return Outcome::Failed(m),
+    };
+    let feeds = Feeds::<data_api::ApiTransport>::Catalogue(&snapshot);
+    let outcomes = [stocks(&feeds, &cx).await, alpaca_crypto(&feeds, &cx).await, ibkr(&feeds, &cx).await];
+    let failed: Vec<String> = outcomes.iter().filter_map(|o| match o {
+        Outcome::Failed(m) | Outcome::Transient(m) | Outcome::RateLimited(m) => Some(m.clone()),
+        Outcome::Done | Outcome::NothingNew => None,
+    }).collect();
+    if !failed.is_empty() { return Outcome::Failed(failed.join("; ")); }
+    if outcomes.contains(&Outcome::Done) { Outcome::Done } else { Outcome::NothingNew }
 }
 
 /// Invariant B and STOCK_TICKER_DEFAULTS (:381-389, :500-504): every quote anchors to the local `usd`, and a missing or nil
@@ -577,7 +826,7 @@ fn backfill(c: &Connection, cipher: &crate::crypto::Cipher, body: &Value, now: D
 
 /// Asset::SyncStocksFromDeltabadgerJob#perform, the jitter split out to the scheduler (Spec.jitter): the switch, the
 /// backfill's no-op case, the stock assets, then the Alpaca listings.
-async fn stocks<T: Transport>(api: &DataApi<T>, cx: &Cx<'_>) -> Outcome {
+async fn stocks<T: Transport>(feeds: &Feeds<'_, T>, cx: &Cx<'_>) -> Outcome {
     let now = cx.clock.now();
     let gate = cx.db.run(move |c, cipher| {
         // The per-container emergency switch: any value but "false" means on (:43-50).
@@ -595,7 +844,7 @@ async fn stocks<T: Transport>(api: &DataApi<T>, cx: &Cx<'_>) -> Outcome {
     if legacy {
         // The backfill's own fetch (:746-753): a 429 or a network failure raises out of the job; any other failure leaves
         // the flag as it is.
-        match api.stocks().await {
+        match feeds.get(STOCK_ASSETS).await {
             Err(e) if e.rate_limited() || matches!(e, ApiError::Transient(_)) => return api_failure(e),
             Err(_) => {}
             Ok(body) => if let Err(m) = cx.db.run(move |c, cipher| import::in_transaction(c, cipher, "stock backfill", |c| {
@@ -611,14 +860,21 @@ async fn stocks<T: Transport>(api: &DataApi<T>, cx: &Cx<'_>) -> Outcome {
     }
 
     // sync_stocks_from_deltabadger! (:428-463). A failure skips the listings (sync_stocks_from_deltabadger_job.rb:66-73).
-    let body = match api.stocks().await { Ok(b) => b, Err(e) => return api_failure(e) };
-    let url = api.public_url();
-    let rows = match cx.db.run(move |_, _| Ok(import::plan_stock_assets(&take_list(body), &url))).await { Ok(r) => r, Err(m) => return Outcome::Failed(m) };
-    if let Err(m) = incomplete(cx, STOCKS, now).await { return Outcome::Failed(m); }
-    if let Err(m) = import::import_stock_assets(&cx.db, rows, now).await { return Outcome::Failed(m); }
+    let body = match feeds.get(STOCK_ASSETS).await { Ok(b) => b, Err(e) => return api_failure(e) };
+    // A catalogue source already at this revision (or without evidence) imports nothing; the listings still go on.
+    let assets = match admit(feeds, cx, STOCK_ASSETS_FEED, &body).await { Ok(rev) => Some(rev), Err(Outcome::Failed(m)) => return Outcome::Failed(m), Err(_) => None };
+    if let Some(rev) = assets {
+        let url = feeds.public_url();
+        let rows = match cx.db.run(move |_, _| Ok(import::plan_stock_assets(&take_list(body), &url))).await { Ok(r) => r, Err(m) => return Outcome::Failed(m) };
+        // A catalogue import's takeover marks its own record; the stock job's is data-api's.
+        if rev.is_none() { if let Err(m) = incomplete(cx, STOCKS, now).await { return Outcome::Failed(m); } }
+        if let Err(m) = import::import_stock_assets(&cx.db, rows, now, rev.map(Rev::fence)).await { return fenced(m); }
+        if let out @ (Outcome::NothingNew | Outcome::Failed(_)) = finished(cx, rev, false).await { return out; }
+    }
 
     // sync_alpaca_listings_from_deltabadger! (:475-582).
-    let body = match api.alpaca_listings().await { Ok(b) => b, Err(e) => return api_failure(e) };
+    let body = match feeds.get(ALPACA_LISTINGS).await { Ok(b) => b, Err(e) => return api_failure(e) };
+    let rev = match admit(feeds, cx, STOCKS, &body).await { Ok(r) => r, Err(out) => return out };
     let step = cx.db.run(move |c, cipher| {
         import::in_transaction(c, cipher, "usd", |c| import::ensure_usd(c, true, now))?;
         // fractionable: false is dropped (:495), then Invariant B and the defaults (:500-504), before the guard counts.
@@ -634,11 +890,13 @@ async fn stocks<T: Transport>(api: &DataApi<T>, cx: &Cx<'_>) -> Outcome {
         let mut plan = import::plan_tickers(c, alpaca, &listings, Some("Stock"))?;
         // The sweep never marks a legacy stock ticker unavailable (:572-576).
         plan.sweep.retain(|id| !ids.contains(id));
+        if rev.is_some_and(|r| !r.complete) { plan.sweep.clear(); } // an incomplete revision is no delisting
         Ok(Ok((alpaca, resolved, plan)))
     }).await;
     let (alpaca, resolved, plan) = match step { Ok(Ok(x)) => x, Ok(Err(out)) => return out, Err(m) => return Outcome::Failed(m) };
-    if let Err(m) = import::publish_tickers(&cx.db, alpaca, plan, now).await { return Outcome::Failed(m); }
-    done(cx.db.run(move |c, cipher| app_config::set(c, cipher, ALPACA_LISTINGS_LAST_GOOD, &resolved.to_string(), now)).await)
+    if let Err(m) = import::publish_tickers_fenced(&cx.db, alpaca, plan, now, rev.map(Rev::fence)).await { return fenced(m); }
+    if let Err(m) = cx.db.run(move |c, cipher| app_config::set(c, cipher, ALPACA_LISTINGS_LAST_GOOD, &resolved.to_string(), now)).await { return Outcome::Failed(m); }
+    finished(cx, rev, false).await
 }
 
 /// BotActivityLog::PruneJob: `where('created_at < ?', 90.days.ago).delete_all`, in units of CHUNK rows (a backlog after
