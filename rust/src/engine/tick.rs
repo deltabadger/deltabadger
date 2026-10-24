@@ -651,8 +651,15 @@ fn unclaim(c: &Connection, bot: &mut model::Bot, claimed: Claimed, stale: stalen
 #[allow(clippy::too_many_arguments)]
 async fn buy<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot, x: &BigDec, clock: &dyn Clock, cx: &TickContext<'_>, legs: &mut Legs, reconciled: &splits::Snapshot) -> Result<Result<(), Fail>, EngineError> {
     let composition = placement::composition_snapshot(c, bot)?;
-    let members = basket::members(c, bot)?;
+    let locked = super::wash::locked(c, bot.user_id, clock)?;
+    let members = basket::members(c, bot, &locked)?;
     if members.is_empty() {
+        let any: bool = !locked.is_empty() && c.query_row("SELECT EXISTS (SELECT 1 FROM bot_index_assets WHERE bot_id = ?1 AND in_index = 1)", [bot.id], |r| r.get(0))?;
+        if any {
+            // Every member sits out a wash-sale window: nothing to buy is no failure, and the contribution stays owed.
+            super::log(&format!("[engine] bot {}: get_orders_data composition event=all_members_wash_sale_locked", bot.id));
+            return Ok(Ok(()));
+        }
         let m = "No assets in composition".to_string();
         return Ok(Err(Fail::General { errors: vec![m.clone()], message: m, failed_row: false }));
     }
@@ -725,6 +732,10 @@ async fn place<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bo
         placement::Begun::CredentialsChanged => return Ok(Placed::Failed(Fail::CredentialsChanged)),
         placement::Begun::BelowMinimum(skipped) => { legs.skipped.push(*skipped); return Ok(Placed::Next); }
         placement::Begun::LedgerStale(stale) => { legs.ledger_stale = Some(stale); return Ok(Placed::Stop); }
+        placement::Begun::WashSaleLocked => {
+            super::log(&format!("[engine] bot {}: set_orders composition event=order_wash_sale_locked base={}", bot.id, plan.ticker.base_code));
+            return Ok(Placed::Next);
+        }
     };
     Ok(match placement::send_recorded(c, venue, bot, &intent, clock).await? {
         Sent::Accepted(_) => { legs.placed = true; Placed::Next }
@@ -855,7 +866,7 @@ async fn sell<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot
         // Bots::DcaMultiAsset#sell_denomination is 'quote' for a wider basket (sell_amounts reads it so): base is None here.
         return basket_sell(c, venue, bot, quote, &composition, clock, cx, legs, reconciled).await;
     }
-    let Some(member) = basket::members(c, bot)?.into_iter().next() else {
+    let Some(member) = basket::members(c, bot, &[])?.into_iter().next() else {
         let m = "No assets in composition".to_string();
         return Ok(Err(Fail::General { errors: vec![m.clone()], message: m, failed_row: false }));
     };
@@ -910,7 +921,7 @@ async fn sell<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot
 #[allow(clippy::too_many_arguments)]
 async fn basket_sell<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot, withdrawal: &BigDec, composition: &Value, clock: &dyn Clock, cx: &TickContext<'_>, legs: &mut Legs, reconciled: &splits::Snapshot) -> Result<Result<(), Fail>, EngineError> {
     let general = |m: String| Fail::General { errors: vec![m.clone()], message: m, failed_row: false };
-    let (walked, entries) = match super::rebalance::value(c, venue, bot, clock.now()).await? {
+    let (walked, entries) = match super::rebalance::value(c, venue, bot, clock.now(), &[]).await? {
         Ok(valued) => valued,
         Err(super::rebalance::ValueFail::Transient(m)) => return Ok(Err(Fail::Transient(m))),
         Err(super::rebalance::ValueFail::Raised(m)) => return Ok(Err(general(m))),
