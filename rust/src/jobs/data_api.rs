@@ -155,6 +155,8 @@ impl<T: Transport> DataApi<T> {
     /// Faraday sorts the params, so the query is given in that order.
     pub async fn stocks(&self) -> Result<Value, ApiError> { self.get("/api/v2/assets", &[("include", "identifiers"), ("type", "stock,etf")], true).await }
     pub async fn alpaca_listings(&self) -> Result<Value, ApiError> { self.get("/api/v2/listings", &[("venue_scheme", "alpaca_exchange")], true).await }
+    /// The IBKR catalogue feed (Ibkr plan R1): one listing per conid, with its revision and evidence metadata.
+    pub async fn ibkr_listings(&self) -> Result<Value, ApiError> { self.get("/api/v2/listings", &[("venue_scheme", "ibkr_conid")], true).await }
     pub async fn alpaca_crypto_listings(&self) -> Result<Value, ApiError> { self.get("/api/v2/listings", &[("venue", "alpaca_crypto")], true).await }
 
     /// MarketData.get_prices on the deltabadger provider (market_data.rb:170-182) through Clients::MarketData#get_prices

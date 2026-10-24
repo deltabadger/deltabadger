@@ -280,7 +280,8 @@ fn the_kucoin_cutoffs_move_from_app_configs_to_their_own_table() {
         ('rust_kucoin_csv.cutoff:12:40', '{"withdrawals":"2026-09-01 00:00:00"}', '2026-09-20', '2026-09-21 00:00:00'),
         ('rust_kucoin_csv.cutoff:8:3', 'not json', '2026-09-20', '2026-09-20'),
         ('rust_sync.ledger:1', '{}', '2026-09-20', '2026-09-20')"#);
-    assert_eq!(store::migrate_with(&p, &lock(&p), &REGISTRY).unwrap(), vec![CUTOFFS.to_string()]);
+    let after: Vec<String> = RUST_MIGRATIONS[before.len()..].iter().map(|m| m.version.to_string()).collect();
+    assert_eq!(store::migrate_with(&p, &lock(&p), &REGISTRY).unwrap(), after, "the cutoffs migration and every later one");
     let c = Connection::open(&p.primary).unwrap();
     let mut s = c.prepare("SELECT user_id, exchange_id, class, cutoff_at, updated_at FROM import_cutoffs ORDER BY user_id, class").unwrap();
     let rows: Vec<(i64, i64, String, String, String)> = s.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?))).unwrap().collect::<Result<_, _>>().unwrap();
