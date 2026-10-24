@@ -221,7 +221,7 @@ impl<T: Transport> BinanceVenue<T> {
                           else { error_message(&resp.body) };
             if !placement && resp.status == 401 { return Err(VenueError::Unauthorized(vec![message])); }
             let definitive = (400..500).contains(&resp.status) || crate::engine::placement::safe_rejection(std::slice::from_ref(&message));
-            return Err(if placement && !definitive { VenueError::Ambiguous(message) } else { VenueError::Rejected(vec![message]) });
+            return Err(if placement && !definitive { VenueError::Ambiguous(message) } else { refusal(placement, &resp.body, message) });
         }
         Ok(resp.body)
     }
@@ -256,6 +256,24 @@ pub fn error_message(text: &str) -> String {
         Some(serde_json::Value::String(s)) if !crate::ruby::blank(s) => s.clone(),
         Some(v) if !v.is_null() && !v.is_string() && v != &serde_json::Value::Bool(false) => v.to_string(),
         _ => text.to_string(),
+    }
+}
+
+/// The JSON body's `code`, which `error_message` drops whenever `msg` is present (Binance and MEXC send both).
+pub fn error_code(text: &str) -> Option<String> {
+    match serde_json::from_str::<serde_json::Value>(text).ok()?.get("code")? {
+        serde_json::Value::Number(n) if n.is_i64() || n.is_u64() => Some(n.to_string()),
+        serde_json::Value::String(s) if !crate::ruby::blank(s) => Some(s.clone()),
+        _ => None,
+    }
+}
+
+/// A definitive refusal: a placement's carries the body's `code` beside the text (`VenueError::Coded`), a read's is the
+/// text alone, as before.
+pub(crate) fn refusal(placement: bool, body: &str, message: String) -> super::VenueError {
+    match error_code(body).filter(|_| placement) {
+        Some(code) => super::VenueError::Coded { code, errors: vec![message] },
+        None => super::VenueError::Rejected(vec![message]),
     }
 }
 

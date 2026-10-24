@@ -150,6 +150,11 @@ pub enum VenueError {
     /// signal (exchange.rb:304-341). Everything but the index's price probe (index::priced) reads it as `Rejected`
     /// (`rejection`); a placement's 401 stays `Rejected`.
     Unauthorized(Vec<String>),
+    /// `Rejected`, from a placement whose answer also carried the venue's structured error code (MEXC and Binance `code`,
+    /// Bybit `retCode`), kept apart from the text the row records: binance::error_message keeps only `msg`. Only an
+    /// adapter's AddOrder produces it, and only the below-minimum classifier (placement::below_minimum) reads the code;
+    /// everything else reads it as `Rejected`.
+    Coded { code: String, errors: Vec<String> },
     /// The request may have reached the venue (lost reply, timeout after send, a 5xx or unreadable answer to a placement).
     Ambiguous(String),
     /// Nothing reached the venue (refused connection, DNS, TLS before send), or a read failed in transport.
@@ -158,15 +163,15 @@ pub enum VenueError {
 
 impl VenueError {
     /// The refusal's text, for `Rejected` and `Unauthorized` alike.
-    pub fn rejection(&self) -> Option<&[String]> { match self { Self::Rejected(e) | Self::Unauthorized(e) => Some(e), _ => None } }
+    pub fn rejection(&self) -> Option<&[String]> { match self { Self::Rejected(e) | Self::Unauthorized(e) | Self::Coded { errors: e, .. } => Some(e), _ => None } }
 }
 
-/// As derived, except that `Unauthorized` prints as `Rejected`: a message built from `{:?}` reads as it did before the
+/// As derived, except that `Unauthorized` and `Coded` print as `Rejected`: a message built from `{:?}` reads as it did before the
 /// status was carried.
 impl std::fmt::Debug for VenueError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Rejected(e) | Self::Unauthorized(e) => f.debug_tuple("Rejected").field(e).finish(),
+            Self::Rejected(e) | Self::Unauthorized(e) | Self::Coded { errors: e, .. } => f.debug_tuple("Rejected").field(e).finish(),
             Self::Ambiguous(m) => f.debug_tuple("Ambiguous").field(m).finish(),
             Self::Transient(m) => f.debug_tuple("Transient").field(m).finish(),
         }

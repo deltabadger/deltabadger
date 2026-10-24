@@ -247,11 +247,11 @@ async fn placement_answers_map_as_rails_maps_them() {
     let place = |reply: Value| async move { venue(json!({ "POST /api/v3/order": reply })).1.add_order(&order(OrderKind::Market, true, "60")).await };
     assert_eq!(place(ok(json!({ "symbol": "BTCUSDT", "orderId": "C02__443776347957968896" }))).await, Ok("BTCUSDT-C02__443776347957968896".into()));
     assert!(matches!(place(ok(json!({ "symbol": "BTCUSDT" }))).await, Err(VenueError::Ambiguous(_))), "no orderId: it may have been placed");
-    let Err(VenueError::Rejected(e)) = place(fail(400, 10101, "Insufficient balance")).await else { panic!() };
+    let Err(VenueError::Coded { errors: e, .. }) = place(fail(400, 10101, "Insufficient balance")).await else { panic!() };
     assert_eq!(MEXC.failure_kind(&e), Some("insufficient_funds"));
-    let Err(VenueError::Rejected(e)) = place(fail(400, 700_003, "Timestamp for this request is outside of the recvWindow.")).await else { panic!() };
+    let Err(VenueError::Coded { errors: e, .. }) = place(fail(400, 700_003, "Timestamp for this request is outside of the recvWindow.")).await else { panic!() };
     assert!(placement::safe_rejection(&e), "700003: no row, the run rescheduled");
-    let Err(VenueError::Rejected(e)) = place(fail(400, 503, "service not available, please try again")).await else { panic!() };
+    let Err(VenueError::Coded { errors: e, .. }) = place(fail(400, 503, "service not available, please try again")).await else { panic!() };
     assert!(MEXC.add_outcome_unknown(&e), "MEXC's own try-again may have placed the order");
     assert!(matches!(place(fail(503, 503, "service not available")).await, Err(VenueError::Ambiguous(_))));
     assert!(matches!(place(json!([{ "network": "post_send", "message": "Net::ReadTimeout" }])).await, Err(VenueError::Ambiguous(_))));
