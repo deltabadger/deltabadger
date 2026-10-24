@@ -220,10 +220,12 @@ fn a_price_rule_reads_as_rails_reads_it() {
     assert_eq!((buy.prefix, &buy.limit, &buy.lower, &buy.upper), ("price_limit", &Num::Int(1_000_000), &Num::Int(0), &Num::Int(1_000_000)));
     assert_eq!((buy.value_condition.as_deref(), buy.after, buy.action.as_str(), buy.ticker_id, buy.met_at_us), (Some("below"), false, "pause", None, None));
     let sell = read(base().with("sell_price_limited", json!(true)).with("sell_price_limit", json!(64000.5)).with("sell_price_limit_timing_condition", json!("after"))
-        .with("sell_price_limit_action", json!("start_buying")).with("sell_price_limit_in_ticker_id", json!("7"))
+        .with("sell_price_limit_in_ticker_id", json!("7"))
         .transient("sell_price_limit_condition_met_at", json!("2026-09-02T10:00:00.123Z")), true).unwrap().unwrap();
     assert_eq!((sell.prefix, &sell.limit, sell.value_condition.as_deref(), sell.after, sell.action.as_str(), sell.ticker_id),
-               ("sell_price_limit", &Num::Float(64000.5), Some("above"), true, "start_buying", Some(7)));
+               ("sell_price_limit", &Num::Float(64000.5), Some("above"), true, "pause", Some(7)));
+    // A flip action is not run until slice 7c (conditions::support): no rule for the engine, eligibility refuses it by name.
+    assert!(read(base().with("sell_price_limited", json!(true)).with("sell_price_limit_action", json!("start_buying")), true).unwrap().is_none());
     assert_eq!(sell.met_at_us, Some("2026-09-02T10:00:00.123Z".parse::<chrono::DateTime<chrono::Utc>>().unwrap().timestamp_micros()));
     // `||=` on the buy side: false takes the default; the sell side keeps a stored false, which Rails cannot compare.
     assert_eq!(read(base().with("price_limited", json!(true)).with("price_limit", json!(false)), false).unwrap().unwrap().limit, Num::Int(1_000_000));

@@ -363,13 +363,14 @@ fn metrics(c:&Connection,b:&Bot,now:At)->Result<(Subject,walk::Metrics),WebError
 fn effective_started(b:&Bot)->Result<Option<chrono::DateTime<chrono::Utc>>,WebError>{
     let Some(raw)=&b.started else{return Ok(None)};
     let mut start=crate::codec::parse_time(raw).map_err(|_|error())?;
-    // Signal and index have no trigger decorators.
-    if !crate::engine::model::conditions_apply(&b.kind) {return Ok(Some(start))}
+    use crate::engine::conditions::{decorates,stored_support,TRIGGERS};
     let selling=b.settings["direction"]=="selling";
     let prefix=if selling{"sell_"}else{""};
-    for trigger in ["price","price_drop","moving_average","indicator"]{
-        if b.settings[format!("{prefix}{trigger}_limited")].as_bool()!=Some(true){continue}
-        let Some(raw)=b.transient[format!("{prefix}{trigger}_limit_condition_met_at")].as_str().filter(|s|!s.trim().is_empty()) else{return Ok(None)};
+    for (rule,trigger) in TRIGGERS{
+        if b.settings[format!("{prefix}{trigger}ed")].as_bool()!=Some(true){continue}
+        // Only where Rails reads it (a basket) or this engine runs it (conditions::decorates).
+        if !decorates(crate::web::bot::Kind::of(&b.kind),stored_support(&b.kind,&b.settings,rule,selling)){continue}
+        let Some(raw)=b.transient[format!("{prefix}{trigger}_condition_met_at")].as_str().filter(|s|!s.trim().is_empty()) else{return Ok(None)};
         // R9: stored SQL timestamps have the engine's UTC meaning in every adapter.
         let met=crate::codec::parse_time(raw).map_err(|_|error())?;
         start=start.max(met);

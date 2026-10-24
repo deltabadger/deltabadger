@@ -513,12 +513,14 @@ async fn execute<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::
         if x < BigDec::zero() { let m = "Orders quote_amount must be positive".to_string(); return Ok(Err(Fail::General { errors: vec![m.clone()], message: m, failed_row: false })); }
         // Bot::QuoteAmountLimitable decorates pending_quote_amount: `[super, available].min`. The cap applies to the carry,
         // so the last order is cut to what is left, never skipped for exceeding it; nothing left is no order, no row, no log.
-        if sale.is_none() { if let Some(available) = amount::quote_amount_available(c, bot)? { if available < x { x = available; } } }
+        // `capped`: the cap binds, so x is all that is left of it (D-CAP-REMAINDER-STOP).
+        let mut capped = false;
+        if sale.is_none() { if let Some(available) = amount::quote_amount_available(c, bot)? { if available <= x { x = available; capped = true; } } }
         if !x.is_zero() {
             let mut legs = Legs::default();
             let bought = match sale {
                 Some((base, quote)) => sell(c, venue, bot, base, &quote, clock, cx, &mut legs, &reconciled).await,
-                None => buy(c, venue, bot, &x, clock, cx, &mut legs, &reconciled).await,
+                None => buy(c, venue, bot, &x, capped, clock, cx, &mut legs, &reconciled).await,
             };
             // set_orders' `ensure record_skipped_orders!`: on every way out of the loop, a raise included.
             let bought = match bought {
@@ -534,6 +536,9 @@ async fn execute<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::
             }
             (placed, fenced) = (legs.placed, legs.fenced);
             if let Err(f) = bought? { return Ok(Err(f)); }
+            // A fill this tick's sweep applied already owes Rails' own stop (polling::apply_committed), run at the tick's end.
+            let owed = model::load_bot(c, bot_id)?.pending_amount_limit_stops()?.is_some_and(|(n, current)| current && n > 0);
+            if legs.cap_spent && !fenced && !owed { return cap_spent(c, bot, clock, cx); }
         }
         // A stop that landed while AddOrder awaited its reply stays; the orders already sent stand and are still polled.
         // Fenced, the run is no longer this tick's: no :waiting over a restarted run's claim, no below-minimum notice.
@@ -558,10 +563,7 @@ async fn execute<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::
 enum Gated { Pass(Option<Box<model::Bot>>), Pause, Fail(Fail) }
 async fn price_gate<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<Gated, EngineError> {
     use super::conditions::{self, Evaluated};
-    if let Some(rule) = bot.price_rule(bot.selling()).map_err(EngineError::Data)? {
-        // Eligibility admits only `pause`; the flip actions are slice 7c.
-        if rule.action != "pause" { return Err(EngineError::Data(format!("{}_action {} is not supported", rule.prefix, rule.action))); }
-    }
+    // model::Bot::price_rule reads only a rule this build runs (conditions::support): the `pause` action.
     let rules = venue.rules();
     Ok(match conditions::evaluate(c, venue, bot, clock, cx.prices, &cx.credential_version, conditions::Fence::Run).await? {
         Evaluated::Off => Gated::Pass(None),
@@ -620,9 +622,22 @@ async fn fundable<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model:
 /// `paused`: the price rule paused the bot (`break_reschedule`): it stays `waiting` for its check.
 struct Ran { placed: bool, fenced: bool, ledger_stale: Option<Box<staleness::Stale>>, paused: bool }
 
-/// What a basket buy did before it returned, for the skipped-leg report that runs on every way out.
+/// What a basket buy did before it returned, for the skipped-leg report that runs on every way out. `cap_spent`: the cap bound
+/// and no leg of its whole remainder could be placed (D-CAP-REMAINDER-STOP).
 #[derive(Default)]
-struct Legs { placed: bool, fenced: bool, skipped: Vec<amount::OrderPlan>, ledger_stale: Option<Box<staleness::Stale>> }
+struct Legs { placed: bool, fenced: bool, skipped: Vec<amount::OrderPlan>, ledger_stale: Option<Box<staleness::Stale>>, cap_spent: bool }
+
+/// D-CAP-REMAINDER-STOP (basket and index): a spending cap whose whole remainder, split and sized as this tick sizes it, has
+/// no leg the venue takes is reached. Rails would skip the legs at every checkpoint forever (its reached test is the pair's
+/// precision floor); the bot stops with the amount-limit stop, its `stopped` line and its mail. The stop fences the run, so
+/// the tick ends there (Skipped), with nothing after it (no Fundable, no below-minimum notice).
+fn cap_spent<T>(c: &Connection, bot: &model::Bot, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<T, EngineError> {
+    let now = clock.now();
+    model::run_credential_write(c, bot, &cx.credential_version, |tx| {
+        stop_owing_mail(tx, bot.id, AMOUNT_SPENT, Some((notice::LIMIT, notice::limit_marker(now))), now)
+    })?;
+    Err(EngineError::RunFenced)
+}
 
 /// The values a tick's claim replaced.
 struct Claimed { status: BotStatus, last_action_job_at: Option<Value>, defer: Option<Value> }
@@ -655,7 +670,7 @@ fn unclaim(c: &Connection, bot: &mut model::Bot, claimed: Claimed, stale: stalen
 /// is sent, and the first leg that is not accepted ends the loop (order_setter.rb:80); legs never sent stay owed through
 /// pending_quote_amount. A price failure can only come before the first leg.
 #[allow(clippy::too_many_arguments)]
-async fn buy<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot, x: &BigDec, clock: &dyn Clock, cx: &TickContext<'_>, legs: &mut Legs, reconciled: &splits::Snapshot) -> Result<Result<(), Fail>, EngineError> {
+async fn buy<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot, x: &BigDec, capped: bool, clock: &dyn Clock, cx: &TickContext<'_>, legs: &mut Legs, reconciled: &splits::Snapshot) -> Result<Result<(), Fail>, EngineError> {
     let composition = placement::composition_snapshot(c, bot)?;
     let locked = super::wash::locked(c, bot.user_id, clock)?;
     let members = basket::members(c, bot, &locked)?;
@@ -700,9 +715,15 @@ async fn buy<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot,
     // never at the raw ask Rails sizes it at (so a fill at the cross could spend over the budget). The split above stays
     // at the raw ask, as Rails values the basket.
     let crossed = rules.cross.is_some() && bot.limit_distance().is_none();
+    let mut sized = vec![];
     for leg in split {
         let sizing = if crossed { rules.market_price(&leg.reference, &leg.ticker, crate::venue::Side::Buy).map_err(EngineError::Data)? } else { leg.reference.clone() };
-        match amount::size(bot, &leg.ticker, &leg.quote, &sizing, rules)? {
+        sized.push(amount::size(bot, &leg.ticker, &leg.quote, &sizing, rules)?);
+    }
+    // D-CAP-REMAINDER-STOP: the whole remainder of a binding cap was just sized; with no leg to place, the cap is reached.
+    legs.cap_spent = capped && !sized.iter().any(|s| matches!(s, Sizing::Place(_)));
+    for sizing in sized {
+        match sizing {
             Sizing::Nothing => {}
             Sizing::Ignored(plan) => { let now = clock.now(); model::run_write(c, bot, |tx| model::log_activity(tx, bot.id, "order_ignored", Level::Info, plan.log_details(), now))?; }
             Sizing::BelowMinimum(plan) => legs.skipped.push(plan), // reported once, at the end (record_skipped)

@@ -1,6 +1,7 @@
 //! The engine's rows, read and written exactly as Rails reads and writes them.
 use super::schedule::Interval;
 use super::EngineError;
+use super::conditions::{Rule, Support};
 use crate::codec::{format_time, parse_time};
 use crate::crypto::{Cipher, Credentials};
 use crate::enums::{BotStatus, BOT_WORKING};
@@ -209,7 +210,9 @@ impl Bot {
     }
     /// Bot::Reversible#selling?: `direction` reads "buying" when absent or blank.
     pub fn selling(&self) -> bool { self.settings.get("direction").and_then(Value::as_str) == Some("selling") }
-    pub fn conditions_apply(&self) -> bool { conditions_apply(&self.bot_type) }
+    pub fn kind(&self) -> crate::web::bot::Kind { crate::web::bot::Kind::of(&self.bot_type) }
+    /// What this build does with the bot's `rule` on that side, as its settings hold it (conditions::support).
+    pub fn support(&self, rule: Rule, selling: bool) -> Support { super::conditions::stored_support(&self.bot_type, &self.settings, rule, selling) }
     /// What a selling bot's tick sells (Bots::DcaMultiAsset#execute_action while selling): `Some(base)` for "sell N base"
     /// (Bot::Reversible#sell_base_amount_per_tick: the Smart Intervals split while it applies, else sell_amount, else 0), or
     /// `None` and the quote to sell for ("sell for N quote": sell_quote_amount, else 0). Never the frozen buy carry.
@@ -230,8 +233,9 @@ impl Bot {
         if let Some(sell) = self.settings.as_object().and_then(super::schedule::sell_effective) { return Some(sell); }
         Some(super::schedule::effective(self.interval()?, self.quote_amount()?, self.smart_quote_amount()))
     }
-    /// Bot::QuoteAmountLimitable#quote_amount_limited?: `== true`, on a class that includes the concern (conditions_apply).
-    pub fn quote_amount_limited(&self) -> bool { self.conditions_apply() && self.settings.get("quote_amount_limited") == Some(&Value::Bool(true)) }
+    /// Bot::QuoteAmountLimitable#quote_amount_limited?: `== true`, on a kind this build runs the cap for (conditions::support;
+    /// D-IDX-CAP: an index bot too, where Rails' DcaIndex lacks the concern).
+    pub fn quote_amount_limited(&self) -> bool { self.support(Rule::Cap, false) == Support::Implemented && self.settings.get("quote_amount_limited") == Some(&Value::Bool(true)) }
     /// The cap as #quote_amount_available_before_limit_reached reads it, as the Ruby Integer or Float the settings JSON holds;
     /// None when the limit is off. A stored nil or false reads as Integer 1000 (after_initialize: `quote_amount_limit ||= 1000`).
     /// Err for anything else that is not a JSON number (a blank string is Float::INFINITY in Rails, other strings raise there):
@@ -332,12 +336,13 @@ impl Bot {
     pub fn condition_started_us(&self) -> Result<Option<i64>, EngineError> {
         let settings = self.settings.as_object().cloned().unwrap_or_default();
         let transient = self.transient.as_object().cloned().unwrap_or_default();
-        super::accounting::condition_started_at(self.conditions_apply(), &settings, &transient, self.started_at_us()?)
+        super::accounting::condition_started_at(self.kind(), &settings, &transient, self.started_at_us()?)
     }
-    /// The active side's price rule (Bot::PriceLimitable#active_price_limited?), None when it is off. Err: a stored value
+    /// The active side's price rule (Bot::PriceLimitable#active_price_limited?), None when it is off or not one this build
+    /// runs on the bot's kind (conditions::support: eligibility refuses those it does not implement). Err: a stored value
     /// Rails would raise on (eligibility refuses it).
     pub fn price_rule(&self, selling: bool) -> Result<Option<PriceRule>, String> {
-        if !self.conditions_apply() { return Ok(None); }
+        if self.support(Rule::Price, selling) != Support::Implemented { return Ok(None); }
         let prefix = if selling { "sell_price_limit" } else { "price_limit" };
         let get = |k: &str| self.settings.get(format!("{prefix}{k}").as_str()).filter(|v| !v.is_null());
         if get("ed") != Some(&Value::Bool(true)) { return Ok(None); }
@@ -353,12 +358,7 @@ impl Bot {
             }
         };
         let text = |k: &str, default: &str| -> Option<String> { let v = get(k); if unset(v) { Some(default.into()) } else { v.and_then(Value::as_str).map(str::to_string) } };
-        let action = match get("_action") {
-            None | Some(Value::Bool(false)) => "pause".to_string(),
-            Some(Value::String(s)) if s.trim().is_empty() => "pause".to_string(),
-            Some(Value::String(s)) => s.clone(),
-            Some(other) => other.to_string(),
-        };
+        let action = super::conditions::action(&self.settings, prefix);
         // `find_by(id:)` casts the stored id: a JSON integer, or a string ActiveRecord reads as one (else no ticker: id 0).
         let ticker_id = match get("_in_ticker_id") {
             None | Some(Value::Bool(false)) => None,
@@ -379,11 +379,6 @@ impl Bot {
 }
 
 pub const SIGNAL_TYPE: &str = "Bots::Signal";
-/// Only Bots::DcaMultiAsset and the legacy Bots::DcaSingleAsset include the trigger rule concerns (PriceLimitable,
-/// PriceDropLimitable, MovingAverageLimitable, IndicatorLimitable): on any other class (index, signal) a stored `*_limited` flag or `*_condition_met_at` is inert — no gate, no
-/// started_at decoration, no carry effect, no pause, no admission difference (dca_index.rb:56-58). The same two classes, and
-/// only they, include Bot::QuoteAmountLimitable: elsewhere `quote_amount_limited` and its cap are inert too. Every reader asks this.
-pub fn conditions_apply(bot_type: &str) -> bool { matches!(bot_type, "Bots::DcaMultiAsset" | "Bots::DcaSingleAsset") }
 /// The trigger rules' switches, both sides.
 pub const CONDITION_FLAGS: [&str; 8] = ["price_limited", "price_drop_limited", "moving_average_limited", "indicator_limited",
     "sell_price_limited", "sell_price_drop_limited", "sell_moving_average_limited", "sell_indicator_limited"];
@@ -491,7 +486,7 @@ pub fn condition_paused(c: &Connection, bot: &Bot) -> Result<Option<String>, Eng
 
 /// A bot resting on a price condition: `waiting`, paused by its price rule (the only one this engine runs).
 pub fn price_paused(c: &Connection, bot: &Bot) -> Result<bool, EngineError> {
-    Ok(bot.conditions_apply() && bot.status == BotStatus::Waiting && condition_paused(c, bot)?.as_deref() == Some("price"))
+    Ok(bot.support(Rule::Price, bot.selling()) == Support::Implemented && bot.status == BotStatus::Waiting && condition_paused(c, bot)?.as_deref() == Some("price"))
 }
 
 #[derive(Debug, Clone, PartialEq)]

@@ -3,6 +3,7 @@
 //! use: a flag Rails might treat as on must never be quietly ignored.
 use super::model::{self, Bot};
 use super::placement;
+use super::conditions::{self, Rule, Support};
 use crate::crypto::Cipher;
 use super::EngineError;
 use crate::enums::{BotStatus, BOT_WORKING};
@@ -136,11 +137,9 @@ fn bot_reasons_with(c: &Connection, bot: &Bot, splits: &mut SplitRows) -> Result
         for (k, v) in obj {
             let flag = k.ends_with("_limited") || k.ends_with("_ordered") || k.ends_with("_intervaled");
             if !flag || !set(v) || SUPPORTED_FLAGS.contains(&k.as_str()) { continue; }
-            // A class without the rule concerns never reads a rule's switch (model::conditions_apply).
-            if !bot.conditions_apply() && model::CONDITION_FLAGS.contains(&k.as_str()) { continue; }
-            match k.as_str() {
-                "price_limited" | "sell_price_limited" => r.extend(price_rule_reason(bot, k, v)),
-                _ => r.push(k.clone()),
+            match Rule::of_flag(k) {
+                Some((rule, selling)) => r.extend(rule_reason(bot, k, v, rule, selling)),
+                None => r.push(k.clone()),
             }
         }
     }
@@ -176,14 +175,20 @@ fn bot_reasons_with(c: &Connection, bot: &Bot, splits: &mut SplitRows) -> Result
     Ok(r)
 }
 
-/// A price rule (slice 7a) runs with the `pause` action and values Rails compares; its flip actions are slice 7c. A flag
-/// set to anything but `true` (which Rails reads as off) is refused, as every flag outside the slice.
-fn price_rule_reason(bot: &Bot, key: &str, value: &Value) -> Option<String> {
+/// A rule's switch that is set (`key`, `value`), by what this build does with it on the bot's kind (conditions::support):
+/// inapplicable is inert (an index bot's sell side and flips, a signal bot's flips); not implemented is refused by name, a flip
+/// action naming its slice; implemented runs with the `pause` action and values Rails compares. A trigger switch set to
+/// anything but `true` (which Rails reads as off) is refused, as every flag outside the slice. The cap's own checks follow.
+fn rule_reason(bot: &Bot, key: &str, value: &Value, rule: Rule, selling: bool) -> Option<String> {
+    let support = bot.support(rule, selling);
+    if support == Support::Inapplicable { return None; }
+    if rule == Rule::Cap { return (support == Support::NotImplemented).then(|| key.to_string()); }
     if value != &Value::Bool(true) { return Some(key.to_string()); }
-    match bot.price_rule(key == "sell_price_limited") {
-        Err(e) => Some(e),
-        Ok(Some(rule)) if rule.action != "pause" => Some(format!("{key} with the {} action (the flip actions come with slice 7c)", rule.action)),
-        Ok(_) => None,
+    let action = conditions::action(&bot.settings, key.strip_suffix("ed").unwrap_or(key));
+    match support {
+        Support::NotImplemented if rule == Rule::Price && action != "pause" => Some(format!("{key} with the {action} action (the flip actions come with slice 7c)")),
+        Support::NotImplemented => Some(key.to_string()),
+        _ => bot.price_rule(selling).err(),
     }
 }
 
@@ -236,6 +241,13 @@ fn signal_reasons(c: &Connection, bot: &Bot, splits: &mut SplitRows, r: &mut Vec
     };
     if let Err(e) = model::signals(c, bot.id) { r.push(format!("a signal rule this build does not read ({e:?})")); }
     if let Err(e) = bot.signal_calls() { r.push(format!("{e:?}")); }
+    // The same rule set as every kind: what this build does not run on a signal bot is refused by name.
+    if let Some(obj) = bot.settings.as_object() {
+        for (k, v) in obj {
+            if !set(v) { continue; }
+            if let Some((rule, selling)) = Rule::of_flag(k) { r.extend(rule_reason(bot, k, v, rule, selling)); }
+        }
+    }
     // The wash-sale rule is enforced by the legs themselves (engine::wash), so it is no reason.
     if c.query_row("SELECT 1 FROM users WHERE id = ?1", [bot.user_id], |_| Ok(())).optional()?.is_none() { r.push("user not found".into()); }
     history_reasons(c, bot, alpaca, &[base], splits, r)?;

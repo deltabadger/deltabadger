@@ -830,8 +830,9 @@ mod action_write {
     }
 
     #[test]
-    fn action_write_carry_ignores_an_index_bots_stray_conditions() -> Result {
-        // Bots::DcaIndex has no trigger rule concerns: its carry reads the same with or without a stray switch and met_at.
+    fn action_write_carry_reads_an_index_bots_price_rule() -> Result {
+        // D-IDX-CONDITIONS (reverses #742): an index bot's buy-side price rule decorates its carry window as a basket's does; its
+        // flip action and its sell side have nothing to act on there and leave the carry as an unflagged bot's.
         let pending=|settings:Value,transient:Value| -> std::result::Result<String,String> {
             let f=Fixture::new().map_err(|e| e.to_string())?;
             let mut stored=f.stored().map_err(|e| e.to_string())?;
@@ -845,18 +846,19 @@ mod action_write {
         };
         let plain=pending(json!({}),json!({}))?;
         assert_ne!(plain,"0","the unflagged index bot owes something");
+        assert_eq!(pending(json!({"price_limited":true}),json!({}))?,"0","unmet: the decorated started_at is nil, nothing owed");
         for (name,settings,transient) in [
-            ("paused",json!({"price_limited":true}),json!({})),
-            ("resumed",json!({"price_limited":true}),json!({"price_limit_condition_met_at":"2026-09-10T11:30:00Z"})),
-            ("every rule",json!({"price_limited":true,"price_drop_limited":true,"moving_average_limited":true,"indicator_limited":true}),json!({"indicator_limit_condition_met_at":"2026-09-10T11:59:00Z"})),
+            ("flip",json!({"price_limited":true,"price_limit_action":"start_selling"}),json!({})),
+            ("sell side",json!({"sell_price_limited":true,"sell_price_drop_limited":true}),json!({})),
+            ("met before the start",json!({"price_limited":true}),json!({"price_limit_condition_met_at":"2026-09-01T00:00:00Z"})),
         ] { assert_eq!(pending(settings,transient)?,plain,"{name}"); }
         Ok(())
     }
 
     #[test]
-    fn action_write_carry_ignores_an_index_bots_stored_spending_cap() -> Result {
-        // Bots::DcaIndex does not include Bot::QuoteAmountLimitable: the cap is never read, so the carry, the cap figure and
-        // the page refusal are those of an unflagged index bot, even for a cap far below what the quote states.
+    fn action_write_carry_caps_an_index_bot_by_its_spending_cap() -> Result {
+        // D-IDX-CAP (reverses #752): the cap, its figure and the page refusal of a cap below the quote's smallest amount are an
+        // index bot's as a basket's.
         let read=|settings:Value| -> std::result::Result<(String,bool,Option<&'static str>),String> {
             let f=Fixture::new().map_err(|e| e.to_string())?;
             let mut stored=f.stored().map_err(|e| e.to_string())?;
@@ -872,8 +874,12 @@ mod action_write {
         };
         let plain=read(json!({"quote_amount_limited":false}))?;
         assert_ne!(plain.0,"0","the unflagged index bot owes something");
+        assert!(plain.0.parse::<f64>().map_err(|e| e.to_string())? > 1.0, "{}", plain.0);
         assert_eq!((plain.1,plain.2),(false,None));
-        for cap in [json!(1.0),json!(0.000001)] { assert_eq!(read(json!({"quote_amount_limited":true,"quote_amount_limit":cap}))?,plain,"cap {cap}"); }
+        let one=read(json!({"quote_amount_limited":true,"quote_amount_limit":1.0}))?;
+        assert_eq!((one.0.parse::<f64>().map_err(|e| e.to_string())?,one.1,one.2),(1.0,true,None),"the carry is cut to the cap");
+        let tiny=read(json!({"quote_amount_limited":true,"quote_amount_limit":0.000001}))?;
+        assert_eq!((tiny.1,tiny.2),(true,Some("a spending cap below the smallest amount its quote states")));
         Ok(())
     }
 
