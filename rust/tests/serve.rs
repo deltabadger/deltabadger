@@ -1842,6 +1842,13 @@ fn a_bot_row_is_read_as_the_pages_need_it_and_refused_when_this_build_cannot_ren
     rebalancing["allocations"] = json!({ first: 0.5, "999": 0.5 });
     store(&rebalancing);
     assert_eq!(bot::refusal(c, id, Some(false), true, bot::For::Page).unwrap(), Some(bot::REBALANCE_WITHOUT_FIGURES));
+    // Bot#sell_capable? counts the rule: the wash-sale question is owed before anything is held, by the page and the forms
+    // (Start among them).
+    c.execute_batch("SAVEPOINT unheld; DELETE FROM transactions;").unwrap();
+    for asked in [bot::For::Page, bot::For::FiguresPage, bot::For::Settings] {
+        assert_eq!(bot::refusal(c, id, None, true, asked).unwrap(), Some("the wash-sale question not answered yet"));
+    }
+    c.execute_batch("ROLLBACK TO unheld; RELEASE unheld;").unwrap();
     assert_eq!(bot::refusal(c, id, Some(false), true, bot::For::FiguresPage).unwrap(), None);
     assert_eq!(bot::refusal(c, id, Some(false), true, bot::For::Settings).unwrap(), None);
     store(&settings);

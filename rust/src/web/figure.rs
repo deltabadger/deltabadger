@@ -98,6 +98,18 @@ pub(crate) fn rebalance_note(c: &Connection, id: i64, locale: &str) -> Result<Op
     let on = !class.as_deref().is_some_and(pair::is_pair) && crate::web::bot::cast_boolean(settings.get("rebalance_enabled"));
     Ok(on.then(|| crate::web::bot::settings::rebalance_info(locale, false, None, None, false)))
 }
+/// What a kept drift was measured on besides the figures' own rows: the venue, the composition (its members, their targets
+/// and weights), a pending swap and the user's wash-sale locks, as one hash.
+pub(crate) fn rebalance_inputs(c: &Connection, bot: i64) -> Result<String, FiguresError> {
+    use std::hash::{Hash, Hasher};
+    let inputs: Option<String> = c.query_row("SELECT json_array(b.exchange_id, CASE WHEN json_valid(b.settings) THEN json_array(json_extract(b.settings,'$.allocations'),json_extract(b.settings,'$.weighting')) END, \
+        CASE WHEN json_valid(b.transient_data) THEN json_extract(b.transient_data,'$.rebalance_pending') END, \
+        (SELECT json_group_array(json_array(asset_id,ticker_id,in_index,target_allocation)) FROM (SELECT * FROM bot_index_assets WHERE bot_id=b.id ORDER BY rowid)), \
+        (SELECT json_group_array(json_array(asset_id,buy_locked_until)) FROM (SELECT * FROM wash_sale_locks WHERE user_id=b.user_id ORDER BY rowid))) FROM bots b WHERE b.id=?1", [bot], |r| r.get(0))?;
+    let mut hash = std::hash::DefaultHasher::new();
+    inputs.hash(&mut hash);
+    Ok(hash.finish().to_string())
+}
 /// Bot::Rebalanceable#rebalance_drift over the live figures (metrics_with_current_prices), and while the rule is on its
 /// fragment (bots/settings/_rebalance_info): (the fragment, the drift as kept for a settings save that moves the rule).
 /// Bots::DcaMultiAsset#rebalance_targets: an unbalanced basket with no swap pending reads none; the members the user's
@@ -110,13 +122,18 @@ fn rebalance(c: &Connection, s: &Subject, m: &Metrics, locale: &str, now: At) ->
     let drift = (|| -> Result<Option<crate::ruby::BigDec>, FiguresError> {
         if !rebalance::is_pending(&bot.transient) && !eligibility::allocations_balanced(&bot) { return Ok(None); }
         let members = rebalance::members(c, &bot, s).map_err(engine)?;
+        // Its arithmetic is the figures': each member is a step of the page's budget.
+        budget::charge(members.len() as u64, 0)?;
         let known = members.iter().map(|member| member.asset_id).collect();
         let locked: Vec<i64> = holdings::live_locks(c, s.bot.user_id, &known, now)?.into_iter().map(|(id, ..)| id).collect();
-        Ok(rebalance::drift(rebalance::composition_targets(m, &members, &locked).map_err(engine)?.as_deref()))
+        let drift = rebalance::drift(rebalance::composition_targets(m, &members, &locked).map_err(engine)?.as_deref());
+        budget::check()?;
+        Ok(drift)
     })();
     // Read for a rule that is off only so that turning it on can show it: what Rails would not read then refuses nothing.
     let drift = match drift { Err(FiguresError::Data(_)) if !on => None, other => other? };
-    let kept = drift.as_ref().map_or(Value::Null, |d| Value::String(d.to_s_f()));
+    // Kept with what it was measured on, so that a save after any of it changed reads it as gone (`loading::kept_drift`).
+    let kept = json!([drift.as_ref().map(crate::ruby::BigDec::to_s_f), rebalance_inputs(c, s.bot.id)?]);
     if !on { return Ok((None, kept)); }
     let ambiguous = bot.transient[rebalance::PENDING_KEY]["phase"] == rebalance::PHASE_AMBIGUOUS;
     let threshold = rebalance::threshold(&bot.settings).map_err(engine)?;

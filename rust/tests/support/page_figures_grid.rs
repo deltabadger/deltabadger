@@ -1212,7 +1212,11 @@ async fn rule_saves(name: &str, dir: &Path, sc: &Value, now: At) {
         rusqlite::Connection::open(&file).unwrap().execute_batch(&format!("DELETE FROM transactions WHERE bot_id<>{id}; DELETE FROM bot_index_assets WHERE bot_id<>{id}; \
             DELETE FROM bot_activity_logs WHERE bot_id<>{id}; DELETE FROM bots WHERE id<>{id};")).unwrap();
         (id,"DcaIndex".into(),"bots_dca_index")
-    } else { (1,"DcaMultiAsset".into(),"bots_dca_multi_asset") };
+    } else {
+        // Stopped, so that its weights may be saved.
+        rusqlite::Connection::open(&file).unwrap().execute("UPDATE bots SET status=2 WHERE id=1",[]).unwrap();
+        (1,"DcaMultiAsset".into(),"bots_dca_multi_asset")
+    };
     let env=common::web::env(common::web::SECRET);
     let open=||App::new(Config::from_env(&env).unwrap(),&env,rusqlite::Connection::open(&file).unwrap(),common::web::TestClock::at(sc["at"].as_str().unwrap()))
         .unwrap().with_figure_source(Source::Script(sc["script"].clone())).unwrap();
@@ -1235,11 +1239,28 @@ async fn rule_saves(name: &str, dir: &Path, sc: &Value, now: At) {
     let off=save_rule(name,&mut browser,&app,id,key,"rebalance_enabled","0").await;
     assert!(!off.contains("settings-rebalance-info"),"{name}: the rule off reads no drift");
     let on=save_rule(name,&mut browser,&app,id,key,"rebalance_enabled","1").await;
-    let (_,words)=readout(&on).unwrap_or_else(|| panic!("{name}: turning the rule on on a warm page shows no drift: {on}"));
+    let (_,mut words)=readout(&on).unwrap_or_else(|| panic!("{name}: turning the rule on on a warm page shows no drift: {on}"));
     let high=save_rule(name,&mut browser,&app,id,key,"rebalance_threshold","100").await;
     assert_eq!(readout(&high),Some((false,words.clone())),"{name}: a threshold above the drift");
     let low=save_rule(name,&mut browser,&app,id,key,"rebalance_threshold","0.01").await;
     assert_eq!(readout(&low),Some((true,words.clone())),"{name}: a threshold under the drift");
+    if name != "owner_account" {
+        // The composition moved while the figures stay kept: a threshold saved before another fill reads no drift kept for
+        // the old weights; it answers the note, and the readout of the new weights follows.
+        let keys:Vec<String>=rusqlite::Connection::open(&file).unwrap().query_row("SELECT settings FROM bots WHERE id=?1",[id],|r|r.get::<_,String>(0))
+            .map(|settings|serde_json::from_str::<Value>(&settings).unwrap()["allocations"].as_object().unwrap().keys().cloned().collect()).unwrap();
+        let (first,second)=(format!("allocations][{}",keys[0]),format!("allocations][{}",keys[1]));
+        save_fields(name,&mut browser,&app,id,key,&[(first.as_str(),"50"),(second.as_str(),"50")]).await;
+        tokio::time::timeout(Duration::from_secs(30),async { while app.figure_service.panels_pending()>0 { tokio::time::sleep(Duration::from_millis(5)).await; } }).await.unwrap();
+        let mut cable=Cable::open(&app,browser.cookie.as_deref().unwrap(),&[page_stream.clone()].into()).await;
+        let moved=save_rule(name,&mut browser,&app,id,key,"rebalance_threshold","100").await;
+        assert!(moved.contains("settings-rebalance-info") && readout(&moved).is_none(),"{name}: a drift kept for the old weights is shown: {moved}");
+        let wanted:BTreeSet<(String,String)>=[(page_stream.clone(),"settings-rebalance-info".to_string())].into();
+        let got=cable.until(&wanted).await;
+        let (_,now_words)=readout(got.get(&(page_stream.clone(),"settings-rebalance-info".to_string())).expect("no readout followed")).expect("a readout");
+        assert_ne!(now_words,words,"{name}: the readout that follows reads the new weights");
+        words=now_words;
+    }
     drop(app);
     // Cold: nothing kept; the answer is the note, and the readout follows with the new threshold.
     let app=open();
@@ -1258,8 +1279,13 @@ async fn rule_saves(name: &str, dir: &Path, sc: &Value, now: At) {
 
 /// One rule field saved as the page's form submits it (Turbo, the page's token), answered 200.
 async fn save_rule(name: &str, browser: &mut common::web::Browser, app: &deltabadger::web::App, id: i64, key: &str, field: &str, value: &str) -> String {
-    let field_name = format!("{key}[{field}]");
-    let form = [("_method", "patch"), (field_name.as_str(), value)];
+    save_fields(name, browser, app, id, key, &[(field, value)]).await
+}
+async fn save_fields(name: &str, browser: &mut common::web::Browser, app: &deltabadger::web::App, id: i64, key: &str, fields: &[(&str, &str)]) -> String {
+    let (field, value) = (fields[0].0, fields[0].1);
+    let names: Vec<String> = fields.iter().map(|(field, _)| format!("{key}[{field}]")).collect();
+    let mut form = vec![("_method", "patch")];
+    form.extend(names.iter().zip(fields).map(|(name, (_, value))| (name.as_str(), *value)));
     let answer = browser.send(app, "POST", &format!("/bots/{id}"), Some(&form), common::web::Csrf::Header,
                               &[("accept", "text/vnd.turbo-stream.html, text/html, application/xhtml+xml")]).await;
     assert_eq!(answer.status, 200, "{name}: {field}={value}: {}", &answer.body[answer.body.len().saturating_sub(1500)..]);

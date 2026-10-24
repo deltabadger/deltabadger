@@ -573,7 +573,10 @@ pub(crate) fn kept_drift(c:&Connection,app:&App,user:i64,bot:i64,locale:&str,pre
     let info=read_info(c,app,user).ok()?;
     let (cache,_,revision)=app.figure_service.stale(user,&info.identity,app.now().timestamp())?;
     let kept=cache.kept(&kept_key(revision,cache.stamp()?,locale,prefix))?;
-    match kept["figures"]["bots"][bot.to_string()].get("rebalance_drift")? {
+    // [the drift or null, what it was measured on]: kept for another composition, venue or lock, it is no drift of this bot.
+    let kept=kept["figures"]["bots"][bot.to_string()].get("rebalance_drift")?;
+    if kept[1].as_str()!=Some(super::rebalance_inputs(c,bot).ok()?.as_str()) { return None; }
+    match &kept[0] {
         Value::String(drift)=>crate::ruby::BigDec::parse(drift).ok().map(Some),
         _=>Some(None),
     }

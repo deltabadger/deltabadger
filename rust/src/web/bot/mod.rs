@@ -523,8 +523,10 @@ pub fn refusal(c: &Connection, bot_id: i64, wash_sale_enabled: Option<bool>, pro
 }
 
 /// Bot#sell_capable? without the holdings: a basket that sells, or one a condition would flip to selling (`armed_to_start_selling?`).
+/// Bot::Rebalanceable#rebalance_enabled? counts too: both composition types include it, and a rebalance sells.
 fn sell_capable(class: &str, settings: &Value) -> bool {
-    class == "Bots::DcaMultiAsset" && (settings.get("direction").and_then(Value::as_str) == Some("selling")
+    (matches!(class, "Bots::DcaMultiAsset" | "Bots::DcaIndex") && cast_boolean(settings.get("rebalance_enabled")))
+    || class == "Bots::DcaMultiAsset" && (settings.get("direction").and_then(Value::as_str) == Some("selling")
         || settings.as_object().is_some_and(|s| s.iter().any(|(key, value)| value.as_str() == Some("start_selling")
             && key.strip_suffix("_limit_action").is_some_and(|rule| cast_boolean(s.get(&format!("{rule}_limited")))))))
 }
