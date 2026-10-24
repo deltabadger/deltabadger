@@ -313,3 +313,87 @@ async fn snapshot_sources_with_null_evidence_and_rows_are_refused() {
     assert_eq!(rec(&d, reference::STOCKS), (None, None, None, false));
     assert_eq!(rec(&d, reference::STOCK_ASSETS_FEED), (Some(1), None, Some(at(T1)), true), "the source with evidence still imports");
 }
+
+/// The legacy-row fixture: an `alpaca_<uuid>` stock whose canonical the bundle's stock assets name.
+fn legacy(d: &tempfile::TempDir) -> i64 {
+    let c = primary(d);
+    c.execute("INSERT INTO assets (external_id, symbol, name, category, created_at, updated_at) VALUES ('alpaca_0b5c', 'AAA0', 'Company 0', 'Stock', '2026-01-01', '2026-01-01')", []).unwrap();
+    c.last_insert_rowid()
+}
+fn legacy_state(d: &tempfile::TempDir, id: i64) -> (String, bool) {
+    let c = primary(d);
+    (c.query_row("SELECT external_id FROM assets WHERE id = ?1", [id], |r| r.get(0)).unwrap(),
+     deltabadger::app_config::get(&c, &seed::cipher(), "stock_canonical_backfill_completed_at").unwrap().is_some())
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn the_legacy_backfill_waits_for_a_stock_assets_payload_that_takes_the_fence() {
+    // No evidence (null generated_at): nothing is rewritten and no completion flag is set.
+    let (d, _, _) = install();
+    let id = legacy(&d);
+    let [mut assets, listings] = stocks(1, T1);
+    assets.1["metadata"]["generated_at"] = Value::Null; // rows without evidence: refused by validation
+    bundle(&d, &snapshot(&[assets, listings]));
+    let st = run(&d, reference::BOOTSTRAP, &OFF, &Remote::default(), RUN).await;
+    assert!(st.last_error.as_deref().is_some_and(|m| m.contains("rows without evidence")), "{st:?}");
+    assert_eq!(legacy_state(&d, id), ("alpaca_0b5c".into(), false));
+    // An older revision than the one imported: nothing either.
+    let (d, _, _) = install();
+    let [assets, listings] = stocks(2, T2);
+    bundle(&d, &snapshot(&[assets, listings]));
+    run(&d, reference::BOOTSTRAP, &OFF, &Remote::default(), RUN).await;
+    assert_eq!(rec(&d, reference::STOCK_ASSETS_FEED).0, Some(2));
+    primary(&d).execute("DELETE FROM app_configs WHERE key = 'stock_canonical_backfill_completed_at'", []).unwrap();
+    let older = legacy(&d);
+    let [assets, listings] = stocks(1, T1);
+    bundle(&d, &snapshot(&[assets, listings]));
+    run(&d, reference::BOOTSTRAP, &OFF, &Remote::default(), &later(RUN, 1)).await;
+    assert_eq!(legacy_state(&d, older), ("alpaca_0b5c".into(), false));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn an_alpaca_listing_whose_asset_is_missing_leaves_a_partial_revision_that_the_same_revision_completes() {
+    let (d, alpaca, _) = install();
+    let (name, mut feed) = crypto(1, T1);
+    let rows = feed["data"].as_array_mut().unwrap();
+    let mut late = rows[1].clone();
+    for k in ["symbol", "native_symbol"] { late[k] = json!("LATE/USD"); }
+    late["listing_id"] = json!("alpaca_crypto:LATE/USD");
+    late["base_asset_id"] = json!("crypto:late");
+    rows.push(late);
+    feed["metadata"]["count"] = json!(31);
+    let gz = snapshot(&[(name, feed)]);
+    bundle(&d, &gz);
+    assert_eq!(run(&d, reference::BOOTSTRAP, &OFF, &Remote::default(), RUN).await.last_error, None);
+    let st = state::read(&primary(&d), reference::ALPACA_CRYPTO, None).unwrap();
+    assert_eq!((st.revision, st.partial), (Some(1), true));
+    let pairs = |d: &tempfile::TempDir| count(d, &format!("SELECT count(*) FROM tickers WHERE exchange_id = {} AND available = 1", alpaca.exchange_id));
+    assert_eq!(pairs(&d), 30);
+    // A ticker the payload lacks is kept: no sweep from a partial import.
+    primary(&d).execute("INSERT INTO assets (external_id, symbol, name, category, created_at, updated_at) VALUES ('late', 'LATE', 'Late', 'Cryptocurrency', '2026-01-01', '2026-01-01')", []).unwrap();
+    assert_eq!(run(&d, reference::BOOTSTRAP, &OFF, &Remote::default(), &later(RUN, 1)).await.last_error, None);
+    let st = state::read(&primary(&d), reference::ALPACA_CRYPTO, None).unwrap();
+    assert_eq!((st.revision, st.partial), (Some(1), false), "the same revision imports again once the asset exists");
+    assert_eq!(pairs(&d), 31);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn after_a_handback_a_rails_refresh_counts_for_a_catalogue_fed_source() {
+    let (d, alpaca, _) = install();
+    let old = (at(RUN) - Duration::days(40)).to_rfc3339();
+    bundle(&d, &snapshot(&[crypto(1, &old)]));
+    run(&d, reference::BOOTSTRAP, &OFF, &Remote::default(), RUN).await;
+    let c = primary(&d);
+    let bot = model::load_bot(&c, seed::insert_bot(&c, &alpaca, &BotSpec::weekly(60.0, "2026-10-01 10:00:00"))).unwrap();
+    let now = at(RUN) + Duration::days(2);
+    assert!(matches!(staleness::verdict(&c, &bot, now).unwrap(), staleness::Verdict::Stale(_)), "40-day-old evidence");
+    // Handed back to Rails a day later; Rails' crypto sync refreshes the catalogue; the engine takes the install over again.
+    let (back, refreshed, taken) = (at(RUN) + Duration::days(1), at(RUN) + Duration::days(1) + Duration::hours(1), at(RUN) + Duration::days(2));
+    for (k, t) in [(staleness::HANDED_BACK_AT, back), (staleness::TAKEN_OVER_AT, taken)] {
+        deltabadger::app_config::set_plain(&c, k, &t.to_rfc3339(), t).unwrap();
+    }
+    c.execute("UPDATE exchange_assets SET updated_at = ?1 WHERE exchange_id = ?2", rusqlite::params![deltabadger::codec::format_time(refreshed), alpaca.exchange_id]).unwrap();
+    assert!(matches!(staleness::verdict(&c, &bot, now).unwrap(), staleness::Verdict::Fresh), "Rails' refresh in its window counts");
+    let line = staleness::report(&c, now).unwrap().into_iter().find(|l| l.starts_with("Alpaca crypto tickers")).unwrap();
+    assert!(!line.contains("STALE") && line.contains("49h bound"), "{line}");
+}

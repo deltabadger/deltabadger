@@ -152,13 +152,13 @@ fn column_at(c: &Connection, s: &Source, exchange_id: Option<i64>) -> Result<Opt
 /// (`incomplete_since`, set before an import's first unit, cleared with its success); otherwise only a stamp Rails made
 /// inside its last ownership window: after the last handback and, once this engine has taken the install over again, not
 /// after that takeover. Without a handback stamp: None, freshness is the record alone.
-/// A catalogue-fed source's columns measure only when its import ran, never its evidence: not read.
+/// A catalogue-fed source's own imports stamp the column with when they ran, never with their evidence: there, as for an
+/// incomplete import, only a Rails refresh inside Rails' last ownership window counts.
 fn trusted_column(c: &Connection, s: &Source, exchange_id: Option<i64>) -> Result<Option<Clock>, EngineError> {
     let record = crate::jobs::state::find(c, s.job, None).map_err(EngineError::Data)?;
-    if record.as_ref().is_some_and(|st| st.catalogue) { return Ok(None); }
     let at = column_at(c, s, exchange_id)?;
     let clock = |at: Option<DateTime<Utc>>| at.map(|at| (at, s.max_age_secs));
-    if record.is_none_or(|st| st.incomplete_since.is_none()) { return Ok(clock(at)); }
+    if record.is_none_or(|st| st.incomplete_since.is_none() && !st.catalogue) { return Ok(clock(at)); }
     let Some(back) = crate::lease::plain_at(c, HANDED_BACK_AT)? else { return Ok(None) };
     let taken = crate::lease::plain_at(c, TAKEN_OVER_AT)?.filter(|t| *t > back); // older: Rails owns the install now
     Ok(clock(at.filter(|a| *a > back && taken.is_none_or(|t| *a <= t))))

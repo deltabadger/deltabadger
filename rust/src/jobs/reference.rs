@@ -307,20 +307,22 @@ async fn alpaca_crypto<T: Transport>(feeds: &Feeds<'_, T>, cx: &Cx<'_>) -> Outco
         let last_good = app_config::get(c, cipher, ALPACA_CRYPTO_LAST_GOOD)?;
         if crypto_degraded(resolved, last_good.as_deref()) { return Ok(Err(degraded(resolved, rows.len(), last_good.as_deref()))); }
         let mut plan = import::plan_tickers(c, alpaca, &tickers, Some("Cryptocurrency"))?;
-        if rev.is_some_and(|r| !r.complete) { plan.sweep.clear(); } // an incomplete revision is no delisting
+        // A catalogue revision with a listing whose asset is not here yet is partial: no sweep, imported again.
+        let partial = rev.is_some() && (resolved as usize) < bases.len();
+        if rev.is_some_and(|r| !r.complete) || partial { plan.sweep.clear(); } // an incomplete revision is no delisting
         let written = plan.written.len() as i64;
         let insufficient = crypto_degraded(written, last_good.as_deref())
             .then(|| format!("degraded ticker import: {written} written from {resolved} resolved assets (last good {}); ticker freshness kept", last_good.as_deref().unwrap_or("none")));
-        Ok(Ok((alpaca, resolved, plan, insufficient)))
+        Ok(Ok((alpaca, resolved, plan, insufficient, partial)))
     }).await;
-    let (alpaca, resolved, plan, insufficient) = match step { Ok(Ok(x)) => x, Ok(Err(out)) => return out, Err(m) => return Outcome::Failed(m) };
+    let (alpaca, resolved, plan, insufficient, partial) = match step { Ok(Ok(x)) => x, Ok(Err(out)) => return out, Err(m) => return Outcome::Failed(m) };
     if let Err(m) = incomplete(cx, ALPACA_CRYPTO, now).await { return Outcome::Failed(m); }
     if let Err(m) = import::publish_tickers_fenced(&cx.db, alpaca, plan, now, rev.map(Rev::fence)).await { return fenced(m); }
     // Exchange assets may have refreshed, but only enough actually written tickers can renew ticker freshness.
     if let Some(m) = insufficient { return Outcome::Failed(m); }
     // Ratcheted only after the sweep.
     if let Err(m) = cx.db.run(move |c, cipher| app_config::set(c, cipher, ALPACA_CRYPTO_LAST_GOOD, &resolved.to_string(), now)).await { return Outcome::Failed(m); }
-    finished(cx, rev, false).await
+    finished(cx, rev, partial).await
 }
 
 /// One IBKR feed body (data-api C2): its metadata and rows, checked before anything is written. A row must be an
@@ -824,6 +826,24 @@ fn backfill(c: &Connection, cipher: &crate::crypto::Cipher, body: &Value, now: D
     Ok(rewritten)
 }
 
+/// The backfill in one unit, first checking `fence` when given.
+async fn backfill_unit(cx: &Cx<'_>, body: Value, fence: Option<import::Fence>) -> Result<(), String> {
+    let now = cx.clock.now();
+    cx.db.run(move |c, cipher| import::in_transaction(c, cipher, "stock backfill", |c| {
+        if let Some(f) = fence { f.check(c)?; }
+        backfill(c, cipher, &body, now).map(|ids| ((), import::Touched::Assets(ids)))
+    })).await
+}
+
+/// The sync is gated on the flag (sync_stocks_from_deltabadger_job.rb:62-64); Rails returns quietly.
+async fn backfill_gate(cx: &Cx<'_>) -> Option<Outcome> {
+    match cx.db.run(flag_unset).await {
+        Ok(false) => None,
+        Ok(true) => Some(Outcome::Failed("legacy alpaca_<uuid> stock assets and no completed canonical backfill (data-api gave no alpaca identifiers); stock sync skipped".into())),
+        Err(m) => Some(Outcome::Failed(m)),
+    }
+}
+
 /// Asset::SyncStocksFromDeltabadgerJob#perform, the jitter split out to the scheduler (Spec.jitter): the switch, the
 /// backfill's no-op case, the stock assets, then the Alpaca listings.
 async fn stocks<T: Transport>(feeds: &Feeds<'_, T>, cx: &Cx<'_>) -> Outcome {
@@ -841,28 +861,29 @@ async fn stocks<T: Transport>(feeds: &Feeds<'_, T>, cx: &Cx<'_>) -> Outcome {
         Ok(Ok(legacy > 0))
     }).await;
     let legacy = match gate { Ok(Ok(l)) => l, Ok(Err(m)) | Err(m) => return Outcome::Failed(m) };
-    if legacy {
+    if legacy && !feeds.catalogue() {
         // The backfill's own fetch (:746-753): a 429 or a network failure raises out of the job; any other failure leaves
         // the flag as it is.
         match feeds.get(STOCK_ASSETS).await {
             Err(e) if e.rate_limited() || matches!(e, ApiError::Transient(_)) => return api_failure(e),
             Err(_) => {}
-            Ok(body) => if let Err(m) = cx.db.run(move |c, cipher| import::in_transaction(c, cipher, "stock backfill", |c| {
-                backfill(c, cipher, &body, now).map(|ids| ((), import::Touched::Assets(ids)))
-            })).await { return Outcome::Failed(m); },
+            Ok(body) => if let Err(m) = backfill_unit(cx, body, None).await { return Outcome::Failed(m); },
         }
-        // The sync is gated on the flag (sync_stocks_from_deltabadger_job.rb:62-64); Rails returns quietly.
-        match cx.db.run(flag_unset).await {
-            Ok(false) => {}
-            Ok(true) => return Outcome::Failed("legacy alpaca_<uuid> stock assets and no completed canonical backfill (data-api gave no alpaca identifiers); stock sync skipped".into()),
-            Err(m) => return Outcome::Failed(m),
-        }
+        if let Some(out) = backfill_gate(cx).await { return out; }
     }
 
     // sync_stocks_from_deltabadger! (:428-463). A failure skips the listings (sync_stocks_from_deltabadger_job.rb:66-73).
     let body = match feeds.get(STOCK_ASSETS).await { Ok(b) => b, Err(e) => return api_failure(e) };
     // A catalogue source already at this revision (or without evidence) imports nothing; the listings still go on.
     let assets = match admit(feeds, cx, STOCK_ASSETS_FEED, &body).await { Ok(rev) => Some(rev), Err(Outcome::Failed(m)) => return Outcome::Failed(m), Err(_) => None };
+    if legacy && feeds.catalogue() {
+        // From the catalogue the backfill reads only a payload that passed validation and holds the fence: one without
+        // evidence, or older than the import, rewrites nothing and sets no flag.
+        if let Some(Some(rev)) = assets {
+            if let Err(m) = backfill_unit(cx, body.clone(), Some(rev.fence())).await { return fenced(m); }
+        }
+        if let Some(out) = backfill_gate(cx).await { return out; }
+    }
     if let Some(rev) = assets {
         let url = feeds.public_url();
         let rows = match cx.db.run(move |_, _| Ok(import::plan_stock_assets(&take_list(body), &url))).await { Ok(r) => r, Err(m) => return Outcome::Failed(m) };
@@ -890,13 +911,16 @@ async fn stocks<T: Transport>(feeds: &Feeds<'_, T>, cx: &Cx<'_>) -> Outcome {
         let mut plan = import::plan_tickers(c, alpaca, &listings, Some("Stock"))?;
         // The sweep never marks a legacy stock ticker unavailable (:572-576).
         plan.sweep.retain(|id| !ids.contains(id));
-        if rev.is_some_and(|r| !r.complete) { plan.sweep.clear(); } // an incomplete revision is no delisting
-        Ok(Ok((alpaca, resolved, plan)))
+        let mut bases: Vec<String> = vec![];
+        for b in listings.iter().filter_map(|l| l["base_external_id"].as_str()) { if !bases.iter().any(|x| x == b) { bases.push(b.into()); } }
+        let partial = rev.is_some() && (import::count_assets(c, &bases)? as usize) < bases.len();
+        if rev.is_some_and(|r| !r.complete) || partial { plan.sweep.clear(); } // an incomplete revision is no delisting
+        Ok(Ok((alpaca, resolved, plan, partial)))
     }).await;
-    let (alpaca, resolved, plan) = match step { Ok(Ok(x)) => x, Ok(Err(out)) => return out, Err(m) => return Outcome::Failed(m) };
+    let (alpaca, resolved, plan, partial) = match step { Ok(Ok(x)) => x, Ok(Err(out)) => return out, Err(m) => return Outcome::Failed(m) };
     if let Err(m) = import::publish_tickers_fenced(&cx.db, alpaca, plan, now, rev.map(Rev::fence)).await { return fenced(m); }
     if let Err(m) = cx.db.run(move |c, cipher| app_config::set(c, cipher, ALPACA_LISTINGS_LAST_GOOD, &resolved.to_string(), now)).await { return Outcome::Failed(m); }
-    finished(cx, rev, false).await
+    finished(cx, rev, partial).await
 }
 
 /// BotActivityLog::PruneJob: `where('created_at < ?', 90.days.ago).delete_all`, in units of CHUNK rows (a backlog after
