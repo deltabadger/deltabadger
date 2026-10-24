@@ -10,6 +10,7 @@
 //! Rails harness records (AddOrder params minus nonce).
 use super::http::{self, DecodeError, HttpRequest, Transport, TransportError};
 use super::{NewOrder, OrderKind, OrderState, OrderStatus, PriceSide, Venue, VenueError};
+use crate::engine::candles::{self, Candle, Timeframe};
 use crate::engine::model::Ticker;
 use crate::engine::venue_rules::{VenueRules, KRAKEN};
 use crate::ruby::BigDec;
@@ -209,6 +210,44 @@ pub(crate) fn last_price(data: &Value) -> Result<Option<BigDec>, VenueError> {
 pub const TICKER: &str = "/0/public/Ticker";
 /// Clients::Kraken#get_ohlc_data's path.
 pub const OHLC: &str = "/0/public/OHLC";
+/// Exchanges::Kraken#get_candles' OHLC interval (minutes) for each timeframe. 3 days, 1 week and 1 month have none that
+/// follows TradingView's start, so they are read daily and built (`builds`).
+pub const OHLC_INTERVALS: [(Timeframe, &str); 10] = [(Timeframe::Minute, "1"), (Timeframe::FiveMinutes, "5"), (Timeframe::FifteenMinutes, "15"),
+    (Timeframe::ThirtyMinutes, "30"), (Timeframe::Hour, "60"), (Timeframe::FourHours, "240"), (Timeframe::Day, "1440"),
+    (Timeframe::ThreeDays, "1440"), (Timeframe::Week, "1440"), (Timeframe::Month, "1440")];
+/// The timeframes Rails builds from daily candles (CandleBuilder).
+pub fn builds(timeframe: Timeframe) -> bool { matches!(timeframe, Timeframe::ThreeDays | Timeframe::Week | Timeframe::Month) }
+pub fn ohlc_interval(timeframe: Timeframe) -> &'static str {
+    OHLC_INTERVALS.iter().find(|(t, _)| *t == timeframe).map(|(_, i)| *i).expect("every timeframe has an interval")
+}
+/// Clients::Kraken#get_ohlc_data: one public OHLC read of `pair` at `interval` since `since` (seconds). Kraken answers
+/// with at most its 720 most recent candles whatever `since` says; nothing pages.
+pub fn ohlc_request(base: &str, pair: &str, interval: &str, since: i64) -> HttpRequest {
+    HttpRequest { method: "GET", base: base.into(), path: OHLC.into(), body: None, not_after: None,
+                  query: vec![("interval", interval.into()), ("pair", pair.into()), ("since", since.to_string())] }
+}
+/// The rows of an OHLC answer as Exchanges::Kraken#get_candles walks them, each with its time in whole seconds: a missing
+/// or null `error` is dig_or_raise's KeyError, a non-empty one the venue's refusal; the rows sit under `result`'s first key
+/// but `last`. Every structural miss Rails raises on (no `result`, no pair key, rows or a row that is no array, a time that
+/// is no integer) is unreadable. A float time (Ruby's `Time.at` takes it) is unreadable too: Kraken sends integers.
+pub fn ohlc_rows(body: &Value) -> Result<Vec<(i64, &[Value])>, VenueError> {
+    let errors = super::dig_or_raise(body, "error")?.as_array().ok_or_else(unreadable)?;
+    if !errors.is_empty() { return Err(VenueError::Rejected(errors.iter().map(ruby_to_s).collect())); }
+    let result = body.get("result").and_then(Value::as_object).ok_or_else(unreadable)?;
+    let rows = result.iter().find(|(name, _)| *name != "last").and_then(|(_, rows)| rows.as_array()).ok_or_else(unreadable)?;
+    rows.iter().map(|row| {
+        let row = row.as_array().ok_or_else(unreadable)?;
+        Ok((row.first().and_then(Value::as_i64).ok_or_else(unreadable)?, row.as_slice()))
+    }).collect()
+}
+/// One row as a candle: `[time, open, high, low, close, vwap, volume, count]`, each price `to_d`. DIVERGES (D-COND-CANDLE-
+/// UNREADABLE): a price that is absent, null or no finite decimal is unreadable, where Rails' `to_d` reads it as 0.0; a
+/// zero high or low would move an all-time high or a low. An absent or null volume is Rails' 0.0 (conditions never read it).
+fn candle(at: DateTime<Utc>, row: &[Value]) -> Result<Candle, VenueError> {
+    let field = |i: usize| row.get(i).unwrap_or(&Value::Null);
+    let price = |i: usize| dec(field(i))?.ok_or_else(unreadable);
+    Ok(Candle { at, open: price(1)?, high: price(2)?, low: price(3)?, close: price(4)?, volume: dec(field(6))?.unwrap_or_else(BigDec::zero) })
+}
 /// Prices by code, in the venue's order.
 pub type Prices = Vec<(String, BigDec)>;
 /// Exchanges::Kraken#get_tickers_prices over the bulk Ticker answer: the wanted codes it returned, each priced by
@@ -463,6 +502,21 @@ impl<T: Transport> Venue for KrakenVenue<T> {
             if let Some(p) = pair_price(&body, &code)? { prices.push((code, p)); }
         }
         Ok(prices.into_iter().map(|(code, p)| (code, Value::String(p.to_s_f()))).collect())
+    }
+
+    /// Exchanges::Kraken#get_candles: one OHLC read since a second before the start (`start_at -= 1.second`, then `to_i`),
+    /// the rows from that mutated start on (fractions kept, so a row in its second is dropped after a fractional start),
+    /// the forming candle with them; 3 days, 1 week and 1 month built from the daily ones. No cache, as in Rails. A 2xx
+    /// that is not JSON is honeymaker's Failure (its text).
+    async fn candles(&self, ticker: &Ticker, start_at: DateTime<Utc>, timeframe: Timeframe) -> Result<Vec<Candle>, VenueError> {
+        let since = start_at - chrono::Duration::seconds(1);
+        let body = self.fetch_prices(&ohlc_request(&self.base, &ticker.ticker, ohlc_interval(timeframe), since.timestamp())).await?;
+        let mut out = vec![];
+        for (at, row) in ohlc_rows(&body)? {
+            let at = DateTime::from_timestamp(at, 0).ok_or_else(unreadable)?;
+            if at >= since { out.push(candle(at, row)?); }
+        }
+        Ok(if builds(timeframe) { candles::build(&out, timeframe) } else { out })
     }
 
     /// #cancel_order through Clients::Kraken#cancel_order: CancelOrder by txid; the body's `error` is the failure.
