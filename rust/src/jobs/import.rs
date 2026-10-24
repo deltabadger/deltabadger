@@ -139,9 +139,35 @@ pub fn chunks<T: Clone>(items: &[T]) -> Vec<Vec<T>> { items.chunks(CHUNK).map(<[
 /// stop signal take effect there, and the unit in hand is the only work a dropped run leaves behind.
 pub async fn publish<U, F>(db: &Db, phase: &'static str, units: Vec<U>, write: F) -> R<()>
 where U: Send + 'static, F: Fn(&Connection, U) -> R<Touched> + Clone + Send + 'static {
+    publish_fenced(db, phase, units, None, write).await
+}
+
+/// The error prefix of a unit that found its import taken over by a newer revision.
+pub const SUPERSEDED: &str = "superseded: ";
+
+/// A revisioned import's fence (Ibkr plan R1, D-JOBS-REVISION): a unit of `revision`'s import writes only while the job's
+/// `importing_revision` is still `revision`, checked inside the unit's own transaction. A newer takeover in between
+/// aborts the unit, and the plan it came from is discarded.
+#[derive(Clone, Copy, Debug)]
+pub struct Fence { pub job: &'static str, pub revision: i64 }
+
+impl Fence {
+    pub fn check(&self, c: &Connection) -> R<()> {
+        let held = super::state::read(c, self.job, None)?.importing_revision;
+        if held == Some(self.revision) { return Ok(()); }
+        Err(format!("{SUPERSEDED}revision {} no longer holds the import ({})", self.revision, held.map_or("none".into(), |r| format!("revision {r} does"))))
+    }
+}
+
+/// `publish`, each unit first checking `fence`.
+pub async fn publish_fenced<U, F>(db: &Db, phase: &'static str, units: Vec<U>, fence: Option<Fence>, write: F) -> R<()>
+where U: Send + 'static, F: Fn(&Connection, U) -> R<Touched> + Clone + Send + 'static {
     for unit in units {
         let write = write.clone();
-        db.run(move |c, cipher| in_transaction(c, cipher, phase, |c| write(c, unit).map(|touched| ((), touched)))).await?;
+        db.run(move |c, cipher| in_transaction(c, cipher, phase, |c| {
+            if let Some(f) = fence { f.check(c)?; }
+            write(c, unit).map(|touched| ((), touched))
+        })).await?;
     }
     Ok(())
 }
@@ -529,11 +555,27 @@ fn find(parent: &mut [usize], i: usize) -> usize {
 /// upsert_all takes one sequence value per payload row, in order (a conflicting row too), so record `k`'s new row is
 /// `base + k + 1`, and the last unit leaves the sequence at `base + records`.
 pub fn plan_tickers(c: &Connection, exchange_id: i64, rows: &[Value], sweep_category: Option<&str>) -> R<TickerPlan> {
-    let empty = |exchange_assets| TickerPlan { exchange_assets, units: vec![], sweep: vec![], written: vec![] };
-    if rows.is_empty() { return Ok(empty(vec![])); }
+    plan_tickers_with(c, exchange_id, rows, sweep_category, false)
+}
+
+/// The venue's available tickers whose (base, quote) pair `pairs` lacks.
+fn pair_sweep(c: &Connection, exchange_id: i64, pairs: &HashSet<(i64, i64)>) -> R<Vec<i64>> {
+    let mut s = c.prepare("SELECT id, base_asset_id, quote_asset_id FROM tickers WHERE exchange_id = ?1 AND available = 1 ORDER BY id").map_err(sql)?;
+    let all: Vec<(i64, i64, i64)> = s.query_map([exchange_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).map_err(sql)?.collect::<Result<_, _>>().map_err(sql)?;
+    Ok(all.into_iter().filter(|(_, b, q)| !pairs.contains(&(*b, *q))).map(|(id, ..)| id).collect())
+}
+
+/// `plan_tickers`, plus `sweep_pairs` (Ibkr plan R1, a complete payload): the sweep is pair-level, every available ticker
+/// of the venue whose (base, quote) pair no record carries, whatever its category; an empty payload sweeps them all.
+pub fn plan_tickers_with(c: &Connection, exchange_id: i64, rows: &[Value], sweep_category: Option<&str>, sweep_pairs: bool) -> R<TickerPlan> {
+    let empty = |exchange_assets| -> R<TickerPlan> {
+        let sweep = if sweep_pairs { pair_sweep(c, exchange_id, &HashSet::new())? } else { vec![] };
+        Ok(TickerPlan { exchange_assets, units: vec![], sweep, written: vec![] })
+    };
+    if rows.is_empty() { return empty(vec![]); }
     let exchange_assets: Vec<i64> = asset_ids(c, &external_ids(rows))?.into_iter().map(|(_, id)| id).collect();
     let records = ticker_records_for(c, rows, sweep_category)?;
-    if records.is_empty() { return Ok(empty(exchange_assets)); }
+    if records.is_empty() { return empty(exchange_assets); }
 
     let mut s = c.prepare("SELECT t.id, t.base_asset_id, t.quote_asset_id, t.ticker, t.base, t.quote, coalesce(a.category, '') FROM tickers t JOIN assets a ON a.id = t.base_asset_id WHERE t.exchange_id = ?1 ORDER BY t.id").map_err(sql)?;
     let held: Vec<Held> = s.query_map([exchange_id], |r| Ok(Held { asset_class: r.get(6)?, id: r.get(0)?, pair: (r.get(1)?, r.get(2)?), ticker: r.get(3)?, base: r.get(4)?, quote: r.get(5)? }))
@@ -616,6 +658,7 @@ pub fn plan_tickers(c: &Connection, exchange_id: i64, rows: &[Value], sweep_cate
     let mut seen = HashSet::new();
     let written: Vec<i64> = records.iter().map(|r| r.base_asset_id).filter(|id| seen.insert(*id)).collect();
     let sweep = match sweep_category {
+        _ if sweep_pairs => pair_sweep(c, exchange_id, &records.iter().map(|r| (r.base_asset_id, r.quote_asset_id)).collect())?,
         Some(category) => {
             let mut s = c.prepare("SELECT t.id, t.base_asset_id FROM tickers t JOIN assets a ON a.id = t.base_asset_id \
                                    WHERE t.exchange_id = ?1 AND a.category = ?2 ORDER BY t.id").map_err(sql)?;
@@ -631,9 +674,14 @@ pub fn plan_tickers(c: &Connection, exchange_id: i64, rows: &[Value], sweep_cate
 /// Publishes a ticker plan: the exchange assets, the tickers, then the sweep (committed last: never a sweep without its
 /// import), each phase in units. Returns the written base_asset_ids.
 pub async fn publish_tickers(db: &Db, exchange_id: i64, plan: TickerPlan, now: DateTime<Utc>) -> R<Vec<i64>> {
+    publish_tickers_fenced(db, exchange_id, plan, now, None).await
+}
+
+/// `publish_tickers`, every unit of every phase first checking `fence`.
+pub async fn publish_tickers_fenced(db: &Db, exchange_id: i64, plan: TickerPlan, now: DateTime<Utc>, fence: Option<Fence>) -> R<Vec<i64>> {
     let t = format_time(now);
     let t2 = t.clone();
-    publish(db, "exchange assets", chunks(&plan.exchange_assets), move |c, ids: Vec<i64>| {
+    publish_fenced(db, "exchange assets", chunks(&plan.exchange_assets), fence, move |c, ids: Vec<i64>| {
         for id in ids {
             c.prepare_cached("INSERT INTO exchange_assets (asset_id, exchange_id, available, created_at, updated_at) VALUES (?1, ?2, 1, ?3, ?3) \
                        ON CONFLICT (asset_id, exchange_id) DO UPDATE SET available = excluded.available, created_at = excluded.created_at, \
@@ -641,7 +689,7 @@ pub async fn publish_tickers(db: &Db, exchange_id: i64, plan: TickerPlan, now: D
         }
         Ok(Touched::None)
     }).await?;
-    publish(db, "tickers", plan.units, move |c, unit: TickerUnit| {
+    publish_fenced(db, "tickers", plan.units, fence, move |c, unit: TickerUnit| {
         let ids = unit.writes.iter().map(|w| match w {
             TickerWrite::Tombstone { id, .. } => *id,
             TickerWrite::Upsert { existing, id, .. } => existing.unwrap_or(*id),
@@ -683,7 +731,7 @@ pub async fn publish_tickers(db: &Db, exchange_id: i64, plan: TickerPlan, now: D
         Ok(Touched::Tickers(ids))
     }).await?;
     // update_all: updated_at stays.
-    publish(db, "sweep", chunks(&plan.sweep), |c, ids: Vec<i64>| {
+    publish_fenced(db, "sweep", chunks(&plan.sweep), fence, |c, ids: Vec<i64>| {
         let marks = vec!["?"; ids.len()].join(", ");
         c.execute(&format!("UPDATE tickers SET available = 0 WHERE id IN ({marks})"), params_from_iter(&ids)).map_err(sql)?;
         Ok(Touched::Tickers(ids))

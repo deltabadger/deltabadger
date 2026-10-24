@@ -29,6 +29,14 @@ pub struct JobState {
     /// Set by a job before its first write unit, cleared only with `last_success_at` (Codex round 2): while it is set, some
     /// of the source's rows may carry this engine's stamps from an import that did not finish.
     pub incomplete_since: Option<DateTime<Utc>>,
+    /// A revisioned catalogue source (Ibkr plan R1, D-JOBS-REVISION): the payload revision whose import last completed.
+    /// Written only by the job's own takeover and last unit; the runner's records carry it through unchanged.
+    pub revision: Option<i64>,
+    /// The revision whose import holds the source now (takeover until its last unit); each unit checks it.
+    pub importing_revision: Option<i64>,
+    /// The newest upstream evidence (`metadata.generated_at`) this install holds for the source (D-JOBS-SOURCE-AT): the
+    /// freshness of an evidence-read source, never moved by a run that only re-reads unchanged evidence.
+    pub source_at: Option<DateTime<Utc>>,
 }
 
 impl JobState {
@@ -62,16 +70,22 @@ pub fn find(c: &Connection, job: &str, scope: Option<&str>) -> Result<Option<Job
     let v: Value = app_config::get_plain(c, &key(job, scope))?.and_then(|s| serde_json::from_str(&s).ok()).unwrap_or(Value::Null);
     Ok(Some(JobState { last_run_at: time(&v["last_run_at"]), last_success_at: time(&v["last_success_at"]), last_error_at: time(&v["last_error_at"]),
                        last_error: v["last_error"].as_str().map(String::from), rails_at: time(&v["rails_at"]),
-                       incomplete_since: time(&v["incomplete_since"]) }))
+                       incomplete_since: time(&v["incomplete_since"]), revision: v["revision"].as_i64(),
+                       importing_revision: v["importing_revision"].as_i64(), source_at: time(&v["source_at"]) }))
 }
 
 /// A missing row is a job that never ran here.
 pub fn read(c: &Connection, job: &str, scope: Option<&str>) -> Result<JobState, String> { Ok(find(c, job, scope)?.unwrap_or_default()) }
 
-fn write(c: &Connection, job: &str, scope: Option<&str>, s: &JobState, now: DateTime<Utc>) -> Result<(), String> {
-    let v = json!({ "last_run_at": s.last_run_at.map(text), "last_success_at": s.last_success_at.map(text),
+pub fn write(c: &Connection, job: &str, scope: Option<&str>, s: &JobState, now: DateTime<Utc>) -> Result<(), String> {
+    let mut v = json!({ "last_run_at": s.last_run_at.map(text), "last_success_at": s.last_success_at.map(text),
                     "last_error_at": s.last_error_at.map(text), "last_error": s.last_error, "rails_at": s.rails_at.map(text),
                     "incomplete_since": s.incomplete_since.map(text) });
+    // Only a revisioned source carries these: every other job's row keeps its shape.
+    for (k, x) in [("revision", s.revision.map(Value::from)), ("importing_revision", s.importing_revision.map(Value::from)),
+                   ("source_at", s.source_at.map(|t| Value::from(text(t))))] {
+        if let Some(x) = x { v[k] = x; }
+    }
     app_config::set_plain(c, &key(job, scope), &v.to_string(), now)
 }
 

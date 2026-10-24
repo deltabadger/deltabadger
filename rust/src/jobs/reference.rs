@@ -19,6 +19,9 @@ pub const INDICES: &str = "sync_indices_from_coingecko_job";
 pub const TICKERS: &str = "sync_all_tickers_and_assets_job";
 pub const ASSETS: &str = "fetch_all_assets_data_from_coingecko_job";
 pub const PRUNE: &str = "prune_bot_activity_logs_job";
+/// The IBKR catalogue sync (Ibkr plan R1, D-IBKR-CATALOGUE): Rails has no such job; IBKR listings come from our catalogue
+/// through the same importer as every venue's, behind a revision fence.
+pub const IBKR: &str = "sync_ibkr_listings_job";
 
 const NOT_PORTED: &str = "the market-data provider is not deltabadger (MARKET_DATA_URL): this build syncs reference data only from data-api";
 const ALPACA_LISTINGS_LAST_GOOD: &str = "alpaca_listings_last_good_count";        // market_data.rb:398
@@ -28,9 +31,9 @@ const MIN_HEALTHY_ALPACA_CRYPTO: i64 = 30;                                      
 const BACKFILL_FLAG: &str = "stock_canonical_backfill_completed_at";              // :391
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-enum Kind { Stocks, AlpacaCrypto, Indices, Tickers, Assets, Prune }
+enum Kind { Stocks, AlpacaCrypto, Indices, Tickers, Assets, Prune, Ibkr }
 /// Registration order: ties in due time run in this order (the 10:00 → 10:15 → 10:30 chain, recurring.yml:25-35).
-const KINDS: [Kind; 6] = [Kind::Stocks, Kind::AlpacaCrypto, Kind::Indices, Kind::Tickers, Kind::Assets, Kind::Prune];
+const KINDS: [Kind; 7] = [Kind::Stocks, Kind::AlpacaCrypto, Kind::Indices, Kind::Tickers, Kind::Assets, Kind::Prune, Kind::Ibkr];
 
 /// config/recurring.yml's production entries, with each job's jitter and retry_on.
 fn spec(kind: Kind) -> Spec {
@@ -48,6 +51,8 @@ fn spec(kind: Kind) -> Spec {
         Kind::Assets => Spec { name: ASSETS, schedule: daily(0, 20), jitter: Jitter { min_secs: 1, max_secs: 300 }, retry: Retry::None, deadline: DEADLINE, scope: None },
         // :89-91.
         Kind::Prune => Spec { name: PRUNE, schedule: daily(4, 0), jitter: Jitter::NONE, retry: Retry::None, deadline: DEADLINE, scope: None },
+        // No Rails entry: daily after the 10:00-10:30 chain, retried as the other catalogue syncs are.
+        Kind::Ibkr => Spec { name: IBKR, schedule: daily(10, 45), jitter: Jitter::NONE, retry: Retry::Polynomial { attempts: 5 }, deadline: DEADLINE, scope: None },
     }
 }
 
@@ -87,6 +92,7 @@ async fn run<T: Transport>(kind: Kind, api: Option<&DataApi<T>>, cx: Cx<'_>) -> 
         Kind::Indices => indices(api, &cx).await,
         Kind::Tickers => tickers(api, &cx).await,
         Kind::Assets => assets(api, &cx).await,
+        Kind::Ibkr => ibkr(api, &cx).await,
         Kind::Prune => unreachable!("handled above"),
     }
 }
@@ -307,6 +313,136 @@ async fn alpaca_crypto<T: Transport>(api: &DataApi<T>, cx: &Cx<'_>) -> Outcome {
     if let Some(m) = insufficient { return Outcome::Failed(m); }
     // Ratcheted only after the sweep.
     done(cx.db.run(move |c, cipher| app_config::set(c, cipher, ALPACA_CRYPTO_LAST_GOOD, &resolved.to_string(), now)).await)
+}
+
+/// One IBKR feed body (data-api C2): its metadata and rows, checked before anything is written. A row must be an
+/// `ibkr_conid` listing whose ticker is its conid (`listing_id` "ibkr:<conid>") with an explicit `trading_enabled`, and
+/// `count` must match the rows: anything else refuses the payload.
+struct Feed { revision: i64, generated_at: DateTime<Utc>, complete: bool, rows: Vec<Value> }
+
+fn ibkr_feed(body: Value) -> Result<Feed, String> {
+    let bad = |what: &str| format!("IBKR feed: {what}; nothing imported");
+    let meta = body.get("metadata").cloned().unwrap_or(Value::Null);
+    let revision = meta["revision"].as_i64().filter(|r| *r > 0).ok_or_else(|| bad("metadata.revision is not a positive integer"))?;
+    let generated_at: DateTime<Utc> = meta["generated_at"].as_str().and_then(|t| t.parse().ok()).ok_or_else(|| bad("metadata.generated_at is not a time"))?;
+    let complete = meta["complete"].as_bool().ok_or_else(|| bad("metadata.complete is not a boolean"))?;
+    let rows = match take_data(body)? { Value::Array(a) => a, _ => return Err(bad("data is not a list")) };
+    if meta["count"].as_u64() != Some(rows.len() as u64) { return Err(bad("metadata.count does not match the rows")); }
+    for r in &rows {
+        let conid = r["ticker"].as_str().filter(|t| !t.is_empty() && !t.starts_with('0') && t.bytes().all(|b| b.is_ascii_digit()) && t.parse::<i64>().is_ok());
+        let ok = r["venue_scheme"] == "ibkr_conid" && r["trading_enabled"].is_boolean()
+            && conid.is_some_and(|c| r["listing_id"].as_str() == Some(format!("ibkr:{c}").as_str()));
+        if !ok { return Err(bad(&format!("listing {} is not an ibkr_conid row with its conid as ticker", r["listing_id"]))); }
+    }
+    Ok(Feed { revision, generated_at, complete, rows })
+}
+
+/// D-IBKR-CONIDS: the rows to import and the identities they append. A row whose conid `ibkr_conids` (or an earlier row)
+/// holds for another asset is skipped and counted; a row whose base asset this install lacks is dropped, as
+/// ticker_records_for drops it.
+/// The kept rows, the (conid, asset) appends, and how many rows were skipped.
+type ConidRows = (Vec<Value>, Vec<(i64, i64)>, usize);
+
+fn conid_rows(c: &Connection, rows: Vec<Value>) -> Result<ConidRows, String> {
+    let e = |e: rusqlite::Error| e.to_string();
+    let (mut keep, mut appends, mut moved) = (vec![], vec![], 0);
+    let mut seen: std::collections::HashMap<i64, i64> = Default::default();
+    for row in rows {
+        let conid: i64 = row["ticker"].as_str().and_then(|t| t.parse().ok()).ok_or("IBKR feed: unreadable conid")?;
+        let asset: Option<i64> = c.prepare_cached("SELECT id FROM assets WHERE external_id = ?1").map_err(e)?
+            .query_row([row["base_external_id"].as_str().unwrap_or_default()], |r| r.get(0)).optional().map_err(e)?;
+        let Some(asset) = asset else { continue };
+        let held = match seen.get(&conid) {
+            Some(a) => Some(*a),
+            None => c.prepare_cached("SELECT asset_id FROM ibkr_conids WHERE conid = ?1").map_err(e)?.query_row([conid], |r| r.get(0)).optional().map_err(e)?,
+        };
+        match held {
+            Some(a) if a != asset => { moved += 1; continue; }
+            Some(_) => {}
+            None => { appends.push((conid, asset)); }
+        }
+        seen.insert(conid, asset);
+        keep.push(row);
+    }
+    Ok((keep, appends, moved))
+}
+
+#[derive(Clone, Copy, PartialEq)]
+enum Gate { Takeover, Evidence, Unchanged }
+
+/// Ibkr plan R1's import protocol for one payload P (D-JOBS-REVISION, D-JOBS-SOURCE-AT):
+/// 0. P.generated_at more than 5 minutes ahead is refused;
+/// 1. evidence-only: P.revision == revision with no import in flight moves source_at forward, nothing else;
+/// 2. takeover: P.revision > revision and >= any importing_revision sets importing_revision in its own transaction,
+///    else nothing is written;
+/// 3. the plan is computed only after the takeover committed (pair-level sweep when P is complete), with the conid appends;
+/// 4. every unit first checks importing_revision == P.revision, else the run ends and its plan is discarded;
+/// 5. the last unit sets revision, clears importing_revision and moves source_at forward.
+///
+/// The runner's records leave these fields as they are; a crash leaves importing_revision, which the next payload at
+/// that revision or newer takes over.
+async fn ibkr<T: Transport>(api: &DataApi<T>, cx: &Cx<'_>) -> Outcome {
+    use super::state;
+    let body = match api.ibkr_listings().await { Ok(b) => b, Err(e) => return api_failure(e) };
+    let now = cx.clock.now();
+    let feed = match cx.db.run(move |_, _| ibkr_feed(body)).await { Ok(f) => f, Err(m) => return Outcome::Failed(m) };
+    let (revision, generated_at, complete) = (feed.revision, feed.generated_at, feed.complete);
+    if generated_at > now + Duration::minutes(5) {
+        return Outcome::Failed(format!("IBKR feed: generated_at {} is in the future; nothing imported", generated_at.to_rfc3339_opts(SecondsFormat::Secs, true)));
+    }
+    let step = cx.db.run(move |c, cipher| {
+        let Some(ibkr) = c.query_row("SELECT id FROM exchanges WHERE type = 'Exchanges::Ibkr' ORDER BY id LIMIT 1", [], |r| r.get::<_, i64>(0))
+            .optional().map_err(|e| e.to_string())? else { return Ok(Err(Gate::Unchanged)) };
+        let gate = import::in_transaction(c, cipher, "ibkr takeover", |c| {
+            let mut s = state::read(c, IBKR, None)?;
+            let gate = if s.importing_revision.is_none() && s.revision == Some(revision) {
+                if s.source_at.is_some_and(|at| at >= generated_at) { return Ok((Gate::Unchanged, import::Touched::None)); }
+                s.source_at = Some(generated_at);
+                Gate::Evidence
+            } else if Some(revision) > s.revision && s.importing_revision.is_none_or(|r| revision >= r) {
+                s.importing_revision = Some(revision);
+                s.incomplete_since.get_or_insert(now);
+                Gate::Takeover
+            } else { return Ok((Gate::Unchanged, import::Touched::None)) };
+            state::write(c, IBKR, None, &s, now).map(|()| (gate, import::Touched::None))
+        })?;
+        if gate != Gate::Takeover { return Ok(Err(gate)); }
+        import::in_transaction(c, cipher, "usd", |c| import::ensure_usd(c, false, now))?;
+        let (rows, conids, moved) = conid_rows(c, feed.rows)?;
+        let plan = import::plan_tickers_with(c, ibkr, &rows, None, complete)?;
+        Ok(Ok((ibkr, plan, conids, moved)))
+    }).await;
+    let (ibkr, plan, conids, moved) = match step {
+        Ok(Ok(x)) => x,
+        Ok(Err(Gate::Evidence)) => return Outcome::Done,
+        Ok(Err(_)) => return Outcome::NothingNew,
+        Err(m) => return Outcome::Failed(m),
+    };
+    if moved > 0 { crate::engine::log(&format!("[jobs] {IBKR}: revision {revision}: {moved} listing(s) skipped, their conid belongs to another asset (ibkr_conids)")); }
+    let fence = import::Fence { job: IBKR, revision };
+    let t = format_time(now);
+    let published = async {
+        import::publish_fenced(&cx.db, "ibkr conids", import::chunks(&conids), Some(fence), move |c, rows: Vec<(i64, i64)>| {
+            for (conid, asset) in rows {
+                c.prepare_cached("INSERT INTO ibkr_conids (conid, asset_id, created_at) VALUES (?1, ?2, ?3) ON CONFLICT (conid) DO NOTHING")
+                    .and_then(|mut s| s.execute(rusqlite::params![conid, asset, t])).map_err(|e| e.to_string())?;
+            }
+            Ok(import::Touched::None)
+        }).await?;
+        import::publish_tickers_fenced(&cx.db, ibkr, plan, now, Some(fence)).await?;
+        cx.db.run(move |c, cipher| import::in_transaction(c, cipher, "ibkr revision", |c| {
+            fence.check(c)?;
+            let mut s = state::read(c, IBKR, None)?;
+            (s.revision, s.importing_revision, s.incomplete_since) = (Some(revision), None, None);
+            s.source_at = s.source_at.max(Some(generated_at));
+            state::write(c, IBKR, None, &s, now).map(|()| ((), import::Touched::None))
+        })).await
+    };
+    match published.await {
+        Ok(()) => Outcome::Done,
+        Err(m) if m.starts_with(import::SUPERSEDED) => { crate::engine::log(&format!("[jobs] {IBKR}: {m}; this run's plan is discarded")); Outcome::NothingNew }
+        Err(m) => Outcome::Failed(m),
+    }
 }
 
 /// Invariant B and STOCK_TICKER_DEFAULTS (:381-389, :500-504): every quote anchors to the local `usd`, and a missing or nil
