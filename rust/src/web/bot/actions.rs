@@ -122,3 +122,27 @@ modal!(edit,"rename");
 modal!(delete_edit,"delete");
 modal!(archive_edit,"archive");
 modal!(start_edit,"start");
+
+/// POST /bots/:id/custom_allocation (Bots::CustomAllocationsController#create): one write transaction (index_switch::customize),
+/// then Turbo visits the bot as a portfolio. A refusal is the flash Rails prepends, with 422.
+pub async fn custom_allocation(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path(segment): Path<String>, headers: HeaderMap) -> Result<Response,WebError> {
+    use super::index_switch::{customize, Switched};
+    let Some(user) = ctx.user().cloned() else { return Ok(auth::unauthenticated(&ctx)) };
+    let Some(id) = super::id_from_path(&segment) else { return Ok(page::not_found(&ctx)) };
+    let (inner, view) = (app.clone(), ctx.clone());
+    let result = app.db(move |c| {
+        let switched = customize(c, &view, user.id, id)?;
+        // In the App::db job, after the commit, as every writer wakes the engine.
+        if matches!(switched, Switched::Done) { inner.wake_engine(); inner.figure_service.mark(id); }
+        Ok(switched)
+    }).await;
+    match result {
+        Ok(Switched::Missing) => Ok(page::not_found(&ctx)),
+        // `head :not_found`, in the request's format.
+        Ok(Switched::NotIndex) => Ok((StatusCode::NOT_FOUND, [(axum::http::header::CONTENT_TYPE, if crate::web::turbo::accepts_stream(&headers) { "text/vnd.turbo-stream.html" } else { "text/html" })]).into_response()),
+        Ok(Switched::Unported(reason)) => Ok(layout::refused(&ctx,reason)),
+        Ok(Switched::Refused(text)) => Ok(action_view::response(crate::web::turbo::prepend_flash(flash::render(&[flash::Message { style: "danger", text }])?.trim_end()),true)),
+        Ok(Switched::Done) => Ok(action_view::response(crate::web::turbo::redirect(&ctx.path(&format!("/bots/{id}"))),false)),
+        Err(e) => layout::or_refused(&ctx,e),
+    }
+}

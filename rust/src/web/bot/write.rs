@@ -59,6 +59,15 @@ pub fn orders_may_execute(c: &Connection, id: i64) -> rusqlite::Result<bool> {
     )
 }
 
+/// The per-bot fence of the writes that rewrite a bot (plan §2.0, the Bot::VenueLease analogue): a bot the engine holds,
+/// mid-tick (`executing`, or `waiting` off its price rule) or with a placement intent, is left as it is. A write that goes
+/// ahead bumps the bot's run generation, so an engine write already in flight is fenced. Narrower than Rails, which also
+/// waits for any job holding the venue (D-FENCE-PER-BOT).
+pub fn engine_holds(c: &Connection, bot: &model::Bot) -> Result<bool, WebError> {
+    use crate::enums::BotStatus;
+    Ok(bot.status == BotStatus::Executing || (bot.status == BotStatus::Waiting && !model::price_paused(c, bot)?) || bot.rust_placement().is_some())
+}
+
 const SET_SETTING: &str = "UPDATE bots
 SET settings = json_set(settings, ?1, json(?2))
 WHERE id = ?3 AND user_id = ?4 AND type = ?5 AND status <> 3;";
@@ -277,7 +286,7 @@ fn ruby_equal(stored: &Value, assigned: &Value) -> bool {
 
 /// ActiveRecord::Store writes an assignment only when it differs, by Ruby's ==, from what the store holds: a captured
 /// carry equal to the stored one (a frozen seller's `0.to_d` over a stored `0`) keeps the stored spelling.
-fn stored_carry(raw: &serde_json::Map<String, Value>, value: Value) -> Value {
+pub(super) fn stored_carry(raw: &serde_json::Map<String, Value>, value: Value) -> Value {
     match raw.get("missed_quote_amount") { Some(old) if ruby_equal(old, &value) => old.clone(), _ => value }
 }
 
@@ -677,7 +686,7 @@ pub fn reverse(c: &Connection, cipher: &crate::crypto::Cipher, owner: i64, id: i
     // A bot resting on its price rule is not mid-tick: Rails flips it (flip_direction! sets it `scheduled` and cancels its
     // check jobs, reversible.rb:188-191). The generation bump below fences a check whose price read is in flight.
     let paused = model::price_paused(&tx, &bot)?;
-    if (bot.status == BotStatus::Executing || (bot.status == BotStatus::Waiting && !paused)) || bot.rust_placement().is_some() { return Ok(Reversal::InProgress); }
+    if engine_holds(&tx, &bot)? { return Ok(Reversal::InProgress); }
     let Some(mut draft) = Draft::load(&tx, owner, id, "en")? else { return Ok(Reversal::Missing) };
     let carry = pending(&tx, &draft.original, now)?;
     let leaving_buy = !bot.selling();
