@@ -1970,7 +1970,7 @@ fn kraken_limit_under_costmin(rails_out: &serde_json::Value, rust_out: &serde_js
 /// order and a carry; and each resync trigger followed by a tick (plan CI T3b), all decided by Rails and by Rust alike.
 #[tokio::test(flavor = "current_thread")]
 async fn rails_and_rust_decide_identically_across_the_venue_index_grid() -> Result<(), Box<dyn std::error::Error>> {
-    let (_copies, outputs) = grid_outputs("grid-venue-index", 331).await;
+    let (_copies, outputs) = grid_outputs("grid-venue-index", 333).await;
     let mut failures = vec![];
     for (name, _dir, rails_out, rust_out) in &outputs {
         if KRAKEN_LIMIT_COSTMIN.contains(&name.as_str()) {
@@ -2009,6 +2009,8 @@ async fn rails_and_rust_decide_identically_across_the_venue_index_grid() -> Resu
         if name.contains("venue_switch_then_tick") {
             checks.push(pinned(exited && seated == 3 && sent == ["BTC-USDT", "ETH-USDT", "ADA-USDT"], "reseat the members on the new venue and buy them"));
         }
+        // A stored spending cap on an index bot is inert in Rails: it buys though the cap is long spent.
+        if name.contains("spend_cap_ignored") { checks.push(pinned(!sent.is_empty(), "buy past a spent cap it never reads")); }
         if name.ends_with("closed_resync") { checks.push(pinned(sent.is_empty() && seated == 3, "resync with the market closed")); }
         // The resync's failure kinds: its newcomer probes are the tick's first reads, so the tick buys after each of them.
         if name.contains("_at_resync") && !name.contains("unpriced") { checks.push(pinned(!sent.is_empty() && seated >= 2, "buy at the tick after the failed resync")); }

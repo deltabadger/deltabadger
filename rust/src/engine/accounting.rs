@@ -431,7 +431,8 @@ fn checkpoint(anchor: DateTime<Utc>, now: DateTime<Utc>, eff: Effective) -> Resu
 
 pub fn web_amount_limit(c: &Connection, bot: &WebBot) -> Result<Option<start::Limit>, WebError> {
     validate_web_amounts(bot)?;
-    if !bot.on("quote_amount_limited") { return Ok(None); }
+    // Only a basket includes Bot::QuoteAmountLimitable (model::conditions_apply).
+    if bot.kind != Kind::Basket || !bot.on("quote_amount_limited") { return Ok(None); }
     let Some(limit) = bot.number("quote_amount_limit") else { return Ok(None) };
     let since = codec::optional_time(bot.transient.get("quote_amount_limit_enabled_at")).map_err(|_|error("unreadable stored timestamp"))?.map(format_time);
     let rows = match since {

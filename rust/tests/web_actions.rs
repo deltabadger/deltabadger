@@ -853,6 +853,30 @@ mod action_write {
         Ok(())
     }
 
+    #[test]
+    fn action_write_carry_ignores_an_index_bots_stored_spending_cap() -> Result {
+        // Bots::DcaIndex does not include Bot::QuoteAmountLimitable: the cap is never read, so the carry, the cap figure and
+        // the page refusal are those of an unflagged index bot, even for a cap far below what the quote states.
+        let read=|settings:Value| -> std::result::Result<(String,bool,Option<&'static str>),String> {
+            let f=Fixture::new().map_err(|e| e.to_string())?;
+            let mut stored=f.stored().map_err(|e| e.to_string())?;
+            stored["settings"].as_object_mut().ok_or("settings")?.extend(settings.as_object().ok_or("settings")?.clone());
+            stored["transient"]["missed_quote_amount"]=json!("2.5");
+            stored["transient"]["quote_amount_limit_enabled_at"]=json!("2026-09-01T00:00:00.000Z");
+            f.c.execute("UPDATE bots SET type='Bots::DcaIndex',settings=json_set(?1,'$.index_type','top','$.num_coins',2),transient_data=?2,started_at='2026-09-10 10:00:00' WHERE id=?3",
+                        (stored["settings"].to_string(),stored["transient"].to_string(),f.id)).map_err(|e| e.to_string())?;
+            let draft=Draft::load(&f.c,f.seed.user_id,f.id,"en").map_err(|e| format!("{e:?}"))?.ok_or("draft")?;
+            let pending=write::pending(&f.c,&draft.original,harness::at(NOW)).map_err(|e| format!("{e:?}"))?.to_s();
+            let capped=deltabadger::web::bot::start::amount_limit(&f.c,&draft.original).map_err(|e| format!("{e:?}"))?.is_some();
+            Ok((pending,capped,draft.original.unrendered()))
+        };
+        let plain=read(json!({"quote_amount_limited":false}))?;
+        assert_ne!(plain.0,"0","the unflagged index bot owes something");
+        assert_eq!((plain.1,plain.2),(false,None));
+        for cap in [json!(1.0),json!(0.000001)] { assert_eq!(read(json!({"quote_amount_limited":true,"quote_amount_limit":cap}))?,plain,"cap {cap}"); }
+        Ok(())
+    }
+
     #[tokio::test]
     async fn action_write_cancelled_awaiter_still_wakes_once() -> Result {
         let f=Fixture::new()?;

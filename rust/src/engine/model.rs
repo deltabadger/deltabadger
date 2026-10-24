@@ -207,7 +207,6 @@ impl Bot {
             Some(other) => other.to_string(),
         }
     }
-    /// Bot::QuoteAmountLimitable#quote_amount_limited?: `== true`.
     /// Bot::Reversible#selling?: `direction` reads "buying" when absent or blank.
     pub fn selling(&self) -> bool { self.settings.get("direction").and_then(Value::as_str) == Some("selling") }
     pub fn conditions_apply(&self) -> bool { conditions_apply(&self.bot_type) }
@@ -231,7 +230,8 @@ impl Bot {
         if let Some(sell) = self.settings.as_object().and_then(super::schedule::sell_effective) { return Some(sell); }
         Some(super::schedule::effective(self.interval()?, self.quote_amount()?, self.smart_quote_amount()))
     }
-    pub fn quote_amount_limited(&self) -> bool { self.settings.get("quote_amount_limited") == Some(&Value::Bool(true)) }
+    /// Bot::QuoteAmountLimitable#quote_amount_limited?: `== true`, on a class that includes the concern (conditions_apply).
+    pub fn quote_amount_limited(&self) -> bool { self.conditions_apply() && self.settings.get("quote_amount_limited") == Some(&Value::Bool(true)) }
     /// The cap as #quote_amount_available_before_limit_reached reads it, as the Ruby Integer or Float the settings JSON holds;
     /// None when the limit is off. A stored nil or false reads as Integer 1000 (after_initialize: `quote_amount_limit ||= 1000`).
     /// Err for anything else that is not a JSON number (a blank string is Float::INFINITY in Rails, other strings raise there):
@@ -381,7 +381,8 @@ impl Bot {
 pub const SIGNAL_TYPE: &str = "Bots::Signal";
 /// Only Bots::DcaMultiAsset and the legacy Bots::DcaSingleAsset include the trigger rule concerns (PriceLimitable,
 /// PriceDropLimitable, MovingAverageLimitable, IndicatorLimitable): on any other class (index, signal) a stored `*_limited` flag or `*_condition_met_at` is inert — no gate, no
-/// started_at decoration, no carry effect, no pause, no admission difference (dca_index.rb:56-58). Every reader asks this.
+/// started_at decoration, no carry effect, no pause, no admission difference (dca_index.rb:56-58). The same two classes, and
+/// only they, include Bot::QuoteAmountLimitable: elsewhere `quote_amount_limited` and its cap are inert too. Every reader asks this.
 pub fn conditions_apply(bot_type: &str) -> bool { matches!(bot_type, "Bots::DcaMultiAsset" | "Bots::DcaSingleAsset") }
 /// The trigger rules' switches, both sides.
 pub const CONDITION_FLAGS: [&str; 8] = ["price_limited", "price_drop_limited", "moving_average_limited", "indicator_limited",
