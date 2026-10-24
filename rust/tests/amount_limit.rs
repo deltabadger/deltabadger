@@ -594,17 +594,14 @@ fn sized(o: &store::Opened, bot: &model::Bot, venue: &str, x: &str, form: Form) 
 #[test]
 fn the_exact_cap_guard_trims_every_crypto_order_form_and_checks_the_venues_whole_minimum() {
     for (venue, pair) in CRYPTO {
-        let notional_limit = venue != "Exchanges::Kraken"; // Binance and KuCoin limit buys: :base_and_quote_in_base; Kraken's: :base
+        // Every limit buy is :base_and_quote_in_base (Kraken's since D-KRAKEN-LIMIT-COSTMIN; Rails' Kraken checks ordermin only).
         for form in [Form::Quote, Form::Base, Form::Limit] {
             let cells: Vec<Cell> = match form {
                 Form::Quote => vec![("trim", "80", "20.03", Some(("20", "20"))), ("minimum", "95", "5.02", Some(("5", "5"))), ("below", "95.01", "5.02", None)],
                 // 0.00009999 BTC costs 9.999, above the 5 EUR quote floor: only the base floor skips it.
                 Form::Base => vec![("trim", "80", "20.003", Some(("0.0002", "20"))), ("minimum", "90", "10.002", Some(("0.0001", "10"))), ("below", "90.001", "10.002", None)],
-                Form::Limit if notional_limit => vec![("trim", "80", "20.0009", Some(("0.00066666", "19.9998"))),
+                Form::Limit => vec![("trim", "80", "20.0009", Some(("0.00066666", "19.9998"))),
                     ("minimum", "94.9999", "5.0007", Some(("0.00016667", "5.0001"))), ("below", "95", "5.0007", None)],
-                // Kraken's limit floor is the base one: 0.0001 BTC at 3 EUR is placed although it is under the 5 EUR quote floor.
-                Form::Limit => vec![("trim", "80", "20.0009", Some(("0.00066666", "19.9998"))), ("minimum", "97", "3.0006", Some(("0.0001", "3"))),
-                    ("below", "97.0003", "3.0006", None)],
             };
             for (case, spent, x, want) in cells {
                 let (_d, o, bot) = crypto_capped(venue, pair, spent, form);
@@ -627,6 +624,25 @@ fn the_exact_cap_guard_trims_every_crypto_order_form_and_checks_the_venues_whole
                 assert_eq!(begun.is_ok(), want.is_some(), "{label}: {:?}", begun.as_ref().err());
                 assert_eq!(model::load_bot(&o.primary, bot.id).unwrap().rust_placement().is_some(), want.is_some(), "{label}");
             }
+        }
+    }
+}
+
+/// D-ALPACA-BASE-FLOOR after the cap: a trim that leaves the order over the 5 USD quote floor but under the 0.001 BTC base
+/// floor is skipped, as a limit qty (0.001 → 0.00099999) and as a market notional (30.00 → 29.99, 0.00099966 BTC at 30000).
+#[test]
+fn the_exact_cap_guard_skips_an_alpaca_trim_under_the_base_floor() {
+    for (limit, spent, base_floor, placed) in [(true, "70.0001", "0.001", false), (false, "70.01", "0.001", false),
+                                               (true, "70.0001", "0.00099999", true), (false, "70.01", "0.00099966", true)] {
+        let (_d, o, bot) = crypto_capped("Exchanges::Alpaca", "BTC/USD", spent, if limit { Form::Limit } else { Form::Quote });
+        o.primary.execute("UPDATE tickers SET minimum_base_size = ?1", [base_floor]).unwrap();
+        let ticker = model::ticker_for(&o.primary, &bot).unwrap().unwrap();
+        let amount::Sizing::Place(plan) = amount::size(&bot, &ticker, &bd("30"), &bd("30000"), &deltabadger::engine::venue_rules::ALPACA).unwrap() else { panic!("{limit}: sized to place") };
+        let guard = amount::guard_exact_cap(&o.primary, &bot, &plan).unwrap();
+        let label = format!("limit {limit}, floor {base_floor}");
+        match guard {
+            amount::CapGuard::Place(g) => { assert!(placed, "{label}"); assert!(g.volume < plan.volume, "{label}: reduced"); }
+            amount::CapGuard::BelowMinimum(_) => assert!(!placed, "{label}"),
         }
     }
 }
