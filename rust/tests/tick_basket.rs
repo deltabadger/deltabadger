@@ -1177,6 +1177,18 @@ async fn a_terminal_sell_written_by_a_poll_confirms_the_lock_from_its_fill() {
     apply(&o, id, tx, &state(OrderStatus::Cancelled, "0.0005", None));
     assert!(lock_of(&o, s.btc).is_some_and(|l| l.1.is_some()));
     assert_eq!(polling::settled_sales(&o.primary).unwrap(), vec![id]);
+    // Cancelled partial with no proceeds reported at an order price ABOVE the lot's cost: judged on the raw proceeds (none), so
+    // unknown against an owned lot, which locks; never on price × quantity, which would read a gain (measurable.rb).
+    let (_d, o, id, s) = loss_seller();
+    let tx = sell(&o, &s, id, true);
+    apply(&o, id, tx, &OrderState { price: Some(d("80000")), ..state(OrderStatus::Cancelled, "0.0005", None) });
+    assert!(lock_of(&o, s.btc).is_some_and(|l| l.1.is_some()), "unknown proceeds against an owned lot lock");
+    // The same sale with no lot of the bot's own behind it: no loss of its own to protect, no lock.
+    let (_d, o, id, s) = loss_seller();
+    o.primary.execute("DELETE FROM transactions WHERE external_id = 'OB-BTC'", []).unwrap();
+    let tx = sell(&o, &s, id, true);
+    apply(&o, id, tx, &OrderState { price: Some(d("80000")), ..state(OrderStatus::Cancelled, "0.0005", None) });
+    assert_eq!(lock_of(&o, s.btc), None, "no owned lots, no lock");
     // Cancelled with nothing filled: nothing sold, no lock, no wake.
     let (_d, o, id, s) = loss_seller();
     let tx = sell(&o, &s, id, true);

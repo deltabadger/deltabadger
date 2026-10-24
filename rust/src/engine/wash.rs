@@ -258,6 +258,27 @@ pub fn settle_claim(c: &Connection, bot_id: i64, holder: Holder<'_>, reason: Rea
     }
 }
 
+/// Rails' `loss_lot_by_transaction[id]` for one sale (measurable.rb:85-94): judged on the RAW proceeds the venue reported.
+/// The figures walk judges a sale with none reported on `price × quantity` (RULING-B2B-1 MQ6, the normalized figures), so
+/// for such a sale the verdict is re-derived as Rails': unknown (None) against lots the bot owned when it sold, no loss
+/// with none owned (#unpriced_sale_verdict), and unknown whenever the walk already said so (a shadowed holding).
+fn fill_verdict(c: &Connection, subject: &Subject, tx_id: i64, at: At) -> Result<Option<bool>, FiguresError> {
+    let metrics = walk::metrics(c, subject, at)?;
+    let verdict = metrics.walked.as_ref().and_then(|w| w.loss_lot_by_transaction.iter().find(|(id, _)| *id == tx_id)).and_then(|(_, v)| *v);
+    let Some(order) = subject.orders.iter().find(|o| o.id == tx_id) else { return Ok(verdict) };
+    if verdict.is_none() || crate::figures::fill::reported(order)?.is_some() { return Ok(verdict); }
+    // The holding's key, as the walk named it; then its lots as they stood just before this sale.
+    let key = match order.asset_id {
+        Some(asset) => metrics.key_for(asset).map(str::to_string),
+        None => metrics.key_assets.iter().filter(|(_, a)| a.is_none()).map(|(k, _)| k)
+            .find(|k| metrics.key_strings.iter().any(|(x, s)| x == *k && order.base.as_ref().is_some_and(|b| s.contains(b)))).cloned(),
+    };
+    let Some(key) = key else { return Ok(None) };
+    let before = Subject { orders: subject.orders.iter().take_while(|o| o.id != tx_id).cloned().collect(), ..subject.clone() };
+    let owned = walk::metrics(c, &before, at)?.walked.is_some_and(|w| w.asset_lots.iter().any(|(k, l)| *k == key && !l.is_empty()));
+    Ok(if owned { None } else { Some(false) })
+}
+
 /// #reconcile_wash_sale_from_fill! for the sell row `tx_id` a poll just wrote terminal (polling::apply_in decides when, as
 /// Transaction's after_save does): inside the fill's transaction, so the lock commits with the fill. Something sold (the
 /// executed units, or the ordered ones of a closed row that reported none) locks unless the walk says the sale lost on no lot:
@@ -273,8 +294,8 @@ pub fn reconcile_fill(c: &Connection, bot: &Bot, tx_id: i64, now: DateTime<Utc>)
     let at = At::from_utc(now).ok_or_else(|| EngineError::Data("the verdict's time is out of range".into()))?;
     let subject = Subject::load(c, bot.id).map_err(fig)?;
     // A walk this build cannot finish (a figure it cannot compute) never holds up the fill it judges: no verdict, which locks.
-    let verdict = match walk::metrics(c, &subject, at) {
-        Ok(metrics) => metrics.walked.as_ref().and_then(|w| w.loss_lot_by_transaction.iter().find(|(id, _)| *id == tx_id)).and_then(|(_, v)| *v),
+    let verdict = match fill_verdict(c, &subject, tx_id, at) {
+        Ok(verdict) => verdict,
         Err(e) => { super::log(&format!("[engine] bot {}: the fill of transaction {tx_id} could not be judged ({e:?}); its asset is locked", bot.id)); None }
     };
     if verdict == Some(false) { return Ok(()); }
