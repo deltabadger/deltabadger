@@ -1,0 +1,15 @@
+{#- bots/signals/confirm_settings/new: the venue, the Start button and the rules being set up. -#}
+<div class="bot-creation-layout">
+    {{ progress|safe }}
+
+    <div class="bot-creation-preview">
+      <div class="flex-row">
+        <a data-turbo-frame="modal_content" class="sbutton sbutton--exchange sbutton--exchange--{{ name_id }}" href="{{ exchange_url }}">
+          {{ mark|safe }}
+
+          <span class="hide-on-mobile">{{ name }}</span>
+</a>        {{ button|safe }}
+      </div>
+      {{ settings|safe }}
+    </div>
+  </div>

@@ -201,6 +201,9 @@ async fn replays_follow_what_the_figures_read(env: &impl Fn(&str) -> Option<Stri
                   VALUES ({user},2,15,'OLD',NULL,0,'{{\"corporate_action\":\"split\",\"split_ratio\":\"3:1\"}}','2021-01-01 00:00:00','{at}','{at}');", venue(2), listing(100,2,"OLD",ccc)),
          format!("UPDATE tickers SET base_asset_id={aaa} WHERE id=100"), false),
         ("other transient bookkeeping", String::new(), "UPDATE bots SET transient_data=json_set(transient_data,'$.missed_quote_amount',5)".to_string(), true),
+        // What the rebalance rule's drift readout reads beyond the figures.
+        ("the rebalance below-minimum flag set", String::new(), "UPDATE bots SET transient_data=json_set(transient_data,'$.rebalance_below_minimum_at','2026-01-01T00:00:00Z')".to_string(), false),
+        ("a member's target allocation changed", String::new(), "UPDATE bot_index_assets SET target_allocation=0.123 WHERE id=(SELECT min(id) FROM bot_index_assets)".to_string(), false),
         // Read by no listing: an asset only an order names, and one only a bot's settings name.
         ("an asset only an order names renamed",
          format!("{}UPDATE transactions SET base='ZZZ', base_asset_id=20 WHERE id=(SELECT min(id) FROM transactions WHERE base='BBB');", asset(20,"ZZZ")),
@@ -878,6 +881,8 @@ async fn figures_fragments_match_the_rails_page_partials() {
         let reader = Reader::new(&cache, now.utc().timestamp());
         let actual = deltabadger::web::figure::account(&c, sc["user_id"].as_i64().unwrap(), &reader, now, "en", "token", "").unwrap();
         if FRAMED_SIGNALS.contains(&name) && std::env::var("FIGURE_ROUTES").as_deref() != Ok("0") { signal_pages(name, &dir, &sc, &expected, &actual, now).await; }
+        if name.starts_with("framed_rebalance_") && std::env::var("FIGURE_ROUTES").as_deref() != Ok("0") { rebalance_pages(name, &dir, &sc, &expected, now).await; }
+        if ["framed_rebalance_drift_under", "owner_account"].contains(&name) && std::env::var("FIGURE_ROUTES").as_deref() != Ok("0") { rule_saves(name, &dir, &sc, now).await; }
         if name.starts_with("pair_") || name.starts_with("signal_") || name.starts_with("framed_signal_") || name == "account_pair_bot" { pairs += 1; }
         // Which caches Rails writes for a pair (Measurable's three layers), as the page reads them.
         let flags = |id: &str| (actual["bots"][id]["cached"].as_bool().unwrap(), actual["bots"][id]["chart_cached"].as_bool().unwrap());
@@ -986,6 +991,8 @@ async fn figures_fragments_match_the_rails_page_partials() {
                 let document=scraper::Html::parse_fragment(&payload);
                 let selector=scraper::Selector::parse("turbo-stream").unwrap();
                 let target=document.select(&selector).next().unwrap().value().attr("target").unwrap();
+                // D-REB-DRIFT-LATE: Rails never broadcasts the drift readout; it renders it with the page, cold or warm.
+                if target == "settings-rebalance-info" { drift_late(name, &payload, &expected); continue; }
                 let wanted=expected["broadcasts"].as_array().unwrap().iter().find(|entry| {
                     entry[0]==stream && entry[1].as_str().is_some_and(|s| s.contains(&format!("target=\"{target}\"")))
                 }).unwrap_or_else(||panic!("{name}: no Rails broadcast to {stream} {target}"));
@@ -1090,6 +1097,199 @@ async fn signal_pages(name: &str, dir: &Path, sc: &Value, expected: &Value, actu
         if SELL_ONLY_PAIRS.contains(&name) { assert_eq!(sell_only_table(&page),sell_only_table(rails["page"].as_str().unwrap()),"{name} warm: the holdings"); }
         else { assert_eq!(metrics(&page),metrics(rails["page"].as_str().unwrap()),"{name} warm: the panel"); }
     }
+}
+
+/// Normalized, without the form token field: Rails' recorded pages run without forgery protection (the test environment).
+fn tokenless(html: &str) -> Vec<String> {
+    let mut out = vec![];
+    let mut skip = false;
+    for line in common::html::normalize(html) {
+        if skip { skip = false; if line.trim() == "</input>" { continue; } }
+        if line.contains("name=\"authenticity_token\"") { skip = true; continue; }
+        out.push(line);
+    }
+    out
+}
+/// `#settings-rebalance-info` and the rule's whole form (the one holding the rebalance toggle), as served.
+fn rebalance_rule(body: &str) -> (String, String) {
+    let doc = scraper::Html::parse_document(body);
+    let info = doc.select(&scraper::Selector::parse("#settings-rebalance-info").unwrap()).next().map(|e| e.html()).unwrap_or_default();
+    let toggle = doc.select(&scraper::Selector::parse("input[type=checkbox][name$=\"[rebalance_enabled]\"]").unwrap()).next().expect("no rebalance rule");
+    let form = toggle.ancestors().filter_map(scraper::ElementRef::wrap).find(|e| e.value().name() == "form").expect("the rule's form");
+    (info, form.html())
+}
+/// D-REB-DRIFT-LATE, the one place it shows: the note alone where Rails' page also has the drift readout under it (the
+/// fragment with its readout, the second <div>, left out).
+fn note_only(rails: &str) -> String {
+    let doc = scraper::Html::parse_fragment(rails);
+    let note = doc.select(&scraper::Selector::parse("#settings-rebalance-info > div").unwrap()).next().expect("Rails' note").html();
+    format!("<small id=\"settings-rebalance-info\" class=\"small-info\">\n    {note}\n    \n  </small>")
+}
+/// D-REB-DRIFT-LATE on the figures' stream: what follows the page is the readout Rails rendered with its cold page.
+fn drift_late(name: &str, payload: &str, expected: &Value) {
+    let rails = expected["cold"]["bots"]["1"]["page"].as_str().unwrap_or_else(|| panic!("{name}: a drift readout on a page the grid does not frame"));
+    let (info, _) = rebalance_rule(rails);
+    assert!(info.contains("off its target split"), "{name}: Rails' cold page reads the drift");
+    let streamed = scraper::Html::parse_fragment(payload);
+    let template = streamed.select(&scraper::Selector::parse("template").unwrap()).next().unwrap().inner_html();
+    assert_eq!(common::html::normalize(template.trim_end()), common::html::normalize(&info), "{name}: the streamed drift readout");
+}
+
+/// The rebalance rule on a held basket's page (page_figures.rb's framed_rebalance_*): cold, the note alone (D-REB-DRIFT-LATE)
+/// and the rest of the rule as Rails renders it; the end of the fill streams Rails' readout to the page; warm, the rule and
+/// the panel exactly as Rails' warm page.
+async fn rebalance_pages(name: &str, dir: &Path, sc: &Value, expected: &Value, now: At) {
+    use deltabadger::web::{App,Config,session::{self,SessionData},figure::loading::{self,Source}};
+    let env=common::web::env(common::web::SECRET);
+    let app=App::new(Config::from_env(&env).unwrap(),&env,rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap(),common::web::TestClock::at(sc["at"].as_str().unwrap()))
+        .unwrap().with_figure_source(Source::Script(sc["script"].clone())).unwrap();
+    let user=sc["user_id"].as_i64().unwrap();
+    let password:String=rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap().query_row("SELECT encrypted_password FROM users WHERE id=?1",[user],|r|r.get(0)).unwrap();
+    let signed=SessionData { user:Some((user,password.chars().take(29).collect())),..SessionData::default() };
+    let cookie=session::seal(&app.keys.session,&signed,now.utc());
+    let mut browser=common::web::Browser { cookie:Some(cookie.clone()),page:None };
+    let page_stream=format!("{}:bot_updates",base64::Engine::encode(&base64::engine::general_purpose::URL_SAFE_NO_PAD,"gid://deltabadger/Bots::DcaMultiAsset/1"));
+    let mut cable=Cable::open(&app,&cookie,&[page_stream.clone()].into()).await;
+    let held=app.figure_service.compute().acquire_owned().await.unwrap();
+    let cold=browser.get(&app,"/bots/1").await;
+    assert_eq!(cold.status,200,"{name} cold: {}",cold.body);
+    let rails_cold=expected["cold"]["bots"]["1"]["page"].as_str().unwrap();
+    let ((ours_info,ours_form),(rails_info,rails_form))=(rebalance_rule(&cold.body),rebalance_rule(rails_cold));
+    assert_eq!(common::html::normalize(&ours_info),common::html::normalize(&note_only(&rails_info)),"{name} cold: D-REB-DRIFT-LATE, the note alone");
+    assert_eq!(tokenless(&ours_form.replace(&ours_info,"")),tokenless(&rails_form.replace(&rails_info,"")),"{name} cold: the rule");
+    drop(held);
+    let wanted:BTreeSet<(String,String)>=[(page_stream.clone(),"settings-rebalance-info".to_string())].into();
+    let got=cable.until(&wanted).await;
+    let streamed=got.get(&(page_stream.clone(),"settings-rebalance-info".to_string())).unwrap_or_else(|| panic!("{name}: the drift readout never followed the cold page"));
+    drift_late(name,streamed,expected);
+    tokio::time::timeout(Duration::from_secs(10),async { loop {
+        match loading::prepare(&app,user).await.unwrap() { loading::Snapshot::Ready(..)=>break, loading::Snapshot::Failed(why)=>panic!("{name}: fill failed: {why:?}"), _=>tokio::time::sleep(Duration::from_millis(20)).await }
+    } }).await.unwrap();
+    let warm=browser.get(&app,"/bots/1").await;
+    assert_eq!(warm.status,200,"{name} warm: {}",warm.body);
+    let rails_warm=expected["warm"]["bots"]["1"]["page"].as_str().unwrap();
+    assert_eq!(tokenless(&rebalance_rule(&warm.body).1),tokenless(&rebalance_rule(rails_warm).1),"{name} warm: the rule and its readout");
+    let panel=|body:&str| { let doc=scraper::Html::parse_document(body); tokenless(&doc.select(&scraper::Selector::parse("#metrics").unwrap()).next().expect("no panel").html()) };
+    assert_eq!(panel(&warm.body),panel(rails_warm),"{name} warm: the panel");
+    if name != "framed_rebalance_drift_over" { return; }
+    // A green readout, then figures that raise (a transient price read) or fail: each replaces it with the note alone, and
+    // recovered figures bring it back. What a page applies is the streamed replacement of its target.
+    use deltabadger::figures::scripted::Scripted;
+    let c=rusqlite::Connection::open_with_flags(dir.join("production.sqlite3"),rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap();
+    let streamed=|rendered:&Value|->String {
+        let streams=deltabadger::web::figure::streams(&c,user,rendered).unwrap();
+        let (_,payload)=streams.into_iter().find(|(stream,payload)|*stream==page_stream && target(payload)=="settings-rebalance-info").unwrap_or_else(|| panic!("{name}: no readout streamed"));
+        payload
+    };
+    let fresh=|script:&Value| deltabadger::web::figure::account(&c,user,&Scripted::new(script,None),now,"en","token","").unwrap();
+    let warm=streamed(&fresh(&sc["script"]));
+    assert!(warm.contains("text-success"),"{name}: the readout is green: {warm}");
+    let mut raising=sc["script"].clone();
+    for (key,reply) in raising.as_object_mut().unwrap() { if key.contains("/snapshots") { *reply=json!({"network":"transient","message":"down"}); } }
+    let raised=fresh(&raising);
+    assert_eq!(raised["raised"],json!([1]),"{name}: the figures raised");
+    let failed=loading::render(&c,user,&loading::Snapshot::Failed(None),"en","token","",&deltabadger::engine::FixedClock(now.utc())).unwrap().unwrap();
+    for (what,rendered) in [("raised",&raised),("failed",&failed)] {
+        let payload=streamed(rendered);
+        assert!(payload.contains("settings-rebalance-info") && !payload.contains("off its target split"),"{name} {what}: the note alone replaces the readout: {payload}");
+    }
+    assert_eq!(streamed(&fresh(&sc["script"])),warm,"{name}: recovered figures stream the readout again");
+}
+
+/// §9 of the rebalance pages plan, on a copy of the install: a save that turns the rule on or moves its threshold redraws
+/// the readout at once from kept figures, green exactly when the drift is over the new threshold, with no navigation and
+/// no fill; on a cold cache it answers the note alone and the readout follows on the page stream (D-REB-DRIFT-LATE, after
+/// a settings save). For a basket (framed_rebalance_drift_under) and for owner_account's index.
+async fn rule_saves(name: &str, dir: &Path, sc: &Value, now: At) {
+    use deltabadger::web::{App,Config,session::{self,SessionData},figure::loading::{self,Source}};
+    let copy=tempfile::tempdir().unwrap();
+    let file=copy.path().join("production.sqlite3");
+    std::fs::copy(dir.join("production.sqlite3"),&file).unwrap();
+    let user=sc["user_id"].as_i64().unwrap();
+    let (id,class,key):(i64,String,&str)=if name=="owner_account" {
+        let id=rusqlite::Connection::open(&file).unwrap().query_row("SELECT id FROM bots WHERE user_id=?1 AND type='Bots::DcaIndex'",[user],|r|r.get(0)).unwrap();
+        // The account's other bots left out: the engine's guard refuses every write of an account with rows it does not read.
+        rusqlite::Connection::open(&file).unwrap().execute_batch(&format!("DELETE FROM transactions WHERE bot_id<>{id}; DELETE FROM bot_index_assets WHERE bot_id<>{id}; \
+            DELETE FROM bot_activity_logs WHERE bot_id<>{id}; DELETE FROM bots WHERE id<>{id};")).unwrap();
+        (id,"DcaIndex".into(),"bots_dca_index")
+    } else {
+        // Stopped, so that its weights may be saved.
+        rusqlite::Connection::open(&file).unwrap().execute("UPDATE bots SET status=2 WHERE id=1",[]).unwrap();
+        (1,"DcaMultiAsset".into(),"bots_dca_multi_asset")
+    };
+    let env=common::web::env(common::web::SECRET);
+    let open=||App::new(Config::from_env(&env).unwrap(),&env,rusqlite::Connection::open(&file).unwrap(),common::web::TestClock::at(sc["at"].as_str().unwrap()))
+        .unwrap().with_figure_source(Source::Script(sc["script"].clone())).unwrap();
+    let password:String=rusqlite::Connection::open(&file).unwrap().query_row("SELECT encrypted_password FROM users WHERE id=?1",[user],|r|r.get(0)).unwrap();
+    let signed=SessionData { user:Some((user,password.chars().take(29).collect())),..SessionData::default() };
+    let page_stream=format!("{}:bot_updates",base64::Engine::encode(&base64::engine::general_purpose::URL_SAFE_NO_PAD,format!("gid://deltabadger/Bots::{class}/{id}")));
+    // The readout a save answers with: its class and its words.
+    let readout=|body:&str|->Option<(bool,String)> {
+        let doc=scraper::Html::parse_fragment(body);
+        let div=doc.select(&scraper::Selector::parse("#settings-rebalance-info > div + div").unwrap()).next()?;
+        Some((div.value().attr("class")==Some("text-success"),div.text().collect::<String>().split_whitespace().collect::<Vec<_>>().join(" ")))
+    };
+    // Warm: the page read once its figures are ready.
+    let app=open();
+    let mut browser=common::web::Browser { cookie:Some(session::seal(&app.keys.session,&signed,now.utc())),page:None };
+    tokio::time::timeout(Duration::from_secs(10),async { loop {
+        match loading::prepare(&app,user).await.unwrap() { loading::Snapshot::Ready(..)=>break, _=>tokio::time::sleep(Duration::from_millis(20)).await }
+    } }).await.unwrap();
+    assert_eq!(browser.get(&app,&format!("/bots/{id}")).await.status,200);
+    let off=save_rule(name,&mut browser,&app,id,key,"rebalance_enabled","0").await;
+    assert!(!off.contains("settings-rebalance-info"),"{name}: the rule off reads no drift");
+    let on=save_rule(name,&mut browser,&app,id,key,"rebalance_enabled","1").await;
+    let (_,mut words)=readout(&on).unwrap_or_else(|| panic!("{name}: turning the rule on on a warm page shows no drift: {on}"));
+    let high=save_rule(name,&mut browser,&app,id,key,"rebalance_threshold","100").await;
+    assert_eq!(readout(&high),Some((false,words.clone())),"{name}: a threshold above the drift");
+    let low=save_rule(name,&mut browser,&app,id,key,"rebalance_threshold","0.01").await;
+    assert_eq!(readout(&low),Some((true,words.clone())),"{name}: a threshold under the drift");
+    if name != "owner_account" {
+        // The composition moved while the figures stay kept: a threshold saved before another fill reads no drift kept for
+        // the old weights; it answers the note, and the readout of the new weights follows.
+        let keys:Vec<String>=rusqlite::Connection::open(&file).unwrap().query_row("SELECT settings FROM bots WHERE id=?1",[id],|r|r.get::<_,String>(0))
+            .map(|settings|serde_json::from_str::<Value>(&settings).unwrap()["allocations"].as_object().unwrap().keys().cloned().collect()).unwrap();
+        let (first,second)=(format!("allocations][{}",keys[0]),format!("allocations][{}",keys[1]));
+        save_fields(name,&mut browser,&app,id,key,&[(first.as_str(),"50"),(second.as_str(),"50")]).await;
+        tokio::time::timeout(Duration::from_secs(30),async { while app.figure_service.panels_pending()>0 { tokio::time::sleep(Duration::from_millis(5)).await; } }).await.unwrap();
+        let mut cable=Cable::open(&app,browser.cookie.as_deref().unwrap(),&[page_stream.clone()].into()).await;
+        let moved=save_rule(name,&mut browser,&app,id,key,"rebalance_threshold","100").await;
+        assert!(moved.contains("settings-rebalance-info") && readout(&moved).is_none(),"{name}: a drift kept for the old weights is shown: {moved}");
+        let wanted:BTreeSet<(String,String)>=[(page_stream.clone(),"settings-rebalance-info".to_string())].into();
+        let got=cable.until(&wanted).await;
+        let (_,now_words)=readout(got.get(&(page_stream.clone(),"settings-rebalance-info".to_string())).expect("no readout followed")).expect("a readout");
+        assert_ne!(now_words,words,"{name}: the readout that follows reads the new weights");
+        words=now_words;
+    }
+    drop(app);
+    // Cold: nothing kept; the answer is the note, and the readout follows with the new threshold.
+    let app=open();
+    let mut browser=common::web::Browser { cookie:Some(session::seal(&app.keys.session,&signed,now.utc())),page:None };
+    let held=app.figure_service.compute().acquire_owned().await.unwrap();
+    assert_eq!(browser.get(&app,&format!("/bots/{id}")).await.status,200);
+    let mut cable=Cable::open(&app,browser.cookie.as_deref().unwrap(),&[page_stream.clone()].into()).await;
+    let cold=save_rule(name,&mut browser,&app,id,key,"rebalance_threshold","100").await;
+    assert!(cold.contains("settings-rebalance-info") && readout(&cold).is_none(),"{name}: D-REB-DRIFT-LATE after a save on a cold cache: the note alone: {cold}");
+    drop(held);
+    let wanted:BTreeSet<(String,String)>=[(page_stream.clone(),"settings-rebalance-info".to_string())].into();
+    let got=cable.until(&wanted).await;
+    let streamed=got.get(&(page_stream,"settings-rebalance-info".to_string())).unwrap_or_else(|| panic!("{name}: no readout followed the cold save"));
+    assert_eq!(readout(streamed),Some((false,words)),"{name}: the readout that follows the cold save, under its new threshold");
+}
+
+/// One rule field saved as the page's form submits it (Turbo, the page's token), answered 200.
+async fn save_rule(name: &str, browser: &mut common::web::Browser, app: &deltabadger::web::App, id: i64, key: &str, field: &str, value: &str) -> String {
+    save_fields(name, browser, app, id, key, &[(field, value)]).await
+}
+async fn save_fields(name: &str, browser: &mut common::web::Browser, app: &deltabadger::web::App, id: i64, key: &str, fields: &[(&str, &str)]) -> String {
+    let (field, value) = (fields[0].0, fields[0].1);
+    let names: Vec<String> = fields.iter().map(|(field, _)| format!("{key}[{field}]")).collect();
+    let mut form = vec![("_method", "patch")];
+    form.extend(names.iter().zip(fields).map(|(name, (_, value))| (name.as_str(), *value)));
+    let answer = browser.send(app, "POST", &format!("/bots/{id}"), Some(&form), common::web::Csrf::Header,
+                              &[("accept", "text/vnd.turbo-stream.html, text/html, application/xhtml+xml")]).await;
+    assert_eq!(answer.status, 200, "{name}: {field}={value}: {}", &answer.body[answer.body.len().saturating_sub(1500)..]);
+    answer.body
 }
 
 /// Denomination#format at the edges of its sign, as Rails wrote each (page_figures.rb#boundaries).

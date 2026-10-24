@@ -442,3 +442,45 @@ async fn the_page_hears_the_marker_raised_and_lifted() {
     run::step(&mut s.e, &plus(T0, 62.0)).await.unwrap();
     assert_eq!(marker(&mut rx), 0, "a pass that changes neither says nothing");
 }
+
+/// PLAN-wash-sale WS-1: a buy of a locked asset consumes the call before anything reads the venue, with no line and no row
+/// (#buy_locked?, Outcome :locked); the placement-time re-read in the intent's transaction does the same. A sell is never
+/// locked. With the rule off the same row is inert. (The engine still refuses such accounts: run_next is reached directly.)
+#[tokio::test(flavor = "current_thread", start_paused = true)]
+async fn a_signal_buy_of_a_locked_asset_consumes_the_call_and_places_nothing() {
+    use deltabadger::engine::tick::{PriceCache, TickContext};
+    let read = std::rc::Rc::new(std::cell::Cell::new(false));
+    let seen = read.clone();
+    let s = setup(0, false, "100", priced().on_price(move || seen.set(true)));
+    let c = &s.e.primary;
+    c.execute("UPDATE users SET wash_sale_enabled = 1", []).unwrap();
+    c.execute("INSERT INTO wash_sale_locks (asset_id, user_id, buy_locked_until, created_at, updated_at) \
+               SELECT json_extract(settings, '$.base_asset_id'), user_id, '2026-10-01 00:00:00', '2026-09-01 00:00:00', '2026-09-01 00:00:00' FROM bots WHERE id = ?1", [s.bot]).unwrap();
+    let bot = model::load_bot(c, s.bot).unwrap();
+    let prices = PriceCache::default();
+    let cx = TickContext { credential_version: model::credential_version(c, &bot).unwrap(), prices: &prices,
+                           process_start: DateTime::<Utc>::MIN_UTC, stopping: &|| false, below_minimum: &|_, _| {}, claimed: &|_| {} };
+    call(c, s.bot, s.rule, 1, T0);
+    assert_eq!(signal::run_next(c, &s.venue, s.bot, &at(T0), &cx).await.unwrap(), Step::Ran);
+    assert_eq!((calls(c, s.bot), s.venue.sent().len(), rows(c).len(), lines(c).len(), read.get()), (0, 0, 0, 0, false));
+    // Locked after it was sized: the intent's transaction consumes the call and writes no intent.
+    call(c, s.bot, s.rule, 2, T0);
+    let ticker = model::ticker_for(c, &bot).unwrap().unwrap();
+    let price = deltabadger::ruby::BigDec::parse("50000.2").unwrap();
+    let size = |side| deltabadger::engine::amount::size_order(&ticker, side, &price, &price.div(&price).unwrap(), &price,
+        deltabadger::engine::venue_rules::KRAKEN.minimum_logic, deltabadger::engine::amount::TxKind::Regular).unwrap().0;
+    let the_call = model::load_bot(c, s.bot).unwrap().signal_calls().unwrap().remove(0);
+    let version = model::credential_version(c, &bot).unwrap();
+    assert!(matches!(placement::begin_signal(c, &bot, &size(deltabadger::venue::Side::Buy), Some(&the_call), &version, None, &at(T0)).unwrap(), placement::SignalClaim::Locked));
+    assert_eq!((calls(c, s.bot), lines(c).len()), (0, 0));
+    assert!(transient(c, s.bot).get("rust_placement").is_none());
+    call(c, s.bot, s.rule, 3, T0);
+    let the_call = model::load_bot(c, s.bot).unwrap().signal_calls().unwrap().remove(0);
+    assert!(matches!(placement::begin_signal(c, &bot, &size(deltabadger::venue::Side::Sell), Some(&the_call), &version, None, &at(T0)).unwrap(), placement::SignalClaim::Intent(_)),
+            "a lock never forbids selling");
+    c.execute("UPDATE bots SET transient_data = json_remove(transient_data, '$.rust_placement') WHERE id = ?1", [s.bot]).unwrap();
+    c.execute("UPDATE users SET wash_sale_enabled = 0", []).unwrap();
+    call(c, s.bot, s.rule, 4, T0);
+    assert_eq!(signal::run_next(c, &s.venue, s.bot, &at(T0), &cx).await.unwrap(), Step::Ran);
+    assert_eq!(s.venue.sent().len(), 1, "rule off: placed");
+}

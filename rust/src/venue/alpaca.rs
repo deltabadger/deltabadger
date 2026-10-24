@@ -178,6 +178,7 @@ impl<T: Transport> AlpacaVenue<T> {
         match error{
             VenueError::Rejected(messages)=>VenueError::Rejected(messages.into_iter().map(|m|self.transport.redact_diagnostic(&m)).collect()),
             VenueError::Unauthorized(messages)=>VenueError::Unauthorized(messages.into_iter().map(|m|self.transport.redact_diagnostic(&m)).collect()),
+            VenueError::Coded{code,errors}=>VenueError::Coded{code,errors:errors.into_iter().map(|m|self.transport.redact_diagnostic(&m)).collect()},
             VenueError::Ambiguous(message)=>VenueError::Ambiguous(self.transport.redact_diagnostic(&message)),
             VenueError::Transient(message)=>VenueError::Transient(self.transport.redact_diagnostic(&message)),
         }

@@ -9,7 +9,7 @@ use serde_json::{json, Value};
 use std::{cell::{Cell, RefCell}, rc::Rc, time::Duration};
 const NOW: &str = "2026-09-20T02:00:00Z";
 fn now() -> chrono::DateTime<chrono::Utc> { NOW.parse().unwrap() }
-fn creds() -> Credentials { Credentials { redaction_values: vec![], key: "PKTEST".into(), secret: "paper-secret".into(), passphrase: Some("paper".into()) } }
+fn creds() -> Credentials { Credentials { ibkr: None, redaction_values: vec![], key: "PKTEST".into(), secret: "paper-secret".into(), passphrase: Some("paper".into()) } }
 fn install() -> (tempfile::TempDir, Db, i64) {
     let (d,o,s) = common::install_alpaca();
     o.primary.execute("UPDATE exchanges SET type='Exchanges::Bybit', name='Bybit' WHERE id=?1", [s.exchange_id]).unwrap();

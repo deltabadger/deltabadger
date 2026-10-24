@@ -80,8 +80,8 @@ fn shape(c:&Connection,user:i64)->Result<Value,rusqlite::Error> {
         account.write_u8(0xff);
     }
     let mut statement=c.prepare(&format!("SELECT b.*,CASE WHEN json_valid(b.transient_data) THEN json_array(json_extract(b.transient_data,'$.rebalance_pending'),\
-        json_extract(b.transient_data,'$.liquidation_pending'),json_extract(b.transient_data,'$.liquidation_selling_since'),json_extract(b.transient_data,'$.redeploy_pending')) END AS operations__, \
-        (SELECT json_group_array(json_array(asset_id,ticker_id,in_index)) FROM (SELECT * FROM bot_index_assets WHERE bot_id=b.id ORDER BY id)) AS members__, \
+        json_extract(b.transient_data,'$.liquidation_pending'),json_extract(b.transient_data,'$.liquidation_selling_since'),json_extract(b.transient_data,'$.redeploy_pending'),json_extract(b.transient_data,'$.rebalance_below_minimum_at')) END AS operations__, \
+        (SELECT json_group_array(json_array(asset_id,ticker_id,in_index,target_allocation)) FROM (SELECT * FROM bot_index_assets WHERE bot_id=b.id ORDER BY id)) AS members__, \
         (SELECT json_group_array(json_array(id,base,base_asset_id,quote_asset_id,minimum_base_size,minimum_quote_size,available,trading_enabled,base_decimals,quote_decimals,price_decimals)) FROM (SELECT * FROM tickers t \
           WHERE t.exchange_id=b.exchange_id AND t.id IN (\
             SELECT x.id FROM (SELECT DISTINCT base_asset_id a FROM transactions WHERE bot_id=b.id) o JOIN tickers x ON x.exchange_id=b.exchange_id AND x.base_asset_id=o.a \
@@ -196,10 +196,11 @@ pub fn revision(c:&Connection,user:i64)->Result<(u64,usize),rusqlite::Error> {
     let sets=[
         ("SELECT * FROM users WHERE id=?1".to_string(),"users"),
         ("SELECT * FROM bots WHERE user_id=?1 ORDER BY id".to_string(),"bots"),
-        // Of a bot's transient data, only what web::figure::holdings reads: the operation flags, and whether it parses.
+        // Of a bot's transient data, only what the figures read: the operation flags, the rebalance rule's below-minimum flag
+        // (its drift readout), and whether it parses.
         ("SELECT id,json_valid(transient_data),CASE WHEN json_valid(transient_data) THEN json_array(json_extract(transient_data,'$.rebalance_pending'),\
-          json_extract(transient_data,'$.liquidation_pending'),json_extract(transient_data,'$.liquidation_selling_since'),json_extract(transient_data,'$.redeploy_pending')) END \
-          FROM bots WHERE user_id=?1 ORDER BY id".to_string(),"operations"),
+          json_extract(transient_data,'$.liquidation_pending'),json_extract(transient_data,'$.liquidation_selling_since'),json_extract(transient_data,'$.redeploy_pending'),\
+          json_extract(transient_data,'$.rebalance_below_minimum_at')) END FROM bots WHERE user_id=?1 ORDER BY id".to_string(),"operations"),
         (format!("SELECT * FROM transactions WHERE bot_id IN ({bots}) ORDER BY id"),"transactions"),
         (format!("SELECT * FROM bot_index_assets WHERE bot_id IN ({bots}) ORDER BY id"),"bot_index_assets"),
         ("SELECT * FROM wash_sale_locks WHERE user_id=?1 ORDER BY id".to_string(),"wash_sale_locks"),
@@ -509,7 +510,8 @@ const PANEL_ATTEMPTS:usize=3;
 /// prices read no market). A write committed while it computes (the revision moved) recomputes it against the latest
 /// rows, and the last attempt publishes whatever it read: as Rails' after_update_commit always broadcasts, the page never
 /// keeps the panel of rows that are gone. No chart or other bot is published.
-pub(crate) fn broadcast_metrics_panel(ctx:&crate::web::layout::Ctx,id:i64,stream:String)->Result<(),WebError> {
+/// `metrics`: false when the save moved only the rebalance rule, which owes the page its drift readout alone.
+pub(crate) fn broadcast_metrics_panel(ctx:&crate::web::layout::Ctx,id:i64,stream:String,metrics:bool)->Result<(),WebError> {
     let user=ctx.user().ok_or_else(||WebError::Config("metrics broadcast has no owner".into()))?.id;
     let now=At::from_utc(ctx.now).ok_or_else(||WebError::Config("metrics time out of range".into()))?;
     let handle=tokio::runtime::Handle::try_current().map_err(|e|WebError::Task(e.to_string()))?;
@@ -537,9 +539,9 @@ pub(crate) fn broadcast_metrics_panel(ctx:&crate::web::layout::Ctx,id:i64,stream
             if let Producer::Alpaca(version)=&info.producer { wire=wire.with_origin(version.clone()); }
             let prefix=prefix.clone();
             let filled=tokio::time::timeout(app.figure_service.fill_timeout(),fill_result(&app,user,cache,&wire,now,|_,_|Ok(true),move|c,reader|
-                super::metrics_panel(c,id,reader,now,locale,&prefix))).await;
-            let html=match filled {
-                Ok(Ok(html))=>html,
+                super::settings_panels(c,id,reader,now,locale,&prefix))).await;
+            let (html,readout)=match filled {
+                Ok(Ok(panels))=>panels,
                 Ok(Err(_))=>return crate::engine::log("[web] settings metrics panel could not be priced"),
                 Err(_)=>return crate::engine::log("[web] settings metrics panel price read timed out"),
             };
@@ -547,7 +549,11 @@ pub(crate) fn broadcast_metrics_panel(ctx:&crate::web::layout::Ctx,id:i64,stream
             let published=app.db(move|c| {
                 let current=read_info(c,&inner,user)?;
                 let held=current.revision==info.revision && info.producer.same(&current.producer);
-                if held || last { inner.hub.broadcast(&stream,&crate::web::turbo::stream("replace","metrics",&html)); }
+                if held || last {
+                    if metrics { inner.hub.broadcast(&stream,&crate::web::turbo::stream("replace","metrics",&html)); }
+                    // D-REB-DRIFT-LATE: the drift readout the save's answer could not read from kept figures.
+                    if let Some(readout)=&readout { inner.hub.broadcast(&stream,&crate::web::turbo::stream("replace","settings-rebalance-info",readout)); }
+                }
                 Ok(held || last)
             }).await;
             match published {
@@ -560,6 +566,21 @@ pub(crate) fn broadcast_metrics_panel(ctx:&crate::web::layout::Ctx,id:i64,stream
     Ok(())
 }
 
+/// The rebalance drift the account's last kept figures read for `bot`, as Rails' settings answer reads its cached
+/// metrics_with_current_prices (`Some(None)`: they read none), or None while none are kept in this locale and paths.
+pub(crate) fn kept_drift(c:&Connection,app:&App,user:i64,bot:i64,locale:&str,prefix:&str)->Option<Option<crate::ruby::BigDec>> {
+    if matches!(app.figure_source,Source::Disabled) { return None; }
+    let info=read_info(c,app,user).ok()?;
+    let (cache,_,revision)=app.figure_service.stale(user,&info.identity,app.now().timestamp())?;
+    let kept=cache.kept(&kept_key(revision,cache.stamp()?,locale,prefix))?;
+    // [the drift or null, what it was measured on]: kept for another composition, venue or lock, it is no drift of this bot.
+    let kept=kept["figures"]["bots"][bot.to_string()].get("rebalance_drift")?;
+    if kept[1].as_str()!=Some(super::rebalance_inputs(c,bot).ok()?.as_str()) { return None; }
+    match &kept[0] {
+        Value::String(drift)=>crate::ruby::BigDec::parse(drift).ok().map(Some),
+        _=>Some(None),
+    }
+}
 /// Boxed, so that its type is known: the end of a fill publishes, and publishing begins a fill.
 type Begun<'a>=std::pin::Pin<Box<dyn std::future::Future<Output=Result<Snapshot,WebError>>+Send+'a>>;
 fn begin(app:&App,user:i64)->Begun<'_>{ Box::pin(async move {
@@ -704,7 +725,10 @@ pub fn render(c:&Connection,user:i64,snapshot:&Snapshot,locale:&str,csrf:&str,pr
     for row in statement.query_map(rusqlite::params![user,crate::enums::BotStatus::Deleted as i64],|r|Ok((r.get::<_,i64>(0)?,r.get::<_,Option<String>>(1)?)))? {
         let (id,kind)=row?;
         let (_,kind)=super::kind_of(kind.as_deref());
-        bots.insert(id.to_string(),serde_json::json!({"tile":absent(&format!("pnl_bots_{kind}_{id}")),"metrics":absent("metrics"),"chart":absent("chart")}));
+        let mut absent=serde_json::json!({"tile":absent(&format!("pnl_bots_{kind}_{id}")),"metrics":absent("metrics"),"chart":absent("chart")});
+        // A rule that is on keeps its note, and no drift the failure no longer reads.
+        if let Some(note)=super::rebalance_note(c,id,locale).map_err(|e|WebError::Task(format!("{e:?}")))? { absent["rebalance_info"]=Value::String(note); }
+        bots.insert(id.to_string(),absent);
     }
     Ok(Some(serde_json::json!({"bots":bots,"account":absent("global-pnl")})))
 }
@@ -1091,6 +1115,40 @@ mod tests {
         // the same id and precision, changes the request.
         c.execute("UPDATE tickers SET ticker='RENAMED' WHERE id=5000",[]).unwrap();
         assert_ne!(measure(&c).0,precision,"a never-held tradable listing in the index's venue and quote renamed");
+    }
+    /// The rebalance rule's drift readout is kept with the figures: what it reads beyond them (the below-minimum flag, the
+    /// members' targets) moves both the fingerprint and what stale figures are held to, so neither is shown once either
+    /// changed; the rest of the bot's transient bookkeeping moves neither.
+    #[test]
+    fn the_drift_readout_inputs_move_the_fingerprint_and_the_stale_shape() {
+        let c=rusqlite::Connection::open_in_memory().unwrap();
+        c.execute_batch(include_str!("../../../tests/fixtures/settings_primary_schema.sql")).unwrap();
+        let t="'2024-01-01'";
+        c.execute_batch(&format!("
+            INSERT INTO users(id,email,encrypted_password,created_at,updated_at) VALUES (1,'o@example.com','x',{t},{t});
+            INSERT INTO exchanges(id,type,name,created_at,updated_at) VALUES (1,'Exchanges::Alpaca','Alpaca',{t},{t});
+            INSERT INTO assets(id,category,external_id,symbol,name,created_at,updated_at) VALUES (1,'Fiat','usd','USD','US Dollar',{t},{t}),(2,'Stock','a','AAA','A',{t},{t});
+            INSERT INTO bots(id,user_id,exchange_id,type,status,settings,transient_data,created_at,updated_at) VALUES
+                (1,1,1,'Bots::DcaMultiAsset',2,'{{\"quote_asset_id\":1,\"rebalance_enabled\":true,\"allocations\":{{\"2\":1.0}}}}','{{}}',{t},{t});
+            INSERT INTO tickers(id,base,base_asset_id,base_decimals,exchange_id,minimum_base_size,minimum_quote_size,price_decimals,quote,quote_asset_id,quote_decimals,ticker,created_at,updated_at)
+                VALUES (1,'AAA',2,9,1,0,1,2,'USD',1,2,'AAA',{t},{t});
+            INSERT INTO bot_index_assets(id,bot_id,asset_id,ticker_id,in_index,target_allocation,created_at,updated_at) VALUES (1,1,2,1,1,1.0,{t},{t});
+        ")).unwrap();
+        let read=|c:&rusqlite::Connection|(super::revision(c,1).unwrap().0,super::shape(c,1).unwrap());
+        let (revision,shape)=read(&c);
+        let figures=serde_json::json!({"bots":{"1":{"rebalance_info":"<small id=\"settings-rebalance-info\"></small>"}}});
+        for (what,sql,moves) in [
+            ("the below-minimum flag set","UPDATE bots SET transient_data=json_set(transient_data,'$.rebalance_below_minimum_at','2026-01-01T00:00:00Z')",true),
+            ("a member's target","UPDATE bot_index_assets SET target_allocation=0.5",true),
+            ("other bookkeeping","UPDATE bots SET transient_data=json_set(transient_data,'$.missed_quote_amount','5')",false),
+        ] {
+            c.execute_batch(&format!("SAVEPOINT edit; {sql};")).unwrap();
+            let (after,now)=read(&c);
+            assert_eq!(after!=revision,moves,"{what}: the fingerprint");
+            let shown=super::stale_shown(figures.clone(),&shape,&now).unwrap();
+            assert_eq!(shown["bots"].get("1").is_none(),moves,"{what}: the stale readout");
+            c.execute_batch("ROLLBACK TO edit; RELEASE edit;").unwrap();
+        }
     }
     /// What stale figures are held to (`shape`) finds each bot's listings from its distinct traded assets and names, by
     /// the venue's index: on a real-size venue (7,967 listings) under two bots, twice the orders cost little more. Looked

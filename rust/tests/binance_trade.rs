@@ -146,17 +146,17 @@ async fn placement_answers_map_to_rails_ambiguity_rules() {
     let cases: Vec<(Value, Result<String, VenueError>)> = vec![
         (accepted(), Ok("BTCUSDT-28457".into())),
         (ok(json!({ "symbol": "BTCUSDT", "orderId": "28458" })), Ok("BTCUSDT-28458".into())),
-        // A definitive refusal: the venue's msg (Exchanges::Binance#parse_error_message).
+        // A definitive refusal: the venue's msg (Exchanges::Binance#parse_error_message), its `code` carried beside it.
         (fail(400, json!({ "code": -2010, "msg": "Account has insufficient balance for requested action." })),
-         Err(VenueError::Rejected(vec!["Account has insufficient balance for requested action.".into()]))),
+         Err(VenueError::Coded { code: "-2010".into(), errors: vec!["Account has insufficient balance for requested action.".into()] })),
         (fail(401, json!({ "code": -2015, "msg": "Invalid API-key, IP, or permissions for action." })),
-         Err(VenueError::Rejected(vec!["Invalid API-key, IP, or permissions for action.".into()]))),
+         Err(VenueError::Coded { code: "-2015".into(), errors: vec!["Invalid API-key, IP, or permissions for action.".into()] })),
         // -1021 is placement-safe (definitive, never ambiguous), in both of Rails' wordings, even on a 5xx.
-        (fail(400, json!({ "code": -1021, "msg": m1021 })), Err(VenueError::Rejected(vec![m1021.into()]))),
-        (fail(400, json!({ "code": -1021, "msg": ahead })), Err(VenueError::Rejected(vec![ahead.into()]))),
-        (fail(503, json!({ "code": -1021, "msg": m1021 })), Err(VenueError::Rejected(vec![m1021.into()]))),
+        (fail(400, json!({ "code": -1021, "msg": m1021 })), Err(VenueError::Coded { code: "-1021".into(), errors: vec![m1021.into()] })),
+        (fail(400, json!({ "code": -1021, "msg": ahead })), Err(VenueError::Coded { code: "-1021".into(), errors: vec![ahead.into()] })),
+        (fail(503, json!({ "code": -1021, "msg": m1021 })), Err(VenueError::Coded { code: "-1021".into(), errors: vec![m1021.into()] })),
         // A 429 on placement is a definitive refusal (Rails' 4xx rule), never the read throttle.
-        (fail(429, json!({ "code": -1015, "msg": "Too many new orders." })), Err(VenueError::Rejected(vec!["Too many new orders.".into()]))),
+        (fail(429, json!({ "code": -1015, "msg": "Too many new orders." })), Err(VenueError::Coded { code: "-1015".into(), errors: vec!["Too many new orders.".into()] })),
         // May have been placed: a 5xx, an unreadable 2xx, a 2xx with no orderId, a lost reply.
         (fail(503, json!({ "code": -1001, "msg": "Internal error; unable to process your request. Please try again." })),
          Err(VenueError::Ambiguous("Internal error; unable to process your request. Please try again.".into()))),
@@ -354,7 +354,7 @@ async fn the_factory_builds_binance_through_its_proxy_with_the_exchanges_tickers
     let cipher = deltabadger::crypto::Cipher::new(&deltabadger::crypto::EncryptionKeys::resolve(&|_| None, "engine-test-secret").unwrap());
     let factory = LiveFactory::for_install(&c, &cipher);
     // Realistic key material: the transport scrubs every credential value out of each answer it reads.
-    let creds = Some(deltabadger::crypto::Credentials { redaction_values: vec![], key: "vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A".into(),
+    let creds = Some(deltabadger::crypto::Credentials { ibkr: None, redaction_values: vec![], key: "vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A".into(),
                                                         secret: "NhqPtmdSJYdKjVHjA7PZj4Mge3R5YNiP1e3UZjInClVN65XAbvqqM6A7H5fATj0j".into(), passphrase: None });
     let now = chrono::Utc::now();
     for proxy in [&a, &b] {

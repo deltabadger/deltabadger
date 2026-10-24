@@ -32,6 +32,26 @@ pub struct Forms<'a> {
     pub time_zone: &'a str,
     /// What the start validation left on the bot, when the status button ran it before these forms.
     pub check: Option<&'a start::Check>,
+    /// bots/settings/_rebalance_info as the figures render it (`figure::rebalance`), or None while they are not ready: the
+    /// note alone, and the readout follows on the figures' stream (D-REB-DRIFT-LATE).
+    pub rebalance_info: Option<&'a str>,
+}
+
+/// bots/settings/_rebalance_info while the rule is on: the note, then, unless a halted swap reads none, the drift readout,
+/// green when it is above the threshold and a trade can be made (`below_minimum` is Bot::Rebalanceable#rebalance_below_minimum?).
+pub fn rebalance_info(locale: &str, ambiguous: bool, drift: Option<&BigDec>, threshold: Option<&BigDec>, below_minimum: bool) -> String {
+    let readout = match (drift, threshold) {
+        (Some(drift), Some(threshold)) if !ambiguous => {
+            let tripped = drift > threshold;
+            let blocked = tripped && below_minimum;
+            let shown = (drift * &BigDec::from_i64(100)).round(1).to_s_f();
+            format!("<div class=\"{}\">\n          {}\n          {}\n        </div>", if tripped && !blocked { "text-success" } else { "" },
+                    i18n::t(locale, "bot.settings.rebalance.drift", &[("drift", Arg::Text(&shown))]),
+                    if blocked { i18n::t(locale, "bot.settings.rebalance.below_minimum", &[]) } else { String::new() })
+        }
+        _ => String::new(),
+    };
+    format!("<small id=\"settings-rebalance-info\" class=\"small-info\">\n    <div>{}</div>\n    {readout}\n  </small>\n", i18n::t(locale, "bot.settings.rebalance.note", &[]))
 }
 
 /// config/initializers/inline_form_errors.rb: a field whose attribute has an error is followed by the message, its first letter raised.
@@ -337,15 +357,21 @@ impl Forms<'_> {
         Ok(self.rule(active, "quote_amount_limited", active, self.locked(), &format!("            {sentence}\n          {info}\n")))
     }
 
-    /// bots/settings/_rebalance.html.erb, switched off (a bot that rebalances is not served yet). Unlike
-    /// its siblings it is never locked: the rule is its own leg, independent of the schedule.
+    /// bots/settings/_rebalance.html.erb. Unlike its siblings it is never locked: the rule is its own leg, independent of
+    /// the schedule.
     pub fn rebalance(&self) -> String {
         // Bot::Rebalanceable#rebalance_threshold, shown as a percentage.
         let threshold = self.bot.rebalance_threshold();
         let value = threshold.and_then(|share| input_value(&Num::Dec(&share * &BigDec::from_i64(100))));
         let field = self.number("rebalance_threshold", value.as_deref(), "any", "", false);
         let sentence = self.t("bot.settings.rebalance.sentence_html", &[("value_html", Arg::Html(&format!("<div>            {field}\n</div>")))]);
-        self.rule(false, "rebalance_enabled", false, false, &format!("          {sentence}\n          \n"))
+        let active = self.bot.rebalance_enabled();
+        let info = match self.rebalance_info {
+            _ if !active => String::new(),
+            Some(info) => info.to_string(),
+            None => rebalance_info(self.ctx.locale, false, None, None, false),
+        };
+        self.rule(active, "rebalance_enabled", active, false, &format!("          {sentence}\n          {info}\n"))
     }
 
     /// BotHelper#trigger_mode_select_options and #trigger_mode_for, buying: "Buy only", "Start buying", and for a basket the flip.
@@ -699,7 +725,8 @@ pub fn column(c: &Connection, forms: &Forms) -> Result<String, WebError> {
             let mut pairs: Vec<(String, String)> = bot.tickers.iter().map(|ticker| (format!("{}{}", ticker.base_symbol.as_deref().unwrap_or(""), ticker.quote_symbol.as_deref().unwrap_or("")), ticker.id.to_string())).collect();
             pairs.sort_by(|a, b| a.0.cmp(&b.0));
             out.push_str(&forms.conditions(&members, &pairs));
-            out.push_str(&format!("    {}\n", forms.amount_limit(c)?));
+            // While selling the cap counts base, which only a one-asset basket has a single one of.
+            if !bot.selling() || bot.one_asset() { out.push_str(&format!("    {}\n", forms.amount_limit(c)?)); }
             if !bot.one_asset() && !bot.selling() { out.push_str(&format!("    {}\n", forms.rebalance())); }
         }
         Kind::Index => {
@@ -745,8 +772,9 @@ fn market_cap_rule(forms: &Forms) -> String {
 /// persisted-row refusal. Dynamic arithmetic below already uses fallible interval/number reads.
 pub fn draft_column(c: &Connection, ctx: &Ctx, csrf: &str, draft: &super::draft::Draft, time_zone: &str, hide_balances: bool) -> Result<String, WebError> {
     let check = draft.check();
+    let info = saved_rebalance_info(c, ctx, draft);
     let forms = Forms { ctx, csrf, bot: &draft.candidate, path: crate::web::locale::path(ctx.locale, &format!("/bots/{}", draft.candidate.id)),
-        hide_balances, time_zone, check: Some(&check) };
+        hide_balances, time_zone, check: Some(&check), rebalance_info: info.as_deref() };
     let mut html = column(c, &forms)?;
     for field in ["quote_asset_id", "exchange"] {
         if let Some(error) = forms.field_error(field) {
@@ -758,6 +786,18 @@ pub fn draft_column(c: &Connection, ctx: &Ctx, csrf: &str, draft: &super::draft:
         }
     }
     Ok(html)
+}
+
+/// The drift readout a save redraws: the drift the account's kept figures read (Rails' cached metrics_with_current_prices),
+/// against the bot's rule as it now stands. None while none is kept, or when the save moved what the drift is measured on
+/// (the composition, the venue): the note alone, and the post-commit panel publishes the readout (D-REB-DRIFT-LATE).
+pub(super) fn saved_rebalance_info(c: &Connection, ctx: &Ctx, draft: &super::draft::Draft) -> Option<String> {
+    let (bot, original) = (&draft.candidate, &draft.original);
+    if !bot.rebalance_enabled() || bot.settings.get("allocations") != original.settings.get("allocations") || bot.exchange.id != original.exchange.id { return None; }
+    let drift = crate::web::figure::loading::kept_drift(c, &ctx.app, ctx.user()?.id, bot.id, ctx.locale, &ctx.path(""))?;
+    let transient = Value::Object(bot.transient.clone());
+    let ambiguous = transient[crate::engine::rebalance::PENDING_KEY]["phase"] == crate::engine::rebalance::PHASE_AMBIGUOUS;
+    Some(rebalance_info(ctx.locale, ambiguous, drift.as_ref(), bot.rebalance_threshold().as_ref(), crate::engine::rebalance::below_minimum(&transient)))
 }
 
 fn rejected_value(value: &Value) -> String {

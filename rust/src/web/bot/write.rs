@@ -234,6 +234,11 @@ fn settings_inner<T>(
     if effects.settings.set.is_empty() { draft.candidate.settings = final_settings; }
     if !submitted.mcp() { if let Some(reason) = draft.candidate.unrendered() { return Ok(Outcome::Unported(reason)); } }
     let prepared = response_builder(&tx, &ctx, &draft)?;
+    // A save that moved the rebalance rule redraws its drift from kept figures; with none kept, the readout is published
+    // once the figures are read (D-REB-DRIFT-LATE).
+    let rule_moved = effects.settings.set.keys().any(|key| matches!(key.as_str(), "rebalance_enabled" | "rebalance_threshold"));
+    let drift_owed = !metrics_changed && rule_moved && draft.candidate.rebalance_enabled() && draft.candidate.kind != Kind::Signal
+        && super::settings::saved_rebalance_info(&tx, &ctx, &draft).is_none();
     tx.commit()?;
     if !changed { return Ok(Outcome::NoChange(prepared.response)); }
     // This tail is deliberately in the App::db job, under its mutex. Nothing fallible may
@@ -242,7 +247,7 @@ fn settings_inner<T>(
     for (stream, html) in prepared.broadcasts { ctx.app.hub.broadcast(&stream, &html); }
     // The inherited status callbacks precede DcaMultiAsset's metrics callback. Settings do not
     // change status; the index's separate resync job remains responsible for its panel.
-    if metrics_changed { super::action_view::broadcast_settings_metrics(&ctx, &draft.candidate); }
+    if metrics_changed || drift_owed { super::action_view::broadcast_settings_metrics(&ctx, &draft.candidate, metrics_changed); }
     if let Some(id) = prepared.after_scheduling { super::action_view::broadcast_after_scheduling(ctx.clone(), id); }
     Ok(Outcome::Committed(prepared.response))
 }

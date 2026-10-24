@@ -47,7 +47,7 @@ fn install(spec: BotSpec) -> (tempfile::TempDir, store::Opened, i64) {
 }
 fn venue(o: &store::Opened, t: &ScriptedTransport) -> GeminiVenue<ScriptedTransport> {
     let id: i64 = o.primary.query_row("SELECT id FROM exchanges", [], |r| r.get(0)).unwrap();
-    let creds = deltabadger::crypto::Credentials { key: "KEY-A".into(), secret: "s".into(), passphrase: None, redaction_values: vec![] };
+    let creds = deltabadger::crypto::Credentials { ibkr: None, key: "KEY-A".into(), secret: "s".into(), passphrase: None, redaction_values: vec![] };
     GeminiVenue::new(t.clone(), URL).with_pairs(Pairs::load(&o.primary, id).unwrap()).with_identity(&creds)
 }
 fn bot(o: &store::Opened, id: i64) -> model::Bot { model::load_bot(&o.primary, id).unwrap() }

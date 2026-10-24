@@ -5,12 +5,14 @@ use rusqlite::Connection;
 use serde_json::json;
 const SCHEMA: &str = "
     CREATE TABLE users (id integer PRIMARY KEY, time_zone varchar, display_currency varchar, hide_balances boolean, wash_sale_enabled boolean DEFAULT 0, wash_sale_jurisdiction varchar);
-    CREATE TABLE exchanges (id integer PRIMARY KEY, type varchar);
+    CREATE TABLE exchanges (id integer PRIMARY KEY, type varchar, name varchar);
     CREATE TABLE assets (id integer PRIMARY KEY, symbol varchar, name varchar, category varchar, external_id varchar, image_url varchar, color varchar);
     CREATE TABLE tickers (id integer PRIMARY KEY, exchange_id integer, ticker varchar, base varchar, base_asset_id integer, quote_asset_id integer,
-                          quote_decimals integer, available boolean, trading_enabled boolean, minimum_base_size decimal DEFAULT 0.000000001, minimum_quote_size decimal DEFAULT 1);
-    CREATE TABLE bots (id integer PRIMARY KEY, user_id integer, exchange_id integer, type varchar, settings json, status integer, transient_data json DEFAULT '{}', redeploy_declined_offset decimal DEFAULT 0);
-    CREATE TABLE bot_index_assets (bot_id integer, asset_id integer, ticker_id integer, in_index boolean);
+                          quote_decimals integer, available boolean, trading_enabled boolean, base_decimals integer DEFAULT 9, price_decimals integer DEFAULT 2, quote varchar DEFAULT 'USD', minimum_base_size decimal DEFAULT 0.000000001, minimum_quote_size decimal DEFAULT 1);
+    CREATE TABLE bots (id integer PRIMARY KEY, user_id integer, exchange_id integer, type varchar, settings json, status integer, transient_data json DEFAULT '{}', redeploy_declined_offset decimal DEFAULT 0,
+                       started_at datetime(6), settings_changed_at datetime(6), restatement_generation integer DEFAULT 0);
+    CREATE TABLE bot_index_assets (id integer PRIMARY KEY, bot_id integer, asset_id integer, ticker_id integer, in_index boolean, target_allocation decimal);
+    CREATE TABLE wash_sale_locks (id integer PRIMARY KEY, user_id integer, asset_id integer, buy_locked_until datetime(6), source varchar);
     CREATE TABLE transactions (id integer PRIMARY KEY, bot_id integer, status integer, created_at datetime(6), exchange_id integer, price decimal, amount decimal,
                                amount_exec decimal, quote_amount_exec decimal, base varchar, base_asset_id integer, side integer, external_status integer,
                                transaction_type varchar,
@@ -18,10 +20,11 @@ const SCHEMA: &str = "
     CREATE TABLE account_transactions (id integer PRIMARY KEY, user_id integer, exchange_id integer, entry_type integer, base_currency varchar, raw_data json, transacted_at datetime(6), base_asset_id integer);
     CREATE TABLE account_balances (id INTEGER PRIMARY KEY, user_id integer, exchange_id integer, asset_id integer);
     INSERT INTO users(id,time_zone,display_currency,hide_balances) VALUES (1, 'UTC', 'USD', 0);
-    INSERT INTO exchanges VALUES (1, 'Exchanges::Alpaca');
+    INSERT INTO exchanges VALUES (1, 'Exchanges::Alpaca', 'Alpaca');
     INSERT INTO assets(id,symbol,name,category,external_id) VALUES (1, 'USD', 'USD', 'Fiat', 'usd'), (2, 'AAA', 'AAA Inc.', 'Stock', 'stock-aaa'), (3, 'BBB', 'BBB Inc.', 'Stock', 'stock-bbb');
     INSERT INTO tickers(id,exchange_id,ticker,base,base_asset_id,quote_asset_id,quote_decimals,available,trading_enabled) VALUES (1, 1, 'AAA', 'AAA', 2, 1, 2, 1, 1), (2, 1, 'BBB', 'BBB', 3, 1, 2, 1, 1);
-    INSERT INTO bots(id,user_id,exchange_id,type,settings,status) VALUES (1, 1, 1, 'Bots::DcaMultiAsset', '{\"quote_asset_id\": 1, \"allocations\": {\"2\": 0.5, \"3\": 0.5}}', 1);
+    INSERT INTO bots(id,user_id,exchange_id,type,settings,status) VALUES (1, 1, 1, 'Bots::DcaMultiAsset', '{\"quote_asset_id\": 1, \"rebalance_enabled\": true, \"allocations\": {\"2\": 0.5, \"3\": 0.5}}', 1);
+    INSERT INTO bot_index_assets(bot_id,asset_id,ticker_id,in_index,target_allocation) VALUES (1, 2, 1, 1, 0.5), (1, 3, 2, 1, 0.5);
 ";
 
 pub fn run()->Result<(),String>{
@@ -35,6 +38,8 @@ pub fn run()->Result<(),String>{
     let (good,used)=budget::scope(FIGURE,||figure::account(&c,1,&market,now,"en","token",""));
     let good=good.map_err(|e|format!("{e:?}"))?;
     if !good["bots"]["1"]["tile"].as_str().is_some_and(|html|html.contains("4.00%")){return Err("missing normal figure".into());}
+    // The rebalance rule's drift readout is read and written inside the same budget.
+    if !good["bots"]["1"]["rebalance_info"].as_str().is_some_and(|html|html.contains("off its target split")){return Err("missing drift readout".into());}
     if used.steps<good.to_string().len() as u64||used.held==0{return Err("page bypassed the budget".into());}
     for limits in [Limits{steps:0,held:FIGURE.held},Limits{steps:used.steps-1,held:FIGURE.held},Limits{steps:FIGURE.steps,held:0}] {
         let (refused,_)=budget::scope(limits,||figure::account(&c,1,&market,now,"en","token",""));
