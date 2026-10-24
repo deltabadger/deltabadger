@@ -59,6 +59,15 @@ fn wash_sale(c: &Connection, owner: i64) -> Result<Option<bool>, WebError> {
     Ok(c.query_row("SELECT wash_sale_enabled FROM users WHERE id = ?1", [owner], |r| r.get(0))?)
 }
 
+/// The account's answer as `bot::refusal` reads it for `action`. Stop, Archive and Delete only take risk away, and Rails'
+/// Bots::StopsController, ArchivesController, DeletesController and BotApi's Stop, Archive and Delete never consult the
+/// wash-sale setting: those actions never meet its refusals (the engine runs such a bot, so its Stop must always pass,
+/// as a basket's does, write::lifecycle). Every other refusal still applies to them.
+fn wash_gate(c: &Connection, owner: i64, action: Option<Action>) -> Result<Option<bool>, WebError> {
+    if action.is_some_and(|a| matches!(a, Action::Stop | Action::Archive | Action::Delete)) { return Ok(Some(false)); }
+    wash_sale(c, owner)
+}
+
 /// Whether the bot is a signal bot of this user's (any status): the actions route to this module for it.
 pub fn is_signal(c: &Connection, owner: i64, id: i64) -> Result<bool, WebError> {
     let class: Option<Option<String>> = c.query_row("SELECT type FROM bots WHERE id = ?1 AND user_id = ?2", [id, owner], |r| r.get(0)).optional()?;
@@ -77,7 +86,7 @@ pub fn reads_json(path: &str, method: &axum::http::Method) -> bool {
 }
 
 /// Bots::Botable#set_bot for a signal bot, and `bot::refusal` for what this build serves.
-fn owned(c: &Connection, app: &App, owner: i64, id: i64, locale: &str) -> Result<Result<Bot, Answer>, WebError> {
+fn owned(c: &Connection, app: &App, owner: i64, id: i64, locale: &str, action: Option<Action>) -> Result<Result<Bot, Answer>, WebError> {
     let status: Option<i64> = c.query_row("SELECT status FROM bots WHERE id = ?1 AND user_id = ?2 AND type = ?3", (id, owner, SIGNAL_TYPE), |r| r.get(0)).optional()?;
     match status {
         None => return Ok(Err(Answer::Missing)),
@@ -85,7 +94,7 @@ fn owned(c: &Connection, app: &App, owner: i64, id: i64, locale: &str) -> Result
         Some(_) => {}
     }
     let (provider, _) = bots::market_data(c, app)?;
-    if let Some(reason) = super::refusal(c, id, wash_sale(c, owner)?, provider, For::Settings)? { return Ok(Err(Answer::Unported(reason))); }
+    if let Some(reason) = super::refusal(c, id, wash_gate(c, owner, action)?, provider, For::Settings)? { return Ok(Err(Answer::Unported(reason))); }
     Ok(Bot::find(c, owner, id, For::Page, locale)?.ok_or(Answer::Missing))
 }
 
@@ -167,7 +176,7 @@ fn rule_inner(c: &Connection, ctx: &Ctx, owner: i64, id: i64, op: RuleOp, params
     let tx = model::immediate(c)?;
     let mut ctx = ctx.clone();
     ctx.now = ctx.app.now();
-    let bot = match owned(&tx, &ctx.app, owner, id, ctx.locale)? { Ok(bot) => bot, Err(answer) => return Ok(answer) };
+    let bot = match owned(&tx, &ctx.app, owner, id, ctx.locale, None)? { Ok(bot) => bot, Err(answer) => return Ok(answer) };
     let csrf = ctx.csrf_token();
     // refuse_while_running (Rails R8b): a stale tab's rule write on a running bot changes nothing.
     if bot.working() {
@@ -361,7 +370,7 @@ fn settings_inner(c: &Connection, ctx: &Ctx, owner: i64, id: i64, params: &Actio
     let tx = model::immediate(c)?;
     let mut ctx = ctx.clone();
     ctx.now = ctx.app.now();
-    let bot = match owned(&tx, &ctx.app, owner, id, ctx.locale)? { Ok(bot) => bot, Err(answer) => return Ok(answer) };
+    let bot = match owned(&tx, &ctx.app, owner, id, ctx.locale, None)? { Ok(bot) => bot, Err(answer) => return Ok(answer) };
     let Ok(Value::Object(fields)) = params.permitted(Kind::Signal) else { return Ok(Answer::BadRequest) };
     let csrf = ctx.csrf_token();
     let text = |key: &str| fields.get(key).map(|v| match v { Value::String(s) => s.clone(), Value::Null => String::new(), other => other.to_string() });
@@ -581,7 +590,7 @@ fn web_lifecycle(c: &Connection, ctx: &Ctx, owner: i64, id: i64, action: Action,
     let tx = if matches!(action, Action::Stop | Action::Archive | Action::Delete) { model::immediate_retry_busy(c)? } else { model::immediate(c)? };
     let mut ctx = ctx.clone();
     ctx.now = ctx.app.now();
-    let bot = match owned(&tx, &ctx.app, owner, id, ctx.locale)? { Ok(bot) => bot, Err(answer) => return Ok(answer) };
+    let bot = match owned(&tx, &ctx.app, owner, id, ctx.locale, Some(action))? { Ok(bot) => bot, Err(answer) => return Ok(answer) };
     let refuse = |text: String| -> Result<Answer, WebError> { Ok(Answer::Done(action_view::response(alert(text)?, true))) };
     // Bots::StartsController reads the flag before Bot#start (the wash-sale question is `bot::refusal`'s).
     let fresh = if action == Action::Start {
@@ -669,7 +678,7 @@ pub fn service(c: &Connection, ctx: &Ctx, heard: &Ctx, owner: i64, id: i64, acti
     };
     if let Some((code, message)) = conflict { return failed(Failure::conflict(code, message)); }
     let (provider, _) = bots::market_data(&tx, &ctx.app)?;
-    if let Some(reason) = super::refusal(&tx, id, wash_sale(&tx, owner)?, provider, For::Settings)? { return Ok(Outcome::Unported(reason)); }
+    if let Some(reason) = super::refusal(&tx, id, wash_gate(&tx, owner, Some(action))?, provider, For::Settings)? { return Ok(Outcome::Unported(reason)); }
     let Some(bot) = Bot::find(&tx, owner, id, For::Page, ctx.locale)? else { return Ok(Outcome::Missing) };
     let mut heard = heard.clone();
     heard.now = ctx.now;
