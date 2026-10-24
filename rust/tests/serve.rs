@@ -1667,7 +1667,7 @@ fn a_bot_row_is_read_as_the_pages_need_it_and_refused_when_this_build_cannot_ren
     assert_eq!(refused(&|s| { one(s); s["allocations"]["999"] = json!(0.5); }, Some(false), true), Some("a basket of several assets that sells"));
     // Selling owes the wash-sale question before anything is held (Bot#sell_capable?).
     assert_eq!(refused(&one, None, true), Some("the wash-sale question not answered yet"));
-    assert_eq!(refused(&|s| s["rebalance_enabled"] = json!(true), Some(false), true), Some("rebalancing"));
+    assert_eq!(refused(&|s| s["rebalance_enabled"] = json!(true), Some(false), true), None, "RP1: the rule is served while nothing is held");
     assert_eq!(refused(&|s| s["weighting"] = json!("market_cap"), Some(false), true), None, "plan CB T6: market-cap weights are served");
     assert_eq!(refused(&|s| s["quote_amount"] = json!(0), Some(false), true), Some("settings no form would have saved"));
     assert_eq!(refused(&|s| s["interval"] = json!("year"), Some(false), true), Some("settings no form would have saved"));
@@ -1829,6 +1829,30 @@ fn a_bot_row_is_read_as_the_pages_need_it_and_refused_when_this_build_cannot_ren
     assert_eq!(bot::refusal(c, id, Some(false), true, bot::For::Settings).unwrap(), None);
     assert_eq!(bot::refusal(c, id, Some(false), true, bot::For::FiguresPage).unwrap(), None);
     assert_eq!(refusal(), Some(bot::REALISED_WITHOUT_FIGURES));
+    // The rebalance rule's drift is read from the figures: a page without them refuses a bot that holds something with the
+    // rule on; the figures page and the forms serve it, and with the rule off nothing changes.
+    c.execute("DELETE FROM transactions WHERE side = 1", []).unwrap();
+    assert_eq!(refusal(), None);
+    let mut rebalancing = settings.clone();
+    rebalancing["rebalance_enabled"] = json!(true);
+    // A one-asset basket shows no rule, and so no drift.
+    store(&rebalancing);
+    assert_eq!(bot::refusal(c, id, Some(false), true, bot::For::Page).unwrap(), None);
+    let first = rebalancing["allocations"].as_object().unwrap().keys().next().unwrap().clone();
+    rebalancing["allocations"] = json!({ first: 0.5, "999": 0.5 });
+    store(&rebalancing);
+    assert_eq!(bot::refusal(c, id, Some(false), true, bot::For::Page).unwrap(), Some(bot::REBALANCE_WITHOUT_FIGURES));
+    // Bot#sell_capable? counts the rule: the wash-sale question is owed before anything is held, by the page and the forms
+    // (Start among them).
+    c.execute_batch("SAVEPOINT unheld; DELETE FROM transactions;").unwrap();
+    for asked in [bot::For::Page, bot::For::FiguresPage, bot::For::Settings] {
+        assert_eq!(bot::refusal(c, id, None, true, asked).unwrap(), Some("the wash-sale question not answered yet"));
+    }
+    c.execute_batch("ROLLBACK TO unheld; RELEASE unheld;").unwrap();
+    assert_eq!(bot::refusal(c, id, Some(false), true, bot::For::FiguresPage).unwrap(), None);
+    assert_eq!(bot::refusal(c, id, Some(false), true, bot::For::Settings).unwrap(), None);
+    store(&settings);
+    order(1, "REGULAR");
     // A settled REBALANCE sell on an Alpaca basket is read by the engine's walk since 6b T8: the settings serve it, and the page
     // refuses it as it refuses any sale.
     order(1, "REBALANCE");
