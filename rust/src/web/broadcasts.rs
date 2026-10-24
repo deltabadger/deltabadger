@@ -1,7 +1,7 @@
 //! BroadcastsController, for the three figures a page waits on: `broadcast--on-connect` posts here once every stream
 //! source of the page is connected (app/javascript/controllers/broadcast/on_connect_controller.js). Rails answers
 //! `head :ok` at once and leaves the broadcast to a job; so does this build, and the work is `figure::loading::publish`.
-//! `wake_dispatcher` is served too; the other methods of the controller (open orders, the limit rules' info) are not yet.
+//! `wake_dispatcher` and the four limit rules' info are served too; `fetch_open_orders` is not yet.
 use super::layout::Ctx;
 use super::{auth, bot, App, WebError};
 use axum::extract::{Extension, State};
@@ -68,5 +68,37 @@ pub async fn wake_dispatcher(State(app): State<App>, Extension(ctx): Extension<C
         tokio::time::sleep(std::time::Duration::from_secs(1)).await;
         for id in ids { bot::action_view::broadcast_after_scheduling(ctx.clone(), id); }
     });
+    Ok(head(StatusCode::OK))
+}
+
+/// `price_limit_info_update`: the price rule's status line. Rails enqueues Bot::BroadcastPriceLimitInfoUpdateJob; this build
+/// leaves a versioned request for the engine (conditions::INFO_WANTED_KEY, a Rust-only key: updated_at untouched, outside the
+/// parity snapshots) with the request's locale (ActiveJob restores the enqueuer's), and wakes it. The engine reads the price,
+/// evaluates the rule with its writes and stores the info, which the web renders (EngineEvent::ConditionInfo).
+pub async fn price_limit_info_update(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> {
+    info_update(app, ctx, Some(crate::engine::conditions::PRICE)).await
+}
+
+/// The other three rules' lines (`price_drop_limit_info_update`, `moving_average_limit_info_update`,
+/// `indicator_limit_info_update`): answered as Rails answers, but nothing computes their values until slice 7b-3, so their
+/// pages keep the loader.
+pub async fn price_drop_limit_info_update(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> { info_update(app, ctx, None).await }
+pub async fn moving_average_limit_info_update(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> { info_update(app, ctx, None).await }
+pub async fn indicator_limit_info_update(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> { info_update(app, ctx, None).await }
+
+/// A bot that is not the user's is "not found"; a deleted one is found (`current_user.bots.find_by(id:)`). No eligibility
+/// guard: the request is a Rust-only key that nothing eligibility reads.
+async fn info_update(app: App, ctx: Ctx, rule: Option<&'static str>) -> Result<Response, WebError> {
+    let Some(user) = ctx.user().map(|user| user.id) else { return Ok(auth::unauthenticated(&ctx)) };
+    let Some(id) = id(&ctx, "bot_id") else { return Ok(head(StatusCode::NOT_FOUND)) };
+    let locale = ctx.locale.to_string();
+    let found = app.db(move |c| {
+        let Some(rule) = rule else {
+            return Ok(c.query_row("SELECT EXISTS(SELECT 1 FROM bots WHERE id = ?1 AND user_id = ?2)", [id, user], |r| r.get::<_, bool>(0))?);
+        };
+        crate::engine::conditions::want_info(c, id, Some(user), rule, &locale).map_err(|e| WebError::Config(format!("{e:?}")))
+    }).await?;
+    if !found { return Ok(head(StatusCode::NOT_FOUND)); }
+    if rule.is_some() { app.wake_engine(); }
     Ok(head(StatusCode::OK))
 }

@@ -173,3 +173,26 @@ fn a_pending_market_order_shows_setting_orders_until_it_is_final() {
     assert!(recorded.iter().any(|(_, h)| h.contains(&format!("timeline_transaction_{limit}"))), "a limit order keeps its row");
     assert!(!bar(&r).contains("Setting orders"), "a resting limit order is no setting");
 }
+
+/// Slice 7s: the page's status-line request (conditions::want_info, as BroadcastsController#price_limit_info_update leaves it)
+/// is served by the engine's pass on a stopped bot, announced with the request's locale, and rendered into the price rule's
+/// line; the request is gone once served.
+#[tokio::test(flavor = "current_thread")]
+async fn the_engine_serves_the_price_status_line_and_the_page_hears_it() {
+    use deltabadger::engine::conditions;
+    let r = Rig::new(&BotSpec { status: deltabadger::enums::BotStatus::Stopped as i64, ..BotSpec::weekly(60.0, "2026-09-01 10:00:00") }
+        .with("price_limited", json!(true)).with("price_limit", json!(70000)).with("price_limit_value_condition", json!("below")));
+    assert!(conditions::want_info(&r.c(), r.id, Some(r.s.user_id), conditions::PRICE, "de").unwrap());
+    let t = script(json!({ "GET /v1beta3/crypto/us/latest/trades": [ok(json!({ "trades": { "BTC/USD": { "p": 64000.5 } } }))] }));
+    let mut e = r.engine(&t, "2026-09-02T10:00:00Z");
+    let mut rx = e.subscribe_to(EngineEvent::is_live);
+    run::step(&mut e, &FixedClock(at("2026-09-02T10:00:00Z"))).await.unwrap();
+    let event = EngineEvent::ConditionInfo { bot_id: r.id, rule: conditions::PRICE, locale: Some("de".into()) };
+    assert!(heard(&mut rx).contains(&event), "announced");
+    let bot = deltabadger::engine::model::load_bot(&r.c(), r.id).unwrap();
+    assert!(bot.transient.get(conditions::INFO_WANTED_KEY).is_none(), "served: {}", bot.transient);
+    assert!(bot.transient["price_limit_condition_met_at"].is_string(), "Q1: the page view stamped met_at");
+    let shown = r.render(&event);
+    assert_eq!(shape(&shown), [("replace".to_string(), "settings-price-limit-info".to_string())]);
+    assert!(shown[0].1.contains("text-success") && shown[0].1.contains("64000.5"), "{}", shown[0].1);
+}
