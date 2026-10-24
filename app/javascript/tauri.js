@@ -2,6 +2,12 @@ if (window.__IS_TAURI__) {
     (async () => {
         document.documentElement.classList.add('tauri');
 
+        // No browser context menu (Reload, Inspect, Back) over the app's chrome. Where one can
+        // type it stays: that is where Paste lives.
+        document.addEventListener('contextmenu', (e) => {
+            if (!e.target.closest('input, textarea, [contenteditable]')) e.preventDefault();
+        });
+
         const { open } = await import('@tauri-apps/plugin-shell');
         const { invoke } = await import('@tauri-apps/api/core');
         const { getCurrentWindow } = await import('@tauri-apps/api/window');

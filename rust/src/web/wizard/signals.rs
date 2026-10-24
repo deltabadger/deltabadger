@@ -324,11 +324,11 @@ fn settings(c: &Connection, ctx: &Ctx, csrf: &str, config: Option<&Value>, rules
 
 #[derive(Template)]
 #[template(path = "wizard/signals/_create_bot_button.html")]
-struct Button<'a> { action: String, csrf: &'a str, start: String, disabled: bool }
+struct Button<'a> { action: String, csrf: &'a str, start: String, starting: String, disabled: bool }
 
 /// bots/signals/_create_bot_button. Its form posts to `bots_signals_path(bot)`, where the unsaved bot is the locale: no prefix.
 fn button(ctx: &Ctx, csrf: &str, rules: &[Rule]) -> Result<String, WebError> {
-    Ok(Button { action: "/bots/signals".into(), csrf, start: ctx.t("button.start"), disabled: !rules.iter().all(Rule::valid) }.render()?)
+    Ok(Button { action: "/bots/signals".into(), csrf, start: ctx.t("button.start"), starting: ctx.t("busy.starting"), disabled: !rules.iter().all(Rule::valid) }.render()?)
 }
 
 #[derive(Template)]
