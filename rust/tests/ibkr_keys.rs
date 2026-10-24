@@ -520,3 +520,29 @@ async fn negative_balances_are_live_answers_but_never_stored() {
     let stored: Vec<i64> = fx.c.prepare("SELECT asset_id FROM account_balances").unwrap().query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect();
     assert!(!stored.contains(&aapl) && stored.len() == 1, "{stored:?}");
 }
+
+/// D-IBKR-INCONCLUSIVE: a check with no verdict (IBKR down, a timeout) never moves an IBKR key's status. Rails'
+/// update_status! writes pending_validation, which takes a correct key out of every sync and of the startup validation
+/// for good (nothing schedules that validator again).
+#[tokio::test(flavor = "current_thread")]
+async fn an_inconclusive_startup_validation_keeps_a_correct_unbound_key_correct_until_a_verdict_binds_it() {
+    freeze_dh();
+    let fx = Fx::new(1);
+    let before = fx.key();
+    let down = MockServer::start().await;
+    let (mint, init) = mint_and_init();
+    let answer = |a: &Value| ResponseTemplate::new(a["status"].as_u64().unwrap() as u16).set_body_raw(a["body"].as_str().unwrap().as_bytes().to_vec(), "application/json");
+    Mock::given(method("POST")).and(path(LST)).respond_with(answer(&mint)).mount(&down).await;
+    Mock::given(method("POST")).and(path(INIT)).respond_with(answer(&init)).mount(&down).await;
+    Mock::given(method("GET")).and(path(ACCOUNTS)).respond_with(ResponseTemplate::new(503)).mount(&down).await;
+    validate(&fx, &down).await;
+    assert_eq!(fx.key(), before, "a 503 writes nothing: still correct");
+    // A restart: still listed for the startup validation; the next one binds it.
+    let restarted = Fx { c: Connection::open(&fx.path).unwrap(), ..fx };
+    assert_eq!(deltabadger::sync::jobs::unbound_ibkr_keys(&restarted.c).unwrap(), [restarted.s.api_key_id]);
+    let up = ibkr_server(json!({ "accounts": ["U1234567"], "source": "provisional" })).await;
+    assert_eq!(validate(&restarted, &up).await, Outcome::Done);
+    assert_eq!(restarted.key().0, 1);
+    assert_eq!(restarted.bound_account(restarted.s.api_key_id).as_deref(), Some("U1234567"));
+    assert!(deltabadger::sync::jobs::unbound_ibkr_keys(&restarted.c).unwrap().is_empty());
+}

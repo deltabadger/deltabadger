@@ -474,6 +474,9 @@ impl<C:Connect> Job for Validator<C>{
             Validity::Incorrect=>{crate::engine::log(&format!("[{name}] API key validation: incorrect key"));(2,Some("incorrect key".to_string()))},
             Validity::Permissions{..}=>(2,Some("incorrect key".to_string())),
             Validity::Pending(e)=>{let safe=crate::web::settings::keys::scrub(&e.log_text(),&values);crate::engine::log(&format!("[{name}] API key validation failed: {safe}"));(0,Some(safe))}});
+        // D-IBKR-INCONCLUSIVE: an IBKR check with no verdict (IBKR down, a timeout, a busy login) writes nothing. Rails writes
+        // pending_validation, and nothing would validate the key again: it would leave every sync and the startup validation.
+        if exchange==crate::venue::ibkr::IBKR && status.value.0==0 { return crate::engine::model::Produced::new(Outcome::Failed(status.value.1.clone().unwrap_or_default()),status.origin().clone()); }
         let origin=status.origin().clone();
         let Some(version)=origin.clone() else{return crate::engine::model::Produced::new(Outcome::NothingNew,None)};
         let error=status.value.1.clone();

@@ -685,6 +685,8 @@ pub(crate) async fn revalidate(app:&App,id:i64)->Result<Option<String>,WebError>
     },Validity::Pending(ref e)=>{
         app.settings_key_logger.warn(&format!("[{name}] API key validation failed: {}",scrub(&e.log_text(),&values)));0
     }});
+    // D-IBKR-INCONCLUSIVE (as the validator job): an IBKR check with no verdict leaves the key as it is.
+    if venue==crate::venue::ibkr::IBKR && status.value==0 {return Ok(None)}
     let jobs=app.job_wakers()?;let inner=app.clone();
     let result=app.db(move|c|{
         let tx=Transaction::new_unchecked(c,TransactionBehavior::Immediate)?;
