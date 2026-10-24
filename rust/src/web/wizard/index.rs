@@ -100,9 +100,16 @@ pub async fn setup_new(State(app): State<App>, Extension(ctx): Extension<Ctx>) -
     }).await
 }
 
-struct Pill { id: i64, symbol: String, color: String }
+pub(crate) struct Pill { pub(crate) id: i64, pub(crate) symbol: String, pub(crate) color: String }
 
-struct IndexTile { index_type: &'static str, top: bool, name: String, external_id: String, description: String, summary: String, has_coins: bool, pills: Vec<Pill>, more: i64 }
+/// One tile of the picker; `stored_name` is the `indices` row's name, for the bot menu's switch.
+pub(crate) struct IndexTile { pub(crate) stored_name: Option<String>, pub(crate) index_type: &'static str,
+    pub(crate) top: bool, pub(crate) name: String, pub(crate) external_id: String, pub(crate) description: String, pub(crate) summary: String,
+    pub(crate) has_coins: bool, pub(crate) pills: Vec<Pill>, pub(crate) more: i64 }
+
+/// Index.followable_on(exchange, quote_asset_id): the indices of which at least MINIMUM_SUPPORTED_COINS members exported for the
+/// venue's class trade there at the quote; `current` (an index bot's own index) is left out, as Bots::IndicesController does.
+pub(crate) struct Followable<'a> { pub exchange_id: i64, pub class: &'a str, pub quote: Option<i64>, pub current: Option<i64> }
 
 #[derive(Template)]
 #[template(path = "wizard/index/pick_index.html")]
@@ -122,14 +129,24 @@ fn ids_of(value: Option<String>) -> Vec<String> {
 }
 
 /// Index.for_picker and the tiles: data-api indices first (shown only on a data-api install), then the internal Top Coins,
-/// then CoinGecko categories; by weight, then market cap.
-fn tiles(c: &Connection, app: &App) -> Result<Vec<IndexTile>, WebError> {
+/// then CoinGecko categories; by weight, then market cap. `followable` narrows them to what a bot could follow.
+pub(crate) fn tiles(c: &Connection, app: &App, followable: Option<&Followable>) -> Result<Vec<IndexTile>, WebError> {
     let deltabadger = crate::web::bots::market_data(c, app)?.0;
-    let mut statement = c.prepare("SELECT external_id, source, name, description, top_coins, available_exchanges FROM indices WHERE ?1 OR source != 'deltabadger' \
+    let mut statement = c.prepare("SELECT external_id, source, name, description, top_coins, available_exchanges, id, top_coins_by_exchange FROM indices WHERE ?1 OR source != 'deltabadger' \
                                    ORDER BY CASE source WHEN 'deltabadger' THEN 0 WHEN 'internal' THEN 1 ELSE 2 END, weight DESC, market_cap DESC, id")?;
-    type IndexColumns = (Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>);
-    let rows = statement.query_map([deltabadger], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?)))?
+    type IndexColumns = (Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, i64, Option<String>);
+    let mut rows = statement.query_map([deltabadger], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?, r.get(7)?)))?
         .collect::<Result<Vec<IndexColumns>, _>>()?;
+    if let Some(f) = followable {
+        let mut s = c.prepare("SELECT external_id FROM assets WHERE external_id IS NOT NULL AND id IN (SELECT base_asset_id FROM tickers \
+                               WHERE exchange_id = ?1 AND available = 1 AND trading_enabled = 1 AND quote_asset_id IS ?2)")?;
+        let traded: std::collections::HashSet<String> = s.query_map(rusqlite::params![f.exchange_id, f.quote], |r| r.get(0))?.collect::<Result<_, _>>()?;
+        rows.retain(|row| {
+            let index = create::IndexRow { source: None, top_coins: ids_of(row.4.clone()), available_exchanges: Map::new(),
+                by_exchange: row.7.as_deref().and_then(|text| serde_json::from_str::<Value>(text).ok()).and_then(|v| v.as_object().cloned()).unwrap_or_default() };
+            Some(row.6) != f.current && index.top_coins_for_exchange(f.class).iter().filter(|coin| traded.contains(*coin)).count() as i64 >= MINIMUM_SUPPORTED_COINS
+        });
+    }
     // `Asset.where(external_id: ...).index_by(&:external_id)`: the last row of an id wins.
     let wanted: Vec<String> = rows.iter().flat_map(|row| ids_of(row.4.clone())).collect();
     let mut assets: std::collections::HashMap<String, (i64, String, Option<String>)> = Default::default();
@@ -138,7 +155,7 @@ fn tiles(c: &Connection, app: &App) -> Result<Vec<IndexTile>, WebError> {
         let (external, id, symbol, color) = row?;
         assets.insert(external, (id, symbol.unwrap_or_default(), color));
     }
-    rows.into_iter().map(|(external_id, source, name, description, top_coins, available)| {
+    rows.into_iter().map(|(external_id, source, name, description, top_coins, available, _, _)| {
         let external_id = external_id.unwrap_or_default();
         let coins = ids_of(top_coins);
         let mut pills = vec![];
@@ -152,7 +169,7 @@ fn tiles(c: &Connection, app: &App) -> Result<Vec<IndexTile>, WebError> {
         let top = source.as_deref() == Some("internal");
         let description = description.unwrap_or_default();
         Ok(IndexTile {
-            index_type: if top { "top" } else { "category" }, top,
+            stored_name: name.clone(), index_type: if top { "top" } else { "category" }, top,
             name: count_named(Some(&external_id)).map_or_else(|| name.unwrap_or_default(), |(_, named)| named.to_string()),
             summary: truncate(&description), description, has_coins: !coins.is_empty(), more: most - pills.len() as i64, pills, external_id,
         })
@@ -162,7 +179,7 @@ fn tiles(c: &Connection, app: &App) -> Result<Vec<IndexTile>, WebError> {
 async fn picker(app: &App, ctx: &Ctx, status: StatusCode, flash_now: Vec<(&'static str, String)>) -> Result<Response, WebError> {
     let inner = app.clone();
     render(app, ctx, status, flash_now, move |c, ctx, csrf| {
-        Ok(Picker { v: ctx, progress: progress(ctx, "index")?, action: ctx.path(PICK), csrf, tiles: tiles(c, &inner)? }.render()?)
+        Ok(Picker { v: ctx, progress: progress(ctx, "index")?, action: ctx.path(PICK), csrf, tiles: tiles(c, &inner, None)? }.render()?)
     }).await
 }
 

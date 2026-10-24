@@ -713,6 +713,8 @@ fn routes(app: App) -> Router {
         .route("/bots/{id}/stop", only(patch(bot::actions::stop)))
         .route("/bots/{id}/reverse", only(post(bot::actions::reverse)))
         .route("/bots/{id}/custom_allocation", only(post(bot::actions::custom_allocation)))
+        .route("/bots/{id}/index/new", only(get(bot::actions::index_new)))
+        .route("/bots/{id}/index", only(post(bot::actions::index_create)))
         .route("/bots/{id}/delete", only(delete(bot::actions::delete)))
         .route("/bots/{id}/archive", only(post(bot::actions::archive).delete(bot::actions::unarchive)))
         .route("/bots/{id}/edit", only(get(bot::actions::edit)))

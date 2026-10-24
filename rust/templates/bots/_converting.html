@@ -1,0 +1,11 @@
+{#- The "Converting…" modal the converting controller opens while a bot switches between index and portfolio (bots/_converting). #}
+<template data-converting-target="template">
+  <dialog class="dialog dialog--open">
+    <div class="dialog__vertical-center">
+      <div class="modal modal--busy">
+        <div class="loader"></div>
+        <p>{{ v.t("bot.index_switch.converting")|safe }}</p>
+      </div>
+    </div>
+  </dialog>
+</template>

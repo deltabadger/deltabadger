@@ -1,0 +1,12 @@
+<div class="bot-creation-layout index-picker-layout" data-controller="index-filter converting" data-dialog-size="wide"
+       data-action="turbo:submit-start->converting#show turbo:submit-end->converting#hide">
+    {% include "bots/_converting.html" %}
+    <div class="modal__header">
+      <h1 class="modal__title">{{ title|safe }}</h1>
+    </div>
+{% if tiles.is_empty() %}
+      <p class="text-center">{{ none }}</p>
+{% else %}
+      {% include "wizard/index/_tiles.html" %}
+{% endif %}
+  </div>
