@@ -227,7 +227,7 @@ module Pages
 
   # Bot ids follow the order of 'bots'.
   def bot_scenarios = list_scenarios.merge(page_scenarios).merge(feed_scenarios).merge(refused_scenarios).merge(broadcast_scenarios).merge(venue_scenarios)
-                      .merge(search_scenarios).merge(reorder_scenarios)
+                      .merge(search_scenarios).merge(reorder_scenarios).merge(custom_allocation_scenarios)
 
   # A Kraken bot that waits, a Binance bot at work with a fill, a failed order and one resting, and a stock basket beside them.
   def venue_bots
@@ -372,6 +372,65 @@ module Pages
       'reorder_signed_out' => with_bots(four, signed_in(get('/bots'), get('/login').merge('client' => 'signed_out'),
                                                         reorder('ids' => %w[4 3 2 1]).merge('client' => 'signed_out'), get('/bots'))),
       'reorder_no_csrf' => with_bots(four, signed_in(get('/bots'), reorder('ids' => %w[4 3 2 1]).merge('csrf' => 'none'), get('/bots')))
+    }
+  end
+
+  # The bot menu's "Custom allocation" (Bots::CustomAllocationsController#create, Bot::IndexSwitch.customize!), as Turbo submits
+  # its button_to: the form's token and the header. Rails re-derives the index first (refresh_composition); these index bots'
+  # stored members are what that derivation gives (flattening 0, the index's own weights, every incumbent kept), so both sides
+  # customize the same weights. Where they part (a pending resync, weights moved since) is tests/web_actions.rs'. A bot whose
+  # page this grid does not compare (at work: Rails' recorder holds its job in the test adapter; mid-swap: not served) is
+  # posted to with the token of the archived bot's page.
+  def custom_allocation(path = '/bots/1/custom_allocation')
+    post(path, {}, 'csrf' => 'both', 'headers' => TURBO.merge('Referer' => 'http://localhost:3000/bots/1'),
+                   'action_snapshot' => true, 'may_mutate' => %w[bots bot_index_assets])
+  end
+
+  def custom_allocation_scenarios
+    index = { 'settings' => { 'allocation_flattening' => 0.0 } }
+    archived = { 'kind' => 'basket', 'columns' => { 'status' => 7 } }
+    all = STOCKS.drop(2)
+    {
+      'custom_allocation_create' => with_bots([stopped('index', index), archived],
+                                              signed_in(get('/bots/1'), custom_allocation.merge('expect' => 200), get('/bots/1'), get('/bots'))),
+      # A member the venue stopped trading is left out, and shows as exited; the whole index is held, so no newcomer is probed.
+      'custom_allocation_delisted' => with_bots([stopped('index', index.merge('settings' => { 'allocation_flattening' => 0.0, 'num_coins' => 12 }, 'delist' => 'AVGO')), archived],
+                                                signed_in(get('/bots/1'), custom_allocation.merge('expect' => 200), get('/bots/1'))),
+      'custom_allocation_no_members' => with_bots([stopped('index', index.merge('delist' => all)), archived],
+                                                  signed_in(get('/bots/1'), custom_allocation.merge('expect' => 422), get('/bots/1'))),
+      # A name the user gave survives; the generated one follows the members.
+      'custom_allocation_renamed' => with_bots([stopped('index', index.merge('columns' => { 'status' => 2, 'label' => 'My ND' })), archived],
+                                               signed_in(get('/bots/1'), custom_allocation.merge('expect' => 200), get('/bots/1'))),
+      'custom_allocation_basket_404' => with_bots([stopped('basket'), archived],
+                                                  signed_in(get('/bots/1'), custom_allocation.merge('csrf' => 'header', 'expect' => 404), get('/bots/1'))),
+      'custom_allocation_running' => with_bots([running('index', '2026-09-07T13:30:00.5Z', index.merge(acted('2026-09-07T13:30:01.100Z'))), archived],
+                                               signed_in(get('/bots/2'), custom_allocation.merge('csrf' => 'header', 'expect' => 422))),
+      'custom_allocation_in_flight' => with_bots([stopped('index', index.merge('transient' => { 'rebalance_pending' => { 'phase' => 'selling' } })), archived],
+                                                 signed_in(get('/bots/2'), custom_allocation.merge('csrf' => 'header', 'expect' => 422))),
+      # Started and stopped with nothing bought: the carry is captured under the index and capped as a settings save caps it,
+      # and the start modal reads the portfolio's next checkpoint from it. (With holdings, Rails' after-commit metrics panel
+      # prices them at the venue, which no page of this grid may reach.)
+      'custom_allocation_carry' => with_bots([stopped('index', index.merge('columns' => { 'status' => 2, 'started_at' => '2026-08-27T12:00:00Z' },
+                                                                           'transient' => { 'last_action_job_at' => '2026-09-03T12:00:01Z' })), archived],
+                                             signed_in(get('/bots/1/start/edit', TURBO.merge('Accept' => 'text/html', 'Turbo-Frame' => 'modal')), get('/bots/1'),
+                                                       custom_allocation.merge('expect' => 200), get('/bots/1'),
+                                                       get('/bots/1/start/edit', TURBO.merge('Accept' => 'text/html', 'Turbo-Frame' => 'modal')))),
+      # Smart Intervals on and no stored amount: the index's own default (ten times the largest minimum of the venue's
+      # listings, a non-member's here) is the one the portfolio keeps, not one recomputed from its members, and the carry
+      # is capped by it.
+      'custom_allocation_smart_default' => with_bots([stopped('index', index.merge('settings' => { 'allocation_flattening' => 0.0, 'smart_intervaled' => true },
+                                                                                     'without' => %w[smart_interval_quote_amount], 'minimum_quote' => { 'QQQM' => '20' },
+                                                                                     'columns' => { 'status' => 2, 'started_at' => '2026-08-27T12:00:00Z' },
+                                                                                     'transient' => { 'last_action_job_at' => '2026-09-03T12:00:01Z' })), archived],
+                                                     signed_in(get('/bots/1'), custom_allocation.merge('expect' => 200), get('/bots/1'),
+                                                               get('/bots/1/start/edit', TURBO.merge('Accept' => 'text/html', 'Turbo-Frame' => 'modal')))),
+      'custom_allocation_de' => with_bots([stopped('index', index), archived],
+                                          signed_in(get('/de/bots/1'), custom_allocation('/de/bots/1/custom_allocation').merge('expect' => 200), get('/de/bots/1'))),
+      'custom_allocation_signed_out' => with_bots([stopped('index', index), archived],
+                                                  signed_in(get('/bots/1'), get('/login').merge('client' => 'signed_out'),
+                                                            custom_allocation.merge('client' => 'signed_out', 'csrf' => 'header'), get('/bots/1'))),
+      'custom_allocation_no_csrf' => with_bots([stopped('index', index), archived],
+                                               signed_in(get('/bots/1'), custom_allocation.merge('csrf' => 'none'), get('/bots/1')))
     }
   end
 
@@ -817,6 +876,10 @@ module Pages
                                                   ))
     end
     FileUtils.rm_rf(template)
+    # Bot::IndexSwitch keeps only the target class's stored settings (rust/src/web/bot/index_switch.rs pins its lists to these).
+    File.write(File.join(root, 'stored_settings.json'), JSON.pretty_generate(
+                                                          %w[Bots::DcaMultiAsset Bots::DcaIndex].to_h { |name| [name, name.constantize.stored_attributes[:settings].map(&:to_s)] }
+                                                        ))
     puts "built #{selected.size} scenarios in #{root}"
   end
 

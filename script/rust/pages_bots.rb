@@ -223,6 +223,8 @@ module Pages
     logs(record, spec['logs']) if spec['logs']
     # A listing the venue withdrew after the bot was made.
     Ticker.where(exchange:, base: spec['delist']).update_all(available: false) if spec['delist']
+    # A venue minimum raised after the bot was made ({ base => minimum_quote_size }).
+    (spec['minimum_quote'] || {}).each { |base, size| Ticker.where(exchange:, base:).update_all(minimum_quote_size: size) }
     record
   end
 

@@ -1045,12 +1045,21 @@ fn unmet_expectation(name: &str, scenario: &Value, rails: &Value) -> Option<Stri
     None
 }
 
-/// Builds the grid with Rails, records Rails' answers (common::recording: once per state of Rails' inputs and
-/// PAGES), and returns (the recording, rust_root, scenario dirs). The recording keeps `rails/` (each scenario's
-/// scenario.json and rails.json) and `rust/` (the installs as the grid built them, before Rails' requests);
-/// this run's Rust side works on its own copy of `rust/`.
-fn recorded_grid() -> (common::Recording, tempfile::TempDir, Vec<PathBuf>) {
-    let recording = common::recording("pages", |dir| dir.join("rails").is_dir() && dir.join("rust").is_dir(), |out| {
+/// Bot::IndexSwitch slices the settings to the target class's store: the lists index_switch.rs keeps are Rails' own, so a new
+/// store accessor fails here instead of being dropped by a conversion.
+#[test]
+fn index_switch_stored_settings_are_rails() {
+    let recording = grid_recording();
+    let rails: Value = serde_json::from_str(&std::fs::read_to_string(recording.path.join("rails/stored_settings.json")).unwrap()).unwrap();
+    use deltabadger::web::bot::index_switch::{STORED_DCA_INDEX, STORED_DCA_MULTI_ASSET};
+    assert_eq!(rails, json!({"Bots::DcaMultiAsset": STORED_DCA_MULTI_ASSET, "Bots::DcaIndex": STORED_DCA_INDEX}));
+}
+
+/// Builds the grid with Rails and records Rails' answers (common::recording: once per state of Rails' inputs and PAGES).
+/// The recording keeps `rails/` (each scenario's scenario.json and rails.json) and `rust/` (the installs as the grid built
+/// them, before Rails' requests).
+fn grid_recording() -> common::Recording {
+    common::recording("pages", |dir| dir.join("rails").is_dir() && dir.join("rust").is_dir(), |out| {
         let (scratch, rails_root, rust_root) = (tempfile::tempdir().unwrap(), out.join("rails"), out.join("rust"));
         std::fs::create_dir_all(&rails_root).unwrap();
         common::rails(scratch.path(), "test", &["db:schema:load"]);
@@ -1061,7 +1070,12 @@ fn recorded_grid() -> (common::Recording, tempfile::TempDir, Vec<PathBuf>) {
         std::fs::create_dir_all(&rust_root).unwrap();
         common::rails(scratch.path(), "test", &["runner", "script/rust/pages.rb", "record", rails_root.to_str().unwrap()]);
         only_json(&rails_root); // the comparison reads Rails' answers, never the databases Rails left
-    });
+    })
+}
+
+/// The grid's recording (grid_recording), with (rust_root, scenario dirs): this run's Rust side works on its own copy of `rust/`.
+fn recorded_grid() -> (common::Recording, tempfile::TempDir, Vec<PathBuf>) {
+    let recording = grid_recording();
     let rust_root = tempfile::tempdir().unwrap();
     common::copy_tree(&recording.path.join("rust"), rust_root.path());
     // Rust's side starts as `serve` does: with this build's Rust migrations applied.
@@ -1570,8 +1584,8 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
                 continue;
             }
         }
-        if name.starts_with("override_") {
-            // A bot action under Rack's override header: compared as the API's bot writes are, without the ownership counters.
+        if name.starts_with("override_") || name.starts_with("custom_allocation_") {
+            // A bot action under Rack's override header, and the menu's class switch (which bumps the run generation): compared as the API's bot writes are, without the ownership counters.
             for answer in rails["responses"].as_array_mut().unwrap().iter_mut().chain(rust["responses"].as_array_mut().unwrap()) { without_ownership(answer); }
             for bot in rust["bots"].as_array_mut().unwrap() { without_counters(bot); }
         }
@@ -1613,10 +1627,10 @@ async fn rails_and_rust_serve_the_same_pages_across_the_scenario_grid() {
     if std::env::var("PAGES").is_err() {
         let hook = |dir: &&PathBuf| dir.file_name().is_some_and(|n| ["hook_", "missing_hook_", "override_"].iter().any(|p| n.to_string_lossy().starts_with(p)));
         assert_eq!(dirs.iter().filter(hook).count(), 29 + 23 + 1, "the signal webhook (pages_signals.rb): twenty-nine compared whole, two of them calls accepted (plan 8d), twenty-three the router's 404 (methods, overrides, paths); and a settings update under the override header");
-        assert_eq!(dirs.iter().filter(|dir| !hook(dir) && !dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_") || n.to_string_lossy().starts_with("settings_"))).count(), 160 + 3 + 9 + 2 + 6 + 3 + 49 + 68 + 61 + 38 + 1 + 2 + 1 + 2 + 1 + 10 + 27 + 1 + 1 + 7 + 2 + 1 + 10 + 1 + 5, "completed read-only baseline (with the market-closed weekend page and the expired start on bots that are not stopped), with D5b's two missing_ connect scenarios and the one not_ported_ (a venue no tracker key step serves), the venue pages (eight served, one refused), the selling pages (three served, one cap refused, in place of two refusals), the venue basket pages (seven served, in place of the one refusal), the asset search on each venue, the wizard's chooser and order switch (twelve served, one unrouted GET), its asset and exchange steps (ten served), its broker, key and quote steps to a created bot (nine served), the signal tile and the IBKR key step (two not_ported_), the first empty bots page that opens it (two), the index wizard (twelve served, its Kraken, Alpaca Top Coins and Binance Layer 1 bots among them; its legacy settings step one not_ported_), the crypto index bot pages on Kraken and Binance (two), the IBKR key step reached from the nested venue frame (one not_ported_, as a stream), the KuCoin wizard (plan K O6: a basket to its bot, its key step from the nested frame, and a Top coins index bot), and the REST API's (sixty-three on the nine served reads' tokens and grants, ten on the four venue reads' lookups and venue answers, twelve on the routes it gates but does not serve, three on typed creates, nine unrouted paths, seven on parameters, one on conditional GETs and one on an install without an admin; sixty-one on the six bot writes: six per route on its tokens, grants, ids and malformed bodies, five on settings values, fourteen on lifecycle states one start the engine guard refuses, the broadcasts an open page hears (in English and in its owner's German), encoded path ids and two oversized parameters), and plan CB T6's market-cap baskets (an Alpaca page and a venue page served, in place of the one refusal), and plan 8c-1's signal bot pages (ten, pages_signals.rb signal_page_), and plan 8c-2's signal bot writes (twenty-seven: nineteen signal_action_ compared whole, three of them the starts and the settings save plan 8d admits, seven api_signal_ on BotApi's lifecycle, one of them the start 8d admits, one not_ported_signal_ wash-sale question), and the web's own lifecycle writes from a /de/ page heard in the owner's Polish, and Hyperliquid's limit-order lock on stopped and working bots with either stored flag, and plan 8e's signal wizard (six served in place of the tile's one not_ported_, one not_ported_ key step on a venue no signal bot runs on, and one not_ported_ save of a bot whose page asks the wash-sale question), and the rebalancing pages in place of their refusal (RP1: three served, one not_ported_ removed), and the selling multi-asset basket page (RP4), and the dashboard's ten reorder_ drags, and PLAN-wash-sale WS-3's five Stops on an account with the rule on or the question unanswered (two REST on a basket, one REST and two web on a signal bot)");
+        assert_eq!(dirs.iter().filter(|dir| !hook(dir) && !dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_") || n.to_string_lossy().starts_with("settings_"))).count(), 160 + 3 + 9 + 2 + 6 + 3 + 49 + 68 + 61 + 38 + 1 + 2 + 1 + 2 + 1 + 10 + 27 + 1 + 1 + 7 + 2 + 1 + 10 + 1 + 5 + 11 + 1, "completed read-only baseline (with the market-closed weekend page and the expired start on bots that are not stopped), with D5b's two missing_ connect scenarios and the one not_ported_ (a venue no tracker key step serves), the venue pages (eight served, one refused), the selling pages (three served, one cap refused, in place of two refusals), the venue basket pages (seven served, in place of the one refusal), the asset search on each venue, the wizard's chooser and order switch (twelve served, one unrouted GET), its asset and exchange steps (ten served), its broker, key and quote steps to a created bot (nine served), the signal tile and the IBKR key step (two not_ported_), the first empty bots page that opens it (two), the index wizard (twelve served, its Kraken, Alpaca Top Coins and Binance Layer 1 bots among them; its legacy settings step one not_ported_), the crypto index bot pages on Kraken and Binance (two), the IBKR key step reached from the nested venue frame (one not_ported_, as a stream), the KuCoin wizard (plan K O6: a basket to its bot, its key step from the nested frame, and a Top coins index bot), and the REST API's (sixty-three on the nine served reads' tokens and grants, ten on the four venue reads' lookups and venue answers, twelve on the routes it gates but does not serve, three on typed creates, nine unrouted paths, seven on parameters, one on conditional GETs and one on an install without an admin; sixty-one on the six bot writes: six per route on its tokens, grants, ids and malformed bodies, five on settings values, fourteen on lifecycle states one start the engine guard refuses, the broadcasts an open page hears (in English and in its owner's German), encoded path ids and two oversized parameters), and plan CB T6's market-cap baskets (an Alpaca page and a venue page served, in place of the one refusal), and plan 8c-1's signal bot pages (ten, pages_signals.rb signal_page_), and plan 8c-2's signal bot writes (twenty-seven: nineteen signal_action_ compared whole, three of them the starts and the settings save plan 8d admits, seven api_signal_ on BotApi's lifecycle, one of them the start 8d admits, one not_ported_signal_ wash-sale question), and the web's own lifecycle writes from a /de/ page heard in the owner's Polish, and Hyperliquid's limit-order lock on stopped and working bots with either stored flag, and plan 8e's signal wizard (six served in place of the tile's one not_ported_, one not_ported_ key step on a venue no signal bot runs on, and one not_ported_ save of a bot whose page asks the wash-sale question), and the rebalancing pages in place of their refusal (RP1: three served, one not_ported_ removed), and the selling multi-asset basket page (RP4), and the dashboard's ten reorder_ drags, and PLAN-wash-sale WS-3's five Stops on an account with the rule on or the question unanswered (two REST on a basket, one REST and two web on a signal bot)");
         assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("settings_"))).count(), 413 + 3 + 45 + 52 + 5 + 1 + 71 + 55, "complete S1 inventory, D5b's connect flow (its Kraken key form served now), the preference writes, the following client's card, the switch back to the default locale, the settings dialog (two more sections, in-place confirms, the page behind a language change) and the key routes on Kraken, Binance and KuCoin (fifty-four)");
         assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_"))).count(), 197 + 53 + 4 + 2 + 6 + 1, "action inventory with six settings metrics cases (with the five ⇄ rotations and nine sell-settings writes, twenty-two Kraken/Binance venue actions, fifty on their baskets, plan CB T4's three saves of a crypto basket with settled rebalance history, plan CB T5's four market-cap saves, and two amounts typed key by key, and a basket's Stop with the wash-sale rule on)");
-        assert_eq!(dirs.len(), 27 + 23 + 2 + 1 + 160 + 3 + 9 + 2 + 6 + 3 + 49 + 68 + 61 + 38 + 1 + 2 + 1 + 2 + 1 + 10 + 27 + 1 + 197 + 53 + 4 + 2 + 413 + 3 + 45 + 52 + 5 + 1 + 71 + 55 + 1 + 6 + 7 + 2 + 1 + 10 + 1 + 6, "a scenario was dropped or added without this count (including the Hyperliquid limit-order lock and six settings metrics cases, and slice 7s's price status line)");
+        assert_eq!(dirs.len(), 27 + 23 + 2 + 1 + 160 + 3 + 9 + 2 + 6 + 3 + 49 + 68 + 61 + 38 + 1 + 2 + 1 + 2 + 1 + 10 + 27 + 1 + 197 + 53 + 4 + 2 + 413 + 3 + 45 + 52 + 5 + 1 + 71 + 55 + 1 + 6 + 7 + 2 + 1 + 10 + 1 + 6 + 11 + 1, "a scenario was dropped or added without this count (including the Hyperliquid limit-order lock and six settings metrics cases, and slice 7s's price status line)");
         assert_eq!(countdown_pages, 4, "the pages where Rails knows a time this build does not: the listed divergence grew or shrank");
     }
 }
