@@ -20,7 +20,9 @@ fn every_recorded_rails_classification_is_reproduced() {
 
 #[test]
 fn each_venue_carries_rails_minimum_logic_wire_and_absence_window() {
-    assert_eq!((KRAKEN.minimum_logic, KRAKEN.wire, KRAKEN.deadline_sent, KRAKEN.transport_raises), (MinimumLogic { market: AmountLogic::BaseOrQuote, limit: AmountLogic::Base }, WireFormat::Kraken, true, false));
+    // D-KRAKEN-LIMIT-COSTMIN: Rails' Kraken limit buy is :base (ordermin only); Rust checks costmin too, :base_and_quote_in_base
+    // as every venue with a notional floor, so a limit buy under costmin is skipped instead of sent and rejected.
+    assert_eq!((KRAKEN.minimum_logic, KRAKEN.wire, KRAKEN.deadline_sent, KRAKEN.transport_raises), (MinimumLogic { market: AmountLogic::BaseOrQuote, limit: AmountLogic::BaseAndQuoteInBase }, WireFormat::Kraken, true, false));
     assert_eq!((ALPACA.minimum_logic, ALPACA.wire, ALPACA.deadline_sent, ALPACA.transport_raises), (MinimumLogic { market: AmountLogic::Quote, limit: AmountLogic::Quote }, WireFormat::Alpaca, false, true));
     assert!(ALPACA.follow_up_strict && !KRAKEN.follow_up_strict, "Kraken's follow-up stays as merged");
     assert_eq!(ALPACA.reach_within_secs, 55, "send window 10 + connect 5 + write 10 + read 30 (Client::OPTIONS)");

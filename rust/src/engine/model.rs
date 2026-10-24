@@ -764,7 +764,19 @@ pub fn credentials_with_redaction(c:&Connection,cipher:&Cipher,bot:&Bot)->Result
     // ApiKey#passphrase where the venue's client takes it: KuCoin signs with it, Alpaca reads its mode from it. Others never
     // read the field, so an unreadable leftover there does not stop their key.
     let passphrase = if exchange_type.as_deref().and_then(crate::venue::registry::row).is_some_and(|r| r.passphrase) {open(&columns[2])?} else {None};
-    let credentials = match (open(&columns[0])?,open(&columns[1])?) { (Some(key),Some(secret))=>Some(Credentials { redaction_values:vec![],key,secret,passphrase}), _=>None };
+    let credentials = match (open(&columns[0])?,open(&columns[1])?) { (Some(key),Some(secret))=>Some(Credentials { redaction_values:vec![],key,secret,passphrase,ibkr:None}), _=>None };
+    // Session#initialize's reads: access_token, the two RSA keys and the DH params, and ibkr_realm (stored plain).
+    let credentials = match credentials {
+        Some(mut cr) if exchange_type.as_deref()==Some(crate::venue::ibkr::IBKR) => {
+            if let [Some(access_token),Some(signature_key),Some(encryption_key),Some(dh_param)] = [open(&columns[3])?,open(&columns[4])?,open(&columns[5])?,open(&columns[6])?] {
+                let realm:Option<String>=c.query_row("SELECT ibkr_realm FROM api_keys WHERE id=?1",[id],|r|r.get(0))?;
+                cr.ibkr=Some(Box::new(crate::venue::signers::ibkr::Material{consumer_key:cr.key.clone(),access_token,access_token_secret:cr.secret.clone(),
+                    signature_key,encryption_key,dh_param,realm:realm.unwrap_or_default()}));
+            }
+            Some(cr)
+        }
+        other => other,
+    };
     let mut sensitive=Vec::new();
     for value in columns.iter().flatten() {
         // An unused unreadable field remains unavailable; its stored envelope is still redacted.

@@ -498,6 +498,8 @@ async fn a_recovery_lookup_with_an_out_of_range_fill_stays_pending() {
 async fn a_plan_whose_intent_would_not_read_back_is_refused_before_anything_is_written_or_sent() {
     use deltabadger::engine::{amount, venue_rules::ALPACA};
     let (_d, o, id, _) = setup(weekly());
+    // No base floor, so 6e-299 BTC is placed rather than skipped under 0.000027 (D-ALPACA-BASE-FLOOR).
+    o.primary.execute("UPDATE tickers SET minimum_base_size = '0'", []).unwrap();
     let bot = model::load_bot(&o.primary, id).unwrap();
     let ticker = model::ticker_for(&o.primary, &bot).unwrap().unwrap();
     // A 1e300 ask (venue caps refuse it now; the check must not rely on them): the amount, 6e-299, is 301 characters written out.

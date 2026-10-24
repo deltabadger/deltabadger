@@ -213,7 +213,7 @@ async fn factory_hosts_follow_the_key() {
     use deltabadger::venue::live::LiveVenue;
     use deltabadger::venue::VenueFactory;
     let f = alpaca::LiveFactory::new();
-    let creds = |p: Option<&str>| Some(Credentials { redaction_values:vec![], key: "PK".into(), secret: "s".into(), passphrase: p.map(str::to_string) });
+    let creds = |p: Option<&str>| Some(Credentials { ibkr: None, redaction_values:vec![], key: "PK".into(), secret: "s".into(), passphrase: p.map(str::to_string) });
     for p in [Some("paper"), None, Some("Live"), Some("live ")] {
         let v = f.alpaca(creds(p), vec![]);
         assert_eq!(v.urls().trading, PAPER_TRADING_URL, "{p:?}");

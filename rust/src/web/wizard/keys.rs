@@ -3,7 +3,9 @@
 //! and asks the venue again, on the GET, when a stored key is not known to be (the one wizard GET that calls a venue and
 //! writes); `create` checks the submitted key and saves it when it is correct. Alpaca, Kraken, Binance, Binance.US, KuCoin, Bitvavo, Gemini, Bitget, MEXC, Hyperliquid, Bybit, Bitrue, Coinbase and BingX are checked here;
 //! any other venue's key step is a named refusal, so the wizard never makes a bot this build does not trade. The index wizard's
-//! key step (Bots::DcaIndexes::AddApiKeysController) is the third namespace, for an index this engine runs (index::refusal).
+//! key step (Bots::DcaIndexes::AddApiKeysController) is the third namespace, for an index this engine runs (index::refusal); the
+//! signal wizard's (Bots::Signals::AddApiKeysController) the fourth, for a venue the engine runs signal bots on
+//! (eligibility::signal_admission).
 use super::{basket_ids, chips, current_variant, exchange_id, exchange_name, first_incomplete, prerequisite, progress, sentence, step_complete, BotType,
             SentenceOf, Step, StepOrder};
 use crate::web::layout::{self, Ctx, Page};
@@ -18,12 +20,15 @@ use rusqlite::{Connection, OptionalExtension};
 use serde_json::Value;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub enum Namespace { Single, Multi, Index }
+pub enum Namespace { Single, Multi, Index, Signal }
 
 impl Namespace {
     fn bot_type(self) -> BotType { if self == Namespace::Single { BotType::Single } else { BotType::Multi } }
     fn action(self) -> &'static str {
-        match self { Namespace::Single => "/bots/dca_single_assets/add_api_key", Namespace::Multi => "/bots/dca_multi_assets/add_api_key", Namespace::Index => "/bots/dca_indexes/add_api_key" }
+        match self {
+            Namespace::Single => "/bots/dca_single_assets/add_api_key", Namespace::Multi => "/bots/dca_multi_assets/add_api_key",
+            Namespace::Index => "/bots/dca_indexes/add_api_key", Namespace::Signal => "/bots/signals/add_api_key",
+        }
     }
 }
 
@@ -53,6 +58,7 @@ fn missing_exchange_path(c: &Connection, config: Option<&Value>, namespace: Name
         Namespace::Multi if stock_bot(c, config)? => "/bots/dca_multi_assets/pick_stock_broker/new",
         Namespace::Multi => "/bots/dca_multi_assets/pick_exchange/new",
         Namespace::Index => "/bots/dca_indexes/pick_exchange/new",
+        Namespace::Signal => "/bots/signals/pick_exchange/new",
     })
 }
 
@@ -72,12 +78,13 @@ fn order(config: Option<&Value>, namespace: Namespace) -> StepOrder { StepOrder:
 /// `after_api_key_path`: the first step still missing input, the key now in the database.
 fn after_api_key_path(c: &Connection, user: i64, config: Option<&Value>, namespace: Namespace) -> Result<&'static str, WebError> {
     if namespace == Namespace::Index { return Ok("/bots/dca_indexes/pick_spendable_asset/new") }
+    if namespace == Namespace::Signal { return Ok("/bots/signals/pick_spendable_asset/new") }
     step_path(c, config, namespace, first_incomplete(c, user, config, &order(config, namespace))?)
 }
 
 /// `prerequisite_redirect_path`. The single step comes before any asset: once a basket is chosen its key step is the basket's.
 fn prerequisite_path(c: &Connection, user: i64, config: Option<&Value>, namespace: Namespace) -> Result<Option<&'static str>, WebError> {
-    if namespace == Namespace::Index { return Ok(None) }
+    if matches!(namespace, Namespace::Index | Namespace::Signal) { return Ok(None) }
     if namespace == Namespace::Single && step_complete(c, user, config, Step::Assets)? { return Ok(Some("/bots/dca_multi_assets/add_api_key/new")) }
     prerequisite(c, user, config, &order(config, namespace), Step::Api)?.map(|step| step_path(c, config, namespace, step)).transpose()
 }
@@ -97,6 +104,7 @@ fn form(c: &Connection, app: &App, ctx: &Ctx, csrf: &str, config: Option<&Value>
     let card = keys::card(ctx, csrf, ctx.path(namespace.action()), "data-controller=\"form--label-animations form--html5-validations\" data-turbo-frame=\"modal_content\"",
                           &venue.name, &venue.class, live, false, instructions)?;
     if namespace == Namespace::Index { return super::index::key_form(ctx, &venue.name, &venue.class, &card) }
+    if namespace == Namespace::Signal { return super::signals::key_form(c, ctx, config, &card) }
     let order = order(config, namespace);
     let multi = namespace == Namespace::Multi;
     let ids = if multi { basket_ids(config) } else { vec![] };
@@ -117,6 +125,7 @@ fn route(c: &Connection, app: &App, user: i64, config: Option<&Value>, namespace
     if exchange_id(config).is_none() { return Ok(Route::To(missing_exchange_path(c, config, namespace)?)) }
     let Some(venue) = venue.filter(|venue| ported(&venue.class)) else { return Ok(Route::Refused) };
     if namespace == Namespace::Index && super::index::refusal(c, app, config, &venue.class)?.is_some() { return Ok(Route::Refused) }
+    if namespace == Namespace::Signal && crate::engine::eligibility::signal_admission(Some(&venue.class)).is_some() { return Ok(Route::Refused) }
     let key = keys::Key::read(c, app, user, venue.id, 0)?;
     Ok(Route::Ready(venue, Box::new(key)))
 }
@@ -203,3 +212,5 @@ pub async fn multi_new(State(app): State<App>, Extension(ctx): Extension<Ctx>) -
 pub async fn multi_create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> { create(app, ctx, Namespace::Multi).await }
 pub async fn index_new(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> { new(app, ctx, Namespace::Index).await }
 pub async fn index_create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> { create(app, ctx, Namespace::Index).await }
+pub async fn signal_new(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> { new(app, ctx, Namespace::Signal).await }
+pub async fn signal_create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> { create(app, ctx, Namespace::Signal).await }

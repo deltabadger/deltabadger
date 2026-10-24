@@ -4,6 +4,7 @@
 //! (`brokers`), API key (`keys`, both namespaces) and quote (`spendable`), whose POST saves the bot (`create`). The
 //! conversational sentence, the progress bar and the stock activation notice the steps share are here. The index wizard
 //! (Bots::DcaIndexes::*) is `index`, its save `index_create`; it shares the exchange table, the key step and the quote search.
+//! The signal wizard (Bots::Signals::*) is `signals`, with the key step's fourth namespace.
 //!
 //! The wizard's state is `session[:bot_config]` (web::session), a JSON object with string keys as Rails'
 //! cookie serializer holds it.
@@ -18,6 +19,7 @@ pub mod exchanges;
 pub mod index;
 pub mod index_create;
 pub mod keys;
+pub mod signals;
 pub mod spendable;
 use askama::Template;
 use axum::extract::{Extension, State};

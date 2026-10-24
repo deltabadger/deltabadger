@@ -345,7 +345,8 @@ pub fn guard_exact_cap(c: &Connection, bot: &Bot, plan: &OrderPlan) -> Result<Ca
     // (ordermin) and Binance's and KuCoin's notional floor bind here, not only minimum_quote_size.
     let rules = rules()?;
     let rule = if plan.limit { rules.minimum_logic.limit } else { rules.minimum_logic.market };
-    let base_units = if quantity_wire { guarded.volume.clone() } else { guarded.amount.floor(base) };
+    // A :quote market buy (Alpaca) sends its notional: its base is notional / price, unfloored (amount::quote_sized_wire).
+    let base_units = if quantity_wire { guarded.volume.clone() } else if rule == super::venue_rules::AmountLogic::Quote { guarded.amount.clone() } else { guarded.amount.floor(base) };
     let (_, below) = super::amount::buy_minimum(&plan.ticker, &price, rule, &cost, &base_units)?;
     if guarded.volume.is_zero() || below {
         return Ok(CapGuard::BelowMinimum(guarded));

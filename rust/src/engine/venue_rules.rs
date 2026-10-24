@@ -166,8 +166,10 @@ pub static KRAKEN: VenueRules = VenueRules {
     transient_text: &["EGeneral:Internal error", "EAPI:Invalid nonce", "EService:Unavailable", "EService:Busy", "EService:Deadline elapsed"],
     // The transient kind minus "EAPI:Invalid nonce", which Kraken returns before it looks at the order.
     add_outcome_unknown: &["EGeneral:Internal error", "EService:Unavailable", "EService:Busy", "EService:Deadline elapsed"],
-    // Exchanges::Kraken: a market buy is :base_or_quote, a limit buy :base.
-    minimum_logic: MinimumLogic { market: AmountLogic::BaseOrQuote, limit: AmountLogic::Base },
+    // Exchanges::Kraken: a market buy is :base_or_quote. A limit buy is :base in Rails; D-KRAKEN-LIMIT-COSTMIN: Rust checks
+    // costmin too (:base_and_quote_in_base, as every venue with a notional floor), so a limit buy under it is skipped, not
+    // sent and rejected.
+    minimum_logic: MinimumLogic { market: AmountLogic::BaseOrQuote, limit: AmountLogic::BaseAndQuoteInBase },
     wire: WireFormat::Kraken,
     deadline_sent: true,
     reach_within_secs: 10,
@@ -195,7 +197,7 @@ pub static ALPACA: VenueRules = VenueRules {
     transient_text: &NETWORK_TRANSIENT_PATTERNS,
     // A 5xx or a lost reply is ambiguous by HTTP status, decided in AlpacaVenue::add_order, never by text.
     add_outcome_unknown: &[],
-    // Exchanges::Alpaca: always :quote.
+    // Exchanges::Alpaca: always :quote; Rust also checks minimum_base_size (D-ALPACA-BASE-FLOOR, amount::buy_minimum).
     minimum_logic: MinimumLogic { market: AmountLogic::Quote, limit: AmountLogic::Quote },
     wire: WireFormat::Alpaca,
     deadline_sent: false,
