@@ -274,3 +274,36 @@ async fn a_malformed_feed_is_refused_before_anything_is_written() {
         assert_eq!(fence(&st), (None, None, None));
     }
 }
+
+#[tokio::test(flavor = "current_thread")]
+async fn listings_whose_assets_are_missing_leave_a_partial_revision_that_the_same_revision_completes() {
+    let d = install();
+    sync(&d, &payload(1, T1, true, vec![listing(100_001, "EUNL", "EUNL.XETRA"), listing(100_003, "IWDA", "IWDA.AS")]), RUN).await;
+    primary(&d).execute("DELETE FROM assets WHERE external_id = 'VOO.US'", []).unwrap(); // not synced yet
+    // Revision 2 is complete but VOO cannot be imported: EUNL is, nothing is swept, and the revision is marked partial.
+    let st = sync(&d, &fixture("feed_revoked"), &later(RUN, 1)).await;
+    assert_eq!((fence(&st), st.partial), ((Some(2), None, Some(at(T2))), true));
+    assert_eq!(flags(&primary(&d)), vec![("100001".into(), true, true), ("100003".into(), true, true)], "no sweep from a partial import");
+    // The asset arrives; the same revision imports again instead of only refreshing its evidence.
+    primary(&d).execute("INSERT INTO assets (external_id, symbol, name, category, created_at, updated_at) VALUES ('VOO.US', 'VOO', 'VOO', 'Stock', '2026-01-01', '2026-01-01')", []).unwrap();
+    let st = sync(&d, &fixture("feed_revoked"), &later(RUN, 2)).await;
+    assert_eq!((fence(&st), st.partial), ((Some(2), None, Some(at(T2))), false));
+    assert_eq!(flags(&primary(&d)), vec![("100001".into(), true, true), ("100002".into(), true, false), ("100003".into(), false, true)]);
+    assert_eq!(conids(&primary(&d)).len(), 3);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_complete_feed_with_one_malformed_row_is_refused_and_sweeps_nothing() {
+    let d = install();
+    sync(&d, &fixture("feed"), RUN).await;
+    let tickers = dump(&primary(&d), "tickers");
+    for (i, (field, value)) in [("base_external_id", Value::Null), ("quote_external_id", json!("")), ("base", Value::Null), ("price_decimals", json!("2")),
+                           ("base_decimals", json!(-1)), ("minimum_base_size", Value::Null), ("minimum_quote_size", json!("abc"))].into_iter().enumerate() {
+        let mut body = fixture("feed_revoked");
+        body["data"][1][field] = value;
+        let st = sync(&d, &body, &later(RUN, 1 + i as i64)).await;
+        assert!(st.last_error.as_deref().is_some_and(|m| m.contains("nothing imported")), "{field}: {st:?}");
+        assert_eq!(fence(&st), (Some(1), None, Some(at(T1))), "{field}");
+        assert_eq!(dump(&primary(&d), "tickers"), tickers, "{field}");
+    }
+}

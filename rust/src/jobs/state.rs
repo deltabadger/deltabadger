@@ -37,6 +37,9 @@ pub struct JobState {
     /// The newest upstream evidence (`metadata.generated_at`) this install holds for the source (D-JOBS-SOURCE-AT): the
     /// freshness of an evidence-read source, never moved by a run that only re-reads unchanged evidence.
     pub source_at: Option<DateTime<Utc>>,
+    /// `revision` was imported without some of its rows (their assets were not on this install yet), and without the
+    /// sweep: the same revision imports again until every row resolves.
+    pub partial: bool,
 }
 
 impl JobState {
@@ -71,7 +74,8 @@ pub fn find(c: &Connection, job: &str, scope: Option<&str>) -> Result<Option<Job
     Ok(Some(JobState { last_run_at: time(&v["last_run_at"]), last_success_at: time(&v["last_success_at"]), last_error_at: time(&v["last_error_at"]),
                        last_error: v["last_error"].as_str().map(String::from), rails_at: time(&v["rails_at"]),
                        incomplete_since: time(&v["incomplete_since"]), revision: v["revision"].as_i64(),
-                       importing_revision: v["importing_revision"].as_i64(), source_at: time(&v["source_at"]) }))
+                       importing_revision: v["importing_revision"].as_i64(), source_at: time(&v["source_at"]),
+                       partial: v["partial"] == Value::Bool(true) }))
 }
 
 /// A missing row is a job that never ran here.
@@ -86,6 +90,7 @@ pub fn write(c: &Connection, job: &str, scope: Option<&str>, s: &JobState, now: 
                    ("source_at", s.source_at.map(|t| Value::from(text(t))))] {
         if let Some(x) = x { v[k] = x; }
     }
+    if s.partial { v["partial"] = Value::Bool(true); }
     app_config::set_plain(c, &key(job, scope), &v.to_string(), now)
 }
 

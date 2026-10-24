@@ -328,7 +328,21 @@ fn ibkr_feed(body: Value) -> Result<Feed, String> {
     let complete = meta["complete"].as_bool().ok_or_else(|| bad("metadata.complete is not a boolean"))?;
     let rows = match take_data(body)? { Value::Array(a) => a, _ => return Err(bad("data is not a list")) };
     if meta["count"].as_u64() != Some(rows.len() as u64) { return Err(bad("metadata.count does not match the rows")); }
+    let text = |v: &Value| v.as_str().is_some_and(|s| !s.trim().is_empty());
+    let decimals = |v: &Value| v.as_u64().is_some();
+    let size = |v: &Value| match v {
+        Value::String(s) => crate::ruby::BigDec::parse(s.trim()).is_ok(),
+        Value::Number(_) => true,
+        _ => false,
+    };
     for r in &rows {
+        // Every field the conid check and ticker_records_for read: a row they would drop or fail on refuses the payload
+        // here, before the takeover, so a malformed complete feed never sweeps.
+        let fields = ["base", "quote", "base_external_id", "quote_external_id"].iter().all(|k| text(&r[*k]))
+            && ["base_decimals", "quote_decimals", "price_decimals"].iter().all(|k| decimals(&r[*k]))
+            && size(&r["minimum_base_size"])
+            && ["minimum_quote_size", "maximum_base_size", "maximum_quote_size"].iter().all(|k| r[*k].is_null() || size(&r[*k]));
+        if !fields { return Err(bad(&format!("listing {} lacks a required field or carries an unreadable one", r["listing_id"]))); }
         let conid = r["ticker"].as_str().filter(|t| !t.is_empty() && !t.starts_with('0') && t.bytes().all(|b| b.is_ascii_digit()) && t.parse::<i64>().is_ok());
         let ok = r["venue_scheme"] == "ibkr_conid" && r["trading_enabled"].is_boolean()
             && conid.is_some_and(|c| r["listing_id"].as_str() == Some(format!("ibkr:{c}").as_str()));
@@ -338,20 +352,22 @@ fn ibkr_feed(body: Value) -> Result<Feed, String> {
 }
 
 /// D-IBKR-CONIDS: the rows to import and the identities they append. A row whose conid `ibkr_conids` (or an earlier row)
-/// holds for another asset is skipped and counted; a row whose base asset this install lacks is dropped, as
-/// ticker_records_for drops it.
-/// The kept rows, the (conid, asset) appends, and how many rows were skipped.
-type ConidRows = (Vec<Value>, Vec<(i64, i64)>, usize);
+/// holds for another asset is skipped and counted; a row whose base or quote asset this install lacks yet is dropped and
+/// counted apart (`unresolved`: the import is partial).
+/// The kept rows, the (conid, asset) appends, how many rows were skipped as moved, and how many as unresolved.
+type ConidRows = (Vec<Value>, Vec<(i64, i64)>, usize, usize);
 
 fn conid_rows(c: &Connection, rows: Vec<Value>) -> Result<ConidRows, String> {
     let e = |e: rusqlite::Error| e.to_string();
-    let (mut keep, mut appends, mut moved) = (vec![], vec![], 0);
+    let (mut keep, mut appends, mut moved, mut unresolved) = (vec![], vec![], 0, 0);
+    let asset = |ext: &Value| -> Result<Option<i64>, String> {
+        c.prepare_cached("SELECT id FROM assets WHERE external_id = ?1").map_err(e)?
+            .query_row([ext.as_str().unwrap_or_default()], |r| r.get(0)).optional().map_err(e)
+    };
     let mut seen: std::collections::HashMap<i64, i64> = Default::default();
     for row in rows {
         let conid: i64 = row["ticker"].as_str().and_then(|t| t.parse().ok()).ok_or("IBKR feed: unreadable conid")?;
-        let asset: Option<i64> = c.prepare_cached("SELECT id FROM assets WHERE external_id = ?1").map_err(e)?
-            .query_row([row["base_external_id"].as_str().unwrap_or_default()], |r| r.get(0)).optional().map_err(e)?;
-        let Some(asset) = asset else { continue };
+        let (Some(asset), Some(_)) = (asset(&row["base_external_id"])?, asset(&row["quote_external_id"])?) else { unresolved += 1; continue };
         let held = match seen.get(&conid) {
             Some(a) => Some(*a),
             None => c.prepare_cached("SELECT asset_id FROM ibkr_conids WHERE conid = ?1").map_err(e)?.query_row([conid], |r| r.get(0)).optional().map_err(e)?,
@@ -364,7 +380,7 @@ fn conid_rows(c: &Connection, rows: Vec<Value>) -> Result<ConidRows, String> {
         seen.insert(conid, asset);
         keep.push(row);
     }
-    Ok((keep, appends, moved))
+    Ok((keep, appends, moved, unresolved))
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -372,12 +388,14 @@ enum Gate { Takeover, Evidence, Unchanged }
 
 /// Ibkr plan R1's import protocol for one payload P (D-JOBS-REVISION, D-JOBS-SOURCE-AT):
 /// 0. P.generated_at more than 5 minutes ahead is refused;
-/// 1. evidence-only: P.revision == revision with no import in flight moves source_at forward, nothing else;
+/// 1. evidence-only: P.revision == revision with no import in flight moves source_at forward, nothing else (unless the
+///    revision is partial: then it is taken over again);
 /// 2. takeover: P.revision > revision and >= any importing_revision sets importing_revision in its own transaction,
 ///    else nothing is written;
 /// 3. the plan is computed only after the takeover committed (pair-level sweep when P is complete), with the conid appends;
 /// 4. every unit first checks importing_revision == P.revision, else the run ends and its plan is discarded;
-/// 5. the last unit sets revision, clears importing_revision and moves source_at forward.
+/// 5. the last unit sets revision, clears importing_revision, moves source_at forward and marks the revision partial when
+///    rows were skipped for missing assets (no sweep then).
 ///
 /// The runner's records leave these fields as they are; a crash leaves importing_revision, which the next payload at
 /// that revision or newer takes over.
@@ -395,11 +413,13 @@ async fn ibkr<T: Transport>(api: &DataApi<T>, cx: &Cx<'_>) -> Outcome {
             .optional().map_err(|e| e.to_string())? else { return Ok(Err(Gate::Unchanged)) };
         let gate = import::in_transaction(c, cipher, "ibkr takeover", |c| {
             let mut s = state::read(c, IBKR, None)?;
-            let gate = if s.importing_revision.is_none() && s.revision == Some(revision) {
+            // A partial revision imports again: listings whose assets were missing may resolve now.
+            let reimport = s.partial && s.revision == Some(revision);
+            let gate = if s.importing_revision.is_none() && s.revision == Some(revision) && !reimport {
                 if s.source_at.is_some_and(|at| at >= generated_at) { return Ok((Gate::Unchanged, import::Touched::None)); }
                 s.source_at = Some(generated_at);
                 Gate::Evidence
-            } else if Some(revision) > s.revision && s.importing_revision.is_none_or(|r| revision >= r) {
+            } else if (Some(revision) > s.revision || reimport) && s.importing_revision.is_none_or(|r| revision >= r) {
                 s.importing_revision = Some(revision);
                 s.incomplete_since.get_or_insert(now);
                 Gate::Takeover
@@ -408,16 +428,18 @@ async fn ibkr<T: Transport>(api: &DataApi<T>, cx: &Cx<'_>) -> Outcome {
         })?;
         if gate != Gate::Takeover { return Ok(Err(gate)); }
         import::in_transaction(c, cipher, "usd", |c| import::ensure_usd(c, false, now))?;
-        let (rows, conids, moved) = conid_rows(c, feed.rows)?;
-        let plan = import::plan_tickers_with(c, ibkr, &rows, None, complete)?;
-        Ok(Ok((ibkr, plan, conids, moved)))
+        let (rows, conids, moved, unresolved) = conid_rows(c, feed.rows)?;
+        // No sweep from a partial import: a listing it could not import is not a delisting.
+        let plan = import::plan_tickers_with(c, ibkr, &rows, None, complete && unresolved == 0)?;
+        Ok(Ok((ibkr, plan, conids, moved, unresolved)))
     }).await;
-    let (ibkr, plan, conids, moved) = match step {
+    let (ibkr, plan, conids, moved, unresolved) = match step {
         Ok(Ok(x)) => x,
         Ok(Err(Gate::Evidence)) => return Outcome::Done,
         Ok(Err(_)) => return Outcome::NothingNew,
         Err(m) => return Outcome::Failed(m),
     };
+    if unresolved > 0 { crate::engine::log(&format!("[jobs] {IBKR}: revision {revision}: {unresolved} listing(s) skipped, their assets are not on this install yet; partial, no sweep")); }
     if moved > 0 { crate::engine::log(&format!("[jobs] {IBKR}: revision {revision}: {moved} listing(s) skipped, their conid belongs to another asset (ibkr_conids)")); }
     let fence = import::Fence { job: IBKR, revision };
     let t = format_time(now);
@@ -433,7 +455,7 @@ async fn ibkr<T: Transport>(api: &DataApi<T>, cx: &Cx<'_>) -> Outcome {
         cx.db.run(move |c, cipher| import::in_transaction(c, cipher, "ibkr revision", |c| {
             fence.check(c)?;
             let mut s = state::read(c, IBKR, None)?;
-            (s.revision, s.importing_revision, s.incomplete_since) = (Some(revision), None, None);
+            (s.revision, s.importing_revision, s.incomplete_since, s.partial) = (Some(revision), None, None, unresolved > 0);
             s.source_at = s.source_at.max(Some(generated_at));
             state::write(c, IBKR, None, &s, now).map(|()| ((), import::Touched::None))
         })).await
