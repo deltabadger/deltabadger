@@ -359,6 +359,25 @@ async fn an_unreadable_bot_holding_a_counted_stop_does_not_stop_the_engine_at_st
     let _ = id;
 }
 
+/// Slice 7s: a status-line request on a bot this build cannot load, or one whose request is unreadable, waits; the pass goes
+/// on and the readable bot still ticks.
+#[tokio::test(flavor = "current_thread")]
+async fn an_unreadable_bot_with_a_status_line_request_does_not_stop_the_engine() {
+    use deltabadger::engine::conditions;
+    let v = priced();
+    let (_d, mut e, _id, s) = engine(BotSpec::weekly(60.0, "2026-09-01 10:00:00"), v.clone());
+    let bad = seed::insert_bot(&e.primary, &s, &BotSpec { status: 2, ..BotSpec::weekly(60.0, "2026-09-01 10:00:00") }.with("price_limited", json!(true)));
+    let garbled = seed::insert_bot(&e.primary, &s, &BotSpec { status: 2, ..BotSpec::weekly(60.0, "2026-09-01 10:00:00") }.with("price_limited", json!(true)));
+    assert!(conditions::want_info(&e.primary, bad, None, conditions::PRICE, "en").unwrap());
+    e.primary.execute("UPDATE bots SET status = 99 WHERE id = ?1", [bad]).unwrap(); // a status this build cannot read
+    e.primary.execute(&format!("UPDATE bots SET transient_data = json_set(transient_data, '$.{}', json('{{\"price_limit\":{{\"version\":\"x\"}}}}')) WHERE id = ?1",
+                               conditions::INFO_WANTED_KEY), [garbled]).unwrap();
+    run::step(&mut e, &at("2026-09-01T10:00:01Z")).await.expect("the engine keeps running");
+    assert_eq!(v.sent().len(), 1, "the readable bot still ticks");
+    let waits: bool = e.primary.query_row(&format!("SELECT json_type(transient_data, '$.{}') IS NOT NULL FROM bots WHERE id = ?1", conditions::INFO_WANTED_KEY), [bad], |r| r.get(0)).unwrap();
+    assert!(waits, "the unreadable bot's request is left as it is");
+}
+
 #[tokio::test(flavor = "current_thread")]
 async fn action_lifecycle_created_continue_does_not_use_stopped_only_wait() -> Result<(), Box<dyn std::error::Error>> {
     let (_dir, mut engine, id, _) = continued(&["2026-09-01 10:00:01", "2026-09-08 10:00:01"],

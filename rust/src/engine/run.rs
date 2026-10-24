@@ -570,7 +570,13 @@ fn info_marker(c: &Connection, id: i64) -> Result<Option<String>, EngineError> {
 /// the other three routes answer and keep their loader.
 async fn run_condition_infos<F: VenueFactory>(e: &mut Engine<F>, unreadable: &[(i64, String)], clock: &dyn Clock, wake: &mut i64) -> Result<(), EngineError> {
     use super::conditions::{self, PRICE};
-    for claim in conditions::info_claims(&e.primary, PRICE)? {
+    let claims = match conditions::info_claims(&e.primary, PRICE) {
+        Ok(claims) => claims,
+        Err(err @ (EngineError::Lease(_) | EngineError::Store(_))) => return Err(err),
+        // A status line never stops trading: the requests wait for the next pass.
+        Err(err) => { super::log(&format!("[engine] the status-line requests could not be read: {err:?}")); return Ok(()) }
+    };
+    for claim in claims {
         if e.stopping() { break; }
         let id = claim.bot.id;
         if unreadable.iter().any(|(u, _)| *u == id) { continue; }

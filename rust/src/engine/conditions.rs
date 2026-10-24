@@ -239,15 +239,24 @@ pub fn want_info(c: &Connection, bot_id: i64, user: Option<i64>, rule: &str, loc
 #[derive(Clone, Debug)]
 pub struct InfoClaim { pub bot: Bot, pub version: i64, pub locale: Option<String> }
 
-/// The bots with a waiting request for `rule`, each claimed as it is now.
+/// The bots with a waiting request for `rule`, each claimed as it is now. A bot that cannot be loaded (eligibility lists it as
+/// unreadable), or whose request is not `{version: integer}`, is skipped and logged: a status line never stops the engine.
 pub fn info_claims(c: &Connection, rule: &str) -> Result<Vec<InfoClaim>, EngineError> {
     let mut s = c.prepare(&format!("SELECT id, json_extract(transient_data, '$.{INFO_WANTED_KEY}.{rule}.version'), \
                                     json_extract(transient_data, '$.{INFO_WANTED_KEY}.{rule}.locale') FROM bots \
-                                    WHERE json_type(transient_data, '$.{INFO_WANTED_KEY}.{rule}') IS NOT NULL ORDER BY id"))?;
-    let rows = s.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, Option<i64>>(1)?, r.get::<_, Option<String>>(2)?)))?.collect::<Result<Vec<_>, _>>()?;
+                                    WHERE json_valid(transient_data) AND json_type(transient_data, '$.{INFO_WANTED_KEY}.{rule}') IS NOT NULL ORDER BY id"))?;
+    let rows = s.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, rusqlite::types::Value>(1)?, r.get::<_, rusqlite::types::Value>(2)?)))?.collect::<Result<Vec<_>, _>>()?;
     drop(s);
     let mut out = vec![];
-    for (id, version, locale) in rows { out.push(InfoClaim { bot: model::load_bot(c, id)?, version: version.unwrap_or(0), locale }); }
+    for (id, version, locale) in rows {
+        let rusqlite::types::Value::Integer(version) = version else { super::log(&format!("[engine] bot {id}: unreadable status-line request; skipped")); continue };
+        let locale = match locale { rusqlite::types::Value::Text(l) => Some(l), _ => None };
+        match model::load_bot(c, id) {
+            Ok(bot) => out.push(InfoClaim { bot, version, locale }),
+            Err(err @ (EngineError::Lease(_) | EngineError::Store(_))) => return Err(err),
+            Err(err) => super::log(&format!("[engine] bot {id}: its status-line request waits, the bot is unreadable: {err:?}")),
+        }
+    }
     Ok(out)
 }
 
