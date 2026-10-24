@@ -123,7 +123,7 @@ fn deferred_classes_and_existing_refusals_still_roll_back() {
         // 6b T8: an Alpaca basket rebalances here (admitted below); a halt Rails wrote and a threshold it cannot read do not.
         ("UPDATE bots SET transient_data=json_set(transient_data,'$.rebalance_pending',json('{\"phase\":\"ambiguous\"}'))","rebalance_pending in phase"),
         ("UPDATE bots SET settings=json_set(settings,'$.rebalance_enabled',json('true'),'$.rebalance_threshold',json('[1]'))","rebalance_threshold"),
-        ("UPDATE users SET wash_sale_enabled=1","wash_sale"),
+        ("UPDATE bots SET settings=json_set(settings,'$.limit_ordered',json('true'),'$.limit_order_pcnt_distance','x')","limit_order_pcnt_distance is not a number"),
         ("UPDATE transactions SET external_id='imported_test' WHERE side=1","imported"),
         ("UPDATE transactions SET base_asset_id=NULL WHERE side=1","without base_asset_id"),
         ("UPDATE transactions SET transaction_type='REBALANCE',external_status=4 WHERE side=1","abandoned REBALANCE"),
