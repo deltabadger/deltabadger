@@ -10,16 +10,16 @@ use crate::ruby::{inspect, to_sentence, to_sql, BigDec};
 use crate::venue::{OrderState, OrderStatus, Venue, VenueError};
 use chrono::{DateTime, Duration, Utc};
 use rusqlite::types::Value as Sql;
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::json;
 
 pub const STALE_AFTER_DAYS: i64 = 14;
 
 #[derive(Debug, PartialEq)]
-pub enum PollFailure { CredentialsChanged, RateLimited(String), Transient(String), General(String) }
+pub enum PollFailure { CredentialsChanged, RateLimited(String), Transient(String), General(String), OwnerChanged(i64) }
 
 fn poll_error(e: EngineError) -> PollFailure {
-    match e { EngineError::CredentialsChanged => PollFailure::CredentialsChanged, other => PollFailure::General(format!("{other:?}")) }
+    match e { EngineError::CredentialsChanged => PollFailure::CredentialsChanged, EngineError::OwnerChanged(owner) => PollFailure::OwnerChanged(owner), other => PollFailure::General(format!("{other:?}")) }
 }
 
 /// A follow-up poll that did not fail: the order is settled, or the venue still holds it open (Rails' retry_on
@@ -27,12 +27,27 @@ fn poll_error(e: EngineError) -> PollFailure {
 ///
 /// `SettlesAt` (D-KUCOIN-ZERO-FILL-FUNDS): the venue answered a zero fill too young to be final (OrderState::settles_at); asked
 /// again, and once more just past that time if the retries end before it.
+///
+/// `OwnerChanged` (PLAN-dashboard-bot-actions slice F): a Merge or Split moved the row to the bot given while this poll ran.
+/// Nothing was written; the poll obligation stays, under that bot.
 #[derive(Debug, PartialEq)]
-pub enum FollowUp { Done, StillOpen, SettlesAt(DateTime<Utc>) }
+pub enum FollowUp { Done, StillOpen, SettlesAt(DateTime<Utc>), OwnerChanged(i64) }
 
 /// An unreadable created_at fails the row (and so the bot's tick); it must never read as the epoch.
 fn created_us(s: &str) -> Result<i64, EngineError> {
     parse_time(s).map(|t| t.timestamp_micros()).map_err(|e| EngineError::Data(format!("{e:?}")))
+}
+
+/// The bot that owns the row now, when it is not `bot_id`: a Merge or Split moved it (PLAN-dashboard-bot-actions slice F).
+fn moved_to(c: &Connection, bot_id: i64, tx_id: i64) -> Result<Option<i64>, EngineError> {
+    let owner: Option<Option<i64>> = c.query_row("SELECT bot_id FROM transactions WHERE id = ?1", [tx_id], |r| r.get(0)).optional()?;
+    Ok(owner.flatten().filter(|owner| *owner != bot_id))
+}
+
+/// The fence of every poll completion: inside its transaction, before any write or callback, the row must still be the polled
+/// bot's. A row moved meanwhile is never written for its old owner.
+pub(crate) fn require_owner(c: &Connection, bot_id: i64, tx_id: i64) -> Result<(), EngineError> {
+    match moved_to(c, bot_id, tx_id)? { Some(owner) => Err(EngineError::OwnerChanged(owner)), None => Ok(()) }
 }
 
 /// Transaction#update_with_order_data for one row. `_update_missed` is Rails' `update_missed_quote_amount:` keyword, inert
@@ -41,6 +56,7 @@ fn created_us(s: &str) -> Result<i64, EngineError> {
 /// amount limit (Transaction's after_commit → Bot::QuoteAmountLimitable#handle_quote_amount_limit_update); the caller stops
 /// the bot when Rails' Bot::StopJob would run (apply_committed, placement::recover_since, tick::tick_recovering).
 pub fn apply_in(c: &model::FencedTransaction<'_>, bot_id: i64, tx_id: i64, s: &OrderState, _update_missed: bool, now: DateTime<Utc>) -> Result<bool, EngineError> {
+    require_owner(c, bot_id, tx_id)?;
     let row = crate::figures::fill::stored_order(c, tx_id)?;
     let bot = model::load_bot(c, bot_id)?;
     // Transaction#update_with_order_data fills blank asset fields from `order_data[:ticker]`: the venue's ticker for THIS
@@ -265,6 +281,7 @@ async fn poll_rows<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model
             young.push(ext.clone());
         } else {
             model::credential_write(c, &version, |tx| {
+                require_owner(tx, bot.id, *id)?;
                 tx.execute("UPDATE transactions SET external_status = ?1, updated_at = ?2 WHERE id = ?3",
                       params![TxExternalStatus::Abandoned as i64, format_time(now), id])?;
                 model::log_activity(tx, bot.id, "order_abandoned", Level::Info, json!({ "order_id": ext }), now)?;
@@ -296,11 +313,16 @@ async fn poll_rows<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model
 /// failures as that job's retry_on does (3 and 4 attempts); others end the chain. A row no longer waiting is done.
 pub async fn follow_up<V: Venue>(c: &Connection, venue: &V, bot_id: i64, tx_id: i64, now: DateTime<Utc>) -> Result<FollowUp, PollFailure> {
     let db = |e: EngineError| poll_error(e);
+    // A row moved to another bot (Merge, Split) is that bot's to poll, before the venue is asked or after it answered: the
+    // obligation is handed on, whatever this poll's outcome, and never dropped as Done.
+    if let Some(owner) = moved_to(c, bot_id, tx_id).map_err(db)? { return Ok(FollowUp::OwnerChanged(owner)); }
     let bot = model::load_bot(c, bot_id).map_err(db)?;
     let handle=crate::venue::Handle::for_bot(venue,c,&bot).map_err(db)?;
     let venue=&handle;
     let rows: Vec<_> = waiting_ids(c, &bot).map_err(db)?.into_iter().filter(|(id, _, _)| *id == tx_id).collect();
-    let settles_at = if venue.rules().follow_up_strict { follow_up_strict(c, venue, &bot, rows, tx_id, now, true).await? } else { poll_rows(c, venue, &bot, rows, now, false).await? };
+    let polled = if venue.rules().follow_up_strict { follow_up_strict(c, venue, &bot, rows, tx_id, now, true).await } else { poll_rows(c, venue, &bot, rows, now, false).await };
+    if let Some(owner) = moved_to(c, bot_id, tx_id).map_err(db)? { return Ok(FollowUp::OwnerChanged(owner)); }
+    let settles_at = polled?;
     if let Some(at) = settles_at { return Ok(FollowUp::SettlesAt(at)); }
     // ponytail: the lenient path skips an `unknown` answer, so a row already open from an earlier poll reads as still open
     // here; bounded by the caller's 8 attempts and read-only, so a few extra polls at worst.

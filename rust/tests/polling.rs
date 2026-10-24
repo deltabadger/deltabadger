@@ -288,3 +288,68 @@ async fn a_binance_follow_up_asks_for_its_one_order_and_records_the_fill_rebuilt
         "SELECT external_status, price, amount_exec, quote_amount_exec FROM transactions WHERE id = ?1", [tx], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))).unwrap();
     assert_eq!((ext, price, exec, qexec), (2, 50410.0, 0.00118881, 59.9879), "net of the base commission");
 }
+
+// PLAN-dashboard-bot-actions slice F: a Merge or Split moves a waiting row to another bot while a poll's venue answer is in
+// flight. The answer is never applied against the deleted source: the poll reports the row's current owner, and the poll
+// under that owner settles it.
+fn rewrite(db: &str, tx: i64, from: i64, to: i64) {
+    let c = rusqlite::Connection::open(db).unwrap();
+    c.execute("UPDATE transactions SET bot_id = ?1 WHERE id = ?2", [to, tx]).unwrap();
+    c.execute("UPDATE bots SET status = 3 WHERE id = ?1", [from]).unwrap();
+}
+fn moved_setup() -> (tempfile::TempDir, store::Opened, seed::Seeded, i64, i64) {
+    let (d, o, s, b) = setup(json!({}));
+    let to = seed::insert_bot(&o.primary, &s, &BotSpec { status: 2, ..BotSpec::weekly(60.0, "2026-09-01 10:00:00") });
+    (d, o, s, b, to)
+}
+fn row(o: &store::Opened, tx: i64) -> (i64, i64, String) {
+    o.primary.query_row("SELECT bot_id, external_status, updated_at FROM transactions WHERE id = ?1", [tx], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap()
+}
+fn logs(o: &store::Opened, bot: i64) -> i64 { o.primary.query_row("SELECT count(*) FROM bot_activity_logs WHERE bot_id = ?1", [bot], |r| r.get(0)).unwrap() }
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_fill_answered_across_a_rewrite_settles_under_the_new_owner() {
+    let (_d, o, s, from, to) = moved_setup();
+    let tx = seed::insert_tx(&o.primary, &s, from, &open_market("2026-09-29 10:00:00", "OTX-MV"));
+    let db = o.primary.path().unwrap().to_string();
+    let v = FakeVenue::new().order("OTX-MV", closed_raw("50000", "0.0012", "60")).on_query(move || rewrite(&db, tx, from, to));
+    let before = row(&o, tx);
+    assert_eq!(polling::follow_up(&o.primary, &v, from, tx, now()).await, Ok(polling::FollowUp::OwnerChanged(to)));
+    assert_eq!(row(&o, tx), (to, before.1, before.2), "nothing written for the deleted source");
+    assert_eq!(polling::follow_up(&o.primary, &v, to, tx, now()).await, Ok(polling::FollowUp::Done));
+    assert_eq!(row(&o, tx).1, 2, "settled under the new owner");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn an_abandonment_answered_across_a_rewrite_writes_nothing_against_the_source() {
+    let (_d, o, s, from, to) = moved_setup();
+    let tx = seed::insert_tx(&o.primary, &s, from, &open_market("2026-09-10 10:00:00", "OTX-AB"));
+    o.primary.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.flip_reserve_pending', json_array(?1)) WHERE id = ?2", [tx, from]).unwrap();
+    let source = |o: &store::Opened| -> String { o.primary.query_row("SELECT transient_data FROM bots WHERE id = ?1", [from], |r| r.get(0)).unwrap() };
+    let held = source(&o);
+    let db = o.primary.path().unwrap().to_string();
+    let v = FakeVenue::new().on_query(move || rewrite(&db, tx, from, to));
+    assert_eq!(polling::follow_up(&o.primary, &v, from, tx, now()).await, Ok(polling::FollowUp::OwnerChanged(to)));
+    assert_eq!(row(&o, tx).1, 0, "not abandoned under the source");
+    assert_eq!((logs(&o, from), logs(&o, to)), (0, 0), "no order_abandoned against the source");
+    assert_eq!(source(&o), held, "the source's reserve is not settled by a row it no longer owns");
+    assert_eq!(polling::follow_up(&o.primary, &v, to, tx, now()).await, Ok(polling::FollowUp::Done));
+    assert_eq!((row(&o, tx).1, logs(&o, from), logs(&o, to)), (4, 0, 1), "abandoned and logged under the new owner");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn an_unknown_order_moved_across_a_poll_is_never_dropped() {
+    let (_d, o, s, from, to) = moved_setup();
+    let tx = seed::insert_tx(&o.primary, &s, from, &open_market("2026-09-29 10:00:00", "OTX-UN"));
+    let db = o.primary.path().unwrap().to_string();
+    let pending = json!({ "status": "pending", "vol": "60", "price": "0", "vol_exec": "0", "cost": "0", "oflags": "viqc", "descr": { "ordertype": "market" } });
+    let v = FakeVenue::new().order("OTX-UN", pending).on_query(move || rewrite(&db, tx, from, to));
+    assert_eq!(polling::follow_up(&o.primary, &v, from, tx, now()).await, Ok(polling::FollowUp::OwnerChanged(to)), "kept, not Done");
+    // Moved before a poll for the old owner even starts: still handed to the new owner, without asking the venue.
+    let asked = v.calls("/0/private/QueryOrders");
+    assert_eq!(polling::follow_up(&o.primary, &v, from, tx, now()).await, Ok(polling::FollowUp::OwnerChanged(to)));
+    assert_eq!(v.calls("/0/private/QueryOrders"), asked);
+    let v = v.order("OTX-UN", closed_raw("50000", "0.0012", "60"));
+    assert_eq!(polling::follow_up(&o.primary, &v, to, tx, now()).await, Ok(polling::FollowUp::Done));
+    assert_eq!(row(&o, tx).1, 2);
+}
