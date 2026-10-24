@@ -450,7 +450,6 @@ pub fn refusal(c: &Connection, bot_id: i64, wash_sale_enabled: Option<bool>, pro
     let (class, exchange, settings, transient) = row;
     let settings: Value = serde_json::from_str(&settings).unwrap_or(Value::Null);
     let transient: Value = serde_json::from_str(&transient).unwrap_or(Value::Null);
-    let truthy = |value: Option<&Value>| value.is_some_and(|v| !matches!(v, Value::Null | Value::Bool(false)) && v.as_str() != Some("") && v.as_str() != Some("0") && v.as_str() != Some("false"));
     let class = class.unwrap_or_default();
     if class == crate::engine::model::SIGNAL_TYPE { return signal::refusal(c, bot_id, exchange.as_deref(), &settings, &transient, wash_sale_enabled, asked); }
     if class != "Bots::DcaMultiAsset" && class != "Bots::DcaIndex" { return Ok(Some("a bot of a type this build does not render")); }
@@ -481,7 +480,6 @@ pub fn refusal(c: &Connection, bot_id: i64, wash_sale_enabled: Option<bool>, pro
     // do not render yet, and a cap on what is sold (6d) is not counted here.
     if selling && member_count != 1 { return Ok(Some("a basket of several assets that sells")); }
     if selling && settings.get("base_amount_limited") == Some(&Value::Bool(true)) { return Ok(Some("a cap on what a selling bot sells")); }
-    if truthy(settings.get("rebalance_enabled")) { return Ok(Some("rebalancing")); }
     if ["rebalance_pending", "liquidation_pending", "liquidation_selling_since", "redeploy_pending"].iter().any(|key| transient.get(key).is_some_and(|v| !v.is_null())) {
         return Ok(Some("a rebalance, liquidation or redeploy in progress"));
     }
@@ -502,6 +500,13 @@ pub fn refusal(c: &Connection, bot_id: i64, wash_sale_enabled: Option<bool>, pro
     // metrics walk knows it, and a page without figures does not run it. The forms read no figure.
     if asked == For::Page && c.query_row("SELECT EXISTS(SELECT 1 FROM transactions WHERE bot_id = ?1 AND side IS NOT 0)", [bot_id], |r| r.get(0))? {
         return Ok(Some(REALISED_WITHOUT_FIGURES));
+    }
+    // The rebalance rule's drift readout (bots/settings/_rebalance_info) is read from the figures: a page without them cannot
+    // say it once the bot holds something. The rule is shown on every index and on a basket of several assets that buys.
+    let rule_shown = class == "Bots::DcaIndex" || (!selling && member_count != 1);
+    if asked == For::Page && rule_shown && cast_boolean(settings.get("rebalance_enabled"))
+        && c.query_row("SELECT EXISTS(SELECT 1 FROM transactions WHERE bot_id = ?1 AND status = 0)", [bot_id], |r| r.get(0))? {
+        return Ok(Some(REBALANCE_WITHOUT_FIGURES));
     }
     match wash_sale_enabled {
         // The feed has no figures and no modal: BotsController#show answers it whatever the rule says.
@@ -528,6 +533,8 @@ fn sell_capable(class: &str, settings: &Value) -> bool {
 pub const UNREAD_ORDERS: &str = "orders this build does not read yet";
 /// The reason a page without figures refuses a bot that has sold.
 pub const REALISED_WITHOUT_FIGURES: &str = "a realised profit or loss on a page without figures";
+/// The reason a page without figures refuses a bot whose rebalance rule reads a drift from them.
+pub const REBALANCE_WITHOUT_FIGURES: &str = "a rebalance drift on a page without figures";
 
 fn object(text: &str, what: &str) -> Result<Map<String, Value>, WebError> {
     match serde_json::from_str(text) {
@@ -896,6 +903,9 @@ impl Bot {
     pub fn last_action_job_at(&self) -> Result<Option<DateTime<Utc>>,WebError> {
         crate::codec::optional_time(self.transient.get("last_action_job_at")).map_err(|e|data(format!("{e:?}")))
     }
+
+    /// Bot::Rebalanceable#rebalance_enabled?.
+    pub fn rebalance_enabled(&self) -> bool { cast_boolean(self.settings.get("rebalance_enabled")) }
 
     /// Bot::Rebalanceable#rebalance_pending?: only a nonempty stored Hash is pending.
     pub fn rebalance_pending(&self) -> bool {

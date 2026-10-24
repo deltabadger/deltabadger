@@ -635,7 +635,7 @@ mod action_write {
             f.c.execute("UPDATE bots SET settings=json_set(settings,'$.quote_amount',50,'$.smart_intervaled',json('true'),'$.smart_interval_quote_amount',5) WHERE id=?1", [f.id])?;
             let before = f.snapshot()?;
             let render = |bot: &Bot| Forms { ctx: &f.ctx, csrf: "token", bot, path: format!("/bots/{}", f.id),
-                hide_balances: false, time_zone: "UTC", check: None }.smart_intervals();
+                hide_balances: false, time_zone: "UTC", check: None, rebalance_info: None }.smart_intervals();
             let bot = Bot::find(&f.c, f.seed.user_id, f.id, For::Page, "en").map_err(|e| format!("{e:?}"))?.unwrap();
             let quote = bot.quote_symbol().unwrap();
             assert!(render(&bot).contains(&format!("50 {quote}")), "an untouched Integer stays an Integer");

@@ -83,10 +83,44 @@ pub(crate) fn kind_of(class: Option<&str>) -> (&'static str, &'static str) {
     }
 }
 /// A bot whose figures raised (a transient read): empty targets, as a failed fill's (`loading::render`): no widget and no
-/// loader left waiting, and the next fill's publication replaces them.
-fn raised_targets(id: i64, kind: &str) -> Value {
-    json!({ "tile": format!("<div id=\"pnl_bots_{kind}_{id}\"></div>"), "metrics": "<div id=\"metrics\"></div>",
-        "chart": plot::NOT_CHARTED, "missing": [], "cached": false, "chart_cached": false })
+/// loader left waiting, and the next fill's publication replaces them. A rebalance rule that is on shows its note alone, so
+/// that no drift the figures no longer read stays on the page.
+fn raised_targets(c: &Connection, id: i64, kind: &str, locale: &str) -> Result<Value, FiguresError> {
+    let mut out = json!({ "tile": format!("<div id=\"pnl_bots_{kind}_{id}\"></div>"), "metrics": "<div id=\"metrics\"></div>",
+        "chart": plot::NOT_CHARTED, "missing": [], "cached": false, "chart_cached": false });
+    if let Some(note) = rebalance_note(c, id, locale)? { out["rebalance_info"] = Value::String(note); }
+    Ok(out)
+}
+/// The rebalance rule's note alone (bots/settings/_rebalance_info with no drift to read), while the rule is on.
+pub(crate) fn rebalance_note(c: &Connection, id: i64, locale: &str) -> Result<Option<String>, FiguresError> {
+    let (class, settings): (Option<String>, String) = c.query_row("SELECT type, settings FROM bots WHERE id=?1", [id], |r| Ok((r.get(0)?, r.get(1)?)))?;
+    let settings: Value = serde_json::from_str(&settings).unwrap_or(Value::Null); // allow-swallow: an unreadable row has no rule to show
+    let on = !class.as_deref().is_some_and(pair::is_pair) && crate::web::bot::cast_boolean(settings.get("rebalance_enabled"));
+    Ok(on.then(|| crate::web::bot::settings::rebalance_info(locale, false, None, None, false)))
+}
+/// Bot::Rebalanceable#rebalance_drift over the live figures (metrics_with_current_prices), and while the rule is on its
+/// fragment (bots/settings/_rebalance_info): (the fragment, the drift as kept for a settings save that moves the rule).
+/// Bots::DcaMultiAsset#rebalance_targets: an unbalanced basket with no swap pending reads none; the members the user's
+/// live wash-sale locks hold out are left out (Bot::Composition::Rebalancer, `locked_asset_ids`).
+fn rebalance(c: &Connection, s: &Subject, m: &Metrics, locale: &str, now: At) -> Result<(Option<String>, Value), FiguresError> {
+    use crate::engine::{eligibility, model, rebalance};
+    let engine = |e: crate::engine::EngineError| match e { crate::engine::EngineError::Sqlite(e) => FiguresError::Sqlite(e), e => FiguresError::Data(format!("{e:?}")) };
+    let bot = model::load_bot(c, s.bot.id).map_err(engine)?;
+    let on = crate::web::bot::cast_boolean(bot.settings.get("rebalance_enabled"));
+    let drift = (|| -> Result<Option<crate::ruby::BigDec>, FiguresError> {
+        if !rebalance::is_pending(&bot.transient) && !eligibility::allocations_balanced(&bot) { return Ok(None); }
+        let members = rebalance::members(c, &bot, s).map_err(engine)?;
+        let known = members.iter().map(|member| member.asset_id).collect();
+        let locked: Vec<i64> = holdings::live_locks(c, s.bot.user_id, &known, now)?.into_iter().map(|(id, ..)| id).collect();
+        Ok(rebalance::drift(rebalance::composition_targets(m, &members, &locked).map_err(engine)?.as_deref()))
+    })();
+    // Read for a rule that is off only so that turning it on can show it: what Rails would not read then refuses nothing.
+    let drift = match drift { Err(FiguresError::Data(_)) if !on => None, other => other? };
+    let kept = drift.as_ref().map_or(Value::Null, |d| Value::String(d.to_s_f()));
+    if !on { return Ok((None, kept)); }
+    let ambiguous = bot.transient[rebalance::PENDING_KEY]["phase"] == rebalance::PHASE_AMBIGUOUS;
+    let threshold = rebalance::threshold(&bot.settings).map_err(engine)?;
+    Ok((Some(crate::web::bot::settings::rebalance_info(locale, ambiguous, drift.as_ref(), Some(&threshold), rebalance::below_minimum(&bot.transient))), kept))
 }
 /// NumbersHelper#format_value: below one, rounded to `max_decimals`, its trailing zeros dropped (a bare zero stays), printed
 /// as Ruby prints it (a Float's exponent form included); from one on, two decimals.
@@ -147,13 +181,18 @@ struct Done { subject: Subject, live: Metrics, marked: Option<Metrics>, missing:
 /// The composition metrics partial with current prices and no loading placeholders or session token.
 /// A settings callback needs only this panel, so it never asks for candles or account totals.
 pub fn metrics_panel(c: &Connection, id: i64, market: &dyn MarketData, now: At, locale: &str, prefix: &str) -> Result<String, FiguresError> {
+    Ok(settings_panels(c, id, market, now, locale, prefix)?.0)
+}
+/// `metrics_panel`, and the rebalance rule's fragment while the rule is on (`rebalance`): what a settings save publishes.
+pub fn settings_panels(c: &Connection, id: i64, market: &dyn MarketData, now: At, locale: &str, prefix: &str) -> Result<(String, Option<String>), FiguresError> {
     budget::within(|| {
         let subject = Subject::load(c, id)?;
         let user = db::user(c, subject.bot.user_id)?;
         let walked = walk::metrics(c, &subject, now)?;
         let metrics = live::live(c, &subject, &walked, market, now)?;
         let missing = missing(&subject, &metrics, market)?;
-        holdings::render(c, &subject, &metrics, &missing, user.hide_balances, locale, &mut holdings::Token::Value(""), prefix, now)
+        let panel = holdings::render(c, &subject, &metrics, &missing, user.hide_balances, locale, &mut holdings::Token::Value(""), prefix, now)?;
+        Ok((panel, rebalance(c, &subject, &metrics, locale, now)?.0))
     })
 }
 
@@ -193,7 +232,7 @@ fn computed(c: &Connection, user_id: i64, market: &dyn MarketData, now: At, loca
                 // each saying whether Rails caches it.
                 let live = match pair::metrics(c, id, now).and_then(|walked| pair::live(c, &walked, market, now)) {
                     Err(FiguresError::Raised(_)) => {
-                        bots.insert(id.to_string(), raised_targets(id, kind));
+                        bots.insert(id.to_string(), raised_targets(c, id, kind, locale)?);
                         withheld |= !db::orders(c, id)?.is_empty(); raised.push(id); continue;
                     }
                     other => other?,
@@ -225,7 +264,7 @@ fn computed(c: &Connection, user_id: i64, market: &dyn MarketData, now: At, loca
             let walked = walk::metrics(c, &subject, now)?;
             let marked_live = match live::live(c, &subject, &walked, market, now) {
                 Err(FiguresError::Raised(_)) => {
-                    bots.insert(id.to_string(), raised_targets(id, kind));
+                    bots.insert(id.to_string(), raised_targets(c, id, kind, locale)?);
                     withheld |= !subject.orders.is_empty(); raised.push(id); continue;
                 }
                 other => other?,
@@ -236,6 +275,7 @@ fn computed(c: &Connection, user_id: i64, market: &dyn MarketData, now: At, loca
             let mut token = match csrf { None => holdings::Token::Slots(&mut offsets), Some(token) => holdings::Token::Value(token) };
             let metrics = holdings::render(c, &subject, &marked_live, &missing, user.hide_balances, locale, &mut token, prefix, now)?;
             if !offsets.is_empty() { slots.push((id.to_string(), offsets)); }
+            let (rebalance_info, rebalance_drift) = rebalance(c, &subject, &marked_live, locale, now)?;
             // The amount is all a rate was needed for: with balances hidden there is none to convert (BotsController#index).
             let profit = if user.hide_balances { None } else {
                 match totals::profit_in_usd(c, market, &mut rates, subject.quote.as_deref(), &marked_live) {
@@ -249,7 +289,8 @@ fn computed(c: &Connection, user_id: i64, market: &dyn MarketData, now: At, loca
                 "cached": !marked_live.prices_stale && !marked_live.chart.labels.is_empty(),
                 // And the marked chart (metrics_with_current_prices_and_candles) only once a holding had candles to mark it
                 // with (`chart::marked_at`).
-                "chart_cached": !marked_live.prices_stale && !marked_live.chart.labels.is_empty() && gridded }));
+                "chart_cached": !marked_live.prices_stale && !marked_live.chart.labels.is_empty() && gridded, "rebalance_drift": rebalance_drift }));
+            if let (Some(info), Some(entry)) = (rebalance_info, bots.get_mut(&id.to_string())) { entry["rebalance_info"] = Value::String(info); }
             // User::PnlHistory#marked_metrics: figures cached without a marked chart are a cold track, and one cold track
             // is the whole account's history waiting.
             history_cold |= !marked_live.prices_stale && !marked_live.chart.labels.is_empty() && !gridded;
@@ -300,7 +341,9 @@ pub fn streams(c:&Connection,user:i64,rendered:&Value)->Result<Vec<(String,Strin
     for (id,class) in db::account_bots(c,user)? {
         let (class,kind)=kind_of(class.as_deref());
         let page=format!("{}:bot_updates",URL_SAFE_NO_PAD.encode(format!("gid://deltabadger/Bots::{class}/{id}")));
-        for (part,target,stream) in [("tile",format!("pnl_bots_{kind}_{id}"),format!("user_{user}:bot_updates")),("metrics","metrics".into(),page.clone()),("chart","chart".into(),page)]{
+        for (part,target,stream) in [("tile",format!("pnl_bots_{kind}_{id}"),format!("user_{user}:bot_updates")),("metrics","metrics".into(),page.clone()),("chart","chart".into(),page.clone()),
+                                     // D-REB-DRIFT-LATE: Rails renders the drift with the page; here it follows on the bot's page stream.
+                                     ("rebalance_info","settings-rebalance-info".into(),page)]{
             if let Some(html)=rendered["bots"][id.to_string()][part].as_str(){out.push((stream,crate::web::turbo::stream("replace",&target,html)));}
         }
     }
