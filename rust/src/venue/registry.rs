@@ -7,7 +7,7 @@ use crate::engine::venue_rules::{self, VenueRules};
 
 /// How a key's balances are synced (`sync::balances`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum BalanceSync { Alpaca, Binance, Kucoin, Bitvavo, Gemini, Bitget, Mexc, Hyperliquid, Bybit, Bitrue, Coinbase, Bingx }
+pub enum BalanceSync { Alpaca, Binance, Kucoin, Bitvavo, Gemini, Bitget, Mexc, Hyperliquid, Bybit, Bitrue, Coinbase, Bingx, Ibkr }
 
 /// How a key's ledger is synced (`sync::ledger`, `sync::binance_ledger` (Binance and Binance.US, each its own sources),
 /// `sync::kucoin_ledger`, `sync::bitvavo_ledger`, `sync::gemini_ledger`, `sync::bitget_ledger`, `sync::mexc_ledger`, `sync::hyperliquid_ledger`).
@@ -18,9 +18,9 @@ pub enum LedgerSync { Alpaca, Binance, Kucoin, Bitvavo, Gemini, Bitget, Mexc, Hy
 /// request sequence (`settings::key_check`) through its proxy. Binance.US's is its own (binance_us.rb: an account read,
 /// then a cancel probe), on Binance's wire. Bitvavo's reads the balance, then probes a cancel, for a reading key too. Bitget's
 /// probes a cancel (a withdrawal key reads its assets; a reading key its balances). MEXC's reads the account's canTrade,
-/// and for a reading key the deposit history too.
+/// and for a reading key the deposit history too. IBKR's lists the login's accounts through its session (`key_check::ibkr_check`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum KeyCheck { Alpaca, Kraken, Binance, BinanceUs, Kucoin, Bitvavo, Gemini, Bitget, Mexc, Hyperliquid, Bybit, Bitrue, Coinbase, Bingx }
+pub enum KeyCheck { Alpaca, Kraken, Binance, BinanceUs, Kucoin, Bitvavo, Gemini, Bitget, Mexc, Hyperliquid, Bybit, Bitrue, Coinbase, Bingx, Ibkr }
 
 /// Which market data the figures read for the venue's bots (figures::page_market).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -78,7 +78,7 @@ pub struct Row {
     pub condition_candles: bool,
 }
 
-pub static ROWS: [Row; 14] = [
+pub static ROWS: [Row; 15] = [
     Row { exchange_type: crate::sync::ALPACA, name: "Alpaca", name_id: "alpaca", base: "", rules: Some(&venue_rules::ALPACA), passphrase: true,
           needs_pairs: false, trades: true, balances: Some(BalanceSync::Alpaca), ledger: Some(LedgerSync::Alpaca), key_check: Some(KeyCheck::Alpaca),
           wizard: true, figures: Some(Figures::Alpaca), condition_candles: false },
@@ -125,6 +125,11 @@ pub static ROWS: [Row; 14] = [
     Row { exchange_type: super::bingx::BINGX, name: "BingX", name_id: "bingx", base: super::bingx::URL, rules: Some(&venue_rules::BINGX),
           passphrase: false, needs_pairs: true, trades: true, balances: Some(BalanceSync::Bingx), ledger: Some(LedgerSync::Bingx),
           key_check: Some(KeyCheck::Bingx), wizard: true, figures: Some(Figures::Bingx), condition_candles: false },
+    // Ibkr plan I2: its key check (with the activation wait) and its balances. Its keys are connected on its own page
+    // (I3), never through the generic key form; it trades from I4.
+    Row { exchange_type: super::ibkr::IBKR, name: "Interactive Brokers", name_id: "ibkr", base: super::ibkr::URL, rules: None, passphrase: false,
+          needs_pairs: false, trades: false, balances: Some(BalanceSync::Ibkr), ledger: None, key_check: Some(KeyCheck::Ibkr), wizard: false,
+          figures: None, condition_candles: false },
 ];
 
 pub fn row(exchange_type: &str) -> Option<&'static Row> { ROWS.iter().find(|r| r.exchange_type == exchange_type) }
@@ -162,9 +167,10 @@ mod tests {
         let bingx = "Exchanges::Bingx";
         let bybit = "Exchanges::Bybit";
         let hyperliquid = "Exchanges::Hyperliquid";
+        let ibkr = "Exchanges::Ibkr";
         let (alpaca, kraken, binance, us, kucoin, bitvavo, gemini, bitget, mexc) = ("Exchanges::Alpaca", "Exchanges::Kraken", "Exchanges::Binance", "Exchanges::BinanceUs",
                                                                                  "Exchanges::Kucoin", "Exchanges::Bitvavo", "Exchanges::Gemini", "Exchanges::Bitget", "Exchanges::Mexc");
-        assert_eq!(crate::sync::balance_venues(), [alpaca, binance, us, kucoin, bitvavo, gemini, bitget, mexc, hyperliquid, bybit, bitrue, coinbase, bingx], "BALANCE_VENUES");
+        assert_eq!(crate::sync::balance_venues(), [alpaca, binance, us, kucoin, bitvavo, gemini, bitget, mexc, hyperliquid, bybit, bitrue, coinbase, bingx, ibkr], "BALANCE_VENUES");
         assert_eq!(crate::sync::ledger_venues(), [alpaca, binance, us, kucoin, bitvavo, gemini, bitget, mexc, hyperliquid, bybit, bitrue, coinbase, bingx], "LEDGER_VENUES");
         assert_eq!(types(|r| r.wizard), [alpaca, kraken, binance, us, kucoin, bitvavo, gemini, bitget, mexc, hyperliquid, bybit, bitrue, coinbase, bingx], "wizard::keys::PORTED");
         assert_eq!(types(|r| r.trades), [alpaca, kraken, binance, us, kucoin, bitvavo, gemini, bitget, mexc, hyperliquid, bybit, bitrue, coinbase, bingx], "venue_rules::for_exchange, eligibility::admission, LiveFactory");
@@ -176,11 +182,12 @@ mod tests {
         assert_eq!(proxies, [(kraken, "kraken", crate::venue::kraken::URL), (binance, "binance", crate::venue::binance::URL), (us, "binance_us", crate::venue::binance::US_URL),
                              (kucoin, "kucoin", crate::venue::kucoin::URL), (bitvavo, "bitvavo", crate::venue::bitvavo::URL), (gemini, "gemini", crate::venue::gemini::URL),
                              (bitget, "bitget", crate::venue::bitget::URL), (mexc, "mexc", crate::venue::mexc::URL),
-                             (hyperliquid, "hyperliquid", crate::venue::hyperliquid::URL), (bybit, "bybit", crate::venue::bybit::URL), (bitrue, "bitrue", crate::venue::bitrue::URL), (coinbase, "coinbase", crate::venue::coinbase::URL), (bingx, "bingx", crate::venue::bingx::URL)],
+                             (hyperliquid, "hyperliquid", crate::venue::hyperliquid::URL), (bybit, "bybit", crate::venue::bybit::URL), (bitrue, "bitrue", crate::venue::bitrue::URL), (coinbase, "coinbase", crate::venue::coinbase::URL), (bingx, "bingx", crate::venue::bingx::URL),
+                             (ibkr, "ibkr", crate::venue::ibkr::URL)],
                    "validator::key_check_venue, venue_key_urls, Connect::key_check_egress");
         assert_eq!(crate::venue::binance::host(binance), Some((crate::venue::binance::URL, "binance")));
         assert_eq!(crate::venue::binance::host(us), Some((crate::venue::binance::US_URL, "binance_us")));
         assert_eq!(crate::venue::binance::host(kucoin), None);
-        for (ty, tag) in [(alpaca, "Alpaca"), (binance, "Binance"), (us, "Binance.US"), (kucoin, "KuCoin"), (bitvavo, "Bitvavo"), (gemini, "Gemini"), (bitget, "Bitget"), (mexc, "MEXC"), (hyperliquid, "Hyperliquid"), (bybit, "Bybit"), (bitrue, "Bitrue"), (coinbase, "Coinbase"), (bingx, "BingX")] { assert_eq!(row(ty).unwrap().name, tag); }
+        for (ty, tag) in [(alpaca, "Alpaca"), (binance, "Binance"), (us, "Binance.US"), (kucoin, "KuCoin"), (bitvavo, "Bitvavo"), (gemini, "Gemini"), (bitget, "Bitget"), (mexc, "MEXC"), (hyperliquid, "Hyperliquid"), (bybit, "Bybit"), (bitrue, "Bitrue"), (coinbase, "Coinbase"), (bingx, "BingX"), (ibkr, "Interactive Brokers")] { assert_eq!(row(ty).unwrap().name, tag); }
     }
 }

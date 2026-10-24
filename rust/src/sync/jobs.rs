@@ -86,6 +86,10 @@ pub trait Connect {
     fn bingx_transport(&self, _credentials: &Credentials, _proxy: Option<&str>) -> ReqwestTransport {
         ReqwestTransport::refused("BingX is not connected here")
     }
+    /// How an IBKR key's syncs reach IBKR (through `login`'s session, signed at send time). By default nothing is sent.
+    fn ibkr_transport(&self, _login: std::sync::Arc<crate::venue::ibkr::Login>, _proxy: Option<&str>) -> ReqwestTransport {
+        ReqwestTransport::refused("IBKR is not connected here")
+    }
     /// Where and how the validator sends a Kraken, Binance or KuCoin key's check (`key_check`): the venue's host and a client
     /// through its proxy, given the stored AppConfig `proxy_<name>` (decrypted). By default nowhere.
     fn key_check_egress(&self, exchange_type: &str, _stored_proxy: Option<String>) -> Result<(String, reqwest::Client), String> {
@@ -185,6 +189,13 @@ impl Connect for LiveFactory {
             Some(proxy) => match crate::venue::http::client_via(proxy) { Ok(client) => client, Err(why) => return ReqwestTransport::refused(&why) },
         };
         ReqwestTransport::bingx(client, credentials.key.clone(), credentials.secret.clone()).with_sensitive_values(credentials.redaction_values.clone())
+    }
+    fn ibkr_transport(&self, login: std::sync::Arc<crate::venue::ibkr::Login>, proxy: Option<&str>) -> ReqwestTransport {
+        let client = match proxy {
+            None => crate::venue::http::client(),
+            Some(proxy) => match crate::venue::http::client_via(proxy) { Ok(client) => client, Err(why) => return ReqwestTransport::refused(&why) },
+        };
+        ReqwestTransport::ibkr(client, login)
     }
 }
 
@@ -382,6 +393,11 @@ impl<C: Connect> Job for BalanceSync<C> {
                         balances::sync_bitrue_captured(&cx.db, self.venues.bitrue_transport(&credentials, proxy.as_deref()), self.prices.as_ref(), self.key_id, &credentials, cx.clock, &version).await,
                     Some(BalanceSync::Bingx) =>
                         balances::sync_bingx_captured(&cx.db, self.venues.bingx_transport(&credentials, proxy.as_deref()), self.prices.as_ref(), self.key_id, &credentials, cx.clock, &version).await,
+                    // The key's process-wide login (its LST and brokerage session kept across runs).
+                    Some(BalanceSync::Ibkr) => match credentials.ibkr.as_deref().map(|m| crate::venue::ibkr::login(&version, m)) {
+                        Some(Ok(login)) => balances::sync_ibkr_captured(&cx.db, self.venues.ibkr_transport(login.clone(), proxy.as_deref()), login, self.prices.as_ref(), self.key_id, &credentials, cx.clock, &version).await,
+                        _ => Err(SyncError(format!("api key {} has no usable IBKR session material", self.key_id))),
+                    },
                     // Alpaca's, and a key on any other venue: the Alpaca sync's load_key refuses it as it always did.
                     Some(BalanceSync::Alpaca) | None => balances::sync_captured(&cx.db, &self.venues.connect(&credentials), self.prices.as_ref(), self.key_id, &credentials, cx.clock, &version).await,
                 },
@@ -453,18 +469,25 @@ impl<C:Connect> Job for Validator<C>{
         };
         use crate::web::settings::validator::Validity;
         // ApiKey#update_status!: a permission problem is incorrect; a failure leaves the key pending, its reason logged.
-        let status=result.map(|result|match result{Validity::Correct=>(1,None),
+        let account=match &result.value{Validity::Account(account)=>Some(account.clone()),_=>None};
+        let status=result.map(|result|match result{Validity::Correct|Validity::Account(_)=>(1,None),Validity::PendingActivation=>(3,None),
             Validity::Incorrect=>{crate::engine::log(&format!("[{name}] API key validation: incorrect key"));(2,Some("incorrect key".to_string()))},
             Validity::Permissions{..}=>(2,Some("incorrect key".to_string())),
             Validity::Pending(e)=>{let safe=crate::web::settings::keys::scrub(&e.log_text(),&values);crate::engine::log(&format!("[{name}] API key validation failed: {safe}"));(0,Some(safe))}});
+        // D-IBKR-INCONCLUSIVE: an IBKR check with no verdict (IBKR down, a timeout, a busy login) writes nothing. Rails writes
+        // pending_validation, and nothing would validate the key again: it would leave every sync and the startup validation.
+        if exchange==crate::venue::ibkr::IBKR && status.value.0==0 { return crate::engine::model::Produced::new(Outcome::Failed(status.value.1.clone().unwrap_or_default()),status.origin().clone()); }
         let origin=status.origin().clone();
         let Some(version)=origin.clone() else{return crate::engine::model::Produced::new(Outcome::NothingNew,None)};
         let error=status.value.1.clone();
+        // ApiKeyValidator: only a correct key's balances are synced (a key awaiting IBKR activation waits, unlogged).
+        let correct=status.value.0==1;
         let status=status.map(|(status,_)|status);
         let outcome=async {
         let at=cx.clock.now();
         let (credentials,version_read)=(handle.credentials().clone(),handle.producer().clone());
         if let Err(SyncError(e))=super::commit_bots_for_ciphered(&cx.db,&version,move|c,cipher|{
+            let status=crate::web::settings::keys::bound_status(c,cipher,id,status.clone(),account.as_deref(),at)?;
             crate::web::settings::keys::store_status(c,&status,id,at)?;
             if let Some(observed)=&identity{crate::identity::record(c,cipher,id,&credentials,&version_read,observed,at).map_err(SyncError)?;}
             Ok(((),true))
@@ -474,10 +497,90 @@ impl<C:Connect> Job for Validator<C>{
         }
         cx.wakers.wake_engine();
         if let Some(error)=error {return Outcome::Failed(error)}
-        if kind==0 {cx.wakers.wake(BALANCE_SYNC,Some(&id.to_string()),None);}
+        if kind==0 && correct {cx.wakers.wake(BALANCE_SYNC,Some(&id.to_string()),None);}
         Outcome::Done
         }.await;
         crate::engine::model::Produced::new(outcome,origin)
         })}
 
+}
+
+/// The correct IBKR keys with no binding (keys Rails left): each is validated at start (API_KEY_VALIDATOR, the key check
+/// that binds), so its account is known before anything reads it.
+pub fn unbound_ibkr_keys(c: &Connection) -> rusqlite::Result<Vec<i64>> {
+    let mut s = c.prepare("SELECT k.id FROM api_keys k JOIN exchanges e ON e.id = k.exchange_id WHERE k.status = 1 AND k.key_type = 0 AND e.type = ?1
+                           AND NOT EXISTS (SELECT 1 FROM ibkr_bindings b WHERE b.api_key_id = k.id) ORDER BY k.id")?;
+    let ids = s.query_map([crate::venue::ibkr::IBKR], |r| r.get(0))?.collect();
+    ids
+}
+
+/// Ibkr::CheckActivationJob's name (config/recurring.yml `ibkr_check_activation_job`).
+pub const IBKR_ACTIVATION: &str = "ibkr_check_activation";
+
+/// Ibkr::CheckActivationJob, every 6 hours at :17: each IBKR key awaiting activation is checked again, and one IBKR now
+/// answers for is marked correct (and bound to its account); its parked bots resume on their next tick. Nothing else is
+/// written: a key still waiting stays as it is, unlogged (the waiting is the key's state, not news). A check that fails,
+/// and a key waiting past ApiKey::ACTIVATION_DEADLINE (14 days), are logged. D-IBKR-ACCOUNT: a login that now holds several
+/// accounts, or names another account than the bound one, is marked incorrect and logged.
+pub struct IbkrActivation<C: Connect> { pub venues: C }
+impl<C: Connect> Job for IbkrActivation<C> {
+    fn spec(&self) -> Spec {
+        Spec { name: IBKR_ACTIVATION, scope: None, schedule: Some(Schedule::EveryHours { every: 6, minute: 17 }), jitter: Jitter::NONE, retry: Retry::None, deadline: DEADLINE }
+    }
+    fn run<'a>(&'a self, cx: Cx<'a>, _wakes: Vec<Wake>) -> JobFuture<'a> {
+        Box::pin(async move {
+            use crate::web::settings::validator::{ValidationHandle, Validity};
+            let ibkr = crate::venue::ibkr::IBKR;
+            let pending = cx.db.run(move |c, _| {
+                let mut s = c.prepare("SELECT k.id, k.updated_at FROM api_keys k JOIN exchanges e ON e.id = k.exchange_id WHERE k.status = 3 AND e.type = ?1 ORDER BY k.id").map_err(|e| e.to_string())?;
+                let rows = s.query_map([ibkr], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?))).map_err(|e| e.to_string())?;
+                rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
+            }).await;
+            let pending = match pending { Ok(p) => p, Err(e) => return Outcome::Failed(e) };
+            if pending.is_empty() { return Outcome::NothingNew; }
+            let mut activated = false;
+            for (id, updated_at) in pending {
+                let log = |line: &str| crate::engine::log(&format!("[IBKR] api_key={id} {line}"));
+                if crate::codec::parse_time(&updated_at).is_ok_and(|at| at <= cx.clock.now() - chrono::Duration::days(14)) {
+                    log("has waited for IBKR's activation past 14 days; a registration this old will not activate: connect again");
+                }
+                let material = cx.db.run(move |c, cipher| super::validation_material(c, cipher, id).map_err(|e| e.0)).await;
+                let (credentials, version, values) = match material { Ok(m) => m, Err(e) => { log(&format!("activation check failed: {e}")); continue } };
+                let handle = ValidationHandle::stored(credentials, version.clone());
+                let stored = cx.db.run(|c, cipher| crate::app_config::get(c, cipher, "proxy_ibkr").map_err(|_| "the ibkr proxy setting is unreadable".to_string())).await;
+                let egress = stored.and_then(|stored| self.venues.key_check_egress(ibkr, stored));
+                let (result, _) = match egress {
+                    Ok((base, client)) => handle.check_via(ibkr, &base, Ok(client), 0).await,
+                    Err(why) => handle.check_via(ibkr, "", Err(why), 0).await,
+                };
+                let status = match &result.value {
+                    Validity::Account(_) | Validity::Correct => 1,
+                    Validity::Incorrect | Validity::Permissions { .. } => 2,
+                    Validity::PendingActivation => continue,
+                    Validity::Pending(e) => { log(&format!("activation check failed: {}", crate::web::settings::keys::scrub(&e.log_text(), &values))); continue }
+                };
+                let account = match &result.value { Validity::Account(a) => Some(a.clone()), _ => None };
+                let status = result.map(|_| status);
+                let at = cx.clock.now();
+                let stored = super::commit_bots_for_ciphered(&cx.db, &version, move |c, cipher| {
+                    let status = crate::web::settings::keys::bound_status(c, cipher, id, status, account.as_deref(), at)?;
+                    crate::web::settings::keys::store_status(c, &status, id, at)?;
+                    Ok((status.value, true))
+                }).await;
+                match stored {
+                    Ok(1) => {
+                        log("activated; parked bots will resume");
+                        activated = true;
+                        // Its balance sync is registered now (the scope factory), not at the next start.
+                        cx.wakers.wake(BALANCE_SYNC, Some(&id.to_string()), None);
+                    }
+                    Ok(_) => { log("is incorrect: IBKR names no single account this connection can use"); activated = true; }
+                    Err(SyncError(e)) if e == crate::engine::model::CREDENTIALS_CHANGED => {}
+                    Err(SyncError(e)) => return Outcome::Failed(e),
+                }
+            }
+            if activated { cx.wakers.wake_engine(); }
+            Outcome::Done
+        })
+    }
 }

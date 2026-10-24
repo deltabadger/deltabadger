@@ -142,7 +142,9 @@ impl IdentityKey {
         hex::encode(mac.finalize().into_bytes())[..32].to_string()
     }
     /// The account's fingerprint: domain-separated, per venue namespace (the exchange type).
-    pub fn fingerprint(&self, exchange_type: &str, id: &AccountId) -> String { self.mac("deltabadger-account-fingerprint-v1", &[exchange_type, &id.0]) }
+    pub fn fingerprint(&self, exchange_type: &str, id: &AccountId) -> String { self.fingerprint_text(exchange_type, &id.0) }
+    /// `fingerprint` of an id a venue spells with letters (IBKR's U…, DU…), as given.
+    pub fn fingerprint_text(&self, exchange_type: &str, id: &str) -> String { self.mac("deltabadger-account-fingerprint-v1", &[exchange_type, id]) }
     /// What the credential is made of: it changes when the material does, never on a re-encryption.
     pub fn material_digest(&self, c: &Credentials) -> String {
         self.mac("deltabadger-credential-material-v1", &[&c.key, &c.secret, c.passphrase.as_deref().unwrap_or("")])

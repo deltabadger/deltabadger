@@ -748,6 +748,13 @@ pub fn credential_write<T>(c: &Connection, version: &Option<CredentialVersion>, 
     let out=work(&check_credential_result(&tx,version)?)?;
     tx.commit()?;Ok(out)
 }
+/// `bot.api_key&.pending_activation?`: the bot's trading key, registered but not yet activated (IBKR's). Every job that
+/// would reach the venue for the bot asks first (Bot::ActionJob, SignalJob, RebalanceJob, BotApi orders).
+pub fn key_pending(c: &Connection, bot: &Bot) -> Result<bool, EngineError> {
+    let status: Option<i64> = c.query_row("SELECT status FROM api_keys WHERE user_id = ?1 AND exchange_id = ?2 AND key_type = 0 LIMIT 1",
+                                          params![bot.user_id, bot.exchange_id], |r| r.get(0)).optional()?;
+    Ok(status == Some(crate::enums::ApiKeyStatus::PendingActivation as i64))
+}
 pub fn credential_version(c: &Connection, bot: &Bot) -> Result<Option<CredentialVersion>, EngineError> {
     Ok(c.query_row("SELECT key,secret,passphrase,access_token,rsa_signature_key,rsa_encryption_key,dh_param,id FROM api_keys WHERE user_id=?1 AND exchange_id=?2 AND key_type=0 LIMIT 1",
         params![bot.user_id,bot.exchange_id], |r| Ok(ciphertext_version(r.get(7)?, &stored_columns(r)?))).optional()?)

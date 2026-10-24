@@ -315,6 +315,10 @@ fn finish_tick(bot_id: i64, outcome: Result<TickOutcome, EngineError>, drain: Re
 async fn tick_inner<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &mut model::Bot, clock: &dyn Clock, attempts: &mut Attempts, recovered: &mut Option<i64>, cx: &TickContext<'_>) -> Result<TickOutcome, EngineError> {
     let bot_id = bot.id;
     model::require_run(c, bot)?;
+    // Bot::ActionJob: a key IBKR has not activated yet never reaches the venue. Nothing is written or logged; the bot waits
+    // as for stale reference data, and ticks once the activation job has marked the key correct (D-IBKR-ACTIVATION: the
+    // checkpoint missed meanwhile runs then, where Rails reschedules to the next one).
+    if model::key_pending(c, bot)? { return Ok(TickOutcome::Stale { source: "api_key_pending_activation", message: "waiting for IBKR activation".into() }); }
     // An intent is settled whatever the status: a bot stopped after an ambiguous send still owns that order.
     let checkpoint_after_recovery = placement::pending_requires_checkpoint(bot)?;
     let settled = match placement::recover_since(c, venue, bot, clock, cx.process_start).await? {

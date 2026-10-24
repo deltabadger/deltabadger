@@ -160,8 +160,7 @@ impl Wire {
             Self::Bitrue => super::bitrue::BITRUE,
             Self::Coinbase => super::coinbase::COINBASE,
             Self::Bingx => super::bingx::BINGX,
-            // No registry row before slice I2.
-            Self::Ibkr => return "IBKR",
+            Self::Ibkr => super::ibkr::IBKR,
         };
         super::registry::row(exchange_type).expect("every wire's venue has a row").name
     }

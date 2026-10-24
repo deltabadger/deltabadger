@@ -178,11 +178,16 @@ fn scheduler_service<'a>(env: &dyn Fn(&str) -> Option<String>, paths: &Paths, en
     registered.extend(deltabadger::sync::jobs::register(&own.primary, &LiveFactory::new(), api.clone()).map_err(|e| e.0)?);
     registered.extend(deltabadger::tracker::jobs::register(&own.primary, &LiveFactory::new(), api.clone(), deltabadger::tracker::jobs::system_wall())?);
     registered.push(Box::new(deltabadger::identity::Discovery { venues: LiveFactory::new() }));
+    registered.push(Box::new(deltabadger::sync::jobs::IbkrActivation { venues: LiveFactory::new() }));
     let resume_setup = jobs::setup_sync::unfinished(&own.primary, &cipher)?;
+    let unbound = deltabadger::sync::jobs::unbound_ibkr_keys(&own.primary).map_err(|e| e.to_string())?;
     let registered = registered.into_iter().map(|job| jobs::resolve::configured(job, env, rates.clone())).collect();
     let resolve = jobs::resolve::configured_resolver(jobs::resolve::all(LiveFactory::new(), api, deltabadger::tracker::jobs::system_wall()), env, rates);
     let scheduler = jobs::Scheduler::new(own.primary, cipher, registered, Some(engine.subscribe())).with_resolver(resolve);
     if resume_setup { scheduler.wakers().wake(jobs::setup_sync::NAME, None, None); }
+    for key in unbound {
+        scheduler.wakers().wake(deltabadger::sync::jobs::API_KEY_VALIDATOR, Some(&key.to_string()), None);
+    }
     scheduler.wakers().attach_engine(engine.wake_handle());
     let scheduler = if let Some(web) = app {
         web.attach_jobs(scheduler.wakers()).map_err(|_| "could not attach job scheduler".to_string())?;

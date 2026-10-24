@@ -511,6 +511,10 @@ fn lifecycle_inner<T>(
                 writer_refused = true;
                 let reason=i18n::text(ctx.locale,"engine.api_key_not_ready",&[]);
                 view.errors.push(FieldError {field:"base".into(),message:i18n::text(ctx.locale,"engine.write_refused",&[("reason",i18n::Arg::Text(&reason))])});
+            } else if let Err(reason)=crate::venue::ibkr_account::check_bot_account(&tx,&ctx.app.cipher,id)? {
+                // D-IBKR-ACCOUNT: an IBKR bot starts only on the account it belongs to.
+                writer_refused = true;
+                view.errors.push(FieldError {field:"base".into(),message:i18n::text(ctx.locale,"engine.write_refused",&[("reason",i18n::Arg::Text(&reason))])});
             } else if fresh {
                 let zone:String=tx.query_row("SELECT time_zone FROM users WHERE id=?1",[owner],|r|r.get(0))?;
                 // Lifecycle#start: `computed_start_at&.future?`.
@@ -592,6 +596,8 @@ fn lifecycle_inner<T>(
     match action {
         Action::Start => {
             one(tx.execute(WEB_START,(id,owner,&class,fresh && delayed.is_none(),&at))?)?;
+            // An IBKR bot not yet bound to an account belongs, from its first successful start, to its key's.
+            crate::venue::ibkr_account::assign_bot_account(&tx,id,ctx.now)?;
             // Bot::Lifecycle#start (fresh, delayed or not) drops the carry and with it the reserves a reversal left
             // waiting for their buy's final state, so a later final poll cannot credit spending the start discarded.
             if fresh { tx.execute(REMOVE_TRANSIENT,(path(crate::engine::reversal::RESERVE_PENDING,true)?,id,owner,&class))?; }

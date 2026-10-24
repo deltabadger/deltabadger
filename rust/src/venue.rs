@@ -14,6 +14,7 @@ pub mod kucoin;
 pub mod gemini;
 pub mod hyperliquid;
 pub mod ibkr;
+pub mod ibkr_account;
 pub mod live;
 pub mod mexc;
 pub mod bitrue;
