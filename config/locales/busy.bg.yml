@@ -1,0 +1,4 @@
+bg:
+    busy:
+        saving: "Запазване…"
+        starting: "Стартиране…"
