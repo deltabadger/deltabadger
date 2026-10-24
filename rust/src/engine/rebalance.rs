@@ -335,7 +335,9 @@ pub enum Outcome { Skipped(&'static str), Placed(i64), Failed(String) }
 
 /// What became of a REBALANCE intent, wherever it was settled (send, recovery, the operator, the handback). Applied in the
 /// same transaction that writes the row and removes the intent, so the pending state never disagrees with the rows.
-pub enum Settlement { Accepted(i64), NotPlaced, Halt(String) }
+/// NotPlaced says why (wash::Reason): only a pre-trade rejection or a proven pre-transmission failure gives a sell's
+/// wash-sale claim back; recovery, the operator and the fence keep it.
+pub enum Settlement { Accepted(i64), NotPlaced(super::wash::Reason), Halt(String) }
 
 /// Bot::Rebalancer#place_rebalance_order's outcomes after the venue answered (or provably was never reached):
 /// - Accepted: clear_rebalance_below_minimum!, carry_pending_forward, `rebalance_<side>_placed`.
@@ -344,6 +346,7 @@ pub enum Settlement { Accepted(i64), NotPlaced, Halt(String) }
 /// - Halt: halt_ambiguous!.
 ///
 /// A swap halted meanwhile stays halted; an accepted order's id is still recorded in it, for the user's resolution.
+/// A sell's wash-sale claim is settled last (wash::settle_claim): logged after `rebalance_sell_placed`, as Rails logs it.
 pub(crate) fn settle(c: &Connection, bot_id: i64, plan: &OrderPlan, settlement: Settlement, now: chrono::DateTime<chrono::Utc>) -> Result<(), EngineError> {
     let bot = super::model::load_bot(c, bot_id)?;
     let current = pending(&bot.transient)?;
@@ -358,14 +361,21 @@ pub(crate) fn settle(c: &Connection, bot_id: i64, plan: &OrderPlan, settlement: 
             };
             clear_below_minimum(c, bot_id, &bot.transient)?;
             set_pending(c, bot_id, &next)?;
-            super::model::log_activity(c, bot_id, &format!("rebalance_{}_placed", plan.side.as_str()), Level::Info, plan.log_details(), now)
+            super::model::log_activity(c, bot_id, &format!("rebalance_{}_placed", plan.side.as_str()), Level::Info, plan.log_details(), now)?;
+            if sell { super::wash::settle_claim(c, bot_id, super::wash::Holder::RebalanceSell, super::wash::Reason::Accepted, now)?; }
+            Ok(())
         }
-        Settlement::NotPlaced => match current {
-            None => Ok(()),
-            Some(p) if p.phase == PHASE_AMBIGUOUS => Ok(()),
-            Some(_) if sell => clear_pending(c, bot_id),
-            Some(p) => set_pending(c, bot_id, &Pending { buy_transaction_id: None, buy_attempted: false, ..p }),
-        },
+        Settlement::NotPlaced(reason) => {
+            match current {
+                None => {}
+                Some(p) if p.phase == PHASE_AMBIGUOUS => {}
+                Some(_) if sell => clear_pending(c, bot_id)?,
+                Some(p) => set_pending(c, bot_id, &Pending { buy_transaction_id: None, buy_attempted: false, ..p })?,
+            }
+            if sell { super::wash::settle_claim(c, bot_id, super::wash::Holder::RebalanceSell, reason, now)?; }
+            Ok(())
+        }
+        // An unsafe rejection or an unknown outcome: the claim and its keys stay (wash::Reason::Ambiguous keeps).
         Settlement::Halt(reason) => halt(c, bot_id, &reason, now),
     }
 }
@@ -542,21 +552,30 @@ async fn start<V: Venue + Attributed>(c: &Connection, venue: &V, claim: &Claim, 
     if !amount.is_positive() { return Ok(Outcome::Skipped("below_minimum")); }
     if waiting_buy_blocks_sell(c, venue, bot, &ticker, clock.now()).await? { return Ok(Outcome::Skipped("open_buy")); }
     let quote = &amount * &price;
+    // #sell_at_loss?(order_data): judged before the claim's transaction, over the unrounded order.
+    let loss = super::wash::sell_at_loss(c, bot, &ticker, &amount, &quote, clock.now())?;
     let (plan, below) = super::amount::size_order(&ticker, Side::Sell, &price, &amount, &quote, venue.rules().minimum_logic, TxKind::Rebalance)?;
     // Path 2 (plan VB §1.5): the price is Exchange#market_price_for's, crossed already where the venue crosses; sent as it is.
     let plan = plan.with_wire_price(venue.rules(), &price, true)?;
     if below {
-        // #abandon_below_minimum!(selling): silent, but the widget's flag says why a breached band does not trade.
-        flag_below_minimum(c, bot.id, &bot.transient, clock.now())?;
+        // #abandon_below_minimum!(selling): silent, but the widget's flag says why a breached band does not trade. Rails
+        // claims before it measures the minimum and restores on the abandonment: both here, in one transaction, so a lock
+        // row is created where Rails creates one and an expired claim's token is replaced, then cleared.
+        let now = clock.now();
+        super::model::locked(c, |tx| {
+            flag_below_minimum(tx, bot.id, &bot.transient, now)?;
+            super::wash::claim_rebalance_sell(tx, bot, ticker.base_asset_id, loss, now)?;
+            super::wash::settle_claim(tx, bot.id, super::wash::Holder::RebalanceSell, super::wash::Reason::BelowMinimum, now)
+        })?;
         return Ok(Outcome::Skipped("below_minimum"));
     }
     let intent_state = Pending { phase: PHASE_SELLING.into(), sell_transaction_id: None, buy_transaction_id: None, remaining_quote_amount: None, buy_attempted: false };
-    place(c, venue, claim, &plan, &intent_state, reconciled, clock, cx).await
+    place(c, venue, claim, &plan, &intent_state, loss, reconciled, clock, cx).await
 }
 
 /// #waiting_buy_blocks_sell?: a waiting buy of this asset on any of the account's bots, by id or by any name a venue lists it
 /// under. This bot's own rows are swept first (a stopped bot has no tick to do it); a failed sweep leaves the guard on.
-async fn waiting_buy_blocks_sell<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, ticker: &super::model::Ticker, now: chrono::DateTime<chrono::Utc>) -> Result<bool, EngineError> {
+pub(crate) async fn waiting_buy_blocks_sell<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, ticker: &super::model::Ticker, now: chrono::DateTime<chrono::Utc>) -> Result<bool, EngineError> {
     if !account_waiting_buys(c, bot, ticker)? { return Ok(false); }
     if let Err(e) = super::polling::sweep(c, venue, bot, now).await { super::log(&format!("[engine] rebalance waiting-buy refresh failed bot={}: {e:?}", bot.id)); }
     account_waiting_buys(c, bot, ticker)
@@ -688,17 +707,17 @@ async fn place_pending_buy<V: Venue + Attributed>(c: &Connection, venue: &V, cla
     }
     // #mark_buy_attempted!, written with the intent.
     let intent_state = Pending { phase: PHASE_BUYING.into(), sell_transaction_id: p.sell_transaction_id, buy_transaction_id: None, remaining_quote_amount: Some(owed), buy_attempted: true };
-    place(c, venue, claim, &plan, &intent_state, &reconciled, clock, cx).await
+    place(c, venue, claim, &plan, &intent_state, false, &reconciled, clock, cx).await
 }
 
 /// #place_rebalance_order: the intent and the pending phase in one transaction (placement::begin_rebalance), one send, and
 /// the outcome settled with the row (placement::settle_rebalance through send_recorded). The fence compares the stored bot
 /// against the pass's claim: its settings, allocations and members as read before the first await.
 #[allow(clippy::too_many_arguments)]
-async fn place<V: Venue + Attributed>(c: &Connection, venue: &V, claim: &Claim, plan: &OrderPlan, intent_state: &Pending, reconciled: &super::splits::Snapshot, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<Outcome, EngineError> {
+async fn place<V: Venue + Attributed>(c: &Connection, venue: &V, claim: &Claim, plan: &OrderPlan, intent_state: &Pending, loss: bool, reconciled: &super::splits::Snapshot, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<Outcome, EngineError> {
     use super::placement::{Begun, Sent};
     let bot = &claim.bot;
-    let intent = match super::placement::begin_rebalance(c, bot, plan, &[&plan.ticker], &claim.composition, reconciled, &cx.credential_version, venue.placement_identity(), intent_state, clock)? {
+    let intent = match super::placement::begin_rebalance(c, bot, plan, &[&plan.ticker], &claim.composition, reconciled, &cx.credential_version, venue.placement_identity(), intent_state, loss, clock)? {
         Begun::Intent(intent) => intent,
         Begun::Changed | Begun::Fenced => return Ok(Outcome::Skipped("changed")),
         Begun::LedgerStale(_) => return Ok(Outcome::Skipped("ledger_stale")),

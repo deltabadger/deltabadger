@@ -86,6 +86,16 @@ pub fn apply_in(c: &model::FencedTransaction<'_>, bot_id: i64, tx_id: i64, s: &O
         if row.quote_asset_id.is_none() { sets.push(("quote_asset_id", Sql::Integer(t.quote_asset_id))); }
     }
     let exec_changed = sets.iter().any(|(col, _)| *col == "quote_amount_exec");
+    let changed = |cols: &[&str]| sets.iter().any(|(col, _)| cols.contains(col));
+    let terminal = matches!(status, TxExternalStatus::Closed | TxExternalStatus::Cancelled);
+    // Transaction's after_save :reconcile_wash_sale (transaction.rb:67-72): a sell closed or cancelled whose status, executed
+    // figures or asset this write changed. Bot::WashSaleGuard is a basket's and an index bot's only.
+    let wash = side == 1 && terminal && changed(&["external_status", "amount_exec", "quote_amount_exec", "base_asset_id"])
+        && matches!(bot.bot_type.as_str(), "Bots::DcaMultiAsset" | "Bots::DcaIndex");
+    // Its after_commit (transaction.rb:50-56): a closed sell, or a cancelled one that filled, whose status or executed
+    // figures changed, wakes the account's ledger sync (EngineEvent::SaleSettled), for every bot type.
+    let sold = side == 1 && (status == TxExternalStatus::Closed || (status == TxExternalStatus::Cancelled && s.amount_exec.is_positive()))
+        && changed(&["external_status", "amount_exec", "quote_amount_exec"]);
     // D-KUCOIN-ZERO-FILL-FUNDS: a buy the venue ended with nothing dealt is its out-of-funds answer. The settlement that moves
     // the row from a non-terminal status (once per row: a failed row is never polled again) fails it with the venue's own
     // insufficient-funds error, and the bot with it as a placement rejected with that error fails it. A sell stays Closed.
@@ -105,6 +115,8 @@ pub fn apply_in(c: &model::FencedTransaction<'_>, bot_id: i64, tx_id: i64, s: &O
         c.execute(&sql, rusqlite::params_from_iter(values))?;
     }
 
+    if wash { super::wash::reconcile_fill(c, &bot, tx_id, now)?; }
+    if sold { note_sale(c, bot_id)?; }
     // Transaction's after_save → Bot::Reversible#settle_flip_reserve!: a buy a reversal cancelled returns its reserve once final.
     super::reversal::settle(c, bot_id, tx_id)?;
     if let Some((rules, errors)) = refused { tick::order_refused(c, bot_id, errors, rules, now)?; }
@@ -113,6 +125,25 @@ pub fn apply_in(c: &model::FencedTransaction<'_>, bot_id: i64, tx_id: i64, s: &O
     // the job that committed the fill.
     // `return if selling?` (quote_amount_limitable.rb:106): a buy that still fills after a flip never stops the seller.
     Ok(exec_changed && side == 0 && !bot.selling() && s.quote_amount_exec.as_ref().is_some_and(BigDec::is_positive) && bot.quote_amount_limited() && amount::quote_amount_limit_reached(c, &bot)?)
+}
+
+/// A terminal sell fill, noted in the fill's own transaction on this connection: a connection-local temp table, so the note
+/// rolls back with the fill and nothing of it reaches the database file. The engine announces each bot noted once its writes
+/// committed (`settled_sales`, run::step), as Rails' after_commit enqueues the sync.
+fn note_sale(c: &Connection, bot_id: i64) -> Result<(), EngineError> {
+    c.execute_batch(SALES_TABLE)?;
+    c.execute("INSERT INTO temp.rust_sales_settled (bot_id) VALUES (?1)", [bot_id])?;
+    Ok(())
+}
+const SALES_TABLE: &str = "CREATE TEMP TABLE IF NOT EXISTS rust_sales_settled (bot_id INTEGER NOT NULL)";
+
+/// The bots whose sales `note_sale` noted since the last call, each once, and the notes cleared.
+pub fn settled_sales(c: &Connection) -> Result<Vec<i64>, EngineError> {
+    c.execute_batch(SALES_TABLE)?;
+    let mut s = c.prepare("SELECT DISTINCT bot_id FROM temp.rust_sales_settled ORDER BY bot_id")?;
+    let bots = s.query_map([], |r| r.get(0))?.collect::<Result<Vec<i64>, _>>()?;
+    c.execute("DELETE FROM temp.rust_sales_settled", [])?;
+    Ok(bots)
 }
 
 fn classify(e: VenueError, ids: &[String], rules: &VenueRules) -> PollFailure {

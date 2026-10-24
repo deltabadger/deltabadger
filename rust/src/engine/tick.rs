@@ -725,7 +725,9 @@ enum Placed { Next, Stop, Failed(Fail) }
 async fn place<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot, plan: &amount::OrderPlan, tickers: &[&model::Ticker], composition: &Value, reconciled: &splits::Snapshot, clock: &dyn Clock, cx: &TickContext<'_>, legs: &mut Legs) -> Result<Placed, EngineError> {
     // A stop or a composition edit always wins over a tick in progress: an order already sent stands, and nothing
     // sized before the change is placed (the fence is in the intent's own transaction).
-    let intent = match placement::begin_with_credentials(c, bot, plan, tickers, composition, reconciled, &cx.credential_version, venue.placement_identity(), clock)? {
+    // set_orders' `sell_at_loss?(order_data)`: the sized order, before the venue rounds it; the claim goes with the intent.
+    let loss = plan.side == crate::venue::Side::Sell && super::wash::sell_at_loss(c, bot, &plan.ticker, &plan.amount, &plan.quote_amount, clock.now())?;
+    let intent = match placement::begin_with_credentials(c, bot, plan, tickers, composition, reconciled, &cx.credential_version, venue.placement_identity(), loss, clock)? {
         placement::Begun::Intent(intent) => intent,
         placement::Begun::Changed => return Ok(Placed::Stop),
         placement::Begun::Fenced => { legs.fenced = true; return Ok(Placed::Stop); }
@@ -895,6 +897,13 @@ async fn sell<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot
         return Ok(Ok(()));
     }
     let amount = if free < wanted { free } else { wanted };
+    // order_setter.rb:292: a loss sold while a buy of it rests anywhere on the account is washed when that buy fills. The
+    // verdict first, so only a loss sweeps.
+    if super::wash::sell_at_loss(c, bot, &ticker, &amount, &(&amount * &price), clock.now())?
+        && super::rebalance::waiting_buy_blocks_sell(c, venue, bot, &ticker, clock.now()).await? {
+        super::log(&format!("[engine] bot {}: set_orders composition event=sell_skipped reason=wash_sale_resting_buy", bot.id));
+        return Ok(Ok(()));
+    }
     match amount::size_sell(bot, &ticker, &amount, &price)? {
         Sizing::Nothing => {}
         Sizing::Ignored(plan) => { let now = clock.now(); model::run_write(c, bot, |tx| model::log_activity(tx, bot.id, "order_ignored", Level::Info, plan.log_details(), now))?; }
@@ -959,6 +968,9 @@ async fn basket_sell<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &mod
         let Some(wanted) = remaining.div(&price) else { return Ok(Err(general("divided by 0".into()))) };
         let amount = if held < wanted { held } else { wanted };
         if below(amount::size_sell(bot, &ticker, &amount, &price)?) { below_floor.get_or_insert((ticker, amount, price)); continue; }
+        // order_setter.rb:257: a loss with a buy of the name resting anywhere on the account is not sold (a gain is).
+        if super::wash::sell_at_loss(c, bot, &ticker, &amount, &(&amount * &price), clock.now())?
+            && super::rebalance::waiting_buy_blocks_sell(c, venue, bot, &ticker, clock.now()).await? { continue; }
         let free = match live_free_balance(c, venue, bot, &ticker, ticker.base_asset_id).await? { Ok(free) => free, Err(e) => return Ok(Err(balance_failure(venue, bot, e))) };
         model::require_run(c, bot)?;
         if !free.is_positive() { continue; }

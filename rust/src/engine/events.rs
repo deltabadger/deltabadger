@@ -37,6 +37,10 @@ pub enum EngineEvent {
     /// the recovery that settles its intent): Rails redraws bots/signals/_unresolved_placement on the bot's page
     /// (Bots::Signal#broadcast_unresolved_placement).
     SignalMarkerChanged { bot_id: i64 },
+    /// A sell of this bot was written closed, or cancelled with a fill, its status or executed figures changed (polling::apply_in):
+    /// Transaction's after_commit, which enqueues AccountTransaction::SyncJob for the bot's trading key
+    /// (app/models/transaction.rb:50-56), so the ledger arms a wash-sale lock for a sale that filled after it was placed.
+    SaleSettled { bot_id: i64 },
 }
 
 impl EngineEvent {
