@@ -500,7 +500,7 @@ pub fn refusal(c: &Connection, bot_id: i64, wash_sale_enabled: Option<bool>, pro
     }
     // The rebalance rule's drift readout (bots/settings/_rebalance_info) is read from the figures: a page without them cannot
     // say it once the bot holds something. The rule is shown on every index and on a basket of several assets that buys.
-    let rule_shown = class == "Bots::DcaIndex" || (!selling && member_count != 1);
+    let rule_shown = class == "Bots::DcaIndex" || (!selling && settings.as_object().map_or(0, |s| allocation_ids(s).len()) != 1);
     if asked == For::Page && rule_shown && cast_boolean(settings.get("rebalance_enabled"))
         && c.query_row("SELECT EXISTS(SELECT 1 FROM transactions WHERE bot_id = ?1 AND status = 0)", [bot_id], |r| r.get(0))? {
         return Ok(Some(REBALANCE_WITHOUT_FIGURES));
