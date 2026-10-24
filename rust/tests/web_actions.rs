@@ -2321,3 +2321,105 @@ async fn submitting_the_shown_name_of_an_unnamed_bot_saves_it() -> Result<(),Box
     assert_eq!(label()?,Some(name),"the shown name, submitted, is saved");
     Ok(())
 }
+
+/// The bot menu's Custom allocation (web::bot::index_switch) where this build parts from Rails: it customizes from the stored
+/// members (D-IDX-CUSTOM-STORED: Rails re-derives the index in the request) and refuses while the engine owns the bot or a
+/// resync is due (D-FENCE-PER-BOT); and on success it bumps the run generation.
+mod custom_allocation {
+    use super::common;
+    use common::{seed, web as harness};
+    use deltabadger::web::{self, bot::index_switch::{customize, Switched}, layout::Ctx, Params};
+    use rusqlite::Connection;
+    use serde_json::{json, Value};
+    use std::sync::Arc;
+    type Result<T = ()> = std::result::Result<T, Box<dyn std::error::Error>>;
+    const NOW: &str = "2026-09-10T12:00:30.123456Z";
+
+    struct Fixture { _dir: tempfile::TempDir, c: Connection, ctx: Ctx, user: i64, id: i64, assets: Vec<i64> }
+    impl Fixture {
+        /// A stopped ND-style index bot of three stocks, stored at weights the index's own (and its caps') would not give.
+        fn new() -> Result<Self> {
+            let (dir, opened, s) = common::install_alpaca();
+            let c = opened.primary;
+            c.execute("UPDATE users SET wash_sale_enabled=0", [])?;
+            let members: Vec<(i64, i64)> = ["NVDA", "MSFT", "AAPL"].iter().map(|symbol| seed::add_alpaca_stock(&c, &s, symbol)).collect();
+            seed::insert_index(&c, "nasdaq-100", &["NVDA.US", "MSFT.US", "AAPL.US"], &json!({"NVDA.US": 1, "MSFT.US": 1, "AAPL.US": 98}));
+            let id = seed::index_bot(&c, &s, "nasdaq-100", 3, 0.0, false);
+            c.execute("UPDATE bots SET status=2 WHERE id=?1", [id])?;
+            for ((asset, ticker), weight) in members.iter().zip([0.5, 0.3, 0.2]) {
+                seed::insert_member(&c, id, *asset, *ticker, weight, true, "2026-09-01 14:00:00", None);
+            }
+            let app = harness::app(dir.path(), "engine-test-secret", harness::TestClock::at(NOW));
+            let ctx = Ctx { app, params: Arc::new(Params { upload: None, full_path: String::new(), fullpath: String::new(), route_path: String::new(), path_locale: None, query: vec![], form: vec![], json: None }),
+                session: web::session::Session::new(Default::default()), current: web::auth::Current::SignedOut,
+                method: axum::http::Method::POST, locale: "en", nonce: String::new(), now: harness::at(NOW), turbo_frame: None, stream: false };
+            Ok(Self { _dir: dir, c, ctx, user: s.user_id, id, assets: members.into_iter().map(|(asset, _)| asset).collect() })
+        }
+        fn customize(&self) -> Result<Switched> { Ok(customize(&self.c, &self.ctx, self.user, self.id).map_err(|e| format!("{e:?}"))?) }
+        fn row(&self) -> Result<(String, Value, Value)> {
+            let (class, settings, transient): (String, String, String) = self.c.query_row("SELECT type, settings, transient_data FROM bots WHERE id=?1", [self.id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?;
+            Ok((class, serde_json::from_str(&settings)?, serde_json::from_str(&transient)?))
+        }
+        fn snapshot(&self) -> Result<Vec<String>> {
+            let mut all = vec![];
+            for table in ["bots", "bot_index_assets"] {
+                let mut q = self.c.prepare(&format!("SELECT * FROM {table} ORDER BY id"))?;
+                let n = q.column_count();
+                let mut rows = q.query([])?;
+                while let Some(r) = rows.next()? { all.push(format!("{table}:{:?}", (0..n).map(|i| r.get_ref(i).map(|v| format!("{v:?}"))).collect::<std::result::Result<Vec<_>, _>>()?)); }
+            }
+            Ok(all)
+        }
+        fn refused_unchanged(&self, expected: &str) -> Result {
+            let before = self.snapshot()?;
+            let Switched::Refused(text) = self.customize()? else { return Err("expected a refusal".into()) };
+            assert_eq!(text, expected);
+            assert_eq!(self.snapshot()?, before, "a refused switch writes nothing");
+            Ok(())
+        }
+    }
+
+    /// D-IDX-CUSTOM-STORED: the stored weights are kept, though the index (and a resync that failed to run) would weigh AAPL
+    /// at 98%; a member its venue no longer trades is left out and exits. The run generation moves, fencing an engine write.
+    #[test]
+    fn customizes_the_stored_members_and_bumps_the_generation() -> Result {
+        let f = Fixture::new()?;
+        f.c.execute("UPDATE tickers SET available=0 WHERE base='AAPL'", [])?;
+        assert!(matches!(f.customize()?, Switched::Done));
+        let (class, settings, transient) = f.row()?;
+        assert_eq!(class, "Bots::DcaMultiAsset");
+        assert_eq!(settings["allocations"], json!({f.assets[0].to_string(): 0.625, f.assets[1].to_string(): 0.375}));
+        assert!(settings.get("num_coins").is_none() && settings.get("index_category_id").is_none(), "only the portfolio's own settings stay");
+        assert_eq!(transient["run_generation"], json!(1));
+        let exited: bool = f.c.query_row("SELECT in_index = 0 AND exited_at IS NOT NULL FROM bot_index_assets WHERE bot_id=?1 AND asset_id=?2", [f.id, f.assets[2]], |r| r.get(0))?;
+        assert!(exited);
+        Ok(())
+    }
+
+    /// D-IDX-CUSTOM-STORED: a resync the engine still owes (a settings save or a start asked for it) refuses, so the stored
+    /// members are never older than what Rails would derive.
+    #[test]
+    fn a_resync_due_refuses() -> Result {
+        let f = Fixture::new()?;
+        deltabadger::engine::index::mark_resync(&f.c, f.id, harness::at(NOW)).map_err(|e| format!("{e:?}"))?;
+        f.refused_unchanged("Wait for the pending swap or sale to finish.")
+    }
+
+    /// D-FENCE-PER-BOT: a stopped bot whose placement intent is still recorded is the engine's; nothing is written.
+    #[test]
+    fn a_placement_intent_refuses() -> Result {
+        let f = Fixture::new()?;
+        f.c.execute("UPDATE bots SET transient_data=json_set(transient_data,'$.rust_placement',json('{\"asset\":1}')) WHERE id=?1", [f.id])?;
+        f.refused_unchanged("Wait for the pending swap or sale to finish.")
+    }
+
+    #[test]
+    fn a_working_bot_refuses_and_a_basket_is_not_found() -> Result {
+        let f = Fixture::new()?;
+        f.c.execute("UPDATE bots SET status=1 WHERE id=?1", [f.id])?;
+        f.refused_unchanged("Stop the bot first.")?;
+        f.c.execute("UPDATE bots SET status=2, type='Bots::DcaMultiAsset' WHERE id=?1", [f.id])?;
+        assert!(matches!(f.customize()?, Switched::NotIndex));
+        Ok(())
+    }
+}

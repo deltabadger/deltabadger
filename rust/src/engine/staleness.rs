@@ -22,6 +22,8 @@ pub struct Source {
     pub per_exchange: bool,
     /// The `app_configs` row only a successful Rails sync writes: without it the column measures nothing (Unknown).
     pub gate: Option<&'static str>,
+    /// Freshness is the job record's `source_at` alone (the upstream evidence it holds), never a column or a run's time.
+    pub evidence: bool,
 }
 
 /// About two missed refreshes: two of the refreshing job's periods, plus one hour for a late run. The hour covers the
@@ -54,7 +56,7 @@ pub const ALPACA_CRYPTO_TICKERS: Source = Source {
     job: crate::jobs::reference::ALPACA_CRYPTO,
     newest_sql: "SELECT max(ea.updated_at) FROM exchange_assets ea JOIN assets a ON a.id = ea.asset_id \
                  WHERE ea.exchange_id = ?1 AND a.category = 'Cryptocurrency'",
-    per_exchange: true, gate: Some(ALPACA_CRYPTO_SYNCED_KEY),
+    per_exchange: true, gate: Some(ALPACA_CRYPTO_SYNCED_KEY), evidence: false,
 };
 /// MarketData::ALPACA_CRYPTO_LISTINGS_LAST_GOOD_KEY.
 pub const ALPACA_CRYPTO_SYNCED_KEY: &str = "alpaca_crypto_listings_last_good_count";
@@ -74,7 +76,7 @@ pub const ALPACA_STOCK_TICKERS: Source = Source {
     job: crate::jobs::reference::STOCKS,
     newest_sql: "SELECT max(ea.updated_at) FROM exchange_assets ea JOIN assets a ON a.id = ea.asset_id \
                  WHERE ea.exchange_id = ?1 AND a.category = 'Stock'",
-    per_exchange: true, gate: Some("alpaca_listings_last_good_count"),
+    per_exchange: true, gate: Some("alpaca_listings_last_good_count"), evidence: false,
 };
 
 /// A crypto venue's catalogue (import_tickers!, market_data.rb:316-338), every 4 h at :15 (recurring.yml:13-15).
@@ -84,14 +86,14 @@ pub const VENUE_TICKERS: Source = Source {
     name: "venue tickers", column: "exchange_assets.updated_at",
     refreshed_by: "Exchange::SyncAllTickersAndAssetsJob, every 4 h at :15 UTC", max_age_secs: bound_secs(4),
     job: crate::jobs::reference::TICKERS,
-    newest_sql: "SELECT max(updated_at) FROM exchange_assets WHERE exchange_id = ?1", per_exchange: true, gate: None,
+    newest_sql: "SELECT max(updated_at) FROM exchange_assets WHERE exchange_id = ?1", per_exchange: true, gate: None, evidence: false,
 };
 
 /// Index membership and weights (import_indices!, market_data.rb:266-273, :904-905), daily at 10:30 (recurring.yml:33-35).
 pub const INDICES: Source = Source {
     name: "Indices", column: "indices.updated_at",
     refreshed_by: "Index::SyncFromCoingeckoJob, daily at 10:30 UTC", max_age_secs: bound_secs(24),
-    job: crate::jobs::reference::INDICES, newest_sql: "SELECT max(updated_at) FROM indices", per_exchange: false, gate: None,
+    job: crate::jobs::reference::INDICES, newest_sql: "SELECT max(updated_at) FROM indices", per_exchange: false, gate: None, evidence: false,
 };
 
 /// The crypto catalogue's market caps (import_assets!, market_data.rb:233-245, :885-886), daily at 00:20 + up to 5 min.
@@ -99,10 +101,19 @@ pub const CRYPTO_ASSETS: Source = Source {
     name: "Crypto assets", column: "assets.updated_at",
     refreshed_by: "Asset::FetchAllAssetsDataFromCoingeckoJob, daily at 00:20 UTC + up to 5 min", max_age_secs: bound_secs(24),
     job: crate::jobs::reference::ASSETS,
-    newest_sql: "SELECT max(updated_at) FROM assets WHERE category = 'Cryptocurrency'", per_exchange: false, gate: None,
+    newest_sql: "SELECT max(updated_at) FROM assets WHERE category = 'Cryptocurrency'", per_exchange: false, gate: None, evidence: false,
 };
 
-pub const SOURCES: [&Source; 5] = [&ALPACA_CRYPTO_TICKERS, &ALPACA_STOCK_TICKERS, &VENUE_TICKERS, &INDICES, &CRYPTO_ASSETS];
+/// The IBKR catalogue (Ibkr plan R1, D-JOBS-SOURCE-AT): as fresh as the newest upstream evidence the sync holds
+/// (`source_at`, the feed's `generated_at`), so an unchanged catalogue stays fresh while data-api keeps confirming it, and
+/// a run that imported nothing new never makes it so. Rails stamps nothing for it.
+pub const IBKR_TICKERS: Source = Source {
+    name: "IBKR tickers", column: "catalogue evidence (generated_at)",
+    refreshed_by: "the IBKR catalogue sync, daily at 10:45 UTC", max_age_secs: bound_secs(24),
+    job: crate::jobs::reference::IBKR, newest_sql: "", per_exchange: false, gate: None, evidence: true,
+};
+
+pub const SOURCES: [&Source; 6] = [&ALPACA_CRYPTO_TICKERS, &ALPACA_STOCK_TICKERS, &VENUE_TICKERS, &INDICES, &CRYPTO_ASSETS, &IBKR_TICKERS];
 
 /// Rails' last ownership window runs from `HANDED_BACK_AT` (written in the handback's own transaction) to `TAKEN_OVER_AT`
 /// (written with the claim). Both are plain `app_configs` rows owned by `lease.rs`.
@@ -110,6 +121,7 @@ pub use crate::lease::{HANDED_BACK_AT, TAKEN_OVER_AT};
 
 /// Rails' rule: the newest stamp of the column, where the install runs the sync at all (its gate row exists).
 fn column_at(c: &Connection, s: &Source, exchange_id: Option<i64>) -> Result<Option<DateTime<Utc>>, EngineError> {
+    if s.evidence { return Ok(None); }
     if let Some(key) = s.gate {
         if !c.query_row("SELECT EXISTS (SELECT 1 FROM app_configs WHERE key = ?1)", [key], |r| r.get::<_, bool>(0))? { return Ok(None); }
     }
@@ -137,7 +149,7 @@ fn trusted_column(c: &Connection, s: &Source, exchange_id: Option<i64>) -> Resul
 /// the job's last success, which the runner writes only once the whole import has published, and Rails' baseline read at
 /// the takeover (`seed`). A run that fails after committing some units moves neither.
 fn record_at(c: &Connection, s: &Source) -> Result<Option<Option<DateTime<Utc>>>, EngineError> {
-    Ok(crate::jobs::state::find(c, s.job, None).map_err(EngineError::Data)?.map(|st| st.last_success_at.max(st.rails_at)))
+    Ok(crate::jobs::state::find(c, s.job, None).map_err(EngineError::Data)?.map(|st| if s.evidence { st.source_at } else { st.last_success_at.max(st.rails_at) }))
 }
 
 /// "; <job>: <its state>" for a refusal or a report line.
@@ -195,6 +207,9 @@ fn targets(c: &Connection) -> Result<Vec<Target>, EngineError> {
         let (id, ty) = venue?;
         targets.push((&VENUE_TICKERS, Some(id), format!(" ({})", crate::jobs::reference::name_id(&ty))));
     }
+    if let Some(ibkr) = c.query_row("SELECT id FROM exchanges WHERE type = 'Exchanges::Ibkr' ORDER BY id LIMIT 1", [], |r| r.get::<_, i64>(0)).optional()? {
+        targets.push((&IBKR_TICKERS, Some(ibkr), String::new()));
+    }
     targets.push((&INDICES, None, String::new()));
     targets.push((&CRYPTO_ASSETS, None, String::new()));
     Ok(targets)
@@ -249,7 +264,9 @@ fn bot_sources(c: &Connection, bot: &Bot) -> Result<Vec<&'static Source>, Engine
         let ids = serde_json::to_string(&bot.asset_ids()).map_err(|_| EngineError::Data("unreadable allocations".into()))?;
         Ok(c.query_row("SELECT EXISTS(SELECT 1 FROM assets WHERE category = 'Cryptocurrency' AND id IN (SELECT value FROM json_each(?1)))", [ids], |r| r.get(0))?)
     };
-    if model::exchange_type(c, bot)? != "Exchanges::Alpaca" {
+    let venue = model::exchange_type(c, bot)?;
+    if venue == "Exchanges::Ibkr" { return Ok(if index { vec![&IBKR_TICKERS, &INDICES] } else { vec![&IBKR_TICKERS] }); }
+    if venue != "Exchanges::Alpaca" {
         return Ok(if index { vec![&INDICES, &CRYPTO_ASSETS] } else if market_cap && crypto_member()? { vec![&CRYPTO_ASSETS] } else { vec![] });
     }
     let mut sources = vec![];
