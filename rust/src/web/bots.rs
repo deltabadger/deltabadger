@@ -345,3 +345,38 @@ pub async fn index(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Re
     };
     shell::application(&ctx, &ctx.csrf_token(), &user, &shell, Page { status: StatusCode::OK, body, flash_now: Vec::new() })
 }
+
+/// Bots::ReordersController#update: the dashboard's drag. The dragged ids (`params[:ids]`: query over body, JSON or form) as
+/// `Array(params[:ids]).map(&:to_i).uniq`, the user's own only, refill the slots those bots hold in the user's whole list
+/// (deleted and archived bots included), and the list is renumbered 1..n where a position differs. Only `position` is
+/// written: no `updated_at`, no log, no broadcast, no wake, and no eligibility guard (no rule reads `position`).
+pub async fn reorder(State(app): State<App>, Extension(ctx): Extension<Ctx>, headers: axum::http::HeaderMap) -> Result<Response, WebError> {
+    use axum::response::IntoResponse;
+    let Some(user) = ctx.user().map(|user| user.id) else { return Ok(auth::unauthenticated_in_format(&ctx, &headers)) };
+    // `params[:ids]`: the query over the body (JSON or form), as Rails merges them.
+    let Ok(params) = bot::action_params::ActionParams::parse_rails(&ctx.params) else { return Ok((StatusCode::BAD_REQUEST, "Bad Request\n").into_response()) };
+    let sent: Vec<i64> = match params.value().get("ids") {
+        None | Some(Value::Null) => vec![],
+        Some(Value::Array(items)) => items.iter().map(super::wizard::to_i).collect(),
+        Some(other) => vec![super::wizard::to_i(other)],
+    };
+    app.db(move |c| {
+        let tx = crate::engine::model::immediate(c)?;
+        let mut bots: Vec<(i64, i64)> = tx.prepare("SELECT id, position FROM bots WHERE user_id = ?1 ORDER BY position, id")?
+            .query_map([user], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<_, _>>()?;
+        let mut dragged: Vec<(i64, i64)> = vec![];
+        for id in sent {
+            if let Some(bot) = bots.iter().find(|bot| bot.0 == id) { if !dragged.contains(bot) { dragged.push(*bot); } }
+        }
+        if dragged.is_empty() { return Ok(()); }
+        let slots: Vec<usize> = (0..bots.len()).filter(|&i| dragged.contains(&bots[i])).collect();
+        for (slot, bot) in slots.into_iter().zip(dragged) { bots[slot] = bot; }
+        for (index, (id, position)) in bots.iter().enumerate() {
+            let wanted = index as i64 + 1;
+            if *position != wanted { tx.execute("UPDATE bots SET position = ?1 WHERE id = ?2", [wanted, *id])?; }
+        }
+        tx.commit()?;
+        Ok(())
+    }).await?;
+    Ok(StatusCode::NO_CONTENT.into_response())
+}

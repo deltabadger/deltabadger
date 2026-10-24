@@ -706,7 +706,7 @@ fn routes(app: App) -> Router {
         .route("/bots/signals/confirm_settings/update_signal", only(patch(wizard::signals::update_signal)))
         // The CoinGecko key itself (this build has no CoinGecko provider) and the legacy settings step are not served.
         .route("/bots/dca_indexes/setup_coingecko", any(layout::not_ported))
-        .route("/bots/reorder", only(patch(layout::not_ported)))
+        .route("/bots/reorder", only(patch(bots::reorder)))
         .route("/bots/{id}", only(get(bot::page::show).patch(bot::actions::update)))
         .route("/bots/{id}/start", only(patch(bot::actions::start)))
         .route("/bots/{id}/start/edit", only(get(bot::actions::start_edit)))
@@ -921,7 +921,7 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
     // POST /hook/*: its body is read whatever its type (bounded, so a stalled body spends no claim) and parsed only as
     // Rack parses it (web::hook::body).
     let hook_post = original_method == Method::POST && (route_path == "/hook" || route_path.starts_with("/hook/"));
-    let json_post = (setup_json || bot_json || broadcast_json || (json_method == Method::POST && route_path=="/api/api_keys") || (json_method == Method::POST && JSON_PATHS.contains(&full_path.as_str())))
+    let json_post = (setup_json || bot_json || broadcast_json || (json_method == Method::POST && route_path=="/api/api_keys") || (json_method == Method::PATCH && route_path == "/bots/reorder") || (json_method == Method::POST && JSON_PATHS.contains(&full_path.as_str())))
         && json_type;
     let mut json = None;
     let mut upload = None;
