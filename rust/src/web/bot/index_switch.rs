@@ -117,7 +117,10 @@ fn customize_inner(c: &Connection, ctx: &Ctx, owner: i64, id: i64) -> Result<Swi
     let carry = write::pending(&tx, &draft.original, now)?;
     let at = codec::format_time(now);
     // becomes!: the portfolio's after_initialize defaults over the same settings, then only its own keys, then the weights.
-    one(tx.execute("UPDATE bots SET type=?1 WHERE id=?2 AND user_id=?3 AND type=?4 AND status<>3", (TO, id, owner, FROM))?)?;
+    // The row is loaded as the portfolio over the index's initialised settings (`becomes!` shares the attributes), so a
+    // default the index computed (a Smart Intervals amount off its venue minimums) is kept, not recomputed for the portfolio.
+    one(tx.execute("UPDATE bots SET type=?1, settings=?2 WHERE id=?3 AND user_id=?4 AND type=?5 AND status<>3",
+        (TO, Value::Object(draft.original.settings.clone()).to_string(), id, owner, FROM))?)?;
     let target = Bot::find(&tx, owner, id, For::Page, ctx.locale)?.ok_or_else(|| super::data("switched bot disappeared".into()))?;
     let mut settings: Map<String, Value> = STORED_DCA_MULTI_ASSET.iter().filter_map(|key| target.settings.get(*key).map(|v| (key.to_string(), v.clone()))).collect();
     settings.insert("allocations".into(), Value::Object(weights));

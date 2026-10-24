@@ -415,6 +415,15 @@ module Pages
                                              signed_in(get('/bots/1/start/edit', TURBO.merge('Accept' => 'text/html', 'Turbo-Frame' => 'modal')), get('/bots/1'),
                                                        custom_allocation.merge('expect' => 200), get('/bots/1'),
                                                        get('/bots/1/start/edit', TURBO.merge('Accept' => 'text/html', 'Turbo-Frame' => 'modal')))),
+      # Smart Intervals on and no stored amount: the index's own default (ten times the largest minimum of the venue's
+      # listings, a non-member's here) is the one the portfolio keeps, not one recomputed from its members, and the carry
+      # is capped by it.
+      'custom_allocation_smart_default' => with_bots([stopped('index', index.merge('settings' => { 'allocation_flattening' => 0.0, 'smart_intervaled' => true },
+                                                                                     'without' => %w[smart_interval_quote_amount], 'minimum_quote' => { 'QQQM' => '20' },
+                                                                                     'columns' => { 'status' => 2, 'started_at' => '2026-08-27T12:00:00Z' },
+                                                                                     'transient' => { 'last_action_job_at' => '2026-09-03T12:00:01Z' })), archived],
+                                                     signed_in(get('/bots/1'), custom_allocation.merge('expect' => 200), get('/bots/1'),
+                                                               get('/bots/1/start/edit', TURBO.merge('Accept' => 'text/html', 'Turbo-Frame' => 'modal')))),
       'custom_allocation_de' => with_bots([stopped('index', index), archived],
                                           signed_in(get('/de/bots/1'), custom_allocation('/de/bots/1/custom_allocation').merge('expect' => 200), get('/de/bots/1'))),
       'custom_allocation_signed_out' => with_bots([stopped('index', index), archived],
