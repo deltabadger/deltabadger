@@ -362,6 +362,13 @@ module Pages
                                                                           reorder('ids' => ['x', 3, '2abc', 1.9, nil]), get('/bots'))),
       'reorder_empty' => with_bots(four, signed_in(get('/bots'), reorder({}), reorder('ids' => []), reorder('ids' => nil), reorder('ids' => %w[x 999]),
                                                    reorder('ids' => '3'), get('/bots'))),
+      # Rails' params[:ids] merges the query over the body: ids in the query alone, and over the JSON's own ids.
+      'reorder_query_ids' => with_bots(four, signed_in(get('/bots'), reorder({}, 'path' => '/bots/reorder?ids[]=2&ids[]=1'), get('/bots'),
+                                                       reorder({ 'ids' => %w[1 2 3 4] }, 'path' => '/bots/reorder?ids[]=4&ids[]=1'), get('/bots'))),
+      # A scalar form `ids` is Array("2"): it renumbers the shared positions as a list would.
+      'reorder_form_scalar' => with_bots([{ 'kind' => 'basket', 'columns' => { 'position' => 2 } }, { 'kind' => 'single', 'columns' => { 'position' => 2 } },
+                                          { 'kind' => 'index', 'columns' => { 'position' => 7 } }, { 'kind' => 'basket', 'columns' => { 'position' => 0 } }],
+                                         signed_in(get('/bots'), reorder({}).except('json').merge('form' => { 'ids' => '2' }, 'headers' => {}), get('/bots'))),
       'reorder_signed_out' => with_bots(four, signed_in(get('/bots'), get('/login').merge('client' => 'signed_out'),
                                                         reorder('ids' => %w[4 3 2 1]).merge('client' => 'signed_out'), get('/bots'))),
       'reorder_no_csrf' => with_bots(four, signed_in(get('/bots'), reorder('ids' => %w[4 3 2 1]).merge('csrf' => 'none'), get('/bots')))

@@ -346,18 +346,19 @@ pub async fn index(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Re
     shell::application(&ctx, &ctx.csrf_token(), &user, &shell, Page { status: StatusCode::OK, body, flash_now: Vec::new() })
 }
 
-/// Bots::ReordersController#update: the dashboard's drag. The dragged ids (JSON `ids`, else the form's `ids[]`) as
+/// Bots::ReordersController#update: the dashboard's drag. The dragged ids (`params[:ids]`: query over body, JSON or form) as
 /// `Array(params[:ids]).map(&:to_i).uniq`, the user's own only, refill the slots those bots hold in the user's whole list
 /// (deleted and archived bots included), and the list is renumbered 1..n where a position differs. Only `position` is
 /// written: no `updated_at`, no log, no broadcast, no wake, and no eligibility guard (no rule reads `position`).
 pub async fn reorder(State(app): State<App>, Extension(ctx): Extension<Ctx>, headers: axum::http::HeaderMap) -> Result<Response, WebError> {
     use axum::response::IntoResponse;
     let Some(user) = ctx.user().map(|user| user.id) else { return Ok(auth::unauthenticated_in_format(&ctx, &headers)) };
-    let sent: Vec<i64> = match ctx.params.json.as_ref().and_then(|json| json.get("ids")) {
-        Some(Value::Null) => vec![],
+    // `params[:ids]`: the query over the body (JSON or form), as Rails merges them.
+    let Ok(params) = bot::action_params::ActionParams::parse_rails(&ctx.params) else { return Ok((StatusCode::BAD_REQUEST, "Bad Request\n").into_response()) };
+    let sent: Vec<i64> = match params.value().get("ids") {
+        None | Some(Value::Null) => vec![],
         Some(Value::Array(items)) => items.iter().map(super::wizard::to_i).collect(),
         Some(other) => vec![super::wizard::to_i(other)],
-        None => ctx.params.form.iter().filter(|(k, _)| k == "ids[]").map(|(_, v)| bot::search::to_i(v)).collect(),
     };
     app.db(move |c| {
         let tx = crate::engine::model::immediate(c)?;
