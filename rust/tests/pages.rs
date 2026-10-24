@@ -297,6 +297,12 @@ fn before(dir: &Path, what: &str) {
         "unconfirm" => c.execute("UPDATE users SET confirmed_at = NULL WHERE id = (SELECT min(id) FROM users)", []).unwrap(),
         "disable_kraken_xbt" => c.execute("UPDATE tickers SET available = 0 WHERE ticker = 'XBTEUR'", []).unwrap(),
         "shrink_nasdaq" => c.execute("UPDATE indices SET top_coins = '[\"nvda.us\"]' WHERE external_id = 'nasdaq-100'", []).unwrap(),
+        // Bot 1's price status line within its 20 s, as the engine's info pass stores it (Rails: bot.price_limit_info_from_cache).
+        "warm_price_info" | "warm_price_info_met" => {
+            let info = json!({ "price_limit": { "buying": { "base": "BTC", "quote": "USD", "price": "64310.75", "condition_met": what == "warm_price_info_met",
+                                                           "expires_us": chrono::DateTime::parse_from_rfc3339(scenario(dir)["at"].as_str().unwrap()).unwrap().timestamp_micros() + 20_000_000 } } });
+            c.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.rust_condition_info', json(?1)) WHERE id = 1", [info.to_string()]).unwrap()
+        }
         other => panic!("unknown step.before {other}"),
     };
 }
@@ -464,7 +470,9 @@ async fn run(dir: &Path) -> Value {
     let mut bots = rows(dir, "bots", &BOT_COLUMNS);
     for bot in bots.as_array_mut().into_iter().flatten() {
         let Some(mut data) = bot["transient_data"].as_str().and_then(|t| serde_json::from_str::<Value>(t).ok()) else { continue };
-        if data.as_object_mut().and_then(|d| d.shift_remove("rust_signal_calls")).is_some() { bot["transient_data"] = json!(data.to_string()); }
+        // Rails enqueues a job where this crate leaves the engine its Rust-only request (a hook's call, a status line's wish).
+        let taken = ["rust_signal_calls", deltabadger::engine::conditions::INFO_WANTED_KEY, deltabadger::engine::conditions::INFO_KEY].iter().filter(|key| data.as_object_mut().and_then(|d| d.shift_remove(**key)).is_some()).count();
+        if taken > 0 { bot["transient_data"] = json!(data.to_string()); }
     }
     json!({ "responses": responses, "users": users(dir), "bots": bots })
 }

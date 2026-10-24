@@ -561,7 +561,7 @@ async fn price_gate<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &mode
         if rule.action != "pause" { return Err(EngineError::Data(format!("{}_action {} is not supported", rule.prefix, rule.action))); }
     }
     let rules = venue.rules();
-    Ok(match conditions::evaluate(c, venue, bot, clock, cx.prices, &cx.credential_version).await? {
+    Ok(match conditions::evaluate(c, venue, bot, clock, cx.prices, &cx.credential_version, conditions::Fence::Run).await? {
         Evaluated::Off => Gated::Pass(None),
         Evaluated::Met { refreshed } => Gated::Pass(refreshed),
         Evaluated::Unmet | Evaluated::Unavailable => Gated::Pause,
@@ -569,7 +569,11 @@ async fn price_gate<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &mode
             let m = conditions::raised(&e).unwrap_or_default();
             Gated::Fail(Fail::General { message: m, errors: vec![], failed_row: false })
         }
-        Evaluated::Failed(VenueError::Rejected(e) | VenueError::Unauthorized(e)) if rules.failure_kind(&e) == Some("invalid_key") => {
+        // Bot::LimitCheckable#limit_condition_met? → Exchange#invalid_key_error?: a 401 alone is a rejected key, as its text is.
+        Evaluated::Failed(VenueError::Unauthorized(e)) => {
+            Gated::Fail(Fail::General { message: format!("{} rejected the API key: {}", rules.name, to_sentence(&e)), errors: vec![], failed_row: false })
+        }
+        Evaluated::Failed(VenueError::Rejected(e)) if rules.failure_kind(&e) == Some("invalid_key") => {
             Gated::Fail(Fail::General { message: format!("{} rejected the API key: {}", rules.name, to_sentence(&e)), errors: vec![], failed_row: false })
         }
         Evaluated::Failed(VenueError::Transient(m)) if rules.transport_raises => Gated::Fail(Fail::Transient(m)),

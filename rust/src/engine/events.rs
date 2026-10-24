@@ -37,6 +37,10 @@ pub enum EngineEvent {
     /// the recovery that settles its intent): Rails redraws bots/signals/_unresolved_placement on the bot's page
     /// (Bots::Signal#broadcast_unresolved_placement).
     SignalMarkerChanged { bot_id: i64 },
+    /// The status line of a trigger rule has an answer (Bot#broadcast_price_limit_info_update): the engine served the page's
+    /// request (`locale`: the request's, as ActiveJob restores the enqueuer's), or a condition write broadcast it from inside
+    /// get_price_limit_condition_met? (None: the owner's). The web renders bots/settings/_price_limit_info from the stored info.
+    ConditionInfo { bot_id: i64, rule: &'static str, locale: Option<String> },
 }
 
 impl EngineEvent {
@@ -45,12 +49,12 @@ impl EngineEvent {
     /// wants, and the bot page's own.
     pub fn is_classic(&self) -> bool {
         !matches!(self, Self::OrderUpdated { .. } | Self::BelowMinimum { .. } | Self::StatusChanged { .. } | Self::TickEnded { .. } | Self::OrderWritten { .. }
-                        | Self::SignalMarkerChanged { .. })
+                        | Self::SignalMarkerChanged { .. } | Self::ConditionInfo { .. })
     }
 
     /// What the bot page hears live (web::bot::live): its status, and each order inserted or written.
     pub fn is_live(&self) -> bool {
-        matches!(self, Self::StatusChanged { .. } | Self::TickEnded { .. } | Self::OrderWritten { .. } | Self::OrderRecorded { .. } | Self::SignalMarkerChanged { .. })
+        matches!(self, Self::StatusChanged { .. } | Self::TickEnded { .. } | Self::OrderWritten { .. } | Self::OrderRecorded { .. } | Self::SignalMarkerChanged { .. } | Self::ConditionInfo { .. })
     }
 
     /// An order inserted or written: what the figures service hears.

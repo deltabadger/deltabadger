@@ -392,8 +392,15 @@ impl Forms<'_> {
         self.bot.number(name).as_ref().and_then(input_value)
     }
 
-    /// The loader an active condition shows until its reading arrives (`bots/settings/_*_info`, cold).
+    /// The loader an active condition shows until its reading arrives (`bots/settings/_*_info`, cold); the price rule's
+    /// reading once the engine has one for the active side within its 20 s (`bot.price_limit_info_from_cache`).
     fn info_loader(&self, rule: &str) -> String {
+        if rule == crate::engine::conditions::PRICE {
+            let side = if self.bot.selling() { "selling" } else { "buying" };
+            if let Some(info) = crate::engine::conditions::live_info(self.bot.transient.get(crate::engine::conditions::INFO_KEY), rule, side, self.ctx.now) {
+                return price_limit_info(self.ctx.locale, info);
+            }
+        }
         format!("<small id=\"settings-{}-info\" class=\"small-info\">\n      <div data-controller=\"broadcast--on-connect\" data-broadcast--on-connect-method-value=\"{rule}_info_update\" \
                  data-broadcast--on-connect-method-args-value=\"{{&quot;bot_id&quot;:{}}}\" class=\"loader--small\" style=\"position: unset; float: left; margin-top: 1rem;\"></div>\n  </small>",
                 rule.replace('_', "-"), self.bot.id)
@@ -494,6 +501,14 @@ impl Forms<'_> {
         out.push_str(&format!("  \n{}\n", self.rule(active, &k("indicator_limited"), active, self.locked(), &format!("          {sentence}\n          {info}\n"))));
         out
     }
+}
+
+/// bots/settings/_price_limit_info with an info (`settings-price-limit-info`): "Current BTC price is … EUR", green when met.
+pub fn price_limit_info(locale: &str, info: &Value) -> String {
+    let text = i18n::text(locale, "bot.settings.extra_price_limit.info", &[("current_price", Arg::Text(info["price"].as_str().unwrap_or(""))),
+        ("base", Arg::Text(info["base"].as_str().unwrap_or(""))), ("quote", Arg::Text(info["quote"].as_str().unwrap_or("")))]);
+    format!("<small id=\"settings-price-limit-info\" class=\"small-info\">\n      <div class=\"{}\">\n        {}\n      </div>\n  </small>",
+            if info["condition_met"] == Value::Bool(true) { "text-success" } else { "" }, escape(&text))
 }
 
 /// The subject of a condition that has no choice of one, as markup: the label of the only option,

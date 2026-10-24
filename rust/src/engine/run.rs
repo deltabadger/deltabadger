@@ -306,6 +306,7 @@ pub async fn step<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) -> Resu
         }
     }
     run_signals(e, clock, &mut wake).await?;
+    run_condition_infos(e, &report.unreadable, clock, &mut wake).await?;
     run_resyncs(e, clock, &mut wake).await?;
     for id in report.eligible {
         if e.stopping() { break; }
@@ -558,6 +559,42 @@ pub async fn rebalance_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &
     outcome
 }
 
+/// The status line's stored info, as text, to tell when a pass changed it (a condition write broadcasts it).
+fn info_marker(c: &Connection, id: i64) -> Result<Option<String>, EngineError> {
+    Ok(c.query_row(&format!("SELECT json_extract(transient_data, '$.{}') FROM bots WHERE id = ?1", super::conditions::INFO_KEY), [id], |r| r.get(0)).optional()?.flatten())
+}
+
+/// The status-line requests the web left (BroadcastsController#price_limit_info_update → Bot::BroadcastPriceLimitInfoUpdateJob),
+/// for any bot whatever its status. Each is claimed with its version and served once (conditions::info); a request whose bot
+/// changed meanwhile, or whose key changed during the read, stays for the next pass. Only the price rule is served until 7b-3:
+/// the other three routes answer and keep their loader.
+async fn run_condition_infos<F: VenueFactory>(e: &mut Engine<F>, unreadable: &[(i64, String)], clock: &dyn Clock, wake: &mut i64) -> Result<(), EngineError> {
+    use super::conditions::{self, PRICE};
+    for claim in conditions::info_claims(&e.primary, PRICE)? {
+        if e.stopping() { break; }
+        let id = claim.bot.id;
+        if unreadable.iter().any(|(u, _)| *u == id) { continue; }
+        let result = match e.venue_for(&claim.bot) {
+            Ok((venue, version)) => conditions::info(&e.primary, &venue, &claim, clock, &e.prices, &version).await,
+            Err(err) => Err(err),
+        };
+        match result {
+            Ok(Some(_)) => e.events.send(EngineEvent::ConditionInfo { bot_id: id, rule: PRICE, locale: claim.locale.clone() }),
+            Ok(None) => {}
+            Err(err @ (EngineError::Lease(_) | EngineError::Store(_))) => return Err(err),
+            // Changed since the claim: served again, on the bot as it is now.
+            Err(EngineError::RunFenced | EngineError::CredentialsChanged) => *wake = (*wake).min(clock.now().timestamp_micros()),
+            Err(err) => {
+                super::log(&format!("[engine] bot {id}: its price status line could not be computed: {err:?}"));
+                let tx = model::immediate(&e.primary)?;
+                conditions::ack_info(&tx, id, PRICE, claim.version)?;
+                tx.commit()?;
+            }
+        }
+    }
+    Ok(())
+}
+
 /// Due follow-up polls, for any bot whatever its status (a job Rails enqueued at placement runs even if the
 /// bot is stopped meanwhile). Transient/RateLimited failures and a still-open order retry as FetchAndUpdateOrderJob's retry_on.
 async fn run_polls<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock, wake: &mut i64) {
@@ -697,7 +734,10 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
         let dead = bot.transient.get(super::conditions::DEAD).is_some();
         let at = *e.condition_at.entry(id).or_insert_with(|| if dead { super::conditions::repair_at(clock.now()).timestamp_micros() } else { now_us });
         if at > now_us { *wake = (*wake).min(at); return Ok(()); }
-        match super::conditions::check(&e.primary, &venue, &bot, clock, &e.prices, &credential_version).await {
+        let info_before = info_marker(&e.primary, id)?;
+        let checked = super::conditions::check(&e.primary, &venue, &bot, clock, &e.prices, &credential_version).await;
+        if info_marker(&e.primary, id)? != info_before { e.events.send(EngineEvent::ConditionInfo { bot_id: id, rule: super::conditions::PRICE, locale: None }); }
+        match checked {
             Ok(super::conditions::Checked::Rearmed) => { e.condition_at.remove(&id); bot = model::load_bot(&e.primary, id)?; }
             Ok(super::conditions::Checked::Next(next)) => { e.condition_at.insert(id, next.timestamp_micros()); *wake = (*wake).min(next.timestamp_micros()); return Ok(()); }
             Ok(super::conditions::Checked::Gone) | Err(EngineError::RunFenced) => { e.condition_at.remove(&id); return Ok(()); }
@@ -797,6 +837,7 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
                                                          [id], |r| r.get::<_, Option<String>>(0));
         let funds_before = funds_marker(&e.primary)?;
         let waiting = waiting_rows(&e.primary, id)?;
+        let info_before = info_marker(&e.primary, id)?;
         let ticked = tick::tick_recovering_for_run(&e.primary, &venue, &mut bot, clock, attempts, &mut recovered, &cx).await;
         // Whatever the tick wrote (its sweep's fills, its placement), on success or on error, the bot is announced, with
         // nothing read to decide; each order it placed is announced and gets its follow-up poll (`after_tick`).
@@ -806,6 +847,7 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
         for tx in written_since(&e.primary, &waiting).unwrap_or_default() { e.events.send(EngineEvent::OrderWritten { bot_id: id, transaction_id: tx }); } // allow-swallow: what the page hears is display only; the tick's own outcome follows
         // After its rows are announced, so the page shows the failed order its status bar names.
         e.events.send(EngineEvent::TickEnded { bot_id: id });
+        if info_marker(&e.primary, id)? != info_before { e.events.send(EngineEvent::ConditionInfo { bot_id: id, rule: super::conditions::PRICE, locale: None }); }
         let outcome = ticked?;
         e.run_keys.insert(id, bot.run_identity()?);
         committed?;
