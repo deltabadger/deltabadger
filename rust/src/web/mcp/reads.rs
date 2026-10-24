@@ -364,7 +364,7 @@ fn effective_started(b:&Bot)->Result<Option<chrono::DateTime<chrono::Utc>>,WebEr
     let Some(raw)=&b.started else{return Ok(None)};
     let mut start=crate::codec::parse_time(raw).map_err(|_|error())?;
     // Signal and index have no trigger decorators.
-    if matches!(b.kind.as_str(),"Bots::Signal"|"Bots::DcaIndex") {return Ok(Some(start))}
+    if !crate::engine::model::conditions_apply(&b.kind) {return Ok(Some(start))}
     let selling=b.settings["direction"]=="selling";
     let prefix=if selling{"sell_"}else{""};
     for trigger in ["price","price_drop","moving_average","indicator"]{

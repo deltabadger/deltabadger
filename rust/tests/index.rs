@@ -158,6 +158,39 @@ async fn hold_all_buys_the_whole_universe_with_flattened_weights() {
     assert_eq!(t.posted_orders().len(), 5);
 }
 
+/// Bots::DcaIndex includes none of the trigger rule concerns (dca_index.rb:56-58): stray rule switches, a stored met_at and a
+/// limit_paused log leave admission, the decorated started_at, the carry window, the pause and the orders exactly as an
+/// unflagged index bot has them.
+#[tokio::test(flavor = "current_thread")]
+async fn an_index_bot_ignores_stray_condition_flags() {
+    let run = |flagged: bool| async move {
+        let (d, o, _s, id, _) = universe(3, 0.0, false);
+        o.primary.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.missed_quote_amount', '7.5') WHERE id = ?1", [id]).unwrap();
+        if flagged {
+            let mut sql = String::from("UPDATE bots SET settings = json_set(settings, '$.price_limit', 1, '$.price_limit_value_condition', 'below'");
+            for flag in model::CONDITION_FLAGS { sql.push_str(&format!(", '$.{flag}', json('true')")); }
+            sql.push_str("), transient_data = json_set(transient_data, '$.price_limit_condition_met_at', '2026-09-04T14:00:00.000Z') WHERE id = ?1");
+            o.primary.execute(&sql, [id]).unwrap();
+            model::log_activity(&o.primary, id, "limit_paused", deltabadger::engine::model::Level::Info, json!({ "limit_type": "price" }), at("2026-09-01T13:00:00Z")).unwrap();
+        }
+        let bot = model::load_bot(&o.primary, id).unwrap();
+        assert_eq!(bot.condition_started_us().unwrap(), bot.started_at_us().unwrap(), "flagged={flagged}: no started_at decoration");
+        let mut waiting = bot.clone();
+        waiting.status = deltabadger::enums::BotStatus::Waiting;
+        assert!(!model::price_paused(&o.primary, &waiting).unwrap(), "flagged={flagged}: never paused on a price rule");
+        let reasons = eligibility::bot_reasons(&o.primary, &bot).unwrap();
+        let since = bot.calc_since_us().unwrap();
+        let pending = deltabadger::engine::accounting::pending_quote_amount(&o.primary, &bot, at("2026-09-15T14:00:00Z").timestamp_micros()).unwrap();
+        let t = script([100.0, 200.0, 300.0, 400.0, 500.0]);
+        let out = tick::tick(&o.primary, &venue(&t), id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
+        let after = model::load_bot(&o.primary, id).unwrap();
+        (format!("{out:?}"), reasons, since, format!("{pending:?}"), t.posted_orders(), after.status, d)
+    };
+    let (plain, flagged) = (run(false).await, run(true).await);
+    assert_eq!(plain.0, "Done { placed: true }");
+    assert_eq!((&flagged.0, &flagged.1, flagged.2, &flagged.3, &flagged.4, flagged.5), (&plain.0, &plain.1, plain.2, &plain.3, &plain.4, plain.5));
+}
+
 #[test]
 fn an_index_bot_is_admitted_on_a_top_or_category_index_of_any_source() {
     let (_d, o, _s, id, _) = universe(3, 0.0, false);
