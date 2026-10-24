@@ -42,6 +42,9 @@ pub enum EngineError {
     Unresolved(Vec<i64>),
     /// A webhook call still valid until the time given (engine::signal::expires_at): the handback waits for it to expire.
     SignalCallsWaiting(DateTime<Utc>),
+    /// A Merge or Split moved the order row to the bot given while a poll ran (polling::require_owner). Nothing was written; the
+    /// poll obligation stays, under that bot.
+    OwnerChanged(i64),
     /// A requested stop (SIGTERM/SIGINT): the tick in hand finished and nothing new started.
     Stopped,
     Lease(crate::lease::LeaseError),
