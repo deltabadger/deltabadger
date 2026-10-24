@@ -181,7 +181,7 @@ pub fn begin(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock) -> 
     match begin_checked(c, bot, plan, clock, None, None, None, None)? {
         Begun::Intent(intent) => Ok(*intent),
         Begun::BelowMinimum(_) => Err(EngineError::Data("order below minimum after exact cap guard".into())),
-        Begun::Changed | Begun::Fenced | Begun::CredentialsChanged | Begun::LedgerStale(_) => Err(EngineError::Data("unfenced placement skipped".into())),
+        Begun::Changed | Begun::Fenced | Begun::CredentialsChanged | Begun::LedgerStale(_) | Begun::WashSaleLocked => Err(EngineError::Data("unfenced placement skipped".into())),
     }
 }
 
@@ -203,7 +203,9 @@ pub fn begin_unless_changed(c: &Connection, sized_from: &Bot, plan: &OrderPlan, 
 /// sized the order (Automation::Statusable::FENCED); that tick writes nothing more to the bot.
 /// LedgerStale: the account ledger stopped being fresh after the order was sized (a sync started or failed meanwhile);
 /// nothing was written or sent, and the tick returns its checkpoint (tick.rs) instead of ending as a success.
-pub enum Begun { Intent(Box<Intent>), Changed, Fenced, CredentialsChanged, BelowMinimum(Box<OrderPlan>), LedgerStale(Box<super::staleness::Stale>) }
+/// WashSaleLocked: a buy of an asset the account locked after it was sized (order_setter.rb:56, rebalancer.rb:212); nothing
+/// was written.
+pub enum Begun { Intent(Box<Intent>), Changed, Fenced, CredentialsChanged, BelowMinimum(Box<OrderPlan>), LedgerStale(Box<super::staleness::Stale>), WashSaleLocked }
 /// Production placement always passes the version captured with the venue credentials (L).
 #[allow(clippy::too_many_arguments)]
 /// `identity` is the sending venue's `placement_identity()`: recorded in the intent before the send, so recovery never asks
@@ -229,6 +231,8 @@ fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock,
     if current.rust_placement().is_some() {
         return Err(EngineError::Data(format!("bot {} already has an unresolved order", bot.id)));
     }
+    // The wash-sale re-read: a buy sized before another venue's sale locked its asset is not placed.
+    if plan.side == Side::Buy && super::wash::locked(&tx, current.user_id, clock)?.contains(&plan.ticker.base_asset_id) { return Ok(Begun::WashSaleLocked); }
     // The placement barrier (plan r4): no order while a reversal's cancel of an order it captured is not recorded. Checked
     // here, under the intent's own write lock, so no schedule or race lets an order out beside one the flip is cancelling.
     if super::reversal::barred(&current) {
@@ -317,9 +321,10 @@ fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock,
 pub const SIGNAL_SOURCE: &str = "signal";
 
 /// What `begin_signal` found under the intent's write lock. Only `Intent` wrote one; `Stopped` and `Disabled` consumed the
-/// call with its `signal_ignored` line; the others changed nothing, and the call stays for the next pass.
+/// call with its `signal_ignored` line, `Locked` (a buy of an asset the account locked since the call was sized) with
+/// none; the others changed nothing, and the call stays for the next pass.
 #[derive(Debug)]
-pub enum SignalClaim { Intent(Box<Intent>), Blocked, Stopped, Disabled, Gone, Changed, CredentialsChanged }
+pub enum SignalClaim { Intent(Box<Intent>), Blocked, Stopped, Disabled, Gone, Changed, CredentialsChanged, Locked }
 
 /// A signal bot's intent (plan 8a §R4, §R10): `run: None`, `source: "signal"`. In its own immediate transaction:
 /// - the barrier (engine::signal::blocked: Rails' unresolved marker or an unresolved intent) stands → `Blocked`;
@@ -345,6 +350,12 @@ pub fn begin_signal(c: &Connection, sized_from: &Bot, plan: &OrderPlan, call: Op
             super::signal::consume(&tx, current.id, call, Some("signal_ignored"), now)?;
             tx.commit()?;
             return Ok(refused);
+        }
+        // #checked_amount_info's re-read (the one more attempt after a safe rejection places at once, without it).
+        if super::signal::locked_buy(&tx, &current, &plan.ticker, plan.side, now)? {
+            super::signal::consume(&tx, current.id, call, None, now)?;
+            tx.commit()?;
+            return Ok(SignalClaim::Locked);
         }
     }
     if (current.exchange_id, &current.settings) != (sized_from.exchange_id, &sized_from.settings) {

@@ -91,7 +91,7 @@ fn every_recorded_rails_composition_is_reproduced() {
             Ok(json!([symbol_of(&ids, r.get(0)?), target.map(|t| t.to_s_f()), r.get::<_, Option<bool>>(2)?]))
         }).unwrap().map(Result::unwrap).collect();
         assert_eq!(Value::Array(rows), case["index_rows"], "case {i} rows: {case}");
-        let members: Vec<Value> = basket::members(&o.primary, &model::load_bot(&o.primary, id).unwrap()).unwrap().into_iter()
+        let members: Vec<Value> = basket::members(&o.primary, &model::load_bot(&o.primary, id).unwrap(), &[]).unwrap().into_iter()
             .map(|m| json!([symbol_of(&ids, m.asset_id), format!("{:016x}", m.weight.to_bits())])).collect();
         assert_eq!(Value::Array(members), case["members"], "case {i} members: {case}");
     }
@@ -149,7 +149,7 @@ fn every_recorded_rails_split_is_reproduced() {
         let bot = model::load_bot(&o.primary, id).unwrap();
         basket::refresh_composition(&o.primary, &bot, at("2026-09-01T10:00:00Z")).unwrap().expect("the save derives");
         let side = if case["limit"] == true { "last" } else { "ask" };
-        let priced: Vec<basket::Priced> = basket::members(&o.primary, &bot).unwrap().into_iter().map(|m| {
+        let priced: Vec<basket::Priced> = basket::members(&o.primary, &bot, &[]).unwrap().into_iter().map(|m| {
             let reference = bd(case["prices"][&m.ticker.base_code][side].as_str().unwrap());
             let price = amount::order_price(&bot, &m.ticker, &reference, &deltabadger::engine::venue_rules::KRAKEN).unwrap();
             basket::Priced { member: m, reference, price }

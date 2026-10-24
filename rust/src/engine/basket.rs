@@ -205,15 +205,19 @@ fn save_member(c: &Connection, bot_id: i64, asset_id: i64, ticker_id: i64, weigh
 #[derive(Clone, Debug)]
 pub struct Member { pub asset_id: i64, pub ticker: Ticker, pub weight: f64 }
 
-/// Bot::Composition::Allocatable#buyable_allocations with no wash-sale lock (refused by eligibility): the in_index rows by
-/// target_allocation DESC, ties by id (Rails' order is undefined there), re-weighted to `t / total` in BigDecimal only
-/// when the total is positive and not exactly 1 (thirds stored as 0.333333 are), then `.to_f` (order_setter.rb:406).
-pub fn members(c: &Connection, bot: &Bot) -> Result<Vec<Member>, EngineError> {
+/// Bot::Composition::Allocatable#buyable_allocations: the in_index rows by target_allocation DESC, ties by id (Rails' order
+/// is undefined there), less the `locked` assets (engine::wash::locked; a sell passes none), re-weighted to `t / total` in
+/// BigDecimal only when the total is positive and not exactly 1 (thirds stored as 0.333333 are), then `.to_f`
+/// (order_setter.rb:406).
+pub fn members(c: &Connection, bot: &Bot, locked: &[i64]) -> Result<Vec<Member>, EngineError> {
     let mut s = c.prepare("SELECT asset_id, ticker_id, target_allocation FROM bot_index_assets WHERE bot_id = ?1 AND in_index = 1 ORDER BY target_allocation DESC, id")?;
     let rows = s.query_map([bot.id], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?, target_from_sql(r.get_ref(2)?))))?
         .collect::<Result<Vec<_>, _>>()?;
     let mut weights = vec![];
-    for (asset_id, ticker_id, target) in rows { weights.push((asset_id, ticker_id, target?.unwrap_or_else(BigDec::zero))); }
+    for (asset_id, ticker_id, target) in rows {
+        if locked.contains(&asset_id) { continue; }
+        weights.push((asset_id, ticker_id, target?.unwrap_or_else(BigDec::zero)));
+    }
     let total = weights.iter().fold(BigDec::zero(), |acc, (_, _, t)| &acc + t);
     let renormalise = total.is_positive() && total != BigDec::one();
     let mut out = vec![];

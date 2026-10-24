@@ -140,6 +140,12 @@ fn key_pending(c: &Connection, bot: &Bot) -> Result<bool, EngineError> {
 async fn execute<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, rule: &SignalRule, ticker: &model::Ticker, call: &SignalCall, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<Step, EngineError> {
     let side = rule.side;
     let version = &cx.credential_version;
+    // #buy_locked?, before anything reads the venue: the call is consumed with no line and nothing recorded.
+    if locked_buy(c, bot, ticker, side, clock.now())? {
+        let now = clock.now();
+        model::locked(c, |tx| consume(tx, bot.id, call, None, now))?;
+        return Ok(Step::Ran);
+    }
     // #signal_order_data: every read retried in place; what still fails is a failed row.
     let price = match retrying(venue, || super::tick::market_price_read(venue, bot, ticker, side, clock, cx)).await? {
         Ok(p) => p,
@@ -172,6 +178,13 @@ async fn execute<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, ru
         return Ok(Step::Ran);
     }
     place(c, venue, bot, &plan, call, clock, cx).await
+}
+
+/// Bots::Signal::OrderSetter#buy_locked?: a buy of an asset the account has locked, with its log line.
+pub(crate) fn locked_buy(c: &Connection, bot: &Bot, ticker: &model::Ticker, side: Side, now: DateTime<Utc>) -> Result<bool, EngineError> {
+    if side != Side::Buy || !super::wash::locked(c, bot.user_id, &super::FixedClock(now))?.contains(&ticker.base_asset_id) { return Ok(false); }
+    super::log(&format!("execute_signal bot={} event=order_wash_sale_locked base={}", bot.id, ticker.base_code));
+    Ok(true)
 }
 
 /// Exchange#with_transient_retry: an idempotent read tried up to 3 times, 0.5 s × n apart, while it fails transiently (a
@@ -235,7 +248,7 @@ async fn place<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, plan
     loop {
         let intent = match placement::begin_signal(c, bot, plan, call, &cx.credential_version, venue.placement_identity(), clock)? {
             SignalClaim::Intent(intent) => intent,
-            SignalClaim::Stopped | SignalClaim::Disabled => return Ok(Step::Ran),
+            SignalClaim::Stopped | SignalClaim::Disabled | SignalClaim::Locked => return Ok(Step::Ran),
             // The barrier rose between the check and the claim (it cannot in one loop, but the claim decides).
             SignalClaim::Blocked => return Ok(match call { Some(call) => Step::Waiting(expires_at(call)), None => Step::Ran }),
             SignalClaim::Gone | SignalClaim::Changed | SignalClaim::CredentialsChanged => return Ok(if call.is_some() { Step::Again } else { Step::Ran }),

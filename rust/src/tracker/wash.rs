@@ -58,7 +58,7 @@ pub fn confirm_all(c: &Connection, user_id: i64, (days, targets): &(u64, Vec<(i6
     }
     for (asset_id, on) in targets {
         crate::figures::budget::charge(1, 0)?;
-        confirm(c, user_id, &mut locks, *asset_id, *on, *days, now)?;
+        confirm(c, user_id, &mut locks, *asset_id, *on, *days, "ledger", now)?;
     }
     Ok(())
 }
@@ -68,9 +68,12 @@ pub fn arm(c: &Connection, user_id: i64, loss_sales: &[(String, NaiveDate)], now
     confirm_all(c, user_id, &targets(c, user_id, loss_sales)?, now)
 }
 
-/// `WashSaleLock.confirm!(user:, asset_id:, from:, source: 'ledger')`: the deadline is the start of the day `days + 1`
-/// after the sale; both deadlines are raised to it, never lowered.
-fn confirm(c: &Connection, user_id: i64, locks: &mut HashMap<i64, i64>, asset_id: i64, on: NaiveDate, days: u64, now: DateTime<Utc>) -> Result<(), FiguresError> {
+/// `WashSaleLock.confirm!(user:, asset_id:, from:, source:)`: the deadline is the start of the day `days + 1` after the
+/// sale; both deadlines are raised to it, never lowered, and the claim token is left alone. `locks` is the user's rows by
+/// asset (a missing row is created and added). True when the effective deadline moved (`was.nil? || deadline > was`),
+/// which the fill path logs; the ledger ignores it.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn confirm(c: &Connection, user_id: i64, locks: &mut HashMap<i64, i64>, asset_id: i64, on: NaiveDate, days: u64, source: &str, now: DateTime<Utc>) -> Result<bool, FiguresError> {
     let deadline = on.checked_add_days(Days::new(days + 1)).and_then(|d| d.and_hms_opt(0, 0, 0)).map(|t| format_time(t.and_utc()))
         .ok_or_else(|| FiguresError::Data("a deadline out of range".into()))?;
     let id = match locks.get(&asset_id) {
@@ -83,9 +86,10 @@ fn confirm(c: &Connection, user_id: i64, locks: &mut HashMap<i64, i64>, asset_id
             id
         }
     };
+    let was: Option<String> = c.query_row("SELECT buy_locked_until FROM wash_sale_locks WHERE id = ?1", [id], |r| r.get(0))?;
     c.execute("UPDATE wash_sale_locks SET confirmed_locked_until = COALESCE(MAX(confirmed_locked_until, ?1), ?1), \
-               buy_locked_until = COALESCE(MAX(buy_locked_until, ?1), ?1), source = 'ledger' WHERE id = ?2", rusqlite::params![deadline, id])?;
-    Ok(())
+               buy_locked_until = COALESCE(MAX(buy_locked_until, ?1), ?1), source = ?2 WHERE id = ?3", rusqlite::params![deadline, source, id])?;
+    Ok(was.is_none_or(|was| deadline > was))
 }
 
 #[cfg(test)]
