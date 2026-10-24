@@ -867,3 +867,18 @@ async fn a_crypto_rebalancer_is_admitted_mid_swap_and_handed_back_as_rails_left_
         assert!(eligibility::check_install(&o.primary).unwrap().problems.iter().any(|p| p.contains("ambiguous")), "{venue}");
     }
 }
+
+/// PLAN-wash-sale WS-1: a locked member sits out of the targets, the denominator and the drift (#rebalance_targets), so
+/// the overweight BTC is not sold while ETH is locked; with the rule off the same row is inert.
+#[tokio::test(flavor = "current_thread")]
+async fn a_locked_member_sits_out_of_the_rebalance_targets() {
+    let (_d, o, id, _, eth) = swap_bot(stopped());
+    o.primary.execute("UPDATE users SET wash_sale_enabled = 1", []).unwrap();
+    o.primary.execute("INSERT INTO wash_sale_locks (asset_id, user_id, buy_locked_until, created_at, updated_at) \
+                       SELECT ?1, id, '2026-10-01 00:00:00', '2026-09-01 00:00:00', '2026-09-01 00:00:00' FROM users", [eth]).unwrap();
+    let t = script(json!({}));
+    assert_eq!(evaluate(&o, &t, id, at(T0)).await, Outcome::Skipped("not_due"), "BTC alone is on target");
+    assert!(posted(&t).is_empty());
+    o.primary.execute("UPDATE users SET wash_sale_enabled = 0", []).unwrap();
+    assert!(matches!(evaluate(&o, &t, id, at(T0)).await, Outcome::Placed(_)));
+}

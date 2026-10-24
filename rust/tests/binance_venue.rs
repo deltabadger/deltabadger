@@ -5,7 +5,7 @@ use deltabadger::venue::alpaca::LiveFactory;
 use deltabadger::venue::binance::{BinanceVenue, URL};
 use std::io::{BufRead, BufReader};
 
-fn credentials() -> Credentials { Credentials { key: "binance-key".into(), secret: "binance-secret".into(), passphrase: None, redaction_values: vec![] } }
+fn credentials() -> Credentials { Credentials { ibkr: None, key: "binance-key".into(), secret: "binance-secret".into(), passphrase: None, redaction_values: vec![] } }
 
 #[tokio::test(flavor = "current_thread")]
 async fn every_read_goes_to_the_configured_proxy() {

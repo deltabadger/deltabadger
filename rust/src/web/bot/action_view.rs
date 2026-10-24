@@ -49,11 +49,12 @@ pub(super) fn settings_response(c: &Connection, ctx: &Ctx, draft: &Draft) -> Res
 }
 
 /// DcaMultiAsset#broadcast_metrics_panel, called only after the settings transaction commits; computed off the request.
-pub(super) fn broadcast_settings_metrics(ctx: &Ctx, bot: &Bot) {
+/// `metrics` false: only the rebalance rule's drift readout is owed (D-REB-DRIFT-LATE).
+pub(super) fn broadcast_settings_metrics(ctx: &Ctx, bot: &Bot, metrics: bool) {
     let Some(owner) = ctx.user() else { return };
     let mut heard = super::live::owner_ctx(&ctx.app, owner.clone());
     heard.now = ctx.now;
-    if let Err(error) = crate::web::figure::loading::broadcast_metrics_panel(&heard, bot.id, page::page_stream(bot)) {
+    if let Err(error) = crate::web::figure::loading::broadcast_metrics_panel(&heard, bot.id, page::page_stream(bot), metrics) {
         // An after-commit failure must not turn a saved setting into a failed write.
         crate::engine::log(&format!("[web] settings metrics panel could not be rendered: {error:?}"));
     }

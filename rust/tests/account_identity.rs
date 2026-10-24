@@ -469,7 +469,7 @@ fn kucoins_uid_is_its_exports_uid_and_binances_is_its_exports_user_id() {
     assert!(identity::export_account_id(&csv::Table::parse(&masked).unwrap(), &identity::KUCOIN_EXPORT_COLUMNS).is_err(), "a masked UID is a malformed export");
 }
 
-fn kucoin_credentials() -> Credentials { Credentials { key: "kc-identity-key".into(), secret: "kc-secret".into(), passphrase: Some("kc-phrase".into()), redaction_values: vec![] } }
+fn kucoin_credentials() -> Credentials { Credentials { ibkr: None, key: "kc-identity-key".into(), secret: "kc-secret".into(), passphrase: Some("kc-phrase".into()), redaction_values: vec![] } }
 
 /// The production transport: KuCoin's answer echoes the key, which the transport scrubs from the whole body, and the id is
 /// still read; error and malformed answers come to a failure that holds no id, and the logged line holds none either.
@@ -523,7 +523,7 @@ async fn key_checks_read_the_identity_of_a_correct_key_only() {
     assert!(matches!(validity, Validity::Correct) && observed == Some(read(A)));
     let (validity, observed) = check(KUCOIN, Credentials { key: "kc-wrong".into(), ..kucoin_credentials() }).await;
     assert!(matches!(validity, Validity::Incorrect) && observed.is_none(), "an incorrect key is not read");
-    let binance = Credentials { key: "bn-key".into(), secret: "bn-secret".into(), passphrase: None, redaction_values: vec![] };
+    let binance = Credentials { ibkr: None, key: "bn-key".into(), secret: "bn-secret".into(), passphrase: None, redaction_values: vec![] };
     let (validity, observed) = check(BINANCE, binance.clone()).await;
     assert!(matches!(validity, Validity::Correct) && observed == Some(read("354937868")));
     let (validity, observed) = check(BINANCE_US, binance).await;

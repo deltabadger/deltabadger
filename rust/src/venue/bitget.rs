@@ -241,7 +241,7 @@ impl<T: Transport> BitgetVenue<T> {
     /// (#order_gone?). An error envelope is honeymaker's api_error text; a list's first order is the order.
     async fn order_info(&self, query: Vec<(&'static str, String)>) -> Result<Option<Value>, VenueError> {
         let body = match self.get(ORDER_INFO_PATH, query).await {
-            Err(VenueError::Rejected(m) | VenueError::Unauthorized(m)) if gone(&m) => return Ok(None),
+            Err(VenueError::Rejected(m) | VenueError::Unauthorized(m) | VenueError::Coded { errors: m, .. }) if gone(&m) => return Ok(None),
             other => other?,
         };
         if !ok(&body) {

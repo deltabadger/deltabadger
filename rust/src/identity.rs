@@ -469,7 +469,7 @@ mod tests {
         assert_eq!(key.fingerprint(KUCOIN, &id).len(), 32);
         assert_ne!(key.fingerprint(KUCOIN, &id), key.fingerprint(BINANCE, &id), "one id on two venues is two accounts");
         assert_ne!(key.fingerprint(KUCOIN, &id), IdentityKey([8; 32]).fingerprint(KUCOIN, &id), "another install, another fingerprint");
-        let c = Credentials { key: "k".into(), secret: "s".into(), passphrase: None, redaction_values: vec![] };
+        let c = Credentials { key: "k".into(), secret: "s".into(), passphrase: None, redaction_values: vec![], ibkr: None };
         assert_ne!(key.material_digest(&c), key.mac("deltabadger-account-fingerprint-v1", &["k", "s", ""]), "the two derivations never meet");
         // Field boundaries are part of the material: "ab"+"c" is not "a"+"bc".
         let shifted = Credentials { key: "ks".into(), secret: "".into(), ..c.clone() };

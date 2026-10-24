@@ -273,7 +273,8 @@ pub async fn show(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path(s
             if metrics.is_none() { metrics = Some(super::signal::loading_metrics(c, ctx, &bot, hide_money)?); }
             super::signal::column(ctx, csrf, &bot, hide_money, &base_url)?
         } else {
-            settings::column(c, &settings::Forms { ctx, csrf, bot: &bot, path: path.clone(), hide_balances: hide_money, time_zone: &user.time_zone, check: status.check.as_ref() })?
+            let rebalance_info = figures.as_ref().and_then(|v|v["bots"][bot.id.to_string()]["rebalance_info"].as_str());
+            settings::column(c, &settings::Forms { ctx, csrf, bot: &bot, path: path.clone(), hide_balances: hide_money, time_zone: &user.time_zone, check: status.check.as_ref(), rebalance_info })?
         };
         let activities = c.query_row("SELECT EXISTS(SELECT 1 FROM bot_activity_logs WHERE bot_id = ?1 AND event NOT IN ('order_skipped', 'order_ignored'))", [bot.id], |r| r.get::<_, bool>(0))?;
         // D-PENDING-MARKET-HIDDEN: a market order still pending is no row of the log (orders::PENDING_MARKET).

@@ -75,6 +75,7 @@ pub mod index;
 pub mod accounting;
 pub mod rebalance;
 pub mod signal;
+pub mod wash;
 
 pub mod reversal;
 pub mod conditions;

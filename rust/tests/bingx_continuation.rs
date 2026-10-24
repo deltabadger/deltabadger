@@ -19,7 +19,7 @@ fn now_ms() -> i64 {
         .timestamp_millis()
 }
 fn creds() -> Credentials {
-    Credentials {
+    Credentials { ibkr: None,
         redaction_values: vec![],
         key: "PKTEST".into(),
         secret: "paper-secret".into(),

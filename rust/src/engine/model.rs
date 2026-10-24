@@ -210,6 +210,7 @@ impl Bot {
     /// Bot::QuoteAmountLimitable#quote_amount_limited?: `== true`.
     /// Bot::Reversible#selling?: `direction` reads "buying" when absent or blank.
     pub fn selling(&self) -> bool { self.settings.get("direction").and_then(Value::as_str) == Some("selling") }
+    pub fn conditions_apply(&self) -> bool { conditions_apply(&self.bot_type) }
     /// What a selling bot's tick sells (Bots::DcaMultiAsset#execute_action while selling): `Some(base)` for "sell N base"
     /// (Bot::Reversible#sell_base_amount_per_tick: the Smart Intervals split while it applies, else sell_amount, else 0), or
     /// `None` and the quote to sell for ("sell for N quote": sell_quote_amount, else 0). Never the frozen buy carry.
@@ -331,11 +332,12 @@ impl Bot {
     pub fn condition_started_us(&self) -> Result<Option<i64>, EngineError> {
         let settings = self.settings.as_object().cloned().unwrap_or_default();
         let transient = self.transient.as_object().cloned().unwrap_or_default();
-        super::accounting::condition_started_at(&settings, &transient, self.started_at_us()?)
+        super::accounting::condition_started_at(self.conditions_apply(), &settings, &transient, self.started_at_us()?)
     }
     /// The active side's price rule (Bot::PriceLimitable#active_price_limited?), None when it is off. Err: a stored value
     /// Rails would raise on (eligibility refuses it).
     pub fn price_rule(&self, selling: bool) -> Result<Option<PriceRule>, String> {
+        if !self.conditions_apply() { return Ok(None); }
         let prefix = if selling { "sell_price_limit" } else { "price_limit" };
         let get = |k: &str| self.settings.get(format!("{prefix}{k}").as_str()).filter(|v| !v.is_null());
         if get("ed") != Some(&Value::Bool(true)) { return Ok(None); }
@@ -377,6 +379,13 @@ impl Bot {
 }
 
 pub const SIGNAL_TYPE: &str = "Bots::Signal";
+/// Only Bots::DcaMultiAsset and the legacy Bots::DcaSingleAsset include the trigger rule concerns (PriceLimitable,
+/// PriceDropLimitable, MovingAverageLimitable, IndicatorLimitable): on any other class (index, signal) a stored `*_limited` flag or `*_condition_met_at` is inert — no gate, no
+/// started_at decoration, no carry effect, no pause, no admission difference (dca_index.rb:56-58). Every reader asks this.
+pub fn conditions_apply(bot_type: &str) -> bool { matches!(bot_type, "Bots::DcaMultiAsset" | "Bots::DcaSingleAsset") }
+/// The trigger rules' switches, both sides.
+pub const CONDITION_FLAGS: [&str; 8] = ["price_limited", "price_drop_limited", "moving_average_limited", "indicator_limited",
+    "sell_price_limited", "sell_price_drop_limited", "sell_moving_average_limited", "sell_indicator_limited"];
 /// A Rust-only key (outside the parity snapshots, written with json_set, updated_at left alone, like rust_placement).
 pub const SIGNAL_CALLS_KEY: &str = "rust_signal_calls";
 
@@ -481,7 +490,7 @@ pub fn condition_paused(c: &Connection, bot: &Bot) -> Result<Option<String>, Eng
 
 /// A bot resting on a price condition: `waiting`, paused by its price rule (the only one this engine runs).
 pub fn price_paused(c: &Connection, bot: &Bot) -> Result<bool, EngineError> {
-    Ok(bot.status == BotStatus::Waiting && condition_paused(c, bot)?.as_deref() == Some("price"))
+    Ok(bot.conditions_apply() && bot.status == BotStatus::Waiting && condition_paused(c, bot)?.as_deref() == Some("price"))
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -764,7 +773,19 @@ pub fn credentials_with_redaction(c:&Connection,cipher:&Cipher,bot:&Bot)->Result
     // ApiKey#passphrase where the venue's client takes it: KuCoin signs with it, Alpaca reads its mode from it. Others never
     // read the field, so an unreadable leftover there does not stop their key.
     let passphrase = if exchange_type.as_deref().and_then(crate::venue::registry::row).is_some_and(|r| r.passphrase) {open(&columns[2])?} else {None};
-    let credentials = match (open(&columns[0])?,open(&columns[1])?) { (Some(key),Some(secret))=>Some(Credentials { redaction_values:vec![],key,secret,passphrase}), _=>None };
+    let credentials = match (open(&columns[0])?,open(&columns[1])?) { (Some(key),Some(secret))=>Some(Credentials { redaction_values:vec![],key,secret,passphrase,ibkr:None}), _=>None };
+    // Session#initialize's reads: access_token, the two RSA keys and the DH params, and ibkr_realm (stored plain).
+    let credentials = match credentials {
+        Some(mut cr) if exchange_type.as_deref()==Some(crate::venue::ibkr::IBKR) => {
+            if let [Some(access_token),Some(signature_key),Some(encryption_key),Some(dh_param)] = [open(&columns[3])?,open(&columns[4])?,open(&columns[5])?,open(&columns[6])?] {
+                let realm:Option<String>=c.query_row("SELECT ibkr_realm FROM api_keys WHERE id=?1",[id],|r|r.get(0))?;
+                cr.ibkr=Some(Box::new(crate::venue::signers::ibkr::Material{consumer_key:cr.key.clone(),access_token,access_token_secret:cr.secret.clone(),
+                    signature_key,encryption_key,dh_param,realm:realm.unwrap_or_default()}));
+            }
+            Some(cr)
+        }
+        other => other,
+    };
     let mut sensitive=Vec::new();
     for value in columns.iter().flatten() {
         // An unused unreadable field remains unavailable; its stored envelope is still redacted.

@@ -140,6 +140,12 @@ fn key_pending(c: &Connection, bot: &Bot) -> Result<bool, EngineError> {
 async fn execute<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, rule: &SignalRule, ticker: &model::Ticker, call: &SignalCall, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<Step, EngineError> {
     let side = rule.side;
     let version = &cx.credential_version;
+    // #buy_locked?, before anything reads the venue: the call is consumed with no line and nothing recorded.
+    if locked_buy(c, bot, ticker, side, clock.now())? {
+        let now = clock.now();
+        model::locked(c, |tx| consume(tx, bot.id, call, None, now))?;
+        return Ok(Step::Ran);
+    }
     // #signal_order_data: every read retried in place; what still fails is a failed row.
     let price = match retrying(venue, || super::tick::market_price_read(venue, bot, ticker, side, clock, cx)).await? {
         Ok(p) => p,
@@ -174,6 +180,13 @@ async fn execute<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, ru
     place(c, venue, bot, &plan, call, clock, cx).await
 }
 
+/// Bots::Signal::OrderSetter#buy_locked?: a buy of an asset the account has locked, with its log line.
+pub(crate) fn locked_buy(c: &Connection, bot: &Bot, ticker: &model::Ticker, side: Side, now: DateTime<Utc>) -> Result<bool, EngineError> {
+    if side != Side::Buy || !super::wash::locked(c, bot.user_id, &super::FixedClock(now))?.contains(&ticker.base_asset_id) { return Ok(false); }
+    super::log(&format!("execute_signal bot={} event=order_wash_sale_locked base={}", bot.id, ticker.base_code));
+    Ok(true)
+}
+
 /// Exchange#with_transient_retry: an idempotent read tried up to 3 times, 0.5 s × n apart, while it fails transiently (a
 /// transport failure, or a venue's transient text). READS ONLY.
 async fn retrying<T, F, Fut>(venue: &impl Venue, read: F) -> Result<Result<T, VenueError>, EngineError>
@@ -184,7 +197,7 @@ where F: Fn() -> Fut, Fut: std::future::Future<Output = Result<Result<T, VenueEr
         let result = read().await?;
         let transient = match &result {
             Err(VenueError::Transient(_)) => true,
-            Err(VenueError::Rejected(e) | VenueError::Unauthorized(e)) => venue.rules().is_transient(e),
+            Err(VenueError::Rejected(e) | VenueError::Unauthorized(e) | VenueError::Coded { errors: e, .. }) => venue.rules().is_transient(e),
             _ => false,
         };
         if !(transient && tries < 3) { return Ok(result); }
@@ -194,7 +207,7 @@ where F: Fn() -> Fut, Fut: std::future::Future<Output = Result<Result<T, VenueEr
 
 /// A read's failure as Rails raises it into the row: `result.errors.to_sentence`, or the transport's own message.
 fn message(e: VenueError) -> String {
-    match e { VenueError::Rejected(e) | VenueError::Unauthorized(e) => to_sentence(&e), VenueError::Transient(m) | VenueError::Ambiguous(m) => m }
+    match e { VenueError::Rejected(e) | VenueError::Unauthorized(e) | VenueError::Coded { errors: e, .. } => to_sentence(&e), VenueError::Transient(m) | VenueError::Ambiguous(m) => m }
 }
 
 /// #signal_size: (base, quote). A buy spends the rule's quote, or its percentage of the spendable quote (`held`); a sell is
@@ -235,7 +248,7 @@ async fn place<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, plan
     loop {
         let intent = match placement::begin_signal(c, bot, plan, call, &cx.credential_version, venue.placement_identity(), clock)? {
             SignalClaim::Intent(intent) => intent,
-            SignalClaim::Stopped | SignalClaim::Disabled => return Ok(Step::Ran),
+            SignalClaim::Stopped | SignalClaim::Disabled | SignalClaim::Locked => return Ok(Step::Ran),
             // The barrier rose between the check and the claim (it cannot in one loop, but the claim decides).
             SignalClaim::Blocked => return Ok(match call { Some(call) => Step::Waiting(expires_at(call)), None => Step::Ran }),
             SignalClaim::Gone | SignalClaim::Changed | SignalClaim::CredentialsChanged => return Ok(if call.is_some() { Step::Again } else { Step::Ran }),
@@ -256,7 +269,8 @@ async fn place<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, plan
             }
             // Signed-timestamp rejections never reached the book: nothing to record; the one more attempt follows.
             Sent::Rejected(errors) if first && placement::safe_rejection(errors) => { placement::set_intent(&tx, bot.id, None)?; }
-            Sent::Rejected(errors) => { fail_sized(&tx, bot, &intent, errors.clone(), &cx.credential_version, now)?; }
+            // A signal order is outside D-BELOW-MIN-REJECTION (placement::skips_below_minimum): never BelowMinimum, read as Rejected.
+            Sent::Rejected(errors) | Sent::BelowMinimum(errors) => { fail_sized(&tx, bot, &intent, errors.clone(), &cx.credential_version, now)?; }
             Sent::NotSent(m) => { fail_sized(&tx, bot, &intent, vec![m.clone()], &cx.credential_version, now)?; }
             Sent::Ambiguous(m) => {
                 // The marker first: it stops the next call from placing on top of this one. The intent stays for recovery.

@@ -126,7 +126,8 @@ async fn r1_real_ticks_floor_at_the_wire_and_skip_below_minimum(){
     use deltabadger::engine::tick;
     for (cap,spent,want) in [(json!(60.03),"60.02",None),(json!(100),"99.99",Some("0.01")),(json!(100),"99.985",Some("0.01"))]{
         let (_d,o,_s,id)=setup(cap,spent);
-        o.primary.execute("UPDATE tickers SET minimum_quote_size=0.01",[]).unwrap();
+        // The cap's quote floor is under test; the base floor is lowered so a 0.01 USD notional clears it (D-ALPACA-BASE-FLOOR).
+        o.primary.execute("UPDATE tickers SET minimum_quote_size=0.01, minimum_base_size='0.000000001'",[]).unwrap();
         let bot=model::load_bot(&o.primary,id).unwrap();
         let exact=amount::exact_cap_available(&o.primary,&bot).unwrap().unwrap();
         let t=script(json!({}));
@@ -222,7 +223,8 @@ async fn r2_reduced_below_minimum_records_rails_row_activity_and_notice(){
 fn r2_guard_preserves_safe_plan_and_persists_reduced_quantity(){
     use deltabadger::engine::venue_rules::{ALPACA,WireFormat};
     let vectors=r2_vectors();
-    for case in vectors["cases"].as_array().unwrap().iter().take(2) {
+    // minimum_unchanged is D-ALPACA-BASE-FLOOR's serialized-order check (r2_unchanged_minimum_is_skipped_as_sent).
+    for case in vectors["cases"].as_array().unwrap().iter().take(2).filter(|c|c["name"]!="minimum_unchanged") {
         let (_d,o,_s,id)=r2_setup(case);let bot=model::load_bot(&o.primary,id).unwrap();
         let ticker=model::ticker_for(&o.primary,&bot).unwrap().unwrap();
         let amount::Sizing::Place(plan)=amount::size(&bot,&ticker,&bd(case["pending"].as_str().unwrap()),&bd(case["price"].as_str().unwrap()),&ALPACA).unwrap()else{panic!("place")};
@@ -248,7 +250,21 @@ fn r2_recorded_sources_match(){
 #[tokio::test(flavor="current_thread")]
 async fn r2_exact_cost_matches_recorded_wire(){r2_tick_case("exact_cost").await;}
 #[tokio::test(flavor="current_thread")]
-async fn r2_unchanged_minimum_matches_rails_wire(){r2_tick_case("minimum_unchanged").await;}
+async fn r2_unchanged_minimum_is_skipped_as_sent(){
+    // D-ALPACA-BASE-FLOOR: 1 USD at 3 sends qty 0.333333333, worth 0.999999999, under the 1 USD floor. Rails checks the
+    // floored budget and sends it (the recorded rails_wire); Rust checks the order as sent and skips it.
+    use common::scripted::{script,venue,ok};
+    let vectors=r2_vectors();
+    let case=vectors["cases"].as_array().unwrap().iter().find(|c|c["name"]=="minimum_unchanged").unwrap();
+    assert!(case["rails_wire"].is_object(),"Rails sends it");
+    let (_d,o,_s,id)=r2_setup(case);
+    let t=script(json!({"GET /v1beta3/crypto/us/latest/trades":[ok(json!({"trades":{"AAA/USD":{"p":case["price"]}}}))]}));
+    deltabadger::engine::tick::tick(&o.primary,&venue(&t),id,&FixedClock(now()),&mut Default::default()).await.unwrap();
+    assert!(t.posted_orders().is_empty(),"nothing sent");
+    let skipped:i64=o.primary.query_row("SELECT count(*) FROM transactions WHERE bot_id=?1 AND status=2",[id],|r|r.get(0)).unwrap();
+    assert_eq!(skipped,1,"one skipped row");
+    assert!(model::load_bot(&o.primary,id).unwrap().rust_placement().is_none());
+}
 #[test]
 fn r2_guard_refuses_when_four_increments_cannot_converge(){
     use deltabadger::engine::venue_rules::ALPACA;

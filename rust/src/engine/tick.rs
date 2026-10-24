@@ -573,7 +573,7 @@ async fn price_gate<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &mode
         Evaluated::Failed(VenueError::Unauthorized(e)) => {
             Gated::Fail(Fail::General { message: format!("{} rejected the API key: {}", rules.name, to_sentence(&e)), errors: vec![], failed_row: false })
         }
-        Evaluated::Failed(VenueError::Rejected(e)) if rules.failure_kind(&e) == Some("invalid_key") => {
+        Evaluated::Failed(VenueError::Rejected(e) | VenueError::Coded { errors: e, .. }) if rules.failure_kind(&e) == Some("invalid_key") => {
             Gated::Fail(Fail::General { message: format!("{} rejected the API key: {}", rules.name, to_sentence(&e)), errors: vec![], failed_row: false })
         }
         Evaluated::Failed(VenueError::Transient(m)) if rules.transport_raises => Gated::Fail(Fail::Transient(m)),
@@ -606,7 +606,7 @@ async fn fundable<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model:
             return Ok(Err(if placed { Fail::TransientAfterPlacement } else { Fail::Transient(m) }));
         }
         // honeymaker's with_rescue turns a network failure into a Failure result: "not low", the tick succeeds.
-        Err(VenueError::Rejected(_) | VenueError::Unauthorized(_) | VenueError::Transient(_)) => {}
+        Err(VenueError::Rejected(_) | VenueError::Unauthorized(_) | VenueError::Coded { errors: _, .. } | VenueError::Transient(_)) => {}
         // An unreadable body raises a plain StandardError in Rails: execution_failed, no retry.
         Err(VenueError::Ambiguous(m)) => return Ok(Err(Fail::General { errors: vec![m.clone()], message: m, failed_row: false })),
     }
@@ -655,8 +655,15 @@ fn unclaim(c: &Connection, bot: &mut model::Bot, claimed: Claimed, stale: stalen
 #[allow(clippy::too_many_arguments)]
 async fn buy<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot, x: &BigDec, clock: &dyn Clock, cx: &TickContext<'_>, legs: &mut Legs, reconciled: &splits::Snapshot) -> Result<Result<(), Fail>, EngineError> {
     let composition = placement::composition_snapshot(c, bot)?;
-    let members = basket::members(c, bot)?;
+    let locked = super::wash::locked(c, bot.user_id, clock)?;
+    let members = basket::members(c, bot, &locked)?;
     if members.is_empty() {
+        let any: bool = !locked.is_empty() && c.query_row("SELECT EXISTS (SELECT 1 FROM bot_index_assets WHERE bot_id = ?1 AND in_index = 1)", [bot.id], |r| r.get(0))?;
+        if any {
+            // Every member sits out a wash-sale window: nothing to buy is no failure, and the contribution stays owed.
+            super::log(&format!("[engine] bot {}: get_orders_data composition event=all_members_wash_sale_locked", bot.id));
+            return Ok(Ok(()));
+        }
         let m = "No assets in composition".to_string();
         return Ok(Err(Fail::General { errors: vec![m.clone()], message: m, failed_row: false }));
     }
@@ -729,6 +736,10 @@ async fn place<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bo
         placement::Begun::CredentialsChanged => return Ok(Placed::Failed(Fail::CredentialsChanged)),
         placement::Begun::BelowMinimum(skipped) => { legs.skipped.push(*skipped); return Ok(Placed::Next); }
         placement::Begun::LedgerStale(stale) => { legs.ledger_stale = Some(stale); return Ok(Placed::Stop); }
+        placement::Begun::WashSaleLocked => {
+            super::log(&format!("[engine] bot {}: set_orders composition event=order_wash_sale_locked base={}", bot.id, plan.ticker.base_code));
+            return Ok(Placed::Next);
+        }
     };
     Ok(match placement::send_recorded(c, venue, bot, &intent, clock).await? {
         Sent::Accepted(_) => { legs.placed = true; Placed::Next }
@@ -738,6 +749,9 @@ async fn place<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bo
             let m = to_sentence(&errs);
             Placed::Failed(if row { Fail::General { message: m, errors: errs, failed_row: true } } else { Fail::PlacementSafe(m) })
         }
+        // D-BELOW-MIN-REJECTION: the venue's own "too small" answer to a buy leg is the pre-check's skip (record_skipped): no
+        // commitment, so what it would have spent stays in pending_quote_amount for the next checkpoint, and the loop goes on.
+        Sent::BelowMinimum(_) => { legs.skipped.push(intent.plan.clone()); Placed::Next }
         Sent::Ambiguous(m) => Placed::Failed(Fail::Ambiguous(m)), // the intent stays; later legs wait for the next checkpoint
         // Nothing reached the venue. After a placed leg, Bot::ActionJob's already-placed guard refuses the replay
         // (action_job.rb:223-235); before one, retry_on replays the whole tick.
@@ -758,7 +772,7 @@ async fn reference<V: Venue + Attributed>(venue: &V, bot: &model::Bot, ticker: &
     match fetched {
         Ok(p) => Ok(p),
         // A zero book is the venue's own "Wrong … price" error, which the composition rescues into "No price for …".
-        Err(VenueError::Rejected(e) | VenueError::Unauthorized(e)) => Err(Fail::Transient(format!("No price for {named}: {}", to_sentence(&e)))),
+        Err(VenueError::Rejected(e) | VenueError::Unauthorized(e) | VenueError::Coded { errors: e, .. }) => Err(Fail::Transient(format!("No price for {named}: {}", to_sentence(&e)))),
         // An in-app client raises the transport failure itself (Client.network_failure); the composition re-raises it
         // unwrapped, so it reaches retry_on with its own message.
         Err(VenueError::Transient(m)) if venue.rules().transport_raises => Err(Fail::Transient(m)),
@@ -833,11 +847,11 @@ fn local_units(c: &Connection, bot: &model::Bot, asset_id: i64) -> Result<BigDec
 /// A failed live_free_balance as Bot::Rebalancer raises it: throttled, transient, else a plain error.
 fn balance_failure<V: Venue>(venue: &V, bot: &model::Bot, e: VenueError) -> Fail {
     match e {
-        VenueError::Rejected(e) | VenueError::Unauthorized(e) if venue.rules().is_throttle(&e) => Fail::RateLimited(to_sentence(&e)),
+        VenueError::Rejected(e) | VenueError::Unauthorized(e) | VenueError::Coded { errors: e, .. } if venue.rules().is_throttle(&e) => Fail::RateLimited(to_sentence(&e)),
         VenueError::Transient(m) => Fail::Transient(m),
         // Exchange#transient_failure?'s text rules (Kraken's HTTP-200 "EGeneral:Internal error").
-        VenueError::Rejected(e) | VenueError::Unauthorized(e) if venue.rules().is_transient(&e) => Fail::Transient(to_sentence(&e)),
-        VenueError::Rejected(e) | VenueError::Unauthorized(e) => {
+        VenueError::Rejected(e) | VenueError::Unauthorized(e) | VenueError::Coded { errors: e, .. } if venue.rules().is_transient(&e) => Fail::Transient(to_sentence(&e)),
+        VenueError::Rejected(e) | VenueError::Unauthorized(e) | VenueError::Coded { errors: e, .. } => {
             let m = format!("Failed to read balance for bot {}: {}", bot.id, to_sentence(&e));
             Fail::General { errors: vec![m.clone()], message: m, failed_row: false }
         }
@@ -859,7 +873,7 @@ async fn sell<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot
         // Bots::DcaMultiAsset#sell_denomination is 'quote' for a wider basket (sell_amounts reads it so): base is None here.
         return basket_sell(c, venue, bot, quote, &composition, clock, cx, legs, reconciled).await;
     }
-    let Some(member) = basket::members(c, bot)?.into_iter().next() else {
+    let Some(member) = basket::members(c, bot, &[])?.into_iter().next() else {
         let m = "No assets in composition".to_string();
         return Ok(Err(Fail::General { errors: vec![m.clone()], message: m, failed_row: false }));
     };
@@ -914,7 +928,7 @@ async fn sell<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot
 #[allow(clippy::too_many_arguments)]
 async fn basket_sell<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot, withdrawal: &BigDec, composition: &Value, clock: &dyn Clock, cx: &TickContext<'_>, legs: &mut Legs, reconciled: &splits::Snapshot) -> Result<Result<(), Fail>, EngineError> {
     let general = |m: String| Fail::General { errors: vec![m.clone()], message: m, failed_row: false };
-    let (walked, entries) = match super::rebalance::value(c, venue, bot, clock.now()).await? {
+    let (walked, entries) = match super::rebalance::value(c, venue, bot, clock.now(), &[]).await? {
         Ok(valued) => valued,
         Err(super::rebalance::ValueFail::Transient(m)) => return Ok(Err(Fail::Transient(m))),
         Err(super::rebalance::ValueFail::Raised(m)) => return Ok(Err(general(m))),

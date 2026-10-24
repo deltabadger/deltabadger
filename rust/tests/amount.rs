@@ -78,7 +78,11 @@ fn every_recorded_rails_sizing_is_reproduced() {
         assert_eq!(plan.price.to_s_f(), c["price"].as_str().unwrap(), "price {c}");
         assert_eq!(plan.amount.to_s_f(), c["amount"].as_str().unwrap(), "unrounded amount (Ruby's division) {c}");
         assert_eq!(plan.quote_type, c["amount_type"] == "quote", "amount_type {c}");
-        assert_eq!(below, c["below_minimum"].as_bool().unwrap(), "below_minimum {c}");
+        // D-KRAKEN-LIMIT-COSTMIN: Rails checks a limit buy against ordermin only; Rust also against costmin in base, rounded up.
+        let t = &c["ticker"];
+        let costmin_in_base = || bd(t["minimum_quote_size"].as_str().unwrap()).div(&plan.price).unwrap().ceil(t["base_decimals"].as_str().unwrap().parse().unwrap());
+        let under_costmin = c["order_type"] == "limit_order" && plan.volume < costmin_in_base();
+        assert_eq!(below, c["below_minimum"].as_bool().unwrap() || under_costmin, "below_minimum {c}");
         assert_eq!(plan.volume.to_s_f(), c["volume"].as_str().unwrap(), "volume {c}");
     }
 }
@@ -131,13 +135,24 @@ fn every_recorded_rails_alpaca_sizing_and_wire_is_reproduced() {
         assert_eq!(plan.amount.to_s_f(), c["amount"].as_str().unwrap(), "unrounded amount {c}");
         assert_eq!(c["amount_type"], "quote", "Alpaca sizes every buy in quote {c}");
         assert!(plan.quote_type, "{c}");
-        assert_eq!(below, c["below_minimum"].as_bool().unwrap(), "below_minimum (quote-only) {c}");
         // Exchange#limit_buy refuses a quantity under minimum_base_size (or zero): nothing reaches the wire.
         let refusal = plan.limit_refusal().unwrap();
         assert_eq!(refusal.as_deref(), c["refused"].as_str(), "refusal {c}");
-        if refusal.is_some() { refused += 1; continue; }
+        if refusal.is_some() {
+            refused += 1;
+            // D-ALPACA-BASE-FLOOR: Rust skips a qty under minimum_base_size before placement (Rails fails it there), except a
+            // zero qty with no base floor, which Rails' refusal still covers.
+            assert_eq!(below, c["below_minimum"].as_bool().unwrap() || !t.minimum_base_size.is_zero(), "below_minimum {c}");
+            continue;
+        }
         let order = plan.to_order("cl".into(), deadline, ALPACA.wire).unwrap();
         let w = &c["wire"];
+        // D-ALPACA-BASE-FLOOR: both floors against what is sent; Rails compares only the floored budget with the quote floor.
+        let sent_short = match &order.kind {
+            OrderKind::Limit { price } => bd(&order.volume).checked_mul(&bd(price)).unwrap() < t.minimum_quote_size,
+            _ => bd(&order.volume).div(&plan.price).unwrap() < t.minimum_base_size,
+        };
+        assert_eq!(below, c["below_minimum"].as_bool().unwrap() || sent_short, "below_minimum {c}");
         assert_eq!((w["symbol"].as_str(), w["side"].as_str(), w["time_in_force"].as_str()), (Some("BTC/USD"), Some("buy"), Some("gtc")), "{c}");
         assert_eq!(order.pair, w["symbol"].as_str().unwrap(), "pair {c}");
         match order.kind {
@@ -256,10 +271,13 @@ fn every_recorded_rails_alpaca_stock_wire_is_reproduced() {
             Sizing::Place(p) => (p, false), Sizing::BelowMinimum(p) => (p, true), other => panic!("{c}: {other:?}"),
         };
         assert_eq!(plan.price.to_s_f(), c["price"].as_str().unwrap(), "price {c}");
-        assert_eq!(below, c["below_minimum"].as_bool().unwrap(), "below_minimum {c}");
         assert_eq!(plan.limit_refusal().unwrap(), None, "{c}");
         let order = plan.to_order("cl".into(), deadline, ALPACA.wire).unwrap();
         let w = &c["wire"];
+        // D-ALPACA-BASE-FLOOR: a limit qty is checked as sent, qty × price against the 1 USD floor ($1 at 186.96 sends
+        // 0.005348737 shares, worth 0.99999...); Rails compares the floored budget.
+        let sent_short = matches!(&order.kind, OrderKind::Limit { price } if bd(&order.volume).checked_mul(&bd(price)).unwrap() < t.minimum_quote_size);
+        assert_eq!(below, c["below_minimum"].as_bool().unwrap() || sent_short, "below_minimum {c}");
         assert_eq!(w["time_in_force"], "day", "Rails sends a stock as a day order {c}");
         assert!(order.day, "{c}");
         assert_eq!(order.pair, w["symbol"].as_str().unwrap(), "the bare symbol {c}");
@@ -518,5 +536,61 @@ fn the_sell_sizing_port_is_the_ruby_that_was_recorded() {
     for (file, recorded) in vectors["sources"].as_object().unwrap() {
         let now = hex::encode(Sha256::digest(std::fs::read(root.join(file)).unwrap()));
         assert_eq!(&now, recorded.as_str().unwrap(), "{file} changed: re-record with script/rust/repin and re-check the sell port");
+    }
+}
+
+fn alpaca_pair(base_decimals: &str, quote_decimals: &str, min_base: &str, min_quote: &str) -> Ticker {
+    Ticker { ticker: "BTC/USD".into(), base_code: "BTC".into(), quote_code: "USD".into(), quote_symbol: "USD".into(), exchange_name: "Alpaca".into(),
+        ..sizing_ticker(&json!({"base_decimals": base_decimals, "quote_decimals": quote_decimals, "price_decimals": "2", "minimum_base_size": min_base, "minimum_quote_size": min_quote})) }
+}
+fn below(sizing: Sizing) -> bool { match sizing { Sizing::Place(_) => false, Sizing::BelowMinimum(_) => true, other => panic!("{other:?}") } }
+
+/// D-ALPACA-BASE-FLOOR: an Alpaca buy is checked against both floors as it is sent. A limit sends qty from the floored quote
+/// (worth qty × price); a market buy sends the notional (worth notional / price in base). Rails checks the floored budget
+/// against the quote floor only, and fails a limit qty under the base floor at placement.
+#[test]
+fn an_alpaca_buy_is_checked_against_both_floors_as_it_is_sent() {
+    let (_d, o, s) = common::install_alpaca();
+    let market = model::load_bot(&o.primary, seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"))).unwrap();
+    let limit = model::load_bot(&o.primary, seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00")
+        .with("limit_ordered", json!(true)).with("limit_order_pcnt_distance", json!(0)))).unwrap();
+    for (bot, t, x, price, skipped, why) in [
+        // $10 at $3 with 2 base decimals: qty 3.33 is worth $9.99, under the $10 floor (no cap involved).
+        (&limit, alpaca_pair("2", "2", "0.01", "10"), "10", "3", true, "3.33 × 3 = 9.99 < 10"),
+        (&limit, alpaca_pair("2", "2", "0.01", "10"), "10.01", "3", true, "still 3.33"),
+        (&limit, alpaca_pair("2", "2", "0.01", "10"), "10.02", "3", false, "3.34 × 3 = 10.02"),
+        (&limit, alpaca_pair("2", "2", "0.01", "9.99"), "10", "3", false, "exactly the quote floor"),
+        // Quote rounding pushes the qty under the base floor: 2.9 floors to 2 (0 quote decimals), 0.002 < 0.0029; 2.9 / 1000
+        // unfloored would clear it.
+        (&limit, alpaca_pair("4", "0", "0.0029", "1"), "2.9", "1000", true, "qty 0.002 < 0.0029"),
+        (&limit, alpaca_pair("4", "0", "0.003", "1"), "3", "1000", false, "qty exactly the base floor"),
+        (&limit, alpaca_pair("4", "2", "0.0031", "1"), "3", "1000", true, "qty one increment short"),
+        (&market, alpaca_pair("4", "0", "0.0029", "1"), "2.9", "1000", true, "notional 2 / 1000 < 0.0029"),
+        (&market, alpaca_pair("4", "0", "0.003", "1"), "3", "1000", false, "notional exactly the base floor"),
+        (&market, alpaca_pair("9", "2", "0.0000300001", "1"), "3", "100000", true, "3 / 100000 = 0.00003 just under"),
+        (&market, alpaca_pair("9", "2", "0", "10"), "9.999", "3", true, "notional 9.99 < 10"),
+        (&market, alpaca_pair("9", "2", "0", "10"), "10", "3", false, "notional exactly the quote floor"),
+    ] {
+        let sizing = amount::size(bot, &t, &bd(x), &bd(price), &ALPACA).unwrap();
+        match &sizing {
+            Sizing::Place(plan) => { assert!(plan.quote_type, "{why}: the quote wire is kept"); assert_eq!(plan.limit_refusal().unwrap(), None, "{why}: a placed plan is never refused locally"); }
+            Sizing::BelowMinimum(plan) => assert!(plan.quote_type, "{why}: the quote wire is kept"),
+            _ => {}
+        }
+        assert_eq!(below(sizing), skipped, "{why}");
+    }
+}
+
+/// D-KRAKEN-LIMIT-COSTMIN: a Kraken limit buy is checked against costmin in base (rounded up) as well as ordermin, as every
+/// venue with a notional floor is; Rails' Kraken checks ordermin only and the venue rejects the order.
+#[test]
+fn a_kraken_limit_buy_under_costmin_is_skipped() {
+    let (_d, o, s) = install();
+    let limit = model::load_bot(&o.primary, seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00")
+        .with("limit_ordered", json!(true)).with("limit_order_pcnt_distance", json!(0)))).unwrap();
+    let t = sizing_ticker(&json!({"base_decimals": "8", "quote_decimals": "2", "price_decimals": "1", "minimum_base_size": "0.0001", "minimum_quote_size": "5"}));
+    for (x, skipped, why) in [("3", true, "0.0001 clears ordermin, 3 EUR is under costmin"), ("5", true, "0.00016666 < ceil(5 / 30000) = 0.00016667"),
+                              ("5.0001", false, "0.00016667, exactly costmin in base")] {
+        assert_eq!(below(amount::size(&limit, &t, &bd(x), &bd("30000"), &deltabadger::engine::venue_rules::KRAKEN).unwrap()), skipped, "{why}");
     }
 }
