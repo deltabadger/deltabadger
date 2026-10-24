@@ -635,7 +635,7 @@ mod action_write {
             f.c.execute("UPDATE bots SET settings=json_set(settings,'$.quote_amount',50,'$.smart_intervaled',json('true'),'$.smart_interval_quote_amount',5) WHERE id=?1", [f.id])?;
             let before = f.snapshot()?;
             let render = |bot: &Bot| Forms { ctx: &f.ctx, csrf: "token", bot, path: format!("/bots/{}", f.id),
-                hide_balances: false, time_zone: "UTC", check: None }.smart_intervals();
+                hide_balances: false, time_zone: "UTC", check: None, rebalance_info: None }.smart_intervals();
             let bot = Bot::find(&f.c, f.seed.user_id, f.id, For::Page, "en").map_err(|e| format!("{e:?}"))?.unwrap();
             let quote = bot.quote_symbol().unwrap();
             assert!(render(&bot).contains(&format!("50 {quote}")), "an untouched Integer stays an Integer");
@@ -826,6 +826,30 @@ mod action_write {
             let amount=write::pending(&f.c,&draft.original,harness::at(NOW)).map_err(|e| format!("{e:?}"))?;
             assert_eq!(amount.to_s(),expected,"{name}");
         }
+        Ok(())
+    }
+
+    #[test]
+    fn action_write_carry_ignores_an_index_bots_stray_conditions() -> Result {
+        // Bots::DcaIndex has no trigger rule concerns: its carry reads the same with or without a stray switch and met_at.
+        let pending=|settings:Value,transient:Value| -> std::result::Result<String,String> {
+            let f=Fixture::new().map_err(|e| e.to_string())?;
+            let mut stored=f.stored().map_err(|e| e.to_string())?;
+            stored["settings"].as_object_mut().ok_or("settings")?.extend(settings.as_object().ok_or("settings")?.clone());
+            stored["transient"]["missed_quote_amount"]=json!("2.5");
+            stored["transient"].as_object_mut().ok_or("transient")?.extend(transient.as_object().ok_or("transient")?.clone());
+            f.c.execute("UPDATE bots SET type='Bots::DcaIndex',settings=json_set(?1,'$.index_type','top','$.num_coins',2),transient_data=?2,started_at='2026-09-10 10:00:00' WHERE id=?3",
+                        (stored["settings"].to_string(),stored["transient"].to_string(),f.id)).map_err(|e| e.to_string())?;
+            let draft=Draft::load(&f.c,f.seed.user_id,f.id,"en").map_err(|e| format!("{e:?}"))?.ok_or("draft")?;
+            Ok(write::pending(&f.c,&draft.original,harness::at(NOW)).map_err(|e| format!("{e:?}"))?.to_s())
+        };
+        let plain=pending(json!({}),json!({}))?;
+        assert_ne!(plain,"0","the unflagged index bot owes something");
+        for (name,settings,transient) in [
+            ("paused",json!({"price_limited":true}),json!({})),
+            ("resumed",json!({"price_limited":true}),json!({"price_limit_condition_met_at":"2026-09-10T11:30:00Z"})),
+            ("every rule",json!({"price_limited":true,"price_drop_limited":true,"moving_average_limited":true,"indicator_limited":true}),json!({"indicator_limit_condition_met_at":"2026-09-10T11:59:00Z"})),
+        ] { assert_eq!(pending(settings,transient)?,plain,"{name}"); }
         Ok(())
     }
 
@@ -1625,6 +1649,25 @@ mod action_race {
     async fn stop_notice_for_accepted_unknown_order() -> Result { accepted_order_stop_notice(0).await }
     #[tokio::test(flavor="current_thread")]
     async fn stop_notice_for_accepted_open_order() -> Result { accepted_order_stop_notice(1).await }
+    /// Bot#sell_capable? counts the rebalance rule: with the wash-sale question unanswered and nothing held, Start is refused
+    /// for it, and nothing is written.
+    #[tokio::test(flavor="current_thread")]
+    async fn a_rebalancing_bot_owes_the_wash_sale_question_before_it_starts() -> Result {
+        let mut f=Fixture::new().await?;
+        f.c.execute("UPDATE bots SET settings=json_set(settings,'$.rebalance_enabled',json('true')) WHERE id=?1",[f.id])?;
+        f.c.execute("UPDATE users SET wash_sale_enabled=NULL",[])?;
+        let before=f.snapshot()?;
+        // The reason the refusal names (the page answers only that it is not served yet).
+        for asked in [deltabadger::web::bot::For::Settings, deltabadger::web::bot::For::Page] {
+            assert_eq!(deltabadger::web::bot::refusal(&f.c,f.id,None,false,asked).map_err(|e|format!("{e:?}"))?,Some("the wash-sale question not answered yet"));
+        }
+        let answer=f.send("PATCH","/start",&[]).await?;
+        assert!(answer.status!=200 && answer.body.contains("not-ported"),"{}: {}",answer.status,answer.body);
+        assert_eq!(f.snapshot()?,before);
+        let page=f.browser.get(&f.app,&f.path("")).await;
+        assert!(page.body.contains("not-ported"),"{}",page.body);
+        Ok(())
+    }
     #[tokio::test(flavor="current_thread")]
     async fn divergence_in_flight_stop_notice_in_the_browser() -> Result {
         let mut f=Fixture::new().await?;

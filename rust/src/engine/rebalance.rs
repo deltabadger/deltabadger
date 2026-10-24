@@ -275,10 +275,11 @@ pub fn clear_below_minimum(c: &rusqlite::Connection, bot_id: i64, transient: &Va
 /// A valuation that did not happen: the bulk price read failed in transport (Rails raises it), or the figures raised.
 pub enum ValueFail { Transient(String), Raised(String) }
 
-/// metrics(force: true), metrics_with_current_prices(force: true) and composition_targets(locked: []) over them: the walk,
+/// metrics(force: true), metrics_with_current_prices(force: true) and composition_targets(locked:) over them: the walk,
 /// and the entries (None when the figures are stale, a member went unpriced, or a figure this build cannot hold). The venue
 /// is asked only past the walk's own early returns.
-pub async fn value<V: crate::venue::Venue>(c: &rusqlite::Connection, venue: &V, bot: &super::model::Bot, now: chrono::DateTime<chrono::Utc>)
+/// `locked`: the rebalance leg's wash-sale locks (#rebalance_targets); the sell leg passes none.
+pub async fn value<V: crate::venue::Venue>(c: &rusqlite::Connection, venue: &V, bot: &super::model::Bot, now: chrono::DateTime<chrono::Utc>, locked: &[i64])
     -> Result<Result<(Metrics, Option<Vec<Entry>>), ValueFail>, EngineError> {
     use crate::figures::{at::At, db::Subject, live, market::Failure, walk, FiguresError};
     use crate::venue::VenueError;
@@ -296,7 +297,7 @@ pub async fn value<V: crate::venue::Venue>(c: &rusqlite::Connection, venue: &V, 
             // leaves the figures stale (index::priced and the tick's price reads apply the same rule).
             Err(VenueError::Transient(m)) if venue.rules().transport_raises => return Ok(Err(ValueFail::Transient(m))),
             Err(VenueError::Transient(m)) => Err(Failure::Failed(m)),
-            Err(VenueError::Rejected(e) | VenueError::Unauthorized(e)) => Err(Failure::Failed(crate::ruby::to_sentence(&e))),
+            Err(VenueError::Rejected(e) | VenueError::Unauthorized(e) | VenueError::Coded { errors: e, .. }) => Err(Failure::Failed(crate::ruby::to_sentence(&e))),
             // An answer the venue's reader cannot read: Rails' dig_or_raise KeyError, which nothing on the way rescues.
             Err(VenueError::Ambiguous(m)) => return Ok(Err(ValueFail::Raised(m))),
         }
@@ -309,7 +310,7 @@ pub async fn value<V: crate::venue::Venue>(c: &rusqlite::Connection, venue: &V, 
         Err(e) => return Err(fig(e)),
     };
     let members = members(c, bot, &subject)?;
-    let entries = match &data { Some(data) => composition_targets(data, &members, &[])?, None => None };
+    let entries = match &data { Some(data) => composition_targets(data, &members, locked)?, None => None };
     Ok(Ok((walked, entries)))
 }
 
@@ -462,7 +463,7 @@ async fn rebalance<V: Venue + Attributed>(c: &Connection, venue: &V, mut claim: 
     if !super::eligibility::allocations_balanced(bot) { return Ok(Outcome::Skipped("not_due")); }
     let Some(reconciled) = split_gate(c, venue, claim, clock).await? else { return Ok(Outcome::Skipped("split_hold")) };
     // #rebalance_due? reads the drift from rebalance_targets (cached in Rails; always fresh here).
-    let entries = match value(c, venue, bot, clock.now()).await? {
+    let entries = match value(c, venue, bot, clock.now(), &super::wash::locked(c, bot.user_id, clock)?).await? {
         Ok((_, entries)) => entries,
         Err(ValueFail::Transient(m) | ValueFail::Raised(m)) => return Ok(Outcome::Failed(m)),
     };
@@ -665,7 +666,7 @@ async fn place_pending_buy<V: Venue + Attributed>(c: &Connection, venue: &V, cla
     let owed = p.remaining_quote_amount.clone().unwrap_or_else(BigDec::zero);
     if !owed.is_positive() { clear_pending(c, bot_id)?; return Ok(Outcome::Skipped("nothing_owed")); }
     let Some(reconciled) = split_gate(c, venue, claim, clock).await? else { return Ok(Outcome::Skipped("split_hold")) };
-    let entries = match value(c, venue, bot, clock.now()).await? {
+    let entries = match value(c, venue, bot, clock.now(), &super::wash::locked(c, bot.user_id, clock)?).await? {
         Ok((_, entries)) => entries,
         Err(ValueFail::Transient(m) | ValueFail::Raised(m)) => return Ok(Outcome::Failed(m)),
     };
@@ -703,11 +704,17 @@ async fn place<V: Venue + Attributed>(c: &Connection, venue: &V, claim: &Claim, 
         Begun::LedgerStale(_) => return Ok(Outcome::Skipped("ledger_stale")),
         Begun::CredentialsChanged => return Ok(Outcome::Failed("credentials changed".into())),
         Begun::BelowMinimum(_) => return Ok(Outcome::Skipped("below_minimum")),
+        // Re-read before #mark_buy_attempted! (written with the intent): the proceeds stay owed, the pending state stands.
+        Begun::WashSaleLocked => {
+            super::log(&format!("rebalance bot={} event=buy_wash_sale_locked base={}", bot.id, plan.ticker.base_code));
+            return Ok(Outcome::Skipped("wash_sale_locked"));
+        }
     };
     Ok(match super::placement::send_recorded(c, venue, bot, &intent, clock).await? {
         Sent::Accepted(txid) => Outcome::Placed(c.query_row("SELECT id FROM transactions WHERE exchange_id = ?1 AND external_id = ?2", params![bot.exchange_id, txid], |r| r.get(0))?),
         Sent::Rejected(errors) if super::placement::safe_rejection(&errors) => Outcome::Failed(crate::ruby::to_sentence(&errors)),
-        Sent::Rejected(_) => Outcome::Skipped("ambiguous"),
+        // A REBALANCE leg is outside D-BELOW-MIN-REJECTION (placement::skips_below_minimum): never BelowMinimum.
+        Sent::Rejected(_) | Sent::BelowMinimum(_) => Outcome::Skipped("ambiguous"),
         Sent::NotSent(m) => Outcome::Failed(m),
         Sent::Ambiguous(_) => Outcome::Skipped("awaiting_reconciliation"),
         Sent::Fenced => Outcome::Skipped("changed"),

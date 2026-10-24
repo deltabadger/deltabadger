@@ -126,9 +126,10 @@ pub fn pending_quote_amount(c: &Connection, bot: &Bot, now_us: i64) -> Result<Bi
 
 /// The trigger rules' `started_at` decorator (price_limitable.rb:106-115 and its three siblings): for each buy-side rule
 /// that is on (`== true`), the later of started_at and its `*_condition_met_at`, nil while one is unmet. The engine's
-/// carry and the web's preview share it.
-pub fn condition_started_at(settings: &serde_json::Map<String, Value>, transient: &serde_json::Map<String, Value>, started: Option<i64>) -> Result<Option<i64>, EngineError> {
+/// carry and the web's preview share it. `applies`: model::conditions_apply for the bot's class (else started_at as stored).
+pub fn condition_started_at(applies: bool, settings: &serde_json::Map<String, Value>, transient: &serde_json::Map<String, Value>, started: Option<i64>) -> Result<Option<i64>, EngineError> {
     let mut started = started;
+    if !applies { return Ok(started); }
     for prefix in ["price_limit", "price_drop_limit", "moving_average_limit", "indicator_limit"] {
         if settings.get(&format!("{prefix}ed")) != Some(&Value::Bool(true)) { continue; }
         let met = codec::optional_time(transient.get(&format!("{prefix}_condition_met_at"))).map_err(|_| data("unreadable stored timestamp"))?;
@@ -371,7 +372,7 @@ pub fn web_pending(c: &Connection, bot: &WebBot, now: DateTime<Utc>) -> Result<W
     validate_web_amounts(bot)?;
     // Frozen while selling, before the started_at guard, as the engine's pending_quote_amount.
     if bot.text("direction") == Some("selling") { return web_capped(c, bot, carry_num(bot.transient.get("missed_quote_amount"))?); }
-    let started = condition_started_at(&bot.settings, &bot.transient, bot.started_at.map(|t| t.timestamp_micros()))?;
+    let started = condition_started_at(bot.kind == Kind::Basket, &bot.settings, &bot.transient, bot.started_at.map(|t| t.timestamp_micros()))?;
     let Some(started) = started.and_then(DateTime::from_timestamp_micros) else { return Ok(WebNum::Int(0)) };
     let changed: Option<String> = c.query_row("SELECT settings_changed_at FROM bots WHERE id=?1", [bot.id], |r| r.get(0))?;
     let since = changed.as_deref().map(codec::parse_time).transpose().map_err(|_| error("invalid settings window"))?.map_or(started, |at| at.max(started));

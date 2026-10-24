@@ -20,7 +20,8 @@ module PageFigures
   # The scenarios whose bot pages Rust serves from its own routes (page_figures_grid.rs). Of the pairs, only a signal bot's page
   # is served: each pair scenario framed is recorded again as a signal bot (`signal_framed`).
   FRAMED = %w[no_orders basket_buys hidden owner_account owner_candles_failed signal_sell_only framed_signal_buys framed_signal_candles_failed
-              framed_signal_price_refused].freeze
+              framed_signal_price_refused framed_rebalance_drift_under framed_rebalance_drift_over framed_rebalance_drift_below_minimum
+              framed_rebalance_wash_sale_lock].freeze
 
   # The dashboard, then each bot page and its chart frame, through Rails' own controllers, as a browser loads them: the
   # frame at the src its page gave it. Recorded cold, before any figure is cached, and warm, once they are.
@@ -74,6 +75,21 @@ module PageFigures
     single['settings']['limit_ordered'] = true
     owner['bots'] = [basket, single, index]
     owner
+  end
+
+  # basket_buys with its rebalance rule on (bots/settings/_rebalance_info): its drift, 0.84 %, under the default 5 % threshold,
+  # over a 0.5 % one (green), and over it while a trade would be below the venue's minimum; and with AAA wash-sale locked, which
+  # leaves it out of the drift (BBB alone: on target).
+  def rebalance_drift(list)
+    basket = list.find { |s| s['name'] == 'basket_buys' }
+    below = "UPDATE bots SET transient_data = json_set(transient_data, '$.rebalance_below_minimum_at', '2026-03-10T00:00:00Z')"
+    { 'framed_rebalance_drift_under' => [{}, []], 'framed_rebalance_drift_over' => [{ 'rebalance_threshold' => 0.005 }, []],
+      'framed_rebalance_drift_below_minimum' => [{ 'rebalance_threshold' => 0.005 }, [below]], 'framed_rebalance_wash_sale_lock' => [{}, []] }.map do |name, (settings, sql)|
+      sc = basket.deep_dup.merge('name' => name)
+      sc['bots'].first['settings'] = sc['bots'].first.fetch('settings', {}).merge('rebalance_enabled' => true).merge(settings)
+      sc['sql'] = Array(sc['sql']) + sql
+      sc
+    end
   end
 
   # The account's figures in the currency it is shown in (Denomination), from figures.rb's three-bot account on the
@@ -288,6 +304,7 @@ module PageFigures
     specials['bots'].first['orders'] += [Figures.sell('AAA', rebalanced, '53', '0.1', type: 'REBALANCE'),
                                          Figures.buy('DDD', rebalanced + 1, '90.1', '0.058823529', type: 'REBALANCE')]
     list << specials
+    list.concat(rebalance_drift(list))
     list.concat(display_currency(list))
     list.concat(pair_list)
     list.each do |sc|
@@ -297,7 +314,7 @@ module PageFigures
       # A pair bot memoizes its ticker: read afresh, as a request does, after the scenario's own writes.
       bots = bots.map { |bot| Bot.find(bot.id) } if bots.any? { |bot| bot.dca_single_asset? || bot.signal? }
       user.update_columns(wash_sale_enabled: false)
-      if sc['name'].start_with?('locked') || sc['name'] == 'pair_locked'
+      if sc['name'].start_with?('locked') || %w[pair_locked framed_rebalance_wash_sale_lock].include?(sc['name'])
         jurisdiction = sc['name'].end_with?('_gb') ? 'GB' : 'US'
         jurisdiction = { 'locked_blank' => '', 'locked_whitespace' => " \t\n", 'locked_unicode' => "\u00a0\u3000" }.fetch(sc['name'], jurisdiction)
         user.update_columns(wash_sale_enabled: true, wash_sale_jurisdiction: jurisdiction)

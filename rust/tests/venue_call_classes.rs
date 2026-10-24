@@ -30,6 +30,7 @@ fn shown(r: Result<String, VenueError>) -> String {
         Ok(v) => format!("Ok({v})"),
         Err(VenueError::Rejected(m)) => format!("Rejected({m:?})"),
         Err(VenueError::Unauthorized(m)) => format!("Unauthorized({m:?})"),
+        Err(VenueError::Coded { code, errors }) => format!("Coded({code}, {errors:?})"),
         Err(VenueError::Ambiguous(m)) => format!("Ambiguous({m:?})"),
         Err(VenueError::Transient(m)) => format!("Transient({m:?})"),
     }

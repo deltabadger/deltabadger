@@ -181,7 +181,7 @@ pub fn begin(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock) -> 
     match begin_checked(c, bot, plan, clock, None, None, None, None)? {
         Begun::Intent(intent) => Ok(*intent),
         Begun::BelowMinimum(_) => Err(EngineError::Data("order below minimum after exact cap guard".into())),
-        Begun::Changed | Begun::Fenced | Begun::CredentialsChanged | Begun::LedgerStale(_) => Err(EngineError::Data("unfenced placement skipped".into())),
+        Begun::Changed | Begun::Fenced | Begun::CredentialsChanged | Begun::LedgerStale(_) | Begun::WashSaleLocked => Err(EngineError::Data("unfenced placement skipped".into())),
     }
 }
 
@@ -203,7 +203,9 @@ pub fn begin_unless_changed(c: &Connection, sized_from: &Bot, plan: &OrderPlan, 
 /// sized the order (Automation::Statusable::FENCED); that tick writes nothing more to the bot.
 /// LedgerStale: the account ledger stopped being fresh after the order was sized (a sync started or failed meanwhile);
 /// nothing was written or sent, and the tick returns its checkpoint (tick.rs) instead of ending as a success.
-pub enum Begun { Intent(Box<Intent>), Changed, Fenced, CredentialsChanged, BelowMinimum(Box<OrderPlan>), LedgerStale(Box<super::staleness::Stale>) }
+/// WashSaleLocked: a buy of an asset the account locked after it was sized (order_setter.rb:56, rebalancer.rb:212); nothing
+/// was written.
+pub enum Begun { Intent(Box<Intent>), Changed, Fenced, CredentialsChanged, BelowMinimum(Box<OrderPlan>), LedgerStale(Box<super::staleness::Stale>), WashSaleLocked }
 /// Production placement always passes the version captured with the venue credentials (L).
 #[allow(clippy::too_many_arguments)]
 /// `identity` is the sending venue's `placement_identity()`: recorded in the intent before the send, so recovery never asks
@@ -229,6 +231,8 @@ fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock,
     if current.rust_placement().is_some() {
         return Err(EngineError::Data(format!("bot {} already has an unresolved order", bot.id)));
     }
+    // The wash-sale re-read: a buy sized before another venue's sale locked its asset is not placed.
+    if plan.side == Side::Buy && super::wash::locked(&tx, current.user_id, clock)?.contains(&plan.ticker.base_asset_id) { return Ok(Begun::WashSaleLocked); }
     // The placement barrier (plan r4): no order while a reversal's cancel of an order it captured is not recorded. Checked
     // here, under the intent's own write lock, so no schedule or race lets an order out beside one the flip is cancelling.
     if super::reversal::barred(&current) {
@@ -317,9 +321,10 @@ fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock,
 pub const SIGNAL_SOURCE: &str = "signal";
 
 /// What `begin_signal` found under the intent's write lock. Only `Intent` wrote one; `Stopped` and `Disabled` consumed the
-/// call with its `signal_ignored` line; the others changed nothing, and the call stays for the next pass.
+/// call with its `signal_ignored` line, `Locked` (a buy of an asset the account locked since the call was sized) with
+/// none; the others changed nothing, and the call stays for the next pass.
 #[derive(Debug)]
-pub enum SignalClaim { Intent(Box<Intent>), Blocked, Stopped, Disabled, Gone, Changed, CredentialsChanged }
+pub enum SignalClaim { Intent(Box<Intent>), Blocked, Stopped, Disabled, Gone, Changed, CredentialsChanged, Locked }
 
 /// A signal bot's intent (plan 8a §R4, §R10): `run: None`, `source: "signal"`. In its own immediate transaction:
 /// - the barrier (engine::signal::blocked: Rails' unresolved marker or an unresolved intent) stands → `Blocked`;
@@ -345,6 +350,12 @@ pub fn begin_signal(c: &Connection, sized_from: &Bot, plan: &OrderPlan, call: Op
             super::signal::consume(&tx, current.id, call, Some("signal_ignored"), now)?;
             tx.commit()?;
             return Ok(refused);
+        }
+        // #checked_amount_info's re-read (the one more attempt after a safe rejection places at once, without it).
+        if super::signal::locked_buy(&tx, &current, &plan.ticker, plan.side, now)? {
+            super::signal::consume(&tx, current.id, call, None, now)?;
+            tx.commit()?;
+            return Ok(SignalClaim::Locked);
         }
     }
     if (current.exchange_id, &current.settings) != (sized_from.exchange_id, &sized_from.settings) {
@@ -372,8 +383,57 @@ pub fn begin_signal(c: &Connection, sized_from: &Bot, plan: &OrderPlan, call: Op
     Ok(SignalClaim::Intent(Box::new(intent)))
 }
 
+/// BelowMinimum (D-BELOW-MIN-REJECTION): the venue definitively refused a scheduled DCA buy leg as under its minimum
+/// order size (`below_minimum`). `send_recorded` writes no failed row and clears the intent; the tick reports the leg as
+/// the pre-check reports one it skips (tick::record_skipped). Rails records a failed order.
 #[derive(Debug)]
-pub enum Sent { Accepted(String), Rejected(Vec<String>), Ambiguous(String), NotSent(String), Fenced }
+pub enum Sent { Accepted(String), Rejected(Vec<String>), Ambiguous(String), NotSent(String), Fenced, BelowMinimum(Vec<String>) }
+
+/// D-BELOW-MIN-REJECTION's table: (exchanges.type, structured code, message prefix). An entry with a code matches a
+/// `VenueError::Coded` refusal with that code whose text starts with the prefix ("" for any); one without matches the text's
+/// prefix alone. Only definitive refusals are asked (after `add_outcome_unknown` and the adapters' own ambiguity), and every
+/// message of a refusal must match: a mixed refusal stays a failure. Upper limits and precision failures never match.
+/// Venues not listed (KuCoin, Bitget, BingX, Bitrue, Coinbase, Gemini) have no cited too-small answer yet: theirs stay
+/// failed rows.
+const BELOW_MINIMUM: &[(&str, Option<&str>, &str)] = &[
+    // Binance spot API docs, Errors → Filter failures (-1013): "MIN_NOTIONAL: price * quantity is too low"; Rails' own
+    // fixture of the answer (test/models/exchanges/binance_test.rb, action_job_test.rb). Not "Filter failure: NOTIONAL",
+    // whose range also has a maximum, nor LOT_SIZE (too high or too low, or off the step).
+    ("Exchanges::Binance", Some("-1013"), "Filter failure: MIN_NOTIONAL"),
+    ("Exchanges::BinanceUs", Some("-1013"), "Filter failure: MIN_NOTIONAL"),
+    // MEXC spot v3 docs, Error Code: 30002 "The minimum transaction volume cannot be less than :" (30003 is the maximum).
+    ("Exchanges::Mexc", Some("30002"), ""),
+    // Bybit v5 docs, Error codes (spot): 170140 "Order value exceeded lower limit", 170136 "Order quantity lower than the
+    // minimum." (170137/170148 are precision).
+    ("Exchanges::Bybit", Some("170140"), ""),
+    ("Exchanges::Bybit", Some("170136"), ""),
+    // Bitvavo docs, Errors: 217 "`amountQuote` is below the minimum for this market", 212 "`amount` is below the minimum for
+    // this market" (210 is the maximum).
+    ("Exchanges::Bitvavo", Some("217"), ""),
+    ("Exchanges::Bitvavo", Some("212"), ""),
+    // Kraken support, "API error messages": "EOrder:Order minimum not met (volume too low)".
+    ("Exchanges::Kraken", None, "EOrder:Order minimum not met"),
+    // Hyperliquid docs, Error responses: MinTradeNtl "Order must have minimum value of $10.", MinTradeSpotNtl "… of 10
+    // {quote_token}." (Rails test/models/bot/order_setter_test.rb records the latter as a hard rejection); as the status
+    // error hyperliquid::add_order words it.
+    ("Exchanges::Hyperliquid", None, "Hyperliquid order failed: Order must have minimum value of "),
+    // Alpaca's 403 to a crypto buy under its $10 floor: "cost basis must be >= minimal amount of order 10". Its numeric code
+    // (40310000) is shared with other refusals (insufficient buying power), so the text decides.
+    ("Exchanges::Alpaca", None, "cost basis must be >= minimal amount of order"),
+];
+
+/// Is this definitive refusal the venue's "order too small" answer (BELOW_MINIMUM)?
+pub fn below_minimum(exchange_type: &str, code: Option<&str>, errors: &[String]) -> bool {
+    !errors.is_empty() && errors.iter().all(|m| BELOW_MINIMUM.iter().any(|(venue, want, prefix)| *venue == exchange_type
+        && want.is_none_or(|w| code == Some(w)) && m.starts_with(prefix)))
+}
+
+/// OM3b's scope: a scheduled DCA, basket or index BUY leg. Out of scope, as before: sells (selling freezes the buy carry),
+/// signal orders (their own consumed-call lifecycle, engine::signal) and REBALANCE legs (a below-minimum rebalance buy
+/// abandons its dust, rebalance.rs).
+fn skips_below_minimum(intent: &Intent) -> bool {
+    intent.plan.side == Side::Buy && intent.plan.kind == TxKind::Regular && intent.run.is_some() && !intent.signal()
+}
 
 /// Acquire the dispatch write lock before rechecking the captured generation. Neither production
 /// adapter (Alpaca, Kraken) has a blocking preflight or session lock between this check and HTTP send.
@@ -412,6 +472,12 @@ pub async fn send_recorded<V: Venue>(c: &Connection, venue: &V, bot: &Bot, inten
         Sent::NotSent(_) => {
             set_intent(&tx, bot.id, None)?;
             if intent.plan.kind == TxKind::Rebalance { super::rebalance::settle(&tx, bot.id, &intent.plan, super::rebalance::Settlement::NotPlaced, clock.now())?; }
+        }
+        // No failed row: the leg is the tick's to report as skipped. The intent goes in the same checks a rejection's row does.
+        Sent::BelowMinimum(_) => {
+            model::check_credential_result(&tx, &intent.credential_version)?;
+            if !still_pending(&tx, bot.id, &intent.cl_ord_id)? { return Err(gone(bot.id)); }
+            set_intent(&tx, bot.id, None)?;
         }
         Sent::Ambiguous(_) | Sent::Fenced => {}
     }
@@ -464,8 +530,10 @@ async fn send_to_venue<V: Venue>(venue: &V, intent: &Intent, clock: &dyn Clock) 
     };
     match venue.placement_result(&order).await.value {
         Ok(txid) => Sent::Accepted(txid),
-        Err(VenueError::Rejected(e) | VenueError::Unauthorized(e)) if rules.add_outcome_unknown(&e) => Sent::Ambiguous(crate::ruby::to_sentence(&e)),
-        Err(VenueError::Rejected(e) | VenueError::Unauthorized(e)) => Sent::Rejected(e),
+        Err(VenueError::Rejected(e) | VenueError::Unauthorized(e) | VenueError::Coded { errors: e, .. }) if rules.add_outcome_unknown(&e) => Sent::Ambiguous(crate::ruby::to_sentence(&e)),
+        Err(VenueError::Coded { code, errors }) if skips_below_minimum(intent) && below_minimum(rules.exchange_type, Some(&code), &errors) => Sent::BelowMinimum(errors),
+        Err(VenueError::Rejected(e)) if skips_below_minimum(intent) && below_minimum(rules.exchange_type, None, &e) => Sent::BelowMinimum(e),
+        Err(VenueError::Rejected(e) | VenueError::Unauthorized(e) | VenueError::Coded { errors: e, .. }) => Sent::Rejected(e),
         Err(VenueError::Ambiguous(m)) => Sent::Ambiguous(m),
         Err(VenueError::Transient(m)) => Sent::NotSent(m),
     }
