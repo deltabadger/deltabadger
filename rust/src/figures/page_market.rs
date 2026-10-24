@@ -366,27 +366,20 @@ async fn binance_pages(wire: &impl Transport, series: &HttpRequest, tail: Option
 async fn kraken_page(wire: &impl Transport, series: &HttpRequest, tail: Option<i64>, now: i64, compute: &Arc<tokio::sync::Semaphore>, held: &mut SeriesBytes<'_>) -> Fetch<Vec<Bar>> {
     let timeframe = seconds(series);
     let start: i64 = match tail { Some(at) => at, None => param(series, "since").parse().map_err(|_| Failure::Failed(UNAVAILABLE.into()))? }.saturating_sub(1);
-    let page = HttpRequest { method: "GET", base: series.base.clone(), path: KRAKEN_OHLC.into(), body: None, not_after: None,
-        query: vec![("interval", param(series, "interval").to_string()), ("pair", param(series, "symbol").to_string()), ("since", start.to_string())] };
+    let page = crate::venue::kraken::ohlc_request(&series.base, param(series, "symbol"), param(series, "interval"), start);
     let body = send(wire, &page).await?;
     let bars = cpu(compute, move || kraken_rows(decode(&body)?, start, timeframe, now)).await?;
     held.take(bars.iter().map(Bar::size).sum())?;
     Ok(bars)
 }
-/// One OHLC answer: a non-empty `error` is the venue's failure; otherwise the rows under `result`'s first key but `last`,
-/// `[time, open, high, low, close, vwap, volume, count]`, the time in seconds and the open a string. The closed ones from
-/// `start` on.
-fn kraken_rows(mut body: Value, start: i64, timeframe: i64, now: i64) -> Fetch<Vec<Bar>> {
-    let unreadable = || Failure::Failed(UNAVAILABLE.into());
-    if !body.get("error").and_then(Value::as_array).is_some_and(Vec::is_empty) { return Err(unreadable()); }
-    let Some(Value::Object(result)) = body.get_mut("result") else { return Err(unreadable()) };
-    let Some(Value::Array(rows)) = result.iter_mut().find(|(name, _)| *name != "last").map(|(_, rows)| rows.take()) else { return Err(unreadable()) };
+/// One OHLC answer as the engine reads it (kraken::ohlc_rows), any failure unreadable: the closed rows from `start` on,
+/// each open exactly as the venue sent it.
+fn kraken_rows(body: Value, start: i64, timeframe: i64, now: i64) -> Fetch<Vec<Bar>> {
+    let rows = crate::venue::kraken::ohlc_rows(&body).map_err(|_| Failure::Failed(UNAVAILABLE.into()))?;
     let mut out = vec![];
-    for row in rows {
-        let Value::Array(mut row) = row else { return Err(unreadable()) };
-        let at = row.first().and_then(Value::as_i64).ok_or_else(unreadable)?;
+    for (at, row) in rows {
         if at >= start && at.saturating_add(timeframe) <= now {
-            let open = row.get_mut(1).map_or(Value::Null, Value::take);
+            let open = row.get(1).cloned().unwrap_or(Value::Null);
             Dec::to_d(&open)?;
             out.push(Bar { at, t: at.to_string().into(), o: open });
         }
@@ -893,7 +886,8 @@ fn bybit_prices(body: &Value) -> Result<Vec<(String, crate::ruby::BigDec)>, crat
 /// Exchanges::Kraken#get_candles' OHLC intervals in minutes, for the same timeframes (Rails reads 3 days, 1 week and 1
 /// month as daily candles rebuilt; the chart never asks for them).
 fn kraken_interval(timeframe: i64) -> Option<&'static str> {
-    Some(match timeframe { 60 => "1", 300 => "5", 900 => "15", 1800 => "30", 3600 => "60", 14400 => "240", 86_400 => "1440", _ => return None })
+    use crate::venue::kraken::{builds, OHLC_INTERVALS};
+    OHLC_INTERVALS.iter().find(|(t, _)| t.seconds() == timeframe && !builds(*t)).map(|(_, i)| *i)
 }
 const ALL_TICKERS: &str = "/api/v1/market/allTickers";
 
