@@ -155,3 +155,130 @@ async fn the_checks_writes_take_the_time_the_price_arrived() {
         }
     }
 }
+
+// ---- Slice 7s: the price rule's status line (Bot::BroadcastPriceLimitInfoUpdateJob) --------------------------------------
+
+/// A request as the web leaves it (broadcasts::info_update's statement).
+fn want(c: &rusqlite::Connection, id: i64) { assert!(conditions::want_info(c, id, None, conditions::PRICE, "en").unwrap()); }
+
+/// A stopped basket with its buy-side price rule (below `limit`).
+fn stopped_rule(o: &deltabadger::store::Opened, s: &seed::Seeded, limit: f64, f: impl FnOnce(BotSpec) -> BotSpec) -> i64 {
+    seed::insert_bot(&o.primary, s, &f(BotSpec { status: BotStatus::Stopped as i64, ..BotSpec::weekly(60.0, "2026-09-01 10:00:00") }
+        .with("price_limited", json!(true)).with("price_limit", json!(limit)).with("price_limit_value_condition", json!("below"))))
+}
+
+async fn serve(o: &deltabadger::store::Opened, venue: &FakeVenue, at: &str, prices: &PriceCache) -> Vec<Result<Option<Value>, EngineError>> {
+    let mut out = vec![];
+    for claim in conditions::info_claims(&o.primary, conditions::PRICE).unwrap() {
+        let version = model::credential_version(&o.primary, &claim.bot).unwrap();
+        out.push(conditions::info(&o.primary, venue, &claim, &FixedClock(at.parse().unwrap()), prices, &version).await);
+    }
+    out
+}
+
+/// Q1: the info job evaluates the rule with its writes on a stopped bot, stores the info for 20 s and serves the request;
+/// a request 10 s on still evaluates (here: unmet, met_at cleared, the carry captured) but shows the kept info, expiry included.
+#[tokio::test(flavor = "current_thread")]
+async fn the_status_line_evaluates_with_rails_writes_and_keeps_its_info_for_20_seconds() {
+    let (_d, o, s) = common::install();
+    let id = stopped_rule(&o, &s, 60_000.0, |b| b);
+    want(&o.primary, id);
+    let venue = FakeVenue::new();
+    venue.script("/0/public/Ticker", kraken_body("49995.3"));
+    let first = serve(&o, &venue, "2026-09-02T10:00:00Z", &PriceCache::default()).await;
+    let info = first[0].as_ref().unwrap().clone().expect("an info");
+    assert_eq!((info["base"].clone(), info["condition_met"].clone()), (json!("BTC"), json!(true)), "{info}");
+    let after = model::load_bot(&o.primary, id).unwrap();
+    assert_eq!(after.transient["price_limit_condition_met_at"], json!("2026-09-02T10:00:00.000Z"), "the page view stamps met_at");
+    assert!(after.transient.get(conditions::INFO_WANTED_KEY).is_none(), "served: {}", after.transient);
+    assert_eq!(after.status, BotStatus::Stopped);
+
+    want(&o.primary, id);
+    let venue = FakeVenue::new();
+    venue.script("/0/public/Ticker", kraken_body("60100"));
+    let second = serve(&o, &venue, "2026-09-02T10:00:10Z", &PriceCache::default()).await;
+    assert_eq!(second[0].as_ref().unwrap().as_ref(), Some(&info), "the kept info, its expiry too");
+    let after = model::load_bot(&o.primary, id).unwrap();
+    assert!(after.transient["price_limit_condition_met_at"].is_null(), "still evaluated: met_at cleared {}", after.transient);
+    assert_eq!(after.transient["missed_quote_amount_was_set"], json!(true), "the capture landed (the window moved)");
+
+    want(&o.primary, id);
+    let third = serve(&o, &venue, "2026-09-02T10:00:25Z", &PriceCache::default()).await;
+    assert_eq!(third[0].as_ref().unwrap().as_ref().map(|i| i["condition_met"].clone()), Some(json!(false)), "expired: computed again");
+}
+
+/// accountable.rb:119-127 (r3): a clear that leaves the carry window where it was — another enabled rule's met_at is nil, so
+/// the decorated started_at was nil already — takes the capture back: the carry as stored and the marker nil. Without the
+/// other rule the capture lands.
+#[tokio::test(flavor = "current_thread")]
+async fn a_clear_that_leaves_the_window_unmoved_restores_the_carry_and_clears_the_marker() {
+    let (_d, o, s) = common::install();
+    let stored = |b: BotSpec| b.transient("price_limit_condition_met_at", json!("2026-09-01T12:00:00.000Z")).transient("missed_quote_amount", json!("30"))
+        .transient("missed_quote_amount_was_set", json!(true));
+    let held = stopped_rule(&o, &s, 40_000.0, |b| stored(b).with("price_drop_limited", json!(true)).with("price_drop_limit", json!(0.2)));
+    let alone = stopped_rule(&o, &s, 40_000.0, stored);
+    for id in [held, alone] { want(&o.primary, id); }
+    let venue = FakeVenue::new();
+    venue.script("/0/public/Ticker", kraken_body("49995.3"));
+    let out = serve(&o, &venue, "2026-09-02T10:00:00Z", &PriceCache::default()).await;
+    assert!(out.iter().all(|r| r.as_ref().is_ok_and(|i| i.as_ref().is_some_and(|i| i["condition_met"] == json!(false)))), "{out:?}");
+    let held = model::load_bot(&o.primary, held).unwrap();
+    assert!(held.transient["price_limit_condition_met_at"].is_null());
+    assert_eq!(held.transient["missed_quote_amount"], json!("30"), "the carry as stored: {}", held.transient);
+    assert!(held.transient.get("missed_quote_amount_was_set").is_some_and(Value::is_null), "the marker nil: {}", held.transient);
+    let alone = model::load_bot(&o.primary, alone).unwrap();
+    assert!(alone.transient["price_limit_condition_met_at"].is_null());
+    assert_eq!(alone.transient["missed_quote_amount_was_set"], json!(true), "the capture lands: {}", alone.transient);
+}
+
+/// The claim is a version: a request that arrives while the price read is out survives the serve, and a settings change
+/// during the read discards the run (no met_at, no info) and keeps the request.
+#[tokio::test(flavor = "current_thread")]
+async fn a_newer_request_survives_and_a_settings_change_discards_the_run() {
+    let (d, o, s) = common::install();
+    let id = stopped_rule(&o, &s, 60_000.0, |b| b);
+    want(&o.primary, id);
+    let path = d.path().join("production.sqlite3");
+    let again = path.clone();
+    let venue = FakeVenue::new().on_price(move || want(&rusqlite::Connection::open(&again).unwrap(), id));
+    venue.script("/0/public/Ticker", kraken_body("49995.3"));
+    let out = serve(&o, &venue, "2026-09-02T10:00:00Z", &PriceCache::default()).await;
+    assert!(out[0].as_ref().is_ok_and(Option::is_some), "{out:?}");
+    let after = model::load_bot(&o.primary, id).unwrap();
+    assert_eq!(after.transient[conditions::INFO_WANTED_KEY]["price_limit"]["version"], json!(2), "the newer request stays: {}", after.transient);
+
+    let other = stopped_rule(&o, &s, 60_000.0, |b| b);
+    o.primary.execute("UPDATE bots SET transient_data = json_remove(transient_data, '$.rust_condition_info_wanted') WHERE id = ?1", [id]).unwrap();
+    want(&o.primary, other);
+    let edit = path.clone();
+    let venue = FakeVenue::new().on_price(move || {
+        rusqlite::Connection::open(&edit).unwrap().execute("UPDATE bots SET settings = json_set(settings, '$.price_limit', 1000) WHERE id = ?1", [other]).unwrap();
+    });
+    venue.script("/0/public/Ticker", kraken_body("49995.3"));
+    let out = serve(&o, &venue, "2026-09-02T10:00:00Z", &PriceCache::default()).await;
+    assert!(matches!(out[0], Err(EngineError::RunFenced)), "{out:?}");
+    let after = model::load_bot(&o.primary, other).unwrap();
+    assert!(after.transient.get("price_limit_condition_met_at").is_none(), "no stamp for a rule that changed: {}", after.transient);
+    assert!(after.transient.get(conditions::INFO_KEY).is_none());
+    assert!(after.transient.get(conditions::INFO_WANTED_KEY).is_some(), "the request stays for the bot as it is now");
+}
+
+/// A failed read leaves no info and no write, as Rails broadcasts nothing; the request is served. An index bot (no
+/// PriceLimitable) gets nothing either.
+#[tokio::test(flavor = "current_thread")]
+async fn a_failed_read_or_an_index_bot_leaves_no_info() {
+    let (_d, o, s) = common::install();
+    let failing = stopped_rule(&o, &s, 60_000.0, |b| b.transient("price_limit_condition_met_at", json!("2026-09-01T12:00:00.000Z")));
+    let index = stopped_rule(&o, &s, 60_000.0, |b| b);
+    o.primary.execute("UPDATE bots SET type = 'Bots::DcaIndex' WHERE id = ?1", [index]).unwrap();
+    for id in [failing, index] { want(&o.primary, id); }
+    let venue = FakeVenue::new();
+    venue.script("/0/public/Ticker", json!({ "error": ["EService:Unavailable"] }));
+    let out = serve(&o, &venue, "2026-09-02T10:00:00Z", &PriceCache::default()).await;
+    assert!(out.iter().all(|r| matches!(r, Ok(None))), "{out:?}");
+    for id in [failing, index] {
+        let after = model::load_bot(&o.primary, id).unwrap();
+        assert!(after.transient.get(conditions::INFO_KEY).is_none() && after.transient.get(conditions::INFO_WANTED_KEY).is_none(), "{}", after.transient);
+    }
+    assert_eq!(model::load_bot(&o.primary, failing).unwrap().transient["price_limit_condition_met_at"], json!("2026-09-01T12:00:00.000Z"), "nothing written");
+}

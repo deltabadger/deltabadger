@@ -24,8 +24,9 @@ const TABLES: [&str; 4] = ["bots", "transactions", "bot_activity_logs", "bot_ind
 const JSON_COLUMNS: [&str; 4] = ["settings", "transient_data", "details", "error_messages"];
 const MAX_ATTEMPTS: usize = 6;
 /// transient_data keys only this engine writes, besides the mail markers (notice::KEYS): Rails has none of them.
-const RUST_KEYS: [&str; 10] = ["run_generation", "tick_generation", "rust_placement", crate::engine::model::SIGNAL_CALLS_KEY, "rust_defer_until", "rust_amount_limit_stops_pending", "rust_failure_origin",
-                               "rust_rebalance_halted", crate::engine::conditions::DEAD, crate::engine::index::RESYNC_KEY];
+const RUST_KEYS: [&str; 12] = ["run_generation", "tick_generation", "rust_placement", crate::engine::model::SIGNAL_CALLS_KEY, "rust_defer_until", "rust_amount_limit_stops_pending", "rust_failure_origin",
+                               "rust_rebalance_halted", crate::engine::conditions::DEAD, crate::engine::index::RESYNC_KEY,
+                               crate::engine::conditions::INFO_KEY, crate::engine::conditions::INFO_WANTED_KEY];
 
 fn raw(v: ValueRef<'_>) -> Value {
     match v {
@@ -252,7 +253,7 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
                               "funds_notified": funds_notified, "poll_error": poll_error });
         // The engine's reconciliation tick has no Rails counterpart: what it sent (nothing, expected) goes to the asserters only.
         if let Some(n) = recover_sent { out["recover_sent"] = json!(n); }
-        if let Some(c) = checks { out["checks"] = json!(c); }
+        if let Some(Value::Object(extra)) = checks { for (k, v) in extra { out[k] = v; } }
         return Ok(out);
     }
     if let Some(row) = scenario["venue"].as_str().filter(|v| ["binance", "binance_us"].contains(v)).and_then(|v| crate::venue::registry::ROWS.iter().find(|r| r.name_id == v)) {
@@ -269,7 +270,7 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
         let funds_notified: bool = o.primary.query_row("SELECT last_end_of_funds_notification IS NOT NULL FROM bots WHERE id = ?1", [bot_id], |r| r.get(0))?;
         let mut out = json!({ "sent": binance_sent(&transport), "changes": diff(&before, &snapshot(&o.primary)?), "mails": mails(&o.primary, &owed)?,
                           "funds_notified": funds_notified, "poll_error": poll_error });
-        if let Some(c) = checks { out["checks"] = json!(c); }
+        if let Some(Value::Object(extra)) = checks { for (k, v) in extra { out[k] = v; } }
         return Ok(out);
     }
     if scenario["venue"] == "kucoin" {
@@ -285,7 +286,7 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
         let funds_notified: bool = o.primary.query_row("SELECT last_end_of_funds_notification IS NOT NULL FROM bots WHERE id = ?1", [bot_id], |r| r.get(0))?;
         let mut out = json!({ "sent": kucoin_sent(&transport), "changes": diff(&before, &snapshot(&o.primary)?), "mails": mails(&o.primary, &owed)?,
                               "funds_notified": funds_notified, "poll_error": poll_error });
-        if let Some(c) = checks { out["checks"] = json!(c); }
+        if let Some(Value::Object(extra)) = checks { for (k, v) in extra { out[k] = v; } }
         return Ok(out);
     }
     if scenario["venue"] == "bitget" {
@@ -302,7 +303,7 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
         let mut out = json!({ "sent": bitget_sent(&transport), "changes": diff(&before, &snapshot(&o.primary)?), "mails": mails(&o.primary, &owed)?,
                               "funds_notified": funds_notified, "poll_error": poll_error });
         if let Some(n) = recover_sent { out["recover_sent"] = json!(n); }
-        if let Some(c) = checks { out["checks"] = json!(c); }
+        if let Some(Value::Object(extra)) = checks { for (k, v) in extra { out[k] = v; } }
         return Ok(out);
     }
     if scenario["venue"] == "bybit" {
@@ -320,7 +321,7 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
         let mut out = json!({ "sent": bybit_sent(&transport), "changes": diff(&before, &snapshot(&o.primary)?), "mails": mails(&o.primary, &owed)?,
                               "funds_notified": funds_notified, "poll_error": poll_error });
         if let Some(n) = recover_sent { out["recover_sent"] = json!(n); }
-        if let Some(c) = checks { out["checks"] = json!(c); }
+        if let Some(Value::Object(extra)) = checks { for (k, v) in extra { out[k] = v; } }
         return Ok(out);
     }
     if scenario["venue"] == "coinbase" {
@@ -337,7 +338,7 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
         let mut out = json!({ "sent": coinbase_sent(&transport), "changes": diff(&before, &snapshot(&o.primary)?), "mails": mails(&o.primary, &owed)?,
                               "funds_notified": funds_notified, "poll_error": poll_error });
         if let Some(n) = recover_sent { out["recover_sent"] = json!(n); }
-        if let Some(c) = checks { out["checks"] = json!(c); }
+        if let Some(Value::Object(extra)) = checks { for (k, v) in extra { out[k] = v; } }
         return Ok(out);
     }
     if scenario["venue"] == "gemini" {
@@ -354,7 +355,7 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
         let mut out = json!({ "sent": gemini_sent(&transport), "changes": diff(&before, &snapshot(&o.primary)?), "mails": mails(&o.primary, &owed)?,
                               "funds_notified": funds_notified, "poll_error": poll_error });
         if let Some(n) = recover_sent { out["recover_sent"] = json!(n); }
-        if let Some(c) = checks { out["checks"] = json!(c); }
+        if let Some(Value::Object(extra)) = checks { for (k, v) in extra { out[k] = v; } }
         return Ok(out);
     }
     if scenario["venue"] == "hyperliquid" {
@@ -377,7 +378,7 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
         let mut out = json!({ "sent": hyperliquid_sent(&transport), "changes": diff(&before, &snapshot(&o.primary)?), "mails": mails(&o.primary, &owed)?,
                               "funds_notified": funds_notified, "poll_error": poll_error });
         if let Some(n) = recover_sent { out["recover_sent"] = json!(n); }
-        if let Some(c) = checks { out["checks"] = json!(c); }
+        if let Some(Value::Object(extra)) = checks { for (k, v) in extra { out[k] = v; } }
         return Ok(out);
     }
     if scenario["venue"] == "bitvavo" {
@@ -393,7 +394,7 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
         let funds_notified: bool = o.primary.query_row("SELECT last_end_of_funds_notification IS NOT NULL FROM bots WHERE id = ?1", [bot_id], |r| r.get(0))?;
         let mut out = json!({ "sent": bitvavo_sent(&transport), "changes": diff(&before, &snapshot(&o.primary)?), "mails": mails(&o.primary, &owed)?,
                               "funds_notified": funds_notified, "poll_error": poll_error });
-        if let Some(c) = checks { out["checks"] = json!(c); }
+        if let Some(Value::Object(extra)) = checks { for (k, v) in extra { out[k] = v; } }
         return Ok(out);
     }
     if scenario["venue"] == "mexc" {
@@ -409,7 +410,7 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
         let funds_notified: bool = o.primary.query_row("SELECT last_end_of_funds_notification IS NOT NULL FROM bots WHERE id = ?1", [bot_id], |r| r.get(0))?;
         let mut out = json!({ "sent": mexc_sent(&transport), "changes": diff(&before, &snapshot(&o.primary)?), "mails": mails(&o.primary, &owed)?,
                               "funds_notified": funds_notified, "poll_error": poll_error });
-        if let Some(c) = checks { out["checks"] = json!(c); }
+        if let Some(Value::Object(extra)) = checks { for (k, v) in extra { out[k] = v; } }
         return Ok(out);
     }
     if scenario["venue"] == "bitrue" {
@@ -425,7 +426,7 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
         let funds_notified: bool = o.primary.query_row("SELECT last_end_of_funds_notification IS NOT NULL FROM bots WHERE id = ?1", [bot_id], |r| r.get(0))?;
         let mut out = json!({ "sent": query_sent(&transport, crate::venue::bitrue::ORDER_PATH), "changes": diff(&before, &snapshot(&o.primary)?), "mails": mails(&o.primary, &owed)?,
                               "funds_notified": funds_notified, "poll_error": poll_error });
-        if let Some(c) = checks { out["checks"] = json!(c); }
+        if let Some(Value::Object(extra)) = checks { for (k, v) in extra { out[k] = v; } }
         if let Some(n) = recover_sent { out["recover_sent"] = json!(n); }
         return Ok(out);
     }
@@ -442,7 +443,7 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
         let funds_notified: bool = o.primary.query_row("SELECT last_end_of_funds_notification IS NOT NULL FROM bots WHERE id = ?1", [bot_id], |r| r.get(0))?;
         let mut out = json!({ "sent": query_sent(&transport, crate::venue::bingx::ORDER_PATH), "changes": diff(&before, &snapshot(&o.primary)?), "mails": mails(&o.primary, &owed)?,
                               "funds_notified": funds_notified, "poll_error": poll_error });
-        if let Some(c) = checks { out["checks"] = json!(c); }
+        if let Some(Value::Object(extra)) = checks { for (k, v) in extra { out[k] = v; } }
         if let Some(n) = recover_sent { out["recover_sent"] = json!(n); }
         return Ok(out);
     }
@@ -455,7 +456,7 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
     let (poll, _, checks) = play(&o, &venue, &scenario, bot_id, start, &posted).await?;
     let sent = kraken_sent(&transport);
     let mut out = json!({ "sent": sent, "changes": diff(&before, &snapshot(&o.primary)?), "mails": mails(&o.primary, &owed)? });
-    if let Some(c) = checks { out["checks"] = json!(c); }
+    if let Some(Value::Object(extra)) = checks { for (k, v) in extra { out[k] = v; } }
     // A failed Kraken follow-up is reported, as the Rails harness reports one that raised (only the listed unreadable-number
     // scenarios fail a Kraken poll; anywhere else the key's presence alone makes the outputs differ).
     if let Some(e) = poll { out["poll_error"] = json!(format!("{e:?}")); }
@@ -467,7 +468,7 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
 /// `recover_at` (Rust only: Rails has no job then, its next run is at next_interval_checkpoint_at); the next checkpoint's tick
 /// at `next_at` (both). Returns how the poll failed and, when there is a reconciliation tick, how many orders it sent.
 async fn play<V: Venue>(o: &Opened, venue: &V, scenario: &Value, bot_id: i64, start: DateTime<Utc>, posted: &dyn Fn() -> usize)
-    -> Result<(Option<polling::PollFailure>, Option<usize>, Option<Vec<String>>), EngineError> {
+    -> Result<(Option<polling::PollFailure>, Option<usize>, Option<Value>), EngineError> {
     // One price cache across retries and phases, as Rails' 5 s cache spans its retried jobs.
     let prices = PriceCache::default();
     let cx = TickContext { credential_version: crate::engine::model::credential_version(&o.primary, &crate::engine::model::load_bot(&o.primary, bot_id)?)?, prices: &prices, process_start: DateTime::<Utc>::MIN_UTC, stopping: &|| false, below_minimum: &|_, _| {}, claimed: &|_| {} };
@@ -527,13 +528,38 @@ async fn play<V: Venue>(o: &Opened, venue: &V, scenario: &Value, bot_id: i64, st
             Err(e) => return Err(e),
         }
     }
+    // Slice 7s: Bot::BroadcastPriceLimitInfoUpdateJob at each `info` phase (after its SQL), as the web's request leaves it for
+    // the engine; what the status line then shows (bots/settings/_price_limit_info, lines trimmed), or nothing.
+    let mut infos = vec![];
+    for phase in scenario["info"].as_array().into_iter().flatten() {
+        for sql in phase["sql"].as_array().into_iter().flatten() {
+            o.primary.execute_batch(sql.as_str().ok_or_else(|| EngineError::Data(format!("scenario.info.sql: {sql}")))?)?;
+        }
+        let when: DateTime<Utc> = phase["at"].as_str().and_then(|s| s.parse().ok()).ok_or_else(|| EngineError::Data(format!("scenario.info: {phase}")))?;
+        use crate::engine::conditions;
+        conditions::want_info(&o.primary, bot_id, None, conditions::PRICE, "en")?;
+        let mut shown = vec![];
+        for claim in conditions::info_claims(&o.primary, conditions::PRICE)?.into_iter().filter(|c| c.bot.id == bot_id) {
+            if conditions::info(&o.primary, venue, &claim, &FixedClock(when), &prices, &cx.credential_version).await?.is_some() {
+                let bot = model::load_bot(&o.primary, bot_id)?;
+                let side = if bot.selling() { "selling" } else { "buying" };
+                let info = &bot.transient[conditions::INFO_KEY][conditions::PRICE][side];
+                let html = crate::web::bot::settings::price_limit_info("en", info);
+                shown.push(json!({ "target": "settings-price-limit-info", "html": html.lines().map(str::trim).filter(|l| !l.is_empty()).collect::<Vec<_>>().join("\n") }));
+            }
+        }
+        infos.push(Value::Array(shown));
+    }
     if let Some(when) = at("next_at")? { ticks(o, venue, bot_id, when, &cx).await?; }
     // Bot::EvaluateRebalancersJob's fires: one Bot::RebalanceJob each.
     for when in scenario["rebalance_at"].as_array().into_iter().flatten() {
         let when: DateTime<Utc> = when.as_str().and_then(|s| s.parse().ok()).ok_or_else(|| EngineError::Data(format!("scenario.rebalance_at: {when}")))?;
         crate::engine::rebalance::run(&o.primary, venue, bot_id, &FixedClock(when), &cx).await?;
     }
-    Ok((poll, recover_sent, listing.then_some(checks)))
+    let mut extra = serde_json::Map::new();
+    if listing { extra.insert("checks".into(), json!(checks)); }
+    if scenario["info"].is_array() { extra.insert("infos".into(), Value::Array(infos)); }
+    Ok((poll, recover_sent, (!extra.is_empty()).then_some(Value::Object(extra))))
 }
 
 /// Plan 8a: each Bot::SignalJob of the scenario as the hook leaves it (a waiting call), then the engine's executor at `start`,

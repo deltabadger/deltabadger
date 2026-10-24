@@ -146,8 +146,10 @@ pub async fn hand_back_since<F: VenueFactory>(lock: &EngineLock, o: &Opened, fac
         if model::price_paused(&tx, &model::load_bot(&tx, id)?)? { continue; }
         tx.execute("UPDATE bots SET status = ?1, updated_at = ?2 WHERE id = ?3", params![scheduled, crate::codec::format_time(now), id])?;
     }
-    tx.execute(&format!("UPDATE bots SET transient_data = json_remove(transient_data, '$.{}') WHERE json_type(transient_data, '$.{}') IS NOT NULL",
-                        super::conditions::DEAD, super::conditions::DEAD), [])?;
+    // The check's death marker, and the status line's stored info and waiting requests (Rails' own cache starts empty).
+    for key in [super::conditions::DEAD, super::conditions::INFO_KEY, super::conditions::INFO_WANTED_KEY] {
+        tx.execute(&format!("UPDATE bots SET transient_data = json_remove(transient_data, '$.{key}') WHERE json_type(transient_data, '$.{key}') IS NOT NULL"), [])?;
+    }
     let scheduled: usize = tx.query_row("SELECT count(*) FROM bots WHERE status = ?1", [scheduled], |r| r.get::<_, i64>(0))? as usize;
     // rust_defer_until is the engine's own key, and it goes. Adopting a handback re-arms every scheduled bot at
     // next_interval_checkpoint_at (EngineLease.adopt_handback! → Bot::RepairOrphanedBotsJob#repair_bot), the first checkpoint

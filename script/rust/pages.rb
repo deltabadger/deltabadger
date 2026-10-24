@@ -386,16 +386,31 @@ module Pages
     asks = [broadcast('metrics_update', 'bot_id' => 1).merge('expect' => 200), broadcast('metrics_update', 'bot_id' => '2'),
             broadcast('pnl_update', 'bot_ids' => [1, 2, 3]), broadcast('pnl_update'), broadcast('global_pnl_update'), get('/de/bots/3'),
             broadcast('metrics_update', { 'bot_id' => 3 }, '/de/broadcasts/metrics_update'),
-            broadcast('global_pnl_update', {}, '/broadcasts/global_pnl_update'), broadcast('wake_dispatcher').merge('expect' => 200)]
+            broadcast('global_pnl_update', {}, '/broadcasts/global_pnl_update'), broadcast('wake_dispatcher').merge('expect' => 200),
+            # The four limit rules' status lines (slice 7s): Rails enqueues their info jobs and answers at once.
+            broadcast('price_limit_info_update', 'bot_id' => 1).merge('expect' => 200), broadcast('price_limit_info_update', 'bot_id' => '2'),
+            broadcast('price_drop_limit_info_update', 'bot_id' => 1).merge('expect' => 200), broadcast('moving_average_limit_info_update', 'bot_id' => 2),
+            broadcast('indicator_limit_info_update', { 'bot_id' => 1 }, '/de/broadcasts/indicator_limit_info_update')]
     # A bot that is not the user's, a number that is no bot's, and no bot at all: "not found"; the other two do not look.
     strangers = [broadcast('metrics_update', 'bot_id' => 3).merge('expect' => 404), broadcast('metrics_update', 'bot_id' => 99),
-                 broadcast('metrics_update'), broadcast('pnl_update', 'bot_ids' => [3]), broadcast('global_pnl_update')]
+                 broadcast('metrics_update'), broadcast('pnl_update', 'bot_ids' => [3]), broadcast('global_pnl_update'),
+                 broadcast('price_limit_info_update', 'bot_id' => 3).merge('expect' => 404), broadcast('price_limit_info_update', 'bot_id' => 99),
+                 broadcast('price_limit_info_update'), broadcast('price_drop_limit_info_update', 'bot_id' => 3),
+                 broadcast('moving_average_limit_info_update', 'bot_id' => 99), broadcast('indicator_limit_info_update'),
+                 broadcast('price_limit_info_update', 'bot_id' => 4).merge('expect' => 200)]
     {
       'broadcasts' => with_bots(three, signed_in(get('/bots'), *asks)),
       'broadcasts_of_another_user' => two_users.merge('steps' => signed_in(get('/bots'), *strangers)),
       'broadcasts_without_token' => with_bots(three, signed_in(get('/bots'), broadcast('global_pnl_update').merge('csrf' => 'none'),
-                                                                   broadcast('wake_dispatcher').merge('csrf' => 'none'))),
-      'broadcasts_signed_out' => with_bots(three, [get('/login'), broadcast('global_pnl_update'), broadcast('metrics_update', 'bot_id' => 1), broadcast('wake_dispatcher')])
+                                                                   broadcast('wake_dispatcher').merge('csrf' => 'none'),
+                                                                   broadcast('price_limit_info_update', 'bot_id' => 1).merge('csrf' => 'none'))),
+      'broadcasts_signed_out' => with_bots(three, [get('/login'), broadcast('global_pnl_update'), broadcast('metrics_update', 'bot_id' => 1), broadcast('wake_dispatcher'),
+                                                   broadcast('price_limit_info_update', 'bot_id' => 1)]),
+      # The price rule's status line on the bot page: the loader while nothing is cached, the reading within its 20 s
+      # (Rails.cache here, the engine's stored info there), green when met, and in German.
+      'price_status_line' => with_bots([stopped('basket', 'settings' => { 'price_limited' => true, 'price_limit' => 50_000, 'price_limit_value_condition' => 'below' })],
+                                       signed_in(get('/bots/1'), get('/bots/1').merge('before' => 'warm_price_info'), get('/de/bots/1'),
+                                                 get('/bots/1').merge('before' => 'warm_price_info_met')))
     }
   end
 
@@ -812,8 +827,15 @@ module Pages
     # The venue stops trading bitcoin in EUR on Kraken (the wizard's chosen pair).
     'disable_kraken_xbt' => -> { Ticker.where(ticker: 'XBTEUR').update_all(available: false) },
     # data-api's ND100 publishes one member (the index wizard's chosen index).
-    'shrink_nasdaq' => -> { Index.where(external_id: 'nasdaq-100').update_all(top_coins: ['nvda.us']) }
+    'shrink_nasdaq' => -> { Index.where(external_id: 'nasdaq-100').update_all(top_coins: ['nvda.us']) },
+    # Bot 1's price status line within its 20 s, as Bot#broadcast_price_limit_info_update caches it (a real cache, this scenario only).
+    'warm_price_info' => -> { WARM_PRICE_INFO.(false) },
+    'warm_price_info_met' => -> { WARM_PRICE_INFO.(true) }
   }.freeze
+  WARM_PRICE_INFO = lambda do |met|
+    Rails.cache = ActiveSupport::Cache::MemoryStore.new unless Rails.cache.is_a?(ActiveSupport::Cache::MemoryStore)
+    Rails.cache.write('bot_1_price_limit_info_buying', { base: 'BTC', quote: 'USD', price: BigDecimal('64310.75'), condition_met: met }, expires_in: 20.seconds)
+  end
 
   # What a browser's FormData posts for a form with `multipart: true`: the flat text fields, then each
   # file part ({'name', 'filename', 'content'}); a file input left empty is a part with filename="".
@@ -916,9 +938,11 @@ module Pages
     Rack::Attack.enabled = true
     Rails.configuration.dry_run = false # the test environment's stand-in for an API key: always correct
     TCPSocket.prepend(NoNetwork)
+    cache = Rails.cache
     Dir[File.join(root, '*/scenario.json')].each do |path|
       dir = File.dirname(path)
       scenario = JSON.parse(File.read(path))
+      Rails.cache = cache # a scenario's own cache (WARM_PRICE_INFO) never reaches the next
       connect(dir)
       Rack::Attack.cache.store = ActiveSupport::Cache::MemoryStore.new # the test environment's null store counts nothing
       clients = Hash.new do |hash, name| # one browser per client name: its own cookies and the last page it loaded

@@ -26,7 +26,7 @@ pub(super) fn owner_ctx(app: &App, owner: User) -> Ctx {
 pub fn render(c: &Connection, app: &App, event: &EngineEvent) -> Result<Vec<(String, String)>, WebError> {
     let bot_id = match event {
         EngineEvent::StatusChanged { bot_id } | EngineEvent::TickEnded { bot_id } | EngineEvent::OrderRecorded { bot_id, .. } | EngineEvent::OrderWritten { bot_id, .. }
-        | EngineEvent::SignalMarkerChanged { bot_id } => *bot_id,
+        | EngineEvent::SignalMarkerChanged { bot_id } | EngineEvent::ConditionInfo { bot_id, .. } => *bot_id,
         _ => return Ok(vec![]),
     };
     let owner: Option<i64> = OptionalExtension::optional(c.query_row("SELECT user_id FROM bots WHERE id = ?1", [bot_id], |r| r.get(0)))?;
@@ -63,6 +63,19 @@ pub fn render(c: &Connection, app: &App, event: &EngineEvent) -> Result<Vec<(Str
         // needs a request).
         EngineEvent::SignalMarkerChanged { .. } if bot.kind == super::Kind::Signal =>
             vec![(super::page::page_stream(&bot), super::signal::unresolved_broadcast(&ctx, &bot))],
+        // Bot#broadcast_price_limit_info_update: the info as its fetch left it, in the job's locale (the request's, else the
+        // owner's), into the status line of the active side's rule; nothing while that rule is off (the partial's guard).
+        EngineEvent::ConditionInfo { rule, locale, .. } => {
+            let (side, prefix) = if bot.selling() { ("selling", "sell_") } else { ("buying", "") };
+            let info = bot.transient.get(crate::engine::conditions::INFO_KEY).and_then(|v| v.get(*rule)).and_then(|v| v.get(side));
+            match info {
+                Some(info) if *rule == crate::engine::conditions::PRICE && bot.on(&format!("{prefix}price_limited")) => {
+                    let locale = locale.as_deref().and_then(crate::web::locale::known).unwrap_or(ctx.locale);
+                    vec![(super::page::page_stream(&bot), crate::web::turbo::stream("replace", "settings-price-limit-info", &super::settings::price_limit_info(locale, info)))]
+                }
+                _ => vec![],
+            }
+        }
         _ => vec![],
     })
 }

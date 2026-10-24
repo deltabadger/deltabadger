@@ -1834,6 +1834,47 @@ async fn a_stock_and_an_index_copy_are_planned_with_stock_bodies_and_an_open_clo
 }
 
 
+/// Slice 7s: the price rule's status line (Bot::BroadcastPriceLimitInfoUpdateJob) on every venue of the condition grid, both
+/// sides: the payload each info phase broadcasts and every row it wrote (met_at, the carry and its marker), as Rails does them.
+#[tokio::test(flavor = "current_thread")]
+async fn rails_and_rust_show_the_price_status_line_identically() {
+    use serde_json::Value;
+    let rails_root = tempfile::tempdir().unwrap();
+    let rust_root = tempfile::tempdir().unwrap();
+    built_grid("grid-condition-info", rails_root.path());
+    let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
+    dirs.sort();
+    assert!(dirs.len() >= 3 * 15, "the status-line grid has {} scenarios", dirs.len());
+    for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); }
+    rails(&["record", rails_root.path().to_str().unwrap()]);
+    let mut failures = vec![];
+    for d in &dirs {
+        let name = d.file_name().unwrap().to_string_lossy().to_string();
+        let rails_out: Value = serde_json::from_str(&std::fs::read_to_string(d.join("rails.json")).unwrap()).unwrap();
+        let rust_out = deltabadger::parity::decide(&rust_root.path().join(&name)).await.unwrap();
+        let rails_out = r5_cleanup_expected(&rails_out, &rust_out);
+        if rails_out != rust_out { failures.push(format!("{name}\n  rails: {rails_out}\n  rust:  {rust_out}")); }
+        // Pin what Rails shows, so that two silent sides cannot pass.
+        let case = name.rsplit('-').next().unwrap();
+        let shown: Vec<usize> = rails_out["infos"].as_array().unwrap().iter().map(|p| p.as_array().unwrap().len()).collect();
+        let html = |i: usize| rails_out["infos"][i][0]["html"].as_str().unwrap_or("").to_string();
+        let bot = &rails_out["changes"]["bots"];
+        let t = |when: &str, key: &str| bot[0][when]["transient_data"][key].clone();
+        let ok = match case {
+            "failure" | "rejected" => shown == [0] && bot.as_array().unwrap().is_empty(),
+            "cold_met" => shown == [1] && html(0).contains("text-success") && !bot.as_array().unwrap().is_empty(),
+            "cold_unmet" => shown == [1] && !html(0).contains("text-success"),
+            "clear" => shown == [1] && t("after", "missed_quote_amount_was_set") == true,
+            "carry_held" => shown == [1] && t("after", "missed_quote_amount") == t("before", "missed_quote_amount") && t("after", "missed_quote_amount_was_set").is_null(),
+            "warm" => shown == [1, 1, 1] && html(0) == html(1) && html(1) != html(2),
+            "flip" => shown == [1, 1] && html(0) != html(1),
+            other => panic!("unknown case {other}"),
+        };
+        if !ok { failures.push(format!("{name}: Rails did not show what the case pins\n  rails: {rails_out}")); }
+    }
+    assert!(failures.is_empty(), "{} of {} status-line scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
+}
+
 struct GridDir { path: PathBuf, _temp: Option<tempfile::TempDir> }
 impl GridDir { fn path(&self) -> &Path { &self.path } }
 fn grid_dir(name: &str) -> GridDir {
@@ -1847,8 +1888,8 @@ fn grid_dir(name: &str) -> GridDir {
     } else { let temp=tempfile::tempdir().unwrap(); GridDir {path:temp.path().into(),_temp:Some(temp)} }
 }
 
-/// Slice 7a: price_limit / sell_price_limit with `pause` on Kraken, Binance and Alpaca, buying and selling. Every tick, check
-/// and check job queued (with its time) as Rails decides them.
+/// Slice 7a: price_limit / sell_price_limit with `pause` on Kraken, Binance and Alpaca, buying and selling, and five smoke cases
+/// on every other venue (plan 7s T4). Every tick, check and check job queued (with its time) as Rails decides them.
 #[tokio::test(flavor = "current_thread")]
 async fn rails_and_rust_decide_identically_across_the_condition_grid() {
     let rails_root = tempfile::tempdir().unwrap();
@@ -1856,7 +1897,7 @@ async fn rails_and_rust_decide_identically_across_the_condition_grid() {
     built_grid("grid-conditions", rails_root.path());
     let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
     dirs.sort();
-    assert_eq!(dirs.len(), 174, "the condition grid has {} scenarios", dirs.len());
+    assert_eq!(dirs.len(), 284, "the condition grid has {} scenarios", dirs.len());
     for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); }
     rails(&["record", rails_root.path().to_str().unwrap()]);
     let mut failures = vec![];
@@ -1872,7 +1913,10 @@ async fn rails_and_rust_decide_identically_across_the_condition_grid() {
             rails_out["mails"] = serde_json::json!([]);
             rails_out["changes"]["bots"][0]["after"]["last_end_of_funds_notification"] = serde_json::Value::Null;
         }
-        if rails_out != rust_out { failures.push(format!("{name}\n  rails: {rails_out}\n  rust:  {rust_out}")); }
+        // Named divergence D-679: a Gemini market buy is sized at the crossed ask (crossed_buy asserts the rest equal).
+        if name.starts_with("cond-gemini-buy-") {
+            if let Err(e) = crossed_buy(&name, d, &rails_out, &rust_out) { failures.push(format!("{name}: {e}")); }
+        } else if rails_out != rust_out { failures.push(format!("{name}\n  rails: {rails_out}\n  rust:  {rust_out}")); }
         // Pin what Rails does, so that two silent sides cannot pass.
         let case = name.splitn(4, '-').nth(3).unwrap();
         let checks = rails_out["checks"].as_array().unwrap().len();
