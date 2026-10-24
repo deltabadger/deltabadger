@@ -227,7 +227,7 @@ module Pages
 
   # Bot ids follow the order of 'bots'.
   def bot_scenarios = list_scenarios.merge(page_scenarios).merge(feed_scenarios).merge(refused_scenarios).merge(broadcast_scenarios).merge(venue_scenarios)
-                      .merge(search_scenarios)
+                      .merge(search_scenarios).merge(reorder_scenarios)
 
   # A Kraken bot that waits, a Binance bot at work with a fill, a failed order and one resting, and a stock basket beside them.
   def venue_bots
@@ -332,6 +332,39 @@ module Pages
       'asset_search_alpaca' => search.('nvdia', 'inc', 'bots' => [{ 'kind' => 'basket' }], 'more_stocks' => true),
       'asset_search_kraken' => search.('etherum', 'coin', 'bots' => [{ 'kind' => 'kraken' }], 'venues' => true, 'more_coins' => true),
       'asset_search_binance' => search.('solano', 'coin', 'bots' => [{ 'kind' => 'binance' }], 'venues' => true, 'more_coins' => true)
+    }
+  end
+
+  # What bots_reorder_controller.js sends on a drop: JSON ids, the page's token in X-CSRF-Token (only `position` may move).
+  def reorder(body, opts = {})
+    { 'method' => 'PATCH', 'path' => '/bots/reorder', 'json' => body.to_json, 'csrf' => 'header',
+      'headers' => { 'Content-Type' => 'application/json', 'Accept' => 'application/json' },
+      'action_snapshot' => true, 'may_mutate' => ['bots'] }.merge(opts)
+  end
+
+  # PATCH /bots/reorder (Bots::ReordersController#update): the dragged ids refill their own slots in the whole list, deleted
+  # and archived bots included, which is renumbered 1..n; anything not the user's own falls out first.
+  def reorder_scenarios
+    four = [{ 'kind' => 'basket', 'columns' => { 'label' => 'Basket' } }, { 'kind' => 'single' }, { 'kind' => 'index' }, { 'kind' => 'basket' }]
+    {
+      'reorder_full' => with_bots(four, signed_in(get('/bots'), reorder({ 'ids' => %w[4 2 1 3] }).merge('expect' => 204), get('/bots'),
+                                                  reorder({ 'ids' => [1, 2, 3, 4] }), get('/bots'))),
+      'reorder_filtered' => with_bots([four[0], { 'kind' => 'single', 'columns' => { 'status' => 7 } }, four[2], four[3]],
+                                      signed_in(get('/bots'), reorder('ids' => %w[4 1 3]), get('/bots'), get('/bots?filter=archived'),
+                                                reorder('ids' => %w[2]), get('/bots?filter=all'))),
+      'reorder_dup_positions' => with_bots([{ 'kind' => 'basket', 'columns' => { 'position' => 2 } }, { 'kind' => 'single', 'columns' => { 'position' => 2 } },
+                                            { 'kind' => 'index', 'columns' => { 'position' => 7 } }, { 'kind' => 'basket', 'columns' => { 'position' => 0 } }],
+                                           signed_in(get('/bots'), reorder({ 'ids' => %w[1] }).except('json').merge('form' => { 'ids[]' => '1' }, 'headers' => {}),
+                                                     get('/bots'), reorder('ids' => %w[2 1]), get('/bots'))),
+      'reorder_with_deleted' => with_bots([four[0], { 'kind' => 'single', 'columns' => { 'status' => 3 } }, four[2], four[3]],
+                                          signed_in(get('/bots'), reorder('ids' => %w[4 3 1]), get('/bots'))),
+      'reorder_stranger_and_junk' => two_users.merge('steps' => signed_in(get('/bots'), reorder('ids' => ['2', 'x', 3, 2, 999]),
+                                                                          reorder('ids' => ['x', 3, '2abc', 1.9, nil]), get('/bots'))),
+      'reorder_empty' => with_bots(four, signed_in(get('/bots'), reorder({}), reorder('ids' => []), reorder('ids' => nil), reorder('ids' => %w[x 999]),
+                                                   reorder('ids' => '3'), get('/bots'))),
+      'reorder_signed_out' => with_bots(four, signed_in(get('/bots'), get('/login').merge('client' => 'signed_out'),
+                                                        reorder('ids' => %w[4 3 2 1]).merge('client' => 'signed_out'), get('/bots'))),
+      'reorder_no_csrf' => with_bots(four, signed_in(get('/bots'), reorder('ids' => %w[4 3 2 1]).merge('csrf' => 'none'), get('/bots')))
     }
   end
 

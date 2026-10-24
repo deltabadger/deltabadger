@@ -194,6 +194,21 @@ pub fn unauthenticated(ctx: &Ctx) -> Response {
     failure(ctx, "unauthenticated")
 }
 
+/// `unauthenticated` where the request's format may be JSON: Devise's failure app answers a non-navigational format
+/// with 401 and `{"error": message}` (no flash, no stored location). Rails' format is the Accept's first type unless
+/// the Accept looks like a browser's (`*/*` beside another type), which reads as HTML.
+/// ponytail: first type only, no q-ordering; only bots_reorder_controller.js sends a JSON Accept.
+pub fn unauthenticated_in_format(ctx: &Ctx, headers: &axum::http::HeaderMap) -> Response {
+    let accept = headers.get(header::ACCEPT).and_then(|v| v.to_str().ok()).unwrap_or("");
+    let browser_like = accept.contains(',') && accept.contains("*/*");
+    let first = accept.split(',').next().and_then(|m| m.split(';').next()).map(str::trim).unwrap_or("");
+    if browser_like || !first.eq_ignore_ascii_case("application/json") { return unauthenticated(ctx); }
+    let body = serde_json::json!({ "error": i18n::text(ctx.locale, "devise.failure.unauthenticated", &[]) }).to_string();
+    let mut response = (StatusCode::UNAUTHORIZED, [(header::CONTENT_TYPE, "application/json; charset=utf-8")], body).into_response();
+    response.extensions_mut().insert(super::headers::BelowControllers);
+    response
+}
+
 /// A session that was signed in and no longer may be (see `Current::Inactive`).
 pub fn inactive(ctx: &Ctx) -> Option<Response> {
     match ctx.current {
