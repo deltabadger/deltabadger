@@ -985,15 +985,251 @@ async fn a_buy_whose_asset_was_locked_after_it_was_sized_is_not_placed() {
     let composition = placement::composition_snapshot(c, &bot).unwrap();
     let reconciled = splits::snapshot(c, &bot).unwrap();
     let version = model::credential_version(c, &bot).unwrap();
-    let begin = |plan: &amount::OrderPlan| placement::begin_with_credentials(c, &bot, plan, &[&ticker], &composition, &reconciled, &version, None, &FixedClock(at(T0))).unwrap();
+    let begin = |plan: &amount::OrderPlan| placement::begin_with_credentials(c, &bot, plan, &[&ticker], &composition, &reconciled, &version, None, false, &FixedClock(at(T0))).unwrap();
     assert!(matches!(begin(&plan(Side::Buy, TxKind::Regular)), placement::Begun::WashSaleLocked));
     assert!(model::load_bot(c, id).unwrap().rust_placement().is_none(), "no intent");
     assert!(!matches!(begin(&plan(Side::Sell, TxKind::Regular)), placement::Begun::WashSaleLocked), "a lock never forbids selling");
     // The rebalance buy: re-read before #mark_buy_attempted!, so the pending state stands as it was.
     let owed = rebalance::Pending { phase: rebalance::PHASE_BUYING.into(), sell_transaction_id: None, buy_transaction_id: None, remaining_quote_amount: Some(BigDec::from_i64(25)), buy_attempted: true };
-    assert!(matches!(placement::begin_rebalance(c, &bot, &plan(Side::Buy, TxKind::Rebalance), &[&ticker], &composition, &reconciled, &version, None, &owed, &FixedClock(at(T0))).unwrap(),
+    assert!(matches!(placement::begin_rebalance(c, &bot, &plan(Side::Buy, TxKind::Rebalance), &[&ticker], &composition, &reconciled, &version, None, &owed, false, &FixedClock(at(T0))).unwrap(),
                      placement::Begun::WashSaleLocked));
     assert!(model::load_bot(c, id).unwrap().transient.get("rebalance_pending").is_none());
     o.primary.execute("UPDATE users SET wash_sale_enabled = 0", []).unwrap();
     assert!(!matches!(begin(&plan(Side::Buy, TxKind::Regular)), placement::Begun::WashSaleLocked), "rule off: inert");
+}
+
+// ---- wash-sale claims on the sell legs (PLAN-wash-sale WS-2; the engine still refuses such accounts, so these reach the legs
+// directly) ----
+
+/// A one-asset BTC seller of 100 USD a week holding 0.01 BTC bought for 700 USD, the rule on: at the 64000 bid every sale
+/// loses on its lot.
+fn loss_seller() -> (tempfile::TempDir, store::Opened, i64, seed::Seeded) {
+    let (d, o, s) = common::install_alpaca();
+    let spec = BotSpec::weekly(60.0, "2026-09-01 10:00:00").with("direction", json!("selling")).with("sell_denomination", json!("quote")).with("sell_quote_amount", json!(100.0));
+    let id = seed::insert_bot(&o.primary, &s, &spec);
+    basket::refresh_composition(&o.primary, &model::load_bot(&o.primary, id).unwrap(), at("2026-09-01T09:00:00Z")).unwrap().unwrap();
+    seed::insert_row(&o.primary, &s, id, s.btc, &json!({ "status": 0, "external_status": 2, "external_id": "OB-BTC", "amount": "0.01", "amount_exec": "0.01",
+        "quote_amount": "700", "quote_amount_exec": "700", "price": "70000", "created_at": "2026-09-01 09:00:00" }));
+    wash_on(&o, &[]);
+    (d, o, id, s)
+}
+fn btc_free(over: Value) -> ScriptedTransport { selling(json!([position("BTCUSD", "0.01", "0.01")]), over) }
+/// The account's one lock row of `asset`: (buy_locked_until, confirmed_locked_until, claim_token).
+fn lock_of(o: &store::Opened, asset: i64) -> Option<(Option<String>, Option<String>, Option<String>)> {
+    o.primary.query_row("SELECT buy_locked_until, confirmed_locked_until, claim_token FROM wash_sale_locks WHERE asset_id = ?1", [asset],
+                        |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).ok()
+}
+fn wash_lines(o: &store::Opened) -> Vec<String> {
+    o.primary.prepare("SELECT details FROM bot_activity_logs WHERE event = 'wash_sale_locked' ORDER BY id").unwrap().query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect()
+}
+const LOCKED_LINE: &str = r#"{"base":"BTC","until":"2026-10-01"}"#;
+const DEADLINE: &str = "2026-10-02 00:00:00";
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_loss_sale_is_skipped_while_any_bot_of_the_account_rests_a_buy_of_it() {
+    let (_d, o, id, s) = loss_seller();
+    let other = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    seed::insert_row(&o.primary, &s, other, s.btc, &json!({ "status": 0, "external_status": 1, "external_id": "OBUY", "order_type": 1, "amount": "0.001",
+        "amount_exec": "0", "price": "60000", "created_at": "2026-09-01 09:30:00" }));
+    let t = btc_free(json!({}));
+    assert!(matches!(run(&o, &venue(&t), id, at(SELL_AT)).await, TickOutcome::Done { placed: false }));
+    assert!(sells(&t).is_empty(), "sell_skipped wash_sale_resting_buy");
+    assert_eq!((lock_of(&o, s.btc), wash_lines(&o).len()), (None, 0));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_ranked_loss_member_is_skipped_while_a_buy_of_it_rests_and_the_next_member_sells() {
+    let (_d, o, id, s, eth) = basket_seller(100.0);
+    wash_on(&o, &[]);
+    o.primary.execute("UPDATE transactions SET quote_amount = 700, quote_amount_exec = 700 WHERE external_id = 'OB-BTC'", []).unwrap();
+    let other = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    seed::insert_row(&o.primary, &s, other, s.btc, &json!({ "status": 0, "external_status": 1, "external_id": "OBUY", "order_type": 1, "amount": "0.001",
+        "amount_exec": "0", "price": "60000", "created_at": "2026-09-01 09:30:00" }));
+    // BTC is judged and skipped before any balance is read; when ETH's is, the rule goes off (eligibility still refuses it on),
+    // so ETH's order is placed: only BTC sat out.
+    let t = selling(both_free(), json!({}));
+    let v = AlpacaVenue::new(During { script: t.clone(), db: rusqlite::Connection::open(o.primary.path().unwrap()).unwrap(), path: "/v2/positions",
+                                      sql: "UPDATE users SET wash_sale_enabled = 0".into() }, deltabadger::venue::alpaca::Urls::for_passphrase(Some("paper")));
+    tick::tick(&o.primary, &v, id, &FixedClock(at(SELL_AT)), &mut Attempts::default()).await.unwrap();
+    assert_eq!(sells(&t), vec![("ETH/USD".into(), "sell".into(), "0.020000000".into())], "BTC (a loss) sits out; ETH (a gain) sells what it holds");
+    assert_eq!((lock_of(&o, s.btc), lock_of(&o, eth)), (None, None));
+}
+
+/// The one-asset sale of 0.0015625 BTC for 100 USD judged a loss, begun as begin_with_credentials writes it but past the fence,
+/// whose eligibility check still refuses an account with the rule on (WS-3 admits it). The bot is `executing` on its run.
+fn begin_loss_sale(o: &store::Opened, id: i64, s: &seed::Seeded) -> deltabadger::engine::placement::Intent {
+    use deltabadger::engine::{amount, placement, venue_rules::ALPACA};
+    use deltabadger::ruby::BigDec;
+    let c = &o.primary;
+    c.execute("UPDATE bots SET status = 4 WHERE id = ?1", [id]).unwrap();
+    let bot = model::load_bot(c, id).unwrap();
+    let ticker = model::ticker_for_asset(c, &bot, s.btc).unwrap().unwrap();
+    let plan = amount::size_order(&ticker, deltabadger::venue::Side::Sell, &BigDec::from_i64(64000), &BigDec::parse("0.0015625").unwrap(), &BigDec::from_i64(100),
+                                  ALPACA.minimum_logic, amount::TxKind::Regular).unwrap().0;
+    placement::begin_unfenced(c, &bot, &plan, None, true, &FixedClock(at(SELL_AT))).unwrap()
+}
+async fn send_sale(o: &store::Opened, t: &ScriptedTransport, id: i64, intent: &deltabadger::engine::placement::Intent) -> deltabadger::engine::placement::Sent {
+    deltabadger::engine::placement::send_recorded(&o.primary, &venue(t), &model::load_bot(&o.primary, id).unwrap(), intent, &FixedClock(at(SELL_AT))).await.unwrap()
+}
+
+/// §6 for a composition sale: claimed with its intent (`wash_claim`), then accepted → logged once; a definitive rejection →
+/// given back; a pre-transmission raise → kept (Rails re-raises it); a dispatch fenced → kept; an unknown outcome → kept, and
+/// the claim decoded from the stored intent (as after a restart) settles as recovery finds it: accepted → logged once;
+/// absent, or resolved not placed by the operator → kept.
+#[tokio::test(flavor = "current_thread")]
+async fn a_loss_sale_claims_with_its_intent_and_each_outcome_settles_it_as_rails() {
+    use deltabadger::engine::placement::{self, OperatorResolution, Recovery, Sent};
+    let begun = || { let (d, o, id, s) = loss_seller(); let intent = begin_loss_sale(&o, id, &s); (d, o, id, s, intent) };
+    let (_d, o, id, s, intent) = begun();
+    let (until, confirmed, token) = lock_of(&o, s.btc).unwrap();
+    assert_eq!((until.as_deref(), confirmed, token.as_ref().map(String::len)), (Some(DEADLINE), None, Some(16)), "provisional, with its token");
+    assert_eq!(model::load_bot(&o.primary, id).unwrap().rust_placement().unwrap()["wash_claim"], json!({ "asset_id": s.btc, "previous": null, "token": token }),
+               "D-WASH-CLAIM-WITH-INTENT: committed with the intent");
+    assert!(matches!(send_sale(&o, &btc_free(json!({})), id, &intent).await, Sent::Accepted(_)));
+    assert_eq!(wash_lines(&o), vec![LOCKED_LINE.to_string()]);
+    assert_eq!(lock_of(&o, s.btc).unwrap().2, token, "an accepted claim stands as it is");
+
+    let (_d, o, id, s, intent) = begun();
+    let t = btc_free(json!({ "POST /v2/orders": [{ "status": 403, "body": { "code": 40310000, "message": "insufficient balance for BTC" } }] }));
+    assert!(matches!(send_sale(&o, &t, id, &intent).await, Sent::Rejected(_)));
+    assert_eq!(lock_of(&o, s.btc), Some((None, None, None)), "given back: the row find_or_create_by! made stays, empty");
+    assert_eq!(one::<i64>(&o, "SELECT count(*) FROM transactions WHERE status = 1 AND side = 1"), 1, "the failed row");
+    assert!(wash_lines(&o).is_empty());
+
+    let (_d, o, id, s, intent) = begun();
+    assert!(matches!(send_sale(&o, &btc_free(json!({ "POST /v2/orders": [{ "network": "pre_send", "message": PRE_SEND }] })), id, &intent).await, Sent::NotSent(_)));
+    let (until, _, token) = lock_of(&o, s.btc).unwrap();
+    assert_eq!((until.as_deref(), token.is_some(), wash_lines(&o).len()), (Some(DEADLINE), true, 0), "kept: Rails re-raises it and keeps the claim");
+
+    let (_d, o, id, s, intent) = begun();
+    o.primary.execute("UPDATE bots SET status = 2", []).unwrap();
+    let t = btc_free(json!({}));
+    assert!(matches!(send_sale(&o, &t, id, &intent).await, Sent::Fenced));
+    assert!(sells(&t).is_empty() && model::load_bot(&o.primary, id).unwrap().rust_placement().is_none());
+    let (until, _, token) = lock_of(&o, s.btc).unwrap();
+    assert_eq!((until.as_deref(), token.is_some(), wash_lines(&o).len()), (Some(DEADLINE), true, 0), "fenced: kept");
+
+    // Unknown, then found by recovery, which reads the claim back from the stored intent.
+    let (_d, o, id, s, intent) = begun();
+    let t = btc_free(json!({ "POST /v2/orders": [{ "network": "post_send", "message": POST_SEND }] }));
+    assert!(matches!(send_sale(&o, &t, id, &intent).await, Sent::Ambiguous(_)));
+    let cl = model::load_bot(&o.primary, id).unwrap().rust_placement().unwrap()["cl_ord_id"].clone();
+    t.reply("GET /v2/orders:by_client_order_id", 200, json!({ "id": "OTX-9", "client_order_id": cl, "status": "filled", "symbol": "BTC/USD", "asset_class": "crypto",
+        "type": "market", "side": "sell", "qty": "0.0015625", "notional": null, "filled_qty": "0.0015625", "filled_avg_price": "64000", "limit_price": null }));
+    let bot = model::load_bot(&o.primary, id).unwrap();
+    assert!(matches!(placement::recover(&o.primary, &venue(&t), &bot, &FixedClock(at(SELL_AT) + Duration::minutes(1))).await.unwrap(), Recovery::Recorded(_)));
+    assert_eq!(wash_lines(&o), vec![LOCKED_LINE.to_string()], "logged once; the fill confirmed the same day and moved nothing");
+    assert_eq!(lock_of(&o, s.btc).unwrap().1.as_deref(), Some(DEADLINE), "confirmed by the recovered fill");
+
+    for operator in [false, true] {
+        let (_d, o, id, s, intent) = begun();
+        let t = btc_free(json!({ "POST /v2/orders": [{ "network": "post_send", "message": POST_SEND }] }));
+        send_sale(&o, &t, id, &intent).await;
+        let held = lock_of(&o, s.btc);
+        if operator {
+            placement::resolve_by_operator(&o.primary, id, OperatorResolution::NotPlaced, at(SELL_AT)).unwrap();
+        } else {
+            t.reply("GET /v2/orders:by_client_order_id", 404, not_found()["body"].clone());
+            let bot = model::load_bot(&o.primary, id).unwrap();
+            assert!(matches!(placement::recover(&o.primary, &venue(&t), &bot, &FixedClock(at(SELL_AT) + Duration::hours(1))).await.unwrap(), Recovery::NotPlaced));
+        }
+        assert_eq!((lock_of(&o, s.btc), wash_lines(&o).len()), (held, 0), "operator {operator}: kept, as a Rails worker crash keeps it");
+    }
+
+    // The rule off, through a whole tick: no verdict, no claim, no row.
+    let (_d, o, id, s) = loss_seller();
+    o.primary.execute("UPDATE users SET wash_sale_enabled = 0", []).unwrap();
+    let t = btc_free(json!({}));
+    run(&o, &venue(&t), id, at(SELL_AT)).await;
+    assert_eq!((sells(&t).len(), lock_of(&o, s.btc), wash_lines(&o).len()), (1, None, 0), "inert");
+}
+
+/// Transaction's after_save :reconcile_wash_sale over polling::apply_in's writes: the condition matrix, and the ledger's wake
+/// (EngineEvent::SaleSettled, transaction.rb:50-56) noted once per committed fill.
+#[tokio::test(flavor = "current_thread")]
+async fn a_terminal_sell_written_by_a_poll_confirms_the_lock_from_its_fill() {
+    use deltabadger::engine::polling;
+    use deltabadger::ruby::BigDec;
+    use deltabadger::venue::{OrderState, OrderStatus};
+    let now = at("2026-09-03T12:00:00Z");
+    let d = |x: &str| BigDec::parse(x).unwrap();
+    let state = |status, exec: &str, quote: Option<&str>| OrderState { txid: "OS-1".into(), status, price: Some(d("64000")), amount: Some(d("0.001")), quote_amount: None,
+        amount_exec: d(exec), quote_amount_exec: quote.map(d), limit: false, sell: true, pair: Some("BTC/USD".into()), asset_class: Some("crypto".into()), zero_fill_at: None };
+    let apply = |o: &store::Opened, id: i64, tx: i64, s: &OrderState| model::credential_write(&o.primary, &None, |f| polling::apply_in(f, id, tx, s, true, now)).unwrap();
+    let sell = |o: &store::Opened, s: &seed::Seeded, id: i64, asset: bool| {
+        let tx = seed::insert_row(&o.primary, s, id, s.btc, &json!({ "status": 0, "external_status": 0, "external_id": "OS-1", "side": 1, "amount": "0.001", "created_at": "2026-09-02 10:00:00" }));
+        if !asset { o.primary.execute("UPDATE transactions SET base_asset_id = NULL WHERE id = ?1", [tx]).unwrap(); }
+        tx
+    };
+    // Closed at a loss: locked from the day it was seen, logged, and the ledger's wake noted once.
+    let (_d, o, id, s) = loss_seller();
+    let tx = sell(&o, &s, id, true);
+    apply(&o, id, tx, &state(OrderStatus::Closed, "0.001", Some("64")));
+    assert_eq!(lock_of(&o, s.btc), Some((Some("2026-10-04 00:00:00".into()), Some("2026-10-04 00:00:00".into()), None)));
+    assert_eq!(wash_lines(&o), vec![r#"{"base":"BTC","until":"2026-10-03"}"#.to_string()]);
+    assert_eq!(polling::settled_sales(&o.primary).unwrap(), vec![id]);
+    // An identical re-poll changes nothing: no reconcile, no wake.
+    apply(&o, id, tx, &state(OrderStatus::Closed, "0.001", Some("64")));
+    assert_eq!((wash_lines(&o).len(), polling::settled_sales(&o.primary).unwrap()), (1, Vec::<i64>::new()));
+    // Cancelled with a partial fill whose proceeds are unknown: no verdict, which locks; the ledger wakes.
+    let (_d, o, id, s) = loss_seller();
+    let tx = sell(&o, &s, id, true);
+    apply(&o, id, tx, &state(OrderStatus::Cancelled, "0.0005", None));
+    assert!(lock_of(&o, s.btc).is_some_and(|l| l.1.is_some()));
+    assert_eq!(polling::settled_sales(&o.primary).unwrap(), vec![id]);
+    // Cancelled partial with no proceeds reported at an order price ABOVE the lot's cost: judged on the raw proceeds (none), so
+    // unknown against an owned lot, which locks; never on price × quantity, which would read a gain (measurable.rb).
+    let (_d, o, id, s) = loss_seller();
+    let tx = sell(&o, &s, id, true);
+    apply(&o, id, tx, &OrderState { price: Some(d("80000")), ..state(OrderStatus::Cancelled, "0.0005", None) });
+    assert!(lock_of(&o, s.btc).is_some_and(|l| l.1.is_some()), "unknown proceeds against an owned lot lock");
+    // The same sale with no lot of the bot's own behind it: no loss of its own to protect, no lock.
+    let (_d, o, id, s) = loss_seller();
+    o.primary.execute("DELETE FROM transactions WHERE external_id = 'OB-BTC'", []).unwrap();
+    let tx = sell(&o, &s, id, true);
+    apply(&o, id, tx, &OrderState { price: Some(d("80000")), ..state(OrderStatus::Cancelled, "0.0005", None) });
+    assert_eq!(lock_of(&o, s.btc), None, "no owned lots, no lock");
+    // Cancelled with nothing filled: nothing sold, no lock, no wake.
+    let (_d, o, id, s) = loss_seller();
+    let tx = sell(&o, &s, id, true);
+    apply(&o, id, tx, &state(OrderStatus::Cancelled, "0", Some("0")));
+    assert_eq!((lock_of(&o, s.btc), polling::settled_sales(&o.primary).unwrap()), (None, Vec::<i64>::new()));
+    // A gain: the walk's verdict is false, no lock (the ledger still wakes).
+    let (_d, o, id, s) = loss_seller();
+    let tx = sell(&o, &s, id, true);
+    apply(&o, id, tx, &state(OrderStatus::Closed, "0.001", Some("90")));
+    assert_eq!((lock_of(&o, s.btc), polling::settled_sales(&o.primary).unwrap()), (None, vec![id]));
+    // A closed row that learns its asset late is reconciled on that write (base_asset_id changed), by the learned asset.
+    let (_d, o, id, s) = loss_seller();
+    let tx = sell(&o, &s, id, false);
+    o.primary.execute("UPDATE transactions SET external_status = 2, amount_exec = 0.001, quote_amount_exec = 64, price = 64000 WHERE id = ?1", [tx]).unwrap();
+    apply(&o, id, tx, &state(OrderStatus::Closed, "0.001", Some("64")));
+    assert_eq!(one::<i64>(&o, &format!("SELECT base_asset_id FROM transactions WHERE id = {tx}")), s.btc);
+    assert!(lock_of(&o, s.btc).is_some_and(|l| l.1.is_some()), "reconciled when its asset landed");
+    assert_eq!(polling::settled_sales(&o.primary).unwrap(), Vec::<i64>::new(), "no status or executed figure changed: no ledger wake");
+    // A sale the walk has no verdict for (a cancelled partial with neither proceeds nor a price: no fill it can value) locks,
+    // and never holds up the fill's own write.
+    let (_d, o, id, s) = loss_seller();
+    let tx = sell(&o, &s, id, true);
+    apply(&o, id, tx, &OrderState { price: None, ..state(OrderStatus::Cancelled, "0.0005", None) });
+    let walked = deltabadger::figures::walk::metrics(&o.primary, &deltabadger::figures::db::Subject::load(&o.primary, id).unwrap(),
+        deltabadger::figures::at::At::from_utc(now).unwrap());
+    assert!(walked.map_or(true, |m| m.walked.is_none_or(|w| !w.loss_lot_by_transaction.iter().any(|(t, _)| *t == tx))), "no verdict (here the walk cannot value the fill)");
+    assert!(lock_of(&o, s.btc).is_some(), "absent locks");
+    // The rule off: nothing is locked, the ledger still wakes.
+    let (_d, o, id, s) = loss_seller();
+    o.primary.execute("UPDATE users SET wash_sale_enabled = 0", []).unwrap();
+    let tx = sell(&o, &s, id, true);
+    apply(&o, id, tx, &state(OrderStatus::Closed, "0.001", Some("64")));
+    assert_eq!((lock_of(&o, s.btc), polling::settled_sales(&o.primary).unwrap()), (None, vec![id]));
+}
+
+use deltabadger::venue::http::{HttpRequest, HttpResponse, Transport, TransportError};
+/// The scripted venue, with `sql` committed by another connection the moment `path` is asked.
+struct During { script: ScriptedTransport, db: rusqlite::Connection, path: &'static str, sql: String }
+impl Transport for During {
+    async fn send(&self, req: &HttpRequest) -> Result<HttpResponse, TransportError> {
+        if req.path == self.path { self.db.execute_batch(&self.sql).unwrap(); }
+        self.script.send(req).await
+    }
 }
