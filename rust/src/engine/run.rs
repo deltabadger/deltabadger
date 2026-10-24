@@ -624,6 +624,11 @@ async fn run_polls<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock, wake: 
         let mut announce_retry=true;
         let retry = match polling::follow_up(&e.primary, &venue, id, tx, clock.now()).await {
             Ok(polling::FollowUp::Done) => None,
+            // A Merge or Split moved the row while this poll ran: nothing was written; it is polled again at once, under its owner.
+            Ok(polling::FollowUp::OwnerChanged(owner)) | Err(polling::PollFailure::OwnerChanged(owner)) => {
+                e.polls.insert(tx, model::Produced::new((owner, clock.now().timestamp_micros(), attempts), producer));
+                continue;
+            }
             Ok(polling::FollowUp::StillOpen) => { attempts.open += 1; (attempts.open < 8).then(|| (tick::retry_wait(attempts.open, false), "the order is still open".to_string())) }
             // D-KUCOIN-ZERO-FILL-FUNDS: a zero fill too young to be final is asked again as a still-open order is; when those
             // retries end before it is final, once more just past that time, so a bot stopped meanwhile still settles.
