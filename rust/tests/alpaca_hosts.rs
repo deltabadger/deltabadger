@@ -78,7 +78,7 @@ async fn every_call_reaches_the_host_rails_reaches_for_its_mode() {
 fn the_factory_picks_rails_host_for_every_recorded_mode() {
     let f = LiveFactory::new();
     for row in grid()["rows"].as_array().unwrap().iter().filter(|r| r["call"] == "account") {
-        let credentials = Credentials { redaction_values: vec![], key: "PK".into(), secret: "s".into(), passphrase: row["passphrase"].as_str().map(str::to_string) };
+        let credentials = Credentials { ibkr: None, redaction_values: vec![], key: "PK".into(), secret: "s".into(), passphrase: row["passphrase"].as_str().map(str::to_string) };
         assert_eq!(host(&f.alpaca(Some(credentials), vec![]).urls().trading), row["host"], "{row}");
     }
     let unkeyed = grid()["rows"].as_array().unwrap().iter().find(|r| r["call"] == "no_key_account").unwrap().clone();

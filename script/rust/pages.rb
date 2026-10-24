@@ -520,6 +520,9 @@ module Pages
      { 'kind' => 'basket' }]
   end
 
+  def basket_selling = { 'direction' => 'selling', 'sell_denomination' => 'quote', 'sell_quote_amount' => 25, 'sell_interval' => 'week',
+                         'quote_amount_limited' => true, 'quote_amount_limit' => 300, 'smart_intervaled' => true }
+
   # GET /bots/:id and the chart's frame.
   def page_scenarios
     chart = { 'Turbo-Frame' => 'bot_chart' }
@@ -530,6 +533,16 @@ module Pages
                                                        get('/bots/1/chart'), get('/bots/1.json'), get('/bots/1.turbo_stream'))),
       'bot_page_hidden' => with_bots(traded, signed_in(get('/bots/1'), get('/bots/2'), get('/bots/3'), get('/bots/1/chart', chart)),
                                      'user' => owner('hide_balances' => true, 'locale' => 'de')),
+      # The rebalance rule on (bots/settings/_rebalance): a stopped basket at a 10 % threshold and an index, each with nothing held,
+      # so the note stands alone (a held bot's drift is read from the figures: page_figures.rb's framed_rebalance_*); and the
+      # rule off with a threshold stored beside a one-asset basket that sells with it on, which shows no rule.
+      'bot_page_rebalancing' => with_bots([stopped('basket', 'settings' => { 'rebalance_enabled' => true, 'rebalance_threshold' => 0.1 }), { 'kind' => 'single' }],
+                                          signed_in(get('/bots/1'), get('/bots'), get('/de/bots/1'))),
+      'bot_page_rebalancing_index' => with_bots([stopped('index', 'settings' => { 'rebalance_enabled' => true }), { 'kind' => 'basket' }],
+                                                signed_in(get('/bots/1'), get('/bots'))),
+      'bot_page_rebalancing_off_selling' => with_bots([stopped('basket', 'settings' => { 'rebalance_enabled' => false, 'rebalance_threshold' => 0.1 }),
+                                                       stopped('single', 'settings' => selling_base.merge('rebalance_enabled' => true))],
+                                                      signed_in(get('/bots/1'), get('/bots/2'), get('/bots'))),
       # Exactly one bot: the navbar says "Bot" and points at it.
       'bot_page_single_bot' => with_bots([running('single', '2026-09-08T13:30:00Z', acted('2026-09-09T13:30:00.800Z'))], signed_in(get('/bots/1'), get('/de/bots/1'))),
       'bot_page_archived' => with_bots([{ 'kind' => 'basket', 'columns' => { 'status' => 7 } }, { 'kind' => 'single', 'columns' => { 'status' => 7 } }],
@@ -588,6 +601,10 @@ module Pages
       'bot_page_selling' => with_bots(selling, signed_in(get('/bots/1'), get('/bots/2'), get('/bots/3'), get('/bots/4'), get('/bots/5'), get('/de/bots/1'),
                                                          get('/pl/bots/2'), get('/bots/1', 'Turbo-Frame' => 'bot'))),
       'bot_page_selling_hidden' => with_bots(selling, signed_in(get('/bots/1'), get('/bots/5')), 'user' => owner('hide_balances' => true)),
+      # A two-member basket that sells for N quote a period: no lone ticker, and no amount limit, Smart Intervals or rebalance rule.
+      'bot_page_selling_basket' => with_bots([stopped('basket', 'settings' => basket_selling),
+                                              running('basket', '2026-09-08T13:30:00Z', { 'settings' => basket_selling }.merge(acted('2026-09-09T13:30:00.800Z')))],
+                                             signed_in(get('/bots/1'), get('/bots/2'), get('/de/bots/1'), get('/bots'))),
       'bot_page_ring' => with_bots(three, signed_in(get('/bots/1')), 'balances' => { 'QQQM' => 5000, 'IBIT' => 2500.5, 'USD' => 120, 'BTC' => 900 }),
       # Another user's bot, a deleted bot and a number that is no bot's all answer as "no such bot"; `1abc` is bot 1, as Rails reads an id.
       'bot_page_of_another_user' => two_users.merge(
@@ -667,7 +684,6 @@ module Pages
       # A sold bot's page still shows a realised profit or loss only the figures know; its siblings that have not sold are served.
       'not_ported_bot_selling_cap' => with_bots([stopped('single', 'settings' => selling_base.merge('base_amount_limited' => true, 'base_amount_limit' => 3)),
                                                  { 'kind' => 'basket' }], signed_in(get('/bots/2'), get('/bots/1'))),
-      'not_ported_bot_rebalancing' => with_bots([stopped('basket', 'settings' => { 'rebalance_enabled' => true }), { 'kind' => 'single' }], signed_in(get('/bots/1'))),
       'not_ported_bot_that_sold' => with_bots([stopped('single', 'orders' => 'sold'), { 'kind' => 'basket' }], signed_in(get('/bots/1'))),
       # An index bot's liquidation, redeploy and rebalance legs: the engine reads them, and its start modal and starts are served
       # (actions_index_history_*). A page without figures has no realised profit or loss to show, so this grid's page is refused;

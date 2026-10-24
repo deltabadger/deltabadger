@@ -2590,7 +2590,7 @@ async fn encoded_stored_credentials_are_removed_from_malformed_venue_diagnostics
             "modern"=>{assert_eq!(h.submit("POST","/tracker/add_api_key",&[("exchange_id","1"),("key_type","trading"),("api_key[key]","new-key"),("api_key[secret]",secret),("api_key[passphrase]","paper")],Csrf::Header).await.status,422);h.logs.0.lock().unwrap().join("\n")},
             "passive"=>{assert_eq!(h.browser.get(&h.app,"/tracker/add_api_key/new?exchange_id=1&key_type=trading").await.status,200);h.logs.0.lock().unwrap().join("\n")},
             "job"=>{let cx=Cx{db:Db::new(rusqlite::Connection::open(h._dir.path().join("production.sqlite3")).unwrap(),h.app.cipher.clone()),clock:h.clock.as_ref(),wakers:h.app.job_wakers().unwrap()};let Outcome::Failed(diagnostic)=Validator{venues:LocalAlpaca(server.uri()),key_id:h.seed.api_key_id}.run(cx,vec![]).await else{panic!("actual malformed venue answer must remain a visible failure")};diagnostic},
-            _=>{let db=Db::new(rusqlite::Connection::open(h._dir.path().join("production.sqlite3")).unwrap(),h.app.cipher.clone());let credentials=deltabadger::crypto::Credentials{ redaction_values:vec![],key:"previous-key".into(),secret:secret.into(),passphrase:Some("paper".into())};let transport=deltabadger::venue::http::ReqwestTransport::new(deltabadger::venue::http::client(),credentials.key.clone(),credentials.secret.clone());let venue=deltabadger::venue::alpaca::AlpacaVenue::new(transport,deltabadger::venue::alpaca::Urls{trading:server.uri(),data:server.uri()});let error=deltabadger::sync::balances::sync(&db,&venue,&deltabadger::sync::balances::NoPrices,h.seed.api_key_id,&credentials,&deltabadger::engine::FixedClock(h.app.now())).await.unwrap().unwrap_err();let stored:String=h.c.query_row("SELECT last_sync_error FROM api_keys WHERE id=?1",[h.seed.api_key_id],|r|r.get(0)).unwrap();format!("{} {stored}",error.error)},
+            _=>{let db=Db::new(rusqlite::Connection::open(h._dir.path().join("production.sqlite3")).unwrap(),h.app.cipher.clone());let credentials=deltabadger::crypto::Credentials{ ibkr: None, redaction_values:vec![],key:"previous-key".into(),secret:secret.into(),passphrase:Some("paper".into())};let transport=deltabadger::venue::http::ReqwestTransport::new(deltabadger::venue::http::client(),credentials.key.clone(),credentials.secret.clone());let venue=deltabadger::venue::alpaca::AlpacaVenue::new(transport,deltabadger::venue::alpaca::Urls{trading:server.uri(),data:server.uri()});let error=deltabadger::sync::balances::sync(&db,&venue,&deltabadger::sync::balances::NoPrices,h.seed.api_key_id,&credentials,&deltabadger::engine::FixedClock(h.app.now())).await.unwrap().unwrap_err();let stored:String=h.c.query_row("SELECT last_sync_error FROM api_keys WHERE id=?1",[h.seed.api_key_id],|r|r.get(0)).unwrap();format!("{} {stored}",error.error)},
         };
         assert!(if boundary=="sync"{diagnostic.contains(deltabadger::crypto::VENUE_TEXT_REDACTED)}else{diagnostic.contains("HTTP 503")&&!diagnostic.contains(deltabadger::crypto::VENUE_TEXT_REDACTED)},"R1 log metadata and stored sync errors have their respective contracts for {boundary}");assert!(!diagnostic.contains(secret)&&!diagnostic.contains(escaped)&&!diagnostic.contains(&percent)&&!diagnostic.contains(&ascii)&&!diagnostic.contains(&lower),"I removes recoverable encoded credential material from {boundary} diagnostics");
     }
@@ -3042,7 +3042,7 @@ async fn r2_validation_logs_flashes_and_pages_check_every_encoding(){
         server.reset().await;
         Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(503).set_body_json(serde_json::json!({"message":format!("venue-free-text {encoded}")}))).expect(2).mount(&server).await;
         let stored=deltabadger::sync::credentials(&h.c,&h.app.cipher,h.seed.api_key_id).unwrap();
-        let submitted=deltabadger::crypto::Credentials{key:"next-key".into(),secret:"next-secret".into(),passphrase:Some("paper".into()),redaction_values:stored.redaction_values};
+        let submitted=deltabadger::crypto::Credentials{ ibkr: None,key:"next-key".into(),secret:"next-secret".into(),passphrase:Some("paper".into()),redaction_values:stored.redaction_values};
         let validity=deltabadger::web::settings::validator::check(&server.uri(),&submitted,0).await.unwrap();
         let deltabadger::web::settings::validator::Validity::Pending(diagnostic)=validity else{panic!("fixture response is inconclusive")};
         assert_eq!(diagnostic.text,deltabadger::crypto::VENUE_TEXT_REDACTED,"validation returns a whole-text decision for each captured stored column: {encoded}");
@@ -3814,7 +3814,7 @@ fn d5b_tracker_connect_oracle_sources_stay_pinned(){
 #[tokio::test(flavor="current_thread")]
 async fn alpaca_unreadable_200_leaves_the_key_pending(){
     let server=MockServer::start().await;
-    let key=deltabadger::crypto::Credentials{key:"k".into(),secret:"s".into(),passphrase:None,redaction_values:vec![]};
+    let key=deltabadger::crypto::Credentials{ ibkr: None,key:"k".into(),secret:"s".into(),passphrase:None,redaction_values:vec![]};
     for body in ["\"OK\"","","OK"]{
         server.reset().await;
         Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_string(body)).mount(&server).await;

@@ -69,7 +69,7 @@ pub async fn fill(app:&App,identity:&str,config:Option<Config>,pairs:Vec<(String
     let mut raw=Raw::default();
     if let Some(config)=config {
         if matches!(app.figure_source,crate::web::figure::loading::Source::Script(_)|crate::web::figure::loading::Source::Counted(..)) {
-            let credentials=crate::crypto::Credentials{ redaction_values:vec![],key:String::new(),secret:String::new(),passphrase:None};
+            let credentials=crate::crypto::Credentials{ redaction_values:vec![],key:String::new(),secret:String::new(),passphrase:None,ibkr:None};
             let wire=||crate::web::figure::loading::Wire::new(&credentials,app.figure_source.clone());
             ask(&DataApi::new(config,wire(),wire()),rates,&coins,&mut raw).await;
         } else { ask(&DataApi::live(config),rates,&coins,&mut raw).await; }

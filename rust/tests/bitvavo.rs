@@ -193,11 +193,11 @@ async fn placement_answers_map_as_rails_maps_them() {
     let place = |reply: Value| async move { venue(json!({ "POST /v2/order": reply })).1.add_order(&order(OrderKind::Market, true, "60")).await };
     assert_eq!(place(ok(json!({ "orderId": "abc-1", "market": "BTC-EUR" }))).await, Ok("BTC-EUR-abc-1".into()));
     assert_eq!(place(ok(json!({ "market": "BTC-EUR" }))).await, Err(VenueError::Ambiguous(bitvavo::NO_ORDER_ID.into())));
-    let Err(VenueError::Rejected(e)) = place(err(400, 216, "You do not have sufficient balance to complete this operation.")).await else { panic!() };
+    let Err(VenueError::Coded { errors: e, .. }) = place(err(400, 216, "You do not have sufficient balance to complete this operation.")).await else { panic!() };
     assert_eq!(BITVAVO.failure_kind(&e), Some("insufficient_funds"));
-    let Err(VenueError::Rejected(e)) = place(err(403, 304, "outside the access window")).await else { panic!() };
+    let Err(VenueError::Coded { errors: e, .. }) = place(err(403, 304, "outside the access window")).await else { panic!() };
     assert!(placement::safe_rejection(&e), "304: no row, the run rescheduled");
-    let Err(VenueError::Rejected(e)) = place(err(400, 109, "timed out")).await else { panic!() };
+    let Err(VenueError::Coded { errors: e, .. }) = place(err(400, 109, "timed out")).await else { panic!() };
     assert!(BITVAVO.add_outcome_unknown(&e), "109 may have placed the order");
     assert!(matches!(place(fail(503, json!("<html>upstream</html>"))).await, Err(VenueError::Ambiguous(_))));
     assert!(matches!(place(json!([{ "network": "post_send", "message": "Net::ReadTimeout" }])).await, Err(VenueError::Ambiguous(_))));

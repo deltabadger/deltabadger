@@ -197,7 +197,7 @@ async fn a_key_is_checked_by_its_agents_role() {
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "balances": [] }))).mount(&server).await;
     let base = server.uri();
     let check = |key: &str, secret: &str, kind| {
-        let credentials = deltabadger::crypto::Credentials { key: key.into(), secret: secret.into(), passphrase: None, redaction_values: vec![] };
+        let credentials = deltabadger::crypto::Credentials { ibkr: None, key: key.into(), secret: secret.into(), passphrase: None, redaction_values: vec![] };
         let base = base.clone();
         async move { key_check::check("Exchanges::Hyperliquid", &base, http::client(), &credentials, kind).await }
     };

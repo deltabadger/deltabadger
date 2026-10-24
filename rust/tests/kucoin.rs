@@ -317,7 +317,7 @@ fn setup() -> (tempfile::TempDir, store::Opened, model::Bot, amount::OrderPlan) 
 fn count(o: &store::Opened, sql: &str) -> i64 { o.primary.query_row(sql, [], |r| r.get(0)).unwrap() }
 fn reload(o: &store::Opened, b: &model::Bot) -> model::Bot { model::load_bot(&o.primary, b.id).unwrap() }
 fn kv(t: &ScriptedTransport) -> KucoinVenue<ScriptedTransport> {
-    let creds = deltabadger::crypto::Credentials { key: "KEY-A".into(), secret: "s".into(), passphrase: Some("p".into()), redaction_values: vec![] };
+    let creds = deltabadger::crypto::Credentials { ibkr: None, key: "KEY-A".into(), secret: "s".into(), passphrase: Some("p".into()), redaction_values: vec![] };
     KucoinVenue::new(t.clone(), URL).with_identity(&creds)
 }
 fn posts(t: &ScriptedTransport) -> usize { t.requests().iter().filter(|r| r.method == "POST").count() }
@@ -655,7 +655,7 @@ async fn the_factory_builds_kucoin_through_its_proxy_with_the_keys_passphrase_pe
         INSERT INTO exchanges VALUES (9, 'Exchanges::Kucoin');").unwrap();
     let cipher = deltabadger::crypto::Cipher::new(&deltabadger::crypto::EncryptionKeys::resolve(&|_| None, "engine-test-secret").unwrap());
     let factory = LiveFactory::for_install(&c, &cipher);
-    let creds = Some(deltabadger::crypto::Credentials { redaction_values: vec![], key: key.into(), secret: secret.into(), passphrase: Some(passphrase.into()) });
+    let creds = Some(deltabadger::crypto::Credentials { ibkr: None, redaction_values: vec![], key: key.into(), secret: secret.into(), passphrase: Some(passphrase.into()) });
     for proxy in [&a, &b] {
         deltabadger::app_config::set(&c, &cipher, "proxy_kucoin", &proxy.uri(), Utc::now()).unwrap();
         let LiveVenue::Kucoin(v) = factory.for_bot("Exchanges::Kucoin", creds.clone()) else { panic!("a KuCoin bot gets the KuCoin venue") };

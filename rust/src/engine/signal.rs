@@ -197,7 +197,7 @@ where F: Fn() -> Fut, Fut: std::future::Future<Output = Result<Result<T, VenueEr
         let result = read().await?;
         let transient = match &result {
             Err(VenueError::Transient(_)) => true,
-            Err(VenueError::Rejected(e) | VenueError::Unauthorized(e)) => venue.rules().is_transient(e),
+            Err(VenueError::Rejected(e) | VenueError::Unauthorized(e) | VenueError::Coded { errors: e, .. }) => venue.rules().is_transient(e),
             _ => false,
         };
         if !(transient && tries < 3) { return Ok(result); }
@@ -207,7 +207,7 @@ where F: Fn() -> Fut, Fut: std::future::Future<Output = Result<Result<T, VenueEr
 
 /// A read's failure as Rails raises it into the row: `result.errors.to_sentence`, or the transport's own message.
 fn message(e: VenueError) -> String {
-    match e { VenueError::Rejected(e) | VenueError::Unauthorized(e) => to_sentence(&e), VenueError::Transient(m) | VenueError::Ambiguous(m) => m }
+    match e { VenueError::Rejected(e) | VenueError::Unauthorized(e) | VenueError::Coded { errors: e, .. } => to_sentence(&e), VenueError::Transient(m) | VenueError::Ambiguous(m) => m }
 }
 
 /// #signal_size: (base, quote). A buy spends the rule's quote, or its percentage of the spendable quote (`held`); a sell is
@@ -269,7 +269,8 @@ async fn place<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, plan
             }
             // Signed-timestamp rejections never reached the book: nothing to record; the one more attempt follows.
             Sent::Rejected(errors) if first && placement::safe_rejection(errors) => { placement::set_intent(&tx, bot.id, None)?; }
-            Sent::Rejected(errors) => { fail_sized(&tx, bot, &intent, errors.clone(), &cx.credential_version, now)?; }
+            // A signal order is outside D-BELOW-MIN-REJECTION (placement::skips_below_minimum): never BelowMinimum, read as Rejected.
+            Sent::Rejected(errors) | Sent::BelowMinimum(errors) => { fail_sized(&tx, bot, &intent, errors.clone(), &cx.credential_version, now)?; }
             Sent::NotSent(m) => { fail_sized(&tx, bot, &intent, vec![m.clone()], &cx.credential_version, now)?; }
             Sent::Ambiguous(m) => {
                 // The marker first: it stops the next call from placing on top of this one. The intent stays for recovery.

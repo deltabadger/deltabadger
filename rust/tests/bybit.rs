@@ -28,7 +28,7 @@ async fn placement_requires_a_proven_result_and_preserves_the_uuid() {
     assert_eq!(CL.len(), 36);
     assert_eq!(body, json!({"category":"spot","symbol":"BTCUSDT","side":"Buy","orderType":"Market","qty":"60.0","marketUnit":"quoteCoin","orderLinkId":CL}));
     let (_, v) = venue(json!({"POST /v5/order/create":[{"status":200,"body":{"retCode":170131,"retMsg":"Insufficient balance"}}]}));
-    assert_eq!(v.add_order(&order()).await, Err(VenueError::Rejected(vec!["Insufficient balance".into()])));
+    assert_eq!(v.add_order(&order()).await, Err(VenueError::Coded { code: "170131".into(), errors: vec!["Insufficient balance".into()] }));
 }
 #[tokio::test]
 async fn an_unknown_placement_time_never_proves_an_order_missing() {

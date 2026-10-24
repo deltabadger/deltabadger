@@ -67,6 +67,29 @@ fn unreadable_number_refused(name: &str, dir: &Path, rails_out: &serde_json::Val
     if ok { Ok(()) } else { Err(format!("Rust must refuse the number as unreadable: {rust_out}")) }
 }
 
+/// D-BELOW-MIN-REJECTION: Kraken refuses the order as under its minimum ("EOrder:Order minimum not met"). Rails writes a
+/// failed row; Rust sends the same order and reports the leg as the pre-check reports one it skips: one skipped row, an
+/// order_skipped line, no failure.
+fn below_minimum_skipped(rails_out: &serde_json::Value, rust_out: &serde_json::Value) -> Result<(), String> {
+    below_minimum_skip("EOrder:Order minimum not met", rails_out, rust_out)
+}
+/// D-BELOW-MIN-REJECTION on a venue grid's below-minimum cells (MEXC 30002, Bitvavo 217, Hyperliquid's min_value): as
+/// `below_minimum_skipped`.
+fn below_minimum_skip(text: &str, rails_out: &serde_json::Value, rust_out: &serde_json::Value) -> Result<(), String> {
+    let rows = |out: &serde_json::Value| -> Vec<serde_json::Value> { out["changes"]["transactions"].as_array().unwrap().iter().map(|t| t["after"].clone()).collect() };
+    let events = |out: &serde_json::Value| -> Vec<String> { out["changes"]["bot_activity_logs"].as_array().unwrap().iter().filter_map(|l| l["after"]["event"].as_str().map(str::to_string)).collect() };
+    let rails = rows(rails_out);
+    if !(rails.len() == 1 && rails[0]["status"] == 1 && rails[0].to_string().contains(text)) {
+        return Err(format!("Rails no longer records a failed order: drop the listed divergence\n  rails: {rails_out}"));
+    }
+    let rust = rows(rust_out);
+    if rust_out["sent"] != rails_out["sent"] || rust.len() != 1 || rust[0]["status"] != 2
+        || !events(rust_out).iter().any(|e| e == "order_skipped") || events(rust_out).iter().any(|e| e == "execution_failed") {
+        return Err(format!("Rust must send the same order and record the skip, nothing failed: {rust_out}"));
+    }
+    Ok(())
+}
+
 #[tokio::test(flavor = "current_thread")]
 async fn rails_and_rust_decide_identically_across_the_scenario_grid() {
     let rails_root = tempfile::tempdir().unwrap();
@@ -74,7 +97,7 @@ async fn rails_and_rust_decide_identically_across_the_scenario_grid() {
     built_grid("grid", rails_root.path());
     let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
     dirs.sort();
-    assert_eq!(dirs.len(), 324, "the grid has {} scenarios", dirs.len());
+    assert_eq!(dirs.len(), 333, "the grid has {} scenarios", dirs.len());
     for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
     rails(&["record", rails_root.path().to_str().unwrap()]);
 
@@ -84,6 +107,10 @@ async fn rails_and_rust_decide_identically_across_the_scenario_grid() {
         let rails_out: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(d.join("rails.json")).unwrap()).unwrap();
         let rust_out = deltabadger::parity::decide(&rust_root.path().join(&name)).await.unwrap();
         let rails_out = r5_cleanup_expected(&rails_out, &rust_out);
+        if name.ends_with("-rejected_below_minimum") {
+            if let Err(e) = below_minimum_skipped(&rails_out, &rust_out) { failures.push(format!("{name} (listed divergence): {e}")); }
+            continue;
+        }
         if DIVERGENCES.iter().any(|v| name.ends_with(&format!("-{v}"))) {
             if let Err(e) = intent_kept(&rust_root.path().join(&name), &rails_out, &rust_out) { failures.push(format!("{name} (listed divergence): {e}")); }
             continue;
@@ -590,6 +617,7 @@ async fn rails_and_rust_decide_identically_across_the_hyperliquid_grid() {
                                                                                                          "Hyperliquid::Error: Network error: Connection refused", r, u) },
         Validator { names: &ending(&["landed_found"]), check: &|_, _, r, u| { assert_eq!(r["sent"], u["sent"]); hyperliquid_landed_found(r, u) } },
         Validator { names: &ending(&["landed_missing"]), check: &|_, d, r, u| { assert_eq!(r["sent"], u["sent"]); landed_missing(d, r, u) } },
+        Validator { names: &ending(&["min_value"]), check: &|_, _, r, u| below_minimum_skip("Order must have minimum value of", r, u) },
     ]).await;
     // Pin what Rails does where a silent pair of sides would otherwise pass.
     for (name, rails_out) in &outputs {
@@ -656,6 +684,7 @@ async fn rails_and_rust_decide_identically_across_the_bitvavo_grid() {
         Validator { names: &ending(&["add_network_pre_send"]), check: &|_, _, r, u| refused_like_rails(r, u) },
         Validator { names: &ending(&["sweep_unknown_type"]), check: &|_, _, r, u| wrapped_like_rails(r#"Failed to fetch orders BTC-EUR-208. Result: [\"Unknown Bitvavo order type: stopLoss\"]"#,
                                                                                                       "Unknown Bitvavo order type: stopLoss", r, u) },
+        Validator { names: &ending(&["below_venue_minimum"]), check: &|_, _, r, u| below_minimum_skip("Minimum order size in quote currency", r, u) },
     ]).await;
     // Pin what Rails does where a silent pair of sides would otherwise pass.
     for (name, rails_out) in &outputs {
@@ -767,6 +796,7 @@ async fn rails_and_rust_decide_identically_across_the_mexc_grid() {
         Validator { names: &ending(&["add_network_pre_send"]), check: &|_, _, r, u| refused_like_rails(r, u) },
         Validator { names: &ending(&["sweep_unknown_type"]), check: &wrapped("C02__208", "Unknown MEXC order type: STOP_LOSS") },
         Validator { names: &ending(&["sweep_unknown_status"]), check: &wrapped("C02__209", "Unknown MEXC order status: PENDING_CANCEL") },
+        Validator { names: &ending(&["below_venue_minimum"]), check: &|_, _, r, u| below_minimum_skip("Minimum transaction volume cannot be less than", r, u) },
     ]).await;
     // Pin what Rails does where a silent pair of sides would otherwise pass.
     for (name, rails_out) in &outputs {
@@ -1861,6 +1891,36 @@ async fn rails_and_rust_decide_identically_across_the_condition_grid() {
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
 }
 
+/// D-KRAKEN-LIMIT-COSTMIN: the 20-coin Kraken index's smallest limit leg (AVAX, about 0.30 EUR) clears ordermin, which is all
+/// Rails' :base limit logic checks, and Rails sends it; Rust also checks costmin (0.5 EUR, script/rust/decisions.rb's Kraken
+/// pair) and skips it. Everything else is Rails' decision: the same orders and rows less that leg, plus Rust's one
+/// orders_below_minimum line naming it.
+const KRAKEN_LIMIT_COSTMIN: [&str; 2] = ["vi-kraken-top-fewer_than_n-limit", "vi-kraken-category-fewer_than_n-limit"];
+const KRAKEN_GRID_COSTMIN: &str = "0.5";
+
+fn kraken_limit_under_costmin(rails_out: &serde_json::Value, rust_out: &serde_json::Value) -> Result<(), String> {
+    use deltabadger::ruby::BigDec;
+    let d = |v: &serde_json::Value| BigDec::parse(v.as_str().unwrap_or_default()).map_err(|e| format!("{e:?}: {v}"));
+    let mut expected = rails_out.clone();
+    let sent = expected["sent"].as_array_mut().ok_or("sent")?;
+    let mut skipped = vec![];
+    for o in sent.iter() {
+        if o["ordertype"] == "limit" && d(&o["volume"])?.checked_mul(&d(&o["price"])?).map_err(|e| format!("{e:?}"))? < d(&serde_json::json!(KRAKEN_GRID_COSTMIN))? {
+            skipped.push(o["pair"].as_str().unwrap_or_default().trim_end_matches("EUR").to_string());
+        }
+    }
+    if skipped != ["AVAX"] { return Err(format!("Rails' limit legs under costmin are {skipped:?}, not [AVAX]: drop or update the listed divergence\n  rails: {rails_out}")); }
+    sent.retain(|o| o["pair"] != "AVAXEUR");
+    expected["changes"]["transactions"].as_array_mut().ok_or("transactions")?.retain(|t| t["after"]["base"] != "AVAX");
+    let logs = rust_out["changes"]["bot_activity_logs"].as_array().ok_or("logs")?;
+    if logs.len() != 1 || logs[0]["after"]["event"] != "orders_below_minimum" || logs[0]["after"]["details"] != serde_json::json!({"count": 1, "bases": "AVAX"}) {
+        return Err(format!("Rust must log one orders_below_minimum for AVAX: {rust_out}"));
+    }
+    if rails_out["changes"]["bot_activity_logs"] != serde_json::json!([]) { return Err(format!("Rails now logs on this run: {rails_out}")); }
+    expected["changes"]["bot_activity_logs"] = rust_out["changes"]["bot_activity_logs"].clone();
+    if &expected == rust_out { Ok(()) } else { Err(format!("beyond the AVAX leg\n  expected: {expected}\n  rust:     {rust_out}")) }
+}
+
 /// Plan CI T4: crypto index bots on Kraken (EUR), Binance (USDT and BTC), KuCoin (USDT and USDC) and Alpaca (USD crypto beside stocks), every venue
 /// scripted at the Faraday adapter; the probe table (rejected keys, transport failures, a 5xx); rotation with a resting leaver
 /// order and a carry; and each resync trigger followed by a tick (plan CI T3b), all decided by Rails and by Rust alike.
@@ -1869,7 +1929,9 @@ async fn rails_and_rust_decide_identically_across_the_venue_index_grid() -> Resu
     let (_copies, outputs) = grid_outputs("grid-venue-index", 331).await;
     let mut failures = vec![];
     for (name, _dir, rails_out, rust_out) in &outputs {
-        if rails_out != rust_out { failures.push(format!("{name}\n  rails: {rails_out}\n  rust:  {rust_out}")); }
+        if KRAKEN_LIMIT_COSTMIN.contains(&name.as_str()) {
+            if let Err(e) = kraken_limit_under_costmin(rails_out, rust_out) { failures.push(format!("{name} (listed divergence D-KRAKEN-LIMIT-COSTMIN): {e}")); }
+        } else if rails_out != rust_out { failures.push(format!("{name}\n  rails: {rails_out}\n  rust:  {rust_out}")); }
         // Pinned on Rails' side, so that two silent engines cannot pass: what each case names really happened there.
         let sent: Vec<String> = rails_out["sent"].as_array().ok_or("sent")?.iter()
             .map(|o| o.get("pair").or_else(|| o.get("symbol")).and_then(|v| v.as_str()).unwrap_or_default().to_string()).collect();

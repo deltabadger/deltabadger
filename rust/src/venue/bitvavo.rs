@@ -173,7 +173,10 @@ impl<T: Transport> BitvavoVenue<T> {
             let message = if resp.body.is_empty() { format!("the server responded with status {} for {} {}", resp.status, r.method, r.url()) } else { resp.body };
             if !placement && resp.status == 401 { return Err(VenueError::Unauthorized(vec![message])); }
             let definitive = (400..500).contains(&resp.status) || crate::engine::placement::safe_rejection(std::slice::from_ref(&message));
-            return Err(if placement && !definitive { VenueError::Ambiguous(message) } else { VenueError::Rejected(vec![message]) });
+            if placement && !definitive { return Err(VenueError::Ambiguous(message)); }
+            // A placement's refusal carries the body's `errorCode` beside its text (VenueError::Coded).
+            let code = serde_json::from_str::<Value>(&message).ok().and_then(|v| v.get("errorCode").filter(|c| c.is_i64() || c.is_u64()).map(Value::to_string));
+            return Err(match code.filter(|_| placement) { Some(code) => VenueError::Coded { code, errors: vec![message] }, None => VenueError::Rejected(vec![message]) });
         }
         Ok(resp.body)
     }
@@ -218,7 +221,7 @@ impl<T: Transport> BitvavoVenue<T> {
     async fn get_order(&self, order_id: &str) -> Result<Option<OrderState>, VenueError> {
         let (market, ext) = split_order_id(order_id);
         match self.get(ORDER_PATH, vec![("market", market), ("orderId", ext)]).await {
-            Err(VenueError::Rejected(m) | VenueError::Unauthorized(m)) if not_found(&m) => Ok(None),
+            Err(VenueError::Rejected(m) | VenueError::Unauthorized(m) | VenueError::Coded { errors: m, .. }) if not_found(&m) => Ok(None),
             other => parse_order(order_id, &other?).map(Some),
         }
     }
@@ -321,7 +324,7 @@ impl<T: Transport> super::Venue for BitvavoVenue<T> {
     /// a hit naming them is authoritative. A 240 is never absence (ABSENCE_UNPROVEN).
     async fn order_by_client_id(&self, cl_ord_id: &str, symbol: &str, _since: DateTime<Utc>) -> Result<Option<OrderState>, VenueError> {
         let body = match self.get(ORDER_PATH, vec![("market", symbol.to_string()), ("clientOrderId", cl_ord_id.to_string())]).await {
-            Err(VenueError::Rejected(m) | VenueError::Unauthorized(m)) if not_found(&m) => return Err(VenueError::Ambiguous(ABSENCE_UNPROVEN.into())),
+            Err(VenueError::Rejected(m) | VenueError::Unauthorized(m) | VenueError::Coded { errors: m, .. }) if not_found(&m) => return Err(VenueError::Ambiguous(ABSENCE_UNPROVEN.into())),
             other => other?,
         };
         if body["clientOrderId"].as_str() != Some(cl_ord_id) || body["market"].as_str() != Some(symbol) {

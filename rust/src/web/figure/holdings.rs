@@ -119,7 +119,7 @@ pub(crate) fn with_token(metrics: &str, offsets: &[usize], csrf: &str) -> String
 /// One live wash-sale lock: (asset, its symbol, locked until, source).
 type Lock = (i64, Option<String>, At, String);
 /// Bot#locked_members: the user's live locks on the assets the bot `known`s, while the rule has days (User#wash_sale_days).
-fn live_locks(c: &Connection, user: i64, known: &HashSet<i64>, now: At) -> Result<Vec<Lock>, FiguresError> {
+pub(super) fn live_locks(c: &Connection, user: i64, known: &HashSet<i64>, now: At) -> Result<Vec<Lock>, FiguresError> {
     let (enabled, jurisdiction): (Option<bool>,Option<String>) = c.query_row("SELECT wash_sale_enabled,wash_sale_jurisdiction FROM users WHERE id=?1",[user],|r| Ok((r.get(0)?,r.get(1)?)))?;
     // User#wash_sale_jurisdiction uses presence, then the first wash-sale option (US).
     let jurisdiction = jurisdiction.as_deref().filter(|j| !j.trim().is_empty()).unwrap_or("US");

@@ -1,0 +1,5 @@
+{#- bots/signals/_create_bot_button: Start, disabled while the bot built from the session is not valid. -#}
+<div id="create-bot-button">
+  <form data-action="turbo:submit-end-&gt;modal--base#submitEnd" action="{{ action }}" accept-charset="UTF-8" method="post"><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+    <input type="submit" name="commit" value="{{ start }}" class="sbutton button--success"{% if disabled %} disabled="disabled"{% endif %} data-disable-with="{{ start }}" />
+</form></div>

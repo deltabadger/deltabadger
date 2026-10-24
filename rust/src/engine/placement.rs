@@ -409,8 +409,57 @@ pub fn begin_signal(c: &Connection, sized_from: &Bot, plan: &OrderPlan, call: Op
     Ok(SignalClaim::Intent(Box::new(intent)))
 }
 
+/// BelowMinimum (D-BELOW-MIN-REJECTION): the venue definitively refused a scheduled DCA buy leg as under its minimum
+/// order size (`below_minimum`). `send_recorded` writes no failed row and clears the intent; the tick reports the leg as
+/// the pre-check reports one it skips (tick::record_skipped). Rails records a failed order.
 #[derive(Debug)]
-pub enum Sent { Accepted(String), Rejected(Vec<String>), Ambiguous(String), NotSent(String), Fenced }
+pub enum Sent { Accepted(String), Rejected(Vec<String>), Ambiguous(String), NotSent(String), Fenced, BelowMinimum(Vec<String>) }
+
+/// D-BELOW-MIN-REJECTION's table: (exchanges.type, structured code, message prefix). An entry with a code matches a
+/// `VenueError::Coded` refusal with that code whose text starts with the prefix ("" for any); one without matches the text's
+/// prefix alone. Only definitive refusals are asked (after `add_outcome_unknown` and the adapters' own ambiguity), and every
+/// message of a refusal must match: a mixed refusal stays a failure. Upper limits and precision failures never match.
+/// Venues not listed (KuCoin, Bitget, BingX, Bitrue, Coinbase, Gemini) have no cited too-small answer yet: theirs stay
+/// failed rows.
+const BELOW_MINIMUM: &[(&str, Option<&str>, &str)] = &[
+    // Binance spot API docs, Errors → Filter failures (-1013): "MIN_NOTIONAL: price * quantity is too low"; Rails' own
+    // fixture of the answer (test/models/exchanges/binance_test.rb, action_job_test.rb). Not "Filter failure: NOTIONAL",
+    // whose range also has a maximum, nor LOT_SIZE (too high or too low, or off the step).
+    ("Exchanges::Binance", Some("-1013"), "Filter failure: MIN_NOTIONAL"),
+    ("Exchanges::BinanceUs", Some("-1013"), "Filter failure: MIN_NOTIONAL"),
+    // MEXC spot v3 docs, Error Code: 30002 "The minimum transaction volume cannot be less than :" (30003 is the maximum).
+    ("Exchanges::Mexc", Some("30002"), ""),
+    // Bybit v5 docs, Error codes (spot): 170140 "Order value exceeded lower limit", 170136 "Order quantity lower than the
+    // minimum." (170137/170148 are precision).
+    ("Exchanges::Bybit", Some("170140"), ""),
+    ("Exchanges::Bybit", Some("170136"), ""),
+    // Bitvavo docs, Errors: 217 "`amountQuote` is below the minimum for this market", 212 "`amount` is below the minimum for
+    // this market" (210 is the maximum).
+    ("Exchanges::Bitvavo", Some("217"), ""),
+    ("Exchanges::Bitvavo", Some("212"), ""),
+    // Kraken support, "API error messages": "EOrder:Order minimum not met (volume too low)".
+    ("Exchanges::Kraken", None, "EOrder:Order minimum not met"),
+    // Hyperliquid docs, Error responses: MinTradeNtl "Order must have minimum value of $10.", MinTradeSpotNtl "… of 10
+    // {quote_token}." (Rails test/models/bot/order_setter_test.rb records the latter as a hard rejection); as the status
+    // error hyperliquid::add_order words it.
+    ("Exchanges::Hyperliquid", None, "Hyperliquid order failed: Order must have minimum value of "),
+    // Alpaca's 403 to a crypto buy under its $10 floor: "cost basis must be >= minimal amount of order 10". Its numeric code
+    // (40310000) is shared with other refusals (insufficient buying power), so the text decides.
+    ("Exchanges::Alpaca", None, "cost basis must be >= minimal amount of order"),
+];
+
+/// Is this definitive refusal the venue's "order too small" answer (BELOW_MINIMUM)?
+pub fn below_minimum(exchange_type: &str, code: Option<&str>, errors: &[String]) -> bool {
+    !errors.is_empty() && errors.iter().all(|m| BELOW_MINIMUM.iter().any(|(venue, want, prefix)| *venue == exchange_type
+        && want.is_none_or(|w| code == Some(w)) && m.starts_with(prefix)))
+}
+
+/// OM3b's scope: a scheduled DCA, basket or index BUY leg. Out of scope, as before: sells (selling freezes the buy carry),
+/// signal orders (their own consumed-call lifecycle, engine::signal) and REBALANCE legs (a below-minimum rebalance buy
+/// abandons its dust, rebalance.rs).
+fn skips_below_minimum(intent: &Intent) -> bool {
+    intent.plan.side == Side::Buy && intent.plan.kind == TxKind::Regular && intent.run.is_some() && !intent.signal()
+}
 
 /// Acquire the dispatch write lock before rechecking the captured generation. Neither production
 /// adapter (Alpaca, Kraken) has a blocking preflight or session lock between this check and HTTP send.
@@ -449,6 +498,12 @@ pub async fn send_recorded<V: Venue>(c: &Connection, venue: &V, bot: &Bot, inten
         Sent::NotSent(_) => {
             set_intent(&tx, bot.id, None)?;
             settle(&tx, bot.id, intent, Settlement::NotPlaced(Reason::PreTransmission), clock.now())?;
+        }
+        // No failed row: the leg is the tick's to report as skipped. The intent goes in the same checks a rejection's row does.
+        Sent::BelowMinimum(_) => {
+            model::check_credential_result(&tx, &intent.credential_version)?;
+            if !still_pending(&tx, bot.id, &intent.cl_ord_id)? { return Err(gone(bot.id)); }
+            set_intent(&tx, bot.id, None)?;
         }
         Sent::Ambiguous(_) | Sent::Fenced => {}
     }
@@ -501,8 +556,10 @@ async fn send_to_venue<V: Venue>(venue: &V, intent: &Intent, clock: &dyn Clock) 
     };
     match venue.placement_result(&order).await.value {
         Ok(txid) => Sent::Accepted(txid),
-        Err(VenueError::Rejected(e) | VenueError::Unauthorized(e)) if rules.add_outcome_unknown(&e) => Sent::Ambiguous(crate::ruby::to_sentence(&e)),
-        Err(VenueError::Rejected(e) | VenueError::Unauthorized(e)) => Sent::Rejected(e),
+        Err(VenueError::Rejected(e) | VenueError::Unauthorized(e) | VenueError::Coded { errors: e, .. }) if rules.add_outcome_unknown(&e) => Sent::Ambiguous(crate::ruby::to_sentence(&e)),
+        Err(VenueError::Coded { code, errors }) if skips_below_minimum(intent) && below_minimum(rules.exchange_type, Some(&code), &errors) => Sent::BelowMinimum(errors),
+        Err(VenueError::Rejected(e)) if skips_below_minimum(intent) && below_minimum(rules.exchange_type, None, &e) => Sent::BelowMinimum(e),
+        Err(VenueError::Rejected(e) | VenueError::Unauthorized(e) | VenueError::Coded { errors: e, .. }) => Sent::Rejected(e),
         Err(VenueError::Ambiguous(m)) => Sent::Ambiguous(m),
         Err(VenueError::Transient(m)) => Sent::NotSent(m),
     }

@@ -226,9 +226,10 @@ fn base32_decode(s: &str) -> Option<Vec<u8>> {
     Some(out)
 }
 /// A venue API key, decrypted. `passphrase` is KuCoin's signing passphrase, or Alpaca's mode ("paper"/"live"; nil reads as
-/// paper); Kraken and Binance have none.
+/// paper); Kraken and Binance have none. `ibkr` is an IBKR key's whole material (key = consumer key, secret = the encrypted
+/// access token secret), filled only for an IBKR key whose columns are all present.
 #[derive(Clone)]
-pub struct Credentials { pub key: String, pub secret: String, pub passphrase: Option<String>, pub redaction_values: Vec<String> }
+pub struct Credentials { pub key: String, pub secret: String, pub passphrase: Option<String>, pub redaction_values: Vec<String>, pub ibkr: Option<Box<crate::venue::signers::ibkr::Material>> }
 impl std::fmt::Debug for Credentials { fn fmt(&self,f:&mut std::fmt::Formatter<'_>)->std::fmt::Result{f.write_str("Credentials { [redacted] }")} }
 impl PartialEq for Credentials { fn eq(&self,other:&Self)->bool{self.key==other.key&&self.secret==other.secret&&self.passphrase==other.passphrase} }
 impl Eq for Credentials {}
