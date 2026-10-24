@@ -209,6 +209,12 @@ module Pages
         'signal_action_start' => case_of.([stopped], [get('/bots/1'), signal_act('PATCH', '/bots/1/start?start_fresh=true')]),
         'signal_action_start_running' => case_of.([working], [get('/bots/1'), signal_act('PATCH', '/bots/1/start?start_fresh=false')]),
         'signal_action_settings_running' => case_of.([working], [get('/bots/1'), signal_act('PATCH', '/bots/1', 'bots_signal[label]' => 'Live')]),
+        # PLAN-wash-sale WS-3: the rule switched on while the bot runs, then its Stop (Bots::StopsController never asks the
+        # setting); and the Stop of a bot whose sell rule owes the question.
+        'signal_action_wash_rule_on_stop' => case_of.([working], [get('/bots/1'),
+                                                                 Pages.settings_write('update_wash_sale', { '_method' => 'patch', 'wash_sale[enabled]' => '1', 'wash_sale[jurisdiction]' => 'US' }),
+                                                                 signal_act('PATCH', '/bots/1/stop')]),
+        'signal_action_wash_question_stop' => case_of.([working], [signal_act('PATCH', '/bots/1/stop')], 'user' => owner('wash_sale_enabled' => nil)),
         # The wash-sale question Rails asks once a rule sells (its modal is not served by this build).
         'not_ported_signal_rule_wash_question' => case_of.([one], [get('/bots/1'), rule.('PATCH', 1, 1, 'bot_signal[direction]' => 'sell')],
                                                            'user' => owner('wash_sale_enabled' => nil))
@@ -225,6 +231,8 @@ module Pages
       at = '/api/v1/bots/1'
       signal_api = ->(steps, status, attrs = {}) { api_case(steps, {}, attrs).tap { |c| c['bots'] = bots.(status) + c['bots'].drop(1) } }
       {
+        # PLAN-wash-sale WS-3: Stop of a working signal bot whose account has the rule on passes (BotApi::Bots::Stop never asks it).
+        'api_signal_stop_wash_rule_on' => signal_api.([write('POST', "#{at}/stop")], 1, 'user' => owner('wash_sale_enabled' => true)),
         'api_signal_stop' => signal_api.([write('POST', "#{at}/stop"), write('POST', "#{at}/stop")], 1),
         'api_signal_archive' => signal_api.([write('POST', "#{at}/archive"), write('POST', "#{at}/archive"), write('DELETE', "#{at}/archive"),
                                              write('DELETE', "#{at}/archive")], 2),

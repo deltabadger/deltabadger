@@ -174,6 +174,18 @@ module McpControl
     loose = "UPDATE users SET mcp_settings=json_set(mcp_settings,'$.dry_run','true')"
     s['paper_loose_string'] = McpParity.ready + [tool('start_bot', {}, [set_status(0), loose])]
     s['paper_stop_bot'] = McpParity.ready + [tool('stop_bot', {}, [set_status(1), paper])]
+    # PLAN-wash-sale WS-3: Stop of a working basket, and of a working signal bot (bot 2 rewritten as one), on an account with
+    # the rule on or the question unanswered (BotApi::Bots::Stop never asks the setting).
+    signal = ["UPDATE bots SET type='Bots::Signal', status=1, started_at='2026-09-09 12:00:00', transient_data='{}', " \
+              "settings=json_object('base_asset_id', 17, 'quote_asset_id', json_extract((SELECT settings FROM bots WHERE id=1), '$.quote_asset_id')) WHERE id=2",
+              'DELETE FROM bot_index_assets WHERE bot_id=2',
+              "INSERT INTO bot_signals (bot_id, amount, amount_type, direction, enabled, token, created_at, updated_at) VALUES " \
+              "(2, 10, 0, 0, 1, 'mcp-wash-buy', '2026-09-01 00:00:00', '2026-09-01 00:00:00'), (2, 50, 1, 1, 1, 'mcp-wash-sell', '2026-09-01 00:00:00', '2026-09-01 00:00:00')"]
+    { 'rule_on' => 1, 'question' => 'NULL' }.each do |name, value|
+      wash = "UPDATE users SET wash_sale_enabled=#{value} WHERE email='owner@example.com'"
+      s["stop_bot_wash_#{name}"] = McpParity.ready + [tool('stop_bot', {}, [set_status(1), wash])]
+      s["stop_bot_signal_wash_#{name}"] = McpParity.ready + [tool('stop_bot', { bot_id: 2 }, signal + [wash])]
+    end
     settings_form(s)
     prefixes = ENV.fetch('M4', '').split(',')
     selected = s.select { |name, _| prefixes.empty? || prefixes.any? { |p| name.start_with?(p) } }

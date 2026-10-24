@@ -73,55 +73,58 @@ pub struct Row {
     /// The wizard and settings take its keys (every other venue's key route is a named refusal).
     pub wizard: bool,
     pub figures: Option<Figures>,
+    /// `Venue::candles` reproduces Exchange#get_indicator_candles here, recorded (tests/candles.rs): what the candle
+    /// conditions (price drop, moving average, RSI) need before eligibility admits them on this venue.
+    pub condition_candles: bool,
 }
 
 pub static ROWS: [Row; 14] = [
     Row { exchange_type: crate::sync::ALPACA, name: "Alpaca", name_id: "alpaca", base: "", rules: Some(&venue_rules::ALPACA), passphrase: true,
           needs_pairs: false, trades: true, balances: Some(BalanceSync::Alpaca), ledger: Some(LedgerSync::Alpaca), key_check: Some(KeyCheck::Alpaca),
-          wizard: true, figures: Some(Figures::Alpaca) },
+          wizard: true, figures: Some(Figures::Alpaca), condition_candles: false },
     Row { exchange_type: "Exchanges::Kraken", name: "Kraken", name_id: "kraken", base: super::kraken::URL, rules: Some(&venue_rules::KRAKEN), passphrase: false,
-          needs_pairs: false, trades: true, balances: None, ledger: None, key_check: Some(KeyCheck::Kraken), wizard: true, figures: Some(Figures::Kraken) },
+          needs_pairs: false, trades: true, balances: None, ledger: None, key_check: Some(KeyCheck::Kraken), wizard: true, figures: Some(Figures::Kraken), condition_candles: true },
     Row { exchange_type: super::binance::BINANCE, name: "Binance", name_id: "binance", base: super::binance::URL, rules: Some(&venue_rules::BINANCE),
           passphrase: false, needs_pairs: true, trades: true, balances: Some(BalanceSync::Binance), ledger: Some(LedgerSync::Binance),
-          key_check: Some(KeyCheck::Binance), wizard: true, figures: Some(Figures::Binance) },
+          key_check: Some(KeyCheck::Binance), wizard: true, figures: Some(Figures::Binance), condition_candles: false },
     // Binance configured (Exchanges::BinanceUs < Exchanges::Binance): BinanceVenue at US_URL with its own rules row, its own
     // key check, and its ledger's own source list (binance_ledger).
     Row { exchange_type: super::binance::BINANCE_US, name: "Binance.US", name_id: "binance_us", base: super::binance::US_URL, rules: Some(&venue_rules::BINANCE_US),
           passphrase: false, needs_pairs: true, trades: true, balances: Some(BalanceSync::Binance), ledger: Some(LedgerSync::Binance),
-          key_check: Some(KeyCheck::BinanceUs), wizard: true, figures: Some(Figures::Binance) },
+          key_check: Some(KeyCheck::BinanceUs), wizard: true, figures: Some(Figures::Binance), condition_candles: false },
     Row { exchange_type: super::kucoin::KUCOIN, name: "KuCoin", name_id: "kucoin", base: super::kucoin::URL, rules: Some(&venue_rules::KUCOIN),
           passphrase: true, needs_pairs: true, trades: true, balances: Some(BalanceSync::Kucoin), ledger: Some(LedgerSync::Kucoin),
-          key_check: Some(KeyCheck::Kucoin), wizard: true, figures: Some(Figures::Kucoin) },
+          key_check: Some(KeyCheck::Kucoin), wizard: true, figures: Some(Figures::Kucoin), condition_candles: false },
     Row { exchange_type: super::bitvavo::BITVAVO, name: "Bitvavo", name_id: "bitvavo", base: super::bitvavo::URL, rules: Some(&venue_rules::BITVAVO),
           passphrase: false, needs_pairs: true, trades: true, balances: Some(BalanceSync::Bitvavo), ledger: Some(LedgerSync::Bitvavo),
-          key_check: Some(KeyCheck::Bitvavo), wizard: true, figures: Some(Figures::Bitvavo) },
+          key_check: Some(KeyCheck::Bitvavo), wizard: true, figures: Some(Figures::Bitvavo), condition_candles: false },
     // Its figures land with the F3 family (plan VB §1.7, BF): until then its bots show no exchange note.
     Row { exchange_type: super::gemini::GEMINI, name: "Gemini", name_id: "gemini", base: super::gemini::URL, rules: Some(&venue_rules::GEMINI),
           passphrase: false, needs_pairs: true, trades: true, balances: Some(BalanceSync::Gemini), ledger: Some(LedgerSync::Gemini),
-          key_check: Some(KeyCheck::Gemini), wizard: true, figures: None },
+          key_check: Some(KeyCheck::Gemini), wizard: true, figures: None, condition_candles: false },
     // Plan VB slice A4, the classic v2 API as Rails runs it.
     Row { exchange_type: super::bitget::BITGET, name: "Bitget", name_id: "bitget", base: super::bitget::URL, rules: Some(&venue_rules::BITGET),
           passphrase: true, needs_pairs: true, trades: true, balances: Some(BalanceSync::Bitget), ledger: Some(LedgerSync::Bitget),
-          key_check: Some(KeyCheck::Bitget), wizard: true, figures: Some(Figures::Bitget) },
+          key_check: Some(KeyCheck::Bitget), wizard: true, figures: Some(Figures::Bitget), condition_candles: false },
     Row { exchange_type: super::mexc::MEXC, name: "MEXC", name_id: "mexc", base: super::mexc::URL, rules: Some(&venue_rules::MEXC),
           passphrase: false, needs_pairs: true, trades: true, balances: Some(BalanceSync::Mexc), ledger: Some(LedgerSync::Mexc),
-          key_check: Some(KeyCheck::Mexc), wizard: true, figures: Some(Figures::Mexc) },
+          key_check: Some(KeyCheck::Mexc), wizard: true, figures: Some(Figures::Mexc), condition_candles: false },
     // Plan VB slice B1. Its figures land with the F3 family (BF): until then its bots show no exchange note.
     Row { exchange_type: super::hyperliquid::HYPERLIQUID, name: "Hyperliquid", name_id: "hyperliquid", base: super::hyperliquid::URL, rules: Some(&venue_rules::HYPERLIQUID),
           passphrase: false, needs_pairs: true, trades: true, balances: Some(BalanceSync::Hyperliquid), ledger: Some(LedgerSync::Hyperliquid),
-          key_check: Some(KeyCheck::Hyperliquid), wizard: true, figures: None },
+          key_check: Some(KeyCheck::Hyperliquid), wizard: true, figures: None, condition_candles: false },
     Row { exchange_type: super::bybit::BYBIT, name: "Bybit", name_id: "bybit", base: super::bybit::URL, rules: Some(&venue_rules::BYBIT),
           passphrase: false, needs_pairs: true, trades: true, balances: Some(BalanceSync::Bybit), ledger: Some(LedgerSync::Bybit),
-          key_check: Some(KeyCheck::Bybit), wizard: true, figures: Some(Figures::Bybit) },
+          key_check: Some(KeyCheck::Bybit), wizard: true, figures: Some(Figures::Bybit), condition_candles: false },
     Row { exchange_type: super::bitrue::BITRUE, name: "Bitrue", name_id: "bitrue", base: super::bitrue::URL, rules: Some(&venue_rules::BITRUE),
           passphrase: false, needs_pairs: true, trades: true, balances: Some(BalanceSync::Bitrue), ledger: Some(LedgerSync::Bitrue),
-          key_check: Some(KeyCheck::Bitrue), wizard: true, figures: Some(Figures::Bitrue) },
+          key_check: Some(KeyCheck::Bitrue), wizard: true, figures: Some(Figures::Bitrue), condition_candles: false },
     Row { exchange_type: super::coinbase::COINBASE, name: "Coinbase", name_id: "coinbase", base: super::coinbase::URL, rules: Some(&venue_rules::COINBASE),
           passphrase: false, needs_pairs: true, trades: true, balances: Some(BalanceSync::Coinbase), ledger: Some(LedgerSync::Coinbase),
-          key_check: Some(KeyCheck::Coinbase), wizard: true, figures: None },
+          key_check: Some(KeyCheck::Coinbase), wizard: true, figures: None, condition_candles: false },
     Row { exchange_type: super::bingx::BINGX, name: "BingX", name_id: "bingx", base: super::bingx::URL, rules: Some(&venue_rules::BINGX),
           passphrase: false, needs_pairs: true, trades: true, balances: Some(BalanceSync::Bingx), ledger: Some(LedgerSync::Bingx),
-          key_check: Some(KeyCheck::Bingx), wizard: true, figures: Some(Figures::Bingx) },
+          key_check: Some(KeyCheck::Bingx), wizard: true, figures: Some(Figures::Bingx), condition_candles: false },
 ];
 
 pub fn row(exchange_type: &str) -> Option<&'static Row> { ROWS.iter().find(|r| r.exchange_type == exchange_type) }

@@ -24,6 +24,7 @@ pub mod signers;
 pub(crate) mod json;
 
 use crate::crypto::Credentials;
+use crate::engine::candles::{Candle, Timeframe};
 use crate::engine::model::Ticker;
 use crate::engine::venue_rules::VenueRules;
 use crate::ruby::BigDec;
@@ -207,6 +208,7 @@ impl<V:Venue> Venue for &V {
     async fn settled_quote_balance<F>(&self,t:&Ticker,catalog:F)->Result<BigDec,VenueError> where F:FnOnce()->Result<Catalog,VenueError>{(*self).settled_quote_balance(t,catalog).await}
     async fn tickers_prices(&self,symbols:&[String])->Result<Vec<(String,serde_json::Value)>,VenueError>{(*self).tickers_prices(symbols).await}
     async fn cancel(&self,txid:&str)->Result<(),VenueError>{(*self).cancel(txid).await}
+    async fn candles(&self,t:&Ticker,start_at:DateTime<Utc>,tf:Timeframe)->Result<Vec<Candle>,VenueError>{(*self).candles(t,start_at,tf).await}
 }
 impl<V:Venue> Venue for Handle<V> {
     fn producer(&self)->Option<crate::engine::model::CredentialVersion>{self.producer.clone()}
@@ -227,6 +229,7 @@ impl<V:Venue> Venue for Handle<V> {
     async fn settled_quote_balance<F>(&self,t:&Ticker,catalog:F)->Result<BigDec,VenueError> where F:FnOnce()->Result<Catalog,VenueError>{self.venue.settled_quote_balance(t,catalog).await}
     async fn tickers_prices(&self,symbols:&[String])->Result<Vec<(String,serde_json::Value)>,VenueError>{self.venue.tickers_prices(symbols).await}
     async fn cancel(&self,txid:&str)->Result<(),VenueError>{self.venue.cancel(txid).await}
+    async fn candles(&self,t:&Ticker,start_at:DateTime<Utc>,tf:Timeframe)->Result<Vec<Candle>,VenueError>{self.venue.candles(t,start_at,tf).await}
 }
 /// Apply one immutable handle producer to success and failure values, never from a post-call lookup.
 mod sealed { pub trait Sealed {} impl<V:super::Venue> Sealed for super::Handle<V> {} }
@@ -242,6 +245,7 @@ pub trait Attributed:Venue + sealed::Sealed {
     async fn fills_result(&self,ids:&[String],since:DateTime<Utc>)->crate::engine::model::Produced<Result<Vec<OrderState>,VenueError>>{let origin=self.producer();let value=self.fills_from_trades(ids,since).await;crate::engine::model::Produced::new(value,origin)}
     async fn placement_result(&self,o:&NewOrder)->crate::engine::model::Produced<Result<String,VenueError>>{let origin=self.producer();let value=self.add_order(o).await;crate::engine::model::Produced::new(value,origin)}
     async fn recovery_result(&self,id:&str,symbol:&str,since:DateTime<Utc>)->crate::engine::model::Produced<Result<Option<OrderState>,VenueError>>{let origin=self.producer();let value=self.order_by_client_id(id,symbol,since).await;crate::engine::model::Produced::new(value,origin)}
+    async fn candles_result(&self,t:&Ticker,start_at:DateTime<Utc>,tf:Timeframe)->crate::engine::model::Produced<Result<Vec<Candle>,VenueError>>{let origin=self.producer();let value=self.candles(t,start_at,tf).await;crate::engine::model::Produced::new(value,origin)}
 }
 impl<V:Venue> Attributed for Handle<V> {}
 pub trait Venue {
@@ -306,6 +310,10 @@ pub trait Venue {
     /// Exchange#cancel_order: best effort, as Bot::Reversible#cancel_unfilled_orders uses it. `Ok` only when the venue
     /// accepted the cancel; anything else is the venue's (or the transport's) failure.
     async fn cancel(&self, _txid: &str) -> Result<(), VenueError> { Err(VenueError::Rejected(vec!["cancel is not connected for this venue".into()])) }
+    /// Exchange#get_indicator_candles: the ticker's candles from `start_at` on (engine::candles), the still-forming one kept.
+    async fn candles(&self, _ticker: &Ticker, _start_at: DateTime<Utc>, _timeframe: Timeframe) -> Result<Vec<Candle>, VenueError> {
+        Err(VenueError::Rejected(vec!["candles are not connected for this venue".into()]))
+    }
 }
 
 pub trait VenueFactory {

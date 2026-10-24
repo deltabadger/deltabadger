@@ -191,6 +191,35 @@ async fn an_index_bot_ignores_stray_condition_flags() {
     assert_eq!((&flagged.0, &flagged.1, flagged.2, &flagged.3, &flagged.4, flagged.5), (&plain.0, &plain.1, plain.2, &plain.3, &plain.4, plain.5));
 }
 
+/// Bots::DcaIndex does not include Bot::QuoteAmountLimitable: a stored spending cap (on, tiny, stamped) leaves admission, the
+/// carry, the cap readers, the orders and the status exactly as an unflagged index bot has them, and never stops it.
+#[tokio::test(flavor = "current_thread")]
+async fn an_index_bot_ignores_a_stored_spending_cap() {
+    use deltabadger::engine::amount;
+    let run = |flagged: bool| async move {
+        let (d, o, _s, id, _) = universe(3, 0.0, false);
+        o.primary.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.missed_quote_amount', '7.5') WHERE id = ?1", [id]).unwrap();
+        if flagged {
+            o.primary.execute("UPDATE bots SET settings = json_set(settings, '$.quote_amount_limited', json('true'), '$.quote_amount_limit', 1), \
+                               transient_data = json_set(transient_data, '$.quote_amount_limit_enabled_at', '2026-08-01T00:00:00.000Z') WHERE id = ?1", [id]).unwrap();
+        }
+        let bot = model::load_bot(&o.primary, id).unwrap();
+        assert!(!bot.quote_amount_limited(), "flagged={flagged}: the switch is inert");
+        assert_eq!(bot.quote_amount_limit().unwrap(), None, "flagged={flagged}");
+        assert_eq!(amount::exact_cap_available(&o.primary, &bot).unwrap(), None, "flagged={flagged}");
+        assert!(!amount::quote_amount_limit_reached(&o.primary, &bot).unwrap(), "flagged={flagged}");
+        let reasons = eligibility::bot_reasons(&o.primary, &bot).unwrap();
+        let pending = deltabadger::engine::accounting::pending_quote_amount(&o.primary, &bot, at("2026-09-15T14:00:00Z").timestamp_micros()).unwrap();
+        let t = script([100.0, 200.0, 300.0, 400.0, 500.0]);
+        let out = tick::tick(&o.primary, &venue(&t), id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
+        let after = model::load_bot(&o.primary, id).unwrap();
+        (format!("{out:?}"), reasons, format!("{pending:?}"), t.posted_orders(), after.status, d)
+    };
+    let (plain, flagged) = (run(false).await, run(true).await);
+    assert_eq!(plain.0, "Done { placed: true }");
+    assert_eq!((&flagged.0, &flagged.1, &flagged.2, &flagged.3, flagged.4), (&plain.0, &plain.1, &plain.2, &plain.3, plain.4));
+}
+
 #[test]
 fn an_index_bot_is_admitted_on_a_top_or_category_index_of_any_source() {
     let (_d, o, _s, id, _) = universe(3, 0.0, false);

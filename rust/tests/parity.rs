@@ -2028,7 +2028,7 @@ fn kraken_limit_under_costmin(rails_out: &serde_json::Value, rust_out: &serde_js
 /// order and a carry; and each resync trigger followed by a tick (plan CI T3b), all decided by Rails and by Rust alike.
 #[tokio::test(flavor = "current_thread")]
 async fn rails_and_rust_decide_identically_across_the_venue_index_grid() -> Result<(), Box<dyn std::error::Error>> {
-    let (_copies, outputs) = grid_outputs("grid-venue-index", 331).await;
+    let (_copies, outputs) = grid_outputs("grid-venue-index", 333).await;
     let mut failures = vec![];
     for (name, _dir, rails_out, rust_out) in &outputs {
         if KRAKEN_LIMIT_COSTMIN.contains(&name.as_str()) {
@@ -2067,6 +2067,8 @@ async fn rails_and_rust_decide_identically_across_the_venue_index_grid() -> Resu
         if name.contains("venue_switch_then_tick") {
             checks.push(pinned(exited && seated == 3 && sent == ["BTC-USDT", "ETH-USDT", "ADA-USDT"], "reseat the members on the new venue and buy them"));
         }
+        // A stored spending cap on an index bot is inert in Rails: it buys though the cap is long spent.
+        if name.contains("spend_cap_ignored") { checks.push(pinned(!sent.is_empty(), "buy past a spent cap it never reads")); }
         if name.ends_with("closed_resync") { checks.push(pinned(sent.is_empty() && seated == 3, "resync with the market closed")); }
         // The resync's failure kinds: its newcomer probes are the tick's first reads, so the tick buys after each of them.
         if name.contains("_at_resync") && !name.contains("unpriced") { checks.push(pinned(!sent.is_empty() && seated >= 2, "buy at the tick after the failed resync")); }
@@ -2353,4 +2355,68 @@ fn bingx_ambiguous(name: &str, dir: &Path, rails: &serde_json::Value, rust: &ser
     let normalize = |v: &serde_json::Value| serde_json::from_str(&v.to_string().replace("BTC-USDT", "BTCUSDT")).unwrap();
     let name = name.replace("timestamp_700003", "add_service_unavailable");
     bitrue_ambiguous(&name,dir,&normalize(rails),&normalize(rust))
+}
+
+/// D-WASH-UNSENT-KEEPS: a composition sale's placement refused before transmission (a refused connection) on a venue that
+/// answers it as a Failure (Binance), written as a failed row by both sides. Rails restores the claim, its Failure's error
+/// chain proving the order never left (Exchange#ambiguous_placement_error?); the engine's rejection carries only the text,
+/// which reads transient, so it keeps the lock. The safe direction: a window served for nothing, never a loss washed.
+fn unsent_lock_kept(rails_out: &serde_json::Value, rust_out: &serde_json::Value) -> Result<(), String> {
+    let lock = |out: &serde_json::Value| out["changes"]["wash_sale_locks"][0]["after"].clone();
+    let (theirs, ours) = (lock(rails_out), lock(rust_out));
+    if !(theirs["buy_locked_until"].is_null() && theirs["claim_token"].is_null()) { return Err(format!("Rails no longer restores: drop D-WASH-UNSENT-KEEPS\n  rails: {rails_out}")); }
+    if ours["buy_locked_until"] != "2026-10-03 00:00:00" || ours["claim_token"] != "present" { return Err(format!("the engine did not keep the claim: {ours}")); }
+    let mut expected = rails_out.clone();
+    expected["changes"]["wash_sale_locks"] = rust_out["changes"]["wash_sale_locks"].clone();
+    refused_like_rails(&expected, rust_out)
+}
+
+/// PLAN-wash-sale WS-3: the account's wash-sale rule on (script/rust/decisions.rb wash_sale_scenarios), over the buy legs (B),
+/// the one-asset and ranked sale claims (S), the fill confirmation (F), the rebalance legs (R) and the signal bot (G), on
+/// Kraken, Binance and Alpaca, compared whole with `wash_sale_locks` in the snapshot (claim tokens as present or null).
+/// Divergences: D-WASH-UNSENT-KEEPS (S6 on Binance), and the sanctioned unknown outcome (S7: Rails writes a failed row,
+/// the engine keeps its intent), where both sides keep the lock alike.
+#[tokio::test(flavor = "current_thread")]
+async fn rails_and_rust_guard_wash_sales_identically() {
+    let (_copies, outputs) = grid_outputs("grid-wash-sale", 70).await;
+    let mut failures = vec![];
+    for (name, dir, rails_out, rust_out) in &outputs {
+        let checked = match name.as_str() {
+            "wash-S6-binance" => unsent_lock_kept(rails_out, rust_out),
+            "wash-S7-alpaca" | "wash-S7-kraken" if rails_out["changes"]["wash_sale_locks"] != rust_out["changes"]["wash_sale_locks"] =>
+                Err("the locks differ".into()),
+            "wash-S7-alpaca" | "wash-S7-kraken" => intent_kept(dir, rails_out, rust_out),
+            _ if rails_out != rust_out => Err(String::new()),
+            _ => Ok(()),
+        };
+        if let Err(e) = checked { failures.push(format!("{name} {e}\n  rails: {rails_out}\n  rust:  {rust_out}")); }
+    }
+    assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), outputs.len(), failures.join("\n"));
+    // Pin what Rails does, so that two silent sides cannot pass: which cells write a lock row, and which send nothing.
+    let mut pins = vec![];
+    for (name, _, rails_out, _) in &outputs {
+        let locks = rails_out["changes"]["wash_sale_locks"].as_array().unwrap().len();
+        let sent = rails_out["sent"].as_array().unwrap().len();
+        let family = name.trim_start_matches("wash-");
+        let writes = ["S-loss-", "S1-", "S4-ranked-", "S5-", "S6-", "S7-", "F1-", "F2-", "R1-", "R2-"].iter().any(|p| family.starts_with(p));
+        if (locks > 0) != writes { pins.push(format!("{name}: {locks} lock row change(s)")); }
+        let silent = family.starts_with("G1-") && family.ends_with("-buy") || ["S4-kraken", "S4-binance", "S4-alpaca"].contains(&family)
+            || family.contains("sell_below_minimum");
+        if (sent == 0) != silent { pins.push(format!("{name}: sent {sent}")); }
+    }
+    assert!(pins.is_empty(), "pinned expectations:\n{}", pins.join("\n"));
+    // The tokens the snapshot reads as present, on Rust's own copy: a halted rebalance sell's transient token is its lock
+    // row's (§7), and a claim over an older claim's row writes a token of its own.
+    let db = |dir: &Path| rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap();
+    for (name, dir, _, _) in &outputs {
+        let row: Option<String> = db(dir).query_row("SELECT claim_token FROM wash_sale_locks ORDER BY id LIMIT 1", [], |r| r.get(0)).unwrap_or(None);
+        if name.starts_with("wash-R2-") && name.ends_with("-rejected") {
+            let held: Option<String> = db(dir).query_row("SELECT json_extract(transient_data, '$.rebalance_claim_token') FROM bots ORDER BY id LIMIT 1", [], |r| r.get(0)).unwrap();
+            assert!(held.is_some() && held == row, "{name}: the held claim's token {held:?} is its row's {row:?}");
+        }
+        if name.starts_with("wash-S8-") || name == "wash-R2-rebalance-resting_sell-ie" {
+            let token = row.unwrap_or_default();
+            assert!(token.len() == 16 && token.bytes().all(|b| b.is_ascii_hexdigit()) && token != "aaaaaaaaaaaaaaaa", "{name}: a claim of its own, not {token:?}");
+        }
+    }
 }

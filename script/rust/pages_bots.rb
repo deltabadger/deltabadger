@@ -234,6 +234,7 @@ module Pages
     record = Bot.find(1)
     ApiKey.delete_all if extra['no_key']
     record.user.update_columns(wash_sale_enabled: false) if extra['wash_off']
+    record.user.update_columns(wash_sale_enabled: true) if extra['wash_on']
     if extra['paid'] || extra['partial']
       attrs = { price: '500', quote_amount: '5', quote_amount_exec: '5', amount: '0.01', amount_exec: '0.01' }
       attrs.merge!(external_status: 'cancelled', price: '125', quote_amount_exec: '1.25', amount: '0.04') if extra['partial']

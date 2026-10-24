@@ -231,6 +231,10 @@ module Pages
         'api_start_archived' => write_case([start.()], 7),
         'api_start_no_key' => write_case([start.()], 0, {}, 'api_keys' => {}),
         'api_start_others' => write_case([start.('', 'second-token'), write('POST', '/api/v1/bots/999/start'), write('POST', '/api/v1/bots/4/start')], 0),
+        # PLAN-wash-sale WS-3: the engine runs the bot of an account with the rule on (or not yet answered); its Stop always
+        # passes, as Rails' BotApi::Bots::Stop never asks the setting.
+        'api_stop_wash_rule_on' => write_case([write('POST', "#{bot}/stop")], 1, {}, 'user' => owner('wash_sale_enabled' => true)),
+        'api_stop_wash_question' => write_case([write('POST', "#{bot}/stop")], 1, {}, 'user' => owner('wash_sale_enabled' => nil)),
         'api_stop_states' => write_case([write('POST', "#{bot}/stop"), write('POST', "#{bot}/stop"), write('POST', '/api/v1/bots/3/stop'),
                                          write('POST', '/api/v1/bots/1/stop', 'second-token')], 4),
         'api_archive_states' => write_case([write('POST', "#{bot}/archive"), write('POST', "#{bot}/archive"), write('DELETE', "#{bot}/archive"),
