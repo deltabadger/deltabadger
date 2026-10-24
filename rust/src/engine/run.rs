@@ -316,6 +316,8 @@ pub async fn step<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) -> Resu
             super::log(&format!("[engine] bot {id}: {err:?}; retrying at the next pass"));
         }
     }
+    // Every terminal sell fill this pass committed, once per bot (polling::apply_in noted it in the fill's transaction).
+    for bot_id in polling::settled_sales(&e.primary)? { e.events.send(EngineEvent::SaleSettled { bot_id }); }
     // Polls queued during this pass (a placement, a recovered intent) must pull the wake in too.
     for state in e.polls.values() { wake = wake.min(state.value.1); }
     let now_us = clock.now().timestamp_micros();

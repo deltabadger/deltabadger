@@ -242,3 +242,23 @@ fn order_updates_are_queued_only_for_subscribers_that_ask_for_them() {
     assert_eq!(heard.len(), 100_001, "the figures service hears every order event");
     assert!(heard.iter().all(EngineEvent::is_order));
 }
+
+/// PLAN-wash-sale WS-2: a terminal sell fill a poll commits is announced once (EngineEvent::SaleSettled, which wakes the
+/// ledger sync as Transaction's after_commit enqueues AccountTransaction::SyncJob); a buy fill is not.
+#[tokio::test(flavor = "current_thread")]
+async fn a_terminal_sell_fill_is_announced_once_for_the_ledger() {
+    let sold = serde_json::json!({ "status": "closed", "price": "50000", "vol": "0.001", "vol_exec": "0.001", "cost": "50", "oflags": "",
+                                   "descr": { "type": "sell", "ordertype": "market", "price": "0" } });
+    let (_d, mut e, bots, s) = engine(1, low_funds().order("OSELL", sold).order("OBUY", filled()));
+    for ext in ["OSELL", "OBUY"] {
+        seed::insert_tx(&e.primary, &s, bots[0], &seed::TxSpec { status: 0, external_status: Some(0), external_id: Some(ext.into()), order_type: 0, amount: Some("0.001"),
+            quote_amount: None, price: None, quote_amount_exec: None, amount_exec: None, created_at: "2026-08-31 10:00:00".into() });
+    }
+    e.primary.execute("UPDATE transactions SET side = 1 WHERE external_id = 'OSELL'", []).unwrap();
+    let mut rx = e.subscribe();
+    run::step(&mut e, &at("2026-08-31T12:00:00Z")).await.unwrap(); // the start polls every outstanding order once
+    let heard: Vec<EngineEvent> = drained(&mut rx).into_iter().filter(|x| matches!(x, EngineEvent::SaleSettled { .. })).collect();
+    assert_eq!(heard, vec![EngineEvent::SaleSettled { bot_id: bots[0] }]);
+    run::step(&mut e, &at("2026-08-31T12:01:00Z")).await.unwrap();
+    assert!(!drained(&mut rx).iter().any(|x| matches!(x, EngineEvent::SaleSettled { .. })), "announced once");
+}

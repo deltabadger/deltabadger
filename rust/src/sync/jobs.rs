@@ -261,9 +261,9 @@ impl<C: Connect> Job for LedgerSync<C> {
         Spec { name: LEDGER_SYNC, scope: Some(self.key_id.to_string()), schedule: Some(Schedule::Daily { hour: 2, minute: 0 }), jitter: Jitter::NONE, retry: Retry::None,
                deadline: LEDGER_DEADLINE }
     }
-    /// Every order, whatever its status and whichever bot placed it: an event names a bot, and which key that is
+    /// Every order, whatever its status and whichever bot placed it, and every terminal sell fill: an event names a bot, and which key that is
     /// takes the database. On an install with several keys each key's job runs and the others find nothing new.
-    fn wants(&self, event: &EngineEvent) -> bool { matches!(event, EngineEvent::OrderRecorded { .. }) }
+    fn wants(&self, event: &EngineEvent) -> bool { matches!(event, EngineEvent::OrderRecorded { .. } | EngineEvent::SaleSettled { .. }) }
     /// Whatever woke it (the schedule, a manual wake, any number of orders), a run is one sync of this key.
     fn run<'a>(&'a self,cx:Cx<'a>,wakes:Vec<Wake>)->JobFuture<'a>{ Box::pin(async move{self.run_attributed(cx,wakes).await.value}) }
     fn run_attributed<'a>(&'a self,cx:Cx<'a>,_wakes:Vec<Wake>)->AttributedJobFuture<'a>{

@@ -5,7 +5,8 @@ use common::scripted::{accepted, not_found, ok, POST_SEND, PRE_SEND};
 use common::seed::{self, BotSpec};
 use deltabadger::engine::rebalance::{self, Outcome};
 use deltabadger::engine::tick::{PriceCache, TickContext};
-use deltabadger::engine::{eligibility, model, FixedClock};
+use deltabadger::engine::{eligibility, model, placement, FixedClock};
+use deltabadger::ruby::BigDec;
 use deltabadger::store;
 use deltabadger::venue::alpaca::{AlpacaVenue, Urls};
 use deltabadger::venue::http::ScriptedTransport;
@@ -881,4 +882,139 @@ async fn a_locked_member_sits_out_of_the_rebalance_targets() {
     assert!(posted(&t).is_empty());
     o.primary.execute("UPDATE users SET wash_sale_enabled = 0", []).unwrap();
     assert!(matches!(evaluate(&o, &t, id, at(T0)).await, Outcome::Placed(_)));
+}
+
+// ---- PLAN-wash-sale WS-2: the rebalance sell's claim, in Rails' transient keys ----
+
+/// The swap bot with the rule on and its BTC bought for 700: selling at 64000 loses.
+fn loss_swap() -> (tempfile::TempDir, store::Opened, i64, seed::Seeded) {
+    let (d, o, id, s, _) = swap_bot(stopped());
+    o.primary.execute("UPDATE users SET wash_sale_enabled = 1", []).unwrap();
+    o.primary.execute("UPDATE transactions SET quote_amount = 700, quote_amount_exec = 700 WHERE external_id = 'OHELD-1'", []).unwrap();
+    (d, o, id, s)
+}
+fn lock_row(o: &store::Opened, asset: i64) -> Option<(Option<String>, Option<String>, Option<String>)> {
+    o.primary.query_row("SELECT buy_locked_until, confirmed_locked_until, claim_token FROM wash_sale_locks WHERE asset_id = ?1", [asset], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).ok()
+}
+/// The three keys as stored: (rebalance_previous_lock, rebalance_claim_token, rebalance_locked_asset_id).
+fn claim_keys(o: &store::Opened, id: i64) -> (Value, Value, Value) {
+    let t = model::load_bot(&o.primary, id).unwrap().transient;
+    (t.get("rebalance_previous_lock").cloned().unwrap_or(Value::Null), t.get("rebalance_claim_token").cloned().unwrap_or(Value::Null),
+     t.get("rebalance_locked_asset_id").cloned().unwrap_or(Value::Null))
+}
+const SWAP_DEADLINE: &str = "2026-10-02 00:00:00";
+
+/// The rebalance sell of 0.00421875 BTC judged a loss, begun as begin_rebalance writes it but past the fence, whose
+/// eligibility check still refuses an account with the rule on (WS-3 admits it).
+fn begin_loss_sell(o: &store::Opened, id: i64, s: &seed::Seeded) -> placement::Intent {
+    use deltabadger::engine::{amount, venue_rules::ALPACA};
+    let c = &o.primary;
+    let bot = model::load_bot(c, id).unwrap();
+    let ticker = model::ticker_for_asset(c, &bot, s.btc).unwrap().unwrap();
+    let plan = amount::size_order(&ticker, deltabadger::venue::Side::Sell, &BigDec::from_i64(64000), &BigDec::parse("0.00421875").unwrap(), &BigDec::from_i64(270),
+                                  ALPACA.minimum_logic, amount::TxKind::Rebalance).unwrap().0;
+    let selling = rebalance::Pending { phase: rebalance::PHASE_SELLING.into(), sell_transaction_id: None, buy_transaction_id: None, remaining_quote_amount: None, buy_attempted: false };
+    placement::begin_unfenced(c, &bot, &plan, Some(&selling), true, &FixedClock(at(T0))).unwrap()
+}
+async fn send(o: &store::Opened, t: &ScriptedTransport, id: i64, intent: &placement::Intent) -> placement::Sent {
+    placement::send_recorded(&o.primary, &venue(t), &model::load_bot(&o.primary, id).unwrap(), intent, &FixedClock(at(T0))).await.unwrap()
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_loss_rebalance_sell_claims_in_its_keys_and_an_acceptance_logs_and_clears_them() {
+    let (_d, o, id, s) = loss_swap();
+    let intent = begin_loss_sell(&o, id, &s);
+    let (until, _, token) = lock_row(&o, s.btc).unwrap();
+    assert_eq!(until.as_deref(), Some(SWAP_DEADLINE));
+    assert_eq!(claim_keys(&o, id), (Value::Null, json!(token.clone().unwrap()), json!(s.btc)), "§7: while held, the key's token is the row's");
+    assert!(intent.wash_claim.is_none() && model::load_bot(&o.primary, id).unwrap().rust_placement().unwrap().get("wash_claim").is_none(), "Rails' keys, not the intent");
+    assert!(matches!(send(&o, &script(json!({})), id, &intent).await, placement::Sent::Accepted(_)));
+    assert_eq!(events(&o), vec!["rebalance_sell_placed", "wash_sale_locked"], "logged after the placement, as Rails");
+    assert_eq!(claim_keys(&o, id), (Value::Null, Value::Null, Value::Null), "cleared on acceptance");
+    assert_eq!(lock_row(&o, s.btc).unwrap().2, token, "the lock itself stands");
+    // The rule off, through the whole pass: no verdict, no keys, no row.
+    let (_d, o, id, s) = loss_swap();
+    o.primary.execute("UPDATE users SET wash_sale_enabled = 0", []).unwrap();
+    assert!(matches!(evaluate(&o, &script(json!({})), id, at(T0)).await, Outcome::Placed(_)));
+    assert_eq!((events(&o), lock_row(&o, s.btc), claim_keys(&o, id)), (vec!["rebalance_sell_placed".to_string()], None, (Value::Null, Value::Null, Value::Null)));
+}
+
+/// §6 restart vectors: an unknown outcome keeps the claim and its keys; recovery, which reads the keys back from the row (as
+/// after a restart, or as Rails left them), settles them: found → logged once and cleared; proven absent or resolved not
+/// placed by the operator → both kept.
+#[tokio::test(flavor = "current_thread")]
+async fn an_unknown_rebalance_sell_keeps_its_claim_until_recovery_settles_it() {
+    let lost = || script(json!({ "POST /v2/orders": [{ "network": "post_send", "message": POST_SEND }] }));
+    let (_d, o, id, s) = loss_swap();
+    let t = lost();
+    let intent = begin_loss_sell(&o, id, &s);
+    assert!(matches!(send(&o, &t, id, &intent).await, placement::Sent::Ambiguous(_)));
+    let held = claim_keys(&o, id);
+    assert_eq!(held.2, json!(s.btc));
+    landed(&o, id, &t, &order("OTX-9", "filled", "BTC/USD", "sell", Some("0.00421875"), None, "0.00421875", Some("64000")));
+    let bot = model::load_bot(&o.primary, id).unwrap();
+    assert!(matches!(placement::recover(&o.primary, &venue(&t), &bot, &FixedClock(at(T0) + Duration::minutes(1))).await.unwrap(), placement::Recovery::Recorded(_)));
+    assert_eq!(events(&o), vec!["rebalance_sell_placed", "wash_sale_locked"]);
+    assert_eq!(claim_keys(&o, id), (Value::Null, Value::Null, Value::Null));
+
+    for operator in [false, true] {
+        let (_d, o, id, s) = loss_swap();
+        let t = lost();
+        let intent = begin_loss_sell(&o, id, &s);
+        send(&o, &t, id, &intent).await;
+        let held = (lock_row(&o, s.btc), claim_keys(&o, id));
+        if operator {
+            placement::resolve_by_operator(&o.primary, id, placement::OperatorResolution::NotPlaced, at(T0)).unwrap();
+        } else {
+            t.reply("GET /v2/orders:by_client_order_id", 404, not_found()["body"].clone());
+            let bot = model::load_bot(&o.primary, id).unwrap();
+            assert!(matches!(placement::recover(&o.primary, &venue(&t), &bot, &FixedClock(at(T0) + Duration::hours(4))).await.unwrap(), placement::Recovery::NotPlaced));
+        }
+        assert_eq!((lock_row(&o, s.btc), claim_keys(&o, id)), held, "operator {operator}: kept, as a Rails worker crash keeps both");
+        assert!(!events(&o).contains(&"wash_sale_locked".to_string()));
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_rebalance_sell_that_provably_never_traded_gives_its_claim_back_and_an_unsafe_rejection_keeps_it() {
+    let rejected = |message: &str| json!({ "status": 403, "body": { "code": 40310000, "message": message } });
+    // Pre-transmission and a placement-safe rejection: restored, keys cleared, nothing owed.
+    for post in [json!({ "network": "pre_send", "message": PRE_SEND }), rejected("Timestamp for this request is outside of the recvWindow")] {
+        let (_d, o, id, s) = loss_swap();
+        let intent = begin_loss_sell(&o, id, &s);
+        assert!(matches!(send(&o, &script(json!({ "POST /v2/orders": [post.clone()] })), id, &intent).await, placement::Sent::NotSent(_) | placement::Sent::Rejected(_)), "{post}");
+        assert_eq!(lock_row(&o, s.btc), Some((None, None, None)), "{post}: given back");
+        assert_eq!(claim_keys(&o, id), (Value::Null, Value::Null, Value::Null));
+        assert_eq!(pending(&o, id), Value::Null);
+        assert!(!events(&o).contains(&"wash_sale_locked".to_string()));
+    }
+    // An unsafe rejection halts: the claim and its keys stay, and a buy of the asset stays refused.
+    let (_d, o, id, s) = loss_swap();
+    let intent = begin_loss_sell(&o, id, &s);
+    send(&o, &script(json!({ "POST /v2/orders": [rejected("insufficient balance for BTC")] })), id, &intent).await;
+    assert_eq!(pending(&o, id)["phase"], "ambiguous");
+    let (until, _, token) = lock_row(&o, s.btc).unwrap();
+    assert_eq!(until.as_deref(), Some(SWAP_DEADLINE));
+    assert_eq!(claim_keys(&o, id).1, json!(token.unwrap()));
+    let bot = model::load_bot(&o.primary, id).unwrap();
+    assert_eq!(deltabadger::engine::wash::locked(&o.primary, bot.user_id, &FixedClock(at(T0) + Duration::days(1))).unwrap(), vec![s.btc], "a buy is still refused");
+}
+
+/// #abandon_below_minimum!(selling) with a loss: Rails claims before it measures and restores on the abandonment. An expired
+/// lock carrying an old token: the token is replaced, then cleared, and the deadline is the expired one again.
+#[tokio::test(flavor = "current_thread")]
+async fn a_loss_rebalance_sell_under_the_floor_claims_and_gives_back_in_one_transaction() {
+    let (_d, o, id, s) = loss_swap();
+    o.primary.execute("UPDATE tickers SET minimum_quote_size = '500' WHERE ticker = 'BTC/USD'", []).unwrap();
+    o.primary.execute("INSERT INTO wash_sale_locks (asset_id, user_id, buy_locked_until, confirmed_locked_until, claim_token, created_at, updated_at) \
+                       SELECT ?1, id, '2026-08-01 00:00:00', '2026-08-01 00:00:00', 'expiredtoken0001', '2026-07-01 00:00:00', '2026-07-01 00:00:00' FROM users", [s.btc]).unwrap();
+    assert_eq!(evaluate(&o, &script(json!({})), id, at(T0)).await, Outcome::Skipped("below_minimum"));
+    assert_eq!(lock_row(&o, s.btc), Some((Some("2026-08-01 00:00:00".into()), Some("2026-08-01 00:00:00".into()), None)));
+    assert_eq!(claim_keys(&o, id), (Value::Null, Value::Null, Value::Null));
+    assert!(model::load_bot(&o.primary, id).unwrap().transient.get("rebalance_below_minimum_at").is_some());
+    // No row before: find_or_create_by! leaves one, with no deadline.
+    let (_d, o, id, s) = loss_swap();
+    o.primary.execute("UPDATE tickers SET minimum_quote_size = '500' WHERE ticker = 'BTC/USD'", []).unwrap();
+    assert_eq!(evaluate(&o, &script(json!({})), id, at(T0)).await, Outcome::Skipped("below_minimum"));
+    assert_eq!(lock_row(&o, s.btc), Some((None, None, None)));
 }
