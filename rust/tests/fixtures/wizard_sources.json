@@ -82,7 +82,7 @@
   "app/controllers/bots/signals/pick_buyable_assets_controller.rb": "12d4db25340b778b43d1eebda06a7e1219e282adf521f44addc98990031083a1",
   "app/controllers/bots/signals/pick_exchanges_controller.rb": "a306b90fd1cb6e5f3807ac4a30eab7a827a738e47b647b000665ebccedf0a531",
   "app/controllers/bots/signals/pick_spendable_assets_controller.rb": "3f2b2017d41b41ccd050978e365c6367b3b23157eef3de6eb19a46d0ecd1b4d6",
-  "app/views/bots/signals/_create_bot_button.html.erb": "caf7d684075eb14060d84469bcc9081d07b4c0610de2dce7c2a1ee33889930a3",
+  "app/views/bots/signals/_create_bot_button.html.erb": "cecbd6d91bffa13cf7d34d6e368080babe851ee29bb19059a40046dff194ce95",
   "app/views/bots/signals/_new_step_progress_bar.html.erb": "40d47ff05f09b99393b1977dc8380bd4c6de6ad04a383f76f619e82f51be23e3",
   "app/views/bots/signals/_settings.html.erb": "1340cfb23329d0b909b346fb4c02e86dd35a335c094375609e92ded95c6d3ef8",
   "app/views/bots/signals/_signal_widget.html.erb": "8ed50187e9945c8da94ec77cf51f45e6bacb8ffae43199d553d01a950b16bc2e",
