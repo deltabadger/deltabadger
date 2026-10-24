@@ -517,6 +517,23 @@ fn a_crypto_index_bot_on_kraken_or_binance_is_admitted() {
     assert_eq!(r.eligible, vec![id]);
 }
 
+/// Bots::DcaIndex does not include Bot::QuoteAmountLimitable: a stored cap, a number or not, is admitted as no cap at all.
+#[test]
+fn an_index_bot_is_admitted_whatever_spending_cap_it_stores() {
+    for (settings, stamp) in [("json('false'), '$.quote_amount_limit', 1000", "2026-09-01T10:00:00.000Z"),
+                              ("json('true'), '$.quote_amount_limit', 1", "2026-09-01T10:00:00.000Z"),
+                              ("json('true'), '$.quote_amount_limit', '100'", "2026-09-01T10:00:00.000Z")] {
+        // An unparseable stored stamp is still refused at load (codec::validate_bot_times, every class), like a stray met_at.
+        let (_d, o, s) = install();
+        let id = seed::index_bot(&o.primary, &s, "ignored", 3, 0.0, false);
+        o.primary.execute(&format!("UPDATE bots SET settings = json_remove(json_set(settings, '$.index_type', 'top', '$.quote_amount_limited', {settings}), '$.index_category_id'), \
+                                    transient_data = json_set(transient_data, '$.quote_amount_limit_enabled_at', ?1) WHERE id = ?2"), (stamp, id)).unwrap();
+        let r = eligibility::check_install(&o.primary).unwrap();
+        assert!(r.problems.is_empty() && r.unreadable.is_empty(), "{settings}: {:?} {:?}", r.problems, r.unreadable);
+        assert_eq!(r.eligible, vec![id], "{settings}");
+    }
+}
+
 /// Owner ruling O6 (2026-10-18): KuCoin admits Top coins and category index bots under the Kraken/Binance rule, at USDT and USDC.
 #[test]
 fn a_crypto_index_bot_on_kucoin_is_admitted_at_usdt_and_usdc() {

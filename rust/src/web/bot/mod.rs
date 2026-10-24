@@ -792,7 +792,7 @@ impl Bot {
         // Bot::QuoteAmountLimitable validates a cap that is switched on as no less than the smallest amount the quote states
         // (`minimum_quote_amount_limit`), and prints the error under the field; the tickers that say what that is are loaded by now.
         let floor = start::minimum_quote_amount_limit(self);
-        if self.on("quote_amount_limited") && self.number("quote_amount_limit").is_some_and(|cap| cap.to_f() < floor) { return Some("a spending cap below the smallest amount its quote states"); }
+        if self.kind == Kind::Basket && self.on("quote_amount_limited") && self.number("quote_amount_limit").is_some_and(|cap| cap.to_f() < floor) { return Some("a spending cap below the smallest amount its quote states"); }
         None
     }
 

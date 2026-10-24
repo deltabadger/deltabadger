@@ -1800,6 +1800,14 @@ module Decisions
       list << venue_index(venue, 'category', 'one_below-market', at: first, quote_amount: one)
       list << venue_index(venue, 'category', 'all_below-market', at: first, quote_amount: all)
     end
+    # Bots::DcaIndex does not include Bot::QuoteAmountLimitable: a stored cap (on, stamped, long spent) is never read; the tick buys.
+    %w[kraken binance].each do |venue|
+      ranked = vi_ranked(venue, VI_L1)
+      held = ranked.first(3).zip([30.0, 20.0, 10.0]).map { |sym, v| vi_held(venue, sym, v) }
+      list << venue_index(venue, 'category', 'spend_cap_ignored-market', at: day.(1), members: vi_steady(ranked), transactions: held,
+                          settings: { 'quote_amount_limited' => true, 'quote_amount_limit' => 10.0 },
+                          transient: { 'quote_amount_limit_enabled_at' => '2026-08-01T00:00:00.000Z' })
+    end
     # Rotation with obligations: the leaver holds a resting limit order (open, then partly filled), and a carry across a change.
     %w[kraken binance].each do |venue|
       ranked = vi_ranked(venue, VI_L1)
@@ -1899,7 +1907,7 @@ module Decisions
               'top_coins' => %w[AAA BBB DDD EEE CCC], 'transactions' => [], 'num_coins' => 3, 'flattening' => 0.0, 'hold_all' => false,
               'members' => [{ 'symbol' => 'AAA', 'target' => 0.6, 'in_index' => true }, { 'symbol' => 'BBB', 'target' => 0.4, 'in_index' => true }],
               'script' => { 'alpaca' => http }, 'tick' => true }
-    list.tap { |l| raise "the venue index grid has #{l.size} scenarios, not 331" unless l.size == 331 }
+    list.tap { |l| raise "the venue index grid has #{l.size} scenarios, not 333" unless l.size == 333 }
   end
 
   # Binance spot (spec E2), one asset on BTCUSDT: Rails' own answers to the bodies below, beneath honeymaker.
