@@ -7,6 +7,7 @@
 //! with IbkrLock (a SQLite row, 15 s wait). Rust is one process: both live in `LOGINS`, in memory, keyed by api key and
 //! replaced when the key's CredentialVersion changes (a restart costs one re-mint). The `ibkr_locks` table is not used.
 use super::http::{decode_json, HttpRequest, Transport, TransportError};
+use super::VenueError;
 use super::signers::ibkr::{self as oauth, Material, Signer};
 use crate::engine::model::CredentialVersion;
 use crate::engine::Clock;
@@ -21,6 +22,8 @@ pub const IBKR: &str = "Exchanges::Ibkr";
 pub const URL: &str = "https://api.ibkr.com";
 pub const LST_PATH: &str = "/v1/api/oauth/live_session_token";
 pub const SSODH_INIT_PATH: &str = "/v1/api/iserver/auth/ssodh/init";
+/// The account list IBKR wants read before an order is placed.
+pub const ACCOUNTS_PATH: &str = "/v1/api/iserver/accounts";
 /// Session::LST_TTL.
 pub const LST_TTL: TimeDelta = TimeDelta::hours(23);
 /// Session::BROKERAGE_SESSION_TTL.
@@ -138,12 +141,29 @@ pub enum Error {
     Key(&'static str),
     /// Faraday::ParsingError: a JSON answer that does not parse (never retried).
     Unreadable,
+    /// An order or reply POST handed to `signed_request`, which may resend it; it goes through `Session::submit`.
+    Mutation,
 }
 
 impl Error {
     /// Session#signed_request's rescue: Faraday::UnauthorizedError or AuthError.
     fn heals(&self) -> bool { matches!(self, Self::Http { status: 401, .. } | Self::Auth(_)) }
+
+    fn message(self) -> String {
+        match self {
+            Self::LockTimeout => "the IBKR login stayed busy".into(),
+            Self::Transport(TransportError::NotSent(m) | TransportError::MaybeSent(m) | TransportError::Permanent(m)) => m,
+            Self::Http { status, body } => if body.is_empty() { format!("the server responded with status {status}") } else { body },
+            Self::Auth(m) | Self::Key(m) => m.into(),
+            Self::Unreadable => "the answer is not readable JSON".into(),
+            Self::Mutation => "an order or reply sent as a read".into(),
+        }
+    }
 }
+
+/// An order placement or confirmation reply (POST `…/orders`, `…/reply/<id>`): IBKR takes no idempotency key, so one
+/// is sent at most once (D-IBKR-SUBMIT). The order preview (`…/orders/whatif`) and the live-orders read (GET) are not.
+fn is_mutation(method: &str, path: &str) -> bool { method == "POST" && (path.ends_with("/orders") || path.contains("/reply/")) }
 
 /// Proof that the caller holds its login's lock for the whole operation (Clients::Ibkr wraps each op in IbkrLock).
 pub struct Held<'a>(#[allow(dead_code)] tokio::sync::MutexGuard<'a, ()>);
@@ -172,13 +192,33 @@ impl<'a, T: Transport> Session<'a, T> {
     /// Session#signed_request: the brokerage session established, the call signed, one self-heal on a 401 or AuthError.
     /// Returns the answer's JSON; an answer whose Content-Type is not JSON is its body as a string (Faraday's json middleware,
     /// `content_type: /\bjson$/`).
+    /// Reads only: an order or reply POST is refused (`submit` sends those).
     pub async fn signed_request(&self, _held: &Held<'_>, method: &'static str, path: &str, query: Vec<(&'static str, String)>, body: Option<Value>) -> Result<Value, Error> {
+        debug_assert!(!is_mutation(method, path), "{method} {path} goes through Session::submit");
+        if is_mutation(method, path) { return Err(Error::Mutation) }
         match self.attempt(method, path, &query, &body).await {
             Err(e) if e.heals() => {
                 self.login.invalidate();
                 self.attempt(method, path, &query, &body).await
             }
             r => r,
+        }
+    }
+
+    /// An order or reply POST, sent exactly once (D-IBKR-SUBMIT). The steps before it (the LST, the brokerage session and
+    /// the account list IBKR wants read first) heal as `signed_request` does; a failure there sent nothing (Transient).
+    /// The POST itself is never healed or resent: a failure proven to precede sending is Transient (NotSent) or Rejected
+    /// (Permanent: a TLS or local refusal while connecting); any other failure — an HTTP error status (401 included), a
+    /// timeout, a lost connection, an unreadable answer — leaves the outcome open: Ambiguous, for recovery to settle.
+    pub async fn submit(&self, held: &Held<'_>, path: &str, body: Value) -> Result<Value, VenueError> {
+        let redact = |e: Error| self.transport.redact_diagnostic(&e.message());
+        self.signed_request(held, "GET", ACCOUNTS_PATH, vec![], None).await.map_err(|e| VenueError::Transient(redact(e)))?;
+        self.live_session_token().await.map_err(|e| VenueError::Transient(redact(e)))?;
+        match self.request(self.http("POST", path, vec![], Some(body))).await {
+            Ok(v) => Ok(v),
+            Err(Error::Transport(TransportError::NotSent(m))) => Err(VenueError::Transient(self.transport.redact_diagnostic(&m))),
+            Err(Error::Transport(TransportError::Permanent(m))) => Err(VenueError::Rejected(vec![self.transport.redact_diagnostic(&m)])),
+            Err(e) => Err(VenueError::Ambiguous(redact(e))),
         }
     }
 
@@ -384,6 +424,106 @@ mod tests {
         let s = Session::new(&t, login, &clock).with_dh_random(|| dh_random.clone());
         assert_eq!(call(&s).await, Err(Error::Transport(TransportError::MaybeSent("operation timed out".into()))));
         assert_eq!(paths(&t), [MINT, INIT, ACCOUNTS]);
+    }
+
+    const ORDERS: &str = "POST /v1/api/iserver/account/U1/orders";
+    const ORDER_PATH: &str = "/v1/api/iserver/account/U1/orders";
+
+    async fn submit<T: Transport>(s: &Session<'_, T>) -> Result<Value, VenueError> {
+        let held = s.lock().await.unwrap();
+        s.submit(&held, ORDER_PATH, json!({ "orders": [{ "conid": 265598, "side": "BUY", "quantity": 1 }] })).await
+    }
+
+    fn submitting(f: impl FnOnce(&ScriptedTransport)) -> (Result<Value, VenueError>, Vec<String>) {
+        let (login, session) = new_login();
+        let t = scripted(&session);
+        f(&t);
+        let dh_random = session["dh_random"].as_str().unwrap().to_string();
+        let clock = at("2026-10-23T10:00:00Z");
+        let s = Session::new(&t, login, &clock).with_dh_random(|| dh_random.clone());
+        let r = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap().block_on(submit(&s));
+        (r, paths(&t))
+    }
+
+    #[test]
+    fn an_order_is_posted_once_after_the_account_list() {
+        let (r, sent) = submitting(|t| { t.reply(ACCOUNTS, 200, json!({ "accounts": ["U1"] })).reply(ORDERS, 200, json!([{ "order_id": "1" }])); });
+        assert_eq!(r, Ok(json!([{ "order_id": "1" }])));
+        assert_eq!(sent, [MINT, INIT, ACCOUNTS, ORDERS]);
+    }
+
+    #[test]
+    fn a_401_on_the_order_post_is_ambiguous_and_never_resent() {
+        let (r, sent) = submitting(|t| { t.reply(ACCOUNTS, 200, json!({})).reply(ORDERS, 401, json!({ "error": "not authenticated" })).reply(ORDERS, 200, json!([])); });
+        assert!(matches!(r, Err(VenueError::Ambiguous(_))));
+        assert_eq!(sent, [MINT, INIT, ACCOUNTS, ORDERS], "one POST, no heal");
+    }
+
+    #[test]
+    fn a_401_before_the_post_heals_then_posts_once() {
+        let (r, sent) = submitting(|t| { t.reply(ACCOUNTS, 401, json!({})).reply(ACCOUNTS, 200, json!({})).reply(ORDERS, 200, json!([])); });
+        assert_eq!(r, Ok(json!([])));
+        assert_eq!(sent, [MINT, INIT, ACCOUNTS, MINT, INIT, ACCOUNTS, ORDERS]);
+    }
+
+    #[test]
+    fn a_failed_pre_step_sends_no_order_and_is_retryable() {
+        let (r, sent) = submitting(|t| { t.reply(ACCOUNTS, 401, json!({})); });
+        assert!(matches!(r, Err(VenueError::Transient(_))));
+        assert!(!sent.iter().any(|p| p == ORDERS));
+    }
+
+    #[test]
+    fn a_timeout_a_5xx_or_an_unreadable_answer_on_the_post_is_ambiguous() {
+        for script in [
+            (|t: &ScriptedTransport| { t.network(ORDERS, "post_send", "operation timed out"); }) as fn(&ScriptedTransport),
+            |t| { t.reply(ORDERS, 503, json!({})); },
+            |t| { t.reply_typed(ORDERS, 200, "application/json", "{"); },
+        ] {
+            let (r, sent) = submitting(|t| { t.reply(ACCOUNTS, 200, json!({})); script(t); t.reply(ORDERS, 200, json!([])); });
+            assert!(matches!(r, Err(VenueError::Ambiguous(_))));
+            assert_eq!(sent, [MINT, INIT, ACCOUNTS, ORDERS]);
+        }
+    }
+
+    #[test]
+    fn a_post_provably_not_sent_is_retryable() {
+        let (r, sent) = submitting(|t| { t.reply(ACCOUNTS, 200, json!({})).network(ORDERS, "pre_send", "connection refused"); });
+        assert_eq!(r, Err(VenueError::Transient("connection refused".into())));
+        assert_eq!(sent, [MINT, INIT, ACCOUNTS, ORDERS]);
+        let (r, _) = submitting(|t| { t.reply(ACCOUNTS, 200, json!({})).network(ORDERS, "permanent", "certificate rejected"); });
+        assert_eq!(r, Err(VenueError::Rejected(vec!["certificate rejected".into()])));
+    }
+
+    #[test]
+    fn only_order_and_reply_posts_are_mutations() {
+        assert!(is_mutation("POST", ORDER_PATH) && is_mutation("POST", "/v1/api/iserver/reply/abc"));
+        assert!(!is_mutation("GET", "/v1/api/iserver/account/orders") && !is_mutation("POST", "/v1/api/iserver/account/U1/orders/whatif"));
+        assert!(!is_mutation("POST", SSODH_INIT_PATH) && !is_mutation("DELETE", "/v1/api/iserver/account/U1/order/1"));
+    }
+
+    #[cfg(debug_assertions)]
+    #[tokio::test]
+    #[should_panic(expected = "goes through Session::submit")]
+    async fn signed_request_refuses_an_order_post() {
+        let (login, session) = new_login();
+        let t = scripted(&session);
+        let clock = at("2026-10-23T10:00:00Z");
+        let s = Session::new(&t, login, &clock);
+        let held = s.lock().await.unwrap();
+        let _ = s.signed_request(&held, "POST", ORDER_PATH, vec![], Some(json!({}))).await;
+    }
+
+    #[cfg(not(debug_assertions))]
+    #[tokio::test]
+    async fn signed_request_refuses_an_order_post() {
+        let (login, session) = new_login();
+        let t = scripted(&session);
+        let clock = at("2026-10-23T10:00:00Z");
+        let s = Session::new(&t, login, &clock);
+        let held = s.lock().await.unwrap();
+        assert_eq!(s.signed_request(&held, "POST", "/v1/api/iserver/reply/x", vec![], Some(json!({}))).await, Err(Error::Mutation));
+        assert!(t.requests().is_empty());
     }
 
     /// Yields before every answer, so two callers interleave at each request.
