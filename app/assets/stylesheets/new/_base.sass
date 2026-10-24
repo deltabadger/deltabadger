@@ -11,10 +11,28 @@ body
 dialog
   display: block // override default display: none, used if js is disabled
 
-// On a menu-tile visit the highlight moving is the sign of the visit, so Turbo's bar stays out
-// of it. Everywhere else the bar is the only sign there is — see menu_controller.js.
-html[data-menu-visit] .turbo-progress-bar
+// No web-page progress bar. A visit in flight (Turbo stamps aria-busy on <html>) shows in the
+// menu instead: the active tile's chip on desktop, the hamburger on mobile, breathing in the same
+// pulse as the bot meter. The delay keeps fast visits silent; only a slow one gets the signal.
+.turbo-progress-bar
   display: none !important
+html[aria-busy="true"]
+  .menu__chip, .hamburger
+    animation: bot-control-status-pulse 1.2s ease-in-out 0.3s infinite
+// A button_to form while its request runs: Start/Stop and the other one-button forms, whose
+// icon would be lost to data-turbo-submits-with.
+.button_to[aria-busy="true"] button
+  animation: bot-control-status-pulse 1.2s ease-in-out 0.3s infinite
+// A frame loading on its own (log pagination, chart, modal) dims while it waits. Out at once,
+// in only after a beat, so a quick load does not flicker.
+turbo-frame
+  transition: opacity 0.15s ease
+  &[busy], &[aria-busy="true"]
+    opacity: 0.6
+    transition-delay: 0.2s
+@media (prefers-reduced-motion: reduce)
+  html[aria-busy="true"] :is(.menu__chip, .hamburger), .button_to[aria-busy="true"] button
+    animation: none
 p, ol, ul
     font-size: 1.75rem
 ol, ul

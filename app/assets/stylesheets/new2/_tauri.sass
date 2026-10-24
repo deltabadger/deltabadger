@@ -23,3 +23,15 @@
       top: 5.5rem
     #hamburger:checked~.hamburger
         top: 5rem
+
+// The desktop app reads as an app: an arrow cursor over text and chrome, a hand over what can be
+// clicked, a caret where one can type, and no rubber-band scroll. The two lists are :where'd to
+// zero specificity, so any cursor the stylesheets set (an active menu tile's arrow) still wins.
+html.tauri, html.tauri body
+  overscroll-behavior: none
+html.tauri body
+  cursor: default
+:where(html.tauri) :where(a[href], button:not(:disabled), [role="button"], summary, label[for], select)
+  cursor: pointer
+:where(html.tauri) :where(textarea, [contenteditable], input:not([type="checkbox"], [type="radio"], [type="range"], [type="submit"], [type="button"]))
+  cursor: text

@@ -1,0 +1,4 @@
+cs:
+    busy:
+        saving: "Ukládání…"
+        starting: "Spouštění…"
