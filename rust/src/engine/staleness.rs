@@ -32,6 +32,22 @@ pub struct Source {
 /// against its job's schedule (jobs::reference::specs).
 pub const fn bound_secs(period_hours: i64) -> i64 { (2 * period_hours + 1) * 3600 }
 
+/// D-BROKER-BUNDLE-BOUND: a broker catalogue fed by the bundle or the public snapshot (jobs::reference::BOOTSTRAP,
+/// REFRESH; its record's `catalogue` flag) is trusted for 30 days from its newest evidence: such an install refreshes
+/// daily or with each release. Delistings in between are caught at order time.
+pub const CATALOGUE_BOUND_SECS: i64 = 30 * 24 * 3600;
+
+/// A source's newest complete refresh and the bound it is judged by.
+type Clock = (DateTime<Utc>, i64);
+
+/// The clock that expires later.
+fn newest(a: Option<Clock>, b: Option<Clock>) -> Option<Clock> {
+    match (a, b) {
+        (Some(x), Some(y)) => Some(if x.0 + chrono::Duration::seconds(x.1) >= y.0 + chrono::Duration::seconds(y.1) { x } else { y }),
+        (x, y) => x.or(y),
+    }
+}
+
 /// The Alpaca crypto catalog: each pair's available and trading_enabled flags, its decimals and minimum sizes, which the tick
 /// derives members, sizes, minimums and the cap's precision floor from. Its stamp is the newest `exchange_assets.updated_at`
 /// among the Alpaca exchange's Cryptocurrency assets, NOT `tickers.updated_at`: Ticker::TechnicallyAnalyzable writes a
@@ -136,20 +152,28 @@ fn column_at(c: &Connection, s: &Source, exchange_id: Option<i64>) -> Result<Opt
 /// (`incomplete_since`, set before an import's first unit, cleared with its success); otherwise only a stamp Rails made
 /// inside its last ownership window: after the last handback and, once this engine has taken the install over again, not
 /// after that takeover. Without a handback stamp: None, freshness is the record alone.
-fn trusted_column(c: &Connection, s: &Source, exchange_id: Option<i64>) -> Result<Option<DateTime<Utc>>, EngineError> {
+/// A catalogue-fed source's own imports stamp the column with when they ran, never with their evidence: there, as for an
+/// incomplete import, only a Rails refresh inside Rails' last ownership window counts.
+fn trusted_column(c: &Connection, s: &Source, exchange_id: Option<i64>) -> Result<Option<Clock>, EngineError> {
+    let record = crate::jobs::state::find(c, s.job, None).map_err(EngineError::Data)?;
     let at = column_at(c, s, exchange_id)?;
-    let incomplete = crate::jobs::state::find(c, s.job, None).map_err(EngineError::Data)?.is_some_and(|st| st.incomplete_since.is_some());
-    if !incomplete { return Ok(at); }
+    let clock = |at: Option<DateTime<Utc>>| at.map(|at| (at, s.max_age_secs));
+    if record.is_none_or(|st| st.incomplete_since.is_none() && !st.catalogue) { return Ok(clock(at)); }
     let Some(back) = crate::lease::plain_at(c, HANDED_BACK_AT)? else { return Ok(None) };
     let taken = crate::lease::plain_at(c, TAKEN_OVER_AT)?.filter(|t| *t > back); // older: Rails owns the install now
-    Ok(at.filter(|a| *a > back && taken.is_none_or(|t| *a <= t)))
+    Ok(clock(at.filter(|a| *a > back && taken.is_none_or(|t| *a <= t))))
 }
 
 /// The source's last complete refresh by this engine's record: None without a record (no takeover yet); else the newer of
 /// the job's last success, which the runner writes only once the whole import has published, and Rails' baseline read at
-/// the takeover (`seed`). A run that fails after committing some units moves neither.
-fn record_at(c: &Connection, s: &Source) -> Result<Option<Option<DateTime<Utc>>>, EngineError> {
-    Ok(crate::jobs::state::find(c, s.job, None).map_err(EngineError::Data)?.map(|st| if s.evidence { st.source_at } else { st.last_success_at.max(st.rails_at) }))
+/// the takeover (`seed`). A run that fails after committing some units moves neither. An evidence source reads its
+/// `source_at`; catalogue-fed evidence is judged by CATALOGUE_BOUND_SECS, and the clock expiring later counts.
+fn record_at(c: &Connection, s: &Source) -> Result<Option<Option<Clock>>, EngineError> {
+    Ok(crate::jobs::state::find(c, s.job, None).map_err(EngineError::Data)?.map(|st| {
+        let catalogue = st.source_at.filter(|_| st.catalogue).map(|at| (at, CATALOGUE_BOUND_SECS));
+        let hosted = if s.evidence { st.source_at.filter(|_| !st.catalogue) } else { st.last_success_at.max(st.rails_at) };
+        newest(hosted.map(|at| (at, s.max_age_secs)), catalogue)
+    }))
 }
 
 /// "; <job>: <its state>" for a refusal or a report line.
@@ -161,19 +185,19 @@ fn job_state(c: &Connection, s: &Source) -> String {
 }
 
 /// Past its bound at `now`, refreshed (completely) at `at`.
-fn judge(c: &Connection, s: &Source, at: DateTime<Utc>, now: DateTime<Utc>) -> Option<Stale> {
+fn judge(c: &Connection, s: &Source, (at, bound): Clock, now: DateTime<Utc>) -> Option<Stale> {
     let age = (now - at).num_seconds();
-    (age > s.max_age_secs).then(|| Stale { source: s.name, message: format!(
+    (age > bound).then(|| Stale { source: s.name, message: format!(
         "reference data stale: {} ({}, newest complete refresh {}) is {}h {}m old, over its {}h bound; refreshed by {}{}; \
          the bot does not tick until it is refreshed", s.name, s.column, format_time(at), age / 3600, age % 3600 / 60,
-        s.max_age_secs / 3600, s.refreshed_by, job_state(c, s)) })
+        bound / 3600, s.refreshed_by, job_state(c, s)) })
 }
 
 /// The door (`check` and the takeover, through eligibility::check_install_at): the newer of the job record and Rails'
 /// column where it is trusted, so a takeover after Rails refreshed the data is admitted even when a record from an earlier
 /// takeover is older, and a partial import of this engine never is. With neither, Unknown: noted, never refused.
 fn source_verdict(c: &Connection, bot: &Bot, s: &Source, now: DateTime<Utc>) -> Result<Verdict, EngineError> {
-    match record_at(c, s)?.flatten().max(trusted_column(c, s, s.per_exchange.then_some(bot.exchange_id))?) {
+    match newest(record_at(c, s)?.flatten(), trusted_column(c, s, s.per_exchange.then_some(bot.exchange_id))?) {
         Some(at) => Ok(judge(c, s, at, now).map_or(Verdict::Fresh, Verdict::Stale)),
         None => Ok(Verdict::Unknown(Stale { source: s.name, message: format!(
             "reference data unknown: {} has no sync stamp on this install (no app_configs {ALPACA_CRYPTO_SYNCED_KEY}, or no {} row); \
@@ -236,13 +260,13 @@ pub fn seed(c: &Connection, now: DateTime<Utc>) -> Result<(), EngineError> {
 pub fn report(c: &Connection, now: DateTime<Utc>) -> Result<Vec<String>, EngineError> {
     let mut lines = vec![];
     for (src, exchange, label) in targets(c)? {
-        lines.push(match record_at(c, src)?.flatten().max(trusted_column(c, src, exchange)?) {
+        lines.push(match newest(record_at(c, src)?.flatten(), trusted_column(c, src, exchange)?) {
             None => format!("{}{label}: no row ({}){}", src.name, src.column, job_state(c, src)),
-            Some(at) => {
+            Some((at, bound)) => {
                 let age = (now - at).num_seconds().max(0);
-                let verdict = if age > src.max_age_secs { ", STALE" } else { "" };
+                let verdict = if age > bound { ", STALE" } else { "" };
                 format!("{}{label}: newest complete refresh {}, {}h {}m old, {}h bound{verdict}{}", src.name, format_time(at),
-                        age / 3600, age % 3600 / 60, src.max_age_secs / 3600, job_state(c, src))
+                        age / 3600, age % 3600 / 60, bound / 3600, job_state(c, src))
             }
         });
     }

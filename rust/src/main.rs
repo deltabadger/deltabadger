@@ -11,7 +11,8 @@
 //! SECRET_KEY_BASE (and ACTIVE_RECORD_ENCRYPTION_* where the instance sets them). serve also reads PORT (default 3000),
 //! APP_ROOT_URL, FORCE_SSL, BEHIND_PROXY and MARKET_DATA_URL. run and serve send the bots' mail and read what Rails
 //! reads for it: SMTP_ADDRESS, SMTP_PORT, SMTP_DOMAIN, SMTP_USER_NAME, SMTP_PASSWORD, NOTIFICATIONS_SENDER, APP_ROOT_URL
-//! and FORCE_SSL. Rails creates the databases and runs its migrations; `run` and `serve` apply Rust's own (store::migrate).
+//! and FORCE_SSL. Without data-api, run and serve import db/seed_data/catalogue.json.gz at start and the public catalogue
+//! snapshot daily from IBKR_CATALOGUE_URL (default data.deltabadger.com's; `off` turns it off). Rails creates the databases and runs its migrations; `run` and `serve` apply Rust's own (store::migrate).
 use deltabadger::crypto::{Cipher, EncryptionKeys};
 use deltabadger::engine::eligibility::{check_install_at, Refusal};
 use deltabadger::engine::run::Engine;
@@ -178,6 +179,8 @@ fn scheduler_service<'a>(env: &dyn Fn(&str) -> Option<String>, paths: &Paths, en
     registered.extend(deltabadger::sync::jobs::register(&own.primary, &LiveFactory::new(), api.clone()).map_err(|e| e.0)?);
     registered.extend(deltabadger::tracker::jobs::register(&own.primary, &LiveFactory::new(), api.clone(), deltabadger::tracker::jobs::system_wall())?);
     registered.push(Box::new(deltabadger::identity::Discovery { venues: LiveFactory::new() }));
+    // The self-hosted catalogue (Ibkr plan R2): the bundle at every start, the public snapshot daily.
+    registered.extend(jobs::reference::catalogue_jobs(env, std::path::PathBuf::from(jobs::reference::BUNDLE), jobs::reference::LiveFetch::default()));
     registered.push(Box::new(deltabadger::sync::jobs::IbkrActivation { venues: LiveFactory::new() }));
     let resume_setup = jobs::setup_sync::unfinished(&own.primary, &cipher)?;
     let unbound = deltabadger::sync::jobs::unbound_ibkr_keys(&own.primary).map_err(|e| e.to_string())?;
@@ -185,6 +188,7 @@ fn scheduler_service<'a>(env: &dyn Fn(&str) -> Option<String>, paths: &Paths, en
     let resolve = jobs::resolve::configured_resolver(jobs::resolve::all(LiveFactory::new(), api, deltabadger::tracker::jobs::system_wall()), env, rates);
     let scheduler = jobs::Scheduler::new(own.primary, cipher, registered, Some(engine.subscribe())).with_resolver(resolve);
     if resume_setup { scheduler.wakers().wake(jobs::setup_sync::NAME, None, None); }
+    scheduler.wakers().wake(jobs::reference::BOOTSTRAP, None, None);
     for key in unbound {
         scheduler.wakers().wake(deltabadger::sync::jobs::API_KEY_VALIDATOR, Some(&key.to_string()), None);
     }

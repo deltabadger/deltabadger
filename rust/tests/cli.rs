@@ -24,6 +24,7 @@ fn cli(dir: &Path, args: &[&str]) -> Command {
     }
     let mut c = Command::new(env!("CARGO_BIN_EXE_deltabadger"));
     c.args(args).env("STORAGE_DIR", dir).env("SECRET_KEY_BASE", "engine-test-secret")
+        .env("IBKR_CATALOGUE_URL", "off") // no public snapshot fetch from a process test
         .env_remove("DATABASE_URL").env_remove("ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY").env_remove("ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT");
     c
 }

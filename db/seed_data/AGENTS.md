@@ -22,6 +22,10 @@ COINGECKO_API_KEY=xxx rake seed:generate
 ```
 Syncs from CoinGecko + exchange APIs into a temp DB, then exports as JSON.
 
+## Catalogue bundle
+
+`catalogue.json.gz` is data-api's public catalogue snapshot (stock assets, Alpaca stock and crypto listings, IBKR listings), not committed (`.gitignore`): the release workflow's `release-catalogue` job downloads it from `https://data.deltabadger.com/public/v1/catalogue.json.gz`, attaches it to the GitHub release and hands it to the image build; the desktop build downloads the same file. Without data-api, the Rust app imports it once per start (`catalogue_bootstrap`) and refreshes from the public snapshot daily (`catalogue_refresh`, `IBKR_CATALOGUE_URL=off` turns that off), each source through the revision-fenced importer, so an older bundle never overwrites a newer import. For a local build, download it into this directory with curl.
+
 ## Live Sync
 
 Two providers, configured in settings:
