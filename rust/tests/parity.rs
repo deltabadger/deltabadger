@@ -73,7 +73,8 @@ fn unreadable_number_refused(name: &str, dir: &Path, rails_out: &serde_json::Val
 fn below_minimum_skipped(rails_out: &serde_json::Value, rust_out: &serde_json::Value) -> Result<(), String> {
     below_minimum_skip("EOrder:Order minimum not met", rails_out, rust_out)
 }
-/// D-BELOW-MIN-REJECTION on a venue grid's `below_venue_minimum` (MEXC 30002, Bitvavo 217): as `below_minimum_skipped`.
+/// D-BELOW-MIN-REJECTION on a venue grid's below-minimum cells (MEXC 30002, Bitvavo 217, Hyperliquid's min_value): as
+/// `below_minimum_skipped`.
 fn below_minimum_skip(text: &str, rails_out: &serde_json::Value, rust_out: &serde_json::Value) -> Result<(), String> {
     let rows = |out: &serde_json::Value| -> Vec<serde_json::Value> { out["changes"]["transactions"].as_array().unwrap().iter().map(|t| t["after"].clone()).collect() };
     let events = |out: &serde_json::Value| -> Vec<String> { out["changes"]["bot_activity_logs"].as_array().unwrap().iter().filter_map(|l| l["after"]["event"].as_str().map(str::to_string)).collect() };
@@ -616,6 +617,7 @@ async fn rails_and_rust_decide_identically_across_the_hyperliquid_grid() {
                                                                                                          "Hyperliquid::Error: Network error: Connection refused", r, u) },
         Validator { names: &ending(&["landed_found"]), check: &|_, _, r, u| { assert_eq!(r["sent"], u["sent"]); hyperliquid_landed_found(r, u) } },
         Validator { names: &ending(&["landed_missing"]), check: &|_, d, r, u| { assert_eq!(r["sent"], u["sent"]); landed_missing(d, r, u) } },
+        Validator { names: &ending(&["min_value"]), check: &|_, _, r, u| below_minimum_skip("Order must have minimum value of", r, u) },
     ]).await;
     // Pin what Rails does where a silent pair of sides would otherwise pass.
     for (name, rails_out) in &outputs {
