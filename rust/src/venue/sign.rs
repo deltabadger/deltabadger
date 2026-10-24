@@ -141,6 +141,9 @@ pub(crate) enum Wire {
     Bitrue,
     Coinbase,
     Bingx,
+    /// Clients::Ibkr::Session (venue::ibkr): OAuth 1.0a in the Authorization header, built at send time from the login's
+    /// session (the RSA-signed LST request during a mint, else an HMAC keyed by the LST); a JSON body.
+    Ibkr,
 }
 
 impl Wire {
@@ -157,13 +160,15 @@ impl Wire {
             Self::Bitrue => super::bitrue::BITRUE,
             Self::Coinbase => super::coinbase::COINBASE,
             Self::Bingx => super::bingx::BINGX,
+            // No registry row before slice I2.
+            Self::Ibkr => return "IBKR",
         };
         super::registry::row(exchange_type).expect("every wire's venue has a row").name
     }
 }
 
 /// The credentials a wire signs with.
-pub(crate) struct Keys<'a> { pub key: &'a str, pub secret: &'a str, pub passphrase: &'a str }
+pub(crate) struct Keys<'a> { pub key: &'a str, pub secret: &'a str, pub passphrase: &'a str, pub ibkr: Option<&'a super::ibkr::Login> }
 
 /// `r` as `wire` sends it through `client`: its URL, headers and body, signed now (`clock`).
 pub(crate) fn request(wire: Wire, client: &reqwest::Client, r: &HttpRequest, keys: Keys, clock: &dyn crate::engine::Clock) -> reqwest::RequestBuilder {
@@ -243,6 +248,10 @@ pub(crate) fn request(wire: Wire, client: &reqwest::Client, r: &HttpRequest, key
             };
             b = b.body(body);
         }
+        Wire::Ibkr => {
+            if let Some(header) = keys.ibkr.and_then(|login| login.authorization(r)) { b = b.header("Authorization", header); }
+            if let Some(body) = &r.body { b = b.header("Content-Type", "application/json").body(body.to_string()); }
+        }
     }
     b
 }
@@ -256,7 +265,7 @@ mod tests {
         let clock = crate::engine::FixedClock("2026-09-20T02:00:00Z".parse().unwrap());
         let client = reqwest::Client::new();
         let mut r = HttpRequest {method:"GET",base:super::super::bingx::URL.into(),path:"/openApi/spot/v1/common/symbols".into(),query:vec![],body:None,not_after:None};
-        let build = |r:&HttpRequest| request(Wire::Bingx,&client,r,Keys {key:"key",secret:"secret",passphrase:""},&clock).build().unwrap();
+        let build = |r:&HttpRequest| request(Wire::Bingx,&client,r,Keys {key:"key",secret:"secret",passphrase:"",ibkr:None},&clock).build().unwrap();
         assert!(build(&r).headers().is_empty());
         r.query=BINGX_QUERY.sign("secret",vec![("symbol","BTC-USDT".into())],crate::engine::Clock::now(&clock));
         assert_eq!(build(&r).headers().len(),1);
@@ -273,7 +282,7 @@ mod tests {
         let clock = crate::engine::FixedClock("2026-09-20T02:00:00Z".parse().unwrap());
         let client = reqwest::Client::new();
         let mut r = HttpRequest { method: "GET", base: super::super::bitrue::URL.into(), path: "/api/v1/exchangeInfo".into(), query: vec![], body: None, not_after: None };
-        let build = |r: &HttpRequest| request(Wire::Bitrue, &client, r, Keys { key: "key", secret: "secret", passphrase: "" }, &clock).build().unwrap();
+        let build = |r: &HttpRequest| request(Wire::Bitrue, &client, r, Keys { key: "key", secret: "secret", passphrase: "", ibkr: None }, &clock).build().unwrap();
         assert!(build(&r).headers().is_empty(), "honeymaker's public get sends no headers");
         r.path = "/api/v1/account".into();
         r.query = BITRUE_QUERY.sign("secret", vec![], crate::engine::Clock::now(&clock));
@@ -289,7 +298,7 @@ mod tests {
         let client = reqwest::Client::new();
         for (wire, base, header) in [(Wire::Binance, super::super::binance::URL, "X-MBX-APIKEY"), (Wire::Mexc, super::super::mexc::URL, "X-MEXC-APIKEY")] {
             let r = HttpRequest { method: "GET", base: base.into(), path: super::super::binance::TICKER_PRICE.into(), query: vec![], body: None, not_after: None };
-            let build = |key: &str, secret: &str| request(wire, &client, &r, Keys { key, secret, passphrase: "" }, &clock).build().unwrap();
+            let build = |key: &str, secret: &str| request(wire, &client, &r, Keys { key, secret, passphrase: "", ibkr: None }, &clock).build().unwrap();
             assert_eq!(build("key", "secret").headers()[header], "key");
             for (key, secret) in [("", ""), ("key", "")] {
                 let sent = build(key, secret);

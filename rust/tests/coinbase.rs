@@ -273,7 +273,7 @@ async fn repaired_amounts_are_identical_to_fresh_imports() {
             format!("GET {}", coinbase_ledger::ACCOUNTS): [{"status":200,"body":{"accounts":[]}}]
         }));
         let db = Db::new(o.primary, common::seed::cipher());
-        let credentials = Credentials {
+        let credentials = Credentials { ibkr: None,
             key: "PKTEST".into(),
             secret: "paper-secret".into(),
             passphrase: Some("paper".into()),

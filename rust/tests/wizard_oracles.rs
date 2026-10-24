@@ -457,7 +457,7 @@ async fn a_binance_us_key_is_checked_by_a_read_and_a_probe() {
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "canTrade": true, "balances": [] }))).mount(&server).await;
     Mock::given(method("DELETE")).and(path("/api/v3/order")).and(header("X-MBX-APIKEY", "us-key"))
         .respond_with(ResponseTemplate::new(400).set_body_json(json!({ "code": -2011, "msg": "Unknown order sent." }))).mount(&server).await;
-    let credentials = deltabadger::crypto::Credentials { key: "us-key".into(), secret: "us-secret".into(), passphrase: None, redaction_values: vec![] };
+    let credentials = deltabadger::crypto::Credentials { ibkr: None, key: "us-key".into(), secret: "us-secret".into(), passphrase: None, redaction_values: vec![] };
     let base = server.uri();
     let check = |kind| key_check::check("Exchanges::BinanceUs", &base, deltabadger::venue::http::client(), &credentials, kind);
     assert!(matches!(check(0).await, Validity::Correct), "a trading key that reads and may trade");
@@ -481,7 +481,7 @@ async fn a_bitvavo_key_is_checked_by_a_balance_read_and_a_probe() {
         .respond_with(ResponseTemplate::new(200).set_body_json(json!([{ "symbol": "EUR", "available": "1", "inOrder": "0" }]))).mount(&server).await;
     Mock::given(method("DELETE")).and(path("/v2/order")).and(query_param("market", "BTC-EUR")).and(query_param("operatorId", "1")).and(header("BITVAVO-ACCESS-KEY", "bv-key"))
         .respond_with(ResponseTemplate::new(404).set_body_json(json!({ "errorCode": 240, "error": "No order found." }))).mount(&server).await;
-    let credentials = deltabadger::crypto::Credentials { key: "bv-key".into(), secret: "bv-secret".into(), passphrase: None, redaction_values: vec![] };
+    let credentials = deltabadger::crypto::Credentials { ibkr: None, key: "bv-key".into(), secret: "bv-secret".into(), passphrase: None, redaction_values: vec![] };
     let base = server.uri();
     let check = |kind| key_check::check("Exchanges::Bitvavo", &base, deltabadger::venue::http::client(), &credentials, kind);
     assert!(matches!(check(0).await, Validity::Correct), "a trading key that reads and may trade");
@@ -506,7 +506,7 @@ async fn a_bitget_key_is_checked_by_a_cancel_probe_or_an_assets_read() {
     Mock::given(method("GET")).and(path("/api/v2/spot/account/assets")).and(header("ACCESS-KEY", "bg-key"))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "code": "00000", "msg": "success", "data": [{ "coin": "USDT", "available": "1", "frozen": "0" }] })))
         .mount(&server).await;
-    let credentials = deltabadger::crypto::Credentials { key: "bg-key".into(), secret: "bg-secret".into(), passphrase: Some("bg-pass".into()), redaction_values: vec![] };
+    let credentials = deltabadger::crypto::Credentials { ibkr: None, key: "bg-key".into(), secret: "bg-secret".into(), passphrase: Some("bg-pass".into()), redaction_values: vec![] };
     let base = server.uri();
     let check = |kind| key_check::check("Exchanges::Bitget", &base, deltabadger::venue::http::client(), &credentials, kind);
     assert!(matches!(check(0).await, Validity::Correct), "a trading key past the permission gate");
@@ -528,7 +528,7 @@ async fn a_mexc_key_is_checked_by_its_account_and_a_reading_key_by_its_deposits_
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "canTrade": false, "balances": [] }))).mount(&server).await;
     Mock::given(method("GET")).and(path("/api/v3/capital/deposit/hisrec")).and(query_param("limit", "1")).and(header("X-MEXC-APIKEY", "mx-key"))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!([]))).mount(&server).await;
-    let credentials = deltabadger::crypto::Credentials { key: "mx-key".into(), secret: "mx-secret".into(), passphrase: None, redaction_values: vec![] };
+    let credentials = deltabadger::crypto::Credentials { ibkr: None, key: "mx-key".into(), secret: "mx-secret".into(), passphrase: None, redaction_values: vec![] };
     let base = server.uri();
     let check = |kind| key_check::check("Exchanges::Mexc", &base, deltabadger::venue::http::client(), &credentials, kind);
     assert!(matches!(check(0).await, Validity::Incorrect), "a trading key whose account cannot trade");
@@ -549,7 +549,7 @@ async fn a_bybit_key_is_checked_by_a_cancel_probe_or_an_assets_read() {
     Mock::given(method("GET")).and(path("/v5/account/wallet-balance")).and(header("X-BAPI-API-KEY", "bg-key"))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "retCode":0,"result":{"list":[{"coin":[{"coin":"USDT","walletBalance":"1"}]}]} })))
         .mount(&server).await;
-    let credentials = deltabadger::crypto::Credentials { key: "bg-key".into(), secret: "bg-secret".into(), passphrase: Some("bg-pass".into()), redaction_values: vec![] };
+    let credentials = deltabadger::crypto::Credentials { ibkr: None, key: "bg-key".into(), secret: "bg-secret".into(), passphrase: Some("bg-pass".into()), redaction_values: vec![] };
     let base = server.uri();
     let check = |kind| key_check::check("Exchanges::Bybit", &base, deltabadger::venue::http::client(), &credentials, kind);
     assert!(matches!(check(0).await, Validity::Correct), "a trading key past the permission gate");
@@ -567,7 +567,7 @@ async fn a_bitrue_key_uses_one_account_read_for_each_key_type() {
     let server = MockServer::start().await;
     Mock::given(method("GET")).and(path("/api/v1/account")).and(header("X-MBX-APIKEY", "br-key")).and(query_param("recvWindow", "5000"))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "canTrade": false, "balances": [] }))).mount(&server).await;
-    let credentials = deltabadger::crypto::Credentials { key: "br-key".into(), secret: "br-secret".into(), passphrase: None, redaction_values: vec![] };
+    let credentials = deltabadger::crypto::Credentials { ibkr: None, key: "br-key".into(), secret: "br-secret".into(), passphrase: None, redaction_values: vec![] };
     let base = server.uri();
     let check = |kind| key_check::check("Exchanges::Bitrue", &base, deltabadger::venue::http::client(), &credentials, kind);
     assert!(matches!(check(0).await, Validity::Incorrect));

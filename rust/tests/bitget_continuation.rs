@@ -17,7 +17,7 @@ use std::time::Duration;
 
 const NOW: &str = "2026-09-20T02:00:00Z";
 
-fn creds() -> Credentials { Credentials { redaction_values: vec![], key: "PKTEST".into(), secret: "paper-secret".into(), passphrase: Some("paper".into()) } }
+fn creds() -> Credentials { Credentials { ibkr: None, redaction_values: vec![], key: "PKTEST".into(), secret: "paper-secret".into(), passphrase: Some("paper".into()) } }
 fn now_ms() -> i64 { NOW.parse::<chrono::DateTime<chrono::Utc>>().unwrap().timestamp_millis() }
 fn from_2018() -> i64 { bitget_ledger::transfers_from().timestamp_millis() }
 

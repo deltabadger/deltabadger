@@ -84,7 +84,7 @@ fn pairs() -> Pairs {
     p
 }
 fn kv(t: &ScriptedTransport) -> KucoinVenue<ScriptedTransport> {
-    let creds = deltabadger::crypto::Credentials { key: "test-key".into(), secret: "dGVzdC1zZWNyZXQ=".into(), passphrase: Some("p".into()), redaction_values: vec![] };
+    let creds = deltabadger::crypto::Credentials { ibkr: None, key: "test-key".into(), secret: "dGVzdC1zZWNyZXQ=".into(), passphrase: Some("p".into()), redaction_values: vec![] };
     KucoinVenue::new(t.clone(), URL).with_identity(&creds).with_pairs(pairs())
 }
 fn gets(t: &ScriptedTransport, id: &str) -> usize { t.requests().iter().filter(|r| r.path == format!("/api/v1/orders/{id}")).count() }
@@ -380,7 +380,7 @@ use std::sync::{Arc, Mutex};
 
 const NOW: &str = "2026-10-23T16:10:00Z";
 fn creds() -> deltabadger::crypto::Credentials {
-    deltabadger::crypto::Credentials { key: "test-key".into(), secret: "dGVzdC1zZWNyZXQ=".into(), passphrase: Some("p".into()), redaction_values: vec![] }
+    deltabadger::crypto::Credentials { ibkr: None, key: "test-key".into(), secret: "dGVzdC1zZWNyZXQ=".into(), passphrase: Some("p".into()), redaction_values: vec![] }
 }
 fn accounts(eur: Option<&str>) -> Value {
     let mut rows = vec![json!({ "id": "a1", "currency": "BTC", "type": "trade", "balance": "0.5", "available": "0.5", "holds": "0" })];

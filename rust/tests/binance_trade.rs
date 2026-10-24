@@ -354,7 +354,7 @@ async fn the_factory_builds_binance_through_its_proxy_with_the_exchanges_tickers
     let cipher = deltabadger::crypto::Cipher::new(&deltabadger::crypto::EncryptionKeys::resolve(&|_| None, "engine-test-secret").unwrap());
     let factory = LiveFactory::for_install(&c, &cipher);
     // Realistic key material: the transport scrubs every credential value out of each answer it reads.
-    let creds = Some(deltabadger::crypto::Credentials { redaction_values: vec![], key: "vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A".into(),
+    let creds = Some(deltabadger::crypto::Credentials { ibkr: None, redaction_values: vec![], key: "vmPUZE6mv9SD5VNHk4HlWFsOr6aKE2zvsw0MuIgwCIPy6utIco14y7Ju91duEh8A".into(),
                                                         secret: "NhqPtmdSJYdKjVHjA7PZj4Mge3R5YNiP1e3UZjInClVN65XAbvqqM6A7H5fATj0j".into(), passphrase: None });
     let now = chrono::Utc::now();
     for proxy in [&a, &b] {

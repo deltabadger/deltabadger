@@ -86,6 +86,11 @@ pub trait Transport {
         let observed = observe(resp.status, &resp.body);
         Ok((resp, observed))
     }
+    /// `send`, with the answer's Content-Type ("" when it had none), for a client that parses by it as Faraday's json
+    /// middleware does (venue::ibkr). `None`: this transport cannot tell, and the answer is read as JSON.
+    async fn send_typed(&self, req: &HttpRequest) -> Result<(HttpResponse, Option<String>), TransportError> {
+        Ok((self.send(req).await?, None))
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -183,7 +188,7 @@ fn builder(connect: Duration, read: Duration, total: Duration) -> reqwest::Clien
 }
 
 #[derive(Clone)]
-pub struct ReqwestTransport { client: reqwest::Client, key: String, secret: String, passphrase: String, refused: Option<String>, sensitive: Vec<String>, clock: std::sync::Arc<dyn crate::engine::Clock + Send + Sync>, wire: Wire }
+pub struct ReqwestTransport { client: reqwest::Client, key: String, secret: String, passphrase: String, refused: Option<String>, sensitive: Vec<String>, clock: std::sync::Arc<dyn crate::engine::Clock + Send + Sync>, wire: Wire, ibkr: Option<std::sync::Arc<super::ibkr::Login>> }
 
 use super::sign::Wire;
 
@@ -191,7 +196,7 @@ impl ReqwestTransport {
     /// Use the same clock that creates the order deadline; production defaults to SystemClock.
     pub fn with_clock(mut self, clock: std::sync::Arc<dyn crate::engine::Clock + Send + Sync>) -> Self { self.clock = clock; self }
     /// `key`/`secret` as Clients::Alpaca sends them (`@api_key.to_s`: a missing key is an empty header).
-    pub fn new(client: reqwest::Client, key: String, secret: String) -> Self { Self { client, sensitive:vec![key.clone(),secret.clone()],key, secret, passphrase: String::new(), refused: None, clock: std::sync::Arc::new(crate::engine::SystemClock), wire: Wire::Alpaca } }
+    pub fn new(client: reqwest::Client, key: String, secret: String) -> Self { Self { client, sensitive:vec![key.clone(),secret.clone()],key, secret, passphrase: String::new(), refused: None, clock: std::sync::Arc::new(crate::engine::SystemClock), wire: Wire::Alpaca, ibkr: None } }
     /// Honeymaker::Clients::Binance's wire.
     pub fn binance(client: reqwest::Client, key: String, secret: String) -> Self { Self { wire: Wire::Binance, ..Self::new(client, key, secret) } }
     /// Honeymaker::Clients::Kucoin's wire: the passphrase is HMAC'd with the secret, and neither is ever sent as it is.
@@ -229,6 +234,11 @@ impl ReqwestTransport {
         self
     }
     pub fn bingx(client: reqwest::Client, key: String, secret: String) -> Self { Self { wire: Wire::Bingx, ..Self::new(client, key, secret) } }
+    /// Clients::Ibkr::Session's wire: every request signed at send time from `login`'s session (venue::ibkr).
+    pub fn ibkr(client: reqwest::Client, login: std::sync::Arc<super::ibkr::Login>) -> Self {
+        let t = Self::new(client, login.consumer_key().into(), login.access_token_secret().into());
+        Self { wire: Wire::Ibkr, sensitive: login.sensitive(), ibkr: Some(login), ..t }
+    }
     pub fn bitrue(client: reqwest::Client, key: String, secret: String) -> Self { Self { wire: Wire::Bitrue, ..Self::new(client, key, secret) } }
     /// Speak Kraken's wire: Honeymaker::Clients::Kraken's headers, form bodies and signature.
     pub fn kraken(mut self)->Self{self.wire=Wire::Kraken;self}
@@ -240,7 +250,7 @@ impl ReqwestTransport {
         self.redact_diagnostic(&diagnostic(Some(response.status),&response.body))
     }
     /// Answers every request with NotSent and sends nothing (a venue this build must not reach).
-    pub fn refused(reason: &str) -> Self { Self { client: client(), key: String::new(), secret: String::new(), passphrase: String::new(), refused: Some(reason.into()),sensitive:Vec::new(), clock: std::sync::Arc::new(crate::engine::SystemClock), wire: Wire::Alpaca } }
+    pub fn refused(reason: &str) -> Self { Self { client: client(), key: String::new(), secret: String::new(), passphrase: String::new(), refused: Some(reason.into()),sensitive:Vec::new(), clock: std::sync::Arc::new(crate::engine::SystemClock), wire: Wire::Alpaca, ibkr: None } }
 }
 
 impl Transport for ReqwestTransport {
@@ -250,6 +260,10 @@ impl Transport for ReqwestTransport {
 
     async fn send_limited(&self, r: &HttpRequest, limit: usize) -> Result<HttpResponse, TransportError> {
         Ok(self.settle(self.send_unsettled(r, limit).await?))
+    }
+    async fn send_typed(&self, r: &HttpRequest) -> Result<(HttpResponse, Option<String>), TransportError> {
+        let (raw, content_type) = self.send_unsettled_typed(r, MAX_BODY).await?;
+        Ok((self.settle(raw), Some(content_type)))
     }
     async fn send_observed<O>(&self, r: &HttpRequest, observe: &(dyn Fn(u16, &str) -> O + Sync)) -> Result<(HttpResponse, O), TransportError> {
         let raw = self.send_unsettled(r, MAX_BODY).await?;
@@ -271,12 +285,21 @@ impl ReqwestTransport {
 
     /// `send_limited` without `settle`: the answer as it was read.
     pub async fn send_unsettled(&self, r: &HttpRequest, limit: usize) -> Result<HttpResponse, TransportError> {
+        Ok(self.send_unsettled_typed(r, limit).await?.0)
+    }
+
+    /// `send_unsettled` with the answer's Content-Type ("" when it had none).
+    async fn send_unsettled_typed(&self, r: &HttpRequest, limit: usize) -> Result<(HttpResponse, String), TransportError> {
         if let Some(reason) = &self.refused { return Err(TransportError::NotSent(reason.clone())); }
         // hyperliquid-rb's Signer cannot be built from a secret that is no private key: nothing is signed or sent.
         if self.wire == Wire::Hyperliquid && r.path == super::hyperliquid::EXCHANGE && super::signers::hyperliquid::signing_key(&self.secret).is_none() {
             return Err(TransportError::NotSent("Hyperliquid: the API secret is not an agent private key; not sent".into()));
         }
-        let keys = super::sign::Keys { key: &self.key, secret: &self.secret, passphrase: &self.passphrase };
+        // An IBKR request with nothing to sign it (no mint in flight, no LST) is not sent.
+        if self.ibkr.as_ref().is_some_and(|login| !login.can_sign(r)) {
+            return Err(TransportError::NotSent("IBKR: no live session token to sign with; not sent".into()));
+        }
+        let keys = super::sign::Keys { key: &self.key, secret: &self.secret, passphrase: &self.passphrase, ibkr: self.ibkr.as_deref() };
         let mut b = super::sign::request(self.wire, &self.client, r, keys, &*self.clock);
         if let Some(not_after) = r.not_after {
             // Use the deadline producer's clock immediately before the send: what is left of the absolute bound becomes this request's whole timeout.
@@ -293,7 +316,9 @@ impl ReqwestTransport {
                 _ => return Err(TransportError::NotSent(format!("past the send bound {}; not sent", not_after.to_rfc3339()))),
             }
         }
-        read_limited(b.send().await.map_err(classify)?, limit).await
+        let resp = b.send().await.map_err(classify)?;
+        let content_type = resp.headers().get(reqwest::header::CONTENT_TYPE).and_then(|v| v.to_str().ok()).unwrap_or_default().to_string();
+        Ok((read_limited(resp, limit).await?, content_type))
     }
 }
 
@@ -381,7 +406,7 @@ fn describe(e: &reqwest::Error) -> String {
 pub struct ScriptedTransport { s: Rc<RefCell<Scripted>> }
 
 #[derive(Default)]
-struct Scripted { replies: HashMap<String, VecDeque<Value>>, requests: Vec<HttpRequest> }
+struct Scripted { replies: HashMap<String, VecDeque<Value>>, requests: Vec<HttpRequest>, last_reply: Option<Value> }
 
 impl ScriptedTransport {
     pub fn from_script(script: &Value) -> Self {
@@ -392,6 +417,8 @@ impl ScriptedTransport {
         t
     }
     pub fn reply(&self, key: &str, status: u16, body: Value) -> &Self { self.push(key, serde_json::json!({ "status": status, "body": body })) }
+    /// A raw body answered with `content_type`.
+    pub fn reply_typed(&self, key: &str, status: u16, content_type: &str, body: &str) -> &Self { self.push(key, serde_json::json!({ "status": status, "body": body, "content_type": content_type })) }
     pub fn network(&self, key: &str, kind: &str, message: &str) -> &Self { self.push(key, serde_json::json!({ "network": kind, "message": message })) }
     fn push(&self, key: &str, reply: Value) -> &Self { self.s.borrow_mut().replies.entry(key.into()).or_default().push_back(reply); self }
     pub fn requests(&self) -> Vec<HttpRequest> { self.s.borrow().requests.clone() }
@@ -403,6 +430,18 @@ impl ScriptedTransport {
 }
 
 impl Transport for ScriptedTransport {
+    /// A reply's "content_type" when scripted; else a JSON body answers as application/json and a string body with none.
+    async fn send_typed(&self, r: &HttpRequest) -> Result<(HttpResponse, Option<String>), TransportError> {
+        let resp = self.send(r).await?;
+        let s = self.s.borrow();
+        let last = s.last_reply.as_ref();
+        let content_type = match last.and_then(|reply| reply["content_type"].as_str()) {
+            Some(ct) => ct.to_string(),
+            None if last.is_some_and(|reply| reply["body"].is_string()) => String::new(),
+            None => "application/json".to_string(),
+        };
+        Ok((resp, Some(content_type)))
+    }
     async fn send(&self, r: &HttpRequest) -> Result<HttpResponse, TransportError> {
         // A key with its query is answered first, then the bare path: two data-api GETs of one path differ by query.
         let full = request_key(r);
@@ -415,7 +454,9 @@ impl Transport for ScriptedTransport {
             let key = if let Some(c) = coin.filter(|c| s.replies.contains_key(c)) { c }
                 else if s.replies.contains_key(&full) { full.clone() } else if let Some(t) = typed.filter(|t| s.replies.contains_key(t)) { t } else { format!("{} {}", r.method, r.path) };
             let q = s.replies.get_mut(&key).filter(|q| !q.is_empty()).unwrap_or_else(|| panic!("unscripted Alpaca call {key}"));
-            if q.len() > 1 { q.pop_front().expect("non-empty") } else { q[0].clone() }
+            let reply = if q.len() > 1 { q.pop_front().expect("non-empty") } else { q[0].clone() };
+            s.last_reply = Some(reply.clone());
+            reply
         };
         let key = full;
         // A body naming its client order id "$client_order_id" answers for the one the request asked for: a recorded answer

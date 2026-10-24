@@ -13,6 +13,7 @@ pub mod kraken;
 pub mod kucoin;
 pub mod gemini;
 pub mod hyperliquid;
+pub mod ibkr;
 pub mod live;
 pub mod mexc;
 pub mod bitrue;
