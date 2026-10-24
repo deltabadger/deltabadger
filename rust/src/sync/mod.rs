@@ -283,7 +283,19 @@ pub fn credentials_from_columns(cipher:&Cipher,key_id:i64,columns:&[Option<Strin
 }
 /// The key's credentials, decrypted. An unreadable value is an error, never an empty credential.
 pub fn credentials(c: &Connection, cipher: &Cipher, key_id: i64) -> Result<Credentials, SyncError> {
-    credentials_from_columns(cipher,key_id,&credential_columns(c,key_id)?)
+    let columns=credential_columns(c,key_id)?;
+    let mut credentials=credentials_from_columns(cipher,key_id,&columns)?;
+    // An IBKR key's session material (Session#initialize's reads), when all of it is stored.
+    let venue:Option<String>=c.query_row("SELECT e.type FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE k.id=?1",[key_id],|r|r.get(0)).optional()?;
+    if venue.as_deref()==Some(crate::venue::ibkr::IBKR) {
+        let open=|v:&Option<String>|v.as_ref().map(|v|cipher.decrypt(v).map_err(|_|SyncError(format!("api key {key_id} is unreadable")))).transpose();
+        if let [Some(access_token),Some(signature_key),Some(encryption_key),Some(dh_param)]=[open(&columns[3])?,open(&columns[4])?,open(&columns[5])?,open(&columns[6])?] {
+            let realm:Option<String>=c.query_row("SELECT ibkr_realm FROM api_keys WHERE id=?1",[key_id],|r|r.get(0))?;
+            credentials.ibkr=Some(Box::new(crate::venue::signers::ibkr::Material{consumer_key:credentials.key.clone(),access_token,access_token_secret:credentials.secret.clone(),
+                signature_key,encryption_key,dh_param,realm:realm.unwrap_or_default()}));
+        }
+    }
+    Ok(credentials)
 }
 
 /// Stored (key, secret, passphrase) decrypted, with no read: an error is only ever an unreadable value.

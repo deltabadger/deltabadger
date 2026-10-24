@@ -676,6 +676,65 @@ pub async fn bybit_check<T: Transport>(transport: &T, venue: &crate::venue::bybi
     (answer, verdict)
 }
 
+/// What Exchanges::Ibkr#get_api_key_validity comes to: the one account the login names (correct), IBKR's activation wait,
+/// an incorrect key (D-IBKR-ACCOUNT: a login with several accounts), or no verdict.
+#[derive(Clone, Debug, PartialEq)]
+pub enum IbkrVerdict { Account(String), PendingActivation, Incorrect(&'static str), Failure(String) }
+
+/// Exchanges::Ibkr#get_api_key_validity on `/iserver/accounts`' answer (through Session#signed_request, healed once):
+/// - accounts listed → correct; none → pending activation;
+/// - a 401 (an unactivated key and a revoked one answer alike), a failed LST mint (Session::AuthError) or key material
+///   that does not open (Rails' StandardError, no status) → pending activation;
+/// - any other status, an unreadable answer, a lost connection → no verdict.
+///
+/// Divergences: D-IBKR-ACCOUNT (several accounts → incorrect; an account id that is not U…/DU…/DF… → no verdict, as a
+/// non-JSON 200 Rails reads as one account is); D-IBKR-LOCK-TIMEOUT (a login busy past its wait → no verdict: Rails reads
+/// IbkrLock::Timeout's status-less failure as pending activation, restarting the 14-day clock its own comment rules out).
+pub fn ibkr_verdict(answer: &Result<Value, crate::venue::ibkr::Error>) -> IbkrVerdict {
+    use crate::venue::ibkr::Error;
+    match answer {
+        Err(Error::Http { status: 401, .. } | Error::Auth(_) | Error::Key(_)) => IbkrVerdict::PendingActivation,
+        Err(e) => IbkrVerdict::Failure(e.clone().message()),
+        Ok(data) => match crate::venue::ibkr_account::listed(data).as_slice() {
+            [] => IbkrVerdict::PendingActivation,
+            [one] => match one.as_str().and_then(crate::venue::ibkr_account::parse) {
+                Some(account) => IbkrVerdict::Account(account.into()),
+                None => IbkrVerdict::Failure("IBKR named no account Deltabadger can read".into()),
+            },
+            _ => IbkrVerdict::Incorrect(crate::venue::ibkr_account::MULTI_ACCOUNT),
+        },
+    }
+}
+
+/// The IBKR key check over `session`: its login's lock, then GET /iserver/accounts.
+pub async fn ibkr_check<T: Transport, C: crate::engine::Clock + ?Sized>(session: &crate::venue::ibkr::Session<'_, T, C>) -> IbkrVerdict {
+    let answer = match session.lock().await {
+        Ok(held) => session.signed_request(&held, "GET", crate::venue::ibkr::ACCOUNTS_PATH, vec![], None).await,
+        Err(e) => Err(e),
+    };
+    ibkr_verdict(&answer)
+}
+
+/// The IBKR key check of `credentials` (made under `producer`) through `client` to `base`, as a Validity. The check has a
+/// login of its own: an LST minted for credentials being checked is never kept for another.
+pub(crate) async fn ibkr_validity(base: &str, client: reqwest::Client, credentials: &crate::crypto::Credentials, producer: &crate::engine::model::CredentialVersion) -> Validity {
+    let failure = |text: String| Validity::Pending(Diagnostic { text, status: None, body: String::new() });
+    let Some(material) = credentials.ibkr.as_deref() else { return failure("the IBKR connection is incomplete".into()) };
+    let login = match crate::venue::ibkr::Login::new(material.clone(), producer.clone()) {
+        Ok(login) => std::sync::Arc::new(login),
+        // Session#initialize raises on DH params or keys that do not parse: Rails' StandardError, no status.
+        Err(_) => return Validity::PendingActivation,
+    };
+    let transport = crate::venue::http::ReqwestTransport::ibkr(client, login.clone()).with_sensitive_values(credentials.redaction_values.clone());
+    let session = crate::venue::ibkr::Session::new(&transport, login, &crate::engine::SystemClock).with_base(base);
+    match ibkr_check(&session).await {
+        IbkrVerdict::Account(account) => Validity::Account(account),
+        IbkrVerdict::PendingActivation => Validity::PendingActivation,
+        IbkrVerdict::Incorrect(why) => { crate::engine::log(&format!("[Interactive Brokers] API key validation: {why}")); Validity::Incorrect }
+        IbkrVerdict::Failure(text) => failure(credentials.venue_text(&text)),
+    }
+}
+
 /// The key check of `venue` (an exchanges.type this module ports) for a key of `kind`, sent through `client` to `base`.
 pub async fn check(venue: &str, base: &str, client: reqwest::Client, credentials: &crate::crypto::Credentials, kind: i64) -> Validity {
     check_identified(venue, base, client, credentials, kind).await.0
@@ -691,6 +750,8 @@ pub async fn check_identified(venue: &str, base: &str, client: reqwest::Client, 
     let redaction = credentials.redaction_values.clone();
     use crate::venue::registry::KeyCheck;
     let scheme = crate::venue::registry::row(venue).and_then(|r| r.key_check);
+    // IBKR's is checked through its validation handle (`ValidationHandle::check_via`), which knows the credential version.
+    if scheme == Some(KeyCheck::Ibkr) { return (Validity::Pending(Diagnostic { text: "IBKR keys are checked through their handle".into(), status: None, body: String::new() }), None); }
     let (answer, verdict) = if scheme == Some(KeyCheck::Kraken) {
         let transport = ReqwestTransport::new(client, credentials.key.clone(), credentials.secret.clone()).kraken().with_sensitive_values(redaction);
         let answer = transport.send(&kraken_request(base)).await;

@@ -32,6 +32,8 @@ impl std::ops::Deref for Material { type Target=Credentials;fn deref(&self)->&Cr
 pub enum Fetch {
     Bound{inner:Box<Fetch>,versions:Vec<crate::engine::model::CredentialVersion>},
     Balances{user:i64,exchange:i64,name:String,credentials:Material},
+    /// IBKR's balances: the account its key is bound to (D-IBKR-ACCOUNT), read through the key's session.
+    IbkrBalances{user:i64,exchange:i64,name:String,credentials:Material,account:String},
     Orders{user:i64,local:Vec<String>,rows:Vec<Value>,ids:HashSet<String>,venues:Vec<(i64,String,Option<Material>)>},
     /// `producer`: what the account's figures are made under (an Alpaca key or none, `loading::read_info`).
     Summary{user:i64,credentials:Option<Material>,producer:crate::figures::page_market::Producer,now:At},
@@ -40,14 +42,14 @@ impl Fetch {
     fn producers(&self)->Vec<crate::engine::model::CredentialVersion>{
         match self {
             Self::Bound{versions,..}=>versions.clone(),
-            Self::Balances{credentials,..}=>vec![credentials.origin.clone()],
+            Self::Balances{credentials,..}|Self::IbkrBalances{credentials,..}=>vec![credentials.origin.clone()],
             Self::Orders{venues,..}=>venues.iter().filter_map(|(_,_,c)|c.as_ref().map(|c|c.origin.clone())).collect(),
             Self::Summary{credentials,..}=>credentials.iter().map(|c|c.origin.clone()).collect(),
         }
     }
 }
 type RawOrders = Vec<Box<serde_json::value::RawValue>>;
-pub enum Fetched { Bound(Box<Fetched>,Vec<crate::engine::model::CredentialVersion>), Done(Read), Balances(i64,i64,String,crate::ruby::BigDec,Vec<sync::balances::Position>), Orders(i64,Vec<String>,Vec<Value>,HashSet<String>,Vec<(i64,String,Result<RawOrders,String>)>), Summary(i64,Cache,At,bool) }
+pub enum Fetched { Bound(Box<Fetched>,Vec<crate::engine::model::CredentialVersion>), Done(Read), Balances(i64,i64,String,crate::ruby::BigDec,Vec<sync::balances::Position>), IbkrBalances(i64,i64,String,String), Orders(i64,Vec<String>,Vec<Value>,HashSet<String>,Vec<(i64,String,Result<RawOrders,String>)>), Summary(i64,Cache,At,bool) }
 /// What a read asks for, as each surface names it: MCP by the tool's arguments, REST by its route's parameters.
 pub enum Ask { Details(i64), Balances{name:String,id:Option<String>}, Orders(Option<String>), Summary }
 impl Ask {
@@ -104,6 +106,12 @@ fn plan_inner(c:&Connection,app:&App,user:i64,ask:Ask)->Result<Planned,WebError>
                 return Ok(Planned::Done(failed(Domain::NotFound,"exchange_not_found",format!("Exchange '{shown}' not found. Available exchanges: {}",super::tradeable(c)?.join(", ")))))
             };
             let Some(credentials)=credentials(c,app,user,exchange)? else{return Ok(Planned::Done(failed(Domain::PermissionDenied,"api_key_missing",format!("No valid API key found for {name}. Please add an API key in Settings."))))};
+            if kind==crate::venue::ibkr::IBKR {
+                let key:i64=c.query_row("SELECT id FROM api_keys WHERE user_id=?1 AND exchange_id=?2 AND key_type=0 AND status=1 LIMIT 1",[user,exchange],|r|r.get(0))?;
+                let bound=crate::venue::ibkr_account::binding(c,key)?.and_then(|b|b.account_id(&app.cipher));
+                let Some(account)=bound else {return Ok(Planned::Done(failed(Domain::UpstreamFailed,"balances_fetch_failed",format!("Failed to fetch balances from {name}: the IBKR connection has not named its account yet"))))};
+                return Ok(Planned::Fetch(Fetch::IbkrBalances{user,exchange,name,credentials,account}));
+            }
             if kind!="Exchanges::Alpaca" {return Ok(Planned::Done(unported(ONLY,true)))} // Rails reads the venue; a failed read is a tool error.
             Ok(Planned::Fetch(Fetch::Balances{user,exchange,name,credentials}))
         },
@@ -168,6 +176,18 @@ async fn fetch_inner(app:&App,fetch:Fetch)->Fetched{
                 Err((why,false))=>Fetched::Done(failed(Domain::UpstreamFailed,"balances_fetch_failed",format!("Failed to fetch balances from {name}: {}",sync::scrub(&why,&credentials)))),
             }
         },
+        Fetch::IbkrBalances{user,exchange,name,credentials,account}=>{
+            let failed_with=|why:&str|Fetched::Done(failed(Domain::UpstreamFailed,"balances_fetch_failed",format!("Failed to fetch balances from {name}: {}",sync::scrub(why,&credentials))));
+            let Some(login)=credentials.credentials.ibkr.as_deref().and_then(|m|crate::venue::ibkr::login(&credentials.origin,m).ok()) else {return failed_with("the IBKR connection is incomplete")};
+            let cipher=app.cipher.clone();
+            let egress=app.db(move|c|Ok(crate::venue::live::egress(c,&cipher,&|k|std::env::var(k).ok(),"ibkr",&crate::venue::http::client()))).await;
+            let client=match egress {Ok(Ok((client,_)))=>client,Ok(Err(why))=>return failed_with(&why),Err(_)=>return failed_with("the ibkr proxy setting is unreadable")};
+            let transport=crate::venue::http::ReqwestTransport::ibkr(client,login.clone());
+            match sync::balances::ibkr_read(&transport,login,&crate::engine::SystemClock,&account,&app.venue_key_url(crate::venue::ibkr::IBKR)).await {
+                Ok(text)=>Fetched::IbkrBalances(user,exchange,name,text),
+                Err(why)=>failed_with(&why),
+            }
+        },
         Fetch::Orders{user,local,rows,ids,venues}=>{
             let mut out=vec![];
             for (id,name,credentials) in venues {
@@ -192,6 +212,20 @@ async fn fetch_inner(app:&App,fetch:Fetch)->Fetched{
         }
     }
 }
+/// BotApi::Exchanges::Balances#build_balances over the venue's (asset, free, locked) rows, or the read's failure.
+fn balance_rows(c:&Connection,name:&str,held:Result<Vec<(i64,crate::ruby::BigDec,crate::ruby::BigDec)>,String>)->Result<Read,WebError>{
+    let mut lines=vec![];let mut rows=vec![];
+    for (id,free,locked) in match held{Ok(rows)=>rows,Err(why)=>return Ok(failed(Domain::UpstreamFailed,"balances_fetch_failed",format!("Failed to fetch balances from {name}: {why}")))}{
+        let (n,l)=(free.to_f(),locked.to_f()); if n==0.0&&l==0.0{continue}
+        let symbol:Option<String>=c.query_row("SELECT symbol FROM assets WHERE id=?1",[id],|r|r.get(0)).optional()?.flatten();
+        let symbol=symbol.unwrap_or_else(||format!("Unknown({id})"));
+        let shown=if l>0.0{format!(" ({} locked)",float_to_s(l))}else{String::new()};
+        lines.push(format!("- {symbol}: {}{shown}",float_to_s(n)));
+        rows.push(json!({"asset_id":id,"symbol":symbol,"free":n,"locked":l}));
+    }
+    let text=if lines.is_empty(){format!("All balances on {name} are zero.")}else{format!("{name} Balances:\n{}",lines.join("\n"))};
+    Ok(ok(json!({"exchange":name,"count":rows.len(),"balances":rows}),text))
+}
 /// MCP: the tool's answer for a finished fetch.
 pub fn finish(c:&Connection,fetch:Fetched)->Result<Value,WebError>{Ok(tool_result(&finish_read(c,fetch)?))}
 /// Either surface: a finished fetch's answer, from one SQLite snapshot.
@@ -210,24 +244,20 @@ fn finish_in(c:&Connection,fetch:Fetched)->Result<Read,WebError>{
         return finish_in(c,*inner)
     }
 
-    let user=match &fetch{Fetched::Balances(u,..)|Fetched::Orders(u,..)|Fetched::Summary(u,..)=>Some(*u),Fetched::Done(..)|Fetched::Bound(..)=>None};
+    let user=match &fetch{Fetched::Balances(u,..)|Fetched::IbkrBalances(u,..)|Fetched::Orders(u,..)|Fetched::Summary(u,..)=>Some(*u),Fetched::Done(..)|Fetched::Bound(..)=>None};
     if let Some(user)=user{if !read_limits::check(c,user)?{return Ok(unported(read_limits::REFUSAL,false))}}
     match fetch{
         Fetched::Bound(..)=>Err(error()),
         Fetched::Done(read)=>Ok(read),
         Fetched::Balances(user,exchange,name,cash,held)=>{
             let catalog=sync::balances::catalog_for(c,user,exchange).map_err(|_|error())?;
-            let mut lines=vec![];let mut rows=vec![];
-            for (id,free,locked) in match sync::balances::complete_balances(&catalog,cash,held){Ok(rows)=>rows,Err(why)=>return Ok(failed(Domain::UpstreamFailed,"balances_fetch_failed",format!("Failed to fetch balances from {name}: {why}")))}{
-                let (n,l)=(free.to_f(),locked.to_f()); if n==0.0&&l==0.0{continue}
-                let symbol:Option<String>=c.query_row("SELECT symbol FROM assets WHERE id=?1",[id],|r|r.get(0)).optional()?.flatten();
-                let symbol=symbol.unwrap_or_else(||format!("Unknown({id})"));
-                let shown=if l>0.0{format!(" ({} locked)",float_to_s(l))}else{String::new()};
-                lines.push(format!("- {symbol}: {}{shown}",float_to_s(n)));
-                rows.push(json!({"asset_id":id,"symbol":symbol,"free":n,"locked":l}));
-            }
-            let text=if lines.is_empty(){format!("All balances on {name} are zero.")}else{format!("{name} Balances:\n{}",lines.join("\n"))};
-            Ok(ok(json!({"exchange":name,"count":rows.len(),"balances":rows}),text))
+            balance_rows(c,&name,sync::balances::complete_balances(&catalog,cash,held))
+        },
+        Fetched::IbkrBalances(user,exchange,name,text)=>{
+            let catalog=sync::balances::catalog_for(c,user,exchange).map_err(|_|error())?;
+            let names=sync::balances::ibkr_names(c,exchange).map_err(|_|error())?;
+            let held=match sync::balances::ibkr_held(&text,&names,catalog.asset_ids()) {Ok(held)=>held,Err(_)=>Err("unreadable IBKR balances".into())};
+            balance_rows(c,&name,held)
         },
         Fetched::Orders(_user,mut local,mut rows,ids,venues)=>{
             let mut unavailable=vec![];let mut missing=vec![];

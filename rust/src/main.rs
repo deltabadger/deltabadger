@@ -178,6 +178,7 @@ fn scheduler_service<'a>(env: &dyn Fn(&str) -> Option<String>, paths: &Paths, en
     registered.extend(deltabadger::sync::jobs::register(&own.primary, &LiveFactory::new(), api.clone()).map_err(|e| e.0)?);
     registered.extend(deltabadger::tracker::jobs::register(&own.primary, &LiveFactory::new(), api.clone(), deltabadger::tracker::jobs::system_wall())?);
     registered.push(Box::new(deltabadger::identity::Discovery { venues: LiveFactory::new() }));
+    registered.push(Box::new(deltabadger::sync::jobs::IbkrActivation { venues: LiveFactory::new() }));
     let resume_setup = jobs::setup_sync::unfinished(&own.primary, &cipher)?;
     let registered = registered.into_iter().map(|job| jobs::resolve::configured(job, env, rates.clone())).collect();
     let resolve = jobs::resolve::configured_resolver(jobs::resolve::all(LiveFactory::new(), api, deltabadger::tracker::jobs::system_wall()), env, rates);

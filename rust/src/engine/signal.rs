@@ -10,7 +10,7 @@ use super::model::{self, Bot, Level, SignalCall, SignalRule};
 use super::placement::{self, Sent, SignalClaim};
 use super::tick::TickContext;
 use super::{Clock, EngineError};
-use crate::enums::{ApiKeyStatus, BOT_WORKING};
+use crate::enums::BOT_WORKING;
 use crate::ruby::{to_sentence, BigDec};
 use crate::venue::{Attributed, Side, Venue, VenueError};
 use chrono::{DateTime, Duration, Utc};
@@ -114,7 +114,7 @@ pub async fn run_next<V: Venue>(c: &Connection, venue: &V, bot_id: i64, clock: &
     if !(BOT_WORKING.contains(&bot.status) && rule.enabled) { return refuse(Some("signal_ignored")); }
     // An earlier order may be on the venue: wait for its resolution, until the call expires (R8a's retry_job).
     if blocked(&bot) { return Ok(Step::Waiting(expires_at(&call))); }
-    if key_pending(c, &bot)? { return refuse(Some("signal_api_key_pending")); }
+    if model::key_pending(c, &bot)? { return refuse(Some("signal_api_key_pending")); }
     let ticker = model::ticker_for(c, &bot)?.ok_or_else(|| EngineError::Data(format!("bot {bot_id}: no ticker")))?;
     // Exchange#market_open?: all crypto is open; Exchanges::Alpaca asks its clock. A clock that cannot be read places
     // nothing (clock.rs fails closed); Rails reads most of those as open.
@@ -128,12 +128,6 @@ pub async fn run_next<V: Venue>(c: &Connection, venue: &V, bot_id: i64, clock: &
     execute(c, venue, &bot, &rule, &ticker, &call, clock, cx).await
 }
 
-/// `bot.api_key&.pending_activation?`: the bot's trading key, registered but not yet activated (IBKR's).
-fn key_pending(c: &Connection, bot: &Bot) -> Result<bool, EngineError> {
-    let status: Option<i64> = c.query_row("SELECT status FROM api_keys WHERE user_id = ?1 AND exchange_id = ?2 AND key_type = 0 LIMIT 1",
-                                          params![bot.user_id, bot.exchange_id], |r| r.get(0)).optional()?;
-    Ok(status == Some(ApiKeyStatus::PendingActivation as i64))
-}
 
 /// #execute_signal: price, size, the minimum, then placement.
 #[allow(clippy::too_many_arguments)]

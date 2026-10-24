@@ -86,9 +86,9 @@ def verdict(result)
 end
 
 # One answer records 'response' and 'request'; a list of answers (one per request, in order) 'responses' and 'requests'.
-record = lambda do |exchange, key_type, method, name, answer, key: 'test-key', secret: Base64.strict_encode64('test-secret')|
+record = lambda do |exchange, key_type, method, name, answer, key: 'test-key', secret: Base64.strict_encode64('test-secret'), api_key: nil|
   passphrase = exchange.requires_passphrase? ? 'test-passphrase' : nil
-  api_key = ApiKey.new(exchange:, key_type:, key:, secret:, passphrase:)
+  api_key ||= ApiKey.new(exchange:, key_type:, key:, secret:, passphrase:)
   Venue.answers = Array.wrap(answer).dup
   Venue.seen = []
   row = { 'case' => name, 'key_type' => key_type.to_s, 'method' => method.to_s }
@@ -594,13 +594,65 @@ VENUE_CASES = {
       cases.each { |name,answer| rows << record.(exchange,kind,method,name,answer) }
     end
     {'cases'=>rows}
+  end,
+  # Exchanges::Ibkr#get_api_key_validity (Ibkr plan I2): Clients::Ibkr#accounts through Clients::Ibkr::Session, a scripted
+  # IBKR server whose DH secret is fixed (record_venue_signing.rb's server math) answering the LST mint, ssodh/init and
+  # /iserver/accounts in order. Rails.cache is a MemoryStore per case: production's sequence (one mint, one init, the call).
+  'ibkr' => lambda do
+    keys = JSON.parse(File.read(Rails.root.join('rust/tests/fixtures/ibkr_test_keys.json')))
+    ffdhe2048 = JSON.parse(File.read(Rails.root.join('rust/tests/fixtures/ibkr_signing.json')))['ffdhe2048']
+    dh_random = '5f1c1f3e2b8f4c4e9a590d9c3f1b6a017ee1a7025c514d5d7eda7a80f501c77f'
+    Clients::Ibkr::Oauth.singleton_class.prepend(Module.new { define_method(:dh_random) { dh_random } })
+    server_b = 0x1f2e3d4c5b6a79881f2e3d4c5b6a7988
+    exchange = Exchanges::Ibkr.new(name: 'Interactive Brokers')
+    api_key = ApiKey.new(exchange:, key_type: :trading, key: keys['consumer_key'], secret: keys['access_token_secret'], access_token: keys['access_token'],
+                         rsa_signature_key: keys['signature_key'], rsa_encryption_key: keys['encryption_key'], dh_param: ffdhe2048, ibkr_realm: keys['realm'])
+    oauth = Clients::Ibkr::Session.new(api_key:).instance_variable_get(:@oauth)
+    dh = OpenSSL::PKey::DH.new(ffdhe2048)
+    p, g = dh.p.to_i, dh.g.to_i
+    shared = oauth.dh_challenge(dh_random).to_i(16).pow(server_b, p)
+    lst = Base64.strict_encode64(OpenSSL::HMAC.digest('SHA1', Clients::Ibkr::Oauth.to_byte_array(shared).pack('C*'), [oauth.prepend].pack('H*')))
+    mint = json.(200, { 'diffie_hellman_response' => g.pow(server_b, p).to_s(16), 'live_session_token_expiration' => 86_400_000,
+                        'live_session_token_signature' => OpenSSL::HMAC.hexdigest('SHA1', Base64.decode64(lst), keys['consumer_key']) })
+    init = json.(200, { 'authenticated' => true, 'connected' => true, 'competing' => false })
+    one = json.(200, { 'accounts' => ['U1234567'], 'selectedAccount' => 'U1234567' })
+    # The accounts answer after a healthy mint and init; a list is the whole sequence.
+    cases = transport.transform_values { |answer| [mint, init, answer] }.merge(
+      'one_account' => [mint, init, one],
+      'paper_account' => [mint, init, json.(200, { 'accounts' => ['DU1234567'] })],
+      'list_answer' => [mint, init, json.(200, ['U1234567'])],
+      'two_accounts' => [mint, init, json.(200, { 'accounts' => %w[U1234567 U7654321], 'selectedAccount' => 'U1234567' })],
+      'pseudo_account' => [mint, init, json.(200, { 'accounts' => ['All'] })],
+      'no_accounts' => [mint, init, json.(200, { 'accounts' => [] })],
+      'null' => [mint, init, json.(200, nil)],
+      'unauthorized' => [mint, init, json.(401, { 'error' => 'not authenticated' }), mint, init, json.(401, { 'error' => 'not authenticated' })],
+      'unauthorized_then_ok' => [mint, init, json.(401, {}), mint, init, one],
+      'lst_unauthorized' => [json.(401, { 'error' => 'invalid consumer' }), json.(401, { 'error' => 'invalid consumer' })],
+      'lst_invalid' => [json.(200, { 'diffie_hellman_response' => g.pow(server_b, p).to_s(16), 'live_session_token_signature' => '00' }),
+                        json.(200, { 'diffie_hellman_response' => g.pow(server_b, p).to_s(16), 'live_session_token_signature' => '00' })],
+      'lst_no_dh_response' => [json.(200, {}), json.(200, {})],
+      'init_500' => [mint, { status: 500, body: '', content_type: 'text/plain' }])
+    rows = cases.map do |name, answers|
+      Rails.cache = ActiveSupport::Cache::MemoryStore.new
+      record.call(exchange, :trading, :get_api_key_validity, name, answers, api_key:)
+    end
+    # A login another operation holds past IbkrLock's wait: nothing is sent.
+    IbkrLock.singleton_class.prepend(Module.new { def acquire(key, **) = raise(IbkrLock::Timeout, "IBKR lock not acquired for #{key} within 15s") })
+    rows << record.call(exchange, :trading, :get_api_key_validity, 'lock_busy', [], api_key:)
+    { 'cases' => rows, 'dh_random' => dh_random, 'dh_param' => ffdhe2048 }
   end
 
 }.freeze
 # A separate venue fixture can be recorded without refreshing other venues' timestamped diagnostics.
-selected = ARGV[1] ? VENUE_CASES.slice(ARGV[1]) : VENUE_CASES.except('bingx')
+selected = ARGV[1] ? VENUE_CASES.slice(ARGV[1]) : VENUE_CASES.except('bingx', 'ibkr')
 raise "unknown venue #{ARGV[1]}" if selected.empty?
 out['sources']['app/models/exchanges/bingx.rb'] = Digest::SHA256.file(Rails.root.join('app/models/exchanges/bingx.rb')).hexdigest if ARGV[1] == 'bingx'
+if ARGV[1] == 'ibkr'
+  out['sources'] = %w[app/models/exchanges/ibkr.rb app/models/clients/ibkr.rb app/models/clients/ibkr/session.rb app/models/clients/ibkr/oauth.rb
+                      app/models/client.rb app/models/exchange.rb app/models/ibkr_lock.rb app/models/api_key.rb
+                      rust/tests/fixtures/ibkr_test_keys.json rust/tests/fixtures/ibkr_signing.json]
+                   .to_h { |f| [f, Digest::SHA256.file(Rails.root.join(f)).hexdigest] }
+end
 selected.each { |id, cases| out[id] = cases.call }
 
 File.write(ARGV.fetch(0), "#{JSON.pretty_generate(out)}\n")

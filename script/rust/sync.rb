@@ -779,7 +779,7 @@ module SyncParity
       ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: File.join(dir, 'production.sqlite3'))
       Rails.cache.clear
       before = snapshot
-      reading = ApiKey.reading(ApiKey.includes(:exchange)).select { |k| [Exchanges::Alpaca, Exchanges::Binance, Exchanges::Kucoin, Exchanges::Bitvavo, Exchanges::Gemini, Exchanges::Bitget, Exchanges::Mexc, Exchanges::Hyperliquid, Exchanges::Bybit, Exchanges::Bitrue, Exchanges::Coinbase, Exchanges::Bingx].any? { |c| k.exchange.is_a?(c) } }.map(&:id).sort
+      reading = ApiKey.reading(ApiKey.includes(:exchange)).select { |k| [Exchanges::Alpaca, Exchanges::Binance, Exchanges::Kucoin, Exchanges::Bitvavo, Exchanges::Gemini, Exchanges::Bitget, Exchanges::Mexc, Exchanges::Hyperliquid, Exchanges::Bybit, Exchanges::Bitrue, Exchanges::Coinbase, Exchanges::Bingx, Exchanges::Ibkr].any? { |c| k.exchange.is_a?(c) } }.map(&:id).sort
       steps = sc['steps'].map do |step|
         ActiveJob::Base.queue_adapter.enqueued_jobs.clear
         ScriptedSync.alpaca = step.fetch('alpaca', {}).transform_values(&:dup)

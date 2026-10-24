@@ -6,6 +6,11 @@ pub enum Validity {
     /// A key a venue reports the permissions of (Kraken), holding the wrong ones: incorrect, and the message names them.
     Permissions { missing: Vec<String>, forbidden: Vec<String> },
     Pending(Diagnostic),
+    /// IBKR: the consumer key is registered and IBKR has not activated it yet (ApiKey's :pending_activation).
+    PendingActivation,
+    /// IBKR: correct, naming the one account its login holds. The write that stores it binds the key to that account
+    /// (`venue::ibkr_account::bind`), or refuses it as incorrect when the key is bound to another.
+    Account(String),
 }
 /// Credential material and its producer are captured together, before any request.
 pub(crate) struct ValidationHandle {
@@ -35,6 +40,7 @@ impl ValidationHandle {
     /// The key check of `venue` (a `registry::key_check_proxy` venue) sent to `base` through `egress` (the venue's proxy client, or why there is none).
     pub(crate) async fn check_via(&self,venue:&str,base:&str,egress:Result<reqwest::Client,String>,kind:i64)->Checked {
         let (value,observed)=match egress {
+            Ok(client) if venue==crate::venue::ibkr::IBKR=>(super::key_check::ibkr_validity(base,client,&self.credentials,&self.producer).await,None),
             Ok(client)=>super::key_check::check_identified(venue,base,client,&self.credentials,kind).await,
             Err(why)=>(Validity::Pending(Diagnostic{text:why,status:None,body:String::new()}),None),
         };

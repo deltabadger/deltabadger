@@ -455,6 +455,12 @@ impl App {
         inner.venue_key_urls=vec![("Exchanges::Kraken",kraken.into()),(crate::venue::binance::BINANCE,binance.into()),(crate::venue::kucoin::KUCOIN,kucoin.into())];Ok(Self(Arc::new(inner)))
     }
 
+    /// For tests: `venue`'s key check and account reads sent to `url` instead. Only before sharing the App.
+    pub fn with_venue_key_url(self,venue:&'static str,url:&str)->Result<Self,WebError>{
+        let mut inner=Arc::try_unwrap(self.0).map_err(|_|WebError::Config("the app is already shared".into()))?;
+        inner.venue_key_urls.push((venue,url.into()));Ok(Self(Arc::new(inner)))
+    }
+
     /// Where `venue`'s own key check is sent: a test's server (`with_venue_key_urls`), else the venue's host (`registry::Row::base`).
     pub(crate) fn venue_key_url(&self,venue:&str)->String{
         self.venue_key_urls.iter().find(|(t,_)|*t==venue).map(|(_,u)|u.clone())
