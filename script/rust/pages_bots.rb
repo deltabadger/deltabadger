@@ -232,6 +232,11 @@ module Pages
     # A row from before a rule existed. A save through Rails stores every default (each concern's
     # after_initialize), so the keys are taken out of the saved row, past the model.
     record.update_columns(settings: record.settings.except(*spec['without'])) if spec['without']
+    # 'reweigh' => { symbol => weight }: the portfolio's weights changed after it was made, so the members it dropped are exited.
+    if spec['reweigh']
+      record.set_missed_quote_amount
+      record.update!(allocations: spec['reweigh'].to_h { |symbol, weight| [asset_id(symbol).to_s, weight] })
+    end
     orders(record, spec['orders']) if spec['orders']
     logs(record, spec['logs']) if spec['logs']
     # A listing the venue withdrew after the bot was made.
@@ -316,6 +321,8 @@ module Pages
   def orders(record, name)
     symbol = record.is_a?(Bots::DcaIndex) ? 'NVDA' : 'QQQM'
     rows = case name
+           # [[symbol, at, attributes]]: rows as they are given.
+           when Array then name.map { |sym, at, attrs| order_row(record, sym, at, attrs.transform_keys(&:to_sym)) }
            when 'one_fill'
              [order_row(record, symbol, '2026-09-09T13:30:01Z', price: '412.37', amount: '0.121250333', amount_exec: '0.121250333',
                                                                 quote_amount: '50', quote_amount_exec: '49.999999')]

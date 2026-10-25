@@ -225,6 +225,7 @@ module Pages
   # Bot ids follow the order of 'bots'.
   def bot_scenarios = list_scenarios.merge(page_scenarios).merge(feed_scenarios).merge(refused_scenarios).merge(broadcast_scenarios).merge(venue_scenarios)
                       .merge(search_scenarios).merge(reorder_scenarios).merge(custom_allocation_scenarios).merge(follow_index_scenarios)
+                      .merge(merge_scenarios)
 
   # A Kraken bot that waits, a Binance bot at work with a fill, a failed order and one resting, and a stock basket beside them.
   def venue_bots
@@ -511,6 +512,90 @@ module Pages
       'refused_web_follow_index_coingecko' => with_bots([stopped('basket', tech), archived], signed_in(get('/bots'), index_pick, index_follow('big-tech')),
                                                         'indices' => tech_category, 'market_data' => 'coingecko')
     }.transform_values { |scenario| scenario.merge('typed_stocks' => true) }
+  end
+
+  # The dashboard's Merge (Bots::MergesController, Bot::Merge): the modal as the merge bar's form opens it in the modal frame
+  # (ids[] in the query), a venue picked in its pill (the merge_modal frame re-requested), and the modal's Confirm as Turbo
+  # submits it (the page's token in the header; the ids in the query, the venue in the body).
+  def merge_query(ids) = ids.map { |id| "ids[]=#{id}" }.join('&')
+
+  def merge_pick(ids, extra = '', path: '/bots/merge/new', frame: 'modal')
+    get("#{path}?#{merge_query(ids)}#{extra}", TURBO.merge('Accept' => 'text/html, application/xhtml+xml', 'Turbo-Frame' => frame))
+  end
+
+  # The modal as a whole page (no frame): the token source where the dashboard is not served here (a source that sold).
+  def merge_page(ids) = get("/bots/merge/new?#{merge_query(ids)}", 'Accept' => 'text/html, application/xhtml+xml')
+
+  def merge_post(ids, exchange_id = nil, path: '/bots/merge')
+    post("#{path}?#{merge_query(ids)}", exchange_id ? { 'exchange_id' => exchange_id.to_s } : {},
+         'csrf' => 'header', 'headers' => TURBO.merge('Referer' => 'http://localhost:3000/bots'), 'action_snapshot' => true,
+         'may_mutate' => %w[bots bot_index_assets bot_activity_logs transactions])
+  end
+
+  def merge_scenarios
+    basket = stopped('basket')
+    lone = stopped('basket', 'allocations' => { 'QQQM' => 1.0 })
+    wide = stopped('wide')
+    index = stopped('index')
+    kraken = stopped('kraken_basket')
+    executing = stopped('wide', 'columns' => { 'status' => 4 })
+    # Two sources' rows read as one story: A buys, swaps out (its cash in flight), B buys new money meanwhile, A's swap buys
+    # back. The pooled walk spends A's cash on B's buy and A's buy-back on money it no longer has (merge_test.rb).
+    fill = { 'price' => '100', 'amount' => '1', 'amount_exec' => '1', 'quote_amount' => '100', 'quote_amount_exec' => '100' }
+    swap_out = fill.merge('side' => 'sell', 'transaction_type' => 'REBALANCE', 'quote_amount' => nil)
+    interleaved_a = stopped('basket', 'allocations' => { 'QQQM' => 1.0 },
+                                      'orders' => [['QQQM', '2026-09-09T10:00:00Z', fill], ['QQQM', '2026-09-09T11:00:00Z', swap_out],
+                                                   ['QQQM', '2026-09-09T13:00:00Z', fill.merge('transaction_type' => 'REBALANCE')]])
+    interleaved_b = stopped('basket', 'allocations' => { 'NVDA' => 1.0 }, 'orders' => [['NVDA', '2026-09-09T12:00:00Z', fill]])
+    # A member each source dropped: NVDA trades on Alpaca only, IBIT on both brokers.
+    reweighed = [stopped('basket', 'allocations' => { 'QQQM' => 0.5, 'NVDA' => 0.5 }, 'reweigh' => { 'QQQM' => 1.0 }, 'orders' => 'one_fill'),
+                 stopped('basket', 'allocations' => { 'QQQM' => 0.5, 'IBIT' => 0.5 }, 'reweigh' => { 'QQQM' => 1.0 })]
+    resolved = [stopped('basket', 'transient' => { 'liquidation_resolved_orders' => [7, 9] }, 'columns' => { 'status' => 2, 'redeploy_declined_offset' => '2.5' }),
+                stopped('wide', 'transient' => { 'liquidation_resolved_orders' => [9, 11] }, 'columns' => { 'status' => 2, 'redeploy_declined_offset' => '1.25' })]
+    hyperliquid = { 'venues' => true, 'hyperliquid_bots' => true }
+    created = %w[/bots/3 /bots]
+    {
+      'merge_new_same_venue' => with_bots([wide, index], signed_in(get('/bots'), merge_pick([1, 2]))),
+      'merge_new_venue_pill' => with_bots([basket, lone], signed_in(get('/bots'), merge_pick([1, 2]))),
+      'merge_new_picked' => with_bots([basket, lone], signed_in(get('/bots'), merge_pick([1, 2]), merge_pick([1, 2], '&exchange_id=2', frame: 'merge_modal'))),
+      'merge_new_picked_unlisted' => with_bots([wide, index], signed_in(get('/bots'), merge_pick([1, 2], '&exchange_id=2', frame: 'merge_modal'))),
+      'merge_new_anchor_second' => with_bots([lone, wide], signed_in(get('/bots'), merge_pick([2, 1]))),
+      'merge_new_quote' => with_bots([basket, kraken], signed_in(get('/bots'), merge_pick([1, 2])), 'venues' => true),
+      'merge_new_too_few' => with_bots([basket, wide], signed_in(get('/bots'), merge_pick([1]), merge_pick([1, 1]))),
+      'merge_new_missing' => with_bots([basket, wide], signed_in(get('/bots'), merge_pick([1, 9]), merge_pick(['x', 2]))),
+      'merge_new_unavailable_executing' => with_bots([basket, executing], signed_in(merge_pick([1, 2]))),
+      # Both venues list both coins in USDT; the anchor's lists everything, and the Kraken basket's limit buy rests there.
+      'merge_new_open_orders_elsewhere' => with_bots([stopped('binance_basket', 'allocations' => { 'ETH' => 1.0 }),
+                                                      stopped('kucoin_basket', 'exchange' => 'Kraken', 'orders' => 'open_coin')],
+                                                     signed_in(merge_pick([1, 2])), 'venues' => true, 'kraken_usdt' => true),
+      'merge_new_external_sales' => with_bots([stopped('basket', 'orders' => 'sold'), wide], signed_in(merge_pick([1, 2]))),
+      'merge_new_nothing_to_buy' => with_bots([stopped('basket', 'allocations' => { 'NVDA' => 1.0 }),
+                                               stopped('basket', 'allocations' => { 'NVDA' => 0.5, 'MSFT' => 0.5 }, 'delist' => %w[NVDA MSFT])],
+                                              signed_in(merge_pick([1, 2]))),
+      'merge_new_de' => with_bots([basket, lone], signed_in(get('/de/bots'), merge_pick([1, 2], path: '/de/bots/merge/new'))),
+      'merge_new_signed_out' => with_bots([basket, lone], [merge_pick([1, 2]), get('/login')]),
+      'merge_create_two_baskets' => with_bots([stopped('basket', 'orders' => 'basket_sold', 'logs' => 'history'), stopped('wide', 'orders' => 'one_fill')],
+                                              signed_in(merge_page([1, 2]), merge_pick([1, 2]), merge_post([1, 2], 1).merge('expect' => 200))),
+      'merge_create_index_and_basket' => with_bots([stopped('index', 'orders' => 'one_fill'), stopped('basket', 'orders' => 'basket_sold')],
+                                                   signed_in(merge_page([1, 2]), merge_post([1, 2], 1).merge('expect' => 200))),
+      'merge_create_cross_venue' => with_bots(reweighed, signed_in(get('/bots'), merge_pick([1, 2]), merge_pick([1, 2], '&exchange_id=2', frame: 'merge_modal'),
+                                                                   merge_post([1, 2], 2).merge('expect' => 200), get('/bots'))),
+      'merge_create_delisted_member' => with_bots([stopped('wide', 'orders' => 'one_fill'), stopped('basket', 'delist' => 'NVDA')],
+                                                  signed_in(get('/bots'), merge_pick([1, 2]), merge_post([1, 2], 1).merge('expect' => 200), *created.map { |path| get(path) })),
+      'merge_create_resolved_and_offset' => with_bots(resolved, signed_in(get('/bots'), merge_pick([1, 2]), merge_post([1, 2], 1).merge('expect' => 200), get('/bots/3'))),
+      'merge_create_three' => with_bots([lone, basket, wide], signed_in(get('/bots'), merge_pick([3, 1, 2]), merge_post([3, 1, 2], 1).merge('expect' => 200), get('/bots/4'))),
+      'merge_create_hyperliquid' => with_bots([stopped('hyperliquid'), stopped('hyperliquid', 'settings' => { 'quote_amount' => 30 })],
+                                              signed_in(get('/bots'), merge_pick([1, 2]), merge_post([1, 2], 5).merge('expect' => 200), get('/bots/3')), hyperliquid),
+      'merge_create_interleaved' => with_bots([interleaved_a, interleaved_b], signed_in(merge_page([1, 2]), merge_post([1, 2], 1).merge('expect' => 422))),
+      'merge_create_refused_quote' => with_bots([basket, kraken], signed_in(get('/bots'), merge_post([1, 2], 1).merge('expect' => 422)), 'venues' => true),
+      'merge_create_executing' => with_bots([basket, executing, wide], signed_in(get('/bots'), merge_post([1, 2], 1).merge('expect' => 422))),
+      'merge_create_unlisted_venue' => with_bots([wide, index], signed_in(get('/bots'), merge_post([1, 2], 2).merge('expect' => 422))),
+      'merge_create_de' => with_bots([basket, lone], signed_in(get('/de/bots'), merge_pick([1, 2], path: '/de/bots/merge/new'),
+                                                               merge_post([1, 2], 1, path: '/de/bots/merge').merge('expect' => 200), get('/de/bots/3'))),
+      'merge_create_no_csrf' => with_bots([basket, lone], signed_in(get('/bots'), merge_post([1, 2], 1).merge('csrf' => 'none'), get('/bots'))),
+      'merge_create_signed_out' => with_bots([basket, lone], signed_in(get('/bots'), get('/login').merge('client' => 'signed_out'),
+                                                                        merge_post([1, 2], 1).merge('client' => 'signed_out', 'csrf' => 'none'), get('/bots')))
+    }
   end
 
   # What broadcast--on-connect posts: JSON to the locale's path, the page's token in X-CSRF-Token.

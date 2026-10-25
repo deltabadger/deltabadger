@@ -55,6 +55,12 @@ fn t(locale: &str, key: &str) -> String { i18n::text(locale, &format!("errors.bo
 /// stopped bot has no condition check in this engine, and the switch bumps the run generation.
 fn refusal(c: &Connection, bot: &model::Bot) -> Result<Option<&'static str>, WebError> {
     if !matches!(bot.status, BotStatus::Stopped | BotStatus::Created) { return Ok(Some("stop_first")); }
+    if in_flight(c, bot)? || write::engine_holds(c, bot)? { return Ok(Some("in_flight")); }
+    Ok(None)
+}
+
+/// `rebalance_pending? || liquidation_in_flight? || redeploy_in_flight?` (Bot::Merge.mergeable? and Bot::IndexSwitch.refusal).
+pub(crate) fn in_flight(c: &Connection, bot: &model::Bot) -> Result<bool, WebError> {
     let pending = |key: &str| bot.transient.get(key).is_some_and(|v| match v { Value::Null => false, Value::Object(o) => !o.is_empty(), Value::String(s) => !s.trim().is_empty(), _ => true });
     // rebalance_pending?, liquidation_in_flight? (pending, a waiting leg, an abandoned leg not attested), redeploy_in_flight?.
     let resolved: Vec<i64> = match bot.transient.get("liquidation_resolved_orders") {
@@ -65,11 +71,7 @@ fn refusal(c: &Connection, bot: &model::Bot) -> Result<Option<&'static str>, Web
         [bot.id], |r| r.get(0))?;
     let mut s = c.prepare("SELECT id FROM transactions WHERE bot_id=?1 AND transaction_type='LIQUIDATION' AND external_status=4")?;
     let abandoned = s.query_map([bot.id], |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?.into_iter().any(|id| !resolved.contains(&id));
-    if ["rebalance_pending", "liquidation_pending", "liquidation_selling_since", "redeploy_pending"].iter().any(|k| pending(k)) || waiting || abandoned
-        || write::engine_holds(c, bot)? {
-        return Ok(Some("in_flight"));
-    }
-    Ok(None)
+    Ok(["rebalance_pending", "liquidation_pending", "liquidation_selling_since", "redeploy_pending"].iter().any(|k| pending(k)) || waiting || abandoned)
 }
 
 /// POST /bots/:id/custom_allocation (Bots::CustomAllocationsController#create, Bot::IndexSwitch.customize!): the index bot becomes
