@@ -507,15 +507,24 @@ pub(super) fn asset_rule(c: &Connection, exchange_id: i64, exchange_type: &str) 
 
 /// AssetRule::Crypto for a venue that is not Alpaca: every listing's spellings.
 fn crypto_rule(c: &Connection, exchange_id: i64, exchange_type: &str) -> Result<AssetRule, SyncError> {
+    Ok(AssetRule::Crypto { venue: rule_venue(exchange_id, exchange_type), spellings: spellings(c, exchange_id)? })
+}
+
+/// The venue as Tax::AssetIdentity reads a symbol on it.
+pub(super) fn rule_venue(exchange_id: i64, exchange_type: &str) -> crate::tracker::prices::Venue {
+    crate::tracker::prices::Venue { id: exchange_id, name_id: crate::tracker::rows::name_id(exchange_type), stock: crate::tracker::prices::STOCK_TYPES.contains(&exchange_type) }
+}
+
+/// Ticker.asset_ids_by_spelling over every listing of the venue (tombstoned included): base spellings, then quote spellings,
+/// each upcased, each name's distinct asset ids in listing order.
+pub(super) fn spellings(c: &Connection, exchange_id: i64) -> Result<HashMap<String, Vec<i64>>, SyncError> {
     let mut spellings: HashMap<String, Vec<i64>> = HashMap::new();
     let mut add = |name: String, id: i64| { let ids = spellings.entry(name).or_default(); if !ids.contains(&id) { ids.push(id); } };
     let mut s = c.prepare("SELECT base, base_asset_id FROM tickers WHERE exchange_id = ?1 ORDER BY id")?;
     for row in s.query_map([exchange_id], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?)))? { let (base, id) = row?; add(spelling(&base), id); }
     let mut s = c.prepare("SELECT upper(quote), quote_asset_id FROM tickers WHERE exchange_id = ?1 ORDER BY id")?;
     for row in s.query_map([exchange_id], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?)))? { let (quote, id) = row?; add(quote, id); }
-    let venue = crate::tracker::prices::Venue { id: exchange_id, name_id: crate::tracker::rows::name_id(exchange_type),
-                                                stock: crate::tracker::prices::STOCK_TYPES.contains(&exchange_type) };
-    Ok(AssetRule::Crypto { venue, spellings })
+    Ok(spellings)
 }
 
 fn spelling(base: &str) -> String {
@@ -535,7 +544,7 @@ fn listings(c: &Connection, exchange_id: i64) -> Result<Listings, SyncError> {
     Ok(l)
 }
 
-fn only(ids: Option<&Vec<i64>>) -> Option<i64> { ids.filter(|i| i.len() == 1).map(|i| i[0]) }
+pub(super) fn only(ids: Option<&Vec<i64>>) -> Option<i64> { ids.filter(|i| i.len() == 1).map(|i| i[0]) }
 fn curated(coin: &str) -> Option<&'static str> { CRYPTO_COINGECKO_IDS.iter().find(|(k, _)| *k == coin).map(|(_, id)| *id) }
 
 /// Exchanges::Alpaca#ledger_asset_ids for one row: the activity decides. Its type says cash; its raw symbol says coin

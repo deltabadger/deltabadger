@@ -86,6 +86,11 @@ pub trait Connect {
     fn bingx_transport(&self, _credentials: &Credentials, _proxy: Option<&str>) -> ReqwestTransport {
         ReqwestTransport::refused("BingX is not connected here")
     }
+    /// How a Kraken key's syncs reach Kraken (Honeymaker.client('kraken', proxy: ExchangeProxy.for('kraken'))). By default
+    /// nothing is sent.
+    fn kraken_transport(&self, _credentials: &Credentials, _proxy: Option<&str>) -> ReqwestTransport {
+        ReqwestTransport::refused("Kraken is not connected here")
+    }
     /// How an IBKR key's syncs reach IBKR (through `login`'s session, signed at send time). By default nothing is sent.
     fn ibkr_transport(&self, _login: std::sync::Arc<crate::venue::ibkr::Login>, _proxy: Option<&str>) -> ReqwestTransport {
         ReqwestTransport::refused("IBKR is not connected here")
@@ -189,6 +194,13 @@ impl Connect for LiveFactory {
             Some(proxy) => match crate::venue::http::client_via(proxy) { Ok(client) => client, Err(why) => return ReqwestTransport::refused(&why) },
         };
         ReqwestTransport::bingx(client, credentials.key.clone(), credentials.secret.clone()).with_sensitive_values(credentials.redaction_values.clone())
+    }
+    fn kraken_transport(&self, credentials: &Credentials, proxy: Option<&str>) -> ReqwestTransport {
+        let client = match proxy {
+            None => crate::venue::http::client(),
+            Some(proxy) => match crate::venue::http::client_via(proxy) { Ok(client) => client, Err(why) => return ReqwestTransport::refused(&why) },
+        };
+        ReqwestTransport::new(client, credentials.key.clone(), credentials.secret.clone()).kraken().with_sensitive_values(credentials.redaction_values.clone())
     }
     fn ibkr_transport(&self, login: std::sync::Arc<crate::venue::ibkr::Login>, proxy: Option<&str>) -> ReqwestTransport {
         let client = match proxy {
@@ -391,6 +403,8 @@ impl<C: Connect> Job for BalanceSync<C> {
                         balances::sync_bybit_captured(&cx.db, self.venues.bybit_transport(&credentials, proxy.as_deref()), self.prices.as_ref(), self.key_id, &credentials, cx.clock, &version).await,
                     Some(BalanceSync::Bitrue) =>
                         balances::sync_bitrue_captured(&cx.db, self.venues.bitrue_transport(&credentials, proxy.as_deref()), self.prices.as_ref(), self.key_id, &credentials, cx.clock, &version).await,
+                    Some(BalanceSync::Kraken) =>
+                        balances::sync_kraken_captured(&cx.db, self.venues.kraken_transport(&credentials, proxy.as_deref()), self.prices.as_ref(), self.key_id, &credentials, cx.clock, &version).await,
                     Some(BalanceSync::Bingx) =>
                         balances::sync_bingx_captured(&cx.db, self.venues.bingx_transport(&credentials, proxy.as_deref()), self.prices.as_ref(), self.key_id, &credentials, cx.clock, &version).await,
                     // The key's process-wide login (its LST and brokerage session kept across runs).

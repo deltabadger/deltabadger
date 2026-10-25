@@ -45,6 +45,22 @@ async fn sync_renders_the_real_progress_fragment() {
     assert!(!response.body.contains("test-key"));
 }
 
+/// Plan Kraken sync K1: Kraken's balances sync, its ledger does not yet (K2); the tracker's sync, which runs both, is still
+/// refused for an owner with a reading Kraken key, and wakes nothing.
+#[tokio::test(flavor="current_thread")]
+async fn sync_is_refused_while_a_reading_kraken_key_has_no_ledger_sync() {
+    let (dir,opened,s) = common::install_alpaca();
+    let c = opened.primary;
+    c.execute("UPDATE users SET confirmed_at=created_at,setup_completed=1",[]).unwrap();
+    c.execute("UPDATE exchanges SET type='Exchanges::Kraken',name='Kraken' WHERE id=?1",[s.exchange_id]).unwrap();
+    let hash: String = c.query_row("SELECT encrypted_password FROM users WHERE id=?1",[s.user_id],|r|r.get(0)).unwrap();
+    let app = web::app(dir.path(),web::SECRET,TestClock::at("2026-09-10T12:00:30.123456Z"));
+    let mut b = browser(&app,s.user_id,&hash);
+    let response = b.send(&app,"POST","/tracker/sync",Some(&[]),Csrf::Header,HEADERS).await;
+    assert_eq!(response.status,501);
+    assert!(!response.body.contains("sync-progress"));
+}
+
 // Exercise the real attributed jobs through a local, empty-account protocol adapter.
 #[derive(Clone)] struct ProbeVenue;
 struct ProbeTransport;

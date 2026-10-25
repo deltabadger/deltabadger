@@ -437,8 +437,8 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     let named = |prefix: &str| dirs.iter().filter(|d| d.file_name().unwrap().to_string_lossy().starts_with(prefix)).count();
     assert_eq!([named("ledger-"), named("balances-"), named("binance-balances-"), named("binance-ledger-"), named("import-"), named("kucoin-ledger-"), named("kucoin-balances-"),
                 named("bitvavo-ledger-"), named("bitvavo-balances-"), named("gemini-ledger-"), named("gemini-balances-"), named("bitget-ledger-"), named("bitget-balances-"),
-                named("mexc-ledger-"), named("mexc-balances-"), named("hyperliquid-ledger-"), named("hyperliquid-balances-"), named("bybit-ledger-"), named("bybit-balances-"), named("bitrue-ledger-"), named("bitrue-balances-"), named("coinbase-ledger-"), named("coinbase-balances-"), named("bingx-ledger-"), named("bingx-balances-"), dirs.len()],
-               [58, 44, 21, 30, 21, 12, 16, 11, 10, 11, 11, 13, 12, 14, 12, 11, 10, 12, 8, 18 + 3 + 10, 5, 12, 4, 18 + 2 + 26, 5, 270 + 26 + 21 + 20 + 18 + 3 + 10 + 5 + 12 + 4 + 18 + 2 + 26 + 5], "the sync grid: 270 existing + 26 MEXC + 21 Hyperliquid + 20 Bybit + 36 Bitrue scenarios (including ten listing shapes) + 12 Coinbase ledger + 4 Coinbase balances + 51 BingX scenarios (including 26 account and listing shapes)");
+                named("mexc-ledger-"), named("mexc-balances-"), named("hyperliquid-ledger-"), named("hyperliquid-balances-"), named("bybit-ledger-"), named("bybit-balances-"), named("bitrue-ledger-"), named("bitrue-balances-"), named("coinbase-ledger-"), named("coinbase-balances-"), named("bingx-ledger-"), named("bingx-balances-"), named("kraken-balances-"), dirs.len()],
+               [58, 44, 21, 30, 21, 12, 16, 11, 10, 11, 11, 13, 12, 14, 12, 11, 10, 12, 8, 18 + 3 + 10, 5, 12, 4, 18 + 2 + 26, 5, 11, 270 + 26 + 21 + 20 + 18 + 3 + 10 + 5 + 12 + 4 + 18 + 2 + 26 + 5 + 11], "the sync grid: 270 existing + 26 MEXC + 21 Hyperliquid + 20 Bybit + 36 Bitrue scenarios (including ten listing shapes) + 12 Coinbase ledger + 4 Coinbase balances + 51 BingX scenarios (including 26 account and listing shapes) + 11 Kraken balances");
     for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
     // Rust's side starts as `serve` does: with this build's Rust migrations applied. parity::snapshot compares Rails'
     // tables only (parity::TABLES), so Rust's own tables stay out of the comparison.
@@ -451,7 +451,7 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
 
     let cipher = cipher();
     let ported = ["ledger-", "balances-", "binance-balances-", "binance-ledger-", "import-", "kucoin-ledger-", "kucoin-balances-", "bitvavo-ledger-", "bitvavo-balances-",
-                  "gemini-ledger-", "gemini-balances-", "bitget-ledger-", "bitget-balances-", "mexc-ledger-", "mexc-balances-", "hyperliquid-ledger-", "hyperliquid-balances-", "bybit-ledger-", "bybit-balances-", "bitrue-ledger-", "bitrue-balances-", "coinbase-ledger-", "coinbase-balances-", "bingx-ledger-", "bingx-balances-"];
+                  "gemini-ledger-", "gemini-balances-", "bitget-ledger-", "bitget-balances-", "mexc-ledger-", "mexc-balances-", "hyperliquid-ledger-", "hyperliquid-balances-", "bybit-ledger-", "bybit-balances-", "bitrue-ledger-", "bitrue-balances-", "coinbase-ledger-", "coinbase-balances-", "bingx-ledger-", "bingx-balances-", "kraken-balances-"];
     let mut outputs: Vec<(String, Value, Value)> = vec![];
     for d in &dirs {
         let name = d.file_name().unwrap().to_string_lossy().to_string();
@@ -461,7 +461,7 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     }
     let (mut failures, mut divergences) = (vec![], vec![]);
     for (name, rails_out, rust_out) in &outputs {
-        match bingx_page(name, rails_out, rust_out).or_else(|| bitrue_page(name, rails_out, rust_out)).or_else(|| coinbase_size(name,rails_out,rust_out)).or_else(|| kucoin_transfer_pin(name, &rust_root.path().join(name), rails_out, rust_out)).or_else(|| unknown_price_origin(name,rails_out,rust_out)).or_else(||binance_ledger(name, rails_out, rust_out)).or_else(||listed(name, rails_out, rust_out)) {
+        match listed_kraken(name, &rails_root.path().join(name), &rust_root.path().join(name), rails_out, rust_out).or_else(|| bingx_page(name, rails_out, rust_out)).or_else(|| bitrue_page(name, rails_out, rust_out)).or_else(|| coinbase_size(name,rails_out,rust_out)).or_else(|| kucoin_transfer_pin(name, &rust_root.path().join(name), rails_out, rust_out)).or_else(|| unknown_price_origin(name,rails_out,rust_out)).or_else(||binance_ledger(name, rails_out, rust_out)).or_else(||listed(name, rails_out, rust_out)) {
             Some(Err(e)) => failures.push(format!("{name} (listed divergence): {e}\n  rails: {rails_out}\n  rust:  {rust_out}")),
             Some(Ok(())) => { divergences.push(name.as_str()); assert_ne!(rails_out, rust_out, "{name}: a listed divergence that no longer differs"); }
             None if rails_out != rust_out => failures.push(format!("{name}\n  rails: {rails_out}\n  rust:  {rust_out}")),
@@ -477,6 +477,7 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     expected.extend_from_slice(UNKNOWN_PRICE_ORIGIN);
     expected.push("bitrue-ledger-repeated_page");
     expected.push("bingx-ledger-repeated_page");
+    expected.push("kraken-balances-full");
     expected.extend_from_slice(&["balances-snapshots_network", "ledger-long_error", "ledger-network_pre_send"]);
     expected.sort();
     assert_eq!(divergences,expected,"the remaining divergences and all reviewed R legacy prices");
@@ -775,6 +776,9 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
         assert_eq!(rows(&rails_of(&format!("binance-balances-{kept}")), "api_keys")[0]["after"]["status"], 1, "{kept} does not condemn the key");
     }
     assert_eq!(rows(&rails_of("balances-account_unauthorized"), "api_keys")[0]["after"]["status"], 2);
+    let kraken_status = |name: &str| rows(&rails_of(name), "api_keys").first().map(|r| r["after"]["status"].clone());
+    assert_eq!(kraken_status("kraken-balances-other_then_invalid_key"), Some(json!(2)), "an invalid-key word anywhere in Kraken's errors condemns the key");
+    assert_eq!(kraken_status("kraken-balances-permission_then_invalid_key"), Some(json!(1)), "a permission error beside it wins: the key is not condemned");
     assert!(rows(&rails_of("balances-empty_account"), "account_balances").iter().all(|r| r["after"].is_null()), "gone positions are removed");
 
     // Handbacks: Rust runs a scenario's first night, Rails runs its second on Rust's copy.
@@ -960,6 +964,70 @@ async fn an_api_sync_during_an_import_waits_for_it_and_dedupes_against_the_whole
 }
 
 /// D-BITRUE-PAGE: Rails raises on its undefined `path`; Rust names the stalled endpoint and keeps its committed page.
+/// The Kraken balance sync's listed divergences (plan Kraken sync §2.5, slice K1), each asserted on its own asset's row:
+/// D-KR-1 (every code of an asset summed, `free = balance − hold_trade`; Rails keeps the last code), D-KR-2 (legacy X-codes
+/// mapped), D-KR-3 (the exact code first; `.T` reads tokenized only), D-KR-6 (every listing, the unavailable included; the
+/// positive codes nothing names kept in `rust_sync.kraken_unresolved:<key_id>`, which Rails never has).
+fn listed_kraken(name: &str, rails_dir: &Path, rust_dir: &Path, rails: &Value, rust: &Value) -> Option<Result<(), String>> {
+    if name != "kraken-balances-full" { return None; }
+    // Assets by id as the install builds them.
+    const ETH: i64 = 6; const DOT: i64 = 7; const LTC: i64 = 9; const SOL: i64 = 10; const ADA: i64 = 11; const NVDAX: i64 = 12; const BRK: i64 = 13;
+    let held = |out: &Value| -> std::collections::BTreeMap<i64, Value> {
+        rows(out, "account_balances").into_iter().filter(|r| !r["after"].is_null()).map(|r| (r["after"]["asset_id"].as_i64().unwrap(), r["after"].clone())).collect()
+    };
+    let qty = |row: Option<&Value>| row.map(|r| (num(&r["free"]), num(&r["locked"])));
+    let unresolved = |dir: &Path| -> Option<Value> {
+        let c = rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap();
+        let text: Option<String> = c.query_row("SELECT value FROM app_configs WHERE key LIKE 'rust_sync.kraken_unresolved:%'", [], |r| r.get(0)).ok();
+        text.map(|t| serde_json::from_str::<Value>(&t).unwrap()["codes"].clone())
+    };
+    Some((|| {
+        let (r, u) = (held(rails), held(rust));
+        let both = |id: i64, rails_q: Option<(f64, f64)>, rust_q: Option<(f64, f64)>, what: &str| -> Result<(), String> {
+            let some = |q: Option<(f64, f64)>| q.map(|(f, l)| (Some(f), Some(l)));
+            check(qty(r.get(&id)) == some(rails_q), &format!("{what}: Rails' row changed, drop or restate the divergence: {:?}", r.get(&id)))?;
+            check(qty(u.get(&id)) == some(rust_q), &format!("{what}: Rust's row: {:?}", u.get(&id)))
+        };
+        // D-KR-1: XETH + ETH.F (hold_trade on the .F code), DOT + DOT.S, NVDAx + NVDASPV.
+        both(ETH, Some((1.5, 0.5)), Some((2.5, 0.5)), "D-KR-1 ETH")?;
+        both(DOT, Some((5.0, 0.0)), Some((15.0, 0.0)), "D-KR-1 DOT")?;
+        both(NVDAX, Some((2.0, 0.0)), Some((3.0, 0.0)), "D-KR-1 NVDAx")?;
+        // D-KR-2: XLTC.
+        both(LTC, None, Some((1.5, 0.5)), "D-KR-2 LTC")?;
+        // D-KR-3: BRK.Bx by its exact code; SOL.T never read as the coin SOL.
+        both(BRK, None, Some((4.0, 0.0)), "D-KR-3 BRK.Bx")?;
+        both(SOL, Some((3.0, 0.0)), None, "D-KR-3 SOL.T")?;
+        // D-KR-6: ADA, whose only ticker is unavailable; the positive codes nothing names.
+        both(ADA, None, Some((7.0, 0.0)), "D-KR-6 ADA")?;
+        check(unresolved(rails_dir).is_none(), "Rails has a Kraken unresolved record")?;
+        check(unresolved(rust_dir) == Some(json!(["SOL.T", "ZZZ"])), &format!("Rust's unresolved record: {:?}", unresolved(rust_dir)))?;
+        // Everything else: the other assets' rows (row ids follow the written set), the divergent rows but for their
+        // quantities and value, the key, and the requests but for the coins the market source is asked for.
+        let asked = |out: &Value| -> std::collections::BTreeSet<String> {
+            out["steps"][0]["requests"].as_array().unwrap().iter().filter(|q| q[0] == "GET /api/v1/prices")
+                .flat_map(|q| q[1][0][1].as_str().unwrap().split(',').map(str::to_string).collect::<Vec<_>>()).collect()
+        };
+        let mut expected = asked(rails);
+        expected.remove("solana");
+        expected.extend(["litecoin", "cardano", "berkshire-hathaway-xstock"].map(String::from));
+        check(asked(rust) == expected, &format!("Rust asks the market source for {:?}", asked(rust)))?;
+        let comparable = |m: &std::collections::BTreeMap<i64, Value>| -> Vec<Value> {
+            m.iter().filter(|(id, _)| ![LTC, SOL, ADA, BRK].contains(id)).map(|(id, row)| {
+                let mut row = row.clone();
+                let o = row.as_object_mut().unwrap();
+                o.shift_remove("id");
+                if [ETH, DOT, NVDAX].contains(id) { for c in ["free", "locked", "usd_value"] { o.shift_remove(c); } }
+                row
+            }).collect()
+        };
+        check(comparable(&r) == comparable(&u), &format!("the other balances differ:\n  rails: {:?}\n  rust:  {:?}", comparable(&r), comparable(&u)))?;
+        rest_is_identical(rails, rust, &|out| {
+            out["changes"]["account_balances"] = Value::Null;
+            only_requests(out, usize::MAX, "GET /api/v1/prices");
+        })
+    })())
+}
+
 fn bitrue_page(name: &str, rails: &Value, rust: &Value) -> Option<Result<(), String>> {
     if name != "bitrue-ledger-repeated_page" { return None; }
     Some((|| {
