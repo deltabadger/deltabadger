@@ -1249,8 +1249,7 @@ pub async fn ibkr_read<T: Transport, C: Clock + ?Sized>(transport: &T, login: Ar
     let session = Session::new(transport, login, clock).with_base(base);
     let held = session.lock().await.map_err(|e| e.message())?;
     let get = |path: String| { let (s, h) = (&session, &held); async move { s.signed_request(h, "GET", &path, vec![], None).await.map_err(|e| transport.redact_diagnostic(&e.message())) } };
-    let listed = crate::venue::ibkr_account::listed(&get(ACCOUNTS_PATH.into()).await?);
-    if listed != [Value::String(account.into())] { return Err("the IBKR login no longer names the account this connection belongs to".into()); }
+    if !crate::venue::ibkr_account::names_only(&get(ACCOUNTS_PATH.into()).await?, account) { return Err("the IBKR login no longer names the account this connection belongs to".into()); }
     let ledger = get(format!("/v1/api/portfolio/{account}/ledger")).await?;
     let mut positions = vec![];
     for page in 0..=IBKR_MAX_POSITION_PAGES {
