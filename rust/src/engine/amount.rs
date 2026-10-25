@@ -309,7 +309,16 @@ fn write_order_row_in(c: &Connection, bot: &Bot, plan: &OrderPlan, kind: RowKind
         if let Some(existing) = existing { return Ok(existing); }
     }
     // A signal bot has no schedule: Bot::OrderCreator#order_identity_values leaves the two columns at their defaults.
-    let bot_quote_amount = if bot.bot_type == super::model::SIGNAL_TYPE { BigDec::zero() } else { bot.quote_amount_num()?.to_dec().map_err(data)? };
+    // D-SELL-ROW-CADENCE: a selling bot's sell row records the sell cadence (sell_interval, else interval) and what the
+    // tick sells in quote: the quote to sell for, or the base amount (after the Smart Intervals split) × the sizing price
+    // `plan.price`, as size_sell values it. Rails writes the buy interval and buy quote_amount.
+    let selling = bot.bot_type != super::model::SIGNAL_TYPE && bot.selling() && plan.side == crate::venue::Side::Sell;
+    let bot_quote_amount = if bot.bot_type == super::model::SIGNAL_TYPE { BigDec::zero() }
+        else if selling { match bot.sell_amounts() { (Some(base), _) => &base * &plan.price, (None, quote) => quote } }
+        else { bot.quote_amount_num()?.to_dec().map_err(data)? };
+    let bot_interval = if selling {
+        bot.settings.get("sell_interval").and_then(serde_json::Value::as_str).and_then(super::schedule::Interval::parse).or_else(|| bot.interval())
+    } else { bot.interval() };
     c.execute(
         "INSERT INTO transactions (bot_id, exchange_id, external_id, status, external_status, side, order_type, amount, quote_amount, price, \
          amount_exec, quote_amount_exec, base, quote, base_asset_id, quote_asset_id, bot_interval, bot_quote_amount, transaction_type, error_messages, created_at, updated_at) \
@@ -318,7 +327,7 @@ fn write_order_row_in(c: &Connection, bot: &Bot, plan: &OrderPlan, kind: RowKind
             bot.id, bot.exchange_id, external_id, status as i64, external_status, if plan.limit { 1 } else { 0 },
             to_sql(&plan.amount), to_sql(&plan.quote_amount), to_sql(&plan.price), exec,
             plan.ticker.base_symbol, plan.ticker.quote_symbol, plan.ticker.base_asset_id, plan.ticker.quote_asset_id,
-            bot.interval().map(|i| i.as_str()).unwrap_or_default(), to_sql(&bot_quote_amount),
+            bot_interval.map(|i| i.as_str()).unwrap_or_default(), to_sql(&bot_quote_amount),
             serde_json::to_string(&errors).unwrap(), format_time(created_at), plan.side.code(), plan.kind.as_str(),
         ])?;
     Ok(c.last_insert_rowid())

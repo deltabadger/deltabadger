@@ -192,10 +192,12 @@ pub fn humanize_error(exchange_type: &str, exchange_name: &str, locale: &str, me
 /// no bound). Errors are bounded when their marker is written (`notice::ERROR_LIMIT`) and again here.
 pub const NAME_LIMIT: usize = 200;
 
-/// A settings value as Ruby prints it in a translation: `quote_amount_limit.to_s`.
+/// A settings value as Ruby prints it in a translation: `quote_amount_limit.to_s`, except D-MAIL-PLAIN-DECIMAL: a Float
+/// Ruby prints in exponent form ("1.0e-05") is written as the settings page writes it ("0.00001").
 fn ruby_to_s(v: Option<&Value>) -> String {
+    let float = |f: f64| { let ruby = float_to_s(f); if ruby.contains('e') { crate::web::format::input_value(&crate::web::format::Num::Float(f)).unwrap_or(ruby) } else { ruby } };
     match v {
-        Some(Value::Number(n)) => n.as_i64().map(|i| i.to_string()).or_else(|| n.as_f64().map(float_to_s)).unwrap_or_default(),
+        Some(Value::Number(n)) => n.as_i64().map(|i| i.to_string()).or_else(|| n.as_f64().map(float)).unwrap_or_default(),
         Some(Value::String(s)) => s.clone(),
         Some(Value::Bool(b)) => b.to_string(),
         _ => String::new(),

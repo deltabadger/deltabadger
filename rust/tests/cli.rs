@@ -302,7 +302,8 @@ fn run_and_serve_send_the_mail_a_bot_is_owed_and_neither_send_nor_print_a_creden
         assert!(printed.contains(&format!("[mail] stopped_by_error for bot {bot}: sent")), "{command}: {printed}");
         let mail = &plain.messages()[0];
         assert!(mail.contains("\r\nFrom: bots@example.com\r\nTo: o@example.com\r\n") && mail.contains("\r\nSubject: Weekly BTC has been stopped\r\n"), "{command}: {mail}");
-        assert_eq!(plain.sessions().last().unwrap().lines[..2], ["EHLO localhost", "AUTH PLAIN AAA="], "{command}");
+        // D-SMTP-NO-AUTH: no credentials, so no AUTH (Rails sends AUTH PLAIN with empty ones).
+        assert_eq!(plain.sessions().last().unwrap().lines[..2], ["EHLO localhost", "MAIL FROM:<bots@example.com>"], "{command}");
     }
 }
 
