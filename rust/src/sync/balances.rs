@@ -305,8 +305,8 @@ pub(crate) async fn sync_binance_captured<T: Transport>(db: &Db, transport: T, h
         Ok(venue.signed_get(BINANCE_ACCOUNT_PATH, query, now, MAX_BINANCE_ACCOUNT_BYTES).await)
     };
     // #handle_api_key_failure then #record_failure: Binance's invalid-key words condemn the key; nothing else does.
-    let venue = VenueBalances { names: binance_names, record: None, types: &[binance::BINANCE, binance::BINANCE_US], failure_text: binance::error_message, condemns: |_, text| binance::condemns(text),
-                                held: |text, names, ids| binance_held(text, names, ids).map(|held| held.map_err(|why| (why, false))) };
+    let venue = VenueBalances { names: binance_names, record: None, types: &[binance::BINANCE, binance::BINANCE_US], failure_text: binance::error_message, condemns: |_, messages| messages.iter().any(|m| binance::condemns(m)),
+                                held: |text, names, ids| binance_held(text, names, ids).map(|held| held.map_err(|why| (why, vec![]))) };
     sync_venue(db, version, prices, key_id, credentials, clock, venue, read).await
 }
 
@@ -372,7 +372,7 @@ pub(crate) async fn sync_mexc_captured<T: Transport>(db: &Db, transport: T, pric
     };
     // The account answer is Binance's shape (`binance_held`).
     let venue = VenueBalances { names: binance_names, record: None, types: &[MEXC], failure_text: binance::error_message, condemns: |venue, text| condemns(&crate::engine::venue_rules::MEXC, venue, text),
-                                held: |text, names, ids| binance_held(text, names, ids).map(|held| held.map_err(|why| (why, false))) };
+                                held: |text, names, ids| binance_held(text, names, ids).map(|held| held.map_err(|why| (why, vec![]))) };
     sync_venue(db, version, prices, key_id, credentials, clock, venue, read).await
 }
 
@@ -393,7 +393,7 @@ pub(crate) async fn sync_bitrue_captured<T: Transport>(db: &Db, transport: T, pr
     };
     // The account answer is Binance's shape (`binance_held`).
     let venue = VenueBalances { names: binance_names, record: None, types: &[BITRUE], failure_text: binance::error_message, condemns: |venue, text| condemns(&crate::engine::venue_rules::BITRUE, venue, text),
-                                held: |text, names, ids| account_held(text, names, ids, str::to_uppercase).map(|held| held.map_err(|why| (why, false))) };
+                                held: |text, names, ids| account_held(text, names, ids, str::to_uppercase).map(|held| held.map_err(|why| (why, vec![]))) };
     sync_venue(db, version, prices, key_id, credentials, clock, venue, read).await
 }
 
@@ -416,10 +416,10 @@ pub(crate) async fn sync_bingx_captured<T: Transport>(db: &Db, transport: T, pri
     let venue = VenueBalances { names: binance_names, record: None, types: &[BINGX], failure_text: binance::error_message, condemns: |venue, text| condemns(&crate::engine::venue_rules::BINGX, venue, text),
                                 held: |text, names, ids| {
         let node = wire::read(text, &mut Budget(MAX_BINANCE_ACCOUNT_NODES), None).map_err(|r| Unread::refused(r, "an account"))?;
-        let Ok(raw) = Raw::from_node(&node) else { return Ok(Err(("unreadable account".into(),false))) };
-        if crate::venue::bingx::code(&raw.value) != Some(0) { return Ok(Err((raw.value["msg"].as_str().unwrap_or("unreadable BingX account").into(),true))); }
-        let Some(data) = raw.member("data") else { return Ok(Err(("KeyError: Key path data not found".into(),false))) };
-        binance_held(&data.text(), names, ids).map(|held| held.map_err(|why| (why,false)))
+        let Ok(raw) = Raw::from_node(&node) else { return Ok(Err(("unreadable account".into(), vec![]))) };
+        if crate::venue::bingx::code(&raw.value) != Some(0) { return Ok(Err(read_by_key(raw.value["msg"].as_str().unwrap_or("unreadable BingX account").into()))); }
+        let Some(data) = raw.member("data") else { return Ok(Err(("KeyError: Key path data not found".into(), vec![]))) };
+        binance_held(&data.text(), names, ids).map(|held| held.map_err(|why| (why, vec![])))
     } };
     sync_venue(db, version, prices, key_id, credentials, clock, venue, read).await
 }
@@ -446,35 +446,35 @@ pub(crate) async fn sync_kraken_captured<T: Transport>(db: &Db, transport: T, pr
 }
 
 /// Exchanges::Kraken#get_balances then AccountBalance::Sync's `nonzero`, with the plan's divergences. A missing `error` or
-/// `result` is Rails' KeyError; a non-empty `error` is the venue's failure (its first entry, which the key's failure handling
-/// reads: `true`). Each code is named by `KrakenIdentity` (D-KR-2, D-KR-3, D-KR-6: every listing, no availability or
+/// `result` is Rails' KeyError; a non-empty `error` is the venue's failure: its first entry shown, every entry read by the
+/// key's failure handling. Each code is named by `KrakenIdentity` (D-KR-2, D-KR-3, D-KR-6: every listing, no availability or
 /// exchange-asset filter). Per asset, over every code naming it (D-KR-1; Rails keeps the last): `free += balance −
 /// hold_trade`, `locked += hold_trade` (`.F` is spendable per Kraken's docs). `credit` is a credit line, never a holding. A
 /// named code missing either number is Rails' KeyError; a quantity that is no number fails the sync. Also returned: the
 /// codes with a positive balance that name no asset, in the answer's order. The rows come in `asset_ids` order, then by id.
 /// The held balances and the positive codes no asset is named by.
 type KrakenHeld = (Vec<Held>, Vec<String>);
-fn kraken_read(text: &str, names: &super::kraken_ledger::KrakenIdentity, asset_ids: &[i64]) -> Result<Result<KrakenHeld, (String, bool)>, Unread> {
+fn kraken_read(text: &str, names: &super::kraken_ledger::KrakenIdentity, asset_ids: &[i64]) -> Result<Result<KrakenHeld, Failed>, Unread> {
     let node = wire::read(text, &mut Budget(MAX_BINANCE_ACCOUNT_NODES), None).map_err(|r| Unread::refused(r, "an account"))?;
-    let Ok(body) = Raw::from_node(&node) else { return Ok(Err(("unreadable account".into(), false))) };
+    let Ok(body) = Raw::from_node(&node) else { return Ok(Err(("unreadable account".into(), vec![]))) };
     match body.value.get("error") {
-        None | Some(Value::Null) => return Ok(Err(("KeyError: Key path error not found".into(), false))),
+        None | Some(Value::Null) => return Ok(Err(("KeyError: Key path error not found".into(), vec![]))),
         Some(Value::Array(errors)) if !errors.is_empty() => {
-            let first = errors[0].as_str().map_or_else(|| errors[0].to_string(), str::to_string);
-            return Ok(Err((first, true)));
+            let all: Vec<String> = errors.iter().map(|e| e.as_str().map_or_else(|| e.to_string(), str::to_string)).collect();
+            return Ok(Err((all[0].clone(), all)));
         }
         Some(Value::Array(_)) => {}
-        Some(_) => return Ok(Err(("unreadable balances".into(), false))),
+        Some(_) => return Ok(Err(("unreadable balances".into(), vec![]))),
     }
     let entries = match body.member("result") {
-        None => return Ok(Err(("KeyError: Key path result not found".into(), false))),
-        Some(Node::Scalar(token)) if token == "null" => return Ok(Err(("KeyError: Key path result not found".into(), false))),
+        None => return Ok(Err(("KeyError: Key path result not found".into(), vec![]))),
+        Some(Node::Scalar(token)) if token == "null" => return Ok(Err(("KeyError: Key path result not found".into(), vec![]))),
         Some(Node::Object(entries)) => entries,
-        Some(_) => return Ok(Err(("unreadable balances".into(), false))),
+        Some(_) => return Ok(Err(("unreadable balances".into(), vec![]))),
     };
     let (mut found, mut unresolved): (HashMap<i64, (BigDec, BigDec)>, Vec<String>) = (HashMap::new(), vec![]);
     for (code, entry) in entries {
-        let Ok(entry) = Raw::from_node(entry) else { return Ok(Err(("unreadable balance".into(), false))) };
+        let Ok(entry) = Raw::from_node(entry) else { return Ok(Err(("unreadable balance".into(), vec![]))) };
         let quantity = |key: &str| match entry.number(key) {
             _ if entry.value[key].as_str().is_some_and(|s| s.trim().is_empty()) => Err(format!("unreadable {key}: not a plain decimal number")),
             Ok(Some(n)) => Ok(n),
@@ -487,7 +487,7 @@ fn kraken_read(text: &str, names: &super::kraken_ledger::KrakenIdentity, asset_i
         };
         let (balance, hold) = match (quantity("balance"), quantity("hold_trade")) {
             (Ok(balance), Ok(hold)) => (balance, hold),
-            (Err(why), _) | (_, Err(why)) => return Ok(Err((why, false))),
+            (Err(why), _) | (_, Err(why)) => return Ok(Err((why, vec![]))),
         };
         let sum = found.entry(asset).or_insert_with(|| (BigDec::zero(), BigDec::zero()));
         *sum = (&sum.0 + &(&balance - &hold), &sum.1 + &hold);
@@ -500,22 +500,29 @@ fn kraken_read(text: &str, names: &super::kraken_ledger::KrakenIdentity, asset_i
     Ok(Ok((held, unresolved)))
 }
 
-/// ApiKeyFailureHandling#failure_reason's :invalid: the venue's invalid-key words, unless the text names a missing permission.
-fn condemns(rules: &crate::engine::venue_rules::VenueRules, venue: &str, text: &str) -> bool {
-    !crate::tracker::import::run::missing_permission(venue, Some(text)) && rules.is_invalid_key(&[text.to_string()])
+/// ApiKeyFailureHandling#failure_reason's :invalid over every message: the venue's invalid-key words, unless any message
+/// names a missing permission (:permission wins).
+fn condemns(rules: &crate::engine::venue_rules::VenueRules, venue: &str, messages: &[String]) -> bool {
+    !messages.iter().any(|m| crate::tracker::import::run::missing_permission(venue, Some(m))) && rules.is_invalid_key(messages)
 }
+
+/// A balance read's failure: the text recorded on the key, and the messages its failure handling reads (none: it never
+/// condemns the key).
+type Failed = (String, Vec<String>);
+/// A failure the key's failure handling reads as its one message.
+fn read_by_key(text: String) -> Failed { (text.clone(), vec![text]) }
 
 /// A venue's balance read as `sync_venue` runs it (plan VB §1.6): the key's exchange types, the failure text of an answer
 /// that failed or is no JSON, whether a failure condemns the key (exchange type, text), and how the answer is read:
-/// the held balances, or the failure and whether the key's failure handling reads it (`true`: it may condemn).
+/// the held balances, or the failure (`Failed`).
 /// `record`: a venue that keeps the codes it could not name (D-KR-6): the `app_configs` key prefix, and how the answer
 /// names them; written (or removed when there are none) in the sync's last commit.
-struct VenueBalances<N = HashMap<String, i64>> { names: NamesRead<N>, types: &'static [&'static str], failure_text: fn(&str) -> String, condemns: fn(&str, &str) -> bool,
+struct VenueBalances<N = HashMap<String, i64>> { names: NamesRead<N>, types: &'static [&'static str], failure_text: fn(&str) -> String, condemns: fn(&str, &[String]) -> bool,
                                                  held: HeldRead<N>, record: Option<(&'static str, CodesRead<N>)> }
 /// The codes of a venue's answer that name no asset.
 type CodesRead<N> = fn(&str, &N) -> Vec<String>;
-/// A venue's answer read into its held balances, or its failure (and whether the key's failure handling reads it).
-type HeldRead<N> = fn(&str, &N, &[i64]) -> Result<Result<Vec<Held>, (String, bool)>, Unread>;
+/// A venue's answer read into its held balances, or its failure.
+type HeldRead<N> = fn(&str, &N, &[i64]) -> Result<Result<Vec<Held>, Failed>, Unread>;
 /// How the venue's names (exchange id) map to assets: Exchange#asset_from_symbol (`binance_names`), IBKR's conids, or
 /// Kraken's identity.
 type NamesRead<N> = fn(&Connection, i64) -> Result<N, SyncError>;
@@ -534,11 +541,11 @@ where R: std::future::Future<Output = Result<Result<String, String>, SyncError>>
         Ok((catalog_for(c, key.user_id, key.exchange_id)?, names_of(c, key.exchange_id)?, key.exchange_type))
     }).await?;
     let condemning = venue.condemns;
-    let fail = |text: String, condemn: bool| {
+    let fail = |(text, messages): Failed| {
         let (creds, now, venue_type) = (credentials.clone(), clock.now(), exchange_type.clone());
         async move {
             let error = super::commit_for(db, version, move |c| {
-                if condemn && condemning(&venue_type, &text) {
+                if !messages.is_empty() && condemning(&venue_type, &messages) {
                     c.execute("UPDATE api_keys SET status = 2, updated_at = ?1 WHERE id = ?2 AND status != 2", params![sql_time(now), key_id])?;
                 }
                 record_sync_error(c, key_id, &text, &creds)
@@ -548,7 +555,7 @@ where R: std::future::Future<Output = Result<Result<String, String>, SyncError>>
     };
     let text = match read(exchange_type.clone()).await? {
         Ok(text) => text,
-        Err(text) => return fail((venue.failure_text)(&text), true).await,
+        Err(text) => return fail(read_by_key((venue.failure_text)(&text))).await,
     };
     let (asset_ids, held, record) = (catalog.asset_ids.clone(), venue.held, venue.record);
     let read = tokio::task::spawn_blocking(move || match held(&text, &names, &asset_ids) {
@@ -558,10 +565,10 @@ where R: std::future::Future<Output = Result<Result<String, String>, SyncError>>
     }).await.unwrap_or_else(|_| Err((Unread::Raised("reading the venue's answer was interrupted".into()), String::new())));
     let (held, record) = match read {
         Ok(Ok(held)) => held,
-        Ok(Err((why, condemn))) => return fail(why, condemn).await,
+        Ok(Err(failed)) => return fail(failed).await,
         // A 2xx body that is not JSON: honeymaker's failure is the body itself, read as any failure is.
-        Err((Unread::NotJson, body)) => return fail((venue.failure_text)(&body), true).await,
-        Err((Unread::Raised(why), _)) => return fail(why, false).await,
+        Err((Unread::NotJson, body)) => return fail(read_by_key((venue.failure_text)(&body))).await,
+        Err((Unread::Raised(why), _)) => return fail((why, vec![])).await,
     };
     let ids: Vec<i64> = held.iter().map(|(id, _, _)| *id).collect();
     let assets = Arc::new(phase(db, move |c| assets(c, &ids)).await?);
@@ -569,7 +576,7 @@ where R: std::future::Future<Output = Result<Result<String, String>, SyncError>>
     let record = record.map(|(prefix, codes)| (format!("{prefix}:{key_id}"), (!codes.is_empty()).then(|| serde_json::json!({ "codes": codes, "at": at }).to_string())));
     match finish(db, version, &catalog, held, assets, HashMap::new(), vec![], prices, key_id, clock, None, record).await? {
         Ok(summary) => Ok(Ok(summary)),
-        Err(why) => fail(why, false).await,
+        Err(why) => fail((why, vec![])).await,
     }
 }
 
@@ -577,12 +584,12 @@ where R: std::future::Future<Output = Result<Result<String, String>, SyncError>>
 /// naming no listed asset, or none, is skipped), its `available` and `inOrder` read for the rest (Rails' KeyError when
 /// absent), a later row for the same asset winning. A quantity that is no number fails the sync (Rails reads it as 0: the
 /// Binance sync's listed divergence). An answer that is not a list is unreadable.
-fn bitvavo_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> Result<Result<Vec<Held>, (String, bool)>, Unread> {
+fn bitvavo_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> Result<Result<Vec<Held>, Failed>, Unread> {
     let node = wire::read(text, &mut Budget(MAX_BINANCE_ACCOUNT_NODES), None).map_err(|r| Unread::refused(r, "an account"))?;
-    let Node::Array(rows) = node else { return Ok(Err(("unreadable balances".into(), false))) };
+    let Node::Array(rows) = node else { return Ok(Err(("unreadable balances".into(), vec![]))) };
     let mut found: HashMap<i64, (BigDec, BigDec)> = HashMap::new();
     for row in &rows {
-        let Ok(row) = Raw::from_node(row) else { return Ok(Err(("unreadable balance".into(), false))) };
+        let Ok(row) = Raw::from_node(row) else { return Ok(Err(("unreadable balance".into(), vec![]))) };
         let Some(asset) = row.value["symbol"].as_str().and_then(|c| names.get(c)).filter(|id| asset_ids.contains(id)) else { continue };
         let quantity = |key: &str| match row.number(key) {
             _ if row.value[key].as_str().is_some_and(|s| s.trim().is_empty()) => Err(format!("unreadable {key}: not a plain decimal number")),
@@ -592,7 +599,7 @@ fn bitvavo_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> 
         };
         let (free, locked) = match (quantity("available"), quantity("inOrder")) {
             (Ok(free), Ok(locked)) => (free, locked),
-            (Err(why), _) | (_, Err(why)) => return Ok(Err((why, false))),
+            (Err(why), _) | (_, Err(why)) => return Ok(Err((why, vec![]))),
         };
         found.insert(*asset, (free, locked));
     }
@@ -604,24 +611,24 @@ fn bitvavo_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> 
 /// `currency` must be there; a row naming no listed asset is skipped; `available` and `locked` (before KuCoin's
 /// 2026-08-27 rename `holds`) are read for the rest, a later row for the same asset winning. A missing field is Rails'
 /// KeyError; a quantity that is no number fails the sync (Rails reads it as 0: the Binance sync's listed divergence).
-fn kucoin_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> Result<Result<Vec<Held>, (String, bool)>, Unread> {
+fn kucoin_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> Result<Result<Vec<Held>, Failed>, Unread> {
     let node = wire::read(text, &mut Budget(MAX_BINANCE_ACCOUNT_NODES), None).map_err(|r| Unread::refused(r, "an account"))?;
-    let Ok(body) = Raw::from_node(&node) else { return Ok(Err(("unreadable account".into(), false))) };
+    let Ok(body) = Raw::from_node(&node) else { return Ok(Err(("unreadable account".into(), vec![]))) };
     let part = |v: &Value| match v { Value::Null => None, Value::String(s) => Some(s.clone()), other => Some(other.to_string()) };
     let code = part(&body.value["code"]);
     let rows = match body.member("data") {
         Some(Node::Array(rows)) if code.as_deref() == Some("200000") => rows,
-        Some(Node::Scalar(token)) if token != "null" && code.as_deref() == Some("200000") => return Ok(Err(("unreadable balances".into(), false))),
-        Some(Node::Object(_)) if code.as_deref() == Some("200000") => return Ok(Err(("unreadable balances".into(), false))),
+        Some(Node::Scalar(token)) if token != "null" && code.as_deref() == Some("200000") => return Ok(Err(("unreadable balances".into(), vec![]))),
+        Some(Node::Object(_)) if code.as_deref() == Some("200000") => return Ok(Err(("unreadable balances".into(), vec![]))),
         _ => {
             let detail: Vec<String> = [code, part(&body.value["msg"])].into_iter().flatten().collect();
-            return Ok(Err((format!("Failed to get KuCoin balances: {}", detail.join(" ")), true)));
+            return Ok(Err(read_by_key(format!("Failed to get KuCoin balances: {}", detail.join(" ")))));
         }
     };
     let mut found: HashMap<i64, (BigDec, BigDec)> = HashMap::new();
     for row in rows {
-        let Ok(row) = Raw::from_node(row) else { return Ok(Err(("unreadable balance".into(), false))) };
-        let Some(currency) = row.value.get("currency").filter(|v| !v.is_null()) else { return Ok(Err(("KeyError: Key path currency not found".into(), false))) };
+        let Ok(row) = Raw::from_node(row) else { return Ok(Err(("unreadable balance".into(), vec![]))) };
+        let Some(currency) = row.value.get("currency").filter(|v| !v.is_null()) else { return Ok(Err(("KeyError: Key path currency not found".into(), vec![]))) };
         let Some(asset) = currency.as_str().and_then(|c| names.get(c)).filter(|id| asset_ids.contains(id)) else { continue };
         let quantity = |key: &str| match row.number(key) {
             _ if row.value[key].as_str().is_some_and(|s| s.trim().is_empty()) => Err(format!("unreadable {key}: not a plain decimal number")),
@@ -629,12 +636,12 @@ fn kucoin_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> R
             Ok(None) => Err(format!("KeyError: Key path {key} not found")),
             Err(why) => Err(why),
         };
-        let free = match quantity("available") { Ok(n) => n, Err(why) => return Ok(Err((why, false))) };
+        let free = match quantity("available") { Ok(n) => n, Err(why) => return Ok(Err((why, vec![]))) };
         // `balance.fetch('locked') { dig_or_raise('holds') }.to_d`: a present null is nil.to_d, 0.
         let locked = match row.member("locked") {
             Some(Node::Scalar(token)) if token == "null" => BigDec::zero(),
-            Some(_) => match quantity("locked") { Ok(n) => n, Err(why) => return Ok(Err((why, false))) },
-            None => match quantity("holds") { Ok(n) => n, Err(why) => return Ok(Err((why, false))) },
+            Some(_) => match quantity("locked") { Ok(n) => n, Err(why) => return Ok(Err((why, vec![]))) },
+            None => match quantity("holds") { Ok(n) => n, Err(why) => return Ok(Err((why, vec![]))) },
         };
         found.insert(*asset, (free, locked));
     }
@@ -664,18 +671,18 @@ pub(crate) async fn sync_gemini_captured<T: Transport>(db: &Db, transport: T, pr
 /// there, upcased to name its asset; a row naming no listed asset is skipped; `available` is free and `amount - available`
 /// locked, a later row for the same asset winning. A missing field is Rails' KeyError; a quantity that is no number fails
 /// the sync (Rails reads it as 0: the Binance sync's listed divergence).
-fn gemini_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> Result<Result<Vec<Held>, (String, bool)>, Unread> {
+fn gemini_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> Result<Result<Vec<Held>, Failed>, Unread> {
     let node = wire::read(text, &mut Budget(MAX_BINANCE_ACCOUNT_NODES), None).map_err(|r| Unread::refused(r, "an account"))?;
     let rows = match &node {
         Node::Array(rows) => rows,
-        Node::Scalar(token) if token == "null" => return Ok(Err(("Failed to get Gemini balances".into(), true))),
-        _ => return Ok(Err(("unreadable balances".into(), false))),
+        Node::Scalar(token) if token == "null" => return Ok(Err(read_by_key("Failed to get Gemini balances".into()))),
+        _ => return Ok(Err(("unreadable balances".into(), vec![]))),
     };
     let mut found: HashMap<i64, (BigDec, BigDec)> = HashMap::new();
     for row in rows {
-        let Ok(row) = Raw::from_node(row) else { return Ok(Err(("unreadable balance".into(), false))) };
-        let Some(currency) = row.value.get("currency").filter(|v| !v.is_null()) else { return Ok(Err(("KeyError: Key path currency not found".into(), false))) };
-        let Some(currency) = currency.as_str() else { return Ok(Err(("unreadable balance currency".into(), false))) };
+        let Ok(row) = Raw::from_node(row) else { return Ok(Err(("unreadable balance".into(), vec![]))) };
+        let Some(currency) = row.value.get("currency").filter(|v| !v.is_null()) else { return Ok(Err(("KeyError: Key path currency not found".into(), vec![]))) };
+        let Some(currency) = currency.as_str() else { return Ok(Err(("unreadable balance currency".into(), vec![]))) };
         let Some(asset) = names.get(&currency.to_uppercase()).filter(|id| asset_ids.contains(id)) else { continue };
         let quantity = |key: &str| match row.number(key) {
             _ if row.value[key].as_str().is_some_and(|s| s.trim().is_empty()) => Err(format!("unreadable {key}: not a plain decimal number")),
@@ -683,8 +690,8 @@ fn gemini_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> R
             Ok(None) => Err(format!("KeyError: Key path {key} not found")),
             Err(why) => Err(why),
         };
-        let free = match quantity("available") { Ok(n) => n, Err(why) => return Ok(Err((why, false))) };
-        let amount = match quantity("amount") { Ok(n) => n, Err(why) => return Ok(Err((why, false))) };
+        let free = match quantity("available") { Ok(n) => n, Err(why) => return Ok(Err((why, vec![]))) };
+        let amount = match quantity("amount") { Ok(n) => n, Err(why) => return Ok(Err((why, vec![]))) };
         found.insert(*asset, (free.clone(), &amount - &free));
     }
     Ok(Ok(asset_ids.iter().filter_map(|id| found.remove(id).map(|(free, locked)| (*id, free, locked))).filter(|(_, free, locked)| (free + locked).is_positive()).collect()))
@@ -714,21 +721,21 @@ pub(crate) async fn sync_bitget_captured<T: Transport>(db: &Db, transport: T, pr
 /// is skipped; `available` and `frozen` are read for the rest, a later row for the same asset winning (the fiat merchant's
 /// `locked` is not read, S5). A missing field is Rails' KeyError; a quantity that is no number fails the sync (Rails reads it
 /// as 0: the Binance sync's listed divergence).
-fn bitget_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> Result<Result<Vec<Held>, (String, bool)>, Unread> {
+fn bitget_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> Result<Result<Vec<Held>, Failed>, Unread> {
     let node = wire::read(text, &mut Budget(MAX_BINANCE_ACCOUNT_NODES), None).map_err(|r| Unread::refused(r, "an account"))?;
-    let Ok(body) = Raw::from_node(&node) else { return Ok(Err(("unreadable account".into(), false))) };
+    let Ok(body) = Raw::from_node(&node) else { return Ok(Err(("unreadable account".into(), vec![]))) };
     let part = |v: &Value| match v { Value::Null => None, Value::String(s) => Some(s.clone()), other => Some(other.to_string()) };
     let code = part(&body.value["code"]);
     let rows = match body.member("data") {
         Some(Node::Array(rows)) if code.as_deref() == Some("00000") => rows,
-        Some(Node::Scalar(token)) if token == "null" => return Ok(Err((failed_bitget(&body.value), true))),
-        Some(_) if code.as_deref() == Some("00000") => return Ok(Err(("unreadable balances".into(), false))),
-        _ => return Ok(Err((failed_bitget(&body.value), true))),
+        Some(Node::Scalar(token)) if token == "null" => return Ok(Err(read_by_key(failed_bitget(&body.value)))),
+        Some(_) if code.as_deref() == Some("00000") => return Ok(Err(("unreadable balances".into(), vec![]))),
+        _ => return Ok(Err(read_by_key(failed_bitget(&body.value)))),
     };
     let mut found: HashMap<i64, (BigDec, BigDec)> = HashMap::new();
     for row in rows {
-        let Ok(row) = Raw::from_node(row) else { return Ok(Err(("unreadable balance".into(), false))) };
-        let Some(coin) = row.value.get("coin").filter(|v| !v.is_null()) else { return Ok(Err(("KeyError: Key path coin not found".into(), false))) };
+        let Ok(row) = Raw::from_node(row) else { return Ok(Err(("unreadable balance".into(), vec![]))) };
+        let Some(coin) = row.value.get("coin").filter(|v| !v.is_null()) else { return Ok(Err(("KeyError: Key path coin not found".into(), vec![]))) };
         let Some(asset) = coin.as_str().and_then(|c| names.get(c)).filter(|id| asset_ids.contains(id)) else { continue };
         let quantity = |key: &str| match row.number(key) {
             _ if row.value[key].as_str().is_some_and(|s| s.trim().is_empty()) => Err(format!("unreadable {key}: not a plain decimal number")),
@@ -738,7 +745,7 @@ fn bitget_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> R
         };
         let (free, locked) = match (quantity("available"), quantity("frozen")) {
             (Ok(free), Ok(locked)) => (free, locked),
-            (Err(why), _) | (_, Err(why)) => return Ok(Err((why, false))),
+            (Err(why), _) | (_, Err(why)) => return Ok(Err((why, vec![]))),
         };
         found.insert(*asset, (free, locked));
     }
@@ -780,18 +787,18 @@ pub(crate) async fn sync_hyperliquid_captured<T: Transport>(db: &Db, transport: 
 /// or hold is 0), a later row for the same asset winning. A quantity that is no number fails the sync (Rails reads it as 0:
 /// the Binance sync's listed divergence). An answer Rails cannot walk (not an object, balances that are no list of objects)
 /// raises there; here it fails the sync.
-fn hyperliquid_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> Result<Result<Vec<Held>, (String, bool)>, Unread> {
+fn hyperliquid_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> Result<Result<Vec<Held>, Failed>, Unread> {
     let node = wire::read(text, &mut Budget(MAX_BINANCE_ACCOUNT_NODES), None).map_err(|r| Unread::refused(r, "an account"))?;
-    let Ok(body) = Raw::from_node(&node) else { return Ok(Err(("unreadable balances".into(), false))) };
+    let Ok(body) = Raw::from_node(&node) else { return Ok(Err(("unreadable balances".into(), vec![]))) };
     let rows = match body.member("balances") {
         None => vec![],
         Some(Node::Scalar(token)) if token == "null" => vec![],
         Some(Node::Array(rows)) => rows.clone(),
-        Some(_) => return Ok(Err(("unreadable balances".into(), false))),
+        Some(_) => return Ok(Err(("unreadable balances".into(), vec![]))),
     };
     let mut found: HashMap<i64, (BigDec, BigDec)> = HashMap::new();
     for row in &rows {
-        let Ok(row) = Raw::from_node(row) else { return Ok(Err(("unreadable balance".into(), false))) };
+        let Ok(row) = Raw::from_node(row) else { return Ok(Err(("unreadable balance".into(), vec![]))) };
         let Some(asset) = row.value["coin"].as_str().and_then(|c| names.get(c)).filter(|id| asset_ids.contains(id)) else { continue };
         let quantity = |key: &str| match row.number(key) {
             _ if row.value[key].as_str().is_some_and(|s| s.trim().is_empty()) => Err(format!("unreadable {key}: not a plain decimal number")),
@@ -800,7 +807,7 @@ fn hyperliquid_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64])
         };
         let (total, hold) = match (quantity("total"), quantity("hold")) {
             (Ok(total), Ok(hold)) => (total, hold),
-            (Err(why), _) | (_, Err(why)) => return Ok(Err((why, false))),
+            (Err(why), _) | (_, Err(why)) => return Ok(Err((why, vec![]))),
         };
         found.insert(*asset, (&total - &hold, hold));
     }
@@ -1216,18 +1223,18 @@ pub(crate) async fn sync_bybit_captured<T: Transport>(db: &Db, transport: T, pri
     let venue = VenueBalances { names: binance_names, record: None, types: &[BYBIT], failure_text: crate::venue::bybit::failure_text, condemns: |venue, text| condemns(&crate::engine::venue_rules::BYBIT, venue, text), held: bybit_held };
     sync_venue(db, version, prices, key_id, credentials, clock, venue, read).await
 }
-fn bybit_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> Result<Result<Vec<Held>, (String, bool)>, Unread> {
+fn bybit_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> Result<Result<Vec<Held>, Failed>, Unread> {
     let node = wire::read(text, &mut Budget(MAX_BINANCE_ACCOUNT_NODES), None).map_err(|r| Unread::refused(r, "an account"))?;
-    let Ok(body) = Raw::from_node(&node) else { return Ok(Err(("unreadable account".into(), false))) };
-    if body.value["retCode"].as_i64() != Some(0) { return Ok(Err((crate::venue::bybit::to_s(&body.value["retMsg"]), true))); }
-    let result = match body.object("result") { Ok(Some(r)) => r, _ => return Ok(Err(("KeyError: Key path result.list not found".into(), false))) };
-    let Some(Node::Array(accounts)) = result.member("list") else { return Ok(Err(("KeyError: Key path result.list not found".into(), false))) };
+    let Ok(body) = Raw::from_node(&node) else { return Ok(Err(("unreadable account".into(), vec![]))) };
+    if body.value["retCode"].as_i64() != Some(0) { return Ok(Err(read_by_key(crate::venue::bybit::to_s(&body.value["retMsg"])))); }
+    let result = match body.object("result") { Ok(Some(r)) => r, _ => return Ok(Err(("KeyError: Key path result.list not found".into(), vec![]))) };
+    let Some(Node::Array(accounts)) = result.member("list") else { return Ok(Err(("KeyError: Key path result.list not found".into(), vec![]))) };
     let mut found = HashMap::new();
     for account in accounts {
-        let Ok(account) = Raw::from_node(account) else { return Ok(Err(("unreadable account".into(), false))) };
-        let Some(Node::Array(coins)) = account.member("coin") else { return Ok(Err(("KeyError: Key path coin not found".into(), false))) };
+        let Ok(account) = Raw::from_node(account) else { return Ok(Err(("unreadable account".into(), vec![]))) };
+        let Some(Node::Array(coins)) = account.member("coin") else { return Ok(Err(("KeyError: Key path coin not found".into(), vec![]))) };
         for coin in coins {
-            let Ok(row) = Raw::from_node(coin) else { return Ok(Err(("unreadable balance".into(), false))) };
+            let Ok(row) = Raw::from_node(coin) else { return Ok(Err(("unreadable balance".into(), vec![]))) };
             let Some(asset) = row.value["coin"].as_str().and_then(|c| names.get(c)).filter(|id| asset_ids.contains(id)) else { continue };
             let amounts = || -> Result<(BigDec, BigDec), String> {
                 let present = |key: &str| row.value.get(key).is_some_and(|v| !v.is_null() && v.as_str().is_none_or(|s| !crate::ruby::blank(s)));
@@ -1236,7 +1243,7 @@ fn bybit_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> Re
                            else { row.decimal(if present("availableToWithdraw") { "availableToWithdraw" } else { "free" })? };
                 Ok((free, locked))
             };
-            match amounts() { Ok(amounts) => { found.insert(*asset, amounts); }, Err(e) => return Ok(Err((e, false))) }
+            match amounts() { Ok(amounts) => { found.insert(*asset, amounts); }, Err(e) => return Ok(Err((e, vec![]))) }
         }
     }
     Ok(Ok(asset_ids.iter().filter_map(|id| found.remove(id).map(|(free, locked)| (*id, free, locked))).filter(|(_, free, locked)| (free + locked).is_positive()).collect()))
@@ -1255,7 +1262,7 @@ pub(crate) async fn sync_coinbase_captured<T: Transport>(db: &Db, transport: T, 
         condemns: |_, _| false, held: coinbase_held };
     sync_venue(db, version, prices, key_id, credentials, clock, venue, read).await
 }
-fn coinbase_held(text: &str, names: &HashMap<String,i64>, asset_ids: &[i64]) -> Result<Result<Vec<Held>, (String,bool)>,Unread> {
+fn coinbase_held(text: &str, names: &HashMap<String,i64>, asset_ids: &[i64]) -> Result<Result<Vec<Held>, Failed>,Unread> {
     let node = wire::read(text, &mut Budget(MAX_BINANCE_ACCOUNT_NODES), None).map_err(|r| Unread::refused(r, "an account"))?;
     let parse = || -> Result<Vec<Held>, String> {
         let raw = Raw::from_node(&node)?;
@@ -1272,7 +1279,7 @@ fn coinbase_held(text: &str, names: &HashMap<String,i64>, asset_ids: &[i64]) -> 
         }
         Ok(asset_ids.iter().filter_map(|id|found.remove(id).map(|(f,l)|(*id,f,l))).filter(|(_,f,l)|(f+l).is_positive()).collect())
     };
-    Ok(parse().map_err(|e|(e,false)))
+    Ok(parse().map_err(|e|(e, vec![])))
 }
 
 /// The most position pages one IBKR balance read walks (IBKR answers a page at a time, an empty page past the last).
@@ -1332,7 +1339,7 @@ pub(crate) async fn sync_ibkr_captured<T: Transport>(db: &Db, transport: T, logi
         Ok(ibkr_read(&transport, login, clock, &account, "").await)
     };
     let venue = VenueBalances { names: ibkr_names, record: None, types: &[crate::venue::ibkr::IBKR], failure_text: str::to_string, condemns: |_, _| false,
-                                held: |text, names, ids| ibkr_held(text, names, ids).map(|held| held.map_err(|why| (why, false))) };
+                                held: |text, names, ids| ibkr_held(text, names, ids).map(|held| held.map_err(|why| (why, vec![]))) };
     sync_venue(db, version, prices, key_id, credentials, clock, venue, read).await
 }
 
