@@ -208,3 +208,55 @@ pub async fn index_create(State(app): State<App>, Extension(ctx): Extension<Ctx>
         Err(e) => layout::or_refused(&ctx,e),
     }
 }
+
+/// GET /bots/merge/new (Bots::MergesController#new): the merge modal for the picked bots, refusal included; a venue picked in
+/// its pill re-requests it into the merge_modal frame.
+pub async fn merge_new(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response,WebError> {
+    let Some(user) = ctx.user().cloned() else { return Ok(auth::unauthenticated(&ctx)) };
+    let Ok(params) = ActionParams::parse_rails(&ctx.params) else { return Ok((StatusCode::BAD_REQUEST, "Bad Request\n").into_response()) };
+    let (ids, exchange) = super::merge::params(params.value());
+    let (inner,mut view,owner) = (app.clone(),ctx.clone(),user.clone());
+    let result = app.db(move |c| {
+        let tx = c.unchecked_transaction()?;
+        view.now = inner.now();
+        let mut merge = match super::merge::Merge::load(&tx,&view,owner.id,ids,exchange)? {
+            super::merge::Loaded::Merge(merge) => merge,
+            super::merge::Loaded::Unported(reason) => return Ok(Err(reason)),
+        };
+        let csrf = view.csrf_token();
+        let body = super::merge::modal(&tx,&view,&mut merge,&csrf)?;
+        let shell = Shell::load(&tx,&inner,&owner)?;
+        tx.commit()?;
+        Ok(Ok((body,csrf,shell)))
+    }).await;
+    match result {
+        Ok(Ok((body,csrf,shell))) => shell::application(&ctx,&csrf,&user,&shell,Page { status:StatusCode::OK,body,flash_now:vec![] }),
+        Ok(Err(reason)) => Ok(layout::refused(&ctx,reason)),
+        Err(e) => layout::or_refused(&ctx,e),
+    }
+}
+
+/// POST /bots/merge (Bots::MergesController#create): one write transaction (merge::perform), then Turbo visits the merged bot;
+/// a refusal is the flash Rails prepends, with 422.
+pub async fn merge_create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response,WebError> {
+    use super::merge::{perform, Merged};
+    let Some(user) = ctx.user().cloned() else { return Ok(auth::unauthenticated(&ctx)) };
+    let Ok(params) = ActionParams::parse_rails(&ctx.params) else { return Ok((StatusCode::BAD_REQUEST, "Bad Request\n").into_response()) };
+    let (ids, exchange) = super::merge::params(params.value());
+    let (inner, view) = (app.clone(), ctx.clone());
+    let result = app.db(move |c| {
+        let merged = perform(c, &view, user.id, ids, exchange)?;
+        // In the App::db job, after the commit, as every writer wakes the engine.
+        if let Merged::Done(id) = merged { inner.wake_engine(); inner.figure_service.mark(id); inner.figure_service.mark_owner(user.id); }
+        Ok(merged)
+    }).await;
+    match result {
+        Ok(Merged::Done(id)) => {
+            flash::set(&ctx.session, flash::NOTICE, i18n::text(ctx.locale, "bot.merge.success", &[]));
+            Ok(action_view::response(crate::web::turbo::redirect(&ctx.path(&format!("/bots/{id}"))), false))
+        }
+        Ok(Merged::Refused(text)) => Ok(action_view::response(crate::web::turbo::prepend_flash(flash::render(&[flash::Message { style: "danger", text }])?.trim_end()), true)),
+        Ok(Merged::Unported(reason)) => Ok(layout::refused(&ctx, reason)),
+        Err(e) => layout::or_refused(&ctx, e),
+    }
+}
