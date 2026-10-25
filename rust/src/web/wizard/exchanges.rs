@@ -1,7 +1,7 @@
 //! The DCA wizard's exchange step (Bots::Wizard::PickExchangesController), in the single namespace (before any asset, the
 //! first step of the default exchange-first order) and the multi one (a basket's venue). The grid is bots/pick_exchanges/_table,
 //! which the tracker's venue picker renders too.
-use super::{basket_ids, chips, current_variant, dig, prerequisite, progress, reset_downstream, sentence, step_complete, stock_notice, BotType, SentenceOf, Step,
+use super::{basket_ids, chips, current_variant, dig, prerequisite, progress, reset_downstream, sentence, step_complete, BotType, SentenceOf, Step,
             StepOrder, BASE_KEY, QUOTE_KEY};
 use crate::web::bot::search::{self, Basket};
 use crate::web::bot::{exchange_wordmark, Exchange};
@@ -102,11 +102,10 @@ struct New {
     progress: String,
     sentence: String,
     table: Table,
-    notice: Option<String>,
 }
 
 /// `prepare_step` and the page: the venues the bot built from the session could trade on, its own venue set aside.
-fn page(c: &Connection, app: &App, ctx: &Ctx, admin: bool, config: Option<&Value>, namespace: Namespace) -> Result<String, WebError> {
+fn page(c: &Connection, ctx: &Ctx, config: Option<&Value>, namespace: Namespace) -> Result<String, WebError> {
     let quote = setting_id(config, QUOTE_KEY);
     let (venues, chips) = match namespace {
         // The one-asset bot holds a base only in a session an earlier release left open.
@@ -129,7 +128,6 @@ fn page(c: &Connection, app: &App, ctx: &Ctx, admin: bool, config: Option<&Value
     Ok(New {
         close_url: if namespace == Namespace::Single { super::close_url(ctx) } else { ctx.path("/bots") },
         progress: progress(ctx, &order, Step::Exchange)?, sentence, table,
-        notice: (namespace == Namespace::Single).then(|| stock_notice(c, app, ctx, admin, false)).transpose()?,
     }.render()?)
 }
 
@@ -137,7 +135,7 @@ async fn render(app: &App, ctx: &Ctx, namespace: Namespace, status: StatusCode) 
     let user = ctx.user().cloned().ok_or_else(|| WebError::Config("the exchange step without a user".into()))?;
     let config = ctx.session.lock().bot_config.clone();
     let (inner, view, owner) = (app.clone(), ctx.clone(), user.clone());
-    let (body, shell) = app.db(move |c| Ok((page(c, &inner, &view, owner.admin, config.as_ref(), namespace)?, Shell::load(c, &inner, &owner)?))).await?;
+    let (body, shell) = app.db(move |c| Ok((page(c, &view, config.as_ref(), namespace)?, Shell::load(c, &inner, &owner)?))).await?;
     shell::application(ctx, &ctx.csrf_token(), &user, &shell, Page { status, body, flash_now: vec![] })
 }
 

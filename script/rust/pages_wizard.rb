@@ -125,15 +125,7 @@ module Pages
           chooser.('/bots/new', MODAL), wz_step.(ASSETS_NEW), wz_step.(EXCHANGE_NEW), wz_exchange.(3), wz_step.(ASSETS_NEW), wz_step.(EXCHANGE_NEW),
           wz_exchange.(4), wz_step.(ASSETS_NEW), order.('asset_first'), wz_step.(EXCHANGE_NEW), wz_step.(MULTI_EXCHANGE_NEW), wz_step.(ASSETS_NEW),
           wz_pick.(16), wz_step.(EXCHANGE_NEW), wz_step.(MULTI_EXCHANGE_NEW)
-        ), 'venue_keys' => { 'kraken' => 'incorrect' }),
-        # No stock catalog on this install: the first step offers the activation to an admin and sends anyone else to theirs.
-        'wizard_stocks_inactive' => { 'user' => owner, 'steps' => signed_in(
-          chooser.('/bots/new', MODAL), wz_step.(EXCHANGE_NEW), wz_step.(EXCHANGE_NEW, {}), order.('asset_first'), wz_step.(ASSETS_NEW),
-          wz_step.("/de#{ASSETS_NEW}")
-        ) },
-        'wizard_stocks_inactive_member' => { 'user' => owner, 'extra_users' => [owner('email' => 'second@example.com', 'admin' => false)],
-                                             'steps' => [get('/login'), login(email: 'second@example.com'), chooser.('/bots/new', MODAL),
-                                                         wz_step.(EXCHANGE_NEW), order.('asset_first'), wz_step.("/pl#{ASSETS_NEW}")] }
+        ), 'venue_keys' => { 'kraken' => 'incorrect' })
       }
     end
 

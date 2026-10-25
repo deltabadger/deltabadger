@@ -9,7 +9,7 @@
 //! adapter, so it does not fit; a refused venue is left out instead, and one sent anyway is refused by name at its key step.
 use super::exchanges::{ordered, Table, Venue as Tile};
 use super::keys::{self, FullPage};
-use super::{chips, dig, exchange_id, expired, progress_bar, step_complete, stock_notice, Chip, Step};
+use super::{chips, dig, exchange_id, expired, progress_bar, step_complete, Chip, Step};
 use crate::engine::{eligibility, model};
 use crate::ruby::BigDec;
 use crate::web::bot::search::{self, AssetPage, Basket, Item, Side};
@@ -115,7 +115,7 @@ struct PickAsset<'a> {
     field_name: &'static str,
     items: Vec<Item>,
     next: Option<(String, String)>,
-    notice: Option<String>,
+    base_step: bool,
 }
 
 /// One side of the asset steps: the base (any venue, the quote if one is chosen) or the quote (the chosen venue and base).
@@ -126,7 +126,7 @@ const QUOTE_STEP: AssetStep = AssetStep { side: Side::Quote, step: "spendable", 
 
 /// `prepare_step` and the page (Bots::Searchable#asset_search_results over Bot::AssetConfigurable#offered_tickers, the step's
 /// own asset cleared), or (`render_asset_page`, a lazy frame asking for `offset`) one page of results.
-fn asset_page(c: &Connection, app: &App, ctx: &Ctx, admin: bool, config: Option<&Value>, at: &AssetStep, partial_allowed: bool) -> Result<(String, bool), WebError> {
+fn asset_page(c: &Connection, ctx: &Ctx, config: Option<&Value>, at: &AssetStep, partial_allowed: bool) -> Result<(String, bool), WebError> {
     let scope = match at.side {
         Side::Base => Basket { exchange_id: None, quote_asset_id: quote_id(config), base_asset_ids: vec![] },
         Side::Quote => Basket { exchange_id: exchange_id(config), quote_asset_id: None, base_asset_ids: base_id(config).into_iter().collect() },
@@ -149,26 +149,24 @@ fn asset_page(c: &Connection, app: &App, ctx: &Ctx, admin: bool, config: Option<
     let quote = at.side == Side::Quote;
     let content = PickAsset {
         progress: progress(ctx, at.step)?, sentence: sentence(c, ctx, config, quote, quote, Some(("asset-picker", at.search)))?, create_url: ctx.path(at.create),
-        csrf: &csrf, field_name: at.field, items, next,
-        // The notice reads the bot with its venue cleared (prepare_step), so it never counts one as chosen.
-        notice: if quote { None } else { Some(stock_notice(c, app, ctx, admin, false)?) },
+        csrf: &csrf, field_name: at.field, items, next, base_step: !quote,
     }.render()?;
     Ok((FullPage { close_url: ctx.path("/bots"), content: &content }.render()?, false))
 }
 
 /// A step page through the layout, its content made on the database thread; a lazy page of results bare.
 async fn render<F>(app: &App, ctx: &Ctx, status: StatusCode, content: F) -> Result<Response, WebError>
-where F: FnOnce(&Connection, &App, &Ctx, bool) -> Result<(String, bool), WebError> + Send + 'static {
+where F: FnOnce(&Connection, &Ctx) -> Result<(String, bool), WebError> + Send + 'static {
     let user = ctx.user().cloned().ok_or_else(|| WebError::Config("a signal wizard step without a user".into()))?;
     let (inner, view, owner) = (app.clone(), ctx.clone(), user.clone());
-    let ((body, partial), shell) = app.db(move |c| Ok((content(c, &inner, &view, owner.admin)?, Shell::load(c, &inner, &owner)?))).await?;
+    let ((body, partial), shell) = app.db(move |c| Ok((content(c, &view)?, Shell::load(c, &inner, &owner)?))).await?;
     if partial { return Ok(([(header::CONTENT_TYPE, "text/html; charset=utf-8")], body).into_response()) }
     shell::application(ctx, &ctx.csrf_token(), &user, &shell, Page { status, body, flash_now: vec![] })
 }
 
 async fn assets_render(app: &App, ctx: &Ctx, status: StatusCode, at: &'static AssetStep, partial_allowed: bool) -> Result<Response, WebError> {
     let config = ctx.session.lock().bot_config.clone();
-    render(app, ctx, status, move |c, app, ctx, admin| asset_page(c, app, ctx, admin, config.as_ref(), at, partial_allowed)).await
+    render(app, ctx, status, move |c, ctx| asset_page(c, ctx, config.as_ref(), at, partial_allowed)).await
 }
 
 fn redirect(ctx: &Ctx, path: &str) -> Response { layout::redirect(StatusCode::FOUND, &ctx.path(path)) }
@@ -209,7 +207,7 @@ fn exchange_page(c: &Connection, ctx: &Ctx, config: Option<&Value>) -> Result<(S
 
 async fn exchange_render(app: &App, ctx: &Ctx, status: StatusCode) -> Result<Response, WebError> {
     let config = ctx.session.lock().bot_config.clone();
-    render(app, ctx, status, move |c, _, ctx, _| exchange_page(c, ctx, config.as_ref())).await
+    render(app, ctx, status, move |c, ctx| exchange_page(c, ctx, config.as_ref())).await
 }
 
 /// GET .../pick_exchange/new: no asset yet, the asset step.
@@ -349,7 +347,7 @@ pub async fn confirm_new(State(app): State<App>, Extension(ctx): Extension<Ctx>)
         if matches!(config.get("signals"), None | Some(Value::Null | Value::Bool(false))) { config.insert("signals".into(), json!([default_rule()])); }
         data.bot_config.clone()
     };
-    render(&app, &ctx, StatusCode::OK, move |c, _, ctx, _| {
+    render(&app, &ctx, StatusCode::OK, move |c, ctx| {
         let rules = rules(&session_rules(config.as_ref())?)?;
         let venue = sentence_venue(&keys::venue(c, exchange_id(config.as_ref()))?.ok_or_else(|| missing("exchange"))?);
         let csrf = ctx.csrf_token();
