@@ -175,24 +175,49 @@ fn a_pending_market_order_shows_setting_orders_until_it_is_final() {
 }
 
 /// Slice 7s: the page's status-line request (conditions::want_info, as BroadcastsController#price_limit_info_update leaves it)
-/// is served by the engine's pass on a stopped bot, announced with the request's locale, and rendered into the price rule's
-/// line; the request is gone once served.
+/// is served by the engine's pass on a stopped bot, announced with the request's locale and side, and rendered into the price
+/// rule's line; the request is gone once served, and the bot's trading state is untouched (D-INFO-READONLY).
 #[tokio::test(flavor = "current_thread")]
 async fn the_engine_serves_the_price_status_line_and_the_page_hears_it() {
     use deltabadger::engine::conditions;
     let r = Rig::new(&BotSpec { status: deltabadger::enums::BotStatus::Stopped as i64, ..BotSpec::weekly(60.0, "2026-09-01 10:00:00") }
         .with("price_limited", json!(true)).with("price_limit", json!(70000)).with("price_limit_value_condition", json!("below")));
-    assert!(conditions::want_info(&r.c(), r.id, Some(r.s.user_id), conditions::PRICE, "de").unwrap());
+    assert!(conditions::want_info(&r.c(), r.id, Some(r.s.user_id), conditions::PRICE, None, "de").unwrap());
     let t = script(json!({ "GET /v1beta3/crypto/us/latest/trades": [ok(json!({ "trades": { "BTC/USD": { "p": 64000.5 } } }))] }));
     let mut e = r.engine(&t, "2026-09-02T10:00:00Z");
     let mut rx = e.subscribe_to(EngineEvent::is_live);
     run::step(&mut e, &FixedClock(at("2026-09-02T10:00:00Z"))).await.unwrap();
-    let event = EngineEvent::ConditionInfo { bot_id: r.id, rule: conditions::PRICE, locale: Some("de".into()) };
+    let event = EngineEvent::ConditionInfo { bot_id: r.id, rule: conditions::PRICE, side: conditions::BUYING, locale: Some("de".into()) };
     assert!(heard(&mut rx).contains(&event), "announced");
     let bot = deltabadger::engine::model::load_bot(&r.c(), r.id).unwrap();
     assert!(bot.transient.get(conditions::INFO_WANTED_KEY).is_none(), "served: {}", bot.transient);
-    assert!(bot.transient["price_limit_condition_met_at"].is_string(), "Q1: the page view stamped met_at");
+    assert!(bot.transient.get("price_limit_condition_met_at").is_none(), "D-INFO-READONLY: the page view stamps nothing: {}", bot.transient);
     let shown = r.render(&event);
     assert_eq!(shape(&shown), [("replace".to_string(), "settings-price-limit-info".to_string())]);
     assert!(shown[0].1.contains("text-success") && shown[0].1.contains("64000.5"), "{}", shown[0].1);
+}
+
+/// D-INFO-SIDE: each side's line has its own element. The active side's is Rails' `settings-price-limit-info`; a signal bot's
+/// sell group is `settings-sell-price-limit-info`; a basket's other side has no line on its page, so nothing is rendered.
+#[test]
+fn each_sides_status_line_renders_into_its_own_element() {
+    use deltabadger::engine::conditions::{self, BUYING, SELLING};
+    let info = |met: bool| json!({ "base": "BTC", "quote": "USD", "price": "64000.5", "condition_met": met, "expires_us": i64::MAX });
+    let cached = json!({ conditions::INFO_KEY: { "price_limit": { "buying": info(true), "selling": info(false) } } });
+    let rules = || BotSpec::weekly(60.0, "2026-09-01 10:00:00").with("price_limited", json!(true)).with("sell_price_limited", json!(true));
+    let r = Rig::new(&BotSpec { transient: cached.clone(), ..rules() });
+    let c = r.c();
+    c.execute("INSERT INTO bots (type, status, exchange_id, user_id, settings, transient_data, started_at, created_at, updated_at) \
+               VALUES ('Bots::Signal', 1, ?1, ?2, ?3, ?4, '2026-08-25 09:00:00', '2026-08-25 09:00:00', '2026-08-25 09:00:00')",
+              rusqlite::params![r.s.exchange_id, r.s.user_id, json!({ "base_asset_id": r.s.btc, "quote_asset_id": r.s.quote, "price_limited": true, "sell_price_limited": true }).to_string(),
+                                cached.to_string()]).unwrap();
+    let signal = c.last_insert_rowid();
+    let event = |bot_id: i64, side: &'static str| EngineEvent::ConditionInfo { bot_id, rule: conditions::PRICE, side, locale: None };
+    let target = |bot_id: i64, side: &'static str| shape(&r.render(&event(bot_id, side))).into_iter().map(|(_, t)| t).collect::<Vec<_>>();
+    assert_eq!(target(signal, BUYING), ["settings-price-limit-info"]);
+    assert_eq!(target(signal, SELLING), ["settings-sell-price-limit-info"]);
+    let sell = r.render(&event(signal, SELLING));
+    assert!(sell[0].1.contains("id=\"settings-sell-price-limit-info\"") && !sell[0].1.contains("text-success"), "{}", sell[0].1);
+    assert_eq!(target(r.id, BUYING), ["settings-price-limit-info"], "a buying basket's own line");
+    assert!(target(r.id, SELLING).is_empty(), "a buying basket shows no sell line");
 }

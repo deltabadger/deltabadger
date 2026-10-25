@@ -587,7 +587,7 @@ async fn run_condition_infos<F: VenueFactory>(e: &mut Engine<F>, unreadable: &[(
             Err(err) => Err(err),
         };
         match result {
-            Ok(Some(_)) => e.events.send(EngineEvent::ConditionInfo { bot_id: id, rule: PRICE, locale: claim.locale.clone() }),
+            Ok(Some(_)) => e.events.send(EngineEvent::ConditionInfo { bot_id: id, rule: PRICE, side: claim.side, locale: claim.locale.clone() }),
             Ok(None) => {}
             Err(err @ (EngineError::Lease(_) | EngineError::Store(_))) => return Err(err),
             // Changed since the claim: served again, on the bot as it is now.
@@ -595,7 +595,7 @@ async fn run_condition_infos<F: VenueFactory>(e: &mut Engine<F>, unreadable: &[(
             Err(err) => {
                 super::log(&format!("[engine] bot {id}: its price status line could not be computed: {err:?}"));
                 let tx = model::immediate(&e.primary)?;
-                conditions::ack_info(&tx, id, PRICE, claim.version)?;
+                conditions::ack_info(&tx, id, PRICE, claim.side, claim.version)?;
                 tx.commit()?;
             }
         }
@@ -749,7 +749,7 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
         if at > now_us { *wake = (*wake).min(at); return Ok(()); }
         let info_before = info_marker(&e.primary, id)?;
         let checked = super::conditions::check(&e.primary, &venue, &bot, clock, &e.prices, &credential_version).await;
-        if info_marker(&e.primary, id)? != info_before { e.events.send(EngineEvent::ConditionInfo { bot_id: id, rule: super::conditions::PRICE, locale: None }); }
+        if info_marker(&e.primary, id)? != info_before { e.events.send(EngineEvent::ConditionInfo { bot_id: id, rule: super::conditions::PRICE, side: super::conditions::side_of(bot.selling()), locale: None }); }
         match checked {
             Ok(super::conditions::Checked::Rearmed) => { e.condition_at.remove(&id); bot = model::load_bot(&e.primary, id)?; }
             Ok(super::conditions::Checked::Next(next)) => { e.condition_at.insert(id, next.timestamp_micros()); *wake = (*wake).min(next.timestamp_micros()); return Ok(()); }
@@ -860,7 +860,7 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
         for tx in written_since(&e.primary, &waiting).unwrap_or_default() { e.events.send(EngineEvent::OrderWritten { bot_id: id, transaction_id: tx }); } // allow-swallow: what the page hears is display only; the tick's own outcome follows
         // After its rows are announced, so the page shows the failed order its status bar names.
         e.events.send(EngineEvent::TickEnded { bot_id: id });
-        if info_marker(&e.primary, id)? != info_before { e.events.send(EngineEvent::ConditionInfo { bot_id: id, rule: super::conditions::PRICE, locale: None }); }
+        if info_marker(&e.primary, id)? != info_before { e.events.send(EngineEvent::ConditionInfo { bot_id: id, rule: super::conditions::PRICE, side: super::conditions::side_of(bot.selling()), locale: None }); }
         let outcome = ticked?;
         e.run_keys.insert(id, bot.run_identity()?);
         committed?;

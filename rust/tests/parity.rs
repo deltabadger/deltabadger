@@ -1855,7 +1855,12 @@ async fn rails_and_rust_show_the_price_status_line_identically() {
         let rails_out: Value = serde_json::from_str(&std::fs::read_to_string(d.join("rails.json")).unwrap()).unwrap();
         let rust_out = deltabadger::parity::decide(&rust_root.path().join(&name)).await.unwrap();
         let rails_out = r5_cleanup_expected(&rails_out, &rust_out);
-        if rails_out != rust_out { failures.push(format!("{name}\n  rails: {rails_out}\n  rust:  {rust_out}")); }
+        // D-INFO-READONLY (audit #5): Rails' job stamps or clears met_at and captures the carry; Rust's never changes trading
+        // state. Rails' rows with those writes taken back must equal Rust's, every other column, row, line and payload included.
+        let (expected, wrote) = info_writes_taken_back(&rails_out);
+        let writes = ["cold_met", "clear", "carry_held", "warm", "flip"].iter().any(|c| name.ends_with(&format!("-{c}")));
+        if wrote != writes { failures.push(format!("{name}: Rails' info job wrote {wrote}, the D-INFO-READONLY cells expect {writes}\n  rails: {rails_out}")); }
+        if expected != rust_out { failures.push(format!("{name}\n  rails: {expected}\n  rust:  {rust_out}")); }
         // Pin what Rails shows, so that two silent sides cannot pass.
         let case = name.rsplit('-').next().unwrap();
         let shown: Vec<usize> = rails_out["infos"].as_array().unwrap().iter().map(|p| p.as_array().unwrap().len()).collect();
@@ -1875,6 +1880,31 @@ async fn rails_and_rust_show_the_price_status_line_identically() {
         if !ok { failures.push(format!("{name}: Rails did not show what the case pins\n  rails: {rails_out}")); }
     }
     assert!(failures.is_empty(), "{} of {} status-line scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));
+}
+
+/// D-INFO-READONLY: Rails' recording with its info job's trading-state writes taken back — every `*_condition_met_at`, the
+/// carry (`missed_quote_amount`), its marker and the `updated_at` those writes touch restored to the row's before — and
+/// whether there were any. A bot row left unchanged drops out of `changes`, as an unwritten row never enters it.
+fn info_writes_taken_back(rails: &serde_json::Value) -> (serde_json::Value, bool) {
+    let mut out = rails.clone();
+    let mut wrote = false;
+    let rows = out["changes"]["bots"].as_array().cloned().unwrap_or_default();
+    let kept: Vec<serde_json::Value> = rows.into_iter().filter_map(|mut row| {
+        let before = row["before"].clone();
+        let keys: Vec<String> = row["after"]["transient_data"].as_object().into_iter().flatten().map(|(k, _)| k.clone())
+            .chain(before["transient_data"].as_object().into_iter().flatten().map(|(k, _)| k.clone()))
+            .filter(|k| k.ends_with("_condition_met_at") || k == "missed_quote_amount" || k == "missed_quote_amount_was_set").collect();
+        for k in keys {
+            let was = before["transient_data"].get(&k).cloned();
+            let after = row["after"]["transient_data"].as_object_mut().unwrap();
+            if after.get(&k) != was.as_ref() { wrote = true; }
+            match was { Some(v) => { after.insert(k, v); } None => { after.remove(&k); } }
+        }
+        if row["after"] != before { row["after"]["updated_at"] = before["updated_at"].clone(); }
+        (row["after"] != before).then_some(row)
+    }).collect();
+    if !out["changes"]["bots"].is_null() { out["changes"]["bots"] = serde_json::Value::Array(kept); }
+    (out, wrote)
 }
 
 /// Slice 7b-0, Rails only: Rust admits no RSI, moving-average or price-drop rule until 7b-3, which turns this into a

@@ -569,7 +569,7 @@ async fn price_gate<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &mode
     use super::conditions::{self, Evaluated};
     // model::Bot::price_rule reads only a rule this build runs (conditions::support): the `pause` action.
     let rules = venue.rules();
-    Ok(match conditions::evaluate(c, venue, bot, clock, cx.prices, &cx.credential_version, conditions::Fence::Run).await? {
+    Ok(match conditions::evaluate(c, venue, bot, clock, cx.prices, &cx.credential_version).await? {
         Evaluated::Off => Gated::Pass(None),
         Evaluated::Met { refreshed } => Gated::Pass(refreshed),
         Evaluated::Unmet | Evaluated::Unavailable => Gated::Pause,

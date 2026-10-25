@@ -540,14 +540,13 @@ async fn play<V: Venue>(o: &Opened, venue: &V, scenario: &Value, bot_id: i64, st
         }
         let when: DateTime<Utc> = phase["at"].as_str().and_then(|s| s.parse().ok()).ok_or_else(|| EngineError::Data(format!("scenario.info: {phase}")))?;
         use crate::engine::conditions;
-        conditions::want_info(&o.primary, bot_id, None, conditions::PRICE, "en")?;
+        conditions::want_info(&o.primary, bot_id, None, conditions::PRICE, None, "en")?;
         let mut shown = vec![];
         for claim in conditions::info_claims(&o.primary, conditions::PRICE)?.into_iter().filter(|c| c.bot.id == bot_id) {
             if conditions::info(&o.primary, venue, &claim, &FixedClock(when), &prices, &cx.credential_version).await?.is_some() {
                 let bot = model::load_bot(&o.primary, bot_id)?;
-                let side = if bot.selling() { "selling" } else { "buying" };
-                let info = &bot.transient[conditions::INFO_KEY][conditions::PRICE][side];
-                let html = crate::web::bot::settings::price_limit_info("en", info);
+                let info = &bot.transient[conditions::INFO_KEY][conditions::PRICE][claim.side];
+                let html = crate::web::bot::settings::price_limit_info("en", info, "settings-price-limit-info");
                 shown.push(json!({ "target": "settings-price-limit-info", "html": html.lines().map(str::trim).filter(|l| !l.is_empty()).collect::<Vec<_>>().join("\n") }));
             }
         }

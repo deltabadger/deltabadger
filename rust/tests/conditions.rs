@@ -156,10 +156,10 @@ async fn the_checks_writes_take_the_time_the_price_arrived() {
     }
 }
 
-// ---- Slice 7s: the price rule's status line (Bot::BroadcastPriceLimitInfoUpdateJob) --------------------------------------
+// ---- Slice 7s / CE-INFO: the price rule's status line (Bot::BroadcastPriceLimitInfoUpdateJob) ----------------------------
 
-/// A request as the web leaves it (broadcasts::info_update's statement).
-fn want(c: &rusqlite::Connection, id: i64) { assert!(conditions::want_info(c, id, None, conditions::PRICE, "en").unwrap()); }
+/// A request as the web leaves it (broadcasts::info_update's statement), for the active side.
+fn want(c: &rusqlite::Connection, id: i64) { assert!(conditions::want_info(c, id, None, conditions::PRICE, None, "en").unwrap()); }
 
 /// A stopped basket with its buy-side price rule (below `limit`).
 fn stopped_rule(o: &deltabadger::store::Opened, s: &seed::Seeded, limit: f64, f: impl FnOnce(BotSpec) -> BotSpec) -> i64 {
@@ -176,12 +176,33 @@ async fn serve(o: &deltabadger::store::Opened, venue: &FakeVenue, at: &str, pric
     out
 }
 
-/// Q1: the info job evaluates the rule with its writes on a stopped bot, stores the info for 20 s and serves the request;
-/// a request 10 s on still evaluates (here: unmet, met_at cleared, the carry captured) but shows the kept info, expiry included.
+/// Every row of `sql` (bound to `id`), each column as SQLite holds it.
+fn rows(c: &rusqlite::Connection, sql: &str, id: i64) -> Vec<Vec<String>> {
+    let mut s = c.prepare(sql).unwrap();
+    let n = s.column_count();
+    s.query_map([id], |r| Ok((0..n).map(|i| format!("{:?}", r.get_ref(i).unwrap())).collect())).unwrap().map(Result::unwrap).collect()
+}
+
+/// D-INFO-READONLY: the bot's trading state — every column (settings, status, started_at, stopped_at, settings_changed_at,
+/// updated_at, …) and every transient_data key (last_action_job_at, every met_at, the carry and its marker) but the status
+/// line's own two (`INFO_KEY`, the cache; `INFO_WANTED_KEY`, the request) — and its transactions and activity lines.
+fn trading_state(c: &rusqlite::Connection, id: i64) -> Vec<Vec<Vec<String>>> {
+    let bot = format!("SELECT json_remove(transient_data, '$.{}', '$.{}'), * FROM bots WHERE id = ?1", conditions::INFO_KEY, conditions::INFO_WANTED_KEY);
+    let mut bot = rows(c, &bot, id);
+    let names: Vec<String> = c.prepare("SELECT * FROM bots").unwrap().column_names().iter().map(|n| n.to_string()).collect();
+    let raw = 1 + names.iter().position(|n| n == "transient_data").unwrap();
+    bot[0].remove(raw);
+    vec![bot, rows(c, "SELECT * FROM transactions WHERE bot_id = ?1 ORDER BY id", id), rows(c, "SELECT * FROM bot_activity_logs WHERE bot_id = ?1 ORDER BY id", id)]
+}
+
+/// D-INFO-READONLY (audit #5): the info job on a stopped bot answers met without stamping met_at, keeps its info for 20 s and
+/// serves the request; 10 s on, at an unmet price, the kept info is shown and nothing is cleared; 25 s on it is computed again.
+/// Only the two status-line keys ever change.
 #[tokio::test(flavor = "current_thread")]
-async fn the_status_line_evaluates_with_rails_writes_and_keeps_its_info_for_20_seconds() {
+async fn the_status_line_never_changes_trading_state_and_keeps_its_info_for_20_seconds() {
     let (_d, o, s) = common::install();
     let id = stopped_rule(&o, &s, 60_000.0, |b| b);
+    let before = trading_state(&o.primary, id);
     want(&o.primary, id);
     let venue = FakeVenue::new();
     venue.script("/0/public/Ticker", kraken_body("49995.3"));
@@ -189,50 +210,96 @@ async fn the_status_line_evaluates_with_rails_writes_and_keeps_its_info_for_20_s
     let info = first[0].as_ref().unwrap().clone().expect("an info");
     assert_eq!((info["base"].clone(), info["condition_met"].clone()), (json!("BTC"), json!(true)), "{info}");
     let after = model::load_bot(&o.primary, id).unwrap();
-    assert_eq!(after.transient["price_limit_condition_met_at"], json!("2026-09-02T10:00:00.000Z"), "the page view stamps met_at");
+    assert!(after.transient.get("price_limit_condition_met_at").is_none(), "the page view stamps nothing: {}", after.transient);
     assert!(after.transient.get(conditions::INFO_WANTED_KEY).is_none(), "served: {}", after.transient);
-    assert_eq!(after.status, BotStatus::Stopped);
+    assert_eq!(trading_state(&o.primary, id), before);
 
     want(&o.primary, id);
     let venue = FakeVenue::new();
     venue.script("/0/public/Ticker", kraken_body("60100"));
     let second = serve(&o, &venue, "2026-09-02T10:00:10Z", &PriceCache::default()).await;
     assert_eq!(second[0].as_ref().unwrap().as_ref(), Some(&info), "the kept info, its expiry too");
-    let after = model::load_bot(&o.primary, id).unwrap();
-    assert!(after.transient["price_limit_condition_met_at"].is_null(), "still evaluated: met_at cleared {}", after.transient);
-    assert_eq!(after.transient["missed_quote_amount_was_set"], json!(true), "the capture landed (the window moved)");
+    assert_eq!(trading_state(&o.primary, id), before);
 
     want(&o.primary, id);
     let third = serve(&o, &venue, "2026-09-02T10:00:25Z", &PriceCache::default()).await;
     assert_eq!(third[0].as_ref().unwrap().as_ref().map(|i| i["condition_met"].clone()), Some(json!(false)), "expired: computed again");
+    assert_eq!(trading_state(&o.primary, id), before);
 }
 
-/// accountable.rb:119-127 (r3): a clear that leaves the carry window where it was — another enabled rule's met_at is nil, so
-/// the decorated started_at was nil already — takes the capture back: the carry as stored and the marker nil. Without the
-/// other rule the capture lands.
+/// D-INFO-READONLY: a stored met_at at an unmet price is neither cleared nor its carry captured (Rails' job does both, or takes
+/// the capture back when another rule holds the window); an `after` rule with a stored met_at answers met at any price.
 #[tokio::test(flavor = "current_thread")]
-async fn a_clear_that_leaves_the_window_unmoved_restores_the_carry_and_clears_the_marker() {
+async fn a_stored_met_at_is_judged_without_a_clear_or_a_capture() {
     let (_d, o, s) = common::install();
     let stored = |b: BotSpec| b.transient("price_limit_condition_met_at", json!("2026-09-01T12:00:00.000Z")).transient("missed_quote_amount", json!("30"))
         .transient("missed_quote_amount_was_set", json!(true));
     let held = stopped_rule(&o, &s, 40_000.0, |b| stored(b).with("price_drop_limited", json!(true)).with("price_drop_limit", json!(0.2)));
     let alone = stopped_rule(&o, &s, 40_000.0, stored);
-    for id in [held, alone] { want(&o.primary, id); }
+    let after = stopped_rule(&o, &s, 40_000.0, |b| stored(b).with("price_limit_timing_condition", json!("after")));
+    let before: Vec<_> = [held, alone, after].iter().map(|id| trading_state(&o.primary, *id)).collect();
+    for id in [held, alone, after] { want(&o.primary, id); }
     let venue = FakeVenue::new();
     venue.script("/0/public/Ticker", kraken_body("49995.3"));
     let out = serve(&o, &venue, "2026-09-02T10:00:00Z", &PriceCache::default()).await;
-    assert!(out.iter().all(|r| r.as_ref().is_ok_and(|i| i.as_ref().is_some_and(|i| i["condition_met"] == json!(false)))), "{out:?}");
-    let held = model::load_bot(&o.primary, held).unwrap();
-    assert!(held.transient["price_limit_condition_met_at"].is_null());
-    assert_eq!(held.transient["missed_quote_amount"], json!("30"), "the carry as stored: {}", held.transient);
-    assert!(held.transient.get("missed_quote_amount_was_set").is_some_and(Value::is_null), "the marker nil: {}", held.transient);
-    let alone = model::load_bot(&o.primary, alone).unwrap();
-    assert!(alone.transient["price_limit_condition_met_at"].is_null());
-    assert_eq!(alone.transient["missed_quote_amount_was_set"], json!(true), "the capture lands: {}", alone.transient);
+    let met: Vec<Value> = out.iter().map(|r| r.as_ref().unwrap().as_ref().unwrap()["condition_met"].clone()).collect();
+    assert_eq!(met, [json!(false), json!(false), json!(true)], "{out:?}");
+    let now: Vec<_> = [held, alone, after].iter().map(|id| trading_state(&o.primary, *id)).collect();
+    assert_eq!(now, before);
+}
+
+/// D-INFO-SIDE: both sides requested at once are claimed and served each on its own side's rule, cached under its side; a
+/// request with no side is the active side's. Trading state is untouched.
+#[tokio::test(flavor = "current_thread")]
+async fn both_sides_requested_at_once_are_served_each_on_its_own_rule() {
+    let (_d, o, s) = common::install();
+    let id = stopped_rule(&o, &s, 60_000.0, |b| b.with("sell_price_limited", json!(true)).with("sell_price_limit", json!(55_000)).with("sell_price_limit_value_condition", json!("above")));
+    let before = trading_state(&o.primary, id);
+    assert!(conditions::want_info(&o.primary, id, None, conditions::PRICE, Some(conditions::SELLING), "en").unwrap());
+    want(&o.primary, id);
+    let wanted = model::load_bot(&o.primary, id).unwrap().transient[conditions::INFO_WANTED_KEY].clone();
+    assert_eq!(wanted, json!({ "price_limit": { "selling": { "version": 1, "locale": "en" }, "buying": { "version": 1, "locale": "en" } } }));
+    let claims = conditions::info_claims(&o.primary, conditions::PRICE).unwrap();
+    assert_eq!(claims.iter().map(|c| c.side).collect::<Vec<_>>(), [conditions::BUYING, conditions::SELLING]);
+    let venue = FakeVenue::new();
+    venue.script("/0/public/Ticker", kraken_body("49995.3"));
+    let out = serve(&o, &venue, "2026-09-02T10:00:00Z", &PriceCache::default()).await;
+    assert!(out.iter().all(|r| r.as_ref().is_ok_and(Option::is_some)), "{out:?}");
+    let bot = model::load_bot(&o.primary, id).unwrap();
+    let cached = &bot.transient[conditions::INFO_KEY][conditions::PRICE];
+    assert_eq!((cached["buying"]["condition_met"].clone(), cached["selling"]["condition_met"].clone()), (json!(true), json!(false)), "{cached}");
+    assert!(bot.transient.get(conditions::INFO_WANTED_KEY).is_none(), "both served: {}", bot.transient);
+    assert_eq!(trading_state(&o.primary, id), before);
+}
+
+/// D-INFO-READONLY, the sequence: a stopped bot viewed at an unmet price (where Rails clears its met_at and captures the
+/// carry), then restarted and ticked at a met price, trades exactly as its twin that nobody viewed.
+#[tokio::test(flavor = "current_thread")]
+async fn a_stopped_page_view_changes_nothing_the_restart_and_tick_read() {
+    let (_d, o, s) = common::install();
+    let twin = |b: BotSpec| b.transient("price_limit_condition_met_at", json!("2026-09-01T12:00:00.000Z")).transient("missed_quote_amount", json!("30"));
+    let (viewed, unviewed) = (stopped_rule(&o, &s, 60_000.0, twin), stopped_rule(&o, &s, 60_000.0, twin));
+    want(&o.primary, viewed);
+    let venue = FakeVenue::new();
+    venue.script("/0/public/Ticker", kraken_body("60100"));
+    let out = serve(&o, &venue, "2026-09-05T10:00:00Z", &PriceCache::default()).await;
+    assert_eq!(out[0].as_ref().unwrap().as_ref().unwrap()["condition_met"], json!(false), "{out:?}");
+    let mut sent = vec![];
+    for id in [viewed, unviewed] {
+        o.primary.execute("UPDATE bots SET status = ?1 WHERE id = ?2", [BotStatus::Scheduled as i64, id]).unwrap();
+        let v = FakeVenue::new().ticker("XXBTZEUR", "49990.1", "50000.0", "49995.0").balance_body("ZEUR", "100000", "0");
+        let ticked = deltabadger::engine::tick::tick(&o.primary, &v, id, &FixedClock("2026-09-08T10:00:00.5Z".parse().unwrap()), &mut Default::default()).await.unwrap();
+        let bot = model::load_bot(&o.primary, id).unwrap();
+        let mut transient = bot.transient.clone();
+        for k in [conditions::INFO_KEY, conditions::INFO_WANTED_KEY] { transient.as_object_mut().unwrap().remove(k); }
+        sent.push((format!("{ticked:?}").replace(&id.to_string(), "<id>"), format!("{:?}", v.sent().iter().map(|o| format!("{:?} {:?} {}", o.side, o.kind, o.volume)).collect::<Vec<_>>()), transient));
+    }
+    assert_ne!(sent[0].1, "[]", "the restarted bot trades: {sent:?}");
+    assert_eq!(sent[0], sent[1], "viewed and unviewed twins trade alike");
 }
 
 /// The claim is a version: a request that arrives while the price read is out survives the serve, and a settings change
-/// during the read discards the run (no met_at, no info) and keeps the request.
+/// during the read discards the run (no info) and keeps the request.
 #[tokio::test(flavor = "current_thread")]
 async fn a_newer_request_survives_and_a_settings_change_discards_the_run() {
     let (d, o, s) = common::install();
@@ -245,7 +312,7 @@ async fn a_newer_request_survives_and_a_settings_change_discards_the_run() {
     let out = serve(&o, &venue, "2026-09-02T10:00:00Z", &PriceCache::default()).await;
     assert!(out[0].as_ref().is_ok_and(Option::is_some), "{out:?}");
     let after = model::load_bot(&o.primary, id).unwrap();
-    assert_eq!(after.transient[conditions::INFO_WANTED_KEY]["price_limit"]["version"], json!(2), "the newer request stays: {}", after.transient);
+    assert_eq!(after.transient[conditions::INFO_WANTED_KEY]["price_limit"]["buying"]["version"], json!(2), "the newer request stays: {}", after.transient);
 
     let other = stopped_rule(&o, &s, 60_000.0, |b| b);
     o.primary.execute("UPDATE bots SET transient_data = json_remove(transient_data, '$.rust_condition_info_wanted') WHERE id = ?1", [id]).unwrap();
@@ -258,7 +325,7 @@ async fn a_newer_request_survives_and_a_settings_change_discards_the_run() {
     let out = serve(&o, &venue, "2026-09-02T10:00:00Z", &PriceCache::default()).await;
     assert!(matches!(out[0], Err(EngineError::RunFenced)), "{out:?}");
     let after = model::load_bot(&o.primary, other).unwrap();
-    assert!(after.transient.get("price_limit_condition_met_at").is_none(), "no stamp for a rule that changed: {}", after.transient);
+    assert!(after.transient.get("price_limit_condition_met_at").is_none(), "no stamp: {}", after.transient);
     assert!(after.transient.get(conditions::INFO_KEY).is_none());
     assert!(after.transient.get(conditions::INFO_WANTED_KEY).is_some(), "the request stays for the bot as it is now");
 }

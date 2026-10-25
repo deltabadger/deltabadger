@@ -151,36 +151,6 @@ fn rule_ticker_quoted(c: &Connection, bot: &Bot, rule: &PriceRule) -> Result<(Op
     Ok((id.and_then(|id| tickers.into_iter().find(|t| t.id == id)), decimals))
 }
 
-/// How a condition's writes are fenced to what read it.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum Fence {
-    /// The tick's or the check's own run (model::run_credential_write).
-    Run,
-    /// The status line's info job (Bot::BroadcastPriceLimitInfoUpdateJob), which runs on any status, a stopped or deleted bot
-    /// included: the write lands only while the bot is configured as it was read (`config`), under the key that read the price.
-    Config,
-}
-
-/// What a condition decision was read from: the class, venue, settings (direction included), the carry window's two marks,
-/// every rule's met_at and the carry. A write fenced by `Fence::Config` lands only while this is unchanged.
-fn config(b: &Bot) -> Result<Value, EngineError> {
-    let kept: serde_json::Map<String, Value> = b.transient.as_object().into_iter().flatten()
-        .filter(|(k, _)| k.ends_with("_condition_met_at") || k.as_str() == "missed_quote_amount" || k.as_str() == "missed_quote_amount_was_set")
-        .map(|(k, v)| (k.clone(), v.clone())).collect();
-    Ok(json!([b.bot_type, b.exchange_id, b.settings, b.started_at_us()?, b.settings_changed_at_us()?, kept]))
-}
-
-fn fenced_write<T>(c: &Connection, bot: &Bot, origin: &Option<model::CredentialVersion>, fence: Fence,
-                   work: impl FnOnce(&model::FencedTransaction<'_>) -> Result<T, EngineError>) -> Result<T, EngineError> {
-    match fence {
-        Fence::Run => model::run_credential_write(c, bot, origin, work),
-        Fence::Config => model::credential_write(c, origin, |tx| {
-            if config(&model::load_bot(tx, bot.id)?)? != config(bot)? { return Err(EngineError::RunFenced); }
-            work(tx)
-        }),
-    }
-}
-
 /// The decorated `started_at` as Rails' chained trigger-rule decorators read it, on the ACTIVE side (`active_*_limited?`,
 /// price_limitable.rb:106-115 and its three siblings): the later of started_at and every enabled rule's met_at, nil while
 /// one of them is nil. accounting::condition_started_at reads the buy side only (7b-3 T6 makes it side-aware).
@@ -209,14 +179,14 @@ async fn last_price<V: Attributed>(venue: &V, bot: &Bot, ticker: &Ticker, now: D
     Ok((p, origin))
 }
 
-/// get_price_limit_condition_met? for the active side, with its two writes, each fenced to what read the price (`fence`):
+/// get_price_limit_condition_met? for the active side, with its two writes, each fenced to the run that read the price:
 /// met for the first time stamps `<prefix>_condition_met_at`; unmet after a met_at captures the carry
 /// (set_missed_quote_amount, capped as QuoteAmountLimitable caps pending_quote_amount) and clears met_at, in one write.
 /// The last price comes through Exchange's 5 s cache, the one the tick's own reference reads. The writes are stamped with
 /// the clock read after the price arrives (Rails' `Time.current` there): a read that crosses an interval checkpoint must
 /// not stamp, or capture the carry at, the instant before it. Each write also broadcasts the status line from inside it, as
 /// Rails does (broadcast_price_limit_info_update: its Rails.cache.fetch, stored in `INFO_KEY`).
-pub async fn evaluate<V: Attributed>(c: &Connection, venue: &V, bot: &Bot, clock: &dyn Clock, prices: &PriceCache, version: &Option<model::CredentialVersion>, fence: Fence) -> Result<Evaluated, EngineError> {
+pub async fn evaluate<V: Attributed>(c: &Connection, venue: &V, bot: &Bot, clock: &dyn Clock, prices: &PriceCache, version: &Option<model::CredentialVersion>) -> Result<Evaluated, EngineError> {
     let now = clock.now();
     let Some(rule) = bot.price_rule(bot.selling()).map_err(EngineError::Data)? else { return Ok(Evaluated::Off) };
     if rule.after && rule.met_at_us.is_some() { return Ok(Evaluated::Met { refreshed: None }); }
@@ -224,10 +194,10 @@ pub async fn evaluate<V: Attributed>(c: &Connection, venue: &V, bot: &Bot, clock
     let (price, origin) = match last_price(venue, bot, &ticker, now, prices, version).await { Ok(read) => read, Err(e) => return Ok(Evaluated::Failed(e)) };
     let now = clock.now();
     let key = format!("{}_condition_met_at", rule.prefix);
-    let side = if bot.selling() { "selling" } else { "buying" };
+    let side = side_of(bot.selling());
     if price_met(&rule, &price)? {
         if rule.met_at_us.is_some() { return Ok(Evaluated::Met { refreshed: None }); }
-        let refreshed = fenced_write(c, bot, &origin, fence, |tx| {
+        let refreshed = model::run_credential_write(c, bot, &origin, |tx| {
             model::update_transient(tx, bot.id, &[(key.as_str(), json!(iso8601_ms(now)))], now)?;
             if let Some(info) = info_value(&ticker, decimals, &price, true) { fetch_info(tx, bot.id, PRICE, side, now, info)?; }
             model::load_bot(tx, bot.id)
@@ -235,7 +205,7 @@ pub async fn evaluate<V: Attributed>(c: &Connection, venue: &V, bot: &Bot, clock
         return Ok(Evaluated::Met { refreshed: Some(Box::new(refreshed)) });
     }
     if rule.met_at_us.is_some() {
-        fenced_write(c, bot, &origin, fence, |tx| {
+        model::run_credential_write(c, bot, &origin, |tx| {
             let current = model::load_bot(tx, bot.id)?;
             if active_started_us(&current)?.is_none() {
                 // Accountable#check_missed_quote_amount_was_set (accountable.rb:119-127): the clear leaves the carry window where it
@@ -259,11 +229,19 @@ pub async fn evaluate<V: Attributed>(c: &Connection, venue: &V, bot: &Bot, clock
 
 /// The price rule's name in the status line's keys and routes.
 pub const PRICE: &str = "price_limit";
+/// A side as the status line's keys name it.
+pub const BUYING: &str = "buying";
+pub const SELLING: &str = "selling";
+/// The side's name: `selling` for the sell side's rule (`sell_*`), else `buying`.
+pub fn side_of(selling: bool) -> &'static str { if selling { SELLING } else { BUYING } }
+/// A side named by a request (`buying`/`selling`); anything else is no side (the active one is meant).
+pub fn side_named(side: &str) -> Option<&'static str> { [BUYING, SELLING].into_iter().find(|s| *s == side) }
 /// D-COND-INFO-STORE: what Rails keeps in Rails.cache under `bot_<id>_<rule>_info_<side>` for 20 s, kept in transient_data
 /// (a Rust-only key, outside the parity snapshots): `{rule: {side: {base, quote, price, condition_met, expires_us}}}`.
 pub const INFO_KEY: &str = "rust_condition_info";
 /// The status line's requests the web left for the engine (BroadcastsController#*_info_update → the info job), Rust-only:
-/// `{rule: {"version": n, "locale": "en"}}`. Each request bumps the version; the engine removes only the version it served.
+/// `{rule: {side: {"version": n, "locale": "en"}}}` (D-INFO-SIDE). Each request bumps its side's version; the engine removes
+/// only the version it served.
 pub const INFO_WANTED_KEY: &str = "rust_condition_info_wanted";
 const INFO_TTL_US: i64 = 20_000_000;
 
@@ -303,34 +281,43 @@ pub fn forget_info(tx: &Connection, bot_id: i64, rule: &str, side: &str) -> Resu
     Ok(())
 }
 
-/// Leaves a status-line request for `rule` (the web's BroadcastsController#*_info_update; `user`: the bot must be theirs). One
-/// statement: the version is bumped atomically, so a request the engine claimed earlier never hides this one. False: no such bot.
-pub fn want_info(c: &Connection, bot_id: i64, user: Option<i64>, rule: &str, locale: &str) -> Result<bool, EngineError> {
+/// Leaves a status-line request for `rule` on `side` (the web's BroadcastsController#*_info_update; `user`: the bot must be
+/// theirs). No side: the bot's active side as it is stored now (Rails' job reads the bot's direction). One statement: the
+/// version is bumped atomically, so a request the engine claimed earlier never hides this one. False: no such bot.
+pub fn want_info(c: &Connection, bot_id: i64, user: Option<i64>, rule: &str, side: Option<&str>, locale: &str) -> Result<bool, EngineError> {
     let k = INFO_WANTED_KEY;
+    let named = side.and_then(side_named);
+    let side = "coalesce(?4, CASE WHEN json_extract(settings, '$.direction') = 'selling' THEN 'selling' ELSE 'buying' END)";
     let n = c.execute(&format!("UPDATE bots SET transient_data = json_set(transient_data, '$.{k}', json_set(coalesce(json_extract(transient_data, '$.{k}'), '{{}}'), \
-                                '$.{rule}', json_object('version', coalesce(json_extract(transient_data, '$.{k}.{rule}.version'), 0) + 1, 'locale', ?3))) \
-                                WHERE id = ?1 AND (?2 IS NULL OR user_id = ?2) AND json_type(transient_data) = 'object'"), rusqlite::params![bot_id, user, locale])?;
+                                '$.{rule}.' || {side}, json_object('version', coalesce(json_extract(transient_data, '$.{k}.{rule}.' || {side} || '.version'), 0) + 1, 'locale', ?3))) \
+                                WHERE id = ?1 AND (?2 IS NULL OR user_id = ?2) AND json_type(transient_data) = 'object'"),
+                       rusqlite::params![bot_id, user, locale, named])?;
     Ok(n == 1)
 }
 
-/// One status-line request as the engine claimed it: the bot as read with the request, and the request's version and locale.
+/// One status-line request as the engine claimed it: the bot as read with the request, the side asked for, and the request's
+/// version and locale.
 #[derive(Clone, Debug)]
-pub struct InfoClaim { pub bot: Bot, pub version: i64, pub locale: Option<String> }
+pub struct InfoClaim { pub bot: Bot, pub side: &'static str, pub version: i64, pub locale: Option<String> }
 
-/// The bots with a waiting request for `rule`, each claimed as it is now. A bot that cannot be loaded (eligibility lists it as
-/// unreadable), or whose request is not `{version: integer}`, is skipped and logged: a status line never stops the engine.
+/// The bots with a waiting request for `rule`, each side claimed as the bot is now. A bot that cannot be loaded (eligibility
+/// lists it as unreadable), or whose request is not `{version: integer}`, is skipped and logged: a status line never stops
+/// the engine.
 pub fn info_claims(c: &Connection, rule: &str) -> Result<Vec<InfoClaim>, EngineError> {
-    let mut s = c.prepare(&format!("SELECT id, json_extract(transient_data, '$.{INFO_WANTED_KEY}.{rule}.version'), \
-                                    json_extract(transient_data, '$.{INFO_WANTED_KEY}.{rule}.locale') FROM bots \
-                                    WHERE json_valid(transient_data) AND json_type(transient_data, '$.{INFO_WANTED_KEY}.{rule}') IS NOT NULL ORDER BY id"))?;
-    let rows = s.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, rusqlite::types::Value>(1)?, r.get::<_, rusqlite::types::Value>(2)?)))?.collect::<Result<Vec<_>, _>>()?;
-    drop(s);
+    let mut rows = vec![];
+    for side in [BUYING, SELLING] {
+        let path = format!("$.{INFO_WANTED_KEY}.{rule}.{side}");
+        let mut s = c.prepare(&format!("SELECT id, json_extract(transient_data, '{path}.version'), json_extract(transient_data, '{path}.locale') FROM bots \
+                                        WHERE json_valid(transient_data) AND json_type(transient_data, '{path}') IS NOT NULL"))?;
+        for r in s.query_map([], |r| Ok((r.get::<_, i64>(0)?, side, r.get::<_, rusqlite::types::Value>(1)?, r.get::<_, rusqlite::types::Value>(2)?)))? { rows.push(r?); }
+    }
+    rows.sort_by_key(|(id, side, ..)| (*id, *side == SELLING));
     let mut out = vec![];
-    for (id, version, locale) in rows {
+    for (id, side, version, locale) in rows {
         let rusqlite::types::Value::Integer(version) = version else { super::log(&format!("[engine] bot {id}: unreadable status-line request; skipped")); continue };
         let locale = match locale { rusqlite::types::Value::Text(l) => Some(l), _ => None };
         match model::load_bot(c, id) {
-            Ok(bot) => out.push(InfoClaim { bot, version, locale }),
+            Ok(bot) => out.push(InfoClaim { bot, side, version, locale }),
             Err(err @ (EngineError::Lease(_) | EngineError::Store(_))) => return Err(err),
             Err(err) => super::log(&format!("[engine] bot {id}: its status-line request waits, the bot is unreadable: {err:?}")),
         }
@@ -338,46 +325,53 @@ pub fn info_claims(c: &Connection, rule: &str) -> Result<Vec<InfoClaim>, EngineE
     Ok(out)
 }
 
-/// Removes the request of `rule` only if it is still the claimed version: a newer one survives for the next pass.
-pub fn ack_info(tx: &Connection, bot_id: i64, rule: &str, version: i64) -> Result<(), EngineError> {
-    tx.execute(&format!("UPDATE bots SET transient_data = json_remove(transient_data, '$.{INFO_WANTED_KEY}.{rule}') WHERE id = ?1 \
-                         AND json_extract(transient_data, '$.{INFO_WANTED_KEY}.{rule}.version') IS ?2"), rusqlite::params![bot_id, version])?;
-    tx.execute(&format!("UPDATE bots SET transient_data = json_remove(transient_data, '$.{INFO_WANTED_KEY}') WHERE id = ?1 \
-                         AND json_extract(transient_data, '$.{INFO_WANTED_KEY}') = '{{}}'"), [bot_id])?;
+/// Removes the request of (`rule`, `side`) only if it is still the claimed version: a newer one survives for the next pass.
+pub fn ack_info(tx: &Connection, bot_id: i64, rule: &str, side: &str, version: i64) -> Result<(), EngineError> {
+    let k = INFO_WANTED_KEY;
+    tx.execute(&format!("UPDATE bots SET transient_data = json_remove(transient_data, '$.{k}.{rule}.{side}') WHERE id = ?1 \
+                         AND json_extract(transient_data, '$.{k}.{rule}.{side}.version') IS ?2"), rusqlite::params![bot_id, version])?;
+    for path in [format!("$.{k}.{rule}"), format!("$.{k}")] {
+        tx.execute(&format!("UPDATE bots SET transient_data = json_remove(transient_data, '{path}') WHERE id = ?1 AND json_extract(transient_data, '{path}') = '{{}}'"), [bot_id])?;
+    }
     Ok(())
 }
 
+/// What the status line answers for a price rule at `price`, without writing anything: an `after` rule with a stored met_at
+/// is met, otherwise the price decides (get_price_limit_condition_met?'s answer, its writes left out).
+pub fn judge(rule: &PriceRule, price: &BigDec) -> Result<bool, EngineError> {
+    if rule.after && rule.met_at_us.is_some() { return Ok(true); }
+    price_met(rule, price)
+}
+
 /// Bot::BroadcastPriceLimitInfoUpdateJob (broadcast_price_limit_info_update, price_limitable.rb:224-250) for one claimed
-/// request, on any status: the rule's ticker, its last price, then get_price_limit_condition_met? itself, its writes
-/// included (Q1: a page view stamps or clears met_at and captures the carry, as Rails' does), then the cached info. Any failure
-/// leaves no info, as Rails broadcasts nothing then; the request is served either way. Some(info): what the line shows.
-/// Err(RunFenced): the bot's configuration changed since the claim; nothing of this run is kept and the request stays.
+/// request, on any status, for the claimed side's rule: its ticker, its last price, the answer (`judge`), then the cached
+/// info. Any failure leaves no info, as Rails broadcasts nothing then; the request is served either way. Some(info): what
+/// the line shows.
+/// D-INFO-READONLY: Rails' job runs get_price_limit_condition_met? with its writes, so a page view stamps or clears met_at and
+/// captures the carry, a stopped bot's included, and that changes later trades. Here the status line never changes trading
+/// state: the only writes are the info cache (`fetch_info`) and the served request (`ack_info`).
+/// Err(RunFenced): the bot's configuration changed since the claim; nothing is kept and the request stays.
 /// Err(CredentialsChanged): the key changed during the read; the request stays.
 pub async fn info<V: crate::venue::Venue>(c: &Connection, venue: &V, claim: &InfoClaim, clock: &dyn Clock, prices: &PriceCache, version: &Option<model::CredentialVersion>) -> Result<Option<Value>, EngineError> {
-    let bot = &claim.bot;
+    let (bot, side) = (&claim.bot, claim.side);
     let venue = &crate::venue::Handle::for_bot(venue, c, bot)?;
     let served = |c: &Connection| -> Result<Option<Value>, EngineError> {
-        let tx = model::immediate(c)?; ack_info(&tx, bot.id, PRICE, claim.version)?; tx.commit()?; Ok(None)
+        let tx = model::immediate(c)?; ack_info(&tx, bot.id, PRICE, side, claim.version)?; tx.commit()?; Ok(None)
     };
     // A rule that is off, or one this build does not run on the bot's kind (support), renders nothing (the partial's own
     // guard), so no info is kept for it.
-    let Some(rule) = bot.price_rule(bot.selling()).map_err(EngineError::Data)? else { return served(c) };
+    let Some(rule) = bot.price_rule(side == SELLING).map_err(EngineError::Data)? else { return served(c) };
     let (Some(ticker), decimals) = rule_ticker_quoted(c, bot, &rule)? else { return served(c) };
     let Ok((price, origin)) = last_price(venue, bot, &ticker, clock.now(), prices, version).await else { return served(c) };
-    let met = match evaluate(c, venue, bot, clock, prices, version, Fence::Config).await? {
-        Evaluated::Met { .. } => true,
-        Evaluated::Failed(_) => return served(c),
-        Evaluated::Off | Evaluated::Unmet | Evaluated::Unavailable => false,
-    };
-    let Some(info) = info_value(&ticker, decimals, &price, met) else { return served(c) };
+    let Some(info) = info_value(&ticker, decimals, &price, judge(&rule, &price)?) else { return served(c) };
     let now = clock.now();
-    let side = if bot.selling() { "selling" } else { "buying" };
     model::credential_write(c, &origin, |tx| {
         let current = model::load_bot(tx, bot.id)?;
-        // Settings or direction changed since the claim: the answer is for a rule that no longer is.
-        if (&current.bot_type, current.exchange_id, &current.settings) != (&bot.bot_type, bot.exchange_id, &bot.settings) { return Err(EngineError::RunFenced); }
+        // Settings, direction or the rule's met_at changed since the claim: the answer is for a rule that no longer is.
+        let met_at = |b: &Bot| b.transient.get(format!("{}_condition_met_at", rule.prefix).as_str()).cloned();
+        if (&current.bot_type, current.exchange_id, &current.settings, met_at(&current)) != (&bot.bot_type, bot.exchange_id, &bot.settings, met_at(bot)) { return Err(EngineError::RunFenced); }
         let shown = fetch_info(tx, bot.id, PRICE, side, now, info)?;
-        ack_info(tx, bot.id, PRICE, claim.version)?;
+        ack_info(tx, bot.id, PRICE, side, claim.version)?;
         Ok(Some(shown))
     })
 }
@@ -422,7 +416,7 @@ pub const DEAD: &str = "rust_condition_check_dead";
 pub async fn check<V: crate::venue::Venue>(c: &Connection, venue: &V, bot: &Bot, clock: &dyn Clock, prices: &PriceCache, version: &Option<model::CredentialVersion>) -> Result<Checked, EngineError> {
     if bot.status != BotStatus::Waiting { return Ok(Checked::Gone); }
     let venue = crate::venue::Handle::for_bot(venue, c, bot)?;
-    let evaluated = evaluate(c, &venue, bot, clock, prices, version, Fence::Run).await?;
+    let evaluated = evaluate(c, &venue, bot, clock, prices, version).await?;
     let now = clock.now(); // after the price read: next_check_at and 1.minute.from_now are read there
     let revive = |tx: &Connection| -> Result<(), EngineError> {
         tx.execute(&format!("UPDATE bots SET transient_data = json_remove(transient_data, '$.{DEAD}') WHERE id = ?1 AND json_type(transient_data, '$.{DEAD}') IS NOT NULL"), [bot.id])?;
