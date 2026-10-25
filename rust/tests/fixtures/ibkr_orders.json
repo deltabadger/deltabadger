@@ -1,0 +1,20 @@
+{
+  "note": "IBKR order answers for the placement tests (Ibkr plan I4b). Provisional: no IBKR session has recorded them yet. Each answer is tagged with its source; the registry row trades only once every answer here comes from a paper login (source paper, gate G3). $cOID stands for the intent's id, $order_id for IBKR's order id.",
+  "answers": {
+    "accounts": { "accounts": ["U1234567"], "selectedAccount": "U1234567", "source": "provisional" },
+    "rules": { "rules": { "sizeIncrement": 1, "incrementRules": [{ "lowerEdge": 0.0, "increment": 0.01 }], "priceMagnifier": 1 }, "source": "provisional" },
+    "positions_page": [{ "acctId": "U1234567", "conid": "$conid", "position": "$position", "mktPrice": 190.1, "currency": "USD", "source": "provisional" }],
+    "ledger": { "USD": { "cashbalance": 25000.5, "currency": "USD", "source": "provisional" }, "BASE": { "cashbalance": 25000.5, "currency": "BASE", "source": "provisional" } },
+    "order_ack": [{ "order_id": "$order_id", "order_status": "PreSubmitted", "encrypt_message": "1", "source": "provisional" }],
+    "prompt": [{ "id": "07a13a5a-4a48-44a5-bb25-5ab37b79186c", "message": ["You are about to submit a market order. Are you sure you want to submit this order?"],
+                 "isSuppressed": false, "messageIds": ["o163"], "source": "provisional" }],
+    "declined": { "msg": "Order was not confirmed", "source": "provisional" },
+    "status": { "order_id": "$order_id", "conid": "$conid", "side": "S", "total_size": "$total", "order_type": "MARKET", "cum_fill": "$filled",
+                "order_status": "$status", "average_price": "190.10", "account": "U1234567", "source": "provisional" },
+    "cancel": { "msg": "Request was submitted", "order_id": "$order_id", "conid": -1, "account": null, "source": "provisional" },
+    "live_orders": { "orders": [{ "acct": "U1234567", "conid": "$conid", "orderId": "$order_id", "order_ref": "$cOID", "status": "Submitted", "side": "SELL",
+                                  "totalSize": 10, "filledQuantity": 0, "avgPrice": "", "orderType": "Market", "source": "provisional" }], "snapshot": true, "source": "provisional" },
+    "trades": [{ "execution_id": "0000e0d5.6576fd38.01.01", "order_ref": "$cOID", "order_id": "$order_id", "conid": "$conid", "side": "S", "size": 4, "price": "190.10",
+                 "account": "U1234567", "trade_time_r": 1761400000000, "source": "provisional" }]
+  }
+}

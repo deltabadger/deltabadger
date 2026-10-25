@@ -15,6 +15,7 @@ pub mod gemini;
 pub mod hyperliquid;
 pub mod ibkr;
 pub mod ibkr_account;
+pub mod ibkr_reservations;
 pub mod ibkr_venue;
 pub mod live;
 pub mod mexc;
@@ -181,6 +182,17 @@ impl std::fmt::Debug for VenueError {
     }
 }
 
+/// What a venue that caps sells by its own reservations (IBKR, D-IBKR-SELLCAP) reads before an intent, for the intent's
+/// transaction to check (`ibkr_reservations::reserve`): the account and contract the order goes to and, for a sell, the
+/// position, read under the login's lock, which is held until this is dropped. Dropped after the intent commits and
+/// before the send (the send takes the lock again).
+pub struct PlacementHold {
+    pub(crate) _login: Option<ibkr::Held<'static>>,
+    pub account_ref: String,
+    pub conid: i64,
+    pub position: Option<BigDec>,
+}
+
 /// Credentials and their digest are captured once, before this handle is built.
 /// The raw transport is private: production consumers use the attributed methods below.
 pub struct Handle<V> { venue:V, producer:Option<crate::engine::model::CredentialVersion> }
@@ -194,6 +206,7 @@ impl<V:Venue> Handle<V> {
 impl<V:Venue> Venue for &V {
     fn producer(&self)->Option<crate::engine::model::CredentialVersion>{(*self).producer()}
     fn placement_identity(&self)->Option<serde_json::Value>{(*self).placement_identity()}
+    async fn placement_hold(&self,t:&Ticker,s:Side)->Result<Option<PlacementHold>,VenueError>{(*self).placement_hold(t,s).await}
     fn rules(&self)->&'static VenueRules{(*self).rules()}
     async fn positions(&self)->Result<std::collections::HashMap<String,BigDec>,VenueError>{(*self).positions().await}
     async fn clock(&self)->Result<ClockAnswer,VenueError>{(*self).clock().await}
@@ -215,6 +228,7 @@ impl<V:Venue> Venue for &V {
 impl<V:Venue> Venue for Handle<V> {
     fn producer(&self)->Option<crate::engine::model::CredentialVersion>{self.producer.clone()}
     fn placement_identity(&self)->Option<serde_json::Value>{self.venue.placement_identity()}
+    async fn placement_hold(&self,t:&Ticker,s:Side)->Result<Option<PlacementHold>,VenueError>{self.venue.placement_hold(t,s).await}
     fn rules(&self)->&'static VenueRules{self.venue.rules()}
     async fn positions(&self)->Result<std::collections::HashMap<String,BigDec>,VenueError>{self.venue.positions().await}
     async fn clock(&self)->Result<ClockAnswer,VenueError>{self.venue.clock().await}
@@ -256,6 +270,8 @@ pub trait Venue {
     /// `key_identity`): an object of fields merged into the intent. None where a venue has nothing to tell (no key, a
     /// scripted venue).
     fn placement_identity(&self)->Option<serde_json::Value>{None}
+    /// What the intent of an order on `ticker` checks under the venue's lock (`PlacementHold`); None where nothing is.
+    async fn placement_hold(&self, _ticker: &Ticker, _side: Side) -> Result<Option<PlacementHold>, VenueError> { Ok(None) }
     async fn positions(&self) -> Result<std::collections::HashMap<String, BigDec>, VenueError> { Err(VenueError::Rejected(vec!["positions unavailable".into()])) }
 
     /// The market clock. Asked only where VenueRules::market_hours. A transport failure that Client.network_failure raises
@@ -325,6 +341,11 @@ pub trait VenueFactory {
     fn for_bot(&self, exchange_type: &str, credentials: Option<Credentials>) -> Self::V;
     /// Full stored material is used only to redact diagnostics, never venue financial data.
     fn for_bot_with_redaction(&self,exchange_type:&str,credentials:Option<Credentials>,_sensitive:Vec<String>)->Self::V{self.for_bot(exchange_type,credentials)}
+    /// An IBKR bot's venue: its key's login (by `version`) and `account`, the (account id, account_ref) the bot reaches IBKR
+    /// as once `ibkr_account::check_bot_account` passes, else why not (every call is then refused).
+    fn for_ibkr(&self,credentials:Option<Credentials>,sensitive:Vec<String>,_version:Option<crate::engine::model::CredentialVersion>,_account:Result<(String,String),String>)->Self::V{
+        self.for_bot_with_redaction(ibkr::IBKR,credentials,sensitive)
+    }
 }
 
 /// GET /v2/clock as Clients::Alpaca#get_clock returns it: the 2xx body as text, or the failure with its HTTP status (None for

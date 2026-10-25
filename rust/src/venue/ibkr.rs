@@ -28,6 +28,8 @@ pub const ACCOUNTS_PATH: &str = "/v1/api/iserver/accounts";
 pub const LST_TTL: TimeDelta = TimeDelta::hours(23);
 /// Session::BROKERAGE_SESSION_TTL.
 pub const BROKERAGE_SESSION_TTL: TimeDelta = TimeDelta::minutes(4);
+/// What a call answers when the login no longer lists exactly the account the connection is bound to.
+pub const ACCOUNT_CHANGED: &str = "the IBKR login no longer names the account this connection belongs to";
 /// IbkrLock's wait for a busy login.
 pub const LOCK_WAIT: std::time::Duration = std::time::Duration::from_secs(15);
 
@@ -166,7 +168,8 @@ impl Error {
 fn is_mutation(method: &str, path: &str) -> bool { method == "POST" && (path.ends_with("/orders") || path.contains("/reply/")) }
 
 /// Proof that the caller holds its login's lock for the whole operation (Clients::Ibkr wraps each op in IbkrLock).
-pub struct Held<'a>(#[allow(dead_code)] tokio::sync::MutexGuard<'a, ()>);
+pub struct Held<'a>(#[allow(dead_code)] Guard<'a>);
+enum Guard<'a> { Borrowed(#[allow(dead_code)] tokio::sync::MutexGuard<'a, ()>), Owned(#[allow(dead_code)] tokio::sync::OwnedMutexGuard<()>) }
 
 /// Clients::Ibkr::Session for one login over `transport`, its clock `clock`.
 pub struct Session<'a, T: Transport, C: Clock + ?Sized = dyn Clock> {
@@ -198,7 +201,12 @@ impl<'a, T: Transport, C: Clock + ?Sized> Session<'a, T, C> {
 
     /// IbkrLock.with_lock: waits up to LOCK_WAIT for the login, then fails.
     pub async fn lock(&self) -> Result<Held<'_>, Error> {
-        tokio::time::timeout(LOCK_WAIT, self.login.op.lock()).await.map(Held).map_err(|_| Error::LockTimeout)
+        tokio::time::timeout(LOCK_WAIT, self.login.op.lock()).await.map(|g| Held(Guard::Borrowed(g))).map_err(|_| Error::LockTimeout)
+    }
+
+    /// `lock`, held by the caller beyond this session (a placement's position read and its intent, `PlacementHold`).
+    pub async fn lock_owned(&self) -> Result<Held<'static>, Error> {
+        tokio::time::timeout(LOCK_WAIT, self.login.op.clone().lock_owned()).await.map(|g| Held(Guard::Owned(g))).map_err(|_| Error::LockTimeout)
     }
 
     /// Session#signed_request: the brokerage session established, the call signed, one self-heal on a 401 or AuthError.
@@ -222,9 +230,11 @@ impl<'a, T: Transport, C: Clock + ?Sized> Session<'a, T, C> {
     /// The POST itself is never healed or resent: a failure proven to precede sending is Transient (NotSent) or Rejected
     /// (Permanent: a TLS or local refusal while connecting); any other failure — an HTTP error status (401 included), a
     /// timeout, a lost connection, an unreadable answer — leaves the outcome open: Ambiguous, for recovery to settle.
-    pub async fn submit(&self, held: &Held<'_>, path: &str, body: Value) -> Result<Value, VenueError> {
+    /// `account`: the account list must name it and no other, else nothing is sent (Rejected).
+    pub async fn submit(&self, held: &Held<'_>, path: &str, body: Value, account: Option<&str>) -> Result<Value, VenueError> {
         let redact = |e: Error| self.transport.redact_diagnostic(&e.message());
-        self.signed_request(held, "GET", ACCOUNTS_PATH, vec![], None).await.map_err(|e| VenueError::Transient(redact(e)))?;
+        let accounts = self.signed_request(held, "GET", ACCOUNTS_PATH, vec![], None).await.map_err(|e| VenueError::Transient(redact(e)))?;
+        if account.is_some_and(|a| !super::ibkr_account::names_only(&accounts, a)) { return Err(VenueError::Rejected(vec![ACCOUNT_CHANGED.into()])) }
         self.live_session_token().await.map_err(|e| VenueError::Transient(redact(e)))?;
         match self.request(self.http("POST", path, vec![], Some(body))).await {
             Ok(v) => Ok(v),
@@ -449,7 +459,7 @@ pub(crate) mod tests {
 
     async fn submit<T: Transport, C: Clock + ?Sized>(s: &Session<'_, T, C>) -> Result<Value, VenueError> {
         let held = s.lock().await.unwrap();
-        s.submit(&held, ORDER_PATH, json!({ "orders": [{ "conid": 265598, "side": "BUY", "quantity": 1 }] })).await
+        s.submit(&held, ORDER_PATH, json!({ "orders": [{ "conid": 265598, "side": "BUY", "quantity": 1 }] }), None).await
     }
 
     fn submitting(f: impl FnOnce(&ScriptedTransport)) -> (Result<Value, VenueError>, Vec<String>) {

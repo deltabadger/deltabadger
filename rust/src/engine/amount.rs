@@ -292,6 +292,8 @@ pub fn write_order_row(c: &super::model::FencedTransaction<'_>, bot: &Bot, plan:
 pub fn write_accepted_order(c: &rusqlite::Transaction<'_>, bot: &Bot, plan: &OrderPlan, external_id: &str, created_at: DateTime<Utc>, run: Option<&super::model::RunIdentity>) -> Result<i64, EngineError> {
     let id = write_order_row_in(c, bot, plan, RowKind::Submitted { external_id: external_id.to_owned() }, created_at)?;
     c.execute("UPDATE transactions SET run_identity=?2 WHERE id=?1 AND run_identity IS NULL", params![id, run.map(|r| r.order_json().to_string())])?;
+    // Every caller writes the row of the bot's unresolved intent before removing it: its IBKR reservation names the row.
+    if super::model::exchange_type(c, bot)? == crate::venue::ibkr::IBKR { crate::venue::ibkr_reservations::link(c, bot.id, id)?; }
     Ok(id)
 }
 

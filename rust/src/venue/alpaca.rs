@@ -686,6 +686,22 @@ impl VenueFactory for LiveFactory {
             _ => unconnected(),
         }
     }
+    /// IBKR's venue once its row trades (gate G3): the key's process-wide login through the `ibkr` proxy, as the bot's account.
+    fn for_ibkr(&self, credentials: Option<Credentials>, sensitive: Vec<String>, version: Option<crate::engine::model::CredentialVersion>, account: Result<(String, String), String>) -> Self::V {
+        use super::live::LiveVenue;
+        if !super::registry::row(super::ibkr::IBKR).is_some_and(|r| r.trades) { return self.for_bot_with_redaction(super::ibkr::IBKR, credentials, sensitive) }
+        let refused = |why: &str| LiveVenue::Alpaca(AlpacaVenue::new(ReqwestTransport::refused(why), Urls::for_passphrase(None)));
+        let (account, account_ref) = match account { Ok(a) => a, Err(why) => return refused(&why) };
+        let login = match (credentials.as_ref().and_then(|c| c.ibkr.as_deref()), version) {
+            (Some(material), Some(version)) => match super::ibkr::login(&version, material) { Ok(login) => login, Err(_) => return refused("the IBKR key material is unreadable") },
+            _ => return refused("the IBKR connection is incomplete"),
+        };
+        let transport = match self.egress_and("ibkr", |_| Ok(())) {
+            Err(why) => ReqwestTransport::refused(&why),
+            Ok(((client, proxy), ())) => ReqwestTransport::ibkr(client, login.clone()).with_sensitive_values(proxy.into_iter().collect()),
+        };
+        LiveVenue::Ibkr(super::ibkr_venue::IbkrVenue::new(transport.with_sensitive_values(sensitive).with_clock(self.clock.clone()), login, self.clock.clone(), account, account_ref))
+    }
 }
 
 /// What `deltabadger run` refuses before it claims anything: anything `check` refuses, and then every bot the engine will

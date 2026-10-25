@@ -133,6 +133,8 @@ pub fn apply_in(c: &model::FencedTransaction<'_>, bot_id: i64, tx_id: i64, s: &O
 
     if wash { super::wash::reconcile_fill(c, &bot, tx_id, now)?; }
     if sold { note_sale(c, bot_id)?; }
+    // D-IBKR-SELLCAP: a closed or cancelled order's sell reservation is released with the write that settles it.
+    if terminal { crate::venue::ibkr_reservations::release_settled(c, now)?; }
     // Transaction's after_save → Bot::Reversible#settle_flip_reserve!: a buy a reversal cancelled returns its reserve once final.
     super::reversal::settle(c, bot_id, tx_id)?;
     if let Some((rules, errors)) = refused { tick::order_refused(c, bot_id, errors, rules, now)?; }
