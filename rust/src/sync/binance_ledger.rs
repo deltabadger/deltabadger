@@ -139,8 +139,10 @@ impl Pacing {
 
 /// `Time.at(ms / 1000.0)` as Rails stores it: the Float quotient, its microseconds truncated (ActiveRecord keeps six
 /// digits of the exact value of that double, so ...123 ms is stored as .122999).
-pub fn ruby_time_at_ms(ms: i64) -> Option<DateTime<Utc>> {
-    let f = ms as f64 / 1000.0;
+pub fn ruby_time_at_ms(ms: i64) -> Option<DateTime<Utc>> { ruby_time_at_secs_f(ms as f64 / 1000.0) }
+
+/// `Time.at(f)` of a Float of seconds as Rails stores it: the double's exact value, its microseconds truncated.
+pub fn ruby_time_at_secs_f(f: f64) -> Option<DateTime<Utc>> {
     if !f.is_finite() { return None; }
     let bits = f.to_bits();
     let negative = bits >> 63 == 1;

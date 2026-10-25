@@ -451,7 +451,14 @@ impl Transport for ScriptedTransport {
             // Hyperliquid names reads by type and optionally coin: "POST /info l2Book @142" before "POST /info l2Book".
             let typed = r.body.as_ref().and_then(|b| b["type"].as_str().or_else(|| b["action"]["type"].as_str())).map(|t| format!("{} {} {t}", r.method, r.path));
             let coin = typed.as_ref().and_then(|t| r.body.as_ref()?.get("coin")?.as_str().map(|c| format!("{t} {c}")));
-            let key = if let Some(c) = coin.filter(|c| s.replies.contains_key(c)) { c }
+            // A form body's fields (Kraken's private calls) name a reply as a query would: "POST /0/private/Ledgers?ofs=0".
+            let form = r.body.as_ref().and_then(Value::as_object).filter(|m| !m.is_empty()).map(|m| {
+                let mut pairs: Vec<String> = m.iter().map(|(k, v)| format!("{k}={}", v.as_str().map_or_else(|| v.to_string(), str::to_string))).collect();
+                pairs.sort();
+                format!("{} {}?{}", r.method, r.path, pairs.join("&"))
+            });
+            let key = if let Some(f) = form.filter(|f| s.replies.contains_key(f)) { f }
+                else if let Some(c) = coin.filter(|c| s.replies.contains_key(c)) { c }
                 else if s.replies.contains_key(&full) { full.clone() } else if let Some(t) = typed.filter(|t| s.replies.contains_key(t)) { t } else { format!("{} {}", r.method, r.path) };
             let q = s.replies.get_mut(&key).filter(|q| !q.is_empty()).unwrap_or_else(|| panic!("unscripted Alpaca call {key}"));
             let reply = if q.len() > 1 { q.pop_front().expect("non-empty") } else { q[0].clone() };
