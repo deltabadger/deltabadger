@@ -38,27 +38,36 @@ cases = [
   ['sell_then_split', [BUY_A, BUY_B, SELL]],
   ['split_same_timestamp_sell', [BUY_A, BUY_B, SELL]],
   ['merge_before_start', [BUY_A, BUY_B, SELL].map { |r| r.dup.tap { |v| v[7] = -1 } }],
-  ['merge_at_start', [BUY_A, BUY_B, SELL].map { |r| r.dup.tap { |v| v[7] = 0 } }]
+  ['merge_at_start', [BUY_A, BUY_B, SELL].map { |r| r.dup.tap { |v| v[7] = 0 } }],
+  # A merge on a crypto venue whose BBB source lived on another one: BBB's rows keep that venue's exchange_id.
+  *%w[kraken binance kucoin].map { |venue| ["merge_#{venue}_foreign", [BUY_A, BUY_B, SELL].map { |r| r.dup.tap { |v| v[7] = -1 } }] }
 ]
+VENUE_CLASSES = { 'kraken' => 'Exchanges::Kraken', 'binance' => 'Exchanges::Binance', 'kucoin' => 'Exchanges::Kucoin' }.freeze
 vectors = cases.map do |name, rows|
   result = nil
   travel_to(NOW)
   ActiveRecord::Base.transaction(requires_new: true) do
     user = User.new(name: 'Synthetic', email: 'synthetic@example.invalid', password: 'synthetic-password', confirmed_at: NOW)
     user.save!(validate: false)
-    exchange = Exchanges::Alpaca.create!(name: 'Alpaca')
-    ApiKey.insert!({user_id: user.id, exchange_id: exchange.id, key_type: ApiKey.key_types[:trading], status: ApiKey.statuses[:correct], created_at: NOW, updated_at: NOW})
+    venue = name[/\Amerge_(\w+)_foreign\z/, 1]
+    exchange = (venue ? VENUE_CLASSES.fetch(venue) : 'Exchanges::Alpaca').constantize.create!(name: venue || 'Alpaca')
+    # The venue the BBB source traded on before the merge (another crypto venue).
+    foreign = venue && (venue == 'kraken' ? Exchanges::Binance : Exchanges::Kraken).create!(name: 'Foreign')
+    venues = [exchange, foreign].compact
+    venues.each { |e| ApiKey.insert!({user_id: user.id, exchange_id: e.id, key_type: ApiKey.key_types[:trading], status: ApiKey.statuses[:correct], created_at: NOW, updated_at: NOW}) }
     quote = Asset.create!(external_id: 'synthetic-usd', symbol: 'USD', name: 'Synthetic Dollar', category: 'Fiat')
-    ExchangeAsset.create!(exchange:, asset: quote, available: true)
+    venues.each { |e| ExchangeAsset.create!(exchange: e, asset: quote, available: true) }
     assets = %w[AAA BBB].to_h do |symbol|
       asset = Asset.create!(external_id: "synthetic-#{symbol}", symbol:, name: "Synthetic #{symbol}", category: name.include?('split') ? 'Stock' : 'Cryptocurrency', instrument_type: name.include?('split') ? 'stock' : nil)
-      ExchangeAsset.create!(exchange:, asset:, available: true)
-      Ticker.create!(exchange:, ticker: symbol, base: symbol, quote: 'USD', base_asset: asset, quote_asset: quote,
-        base_decimals: 9, quote_decimals: 2, price_decimals: 2, minimum_base_size: '0.000000001', minimum_quote_size: '1')
+      venues.each do |e|
+        ExchangeAsset.create!(exchange: e, asset:, available: true)
+        Ticker.create!(exchange: e, ticker: symbol, base: symbol, quote: 'USD', base_asset: asset, quote_asset: quote,
+          base_decimals: 9, quote_decimals: 2, price_decimals: 2, minimum_base_size: '0.000000001', minimum_quote_size: '1')
+      end
       [symbol, asset]
     end
-    make = lambda do |weights|
-      bot = user.bots.new(type: 'Bots::DcaMultiAsset', exchange:, status: :stopped, settings: {
+    make = lambda do |weights, on = exchange|
+      bot = user.bots.new(type: 'Bots::DcaMultiAsset', exchange: on, status: :stopped, settings: {
         'quote_asset_id' => quote.id, 'quote_amount' => 100, 'interval' => 'week', 'weighting' => 'manual',
         'allocations' => weights.to_h { |symbol, weight| [assets.fetch(symbol).id.to_s, weight] }
       })
@@ -67,10 +76,10 @@ vectors = cases.map do |name, rows|
       bot
     end
     merging = name.start_with?('merge')
-    sources = merging ? [make.call({'AAA' => 1.0}), make.call({'BBB' => 1.0})] : [make.call({'AAA' => 0.5, 'BBB' => 0.5})]
+    sources = merging ? [make.call({'AAA' => 1.0}), make.call({'BBB' => 1.0}, foreign || exchange)] : [make.call({'AAA' => 0.5, 'BBB' => 0.5})]
     rows.each_with_index do |(symbol, side, status, amount, executed, value, price, offset, requested_quote), i|
       source = merging && symbol == 'BBB' ? sources[1] : sources[0]
-      Transaction.insert!({bot_id: source.id, exchange_id: exchange.id, base_asset_id: assets.fetch(symbol).id, quote_asset_id: quote.id,
+      Transaction.insert!({bot_id: source.id, exchange_id: source.exchange_id, base_asset_id: assets.fetch(symbol).id, quote_asset_id: quote.id,
         base: symbol, quote: 'USD', side:, transaction_type: 'REGULAR', status: 'submitted', external_status: status,
         external_id: "synthetic-#{i}", order_type: 'market_order', price:, amount:, amount_exec: executed, quote_amount: rows[i].length > 8 ? requested_quote : value,
         quote_amount_exec: value, created_at: NOW + offset, updated_at: NOW + offset})
@@ -122,7 +131,8 @@ vectors = cases.map do |name, rows|
     later_unchanged = bot.pending_quote_amount.to_d.to_s('F')
     Thread.current[:normalized_figure_rows] = true
     later = bot.pending_quote_amount.to_d.to_s('F')
-    result = {name:, rows:, limited:, merged: merging, split_offset:, rails_unchanged: unchanged, normalized:, one_week_pending: later, one_week_rails_pending: later_unchanged}
+    raise "#{name}: merged onto #{bot.exchange.type}" if venue && bot.exchange_id != exchange.id
+    result = {name:, rows:, limited:, merged: merging, split_offset:, venue:, foreign: venue && 'BBB', rails_unchanged: unchanged, normalized:, one_week_pending: later, one_week_rails_pending: later_unchanged}
     raise ActiveRecord::Rollback
   ensure
     Thread.current[:normalized_figure_rows] = false

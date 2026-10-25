@@ -71,6 +71,27 @@ fn a_two_asset_seller_with_foreign_rows_is_eligible_on_alpaca() {
     assert_eq!(r.eligible, vec![id]);
 }
 
+/// Slice L: a merged basket on a crypto venue runs. Its rows from another venue stay in the walk; the first own tick reads
+/// past the cutoff, a rebalance sale caps at this venue's own units, and the sweep polls this venue's rows only.
+#[test]
+fn a_merged_kraken_basket_with_foreign_rows_is_eligible() {
+    let (_d, o, s) = install();
+    let (eth, _) = seed::add_eth_sol(&o.primary, &s);
+    let id = seed::insert_bot(&o.primary, &s, &plain().weights(&[(s.btc, 0.5), (eth, 0.5)]));
+    seed::insert_tx(&o.primary, &s, id, &closed("2026-09-02 10:00:00"));
+    let foreign = seed::insert_tx(&o.primary, &s, id, &closed("2026-09-03 10:00:00"));
+    o.primary.execute("INSERT INTO exchanges (type, name, created_at, updated_at) VALUES ('Exchanges::Binance', 'Binance', '2026-01-01', '2026-01-01')", []).unwrap();
+    o.primary.execute("UPDATE transactions SET exchange_id = last_insert_rowid() WHERE id = ?1", [foreign]).unwrap();
+    o.primary.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.merged_history_until_id', ?1) WHERE id = ?2", rusqlite::params![foreign, id]).unwrap();
+    let r = eligibility::check_install(&o.primary).unwrap();
+    assert!(r.problems.is_empty(), "{:?}", r.problems);
+    assert_eq!(r.eligible, vec![id]);
+    // A crypto seller with rows from another venue stays refused, by its own name.
+    o.primary.execute("UPDATE bots SET settings = json_set(settings, '$.direction', 'selling', '$.sell_denomination', 'quote', '$.sell_quote_amount', 50.0)", []).unwrap();
+    let r = eligibility::check_install(&o.primary).unwrap();
+    assert!(r.problems.iter().any(|p| p.contains("selling with 1 order(s) placed on another venue")), "{:?}", r.problems);
+}
+
 type Make = Box<dyn Fn(&rusqlite::Connection, &seed::Seeded) -> i64>;
 
 #[test]
