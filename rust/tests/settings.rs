@@ -3519,7 +3519,7 @@ async fn r6_failure_wait_origin_is_venue_and_keeps_its_current_digest(){
 async fn r9_replacement_resets_only_credential_ledger_progress_and_keeps_history(){
     let server=MockServer::start().await;let mut h=Harness::new(server.uri()).await;
     h.c.execute("UPDATE api_keys SET key_type=0,last_synced_at='2026-09-09 00:00:00',last_sync_error='previous failure' WHERE id=?1",[h.seed.api_key_id]).unwrap();
-    for key in ["rust_sync.ledger:1","rust_sync.ledger_splits:1","rust_sync.ledger:999"]{
+    for key in ["rust_sync.ledger:1","rust_sync.ledger_splits:1","rust_sync.ledger:999","rust_sync.kraken_unresolved:1"]{
         h.c.execute("INSERT INTO app_configs(key,value,created_at,updated_at)VALUES(?1,'retained-state','2026-01-01','2026-01-01')",[key]).unwrap();
     }
     h.link();
@@ -3531,7 +3531,7 @@ async fn r9_replacement_resets_only_credential_ledger_progress_and_keeps_history
     assert_eq!(after["api_keys"][0]["created_at"],before["api_keys"][0]["created_at"]);
     let watermark:Option<String>=h.c.query_row("SELECT last_synced_at FROM api_keys WHERE id=?1",[h.seed.api_key_id],|r|r.get(0)).unwrap();
     assert!(watermark.is_none(),"R9 replacement clears the previous credential watermark");
-    assert_eq!(h.c.query_row("SELECT COUNT(*) FROM app_configs WHERE key IN ('rust_sync.ledger:1','rust_sync.ledger_splits:1')",[],|r|r.get::<_,i64>(0)).unwrap(),0,"R9 replacement clears both old import cursors");
+    assert_eq!(h.c.query_row("SELECT COUNT(*) FROM app_configs WHERE key IN ('rust_sync.ledger:1','rust_sync.ledger_splits:1','rust_sync.kraken_unresolved:1')",[],|r|r.get::<_,i64>(0)).unwrap(),0,"R9 replacement clears both old import cursors and the old credential's unresolved codes");
     assert_eq!(h.c.query_row("SELECT value FROM app_configs WHERE key='rust_sync.ledger:999'",[],|r|r.get::<_,String>(0)).unwrap(),"retained-state","R9 another credential's progress survives");
     assert!(server.received_requests().await.unwrap().is_empty());
 }
@@ -3765,17 +3765,20 @@ async fn d5b_tracker_replacement_restarts_only_the_replaced_credentials_ledger_p
     let mut h=Harness::new(server.uri()).await;h.link();
     let progress=|h:&Harness|{
         h.c.execute("UPDATE api_keys SET last_synced_at='2026-09-09 00:00:00' WHERE id=?1",[h.seed.api_key_id]).unwrap();
-        for key in ["rust_sync.ledger:1","rust_sync.ledger_splits:1","rust_sync.ledger:999"]{h.c.execute("INSERT OR REPLACE INTO app_configs(key,value,created_at,updated_at)VALUES(?1,'retained-state','2026-01-01','2026-01-01')",[key]).unwrap();}
+        for key in ["rust_sync.ledger:1","rust_sync.ledger_splits:1","rust_sync.ledger:999","rust_sync.kraken_unresolved:1"]{h.c.execute("INSERT OR REPLACE INTO app_configs(key,value,created_at,updated_at)VALUES(?1,'retained-state','2026-01-01','2026-01-01')",[key]).unwrap();}
     };
     let state=|h:&Harness|(h.c.query_row("SELECT last_synced_at FROM api_keys WHERE id=?1",[h.seed.api_key_id],|r|r.get::<_,Option<String>>(0)).unwrap(),h.c.query_row("SELECT group_concat(key) FROM (SELECT key FROM app_configs WHERE key LIKE 'rust_sync.%' ORDER BY key)",[],|r|r.get::<_,Option<String>>(0)).unwrap());
     progress(&h);
     let unchanged=h.submit("POST","/tracker/add_api_key",&[("exchange_id","1"),("key_type","trading"),("api_key[key]","previous-key"),("api_key[secret]","previous-secret"),("api_key[passphrase]","paper")],Csrf::Header).await;
     assert_eq!(unchanged.status,200);
-    assert_eq!(state(&h),(Some("2026-09-09 00:00:00".into()),Some("rust_sync.ledger:1,rust_sync.ledger:999,rust_sync.ledger_splits:1".into())),"the same credential keeps its progress");
+    assert_eq!(state(&h),(Some("2026-09-09 00:00:00".into()),Some("rust_sync.kraken_unresolved:1,rust_sync.ledger:1,rust_sync.ledger:999,rust_sync.ledger_splits:1".into())),"the same credential keeps its progress");
+    let banner="salert--danger";
+    assert!(unchanged.body.contains(banner),"the same credential keeps its unresolved-codes banner: {}",unchanged.body);
     let links=h.snapshot()["account_transactions"].clone();
     let replaced=h.submit("POST","/tracker/add_api_key",&[("exchange_id","1"),("key_type","trading"),("api_key[key]","account-b-key"),("api_key[secret]","account-b-secret"),("api_key[passphrase]","paper")],Csrf::Header).await;
     assert_eq!(replaced.status,200);
-    assert_eq!(state(&h),(None,Some("rust_sync.ledger:999".into())),"#497: another account syncs its own full history");
+    assert_eq!(state(&h),(None,Some("rust_sync.ledger:999".into())),"#497: another account syncs its own full history; the old credential's unresolved codes go too");
+    assert!(!replaced.body.contains(banner),"the replaced credential's banner is gone: {}",replaced.body);
     assert_eq!(h.snapshot()["account_transactions"],links,"history stays linked to the key");
     assert_eq!(h.c.query_row("SELECT id FROM api_keys WHERE user_id=?1 AND key_type=0",[h.seed.user_id],|r|r.get::<_,i64>(0)).unwrap(),h.seed.api_key_id,"replaced in place");
 }

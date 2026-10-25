@@ -1856,6 +1856,9 @@ module SyncScenarios
       { name: 'kraken-balances-full', setup: install, steps: [P.kraken_balances(night, balance: full, prices: coins)] },
       { name: 'kraken-balances-permission_denied', setup: seeded, steps: [err.('EGeneral:Permission denied')] },
       { name: 'kraken-balances-invalid_key', setup: seeded, steps: [err.('EAPI:Invalid key')] },
+      # ApiKeyFailureHandling#failure_reason reads every error, a permission error first.
+      { name: 'kraken-balances-permission_then_invalid_key', setup: seeded, steps: [err.('EGeneral:Permission denied', 'EAPI:Invalid key')] },
+      { name: 'kraken-balances-other_then_invalid_key', setup: seeded, steps: [err.('EGeneral:Internal error', 'EAPI:Invalid key')] },
       { name: 'kraken-balances-throttled', setup: seeded, steps: [err.('EAPI:Rate limit exceeded')] },
       { name: 'kraken-balances-internal_error', setup: seeded, steps: [err.('EGeneral:Internal error')] },
       { name: 'kraken-balances-missing_hold_trade', setup: seeded, steps: [P.kraken_balances(night, balance: P.kr_ok('XXBT' => { 'balance' => '1' }))] },

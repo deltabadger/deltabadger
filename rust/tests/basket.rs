@@ -197,6 +197,41 @@ fn every_recorded_rails_amount_cap_is_reproduced() {
     }
 }
 
+/// Slice 6d-1: the base cap's remainder and its decision on a selling one-asset basket, against Rails' recorded readings
+/// (script/rust/record_vectors.rb base_cap): every bucket (closed with and without exec, open, unknown, cancelled partly,
+/// unfilled or at zero, abandoned, before the stamp), a Float or Integer limit, and the floor at several base precisions.
+/// Rust reads abandoned sells as D-6D-3 counts them, so it matches Rails' own reading of the rows once each abandoned sell
+/// is credited what it asked for (`d6d3`); every other case is Rails' reading as it stands.
+#[test]
+fn every_recorded_rails_base_cap_is_reproduced() {
+    use deltabadger::engine::accounting;
+    use deltabadger::ruby::Num;
+    let cases = common::vectors()["base_cap"].as_array().unwrap().clone();
+    assert_eq!(cases.len(), 500);
+    let mut diverged = 0;
+    for (i, case) in cases.iter().enumerate() {
+        let (_d, o, id, _ids) = build(case);
+        o.primary.execute("UPDATE transactions SET side = 1 WHERE bot_id = ?1", [id]).unwrap();
+        o.primary.execute("UPDATE tickers SET base_decimals = ?1", [case["base_decimals"].as_i64().unwrap()]).unwrap();
+        o.primary.execute("UPDATE bots SET settings = json_set(settings, '$.direction', 'selling', '$.base_amount_limited', json('true'), '$.base_amount_limit', json(?1)), \
+                           transient_data = json_set(transient_data, '$.base_amount_limit_enabled_at', '2026-08-01T00:00:00.000Z') WHERE id = ?2",
+                          rusqlite::params![case["cap"].to_string(), id]).unwrap();
+        let bot = model::load_bot(&o.primary, id).unwrap();
+        let got = accounting::base_amount_available_num(&o.primary, &bot).unwrap().unwrap();
+        let want = &case["d6d3"]["available"];
+        if *want != case["available"] { diverged += 1; }
+        let same = match (&got, want["class"].as_str().unwrap()) {
+            (Num::Float(f), "Float") => format!("{:016x}", f.to_bits()) == want["f"].as_str().unwrap(),
+            (Num::Dec(d), "BigDecimal") => d.to_s_f() == want["d"].as_str().unwrap(),
+            (Num::Int(n), "Integer") => n.to_string() == want["i"].as_str().unwrap(),
+            _ => false,
+        };
+        assert!(same, "case {i}: Rust {got:?}, Rails {want}: {case}");
+        assert_eq!(accounting::base_amount_limit_reached(&o.primary, &bot).unwrap(), case["d6d3"]["reached"] == true, "case {i}: {case}");
+    }
+    assert!(diverged >= 50, "the abandoned sells must exercise D-6D-3: {diverged} cases");
+}
+
 /// Plan CB T5: Bots::DcaMultiAsset#derive_composition with market-cap weights, against Rails' recorded derivations
 /// (script/rust/record_vectors.rb, MARKET_CAP_WEIGHTS_ONLY): caps near 2^53, 1-100 members whose settings order is not their
 /// id order (the caps are summed in `pluck` order), a NULL or 0 cap keeping every slider, a member without a tradable ticker

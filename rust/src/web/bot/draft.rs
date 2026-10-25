@@ -25,7 +25,6 @@ pub struct SaveEffects {
 
 use super::{action_params, start, Asset, Bot, Exchange, For, Kind, Ticker};
 use crate::enums::BotStatus;
-use crate::ruby::BigDec;
 use crate::web::{format, i18n, WebError};
 use chrono::{DateTime, Utc};
 use rusqlite::{Connection, OptionalExtension};
@@ -587,10 +586,8 @@ impl Draft {
     }
 
     fn base_cap_reached(&self, c: &Connection) -> Result<bool, WebError> {
-        let limit = numeric(&self.read("base_amount_limit"), false)?;
-        let limit = BigDec::parse(&limit.to_string()).map_err(|_| failure("base cap exceeds numeric bounds"))?;
-        let since = crate::codec::optional_time(self.candidate.transient.get("base_amount_limit_enabled_at")).map_err(|e|failure(&format!("{e:?}")))?.map(crate::codec::format_time);
-        crate::engine::accounting::base_cap_reached(c, self.candidate.id, &limit, since.as_deref(), self.candidate.tickers.iter().map(|t| t.base_decimals).min())
+        numeric(&self.read("base_amount_limit"), false)?;
+        crate::engine::accounting::web_base_cap_reached(c, &self.candidate)
     }
 
     fn conditions(&mut self, locale: &str) {

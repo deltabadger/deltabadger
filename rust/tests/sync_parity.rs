@@ -438,7 +438,7 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
     assert_eq!([named("ledger-"), named("balances-"), named("binance-balances-"), named("binance-ledger-"), named("import-"), named("kucoin-ledger-"), named("kucoin-balances-"),
                 named("bitvavo-ledger-"), named("bitvavo-balances-"), named("gemini-ledger-"), named("gemini-balances-"), named("bitget-ledger-"), named("bitget-balances-"),
                 named("mexc-ledger-"), named("mexc-balances-"), named("hyperliquid-ledger-"), named("hyperliquid-balances-"), named("bybit-ledger-"), named("bybit-balances-"), named("bitrue-ledger-"), named("bitrue-balances-"), named("coinbase-ledger-"), named("coinbase-balances-"), named("bingx-ledger-"), named("bingx-balances-"), named("kraken-balances-"), named("kraken-ledger-"), dirs.len()],
-               [58, 44, 21, 30, 21, 12, 16, 11, 10, 11, 11, 13, 12, 14, 12, 11, 10, 12, 8, 18 + 3 + 10, 5, 12, 4, 18 + 2 + 26, 5, 9, 19, 270 + 26 + 21 + 20 + 18 + 3 + 10 + 5 + 12 + 4 + 18 + 2 + 26 + 5 + 9 + 19], "the sync grid: 270 existing + 26 MEXC + 21 Hyperliquid + 20 Bybit + 36 Bitrue scenarios (including ten listing shapes) + 12 Coinbase ledger + 4 Coinbase balances + 51 BingX scenarios (including 26 account and listing shapes) + 9 Kraken balances + 19 Kraken ledger");
+               [58, 44, 21, 30, 21, 12, 16, 11, 10, 11, 11, 13, 12, 14, 12, 11, 10, 12, 8, 18 + 3 + 10, 5, 12, 4, 18 + 2 + 26, 5, 11, 19, 270 + 26 + 21 + 20 + 18 + 3 + 10 + 5 + 12 + 4 + 18 + 2 + 26 + 5 + 11 + 19], "the sync grid: 270 existing + 26 MEXC + 21 Hyperliquid + 20 Bybit + 36 Bitrue scenarios (including ten listing shapes) + 12 Coinbase ledger + 4 Coinbase balances + 51 BingX scenarios (including 26 account and listing shapes) + 11 Kraken balances + 19 Kraken ledger");
     for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
     // Rust's side starts as `serve` does: with this build's Rust migrations applied. parity::snapshot compares Rails'
     // tables only (parity::TABLES), so Rust's own tables stay out of the comparison.
@@ -778,6 +778,9 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() -> Result<()
         assert_eq!(rows(&rails_of(&format!("binance-balances-{kept}")), "api_keys")[0]["after"]["status"], 1, "{kept} does not condemn the key");
     }
     assert_eq!(rows(&rails_of("balances-account_unauthorized"), "api_keys")[0]["after"]["status"], 2);
+    let kraken_status = |name: &str| rows(&rails_of(name), "api_keys").first().map(|r| r["after"]["status"].clone());
+    assert_eq!(kraken_status("kraken-balances-other_then_invalid_key"), Some(json!(2)), "an invalid-key word anywhere in Kraken's errors condemns the key");
+    assert_eq!(kraken_status("kraken-balances-permission_then_invalid_key"), Some(json!(1)), "a permission error beside it wins: the key is not condemned");
     assert!(rows(&rails_of("balances-empty_account"), "account_balances").iter().all(|r| r["after"].is_null()), "gone positions are removed");
 
     // Handbacks: Rust runs a scenario's first night, Rails runs its second on Rust's copy.

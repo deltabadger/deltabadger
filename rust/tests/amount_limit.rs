@@ -762,3 +762,75 @@ async fn a_fill_recovered_from_kraken_trades_or_kucoin_fills_that_spends_the_cap
         }
     }
 }
+
+/// Slice 6d-1: a selling one-asset bot whose base cap (`limit` BTC) was switched on at STAMP.
+fn base_capped(limit: Value) -> BotSpec {
+    BotSpec::weekly(60.0, "2026-09-01 10:00:00").with("direction", json!("selling")).with("sell_denomination", json!("base"))
+        .with("sell_amount", json!(0.001)).with("base_amount_limited", json!(true)).with("base_amount_limit", limit)
+        .transient("base_amount_limit_enabled_at", json!(STAMP))
+}
+fn sell_row(id: &str, external_status: i64, amount: &str, exec: Option<&str>) -> Value {
+    json!({ "external_id": id, "external_status": external_status, "side": 1, "order_type": 0, "price": "64000", "amount": amount,
+            "amount_exec": exec, "created_at": IN })
+}
+fn base_left(o: &store::Opened, id: i64) -> (String, bool) {
+    use deltabadger::engine::accounting;
+    let bot = model::load_bot(&o.primary, id).unwrap();
+    // Compared by value: Rails' remainder is a BigDecimal (0 prints as "0.0"), or the Integer 0 when it went negative.
+    let left = accounting::base_amount_available_num(&o.primary, &bot).unwrap().expect("the cap is on").to_dec().unwrap();
+    let left = if left.is_zero() { "0".to_string() } else { left.to_s_f() };
+    (left, accounting::base_amount_limit_reached(&o.primary, &bot).unwrap())
+}
+
+/// D-6D-3: a sell that reported nothing, or part, of its 0.01 and was then abandoned still holds the whole 0.01 of a 0.01
+/// cap, so the next tick's reading leaves nothing to sell (Rails counts the reported exec only and reopens the rest). Once
+/// polling settles it as cancelled, its exec is what it sold.
+#[test]
+fn zero_and_partial_reported_exec_then_abandoned_then_another_tick_sells_nothing_past_the_cap() {
+    for exec in ["0", "0.004"] {
+        let (_d, o, s) = common::install_alpaca();
+        let id = seed::insert_bot(&o.primary, &s, &base_capped(json!(0.01)));
+        let row = seed::insert_row(&o.primary, &s, id, s.btc, &sell_row("OS", 1, "0.01", Some("0")));
+        assert_eq!(base_left(&o, id), ("0".into(), true), "exec {exec}: an open sell reserves its amount");
+        o.primary.execute("UPDATE transactions SET amount_exec = ?1 WHERE id = ?2", rusqlite::params![exec.parse::<f64>().unwrap(), row]).unwrap();
+        assert_eq!(base_left(&o, id), ("0".into(), true), "exec {exec}: reported, still open");
+        o.primary.execute("UPDATE transactions SET external_status = 4 WHERE id = ?1", [row]).unwrap();
+        assert_eq!(base_left(&o, id), ("0".into(), true), "exec {exec}: abandoned, the next tick has nothing to sell");
+        o.primary.execute("UPDATE transactions SET external_status = 3 WHERE id = ?1", [row]).unwrap();
+        let left = if exec == "0" { "0.01" } else { "0.006" };
+        assert_eq!(base_left(&o, id), (left.into(), false), "exec {exec}: reconciled as cancelled, its exec is what it sold");
+    }
+}
+
+/// An unresolved REGULAR sell intent holds its amount, as an open sell does; a rebalance sell's does not.
+#[test]
+fn an_unresolved_sell_intent_counts_toward_the_base_cap() {
+    let (_d, o, s) = common::install_alpaca();
+    let id = seed::insert_bot(&o.primary, &s, &base_capped(json!(0.01)));
+    let intent = |kind: &str| json!({ "side": "sell", "transaction_type": kind, "amount": "0.004", "volume": "0.004" }).to_string();
+    o.primary.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.rust_placement', json(?1)) WHERE id = ?2", rusqlite::params![intent("REGULAR"), id]).unwrap();
+    assert_eq!(base_left(&o, id).0, "0.006");
+    o.primary.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.rust_placement', json(?1)) WHERE id = ?2", rusqlite::params![intent("REBALANCE"), id]).unwrap();
+    assert_eq!(base_left(&o, id).0, "0.01");
+}
+
+/// validate_base_amount_limit_not_reached on the start reads the engine's tally: at the floor (1e-9 left of 0.01, BTC at 9
+/// decimals) neither refuses; a hair under it both do; an abandoned sell counts as D-6D-3 counts it on both.
+#[test]
+fn start_validation_equals_the_engine_at_the_boundary() {
+    use deltabadger::web::bot::draft::{Draft, ValidationContext};
+    for (rows, reached) in [(vec![sell_row("OC", 2, "0.009999999", Some("0.009999999"))], false),
+                            (vec![sell_row("OC", 2, "0.0099999995", Some("0.0099999995"))], true),
+                            (vec![sell_row("OA", 4, "0.01", Some("0.004"))], true),
+                            (vec![sell_row("OX", 3, "0.01", Some("0.004"))], false)] {
+        let (_d, o, s) = common::install_alpaca();
+        let id = seed::insert_bot(&o.primary, &s, &BotSpec { status: BotStatus::Stopped as i64, ..base_capped(json!(0.01)) });
+        for row in &rows { seed::insert_row(&o.primary, &s, id, s.btc, row); }
+        assert_eq!(base_left(&o, id).1, reached, "the engine: {rows:?}");
+        let mut draft = Draft::load(&o.primary, s.user_id, id, "en").unwrap().expect("owned bot");
+        draft.candidate.status = BotStatus::Scheduled;
+        draft.validate(&o.primary, ValidationContext::Start, at("2026-09-02T10:00:00Z"), true, "en").unwrap();
+        let refused = draft.errors.iter().any(|e| e.field == "settings");
+        assert_eq!(refused, reached, "the start validation: {rows:?}: {:?}", draft.errors.iter().map(|e| (&e.field, &e.message)).collect::<Vec<_>>());
+    }
+}

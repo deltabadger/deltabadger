@@ -14,10 +14,6 @@ impl Commitment {
         Self{status,value,cap_kind,zero_without_report}
     }
 }
-pub struct SoldCommitment { quantity: BigDec }
-impl SoldCommitment {
-    pub(crate) fn normalized(quantity:BigDec)->Self { Self{quantity} }
-}
 use crate::web::{bot::{self as web_bot, start, Bot as WebBot, Kind}, format::Num as WebNum, WebError};
 use chrono::{DateTime, Datelike, Months, Utc};
 use rusqlite::{params, Connection};
@@ -268,16 +264,58 @@ pub fn quote_amount_available(c: &Connection, bot: &Bot) -> Result<Option<BigDec
 /// the floor is 0 and nothing is under it). Not the venue minimum: a remainder between the two keeps the bot running.
 pub fn quote_amount_limit_reached(c: &Connection, bot: &Bot) -> Result<bool, EngineError> {
     if !bot.quote_amount_limited() { return Ok(false); }
+    let Some(d) = tickers_min_decimals(c, bot, "quote_decimals")? else { return Ok(false) };
+    // `1.0 / (10**d)`: a Float, compared as Ruby compares the remainder's own class with it.
+    Ok(engine_cap(c, bot, Some(d))?.1)
+}
+
+/// `tickers.pluck(column).compact.min` over Bot#tickers (members and former members, available and trading-enabled).
+fn tickers_min_decimals(c: &Connection, bot: &Bot, column: &'static str) -> Result<Option<i64>, EngineError> {
     let mut assets = bot.asset_ids();
     let mut s = c.prepare("SELECT asset_id FROM bot_index_assets WHERE bot_id = ?1")?;
     for a in s.query_map([bot.id], |r| r.get::<_, i64>(0))? { let a = a?; if !assets.contains(&a) { assets.push(a); } }
-    let decimals: Option<i64> = c.query_row(
-        "SELECT min(quote_decimals) FROM tickers WHERE exchange_id = ?1 AND quote_asset_id = ?2 AND available = 1 AND trading_enabled = 1 \
-         AND base_asset_id IN (SELECT value FROM json_each(?3))",
-        params![bot.exchange_id, bot.quote_asset_id(), serde_json::to_string(&assets).map_err(data)?], |r| r.get(0))?;
-    let Some(d) = decimals else { return Ok(false) };
-    // `1.0 / (10**d)`: a Float, compared as Ruby compares the remainder's own class with it.
-    Ok(engine_cap(c, bot, Some(d))?.1)
+    Ok(c.query_row(
+        &format!("SELECT min({column}) FROM tickers WHERE exchange_id = ?1 AND quote_asset_id = ?2 AND available = 1 AND trading_enabled = 1 \
+         AND base_asset_id IN (SELECT value FROM json_each(?3))"),
+        params![bot.exchange_id, bot.quote_asset_id(), serde_json::to_string(&assets).map_err(data)?], |r| r.get(0))?)
+}
+
+/// Bot::BaseAmountLimitable#base_amount_available_before_limit_reached and #base_amount_limit_reached?, with Ruby's numerics
+/// (`rails_cap_availability`'s buckets, the rows from `fill::sold_commitments`): `base_amount_limit.to_d` less closed +
+/// waiting + stopped, floored at 0, and reached under `1.0 / 10**min(base_decimals)`. An unresolved REGULAR sell intent is
+/// counted at its amount, as an unresolved buy is in the quote cap. The engine and the web's start validation both read it.
+fn base_cap(limit: Num, rows: &[Commitment], intent: Option<BigDec>, decimals: Option<i64>) -> Result<(Num, bool), EngineError> {
+    rails_cap_availability(Num::Dec(limit.to_dec().map_err(data)?), rows, intent, decimals)
+}
+
+/// An unresolved placement intent's base, counted as sold until it settles: a REGULAR SELL's only (an intent without a side
+/// is a buy; a liquidation or a rebalance sell is not the schedule's selling).
+fn sell_intent_base(intent: Option<&Value>) -> Result<Option<BigDec>, EngineError> {
+    let Some(intent) = intent.filter(|v| !v.is_null()) else { return Ok(None) };
+    if intent.get("side").is_none_or(|s| s != "sell") { return Ok(None); }
+    if intent.get("transaction_type").is_some_and(|k| k != "REGULAR") { return Ok(None); }
+    let amount = intent["amount"].as_str().ok_or_else(||data("unreadable intent amount"))?;
+    BigDec::parse(amount).map(Some).map_err(data)
+}
+
+fn engine_base_cap(c: &Connection, bot: &Bot, decimals: Option<i64>) -> Result<(Option<Num>, bool), EngineError> {
+    validate_stored_amounts(&bot.settings, &bot.transient)?;
+    let Some(limit) = bot.base_amount_limit().map_err(EngineError::Data)? else { return Ok((None, false)) };
+    let since = bot.base_amount_limit_enabled_at_us().map_err(EngineError::Data)?.map(at).transpose()?.map(format_time);
+    let rows = crate::figures::fill::sold_commitments(c, bot.id, since.as_deref()).map_err(data)?;
+    let (left, reached) = base_cap(limit, &rows, sell_intent_base(bot.rust_placement().as_ref())?, decimals)?;
+    Ok((Some(left), reached))
+}
+
+/// What the base cap leaves, as Ruby's numerics leave it; None when it is off (Rails' Float::INFINITY).
+pub fn base_amount_available_num(c: &Connection, bot: &Bot) -> Result<Option<Num>, EngineError> {
+    Ok(engine_base_cap(c, bot, None)?.0)
+}
+
+pub fn base_amount_limit_reached(c: &Connection, bot: &Bot) -> Result<bool, EngineError> {
+    if !bot.base_amount_limited() { return Ok(false); }
+    let Some(d) = tickers_min_decimals(c, bot, "base_decimals")? else { return Ok(false) };
+    Ok(engine_base_cap(c, bot, Some(d))?.1)
 }
 
 /// R1c order safety: exact cap minus exact normalized commitments, including unresolved intent.
@@ -510,15 +548,14 @@ pub(crate) fn round_up(value: f64, scale: f64) -> f64 {
     if value > f64::MAX / scale { value } else { (value * scale).ceil() / scale }
 }
 
-/// Preview's sell-cap projection, from validated normalizer rows only.
-pub fn base_cap_reached(c: &Connection, id: i64, limit: &BigDec, since: Option<&str>, decimals: Option<u8>) -> Result<bool, WebError> {
-    let mut total = BigDec::zero();
-    for amount in crate::figures::fill::sold_commitments(c, id, since).map_err(web_bot::fill_error)? {
-        total = total.checked_add(&amount.quantity).map_err(data)?;
-    }
-    let floor = decimals.map_or(0.0, |d| 10f64.powi(-i32::from(d)));
-    let floor = BigDec::from_f64(floor).map_err(data)?;
-    Ok((limit - &total).max(BigDec::zero()) < floor)
+/// validate_base_amount_limit_not_reached on the start: the engine's tally (`base_cap`) on the candidate's limit, stamp,
+/// intent and tickers. A limit that is not a number is Rails' blank (Float::INFINITY): never reached.
+pub fn web_base_cap_reached(c: &Connection, bot: &WebBot) -> Result<bool, WebError> {
+    let Some(limit) = bot.number("base_amount_limit") else { return Ok(false) };
+    let since = codec::optional_time(bot.transient.get("base_amount_limit_enabled_at")).map_err(|_|error("unreadable stored timestamp"))?.map(format_time);
+    let rows = crate::figures::fill::sold_commitments(c, bot.id, since.as_deref()).map_err(web_bot::fill_error)?;
+    let decimals = bot.tickers.iter().map(|t| i64::from(t.base_decimals)).min();
+    Ok(base_cap(core(limit), &rows, sell_intent_base(bot.transient.get("rust_placement"))?, decimals)?.1)
 }
 
 /// Bot::Fundable#required_balance_buffer: `quote_amount / interval_duration.to_f * 3.days.to_f`, the interval as Rails'
