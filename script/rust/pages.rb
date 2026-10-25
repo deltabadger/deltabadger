@@ -949,9 +949,9 @@ module Pages
       dir = File.join(root, name)
       jobs = build(dir, template, scenario)
       File.write(File.join(dir, 'scenario.json'), JSON.pretty_generate(
-                                                    'page_parity_scratch' => true, 'at' => AT,
-                                                    'secret_key_base' => Rails.application.secret_key_base, 'steps' => scenario['steps'],
-                                                    'expect_users' => scenario.fetch('expect_users', {}), 'jobs' => jobs
+                                                    { 'page_parity_scratch' => true, 'at' => AT,
+                                                      'secret_key_base' => Rails.application.secret_key_base, 'steps' => scenario['steps'],
+                                                      'expect_users' => scenario.fetch('expect_users', {}), 'jobs' => jobs }.merge(scenario.slice('env'))
                                                   ))
     end
     FileUtils.rm_rf(template)
@@ -1093,6 +1093,9 @@ module Pages
         hash[name] = { session:, page: nil, content: {} }
       end
       now = Time.iso8601(scenario['at'])
+      # 'env': the process environment the scenario's container runs with (MARKET_DATA_URL for a hosted one), for its steps only.
+      saved_env = scenario.fetch('env', {}).to_h { |name, _| [name, ENV.fetch(name, nil)] }
+      ENV.update(scenario.fetch('env', {}))
       NETWORK.clear
       original_adapter = ActiveJob::Base.queue_adapter
       action_scenario = scenario['steps'].any? { |step| step['action_snapshot'] || step['settings_snapshot'] }
@@ -1209,6 +1212,7 @@ module Pages
         answer
       end
       ActiveJob::Base.queue_adapter = original_adapter if action_scenario
+      saved_env.each { |name, value| value.nil? ? ENV.delete(name) : ENV.store(name, value) }
       travel_back
       users = ActiveRecord::Base.connection.select_all("SELECT #{USER_COLUMNS.join(', ')} FROM users ORDER BY id").to_a
       bots = ActiveRecord::Base.connection.select_all("SELECT #{BOT_COLUMNS.join(', ')} FROM bots ORDER BY id").to_a

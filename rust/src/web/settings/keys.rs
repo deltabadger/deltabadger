@@ -41,7 +41,7 @@ fn settling(c: &Connection, user: i64, exchange: i64) -> Result<bool, WebError> 
     }
     Ok(false)
 }
-fn refusal_text(ctx: &Ctx, reason: &str) -> String {
+pub(crate) fn refusal_text(ctx: &Ctx, reason: &str) -> String {
     if reason == SETTLING { reason.to_string() }
     else { i18n::text(ctx.locale, "engine.write_refused", &[("reason", i18n::Arg::Text(reason))]) }
 }
@@ -99,6 +99,16 @@ impl Key {
                 extras: [None,None,None,None],realm:None,version:None,
             }),
         }
+    }
+    /// Settings::IbkrConnectionsController#activate's credentials over the stored key: the consumer key, the access token and
+    /// its secret as submitted, the stored RSA keys and DH params re-passed, and a blank realm as `limited_poa`.
+    pub(crate) fn with_ibkr_credentials(&self, consumer_key: &str, access_token: &str, secret: &str) -> Self {
+        let mut candidate = self.clone();
+        candidate.key = Some(consumer_key.into());
+        candidate.secret = Some(secret.into());
+        candidate.extras[0] = Some(access_token.into());
+        if candidate.realm.as_deref().is_none_or(crate::ruby::blank) { candidate.realm = Some(crate::venue::signers::ibkr::DEFAULT_REALM.into()); }
+        candidate
     }
     fn same(&self, other: &Self) -> bool {
         self.id == other.id
@@ -274,6 +284,12 @@ pub(crate) async fn submit(app: &App, ctx: &Ctx, user: i64, exchange: i64, venue
         if let Some(value)=ctx.params.form(&format!("api_key[{name}]")){candidate.extras[i]=Some(value.into());}
     }
     if let Some(value)=ctx.params.form("api_key[ibkr_realm]"){candidate.realm=Some(value.into());}
+    submit_candidate(app,user,exchange,venue,venue_name,kind,original,candidate).await
+}
+
+/// `submit` of a candidate made by the caller over the stored key (`original`): the IBKR connect page's activation.
+#[allow(clippy::too_many_arguments)]
+pub(crate) async fn submit_candidate(app: &App, user: i64, exchange: i64, venue: &str, venue_name: &str, kind: i64, original: Key, candidate: Key) -> Result<Submitted, WebError> {
     let validated=validate(app,&candidate,&original,kind,venue).await?;
     match &validated.result.value {
         Validity::Incorrect => return Ok(Submitted::Incorrect),
@@ -501,20 +517,7 @@ pub async fn delete(app: App, ctx: Ctx) -> Result<Response, WebError> {
     let v = ctx.clone();
     let csrf = ctx.csrf_token();
     let outcome=app.db(move|c|{
-  let tx=Transaction::new_unchecked(c,TransactionBehavior::Immediate)?;
-  let key:Option<(i64,i64)>=tx.query_row("SELECT exchange_id,key_type FROM api_keys WHERE id=?1 AND user_id=?2",(id,user.id),|r|Ok((r.get(0)?,r.get(1)?))).optional()?;let Some((exchange,kind))=key else{return Ok(None);};
-  if settling(&tx,user.id,exchange)? { return Ok(Some(Err(SETTLING.into()))); }
-  let now=format_time(inner.now());
-  if kind==0{
-   let mut s=tx.prepare("SELECT id FROM bots WHERE user_id=?1 AND exchange_id=?2 AND status IN(1,4,5,6)")?;let ids=s.query_map((user.id,exchange),|r|r.get::<_,i64>(0))?.collect::<Result<Vec<_>,_>>()?;drop(s);
-   for bot in ids{tx.execute("UPDATE bots SET status=2,stopped_at=?1,stop_message_key=NULL,updated_at=?1 WHERE id=?2",(&now,bot))?;tx.execute("INSERT INTO bot_activity_logs(bot_id,event,level,message,details,created_at)VALUES(?1,'stopped',0,NULL,'{}',?2)",(bot,&now))?;}
-  }
-  tx.execute("UPDATE account_transactions SET api_key_id=NULL WHERE api_key_id=?1",[id])?;
-  tx.execute("DELETE FROM api_keys WHERE id=?1 AND user_id=?2",(id,user.id))?;
-  crate::identity::forget(&tx,id,user.id,exchange)?;
-  crate::venue::ibkr_account::forget(&tx,id)?;
-  if let Err(refusal)=eligibility::guard(&tx,&inner.cipher,None){return Ok(Some(Err(refusal.reason())));}
-  let body=list(&tx,&v,&csrf,user.id)?;tx.commit()?;crate::venue::ibkr::forget(id);inner.wake_engine();Ok(Some(Ok(body)))
+  remove(c,&inner,user.id,id,|tx|list(tx,&v,&csrf,user.id))
  }).await?;
     match outcome {
         None => Ok(crate::web::layout::missing()),
@@ -535,6 +538,27 @@ pub async fn delete(app: App, ctx: Ctx) -> Result<Response, WebError> {
                 .into_response())
         }
     }
+}
+
+/// A key's deletion (SettingsController#destroy_api_key, Settings::IbkrConnectionsController#destroy): its owner's working bots
+/// on its venue stopped first when it trades, its ledger rows kept (unlinked), its account identity and IBKR binding dropped.
+/// `then` runs inside the transaction after the delete, before the commit. None when the user has no such key; refused with
+/// nothing written while a bot of the venue settles an order, or when the eligibility guard objects.
+pub(crate) fn remove<T>(c: &Connection, inner: &App, user: i64, id: i64, then: impl FnOnce(&Connection) -> Result<T, WebError>) -> Result<Option<Result<T, String>>, WebError> {
+  let tx=Transaction::new_unchecked(c,TransactionBehavior::Immediate)?;
+  let key:Option<(i64,i64)>=tx.query_row("SELECT exchange_id,key_type FROM api_keys WHERE id=?1 AND user_id=?2",(id,user),|r|Ok((r.get(0)?,r.get(1)?))).optional()?;let Some((exchange,kind))=key else{return Ok(None);};
+  if settling(&tx,user,exchange)? { return Ok(Some(Err(SETTLING.into()))); }
+  let now=format_time(inner.now());
+  if kind==0{
+   let mut s=tx.prepare("SELECT id FROM bots WHERE user_id=?1 AND exchange_id=?2 AND status IN(1,4,5,6)")?;let ids=s.query_map((user,exchange),|r|r.get::<_,i64>(0))?.collect::<Result<Vec<_>,_>>()?;drop(s);
+   for bot in ids{tx.execute("UPDATE bots SET status=2,stopped_at=?1,stop_message_key=NULL,updated_at=?1 WHERE id=?2",(&now,bot))?;tx.execute("INSERT INTO bot_activity_logs(bot_id,event,level,message,details,created_at)VALUES(?1,'stopped',0,NULL,'{}',?2)",(bot,&now))?;}
+  }
+  tx.execute("UPDATE account_transactions SET api_key_id=NULL WHERE api_key_id=?1",[id])?;
+  tx.execute("DELETE FROM api_keys WHERE id=?1 AND user_id=?2",(id,user))?;
+  crate::identity::forget(&tx,id,user,exchange)?;
+  crate::venue::ibkr_account::forget(&tx,id)?;
+  if let Err(refusal)=eligibility::guard(&tx,&inner.cipher,None){return Ok(Some(Err(refusal.reason())));}
+  let out=then(&tx)?;tx.commit()?;crate::venue::ibkr::forget(id);inner.wake_engine();Ok(Some(Ok(out)))
 }
 
 /// The browser's JSON endpoint: #497 replaces in place and resets only changed-key ledger progress.
