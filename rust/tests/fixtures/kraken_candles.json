@@ -4,7 +4,7 @@
     "app/models/exchange.rb": "ab627a2812bc0c7b4a546459e64f8f5d93617c496308d5f03163f44cef12d8d7",
     "app/models/exchange/candle_builder.rb": "37533269883734b7b9fe565def3b953b408d565e719f7cf2e45c7b685d364ff1",
     "app/models/utilities/hash.rb": "c976d9a7c387bf813da7404a029df8f7afe8dae29567edee5d48ebc7f431cf11",
-    "script/rust/record_candles.rb": "eabe0c2b6389e9cf223bb535f61e271a94250cbd0d2126f439ffac3a6a242188"
+    "script/rust/record_candles.rb": "39ff102c39ace2c616e68c415f4754e57821f50bb99702861ee86024e9d636e3"
   },
   "gems": {
     "honeymaker": "0.12.5"
@@ -15,6 +15,7 @@
       "name": "1m_normal",
       "timeframe": "1m",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=1&pair=XXBTZEUR&since=1788343199": [
           {
@@ -745,6 +746,7 @@
       "name": "1m_gap",
       "timeframe": "1m",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=1&pair=XXBTZEUR&since=1788343199": [
           {
@@ -1439,6 +1441,7 @@
       "name": "1m_holding_the_start",
       "timeframe": "1m",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=1&pair=XXBTZEUR&since=1788343199": [
           {
@@ -1483,6 +1486,7 @@
       "name": "1m_empty",
       "timeframe": "1m",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=1&pair=XXBTZEUR&since=1788343199": [
           {
@@ -1507,6 +1511,7 @@
       "name": "1m_http_500",
       "timeframe": "1m",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=1&pair=XXBTZEUR&since=1788343199": [
           {
@@ -1527,6 +1532,7 @@
       "name": "5m_normal",
       "timeframe": "5m",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=5&pair=XXBTZEUR&since=1788343199": [
           {
@@ -2257,6 +2263,7 @@
       "name": "5m_gap",
       "timeframe": "5m",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=5&pair=XXBTZEUR&since=1788343199": [
           {
@@ -2951,6 +2958,7 @@
       "name": "5m_holding_the_start",
       "timeframe": "5m",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=5&pair=XXBTZEUR&since=1788343199": [
           {
@@ -2995,6 +3003,7 @@
       "name": "5m_empty",
       "timeframe": "5m",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=5&pair=XXBTZEUR&since=1788343199": [
           {
@@ -3019,6 +3028,7 @@
       "name": "5m_http_500",
       "timeframe": "5m",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=5&pair=XXBTZEUR&since=1788343199": [
           {
@@ -3039,6 +3049,7 @@
       "name": "15m_normal",
       "timeframe": "15m",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=15&pair=XXBTZEUR&since=1788343199": [
           {
@@ -3769,6 +3780,7 @@
       "name": "15m_gap",
       "timeframe": "15m",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=15&pair=XXBTZEUR&since=1788343199": [
           {
@@ -4463,6 +4475,7 @@
       "name": "15m_holding_the_start",
       "timeframe": "15m",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=15&pair=XXBTZEUR&since=1788343199": [
           {
@@ -4507,6 +4520,7 @@
       "name": "15m_empty",
       "timeframe": "15m",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=15&pair=XXBTZEUR&since=1788343199": [
           {
@@ -4531,6 +4545,7 @@
       "name": "15m_http_500",
       "timeframe": "15m",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=15&pair=XXBTZEUR&since=1788343199": [
           {
@@ -4551,6 +4566,7 @@
       "name": "30m_normal",
       "timeframe": "30m",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=30&pair=XXBTZEUR&since=1788343199": [
           {
@@ -5281,6 +5297,7 @@
       "name": "30m_gap",
       "timeframe": "30m",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=30&pair=XXBTZEUR&since=1788343199": [
           {
@@ -5975,6 +5992,7 @@
       "name": "30m_holding_the_start",
       "timeframe": "30m",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=30&pair=XXBTZEUR&since=1788343199": [
           {
@@ -6019,6 +6037,7 @@
       "name": "30m_empty",
       "timeframe": "30m",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=30&pair=XXBTZEUR&since=1788343199": [
           {
@@ -6043,6 +6062,7 @@
       "name": "30m_http_500",
       "timeframe": "30m",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=30&pair=XXBTZEUR&since=1788343199": [
           {
@@ -6063,6 +6083,7 @@
       "name": "1h_normal",
       "timeframe": "1h",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=60&pair=XXBTZEUR&since=1788343199": [
           {
@@ -6793,6 +6814,7 @@
       "name": "1h_gap",
       "timeframe": "1h",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=60&pair=XXBTZEUR&since=1788343199": [
           {
@@ -7487,6 +7509,7 @@
       "name": "1h_holding_the_start",
       "timeframe": "1h",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=60&pair=XXBTZEUR&since=1788343199": [
           {
@@ -7531,6 +7554,7 @@
       "name": "1h_empty",
       "timeframe": "1h",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=60&pair=XXBTZEUR&since=1788343199": [
           {
@@ -7555,6 +7579,7 @@
       "name": "1h_http_500",
       "timeframe": "1h",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=60&pair=XXBTZEUR&since=1788343199": [
           {
@@ -7575,6 +7600,7 @@
       "name": "4h_normal",
       "timeframe": "4h",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=240&pair=XXBTZEUR&since=1788343199": [
           {
@@ -8297,6 +8323,7 @@
       "name": "4h_gap",
       "timeframe": "4h",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=240&pair=XXBTZEUR&since=1788343199": [
           {
@@ -8983,6 +9010,7 @@
       "name": "4h_holding_the_start",
       "timeframe": "4h",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=240&pair=XXBTZEUR&since=1788343199": [
           {
@@ -9018,6 +9046,7 @@
       "name": "4h_empty",
       "timeframe": "4h",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=240&pair=XXBTZEUR&since=1788343199": [
           {
@@ -9042,6 +9071,7 @@
       "name": "4h_http_500",
       "timeframe": "4h",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=240&pair=XXBTZEUR&since=1788343199": [
           {
@@ -9062,6 +9092,7 @@
       "name": "1d_normal",
       "timeframe": "1d",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=1440&pair=XXBTZEUR&since=1788343199": [
           {
@@ -9784,6 +9815,7 @@
       "name": "1d_gap",
       "timeframe": "1d",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=1440&pair=XXBTZEUR&since=1788343199": [
           {
@@ -10470,6 +10502,7 @@
       "name": "1d_holding_the_start",
       "timeframe": "1d",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=1440&pair=XXBTZEUR&since=1788343199": [
           {
@@ -10505,6 +10538,7 @@
       "name": "1d_empty",
       "timeframe": "1d",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=1440&pair=XXBTZEUR&since=1788343199": [
           {
@@ -10529,6 +10563,7 @@
       "name": "1d_http_500",
       "timeframe": "1d",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=1440&pair=XXBTZEUR&since=1788343199": [
           {
@@ -10549,6 +10584,7 @@
       "name": "3d_normal",
       "timeframe": "3d",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=1440&pair=XXBTZEUR&since=1788343199": [
           {
@@ -11071,6 +11107,7 @@
       "name": "3d_gap",
       "timeframe": "3d",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=1440&pair=XXBTZEUR&since=1788343199": [
           {
@@ -11573,6 +11610,7 @@
       "name": "3d_holding_the_start",
       "timeframe": "3d",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=1440&pair=XXBTZEUR&since=1788343199": [
           {
@@ -11608,6 +11646,7 @@
       "name": "3d_empty",
       "timeframe": "3d",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=1440&pair=XXBTZEUR&since=1788343199": [
           {
@@ -11632,6 +11671,7 @@
       "name": "3d_http_500",
       "timeframe": "3d",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=1440&pair=XXBTZEUR&since=1788343199": [
           {
@@ -11652,6 +11692,7 @@
       "name": "1w_normal",
       "timeframe": "1w",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=1440&pair=XXBTZEUR&since=1788343199": [
           {
@@ -12118,6 +12159,7 @@
       "name": "1w_gap",
       "timeframe": "1w",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=1440&pair=XXBTZEUR&since=1788343199": [
           {
@@ -12564,6 +12606,7 @@
       "name": "1w_holding_the_start",
       "timeframe": "1w",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=1440&pair=XXBTZEUR&since=1788343199": [
           {
@@ -12599,6 +12642,7 @@
       "name": "1w_empty",
       "timeframe": "1w",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=1440&pair=XXBTZEUR&since=1788343199": [
           {
@@ -12623,6 +12667,7 @@
       "name": "1w_http_500",
       "timeframe": "1w",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=1440&pair=XXBTZEUR&since=1788343199": [
           {
@@ -12643,6 +12688,7 @@
       "name": "1M_normal",
       "timeframe": "1M",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=1440&pair=XXBTZEUR&since=1788343199": [
           {
@@ -13077,6 +13123,7 @@
       "name": "1M_gap",
       "timeframe": "1M",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=1440&pair=XXBTZEUR&since=1788343199": [
           {
@@ -13491,6 +13538,7 @@
       "name": "1M_holding_the_start",
       "timeframe": "1M",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=1440&pair=XXBTZEUR&since=1788343199": [
           {
@@ -13526,6 +13574,7 @@
       "name": "1M_empty",
       "timeframe": "1M",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=1440&pair=XXBTZEUR&since=1788343199": [
           {
@@ -13550,6 +13599,7 @@
       "name": "1M_http_500",
       "timeframe": "1M",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=1440&pair=XXBTZEUR&since=1788343199": [
           {
@@ -13570,6 +13620,7 @@
       "name": "3d_built_from_20260701",
       "timeframe": "3d",
       "start_at": "2026-07-01T00:00:00.000000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=1440&pair=XXBTZEUR&since=1782863999": [
           {
@@ -14546,6 +14597,7 @@
       "name": "3d_built_from_20260702",
       "timeframe": "3d",
       "start_at": "2026-07-02T00:00:00.000000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=1440&pair=XXBTZEUR&since=1782950399": [
           {
@@ -15522,6 +15574,7 @@
       "name": "1w_built_from_20260701",
       "timeframe": "1w",
       "start_at": "2026-07-01T00:00:00.000000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=1440&pair=XXBTZEUR&since=1782863999": [
           {
@@ -16378,6 +16431,7 @@
       "name": "1w_built_from_20260706",
       "timeframe": "1w",
       "start_at": "2026-07-06T00:00:00.000000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=1440&pair=XXBTZEUR&since=1783295999": [
           {
@@ -17242,6 +17296,7 @@
       "name": "1M_built_from_20260615",
       "timeframe": "1M",
       "start_at": "2026-06-15T00:00:00.000000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=1440&pair=XXBTZEUR&since=1781481599": [
           {
@@ -18034,6 +18089,7 @@
       "name": "1M_built_from_20260601",
       "timeframe": "1M",
       "start_at": "2026-06-01T00:00:00.000000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=1440&pair=XXBTZEUR&since=1780271999": [
           {
@@ -18834,6 +18890,7 @@
       "name": "1M_built_from_20260120",
       "timeframe": "1M",
       "start_at": "2026-01-20T00:00:00.000000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=1440&pair=XXBTZEUR&since=1768867199": [
           {
@@ -19634,6 +19691,7 @@
       "name": "1w_built_single_day",
       "timeframe": "1w",
       "start_at": "2026-07-06T00:00:00.000000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=1440&pair=XXBTZEUR&since=1783295999": [
           {
@@ -19678,6 +19736,7 @@
       "name": "1M_built_leap_february",
       "timeframe": "1M",
       "start_at": "2028-01-30T00:00:00.000000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=1440&pair=XXBTZEUR&since=1832803199": [
           {
@@ -20170,6 +20229,7 @@
       "name": "1w_built_unsorted",
       "timeframe": "1w",
       "start_at": "2026-07-06T00:00:00.000000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=1440&pair=XXBTZEUR&since=1783295999": [
           {
@@ -20310,6 +20370,7 @@
       "name": "row_a_second_before_an_exact_start_kept",
       "timeframe": "1m",
       "start_at": "2026-09-02T10:00:00.000000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=1&pair=XXBTZEUR&since=1788343199": [
           {
@@ -20382,6 +20443,7 @@
       "name": "row_a_second_before_a_fractional_start_dropped",
       "timeframe": "1m",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=1&pair=XXBTZEUR&since=1788343199": [
           {
@@ -20454,6 +20516,7 @@
       "name": "row_at_the_start_second_of_a_late_fraction_dropped",
       "timeframe": "1m",
       "start_at": "2026-09-02T10:00:00.999999Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=1&pair=XXBTZEUR&since=1788343199": [
           {
@@ -20508,6 +20571,7 @@
       "name": "720_cap_kept_as_sent",
       "timeframe": "1h",
       "start_at": "2026-08-01T00:00:00.000000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=60&pair=XXBTZEUR&since=1785542399": [
           {
@@ -33494,6 +33558,7 @@
       "name": "720_cap_daily_from_years_back",
       "timeframe": "1d",
       "start_at": "2006-09-01T00:00:00.000000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=1440&pair=XXBTZEUR&since=1157068799": [
           {
@@ -46480,6 +46545,7 @@
       "name": "error_unknown_pair",
       "timeframe": "1h",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=60&pair=XXBTZEUR&since=1788343199": [
           {
@@ -46504,6 +46570,7 @@
       "name": "error_two",
       "timeframe": "1h",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=60&pair=XXBTZEUR&since=1788343199": [
           {
@@ -46530,6 +46597,7 @@
       "name": "error_with_result",
       "timeframe": "1d",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=1440&pair=XXBTZEUR&since=1788343199": [
           {
@@ -46557,6 +46625,7 @@
       "name": "error_missing",
       "timeframe": "1h",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=60&pair=XXBTZEUR&since=1788343199": [
           {
@@ -46580,6 +46649,7 @@
       "name": "error_null",
       "timeframe": "1h",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=60&pair=XXBTZEUR&since=1788343199": [
           {
@@ -46604,6 +46674,7 @@
       "name": "result_missing",
       "timeframe": "1h",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=60&pair=XXBTZEUR&since=1788343199": [
           {
@@ -46625,6 +46696,7 @@
       "name": "result_null",
       "timeframe": "1h",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=60&pair=XXBTZEUR&since=1788343199": [
           {
@@ -46647,6 +46719,7 @@
       "name": "result_last_only",
       "timeframe": "1h",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=60&pair=XXBTZEUR&since=1788343199": [
           {
@@ -46671,6 +46744,7 @@
       "name": "result_empty",
       "timeframe": "1h",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=60&pair=XXBTZEUR&since=1788343199": [
           {
@@ -46693,6 +46767,7 @@
       "name": "result_last_first",
       "timeframe": "1h",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=60&pair=XXBTZEUR&since=1788343199": [
           {
@@ -46755,6 +46830,7 @@
       "name": "result_rows_null",
       "timeframe": "1h",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=60&pair=XXBTZEUR&since=1788343199": [
           {
@@ -46780,6 +46856,7 @@
       "name": "http_500_empty",
       "timeframe": "1h",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=60&pair=XXBTZEUR&since=1788343199": [
           {
@@ -46800,6 +46877,7 @@
       "name": "http_502",
       "timeframe": "1h",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=60&pair=XXBTZEUR&since=1788343199": [
           {
@@ -46820,6 +46898,7 @@
       "name": "http_400_json",
       "timeframe": "1h",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=60&pair=XXBTZEUR&since=1788343199": [
           {
@@ -46844,6 +46923,7 @@
       "name": "http_401",
       "timeframe": "1h",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=60&pair=XXBTZEUR&since=1788343199": [
           {
@@ -46864,6 +46944,7 @@
       "name": "http_429",
       "timeframe": "1h",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=60&pair=XXBTZEUR&since=1788343199": [
           {
@@ -46884,6 +46965,7 @@
       "name": "not_json",
       "timeframe": "1h",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=60&pair=XXBTZEUR&since=1788343199": [
           {
@@ -46904,6 +46986,7 @@
       "name": "json_array",
       "timeframe": "1h",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=60&pair=XXBTZEUR&since=1788343199": [
           {
@@ -46926,6 +47009,7 @@
       "name": "transport_pre_send",
       "timeframe": "1h",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=60&pair=XXBTZEUR&since=1788343199": [
           {
@@ -46946,6 +47030,7 @@
       "name": "transport_timeout",
       "timeframe": "1h",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=60&pair=XXBTZEUR&since=1788343199": [
           {
@@ -46966,6 +47051,7 @@
       "name": "row_numbers_as_json_numbers",
       "timeframe": "1h",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=60&pair=XXBTZEUR&since=1788343199": [
           {
@@ -47010,6 +47096,7 @@
       "name": "row_float_digits",
       "timeframe": "1h",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=60&pair=XXBTZEUR&since=1788343199": [
           {
@@ -47054,6 +47141,7 @@
       "name": "row_many_digits",
       "timeframe": "1h",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=60&pair=XXBTZEUR&since=1788343199": [
           {
@@ -47098,6 +47186,7 @@
       "name": "row_exponent_strings",
       "timeframe": "1h",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=60&pair=XXBTZEUR&since=1788343199": [
           {
@@ -47142,6 +47231,7 @@
       "name": "row_open_null",
       "timeframe": "1h",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=60&pair=XXBTZEUR&since=1788343199": [
           {
@@ -47186,6 +47276,7 @@
       "name": "row_open_word",
       "timeframe": "1h",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=60&pair=XXBTZEUR&since=1788343199": [
           {
@@ -47230,6 +47321,7 @@
       "name": "row_close_blank",
       "timeframe": "1h",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=60&pair=XXBTZEUR&since=1788343199": [
           {
@@ -47274,6 +47366,7 @@
       "name": "row_volume_null",
       "timeframe": "1h",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=60&pair=XXBTZEUR&since=1788343199": [
           {
@@ -47318,6 +47411,7 @@
       "name": "row_short_row",
       "timeframe": "1h",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=60&pair=XXBTZEUR&since=1788343199": [
           {
@@ -47359,6 +47453,7 @@
       "name": "row_time_string",
       "timeframe": "1h",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=60&pair=XXBTZEUR&since=1788343199": [
           {
@@ -47395,6 +47490,7 @@
       "name": "row_time_float",
       "timeframe": "1h",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=60&pair=XXBTZEUR&since=1788343199": [
           {
@@ -47439,6 +47535,7 @@
       "name": "row_time_null",
       "timeframe": "1h",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=60&pair=XXBTZEUR&since=1788343199": [
           {
@@ -47475,6 +47572,7 @@
       "name": "row_not_an_array",
       "timeframe": "1h",
       "start_at": "2026-09-02T10:00:00.500000Z",
+      "now": "2026-09-02T10:00:01.000000Z",
       "http": {
         "GET /0/public/OHLC?interval=60&pair=XXBTZEUR&since=1788343199": [
           {
