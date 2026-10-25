@@ -151,22 +151,6 @@ fn rule_ticker_quoted(c: &Connection, bot: &Bot, rule: &PriceRule) -> Result<(Op
     Ok((id.and_then(|id| tickers.into_iter().find(|t| t.id == id)), decimals))
 }
 
-/// The decorated `started_at` as Rails' chained trigger-rule decorators read it, on the ACTIVE side (`active_*_limited?`,
-/// price_limitable.rb:106-115 and its three siblings): the later of started_at and every enabled rule's met_at, nil while
-/// one of them is nil. accounting::condition_started_at reads the buy side only (7b-3 T6 makes it side-aware).
-fn active_started_us(bot: &Bot) -> Result<Option<i64>, EngineError> {
-    let side = if bot.selling() { "sell_" } else { "" };
-    let mut started = bot.started_at_us()?;
-    for (kind, rule) in TRIGGERS {
-        if bot.settings.get(format!("{side}{rule}ed").as_str()) != Some(&Value::Bool(true)) { continue; }
-        if !decorates(bot.kind(), stored_support(&bot.bot_type, &bot.settings, kind, bot.selling())) { continue; }
-        let met = crate::codec::optional_time(bot.transient.get(format!("{side}{rule}_condition_met_at").as_str()))
-            .map_err(|_| EngineError::Data("unreadable stored timestamp".into()))?;
-        started = started.zip(met).map(|(a, b)| a.max(b.timestamp_micros()));
-    }
-    Ok(started)
-}
-
 /// The last price through Exchange's 5 s cache, and the key that produced it.
 async fn last_price<V: Attributed>(venue: &V, bot: &Bot, ticker: &Ticker, now: DateTime<Utc>, prices: &PriceCache, version: &Option<model::CredentialVersion>)
     -> Result<(BigDec, Option<model::CredentialVersion>), VenueError> {
@@ -207,7 +191,7 @@ pub async fn evaluate<V: Attributed>(c: &Connection, venue: &V, bot: &Bot, clock
     if rule.met_at_us.is_some() {
         model::run_credential_write(c, bot, &origin, |tx| {
             let current = model::load_bot(tx, bot.id)?;
-            if active_started_us(&current)?.is_none() {
+            if current.condition_started_us()?.is_none() {
                 // Accountable#check_missed_quote_amount_was_set (accountable.rb:119-127): the clear leaves the carry window where it
                 // was (another enabled rule, or no start, already keeps the decorated started_at nil), so the capture is taken
                 // back: the carry as stored before it (nil when absent), and the marker nil.

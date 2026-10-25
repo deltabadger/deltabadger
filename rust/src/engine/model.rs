@@ -330,12 +330,12 @@ impl Bot {
     pub fn calc_since_us(&self) -> Result<Option<i64>, EngineError> {
         Ok([self.condition_started_us()?, self.settings_changed_at_us()?].into_iter().flatten().max())
     }
-    /// Bot::PriceLimitable's (and its three siblings') `started_at` decorator: while a rule of the buy side is on, the later of
-    /// started_at and that rule's `*_condition_met_at`, or nil while it is unmet. The schedule's grid keeps the raw started_at.
+    /// Bot::PriceLimitable's (and its three siblings') `started_at` decorator on the active side (accounting::condition_started_at).
+    /// The schedule's grid keeps the raw started_at.
     pub fn condition_started_us(&self) -> Result<Option<i64>, EngineError> {
         let settings = self.settings.as_object().cloned().unwrap_or_default();
         let transient = self.transient.as_object().cloned().unwrap_or_default();
-        super::accounting::condition_started_at(self.kind(), &settings, &transient, self.started_at_us()?)
+        super::accounting::condition_started_at(self.kind(), &settings, &transient, self.started_at_us()?, self.selling())
     }
     /// The active side's price rule (Bot::PriceLimitable#active_price_limited?), None when it is off or not one this build
     /// runs on the bot's kind (conditions::support: eligibility refuses those it does not implement). Err: a stored value
