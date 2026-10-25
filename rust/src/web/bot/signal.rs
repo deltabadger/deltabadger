@@ -148,7 +148,7 @@ fn amount_text(amount: &BigDec) -> String {
 /// two times (not a duration) dotiw leaves the seconds out wherever there are minutes (`include_seconds: false`).
 /// ponytail: the calendar ends at `time` plus the whole seconds, not at now's own sub-second instant; the two can name
 /// different hours only within a second of an hour's turn, past four weeks.
-fn ago(time: DateTime<Utc>, now: DateTime<Utc>, locale: &str) -> String {
+pub(crate) fn ago(time: DateTime<Utc>, now: DateTime<Utc>, locale: &str) -> String {
     let whole = (now - time).num_seconds().abs();
     let shown = if (whole % 3600) / 60 != 0 { whole - whole % 60 } else { whole };
     format::distance_of_time_in_words(shown as f64, if time <= now { time } else { now }, locale)

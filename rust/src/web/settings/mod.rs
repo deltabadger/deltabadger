@@ -4,6 +4,7 @@ pub mod confirmation;
 pub mod api;
 pub mod clients;
 pub mod dialog;
+pub mod ibkr;
 pub mod keys;
 pub mod key_check;
 pub mod validator;
@@ -43,6 +44,8 @@ pub async fn show(
         "/settings/connect" => keys::show(app, ctx).await,
         "/settings/mcp" => api::show(app, ctx, "mcp").await,
         "/settings/api" => api::show(app, ctx, "rest").await,
+        ibkr::PATH => ibkr::show(app, ctx).await,
+        "/settings/ibkr_connect/download" => ibkr::download(app, ctx).await,
         p if p.starts_with("/settings/api_key_permissions/") => keys::modal(app, ctx).await,
         _ => Ok(layout::not_ported_for(&ctx)),
     }
@@ -99,6 +102,12 @@ pub async fn write(
             .starts_with("/settings/destroy_api_key/")
     {
         return keys::delete(app, ctx).await;
+    }
+    match (&ctx.method, ctx.params.route_path.as_str()) {
+        (&Method::POST, ibkr::PATH) => return ibkr::create(app, ctx).await,
+        (&Method::DELETE, ibkr::PATH) => return ibkr::destroy(app, ctx).await,
+        (&Method::POST, "/settings/ibkr_connect/activate") => return ibkr::activate(app, ctx).await,
+        _ => {}
     }
     if ctx.method == Method::PATCH && ctx.params.route_path == "/settings/update_wash_sale" {
         return tax::write(app, ctx, headers).await;

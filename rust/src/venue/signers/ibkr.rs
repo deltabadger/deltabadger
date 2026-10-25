@@ -291,6 +291,19 @@ pub fn generate_rsa() -> (String, String) {
     (private, public)
 }
 
+/// `OpenSSL::PKey::RSA.new(pem).public_key.to_pem`: the SPKI `PUBLIC KEY` PEM of a stored private key (PKCS#1 or PKCS#8).
+pub fn public_pem(private_pem: &str) -> Option<String> {
+    let key = rsa_private_key(private_pem)?;
+    Some(write_pem("PUBLIC KEY", key.public_key().as_der().ok()?.as_ref()))
+}
+
+/// Whether a key's stored RSA keys and DH params make a session (`Signer::new`'s reads), whatever its credentials.
+pub fn usable(signature_key: &str, encryption_key: &str, dh_param: &str) -> bool {
+    let m = Material { consumer_key: String::new(), access_token: String::new(), access_token_secret: String::new(), signature_key: signature_key.into(),
+                       encryption_key: encryption_key.into(), dh_param: dh_param.into(), realm: String::new() };
+    Signer::new(&m).is_ok()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -322,6 +335,17 @@ mod tests {
         let r = dh_random();
         assert!(r.len() == 64 && r.bytes().all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase()));
         assert_eq!(timestamp().len(), 10);
+    }
+
+    #[test]
+    fn a_generated_pair_is_usable_and_its_public_half_is_what_the_private_key_derives() {
+        let (signing, public) = generate_rsa();
+        let (encryption, _) = generate_rsa();
+        assert_eq!(public_pem(&signing).as_deref(), Some(public.as_str()));
+        assert!(usable(&signing, &encryption, &ffdhe2048_pem()));
+        assert!(!usable(&signing, &encryption, "-----BEGIN DH PARAMETERS-----\n-----END DH PARAMETERS-----\n"));
+        assert!(!usable("not a key", &encryption, &ffdhe2048_pem()));
+        assert_eq!(public_pem("not a key"), None);
     }
 
     #[test]
