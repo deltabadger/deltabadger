@@ -40,7 +40,8 @@ pub enum EngineEvent {
     /// The status line of a trigger rule has an answer (Bot#broadcast_price_limit_info_update): the engine served the page's
     /// request (`locale`: the request's, as ActiveJob restores the enqueuer's), or a condition write broadcast it from inside
     /// get_price_limit_condition_met? (None: the owner's). The web renders bots/settings/_price_limit_info from the stored info.
-    ConditionInfo { bot_id: i64, rule: &'static str, locale: Option<String> },
+    /// `side`: the rule's side (conditions::BUYING / SELLING), D-INFO-SIDE.
+    ConditionInfo { bot_id: i64, rule: &'static str, side: &'static str, locale: Option<String> },
     /// A sell of this bot was written closed, or cancelled with a fill, its status or executed figures changed (polling::apply_in):
     /// Transaction's after_commit, which enqueues AccountTransaction::SyncJob for the bot's trading key
     /// (app/models/transaction.rb:50-56), so the ledger arms a wash-sale lock for a sale that filled after it was placed.

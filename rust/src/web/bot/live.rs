@@ -64,14 +64,16 @@ pub fn render(c: &Connection, app: &App, event: &EngineEvent) -> Result<Vec<(Str
         EngineEvent::SignalMarkerChanged { .. } if bot.kind == super::Kind::Signal =>
             vec![(super::page::page_stream(&bot), super::signal::unresolved_broadcast(&ctx, &bot))],
         // Bot#broadcast_price_limit_info_update: the info as its fetch left it, in the job's locale (the request's, else the
-        // owner's), into the status line of the active side's rule; nothing while that rule is off (the partial's guard).
-        EngineEvent::ConditionInfo { rule, locale, .. } => {
-            let (side, prefix) = if bot.selling() { ("selling", "sell_") } else { ("buying", "") };
-            let info = bot.transient.get(crate::engine::conditions::INFO_KEY).and_then(|v| v.get(*rule)).and_then(|v| v.get(side));
-            match info {
-                Some(info) if *rule == crate::engine::conditions::PRICE && bot.on(&format!("{prefix}price_limited")) => {
+        // owner's), into the status line of that side's rule (D-INFO-SIDE: settings::info_target); nothing while that rule
+        // is off (the partial's guard) or the page has no line for the side.
+        EngineEvent::ConditionInfo { rule, side, locale, .. } => {
+            use crate::engine::conditions::{INFO_KEY, PRICE, SELLING};
+            let prefix = if *side == SELLING { "sell_" } else { "" };
+            let info = bot.transient.get(INFO_KEY).and_then(|v| v.get(*rule)).and_then(|v| v.get(*side));
+            match (info, super::settings::info_target(&bot, rule, side)) {
+                (Some(info), Some(target)) if *rule == PRICE && bot.on(&format!("{prefix}price_limited")) => {
                     let locale = locale.as_deref().and_then(crate::web::locale::known).unwrap_or(ctx.locale);
-                    vec![(super::page::page_stream(&bot), crate::web::turbo::stream("replace", "settings-price-limit-info", &super::settings::price_limit_info(locale, info)))]
+                    vec![(super::page::page_stream(&bot), crate::web::turbo::stream("replace", &target, &super::settings::price_limit_info(locale, info, &target)))]
                 }
                 _ => vec![],
             }

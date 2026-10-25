@@ -216,13 +216,20 @@ fn settings_inner<T>(
     if label_changed { one(tx.execute("UPDATE bots SET label = ?1 WHERE id = ?2 AND user_id = ?3 AND type = ?4 AND status <> 3", (&draft.candidate.label, id, owner, class))?)?; }
     if exchange_changed { one(tx.execute("UPDATE bots SET exchange_id = ?1 WHERE id = ?2 AND user_id = ?3 AND type = ?4 AND status <> 3", (draft.candidate.exchange.id, id, owner, class))?)?; }
     // Bot::PriceLimitable#reset_price_limit_info_cache (before_save, when the settings are written): a price-rule field changed
-    // on either side drops the status line's info of the side the bot is saved on.
-    const PRICE_INFO_FIELDS: [&str; 10] = ["price_limit", "price_limit_value_condition", "price_limit_in_ticker_id", "price_limit_range_lower_bound",
-        "price_limit_range_upper_bound", "sell_price_limit", "sell_price_limit_value_condition", "sell_price_limit_in_ticker_id",
-        "sell_price_limit_range_lower_bound", "sell_price_limit_range_upper_bound"];
-    if !effects.settings.set.is_empty() && PRICE_INFO_FIELDS.iter().any(|key| !super::draft::equal(draft.raw_settings.get(*key).unwrap_or(&Value::Null), final_settings.get(*key).unwrap_or(&Value::Null))) {
-        let side = if final_settings.get("direction").and_then(Value::as_str) == Some("selling") { "selling" } else { "buying" };
-        crate::engine::conditions::forget_info(&tx, id, crate::engine::conditions::PRICE, side).map_err(|e| error(&format!("{e:?}")))?;
+    // on either side drops the status line's info of the side the bot is saved on, as Rails does; D-INFO-SIDE: and the info of
+    // the side whose rule changed (each side has its own line).
+    const PRICE_INFO_FIELDS: [&str; 5] = ["price_limit", "price_limit_value_condition", "price_limit_in_ticker_id", "price_limit_range_lower_bound", "price_limit_range_upper_bound"];
+    if !effects.settings.set.is_empty() {
+        use crate::engine::conditions::{forget_info, side_of, PRICE};
+        let changed = |selling: bool| PRICE_INFO_FIELDS.iter().map(|k| if selling { format!("sell_{k}") } else { k.to_string() })
+            .any(|key| !super::draft::equal(draft.raw_settings.get(&key).unwrap_or(&Value::Null), final_settings.get(&key).unwrap_or(&Value::Null)));
+        let (buy, sell) = (changed(false), changed(true));
+        let active = final_settings.get("direction").and_then(Value::as_str) == Some("selling");
+        for selling in [false, true] {
+            if (buy || sell) && (selling == active || if selling { sell } else { buy }) {
+                forget_info(&tx, id, PRICE, side_of(selling)).map_err(|e| error(&format!("{e:?}")))?;
+            }
+        }
     }
     let at = codec::format_time(ctx.now);
     if effects.settings_changed { one(tx.execute("UPDATE bots SET settings_changed_at = ?1 WHERE id = ?2 AND user_id = ?3 AND type = ?4 AND status <> 3", (&at, id, owner, class))?)?; }

@@ -73,8 +73,8 @@ pub async fn wake_dispatcher(State(app): State<App>, Extension(ctx): Extension<C
 
 /// `price_limit_info_update`: the price rule's status line. Rails enqueues Bot::BroadcastPriceLimitInfoUpdateJob; this build
 /// leaves a versioned request for the engine (conditions::INFO_WANTED_KEY, a Rust-only key: updated_at untouched, outside the
-/// parity snapshots) with the request's locale (ActiveJob restores the enqueuer's), and wakes it. The engine reads the price,
-/// evaluates the rule with its writes and stores the info, which the web renders (EngineEvent::ConditionInfo).
+/// parity snapshots) with the request's locale (ActiveJob restores the enqueuer's) and side, and wakes it. The engine reads the
+/// price, judges the rule without writing it (D-INFO-READONLY) and stores the info, which the web renders (EngineEvent::ConditionInfo).
 pub async fn price_limit_info_update(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> {
     info_update(app, ctx, Some(crate::engine::conditions::PRICE)).await
 }
@@ -92,11 +92,14 @@ async fn info_update(app: App, ctx: Ctx, rule: Option<&'static str>) -> Result<R
     let Some(user) = ctx.user().map(|user| user.id) else { return Ok(auth::unauthenticated(&ctx)) };
     let Some(id) = id(&ctx, "bot_id") else { return Ok(head(StatusCode::NOT_FOUND)) };
     let locale = ctx.locale.to_string();
+    // D-INFO-SIDE: the page names the side (`{"bot_id", "side"}`); none, or one that is not a side, is the active side.
+    let side = ctx.params.json.as_ref().and_then(|json| json.get("side")).and_then(Value::as_str).map(str::to_string).or_else(|| ctx.params.query("side").or_else(|| ctx.params.form("side")).map(str::to_string));
+    let side = side.as_deref().and_then(crate::engine::conditions::side_named);
     let found = app.db(move |c| {
         let Some(rule) = rule else {
             return Ok(c.query_row("SELECT EXISTS(SELECT 1 FROM bots WHERE id = ?1 AND user_id = ?2)", [id, user], |r| r.get::<_, bool>(0))?);
         };
-        crate::engine::conditions::want_info(c, id, Some(user), rule, &locale).map_err(|e| WebError::Config(format!("{e:?}")))
+        crate::engine::conditions::want_info(c, id, Some(user), rule, side, &locale).map_err(|e| WebError::Config(format!("{e:?}")))
     }).await?;
     if !found { return Ok(head(StatusCode::NOT_FOUND)); }
     if rule.is_some() { app.wake_engine(); }

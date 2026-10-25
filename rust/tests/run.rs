@@ -368,9 +368,9 @@ async fn an_unreadable_bot_with_a_status_line_request_does_not_stop_the_engine()
     let (_d, mut e, _id, s) = engine(BotSpec::weekly(60.0, "2026-09-01 10:00:00"), v.clone());
     let bad = seed::insert_bot(&e.primary, &s, &BotSpec { status: 2, ..BotSpec::weekly(60.0, "2026-09-01 10:00:00") }.with("price_limited", json!(true)));
     let garbled = seed::insert_bot(&e.primary, &s, &BotSpec { status: 2, ..BotSpec::weekly(60.0, "2026-09-01 10:00:00") }.with("price_limited", json!(true)));
-    assert!(conditions::want_info(&e.primary, bad, None, conditions::PRICE, "en").unwrap());
+    assert!(conditions::want_info(&e.primary, bad, None, conditions::PRICE, None, "en").unwrap());
     e.primary.execute("UPDATE bots SET status = 99 WHERE id = ?1", [bad]).unwrap(); // a status this build cannot read
-    e.primary.execute(&format!("UPDATE bots SET transient_data = json_set(transient_data, '$.{}', json('{{\"price_limit\":{{\"version\":\"x\"}}}}')) WHERE id = ?1",
+    e.primary.execute(&format!("UPDATE bots SET transient_data = json_set(transient_data, '$.{}', json('{{\"price_limit\":{{\"buying\":{{\"version\":\"x\"}}}}}}')) WHERE id = ?1",
                                conditions::INFO_WANTED_KEY), [garbled]).unwrap();
     run::step(&mut e, &at("2026-09-01T10:00:01Z")).await.expect("the engine keeps running");
     assert_eq!(v.sent().len(), 1, "the readable bot still ticks");

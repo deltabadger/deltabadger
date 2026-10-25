@@ -421,15 +421,16 @@ impl Forms<'_> {
     /// The loader an active condition shows until its reading arrives (`bots/settings/_*_info`, cold); the price rule's
     /// reading once the engine has one for the active side within its 20 s (`bot.price_limit_info_from_cache`).
     fn info_loader(&self, rule: &str) -> String {
+        let side = crate::engine::conditions::side_of(self.bot.selling());
+        let target = info_target(self.bot, rule, side).unwrap_or_default();
         if rule == crate::engine::conditions::PRICE {
-            let side = if self.bot.selling() { "selling" } else { "buying" };
             if let Some(info) = crate::engine::conditions::live_info(self.bot.transient.get(crate::engine::conditions::INFO_KEY), rule, side, self.ctx.now) {
-                return price_limit_info(self.ctx.locale, info);
+                return price_limit_info(self.ctx.locale, info, &target);
             }
         }
-        format!("<small id=\"settings-{}-info\" class=\"small-info\">\n      <div data-controller=\"broadcast--on-connect\" data-broadcast--on-connect-method-value=\"{rule}_info_update\" \
+        format!("<small id=\"{target}\" class=\"small-info\">\n      <div data-controller=\"broadcast--on-connect\" data-broadcast--on-connect-method-value=\"{rule}_info_update\" \
                  data-broadcast--on-connect-method-args-value=\"{{&quot;bot_id&quot;:{}}}\" class=\"loader--small\" style=\"position: unset; float: left; margin-top: 1rem;\"></div>\n  </small>",
-                rule.replace('_', "-"), self.bot.id)
+                self.bot.id)
     }
 
     /// The four conditions of a basket (bots/settings/_price_limit, _price_drop_limit, _moving_average_limit, _indicator_limit).
@@ -529,11 +530,19 @@ impl Forms<'_> {
     }
 }
 
-/// bots/settings/_price_limit_info with an info (`settings-price-limit-info`): "Current BTC price is … EUR", green when met.
-pub fn price_limit_info(locale: &str, info: &Value) -> String {
+/// D-INFO-SIDE: the element a rule's status line on `side` replaces, None when the page has none for it. The active side's
+/// is Rails' `settings-<rule>-info`; a signal bot's sell group (both sides on one page) is `settings-sell-<rule>-info`.
+pub fn info_target(bot: &super::Bot, rule: &str, side: &str) -> Option<String> {
+    let rule = rule.replace('_', "-");
+    if side == crate::engine::conditions::side_of(bot.selling()) { return Some(format!("settings-{rule}-info")); }
+    (bot.kind == super::Kind::Signal && side == crate::engine::conditions::SELLING).then(|| format!("settings-sell-{rule}-info"))
+}
+
+/// bots/settings/_price_limit_info with an info (`target`: info_target): "Current BTC price is … EUR", green when met.
+pub fn price_limit_info(locale: &str, info: &Value, target: &str) -> String {
     let text = i18n::text(locale, "bot.settings.extra_price_limit.info", &[("current_price", Arg::Text(info["price"].as_str().unwrap_or(""))),
         ("base", Arg::Text(info["base"].as_str().unwrap_or(""))), ("quote", Arg::Text(info["quote"].as_str().unwrap_or("")))]);
-    format!("<small id=\"settings-price-limit-info\" class=\"small-info\">\n      <div class=\"{}\">\n        {}\n      </div>\n  </small>",
+    format!("<small id=\"{target}\" class=\"small-info\">\n      <div class=\"{}\">\n        {}\n      </div>\n  </small>",
             if info["condition_met"] == Value::Bool(true) { "text-success" } else { "" }, escape(&text))
 }
 
