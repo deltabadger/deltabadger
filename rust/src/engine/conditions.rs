@@ -49,6 +49,8 @@ pub const IMPLEMENTED: &[(Kind, Rule)] = &[(Kind::Basket, Rule::Cap), (Kind::Bas
 /// concerns in Rails). `selling`: the rule's sell side; `action`: its `*_action` (the cap has none: "pause").
 pub fn support(kind: Kind, rule: Rule, selling: bool, action: &str) -> Support {
     let flip = matches!(action, "start_selling" | "start_buying");
+    // The cap's sell side (base_amount_limited) has nothing to sell on an index bot.
+    if rule == Rule::Cap && selling && kind == Kind::Index { return Support::Inapplicable; }
     if rule != Rule::Cap && ((kind == Kind::Index && (selling || flip)) || (kind == Kind::Signal && flip)) { return Support::Inapplicable; }
     if action == "pause" && IMPLEMENTED.contains(&(kind, rule)) { Support::Implemented } else { Support::NotImplemented }
 }

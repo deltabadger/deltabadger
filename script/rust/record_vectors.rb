@@ -927,6 +927,87 @@ ledger_row = lambda do |rng, sym, kind|
   end
 end
 pairs_of = ->(weights) { BASKET_PAIRS.slice(*weights.keys) }
+
+# Slice 6d-1: Bot::BaseAmountLimitable#base_amount_available_before_limit_reached and #base_amount_limit_reached? as Ruby
+# computes them, on a selling one-asset basket whose REGULAR sells are the rows below (`base_cap` writes only this group).
+#   bin/rails runner script/rust/record_vectors.rb base_cap
+# The closed and stopped buckets pluck Arel.sql COALESCEs (SQLite's INTEGER or REAL: Integer or Float), the waiting bucket
+# the decimal column (BigDecimal); each is an Array#sum, and the limit is `base_amount_limit.to_d`. `d6d3` is the same
+# reading once every abandoned sell counts what it asked for (amount_exec raised to amount where that is more): the engine's
+# D-6D-3, still with Rails' own numerics.
+if ARGV.first == 'base_cap'
+  sell_row = lambda do |n, kind, a|
+    e = (a * [BigDecimal('0.25'), BigDecimal('0.5'), BigDecimal('0.999')][n % 3]).round(9)
+    row = { 'asset' => 'VBTC', 'status' => 0, 'external_id' => "rust-base-cap-#{n}", 'order_type' => 0, 'price' => '64000',
+            'created_at' => '2026-08-20 10:00:00' }
+    case kind
+    when 'closed' then row.merge('external_status' => 2, 'amount' => a.to_s('F'), 'amount_exec' => a.to_s('F'))
+    when 'closed_nil_exec' then row.merge('external_status' => 2, 'amount' => a.to_s('F'))
+    when 'closed_integral' then row.merge('external_status' => 2, 'amount' => a.ceil.to_s, 'amount_exec' => a.ceil.to_s)
+    when 'open' then row.merge('external_status' => 1, 'order_type' => 1, 'amount' => a.to_s('F'), 'amount_exec' => e.to_s('F'))
+    when 'unknown' then row.merge('external_status' => 0, 'amount' => a.to_s('F'))
+    when 'cancelled_partial' then row.merge('external_status' => 3, 'amount' => a.to_s('F'), 'amount_exec' => e.to_s('F'))
+    when 'cancelled_unfilled' then row.merge('external_status' => 3, 'amount' => a.to_s('F'))
+    when 'cancelled_zero' then row.merge('external_status' => 3, 'amount' => a.to_s('F'), 'amount_exec' => '0')
+    when 'abandoned_nil' then row.merge('external_status' => 4, 'amount' => a.to_s('F'))
+    when 'abandoned_partial' then row.merge('external_status' => 4, 'amount' => a.to_s('F'), 'amount_exec' => e.to_s('F'))
+    when 'abandoned_full' then row.merge('external_status' => 4, 'amount' => a.to_s('F'), 'amount_exec' => a.to_s('F'))
+    when 'before_window' then row.merge('external_status' => 2, 'amount' => a.to_s('F'), 'amount_exec' => a.to_s('F'), 'created_at' => '2026-07-01 10:00:00')
+    end
+  end
+  kinds = %w[closed closed_nil_exec closed_integral open unknown cancelled_partial cancelled_unfilled cancelled_zero abandoned_nil
+             abandoned_partial abandoned_full before_window]
+  cap_value = lambda do |left|
+    case left
+    when Float then { 'class' => 'Float', 'f' => [left].pack('G').unpack1('H*') }
+    when BigDecimal then { 'class' => 'BigDecimal', 'd' => left.to_s('F') }
+    else { 'class' => left.class.name, 'i' => left.to_s }
+    end
+  end
+  fixed = [
+    [0.03, 9, [['cancelled_partial', '0.02']]],
+    [0.03, 2, [['cancelled_partial', '0.02']]],
+    [0.03, 2, [%w[closed 0.02], %w[cancelled_partial 0.02]]],
+    [1, 9, [%w[closed 0.3], %w[unknown 0.3], %w[cancelled_partial 0.3]]],
+    [1, 0, [%w[closed_integral 0.4]]],
+    [0.3, 9, [%w[cancelled_partial 0.1], %w[cancelled_partial 0.2]]],
+    [0.31, 2, [%w[closed_nil_exec 0.1], %w[abandoned_partial 0.2]]],
+    [0.5, 8, [%w[abandoned_nil 0.5]]],
+    [0.5, 8, [%w[abandoned_partial 0.4], %w[open 0.1]]],
+    [0.5, 8, [%w[abandoned_full 0.25], %w[cancelled_zero 0.25], %w[cancelled_unfilled 0.25]]],
+    [2, 4, [%w[before_window 2]]],
+    [0.123456789, 9, []]
+  ]
+  rng = Random.new(2_026_102_5)
+  random = Array.new(488) do
+    cap = [0.03, 0.3, 0.5, 1, 2, 0.123456789, 1.5, 10].sample(random: rng)
+    rows = Array.new(rng.rand(0..5)) { [kinds.sample(random: rng), format('%.9f', rng.rand(1..300_000) / 1_000_000.0)] }
+    [cap, [0, 2, 4, 6, 8, 9].sample(random: rng), rows]
+  end
+  group = (fixed + random).each_with_index.map do |(cap, decimals, specs), i|
+    rows = specs.each_with_index.map { |(kind, a), j| sell_row.((i * 10) + j, kind, BigDecimal(a)) }
+    with_basket({ 'VBTC' => 1.0 }, rows:) do |bot, assets, _alpaca|
+      Transaction.where(bot_id: bot.id).update_all(side: Transaction.sides[:sell])
+      Ticker.where(base_asset_id: assets.fetch('VBTC').id).update_all(base_decimals: decimals)
+      bot.update_columns(settings: bot.settings.merge('direction' => 'selling', 'base_amount_limited' => true, 'base_amount_limit' => cap),
+                         transient_data: bot.transient_data.merge('base_amount_limit_enabled_at' => '2026-08-01T00:00:00.000Z'))
+      read = lambda do
+        fresh = Bot.find(bot.id)
+        [cap_value.(fresh.base_amount_available_before_limit_reached), fresh.base_amount_limit_reached?]
+      end
+      available, reached = read.()
+      Transaction.where(bot_id: bot.id, external_status: Transaction.external_statuses[:abandoned])
+                 .where('amount > COALESCE(amount_exec, 0)').update_all('amount_exec = amount')
+      d6d3_available, d6d3_reached = read.()
+      { 'weights' => { 'VBTC' => 1.0 }, 'pairs' => pairs_of.({ 'VBTC' => 1.0 }), 'rows' => rows, 'cap' => cap, 'base_decimals' => decimals,
+        'available' => available, 'reached' => reached, 'd6d3' => { 'available' => d6d3_available, 'reached' => d6d3_reached } }
+    end
+  end
+  path = Rails.root.join('rust/tests/fixtures/ruby_vectors.json')
+  write_vector_group(path, 'base_cap', group)
+  puts "wrote #{group.size} base_cap vectors in #{path}"
+  exit
+end
 # Bot::Composition::Measurable#metrics' asset_breakdown amounts and #reserved_waiting_amounts(:buy), by member symbol.
 ledger_rng = Random.new(2_202_610)
 ledger_cases = Array.new(40) do

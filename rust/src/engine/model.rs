@@ -258,6 +258,35 @@ impl Bot {
         crate::codec::optional_time(self.transient.get("quote_amount_limit_enabled_at"))
             .map(|at|at.map(|at|at.timestamp_micros())).map_err(|e|format!("quote_amount_limit_enabled_at: {e:?}"))
     }
+    /// Bot::BaseAmountLimitable#base_amount_limited? as Bots::DcaMultiAsset gates it (`one_asset? && super`): `== true`, on a
+    /// one-asset bot that sells, on a kind this build runs the cap's sell side for (conditions::support: not an index bot).
+    pub fn base_amount_limited(&self) -> bool {
+        self.support(Rule::Cap, true) == Support::Implemented && self.selling()
+            && self.settings.as_object().is_some_and(super::schedule::one_asset) && self.settings.get("base_amount_limited") == Some(&Value::Bool(true))
+    }
+    /// The base cap as #base_amount_available_before_limit_reached reads it, the settings JSON's Integer or Float; None when it
+    /// is off or blank (Float::INFINITY: nil, false, an empty or blank value). Err for any other value (a string Rails would
+    /// read through String#to_d): refused.
+    pub fn base_amount_limit(&self) -> Result<Option<Num>, String> {
+        if !self.base_amount_limited() { return Ok(None); }
+        match self.settings.get("base_amount_limit") {
+            None | Some(Value::Null) | Some(Value::Bool(false)) => Ok(None),
+            Some(Value::String(s)) if s.trim().is_empty() => Ok(None),
+            Some(Value::Array(a)) if a.is_empty() => Ok(None),
+            Some(Value::Object(o)) if o.is_empty() => Ok(None),
+            Some(Value::Number(n)) => match (n.as_i64(), n.as_f64()) {
+                (Some(i), _) => Ok(Some(Num::Int(i))),
+                (None, Some(f)) if f.is_finite() => Ok(Some(Num::Float(f))),
+                _ => Err(format!("base_amount_limit {n} is not a number")),
+            },
+            Some(other) => Err(format!("base_amount_limit {other} is not a number")),
+        }
+    }
+    /// transient_data.base_amount_limit_enabled_at, in µs; None when unset (`created_at >= NULL` counts nothing).
+    pub fn base_amount_limit_enabled_at_us(&self) -> Result<Option<i64>, String> {
+        crate::codec::optional_time(self.transient.get("base_amount_limit_enabled_at"))
+            .map(|at|at.map(|at|at.timestamp_micros())).map_err(|e|format!("base_amount_limit_enabled_at: {e:?}"))
+    }
     /// Bot::Composition::OrderSetter::MERGED_HISTORY_KEY: a merge left inherited rows (Bot::Merge).
     /// Bot::Accountable#missed_quote_amount: `value.present? ? value.to_d : 0`.
     pub fn missed_quote_amount(&self) -> Result<BigDec, EngineError> {
