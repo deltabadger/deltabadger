@@ -240,13 +240,10 @@ pub fn ohlc_rows(body: &Value) -> Result<Vec<(i64, &[Value])>, VenueError> {
         Ok((row.first().and_then(Value::as_i64).ok_or_else(unreadable)?, row.as_slice()))
     }).collect()
 }
-/// One row as a candle: `[time, open, high, low, close, vwap, volume, count]`, each price `to_d`. DIVERGES (D-COND-CANDLE-
-/// UNREADABLE): a price that is absent, null or no finite decimal is unreadable, where Rails' `to_d` reads it as 0.0; a
-/// zero high or low would move an all-time high or a low. An absent or null volume is Rails' 0.0 (conditions never read it).
+/// One row as a candle: `[time, open, high, low, close, vwap, volume, count]` (candles::read).
 fn candle(at: DateTime<Utc>, row: &[Value]) -> Result<Candle, VenueError> {
     let field = |i: usize| row.get(i).unwrap_or(&Value::Null);
-    let price = |i: usize| dec(field(i))?.ok_or_else(unreadable);
-    Ok(Candle { at, open: price(1)?, high: price(2)?, low: price(3)?, close: price(4)?, volume: dec(field(6))?.unwrap_or_else(BigDec::zero) })
+    candles::read(at, [field(1), field(2), field(3), field(4)], field(6)).ok_or_else(unreadable)
 }
 /// Prices by code, in the venue's order.
 pub type Prices = Vec<(String, BigDec)>;
