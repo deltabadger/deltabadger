@@ -33,6 +33,14 @@ fn build(case: &Value) -> (tempfile::TempDir, deltabadger::store::Opened, i64, B
     if case["merged"]==true {
         o.primary.execute("UPDATE bots SET transient_data=json_set(transient_data,'$.merged_history_until_id',(SELECT max(id) FROM transactions WHERE bot_id=?1)) WHERE id=?1",[id]).unwrap();
     }
+    // Slice L: a merge on a crypto venue whose `foreign` source traded elsewhere; its rows keep that venue's exchange_id.
+    if let Some(venue)=case["venue"].as_str() {
+        let class=match venue {"kraken"=>"Exchanges::Kraken","binance"=>"Exchanges::Binance","kucoin"=>"Exchanges::Kucoin",v=>panic!("{v}")};
+        let other=if venue=="kraken" {"Exchanges::Binance"} else {"Exchanges::Kraken"};
+        o.primary.execute("UPDATE exchanges SET type=?1 WHERE id=?2",rusqlite::params![class,s.exchange_id]).unwrap();
+        o.primary.execute("INSERT INTO exchanges (type,name,created_at,updated_at) VALUES (?1,'Foreign','2026-01-01','2026-01-01')",[other]).unwrap();
+        o.primary.execute("UPDATE transactions SET exchange_id=last_insert_rowid() WHERE bot_id=?1 AND base_asset_id=?2",rusqlite::params![id,ids[case["foreign"].as_str().unwrap()]]).unwrap();
+    }
     if let Some(offset)=case["split_offset"].as_i64() {
         o.primary.execute("UPDATE assets SET category='Stock', instrument_type='stock' WHERE id IN (?1,?2)",[ids["AAA"],ids["BBB"]]).unwrap();
         o.primary.execute("INSERT INTO account_transactions (user_id,exchange_id,entry_type,base_currency,base_amount,transacted_at,raw_data,created_at,updated_at) VALUES (?1,?2,15,'AAA',5,?3,?4,?3,?3)",rusqlite::params![s.user_id,s.exchange_id,stamp(offset),json!({"corporate_action":"split","split_ratio":"2:1","qty":"-5","merged_activity_ids":["a","b"]}).to_string()]).unwrap();
@@ -43,7 +51,7 @@ fn build(case: &Value) -> (tempfile::TempDir, deltabadger::store::Opened, i64, B
 #[test]
 fn history_decisions_match_the_recorded_oracle() {
     let v=vectors();
-    assert_eq!(v["cases"].as_array().unwrap().len(),24);
+    assert_eq!(v["cases"].as_array().unwrap().len(),27);
     for case in v["cases"].as_array().unwrap() {
         let (_d,o,id,ids)=build(case);
         let c=&o.primary;
@@ -197,7 +205,6 @@ async fn every_remaining_eligibility_branch_has_a_named_witness() {
         ("DELETE FROM users","user not found"),
         ("UPDATE bots SET settings=json_set(settings,'$.quote_amount_limited',json('true'),'$.quote_amount_limit','bad')","quote_amount_limit"),
         ("UPDATE bots SET settings=json_set(settings,'$.quote_amount_limited',json('true')),transient_data=json_set(transient_data,'$.quote_amount_limit_enabled_at',json('{}'))","quote_amount_limit_enabled_at"),
-        ("UPDATE exchanges SET type='Exchanges::Kraken'; UPDATE bots SET transient_data=json_set(transient_data,'$.merged_history_until_id',3)","merged history"),
         // Sell rows are no refusal since 6a (the walk reads them on every venue); a direction Rails does not have still is.
         ("UPDATE bots SET settings=json_set(settings,'$.direction','sideways')","direction \"sideways\""),
         ("UPDATE bots SET settings=json_set(settings,'$.allocations',json('{\"bad\":1}'))","a weight this build does not read"),

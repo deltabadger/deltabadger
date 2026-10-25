@@ -158,7 +158,6 @@ fn bot_reasons_with(c: &Connection, bot: &Bot, splits: &mut SplitRows) -> Result
         if let Err(e) = bot.quote_amount_limit() { r.push(e); }
         if let Err(e) = bot.quote_amount_limit_enabled_at_us() { r.push(e); }
     }
-    if !alpaca && bot.merged_history() { r.push("merged history (merged_history_until_id)".into()); }
     history_reasons(c, bot, alpaca, &members, splits, &mut r)?;
     member_reasons(c, bot, alpaca, &members, &mut r)?;
     // The walk must read; every recorded split applied (the last instant the figures represent), so no clock is read here.

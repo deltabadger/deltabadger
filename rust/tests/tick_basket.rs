@@ -874,7 +874,7 @@ async fn kraken_binance_and_kucoin_baskets_decide_as_rails() {
     built_grid("grid-venue-basket", rails_root.path());
     let mut dirs: Vec<std::path::PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
     dirs.sort();
-    assert_eq!(dirs.len(), 44, "the venue basket grid has {} scenarios", dirs.len());
+    assert_eq!(dirs.len(), 44 + 12, "the venue basket grid has {} scenarios", dirs.len());
     for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
     rails(&["record", rails_root.path().to_str().unwrap()]);
     let mut failures = vec![];
@@ -920,6 +920,12 @@ async fn kraken_binance_and_kucoin_baskets_decide_as_rails() {
             // Plan CB T5: a parked member is bought at its cap weight only when every member has a cap.
             "market_cap-first_tick" | "market_cap-parked" => pairs.len() == 3,
             "market_cap-missing_cap" | "market_cap-zero_cap" => pairs.len() == 2,
+            // Slice L: past the merge's cutoff the first own tick warns when every leg is skipped; the same rows unmerged are
+            // no first tick; one leg placed is no warning; a row resting on the other venue is never asked for nor touched.
+            "merged-w70-all_below" => sent.is_empty() && rails_out["warned"] == json!([2]),
+            "unmerged-w70-all_below" => rails_out["warned"] == json!([]),
+            "merged-tiers-one_below" => pairs.len() == 2 && events.contains("orders_below_minimum") && rails_out["warned"] == json!([]),
+            "merged-w70-foreign_waiting" => pairs.len() == 2 && rows.iter().all(|r| r["before"]["external_id"] != "OFOREIGN-2"),
             _ => true,
         };
         if !pinned { failures.push(format!("{name}: Rails no longer shows what this cell is for: {rails_out}")); }

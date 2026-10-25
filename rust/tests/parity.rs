@@ -928,7 +928,7 @@ async fn rails_and_rust_decide_identically_across_the_basket_sell_grid() {
 /// member unpriced, so nothing is due, where Rails' String#to_d values it at 0 or 12 and sells on the drift that makes.
 #[tokio::test(flavor = "current_thread")]
 async fn rails_and_rust_rebalance_identically() {
-    let (_copies, outputs) = grid_outputs("grid-rebalance", 238 + 20).await;
+    let (_copies, outputs) = grid_outputs("grid-rebalance", 238 + 20 + 3).await;
     let unknown = ["-post_send", "-server_error", "-no_order_id", "-unknown_text"];
     let diverges = |name: &str| name.ends_with("-unreadable_price") && (name.contains("-binance-") || name.contains("-kucoin-"));
     let mut failures = vec![];
@@ -1013,7 +1013,7 @@ async fn rails_and_rust_rebalance_identically() {
             // Binance stores an id-less answer as "BTCUSDT-" and waits on it; elsewhere Rails halts.
             "no_order_id" if name.contains("-binance-") => serde_json::json!("selling"),
             "no_order_id" => serde_json::json!("ambiguous"),
-            "resting_sell" | "open_buy_stale" | "below_drift" | "exited_member" => serde_json::json!("selling"),
+            "resting_sell" | "open_buy_stale" | "below_drift" | "exited_member" | "merged_foreign" => serde_json::json!("selling"),
             _ => serde_json::json!("buying"),
         };
         if left != want { pins.push(format!("{name}: phase {left}, pinned {want}")); }

@@ -127,7 +127,7 @@ new = [
 
     ('sell', 'rust/src/engine/basket.rs', 'Fill::of(order.sell, &order.kind)', 'Fill::of(false, &order.kind)', 'test(history_decisions_match)'),
     ('normalization', 'rust/src/figures/fill.rs', 'let quantity=raw.amount_exec.as_ref().or(if closed{raw.amount.as_ref()}else{None});', 'if raw.price.is_none() { return Ok(None); }\n    let quantity=raw.amount_exec.as_ref().or(if closed{raw.amount.as_ref()}else{None});', 'test(history_decisions_match)'),
-    ('merge_walk', 'rust/src/engine/basket.rs', 'for order in orders {', 'for order in orders { if bot.merged_history() { continue; }', 'test(history_decisions_match)'),
+    ('merge_walk', 'rust/src/engine/basket.rs', 'for order in orders {', 'for order in orders { if bot.transient.get("merged_history_until_id").is_some_and(|v| !v.is_null()) { continue; }', 'test(history_decisions_match)'),
     ('split_tie', 'rust/src/engine/basket.rs', 'e.at_us <= created_us', 'e.at_us < created_us', 'test(history_decisions_match)'),
     ('split_tail', 'rust/src/engine/basket.rs', 'for e in pending { apply(&mut ledger, &mut w, e)?; }', 'for _e in pending {}', 'test(history_decisions_match)'),
     ('carry_boundary', 'rust/src/figures/fill.rs', 'created_at, created_at >= ?2 FROM transactions WHERE bot_id=?1 AND status=0', 'created_at, created_at > ?2 FROM transactions WHERE bot_id=?1 AND status=0', 'test(history_decisions_match) | test(r9_stored_timestamp_shapes)'),
@@ -138,7 +138,7 @@ new = [
     ('unknown_quantity', 'rust/src/figures/fill.rs', 'if fill.is_none() && order.raw.quote_amount_exec.as_ref().is_some_and(Dec::is_positive)', 'if false', 'test(unknown_fill_value)'),
     ('cap_credit', 'rust/src/figures/fill.rs', 'rusqlite::types::ValueRef::Null if value.is_zero()=>CapKind::Integer(0)', 'rusqlite::types::ValueRef::Null=>CapKind::Integer(0)', 'test(history_decisions_match)'),
     ('sell_lift', 'rust/src/engine/eligibility.rs', 'if !alpaca && sells > 0', 'if sells > 0', 'test(sells_and_merges_pass)'),
-    ('merge_lift', 'rust/src/engine/eligibility.rs', 'if !alpaca && bot.merged_history()', 'if bot.merged_history()', 'test(sells_and_merges_pass)'),
+    ('merge_lift', 'rust/src/engine/eligibility.rs', '    history_reasons(c, bot, alpaca, &members, splits, &mut r)?;', '    if bot.transient.get("merged_history_until_id").is_some_and(|v| !v.is_null()) { r.push("merged history (merged_history_until_id)".into()); }\n    history_reasons(c, bot, alpaca, &members, splits, &mut r)?;', 'test(a_merged_kraken_basket_with_foreign_rows_is_eligible)'),
     ('unreadable', 'rust/src/engine/eligibility.rs', 'if alpaca && r.is_empty() { super::basket::walk(c, bot, Utc::now())?; }', 'if alpaca && r.is_empty() {}', 'test(unknown_fill_value)'),
     ('active_rules', 'rust/src/engine/eligibility.rs', 'if rules > 0', 'if false', 'test(an_active_rule)'),
     ('unreadable_report', 'rust/src/engine/eligibility.rs', 'report.unreadable.push((id, format!("{e:?}")));', 'let _observed = (id,e);', 'test(unknown_fill_value)'),

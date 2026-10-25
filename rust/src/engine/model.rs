@@ -259,7 +259,6 @@ impl Bot {
             .map(|at|at.map(|at|at.timestamp_micros())).map_err(|e|format!("quote_amount_limit_enabled_at: {e:?}"))
     }
     /// Bot::Composition::OrderSetter::MERGED_HISTORY_KEY: a merge left inherited rows (Bot::Merge).
-    pub fn merged_history(&self) -> bool { self.transient.get("merged_history_until_id").is_some_and(|v| !v.is_null()) }
     /// Bot::Accountable#missed_quote_amount: `value.present? ? value.to_d : 0`.
     pub fn missed_quote_amount(&self) -> Result<BigDec, EngineError> {
         match self.transient.get("missed_quote_amount") {
