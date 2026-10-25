@@ -43,3 +43,7 @@ en:
     # Shared with Rails: Bot#trading_key_ready refuses a start with it.
     api_key_not_ready: "A valid trading API key is required to start this bot."
     invalid_parameter: "This setting has an invalid value."
+    # Rust only (PLAN-conditions-every-bot): an index bot's price rule and its subject. English only; other locales fall back.
+    flip_basket_only: "flip applies to basket bots only."
+    condition_no_subject: "has no member to watch yet"
+    condition_subject_departed: "%{symbol} (not in the index)"

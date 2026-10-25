@@ -304,8 +304,9 @@ pub struct Bot {
     /// Stored without a name: `label` is the generated one, in memory only (Automation::Labelable#ensure_label_exists).
     /// A save writes it only when it is submitted on purpose.
     pub label_unsaved: bool,
-    /// What Rails' sell-side readers give a key the row leaves nil or blank, while selling: read, never saved (Rails never persists them).
-    pub sell_reads: Map<String, Value>,
+    /// What a reader gives a key the row leaves nil or blank, never saved: Rails' sell-side readers while selling (Rails never
+    /// persists them), and an index bot's rule defaults (`draft::index_defaults`: it persists only the subject).
+    pub reads: Map<String, Value>,
     /// A signal bot's rules (`bot.bot_signals`), in id order; none for any other type.
     pub signals: Vec<signal::Rule>,
 }
@@ -629,7 +630,7 @@ impl Bot {
         let mut bot = Bot {
             id, kind, status, label: label.unwrap_or_default(), label_unsaved, exchange, settings, transient, started_at, stop_message_key, quote_asset, base_assets, memberships,
             tickers, api_key, index, last_order, has_orders: exists("")?, has_waiting_orders: exists(" AND status = 0 AND external_status IN (0, 1)")?,
-            sell_reads: Map::new(), signals: if kind == Kind::Signal { signal::rules(c, id)? } else { vec![] }, has_regular_waiting_orders: exists(" AND status = 0 AND external_status IN (0, 1) AND transaction_type = 'REGULAR'")?,
+            reads: Map::new(), signals: if kind == Kind::Signal { signal::rules(c, id)? } else { vec![] }, has_regular_waiting_orders: exists(" AND status = 0 AND external_status IN (0, 1) AND transaction_type = 'REGULAR'")?,
             has_submitted_orders: exists(" AND status = 0")?,
             has_pending_market_orders: exists(&format!(" AND {}", orders::PENDING_MARKET))?,
         };
@@ -714,7 +715,12 @@ impl Bot {
             }
             Kind::Signal => {}
             // `default_num_coins`: ten, or all of a bounded index smaller than that.
-            Kind::Index => defaults.extend([("num_coins", json!(self.bounded_universe_size().map_or(10, |size| size.min(10)))), ("allocation_flattening", json!(0.0))]),
+            Kind::Index => {
+                defaults.extend([("num_coins", json!(self.bounded_universe_size().map_or(10, |size| size.min(10)))), ("allocation_flattening", json!(0.0))]);
+                for (key, value) in draft::index_defaults() {
+                    if self.settings.get(key).is_none_or(Value::is_null) { self.reads.insert(key.to_string(), value); }
+                }
+            }
         }
         for (key, value) in defaults {
             if matches!(self.settings.get(key), None | Some(Value::Null | Value::Bool(false))) { self.settings.insert(key.to_string(), value); }
@@ -730,16 +736,16 @@ impl Bot {
                 keys.retain(|key| self.settings.get(key).is_none_or(Value::is_null));
                 for key in keys {
                     let value = draft::sell_default(&key);
-                    if !value.is_null() { self.sell_reads.insert(key, value); }
+                    if !value.is_null() { self.reads.insert(key, value); }
                 }
                 let ticker = format!("sell_{rule}_in_ticker_id");
-                if blank(self.settings.get(&ticker)) { self.sell_reads.insert(ticker, first.clone()); }
+                if blank(self.settings.get(&ticker)) { self.reads.insert(ticker, first.clone()); }
                 let action = format!("sell_{rule}_action");
-                if blank(self.settings.get(&action)) { self.sell_reads.insert(action, json!("pause")); }
+                if blank(self.settings.get(&action)) { self.reads.insert(action, json!("pause")); }
             }
             // PriceDropLimitable#sell_price_drop_limit_time_window_condition: the buy side's `ath` has no sell meaning.
             if self.settings.get("sell_price_drop_limit_time_window_condition").and_then(Value::as_str) == Some("ath") {
-                self.sell_reads.insert("sell_price_drop_limit_time_window_condition".into(), json!("twenty_four_hours"));
+                self.reads.insert("sell_price_drop_limit_time_window_condition".into(), json!("twenty_four_hours"));
             }
         }
     }
@@ -827,11 +833,11 @@ impl Bot {
         BOT_WORKING.contains(&self.status)
     }
 
-    /// The setting as the model reads it: stored, or the sell side's read-time fallback (`sell_reads`) for what was nil,
+    /// The setting as the model reads it: stored, or its read-time fallback (`reads`) for what was nil,
     /// blank or `ath` when the row was loaded and is still so.
     pub fn setting(&self, key: &str) -> Option<&Value> {
         let stored = self.settings.get(key).filter(|value| !value.is_null());
-        match (stored, self.sell_reads.get(key)) {
+        match (stored, self.reads.get(key)) {
             (Some(value), Some(read)) if value.as_str().is_some_and(|text| text.is_empty() || text == "ath") => Some(read),
             (Some(value), _) => Some(value),
             (None, read) => read,

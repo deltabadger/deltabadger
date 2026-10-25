@@ -62,7 +62,8 @@ impl ActionParams {
         };
         let fields = self.0.get(root).and_then(Value::as_object).filter(|v| !v.is_empty()).ok_or(ParamError::Root)?;
         let mut out = Map::new();
-        for key in allowed {
+        let rules: &[&str] = if kind == Kind::Index { INDEX_RULE_SCALARS } else { &[] };
+        for key in allowed.iter().chain(rules) {
             if let Some(value) = fields.get(*key).filter(|v| !v.is_array() && !v.is_object()) {
                 out.insert((*key).into(), value.clone());
             }
@@ -318,6 +319,11 @@ pub const BASKET_SCALARS: &[&str] = &[
 /// BotsController scalar allowlist, pinned to the generated Rails vector.
 /// BotsController#signal_bot_params: the name, the venue and Bots::Signal's two settings.
 pub const SIGNAL_SCALARS: &[&str] = &["label", "exchange_id", "base_asset_id", "quote_asset_id"];
+
+/// D-IDX-CONDITIONS / D-IDX-CAP: what an index bot's page posts for the rules this build runs on it (conditions::support),
+/// beyond Rails' allowlist.
+pub const INDEX_RULE_SCALARS: &[&str] = &["quote_amount_limited", "quote_amount_limit", "price_limited", "price_limit_mode", "price_limit",
+    "price_limit_range_lower_bound", "price_limit_range_upper_bound", "price_limit_value_condition", "price_limit_in_ticker_id"];
 
 pub const INDEX_SCALARS: &[&str] = &[
     "quote_asset_id",

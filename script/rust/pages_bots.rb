@@ -239,6 +239,11 @@ module Pages
     end
     orders(record, spec['orders']) if spec['orders']
     logs(record, spec['logs']) if spec['logs']
+    # 'subject' => symbol: the price rule watches that asset's pair at the bot's quote (an index bot's former member too).
+    if spec['subject']
+      ticker = Ticker.find_by!(exchange:, base_asset_id: asset_id(spec['subject']), quote_asset_id: record.settings['quote_asset_id'])
+      record.update_columns(settings: record.settings.merge('price_limit_in_ticker_id' => ticker.id))
+    end
     # A listing the venue withdrew after the bot was made.
     Ticker.where(exchange:, base: spec['delist']).update_all(available: false) if spec['delist']
     # A venue minimum raised after the bot was made ({ base => minimum_quote_size }).

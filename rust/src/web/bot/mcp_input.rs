@@ -1,5 +1,6 @@
 //! BotApi input dialect. No SQL writes: the shared writer owns validation and persistence.
 use super::{draft::{Draft, FieldError}, write::Failure, Kind};
+use crate::engine::conditions::{support, Support};
 use crate::{ruby::BigDec, web::WebError};
 use rusqlite::Connection;
 use serde_json::{json, Map, Value};
@@ -40,7 +41,7 @@ fn unsupported(setting: &str, kind: &str) -> (&'static str, String) { ("unsuppor
 /// A service refusal: the page's base error, and BotApi's failure (a validation one unless it says otherwise).
 fn fail(draft: &mut Draft, (code, message): (&'static str, String)) -> InputOutcome {
     draft.errors.push(FieldError { field: "base".into(), message: message.clone() });
-    let failure = if code == "bot_running" { Failure::conflict(code, message) } else { Failure::invalid(code, message) };
+    let failure = if matches!(code, "bot_running" | "write_refused") { Failure::conflict(code, message) } else { Failure::invalid(code, message) };
     InputOutcome::Refused(failure)
 }
 
@@ -78,8 +79,21 @@ pub fn apply(c: &Connection, draft: &mut Draft, fields: &Value, zone: &str, now:
         }
         let index_only = matches!(name, "num_coins" | "allocation_flattening");
         if index_only && kind != Kind::Index { return Ok(fail(draft, unsupported("num_coins / allocation_flattening", "index"))); }
-        let shared = index_only || super::draft::form_field(Kind::Index, name) || matches!(name, "label" | "exchange_id");
-        if !shared && kind != Kind::Basket { return Ok(fail(draft, unsupported(name, "basket"))); }
+        // D-IDX-CONDITIONS / D-IDX-CAP: a rule's field is taken where this build runs the rule (conditions::support). One
+        // with nothing to act on there (an index bot's sell side, a flip) is refused by name; one not built yet for this
+        // kind is the write guard's refusal.
+        if let Some((rule, selling)) = super::draft::field_rule(name).filter(|_| kind != Kind::Basket) {
+            let flip = name.ends_with("_mode") && value.as_str() == Some("flip");
+            let action = if flip { if selling { "start_buying" } else { "start_selling" } } else { "pause" };
+            match support(kind, rule, selling, action) {
+                Support::Inapplicable => return Ok(fail(draft, unsupported(if flip && !selling { "flip" } else { name }, "basket"))),
+                Support::NotImplemented => return Ok(fail(draft, ("write_refused", crate::web::bot_api::refused(&format!("{name} on an index bot"))))),
+                Support::Implemented => {}
+            }
+        } else {
+            let shared = index_only || super::draft::form_field(Kind::Index, name) || matches!(name, "label" | "exchange_id");
+            if !shared && kind != Kind::Basket { return Ok(fail(draft, unsupported(name, "basket"))); }
+        }
         let posted = match name {
             "label" => value.clone(),
             "allocations" => match weights(draft, value) {

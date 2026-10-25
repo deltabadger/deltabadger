@@ -32,3 +32,21 @@ fn m3_reads_remain_registered_at_every_m4_task_boundary(){
         assert!(deltabadger::web::mcp::tools::NAMES.contains(&name),"M3 registry retained: {name}");
     }
 }
+
+/// D-MCP-COND-KINDS: update_bot_settings' fields of the rules an index bot runs here (conditions::support: the cap and the
+/// buy side's price rule) say so; nothing else of the recorded schemas changes.
+#[test]
+fn the_rule_kinds_overlay_is_the_only_change_to_the_recorded_schemas(){
+    let (mut recorded,ours)=(protocol::recorded(),protocol::metadata().clone());
+    let settings=|v:&Value|v["tools"].as_array().unwrap().iter().position(|t|t["name"]=="update_bot_settings").unwrap();
+    let at=settings(&ours);
+    let wanted=ours["tools"][at]["inputSchema"]["properties"].clone();
+    let mut changed=vec![];
+    for (name,schema) in recorded["tools"][at]["inputSchema"]["properties"].as_object_mut().unwrap().iter_mut(){
+        if schema["description"]!=wanted[name]["description"]{changed.push(name.clone());schema["description"]=wanted[name]["description"].clone();}
+    }
+    assert_eq!(recorded,ours,"only descriptions of update_bot_settings change");
+    assert_eq!(changed,["quote_amount_limited","quote_amount_limit","price_limited","price_limit_mode","price_limit_value_condition","price_limit","price_limit_range_lower_bound","price_limit_range_upper_bound","price_limit_in_ticker_id"]);
+    let ticker=&ours["tools"].as_array().unwrap().iter().find(|t|t["name"]=="update_bot_settings").unwrap()["inputSchema"]["properties"]["price_limit_in_ticker_id"]["description"];
+    assert_eq!(ticker,"Price condition while buying. Basket and index bots: the ticker id of the member it watches (get_bot_details lists them); an index bot's may be a former member.");
+}
