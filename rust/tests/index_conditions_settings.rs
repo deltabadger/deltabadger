@@ -300,3 +300,33 @@ async fn before_the_first_composition_the_preview_members_are_the_subjects() {
                 "{symbol} offered as a subject");
     }
 }
+
+/// A venue change that posts the old venue's subject is checked against the new venue's subjects: the same asset's pair
+/// there replaces it; with no such pair the save is refused and nothing is written.
+#[tokio::test(flavor = "current_thread")]
+async fn a_venue_change_posting_the_old_subject_remaps_it() {
+    let moved = |i: &Install, subject: usize| -> (i64, Vec<i64>) {
+        i.c.execute("INSERT INTO exchanges (type, name, available, maker_fee, taker_fee, created_at, updated_at) VALUES ('Exchanges::Kraken', 'Kraken', 1, '0.05', '0.05', '2026-01-01 00:00:00', '2026-01-01 00:00:00')", []).unwrap();
+        let venue = i.c.last_insert_rowid();
+        // AAA and BBB are listed on the new venue; CCC is not.
+        i.c.execute("INSERT INTO tickers (exchange_id, ticker, base, quote, base_asset_id, quote_asset_id, base_decimals, quote_decimals, price_decimals, minimum_base_size, \
+                     minimum_quote_size, maximum_base_size, maximum_quote_size, trading_enabled, available, created_at, updated_at) \
+                     SELECT ?1, ticker, base, quote, base_asset_id, quote_asset_id, base_decimals, quote_decimals, price_decimals, minimum_base_size, minimum_quote_size, \
+                     maximum_base_size, maximum_quote_size, 1, 1, created_at, updated_at FROM tickers WHERE id IN (?2, ?3)", (venue, i.tickers[0], i.tickers[1])).unwrap();
+        let venue_tickers: Vec<i64> = i.c.prepare("SELECT id FROM tickers WHERE exchange_id = ?1 ORDER BY id").unwrap().query_map([venue], |r| r.get(0)).unwrap().map(Result::unwrap).collect();
+        i.c.execute("UPDATE bots SET settings = json_set(settings, '$.price_limited', json('true'), '$.price_limit_in_ticker_id', ?1) WHERE id = ?2", (i.tickers[subject], i.id)).unwrap();
+        (venue, venue_tickers)
+    };
+    let i = install([0.5, 0.3, 0.2]);
+    let (venue, venue_tickers) = moved(&i, 1);
+    let saved = save(&i, Surface::Web, json!({ "exchange_id": venue.to_string(), "price_limit_in_ticker_id": i.tickers[1].to_string() }), json!({})).await;
+    assert_eq!(saved.status, 200, "{}", saved.answer);
+    let exchange: i64 = i.c.query_row("SELECT exchange_id FROM bots WHERE id = ?1", [i.id], |r| r.get(0)).unwrap();
+    assert_eq!((exchange, &row(&i)["settings"]["price_limit_in_ticker_id"]), (venue, &json!(venue_tickers[1])), "BBB here becomes BBB there");
+    let i = install([0.5, 0.3, 0.2]);
+    let (venue, _) = moved(&i, 2);
+    let before = row(&i);
+    let saved = save(&i, Surface::Web, json!({ "exchange_id": venue.to_string(), "price_limit_in_ticker_id": i.tickers[2].to_string() }), json!({})).await;
+    assert_eq!(saved.status, 422, "{}", saved.answer);
+    assert_eq!(row(&i), before, "nothing written");
+}

@@ -320,11 +320,16 @@ pub(super) fn default_subject(c: &Connection, bot: &Bot) -> Result<Option<i64>, 
     Ok(subject_tickers(c, bot)?.first().map(|t| t.id))
 }
 
-/// The tickers an index bot's rule may watch: its members' (composition_tickers); with no member rows yet (before the first
-/// composition), the pairs here of the coins `index_preview` shows.
+/// The tickers an index bot's rule may watch: its members' (composition_tickers), each a member's pair here when its row
+/// holds another venue's or quote's (a save moving the bot); with no member rows yet (before the first composition), the
+/// pairs here of the coins `index_preview` shows.
 pub(super) fn subject_tickers(c: &Connection, bot: &Bot) -> Result<Vec<Ticker>, WebError> {
-    if !bot.memberships.is_empty() { return Ok(bot.composition_tickers().into_iter().cloned().collect()); }
     let pair = |asset: i64| bot.tickers.iter().filter(|t| t.base_asset_id == asset).min_by_key(|t| t.id).cloned();
+    if !bot.memberships.is_empty() {
+        let quote = bot.settings.get("quote_asset_id").and_then(Value::as_i64);
+        let here = |t: &Ticker| t.exchange_id == bot.exchange.id && Some(t.quote_asset_id) == quote;
+        return Ok(bot.composition_tickers().into_iter().filter_map(|t| if here(t) { Some(t.clone()) } else { pair(t.base_asset_id) }).collect());
+    }
     Ok(super::settings::index_preview(c, bot)?.iter().filter(|coin| coin.visible).filter_map(|coin| pair(coin.asset_id)).collect())
 }
 
@@ -680,9 +685,11 @@ impl Draft {
         if support(Kind::Index, Rule::Price, false, &action) == Support::Inapplicable { self.add("base", i18n::text(locale, "engine.flip_basket_only", &[])); }
         else { self.inclusion(locale, "price_limit_action", &["pause"]); }
         if !on { return Ok(()); }
-        if self.remapped_subject(c)?.is_some_and(|subject| subject.is_null()) {
-            self.add("price_limit_in_ticker_id", i18n::text(locale, "engine.condition_no_subject", &[]));
-            return Ok(());
+        match self.remapped_subject(c)? {
+            Some(subject) if subject.is_null() => { self.add("price_limit_in_ticker_id", i18n::text(locale, "engine.condition_no_subject", &[])); return Ok(()); }
+            // The save writes the remapped subject, the same asset's pair at the destination.
+            Some(_) => return Ok(()),
+            None => {}
         }
         match self.candidate.settings.get("price_limit_in_ticker_id").filter(|v| present(v)).map(|v| numeric(v, true).ok().and_then(|n| n.as_i64())) {
             None => self.add("price_limit_in_ticker_id", i18n::text(locale, "engine.condition_no_subject", &[])),
@@ -691,26 +698,38 @@ impl Draft {
             Some(id) => {
                 let stored = self.raw_settings.get("price_limit_in_ticker_id").and_then(|v| numeric(v, true).ok()).and_then(|n| n.as_i64());
                 let member = subject_tickers(c, &self.candidate)?.iter().any(|t| Some(t.id) == id);
-                if !member && (id.is_none() || id != stored) { self.add("settings", i18n::text(locale, "errors.bots.multi_asset.condition_subject", &[])); }
+                // On a new venue or quote the stored subject is no former member there; only the destination's subjects are.
+                if !member && (id.is_none() || id != stored || self.moved().is_some()) { self.add("settings", i18n::text(locale, "errors.bots.multi_asset.condition_subject", &[])); }
             }
         }
         Ok(())
     }
 
-    /// D-IDX-SUBJECT: what an index bot's price-rule subject becomes when a save moves it to another venue or quote and posts
-    /// no subject: the same asset's pair there; else, on a new venue, the default subject; on a new quote, none (null).
-    fn remapped_subject(&self, c: &Connection) -> Result<Option<Value>, WebError> {
-        const KEY: &str = "price_limit_in_ticker_id";
-        if self.candidate.kind != Kind::Index || self.parsed.contains_key(KEY) { return Ok(None); }
+    /// Whether this save moves the bot to another venue or quote: Some(requoted).
+    fn moved(&self) -> Option<bool> {
         let quote = |settings: &Map<String, Value>| settings.get("quote_asset_id").and_then(Value::as_i64);
         let requoted = quote(&self.candidate.settings) != quote(&self.raw_settings);
-        if self.candidate.exchange.id == self.original.exchange.id && !requoted { return Ok(None); }
+        (self.candidate.exchange.id != self.original.exchange.id || requoted).then_some(requoted)
+    }
+
+    /// D-IDX-SUBJECT: what an index bot's price-rule subject becomes when a save moves it to another venue or quote and posts
+    /// no subject: the same asset's pair there; else, on a new venue, the default subject; on a new quote, none (null). A
+    /// posted subject that is the stored one and no subject at the destination is remapped too, with no default (null).
+    fn remapped_subject(&self, c: &Connection) -> Result<Option<Value>, WebError> {
+        const KEY: &str = "price_limit_in_ticker_id";
+        if self.candidate.kind != Kind::Index { return Ok(None); }
+        let Some(requoted) = self.moved() else { return Ok(None) };
         let Some(old) = self.raw_settings.get(KEY).filter(|v| present(v)) else { return Ok(None) };
         let id = numeric(old, true)?.as_i64().unwrap_or(0);
+        let posted = self.parsed.contains_key(KEY);
+        if posted {
+            let posted_id = self.candidate.settings.get(KEY).and_then(|v| numeric(v, true).ok()).and_then(|n| n.as_i64());
+            if posted_id != Some(id) || subject_tickers(c, &self.candidate)?.iter().any(|t| t.id == id) { return Ok(None); }
+        }
         let old = Ticker::all(c, "t.id = ?1", &[&id])?.into_iter().next();
         // The candidate's tickers are its venue's at its quote.
         let mapped = old.and_then(|old| self.candidate.tickers.iter().find(|t| t.base_asset_id == old.base_asset_id).map(|t| t.id));
-        Ok(Some(json!(match mapped { Some(id) => Some(id), None if requoted => None, None => default_subject(c, &self.candidate)? })))
+        Ok(Some(json!(match mapped { Some(id) => Some(id), None if requoted || posted => None, None => default_subject(c, &self.candidate)? })))
     }
 
     fn conditions(&mut self, locale: &str) {
