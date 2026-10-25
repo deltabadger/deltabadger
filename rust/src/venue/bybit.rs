@@ -3,6 +3,7 @@ use chrono::{DateTime, Duration, Utc};
 use rusqlite::OptionalExtension;
 use serde_json::{json, Value};
 use std::collections::HashMap;
+use crate::engine::candles::{self, Candle, Timeframe};
 use crate::engine::model::Ticker;
 use crate::engine::venue_rules::{VenueRules, BYBIT as RULES};
 use crate::ruby::BigDec;
@@ -177,7 +178,55 @@ impl<T: Transport> BybitVenue<T> {
         Ok(free)
     }
 }
+/// Clients::Bybit#kline's path.
+pub const KLINE: &str = "/v5/market/kline";
+/// Exchanges::Bybit#get_candles' interval for each timeframe: 3 days are daily, built.
+pub fn kline_interval(timeframe: Timeframe) -> &'static str {
+    match timeframe {
+        Timeframe::Minute => "1", Timeframe::FiveMinutes => "5", Timeframe::FifteenMinutes => "15", Timeframe::ThirtyMinutes => "30",
+        Timeframe::Hour => "60", Timeframe::FourHours => "240", Timeframe::Day | Timeframe::ThreeDays => "D", Timeframe::Week => "W",
+        Timeframe::Month => "M",
+    }
+}
+
 impl<T: Transport> super::Venue for BybitVenue<T> {
+    /// Exchanges::Bybit#get_candles: spot pages of up to 1000 from `start` (the start's whole seconds in ms), newest
+    /// first and read oldest first, each row's time `to_i / 1000`; a full page asks again from a second after its latest,
+    /// an empty or short one ends the walk. A failed page is its `retMsg` (else `msg`, else the answer); a retCode other
+    /// than the number 0 fails with its `retMsg`; no `result.list` is Rails' KeyError. Rows are [time, open, high, low,
+    /// close, volume, …]; 3 days built from daily. D-COND-CANDLE-CAP: past MAX_CANDLE_PAGES pages it is a settled failure.
+    async fn candles(&self, ticker: &Ticker, start_at: DateTime<Utc>, timeframe: Timeframe) -> Result<Vec<Candle>, VenueError> {
+        let (mut start, mut out) = (start_at.timestamp(), Vec::<Candle>::new());
+        for _ in 0..candles::MAX_CANDLE_PAGES {
+            let r = self.request("GET", KLINE, vec![("category", "spot".into()), ("symbol", ticker.ticker.clone()), ("interval", kline_interval(timeframe).into()),
+                                                   ("start", start.saturating_mul(1000).to_string()), ("limit", "1000".into())], None);
+            let body = candles::get(&self.transport, &r, failure_text, None, unreadable).await?;
+            if !body.is_object() { return Err(unreadable()); }
+            if body["retCode"] != 0 {
+                // ponytail: a retMsg that is no string (Rails fails with it as it is) is unreadable.
+                return Err(body["retMsg"].as_str().map_or_else(unreadable, |m| VenueError::Rejected(vec![m.into()])));
+            }
+            let rows = match &body["result"] {
+                Value::Object(result) => match result.get("list") {
+                    None | Some(Value::Null) => return Err(VenueError::Ambiguous("Key path result -> list not found".into())),
+                    Some(Value::Array(rows)) => rows,
+                    Some(_) => return Err(unreadable()),
+                },
+                Value::Null => return Err(VenueError::Ambiguous("Key path result -> list not found".into())),
+                _ => return Err(unreadable()),
+            };
+            for row in rows.iter().rev() {
+                let at = row.get(0).and_then(candles::to_i).and_then(candles::at_ms);
+                out.push(at.and_then(|at| candles::fields(at, row, [1, 2, 3, 4, 5])).ok_or_else(unreadable)?);
+            }
+            match out.last() {
+                Some(last) if rows.len() >= 1000 => start = last.at.timestamp() + 1,
+                _ => return Ok(if timeframe == Timeframe::ThreeDays { candles::build(&out, timeframe) } else { out }),
+            }
+        }
+        Err(candles::too_many_pages("Bybit"))
+    }
+
     fn rules(&self) -> &'static VenueRules { &RULES }
     fn placement_identity(&self) -> Option<Value> { self.identity.clone() }
     async fn price(&self, t: &Ticker, side: PriceSide) -> Result<BigDec, VenueError> {

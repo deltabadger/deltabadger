@@ -2,6 +2,7 @@
 use super::binance::{error_message, Pairs, Shape};
 use super::http::{self, HttpRequest, HttpResponse, Transport, TransportError};
 use super::{NewOrder, OrderKind, OrderState, OrderStatus, PriceSide, VenueError};
+use crate::engine::candles::{self, Candle, Timeframe};
 use crate::engine::model::Ticker;
 use crate::engine::venue_rules::{VenueRules, BINGX as RULES};
 use crate::ruby::BigDec;
@@ -309,7 +310,41 @@ impl<T: Transport> BingxVenue<T> {
     }
 }
 
+/// Exchanges::Bingx#get_candles' interval for each timeframe: BingX has one for every one.
+pub fn kline_interval(timeframe: Timeframe) -> &'static str {
+    match timeframe {
+        Timeframe::Minute => "1m", Timeframe::FiveMinutes => "5m", Timeframe::FifteenMinutes => "15m", Timeframe::ThirtyMinutes => "30m",
+        Timeframe::Hour => "1h", Timeframe::FourHours => "4h", Timeframe::Day => "1d", Timeframe::ThreeDays => "3d", Timeframe::Week => "1w",
+        Timeframe::Month => "1M",
+    }
+}
+
 impl<T: Transport> super::Venue for BingxVenue<T> {
+    /// Exchanges::Bingx#get_candles: the newest 1000 at timeZone=0 (`data`, or the answer itself when it is an array; none
+    /// when null), each time `to_i / 1000`, those before the start's whole second dropped, sorted; nothing built. A failed
+    /// read is its `msg` (else the answer). Rows are [time, open, high, low, close, volume, …]. DIVERGES
+    /// (D-COND-CANDLE-ERROR-ENVELOPE): an object whose code is not 0 is the venue's refusal (its `msg`), where Rails reads
+    /// its missing `data` as no candles.
+    async fn candles(&self, ticker: &Ticker, start_at: DateTime<Utc>, timeframe: Timeframe) -> Result<Vec<Candle>, VenueError> {
+        let r = self.request("GET", KLINE, vec![("symbol", ticker.ticker.clone()), ("interval", kline_interval(timeframe).into()), ("limit", "1000".into()),
+                                               ("timeZone", "0".into())]);
+        let body = candles::get(&self.transport, &r, error_message, Some("Too Many Requests"), unreadable).await?;
+        let rows = match &body {
+            Value::Object(o) if o.get("code").and_then(Value::as_i64) != Some(0) => return Err(VenueError::Rejected(vec![error_message(&body.to_string())])),
+            Value::Object(o) => o.get("data").unwrap_or(&Value::Null),
+            other => other,
+        };
+        let rows = match rows { Value::Null => &[][..], Value::Array(rows) => rows.as_slice(), _ => return Err(unreadable()) };
+        let mut out = vec![];
+        for row in rows {
+            let seconds = row.get(0).and_then(candles::to_i).map(|ms| ms.div_euclid(1000)).ok_or_else(unreadable)?;
+            if seconds < start_at.timestamp() { continue; }
+            out.push(DateTime::from_timestamp(seconds, 0).and_then(|at| candles::fields(at, row, [1, 2, 3, 4, 5])).ok_or_else(unreadable)?);
+        }
+        out.sort_by_key(|c| c.at);
+        Ok(out)
+    }
+
     fn rules(&self) -> &'static VenueRules {
         &RULES
     }

@@ -31,6 +31,7 @@
 use super::binance::Pairs;
 use super::http::{self, HttpRequest, Transport, TransportError};
 use super::{NewOrder, OrderKind, OrderState, OrderStatus, PriceSide, VenueError};
+use crate::engine::candles::{self, Candle, Timeframe};
 use crate::engine::model::Ticker;
 use crate::engine::venue_rules::{VenueRules, HYPERLIQUID as RULES};
 use crate::ruby::BigDec;
@@ -314,7 +315,28 @@ pub fn tally(page: &[Value]) -> Vec<(Value, usize)> {
     out
 }
 
+/// Exchanges::Hyperliquid#get_candles' interval for each timeframe: 3 days, 1 week and 1 month are daily, built.
+pub fn candle_interval(timeframe: Timeframe) -> &'static str {
+    match timeframe {
+        Timeframe::Minute => "1m", Timeframe::FiveMinutes => "5m", Timeframe::FifteenMinutes => "15m", Timeframe::ThirtyMinutes => "30m",
+        Timeframe::Hour => "1h", Timeframe::FourHours => "4h", Timeframe::Day | Timeframe::ThreeDays | Timeframe::Week | Timeframe::Month => "1d",
+    }
+}
+
 impl<T: Transport> super::Venue for HyperliquidVenue<T> {
+    /// Exchanges::Hyperliquid#get_candles: one candleSnapshot of the coin from `startTime` (the start's whole seconds in ms)
+    /// to now, each `{t, o, h, l, c, v}` at `t.to_i / 1000`; 3 days, 1 week and 1 month built from daily.
+    async fn candles(&self, ticker: &Ticker, start_at: DateTime<Utc>, timeframe: Timeframe) -> Result<Vec<Candle>, VenueError> {
+        let req = json!({ "coin": ticker.ticker, "interval": candle_interval(timeframe), "startTime": start_at.timestamp().saturating_mul(1000),
+                          "endTime": self.transport.now().timestamp() * 1000 });
+        let body = candles::get(&self.transport, &self.post(INFO, Self::info_body("candleSnapshot", vec![("req", req)])), str::to_string, None, unreadable).await?;
+        let out = body.as_array().ok_or_else(unreadable)?.iter().map(|row| {
+            let at = row.get("t").and_then(candles::to_i).and_then(candles::at_ms);
+            at.and_then(|at| candles::fields(at, row, ["o", "h", "l", "c", "v"])).ok_or_else(unreadable)
+        }).collect::<Result<Vec<_>, _>>()?;
+        Ok(if matches!(timeframe, Timeframe::ThreeDays | Timeframe::Week | Timeframe::Month) { candles::build(&out, timeframe) } else { out })
+    }
+
     fn rules(&self) -> &'static VenueRules { &RULES }
     fn placement_identity(&self) -> Option<Value> { self.identity.clone() }
 

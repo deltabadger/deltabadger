@@ -13,6 +13,7 @@
 use super::binance::Pairs;
 use super::http::{self, HttpRequest, Transport, TransportError};
 use super::{NewOrder, OrderKind, OrderState, OrderStatus, PriceSide, VenueError};
+use crate::engine::candles::{self, Candle, Timeframe};
 use crate::engine::model::Ticker;
 use crate::engine::venue_rules::{VenueRules, GEMINI as RULES};
 use crate::ruby::BigDec;
@@ -170,7 +171,37 @@ impl<T: Transport> GeminiVenue<T> {
     }
 }
 
+/// Exchanges::Gemini#get_candles' native resolution for each timeframe, and the timeframe it reads to build one Gemini has
+/// none for (4 hours from hourly; 3 days, 1 week and 1 month from daily).
+pub fn candle_resolution(timeframe: Timeframe) -> (&'static str, Option<Timeframe>) {
+    match timeframe {
+        Timeframe::Minute => ("1m", None), Timeframe::FiveMinutes => ("5m", None), Timeframe::FifteenMinutes => ("15m", None),
+        Timeframe::ThirtyMinutes => ("30m", None), Timeframe::Hour => ("1hr", None), Timeframe::FourHours => ("1hr", Some(Timeframe::Hour)),
+        Timeframe::Day => ("1day", None), Timeframe::ThreeDays | Timeframe::Week | Timeframe::Month => ("1day", Some(Timeframe::Day)),
+    }
+}
+
 impl<T: Transport> super::Venue for GeminiVenue<T> {
+    /// Exchanges::Gemini#get_candles: the one recent window /v2/candles serves at the native resolution, newest first and
+    /// read oldest first (an answer that is no array has none), each time `to_i / 1000`; a built timeframe with nothing
+    /// to build from is Rails' failure; then only the candles from the start on. Rows are [time, open, high, low, close,
+    /// volume].
+    async fn candles(&self, ticker: &Ticker, start_at: DateTime<Utc>, timeframe: Timeframe) -> Result<Vec<Candle>, VenueError> {
+        let (resolution, source) = candle_resolution(timeframe);
+        let body = candles::get(&self.transport, &self.public(format!("/v2/candles/{}/{resolution}", ticker.ticker)), str::to_string, None, unreadable).await?;
+        let mut out = body.as_array().map(Vec::as_slice).unwrap_or_default().iter().map(|row| {
+            let at = row.get(0).and_then(candles::to_i).and_then(candles::at_ms);
+            at.and_then(|at| candles::fields(at, row, [1, 2, 3, 4, 5])).ok_or_else(unreadable)
+        }).collect::<Result<Vec<_>, _>>()?;
+        out.sort_by_key(|c| c.at);
+        if let Some(source) = source {
+            if out.is_empty() { return Err(candles::nothing_to_build(source, timeframe, "Gemini")); }
+            out = candles::build(&out, timeframe);
+        }
+        out.retain(|c| c.at >= start_at);
+        Ok(out)
+    }
+
     fn rules(&self) -> &'static VenueRules { &RULES }
     fn placement_identity(&self) -> Option<Value> { self.identity.clone() }
 
