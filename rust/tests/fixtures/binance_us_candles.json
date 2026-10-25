@@ -5,7 +5,7 @@
     "app/models/exchange.rb": "ab627a2812bc0c7b4a546459e64f8f5d93617c496308d5f03163f44cef12d8d7",
     "app/models/exchange/candle_builder.rb": "37533269883734b7b9fe565def3b953b408d565e719f7cf2e45c7b685d364ff1",
     "app/models/utilities/hash.rb": "c976d9a7c387bf813da7404a029df8f7afe8dae29567edee5d48ebc7f431cf11",
-    "script/rust/record_candles.rb": "39ff102c39ace2c616e68c415f4754e57821f50bb99702861ee86024e9d636e3"
+    "script/rust/record_candles.rb": "cfe54680b911983d9161e2723b1e3bf22a897cb6ae2574af65deb5d6c697c91a"
   },
   "gems": {
     "honeymaker": "0.12.5"

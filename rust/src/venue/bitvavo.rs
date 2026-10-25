@@ -15,6 +15,7 @@
 use super::binance::{build_query, Pairs};
 use super::http::{self, HttpRequest, Transport, TransportError};
 use super::{NewOrder, OrderKind, OrderState, OrderStatus, PriceSide, VenueError};
+use crate::engine::candles::{self, Candle, Timeframe};
 use crate::engine::model::Ticker;
 use crate::engine::venue_rules::{VenueRules, BITVAVO as RULES};
 use crate::ruby::BigDec;
@@ -254,7 +255,53 @@ impl<T: Transport> BitvavoVenue<T> {
     }
 }
 
+/// Exchanges::Bitvavo#get_candles' interval for each timeframe: 3 days, 1 week and 1 month are daily, built.
+pub fn candle_interval(timeframe: Timeframe) -> &'static str {
+    match timeframe {
+        Timeframe::Minute => "1m", Timeframe::FiveMinutes => "5m", Timeframe::FifteenMinutes => "15m", Timeframe::ThirtyMinutes => "30m",
+        Timeframe::Hour => "1h", Timeframe::FourHours => "4h", Timeframe::Day | Timeframe::ThreeDays | Timeframe::Week | Timeframe::Month => "1d",
+    }
+}
+/// Rows per page.
+const CANDLE_PAGE: usize = 1440;
+
 impl<T: Transport> super::Venue for BitvavoVenue<T> {
+    /// Exchanges::Bitvavo#get_candles: the newest 1440 of the range from `start` (the start's whole seconds in ms), then
+    /// older pages ending at the oldest (`end`), until a short page or one no older than asked. Rows are kept by time
+    /// (`to_i`; a later row replacing an earlier), sorted, each `Time.at(ms / 1000)`; rows are [time, open, high, low,
+    /// close, volume]; 3 days, 1 week and 1 month built from daily. A null answer has no rows. D-COND-CANDLE-CAP: past
+    /// MAX_CANDLE_PAGES pages it is a settled failure.
+    async fn candles(&self, ticker: &Ticker, start_at: DateTime<Utc>, timeframe: Timeframe) -> Result<Vec<Candle>, VenueError> {
+        let path = format!("/v2/{}/candles", ticker.ticker);
+        let mut rows = std::collections::BTreeMap::<i64, Value>::new();
+        let mut end: Option<i64> = None;
+        for page_number in 0..=candles::MAX_CANDLE_PAGES {
+            if page_number == candles::MAX_CANDLE_PAGES { return Err(candles::too_many_pages("Bitvavo")); }
+            let mut q = vec![("interval", candle_interval(timeframe).into()), ("start", start_at.timestamp().saturating_mul(1000).to_string()),
+                             ("limit", CANDLE_PAGE.to_string())];
+            q.extend(end.map(|e| ("end", e.to_string())));
+            let page = match candles::get(&self.transport, &self.request("GET", &path, q, None), str::to_string, None, unreadable).await? {
+                Value::Null => vec![],
+                Value::Array(page) => page,
+                _ => return Err(unreadable()),
+            };
+            let mut oldest = None;
+            for row in &page {
+                let ms = row.get(0).and_then(candles::to_i).filter(|_| row.is_array()).ok_or_else(unreadable)?;
+                rows.insert(ms, row.clone());
+                oldest = Some(oldest.map_or(ms, |o: i64| o.min(ms)));
+            }
+            match (oldest, end) {
+                (Some(oldest), Some(end)) if page.len() >= CANDLE_PAGE && oldest >= end => break,
+                (Some(oldest), _) if page.len() >= CANDLE_PAGE => end = Some(oldest),
+                _ => break,
+            }
+        }
+        let out = rows.iter().map(|(ms, row)| candles::at_ms(*ms).and_then(|at| candles::fields(at, row, [1, 2, 3, 4, 5])).ok_or_else(unreadable))
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(if matches!(timeframe, Timeframe::ThreeDays | Timeframe::Week | Timeframe::Month) { candles::build(&out, timeframe) } else { out })
+    }
+
     fn rules(&self) -> &'static VenueRules { &RULES }
     fn placement_identity(&self) -> Option<Value> { self.identity.clone() }
 

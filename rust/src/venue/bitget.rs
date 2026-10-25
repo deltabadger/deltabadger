@@ -20,6 +20,7 @@
 use super::binance::{build_query, Pairs};
 use super::http::{self, HttpRequest, Transport, TransportError};
 use super::{NewOrder, OrderKind, OrderState, OrderStatus, PriceSide, Side, VenueError};
+use crate::engine::candles::{self, Candle, Timeframe};
 use crate::engine::model::Ticker;
 use crate::engine::venue_rules::{VenueRules, BITGET as RULES};
 use crate::ruby::BigDec;
@@ -257,7 +258,42 @@ impl<T: Transport> BitgetVenue<T> {
     }
 }
 
+/// Clients::Bitget#get_candles' path.
+pub const CANDLES: &str = "/api/v2/spot/market/candles";
+/// Exchanges::Bitget#get_candles' granularity for each timeframe: 3 days are daily, built.
+pub fn granularity(timeframe: Timeframe) -> &'static str {
+    match timeframe {
+        Timeframe::Minute => "1min", Timeframe::FiveMinutes => "5min", Timeframe::FifteenMinutes => "15min", Timeframe::ThirtyMinutes => "30min",
+        Timeframe::Hour => "1h", Timeframe::FourHours => "4h", Timeframe::Day | Timeframe::ThreeDays => "1day", Timeframe::Week => "1Wutc",
+        Timeframe::Month => "1Mutc",
+    }
+}
+
 impl<T: Transport> super::Venue for BitgetVenue<T> {
+    /// Exchanges::Bitget#get_candles: pages of up to 1000 from `startTime` (the start's whole seconds in ms) to now, each
+    /// row's time `to_i / 1000`; a full page asks again from a second after its last row (as sent), a blank or short page
+    /// ends the walk. Rows are [time, open, high, low, close, volume, …]; 3 days built from daily. DIVERGES
+    /// (D-COND-CANDLE-ERROR-ENVELOPE): a code other than 00000 is the venue's refusal (Client#api_error), where Rails reads
+    /// its missing `data` as no candles; D-COND-CANDLE-CAP: past MAX_CANDLE_PAGES pages it is a settled failure.
+    async fn candles(&self, ticker: &Ticker, start_at: DateTime<Utc>, timeframe: Timeframe) -> Result<Vec<Candle>, VenueError> {
+        let (mut start, mut out) = (start_at.timestamp(), Vec::<Candle>::new());
+        for _ in 0..candles::MAX_CANDLE_PAGES {
+            let r = self.request("GET", CANDLES, vec![("symbol", ticker.ticker.clone()), ("granularity", granularity(timeframe).into()),
+                ("startTime", start.saturating_mul(1000).to_string()), ("endTime", self.transport.now().timestamp().saturating_mul(1000).to_string()),
+                ("limit", "1000".into())], None);
+            let body = candles::get(&self.transport, &r, str::to_string, None, unreadable).await?;
+            if !body.is_object() { return Err(unreadable()); }
+            if !ok(&body) { return Err(VenueError::Rejected(vec![api_error(&body)])); }
+            let rows = match &body["data"] { Value::Null => return Ok(built(out, timeframe)), Value::Array(rows) => rows, _ => return Err(unreadable()) };
+            for row in rows {
+                let at = row.get(0).and_then(candles::to_i).and_then(candles::at_ms);
+                out.push(at.and_then(|at| candles::fields(at, row, [1, 2, 3, 4, 5])).ok_or_else(unreadable)?);
+            }
+            match out.last() { Some(last) if rows.len() >= 1000 => start = last.at.timestamp() + 1, _ => return Ok(built(out, timeframe)) }
+        }
+        Err(candles::too_many_pages("Bitget"))
+    }
+
     fn rules(&self) -> &'static VenueRules { &RULES }
     fn placement_identity(&self) -> Option<Value> { self.identity.clone() }
 
@@ -388,6 +424,11 @@ impl<T: Transport> super::Venue for BitgetVenue<T> {
         let body = serde_json::json!({ "symbol": symbol, "orderId": ext });
         self.answer(&self.request("POST", CANCEL_PATH, vec![], Some(body)), false, http::MAX_BODY).await.map(|_| ())
     }
+}
+
+/// 3 days are built from the daily candles read.
+fn built(candles: Vec<Candle>, timeframe: Timeframe) -> Vec<Candle> {
+    if timeframe == Timeframe::ThreeDays { candles::build(&candles, timeframe) } else { candles }
 }
 
 #[cfg(test)]

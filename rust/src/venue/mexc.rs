@@ -15,6 +15,7 @@
 use super::binance::{error_message, Pairs, Shape};
 use super::http::{self, HttpRequest, HttpResponse, Transport, TransportError};
 use super::{NewOrder, OrderKind, OrderState, OrderStatus, PriceSide, VenueError};
+use crate::engine::candles::{self, Candle, Timeframe};
 use crate::engine::model::Ticker;
 use crate::engine::venue_rules::{VenueRules, MEXC as RULES};
 use crate::ruby::BigDec;
@@ -165,7 +166,39 @@ impl<T: Transport> MexcVenue<T> {
     }
 }
 
+/// Exchanges::Mexc#get_candles' interval for each timeframe: 3 days are daily, built.
+pub fn kline_interval(timeframe: Timeframe) -> &'static str {
+    match timeframe {
+        Timeframe::Minute => "1m", Timeframe::FiveMinutes => "5m", Timeframe::FifteenMinutes => "15m", Timeframe::ThirtyMinutes => "30m",
+        Timeframe::Hour => "60m", Timeframe::FourHours => "4h", Timeframe::Day | Timeframe::ThreeDays => "1d", Timeframe::Week => "1W",
+        Timeframe::Month => "1M",
+    }
+}
+
 impl<T: Transport> super::Venue for MexcVenue<T> {
+    /// Exchanges::Mexc#get_candles: the range from the start's whole second to now in windows of 500 periods (3 days: 500
+    /// days; a month ActiveSupport's), each one read (`startTime`, `endTime` a millisecond before the next window, limit
+    /// 500) and joined in order; a failed window is its `msg` (else the answer). Each row's time is an integer of ms
+    /// (`/ 1000`), anything else unreadable. Rows are [time, open, high, low, close, volume, …]; 3 days built from daily.
+    /// D-COND-CANDLE-CAP: a range of more than MAX_CANDLE_PAGES windows is a settled failure before any is read.
+    async fn candles(&self, ticker: &Ticker, start_at: DateTime<Utc>, timeframe: Timeframe) -> Result<Vec<Candle>, VenueError> {
+        let span = 500 * if timeframe == Timeframe::ThreeDays { 86_400 } else { timeframe.seconds() } * 1000;
+        let (first, now) = (start_at.timestamp().saturating_mul(1000), self.transport.now().timestamp() * 1000);
+        if first <= now && (now - first) / span >= candles::MAX_CANDLE_PAGES as i64 { return Err(candles::too_many_pages("MEXC")); }
+        let mut out = vec![];
+        let mut window = first;
+        while window <= now {
+            let r = self.request("GET", KLINES, vec![("symbol", ticker.ticker.clone()), ("startTime", window.to_string()), ("endTime", (window + span - 1).to_string()),
+                                                    ("interval", kline_interval(timeframe).into()), ("limit", "500".into())]);
+            for row in candles::get(&self.transport, &r, error_message, None, unreadable).await?.as_array().ok_or_else(unreadable)? {
+                let at = row.get(0).and_then(Value::as_i64).and_then(candles::at_ms);
+                out.push(at.and_then(|at| candles::fields(at, row, [1, 2, 3, 4, 5])).ok_or_else(unreadable)?);
+            }
+            window += span;
+        }
+        Ok(if timeframe == Timeframe::ThreeDays { candles::build(&out, timeframe) } else { out })
+    }
+
     fn rules(&self) -> &'static VenueRules { &RULES }
     fn placement_identity(&self) -> Option<Value> { self.identity.clone() }
 
