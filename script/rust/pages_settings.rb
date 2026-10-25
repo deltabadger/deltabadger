@@ -336,17 +336,12 @@ module Pages
       grid["settings_configured_#{name}"] = settings_case(get('/settings/account'), user: user).merge('app_configs' => configs)
     end
     {
-      'stocks_paper' => { 'alpaca_api_key' => 'catalog-key-placeholder', 'alpaca_api_secret' => 'catalog-secret-placeholder',
-                          'alpaca_mode' => 'paper' },
-      'stocks_live' => { 'alpaca_api_key' => 'catalog-key-placeholder', 'alpaca_api_secret' => 'catalog-secret-placeholder',
-                         'alpaca_mode' => 'live' },
       'coingecko' => { 'market_data_provider' => 'coingecko', 'coingecko_api_key' => 'coingecko-key-placeholder' },
       'coingecko_dormant' => { 'coingecko_api_key' => 'coingecko-key-placeholder' },
       'platform_stale' => { 'market_data_provider' => 'deltabadger' }
     }.each do |name, configs|
       grid["settings_connection_state_#{name}"] = settings_case(get('/settings/connect')).merge('app_configs' => configs)
     end
-    grid['settings_connection_state_catalog'] = settings_case(get('/settings/connect')).merge('install' => 'alpaca', 'api_keys' => {})
     token = 'abcdefghijklmnopqrst'
     confirmation_user = owner('unconfirmed_email' => 'next@example.com', 'confirmation_token' => token,
                               'confirmation_sent_at' => '1926-01-01T00:00:00Z')

@@ -26,7 +26,7 @@ fn settings(c: &Connection, owner: i64) -> Value {
 fn count(c: &Connection) -> i64 { c.query_row("SELECT count(*) FROM fund_classifications", [], |r| r.get(0)).unwrap() }
 
 #[tokio::test(flavor="current_thread")]
-async fn settings_model_validation_keeps_invalid_users_unchanged_with_rails_success() {
+async fn settings_model_validation_keeps_invalid_users_unchanged_and_answers_422() {
     let (_dir,c,owner,app,mut b) = install();
     // Corrupt stored values after authentication, as legacy/imported rows can be invalid.
     for (column, value) in [("time_zone", "Invalid/Zone"), ("time_zone", ""),
@@ -39,7 +39,7 @@ async fn settings_model_validation_keeps_invalid_users_unchanged_with_rails_succ
         }).unwrap();
         let before = snapshot();
         let response = b.send(&app,"PATCH",SETTINGS,Some(&[("country","US")]),Csrf::Header,HEADERS).await;
-        assert_eq!(response.status,200,"{column}: Rails ignores update's false return");
+        assert_eq!(response.status,422,"{column}: D-TRACKER-SETTINGS-422 (Rails ignores update's false return and answers 200)");
         assert_eq!(response.body,"");
         assert_eq!(response.header("content-type"),Some("text/vnd.turbo-stream.html"));
         assert_eq!(snapshot(),before,"{column}: validation must preserve the entire user row");

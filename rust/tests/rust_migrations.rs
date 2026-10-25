@@ -5,6 +5,7 @@ use common::{as_migrations, probe_migrations, PROBE, PROBE_TABLES};
 use deltabadger::lease::{self, LeaseError};
 use deltabadger::store::{self, test_support, Migration, Paths, Registry, Report, StoreError, MIGRATIONS, REGISTRY, RUST_MIGRATIONS};
 use rusqlite::Connection;
+use serde_json::json;
 use std::path::Path;
 use std::process::Command;
 
@@ -307,4 +308,87 @@ fn db_schema_rb_holds_no_rust_table() {
     }
     let dumped = format!("{schema}\n  create_table \"rust_migration_probe\", force: :cascade do |t|\n  end\n");
     assert_eq!(leaked(&dumped, &probe.owned_tables()), vec!["rust_migration_probe".to_string()], "a leaked dump is caught");
+}
+
+const STRAY: &str = "20261025000001";
+
+/// An unmigrated install brought up to just before the stray-conditions migration, opened, with the Kraken fixtures seeded.
+fn before_stray() -> (tempfile::TempDir, Paths, store::Opened, common::seed::Seeded) {
+    let dir = common::rails_install_unmigrated();
+    let p = paths(dir.path());
+    let n = RUST_MIGRATIONS.iter().position(|m| m.version == STRAY).unwrap();
+    let k = REGISTRY.tables.iter().position(|(v, _)| *v >= STRAY).unwrap_or(REGISTRY.tables.len());
+    store::migrate_with(&p, &lock(&p), &Registry { migrations: &RUST_MIGRATIONS[..n], tables: &REGISTRY.tables[..k] }).unwrap();
+    let o = store::open(&p).unwrap();
+    let s = common::seed::seed_kraken(&o.primary, &common::seed::cipher());
+    (dir, p, o, s)
+}
+fn row(o: &store::Opened, id: i64) -> (String, String) {
+    o.primary.query_row("SELECT settings, updated_at FROM bots WHERE id = ?1", [id], |r| Ok((r.get(0)?, r.get(1)?))).unwrap()
+}
+
+/// D-STRAY-FLAGS-MIGRATION: Rails never read an index or signal bot's rule switches or spending cap; the first start of this
+/// build turns each one that is set off (a malformed "1" too), leaves updated_at, every other key and every other bot as
+/// they were, and the install is admitted.
+#[test]
+fn the_stray_conditions_migration_turns_off_index_and_signal_switches_once() {
+    let (_d, p, o, s) = before_stray();
+    let index = common::seed::index_bot(&o.primary, &s, "ignored", 3, 0.0, false);
+    o.primary.execute("UPDATE bots SET settings = json_remove(json_set(settings, '$.index_type', 'top', '$.price_limited', json('true'), \
+                       '$.sell_price_drop_limited', '1', '$.moving_average_limited', json('false'), '$.quote_amount_limited', json('true'), \
+                       '$.quote_amount_limit', 10, '$.price_limit', 5), '$.index_category_id'), updated_at = '2026-09-01 00:00:00' WHERE id = ?1", [index]).unwrap();
+    let signal = common::seed::insert_bot(&o.primary, &s, &common::seed::BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    o.primary.execute("UPDATE bots SET type = 'Bots::Signal', settings = json_set(settings, '$.quote_amount_limited', json('true'), '$.indicator_limited', 1) WHERE id = ?1", [signal]).unwrap();
+    let basket = common::seed::insert_bot(&o.primary, &s, &common::seed::BotSpec::weekly(60.0, "2026-09-01 10:00:00").with("price_limited", json!(true)).with("quote_amount_limited", json!(true)));
+    let quiet = common::seed::index_bot(&o.primary, &s, "other", 3, 0.0, false);
+    o.primary.execute("UPDATE bots SET settings = '{\"interval\": \"week\" , \"price_limited\": false}' WHERE id = ?1", [quiet]).unwrap();
+    let (basket_before, quiet_before, index_before) = (row(&o, basket), row(&o, quiet), row(&o, index));
+    assert!(store::migrate_with(&p, &lock(&p), &REGISTRY).unwrap().contains(&STRAY.to_string()));
+    let (settings, updated) = row(&o, index);
+    let settings: serde_json::Value = serde_json::from_str(&settings).unwrap();
+    for key in ["price_limited", "sell_price_drop_limited", "moving_average_limited", "quote_amount_limited"] { assert_eq!(settings[key], json!(false), "{key}"); }
+    for key in ["indicator_limited", "sell_price_limited", "price_drop_limited"] { assert!(settings.get(key).is_none(), "{key}: only existing keys"); }
+    assert_eq!((&settings["quote_amount_limit"], &settings["price_limit"], &settings["index_type"]), (&json!(10), &json!(5), &json!("top")));
+    assert_eq!(updated, index_before.1, "updated_at unchanged");
+    let signal_settings: serde_json::Value = serde_json::from_str(&row(&o, signal).0).unwrap();
+    assert_eq!((&signal_settings["quote_amount_limited"], &signal_settings["indicator_limited"]), (&json!(false), &json!(false)));
+    assert_eq!(row(&o, basket), basket_before, "a basket's rules are its own");
+    assert_eq!(row(&o, quiet), quiet_before, "nothing set: the row's text is untouched");
+    o.primary.execute("DELETE FROM bots WHERE id IN (?1, ?2, ?3)", [signal, basket, quiet]).unwrap();
+    let r = deltabadger::engine::eligibility::check_install(&o.primary).unwrap();
+    assert!(r.problems.is_empty() && r.unreadable.is_empty(), "{:?} {:?}", r.problems, r.unreadable);
+    assert_eq!(r.eligible, vec![index]);
+}
+
+/// Applied once, with its version row: a cap switched on after it (by this engine) survives every later start.
+#[test]
+fn a_cap_switched_on_after_the_stray_conditions_migration_survives_restarts() {
+    let (_d, p, o, s) = before_stray();
+    let index = common::seed::index_bot(&o.primary, &s, "ignored", 3, 0.0, false);
+    store::migrate_with(&p, &lock(&p), &REGISTRY).unwrap();
+    o.primary.execute("UPDATE bots SET settings = json_set(settings, '$.quote_amount_limited', json('true'), '$.price_limited', json('true')) WHERE id = ?1", [index]).unwrap();
+    let before = row(&o, index);
+    for _ in 0..3 { assert_eq!(store::migrate_with(&p, &lock(&p), &REGISTRY).unwrap(), Vec::<String>::new()); }
+    assert_eq!(row(&o, index), before);
+    assert_eq!(recorded(&p).iter().filter(|v| *v == STRAY).count(), 1);
+}
+
+/// A failure inside the migration leaves no switch changed and no version row; the next start applies it.
+#[test]
+fn a_failed_stray_conditions_migration_keeps_nothing_and_runs_at_the_next_start() {
+    let (_d, p, o, s) = before_stray();
+    let index = common::seed::index_bot(&o.primary, &s, "ignored", 3, 0.0, false);
+    o.primary.execute("UPDATE bots SET settings = json_set(settings, '$.quote_amount_limited', json('true')) WHERE id = ?1", [index]).unwrap();
+    let before = row(&o, index);
+    let real = RUST_MIGRATIONS.iter().find(|m| m.version == STRAY).unwrap();
+    let broken = format!("{}\nINSERT INTO nowhere VALUES (1);", real.sql);
+    let n = RUST_MIGRATIONS.iter().position(|m| m.version == STRAY).unwrap();
+    let mut list: Vec<Migration> = RUST_MIGRATIONS[..n].to_vec();
+    list.push(Migration { version: STRAY, name: real.name, sql: &broken });
+    assert!(matches!(store::migrate_with(&p, &lock(&p), &Registry { migrations: &list, tables: REGISTRY.tables }), Err(StoreError::Migration { .. })));
+    assert_eq!(row(&o, index), before, "rolled back with its version row");
+    assert!(!recorded(&p).contains(&STRAY.to_string()));
+    store::migrate_with(&p, &lock(&p), &REGISTRY).unwrap();
+    let settings: serde_json::Value = serde_json::from_str(&row(&o, index).0).unwrap();
+    assert_eq!(settings["quote_amount_limited"], json!(false));
 }

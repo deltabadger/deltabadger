@@ -1,0 +1,39 @@
+{
+  "_about": "Fixture F (PLAN-conditions-every-bot §4.1): money values computed by hand, never by the code under test. Each case states its inputs and the arithmetic in `why`. Minimums are quote minimums (Alpaca sizes in quote); every leg's base is above the base minimum.",
+  "index_cap_one": {
+    "why": "Index top 3 by cap 5/3/2 of 10 -> weights 0.5/0.3/0.2, empty holdings. quote_amount 60, one interval owed: pending 60. Cap 1 enabled before any buy: remainder 1 - 0 = 1, binding (1 <= 60). Split 1 x 0.5/0.3/0.2 = 0.5/0.3/0.2, each under the 1 USD minimum: no leg placeable -> stop.",
+    "cap": 1, "remainder": "1", "skipped": ["0.5", "0.3", "0.2"], "placed": [], "stopped": true
+  },
+  "index_carry_cap": {
+    "why": "Codex counterexample. Weekly, started 2026-08-25 14:00; an after-latched price rule met 2026-09-01 13:00, so the window opens at 13:00; tick at 2026-09-01 14:00:00.5, last checkpoint 14:00 -> one interval. carry 20 + 10 x 1 - 0 spent in the window = 30 owed. Cap 100 enabled 2026-08-01; a 95 USD buy on 2026-08-28 (before the window, after the cap's start) counts toward the cap only: remainder 100 - 95 = 5. Total = min(30, 5) = 5.",
+    "carry": "20", "quote_amount": 10, "cap": 100, "spent_before_window": "95", "pending": "30", "remainder": "5", "total": "5"
+  },
+  "i_under_every_minimum": {
+    "why": "3 members at 0.5/0.3/0.2, empty holdings, quote_amount 60 (pending 60). Cap 9: binding. Legs 4.5/2.7/1.8, each under the 5 USD minimum -> stop.",
+    "weights": [0.5, 0.3, 0.2], "quote_amount": 60, "cap": 9, "minimum": "5", "skipped": ["4.5", "2.7", "1.8"], "placed": [], "stopped": true
+  },
+  "ii_three_by_four": {
+    "why": "Codex case: 3 equal weights (1/3 each as Floats; Float#to_d leaves each leg a hair under 4), cap 12 binding on pending 60. Legs 12/3 = 4 each (4.00 to the cent), all under the 5 USD minimum -> stop.",
+    "weights": [0.3333333333333333, 0.3333333333333333, 0.3333333333333334], "quote_amount": 60, "cap": 12, "minimum": "5", "skipped_cents": ["4.00", "4.00", "4.00"], "placed": [], "stopped": true
+  },
+  "iii_one_leg_placeable": {
+    "why": "Weights 0.5/0.25/0.25, cap 12 binding on pending 60. Legs 6/3/3: the 6 USD leg clears the 5 USD minimum and is placed (notional 6.00); the two 3 USD legs are below the minimum and, beside a placed leg, are reported as one line with no skipped rows (Rails' record_skipped_orders!). A placeable leg: no stop.",
+    "weights": [0.5, 0.25, 0.25], "quote_amount": 60, "cap": 12, "minimum": "5", "skipped": [], "placed": ["6.00"], "stopped": false
+  },
+  "iv_not_binding": {
+    "why": "quote_amount 12, cap 1000: the remainder 1000 > pending 12, so the cap does not bind. Legs 4/4/4 (equal weights) under the 5 USD minimum are skipped and stay owed; no stop.",
+    "weights": [0.3333333333333333, 0.3333333333333333, 0.3333333333333334], "quote_amount": 12, "cap": 1000, "minimum": "5", "skipped_cents": ["4.00", "4.00", "4.00"], "placed": [], "stopped": false
+  },
+  "v_boundary_above": {
+    "why": "One member (weight 1), cap 5.01 binding on pending 60: one leg of 5.01 = the 5 USD minimum + one cent (quote_decimals 2) -> placed, notional 5.01.",
+    "weights": [1.0], "quote_amount": 60, "cap": 5.01, "minimum": "5", "skipped": [], "placed": ["5.01"], "stopped": false
+  },
+  "v_boundary_below": {
+    "why": "One member, cap 4.99 binding: one leg of 4.99, one cent under the 5 USD minimum -> stop.",
+    "weights": [1.0], "quote_amount": 60, "cap": 4.99, "minimum": "5", "skipped": ["4.99"], "placed": [], "stopped": true
+  },
+  "vi_index_five_by_four": {
+    "why": "Index of 5 members with equal caps -> weights 0.2 each, empty holdings, quote_amount 60. Cap 20 binding: legs 20 x 0.2 = 4 each, all under the 5 USD minimum -> stop.",
+    "cap": 20, "minimum": "5", "skipped": ["4", "4", "4", "4", "4"], "placed": [], "stopped": true
+  }
+}

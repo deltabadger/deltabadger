@@ -24,6 +24,7 @@ use super::WebError;
 use crate::codec::parse_time;
 use crate::engine::schedule::{self, Checkpoints, Effective, Interval, Unrounded};
 use crate::engine::EngineError;
+use crate::engine::conditions::{self, Rule, Support};
 use crate::enums::{ApiKeyStatus, BotStatus, BOT_WORKING};
 use crate::ruby::{scale, BigDec};
 pub use super::format::{stored, Stored, Unreadable, UNREADABLE};
@@ -246,6 +247,13 @@ pub enum Kind {
     Index,
     /// Bots::Signal: one pair, traded by its webhook rules and by orders through the API (plan 8).
     Signal,
+}
+
+impl Kind {
+    /// The kind of a `bots.type`: an index, a signal bot, else a basket (Bots::DcaMultiAsset and the legacy DcaSingleAsset).
+    pub fn of(class: &str) -> Kind {
+        match class { "Bots::DcaIndex" => Kind::Index, crate::engine::model::SIGNAL_TYPE => Kind::Signal, _ => Kind::Basket }
+    }
 }
 
 /// The `indices` row an index bot follows (Bots::DcaIndex#current_index), as far as the page reads it.
@@ -553,7 +561,7 @@ impl Bot {
             |r| Ok((r.get::<_, i64>(0)?, r.get::<_, Option<String>>(1)?, r.get::<_, i64>(2)?, r.get::<_, Option<String>>(3)?, r.get::<_, Option<i64>>(4)?,
                     r.get::<_, String>(5)?, r.get::<_, String>(6)?, r.get::<_, Option<String>>(7)?, r.get::<_, Option<String>>(8)?))).optional()?;
         let Some((id, class, status, label, exchange_id, settings, transient, started_at, stop_message_key)) = row else { return Ok(None) };
-        let kind = match class.as_deref() { Some("Bots::DcaIndex") => Kind::Index, Some(crate::engine::model::SIGNAL_TYPE) => Kind::Signal, _ => Kind::Basket };
+        let kind = Kind::of(class.as_deref().unwrap_or_default());
         let status = BotStatus::from_i64(status).ok_or_else(|| data(format!("bot {id}: status {status}")))?;
         let (settings, transient) = (object(&settings, "bots.settings")?, object(&transient, "bots.transient_data")?);
         crate::codec::validate_bot_times(&Value::Object(settings.clone()), &Value::Object(transient.clone())).map_err(|e|data(format!("{e:?}")))?;
@@ -793,7 +801,7 @@ impl Bot {
         // Bot::QuoteAmountLimitable validates a cap that is switched on as no less than the smallest amount the quote states
         // (`minimum_quote_amount_limit`), and prints the error under the field; the tickers that say what that is are loaded by now.
         let floor = start::minimum_quote_amount_limit(self);
-        if self.kind == Kind::Basket && self.on("quote_amount_limited") && self.number("quote_amount_limit").is_some_and(|cap| cap.to_f() < floor) { return Some("a spending cap below the smallest amount its quote states"); }
+        if conditions::support(self.kind, Rule::Cap, false, "pause") == Support::Implemented && self.on("quote_amount_limited") && self.number("quote_amount_limit").is_some_and(|cap| cap.to_f() < floor) { return Some("a spending cap below the smallest amount its quote states"); }
         None
     }
 

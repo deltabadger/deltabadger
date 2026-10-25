@@ -15,6 +15,7 @@ pub mod gemini;
 pub mod hyperliquid;
 pub mod ibkr;
 pub mod ibkr_account;
+pub mod ibkr_venue;
 pub mod live;
 pub mod mexc;
 pub mod bitrue;

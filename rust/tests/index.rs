@@ -24,7 +24,9 @@ fn universe(num_coins: i64, flattening: f64, hold_all: bool) -> (tempfile::TempD
     (d, o, s, id, members)
 }
 /// Every symbol quoted at an ask of `asks[i]` (0 = unpriced), an open clock, five accepted orders, a funded account.
-fn script(asks: [f64; 5]) -> ScriptedTransport {
+fn script(asks: [f64; 5]) -> ScriptedTransport { script_with(asks, json!({})) }
+/// `script` with more scripted paths.
+fn script_with(asks: [f64; 5], extra: Value) -> ScriptedTransport {
     let mut m = json!({
         "GET /v2/clock": ok(json!({ "timestamp": "2026-09-01T10:00:00.5-04:00", "is_open": true, "next_open": "2099-01-02T09:30:00-05:00", "next_close": "2099-01-01T16:00:00-05:00" })),
         "POST /v2/orders": (1..=5).map(|n| json!({ "status": 200, "body": { "id": format!("OTX-{n}"), "status": "accepted" } })).collect::<Vec<_>>(),
@@ -34,6 +36,7 @@ fn script(asks: [f64; 5]) -> ScriptedTransport {
     for (sym, ask) in SYMBOLS.iter().zip(asks) {
         m[format!("GET /v2/stocks/{sym}/quotes/latest")] = ok(json!({ "quote": { "ap": ask, "bp": ask } }));
     }
+    for (k, v) in extra.as_object().unwrap() { m[k] = v.clone(); }
     ScriptedTransport::from_script(&m)
 }
 fn venue(t: &ScriptedTransport) -> AlpacaVenue<ScriptedTransport> { AlpacaVenue::new(t.clone(), Urls::for_passphrase(Some("paper"))) }
@@ -158,66 +161,88 @@ async fn hold_all_buys_the_whole_universe_with_flattened_weights() {
     assert_eq!(t.posted_orders().len(), 5);
 }
 
-/// Bots::DcaIndex includes none of the trigger rule concerns (dca_index.rb:56-58): stray rule switches, a stored met_at and a
-/// limit_paused log leave admission, the decorated started_at, the carry window, the pause and the orders exactly as an
-/// unflagged index bot has them.
+/// D-IDX-CONDITIONS (reverses #742): an index bot runs its buy-side price rule with `pause`, on the ticker its settings name
+/// (D-IDX-SUBJECT: here a member, AAA, last traded at 150). Unmet, the tick pauses it (`waiting`, `limit_paused`, no order),
+/// the decorated started_at is nil and nothing is owed; met, it stamps met_at and buys as an unflagged bot. Its sell-side
+/// switches have nothing to act on and stay inert.
 #[tokio::test(flavor = "current_thread")]
-async fn an_index_bot_ignores_stray_condition_flags() {
-    let run = |flagged: bool| async move {
-        let (d, o, _s, id, _) = universe(3, 0.0, false);
-        o.primary.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.missed_quote_amount', '7.5') WHERE id = ?1", [id]).unwrap();
-        if flagged {
-            let mut sql = String::from("UPDATE bots SET settings = json_set(settings, '$.price_limit', 1, '$.price_limit_value_condition', 'below'");
-            for flag in model::CONDITION_FLAGS { sql.push_str(&format!(", '$.{flag}', json('true')")); }
-            sql.push_str("), transient_data = json_set(transient_data, '$.price_limit_condition_met_at', '2026-09-04T14:00:00.000Z') WHERE id = ?1");
-            o.primary.execute(&sql, [id]).unwrap();
-            model::log_activity(&o.primary, id, "limit_paused", deltabadger::engine::model::Level::Info, json!({ "limit_type": "price" }), at("2026-09-01T13:00:00Z")).unwrap();
+async fn an_index_bot_runs_its_buy_price_rule() {
+    let run = |limit: Option<i64>, met_at: Option<&'static str>| async move {
+        let (d, o, _s, id, members) = universe(3, 0.0, false);
+        if let Some(met_at) = met_at {
+            o.primary.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.price_limit_condition_met_at', ?1) WHERE id = ?2", (met_at, id)).unwrap();
+        }
+        if let Some(limit) = limit {
+            o.primary.execute("UPDATE bots SET settings = json_set(settings, '$.price_limited', json('true'), '$.price_limit', ?1, '$.price_limit_value_condition', 'below', \
+                               '$.price_limit_in_ticker_id', ?2, '$.sell_price_limited', json('true'), '$.sell_price_limit', 1) WHERE id = ?3", (limit, members[0].1, id)).unwrap();
         }
         let bot = model::load_bot(&o.primary, id).unwrap();
-        assert_eq!(bot.condition_started_us().unwrap(), bot.started_at_us().unwrap(), "flagged={flagged}: no started_at decoration");
-        let mut waiting = bot.clone();
-        waiting.status = deltabadger::enums::BotStatus::Waiting;
-        assert!(!model::price_paused(&o.primary, &waiting).unwrap(), "flagged={flagged}: never paused on a price rule");
-        let reasons = eligibility::bot_reasons(&o.primary, &bot).unwrap();
-        let since = bot.calc_since_us().unwrap();
-        let pending = deltabadger::engine::accounting::pending_quote_amount(&o.primary, &bot, at("2026-09-15T14:00:00Z").timestamp_micros()).unwrap();
-        let t = script([100.0, 200.0, 300.0, 400.0, 500.0]);
+        assert!(eligibility::bot_reasons(&o.primary, &bot).unwrap().is_empty(), "limit {limit:?}");
+        let t = script_with([100.0, 200.0, 300.0, 400.0, 500.0], json!({ "GET /v2/stocks/AAA/trades/latest": ok(json!({ "trade": { "p": 150 } })) }));
         let out = tick::tick(&o.primary, &venue(&t), id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
         let after = model::load_bot(&o.primary, id).unwrap();
-        (format!("{out:?}"), reasons, since, format!("{pending:?}"), t.posted_orders(), after.status, d)
+        let paused: i64 = o.primary.query_row("SELECT count(*) FROM bot_activity_logs WHERE bot_id = ?1 AND event = 'limit_paused' AND json_extract(details, '$.limit_type') = 'price'", [id], |r| r.get(0)).unwrap();
+        (format!("{out:?}"), t.posted_orders(), after, paused, model::price_paused(&o.primary, &model::load_bot(&o.primary, id).unwrap()).unwrap(), d, o)
     };
-    let (plain, flagged) = (run(false).await, run(true).await);
+    let plain = run(None, None).await;
     assert_eq!(plain.0, "Done { placed: true }");
-    assert_eq!((&flagged.0, &flagged.1, flagged.2, &flagged.3, &flagged.4, flagged.5), (&plain.0, &plain.1, plain.2, &plain.3, &plain.4, plain.5));
+    let unmet = run(Some(100), None).await; // 150 is not below 100
+    assert_eq!((unmet.0.as_str(), unmet.1.len(), unmet.2.status, unmet.3, unmet.4), ("Paused", 0, deltabadger::enums::BotStatus::Waiting, 1, true));
+    assert_eq!(unmet.2.condition_started_us().unwrap(), None, "unmet: started_at reads nil");
+    let pending = deltabadger::engine::accounting::pending_quote_amount(&unmet.6.primary, &unmet.2, at("2026-09-15T14:00:00Z").timestamp_micros()).unwrap();
+    assert!(pending.is_zero(), "nothing owed while unmet: {pending:?}");
+    // Met for the first time at this tick: met_at is stamped now, so the window opens now and nothing is owed yet (as on a
+    // Rails basket: the interval count from a window opened after the last checkpoint is 0).
+    let fresh = run(Some(1000), None).await;
+    assert_eq!((fresh.0.as_str(), fresh.1.len(), fresh.3), ("Done { placed: false }", 0, 0));
+    assert_eq!(fresh.2.transient["price_limit_condition_met_at"], json!("2026-09-01T14:00:00.500Z"), "met_at stamped");
+    // Met since before the start: the window is the bot's own, and it buys as the unflagged bot.
+    let met = run(Some(1000), Some("2026-08-31T00:00:00.000Z")).await;
+    assert_eq!((met.0.as_str(), &met.1, met.3), (plain.0.as_str(), &plain.1, 0), "met: the orders of the unflagged bot");
 }
 
-/// Bots::DcaIndex does not include Bot::QuoteAmountLimitable: a stored spending cap (on, tiny, stamped) leaves admission, the
-/// carry, the cap readers, the orders and the status exactly as an unflagged index bot has them, and never stops it.
+/// A subject that is not one of the venue's tradable pairs at the bot's quote (here none stored) is unavailable: the gate pauses.
 #[tokio::test(flavor = "current_thread")]
-async fn an_index_bot_ignores_a_stored_spending_cap() {
-    use deltabadger::engine::amount;
-    let run = |flagged: bool| async move {
-        let (d, o, _s, id, _) = universe(3, 0.0, false);
-        o.primary.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.missed_quote_amount', '7.5') WHERE id = ?1", [id]).unwrap();
-        if flagged {
-            o.primary.execute("UPDATE bots SET settings = json_set(settings, '$.quote_amount_limited', json('true'), '$.quote_amount_limit', 1), \
-                               transient_data = json_set(transient_data, '$.quote_amount_limit_enabled_at', '2026-08-01T00:00:00.000Z') WHERE id = ?1", [id]).unwrap();
-        }
-        let bot = model::load_bot(&o.primary, id).unwrap();
-        assert!(!bot.quote_amount_limited(), "flagged={flagged}: the switch is inert");
-        assert_eq!(bot.quote_amount_limit().unwrap(), None, "flagged={flagged}");
-        assert_eq!(amount::exact_cap_available(&o.primary, &bot).unwrap(), None, "flagged={flagged}");
-        assert!(!amount::quote_amount_limit_reached(&o.primary, &bot).unwrap(), "flagged={flagged}");
-        let reasons = eligibility::bot_reasons(&o.primary, &bot).unwrap();
-        let pending = deltabadger::engine::accounting::pending_quote_amount(&o.primary, &bot, at("2026-09-15T14:00:00Z").timestamp_micros()).unwrap();
+async fn an_index_rule_without_a_tradable_subject_pauses() {
+    for subject in [None, Some(999_999)] {
+        let (_d, o, _s, id, _) = universe(3, 0.0, false);
+        o.primary.execute("UPDATE bots SET settings = json_set(settings, '$.price_limited', json('true'), '$.price_limit', 1000000) WHERE id = ?1", [id]).unwrap();
+        if let Some(subject) = subject { o.primary.execute("UPDATE bots SET settings = json_set(settings, '$.price_limit_in_ticker_id', ?1) WHERE id = ?2", (subject, id)).unwrap(); }
         let t = script([100.0, 200.0, 300.0, 400.0, 500.0]);
         let out = tick::tick(&o.primary, &venue(&t), id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
-        let after = model::load_bot(&o.primary, id).unwrap();
-        (format!("{out:?}"), reasons, format!("{pending:?}"), t.posted_orders(), after.status, d)
-    };
-    let (plain, flagged) = (run(false).await, run(true).await);
-    assert_eq!(plain.0, "Done { placed: true }");
-    assert_eq!((&flagged.0, &flagged.1, &flagged.2, &flagged.3, flagged.4), (&plain.0, &plain.1, &plain.2, &plain.3, plain.4));
+        assert!(matches!(out, TickOutcome::Paused), "{subject:?}: {out:?}");
+        assert!(t.posted_orders().is_empty(), "{subject:?}");
+    }
+}
+
+/// D-IDX-CAP (reverses #752): an index bot's spending cap is read as a basket's: the cap readers see it, the tick's amount is
+/// cut to what is left, and a remainder no leg of which the venue takes stops the bot (D-CAP-REMAINDER-STOP): one `stopped`
+/// line with the amount-limit key, the amount-limit mail owed, no order. Values from fixture F (case "vi_cap_1").
+#[tokio::test(flavor = "current_thread")]
+async fn an_index_bot_applies_its_spending_cap() {
+    use deltabadger::engine::amount;
+    let f = &common::conditions_fixture()["index_cap_one"];
+    let (_d, o, _s, id, _) = universe(3, 0.0, false);
+    o.primary.execute("UPDATE bots SET settings = json_set(settings, '$.quote_amount_limited', json('true'), '$.quote_amount_limit', ?1), \
+                       transient_data = json_set(transient_data, '$.quote_amount_limit_enabled_at', '2026-08-01T00:00:00.000Z') WHERE id = ?2", (f["cap"].as_i64().unwrap(), id)).unwrap();
+    let bot = model::load_bot(&o.primary, id).unwrap();
+    assert!(bot.quote_amount_limited());
+    assert_eq!(amount::exact_cap_available(&o.primary, &bot).unwrap(), Some(deltabadger::ruby::BigDec::parse(f["remainder"].as_str().unwrap()).unwrap()));
+    assert!(!amount::quote_amount_limit_reached(&o.primary, &bot).unwrap(), "1 USD is over the 0.01 precision floor");
+    assert!(eligibility::bot_reasons(&o.primary, &bot).unwrap().is_empty());
+    let t = script([100.0, 200.0, 300.0, 400.0, 500.0]);
+    let out = tick::tick(&o.primary, &venue(&t), id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
+    assert!(matches!(out, TickOutcome::Skipped), "{out:?}");
+    assert!(t.posted_orders().is_empty());
+    let after = model::load_bot(&o.primary, id).unwrap();
+    let key: Option<String> = o.primary.query_row("SELECT stop_message_key FROM bots WHERE id = ?1", [id], |r| r.get(0)).unwrap();
+    assert_eq!((after.status, key.as_deref()), (deltabadger::enums::BotStatus::Stopped, Some(tick::AMOUNT_SPENT)));
+    let stopped: i64 = o.primary.query_row("SELECT count(*) FROM bot_activity_logs WHERE bot_id = ?1 AND event = 'stopped'", [id], |r| r.get(0)).unwrap();
+    assert_eq!(stopped, 1);
+    assert!(after.transient.get(deltabadger::engine::notice::LIMIT).is_some(), "the amount-limit mail is owed");
+    let skipped: Vec<String> = o.primary.prepare("SELECT CAST(quote_amount AS TEXT) FROM transactions WHERE bot_id = ?1 AND status = 2 ORDER BY id").unwrap()
+        .query_map([id], |r| r.get(0)).unwrap().map(Result::unwrap).collect();
+    assert_eq!(skipped, f["skipped"].as_array().unwrap().iter().map(|v| v.as_str().unwrap().to_string()).collect::<Vec<_>>());
 }
 
 #[test]

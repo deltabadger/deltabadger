@@ -1,5 +1,5 @@
 {#- bots/signals/pick_buyable_assets/new and pick_spendable_assets/new: the sentence, then the assets to pick from, a page at a time.
-    `notice`: the stock activation notice, which only the first step renders. -#}
+    `base_step`: the whitespace where Rails renders its stock activation notice, which is not drawn here (D-STOCKS-NO-GATE). -#}
 <div class="bot-creation-layout">
 
     {{ progress|safe }}
@@ -15,7 +15,7 @@
           <turbo-frame loading="lazy" id="{{ next_id }}" src="{{ next_url }}"></turbo-frame>
 {%- endif %}
 </form>
-{%- if let Some(notice) = notice %}      {{ notice|safe }}
+{%- if base_step %}      
 {% endif -%}
 </turbo-frame>
   </div>

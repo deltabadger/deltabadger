@@ -1806,10 +1806,11 @@ module Decisions
       list << venue_index(venue, 'category', 'all_below-market', at: first, quote_amount: all)
     end
     # Bots::DcaIndex does not include Bot::QuoteAmountLimitable: a stored cap (on, stamped, long spent) is never read; the tick buys.
+    # The engine reads it (D-IDX-CAP): it stops the bot instead (parity.rs pins both sides).
     %w[kraken binance].each do |venue|
       ranked = vi_ranked(venue, VI_L1)
       held = ranked.first(3).zip([30.0, 20.0, 10.0]).map { |sym, v| vi_held(venue, sym, v) }
-      list << venue_index(venue, 'category', 'spend_cap_ignored-market', at: day.(1), members: vi_steady(ranked), transactions: held,
+      list << venue_index(venue, 'category', 'spend_cap_applies-market', at: day.(1), members: vi_steady(ranked), transactions: held,
                           settings: { 'quote_amount_limited' => true, 'quote_amount_limit' => 10.0 },
                           transient: { 'quote_amount_limit_enabled_at' => '2026-08-01T00:00:00.000Z' })
     end

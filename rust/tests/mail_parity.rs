@@ -82,9 +82,16 @@ fn rails_and_rust_build_the_same_mails_across_the_grid() {
     let now = chrono::Utc::now();
     let mut failures = vec![];
     let mut encodings = std::collections::BTreeMap::new();
+    let mut plain_decimals = 0;
     for case in &cases {
         let name = case["name"].as_str().unwrap();
-        let ours = build(&c, case);
+        let mut ours = build(&c, case);
+        // D-MAIL-PLAIN-DECIMAL: the amount-limit mail writes a tiny limit as "0.00001" where Rails prints "1.0e-05".
+        if case["notice"]["mail"] == "stopped_by_amount_limit" && ours.html.contains("0.00001") {
+            assert!(!ours.html.contains("e-05"), "{name}: {}", ours.html);
+            ours.html = ours.html.replace("0.00001", "1.0e-05");
+            plain_decimals += 1;
+        }
         let (rails, rust) = (comparable(case["rails"].as_str().unwrap()), comparable(&ours.encode(now, "<1@rust.test>").unwrap_or_else(|why| panic!("{name}: {why}"))));
         if rails != rust { failures.push(format!("{name}\n  rails: {rails:?}\n  rust:  {rust:?}")); }
         let envelope = json!({ "from": mailbox(&ours.from).map(|m| m.address), "to": [ours.to] });
@@ -93,6 +100,7 @@ fn rails_and_rust_build_the_same_mails_across_the_grid() {
         *encodings.entry(encoding).or_insert(0) += 1;
     }
     assert!(failures.is_empty(), "{} of {} mails differ:\n{}", failures.len(), cases.len(), failures.join("\n"));
+    assert!(plain_decimals > 0, "the grid's tiny limit no longer reaches D-MAIL-PLAIN-DECIMAL");
     // The grid must keep exercising all three transfer encodings, or it stops proving the choice between them.
     assert_eq!(encodings.keys().map(String::as_str).collect::<Vec<_>>(), ["7bit", "base64", "quoted-printable"], "{encodings:?}");
 }

@@ -555,6 +555,19 @@ async fn a_market_seller_sells_its_base_amount_at_the_bid_and_skips_the_funds_ch
 }
 
 #[tokio::test(flavor = "current_thread")]
+async fn a_sell_row_records_the_sell_cadence_and_the_sell_amount() {
+    // D-SELL-ROW-CADENCE: Rails writes the buy interval and buy quote_amount (week, 60) on a sell row.
+    let schedule = |o: &store::Opened| one::<String>(o, "SELECT bot_interval || ' ' || CAST(bot_quote_amount AS TEXT) FROM transactions");
+    let (_d, o, id) = setup(base_seller(0.01).with("sell_interval", json!("day")));
+    run(&o, &holding("0.5").next_add(AddOutcome::Accept("OTX-S".into())), id, "2026-09-01T10:00:00.5Z").await;
+    // A market sell is sized at the bid: 0.01 × 49990.1 = 499.901.
+    assert_eq!(schedule(&o), "day 499.901", "a base seller: its sell interval and the quote value of its base amount");
+    let (_d, o, id) = setup(seller(&[("sell_denomination", json!("quote")), ("sell_quote_amount", json!(100.0))]));
+    run(&o, &holding("1").next_add(AddOutcome::Accept("OTX-S".into())), id, "2026-09-01T10:00:00.5Z").await;
+    assert_eq!(schedule(&o), "week 100", "a quote seller without a sell interval: the buy interval, its sell quote amount");
+}
+
+#[tokio::test(flavor = "current_thread")]
 async fn a_limit_seller_for_quote_prices_above_last_and_sizes_quote_over_that_price() {
     let (_d, o, id) = setup(seller(&[("sell_denomination", json!("quote")), ("sell_quote_amount", json!(100.0)),
                                       ("limit_ordered", json!(true)), ("limit_order_pcnt_distance", json!(0.0025))]));
