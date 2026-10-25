@@ -294,15 +294,21 @@ fn unresolved_shadows(c: &Connection, s: &Subject, keys: &[(Identity, String)]) 
     let mut seen = HashSet::new();
     for (base, asset_id, symbol) in db::listings(c, exchange_id, &ids)? {
         budget::charge(1, 0)?;
-        for name in [Some(db::base_spelling(&base)), symbol.as_deref()].into_iter().flatten().filter(|name| !name.trim().is_empty()) {
+        for name in listing_names(&base, symbol.as_deref()) {
             budget::charge(1, 0)?;
-            let Some(key) = unresolved.get(&name.to_uppercase()) else { continue };
+            let Some(key) = unresolved.get(&name) else { continue };
             if !seen.insert((asset_id, (*key).clone())) { continue; }
             let at = *places.entry(asset_id).or_insert_with(|| { out.push((asset_id, vec![])); out.len() - 1 });
             out[at].1.push((*key).clone());
         }
     }
     Ok(out)
+}
+
+/// The names a row recorded without its asset may carry for this listing (#unresolved_shadows, Bot::Split's legacy rows): the
+/// venue's spelling of the base, tombstone stripped, and the asset's symbol, upper-cased, blanks left out.
+pub fn listing_names(base: &str, symbol: Option<&str>) -> Vec<String> {
+    [Some(db::base_spelling(base)), symbol].into_iter().flatten().filter(|name| !name.trim().is_empty()).map(str::to_uppercase).collect()
 }
 
 /// Lots of the same asset recorded without it may be the ones FIFO consumed: the sale's verdict is unknown.

@@ -1,0 +1,47 @@
+{#- bots/splits/new.html.erb: what the split will do, refusal included, inside the split_modal frame bots_split_modal_controller re-fetches. -#}
+<turbo-frame complete="" id="modal">
+  <dialog data-controller="modal--base" data-action="click->modal--base#clickOutside" class="dialog" data-hw-animate-in="animate-modal-in" data-hw-animate-out="animate-modal-out">
+    <div class="dialog__vertical-center">
+  <div class="modal" data-controller="bots-split-modal" data-bots-split-modal-url-value="{{ url }}">
+    <turbo-frame id="split_modal">
+      <button name="button" type="button" class="modal__close" data-action="modal--base#animateOutCloseAndCleanUp">
+        {% include "svg/_24x24_close.html" %}
+</button>      <div class="modal__header">
+        <h1 class="modal__title">{{ v.t("button.split")|safe }}</h1>
+      </div>
+      <div class="modal__body">
+{% if let Some(refusal) = refusal %}
+          <p>{{ refusal }}</p>
+          <div class="modal__footer">
+            <button name="button" type="button" class="rbutton rbutton--secondary" data-action="modal--base#animateOutCloseAndCleanUp">{{ v.t("button.close")|safe }}</button>
+          </div>
+{% else %}
+{% for offer in offers %}
+            <div class="split-modal__row mb-3" data-split-row="offer" data-bot-id="{{ offer.id }}">
+                <p>{{ offer.prompt }}</p>
+                <div class="redeploy-prompt__actions split-modal__answers" data-split-actions>
+                    <form data-split-answer="true" class="button_to" method="post" action="{{ offer.action }}"><button class="rbutton rbutton--success" type="submit">{{ v.t("bot.redeploy.confirm")|safe }}</button><input type="hidden" name="authenticity_token" value="{{ csrf }}" /></form>
+                    <button name="button" type="button" class="rbutton rbutton--danger" data-action="bots-split-modal#keep" data-bots-split-modal-id-param="{{ offer.id }}">{{ v.t("bot.redeploy.decline")|safe }}</button>
+                </div>
+                <p class="text-inactive" data-split-kept hidden>{{ v.t("bot.split.kept")|safe }}</p>
+            </div>
+{% endfor %}
+          <p>{{ v.t("bot.split.explanation")|safe }}</p>
+          <div class="merge-modal__stack mb-3">
+            <div class="ticker-group ticker-group--fold {{ stack_class }}" data-controller="ticker-fold">
+{% for pill in pills %}
+                <div class="{{ pill.class }}" style="background: {{ pill.color }}" data-ticker-symbol="{{ pill.symbol }}" data-ticker-asset-id="{{ pill.id }}">{{ pill.symbol }}</div>
+{% endfor %}
+            </div>
+          </div>
+          <div class="modal__footer">
+            <button name="button" type="button" class="rbutton rbutton--secondary" data-action="modal--base#animateOutCloseAndCleanUp">
+              {{ v.t("button.cancel")|safe }}
+</button>            <form data-bots-merge-form="true" data-bots-split-modal-target="form" class="button_to" method="post" action="{{ v.path("/bots/split") }}"><button class="rbutton rbutton--primary" type="submit">{{ v.t("button.split")|safe }}</button><input type="hidden" name="authenticity_token" value="{{ csrf }}" />{% for id in ids %}<input type="hidden" name="ids[]" value="{{ id }}" />{% endfor %}</form>
+          </div>
+{% endif %}
+      </div>
+</turbo-frame></div>
+    </div>
+  </dialog>
+</turbo-frame>

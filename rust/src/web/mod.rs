@@ -374,6 +374,9 @@ pub struct Inner {
     /// The web side's own connection (the engine owns another).
     /// ponytail: one connection behind a mutex; a small pool if one user's requests ever queue.
     db: Mutex<Connection>,
+    /// The Solid Queue database Rails' jobs wait in (store::Paths: QUEUE_DATABASE_PATH, else beside the primary), read only to
+    /// see a job Rails still holds for a bot.
+    pub queue_path: std::path::PathBuf,
     /// The wake handle of the engine in this process, once `supervisor::serve` attaches it. Empty when the app runs
     /// alone (every router test).
     engine: std::sync::OnceLock<Arc<tokio::sync::Notify>>,
@@ -409,6 +412,9 @@ impl App {
         let encryption = EncryptionKeys::resolve(env, &config.secret_key_base).map_err(|e| WebError::Config(format!("{e:?}")))?;
         let keys = Keys { session: derive(&config.secret_key_base, "deltabadger rust session v1")?, streams: derive(&config.secret_key_base, "deltabadger rust turbo streams v1")? };
         let cipher = Cipher::new(&encryption);
+        let storage = env("STORAGE_DIR").filter(|dir| !dir.trim().is_empty()).map(std::path::PathBuf::from)
+            .or_else(|| primary.path().and_then(|path| std::path::Path::new(path).parent().map(std::path::Path::to_path_buf))).unwrap_or_default();
+        let queue_path = crate::store::Paths::from_env(env, &storage).queue;
         crate::engine::provider::bind(&primary,&cipher,env).map_err(|_| WebError::Config("index configuration reader unavailable".into()))?;
         Ok(Self(Arc::new(Inner {
             fx_cache: tracker::fx::Cache::default(),
@@ -419,7 +425,7 @@ impl App {
             config, keys, cipher, clock, limiter: rate_limit::Limiter::default(), hub: cable::Hub::default(),
             cable_ping: Duration::from_secs(3), cable_recheck: Duration::from_secs(60),
             password_slots: Arc::new(Semaphore::new(PASSWORD_CHECKS_AT_ONCE)), password_waiting: AtomicUsize::new(0), password_hook: None,
-            db: Mutex::new(primary),
+            db: Mutex::new(primary), queue_path,
             engine: std::sync::OnceLock::new(),
         })))
     }
@@ -715,6 +721,8 @@ fn routes(app: App) -> Router {
         .route("/bots/reorder", only(patch(bots::reorder)))
         .route("/bots/merge/new", only(get(bot::actions::merge_new)))
         .route("/bots/merge", only(post(bot::actions::merge_create)))
+        .route("/bots/split/new", only(get(bot::actions::split_new)))
+        .route("/bots/split", only(post(bot::actions::split_create)))
         .route("/bots/{id}", only(get(bot::page::show).patch(bot::actions::update)))
         .route("/bots/{id}/start", only(patch(bot::actions::start)))
         .route("/bots/{id}/start/edit", only(get(bot::actions::start_edit)))
