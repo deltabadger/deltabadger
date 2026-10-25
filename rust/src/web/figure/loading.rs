@@ -268,22 +268,49 @@ pub(crate) fn venue_egresses(c:&rusqlite::Connection,cipher:&crate::crypto::Ciph
             Figures::Mexc=>|client|ReqwestTransport::mexc(client,String::new(),String::new()), Figures::Bitrue=>|client|ReqwestTransport::bitrue(client,String::new(),String::new()),
             Figures::Bingx=>|client|ReqwestTransport::bingx(client,String::new(),String::new()), Figures::Bitvavo=>|client|ReqwestTransport::bitvavo(client,String::new(),String::new()),
             Figures::Bitget=>|client|ReqwestTransport::bitget(client,String::new(),String::new(),String::new()), Figures::Bybit=>|client|ReqwestTransport::bybit(client,String::new(),String::new()),
-            Figures::Alpaca=>return None };
+            // IBKR's market data is signed per login (`ibkr_wire`): it has no public wire.
+            Figures::Alpaca|Figures::Ibkr=>return None };
         let egress=crate::venue::live::egress(c,cipher,&|k|std::env::var(k).ok(),row.name_id,&http::client());
         Some((row.base,egress.map(|(client,proxy)|wire(client).with_sensitive_values(proxy.into_iter().collect()))))
     }).collect()
 }
+/// The account's IBKR login for IBKR's market data (Ibkr plan F1): its user, the host its session is sent to, and its
+/// transport and login, or why it has none.
+pub(crate) struct IbkrWire { user:i64,base:String,live:Result<(ReqwestTransport,std::sync::Arc<crate::venue::ibkr::Login>),String> }
+/// User `user`'s IBKR trading key, as a login through the install's egress for IBKR; None without a key.
+pub(crate) fn ibkr_wire(c:&rusqlite::Connection,cipher:&crate::crypto::Cipher,user:i64,base:String)->Option<IbkrWire> {
+    let id:i64=c.query_row("SELECT k.id FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE k.user_id=?1 AND k.key_type=0 AND e.type=?2 ORDER BY k.id LIMIT 1",
+                           rusqlite::params![user,crate::venue::ibkr::IBKR],|r|r.get(0)).optional().ok().flatten()?;
+    let live=(||->Result<_,String>{
+        let (credentials,version)=crate::sync::credentials_with_version(c,cipher,id).map_err(|_|"the IBKR key is unreadable")?;
+        let material=credentials.ibkr.ok_or("the IBKR connection is incomplete")?;
+        let login=crate::venue::ibkr::login(&version,&material).map_err(|_|"the IBKR connection is incomplete")?;
+        let (client,_)=crate::venue::live::egress(c,cipher,&|k|std::env::var(k).ok(),"ibkr",&http::client())?;
+        Ok((ReqwestTransport::ibkr(client,login.clone()),login))
+    })();
+    Some(IbkrWire{user,base,live})
+}
 /// `venues`: each venue's public market data by its host (`with_venues`).
-pub(crate) struct Wire { real:ReqwestTransport,alpaca:bool,venues:Vec<(&'static str,Result<ReqwestTransport,String>)>,source:Source,origin:Option<crate::engine::model::CredentialVersion>,compute:Option<std::sync::Arc<tokio::sync::Semaphore>> }
+pub(crate) struct Wire { real:ReqwestTransport,alpaca:bool,venues:Vec<(&'static str,Result<ReqwestTransport,String>)>,ibkr:Option<IbkrWire>,source:Source,origin:Option<crate::engine::model::CredentialVersion>,compute:Option<std::sync::Arc<tokio::sync::Semaphore>> }
 impl Wire {
     pub(crate) fn with_origin(mut self,origin:crate::engine::model::CredentialVersion)->Self { self.origin=Some(origin);self }
-    pub(crate) fn new(credentials:&Credentials,source:Source)->Self { Wire{real:ReqwestTransport::new(http::client(),credentials.key.clone(),credentials.secret.clone()).with_sensitive_values(credentials.redaction_values.clone()),alpaca:true,venues:vec![],source,origin:None,compute:None} }
+    pub(crate) fn new(credentials:&Credentials,source:Source)->Self { Wire{real:ReqwestTransport::new(http::client(),credentials.key.clone(),credentials.secret.clone()).with_sensitive_values(credentials.redaction_values.clone()),alpaca:true,venues:vec![],ibkr:None,source,origin:None,compute:None} }
     /// The wire of an account's figures: its Alpaca key if it has a usable one (`Info`), and none otherwise.
     pub(crate) fn of(credentials:Option<&Credentials>,source:Source)->Self {
-        match credentials { Some(credentials)=>Self::new(credentials,source), None=>Wire{real:ReqwestTransport::new(http::client(),String::new(),String::new()),alpaca:false,venues:vec![],source,origin:None,compute:None} }
+        match credentials { Some(credentials)=>Self::new(credentials,source), None=>Wire{real:ReqwestTransport::new(http::client(),String::new(),String::new()),alpaca:false,venues:vec![],ibkr:None,source,origin:None,compute:None} }
     }
     /// The venues' public market data (`venue_egresses`).
     pub(crate) fn with_venues(mut self,venues:Vec<(&'static str,Result<ReqwestTransport,String>)>)->Self { self.venues=venues;self }
+    /// The account's IBKR login (`ibkr_wire`).
+    pub(crate) fn with_ibkr(mut self,ibkr:Option<IbkrWire>)->Self { self.ibkr=ibkr;self }
+    /// IBKR's market data, live: through the account's session, under its login's lock (`ibkr::read`).
+    async fn ibkr_live(&self,r:&HttpRequest)->Result<HttpResponse,TransportError> {
+        let unavailable=||TransportError::Permanent("Market data unavailable".into());
+        let ibkr=self.ibkr.as_ref().ok_or_else(unavailable)?;
+        let (transport,login)=ibkr.live.as_ref().map_err(|_|unavailable())?;
+        let session=crate::venue::ibkr::Session::new(transport,login.clone(),&crate::engine::SystemClock).with_base(&ibkr.base);
+        crate::venue::ibkr::read(&session,r).await
+    }
     /// The transport for a request's host: the venue's for a venue the figures read, Alpaca's (with its key) for Alpaca's
     /// market data.
     fn transport(&self,r:&HttpRequest)->Result<&ReqwestTransport,TransportError> {
@@ -306,8 +333,24 @@ impl Wire {
 impl Transport for Wire {
     fn producer(&self)->Option<crate::engine::model::CredentialVersion>{self.origin.clone()}
     fn redact_diagnostic(&self,text:&str)->String{self.real.redact_diagnostic(text)}
+    /// An IBKR answer the account's login gave is noted for its subscription (`note_ibkr_answer`).
     async fn send(&self,r:&HttpRequest)->Result<HttpResponse,TransportError> {
+        let reply=self.send_unnoted(r).await;
+        if let (Ok(reply),Some(ibkr))=(&reply,&self.ibkr) {
+            if r.base==crate::venue::ibkr::URL && (200..300).contains(&reply.status) { crate::figures::page_market::note_ibkr_answer(ibkr.user,r,&reply.body); }
+        }
+        reply
+    }
+    async fn send_limited(&self,r:&HttpRequest,limit:usize)->Result<HttpResponse,TransportError>{
+        if matches!(self.source,Source::Live) && r.base!=crate::venue::ibkr::URL { let transport=self.transport(r)?; return self.settle(transport,transport.send_unsettled(r,limit).await?,true).await; }
+        let reply=self.send(r).await?;
+        if reply.body.len()>limit{Err(TransportError::Permanent("Market data unavailable".into()))}else{Ok(reply)}
+    }
+}
+impl Wire {
+    async fn send_unnoted(&self,r:&HttpRequest)->Result<HttpResponse,TransportError> {
         match &self.source {
+            Source::Live if r.base==crate::venue::ibkr::URL=>self.ibkr_live(r).await,
             Source::Live=>{ let transport=self.transport(r)?; self.settle(transport,transport.send_unsettled(r,http::MAX_BODY).await?,true).await },
             Source::Disabled=>Err(TransportError::Permanent("Market data unavailable".into())),
             Source::Script(script)|Source::Counted(script,_)=>{
@@ -328,11 +371,6 @@ impl Transport for Wire {
                 self.settle(&self.real,HttpResponse{status:reply["status"].as_u64().unwrap_or(200) as u16,body:reply["body"].as_str().map(str::to_string).unwrap_or_else(||reply["body"].to_string())},false).await
             }
         }
-    }
-    async fn send_limited(&self,r:&HttpRequest,limit:usize)->Result<HttpResponse,TransportError>{
-        if matches!(self.source,Source::Live){ let transport=self.transport(r)?; return self.settle(transport,transport.send_unsettled(r,limit).await?,true).await; }
-        let reply=self.send(r).await?;
-        if reply.body.len()>limit{Err(TransportError::Permanent("Market data unavailable".into()))}else{Ok(reply)}
     }
 }
 pub fn symbols(c:&Connection,user:i64)->Result<Vec<String>,crate::figures::FiguresError>{
@@ -534,8 +572,9 @@ pub(crate) fn broadcast_metrics_panel(ctx:&crate::web::layout::Ctx,id:i64,stream
             let Some((_,cache))=kept.as_mut() else { return };
             cache.produced_by(info.producer.clone());
             let cipher=app.cipher.clone();
-            let venues=app.db(move|c|Ok(venue_egresses(c,&cipher))).await.unwrap_or_default();
-            let mut wire=Wire::of(info.credentials.as_ref(),app.figure_source.clone()).with_venues(venues).settled_under(app.figure_service.compute());
+            let base=app.venue_key_url(crate::venue::ibkr::IBKR);
+            let (venues,ibkr)=app.db(move|c|Ok((venue_egresses(c,&cipher),ibkr_wire(c,&cipher,user,base)))).await.unwrap_or_default();
+            let mut wire=Wire::of(info.credentials.as_ref(),app.figure_source.clone()).with_venues(venues).with_ibkr(ibkr).settled_under(app.figure_service.compute());
             if let Producer::Alpaca(version)=&info.producer { wire=wire.with_origin(version.clone()); }
             let prefix=prefix.clone();
             let filled=tokio::time::timeout(app.figure_service.fill_timeout(),fill_result(&app,user,cache,&wire,now,|_,_|Ok(true),move|c,reader|
@@ -607,8 +646,8 @@ fn spawn_fill(app:&App,user:i64,info:Info,now:At,ticket:super::service::Ticket,m
         // Past its deadline the fill stops waiting; a worker it started finishes on its own, holding the compute permit.
         let timed=tokio::time::timeout(inner.figure_service.fill_timeout(),async {
             // The venues' egresses are a settings read, inside the deadline and outside the compute permit.
-            let venues={ let cipher=inner.cipher.clone(); inner.db(move|c|Ok(venue_egresses(c,&cipher))).await.unwrap_or_default() };
-            let mut wire=Wire::of(info.credentials.as_ref(),source).with_venues(venues).settled_under(inner.figure_service.compute());
+            let (venues,ibkr)={ let (cipher,base)=(inner.cipher.clone(),inner.venue_key_url(crate::venue::ibkr::IBKR)); inner.db(move|c|Ok((venue_egresses(c,&cipher),ibkr_wire(c,&cipher,user,base)))).await.unwrap_or_default() };
+            let mut wire=Wire::of(info.credentials.as_ref(),source).with_venues(venues).with_ibkr(ibkr).settled_under(inner.figure_service.compute());
             if let Producer::Alpaca(version)=&info.producer { wire=wire.with_origin(version.clone()); }
             cache.produced_by(info.producer.clone());
             // What the figures show besides their numbers, read before them: stale figures are held to it (`stale_shown`).
@@ -1039,12 +1078,21 @@ mod tests {
         assert_eq!((of(crate::venue::binance::URL),of(crate::venue::binance::US_URL),of(crate::venue::kucoin::URL),of(crate::venue::kraken::URL)),(Some(false),Some(true),Some(true),Some(false)));
         assert_eq!((of(crate::venue::mexc::URL),of(crate::venue::bitrue::URL),of(crate::venue::bingx::URL)),(Some(false),Some(true),Some(true)));
         assert_eq!((of(crate::venue::bitvavo::URL),of(crate::venue::bitget::URL),of(crate::venue::bybit::URL)),(Some(false),Some(true),Some(true)));
+        assert_eq!(of(crate::venue::ibkr::URL),None,"IBKR has no public wire");
         let wire=super::Wire::of(None,super::Source::Live).with_venues(venues);
         let read=|base:&str|HttpRequest{method:"GET",base:base.into(),path:crate::venue::binance::TICKER_PRICE.into(),query:vec![],body:None,not_after:None};
         for base in [crate::venue::binance::URL,crate::venue::mexc::URL,crate::venue::bitvavo::URL] { assert!(matches!(wire.send_limited(&read(base),1024).await,Err(TransportError::Permanent(_))),"settled, and nothing sent"); }
         // A venue with no egress at all (its settings unreadable) is refused the same way, not read on the Alpaca wire.
         let bare=super::Wire::of(None,super::Source::Live);
         assert!(matches!(bare.send_limited(&read(crate::venue::binance::US_URL),1024).await,Err(TransportError::Permanent(_))));
+        // IBKR (F1, Rust-only: D-IBKR-FIGURES): no public wire; without the account's login, or with one it cannot build, its
+        // market data is settled, never sent elsewhere.
+        let snapshot=HttpRequest{method:"GET",base:crate::venue::ibkr::URL.into(),path:crate::venue::ibkr::SNAPSHOT_PATH.into(),query:vec![("conids","265598".into())],body:None,not_after:None};
+        assert!(matches!(bare.send_limited(&snapshot,1024).await,Err(TransportError::Permanent(_))));
+        let broken=super::Wire::of(None,super::Source::Live).with_ibkr(Some(super::IbkrWire{user:1,base:String::new(),live:Err("the IBKR connection is incomplete".into())}));
+        assert!(matches!(broken.send_limited(&snapshot,1024).await,Err(TransportError::Permanent(_))));
+        // No IBKR key: no login.
+        assert!(super::ibkr_wire(&c,&cipher,1,String::new()).is_none());
     }
 
     /// The fingerprint runs on every page that shows figures. At the sizes of a real install (40,000 assets, four venues'

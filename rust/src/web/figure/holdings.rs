@@ -181,7 +181,7 @@ pub(super) fn render_pair(c: &Connection, p: &crate::figures::pair::Pair, hidden
     let max = |d: Option<i64>| d.and_then(|d| u8::try_from(d).ok()).unwrap_or(8);
     let stale = m.prices_stale;
     let mut out = "<div id=\"metrics\" style=\"display: flex; flex-direction: column; gap: 1rem;\">\n".to_string();
-    if stale && crate::figures::page_market::reads(&live::venue(s)?) {
+    if stale && crate::figures::page_market::notes(&live::venue(s)?, s.bot.user_id, &s.tickers) {
         out.push_str(&format!("  <p class=\"status-button__hint\" role=\"status\">\n    {}\n  </p>\n", t(locale, "bot.details.stats.exchange_unavailable_html")));
     }
     if !hidden {
@@ -277,8 +277,8 @@ pub(super) fn render(c: &Connection, s: &Subject, m: &Metrics, missing: &[String
         locked_keys.insert(key);
     }
     let mut out = "<div id=\"metrics\" style=\"display: flex; flex-direction: column; gap: 1rem;\">\n".to_string();
-    // 3.0 (Rust only): a venue the figures do not read yet did not fail to answer.
-    if m.prices_stale && crate::figures::page_market::reads(&crate::figures::live::venue(s)?) { out.push_str(&format!("<p class=\"status-button__hint\" role=\"status\">\n{}\n</p>\n", t(locale, "bot.details.stats.exchange_unavailable_html"))); }
+    // 3.0 (Rust only): a venue the figures do not read yet (or an IBKR login without the subscription) did not fail to answer.
+    if m.prices_stale && crate::figures::page_market::notes(&crate::figures::live::venue(s)?, s.bot.user_id, &s.tickers) { out.push_str(&format!("<p class=\"status-button__hint\" role=\"status\">\n{}\n</p>\n", t(locale, "bot.details.stats.exchange_unavailable_html"))); }
     if !hidden {
         out.push_str(&format!("    <div class=\"widget data-grid {}\">\n", if m.realised_pnl.is_zero() { "data-grid--two-columns" } else { "" }));
         let item = |label: &str, value: String| format!("      <div class=\"data-grid__item\" data-controller=\"tooltip\">\n        <div class=\"label\">{}</div>\n        <div class=\"data-grid__item__value\">\n            {value}\n        </div>\n      </div>\n", t(locale, &format!("bot.details.stats.{label}")));

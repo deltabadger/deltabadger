@@ -45,10 +45,13 @@ pub enum Figures {
     Bitget,
     /// market/tickers prices and market/kline candles walked forward from the start, 1000 a page.
     Bybit,
+    /// Per-conid snapshot prices (field 31) and daily marketdata/history candles, signed through the account's login
+    /// (Ibkr plan F1, D-IBKR-FIGURES: Rails answers `{}` and `[]`).
+    Ibkr,
 }
 
 impl Figures {
-    pub fn candles(self) -> bool { matches!(self, Self::Alpaca | Self::Kucoin | Self::Binance | Self::Kraken | Self::Mexc | Self::Bitrue | Self::Bingx | Self::Bitvavo | Self::Bitget | Self::Bybit) }
+    pub fn candles(self) -> bool { matches!(self, Self::Alpaca | Self::Kucoin | Self::Binance | Self::Kraken | Self::Mexc | Self::Bitrue | Self::Bingx | Self::Bitvavo | Self::Bitget | Self::Bybit | Self::Ibkr) }
 }
 
 pub struct Row {
@@ -126,10 +129,10 @@ pub static ROWS: [Row; 15] = [
           passphrase: false, needs_pairs: true, trades: true, balances: Some(BalanceSync::Bingx), ledger: Some(LedgerSync::Bingx),
           key_check: Some(KeyCheck::Bingx), wizard: true, figures: Some(Figures::Bingx), condition_candles: false },
     // Ibkr plan I2: its key check (with the activation wait) and its balances. Its keys are connected on its own page
-    // (I3), never through the generic key form; it trades from I4.
+    // (I3), never through the generic key form; it trades from I4. Its figures (F1) read through the account's own login.
     Row { exchange_type: super::ibkr::IBKR, name: "Interactive Brokers", name_id: "ibkr", base: super::ibkr::URL, rules: None, passphrase: false,
           needs_pairs: false, trades: false, balances: Some(BalanceSync::Ibkr), ledger: None, key_check: Some(KeyCheck::Ibkr), wizard: false,
-          figures: None, condition_candles: false },
+          figures: Some(Figures::Ibkr), condition_candles: false },
 ];
 
 pub fn row(exchange_type: &str) -> Option<&'static Row> { ROWS.iter().find(|r| r.exchange_type == exchange_type) }
@@ -175,8 +178,8 @@ mod tests {
         assert_eq!(types(|r| r.wizard), [alpaca, kraken, binance, us, kucoin, bitvavo, gemini, bitget, mexc, hyperliquid, bybit, bitrue, coinbase, bingx], "wizard::keys::PORTED");
         assert_eq!(types(|r| r.trades), [alpaca, kraken, binance, us, kucoin, bitvavo, gemini, bitget, mexc, hyperliquid, bybit, bitrue, coinbase, bingx], "venue_rules::for_exchange, eligibility::admission, LiveFactory");
         assert_eq!(types(|r| r.passphrase), [alpaca, kucoin, bitget], "model::credentials_with_redaction's passphrase");
-        assert_eq!(types(|r| r.figures.is_some()), [alpaca, kraken, binance, us, kucoin, bitvavo, bitget, mexc, bybit, bitrue, bingx], "page_market::reads");
-        assert_eq!(types(|r| r.figures.is_some_and(Figures::candles)), [alpaca, kraken, binance, us, kucoin, bitvavo, bitget, mexc, bybit, bitrue, bingx], "page_market::reads_candles");
+        assert_eq!(types(|r| r.figures.is_some()), [alpaca, kraken, binance, us, kucoin, bitvavo, bitget, mexc, bybit, bitrue, bingx, ibkr], "page_market::reads");
+        assert_eq!(types(|r| r.figures.is_some_and(Figures::candles)), [alpaca, kraken, binance, us, kucoin, bitvavo, bitget, mexc, bybit, bitrue, bingx, ibkr], "page_market::reads_candles");
         assert_eq!(types(|r| r.needs_pairs && r.trades), [binance, us, kucoin, bitvavo, gemini, bitget, mexc, hyperliquid, bybit, bitrue, coinbase, bingx], "LiveFactory's Pairs::load");
         let proxies: Vec<_> = ROWS.iter().filter_map(|r| key_check_proxy(r.exchange_type).map(|p| (r.exchange_type, p, r.base))).collect();
         assert_eq!(proxies, [(kraken, "kraken", crate::venue::kraken::URL), (binance, "binance", crate::venue::binance::URL), (us, "binance_us", crate::venue::binance::US_URL),
