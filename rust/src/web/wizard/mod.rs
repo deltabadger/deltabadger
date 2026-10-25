@@ -10,7 +10,7 @@
 //! cookie serializer holds it.
 use super::layout::{self, Ctx, Page};
 use super::shell::{self, Shell};
-use super::{auth, colors, i18n, App, WebError};
+use super::{auth, colors, App, WebError};
 
 pub mod assets;
 pub mod brokers;
@@ -351,18 +351,6 @@ pub fn sentence(ctx: &Ctx, csrf: &str, of: SentenceOf) -> Result<String, WebErro
         csrf: csrf.to_string(),
     };
     Ok(SentenceView { s: &s }.render()?)
-}
-
-/// bots/wizard/_stock_activation_notice: no stock catalog on this install and no venue chosen yet. An admin is offered the
-/// activation in Settings, anyone else told to ask theirs.
-pub fn stock_notice(c: &Connection, app: &App, ctx: &Ctx, admin: bool, exchange_chosen: bool) -> Result<String, WebError> {
-    if exchange_chosen || super::bots::stocks_active(c, app)? { return Ok(String::new()) }
-    let inner = if admin {
-        format!("<a data-turbo-frame=\"_top\" href=\"{}\">{}</a>", i18n::escape(&ctx.path("/settings/connect")), ctx.t("bot.setup.stocks_activate_cta"))
-    } else {
-        ctx.t("bot.setup.stocks_ask_admin")
-    };
-    Ok(format!("<div class=\"assets-syncing\">\n      {inner}\n  </div>\n"))
 }
 
 /// The step pages' dialog closes to the bots page, or, opened by the bots page itself (`?auto_open=`), nowhere.

@@ -351,49 +351,6 @@ pub fn segmented(label: &str, fluid: bool, options: &[(&str, String, bool)]) -> 
     )
 }
 
-/// settings/widgets/_stocks: Alpaca as the container's catalog source.
-pub struct Stocks<'a> {
-    pub hosted: Option<&'a str>,
-    pub configured: bool,
-    pub hint: Option<&'a str>,
-    pub paper: bool,
-    pub instructions: &'a str,
-}
-
-pub fn stocks(ctx: &Ctx, csrf: &str, s: &Stocks) -> String {
-    if let Some(note) = s.hosted {
-        return format!("<turbo-frame class=\"sitem\" id=\"stocks_settings\">\n    {}\n</turbo-frame>", row("Alpaca", Some(note), "", "", None, None));
-    }
-    let disconnect = if s.configured {
-        format!(
-            "\n        {}\n",
-            super::dialog::confirm(csrf, &ctx.t("settings.stocks.disconnect"), &ctx.t("settings.index.api_key_confirmation"), &ctx.t("settings.stocks.disconnect"), &ctx.path("/settings/disconnect_stocks"), "delete", &[])
-        )
-    } else {
-        String::new()
-    };
-    let mode = format!(
-        "\n        {}",
-        segmented(&ctx.t("settings.stocks.mode"), false, &[("paper", ctx.t("settings.stocks.mode_paper"), s.paper), ("live", ctx.t("settings.stocks.mode_live"), !s.paper)])
-    );
-    let connect = ctx.t("button.connect");
-    format!(
-        "<turbo-frame class=\"sitem\" id=\"stocks_settings\">\n    {}\n    {}\n      {}      <input value=\"{}\" data-form--segmented-field-target=\"field\" type=\"hidden\" name=\"alpaca_mode\" id=\"alpaca_mode\" />\n      <input autocomplete=\"off\" class=\"rinput rinput--outline rinput--text\" placeholder=\"API Key\" aria-label=\"API Key\" type=\"text\" name=\"alpaca_api_key\" id=\"alpaca_api_key\" />\n      <input autocomplete=\"off\" class=\"rinput rinput--outline rinput--text\" placeholder=\"API Secret\" aria-label=\"API Secret\" type=\"text\" name=\"alpaca_api_secret\" id=\"alpaca_api_secret\" />\n      {}\n      <details class=\"shelp\">\n        <summary>{}</summary>\n        <div class=\"settings__prose\">{}</div>\n      </details>\n</form></turbo-frame>",
-        row("Alpaca", s.hint, "", "", None, Some(&disconnect)),
-        form_open(
-            " class=\"sform sform--stack sform--inset sitem\" data-turbo-frame=\"stocks_settings\" data-controller=\"form--segmented-field\" data-action=\"segmented:change-&gt;form--segmented-field#set\"",
-            &ctx.path("/settings/update_stocks"),
-            "patch",
-            csrf
-        ),
-        row(&ctx.t("settings.stocks.mode"), None, "srow--flush", "", None, Some(&mode)),
-        if s.paper { "paper" } else { "live" },
-        submit(&connect, &format!(" data-turbo-stream=\"true\" data-turbo-submits-with=\"{}\"", ctx.t("bot.setup.validating"))),
-        crate::web::i18n::t(ctx.locale, "bot.setup.how_to_get_keys", &[("exchange", crate::web::i18n::Arg::Text("Alpaca"))]),
-        s.instructions
-    )
-}
-
 /// settings/widgets/_market_data.
 pub struct Market<'a> {
     /// The platform's own feed, the only one there is: its note.

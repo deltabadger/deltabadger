@@ -416,26 +416,11 @@ pub fn list(c: &Connection, ctx: &Ctx, csrf: &str, user: i64) -> Result<String, 
         .collect();
     Ok(super::sections::api_keys(ctx, csrf, &keys))
 }
-/// settings/widgets/_ibkr: shown with the data API, or for a connection there already is.
-fn ibkr(c: &Connection, app: &App, ctx: &Ctx, user: i64) -> Result<Option<String>, WebError> {
-    let key: Option<(i64, String)> = c.query_row("SELECT k.status,k.updated_at FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE k.user_id=?1 AND k.key_type=0 AND e.type='Exchanges::Ibkr' ORDER BY k.id LIMIT 1", [user], |r| Ok((r.get(0)?, r.get(1)?))).optional()?;
-    if !app.config.market_data_url && key.is_none() { return Ok(None); }
-    // ApiKey::ACTIVATION_DEADLINE: past it the wizard has given up on the registration.
-    let stalled = |updated: &str| crate::codec::parse_time(updated).is_ok_and(|at| at <= ctx.now - chrono::Duration::days(14));
-    let status = match &key {
-        Some((1, _)) => "CONNECTED",
-        Some((3, updated)) if stalled(updated) => "ACTION NEEDED",
-        Some((3, _)) => "PENDING",
-        _ => "OFF",
-    };
-    let control = format!("\n    <a class=\"rbutton rbutton--secondary\" data-turbo-frame=\"_top\" href=\"{}\">{}</a>\n", crate::web::i18n::escape(&ctx.path("/settings/ibkr_connect")), ctx.t(if key.is_some() { "settings.ibkr.manage" } else { "settings.ibkr.connect_cta" }));
-    Ok(Some(super::dialog::row(&ctx.t("settings.ibkr.widget_title"), Some(status), "", " id=\"ibkr_settings\"", None, Some(&control))))
-}
-fn connection_widgets(c:&Connection,app:&App,v:&Ctx,csrf:&str)->Result<(String,String),WebError>{
+/// settings/widgets/_market_data: the container's market data source, the one section Connect holds (D-BROKERS-AS-VENUES).
+fn market_data(c:&Connection,app:&App,v:&Ctx,csrf:&str)->Result<String,WebError>{
     let setting=|name:&str|auth::app_config(c,&app.cipher,name);
     let has=|name:&str|Ok::<_,WebError>(setting(name)?.is_some_and(|s|!crate::ruby::blank(&s)));
     let provider=setting("market_data_provider")?.unwrap_or_default();let hosted=app.config.market_data_url;
-    let deltabadger=hosted||provider=="deltabadger";
     let platform_connected=has("platform_connected_at")?;
     let proxies:bool=c.query_row("SELECT EXISTS(SELECT 1 FROM app_configs WHERE key LIKE 'proxy_%')",[],|r|r.get(0))?;
     let hosted_note=|key:&str|i18n::t(v.locale,key,&[("provider_name",i18n::Arg::Text(&app.settings_market_provider_name))]);
@@ -446,46 +431,28 @@ fn connection_widgets(c:&Connection,app:&App,v:&Ctx,csrf:&str)->Result<(String,S
     let platform_note=v.t(if proxies{"settings.platform.connected_with_proxies"}else{"settings.platform.connected_without_proxies"});
     let coingecko_instructions=v.t("setup.coingecko_api_key_hint_html");
     let market=super::sections::market_data(v,csrf,&super::sections::Market{hosted:hosted.then_some(market_note.as_str()),selected,coingecko_configured,coingecko_key_blank:!has("coingecko_api_key")?,platform_connected,platform_note:&platform_note,coingecko_instructions:&coingecko_instructions,platform_errors:None});
-    let catalog_active=deltabadger||c.query_row("SELECT EXISTS(SELECT 1 FROM tickers t JOIN exchanges e ON e.id=t.exchange_id WHERE t.available=1 AND e.type IN('Exchanges::Alpaca','Exchanges::Ibkr'))",[],|r|r.get::<_,bool>(0))?;
-    let stored_mode=setting("alpaca_mode")?;let paper=stored_mode.as_deref()==Some("paper");
-    let display_mode=stored_mode.map(|mode|{let mut chars=mode.chars();chars.next().map(|ch|ch.to_uppercase().collect::<String>()+&chars.as_str().to_lowercase()).unwrap_or_default()}).unwrap_or_else(||"Paper".into());
-    let configured=has("alpaca_api_key")?&&has("alpaca_api_secret")?;
-    let configured_note=i18n::t(v.locale,"settings.stocks.configured",&[("mode",i18n::Arg::Text(&display_mode))]);
-    let not_refreshing=v.t("settings.stocks.not_refreshing");
-    let stocks_note=hosted_note("settings.stocks.deltabadger_configured");
-    let instructions=format!("<p>{}</p>",lookup(v.locale,"bot.api.alpaca.instructions").unwrap_or(""));
-    let hint=if configured{Some(configured_note.as_str())}else if catalog_active{Some(not_refreshing.as_str())}else{None};
-    let stocks=super::sections::stocks(v,csrf,&super::sections::Stocks{hosted:deltabadger.then_some(stocks_note.as_str()),configured,hint,paper,instructions:&instructions});
-    Ok((stocks,market))
+    Ok(market)
 }
 /// GET /settings/api_keys: the exchange keys.
 pub async fn show_keys(app: App, ctx: Ctx) -> Result<Response, WebError> {
     let Some(user) = ctx.user().cloned() else { return Ok(auth::unauthenticated(&ctx)); };
     let (inner, v, csrf) = (app.clone(), ctx.clone(), ctx.csrf_token());
     let token = csrf.clone();
-    let (pane, shell, connect) = app.db(move |c| Ok((list(c, &v, &token, user.id)?, crate::web::shell::Shell::load(c, &inner, &user)?, super::view::connect_visible(c, &inner, &user)?))).await?;
+    let (pane, shell) = app.db(move |c| Ok((list(c, &v, &token, user.id)?, crate::web::shell::Shell::load(c, &inner, &user)?))).await?;
     let user = ctx.user().ok_or_else(|| WebError::Config("missing key owner".into()))?;
-    super::view::section_page(&ctx, &csrf, user, &shell, "api_keys", connect, &format!("  {pane}\n"), StatusCode::OK, vec![])
+    super::view::section_page(&ctx, &csrf, user, &shell, "api_keys", &format!("  {pane}\n"), StatusCode::OK, vec![])
 }
-/// GET /settings/connect: IBKR and, for an admin, the container's stock catalog and market data.
+/// GET /settings/connect: for an admin, the container's market data; for anyone else an empty pane, as Rails draws it.
 pub async fn show(app: App, ctx: Ctx) -> Result<Response, WebError> {
     let Some(user) = ctx.user().cloned() else { return Ok(auth::unauthenticated(&ctx)); };
     let (inner, v, csrf) = (app.clone(), ctx.clone(), ctx.csrf_token());
     let token = csrf.clone();
-    let (pane, shell, connect) = app.db(move |c| {
-        let ibkr = ibkr(c, &inner, &v, user.id)?;
-        let mut pane = String::new();
-        if ibkr.is_some() || user.admin {
-            pane.push_str(&format!("    <h3 class=\"settings__heading settings__heading--first\">{}</h3>\n  {}\n", v.t("settings.stocks.title"), ibkr.unwrap_or_default()));
-            if user.admin {
-                let (stocks, market) = connection_widgets(c, &inner, &v, &token)?;
-                pane.push_str(&format!("  {stocks}\n\n{market}\n"));
-            }
-        }
-        Ok((pane, crate::web::shell::Shell::load(c, &inner, &user)?, super::view::connect_visible(c, &inner, &user)?))
+    let (pane, shell) = app.db(move |c| {
+        let pane = if user.admin { format!("\n{}\n", market_data(c, &inner, &v, &token)?) } else { String::new() };
+        Ok((pane, crate::web::shell::Shell::load(c, &inner, &user)?))
     }).await?;
     let user = ctx.user().ok_or_else(|| WebError::Config("missing key owner".into()))?;
-    super::view::section_page(&ctx, &csrf, user, &shell, "connect", connect, &pane, StatusCode::OK, vec![])
+    super::view::section_page(&ctx, &csrf, user, &shell, "connect", &pane, StatusCode::OK, vec![])
 }
 /// GET /settings/api_key_permissions/:id: a key's walkthrough in the pane, the sidebar on API keys.
 pub async fn modal(app: App, ctx: Ctx) -> Result<Response, WebError> {
@@ -498,8 +465,8 @@ pub async fn modal(app: App, ctx: Ctx) -> Result<Response, WebError> {
     let inner = app.clone();
     let v = ctx.clone();
     let found=app.db(move|c|{let key=c.query_row("SELECT e.name,e.type,k.key_type FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE k.id=?1 AND k.user_id=?2",(id,user.id),|r|Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?,r.get::<_,i64>(2)?))).optional()?;
-        key.map(|(name,venue,kind)|Ok(((name.clone(),venue.clone()),key_instructions(c,&inner,&v,&venue,&name,kind)?,crate::web::shell::Shell::load(c,&inner,&user)?,super::view::connect_visible(c,&inner,&user)?))).transpose()}).await?;
-    let Some(((name, venue), instructions, shell, connect)) = found else {
+        key.map(|(name,venue,kind)|Ok(((name.clone(),venue.clone()),key_instructions(c,&inner,&v,&venue,&name,kind)?,crate::web::shell::Shell::load(c,&inner,&user)?))).transpose()}).await?;
+    let Some(((name, venue), instructions, shell)) = found else {
         return Ok(crate::web::layout::missing());
     };
     if !ported(&venue) {
@@ -515,7 +482,7 @@ pub async fn modal(app: App, ctx: Ctx) -> Result<Response, WebError> {
         instructions
     );
     let user = ctx.user().ok_or_else(|| WebError::Config("missing key owner".into()))?;
-    super::view::section_page(&ctx, &csrf, user, &shell, "api_keys", connect, &pane, StatusCode::OK, vec![])
+    super::view::section_page(&ctx, &csrf, user, &shell, "api_keys", &pane, StatusCode::OK, vec![])
 }
 pub async fn delete(app: App, ctx: Ctx) -> Result<Response, WebError> {
     let Some(user) = ctx.user().cloned() else {

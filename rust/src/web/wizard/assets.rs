@@ -1,7 +1,7 @@
 //! The DCA wizard's asset step (Bots::DcaSingleAssets::PickBuyableAssetsController): the basket is collected here, one asset
 //! at a time, and leaves through `advance`. The URL stays in the single namespace; once anything is chosen the later steps
 //! are the multi namespace's. Every GET but `new`'s `||= {}` leaves the session alone: Turbo prefetches on hover.
-use super::{chips, chosen_ids, current_variant, exchange_id, expired, first_incomplete_after, progress, reset_keys_but_exchange, sentence, stock_notice, BotType, Chip,
+use super::{chips, chosen_ids, current_variant, exchange_id, expired, first_incomplete_after, progress, reset_keys_but_exchange, sentence, BotType, Chip,
             SentenceOf, Step, StepOrder, Variant, EXCHANGE_KEY};
 use crate::web::bot::search::{self, AssetPage, Basket, Item, Side};
 use crate::web::layout::{self, Ctx, Page};
@@ -77,11 +77,10 @@ struct New<'a> {
     field_name: &'static str,
     items: Vec<Item>,
     next: Option<(String, String)>,
-    notice: String,
 }
 
 /// `prepare_step` and the page: the whole step, or (`render_asset_page`, a lazy frame asking for `offset`) one page of results.
-fn page(c: &Connection, app: &App, ctx: &Ctx, admin: bool, config: Option<&Value>, partial_allowed: bool) -> Result<(String, bool), WebError> {
+fn page(c: &Connection, ctx: &Ctx, config: Option<&Value>, partial_allowed: bool) -> Result<(String, bool), WebError> {
     let chosen = chosen(c, config)?;
     let scope = chosen.scope();
     let params = &ctx.params;
@@ -118,7 +117,6 @@ fn page(c: &Connection, app: &App, ctx: &Ctx, admin: bool, config: Option<&Value
         no_common_exchange,
         max_reached: (chosen.chips.len() >= MAX_ASSETS).then(|| i18n::t(ctx.locale, "bot.dca_multi_asset.max_assets_reached", &[("max", i18n::Arg::Text("100"))])),
         search_url: ctx.path(NEW), create_url: ctx.path("/bots/dca_single_assets/pick_buyable_asset"), syncing, field_name: FIELD, items, next,
-        notice: stock_notice(c, app, ctx, admin, chosen.venue.is_some())?,
         chosen: chosen.chips,
     }.render()?;
     Ok((body, false))
@@ -129,7 +127,7 @@ async fn render(app: &App, ctx: &Ctx, status: StatusCode, partial_allowed: bool)
     let user = ctx.user().cloned().ok_or_else(|| WebError::Config("the asset step without a user".into()))?;
     let config = ctx.session.lock().bot_config.clone();
     let (inner, view, owner) = (app.clone(), ctx.clone(), user.clone());
-    let ((body, partial), shell) = app.db(move |c| Ok((page(c, &inner, &view, owner.admin, config.as_ref(), partial_allowed)?, Shell::load(c, &inner, &owner)?))).await?;
+    let ((body, partial), shell) = app.db(move |c| Ok((page(c, &view, config.as_ref(), partial_allowed)?, Shell::load(c, &inner, &owner)?))).await?;
     if partial { return Ok(([(header::CONTENT_TYPE, "text/html; charset=utf-8")], body).into_response()) }
     shell::application(ctx, &ctx.csrf_token(), &user, &shell, Page { status, body, flash_now: vec![] })
 }

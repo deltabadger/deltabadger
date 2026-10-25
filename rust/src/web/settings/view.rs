@@ -238,21 +238,10 @@ pub fn wash(c: &Connection, ctx: &Ctx, csrf: &str, user_id: i64) -> Result<Strin
     };
     Ok(sections::wash(ctx, csrf, &question, enabled.is_some(), enabled == Some(true), &locked))
 }
-/// SettingsHelper#settings_connect_visible?: Connect holds container-wide sources (admin) and IBKR.
-pub(super) fn connect_visible(c: &Connection, app: &App, user: &User) -> Result<bool, WebError> {
-    Ok(user.admin
-        || app.config.market_data_url
-        || c.query_row(
-            "SELECT EXISTS(SELECT 1 FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE k.user_id=?1 AND k.key_type=0 AND e.type='Exchanges::Ibkr')",
-            [user.id],
-            |r| r.get::<_, bool>(0),
-        )?)
-}
-
 /// A section of the dialog as a page (or as the frame it opens in).
 #[allow(clippy::too_many_arguments)]
-pub(super) fn section_page(ctx: &Ctx, csrf: &str, user: &User, shell_data: &Shell, section: &str, connect: bool, pane: &str, status: StatusCode, flash_now: Vec<(&'static str, String)>) -> Result<Response, WebError> {
-    let body = dialog::shell(ctx, section, connect, pane);
+pub(super) fn section_page(ctx: &Ctx, csrf: &str, user: &User, shell_data: &Shell, section: &str, pane: &str, status: StatusCode, flash_now: Vec<(&'static str, String)>) -> Result<Response, WebError> {
+    let body = dialog::shell(ctx, section, user.admin, pane);
     shell::application(ctx, csrf, user, shell_data, Page { status, body, flash_now })
 }
 
@@ -269,7 +258,7 @@ pub async fn account(
     let (v, inner, owner) = (ctx.clone(), app.clone(), user.clone());
     let csrf = ctx.csrf_token();
     let token = csrf.clone();
-    let (name, pending_email, wash_widget, shell_data, registration_open, advanced, email_widget, connect) = app
+    let (name, pending_email, wash_widget, shell_data, registration_open, advanced, email_widget) = app
         .db(move |c| {
             let (name, email): (Option<String>, Option<String>) = c.query_row(
                 "SELECT name,unconfirmed_email FROM users WHERE id=?1",
@@ -292,7 +281,6 @@ pub async fn account(
                 registration_open,
                 advanced,
                 email_widget,
-                connect_visible(c, &inner, &owner)?,
             ))
         })
         .await?;
@@ -322,7 +310,7 @@ pub async fn account(
             admin: user.admin.then_some((registration.as_str(), email_widget.as_str())),
         },
     );
-    section_page(ctx, &csrf, &user, &shell_data, "account", connect, &pane, status, flash_now)
+    section_page(ctx, &csrf, &user, &shell_data, "account", &pane, status, flash_now)
 }
 
 /// settings/widgets/_time_zone for `zone`.

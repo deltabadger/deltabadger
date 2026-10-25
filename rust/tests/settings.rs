@@ -2188,21 +2188,59 @@ async fn confirmation_resend_is_private_csrf_protected_and_delivers_only_the_pen
 }
 
 #[tokio::test(flavor="current_thread")]
-async fn configured_connections_show_real_catalog_and_provider_state_without_echoing_credentials(){
+async fn configured_connections_show_provider_state_without_stock_rows_or_echoed_credentials(){
     let server=MockServer::start().await;let mut h=Harness::new(server.uri()).await;
+    // D-ALPACA-CATALOGUE: a catalog credential Rails stored is never read here; the catalogue comes from ours.
     for (key,value) in [("alpaca_api_key","catalog-key-placeholder"),("alpaca_api_secret","catalog-secret-placeholder"),("alpaca_mode","paper"),("coingecko_api_key","coingecko-key-placeholder"),("market_data_provider","coingecko")]{
         deltabadger::app_config::set(&h.c,&h.app.cipher,key,value,h.app.now()).unwrap();
     }
     let answer=h.browser.send(&h.app,"GET","/settings/connect",None,Csrf::None,&[]).await;
     assert_eq!(answer.status,200);
-    assert!(answer.body.contains("settings/stocks") || answer.body.contains("stocks_settings"));
-    let stock=answer.body.split("id=\"stocks_settings\"").nth(1).unwrap().split("</turbo-frame>").next().unwrap();
-    assert!(stock.contains("Connected to Alpaca (Paper)"),"an existing stock-venue catalog says it is connected");
-    assert!(stock.contains("/settings/disconnect_stocks"),"persisted catalog credentials have Rails' disconnect action");
+    // D-BROKERS-AS-VENUES: Connect holds the admin's market data and nothing broker-only.
+    for gone in ["stocks_settings","/settings/update_stocks","/settings/disconnect_stocks","ibkr_settings","settings__heading--first"]{assert!(!answer.body.contains(gone),"no stock row on Connect: {gone}");}
     let market=answer.body.split("id=\"market_data_settings\"").nth(1).unwrap().split("</turbo-frame>").next().unwrap();
     assert!(market.contains("id=\"switch-settings-update_market_data\" checked"),"the market data switch is on");assert!(market.contains("/settings/disconnect_market_data"));
     for value in ["catalog-key-placeholder","catalog-secret-placeholder","coingecko-key-placeholder"]{assert!(!answer.body.contains(value),"stored credential must never enter a page");}
     assert!(server.received_requests().await.unwrap().is_empty());
+}
+
+/// D-BROKERS-AS-VENUES and D-STOCKS-NO-GATE: no stock catalog on the install, a member holding an IBKR key. Rails gates stocks
+/// behind the admin (an "ask your admin" line on the empty bots page and the wizard's first steps, an activation link for the
+/// admin) and gives the member a Connect section for IBKR; here a broker is a venue like any other, so none of it is drawn.
+#[tokio::test(flavor="current_thread")]
+async fn brokers_are_venues_without_a_stock_gate_or_a_member_connect_section(){
+    let server=MockServer::start().await;let mut h=Harness::new(server.uri()).await;
+    h.c.execute("UPDATE tickers SET available=0 WHERE exchange_id IN (SELECT id FROM exchanges WHERE type IN ('Exchanges::Alpaca','Exchanges::Ibkr'))",[]).unwrap();
+    h.c.execute("UPDATE bots SET status=?1",[deltabadger::enums::BotStatus::Deleted as i64]).unwrap();
+    h.c.execute("UPDATE users SET advanced_bots_enabled=1",[]).unwrap();
+    h.c.execute("INSERT INTO exchanges (type, name, maker_fee, taker_fee, created_at, updated_at) VALUES ('Exchanges::Ibkr', 'Interactive Brokers', '0.05', '0.05', '2026-01-01', '2026-01-01')",[]).unwrap();
+    h.c.execute("INSERT INTO api_keys (user_id, exchange_id, key_type, status, created_at, updated_at) VALUES (?1, last_insert_rowid(), 0, 1, '2026-01-01', '2026-01-01')",[h.seed.user_id]).unwrap();
+    let phrases:Vec<String>=["bot.setup.stocks_ask_admin","bot.setup.stocks_activate_cta"].iter().map(|key|deltabadger::web::i18n::text("en",key,&[])).collect();
+    let modal=[("Turbo-Frame","modal")];
+    // Another admin, so a member's install is not one without an admin (which sends everyone to setup).
+    h.c.execute("INSERT INTO users (email, encrypted_password, name, admin, confirmed_at, setup_completed, created_at, updated_at) VALUES ('admin@example.com', 'x', 'Admin', 1, '2026-01-01', 1, '2026-01-01', '2026-01-01')",[]).unwrap();
+    for admin in [false,true]{
+        h.c.execute("UPDATE users SET admin=?1 WHERE id=?2",(admin,h.seed.user_id)).unwrap();
+        let bots=h.browser.send(&h.app,"GET","/bots",None,Csrf::None,&[]).await;
+        assert_eq!(bots.status,200,"{:?}",bots.header("location"));assert!(bots.body.contains("welcome-screen"),"the empty bots page");
+        let mut pages=vec![bots];
+        h.browser.send(&h.app,"GET","/bots/new",None,Csrf::None,&modal).await;
+        let exchange_first=h.browser.send(&h.app,"GET","/bots/dca_single_assets/pick_exchange/new",None,Csrf::None,&modal).await;assert_eq!(exchange_first.status,200);pages.push(exchange_first);
+        // The asset-first order: its first step is the asset step.
+        let switched=h.browser.send(&h.app,"POST","/bots/dca_single_assets/order",Some(&[("flow","asset_first")]),Csrf::Header,&[("Accept","text/vnd.turbo-stream.html, text/html, application/xhtml+xml")]).await;assert!(switched.status<400,"{}",switched.status);
+        for path in ["/bots/dca_single_assets/pick_buyable_asset/new","/bots/signals/pick_buyable_asset/new"]{
+            let page=h.browser.send(&h.app,"GET",path,None,Csrf::None,&modal).await;assert_eq!(page.status,200,"{path}: {:?}",page.header("location"));pages.push(page);
+        }
+        for page in &pages{for phrase in &phrases{assert!(!page.body.contains(phrase.as_str()),"admin {admin}: no stock activation notice");}}
+        let account=h.browser.send(&h.app,"GET","/settings/account",None,Csrf::None,&[]).await;
+        assert_eq!(account.body.contains("/settings/connect\""),admin,"admin {admin}: Connect is the admin's section only");
+        let connect=h.browser.send(&h.app,"GET","/settings/connect",None,Csrf::None,&[]).await;
+        assert_eq!(connect.status,200);
+        for gone in ["ibkr_settings","/settings/ibkr_connect","stocks_settings","settings__heading--first"]{assert!(!connect.body.contains(gone),"admin {admin}: no broker widget on Connect: {gone}");}
+        assert_eq!(connect.body.contains("market_data_settings"),admin,"admin {admin}: Connect holds the admin's market data");
+        let root=h.browser.send(&h.app,"GET","/settings",None,Csrf::None,&[]).await;
+        assert_eq!(root.header("location"),Some(if admin{"/settings/connect"}else{"/settings/account"}),"admin {admin}: /settings opens a section the reader has");
+    }
 }
 
 #[tokio::test(flavor="current_thread")]
