@@ -1557,27 +1557,38 @@ const LIMIT_MAILS: [&str; 10] = ["limit-poll-reaches", "limit-poll-reaches-limit
                                  "limit-poll-cancelled_fractional_reaches", "limit-tick_then_poll"];
 
 /// Plan CB T2's crypto cells (decisions.rb venue_limit_scenarios) in which Rails mails stopped_by_amount_limit: the fills that
-/// spend the cap, a slipped base-sized fill past it, and Binance's fee-inclusive executed quote (Kraken's and KuCoin's are
-/// gross, so the same fill leaves 0.06 and stops nothing).
+/// spend the cap (on every venue, slice 6d-0), a slipped base-sized fill past it, and Binance's fee-inclusive executed quote
+/// (Kraken's and KuCoin's are gross, so the same fill leaves 0.06 and stops nothing).
 fn venue_limit_mails(name: &str) -> bool {
-    ["kraken", "binance", "kucoin"].iter().any(|v| ["poll-reaches", "sweep-reaches", "slippage-base"].iter().any(|c| name == format!("limit-{v}-{c}")))
+    const VENUES: [&str; 13] = ["kraken", "binance", "binance_us", "kucoin", "bitvavo", "bitget", "gemini", "mexc", "coinbase", "hyperliquid", "bybit", "bitrue", "bingx"];
+    VENUES.iter().any(|v| ["poll-reaches", "sweep-reaches"].iter().any(|c| name == format!("limit-{v}-{c}")))
+        || ["kraken", "binance", "kucoin"].iter().any(|v| name == format!("limit-{v}-slippage-base"))
         || name == "limit-binance-fee-quote"
 }
+
+/// Slice 6d-0's guard cells that are no trim: Bitget sends a base market buy as its quote (the 7.18 left, exactly), so both
+/// sides are equal; Hyperliquid's 10 USDC minimum skips the 7.18 (D-CAP-REMAINDER-STOP); Gemini sizes at the cross (D-679).
+const GUARD_UNTRIMMED: [&str; 3] = ["limit-bitget-guard-trim", "limit-hyperliquid-guard-trim", "limit-gemini-guard-trim"];
 
 /// The exact-cap guard's trim on a crypto venue (listed divergence, RULING-B2A-R2): Rails sizes 0.0002 BTC from its Float
 /// remainder and spends past the exact cap by a few 1e-15; Rust sends one base increment less. Beyond that order's volume and
 /// its row's amount and quote_amount, both sides are equal.
 fn guard_trimmed(name: &str, rails_out: &serde_json::Value, rust_out: &serde_json::Value) -> Result<(), String> {
     use deltabadger::ruby::BigDec;
-    let (field, step, ask, exact) = match name {
-        "limit-kraken-guard-trim" => ("volume", "0.00000001", "15900.000000000015", "3.18"),
-        "limit-kucoin-guard-trim" => ("size", "0.00000001", "15900.000000000015", "3.18"),
-        _ => ("quantity", "0.00001", "35900.000000000015", "7.18"),
+    // The sent order's base field (a JSON pointer) and one base increment; every venue past Kraken and KuCoin is set as Binance.
+    let (field, step, ask, exact) = match name.trim_start_matches("limit-").trim_end_matches("-guard-trim") {
+        "kraken" => ("/volume", "0.00000001", "15900.000000000015", "3.18"),
+        "kucoin" => ("/size", "0.00000001", "15900.000000000015", "3.18"),
+        "bitvavo" => ("/amount", "0.00000001", "35900.000000000015", "7.18"),
+        "coinbase" => ("/order_configuration/market_market_ioc/base_size", "0.00000001", "35900.000000000015", "7.18"),
+        "bybit" => ("/qty", "0.000001", "35900.000000000015", "7.18"),
+        "mexc" | "bitrue" | "bingx" => ("/quantity", "0.000001", "35900.000000000015", "7.18"),
+        _ => ("/quantity", "0.00001", "35900.000000000015", "7.18"),
     };
     let bd = |s: &str| BigDec::parse(s).unwrap();
     let volume = |out: &serde_json::Value| -> Result<BigDec, String> {
         let sent = out["sent"].as_array().filter(|s| s.len() == 1).ok_or_else(|| format!("not one order: {out}"))?;
-        sent[0][field].as_str().map(bd).ok_or_else(|| format!("no {field}: {out}"))
+        sent[0].pointer(field).and_then(|v| v.as_str()).map(bd).ok_or_else(|| format!("no {field}: {out}"))
     };
     let (rails, rust) = (volume(rails_out)?, volume(rust_out)?);
     if &rails * &bd(ask) <= bd(exact) { return Err(format!("Rails no longer sizes past the exact cap ({} sent): drop the listed divergence", rails.to_s_f())); }
@@ -1606,7 +1617,7 @@ fn overspend_prevented(dir: &Path, rails_out: &serde_json::Value, rust_out: &ser
 
 #[tokio::test(flavor = "current_thread")]
 async fn rails_and_rust_decide_identically_across_the_amount_limit_grid() {
-    let (_copies, outputs) = grid_outputs("grid-limit", 90).await;
+    let (_copies, outputs) = grid_outputs("grid-limit", 130).await;
     let reference = |name: &str| outputs.iter().find(|(n, ..)| *n == format!("{name}-reference")).map(|(_, d, r, _)| (d.as_path(), r));
     let mut failures = vec![];
     for (name, dir, rails_out, rust_out) in &outputs {
@@ -1631,10 +1642,12 @@ async fn rails_and_rust_decide_identically_across_the_amount_limit_grid() {
             rails_out["mails"] = rust_out["mails"].clone();
         }
         let rust_out = &rust_out;
-        let listed = if name.ends_with("-guard-trim") {
+        let listed = if name.ends_with("-guard-trim") && !GUARD_UNTRIMMED.contains(&name.as_str()) {
             Some(guard_trimmed(name, &rails_out, rust_out))
-        } else if name.starts_with("limit-under_minimum-") || name == "limit-state-under_floor" {
+        } else if name.starts_with("limit-under_minimum-") || name == "limit-state-under_floor" || name == "limit-hyperliquid-guard-trim" {
             Some(remainder_stop(&rails_out, rust_out))
+        } else if name.starts_with("limit-gemini-") {
+            Some(crossed_buy(name, dir, &rails_out, rust_out)) // D-679: a Gemini market buy is sized at the crossed ask
         } else if name == "limit-ambiguous_overspend" {
             Some(overspend_prevented(dir, &rails_out, rust_out, reference(name)))
         } else if name.ends_with("-landed") {
@@ -1669,6 +1682,8 @@ async fn rails_and_rust_decide_identically_across_the_amount_limit_grid() {
             "limit-kraken-tally-closed" => assert_eq!(rails_out["sent"][0]["volume"], "0.00079999", "{name}"),
             "limit-binance-tally-closed" => assert_eq!(rails_out["sent"][0]["quoteOrderQty"], "40.0", "{name}"),
             "limit-kucoin-tally-closed" => assert_eq!(rails_out["sent"][0]["size"], "0.00062499", "{name}"),
+            "limit-bitget-guard-trim" => assert_eq!(rails_out["sent"][0]["size"], "7.18", "{name}: the 7.18 left, in quote"),
+            "limit-hyperliquid-guard-trim" => assert_eq!((rails_out["sent"].as_array().unwrap().len(), skipped), (0, 1), "{name}: 7.18 is under the 10 USDC minimum"),
             "limit-tally-cancelled_partial" => assert_eq!(sent, vec!["80.00"], "{name}: the 20 filled counts in pending and in the cap"),
             "limit-sweep-reaches-under_floor" => assert_eq!((sent.len(), skipped), (0, 1), "{name}: the run sizes the 0.005 left before Bot::StopJob runs"),
             "limit-sweep-reaches-twice" => assert_eq!(rails_out["changes"]["bot_activity_logs"].as_array().unwrap().iter()
@@ -1921,6 +1936,24 @@ async fn rails_reads_degenerate_indicator_series_as_recorded() {
     let mut dirs: Vec<PathBuf> = std::fs::read_dir(root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
     dirs.sort();
     assert_eq!(dirs.len(), 68, "the degenerate grid has {} scenarios", dirs.len());
+    // D-FLIP-UNMET-KEEPS-BUYING: each buy-side flip cell (unmet or failed), played by Rust, and the same scenario with the
+    // rule switched off, recorded by Rails. Copied before Rails records (which writes the databases); the tick only.
+    let (rust_root, off_root) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+    let flips: Vec<String> = dirs.iter().map(|d| d.file_name().unwrap().to_string_lossy().to_string())
+        .filter(|n| n.contains("-buy-") && n.ends_with("_flip")).collect();
+    assert_eq!(flips.len(), 9, "three venues × rsi_flat_flip, rsi_fourteen_flip, ma_eight_flip");
+    for name in &flips {
+        for to in [rust_root.path().join(name), off_root.path().join(name)] {
+            copy_dir(&root.path().join(name), &to);
+            let mut sc: Value = serde_json::from_str(&std::fs::read_to_string(to.join("scenario.json")).unwrap()).unwrap();
+            for k in ["check_at", "info"] { sc.as_object_mut().unwrap().remove(k); }
+            std::fs::write(to.join("scenario.json"), sc.to_string()).unwrap();
+        }
+        let flag = if name.contains("-ma_") { "moving_average_limited" } else { "indicator_limited" };
+        rusqlite::Connection::open(off_root.path().join(name).join("production.sqlite3")).unwrap()
+            .execute(&format!("UPDATE bots SET settings=json_set(settings,'$.{flag}',json('false'))"), []).unwrap();
+    }
+    rails(&["record", off_root.path().to_str().unwrap()]);
     let (close, retry, minute) = ("2026-09-02T23:59:59.999999Z", "2026-09-02T10:04:01.123456Z", "2026-09-02T10:00:59.999999Z");
     let mut failures = vec![];
     for d in &dirs {
@@ -1960,6 +1993,26 @@ async fn rails_reads_degenerate_indicator_series_as_recorded() {
             let all_limited = reads.iter().all(|r| r.as_str().unwrap().contains("limit=10000&"));
             let ath = if pages == 2 { "126000.0" } else { "73000.0" };
             if reads.len() != pages || !all_limited || out["ath"]["ath"] != ath { failures.push(format!("{name}: the ATH seed reads {pages} page(s) at limit=10000\n  rails: {out}")); }
+        }
+    }
+    for name in &flips {
+        use deltabadger::engine::{accounting, eligibility, model};
+        let off: Value = serde_json::from_str(&std::fs::read_to_string(off_root.path().join(name).join("rails.json")).unwrap()).unwrap();
+        let sc: Value = serde_json::from_str(&std::fs::read_to_string(rust_root.path().join(name).join("scenario.json")).unwrap()).unwrap();
+        let at = chrono::DateTime::parse_from_rfc3339(sc["at"].as_str().unwrap()).unwrap().timestamp_micros();
+        let c = rusqlite::Connection::open(rust_root.path().join(name).join("production.sqlite3")).unwrap();
+        let bot = model::load_bot(&c, sc["bot_id"].as_i64().unwrap()).unwrap();
+        let met_at = if name.contains("-ma_") { "moving_average_limit_condition_met_at" } else { "indicator_limit_condition_met_at" };
+        // The rule this cell arms is not one the engine runs before 7b-3: the bot is refused (no tick), so the cell pins the
+        // shared decorator and what the tick would owe through it; 7b-3 turns it into an end-to-end comparison.
+        let refused = !eligibility::bot_reasons(&c, &bot).unwrap().is_empty();
+        let owed = accounting::pending_quote_amount_num(&c, &bot, at).unwrap().to_dec().unwrap();
+        let rails_quote = off["changes"]["transactions"][0]["after"]["quote_amount"].to_string();
+        let carry_kept = off["changes"]["bots"].as_array().unwrap().iter().all(|b| b["after"]["transient_data"].get("missed_quote_amount") == b["before"]["transient_data"].get("missed_quote_amount"));
+        if off["sent"].as_array().unwrap().len() != 1 || !carry_kept { failures.push(format!("{name}: the rule-off recording buys once and keeps the carry\n  rails: {off}")); }
+        if !refused || !bot.transient.get(met_at).is_none_or(Value::is_null) || bot.condition_started_us().unwrap() != bot.started_at_us().unwrap()
+            || owed.cmp(&deltabadger::ruby::BigDec::parse(&rails_quote).unwrap()) != std::cmp::Ordering::Equal {
+            failures.push(format!("{name}: D-FLIP-UNMET-KEEPS-BUYING: met_at nil, started_at undecorated, owed {} = the rule-off Rails order's {rails_quote}\n  rails off: {off}", owed.to_s_f()));
         }
     }
     assert!(failures.is_empty(), "{} of {} degenerate scenarios differ from the recorded findings:\n{}", failures.len(), dirs.len(), failures.join("\n"));

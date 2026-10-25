@@ -2493,3 +2493,147 @@ mod custom_allocation {
         Ok(())
     }
 }
+
+/// The dashboard's Merge (web::bot::merge) beyond the page grid: the per-bot fence, a pending reversal, and the asset cap.
+mod merge {
+    use super::common;
+    use common::{seed, web as harness};
+    use deltabadger::web::{self, bot::merge::{perform, Merged}, layout::Ctx, Params};
+    use rusqlite::Connection;
+    use serde_json::{json, Value};
+    use std::sync::Arc;
+    type Result<T = ()> = std::result::Result<T, Box<dyn std::error::Error>>;
+    const NOW: &str = "2026-09-10T12:00:30.123456Z";
+
+    struct Fixture { _dir: tempfile::TempDir, c: Connection, ctx: Ctx, s: seed::Seeded, bots: Vec<i64> }
+    impl Fixture {
+        /// Two stopped Alpaca baskets: `first` stocks in one, `second` in the other, each a member row per stock.
+        fn new(first: usize, second: usize) -> Result<Self> {
+            let (dir, opened, s) = common::install_alpaca();
+            let c = opened.primary;
+            c.execute("UPDATE users SET wash_sale_enabled=0", [])?;
+            let mut bots = vec![];
+            for (n, count) in [first, second].into_iter().enumerate() {
+                let stocks: Vec<(i64, i64)> = (0..count).map(|i| seed::add_alpaca_stock(&c, &s, &format!("S{n}X{i}"))).collect();
+                let weights: Vec<(i64, f64)> = stocks.iter().map(|(asset, _)| (*asset, 1.0 / count as f64)).collect();
+                let mut spec = seed::BotSpec::weekly(60.0, "2026-09-01 14:00:00").weights(&weights);
+                spec.status = 2;
+                let id = seed::insert_bot(&c, &s, &spec);
+                for (asset, ticker) in &stocks { seed::insert_member(&c, id, *asset, *ticker, 1.0 / count as f64, true, "2026-09-01 14:00:00", None); }
+                bots.push(id);
+            }
+            let app = harness::app(dir.path(), "engine-test-secret", harness::TestClock::at(NOW));
+            let ctx = Ctx { app, params: Arc::new(Params { upload: None, full_path: String::new(), fullpath: String::new(), route_path: String::new(), path_locale: None, query: vec![], form: vec![], json: None }),
+                session: web::session::Session::new(Default::default()), current: web::auth::Current::SignedOut,
+                method: axum::http::Method::POST, locale: "en", nonce: String::new(), now: harness::at(NOW), turbo_frame: None, stream: false };
+            Ok(Self { _dir: dir, c, ctx, s, bots })
+        }
+        fn merge(&self) -> Result<Merged> { self.merge_onto(None) }
+        fn merge_onto(&self, exchange: Option<i64>) -> Result<Merged> { Ok(perform(&self.c, &self.ctx, self.s.user_id, self.bots.clone(), exchange).map_err(|e| format!("{e:?}"))?) }
+        fn transient(&self, id: i64, key: &str, value: Value) -> Result {
+            self.c.execute("UPDATE bots SET transient_data=json_set(transient_data,?1,json(?2)) WHERE id=?3", (format!("$.{key}"), value.to_string(), id))?;
+            Ok(())
+        }
+        fn snapshot(&self) -> Result<Vec<String>> {
+            let mut all = vec![];
+            for table in ["bots", "bot_index_assets", "transactions", "bot_activity_logs"] {
+                let mut q = self.c.prepare(&format!("SELECT * FROM {table} ORDER BY id"))?;
+                let n = q.column_count();
+                let mut rows = q.query([])?;
+                while let Some(r) = rows.next()? { all.push(format!("{table}:{:?}", (0..n).map(|i| r.get_ref(i).map(|v| format!("{v:?}"))).collect::<std::result::Result<Vec<_>, _>>()?)); }
+            }
+            Ok(all)
+        }
+        fn refused_unchanged(&self, expected: &str) -> Result { self.refused_onto(None, expected) }
+        fn refused_onto(&self, exchange: Option<i64>, expected: &str) -> Result {
+            let before = self.snapshot()?;
+            match self.merge_onto(exchange)? { Merged::Refused(text) => assert!(text.starts_with(expected), "{text}"), _ => return Err("expected a refusal".into()) }
+            assert_eq!(self.snapshot()?, before, "a refused merge writes nothing");
+            Ok(())
+        }
+        fn waiting_order(&self, bot: i64) -> Result {
+            let asset: i64 = self.c.query_row("SELECT asset_id FROM bot_index_assets WHERE bot_id=?1 ORDER BY id LIMIT 1", [bot], |r| r.get(0))?;
+            let symbol: String = self.c.query_row("SELECT symbol FROM assets WHERE id=?1", [asset], |r| r.get(0))?;
+            seed::insert_stock_tx(&self.c, &self.s, bot, asset, &symbol, &seed::TxSpec { status: 0, external_status: Some(0), external_id: Some("resting".into()), order_type: 1,
+                amount: Some("1"), quote_amount: None, price: Some("10"), quote_amount_exec: Some("0"), amount_exec: Some("0"), created_at: "2026-09-10 11:00:00".into() });
+            Ok(())
+        }
+    }
+
+    /// The sources are deleted and their run generation moves, fencing an engine write already in flight.
+    #[test]
+    fn merges_and_fences_the_sources() -> Result {
+        let f = Fixture::new(1, 1)?;
+        let Merged::Done(id) = f.merge()? else { return Err("expected a merge".into()) };
+        for source in &f.bots {
+            let (status, generation): (i64, i64) = f.c.query_row("SELECT status, json_extract(transient_data,'$.run_generation') FROM bots WHERE id=?1", [source], |r| Ok((r.get(0)?, r.get(1)?)))?;
+            assert_eq!((status, generation), (3, 1));
+        }
+        let (status, members): (i64, i64) = f.c.query_row("SELECT status, (SELECT count(*) FROM bot_index_assets WHERE bot_id=?1 AND in_index=1) FROM bots WHERE id=?1", [id], |r| Ok((r.get(0)?, r.get(1)?)))?;
+        assert_eq!((status, members), (2, 2));
+        Ok(())
+    }
+
+    /// D-FENCE-PER-BOT: a source whose placement intent is still recorded is the engine's; nothing is written.
+    #[test]
+    fn a_placement_intent_refuses() -> Result {
+        let f = Fixture::new(1, 1)?;
+        f.transient(f.bots[1], "rust_placement", json!({"asset": 1}))?;
+        f.refused_unchanged("S0X0 can't be merged right now.")
+    }
+
+    /// D-MERGE-REVERSAL-PENDING: a reversal's cancels, then its reserve credit alone, refuse; once settled the merge goes ahead,
+    /// and the merged bot does not inherit the source's carry.
+    #[test]
+    fn a_pending_reversal_refuses_until_it_settles() -> Result {
+        let f = Fixture::new(1, 1)?;
+        f.transient(f.bots[1], "missed_quote_amount", json!("12.5"))?;
+        f.transient(f.bots[1], deltabadger::engine::reversal::CANCELS, json!([{"id": 9, "registered": true, "sent": false}]))?;
+        f.transient(f.bots[1], deltabadger::engine::reversal::RESERVE_PENDING, json!([9]))?;
+        f.refused_unchanged("S1X0 can't be merged right now.")?;
+        f.c.execute("UPDATE bots SET transient_data=json_remove(transient_data,'$.rust_reversal_cancels') WHERE id=?1", [f.bots[1]])?;
+        f.refused_unchanged("S1X0 can't be merged right now.")?;
+        f.c.execute("UPDATE bots SET transient_data=json_remove(transient_data,'$.flip_reserve_pending') WHERE id=?1", [f.bots[1]])?;
+        let Merged::Done(id) = f.merge()? else { return Err("expected a merge once settled".into()) };
+        let carry: i64 = f.c.query_row("SELECT json_extract(transient_data,'$.missed_quote_amount') FROM bots WHERE id=?1", [id], |r| r.get(0))?;
+        assert_eq!(carry, 0);
+        Ok(())
+    }
+
+    /// D-MERGE-CAP: past MAX_ASSETS the merged bot is saved as Rails saves it (stopped, not startable), unless a waiting order
+    /// moves with it, which this engine's guard refuses.
+    #[test]
+    fn over_the_cap_a_moved_waiting_order_refuses() -> Result {
+        let f = Fixture::new(60, 41)?;
+        f.waiting_order(f.bots[0])?;
+        f.refused_unchanged("This app can't run that yet: ")?;
+        let g = Fixture::new(60, 41)?;
+        assert!(matches!(g.merge()?, Merged::Done(_)), "without outstanding work the over-cap bot is saved");
+        Ok(())
+    }
+
+    /// Interactive Brokers lists every member too, but this build serves no bot there: it is not offered, and picked
+    /// anyway the merge is refused before it writes, the sources and the dashboard served as they were.
+    #[tokio::test]
+    async fn a_venue_this_build_does_not_run_is_neither_offered_nor_merged_onto() -> Result {
+        use deltabadger::web::bot::merge::{modal, Loaded, Merge};
+        let f = Fixture::new(1, 1)?;
+        f.c.execute("INSERT INTO exchanges (type, name, maker_fee, taker_fee, created_at, updated_at) VALUES ('Exchanges::Ibkr', 'Interactive Brokers', '0.05', '0.05', ?1, ?1)", [NOW])?;
+        let ibkr = f.c.last_insert_rowid();
+        f.c.execute_batch(&format!("CREATE TEMP TABLE listed AS SELECT * FROM tickers WHERE exchange_id = {}; UPDATE listed SET id = NULL, exchange_id = {ibkr}; \
+                                    INSERT INTO tickers SELECT * FROM listed; DROP TABLE listed;", f.s.exchange_id))?;
+        let Loaded::Merge(mut merge) = Merge::load(&f.c, &f.ctx, f.s.user_id, f.bots.clone(), None).map_err(|e| format!("{e:?}"))? else { return Err("expected a merge".into()) };
+        let page = modal(&f.c, &f.ctx, &mut merge, "token").map_err(|e| format!("{e:?}"))?;
+        assert!(page.contains("Alpaca") && !page.contains("Interactive Brokers") && !page.contains("<select"), "{page}");
+        f.refused_onto(Some(ibkr), "This app can't run that yet: a bot on an exchange other than ")?;
+        let hash = deltabadger::crypto::hash_password("Correct-horse-9").map_err(|e| format!("{e:?}"))?;
+        f.c.execute("UPDATE users SET encrypted_password=?1,confirmed_at=created_at", [hash])?;
+        let app = harness::app(f._dir.path(), "engine-test-secret", harness::TestClock::at(NOW))
+            .with_figure_source(deltabadger::web::figure::loading::Source::Disabled).map_err(|e| format!("{e:?}"))?;
+        let mut browser = harness::Browser::default();
+        browser.get(&app, "/login").await;
+        assert_eq!(browser.post(&app, "/login", &[("user[email]", "o@example.com"), ("user[password]", "Correct-horse-9")]).await.status, 303);
+        assert_eq!(browser.get(&app, "/bots").await.status, 200);
+        Ok(())
+    }
+}

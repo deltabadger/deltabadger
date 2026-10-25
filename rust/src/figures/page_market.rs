@@ -676,7 +676,7 @@ fn bybit_rows(mut body: Value, timeframe: i64, now: i64) -> Fetch<(Vec<Bar>, Opt
 }
 /// `ibkr_conid`'s lookup: the conid by its primary key, held to its venue's ticker of the same code and asset.
 const IBKR_CONID: &str = "SELECT k.conid FROM ibkr_conids k JOIN tickers t ON t.base_asset_id = k.asset_id WHERE k.conid = ?1 AND t.exchange_id = ?2 AND t.ticker = ?3 LIMIT 1";
-/// IBKR's snapshot as IbkrVenue::price reads it (`ibkr_venue::snapshot`): a pre-flight answer is asked again once. One still
+/// IBKR's snapshot as IbkrVenue::conid_price reads it (`ibkr_venue::snapshot`): a pre-flight answer is asked again once. One still
 /// without its price is a raised failure, never an answer kept: the next fill asks again.
 async fn ibkr_snapshot(wire: &impl Transport, request: &HttpRequest, compute: &Arc<tokio::sync::Semaphore>) -> Fetch<(usize, Value)> {
     let answer = crate::venue::ibkr_venue::snapshot(ibkr::FIELD_LAST, || async move { let body = send(wire, request).await?; cpu(compute, move || decode(&body)).await }).await?;
@@ -1903,7 +1903,7 @@ mod r4_cache_tests {
             let turn = Cell::new(0);
             let wire = Pages { answer: |_: &HttpRequest| { let i = turn.get(); turn.set(i + 1); HttpResponse { status: 200, body: answers[i].into() } }, asked: RefCell::default(), producer: producer.clone() };
             cache.fill(&wire, demands, SINCE).await;
-            // Rust-only (D-IBKR-FIGURES): a pre-flight answer is asked again once, as IbkrVenue::price does; an unsubscribed one
+            // Rust-only (D-IBKR-FIGURES): a pre-flight answer is asked again once, as IbkrVenue::conid_price does; an unsubscribed one
             // is not (asking again does not subscribe it).
             assert_eq!(wire.asked.borrow().len(), reads);
             let prices = Reader::new(&cache, SINCE).with_current(&c).prices(&ibkr_venue(), &codes);

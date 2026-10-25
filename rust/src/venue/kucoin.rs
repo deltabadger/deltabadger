@@ -8,6 +8,7 @@
 use super::binance::{build_query, Pairs};
 use super::http::{self, HttpRequest, Transport, TransportError};
 use super::{NewOrder, OrderKind, OrderState, OrderStatus, PriceSide, VenueError};
+use crate::engine::candles::{self, Candle, Timeframe};
 use crate::engine::model::Ticker;
 use crate::engine::venue_rules::{VenueRules, KUCOIN as RULES};
 use crate::ruby::BigDec;
@@ -16,6 +17,16 @@ use serde_json::Value;
 
 pub const URL: &str = "https://api.kucoin.com";
 pub const KUCOIN: &str = "Exchanges::Kucoin";
+/// Clients::Kucoin#get_klines' path.
+pub const CANDLES: &str = "/api/v1/market/candles";
+/// Exchanges::Kucoin#get_candles' kline type for each timeframe: 3 days are daily and a month weekly, built.
+pub fn kline_type(timeframe: Timeframe) -> &'static str {
+    match timeframe {
+        Timeframe::Minute => "1min", Timeframe::FiveMinutes => "5min", Timeframe::FifteenMinutes => "15min", Timeframe::ThirtyMinutes => "30min",
+        Timeframe::Hour => "1hour", Timeframe::FourHours => "4hour", Timeframe::Day | Timeframe::ThreeDays => "1day",
+        Timeframe::Week | Timeframe::Month => "1week",
+    }
+}
 pub const UNREADABLE: &str = "KuCoin: unreadable response";
 /// Exchanges::Kucoin#placement_result (R0b): a 200000 answer with no orderId took the order, or may have.
 pub const NO_ORDER_ID: &str = "KuCoin answered the order with no order id";
@@ -285,6 +296,48 @@ impl<T: Transport> KucoinVenue<T> {
 }
 
 impl<T: Transport> super::Venue for KucoinVenue<T> {
+    /// Exchanges::Kucoin#get_candles: windows of 1500 periods from the start (`startAt`/`endAt` in whole seconds, a month's
+    /// 1500 calendar months), each ending at now at the latest, at most MAX_CANDLE_PAGES of them (then what was read, as
+    /// Rails' cap). Each window's candles in time order; the next window from a second after its latest, or a second after
+    /// its end when it had none; the walk ends at the window reaching now. Deduped by time (the first kept) and sorted; 3
+    /// days built from daily candles and 1 month from weekly. Rows are [time, open, close, high, low, volume, …]. DIVERGES
+    /// (D-COND-CANDLE-ERROR-ENVELOPE): a code other than 200000 is the venue's refusal (Client#api_error), where Rails reads
+    /// its missing `data` as no candles.
+    async fn candles(&self, ticker: &Ticker, start_at: DateTime<Utc>, timeframe: Timeframe) -> Result<Vec<Candle>, VenueError> {
+        let window = |from: DateTime<Utc>| match timeframe {
+            Timeframe::Month => from.checked_add_months(chrono::Months::new(1500)),
+            _ => from.checked_add_signed(chrono::Duration::seconds(1500 * timeframe.seconds())),
+        };
+        let (mut start, mut out) = (start_at, Vec::<Candle>::new());
+        for _ in 0..candles::MAX_CANDLE_PAGES {
+            let now = self.transport.now();
+            let end = window(start).map_or(now, |e| e.min(now));
+            let r = self.request("GET", CANDLES.into(), vec![("symbol", ticker.ticker.clone()), ("type", kline_type(timeframe).into()),
+                                                         ("startAt", start.timestamp().to_string()), ("endAt", end.timestamp().to_string())], None);
+            let body = candles::get(&self.transport, &r, str::to_string, None, unreadable).await?;
+            if !body.is_object() { return Err(unreadable()); }
+            if body["code"] != OK { return Err(VenueError::Rejected(vec![api_error(&body)])); }
+            let mut page = match &body["data"] {
+                Value::Null => vec![],
+                Value::Array(rows) => rows.iter().map(|row| {
+                    let at = row.get(0).and_then(candles::to_i).and_then(|s| DateTime::from_timestamp(s, 0));
+                    at.and_then(|at| candles::fields(at, row, [1, 3, 4, 2, 5])).ok_or_else(unreadable)
+                }).collect::<Result<Vec<_>, _>>()?,
+                _ => return Err(unreadable()),
+            };
+            // ponytail: sorted by time; Rails sorts by the raw value, which differs only for times of different lengths.
+            page.sort_by_key(|c| c.at);
+            let latest = page.last().map(|c| c.at);
+            out.extend(page);
+            if end >= now { break; }
+            start = latest.unwrap_or(end) + chrono::Duration::seconds(1);
+        }
+        let mut seen = std::collections::HashSet::new();
+        out.retain(|c| seen.insert(c.at));
+        out.sort_by_key(|c| c.at);
+        Ok(if matches!(timeframe, Timeframe::ThreeDays | Timeframe::Month) { candles::build(&out, timeframe) } else { out })
+    }
+
     fn rules(&self) -> &'static VenueRules { &RULES }
     fn placement_identity(&self) -> Option<Value> { self.identity.clone() }
 

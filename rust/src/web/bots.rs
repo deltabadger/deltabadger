@@ -159,6 +159,27 @@ fn mergeable(bot: &Bot) -> (bool, bool) {
     (eligible && members >= 1, eligible && members >= 2)
 }
 
+/// Bot::Merge.venues_for, for one asset: where it trades at this quote, on a venue a user can still pick, in id order. By the
+/// base's listings (`+` keeps the planner off the quote's index: every listing in USD, once per member).
+pub(crate) fn venues_for(c: &Connection, asset: i64, quote: Option<i64>) -> Result<Vec<i64>, WebError> {
+    let mut venues = c.prepare_cached("SELECT DISTINCT t.exchange_id FROM tickers t JOIN exchanges e ON e.id = t.exchange_id \
+                                       WHERE t.available = 1 AND t.trading_enabled = 1 AND e.available = 1 AND e.type IS NOT 'Exchanges::Bitmart' \
+                                       AND t.base_asset_id = ?1 AND +t.quote_asset_id IS ?2 ORDER BY t.exchange_id")?;
+    let ids = venues.query_map((asset, quote), |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?;
+    Ok(ids)
+}
+
+/// Bot::Merge.connected_exchange_ids: the exchanges the user has a trading key on, in the order the keys were added.
+pub(crate) fn connected_exchange_ids(c: &Connection, user: i64) -> Result<Vec<i64>, WebError> {
+    let mut keys = c.prepare("SELECT exchange_id FROM api_keys WHERE user_id = ?1 AND key_type = 0 ORDER BY id")?;
+    let mut connected: Vec<i64> = vec![];
+    for exchange_id in keys.query_map([user], |r| r.get::<_, i64>(0))? {
+        let exchange_id = exchange_id?;
+        if !connected.contains(&exchange_id) { connected.push(exchange_id); }
+    }
+    Ok(connected)
+}
+
 fn tile(c: &Connection, ctx: &Ctx, csrf: &str, bot: &Bot, market_data_configured: bool) -> Result<Tile, WebError> {
     let (mergeable, splittable) = mergeable(bot);
     let quote_id = bot.setting("quote_asset_id").and_then(Value::as_i64);
@@ -167,13 +188,8 @@ fn tile(c: &Connection, ctx: &Ctx, csrf: &str, bot: &Bot, market_data_configured
         // Bot::Merge.members: the current members, heaviest first.
         let mut members: Vec<&bot::Membership> = bot.memberships.iter().filter(|m| m.in_index).collect();
         members.sort_by(|a, b| b.target_allocation.cmp(&a.target_allocation));
-        // Bot::Merge.venues_for: where each member trades at this quote, on a venue a user can still pick. By the base's
-        // listings (`+` keeps the planner off the quote's index: every listing in USD, once per member).
-        let mut venues = c.prepare("SELECT DISTINCT t.exchange_id FROM tickers t JOIN exchanges e ON e.id = t.exchange_id \
-                                    WHERE t.available = 1 AND t.trading_enabled = 1 AND e.available = 1 AND e.type IS NOT 'Exchanges::Bitmart' \
-                                    AND t.base_asset_id = ?1 AND +t.quote_asset_id IS ?2 ORDER BY t.exchange_id")?;
         for member in members {
-            let ids = venues.query_map((member.asset.id, quote_id), |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?;
+            let ids = venues_for(c, member.asset.id, quote_id)?;
             chips.push(Chip {
                 symbol: member.asset.symbol().to_string(),
                 class: colors::ticker_class(member.asset.category.as_deref(), member.asset.color.as_deref()),
@@ -264,12 +280,7 @@ pub async fn index(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Re
         };
         let (can_merge, can_split) = (listed.iter().filter(|bot| mergeable(bot).0).count() >= 2, listed.iter().any(|bot| mergeable(bot).1));
         // Bot::Merge.connected_exchange_ids, and `Exchange.tradeable.pluck(:id, :name).to_h`.
-        let mut keys = c.prepare("SELECT exchange_id FROM api_keys WHERE user_id = ?1 AND key_type = 0 ORDER BY id")?;
-        let mut connected: Vec<i64> = vec![];
-        for exchange_id in keys.query_map([user.id], |r| r.get::<_, i64>(0))? {
-            let exchange_id = exchange_id?;
-            if !connected.contains(&exchange_id) { connected.push(exchange_id); }
-        }
+        let connected = connected_exchange_ids(c, user.id)?;
         let mut tradeable = c.prepare("SELECT id, name FROM exchanges WHERE available = 1 AND type IS NOT 'Exchanges::Bitmart' ORDER BY id")?;
         let mut names = serde_json::Map::new();
         for row in tradeable.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, Option<String>>(1)?)))? {

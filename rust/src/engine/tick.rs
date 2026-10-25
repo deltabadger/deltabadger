@@ -765,13 +765,26 @@ async fn place<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bo
     // sized before the change is placed (the fence is in the intent's own transaction).
     // set_orders' `sell_at_loss?(order_data)`: the sized order, before the venue rounds it; the claim goes with the intent.
     let loss = plan.side == crate::venue::Side::Sell && super::wash::sell_at_loss(c, bot, &plan.ticker, &plan.amount, &plan.quote_amount, clock.now())?;
-    let intent = match placement::begin_with_credentials(c, bot, plan, tickers, composition, reconciled, &cx.credential_version, venue.placement_identity(), loss, clock)? {
+    // What the venue checks in the intent's transaction, read under its lock (an IBKR order's account and position); the
+    // lock is released once the intent commits, before the send.
+    let hold = match venue.placement_hold(&plan.ticker, plan.side).await {
+        Ok(hold) => hold,
+        Err(VenueError::Transient(m) | VenueError::Ambiguous(m)) => return Ok(Placed::Failed(if legs.placed { Fail::TransientAfterPlacement } else { Fail::Transient(m) })),
+        Err(e) => {
+            let errors = e.rejection().map(<[String]>::to_vec).unwrap_or_default();
+            return Ok(Placed::Failed(Fail::General { message: to_sentence(&errors), errors, failed_row: false }));
+        }
+    };
+    let begun = placement::begin_with_credentials(c, bot, plan, tickers, composition, reconciled, &cx.credential_version, venue.placement_identity(), loss, hold.as_ref(), clock);
+    drop(hold);
+    let intent = match begun? {
         placement::Begun::Intent(intent) => intent,
         placement::Begun::Changed => return Ok(Placed::Stop),
         placement::Begun::Fenced => { legs.fenced = true; return Ok(Placed::Stop); }
         placement::Begun::CredentialsChanged => return Ok(Placed::Failed(Fail::CredentialsChanged)),
         placement::Begun::BelowMinimum(skipped) => { legs.skipped.push(*skipped); return Ok(Placed::Next); }
         placement::Begun::LedgerStale(stale) => { legs.ledger_stale = Some(stale); return Ok(Placed::Stop); }
+        placement::Begun::Refused(why) => return Ok(Placed::Failed(Fail::General { message: why.clone(), errors: vec![why], failed_row: false })),
         placement::Begun::WashSaleLocked => {
             super::log(&format!("[engine] bot {}: set_orders composition event=order_wash_sale_locked base={}", bot.id, plan.ticker.base_code));
             return Ok(Placed::Next);

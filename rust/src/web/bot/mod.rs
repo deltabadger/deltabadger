@@ -7,6 +7,7 @@ pub mod action_view;
 pub mod draft;
 pub mod index_switch;
 pub mod live;
+pub mod merge;
 pub mod write;
 pub mod mcp_input;
 pub mod composition;

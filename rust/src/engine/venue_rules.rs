@@ -218,6 +218,41 @@ pub static ALPACA: VenueRules = VenueRules {
     cross: None,
 };
 
+/// Exchanges::Ibkr::ERRORS[:transient].
+const IBKR_TRANSIENT_ERRORS: [&str; 6] = ["not authenticated", "competing", "session", "Please query /accounts first", "live session token", "Bad Request: no bridge"];
+/// Exchange#transient_error? for IBKR: Client::NETWORK_TRANSIENT_PATTERNS plus Exchanges::Ibkr::ERRORS[:transient].
+const IBKR_TRANSIENT: [&str; 18] = ["Net::ReadTimeout", "Net::OpenTimeout", "Faraday::TimeoutError", "Faraday::ConnectionFailed",
+    "execution expired", "Connection reset", "Errno::ECONNRESET", "connection refused", "Connection refused", "Errno::ECONNREFUSED",
+    "end of file reached", "unexpected eof while reading",
+    "not authenticated", "competing", "session", "Please query /accounts first", "live session token", "Bad Request: no bridge"];
+
+/// Exchanges::Ibkr (plan I4b). Its registry row does not trade yet (`trades: false` until paper fixtures, gate G3).
+pub static IBKR: VenueRules = VenueRules {
+    exchange_type: "Exchanges::Ibkr",
+    name: "Interactive Brokers",
+    // Exchanges::Ibkr::ERRORS: insufficient_funds and invalid_key deliberately empty.
+    kinds: [("insufficient_funds", &[]), ("invalid_key", &[]), ("permission_denied", &[]), ("restricted", &[]), ("throttle", &[]),
+            ("transient", &IBKR_TRANSIENT_ERRORS)],
+    transient_text: &IBKR_TRANSIENT,
+    // An unacknowledged or unreadable answer is ambiguous by shape, decided in IbkrVenue::add_order (D-IBKR-SUBMIT).
+    add_outcome_unknown: &[],
+    // Exchanges::Ibkr#minimum_amount_logic: :base (whole shares, D-IBKR-WHOLE).
+    minimum_logic: MinimumLogic { market: AmountLogic::Base, limit: AmountLogic::Base },
+    wire: WireFormat::Kraken,
+    deadline_sent: false,
+    reach_within_secs: 70, // send window 10 s + the login's lock wait 15 s + request budget 45 s
+    absence_margin_secs: 1200, // unused: absence is never provable (D-IBKR-SUBMIT)
+    transport_raises: true,
+    follow_up_strict: true, market_hours: false, // D-BROKER-HOURS: Exchanges::Ibkr#market_open? fails open
+    // D-IBKR-MISSING: an order IBKR's status read no longer reports waits (never recovered from /trades, never abandoned):
+    // IBKR keeps no complete order history to prove it gone. Rails abandons it as stale.
+    reports_missing: false,
+    absence_provable: false,
+    young_missing_fails: false,
+    price_rule: PriceRule::Decimals,
+    cross: None,
+};
+
 /// Exchanges::Binance::ERRORS[:transient]: the -1021 strings (also Exchange::PLACEMENT_SAFE_TRANSIENT_ERRORS).
 pub const BINANCE_TIMESTAMP_ERRORS: [&str; 2] = ["Timestamp for this request is outside of the recvWindow", "Timestamp for this request was"];
 /// Exchange#transient_error? for Binance: Client::NETWORK_TRANSIENT_PATTERNS plus the venue's own transient strings.

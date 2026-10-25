@@ -1,0 +1,47 @@
+{#- bots/merges/new.html.erb: what the merge will do, refusal included, inside the merge_modal frame a venue pick re-requests. -#}
+<turbo-frame complete="" id="modal">
+  <dialog data-controller="modal--base" data-action="click->modal--base#clickOutside" class="dialog" data-hw-animate-in="animate-modal-in" data-hw-animate-out="animate-modal-out">
+    <div class="dialog__vertical-center">
+  <div class="modal">
+    <turbo-frame id="merge_modal">
+      <button name="button" type="button" class="modal__close" data-action="modal--base#animateOutCloseAndCleanUp">
+        {% include "svg/_24x24_close.html" %}
+</button>      <div class="modal__header">
+        <h1 class="modal__title">
+          {{ title }}
+        </h1>
+      </div>
+      <div class="modal__body">
+{% if let Some(refusal) = refusal %}
+          <p>{{ refusal }}</p>
+          <div class="modal__footer">
+            <button name="button" type="button" class="rbutton rbutton--secondary" data-action="modal--base#animateOutCloseAndCleanUp">{{ v.t("button.close")|safe }}</button>
+          </div>
+{% else %}
+          <form data-controller="form--submit" data-turbo-frame="merge_modal" action="{{ v.path("/bots/merge/new") }}" accept-charset="UTF-8" method="get">
+{% for id in ids %}
+              <input type="hidden" name="ids[]" value="{{ id }}" />
+{% endfor %}
+            <p>{{ explanation|safe }}</p>
+</form>          <div class="merge-modal__stack">
+            <div class="ticker-group ticker-group--fold {{ stack_class }}" data-controller="ticker-fold">
+{% for pill in pills %}
+                <div class="{{ pill.class }}" style="background: {{ pill.color }}" data-ticker-symbol="{{ pill.symbol }}" data-ticker-asset-id="{{ pill.id }}">{{ pill.symbol }}</div>
+{% endfor %}
+            </div>
+          </div>
+{% if assets_stay %}
+            <p class="text-inactive">{{ v.t("bot.merge.assets_stay")|safe }}</p>
+{% endif %}
+          <p class="text-danger mb-3">{{ v.t("bot.merge.deleted_note")|safe }}</p>
+          <div class="modal__footer">
+            <button name="button" type="button" class="rbutton rbutton--secondary" data-action="modal--base#animateOutCloseAndCleanUp">
+              {{ v.t("button.cancel")|safe }}
+</button>            <form data-bots-merge-form="true" class="button_to" method="post" action="{{ v.path("/bots/merge") }}"><button class="rbutton rbutton--primary" type="submit">{{ v.t("button.confirm")|safe }}</button><input type="hidden" name="authenticity_token" value="{{ csrf }}" /><input type="hidden" name="exchange_id" value="{{ exchange_id }}" />{% for id in ids %}<input type="hidden" name="ids[]" value="{{ id }}" />{% endfor %}</form>
+          </div>
+{% endif %}
+      </div>
+</turbo-frame>  </div>
+    </div>
+  </dialog>
+</turbo-frame>
