@@ -320,3 +320,8 @@ pub fn ownership_business_rows(mut tables: serde_json::Value) -> serde_json::Val
     }
     tables
 }
+
+/// Fixture F of PLAN-conditions-every-bot: hand-computed money values for the conditions and cap cells.
+pub fn conditions_fixture() -> serde_json::Value {
+    serde_json::from_str(include_str!("../fixtures/conditions_every_bot_expected.json")).expect("conditions_every_bot_expected.json parses")
+}

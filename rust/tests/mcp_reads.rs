@@ -197,6 +197,18 @@ async fn four_reads_match_rails() {
             let stored=want["rows"]["action_mcp_session_messages"].as_array().unwrap().iter().position(|row|row.to_string().contains("An unexpected error occurred.")).unwrap();
             want["rows"]["action_mcp_session_messages"][stored]=got["rows"]["action_mcp_session_messages"][stored].clone();
         }
+        if name=="m3_start_index_buying_price" {
+            // D-IDX-CONDITIONS: the engine runs an index bot's buy price rule, so its started_at is decorated as a basket's:
+            // unmet (no met_at) it reads nil and no start is shown; met since 2026-09-09 14:00Z it is that. Rails' DcaIndex
+            // ignores the rule. The last read (met before the start) is the plain start on both sides.
+            let n=got["responses"].as_array().unwrap().len();
+            let text=|t:&Value,i:usize|t["responses"][i]["body"].as_str().unwrap().to_string();
+            assert!(!text(&got,n-3).contains("Started:"),"{}",text(&got,n-3));
+            assert!(text(&got,n-2).contains("Started: 2026-09-09 16:00 CEST"),"{}",text(&got,n-2));
+            assert_eq!(text(&got,n-1),text(&want,n-1));
+            for i in [n-3,n-2] { want["responses"][i]=got["responses"][i].clone(); }
+            want["rows"]["action_mcp_session_messages"]=got["rows"]["action_mcp_session_messages"].clone();
+        }
         if EXPECTED_READS.len()<ALL_READS.len(){
             for (i,step) in steps.as_array().unwrap().iter().enumerate(){
                 let call:Value=serde_json::from_str(step["body"].as_str().unwrap()).unwrap();

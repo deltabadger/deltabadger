@@ -126,12 +126,15 @@ pub fn pending_quote_amount(c: &Connection, bot: &Bot, now_us: i64) -> Result<Bi
 
 /// The trigger rules' `started_at` decorator (price_limitable.rb:106-115 and its three siblings): for each buy-side rule
 /// that is on (`== true`), the later of started_at and its `*_condition_met_at`, nil while one is unmet. The engine's
-/// carry and the web's preview share it. `applies`: model::conditions_apply for the bot's class (else started_at as stored).
-pub fn condition_started_at(applies: bool, settings: &serde_json::Map<String, Value>, transient: &serde_json::Map<String, Value>, started: Option<i64>) -> Result<Option<i64>, EngineError> {
+/// carry and the web's preview share it. Only a rule that `conditions::decorates` for `kind`: every rule on a basket, as Rails
+/// reads it; on an index or signal bot only one this engine runs.
+pub fn condition_started_at(kind: Kind, settings: &serde_json::Map<String, Value>, transient: &serde_json::Map<String, Value>, started: Option<i64>) -> Result<Option<i64>, EngineError> {
+    use super::conditions::{self, TRIGGERS};
     let mut started = started;
-    if !applies { return Ok(started); }
-    for prefix in ["price_limit", "price_drop_limit", "moving_average_limit", "indicator_limit"] {
+    let stored = Value::Object(settings.clone());
+    for (rule, prefix) in TRIGGERS {
         if settings.get(&format!("{prefix}ed")) != Some(&Value::Bool(true)) { continue; }
+        if !conditions::decorates(kind, conditions::support(kind, rule, false, &conditions::action(&stored, prefix))) { continue; }
         let met = codec::optional_time(transient.get(&format!("{prefix}_condition_met_at"))).map_err(|_| data("unreadable stored timestamp"))?;
         started = started.zip(met).map(|(a, b)| a.max(b.timestamp_micros()));
     }
@@ -372,7 +375,7 @@ pub fn web_pending(c: &Connection, bot: &WebBot, now: DateTime<Utc>) -> Result<W
     validate_web_amounts(bot)?;
     // Frozen while selling, before the started_at guard, as the engine's pending_quote_amount.
     if bot.text("direction") == Some("selling") { return web_capped(c, bot, carry_num(bot.transient.get("missed_quote_amount"))?); }
-    let started = condition_started_at(bot.kind == Kind::Basket, &bot.settings, &bot.transient, bot.started_at.map(|t| t.timestamp_micros()))?;
+    let started = condition_started_at(bot.kind, &bot.settings, &bot.transient, bot.started_at.map(|t| t.timestamp_micros()))?;
     let Some(started) = started.and_then(DateTime::from_timestamp_micros) else { return Ok(WebNum::Int(0)) };
     let changed: Option<String> = c.query_row("SELECT settings_changed_at FROM bots WHERE id=?1", [bot.id], |r| r.get(0))?;
     let since = changed.as_deref().map(codec::parse_time).transpose().map_err(|_| error("invalid settings window"))?.map_or(started, |at| at.max(started));
@@ -431,9 +434,13 @@ fn checkpoint(anchor: DateTime<Utc>, now: DateTime<Utc>, eff: Effective) -> Resu
 
 pub fn web_amount_limit(c: &Connection, bot: &WebBot) -> Result<Option<start::Limit>, WebError> {
     validate_web_amounts(bot)?;
-    // Only a basket includes Bot::QuoteAmountLimitable (model::conditions_apply).
-    if bot.kind != Kind::Basket || !bot.on("quote_amount_limited") { return Ok(None); }
-    let Some(limit) = bot.number("quote_amount_limit") else { return Ok(None) };
+    // Bot::QuoteAmountLimitable on every kind this build runs the cap for (conditions::support, D-IDX-CAP).
+    let supported = super::conditions::support(bot.kind, super::conditions::Rule::Cap, false, "pause") == super::conditions::Support::Implemented;
+    if !supported || !bot.on("quote_amount_limited") { return Ok(None); }
+    // after_initialize's `quote_amount_limit ||= 1000`, read as the engine reads it (model::Bot::quote_amount_limit): only
+    // a basket's row is default-filled with it, so an index bot's absent, null or false limit is defaulted here.
+    let limit = match bot.setting("quote_amount_limit") { None | Some(Value::Null | Value::Bool(false)) => Some(WebNum::Int(1000)), Some(_) => bot.number("quote_amount_limit") };
+    let Some(limit) = limit else { return Ok(None) };
     let since = codec::optional_time(bot.transient.get("quote_amount_limit_enabled_at")).map_err(|_|error("unreadable stored timestamp"))?.map(format_time);
     let rows = match since {
         Some(since) => crate::figures::fill::action_commitments(c, bot.id, &since).map_err(web_bot::fill_error)?,

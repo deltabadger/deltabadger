@@ -82,7 +82,7 @@ pub async fn show(app: App, ctx: Ctx, surface: &'static str) -> Result<Response,
     };
     let (inner, v, csrf) = (app.clone(), ctx.clone(), ctx.csrf_token());
     let token = csrf.clone();
-    let (pane, shell, connect) = app
+    let (pane, shell) = app
         .db(move |c| {
             let tx = Transaction::new_unchecked(c, TransactionBehavior::Immediate)?;
             ensure_personal(&tx, user.id, &format_time(inner.now()))?;
@@ -106,13 +106,13 @@ pub async fn show(app: App, ctx: Ctx, surface: &'static str) -> Result<Response,
                 super::sections::tool_permissions(&v, &token, surface, &clients::enabled(&tx, user.id, surface)?),
                 clients::widget(&tx, &v, &token, user.id, surface)?
             );
-            let output = (pane, Shell::load(&tx, &inner, &user)?, super::view::connect_visible(&tx, &inner, &user)?);
+            let output = (pane, Shell::load(&tx, &inner, &user)?);
             tx.commit()?;
             Ok(output)
         })
         .await?;
     let user = ctx.user().ok_or_else(|| WebError::Config("missing API owner".into()))?;
-    super::view::section_page(&ctx, &csrf, user, &shell, if surface == "mcp" { "mcp" } else { "api" }, connect, &pane, StatusCode::OK, vec![])
+    super::view::section_page(&ctx, &csrf, user, &shell, if surface == "mcp" { "mcp" } else { "api" }, &pane, StatusCode::OK, vec![])
 }
 
 pub async fn write(app: App, ctx: Ctx) -> Result<Response, WebError> {

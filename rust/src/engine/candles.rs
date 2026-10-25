@@ -16,6 +16,27 @@ impl Timeframe {
             Self::FourHours => 14_400, Self::Day => 86_400, Self::ThreeDays => 259_200, Self::Week => 604_800, Self::Month => 2_629_746,
         }
     }
+    /// `Duration#ago` in UTC: a calendar month back for a month (`advance(months: -1)`, the day clamped to the month's
+    /// last), else whole seconds.
+    pub fn ago(self, now: DateTime<Utc>) -> DateTime<Utc> {
+        match self {
+            Self::Month => now.checked_sub_months(chrono::Months::new(1)).expect("in range"),
+            _ => now - Duration::seconds(self.seconds()),
+        }
+    }
+}
+
+/// The most pages one candle read walks (Exchange::MAX_CANDLE_PAGES). DIVERGES (D-COND-CANDLE-CAP): Binance's and
+/// Alpaca's Rails walks have no cap; past it the read is a settled failure, never an endless walk.
+pub const MAX_CANDLE_PAGES: usize = 1000;
+
+/// One candle from the venue's open, high, low, close and volume, each `to_d`. DIVERGES (D-COND-CANDLE-UNREADABLE): a
+/// price that is absent, null or no finite decimal is unreadable (`None`), where Rails' `to_d` reads it as 0.0; a zero
+/// high or low would move an all-time high or a low. An absent or null volume is Rails' 0.0 (conditions never read it).
+pub fn read(at: DateTime<Utc>, prices: [&serde_json::Value; 4], volume: &serde_json::Value) -> Option<Candle> {
+    let price = |v: &serde_json::Value| crate::ruby::json_to_d(v).ok().flatten();
+    let [open, high, low, close] = prices.map(price);
+    Some(Candle { at, open: open?, high: high?, low: low?, close: close?, volume: crate::ruby::json_to_d(volume).ok()?.unwrap_or_else(BigDec::zero) })
 }
 
 /// One candle: its period's start, then open, high, low, close and volume, each as the venue's `to_d`.

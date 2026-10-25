@@ -31,8 +31,8 @@ pub fn version() -> &'static str {
         .unwrap_or("0.0.0")
 }
 
-/// settings/_shell around `pane`. `connect` is SettingsHelper#settings_connect_visible?: Connect holds
-/// only container-wide sources (admin) and IBKR, and is left out where it would be empty.
+/// settings/_shell around `pane`. `connect`: Connect holds only the admin's market data (D-BROKERS-AS-VENUES; Rails also
+/// shows it for IBKR), so it is the admin's section only.
 pub fn shell(ctx: &Ctx, section: &str, connect: bool, pane: &str) -> String {
     let items: String = NAV
         .iter()

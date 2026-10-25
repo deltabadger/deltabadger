@@ -474,7 +474,10 @@ async fn play<V: Venue>(o: &Opened, venue: &V, scenario: &Value, bot_id: i64, st
     -> Result<(Option<polling::PollFailure>, Option<usize>, Option<Value>), EngineError> {
     // One price cache across retries and phases, as Rails' 5 s cache spans its retried jobs.
     let prices = PriceCache::default();
-    let cx = TickContext { credential_version: crate::engine::model::credential_version(&o.primary, &crate::engine::model::load_bot(&o.primary, bot_id)?)?, prices: &prices, process_start: DateTime::<Utc>::MIN_UTC, stopping: &|| false, below_minimum: &|_, _| {}, claimed: &|_| {} };
+    // Slice L: the first tick's below-minimum warning, as how many rows it names (Rails' broadcast_below_minimums_warning).
+    let warned = std::cell::RefCell::new(Vec::<usize>::new());
+    let warn = |_: i64, rows: Vec<i64>| warned.borrow_mut().push(rows.len());
+    let cx = TickContext { credential_version: crate::engine::model::credential_version(&o.primary, &crate::engine::model::load_bot(&o.primary, bot_id)?)?, prices: &prices, process_start: DateTime::<Utc>::MIN_UTC, stopping: &|| false, below_minimum: &warn, claimed: &|_| {} };
     let at = |key: &str| -> Result<Option<DateTime<Utc>>, EngineError> {
         scenario[key].as_str().map(|s| s.parse::<DateTime<Utc>>().map_err(|e| EngineError::Data(format!("scenario.{key}: {e}")))).transpose()
     };
@@ -562,6 +565,7 @@ async fn play<V: Venue>(o: &Opened, venue: &V, scenario: &Value, bot_id: i64, st
     let mut extra = serde_json::Map::new();
     if listing { extra.insert("checks".into(), json!(checks)); }
     if scenario["info"].is_array() { extra.insert("infos".into(), Value::Array(infos)); }
+    if scenario["warn"] == true { extra.insert("warned".into(), json!(warned.borrow().clone())); }
     Ok((poll, recover_sent, (!extra.is_empty()).then_some(Value::Object(extra))))
 }
 

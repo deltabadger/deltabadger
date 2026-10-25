@@ -14,7 +14,7 @@
     "app/models/transaction.rb": "6cf7b7b31ab5a20b40615f7c8a4d6c8fca4fb4005cd42044a6695f09e862ad7b",
     "script/rust/figures_normalized.rb": "b0eec148d3d3e4f4f57f605c9756bab24abbb0cc900c6db9d9c1a24e502a0eb7",
     "script/rust/histories_normalized.rb": "a187a0e90f9a216e68c98d9cf4ead49f9a6e97b63a318be75091db514873c8da",
-    "script/rust/record_histories.rb": "8334ff885f935ee2c3b241d5769c45badc988b817485871394111376b3982d6f"
+    "script/rust/record_histories.rb": "ccf0a4790e0183c3faabb17b03e1561526cc3f7d8b77156e41b40f394edd13b6"
   },
   "cases": [
     {
@@ -54,6 +54,8 @@
       "limited": false,
       "merged": false,
       "split_offset": null,
+      "venue": null,
+      "foreign": null,
       "rails_unchanged": {
         "holdings": {
           "AAA": "3.0",
@@ -144,6 +146,8 @@
       "limited": false,
       "merged": false,
       "split_offset": null,
+      "venue": null,
+      "foreign": null,
       "rails_unchanged": {
         "holdings": {
           "AAA": "0.0",
@@ -234,6 +238,8 @@
       "limited": false,
       "merged": false,
       "split_offset": null,
+      "venue": null,
+      "foreign": null,
       "rails_unchanged": {
         "holdings": {
           "AAA": "0.0",
@@ -304,6 +310,8 @@
       "limited": false,
       "merged": false,
       "split_offset": null,
+      "venue": null,
+      "foreign": null,
       "rails_unchanged": {
         "holdings": {
           "AAA": "0.0",
@@ -404,6 +412,8 @@
       "limited": false,
       "merged": false,
       "split_offset": null,
+      "venue": null,
+      "foreign": null,
       "rails_unchanged": {
         "holdings": {
           "AAA": "8.0",
@@ -494,6 +504,8 @@
       "limited": false,
       "merged": false,
       "split_offset": null,
+      "venue": null,
+      "foreign": null,
       "rails_unchanged": {
         "holdings": {
           "AAA": "3.0",
@@ -584,6 +596,8 @@
       "limited": false,
       "merged": false,
       "split_offset": null,
+      "venue": null,
+      "foreign": null,
       "rails_unchanged": {
         "holdings": {
           "AAA": "3.0",
@@ -674,6 +688,8 @@
       "limited": false,
       "merged": false,
       "split_offset": null,
+      "venue": null,
+      "foreign": null,
       "rails_unchanged": {
         "holdings": {
           "AAA": "3.0",
@@ -764,6 +780,8 @@
       "limited": false,
       "merged": false,
       "split_offset": null,
+      "venue": null,
+      "foreign": null,
       "rails_unchanged": {
         "holdings": {
           "AAA": "3.0",
@@ -854,6 +872,8 @@
       "limited": false,
       "merged": false,
       "split_offset": null,
+      "venue": null,
+      "foreign": null,
       "rails_unchanged": {
         "holdings": {
           "AAA": "3.0",
@@ -944,6 +964,8 @@
       "limited": false,
       "merged": false,
       "split_offset": null,
+      "venue": null,
+      "foreign": null,
       "rails_unchanged": {
         "holdings": {
           "AAA": "3.0",
@@ -1034,6 +1056,8 @@
       "limited": false,
       "merged": false,
       "split_offset": null,
+      "venue": null,
+      "foreign": null,
       "rails_unchanged": {
         "holdings": {
           "AAA": "3.0",
@@ -1124,6 +1148,8 @@
       "limited": false,
       "merged": false,
       "split_offset": null,
+      "venue": null,
+      "foreign": null,
       "rails_unchanged": {
         "holdings": {
           "AAA": "3.0",
@@ -1214,6 +1240,8 @@
       "limited": false,
       "merged": false,
       "split_offset": null,
+      "venue": null,
+      "foreign": null,
       "rails_unchanged": {
         "holdings": {
           "AAA": "5.0",
@@ -1304,6 +1332,8 @@
       "limited": true,
       "merged": false,
       "split_offset": null,
+      "venue": null,
+      "foreign": null,
       "rails_unchanged": {
         "holdings": {
           "AAA": "5.0",
@@ -1395,6 +1425,8 @@
       "limited": false,
       "merged": false,
       "split_offset": null,
+      "venue": null,
+      "foreign": null,
       "rails_unchanged": {
         "holdings": {
           "AAA": "1.0",
@@ -1485,6 +1517,8 @@
       "limited": false,
       "merged": true,
       "split_offset": 0,
+      "venue": null,
+      "foreign": null,
       "rails_unchanged": {
         "holdings": {
           "AAA": "6.0",
@@ -1575,6 +1609,8 @@
       "limited": false,
       "merged": false,
       "split_offset": null,
+      "venue": null,
+      "foreign": null,
       "rails_unchanged": {
         "holdings": {
           "AAA": "5.0",
@@ -1665,6 +1701,8 @@
       "limited": false,
       "merged": false,
       "split_offset": null,
+      "venue": null,
+      "foreign": null,
       "rails_unchanged": {
         "holdings": {
           "AAA": "3.0",
@@ -1755,6 +1793,8 @@
       "limited": false,
       "merged": false,
       "split_offset": -9,
+      "venue": null,
+      "foreign": null,
       "rails_unchanged": {
         "holdings": {
           "AAA": "8.0",
@@ -1845,6 +1885,8 @@
       "limited": false,
       "merged": false,
       "split_offset": -7,
+      "venue": null,
+      "foreign": null,
       "rails_unchanged": {
         "holdings": {
           "AAA": "6.0",
@@ -1935,6 +1977,8 @@
       "limited": false,
       "merged": false,
       "split_offset": -8,
+      "venue": null,
+      "foreign": null,
       "rails_unchanged": {
         "holdings": {
           "AAA": "8.0",
@@ -2025,6 +2069,8 @@
       "limited": false,
       "merged": true,
       "split_offset": null,
+      "venue": null,
+      "foreign": null,
       "rails_unchanged": {
         "holdings": {
           "AAA": "3.0",
@@ -2115,6 +2161,8 @@
       "limited": false,
       "merged": true,
       "split_offset": null,
+      "venue": null,
+      "foreign": null,
       "rails_unchanged": {
         "holdings": {
           "AAA": "3.0",
@@ -2141,6 +2189,282 @@
       },
       "one_week_pending": "100.0",
       "one_week_rails_pending": "100.0"
+    },
+    {
+      "name": "merge_kraken_foreign",
+      "rows": [
+        [
+          "AAA",
+          "buy",
+          "closed",
+          "5",
+          "5",
+          "50",
+          "10",
+          -1
+        ],
+        [
+          "BBB",
+          "buy",
+          "closed",
+          "5",
+          "5",
+          "50",
+          "10",
+          -1
+        ],
+        [
+          "AAA",
+          "sell",
+          "closed",
+          "2",
+          "2",
+          "20",
+          "10",
+          -1
+        ]
+      ],
+      "limited": false,
+      "merged": true,
+      "split_offset": null,
+      "venue": "kraken",
+      "foreign": "BBB",
+      "rails_unchanged": {
+        "holdings": {
+          "AAA": "3.0",
+          "BBB": "5.0"
+        },
+        "contributed": "100.0",
+        "cash": "20.0",
+        "available": null,
+        "pending": "100.0",
+        "decision": "buy",
+        "orders": [
+          {
+            "side": "buy",
+            "asset": "AAA",
+            "amount": "6.0",
+            "quote": "60.0"
+          },
+          {
+            "side": "buy",
+            "asset": "BBB",
+            "amount": "4.0",
+            "quote": "40.0"
+          }
+        ]
+      },
+      "normalized": {
+        "holdings": {
+          "AAA": "3.0",
+          "BBB": "5.0"
+        },
+        "contributed": "100.0",
+        "cash": "20.0",
+        "available": null,
+        "pending": "100.0",
+        "decision": "buy",
+        "orders": [
+          {
+            "side": "buy",
+            "asset": "AAA",
+            "amount": "6.0",
+            "quote": "60.0"
+          },
+          {
+            "side": "buy",
+            "asset": "BBB",
+            "amount": "4.0",
+            "quote": "40.0"
+          }
+        ]
+      },
+      "one_week_pending": "200.0",
+      "one_week_rails_pending": "200.0"
+    },
+    {
+      "name": "merge_binance_foreign",
+      "rows": [
+        [
+          "AAA",
+          "buy",
+          "closed",
+          "5",
+          "5",
+          "50",
+          "10",
+          -1
+        ],
+        [
+          "BBB",
+          "buy",
+          "closed",
+          "5",
+          "5",
+          "50",
+          "10",
+          -1
+        ],
+        [
+          "AAA",
+          "sell",
+          "closed",
+          "2",
+          "2",
+          "20",
+          "10",
+          -1
+        ]
+      ],
+      "limited": false,
+      "merged": true,
+      "split_offset": null,
+      "venue": "binance",
+      "foreign": "BBB",
+      "rails_unchanged": {
+        "holdings": {
+          "AAA": "3.0",
+          "BBB": "5.0"
+        },
+        "contributed": "100.0",
+        "cash": "20.0",
+        "available": null,
+        "pending": "100.0",
+        "decision": "buy",
+        "orders": [
+          {
+            "side": "buy",
+            "asset": "AAA",
+            "amount": "6.0",
+            "quote": "60.0"
+          },
+          {
+            "side": "buy",
+            "asset": "BBB",
+            "amount": "4.0",
+            "quote": "40.0"
+          }
+        ]
+      },
+      "normalized": {
+        "holdings": {
+          "AAA": "3.0",
+          "BBB": "5.0"
+        },
+        "contributed": "100.0",
+        "cash": "20.0",
+        "available": null,
+        "pending": "100.0",
+        "decision": "buy",
+        "orders": [
+          {
+            "side": "buy",
+            "asset": "AAA",
+            "amount": "6.0",
+            "quote": "60.0"
+          },
+          {
+            "side": "buy",
+            "asset": "BBB",
+            "amount": "4.0",
+            "quote": "40.0"
+          }
+        ]
+      },
+      "one_week_pending": "200.0",
+      "one_week_rails_pending": "200.0"
+    },
+    {
+      "name": "merge_kucoin_foreign",
+      "rows": [
+        [
+          "AAA",
+          "buy",
+          "closed",
+          "5",
+          "5",
+          "50",
+          "10",
+          -1
+        ],
+        [
+          "BBB",
+          "buy",
+          "closed",
+          "5",
+          "5",
+          "50",
+          "10",
+          -1
+        ],
+        [
+          "AAA",
+          "sell",
+          "closed",
+          "2",
+          "2",
+          "20",
+          "10",
+          -1
+        ]
+      ],
+      "limited": false,
+      "merged": true,
+      "split_offset": null,
+      "venue": "kucoin",
+      "foreign": "BBB",
+      "rails_unchanged": {
+        "holdings": {
+          "AAA": "3.0",
+          "BBB": "5.0"
+        },
+        "contributed": "100.0",
+        "cash": "20.0",
+        "available": null,
+        "pending": "100.0",
+        "decision": "buy",
+        "orders": [
+          {
+            "side": "buy",
+            "asset": "AAA",
+            "amount": "6.0",
+            "quote": "60.0"
+          },
+          {
+            "side": "buy",
+            "asset": "BBB",
+            "amount": "4.0",
+            "quote": "40.0"
+          }
+        ]
+      },
+      "normalized": {
+        "holdings": {
+          "AAA": "3.0",
+          "BBB": "5.0"
+        },
+        "contributed": "100.0",
+        "cash": "20.0",
+        "available": null,
+        "pending": "100.0",
+        "decision": "buy",
+        "orders": [
+          {
+            "side": "buy",
+            "asset": "AAA",
+            "amount": "6.0",
+            "quote": "60.0"
+          },
+          {
+            "side": "buy",
+            "asset": "BBB",
+            "amount": "4.0",
+            "quote": "40.0"
+          }
+        ]
+      },
+      "one_week_pending": "200.0",
+      "one_week_rails_pending": "200.0"
     }
   ]
 }

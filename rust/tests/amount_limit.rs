@@ -111,17 +111,24 @@ async fn the_cap_cuts_the_order_to_what_is_left_and_nothing_left_is_no_order() {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn a_remainder_under_the_venue_minimum_is_skipped_every_tick_and_the_bot_keeps_running() {
+async fn a_remainder_under_the_venue_minimum_is_skipped_once_and_stops_the_bot() {
+    // D-CAP-REMAINDER-STOP: 0.40 left is over Rails' 0.01 precision floor, so Rails skips it at every checkpoint and never
+    // stops. Its whole remainder has no leg the venue takes, so the engine reports the skipped leg and stops the bot with the
+    // amount-limit stop and its mail; the next checkpoint sends nothing.
     let (_d, o, s) = common::install_alpaca();
     let id = seed::insert_bot(&o.primary, &s, &limited(json!(60.4)));
     seed::insert_tx(&o.primary, &s, id, &closed("OC", "60"));
     let t = script(json!({}));
-    for (week, rows) in [("2026-09-08T10:00:00.5Z", 1), ("2026-09-15T10:00:00.5Z", 2)] {
-        let out = tick::tick(&o.primary, &venue(&t), id, &FixedClock(at(week)), &mut Attempts::default()).await.unwrap();
-        assert!(matches!(out, TickOutcome::Done { placed: false }), "{week}: {out:?}");
-        assert_eq!(one::<i64>(&o, "SELECT count(*) FROM transactions WHERE status = 2"), rows, "{week}: 0.40 left, under the 1 USD minimum");
-        assert_eq!(model::load_bot(&o.primary, id).unwrap().status, BotStatus::Scheduled, "0.40 is over the 0.01 precision floor: not reached");
-    }
+    let out = tick::tick(&o.primary, &venue(&t), id, &FixedClock(at("2026-09-08T10:00:00.5Z")), &mut Attempts::default()).await.unwrap();
+    assert!(matches!(out, TickOutcome::Skipped), "{out:?}");
+    assert_eq!(one::<i64>(&o, "SELECT count(*) FROM transactions WHERE status = 2"), 1, "0.40 left, under the 1 USD minimum");
+    let bot = model::load_bot(&o.primary, id).unwrap();
+    assert_eq!(bot.status, BotStatus::Stopped);
+    assert_eq!(one::<String>(&o, "SELECT stop_message_key FROM bots"), tick::AMOUNT_SPENT);
+    assert!(bot.transient.get(deltabadger::engine::notice::LIMIT).is_some(), "the amount-limit mail is owed");
+    let next = tick::tick(&o.primary, &venue(&t), id, &FixedClock(at("2026-09-15T10:00:00.5Z")), &mut Attempts::default()).await.unwrap();
+    assert!(matches!(next, TickOutcome::Skipped), "{next:?}");
+    assert_eq!(one::<i64>(&o, "SELECT count(*) FROM transactions WHERE status = 2"), 1);
     assert!(t.posted_orders().is_empty());
 }
 

@@ -84,17 +84,17 @@ pub struct Row {
 pub static ROWS: [Row; 15] = [
     Row { exchange_type: crate::sync::ALPACA, name: "Alpaca", name_id: "alpaca", base: "", rules: Some(&venue_rules::ALPACA), passphrase: true,
           needs_pairs: false, trades: true, balances: Some(BalanceSync::Alpaca), ledger: Some(LedgerSync::Alpaca), key_check: Some(KeyCheck::Alpaca),
-          wizard: true, figures: Some(Figures::Alpaca), condition_candles: false },
+          wizard: true, figures: Some(Figures::Alpaca), condition_candles: true },
     Row { exchange_type: "Exchanges::Kraken", name: "Kraken", name_id: "kraken", base: super::kraken::URL, rules: Some(&venue_rules::KRAKEN), passphrase: false,
           needs_pairs: false, trades: true, balances: None, ledger: None, key_check: Some(KeyCheck::Kraken), wizard: true, figures: Some(Figures::Kraken), condition_candles: true },
     Row { exchange_type: super::binance::BINANCE, name: "Binance", name_id: "binance", base: super::binance::URL, rules: Some(&venue_rules::BINANCE),
           passphrase: false, needs_pairs: true, trades: true, balances: Some(BalanceSync::Binance), ledger: Some(LedgerSync::Binance),
-          key_check: Some(KeyCheck::Binance), wizard: true, figures: Some(Figures::Binance), condition_candles: false },
+          key_check: Some(KeyCheck::Binance), wizard: true, figures: Some(Figures::Binance), condition_candles: true },
     // Binance configured (Exchanges::BinanceUs < Exchanges::Binance): BinanceVenue at US_URL with its own rules row, its own
     // key check, and its ledger's own source list (binance_ledger).
     Row { exchange_type: super::binance::BINANCE_US, name: "Binance.US", name_id: "binance_us", base: super::binance::US_URL, rules: Some(&venue_rules::BINANCE_US),
           passphrase: false, needs_pairs: true, trades: true, balances: Some(BalanceSync::Binance), ledger: Some(LedgerSync::Binance),
-          key_check: Some(KeyCheck::BinanceUs), wizard: true, figures: Some(Figures::Binance), condition_candles: false },
+          key_check: Some(KeyCheck::BinanceUs), wizard: true, figures: Some(Figures::Binance), condition_candles: true },
     Row { exchange_type: super::kucoin::KUCOIN, name: "KuCoin", name_id: "kucoin", base: super::kucoin::URL, rules: Some(&venue_rules::KUCOIN),
           passphrase: true, needs_pairs: true, trades: true, balances: Some(BalanceSync::Kucoin), ledger: Some(LedgerSync::Kucoin),
           key_check: Some(KeyCheck::Kucoin), wizard: true, figures: Some(Figures::Kucoin), condition_candles: false },

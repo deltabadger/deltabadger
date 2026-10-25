@@ -88,6 +88,7 @@ fn every_recorded_file_reads_to_the_same_entries_in_the_same_order() {
     let v = vectors();
     let mut failures = vec![];
     let mut total = 0;
+    let mut unescaped = 0;
     for format in ["binance", "deltabadger"] {
         for c in v[format].as_array().unwrap() {
             total += 1;
@@ -109,12 +110,26 @@ fn every_recorded_file_reads_to_the_same_entries_in_the_same_order() {
             let got_error = error(&read);
             if got_error != c["error"] { failures.push(format!("{name}: error {got_error} != {}", c["error"])); continue; }
             let (entries, unrecognised) = read.unwrap_or_default();
-            if json!(entries) != c["entries"] {
-                failures.push(format!("{name}: entries\n  got  {}\n  want {}", json!(entries), c["entries"]));
+            let mut want = c["entries"].clone();
+            if format == "deltabadger" {
+                // D-CSV-ROUNDTRIP: Rust drops CsvSafe's quote ahead of a formula character in a text cell; Rails keeps it.
+                for entry in want.as_array_mut().into_iter().flatten() {
+                    for field in ["base_currency", "quote_currency", "fee_currency", "exchange_name_id", "tx_id", "group_id", "description"] {
+                        let Some(v) = entry[field].as_str() else { continue };
+                        if let Some(rest) = v.strip_prefix('\'').filter(|r| [*r, r.trim_start()].iter().any(|t| t.starts_with(['=', '+', '-', '@', '\t', '\r', '\n']))) {
+                            entry[field] = json!(rest);
+                            unescaped += 1;
+                        }
+                    }
+                }
+            }
+            if json!(entries) != want {
+                failures.push(format!("{name}: entries\n  got  {}\n  want {}", json!(entries), want));
             }
             if json!(unrecognised) != c["unrecognised"] { failures.push(format!("{name}: unrecognised {unrecognised:?} != {}", c["unrecognised"])); }
         }
     }
     assert!(total > 100, "the vectors hold every recorded file");
+    assert!(unescaped >= 3, "the vectors no longer reach D-CSV-ROUNDTRIP ({unescaped})");
     report("files", failures, total);
 }

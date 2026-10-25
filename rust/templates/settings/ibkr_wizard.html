@@ -1,0 +1,61 @@
+{#- settings/ibkr_connections/_wizard.html.erb: the IBKR connection in whatever state its key is in (web::settings::ibkr). -#}
+<div id="ibkr-connect-wizard" class="widget widget--settings">
+  <h4 class="modal__title">{{ v.t("settings.ibkr.title")|safe }}</h4>
+{% match state %}
+{% when State::None %}
+    <p>{{ v.t("settings.ibkr.intro")|safe }}</p>
+    <form class="button_to" method="post" action="{{ path }}"><button class="button button--sky button--large" type="submit">{{ v.t("settings.ibkr.start")|safe }}</button><input type="hidden" name="authenticity_token" value="{{ csrf }}" /></form>
+{% when State::Connected %}
+    <p class="text-success">{{ v.t("settings.ibkr.connected")|safe }}</p>
+    <p class="text-danger">{{ v.t("settings.ibkr.single_key_warning")|safe }}</p>
+
+    <form class="button_to" method="post" action="{{ path }}"><input type="hidden" name="_method" value="delete" /><button class="button button--danger" type="submit">{{ v.t("settings.ibkr.disconnect")|safe }}</button><input type="hidden" name="authenticity_token" value="{{ csrf }}" /></form>
+{% when State::Unusable %}
+    <p class="text-danger">{{ UNUSABLE }}</p>
+    <form class="button_to" method="post" action="{{ path }}"><input type="hidden" name="_method" value="delete" /><button class="button button--danger" type="submit">{{ v.t("settings.ibkr.disconnect")|safe }}</button><input type="hidden" name="authenticity_token" value="{{ csrf }}" /></form>
+{% when State::Stalled with (duration) %}
+    <p class="text-danger">
+      {{ duration|safe }}
+    </p>
+    <p>{{ v.t("settings.ibkr.activation_failed_fix")|safe }}</p>
+    <form class="button_to" method="post" action="{{ path }}"><input type="hidden" name="_method" value="delete" /><button class="button button--sky button--large" type="submit">{{ v.t("settings.ibkr.start_over")|safe }}</button><input type="hidden" name="authenticity_token" value="{{ csrf }}" /></form>
+{% include "settings/ibkr_credentials_form.html" %}
+{% when State::Pending %}
+    <p>{{ v.t("settings.ibkr.activation_pending")|safe }}</p>
+    <p>{{ v.t("settings.ibkr.reenter_intro")|safe }}</p>
+{% include "settings/ibkr_credentials_form.html" %}
+    <form class="button_to" method="post" action="{{ path }}"><input type="hidden" name="_method" value="delete" /><button class="button" type="submit">{{ v.t("settings.ibkr.start_over")|safe }}</button><input type="hidden" name="authenticity_token" value="{{ csrf }}" /></form>
+{% when State::Downloads %}
+    <ol class="ibkr-steps">
+      <li>
+        <p>{{ v.t("settings.ibkr.download_intro")|safe }}</p>
+        <a data-turbo="false" class="button" href="{{ path }}/download?artifact=signing">{{ v.t("settings.ibkr.signing_key")|safe }}</a>
+        <a data-turbo="false" class="button" href="{{ path }}/download?artifact=encryption">{{ v.t("settings.ibkr.encryption_key")|safe }}</a>
+        <a data-turbo="false" class="button" href="{{ path }}/download?artifact=dhparam">{{ v.t("settings.ibkr.dh_param")|safe }}</a>
+      </li>
+
+      <li>
+        <p>{{ v.t("settings.ibkr.portal_intro")|safe }}</p>
+        <ol>
+          <li>{{ v.t("settings.ibkr.portal_step_private_window")|safe }}</li>
+          <li>
+            {{ check_address|safe }}
+          </li>
+          <li>{{ v.t("settings.ibkr.portal_step_register")|safe }}</li>
+        </ol>
+        <a target="_blank" rel="noopener" class="button button--success" href="{{ recommended_url }}">{{ v.t("settings.ibkr.open_portal")|safe }}</a>
+        <a target="_blank" rel="noopener" class="button" href="{{ alternative_url }}">{{ v.t("settings.ibkr.open_portal_alternative")|safe }}</a>
+        <p class="form__info">{{ v.t("settings.ibkr.portal_error_501")|safe }}</p>
+        <p class="text-danger">{{ v.t("settings.ibkr.single_key_warning")|safe }}</p>
+
+      </li>
+
+      <li>
+        <p>{{ v.t("settings.ibkr.paste_intro")|safe }}</p>
+{% include "settings/ibkr_credentials_form.html" %}
+      </li>
+    </ol>
+
+    <form class="button_to" method="post" action="{{ path }}"><input type="hidden" name="_method" value="delete" /><button class="button" type="submit">{{ v.t("settings.ibkr.start_over")|safe }}</button><input type="hidden" name="authenticity_token" value="{{ csrf }}" /></form>
+{% endmatch %}
+</div>

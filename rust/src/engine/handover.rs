@@ -8,7 +8,7 @@ use crate::lease::{self, Claim, EngineLock};
 use crate::store::Opened;
 use crate::venue::VenueFactory;
 use chrono::{DateTime, Utc};
-use rusqlite::params;
+use rusqlite::{params, Connection};
 use serde_json::Value;
 
 pub struct Takeover { pub claim: Claim, pub eligible: Vec<i64>, pub deleted_jobs: usize, pub normalised: usize, pub imported_calls: usize }
@@ -112,6 +112,7 @@ pub async fn hand_back_since<F: VenueFactory>(lock: &EngineLock, o: &Opened, fac
     // handback would otherwise overwrite it with a row Rails cannot decrypt and report success. An absent row (never taken
     // over by Rust) holds nothing to protect.
     lease::read(&o.primary, cipher)?;
+    refuse_rust_only_conditions(&o.primary)?;
     hand_back_calls(o, clock.now())?;
     let mut unresolved = vec![];
     let mut s = o.primary.prepare("SELECT id FROM bots WHERE json_extract(transient_data, '$.rust_placement') IS NOT NULL ORDER BY id")?;
@@ -136,6 +137,8 @@ pub async fn hand_back_since<F: VenueFactory>(lock: &EngineLock, o: &Opened, fac
 
     let now = clock.now();
     let tx = model::immediate(&o.primary)?;
+    // Again inside the ownership transaction: a rule switched on since the first check is caught before the lease moves.
+    refuse_rust_only_conditions(&tx)?;
     let (scheduled, working) = (BotStatus::Scheduled as i64, model::working_list());
     // A bot paused on its price rule stays `waiting`: Rails' adoption (Bot::RepairOrphanedBotsJob) restarts its check chain,
     // where `scheduled` would trade it at the next checkpoint whatever the price.
@@ -327,4 +330,28 @@ fn hand_back_calls(o: &Opened, now: DateTime<Utc>) -> Result<(), EngineError> {
     }
     tx.commit()?;
     Ok(())
+}
+
+/// D-HANDBACK-RUST-CONDITIONS: the index and signal bots (not deleted) with a rule switched on that this engine runs and Rails
+/// never reads there (its DcaIndex and Signal lack the concerns): (bot id, the switch). Handing them back would trade
+/// them with the rule silently dropped.
+pub fn rust_only_conditions(c: &Connection) -> Result<Vec<(i64, String)>, EngineError> {
+    use super::conditions::{stored_support, Rule, Support};
+    let mut s = c.prepare("SELECT id, type, settings FROM bots WHERE type IN ('Bots::DcaIndex', ?1) AND status <> ?2 AND json_valid(settings) ORDER BY id")?;
+    let rows: Vec<(i64, String, String)> = s.query_map(params![model::SIGNAL_TYPE, BotStatus::Deleted as i64], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?.collect::<Result<_, _>>()?;
+    let mut found = vec![];
+    for (id, class, settings) in rows {
+        let settings: Value = serde_json::from_str(&settings).map_err(|e| EngineError::Data(format!("bot {id}: {e}")))?;
+        for (key, value) in settings.as_object().into_iter().flatten() {
+            let Some((rule, selling)) = Rule::of_flag(key) else { continue };
+            if value == &Value::Bool(true) && stored_support(&class, &settings, rule, selling) == Support::Implemented { found.push((id, key.clone())); }
+        }
+    }
+    Ok(found)
+}
+
+fn refuse_rust_only_conditions(c: &Connection) -> Result<(), EngineError> {
+    let found = rust_only_conditions(c)?;
+    if found.is_empty() { return Ok(()); }
+    Err(EngineError::Ineligible(found.into_iter().map(|(id, key)| format!("bot {id}: {key} is on, and only this engine runs it on that kind of bot; switch it off before handing back")).collect()))
 }

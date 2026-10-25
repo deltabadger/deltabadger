@@ -41,8 +41,6 @@ struct EmptyView<'a> {
     v: &'a Ctx,
     preferences: &'a str,
     bot_updates: &'a str,
-    /// `!StockTradingSettings.active? && !current_user.admin?`
-    ask_admin_for_stocks: bool,
 }
 
 /// One option of shared/_segmented.html.erb.
@@ -214,21 +212,13 @@ fn tile(c: &Connection, ctx: &Ctx, csrf: &str, bot: &Bot, market_data_configured
 }
 
 enum Listing {
-    /// No bot that is not deleted: the welcome page.
-    Empty { ask_admin_for_stocks: bool },
+    /// No bot that is not deleted: the welcome page (D-STOCKS-NO-GATE: without Rails' "ask your admin" line).
+    Empty,
     Body(String),
     NotPorted(&'static str),
 }
 
 /// GET /bots.
-/// StockTradingSettings.active?: a hosted install, or a synced stock catalog (Exchange::STOCK_TYPES).
-pub(crate) fn stocks_active(c: &rusqlite::Connection, app: &App) -> Result<bool, WebError> {
-    Ok(app.config.market_data_url
-        || app_config(c, &app.cipher, "market_data_provider")?.as_deref() == Some("deltabadger")
-        || c.query_row("SELECT EXISTS(SELECT 1 FROM tickers JOIN exchanges ON exchanges.id = tickers.exchange_id \
-                        WHERE tickers.available = 1 AND exchanges.type IN ('Exchanges::Alpaca', 'Exchanges::Ibkr'))", [], |r| r.get(0))?)
-}
-
 pub async fn index(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> {
     let Some(user) = ctx.user().cloned() else { return Ok(auth::unauthenticated(&ctx)) };
     // With exactly one bot the list is that bot's page. Decided first: a redirect renders no form, so it gives the session no token.
@@ -242,10 +232,7 @@ pub async fn index(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Re
         let (ctx, user) = (&view, &owner);
         let shell = Shell::load(c, &inner, user)?;
         let ids = Bot::ids(c, user.id)?;
-        if ids.is_empty() {
-            let stocks_active = stocks_active(c, &inner)?;
-            return Ok((shell, Listing::Empty { ask_admin_for_stocks: !stocks_active && !user.admin }));
-        }
+        if ids.is_empty() { return Ok((shell, Listing::Empty)); }
         let (deltabadger, configured) = market_data(c, &inner)?;
         let wash_sale: Option<bool> = c.query_row("SELECT wash_sale_enabled FROM users WHERE id = ?1", [user.id], |r| r.get(0))?;
         let mut bots = vec![];
@@ -325,7 +312,7 @@ pub async fn index(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Re
     let body = match listing {
         Listing::NotPorted(reason) => return Ok(layout::refused(&ctx, reason)),
         Listing::Body(body) => body,
-        Listing::Empty { ask_admin_for_stocks } => {
+        Listing::Empty => {
             // The first bots page after a sign-in with no bots opens the new-bot wizard over hidden chrome, and every wizard
             // begun before it starts over (`session.delete(:auto_open_bot_wizard)`, then `session[:bot_config] = {}`).
             let opening = {
@@ -335,7 +322,7 @@ pub async fn index(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Re
                 opening
             };
             let (preferences, bot_updates) = (format!("user_{}:preferences", user.id), format!("user_{}:bot_updates", user.id));
-            let body = EmptyView { v: &ctx, preferences: &preferences, bot_updates: &bot_updates, ask_admin_for_stocks }.render()?;
+            let body = EmptyView { v: &ctx, preferences: &preferences, bot_updates: &bot_updates }.render()?;
             if opening {
                 let src = format!("{}?auto_open=true", ctx.path("/bots/dca_single_assets/pick_exchange/new"));
                 return shell::application_opening(&ctx, &ctx.csrf_token(), &user, &shell, Page { status: StatusCode::OK, body, flash_now: Vec::new() }, src);

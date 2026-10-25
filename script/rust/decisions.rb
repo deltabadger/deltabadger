@@ -316,7 +316,12 @@ module Decisions
   end
 
   # The other venue a merge brought rows from (Bot::Merge): a row marked `foreign` was placed there.
-  def foreign_venue = Exchanges::Kraken.find_or_create_by!(name: 'Kraken') { |k| k.assign_attributes(maker_fee: '0.25', taker_fee: '0.4') }
+  # A bot on Kraken brought its foreign rows from Binance (slice L).
+  def foreign_venue(exchange = nil)
+    return Exchanges::Binance.find_or_create_by!(name: 'Foreign') { |b| b.assign_attributes(maker_fee: '0.1', taker_fee: '0.1') } if exchange.is_a?(Exchanges::Kraken)
+
+    Exchanges::Kraken.find_or_create_by!(name: 'Kraken') { |k| k.assign_attributes(maker_fee: '0.25', taker_fee: '0.4') }
+  end
 
   def build(dir, sc)
     SchemaTemplate.install(dir)
@@ -351,11 +356,15 @@ module Decisions
                        .merge(sc['bot_columns'] || {}))
     sc['transactions'].each do |t|
       asset = assets.fetch(t.fetch('asset', 'BTC'))
-      Transaction.insert!(t.except('asset', 'foreign').merge('bot_id' => bot.id, 'exchange_id' => t['foreign'] ? foreign_venue.id : exchange.id,
+      Transaction.insert!(t.except('asset', 'foreign').merge('bot_id' => bot.id, 'exchange_id' => t['foreign'] ? foreign_venue(exchange).id : exchange.id,
                                                   'base_asset_id' => asset.id, 'quote_asset_id' => quote.id,
                                                   'base' => asset.symbol, 'quote' => quote.symbol, 'side' => t.fetch('side', 0), 'transaction_type' => t.fetch('transaction_type', 'REGULAR'),
                                                   'bot_interval' => sc['interval'], 'bot_quote_amount' => sc['quote_amount'], 'error_messages' => [],
                                                   'updated_at' => t['created_at']))
+    end
+    # Slice L: a merged bot, as Bot::Merge leaves it: every inserted row is inherited history (merged_history_until_id).
+    if sc['merged']
+      bot.update_columns(transient_data: bot.reload.transient_data.merge('merged_history_until_id' => bot.transactions.maximum(:id)))
     end
     ticker.update_columns(sc['ticker_after']) if sc['ticker_after'] # e.g. delisted after the bot was set up
     (sc['tickers_after'] || {}).each { |sym, cols| Ticker.find_by!(exchange:, base_asset: assets.fetch(sym)).update_columns(cols) }
@@ -1044,7 +1053,29 @@ module Decisions
       list << venue_basket(venue, 'tiers-one_below-next', WEIGHTS['tiers'], at: basket_first, quote_amount: small, next_at: basket_at(1),
                            http: { '/0/private/QueryOrders' => [swept] })
     end
-    (kucoin + crypto).tap { |list| raise "the venue basket grid has #{list.size} scenarios, not 44" unless list.size == 44 }
+    (kucoin + crypto + merged_venue_basket_scenarios).tap { |list| raise "the venue basket grid has #{list.size} scenarios, not #{44 + 12}" unless list.size == 44 + 12 }
+  end
+
+  # Slice L: a merged basket on Kraken, Binance and KuCoin, its history inherited (one member's rows from another venue).
+  # The first own tick: every leg under its floor warns (only past the cutoff: the same rows unmerged are no first tick), one
+  # leg under it does not; the sweep never asks this venue for a row resting on the other one.
+  def merged_venue_basket_scenarios
+    small = { 'kraken' => 20.0, 'binance' => 20.0, 'kucoin' => 5.0 }   # SOL's leg under its own minimum
+    tiny = { 'kraken' => 2.0, 'binance' => 6.0, 'kucoin' => 0.5 }      # every leg of the 70/30 under its own
+    before = '2026-08-31 10:00:01' # inherited: placed before this bot started
+    CB_VENUES.flat_map do |venue|
+      # Held at the targets (60 bought), so this tick's legs split by weight; ETH's rows were placed on the other venue.
+      held = ->(weights) { weights.each_with_index.map { |(sym, w), i| venue_leg(venue, i + 1, sym, (60 * w).round(2)).merge('created_at' => before) } }
+      foreign = ->(rows) { rows.map { |r| r['asset'] == 'ETH' ? r.merge('foreign' => true, 'external_id' => 'OFOREIGN-1') : r } }
+      rows = foreign.(held.(WEIGHTS['w70']))
+      resting = rows[1].merge('external_status' => 1, 'order_type' => 1, 'amount' => '0.004', 'amount_exec' => '0', 'quote_amount_exec' => '0',
+                              'external_id' => 'OFOREIGN-2')
+      [venue_basket(venue, 'merged-w70-all_below', WEIGHTS['w70'], at: basket_first, quote_amount: tiny.fetch(venue), transactions: rows, merged: true, warn: true),
+       venue_basket(venue, 'unmerged-w70-all_below', WEIGHTS['w70'], at: basket_first, quote_amount: tiny.fetch(venue), transactions: rows, warn: true),
+       venue_basket(venue, 'merged-tiers-one_below', WEIGHTS['tiers'], at: basket_first, quote_amount: small.fetch(venue), transactions: foreign.(held.(WEIGHTS['tiers'])),
+                    merged: true, warn: true),
+       venue_basket(venue, 'merged-w70-foreign_waiting', WEIGHTS['w70'], at: basket_first, transactions: [rows[0], resting], merged: true, warn: true)]
+    end
   end
 
   LIMIT_STAMP = '2026-09-01T10:00:00.123Z' # Time#as_json of the bot's start, to the millisecond: when its limit was switched on
@@ -1806,10 +1837,11 @@ module Decisions
       list << venue_index(venue, 'category', 'all_below-market', at: first, quote_amount: all)
     end
     # Bots::DcaIndex does not include Bot::QuoteAmountLimitable: a stored cap (on, stamped, long spent) is never read; the tick buys.
+    # The engine reads it (D-IDX-CAP): it stops the bot instead (parity.rs pins both sides).
     %w[kraken binance].each do |venue|
       ranked = vi_ranked(venue, VI_L1)
       held = ranked.first(3).zip([30.0, 20.0, 10.0]).map { |sym, v| vi_held(venue, sym, v) }
-      list << venue_index(venue, 'category', 'spend_cap_ignored-market', at: day.(1), members: vi_steady(ranked), transactions: held,
+      list << venue_index(venue, 'category', 'spend_cap_applies-market', at: day.(1), members: vi_steady(ranked), transactions: held,
                           settings: { 'quote_amount_limited' => true, 'quote_amount_limit' => 10.0 },
                           transient: { 'quote_amount_limit_enabled_at' => '2026-08-01T00:00:00.000Z' })
     end
@@ -2418,7 +2450,7 @@ module Decisions
     end
     list << index_rebalance_scenario
     list.concat(cb_rebalance_scenarios, cb_index_rebalance_scenarios, hl_rebalance_scenarios)
-    list.tap { |l| raise "the rebalance grid has #{l.size} scenarios, not #{238 + 20}" unless l.size == 238 + 20 }
+    list.tap { |l| raise "the rebalance grid has #{l.size} scenarios, not #{238 + 20 + 3}" unless l.size == 238 + 20 + 3 }
   end
 
   # Plan CB T4: a stopped Layer 1 index bot on each crypto venue whose third member left the index (in_index false, still
@@ -2587,6 +2619,11 @@ module Decisions
                        'kucoin' => { "GET /api/v1/orders/#{cb_ext(venue, 7, 'BTC')}" => [kc_err(503, '500000', 'Internal Server Error')] } }
         states['takeover_proceeds_unknown'] = { 'fires' => 1, 'rows' => rows + [swap_row.(7, 'BTC', 'sell', 'closed', nil, nil, nil)],
                                                 'transient' => pending.('selling', sell: sell_id), 'http' => read_fails.fetch(venue) }
+        # Slice L: merged, 1 BTC of it bought on another venue, all of it free here: the sale takes only this venue's 0.01.
+        if w == 'w50'
+          states['merged_foreign'] = { 'fires' => 1, 'merged' => true, 'free' => qty.merge('BTC' => '1.01'),
+                                       'rows' => rows + [cb_held(venue, 9, 'BTC', '1.0', 'foreign' => true, 'external_id' => 'OFOREIGN-1')] }
+        end
         states['safe_rejection'] = { 'fires' => 1, 'http' => { cb_place_key(venue) => [safe.fetch(venue)] } } if safe.key?(venue)
         states['unknown_text'] = { 'fires' => 1, 'http' => { cb_place_key(venue) => [unknown.fetch(venue)] } } if unknown.key?(venue)
         # Fees: the owed buy is the sell's recorded proceeds (gross on Kraken and KuCoin, net of a Binance quote commission);
@@ -2606,13 +2643,13 @@ module Decisions
                                                                          buy.(2, 'cancelled', half, fee:, trades: [[ask.(b), half_qty, buy_c, buy_asset]])] }
         end
         states.map do |state, st|
-          http = cb_http(venue, qty, last: st.fetch('last', {}), unknown: st.fetch('unknown', []), quote: st.fetch('quote', '100000'))
+          http = cb_http(venue, st.fetch('free', qty), last: st.fetch('last', {}), unknown: st.fetch('unknown', []), quote: st.fetch('quote', '100000'))
                  .merge(cb_order_reads(venue, st.fetch('orders', [])), st.fetch('http', {}))
           { 'name' => "rebalance-#{venue}-#{w}-#{state}", 'venue' => venue, 'interval' => 'day', 'quote_amount' => 60.0, 'started_at' => BASKET_STARTED,
             'settings' => { 'rebalance_enabled' => true }.merge(st.fetch('settings', {})), 'settings_changed_at' => nil, 'transient' => st.fetch('transient', {}),
             'transactions' => st.fetch('rows', rows), 'ticker' => VENUE_PAIRS.fetch(venue)['BTC'], 'members' => weights, 'at' => fires.first,
             'script' => { CB_SCRIPT.fetch(venue) => http }, 'tick' => false, 'rebalance_at' => fires.first(st.fetch('fires')),
-            'tickers_after' => st['tickers_after'], 'bot_columns' => { 'status' => Bot.statuses[:stopped] } }
+            'tickers_after' => st['tickers_after'], 'bot_columns' => { 'status' => Bot.statuses[:stopped] } }.merge(st.slice('merged'))
         end
       end
     end
@@ -4483,7 +4520,7 @@ module Decisions
                                         'record_reads' => sc['record_reads'], 'resync_at' => sc['resync_at'], 'trigger' => sc['trigger'],
                                         # Bot::SignalJob's arguments: the rule (by its id) and when the call arrived.
                                         'signals' => sc['calls']&.map { |c| { 'signal_id' => bot.bot_signals.order(:id)[c['rule']].id, 'triggered_at' => c['triggered_at'] } },
-                                        'before_signal' => sc['before_signal'], 'secret' => sc['secret'],
+                                        'before_signal' => sc['before_signal'], 'secret' => sc['secret'], 'warn' => sc['warn'],
                                         # Bot::SmartIntervalable#smart_interval_minimum(:quote) as Rails computes it for the built bot.
                                         'rails_floor' => (sc['record_floor'] && bot.reload.smart_interval_minimum(:quote).then { |m| { 'value' => m[:value].to_f, 'reason' => m[:reason].to_s } }) }.compact))
       ActiveRecord::Base.connection_pool.disconnect!
@@ -4570,6 +4607,8 @@ module Decisions
     # Slice 7s: the status line's payload, captured while an info phase runs (otherwise the stub above).
     Bot.prepend(Module.new do
       def broadcast_replace_to(*streams, **opts)
+        # Slice L: the first tick's below-minimum warning (broadcast_below_minimums_warning), as how many rows it names.
+        return $warnings << (opts[:locals][:skipped_count] || 1) if $warnings && opts[:target] == 'modal'
         return super unless $info_broadcasts
 
         html = ApplicationController.render(partial: opts[:partial], locals: opts[:locals], formats: [:html])
@@ -4633,6 +4672,7 @@ module Decisions
         mails.concat(enqueued_mails)
         ActiveJob::Base.queue_adapter.enqueued_jobs.clear
       end
+      $warnings = sc['warn'] ? [] : nil
       if sc.fetch('tick', true)
         tick_at(sc, Time.iso8601(sc['at']), mails)
         checks.concat(limit_checks.())
@@ -4708,6 +4748,7 @@ module Decisions
       out = { 'sent' => sent, 'changes' => diff(before, snapshot), 'mails' => mails.sort_by { |m| m['mail'] } }
       out['checks'] = checks if sc['conditions']
       out['infos'] = infos if sc['info']
+      out['warned'] = $warnings.tap { $warnings = nil } if sc['warn']
       out.merge!('reads' => ScriptedAlpaca.reads, 'ath' => Bot.find(sc['bot_id']).tickers.first.slice('ath', 'ath_updated_at').transform_values { |v| v&.to_s }) if sc['record_reads']
       # Only where the scenario seeded the Rust engine's markers: what Rails left of them.
       out['markers'] = Bot.find(sc['bot_id']).transient_data.slice(*MAIL_MARKERS) if markers.any?

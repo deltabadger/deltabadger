@@ -109,5 +109,18 @@ pub fn r5_cleanup_expected(rails: &serde_json::Value, rust: &serde_json::Value) 
     }
     // A row whose only change was that flag is no change at all once it is kept.
     expected["changes"]["bots"].as_array_mut().unwrap().retain(|row| row["before"] != row["after"]);
+    sell_row_cadence_expected(&mut expected, rust);
     expected
+}
+
+/// D-SELL-ROW-CADENCE: a selling bot's new REGULAR sell row records the sell cadence and the sell amount; Rails writes the
+/// buy interval and buy quote_amount. Only those two columns of such a row are taken from Rust (tests/tick.rs pins their
+/// values); every other column and row is compared as Rails recorded it.
+fn sell_row_cadence_expected(expected: &mut serde_json::Value, rust: &serde_json::Value) {
+    let Some(ours) = rust["changes"]["transactions"].as_array() else { return };
+    let Some(theirs) = expected["changes"]["transactions"].as_array_mut() else { return };
+    for row in theirs.iter_mut().filter(|t| t["before"].is_null() && t["after"]["side"] == 1 && t["after"]["transaction_type"] == "REGULAR") {
+        let Some(mine) = ours.iter().find(|t| t["before"].is_null() && t["id"] == row["id"]) else { continue };
+        for column in ["bot_interval", "bot_quote_amount"] { row["after"][column] = mine["after"][column].clone(); }
+    }
 }

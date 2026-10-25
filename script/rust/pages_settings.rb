@@ -47,6 +47,14 @@ module Pages
     row
   end
 
+  IBKR_KEYS = JSON.parse(File.read(Rails.root.join('rust/tests/fixtures/ibkr_test_keys.json'))).freeze
+  IBKR_VERDICTS = JSON.parse(File.read(Rails.root.join('rust/tests/fixtures/ibkr_key_verdicts.json')))['ibkr'].freeze
+  IBKR_DH = IBKR_VERDICTS['dh_param']
+  # The access token an activation submits picks IBKR's answer (rust/tests/pages.rs mounts the same): the recorded mint and
+  # brokerage session of ibkr_key_verdicts.json's one_account case, then its accounts, or a brokerage session that fails.
+  IBKR_ACCOUNTS = { 'tok-pending' => { 'accounts' => [] }, 'tok-correct' => { 'accounts' => ['U1234567'], 'selectedAccount' => 'U1234567' } }.freeze
+  IBKR_FAILING = 'tok-failure'
+
   module SettingsGrid
     def scenarios
       super.merge(settings_scenarios)
@@ -75,6 +83,21 @@ module Pages
           key.update_columns(created_at: Time.utc(2026, 1, 1))
           AccountTransaction.create!(user: owner, exchange:, api_key: key, base_amount: 0.25, base_currency: 'BTC', entry_type: 0,
                                      transacted_at: Time.utc(2026, 9, 1))
+        end
+      when 'ibkr'
+        # The connect page (Settings::IbkrConnectionsController) over the one IBKR key 'ibkr_key' describes: the throwaway test
+        # material of rust/tests/fixtures/ibkr_test_keys.json with the ffdhe2048 group the recorded IBKR answers were made with.
+        exchange = Exchanges::Ibkr.create!(name: 'Interactive Brokers', maker_fee: 0, taker_fee: 0)
+        if (spec = scenario['ibkr_key'])
+          attrs = { user: owner, exchange:, key_type: :trading, status: spec.fetch('status', 'pending_validation') }
+          # 'generating': the row Rails' create leaves until Ibkr::GenerateConnectionKeysJob has run.
+          attrs.merge!(rsa_signature_key: IBKR_KEYS['signature_key'], rsa_encryption_key: IBKR_KEYS['encryption_key'], dh_param: IBKR_DH) unless spec['generating']
+          if spec['credentials']
+            attrs.merge!(key: IBKR_KEYS['consumer_key'], secret: IBKR_KEYS['access_token_secret'], access_token: IBKR_KEYS['access_token'],
+                         ibkr_realm: IBKR_KEYS['realm'])
+          end
+          key = ApiKey.create!(attrs)
+          key.update_columns(updated_at: Time.iso8601(spec['updated_at'])) if spec['updated_at']
         end
       when 'venues'
         # D5b: every venue the tracker's picker may list. Gemini is not available; BitMart is retired but still available.
@@ -127,10 +150,28 @@ module Pages
       WebMock.stub_request(:get, 'https://paper-api.alpaca.markets/v2/positions')
              .with(headers: { 'APCA-API-KEY-ID' => 'r9-unnamed-position' })
              .to_return(status: 200, body: '[{"asset_class":"us_equity","qty":"2"}]', headers: { 'Content-Type' => 'application/json' })
+      ibkr_stubs
       super
     ensure
       WebMock.reset!
       WebMock.disable!
+    end
+
+    # IBKR's side of an activation (ApiKey#validate_credentials! through Clients::Ibkr::Session): Rails' DH random fixed as
+    # record_key_verdicts.rb fixes it, so the recorded mint answer is the one that verifies.
+    def ibkr_stubs
+      dh_random = IBKR_VERDICTS['dh_random']
+      Clients::Ibkr::Oauth.singleton_class.prepend(Module.new { define_method(:dh_random) { dh_random } })
+      one = IBKR_VERDICTS['cases'].find { |c| c['case'] == 'one_account' }['responses']
+      answer = ->(recorded) { { status: recorded['status'], body: recorded['body'], headers: { 'Content-Type' => recorded['content_type'] } } }
+      WebMock.stub_request(:post, 'https://api.ibkr.com/v1/api/oauth/live_session_token').to_return(answer.(one[0]))
+      WebMock.stub_request(:post, 'https://api.ibkr.com/v1/api/iserver/auth/ssodh/init').to_return(answer.(one[1]))
+      WebMock.stub_request(:post, 'https://api.ibkr.com/v1/api/iserver/auth/ssodh/init')
+             .with(headers: { 'Authorization' => /oauth_token="#{IBKR_FAILING}"/ }).to_return(status: 500, body: '', headers: { 'Content-Type' => 'text/plain' })
+      IBKR_ACCOUNTS.each do |token, body|
+        WebMock.stub_request(:get, 'https://api.ibkr.com/v1/api/iserver/accounts').with(headers: { 'Authorization' => /oauth_token="#{token}"/ })
+               .to_return(status: 200, body: body.to_json, headers: { 'Content-Type' => 'application/json' })
+      end
     end
   end
   singleton_class.prepend(SettingsGrid)
@@ -295,17 +336,12 @@ module Pages
       grid["settings_configured_#{name}"] = settings_case(get('/settings/account'), user: user).merge('app_configs' => configs)
     end
     {
-      'stocks_paper' => { 'alpaca_api_key' => 'catalog-key-placeholder', 'alpaca_api_secret' => 'catalog-secret-placeholder',
-                          'alpaca_mode' => 'paper' },
-      'stocks_live' => { 'alpaca_api_key' => 'catalog-key-placeholder', 'alpaca_api_secret' => 'catalog-secret-placeholder',
-                         'alpaca_mode' => 'live' },
       'coingecko' => { 'market_data_provider' => 'coingecko', 'coingecko_api_key' => 'coingecko-key-placeholder' },
       'coingecko_dormant' => { 'coingecko_api_key' => 'coingecko-key-placeholder' },
       'platform_stale' => { 'market_data_provider' => 'deltabadger' }
     }.each do |name, configs|
       grid["settings_connection_state_#{name}"] = settings_case(get('/settings/connect')).merge('app_configs' => configs)
     end
-    grid['settings_connection_state_catalog'] = settings_case(get('/settings/connect')).merge('install' => 'alpaca', 'api_keys' => {})
     token = 'abcdefghijklmnopqrst'
     confirmation_user = owner('unconfirmed_email' => 'next@example.com', 'confirmation_token' => token,
                               'confirmation_sent_at' => '1926-01-01T00:00:00Z')
@@ -424,6 +460,7 @@ module Pages
     grid['settings_key_permissions_page'] = settings_case(get('/settings/api_key_permissions/1'), fixture: 'keys')
     grid['settings_key_delete'] = settings_case(settings_write('destroy_api_key/1', { '_method' => 'delete' }), fixture: 'keys')
     tracker_connect_scenarios(grid)
+    ibkr_connect_scenarios(grid)
     venue_key_scenarios(grid)
     preference_scenarios(grid)
     { 'nbsp' => "\u00a0", 'em_space' => "\u2003", 'nul' => "\0" }.each do |name, padding|
@@ -625,6 +662,53 @@ module Pages
     end
     grid['settings_venue_key_binance_unrestricted'] = on.(unrestricted.('trading', 422))
     grid['settings_venue_key_binance_read_only_unrestricted'] = on.(unrestricted.('read_only', 200))
+  end
+
+  # Plan IBKR I3: the IBKR connect page (Settings::IbkrConnectionsController) in each of its states, its downloads, the
+  # activation's answers, the hosted-only gate with its escape hatch for an existing key, and the disconnect that stops the
+  # bots trading on the key. An activation's access token picks IBKR's answer (IBKR_ACCOUNTS).
+  def self.ibkr_connect_scenarios(grid)
+    hosted = { 'env' => { 'MARKET_DATA_URL' => 'http://data-api.invalid' } }
+    page = get('/settings/ibkr_connect')
+    on = ->(*steps, key: nil, **attrs) { settings_case(*steps, fixture: 'ibkr').merge(key ? { 'ibkr_key' => key } : {}).merge(attrs.transform_keys(&:to_s)) }
+    waiting = { 'status' => 'pending_activation', 'credentials' => true }
+    form = lambda do |path, fields, opts = {}|
+      post(path, fields, { 'expect' => 302, 'settings_snapshot' => true }.merge(opts))
+    end
+    grid['settings_ibkr_gated'] = on.(page.merge('expect' => 302))
+    grid['settings_ibkr_gated_create'] = on.(form.('/settings/ibkr_connect', {}, 'csrf' => 'header'))
+    grid['settings_ibkr_none'] = on.(page, get('/de/settings/ibkr_connect'), **hosted)
+    grid['settings_ibkr_create'] = on.(page, post('/settings/ibkr_connect', {}, 'expect' => 302), **hosted)
+    # No page offers it over a key (the downloads page's form to this path deletes), so it is sent as a script would.
+    grid['settings_ibkr_create_again'] = on.(page, form.('/settings/ibkr_connect', {}, 'csrf' => 'header'), key: {})
+    grid['settings_ibkr_downloads'] = on.(page, get('/de/settings/ibkr_connect'), key: {})
+    %w[signing encryption dhparam].each do |artifact|
+      grid["settings_ibkr_download_#{artifact}"] =
+        on.(get("/settings/ibkr_connect/download?artifact=#{artifact}").merge('headers_extra' => %w[content-disposition]), key: {})
+    end
+    grid['settings_ibkr_download_unknown'] = on.(get('/settings/ibkr_connect/download?artifact=private').merge('expect' => 302), key: {})
+    grid['settings_ibkr_download_no_key'] = on.(get('/settings/ibkr_connect/download?artifact=signing').merge('expect' => 302), **hosted)
+    grid['settings_ibkr_pending'] = on.(page, key: waiting.merge('updated_at' => '2026-09-08T12:00:00Z'))
+    grid['settings_ibkr_stalled'] = on.(page, key: waiting.merge('updated_at' => '2026-08-20T09:30:00Z'))
+    grid['settings_ibkr_connected'] = on.(page, key: { 'status' => 'correct', 'credentials' => true })
+    # D-IBKR-RECONNECT: a key Rails' create left without its RSA keys (its job not run) offers Disconnect only.
+    grid['settings_ibkr_reconnect_generating'] = on.(page, key: { 'generating' => true })
+    activate = lambda do |token, secret = IBKR_KEYS['access_token_secret']|
+      form.('/settings/ibkr_connect/activate', { 'api_key[key]' => IBKR_KEYS['consumer_key'], 'api_key[access_token]' => token, 'api_key[secret]' => secret })
+    end
+    grid['settings_ibkr_activate_missing'] = on.(page, activate.('', 'filled'), page, key: {})
+    grid['settings_ibkr_activate_pending'] = on.(page, activate.('tok-pending'), page, key: {})
+    grid['settings_ibkr_activate_correct'] = on.(page, activate.('tok-correct'), page, key: {})
+    grid['settings_ibkr_activate_failure'] = on.(page, activate.(IBKR_FAILING), page, key: {})
+    grid['settings_ibkr_activate_resubmit'] = on.(page, activate.('tok-pending'), page, key: waiting.merge('updated_at' => '2026-08-20T09:30:00Z'))
+    grid['settings_ibkr_activate_no_key'] = on.(form.('/settings/ibkr_connect/activate', { 'api_key[key]' => 'x' }, 'csrf' => 'header'), **hosted)
+    grid['settings_ibkr_destroy'] = on.(page, form.('/settings/ibkr_connect', { '_method' => 'delete' }), page.merge('expect' => 302), key: {})
+    grid['settings_ibkr_destroy_hosted'] = on.(page, form.('/settings/ibkr_connect', { '_method' => 'delete' }), page, key: {}, **hosted)
+    # The bots on the key's venue stop with it; a bot on another venue keeps working.
+    grid['settings_ibkr_destroy_bots'] =
+      settings_case(form.('/settings/ibkr_connect', { '_method' => 'delete' }, 'csrf' => 'header', 'may_mutate' => %w[bots]))
+      .merge('install' => 'alpaca', 'typed_stocks' => true, 'api_keys' => { 'alpaca' => 'correct', 'ibkr' => 'correct' },
+             'bots' => [running('single', '2026-09-08T13:30:00Z', 'exchange' => 'Interactive Brokers'), running('single', '2026-09-08T13:30:00Z')])
   end
 
   # D5b: the tracker's "connect an exchange" flow (Tracker::PickExchangesController, Tracker::AddApiKeysController).

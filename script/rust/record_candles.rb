@@ -1,12 +1,15 @@
 # Records Exchange#get_indicator_candles (the candle read the conditions use) for rust/tests/candles.rs: the candles
 # Rails returns (time ISO8601, then open, high, low, close and volume as to_s('F')), its Failure's errors, or what it
-# raised, and every request it made, in order.
+# raised, and every request it made, in order. Every case runs at NOW (travel_to): Binance's walk ends against
+# `timeframe.ago`.
 #   bin/rails runner script/rust/record_candles.rb kraken rust/tests/fixtures/kraken_candles.json
+#   (binance, binance_us and alpaca likewise)
 # Each case's bodies are served at the Faraday adapter beneath honeymaker, so its middleware, #with_rescue and the
 # exchange's own parsing and CandleBuilder all run. Nothing leaves the machine. Re-run (script/rust/repin) when a file
 # under "sources" changes. One venue per fixture; later venues add a section below.
 require 'json'
 require 'digest'
+require 'active_support/testing/time_helpers'
 
 class Unscripted < Exception; end # rubocop:disable Lint/InheritException
 
@@ -49,7 +52,9 @@ def network(kind) = [{ 'network' => kind, 'message' => kind }]
 
 TIMEFRAMES = { '1m' => 1.minute, '5m' => 5.minutes, '15m' => 15.minutes, '30m' => 30.minutes, '1h' => 1.hour, '4h' => 4.hours,
                '1d' => 1.day, '3d' => 3.days, '1w' => 1.week, '1M' => 1.month }.freeze
-TickerStub = Struct.new(:ticker)
+TickerStub = Struct.new(:ticker, :base, :base_asset)
+AssetStub = Struct.new(:category)
+NOW = Time.utc(2026, 9, 2, 10, 0, 1)
 
 # ---- Kraken: one OHLC read since a second before the start; rows from that second on; 3d/1w/1M built from daily.
 KR_PAIR = 'XXBTZEUR'.freeze
@@ -155,17 +160,215 @@ row = ->(**over) { r = kr_row(now_h, 0); over.each { |i, v| r[i.to_s.delete('f')
 end
 kraken << ['row_not_an_array', '1h', start, { k.call => ok(kr_body(['x'])) }]
 
-cases_by_venue = { 'kraken' => [Exchanges::Kraken.new(name: 'Kraken'), kraken, TickerStub.new(KR_PAIR)] }
-sources = { 'kraken' => %w[app/models/exchanges/kraken.rb] }
+# ---- Binance (Binance.US runs the same #get_candles at its own host): pages of up to 1000 klines from startTime (ms,
+# the start's whole seconds); the next page starts a second after the last candle; the walk ends at an empty page or at
+# a last candle that opened after `timeframe.ago` (a calendar month for 1M). Nothing is filtered or built.
+BN_SYMBOL = 'BTCUSDT'.freeze
+def bn_key(tf, start_s) = "GET /api/v3/klines?interval=#{tf}&limit=1000&startTime=#{start_s * 1000}&symbol=#{BN_SYMBOL}&timeZone=0"
+# [open time, open, high, low, close, volume, close time, quote volume, trades, taker base, taker quote, ignore]
+def bn_row(ms, i)
+  [ms, "#{64_000 + (i * 37 % 101)}.50000000", "#{64_200 + (i * 53 % 97)}.25000000", "#{63_800 - (i * 29 % 89)}.12500000",
+   "#{64_000 + (i * 71 % 103)}.75000000", "#{(i % 5) + 1}.00010000", ms + 59_999, '64001.10000000', 10 + i, '0.5', '32000.1', '0']
+end
+def bn_rows(times) = times.each_with_index.map { |at, i| bn_row(at * 1000, i) }
+
+binance = []
+bn_start = start.to_i
+minute = bn_start - (bn_start % 60)
+TIMEFRAMES.each do |tf, duration|
+  step = duration.to_i
+  # Forty candles, the last the one forming at the start: past `timeframe.ago`, so one page.
+  times = (0...40).map { |i| minute - ((39 - i) * step) }
+  binance << ["#{tf}_normal", tf, start, { bn_key(tf, bn_start) => ok(bn_rows(times)) }]
+  binance << ["#{tf}_gap", tf, start, { bn_key(tf, bn_start) => ok(bn_rows(times.values_at(0..9, 11..20, 22..39))) }]
+  binance << ["#{tf}_empty", tf, start, { bn_key(tf, bn_start) => ok([]) }]
+  binance << ["#{tf}_http_500", tf, start, { bn_key(tf, bn_start) => status(500, 'upstream failed') }]
+end
+
+# Paging: a page whose last candle opened at or before `timeframe.ago` asks again from a second after it.
+deep = Time.utc(2026, 8, 1)
+h = ->(*hours) { hours.map { |n| deep.to_i + (n * 3600) } }
+binance << ['1h_two_pages', '1h', deep, { bn_key('1h', deep.to_i) => ok(bn_rows(h.call(0, 1, 2))),
+                                          bn_key('1h', h.call(2)[0] + 1) => ok(bn_rows(h.call(3, 4) + [minute])) }]
+binance << ['1h_three_pages', '1h', deep, { bn_key('1h', deep.to_i) => ok(bn_rows(h.call(0, 1))),
+                                            bn_key('1h', h.call(1)[0] + 1) => ok(bn_rows(h.call(2, 3))),
+                                            bn_key('1h', h.call(3)[0] + 1) => ok(bn_rows([minute])) }]
+binance << ['1h_page_then_empty', '1h', deep, { bn_key('1h', deep.to_i) => ok(bn_rows(h.call(0, 1))),
+                                                bn_key('1h', h.call(1)[0] + 1) => ok([]) }]
+binance << ['1h_page_then_500', '1h', deep, { bn_key('1h', deep.to_i) => ok(bn_rows(h.call(0, 1))),
+                                              bn_key('1h', h.call(1)[0] + 1) => status(500, '') }]
+binance << ['1h_page_then_error', '1h', deep, { bn_key('1h', deep.to_i) => ok(bn_rows(h.call(0, 1))),
+                                                bn_key('1h', h.call(1)[0] + 1) => status(400, { 'code' => -1121, 'msg' => 'Invalid symbol.' }) }]
+# A page out of order: the next start follows the LAST row, not the latest.
+binance << ['1h_page_unsorted', '1h', deep, { bn_key('1h', deep.to_i) => ok(bn_rows(h.call(5, 0))),
+                                              bn_key('1h', h.call(0)[0] + 1) => ok(bn_rows([minute])) }]
+# A start with a fraction asks from its whole second.
+binance << ['1h_fractional_start', '1h', Time.utc(2026, 8, 1, 0, 0, 0.75r), { bn_key('1h', deep.to_i) => ok(bn_rows([minute])) }]
+# The cutoff in milliseconds: a last candle opening exactly at `1.day.ago` (whole seconds, times 1000) pages on; a
+# millisecond later ends the walk. Its time is read in whole seconds.
+cut = (NOW - 1.day).to_i
+binance << ['1d_last_at_the_cutoff_pages_on', '1d', deep, { bn_key('1d', deep.to_i) => ok([bn_row(cut * 1000, 0)]),
+                                                           bn_key('1d', cut + 1) => ok([]) }]
+binance << ['1d_last_a_millisecond_past_the_cutoff_ends', '1d', deep, { bn_key('1d', deep.to_i) => ok([bn_row((cut * 1000) + 1, 0)]) }]
+binance << ['1d_millisecond_times', '1d', deep, { bn_key('1d', deep.to_i) => ok([bn_row((minute * 1000) + 999, 0)]) }]
+# 1.month.ago is a calendar month (2026-08-02T10:00:01Z), not 30.44 days.
+binance << ['1M_cutoff_is_a_calendar_month_ends', '1M', deep, { bn_key('1M', deep.to_i) => ok(bn_rows([Time.utc(2026, 8, 2, 12).to_i])) }]
+binance << ['1M_cutoff_is_a_calendar_month_pages_on', '1M', deep,
+            { bn_key('1M', deep.to_i) => ok(bn_rows([Time.utc(2026, 8, 2, 10).to_i])), bn_key('1M', Time.utc(2026, 8, 2, 10).to_i + 1) => ok([]) }]
+binance << ['1w_cutoff_seven_days', '1w', deep, { bn_key('1w', deep.to_i) => ok(bn_rows([(NOW - 7.days).to_i])),
+                                                  bn_key('1w', (NOW - 7.days).to_i + 1) => ok([]) }]
+
+# Failures and unreadable answers.
+b = ->(tf = '1h') { bn_key(tf, bn_start) }
+binance << ['error_invalid_symbol', '1h', start, { b.call => status(400, { 'code' => -1121, 'msg' => 'Invalid symbol.' }) }]
+binance << ['error_blank_msg', '1h', start, { b.call => status(400, { 'code' => -1, 'msg' => '' }) }]
+binance << ['error_no_msg', '1h', start, { b.call => status(400, { 'code' => -1 }) }]
+binance << ['error_invalid_interval', '1h', start, { b.call => status(400, { 'code' => -1120, 'msg' => 'Invalid interval.' }) }]
+binance << ['http_500_empty', '1h', start, { b.call => status(500, '') }]
+binance << ['http_502', '1h', start, { b.call => status(502, '<html>bad gateway</html>') }]
+binance << ['http_401', '1h', start, { b.call => status(401, { 'code' => -2015, 'msg' => 'Invalid API-key, IP, or permissions for action.' }) }]
+binance << ['http_403', '1h', start, { b.call => status(403, '') }]
+binance << ['http_418', '1h', start, { b.call => status(418, { 'code' => -1003, 'msg' => 'Way too many requests; IP banned.' }) }]
+binance << ['http_429', '1h', start, { b.call => status(429, { 'code' => -1003, 'msg' => 'Too many requests.' }) }]
+binance << ['not_json', '1h', start, { b.call => ok('<html>') }]
+binance << ['json_object', '1h', start, { b.call => ok({ 'code' => 0, 'msg' => 'ok' }) }]
+binance << ['transport_pre_send', '1h', start, { b.call => network('pre_send') }]
+binance << ['transport_timeout', '1h', start, { b.call => network('post_send') }]
+
+# Numbers as Rails reads them (`to_d`); every row opens at the start's minute, so one page.
+brow = ->(**over) { r = bn_row(minute * 1000, 0); over.each { |i, v| r[i.to_s.delete('f').to_i] = v }; r }
+{ 'numbers_as_json_numbers' => brow.call(f1: 64_000.5, f2: 64_100, f3: 63_900.25, f4: 64_050, f5: 2.5),
+  'float_digits' => brow.call(f1: 1.2345678901234567, f5: 1e-07),
+  'many_digits' => brow.call(f1: '64000.123456789012345678901234567890', f5: '0.00000001'),
+  'exponent_strings' => brow.call(f1: '6.4e4', f2: '6.41E4', f3: '6.39e4', f4: '6.4e4', f5: '1e-3'),
+  'open_null' => brow.call(f1: nil),
+  'open_word' => brow.call(f1: 'x'),
+  'close_blank' => brow.call(f4: ''),
+  'volume_null' => brow.call(f5: nil),
+  'short_row' => [minute * 1000, '1', '2', '0.5', '1.5'],
+  'time_string' => brow.call(f0: (minute * 1000).to_s),
+  'time_float' => brow.call(f0: (minute * 1000) + 0.5),
+  'time_null' => brow.call(f0: nil) }.each do |name, r|
+  binance << ["row_#{name}", '1h', start, { b.call => ok([r]) }]
+end
+binance << ['row_not_an_array', '1h', start, { b.call => ok(['x']) }]
+
+# Binance.US: the same method at its own host (its failures name it).
+BINANCE_US_CASES = %w[1d_normal 1M_normal 1h_two_pages 1h_page_then_500 error_invalid_symbol http_500_empty http_429 not_json
+                      transport_pre_send row_open_null].freeze
+binance_us = binance.select { |c| BINANCE_US_CASES.include?(c[0]) }
+
+# ---- Alpaca: one bars read (Clients::Alpaca#each_bars_page: limit 10000, every `next_page_token` followed), crypto by
+# its pair under `symbols`, a stock by its code in the path with adjustment=split (#get_indicator_candles); 3 days are
+# daily bars built.
+AL_CRYPTO = { 'ticker' => 'BTC/USD', 'base' => 'BTC', 'crypto' => true }.freeze
+AL_STOCK = { 'ticker' => 'AAPL', 'base' => 'AAPL', 'crypto' => false }.freeze
+AL_TF = { '1m' => '1Min', '5m' => '5Min', '15m' => '15Min', '30m' => '30Min', '1h' => '1Hour', '4h' => '4Hour', '1d' => '1Day',
+          '3d' => '1Day', '1w' => '1Week', '1M' => '1Month' }.freeze
+def al_key(t, tf, start_at, token = nil)
+  q = { 'limit' => '10000', 'start' => start_at.iso8601, 'timeframe' => AL_TF.fetch(tf), 'page_token' => token }.compact
+  path = if t['crypto']
+           q['symbols'] = t['ticker']
+           '/v1beta3/crypto/us/bars'
+         else
+           q['adjustment'] = 'split'
+           "/v2/stocks/#{t['base']}/bars"
+         end
+  "GET #{path}?#{q.sort.map { |k, v| "#{k}=#{v}" }.join('&')}"
+end
+# Alpaca sends numbers.
+def al_bar(at, i)
+  { 't' => Time.at(at).utc.iso8601, 'o' => 64_000.5 + (i * 37 % 101), 'h' => 64_200.25 + (i * 53 % 97), 'l' => 63_800.125 - (i * 29 % 89),
+    'c' => 64_000.75 + (i * 71 % 103), 'v' => 0.0123 + i, 'n' => 10 + i, 'vw' => 64_001.1 }
+end
+def al_bars(times) = times.each_with_index.map { |at, i| al_bar(at, i) }
+def al_body(t, bars, token = nil)
+  t['crypto'] ? { 'bars' => { t['ticker'] => bars }, 'next_page_token' => token } : { 'bars' => bars, 'symbol' => t['base'], 'next_page_token' => token }
+end
+
+alpaca = []
+[['crypto', AL_CRYPTO], ['stock', AL_STOCK]].each do |kind, t|
+  TIMEFRAMES.each do |tf, duration|
+    step = tf == '3d' ? 86_400 : duration.to_i
+    times = (0...40).map { |i| minute - ((39 - i) * step) }
+    alpaca << ["#{kind}_#{tf}_normal", tf, start, { al_key(t, tf, start) => ok(al_body(t, al_bars(times))) }, t]
+    alpaca << ["#{kind}_#{tf}_empty", tf, start, { al_key(t, tf, start) => ok(al_body(t, [])) }, t]
+    alpaca << ["#{kind}_#{tf}_http_500", tf, start, { al_key(t, tf, start) => status(500, '') }, t]
+  end
+  # 3 days from daily bars, epoch-aligned; a group before the first bar is dropped.
+  [Time.utc(2026, 7, 1), Time.utc(2026, 7, 2)].each do |from|
+    alpaca << ["#{kind}_3d_built_from_#{from.strftime('%Y%m%d')}", '3d', from,
+               { al_key(t, '3d', from) => ok(al_body(t, al_bars((0...20).map { |i| from.to_i + (i * 86_400) }))) }, t]
+  end
+  # Pages joined in order; a blank token ends the walk.
+  alpaca << ["#{kind}_two_pages", '1d', deep, { al_key(t, '1d', deep) => ok(al_body(t, al_bars([deep.to_i, deep.to_i + 86_400]), 'p2')),
+                                                 al_key(t, '1d', deep, 'p2') => ok(al_body(t, al_bars([deep.to_i + 172_800]))) }, t]
+  alpaca << ["#{kind}_three_pages_3d_built", '3d', deep,
+             { al_key(t, '3d', deep) => ok(al_body(t, al_bars([deep.to_i, deep.to_i + 86_400]), 'p2')),
+               al_key(t, '3d', deep, 'p2') => ok(al_body(t, al_bars([deep.to_i + 172_800, deep.to_i + 259_200]), 'p3')),
+               al_key(t, '3d', deep, 'p3') => ok(al_body(t, al_bars([deep.to_i + 345_600]), '')) }, t]
+  alpaca << ["#{kind}_empty_page_with_token", '1d', deep, { al_key(t, '1d', deep) => ok(al_body(t, [], 'p2')),
+                                                             al_key(t, '1d', deep, 'p2') => ok(al_body(t, al_bars([deep.to_i]))) }, t]
+  alpaca << ["#{kind}_page_then_500", '1d', deep, { al_key(t, '1d', deep) => ok(al_body(t, al_bars([deep.to_i]), 'p2')),
+                                                     al_key(t, '1d', deep, 'p2') => status(500, { 'message' => 'internal error' }) }, t]
+  alpaca << ["#{kind}_bars_null", '1d', start, { al_key(t, '1d', start) => ok(t['crypto'] ? { 'bars' => { t['ticker'] => nil } } : { 'bars' => nil }) }, t]
+  alpaca << ["#{kind}_bars_missing", '1d', start, { al_key(t, '1d', start) => ok({ 'next_page_token' => nil }) }, t]
+  alpaca << ["#{kind}_transport_pre_send", '1d', start, { al_key(t, '1d', start) => network('pre_send') }, t]
+  alpaca << ["#{kind}_transport_timeout", '1d', start, { al_key(t, '1d', start) => network('post_send') }, t]
+  alpaca << ["#{kind}_http_404", '1d', start, { al_key(t, '1d', start) => status(404, { 'message' => 'not found' }) }, t]
+end
+
+c = ->(tf = '1h') { al_key(AL_CRYPTO, tf, start) }
+crypto_case = ->(name, reply) { alpaca << ["crypto_#{name}", '1h', start, { c.call => reply }, AL_CRYPTO] }
+crypto_case.call('other_symbol_only', ok({ 'bars' => { 'ETH/USD' => al_bars([minute]) }, 'next_page_token' => nil }))
+crypto_case.call('error_invalid_symbol', status(400, { 'message' => 'invalid symbol: BTC/USD' }))
+crypto_case.call('error_unprocessable', status(422, { 'code' => 42_210_000, 'message' => 'invalid start' }))
+crypto_case.call('http_401', status(401, { 'message' => 'unauthorized.' }))
+crypto_case.call('http_403', status(403, { 'message' => 'forbidden.' }))
+crypto_case.call('http_429', status(429, { 'message' => 'too many requests.' }))
+crypto_case.call('http_500_text', status(500, 'upstream failed'))
+crypto_case.call('http_502', status(502, '<html>bad gateway</html>'))
+crypto_case.call('not_json', ok('<html>'))
+crypto_case.call('json_array', ok([1, 2]))
+
+bar = ->(**over) { al_bar(minute, 0).merge(over.transform_keys(&:to_s)) }
+{ 'numbers_as_strings' => bar.call(o: '64000.5', h: '64100', l: '63900.25', c: '64050', v: '2.5'),
+  'exponent_numbers' => bar.call(o: 6.4e4, v: 1e-07),
+  'open_null' => bar.call(o: nil),
+  'open_word' => bar.call(o: 'x'),
+  'close_blank' => bar.call(c: ''),
+  'volume_null' => bar.call(v: nil),
+  'volume_missing' => al_bar(minute, 0).except('v'),
+  'time_fraction' => bar.call(t: '2026-09-02T10:00:00.5Z'),
+  'time_offset' => bar.call(t: '2026-09-02T12:00:00+02:00'),
+  'time_null' => bar.call(t: nil),
+  'time_word' => bar.call(t: 'soon'),
+  'not_an_object' => 'x' }.each do |name, r|
+  crypto_case.call("bar_#{name}", ok(al_body(AL_CRYPTO, [r])))
+end
+crypto_case.call('bars_not_an_array', ok({ 'bars' => { AL_CRYPTO['ticker'] => 'x' } }))
+alpaca << ['stock_bars_not_an_array', '1h', start, { al_key(AL_STOCK, '1h', start) => ok({ 'bars' => 'x' }) }, AL_STOCK]
+
+stub = ->(t) { TickerStub.new(t['ticker'], t['base'], AssetStub.new(t['crypto'] ? 'Cryptocurrency' : 'Stock')) }
+cases_by_venue = { 'kraken' => [Exchanges::Kraken.new(name: 'Kraken'), kraken, TickerStub.new(KR_PAIR)],
+                   'binance' => [Exchanges::Binance.new(name: 'Binance'), binance, TickerStub.new(BN_SYMBOL)],
+                   'binance_us' => [Exchanges::BinanceUs.new(name: 'Binance.US'), binance_us, TickerStub.new(BN_SYMBOL)],
+                   'alpaca' => [Exchanges::Alpaca.new(name: 'Alpaca'), alpaca, nil] }
+sources = { 'kraken' => %w[app/models/exchanges/kraken.rb], 'binance' => %w[app/models/exchanges/binance.rb],
+            'binance_us' => %w[app/models/exchanges/binance.rb app/models/exchanges/binance_us.rb],
+            'alpaca' => %w[app/models/exchanges/alpaca.rb app/models/clients/alpaca.rb app/models/client.rb] }
 
 venue = ARGV.fetch(0)
 exchange, list, ticker = cases_by_venue.fetch(venue)
-cases = list.map do |name, tf, start_at, http|
+extend ActiveSupport::Testing::TimeHelpers
+cases = list.map do |name, tf, start_at, http, case_ticker|
   Rails.cache.clear
   ScriptedCandles.http = http.transform_values { |replies| replies.map(&:dup) }
   ScriptedCandles.requests = []
   answer = begin
-    result = exchange.get_indicator_candles(ticker:, start_at:, timeframe: TIMEFRAMES.fetch(tf))
+    result = travel_to(NOW) do
+      exchange.get_indicator_candles(ticker: case_ticker ? stub.call(case_ticker) : ticker, start_at:, timeframe: TIMEFRAMES.fetch(tf))
+    end
     if result.success?
       { 'candles' => result.data.map { |c| [c[0].utc.iso8601(6), *c[1..].map { |v| v.is_a?(BigDecimal) ? v.to_s('F') : "#{v.class}:#{v}" }] } }
     else
@@ -174,8 +377,8 @@ cases = list.map do |name, tf, start_at, http|
   rescue StandardError => e
     { 'raised' => e.class.name, 'message' => e.message }
   end
-  { 'venue' => venue, 'name' => name, 'timeframe' => tf, 'start_at' => start_at.utc.iso8601(6), 'http' => http,
-    'requests' => ScriptedCandles.requests }.merge(answer)
+  { 'venue' => venue, 'name' => name, 'timeframe' => tf, 'start_at' => start_at.utc.iso8601(6), 'now' => NOW.iso8601(6),
+    'ticker' => case_ticker, 'http' => http, 'requests' => ScriptedCandles.requests }.compact.merge(answer)
 ensure
   ScriptedCandles.http = nil
 end

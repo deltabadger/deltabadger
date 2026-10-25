@@ -928,7 +928,7 @@ async fn rails_and_rust_decide_identically_across_the_basket_sell_grid() {
 /// member unpriced, so nothing is due, where Rails' String#to_d values it at 0 or 12 and sells on the drift that makes.
 #[tokio::test(flavor = "current_thread")]
 async fn rails_and_rust_rebalance_identically() {
-    let (_copies, outputs) = grid_outputs("grid-rebalance", 238 + 20).await;
+    let (_copies, outputs) = grid_outputs("grid-rebalance", 238 + 20 + 3).await;
     let unknown = ["-post_send", "-server_error", "-no_order_id", "-unknown_text"];
     let diverges = |name: &str| name.ends_with("-unreadable_price") && (name.contains("-binance-") || name.contains("-kucoin-"));
     let mut failures = vec![];
@@ -1013,7 +1013,7 @@ async fn rails_and_rust_rebalance_identically() {
             // Binance stores an id-less answer as "BTCUSDT-" and waits on it; elsewhere Rails halts.
             "no_order_id" if name.contains("-binance-") => serde_json::json!("selling"),
             "no_order_id" => serde_json::json!("ambiguous"),
-            "resting_sell" | "open_buy_stale" | "below_drift" | "exited_member" => serde_json::json!("selling"),
+            "resting_sell" | "open_buy_stale" | "below_drift" | "exited_member" | "merged_foreign" => serde_json::json!("selling"),
             _ => serde_json::json!("buying"),
         };
         if left != want { pins.push(format!("{name}: phase {left}, pinned {want}")); }
@@ -1633,6 +1633,8 @@ async fn rails_and_rust_decide_identically_across_the_amount_limit_grid() {
         let rust_out = &rust_out;
         let listed = if name.ends_with("-guard-trim") {
             Some(guard_trimmed(name, &rails_out, rust_out))
+        } else if name.starts_with("limit-under_minimum-") || name == "limit-state-under_floor" {
+            Some(remainder_stop(&rails_out, rust_out))
         } else if name == "limit-ambiguous_overspend" {
             Some(overspend_prevented(dir, &rails_out, rust_out, reference(name)))
         } else if name.ends_with("-landed") {
@@ -2033,6 +2035,8 @@ async fn rails_and_rust_decide_identically_across_the_venue_index_grid() -> Resu
     for (name, _dir, rails_out, rust_out) in &outputs {
         if KRAKEN_LIMIT_COSTMIN.contains(&name.as_str()) {
             if let Err(e) = kraken_limit_under_costmin(rails_out, rust_out) { failures.push(format!("{name} (listed divergence D-KRAKEN-LIMIT-COSTMIN): {e}")); }
+        } else if name.contains("spend_cap_applies") {
+            if let Err(e) = index_cap_applies(rust_out) { failures.push(format!("{name} (listed divergence D-IDX-CAP): {e}\n  rust: {rust_out}")); }
         } else if rails_out != rust_out { failures.push(format!("{name}\n  rails: {rails_out}\n  rust:  {rust_out}")); }
         // Pinned on Rails' side, so that two silent engines cannot pass: what each case names really happened there.
         let sent: Vec<String> = rails_out["sent"].as_array().ok_or("sent")?.iter()
@@ -2068,13 +2072,38 @@ async fn rails_and_rust_decide_identically_across_the_venue_index_grid() -> Resu
             checks.push(pinned(exited && seated == 3 && sent == ["BTC-USDT", "ETH-USDT", "ADA-USDT"], "reseat the members on the new venue and buy them"));
         }
         // A stored spending cap on an index bot is inert in Rails: it buys though the cap is long spent.
-        if name.contains("spend_cap_ignored") { checks.push(pinned(!sent.is_empty(), "buy past a spent cap it never reads")); }
+        if name.contains("spend_cap_applies") { checks.push(pinned(!sent.is_empty(), "buy past a spent cap it never reads")); }
         if name.ends_with("closed_resync") { checks.push(pinned(sent.is_empty() && seated == 3, "resync with the market closed")); }
         // The resync's failure kinds: its newcomer probes are the tick's first reads, so the tick buys after each of them.
         if name.contains("_at_resync") && !name.contains("unpriced") { checks.push(pinned(!sent.is_empty() && seated >= 2, "buy at the tick after the failed resync")); }
         failures.extend(checks.into_iter().filter_map(Result::err));
     }
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), outputs.len(), failures.join("\n"));
+    Ok(())
+}
+
+/// D-CAP-REMAINDER-STOP: a binding cap whose whole remainder sizes to no placeable leg. Rails skips the leg and keeps the bot
+/// running (its reached test is the precision floor); the engine writes the same skipped rows and Rails' lines, then the
+/// amount-limit stop: one `stopped` line, the bot stopped, the amount-limit mail. Neither side sends an order.
+fn remainder_stop(rails_out: &serde_json::Value, rust_out: &serde_json::Value) -> Result<(), String> {
+    if !rails_out["sent"].as_array().is_some_and(Vec::is_empty) || !rust_out["sent"].as_array().is_some_and(Vec::is_empty) { return Err("an order was sent".into()); }
+    if rails_out["changes"]["transactions"] != rust_out["changes"]["transactions"] { return Err("the skipped rows differ".into()); }
+    let events = |out: &serde_json::Value| -> Vec<String> { out["changes"]["bot_activity_logs"].as_array().into_iter().flatten().map(|l| l["after"]["event"].as_str().unwrap_or("").to_string()).collect() };
+    let (rails, rust) = (events(rails_out), events(rust_out));
+    if rails.contains(&"stopped".to_string()) { return Err("Rails stopped".into()); }
+    let without: Vec<String> = rust.iter().filter(|e| *e != "stopped").cloned().collect();
+    if rust.iter().filter(|e| *e == "stopped").count() != 1 || !rails.iter().all(|e| without.contains(e)) { return Err(format!("lines: rails {rails:?}, rust {rust:?}")); }
+    let stopped = rust_out["changes"]["bots"].as_array().into_iter().flatten().any(|b| b["after"]["status"] == 2 && b["after"]["stop_message_key"] == deltabadger::engine::tick::AMOUNT_SPENT);
+    if !stopped { return Err("the bot is not stopped with the amount-limit key".into()); }
+    if !rust_out["mails"].as_array().is_some_and(|m| m.iter().any(|m| m["mail"] == "stopped_by_amount_limit")) { return Err("no amount-limit mail".into()); }
+    Ok(())
+}
+
+/// D-IDX-CAP: the engine reads an index bot's spending cap. Spent long ago (60 bought since it was switched on, cap 10), the
+/// tick's amount is cut to nothing left: no order, no row (set_orders' `amount.zero?`), where Rails, never reading the cap, buys.
+fn index_cap_applies(rust_out: &serde_json::Value) -> Result<(), String> {
+    if !rust_out["sent"].as_array().is_some_and(Vec::is_empty) { return Err("the engine sent an order past the cap".into()); }
+    if !rust_out["changes"]["transactions"].as_array().is_some_and(Vec::is_empty) { return Err("the engine wrote an order row".into()); }
     Ok(())
 }
 

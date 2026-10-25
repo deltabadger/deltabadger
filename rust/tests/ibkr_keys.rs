@@ -274,6 +274,7 @@ fn a_bot_belongs_to_one_account_and_a_reconnect_to_another_account_refuses_it() 
     ibkr_account::bind(&fx.c, &fx.cipher, fx.s.api_key_id, "U1234567", now).unwrap().unwrap();
     assert_eq!(ibkr_account::check_bot_account(&fx.c, &fx.cipher, old_bot).unwrap(), Ok(()));
     ibkr_account::assign_bot_account(&fx.c, old_bot, now).unwrap();
+    assert_eq!(ibkr_account::bot_account(&fx.c, &fx.cipher, old_bot).unwrap(), Ok("U1234567".into()), "reads and cancels go to the bound account");
     let a_ref = ibkr_account::binding(&fx.c, fx.s.api_key_id).unwrap().unwrap().account_ref;
     // Delete A (its binding goes) and connect B with the same holdings: a fresh binding, another namespace.
     ibkr_account::forget(&fx.c, fx.s.api_key_id).unwrap();
@@ -288,6 +289,7 @@ fn a_bot_belongs_to_one_account_and_a_reconnect_to_another_account_refuses_it() 
     // The old bot is refused; its ownership never changes.
     let refused = ibkr_account::check_bot_account(&fx.c, &fx.cipher, old_bot).unwrap().unwrap_err();
     assert!(refused.starts_with("This bot belongs to IBKR account U1234567"), "{refused}");
+    assert_eq!(ibkr_account::bot_account(&fx.c, &fx.cipher, old_bot).unwrap(), Err(refused.clone()), "no read or cancel for the old bot");
     ibkr_account::assign_bot_account(&fx.c, old_bot, now).unwrap();
     assert_eq!(fx.c.query_row("SELECT account_ref FROM ibkr_bot_accounts WHERE bot_id = ?1", [old_bot], |r| r.get::<_, String>(0)).unwrap(), a_ref);
     assert!(fx.c.execute("UPDATE ibkr_bot_accounts SET account_ref = ?1", [&b_ref]).is_err(), "never updated");
