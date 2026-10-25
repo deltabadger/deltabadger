@@ -480,10 +480,13 @@ pub(super) enum AssetRule {
     /// spelling (Ticker.asset_ids_by_spelling: base spellings, tombstoned listings included, then quote spellings), and
     /// none where two share it.
     Crypto { venue: crate::tracker::prices::Venue, spellings: HashMap<String, Vec<i64>> },
+    /// Kraken's (plan Kraken sync §2.4, D-KR-3): the row's raw `asset` code by `KrakenIdentity`; a row with none (a file's)
+    /// by its stored `base_currency`, through the same resolver.
+    Kraken(super::kraken_ledger::KrakenIdentity),
 }
 
 impl AssetRule {
-    fn asset_id(&self, c: &Connection, base_currency: Option<&str>, raw: &Value, at: Option<DateTime<Utc>>) -> Result<Option<i64>, SyncError> {
+    pub(super) fn asset_id(&self, c: &Connection, base_currency: Option<&str>, raw: &Value, at: Option<DateTime<Utc>>) -> Result<Option<i64>, SyncError> {
         match self {
             Self::Alpaca(l) => asset_id(c, l, base_currency, raw),
             Self::Crypto { venue, spellings } => {
@@ -494,6 +497,10 @@ impl AssetRule {
                 }
                 Ok(only(spellings.get(&name.to_uppercase())))
             }
+            Self::Kraken(identity) => {
+                let code = raw.get("asset").and_then(Value::as_str).or(base_currency).unwrap_or_default();
+                Ok(identity.asset_id_on(code, at.map(|t| t.date_naive())))
+            }
         }
     }
 }
@@ -502,6 +509,7 @@ impl AssetRule {
 /// stock venue (Exchange#stock_venue?).
 pub(super) fn asset_rule(c: &Connection, exchange_id: i64, exchange_type: &str) -> Result<AssetRule, SyncError> {
     if exchange_type == super::ALPACA { return Ok(AssetRule::Alpaca(listings(c, exchange_id)?)); }
+    if exchange_type == super::kraken_ledger::KRAKEN { return Ok(AssetRule::Kraken(super::kraken_ledger::KrakenIdentity::load(c, exchange_id)?)); }
     crypto_rule(c, exchange_id, exchange_type)
 }
 
@@ -592,12 +600,14 @@ pub(super) struct Progress {
     pub(super) batch: Arc<Vec<Entry>>,
     /// `@file_pairs`: the batch's export swap pairs (`swapcsv_` groups), each the indices of its legs in batch order.
     pub(super) file_pairs: HashMap<String, Vec<usize>>,
+    /// A Kraken ledger sync's store (never a file's): stored rows under the ids it reads are repaired (D-KR-5).
+    pub(super) kraken_repair: bool,
 }
 
 impl Progress {
     /// What one store starts from (AccountTransactionSync#store!'s locals): nothing counted yet, over `batch`.
     pub(super) fn new(assets: AssetRule, merged: HashSet<String>, batch: Arc<Vec<Entry>>) -> Progress {
-        Progress { out: Outcome::default(), assets: Arc::new(assets), merged, min_skipped: None, stored: HashSet::new(), repeats: BTreeMap::new(), file_pairs: pairs_of(&batch), batch }
+        Progress { out: Outcome::default(), assets: Arc::new(assets), merged, min_skipped: None, stored: HashSet::new(), repeats: BTreeMap::new(), file_pairs: pairs_of(&batch), batch, kraken_repair: false }
     }
     /// The same store going on over the next `batch` (continuation::sync stores an import a page at a time): what it
     /// counted so far carried, as one store over every page would carry it.
@@ -664,6 +674,7 @@ pub(super) fn store(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, 
     }
     for (n, index) in range.enumerate() {
         let e = &batch[index];
+        if p.kraken_repair { super::kraken_ledger::repair(c, key, e, &p.assets, now)?; }
         let tx_id = present(&e.tx_id);
         // A row its id already names is not one of the identical rows counted.
         let repeat = if known_id(c, key, tx_id, &p.merged)? { 0 } else {
@@ -725,7 +736,7 @@ impl FileWriter {
     pub(crate) fn store(&mut self, c: &crate::engine::model::FencedTransaction<'_>, key: &Key, entries: Vec<Entry>, now: DateTime<Utc>) -> Result<Outcome, SyncError> {
         let batch = Arc::new(entries);
         let p = Progress { out: Outcome::default(), assets: self.assets.clone(), merged: std::mem::take(&mut self.merged), min_skipped: None, stored: HashSet::new(),
-                           repeats: BTreeMap::new(), file_pairs: pairs_of(&batch), batch: batch.clone() };
+                           repeats: BTreeMap::new(), file_pairs: pairs_of(&batch), batch: batch.clone(), kraken_repair: false };
         let p = store(c, key, 0..batch.len(), None, p, now)?;
         self.merged = p.merged;
         Ok(p.out)
@@ -1283,8 +1294,9 @@ struct TransferPage { pairs: Vec<(i64, i64)>, next: Option<i64> }
 /// whose amount is 0 to 2 % below it. Any venue. "Unclaimed" is a keyed lookup on the unique index of
 /// `linked_transaction_id`, plus the deposits this page has already paired (at most `BATCH`).
 fn transfer_matches(c: &Connection, user_id: i64, after_id: i64) -> Result<TransferPage, SyncError> {
-    let mut s = c.prepare("SELECT id, base_currency, base_amount, transacted_at FROM account_transactions \
-                           WHERE user_id = ?1 AND entry_type = 5 AND linked_transaction_id IS NULL AND transfer_link_rejected = 0 AND id > ?2 ORDER BY id LIMIT ?3")?;
+    let mut s = c.prepare(&format!("SELECT id, base_currency, base_amount, transacted_at FROM account_transactions \
+                           WHERE user_id = ?1 AND entry_type = 5 AND linked_transaction_id IS NULL AND transfer_link_rejected = 0 AND id > ?2 AND NOT {} ORDER BY id LIMIT ?3",
+                           super::kraken_ledger::internal_leg_sql("")))?;
     let mut withdrawals = vec![];
     let mut q = s.query(params![user_id, after_id, BATCH as i64])?;
     while let Some(r) = q.next()? {
@@ -1294,8 +1306,8 @@ fn transfer_matches(c: &Connection, user_id: i64, after_id: i64) -> Result<Trans
     let tolerance = BigDec::parse("0.98").map_err(SyncError::from)?;
     let mut deposits = c.prepare(&format!(
         "SELECT d.id FROM account_transactions d {BY_TIME} WHERE d.user_id = ?1 AND d.entry_type = 4 AND d.base_currency = ?2 AND d.transacted_at BETWEEN ?3 AND ?4 \
-         AND d.base_amount BETWEEN ?5 AND ?6 AND NOT EXISTS (SELECT 1 FROM account_transactions l WHERE l.linked_transaction_id = d.id AND l.user_id = ?1) \
-         ORDER BY d.transacted_at ASC, d.id ASC LIMIT ?7"))?;
+         AND d.base_amount BETWEEN ?5 AND ?6 AND NOT {} AND NOT EXISTS (SELECT 1 FROM account_transactions l WHERE l.linked_transaction_id = d.id AND l.user_id = ?1) \
+         ORDER BY d.transacted_at ASC, d.id ASC LIMIT ?7", super::kraken_ledger::internal_leg_sql("d.")))?;
     let mut pairs: Vec<(i64, i64)> = vec![];
     for (id, currency, amount, at) in withdrawals {
         // A withdrawal with no time 72 hours after it (a stored time at the end of the calendar) has no window.
@@ -1326,6 +1338,12 @@ pub async fn link_transfers(db: &Db, user_id: i64, now: DateTime<Utc>) -> Result
 }
 pub(super) async fn link_transfers_for(db: &Db, user_id: i64, version: Option<&crate::engine::model::CredentialVersion>, now: DateTime<Utc>) -> Result<usize, SyncError> {
     let (mut after_id, mut linked) = (0, 0);
+    // D-KR-4: Kraken's internal pairs first, by refid; the matcher below never takes one of their legs.
+    let internal = phase(db, move |c| super::kraken_ledger::internal_pairs(c, user_id)).await?;
+    if !internal.is_empty() { linked += match version {
+        Some(version) => super::commit_for(db, version, move |c| link(c, &internal, now)).await?,
+        None => commit(db, move |c| link(c, &internal, now)).await?,
+    }; }
     loop {
         let page = phase(db, move |c| transfer_matches(c, user_id, after_id)).await?;
         if !page.pairs.is_empty() { linked += match version {

@@ -77,6 +77,8 @@ module ScriptedSync
     requests << [key, params]
     # Hyperliquid names each /info read by its body's `type` ("POST /info userFillsByTime").
     typed = "#{key} #{JSON.parse(env.request_body)['type']}" if hyperliquid
+    # Kraken's private fields name a reply as a query would ("POST /0/private/Ledgers?ofs=0"), before the bare path.
+    typed ||= "#{key}?#{params.map { |k, v| "#{k}=#{v}" }.join('&')}" if host == 'api.kraken.com' && params.any? && script.key?("#{key}?#{params.map { |k, v| "#{k}=#{v}" }.join('&')}")
     queue = (typed && script[typed]) || script[key] or raise Harness::Unscripted, "unscripted call #{typed || key}"
     queue.size > 1 ? queue.shift : queue.first
   end
@@ -680,6 +682,32 @@ module SyncParity
     { 'kind' => 'balances', 'at' => at, 'kraken' => { KR_BALANCE => [balance] },
       'market' => { EXCHANGE_RATES => rates && [rates], PRICES => prices && [prices] }.compact }
   end
+  KR_LEDGERS = 'POST /0/private/Ledgers'.freeze
+  # One Ledgers entry, in Kraken's key order (docs.kraken.com get-ledgers-info); `at` in seconds (a Float where fractional).
+  def kr_entry(asset, type, amount, at, fee: '0', subtype: '', refid: 'R1', aclass: 'currency', balance: '0')
+    { 'refid' => refid, 'time' => at, 'type' => type, 'subtype' => subtype, 'aclass' => aclass, 'asset' => asset, 'amount' => amount, 'fee' => fee, 'balance' => balance }
+  end
+  # A Kraken ledger run (plan Kraken sync, K2): `currency` and `tokenized` ({ ledger id => entry }) as each side asks for
+  # them. Rails pages the currency ledger by `ofs` (`count` the total); Rust walks both by cursor (D-KR-W), `per` entries
+  # a page. `start`: the exclusive start both send (the watermark less the overlap, in seconds). `rails`/`rust`: replies to
+  # put first on a key (a throttle, an error), as { key params => [replies] }. `rails_start`: Rails' own, where its watermark
+  # differs from Rust's (a row only Rust stores moved Rust's).
+  def kraken_ledger(at, currency: {}, tokenized: {}, start: nil, rails_start: start, per: 50, rails: {}, rust: {})
+    form = ->(**f) { "#{KR_LEDGERS}?#{f.compact.map { |k, v| "#{k}=#{v}" }.sort.join('&')}" }
+    page = ->(rows, extra = {}) { ok('error' => [], 'result' => { 'ledger' => rows.to_h }.merge(extra)) }
+    script = {}
+    chunks = currency.to_a.each_slice(per).to_a.presence || [[]]
+    chunks.each_with_index { |rows, i| script[form.(ofs: i * per, start: rails_start)] = [page.(rows, 'count' => currency.size)] }
+    { 'currency' => [currency, nil], 'tokenized' => [tokenized, 'tokenized_asset'] }.each do |name, (rows, aclass)|
+      pages = rows.to_a.each_slice(per).to_a.presence || [[]]
+      pages.each_with_index do |chunk, i|
+        more = i + 1 < pages.size ? { 'cursor' => { 'next' => "#{name[0]}#{i + 1}" } } : {}
+        script[form.(with_cursor: 'true', cursor: (i.zero? ? nil : "#{name[0]}#{i}"), aclass:, start:)] = [page.(chunk, { 'count' => nil }.merge(more))]
+      end
+    end
+    rails.merge(rust).each { |params, replies| k = "#{KR_LEDGERS}?#{params}"; script[k] = replies + (script[k] || []) }
+    { 'kind' => 'ledger', 'at' => at, 'kraken' => script }
+  end
   KC_FILLS = 'GET /api/v1/fills'.freeze
   KC_DEPOSITS = 'GET /api/v1/deposits'.freeze
   KC_WITHDRAWALS = 'GET /api/v1/withdrawals'.freeze
@@ -802,6 +830,7 @@ module SyncParity
     Exchanges::Bybit.prepend(Module.new { def sleep(*) = nil })
     Exchanges::Kucoin.prepend(Module.new { def sleep(*) = nil }) # each_page's 10 s throttle wait (LEDGER_THROTTLE_WAIT)
     Exchanges::Bitvavo.prepend(Module.new { def sleep(*) = nil }) # the ledger's pacing (LEDGER_READ_PAUSE)
+    Exchanges::Kraken.prepend(Module.new { def sleep(*) = nil }) # get_ledger's 10 s throttle wait (LEDGER_THROTTLE_WAIT)
     Exchanges::Gemini.prepend(Module.new { def sleep(*) = nil }) # each_ledger_row's 5 s transfers pacing (TRANSFERS_REQUEST_INTERVAL)
     PortfolioSnapshot.singleton_class.prepend(Module.new { def record!(*) = nil })
     Dir[File.join(root, '*/scenario.json')].sort.each do |path|

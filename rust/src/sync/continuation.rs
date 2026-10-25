@@ -91,6 +91,8 @@ pub(super) trait Walk {
     /// KuCoin's takeover of the file's entries a finished source proves (plan KI §5). The finishing unit passes the done
     /// walk's cursor. A fn pointer, so the 'static store closure need not name the walk's type.
     const CHECKPOINT: Checkpoint = |_, _, _, _| Ok(());
+    /// The store repairs the rows an earlier sync wrote under the ids this walk reads (Kraken's, D-KR-5).
+    const KRAKEN_REPAIR: bool = false;
 }
 
 pub(super) type Checkpoint = fn(&Connection, &Key, &Value, DateTime<Utc>) -> Result<(), SyncError>;
@@ -261,6 +263,7 @@ pub(super) async fn sync<W: Walk>(db: &Db, version: &CredentialVersion, key: Key
         let k = key.clone();
         phase(db, move |c| Ok(Progress::new(ledger::asset_rule(c, k.exchange_id, &k.exchange_type)?, ledger::stored_merged(c, &k)?, Arc::new(vec![])))).await?
     };
+    progress.kraken_repair = W::KRAKEN_REPAIR;
     progress.stored.extend(record.ours.iter().flat_map(|&(a, b)| a..=b));
     progress.repeats.extend(record.repeats.clone());
     let segments = read.segments.len();

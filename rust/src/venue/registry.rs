@@ -10,9 +10,9 @@ use crate::engine::venue_rules::{self, VenueRules};
 pub enum BalanceSync { Alpaca, Kraken, Binance, Kucoin, Bitvavo, Gemini, Bitget, Mexc, Hyperliquid, Bybit, Bitrue, Coinbase, Bingx, Ibkr }
 
 /// How a key's ledger is synced (`sync::ledger`, `sync::binance_ledger` (Binance and Binance.US, each its own sources),
-/// `sync::kucoin_ledger`, `sync::bitvavo_ledger`, `sync::gemini_ledger`, `sync::bitget_ledger`, `sync::mexc_ledger`, `sync::hyperliquid_ledger`).
+/// `sync::kraken_ledger`, `sync::kucoin_ledger`, `sync::bitvavo_ledger`, `sync::gemini_ledger`, `sync::bitget_ledger`, `sync::mexc_ledger`, `sync::hyperliquid_ledger`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum LedgerSync { Alpaca, Binance, Kucoin, Bitvavo, Gemini, Bitget, Mexc, Hyperliquid, Bybit, Bitrue, Coinbase, Bingx }
+pub enum LedgerSync { Alpaca, Kraken, Binance, Kucoin, Bitvavo, Gemini, Bitget, Mexc, Hyperliquid, Bybit, Bitrue, Coinbase, Bingx }
 
 /// How a key is checked (ApiKey#get_validity): Alpaca's account read (`settings::validator::check`), or the venue's own
 /// request sequence (`settings::key_check`) through its proxy. Binance.US's is its own (binance_us.rb: an account read,
@@ -86,7 +86,7 @@ pub static ROWS: [Row; 15] = [
           needs_pairs: false, trades: true, balances: Some(BalanceSync::Alpaca), ledger: Some(LedgerSync::Alpaca), key_check: Some(KeyCheck::Alpaca),
           wizard: true, figures: Some(Figures::Alpaca), condition_candles: true },
     Row { exchange_type: "Exchanges::Kraken", name: "Kraken", name_id: "kraken", base: super::kraken::URL, rules: Some(&venue_rules::KRAKEN), passphrase: false,
-          needs_pairs: false, trades: true, balances: Some(BalanceSync::Kraken), ledger: None, key_check: Some(KeyCheck::Kraken), wizard: true, figures: Some(Figures::Kraken), condition_candles: true },
+          needs_pairs: false, trades: true, balances: Some(BalanceSync::Kraken), ledger: Some(LedgerSync::Kraken), key_check: Some(KeyCheck::Kraken), wizard: true, figures: Some(Figures::Kraken), condition_candles: true },
     Row { exchange_type: super::binance::BINANCE, name: "Binance", name_id: "binance", base: super::binance::URL, rules: Some(&venue_rules::BINANCE),
           passphrase: false, needs_pairs: true, trades: true, balances: Some(BalanceSync::Binance), ledger: Some(LedgerSync::Binance),
           key_check: Some(KeyCheck::Binance), wizard: true, figures: Some(Figures::Binance), condition_candles: true },
@@ -174,7 +174,7 @@ mod tests {
         let (alpaca, kraken, binance, us, kucoin, bitvavo, gemini, bitget, mexc) = ("Exchanges::Alpaca", "Exchanges::Kraken", "Exchanges::Binance", "Exchanges::BinanceUs",
                                                                                  "Exchanges::Kucoin", "Exchanges::Bitvavo", "Exchanges::Gemini", "Exchanges::Bitget", "Exchanges::Mexc");
         assert_eq!(crate::sync::balance_venues(), [alpaca, kraken, binance, us, kucoin, bitvavo, gemini, bitget, mexc, hyperliquid, bybit, bitrue, coinbase, bingx, ibkr], "BALANCE_VENUES");
-        assert_eq!(crate::sync::ledger_venues(), [alpaca, binance, us, kucoin, bitvavo, gemini, bitget, mexc, hyperliquid, bybit, bitrue, coinbase, bingx], "LEDGER_VENUES");
+        assert_eq!(crate::sync::ledger_venues(), [alpaca, kraken, binance, us, kucoin, bitvavo, gemini, bitget, mexc, hyperliquid, bybit, bitrue, coinbase, bingx], "LEDGER_VENUES");
         assert_eq!(types(|r| r.wizard), [alpaca, kraken, binance, us, kucoin, bitvavo, gemini, bitget, mexc, hyperliquid, bybit, bitrue, coinbase, bingx], "wizard::keys::PORTED");
         assert_eq!(types(|r| r.trades), [alpaca, kraken, binance, us, kucoin, bitvavo, gemini, bitget, mexc, hyperliquid, bybit, bitrue, coinbase, bingx], "venue_rules::for_exchange, eligibility::admission, LiveFactory");
         assert_eq!(types(|r| r.passphrase), [alpaca, kucoin, bitget], "model::credentials_with_redaction's passphrase");
