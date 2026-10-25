@@ -2637,3 +2637,524 @@ mod merge {
         Ok(())
     }
 }
+
+mod split {
+    use super::common;
+    use common::{seed, web as harness};
+    use deltabadger::figures::{at::At, db::Subject, dec::Dec, num::Num, walk::{self, Metrics}};
+    use deltabadger::web::{self, bot::split::{modal, perform, Loaded, Performed, Split}, layout::Ctx, Params};
+    use rusqlite::Connection;
+    use serde_json::{json, Value};
+    use std::sync::Arc;
+    type Result<T = ()> = std::result::Result<T, Box<dyn std::error::Error>>;
+    const NOW: &str = "2026-09-10T12:00:30.123456Z";
+
+    struct Fixture { _dir: tempfile::TempDir, c: Connection, queue: Connection, ctx: Ctx, s: seed::Seeded, bots: Vec<i64>, assets: Vec<Vec<(i64, i64)>> }
+    impl Fixture {
+        fn open() -> Result<(tempfile::TempDir, Connection, Connection, Ctx, seed::Seeded)> {
+            let (dir, opened, s) = common::install_alpaca();
+            opened.primary.execute("UPDATE users SET wash_sale_enabled=0", [])?;
+            let app = harness::app(dir.path(), "engine-test-secret", harness::TestClock::at(NOW));
+            let ctx = Ctx { app, params: Arc::new(Params { upload: None, full_path: String::new(), fullpath: String::new(), route_path: String::new(), path_locale: None, query: vec![], form: vec![], json: None }),
+                session: web::session::Session::new(Default::default()), current: web::auth::Current::SignedOut,
+                method: axum::http::Method::POST, locale: "en", nonce: String::new(), now: harness::at(NOW), turbo_frame: None, stream: false };
+            Ok((dir, opened.primary, opened.queue, ctx, s))
+        }
+        /// Stopped Alpaca baskets at 60 weekly, one per list of weights: a stock (S<n>X<i>) per weight, each a member row.
+        fn baskets(weights: &[&[f64]]) -> Result<Self> {
+            let (dir, c, queue, ctx, s) = Self::open()?;
+            let (mut bots, mut assets) = (vec![], vec![]);
+            for (n, list) in weights.iter().enumerate() {
+                let stocks: Vec<(i64, i64)> = (0..list.len()).map(|i| seed::add_alpaca_stock(&c, &s, &format!("S{n}X{i}"))).collect();
+                let pairs: Vec<(i64, f64)> = stocks.iter().zip(list.iter()).map(|((asset, _), w)| (*asset, *w)).collect();
+                let mut spec = seed::BotSpec::weekly(60.0, "2026-09-01 14:00:00").weights(&pairs);
+                spec.status = 2;
+                let id = seed::insert_bot(&c, &s, &spec);
+                c.execute("UPDATE bots SET position=?1 WHERE id=?2", (5 + n as i64, id))?;
+                for ((asset, ticker), w) in stocks.iter().zip(list.iter()) { seed::insert_member(&c, id, *asset, *ticker, *w, true, "2026-09-01 14:00:00", None); }
+                bots.push(id);
+                assets.push(stocks);
+            }
+            Ok(Self { _dir: dir, c, queue, ctx, s, bots, assets })
+        }
+        /// A stopped Alpaca index bot at 60 weekly (an index's special rows are read; a basket's are refused before the split).
+        fn index(weights: &[f64]) -> Result<Self> {
+            let (dir, c, queue, ctx, s) = Self::open()?;
+            let stocks: Vec<(i64, i64)> = (0..weights.len()).map(|i| seed::add_alpaca_stock(&c, &s, &format!("S0X{i}"))).collect();
+            let symbols: Vec<String> = (0..weights.len()).map(|i| format!("S0X{i}.US")).collect();
+            seed::insert_index(&c, "nasdaq-100", &symbols.iter().map(String::as_str).collect::<Vec<_>>(), &json!({}));
+            let id = seed::index_bot(&c, &s, "nasdaq-100", weights.len() as i64, 0.0, false);
+            c.execute("UPDATE bots SET status=2, position=5 WHERE id=?1", [id])?;
+            for ((asset, ticker), w) in stocks.iter().zip(weights) { seed::insert_member(&c, id, *asset, *ticker, *w, true, "2026-09-01 14:00:00", None); }
+            Ok(Self { _dir: dir, c, queue, ctx, s, bots: vec![id], assets: vec![stocks] })
+        }
+        /// Another stock in the source's history: an exited member row on `bot`.
+        fn exited(&self, bot: i64, symbol: &str) -> Result<(i64, i64)> {
+            let (asset, ticker) = seed::add_alpaca_stock(&self.c, &self.s, symbol);
+            seed::insert_member(&self.c, bot, asset, ticker, 0.0, false, "2026-08-01 14:00:00", Some("2026-09-01 14:00:00"));
+            Ok((asset, ticker))
+        }
+        /// A closed fill: `side` 0 buy / 1 sell, of `kind`, `amount` units for `quote`, recorded under `symbol` (None: no asset).
+        #[allow(clippy::too_many_arguments)]
+        fn order(&self, bot: i64, asset: Option<i64>, symbol: &str, side: i64, kind: &str, amount: &'static str, quote: &'static str, price: &'static str, at: &str) -> Result<i64> {
+            let id = seed::insert_stock_tx(&self.c, &self.s, bot, asset.unwrap_or(0), symbol, &seed::TxSpec { status: 0, external_status: Some(2), external_id: Some(format!("o-{at}-{symbol}")), order_type: 0,
+                amount: Some(amount), quote_amount: Some(quote), price: Some(price), quote_amount_exec: Some(quote), amount_exec: Some(amount), created_at: at.into() });
+            self.c.execute("UPDATE transactions SET side=?1, transaction_type=?2, base_asset_id=?3 WHERE id=?4", (side, kind, asset, id))?;
+            Ok(id)
+        }
+        fn waiting(&self, bot: i64, asset: i64, symbol: &str, kind: &str) -> Result<i64> {
+            let id = seed::insert_stock_tx(&self.c, &self.s, bot, asset, symbol, &seed::TxSpec { status: 0, external_status: Some(1), external_id: Some("resting".into()), order_type: 1,
+                amount: Some("1"), quote_amount: None, price: Some("10"), quote_amount_exec: Some("0"), amount_exec: Some("0"), created_at: "2026-09-10 11:00:00".into() });
+            self.c.execute("UPDATE transactions SET transaction_type=?1 WHERE id=?2", (kind, id))?;
+            Ok(id)
+        }
+        fn split(&self, keep: &[i64]) -> Result<Performed> { self.split_ids(self.bots.clone(), keep) }
+        fn split_ids(&self, ids: Vec<i64>, keep: &[i64]) -> Result<Performed> { Ok(perform(&self.c, &self.ctx, self.s.user_id, ids, keep.to_vec()).map_err(|e| format!("{e:?}"))?) }
+        fn done(&self, keep: &[i64]) -> Result<Vec<i64>> {
+            match self.split(keep)? {
+                Performed::Done(done) => { assert_eq!(done.sources, self.bots); Ok(done.children.iter().map(|child| child.id).collect()) }
+                Performed::Refused(r) => Err(format!("refused: {} {}", r.code, r.reason).into()),
+                Performed::Unported(why) => Err(format!("unported: {why}").into()),
+            }
+        }
+        fn transient(&self, id: i64, key: &str, value: Value) -> Result {
+            self.c.execute("UPDATE bots SET transient_data=json_set(transient_data,?1,json(?2)) WHERE id=?3", (format!("$.{key}"), value.to_string(), id))?;
+            Ok(())
+        }
+        fn snapshot(&self) -> Result<Vec<String>> {
+            let mut all = vec![];
+            for table in ["bots", "bot_index_assets", "transactions", "bot_activity_logs"] {
+                let mut q = self.c.prepare(&format!("SELECT * FROM {table} ORDER BY id"))?;
+                let n = q.column_count();
+                let mut rows = q.query([])?;
+                while let Some(r) = rows.next()? { all.push(format!("{table}:{:?}", (0..n).map(|i| r.get_ref(i).map(|v| format!("{v:?}"))).collect::<std::result::Result<Vec<_>, _>>()?)); }
+            }
+            Ok(all)
+        }
+        fn refused_unchanged(&self, keep: &[i64], code: &str, text: &str) -> Result {
+            let before = self.snapshot()?;
+            match self.split(keep)? { Performed::Refused(r) => { assert_eq!(r.code, code); assert!(r.reason.starts_with(text), "{}", r.reason); } _ => return Err("expected a refusal".into()) }
+            assert_eq!(self.snapshot()?, before, "a refused split writes nothing");
+            Ok(())
+        }
+        fn unported_unchanged(&self) -> Result<&'static str> {
+            let before = self.snapshot()?;
+            let Performed::Unported(why) = self.split(&[])? else { return Err("expected Unported".into()) };
+            assert_eq!(self.snapshot()?, before, "an unserved split writes nothing");
+            Ok(why)
+        }
+        fn page(&self) -> Result<std::result::Result<String, &'static str>> {
+            let Loaded::Split(mut split) = Split::load(&self.c, &self.ctx, self.s.user_id, self.bots.clone(), vec![]).map_err(|e| format!("{e:?}"))? else { return Ok(Err("load: unported")) };
+            Ok(modal(&self.c, &self.ctx, &mut split, "token").map_err(|e| format!("{e:?}"))?)
+        }
+        fn bot_of(&self, row: i64) -> Result<(i64, String)> { Ok(self.c.query_row("SELECT bot_id, transaction_type FROM transactions WHERE id=?1", [row], |r| Ok((r.get(0)?, r.get(1)?)))?) }
+        fn books(&self, bot: i64) -> Result<Metrics> {
+            let at = At::from_utc(harness::at(NOW)).ok_or("time")?;
+            Ok(walk::metrics(&self.c, &Subject::load(&self.c, bot).map_err(|e| format!("{e:?}"))?, at).map_err(|e| format!("{e:?}"))?)
+        }
+    }
+
+    fn d(n: &Num) -> Dec { n.to_d().unwrap() }
+    fn dec(text: &str) -> Dec { Dec::parse(text).unwrap() }
+    fn sum(values: impl IntoIterator<Item = Dec>) -> Dec { values.into_iter().fold(Dec::zero(), |acc, v| (&acc + &v).unwrap()) }
+    /// What the bot made, in money: value less what went in (split_test.rb's `profit`).
+    fn profit(m: &Metrics) -> Dec { (&d(&m.total_amount_value_in_quote) - &d(&m.total_quote_amount_invested)).unwrap() }
+    /// Units, tax units and tax basis of the holding of `asset`.
+    fn holding(m: &Metrics, asset: i64) -> (Dec, Dec, Dec) {
+        let Some(key) = m.key_for(asset) else { return (Dec::zero(), Dec::zero(), Dec::zero()) };
+        let entry = &m.asset_breakdown.iter().find(|(k, _)| k == key).unwrap().1;
+        (d(&entry.amount), d(&entry.tax_units), d(&entry.tax_basis))
+    }
+    /// Each asset's units and tax lots, summed over the children, are the source's.
+    fn lots_kept(before: &Metrics, after: &[Metrics], assets: &[i64]) {
+        for asset in assets {
+            let (units, tax_units, basis) = holding(before, *asset);
+            let parts: Vec<_> = after.iter().map(|m| holding(m, *asset)).collect();
+            assert_eq!(sum(parts.iter().map(|p| p.0.clone())), units, "units of {asset}");
+            assert_eq!(sum(parts.iter().map(|p| p.1.clone())), tax_units, "tax units of {asset}");
+            assert_eq!(sum(parts.iter().map(|p| p.2.clone())), basis, "tax basis of {asset}");
+        }
+    }
+
+    /// Two stopped one-asset children at 30 each, labelled by their asset, at the source's position; the source is deleted with
+    /// its run generation moved; its own activity stays on it and each child logs `split`.
+    #[test]
+    fn splits_and_fences_the_source() -> Result {
+        let f = Fixture::baskets(&[&[0.5, 0.5]])?;
+        deltabadger::engine::model::log_activity(&f.c, f.bots[0], "started", deltabadger::engine::model::Level::Info, json!({}), harness::at(NOW)).map_err(|e| format!("{e:?}"))?;
+        let children = f.done(&[])?;
+        assert_eq!(children.len(), 2);
+        let (status, generation): (i64, i64) = f.c.query_row("SELECT status, json_extract(transient_data,'$.run_generation') FROM bots WHERE id=?1", [f.bots[0]], |r| Ok((r.get(0)?, r.get(1)?)))?;
+        assert_eq!((status, generation), (3, 1));
+        for (child, symbol) in children.iter().zip(["S0X0", "S0X1"]) {
+            let (class, status, label, position, amount, interval): (String, i64, String, i64, f64, String) = f.c.query_row(
+                "SELECT type, status, label, position, json_extract(settings,'$.quote_amount'), json_extract(settings,'$.interval') FROM bots WHERE id=?1", [child],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?)))?;
+            assert_eq!((class.as_str(), status, label.as_str(), position, amount, interval.as_str()), ("Bots::DcaMultiAsset", 2, symbol, 5, 30.0, "week"));
+            let logs: Vec<(String, String)> = f.c.prepare("SELECT event, details FROM bot_activity_logs WHERE bot_id=?1")?.query_map([child], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<std::result::Result<_, _>>()?;
+            assert_eq!(logs, vec![("split".to_string(), json!({"source_id": f.bots[0], "source_label": "S0X0, S0X1"}).to_string())]);
+        }
+        let kept: i64 = f.c.query_row("SELECT count(*) FROM bot_activity_logs WHERE bot_id=?1 AND event='started'", [f.bots[0]], |r| r.get(0))?;
+        assert_eq!(kept, 1, "the source's activity stays on the deleted source");
+        Ok(())
+    }
+
+    /// Unequal weights (70/20/10) give each child its share; a member that no longer trades gets no child, and the survivors
+    /// share the whole schedule (Rails sums the weights with Kahan-Babuska summation, crate::ruby::float_sum).
+    #[test]
+    fn shares_follow_the_weights_and_the_survivors_keep_the_schedule() -> Result {
+        let f = Fixture::baskets(&[&[0.7, 0.2, 0.1]])?;
+        let amounts = |children: &[i64]| -> Result<Vec<f64>> {
+            children.iter().map(|id| Ok(f.c.query_row("SELECT json_extract(settings,'$.quote_amount') FROM bots WHERE id=?1", [id], |r| r.get::<_, f64>(0))?)).collect()
+        };
+        let shares = amounts(&f.done(&[])?)?;
+        for (share, expected) in shares.iter().zip([42.0, 12.0, 6.0]) { assert!((share - expected).abs() < 1e-9, "{shares:?}"); }
+        let g = Fixture::baskets(&[&[0.5, 0.3, 0.2]])?;
+        g.c.execute("UPDATE bots SET settings=json_set(settings,'$.quote_amount',100) WHERE id=?1", [g.bots[0]])?;
+        g.c.execute("UPDATE tickers SET trading_enabled=0 WHERE base='S0X2'", [])?;
+        let children = g.done(&[])?;
+        let shares: Vec<f64> = children.iter().map(|id| g.c.query_row("SELECT json_extract(settings,'$.quote_amount') FROM bots WHERE id=?1", [id], |r| r.get::<_, f64>(0))).collect::<std::result::Result<_, _>>()?;
+        assert_eq!(shares.len(), 2);
+        assert!((shares[0] - 62.5).abs() < 1e-9 && (shares.iter().sum::<f64>() - 100.0).abs() < 1e-9, "{shares:?}");
+        let exited: i64 = g.c.query_row("SELECT in_index FROM bot_index_assets WHERE bot_id=?1 AND asset_id=?2", (children[0], g.assets[0][2].0), |r| r.get(0))?;
+        assert_eq!(exited, 0, "the member without a child lands on the first child, exited");
+        Ok(())
+    }
+
+    /// Every row moves to its asset's child as REGULAR (a rebalance, a liquidation, a redeploy among them); an exited asset's rows
+    /// and an orphan row go to the first child with the exited membership; a legacy row goes by its symbol.
+    #[test]
+    fn rows_follow_their_asset_as_regular() -> Result {
+        let f = Fixture::index(&[0.6, 0.4])?;
+        let (bot, (a, b)) = (f.bots[0], (f.assets[0][0].0, f.assets[0][1].0));
+        let (c, _) = f.exited(bot, "S0X9")?;
+        let a_buy = f.order(bot, Some(a), "S0X0", 0, "REGULAR", "1", "100", "100", "2026-09-02 10:00:00")?;
+        let b_swap = f.order(bot, Some(b), "S0X1", 0, "REBALANCE", "1", "100", "100", "2026-09-02 11:00:00")?;
+        let c_buy = f.order(bot, Some(c), "S0X9", 0, "REGULAR", "1", "100", "100", "2026-09-02 12:00:00")?;
+        let c_sold = f.order(bot, Some(c), "S0X9", 1, "LIQUIDATION", "1", "100", "100", "2026-09-03 12:00:00")?;
+        let a_redeploy = f.order(bot, Some(a), "S0X0", 0, "REDEPLOY", "1", "100", "100", "2026-09-04 12:00:00")?;
+        let legacy = f.order(bot, None, "S0X1", 0, "REGULAR", "1", "100", "100", "2026-09-05 12:00:00")?;
+        let orphan = f.order(bot, None, "ZZZ", 0, "REGULAR", "1", "100", "100", "2026-09-05 13:00:00")?;
+        let children = f.done(&[])?;
+        for (row, child) in [(a_buy, 0), (a_redeploy, 0), (b_swap, 1), (legacy, 1), (c_buy, 0), (c_sold, 0), (orphan, 0)] {
+            assert_eq!(f.bot_of(row)?, (children[child], "REGULAR".to_string()), "row {row}");
+        }
+        let (in_index, exited): (i64, Option<String>) = f.c.query_row("SELECT in_index, exited_at FROM bot_index_assets WHERE bot_id=?1 AND asset_id=?2", (children[0], c), |r| Ok((r.get(0)?, r.get(1)?)))?;
+        assert_eq!((in_index, exited.as_deref()), (0, Some("2026-09-01 14:00:00")));
+        let members: Vec<i64> = f.c.prepare("SELECT asset_id FROM bot_index_assets WHERE bot_id=?1 AND in_index=1")?.query_map([children[0]], |r| r.get(0))?.collect::<std::result::Result<_, _>>()?;
+        assert_eq!(members, vec![a]);
+        Ok(())
+    }
+
+    /// The child keeps no redeploy offset (its history offers nothing again), carries the source's resolved sales, and records
+    /// its own last row as merged history; a child with no rows has no such key.
+    #[test]
+    fn transient_and_offset() -> Result {
+        let f = Fixture::index(&[0.5, 0.3, 0.2])?;
+        let (bot, a, b) = (f.bots[0], f.assets[0][0].0, f.assets[0][1].0);
+        f.transient(bot, "liquidation_resolved_orders", json!([7, 9]))?;
+        f.c.execute("UPDATE bots SET redeploy_declined_offset='12.5' WHERE id=?1", [bot])?;
+        f.order(bot, Some(a), "S0X0", 0, "REGULAR", "1", "100", "100", "2026-09-02 10:00:00")?;
+        f.order(bot, Some(a), "S0X0", 1, "LIQUIDATION", "1", "100", "100", "2026-09-03 10:00:00")?;
+        f.order(bot, Some(b), "S0X1", 0, "REDEPLOY", "1", "87.5", "87.5", "2026-09-04 10:00:00")?;
+        let children = f.done(&[])?;
+        assert_eq!(children.len(), 3);
+        for (n, child) in children.iter().enumerate() {
+            let (offset, resolved, merged, last): (f64, Option<String>, Option<i64>, Option<i64>) = f.c.query_row(
+                "SELECT CAST(redeploy_declined_offset AS REAL), json_extract(transient_data,'$.liquidation_resolved_orders'), json_extract(transient_data,'$.merged_history_until_id'), \
+                 (SELECT max(id) FROM transactions WHERE bot_id=?1) FROM bots WHERE id=?1", [child], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?;
+            assert_eq!(offset, 0.0);
+            assert_eq!(resolved.as_deref(), Some("[7,9]"));
+            assert_eq!(merged, last);
+            assert_eq!(merged.is_some(), n < 2, "child {n}");
+            let special: i64 = f.c.query_row("SELECT count(*) FROM transactions WHERE bot_id=?1 AND transaction_type<>'REGULAR'", [child], |r| r.get(0))?;
+            assert_eq!(special, 0, "nothing banked or spent: the child offers nothing");
+        }
+        Ok(())
+    }
+
+    /// Money from past sales waits for an answer: unanswered, the split is refused with each bot's offer; kept, it goes through.
+    #[test]
+    fn proceeds_wait_for_an_answer() -> Result {
+        let f = Fixture::index(&[0.6, 0.4])?;
+        let (bot, a) = (f.bots[0], f.assets[0][0].0);
+        f.order(bot, Some(a), "S0X0", 0, "REGULAR", "1", "100", "100", "2026-09-02 10:00:00")?;
+        f.order(bot, Some(a), "S0X0", 1, "LIQUIDATION", "1", "150", "150", "2026-09-03 10:00:00")?;
+        let before = f.snapshot()?;
+        let Performed::Refused(refusal) = f.split(&[])? else { return Err("expected the proceeds question".into()) };
+        assert_eq!((refusal.code, refusal.reason.as_str()), ("proceeds_unanswered", "ND2 still has money from past sales. Reinvest it or keep it first."));
+        assert_eq!(refusal.offers.iter().map(|(id, offer)| (*id, offer.to_s_f())).collect::<Vec<_>>(), vec![(bot, "150.0".to_string())]);
+        assert_eq!(f.snapshot()?, before);
+        let page = f.page()?.map_err(|e| e.to_string())?;
+        assert!(page.contains("has 150.00 USD from past sales. Reinvest?") && page.contains(&format!("action=\"/bots/{bot}/redeploy\"")), "{page}");
+        assert_eq!(f.done(&[bot])?.len(), 2);
+        Ok(())
+    }
+
+    /// D-FENCE-PER-BOT: a source whose placement intent is still recorded is the engine's: busy, naming its venue.
+    #[test]
+    fn a_placement_intent_is_busy() -> Result {
+        let f = Fixture::baskets(&[&[0.5, 0.5]])?;
+        f.transient(f.bots[0], "rust_placement", json!({"asset": 1}))?;
+        f.refused_unchanged(&[], "busy", "Alpaca is busy with another order. Try again in a moment.")
+    }
+
+    /// D-SPLIT-REVERSAL-PENDING: a reversal's cancels, then its reserve credit alone, refuse; once settled the split goes ahead,
+    /// and no child inherits the source's carry.
+    #[test]
+    fn a_pending_reversal_refuses_until_it_settles() -> Result {
+        let f = Fixture::baskets(&[&[0.5, 0.5]])?;
+        let bot = f.bots[0];
+        f.transient(bot, "missed_quote_amount", json!("12.5"))?;
+        f.transient(bot, deltabadger::engine::reversal::CANCELS, json!([{"id": 9, "registered": true, "sent": false}]))?;
+        f.transient(bot, deltabadger::engine::reversal::RESERVE_PENDING, json!([9]))?;
+        f.refused_unchanged(&[], "unavailable", "S0X0, S0X1 can't be split right now.")?;
+        f.c.execute("UPDATE bots SET transient_data=json_remove(transient_data,'$.rust_reversal_cancels') WHERE id=?1", [bot])?;
+        f.refused_unchanged(&[], "unavailable", "S0X0, S0X1 can't be split right now.")?;
+        f.c.execute("UPDATE bots SET transient_data=json_remove(transient_data,'$.flip_reserve_pending') WHERE id=?1", [bot])?;
+        for child in f.done(&[])? {
+            let carry: i64 = f.c.query_row("SELECT json_extract(transient_data,'$.missed_quote_amount') FROM bots WHERE id=?1", [child], |r| r.get(0))?;
+            assert_eq!(carry, 0);
+        }
+        Ok(())
+    }
+
+    /// A redeploy still working (a waiting REDEPLOY row) is not served, on an index and on a basket, the modal and the split alike.
+    #[test]
+    fn a_redeploy_in_flight_is_not_served() -> Result {
+        let f = Fixture::index(&[0.6, 0.4])?;
+        f.waiting(f.bots[0], f.assets[0][0].0, "S0X0", "REDEPLOY")?;
+        assert_eq!(f.page()?, Err("load: unported"));
+        assert_eq!(f.unported_unchanged()?, "a redeploy in progress");
+        let g = Fixture::baskets(&[&[0.5, 0.5]])?;
+        g.waiting(g.bots[0], g.assets[0][0].0, "S0X0", "REDEPLOY")?;
+        assert_eq!(g.page()?, Err("load: unported"));
+        g.unported_unchanged()?;
+        Ok(())
+    }
+
+    fn queue_job(f: &Fixture, execution: &str) -> Result {
+        let gid = format!("gid://deltabadger/Bots::DcaIndex/{}", f.bots[0]);
+        f.queue.execute("INSERT INTO solid_queue_jobs (queue_name, class_name, arguments, priority, active_job_id, created_at, updated_at) VALUES ('default', 'Bot::RedeployJob', ?1, 0, 'aj', ?2, ?2)",
+                        (json!({"job_class": "Bot::RedeployJob", "arguments": [{"_aj_globalid": gid}]}).to_string(), NOW))?;
+        let job = f.queue.last_insert_rowid();
+        match execution {
+            "ready" => f.queue.execute("INSERT INTO solid_queue_ready_executions (job_id, queue_name, priority, created_at) VALUES (?1, 'default', 0, ?2)", (job, NOW))?,
+            _ => f.queue.execute("INSERT INTO solid_queue_failed_executions (job_id, error, created_at) VALUES (?1, 'boom', ?2)", (job, NOW))?,
+        };
+        Ok(())
+    }
+
+    /// A Yes Rails still holds as a Bot::RedeployJob (no pending flag, no waiting order) is a redeploy in progress: not served.
+    #[test]
+    fn a_queued_redeploy_job_is_not_served() -> Result {
+        let f = Fixture::index(&[0.6, 0.4])?;
+        queue_job(&f, "ready")?;
+        assert_eq!(f.page()?, Err("load: unported"));
+        assert_eq!(f.unported_unchanged()?, "a redeploy in progress");
+        Ok(())
+    }
+
+    /// A Bot::RedeployJob that failed is over (Automation::Schedulable#active_job?): the modal asks, and a kept answer splits.
+    #[test]
+    fn a_failed_redeploy_job_is_over() -> Result {
+        let f = Fixture::index(&[0.6, 0.4])?;
+        let (bot, a) = (f.bots[0], f.assets[0][0].0);
+        f.order(bot, Some(a), "S0X0", 0, "REGULAR", "1", "100", "100", "2026-09-02 10:00:00")?;
+        f.order(bot, Some(a), "S0X0", 1, "LIQUIDATION", "1", "150", "150", "2026-09-03 10:00:00")?;
+        queue_job(&f, "failed")?;
+        let page = f.page()?.map_err(|e| e.to_string())?;
+        assert!(page.contains("data-split-row=\"offer\""), "{page}");
+        assert_eq!(f.done(&[bot])?.len(), 2);
+        Ok(())
+    }
+
+    /// A source on a venue this build does not run the children on: the modal says so by name and offers no Split; the split is
+    /// refused before it writes.
+    #[test]
+    fn an_unrun_venue_is_refused_before_writing() -> Result {
+        let f = Fixture::baskets(&[&[0.5, 0.5]])?;
+        f.c.execute("INSERT INTO exchanges (type, name, maker_fee, taker_fee, created_at, updated_at) VALUES ('Exchanges::Ibkr', 'Interactive Brokers', '0.05', '0.05', ?1, ?1)", [NOW])?;
+        let ibkr = f.c.last_insert_rowid();
+        f.c.execute_batch(&format!("CREATE TEMP TABLE listed AS SELECT * FROM tickers WHERE exchange_id = {}; UPDATE listed SET id = NULL, exchange_id = {ibkr}; \
+                                    INSERT INTO tickers SELECT * FROM listed; DROP TABLE listed; UPDATE bots SET exchange_id = {ibkr};", f.s.exchange_id))?;
+        let page = f.page()?.map_err(|e| e.to_string())?;
+        assert!(page.contains("This app can&#39;t run that yet: a bot on an exchange other than "), "{page}");
+        assert!(!page.contains("action=\"/bots/split\""), "{page}");
+        f.refused_unchanged(&[], "write_refused", "This app can't run that yet: ")
+    }
+
+    /// A failure after the children exist and the rows have moved (the second child's `split` log) rolls everything back.
+    #[test]
+    fn a_failure_mid_write_leaves_nothing() -> Result {
+        let f = Fixture::baskets(&[&[0.5, 0.5]])?;
+        f.order(f.bots[0], Some(f.assets[0][0].0), "S0X0", 0, "REGULAR", "1", "100", "100", "2026-09-02 10:00:00")?;
+        f.c.execute_batch("CREATE TEMP TRIGGER crash BEFORE INSERT ON bot_activity_logs WHEN NEW.event = 'split' AND (SELECT count(*) FROM bot_activity_logs WHERE event = 'split') >= 1 \
+                           BEGIN SELECT RAISE(ABORT, 'crash'); END;")?;
+        let before = f.snapshot()?;
+        assert!(perform(&f.c, &f.ctx, f.s.user_id, f.bots.clone(), vec![]).is_err());
+        assert_eq!(f.snapshot()?, before);
+        Ok(())
+    }
+
+    /// The same selection posted twice: the second finds its bots gone (`missing`) and makes nothing.
+    #[test]
+    fn a_second_submit_is_missing() -> Result {
+        let f = Fixture::baskets(&[&[0.5, 0.5]])?;
+        f.done(&[])?;
+        f.refused_unchanged(&[], "missing", "One of these bots is gone. Pick again.")
+    }
+
+    /// The selection is looked up first: a stranger's bot and a deleted one are `missing`; nothing at all is `none`.
+    #[test]
+    fn a_foreign_or_deleted_bot_is_missing() -> Result {
+        let f = Fixture::baskets(&[&[0.5, 0.5], &[0.5, 0.5]])?;
+        f.c.execute("INSERT INTO users (email, encrypted_password, name, created_at, updated_at) VALUES ('x@example.com', 'x', 'X', ?1, ?1)", [NOW])?;
+        f.c.execute("UPDATE bots SET user_id=?1 WHERE id=?2", (f.c.last_insert_rowid(), f.bots[1]))?;
+        f.refused_unchanged(&[], "missing", "One of these bots is gone.")?;
+        f.c.execute("UPDATE bots SET status=3 WHERE id=?1", [f.bots[1]])?;
+        f.refused_unchanged(&[], "missing", "One of these bots is gone.")?;
+        let before = f.snapshot()?;
+        let Performed::Refused(r) = f.split_ids(vec![], &[])? else { return Err("expected none".into()) };
+        assert_eq!((r.code, r.reason.as_str()), ("none", "Pick at least one bot."));
+        assert_eq!(f.snapshot()?, before);
+        Ok(())
+    }
+
+    /// Two sources, the second refused (its reversal pending) or failing during its own writes: the first is not split either.
+    #[test]
+    fn the_second_source_failing_rolls_back_the_first() -> Result {
+        let f = Fixture::baskets(&[&[0.5, 0.5], &[0.5, 0.5]])?;
+        f.transient(f.bots[1], deltabadger::engine::reversal::RESERVE_PENDING, json!([9]))?;
+        f.refused_unchanged(&[], "unavailable", "S1X0, S1X1 can't be split right now.")?;
+        let g = Fixture::baskets(&[&[0.5, 0.5], &[0.5, 0.5]])?;
+        g.c.execute_batch(&format!("CREATE TEMP TRIGGER crash BEFORE UPDATE OF status ON bots WHEN NEW.id = {} AND NEW.status = 3 BEGIN SELECT RAISE(ABORT, 'crash'); END;", g.bots[1]))?;
+        let before = g.snapshot()?;
+        assert!(perform(&g.c, &g.ctx, g.s.user_id, g.bots.clone(), vec![]).is_err());
+        assert_eq!(g.snapshot()?, before);
+        Ok(())
+    }
+
+    /// Several sources split in one go, in request order: their children and positions interleave as Rails creates them.
+    #[test]
+    fn several_sources_split_in_request_order() -> Result {
+        let f = Fixture::baskets(&[&[0.5, 0.5], &[0.6, 0.4]])?;
+        let children = f.split_ids(vec![f.bots[1], f.bots[0]], &[])?;
+        let Performed::Done(done) = children else { return Err("expected a split".into()) };
+        assert_eq!(done.sources, vec![f.bots[1], f.bots[0]]);
+        assert_eq!(done.children.iter().map(|c| c.label.as_str()).collect::<Vec<_>>(), vec!["S1X0", "S1X1", "S0X0", "S0X1"]);
+        let positions: Vec<i64> = done.children.iter().map(|c| f.c.query_row("SELECT position FROM bots WHERE id=?1", [c.id], |r| r.get(0))).collect::<std::result::Result<_, _>>()?;
+        assert_eq!(positions, vec![6, 6, 5, 5]);
+        Ok(())
+    }
+
+    /// D-SPLIT-LEGACY-SHADOW: a legacy row goes by walk::listing_names: case-insensitively, through a tombstoned listing.
+    #[test]
+    fn a_legacy_row_goes_by_any_spelling_of_one_asset() -> Result {
+        let f = Fixture::baskets(&[&[0.6, 0.4]])?;
+        let bot = f.bots[0];
+        let lower = f.order(bot, None, "s0x1", 0, "REGULAR", "1", "100", "100", "2026-09-02 10:00:00")?;
+        f.c.execute("UPDATE tickers SET base='__stale_17_SX1' WHERE id=?1", [f.assets[0][1].1])?;
+        let tombstoned = f.order(bot, None, "sx1", 0, "REGULAR", "1", "100", "100", "2026-09-02 11:00:00")?;
+        let children = f.done(&[])?;
+        assert_eq!(f.bot_of(lower)?.0, children[1]);
+        assert_eq!(f.bot_of(tombstoned)?.0, children[1]);
+        let asset: Option<i64> = f.c.query_row("SELECT base_asset_id FROM transactions WHERE id=?1", [lower], |r| r.get(0))?;
+        assert_eq!(asset, None, "the row is moved, not rewritten");
+        Ok(())
+    }
+
+    /// D-SPLIT-LEGACY-SHADOW: a legacy row whose name is a surviving member's (bound for the second child) and an exited asset's
+    /// (bound for the first) is refused, never guessed; one whose every match is bound for the same child moves there.
+    #[test]
+    fn a_legacy_row_shared_by_two_children_refuses() -> Result {
+        let f = Fixture::index(&[0.6, 0.4])?;
+        let bot = f.bots[0];
+        let (exited, ticker) = f.exited(bot, "S0X9")?;
+        f.c.execute("UPDATE tickers SET base='S0X1' WHERE id=?1", [ticker])?;
+        f.order(bot, Some(exited), "S0X9", 0, "REGULAR", "1", "100", "100", "2026-09-02 09:00:00")?;
+        let shared = f.order(bot, None, "s0x1", 0, "REGULAR", "1", "100", "100", "2026-09-02 10:00:00")?;
+        let lots = f.books(bot)?.walked.map(|w| w.loss_lot_by_transaction);
+        f.refused_unchanged(&[], "unavailable", "ND2 can't be split right now.")?;
+        assert_eq!(f.books(bot)?.walked.map(|w| w.loss_lot_by_transaction), lots);
+        // The alias now names the first member instead: both matches are bound for the first child.
+        f.c.execute("UPDATE tickers SET base='S0X0' WHERE id=?1", [ticker])?;
+        f.c.execute("UPDATE transactions SET base='s0x0' WHERE id=?1", [shared])?;
+        let children = f.done(&[])?;
+        assert_eq!(f.bot_of(shared)?.0, children[0]);
+        Ok(())
+    }
+
+    /// split_test.rb's swap: the sale is money out for its asset's child and the purchase new money for the other's; units and
+    /// tax lots per asset are the source's, and so is what the children made together.
+    #[test]
+    fn a_swap_splits_into_a_sale_and_a_purchase() -> Result {
+        let f = Fixture::index(&[0.5, 0.5])?;
+        let (bot, a, b) = (f.bots[0], f.assets[0][0].0, f.assets[0][1].0);
+        f.order(bot, Some(a), "S0X0", 0, "REGULAR", "1", "100", "100", "2026-09-02 10:00:00")?;
+        f.order(bot, Some(a), "S0X0", 1, "REBALANCE", "0.5", "60", "120", "2026-09-02 11:00:00")?;
+        f.order(bot, Some(b), "S0X1", 0, "REBALANCE", "1", "60", "60", "2026-09-02 12:00:00")?;
+        let before = f.books(bot)?;
+        let after: Vec<Metrics> = f.done(&[])?.into_iter().map(|id| f.books(id)).collect::<Result<_>>()?;
+        assert_eq!(sum(after.iter().map(profit)), profit(&before));
+        assert_eq!(d(&after[1].total_quote_amount_invested), dec("60"), "the swap buy is new money for its child");
+        assert_eq!(d(&after[0].rebalance_cash), dec("60"), "the swap sale is money out for its child");
+        assert_eq!(holding(&after[0], a).0, dec("0.5"));
+        lots_kept(&before, &after, &[a, b]);
+        Ok(())
+    }
+
+    /// A liquidation and its redeploy split into a sale and a purchase, what the bot made kept.
+    #[test]
+    fn a_liquidation_and_its_redeploy_split_with_the_books_kept() -> Result {
+        let f = Fixture::index(&[0.5, 0.5])?;
+        let (bot, a, b) = (f.bots[0], f.assets[0][0].0, f.assets[0][1].0);
+        let (exited, _) = f.exited(bot, "S0X9")?;
+        f.order(bot, Some(exited), "S0X9", 0, "REGULAR", "1", "100", "100", "2026-09-02 10:00:00")?;
+        f.order(bot, Some(a), "S0X0", 0, "REGULAR", "1", "100", "100", "2026-09-02 10:01:00")?;
+        f.order(bot, Some(exited), "S0X9", 1, "LIQUIDATION", "1", "150", "150", "2026-09-02 11:00:00")?;
+        f.order(bot, Some(b), "S0X1", 0, "REDEPLOY", "1", "150", "150", "2026-09-02 12:00:00")?;
+        let before = f.books(bot)?;
+        let after: Vec<Metrics> = f.done(&[])?.into_iter().map(|id| f.books(id)).collect::<Result<_>>()?;
+        assert_eq!(sum(after.iter().map(profit)), profit(&before));
+        lots_kept(&before, &after, &[a, b, exited]);
+        Ok(())
+    }
+
+    /// A swap buy that overspent its sale is new money on its child, where the source never booked it: one less made.
+    #[test]
+    fn an_overspent_swap_buy_is_new_money() -> Result {
+        let f = Fixture::index(&[0.5, 0.5])?;
+        let (bot, a, b) = (f.bots[0], f.assets[0][0].0, f.assets[0][1].0);
+        f.order(bot, Some(a), "S0X0", 0, "REGULAR", "1", "100", "100", "2026-09-02 10:00:00")?;
+        f.order(bot, Some(a), "S0X0", 1, "REBALANCE", "0.5", "60", "120", "2026-09-02 11:00:00")?;
+        f.order(bot, Some(b), "S0X1", 0, "REBALANCE", "1", "61", "61", "2026-09-02 12:00:00")?;
+        let before = f.books(bot)?;
+        let after: Vec<Metrics> = f.done(&[])?.into_iter().map(|id| f.books(id)).collect::<Result<_>>()?;
+        assert_eq!(sum(after.iter().map(profit)), (&profit(&before) - &dec("1")).unwrap());
+        lots_kept(&before, &after, &[a, b]);
+        Ok(())
+    }
+
+    /// A child merged later keeps the books it was split with.
+    #[test]
+    fn a_child_merged_later_keeps_its_books() -> Result {
+        use deltabadger::web::bot::merge::{perform as merge, Merged};
+        let f = Fixture::index(&[0.5, 0.5])?;
+        let (bot, a, b) = (f.bots[0], f.assets[0][0].0, f.assets[0][1].0);
+        f.order(bot, Some(a), "S0X0", 0, "REGULAR", "1", "100", "100", "2026-09-02 10:00:00")?;
+        f.order(bot, Some(a), "S0X0", 1, "REBALANCE", "0.5", "60", "120", "2026-09-02 11:00:00")?;
+        f.order(bot, Some(b), "S0X1", 0, "REBALANCE", "1", "60", "60", "2026-09-02 12:00:00")?;
+        let children = f.done(&[])?;
+        let (other_asset, other_ticker) = seed::add_alpaca_stock(&f.c, &f.s, "S5X0");
+        let mut spec = seed::BotSpec::weekly(60.0, "2026-09-01 14:00:00").weights(&[(other_asset, 1.0)]);
+        spec.status = 2;
+        let other = seed::insert_bot(&f.c, &f.s, &spec);
+        seed::insert_member(&f.c, other, other_asset, other_ticker, 1.0, true, "2026-09-01 14:00:00", None);
+        f.order(other, Some(other_asset), "S5X0", 0, "REGULAR", "1", "100", "100", "2026-09-02 13:00:00")?;
+        let expected = (&profit(&f.books(children[1])?) + &profit(&f.books(other)?)).unwrap();
+        let Merged::Done(merged) = merge(&f.c, &f.ctx, f.s.user_id, vec![children[1], other], None).map_err(|e| format!("{e:?}"))? else { return Err("expected a merge".into()) };
+        assert_eq!(profit(&f.books(merged)?), expected);
+        Ok(())
+    }
+}

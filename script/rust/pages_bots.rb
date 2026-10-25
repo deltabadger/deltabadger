@@ -126,6 +126,12 @@ module Pages
       [btc, usdc].each { |asset| ExchangeAsset.create!(exchange: hyperliquid, asset:) }
       Ticker.create!(exchange: hyperliquid, base_asset: btc, quote_asset: usdc, base: 'BTC', quote: 'USDC', ticker: '@1',
                      base_decimals: 5, quote_decimals: 8, price_decimals: 5, minimum_base_size: '0', minimum_quote_size: '10')
+      # 'hyperliquid_eth' => true: ether in USDC too, so a basket there has two members to split.
+      if scenario['hyperliquid_eth']
+        ExchangeAsset.create!(exchange: hyperliquid, asset: eth)
+        Ticker.create!(exchange: hyperliquid, base_asset: eth, quote_asset: usdc, base: 'ETH', quote: 'USDC', ticker: '@2',
+                       base_decimals: 4, quote_decimals: 8, price_decimals: 5, minimum_base_size: '0', minimum_quote_size: '10')
+      end
       ApiKey.create!(user: User.first, exchange: hyperliquid, key: '0x0123456789abcdef0123456789abcdef01234567',
                      secret: 'a' * 64, status: :correct, key_type: :trading)
     end
