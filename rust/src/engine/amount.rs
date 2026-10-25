@@ -310,10 +310,11 @@ fn write_order_row_in(c: &Connection, bot: &Bot, plan: &OrderPlan, kind: RowKind
     }
     // A signal bot has no schedule: Bot::OrderCreator#order_identity_values leaves the two columns at their defaults.
     // D-SELL-ROW-CADENCE: a selling bot's sell row records the sell cadence (sell_interval, else interval) and what the
-    // tick sells (the base amount, or the quote to sell for). Rails writes the buy interval and buy quote_amount.
+    // tick sells in quote: the quote to sell for, or the base amount (after the Smart Intervals split) × the sizing price
+    // `plan.price`, as size_sell values it. Rails writes the buy interval and buy quote_amount.
     let selling = bot.bot_type != super::model::SIGNAL_TYPE && bot.selling() && plan.side == crate::venue::Side::Sell;
     let bot_quote_amount = if bot.bot_type == super::model::SIGNAL_TYPE { BigDec::zero() }
-        else if selling { let (base, quote) = bot.sell_amounts(); base.unwrap_or(quote) }
+        else if selling { match bot.sell_amounts() { (Some(base), _) => &base * &plan.price, (None, quote) => quote } }
         else { bot.quote_amount_num()?.to_dec().map_err(data)? };
     let bot_interval = if selling {
         bot.settings.get("sell_interval").and_then(serde_json::Value::as_str).and_then(super::schedule::Interval::parse).or_else(|| bot.interval())
