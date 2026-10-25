@@ -2,7 +2,7 @@
 #   bin/rails runner script/rust/decisions.rb grid <root>    # one install per scenario, built with Rails' own models
 #   bin/rails runner script/rust/decisions.rb grid-alpaca <root> # the same for Alpaca, scripted beneath Clients::Alpaca at the Faraday adapter
 #   bin/rails runner script/rust/decisions.rb grid-basket <root>  # Alpaca crypto baskets, with the engine's recovery and the next checkpoint
-#   bin/rails runner script/rust/decisions.rb grid-limit <root>   # the amount limit, its stop and its mail, on Alpaca crypto, Kraken, Binance and KuCoin
+#   bin/rails runner script/rust/decisions.rb grid-limit <root>   # the amount limit, its stop and its mail, on Alpaca crypto, Kraken and every VENUES row
 #   bin/rails runner script/rust/decisions.rb grid-binance <root> # Binance spot, scripted beneath honeymaker at the Faraday adapter
 #   bin/rails runner script/rust/decisions.rb grid-binance-us <root> # Binance.US spot: the Binance grid at api.binance.us
 #   bin/rails runner script/rust/decisions.rb grid-kucoin <root>  # KuCoin spot, scripted beneath honeymaker at the Faraday adapter
@@ -1237,8 +1237,8 @@ module Decisions
   end
 
   # One capped scenario on `venue`: the daily 60 BTC bot with its limit switched on at its start.
-  def venue_limited(venue, name, at:, limit: 100.0, settings: {}, transient: {}, transactions: [], http: {}, ticker: nil, **extra)
-    kit = venue_limit_kit(venue)
+  def venue_limited(venue, name, at:, limit: 100.0, settings: {}, transient: {}, transactions: [], http: {}, ticker: nil, kit: nil, **extra)
+    kit ||= venue_limit_kit(venue)
     { 'name' => "limit-#{venue}-#{name}", 'venue' => venue, 'interval' => 'day', 'quote_amount' => 60.0, 'started_at' => BASKET_STARTED,
       'settings' => { 'quote_amount_limited' => true, 'quote_amount_limit' => limit }.merge(settings), 'settings_changed_at' => nil,
       'transient' => { 'quote_amount_limit_enabled_at' => LIMIT_STAMP }.merge(transient), 'transactions' => transactions,
@@ -1291,7 +1291,127 @@ module Decisions
       list << venue_limited(venue, 'guard-trim', at: basket_at(1), ticker:, http: kit['ask'].(ask),
                             transactions: [limit_row(ext.(11), 3, quote_amount: '100', quote_amount_exec: spent, amount_exec: '0.002')])
       list
-    end.tap { |l| raise "the venue limit grid has #{l.size} scenarios, not 45" unless l.size == 45 }
+    end.tap { |l| raise "the venue limit grid has #{l.size} scenarios, not 45" unless l.size == 45 } + more_venue_limit_scenarios
+  end
+
+  # Slice 6d-0: the venues of VENUES beyond Binance and KuCoin, each scripted by its own grid's bodies: the tick's reads and
+  # placement, a waiting row's external id, a filled order of `quote` for `qty` at `price`, and the book at another ask.
+  def more_venue_limit_kit(venue)
+    fill_mx = ->(id, quote, qty) { mx_order(id, 'FILLED', executed: qty, cumulative: quote) }
+    case venue
+    when 'binance_us' then venue_limit_kit('binance').merge('key' => 'binance_us')
+    when 'bitvavo'
+      { 'ext' => ->(n) { "BTC-EUR-#{n}" },
+        'http' => { 'GET /v2/ticker/book' => [bv_book('64001')], 'GET /v2/ticker/price' => [bv_last('64000')], 'POST /v2/order' => [ok(bv_order(BV_ORDER, 'new', amount_quote: '60'))],
+                    'GET /v2/balance' => [bv_balance('100000')], 'GET /v2/trades' => [ok([])] },
+        'fill' => ->(id, quote, qty, _price) { n = id.delete_prefix('BTC-EUR-'); { "GET /v2/order?market=BTC-EUR&orderId=#{n}" => [ok(bv_order(n, 'filled', amount_quote: quote, filled: qty, filled_quote: quote))] } },
+        'ask' => ->(ask) { { 'GET /v2/ticker/book' => [bv_book(ask, bid: '35899')] } },
+        'ticker' => { 'base_decimals' => 8, 'quote_decimals' => 2, 'price_decimals' => 0, 'minimum_base_size' => '0.0001', 'minimum_quote_size' => '5' } }
+    when 'bitget'
+      { 'ext' => ->(n) { "BTCUSDT-#{n}" },
+        'http' => { 'GET /api/v2/spot/market/orderbook' => [bg_book('64001.37')], 'GET /api/v2/spot/market/tickers' => [bg_last('64000.12')],
+                    'POST /api/v2/spot/trade/place-order' => [bg_ok('orderId' => '1234567890123456789', 'clientOid' => 'x')], 'GET /api/v2/spot/account/assets' => [bg_assets('100000')] },
+        'fill' => lambda do |id, quote, qty, price|
+          n = id.delete_prefix('BTCUSDT-')
+          { "GET /api/v2/spot/trade/orderInfo?orderId=#{n}" => [bg_ok([bg_order(n, 'filled', size: quote, price_avg: price, base: qty, quote:)])] }
+        end,
+        'ask' => ->(ask) { { 'GET /api/v2/spot/market/orderbook' => [bg_book(ask, bid: '35899')] } },
+        'ticker' => { 'base_decimals' => 6, 'quote_decimals' => 8, 'price_decimals' => 2, 'minimum_base_size' => '0', 'minimum_quote_size' => '1' } }
+    when 'gemini'
+      { 'ext' => ->(n) { (800 + n).to_s },
+        'http' => { 'GET /v1/pubticker/btcusd' => [gm_ticker('64000.01', '64000.11', '64000.05')],
+                    'POST /v1/order/new' => [ok(gm_order(7_612_345_678, live: false, executed: '0.00093749', avg: '64000.12'))], 'POST /v1/balances' => [gm_balances('100000')] },
+        'fill' => ->(id, _quote, qty, price) { { 'POST /v1/order/status' => [ok(gm_order(id, live: false, original: qty, executed: qty, avg: price))] } },
+        'ask' => ->(ask) { { 'GET /v1/pubticker/btcusd' => [gm_ticker('35899', ask, '35899.5')] } },
+        'ticker' => { 'base_decimals' => 8, 'quote_decimals' => 2, 'price_decimals' => 2, 'minimum_base_size' => '0.00001', 'minimum_quote_size' => '0' } }
+    when 'mexc'
+      { 'ext' => ->(n) { "BTCUSDT-C02__#{n}" },
+        'http' => { 'GET /api/v3/ticker/bookTicker' => [mx_book('64000.11')], 'GET /api/v3/ticker/price' => [mx_last('64000.05')],
+                    'POST /api/v3/order' => [ok('symbol' => 'BTCUSDT', 'orderId' => 'C02__100', 'orderListId' => -1, 'price' => '0', 'origQty' => '0', 'type' => 'MARKET',
+                                                'side' => 'BUY', 'transactTime' => 1_788_000_000_000)],
+                    'GET /api/v3/account' => [mx_account('100000')] },
+        'fill' => ->(id, quote, qty, _price) { { 'GET /api/v3/order' => [ok(fill_mx.(id.delete_prefix('BTCUSDT-'), quote, qty))] } },
+        'ask' => ->(ask) { { 'GET /api/v3/ticker/bookTicker' => [mx_book(ask, bid: '35899')] } },
+        'ticker' => { 'base_decimals' => 6, 'quote_decimals' => 2, 'price_decimals' => 2, 'minimum_base_size' => '0.000001', 'minimum_quote_size' => '1' } }
+    when 'bitrue'
+      account = mx_account('100000')['body']
+      { 'ext' => ->(n) { "BTCUSDT-#{n}" },
+        'http' => { 'GET /api/v1/ticker/bookTicker' => [mx_book('64000.11')], 'GET /api/v1/ticker/price' => [mx_last('64000.05')],
+                    'POST /api/v1/order' => [ok('symbol' => 'BTCUSDT', 'orderId' => '100', 'orderListId' => -1, 'price' => '0', 'origQty' => '0', 'type' => 'MARKET',
+                                                'side' => 'BUY', 'transactTime' => 1_788_000_000_000)],
+                    'GET /api/v1/account' => [ok(account.merge('balances' => account['balances'].map { |b| b.merge('asset' => b['asset'].downcase) }))] },
+        'fill' => ->(id, quote, qty, _price) { { 'GET /api/v1/order' => [ok(fill_mx.(id.delete_prefix('BTCUSDT-'), quote, qty))] } },
+        'ask' => ->(ask) { { 'GET /api/v1/ticker/bookTicker' => [mx_book(ask, bid: '35899')] } },
+        'ticker' => { 'base_decimals' => 6, 'quote_decimals' => 2, 'price_decimals' => 2, 'minimum_base_size' => '0.000001', 'minimum_quote_size' => '1' } }
+    when 'bingx'
+      bx = ->(data) { ok('code' => 0, 'data' => data) }
+      depth = ->(ask) { bx.('bids' => [['35899', '1.5']], 'asks' => [[ask, '0.2']]) }
+      { 'ext' => ->(n) { "BTC-USDT-#{n}" },
+        'http' => { 'GET /openApi/spot/v1/market/depth' => [bx.('bids' => [['64000.10', '1.5']], 'asks' => [['64000.11', '0.2']])],
+                    'GET /openApi/spot/v2/market/ticker' => [bx.([{ 'symbol' => 'BTC-USDT', 'lastPrice' => '64000.05' }])],
+                    'POST /openApi/spot/v1/trade/order' => [bx.('symbol' => 'BTC-USDT', 'orderId' => '100', 'orderListId' => -1, 'price' => '0', 'origQty' => '0', 'type' => 'MARKET',
+                                                               'side' => 'BUY', 'transactTime' => 1_788_000_000_000)],
+                    'GET /openApi/spot/v1/account/balance' => [bx.(mx_account('100000')['body'])] },
+        'fill' => ->(id, quote, qty, _price) { { 'GET /openApi/spot/v1/trade/query' => [bx.(fill_mx.(id.delete_prefix('BTC-USDT-'), quote, qty).merge('symbol' => 'BTC-USDT'))] } },
+        'ask' => ->(ask) { { 'GET /openApi/spot/v1/market/depth' => [depth.(ask)] } },
+        'ticker' => { 'base_decimals' => 6, 'quote_decimals' => 2, 'price_decimals' => 2, 'minimum_base_size' => '0.000001', 'minimum_quote_size' => '1' } }
+    when 'bybit'
+      { 'ext' => ->(n) { (800 + n).to_s },
+        'http' => { 'GET /v5/market/orderbook' => [by_ok('a' => [['64001.37', '1']], 'b' => [['64000', '1']])],
+                    'GET /v5/market/tickers' => [by_ok('list' => [{ 'symbol' => 'BTCUSDT', 'lastPrice' => '64000.12' }])], 'POST /v5/order/create' => [by_ok('orderId' => '123')],
+                    'GET /v5/account/wallet-balance' => [by_ok('list' => [{ 'coin' => [{ 'coin' => 'USDT', 'walletBalance' => '100000', 'locked' => '0', 'spotBorrow' => '0' }] }])],
+                    'GET /v5/order/realtime' => [by_ok('list' => [])], 'GET /v5/order/history' => [by_ok('list' => [])] },
+        'fill' => ->(id, quote, qty, _price) { { 'GET /v5/order/realtime' => [by_ok('list' => [by_order(id, 'Filled', base: qty, quote:)])] } },
+        'ask' => ->(ask) { { 'GET /v5/market/orderbook' => [by_ok('a' => [[ask, '1']], 'b' => [['35899', '1']])] } },
+        'ticker' => { 'base_decimals' => 6, 'quote_decimals' => 8, 'price_decimals' => 2, 'minimum_base_size' => '0.00001', 'minimum_quote_size' => '1' } }
+    when 'coinbase'
+      book = ->(ask, bid) { ok('pricebook' => { 'bids' => [{ 'price' => bid, 'size' => '2' }], 'asks' => [{ 'price' => ask, 'size' => '2' }] }) }
+      batch = 'GET /api/v3/brokerage/orders/historical/batch'
+      { 'ext' => ->(n) { "cb-#{n}" },
+        'http' => { 'GET /api/v3/brokerage/market/product_book' => [book.('64000.11', '63999.99')],
+                    'GET /api/v3/brokerage/market/products/BTC-EUR' => [ok('price' => '64000.05')],
+                    'GET /api/v3/brokerage/key_permissions' => [ok('portfolio_uuid' => 'p')],
+                    'GET /api/v3/brokerage/portfolios/p' => [ok('breakdown' => { 'spot_positions' => [{ 'asset' => 'EUR', 'available_to_trade_crypto' => '100000', 'total_balance_crypto' => '100000' }] })],
+                    'POST /api/v3/brokerage/orders' => [ok('success' => true, 'success_response' => { 'order_id' => 'new' })],
+                    batch => [ok('orders' => [], 'has_next' => false)] },
+        # The sweep reads the batch; a follow-up reads the one order.
+        'fill' => lambda do |id, quote, qty, price|
+          order = coinbase_order(id).merge('filled_size' => qty, 'average_filled_price' => price, 'total_value_after_fees' => quote,
+                                           'order_configuration' => { 'market_market_ioc' => { 'quote_size' => quote } })
+          { batch => [ok('orders' => [order], 'has_next' => false)], "GET /api/v3/brokerage/orders/historical/#{id}" => [ok('order' => order)] }
+        end,
+        'ask' => ->(ask) { { 'GET /api/v3/brokerage/market/product_book' => [book.(ask, '35899')] } },
+        'ticker' => { 'base_decimals' => 8, 'quote_decimals' => 2, 'price_decimals' => 2, 'minimum_base_size' => '0.00000001', 'minimum_quote_size' => '1' } }
+    when 'hyperliquid'
+      # Every Hyperliquid bot places limit orders (Bot::LimitOrderable#limit_orders_locked?).
+      { 'ext' => ->(n) { "BTC-#{800 + n}" }, 'http' => hl_path_two_http, 'settings' => { 'limit_ordered' => true, 'limit_order_pcnt_distance' => 0.0025 },
+        'fill' => lambda do |id, _quote, qty, price|
+          oid = id.delete_prefix('BTC-').to_i
+          { 'POST /info orderStatus' => [hl_order(oid, status: 'filled', limit: price, orig: qty)], 'POST /info userFillsByTime' => [ok([hl_fill(oid, qty, price, 9800)])] }
+        end,
+        'ask' => ->(_ask) { { 'POST /info l2Book' => [hl_book('35899', '35900')], 'POST /info allMids' => [ok(HL_PAIR => '35899.5', '@143' => '2500.5')] } },
+        'ticker' => HL_PATH_TWO_TICKER }
+    end.then { |kit| { 'key' => venue }.merge(kit) }
+  end
+
+  # The four venue cases (cap trims a buy, the exact-cap guard's trim, a follow-up stop, a sweep stop) on every other VENUES row.
+  # The guard's trim is set as on Binance: 92.82 of 100 spent, an ask a hair above 35900, and a 0.00015 base floor, so that the
+  # 7.18 left is sized in base (where the venue sizes in base at all).
+  def more_venue_limit_scenarios
+    (VENUES.keys - %w[binance kucoin]).flat_map do |venue|
+      kit = more_venue_limit_kit(venue)
+      ext = kit['ext']
+      settings = kit.fetch('settings', {})
+      waiting_market = ->(id) { limit_row(id, 0, quote_amount: '60', price: '50000') }
+      ticker = kit['ticker'].merge('minimum_base_size' => '0.00015')
+      [venue_limited(venue, 'tally-closed', at: basket_at(1), settings:, transactions: [limit_closed(ext.(1), '60')], kit:),
+       venue_limited(venue, 'poll-reaches', at: basket_at(1), limit: 60.0, settings:, tick: false, poll: ext.(8), transactions: [waiting_market.(ext.(8))],
+                     http: kit['fill'].(ext.(8), '60', '0.0012', '50000'), kit:),
+       venue_limited(venue, 'sweep-reaches', at: basket_at(1), limit: 60.0, settings:, transactions: [waiting_market.(ext.(9))],
+                     http: kit['fill'].(ext.(9), '60', '0.0012', '50000'), kit:),
+       venue_limited(venue, 'guard-trim', at: basket_at(1), settings:, ticker:, http: kit['ask'].('35900.000000000015'), kit:,
+                     transactions: [limit_row(ext.(11), 3, quote_amount: '100', quote_amount_exec: '92.82', amount_exec: '0.002')])]
+    end.tap { |l| raise "the other venues' limit grid has #{l.size} scenarios, not 40" unless l.size == 40 }
   end
 
   # Plan 2d: Alpaca stocks and ETFs. Tuesday 2026-09-01, 10:00 EDT; September is EDT, so a session is 13:30–20:00 UTC.
