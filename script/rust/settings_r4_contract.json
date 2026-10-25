@@ -218,7 +218,7 @@
       "current_for(h.origin.as_ref(),wire.producer().as_ref())",
       "same_key(origin.as_ref(),producer.alpaca())",
       "producer.is_current(c)",
-      "Producer::Alpaca(version) => crate::engine::model::credential_is_current(c, version)",
+      "Alpaca::Key(version) => crate::engine::model::credential_is_current(c, version)?",
       "self.cache.entries.borrow_mut().remove(&key)",
       "self.cache.heads.borrow_mut().remove(&key)"
     ],

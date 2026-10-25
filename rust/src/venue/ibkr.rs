@@ -6,7 +6,7 @@
 //! Rails caches the LST encrypted in Solid Cache, shared by its web and job processes, and serialises a login across them
 //! with IbkrLock (a SQLite row, 15 s wait). Rust is one process: both live in `LOGINS`, in memory, keyed by api key and
 //! replaced when the key's CredentialVersion changes (a restart costs one re-mint). The `ibkr_locks` table is not used.
-use super::http::{decode_json, HttpRequest, Transport, TransportError};
+use super::http::{decode_json, HttpRequest, HttpResponse, Transport, TransportError};
 use super::VenueError;
 use super::signers::ibkr::{self as oauth, Material, Signer};
 use crate::engine::model::CredentialVersion;
@@ -127,6 +127,43 @@ pub fn login(version: &CredentialVersion, material: &Material) -> Result<Arc<Log
 
 /// The deleted api key's login dropped, its LST with it.
 pub fn forget(api_key_id: i64) { logins().remove(&api_key_id); }
+
+/// The figures' market-data reads (Ibkr plan F1, D-IBKR-FIGURES: Rails' get_tickers_prices and get_candles answer `{}` and
+/// `[]`). Their answers' shapes are provisional until a recorded session (G1).
+pub const SNAPSHOT_PATH: &str = "/v1/api/iserver/marketdata/snapshot";
+pub const HISTORY_PATH: &str = "/v1/api/iserver/marketdata/history";
+/// Exchanges::Ibkr::FIELD_LAST, and the market-data availability field (`N…`: the login has no subscription for it).
+pub const FIELD_LAST: &str = "31";
+pub const FIELD_AVAILABILITY: &str = "6509";
+
+/// One market-data GET for the figures' cache, under the login's lock (IbkrLock) for the whole read, as a raw answer: a JSON
+/// answer as its text, an HTTP error status as that answer. A busy login is NotSent; a failure of the session itself (its
+/// mint, an unreadable answer) Permanent.
+pub async fn read<T: Transport, C: Clock + ?Sized>(session: &Session<'_, T, C>, r: &HttpRequest) -> Result<HttpResponse, TransportError> {
+    let held = session.lock().await.map_err(|e| TransportError::NotSent(e.message()))?;
+    match session.signed_request(&held, "GET", &r.path, r.query.clone(), None).await {
+        Ok(v) => Ok(HttpResponse { status: 200, body: v.to_string() }),
+        Err(Error::Http { status, body }) => Ok(HttpResponse { status, body }),
+        Err(Error::Transport(e)) => Err(e),
+        Err(e) => Err(TransportError::Permanent(session.transport.redact_diagnostic(&e.message()))),
+    }
+}
+
+/// What a snapshot answer says of `conid`'s last price.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Last { Price(String), Unsubscribed, Absent }
+
+/// Exchanges::Ibkr#snapshot_field for the figures: `conid`'s own row only (Rails falls back to the first row, which could
+/// be another contract's), its field 31 without the `C` (previous close) or `H` (halted) prefix. No row, no field 31 (the
+/// pre-flight answer IBKR gives a first read) or an empty one is Absent; availability `N…` is Unsubscribed.
+pub fn snapshot_last(body: &Value, conid: &str) -> Last {
+    let Value::Array(rows) = body else { return Last::Absent };
+    let id = |r: &Value| match &r["conid"] { Value::Number(n) => n.to_string(), Value::String(s) => s.clone(), _ => String::new() };
+    let Some(row) = rows.iter().find(|r| id(r) == conid) else { return Last::Absent };
+    if row[FIELD_AVAILABILITY].as_str().is_some_and(|a| a.starts_with('N')) { return Last::Unsubscribed }
+    let text = match &row[FIELD_LAST] { Value::String(s) => s.strip_prefix(['C', 'H']).unwrap_or(s).to_string(), Value::Number(n) => n.to_string(), _ => return Last::Absent };
+    if text.is_empty() { Last::Absent } else { Last::Price(text) }
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Error {
@@ -697,5 +734,57 @@ pub(crate) mod tests {
         let sent = crate::venue::sign::request(crate::venue::sign::Wire::Ibkr, &client, &call, keys, &crate::engine::SystemClock).build().unwrap();
         assert!(sent.headers()["Authorization"].to_str().unwrap().starts_with("OAuth realm="));
         assert_eq!(sent.url().as_str(), "https://api.ibkr.com/v1/api/portfolio/U1/positions/0?model=x+y");
+    }
+
+    // ---- The figures' market-data reads (F1). D-IBKR-FIGURES: Rails reads none, so every expected value here is Rust-only,
+    // and the answers are provisional shapes (`source: "provisional"`) until G1 records a session.
+
+    fn snapshot_request() -> HttpRequest {
+        HttpRequest { method: "GET", base: URL.into(), path: SNAPSHOT_PATH.into(), query: vec![("conids", "265598".into()), ("fields", "31,6509".into())], body: None, not_after: None }
+    }
+
+    #[tokio::test]
+    async fn a_market_data_read_is_signed_through_the_session_and_kept_raw() {
+        let (login, session) = new_login();
+        let t = scripted(&session);
+        let answer = json!([{ "conid": 265598, "31": "190.50", "6509": "RpB", "source": "provisional" }]);
+        t.reply("GET /v1/api/iserver/marketdata/snapshot", 200, answer.clone()).reply("GET /v1/api/iserver/marketdata/snapshot", 503, json!({ "error": "busy", "source": "provisional" }));
+        let dh_random = session["dh_random"].as_str().unwrap().to_string();
+        let clock = at("2026-10-23T10:00:00Z");
+        let s = Session::new(&t, login, &clock).with_dh_random(|| dh_random.clone());
+        // Rust-only (D-IBKR-FIGURES): the answer as text, and an HTTP error status as an answer the cache settles.
+        assert_eq!(read(&s, &snapshot_request()).await, Ok(HttpResponse { status: 200, body: answer.to_string() }));
+        assert_eq!(read(&s, &snapshot_request()).await.unwrap().status, 503);
+        assert_eq!(paths(&t), [MINT, INIT, "GET /v1/api/iserver/marketdata/snapshot", "GET /v1/api/iserver/marketdata/snapshot"]);
+        assert_eq!(t.requests()[2].query, snapshot_request().query);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn a_market_data_read_waits_for_the_login_lock() {
+        let (login, session) = new_login();
+        let t = scripted(&session);
+        let clock = at("2026-10-23T10:00:00Z");
+        let s = Session::new(&t, login, &clock);
+        let _held = s.lock().await.unwrap();
+        // Rust-only (D-IBKR-FIGURES): a busy login is a read not sent, after IbkrLock's wait.
+        assert!(matches!(read(&s, &snapshot_request()).await, Err(TransportError::NotSent(_))));
+        assert!(t.requests().is_empty());
+    }
+
+    #[test]
+    fn a_snapshot_names_its_conids_last_price_or_why_it_has_none() {
+        // Rust-only (D-IBKR-FIGURES): Rails' snapshot_field reads field 31 of the conid's row; the rest is this reading.
+        let last = |rows: Value| snapshot_last(&rows, "265598");
+        assert_eq!(last(json!([{ "conid": 265598, "31": "190.50", "6509": "RpB" }])), Last::Price("190.50".into()));
+        assert_eq!(last(json!([{ "conid": "265598", "31": "C189.10" }])), Last::Price("189.10".into()), "previous close");
+        assert_eq!(last(json!([{ "conid": 265598, "31": "H12" }])), Last::Price("12".into()), "halted");
+        assert_eq!(last(json!([{ "conid": 265598, "31": 7.5 }])), Last::Price("7.5".into()));
+        assert_eq!(last(json!([{ "conid": 265598, "6509": "N", "source": "provisional" }])), Last::Unsubscribed);
+        assert_eq!(last(json!([{ "conid": 265598, "31": "1", "6509": "NpB" }])), Last::Unsubscribed);
+        assert_eq!(last(json!([{ "conid": 265598, "_updated": 1 }])), Last::Absent, "the pre-flight answer");
+        assert_eq!(last(json!([{ "conid": 265598, "31": "" }])), Last::Absent);
+        assert_eq!(last(json!([{ "conid": 8314, "31": "50" }])), Last::Absent, "another contract's row is never this one's");
+        assert_eq!(last(json!({ "error": "x" })), Last::Absent);
+        assert_eq!(last(json!([])), Last::Absent);
     }
 }

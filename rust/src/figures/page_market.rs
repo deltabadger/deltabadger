@@ -28,7 +28,7 @@ const KUCOIN_CANDLES: &str = "/api/v1/market/candles";
 /// Clients::Binance#candlestick_data, for Binance and Binance.US alike.
 const BINANCE_KLINES: &str = "/api/v3/klines";
 use crate::venue::kraken::{OHLC as KRAKEN_OHLC, TICKER as KRAKEN_TICKER};
-use crate::venue::{bingx, bitget, bitrue, bitvavo, bybit, mexc};
+use crate::venue::{bingx, bitget, bitrue, bitvavo, bybit, ibkr, mexc};
 
 /// A closed candle as the figures read it: its time (`bar_time`), the venue's own text of it (the next tail's `start`), and
 /// its open exactly as the venue sent it, a number or a string, read by `Dec::to_d` as the answer itself is.
@@ -60,39 +60,64 @@ pub struct Cache { entries: RefCell<BTreeMap<String, Entry>>, heads: RefCell<BTr
     fx: Option<Arc<FxStore>> }
 
 /// What an account's figures are made under (figures-specific provenance): its Alpaca key's version, or no usable Alpaca
-/// key. `NoAlpaca` names the account and the version of the key row it has that cannot be read (none: no key at all), so
-/// that adding, replacing or removing a key changes it, and checking it needs no decryption (`is_current`).
+/// key, and its IBKR key, whose login reads IBKR's market data (`ibkr`). `NoAlpaca` names the account's Alpaca key row it
+/// cannot read (none: no key at all), so that adding, replacing or removing a key changes it, and checking it needs no
+/// decryption (`is_current`). `ibkr` is None only for a cache filled with no account read (a harness's wire).
 #[derive(Clone, Debug)]
-pub enum Producer { Alpaca(crate::engine::model::CredentialVersion), NoAlpaca { user: i64, key: Option<crate::engine::model::CredentialVersion> } }
+pub struct Producer { alpaca: Alpaca, ibkr: Option<KeyRow> }
+#[derive(Clone, Debug)]
+enum Alpaca { Key(crate::engine::model::CredentialVersion), NoKey(KeyRow) }
+/// An account's key row of one venue as the figures found it: the account, and the row's version (none: no such key).
+#[derive(Clone, Debug)]
+pub struct KeyRow { user: i64, key: Option<crate::engine::model::CredentialVersion> }
+impl KeyRow {
+    /// User `user`'s key row of version `key` (`loading::read_info` reads it).
+    pub fn new(user: i64, key: Option<crate::engine::model::CredentialVersion>) -> Self { Self { user, key } }
+    /// The row's cache stamp, null without one.
+    pub fn stamp(&self) -> Value { self.key.as_ref().map_or(Value::Null, |k| k.cache_stamp()) }
+    fn same(&self, other: &Self) -> bool { self.user == other.user && same_key(self.key.as_ref(), other.key.as_ref()) }
+    fn is_current(&self, c: &rusqlite::Connection, query: &str) -> Result<bool, crate::engine::EngineError> {
+        let id: Option<i64> = rusqlite::OptionalExtension::optional(c.query_row(query, [self.user], |r| r.get(0)))?;
+        Ok(match (id, &self.key) { (None, None) => true, (Some(id), Some(version)) => id == version.id && crate::engine::model::credential_is_current(c, version)?, _ => false })
+    }
+}
 /// Two key versions made the same answers: both absent, or the same version.
 fn same_key(a: Option<&crate::engine::model::CredentialVersion>, b: Option<&crate::engine::model::CredentialVersion>) -> bool {
     match (a, b) { (None, None) => true, (Some(a), Some(b)) => crate::engine::model::current_for(Some(a), Some(b)).is_fresh(), _ => false }
 }
 impl Producer {
+    /// Figures read with the usable Alpaca key `version`.
+    pub fn alpaca_key(version: crate::engine::model::CredentialVersion) -> Self { Self { alpaca: Alpaca::Key(version), ibkr: None } }
+    /// Figures of account `user` with no usable Alpaca key: none, or the unreadable row `key`.
+    pub fn no_alpaca(user: i64, key: Option<crate::engine::model::CredentialVersion>) -> Self { Self { alpaca: Alpaca::NoKey(KeyRow { user, key }), ibkr: None } }
+    /// The account's IBKR key row, as the figures found it.
+    pub fn with_ibkr(mut self, ibkr: KeyRow) -> Self { self.ibkr = Some(ibkr); self }
     /// The Alpaca key market data is read with, if any.
-    pub fn alpaca(&self) -> Option<&crate::engine::model::CredentialVersion> { match self { Producer::Alpaca(v) => Some(v), Producer::NoAlpaca { .. } => None } }
-    /// The same producer: one key version, or the same account without a usable key in the same state.
+    pub fn alpaca(&self) -> Option<&crate::engine::model::CredentialVersion> { match &self.alpaca { Alpaca::Key(v) => Some(v), Alpaca::NoKey(_) => None } }
+    /// The same producer: one Alpaca key version, or the same account without a usable one in the same state, and the same
+    /// IBKR key row.
     pub fn same(&self, other: &Producer) -> bool {
-        match (self, other) {
-            (Producer::Alpaca(a), Producer::Alpaca(b)) => same_key(Some(a), Some(b)),
-            (Producer::NoAlpaca { user: a, key: x }, Producer::NoAlpaca { user: b, key: y }) => a == b && same_key(x.as_ref(), y.as_ref()),
+        let alpaca = match (&self.alpaca, &other.alpaca) {
+            (Alpaca::Key(a), Alpaca::Key(b)) => same_key(Some(a), Some(b)),
+            (Alpaca::NoKey(a), Alpaca::NoKey(b)) => a.same(b),
             _ => false,
-        }
+        };
+        alpaca && match (&self.ibkr, &other.ibkr) { (None, None) => true, (Some(a), Some(b)) => a.same(b), _ => false }
     }
-    /// Whether the account is still as this producer found it, read in the caller's transaction: its key unchanged, or still
-    /// no Alpaca key (or the same unreadable one).
+    /// Whether the account is still as this producer found it, read in the caller's transaction: its Alpaca key unchanged,
+    /// or still none usable (or the same unreadable one), and its IBKR key row unchanged.
     pub fn is_current(&self, c: &rusqlite::Connection) -> Result<bool, crate::engine::EngineError> {
-        match self {
-            Producer::Alpaca(version) => crate::engine::model::credential_is_current(c, version),
-            Producer::NoAlpaca { user, key } => {
-                let id: Option<i64> = rusqlite::OptionalExtension::optional(c.query_row(ALPACA_KEY, [user], |r| r.get(0)))?;
-                Ok(match (id, key) { (None, None) => true, (Some(id), Some(version)) => id == version.id && crate::engine::model::credential_is_current(c, version)?, _ => false })
-            }
-        }
+        let alpaca = match &self.alpaca {
+            Alpaca::Key(version) => crate::engine::model::credential_is_current(c, version)?,
+            Alpaca::NoKey(row) => row.is_current(c, ALPACA_KEY)?,
+        };
+        Ok(alpaca && self.ibkr.as_ref().map_or(Ok(true), |row| row.is_current(c, IBKR_KEY))?)
     }
 }
 /// The account's Alpaca trading key, as the figures pick it (`loading::read_info`).
 pub const ALPACA_KEY: &str = "SELECT k.id FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE k.user_id=?1 AND k.key_type=0 AND e.type='Exchanges::Alpaca' ORDER BY k.id LIMIT 1";
+/// The account's IBKR trading key, whose login reads IBKR's market data (`loading::ibkr_wire`).
+pub const IBKR_KEY: &str = "SELECT k.id FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE k.user_id=?1 AND k.key_type=0 AND e.type='Exchanges::Ibkr' ORDER BY k.id LIMIT 1";
 
 const ALPACA: &str = "https://data.alpaca.markets";
 /// A request's cache key: its path and query, behind its host for any venue but Alpaca's market data (whose keys predate
@@ -118,10 +143,10 @@ fn seconds(request: &HttpRequest) -> i64 {
 /// (MEXC's klines are Binance's path at its own host; Bitvavo's path names its market). A venue series is never sent as it
 /// is: its key names the series (symbol, since, timeframe), and its pages are derived from it (`kucoin_pages`,
 /// `binance_pages`, `kraken_page`, `mexc_pages`, `bitrue_pages`, `bingx_page`, `bitvavo_pages`, `bitget_pages`,
-/// `bybit_pages`), so the head is found again by the next fill whatever `now` is.
+/// `bybit_pages`, `ibkr_page`), so the head is found again by the next fill whatever `now` is.
 fn is_series(request: &HttpRequest) -> bool {
     request.path.ends_with("/bars") || is_bitvavo_series(request)
-        || [KUCOIN_CANDLES, BINANCE_KLINES, KRAKEN_OHLC, bitrue::KLINE, bingx::KLINE, bitget::CANDLES_PATH, bybit::KLINE_PATH].contains(&request.path.as_str())
+        || [KUCOIN_CANDLES, BINANCE_KLINES, KRAKEN_OHLC, bitrue::KLINE, bingx::KLINE, bitget::CANDLES_PATH, bybit::KLINE_PATH, ibkr::HISTORY_PATH].contains(&request.path.as_str())
 }
 /// Clients::Bitvavo#get_candles' path, `/v2/{market}/candles`, at Bitvavo's host.
 fn is_bitvavo_series(request: &HttpRequest) -> bool { request.base == bitvavo::URL && request.path.ends_with("/candles") }
@@ -196,10 +221,10 @@ async fn answer<'a>(wire: &impl Transport, request: HttpRequest, old: Option<Arc
         };
     }
     let path = request.path.clone();
-    let answered = match send(wire, &request).await {
+    let answered = if path == ibkr::SNAPSHOT_PATH { ibkr_snapshot(wire, &request, compute).await } else { match send(wire, &request).await {
         Ok(body) => cpu(compute, move || decode(&body).map(|value| { let value = prices_only(&path, value); (size(&value), value) })).await,
         Err(failure) => Err(failure),
-    };
+    } };
     match answered {
         Ok((size, value)) => Answered { key, value: Ok(Answer::Json(Arc::new(value))), size, head: None, _held: None },
         Err(failure) => Answered { key, value: Err(failure), size: 0, head: None, _held: None },
@@ -260,6 +285,7 @@ async fn pages(wire: &impl Transport, request: &HttpRequest, tail: Option<&Bar>,
     if request.path == bybit::KLINE_PATH { return bybit_pages(wire, request, tail.map(|bar| bar.at), now, compute, held).await; }
     if request.path == BINANCE_KLINES { return binance_pages(wire, request, tail.map(|bar| bar.at), now, compute, held).await; }
     if request.path == KRAKEN_OHLC { return kraken_page(wire, request, tail.map(|bar| bar.at), now, compute, held).await; }
+    if request.path == ibkr::HISTORY_PATH { return ibkr_page(wire, request, tail.map(|bar| bar.at), now, compute, held).await; }
     // Alpaca answers a long range oldest first, a page at a time, each naming the next (`next_page_token`), as
     // Clients::Alpaca reads them; the token joins the query in its sorted place. A tail starts at the last bar's own text.
     let mut request = request.clone();
@@ -648,6 +674,49 @@ fn bybit_rows(mut body: Value, timeframe: i64, now: i64) -> Fetch<(Vec<Bar>, Opt
     }
     Ok((out, newest, count))
 }
+/// `ibkr_conid`'s lookup: the conid by its primary key, held to its venue's ticker of the same code and asset.
+const IBKR_CONID: &str = "SELECT k.conid FROM ibkr_conids k JOIN tickers t ON t.base_asset_id = k.asset_id WHERE k.conid = ?1 AND t.exchange_id = ?2 AND t.ticker = ?3 LIMIT 1";
+/// IBKR's snapshot as IbkrVenue::price reads it (`ibkr_venue::snapshot`): a pre-flight answer is asked again once. One still
+/// without its price is a raised failure, never an answer kept: the next fill asks again.
+async fn ibkr_snapshot(wire: &impl Transport, request: &HttpRequest, compute: &Arc<tokio::sync::Semaphore>) -> Fetch<(usize, Value)> {
+    let answer = crate::venue::ibkr_venue::snapshot(ibkr::FIELD_LAST, || async move { let body = send(wire, request).await?; cpu(compute, move || decode(&body)).await }).await?;
+    if crate::venue::ibkr_venue::is_preflight(&answer, ibkr::FIELD_LAST) { return Err(Failure::Raised(UNAVAILABLE.into())); }
+    Ok((size(&answer), answer))
+}
+/// IBKR's most bars one history read answers.
+const IBKR_MAX_BARS: i64 = 1000;
+/// IBKR's daily history (Ibkr plan F1, D-IBKR-FIGURES: Rails' get_candles answers `[]`): one read of `period` days back
+/// from now, the start's own day included, at most IBKR_MAX_BARS; the closed bars from the start on. No paging.
+async fn ibkr_page(wire: &impl Transport, series: &HttpRequest, tail: Option<i64>, now: i64, compute: &Arc<tokio::sync::Semaphore>, held: &mut SeriesBytes<'_>) -> Fetch<Vec<Bar>> {
+    let timeframe = seconds(series);
+    let start = series_start(series, tail)?;
+    let days = (now.saturating_sub(start).div_euclid(86_400).saturating_add(1)).clamp(1, IBKR_MAX_BARS);
+    let page = HttpRequest { method: "GET", base: series.base.clone(), path: ibkr::HISTORY_PATH.into(), body: None, not_after: None,
+        query: vec![("bar", param(series, "bar").to_string()), ("conid", param(series, "symbol").to_string()), ("period", format!("{days}d"))] };
+    let body = send(wire, &page).await?;
+    let bars = cpu(compute, move || ibkr_rows(decode(&body)?, start, timeframe, now)).await?;
+    held.take(bars.iter().map(Bar::size).sum())?;
+    Ok(bars)
+}
+/// One IBKR history answer (provisional shape): `data`'s bars `{t (ms), o, h, l, c, v}`. No `data` is an empty series; an
+/// answer that is no object, or a bar that is none, is unreadable. The closed ones from `start` on, in time order.
+fn ibkr_rows(mut body: Value, start: i64, timeframe: i64, now: i64) -> Fetch<Vec<Bar>> {
+    let unreadable = || Failure::Failed(UNAVAILABLE.into());
+    if !body.is_object() { return Err(unreadable()); }
+    let rows = match body.get_mut("data").map_or(Value::Null, Value::take) { Value::Array(rows) => rows, Value::Null => vec![], _ => return Err(unreadable()) };
+    let mut out = vec![];
+    for mut row in rows {
+        if !row.is_object() { return Err(unreadable()); }
+        let at = integer(&row["t"]).ok_or_else(unreadable)?.div_euclid(1000);
+        if at >= start && at.saturating_add(timeframe) <= now {
+            let open = row.get_mut("o").map_or(Value::Null, Value::take);
+            Dec::to_d(&open)?;
+            out.push(Bar { at, t: at.to_string().into(), o: open });
+        }
+    }
+    out.sort_by_key(|bar| bar.at);
+    Ok(out)
+}
 /// One Binance page: rows of `[open time in ms, open, high, low, close, volume, ...]`, the open a string. The closed ones,
 /// at `Time.at(ms / 1000)`, and the last row's open time in ms as sent (closed or not), which decides where the walk goes.
 fn binance_rows(body: Value, timeframe: i64, now: i64) -> Fetch<(Vec<Bar>, Option<i64>)> {
@@ -765,7 +834,10 @@ impl Cache {
         self.rendered = Rendered::default();
         // A wire with an Alpaca key makes its answers under it. One without makes them for an account with no usable key
         // (what the fill recorded, `produced_by`), never under a key it does not carry.
-        self.origin = match wire.producer() { Some(version) => Some(Producer::Alpaca(version)), None => self.origin.take().filter(|p| matches!(p, Producer::NoAlpaca { .. })) };
+        self.origin = match wire.producer() {
+            Some(version) => Some(self.origin.take().filter(|p| same_key(p.alpaca(), Some(&version))).unwrap_or_else(|| Producer::alpaca_key(version))),
+            None => self.origin.take().filter(|p| p.alpaca().is_none()),
+        };
         let producer = wire.producer();
         if demands.len() > MAX_ENTRIES { for request in demands.split_off(MAX_ENTRIES) { self.refuse(key(&request), now); } }
         // What each candle demand starts from: its stored head, unless another key's head or an expired one.
@@ -814,6 +886,15 @@ impl<'a> Reader<'a> {
     pub fn pending(&self) -> bool { !self.demands.borrow().is_empty() || !self.fx_demands.borrow().is_empty() }
     pub fn with_symbols(mut self, symbols: Vec<String>) -> Self { self.symbols = Some(symbols); self }
     pub fn demands(&self) -> Vec<HttpRequest> { self.demands.borrow().values().cloned().collect() }
+    /// An IBKR ticker's conid: its code (`tickers.ticker`, the catalogue's conid, in its canonical digits) where `ibkr_conids`
+    /// maps that conid to the ticker's base asset, found by its primary key. None for any other code, or with no connection
+    /// (the unbound harness).
+    fn ibkr_conid(&self, venue: &Venue, code: &str) -> Fetch<Option<i64>> {
+        let Some(c) = self.current else { return Ok(None) };
+        let Some(conid) = code.parse::<i64>().ok().filter(|conid| conid.to_string() == code) else { return Ok(None) };
+        rusqlite::OptionalExtension::optional(c.query_row(IBKR_CONID, rusqlite::params![conid, venue.exchange_id, code], |r| r.get(0)))
+            .map_err(|_| Failure::Failed(UNAVAILABLE.into()))
+    }
     fn get(&self, request: HttpRequest) -> Fetch<Answer> {
         let fresh=|origin:&Option<crate::engine::model::CredentialVersion>|->Result<bool,Failure> {
             let Some(c)=self.current else { return Ok(true) }; // The unbound numerical harness reads no stored credentials.
@@ -845,6 +926,26 @@ impl<'a> Reader<'a> {
 /// Whether the figures read this venue's market data at all. A venue they do not read yet has no prices or candles here,
 /// which is no failure of the venue's: its bots show what is known without a price, and no note that it did not answer.
 pub fn reads(venue: &Venue) -> bool { crate::venue::registry::row(&venue.exchange_type).is_some_and(|r| r.figures.is_some()) }
+/// The (user, conid) pairs whose latest IBKR snapshot said the login has no market-data subscription for them (field 6509
+/// `N…`), as the answers arrive (`note_ibkr_answer`). Their bots take the path of a venue the figures do not read: what is
+/// known without a price, and no note that the venue did not answer (`notes`).
+// ponytail: in-process, lost on a restart until the next fill's answers note it again; G1 settles subscriptions.
+static IBKR_UNSUBSCRIBED: Mutex<std::collections::BTreeSet<(i64, String)>> = Mutex::new(std::collections::BTreeSet::new());
+fn unsubscribed() -> std::sync::MutexGuard<'static, std::collections::BTreeSet<(i64, String)>> { IBKR_UNSUBSCRIBED.lock().unwrap_or_else(std::sync::PoisonError::into_inner) }
+/// An IBKR answer user `user`'s login gave to `request`: a snapshot notes whether its conid is subscribed.
+pub fn note_ibkr_answer(user: i64, request: &HttpRequest, body: &str) {
+    if request.path != ibkr::SNAPSHOT_PATH { return; }
+    let conid = param(request, "conids").to_string();
+    let Ok(answer) = crate::venue::http::decode_json(body) else { return };
+    if ibkr::snapshot_last(&answer, &conid) == ibkr::Last::Unsubscribed { unsubscribed().insert((user, conid)); } else { unsubscribed().remove(&(user, conid)); }
+}
+/// Whether a bot's stale figures carry the note that its venue did not answer: the figures read the venue, and none of the
+/// bot's IBKR conids is one its owner's login has no subscription for.
+pub fn notes(venue: &Venue, user: i64, tickers: &[Ticker]) -> bool {
+    reads(venue) && (venue.exchange_type != ibkr::IBKR || { let held = unsubscribed(); !tickers.iter().any(|t| held.contains(&(user, t.ticker.clone()))) })
+}
+/// IBKR's bar for the timeframes the chart asks for: daily only (F1).
+fn ibkr_bar(timeframe: i64) -> Option<&'static str> { (timeframe == 86_400).then_some("1d") }
 /// Whether the figures read this venue's candles.
 fn reads_candles(venue: &Venue) -> bool { crate::venue::registry::row(&venue.exchange_type).and_then(|r| r.figures).is_some_and(|f| f.candles()) }
 /// Exchanges::Kucoin#get_candles' interval names, for the timeframes the chart asks for (`chart::timeframe`). Rails' 3 days
@@ -923,6 +1024,30 @@ impl MarketData for Reader<'_> {
                 Answer::Json(body) => parse(&body).map(|rows| rows.into_iter().map(|(symbol, price)| (symbol, Dec::venue_number(&Value::String(price.to_s_f())))).collect()).map_err(|_| Failure::Failed(UNAVAILABLE.into())),
                 Answer::Bars(_) => Err(Failure::Failed(UNAVAILABLE.into())),
             };
+        }
+        if let Some(row) = crate::venue::registry::row(&venue.exchange_type).filter(|row| row.figures == Some(Figures::Ibkr)) {
+            // IBKR (F1, D-IBKR-FIGURES: Rails' get_tickers_prices answers `{}`): one snapshot per conid, every one asked for
+            // in the same pass. A code with no conid, no last price, a zero one, or none for want of a subscription is absent;
+            // a failed read fails the bot's prices.
+            let mut out = vec![];
+            let mut failed = None;
+            let mut codes: Vec<&String> = symbols.iter().collect();
+            codes.sort_unstable(); codes.dedup();
+            for code in codes {
+                let Some(conid) = self.ibkr_conid(venue, code)? else { continue };
+                let conid = conid.to_string();
+                let request = HttpRequest { method: "GET", base: row.base.into(), path: ibkr::SNAPSHOT_PATH.into(), body: None, not_after: None,
+                    query: vec![("conids", conid.clone()), ("fields", format!("{},{}", ibkr::FIELD_LAST, ibkr::FIELD_AVAILABILITY))] };
+                match self.get(request) {
+                    Ok(Answer::Json(body)) => if let ibkr::Last::Price(text) = ibkr::snapshot_last(&body, &conid) {
+                        let price = Dec::venue_number(&Value::String(text));
+                        if !price.as_ref().is_ok_and(Dec::is_zero) { out.push((code.clone(), price)); }
+                    },
+                    Ok(Answer::Bars(_)) => { failed.get_or_insert(Failure::Failed(UNAVAILABLE.into())); }
+                    Err(error) => { failed.get_or_insert(error); }
+                }
+            }
+            return match failed { Some(error) => Err(error), None => Ok(out) };
         }
         if let Some(row) = crate::venue::registry::row(&venue.exchange_type).filter(|row| row.figures == Some(Figures::Kraken)) {
             // Exchanges::Kraken#get_tickers_prices(symbols:): the bulk Ticker, kept to the bot's codes, then one Ticker per
@@ -1003,6 +1128,11 @@ impl MarketData for Reader<'_> {
             Some((row, Figures::Bitvavo)) => Some(venue_series(row.base, &format!("/v2/{}/candles", ticker.ticker), bitvavo_interval(timeframe).map(|name| ("interval", name)))?),
             Some((row, Figures::Bitget)) => Some(venue_series(row.base, bitget::CANDLES_PATH, bitget_granularity(timeframe).map(|name| ("interval", name)))?),
             Some((row, Figures::Bybit)) => Some(venue_series(row.base, bybit::KLINE_PATH, bybit_interval(timeframe).map(|name| ("interval", name)))?),
+            // IBKR's code is its conid (`tickers.ticker`), read only where `ibkr_conids` maps it to the ticker's asset.
+            Some((row, Figures::Ibkr)) => match self.ibkr_conid(venue, &ticker.ticker)? {
+                Some(_) => Some(venue_series(row.base, ibkr::HISTORY_PATH, ibkr_bar(timeframe).map(|name| ("bar", name)))?),
+                None => return Err(Failure::Failed(UNAVAILABLE.into())),
+            },
             _ => None,
         };
         if let Some(series) = series {
@@ -1631,5 +1761,197 @@ mod r4_cache_tests {
         cache.fill(&wire,vec![late.clone()],now+PRICE_TTL+5).await;
         assert!(cache.entries.borrow().contains_key(&key(&late)));
         assert_eq!(cache.bytes(),recount(&cache));
+    }
+
+    // ---- IBKR (Ibkr plan F1). D-IBKR-FIGURES: Rails' get_tickers_prices and get_candles answer `{}` and `[]`, so every
+    // expected value below is Rust-only; the answers are provisional shapes (`source: "provisional"`) until G1.
+
+    const D: i64 = 86_400;
+    fn ibkr_series(since: i64, conid: &str) -> HttpRequest {
+        HttpRequest { method: "GET", base: ibkr::URL.into(), path: ibkr::HISTORY_PATH.into(), body: None, not_after: None,
+                      query: vec![("bar", "1d".into()), ("since", since.to_string()), ("symbol", conid.into())] }
+    }
+    /// Daily bars from a day before the start to now (the open one too), as IBKR answers a period back from now.
+    fn ibkr_history(now: i64) -> impl Fn(&HttpRequest) -> HttpResponse {
+        move |_: &HttpRequest| {
+            let bars: Vec<Value> = (-1..).map(|i| SINCE + i * D).take_while(|t| *t <= now).map(|t| serde_json::json!({ "t": t * 1000, "o": "100.5", "c": 101, "h": 102, "l": 99, "v": 10 })).collect();
+            HttpResponse { status: 200, body: serde_json::json!({ "symbol": "AAPL", "barLength": 86400, "data": bars, "source": "provisional" }).to_string() }
+        }
+    }
+
+    #[tokio::test]
+    async fn an_ibkr_series_is_one_daily_read_back_from_now_then_a_tail(){
+        let producer = model::credential_version_by_id(&db(),1).unwrap().unwrap();
+        let req = ibkr_series(SINCE, "265598");
+        let now = SINCE + 10 * D + H;
+        let wire = Pages { answer: ibkr_history(now), asked: RefCell::default(), producer: producer.clone() };
+        let mut cache = Cache::default();
+        cache.fill(&wire, vec![req.clone()], now).await;
+        // Rust-only (D-IBKR-FIGURES): the start's day and the ten after it, read once; the day before the start and the
+        // open day left out.
+        assert_eq!(*wire.asked.borrow(), ["bar=1d&conid=265598&period=11d"]);
+        let bars = opens(&cache, &key(&req));
+        assert_eq!((bars.len(), bars[0].0, bars.last().unwrap().0, bars[0].1.as_str()), (10, SINCE, SINCE + 9 * D, "100.5"));
+        // Rust-only: the next fill reads from the last stored bar on.
+        let later = now + D;
+        let wire = Pages { answer: ibkr_history(later), asked: RefCell::default(), producer: producer.clone() };
+        cache.fill(&wire, vec![req.clone()], later).await;
+        assert_eq!(*wire.asked.borrow(), ["bar=1d&conid=265598&period=3d"]);
+        assert_eq!(opens(&cache, &key(&req)).len(), 11);
+        // Rust-only: a start further back than IBKR's 1000 bars asks for 1000.
+        let wire = Pages { answer: ibkr_history(now), asked: RefCell::default(), producer: producer.clone() };
+        let mut cache = Cache::default();
+        cache.fill(&wire, vec![ibkr_series(SINCE - 5000 * D, "265598")], now).await;
+        assert_eq!(*wire.asked.borrow(), ["bar=1d&conid=265598&period=1000d"]);
+        // Rust-only: no `data` is an empty series (no head); an answer that is no object fails the series.
+        assert!(ibkr_rows(serde_json::json!({ "source": "provisional" }), SINCE, D, now).unwrap().is_empty());
+        assert!(ibkr_rows(serde_json::json!([]), SINCE, D, now).is_err());
+        assert!(ibkr_rows(serde_json::json!({ "data": [1] }), SINCE, D, now).is_err());
+    }
+
+    /// An IBKR venue (exchange 7) with conids mapped by `ibkr_conids`: 265598 and 8314 and 4242 are their tickers' assets';
+    /// 777 belongs to another asset; 999 has none.
+    fn ibkr_db() -> rusqlite::Connection {
+        let c = db();
+        c.execute_batch("CREATE TABLE tickers(id INTEGER PRIMARY KEY, exchange_id INTEGER, ticker TEXT, base_asset_id INTEGER);
+                         CREATE TABLE ibkr_conids(conid INTEGER PRIMARY KEY, asset_id INTEGER NOT NULL, created_at TEXT);
+                         INSERT INTO tickers VALUES (1,7,'265598',50),(2,7,'8314',51),(3,7,'999',52),(4,7,'777',53),(5,7,'4242',54);
+                         INSERT INTO ibkr_conids(conid, asset_id) VALUES (265598,50),(8314,51),(777,99),(4242,54);").unwrap();
+        c
+    }
+    fn ibkr_venue() -> Venue { Venue { exchange_id: 7, exchange_type: ibkr::IBKR.into() } }
+
+    #[tokio::test]
+    async fn ibkr_prices_are_one_snapshot_per_mapped_conid_and_never_zero(){
+        let c = ibkr_db();
+        let producer = model::credential_version_by_id(&c,1).unwrap().unwrap();
+        let now = SINCE;
+        let codes: Vec<String> = ["265598", "8314", "999", "777", "4242", "265598"].map(String::from).to_vec();
+        let snapshot = |failing: bool| move |r: &HttpRequest| {
+            let conid = param(r, "conids").to_string();
+            let row = match conid.as_str() {
+                "265598" => serde_json::json!({ "conid": 265598, "31": "C190.50", "6509": "RpB" }),
+                "8314" if failing => return HttpResponse { status: 503, body: "{}".into() },
+                "8314" => serde_json::json!({ "conid": 8314, "31": "0", "6509": "RpB" }),
+                _ => serde_json::json!({ "conid": conid.parse::<i64>().unwrap(), "6509": "N" }),
+            };
+            HttpResponse { status: 200, body: serde_json::json!([row.as_object().unwrap().clone().into_iter().chain([("source".to_string(), serde_json::json!("provisional"))]).collect::<serde_json::Map<_, _>>()]).to_string() }
+        };
+        for failing in [false, true] {
+            let mut cache = Cache::default();
+            let reader = Reader::new(&cache, now).with_current(&c);
+            assert!(reader.prices(&ibkr_venue(), &codes).is_err(), "the first pass asks");
+            let demands = reader.demands();
+            // Rust-only (D-IBKR-FIGURES): one snapshot per conid `ibkr_conids` maps to its ticker's asset, fields 31 and 6509.
+            assert_eq!(demands.iter().map(|r| (r.base.as_str(), r.path.as_str(), r.query.iter().map(|(k,v)| format!("{k}={v}")).collect::<Vec<_>>().join("&"))).collect::<Vec<_>>(),
+                       [(ibkr::URL, ibkr::SNAPSHOT_PATH, "conids=265598&fields=31,6509".to_string()), (ibkr::URL, ibkr::SNAPSHOT_PATH, "conids=4242&fields=31,6509".into()),
+                        (ibkr::URL, ibkr::SNAPSHOT_PATH, "conids=8314&fields=31,6509".into())]);
+            let wire = Pages { answer: snapshot(failing), asked: RefCell::default(), producer: producer.clone() };
+            cache.fill(&wire, demands, now).await;
+            let prices = Reader::new(&cache, now).with_current(&c).prices(&ibkr_venue(), &codes);
+            if failing {
+                // Rust-only: a failed read fails the bot's prices.
+                assert!(matches!(prices, Err(Failure::Failed(_))));
+            } else {
+                // Rust-only: the previous close without its prefix; the zero and the unsubscribed conid are absent, never 0.
+                let prices: Vec<(String, String)> = prices.unwrap().into_iter().map(|(code, p)| (code, p.unwrap().to_s_f())).collect();
+                assert_eq!(prices, [("265598".to_string(), "190.5".to_string())]);
+            }
+        }
+        // Rust-only: with no connection (the unbound harness) no code maps, and nothing is asked.
+        let cache = Cache::default();
+        let reader = Reader::new(&cache, now);
+        assert_eq!(reader.prices(&ibkr_venue(), &codes).unwrap().len(), 0);
+        assert!(reader.demands().is_empty());
+    }
+
+    fn ibkr_ticker(code: &str, asset: i64) -> Ticker {
+        Ticker { id: 1, ticker: code.into(), base: "AAPL".into(), base_asset_id: asset, quote_decimals: None, base_category: Some("Stock".into()), base_asset_exists: true }
+    }
+
+    #[test]
+    fn ibkr_candles_are_asked_for_a_mapped_conid_daily_only(){
+        let c = ibkr_db();
+        let cache = Cache::default();
+        let since = At::from_utc(chrono::DateTime::from_timestamp(SINCE, 0).unwrap()).unwrap();
+        // Rust-only (D-IBKR-FIGURES): the daily series of the ticker's conid.
+        let reader = Reader::new(&cache, SINCE + 5 * D).with_current(&c);
+        assert!(reader.candles(&ibkr_venue(), &ibkr_ticker("265598", 50), since, D, false).is_err());
+        assert_eq!(reader.demands().iter().map(key).collect::<Vec<_>>(), [key(&ibkr_series(SINCE, "265598"))]);
+        // Rust-only: no grid for an unmapped code or another timeframe, and nothing asked.
+        let reader = Reader::new(&cache, SINCE + 5 * D).with_current(&c);
+        for (code, asset, timeframe) in [("999", 52, D), ("777", 53, D), ("265598", 50, H)] {
+            assert!(reader.candles(&ibkr_venue(), &ibkr_ticker(code, asset), since, timeframe, false).is_err());
+        }
+        assert!(reader.demands().is_empty());
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn an_ibkr_pre_flight_answer_is_asked_again_once_and_never_kept(){
+        let c = ibkr_db();
+        let producer = model::credential_version_by_id(&c,1).unwrap().unwrap();
+        let codes = vec!["265598".to_string()];
+        let preflight = r#"[{"conid":265598,"conidEx":"265598","_updated":1,"source":"provisional"}]"#;
+        let priced = r#"[{"conid":265598,"31":"190.50","6509":"RpB","source":"provisional"}]"#;
+        let unsubscribed = r#"[{"conid":265598,"6509":"N","source":"provisional"}]"#;
+        // (the answers in turn, the reads sent, the price)
+        for (answers, reads, price) in [(vec![preflight, priced], 2, Some("190.5")), (vec![preflight, preflight], 2, None), (vec![unsubscribed], 1, None)] {
+            let mut cache = Cache::default();
+            let reader = Reader::new(&cache, SINCE).with_current(&c);
+            assert!(reader.prices(&ibkr_venue(), &codes).is_err());
+            let demands = reader.demands();
+            let turn = Cell::new(0);
+            let wire = Pages { answer: |_: &HttpRequest| { let i = turn.get(); turn.set(i + 1); HttpResponse { status: 200, body: answers[i].into() } }, asked: RefCell::default(), producer: producer.clone() };
+            cache.fill(&wire, demands, SINCE).await;
+            // Rust-only (D-IBKR-FIGURES): a pre-flight answer is asked again once, as IbkrVenue::price does; an unsubscribed one
+            // is not (asking again does not subscribe it).
+            assert_eq!(wire.asked.borrow().len(), reads);
+            let prices = Reader::new(&cache, SINCE).with_current(&c).prices(&ibkr_venue(), &codes);
+            match (answers == [preflight, preflight], price) {
+                // Rust-only: a second pre-flight answer is a raised failure, never kept as an answer without a price.
+                (true, _) => {
+                    assert!(matches!(prices, Err(Failure::Raised(_))), "{prices:?}");
+                    assert!(cache.entries.borrow().values().all(|e| e.value.is_err()), "the pre-flight answer is never kept");
+                }
+                (false, Some(p)) => assert_eq!(prices.unwrap().into_iter().map(|(code, v)| (code, v.unwrap().to_s_f())).collect::<Vec<_>>(), [("265598".to_string(), p.to_string())]),
+                (false, None) => assert!(prices.unwrap().is_empty()),
+            }
+        }
+    }
+
+    #[test]
+    fn an_ibkr_conid_is_looked_up_by_its_primary_key(){
+        let c = ibkr_db();
+        c.execute_batch("CREATE UNIQUE INDEX tickers_code ON tickers(exchange_id, ticker); INSERT INTO tickers VALUES (6,7,'0265598',50);").unwrap();
+        let plan: Vec<String> = c.prepare(&format!("EXPLAIN QUERY PLAN {IBKR_CONID}")).unwrap()
+            .query_map(rusqlite::params![265598, 7, "265598"], |r| r.get(3)).unwrap().collect::<Result<_, _>>().unwrap();
+        assert!(plan.iter().any(|step| step.contains("k USING INTEGER PRIMARY KEY")), "{plan:?}");
+        assert!(!plan.iter().any(|step| step.starts_with("SCAN")), "{plan:?}");
+        let cache = Cache::default();
+        let reader = Reader::new(&cache, SINCE).with_current(&c);
+        assert_eq!(reader.ibkr_conid(&ibkr_venue(), "265598").unwrap(), Some(265598));
+        // Rust-only: a code that is not the conid's own digits is no conid, whatever it parses to.
+        for code in ["0265598", "+265598", "265598 ", "AAPL"] { assert_eq!(reader.ibkr_conid(&ibkr_venue(), code).unwrap(), None, "{code}"); }
+    }
+
+    #[test]
+    fn an_unsubscribed_ibkr_conid_takes_the_path_of_a_venue_the_figures_do_not_read(){
+        let (user, other) = (9_042, 9_043);
+        let tickers = [ibkr_ticker("265598", 50)];
+        let request = |conid: &str| HttpRequest { method: "GET", base: ibkr::URL.into(), path: ibkr::SNAPSHOT_PATH.into(), body: None, not_after: None,
+                                                  query: vec![("conids", conid.into()), ("fields", "31,6509".into())] };
+        // Rust-only (D-IBKR-FIGURES): stale IBKR figures carry the note until the login says it has no subscription.
+        assert!(notes(&ibkr_venue(), user, &tickers));
+        note_ibkr_answer(user, &request("265598"), r#"[{"conid":265598,"6509":"N","source":"provisional"}]"#);
+        assert!(!notes(&ibkr_venue(), user, &tickers), "no note, as for a venue the figures do not read");
+        assert!(notes(&ibkr_venue(), other, &tickers), "another account's login is its own");
+        assert!(notes(&ibkr_venue(), user, &[ibkr_ticker("8314", 51)]), "another contract");
+        // A history answer says nothing of it; a priced snapshot ends it.
+        note_ibkr_answer(user, &ibkr_series(SINCE, "265598"), "{}");
+        assert!(!notes(&ibkr_venue(), user, &tickers));
+        note_ibkr_answer(user, &request("265598"), r#"[{"conid":265598,"31":"190.5","6509":"RpB","source":"provisional"}]"#);
+        assert!(notes(&ibkr_venue(), user, &tickers));
+        // A venue the figures do not read has no note, whatever.
+        assert!(!notes(&Venue { exchange_id: 7, exchange_type: crate::venue::gemini::GEMINI.into() }, user, &tickers));
     }
 }
