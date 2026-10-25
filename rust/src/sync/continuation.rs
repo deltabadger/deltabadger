@@ -90,12 +90,13 @@ pub(super) trait Walk {
     /// What a checkpoint whose cursor is `cursor` (the walk's own) does once its page is stored, in the same transaction:
     /// KuCoin's takeover of the file's entries a finished source proves (plan KI §5). The finishing unit passes the done
     /// walk's cursor. A fn pointer, so the 'static store closure need not name the walk's type.
-    const CHECKPOINT: Checkpoint = |_, _, _, _| Ok(());
+    const CHECKPOINT: Checkpoint = |_, _, _, _, _| Ok(());
     /// The store repairs the rows an earlier sync wrote under the ids this walk reads (Kraken's, D-KR-5).
     const KRAKEN_REPAIR: bool = false;
 }
 
-pub(super) type Checkpoint = fn(&Connection, &Key, &Value, DateTime<Utc>) -> Result<(), SyncError>;
+/// (connection, key, the walk's cursor, the import's credential stamp, now).
+pub(super) type Checkpoint = fn(&Connection, &Key, &Value, &Value, DateTime<Utc>) -> Result<(), SyncError>;
 
 /// Where a walk begins: a fresh import from `start` (None: the venue's whole history) to `end`, or a recorded cursor.
 pub(super) struct Begin<'a> { pub start: Option<DateTime<Utc>>, pub end: DateTime<Utc>, pub cursor: Option<&'a Value> }
@@ -263,7 +264,8 @@ pub(super) async fn sync<W: Walk>(db: &Db, version: &CredentialVersion, key: Key
         let k = key.clone();
         phase(db, move |c| Ok(Progress::new(ledger::asset_rule(c, k.exchange_id, &k.exchange_type)?, ledger::stored_merged(c, &k)?, Arc::new(vec![])))).await?
     };
-    progress.kraken_repair = W::KRAKEN_REPAIR;
+    progress.kraken_repair = W::KRAKEN_REPAIR.then(|| version.cache_stamp());
+    let stamp = Arc::new(version.cache_stamp());
     progress.stored.extend(record.ours.iter().flat_map(|&(a, b)| a..=b));
     progress.repeats.extend(record.repeats.clone());
     let segments = read.segments.len();
@@ -279,12 +281,12 @@ pub(super) async fn sync<W: Walk>(db: &Db, version: &CredentialVersion, key: Key
         r.stalls = 0;
         r.max_seen = [r.max_seen, rows.iter().filter_map(|e| e.transacted_at).max()].into_iter().flatten().max();
         r.units = budget.millis();
-        let (k, p) = (key.clone(), progress.over(Arc::new(rows)));
+        let (k, p, st) = (key.clone(), progress.over(Arc::new(rows)), stamp.clone());
         let (p, r) = budget.timed(units, super::commit_for(db, version, move |c| {
             let mut r = r;
             let to = p.batch.len();
             let p = ledger::store(c, &k, 0..to, None, p, now)?;
-            checkpoint(c, &k, &r.cursor, now)?;
+            checkpoint(c, &k, &r.cursor, &st, now)?;
             // The store's dedup state after this page, verbatim.
             r.ours = id_runs(&p.stored);
             r.repeats = p.repeats.iter().filter(|(_, n)| **n > 0).map(|(k, n)| (k.clone(), *n)).collect();
@@ -319,7 +321,7 @@ pub(super) async fn sync<W: Walk>(db: &Db, version: &CredentialVersion, key: Key
     let producer = version.clone();
     let finished_key = key.clone();
     super::commit_for(db, version, move |c| {
-        checkpoint(c, &finished_key, &done_cursor, now)?;
+        checkpoint(c, &finished_key, &done_cursor, &stamp, now)?;
         super::cache::record_ledger(c, key_id, &producer, now)?;
         if changed { c.execute("UPDATE api_keys SET last_synced_at = ?1, last_sync_error = NULL, updated_at = ?2 WHERE id = ?3", params![watermark.map(sql_time), sql_time(now), key_id])?; }
         c.execute("DELETE FROM app_configs WHERE key = ?1", [record_key(key_id)])?;

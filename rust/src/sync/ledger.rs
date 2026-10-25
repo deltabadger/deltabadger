@@ -600,14 +600,15 @@ pub(super) struct Progress {
     pub(super) batch: Arc<Vec<Entry>>,
     /// `@file_pairs`: the batch's export swap pairs (`swapcsv_` groups), each the indices of its legs in batch order.
     pub(super) file_pairs: HashMap<String, Vec<usize>>,
-    /// A Kraken ledger sync's store (never a file's): stored rows under the ids it reads are repaired (D-KR-5).
-    pub(super) kraken_repair: bool,
+    /// A Kraken ledger sync's store (never a file's): stored rows under the ids it reads are repaired (D-KR-5). The
+    /// import's credential stamp, which its deferred repairs carry.
+    pub(super) kraken_repair: Option<Value>,
 }
 
 impl Progress {
     /// What one store starts from (AccountTransactionSync#store!'s locals): nothing counted yet, over `batch`.
     pub(super) fn new(assets: AssetRule, merged: HashSet<String>, batch: Arc<Vec<Entry>>) -> Progress {
-        Progress { out: Outcome::default(), assets: Arc::new(assets), merged, min_skipped: None, stored: HashSet::new(), repeats: BTreeMap::new(), file_pairs: pairs_of(&batch), batch, kraken_repair: false }
+        Progress { out: Outcome::default(), assets: Arc::new(assets), merged, min_skipped: None, stored: HashSet::new(), repeats: BTreeMap::new(), file_pairs: pairs_of(&batch), batch, kraken_repair: None }
     }
     /// The same store going on over the next `batch` (continuation::sync stores an import a page at a time): what it
     /// counted so far carried, as one store over every page would carry it.
@@ -674,7 +675,7 @@ pub(super) fn store(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, 
     }
     for (n, index) in range.enumerate() {
         let e = &batch[index];
-        if p.kraken_repair { super::kraken_ledger::repair(c, key, e, &p.assets, now)?; }
+        if let Some(stamp) = &p.kraken_repair { super::kraken_ledger::repair(c, key, e, &p.assets, stamp, now)?; }
         let tx_id = present(&e.tx_id);
         // A row its id already names is not one of the identical rows counted.
         let repeat = if known_id(c, key, tx_id, &p.merged)? { 0 } else {
@@ -736,7 +737,7 @@ impl FileWriter {
     pub(crate) fn store(&mut self, c: &crate::engine::model::FencedTransaction<'_>, key: &Key, entries: Vec<Entry>, now: DateTime<Utc>) -> Result<Outcome, SyncError> {
         let batch = Arc::new(entries);
         let p = Progress { out: Outcome::default(), assets: self.assets.clone(), merged: std::mem::take(&mut self.merged), min_skipped: None, stored: HashSet::new(),
-                           repeats: BTreeMap::new(), file_pairs: pairs_of(&batch), batch: batch.clone(), kraken_repair: false };
+                           repeats: BTreeMap::new(), file_pairs: pairs_of(&batch), batch: batch.clone(), kraken_repair: None };
         let p = store(c, key, 0..batch.len(), None, p, now)?;
         self.merged = p.merged;
         Ok(p.out)

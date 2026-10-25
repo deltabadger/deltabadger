@@ -540,3 +540,61 @@ async fn an_interrupted_internal_pair_is_linked_by_refid_later() {
     fx.sync_through(key, &api, true).await;
     assert_eq!(fx.row(user, "I1").7, Some("I2".into()), "linked by its refid");
 }
+
+/// Codex P2: a deferred repair belongs to the credential whose import read it. A paused import leaves a deferred deposit
+/// that its stored withdrawal would now accept; the credential is replaced (another account); the new credential's import
+/// completes, and the old credential's target is never written.
+#[tokio::test(flavor = "current_thread")]
+async fn a_replaced_credential_never_applies_the_old_ones_deferred_repairs() {
+    let fx = Fx::new();
+    let (user, key) = fx.user("o@example.com");
+    let wd_entry = entry("H1", "XETH", "transfer", "spottostaking", "-10.0000000000", "0.2000000000", secs(1, 1), "P1");
+    let dep_entry = entry("H2", "ETH.S", "transfer", "stakingfromspot", "10.1000000000", "0", secs(1, 1), "P1");
+    let eth = Some(fx.assets["ETH"]);
+    let (wd, dep) = (fx.rails_row(user, key, &wd_entry, 5, "ETH", None, eth), fx.rails_row(user, key, &dep_entry, 4, "ETH", None, eth));
+    fx.link(wd, dep);
+    fx.c.execute("UPDATE account_transactions SET base_amount = 10 WHERE id = ?1", [dep]).unwrap();
+    let recent = entry("H5", "XXBT", "trade", "", "0.0100000000", "0", secs(19, 1), "T5");
+    let api = Kraken::new(1, vec![dep_entry, wd_entry, recent]);
+    assert_eq!(fx.sync(key, &api, true).await, Ok(false));
+    assert_eq!(fx.sync(key, &api, true).await, Ok(false));
+    assert_eq!((fx.row(user, "H1").3, fx.row(user, "H2").3), (10.2, 10.0), "the deposit is deferred, its withdrawal written");
+    assert!(fx.deferred(key).is_some());
+    // Another account's credential on the same key, as a replacement leaves it (#497).
+    fx.c.execute("UPDATE api_keys SET key = ?1, secret = ?2, last_synced_at = NULL WHERE id = ?3",
+                 params![fx.cipher.encrypt("account-b"), fx.cipher.encrypt("c2VjcmV0Yg=="), key]).unwrap();
+    let other = Kraken::new(50, vec![entry("B1", "XXBT", "deposit", "", "0.5000000000", "0", secs(18, 1), "D1")]);
+    fx.sync_through(key, &other, false).await;
+    assert_eq!(fx.row(user, "H2").3, 10.0, "the old credential's deferred target is not applied");
+    assert_eq!(fx.row(user, "B1").3, 0.5);
+    assert!(fx.deferred(key).is_none(), "the stale record is gone");
+}
+
+/// Codex P2: a Deltabadger CSV imported before the API sync stores the internal legs with no Kraken metadata; the API
+/// sync confirming their ledger ids restores `type`/`subtype`/`refid`/`asset`, so the pair is linked by its refid, with
+/// the 0.1 ETH between the legs as its transfer fee. Raw data another source wrote is never overwritten.
+#[tokio::test(flavor = "current_thread")]
+async fn csv_first_internal_legs_get_their_kraken_metadata_and_link() {
+    let fx = Fx::new();
+    let (user, key) = fx.user("o@example.com");
+    let csv = format!("{}\n2026-09-16T01:00:00Z,withdrawal,ETH,1.1,,,,,kraken,I1,P1,\n2026-09-16T01:00:00Z,deposit,ETH,1,,,,,kraken,I2,P1,\n\
+                       2026-09-16T02:00:00Z,deposit,BTC,0.5,,,,,kraken,I3,D3,", deltabadger::web::tracker::CSV_HEADERS.join(","));
+    match deltabadger::tracker::import::run::import(&fx.c, &fx.cipher, user, "deltabadger", csv.as_bytes(), None, None, SYNC_NOW.parse().unwrap()).unwrap() {
+        deltabadger::tracker::import::run::Answer::Written { imported, .. } => assert_eq!(imported, 3),
+        other => panic!("{other:?}"),
+    }
+    let raw = |tx: &str| fx.c.query_row("SELECT raw_data FROM account_transactions WHERE user_id = ?1 AND tx_id = ?2", params![user, tx], |r| r.get::<_, String>(0)).unwrap();
+    assert_eq!(raw("I1"), "{}");
+    fx.c.execute("UPDATE account_transactions SET raw_data = '{\"source\":\"elsewhere\"}' WHERE user_id = ?1 AND tx_id = 'I3'", [user]).unwrap();
+    let api = Kraken::new(50, vec![entry("I1", "XETH", "transfer", "spottostaking", "-1.1000000000", "0", secs(16, 1), "P1"),
+                                   entry("I2", "ETH.S", "transfer", "stakingfromspot", "1.0000000000", "0", secs(16, 1), "P1"),
+                                   entry("I3", "XXBT", "deposit", "", "0.5000000000", "0", secs(16, 2), "D3")]);
+    fx.sync_through(key, &api, false).await;
+    let meta: Value = serde_json::from_str(&raw("I1")).unwrap();
+    assert_eq!(meta, json!({ "type": "transfer", "subtype": "spottostaking", "refid": "P1", "asset": "XETH" }));
+    assert_eq!(raw("I3"), "{\"source\":\"elsewhere\"}", "non-empty raw data is kept");
+    assert_eq!(fx.row(user, "I1").7, Some("I2".into()), "linked by its refid");
+    let (_, _, _, w) = walked(&fx, user);
+    let fee = w.rows.iter().find(|r| r.linked && r.amount.to_f() == 1.1).and_then(|r| r.transfer_fee.clone()).unwrap().to_f();
+    assert!((fee - 0.1).abs() < 1e-12, "transfer fee {fee}");
+}

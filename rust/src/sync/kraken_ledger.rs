@@ -283,7 +283,7 @@ impl<T: Transport> continuation::Walk for Walk<'_, T> {
     fn request_reserve(&self) -> std::time::Duration { crate::venue::http::TOTAL_TIMEOUT * (1 + THROTTLE_RETRIES as u32) + self.wait * THROTTLE_RETRIES as u32 }
     const KRAKEN_REPAIR: bool = true;
     /// At the import's completion (its done cursor), the repairs deferred on its pages converge (r3 row 5).
-    const CHECKPOINT: continuation::Checkpoint = |c, key, cursor, now| if cursor["source"] == "done" { converge(c, key, now) } else { Ok(()) };
+    const CHECKPOINT: continuation::Checkpoint = |c, key, cursor, stamp, now| if cursor["source"] == "done" { converge(c, key, stamp, now) } else { Ok(()) };
     async fn step(&mut self) -> Result<Vec<Entry>, Fail> {
         let mut retried = 0usize;
         let (rows, next) = loop {
@@ -352,19 +352,21 @@ pub async fn sync_within<T: Transport>(db: &Db, transport: T, key_id: i64, crede
 
 // ---- the repair of rows an earlier sync wrote (D-KR-5) ---------------------------------------------------------------
 
-/// What a stored row becomes: the normalised entry's columns and the resolver's asset.
+/// What a stored row becomes: the normalised entry's columns, the resolver's asset, and the Kraken entry's identifying
+/// metadata (`type`, `subtype`, `refid`, `asset`) for a row stored with none (a Deltabadger CSV's `{}`).
 #[derive(Clone, Debug, PartialEq)]
-struct Target { entry_type: i64, base_currency: String, base_amount: BigDec, fee_currency: Option<String>, fee_amount: Option<BigDec>, base_asset_id: Option<i64> }
+struct Target { entry_type: i64, base_currency: String, base_amount: BigDec, fee_currency: Option<String>, fee_amount: Option<BigDec>, base_asset_id: Option<i64>, meta: Value }
 
 impl Target {
     fn json(&self, tx_id: &str) -> Value {
         json!({ "tx_id": tx_id, "entry_type": self.entry_type, "base_currency": self.base_currency, "base_amount": self.base_amount.to_s_f(),
-                "fee_currency": self.fee_currency, "fee_amount": self.fee_amount.as_ref().map(BigDec::to_s_f), "base_asset_id": self.base_asset_id })
+                "fee_currency": self.fee_currency, "fee_amount": self.fee_amount.as_ref().map(BigDec::to_s_f), "base_asset_id": self.base_asset_id, "meta": self.meta })
     }
     fn of(v: &Value) -> Option<(String, Self)> {
         let dec = |k: &str| v[k].as_str().and_then(|s| BigDec::parse(s).ok());
         Some((v["tx_id"].as_str()?.to_string(), Self { entry_type: v["entry_type"].as_i64()?, base_currency: v["base_currency"].as_str()?.to_string(), base_amount: dec("base_amount")?,
-                                                       fee_currency: v["fee_currency"].as_str().map(str::to_string), fee_amount: dec("fee_amount"), base_asset_id: v["base_asset_id"].as_i64() }))
+                                                       fee_currency: v["fee_currency"].as_str().map(str::to_string), fee_amount: dec("fee_amount"), base_asset_id: v["base_asset_id"].as_i64(),
+                                                       meta: v["meta"].clone() }))
     }
 }
 
@@ -393,28 +395,40 @@ fn valid_pair(wd: (i64, Option<&str>, &BigDec), dep: (i64, Option<&str>, &BigDec
 
 fn deferred_key(key_id: i64) -> String { format!("rust_sync.kraken_repair_deferred:{key_id}") }
 
-fn load_deferred(c: &Connection, key_id: i64) -> Result<Vec<(String, Target)>, SyncError> {
+/// The key's deferred repairs, when the credential whose import read them is `stamp`'s (as the continuation record is
+/// bound to its credential); another credential's are none, and are replaced or removed by this import.
+fn load_deferred(c: &Connection, key_id: i64, stamp: &Value) -> Result<Vec<(String, Target)>, SyncError> {
     let text: Option<String> = c.query_row("SELECT value FROM app_configs WHERE key = ?1", [deferred_key(key_id)], |r| r.get(0)).optional()?.flatten();
     let v: Value = text.and_then(|t| serde_json::from_str(&t).ok()).unwrap_or(Value::Null);
+    if !crate::engine::model::stamp_current_for(&v["credential_origin"], stamp).is_fresh() { return Ok(vec![]); }
     Ok(v["rows"].as_array().into_iter().flatten().filter_map(Target::of).collect())
 }
 
-fn save_deferred(c: &Connection, key_id: i64, rows: &[(String, Target)], now: DateTime<Utc>) -> Result<(), SyncError> {
+fn save_deferred(c: &Connection, key_id: i64, rows: &[(String, Target)], stamp: &Value, now: DateTime<Utc>) -> Result<(), SyncError> {
     if rows.is_empty() { c.execute("DELETE FROM app_configs WHERE key = ?1", [deferred_key(key_id)])?; return Ok(()); }
-    let value = json!({ "rows": rows.iter().map(|(tx, t)| t.json(tx)).collect::<Vec<_>>() });
+    let value = json!({ "credential_origin": stamp, "rows": rows.iter().map(|(tx, t)| t.json(tx)).collect::<Vec<_>>() });
     c.execute("INSERT INTO app_configs (key, value, created_at, updated_at) VALUES (?1, ?2, ?3, ?3) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
               params![deferred_key(key_id), value.to_string(), sql_time(now)])?;
     Ok(())
 }
 
-/// Writes `t` on row `id` unless it already holds it; whether it wrote.
+/// Writes `t` on row `id` unless it already holds it; whether it wrote. Its metadata goes only into empty raw data
+/// (NULL, "" or `{}`); raw data from any other source is never overwritten.
 fn write(c: &Connection, id: i64, t: &Target, now: DateTime<Utc>) -> Result<bool, SyncError> {
     let real = |d: &BigDec| d.to_f();
     let fee = t.fee_amount.as_ref().filter(|f| !f.is_zero());
     let (fee_currency, fee_amount) = (fee.and(t.fee_currency.as_deref()), fee.map(real));
-    Ok(c.execute("UPDATE account_transactions SET entry_type = ?1, base_currency = ?2, base_amount = ?3, fee_currency = ?4, fee_amount = ?5, base_asset_id = ?6, updated_at = ?7 \
-                  WHERE id = ?8 AND NOT (entry_type IS ?1 AND base_currency IS ?2 AND base_amount IS ?3 AND fee_currency IS ?4 AND fee_amount IS ?5 AND base_asset_id IS ?6)",
-                 params![t.entry_type, t.base_currency, real(&t.base_amount), fee_currency, fee_amount, t.base_asset_id, sql_time(now), id])? == 1)
+    let meta = t.meta.as_object().filter(|m| !m.is_empty()).map(|_| t.meta.to_string());
+    Ok(c.execute("UPDATE account_transactions SET entry_type = ?1, base_currency = ?2, base_amount = ?3, fee_currency = ?4, fee_amount = ?5, base_asset_id = ?6, updated_at = ?7, \
+                  raw_data = CASE WHEN ?9 IS NOT NULL AND COALESCE(TRIM(raw_data), '') IN ('', '{}') THEN ?9 ELSE raw_data END \
+                  WHERE id = ?8 AND NOT (entry_type IS ?1 AND base_currency IS ?2 AND base_amount IS ?3 AND fee_currency IS ?4 AND fee_amount IS ?5 AND base_asset_id IS ?6 \
+                  AND NOT (?9 IS NOT NULL AND COALESCE(TRIM(raw_data), '') IN ('', '{}')))",
+                 params![t.entry_type, t.base_currency, real(&t.base_amount), fee_currency, fee_amount, t.base_asset_id, sql_time(now), id, meta])? == 1)
+}
+
+/// The Kraken entry's identifying fields, as its raw entry holds them.
+fn meta_of(raw: &Value) -> Value {
+    Value::Object(["type", "subtype", "refid", "asset"].iter().filter_map(|k| Some((k.to_string(), raw.get(*k)?.clone()))).collect())
 }
 
 /// The repair of one stored row, inside `ledger::store` before its dedup (the Coinbase rekey's place), on a Kraken ledger
@@ -426,12 +440,12 @@ fn write(c: &Connection, id: i64, t: &Target, now: DateTime<Utc>) -> Result<bool
 ///    (r3 row 2): each write is valid against what is committed. Otherwise it is deferred to the import's completion (r3
 ///    row 5, `converge`), in this page's transaction;
 /// 4. its manual values, link, rejection, description and order are never touched.
-pub(super) fn repair(c: &Connection, key: &Key, e: &Entry, assets: &AssetRule, now: DateTime<Utc>) -> Result<(), SyncError> {
+pub(super) fn repair(c: &Connection, key: &Key, e: &Entry, assets: &AssetRule, stamp: &Value, now: DateTime<Utc>) -> Result<(), SyncError> {
     let Some(tx_id) = e.tx_id.as_deref() else { return Ok(()) };
     let Some(stored) = row(c, "user_id = ?1 AND exchange_id = ?2 AND tx_id = ?3", params![key.user_id, key.exchange_id, tx_id])? else { return Ok(()) };
     let resolved = assets.asset_id(c, e.base_currency.as_deref(), &e.raw.value, e.transacted_at)?;
     let mut t = Target { entry_type: e.entry_type, base_currency: e.base_currency.clone().unwrap_or_default(), base_amount: e.base_amount.clone(),
-                         fee_currency: e.fee_currency.clone(), fee_amount: e.fee_amount.clone(), base_asset_id: resolved };
+                         fee_currency: e.fee_currency.clone(), fee_amount: e.fee_amount.clone(), base_asset_id: resolved, meta: meta_of(&e.raw.value) };
     if let Some(id) = stored.base_asset_id.filter(|id| Some(*id) != resolved) {
         t.base_asset_id = Some(id);
         t.base_currency = stored.base_currency.clone().unwrap_or_default();
@@ -442,10 +456,10 @@ pub(super) fn repair(c: &Connection, key: &Key, e: &Entry, assets: &AssetRule, n
         let theirs = (other.entry_type, other.base_currency.as_deref(), &other.base_amount);
         let ok = if withdrawal { valid_pair(mine, theirs) } else { valid_pair(theirs, mine) };
         if !ok {
-            let mut rows = load_deferred(c, key.id)?;
+            let mut rows = load_deferred(c, key.id, stamp)?;
             rows.retain(|(tx, _)| tx != tx_id);
             rows.push((tx_id.to_string(), t));
-            return save_deferred(c, key.id, &rows, now);
+            return save_deferred(c, key.id, &rows, stamp, now);
         }
     }
     write(c, stored.id, &t, now)?;
@@ -454,10 +468,11 @@ pub(super) fn repair(c: &Connection, key: &Key, e: &Entry, assets: &AssetRule, n
 
 /// At the import's completion, in its finishing transaction (before the provenance stamp and the watermark): every
 /// deferred row against its counterpart's joint target (its own deferred target, else its stored row). A valid pair is
-/// written on both ends together; one invalid even jointly is left for good and counted. The list is then removed.
-fn converge(c: &Connection, key: &Key, now: DateTime<Utc>) -> Result<(), SyncError> {
-    let deferred = load_deferred(c, key.id)?;
-    if deferred.is_empty() { return Ok(()); }
+/// written on both ends together; one invalid even jointly is left for good and counted. The list is then removed (also
+/// when another credential's import wrote it: nothing of it is applied).
+fn converge(c: &Connection, key: &Key, stamp: &Value, now: DateTime<Utc>) -> Result<(), SyncError> {
+    let deferred = load_deferred(c, key.id, stamp)?;
+    if deferred.is_empty() { return save_deferred(c, key.id, &[], stamp, now); }
     let targets: HashMap<&str, &Target> = deferred.iter().map(|(tx, t)| (tx.as_str(), t)).collect();
     let (mut done, mut left) = (HashSet::new(), 0usize);
     for (tx_id, t) in &deferred {
@@ -477,7 +492,7 @@ fn converge(c: &Connection, key: &Key, now: DateTime<Utc>) -> Result<(), SyncErr
         done.insert(tx_id.clone());
     }
     if left > 0 { crate::engine::log(&format!("[kraken] ledger import of api key {}: kraken repair: {left} linked rows left", key.id)); }
-    save_deferred(c, key.id, &[], now)
+    save_deferred(c, key.id, &[], stamp, now)
 }
 
 // ---- internal pairs (D-KR-4) -----------------------------------------------------------------------------------------
