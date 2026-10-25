@@ -622,15 +622,20 @@ pub fn stamp_set_current_for(state:&Value,current:&Value)->bool {
         _=>false,
     }
 }
-/// The figures' identity of an account without a usable Alpaca key: `[user, NO_ALPACA_IDENTITY, the unreadable key's stamp or null]`.
+/// The figures' identity of an account without a usable Alpaca key: `[user, NO_ALPACA_IDENTITY, the unreadable key's stamp or
+/// null, the IBKR key's stamp or null]`; with one, `[user, its stamp, the IBKR key's stamp or null]`.
 pub const NO_ALPACA_IDENTITY:&str="no-alpaca";
 pub fn identity_current_for(state:&str,current:&str)->Freshness {
     let state=serde_json::from_str::<Value>(state).ok();
     let current=serde_json::from_str::<Value>(current).ok();
+    // The IBKR key's stamp (null: none), after the Alpaca part: the same on both, or none on both.
+    let ibkr=|v:&Value|v[if v[1]==NO_ALPACA_IDENTITY {3} else {2}].clone();
+    let same_ibkr=|a:&Value,b:&Value|{ let (x,y)=(ibkr(a),ibkr(b)); (x.is_null()&&y.is_null()) || stamp_current_for(&x,&y).is_fresh() };
     match (state,current) {
-        // An account without a usable Alpaca key (the figures' `[user, "no-alpaca"]`) is current for itself alone.
-        (Some(a),Some(b)) if a[0]==b[0] && a[1]==NO_ALPACA_IDENTITY && b[1]==NO_ALPACA_IDENTITY && a[2]==b[2]=>Freshness::Fresh,
-        (Some(a),Some(b)) if a[0]==b[0]=>stamp_current_for(&a[1],&b[1]),
+        (Some(a),Some(b)) if a[0]!=b[0] || !same_ibkr(&a,&b)=>Freshness::Stale("credential provenance missing or changed"),
+        // An account without a usable Alpaca key (the figures' `[user, "no-alpaca", …]`) is current for itself alone.
+        (Some(a),Some(b)) if a[1]==NO_ALPACA_IDENTITY && b[1]==NO_ALPACA_IDENTITY && a[2]==b[2]=>Freshness::Fresh,
+        (Some(a),Some(b))=>stamp_current_for(&a[1],&b[1]),
         _=>Freshness::Stale("credential provenance missing or changed"),
     }
 }
