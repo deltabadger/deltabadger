@@ -15,6 +15,7 @@ use super::hyperliquid::HyperliquidVenue;
 use super::bitrue::BitrueVenue;
 use super::coinbase::CoinbaseVenue;
 use super::bingx::BingxVenue;
+use super::ibkr_venue::IbkrVenue;
 use super::{ClockAnswer, NewOrder, OrderState, PriceSide, Venue, VenueError};
 use crate::crypto::Cipher;
 use crate::engine::model::Ticker;
@@ -34,11 +35,13 @@ macro_rules! live_venues {
 
 live_venues!($ Alpaca(AlpacaVenue<ReqwestTransport>), Kraken(KrakenVenue<ReqwestTransport>), Binance(BinanceVenue<ReqwestTransport>),
              Kucoin(KucoinVenue<ReqwestTransport>), Bitvavo(BitvavoVenue<ReqwestTransport>), Gemini(GeminiVenue<ReqwestTransport>),
-             Bitget(BitgetVenue<ReqwestTransport>), Mexc(MexcVenue<ReqwestTransport>), Hyperliquid(HyperliquidVenue<ReqwestTransport>), Bybit(BybitVenue<ReqwestTransport>), Bitrue(BitrueVenue<ReqwestTransport>), Coinbase(CoinbaseVenue<ReqwestTransport>), Bingx(BingxVenue<ReqwestTransport>));
+             Bitget(BitgetVenue<ReqwestTransport>), Mexc(MexcVenue<ReqwestTransport>), Hyperliquid(HyperliquidVenue<ReqwestTransport>), Bybit(BybitVenue<ReqwestTransport>), Bitrue(BitrueVenue<ReqwestTransport>), Coinbase(CoinbaseVenue<ReqwestTransport>), Bingx(BingxVenue<ReqwestTransport>),
+             Ibkr(IbkrVenue<ReqwestTransport>));
 
 impl Venue for LiveVenue {
     fn rules(&self) -> &'static VenueRules { each!(self, v => v.rules()) }
     fn placement_identity(&self) -> Option<serde_json::Value> { each!(self, v => v.placement_identity()) }
+    async fn placement_hold(&self, t: &Ticker, s: super::Side) -> Result<Option<super::PlacementHold>, VenueError> { each!(self, v => v.placement_hold(t, s).await) }
     async fn positions(&self) -> Result<std::collections::HashMap<String, BigDec>, VenueError> { each!(self, v => v.positions().await) }
     async fn clock(&self) -> Result<ClockAnswer, VenueError> { each!(self, v => v.clock().await) }
     async fn price(&self, t: &Ticker, s: PriceSide) -> Result<BigDec, VenueError> { each!(self, v => v.price(t, s).await) }

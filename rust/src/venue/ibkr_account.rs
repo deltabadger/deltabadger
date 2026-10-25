@@ -78,7 +78,7 @@ pub fn forget(c: &Connection, api_key_id: i64) -> rusqlite::Result<()> {
 }
 
 /// The trading key of IBKR bot `bot_id`; None for a bot on any other venue.
-fn ibkr_key(c: &Connection, bot_id: i64) -> rusqlite::Result<Option<Option<i64>>> {
+pub(crate) fn ibkr_key(c: &Connection, bot_id: i64) -> rusqlite::Result<Option<Option<i64>>> {
     c.query_row("SELECT e.type = ?2, (SELECT k.id FROM api_keys k WHERE k.user_id = b.user_id AND k.exchange_id = b.exchange_id AND k.key_type = 0 ORDER BY k.id LIMIT 1)
                  FROM bots b JOIN exchanges e ON e.id = b.exchange_id WHERE b.id = ?1", params![bot_id, super::ibkr::IBKR],
                 |r| Ok((r.get::<_, bool>(0)?, r.get::<_, Option<i64>>(1)?))).optional()
@@ -118,6 +118,24 @@ pub fn bot_account(c: &Connection, cipher: &Cipher, bot_id: i64) -> rusqlite::Re
         Some(Some(account)) => Ok(account),
         _ => Err("The account this IBKR connection belongs to cannot be read. Delete the connection and connect again.".into()),
     })
+}
+
+/// `bot_account` with the account's `account_ref`: what an IBKR bot's venue is built with (`VenueFactory::for_ibkr`).
+pub fn bot_binding(c: &Connection, cipher: &Cipher, bot_id: i64) -> rusqlite::Result<Result<(String, String), String>> {
+    let account = match bot_account(c, cipher, bot_id)? { Ok(a) => a, Err(why) => return Ok(Err(why)) };
+    let Some(Some(key)) = ibkr_key(c, bot_id)? else { return Ok(Err("This bot is not an IBKR bot.".into())) };
+    Ok(match binding(c, key)? { Some(b) => Ok((account, b.account_ref)), None => Err("The IBKR connection has not named its account yet.".into()) })
+}
+
+/// Why IBKR bot `bot_id` may not place an order as `account_ref` (the account its venue reads): its key is not bound to
+/// it, or the bot belongs to another account. Compared by account_ref, inside the intent's transaction (plan I4b).
+pub fn placement_refusal(c: &Connection, bot_id: i64, account_ref: &str) -> rusqlite::Result<Option<String>> {
+    let bound = match ibkr_key(c, bot_id)? { Some(Some(key)) => binding(c, key)?, _ => None };
+    let Some(bound) = bound else { return Ok(Some("The IBKR connection has not named its account yet. Check the connection again, then start the bot.".into())) };
+    let owned: Option<String> = c.query_row("SELECT account_ref FROM ibkr_bot_accounts WHERE bot_id = ?1", [bot_id], |r| r.get(0)).optional()?;
+    Ok(if bound.account_ref != account_ref { Some("The IBKR connection now names another account than the one this order was read for.".into()) }
+       else if owned.is_some_and(|owned| owned != account_ref) { Some("This bot belongs to another IBKR account than the connection's. Create a new bot for this account.".into()) }
+       else { None })
 }
 
 /// Whether `/iserver/accounts`' answer names `account` and no other.

@@ -129,8 +129,9 @@ pub static ROWS: [Row; 15] = [
           passphrase: false, needs_pairs: true, trades: true, balances: Some(BalanceSync::Bingx), ledger: Some(LedgerSync::Bingx),
           key_check: Some(KeyCheck::Bingx), wizard: true, figures: Some(Figures::Bingx), condition_candles: false },
     // Ibkr plan I2: its key check (with the activation wait) and its balances. Its keys are connected on its own page
-    // (I3), never through the generic key form; it trades from I4. Its figures (F1) read through the account's own login.
-    Row { exchange_type: super::ibkr::IBKR, name: "Interactive Brokers", name_id: "ibkr", base: super::ibkr::URL, rules: None, passphrase: false,
+    // (I3), never through the generic key form. Its trading adapter is in (I4b: venue::ibkr_venue, the `IBKR` rules); its figures (F1)
+    // read through the account's own login. It trades once order fixtures recorded on a paper login exist (gate G3, `a_trading_ibkr_row_needs_paper_order_fixtures`).
+    Row { exchange_type: super::ibkr::IBKR, name: "Interactive Brokers", name_id: "ibkr", base: super::ibkr::URL, rules: Some(&venue_rules::IBKR), passphrase: false,
           needs_pairs: false, trades: false, balances: Some(BalanceSync::Ibkr), ledger: None, key_check: Some(KeyCheck::Ibkr), wizard: false,
           figures: Some(Figures::Ibkr), condition_candles: false },
 ];

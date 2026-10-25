@@ -113,13 +113,14 @@ pub async fn hand_back_since<F: VenueFactory>(lock: &EngineLock, o: &Opened, fac
     // over by Rust) holds nothing to protect.
     lease::read(&o.primary, cipher)?;
     refuse_rust_only_conditions(&o.primary)?;
+    refuse_ibkr(&o.primary, clock.now())?;
     hand_back_calls(o, clock.now())?;
     let mut unresolved = vec![];
     let mut s = o.primary.prepare("SELECT id FROM bots WHERE json_extract(transient_data, '$.rust_placement') IS NOT NULL ORDER BY id")?;
     let pending: Vec<i64> = s.query_map([], |r| r.get(0))?.collect::<Result<_, _>>()?;
     for id in pending {
         let bot = model::load_bot(&o.primary, id)?;
-        let venue = factory.for_bot(&model::exchange_type(&o.primary, &bot)?, model::credentials_for(&o.primary, cipher, &bot)?);
+        let (venue, _) = super::run::venue_for(&o.primary, factory, cipher, &bot)?;
         if let placement::Recovery::Pending = placement::recover_since(&o.primary, &venue, &bot, clock, process_start).await? { unresolved.push(id); }
     }
     // A reversal's cancel not yet recorded is Rust's alone: wait for it. So is a reserve still waiting for its buy's final
@@ -139,6 +140,7 @@ pub async fn hand_back_since<F: VenueFactory>(lock: &EngineLock, o: &Opened, fac
     let tx = model::immediate(&o.primary)?;
     // Again inside the ownership transaction: a rule switched on since the first check is caught before the lease moves.
     refuse_rust_only_conditions(&tx)?;
+    refuse_ibkr(&tx, now)?;
     let (scheduled, working) = (BotStatus::Scheduled as i64, model::working_list());
     // A bot paused on its price rule stays `waiting`: Rails' adoption (Bot::RepairOrphanedBotsJob) restarts its check chain,
     // where `scheduled` would trade it at the next checkpoint whatever the price.
@@ -348,6 +350,12 @@ pub fn rust_only_conditions(c: &Connection) -> Result<Vec<(i64, String)>, Engine
         }
     }
     Ok(found)
+}
+
+/// D-IBKR-HANDBACK (`ibkr_reservations::handback_refusals`).
+fn refuse_ibkr(c: &Connection, now: DateTime<Utc>) -> Result<(), EngineError> {
+    let found = crate::venue::ibkr_reservations::handback_refusals(c, now)?;
+    if found.is_empty() { Ok(()) } else { Err(EngineError::Ineligible(found)) }
 }
 
 fn refuse_rust_only_conditions(c: &Connection) -> Result<(), EngineError> {

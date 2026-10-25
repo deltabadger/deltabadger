@@ -1369,14 +1369,14 @@ async fn credential_digest_covers_each_stored_column_and_ignores_sync_metadata()
         let plaintext=stored.map(|v|h.app.cipher.decrypt(&v).unwrap()).unwrap_or_else(||"synthetic-value".into());
         // Identical plaintext, fresh Rails-compatible encryption nonce. No timestamp change.
         h.c.execute(&format!("UPDATE api_keys SET {column}=?1 WHERE id=?2"),(h.app.cipher.encrypt(&plaintext),h.seed.api_key_id)).unwrap();
-        let result=placement::begin_with_credentials(&h.c,&bot,&plan,&[&ticker],&composition,&reconciled,&captured,None,false,&FixedClock(at)).unwrap();
+        let result=placement::begin_with_credentials(&h.c,&bot,&plan,&[&ticker],&composition,&reconciled,&captured,None,false,None,&FixedClock(at)).unwrap();
         assert!(matches!(result,placement::Begun::CredentialsChanged),"each encrypted credential column must prevent an intent after re-encryption: {column}");
         assert!(model::load_bot(&h.c,id).unwrap().rust_placement().is_none());
     }
     let captured=model::credential_version(&h.c,&bot).unwrap();
     h.c.execute("UPDATE api_keys SET updated_at='2099-01-01 00:00:00',last_sync_error=NULL WHERE id=?1",[h.seed.api_key_id]).unwrap();
     assert_eq!(captured,model::credential_version(&h.c,&bot).unwrap(),"sync metadata must not change a credential version");
-    assert!(matches!(placement::begin_with_credentials(&h.c,&bot,&plan,&[&ticker],&composition,&reconciled,&captured,None,false,&FixedClock(at)).unwrap(),placement::Begun::Intent(_)),"metadata-only changes must allow placement");
+    assert!(matches!(placement::begin_with_credentials(&h.c,&bot,&plan,&[&ticker],&composition,&reconciled,&captured,None,false,None,&FixedClock(at)).unwrap(),placement::Begun::Intent(_)),"metadata-only changes must allow placement");
 }
 
 // A real sync starts with A while the actual tick is paused before intent. B is

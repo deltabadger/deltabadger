@@ -62,6 +62,10 @@ const RUST_TABLES: &[(&str, TableContract)] = &[
         ("bound_at", "TEXT", true)], unique_indexes: &[] }),
     ("20261024000002", TableContract { name: "ibkr_bot_accounts", columns: &[
         ("bot_id", "INTEGER", false), ("account_ref", "TEXT", true), ("account_id_enc", "TEXT", true), ("created_at", "TEXT", true)], unique_indexes: &[] }),
+    ("20261025000002", TableContract { name: "ibkr_reservations", columns: &[
+        ("id", "INTEGER", false), ("api_key_id", "INTEGER", true), ("account_ref", "TEXT", true), ("conid", "INTEGER", true), ("bot_id", "INTEGER", true),
+        ("cl_ord_id", "TEXT", true), ("transaction_id", "INTEGER", false), ("quantity", "TEXT", true), ("created_at", "TEXT", true),
+        ("released_at", "TEXT", false)], unique_indexes: &[&["cl_ord_id"]] }),
 ];
 
 /// What this build migrates.

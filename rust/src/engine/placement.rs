@@ -190,11 +190,17 @@ pub fn begin(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock) -> 
 /// Tests only: `begin` for a REBALANCE intent (`rebalance`: the phase it writes) and with a sale's `loss` verdict, so a claim
 /// and its settlement can be driven without the fence (PLAN-wash-sale WS-2).
 pub fn begin_unfenced(c: &Connection, bot: &Bot, plan: &OrderPlan, rebalance: Option<&super::rebalance::Pending>, loss: bool, clock: &dyn Clock) -> Result<Intent, EngineError> {
-    match begin_checked(c, bot, plan, clock, None, None, None, rebalance, loss)? {
+    match begin_checked(c, bot, plan, clock, None, None, None, rebalance, loss, None)? {
         Begun::Intent(intent) => Ok(*intent),
         Begun::BelowMinimum(_) => Err(EngineError::Data("order below minimum after exact cap guard".into())),
+        Begun::Refused(why) => Err(EngineError::Data(why)),
         Begun::Changed | Begun::Fenced | Begun::CredentialsChanged | Begun::LedgerStale(_) | Begun::WashSaleLocked => Err(EngineError::Data("unfenced placement skipped".into())),
     }
+}
+
+/// Tests only: `begin` with the sending venue's `identity` and `hold` (an IBKR order's, `Venue::placement_hold`), unfenced.
+pub fn begin_held(c: &Connection, bot: &Bot, plan: &OrderPlan, identity: Option<Value>, hold: Option<&crate::venue::PlacementHold>, clock: &dyn Clock) -> Result<Begun, EngineError> {
+    begin_checked(c, bot, plan, clock, None, None, identity, None, false, hold)
 }
 
 /// `begin`, fenced: under the same write lock, the bot must still be working and its composition (exchange, quote asset and
@@ -207,7 +213,7 @@ pub fn begin_unfenced(c: &Connection, bot: &Bot, plan: &OrderPlan, rebalance: Op
 /// edit: it places an order sized before an edit landed, a divergence. The fence only ever removes such
 /// an order; what it would have bought stays owed through pending_quote_amount.
 pub fn begin_unless_changed(c: &Connection, sized_from: &Bot, plan: &OrderPlan, tickers: &[&model::Ticker], composition: &Value, reconciled: &super::splits::Snapshot, clock: &dyn Clock) -> Result<Begun, EngineError> {
-    begin_checked(c, sized_from, plan, clock, Some((tickers, composition, reconciled)), None, None, None, false)
+    begin_checked(c, sized_from, plan, clock, Some((tickers, composition, reconciled)), None, None, None, false, None)
 }
 
 /// BelowMinimum: the exact-cap guard (amount::guard_exact_cap) reduced the order below the venue minimum; the
@@ -217,15 +223,18 @@ pub fn begin_unless_changed(c: &Connection, sized_from: &Bot, plan: &OrderPlan, 
 /// nothing was written or sent, and the tick returns its checkpoint (tick.rs) instead of ending as a success.
 /// WashSaleLocked: a buy of an asset the account locked after it was sized (order_setter.rb:56, rebalancer.rb:212); nothing
 /// was written.
-pub enum Begun { Intent(Box<Intent>), Changed, Fenced, CredentialsChanged, BelowMinimum(Box<OrderPlan>), LedgerStale(Box<super::staleness::Stale>), WashSaleLocked }
+/// Refused: the venue's own check in the intent's transaction refused the order (an IBKR order: its account, its contract
+/// or its sell cap, `ibkr_reservations::reserve`); nothing was written, the reason is the user's.
+pub enum Begun { Intent(Box<Intent>), Changed, Fenced, CredentialsChanged, BelowMinimum(Box<OrderPlan>), LedgerStale(Box<super::staleness::Stale>), WashSaleLocked, Refused(String) }
 /// Production placement always passes the version captured with the venue credentials (L).
 #[allow(clippy::too_many_arguments)]
 /// `identity` is the sending venue's `placement_identity()`: recorded in the intent before the send, so recovery never asks
 /// another account or another Alpaca host about this order (`identity_mismatch`).
 /// `loss`: a sell the caller judged a sale at a loss (wash::sell_at_loss over the sized order): its wash-sale claim is taken
 /// in the intent's own transaction, after every fence (D-WASH-CLAIM-WITH-INTENT).
-pub fn begin_with_credentials(c: &Connection, bot: &Bot, plan: &OrderPlan, tickers: &[&model::Ticker], composition: &Value, reconciled: &super::splits::Snapshot, version: &Option<model::CredentialVersion>, identity: Option<Value>, loss: bool, clock: &dyn Clock) -> Result<Begun, EngineError> {
-    begin_checked(c,bot,plan,clock,Some((tickers,composition,reconciled)),Some(version),identity,None,loss)
+/// `hold`: what the venue read for this order under its lock (`Venue::placement_hold`), checked in the intent's transaction.
+pub fn begin_with_credentials(c: &Connection, bot: &Bot, plan: &OrderPlan, tickers: &[&model::Ticker], composition: &Value, reconciled: &super::splits::Snapshot, version: &Option<model::CredentialVersion>, identity: Option<Value>, loss: bool, hold: Option<&crate::venue::PlacementHold>, clock: &dyn Clock) -> Result<Begun, EngineError> {
+    begin_checked(c,bot,plan,clock,Some((tickers,composition,reconciled)),Some(version),identity,None,loss,hold)
 }
 
 /// A REBALANCE order's intent (Bot::Rebalancer#place_rebalance_order). It belongs to no DCA run: a stopped bot rebalances.
@@ -236,11 +245,11 @@ pub fn begin_with_credentials(c: &Connection, bot: &Bot, plan: &OrderPlan, ticke
 /// for a sell, mark_buy_attempted! for a buy), so a crash after the send always leaves both the intent and the phase.
 #[allow(clippy::too_many_arguments)]
 /// A sell's `loss` claims the lock and rewrites Rails' three keys in the same transaction (rebalancer.rb:59-69).
-pub fn begin_rebalance(c: &Connection, bot: &Bot, plan: &OrderPlan, tickers: &[&model::Ticker], composition: &Value, reconciled: &super::splits::Snapshot, version: &Option<model::CredentialVersion>, identity: Option<Value>, state: &super::rebalance::Pending, loss: bool, clock: &dyn Clock) -> Result<Begun, EngineError> {
-    begin_checked(c,bot,plan,clock,Some((tickers,composition,reconciled)),Some(version),identity,Some(state),loss)
+pub fn begin_rebalance(c: &Connection, bot: &Bot, plan: &OrderPlan, tickers: &[&model::Ticker], composition: &Value, reconciled: &super::splits::Snapshot, version: &Option<model::CredentialVersion>, identity: Option<Value>, state: &super::rebalance::Pending, loss: bool, hold: Option<&crate::venue::PlacementHold>, clock: &dyn Clock) -> Result<Begun, EngineError> {
+    begin_checked(c,bot,plan,clock,Some((tickers,composition,reconciled)),Some(version),identity,Some(state),loss,hold)
 }
 #[allow(clippy::too_many_arguments)]
-fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock, fence: Option<(&[&model::Ticker], &Value, &super::splits::Snapshot)>, version: Option<&Option<model::CredentialVersion>>, identity: Option<Value>, rebalance: Option<&super::rebalance::Pending>, loss: bool) -> Result<Begun, EngineError> {
+fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock, fence: Option<(&[&model::Ticker], &Value, &super::splits::Snapshot)>, version: Option<&Option<model::CredentialVersion>>, identity: Option<Value>, rebalance: Option<&super::rebalance::Pending>, loss: bool, hold: Option<&crate::venue::PlacementHold>) -> Result<Begun, EngineError> {
     let tx = model::immediate(c)?; // check-and-set under one write lock
     let current = model::load_bot(&tx, bot.id)?;
     if current.rust_placement().is_some() {
@@ -320,6 +329,11 @@ fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock,
     // intent's own ticker by its id, as recovery will.
     let mut v = intent.to_json()?;
     Intent::from_json(&tx, bot, &v,intent.credential_version.clone())?;
+    // The venue's own check, in this transaction (IBKR's account, contract and sell reservation; nothing elsewhere).
+    if let Some(why) = crate::venue::ibkr_reservations::reserve(&tx, &current, plan, &intent.cl_ord_id, hold, now)? {
+        super::log(&format!("[engine] bot {}: {} order not placed: {why}", bot.id, plan.ticker.ticker));
+        return Ok(Begun::Refused(why));
+    }
     // What the order is sent under: `stranded` refuses any change to it until the order settles.
     v["exchange_id"] = json!(current.exchange_id);
     v["quote_asset_id"] = json!(current.quote_asset_id());
@@ -365,6 +379,11 @@ pub fn begin_signal(c: &Connection, sized_from: &Bot, plan: &OrderPlan, call: Op
     let tx = model::immediate(c)?;
     let current = model::load_bot(&tx, sized_from.id)?;
     if super::signal::blocked(&current) { return Ok(SignalClaim::Blocked); }
+    // An IBKR order needs its venue's hold (begin_checked); a signal bot on IBKR is refused (eligibility::signal_admission).
+    if model::exchange_type(&tx, &current)? == crate::venue::ibkr::IBKR {
+        super::log(&format!("[engine] bot {}: {} order not placed: IBKR takes no signal orders", sized_from.id, plan.ticker.ticker));
+        return Ok(SignalClaim::Changed);
+    }
     let now = clock.now();
     if let Some(call) = call {
         if !current.signal_calls()?.iter().any(|x| x.source == call.source) { return Ok(SignalClaim::Gone); }
@@ -460,9 +479,10 @@ fn skips_below_minimum(intent: &Intent) -> bool {
     intent.plan.side == Side::Buy && intent.plan.kind == TxKind::Regular && intent.run.is_some() && !intent.signal()
 }
 
-/// Acquire the dispatch write lock before rechecking the captured generation. Neither production
-/// adapter (Alpaca, Kraken) has a blocking preflight or session lock between this check and HTTP send.
-/// Any future adapter with such a wait must recheck after it, before transmission. STOP can
+/// Acquire the dispatch write lock before rechecking the captured generation. The crypto adapters and Alpaca have no
+/// blocking preflight or session lock between this check and HTTP send. IBKR's has: its add_order reads the contract rules
+/// and waits for its login's lock (up to ibkr::LOCK_WAIT) before the POST, and a stop landing in that wait does not
+/// withdraw the order, as a stop landing during Clients::Ibkr's IbkrLock wait does not in Rails. STOP can
 /// invalidate this run while the response is in flight; the accepted order still gets recorded.
 pub async fn send<V: Venue>(c: &Connection, venue: &V, intent: &Intent, clock: &dyn Clock) -> Result<Sent, EngineError> {
     {
@@ -650,6 +670,10 @@ fn identity_mismatch(intent: &Value, now: Option<Value>) -> Option<&'static str>
     if mode(intent) != mode(&now) { return Some(if mode(intent) { "in Alpaca live mode and the key is now paper" } else { "in Alpaca paper mode and the key is now live" }); }
     if let (Some(sent), Some(host)) = (intent["host"].as_str(), now["host"].as_str()) {
         if sent != host { return Some("to another host than the venue is now reached at"); }
+    }
+    // D-IBKR-BOT-ACCOUNT: an IBKR order is looked up only in the account it went to.
+    if let Some(sent) = intent["ibkr_account_ref"].as_str() {
+        if Some(sent) != now["ibkr_account_ref"].as_str() { return Some("to another IBKR account than the connection now names"); }
     }
     match intent["key_fingerprint"].as_str() {
         Some(sent) if Some(sent) != now["key_fingerprint"].as_str() => Some("under another API key id than the key now holds"),

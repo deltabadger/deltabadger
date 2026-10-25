@@ -148,6 +148,10 @@ fn bot_reasons_with(c: &Connection, bot: &Bot, splits: &mut SplitRows) -> Result
         r.push("smart interval amount missing, not a JSON number, or not positive".into());
     }
     if bot.limit_ordered() && bot.limit_distance().is_none() { r.push("limit_order_pcnt_distance is not a number".into()); }
+    // D-IBKR-NOLIMIT: IBKR prices step by per-contract bands Rust has not recorded yet; its orders are market orders.
+    if exchange.as_deref() == Some(crate::venue::ibkr::IBKR) && bot.settings.as_object().is_some_and(|o| o.iter().any(|(k, v)| k.ends_with("limit_ordered") && set(v))) {
+        r.push(IBKR_NO_LIMIT.into());
+    }
     if BOT_WORKING.contains(&bot.status) && bot.started_at_us()?.is_none() { r.push("started_at missing (never ticks)".into()); }
     if bot.interval().is_none() { r.push("interval".into()); }
     if !bot.quote_amount().is_some_and(|q| q > 0.0) { r.push("quote_amount".into()); }
@@ -201,6 +205,9 @@ pub fn admission(exchange: Option<&str>, index: bool, selling: bool) -> Option<&
     if exchange.is_none_or(|e| crate::venue::registry::trading_rules(e).is_none()) { return Some("a bot on an exchange other than Alpaca, Kraken, Binance, Binance.US, KuCoin, Bitvavo, Gemini, Bitget, MEXC, Hyperliquid, Bybit, Bitrue, Coinbase and BingX") }
     if selling && index { Some("an index bot that sells") } else { None }
 }
+
+/// Why an IBKR bot with a limit order is refused (D-IBKR-NOLIMIT).
+pub const IBKR_NO_LIMIT: &str = "a limit order on Interactive Brokers (its orders are market orders until its price increments are recorded)";
 
 /// The venues whose signal path (engine::signal, Bot::SignalJob and Bots::Signal::OrderSetter) is recorded against Rails:
 /// script/rust/decisions.rb grid-signal. A venue joins with its cases there.
