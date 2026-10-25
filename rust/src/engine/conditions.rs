@@ -6,10 +6,77 @@ use super::{accounting, placement, Clock, EngineError};
 use crate::enums::BotStatus;
 use crate::ruby::{iso8601_ms, BigDec, Num};
 use crate::venue::{Attributed, PriceSide, VenueError};
+use crate::web::bot::Kind;
 use chrono::{DateTime, Duration, Timelike, Utc};
 use rusqlite::Connection;
 use serde_json::{json, Value};
 use std::cmp::Ordering;
+
+/// A rule a bot can carry: the spending cap and the four trigger rules (each with a buy and a sell side).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Rule { Cap, Price, PriceDrop, MovingAverage, Indicator }
+
+/// The trigger rules and their keys' prefix on the buy side (`sell_` + prefix on the sell side).
+pub const TRIGGERS: [(Rule, &str); 4] = [(Rule::Price, "price_limit"), (Rule::PriceDrop, "price_drop_limit"),
+                                          (Rule::MovingAverage, "moving_average_limit"), (Rule::Indicator, "indicator_limit")];
+
+impl Rule {
+    /// The rule a switch names, and whether it is the sell side's: `quote_amount_limited`, `[sell_]<prefix>ed`.
+    pub fn of_flag(key: &str) -> Option<(Rule, bool)> {
+        if key == "quote_amount_limited" { return Some((Rule::Cap, false)); }
+        let (selling, rest) = match key.strip_prefix("sell_") { Some(rest) => (true, rest), None => (false, key) };
+        let prefix = rest.strip_suffix("ed")?;
+        TRIGGERS.iter().find(|(_, p)| *p == prefix).map(|(rule, _)| (*rule, selling))
+    }
+}
+
+/// What this build does with a rule on a bot kind (PLAN-conditions-every-bot §3).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Support {
+    /// The engine runs it (with the `pause` action), the pages and the API take it.
+    Implemented,
+    /// It has nothing to act on there (an index bot never sells; an index or signal bot has no direction to flip): the
+    /// switch is inert, eligibility admits it.
+    Inapplicable,
+    /// Not built yet: eligibility refuses a bot that has it on, as it always did.
+    NotImplemented,
+}
+
+/// The (kind, rule) pairs the engine runs, with the `pause` action. Each slice adds its own with that rule's engine.
+pub const IMPLEMENTED: &[(Kind, Rule)] = &[(Kind::Basket, Rule::Cap), (Kind::Basket, Rule::Price), (Kind::Index, Rule::Cap), (Kind::Index, Rule::Price)];
+
+/// D-IDX-CONDITIONS / D-IDX-CAP: one rule set for every bot kind, Rails' class gap fixed (only DcaMultiAsset includes the
+/// concerns in Rails). `selling`: the rule's sell side; `action`: its `*_action` (the cap has none: "pause").
+pub fn support(kind: Kind, rule: Rule, selling: bool, action: &str) -> Support {
+    let flip = matches!(action, "start_selling" | "start_buying");
+    if rule != Rule::Cap && ((kind == Kind::Index && (selling || flip)) || (kind == Kind::Signal && flip)) { return Support::Inapplicable; }
+    if action == "pause" && IMPLEMENTED.contains(&(kind, rule)) { Support::Implemented } else { Support::NotImplemented }
+}
+
+/// A rule's `*_action` as Bot::PriceLimitable reads it (and its siblings): absent, false or blank is `pause`; any other value
+/// as its text, or its JSON when not a string. `prefix`: the side's prefix (`sell_price_limit`).
+pub fn action(settings: &Value, prefix: &str) -> String {
+    match settings.get(format!("{prefix}_action").as_str()).filter(|v| !v.is_null()) {
+        None | Some(Value::Bool(false)) => "pause".to_string(),
+        Some(Value::String(s)) if s.trim().is_empty() => "pause".to_string(),
+        Some(Value::String(s)) => s.clone(),
+        Some(other) => other.to_string(),
+    }
+}
+
+/// Whether a rule that is on decorates the carry window's `started_at`: where Rails reads it (a basket, whatever this build
+/// runs: eligibility refuses what it does not) or where this engine runs it (Implemented). An index or signal bot's rule this
+/// build does not run stays inert there, as in Rails.
+pub fn decorates(kind: Kind, support: Support) -> bool {
+    support == Support::Implemented || (kind == Kind::Basket && support == Support::NotImplemented)
+}
+
+/// `support` for the rule as `bot_type`'s stored settings hold it.
+pub fn stored_support(bot_type: &str, settings: &Value, rule: Rule, selling: bool) -> Support {
+    let prefix = TRIGGERS.iter().find(|(r, _)| *r == rule).map(|(_, p)| *p);
+    let action = prefix.map_or_else(|| "pause".to_string(), |p| action(settings, &format!("{}{p}", if selling { "sell_" } else { "" })));
+    support(Kind::of(bot_type), rule, selling, &action)
+}
 
 /// `price <=> n` as Ruby compares a BigDecimal with an Integer, a Float (Float#to_d) or a BigDecimal.
 fn cmp(price: &BigDec, n: &Num) -> Result<Ordering, EngineError> { Ok(price.cmp(&n.to_dec().map_err(EngineError::Arithmetic)?)) }
@@ -59,7 +126,17 @@ pub fn rule_ticker(c: &Connection, bot: &Bot, rule: &PriceRule) -> Result<Option
 
 /// `rule_ticker`, and `decimals[:quote]` of the same relation (Bots::DcaMultiAsset#decimals: the least quote precision among
 /// Bot#tickers), which the status line rounds the price to.
+/// D-IDX-SUBJECT: an index bot's rule watches the ticker its settings name (`<prefix>_in_ticker_id`, written when the rule is
+/// switched on), if it is one of the venue's available, trading-enabled pairs at the bot's quote: a member, a former member
+/// or none. No stored id, or one that is not such a pair, is no ticker (the gate pauses).
 fn rule_ticker_quoted(c: &Connection, bot: &Bot, rule: &PriceRule) -> Result<(Option<Ticker>, Option<i64>), EngineError> {
+    if bot.bot_type == "Bots::DcaIndex" {
+        let Some(id) = rule.ticker_id else { return Ok((None, None)) };
+        let ticker = model::ticker_by_id(c, bot.exchange_id, id)?
+            .filter(|t| t.available && t.trading_enabled && Some(t.quote_asset_id) == bot.quote_asset_id());
+        let decimals = ticker.as_ref().map(|t| t.quote_decimals);
+        return Ok((ticker, decimals));
+    }
     let mut ids = bot.asset_ids();
     let mut s = c.prepare("SELECT asset_id FROM bot_index_assets WHERE bot_id = ?1")?;
     for a in s.query_map([bot.id], |r| r.get::<_, i64>(0))? { let a = a?; if !ids.contains(&a) { ids.push(a); } }
@@ -110,8 +187,9 @@ fn fenced_write<T>(c: &Connection, bot: &Bot, origin: &Option<model::CredentialV
 fn active_started_us(bot: &Bot) -> Result<Option<i64>, EngineError> {
     let side = if bot.selling() { "sell_" } else { "" };
     let mut started = bot.started_at_us()?;
-    for rule in ["price_limit", "price_drop_limit", "moving_average_limit", "indicator_limit"] {
+    for (kind, rule) in TRIGGERS {
         if bot.settings.get(format!("{side}{rule}ed").as_str()) != Some(&Value::Bool(true)) { continue; }
+        if !decorates(bot.kind(), stored_support(&bot.bot_type, &bot.settings, kind, bot.selling())) { continue; }
         let met = crate::codec::optional_time(bot.transient.get(format!("{side}{rule}_condition_met_at").as_str()))
             .map_err(|_| EngineError::Data("unreadable stored timestamp".into()))?;
         started = started.zip(met).map(|(a, b)| a.max(b.timestamp_micros()));
@@ -281,10 +359,8 @@ pub async fn info<V: crate::venue::Venue>(c: &Connection, venue: &V, claim: &Inf
     let served = |c: &Connection| -> Result<Option<Value>, EngineError> {
         let tx = model::immediate(c)?; ack_info(&tx, bot.id, PRICE, claim.version)?; tx.commit()?; Ok(None)
     };
-    // Only Bots::DcaMultiAsset and Bots::DcaSingleAsset include PriceLimitable (an index bot's job raises NoMethodError:
-    // no info, no write). model::conditions_apply once #742 lands.
-    if !matches!(bot.bot_type.as_str(), "Bots::DcaMultiAsset" | "Bots::DcaSingleAsset") { return served(c); }
-    // A rule that is off renders nothing (the partial's own guard), so no info is kept for it.
+    // A rule that is off, or one this build does not run on the bot's kind (support), renders nothing (the partial's own
+    // guard), so no info is kept for it.
     let Some(rule) = bot.price_rule(bot.selling()).map_err(EngineError::Data)? else { return served(c) };
     let (Some(ticker), decimals) = rule_ticker_quoted(c, bot, &rule)? else { return served(c) };
     let Ok((price, origin)) = last_price(venue, bot, &ticker, clock.now(), prices, version).await else { return served(c) };

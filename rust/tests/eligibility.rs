@@ -532,21 +532,51 @@ fn a_crypto_index_bot_on_kraken_or_binance_is_admitted() {
     assert_eq!(r.eligible, vec![id]);
 }
 
-/// Bots::DcaIndex does not include Bot::QuoteAmountLimitable: a stored cap, a number or not, is admitted as no cap at all.
+/// D-IDX-CAP (reverses #752): an index bot runs its spending cap as a basket does, so a cap that is on must be a number Rails
+/// reads; one that is off is never read.
 #[test]
-fn an_index_bot_is_admitted_whatever_spending_cap_it_stores() {
-    for (settings, stamp) in [("json('false'), '$.quote_amount_limit', 1000", "2026-09-01T10:00:00.000Z"),
-                              ("json('true'), '$.quote_amount_limit', 1", "2026-09-01T10:00:00.000Z"),
-                              ("json('true'), '$.quote_amount_limit', '100'", "2026-09-01T10:00:00.000Z")] {
-        // An unparseable stored stamp is still refused at load (codec::validate_bot_times, every class), like a stray met_at.
+fn an_index_bots_spending_cap_is_admitted_as_a_baskets_is() {
+    for (settings, refused) in [("json('false'), '$.quote_amount_limit', '100'", None),
+                                ("json('true'), '$.quote_amount_limit', 1", None),
+                                ("json('true'), '$.quote_amount_limit', '100'", Some("quote_amount_limit \"100\" is not a number"))] {
         let (_d, o, s) = install();
         let id = seed::index_bot(&o.primary, &s, "ignored", 3, 0.0, false);
         o.primary.execute(&format!("UPDATE bots SET settings = json_remove(json_set(settings, '$.index_type', 'top', '$.quote_amount_limited', {settings}), '$.index_category_id'), \
-                                    transient_data = json_set(transient_data, '$.quote_amount_limit_enabled_at', ?1) WHERE id = ?2"), (stamp, id)).unwrap();
+                                    transient_data = json_set(transient_data, '$.quote_amount_limit_enabled_at', '2026-09-01T10:00:00.000Z') WHERE id = ?1"), [id]).unwrap();
         let r = eligibility::check_install(&o.primary).unwrap();
-        assert!(r.problems.is_empty() && r.unreadable.is_empty(), "{settings}: {:?} {:?}", r.problems, r.unreadable);
-        assert_eq!(r.eligible, vec![id], "{settings}");
+        match refused {
+            None => { assert!(r.problems.is_empty() && r.unreadable.is_empty(), "{settings}: {:?} {:?}", r.problems, r.unreadable); assert_eq!(r.eligible, vec![id], "{settings}"); }
+            Some(why) => assert!(r.problems.iter().any(|p| p.contains(why)), "{settings}: {:?}", r.problems),
+        }
     }
+}
+
+/// conditions::support on an index bot: its buy-side price rule runs (pause); its sell side and the flip actions have nothing
+/// to act on and are admitted inert; the rules this build does not run yet are refused as on a basket.
+#[test]
+fn an_index_bots_rules_are_admitted_by_what_the_engine_runs_on_it() {
+    let reasons = |extra: &str| {
+        let (_d, o, s) = install();
+        let id = seed::index_bot(&o.primary, &s, "ignored", 3, 0.0, false);
+        o.primary.execute(&format!("UPDATE bots SET settings = json_remove(json_set(settings, '$.index_type', 'top'{extra}), '$.index_category_id') WHERE id = ?1"), [id]).unwrap();
+        eligibility::bot_reasons(&o.primary, &deltabadger::engine::model::load_bot(&o.primary, id).unwrap()).unwrap()
+    };
+    assert_eq!(reasons(", '$.price_limited', json('true'), '$.price_limit', 50000"), Vec::<String>::new(), "the price rule runs");
+    assert_eq!(reasons(", '$.sell_price_limited', json('true'), '$.sell_price_drop_limited', json('true'), '$.sell_indicator_limited', 'yes'"), Vec::<String>::new(), "the sell side is inert");
+    assert_eq!(reasons(", '$.price_limited', json('true'), '$.price_limit_action', 'start_selling'"), Vec::<String>::new(), "a flip is inert");
+    assert_eq!(reasons(", '$.price_drop_limited', json('true')"), vec!["price_drop_limited"], "not implemented: refused as today");
+    assert_eq!(reasons(", '$.price_limited', '1'"), vec!["price_limited"], "a switch Rails reads as off is refused");
+}
+
+/// The basket's own refusals stay as they were: a rule the engine does not run yet, a flip.
+#[test]
+fn a_baskets_unimplemented_rules_are_still_refused() {
+    let (_d, o, s) = install();
+    let drop = seed::insert_bot(&o.primary, &s, &plain().with("price_drop_limited", json!(true)));
+    let flip = seed::insert_bot(&o.primary, &s, &plain().with("price_limited", json!(true)).with("price_limit_action", json!("start_selling")));
+    let reasons = |id| eligibility::bot_reasons(&o.primary, &deltabadger::engine::model::load_bot(&o.primary, id).unwrap()).unwrap();
+    assert_eq!(reasons(drop), vec!["price_drop_limited"]);
+    assert_eq!(reasons(flip), vec!["price_limited with the start_selling action (the flip actions come with slice 7c)"]);
 }
 
 /// Owner ruling O6 (2026-10-18): KuCoin admits Top coins and category index bots under the Kraken/Binance rule, at USDT and USDC.
@@ -953,4 +983,21 @@ fn one_signal_admission_rule_for_engine_and_pages() {
     let start = grid.find("def signal_venues").unwrap();
     let venues = &grid[start..grid[start..].find("def signal_scenarios").unwrap() + start];
     for key in ["'kraken' =>", "'binance' =>", "'kucoin' =>", "'hyperliquid' =>", "'alpaca' =>"] { assert!(venues.contains(key), "the signal grid records {key}"); }
+}
+
+/// conditions::support on a signal bot: no rule runs there yet, so a cap or a trigger rule that is on is refused by name (never
+/// silently ignored); a flip has nothing to act on and is inert; a switch that is off is no reason.
+#[test]
+fn a_signal_bots_rules_are_refused_until_the_engine_runs_them() {
+    let reasons = |extra: &str| {
+        let (_d, o, s) = install();
+        let id = signal_bot(&o.primary, &s);
+        if !extra.is_empty() { o.primary.execute(&format!("UPDATE bots SET settings = json_set(settings{extra}) WHERE id = ?1"), [id]).unwrap(); }
+        eligibility::bot_reasons(&o.primary, &deltabadger::engine::model::load_bot(&o.primary, id).unwrap()).unwrap()
+    };
+    assert_eq!(reasons(""), Vec::<String>::new());
+    assert_eq!(reasons(", '$.quote_amount_limited', json('false'), '$.price_limited', json('false')"), Vec::<String>::new());
+    assert_eq!(reasons(", '$.quote_amount_limited', json('true')"), vec!["quote_amount_limited"]);
+    assert_eq!(reasons(", '$.sell_price_limited', json('true')"), vec!["sell_price_limited"]);
+    assert_eq!(reasons(", '$.price_limited', json('true'), '$.price_limit_action', 'start_buying'"), Vec::<String>::new(), "a flip is inert");
 }

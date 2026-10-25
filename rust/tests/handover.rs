@@ -743,3 +743,74 @@ async fn the_cli_handback_waits_out_a_valid_call_then_the_intent_wait_follows() 
     assert_eq!(events(&o)[0], "signal_expired");
     assert!(signal_calls_of(&o).is_empty());
 }
+
+/// An index bot (top 3) on the seeded Kraken venue, admitted at takeover, and the install taken over.
+fn taken_over_with_index() -> (tempfile::TempDir, deltabadger::lease::EngineLock, store::Opened, seed::Seeded, i64) {
+    let dir = common::rails_install();
+    let p = Paths::from_env(&|_| None, dir.path());
+    let l = lease::lock(&p, now()).unwrap();
+    let o = store::open(&p).unwrap();
+    let s = seed::seed_kraken(&o.primary, &seed::cipher());
+    let index = seed::index_bot(&o.primary, &s, "ignored", 3, 0.0, false);
+    o.primary.execute("UPDATE bots SET settings = json_remove(json_set(settings, '$.index_type', 'top'), '$.index_category_id') WHERE id = ?1", [index]).unwrap();
+    handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
+    (dir, l, o, s, index)
+}
+fn snapshot_bots(o: &store::Opened) -> Vec<(i64, i64, String, String)> {
+    o.primary.prepare("SELECT id, status, settings, transient_data FROM bots ORDER BY id").unwrap()
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))).unwrap().map(Result::unwrap).collect()
+}
+
+/// D-HANDBACK-RUST-CONDITIONS: Rails' DcaIndex never reads a spending cap or a trigger rule, so while an index bot has one
+/// on that this engine runs, the handback is refused by bot and switch, before anything is handed back: the lease stays
+/// Rust's, a signal bot's waiting call is not consumed, and the switches and met_at stay as they are. Off, it hands back.
+#[tokio::test(flavor = "current_thread")]
+async fn a_handback_is_refused_while_an_index_bot_runs_a_rule_rails_never_reads() {
+    let (_d, l, o, s, index) = taken_over_with_index();
+    o.primary.execute("UPDATE bots SET settings = json_set(settings, '$.quote_amount_limited', json('true'), '$.quote_amount_limit', 100, '$.price_limited', json('true'), \
+                       '$.sell_price_limited', json('true')), transient_data = json_set(transient_data, '$.price_limit_condition_met_at', '2026-09-29T10:00:00.000Z') WHERE id = ?1", [index]).unwrap();
+    let signal = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    o.primary.execute("UPDATE bots SET type = 'Bots::Signal' WHERE id = ?1", [signal]).unwrap();
+    model::append_signal_call(&o.primary, signal, &model::SignalCall { source: "hook:x".into(), signal_id: 1, triggered_at: now() - chrono::Duration::days(1) }).unwrap();
+    let before = snapshot_bots(&o);
+    match handover::hand_back(&l, &o, &FakeFactory::default(), &seed::cipher(), &deltabadger::engine::FixedClock(now())).await {
+        Err(EngineError::Ineligible(problems)) => {
+            assert_eq!(problems.len(), 2, "{problems:?}: the cap and the buy price rule; the sell side is inert on an index bot");
+            assert!(problems.iter().all(|p| p.starts_with(&format!("bot {index}: "))), "{problems:?}");
+            assert!(problems.iter().any(|p| p.contains("quote_amount_limited")) && problems.iter().any(|p| p.contains("price_limited")), "{problems:?}");
+        }
+        other => panic!("expected the refusal, got {other:?}"),
+    }
+    assert_eq!(lease::read(&o.primary, &seed::cipher()).unwrap().unwrap()["engine"], "rust", "still Rust's");
+    assert_eq!(snapshot_bots(&o), before, "switches, met_at and the waiting call as they were");
+    o.primary.execute("UPDATE bots SET settings = json_set(settings, '$.quote_amount_limited', json('false'), '$.price_limited', json('false')) WHERE id = ?1", [index]).unwrap();
+    o.primary.execute("DELETE FROM bots WHERE id = ?1", [signal]).unwrap();
+    handover::hand_back(&l, &o, &FakeFactory::default(), &seed::cipher(), &deltabadger::engine::FixedClock(now())).await.unwrap();
+}
+
+/// The second check, inside the ownership transaction: a cap switched on after the first check (here while the handback
+/// settles another bot's order) still refuses the handback, and nothing of that transaction lands.
+#[tokio::test(flavor = "current_thread")]
+async fn a_cap_switched_on_during_the_handback_is_caught_inside_the_ownership_transaction() {
+    let (dir, l, o, s, index) = taken_over_with_index();
+    let b = seed::insert_bot(&o.primary, &s, &BotSpec { status: 5, ..BotSpec::weekly(60.0, "2026-09-01 10:00:00") });
+    let bot = model::load_bot(&o.primary, b).unwrap();
+    let ticker = model::ticker_for(&o.primary, &bot).unwrap().unwrap();
+    let deltabadger::engine::amount::Sizing::Place(plan) = deltabadger::engine::amount::size(&bot, &ticker, &deltabadger::ruby::BigDec::from_i64(60),
+        &deltabadger::ruby::BigDec::from_i64(50_000), &deltabadger::engine::venue_rules::KRAKEN).unwrap() else { panic!() };
+    let intent = placement::begin(&o.primary, &bot, &plan, &deltabadger::engine::FixedClock(now())).unwrap();
+    let status = model::load_bot(&o.primary, b).unwrap().status;
+    let db = dir.path().join("production.sqlite3");
+    let switch_on = move || {
+        rusqlite::Connection::open(&db).unwrap()
+            .execute("UPDATE bots SET settings = json_set(settings, '$.quote_amount_limited', json('true')) WHERE id = ?1", [index]).unwrap();
+    };
+    // The venue has the order under the intent's id: the handback settles it, and meanwhile the cap is switched on.
+    let closed = json!({ "error": [], "result": { "closed": { "OTX-H": { "cl_ord_id": intent.cl_ord_id, "status": "closed", "price": "50000",
+        "vol": "60", "vol_exec": "0.0012", "cost": "60", "oflags": "viqc", "descr": { "type": "buy", "ordertype": "market", "price": "0" } } } } });
+    let venue = FakeVenue::from_script(&json!({ "http": { "/0/private/ClosedOrders": [closed] } })).on_lookup(switch_on.clone()).on_query(switch_on);
+    let r = handover::hand_back(&l, &o, &FakeFactory(venue), &seed::cipher(), &deltabadger::engine::FixedClock(now())).await;
+    assert!(matches!(r, Err(EngineError::Ineligible(ref p)) if p.len() == 1 && p[0].contains(&format!("bot {index}: quote_amount_limited"))), "{r:?}");
+    assert_eq!(lease::read(&o.primary, &seed::cipher()).unwrap().unwrap()["engine"], "rust", "the lease never moved");
+    assert_eq!(model::load_bot(&o.primary, b).unwrap().status, status, "the transaction's status writes rolled back");
+}
