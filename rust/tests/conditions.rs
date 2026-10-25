@@ -349,3 +349,36 @@ async fn a_failed_read_or_an_index_bot_leaves_no_info() {
     }
     assert_eq!(model::load_bot(&o.primary, failing).unwrap().transient["price_limit_condition_met_at"], json!("2026-09-01T12:00:00.000Z"), "nothing written");
 }
+
+/// CE-1: the one `started_at` decorator (accounting::condition_started_at) over {pause, flip} × {buy, sell} × {met_at nil, set}
+/// × {1 rule, 2 rules}. A pause rule of the active side: the later of started_at and its met_at, nil while one is unmet. A flip
+/// rule never decorates (D-FLIP-UNMET-KEEPS-BUYING). The other side's rules are never read.
+#[test]
+fn the_started_at_decorator_reads_the_active_sides_pause_rules_only() {
+    use deltabadger::web::bot::Kind;
+    let (started, first, second) = ("2026-09-01T00:00:00Z", "2026-09-02T00:00:00Z", "2026-09-03T00:00:00Z");
+    let us = |t: &str| chrono::DateTime::parse_from_rfc3339(t).unwrap().timestamp_micros();
+    for flip in [false, true] { for selling in [false, true] { for met in [false, true] { for two in [false, true] {
+        let side = if selling { "sell_" } else { "" };
+        let action = match (flip, selling) { (false, _) => "pause", (true, false) => "start_selling", (true, true) => "start_buying" };
+        let (mut settings, mut transient) = (serde_json::Map::new(), serde_json::Map::new());
+        let mut rules = vec![("price_limit", met.then_some(first))];
+        if two { rules.push(("price_drop_limit", Some(second))); }
+        for (prefix, met_at) in &rules {
+            settings.insert(format!("{side}{prefix}ed"), json!(true));
+            settings.insert(format!("{side}{prefix}_action"), json!(action));
+            if let Some(at) = met_at { transient.insert(format!("{side}{prefix}_condition_met_at"), json!(at)); }
+            // The other side's rule, on and unmet with the pause action: never read.
+            let other = if selling { "" } else { "sell_" };
+            settings.insert(format!("{other}{prefix}ed"), json!(true));
+        }
+        let got = accounting::condition_started_at(Kind::Basket, &settings, &transient, Some(us(started)), selling).unwrap();
+        let want = if flip { Some(us(started)) } else if !met { None } else { Some(us(if two { second } else { first })) };
+        assert_eq!(got, want, "flip {flip}, selling {selling}, met {met}, two rules {two}");
+    }}}}
+    // Not one this engine runs on an index bot (a price-drop rule; a sell-side rule there is Inapplicable): inert.
+    let settings = json!({"price_drop_limited": true, "sell_price_limited": true}).as_object().unwrap().clone();
+    for selling in [false, true] {
+        assert_eq!(accounting::condition_started_at(Kind::Index, &settings, &serde_json::Map::new(), Some(us(started)), selling).unwrap(), Some(us(started)));
+    }
+}

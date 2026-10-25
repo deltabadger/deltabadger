@@ -205,8 +205,8 @@ async fn fetch_inner(app:&App,fetch:Fetch)->Fetched{
             let mut cache=Cache::default();
             cache.produced_by(producer);
             // Without a usable Alpaca key the other venues are read, and Alpaca's market data is a settled failure.
-            let venues={ let cipher=app.cipher.clone(); app.db(move|c|Ok(figure::loading::venue_egresses(c,&cipher))).await.unwrap_or_default() };
-            let wire=match &credentials { Some(credentials)=>Wire::new(credentials,app.figure_source.clone()).with_origin(credentials.origin.clone()), None=>Wire::of(None,app.figure_source.clone()) }.with_venues(venues);
+            let (venues,ibkr)={ let (cipher,base)=(app.cipher.clone(),app.venue_key_url(crate::venue::ibkr::IBKR)); app.db(move|c|Ok((figure::loading::venue_egresses(c,&cipher),figure::loading::ibkr_wire(c,&cipher,user,base)))).await.unwrap_or_default() };
+            let wire=match &credentials { Some(credentials)=>Wire::new(credentials,app.figure_source.clone()).with_origin(credentials.origin.clone()), None=>Wire::of(None,app.figure_source.clone()) }.with_venues(venues).with_ibkr(ibkr);
             let ready=figure::loading::fill_with(app,user,&mut cache,&wire,now,read_limits::check,move|c,r|global(c,user,r,now).is_ok()).await;
             Fetched::Summary(user,cache,now,ready)
         }
@@ -391,21 +391,12 @@ fn metrics(c:&Connection,b:&Bot,now:At)->Result<(Subject,walk::Metrics),WebError
     Ok((s,m))
 }
 fn effective_started(b:&Bot)->Result<Option<chrono::DateTime<chrono::Utc>>,WebError>{
+    // R9: stored SQL timestamps have the engine's UTC meaning in every adapter.
     let Some(raw)=&b.started else{return Ok(None)};
-    let mut start=crate::codec::parse_time(raw).map_err(|_|error())?;
-    use crate::engine::conditions::{decorates,stored_support,TRIGGERS};
-    let selling=b.settings["direction"]=="selling";
-    let prefix=if selling{"sell_"}else{""};
-    for (rule,trigger) in TRIGGERS{
-        if b.settings[format!("{prefix}{trigger}ed")].as_bool()!=Some(true){continue}
-        // Only where Rails reads it (a basket) or this engine runs it (conditions::decorates).
-        if !decorates(crate::web::bot::Kind::of(&b.kind),stored_support(&b.kind,&b.settings,rule,selling)){continue}
-        let Some(raw)=b.transient[format!("{prefix}{trigger}_condition_met_at")].as_str().filter(|s|!s.trim().is_empty()) else{return Ok(None)};
-        // R9: stored SQL timestamps have the engine's UTC meaning in every adapter.
-        let met=crate::codec::parse_time(raw).map_err(|_|error())?;
-        start=start.max(met);
-    }
-    Ok(Some(start))
+    let start=crate::codec::parse_time(raw).map_err(|_|error())?;
+    let (settings,transient)=(b.settings.as_object().cloned().unwrap_or_default(),b.transient.as_object().cloned().unwrap_or_default());
+    let decorated=crate::engine::accounting::condition_started_at(crate::web::bot::Kind::of(&b.kind),&settings,&transient,Some(start.timestamp_micros()),b.settings["direction"]=="selling").map_err(|_|error())?;
+    decorated.map(|us|chrono::DateTime::from_timestamp_micros(us).ok_or_else(error)).transpose()
 }
 /// A figure as Rails renders it: an Integer, a Float, a BigDecimal as its text.
 fn number(n:&Num)->Value{match n{Num::Int(i)=>json!(i),Num::Float(f)=>json!(f),Num::Dec(d)=>json!(d.to_s_f())}}

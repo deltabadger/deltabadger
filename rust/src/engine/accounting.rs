@@ -124,17 +124,22 @@ pub fn pending_quote_amount(c: &Connection, bot: &Bot, now_us: i64) -> Result<Bi
     pending_quote_amount_num(c, bot, now_us)?.to_dec().map_err(data)
 }
 
-/// The trigger rules' `started_at` decorator (price_limitable.rb:106-115 and its three siblings): for each buy-side rule
-/// that is on (`== true`), the later of started_at and its `*_condition_met_at`, nil while one is unmet. The engine's
-/// carry and the web's preview share it. Only a rule that `conditions::decorates` for `kind`: every rule on a basket, as Rails
-/// reads it; on an index or signal bot only one this engine runs.
-pub fn condition_started_at(kind: Kind, settings: &serde_json::Map<String, Value>, transient: &serde_json::Map<String, Value>, started: Option<i64>) -> Result<Option<i64>, EngineError> {
+/// The trigger rules' `started_at` decorator on the active side (price_limitable.rb:106-115 and its three siblings, the
+/// `active_*` keys): for each rule of that side that is on (`== true`) with the `pause` action, the later of started_at and
+/// its `*_condition_met_at`, nil while one is unmet. Every reader shares it: the engine's carry and gate, the web's preview,
+/// the MCP read. Only a rule that `conditions::decorates` for `kind`: one this engine runs, or a basket's that Rails reads
+/// (eligibility refuses those). D-FLIP-UNMET-KEEPS-BUYING: a flip rule (`start_selling` / `start_buying`) never decorates;
+/// Rails' does, so an unmet buy-side flip rule buys nothing there until it is met.
+pub fn condition_started_at(kind: Kind, settings: &serde_json::Map<String, Value>, transient: &serde_json::Map<String, Value>, started: Option<i64>, selling: bool) -> Result<Option<i64>, EngineError> {
     use super::conditions::{self, TRIGGERS};
+    let side = if selling { "sell_" } else { "" };
     let mut started = started;
     let stored = Value::Object(settings.clone());
     for (rule, prefix) in TRIGGERS {
+        let prefix = format!("{side}{prefix}");
         if settings.get(&format!("{prefix}ed")) != Some(&Value::Bool(true)) { continue; }
-        if !conditions::decorates(kind, conditions::support(kind, rule, false, &conditions::action(&stored, prefix))) { continue; }
+        let action = conditions::action(&stored, &prefix);
+        if action != "pause" || !conditions::decorates(kind, conditions::support(kind, rule, selling, &action)) { continue; }
         let met = codec::optional_time(transient.get(&format!("{prefix}_condition_met_at"))).map_err(|_| data("unreadable stored timestamp"))?;
         started = started.zip(met).map(|(a, b)| a.max(b.timestamp_micros()));
     }
@@ -375,7 +380,7 @@ pub fn web_pending(c: &Connection, bot: &WebBot, now: DateTime<Utc>) -> Result<W
     validate_web_amounts(bot)?;
     // Frozen while selling, before the started_at guard, as the engine's pending_quote_amount.
     if bot.text("direction") == Some("selling") { return web_capped(c, bot, carry_num(bot.transient.get("missed_quote_amount"))?); }
-    let started = condition_started_at(bot.kind, &bot.settings, &bot.transient, bot.started_at.map(|t| t.timestamp_micros()))?;
+    let started = condition_started_at(bot.kind, &bot.settings, &bot.transient, bot.started_at.map(|t| t.timestamp_micros()), false)?;
     let Some(started) = started.and_then(DateTime::from_timestamp_micros) else { return Ok(WebNum::Int(0)) };
     let changed: Option<String> = c.query_row("SELECT settings_changed_at FROM bots WHERE id=?1", [bot.id], |r| r.get(0))?;
     let since = changed.as_deref().map(codec::parse_time).transpose().map_err(|_| error("invalid settings window"))?.map_or(started, |at| at.max(started));

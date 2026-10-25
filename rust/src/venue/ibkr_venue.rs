@@ -31,7 +31,8 @@
 //!
 //! The answer shapes are provisional: no IBKR session has been recorded yet (gates G1, G3).
 use super::http::Transport;
-use super::ibkr::{Error, Held, Login, Session, ACCOUNTS_PATH, ACCOUNT_CHANGED};
+use super::ibkr::{Error, Held, Login, Session, ACCOUNTS_PATH, ACCOUNT_CHANGED, FIELD_AVAILABILITY};
+pub use super::ibkr::SNAPSHOT_PATH;
 use super::{NewOrder, OrderKind, OrderState, OrderStatus, PlacementHold, PriceSide, Side, Venue, VenueError};
 use crate::engine::model::Ticker;
 use crate::engine::venue_rules::VenueRules;
@@ -42,7 +43,6 @@ use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::sync::{Arc, LazyLock, Mutex};
 
-pub const SNAPSHOT_PATH: &str = "/v1/api/iserver/marketdata/snapshot";
 pub const SNAPSHOT_FIELDS: &str = "31,84,86,6509,_updated";
 pub const RULES_PATH: &str = "/v1/api/iserver/contract/rules";
 /// The live orders (recovery by `order_ref`), and the executions of the last days.
@@ -130,11 +130,7 @@ impl<T: Transport> IbkrVenue<T> {
     pub async fn conid_price(&self, conid: i64, side: PriceSide) -> Result<BigDec, VenueError> {
         let field = match side { PriceSide::Last => "31", PriceSide::Bid => "84", PriceSide::Ask => "86" };
         let query = || vec![("conids", conid.to_string()), ("fields", SNAPSHOT_FIELDS.to_string())];
-        let mut answer = self.read("GET", SNAPSHOT_PATH, query(), None).await?;
-        if first_row(&answer).is_some_and(|row| row.get(field).is_none()) {
-            tokio::time::sleep(PREFLIGHT_PAUSE).await;
-            answer = self.read("GET", SNAPSHOT_PATH, query(), None).await?;
-        }
+        let answer = snapshot(field, || self.read("GET", SNAPSHOT_PATH, query(), None)).await?;
         usable_price(&answer, conid, field, self.clock.now())
             .map_err(|why| VenueError::Rejected(vec![format!("no usable market data for conid {conid}: {why}")]))
     }
@@ -347,6 +343,21 @@ impl<T: Transport> Venue for IbkrVenue<T> {
 }
 
 fn first_row(answer: &Value) -> Option<&Value> { answer.as_array().and_then(|rows| rows.first()) }
+
+/// A snapshot read by `read`, as IBKR answers a conid's first: a pre-flight answer (`is_preflight`) is asked again once,
+/// after PREFLIGHT_PAUSE. Both the order-critical price and the figures read snapshots this way.
+pub(crate) async fn snapshot<E, F: std::future::Future<Output = Result<Value, E>>>(field: &str, mut read: impl FnMut() -> F) -> Result<Value, E> {
+    let answer = read().await?;
+    if !is_preflight(&answer, field) { return Ok(answer) }
+    tokio::time::sleep(PREFLIGHT_PAUSE).await;
+    read().await
+}
+
+/// The answer IBKR gives a snapshot that subscribes a conid: its row without `field` yet, and not refused for want of a
+/// market-data subscription (field 6509 `N…`, which asking again does not change).
+pub(crate) fn is_preflight(answer: &Value, field: &str) -> bool {
+    first_row(answer).is_some_and(|row| row.get(field).is_none() && !row.get(FIELD_AVAILABILITY).and_then(Value::as_str).is_some_and(|a| a.starts_with('N')))
+}
 
 fn as_i64(v: &Value) -> Option<i64> { v.as_i64().or_else(|| v.as_str().and_then(|s| s.trim().parse().ok())) }
 

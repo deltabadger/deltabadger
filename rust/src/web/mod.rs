@@ -713,6 +713,8 @@ fn routes(app: App) -> Router {
         // The CoinGecko key itself (this build has no CoinGecko provider) and the legacy settings step are not served.
         .route("/bots/dca_indexes/setup_coingecko", any(layout::not_ported))
         .route("/bots/reorder", only(patch(bots::reorder)))
+        .route("/bots/merge/new", only(get(bot::actions::merge_new)))
+        .route("/bots/merge", only(post(bot::actions::merge_create)))
         .route("/bots/{id}", only(get(bot::page::show).patch(bot::actions::update)))
         .route("/bots/{id}/start", only(patch(bot::actions::start)))
         .route("/bots/{id}/start/edit", only(get(bot::actions::start_edit)))

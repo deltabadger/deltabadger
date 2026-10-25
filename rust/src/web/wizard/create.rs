@@ -334,9 +334,24 @@ pub fn validate(c: &Connection, bot: &Built, locale: &str) -> Result<Vec<String>
     Ok(ordered)
 }
 
+impl Built {
+    /// The members a bot built without `base_asset_ids` holds (its allocations' keys), and the name set_default_label reads
+    /// from them (Bot::Merge's and Bot::Split's bots).
+    pub fn set_members(&mut self, c: &Connection, members: Vec<i64>, locale: &str) -> Result<(), WebError> {
+        self.label = label(c, &members, locale)?;
+        self.members = members;
+        Ok(())
+    }
+}
+
 /// The before_save and before_create callbacks, the insert, and refresh_composition (after_save), on `c` inside the caller's
 /// write transaction. Returns the new bot's id.
-pub fn insert(c: &Connection, user: i64, mut bot: Built, now: DateTime<Utc>) -> Result<i64, WebError> {
+pub fn insert(c: &Connection, user: i64, bot: Built, now: DateTime<Utc>) -> Result<i64, WebError> {
+    insert_as(c, user, bot, now, crate::enums::BotStatus::Created, 0)
+}
+
+/// `insert` for a bot built with its status and position (`assign_position` keeps a positive one).
+pub fn insert_as(c: &Connection, user: i64, mut bot: Built, now: DateTime<Utc>, status: crate::enums::BotStatus, position: i64) -> Result<i64, WebError> {
     // set_tickers, then each condition's set_*_in_ticker_id: buy and sell on the default member.
     let first = first_ticker(&tickers(c, bot.exchange_id, bot.quote, &bot.members)?);
     for rule in ["price_limit", "price_drop_limit", "moving_average_limit", "indicator_limit"] {
@@ -345,12 +360,12 @@ pub fn insert(c: &Connection, user: i64, mut bot: Built, now: DateTime<Utc>) -> 
     }
     let at = format_time(now);
     // assign_position: after the user's last bot.
-    let position: i64 = c.query_row("SELECT COALESCE(MAX(position), 0) + 1 FROM bots WHERE user_id = ?1", [user], |r| r.get(0))?;
+    let position: i64 = if position > 0 { position } else { c.query_row("SELECT COALESCE(MAX(position), 0) + 1 FROM bots WHERE user_id = ?1", [user], |r| r.get(0))? };
     // set_missed_quote_amount on a bot never started owes 0; check_missed_quote_amount_was_set clears the capture flag.
     let transient = json!({"missed_quote_amount": 0, "missed_quote_amount_was_set": null});
     c.execute("INSERT INTO bots (user_id, exchange_id, type, status, label, position, settings, transient_data, settings_changed_at, created_at, updated_at) \
-               VALUES (?1, ?2, 'Bots::DcaMultiAsset', 0, ?3, ?4, ?5, ?6, ?7, ?7, ?7)",
-              rusqlite::params![user, bot.exchange_id, bot.label, position, Value::Object(bot.settings).to_string(), transient.to_string(), at])?;
+               VALUES (?1, ?2, 'Bots::DcaMultiAsset', ?8, ?3, ?4, ?5, ?6, ?7, ?7, ?7)",
+              rusqlite::params![user, bot.exchange_id, bot.label, position, Value::Object(bot.settings).to_string(), transient.to_string(), at, status as i64])?;
     let id = c.last_insert_rowid();
     // D-IBKR-ACCOUNT: a bot created on a bound IBKR key belongs to its account from the start.
     crate::venue::ibkr_account::assign_bot_account(c, id, now)?;
