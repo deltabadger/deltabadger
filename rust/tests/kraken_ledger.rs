@@ -17,6 +17,7 @@ const SYNC_NOW: &str = "2026-09-20T02:00:00Z";
 fn secs(day: u32, hour: u32) -> f64 { Utc.with_ymd_and_hms(2026, 9, day, hour, 0, 0).unwrap().timestamp() as f64 }
 
 /// One Ledgers entry, in Kraken's key order.
+#[allow(clippy::too_many_arguments)]
 fn entry(id: &str, asset: &str, kind: &str, subtype: &str, amount: &str, fee: &str, at: f64, refid: &str) -> (String, Value) {
     let aclass = if asset.ends_with('x') || asset.ends_with("SPV") { "tokenized_asset" } else { "currency" };
     (id.to_string(), json!({ "refid": refid, "time": at, "type": kind, "subtype": subtype, "aclass": aclass, "asset": asset, "amount": amount, "fee": fee, "balance": "0" }))
