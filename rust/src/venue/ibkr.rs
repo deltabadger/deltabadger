@@ -190,6 +190,12 @@ impl<'a, T: Transport, C: Clock + ?Sized> Session<'a, T, C> {
     /// Oauth.dh_random fixed (the recorders stub it the same way).
     pub fn with_dh_random(mut self, f: impl Fn() -> String + Send + Sync + 'a) -> Self { self.dh_random = Box::new(f); self }
 
+    /// The session's clock reading.
+    pub fn now(&self) -> DateTime<Utc> { self.clock.now() }
+
+    /// `text` without the credential values the transport knows.
+    pub fn redact(&self, text: &str) -> String { self.transport.redact_diagnostic(text) }
+
     /// IbkrLock.with_lock: waits up to LOCK_WAIT for the login, then fails.
     pub async fn lock(&self) -> Result<Held<'_>, Error> {
         tokio::time::timeout(LOCK_WAIT, self.login.op.lock()).await.map(Held).map_err(|_| Error::LockTimeout)
@@ -302,7 +308,7 @@ fn is_json(content_type: &str) -> bool {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use crate::engine::FixedClock;
     use crate::venue::http::{HttpResponse, ScriptedTransport};
@@ -322,7 +328,7 @@ mod tests {
         crate::engine::model::prepared_credential_version(id, &[Some(tag.into()), None, None, None, None, None, None])
     }
 
-    fn new_login() -> (Arc<Login>, Value) {
+    pub(crate) fn new_login() -> (Arc<Login>, Value) {
         let (m, session) = fixture();
         (Arc::new(Login::with_op(m, version(1, "a"), Arc::default()).unwrap()), session)
     }
@@ -331,7 +337,7 @@ mod tests {
     const MINT: &str = "POST /v1/api/oauth/live_session_token";
     const INIT: &str = "POST /v1/api/iserver/auth/ssodh/init";
 
-    fn scripted(session: &Value) -> ScriptedTransport {
+    pub(crate) fn scripted(session: &Value) -> ScriptedTransport {
         let t = ScriptedTransport::default();
         t.reply(MINT, 200, json!({ "diffie_hellman_response": session["server"]["diffie_hellman_response"],
                                    "live_session_token_signature": session["server"]["live_session_token_signature"],
@@ -347,7 +353,7 @@ mod tests {
         s.signed_request(&held, "GET", "/v1/api/iserver/accounts", vec![], None).await
     }
 
-    fn at(t: &str) -> FixedClock { FixedClock(t.parse().unwrap()) }
+    pub(crate) fn at(t: &str) -> FixedClock { FixedClock(t.parse().unwrap()) }
 
     #[tokio::test]
     async fn mints_then_opens_the_brokerage_session_then_calls_and_reuses_both() {

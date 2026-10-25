@@ -110,6 +110,19 @@ pub fn check_bot_account(c: &Connection, cipher: &Cipher, bot_id: i64) -> rusqli
     })
 }
 
+/// The account IBKR bot `bot_id` reaches IBKR as: its key's bound account, once `check_bot_account` passes. Err: why not.
+pub fn bot_account(c: &Connection, cipher: &Cipher, bot_id: i64) -> rusqlite::Result<Result<String, String>> {
+    if let Err(why) = check_bot_account(c, cipher, bot_id)? { return Ok(Err(why)) }
+    let Some(Some(key)) = ibkr_key(c, bot_id)? else { return Ok(Err("This bot is not an IBKR bot.".into())) };
+    Ok(match binding(c, key)?.map(|b| b.account_id(cipher)) {
+        Some(Some(account)) => Ok(account),
+        _ => Err("The account this IBKR connection belongs to cannot be read. Delete the connection and connect again.".into()),
+    })
+}
+
+/// Whether `/iserver/accounts`' answer names `account` and no other.
+pub fn names_only(data: &Value, account: &str) -> bool { listed(data) == [Value::String(account.into())] }
+
 #[cfg(test)]
 mod tests {
     use super::*;
