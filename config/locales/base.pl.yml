@@ -923,3 +923,7 @@ pl:
                 fx_source: 'Przeliczenie według referencyjnych kursów euro EBC; dla dni bez kursu stosuje się kurs z poprzedniego bankowego dnia roboczego.'
                 interest_withholding_net: 'Odsetki zaksięgowane po potrąceniu zagranicznego podatku u źródła są wykazywane netto w wierszu 19, a podatek u źródła jest zaliczany w wierszu 41 — bank nie podaje kwoty brutto odsetek. Dywidendy są natomiast ubruttawiane.'
                 regulatory_fees: 'Zbiorczych opłat regulacyjnych nie można przypisać do konkretnego zbycia, dlatego nie są odliczane od żadnej kwoty; wykazuje się je wyłącznie informacyjnie.'
+    engine:
+        flip_basket_only: "flip działa tylko w botach portfelowych."
+        condition_no_subject: "nie ma jeszcze aktywa do obserwowania"
+        condition_subject_departed: "%{symbol} (poza indeksem)"

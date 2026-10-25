@@ -800,7 +800,7 @@ fn index_rules(c: &Connection, forms: &Forms) -> Result<String, WebError> {
     let bot = forms.bot;
     let mut out = String::new();
     if support(Kind::Index, Rule::Price, false, "pause") == Support::Implemented {
-        let mut members: Vec<(String, String)> = bot.composition_tickers().iter().map(|ticker| (ticker.base_symbol.clone().unwrap_or_default(), ticker.id.to_string())).collect();
+        let mut members: Vec<(String, String)> = super::draft::subject_tickers(c, bot)?.iter().map(|ticker| (ticker.base_symbol.clone().unwrap_or_default(), ticker.id.to_string())).collect();
         members.sort_by(|a, b| a.0.cmp(&b.0));
         let stored = bot.setting("price_limit_in_ticker_id").and_then(|v| v.as_i64().or_else(|| v.as_str().and_then(|s| s.trim().parse().ok())));
         let mut shown = None;

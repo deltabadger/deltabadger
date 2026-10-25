@@ -940,3 +940,7 @@ sv:
                 fx_source: 'Omräkning enligt ECB:s referenskurser för euro; för dagar utan kurs används kursen från föregående bankdag.'
                 interest_withholding_net: 'Ränta som krediterats efter avdrag för utländsk källskatt redovisas netto på rad 19, medan källskatten avräknas på rad 41 — banken anger inget bruttobelopp för ränta. Utdelningar räknas däremot upp till bruttobelopp.'
                 regulatory_fees: 'Samlade regulatoriska avgifter kan inte hänföras till en enskild försäljning och dras därför inte av från något belopp; de visas endast som information.'
+    engine:
+        flip_basket_only: "flip gäller bara portföljbotar."
+        condition_no_subject: "har ännu ingen tillgång att bevaka"
+        condition_subject_departed: "%{symbol} (inte i indexet)"

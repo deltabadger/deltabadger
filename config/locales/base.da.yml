@@ -944,3 +944,7 @@ da:
                 fx_source: 'Omregning efter ECB''s euroreferencekurser; på dage uden kurs anvendes kursen fra den foregående bankdag.'
                 interest_withholding_net: 'Renter, der er krediteret efter fradrag af udenlandsk kildeskat, opføres netto på linje 19, mens kildeskatten modregnes på linje 41 — banken oplyser ikke et bruttobeløb for renter. Udbytter omregnes derimod til bruttobeløbet.'
                 regulatory_fees: 'Samlede regulatoriske gebyrer kan ikke henføres til et enkelt salg og fratrækkes derfor ikke noget beløb; de vises kun til orientering.'
+    engine:
+        flip_basket_only: "flip gælder kun for porteføljebots."
+        condition_no_subject: "har endnu intet aktiv at overvåge"
+        condition_subject_departed: "%{symbol} (ikke i indekset)"

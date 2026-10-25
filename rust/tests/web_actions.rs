@@ -2473,6 +2473,33 @@ mod custom_allocation {
         Ok(())
     }
 
+    /// Change the index keeps the rules this build runs on an index bot (conditions::support): the spending cap and the
+    /// buy-side price rule with its subject. Custom allocation hands them to the portfolio.
+    #[test]
+    fn changing_the_index_keeps_its_rules() -> Result {
+        let rules = |f: &Fixture| -> Result {
+            let ticker: i64 = f.c.query_row("SELECT id FROM tickers WHERE base_asset_id=?1", [f.assets[1]], |r| r.get(0))?;
+            f.c.execute("UPDATE bots SET settings=json_set(settings,'$.quote_amount_limited',json('true'),'$.quote_amount_limit',300,'$.price_limited',json('true'),\
+                         '$.price_limit',150,'$.price_limit_value_condition','below','$.price_limit_in_ticker_id',?1) WHERE id=?2", (ticker, f.id))?;
+            Ok(())
+        };
+        let kept = |settings: &Value| ["quote_amount_limited", "quote_amount_limit", "price_limited", "price_limit", "price_limit_value_condition", "price_limit_in_ticker_id"]
+            .iter().map(|key| settings.get(*key).cloned().unwrap_or(Value::Null)).collect::<Vec<_>>();
+        let f = Fixture::new()?;
+        rules(&f)?;
+        let before = kept(&f.row()?.1);
+        seed::insert_index(&f.c, "sp-500", &["NVDA.US", "MSFT.US", "AAPL.US"], &json!({"NVDA.US": 1, "MSFT.US": 1, "AAPL.US": 1}));
+        assert!(matches!(follow(&f, "sp-500")?, Switched::Done));
+        let (class, settings, _) = f.row()?;
+        assert_eq!((class.as_str(), &settings["index_category_id"]), ("Bots::DcaIndex", &json!("sp-500")));
+        assert_eq!(kept(&settings), before, "both rules survive the change: {settings}");
+        let f = Fixture::new()?;
+        rules(&f)?;
+        assert!(matches!(f.customize()?, Switched::Done));
+        assert_eq!(kept(&f.row()?.1), before, "the portfolio keeps them too");
+        Ok(())
+    }
+
     /// D-FENCE-PER-BOT: a portfolio whose placement intent is still recorded is the engine's; nothing is written.
     #[test]
     fn a_placement_intent_refuses_a_follow() -> Result {

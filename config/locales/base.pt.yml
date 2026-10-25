@@ -917,3 +917,7 @@ pt:
                 fx_source: 'Conversão às taxas de referência do euro publicadas pelo BCE; nos dias sem taxa aplica-se a do dia útil bancário anterior.'
                 interest_withholding_net: 'Os juros creditados depois de deduzida a retenção estrangeira são declarados pelo valor líquido na linha 19, enquanto a retenção é creditada na linha 41 — o banco não fornece um montante bruto para os juros. Já os dividendos são recalculados pelo valor bruto.'
                 regulatory_fees: 'As comissões regulamentares agregadas não podem ser atribuídas a uma alienação concreta e, por isso, não são deduzidas de qualquer montante; são apresentadas apenas a título informativo.'
+    engine:
+        flip_basket_only: "flip só se aplica a bots de carteira."
+        condition_no_subject: "ainda não tem nenhum ativo para acompanhar"
+        condition_subject_departed: "%{symbol} (fora do índice)"

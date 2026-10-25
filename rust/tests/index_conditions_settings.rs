@@ -250,3 +250,53 @@ async fn a_rebalancing_index_bot_with_a_price_rule_saves() {
     assert_eq!(saved[2].status, 200, "{}", saved[2].answer);
     assert_eq!((&row["settings"]["price_limited"], &row["settings"]["rebalance_enabled"]), (&json!(true), &json!(true)));
 }
+
+/// A quote change maps the subject to the same asset at the new quote; with no such pair a rule that is on is refused.
+#[tokio::test(flavor = "current_thread")]
+async fn a_quote_change_remaps_the_subject() {
+    let quoted = |i: &Install, subject: usize| -> (i64, Vec<i64>) {
+        i.c.execute("INSERT INTO assets (external_id, symbol, name, category, created_at, updated_at) VALUES ('eur', 'EUR', 'Euro', 'Currency', '2026-01-01 00:00:00', '2026-01-01 00:00:00')", []).unwrap();
+        let eur = i.c.last_insert_rowid();
+        // AAA and BBB trade in EUR here; CCC does not.
+        i.c.execute("INSERT INTO tickers (exchange_id, ticker, base, quote, base_asset_id, quote_asset_id, base_decimals, quote_decimals, price_decimals, minimum_base_size, \
+                     minimum_quote_size, maximum_base_size, maximum_quote_size, trading_enabled, available, created_at, updated_at) \
+                     SELECT exchange_id, base || 'EUR', base, 'EUR', base_asset_id, ?1, base_decimals, quote_decimals, price_decimals, minimum_base_size, minimum_quote_size, \
+                     maximum_base_size, maximum_quote_size, 1, 1, created_at, updated_at FROM tickers WHERE id IN (?2, ?3)", (eur, i.tickers[0], i.tickers[1])).unwrap();
+        let eur_tickers: Vec<i64> = i.c.prepare("SELECT id FROM tickers WHERE quote_asset_id = ?1 ORDER BY id").unwrap().query_map([eur], |r| r.get(0)).unwrap().map(Result::unwrap).collect();
+        i.c.execute("UPDATE bots SET settings = json_set(settings, '$.price_limited', json('true'), '$.price_limit_in_ticker_id', ?1) WHERE id = ?2", (i.tickers[subject], i.id)).unwrap();
+        (eur, eur_tickers)
+    };
+    let i = install([0.5, 0.3, 0.2]);
+    let (eur, eur_tickers) = quoted(&i, 1);
+    // The page's quote select (MCP and REST take no quote change).
+    let saved = save(&i, Surface::Web, json!({ "quote_asset_id": eur.to_string() }), json!({})).await;
+    assert_eq!(saved.status, 200, "{}", saved.answer);
+    assert_eq!(row(&i)["settings"]["price_limit_in_ticker_id"], json!(eur_tickers[1]), "BBB/USD becomes BBB/EUR");
+    let i = install([0.5, 0.3, 0.2]);
+    let (eur, _) = quoted(&i, 2);
+    let before = row(&i);
+    let saved = save(&i, Surface::Web, json!({ "quote_asset_id": eur.to_string() }), json!({})).await;
+    assert_eq!(saved.status, 422, "{}", saved.answer);
+    assert!(saved.answer.as_str().unwrap().contains("no member to watch yet"), "{}", saved.answer);
+    assert_eq!(row(&i), before, "nothing written");
+}
+
+/// Before the first composition (no member rows) the subjects are the index's coins listed here, as the default is: a posted
+/// one saves, and the page's subject select lists them.
+#[tokio::test(flavor = "current_thread")]
+async fn before_the_first_composition_the_preview_members_are_the_subjects() {
+    let i = install([0.0, 0.0, 0.0]);
+    let saved = save(&i, Surface::Mcp, json!({}), json!({ "price_limited": true, "price_limit_in_ticker_id": i.tickers[1] })).await;
+    assert_ne!(saved.answer["error"], true, "{}", saved.answer);
+    assert_eq!(row(&i)["settings"]["price_limit_in_ticker_id"], json!(i.tickers[1]));
+    let token = web::csrf::new_token();
+    let session = web::session::SessionData { user: Some((i.user, "x".into())), csrf: Some(token), ..Default::default() };
+    let cookie = web::session::seal(&i.app.keys.session, &session, i.app.now());
+    let request = Request::builder().uri(format!("/bots/{}", i.id)).header("host", "localhost:3000").header("cookie", format!("{}={cookie}", web::session::COOKIE)).body(Body::empty()).unwrap();
+    let (status, page) = send(&i.app, request).await;
+    assert_eq!(status, 200);
+    for (symbol, ticker) in ["AAA", "BBB", "CCC"].iter().zip(&i.tickers) {
+        assert!(page.contains(&format!("value=\"{ticker}\">{symbol}</option>")) || page.contains(&format!("value=\"{ticker}\" selected=\"selected\">{symbol}</option>")),
+                "{symbol} offered as a subject");
+    }
+}
