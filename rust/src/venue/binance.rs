@@ -4,6 +4,7 @@
 //! (`US_URL`) and its rules row (`venue_rules::BINANCE_US`, which also names it in messages); nothing else differs.
 use super::http::{self, HttpRequest, Transport, TransportError};
 use super::{NewOrder, OrderKind, OrderState, PriceSide};
+use crate::engine::candles::{self, Candle, Timeframe};
 use crate::engine::model::Ticker;
 use crate::engine::venue_rules::{VenueRules, BINANCE as RULES};
 use crate::ruby::BigDec;
@@ -199,8 +200,8 @@ impl<T: Transport> BinanceVenue<T> {
         http::decode_json(&self.answer(r, placement).await?).map_err(|_| unreadable())
     }
 
-    /// `call` for the bulk price read: a 2xx body that is not JSON is honeymaker's Failure (its text), as
-    /// Exchanges::Binance#get_tickers_prices returns it, never a raise.
+    /// `call` for the bulk price and candle reads: a 2xx body that is not JSON is honeymaker's Failure (its text), as
+    /// Exchanges::Binance#get_tickers_prices and #get_candles return it, never a raise.
     async fn call_prices(&self, r: &HttpRequest) -> Result<serde_json::Value, super::VenueError> {
         let text = self.answer(r, false).await?;
         match http::decode_json(&text) {
@@ -570,6 +571,48 @@ impl<T: Transport> super::Venue for BinanceVenue<T> {
         let (symbol, ext) = (parts.next().unwrap_or_default(), parts.next().unwrap_or_default());
         let r = self.signed_now("DELETE", "/api/v3/order", vec![("symbol", symbol.to_string()), ("orderId", ext.to_string()), ("recvWindow", PLACE_RECV_WINDOW.into())]);
         self.call(&r, false).await.map(|_| ())
+    }
+
+    /// Exchanges::Binance#get_candles (Binance.US runs the same): pages of up to 1000 klines from `startTime`, the start's
+    /// whole seconds in milliseconds. Each row's time is read in whole seconds (`Time.at(ms / 1000)`); every row is kept,
+    /// the forming one too, nothing built. A page whose last row opened at or before `timeframe.ago` (in whole seconds,
+    /// times 1000, at that page) asks again from a second after that row; an empty page, or a later last row, ends the
+    /// walk. Any failed page fails the read (#parse_error_message's `msg`, else honeymaker's text; a 2xx that is not JSON
+    /// is that text too). D-COND-CANDLE-CAP: past MAX_CANDLE_PAGES pages it is a settled failure.
+    async fn candles(&self, ticker: &Ticker, start_at: DateTime<Utc>, timeframe: Timeframe) -> Result<Vec<Candle>, super::VenueError> {
+        let mut start = start_at.timestamp();
+        let mut out = vec![];
+        for _ in 0..candles::MAX_CANDLE_PAGES {
+            let r = self.request("GET", KLINES, vec![("symbol", ticker.ticker.clone()), ("startTime", start.saturating_mul(1000).to_string()),
+                                                     ("interval", kline_interval(timeframe).into()), ("limit", "1000".into()), ("timeZone", "0".into())]);
+            let body = self.call_prices(&r).await?;
+            let mut last = None;
+            for row in body.as_array().ok_or_else(unreadable)? {
+                let row = row.as_array().ok_or_else(unreadable)?;
+                // A float time (Ruby's `Time.at` takes it) is unreadable: Binance sends integers (D-COND-CANDLE-UNREADABLE).
+                let ms = row.first().and_then(serde_json::Value::as_i64).ok_or_else(unreadable)?;
+                let at = DateTime::from_timestamp(ms.div_euclid(1000), 0).ok_or_else(unreadable)?;
+                let field = |i: usize| row.get(i).unwrap_or(&serde_json::Value::Null);
+                out.push(candles::read(at, [field(1), field(2), field(3), field(4)], field(5)).ok_or_else(unreadable)?);
+                last = Some(ms);
+            }
+            match last {
+                Some(ms) if ms <= timeframe.ago(self.transport.now()).timestamp().saturating_mul(1000) => start = ms.div_euclid(1000).saturating_add(1),
+                _ => return Ok(out),
+            }
+        }
+        Err(super::VenueError::Rejected(vec![format!("{}: more than {} pages of candles", self.rules.name, candles::MAX_CANDLE_PAGES)]))
+    }
+}
+
+/// Clients::Binance#candlestick_data's path.
+pub const KLINES: &str = "/api/v3/klines";
+/// Exchanges::Binance#get_candles' interval for each timeframe: Binance has one for every one.
+pub fn kline_interval(timeframe: Timeframe) -> &'static str {
+    match timeframe {
+        Timeframe::Minute => "1m", Timeframe::FiveMinutes => "5m", Timeframe::FifteenMinutes => "15m", Timeframe::ThirtyMinutes => "30m",
+        Timeframe::Hour => "1h", Timeframe::FourHours => "4h", Timeframe::Day => "1d", Timeframe::ThreeDays => "3d", Timeframe::Week => "1w",
+        Timeframe::Month => "1M",
     }
 }
 

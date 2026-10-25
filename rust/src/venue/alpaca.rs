@@ -6,6 +6,7 @@ use crate::crypto::{Cipher, Credentials};
 use crate::engine::{eligibility, model, EngineError};
 use rusqlite::Connection;
 use super::{ClockAnswer, NewOrder, OrderKind, OrderState, OrderStatus, PriceSide, Venue, VenueError};
+use crate::engine::candles::{self, Candle, Timeframe};
 use crate::engine::model::Ticker;
 use crate::engine::venue_rules::{VenueRules, ALPACA};
 use crate::ruby::BigDec;
@@ -413,6 +414,68 @@ impl<T: Transport> AlpacaVenue<T> {
     }
 }
 
+impl<T: Transport> AlpacaVenue<T> {
+    /// Exchanges::Alpaca#get_indicator_candles through Clients::Alpaca#get_crypto_bars / #get_bars (each_bars_page). See
+    /// `Venue::candles` on this venue.
+    async fn candles_diagnostic_source(&self, ticker: &Ticker, start_at: DateTime<Utc>, timeframe: Timeframe) -> Result<Vec<Candle>, VenueError> {
+        let start = start_at.format("%Y-%m-%dT%H:%M:%SZ").to_string();
+        let (path, query) = if ticker.crypto {
+            ("/v1beta3/crypto/us/bars".to_string(), vec![("limit", MAX_BARS.into()), ("start", start), ("symbols", ticker.ticker.clone()), ("timeframe", bar_timeframe(timeframe).into())])
+        } else {
+            (format!("/v2/stocks/{}/bars", ticker.base_code),
+             vec![("adjustment", "split".into()), ("limit", MAX_BARS.into()), ("start", start), ("timeframe", bar_timeframe(timeframe).into())])
+        };
+        let mut out = vec![];
+        let mut token: Option<String> = None;
+        for _ in 0..candles::MAX_CANDLE_PAGES {
+            let mut page = query.clone();
+            if let Some(token) = token.take() { page.push(("page_token", token)); page.sort_by(|a, b| a.0.cmp(b.0)); }
+            let body = self.get(self.request("GET", true, path.clone(), page, None)).await?;
+            let Value::Object(body) = body else {
+                // `page['next_page_token']` on an Array is Ruby's TypeError, which with_rescue returns as the Failure.
+                return Err(if body.is_array() { VenueError::Rejected(vec!["no implicit conversion of String into Integer".into()]) } else { candle_unreadable() });
+            };
+            let bars = if ticker.crypto {
+                match body.get("bars") { None | Some(Value::Null) => &Value::Null, Some(Value::Object(by_symbol)) => by_symbol.get(&ticker.ticker).unwrap_or(&Value::Null), Some(_) => return Err(candle_unreadable()) }
+            } else { body.get("bars").unwrap_or(&Value::Null) };
+            match bars {
+                Value::Null => {}
+                Value::Array(bars) => for bar in bars { out.push(bar_candle(bar)?); },
+                // ponytail: Rails raises on a first page's non-array bars and fails a later one's join (with_rescue); both
+                // are unreadable here.
+                _ => return Err(candle_unreadable()),
+            }
+            // `.presence`: a blank token ends the walk.
+            token = match body.get("next_page_token") {
+                Some(Value::String(t)) if !crate::ruby::blank(t) => Some(t.clone()),
+                Some(Value::Number(n)) => Some(n.to_string()),
+                _ => None,
+            };
+            if token.is_none() { return Ok(if timeframe == Timeframe::ThreeDays { candles::build(&out, timeframe) } else { out }); }
+        }
+        Err(VenueError::Rejected(vec![format!("Alpaca: more than {} pages of candles", candles::MAX_CANDLE_PAGES)]))
+    }
+}
+
+/// Clients::Alpaca::MAX_BARS: every bars request asks for this many.
+const MAX_BARS: &str = "10000";
+/// Exchanges::Alpaca#get_candles' bar timeframe: 3 days are daily bars built (CandleBuilder).
+pub fn bar_timeframe(timeframe: Timeframe) -> &'static str {
+    match timeframe {
+        Timeframe::Minute => "1Min", Timeframe::FiveMinutes => "5Min", Timeframe::FifteenMinutes => "15Min", Timeframe::ThirtyMinutes => "30Min",
+        Timeframe::Hour => "1Hour", Timeframe::FourHours => "4Hour", Timeframe::Day | Timeframe::ThreeDays => "1Day", Timeframe::Week => "1Week",
+        Timeframe::Month => "1Month",
+    }
+}
+fn candle_unreadable() -> VenueError { VenueError::Ambiguous("Alpaca: unreadable candles".into()) }
+/// One bar `{t, o, h, l, c, v}` as #get_candles reads it: `Time.parse(t).utc`, an RFC 3339 time (anything else raises
+/// in Rails or is not Alpaca's), then candles::read.
+fn bar_candle(bar: &Value) -> Result<Candle, VenueError> {
+    let at = bar.get("t").and_then(Value::as_str).and_then(|t| DateTime::parse_from_rfc3339(t).ok()).ok_or_else(candle_unreadable)?.to_utc();
+    let field = |k: &str| bar.get(k).unwrap_or(&Value::Null);
+    candles::read(at, [field("o"), field("h"), field("l"), field("c")], field("v")).ok_or_else(candle_unreadable)
+}
+
 impl<T: Transport> Venue for AlpacaVenue<T> {
     async fn free_base_identified<F>(&self, t: &Ticker, catalog: F) -> Result<BigDec, VenueError>
     where F: FnOnce() -> Result<crate::sync::balances::Catalog, VenueError> {
@@ -464,6 +527,14 @@ impl<T: Transport> Venue for AlpacaVenue<T> {
             Ok(resp) => Err(VenueError::Rejected(vec![error_message(&r, &resp)])),
         };
         answer.map_err(|error|self.redact_error(error))
+    }
+    /// Exchanges::Alpaca#get_indicator_candles: one bars read from `start` (ISO 8601, whole seconds), a crypto pair under
+    /// `symbols` on /v1beta3/crypto/us/bars, a stock by its code on /v2/stocks/<code>/bars with adjustment=split, always
+    /// limit=10000; each `next_page_token` followed with the same params plus `page_token` (Clients::Alpaca#each_bars_page),
+    /// the pages joined in order. Every bar is kept, the forming one too; 3 days are built from daily bars. Missing or
+    /// null bars are none. D-COND-CANDLE-CAP: past MAX_CANDLE_PAGES pages it is a settled failure.
+    async fn candles(&self, t: &Ticker, start_at: DateTime<Utc>, tf: Timeframe) -> Result<Vec<Candle>, VenueError> {
+        self.candles_diagnostic_source(t, start_at, tf).await.map_err(|error| self.redact_error(error))
     }
 }
 
