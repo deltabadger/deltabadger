@@ -56,11 +56,11 @@ async fn a_server_without_starttls_is_refused_when_a_user_name_is_set_and_nothin
 
 #[tokio::test]
 async fn a_server_without_starttls_gets_the_mail_in_the_clear_when_there_is_no_user_name_as_rails_sends_it() {
-    // An open relay configured by SMTP_ADDRESS alone. Rails still sends AUTH, with empty credentials (a Rails defect, ported),
-    // and sends it whether or not the server offers AUTH.
+    // An open relay configured by SMTP_ADDRESS alone. D-SMTP-NO-AUTH: Rails still sends AUTH with empty credentials; Rust
+    // sends no AUTH when no user name or password is set.
     let server = smtp::start(Behaviour { starttls: false, auth: false, ..Default::default() }).await;
     deliver(&settings(server.port, None), "noreply@localhost", "owner@example.com", MESSAGE).await.unwrap();
-    assert_eq!(server.sessions()[0].lines, ["EHLO bots.example.com", "AUTH PLAIN AAA=", "MAIL FROM:<noreply@localhost>", "RCPT TO:<owner@example.com>", "DATA", "QUIT"]);
+    assert_eq!(server.sessions()[0].lines, ["EHLO bots.example.com", "MAIL FROM:<noreply@localhost>", "RCPT TO:<owner@example.com>", "DATA", "QUIT"]);
     assert_eq!(server.messages(), [MESSAGE]);
 }
 

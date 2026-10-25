@@ -65,8 +65,9 @@ fn save_settings(c: &Connection, owner: i64, now: &str, params: &Value) -> Resul
         }
     }
     let updated = Value::Object(settings);
-    // Rails ignores update's false return and still answers head :ok.
-    if !super::user::validate_save(c, owner)? { return Ok(StatusCode::OK); }
+    // D-TRACKER-SETTINGS-422: a refused save answers 422, as fund_classifications does (Rails ignores update's false
+    // return and still answers head :ok).
+    if !super::user::validate_save(c, owner)? { return Ok(StatusCode::UNPROCESSABLE_ENTITY); }
     if was_null || updated != original {
         c.execute("UPDATE users SET tracker_settings=?1, updated_at=?2 WHERE id=?3", (updated.to_string(),now,owner))?;
     }

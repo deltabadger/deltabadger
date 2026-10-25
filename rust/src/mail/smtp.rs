@@ -60,8 +60,8 @@ pub struct Settings {
     pub port: String,
     /// The EHLO name: a host name or an address literal.
     pub domain: String,
-    /// User name and password. AUTH PLAIN is always sent, with empty ones too: Net::SMTP authenticates whenever a user
-    /// name is given, and the environment's settings always give one (a Rails defect, ported).
+    /// User name and password. AUTH PLAIN is sent only when one of them is set (D-SMTP-NO-AUTH: Rails' environment
+    /// settings always give a user name, so Net::SMTP sends AUTH with empty credentials to an open relay).
     pub credentials: (String, String),
     /// The mail gem's `open_timeout`: how long the TCP connection may take.
     pub open_timeout: Duration,
@@ -247,10 +247,28 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Wire<S> {
         Ok(reply.lines.iter().skip(1).any(|line| line.split(' ').next().is_some_and(|keyword| keyword.eq_ignore_ascii_case("STARTTLS"))))
     }
 
-    /// AUTH PLAIN, the envelope, the message, QUIT: the same on a plain and on an encrypted connection.
+    /// AUTH PLAIN (only with credentials, D-SMTP-NO-AUTH), the envelope, the message, QUIT: the same on a plain and on an encrypted connection.
     /// `accepted` turns true the moment the server has answered the end of DATA with a 2xx: from then on the mail is
     /// delivered, and QUIT is a courtesy with a short deadline of its own.
     async fn submit(&mut self, s: &Settings, from: &str, to: &str, message: &str, accepted: &std::sync::atomic::AtomicBool) -> Result<(), Failure> {
+        let ok = |code: u16| code / 100 == 2;
+        if s.has_secret() { self.auth(s).await?; }
+        self.command("mail", &format!("MAIL FROM:<{from}>"), ok).await?;
+        self.command("rcpt", &format!("RCPT TO:<{to}>"), ok).await?;
+        self.command("data", "DATA", |c| c == 354).await?;
+        // A line that starts with a dot gets a second one; the message ends with CRLF "." CRLF, as Net::SMTP ends it.
+        let mut body = message.replace("\r\n.", "\r\n..");
+        if body.starts_with('.') { body.insert(0, '.'); }
+        if !body.ends_with("\r\n") { body.push_str("\r\n"); }
+        body.push_str(".\r\n");
+        self.send("data", body.as_bytes()).await?;
+        self.reply("data", ok).await?;
+        accepted.store(true,std::sync::atomic::Ordering::Relaxed);
+        let _ = tokio::time::timeout(QUIT_WAIT.min(self.read_timeout), self.command("quit", "QUIT", ok)).await; // a lost QUIT changes nothing
+        Ok(())
+    }
+
+    async fn auth(&mut self, s: &Settings) -> Result<(), Failure> {
         let ok = |code: u16| code / 100 == 2;
         let token = base64::engine::general_purpose::STANDARD.encode(format!("\0{}\0{}", s.credentials.0, s.credentials.1));
         let auth = format!("AUTH PLAIN {token}");
@@ -269,18 +287,6 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Wire<S> {
             }
             self.command("auth", &token, ok).await?;
         }
-        self.command("mail", &format!("MAIL FROM:<{from}>"), ok).await?;
-        self.command("rcpt", &format!("RCPT TO:<{to}>"), ok).await?;
-        self.command("data", "DATA", |c| c == 354).await?;
-        // A line that starts with a dot gets a second one; the message ends with CRLF "." CRLF, as Net::SMTP ends it.
-        let mut body = message.replace("\r\n.", "\r\n..");
-        if body.starts_with('.') { body.insert(0, '.'); }
-        if !body.ends_with("\r\n") { body.push_str("\r\n"); }
-        body.push_str(".\r\n");
-        self.send("data", body.as_bytes()).await?;
-        self.reply("data", ok).await?;
-        accepted.store(true,std::sync::atomic::Ordering::Relaxed);
-        let _ = tokio::time::timeout(QUIT_WAIT.min(self.read_timeout), self.command("quit", "QUIT", ok)).await; // a lost QUIT changes nothing
         Ok(())
     }
 }

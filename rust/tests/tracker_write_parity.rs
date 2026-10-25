@@ -226,7 +226,12 @@ async fn compare_one(root: &str, name: &str, identity_key: bool) {
         } else if let Some(body) = step["json"].as_str() {
             browser.send_body(&app,step["method"].as_str().unwrap(),step["path"].as_str().unwrap(),Some(body.into()),Csrf::Header,&headers).await
         } else { browser.send(&app,step["method"].as_str().unwrap(),step["path"].as_str().unwrap(),Some(&form),Csrf::Header,&headers).await };
-        assert_eq!(u64::from(answer.status),expected["status"].as_u64().unwrap(),"{name}");
+        // D-TRACKER-SETTINGS-422: a settings save the user validation refuses answers 422, as fund_classifications does;
+        // Rails ignores update's false return and answers 200.
+        let status = if name.starts_with("settings_validation_") && name != "settings_validation_valid_context" {
+            assert_eq!(expected["status"], 200, "{name}: Rails now refuses the save: drop D-TRACKER-SETTINGS-422"); 422
+        } else { expected["status"].as_u64().unwrap() };
+        assert_eq!(u64::from(answer.status),status,"{name}");
         if expected.get("exception").is_none() { {
             for path in common::html::masked_values(&answer.body).assets {
                 assert!(deltabadger::web::assets::find(&path).is_some(),"missing embedded asset {path}");
