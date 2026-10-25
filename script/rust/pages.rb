@@ -553,11 +553,18 @@ module Pages
     resolved = [stopped('basket', 'transient' => { 'liquidation_resolved_orders' => [7, 9] }, 'columns' => { 'status' => 2, 'redeploy_declined_offset' => '2.5' }),
                 stopped('wide', 'transient' => { 'liquidation_resolved_orders' => [9, 11] }, 'columns' => { 'status' => 2, 'redeploy_declined_offset' => '1.25' })]
     hyperliquid = { 'venues' => true, 'hyperliquid_bots' => true }
+    # Ether in USDT on Binance and a USDT basket of bitcoin and ether on Kraken (3): both venues list both, so the pill offers
+    # both. The stock baskets' second broker (Interactive Brokers) is one this build does not run, and is not offered.
+    crypto = { 'venues' => true, 'kraken_usdt' => true }
+    pill = [stopped('binance_basket', 'allocations' => { 'ETH' => 1.0 }), stopped('kucoin_basket', 'exchange' => 'Kraken')]
+    # A member each source dropped: solana trades in USDT on Binance only, bitcoin on both venues.
+    crossed = [stopped('binance_basket', 'allocations' => { 'ETH' => 0.5, 'SOL' => 0.5 }, 'reweigh' => { 'ETH' => 1.0 }),
+               stopped('kucoin_basket', 'exchange' => 'Kraken', 'reweigh' => { 'ETH' => 1.0 })]
     created = %w[/bots/3 /bots]
     {
       'merge_new_same_venue' => with_bots([wide, index], signed_in(get('/bots'), merge_pick([1, 2]))),
-      'merge_new_venue_pill' => with_bots([basket, lone], signed_in(get('/bots'), merge_pick([1, 2]))),
-      'merge_new_picked' => with_bots([basket, lone], signed_in(get('/bots'), merge_pick([1, 2]), merge_pick([1, 2], '&exchange_id=2', frame: 'merge_modal'))),
+      'merge_new_venue_pill' => with_bots(pill, signed_in(get('/bots'), merge_pick([1, 2])), crypto),
+      'merge_new_picked' => with_bots(pill, signed_in(get('/bots'), merge_pick([1, 2]), merge_pick([1, 2], '&exchange_id=3', frame: 'merge_modal')), crypto),
       'merge_new_picked_unlisted' => with_bots([wide, index], signed_in(get('/bots'), merge_pick([1, 2], '&exchange_id=2', frame: 'merge_modal'))),
       'merge_new_anchor_second' => with_bots([lone, wide], signed_in(get('/bots'), merge_pick([2, 1]))),
       'merge_new_quote' => with_bots([basket, kraken], signed_in(get('/bots'), merge_pick([1, 2])), 'venues' => true),
@@ -572,14 +579,16 @@ module Pages
       'merge_new_nothing_to_buy' => with_bots([stopped('basket', 'allocations' => { 'NVDA' => 1.0 }),
                                                stopped('basket', 'allocations' => { 'NVDA' => 0.5, 'MSFT' => 0.5 }, 'delist' => %w[NVDA MSFT])],
                                               signed_in(merge_pick([1, 2]))),
-      'merge_new_de' => with_bots([basket, lone], signed_in(get('/de/bots'), merge_pick([1, 2], path: '/de/bots/merge/new'))),
+      'merge_new_de' => with_bots(pill, signed_in(get('/de/bots'), merge_pick([1, 2], path: '/de/bots/merge/new')), crypto),
       'merge_new_signed_out' => with_bots([basket, lone], [merge_pick([1, 2]), get('/login')]),
       'merge_create_two_baskets' => with_bots([stopped('basket', 'orders' => 'basket_sold', 'logs' => 'history'), stopped('wide', 'orders' => 'one_fill')],
                                               signed_in(merge_page([1, 2]), merge_pick([1, 2]), merge_post([1, 2], 1).merge('expect' => 200))),
       'merge_create_index_and_basket' => with_bots([stopped('index', 'orders' => 'one_fill'), stopped('basket', 'orders' => 'basket_sold')],
                                                    signed_in(merge_page([1, 2]), merge_post([1, 2], 1).merge('expect' => 200))),
-      'merge_create_cross_venue' => with_bots(reweighed, signed_in(get('/bots'), merge_pick([1, 2]), merge_pick([1, 2], '&exchange_id=2', frame: 'merge_modal'),
-                                                                   merge_post([1, 2], 2).merge('expect' => 200), get('/bots'))),
+      'merge_create_cross_venue' => with_bots(crossed, signed_in(get('/bots'), merge_pick([1, 2]), merge_pick([1, 2], '&exchange_id=3', frame: 'merge_modal'),
+                                                                 merge_post([1, 2], 3).merge('expect' => 200), get('/bots/3'), get('/bots')), crypto),
+      # Rails merges onto Interactive Brokers, whose bots this build does not serve: refused, the sources left as they were.
+      'refused_web_merge_create_ibkr' => with_bots(reweighed, signed_in(get('/bots'), merge_post([1, 2], 2).merge('expect' => 200))),
       'merge_create_delisted_member' => with_bots([stopped('wide', 'orders' => 'one_fill'), stopped('basket', 'delist' => 'NVDA')],
                                                   signed_in(get('/bots'), merge_pick([1, 2]), merge_post([1, 2], 1).merge('expect' => 200), *created.map { |path| get(path) })),
       'merge_create_resolved_and_offset' => with_bots(resolved, signed_in(get('/bots'), merge_pick([1, 2]), merge_post([1, 2], 1).merge('expect' => 200), get('/bots/3'))),
@@ -590,8 +599,7 @@ module Pages
       'merge_create_refused_quote' => with_bots([basket, kraken], signed_in(get('/bots'), merge_post([1, 2], 1).merge('expect' => 422)), 'venues' => true),
       'merge_create_executing' => with_bots([basket, executing, wide], signed_in(get('/bots'), merge_post([1, 2], 1).merge('expect' => 422))),
       'merge_create_unlisted_venue' => with_bots([wide, index], signed_in(get('/bots'), merge_post([1, 2], 2).merge('expect' => 422))),
-      'merge_create_de' => with_bots([basket, lone], signed_in(get('/de/bots'), merge_pick([1, 2], path: '/de/bots/merge/new'),
-                                                               merge_post([1, 2], 1, path: '/de/bots/merge').merge('expect' => 200), get('/de/bots/3'))),
+      'merge_create_de' => with_bots([basket, lone], signed_in(get('/de/bots'), merge_post([1, 2], 1, path: '/de/bots/merge').merge('expect' => 200), get('/de/bots/3'))),
       'merge_create_no_csrf' => with_bots([basket, lone], signed_in(get('/bots'), merge_post([1, 2], 1).merge('csrf' => 'none'), get('/bots'))),
       'merge_create_signed_out' => with_bots([basket, lone], signed_in(get('/bots'), get('/login').merge('client' => 'signed_out'),
                                                                         merge_post([1, 2], 1).merge('client' => 'signed_out', 'csrf' => 'none'), get('/bots')))

@@ -2528,7 +2528,8 @@ mod merge {
                 method: axum::http::Method::POST, locale: "en", nonce: String::new(), now: harness::at(NOW), turbo_frame: None, stream: false };
             Ok(Self { _dir: dir, c, ctx, s, bots })
         }
-        fn merge(&self) -> Result<Merged> { Ok(perform(&self.c, &self.ctx, self.s.user_id, self.bots.clone(), None).map_err(|e| format!("{e:?}"))?) }
+        fn merge(&self) -> Result<Merged> { self.merge_onto(None) }
+        fn merge_onto(&self, exchange: Option<i64>) -> Result<Merged> { Ok(perform(&self.c, &self.ctx, self.s.user_id, self.bots.clone(), exchange).map_err(|e| format!("{e:?}"))?) }
         fn transient(&self, id: i64, key: &str, value: Value) -> Result {
             self.c.execute("UPDATE bots SET transient_data=json_set(transient_data,?1,json(?2)) WHERE id=?3", (format!("$.{key}"), value.to_string(), id))?;
             Ok(())
@@ -2543,9 +2544,10 @@ mod merge {
             }
             Ok(all)
         }
-        fn refused_unchanged(&self, expected: &str) -> Result {
+        fn refused_unchanged(&self, expected: &str) -> Result { self.refused_onto(None, expected) }
+        fn refused_onto(&self, exchange: Option<i64>, expected: &str) -> Result {
             let before = self.snapshot()?;
-            match self.merge()? { Merged::Refused(text) => assert!(text.starts_with(expected), "{text}"), _ => return Err("expected a refusal".into()) }
+            match self.merge_onto(exchange)? { Merged::Refused(text) => assert!(text.starts_with(expected), "{text}"), _ => return Err("expected a refusal".into()) }
             assert_eq!(self.snapshot()?, before, "a refused merge writes nothing");
             Ok(())
         }
@@ -2607,6 +2609,31 @@ mod merge {
         f.refused_unchanged("This app can't run that yet: ")?;
         let g = Fixture::new(60, 41)?;
         assert!(matches!(g.merge()?, Merged::Done(_)), "without outstanding work the over-cap bot is saved");
+        Ok(())
+    }
+
+    /// Interactive Brokers lists every member too, but this build serves no bot there: it is not offered, and picked
+    /// anyway the merge is refused before it writes, the sources and the dashboard served as they were.
+    #[tokio::test]
+    async fn a_venue_this_build_does_not_run_is_neither_offered_nor_merged_onto() -> Result {
+        use deltabadger::web::bot::merge::{modal, Loaded, Merge};
+        let f = Fixture::new(1, 1)?;
+        f.c.execute("INSERT INTO exchanges (type, name, maker_fee, taker_fee, created_at, updated_at) VALUES ('Exchanges::Ibkr', 'Interactive Brokers', '0.05', '0.05', ?1, ?1)", [NOW])?;
+        let ibkr = f.c.last_insert_rowid();
+        f.c.execute_batch(&format!("CREATE TEMP TABLE listed AS SELECT * FROM tickers WHERE exchange_id = {}; UPDATE listed SET id = NULL, exchange_id = {ibkr}; \
+                                    INSERT INTO tickers SELECT * FROM listed; DROP TABLE listed;", f.s.exchange_id))?;
+        let Loaded::Merge(mut merge) = Merge::load(&f.c, &f.ctx, f.s.user_id, f.bots.clone(), None).map_err(|e| format!("{e:?}"))? else { return Err("expected a merge".into()) };
+        let page = modal(&f.c, &f.ctx, &mut merge, "token").map_err(|e| format!("{e:?}"))?;
+        assert!(page.contains("Alpaca") && !page.contains("Interactive Brokers") && !page.contains("<select"), "{page}");
+        f.refused_onto(Some(ibkr), "This app can't run that yet: a bot on an exchange other than ")?;
+        let hash = deltabadger::crypto::hash_password("Correct-horse-9").map_err(|e| format!("{e:?}"))?;
+        f.c.execute("UPDATE users SET encrypted_password=?1,confirmed_at=created_at", [hash])?;
+        let app = harness::app(f._dir.path(), "engine-test-secret", harness::TestClock::at(NOW))
+            .with_figure_source(deltabadger::web::figure::loading::Source::Disabled).map_err(|e| format!("{e:?}"))?;
+        let mut browser = harness::Browser::default();
+        browser.get(&app, "/login").await;
+        assert_eq!(browser.post(&app, "/login", &[("user[email]", "o@example.com"), ("user[password]", "Correct-horse-9")]).await.status, 303);
+        assert_eq!(browser.get(&app, "/bots").await.status, 200);
         Ok(())
     }
 }

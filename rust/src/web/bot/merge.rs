@@ -48,7 +48,8 @@ struct Source {
 }
 
 /// Why the merge cannot go ahead: a key under errors.bots.merge, with what it names.
-enum Reason { Plain(&'static str), Bot(&'static str, String), Open(String, String) }
+/// `Unrun`: this build's own refusal (engine.write_refused), a venue it does not run the merged bot on (eligibility::admission).
+enum Reason { Plain(&'static str), Bot(&'static str, String), Open(String, String), Unrun(&'static str) }
 
 pub struct Merge {
     ids: Vec<i64>,
@@ -71,6 +72,12 @@ fn fig(e: FiguresError) -> WebError { super::data(format!("merge books: {e:?}"))
 
 fn exchange_name(c: &Connection, id: i64) -> Result<Option<String>, WebError> {
     Ok(c.query_row("SELECT name FROM exchanges WHERE id = ?1", [id], |r| r.get::<_, Option<String>>(0)).optional()?.map(Option::unwrap_or_default))
+}
+
+/// Why this build would not run the merged bot (a basket that buys) on this venue, if it would not.
+fn unrun(c: &Connection, exchange: i64) -> Result<Option<&'static str>, WebError> {
+    let class: Option<String> = c.query_row("SELECT type FROM exchanges WHERE id = ?1", [exchange], |r| r.get(0)).optional()?.flatten();
+    Ok(eligibility::admission(class.as_deref(), false, false))
 }
 
 fn waiting(c: &Connection, bot: i64) -> Result<bool, WebError> {
@@ -116,11 +123,15 @@ impl Merge {
         }
         merge.weights = summed.into_iter().filter(|(asset, _)| merge.venues.iter().any(|(id, _)| id == asset)).collect();
         let common = merge.common_exchange_ids();
+        // Unpicked, the default is one this build runs the merged bot on, if any is common (`reason` refuses any other).
+        let mut runnable = vec![];
+        for id in &common { if unrun(c, *id)?.is_none() { runnable.push(*id); } }
+        let offered = if runnable.is_empty() { &common } else { &runnable };
         let anchor_venue = merge.anchor().bot.exchange.id;
         let chosen = match merge.exchange_id {
             Some(pick) => common.contains(&pick).then_some(pick),
-            None if common.contains(&anchor_venue) => Some(anchor_venue),
-            None => bots::connected_exchange_ids(c, owner)?.into_iter().find(|id| common.contains(id)).or_else(|| common.iter().min().copied()),
+            None if offered.contains(&anchor_venue) => Some(anchor_venue),
+            None => bots::connected_exchange_ids(c, owner)?.into_iter().find(|id| offered.contains(id)).or_else(|| offered.iter().min().copied()),
         };
         merge.exchange = match chosen { Some(id) => exchange_name(c, id)?.map(|name| (id, name)), None => None };
         Ok(Loaded::Merge(Box::new(merge)))
@@ -156,6 +167,7 @@ impl Merge {
         if !self.bots.iter().all(|source| quote(source) == quote(self.anchor())) { return Ok(Some(Reason::Plain("quote"))); }
         if self.weights.is_empty() { return Ok(Some(Reason::Plain("nothing_to_buy"))); }
         let Some((exchange, _)) = self.exchange.clone() else { return Ok(Some(Reason::Plain("no_common_exchange"))) };
+        if let Some(why) = unrun(c, exchange)? { return Ok(Some(Reason::Unrun(why))); }
         // A resting order is polled through its bot's exchange; on another venue it would never be found.
         for source in &self.bots {
             if source.bot.exchange.id != exchange && waiting(c, source.bot.id)? {
@@ -177,6 +189,7 @@ impl Merge {
             Reason::Plain(k) => i18n::text(locale, &key(k), &[]),
             Reason::Bot(k, label) => i18n::text(locale, &key(k), &[("label", i18n::Arg::Text(label))]),
             Reason::Open(label, exchange) => i18n::text(locale, &key("open_orders"), &[("label", i18n::Arg::Text(label)), ("exchange", i18n::Arg::Text(exchange))]),
+            Reason::Unrun(why) => write_refused(locale, why),
         }
     }
 
@@ -190,15 +203,18 @@ impl Merge {
         Ok(weights)
     }
 
-    /// The venues the user may pick from: every common one, or only the one the sources' resting orders are polled through
-    /// (none when they rest on two), by name.
+    /// The venues the user may pick from: every common one this build runs the merged bot on, or only the one the sources'
+    /// resting orders are polled through (none when they rest on two), by name.
     fn exchanges(&self, c: &Connection) -> Result<Vec<(i64, String)>, WebError> {
         let mut resting: Vec<i64> = vec![];
         for source in &self.bots {
             if waiting(c, source.bot.id)? && !resting.contains(&source.bot.exchange.id) { resting.push(source.bot.exchange.id); }
         }
         let common = self.common_exchange_ids();
-        let ids: Vec<i64> = match resting.as_slice() { [] => common, [one] => common.into_iter().filter(|id| id == one).collect(), _ => vec![] };
+        let mut ids: Vec<i64> = match resting.as_slice() { [] => common, [one] => common.into_iter().filter(|id| id == one).collect(), _ => vec![] };
+        let mut runnable = vec![];
+        for id in ids.drain(..) { if unrun(c, id)?.is_none() { runnable.push(id); } }
+        let ids = runnable;
         let mut s = c.prepare("SELECT id, name FROM exchanges WHERE id IN (SELECT value FROM json_each(?1)) ORDER BY name")?;
         let rows = s.query_map([json!(ids).to_string()], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, Option<String>>(1)?.unwrap_or_default())))?;
         Ok(rows.collect::<Result<_, _>>()?)
@@ -289,12 +305,28 @@ fn perform_inner(c: &Connection, ctx: &Ctx, owner: i64, ids: Vec<i64>, exchange_
         tx.rollback()?;
         return Ok(Merged::Refused(Merge::translate(ctx.locale, &Reason::Plain("interleaved"))));
     }
+    // The merged row as the redirect's page and the dashboard read it: a bot they would not serve is never committed.
+    if let Some(reason) = unserved(&tx, ctx, owner, id)? {
+        tx.rollback()?;
+        return Ok(Merged::Refused(write_refused(ctx.locale, reason)));
+    }
     if let Err(refusal) = eligibility::guard(&tx, &ctx.app.cipher, Some(id)) {
         tx.rollback()?;
-        return Ok(Merged::Refused(i18n::text(ctx.locale, "engine.write_refused", &[("reason", i18n::Arg::Text(&refusal.reason()))])));
+        return Ok(Merged::Refused(write_refused(ctx.locale, &refusal.reason())));
     }
     tx.commit()?;
     Ok(Merged::Done(id))
+}
+
+fn write_refused(locale: &str, reason: &str) -> String { i18n::text(locale, "engine.write_refused", &[("reason", i18n::Arg::Text(reason))]) }
+
+/// Why this build would not serve this bot, as `load` asks of each source (For::Settings): the refusal, then the bot as it
+/// renders. A page without figures (For::Page) refuses what the sources already showed it, so it is not asked here.
+fn unserved(c: &Connection, ctx: &Ctx, owner: i64, id: i64) -> Result<Option<&'static str>, WebError> {
+    let wash: Option<bool> = c.query_row("SELECT wash_sale_enabled FROM users WHERE id = ?1", [owner], |r| r.get(0))?;
+    let (provider, _) = bots::market_data(c, &ctx.app)?;
+    if let Some(reason) = super::refusal(c, id, wash, provider, For::Settings)? { return Ok(Some(reason)); }
+    Ok(Bot::find(c, owner, id, For::Settings, ctx.locale)?.and_then(|bot| bot.unrendered()))
 }
 
 /// Bot::Merge#bot and #write!.
