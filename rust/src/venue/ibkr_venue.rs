@@ -260,7 +260,9 @@ impl<T: Transport> Venue for IbkrVenue<T> {
         if order.quote_volume { return Err(VenueError::Rejected(vec!["IBKR orders whole shares; an amount in quote is not sent".into()])) }
         let conid = conid_of(&order.pair)?;
         let quantity = BigDec::parse(&order.volume).map_err(|_| VenueError::Rejected(vec![format!("the order quantity {} is not a number", order.volume)]))?;
-        let rules = self.contract_rules(conid, order.side == Side::Buy).await?;
+        // Before the order POST nothing has left: a preflight read that failed, however unreadable, is pre-transmission.
+        let not_sent = |e: VenueError| match e { VenueError::Ambiguous(m) => VenueError::Transient(format!("{m}; not sent")), e => e };
+        let rules = self.contract_rules(conid, order.side == Side::Buy).await.map_err(not_sent)?;
         let quantity = floor_to(&quantity, &rules.size_increment);
         if !quantity.is_positive() { return Err(VenueError::Rejected(vec![format!("Order below minimum (0 shares) for conid {conid}")])) }
         let text = super::ibkr_reservations::shares(&quantity);
@@ -269,7 +271,7 @@ impl<T: Transport> Venue for IbkrVenue<T> {
         let body = json!({ "orders": [{ "conid": conid, "orderType": "MKT", "side": if order.side == Side::Buy { "BUY" } else { "SELL" },
                                          "quantity": quantity, "tif": "DAY", "cOID": order.cl_ord_id }] });
         let s = self.session();
-        let held = s.lock().await.map_err(|e| self.error(e))?;
+        let held = s.lock().await.map_err(|e| not_sent(self.error(e)))?;
         let answer = s.submit(&held, &format!("/v1/api/iserver/account/{}/orders", self.account), body, Some(&self.account)).await?;
         self.replies(&s, &held, answer).await
     }
@@ -279,7 +281,7 @@ impl<T: Transport> Venue for IbkrVenue<T> {
     }
 
     /// D-IBKR-COID: the order whose `order_ref` is the intent's id, in the live orders (asked twice), else its executions in
-    /// `/trades` (the order id and the fills so far; the polls read its status). None: not found, which never proves absence.
+    /// `/trades` (the order id and the fills so far, as Open: the fills are recorded and the polls read its status). None: not found, which never proves absence.
     async fn order_by_client_id(&self, cl_ord_id: &str, _symbol: &str, _since: DateTime<Utc>) -> Result<Option<OrderState>, VenueError> {
         let s = self.session();
         let held = s.lock().await.map_err(|e| self.error(e))?;
@@ -313,7 +315,7 @@ impl<T: Transport> Venue for IbkrVenue<T> {
             filled = &filled + &size;
         }
         Ok(Some(OrderState {
-            txid: id, status: OrderStatus::Unknown, price: cost.div(&filled), amount: None, quote_amount: None, quote_amount_exec: Some(cost), amount_exec: filled,
+            txid: id, status: OrderStatus::Open, price: cost.div(&filled), amount: None, quote_amount: None, quote_amount_exec: Some(cost), amount_exec: filled,
             limit: false, sell: first.get("side").and_then(Value::as_str).is_some_and(|s| s.to_ascii_uppercase().starts_with('S')), pair: None, asset_class: None, zero_fill_at: None,
         }))
     }

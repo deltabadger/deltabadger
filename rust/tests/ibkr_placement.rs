@@ -479,3 +479,37 @@ fn a_trading_ibkr_row_needs_paper_order_fixtures() {
     assert!(!row.trades, "while the fixtures are provisional (no paper login yet), IBKR does not trade");
     assert!(deltabadger::engine::venue_rules::for_exchange(IBKR).is_none() && deltabadger::engine::eligibility::admission(Some(IBKR), false, false).is_some(), "so the engine admits no IBKR bot");
 }
+
+#[tokio::test(flavor = "current_thread")]
+async fn an_unreadable_preflight_read_is_not_sent_and_frees_its_reservation() {
+    let fx = Fx::new();
+    let (a, b) = (fx.bot(), fx.bot());
+    let t = script_over(10, &[ack(ORDER_ID)], json!({ "POST /v1/api/iserver/contract/rules": [{ "status": 200, "content_type": "application/json", "body": "{not json" }] }));
+    let placed = place(&fx, &fx.venue(&t), a, Side::Sell, 10, at(NOW)).await;
+    assert!(matches!(placed, Placed::Sent(Sent::NotSent(_))), "{placed:?}");
+    assert!(posts(&t, ORDERS_PATH).is_empty(), "the order POST never left");
+    assert!(model::load_bot(&fx.c, a).unwrap().rust_placement().is_none(), "nothing kept for recovery");
+    assert!(accepted(&place(&fx, &fx.venue(&script(10, &[ack(ORDER_ID)])), b, Side::Sell, 10, at(NOW)).await), "the shares are free");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn an_order_recovered_from_trades_alone_records_its_fills_and_keeps_polling() {
+    let fx = Fx::new();
+    let (a, b) = (fx.bot(), fx.bot());
+    let t = script(10, &[json!({ "network": "post_send", "message": "Net::ReadTimeout" })]);
+    assert!(matches!(place(&fx, &fx.venue(&t), a, Side::Sell, 10, at(NOW)).await, Placed::Sent(Sent::Ambiguous(_))));
+    let c_oid = model::load_bot(&fx.c, a).unwrap().rust_placement().unwrap()["cl_ord_id"].as_str().unwrap().to_string();
+    let t = script(10, &[]);
+    let empty = json!({ "orders": [], "snapshot": true, "source": "provisional" });
+    t.reply("GET /v1/api/iserver/account/orders", 200, empty.clone()).reply("GET /v1/api/iserver/account/orders", 200, empty);
+    t.reply("GET /v1/api/iserver/account/trades", 200, answer("trades", &[("cOID", json!(c_oid)), ("order_id", json!(ORDER_ID)), ("conid", json!(CONID))]));
+    let r = placement::recover_since(&fx.c, &fx.venue(&t), &model::load_bot(&fx.c, a).unwrap(), &FixedClock(at(NOW)), at(NOW)).await.unwrap();
+    assert!(matches!(r, Recovery::Recorded(_)), "{r:?}");
+    // The 4 shares /trades shows are credited; the row stays open for its polls to read the status.
+    assert_eq!(fx.one::<f64>("SELECT amount_exec FROM transactions WHERE external_id = '1799796559'"), 4.0);
+    assert_eq!(fx.one::<f64>("SELECT quote_amount_exec FROM transactions WHERE external_id = '1799796559'"), 760.4);
+    assert_eq!(fx.one::<i64>("SELECT external_status FROM transactions WHERE external_id = '1799796559'"), 1, "open");
+    // The reservation holds only the 6 unfilled: with 7 held, one share is free.
+    refused(&place(&fx, &fx.venue(&script(7, &[])), b, Side::Sell, 2, at(NOW)).await, "exceed the 1 held");
+    assert!(accepted(&place(&fx, &fx.venue(&script(7, &[ack(ORDER_ID)])), b, Side::Sell, 1, at(NOW)).await));
+}
