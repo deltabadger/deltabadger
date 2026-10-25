@@ -437,7 +437,10 @@ pub fn web_amount_limit(c: &Connection, bot: &WebBot) -> Result<Option<start::Li
     // Bot::QuoteAmountLimitable on every kind this build runs the cap for (conditions::support, D-IDX-CAP).
     let supported = super::conditions::support(bot.kind, super::conditions::Rule::Cap, false, "pause") == super::conditions::Support::Implemented;
     if !supported || !bot.on("quote_amount_limited") { return Ok(None); }
-    let Some(limit) = bot.number("quote_amount_limit") else { return Ok(None) };
+    // after_initialize's `quote_amount_limit ||= 1000`, read as the engine reads it (model::Bot::quote_amount_limit): only
+    // a basket's row is default-filled with it, so an index bot's absent, null or false limit is defaulted here.
+    let limit = match bot.setting("quote_amount_limit") { None | Some(Value::Null | Value::Bool(false)) => Some(WebNum::Int(1000)), Some(_) => bot.number("quote_amount_limit") };
+    let Some(limit) = limit else { return Ok(None) };
     let since = codec::optional_time(bot.transient.get("quote_amount_limit_enabled_at")).map_err(|_|error("unreadable stored timestamp"))?.map(format_time);
     let rows = match since {
         Some(since) => crate::figures::fill::action_commitments(c, bot.id, &since).map_err(web_bot::fill_error)?,

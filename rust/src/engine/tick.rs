@@ -538,7 +538,7 @@ async fn execute<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::
             if let Err(f) = bought? { return Ok(Err(f)); }
             // A fill this tick's sweep applied already owes Rails' own stop (polling::apply_committed), run at the tick's end.
             let owed = model::load_bot(c, bot_id)?.pending_amount_limit_stops()?.is_some_and(|(n, current)| current && n > 0);
-            if legs.cap_spent && !fenced && !owed { return cap_spent(c, bot, clock, cx); }
+            if legs.cap_spent && !fenced && !owed { cap_spent(c, bot, &x, clock, cx)?; }
         }
         // A stop that landed while AddOrder awaited its reply stays; the orders already sent stand and are still polled.
         // Fenced, the run is no longer this tick's: no :waiting over a restarted run's claim, no below-minimum notice.
@@ -631,12 +631,19 @@ struct Legs { placed: bool, fenced: bool, skipped: Vec<amount::OrderPlan>, ledge
 /// no leg the venue takes is reached. Rails would skip the legs at every checkpoint forever (its reached test is the pair's
 /// precision floor); the bot stops with the amount-limit stop, its `stopped` line and its mail. The stop fences the run, so
 /// the tick ends there (Skipped), with nothing after it (no Fundable, no below-minimum notice).
-fn cap_spent<T>(c: &Connection, bot: &model::Bot, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<T, EngineError> {
+/// `x`: the remainder the legs were sized from. A settings write while the prices were read (the cap raised or switched off,
+/// its start moved) does not move the run, so the stop's transaction re-reads the cap and the counted spend and stops only
+/// while the cap still binds at that same remainder: then the legs sized at the prices already read are still the legs.
+/// Otherwise it writes nothing and the tick goes on as one that placed nothing; the next one decides.
+fn cap_spent(c: &Connection, bot: &model::Bot, x: &BigDec, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<(), EngineError> {
     let now = clock.now();
-    model::run_credential_write(c, bot, &cx.credential_version, |tx| {
+    let stopped = model::run_credential_write(c, bot, &cx.credential_version, |tx| {
+        let fresh = model::load_bot(tx, bot.id)?;
+        let Some(available) = amount::quote_amount_available(tx, &fresh)? else { return Ok(false) };
+        if available != *x || amount::pending_quote_amount(tx, &fresh, now.timestamp_micros())? < available { return Ok(false); }
         stop_owing_mail(tx, bot.id, AMOUNT_SPENT, Some((notice::LIMIT, notice::limit_marker(now))), now)
     })?;
-    Err(EngineError::RunFenced)
+    if stopped { Err(EngineError::RunFenced) } else { Ok(()) }
 }
 
 /// The values a tick's claim replaced.

@@ -142,3 +142,63 @@ fn an_index_bots_cap_and_carry_meet_as_f_computes() {
     assert_eq!((&pending, &left), (&num("pending"), &num("remainder")));
     assert_eq!(pending.min(left), num("total"));
 }
+
+/// Codex P2: a cap raised or switched off while the tick awaits its price read is re-read in the stop's own transaction. A
+/// Kraken basket over BTC, cap 0.4 (binding, under the 5 EUR minimum); `sql` is what the web commits during the read.
+async fn cap_changed_during_the_price_read(sql: &'static str) -> Ticked {
+    let dir = common::rails_install();
+    let o = store::open(&store::Paths::from_env(&|_| None, dir.path())).unwrap();
+    let s = seed::seed_kraken(&o.primary, &seed::cipher());
+    let id = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00")
+        .with("quote_amount_limited", json!(true)).with("quote_amount_limit", json!(0.4))
+        .transient("quote_amount_limit_enabled_at", json!("2026-08-01T00:00:00.000Z")));
+    o.primary.execute("UPDATE tickers SET minimum_quote_size = '5'", []).unwrap();
+    let db = o.primary.path().unwrap().to_string();
+    let v = deltabadger::venue::fake::FakeVenue::new().ticker("XXBTZEUR", "49990.1", "50000.0", "49995.0").balance_body("ZEUR", "100000", "0")
+        .on_price(move || { if !sql.is_empty() { rusqlite::Connection::open(&db).unwrap().execute(sql, [id]).unwrap(); } });
+    let out = tick::tick(&o.primary, &v, id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
+    assert!(v.sent().is_empty(), "nothing placeable at the remainder read before the change");
+    let bot = model::load_bot(&o.primary, id).unwrap();
+    let key: Option<String> = o.primary.query_row("SELECT stop_message_key FROM bots WHERE id = ?1", [id], |r| r.get(0)).unwrap();
+    let stopped_lines = o.primary.query_row("SELECT count(*) FROM bot_activity_logs WHERE bot_id = ?1 AND event = 'stopped'", [id], |r| r.get(0)).unwrap();
+    Ticked { out, placed: vec![], skipped: vec![], status: bot.status, key, mail: bot.transient.get(notice::LIMIT).is_some(), stopped_lines }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn an_unchanged_cap_stops_after_the_price_read() {
+    let got = cap_changed_during_the_price_read("").await;
+    assert_eq!((got.status, got.key.as_deref(), got.mail, got.stopped_lines), (BotStatus::Stopped, Some(tick::AMOUNT_SPENT), true, 1));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_cap_raised_during_the_price_read_does_not_stop_the_bot() {
+    let got = cap_changed_during_the_price_read("UPDATE bots SET settings = json_set(settings, '$.quote_amount_limit', 1000) WHERE id = ?1").await;
+    assert_eq!((got.status, got.key, got.mail, got.stopped_lines), (BotStatus::Scheduled, None, false, 0), "{:?}", got.out);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_cap_disabled_during_the_price_read_does_not_stop_the_bot() {
+    let got = cap_changed_during_the_price_read("UPDATE bots SET settings = json_set(settings, '$.quote_amount_limited', json('false')) WHERE id = ?1").await;
+    assert_eq!((got.status, got.key, got.mail, got.stopped_lines), (BotStatus::Scheduled, None, false, 0), "{:?}", got.out);
+}
+
+/// Codex P2: an index bot with the cap on and no limit stored reads Rails' default 1000 in the engine, and the web's preview
+/// and carry read the same, not "uncapped".
+#[test]
+fn an_index_bots_cap_with_no_limit_defaults_to_1000_in_the_engine_and_the_web() {
+    for stored in [None, Some(json!(null)), Some(json!(false))] {
+        let (_d, o, s, id, _) = index_universe([1e12; 5], 5);
+        o.primary.execute("UPDATE bots SET settings = json_remove(json_set(settings, '$.quote_amount_limited', json('true')), '$.quote_amount_limit'), \
+                           transient_data = json_set(transient_data, '$.missed_quote_amount', '5000', '$.quote_amount_limit_enabled_at', '2026-08-01T00:00:00.000Z') WHERE id = ?1", [id]).unwrap();
+        if let Some(v) = &stored { o.primary.execute("UPDATE bots SET settings = json_set(settings, '$.quote_amount_limit', json(?1)) WHERE id = ?2", (v.to_string(), id)).unwrap(); }
+        let now = at("2026-09-01T14:00:00.5Z");
+        let bot = model::load_bot(&o.primary, id).unwrap();
+        let engine = accounting::quote_amount_available(&o.primary, &bot).unwrap().unwrap();
+        let engine_pending = accounting::pending_quote_amount(&o.primary, &bot, now.timestamp_micros()).unwrap().min(engine.clone());
+        assert_eq!(engine.to_s_f(), "1000.0", "{stored:?}: engine");
+        let web = deltabadger::web::bot::Bot::find(&o.primary, s.user_id, id, deltabadger::web::bot::For::Page, "en").unwrap().unwrap();
+        let preview = deltabadger::web::bot::start::amount_limit(&o.primary, &web).unwrap().expect("the web reads the cap as on");
+        assert_eq!(preview.left.unwrap().to_d().unwrap(), engine, "{stored:?}: preview");
+        assert_eq!(deltabadger::web::bot::write::pending(&o.primary, &web, now).unwrap().to_d().unwrap(), engine_pending, "{stored:?}: carry");
+    }
+}
