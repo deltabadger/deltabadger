@@ -374,16 +374,18 @@ pub(crate) async fn submit_candidate(app: &App, user: i64, exchange: i64, venue:
 #[template(path="settings/sync_warnings.html")]
 struct Warnings{title:String,fixes:Vec<Fix>}
 struct Fix{message:String,trading:bool,trading_path:String,reading_path:String,trading_label:String,add_label:String,replace_label:String}
-struct WarningKey{exchange:i64,name:String,venue:String,status:i64,kind:i64,error:Option<String>}
+/// `unresolved`: the key's last balance sync held codes no asset is named by (`rust_sync.kraken_unresolved:<key_id>`, D-KR-6),
+/// a failure Rails never records; it reads as the sync's own failure.
+struct WarningKey{exchange:i64,name:String,venue:String,status:i64,kind:i64,error:Option<String>,unresolved:bool}
 impl WarningKey{
-    fn failed(&self)->bool{self.error.as_deref().is_some_and(|e|!crate::ruby::blank(e))}
+    fn failed(&self)->bool{self.unresolved||self.error.as_deref().is_some_and(|e|!crate::ruby::blank(e))}
     /// ApiKey#missing_permission?: the venue's own permission_denied texts (Exchange#permission_error?), one table for every venue.
     fn permission(&self)->bool{crate::tracker::import::run::missing_permission(&self.venue,self.error.as_deref())}
 }
 /// `ApiKey.sync_warnings` rendered as tracker/_sync_warnings: the contents of #sync-warnings.
 pub(crate) fn warnings(c:&Connection,v:&Ctx,user:i64)->Result<String,WebError>{
-    let mut statement=c.prepare("SELECT k.exchange_id,e.name,e.type,k.status,k.key_type,k.last_sync_error FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE k.user_id=?1 AND k.key_type!=1 ORDER BY k.id")?;
-    let keys=statement.query_map([user],|r|Ok(WarningKey{exchange:r.get(0)?,name:r.get(1)?,venue:r.get(2)?,status:r.get(3)?,kind:r.get(4)?,error:r.get(5)?}))?.collect::<Result<Vec<_>,_>>()?;
+    let mut statement=c.prepare("SELECT k.exchange_id,e.name,e.type,k.status,k.key_type,k.last_sync_error,EXISTS(SELECT 1 FROM app_configs a WHERE a.key='rust_sync.kraken_unresolved:'||k.id) FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE k.user_id=?1 AND k.key_type!=1 ORDER BY k.id")?;
+    let keys=statement.query_map([user],|r|Ok(WarningKey{exchange:r.get(0)?,name:r.get(1)?,venue:r.get(2)?,status:r.get(3)?,kind:r.get(4)?,error:r.get(5)?,unresolved:r.get(6)?}))?.collect::<Result<Vec<_>,_>>()?;
     let mut failed=vec![];let mut seen=std::collections::HashSet::new();
     for key in &keys{
         if !seen.insert(key.exchange){continue}

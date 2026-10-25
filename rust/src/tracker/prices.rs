@@ -75,6 +75,9 @@ const ALIASES: [Alias; 8] = [
 fn ymd((y, m, d): (i32, u32, u32)) -> NaiveDate { NaiveDate::from_ymd_opt(y, m, d).unwrap_or(NaiveDate::MIN) }
 fn fits(alias_venue: Option<&str>, venue: Option<&Venue>) -> bool { alias_venue.is_none_or(|v| venue.is_some_and(|venue| v == venue.name_id)) }
 
+/// The coins Tax::AssetIdentity's aliases name (external ids).
+pub fn alias_coins() -> impl Iterator<Item = &'static str> { ALIASES.iter().map(|(_, coin, _, _)| *coin) }
+
 /// Tax::AssetIdentity.alias_coin.
 pub fn alias_coin(symbol: &str, venue: Option<&Venue>, at: Option<NaiveDate>) -> Option<String> {
     if symbol.trim().is_empty() { return None; }

@@ -1834,7 +1834,40 @@ module SyncScenarios
     ]
   end
 
+  # Exchanges::Kraken#get_balances (BalanceEx) with AccountBalance::Sync (plan Kraken sync, slice K1). `full` holds every code
+  # shape: a legacy X-code mapped by ASSET_MAP (XXBT, XXDG) and one it lacks (XLTC), two codes of one asset (XETH + ETH.F,
+  # DOT + DOT.S, NVDAx + NVDASPV), a dotted tokenized code (BRK.Bx), a `.T` code on a coin (SOL.T), a coin whose only
+  # ticker is unavailable (ADA), a code no listing names (ZZZ), a zero code, and a credit line on cash.
+  def kraken_balance_scenarios
+    night = '2026-09-20T02:30:00.750000Z'
+    install = ->(ctx) { P.kraken(ctx) }
+    seeded = lambda do |ctx|
+      P.kraken(ctx)
+      P.balance(ctx, 'BTC', free: '0.4', usd_price: '59000.5', usd_value: '23600.2', exchange: ctx[:kraken])
+    end
+    coins = P.prices_body('bitcoin' => 60_000.5, 'ethereum' => 2500.25, 'polkadot' => 4.5, 'dogecoin' => 0.25, 'litecoin' => 80.5, 'solana' => 150.25,
+                          'cardano' => 0.75, 'nvidia-xstock' => 180.5, 'berkshire-hathaway-xstock' => 480.25)
+    full = P.kr_ok('ZUSD' => P.kr_bal('100.5', '0', credit: '500', credit_used: '20'), 'XXBT' => P.kr_bal('0.5', '0.1'),
+                   'XETH' => P.kr_bal('1'), 'ETH.F' => P.kr_bal('2', '0.5'), 'DOT' => P.kr_bal('10'), 'DOT.S' => P.kr_bal('5'),
+                   'XXDG' => P.kr_bal('100'), 'XLTC' => P.kr_bal('2', '0.5'), 'NVDAx' => P.kr_bal('1'), 'NVDASPV' => P.kr_bal('2'),
+                   'BRK.Bx' => P.kr_bal('4'), 'SOL.T' => P.kr_bal('3'), 'ADA' => P.kr_bal('7'), 'ZZZ' => P.kr_bal('9'), 'XXRP' => P.kr_bal('0'))
+    err = ->(*errors) { P.kraken_balances(night, balance: P.kr_err(*errors)) }
+    [
+      { name: 'kraken-balances-full', setup: install, steps: [P.kraken_balances(night, balance: full, prices: coins)] },
+      { name: 'kraken-balances-permission_denied', setup: seeded, steps: [err.('EGeneral:Permission denied')] },
+      { name: 'kraken-balances-invalid_key', setup: seeded, steps: [err.('EAPI:Invalid key')] },
+      { name: 'kraken-balances-throttled', setup: seeded, steps: [err.('EAPI:Rate limit exceeded')] },
+      { name: 'kraken-balances-internal_error', setup: seeded, steps: [err.('EGeneral:Internal error')] },
+      { name: 'kraken-balances-missing_hold_trade', setup: seeded, steps: [P.kraken_balances(night, balance: P.kr_ok('XXBT' => { 'balance' => '1' }))] },
+      { name: 'kraken-balances-not_json', setup: seeded, steps: [P.kraken_balances(night, balance: { 'status' => 200, 'body' => 'maintenance' })] },
+      { name: 'kraken-balances-bad_gateway', setup: seeded, steps: [P.kraken_balances(night, balance: { 'status' => 502, 'body' => '<html>502 Bad Gateway</html>' })] },
+      { name: 'kraken-balances-pre_send', setup: seeded,
+        steps: [P.kraken_balances(night, balance: { 'network' => 'pre_send:api.kraken.com', 'message' => 'Connection refused - connect(2) for "api.kraken.com" port 443' })] }
+    ]
+  end
+
   def all = ledger_scenarios + balance_scenarios + binance_balance_scenarios + binance_ledger_scenarios + import_scenarios + kucoin_ledger_scenarios +
             kucoin_balance_scenarios + bitvavo_ledger_scenarios + bitvavo_balance_scenarios + gemini_ledger_scenarios + gemini_balance_scenarios +
-            bitget_ledger_scenarios + bitget_balance_scenarios + mexc_ledger_scenarios + mexc_balance_scenarios + hyperliquid_ledger_scenarios + hyperliquid_balance_scenarios + bybit_ledger_scenarios + bybit_balance_scenarios + bitrue_ledger_scenarios + bitrue_balance_scenarios + coinbase_scenarios + bingx_ledger_scenarios + bingx_balance_scenarios
+            bitget_ledger_scenarios + bitget_balance_scenarios + mexc_ledger_scenarios + mexc_balance_scenarios + hyperliquid_ledger_scenarios + hyperliquid_balance_scenarios + bybit_ledger_scenarios + bybit_balance_scenarios + bitrue_ledger_scenarios + bitrue_balance_scenarios + coinbase_scenarios + bingx_ledger_scenarios + bingx_balance_scenarios +
+            kraken_balance_scenarios
 end
