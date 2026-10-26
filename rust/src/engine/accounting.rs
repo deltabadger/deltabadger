@@ -298,24 +298,31 @@ fn sell_intent_base(intent: Option<&Value>) -> Result<Option<BigDec>, EngineErro
     BigDec::parse(amount).map(Some).map_err(data)
 }
 
-fn engine_base_cap(c: &Connection, bot: &Bot, decimals: Option<i64>) -> Result<(Option<Num>, bool), EngineError> {
+/// `settled`: only what is definitely sold (closed, cancelled, abandoned), neither an open sell nor an unresolved intent.
+fn engine_base_cap(c: &Connection, bot: &Bot, decimals: Option<i64>, settled: bool) -> Result<(Option<Num>, bool), EngineError> {
     validate_stored_amounts(&bot.settings, &bot.transient)?;
     let Some(limit) = bot.base_amount_limit().map_err(EngineError::Data)? else { return Ok((None, false)) };
     let since = bot.base_amount_limit_enabled_at_us().map_err(EngineError::Data)?.map(at).transpose()?.map(format_time);
-    let rows = crate::figures::fill::sold_commitments(c, bot.id, since.as_deref()).map_err(data)?;
-    let (left, reached) = base_cap(limit, &rows, sell_intent_base(bot.rust_placement().as_ref())?, decimals)?;
+    let mut rows = crate::figures::fill::sold_commitments(c, bot.id, since.as_deref()).map_err(data)?;
+    let intent = if settled { rows.retain(|r| !matches!(r.status, 0 | 1)); None } else { sell_intent_base(bot.rust_placement().as_ref())? };
+    let (left, reached) = base_cap(limit, &rows, intent, decimals)?;
     Ok((Some(left), reached))
 }
 
 /// What the base cap leaves, as Ruby's numerics leave it; None when it is off (Rails' Float::INFINITY).
 pub fn base_amount_available_num(c: &Connection, bot: &Bot) -> Result<Option<Num>, EngineError> {
-    Ok(engine_base_cap(c, bot, None)?.0)
+    Ok(engine_base_cap(c, bot, None, false)?.0)
 }
 
-pub fn base_amount_limit_reached(c: &Connection, bot: &Bot) -> Result<bool, EngineError> {
+pub fn base_amount_limit_reached(c: &Connection, bot: &Bot) -> Result<bool, EngineError> { base_reached(c, bot, false) }
+
+/// D-6D-2 at a rotation: reached on what is definitely sold, the open sells the rotation cancels left out.
+pub fn base_amount_limit_reached_settled(c: &Connection, bot: &Bot) -> Result<bool, EngineError> { base_reached(c, bot, true) }
+
+fn base_reached(c: &Connection, bot: &Bot, settled: bool) -> Result<bool, EngineError> {
     if !bot.base_amount_limited() { return Ok(false); }
     let Some(d) = tickers_min_decimals(c, bot, "base_decimals")? else { return Ok(false) };
-    Ok(engine_base_cap(c, bot, Some(d))?.1)
+    Ok(engine_base_cap(c, bot, Some(d), settled)?.1)
 }
 
 /// R1c order safety: exact cap minus exact normalized commitments, including unresolved intent.

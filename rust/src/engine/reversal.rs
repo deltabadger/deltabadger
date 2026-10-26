@@ -163,7 +163,9 @@ pub fn settle(c: &Connection, bot_id: i64, tx_id: i64) -> Result<bool, EngineErr
 /// The startup and periodic scan: every registered reserve whose order is already final is settled now; those whose order
 /// still waits are returned (bot, transaction) to be polled again, so a settlement survives a STOP, further rotations and a
 /// follow-up chain that ran out of attempts.
-pub fn scan(c: &Connection) -> Result<Vec<(i64, i64)>, EngineError> {
+/// A rotation's deferred base-cap decision (amount_limit::ROTATION_PENDING) is scanned the same way: a final order settles
+/// it, an open one is polled again.
+pub fn scan(c: &Connection, now: DateTime<Utc>) -> Result<Vec<(i64, i64)>, EngineError> {
     let mut s = c.prepare("SELECT id FROM bots WHERE json_array_length(transient_data, ?1) > 0 ORDER BY id")?;
     let bots = s.query_map([format!("$.{RESERVE_PENDING}")], |r| r.get(0))?.collect::<Result<Vec<i64>, _>>()?;
     drop(s);
@@ -173,6 +175,13 @@ pub fn scan(c: &Connection) -> Result<Vec<(i64, i64)>, EngineError> {
             if model::locked(c, |tx| settle(tx, bot_id, tx_id))? { continue; }
             let open: bool = c.query_row("SELECT status = 0 AND external_status IN (0, 1) FROM transactions WHERE id = ?1", [tx_id], |r| r.get(0)).unwrap_or(false);
             if open { waiting.push((bot_id, tx_id)); }
+        }
+    }
+    for (bot_id, txs) in super::amount_limit::rotation_pending(c)? {
+        for tx_id in txs {
+            let open: bool = c.query_row("SELECT status = 0 AND external_status IN (0, 1) FROM transactions WHERE id = ?1", [tx_id], |r| r.get(0)).unwrap_or(false);
+            if open { if !waiting.contains(&(bot_id, tx_id)) { waiting.push((bot_id, tx_id)); } }
+            else { model::locked(c, |tx| super::amount_limit::settle_rotation(tx, bot_id, tx_id, now, false))?; }
         }
     }
     Ok(waiting)

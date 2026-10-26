@@ -37,6 +37,23 @@ pub struct Forms<'a> {
     pub rebalance_info: Option<&'a str>,
 }
 
+/// bots/settings/_amount_limit_info of a seller: what is left of "Don't sell more than N BASE", or nothing (balances hidden,
+/// the cap off or not positive). Also Bot::BaseAmountLimitable#broadcast_base_amount_limit_update's content.
+pub fn base_amount_limit_info(c: &Connection, locale: &str, bot: &Bot, hide_balances: bool) -> Result<String, WebError> {
+    let active = bot.one_asset() && bot.on("base_amount_limited");
+    if hide_balances || !active || !bot.number("base_amount_limit").is_some_and(|limit| limit.is_positive()) { return Ok(String::new()); }
+    let Some((left, reached)) = crate::engine::accounting::web_base_cap(c, bot)? else { return Ok(String::new()) };
+    let text = if reached {
+        format!("<span class=\"text-success\">\n          {}\n        </span>", i18n::t(locale, "bot.settings.extra_amount_limit.sell_info.sold", &[]))
+    } else {
+        // `round(bot.decimals[:base] || 8)`: the first current member's base precision, while the bot has a quote one.
+        let decimals = bot.quote_decimals().and_then(|_| bot.composition_tickers().first().map(|t| t.base_decimals)).unwrap_or(8);
+        let base = bot.base_asset().and_then(|asset| asset.symbol.as_deref()).unwrap_or("");
+        i18n::t(locale, "bot.settings.extra_amount_limit.sell_info.left", &[("amount", Arg::Text(&left.round(decimals).to_s())), ("base", Arg::Text(base))])
+    };
+    Ok(format!("<span id=\"settings-amount-limit-info\">\n      {text}\n    </span>\n"))
+}
+
 /// bots/settings/_rebalance_info while the rule is on: the note, then, unless a halted swap reads none, the drift readout,
 /// green when it is above the threshold and a trade can be made (`below_minimum` is Bot::Rebalanceable#rebalance_below_minimum?).
 pub fn rebalance_info(locale: &str, ambiguous: bool, drift: Option<&BigDec>, threshold: Option<&BigDec>, below_minimum: bool) -> String {
@@ -330,19 +347,7 @@ impl Forms<'_> {
             let field = self.amount("base_amount_limit", value.as_deref(), "");
             let base = bot.base_asset().and_then(|asset| asset.symbol.as_deref()).unwrap_or("");
             let sentence = self.t("bot.settings.extra_amount_limit.sell_sentence_html", &[("value_html", Arg::Html(&format!("<div>            {field}\n</div>"))), ("base", Arg::Text(base))]);
-            let mut info = String::new();
-            if !self.hide_balances && active && bot.number("base_amount_limit").is_some_and(|limit| limit.is_positive()) {
-                if let Some((left, reached)) = crate::engine::accounting::web_base_cap(c, bot)? {
-                    let text = if reached {
-                        format!("<span class=\"text-success\">\n          {}\n        </span>", self.t("bot.settings.extra_amount_limit.sell_info.sold", &[]))
-                    } else {
-                        // `round(bot.decimals[:base] || 8)`: the first current member's base precision, while the bot has a quote one.
-                        let decimals = bot.quote_decimals().and_then(|_| bot.composition_tickers().first().map(|t| t.base_decimals)).unwrap_or(8);
-                        self.t("bot.settings.extra_amount_limit.sell_info.left", &[("amount", Arg::Text(&left.round(decimals).to_s())), ("base", Arg::Text(base))])
-                    };
-                    info = format!("<span id=\"settings-amount-limit-info\">\n      {text}\n    </span>\n");
-                }
-            }
+            let info = base_amount_limit_info(c, self.ctx.locale, bot, self.hide_balances)?;
             return Ok(self.rule(active, "base_amount_limited", active, self.locked(), &format!("            {sentence}\n          {info}\n")));
         }
         let active = bot.on("quote_amount_limited");

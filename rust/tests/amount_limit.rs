@@ -1028,6 +1028,25 @@ fn the_base_mail_states_the_cap_at_base_precision() {
     assert!(mail.html.contains("sold the whole 2 BTC."), "the cap and its base: {}", mail.html);
 }
 
+/// The base mail states the cap and the base that stopped the bot, as its marker captured them: a cap or allocation edited
+/// before delivery changes nothing. A marker written before it captured them renders from the settings as they are.
+#[tokio::test(flavor = "current_thread")]
+async fn the_base_mail_states_the_values_captured_when_it_was_owed() {
+    let (_d, o, s) = common::install_alpaca();
+    let id = seed::insert_bot(&o.primary, &s, &base_capped(json!(0.01)));
+    let order = seed::insert_row(&o.primary, &s, id, s.btc, &sell_row("OS", 0, "0.01", None));
+    let t = script(json!({ "GET /v2/orders/OS": [sell_filled("OS", "0.01")] }));
+    polling::follow_up(&o.primary, &venue(&t), id, order, at("2026-09-01T10:00:06Z")).await.unwrap();
+    let (eth, _) = seed::add_eth_sol(&o.primary, &s);
+    o.primary.execute("UPDATE bots SET settings = json_set(settings, '$.base_amount_limit', 0.5, '$.allocations', json(?1)) WHERE id = ?2",
+                      rusqlite::params![json!({ eth.to_string(): 1.0 }).to_string(), id]).unwrap();
+    let urls = deltabadger::mail::render::Urls { root: "http://localhost:3000/".into() };
+    let html = |o: &store::Opened| deltabadger::mail::render::for_notice(&o.primary, id, &deltabadger::engine::notice::Notice::StoppedByBaseAmountLimit, "bot@example.com", &urls).unwrap().unwrap().html;
+    assert!(html(&o).contains("sold the whole 0.01 BTC."), "{}", html(&o));
+    o.primary.execute("UPDATE bots SET transient_data = json_remove(transient_data, '$.rust_base_limit_mail_pending.amount', '$.rust_base_limit_mail_pending.base') WHERE id = ?1", [id]).unwrap();
+    assert!(html(&o).contains("sold the whole 0.5 ETH."), "a legacy marker: {}", html(&o));
+}
+
 /// The rotation's own stop (D-6D-2): rotated into selling its one asset with the cap used up, a working bot is stopped
 /// (amount_sold, one `stopped` line) and a stopped one takes the reason; both owe the base mail once. A restart before the
 /// send leaves it owed once; repeated rotations, the mail delivered meanwhile, owe nothing more, and write no more lines.

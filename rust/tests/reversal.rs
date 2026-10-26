@@ -310,3 +310,36 @@ async fn a_reverse_during_a_figures_refill_does_not_wait_for_it() {
     assert!(still_held, "both were answered while the refill was held");
     assert_eq!(bot(&o.primary, id).settings["direction"], "selling");
 }
+
+/// D-6D-2 waits on the cancels it queues: an open sell holds the whole 0.01 cap when the bot rotates from selling N base to
+/// selling for N quote. The rotation counts only what is definitely sold, so nothing stops it yet. The cancel succeeds and
+/// nothing filled: the allowance is back, no stop and no mail. The cancel finds the order filled: stopped, one mail.
+#[tokio::test(flavor = "current_thread")]
+async fn a_rotation_waits_for_the_cancel_of_a_sell_that_holds_the_base_cap() {
+    let sell = |status: &str, exec: &str| json!({ "status": status, "price": "50000", "vol": "0.01", "vol_exec": exec, "cost": "0", "oflags": "",
+                                                  "descr": { "type": "sell", "ordertype": "limit", "price": "50000", "pair": "XBTEUR" } });
+    for filled in [false, true] {
+        let v = priced().order("OSELL", if filled { sell("closed", "0.01") } else { sell("canceled", "0") });
+        let spec = buyer().with("direction", json!("selling")).with("sell_denomination", json!("base")).with("sell_amount", json!(0.001))
+            .with("base_amount_limited", json!(true)).with("base_amount_limit", json!(0.01)).transient("base_amount_limit_enabled_at", json!("2026-09-01T10:00:00.000Z"));
+        let (_d, mut e, id, s) = engine(spec, v.clone());
+        seed::insert_row(&e.primary, &s, id, s.btc, &json!({ "external_id": "OSELL", "external_status": 1, "side": 1, "order_type": 1, "price": "50000",
+                                                              "amount": "0.01", "amount_exec": "0", "created_at": "2026-09-01 10:00:01" }));
+        assert!(matches!(reverse(&e.primary, &s, id, "2026-09-03T12:00:00Z"), Reversal::Reversed));
+        let b = bot(&e.primary, id);
+        assert_eq!((b.settings["sell_denomination"].as_str(), b.status), (Some("quote"), BotStatus::Scheduled), "filled {filled}: the open sell is being cancelled");
+        assert!(deltabadger::engine::notice::all_pending(&e.primary).unwrap().is_empty(), "filled {filled}");
+        if filled { push_cancel(&v, json!({ "error": ["EOrder:Unknown order"] })); }
+        run::step(&mut e, &at("2026-09-03T12:00:01Z")).await.unwrap();
+        run::step(&mut e, &at("2026-09-03T12:00:07Z")).await.unwrap();
+        let b = bot(&e.primary, id);
+        let mails = deltabadger::engine::notice::all_pending(&e.primary).unwrap().len();
+        if filled {
+            let key: Option<String> = e.primary.query_row("SELECT stop_message_key FROM bots WHERE id = ?1", [id], |r| r.get(0)).unwrap();
+            assert_eq!((b.status, key.as_deref(), mails), (BotStatus::Stopped, Some(deltabadger::engine::amount_limit::AMOUNT_SOLD), 1));
+        } else {
+            assert_eq!((b.status, mails), (BotStatus::Scheduled, 0), "the cancel gave the allowance back");
+        }
+        assert!(b.transient.get(deltabadger::engine::amount_limit::ROTATION_PENDING).is_none(), "filled {filled}: decided");
+    }
+}

@@ -221,3 +221,21 @@ fn each_sides_status_line_renders_into_its_own_element() {
     assert_eq!(target(r.id, BUYING), ["settings-price-limit-info"], "a buying basket's own line");
     assert!(target(r.id, SELLING).is_empty(), "a buying basket shows no sell line");
 }
+
+/// Bot::BaseAmountLimitable#handle_base_amount_limit_update: a sell fill of a one-asset seller under the base cap redraws
+/// what is left of it on the open page (settings-amount-limit-info), in the order's own broadcast, before any stop.
+#[tokio::test(flavor = "current_thread")]
+async fn a_sell_fill_redraws_what_is_left_of_the_base_cap() {
+    let r = Rig::new(&BotSpec::weekly(60.0, "2026-09-01 10:00:00").with("direction", json!("selling")).with("sell_denomination", json!("base"))
+        .with("sell_amount", json!(0.001)).with("base_amount_limited", json!(true)).with("base_amount_limit", json!(0.02))
+        .transient("base_amount_limit_enabled_at", json!("2026-09-01T10:00:00.000Z")));
+    let order = seed::insert_row(&r.c(), &r.s, r.id, r.s.btc, &json!({ "external_id": "OS", "external_status": 0, "side": 1, "order_type": 0,
+        "price": "64000", "amount": "0.01", "created_at": IN }));
+    let t = script(json!({ "GET /v2/orders/OS": [ok(json!({ "id": "OS", "status": "filled", "symbol": "BTC/USD", "type": "market", "side": "sell",
+        "notional": null, "qty": "0.01", "filled_qty": "0.005", "filled_avg_price": "64000", "limit_price": null }))] }));
+    deltabadger::engine::polling::follow_up(&r.c(), &venue(&t), r.id, order, at("2026-09-01T10:00:06Z")).await.unwrap();
+    let messages = r.render(&EngineEvent::OrderWritten { bot_id: r.id, transaction_id: order });
+    let info = messages.iter().find(|(_, html)| html.contains("target=\"settings-amount-limit-info\"")).unwrap_or_else(|| panic!("{messages:?}"));
+    assert!(info.0.ends_with(":bot_updates") && !info.0.starts_with("user_"), "the bot's page stream: {}", info.0);
+    assert!(info.1.contains("0.015"), "0.02 less the 0.005 sold: {}", info.1);
+}

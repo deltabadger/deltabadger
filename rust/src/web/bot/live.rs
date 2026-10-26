@@ -57,6 +57,13 @@ pub fn render(c: &Connection, app: &App, event: &EngineEvent) -> Result<Vec<(Str
             // "Setting orders…" the bar held while it was pending; the bar is redrawn as after a run.
             let market: bool = c.query_row("SELECT IFNULL(order_type = 0, 0) FROM transactions WHERE id = ?1", [transaction_id], |r| r.get(0)).optional()?.unwrap_or(false);
             if market { out.extend(action_view::bar_broadcasts(&stream, &bot, &state()?)); }
+            // Bot::BaseAmountLimitable#handle_base_amount_limit_update: a sell written while the bot sells its one asset under
+            // the base cap redraws what is left of it, before the stop its fill may cause (StatusChanged follows).
+            let sell: bool = c.query_row("SELECT IFNULL(side = 1, 0) FROM transactions WHERE id = ?1", [transaction_id], |r| r.get(0)).optional()?.unwrap_or(false);
+            if sell && bot.selling() && bot.one_asset() && bot.on("base_amount_limited") {
+                let info = super::settings::base_amount_limit_info(c, ctx.locale, &bot, owner.hide_balances)?;
+                out.push((super::page::page_stream(&bot), crate::web::turbo::stream("replace", "settings-amount-limit-info", &info)));
+            }
             out
         }
         // Bots::Signal#broadcast_unresolved_placement: on the bot's own page, without the rule widgets (their webhook URL

@@ -371,7 +371,7 @@ async fn run_reversals<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) ->
     let now_us = clock.now().timestamp_micros();
     if now_us >= e.settle_scan_at {
         e.settle_scan_at = now_us + SETTLE_SCAN_EVERY_US;
-        let waiting = match super::reversal::scan(&e.primary) {
+        let waiting = match super::reversal::scan(&e.primary, clock.now()) {
             Ok(waiting) => waiting,
             Err(err @ (EngineError::Lease(_) | EngineError::Store(_))) => return Err(err),
             Err(err) => { super::log(&format!("[engine] reversal reserves could not be scanned: {err:?}; retried in 10 minutes")); vec![] }

@@ -192,11 +192,12 @@ fn mails(c: &Connection, before: &[Pending]) -> Result<Value, EngineError> {
                 [p.bot_id], |r| r.get::<_, String>(0))?.into(),
             // #notify_stopped_by_base_amount_limit hands it the cap and the base's symbol (the cap as D-6D-1 writes it here).
             Notice::StoppedByBaseAmountLimit => {
-                let settings: Value = serde_json::from_str(&c.query_row("SELECT settings FROM bots WHERE id = ?1", [p.bot_id], |r| r.get::<_, String>(0))?)
-                    .map_err(|e| EngineError::Data(e.to_string()))?;
-                if let Some((base, decimals)) = crate::mail::render::base_of(c, p.bot_id, &settings)? {
+                let (settings, marker): (String, Option<String>) = c.query_row("SELECT settings, json_extract(transient_data, '$.' || ?2) FROM bots WHERE id = ?1",
+                    rusqlite::params![p.bot_id, crate::engine::notice::BASE_LIMIT], |r| Ok((r.get(0)?, r.get(1)?)))?;
+                let settings: Value = serde_json::from_str(&settings).map_err(|e| EngineError::Data(e.to_string()))?;
+                if let Some((amount, base)) = crate::mail::render::base_mail_values(c, p.bot_id, &settings, marker.as_deref())? {
                     mail["base"] = json!(base);
-                    mail["amount"] = json!(crate::mail::render::base_cap_amount(settings.get("base_amount_limit"), decimals));
+                    mail["amount"] = json!(amount);
                 }
             }
         }
