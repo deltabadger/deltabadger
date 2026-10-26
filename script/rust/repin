@@ -59,6 +59,7 @@ RECORDED = {
     FIX + 'index_create_callbacks.json': ('test', [runner('record_bot_create_callbacks.rb', '{out}', 'Bots::DcaIndex')], None),
     FIX + 'run_ownership.json': ('test', [runner('record_run_ownership.rb', '{out}')], None),
     FIX + 'condition_vectors.json': ('test', [runner('record_condition_vectors.rb', '{out}')], None),
+    FIX + 'indicator_vectors.json': ('test', [runner('record_indicator_vectors.rb', '{out}')], None),
     FIX + 'search_vectors.json': ('test', [runner('record_search_vectors.rb', '{out}')], None),
     FIX + 'sell_vectors.json': ('test', [runner('record_sell_vectors.rb', '{out}')], None),
     FIX + 'sell_sizing_vectors.json': ('test', [runner('record_sell_sizing_vectors.rb', '{out}')], None),
