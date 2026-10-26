@@ -373,6 +373,9 @@ pl:
                 unarchive_bot:
                     label: 'Przywróć bota'
                     description: 'Wyjmij bota z archiwum'
+                split_bots:
+                    label: 'Rozdziel boty'
+                    description: 'Zamień bota z wieloma aktywami na osobnego bota dla każdego aktywa'
                 liquidate_exited_asset:
                     label: 'Sprzedaj usunięte aktywo'
                     description: 'Sprzedaj aktywo, które bot usunął ze swojego indeksu lub koszyka'

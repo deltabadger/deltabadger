@@ -565,9 +565,13 @@ async fn rails_and_rust_answer_the_same_oauth_requests_and_write_the_same_rows()
 
     // The catalogue the consent screen and the grants are built from is Rails' own.
     let catalogue = read(&root.join("catalogue.json"));
-    assert_eq!(catalogue["defaults"], Value::Object(oauth::TOOL_DEFAULTS.iter().map(|(name, on)| (name.to_string(), json!(on))).collect()), "AppConfig::MCP_TOOL_DEFAULTS");
-    assert_eq!(catalogue["groups"], Value::Object(oauth::TOOL_GROUPS.iter().map(|(name, tools)| (name.to_string(), json!(tools))).collect()), "AppConfig::TOOL_GROUPS");
-    assert!(catalogue["rest_defaults"].as_object().unwrap().iter().map(|(name, on)| (name.as_str(), on)).eq(oauth::TOOL_DEFAULTS.iter().map(|(name, _)| (*name, &json!(false)))), "AppConfig::REST_TOOL_DEFAULTS");
+    // D-SPLIT-API: split_bots (off, among the controls) is this build's own; the rest of the catalogue is Rails'.
+    let ours = |name: &&str| *name != "split_bots";
+    assert_eq!(oauth::TOOL_DEFAULTS.iter().filter(|(name, _)| !ours(name)).collect::<Vec<_>>(), [&("split_bots", false)]);
+    assert!(oauth::TOOL_GROUPS.iter().any(|(group, tools)| *group == "control" && tools.contains(&"split_bots")));
+    assert_eq!(catalogue["defaults"], Value::Object(oauth::TOOL_DEFAULTS.iter().filter(|(name, _)| ours(name)).map(|(name, on)| (name.to_string(), json!(on))).collect()), "AppConfig::MCP_TOOL_DEFAULTS");
+    assert_eq!(catalogue["groups"], Value::Object(oauth::TOOL_GROUPS.iter().map(|(name, tools)| (name.to_string(), json!(tools.iter().filter(|tool| ours(tool)).collect::<Vec<_>>()))).collect()), "AppConfig::TOOL_GROUPS");
+    assert!(catalogue["rest_defaults"].as_object().unwrap().iter().map(|(name, on)| (name.as_str(), on)).eq(oauth::TOOL_DEFAULTS.iter().filter(|(name, _)| ours(name)).map(|(name, _)| (*name, &json!(false)))), "AppConfig::REST_TOOL_DEFAULTS");
 
     let installs = |mode: &str| -> Vec<PathBuf> {
         let mut dirs: Vec<PathBuf> = std::fs::read_dir(root.join(mode)).into_iter().flatten().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();

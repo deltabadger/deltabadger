@@ -371,6 +371,9 @@ de:
                 unarchive_bot:
                     label: 'Bot reaktivieren'
                     description: 'Einen archivierten Bot zurückholen'
+                split_bots:
+                    label: 'Bots aufteilen'
+                    description: 'Einen Bot mit mehreren Assets in einen Bot pro Asset aufteilen'
                 liquidate_exited_asset:
                     label: 'Entferntes Asset verkaufen'
                     description: 'Ein Asset verkaufen, das ein Index- oder Korb-Bot entfernt hat'

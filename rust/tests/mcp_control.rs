@@ -179,7 +179,8 @@ async fn control_transcripts() {
             }
             let body:Value=serde_json::from_str(got["responses"][2]["body"].as_str().unwrap()).unwrap();
             let names:Vec<_>=body["result"]["tools"].as_array().unwrap().iter().map(|t|t["name"].as_str().unwrap()).collect();
-            assert_eq!(names,deltabadger::web::mcp::tools::NAMES,"complete registry without a cursor");
+            // D-SPLIT-API: split_bots is off by default and Rails' grid never turns it on.
+            assert_eq!(names,deltabadger::web::mcp::tools::NAMES.iter().copied().filter(|n|*n!="split_bots").collect::<Vec<_>>(),"complete registry without a cursor");
             assert!(body["result"].get("nextCursor").is_none());
             if let Ok(root)=std::env::var("M4_EVIDENCE") {
                 std::fs::write(std::path::Path::new(&root).join("registry-pages.json"),serde_json::to_string_pretty(&json!({"rails":want,"rust":got})).unwrap()).unwrap();

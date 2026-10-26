@@ -372,6 +372,9 @@ fr:
                 unarchive_bot:
                     label: 'Réactiver le bot'
                     description: 'Restaurer un bot archivé'
+                split_bots:
+                    label: 'Diviser des bots'
+                    description: 'Transformer un bot multi-actifs en un bot par actif'
                 liquidate_exited_asset:
                     label: 'Vendre un actif retiré'
                     description: "Vendre un actif qu'un bot d'indice ou de panier a retiré"

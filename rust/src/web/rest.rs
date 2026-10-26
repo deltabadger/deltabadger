@@ -29,7 +29,7 @@ enum Gate { Tool(&'static str), BotType, OrderType }
 
 /// The routes this build serves; every other one is `Unported`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Action { Bots, Exchanges, Transactions, TaxJurisdictions, Indices, Write(bot_api::Write), Read(Reading), Unported }
+enum Action { Bots, Exchanges, Transactions, TaxJurisdictions, Indices, Write(bot_api::Write), Read(Reading), Split, Unported }
 
 /// The reads that may ask a venue (BotApi::Bots::Get, Exchanges::Balances, Orders::ListOpen, Portfolio::Summary).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -75,6 +75,8 @@ fn route(method: &Method, path: &str) -> Option<Route> {
     let (gate, action) = match segments.as_slice() {
         ["bots"] if get => (tool("list_bots"), Action::Bots),
         ["bots"] if post => (Some(Gate::BotType), Action::Unported),
+        // D-SPLIT-API: this build's own route (Rails routes no POST /bots/split).
+        ["bots", "split"] if post => (tool("split_bots"), Action::Split),
         ["bots", id, rest @ ..] => {
             path.push(("id", id.to_string()));
             let name = match rest {
@@ -177,13 +179,15 @@ fn failure(status: StatusCode, code: &str, message: &str) -> Answer {
     Answer::Json(status, encode(&json!({"data": null, "error": {"code": code, "message": message}})))
 }
 
-/// render_result: the data on a success, the code and message on a failure. What Rails raises is its 500, below the
+/// render_result: the data on a success, the code and message on a failure (with the failure's data as `details`, which
+/// only D-SPLIT-API's refusals carry). What Rails raises is its 500, below the
 /// controllers.
 fn render(res: Res) -> Answer {
     if res.status == Domain::Raised { return Answer::Below(Box::new(WebError::Config(res.message).into_response())); }
     match res.code {
         None => Answer::Json(status_for(res.status), encode(&json!({"data": res.data, "error": null}))),
-        Some(code) => failure(status_for(res.status), code, &res.message),
+        Some(code) if res.data.is_null() => failure(status_for(res.status), code, &res.message),
+        Some(code) => Answer::Json(status_for(res.status), encode(&json!({"data": null, "error": {"code": code, "message": res.message, "details": res.data}}))),
     }
 }
 
@@ -282,6 +286,7 @@ fn dispatch(c: &Connection, app: &App, route: &Route, input: &Input, authorizati
                 reads::Planned::Fetch(fetch) => Answer::Pending(Box::new(fetch)),
             }
         }
+        Action::Split => { let Ok(p) = params() else { return Ok(bad_request()) }; render(bot_api::split(c, app, user, p.get("bot_ids"), p.get("keep_proceeds_for"))?) }
         Action::Unported => failure(StatusCode::NOT_IMPLEMENTED, "not_ported", &format!("{method} {path} is not served by this build yet.")),
     })
 }

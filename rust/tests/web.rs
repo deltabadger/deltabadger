@@ -976,12 +976,15 @@ mod oauth_sources {
             let (name, on) = line.trim().trim_end_matches(',').split_once(" => ")?;
             Some((name.trim_matches('\'').to_string(), on == "true"))
         }).collect();
-        assert_eq!(defaults, oauth::TOOL_DEFAULTS.iter().map(|(name, on)| (name.to_string(), *on)).collect::<Vec<_>>());
+        // D-SPLIT-API: split_bots (off, among the controls) is this build's own.
+        let ours = |name: &&str| *name != "split_bots";
+        assert!(oauth::TOOL_DEFAULTS.contains(&("split_bots", false)));
+        assert_eq!(defaults, oauth::TOOL_DEFAULTS.iter().filter(|(name, _)| ours(name)).map(|(name, on)| (name.to_string(), *on)).collect::<Vec<_>>());
         let groups: Vec<(String, Vec<String>)> = between(&ruby, "TOOL_GROUPS = {", "}.freeze").split("' => %w[").collect::<Vec<_>>().windows(2).map(|pair| {
             let name = pair[0].rsplit('\'').next().unwrap().to_string();
             (name, between(pair[1], "", "]").split_whitespace().map(str::to_string).collect())
         }).collect();
-        assert_eq!(groups, oauth::TOOL_GROUPS.iter().map(|(name, tools)| (name.to_string(), tools.iter().map(|tool| tool.to_string()).collect())).collect::<Vec<_>>());
+        assert_eq!(groups, oauth::TOOL_GROUPS.iter().map(|(name, tools)| (name.to_string(), tools.iter().filter(|tool| ours(tool)).map(|tool| tool.to_string()).collect())).collect::<Vec<_>>());
         assert!(ruby.contains("REST_TOOL_DEFAULTS = MCP_TOOL_DEFAULTS.transform_values { false }.freeze"), "the REST defaults are no longer the same names, all off");
     }
 
