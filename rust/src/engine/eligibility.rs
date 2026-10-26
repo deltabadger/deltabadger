@@ -183,8 +183,8 @@ fn bot_reasons_with(c: &Connection, bot: &Bot, splits: &mut SplitRows) -> Result
 }
 
 /// A rule's switch that is set (`key`, `value`), by what this build does with it on the bot's kind (conditions::support):
-/// inapplicable is inert (an index bot's sell side and flips, a signal bot's flips); not implemented is refused by name, a flip
-/// action naming its slice; implemented runs with the `pause` action and values Rails compares. A trigger switch set to
+/// inapplicable is inert (an index bot's sell side and flips, a signal bot's flips); unsupported actions are refused by name.
+/// Implemented rules run with values Rails compares. A trigger switch set to
 /// anything but `true` (which Rails reads as off) is refused, as every flag outside the slice. The cap's own checks follow.
 fn rule_reason(c: &Connection, bot: &Bot, key: &str, value: &Value, rule: Rule, selling: bool) -> Option<String> {
     let support = bot.support(rule, selling);
@@ -193,7 +193,7 @@ fn rule_reason(c: &Connection, bot: &Bot, key: &str, value: &Value, rule: Rule, 
     if value != &Value::Bool(true) { return Some(key.to_string()); }
     let action = conditions::action(&bot.settings, key.strip_suffix("ed").unwrap_or(key));
     match support {
-        Support::NotImplemented if action != "pause" => Some(format!("{key} with the {action} action (the flip actions come with slice 7c)")),
+        Support::NotImplemented if action != "pause" => Some(format!("{key} with the {action} action (unsupported action)")),
         Support::NotImplemented => Some(key.to_string()),
         _ => {
             if rule != Rule::Price {

@@ -373,3 +373,156 @@ async fn a_rotation_waits_for_the_cancel_of_a_sell_that_holds_the_base_cap() {
         assert!(b.transient.get(deltabadger::engine::amount_limit::ROTATION_PENDING).is_none(), "filled {filled}: decided");
     }
 }
+
+fn trigger(mut spec: BotSpec, selling: bool) -> BotSpec {
+    let prefix = if selling { "sell_price_limit" } else { "price_limit" };
+    spec = spec.with("direction", json!(if selling { "selling" } else { "buying" }))
+        .with("sell_denomination", json!("quote")).with("sell_quote_amount", json!(60))
+        .with(&format!("{prefix}ed"), json!(true)).with(prefix, json!(60000))
+        .with(&format!("{prefix}_value_condition"), json!("below"))
+        .with(&format!("{prefix}_action"), json!(if selling { "start_buying" } else { "start_selling" }));
+    for side in ["", "sell_"] { for rule in ["price_limit", "price_drop_limit", "moving_average_limit", "indicator_limit"] {
+        spec = spec.transient(&format!("{side}{rule}_condition_met_at"), json!("2026-08-31T10:00:00Z"));
+    }}
+    spec
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn trigger_flips_keep_denomination_and_run_generation_and_clear_every_latch() {
+    for selling in [false, true] {
+        let v = priced();
+        let (_d, mut e, id, _) = engine(trigger(buyer(), selling), v.clone());
+        let mut events = e.subscribe_to(deltabadger::engine::events::EngineEvent::is_live);
+        let generation = bot(&e.primary, id).run_generation();
+        let now = "2026-09-08T10:00:01Z";
+        run::step(&mut e, &at(now)).await.unwrap();
+        let b = bot(&e.primary, id);
+        assert_eq!(b.selling(), !selling);
+        assert_eq!(b.settings["sell_denomination"], "quote");
+        assert_eq!(b.run_generation(), generation);
+        assert_eq!(b.started_at_us().unwrap(), Some(t(now).timestamp_micros()));
+        assert_eq!(b.status, BotStatus::Scheduled);
+        for side in ["", "sell_"] { for rule in ["price_limit", "price_drop_limit", "moving_average_limit", "indicator_limit"] {
+            assert!(b.transient.get(format!("{side}{rule}_condition_met_at")).is_none());
+        }}
+        assert_eq!(b.rust_defer_until_us().unwrap(), Some(t("2026-09-15T10:00:01Z").timestamp_micros()));
+        assert!(v.sent().is_empty());
+        let mut reversed = 0;
+        while let Ok(event) = events.try_recv() {
+            if matches!(event, deltabadger::engine::events::EngineEvent::Reversed { bot_id } if bot_id == id) { reversed += 1; }
+        }
+        assert_eq!(reversed, 1);
+        assert_eq!(v.calls("/0/private/BalanceEx"), usize::from(selling), "Fundable reads balances only on the new buy side");
+        run::step(&mut e, &at("2026-09-08T10:00:02Z")).await.unwrap();
+        assert!(v.sent().is_empty(), "no immediate run on the new side");
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn trigger_flip_cancels_in_the_same_pass_and_restores_reserve_after_poll() {
+    let mut open = kraken_cancelled("0", "0");
+    open["status"] = json!("open");
+    let v = priced().order("OBUY", open);
+    let (_d, mut e, id, s) = engine(trigger(buyer(), false), v.clone());
+    let tx = open_buy(&e.primary, &s, id, "OBUY");
+    run::step(&mut e, &at("2026-09-08T10:00:01Z")).await.unwrap();
+    assert_eq!(v.calls("/0/private/CancelOrder"), 1);
+    assert_eq!(reversal::work(&bot(&e.primary, id)), (vec![tx], vec![]));
+    let v = v.order("OBUY", kraken_cancelled("0.0004", "20"));
+    run::step(&mut e, &at("2026-09-08T10:00:07Z")).await.unwrap();
+    assert_eq!(bot(&e.primary, id).transient["missed_quote_amount"], json!(60.0), "reserve is capped at the effective amount");
+    assert!(reversal::work(&bot(&e.primary, id)).0.is_empty());
+    assert!(v.sent().is_empty());
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn sell_to_buy_flip_keeps_the_fundable_tail_and_its_failure_fence() {
+    for broken in [false, true] {
+        let v = FakeVenue::new().ticker("XXBTZEUR", "49990.1", "50000.0", "49995.0");
+        let v = if broken {
+            v.script("/0/private/BalanceEx", json!({"error": [], "result": {"ZEUR": {"balance": "unreadable", "hold_trade": "0"}}}));
+            v
+        } else { v.balance_body("ZEUR", "0", "0") };
+        let spec = trigger(buyer(), true).with("start_time_enabled", json!(true)).with("start_time_mode", json!("date")).with("start_at", json!("2026-09-01T10:00:00Z")).transient("last_failure_kind", json!("invalid_key"));
+        let (_d, mut e, id, _) = engine(spec, v.clone());
+        run::step(&mut e, &at("2026-09-08T10:00:01Z")).await.unwrap();
+        let b = bot(&e.primary, id);
+        assert!(!b.selling());
+        assert_eq!(b.status, if broken { BotStatus::Retrying } else { BotStatus::Scheduled });
+        // D-FLIP-START-FINISHED: a committed flip consumes the first start even if Fundable raises.
+        // Keeping its old start_at enabled after re-anchoring would refuse every subsequent tick.
+        assert_eq!(b.settings["start_time_enabled"], false);
+        assert!(deltabadger::engine::eligibility::bot_reasons(&e.primary, &b).unwrap().is_empty());
+        assert!(v.sent().is_empty());
+        let logs: Vec<String> = e.primary.prepare("SELECT event FROM bot_activity_logs WHERE bot_id=?1 ORDER BY id").unwrap()
+            .query_map([id], |r| r.get(0)).unwrap().collect::<Result<_, _>>().unwrap();
+        if broken {
+            assert!(logs.contains(&"execution_failed".into()), "{logs:?}");
+        } else {
+            assert!(b.transient.get(deltabadger::engine::tick::FUNDS_MAIL_PENDING).is_some());
+            assert!(b.last_failure_kind().is_none());
+            assert_eq!(b.settings["start_time_enabled"], false);
+            assert!(logs.contains(&"reschedule_disabled".into()));
+        }
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn trigger_flip_into_spent_base_cap_stops_and_owes_one_mail() {
+    let v = priced();
+    let spec = trigger(buyer(), false).with("base_amount_limited", json!(true)).with("base_amount_limit", json!(0.01))
+        .transient("base_amount_limit_enabled_at", json!("2026-09-01T10:00:00Z"));
+    let (_d, mut e, id, s) = engine(spec, v.clone());
+    seed::insert_row(&e.primary, &s, id, s.btc, &json!({"status":0,"external_status":2,"side":1,"amount":"0.01","amount_exec":"0.01","quote_amount_exec":"500","created_at":"2026-09-02 10:00:00"}));
+    run::step(&mut e, &at("2026-09-08T10:00:01Z")).await.unwrap();
+    let b = bot(&e.primary, id);
+    assert!(b.selling());
+    assert_eq!(b.status, BotStatus::Stopped);
+    assert_eq!(deltabadger::engine::notice::all_pending(&e.primary).unwrap().len(), 1);
+    run::step(&mut e, &at("2026-09-08T10:00:07Z")).await.unwrap();
+    assert_eq!(deltabadger::engine::notice::all_pending(&e.primary).unwrap().len(), 1);
+    assert!(v.sent().is_empty());
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn both_sides_flip_once_per_checkpoint_without_orders() {
+    let v = priced();
+    let spec = trigger(buyer(), false).with("sell_price_limited", json!(true))
+        .with("sell_price_limit", json!(60000)).with("sell_price_limit_value_condition", json!("below"))
+        .with("sell_price_limit_action", json!("start_buying"));
+    let (_d, mut e, id, _) = engine(spec, v.clone());
+    for (now, selling) in [("2026-09-08T10:00:01Z", true), ("2026-09-15T10:00:02Z", false), ("2026-09-22T10:00:03Z", true)] {
+        run::step(&mut e, &at(now)).await.unwrap();
+        assert_eq!(bot(&e.primary, id).selling(), selling);
+        run::step(&mut e, &FixedClock(t(now) + chrono::Duration::seconds(1))).await.unwrap();
+        assert_eq!(bot(&e.primary, id).selling(), selling);
+        assert!(v.sent().is_empty());
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn an_inner_price_pause_rearms_then_the_outer_ma_trigger_flips() {
+    use deltabadger::engine::candles::Candle;
+    use deltabadger::ruby::BigDec;
+    let series = |value| (1..=30).rev().map(|day| Candle {
+        at: t("2026-09-08T00:00:00Z") - chrono::Duration::days(day),
+        open: BigDec::from_i64(value), high: BigDec::from_i64(value), low: BigDec::from_i64(value),
+        close: BigDec::from_i64(value), volume: BigDec::from_i64(1),
+    }).collect();
+    let v = priced().ticker("XXBTZEUR", "30000", "30000", "30000")
+        .candles_answer(Ok(series(40000))).candles_answer(Ok(series(60000)));
+    let spec = buyer().with("price_limited", json!(true)).with("price_limit", json!(40000))
+        .with("price_limit_value_condition", json!("below"))
+        .with("moving_average_limited", json!(true)).with("moving_average_limit_action", json!("start_selling"));
+    let (_d, mut e, id, _) = engine(spec, v.clone());
+    run::step(&mut e, &at("2026-09-08T10:00:01Z")).await.unwrap();
+    let b = bot(&e.primary, id);
+    assert_eq!(b.status, BotStatus::Waiting);
+    assert_eq!(model::condition_paused_type(&e.primary, &b).unwrap(), Some(deltabadger::engine::conditions::Rule::Price));
+    run::step(&mut e, &at("2026-09-09T10:00:01Z")).await.unwrap();
+    let b = bot(&e.primary, id);
+    assert!(b.selling());
+    assert_eq!(b.status, BotStatus::Scheduled);
+    assert!(model::condition_paused_type(&e.primary, &b).unwrap().is_none());
+    assert!(v.sent().is_empty());
+}

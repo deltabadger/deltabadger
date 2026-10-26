@@ -696,18 +696,33 @@ pub enum Reversal {
 /// leaving the buy side, the captured buys are registered for their reserve in Rails' own `flip_reserve_pending`
 /// (engine::reversal).
 pub fn reverse(c: &Connection, cipher: &crate::crypto::Cipher, owner: i64, id: i64, now: chrono::DateTime<chrono::Utc>) -> Result<Reversal, WebError> {
-    use crate::enums::BotStatus;
     let tx = model::immediate(c)?;
     let class = "Bots::DcaMultiAsset";
     let found: Option<Option<String>> = tx.query_row("SELECT type FROM bots WHERE id=?1 AND user_id=?2 AND status<>3", (id, owner), |r| r.get(0)).optional()?;
     if found.flatten().as_deref() != Some(class) { return Ok(Reversal::Missing); }
     let bot = model::load_bot(&tx, id)?;
-    // A bot resting on its price rule is not mid-tick: Rails flips it (flip_direction! sets it `scheduled` and cancels its
-    // check jobs, reversible.rb:188-191). The generation bump below fences a check whose price read is in flight.
-    let paused = model::condition_paused_type(&tx, &bot)?.is_some();
     if engine_holds(&tx, &bot)? { return Ok(Reversal::InProgress); }
-    let Some(mut draft) = Draft::load(&tx, owner, id, "en")? else { return Ok(Reversal::Missing) };
-    let carry = pending(&tx, &draft.original, now)?;
+    flip_in(&tx, &bot, now, Target::Rotate)?;
+    if let Err(refusal) = eligibility::guard(&tx, cipher, Some(id)) {
+        tx.rollback()?;
+        return Ok(Reversal::Refused(refusal.reason()));
+    }
+    tx.commit()?;
+    Ok(Reversal::Reversed)
+}
+
+/// The web's three-state rotation or a condition's direction-only toggle.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Target { Rotate, Toggle }
+
+/// Shared reversal transaction. The caller owns the write lock and authorization/run fence.
+/// A trigger keeps its generation and receives the new identity for its Fundable tail.
+pub(crate) fn flip_in(tx: &Connection, bot: &model::Bot, now: chrono::DateTime<chrono::Utc>, target: Target) -> Result<model::Bot, WebError> {
+    use crate::enums::BotStatus;
+    let (id, owner) = (bot.id, bot.user_id);
+    let paused = model::condition_paused_type(tx, bot)?.is_some();
+    let mut draft = Draft::load(tx, owner, id, "en")?.ok_or_else(|| error("reversal bot disappeared"))?;
+    let carry = pending(tx, &draft.original, now)?;
     let leaving_buy = !bot.selling();
     let mut s = tx.prepare("SELECT id, side IS 0 FROM transactions WHERE bot_id=?1 AND status=0 AND external_status IN (0,1) AND transaction_type='REGULAR' ORDER BY id")?;
     let captured = s.query_map([id], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, bool>(1)?)))?.collect::<Result<Vec<_>, _>>()?;
@@ -726,40 +741,68 @@ pub fn reverse(c: &Connection, cipher: &crate::crypto::Cipher, owner: i64, id: i
     }
     let one_asset = draft.candidate.one_asset();
     let denomination = draft.candidate.text("sell_denomination").filter(|d| !d.trim().is_empty()).unwrap_or("quote");
-    let (direction, denomination) = match (leaving_buy, one_asset) {
+    let (direction, denomination) = if target == Target::Toggle {
+        (if leaving_buy { "selling" } else { "buying" }, None)
+    } else { match (leaving_buy, one_asset) {
         (true, true) => ("selling", Some("base")),
         (false, true) if denomination == "base" => ("selling", Some("quote")),
         (false, true) => ("buying", Some("base")),
         (true, false) => ("selling", None),
         (false, false) => ("buying", None),
-    };
+    } };
     draft.candidate.settings.insert("direction".into(), json!(direction));
     if let Some(d) = denomination { draft.candidate.settings.insert("sell_denomination".into(), json!(d)); }
-    let mut effects = draft.save_effects(&tx, now)?;
+    save_flip_settings(tx, bot.user_id, &draft, carry, now)?;
+    let at = codec::format_time(now);
+    if target == Target::Rotate {
+        one(tx.execute("UPDATE bots SET transient_data=json_set(transient_data,'$.run_generation',coalesce(json_extract(transient_data,'$.run_generation'),0)+1) WHERE id=?1", [id])?)?;
+    }
+    let working = target == Target::Toggle || matches!(bot.status, BotStatus::Scheduled | BotStatus::Retrying) || paused;
+    if working { one(tx.execute("UPDATE bots SET status=?1, started_at=?2 WHERE id=?3", (BotStatus::Scheduled as i64, &at, id))?)?; }
+    crate::engine::reversal::record(tx, id, &captured, leaving_buy)?;
+    // Cancelling the check chain also discards a prior failed-check repair marker.
+    tx.execute("UPDATE bots SET transient_data=json_remove(transient_data,?1) WHERE id=?2",
+        (format!("$.{}", crate::engine::conditions::DEAD), id))?;
+    // reset_trigger_condition_timestamps: merge_transient_data! of nils, compacted away.
+    for key in bot.transient.as_object().map(|t| t.keys().filter(|k| k.ends_with("_condition_met_at")).cloned().collect::<Vec<_>>()).unwrap_or_default() {
+        tx.execute("UPDATE bots SET transient_data=json_remove(transient_data,?1) WHERE id=?2", (format!("$.\"{key}\""), id))?;
+    }
+    // D-FLIP-START-FINISHED: consume the first start with the trigger's re-anchor. A later Fundable exception must not
+    // leave start_at enabled on the old anchor and make the committed new run ineligible.
+    if target == Target::Toggle { disable_flipped_start_in(tx, &model::load_bot(tx, id)?, now)?; }
+    // Rails enqueues the next Bot::ActionJob at next_interval_checkpoint_at: re-anchored at now, the bot would otherwise be due at
+    // once. Rails reads that a moment after the anchor (its own Time.current), so the checkpoint is one whole interval on.
+    if working { crate::engine::placement::defer_to_next_checkpoint(tx, &model::load_bot(tx, id)?, now + chrono::Duration::microseconds(1))?; }
+    // D-6D-2: rotated into selling its one asset with the base cap used up, the bot is stopped and its owner mailed.
+    crate::engine::amount_limit::stop_at_rotation(tx, id, now)?;
+    Ok(model::load_bot(tx, id)?)
+}
+
+
+// Accountable's save shared by the reversal and Startable's post-flip save.
+fn save_flip_settings(tx: &Connection, owner: i64, draft: &Draft, carry: Num, now: chrono::DateTime<chrono::Utc>) -> Result<(), WebError> {
+    let (id, class) = (draft.candidate.id, "Bots::DcaMultiAsset");
+    let mut effects = draft.save_effects(tx, now)?;
     effects.transient.set.insert("missed_quote_amount".into(), stored_carry(&draft.raw_transient, serialized(minimum(carry, effective_amount(&draft.candidate)?)?)?));
     effects.transient.set.insert("missed_quote_amount_was_set".into(), Value::Null);
     for (key, value) in &effects.settings.set { one(tx.execute(SET_SETTING, (path(key, false)?, value.to_string(), id, owner, class))?)?; }
     for (key, value) in &effects.transient.set { one(tx.execute(SET_TRANSIENT, (path(key, true)?, value.to_string(), id, owner, class))?)?; }
     for key in &effects.transient.remove { one(tx.execute(REMOVE_TRANSIENT, (path(key, true)?, id, owner, class))?)?; }
     let at = codec::format_time(now);
-    one(tx.execute("UPDATE bots SET settings_changed_at=?1, updated_at=?1, \
-        transient_data=json_set(transient_data,'$.run_generation',coalesce(json_extract(transient_data,'$.run_generation'),0)+1) WHERE id=?2", (&at, id))?)?;
-    let working = matches!(bot.status, BotStatus::Scheduled | BotStatus::Retrying) || paused;
-    if working { one(tx.execute("UPDATE bots SET status=?1, started_at=?2 WHERE id=?3", (BotStatus::Scheduled as i64, &at, id))?)?; }
-    // reset_trigger_condition_timestamps: merge_transient_data! of nils, compacted away.
-    for key in bot.transient.as_object().map(|t| t.keys().filter(|k| k.ends_with("_condition_met_at")).cloned().collect::<Vec<_>>()).unwrap_or_default() {
-        tx.execute("UPDATE bots SET transient_data=json_remove(transient_data,?1) WHERE id=?2", (format!("$.\"{key}\""), id))?;
+    one(tx.execute("UPDATE bots SET settings_changed_at=?1, updated_at=?1 WHERE id=?2", (&at, id))?)?;
+    Ok(())
+}
+
+/// Startable#disable_starting_time! after a trigger changed the raw anchor, inside its transaction.
+/// With a stored start_at, Rails takes its save/carry branch instead of update_columns.
+fn disable_flipped_start_in(tx: &Connection, bot: &model::Bot, now: chrono::DateTime<chrono::Utc>) -> Result<(), WebError> {
+    if !super::cast_boolean(bot.settings.get("start_time_enabled")) { return Ok(()); }
+    let anchor = crate::codec::optional_time(bot.settings.get("start_at").filter(|v| v.as_str().is_none_or(|s| !s.trim().is_empty()))).map_err(|e| error(&format!("{e:?}")))?;
+    if anchor.is_none() || anchor.map(|at| at.timestamp_micros()) == bot.started_at_us()? {
+        return Ok(crate::engine::amount::disable_starting_time(tx, bot.id, now)?);
     }
-    crate::engine::reversal::record(&tx, id, &captured, leaving_buy)?;
-    // Rails enqueues the next Bot::ActionJob at next_interval_checkpoint_at: re-anchored at now, the bot would otherwise be due at
-    // once. Rails reads that a moment after the anchor (its own Time.current), so the checkpoint is one whole interval on.
-    if working { crate::engine::placement::defer_to_next_checkpoint(&tx, &model::load_bot(&tx, id)?, now + chrono::Duration::microseconds(1))?; }
-    // D-6D-2: rotated into selling its one asset with the base cap used up, the bot is stopped and its owner mailed.
-    crate::engine::amount_limit::stop_at_rotation(&tx, id, now)?;
-    if let Err(refusal) = eligibility::guard(&tx, cipher, Some(id)) {
-        tx.rollback()?;
-        return Ok(Reversal::Refused(refusal.reason()));
-    }
-    tx.commit()?;
-    Ok(Reversal::Reversed)
+    let mut draft = Draft::load(tx, bot.user_id, bot.id, "en")?.ok_or_else(|| error("flipped bot disappeared"))?;
+    draft.candidate.settings.insert("start_time_enabled".into(), json!(false));
+    let carry = pending(tx, &draft.candidate, now)?;
+    save_flip_settings(tx, bot.user_id, &draft, carry, now)
 }

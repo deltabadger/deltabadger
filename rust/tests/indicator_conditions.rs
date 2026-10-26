@@ -297,3 +297,41 @@ async fn an_unrepresentable_lookback_fails_without_panicking_or_fetching_candles
         assert!(venue.candle_reads().is_empty());
     }
 }
+
+/// r3: settled failed flip reads pass through, just like unmet reads. An inner pause
+/// still owns the result; a met outer flip prevents the inner rule from being read.
+#[tokio::test(flavor = "current_thread")]
+async fn flip_gate_preserves_inner_pause_order_and_key_failures() {
+    use deltabadger::venue::VenueError;
+    for selling in [false, true] {
+        for case in ["unmet", "failed", "met", "key"] {
+            let (_d, o, s) = common::install();
+            let side = if selling { "sell_" } else { "" };
+            let spec = BotSpec::weekly(60.0, "2026-09-01 10:00:00")
+                .with("direction", json!(if selling { "selling" } else { "buying" }))
+                .with(&format!("{side}moving_average_limited"), json!(true))
+                .with(&format!("{side}moving_average_limit_value_condition"), json!("below"))
+                .with(&format!("{side}moving_average_limit_action"), json!(if selling { "start_buying" } else { "start_selling" }))
+                .with(&format!("{side}price_limited"), json!(true))
+                .with(&format!("{side}price_limit"), json!(1))
+                .with(&format!("{side}price_limit_value_condition"), json!("below"));
+            let id = seed::insert_bot(&o.primary, &s, &spec);
+            let b = model::load_bot(&o.primary, id).unwrap();
+            let version = model::credential_version(&o.primary, &b).unwrap();
+            let answer = match case {
+                "failed" => Err(VenueError::Rejected(vec!["EService:Unavailable".into()])),
+                "key" => Err(VenueError::Unauthorized(vec!["EAPI:Invalid key".into()])),
+                "met" => Ok(candles(60000)),
+                _ => Ok(candles(40000)),
+            };
+            let venue = FakeVenue::new().ticker("XXBTZEUR", "50000", "50000", "50000").candles_answer(answer);
+            let (kind, result) = conditions::gate(&o.primary, &venue, &b, selling,
+                &FixedClock("2026-09-02T10:00:00Z".parse().unwrap()), &PriceCache::default(), &version).await.unwrap();
+            match case {
+                "met" => { assert_eq!(kind, Rule::MovingAverage); assert!(matches!(result, Evaluated::Flip(_))); }
+                "key" => { assert_eq!(kind, Rule::MovingAverage); assert!(matches!(result, Evaluated::Failed(VenueError::Unauthorized(_)))); }
+                _ => { assert_eq!(kind, Rule::Price); assert!(matches!(result, Evaluated::Unmet)); }
+            }
+        }
+    }
+}

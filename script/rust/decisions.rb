@@ -4436,6 +4436,47 @@ module Decisions
     end
   end
 
+  # 7c: all four trigger rules, both directions. Rule-off twins independently pin
+  # D-FLIP-UNMET-KEEPS-BUYING without copying Rails' nil-start decorator defect.
+  def flip_condition_scenarios
+    price_base = condition_scenarios.to_h { |sc| [sc['name'], sc] }
+    price = price_base.values.select do |sc|
+      sc['name'].match?(/-(kraken|alpaca|binance)-/) ? sc['name'].match?(/-(below_met|below_unmet|server_error|rejected_key)$/) : sc['name'].end_with?('-below_met')
+    end
+    candles = indicator_condition_scenarios.select { |sc| sc['name'].match?(/-(met|unmet|failed_read|rejected_key)$/) }
+    (price + candles).flat_map do |original|
+      sc = Marshal.load(Marshal.dump(original))
+      selling = sc['settings']['direction'] == 'selling'
+      prefix = sc['settings'].keys.find { |key| key.end_with?('_action') }.delete_suffix('_action')
+      sc['name'] = "flip-#{sc['name']}"
+      sc['settings']["#{prefix}_action"] = selling ? 'start_buying' : 'start_selling'
+      sc['transient'].delete("#{prefix}_condition_met_at")
+      # Disabled rules on both sides also lose their timestamps when the flip commits.
+      ['', 'sell_'].each do |side|
+        %w[price_limit price_drop_limit moving_average_limit indicator_limit].each do |rule|
+          key = "#{side}#{rule}_condition_met_at"
+          sc['transient'][key] = '2026-08-31T10:00:00.000Z' unless key == "#{prefix}_condition_met_at"
+        end
+      end
+      twin = Marshal.load(Marshal.dump(sc))
+      twin['name'] += '-off'
+      twin['settings']["#{prefix}ed"] = false
+      if original['name'].end_with?('-server_error')
+        # A failed last-price read is not cached. The subsequent normal order can read
+        # a healthy book. The rule-off twin starts at that same healthy book.
+        healthy = price_base.fetch(original['name'].sub('server_error', 'below_met'))['script']
+        sc['script'].each do |venue, paths|
+          paths.each do |path, answers|
+            next if answers == healthy.fetch(venue).fetch(path)
+            sc['script'][venue][path] = answers + healthy.fetch(venue).fetch(path)
+            twin['script'][venue][path] = healthy.fetch(venue).fetch(path)
+          end
+        end
+      end
+      [sc, twin]
+    end
+  end
+
   # The last price each reference venue's condition rows are scripted with (condition_scenarios' `price`).
   def condition_scenarios_price(venue) = { 'kraken' => BigDecimal('49995.3'), 'alpaca' => BigDecimal('64310.75'), 'binance' => BigDecimal('64000.05') }.fetch(venue)
 
@@ -5109,7 +5150,7 @@ def web_save(dir)
 end
 
 command, root = ARGV
-USAGE = 'usage: grid <root> | grid-signal <root> | grid-alpaca <root> | grid-basket <root> | grid-limit <root> | grid-limit-sell <root> | grid-binance <root> | grid-binance-us <root> | grid-kucoin <root> | grid-bitvavo <root> | grid-bitget <root> | grid-gemini <root> | grid-mexc <root> | grid-hyperliquid <root> | grid-bybit <root> | grid-bitrue <root> | grid-coinbase <root> | grid-bingx <root> | grid-sell <root> | grid-venue-basket <root> | grid-venue-index <root> | grid-conditions <root> | grid-condition-info <root> | grid-conditions-degenerate <root> | grid-conditions-indicators <root> | grid-basket-sell <root> | grid-rebalance <root> | grid-wash-sale <root> | record <root> | web-save <dir>'.freeze
+USAGE = 'usage: grid <root> | grid-signal <root> | grid-alpaca <root> | grid-basket <root> | grid-limit <root> | grid-limit-sell <root> | grid-binance <root> | grid-binance-us <root> | grid-kucoin <root> | grid-bitvavo <root> | grid-bitget <root> | grid-gemini <root> | grid-mexc <root> | grid-hyperliquid <root> | grid-bybit <root> | grid-bitrue <root> | grid-coinbase <root> | grid-bingx <root> | grid-sell <root> | grid-venue-basket <root> | grid-venue-index <root> | grid-conditions <root> | grid-condition-info <root> | grid-conditions-degenerate <root> | grid-conditions-indicators <root> | grid-conditions-flips <root> | grid-basket-sell <root> | grid-rebalance <root> | grid-wash-sale <root> | record <root> | web-save <dir>'.freeze
 raise ArgumentError, USAGE unless root
 
 case command
@@ -5138,6 +5179,7 @@ when 'grid-venue-basket' then Decisions.grid(root, Decisions.venue_basket_scenar
 when 'grid-basket-sell' then Decisions.grid(root, Decisions.basket_sell_scenarios)
 when 'grid-rebalance' then Decisions.grid(root, Decisions.rebalance_scenarios)
 when 'grid-conditions' then Decisions.grid(root, Decisions.condition_scenarios)
+when 'grid-conditions-flips' then Decisions.grid(root, Decisions.flip_condition_scenarios)
 when 'grid-conditions-indicators' then Decisions.grid(root, Decisions.indicator_condition_scenarios)
 when 'grid-conditions-degenerate' then Decisions.grid(root, Decisions.degenerate_condition_scenarios)
 when 'grid-condition-info' then Decisions.grid(root, Decisions.condition_info_scenarios)

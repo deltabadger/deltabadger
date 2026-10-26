@@ -591,15 +591,15 @@ fn an_index_bots_rules_are_admitted_by_what_the_engine_runs_on_it() {
     assert_eq!(reasons(", '$.price_limited', '1'"), vec!["price_limited"], "a switch Rails reads as off is refused");
 }
 
-/// The basket's own refusals stay as they were: a rule the engine does not run yet, a flip.
+/// Baskets admit both pause rules and direction flips.
 #[test]
-fn a_baskets_unimplemented_rules_are_still_refused() {
+fn a_baskets_condition_rules_and_flips_are_admitted() {
     let (_d, o, s) = install();
     let drop = seed::insert_bot(&o.primary, &s, &plain().with("price_drop_limited", json!(true)));
     let flip = seed::insert_bot(&o.primary, &s, &plain().with("price_limited", json!(true)).with("price_limit_action", json!("start_selling")));
     let reasons = |id| eligibility::bot_reasons(&o.primary, &deltabadger::engine::model::load_bot(&o.primary, id).unwrap()).unwrap();
     assert!(reasons(drop).is_empty());
-    assert_eq!(reasons(flip), vec!["price_limited with the start_selling action (the flip actions come with slice 7c)"]);
+    assert!(reasons(flip).is_empty());
 }
 
 /// Owner ruling O6 (2026-10-18): KuCoin admits Top coins and category index bots under the Kraken/Binance rule, at USDT and USDC.
@@ -905,9 +905,8 @@ fn a_price_rule_with_the_pause_action_is_eligible() {
     assert!(reasons(rule().with("price_limit_action", json!("pause"))).is_empty());
     assert!(reasons(plain().with("sell_price_limited", json!(true)).with("sell_price_limit_action", json!(""))).is_empty(), "blank reads as pause");
     assert!(reasons(rule().with("price_limited", json!(false))).is_empty(), "off");
-    assert_eq!(reasons(rule().with("price_limit_action", json!("start_selling"))), vec!["price_limited with the start_selling action (the flip actions come with slice 7c)"]);
-    assert_eq!(reasons(plain().with("sell_price_limited", json!(true)).with("sell_price_limit_action", json!("start_buying"))),
-               vec!["sell_price_limited with the start_buying action (the flip actions come with slice 7c)"]);
+    assert!(reasons(rule().with("price_limit_action", json!("start_selling"))).is_empty());
+    assert!(reasons(plain().with("sell_price_limited", json!(true)).with("sell_price_limit_action", json!("start_buying"))).is_empty());
     assert_eq!(reasons(rule().with("price_limit", json!("50000"))), vec![r#"price_limit "50000" is not a number"#]);
     assert_eq!(reasons(rule().with("price_limited", json!("1"))), vec!["price_limited"], "a flag Rails reads as off, but set: refused");
     for other in ["price_drop_limited", "moving_average_limited", "indicator_limited"] {
@@ -1028,7 +1027,7 @@ fn a_signal_bots_rules_are_refused_until_the_engine_runs_them() {
 }
 
 #[test]
-fn candle_rules_are_admitted_only_on_candle_venues_and_flips_stay_refused() {
+fn candle_rules_and_flips_are_admitted_on_candle_venues() {
     use deltabadger::engine::{conditions, model};
     for venue in deltabadger::venue::registry::ROWS.iter().filter(|r| r.condition_candles) {
         let (_d, o, s) = install();
@@ -1041,8 +1040,8 @@ fn candle_rules_are_admitted_only_on_candle_venues_and_flips_stay_refused() {
                 let reasons = eligibility::bot_reasons(&o.primary, &bot).unwrap();
                 assert!(!reasons.iter().any(|r| r.contains(&prefix)), "{} {prefix}: {reasons:?}", venue.name);
                 bot.settings[format!("{prefix}_action")] = json!(if selling { "start_buying" } else { "start_selling" });
-                assert!(eligibility::bot_reasons(&o.primary, &bot).unwrap().iter().any(|r| r.contains("slice 7c")), "{} {prefix}", venue.name);
-                assert_eq!(bot.support(kind, selling), conditions::Support::NotImplemented);
+                assert!(!eligibility::bot_reasons(&o.primary, &bot).unwrap().iter().any(|r| r.contains(&prefix)), "{} {prefix}", venue.name);
+                assert_eq!(bot.support(kind, selling), conditions::Support::Implemented);
             }
         }
     }
@@ -1054,5 +1053,21 @@ fn candle_rules_are_admitted_only_on_candle_venues_and_flips_stay_refused() {
     let reasons = eligibility::bot_reasons(&o.primary, &model::load_bot(&o.primary, id).unwrap()).unwrap();
     for prefix in ["price_drop_limited", "moving_average_limited", "indicator_limited"] {
         assert!(reasons.iter().any(|r| r.contains(prefix) && r.contains("condition candles")), "{reasons:?}");
+    }
+}
+
+
+#[test]
+fn all_trigger_flips_are_inapplicable_to_index_and_signal_bots() {
+    use deltabadger::engine::conditions::{self, Support};
+    use deltabadger::web::bot::Kind;
+    for (rule, _) in conditions::TRIGGERS {
+        for kind in [Kind::Index, Kind::Signal] {
+            for selling in [false, true] {
+                for action in ["start_selling", "start_buying"] {
+                    assert_eq!(conditions::support(kind, rule, selling, action), Support::Inapplicable);
+                }
+            }
+        }
     }
 }
