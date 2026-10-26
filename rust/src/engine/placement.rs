@@ -749,9 +749,10 @@ pub async fn recover_since<V: Venue>(c: &Connection, venue: &V, bot: &Bot, clock
             let rebalance = intent.plan.kind == TxKind::Rebalance;
             settle(&tx, bot.id, &intent, Settlement::Accepted(id), now)?;
             // As FetchAndUpdateOrderJob would, after placement; its amount-limit stop lands with the fill (the tick ends here).
-            if polling::apply_in(&fenced, bot.id, id, &state, true, now)? {
-                polling::owe_limit_mail(&tx, bot.id, now)?;
-                super::tick::stop_for_amount_limit(&tx, bot.id, now)?;
+            // The base cap's too: a recovered sell fill that uses it up stops the bot (amount_sold) and owes its mail.
+            if let Some(cap) = polling::apply_in(&fenced, bot.id, id, &state, true, now)? {
+                super::amount_limit::owe_mail(&tx, bot.id, cap, now)?;
+                super::tick::stop_for_amount_limit(&tx, bot.id, cap, now)?;
             }
             // A REBALANCE order belongs to no DCA run, and a signal bot has no schedule: neither is deferred.
             if intent.signal() { super::signal::clear_marker(&tx, bot.id, &intent.cl_ord_id)?; }
