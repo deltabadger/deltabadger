@@ -132,14 +132,8 @@ pub fn load(c: &Connection, app: &App, user: i64, id: i64) -> Result<Option<Rule
             .next()
             .and_then(|s| BigDec::parse(s).ok())
     });
-    // W2 introduces this table. W1 reads it when present without creating engine state.
-    let has_intents: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='rust_withdrawal_intents')", [], |r| r.get(0))?;
-    let unconfirmed = if has_intents {
-        c.query_row("SELECT state FROM rust_withdrawal_intents WHERE owner=?1 AND state IN ('dispatched','unresolved')",
-            [format!("rule:{id}")], |r| r.get::<_,String>(0)).optional()?
-    } else {
-        None
-    };
+    let unconfirmed = c.query_row("SELECT state FROM rust_withdrawal_intents WHERE owner=?1 AND state IN ('dispatched','unresolved')",
+        [format!("rule:{id}")], |r| r.get::<_,String>(0)).optional()?;
     Ok(Some(Rule {
         id,
         user_id: user,

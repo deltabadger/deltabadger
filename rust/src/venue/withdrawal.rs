@@ -250,7 +250,9 @@ pub fn select(kind: Kind, coin: &str, stored: &Stored, entries: &[Entry], networ
     let at_address: Vec<&Entry> = entries.iter().filter(|e| e.address == stored.address).collect();
     let matching: Vec<&Entry> = at_address.iter().copied().filter(|e| match kind {
         Kind::Kraken => same(&stored.key, &e.key),
-        Kind::Mexc => same(&stored.tag, &e.tag),
+        // Gemini's scoped endpoint supplies the network when the entry omits it.
+        // destination() checks both the stored and explicit listed network against that scope.
+        Kind::Mexc | Kind::Gemini => same(&stored.tag, &e.tag),
         _ => same(&stored.network, &e.network) && same(&stored.tag, &e.tag),
     }).collect();
     let admitted: Vec<&Entry> = matching.iter().copied().filter(|e| e.refused.is_none()).collect();

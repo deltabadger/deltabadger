@@ -14,6 +14,201 @@ use wiremock::{matchers, Mock, MockServer, ResponseTemplate};
 const AT: &str = "2026-10-01T12:00:00Z";
 const ADDRESS: &str = "bc1qwithdrawaltest";
 
+use web::rules::service::{self, Command, Patch};
+
+#[tokio::test]
+async fn service_stop_consumes_without_logging_and_preserves_intent() {
+    let i = Install::new("Gemini");
+    let id = i.rule(1);
+    i.c.execute(
+        "INSERT INTO rust_rule_evaluations(rule_id,source,created_at) VALUES (?1,'start:test',?2)",
+        (id, AT),
+    )
+    .unwrap();
+    i.c.execute("INSERT INTO rust_withdrawal_intents(owner,state,client_id,created_at,api_key_id,credential_digest,host,account_scope,key_identity,params_enc,fee_basis,budget,free_balance) VALUES (?1,'unresolved','test',?2,1,'digest','host','spot','key','encrypted','flat','1','1')", (format!("rule:{id}"), AT)).unwrap();
+    service::call(&i.app, i.s.user_id, Command::Stop(id))
+        .await
+        .unwrap()
+        .unwrap();
+    let row: (Option<String>, String) =
+        i.c.query_row(
+            "SELECT consumed_at,outcome FROM rust_rule_evaluations",
+            [],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .unwrap();
+    assert!(row.0.is_some());
+    assert_eq!(row.1, "skipped", "D-RULE-SKIP-CONSUMED");
+    assert_eq!(
+        i.c.query_row("SELECT count(*) FROM rule_logs", [], |r| r.get::<_, i64>(0))
+            .unwrap(),
+        0
+    );
+    assert_eq!(
+        i.c.query_row("SELECT count(*) FROM rust_withdrawal_intents", [], |r| r
+            .get::<_, i64>(0))
+            .unwrap(),
+        1
+    );
+    for cmd in [
+        Command::Delete(id),
+        Command::Start(id, Patch::default()),
+        Command::Update(id, Patch::settings(json!({"min_amount":"0.2"}))),
+    ] {
+        assert_eq!(
+            service::call(&i.app, i.s.user_id, cmd)
+                .await
+                .unwrap()
+                .unwrap_err()
+                .code,
+            "withdrawal_unconfirmed"
+        );
+    }
+    let rows = service::list(&i.c, &i.app, i.s.user_id).unwrap();
+    assert_eq!(
+        rows[0].unresolved_withdrawal.as_ref().unwrap().state,
+        "unresolved"
+    );
+    assert_eq!(rows[0].address, "bc1qwi…test");
+}
+
+#[tokio::test]
+async fn service_delete_revive_and_update_relist() {
+    let server = MockServer::start().await;
+    gemini(&server, "bitcoin").await;
+    let mut i = Install::new("Gemini");
+    i.app = i
+        .app
+        .with_venue_key_url("Exchanges::Gemini", &server.uri())
+        .unwrap();
+    let id = i.rule(2);
+    i.c.execute(
+        "INSERT INTO rust_rule_evaluations(rule_id,source,created_at) VALUES (?1,'start:test',?2)",
+        (id, AT),
+    )
+    .unwrap();
+    service::call(&i.app, i.s.user_id, Command::Delete(id))
+        .await
+        .unwrap()
+        .unwrap();
+    let patch = Patch {
+        address: Some(ADDRESS.into()),
+        settings: json!({"threshold_type":"min_amount","min_amount":"0.3","max_interval":"7"}),
+        ..Default::default()
+    };
+    let revived = service::call(
+        &i.app,
+        i.s.user_id,
+        Command::Create {
+            exchange_id: i.s.exchange_id,
+            asset_id: i.s.btc,
+            patch,
+        },
+    )
+    .await
+    .unwrap()
+    .unwrap();
+    assert_eq!(revived.id, id);
+    assert_eq!(revived.status, "created");
+    assert_eq!(
+        i.c.query_row(
+            "SELECT count(*) FROM rust_rule_evaluations WHERE consumed_at IS NULL",
+            [],
+            |r| r.get::<_, i64>(0)
+        )
+        .unwrap(),
+        0
+    );
+    service::call(
+        &i.app,
+        i.s.user_id,
+        Command::Update(id, Patch::settings(json!({"min_amount":"0.4"}))),
+    )
+    .await
+    .unwrap()
+    .unwrap();
+    assert_eq!(
+        server.received_requests().await.unwrap().len(),
+        2,
+        "every write re-lists"
+    );
+    server.reset().await;
+    let before = i.rows();
+    assert_eq!(
+        service::call(
+            &i.app,
+            i.s.user_id,
+            Command::Update(id, Patch::settings(json!({"min_amount":"0.5"})))
+        )
+        .await
+        .unwrap()
+        .unwrap_err()
+        .code,
+        "address_not_listed"
+    );
+    assert_eq!(i.rows(), before);
+}
+
+#[tokio::test]
+async fn service_start_refuses_unsupported_disabled_missing_key_and_retired() {
+    for (venue, key, code) in [
+        ("BinanceUs", true, "withdrawal_unsupported"),
+        ("Gemini", true, "withdrawal_disabled"),
+        ("Gemini", false, "withdrawal_key_missing"),
+        ("Bitmart", true, "exchange_retired"),
+    ] {
+        let i = Install::new(venue);
+        let id = i.rule(0);
+        if !key {
+            i.c.execute("DELETE FROM api_keys", []).unwrap();
+        }
+        let before = i.rows();
+        assert_eq!(
+            service::call(&i.app, i.s.user_id, Command::Start(id, Patch::default()))
+                .await
+                .unwrap()
+                .unwrap_err()
+                .code,
+            code,
+            "{venue}"
+        );
+        assert_eq!(i.rows(), before);
+        assert_eq!(
+            i.c.query_row("SELECT count(*) FROM rust_rule_evaluations", [], |r| r
+                .get::<_, i64>(0))
+                .unwrap(),
+            0
+        );
+    }
+}
+
+#[test]
+fn withdrawal_migration_is_registered_and_idempotent() {
+    let i = Install::new("Gemini");
+    assert!(deltabadger::store::test_support::migrate(&i.c)
+        .unwrap()
+        .is_empty());
+    for name in [
+        "rust_rule_evaluations",
+        "rust_withdrawal_intents",
+        "rust_withdrawal_ids",
+        "rust_rails_attempt_acks",
+        "rust_rails_job_acks",
+        "rust_recorder_runs",
+    ] {
+        assert!(deltabadger::store::REGISTRY.owned_tables().contains(&name));
+        assert_eq!(
+            i.c.query_row(
+                "SELECT count(*) FROM sqlite_master WHERE type='table' AND name=?1",
+                [name],
+                |r| r.get::<_, i64>(0)
+            )
+            .unwrap(),
+            1
+        );
+    }
+}
+
 fn picker(body: &str) -> (String, Vec<(String, String, bool)>) {
     let doc = scraper::Html::parse_document(body);
     let select = doc
@@ -368,6 +563,7 @@ async fn picker_rechecks_every_posted_identity_field_against_the_listing() {
             let form = form_urlencoded::Serializer::new(String::new())
                 .extend_pairs([(&name[..], &value)])
                 .finish();
+            i.c.execute("UPDATE rules SET status=3", []).unwrap();
             assert_eq!(
                 i.send(
                     "POST",
@@ -382,6 +578,7 @@ async fn picker_rechecks_every_posted_identity_field_against_the_listing() {
                 302,
                 "{venue} {field}"
             );
+            i.c.execute("UPDATE rules SET status=2", []).unwrap();
             let form = form_urlencoded::Serializer::new(String::new())
                 .extend_pairs([("rules_withdrawal[destination]", &value)])
                 .finish();
@@ -492,7 +689,7 @@ async fn gemini_picker_preserves_v1_account_and_group_deduplication() {
                 )
                 .await
                 .0,
-                200
+                if edit.contains("status") { 422 } else { 200 }
             );
             let address: String =
                 i.c.query_row("SELECT address FROM rules", [], |r| r.get(0))
@@ -502,7 +699,7 @@ async fn gemini_picker_preserves_v1_account_and_group_deduplication() {
         assert_eq!(
             i.c.query_row("SELECT status FROM rules", [], |r| r.get::<_, i64>(0))
                 .unwrap(),
-            1
+            2
         );
     }
 }
@@ -530,7 +727,8 @@ async fn mexc_picker_deduplicates_network_aliases_before_selecting_saving_and_st
                 .extend_pairs([(name.as_str(), options[0].0.as_str())])
                 .finish();
             let path = format!("/rules/withdrawals/{id}");
-            assert_eq!(i.send("PATCH", &path, &form, None, true, true).await.0, 200);
+            let response = i.send("PATCH", &path, &form, None, true, true).await;
+            assert_eq!(response.0, 200, "{}", response.1);
             let (_, body) = i.send("GET", "/rules", "", None, true, false).await;
             let (_, options) = picker(&body);
             assert_eq!(options.len(), 1);
@@ -546,14 +744,14 @@ async fn mexc_picker_deduplicates_network_aliases_before_selecting_saving_and_st
                 )
                 .await
                 .0,
-                200
+                422 // D-RULE-UNSUPPORTED-START: live verification has not enabled sends.
             );
             let (status, settings): (i64, String) =
                 i.c.query_row("SELECT status,settings FROM rules", [], |r| {
                     Ok((r.get(0)?, r.get(1)?))
                 })
                 .unwrap();
-            assert_eq!(status, 1);
+            assert_eq!(status, 2);
             assert_eq!(
                 serde_json::from_str::<Value>(&settings).unwrap()["network"],
                 "Bitcoin"
@@ -1028,10 +1226,8 @@ async fn wizard_persists_only_a_full_listed_destination_encrypted() {
 async fn unresolved_and_dispatched_statuses_and_legacy_error_redaction() {
     let i = Install::new("Gemini");
     let id = i.rule(1);
-    i.c.execute_batch("CREATE TABLE rust_withdrawal_intents(owner TEXT PRIMARY KEY,state TEXT)")
-        .unwrap();
     i.c.execute(
-        "INSERT INTO rust_withdrawal_intents VALUES (?1,'dispatched')",
+        "INSERT INTO rust_withdrawal_intents(owner,state,client_id,created_at,api_key_id,credential_digest,host,account_scope,key_identity,params_enc,fee_basis,budget,free_balance) VALUES (?1,'dispatched','test','2026-01-01',1,'digest','host','spot','key','enc','flat','1','1')",
         [format!("rule:{id}")],
     )
     .unwrap();
@@ -1206,7 +1402,7 @@ async fn deletion_accepts_only_created_or_stopped() {
                 3
             );
         } else {
-            assert_eq!(response.0, 422);
+            assert_eq!(response.0, if status == 3 { 404 } else { 422 });
             assert_eq!(i.rows(), before);
         }
     }
@@ -1374,5 +1570,315 @@ async fn refused_addresses_are_not_counted_as_available_wallets() {
             ],
         );
         assert!(body.contains(&expected));
+    }
+}
+
+const X0_ADDRESS: &str = "bc1qx0destination0000000000000000000000";
+fn status_number(s: &str) -> i64 {
+    [
+        "created",
+        "scheduled",
+        "stopped",
+        "deleted",
+        "executing",
+        "retrying",
+        "waiting",
+        "archived",
+    ]
+    .iter()
+    .position(|v| *v == s)
+    .unwrap() as i64
+}
+fn x0_rows(i: &Install) -> Value {
+    let mut st = i
+        .c
+        .prepare("SELECT id,status,exchange_id,asset_id,address,settings FROM rules ORDER BY id")
+        .unwrap();
+    json!(st.query_map([],|r| {
+        let text:String=r.get(5)?;
+        let mut settings:Value=serde_json::from_str(&text).unwrap();
+        // JSON null and an absent store_accessor both read as nil in Rails.
+        settings.as_object_mut().unwrap().retain(|_,v|!v.is_null());
+        Ok(json!({"id":r.get::<_,i64>(0)?,"type":"Rules::Withdrawal",
+            "status":(["created","scheduled","stopped","deleted","executing","retrying","waiting","archived"][r.get::<_,usize>(1)?]),
+            "exchange_id":r.get::<_,i64>(2)?,"asset_id":r.get::<_,i64>(3)?,
+            "address":i.app.cipher.decrypt(&r.get::<_,String>(4)?).unwrap(),"settings":settings}))
+    }).unwrap().collect::<Result<Vec<_>,_>>().unwrap())
+}
+fn x0_seed(i: &Install, case: &str, vector: &Value) -> i64 {
+    if case == "list_each_status" {
+        for (n, venue) in ["Binance", "Kraken", "Gemini", "Mexc"].iter().enumerate() {
+            let exchange = (n + 1) as i64;
+            if n > 0 {
+                i.c.execute("INSERT INTO exchanges(id,type,name,created_at,updated_at) VALUES (?1,?2,?3,?4,?4)",params![exchange,format!("Exchanges::{venue}"),venue,AT]).unwrap();
+            }
+            i.c.execute("INSERT INTO rules(id,user_id,type,status,exchange_id,asset_id,address,settings,created_at,updated_at) VALUES (?1,?2,'Rules::Withdrawal',?3,?1,?4,?5,?6,?7,?7)",
+                params![exchange,i.s.user_id,n as i64,i.s.btc,i.app.cipher.encrypt(X0_ADDRESS),vector["rules"][n]["settings"].to_string(),AT]).unwrap();
+        }
+        return 1;
+    }
+    let state = if case == "create_exists" {
+        Some(2)
+    } else if case == "create_revives_deleted" {
+        Some(3)
+    } else if case.starts_with("create_") || case.starts_with("list_") || case == "start_missing" {
+        None
+    } else {
+        Some(
+            case.split('_')
+                .nth(1)
+                .filter(|s| ["created", "scheduled", "stopped", "deleted"].contains(s))
+                .map(status_number)
+                .unwrap_or(2),
+        )
+    };
+    if let Some(state) = state {
+        let id = i.rule(state);
+        let mut settings = json!({"withdrawal_percentage":"100","threshold_type":"fee_percentage","max_fee_percentage":"1"});
+        if case == "create_revives_deleted" {
+            settings["max_interval"] = json!("7");
+            settings["address_tag"] = json!("old");
+        }
+        i.c.execute(
+            "UPDATE rules SET address=?1,settings=?2",
+            (i.app.cipher.encrypt(X0_ADDRESS), settings.to_string()),
+        )
+        .unwrap();
+        id
+    } else {
+        999
+    }
+}
+async fn x0_install(case: &str, vector: &Value, server: &MockServer) -> (Install, i64) {
+    let mut i = Install::new(if case == "create_unsupported_venue" {
+        "Kucoin"
+    } else {
+        "Binance"
+    });
+    i.app = i
+        .app
+        .with_venue_key_url("Exchanges::Binance", &server.uri())
+        .unwrap();
+    let id = x0_seed(&i, case, vector);
+    (i, id)
+}
+#[tokio::test]
+async fn all_seventy_x0_api_cells_share_web_database_effects() {
+    use deltabadger::venue::withdrawal as w;
+    let vectors: Value =
+        serde_json::from_str(include_str!("fixtures/withdrawal_vectors.json")).unwrap();
+    let cells = vectors["api"].as_array().unwrap();
+    assert_eq!(cells.len(), 70);
+    for cell in cells {
+        let case = cell["case"].as_str().unwrap();
+        let oracle = cells
+            .iter()
+            .find(|v| v["case"] == case && v["surface"] == "rest")
+            .unwrap();
+        let server = MockServer::start().await;
+        if case != "create_listing_failed" {
+            Mock::given(matchers::path(w::BINANCE_ADDRESSES)).respond_with(ResponseTemplate::new(200).set_body_json(json!([
+                {"coin":"BTC","address":X0_ADDRESS,"name":"cold","network":"BTC","addressTag":""}
+            ]))).mount(&server).await;
+        }
+        // V1 requires the selected network to be enabled; X0's Rails API never read it.
+        Mock::given(matchers::path(w::BINANCE_COINS)).respond_with(ResponseTemplate::new(200).set_body_json(json!([
+            {"coin":"BTC","networkList":[{"network":"BTC","withdrawEnable":true,"withdrawTag":false,"withdrawFee":"0.0001"}]}
+        ]))).mount(&server).await;
+        let (i, id) = x0_install(case, oracle, &server).await;
+        let before = x0_rows(&i);
+        let args = &cell["arguments"];
+        let patch = Patch {
+            settings: args.clone(),
+            address: args["address"].as_str().map(str::to_owned),
+            ..Default::default()
+        };
+        let exchange_id = if case == "create_unknown_exchange" {
+            999
+        } else {
+            i.s.exchange_id
+        };
+        let asset_id = if case == "create_missing" {
+            0
+        } else if case == "create_unlisted_asset" {
+            999
+        } else {
+            i.s.btc
+        };
+        let tool = cell["tool"].as_str().unwrap();
+        let result = match tool {
+            "create_rule" => Some(
+                service::create_named(
+                    &i.app,
+                    i.s.user_id,
+                    args["exchange_name"].as_str().unwrap_or_default(),
+                    args["asset"].as_str().unwrap_or_default(),
+                    patch,
+                )
+                .await
+                .unwrap(),
+            ),
+            "start_rule" => Some(
+                service::call(&i.app, i.s.user_id, Command::Start(id, patch))
+                    .await
+                    .unwrap(),
+            ),
+            "stop_rule" => Some(
+                service::call(&i.app, i.s.user_id, Command::Stop(id))
+                    .await
+                    .unwrap(),
+            ),
+            "delete_rule" => Some(
+                service::call(&i.app, i.s.user_id, Command::Delete(id))
+                    .await
+                    .unwrap(),
+            ),
+            "update_rule_settings" => Some(
+                service::call(&i.app, i.s.user_id, Command::Update(id, patch))
+                    .await
+                    .unwrap(),
+            ),
+            "list_rules" => {
+                let rows = service::list(&i.c, &i.app, i.s.user_id).unwrap();
+                let expected = oracle["body"]["data"]["rules"].as_array().unwrap();
+                assert_eq!(rows.len(), expected.len());
+                for (r, e) in rows.iter().zip(expected) {
+                    assert_eq!(r.id, e["id"].as_i64().unwrap());
+                    assert_eq!(r.status, e["status"]);
+                    assert_eq!(r.address, e["address"]);
+                    assert_eq!(r.withdrawal_percentage, e["withdrawal_percentage"]);
+                    assert_eq!(r.threshold_type, e["threshold_type"]);
+                    assert!(r.unresolved_withdrawal.is_none());
+                }
+                None
+            }
+            _ => panic!("unmapped X0 cell"),
+        };
+        let expected_code = match case {
+            "start_created" | "start_stopped" => Some("withdrawal_disabled"), // D-RULE-UNSUPPORTED-START
+            "create_listed" | "create_invalid_network" => Some("address_not_listed"), // D-RULE-LISTED-ENTRY
+            _ => oracle["body"]["error"]["code"].as_str(),
+        };
+        if let Some(result) = &result {
+            assert_eq!(
+                result.as_ref().err().map(|e| e.code),
+                expected_code,
+                "{} {case}",
+                cell["surface"]
+            );
+            if result.is_err() {
+                assert_eq!(x0_rows(&i), before, "{case}: refusal wrote");
+            }
+        }
+        let mut expected = oracle["rules"].clone();
+        if matches!(case, "start_created" | "start_stopped" | "create_listed") {
+            expected = before.clone();
+        }
+        for r in expected.as_array_mut().unwrap() {
+            r["settings"]
+                .as_object_mut()
+                .unwrap()
+                .retain(|_, v| !v.is_null());
+            if matches!(
+                case,
+                "create_min_amount"
+                    | "create_revives_deleted"
+                    | "update_created"
+                    | "update_stopped"
+                    | "update_all_four"
+            ) {
+                r["settings"]["network"] = json!("BTC"); // D-RULE-LISTED-ENTRY: exact listed network
+            }
+            if case == "create_revives_deleted" {
+                assert_eq!(
+                    r["settings"]["threshold_type"], "min_amount",
+                    "X0 records fee-dependent API default"
+                );
+                r["settings"]["threshold_type"] = json!("fee_percentage"); // D-RULE-ONE-MATRIX: one explicit default
+            }
+        }
+        assert_eq!(
+            x0_rows(&i),
+            expected,
+            "{} {case}: Rails row and named deltas",
+            cell["surface"]
+        );
+
+        let (web, id) = x0_install(case, oracle, &server).await;
+        let (method, path, form, config) = match tool {
+            "list_rules" => ("GET", "/rules".into(), String::new(), None),
+            "create_rule" => {
+                let conf = json!({"exchange_id":exchange_id.to_string(),"asset_id":asset_id.to_string(),"address":args["address"]});
+                let fields = args
+                    .as_object()
+                    .unwrap()
+                    .iter()
+                    .map(|(k, v)| (k.clone(), web::rules::model::string(v)))
+                    .collect::<Vec<_>>();
+                (
+                    "POST",
+                    "/rules/withdrawals/confirm_settings".into(),
+                    form_urlencoded::Serializer::new(String::new())
+                        .extend_pairs(fields)
+                        .finish(),
+                    Some(conf),
+                )
+            }
+            _ => {
+                let fields = if tool == "start_rule" {
+                    vec![("rules_withdrawal[status]".into(), "scheduled".into())]
+                } else if tool == "stop_rule" {
+                    vec![("rules_withdrawal[status]".into(), "stopped".into())]
+                } else {
+                    args.as_object()
+                        .unwrap()
+                        .iter()
+                        .map(|(k, v)| {
+                            (
+                                format!("rules_withdrawal[{k}]"),
+                                web::rules::model::string(v),
+                            )
+                        })
+                        .collect::<Vec<_>>()
+                };
+                (
+                    if tool == "delete_rule" {
+                        "DELETE"
+                    } else {
+                        "PATCH"
+                    },
+                    format!("/rules/withdrawals/{id}"),
+                    form_urlencoded::Serializer::new(String::new())
+                        .extend_pairs(fields)
+                        .finish(),
+                    None,
+                )
+            }
+        };
+        let (status, body) = web.send(method, &path, &form, config, true, true).await;
+        if result.as_ref().is_some_and(Result::is_ok) {
+            assert_eq!(status, 200, "{case}: {body}");
+        } else if result.as_ref().is_some_and(Result::is_err) {
+            assert!(status >= 300, "{case}: {body}");
+        }
+        assert_eq!(
+            x0_rows(&web),
+            x0_rows(&i),
+            "{case}: web and {} service",
+            cell["surface"]
+        );
+        assert_eq!(
+            i.c.query_row("SELECT count(*) FROM rule_logs", [], |r| r.get::<_, i64>(0))
+                .unwrap(),
+            0
+        );
+        assert!(
+            server.received_requests().await.unwrap().iter().all(|r| [
+                w::BINANCE_ADDRESSES,
+                w::BINANCE_COINS
+            ]
+            .contains(&r.url.path())),
+            "W2 never sends"
+        );
     }
 }
