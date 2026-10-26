@@ -74,13 +74,13 @@ pub fn render(c: &Connection, app: &App, event: &EngineEvent) -> Result<Vec<(Str
         // owner's), into the status line of that side's rule (D-INFO-SIDE: settings::info_target); nothing while that rule
         // is off (the partial's guard) or the page has no line for the side.
         EngineEvent::ConditionInfo { rule, side, locale, .. } => {
-            use crate::engine::conditions::{INFO_KEY, PRICE, SELLING};
+            use crate::engine::conditions::{INFO_KEY, SELLING};
             let prefix = if *side == SELLING { "sell_" } else { "" };
             let info = bot.transient.get(INFO_KEY).and_then(|v| v.get(*rule)).and_then(|v| v.get(*side));
             match (info, super::settings::info_target(&bot, rule, side)) {
-                (Some(info), Some(target)) if *rule == PRICE && bot.on(&format!("{prefix}price_limited")) => {
+                (Some(info), Some(target)) if bot.on(&format!("{prefix}{rule}ed")) => {
                     let locale = locale.as_deref().and_then(crate::web::locale::known).unwrap_or(ctx.locale);
-                    vec![(super::page::page_stream(&bot), crate::web::turbo::stream("replace", &target, &super::settings::price_limit_info(locale, info, &target)))]
+                    vec![(super::page::page_stream(&bot), crate::web::turbo::stream("replace", &target, &super::settings::condition_info(locale, &bot, rule, *side == SELLING, info, &target)))]
                 }
                 _ => vec![],
             }

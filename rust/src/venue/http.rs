@@ -406,9 +406,11 @@ fn describe(e: &reqwest::Error) -> String {
 pub struct ScriptedTransport { s: Rc<RefCell<Scripted>> }
 
 #[derive(Default)]
-struct Scripted { replies: HashMap<String, VecDeque<Value>>, requests: Vec<HttpRequest>, last_reply: Option<Value> }
+struct Scripted { now: Option<DateTime<Utc>>, replies: HashMap<String, VecDeque<Value>>, requests: Vec<HttpRequest>, last_reply: Option<Value> }
 
 impl ScriptedTransport {
+    /// Freeze the recorded venue clock alongside the replayed engine job.
+    pub fn set_now(&self, now: DateTime<Utc>) { self.s.borrow_mut().now = Some(now); }
     pub fn from_script(script: &Value) -> Self {
         let t = Self::default();
         for (key, replies) in script.as_object().into_iter().flatten() {
@@ -430,6 +432,7 @@ impl ScriptedTransport {
 }
 
 impl Transport for ScriptedTransport {
+    fn now(&self) -> DateTime<Utc> { self.s.borrow().now.unwrap_or_else(Utc::now) }
     /// A reply's "content_type" when scripted; else a JSON body answers as application/json and a string body with none.
     async fn send_typed(&self, r: &HttpRequest) -> Result<(HttpResponse, Option<String>), TransportError> {
         let resp = self.send(r).await?;

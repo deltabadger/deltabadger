@@ -182,7 +182,7 @@ async fn an_index_bot_runs_its_buy_price_rule() {
         let out = tick::tick(&o.primary, &venue(&t), id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
         let after = model::load_bot(&o.primary, id).unwrap();
         let paused: i64 = o.primary.query_row("SELECT count(*) FROM bot_activity_logs WHERE bot_id = ?1 AND event = 'limit_paused' AND json_extract(details, '$.limit_type') = 'price'", [id], |r| r.get(0)).unwrap();
-        (format!("{out:?}"), t.posted_orders(), after, paused, model::price_paused(&o.primary, &model::load_bot(&o.primary, id).unwrap()).unwrap(), d, o)
+        (format!("{out:?}"), t.posted_orders(), after, paused, model::condition_paused_type(&o.primary, &model::load_bot(&o.primary, id).unwrap()).unwrap().is_some(), d, o)
     };
     let plain = run(None, None).await;
     assert_eq!(plain.0, "Done { placed: true }");

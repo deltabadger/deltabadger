@@ -623,12 +623,12 @@ async fn rejected_replacement_preserves_encrypted_credential_and_ledger_links() 
 async fn tax_guard_rolls_back_unsupported_protection_and_wakes_only_after_commit() {
     let server = MockServer::start().await;
     let mut h = Harness::new(server.uri()).await;
-    // A working bot the engine does not run (a drop rule): every account write is refused while it works, the wash-sale
+    // A working bot the engine does not run (an unknown rule): every account write is refused while it works, the wash-sale
     // answer included (the rule itself is admitted, PLAN-wash-sale WS-3).
     common::seed::insert_bot(
         &h.c,
         &h.seed,
-        &common::seed::BotSpec::weekly(60.0, "2026-09-01 00:00:00").with("price_drop_limited", serde_json::json!(true)),
+        &common::seed::BotSpec::weekly(60.0, "2026-09-01 00:00:00").with("future_limited", serde_json::json!(true)),
     );
     let wake = Arc::new(tokio::sync::Notify::new());
     h.app.attach_engine(wake.clone());

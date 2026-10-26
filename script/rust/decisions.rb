@@ -4375,6 +4375,67 @@ module Decisions
     end + alpaca_ath_page_scenarios(base)
   end
 
+  # Slice 7b-3: the three candle gates, both sides on the condition grid's reference venues.
+  # Daily closes are deterministic; drop windows also include a current candle (the 24-hour window).
+  def indicator_condition_scenarios
+    base = condition_scenarios.to_h { |sc| [sc['name'], sc] }
+    %w[kraken alpaca binance].flat_map do |venue|
+      %w[buy sell].flat_map do |side|
+        %w[price_drop moving_average indicator].flat_map do |rule|
+          %w[met unmet at_limit latch stored_unmet empty failed_read rejected_key check_met check_unmet].map do |name|
+            sc = Marshal.load(Marshal.dump(base.fetch("cond-#{venue}-#{side}-below_met")))
+            p = condition_scenarios_price(venue)
+            at = Time.iso8601(sc['at'])
+            key = "#{rule}_limit"
+            prefix = side == 'sell' ? "sell_#{key}" : key
+            met = %w[met check_met].include?(name)
+            sign = (side == 'buy') == met ? 1 : -1
+            value = rule == 'price_drop' ? p * (sign == 1 ? 2 : BigDecimal('0.5')) : p + sign * 50
+            closes = Array.new(30) { |i| rule == 'indicator' ? p - sign * i : value }
+            value = p if name == 'at_limit' && rule == 'price_drop'
+            closes = Array.new(30, p) if name == 'at_limit' && rule != 'indicator'
+            rows = closes.each_with_index.map { |c, i| [at.beginning_of_day - (30 - i).days, c.to_s('F')] }
+            rows << [at.beginning_of_day, (rule == 'price_drop' ? value : p + 1000).to_s('F')]
+            rows = [[at - 5.minutes, value.to_s('F')], [at, value.to_s('F')]] if rule == 'price_drop'
+            rows = [] if name == 'empty'
+            settings = sc['settings'].reject { |k, _| k.include?('price_limit') }
+            settings.merge!("#{prefix}ed" => true, "#{prefix}_action" => 'pause',
+                            "#{prefix}_timing_condition" => (name == 'latch' ? 'after' : 'while'),
+                            "#{prefix}_value_condition" => (side == 'buy' ? 'below' : 'above'),
+                            "#{prefix}_in_timeframe" => 'one_day')
+            settings.merge!(prefix => (name == 'at_limit' ? 0 : 0.2), "#{prefix}_time_window_condition" => 'twenty_four_hours') if rule == 'price_drop'
+            settings.merge!(prefix => (name == 'at_limit' ? (side == 'buy' ? 100 : 0) : (side == 'buy' ? 30 : 70))) if rule == 'indicator'
+            settings["#{prefix}_in_period"] = 9 if rule == 'moving_average'
+            transient = sc['transient'].reject { |k, _| k.include?('price_limit') }
+            transient["#{prefix}_condition_met_at"] = '2026-08-31T10:00:00.000Z' if %w[latch stored_unmet].include?(name)
+            path, answer = case venue
+                           when 'kraken'
+                             ['/0/public/OHLC', { 'error' => [], 'result' => { 'XXBTZEUR' => rows.map { |t, c| [t.to_i, c, c, c, c, c, '1.5', 10] }, 'last' => at.to_i } }]
+                           when 'alpaca'
+                             ['GET /v1beta3/crypto/us/bars', ok('bars' => { 'BTC/USD' => rows.map { |t, c| { 't' => t.iso8601, 'o' => c.to_f, 'h' => c.to_f, 'l' => c.to_f, 'c' => c.to_f, 'v' => 1.5 } } }, 'next_page_token' => nil)]
+                           else
+                             ['GET /api/v3/klines', ok(rows.map { |t, c| [t.to_i * 1000, c, c, c, c, '1.5', ((t + 1.day).to_i * 1000) - 1, '1', 10, '1', '1', '0'] })]
+                           end
+            if %w[failed_read rejected_key].include?(name)
+              answer = if venue == 'kraken'
+                         { 'error' => [name == 'rejected_key' ? 'EAPI:Invalid key' : 'EService:Unavailable'] }
+                       else
+                         { 'status' => (name == 'rejected_key' ? 401 : 500), 'body' => { 'message' => 'unavailable' } }
+                       end
+            end
+            script_key = venue == 'kraken' ? 'http' : venue
+            # A failed first read is not cached. The check then observes the met candles and re-arms the bot.
+            first = venue == 'kraken' ? { 'error' => ['EService:Unavailable'] } : { 'status' => 500, 'body' => { 'message' => 'unavailable' } }
+            sc['script'][script_key][path] = name == 'check_met' ? [first, answer] : [answer]
+            job = { 'price_drop' => 'PriceDrop', 'moving_average' => 'MovingAverage', 'indicator' => 'Indicator' }.fetch(rule)
+            sc.merge('name' => "indicator-#{venue}-#{side}-#{rule}-#{name}", 'settings' => settings, 'transient' => transient,
+                     'check_job' => "Bot::#{job}LimitCheckJob", 'check_at' => (name.start_with?('check_') ? (at + 180).iso8601(6) : nil))
+          end
+        end
+      end
+    end
+  end
+
   # The last price each reference venue's condition rows are scripted with (condition_scenarios' `price`).
   def condition_scenarios_price(venue) = { 'kraken' => BigDecimal('49995.3'), 'alpaca' => BigDecimal('64310.75'), 'binance' => BigDecimal('64000.05') }.fetch(venue)
 
@@ -5048,7 +5109,7 @@ def web_save(dir)
 end
 
 command, root = ARGV
-USAGE = 'usage: grid <root> | grid-signal <root> | grid-alpaca <root> | grid-basket <root> | grid-limit <root> | grid-limit-sell <root> | grid-binance <root> | grid-binance-us <root> | grid-kucoin <root> | grid-bitvavo <root> | grid-bitget <root> | grid-gemini <root> | grid-mexc <root> | grid-hyperliquid <root> | grid-bybit <root> | grid-bitrue <root> | grid-coinbase <root> | grid-bingx <root> | grid-sell <root> | grid-venue-basket <root> | grid-venue-index <root> | grid-conditions <root> | grid-condition-info <root> | grid-conditions-degenerate <root> | grid-basket-sell <root> | grid-rebalance <root> | grid-wash-sale <root> | record <root> | web-save <dir>'.freeze
+USAGE = 'usage: grid <root> | grid-signal <root> | grid-alpaca <root> | grid-basket <root> | grid-limit <root> | grid-limit-sell <root> | grid-binance <root> | grid-binance-us <root> | grid-kucoin <root> | grid-bitvavo <root> | grid-bitget <root> | grid-gemini <root> | grid-mexc <root> | grid-hyperliquid <root> | grid-bybit <root> | grid-bitrue <root> | grid-coinbase <root> | grid-bingx <root> | grid-sell <root> | grid-venue-basket <root> | grid-venue-index <root> | grid-conditions <root> | grid-condition-info <root> | grid-conditions-degenerate <root> | grid-conditions-indicators <root> | grid-basket-sell <root> | grid-rebalance <root> | grid-wash-sale <root> | record <root> | web-save <dir>'.freeze
 raise ArgumentError, USAGE unless root
 
 case command
@@ -5077,6 +5138,7 @@ when 'grid-venue-basket' then Decisions.grid(root, Decisions.venue_basket_scenar
 when 'grid-basket-sell' then Decisions.grid(root, Decisions.basket_sell_scenarios)
 when 'grid-rebalance' then Decisions.grid(root, Decisions.rebalance_scenarios)
 when 'grid-conditions' then Decisions.grid(root, Decisions.condition_scenarios)
+when 'grid-conditions-indicators' then Decisions.grid(root, Decisions.indicator_condition_scenarios)
 when 'grid-conditions-degenerate' then Decisions.grid(root, Decisions.degenerate_condition_scenarios)
 when 'grid-condition-info' then Decisions.grid(root, Decisions.condition_info_scenarios)
 when 'grid-signal' then Decisions.grid(root, Decisions.signal_scenarios)

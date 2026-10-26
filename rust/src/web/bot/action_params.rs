@@ -318,16 +318,18 @@ pub const BASKET_SCALARS: &[&str] = &[
 
 /// BotsController scalar allowlist, pinned to the generated Rails vector.
 /// BotsController#signal_bot_params: the name, the venue and Bots::Signal's two settings.
-/// D-SIG-CONDITIONS / D-SIG-CAP: and the fields of the rules this build runs on a signal bot (both sides of the price rule,
+/// D-SIG-CONDITIONS / D-SIG-CAP: and the fields of the rules this build runs on a signal bot (both sides of the price, drop, moving-average and RSI rules,
 /// the spending cap), beyond Rails' allowlist.
 pub const SIGNAL_SCALARS: &[&str] = &["label", "exchange_id", "base_asset_id", "quote_asset_id", "quote_amount_limited", "quote_amount_limit",
     "price_limited", "price_limit_mode", "price_limit", "price_limit_range_lower_bound", "price_limit_range_upper_bound", "price_limit_value_condition",
-    "sell_price_limited", "sell_price_limit_mode", "sell_price_limit", "sell_price_limit_range_lower_bound", "sell_price_limit_range_upper_bound", "sell_price_limit_value_condition"];
+    "sell_price_limited", "sell_price_limit_mode", "sell_price_limit", "sell_price_limit_range_lower_bound", "sell_price_limit_range_upper_bound", "sell_price_limit_value_condition",
+    "price_drop_limited", "price_drop_limit_mode", "price_drop_limit", "price_drop_limit_time_window_condition", "moving_average_limited", "moving_average_limit_mode", "moving_average_limit_value_condition", "moving_average_limit_in_ma_type", "moving_average_limit_in_timeframe", "moving_average_limit_in_period", "indicator_limited", "indicator_limit_mode", "indicator_limit", "indicator_limit_value_condition", "indicator_limit_in_indicator", "indicator_limit_in_timeframe", "sell_price_drop_limited", "sell_price_drop_limit_mode", "sell_price_drop_limit", "sell_price_drop_limit_time_window_condition", "sell_moving_average_limited", "sell_moving_average_limit_mode", "sell_moving_average_limit_value_condition", "sell_moving_average_limit_in_ma_type", "sell_moving_average_limit_in_timeframe", "sell_moving_average_limit_in_period", "sell_indicator_limited", "sell_indicator_limit_mode", "sell_indicator_limit", "sell_indicator_limit_value_condition", "sell_indicator_limit_in_indicator", "sell_indicator_limit_in_timeframe"];
 
 /// D-IDX-CONDITIONS / D-IDX-CAP: what an index bot's page posts for the rules this build runs on it (conditions::support),
 /// beyond Rails' allowlist.
 pub const INDEX_RULE_SCALARS: &[&str] = &["quote_amount_limited", "quote_amount_limit", "price_limited", "price_limit_mode", "price_limit",
-    "price_limit_range_lower_bound", "price_limit_range_upper_bound", "price_limit_value_condition", "price_limit_in_ticker_id"];
+    "price_limit_range_lower_bound", "price_limit_range_upper_bound", "price_limit_value_condition", "price_limit_in_ticker_id",
+    "price_drop_limited", "price_drop_limit_mode", "price_drop_limit", "price_drop_limit_time_window_condition", "moving_average_limited", "moving_average_limit_mode", "moving_average_limit_value_condition", "moving_average_limit_in_ma_type", "moving_average_limit_in_timeframe", "moving_average_limit_in_period", "indicator_limited", "indicator_limit_mode", "indicator_limit", "indicator_limit_value_condition", "indicator_limit_in_indicator", "indicator_limit_in_timeframe", "price_drop_limit_in_ticker_id", "moving_average_limit_in_ticker_id", "indicator_limit_in_ticker_id"];
 
 pub const INDEX_SCALARS: &[&str] = &[
     "quote_asset_id",

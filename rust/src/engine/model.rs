@@ -419,6 +419,10 @@ impl Bot {
             ticker_id, action, met_at_us: met_at,
         }))
     }
+    /// One implemented trigger, with Rails' side-specific defaults and validated values.
+    pub fn condition_rule(&self, kind: Rule, selling: bool) -> Result<Option<super::conditions::ConditionRule>, String> {
+        super::conditions::read_rule(self, kind, selling)
+    }
 }
 
 pub const SIGNAL_TYPE: &str = "Bots::Signal";
@@ -527,9 +531,11 @@ pub fn condition_paused(c: &Connection, bot: &Bot) -> Result<Option<String>, Eng
     Ok(details.get("limit_type").and_then(Value::as_str).map(str::to_string))
 }
 
-/// A bot resting on a price condition: `waiting`, paused by its price rule (the only one this engine runs).
-pub fn price_paused(c: &Connection, bot: &Bot) -> Result<bool, EngineError> {
-    Ok(bot.support(Rule::Price, bot.selling()) == Support::Implemented && bot.status == BotStatus::Waiting && condition_paused(c, bot)?.as_deref() == Some("price"))
+/// A waiting bot's live pause, if this engine implements that rule on its active side.
+pub fn condition_paused_type(c: &Connection, bot: &Bot) -> Result<Option<Rule>, EngineError> {
+    if bot.status != BotStatus::Waiting { return Ok(None); }
+    Ok(condition_paused(c, bot)?.and_then(|name| super::conditions::TRIGGERS.iter().find(|(r, _)| r.limit_type() == name)
+        .map(|(r, _)| *r)).filter(|r| bot.support(*r, bot.selling()) == Support::Implemented))
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -872,7 +878,7 @@ pub fn update_status(c: &Connection, bot_id: i64, status: BotStatus, now: DateTi
 /// `executing`/`waiting` exist only mid-tick: met outside one, the last run was cut short. Back to scheduled. A bot resting
 /// on a price condition is waiting by design (its check re-arms it) and stays.
 pub fn unstick(c: &Connection, bot_id: i64, now: DateTime<Utc>) -> Result<bool, EngineError> {
-    if price_paused(c, &load_bot(c, bot_id)?)? { return Ok(false); }
+    if condition_paused_type(c, &load_bot(c, bot_id)?)?.is_some() { return Ok(false); }
     let n = c.execute("UPDATE bots SET status = ?1, updated_at = ?2 WHERE id = ?3 AND status IN (?4, ?5)",
                       params![BotStatus::Scheduled as i64, format_time(now), bot_id, BotStatus::Executing as i64, BotStatus::Waiting as i64])?;
     Ok(n == 1)

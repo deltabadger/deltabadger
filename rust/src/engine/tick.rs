@@ -167,9 +167,18 @@ type PriceKey = (i64, i64, PriceSide);
 /// in the engine (and across a parity scenario's retries), never in a venue instance, so it survives venue recreation.
 type CachedPrice = (chrono::DateTime<chrono::Utc>, model::Produced<BigDec>);
 #[derive(Default)]
-pub struct PriceCache(std::cell::RefCell<std::collections::HashMap<PriceKey, CachedPrice>>);
+pub struct PriceCache(std::cell::RefCell<std::collections::HashMap<PriceKey, CachedPrice>>, ConditionCaches);
+type ConditionCaches = std::cell::RefCell<Vec<(Option<model::CredentialVersion>, std::rc::Rc<super::technical::Cache>)>>;
 
 impl PriceCache {
+    pub fn technical(&self, origin: &Option<model::CredentialVersion>) -> std::rc::Rc<super::technical::Cache> {
+        let mut caches = self.1.borrow_mut();
+        if let Some((_, cache)) = caches.iter().find(|(v, _)| v == origin) { return cache.clone(); }
+        let cache = std::rc::Rc::new(super::technical::Cache::default());
+        caches.push((origin.clone(), cache.clone()));
+        cache
+    }
+
     pub fn get(&self, key: PriceKey, now: chrono::DateTime<chrono::Utc>, version: &Option<model::CredentialVersion>) -> Option<BigDec> {
         let mut entries=self.0.borrow_mut();
         let stale=entries.get(&key).is_some_and(|(at,price)|
@@ -459,16 +468,16 @@ async fn execute<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::
     // Bot::PriceLimitable's decorator, inside Fundable and outside LimitOrderable's sweep (dca_multi_asset.rb:34-44): a paused
     // bot sweeps nothing. Met for the first time, the tick sizes from the row the stamp left.
     let refreshed;
-    let bot = match price_gate(c, venue, bot, clock, cx).await? {
+    let bot = match condition_gate(c, venue, bot, clock, cx).await? {
         Gated::Pass(None) => bot,
         Gated::Pass(Some(stamped)) => { refreshed = *stamped; &refreshed }
         Gated::Fail(f) => return Ok(Err(f)),
-        Gated::Pause => {
+        Gated::Pause(kind) => {
             // transition_working!(:waiting), `limit_paused`, the check at the end of the minute (run.rs); Fundable still runs.
             let now = clock.now();
             model::run_write(c, bot, |tx| {
                 model::transition_working(tx, bot_id, BotStatus::Waiting, now)?;
-                model::log_activity(tx, bot_id, "limit_paused", Level::Info, json!({ "limit_type": "price" }), now)
+                model::log_activity(tx, bot_id, "limit_paused", Level::Info, json!({ "limit_type": kind.limit_type() }), now)
             })?;
             return Ok(fundable(c, venue, bot, clock, false).await?.map(|()| Ran { placed: false, fenced: false, ledger_stale: None, paused: true }));
         }
@@ -583,15 +592,16 @@ async fn execute<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::
 /// Bot::PriceLimitable#execute_action's decision: pass to the rest of the tick, pause, or fail the tick (a rejected key raises
 /// out of limit_condition_met?, limit_checkable.rb:29-33; an in-app client raises a transport failure into retry_on). Any
 /// other failed read pauses: never trade on a read that could not be made.
-enum Gated { Pass(Option<Box<model::Bot>>), Pause, Fail(Fail) }
-async fn price_gate<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<Gated, EngineError> {
+enum Gated { Pass(Option<Box<model::Bot>>), Pause(super::conditions::Rule), Fail(Fail) }
+async fn condition_gate<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<Gated, EngineError> {
     use super::conditions::{self, Evaluated};
     // model::Bot::price_rule reads only a rule this build runs (conditions::support): the `pause` action.
     let rules = venue.rules();
-    Ok(match conditions::evaluate(c, venue, bot, clock, cx.prices, &cx.credential_version).await? {
+    let (kind, evaluated) = conditions::gate(c, venue, bot, bot.selling(), clock, cx.prices, &cx.credential_version).await?;
+    Ok(match evaluated {
         Evaluated::Off => Gated::Pass(None),
         Evaluated::Met { refreshed } => Gated::Pass(refreshed),
-        Evaluated::Unmet | Evaluated::Unavailable => Gated::Pause,
+        Evaluated::Unmet | Evaluated::Unavailable => Gated::Pause(kind),
         Evaluated::Failed(e) if conditions::raised(&e).is_some() => {
             let m = conditions::raised(&e).unwrap_or_default();
             Gated::Fail(Fail::General { message: m, errors: vec![], failed_row: false })
@@ -604,7 +614,7 @@ async fn price_gate<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &mode
             Gated::Fail(Fail::General { message: format!("{} rejected the API key: {}", rules.name, to_sentence(&e)), errors: vec![], failed_row: false })
         }
         Evaluated::Failed(VenueError::Transient(m)) if rules.transport_raises => Gated::Fail(Fail::Transient(m)),
-        Evaluated::Failed(_) => Gated::Pause,
+        Evaluated::Failed(_) => Gated::Pause(kind),
     })
 }
 
