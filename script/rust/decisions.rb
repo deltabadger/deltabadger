@@ -3,6 +3,7 @@
 #   bin/rails runner script/rust/decisions.rb grid-alpaca <root> # the same for Alpaca, scripted beneath Clients::Alpaca at the Faraday adapter
 #   bin/rails runner script/rust/decisions.rb grid-basket <root>  # Alpaca crypto baskets, with the engine's recovery and the next checkpoint
 #   bin/rails runner script/rust/decisions.rb grid-limit <root>   # the amount limit, its stop and its mail, on Alpaca crypto, Kraken and every VENUES row
+#   bin/rails runner script/rust/decisions.rb grid-limit-sell <root> # the base cap (slice 6d-2): its trim, stop and mail, and the stop at rotation, on 14 venues
 #   bin/rails runner script/rust/decisions.rb grid-binance <root> # Binance spot, scripted beneath honeymaker at the Faraday adapter
 #   bin/rails runner script/rust/decisions.rb grid-binance-us <root> # Binance.US spot: the Binance grid at api.binance.us
 #   bin/rails runner script/rust/decisions.rb grid-kucoin <root>  # KuCoin spot, scripted beneath honeymaker at the Faraday adapter
@@ -241,10 +242,10 @@ module Decisions
   JSON_COLUMNS = %w[settings transient_data details error_messages].freeze
   MAX_ATTEMPTS = 6
   # What only the Rust engine writes into transient_data: its placement intent, and the mails it owes (rust/src/engine/notice.rs).
-  MAIL_MARKERS = %w[rust_funds_mail_pending rust_error_mail_pending rust_stopped_mail_pending rust_limit_mail_pending].freeze
+  MAIL_MARKERS = %w[rust_funds_mail_pending rust_error_mail_pending rust_stopped_mail_pending rust_limit_mail_pending rust_base_limit_mail_pending].freeze
   # Its waits and counted amount-limit stops are the engine's own too (rust/src/engine/placement.rs, polling.rs).
   RUST_KEYS = (%w[rust_placement rust_signal_calls rust_defer_until rust_amount_limit_stops_pending run_generation tick_generation rust_rebalance_halted
-                  rust_index_resync rust_condition_info rust_condition_info_wanted] + MAIL_MARKERS).freeze
+                  rust_index_resync rust_condition_info rust_condition_info_wanted rust_base_cap_stop_mailed] + MAIL_MARKERS).freeze
   # One marker of each kind, as the engine leaves them: Rails must carry them through every write of a tick, untouched.
   SEEDED_MARKERS = { 'rust_funds_mail_pending' => { 'quote_asset' => 2, 'stamped_at' => '2026-08-31T09:00:00.000Z' },
                      'rust_error_mail_pending' => { 'unknown' => { 'error' => 'an <old> "error"', 'stamped_at' => '2026-08-31T09:00:00.000Z' } },
@@ -275,7 +276,10 @@ module Decisions
   def enqueued_mails
     ActiveJob::Base.queue_adapter.enqueued_jobs.select { |j| j['job_class'].to_s.end_with?('MailDeliveryJob') }.map do |j|
       params = j['arguments'][3]['params']
-      { 'mail' => j['arguments'][1], 'errors' => params['errors'], 'quote' => params['quote'] }.compact
+      mail = { 'mail' => j['arguments'][1], 'errors' => params['errors'], 'quote' => params['quote'] }
+      # The base cap's mail (slice 6d-2): its base and the cap as the mail prints it (Float#to_s).
+      mail.merge!('base' => params['base'], 'amount' => params['amount'].to_s) if j['arguments'][1] == 'stopped_by_base_amount_limit'
+      mail.compact
     end
   end
 
@@ -1412,6 +1416,132 @@ module Decisions
        venue_limited(venue, 'guard-trim', at: basket_at(1), settings:, ticker:, http: kit['ask'].('35900.000000000015'), kit:,
                      transactions: [limit_row(ext.(11), 3, quote_amount: '100', quote_amount_exec: '92.82', amount_exec: '0.002')])]
     end.tap { |l| raise "the other venues' limit grid has #{l.size} scenarios, not 40" unless l.size == 40 }
+  end
+
+  # Slice 6d-2: a one-asset basket selling 0.001 BTC a day under its base cap (Bot::BaseAmountLimitable), on every venue the
+  # engine trades: the tick's bodies (the bid, the free BTC, the placement and the quote read), a waiting row's external id, and
+  # a filled SELL of `qty` at `price`. The buying bot's kit is the quote cap's (6d-0).
+  LIMIT_SELL_VENUES = %w[alpaca kraken binance binance_us kucoin bitvavo bitget gemini mexc coinbase hyperliquid bybit bitrue bingx].freeze
+
+  def limit_sell_kit(venue)
+    quote_of = ->(qty, price) { (BigDecimal(qty) * BigDecimal(price)).to_s('F') }
+    case venue
+    when 'alpaca'
+      book = ok('quotes' => { 'BTC/USD' => { 'ap' => 64_010.0, 'as' => 0.5, 'bp' => 64_000.0, 'bs' => 0.4, 't' => '2026-09-01T10:00:00Z' } })
+      { 'key' => 'alpaca', 'ticker' => BASKET_PAIRS['BTC'], 'ext' => ->(n) { "OAL-#{n}" },
+        'http' => basket_http.merge('GET /v1beta3/crypto/us/latest/quotes' => [book], 'GET /v2/positions' => [ok([position('BTCUSD', '0.5')])],
+                                    'POST /v2/orders' => [ok(alpaca_order('OTX-1', 'pending_new', notional: nil).merge('side' => 'sell'))]),
+        'buy_http' => basket_http,
+        'fill' => lambda do |id, qty, price|
+          { "GET /v2/orders/#{id}" => [ok(alpaca_order(id, 'filled', notional: nil, qty:, filled_qty: qty, filled_avg_price: price).merge('side' => 'sell'))] }
+        end }
+    when 'kraken'
+      kit = venue_limit_kit('kraken')
+      held = { 'error' => [], 'result' => { 'ZEUR' => { 'balance' => '100000', 'hold_trade' => '0' }, 'XXBT' => { 'balance' => '0.5', 'hold_trade' => '0' } } }
+      kit.merge('http' => kit['http'].merge('/0/private/BalanceEx' => [held]), 'buy_http' => kit['http'],
+                'fill' => lambda do |id, qty, price|
+                  order = raw_order(status: 'closed', vol: qty, vol_exec: qty, cost: quote_of.(qty, price), price:, viqc: false)
+                  { '/0/private/QueryOrders' => [query_body(id => order.merge('fee' => '0', 'descr' => order['descr'].merge('type' => 'sell')))] }
+                end)
+    when 'binance', 'binance_us', 'kucoin'
+      kit = venue_limit_kit(venue == 'binance_us' ? 'binance' : venue)
+      kit = kit.merge('key' => venue) if venue == 'binance_us'
+      fill = if venue == 'kucoin'
+               ->(id, qty, price) { { "GET /api/v1/orders/#{id}" => [kc_ok(kc_order(id, active: false, deal_size: qty, deal_funds: quote_of.(qty, price), size: qty, funds: '0').merge('side' => 'sell'))] } }
+             else
+               lambda do |id, qty, price|
+                 n = id.delete_prefix('BTCUSDT-').to_i
+                 order = bn_order(n, 'FILLED', executed: qty, cumulative: quote_of.(qty, price)).merge('side' => 'SELL')
+                 { 'GET /api/v3/allOrders' => [ok([order])], 'GET /api/v3/order' => [ok(order)],
+                   'GET /api/v3/myTrades' => [ok([bn_trade(1, n, price, qty, asset: 'USDT', buyer: false)])] }
+               end
+             end
+      kit.merge('buy_http' => kit['http'], 'fill' => fill)
+    else
+      kit = more_venue_limit_kit(venue)
+      http = kit['http']
+      mx_fill = ->(id, qty, price) { mx_order(id, 'FILLED', executed: qty, cumulative: quote_of.(qty, price)).merge('side' => 'SELL') }
+      sell_http, fill = case venue
+                        when 'bitvavo'
+                          [http.merge('POST /v2/order' => [ok(bv_order(BV_ORDER, 'new', side: 'sell', amount: '0.001'))]),
+                           lambda do |id, qty, price|
+                             n = id.delete_prefix('BTC-EUR-')
+                             { "GET /v2/order?market=BTC-EUR&orderId=#{n}" => [ok(bv_order(n, 'filled', side: 'sell', amount: qty, filled: qty, filled_quote: quote_of.(qty, price)))] }
+                           end]
+                        when 'bitget'
+                          [http, lambda do |id, qty, price|
+                            n = id.delete_prefix('BTCUSDT-')
+                            { "GET /api/v2/spot/trade/orderInfo?orderId=#{n}" => [bg_ok([bg_order(n, 'filled', side: 'sell', size: qty, price_avg: price, base: qty, quote: quote_of.(qty, price))])] }
+                          end]
+                        when 'gemini'
+                          [http.merge('POST /v1/order/new' => [ok(gm_order(7_612_345_678, live: false, side: 'sell', executed: '0', original: '0.001', avg: '0'))]),
+                           ->(id, qty, price) { { 'POST /v1/order/status' => [ok(gm_order(id, live: false, side: 'sell', original: qty, executed: qty, avg: price))] } }]
+                        when 'mexc'
+                          [http, ->(id, qty, price) { { 'GET /api/v3/order' => [ok(mx_fill.(id.delete_prefix('BTCUSDT-'), qty, price))] } }]
+                        when 'bitrue'
+                          [http, ->(id, qty, price) { { 'GET /api/v1/order' => [ok(mx_fill.(id.delete_prefix('BTCUSDT-'), qty, price))] } }]
+                        when 'bingx'
+                          bx = ->(data) { ok('code' => 0, 'data' => data) }
+                          [http, ->(id, qty, price) { { 'GET /openApi/spot/v1/trade/query' => [bx.(mx_fill.(id.delete_prefix('BTC-USDT-'), qty, price).merge('symbol' => 'BTC-USDT'))] } }]
+                        when 'bybit'
+                          wallet = by_ok('list' => [{ 'coin' => [{ 'coin' => 'USDT', 'walletBalance' => '100000', 'locked' => '0', 'spotBorrow' => '0' },
+                                                                 { 'coin' => 'BTC', 'walletBalance' => '0.5', 'locked' => '0', 'spotBorrow' => '0' }] }])
+                          [http.merge('GET /v5/account/wallet-balance' => [wallet]),
+                           ->(id, qty, price) { { 'GET /v5/order/realtime' => [by_ok('list' => [by_order(id, 'Filled', base: qty, quote: quote_of.(qty, price)).merge('side' => 'Sell', 'qty' => qty)])] } }]
+                        when 'coinbase'
+                          positions = [{ 'asset' => 'EUR', 'available_to_trade_crypto' => '100000', 'total_balance_crypto' => '100000' },
+                                       { 'asset' => 'BTC', 'available_to_trade_crypto' => '0.5', 'total_balance_crypto' => '0.5' }]
+                          batch = 'GET /api/v3/brokerage/orders/historical/batch'
+                          [http.merge('GET /api/v3/brokerage/portfolios/p' => [ok('breakdown' => { 'spot_positions' => positions })]),
+                           lambda do |id, qty, price|
+                             order = coinbase_order(id).merge('side' => 'SELL', 'filled_size' => qty, 'average_filled_price' => price, 'total_value_after_fees' => quote_of.(qty, price),
+                                                              'order_configuration' => { 'market_market_ioc' => { 'base_size' => qty } })
+                             { batch => [ok('orders' => [order], 'has_next' => false)], "GET /api/v3/brokerage/orders/historical/#{id}" => [ok('order' => order)] }
+                           end]
+                        when 'hyperliquid'
+                          [http, lambda do |id, qty, price|
+                            oid = id.delete_prefix('BTC-').to_i
+                            { 'POST /info orderStatus' => [hl_order(oid, status: 'filled', side: 'A', limit: price, orig: qty)],
+                              'POST /info userFillsByTime' => [ok([hl_fill(oid, qty, price, 9800, side: 'A')])] }
+                          end]
+                        end
+      kit.merge('http' => sell_http, 'buy_http' => http, 'fill' => fill)
+    end
+  end
+
+  # The cases on each venue: the cap trims the sell, a used cap makes no exchange call, a cancelled partial counts, a follow-up
+  # fill that uses the cap stops the bot and mails (twice: once with a cap Float#to_s writes in exponent form, D-6D-1), a
+  # swept one stops it after the run, a fill short of it does neither; a rotation into selling with the cap used (a stopped
+  # bot, a working one: D-6D-2) or with some left; and a buying bot, whose base cap is inert.
+  def limit_sell_scenarios
+    LIMIT_SELL_VENUES.flat_map do |venue|
+      kit = limit_sell_kit(venue)
+      ext = kit['ext']
+      sell = ->(id, status, amount, exec = nil) { limit_row(id, status, side: 1, amount:, amount_exec: exec, price: '64000') }
+      at = basket_at(1)
+      one = lambda do |name, limit: 0.01, settings: {}, transactions: [], http: {}, buy: false, **extra|
+        selling = { 'direction' => 'selling', 'sell_denomination' => 'base', 'sell_amount' => 0.001, 'sell_interval' => 'day' }
+        { 'name' => "limit-sell-#{venue}-#{name}", 'venue' => venue, 'interval' => 'day', 'quote_amount' => 60.0, 'started_at' => BASKET_STARTED,
+          'settings' => selling.merge('base_amount_limited' => true, 'base_amount_limit' => limit).merge(kit.fetch('settings', {}), settings),
+          'settings_changed_at' => nil, 'transient' => { 'base_amount_limit_enabled_at' => LIMIT_STAMP }, 'transactions' => transactions,
+          'ticker' => kit['ticker'], 'members' => nil, 'at' => at, 'script' => { kit['key'] => (buy ? kit['buy_http'] : kit['http']).merge(http) }, 'tick' => true }
+          .merge(extra.transform_keys(&:to_s))
+      end
+      stopped = { 'status' => Bot.statuses[:stopped], 'stopped_at' => Time.utc(2026, 8, 1), 'stop_message_key' => 'bot.status.stopped_by_user' }
+      used = [sell.(ext.(1), 2, '0.01', '0.01')]
+      [one.('trim', transactions: [sell.(ext.(1), 2, '0.0095', '0.0095')]),
+       one.('used', transactions: used),
+       one.('cancelled_partial', transactions: [sell.(ext.(2), 3, '0.01', '0.0093')]),
+       one.('poll_reaches', tick: false, poll: ext.(3), transactions: [sell.(ext.(3), 0, '0.01')], http: kit['fill'].(ext.(3), '0.01', '64000')),
+       one.('poll_reaches_exponent', limit: 1.0e-05, tick: false, poll: ext.(4), transactions: [sell.(ext.(4), 0, '0.00001')],
+            http: kit['fill'].(ext.(4), '0.00001', '64000')),
+       one.('poll_short', limit: 0.02, tick: false, poll: ext.(5), transactions: [sell.(ext.(5), 0, '0.01')], http: kit['fill'].(ext.(5), '0.01', '64000')),
+       one.('sweep_reaches', transactions: [sell.(ext.(6), 0, '0.01')], http: kit['fill'].(ext.(6), '0.01', '64000')),
+       one.('rotation_used_stopped', settings: { 'direction' => 'buying' }, transactions: used, tick: false, reverse: true, bot_columns: stopped),
+       one.('rotation_used_working', settings: { 'direction' => 'buying' }, transactions: used, tick: false, reverse: true),
+       one.('rotation_left', limit: 0.02, settings: { 'direction' => 'buying' }, transactions: used, tick: false, reverse: true, bot_columns: stopped),
+       one.('buying_inert', settings: { 'direction' => 'buying' }, transactions: used, buy: true)]
+    end.tap { |l| raise "the limit sell grid has #{l.size} scenarios, not 154" unless l.size == 154 }
   end
 
   # Plan 2d: Alpaca stocks and ETFs. Tuesday 2026-09-01, 10:00 EDT; September is EDT, so a session is 13:30–20:00 UTC.
@@ -4633,11 +4763,11 @@ module Decisions
       apply_wash(bot, sc['wash']) if sc['wash']
       enc = ActiveRecord::Encryption.config
       File.write(File.join(dir, 'scenario.json'),
-                 JSON.pretty_generate({ 'encryption' => (%w[index venue_index].include?(sc['kind']) ? { 'primary_key' => Array(enc.primary_key).first, 'key_derivation_salt' => enc.key_derivation_salt } : nil), 'parity_scratch' => true, 'bot_id' => bot.id, 'at' => sc['at'], 'venue' => sc['venue'], 'script' => sc['script'],
+                 JSON.pretty_generate({ 'encryption' => (%w[index venue_index].include?(sc['kind']) || sc['reverse'] ? { 'primary_key' => Array(enc.primary_key).first, 'key_derivation_salt' => enc.key_derivation_salt } : nil), 'parity_scratch' => true, 'bot_id' => bot.id, 'at' => sc['at'], 'venue' => sc['venue'], 'script' => sc['script'],
                                         'tick' => sc['tick'], 'poll' => sc['poll'], 'recover_at' => sc['recover_at'], 'next_at' => sc['next_at'], 'rebalance_at' => sc['rebalance_at'],
                                         'between' => sc['between'], 'rails_cache' => sc['rails_cache'], 'check_at' => sc['check_at'],
                                         'conditions' => sc['conditions'], 'info' => sc['info'], 'check_job' => sc['check_job'], 'info_job' => sc['info_job'],
-                                        'record_reads' => sc['record_reads'], 'resync_at' => sc['resync_at'], 'trigger' => sc['trigger'],
+                                        'record_reads' => sc['record_reads'], 'resync_at' => sc['resync_at'], 'trigger' => sc['trigger'], 'reverse' => sc['reverse'],
                                         # Bot::SignalJob's arguments: the rule (by its id) and when the call arrived.
                                         'signals' => sc['calls']&.map { |c| { 'signal_id' => bot.bot_signals.order(:id)[c['rule']].id, 'triggered_at' => c['triggered_at'] } },
                                         'before_signal' => sc['before_signal'], 'secret' => sc['secret'], 'warn' => sc['warn'],
@@ -4792,6 +4922,13 @@ module Decisions
         mails.concat(enqueued_mails)
         ActiveJob::Base.queue_adapter.enqueued_jobs.clear
       end
+      # Slice 6d-2: the ⇄ control at `at` (BotsController#reverse → Bot::Reversible#rotate_direction!), before any tick. The
+      # Bot::ActionJob it enqueues for a working bot is not run.
+      if sc['reverse']
+        travel_to(Time.iso8601(sc['at']), with_usec: true) { Bot.find(sc['bot_id']).rotate_direction! }
+        mails.concat(enqueued_mails)
+        ActiveJob::Base.queue_adapter.enqueued_jobs.clear
+      end
       $warnings = sc['warn'] ? [] : nil
       if sc.fetch('tick', true)
         tick_at(sc, Time.iso8601(sc['at']), mails)
@@ -4911,7 +5048,7 @@ def web_save(dir)
 end
 
 command, root = ARGV
-USAGE = 'usage: grid <root> | grid-signal <root> | grid-alpaca <root> | grid-basket <root> | grid-limit <root> | grid-binance <root> | grid-binance-us <root> | grid-kucoin <root> | grid-bitvavo <root> | grid-bitget <root> | grid-gemini <root> | grid-mexc <root> | grid-hyperliquid <root> | grid-bybit <root> | grid-bitrue <root> | grid-coinbase <root> | grid-bingx <root> | grid-sell <root> | grid-venue-basket <root> | grid-venue-index <root> | grid-conditions <root> | grid-condition-info <root> | grid-conditions-degenerate <root> | grid-basket-sell <root> | grid-rebalance <root> | grid-wash-sale <root> | record <root> | web-save <dir>'.freeze
+USAGE = 'usage: grid <root> | grid-signal <root> | grid-alpaca <root> | grid-basket <root> | grid-limit <root> | grid-limit-sell <root> | grid-binance <root> | grid-binance-us <root> | grid-kucoin <root> | grid-bitvavo <root> | grid-bitget <root> | grid-gemini <root> | grid-mexc <root> | grid-hyperliquid <root> | grid-bybit <root> | grid-bitrue <root> | grid-coinbase <root> | grid-bingx <root> | grid-sell <root> | grid-venue-basket <root> | grid-venue-index <root> | grid-conditions <root> | grid-condition-info <root> | grid-conditions-degenerate <root> | grid-basket-sell <root> | grid-rebalance <root> | grid-wash-sale <root> | record <root> | web-save <dir>'.freeze
 raise ArgumentError, USAGE unless root
 
 case command
@@ -4922,6 +5059,7 @@ when 'grid-stock' then Decisions.grid(root, Decisions.stock_scenarios)
 when 'grid-index' then Decisions.grid(root, Decisions.index_scenarios)
 when 'grid-venue-index' then Decisions.grid(root, Decisions.venue_index_scenarios)
 when 'grid-limit' then Decisions.grid(root, Decisions.limit_scenarios)
+when 'grid-limit-sell' then Decisions.grid(root, Decisions.limit_sell_scenarios)
 when 'grid-binance' then Decisions.grid(root, Decisions.binance_scenarios)
 when 'grid-binance-us' then Decisions.grid(root, Decisions.binance_scenarios('binance_us'))
 when 'grid-kucoin' then Decisions.grid(root, Decisions.kucoin_scenarios)

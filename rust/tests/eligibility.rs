@@ -102,7 +102,9 @@ fn each_thing_outside_the_slice_is_refused_with_its_reason() {
         // Lifting the starting time left the suffix rule whole: any other `*_limited`, `*_ordered`, `*_intervaled` refuses.
         ("stop_ordered", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("stop_ordered", json!(true))))),
         ("volume_intervaled", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("volume_intervaled", json!("1"))))),
-        ("base_amount_limited", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("base_amount_limited", json!(true))))),
+        // Slice 6d-2 runs the base cap: one it cannot read is refused by name.
+        ("base_amount_limit \"x\" is not a number", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("direction", json!("selling")).with("sell_denomination", json!("base"))
+            .with("sell_amount", json!(0.001)).with("base_amount_limited", json!(true)).with("base_amount_limit", json!("x"))))),
         // A starting time runs only as a fresh start leaves it (start_at = started_at); this one's start_at is elsewhere.
         ("start_time_enabled", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("start_time_enabled", json!(true)).with("start_at", json!("2020-01-01T00:00:00Z"))))),
         ("rebalance_threshold [1] is not a number", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("rebalance_enabled", json!(true)).with("rebalance_threshold", json!([1]))))),

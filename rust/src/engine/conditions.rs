@@ -21,9 +21,11 @@ pub const TRIGGERS: [(Rule, &str); 4] = [(Rule::Price, "price_limit"), (Rule::Pr
                                           (Rule::MovingAverage, "moving_average_limit"), (Rule::Indicator, "indicator_limit")];
 
 impl Rule {
-    /// The rule a switch names, and whether it is the sell side's: `quote_amount_limited`, `[sell_]<prefix>ed`.
+    /// The rule a switch names, and whether it is the sell side's: `quote_amount_limited`, `base_amount_limited` (the cap's
+    /// sell side, slice 6d), `[sell_]<prefix>ed`.
     pub fn of_flag(key: &str) -> Option<(Rule, bool)> {
         if key == "quote_amount_limited" { return Some((Rule::Cap, false)); }
+        if key == "base_amount_limited" { return Some((Rule::Cap, true)); }
         let (selling, rest) = match key.strip_prefix("sell_") { Some(rest) => (true, rest), None => (false, key) };
         let prefix = rest.strip_suffix("ed")?;
         TRIGGERS.iter().find(|(_, p)| *p == prefix).map(|(rule, _)| (*rule, selling))

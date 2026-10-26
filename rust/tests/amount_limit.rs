@@ -783,10 +783,10 @@ fn base_left(o: &store::Opened, id: i64) -> (String, bool) {
 }
 
 /// D-6D-3: a sell that reported nothing, or part, of its 0.01 and was then abandoned still holds the whole 0.01 of a 0.01
-/// cap, so the next tick's reading leaves nothing to sell (Rails counts the reported exec only and reopens the rest). Once
-/// polling settles it as cancelled, its exec is what it sold.
-#[test]
-fn zero_and_partial_reported_exec_then_abandoned_then_another_tick_sells_nothing_past_the_cap() {
+/// cap, so the next tick sells nothing and asks the venue nothing (Rails counts the reported exec only and reopens the rest).
+/// Once polling settles it as cancelled, its exec is what it sold, and the tick after that sells again.
+#[tokio::test(flavor = "current_thread")]
+async fn zero_and_partial_reported_exec_then_abandoned_then_another_tick_sells_nothing_past_the_cap() {
     for exec in ["0", "0.004"] {
         let (_d, o, s) = common::install_alpaca();
         let id = seed::insert_bot(&o.primary, &s, &base_capped(json!(0.01)));
@@ -796,9 +796,16 @@ fn zero_and_partial_reported_exec_then_abandoned_then_another_tick_sells_nothing
         assert_eq!(base_left(&o, id), ("0".into(), true), "exec {exec}: reported, still open");
         o.primary.execute("UPDATE transactions SET external_status = 4 WHERE id = ?1", [row]).unwrap();
         assert_eq!(base_left(&o, id), ("0".into(), true), "exec {exec}: abandoned, the next tick has nothing to sell");
+        let t = seller(json!({}));
+        let out = tick::tick(&o.primary, &venue(&t), id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
+        assert!(matches!(out, TickOutcome::Done { placed: false }), "exec {exec}: {out:?}");
+        assert!(t.posted_orders().is_empty() && !asked_price(&t), "exec {exec}: sell_skipped cap_reached, before any exchange call");
         o.primary.execute("UPDATE transactions SET external_status = 3 WHERE id = ?1", [row]).unwrap();
         let left = if exec == "0" { "0.01" } else { "0.006" };
         assert_eq!(base_left(&o, id), (left.into(), false), "exec {exec}: reconciled as cancelled, its exec is what it sold");
+        let out = tick::tick(&o.primary, &venue(&t), id, &FixedClock(at("2026-09-08T10:00:00.5Z")), &mut Attempts::default()).await.unwrap();
+        assert!(matches!(out, TickOutcome::Done { placed: true }), "exec {exec}: {out:?}");
+        assert_eq!(sold(&t), vec!["0.001000000"], "exec {exec}: the per-tick 0.001, under what is left");
     }
 }
 
@@ -833,4 +840,257 @@ fn start_validation_equals_the_engine_at_the_boundary() {
         let refused = draft.errors.iter().any(|e| e.field == "settings");
         assert_eq!(refused, reached, "the start validation: {rows:?}: {:?}", draft.errors.iter().map(|e| (&e.field, &e.message)).collect::<Vec<_>>());
     }
+}
+
+// ---- Slice 6d-2: the base cap enforced (T4), its stop and mail (T5), and the stop at rotation (T6, D-6D-2) ----
+
+/// Bids 64000 and 0.5 BTC free; `over` replaces whole keys.
+fn seller(over: Value) -> deltabadger::venue::http::ScriptedTransport {
+    let mut m = json!({ "GET /v1beta3/crypto/us/latest/quotes": [ok(json!({ "quotes": { "BTC/USD": { "ap": 64010, "bp": 64000 } } }))],
+                        "GET /v2/positions": [ok(json!([{ "asset_class": "crypto", "symbol": "BTCUSD", "qty": "0.5", "qty_available": "0.5" }]))] });
+    for (k, v) in over.as_object().unwrap() { m[k] = v.clone(); }
+    script(m)
+}
+fn sold(t: &deltabadger::venue::http::ScriptedTransport) -> Vec<String> {
+    t.posted_orders().iter().map(|o| { assert_eq!(o["side"], "sell"); o["qty"].as_str().unwrap().to_string() }).collect()
+}
+fn asked_price(t: &deltabadger::venue::http::ScriptedTransport) -> bool { t.requests().iter().any(|r| r.path.contains("/latest/") || r.path == "/v2/positions") }
+fn sell_filled(id: &str, qty: &str) -> Value {
+    ok(json!({ "id": id, "status": "filled", "symbol": "BTC/USD", "type": "market", "side": "sell", "notional": null, "qty": qty,
+               "filled_qty": qty, "filled_avg_price": "64000", "limit_price": null }))
+}
+fn stop_key(o: &store::Opened) -> Option<String> { one(o, "SELECT stop_message_key FROM bots") }
+fn base_mail(o: &store::Opened) -> Option<String> { one(o, "SELECT json_extract(transient_data, '$.rust_base_limit_mail_pending.stamped_at') FROM bots") }
+const SOLD: &str = deltabadger::engine::amount_limit::AMOUNT_SOLD;
+
+#[tokio::test(flavor = "current_thread")]
+async fn the_base_cap_trims_a_sell_and_a_used_cap_makes_no_venue_call() {
+    // 0.0095 of the 0.01 sold: the 0.001 a tick sells is cut to the 0.0005 left.
+    let (_d, o, s) = common::install_alpaca();
+    let id = seed::insert_bot(&o.primary, &s, &base_capped(json!(0.01)));
+    seed::insert_row(&o.primary, &s, id, s.btc, &sell_row("OC", 2, "0.0095", Some("0.0095")));
+    let t = seller(json!({}));
+    tick::tick(&o.primary, &venue(&t), id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
+    assert_eq!(sold(&t), vec!["0.000500000"]);
+    // All of it sold: no price, no balance, no order.
+    let (_d, o, s) = common::install_alpaca();
+    let id = seed::insert_bot(&o.primary, &s, &base_capped(json!(0.01)));
+    seed::insert_row(&o.primary, &s, id, s.btc, &sell_row("OC", 2, "0.01", Some("0.01")));
+    let t = seller(json!({}));
+    let out = tick::tick(&o.primary, &venue(&t), id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
+    assert!(matches!(out, TickOutcome::Done { placed: false }), "{out:?}");
+    assert!(t.posted_orders().is_empty() && !asked_price(&t));
+    assert_eq!(model::load_bot(&o.primary, id).unwrap().status, BotStatus::Scheduled, "a tick only skips; the stop is the fill's");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn an_open_sell_reserves_and_a_cancelled_partial_counts() {
+    for (row, rest, left) in [(sell_row("OS", 1, "0.0096", Some("0")), json!({ "GET /v2/orders/OS": [ok(json!({ "id": "OS", "status": "new", "symbol": "BTC/USD",
+                                  "type": "limit", "side": "sell", "notional": null, "qty": "0.0096", "filled_qty": "0", "filled_avg_price": null, "limit_price": "70000" }))] }), "0.000400000"),
+                              (sell_row("OX", 3, "0.01", Some("0.0093")), json!({}), "0.000700000")] {
+        let (_d, o, s) = common::install_alpaca();
+        let id = seed::insert_bot(&o.primary, &s, &base_capped(json!(0.01)));
+        seed::insert_row(&o.primary, &s, id, s.btc, &row);
+        let t = seller(rest);
+        tick::tick(&o.primary, &venue(&t), id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
+        assert_eq!(sold(&t), vec![left], "{row}");
+    }
+}
+
+/// Inert while buying (the cap belongs to the sell side) and on a wider basket (no single base, base_amount_limited? is
+/// false): a used cap trims nothing.
+#[tokio::test(flavor = "current_thread")]
+async fn the_base_cap_is_inert_while_buying_and_on_a_wider_basket() {
+    let (_d, o, s) = common::install_alpaca();
+    let id = seed::insert_bot(&o.primary, &s, &base_capped(json!(0.01)).with("direction", json!("buying")));
+    seed::insert_row(&o.primary, &s, id, s.btc, &sell_row("OC", 2, "0.01", Some("0.01")));
+    let t = seller(json!({}));
+    tick::tick(&o.primary, &venue(&t), id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
+    assert_eq!(t.posted_orders()[0]["side"], "buy", "a buying bot buys");
+    assert!(model::load_bot(&o.primary, id).unwrap().base_amount_limit().unwrap().is_none());
+    let (_d, o, s) = common::install_alpaca();
+    let (eth, _) = seed::add_eth_sol(&o.primary, &s);
+    let id = seed::insert_bot(&o.primary, &s, &base_capped(json!(0.01)).with("sell_denomination", json!("quote")).with("sell_quote_amount", json!(10.0))
+        .weights(&[(s.btc, 0.5), (eth, 0.5)]));
+    seed::insert_row(&o.primary, &s, id, s.btc, &sell_row("OC", 2, "0.01", Some("0.01")));
+    let bot = model::load_bot(&o.primary, id).unwrap();
+    assert!(!bot.base_amount_limited() && deltabadger::engine::accounting::base_amount_available_num(&o.primary, &bot).unwrap().is_none());
+    assert!(deltabadger::engine::eligibility::bot_reasons(&o.primary, &bot).unwrap().is_empty(), "admitted, inert");
+}
+
+/// A follow-up poll whose sell fill uses the cap up stops the bot in the fill's transaction (Bot::StopJob(amount_sold)) and
+/// owes the base cap's mail; a fill short of it does neither. A buy fill never touches the base cap.
+#[tokio::test(flavor = "current_thread")]
+async fn a_follow_up_sell_fill_that_uses_the_cap_stops_the_bot_and_owes_the_base_mail() {
+    for (cap, stopped) in [(0.01, true), (0.02, false)] {
+        let (_d, o, s) = common::install_alpaca();
+        let id = seed::insert_bot(&o.primary, &s, &base_capped(json!(cap)));
+        let order = seed::insert_row(&o.primary, &s, id, s.btc, &sell_row("OS", 0, "0.01", None));
+        let t = script(json!({ "GET /v2/orders/OS": [sell_filled("OS", "0.01")] }));
+        polling::follow_up(&o.primary, &venue(&t), id, order, at("2026-09-01T10:00:06Z")).await.unwrap();
+        let b = model::load_bot(&o.primary, id).unwrap();
+        if stopped {
+            assert_eq!((b.status, stop_key(&o).as_deref()), (BotStatus::Stopped, Some(SOLD)));
+            assert_eq!(base_mail(&o).as_deref(), Some("2026-09-01T10:00:06.000Z"));
+            assert!(b.transient.get(deltabadger::engine::notice::LIMIT).is_none(), "not the quote cap's mail");
+            assert_eq!(b.transient[deltabadger::engine::amount_limit::STOP_MAILED], json!(b.base_amount_limit_key().unwrap()));
+            let mails = deltabadger::engine::notice::all_pending(&o.primary).unwrap();
+            assert_eq!(mails.iter().map(|p| p.notice.mail()).collect::<Vec<_>>(), vec!["stopped_by_base_amount_limit"]);
+        } else {
+            assert_eq!((b.status, base_mail(&o)), (BotStatus::Scheduled, None));
+        }
+    }
+}
+
+/// A swept fill counts its stop with `kind: base` in the fill's transaction; the tick's end runs it (amount_sold), and so
+/// does the next start after a crash. A legacy count (no kind) is the quote cap's.
+#[tokio::test(flavor = "current_thread")]
+async fn a_swept_sell_fill_stops_at_the_ticks_end_and_after_a_crash_and_a_legacy_count_is_the_quote_caps() {
+    let (_d, o, s) = common::install_alpaca();
+    let id = seed::insert_bot(&o.primary, &s, &base_capped(json!(0.01)));
+    seed::insert_row(&o.primary, &s, id, s.btc, &sell_row("OS", 0, "0.01", None));
+    let t = seller(json!({ "GET /v2/orders/OS": [sell_filled("OS", "0.01")] }));
+    tick::tick(&o.primary, &venue(&t), id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
+    // Bot::StopJob runs after the run whose sweep committed the fill: that run reads the cap used (cap_reached), then stops.
+    assert!(sold(&t).is_empty());
+    assert_eq!((model::load_bot(&o.primary, id).unwrap().status, stop_key(&o).as_deref()), (BotStatus::Stopped, Some(SOLD)));
+    assert!(base_mail(&o).is_some());
+
+    let dir = common::rails_install();
+    let paths = store::Paths::from_env(&|_| None, dir.path());
+    let o = store::open(&paths).unwrap();
+    let s = seed::seed_alpaca(&o.primary, &seed::cipher());
+    let id = seed::insert_bot(&o.primary, &s, &base_capped(json!(0.01)));
+    seed::insert_row(&o.primary, &s, id, s.btc, &sell_row("OS", 0, "0.01", None));
+    let t = seller(json!({ "GET /v2/orders/OS": [sell_filled("OS", "0.01")] }));
+    o.primary.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.last_action_job_at', '2026-09-08T10:00:00.500Z') WHERE id = ?1", [id]).unwrap();
+    polling::sweep(&o.primary, &venue(&t), &model::load_bot(&o.primary, id).unwrap(), at("2026-09-08T10:00:00.5Z")).await.unwrap();
+    assert_eq!(one::<String>(&o, "SELECT json_extract(transient_data, '$.rust_amount_limit_stops_pending.kind') FROM bots"), "base");
+    drop(o);
+    let lock = deltabadger::lease::lock(&paths, at("2026-09-08T10:05:00Z")).unwrap();
+    let mut e = deltabadger::engine::run::Engine::new(store::open(&paths).unwrap().primary, ScriptedFactory(t.clone()), seed::cipher(), lock);
+    deltabadger::engine::run::step(&mut e, &FixedClock(at("2026-09-08T10:05:00Z"))).await.unwrap();
+    let (status, key): (i64, String) = e.primary.query_row("SELECT status, stop_message_key FROM bots WHERE id = ?1", [id], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+    assert_eq!((status, key.as_str()), (BotStatus::Stopped as i64, SOLD), "the counted stop replays at the next start");
+
+    // A count written before 6d-2 has no kind: the quote cap's stop.
+    let (_d, o, id) = counted_stop().await;
+    o.primary.execute("UPDATE bots SET transient_data = json_remove(transient_data, '$.rust_amount_limit_stops_pending.kind') WHERE id = ?1", [id]).unwrap();
+    tick::run_pending_amount_limit_stops(&o.primary, id, at("2026-09-08T10:00:01Z")).unwrap();
+    assert_eq!(stop_key(&o).as_deref(), Some(tick::AMOUNT_SPENT));
+}
+
+/// Two sell fills that each reach the cap before a send owe one mail: the marker is one key.
+#[tokio::test(flavor = "current_thread")]
+async fn one_base_mail_per_marker() {
+    let (_d, o, s) = common::install_alpaca();
+    let id = seed::insert_bot(&o.primary, &s, &base_capped(json!(0.01)));
+    let a = seed::insert_row(&o.primary, &s, id, s.btc, &sell_row("OA", 0, "0.01", None));
+    let b = seed::insert_row(&o.primary, &s, id, s.btc, &sell_row("OB", 0, "0.001", None));
+    let t = script(json!({ "GET /v2/orders/OA": [sell_filled("OA", "0.01")], "GET /v2/orders/OB": [sell_filled("OB", "0.001")] }));
+    polling::follow_up(&o.primary, &venue(&t), id, a, at("2026-09-01T10:00:06Z")).await.unwrap();
+    polling::follow_up(&o.primary, &venue(&t), id, b, at("2026-09-01T10:00:07Z")).await.unwrap();
+    assert_eq!(one::<i64>(&o, "SELECT count(*) FROM bot_activity_logs WHERE event = 'stopped'"), 2, "one Bot::StopJob per callback");
+    assert_eq!(deltabadger::engine::notice::all_pending(&o.primary).unwrap().len(), 1);
+}
+
+/// A lost reply on a sell, then the recovery finds it filled and its fill uses the cap: stopped (amount_sold) in the
+/// recovery's transaction, the base mail owed there too.
+#[tokio::test(flavor = "current_thread")]
+async fn a_recovered_sell_fill_that_uses_the_cap_stops_the_bot() {
+    let (_d, o, s) = common::install_alpaca();
+    let id = seed::insert_bot(&o.primary, &s, &base_capped(json!(0.001)));
+    let t = seller(json!({ "POST /v2/orders": [{ "network": "post_send", "message": POST_SEND }] }));
+    let v = venue(&t);
+    tick::tick(&o.primary, &v, id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
+    let cl = model::load_bot(&o.primary, id).unwrap().rust_placement().unwrap()["cl_ord_id"].as_str().unwrap().to_string();
+    t.reply("GET /v2/orders:by_client_order_id", 200, json!({ "id": "OTX-9", "client_order_id": cl, "status": "filled", "symbol": "BTC/USD", "type": "market",
+        "side": "sell", "notional": null, "qty": "0.001", "filled_qty": "0.001", "filled_avg_price": "64000", "limit_price": null }));
+    let recovered = placement::recover(&o.primary, &v, &model::load_bot(&o.primary, id).unwrap(), &FixedClock(at(T0) + Duration::seconds(5))).await.unwrap();
+    assert!(matches!(recovered, placement::Recovery::Recorded(_)), "{recovered:?}");
+    assert_eq!((model::load_bot(&o.primary, id).unwrap().status, stop_key(&o).as_deref()), (BotStatus::Stopped, Some(SOLD)));
+    assert!(base_mail(&o).is_some());
+}
+
+/// D-6D-1: the mail states the cap at the base's precision with its zeros trimmed (Rails prints the Float: "1.0e-05", "2.0").
+#[test]
+fn the_base_mail_states_the_cap_at_base_precision() {
+    use deltabadger::mail::render::base_cap_amount;
+    for (limit, decimals, want) in [(json!(0.01), Some(9), "0.01"), (json!(1e-05), Some(8), "0.00001"), (json!(2.0), Some(8), "2"), (json!(3), None, "3"),
+                                    (json!(0.123456789), Some(8), "0.12345679"), (json!(1.5), Some(0), "2")] {
+        assert_eq!(base_cap_amount(Some(&limit), decimals), want, "{limit} at {decimals:?}");
+    }
+    let (_d, o, s) = common::install_alpaca();
+    let id = seed::insert_bot(&o.primary, &s, &base_capped(json!(2.0)));
+    deltabadger::engine::basket::refresh_composition(&o.primary, &model::load_bot(&o.primary, id).unwrap(), at(T0)).unwrap().unwrap();
+    let urls = deltabadger::mail::render::Urls { root: "http://localhost:3000/".into() };
+    let mail = deltabadger::mail::render::for_notice(&o.primary, id, &deltabadger::engine::notice::Notice::StoppedByBaseAmountLimit, "bot@example.com", &urls).unwrap().unwrap();
+    assert!(mail.html.contains("sold the whole 2 BTC."), "the cap and its base: {}", mail.html);
+}
+
+/// The rotation's own stop (D-6D-2): rotated into selling its one asset with the cap used up, a working bot is stopped
+/// (amount_sold, one `stopped` line) and a stopped one takes the reason; both owe the base mail once. A restart before the
+/// send leaves it owed once; repeated rotations, the mail delivered meanwhile, owe nothing more, and write no more lines.
+#[test]
+fn a_rotation_into_selling_with_the_cap_used_stops_the_bot_and_mails_once() {
+    use deltabadger::web::bot::write::{self, Reversal};
+    for status in [BotStatus::Scheduled, BotStatus::Stopped] {
+        let dir = common::rails_install();
+        let paths = store::Paths::from_env(&|_| None, dir.path());
+        let o = store::open(&paths).unwrap();
+        let s = seed::seed_alpaca(&o.primary, &seed::cipher());
+        let id = seed::insert_bot(&o.primary, &s, &BotSpec { status: status as i64, ..base_capped(json!(0.01)).with("direction", json!("buying")) });
+        seed::insert_row(&o.primary, &s, id, s.btc, &sell_row("OC", 2, "0.01", Some("0.01")));
+        let reverse = |o: &store::Opened, now: &str| assert!(matches!(write::reverse(&o.primary, &seed::cipher(), s.user_id, id, at(now)).unwrap(), Reversal::Reversed));
+        let lines = |o: &store::Opened| one::<i64>(o, "SELECT count(*) FROM bot_activity_logs WHERE event = 'stopped'");
+        reverse(&o, "2026-09-03T12:00:00Z"); // buying → selling N base
+        let b = model::load_bot(&o.primary, id).unwrap();
+        assert_eq!((b.status, stop_key(&o).as_deref()), (BotStatus::Stopped, Some(SOLD)), "{status:?}");
+        assert_eq!(base_mail(&o).as_deref(), Some("2026-09-03T12:00:00.000Z"), "{status:?}");
+        assert_eq!(lines(&o), i64::from(status == BotStatus::Scheduled), "{status:?}: a working bot's stop writes its line");
+        drop(o);
+        let o = store::open(&paths).unwrap(); // a restart before the send: the mail is still owed, once
+        assert_eq!(deltabadger::engine::notice::all_pending(&o.primary).unwrap().len(), 1);
+        reverse(&o, "2026-09-03T12:00:01Z"); // selling N base → selling for N quote: still selling, the cap still used
+        let owed = deltabadger::engine::notice::all_pending(&o.primary).unwrap();
+        assert_eq!(owed.iter().map(|p| p.stamped_at.as_str()).collect::<Vec<_>>(), vec!["2026-09-03T12:00:00.000Z"], "{status:?}: no second mail");
+        assert!(deltabadger::engine::notice::clear(&o.primary, &seed::cipher(), &owed[0]).unwrap(), "delivered");
+        reverse(&o, "2026-09-03T12:00:02Z"); // → buying
+        reverse(&o, "2026-09-03T12:00:03Z"); // → selling N base, the cap's key unchanged
+        assert!(deltabadger::engine::notice::all_pending(&o.primary).unwrap().is_empty(), "{status:?}: the delivered mail is not owed again");
+        assert_eq!(lines(&o), i64::from(status == BotStatus::Scheduled), "{status:?}: no more stop lines");
+        // A new cap (another key) used up as well: the next rotation into selling mails again.
+        o.primary.execute("UPDATE bots SET settings = json_set(settings, '$.base_amount_limit', 0.005) WHERE id = ?1", [id]).unwrap();
+        reverse(&o, "2026-09-03T12:00:04Z");
+        assert_eq!(deltabadger::engine::notice::all_pending(&o.primary).unwrap().len(), 1, "{status:?}");
+    }
+}
+
+/// A rotation into selling with the cap left, or off, stops nothing.
+#[test]
+fn a_rotation_with_the_cap_left_stops_nothing() {
+    use deltabadger::web::bot::write;
+    for limit in [json!(0.02), Value::Null] {
+        let (_d, o, s) = common::install_alpaca();
+        let mut spec = base_capped(limit.clone()).with("direction", json!("buying"));
+        if limit.is_null() { spec = spec.with("base_amount_limited", json!(false)); }
+        let id = seed::insert_bot(&o.primary, &s, &spec);
+        seed::insert_row(&o.primary, &s, id, s.btc, &sell_row("OC", 2, "0.01", Some("0.01")));
+        write::reverse(&o.primary, &seed::cipher(), s.user_id, id, at("2026-09-03T12:00:00Z")).unwrap();
+        assert_eq!((model::load_bot(&o.primary, id).unwrap().status, base_mail(&o)), (BotStatus::Scheduled, None), "{limit}");
+    }
+}
+
+/// Eligibility admits the cap on a one-asset seller and refuses a limit or a stamp it cannot read.
+#[test]
+fn an_unreadable_base_cap_is_refused() {
+    use deltabadger::engine::eligibility;
+    let (_d, o, s) = common::install_alpaca();
+    let id = seed::insert_bot(&o.primary, &s, &base_capped(json!(0.01)));
+    assert!(eligibility::bot_reasons(&o.primary, &model::load_bot(&o.primary, id).unwrap()).unwrap().is_empty());
+    let id = seed::insert_bot(&o.primary, &s, &base_capped(json!("x")));
+    assert!(eligibility::bot_reasons(&o.primary, &model::load_bot(&o.primary, id).unwrap()).unwrap().iter().any(|r| r.contains("base_amount_limit")));
+    let id = seed::insert_bot(&o.primary, &s, &base_capped(json!(0.01)).transient("base_amount_limit_enabled_at", json!("not a time")));
+    // Unreadable as a time: an error, never a cap read as unset.
+    assert!(eligibility::bot_reasons(&o.primary, &model::load_bot(&o.primary, id).unwrap()).map_or(true, |r| r.iter().any(|r| r.contains("base_amount_limit_enabled_at"))));
 }

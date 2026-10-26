@@ -76,6 +76,7 @@ pub mod splits;
 pub mod index;
 
 pub mod accounting;
+pub mod amount_limit;
 pub mod rebalance;
 pub mod signal;
 pub mod wash;

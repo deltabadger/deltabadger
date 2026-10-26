@@ -551,11 +551,18 @@ pub(crate) fn round_up(value: f64, scale: f64) -> f64 {
 /// validate_base_amount_limit_not_reached on the start: the engine's tally (`base_cap`) on the candidate's limit, stamp,
 /// intent and tickers. A limit that is not a number is Rails' blank (Float::INFINITY): never reached.
 pub fn web_base_cap_reached(c: &Connection, bot: &WebBot) -> Result<bool, WebError> {
-    let Some(limit) = bot.number("base_amount_limit") else { return Ok(false) };
+    Ok(web_base_cap(c, bot)?.is_some_and(|(_, reached)| reached))
+}
+
+/// The same tally for the settings page (bots/settings/_amount_limit_info): what is left, as Ruby's numerics leave it, and
+/// whether that is reached. None for a limit that is not a number.
+pub fn web_base_cap(c: &Connection, bot: &WebBot) -> Result<Option<(WebNum, bool)>, WebError> {
+    let Some(limit) = bot.number("base_amount_limit") else { return Ok(None) };
     let since = codec::optional_time(bot.transient.get("base_amount_limit_enabled_at")).map_err(|_|error("unreadable stored timestamp"))?.map(format_time);
     let rows = crate::figures::fill::sold_commitments(c, bot.id, since.as_deref()).map_err(web_bot::fill_error)?;
     let decimals = bot.tickers.iter().map(|t| i64::from(t.base_decimals)).min();
-    Ok(base_cap(core(limit), &rows, sell_intent_base(bot.transient.get("rust_placement"))?, decimals)?.1)
+    let (left, reached) = base_cap(core(limit), &rows, sell_intent_base(bot.transient.get("rust_placement"))?, decimals)?;
+    Ok(Some((view(left), reached)))
 }
 
 /// Bot::Fundable#required_balance_buffer: `quote_amount / interval_duration.to_f * 3.days.to_f`, the interval as Rails'

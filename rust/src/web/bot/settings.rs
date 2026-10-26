@@ -324,12 +324,26 @@ impl Forms<'_> {
     pub fn amount_limit(&self, c: &Connection) -> Result<String, WebError> {
         let bot = self.bot;
         if bot.selling() {
-            // "Don't sell more than N BASE". A cap that is on is refused before this (6d), so it has nothing left to show.
+            // "Don't sell more than N BASE", and what is left of it (Bots::DcaMultiAsset#base_amount_limited?: a one-asset basket's).
+            let active = bot.one_asset() && bot.on("base_amount_limited");
             let value = bot.number("base_amount_limit").as_ref().and_then(input_value);
             let field = self.amount("base_amount_limit", value.as_deref(), "");
             let base = bot.base_asset().and_then(|asset| asset.symbol.as_deref()).unwrap_or("");
             let sentence = self.t("bot.settings.extra_amount_limit.sell_sentence_html", &[("value_html", Arg::Html(&format!("<div>            {field}\n</div>"))), ("base", Arg::Text(base))]);
-            return Ok(self.rule(false, "base_amount_limited", false, self.locked(), &format!("            {sentence}\n          \n")));
+            let mut info = String::new();
+            if !self.hide_balances && active && bot.number("base_amount_limit").is_some_and(|limit| limit.is_positive()) {
+                if let Some((left, reached)) = crate::engine::accounting::web_base_cap(c, bot)? {
+                    let text = if reached {
+                        format!("<span class=\"text-success\">\n          {}\n        </span>", self.t("bot.settings.extra_amount_limit.sell_info.sold", &[]))
+                    } else {
+                        // `round(bot.decimals[:base] || 8)`: the first current member's base precision, while the bot has a quote one.
+                        let decimals = bot.quote_decimals().and_then(|_| bot.composition_tickers().first().map(|t| t.base_decimals)).unwrap_or(8);
+                        self.t("bot.settings.extra_amount_limit.sell_info.left", &[("amount", Arg::Text(&left.round(decimals).to_s())), ("base", Arg::Text(base))])
+                    };
+                    info = format!("<span id=\"settings-amount-limit-info\">\n      {text}\n    </span>\n");
+                }
+            }
+            return Ok(self.rule(active, "base_amount_limited", active, self.locked(), &format!("            {sentence}\n          {info}\n")));
         }
         let active = bot.on("quote_amount_limited");
         let value = bot.number("quote_amount_limit").as_ref().and_then(input_value);

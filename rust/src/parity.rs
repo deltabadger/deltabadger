@@ -24,7 +24,8 @@ const TABLES: [&str; 5] = ["bots", "transactions", "bot_activity_logs", "bot_ind
 const JSON_COLUMNS: [&str; 4] = ["settings", "transient_data", "details", "error_messages"];
 const MAX_ATTEMPTS: usize = 6;
 /// transient_data keys only this engine writes, besides the mail markers (notice::KEYS): Rails has none of them.
-const RUST_KEYS: [&str; 12] = ["run_generation", "tick_generation", "rust_placement", crate::engine::model::SIGNAL_CALLS_KEY, "rust_defer_until", "rust_amount_limit_stops_pending", "rust_failure_origin",
+const RUST_KEYS: [&str; 13] = ["run_generation", "tick_generation", "rust_placement", crate::engine::model::SIGNAL_CALLS_KEY, "rust_defer_until", "rust_amount_limit_stops_pending", "rust_failure_origin",
+                               crate::engine::amount_limit::STOP_MAILED,
                                "rust_rebalance_halted", crate::engine::conditions::DEAD, crate::engine::index::RESYNC_KEY,
                                crate::engine::conditions::INFO_KEY, crate::engine::conditions::INFO_WANTED_KEY];
 
@@ -189,6 +190,15 @@ fn mails(c: &Connection, before: &[Pending]) -> Result<Value, EngineError> {
             Notice::StoppedByAmountLimit => mail["quote"] = c.query_row(
                 "SELECT a.symbol FROM bots b JOIN assets a ON a.id = json_extract(b.settings, '$.quote_asset_id') WHERE b.id = ?1",
                 [p.bot_id], |r| r.get::<_, String>(0))?.into(),
+            // #notify_stopped_by_base_amount_limit hands it the cap and the base's symbol (the cap as D-6D-1 writes it here).
+            Notice::StoppedByBaseAmountLimit => {
+                let settings: Value = serde_json::from_str(&c.query_row("SELECT settings FROM bots WHERE id = ?1", [p.bot_id], |r| r.get::<_, String>(0))?)
+                    .map_err(|e| EngineError::Data(e.to_string()))?;
+                if let Some((base, decimals)) = crate::mail::render::base_of(c, p.bot_id, &settings)? {
+                    mail["base"] = json!(base);
+                    mail["amount"] = json!(crate::mail::render::base_cap_amount(settings.get("base_amount_limit"), decimals));
+                }
+            }
         }
         out.push(mail);
     }
@@ -501,6 +511,17 @@ async fn play<V: Venue>(o: &Opened, venue: &V, scenario: &Value, bot_id: i64, st
             let mut wake = i64::MAX;
             crate::engine::run::resync_bot(&o.primary, bot_id, &marker, &FixedClock(now), &prices, &mut state, handle, &mut wake).await?;
             match state.retry_at(bot_id) { Some(at) => now = DateTime::from_timestamp_micros(at).ok_or_else(|| EngineError::Data("resync retry out of range".into()))?, None => break }
+        }
+    }
+    // Slice 6d-2: the ⇄ control at `at` (web::bot::write::reverse, as BotsController#reverse), before any tick.
+    if scenario["reverse"] == true {
+        let text = |v: &Value| v.as_str().map(String::from).ok_or_else(|| EngineError::Data("scenario.encryption".into()));
+        let cipher = Cipher::new(&EncryptionKeys { primary_key: text(&scenario["encryption"]["primary_key"])?, key_derivation_salt: text(&scenario["encryption"]["key_derivation_salt"])? });
+        let owner: i64 = o.primary.query_row("SELECT user_id FROM bots WHERE id = ?1", [bot_id], |r| r.get(0))?;
+        match crate::web::bot::write::reverse(&o.primary, &cipher, owner, bot_id, start).map_err(|e| EngineError::Data(format!("reverse: {e:?}")))? {
+            crate::web::bot::write::Reversal::Reversed => {}
+            crate::web::bot::write::Reversal::Refused(why) => return Err(EngineError::Data(format!("reverse refused: {why}"))),
+            _ => return Err(EngineError::Data("reverse: the bot was not reversed".into())),
         }
     }
     if scenario["tick"] != false { if let Some(t) = ticks(o, venue, bot_id, start, &cx).await? { checks.push(queued(crate::engine::conditions::end_of_minute(t))); } }
